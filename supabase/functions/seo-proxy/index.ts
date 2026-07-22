@@ -1633,6 +1633,34 @@ async function generateKnowledgeHubHTML(supabase: any): Promise<string> {
 </html>`;
 }
 
+// Categoria E ("Depoimentos e Cursos"): separa por tipo usando client_name/client_specialty.
+// Depoimento = tem client_name (cliente real). Curso = sem client_name (oferta comercial).
+// Sem mudança de URL: ambos apontam para /base-conhecimento/e/{slug}.
+function renderCategoryEBlocks(items: any[], letterLc: string): string {
+  const testimonials = items.filter((c) => !!(c.client_name && String(c.client_name).trim()));
+  const courses = items.filter((c) => !(c.client_name && String(c.client_name).trim()));
+
+  const renderTestimonial = (c: any) => {
+    const who = escapeHtml(c.client_name);
+    const spec = c.client_specialty ? ` — ${escapeHtml(c.client_specialty)}` : '';
+    const ex = c.excerpt ? `<br><small>${escapeHtml(String(c.excerpt).substring(0, 160))}</small>` : '';
+    return `<li data-kind="testimonial" itemscope itemtype="https://schema.org/Review"><a href="/base-conhecimento/${letterLc}/${c.slug}" itemprop="url"><span itemprop="name">${escapeHtml(c.title)}</span></a><br><small><strong>Depoimento de cliente:</strong> <span itemprop="author">${who}</span>${spec}</small>${ex}</li>`;
+  };
+
+  const renderCourse = (c: any) => {
+    const ex = c.excerpt ? `<br><small>${escapeHtml(String(c.excerpt).substring(0, 160))}</small>` : '';
+    return `<li data-kind="course" itemscope itemtype="https://schema.org/Course"><a href="/base-conhecimento/${letterLc}/${c.slug}" itemprop="url"><span itemprop="name">${escapeHtml(c.title)}</span></a><br><small><strong>Curso:</strong> matrícula e detalhes na página do conteúdo.</small>${ex}</li>`;
+  };
+
+  const testimonialsHtml = testimonials.length
+    ? `<section data-section="testimonials"><h2>Depoimentos de clientes</h2><p>${testimonials.length} relatos reais de profissionais que utilizam a metodologia Smart Dent.</p><ul>${testimonials.map(renderTestimonial).join('')}</ul></section>`
+    : '';
+  const coursesHtml = courses.length
+    ? `<section data-section="courses"><h2>Cursos e treinamentos</h2><p>${courses.length} formações disponíveis para dominar o fluxo digital odontológico.</p><ul>${courses.map(renderCourse).join('')}</ul></section>`
+    : '';
+  return `${testimonialsHtml}${coursesHtml}`;
+}
+
 async function generateKnowledgeCategoryHTML(letter: string, supabase: any): Promise<string> {
   // Sempre normaliza para minúsculo — DB armazena maiúsculo (A–G), URLs canônicas são minúsculas.
   const letterLc = (letter || '').toLowerCase();
