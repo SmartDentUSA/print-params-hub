@@ -58,7 +58,6 @@ export function LanguageSelector() {
           <span className="text-lg">{currentLanguage?.flag}</span>
           <span className="hidden sm:inline text-sm">{currentLanguage?.name}</span>
         </div>
-        <SelectValue className="sr-only" />
       </SelectTrigger>
       <SelectContent className="z-50 bg-popover border border-border">
         {languages.map((lang) => (
