@@ -1,25 +1,22 @@
+## Diagnóstico
 
-## Objetivo
-Na aba "Catálogo" de `/base-conhecimento`, o filtro de categoria deve iniciar em **Resinas** com sub-seleção **Todas** por padrão.
+A coluna **Bounces** está em `0 (0%)` porque:
 
-## Passos
+- `campaign_send_log`: **0** linhas com `status='bounced'` ou `bounced_at` preenchido (188 logs no total).
+- `lia_attendances`: **0** leads com `email_bounced=true`.
+- `cron.job`: **nenhum** job agendado para `smart-ops-gmail-bounce-scan`.
+- Edge Function logs de `smart-ops-gmail-bounce-scan`: **vazio** — a função nunca foi executada em produção.
 
-1. **Localizar o componente da aba Catálogo**
-   - Buscar por `tab=catalogo`, `BaseConhecimento`, `Catalogo`, `KnowledgeBase` em `src/`.
-   - Identificar onde o filtro de categoria/subcategoria é controlado (`useState`, `useSearchParams` ou contexto).
+Ou seja, o pipeline de UI/RPC/coluna está correto (o `fn_campaign_email_stats` conta corretamente `status='bounced' OR bounced_at IS NOT NULL`). O que falta é o **scanner rodar** para marcar os bounces que estão na inbox do Gmail.
 
-2. **Ajustar o estado inicial**
-   - Trocar o default para representar `categoria = "Resinas"` e `subcategoria = "Todas"`, mantendo exatamente a mesma estrutura de dado já usada pelo filtro (string, objeto ou enum — sem refatorar o modelo).
-   - Se o valor for lido de `useSearchParams`, aplicar o default só quando o param estiver ausente (não sobrescrever seleção do usuário via URL).
+## O que fazer
 
-3. **Ordem da lista (se necessário)**
-   - Se "Resinas" não aparece como primeiro item do dropdown, reordenar o array de categorias para colocá-la em primeiro. Se já aparece, não mexer.
+1. **Rodar 1x manualmente** `smart-ops-gmail-bounce-scan?days=14&max=200` para varrer os últimos 14 dias e marcar retroativamente todos os "mailer-daemon"/"address not found" que já chegaram. Isso vai popular `campaign_send_log.bounced_at`/`status='bounced'` e `lia_attendances.email_bounced=true` para os leads afetados, então a métrica da campanha atual passa a exibir os bounces reais.
 
-4. **Garantias**
-   - O usuário continua podendo trocar para qualquer outra categoria normalmente.
-   - Nenhuma mudança em lógica de fetch/negócio — apenas valor inicial (e opcionalmente ordem de exibição).
+2. **Agendar `pg_cron`** para `smart-ops-gmail-bounce-scan` a cada 15 minutos (`*/15 * * * *`) via `net.http_post` com o service role, para que novos bounces sejam capturados automaticamente conforme chegam à inbox — sem esse cron, a métrica ficaria zerada de novo na próxima campanha.
 
-## Detalhes técnicos
-- Alteração restrita ao componente da aba Catálogo (frontend/presentation).
-- Sem migrations, sem edge functions, sem mudanças em dados.
-- Verificação: abrir `/base-conhecimento?tab=catalogo` sem query params e confirmar via screenshot que "Resinas — Todas" está selecionado e a lista mostra resinas.
+3. **Validar** consultando `campaign_send_log` (contagem por `status='bounced'`) e reabrindo o histórico da campanha para confirmar que a coluna **Bounces** e o badge vermelho **✉︎ inválido** aparecem.
+
+## Fora do escopo
+
+Sem mudanças na UI, na RPC `fn_campaign_email_stats` ou na lógica de envio — tudo isso já está correto; o problema é puramente operacional (scanner desativado).
