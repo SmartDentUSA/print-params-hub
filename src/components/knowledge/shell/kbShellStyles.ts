@@ -5,12 +5,12 @@ export const kbShellStyles = `
 .kbs-side-logo img{height:32px;width:auto;}
 .kbs-side-scroll{flex:1;overflow-y:auto;padding:8px 12px 16px;}
 .kbs-side-label{font-size:11px;font-weight:600;letter-spacing:.08em;color:#94A3B8;text-transform:uppercase;padding:14px 10px 6px;}
-.kbs-nav-btn{width:100%;display:flex;align-items:center;gap:10px;padding:9px 10px;border:none;background:none;color:#334155;font-size:14px;border-radius:8px;cursor:pointer;text-align:left;transition:background .15s;}
-.kbs-nav-btn:hover{background:#F1F5F9;}
-.kbs-nav-btn.on{background:#0F172A;color:#fff;}
-.kbs-nav-btn.on .kbs-count{background:rgba(255,255,255,.15);color:#fff;}
-.kbs-nav-btn svg{width:16px;height:16px;flex-shrink:0;}
-.kbs-count{margin-left:auto;font-size:11px;background:#E2E8F0;color:#475569;padding:1px 8px;border-radius:10px;font-weight:600;}
+.kbs-nav-btn{width:100%;display:flex;align-items:center;gap:12px;padding:10px 12px;margin-bottom:2px;border:none;background:none;color:#334155;font-size:14px;font-weight:500;border-radius:10px;cursor:pointer;text-align:left;transition:background .15s,color .15s;}
+.kbs-nav-btn:hover{background:#F1F5F9;color:#0F172A;}
+.kbs-nav-btn.on{background:#0F172A;color:#fff;font-weight:600;}
+.kbs-nav-btn.on .kbs-count{background:rgba(255,255,255,.14);color:#fff;}
+.kbs-nav-btn svg{width:17px;height:17px;flex-shrink:0;stroke-width:1.75;}
+.kbs-count{margin-left:auto;font-size:11px;background:#EEF2F7;color:#475569;padding:2px 9px;border-radius:12px;font-weight:600;min-width:24px;text-align:center;}
 .kbs-cta{margin:12px;padding:20px 16px;border-radius:14px;background:linear-gradient(160deg,#1E3A5F 0%,#0F172A 100%);color:#fff;}
 .kbs-cta h4{font-size:14px;font-weight:700;margin:0 0 6px;line-height:1.25;}
 .kbs-cta p{font-size:11.5px;line-height:1.45;margin:0 0 12px;opacity:.85;}
