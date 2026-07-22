@@ -3330,6 +3330,14 @@ Deno.serve(async (req) => {
       const estagnDeal = openDeals.find(
         (d) => Number(d.pipeline_id) === PIPELINES.ESTAGNADOS
       );
+      // ─── CS open deals (Onboarding / Ganhos Aleatórios CS) ─────────────
+      // Regra do usuário: NUNCA tocar em deals CS. Porém, se chega novo
+      // formulário e o cliente já tem CS aberto (sem VENDAS aberto), abrir
+      // um NOVO deal em VENDAS para registrar o novo interesse comercial.
+      const csOpenDeals = openDeals.filter((d) =>
+        Number(d.pipeline_id) === PIPELINES.CS_ONBOARDING ||
+        Number(d.pipeline_id) === PIPELINES.GANHOS_ALEATORIOS_CS,
+      );
 
       // ── FORCE NEW DEAL (e.g. Loja Integrada "Sob Consulta") ──
       // Each product consult is a fresh revenue opportunity. Skip the
