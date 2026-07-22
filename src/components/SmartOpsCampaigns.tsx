@@ -2144,6 +2144,123 @@ function CreateCampaign({
 // ══════════════════════════════════════════
 // SUB-TAB 3: Campaign History
 // ══════════════════════════════════════════
+type LogFilter = "all" | "sent" | "opened" | "clicked" | "bounced" | "failed" | "queued";
+
+function SendLogsPanel({ logs, isEmail, channel }: { logs: SendLog[]; isEmail: boolean; channel: string }) {
+  const [filter, setFilter] = useState<LogFilter>("all");
+  const filtered = useMemo(() => {
+    if (filter === "all") return logs;
+    return logs.filter((l) => {
+      switch (filter) {
+        case "opened":  return !!l.opened_at;
+        case "clicked": return !!l.clicked_at;
+        case "bounced": return !!l.bounced_at || l.status === "bounced";
+        case "failed":  return l.status === "failed";
+        case "queued":  return l.status === "pending" || l.status === "aguardando";
+        case "sent":    return l.status === "sent" || l.status === "delivered";
+      }
+    });
+  }, [logs, filter]);
+
+  const counts = useMemo(() => ({
+    all: logs.length,
+    sent: logs.filter(l => l.status === "sent" || l.status === "delivered").length,
+    opened: logs.filter(l => !!l.opened_at).length,
+    clicked: logs.filter(l => !!l.clicked_at).length,
+    bounced: logs.filter(l => !!l.bounced_at || l.status === "bounced").length,
+    failed: logs.filter(l => l.status === "failed").length,
+    queued: logs.filter(l => l.status === "pending" || l.status === "aguardando").length,
+  }), [logs]);
+
+  const fmtTs = (v?: string | null) => {
+    if (!v) return "";
+    try { return new Date(v).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }); }
+    catch { return ""; }
+  };
+
+  const tabs: Array<{ k: LogFilter; label: string; cls?: string }> = isEmail
+    ? [
+        { k: "all",     label: `Todos (${counts.all})` },
+        { k: "sent",    label: `Enviados (${counts.sent})` },
+        { k: "opened",  label: `Abriram (${counts.opened})`, cls: "text-blue-600" },
+        { k: "clicked", label: `Clicaram (${counts.clicked})`, cls: "text-emerald-600" },
+        { k: "bounced", label: `Bounces (${counts.bounced})`, cls: "text-red-600" },
+        { k: "failed",  label: `Falhas (${counts.failed})`, cls: "text-red-600" },
+        { k: "queued",  label: `Na fila (${counts.queued})`, cls: "text-amber-600" },
+      ]
+    : [
+        { k: "all",    label: `Todos (${counts.all})` },
+        { k: "sent",   label: `Enviados (${counts.sent})` },
+        { k: "failed", label: `Falhas (${counts.failed})`, cls: "text-red-600" },
+        { k: "queued", label: `Na fila (${counts.queued})`, cls: "text-amber-600" },
+      ];
+
+  return (
+    <div>
+      <p className="font-medium mb-2">Log de envios ({filtered.length})</p>
+      <div className="flex flex-wrap gap-1 mb-2">
+        {tabs.map(t => (
+          <Button
+            key={t.k}
+            size="sm"
+            variant={filter === t.k ? "default" : "outline"}
+            className={`h-7 text-xs ${filter === t.k ? "" : t.cls || ""}`}
+            onClick={() => setFilter(t.k)}
+          >
+            {t.label}
+          </Button>
+        ))}
+      </div>
+      <div className="max-h-72 overflow-y-auto space-y-1">
+        {filtered.map(log => (
+          <div key={log.id} className="flex items-center justify-between border rounded p-2 text-xs gap-2">
+            <div className="min-w-0 flex-1">
+              <div className="font-medium truncate">{log.nome || log.lead_id.slice(0, 8)}</div>
+              <div className="text-muted-foreground truncate">
+                {isEmail ? (log.email || "—") : (log.telefone || "—")}
+              </div>
+              {isEmail && (log.opened_at || log.clicked_at || log.bounced_at) && (
+                <div className="text-[10px] text-muted-foreground mt-0.5 space-x-2">
+                  {log.opened_at  && <span className="text-blue-600">abriu {fmtTs(log.opened_at)}</span>}
+                  {log.clicked_at && <span className="text-emerald-600">clicou {fmtTs(log.clicked_at)}</span>}
+                  {log.bounced_at && <span className="text-red-600">bounce {fmtTs(log.bounced_at)}{log.bounce_reason ? ` — ${log.bounce_reason}` : ""}</span>}
+                </div>
+              )}
+              {channel === "sms" && (log.provider_detail_code || log.provider_detail_message) && (
+                <div className="text-[10px] text-muted-foreground mt-0.5">
+                  {log.provider_detail_code ?? ""}{log.provider_detail_code && log.provider_detail_message ? " — " : ""}{log.provider_detail_message ?? ""}
+                </div>
+              )}
+            </div>
+            <div className="flex items-center gap-1 shrink-0">
+              {isEmail && log.opened_at  && <Badge className="bg-blue-100 text-blue-800">abriu</Badge>}
+              {isEmail && log.clicked_at && <Badge className="bg-emerald-100 text-emerald-800">clicou</Badge>}
+              {isEmail && log.bounced_at && <Badge className="bg-red-100 text-red-800">bounce</Badge>}
+              {channel === "sms" && log.provider_status && (
+                <Badge className={
+                  log.provider_status === "DELIVERED" ? "bg-green-100 text-green-800" :
+                  log.provider_status === "ACCEPTED"  ? "bg-yellow-100 text-yellow-800" :
+                  log.provider_status === "BLACKLIST" ? "bg-purple-100 text-purple-800" :
+                  "bg-red-100 text-red-800"
+                }>
+                  {log.provider_status}
+                </Badge>
+              )}
+              {(log.status === "sent" || log.status === "delivered") && <CheckCircle className="w-3 h-3 text-green-500" />}
+              {log.status === "failed" && <XCircle className="w-3 h-3 text-red-500" />}
+              {(log.status === "pending" || log.status === "aguardando") && <AlertCircle className="w-3 h-3 text-amber-500" />}
+              <span>{log.status}</span>
+            </div>
+          </div>
+        ))}
+        {filtered.length === 0 && (
+          <div className="text-center text-muted-foreground text-xs py-6">Nenhum registro nesta categoria.</div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function CampaignHistory() {
   const [campaigns, setCampaigns] = useState<CampaignSession[]>([]);
   const [loading, setLoading] = useState(true);
