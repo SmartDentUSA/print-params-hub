@@ -127,7 +127,7 @@ export default function KbTabArtigos({ onOpen }: Props) {
   const chips: KbChipOption[] = CHIP_KEYS.map((c) => ({ key: c.key, label: t(c.tk) }));
   return (
     <section>
-      <KbSectionHeader title={t('kb.artigos.title')} subtitle={t('kb.artigos.subtitle')} />
+      {/* Título removido: hero do shell v2 é a única fonte do título nesta aba */}
       <KbSearchBar placeholder={t('kb.artigos.search')} value={q} onDebouncedChange={setQ} />
       <KbChips options={chips} active={chip} onChange={setChip} />
       {q.trim() && (
