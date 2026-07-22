@@ -31296,6 +31296,13 @@ export type Database = {
       }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
+      smart_ops_field_normalize_distinct: {
+        Args: { p_field: string }
+        Returns: {
+          count: number
+          value: string
+        }[]
+      }
       try_acquire_briefing_lock: {
         Args: { p_lead_id: string }
         Returns: boolean
