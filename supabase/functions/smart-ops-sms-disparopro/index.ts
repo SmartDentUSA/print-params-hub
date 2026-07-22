@@ -5,9 +5,15 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// DisparoPro Bulk SMS API v3
-// Docs: https://disparopro.com.br/api  (Authorization: Basic <token>)
-const DISPARO_PRO_URL = "https://api.disparopro.com.br/mt-sms/v3/sms";
+// DisparoPro HTTPS MT API
+// Docs: https://sistema.disparopro.com.br/application/docs/docs-https
+// Endpoint: POST https://apihttp.disparopro.com.br:8433/mt
+// Auth: Authorization: Bearer <TOKEN>
+// Body: JSON Array of { numero, servico, mensagem, parceiro_id?, codificacao, nome_campanha }
+// Response: { status, detail: [ { id, numero, status: ACCEPTED|UNKNOWN|PAYREQUIRED, codigo_status, codigo_detalhe, descricao_detalhe } ] }
+const DISPARO_PRO_URL = "https://apihttp.disparopro.com.br:8433/mt";
+const DISPARO_PRO_SERVICO = Deno.env.get("DISPARO_PRO_SERVICO") || "short"; // short | long
+const DISPARO_PRO_PARCEIRO_ID = Deno.env.get("DISPARO_PRO_PARCEIRO_ID") || "";
 
 function normalizePhone(raw: string): string {
   const digits = String(raw || "").replace(/\D+/g, "");
@@ -26,6 +32,11 @@ function chunkArray<T>(items: T[], size: number): T[][] {
 function parseProviderItems(body: string): any[] {
   try {
     const parsed = JSON.parse(body);
+    // DisparoPro HTTPS MT: { status, detail: [...] } | { status, detail: {...} }
+    if (parsed && parsed.detail !== undefined) {
+      if (Array.isArray(parsed.detail)) return parsed.detail;
+      return [parsed.detail];
+    }
     if (Array.isArray(parsed?.numeros)) return parsed.numeros;
     if (Array.isArray(parsed)) return parsed;
     return parsed ? [parsed] : [];
@@ -36,8 +47,9 @@ function parseProviderItems(body: string): any[] {
 
 function isProviderAccepted(item: any): boolean {
   return Boolean(item && (
+    item.status === "ACCEPTED" ||
     item.sucesso === true ||
-    item.status === "ok" || item.status === "enviado" || item.status === "aceito" ||
+    item.status === "ok" || item.status === "enviado" || item.status === "aceito" || item.status === "SENT" ||
     item.codigo === 0 || item.codigo === "0" || item.codigo === 200 || item.codigo === "200"
   ));
 }
@@ -190,18 +202,54 @@ Deno.serve(async (req) => {
           const apiRes = await fetch(DISPARO_PRO_URL, {
             method: "POST",
             headers: {
-              "Authorization": `Basic ${DISPARO_PRO_TOKEN}`,
+              "Authorization": `Bearer ${DISPARO_PRO_TOKEN}`,
               "Content-Type": "application/json",
             },
-            body: JSON.stringify({
-              numeros: batch.map((lead: any) => ({ numero: lead.numero, mensagem: message, codificacao })),
-            }),
+            body: JSON.stringify(
+              batch.map((lead: any) => {
+                const row: Record<string, unknown> = {
+                  numero: lead.numero,
+                  servico: DISPARO_PRO_SERVICO,
+                  mensagem: message,
+                  codificacao,
+                  nome_campanha: (camp.name || "SmartOps").slice(0, 60),
+                };
+                if (DISPARO_PRO_PARCEIRO_ID) row.parceiro_id = DISPARO_PRO_PARCEIRO_ID;
+                return row;
+              }),
+            ),
           });
           httpStatus = apiRes.status;
           providerBody = await apiRes.text();
           providerItems = parseProviderItems(providerBody);
         } catch (e) {
           providerBody = String(e);
+        }
+
+        // Fail-fast: endpoint inválido / HTML de erro / 404. Aborta a campanha para não marcar 100% como falha silenciosa.
+        const looksLikeHtml = providerBody.trim().startsWith("<");
+        if (httpStatus === 404 || (looksLikeHtml && httpStatus >= 400)) {
+          const errMsg = `DisparoPro endpoint inválido (HTTP ${httpStatus}). Verifique DISPARO_PRO_URL/TOKEN. Body: ${providerBody.slice(0, 200)}`;
+          await supabase.from("campaign_sessions").update({
+            status: "failed",
+            completed_at: new Date().toISOString(),
+            results: { ...(camp.results || {}), error: errMsg, aborted: true },
+          }).eq("id", campaign_id);
+          if (source_campaign_id) {
+            await supabase.from("campaigns").update({
+              status: "failed",
+              completed_at: new Date().toISOString(),
+              notes: errMsg,
+            }).eq("id", source_campaign_id);
+          }
+          await supabase.from("system_health_logs").insert({
+            source: "smart-ops-sms-disparopro",
+            level: "error",
+            event_type: "sms_provider_endpoint_invalid",
+            message: errMsg,
+            metadata: { http_status: httpStatus, campaign_id, sample: providerBody.slice(0, 500) },
+          });
+          throw new Error(errMsg);
         }
 
         const nowIso = new Date().toISOString();
