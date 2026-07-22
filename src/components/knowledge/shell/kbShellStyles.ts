@@ -27,7 +27,7 @@ export const kbShellStyles = `
 .kbs-content{padding:24px 28px 48px;max-width:1400px;width:100%;margin:0 auto;}
 .kbs-content > *{position:relative;}
 .kbs-content > .kbs-hero + *{margin-top:-60px;z-index:3;position:relative;}
-.kbs-hero{position:relative;background:#fff;border-radius:18px;padding:36px 44px 80px;margin-bottom:20px;overflow:visible;min-height:220px;display:flex;align-items:flex-start;}
+.kbs-hero{position:relative;background:#fff;border-radius:18px;padding:36px 44px 80px;margin-bottom:20px;overflow:hidden;min-height:220px;display:flex;align-items:flex-start;}
 .kbs-hero-text{max-width:560px;position:relative;z-index:2;}
 .kbs-hero-text h1{font-size:48px;line-height:1.05;margin:0 0 10px;font-weight:800;color:#0F172A;letter-spacing:-.025em;}
 .kbs-hero-text p{font-size:15px;color:#64748B;margin:0;}
