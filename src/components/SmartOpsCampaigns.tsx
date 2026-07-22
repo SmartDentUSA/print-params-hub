@@ -2346,8 +2346,8 @@ function CampaignHistory() {
       ? logsQuery.eq("source_campaign_id", c.id)
       : logsQuery.eq("campaign_id", c.id);
     const { data } = await logsQuery
-      .order("sent_at", { ascending: false })
-      .limit(200);
+      .order("sent_at", { ascending: false, nullsFirst: false })
+      .limit(1000);
     setSendLogs(data || []);
     if (c.channel === "sms") {
       try {
