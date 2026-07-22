@@ -1644,7 +1644,7 @@ async function generateKnowledgeCategoryHTML(letter: string, supabase: any): Pro
   if (!category) { console.log('Category not found:', letter); return ''; }
 
   const [contentsRes, knowledgeCtx] = await Promise.all([
-    supabase.from('knowledge_contents').select('title, slug, excerpt').eq('category_id', category.id).eq('active', true).order('order_index').limit(50),
+    supabase.from('knowledge_contents').select('title, slug, excerpt, client_name, client_specialty').eq('category_id', category.id).eq('active', true).order('order_index').limit(200),
     fetchKnowledgeContext(supabase, { categoryId: category.id, limit: 5 }),
   ]);
   const contents = contentsRes.data;
@@ -1695,10 +1695,10 @@ async function generateKnowledgeCategoryHTML(letter: string, supabase: any): Pro
     <article>
       <h1>${escapeHtml(category.letter)} - ${escapeHtml(category.name)}</h1>
       ${buildAISummaryBlock(contextText)}
-      <p data-section="definition">${contents?.length || 0} artigos disponíveis nesta categoria.</p>
-      <ul>
-        ${contents?.map((c: any) => `<li><a href="/base-conhecimento/${letter.toLowerCase()}/${c.slug}">${c.title}</a>${c.excerpt ? `<br><small>${escapeHtml(c.excerpt.substring(0, 120))}</small>` : ''}</li>`).join('') || ''}
-      </ul>
+      <p data-section="definition">${contents?.length || 0} conteúdos disponíveis nesta categoria.</p>
+      ${letterLc === 'e'
+        ? renderCategoryEBlocks(contents || [], letterLc)
+        : `<ul>${(contents || []).map((c: any) => `<li><a href="/base-conhecimento/${letterLc}/${c.slug}">${escapeHtml(c.title)}</a>${c.excerpt ? `<br><small>${escapeHtml(c.excerpt.substring(0, 120))}</small>` : ''}</li>`).join('')}</ul>`}
       ${buildLLMKnowledgeLayer(category.name, 'Categoria de Conhecimento', knowledgeCtx)}
       ${buildEntityIndexSection(knowledgeCtx)}
     </article>
