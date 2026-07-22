@@ -1,47 +1,74 @@
-## Verificação temporal (CS + Estagnados) + Lista de leads sem CRM
+## Reprocessamento controlado dos 355 leads Meta sem CRM
 
-### 1. Verificação data-formulário vs data-deal (306 leads)
+Origem: `meta-mes-sem-crm.csv` (355 linhas). Objetivo: rodar cada lead pelo mesmo caminho de um novo formulário Meta, disparando o escape hatch **Estagnados → Vendas** (fecha deal 72938 como Perdido "Solicitou novo contato" e abre novo em 18784 com round-robin) — mas SOMENTE quando o canonical estiver em Estagnados. Fila de 10 leads a cada 30 min.
 
-Para cada um dos **292 Estagnados** e **14 CS**, cruzar:
+### Regra absoluta (reforçada)
 
-- **Data do formulário Meta**: `meta_created_time` (fallback: `created_at` do último evento de ingestão em `meta_lead_ingestion_log` ou `lead_form_submissions.submitted_at`).
-- **Data do deal existente**: `last_deal_date` + varredura de `piperun_deals_history` filtrado pelo `pipeline_id` (72938 Estagnados / 83896 CS) para pegar o `updated_at` mais recente do deal daquele funil.
+**Nenhum deal em CS (83896 / 102893 / 104500) ou VENDAS (18784), independente do status (aberto, ganho, perdido, congelado), pode ser tocado.** O worker checa `piperun_deals_history` do canonical ANTES de invocar `lia-assign`:
 
-Classificação por lead:
+- Se existe **qualquer** deal em Vendas ou CS (qualquer status) → marca `status='skipped_protected_pipeline'`, grava motivo, **não invoca lia-assign**.
+- Só invoca reativação quando o único histórico é Estagnados (72938) ou pipelines livres.
+- Isso é uma trava de segurança do worker, adicional aos guards já existentes em `lia-assign` / `vendas-pipeline-immutability` / `golden-rule`.
 
-| Flag | Regra | Ação esperada pela política |
-|---|---|---|
-| `FORM_APOS_DEAL` | form_date > last_deal_date do funil | Deveria ter aberto novo deal em **Vendas** |
-| `FORM_ANTES_DEAL` | form_date ≤ last_deal_date | Correto ficar no CS/Estagnados sem novo Vendas |
-| `SEM_DATA_DEAL` | histórico incompleto | Investigar caso a caso |
+### 1. Fila de reprocessamento
 
-Saída → `/mnt/documents/meta-mes-cs-estagnados-verificacao-temporal.csv` com colunas:
+Migration cria `meta_sem_crm_reprocess_queue`:
+`id, csv_row, nome, email, telefone_raw, telefone_normalized, form_name, produto_interesse, created_time, status, attempts, last_error, scheduled_at, processed_at, canonical_id_before, canonical_pipeline_before, deal_vendas_id_after, skip_reason`.
 
-`bucket | piperun_id | nome | email | telefone | form_name | form_date | last_deal_date_bucket | dias_gap | flag | piperun_stage_name | proprietario`
+Status possíveis: `pending | processing | done | failed | skipped_phone_invalid | skipped_protected_pipeline | skipped_no_canonical_change`.
 
-Um resumo `.md` acompanha com totais por flag e por funil.
+Grants + RLS admin-only + trigger updated_at.
 
-### 2. Lista completa dos ~171 leads sem CRM / não ingestado
+### 2. Seed one-shot
 
-Fonte da verdade: `user-uploads://Leads_meta_mês.csv` (946 rows) já usado nas auditorias anteriores.
+Edge function `meta-sem-crm-seed` lê o CSV (payload inline) e popula a fila:
+- **Telefone**: `normalizeBrazilianPhone` (`supabase/functions/_shared/phone-normalize.ts`). Se retornar `null` ou `+` não-BR sem email válido → `skipped_phone_invalid`.
+- **produto_interesse por form_name**:
+  - `# - FACE - E-BOOK VITALITY` → `Resina 3D Smart Print Bio Vitality`
+  - `BLZ- Smart Dent` → `Scanner Intraoral BLZ INO200`
+  - `# - GlazeON- Smart Dent` → `GlazeON - Splint`
+  - `# - Impressoras 3D - Smart Dent` → `Impressora 3D`
+  - outros → vazio, sinaliza no log
+- `scheduled_at`: distribui 10 leads por janela de 30 min a partir de `now()` → ~18h total.
 
-Método:
+### 3. Worker `meta-sem-crm-reprocess-worker`
 
-1. Carregar o CSV do Meta.
-2. Normalizar `email` (lower/trim) e `telefone` (só dígitos, últimos 10-11).
-3. `LEFT JOIN` contra `lia_attendances` (canônicos, janela 30/06 → 22/07) por email OU telefone normalizado.
-4. Filtrar `piperun_id IS NULL AND lia_id IS NULL` — sem espelho e sem CRM.
+Edge function invocada por `pg_cron` a cada 5 min:
+1. Pega até 10 rows `status='pending' AND scheduled_at <= now()`, marca `processing`.
+2. Para cada lead:
+   - Busca canonical em `lia_attendances` por email/telefone (usando `merged_into IS NULL`).
+   - Se canonical existe → lê `piperun_deals_history`.
+   - **Guard protegido**: se qualquer deal em 18784, 83896, 102893, 104500 (qualquer status) → `skipped_protected_pipeline`, motivo detalhado, próximo.
+   - Se canonical em pipeline 72938 (Estagnados) OU sem canonical → invoca `smart-ops-ingest-lead` com payload simulando o formulário original (`source='meta_lead_ads_reprocess'`, `form_name`, `produto_interesse`, `platform_lead_id='reprocess_<row>'`, `raw_payload`).
+   - O ingest cai na rota B do escape hatch (mem `estagnados-redelivery-reactivation`) e chama `lia-assign` com `trigger='sdr_captacao_reativacao'`, `force:true`. `lia-assign` faz o close+reopen apenas se as regras dele permitirem (elas já tratam Vendas/CS como imutáveis).
+3. Grava `deal_vendas_id_after`, status final. `attempts++`, máx 3 antes de `failed`.
 
-Saída → `/mnt/documents/meta-mes-sem-crm.csv` com colunas do próprio CSV Meta + diagnóstico:
+Sem alterar código de `lia-assign`, `golden-rule-guard`, `commercial-intent`, `ingest-lead`. Só nova camada de fila + worker.
 
-`created_time | form_name | full_name | email | phone_number | area_atuacao | scanner | impressora | motivo_falha`
+### 4. UI de monitor
 
-`motivo_falha` deriva de: `meta_lead_ingestion_log` (se existe evento mas falhou), `meta_lead_event_buffer` (retido), `cron_state.meta_pull_forms` (form_id não estava na lista de pull) ou `nao_ingestado` (nenhum registro).
+Página `/admin/meta-reprocess-monitor` (protegida por `has_role admin`):
+- Contadores por status.
+- Tabela paginada da fila com filtros.
+- Botão "Pausar cron" (flag `meta_sem_crm_worker_paused` em `system_config`, checada pelo worker).
+- Botão "Reprocessar falhas" (reset `attempts=0`, `status='pending'`).
 
-Um resumo agrupando `motivo_falha × form_name` acompanha em `.md`.
+Registrada como nova aba no `AdminViewSupabase`.
 
-### O que NÃO tocar
+### 5. Relatório final
 
-- Nenhum deal é movido, criado ou fechado.
-- Nenhum código de decisão (`smart-ops-lia-assign`, Golden Rule, funis CS/Vendas/Estagnados) é alterado.
-- Apenas geração de relatórios read-only em `/mnt/documents/`.
+Quando fila esvaziar: gerar `/mnt/documents/meta-sem-crm-reprocess-report.csv` + resumo `.md` com breakdown por status, deals criados em Vendas, vendedores sorteados, motivos de skip.
+
+### O que NÃO alterar
+
+- Nenhum deal em Vendas (18784) ou CS (83896/102893/104500), independente do status — trava dupla: no worker (pré-check) e nos guards já existentes.
+- Nenhuma linha de `smart-ops-lia-assign`, `golden-rule-guard`, `commercial-intent`, `ingest-lead`, `meta-lead-ads-pull`.
+- Não sobrescreve `produto_interesse` já preenchido no canonical.
+
+### Ordem em build mode
+
+1. Migration da fila (tabela + grants + RLS + trigger).
+2. Edge functions `meta-sem-crm-seed` e `meta-sem-crm-reprocess-worker` + `config.toml`.
+3. Rodar seed com CSV inline.
+4. Agendar `pg_cron` `*/5 * * * *` via `supabase--insert`.
+5. UI de monitor.

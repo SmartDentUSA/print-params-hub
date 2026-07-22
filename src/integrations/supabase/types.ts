@@ -12843,6 +12843,75 @@ export type Database = {
         }
         Relationships: []
       }
+      meta_sem_crm_reprocess_queue: {
+        Row: {
+          attempts: number
+          canonical_id_before: string | null
+          canonical_pipeline_before: number | null
+          created_at: string
+          created_time: string | null
+          csv_row: number
+          deal_vendas_id_after: number | null
+          email: string | null
+          form_name: string | null
+          id: string
+          last_error: string | null
+          nome: string | null
+          processed_at: string | null
+          produto_interesse: string | null
+          scheduled_at: string
+          skip_reason: string | null
+          status: string
+          telefone_normalized: string | null
+          telefone_raw: string | null
+          updated_at: string
+        }
+        Insert: {
+          attempts?: number
+          canonical_id_before?: string | null
+          canonical_pipeline_before?: number | null
+          created_at?: string
+          created_time?: string | null
+          csv_row: number
+          deal_vendas_id_after?: number | null
+          email?: string | null
+          form_name?: string | null
+          id?: string
+          last_error?: string | null
+          nome?: string | null
+          processed_at?: string | null
+          produto_interesse?: string | null
+          scheduled_at?: string
+          skip_reason?: string | null
+          status?: string
+          telefone_normalized?: string | null
+          telefone_raw?: string | null
+          updated_at?: string
+        }
+        Update: {
+          attempts?: number
+          canonical_id_before?: string | null
+          canonical_pipeline_before?: number | null
+          created_at?: string
+          created_time?: string | null
+          csv_row?: number
+          deal_vendas_id_after?: number | null
+          email?: string | null
+          form_name?: string | null
+          id?: string
+          last_error?: string | null
+          nome?: string | null
+          processed_at?: string | null
+          produto_interesse?: string | null
+          scheduled_at?: string
+          skip_reason?: string | null
+          status?: string
+          telefone_normalized?: string | null
+          telefone_raw?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       models: {
         Row: {
           active: boolean
