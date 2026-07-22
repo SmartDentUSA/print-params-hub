@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { supabase } from '@/integrations/supabase/client';
 import { Header } from '@/components/Header';
 import { KnowledgeSEOHead } from '@/components/KnowledgeSEOHead';
 import { KnowledgeContentViewer } from '@/components/KnowledgeContentViewer';
@@ -47,6 +48,21 @@ export default function KnowledgeBase({ lang = 'pt', forcedTab }: KnowledgeBaseP
   const [tab, setTab] = useState<KbTab>(() => getInitialTab(categoryLetter, forcedTab));
   const [dialogContent, setDialogContent] = useState<any>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [catCounts, setCatCounts] = useState<Record<string, { name: string; count: number }>>({});
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase
+        .from('knowledge_categories')
+        .select('letter, name, knowledge_contents(count)')
+        .eq('knowledge_contents.active', true);
+      if (!data) return;
+      const m: Record<string, { name: string; count: number }> = {};
+      (data as any[]).forEach((row) => {
+        m[row.letter] = { name: row.name, count: row.knowledge_contents?.[0]?.count ?? 0 };
+      });
+      setCatCounts(m);
+    })();
+  }, []);
   const shellV2 = typeof window === 'undefined'
     ? true
     : new URLSearchParams(window.location.search).get('shell') !== 'v1';
@@ -105,6 +121,28 @@ export default function KnowledgeBase({ lang = 'pt', forcedTab }: KnowledgeBaseP
       distribuidores: { title: 'Revendas',      subtitle: 'Rede oficial de revendas Smart Dent.' },
     };
     const hero = heroMap[activeKey];
+    const TAB_LETTERS: Partial<Record<KbShellNavKey, string[]>> = {
+      videos: ['A', 'E'],
+      artigos: ['B', 'C', 'D', 'F'],
+      catalogo: ['G'],
+    };
+    const letters = TAB_LETTERS[activeKey] ?? [];
+    const total = letters.reduce((s, l) => s + (catCounts[l]?.count ?? 0), 0);
+    const basePath = lang === 'en' ? '/en/knowledge-base'
+      : lang === 'es' ? '/es/base-conocimiento'
+      : '/base-conhecimento';
+    const categories = letters.length
+      ? [
+          { key: 'all', label: 'Todos os conteúdos', count: total, active: !categoryLetter, onClick: () => navigate(`${basePath}?tab=${tab}`) },
+          ...letters.map((l) => ({
+            key: l,
+            label: catCounts[l]?.name ?? l,
+            count: catCounts[l]?.count ?? 0,
+            active: categoryLetter?.toUpperCase() === l,
+            onClick: () => navigate(`${basePath}/${l.toLowerCase()}`),
+          })),
+        ]
+      : undefined;
     return (
       <>
         <style>{kbStyles}</style>
@@ -120,6 +158,7 @@ export default function KnowledgeBase({ lang = 'pt', forcedTab }: KnowledgeBaseP
             setOverview(false);
             setTab(k);
           }}
+          categories={categories}
           heroTitle={hero.title}
           heroSubtitle={hero.subtitle}
           showAdminButton
