@@ -25315,6 +25315,30 @@ export type Database = {
         }
         Relationships: []
       }
+      zernio_leadgen_dedup: {
+        Row: {
+          first_delivery_id: string | null
+          lead_id: string | null
+          leadgen_id: string
+          processed_at: string
+          zernio_lead_id: string | null
+        }
+        Insert: {
+          first_delivery_id?: string | null
+          lead_id?: string | null
+          leadgen_id: string
+          processed_at?: string
+          zernio_lead_id?: string | null
+        }
+        Update: {
+          first_delivery_id?: string | null
+          lead_id?: string | null
+          leadgen_id?: string
+          processed_at?: string
+          zernio_lead_id?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       company_ltv: {

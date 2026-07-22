@@ -1,74 +1,46 @@
-## Reprocessamento controlado dos 355 leads Meta sem CRM
+## Objetivo
 
-Origem: `meta-mes-sem-crm.csv` (355 linhas). Objetivo: rodar cada lead pelo mesmo caminho de um novo formulário Meta, disparando o escape hatch **Estagnados → Vendas** (fecha deal 72938 como Perdido "Solicitou novo contato" e abre novo em 18784 com round-robin) — mas SOMENTE quando o canonical estiver em Estagnados. Fila de 10 leads a cada 30 min.
+Adicionar adaptador de webhook da Zernio para Meta Lead Ads e promover o normalizador de campos (`_shared/zernio-field-normalizer.ts`) a padrão único do sistema — usado tanto pela nova função Zernio quanto pela `smart-ops-meta-lead-webhook` nativa, antes do envio ao `smart-ops-ingest-lead`.
 
-### Regra absoluta (reforçada)
+Não altero: `LeadDetailPanel.tsx`, schema de `lead_activity_log`, contratos PipeRun/SellFlux, verificação de assinatura Meta, lógica anti-redelivery do webhook nativo, chamada à Graph API.
 
-**Nenhum deal em CS (83896 / 102893 / 104500) ou VENDAS (18784), independente do status (aberto, ganho, perdido, congelado), pode ser tocado.** O worker checa `piperun_deals_history` do canonical ANTES de invocar `lia-assign`:
+## Passos
 
-- Se existe **qualquer** deal em Vendas ou CS (qualquer status) → marca `status='skipped_protected_pipeline'`, grava motivo, **não invoca lia-assign**.
-- Só invoca reativação quando o único histórico é Estagnados (72938) ou pipelines livres.
-- Isso é uma trava de segurança do worker, adicional aos guards já existentes em `lia-assign` / `vendas-pipeline-immutability` / `golden-rule`.
+### 1. Migration
+Criar `public.zernio_leadgen_dedup` (PK `leadgen_id`, colunas `zernio_lead_id`, `first_delivery_id`, `lead_id`, `processed_at`) com GRANTs para `service_role` (RLS habilitada, sem policies — acesso só via service role das edge functions).
 
-### 1. Fila de reprocessamento
+### 2. Arquivo compartilhado
+Criar `supabase/functions/_shared/zernio-field-normalizer.ts` exatamente com o conteúdo especificado — slugify accent-safe, enums canônicos (área de atuação, especialidade, scanner com fallback de marca, impressora), `FORM_ID_TO_PRODUCT` (19 form_ids Meta), `metaFieldDataArrayToRecord` (ponte para o formato Graph API), e `normalizeZernioLead` como entry point.
 
-Migration cria `meta_sem_crm_reprocess_queue`:
-`id, csv_row, nome, email, telefone_raw, telefone_normalized, form_name, produto_interesse, created_time, status, attempts, last_error, scheduled_at, processed_at, canonical_id_before, canonical_pipeline_before, deal_vendas_id_after, skip_reason`.
+### 3. Nova edge function
+Criar `supabase/functions/smart-ops-zernio-lead-webhook/index.ts` conforme spec: verificação HMAC-SHA256 via `ZERNIO_WEBHOOK_SECRET`, dedup por `payload.lead.leadgenId` (idempotente via PK conflict 23505), normalização, chamada a `smart-ops-ingest-lead` com `source: "meta_lead_ads"`, update do `lead_id` retornado. Registrar em `supabase/config.toml` com `verify_jwt = false`.
 
-Status possíveis: `pending | processing | done | failed | skipped_phone_invalid | skipped_protected_pipeline | skipped_no_canonical_change`.
+### 4. Ajuste no webhook Meta nativo
+Em `smart-ops-meta-lead-webhook/index.ts`, entre a chamada Graph API (`field_data`) e o `fetch` para `smart-ops-ingest-lead` (linhas ~107 e ~236), inserir:
+- `const fieldsRecord = metaFieldDataArrayToRecord(fieldData);`
+- `const normalized = normalizeZernioLead(fieldsRecord);`
+- `const productMapping = mapFormToProduct(formId);`
 
-Grants + RLS admin-only + trigger updated_at.
+Substituir no `normalizedPayload` os campos derivados dos canonicalizadores locais (`canonicalizeArea/Specialty/Scanner/Printer` no bloco IIFE das linhas 192-217) pelos equivalentes do normalizer novo (`normalized.areaAtuacao`, `normalized.especialidade`, `normalized.scanner.label`, `normalized.impressora.label`). Se `productMapping` existir e `produtoInteresse` for null, usar `productMapping.productName`. Adicionar `needs_manual_review: normalized.needsManualReview`. Preservar: cascade de `originLabel`, campos meta_*, campos empresa/cidade/uf, `produto_interesse_auto`, keywords para `lead_form_submissions`, todo o restante da função.
 
-### 2. Seed one-shot
+### 5. Secret
+Após deploy da nova function (para o usuário ter a URL de callback), pedir `add_secret ZERNIO_WEBHOOK_SECRET` — o usuário gera o valor forte e cola tanto aqui quanto no registro do webhook Zernio (shared secret).
 
-Edge function `meta-sem-crm-seed` lê o CSV (payload inline) e popula a fila:
-- **Telefone**: `normalizeBrazilianPhone` (`supabase/functions/_shared/phone-normalize.ts`). Se retornar `null` ou `+` não-BR sem email válido → `skipped_phone_invalid`.
-- **produto_interesse por form_name**:
-  - `# - FACE - E-BOOK VITALITY` → `Resina 3D Smart Print Bio Vitality`
-  - `BLZ- Smart Dent` → `Scanner Intraoral BLZ INO200`
-  - `# - GlazeON- Smart Dent` → `GlazeON - Splint`
-  - `# - Impressoras 3D - Smart Dent` → `Impressora 3D`
-  - outros → vazio, sinaliza no log
-- `scheduled_at`: distribui 10 leads por janela de 30 min a partir de `now()` → ~18h total.
+### 6. Registro do webhook na Zernio + teste GET /ads/leads
+Instrução no chat para o usuário rodar (não faço eu): `POST /v1/webhooks/settings` com URL `https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/smart-ops-zernio-lead-webhook`, event `lead.received`, mesmo secret; e `GET /v1/ads/leads?limit=1` com Bearer da API key da Zernio para confirmar habilitação (200 ok / 403 add-on / 401 key).
 
-### 3. Worker `meta-sem-crm-reprocess-worker`
+## Ordem de execução em build mode
+1. `supabase--migration` (tabela dedup)
+2. Criar `_shared/zernio-field-normalizer.ts`
+3. Criar `smart-ops-zernio-lead-webhook/index.ts` + entrada em `config.toml`
+4. Editar `smart-ops-meta-lead-webhook/index.ts` (só o bloco de normalização, sem tocar assinatura/anti-redelivery/Graph)
+5. `add_secret ZERNIO_WEBHOOK_SECRET`
+6. Instruções finais no chat (registro webhook + teste GET)
 
-Edge function invocada por `pg_cron` a cada 5 min:
-1. Pega até 10 rows `status='pending' AND scheduled_at <= now()`, marca `processing`.
-2. Para cada lead:
-   - Busca canonical em `lia_attendances` por email/telefone (usando `merged_into IS NULL`).
-   - Se canonical existe → lê `piperun_deals_history`.
-   - **Guard protegido**: se qualquer deal em 18784, 83896, 102893, 104500 (qualquer status) → `skipped_protected_pipeline`, motivo detalhado, próximo.
-   - Se canonical em pipeline 72938 (Estagnados) OU sem canonical → invoca `smart-ops-ingest-lead` com payload simulando o formulário original (`source='meta_lead_ads_reprocess'`, `form_name`, `produto_interesse`, `platform_lead_id='reprocess_<row>'`, `raw_payload`).
-   - O ingest cai na rota B do escape hatch (mem `estagnados-redelivery-reactivation`) e chama `lia-assign` com `trigger='sdr_captacao_reativacao'`, `force:true`. `lia-assign` faz o close+reopen apenas se as regras dele permitirem (elas já tratam Vendas/CS como imutáveis).
-3. Grava `deal_vendas_id_after`, status final. `attempts++`, máx 3 antes de `failed`.
+## Detalhes técnicos / riscos
 
-Sem alterar código de `lia-assign`, `golden-rule-guard`, `commercial-intent`, `ingest-lead`. Só nova camada de fila + worker.
-
-### 4. UI de monitor
-
-Página `/admin/meta-reprocess-monitor` (protegida por `has_role admin`):
-- Contadores por status.
-- Tabela paginada da fila com filtros.
-- Botão "Pausar cron" (flag `meta_sem_crm_worker_paused` em `system_config`, checada pelo worker).
-- Botão "Reprocessar falhas" (reset `attempts=0`, `status='pending'`).
-
-Registrada como nova aba no `AdminViewSupabase`.
-
-### 5. Relatório final
-
-Quando fila esvaziar: gerar `/mnt/documents/meta-sem-crm-reprocess-report.csv` + resumo `.md` com breakdown por status, deals criados em Vendas, vendedores sorteados, motivos de skip.
-
-### O que NÃO alterar
-
-- Nenhum deal em Vendas (18784) ou CS (83896/102893/104500), independente do status — trava dupla: no worker (pré-check) e nos guards já existentes.
-- Nenhuma linha de `smart-ops-lia-assign`, `golden-rule-guard`, `commercial-intent`, `ingest-lead`, `meta-lead-ads-pull`.
-- Não sobrescreve `produto_interesse` já preenchido no canonical.
-
-### Ordem em build mode
-
-1. Migration da fila (tabela + grants + RLS + trigger).
-2. Edge functions `meta-sem-crm-seed` e `meta-sem-crm-reprocess-worker` + `config.toml`.
-3. Rodar seed com CSV inline.
-4. Agendar `pg_cron` `*/5 * * * *` via `supabase--insert`.
-5. UI de monitor.
+- **Dedup Zernio é local à Zernio** — não reconcilia com o leadgen nativo. Se ambos webhooks entregarem o mesmo lead, `smart-ops-ingest-lead` resolve por identidade (phone/email) e faz update. Com o normalizer padronizado nos dois lados, o registro final fica consistente independente da ordem de chegada.
+- **`FORM_ID_TO_PRODUCT` vs cascade existente**: a cascade atual do webhook nativo (`directProduct → inferredProduct → campaignProduct`) fica preservada; `productMapping.productName` entra como novo fallback quando os três forem null.
+- **Canonicalizadores antigos** (`canonicalizeArea/Specialty/Scanner/Printer` em `_shared/meta-field-utils.ts`) continuam no repo para não quebrar outros callers; o webhook nativo passa a usar o normalizer novo, mas mantenho os campos `scanner_marca`, `tem_scanner`, `tem_impressora`, `como_digitaliza` derivados do resultado novo (label + status) para não regredir colunas do `lia_attendances`.
+- **`verify_jwt = false`** na nova function (webhook público autenticado por HMAC próprio).
+- **Sem alteração no schema de `lia_attendances`** — `needs_manual_review` viaja no payload do ingest-lead; se a coluna não existir, o auto-forward do ingest preserva em `raw_payload` (comportamento atual do gateway).
