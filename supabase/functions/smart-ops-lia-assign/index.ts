@@ -3611,6 +3611,9 @@ Deno.serve(async (req) => {
         // regra do usuário: formulário novo SEMPRE fecha Estagnados.)
         const estagnDealIdNum = Number(estagnDeal.id);
         {
+          // O cache pode apontar para o próprio Estagnados/CS antigo. A partir
+          // daqui, piperunId só pode representar o NOVO deal VENDAS confirmado.
+          piperunId = null;
           flowType = "reactivate_estagnado_new_deal";
 
           // Fresh Round Robin — NUNCA herda o vendedor do deal antigo.
@@ -3709,6 +3712,8 @@ Deno.serve(async (req) => {
         // gerar novo pipeline de vendas para registrar essa intenção.
         // Bypass da Golden Rule Primary (30d) porque a intenção é
         // legítimamente nova.
+        // Nunca reutilizar o ID cacheado do CS como se fosse o novo VENDAS.
+        piperunId = null;
         flowType = "new_vendas_cs_active";
         console.log(
           `[lia-assign] CS ATIVO detectado (${csOpenDeals.map((d) => d.id).join(",")}) — criando NOVO deal em VENDAS para novo interesse comercial`,
