@@ -330,11 +330,11 @@ Deno.serve(async (req) => {
       let seller: { nome: string; whatsapp: string } | undefined;
       if (log.lead_id) {
         const { data: la } = await supabase.from("lia_attendances")
-          .select("responsavel_id").eq("id", log.lead_id).maybeSingle();
-        const sid = (la as any)?.responsavel_id;
-        if (sid) {
+          .select("piperun_owner_id").eq("id", log.lead_id).maybeSingle();
+        const ownerId = (la as any)?.piperun_owner_id;
+        if (ownerId) {
           const { data: tm } = await supabase.from("team_members")
-            .select("nome_completo, whatsapp_number").eq("id", sid).maybeSingle();
+            .select("nome_completo, whatsapp_number").eq("piperun_owner_id", ownerId).maybeSingle();
           if (tm) seller = { nome: tm.nome_completo, whatsapp: tm.whatsapp_number };
         }
       }
