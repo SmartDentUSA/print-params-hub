@@ -1,51 +1,43 @@
-# Bio Temp B1 — Limpeza + Enriquecimento Completo
+Criar o parent **Cimento UNIKK Veneer LV** em `system_a_catalog` e adicioná-lo à rodada de população de variações (junto com os outros SKUs Atos/SmartGum/SmartMake/UNIKK/Block já mapeados).
 
-Parent: `system_a_catalog.id = 96ca1d7d-9bfe-4409-a7d9-b7111658bb06`
+## 1. Criar parent em `system_a_catalog`
 
-## Estado atual (11 linhas em `catalog_product_variations`)
+Nova linha, alinhada com as outras variações do Cimento UNIKK Veneer:
 
-- 2 canônicas já inseridas: 250g SKU 310 e 500g SKU 315 (`manual_enrichment_bio_temp`)
-- 8 duplicatas/legado a remover: bulk_import 100g/250g/500g/1000g, system_a_sync 250g/500g/1kg, e 2 placeholders "Nova"/"Nova 2"
-- 1 linha 1kg (bulk_import, GTIN 0756014745594, 1,13 kg) — será substituída pela canônica SKU 316
+- `name`: `Cimento UNIKK Veneer LV`
+- `slug`: `atos-unikk-veneer-lv` (padrão das siblings A1/A2/A3.5/B1/BL2/TRS)
+- `category`: `product`
+- `product_category`: mesmo das siblings UNIKK (herdar da A1 `6c7c07a5-daa0-49b9-b663-9969ef7a8b2c` via SELECT — hoje é `6. DENTÍSTICA, ESTÉTICA E ORTODONTIA`)
+- `product_subcategory`: idem herdar da A1
+- `active`: `true`
+- `approved`: `true`
+- `visible_in_ui`: `true`
+- `display_order`: max(display_order das UNIKK Veneer) + 1
+- Sem imagem/descrição — pode ser preenchido depois. Sem preço BRL/USD/EUR (não fornecido).
+- `source`: `manual_create_2026_07_22`
 
-## 1. Enriquecer parent (não-destrutivo)
+## 2. Inserir 1 variação canônica no novo parent
 
-Merge em `system_a_catalog` só onde vazio:
-- `ncm_hs = 9021.29.00` (já aplicado, reconfirmar)
-- `anvisa_registration = 81835969003`
-- `loja_integrada_id = 52117002`
+Em `catalog_product_variations`:
 
-Não toca em nome, descrição, documentos, imagens ou vínculos.
+- `sku`: `1983`
+- `presentation`: `2,5g - LV`
+- `presentation_qty`: `2,5g`
+- `unidade`: `grs`
+- `ncm_hs`: `9021.29.00`
+- `gtin_ean`: null (N/D)
+- `color`: `LV`
+- `weight_kg`: null (N/D — não fornecido)
+- `dimensions_cm`: null (N/D)
+- `sort_order`: 1
+- `source`: `manual_enrichment_2026_07_22_atos`
 
-## 2. Deletar 8 duplicatas legadas
+## 3. Reincluir SKU 1983 na rodada anterior
 
-IDs a remover:
-- `201bf833` (100g bulk_import placeholder — sem SKU/preço)
-- `2df8b27b` / `b3757f87` (250g bulk_import + system_a_sync)
-- `e4f7817c` / `e456ae93` (500g bulk_import + system_a_sync)
-- `c0144858` / `1940d985` (1kg bulk_import + system_a_sync)
-- `eb8c0c4a` / `e33a4247` ("Nova" e "Nova 2" manuais)
+Somar o parent recém-criado à lista de parents da migration da rodada anterior (Atos/SmartGum/SmartMake/UNIKK/Block) e re-inserir a variação junto — mesma pipeline (snapshot preços → wipe → re-insert), respeitando "1 pai por cor + 1 variação".
 
-## 3. Upsert das 4 variações canônicas
+## Fora de escopo
 
-Match por SKU dentro do parent. Linhas 250g e 500g já existem — só reconfirmar valores. Inserir 100g e 1kg.
-
-| SKU  | Var  | Un  | Cor | GTIN            | Peso (kg) | Dim (cm)         | BRL      | Obs |
-|------|------|-----|-----|-----------------|-----------|------------------|----------|-----|
-| 839  | 100  | grs | B1  | 0756014745542   | 0,11*     | 10.0 × 6.0 × 6.0* | 240,00   | Amostra |
-| 310  | 250  | grs | B1  | 0756014745566   | 0,25      | 16.0 × 16.0 × 16.0 | 733,70   | mantém |
-| 315  | 500  | grs | B1  | 0756014745573   | 0,61*     | 19.5 × 8.5 × 8.5*  | 1.223,20 | mantém |
-| 316  | 1000 | grs | B1  | 0756014745559   | 1,13*     | 24.5 × 9.5 × 9.5*  | 2.077,90 | novo |
-
-*Presets padrão (`RESIN_GRS_PRESETS`) para 100g/500g/1kg — mesmos usados em Vitality/+Flex/Bio Bite Splint quando a fonte marcou N/D. Alternativa: deixar `null` até medida oficial.
-
-`source = 'manual_enrichment_bio_temp_b1'`.
-
-## 4. Fora de escopo
-
-- Não altero `products_catalog`, `resins`, documentos, imagens ou preços USD/EUR.
-- Não regero CSV master (posso rodar depois se pedir).
-
-## Pergunta rápida
-
-Presets de peso/dimensão para 100g, 500g e 1kg: **aplicar** (recomendado, consistente com resinas irmãs) ou **deixar null** até medida oficial?
+- Continua não criando SmartMake Maleta (SKU 396) — se quiser, peça em uma próxima rodada.
+- Sem alteração de UI, `resins`, `catalog_documents` ou preços dos demais itens.
+- Sem regeneração automática do CSV master.
