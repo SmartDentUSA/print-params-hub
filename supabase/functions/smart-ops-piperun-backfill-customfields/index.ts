@@ -17,6 +17,7 @@ interface ReqBody {
   lead_ids?: string[];
   since?: string; // ISO
   limit?: number;
+  source?: string;
 }
 
 Deno.serve(async (req) => {
@@ -54,6 +55,7 @@ Deno.serve(async (req) => {
         .or("piperun_custom_fields.is.null,piperun_custom_fields.eq.[]")
         .order("created_at", { ascending: true })
         .limit(limit);
+      if (body.source) query = query.eq("source", body.source);
     }
 
     const { data: leads, error } = await query;
