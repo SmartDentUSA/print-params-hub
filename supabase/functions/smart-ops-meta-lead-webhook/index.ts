@@ -112,6 +112,13 @@ Deno.serve(async (req) => {
           const fieldData = leadData.field_data || [];
           const fields = buildMetaFieldMap(fieldData);
 
+          // ---------------------------------------------------------------
+          // PADRÃO ÚNICO: normalizer canônico (mesmo usado no webhook Zernio)
+          // ---------------------------------------------------------------
+          const zRecord = metaFieldDataArrayToRecord(fieldData);
+          const zNormalized = normalizeZernioLead(zRecord);
+          const zProductMapping = mapFormToProduct(formId);
+
           // Determine platform (facebook or instagram)
           const platform = body.object === "instagram" ? "instagram" : "facebook";
 
