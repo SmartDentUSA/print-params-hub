@@ -1,34 +1,51 @@
-## Popular variações Bio Bite Splint Clear
+# Bio Temp B1 — Limpeza + Enriquecimento Completo
 
-Parent `system_a_catalog.id = 8ea6c6fd-7ae4-4fcd-ae18-5a85a69f461f` — enriquecer + 3 variações canônicas (SKU 1672/amostra 100g fica de fora conforme instrução).
+Parent: `system_a_catalog.id = 96ca1d7d-9bfe-4409-a7d9-b7111658bb06`
 
-### 1. Enriquecer parent (JSONB não-destrutivo)
-Atualiza somente campos vazios/desatualizados em `system_a_catalog`:
-- `ncm_hs`: `9021.29.00`
-- `loja_integrada_id`: `91705641`
-- `extra_data` (merge): manter documentos/campos existentes intactos.
+## Estado atual (11 linhas em `catalog_product_variations`)
 
-Não toca em `name`, `description`, `category`, documentos ou vínculos.
+- 2 canônicas já inseridas: 250g SKU 310 e 500g SKU 315 (`manual_enrichment_bio_temp`)
+- 8 duplicatas/legado a remover: bulk_import 100g/250g/500g/1000g, system_a_sync 250g/500g/1kg, e 2 placeholders "Nova"/"Nova 2"
+- 1 linha 1kg (bulk_import, GTIN 0756014745594, 1,13 kg) — será substituída pela canônica SKU 316
 
-### 2. Variações em `catalog_product_variations`
-Match por `sku` dentro do `catalog_product_id` do parent (via `system_a_id`). Upsert por SKU:
+## 1. Enriquecer parent (não-destrutivo)
 
-| SKU  | Cor         | Qty | Unit | GTIN            | NCM        | Peso (kg) | Dim (cm)          | BRL     |
-|------|-------------|-----|------|-----------------|------------|-----------|-------------------|---------|
-| 1491 | Translúcida | 250 | grs  | 0756014745412   | 9021.29.00 | 0.40      | 18.0 × 12.0 × 15.0 | 599.50  |
-| 1671 | Translúcida | 500 | grs  | 0756014745429   | 9021.29.00 | 0.61*     | 19.5 × 8.5 × 8.5*  | 917.40  |
-| 1670 | Translúcida | 1000| grs  | 0756014745405   | 9021.29.00 | 1.13*     | 24.5 × 9.5 × 9.5*  | 1710.50 |
+Merge em `system_a_catalog` só onde vazio:
+- `ncm_hs = 9021.29.00` (já aplicado, reconfirmar)
+- `anvisa_registration = 81835969003`
+- `loja_integrada_id = 52117002`
 
-*500g e 1kg: fonte marcou N/D. Aplico os presets padrão de resinas (`RESIN_GRS_PRESETS` já em uso: 500g → 0,61 kg / 19.5×8.5×8.5; 1000g → 1,13 kg / 24.5×9.5×9.5) — mesma regra usada em Vitality/+Flex. Confirmar se prefere deixar null.
+Não toca em nome, descrição, documentos, imagens ou vínculos.
 
-- SKU 1672 (100g amostra): **não** alterado, conforme solicitado.
-- Se algum SKU acima ainda não existir na tabela, criar como nova variação vinculada ao parent (mantendo `sort_order` sequencial).
-- `source = 'manual_enrichment_bio_bite_splint'`.
+## 2. Deletar 8 duplicatas legadas
 
-### 3. Fora de escopo
-- Não altero documentos, imagens, `products_catalog` nem `resins`.
-- Não regero o CSV master (posso rodar depois se quiser).
-- Não mexo em preços USD/EUR (sem fonte).
+IDs a remover:
+- `201bf833` (100g bulk_import placeholder — sem SKU/preço)
+- `2df8b27b` / `b3757f87` (250g bulk_import + system_a_sync)
+- `e4f7817c` / `e456ae93` (500g bulk_import + system_a_sync)
+- `c0144858` / `1940d985` (1kg bulk_import + system_a_sync)
+- `eb8c0c4a` / `e33a4247` ("Nova" e "Nova 2" manuais)
 
-### Pergunta rápida
-Para 500g e 1kg: aplicar os presets padrão de peso/dimensão (recomendado, mantém consistência com Vitality/+Flex) ou deixar `null` até ter medida oficial?
+## 3. Upsert das 4 variações canônicas
+
+Match por SKU dentro do parent. Linhas 250g e 500g já existem — só reconfirmar valores. Inserir 100g e 1kg.
+
+| SKU  | Var  | Un  | Cor | GTIN            | Peso (kg) | Dim (cm)         | BRL      | Obs |
+|------|------|-----|-----|-----------------|-----------|------------------|----------|-----|
+| 839  | 100  | grs | B1  | 0756014745542   | 0,11*     | 10.0 × 6.0 × 6.0* | 240,00   | Amostra |
+| 310  | 250  | grs | B1  | 0756014745566   | 0,25      | 16.0 × 16.0 × 16.0 | 733,70   | mantém |
+| 315  | 500  | grs | B1  | 0756014745573   | 0,61*     | 19.5 × 8.5 × 8.5*  | 1.223,20 | mantém |
+| 316  | 1000 | grs | B1  | 0756014745559   | 1,13*     | 24.5 × 9.5 × 9.5*  | 2.077,90 | novo |
+
+*Presets padrão (`RESIN_GRS_PRESETS`) para 100g/500g/1kg — mesmos usados em Vitality/+Flex/Bio Bite Splint quando a fonte marcou N/D. Alternativa: deixar `null` até medida oficial.
+
+`source = 'manual_enrichment_bio_temp_b1'`.
+
+## 4. Fora de escopo
+
+- Não altero `products_catalog`, `resins`, documentos, imagens ou preços USD/EUR.
+- Não regero CSV master (posso rodar depois se pedir).
+
+## Pergunta rápida
+
+Presets de peso/dimensão para 100g, 500g e 1kg: **aplicar** (recomendado, consistente com resinas irmãs) ou **deixar null** até medida oficial?
