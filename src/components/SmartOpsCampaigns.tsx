@@ -2520,6 +2520,21 @@ function CampaignHistory() {
                             <p className="text-2xl font-bold text-red-600">{bounced}<span className="text-xs text-muted-foreground font-normal">{pct(bounced)}</span></p>
                             <p className="text-xs text-muted-foreground">Bounces (e-mail inválido)</p>
                           </div>
+                          {(() => {
+                            const cv = conversions[selectedCampaign.id];
+                            const conv = cv?.conversions ?? 0;
+                            const deals = cv?.deals_created ?? 0;
+                            return (
+                              <div className="text-center p-3 border rounded col-span-4 bg-green-50/50">
+                                <p className="text-2xl font-bold text-green-600">
+                                  {conv}<span className="text-xs text-muted-foreground font-normal">{pct(conv)}</span>
+                                </p>
+                                <p className="text-xs text-muted-foreground">
+                                  Conversão · {deals} novo{deals === 1 ? "" : "s"} deal{deals === 1 ? "" : "s"} criado{deals === 1 ? "" : "s"} após o envio
+                                </p>
+                              </div>
+                            );
+                          })()}
                         </>
                       )}
                     </div>
