@@ -1,42 +1,39 @@
 ## Diagnóstico
 
-A campanha SMS "RMS" (312 leads) falhou 100% com **HTTP 404** do provedor DisparoPro em todos os leads. O corpo da resposta é uma página HTML "Apigility 404" — ou seja, a URL do endpoint não existe mais no provedor.
+A mesclagem **funcionou** — o log mostra `Cirurgiã Dentista → CLÍNICA OU CONSULTÓRIO` com `updated: 1` às 20:34:35.
 
-Endpoint atualmente usado em `supabase/functions/smart-ops-sms-disparopro/index.ts`:
-```
-POST https://api.disparopro.com.br/mt-sms/v3/sms
-```
+O que continua aparecendo na tela é uma string **diferente**: `Cirurgião Dentista` (masculino, com "ão") — 18 caracteres, 1 ocorrência (lead Luigi Linhares Tavares). O `.eq()` do PostgREST bate byte-a-byte, então "Cirurgiã" (feminino) e "Cirurgião" (masculino) são valores distintos e cada variante precisa da própria linha de mapeamento.
 
-Nenhum lead teve problema de telefone, mensagem ou codificação — o erro é 100% do endpoint do provedor.
+O botão **"Sugerir automaticamente"** também não pega esses casos porque compara `slugify(valor)` contra `slugify(opção canônica)`. Nenhuma opção canônica de `area_atuacao` contém "cirurgiao"/"dentista"/"cargo", então nada é sugerido.
 
-## Causa raiz
+## Correção proposta
 
-URL do endpoint DisparoPro está desatualizada/incorreta (v3 provavelmente foi descontinuada ou o path mudou). O DisparoPro passou a expor a API sob outro caminho (tipicamente `/api/v1/...` ou `/mt/v1/...` conforme documentação atual).
+Adicionar um **dicionário de sinônimos por campo** que o `suggestCanonical` (client) consulta antes de desistir. Assim variações profissionais/cargo caem em `CLÍNICA OU CONSULTÓRIO` num clique, e cada campo pode ganhar seus próprios apelidos com o tempo.
 
-## Plano de correção
+### Escopo
 
-1. **Confirmar endpoint correto** consultando `https://disparopro.com.br/api` (docs atuais) e/ou o painel do cliente. Candidatos prováveis:
-   - `https://api.disparopro.com.br/mt/v1/send`
-   - `https://api.disparopro.com.br/api/v1/sms`
-   - v3 com sufixo diferente (ex.: `/mt-sms/v3/send`)
+1. **`src/hooks/reactivation/useFieldNormalizer.ts`**
+   - Novo mapa `FIELD_SYNONYMS: Record<string, Record<string, string>>` (chave = slug do valor bruto → canônico oficial).
+   - `suggestCanonical(raw, options, field?)` — se `field` for passado, tenta o dicionário antes das heurísticas atuais.
+   - Sementes iniciais para `area_atuacao` (baseadas nos valores já observados na base):
+     - `cirurgiao_dentista`, `cirurgia_dentista`, `cirurgiao-dentista`, `dentista`, `clinico`, `cargo_nao_informado`, `clinica`, `consultorio`, `clinica_consultorio` → `CLÍNICA OU CONSULTÓRIO`
+     - `protetico`, `tecnico_em_protese`, `laboratorio` → `LABORATÓRIO DE PRÓTESE`
+     - `radiologia`, `radiologista` → `RADIOLOGIA ODONTOLÓGICA`
 
-2. **Atualizar `smart-ops-sms-disparopro/index.ts`**:
-   - Trocar `DISPARO_PRO_URL` para o endpoint válido.
-   - Ajustar formato do payload/headers se a nova versão exigir (ex.: `Bearer` em vez de `Basic`, JSON schema diferente).
-   - Ajustar `parseProviderItems` / `isProviderAccepted` para o novo formato de resposta se necessário.
+2. **`src/components/smartops/reactivation/FieldNormalizer.tsx`**
+   - Passar `field` para `suggestCanonical` no `autoSuggest`.
+   - Após `applyMerge` bem-sucedido, forçar `refetch()` de `useFieldValues` (hoje só invalida — o refetch acontece só quando o React Query decide) para a linha sumir da tabela imediatamente.
 
-3. **Endurecer tratamento de erro** para não repetir o cenário atual em silêncio:
-   - Se `httpStatus === 404` ou resposta não-JSON (HTML), marcar a campanha como `failed` imediatamente após o primeiro lote e abortar (evita marcar 312 leads como falha por erro de configuração).
-   - Gravar em `system_health_logs` um alerta `sms_provider_endpoint_invalid`.
+3. Mesclar de imediato o resíduo atual: `Cirurgião Dentista → CLÍNICA OU CONSULTÓRIO` (1 linha) via mesma UI, agora que a sugestão automática vai apontar.
 
-4. **Reprocessar a campanha "RMS"**:
-   - Resetar `campaign_sessions.status='pending'`, `sent_count=0`, `failed_count=0` para o id `921e502b-ecc6-4250-a56f-aaf89810bd97`.
-   - Limpar registros em `campaign_send_log` desta campanha.
-   - Re-invocar `smart-ops-sms-disparopro` com `async=true` e `batch_size=100`.
+### Fora de escopo
 
-5. **Validação**: monitorar primeiro lote (100) e confirmar `protocolo` retornado pelo provedor antes de liberar restantes.
+- Não alterar `smart-ops-field-normalize` nem o RPC no banco — o merge server-side está correto.
+- Não mudar as opções canônicas oficiais (`smartops_form_fields`).
+- Não tocar em `especialidade`, `equip_scanner`, etc. neste passo — mesma mecânica, sinônimos vazios por enquanto; adicionamos depois conforme aparecerem casos.
 
-## Perguntas antes de executar
+## Detalhes técnicos
 
-- Você tem a **URL/versão atual** da API do DisparoPro (do painel deles ou do e-mail de suporte)? Se sim, me passe que já aplico. Caso não, sigo com a hipótese `/mt/v1/send` e valido em runtime.
-- Confirmar credenciais atuais (`DISPARO_PRO_TOKEN`) ainda são válidas — se o provedor migrou versão, pode exigir novo token.
+- Comparação continua case/acento-insensível via `slugify()`; o dicionário guarda slugs para não depender de grafia.
+- Zero migração de banco.
+- Sem breaking change no `useFieldNormalizer` — assinatura do `suggestCanonical` fica retrocompatível (`field` opcional).

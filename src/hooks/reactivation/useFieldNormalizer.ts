@@ -64,7 +64,60 @@ export function slugify(s: string | undefined | null): string {
     .replace(/^_+|_+$/g, "");
 }
 
-export function suggestCanonical(rawValue: string, options: string[]): string | null {
+// Field-specific synonym dictionary. Keys are slugs of raw values,
+// values are the canonical option to map to. Extend as new variants appear.
+const FIELD_SYNONYMS: Record<string, Record<string, string>> = {
+  area_atuacao: {
+    cirurgiao_dentista: "CLÍNICA OU CONSULTÓRIO",
+    cirurgia_dentista: "CLÍNICA OU CONSULTÓRIO",
+    cirurgia_dentista_: "CLÍNICA OU CONSULTÓRIO",
+    dentista: "CLÍNICA OU CONSULTÓRIO",
+    clinico: "CLÍNICA OU CONSULTÓRIO",
+    clinico_geral: "CLÍNICA OU CONSULTÓRIO",
+    cargo_nao_informado: "CLÍNICA OU CONSULTÓRIO",
+    clinica: "CLÍNICA OU CONSULTÓRIO",
+    consultorio: "CLÍNICA OU CONSULTÓRIO",
+    clinica_consultorio: "CLÍNICA OU CONSULTÓRIO",
+    clinica_ou_consultorio: "CLÍNICA OU CONSULTÓRIO",
+    protetico: "LABORATÓRIO DE PRÓTESE",
+    tecnico_em_protese: "LABORATÓRIO DE PRÓTESE",
+    tecnico_em_protese_dentaria: "LABORATÓRIO DE PRÓTESE",
+    laboratorio: "LABORATÓRIO DE PRÓTESE",
+    laboratorio_de_protese: "LABORATÓRIO DE PRÓTESE",
+    radiologia: "RADIOLOGIA ODONTOLÓGICA",
+    radiologista: "RADIOLOGIA ODONTOLÓGICA",
+    radiologia_odontologica: "RADIOLOGIA ODONTOLÓGICA",
+  },
+};
+
+export function suggestCanonical(
+  rawValue: string,
+  options: string[],
+  field?: string,
+): string | null {
+  const slug = slugify(rawValue);
+  if (!slug) return null;
+
+  // 1) Field-specific synonym dictionary — only return if the target
+  //    is actually an official option for this field.
+  if (field && FIELD_SYNONYMS[field]) {
+    const target = FIELD_SYNONYMS[field][slug];
+    if (target && options.includes(target)) return target;
+  }
+
+  // 2) Exact slug match against canonical options.
+  for (const o of options) if (slugify(o) === slug) return o;
+
+  // 3) Substring slug match (either direction).
+  for (const o of options) {
+    const os = slugify(o);
+    if (os && (slug.includes(os) || os.includes(slug))) return o;
+  }
+  return null;
+}
+
+// Backwards-compat overload kept for any legacy callers.
+export function _suggestCanonicalLegacy(rawValue: string, options: string[]): string | null {
   const slug = slugify(rawValue);
   if (!slug) return null;
   for (const o of options) if (slugify(o) === slug) return o;
