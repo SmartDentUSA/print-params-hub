@@ -1017,7 +1017,7 @@ async function resolveOriginId(apiToken: string, formName: string | null): Promi
 
 // ─── §4.6 Estagnados → Vendas: Motivo de perda "Novo interesse" ───
 
-const LOST_REASON_NOVO_INTERESSE = "Novo interesse";
+const LOST_REASON_NOVO_INTERESSE = "Solicitou novo contato através de formulários";
 const lostReasonCache = new Map<string, number>();
 
 /**
