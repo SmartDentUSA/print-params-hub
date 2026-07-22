@@ -4,6 +4,8 @@
  * Used across all smart-ops edge functions for bidirectional sync
  */
 
+import { normalizeAreaAtuacao, normalizeEspecialidade } from "./zernio-field-normalizer.ts";
+
 export const PIPERUN_API_BASE = "https://api.pipe.run/v1";
 
 // ─── Origins ───
@@ -905,7 +907,6 @@ export function mapDealToAttendance(
 
   // ─── Person deep fields ───
   if (person && !personMismatch) {
-    if (person.job_title) fields.area_atuacao = person.job_title;
     if (person.city?.name) fields.cidade = person.city.name;
     const personUf = person.city?.uf || person.state?.initials || person.state?.abbr || null;
     if (personUf) fields.uf = personUf;
@@ -987,7 +988,14 @@ export function mapDealToAttendance(
 
   // Custom fields
   const especialidade = getCustomFieldValue(cf, DEAL_CUSTOM_FIELDS.ESPECIALIDADE);
-  if (especialidade) fields.especialidade = especialidade;
+  if (especialidade) fields.especialidade = normalizeEspecialidade(especialidade) ?? especialidade;
+
+  // FIX (22/jul/2026): área de atuação nunca era lida do custom field correto
+  // do PipeRun — uma linha buggy (removida acima) usava person.job_title
+  // (cargo/QSA) por engano. Corrigido para ler o campo certo
+  // (DEAL_CUSTOM_FIELDS.AREA_ATUACAO) e normalizar via padrão único.
+  const areaAtuacaoRaw = getCustomFieldValue(cf, DEAL_CUSTOM_FIELDS.AREA_ATUACAO);
+  if (areaAtuacaoRaw) fields.area_atuacao = normalizeAreaAtuacao(areaAtuacaoRaw) ?? areaAtuacaoRaw;
 
   const produtoInteresse = getCustomFieldValue(cf, DEAL_CUSTOM_FIELDS.PRODUTO_INTERESSE);
   if (produtoInteresse) fields.produto_interesse = produtoInteresse;

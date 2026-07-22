@@ -1,15 +1,46 @@
-Webhook Zernio validado (200 OK). Nada a implementar — próximos passos são apenas operacionais na Zernio.
+## Fix: `area_atuacao` contaminado por cargo/QSA no sync PipeRun
 
-## Status
-- Assinatura HMAC (`X-Late-Signature`) validando corretamente
-- `webhook.test` retornou `{ success: true, ignored: true }` (esperado: eventos de teste são ignorados pelo ingest)
+### Causa
+Em `supabase/functions/_shared/piperun-field-map.ts`, `mapDealToAttendance` gravava `person.job_title` (cargo/QSA) em `fields.area_atuacao`, e nunca lia o custom field correto (`DEAL_CUSTOM_FIELDS.AREA_ATUACAO`, id 549241).
 
-## Próximos passos (na Zernio, sem código)
-1. Ativar o webhook para os eventos reais de lead (`lead.created` ou equivalente)
-2. Disparar um lead de teste real via um dos formulários Meta mapeados em `FORM_ID_TO_PRODUCT`
-3. Validar no Supabase:
-   - Registro em `zernio_leadgen_dedup`
-   - Lead ingerido em `lia_attendances` com `area_atuacao`, `especialidade`, `scanner_marca`, `impressora_marca` e `produto_interesse` normalizados
-   - Deal criado no funil Vendas do PipeRun
+### Mudanças em `supabase/functions/_shared/piperun-field-map.ts`
 
-Se algum campo não normalizar ou o lead não entrar, me avise com o `Event ID` da Zernio para eu rastrear nos logs.
+1. **Import** no topo:
+   ```ts
+   import { normalizeAreaAtuacao, normalizeEspecialidade } from "./zernio-field-normalizer.ts";
+   ```
+
+2. **Remover** dentro do bloco `if (person && !personMismatch) {`:
+   ```ts
+   if (person.job_title) fields.area_atuacao = person.job_title;
+   ```
+   Manter a linha seguinte (`pessoa_cargo = person.job_title`).
+
+3. **Substituir** o bloco de leitura de custom fields:
+   ```ts
+   const especialidade = getCustomFieldValue(cf, DEAL_CUSTOM_FIELDS.ESPECIALIDADE);
+   if (especialidade) fields.especialidade = normalizeEspecialidade(especialidade) ?? especialidade;
+
+   // FIX (22/jul/2026): área de atuação lia person.job_title por engano.
+   const areaAtuacaoRaw = getCustomFieldValue(cf, DEAL_CUSTOM_FIELDS.AREA_ATUACAO);
+   if (areaAtuacaoRaw) fields.area_atuacao = normalizeAreaAtuacao(areaAtuacaoRaw) ?? areaAtuacaoRaw;
+   ```
+
+### Redeploy
+`piperun-field-map.ts` é `_shared` — todas as functions que o importam precisam ser reempacotadas. Rodar:
+```bash
+grep -rl "piperun-field-map" supabase/functions --include="*.ts" | grep -v "_shared/piperun-field-map.ts"
+```
+e redeployar cada function listada (esperados: `smart-ops-piperun-webhook`, `piperun-full-sync`, `smart-ops-sync-piperun`, `piperun-mirror-import`, `piperun-offline-enrich`, mais o que a busca real retornar).
+
+### Fora de escopo
+- `LeadDetailPanel.tsx`, schema de `lead_activity_log`, contratos PipeRun/SellFlux, verificação de assinatura de webhooks.
+- Backfill de dados (já feito diretamente no banco).
+- Alterar linha `pessoa_cargo = person.job_title` (correta).
+
+### Validação
+Forçar re-sync de 1 deal de teste e conferir:
+```sql
+SELECT area_atuacao, pessoa_cargo FROM lia_attendances WHERE piperun_id = '<ID>';
+```
+`area_atuacao` deve ser um dos 9 canônicos (ou null), nunca igual a `pessoa_cargo`.
