@@ -95,7 +95,7 @@ export function FieldNormalizer() {
       if (!r.value) continue;
       if (canonicalSet.has(r.value)) continue;
       if (next[r.value]) continue;
-      const s = suggestCanonical(r.value, opts.data.options);
+      const s = suggestCanonical(r.value, opts.data.options, field ?? undefined);
       if (s) { next[r.value] = s; count++; }
     }
     setMappings(next);
@@ -115,6 +115,8 @@ export function FieldNormalizer() {
       });
       setMappings({});
       setConfirmOpen(false);
+      // Force immediate refetch so merged values disappear from the table.
+      await Promise.all([vals.refetch(), opts.refetch()]);
     } catch (e: any) {
       toast({ title: "Falha ao atualizar", description: e?.message ?? String(e), variant: "destructive" });
     }
