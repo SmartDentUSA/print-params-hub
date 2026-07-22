@@ -108,7 +108,8 @@ Deno.serve(async (req) => {
           },
           body: JSON.stringify({ action: "send_one", send_log_id: p.send_log_id }),
         });
-        if (r.ok) sent++; else failed++;
+        const result = await r.json().catch(() => ({}));
+        if (r.ok && result?.ok === true) sent++; else failed++;
       } catch (e) {
         console.error("[email-tick] send_one failed", e);
         failed++;
@@ -117,16 +118,30 @@ Deno.serve(async (req) => {
 
     // Mark completed campaigns whose queue emptied
     for (const cid of usedCampaigns) {
-      const { count } = await supabase
+      const { count: queuedCount } = await supabase
         .from("campaign_send_log")
         .select("id", { count: "exact", head: true })
         .eq("source_campaign_id", cid)
         .eq("status", "queued");
-      if ((count ?? 0) === 0) {
-        await supabase.from("campaigns")
-          .update({ status: "completed", completed_at: new Date().toISOString() })
-          .eq("id", cid);
-      }
+      const { count: sentCount } = await supabase
+        .from("campaign_send_log")
+        .select("id", { count: "exact", head: true })
+        .eq("source_campaign_id", cid)
+        .eq("status", "sent");
+      const { count: failedCount } = await supabase
+        .from("campaign_send_log")
+        .select("id", { count: "exact", head: true })
+        .eq("source_campaign_id", cid)
+        .in("status", ["error", "failed"]);
+      const queueEmpty = (queuedCount ?? 0) === 0;
+      await supabase.from("campaigns").update({
+        total_sent: sentCount ?? 0,
+        total_failed: failedCount ?? 0,
+        ...(queueEmpty ? {
+          status: (failedCount ?? 0) > 0 ? "completed_with_errors" : "completed",
+          completed_at: new Date().toISOString(),
+        } : {}),
+      }).eq("id", cid);
     }
 
     return new Response(JSON.stringify({
