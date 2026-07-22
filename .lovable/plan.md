@@ -1,43 +1,46 @@
-Criar o parent **Cimento UNIKK Veneer LV** em `system_a_catalog` e adicioná-lo à rodada de população de variações (junto com os outros SKUs Atos/SmartGum/SmartMake/UNIKK/Block já mapeados).
+Popular `catalog_product_variations` das famílias **Atos / SmartGum / SmartMake / UNIKK Veneer / UNIKK Try-in / ATOS Block**, mantendo **1 pai por cor + 1 variação canônica** (mesma política das rodadas anteriores). Preços BRL/USD/EUR preservados por snapshot antes do wipe.
 
-## 1. Criar parent em `system_a_catalog`
+## Escopo
 
-Nova linha, alinhada com as outras variações do Cimento UNIKK Veneer:
+Para cada SKU da lista, encaixar em um parent existente em `system_a_catalog`, snapshotar preços, deletar variações do parent e re-inserir 1 variação canônica com SKU/GTIN/NCM/peso/dimensões. Onde a lista traz múltiplos pesos para o mesmo pai (Unichroma 3g+4g; Try-in 1g+2g), inserir 2 variações no mesmo pai — único desvio pragmático do "1 variação".
 
-- `name`: `Cimento UNIKK Veneer LV`
-- `slug`: `atos-unikk-veneer-lv` (padrão das siblings A1/A2/A3.5/B1/BL2/TRS)
-- `category`: `product`
-- `product_category`: mesmo das siblings UNIKK (herdar da A1 `6c7c07a5-daa0-49b9-b663-9969ef7a8b2c` via SELECT — hoje é `6. DENTÍSTICA, ESTÉTICA E ORTODONTIA`)
-- `product_subcategory`: idem herdar da A1
-- `active`: `true`
-- `approved`: `true`
-- `visible_in_ui`: `true`
-- `display_order`: max(display_order das UNIKK Veneer) + 1
-- Sem imagem/descrição — pode ser preenchido depois. Sem preço BRL/USD/EUR (não fornecido).
-- `source`: `manual_create_2026_07_22`
+## Mapeamento SKU → parent
 
-## 2. Inserir 1 variação canônica no novo parent
+**Atos Resina Composta Direta (Dentinas/Esmaltes, 4g)** — 939 DA1, 940 DA2, 941 DA3, 942 DA3.5, 943 DA4, 944 DB1, 945 DB2, 946 WD, 947 XWD, 931 EA1, 932 EA2, 933 EA3, 934 EA4, 935 EB1, 936 EB2, 937 WE, 938 XWE.
 
-Em `catalog_product_variations`:
+**Atos Resina Composta Direta (Efeitos 2g)** — 948 Opaque, 949 Clear, 950 OPL.
 
-- `sku`: `1983`
-- `presentation`: `2,5g - LV`
-- `presentation_qty`: `2,5g`
-- `unidade`: `grs`
-- `ncm_hs`: `9021.29.00`
-- `gtin_ean`: null (N/D)
-- `color`: `LV`
-- `weight_kg`: null (N/D — não fornecido)
-- `dimensions_cm`: null (N/D)
-- `sort_order`: 1
-- `source`: `manual_enrichment_2026_07_22_atos`
+**Atos Unichroma** — 1 parent, 2 variações: 1732 (4g) + 1118 (3g).
 
-## 3. Reincluir SKU 1983 na rodada anterior
+**Resina Atos Academic (2g)** — 1578 Amarelo, 1579 Azul Claro, 1580 Azul Escuro, 1581 Branco, 1582 Cinza, 1583 Incolor, 1584 Laranja, 1585 Rosa, 1586 Verde, 1587 Vermelho. Kits: 1028 (10 cores), 1728 (6 cores).
 
-Somar o parent recém-criado à lista de parents da migration da rodada anterior (Atos/SmartGum/SmartMake/UNIKK/Block) e re-inserir a variação junto — mesma pipeline (snapshot preços → wipe → re-insert), respeitando "1 pai por cor + 1 variação".
+**ATOS Smart Ortho** — 1097 (Seringa).
+
+**SmartGum (2,5g)** — 1272 Intense Red, 1274 Pink, 1275 Orange, 1273 Ruby, 1271 Cream, 1390 Black, 1279 Smart Base Clear, 1280 Smart Base White. Kit: 1276.
+
+**SmartMake (2,5g)** — 385 A, 386 B, 387 C, 388 D, 389 Stain Blue, 1267 Stain Violet, 393 Stain White, 391 Stain Black, 392 Int. Brown, 394 Int. Ocre, 395 Int. Mahogany, 1270 Efeito Mamelon, 384 Base Clear. Auxiliares: 383 Seal Glaze (5g), 398 SmartWash (30ml, NCM 3906.90.49), 397 Godê (NCM 3906.90.39). Kits: 400 Básico, 399 Completo.
+
+**Cimento UNIKK Veneer (2,5g)** — 1997 A1, 1998 A2, 1999 A3.5, 2001 B1, 2002 BL2, 2000 TRS, **1983 LV** (parent já criado). Kit: 2017.
+
+**Cimento UNIKK Veneer Try-in (2g + 1g no mesmo pai)** — A1(1985), A2(2008+2003), A3.5(2009+2004), B1(2011+2006), BL2(2012+2007), TRS(2010+2005).
+
+**ATOS Block (Caixa 5 un., 0,50 kg / 12×12×5 cm)** — LT: 1338 A1, 1339 A2, 1340 A3, 1341 A3.5, 1342 B1, 1343 C2, 1344 Bleach; HT: 1345 A1, 1346 A2, 1347 A3, 1348 B1.
+
+## Não incluído
+
+- **SmartMake Maleta (SKU 396)** — parent inexistente; pendente sua autorização.
+- HIBCC — coluna não existe no schema.
+
+## Execução (uma migration via `supabase--insert`)
+
+1. Snapshot BRL/USD/EUR atuais por (`catalog_product_id`, `sku`, `gtin_ean`) dos parents alvo.
+2. `DELETE FROM catalog_product_variations WHERE catalog_product_id IN (…lista…)`.
+3. `INSERT` das ~85 variações canônicas com `sku`, `presentation`, `presentation_qty`, `unidade` (`grs`/`ml`/`un`/`kit`), `gtin_ean`, `ncm_hs`, `weight_kg`, `dimensions_cm`, `color`, `sort_order`, `source='manual_enrichment_2026_07_22_atos'`.
+4. Preservar preços via LEFT JOIN no snapshot casando por SKU ou GTIN.
+5. Kits recebem `unidade='kit'`, sem peso/dim quando `N/D`.
 
 ## Fora de escopo
 
-- Continua não criando SmartMake Maleta (SKU 396) — se quiser, peça em uma próxima rodada.
-- Sem alteração de UI, `resins`, `catalog_documents` ou preços dos demais itens.
-- Sem regeneração automática do CSV master.
+- Não criar/renomear/deletar parents em `system_a_catalog` (LV já criado na rodada anterior).
+- Não mexer em `resins` nem em `catalog_documents`.
+- Sem alteração de UI e sem regeneração de CSV master.
