@@ -32,7 +32,7 @@ interface ZernioLeadReceivedPayload {
 }
 
 async function verifyZernioSignature(req: Request, rawBody: string): Promise<boolean> {
-  const signature = req.headers.get("x-zernio-signature");
+  const signature = req.headers.get("x-late-signature");
   const secret = Deno.env.get("ZERNIO_WEBHOOK_SECRET");
   if (!signature || !secret) return false;
 
