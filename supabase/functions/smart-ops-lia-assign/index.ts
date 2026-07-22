@@ -3650,6 +3650,7 @@ Deno.serve(async (req) => {
             }
           }
 
+          let estagnadoClosed = false;
           if (piperunId) {
             // Só fecha Estagnados depois que o novo VENDAS existe. Se a criação
             // falhar ou estiver concorrente, o deal antigo permanece aberto.
@@ -3661,6 +3662,7 @@ Deno.serve(async (req) => {
               `Lead reagiu a novo anúncio/formulário em ${new Date().toLocaleDateString("pt-BR")} — novo deal VENDAS ${piperunId} criado via Dra. L.I.A.`,
             );
             if (closedOk) {
+              estagnadoClosed = true;
               console.log(`[lia-assign] Estagnados ${estagnDealIdNum} fechado como Perdido (Novo interesse); novo deal Vendas=${piperunId}, owner=${assignedOwnerName}`);
             } else {
               console.warn(`[lia-assign] Novo VENDAS ${piperunId} criado, mas PipeRun não confirmou fechamento do Estagnados ${estagnDealIdNum}`);
@@ -3673,12 +3675,17 @@ Deno.serve(async (req) => {
           try {
             await supabase.from("lead_activity_log").insert({
               lead_id: lead.id,
-              event_type: "estagnado_fechado_novo_deal_vendas",
+              event_type: estagnadoClosed
+                ? "estagnado_fechado_novo_deal_vendas"
+                : "estagnado_fechamento_pendente_novo_deal_vendas",
               entity_type: "deal",
               entity_id: piperunId ? String(piperunId) : String(estagnDealIdNum),
-              entity_name: "Reativação: Estagnados fechado (Novo interesse) → novo deal Vendas",
+              entity_name: estagnadoClosed
+                ? "Reativação: Estagnados fechado (Novo interesse) → novo deal Vendas"
+                : "Reativação: novo deal Vendas criado; fechamento de Estagnados pendente",
               event_data: {
                 deal_estagnados_fechado: String(estagnDealIdNum),
+                estagnados_fechado_confirmado: estagnadoClosed,
                 novo_deal_vendas: piperunId ? String(piperunId) : null,
                 motivo_perda: LOST_REASON_NOVO_INTERESSE,
                 novo_owner: assignedOwnerName,
