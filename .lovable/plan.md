@@ -1,93 +1,89 @@
-# Correção Catálogo/Artigos/Renderização — reaproveitando infra existente
+# Redesign da Base de Conhecimento no padrão do mockup
 
-## Princípio
+## Objetivo
+Adotar o shell da referência para `/base-conhecimento`: sidebar esquerda persistente, hero editorial no topo do conteúdo, barra de busca em destaque, chips de subcategoria, toggle grid/list e ordenação — mantendo TODO o backend, rotas, dados e SEO como estão hoje.
 
-Não criar taxonomia nova (`/catalogo/resinas-3d/...`, `/artigos/impressao-3d/...`). A infra de prerender já existe e funciona: `seo-proxy`, `ssr-prerender`, `knowledge_categories` (7 categorias A–G), `knowledge_contents` (605+ itens). O problema são 3 bugs pontuais + 1 gap (hub agregador de artigos).
+## O que muda (apenas visual/estrutural)
+1. **Novo shell de layout** em `KnowledgeBase.tsx`:
+   - Sidebar esquerda fixa (~240px) com:
+     - Logo Smart Dent no topo
+     - Bloco "NAVEGAÇÃO": Visão geral, Catálogo, Vídeos, Artigos, Ebooks, Eventos, Revendas
+     - Bloco "CATEGORIAS": lista de subcategorias da aba ativa com badge de contagem
+     - Card CTA no rodapé ("Soluções de odontologia digital" → link atual)
+   - Área principal com:
+     - Header topo direita (Admin, seletor de idioma, avatar) — reaproveita `<Header>` atual
+     - Hero editorial: título grande da aba + subtítulo + imagem decorativa à direita
+     - Barra de busca larga (reaproveita `KbSearchBar`)
+     - Chips de subcategoria em linha (reaproveita `KbChips`)
+     - Toggle grid/list + dropdown "Mais recentes" à direita
+     - Grid de cards (mantém `KbContentCard` / `KbProductCard` atuais)
 
----
+2. **Sidebar substitui `KbTabSwitcher`** como navegação primária. O switcher horizontal atual sai; o mapeamento tab↔componente em `KnowledgeBase.tsx` permanece igual.
 
-## Fase 1 — Bugs críticos no `seo-proxy` (bloqueiam tudo)
+3. **"Visão geral"** (item novo): tela agregadora simples reutilizando cards existentes das outras abas — nada de dado novo.
 
-### 1.1 Fallback vazio para User-Agent não-bot
-Hoje `if (!isBot(ua)) return new Response('', {status:200})` devolve corpo vazio para qualquer UA fora da allowlist fechada. É a causa raiz mais provável de "toda IA responde a mesma coisa" e do "título genérico" (o que sobra é o `<title>` do `index.html` estático do Vite).
+4. **Toggle grid/list**: apenas CSS. Grid = layout atual. List = mesmo card em variante horizontal.
 
-**Ação:** ampliar heurística (`bot|crawler|spider|python|curl|scrapy|headless|node|axios|http`) OU, quando UA for ambíguo, servir o HTML pré-renderizado por padrão em vez de vazio. Nunca devolver body `''`.
+5. **Contagens de categoria na sidebar**: usa queries já existentes (`useKnowledge`, `useCatalogProducts`) — só agrega `count`.
 
-### 1.2 `seo-proxy` não lê `?tab=`
-Só lê `originalPath`, então `?tab=catalogo` e `?tab=artigos` caem no mesmo hub genérico.
+## O que NÃO muda
+- Rotas (`/base-conhecimento`, `/base-conhecimento/{letra}/{slug}`, `?tab=`)
+- Nomes e keys de tabs (`parametros`, `catalogo`, `videos`, `artigos`, `ebooks`, `distribuidores`, `eventos`)
+- Componentes de conteúdo (`KbTabVideos`, `KbTabCatalogo`, `KbContentCard`, dialogs, etc.)
+- `seo-proxy` (SSR para bots) — nenhuma alteração
+- Contrato de dados, hooks, i18n keys
+- URLs de artigos, deep-links, share links
 
-**Ação:** ler `url.searchParams.get('tab')`. Quando `segments[0]==='base-conhecimento'` e `segments.length===1`:
-- `tab=catalogo` (ou ausente) → `generateKnowledgeCategoryHTML('g', ...)` (categoria G já existe, 18 itens).
-- `tab=artigos` → `generateArticlesHubHTML()` (Fase 2).
+## Risco real por eixo
 
-### 1.3 Case da URL (sempre minúsculo)
-Banco confirma 7 categorias únicas maiúsculas (A–G). A duplicação `/g` vs `/G` é geração no front/proxy sem `.toLowerCase()` consistente.
+**SEO / GEO — MUITO BAIXO**
+- Zero mudança em rotas, JSON-LD, sitemap, `seo-proxy`. Bots continuam vendo o mesmo HTML.
+- Sidebar adiciona links internos (bom para crawl). Nenhuma URL removida.
 
-**Ação:** toda geração interna de URL (links, canonical, sitemap) sempre minúsculo. Roteador/proxy aceita ambos mas redireciona 301 para minúsculo canônico.
+**Regressão funcional — BAIXO-MÉDIO**
+- Risco concentrado em: preservar `?tab=` deep-links, deep-link de artigo (`contentSlug`), i18n PT/EN/ES, `KbTabSwitcher` sendo removido sem quebrar rotas alias (`/artigos`, `/catalogo`).
+- Mitigação: manter as mesmas keys de tab; sidebar chama o mesmo `setTab()`.
 
----
+**Mobile — MÉDIO**
+- Mockup é claramente desktop. Sidebar precisa virar drawer/off-canvas em ≤900px, com botão hamburger no header. Hero encolhe (só título + subtítulo, sem imagem). Chips com scroll-x.
+- Sem cuidado explícito, mobile quebra.
 
-## Fase 2 — Hub de Artigos (view agregadora, sem migrar conteúdo)
+**Escopo de código — MÉDIO**
+- `KnowledgeBase.tsx` (110 linhas) recebe wrapper novo (baixo).
+- `kbStyles` (CSS inline gigante) precisa ganhar tokens do novo shell.
+- Nenhum arquivo de aba interna precisa ser reescrito.
 
-View SQL agregando categorias textuais:
-```sql
-SELECT kc.*, cat.letter, cat.name AS category_name
-FROM knowledge_contents kc
-JOIN knowledge_categories cat ON cat.id = kc.category_id
-WHERE cat.letter IN ('B','C','D','F')  -- Falhas, Ciência, Casos Clínicos, Parâmetros
-  AND kc.active = true
-ORDER BY kc.created_at DESC;
-```
+**Performance — BAIXO**
+- Contagens de sidebar são queries agregadas leves; usam cache do React Query existente.
 
-Nova função `generateArticlesHubHTML()` no `seo-proxy` (mesmo padrão de `generateKnowledgeHubHTML`/`generateKnowledgeCategoryHTML`): H1 "Artigos sobre Odontologia Digital e Impressão 3D", lista os itens das 4 categorias, paginação, filtro por categoria.
+**Superfície de dados nova — ZERO**
+- Não cria tabelas, colunas, edge functions. Só consome o que já existe.
 
-Rota principal: `/base-conhecimento?tab=artigos` (via fix 1.2). Opcional: alias `/base-conhecimento/artigos` como URL citável mais limpa. **Nenhuma URL existente `/base-conhecimento/{letra}/{slug}` muda.**
+## Fases (todas revertíveis)
 
----
+**Fase 1 — Shell isolado atrás de flag**
+- Criar `KbShellSidebar.tsx` + `KbHero.tsx` + `KbToolbar.tsx` (grid/list + sort).
+- Feature flag `?shell=v2` renderiza o novo layout envolvendo os `KbTab*` atuais sem tocar neles.
+- Preview lado-a-lado com URL antiga.
 
-## Fase 3 — Categoria E ("Depoimentos e Cursos") — separar por tipo na renderização
+**Fase 2 — Sidebar com contagens + "Visão geral"**
+- Hook `useKbCounts()` agrega totais por aba/subcategoria (queries já existentes).
+- Tela "Visão geral" com blocos "Últimos vídeos", "Últimos artigos", "Produtos em destaque" reusando cards.
 
-259 itens misturam depoimento de cliente + curso comercial. Não dividir em categorias novas (mexeria em URLs). Usar campos existentes (`client_name`, `client_specialty` — só preenchidos em depoimentos) para renderizar blocos diferentes na listagem/hub:
-- Depoimento → bloco "cliente real".
-- Curso → bloco "matrícula/CTA comercial".
+**Fase 3 — Mobile + toggle list/grid + remoção da flag**
+- Sidebar vira drawer em ≤900px.
+- Variante `.kb-card--list` no CSS.
+- Substituição definitiva; `KbTabSwitcher` removido.
 
-Separação de URL fica para fase futura, se justificar após medir.
+## O que NÃO fazer
+- Não trocar rotas nem slugs.
+- Não mexer em `seo-proxy` (bots).
+- Não reescrever `KbTabVideos/Artigos/Catalogo` — só envolver.
+- Não adicionar "avatar do usuário" no header se não houver auth de front-end para isso (mostrar só quando `useAuth` retornar user real).
+- Não inventar contagens — só usar dado real; oculta o badge quando `count = 0`.
 
----
+## Estimativa
+Fase 1: ~½ dia. Fase 2: ~½ dia. Fase 3: ~½ dia. Total ~1,5 dia com validação.
 
-## Fase 4 — Metadados por página
-
-`ssr-prerender` e `seo-proxy` já geram `<title>${article.title} | Smart Dent}` por artigo. Sintoma de título genérico é provavelmente o próprio bug 1.1. **Ação:** corrigir 1.1 e re-auditar; só investigar página a página se persistir.
-
----
-
-## Fase 5 — E-E-A-T e conteúdo (workstream editorial, não infra)
-
-Sinalizado para priorização separada (não entra nesta implementação):
-- Trocar "FDA approved" por "FDA 510(k) cleared" em conteúdo Bio Vitality e demais 510(k).
-- Autoria nomeada com credencial (CRO, título) em conteúdo técnico/científico — não "Equipe Smart Dent" nem "Dra. L.I.A." genérico.
-- Reescrever "Lista oficial de produtos" em tom informativo (hoje soa como instrução para IA).
-- Alegações superlativas ("único da América Latina") → anexar metodologia/data/fonte ou remover.
-
----
-
-## Detalhes técnicos
-
-**Arquivos afetados (Fase 1–2):**
-- `supabase/functions/seo-proxy/index.ts` — fixes 1.1, 1.2, 1.3 + nova `generateArticlesHubHTML()`.
-- `supabase/functions/ssr-prerender/index.ts` — auditar mesma lógica de UA/tab se aplicável.
-- Frontend: garantir `.toLowerCase()` em toda montagem de link para `/base-conhecimento/{letra}/...` (canonical, sitemap generator, componentes de listagem).
-- Migração: criar view `v_knowledge_articles` (ou query direta na função — decidir na implementação).
-
-**Ordem de execução:**
-1. Fase 1.1 (fallback vazio) — deploy isolado, valida "auditoria de IA" imediatamente.
-2. Fase 1.2 + 1.3 (tab + case) — deploy junto.
-3. Fase 2 (hub artigos) — depende de 1.2.
-4. Fase 3 (render categoria E) — independente, pode paralelizar.
-5. Fase 4 — só após 1.1 estar em produção e re-auditado.
-
-**Fora de escopo:**
-- Nenhuma alteração em URLs de artigos existentes.
-- Nenhuma re-taxonomização dos 605 conteúdos.
-- Nenhuma nova categoria em `knowledge_categories`.
-- Conteúdo editorial (Fase 5) fica para workstream separado.
+## Veredito
+Risco **baixo** desde que seja tratado como refit de shell (envelope) e não como reescrita das abas. O ponto único de atenção real é o mobile (drawer + hero colapsável). Nada aqui ameaça SEO, dados, CRM, ou os fluxos já estabilizados.
