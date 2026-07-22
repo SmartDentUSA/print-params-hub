@@ -147,7 +147,7 @@ export default function KbTabParametros() {
   return (
     <section>
       {/* Título removido: hero do shell v2 é a única fonte do título nesta aba */}
-      <p className="kb-label">{t('kb.parametros.select_brand')}</p>
+      <p className="kb-label" style={{ marginTop: 24, textAlign: 'left' }}>{t('kb.parametros.select_brand')}</p>
       <KbChips
         options={brandChips}
         active={brand?.id || ''}
