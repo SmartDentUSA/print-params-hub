@@ -3380,7 +3380,7 @@ Deno.serve(async (req) => {
       //   • Único destino permitido pós-ganho: CS Onboarding, tratado no
       //     piperun-webhook após status=won.
       let wonFrozen = false;
-      if (force_new_deal !== true && csOpenDeals.length === 0) {
+      if (force_new_deal !== true && csOpenDeals.length === 0 && !estagnDeal) {
         const WON_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
         const recentWonVendas = wonDeals
           .filter((d) => Number(d.pipeline_id) === PIPELINES.VENDAS)
@@ -3613,17 +3613,6 @@ Deno.serve(async (req) => {
         {
           flowType = "reactivate_estagnado_new_deal";
 
-          const lostReasonId = await resolveLostReasonId(PIPERUN_API_KEY);
-          const closedOk = await closeDealAsLost(
-            PIPERUN_API_KEY,
-            estagnDealIdNum,
-            lostReasonId,
-            `Lead reagiu a novo anúncio/formulário em ${new Date().toLocaleDateString("pt-BR")} — reativado como novo deal em Funil de Vendas via Dra. L.I.A.`,
-          );
-          if (!closedOk) {
-            console.warn(`[lia-assign] Falha ao fechar deal Estagnados ${estagnDealIdNum} como Perdido — prosseguindo mesmo assim com criação do novo deal`);
-          }
-
           // Fresh Round Robin — NUNCA herda o vendedor do deal antigo.
           const novoVendedor = await pickRandomActiveVendedor(supabase);
           assignedOwnerId = novoVendedor.piperun_owner_id;
@@ -3640,7 +3629,6 @@ Deno.serve(async (req) => {
           );
           if (!claimEstagn.ok) {
             console.warn(`[lia-assign] estagnados_reativacao: lock_held para lead ${lead.id} — abortando criação concorrente`);
-            piperunId = String(estagnDealIdNum);
             flowType = "reactivate_estagnado_new_deal_lock_held";
           } else {
             try {
@@ -3663,9 +3651,22 @@ Deno.serve(async (req) => {
           }
 
           if (piperunId) {
-            console.log(`[lia-assign] Estagnados ${estagnDealIdNum} fechado como Perdido (Novo interesse); novo deal Vendas=${piperunId}, owner=${assignedOwnerName}`);
+            // Só fecha Estagnados depois que o novo VENDAS existe. Se a criação
+            // falhar ou estiver concorrente, o deal antigo permanece aberto.
+            const lostReasonId = await resolveLostReasonId(PIPERUN_API_KEY);
+            const closedOk = await closeDealAsLost(
+              PIPERUN_API_KEY,
+              estagnDealIdNum,
+              lostReasonId,
+              `Lead reagiu a novo anúncio/formulário em ${new Date().toLocaleDateString("pt-BR")} — novo deal VENDAS ${piperunId} criado via Dra. L.I.A.`,
+            );
+            if (closedOk) {
+              console.log(`[lia-assign] Estagnados ${estagnDealIdNum} fechado como Perdido (Novo interesse); novo deal Vendas=${piperunId}, owner=${assignedOwnerName}`);
+            } else {
+              console.warn(`[lia-assign] Novo VENDAS ${piperunId} criado, mas PipeRun não confirmou fechamento do Estagnados ${estagnDealIdNum}`);
+            }
           } else {
-            console.error(`[lia-assign] Estagnados ${estagnDealIdNum} fechado, mas falha ao criar novo deal em Vendas para lead ${lead.id}`);
+            console.error(`[lia-assign] Falha ao criar novo deal em Vendas para lead ${lead.id}; Estagnados ${estagnDealIdNum} foi preservado`);
             flowType = "reactivate_estagnado_new_deal_failed";
           }
 
