@@ -136,6 +136,9 @@ interface LeadFull {
   id: string;
   nome: string;
   email: string;
+  email_bounced?: boolean | null;
+  email_bounced_reason?: string | null;
+  email_last_attempt_at?: string | null;
   telefone_normalized: string | null;
   buyer_type: string | null;
   lead_status: string;
@@ -354,6 +357,17 @@ function LeadRow({ lead, active, onClick }: { lead: LeadFull; active: boolean; o
           <div className="intel-lr-name">{lead.nome}</div>
           <div className="intel-lr-email">
             {lead.email && !lead.email.includes("placeholder") ? lead.email : (lead.empresa_nome || lead.area_atuacao || "—")}
+            {lead.email_bounced && (
+              <span
+                title={lead.email_bounced_reason || "E-mail retornou como não entregue"}
+                style={{
+                  marginLeft: 6, padding: "1px 6px", borderRadius: 4,
+                  fontSize: 9, fontWeight: 700, background: "#fee2e2", color: "#b91c1c",
+                }}
+              >
+                ✉︎ inválido
+              </span>
+            )}
           </div>
           {lead.telefone_normalized && (
             <div className="intel-lr-email">📱 {lead.telefone_normalized}</div>
