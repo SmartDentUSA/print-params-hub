@@ -20,6 +20,50 @@ function buildCanonicalLookup(canonicalList: string[]): Map<string, string> {
   return map;
 }
 
+// Fuzzy match helpers — used as a second pass when the exact slug lookup
+// misses. Threshold tuned so trivial typos/plurals ("consultorios",
+// "cirurgia_dentista") collapse to the canonical value, while genuinely
+// unrelated strings still fall through to needsManualReview.
+const SIMILARITY_THRESHOLD = 0.82;
+
+function levenshtein(a: string, b: string): number {
+  if (a === b) return 0;
+  const al = a.length, bl = b.length;
+  if (!al) return bl;
+  if (!bl) return al;
+  const prev = new Array<number>(bl + 1);
+  const curr = new Array<number>(bl + 1);
+  for (let j = 0; j <= bl; j++) prev[j] = j;
+  for (let i = 1; i <= al; i++) {
+    curr[0] = i;
+    for (let j = 1; j <= bl; j++) {
+      const cost = a.charCodeAt(i - 1) === b.charCodeAt(j - 1) ? 0 : 1;
+      curr[j] = Math.min(curr[j - 1] + 1, prev[j] + 1, prev[j - 1] + cost);
+    }
+    for (let j = 0; j <= bl; j++) prev[j] = curr[j];
+  }
+  return prev[bl];
+}
+
+function fuzzyMatchCanonical(slug: string, lookup: Map<string, string>): string | null {
+  if (!slug) return null;
+  let bestKey: string | null = null;
+  let bestRatio = 0;
+  for (const key of lookup.keys()) {
+    const maxLen = Math.max(slug.length, key.length);
+    if (!maxLen) continue;
+    const ratio = 1 - levenshtein(slug, key) / maxLen;
+    if (ratio > bestRatio) {
+      bestRatio = ratio;
+      bestKey = key;
+    }
+  }
+  if (bestKey && bestRatio >= SIMILARITY_THRESHOLD) {
+    return lookup.get(bestKey) ?? null;
+  }
+  return null;
+}
+
 // 1. Área de atuação
 const AREA_ATUACAO_CANONICAL = [
   "CLÍNICA OU CONSULTÓRIO",
@@ -37,7 +81,7 @@ const AREA_ATUACAO_LOOKUP = buildCanonicalLookup(AREA_ATUACAO_CANONICAL);
 export function normalizeAreaAtuacao(raw: string | undefined): string | null {
   const slug = slugify(raw);
   if (!slug) return null;
-  return AREA_ATUACAO_LOOKUP.get(slug) ?? null;
+  return AREA_ATUACAO_LOOKUP.get(slug) ?? fuzzyMatchCanonical(slug, AREA_ATUACAO_LOOKUP);
 }
 
 // 2. Especialidade
@@ -61,7 +105,7 @@ const ESPECIALIDADE_LOOKUP = buildCanonicalLookup(ESPECIALIDADE_CANONICAL);
 export function normalizeEspecialidade(raw: string | undefined): string | null {
   const slug = slugify(raw);
   if (!slug) return null;
-  return ESPECIALIDADE_LOOKUP.get(slug) ?? null;
+  return ESPECIALIDADE_LOOKUP.get(slug) ?? fuzzyMatchCanonical(slug, ESPECIALIDADE_LOOKUP);
 }
 
 // 3. Scanner
@@ -120,6 +164,9 @@ export function normalizeScanner(raw: string | undefined): ScannerNormalizationR
   const exact = SCANNER_MODEL_LOOKUP.get(slug);
   if (exact) return { status: "modelo_exato", label: exact };
 
+  const fuzzy = fuzzyMatchCanonical(slug, SCANNER_MODEL_LOOKUP);
+  if (fuzzy) return { status: "modelo_exato", label: fuzzy };
+
   for (const { brand, patterns } of SCANNER_BRAND_KEYWORDS) {
     if (patterns.some((p) => slug.includes(p))) {
       return { status: "marca_fallback", label: brand };
@@ -158,6 +205,9 @@ export function normalizeImpressora(raw: string | undefined): ImpressoraNormaliz
 
   const exact = IMPRESSORA_BRAND_LOOKUP.get(slug);
   if (exact) return { status: "marca_exata", label: exact };
+
+  const fuzzy = fuzzyMatchCanonical(slug, IMPRESSORA_BRAND_LOOKUP);
+  if (fuzzy) return { status: "marca_exata", label: fuzzy };
 
   for (const brand of IMPRESSORA_BRAND_CANONICAL) {
     const brandSlug = slugify(brand);
