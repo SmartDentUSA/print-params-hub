@@ -67,10 +67,7 @@ export default function KbTabEbooks({ onOpen }: Props) {
 
   return (
     <section>
-      <KbSectionHeader
-        title={t('kb.tabs.ebooks')}
-        subtitle={t('kb.ebooks.subtitle') !== 'kb.ebooks.subtitle' ? t('kb.ebooks.subtitle') : ''}
-      />
+      {/* Título removido: hero do shell v2 é a única fonte do título nesta aba */}
       <KbSearchBar placeholder={t('kb.artigos.search')} value={q} onDebouncedChange={setQ} />
       {!loading && <KbResultCount count={cards.length} noun="article" />}
       <div className="kb-grid">
