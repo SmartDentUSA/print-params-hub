@@ -1634,8 +1634,11 @@ async function generateKnowledgeHubHTML(supabase: any): Promise<string> {
 }
 
 async function generateKnowledgeCategoryHTML(letter: string, supabase: any): Promise<string> {
+  // Sempre normaliza para minúsculo — DB armazena maiúsculo (A–G), URLs canônicas são minúsculas.
+  const letterLc = (letter || '').toLowerCase();
+  const letterUc = letterLc.toUpperCase();
   const { data: category, error: categoryError } = await supabase
-    .from('knowledge_categories').select('*').eq('letter', letter.toUpperCase()).eq('enabled', true).single();
+    .from('knowledge_categories').select('*').eq('letter', letterUc).eq('enabled', true).single();
 
   if (categoryError) { console.error('Supabase error fetching category:', letter, categoryError.message); return ''; }
   if (!category) { console.log('Category not found:', letter); return ''; }
