@@ -3,6 +3,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { LtvRules } from "./smartops/reactivation/LtvRules";
 import { LtvRunsPanel } from "./smartops/reactivation/LtvRunsPanel";
 import { OperationalFlowEditor } from "./smartops/reactivation/OperationalFlowEditor";
+import { FieldNormalizer } from "./smartops/reactivation/FieldNormalizer";
 import { IngestionMap } from "./smartops/reactivation/IngestionMap";
 import { CrmRulesMap } from "./smartops/reactivation/CrmRulesMap";
 import { ReactivationSettings } from "./smartops/reactivation/ReactivationSettings";
@@ -40,6 +41,7 @@ export function SmartOpsReactivationHub() {
         <TabsTrigger value="flows">Fluxos Editor</TabsTrigger>
         <TabsTrigger value="ingestion">Ingestão de Leads</TabsTrigger>
         <TabsTrigger value="crm">Regras CRM</TabsTrigger>
+        <TabsTrigger value="normalize">Normalizar Campos</TabsTrigger>
         <TabsTrigger value="settings">Configurações</TabsTrigger>
       </TabsList>
       {help && (
@@ -55,6 +57,7 @@ export function SmartOpsReactivationHub() {
       <TabsContent value="flows"><OperationalFlowEditor /></TabsContent>
       <TabsContent value="ingestion"><IngestionMap /></TabsContent>
       <TabsContent value="crm"><CrmRulesMap /></TabsContent>
+      <TabsContent value="normalize"><FieldNormalizer /></TabsContent>
       <TabsContent value="settings"><ReactivationSettings /></TabsContent>
     </Tabs>
   );
