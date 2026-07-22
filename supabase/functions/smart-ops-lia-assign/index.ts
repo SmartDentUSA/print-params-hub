@@ -3678,6 +3678,74 @@ Deno.serve(async (req) => {
             console.warn("[lia-assign] Failed to log estagnado_fechado_novo_deal_vendas:", e);
           }
         }
+      } else if (csOpenDeals.length > 0 && force_new_deal !== true) {
+        // ─── CS aberto + novo formulário → NOVO deal em VENDAS ─────────
+        // Regra do usuário: NUNCA tocar em deals de CS (Onboarding /
+        // Ganhos Aleatórios), mas o cliente que preenche formulário
+        // durante o CS demonstra interesse por OUTRO produto — precisa
+        // gerar novo pipeline de vendas para registrar essa intenção.
+        // Bypass da Golden Rule Primary (30d) porque a intenção é
+        // legítimamente nova.
+        flowType = "new_vendas_cs_active";
+        console.log(
+          `[lia-assign] CS ATIVO detectado (${csOpenDeals.map((d) => d.id).join(",")}) — criando NOVO deal em VENDAS para novo interesse comercial`,
+        );
+
+        const novoVendedor = await pickRandomActiveVendedor(supabase);
+        assignedOwnerId = novoVendedor.piperun_owner_id;
+        assignedOwnerName = novoVendedor.nome_completo;
+        assignedTeamMemberId = novoVendedor.id === "fallback-admin" ? null : novoVendedor.id;
+
+        const intentHashCs = `cs_ativo_novo_interesse:${String(lead.form_name ?? lead.source ?? "")}`;
+        const claimCs = await claimDealCreateSlot(
+          supabase,
+          lead.id as string,
+          personId,
+          intentHashCs,
+        );
+        if (!claimCs.ok) {
+          console.warn(`[lia-assign] cs_ativo_novo_interesse: lock_held para lead ${lead.id} — abortando criação concorrente`);
+          flowType = "new_vendas_cs_active_lock_held";
+        } else {
+          try {
+            piperunId = await createNewDeal(
+              PIPERUN_API_KEY,
+              personId,
+              companyId,
+              lead as Record<string, unknown>,
+              PIPELINES.VENDAS,
+              STAGES_VENDAS.SEM_CONTATO,
+              assignedOwnerId,
+              customFields,
+              leadEmail,
+              supabase,
+              inputFormResponses,
+            );
+          } finally {
+            await releaseDealCreateSlot(supabase, lead.id as string);
+          }
+        }
+
+        try {
+          await supabase.from("lead_activity_log").insert({
+            lead_id: lead.id,
+            event_type: "novo_deal_vendas_cs_ativo",
+            entity_type: "deal",
+            entity_id: piperunId ? String(piperunId) : null,
+            entity_name: "Novo interesse durante CS — deal VENDAS criado (CS preservado)",
+            event_data: {
+              novo_deal_vendas: piperunId ? String(piperunId) : null,
+              deals_cs_preservados: csOpenDeals.map((d) => String(d.id)),
+              novo_owner: assignedOwnerName,
+              novo_owner_id: assignedOwnerId,
+              person_id: personId,
+              form_name: lead.form_name,
+              source: lead.source,
+            },
+            source_channel: "form",
+            event_timestamp: new Date().toISOString(),
+          });
+        } catch {}
       } else {
         flowType = "new_deal";
         // ── GOLDEN RULE PRIMARY (Guard D extended) ──
