@@ -15,6 +15,9 @@ import KbTabCatalogo from '@/components/knowledge/KbTabCatalogo';
 import KbTabDistribuidores from '@/components/knowledge/KbTabDistribuidores';
 import KbTabEventos from '@/components/knowledge/KbTabEventos';
 import { kbStyles } from '@/components/knowledge/kbStyles';
+import KbShellLayout, { type KbShellNavKey } from '@/components/knowledge/shell/KbShellLayout';
+import { kbShellStyles } from '@/components/knowledge/shell/kbShellStyles';
+import KbTabOverview from '@/components/knowledge/KbTabOverview';
 
 interface KnowledgeBaseProps { lang?: 'pt' | 'en' | 'es'; forcedTab?: KbTab }
 
@@ -43,6 +46,10 @@ export default function KnowledgeBase({ lang = 'pt', forcedTab }: KnowledgeBaseP
   const [tab, setTab] = useState<KbTab>(() => getInitialTab(categoryLetter, forcedTab));
   const [dialogContent, setDialogContent] = useState<any>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const shellV2 = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('shell') === 'v2';
+  const [overview, setOverview] = useState<boolean>(() =>
+    shellV2 && !forcedTab && !categoryLetter && !new URLSearchParams(window.location.search).get('tab'),
+  );
 
   // Update URL when tab changes (no reload). Skip when route is a dedicated path alias.
   useEffect(() => {
@@ -81,6 +88,60 @@ export default function KnowledgeBase({ lang = 'pt', forcedTab }: KnowledgeBaseP
       navigate(`${basePath}?tab=${tab}`, { replace: true });
     }
   };
+
+  if (shellV2) {
+    const activeKey: KbShellNavKey = overview ? 'overview' : tab;
+    const heroMap: Record<KbShellNavKey, { title: string; subtitle: string }> = {
+      overview:       { title: 'Base de Conhecimento', subtitle: 'Tudo o que você precisa para operar a odontologia digital.' },
+      parametros:     { title: 'Parâmetros',    subtitle: 'Parâmetros de impressão testados por impressora e resina.' },
+      catalogo:       { title: 'Catálogo',      subtitle: 'Resinas, impressoras, scanners e consumíveis Smart Dent.' },
+      videos:         { title: 'Vídeos',        subtitle: 'Vídeos tutoriais, casos clínicos e depoimentos.' },
+      artigos:        { title: 'Artigos',       subtitle: 'Artigos técnicos, casos clínicos e guias práticos.' },
+      ebooks:         { title: 'Ebooks',        subtitle: 'Materiais aprofundados para download.' },
+      eventos:        { title: 'Eventos',       subtitle: 'Cursos, feiras e treinamentos.' },
+      distribuidores: { title: 'Revendas',      subtitle: 'Rede oficial de revendas Smart Dent.' },
+    };
+    const hero = heroMap[activeKey];
+    return (
+      <>
+        <style>{kbStyles}</style>
+        <style>{kbShellStyles}</style>
+        {dialogContent && (
+          <KnowledgeSEOHead content={dialogContent} category={dialogContent?.knowledge_categories} currentLang={lang} />
+        )}
+        <KbShellLayout
+          active={activeKey}
+          onChange={(k) => {
+            if (k === 'overview') { setOverview(true); return; }
+            setOverview(false);
+            setTab(k);
+          }}
+          heroTitle={hero.title}
+          heroSubtitle={hero.subtitle}
+          showAdminButton
+        >
+          {overview ? (
+            <KbTabOverview onGoto={(t) => { setOverview(false); setTab(t); }} />
+          ) : (
+            <>
+              {tab === 'parametros' && <KbTabParametros />}
+              {tab === 'videos' && <KbTabVideos onOpen={openArticle} />}
+              {tab === 'artigos' && <KbTabArtigos onOpen={openArticle} />}
+              {tab === 'ebooks' && <KbTabEbooks onOpen={openArticle} />}
+              {tab === 'catalogo' && <KbTabCatalogo />}
+              {tab === 'distribuidores' && <KbTabDistribuidores />}
+              {tab === 'eventos' && <KbTabEventos />}
+            </>
+          )}
+        </KbShellLayout>
+        <Dialog open={dialogOpen} onOpenChange={(o) => { if (!o) closeDialog(); }}>
+          <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+            {dialogContent && <KnowledgeContentViewer content={dialogContent} />}
+          </DialogContent>
+        </Dialog>
+      </>
+    );
+  }
 
   return (
     <div className="min-h-screen" style={{ background: '#EEF1F6' }}>
