@@ -404,7 +404,7 @@ Deno.serve(async (req) => {
 
     // ────────── Mode: ENQUEUE — resolve audience and queue for the scheduler ──────────
     let q = supabase.from("lia_attendances")
-      .select("id, nome, email, responsavel_id")
+      .select("id, nome, email")
       .is("merged_into", null)
       .not("email", "is", null)
       .neq("email", "")
