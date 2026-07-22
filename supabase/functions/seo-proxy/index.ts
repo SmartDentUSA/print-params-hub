@@ -51,6 +51,11 @@ const SOCIAL_BOTS = [
 
 const ALL_BOTS = [...AI_BOTS, ...SEARCH_BOTS, ...SOCIAL_BOTS];
 
+// Heurística ampla — captura ferramentas de auditoria, LLMs, scrapers e clientes
+// HTTP genéricos que não estão nomeados na allowlist. Sem isso, qualquer UA
+// desconhecido caía num Response('') e a IA/auditor via página em branco.
+const BOT_HEURISTIC = /bot|crawler|spider|slurp|python|curl|wget|scrapy|headless|node-?fetch|axios|http-?client|postman|insomnia|go-http|java\/|okhttp|httpie|libwww|lighthouse|screaming|semrush|ahrefs|serpstat/i;
+
 // Favicon Tags para SEO
 const BASE_URL = 'https://parametros.smartdent.com.br';
 
@@ -467,7 +472,8 @@ function buildAISummaryBlock(summary: string): string {
 const isBot = (ua: string): boolean => {
   if (!ua) return false;
   const lowerUa = ua.toLowerCase();
-  return ALL_BOTS.some(bot => lowerUa.includes(bot));
+  if (ALL_BOTS.some(bot => lowerUa.includes(bot))) return true;
+  return BOT_HEURISTIC.test(lowerUa);
 };
 
 // ===== ADVANCED SEO SCHEMAS - FASE AUDITORIA =====
@@ -1628,8 +1634,11 @@ async function generateKnowledgeHubHTML(supabase: any): Promise<string> {
 }
 
 async function generateKnowledgeCategoryHTML(letter: string, supabase: any): Promise<string> {
+  // Sempre normaliza para minúsculo — DB armazena maiúsculo (A–G), URLs canônicas são minúsculas.
+  const letterLc = (letter || '').toLowerCase();
+  const letterUc = letterLc.toUpperCase();
   const { data: category, error: categoryError } = await supabase
-    .from('knowledge_categories').select('*').eq('letter', letter.toUpperCase()).eq('enabled', true).single();
+    .from('knowledge_categories').select('*').eq('letter', letterUc).eq('enabled', true).single();
 
   if (categoryError) { console.error('Supabase error fetching category:', letter, categoryError.message); return ''; }
   if (!category) { console.log('Category not found:', letter); return ''; }
@@ -2868,19 +2877,153 @@ async function generateEventosHTML(supabase: any): Promise<string> {
 </html>`;
 }
 
+// =====================================================================
+// Hub de Artigos — agrega categorias textuais (B, C, D, F) num único
+// landing citável, sem migrar nenhum dos 605 conteúdos existentes.
+// Rotas atendidas: /base-conhecimento?tab=artigos e /base-conhecimento/artigos
+// =====================================================================
+async function generateArticlesHubHTML(supabase: any): Promise<string> {
+  const ARTICLE_LETTERS = ['B', 'C', 'D', 'F'];
+  const baseUrl = 'https://parametros.smartdent.com.br';
+
+  const [catsRes, knowledgeCtx] = await Promise.all([
+    supabase
+      .from('knowledge_categories')
+      .select('id, letter, name')
+      .in('letter', ARTICLE_LETTERS)
+      .eq('enabled', true)
+      .order('letter'),
+    fetchKnowledgeContext(supabase),
+  ]);
+
+  const cats = (catsRes.data || []) as Array<{ id: string; letter: string; name: string }>;
+  const catIds = cats.map((c) => c.id);
+
+  const { data: articles } = catIds.length
+    ? await supabase
+        .from('knowledge_contents')
+        .select('title, slug, excerpt, category_id, updated_at')
+        .in('category_id', catIds)
+        .eq('active', true)
+        .order('updated_at', { ascending: false })
+        .limit(200)
+    : { data: [] as any[] };
+
+  const byCat = new Map<string, any[]>();
+  for (const c of cats) byCat.set(c.id, []);
+  for (const a of (articles || [])) {
+    const bucket = byCat.get(a.category_id);
+    if (bucket) bucket.push(a);
+  }
+
+  const title = 'Artigos sobre Odontologia Digital e Impressão 3D | Smart Dent';
+  const description = `Artigos técnicos, casos clínicos, evidência científica, resolução de falhas e parâmetros validados. ${articles?.length || 0} publicações da equipe Smart Dent.`;
+  const contextText = 'Hub de artigos editoriais da Smart Dent sobre impressão 3D odontológica: casos clínicos reais, evidência científica, resolução de falhas e parâmetros técnicos validados.';
+
+  const sections = cats
+    .map((c) => {
+      const list = (byCat.get(c.id) || [])
+        .map(
+          (a: any) => `<li><a href="/base-conhecimento/${c.letter.toLowerCase()}/${a.slug}">${escapeHtml(a.title)}</a>${a.excerpt ? `<br><small>${escapeHtml(String(a.excerpt).substring(0, 140))}</small>` : ''}</li>`,
+        )
+        .join('');
+      return `<section data-category="${c.letter.toLowerCase()}">
+        <h2>${escapeHtml(c.letter)} — ${escapeHtml(c.name)}</h2>
+        <p><a href="/base-conhecimento/${c.letter.toLowerCase()}">Ver todos os artigos desta categoria &rsaquo;</a></p>
+        <ul>${list || '<li><em>Sem artigos publicados no momento.</em></li>'}</ul>
+      </section>`;
+    })
+    .join('\n');
+
+  return `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>${title}</title>
+  <meta name="description" content="${description}" />
+  ${FAVICON_TAGS}
+  ${buildAICrawlerPolicy()}
+  ${buildEntityReferenceMetas(knowledgeCtx, { type: 'technology', name: 'Artigos Smart Dent' })}
+  <link rel="canonical" href="${baseUrl}/base-conhecimento/artigos" />
+  <link rel="alternate" hreflang="pt-BR" href="${baseUrl}/base-conhecimento/artigos" />
+  <link rel="alternate" hreflang="x-default" href="${baseUrl}/base-conhecimento/artigos" />
+  <meta property="og:title" content="Artigos Smart Dent — Odontologia Digital & Impressão 3D" />
+  <meta property="og:description" content="${description}" />
+  <meta property="og:image" content="${baseUrl}/og-fluxo-digital.jpg" />
+  <meta property="og:url" content="${baseUrl}/base-conhecimento/artigos" />
+  <meta property="og:type" content="website" />
+  ${buildAIHeadTags({ context: contextText, title, description, image: `${baseUrl}/og-fluxo-digital.jpg`, canonicalUrl: `${baseUrl}/base-conhecimento/artigos` })}
+  <script type="application/ld+json">
+  ${safeLd({
+    '@context': 'https://schema.org',
+    '@graph': [
+      {
+        '@type': 'CollectionPage',
+        name: 'Artigos Smart Dent',
+        description,
+        url: `${baseUrl}/base-conhecimento/artigos`,
+        isPartOf: { '@type': 'WebSite', name: 'Smart Dent', url: baseUrl },
+      },
+      {
+        '@type': 'ItemList',
+        itemListElement: (articles || []).slice(0, 50).map((a: any, i: number) => {
+          const cat = cats.find((c) => c.id === a.category_id);
+          const letter = (cat?.letter || 'a').toLowerCase();
+          return {
+            '@type': 'ListItem',
+            position: i + 1,
+            url: `${baseUrl}/base-conhecimento/${letter}/${a.slug}`,
+            name: a.title,
+          };
+        }),
+      },
+      {
+        '@type': 'BreadcrumbList',
+        itemListElement: [
+          { '@type': 'ListItem', position: 1, name: 'Início', item: baseUrl },
+          { '@type': 'ListItem', position: 2, name: 'Base de Conhecimento', item: `${baseUrl}/base-conhecimento` },
+          { '@type': 'ListItem', position: 3, name: 'Artigos', item: `${baseUrl}/base-conhecimento/artigos` },
+        ],
+      },
+    ],
+  })}
+  </script>
+  ${buildEntityIndexJsonLd('artigos impressão 3D odontológica evidência científica casos clínicos parâmetros', knowledgeCtx)}
+  ${buildGTMHead()}
+</head>
+<body>
+  ${buildGTMBody()}
+  ${buildStandardHeaderWithNav(knowledgeCtx)}
+  <main id="main-content">
+    <article>
+      <h1>Artigos sobre Odontologia Digital e Impressão 3D</h1>
+      ${buildAISummaryBlock(contextText)}
+      <p data-section="definition">Conteúdo editorial da Smart Dent agrupando quatro linhas: resolução de falhas, evidência científica, casos clínicos e parâmetros validados. ${articles?.length || 0} publicações no total.</p>
+      ${sections}
+      ${buildLLMKnowledgeLayer('Artigos Smart Dent', 'Hub Editorial', knowledgeCtx)}
+      ${buildEntityIndexSection(knowledgeCtx)}
+    </article>
+  </main>
+  ${buildKnowledgeGraphJsonLd(knowledgeCtx)}
+  ${buildStandardFooter()}
+  ${buildBotRedirectScript('/base-conhecimento?tab=artigos')}
+</body>
+</html>`;
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   const userAgent = req.headers.get('User-Agent') || '';
-  
-  if (!isBot(userAgent)) {
-    return new Response('', { 
-      status: 200, 
-      headers: { ...corsHeaders, 'Content-Type': 'text/html' } 
-    });
-  }
+  // NOTA: removida a saída antecipada com body vazio. Antes, qualquer UA fora da
+  // allowlist (incluindo auditores de IA, curl, python-requests, etc.) recebia
+  // 200 com body '' — o que fazia toda "auditoria" ver página em branco. Agora
+  // sempre servimos o HTML pré-renderizado; o Vercel já direciona navegadores
+  // reais para o SPA, então esta função só é atingida por bots/auditores/API.
+  const uaIsBot = isBot(userAgent);
 
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
   const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY')!;
@@ -2892,8 +3035,24 @@ Deno.serve(async (req) => {
   const originalPath = url.searchParams.get('originalPath') || '';
   const path = originalPath.replace(/^\/+$/, '').replace(/^\//, ''); // Remove leading/trailing slashes
   const segments = path.length === 0 ? [] : path.split('/').filter(Boolean);
+  const tab = (url.searchParams.get('tab') || '').toLowerCase();
 
-  console.log('SEO Proxy:', { path, segments, originalPath, userAgent });
+  console.log('SEO Proxy:', { path, segments, tab, originalPath, userAgent, uaIsBot });
+
+  // Normalização de case: se qualquer segmento de categoria vier em MAIÚSCULO
+  // dentro de /base-conhecimento/, /en/knowledge-base/, /es/base-conocimiento/
+  // ou /conhecimento/, redireciona 301 para a versão minúscula canônica.
+  const catRoots = ['base-conhecimento', 'knowledge-base', 'base-conocimiento', 'conhecimento'];
+  const catIdx = segments.findIndex((s) => catRoots.includes(s));
+  if (catIdx >= 0 && segments[catIdx + 1] && segments[catIdx + 1] !== segments[catIdx + 1].toLowerCase()) {
+    const normalized = [...segments];
+    normalized[catIdx + 1] = normalized[catIdx + 1].toLowerCase();
+    const canonical = `${BASE_URL}/${normalized.join('/')}${tab ? `?tab=${tab}` : ''}`;
+    return new Response(null, {
+      status: 301,
+      headers: { ...corsHeaders, Location: canonical, 'Cache-Control': 'public, s-maxage=86400' },
+    });
+  }
 
   let html = '';
   let notFoundReason: 'unknown_route' | 'not_found' | null = null;
@@ -2918,9 +3077,21 @@ Deno.serve(async (req) => {
     } else if (segments[0] === 'base-conhecimento') {
       // PT: /base-conhecimento/...
       if (segments.length === 1) {
-        html = await generateKnowledgeHubHTML(supabase);
+        // Dispatch por ?tab= para preservar o estado do separador no prerender.
+        if (tab === 'artigos') {
+          html = await generateArticlesHubHTML(supabase);
+        } else if (tab === 'catalogo') {
+          html = await generateKnowledgeCategoryHTML('g', supabase);
+        } else {
+          html = await generateKnowledgeHubHTML(supabase);
+        }
       } else if (segments.length === 2) {
-        html = await generateKnowledgeCategoryHTML(segments[1], supabase);
+        // Alias limpo: /base-conhecimento/artigos → hub agregador.
+        if (segments[1].toLowerCase() === 'artigos') {
+          html = await generateArticlesHubHTML(supabase);
+        } else {
+          html = await generateKnowledgeCategoryHTML(segments[1], supabase);
+        }
       } else if (segments.length === 3) {
         html = await generateKnowledgeArticleHTML(segments[1], segments[2], supabase);
       }
