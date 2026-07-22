@@ -177,25 +177,35 @@ export function EmailCampaignWizard({ campaignName, description, filters, audien
         formNameById[f.id] = f.name || f.slug;
       }
 
-      const origin = "https://smartdent.com.br";
-      const landing: CtaOption[] = (prodLps || []).map((p: any) => {
-        const fSlug = formSlugById[p.form_id];
-        const code = fSlug ? shortMap[fSlug]?.landing_page : undefined;
-        return {
-          id: p.id,
-          tipo: "landing" as const,
-          label: `Landing: ${formNameById[p.form_id] || fSlug || p.id}`,
-          url: code ? `${shortBase}/${code}` : `${origin}/lp/${fSlug || ""}`,
-        };
-      });
-      const form: CtaOption[] = (prodForms || []).map((f: any) => ({
-        id: f.id, tipo: "form",
-        label: `Formulário: ${f.name || f.slug}`,
-        url: (() => {
+      // Política: usar SOMENTE URLs encurtadas oficiais (smartops_short_links),
+      // exatamente as mesmas exibidas nos cards do formulário/LP. Nunca fabricar
+      // URLs canônicas novas — se não houver short_code cadastrado, a opção
+      // não é oferecida para não gerar link diferente do publicado.
+      const landing: CtaOption[] = (prodLps || [])
+        .map((p: any) => {
+          const fSlug = formSlugById[p.form_id];
+          const code = fSlug ? shortMap[fSlug]?.landing_page : undefined;
+          if (!code) return null;
+          return {
+            id: p.id,
+            tipo: "landing" as const,
+            label: `Landing: ${formNameById[p.form_id] || fSlug || p.id}`,
+            url: `${shortBase}/${code}`,
+          };
+        })
+        .filter(Boolean) as CtaOption[];
+      const form: CtaOption[] = (prodForms || [])
+        .map((f: any) => {
           const code = shortMap[f.slug]?.form;
-          return code ? `${shortBase}/${code}` : `${origin}/f/${f.slug}`;
-        })(),
-      }));
+          if (!code) return null;
+          return {
+            id: f.id,
+            tipo: "form" as const,
+            label: `Formulário: ${f.name || f.slug}`,
+            url: `${shortBase}/${code}`,
+          };
+        })
+        .filter(Boolean) as CtaOption[];
 
       setCtaOptions({ landing, form, custom: [] });
 
