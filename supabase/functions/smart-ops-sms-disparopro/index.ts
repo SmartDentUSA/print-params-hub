@@ -110,7 +110,10 @@ Deno.serve(async (req) => {
     }
 
     const batchSize = Math.max(1, Math.min(Number(rawBatchSize) || 100, 500));
-    const publicCampaignId = source_campaign_id || campaign_id;
+    // FK: campaign_send_log.campaign_id -> campaign_sessions(id)
+    //     campaign_send_log.source_campaign_id -> campaigns(id)
+    // Sempre gravar o session id em campaign_id e o campaigns.id em source_campaign_id.
+    const sessionCampaignId = campaign_id;
 
     const processCampaign = async () => {
       let sent = 0, failed = 0;
@@ -161,7 +164,8 @@ Deno.serve(async (req) => {
           data_envio: new Date().toISOString(),
         })));
         await supabase.from("campaign_send_log").insert(missingPhone.map((lead: any) => ({
-          campaign_id: publicCampaignId,
+          campaign_id: sessionCampaignId,
+          source_campaign_id: source_campaign_id ?? null,
           lead_id: lead.id,
           telefone: lead.telefone_normalized || lead.telefone_raw || lead.wa_phone || null,
           nome: lead.nome || null,
@@ -234,7 +238,8 @@ Deno.serve(async (req) => {
           });
 
           sendLogRows.push({
-            campaign_id: publicCampaignId,
+            campaign_id: sessionCampaignId,
+            source_campaign_id: source_campaign_id ?? null,
             lead_id: lead.id,
             telefone: lead.numero,
             nome: lead.nome || null,
