@@ -815,7 +815,9 @@ export function mapDealToAttendance(
     piperun_closed_at: deal.closed_at || null,
     piperun_probably_closed_at: deal.probably_closed_at || null,
     piperun_updated_at: deal.updated_at || null,
-    piperun_custom_fields: cf || [],
+    // Only mirror when PipeRun actually returned custom_fields (e.g. `with[]=customFields`).
+    // Otherwise preserve the last locally-written snapshot instead of clobbering with [].
+    ...(Array.isArray(cf) && cf.length > 0 ? { piperun_custom_fields: cf } : {}),
     piperun_tags_raw: deal.tags || null,
     piperun_involved_users: deal.involved_users || null,
     piperun_activities: deal.activities || null,
