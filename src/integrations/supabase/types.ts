@@ -29811,6 +29811,13 @@ export type Database = {
         Args: { p_lead_id: string }
         Returns: undefined
       }
+      fn_campaign_conversions: {
+        Args: { p_campaign_id: string }
+        Returns: {
+          conversions: number
+          deals_created: number
+        }[]
+      }
       fn_campaign_email_stats: {
         Args: { p_campaign_id: string }
         Returns: {
