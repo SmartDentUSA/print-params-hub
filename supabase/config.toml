@@ -3,6 +3,9 @@ project_id = "okeogjgqijbfkudfjadz"
 [functions.google-oauth-callback]
 verify_jwt = false
 
+[functions.smart-ops-gmail-bounce-scan]
+verify_jwt = false
+
 [functions.smart-ops-field-normalize]
 verify_jwt = false
 

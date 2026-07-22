@@ -2112,6 +2112,8 @@ export type Database = {
       campaign_send_log: {
         Row: {
           anchor_product: string | null
+          bounce_reason: string | null
+          bounced_at: string | null
           campaign_id: string | null
           click_count: number
           clicked_at: string | null
@@ -2146,6 +2148,8 @@ export type Database = {
         }
         Insert: {
           anchor_product?: string | null
+          bounce_reason?: string | null
+          bounced_at?: string | null
           campaign_id?: string | null
           click_count?: number
           clicked_at?: string | null
@@ -2180,6 +2184,8 @@ export type Database = {
         }
         Update: {
           anchor_product?: string | null
+          bounce_reason?: string | null
+          bounced_at?: string | null
           campaign_id?: string | null
           click_count?: number
           clicked_at?: string | null
@@ -9703,6 +9709,11 @@ export type Database = {
           dealer_id: string | null
           do_not_contact: boolean
           email: string
+          email_bounced: boolean
+          email_bounced_at: string | null
+          email_bounced_reason: string | null
+          email_last_attempt_at: string | null
+          email_last_attempt_status: string | null
           empresa_cidade: string | null
           empresa_cnae: string | null
           empresa_cnaes: Json | null
@@ -10279,6 +10290,11 @@ export type Database = {
           dealer_id?: string | null
           do_not_contact?: boolean
           email: string
+          email_bounced?: boolean
+          email_bounced_at?: string | null
+          email_bounced_reason?: string | null
+          email_last_attempt_at?: string | null
+          email_last_attempt_status?: string | null
           empresa_cidade?: string | null
           empresa_cnae?: string | null
           empresa_cnaes?: Json | null
@@ -10855,6 +10871,11 @@ export type Database = {
           dealer_id?: string | null
           do_not_contact?: boolean
           email?: string
+          email_bounced?: boolean
+          email_bounced_at?: string | null
+          email_bounced_reason?: string | null
+          email_last_attempt_at?: string | null
+          email_last_attempt_status?: string | null
           empresa_cidade?: string | null
           empresa_cnae?: string | null
           empresa_cnaes?: Json | null
@@ -29790,6 +29811,19 @@ export type Database = {
         Args: { p_lead_id: string }
         Returns: undefined
       }
+      fn_campaign_email_stats: {
+        Args: { p_campaign_id: string }
+        Returns: {
+          bounced: number
+          clicked: number
+          failed: number
+          last_attempt_at: string
+          opened: number
+          queued: number
+          sent: number
+          total: number
+        }[]
+      }
       fn_check_group_global_dedup: {
         Args: {
           p_content_hash: string
@@ -30589,6 +30623,11 @@ export type Database = {
           dealer_id: string | null
           do_not_contact: boolean
           email: string
+          email_bounced: boolean
+          email_bounced_at: string | null
+          email_bounced_reason: string | null
+          email_last_attempt_at: string | null
+          email_last_attempt_status: string | null
           empresa_cidade: string | null
           empresa_cnae: string | null
           empresa_cnaes: Json | null
