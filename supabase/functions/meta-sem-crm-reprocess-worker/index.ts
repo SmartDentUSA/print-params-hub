@@ -123,6 +123,7 @@ Deno.serve(async (req) => {
 
       // Forward to smart-ops-ingest-lead. source `meta_lead_ads` triggers
       // the Estagnados → Vendas hatch (close Lost + open new Vendas deal).
+      const syntheticLeadgenId = `reprocess_${row.csv_row}_${Date.now()}`;
       const ingestRes = await fetch(`${SUPABASE_URL}/functions/v1/smart-ops-ingest-lead`, {
         method: "POST",
         headers: { "Content-Type": "application/json", "Authorization": `Bearer ${SERVICE}` },
@@ -139,6 +140,11 @@ Deno.serve(async (req) => {
           phone: row.telefone_normalized || row.telefone_raw,
           produto_interesse: row.produto_interesse,
           meta_created_time: row.created_time,
+          platform_lead_id: syntheticLeadgenId,
+          leadgen_id: syntheticLeadgenId,
+          platform_form_id: row.form_name,
+          new_conversion_confirmed: true,
+          force_reactivation: true,
           _reprocess_reason: "meta_sem_crm_queue",
         }),
       });
