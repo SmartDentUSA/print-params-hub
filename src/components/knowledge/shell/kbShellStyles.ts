@@ -26,8 +26,8 @@ export const kbShellStyles = `
 .kbs-topright{display:flex;align-items:center;gap:8px;flex-shrink:0;}
 .kbs-content{padding:24px 28px 48px;max-width:1400px;width:100%;margin:0 auto;}
 .kbs-content > *{position:relative;}
-.kbs-content > .kbs-hero + *{margin-top:-38px;z-index:3;}
-.kbs-hero{position:relative;background:#fff;border-radius:18px;padding:40px 44px 76px;margin-bottom:20px;overflow:hidden;min-height:240px;display:flex;align-items:center;}
+.kbs-content > .kbs-hero + *{margin-top:-22px;z-index:3;}
+.kbs-hero{position:relative;background:#fff;border-radius:18px;padding:40px 44px 56px;margin-bottom:20px;overflow:hidden;min-height:240px;display:flex;align-items:center;}
 .kbs-hero-text{max-width:560px;position:relative;z-index:2;}
 .kbs-hero-text h1{font-size:48px;line-height:1.05;margin:0 0 10px;font-weight:800;color:#0F172A;letter-spacing:-.025em;}
 .kbs-hero-text p{font-size:15px;color:#64748B;margin:0;}
@@ -40,10 +40,10 @@ export const kbShellStyles = `
   .kbs-mobile-btn{display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:8px;background:#F1F5F9;border:none;cursor:pointer;margin-right:auto;}
   .kbs-topbar{padding:10px 14px;}
   .kbs-content{padding:16px;}
-  .kbs-hero{padding:20px 20px 48px;min-height:auto;}
+  .kbs-hero{padding:20px 20px 36px;min-height:auto;}
   .kbs-hero-text h1{font-size:24px;}
   .kbs-hero-art{opacity:.35;}
-  .kbs-content > .kbs-hero + *{margin-top:-28px;}
+  .kbs-content > .kbs-hero + *{margin-top:-18px;}
   .kbs-backdrop{position:fixed;inset:0;background:rgba(15,23,42,.4);z-index:55;}
 }
 `;
