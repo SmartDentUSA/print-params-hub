@@ -1403,7 +1403,7 @@ async function buildSellerNotification(
 
   // Build template
   const lines: string[] = [
-    `🤖 *Novo Lead atribuído - Dra. L.I.A.*`,
+    `📊 *Análise SmartOps*`,
     ``,
     `👤 Lead: ${enrichedLead.nome || "N/A"}`,
     `📧 Email: ${enrichedLead.email || "N/A"}`,
@@ -1593,7 +1593,7 @@ async function buildDealNoteHTML(
 
   // Build HTML template
   const html = [
-    `<b>🤖 Novo Lead atribuído - Dra. L.I.A.</b><br><br>`,
+    `<b>📊 Análise SmartOps</b><br><br>`,
     `<b>👤 Lead:</b> ${enrichedLead.nome || "N/A"}<br>`,
     `<b>📧 Email:</b> ${enrichedLead.email || "N/A"}<br>`,
     `<b>📱 Tel:</b> ${phone || "N/A"}<br>`,
