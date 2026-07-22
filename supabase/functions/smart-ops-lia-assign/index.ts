@@ -3365,7 +3365,7 @@ Deno.serve(async (req) => {
       //   • Único destino permitido pós-ganho: CS Onboarding, tratado no
       //     piperun-webhook após status=won.
       let wonFrozen = false;
-      if (force_new_deal !== true) {
+      if (force_new_deal !== true && csOpenDeals.length === 0) {
         const WON_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
         const recentWonVendas = wonDeals
           .filter((d) => Number(d.pipeline_id) === PIPELINES.VENDAS)
