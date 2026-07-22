@@ -68,13 +68,15 @@ interface CampaignSession {
 
 interface SendLog {
   id: string;
-  campaign_id: string;
+  campaign_id: string | null;
+  source_campaign_id?: string | null;
   lead_id: string;
   status: string | null;
   sent_at: string | null;
   error_message: string | null;
   nome: string | null;
   telefone: string | null;
+  email?: string | null;
   provider_status?: string | null;
   provider_detail_code?: string | null;
   provider_detail_message?: string | null;
@@ -2136,7 +2138,7 @@ function CampaignHistory() {
         supabase
           .from("campaigns" as any)
           .select("id,nome,descricao,canal,status,lead_filter,audience_count,total_leads,total_sent,total_failed,total_delivered,started_at,completed_at,created_at,created_by,mensagem_template")
-          .in("status", ["running", "completed", "completed_with_errors", "failed"])
+          .in("status", ["scheduled", "sending", "running", "completed", "completed_with_errors", "failed"])
           .order("created_at", { ascending: false })
           .limit(100),
         supabase
@@ -2187,10 +2189,13 @@ function CampaignHistory() {
   const openDetail = async (c: CampaignSession) => {
     setSelectedCampaign(c);
     setSmsAttribution(null);
-    const { data } = await supabase
+    let logsQuery = supabase
       .from("campaign_send_log")
-      .select("id, campaign_id, lead_id, status, sent_at, error_message, nome, telefone, provider_status, provider_detail_code, provider_detail_message")
-      .eq("campaign_id", c.id)
+      .select("id, campaign_id, source_campaign_id, lead_id, status, sent_at, error_message, nome, telefone, email, provider_status, provider_detail_code, provider_detail_message");
+    logsQuery = c.results?._source === "campaigns"
+      ? logsQuery.eq("source_campaign_id", c.id)
+      : logsQuery.eq("campaign_id", c.id);
+    const { data } = await logsQuery
       .order("sent_at", { ascending: false })
       .limit(200);
     setSendLogs(data || []);
