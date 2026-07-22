@@ -152,8 +152,10 @@ const channelColors: Record<string, string> = {
 
 const statusColors: Record<string, string> = {
   draft: "bg-muted text-muted-foreground",
+  queued: "bg-amber-100 text-amber-800",
   scheduled: "bg-blue-100 text-blue-800",
   running: "bg-amber-100 text-amber-800",
+  sending: "bg-amber-100 text-amber-800",
   completed: "bg-green-100 text-green-800",
   completed_with_errors: "bg-orange-100 text-orange-800",
   failed: "bg-red-100 text-red-800",
@@ -162,8 +164,10 @@ const statusColors: Record<string, string> = {
 
 const statusLabels: Record<string, string> = {
   draft: "Rascunho",
+  queued: "Na fila",
   scheduled: "Agendada",
   running: "Em execução",
+  sending: "Enviando",
   completed: "Concluída",
   completed_with_errors: "Concluída c/ falhas",
   failed: "Falha total",
