@@ -68,13 +68,15 @@ interface CampaignSession {
 
 interface SendLog {
   id: string;
-  campaign_id: string;
+  campaign_id: string | null;
+  source_campaign_id?: string | null;
   lead_id: string;
   status: string | null;
   sent_at: string | null;
   error_message: string | null;
   nome: string | null;
   telefone: string | null;
+  email?: string | null;
   provider_status?: string | null;
   provider_detail_code?: string | null;
   provider_detail_message?: string | null;
