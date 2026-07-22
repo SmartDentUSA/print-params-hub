@@ -7,6 +7,11 @@ import {
   canonicalizeScanner,
   canonicalizePrinter,
 } from "../_shared/dental-taxonomy.ts";
+import {
+  normalizeZernioLead,
+  metaFieldDataArrayToRecord,
+  mapFormToProduct,
+} from "../_shared/zernio-field-normalizer.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
