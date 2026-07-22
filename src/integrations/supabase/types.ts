@@ -2112,7 +2112,7 @@ export type Database = {
       campaign_send_log: {
         Row: {
           anchor_product: string | null
-          campaign_id: string
+          campaign_id: string | null
           click_count: number
           clicked_at: string | null
           content_sent: string | null
@@ -2137,6 +2137,7 @@ export type Database = {
           scheduled_at: string | null
           sellflux_broadcast_id: string | null
           sent_at: string | null
+          source_campaign_id: string | null
           status: string | null
           subject_snapshot: string | null
           telefone: string | null
@@ -2145,7 +2146,7 @@ export type Database = {
         }
         Insert: {
           anchor_product?: string | null
-          campaign_id: string
+          campaign_id?: string | null
           click_count?: number
           clicked_at?: string | null
           content_sent?: string | null
@@ -2170,6 +2171,7 @@ export type Database = {
           scheduled_at?: string | null
           sellflux_broadcast_id?: string | null
           sent_at?: string | null
+          source_campaign_id?: string | null
           status?: string | null
           subject_snapshot?: string | null
           telefone?: string | null
@@ -2178,7 +2180,7 @@ export type Database = {
         }
         Update: {
           anchor_product?: string | null
-          campaign_id?: string
+          campaign_id?: string | null
           click_count?: number
           clicked_at?: string | null
           content_sent?: string | null
@@ -2203,6 +2205,7 @@ export type Database = {
           scheduled_at?: string | null
           sellflux_broadcast_id?: string | null
           sent_at?: string | null
+          source_campaign_id?: string | null
           status?: string | null
           subject_snapshot?: string | null
           telefone?: string | null
@@ -2362,6 +2365,13 @@ export type Database = {
             columns: ["lead_id"]
             isOneToOne: false
             referencedRelation: "vw_vendas_ganhas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campaign_send_log_source_campaign_id_fkey"
+            columns: ["source_campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
             referencedColumns: ["id"]
           },
         ]
