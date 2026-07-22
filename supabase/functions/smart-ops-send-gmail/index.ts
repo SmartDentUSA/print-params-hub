@@ -220,6 +220,18 @@ async function sendOne(args: {
     html_snapshot: gres.ok ? wrappedHtml.slice(0, 60000) : null,
   }).eq("id", sendLogId);
 
+  // Stamp the lead with the last email attempt (regardless of provider outcome).
+  if (leadId) {
+    try {
+      await supabase.from("lia_attendances").update({
+        email_last_attempt_at: new Date().toISOString(),
+        email_last_attempt_status: gres.ok ? "sent" : "error",
+      }).eq("id", leadId);
+    } catch (e) {
+      console.warn("[send-gmail] failed to stamp lead last_attempt", e);
+    }
+  }
+
   return gres.ok ? { ok: true } : { ok: false, error: `${gres.status} ${gjson?.error?.message || ""}`.slice(0, 200) };
 }
 
@@ -429,6 +441,7 @@ Deno.serve(async (req) => {
       .is("merged_into", null)
       .not("email", "is", null)
       .neq("email", "")
+      .eq("email_bounced", false)
       .limit(5000);
     q = applyCampaignFilters(q, filters || {});
     const { data: leadsData, error: leadsErr } = await q;
