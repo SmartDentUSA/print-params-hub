@@ -1,0 +1,2 @@
+ALTER TABLE public.campaigns DROP CONSTRAINT IF EXISTS campaigns_status_check;
+ALTER TABLE public.campaigns ADD CONSTRAINT campaigns_status_check CHECK (status = ANY (ARRAY['rascunho','agendada','em_execucao','concluida','cancelada','erro','scheduled','sending','completed','completed_with_errors','failed','running']));
