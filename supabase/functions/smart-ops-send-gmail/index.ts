@@ -466,7 +466,16 @@ Deno.serve(async (req) => {
     }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (err) {
     console.error("[send-gmail] fatal", err);
-    return new Response(JSON.stringify({ error: String(err) }), {
+    const detail = (err && typeof err === "object")
+      ? {
+          message: (err as any).message ?? null,
+          code: (err as any).code ?? null,
+          details: (err as any).details ?? null,
+          hint: (err as any).hint ?? null,
+          name: (err as any).name ?? null,
+        }
+      : { message: String(err) };
+    return new Response(JSON.stringify({ error: detail.message || "unknown", detail }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
