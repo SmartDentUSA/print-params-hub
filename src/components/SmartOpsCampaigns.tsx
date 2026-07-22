@@ -2146,6 +2146,7 @@ function CampaignHistory() {
   const [selectedCampaign, setSelectedCampaign] = useState<CampaignSession | null>(null);
   const [sendLogs, setSendLogs] = useState<SendLog[]>([]);
   const [smsAttribution, setSmsAttribution] = useState<SmsAttribution | null>(null);
+  const [emailStats, setEmailStats] = useState<Record<string, EmailStats>>({});
 
   useEffect(() => {
     (async () => {
@@ -2153,13 +2154,13 @@ function CampaignHistory() {
         supabase
           .from("campaigns" as any)
           .select("id,nome,descricao,canal,status,lead_filter,audience_count,total_leads,total_sent,total_failed,total_delivered,started_at,completed_at,created_at,created_by,mensagem_template")
-          .in("status", ["scheduled", "sending", "running", "completed", "completed_with_errors", "failed"])
+          .in("status", ["queued", "scheduled", "sending", "running", "completed", "completed_with_errors", "failed"])
           .order("created_at", { ascending: false })
           .limit(100),
         supabase
           .from("campaign_sessions")
           .select("*")
-          .in("status", ["running", "completed", "completed_with_errors", "failed"])
+          .in("status", ["queued", "running", "completed", "completed_with_errors", "failed"])
           .order("created_at", { ascending: false })
           .limit(100),
       ]);
@@ -2198,6 +2199,19 @@ function CampaignHistory() {
       );
       setCampaigns(merged);
       setLoading(false);
+
+      // Fetch email stats (queued/sent/opens/clicks/bounces) for every campaign
+      const emailCampaigns = merged.filter((c) => (c.channel || "").toLowerCase() === "email");
+      if (emailCampaigns.length > 0) {
+        const entries = await Promise.all(emailCampaigns.map(async (c) => {
+          const { data } = await supabase.rpc("fn_campaign_email_stats" as any, { p_campaign_id: c.id });
+          const row = Array.isArray(data) ? data[0] : data;
+          return [c.id, row as EmailStats | undefined] as const;
+        }));
+        const map: Record<string, EmailStats> = {};
+        for (const [id, s] of entries) if (s) map[id] = s;
+        setEmailStats(map);
+      }
     })();
   }, []);
 
@@ -2206,7 +2220,7 @@ function CampaignHistory() {
     setSmsAttribution(null);
     let logsQuery = supabase
       .from("campaign_send_log")
-      .select("id, campaign_id, source_campaign_id, lead_id, status, sent_at, error_message, nome, telefone, email, provider_status, provider_detail_code, provider_detail_message");
+      .select("id, campaign_id, source_campaign_id, lead_id, status, sent_at, error_message, nome, telefone, email, provider_status, provider_detail_code, provider_detail_message, opened_at, clicked_at, bounced_at, bounce_reason");
     logsQuery = c.results?._source === "campaigns"
       ? logsQuery.eq("source_campaign_id", c.id)
       : logsQuery.eq("campaign_id", c.id);
@@ -2245,27 +2259,46 @@ function CampaignHistory() {
               <th className="text-left p-3 font-medium">Canal</th>
               <th className="text-left p-3 font-medium">Status</th>
               <th className="text-right p-3 font-medium">Leads</th>
+              <th className="text-right p-3 font-medium">Na fila</th>
               <th className="text-right p-3 font-medium">Enviados</th>
-              <th className="text-right p-3 font-medium">Entregues</th>
+              <th className="text-right p-3 font-medium">Abertos</th>
+              <th className="text-right p-3 font-medium">Cliques</th>
+              <th className="text-right p-3 font-medium">Bounces</th>
               <th className="text-right p-3 font-medium">Falhas</th>
-              <th className="text-right p-3 font-medium">Taxa</th>
               <th className="text-left p-3 font-medium">Criada</th>
             </tr>
           </thead>
           <tbody>
             {campaigns.map(c => {
-              const rate = c.lead_count && c.sent_count ? Math.round((c.sent_count / c.lead_count) * 100) : null;
-              const delivered = (c.results as any)?.total_delivered;
+              const es = emailStats[c.id];
+              const isEmail = (c.channel || "").toLowerCase() === "email";
+              const total   = isEmail ? (es?.total ?? c.lead_count ?? 0) : (c.lead_count ?? 0);
+              const queued  = isEmail ? (es?.queued ?? 0) : 0;
+              const sent    = isEmail ? (es?.sent ?? 0) : (c.sent_count ?? 0);
+              const opened  = isEmail ? (es?.opened ?? 0) : 0;
+              const clicked = isEmail ? (es?.clicked ?? 0) : 0;
+              const bounced = isEmail ? (es?.bounced ?? 0) : 0;
+              const failed  = isEmail ? (es?.failed ?? c.failed_count ?? 0) : (c.failed_count ?? 0);
               return (
                 <tr key={c.id} className="border-b hover:bg-accent/5 cursor-pointer" onClick={() => openDetail(c)}>
                   <td className="p-3 font-medium">{c.name}</td>
                   <td className="p-3"><Badge variant="outline" className={channelColors[c.channel || ""] || ""}>{c.channel || "—"}</Badge></td>
                   <td className="p-3"><Badge className={statusColors[c.status || "draft"]}>{statusLabels[c.status || "draft"]}</Badge></td>
-                  <td className="p-3 text-right">{c.lead_count ?? "—"}</td>
-                  <td className="p-3 text-right">{c.sent_count ?? "—"}</td>
-                  <td className="p-3 text-right">{delivered != null && delivered !== undefined ? delivered : "—"}</td>
-                  <td className="p-3 text-right">{c.failed_count ?? "—"}</td>
-                  <td className="p-3 text-right">{rate != null ? `${rate}%` : "—"}</td>
+                  <td className="p-3 text-right">{total || "—"}</td>
+                  <td className="p-3 text-right">
+                    {isEmail ? (queued > 0 ? <span className="text-amber-600 font-medium">{queued}</span> : "—") : "—"}
+                  </td>
+                  <td className="p-3 text-right">{sent || "—"}</td>
+                  <td className="p-3 text-right">
+                    {isEmail ? (opened > 0 ? <span className="text-blue-600">{opened}</span> : "—") : "—"}
+                  </td>
+                  <td className="p-3 text-right">
+                    {isEmail ? (clicked > 0 ? <span className="text-emerald-600">{clicked}</span> : "—") : "—"}
+                  </td>
+                  <td className="p-3 text-right">
+                    {isEmail ? (bounced > 0 ? <span className="text-red-600 font-medium">{bounced}</span> : "—") : "—"}
+                  </td>
+                  <td className="p-3 text-right">{failed || "—"}</td>
                   <td className="p-3 text-muted-foreground">{formatDate(c.created_at)}</td>
                 </tr>
               );
