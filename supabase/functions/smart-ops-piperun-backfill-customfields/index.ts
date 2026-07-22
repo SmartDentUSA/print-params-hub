@@ -17,6 +17,7 @@ interface ReqBody {
   lead_ids?: string[];
   since?: string; // ISO
   limit?: number;
+  source?: string;
 }
 
 Deno.serve(async (req) => {
@@ -48,7 +49,13 @@ Deno.serve(async (req) => {
     if (body.lead_ids && body.lead_ids.length > 0) {
       query = query.in("id", body.lead_ids);
     } else {
-      query = query.gte("created_at", since).limit(limit);
+      // Only pick leads whose mirror is still empty so consecutive calls make progress.
+      query = query
+        .gte("created_at", since)
+        .or("piperun_custom_fields.is.null,piperun_custom_fields.eq.[]")
+        .order("created_at", { ascending: true })
+        .limit(limit);
+      if (body.source) query = query.eq("source", body.source);
     }
 
     const { data: leads, error } = await query;
