@@ -7,6 +7,11 @@ import {
   canonicalizeScanner,
   canonicalizePrinter,
 } from "../_shared/dental-taxonomy.ts";
+import {
+  normalizeZernioLead,
+  metaFieldDataArrayToRecord,
+  mapFormToProduct,
+} from "../_shared/zernio-field-normalizer.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -107,6 +112,13 @@ Deno.serve(async (req) => {
           const fieldData = leadData.field_data || [];
           const fields = buildMetaFieldMap(fieldData);
 
+          // ---------------------------------------------------------------
+          // PADRÃO ÚNICO: normalizer canônico (mesmo usado no webhook Zernio)
+          // ---------------------------------------------------------------
+          const zRecord = metaFieldDataArrayToRecord(fieldData);
+          const zNormalized = normalizeZernioLead(zRecord);
+          const zProductMapping = mapFormToProduct(formId);
+
           // Determine platform (facebook or instagram)
           const platform = body.object === "instagram" ? "instagram" : "facebook";
 
@@ -154,7 +166,7 @@ Deno.serve(async (req) => {
             ? [...new Set(inferredMatches.map(m => m.toLowerCase()))].join(', ')
             : null;
           const campaignProduct = campaignName?.match(KEYWORDS_RE_LOCAL)?.[0]?.toLowerCase() || null;
-          const produtoInteresse = directProduct || inferredProduct || campaignProduct || null;
+          const produtoInteresse = directProduct || inferredProduct || campaignProduct || zProductMapping?.productName || null;
 
           // --- Build normalized payload for ingest-lead ---
           const normalizedPayload: Record<string, unknown> = {
@@ -200,19 +212,40 @@ Deno.serve(async (req) => {
                 "printer_model", "modelo_da_impressora");
               const scan = canonicalizeScanner(scanRaw);
               const printer = canonicalizePrinter(printRaw || modeloRaw);
+              // Normalizer canônico tem precedência sobre a taxonomia legada,
+              // mas mantemos os campos derivados (tem_scanner/tem_impressora)
+              // para não regredir colunas atuais de lia_attendances.
+              const areaCanonical = zNormalized.areaAtuacao ?? canonicalizeArea(areaRaw);
+              const espCanonical = zNormalized.especialidade ?? canonicalizeSpecialty(espRaw);
+              const scannerLabelCanonical = zNormalized.scanner?.label ?? scan.scanner_marca ?? null;
+              const impressoraLabelCanonical =
+                zNormalized.impressora?.label ?? printer.impressora_marca ?? modeloRaw ?? null;
+              const temScannerCanonical =
+                zNormalized.scanner?.status === "nao_digitaliza"
+                  ? "não"
+                  : zNormalized.scanner?.label
+                    ? "sim"
+                    : scan.tem_scanner;
+              const temImpressoraCanonical =
+                zNormalized.impressora?.status === "nao_tem"
+                  ? "não"
+                  : zNormalized.impressora?.label
+                    ? "sim"
+                    : printer.tem_impressora;
               return {
-                area_atuacao: canonicalizeArea(areaRaw),
-                especialidade: canonicalizeSpecialty(espRaw),
-                como_digitaliza: scan.como_digitaliza,
-                scanner_marca: scan.scanner_marca,
-                tem_scanner: scan.tem_scanner,
-                tem_impressora: printer.tem_impressora,
-                impressora_modelo: printer.impressora_marca || modeloRaw || null,
+                area_atuacao: areaCanonical,
+                especialidade: espCanonical,
+                como_digitaliza: scannerLabelCanonical ?? scan.como_digitaliza,
+                scanner_marca: scannerLabelCanonical,
+                tem_scanner: temScannerCanonical,
+                tem_impressora: temImpressoraCanonical,
+                impressora_modelo: impressoraLabelCanonical,
                 // preservar raw para auditoria
                 area_atuacao_raw: areaRaw,
                 especialidade_raw: espRaw,
                 scanner_raw: scanRaw,
                 impressora_raw: printRaw,
+                needs_manual_review: zNormalized.needsManualReview,
               };
             })(),
             // Behavioral Ingestion: keep both explicit and inferred product

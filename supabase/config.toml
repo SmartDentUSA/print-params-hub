@@ -285,6 +285,9 @@ verify_jwt = false
 [functions.smart-ops-meta-lead-webhook]
 verify_jwt = false
 
+[functions.smart-ops-zernio-lead-webhook]
+verify_jwt = false
+
 [functions.smart-ops-backfill-person-origin]
 verify_jwt = false
 
