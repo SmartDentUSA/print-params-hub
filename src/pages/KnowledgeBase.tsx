@@ -18,6 +18,7 @@ import { kbStyles } from '@/components/knowledge/kbStyles';
 import KbShellLayout, { type KbShellNavKey } from '@/components/knowledge/shell/KbShellLayout';
 import { kbShellStyles } from '@/components/knowledge/shell/kbShellStyles';
 import KbTabOverview from '@/components/knowledge/KbTabOverview';
+import heroPrinterImg from '@/assets/kb-hero-printer.jpg';
 
 interface KnowledgeBaseProps { lang?: 'pt' | 'en' | 'es'; forcedTab?: KbTab }
 
@@ -113,6 +114,7 @@ export default function KnowledgeBase({ lang = 'pt', forcedTab }: KnowledgeBaseP
         )}
         <KbShellLayout
           active={activeKey}
+          heroArtUrl={heroPrinterImg}
           onChange={(k) => {
             if (k === 'overview') { setOverview(true); return; }
             setOverview(false);

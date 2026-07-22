@@ -1,9 +1,9 @@
 import { useState, type ReactNode } from 'react';
-import { Menu, Settings } from 'lucide-react';
+import { Menu, Settings, LayoutGrid, PlaySquare, FileText, BookOpen, Calendar, Store, Sliders } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { LanguageSelector } from '@/components/LanguageSelector';
-import KbShellSidebar from './KbShellSidebar';
+import KbShellSidebar, { type SidebarCategory } from './KbShellSidebar';
 import KbHero from './KbHero';
 import type { KbTab } from '../KbTabSwitcher';
 
@@ -13,6 +13,7 @@ interface Props {
   active: KbShellNavKey;
   onChange: (key: KbShellNavKey) => void;
   counts?: Partial<Record<KbShellNavKey, number>>;
+  categories?: SidebarCategory[];
   heroTitle: string;
   heroSubtitle?: string;
   heroArtUrl?: string;
@@ -20,8 +21,18 @@ interface Props {
   children: ReactNode;
 }
 
+const TOP_TABS: { key: KbTab; label: string; icon: React.ReactNode }[] = [
+  { key: 'parametros',     label: 'Parâmetros',    icon: <Sliders /> },
+  { key: 'catalogo',       label: 'Catálogo',      icon: <LayoutGrid /> },
+  { key: 'videos',         label: 'Vídeos',        icon: <PlaySquare /> },
+  { key: 'artigos',        label: 'Artigos',       icon: <FileText /> },
+  { key: 'ebooks',         label: 'Ebooks',        icon: <BookOpen /> },
+  { key: 'distribuidores', label: 'Revendas',      icon: <Store /> },
+  { key: 'eventos',        label: 'Eventos',       icon: <Calendar /> },
+];
+
 export default function KbShellLayout({
-  active, onChange, counts, heroTitle, heroSubtitle, heroArtUrl, showAdminButton, children,
+  active, onChange, counts, categories, heroTitle, heroSubtitle, heroArtUrl, showAdminButton, children,
 }: Props) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   return (
@@ -30,6 +41,7 @@ export default function KbShellLayout({
         active={active}
         onChange={onChange}
         counts={counts}
+        categories={categories}
         open={drawerOpen}
         onClose={() => setDrawerOpen(false)}
       />
@@ -43,15 +55,29 @@ export default function KbShellLayout({
           >
             <Menu size={18} />
           </button>
-          {showAdminButton && (
-            <Link to="/admin">
-              <Button variant="outline" size="sm" className="flex items-center gap-2">
-                <Settings className="w-4 h-4" />
-                <span className="hidden md:inline">Admin</span>
-              </Button>
-            </Link>
-          )}
-          <LanguageSelector />
+          <div className="kbs-toptabs">
+            {TOP_TABS.map((t) => (
+              <button
+                key={t.key}
+                type="button"
+                className={`kbs-toptab${active === t.key ? ' on' : ''}`}
+                onClick={() => onChange(t.key)}
+              >
+                {t.icon}<span>{t.label}</span>
+              </button>
+            ))}
+          </div>
+          <div className="kbs-topright">
+            {showAdminButton && (
+              <Link to="/admin">
+                <Button variant="outline" size="sm" className="flex items-center gap-2 rounded-full">
+                  <Settings className="w-4 h-4" />
+                  <span className="hidden md:inline">Admin</span>
+                </Button>
+              </Link>
+            )}
+            <LanguageSelector />
+          </div>
         </div>
         <div className="kbs-content">
           <KbHero title={heroTitle} subtitle={heroSubtitle} artUrl={heroArtUrl} />

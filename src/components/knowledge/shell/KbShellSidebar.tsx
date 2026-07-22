@@ -1,4 +1,4 @@
-import { LayoutGrid, PlaySquare, FileText, BookOpen, Calendar, Store, Sliders, Home } from 'lucide-react';
+import { LayoutGrid, PlaySquare, FileText, BookOpen, Calendar, Store, Sliders, Home, Layers } from 'lucide-react';
 import type { KbTab } from '../KbTabSwitcher';
 
 type NavKey = KbTab | 'overview';
@@ -14,15 +14,18 @@ const NAV: { key: NavKey; label: string; icon: React.ReactNode }[] = [
   { key: 'distribuidores', label: 'Revendas',      icon: <Store /> },
 ];
 
+export interface SidebarCategory { key: string; label: string; count?: number; active?: boolean; onClick?: () => void; }
+
 interface Props {
   active: NavKey;
   onChange: (key: NavKey) => void;
   counts?: Partial<Record<NavKey, number>>;
+  categories?: SidebarCategory[];
   open?: boolean;
   onClose?: () => void;
 }
 
-export default function KbShellSidebar({ active, onChange, counts, open, onClose }: Props) {
+export default function KbShellSidebar({ active, onChange, counts, categories, open, onClose }: Props) {
   return (
     <>
       {open && <div className="kbs-backdrop" onClick={onClose} />}
@@ -50,6 +53,23 @@ export default function KbShellSidebar({ active, onChange, counts, open, onClose
               </button>
             );
           })}
+          {categories && categories.length > 0 && (
+            <>
+              <div className="kbs-side-label">Categorias</div>
+              {categories.map((c) => (
+                <button
+                  key={c.key}
+                  type="button"
+                  className={`kbs-nav-btn${c.active ? ' on' : ''}`}
+                  onClick={() => { c.onClick?.(); onClose?.(); }}
+                >
+                  <Layers />
+                  <span>{c.label}</span>
+                  {typeof c.count === 'number' && <span className="kbs-count">{c.count}</span>}
+                </button>
+              ))}
+            </>
+          )}
         </div>
         <div className="kbs-cta">
           <h4>Soluções de odontologia digital</h4>
