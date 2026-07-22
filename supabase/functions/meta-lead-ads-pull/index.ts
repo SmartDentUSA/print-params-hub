@@ -3,6 +3,10 @@
 // Reads X-Business-Use-Case-Usage for adaptive backoff.
 // Cursor claim uses FOR UPDATE SKIP LOCKED (via RPC claim_next_meta_pull_form).
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import {
+  normalizeZernioLead,
+  mapFormToProduct,
+} from "../_shared/zernio-field-normalizer.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -289,9 +293,19 @@ Deno.serve(async (req) => {
           }
           const campaignId = lead.campaign_id ? String(lead.campaign_id) : null;
           const campaignName = await getCampaignName(campaignId);
-          const originLabel = campaignName
+          let originLabel = campaignName
             ? `Meta Ads — ${campaignName}`
             : `Meta Ads — Form ${String(lead.form_id || formId)}`;
+
+          // Padrão único do sistema: normaliza área/especialidade/scanner/impressora
+          // e mapeia produto pelo form_id — mesmo caminho do webhook Zernio.
+          const rawFields: Record<string, string> = {};
+          for (const f of fieldData) rawFields[String(f.name || "")] = (f.values || [])[0] || "";
+          const normalized = normalizeZernioLead(rawFields);
+          const productMapping = mapFormToProduct(String(lead.form_id || formId));
+          if (productMapping) {
+            originLabel = productMapping.originSystemB;
+          }
 
           // Product of interest — same cascade as smart-ops-meta-lead-webhook:
           // direct form answer → keyword inference across field values → campaign name.
@@ -304,7 +318,11 @@ Deno.serve(async (req) => {
             ? [...new Set(inferredMatches.map((m) => m.toLowerCase()))].join(", ")
             : null;
           const campaignProduct = campaignName?.match(KEYWORDS_RE)?.[0]?.toLowerCase() || null;
-          const produtoInteresse = directProduct || inferredProduct || campaignProduct || null;
+          const produtoInteresse = productMapping?.productName
+            || directProduct
+            || inferredProduct
+            || campaignProduct
+            || null;
 
           const payload: Record<string, unknown> = {
             // Flatten qualification answers first so explicit fields below win.
@@ -322,8 +340,21 @@ Deno.serve(async (req) => {
             name: fieldMap.full_name || fieldMap.name || fieldMap.nome || null,
             email: fieldMap.email || null,
             phone: fieldMap.phone_number || fieldMap.phone || fieldMap.telefone || null,
+            // Campos canônicos — sobrescrevem qualquer slug cru vindo do spread `...formData`.
+            area_atuacao: normalized.areaAtuacao,
+            especialidade: normalized.especialidade,
+            como_digitaliza: normalized.scanner?.label ?? null,
+            scanner_marca: normalized.scanner?.label ?? null,
+            tem_scanner: normalized.scanner?.status === "nao_digitaliza"
+              ? "não"
+              : (normalized.scanner?.label ? "sim" : null),
+            tem_impressora: normalized.impressora?.status === "nao_tem"
+              ? "não"
+              : (normalized.impressora?.label ? "sim" : null),
+            impressora_modelo: normalized.impressora?.label ?? null,
             produto_interesse: produtoInteresse,
-            produto_interesse_auto: inferredProduct || campaignProduct || null,
+            produto_interesse_auto: productMapping?.productName ?? inferredProduct ?? campaignProduct ?? null,
+            needs_manual_review: normalized.needsManualReview,
             meta_created_time: lead.created_time,
             platform_ad_id: lead.ad_id || null,
             platform_adgroup_id: lead.adset_id || null,
@@ -342,6 +373,12 @@ Deno.serve(async (req) => {
               meta_lead_id: String(lead.id || ""),
               extra_field_count: extraFieldCount,
               field_keys: Object.keys(formData),
+              area_normalized: normalized.areaAtuacao,
+              especialidade_normalized: normalized.especialidade,
+              scanner_status: normalized.scanner?.status ?? null,
+              impressora_status: normalized.impressora?.status ?? null,
+              product_mapping_hit: !!productMapping,
+              needs_manual_review: normalized.needsManualReview,
             });
           }
 
