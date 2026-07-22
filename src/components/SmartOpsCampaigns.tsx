@@ -2396,11 +2396,12 @@ function CampaignHistory() {
               <th className="text-left p-3 font-medium">Status</th>
               <th className="text-right p-3 font-medium">Leads</th>
               <th className="text-right p-3 font-medium">Na fila</th>
-              <th className="text-right p-3 font-medium">Enviados</th>
-              <th className="text-right p-3 font-medium">Abertos</th>
-              <th className="text-right p-3 font-medium">Cliques</th>
-              <th className="text-right p-3 font-medium">Bounces</th>
+              <th className="text-right p-3 font-medium">Enviados<br/><span className="text-[10px] text-muted-foreground font-normal">Taxa envio</span></th>
+              <th className="text-right p-3 font-medium">Abertos<br/><span className="text-[10px] text-muted-foreground font-normal">Taxa abertura</span></th>
+              <th className="text-right p-3 font-medium">Cliques<br/><span className="text-[10px] text-muted-foreground font-normal">Taxa clique</span></th>
+              <th className="text-right p-3 font-medium">Bounces<br/><span className="text-[10px] text-muted-foreground font-normal">Taxa bounce</span></th>
               <th className="text-right p-3 font-medium">Falhas</th>
+              <th className="text-right p-3 font-medium">Conversão<br/><span className="text-[10px] text-muted-foreground font-normal">Novo deal</span></th>
               <th className="text-left p-3 font-medium">Criada</th>
             </tr>
           </thead>
@@ -2415,6 +2416,13 @@ function CampaignHistory() {
               const clicked = isEmail ? (es?.clicked ?? 0) : 0;
               const bounced = isEmail ? (es?.bounced ?? 0) : 0;
               const failed  = isEmail ? (es?.failed ?? c.failed_count ?? 0) : (c.failed_count ?? 0);
+              const conv    = conversions[c.id]?.conversions ?? 0;
+              const pctOf = (num: number, den: number) => den > 0 ? `${Math.round((num / den) * 100)}%` : "—";
+              const sendRate  = total > 0 ? `${Math.round((sent / total) * 100)}%` : "—";
+              const openRate  = pctOf(opened, sent);
+              const clickRate = pctOf(clicked, sent);
+              const bounceRate = pctOf(bounced, sent);
+              const convRate  = pctOf(conv, sent);
               return (
                 <tr key={c.id} className="border-b hover:bg-accent/5 cursor-pointer" onClick={() => openDetail(c)}>
                   <td className="p-3 font-medium">{c.name}</td>
@@ -2424,17 +2432,27 @@ function CampaignHistory() {
                   <td className="p-3 text-right">
                     {isEmail ? (queued > 0 ? <span className="text-amber-600 font-medium">{queued}</span> : "—") : "—"}
                   </td>
-                  <td className="p-3 text-right">{sent || "—"}</td>
                   <td className="p-3 text-right">
-                    {isEmail ? (opened > 0 ? <span className="text-blue-600">{opened}</span> : "—") : "—"}
+                    <div>{sent || "—"}</div>
+                    <div className="text-[10px] text-muted-foreground">{sendRate}</div>
                   </td>
                   <td className="p-3 text-right">
-                    {isEmail ? (clicked > 0 ? <span className="text-emerald-600">{clicked}</span> : "—") : "—"}
+                    <div>{isEmail ? (opened > 0 ? <span className="text-blue-600">{opened}</span> : "—") : "—"}</div>
+                    {isEmail && <div className="text-[10px] text-muted-foreground">{openRate}</div>}
                   </td>
                   <td className="p-3 text-right">
-                    {isEmail ? (bounced > 0 ? <span className="text-red-600 font-medium">{bounced}</span> : "—") : "—"}
+                    <div>{isEmail ? (clicked > 0 ? <span className="text-emerald-600">{clicked}</span> : "—") : "—"}</div>
+                    {isEmail && <div className="text-[10px] text-muted-foreground">{clickRate}</div>}
+                  </td>
+                  <td className="p-3 text-right">
+                    <div>{isEmail ? (bounced > 0 ? <span className="text-red-600 font-medium">{bounced}</span> : "—") : "—"}</div>
+                    {isEmail && <div className="text-[10px] text-muted-foreground">{bounceRate}</div>}
                   </td>
                   <td className="p-3 text-right">{failed || "—"}</td>
+                  <td className="p-3 text-right">
+                    <div className={conv > 0 ? "text-green-600 font-medium" : ""}>{conv || "—"}</div>
+                    <div className="text-[10px] text-muted-foreground">{convRate}</div>
+                  </td>
                   <td className="p-3 text-muted-foreground">{formatDate(c.created_at)}</td>
                 </tr>
               );
