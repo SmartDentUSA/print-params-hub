@@ -1,22 +1,42 @@
 ## Diagnóstico
 
-A coluna **Bounces** está em `0 (0%)` porque:
+A campanha SMS "RMS" (312 leads) falhou 100% com **HTTP 404** do provedor DisparoPro em todos os leads. O corpo da resposta é uma página HTML "Apigility 404" — ou seja, a URL do endpoint não existe mais no provedor.
 
-- `campaign_send_log`: **0** linhas com `status='bounced'` ou `bounced_at` preenchido (188 logs no total).
-- `lia_attendances`: **0** leads com `email_bounced=true`.
-- `cron.job`: **nenhum** job agendado para `smart-ops-gmail-bounce-scan`.
-- Edge Function logs de `smart-ops-gmail-bounce-scan`: **vazio** — a função nunca foi executada em produção.
+Endpoint atualmente usado em `supabase/functions/smart-ops-sms-disparopro/index.ts`:
+```
+POST https://api.disparopro.com.br/mt-sms/v3/sms
+```
 
-Ou seja, o pipeline de UI/RPC/coluna está correto (o `fn_campaign_email_stats` conta corretamente `status='bounced' OR bounced_at IS NOT NULL`). O que falta é o **scanner rodar** para marcar os bounces que estão na inbox do Gmail.
+Nenhum lead teve problema de telefone, mensagem ou codificação — o erro é 100% do endpoint do provedor.
 
-## O que fazer
+## Causa raiz
 
-1. **Rodar 1x manualmente** `smart-ops-gmail-bounce-scan?days=14&max=200` para varrer os últimos 14 dias e marcar retroativamente todos os "mailer-daemon"/"address not found" que já chegaram. Isso vai popular `campaign_send_log.bounced_at`/`status='bounced'` e `lia_attendances.email_bounced=true` para os leads afetados, então a métrica da campanha atual passa a exibir os bounces reais.
+URL do endpoint DisparoPro está desatualizada/incorreta (v3 provavelmente foi descontinuada ou o path mudou). O DisparoPro passou a expor a API sob outro caminho (tipicamente `/api/v1/...` ou `/mt/v1/...` conforme documentação atual).
 
-2. **Agendar `pg_cron`** para `smart-ops-gmail-bounce-scan` a cada 15 minutos (`*/15 * * * *`) via `net.http_post` com o service role, para que novos bounces sejam capturados automaticamente conforme chegam à inbox — sem esse cron, a métrica ficaria zerada de novo na próxima campanha.
+## Plano de correção
 
-3. **Validar** consultando `campaign_send_log` (contagem por `status='bounced'`) e reabrindo o histórico da campanha para confirmar que a coluna **Bounces** e o badge vermelho **✉︎ inválido** aparecem.
+1. **Confirmar endpoint correto** consultando `https://disparopro.com.br/api` (docs atuais) e/ou o painel do cliente. Candidatos prováveis:
+   - `https://api.disparopro.com.br/mt/v1/send`
+   - `https://api.disparopro.com.br/api/v1/sms`
+   - v3 com sufixo diferente (ex.: `/mt-sms/v3/send`)
 
-## Fora do escopo
+2. **Atualizar `smart-ops-sms-disparopro/index.ts`**:
+   - Trocar `DISPARO_PRO_URL` para o endpoint válido.
+   - Ajustar formato do payload/headers se a nova versão exigir (ex.: `Bearer` em vez de `Basic`, JSON schema diferente).
+   - Ajustar `parseProviderItems` / `isProviderAccepted` para o novo formato de resposta se necessário.
 
-Sem mudanças na UI, na RPC `fn_campaign_email_stats` ou na lógica de envio — tudo isso já está correto; o problema é puramente operacional (scanner desativado).
+3. **Endurecer tratamento de erro** para não repetir o cenário atual em silêncio:
+   - Se `httpStatus === 404` ou resposta não-JSON (HTML), marcar a campanha como `failed` imediatamente após o primeiro lote e abortar (evita marcar 312 leads como falha por erro de configuração).
+   - Gravar em `system_health_logs` um alerta `sms_provider_endpoint_invalid`.
+
+4. **Reprocessar a campanha "RMS"**:
+   - Resetar `campaign_sessions.status='pending'`, `sent_count=0`, `failed_count=0` para o id `921e502b-ecc6-4250-a56f-aaf89810bd97`.
+   - Limpar registros em `campaign_send_log` desta campanha.
+   - Re-invocar `smart-ops-sms-disparopro` com `async=true` e `batch_size=100`.
+
+5. **Validação**: monitorar primeiro lote (100) e confirmar `protocolo` retornado pelo provedor antes de liberar restantes.
+
+## Perguntas antes de executar
+
+- Você tem a **URL/versão atual** da API do DisparoPro (do painel deles ou do e-mail de suporte)? Se sim, me passe que já aplico. Caso não, sigo com a hipótese `/mt/v1/send` e valido em runtime.
+- Confirmar credenciais atuais (`DISPARO_PRO_TOKEN`) ainda são válidas — se o provedor migrou versão, pode exigir novo token.
