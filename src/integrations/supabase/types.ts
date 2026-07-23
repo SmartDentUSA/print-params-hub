@@ -10074,6 +10074,34 @@ export type Database = {
           produto_interesse: string | null
           produto_interesse_auto: string | null
           produto_interesse_raw: string | null
+          prof_cep: string | null
+          prof_city: string | null
+          prof_complement: string | null
+          prof_country: string | null
+          prof_course_platform: string | null
+          prof_course_wa_ddi: string | null
+          prof_course_wa_number: string | null
+          prof_cro: string | null
+          prof_fapesp_id: string | null
+          prof_lattes: string | null
+          prof_marketing_consent: boolean | null
+          prof_marketing_consent_at: string | null
+          prof_mini_cv: string | null
+          prof_neighborhood: string | null
+          prof_number: string | null
+          prof_orcid: string | null
+          prof_photo_url: string | null
+          prof_rating_price: number | null
+          prof_rating_quality: number | null
+          prof_rating_value: number | null
+          prof_site: string | null
+          prof_state: string | null
+          prof_street: string | null
+          prof_tiktok: string | null
+          prof_updated_at: string | null
+          prof_wa_ddi: string | null
+          prof_wa_number: string | null
+          prof_youtube: string | null
           proposals_data: Json | null
           proposals_last_status: number | null
           proposals_total_mrr: number | null
@@ -10655,6 +10683,34 @@ export type Database = {
           produto_interesse?: string | null
           produto_interesse_auto?: string | null
           produto_interesse_raw?: string | null
+          prof_cep?: string | null
+          prof_city?: string | null
+          prof_complement?: string | null
+          prof_country?: string | null
+          prof_course_platform?: string | null
+          prof_course_wa_ddi?: string | null
+          prof_course_wa_number?: string | null
+          prof_cro?: string | null
+          prof_fapesp_id?: string | null
+          prof_lattes?: string | null
+          prof_marketing_consent?: boolean | null
+          prof_marketing_consent_at?: string | null
+          prof_mini_cv?: string | null
+          prof_neighborhood?: string | null
+          prof_number?: string | null
+          prof_orcid?: string | null
+          prof_photo_url?: string | null
+          prof_rating_price?: number | null
+          prof_rating_quality?: number | null
+          prof_rating_value?: number | null
+          prof_site?: string | null
+          prof_state?: string | null
+          prof_street?: string | null
+          prof_tiktok?: string | null
+          prof_updated_at?: string | null
+          prof_wa_ddi?: string | null
+          prof_wa_number?: string | null
+          prof_youtube?: string | null
           proposals_data?: Json | null
           proposals_last_status?: number | null
           proposals_total_mrr?: number | null
@@ -11236,6 +11292,34 @@ export type Database = {
           produto_interesse?: string | null
           produto_interesse_auto?: string | null
           produto_interesse_raw?: string | null
+          prof_cep?: string | null
+          prof_city?: string | null
+          prof_complement?: string | null
+          prof_country?: string | null
+          prof_course_platform?: string | null
+          prof_course_wa_ddi?: string | null
+          prof_course_wa_number?: string | null
+          prof_cro?: string | null
+          prof_fapesp_id?: string | null
+          prof_lattes?: string | null
+          prof_marketing_consent?: boolean | null
+          prof_marketing_consent_at?: string | null
+          prof_mini_cv?: string | null
+          prof_neighborhood?: string | null
+          prof_number?: string | null
+          prof_orcid?: string | null
+          prof_photo_url?: string | null
+          prof_rating_price?: number | null
+          prof_rating_quality?: number | null
+          prof_rating_value?: number | null
+          prof_site?: string | null
+          prof_state?: string | null
+          prof_street?: string | null
+          prof_tiktok?: string | null
+          prof_updated_at?: string | null
+          prof_wa_ddi?: string | null
+          prof_wa_number?: string | null
+          prof_youtube?: string | null
           proposals_data?: Json | null
           proposals_last_status?: number | null
           proposals_total_mrr?: number | null
@@ -30995,6 +31079,34 @@ export type Database = {
           produto_interesse: string | null
           produto_interesse_auto: string | null
           produto_interesse_raw: string | null
+          prof_cep: string | null
+          prof_city: string | null
+          prof_complement: string | null
+          prof_country: string | null
+          prof_course_platform: string | null
+          prof_course_wa_ddi: string | null
+          prof_course_wa_number: string | null
+          prof_cro: string | null
+          prof_fapesp_id: string | null
+          prof_lattes: string | null
+          prof_marketing_consent: boolean | null
+          prof_marketing_consent_at: string | null
+          prof_mini_cv: string | null
+          prof_neighborhood: string | null
+          prof_number: string | null
+          prof_orcid: string | null
+          prof_photo_url: string | null
+          prof_rating_price: number | null
+          prof_rating_quality: number | null
+          prof_rating_value: number | null
+          prof_site: string | null
+          prof_state: string | null
+          prof_street: string | null
+          prof_tiktok: string | null
+          prof_updated_at: string | null
+          prof_wa_ddi: string | null
+          prof_wa_number: string | null
+          prof_youtube: string | null
           proposals_data: Json | null
           proposals_last_status: number | null
           proposals_total_mrr: number | null
