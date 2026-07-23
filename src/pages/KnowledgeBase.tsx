@@ -49,6 +49,11 @@ export default function KnowledgeBase({ lang = 'pt', forcedTab }: KnowledgeBaseP
   const [dialogContent, setDialogContent] = useState<any>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [catCounts, setCatCounts] = useState<Record<string, { name: string; count: number }>>({});
+  const [countryCounts, setCountryCounts] = useState<Array<{ country: string; count: number }>>([]);
+  const [activeCountry, setActiveCountry] = useState<string>(() => {
+    if (typeof window === 'undefined') return 'all';
+    return new URLSearchParams(window.location.search).get('country') || 'all';
+  });
   useEffect(() => {
     (async () => {
       const { data } = await supabase
@@ -61,6 +66,26 @@ export default function KnowledgeBase({ lang = 'pt', forcedTab }: KnowledgeBaseP
         m[row.letter] = { name: row.name, count: row.knowledge_contents?.[0]?.count ?? 0 };
       });
       setCatCounts(m);
+    })();
+  }, []);
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase
+        .from('distributors')
+        .select('pais')
+        .eq('active', true);
+      if (!data) return;
+      const counts = new Map<string, number>();
+      (data as any[]).forEach((r) => {
+        const p = (r.pais || '').trim();
+        if (!p) return;
+        counts.set(p, (counts.get(p) ?? 0) + 1);
+      });
+      setCountryCounts(
+        Array.from(counts.entries())
+          .map(([country, count]) => ({ country, count }))
+          .sort((a, b) => a.country.localeCompare(b.country, 'pt-BR')),
+      );
     })();
   }, []);
   const shellV2 = typeof window === 'undefined'
@@ -131,7 +156,26 @@ export default function KnowledgeBase({ lang = 'pt', forcedTab }: KnowledgeBaseP
     const basePath = lang === 'en' ? '/en/knowledge-base'
       : lang === 'es' ? '/es/base-conocimiento'
       : '/base-conhecimento';
-    const categories = letters.length
+    const setCountryParam = (c: string) => {
+      const params = new URLSearchParams(window.location.search);
+      if (c === 'all') params.delete('country'); else params.set('country', c);
+      params.set('tab', 'distribuidores');
+      window.history.replaceState(null, '', `${window.location.pathname}?${params.toString()}${window.location.hash}`);
+      setActiveCountry(c);
+    };
+    const countryTotal = countryCounts.reduce((s, c) => s + c.count, 0);
+    const categories = activeKey === 'distribuidores'
+      ? [
+          { key: 'all', label: 'Todos os países', count: countryTotal, active: activeCountry === 'all', onClick: () => setCountryParam('all') },
+          ...countryCounts.map(({ country, count }) => ({
+            key: country,
+            label: country,
+            count,
+            active: activeCountry === country,
+            onClick: () => setCountryParam(country),
+          })),
+        ]
+      : letters.length
       ? [
           { key: 'all', label: 'Todos os conteúdos', count: total, active: !categoryLetter, onClick: () => navigate(`${basePath}?tab=${tab}`) },
           ...letters.map((l) => ({
@@ -172,7 +216,7 @@ export default function KnowledgeBase({ lang = 'pt', forcedTab }: KnowledgeBaseP
               {tab === 'artigos' && <KbTabArtigos onOpen={openArticle} />}
               {tab === 'ebooks' && <KbTabEbooks onOpen={openArticle} />}
               {tab === 'catalogo' && <KbTabCatalogo />}
-              {tab === 'distribuidores' && <KbTabDistribuidores />}
+              {tab === 'distribuidores' && <KbTabDistribuidores country={activeCountry} />}
               {tab === 'eventos' && <KbTabEventos />}
             </>
           )}
