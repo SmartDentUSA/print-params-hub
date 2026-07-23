@@ -255,7 +255,7 @@ function ResinCard({ p, index, t, onOpenSheet }: { p: ParamRow; index: number; t
           <div className="kb-rcard-name">{p.resin_name}</div>
           <div className="kb-rcard-badges">
             {r?.fda_510k && (
-              <span className="kb-cert-badge" style={{ background: 'rgba(26,115,232,0.10)', color: '#1A73E8' }}>FDA {r.fda_510k}</span>
+              <span className="kb-cert-badge" style={{ background: 'rgba(54,62,86,0.10)', color: '#363E56' }}>FDA {r.fda_510k}</span>
             )}
             {r?.anvisa_registration && (
               <span className="kb-cert-badge" style={{ background: 'rgba(52,168,83,0.10)', color: '#34A853' }}>ANVISA</span>
