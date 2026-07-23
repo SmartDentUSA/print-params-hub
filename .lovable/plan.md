@@ -1,34 +1,54 @@
-## Objetivo
+# Por que o texto do "Único Glaze Opalescente..." está aparecendo em Cura profissional
 
-Ajustar `src/components/smartops/ProfessionalMixSummary.tsx` para que o MIX seja apresentado exatamente no formato das imagens enviadas — sem mudar as fontes de dados, sem novos campos editáveis e sem tocar em regras de negócio.
+## Diagnóstico (confirmado)
 
-## Mudanças
+- O texto exibido em **Pós-impressão — Cura profissional** vem do campo `lia_attendances.equip_pos_impressao`.
+- Ao consultar o banco, encontrei **10+ leads** com o mesmo valor literal armazenado nesse campo (ex.: `alexangelino@hotmail.com`, `gpandolfo@mac.com`, `drthiagocandidomariano@gmail.com` etc.):
 
-1. **Promover a tabela "Equipamentos e software" para o topo da seção**, imediatamente após o cabeçalho (badge de expertise + stats). Ela passa a ser o bloco principal do MIX.
+  > "ÚNICO GLAZE OPALESCENTE DO MUNDO!!!Luz LED (1 minuto por fase)Luz Uv (2 minutos por Fase)Glaze Final: sob Luz UV até 48w mantenha por 10 minutos..."
 
-2. **Ordem fixa de categorias na tabela** (conforme imagens):
-   1. Scanner intraoral
-   2. Dispositivos
-   3. Impressora 3D
-   4. Pós-impressão — Wash & Cure
-   5. Pós-impressão — Cura profissional
-   6. CAD
+- Esse valor entra via `_shared/piperun-field-map.ts` (`parsed.equipments.pos_impressao`) e `smart-ops-piperun-webhook/index.ts` (linha 1432). Origem provável: um custom field no PipeRun que armazena a **descrição marketing do produto GlazeON** em vez do modelo do equipamento de cura. Está sendo persistido cru em `equip_pos_impressao`.
+- Quando o lead não tem `deal_items` nem pedidos, o fallback do `ProfessionalMixSummary` (adicionado recentemente) usa `equip_pos_impressao` como "equipamento de pós-impressão" e o `classifyEquipTable` joga na linha `cura_prof`, exibindo o texto inteiro.
 
-3. **Sempre renderizar as 6 linhas de categoria**, mesmo sem histórico. Quando vazia, "Produtos adquiridos" mostra "Sem histórico" e as demais colunas ficam com "—". Isso deixa o layout idêntico ao normativo (imagem 1 e 2).
+Portanto o texto **não é uma classificação errada** — é lixo entrando pela integração PipeRun e sendo exibido fielmente.
 
-4. **Coluna "Origem"** com regra confirmada:
-   - `Histórico de compras` para itens de e-commerce faturado.
-   - `Proposta ganha` para itens vindos apenas de deals ganhos no CRM.
-   - Categoria CAD: quando derivado automaticamente das regras (Medit Clinic App / BLZdental Lite CAD), rotular `Automático`; quando o vendedor digitou no campo CAD, rotular `Manual`.
+## Plano de correção (3 camadas)
 
-5. **Remover o bloco antigo "Equipamentos" (cards com % do mix)** — redundante com a tabela normativa. O campo de input CAD (edição manual com botão de lápis) é movido para dentro da célula "Produtos adquiridos" da linha CAD quando não há histórico, preservando a função de edição existente.
+### 1) Sanitizer defensivo no front (MIX)
+Em `src/components/smartops/ProfessionalMixSummary.tsx`, no bloco de fallback qualification (função `push` dentro do effect), rejeitar valores que claramente **não são modelo de equipamento**:
+- comprimento > 80 caracteres, OU
+- contém `\n`, OU
+- contém `!!!`, OU
+- casa `/(opalescente|glaze|mantenha por|cura final|luz uv|luz led|min(?:uto)s? por fase)/i`, OU
+- possui mais que 8 palavras.
 
-6. **Manter a seção "Consumíveis"** logo abaixo da tabela, sem alterações (não aparece nas imagens, mas o usuário pediu apenas reordenar/estilizar — não remover consumíveis).
+Aplicar a todos os `equip_*` (não só `pos_impressao`) para blindar contra reincidência em outras categorias.
 
-7. **Estilo**: cabeçalho da tabela em `bg-muted/40`, tipografia levemente maior (`text-sm` no corpo), `rowSpan` na coluna Categoria (já existe), separadores sutis entre grupos de categoria, badges de Origem discretos. Sem mudar cores da marca.
+### 2) Guard no ingest / mapping PipeRun
+Em `supabase/functions/_shared/piperun-field-map.ts` e `smart-ops-piperun-webhook/index.ts`:
+- Após `parsed.equipments.*` ser calculado, aplicar mesmo sanitizador (helper `isValidEquipmentLabel`) antes de gravar em `equip_scanner`, `equip_impressora`, `equip_pos_impressao`, `equip_cad`, `equip_fresadora`, `equip_notebook`.
+- Se inválido → não sobrescrever coluna; logar `system_health_logs` (event `equip_field_rejected`) com `lead_id`, campo e trecho inicial.
 
-## Fora do escopo
+### 3) Backfill único (limpeza histórica)
+Migration one-shot (SQL) para zerar campos contaminados existentes:
+```sql
+UPDATE public.lia_attendances
+SET equip_pos_impressao = NULL,
+    equip_pos_impressao_serial = NULL
+WHERE equip_pos_impressao ILIKE '%Opalescente do Mundo%'
+   OR equip_pos_impressao ILIKE '%Mantenha por 10 minutos%'
+   OR LENGTH(equip_pos_impressao) > 120;
+```
+(mesmo padrão para `equip_scanner`, `equip_impressora`, `equip_cad`, `equip_fresadora`, `equip_notebook` — apenas o filtro de LENGTH > 120, sem tocar em valores curtos legítimos)
 
-- Não alterar queries, classificação de produtos, cálculo de expertise, i18n ou schema.
-- Não transformar linhas em inputs editáveis.
-- Não mexer em `CoursesProfessionalProfile.tsx` nem em `CoursesPage.tsx`.
+## Detalhes técnicos
+
+- Sanitizador central compartilhado: novo `supabase/functions/_shared/equipment-field-guard.ts` exportando `isValidEquipmentLabel(value: string): boolean` e `sanitizeEquipmentLabel(value)`. Front duplica a lógica em `src/utils/equipmentLabel.ts` (regra idêntica).
+- Nenhum outro consumidor de `equip_*` precisa mudar: sanitizador roda **na escrita** (ingest) e **na leitura de fallback** (MIX).
+- Não altero o parser do PipeRun em si — só o gate final antes do `update`.
+
+## O que NÃO será alterado
+
+- Regras de classify/EquipCat do MIX (já corretas).
+- Fluxo de `deal_items` / Loja Integrada.
+- Outras telas que leem `equip_*` (Ficha Profissional, Dra. LIA, tickets) — passam a ver `NULL` quando o valor era lixo, o que é o comportamento desejado.
