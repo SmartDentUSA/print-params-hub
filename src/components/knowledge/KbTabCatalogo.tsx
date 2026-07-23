@@ -388,9 +388,9 @@ const findResinBySubset = (
   return best?.info;
 };
 
-interface KbTabCatalogoProps { filterKey?: string | null; pinnedIds?: string[]; onFilterChange?: (key: string) => void }
+interface KbTabCatalogoProps { filterKey?: string | null; pinnedIds?: string[]; pinnedElsewhereIds?: string[]; onFilterChange?: (key: string) => void }
 
-export default function KbTabCatalogo({ filterKey, pinnedIds, onFilterChange }: KbTabCatalogoProps = {}) {
+export default function KbTabCatalogo({ filterKey, pinnedIds, pinnedElsewhereIds, onFilterChange }: KbTabCatalogoProps = {}) {
   const { t, language } = useLanguage();
   const specLang: SpecLang = (language === 'en' || language === 'es') ? language : 'pt';
   const [docs, setDocs] = useState<Map<string, DocLinks>>(new Map());
@@ -692,7 +692,9 @@ export default function KbTabCatalogo({ filterKey, pinnedIds, onFilterChange }: 
     return deduped.filter((r) => {
       if (usingSidebarFilter) {
         const isPinned = !!pinnedIds && pinnedIds.includes(r.id);
+        const isPinnedElsewhere = !isPinned && !!pinnedElsewhereIds && pinnedElsewhereIds.includes(r.id);
         const matchesCat = rowMatchesCatalogFilter(r, sidebarDef);
+        if (isPinnedElsewhere) return false;
         if (!isPinned && !matchesCat) return false;
         return !term || (r.name?.toLowerCase().includes(term) || stripHtml(r.description).toLowerCase().includes(term));
       }
@@ -705,7 +707,7 @@ export default function KbTabCatalogo({ filterKey, pinnedIds, onFilterChange }: 
       if (term && !(r.name?.toLowerCase().includes(term) || stripHtml(r.description).toLowerCase().includes(term))) return false;
       return true;
     });
-  }, [rows, q, chip, subChip, usingSidebarFilter, sidebarDef, pinnedIds]);
+  }, [rows, q, chip, subChip, usingSidebarFilter, sidebarDef, pinnedIds, pinnedElsewhereIds]);
 
   // Subcategorias derivadas da categoria ativa (distinct, ordenadas)
   const subChips: KbChipOption[] = useMemo(() => {
