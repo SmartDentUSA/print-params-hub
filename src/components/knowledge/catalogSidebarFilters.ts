@@ -12,7 +12,7 @@ export const CATALOG_SIDEBAR_FILTERS: CatalogFilterDef[] = [
   { key: 'solucoes',           label: 'Soluções',             chip: 'SOLUÇÕES' },
   { key: 'resinas_3d',         label: 'Resinas 3D',           chip: 'RESINAS 3D' },
   { key: 'scanners',           label: 'Scanners',             chip: 'SCANNERS 3D' },
-  { key: 'softwares_cad',      label: 'Softwares CAD',        chip: 'SOFTWARES' },
+  { key: 'softwares_cad',      label: 'Softwares',            chip: 'SOFTWARES' },
   { key: 'impressoras_3d',     label: 'Impressoras 3D',       chip: 'IMPRESSÃO 3D', subMatch: (s) => /IMPRESSORA/i.test(s) },
   { key: 'limpeza_acabamento', label: 'Limpeza',              subMatch: (s) => /^4\.2\b|LIMPEZA/i.test(s) },
   { key: 'pos_impressao',      label: 'Pós-impressão',        subMatch: (s) => /^4\.1\b|EQUIPAMENTOS/i.test(s) && /4\./.test(s) },
