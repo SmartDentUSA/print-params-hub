@@ -19,7 +19,7 @@ function toSentenceCase(s: string): string {
 export default function KbChips({ options, active, onChange, align = 'center' }: Props) {
   const justify = align === 'left' ? 'flex-start' : align === 'right' ? 'flex-end' : 'center';
   return (
-    <div className="kb-cw" style={{ justifyContent: justify }}>
+    <div className={`kb-cw kb-cw--${align}`} style={{ justifyContent: justify }}>
       {options.map((o) => (
         <button
           key={o.key}

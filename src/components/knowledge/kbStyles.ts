@@ -50,6 +50,14 @@ export const kbStyles = `
 
 /* Chips */
 .kb-cw { display: flex; justify-content: center; flex-wrap: wrap; gap: 8px; margin-bottom: 22px; }
+.kb-cw--right {
+  width: fit-content;
+  max-width: 72%;
+  margin-left: auto;
+}
+@media (max-width: 768px) {
+  .kb-cw--right { width: 100%; max-width: 100%; }
+}
 .kb-chip {
   padding: 6px 16px; border-radius: 20px;
   border: 1px solid rgba(0,0,0,0.13); background: transparent;
