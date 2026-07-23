@@ -17,8 +17,8 @@ export const CATALOG_SIDEBAR_FILTERS: CatalogFilterDef[] = [
   { key: 'limpeza_acabamento', label: 'Limpeza',              subMatch: (s) => /^4\.2\b|LIMPEZA/i.test(s) },
   { key: 'pos_impressao',      label: 'Pós-impressão',        subMatch: (s) => /^4\.1\b|EQUIPAMENTOS/i.test(s) && /4\./.test(s) },
   { key: 'caracterizacao',     label: 'Finalização',          chip: 'CARACTERIZAÇÃO' },
-  { key: 'resinas_diretas',    label: 'Resinas diretas',      subMatch: (s) => /^6\.3\b|RESINAS COMPOSTAS/i.test(s) },
   { key: 'cimentos',           label: 'Cimentos',             subMatch: (s) => /^6\.2\b|CIMENTOS/i.test(s) },
+  { key: 'resinas_diretas',    label: 'Resinas diretas',      subMatch: (s) => /^6\.3\b|RESINAS COMPOSTAS/i.test(s) },
   { key: 'adesivos',           label: 'Adesivos',             nameContains: 'atos smart ortho' },
 ];
 
