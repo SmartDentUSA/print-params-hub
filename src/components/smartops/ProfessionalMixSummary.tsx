@@ -332,11 +332,21 @@ export default function ProfessionalMixSummary({ leadId, disabled, cadValue, onC
           const { data: lead } = await supabase
             .from("lia_attendances")
             .select(
-              "created_at, produto_interesse, equip_scanner, equip_scanner_ativacao, equip_scanner_bancada, equip_scanner_bancada_ativacao, equip_notebook, equip_notebook_ativacao, equip_cad, equip_cad_ativacao, equip_impressora, equip_impressora_ativacao, equip_pos_impressao, equip_pos_impressao_ativacao, equip_fresadora, equip_fresadora_ativacao"
+              "created_at, produto_interesse, equip_scanner, equip_scanner_ativacao, equip_scanner_serial, equip_scanner_bancada, equip_scanner_bancada_ativacao, equip_scanner_bancada_serial, equip_notebook, equip_notebook_ativacao, equip_notebook_serial, equip_cad, equip_cad_ativacao, equip_cad_serial, equip_impressora, equip_impressora_ativacao, equip_impressora_serial, equip_pos_impressao, equip_pos_impressao_ativacao, equip_pos_impressao_serial, equip_fresadora, equip_fresadora_ativacao, equip_fresadora_serial"
             )
             .eq("id", leadId)
             .maybeSingle();
           if (lead) {
+            // Popular seriais para exibição/edição
+            if (!cancelled) {
+              setSerials({
+                scanner_3d: (lead as any).equip_scanner_serial || (lead as any).equip_scanner_bancada_serial || "",
+                notebook: (lead as any).equip_notebook_serial || "",
+                cad: (lead as any).equip_cad_serial || "",
+                impressora: (lead as any).equip_impressora_serial || "",
+                wash_cure: (lead as any).equip_pos_impressao_serial || "",
+              });
+            }
             const covered = new Set<Cat>([...crmItems, ...ecomItems].map((i) => i.category));
             const fallbackDate = (lead as any).created_at || new Date().toISOString();
             const push = (raw: any, forced: Cat, ativ?: any) => {
