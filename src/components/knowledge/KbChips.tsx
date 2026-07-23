@@ -4,6 +4,7 @@ interface Props {
   options: KbChipOption[];
   active: string;
   onChange: (key: string) => void;
+  align?: 'left' | 'center' | 'right';
 }
 
 // Sentence case: primeira letra maiúscula, restante minúsculo.
@@ -15,9 +16,10 @@ function toSentenceCase(s: string): string {
   return cased.replace(/\b3d\b/g, '3D');
 }
 
-export default function KbChips({ options, active, onChange }: Props) {
+export default function KbChips({ options, active, onChange, align = 'center' }: Props) {
+  const justify = align === 'left' ? 'flex-start' : align === 'right' ? 'flex-end' : 'center';
   return (
-    <div className="kb-cw">
+    <div className="kb-cw" style={{ justifyContent: justify }}>
       {options.map((o) => (
         <button
           key={o.key}
