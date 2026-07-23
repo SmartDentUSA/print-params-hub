@@ -5,8 +5,33 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { GraduationCap, Loader2, Pencil, Plus, UserCircle } from "lucide-react";
+import { GraduationCap, Loader2, Pencil, Plus, UserCircle, Star, Eye, MessageCircle } from "lucide-react";
 import CoursesProfessionalProfile from "./CoursesProfessionalProfile";
+
+function formatClienteDesde(iso: string | null): string {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "—";
+  return d.toLocaleDateString("pt-BR", { month: "short", year: "numeric" });
+}
+
+function avgRating(p: { prof_rating_quality: number | null; prof_rating_price: number | null; prof_rating_value: number | null }): number {
+  const vals = [p.prof_rating_quality, p.prof_rating_price, p.prof_rating_value].filter((v): v is number => typeof v === "number" && v > 0);
+  if (vals.length === 0) return 0;
+  return vals.reduce((a, b) => a + b, 0) / vals.length;
+}
+
+function StarRating({ value }: { value: number }) {
+  const full = Math.round(value);
+  return (
+    <div className="flex items-center gap-0.5">
+      {[1, 2, 3, 4, 5].map((i) => (
+        <Star key={i} className={`w-3.5 h-3.5 ${i <= full ? "fill-yellow-400 text-yellow-400" : "text-muted-foreground/30"}`} />
+      ))}
+      <span className="ml-1 text-xs text-muted-foreground">{value > 0 ? value.toFixed(1) : "—"}</span>
+    </div>
+  );
+}
 
 type Professional = {
   id: string;
