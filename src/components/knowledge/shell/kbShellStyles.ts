@@ -18,7 +18,7 @@ export const kbShellStyles = `
 .kbs-cta{margin:12px;padding:20px 16px;border-radius:14px;background:linear-gradient(160deg,#546085 0%,#363E56 100%);color:#fff;}
 .kbs-cta h4{font-size:14px;font-weight:700;margin:0 0 6px;line-height:1.25;}
 .kbs-cta p{font-size:11.5px;line-height:1.45;margin:0 0 12px;opacity:.85;}
-.kbs-cta a{display:inline-flex;align-items:center;gap:6px;background:#fff;color:#0F172A;font-size:12px;font-weight:600;padding:7px 12px;border-radius:8px;text-decoration:none;}
+.kbs-cta a{display:inline-flex;align-items:center;gap:6px;background:#fff;color:#363E56;font-size:12px;font-weight:600;padding:7px 12px;border-radius:8px;text-decoration:none;}
 .kbs-main{flex:1;min-width:0;display:flex;flex-direction:column;}
 .kbs-topbar{display:flex;align-items:center;gap:10px;padding:12px 24px;background:#fff;border-bottom:1px solid #E5E7EB;}
 .kbs-toptabs{display:flex;align-items:center;gap:6px;flex:1;overflow-x:auto;scrollbar-width:none;}
