@@ -56,6 +56,18 @@ const emptyForm = {
   prof_fapesp_id: "",
   prof_site: "",
   prof_marketing_consent: false,
+  // Mix de produtos (carregado da base de leads / CRM)
+  produto_interesse: "",
+  equip_scanner: "",
+  equip_scanner_bancada: "",
+  equip_notebook: "",
+  equip_cad: "",
+  equip_impressora: "",
+  equip_pos_impressao: "",
+  equip_fresadora: "",
+  prof_rating_quality: 0 as number,
+  prof_rating_price: 0 as number,
+  prof_rating_value: 0 as number,
 };
 
 type FormState = typeof emptyForm;
@@ -86,7 +98,7 @@ export default function CoursesProfessionalProfile({ initialEmail, startEditing 
       const { data, error } = await supabase
         .from("lia_attendances")
         .select(
-          "id, nome, email, area_atuacao, especialidade, pessoa_nascimento, prof_cro, prof_photo_url, prof_mini_cv, prof_course_platform, prof_wa_ddi, prof_wa_number, prof_course_wa_ddi, prof_course_wa_number, prof_cep, prof_country, prof_state, prof_city, prof_neighborhood, prof_street, prof_number, prof_complement, instagram, prof_tiktok, prof_youtube, pessoa_linkedin, prof_lattes, prof_orcid, prof_fapesp_id, prof_site, prof_marketing_consent"
+          "id, nome, email, area_atuacao, especialidade, pessoa_nascimento, prof_cro, prof_photo_url, prof_mini_cv, prof_course_platform, prof_wa_ddi, prof_wa_number, prof_course_wa_ddi, prof_course_wa_number, prof_cep, prof_country, prof_state, prof_city, prof_neighborhood, prof_street, prof_number, prof_complement, instagram, prof_tiktok, prof_youtube, pessoa_linkedin, prof_lattes, prof_orcid, prof_fapesp_id, prof_site, prof_marketing_consent, produto_interesse, equip_scanner, equip_scanner_bancada, equip_notebook, equip_cad, equip_impressora, equip_pos_impressao, equip_fresadora, prof_rating_quality, prof_rating_price, prof_rating_value"
         )
         .ilike("email", email)
         .is("merged_into", null)
@@ -420,6 +432,67 @@ export default function CoursesProfessionalProfile({ initialEmail, startEditing 
           <div><Label>ORCID</Label><Input value={form.prof_orcid} onChange={(e) => setField("prof_orcid", e.target.value)} disabled={disabled} /></div>
           <div><Label>FAPESP ID</Label><Input value={form.prof_fapesp_id} onChange={(e) => setField("prof_fapesp_id", e.target.value)} disabled={disabled} /></div>
           <div><Label>Site</Label><Input value={form.prof_site} onChange={(e) => setField("prof_site", e.target.value)} disabled={disabled} /></div>
+        </CardContent>
+      </Card>
+
+      {/* Mix de produtos (autopreenchido a partir do CRM/Base de Leads) */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Mix de produtos</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-xs text-muted-foreground">
+            Estes dados são carregados automaticamente da base de leads (CRM + histórico de compras) ao buscar pelo e-mail. Você pode ajustar manualmente se necessário.
+          </p>
+          <div>
+            <Label>Produto de interesse</Label>
+            <Input value={form.produto_interesse} onChange={(e) => setField("produto_interesse", e.target.value)} disabled={disabled} placeholder="Ex: Scanner intraoral, Impressora 3D..." />
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div>
+              <Label>Scanner intraoral</Label>
+              <Input value={form.equip_scanner} onChange={(e) => setField("equip_scanner", e.target.value)} disabled={disabled} />
+            </div>
+            <div>
+              <Label>Scanner de bancada</Label>
+              <Input value={form.equip_scanner_bancada} onChange={(e) => setField("equip_scanner_bancada", e.target.value)} disabled={disabled} />
+            </div>
+            <div>
+              <Label>Notebook</Label>
+              <Input value={form.equip_notebook} onChange={(e) => setField("equip_notebook", e.target.value)} disabled={disabled} />
+            </div>
+            <div>
+              <Label>Software CAD</Label>
+              <Input value={form.equip_cad} onChange={(e) => setField("equip_cad", e.target.value)} disabled={disabled} />
+            </div>
+            <div>
+              <Label>Impressora 3D</Label>
+              <Input value={form.equip_impressora} onChange={(e) => setField("equip_impressora", e.target.value)} disabled={disabled} />
+            </div>
+            <div>
+              <Label>Pós-impressão (wash & cure)</Label>
+              <Input value={form.equip_pos_impressao} onChange={(e) => setField("equip_pos_impressao", e.target.value)} disabled={disabled} />
+            </div>
+            <div>
+              <Label>Fresadora</Label>
+              <Input value={form.equip_fresadora} onChange={(e) => setField("equip_fresadora", e.target.value)} disabled={disabled} />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-2 border-t">
+            <div>
+              <Label>Avaliação — Qualidade (0-5)</Label>
+              <Input type="number" min={0} max={5} step="0.1" value={form.prof_rating_quality || ""} onChange={(e) => setField("prof_rating_quality", parseFloat(e.target.value) || 0)} disabled={disabled} />
+            </div>
+            <div>
+              <Label>Avaliação — Preço (0-5)</Label>
+              <Input type="number" min={0} max={5} step="0.1" value={form.prof_rating_price || ""} onChange={(e) => setField("prof_rating_price", parseFloat(e.target.value) || 0)} disabled={disabled} />
+            </div>
+            <div>
+              <Label>Avaliação — Custo-benefício (0-5)</Label>
+              <Input type="number" min={0} max={5} step="0.1" value={form.prof_rating_value || ""} onChange={(e) => setField("prof_rating_value", parseFloat(e.target.value) || 0)} disabled={disabled} />
+            </div>
+          </div>
         </CardContent>
       </Card>
 
