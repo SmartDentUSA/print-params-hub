@@ -52,10 +52,33 @@ type Professional = {
   prof_rating_value: number | null;
 };
 
+// Classificação de equipamentos a partir de deals ganhos (espelha smart-ops-backfill-equipment-from-deals).
+const ACCESSORY_RE = /\b(painel\s+lcd|tela\s+lcd|teflon|fep|nfep|pelicula|película|filme|filtro|fonte|placa\s+m[ãa]e|cabo|adesivo|parafuso|kit\s+(?:de\s+)?(?:reposi[çc][ãa]o|manuten[çc][ãa]o|limpeza)|reposi[çc][ãa]o|manuten[çc][ãa]o|spare|cartucho|bandeja|plataforma\s+de?\s+constru[çc][ãa]o|build\s*plate|vat|cuba|elastico|elástico|bombinha|seringa|ponta|broca|garantia|extensao|extensão|treinamento|curso|aula|consultoria|servi[çc]o|frete|instala[çc][ãa]o)\b/i;
+const SCANNER_RE = /\b(medit\s*i[567]00|i600|i700|aoralscan\s*\d?|trios\s*\d|itero|primescan|panda\s*p\d|launca\s*\w*|runyes|shining\s*\w*|emerald)\b/i;
+const IMPRESSORA_RE = /\b(halot\s*(?:one|mage|max|sky|ray)[\w\s\-]*|elegoo\s+(?:mars|saturn|jupiter)\s*\d?\s*(?:ultra|pro|plus|s|m|max)?|mars\s*\d\s*(?:ultra|pro)?|saturn\s*\d\s*(?:ultra|pro|s)?|phrozen\s+(?:sonic|mighty|shuffle)[\w\s\-]*|sonic\s+(?:mini|mighty|xl)[\w\s\-]*|anycubic\s+(?:photon|mono)[\w\s\-]*|miicraft[\w\s\-]*|rayshape\s+(?:edge|shape)[\w\s\-]*|edge\s*mini|edgemini|nextdent\s*\w*|asiga\s+\w+|formlabs\s+form\s*\d)\b/i;
+
+function detectEquip(name: string): { scanner?: string; impressora?: string } {
+  const n = (name || "").toLowerCase();
+  if (!n || ACCESSORY_RE.test(n)) return {};
+  const s = n.match(SCANNER_RE);
+  if (s) return { scanner: s[0].replace(/\s+/g, " ").trim() };
+  const i = n.match(IMPRESSORA_RE);
+  if (i) return { impressora: i[0].replace(/\s+/g, " ").trim() };
+  return {};
+}
+
+function titleCase(s: string): string {
+  return s
+    .split(/\s+/)
+    .map((w) => (w.length <= 2 ? w.toLowerCase() : w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()))
+    .join(" ");
+}
+
 export default function CoursesPage() {
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [professionals, setProfessionals] = useState<Professional[]>([]);
+  const [wonEquip, setWonEquip] = useState<Record<string, { scanner?: string; impressora?: string }>>({});
   const [modalOpen, setModalOpen] = useState(false);
   const [editingEmail, setEditingEmail] = useState<string | undefined>(undefined);
 
@@ -70,7 +93,40 @@ export default function CoursesPage() {
         .order("prof_updated_at", { ascending: false })
         .limit(200);
       if (error) throw error;
-      setProfessionals((data ?? []) as Professional[]);
+      const list = (data ?? []) as Professional[];
+      setProfessionals(list);
+
+      // Carrega equipamentos a partir de deals ganhos
+      const leadIds = list.map((p) => p.id);
+      if (leadIds.length > 0) {
+        const { data: wonDeals } = await supabase
+          .from("deals")
+          .select("id, lead_id")
+          .in("lead_id", leadIds)
+          .eq("status", "ganha");
+        const dealIds = (wonDeals ?? []).map((d: any) => d.id);
+        const dealToLead = new Map<string, string>((wonDeals ?? []).map((d: any) => [d.id, d.lead_id]));
+
+        const map: Record<string, { scanner?: string; impressora?: string }> = {};
+        if (dealIds.length > 0) {
+          const { data: items } = await supabase
+            .from("deal_items")
+            .select("deal_id, product_name, synced_at")
+            .in("deal_id", dealIds)
+            .order("synced_at", { ascending: false });
+          for (const it of (items ?? []) as any[]) {
+            const leadId = dealToLead.get(it.deal_id);
+            if (!leadId) continue;
+            const det = detectEquip(it.product_name || "");
+            if (!map[leadId]) map[leadId] = {};
+            if (det.scanner && !map[leadId].scanner) map[leadId].scanner = titleCase(det.scanner);
+            if (det.impressora && !map[leadId].impressora) map[leadId].impressora = titleCase(det.impressora);
+          }
+        }
+        setWonEquip(map);
+      } else {
+        setWonEquip({});
+      }
     } catch (e: any) {
       toast({ title: "Erro ao carregar profissionais", description: e.message, variant: "destructive" });
     } finally {
@@ -190,11 +246,11 @@ export default function CoursesPage() {
                   </div>
                   <div className="flex justify-between gap-2">
                     <span className="text-muted-foreground shrink-0">Scanner:</span>
-                    <span className="font-medium truncate text-right">{p.equip_scanner || p.equip_scanner_bancada || "—"}</span>
+                    <span className="font-medium truncate text-right">{wonEquip[p.id]?.scanner || "—"}</span>
                   </div>
                   <div className="flex justify-between gap-2">
                     <span className="text-muted-foreground shrink-0">Impressora 3D:</span>
-                    <span className="font-medium truncate text-right">{p.equip_impressora || "—"}</span>
+                    <span className="font-medium truncate text-right">{wonEquip[p.id]?.impressora || "—"}</span>
                   </div>
                 </div>
 
