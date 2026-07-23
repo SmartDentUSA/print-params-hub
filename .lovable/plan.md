@@ -1,31 +1,26 @@
-## Problema
+# Prefixo "🤖 Novo Lead - Dra. L.I.A." em mensagens para vendedores
 
-1. **Menu superior (top tabs)** em `KbShellLayout.tsx` usa labels hardcoded em PT (`'Parâmetros', 'Catálogo', 'Vídeos', 'Artigos', 'Ebooks', 'Revendas', 'Eventos'`) e `aria-label="Abrir menu"` fixo — não passa por `t()`.
-2. **Hero** usa `t('kb.hero.<tab>.title/subtitle')` corretamente, mas o override do Editor HUB (`site_settings.kb_hero_*`) sobrescreve incondicionalmente com o texto salvo (em PT). Como o admin salva um único valor, ele "vence" em qualquer idioma e faz o Hero parecer não traduzido.
+## Situação verificada
 
-## Correções
+- Busca no repositório (`supabase/`, `src/`): a string `Novo Lead atribuído` / `🤖 Novo Lead - Dra. L.I.A.` **não existe** em nenhum arquivo (código, templates, migrations recentes).
+- Código atual de briefing para vendedor em `supabase/functions/_shared/waleads-messaging.ts` (linhas 310 e 1406) já monta o header como `📊 *Análise SmartOps*`.
+- Nenhuma regra em `cs_automation_rules`, `reactivation_rules`, `whatsapp_templates` contém o prefixo antigo.
+- `whatsapp_inbox` (direction=outbound): última mensagem com `Novo Lead atribuído - Dra. L.I.A.` é de **12/05/2026 20:44** — 292 ocorrências no total, **zero após essa data**.
 
-### 1. `src/components/knowledge/shell/KbShellLayout.tsx`
-- Importar `useLanguage`.
-- Trocar labels hardcoded de `TOP_TABS` por `t('kb.tabs.<key>')` (chaves já existem em `pt/en/es.json` sob `kb.tabs`; `distribuidores` também já tem tradução — usar essa em vez de "Revendas").
-- Trocar `aria-label="Abrir menu"` por `t('kb.shell.open_menu')` (já existe nos 3 locales).
-- Trocar `"Admin"` do botão por `t('common.admin')`.
+Conclusão: o fix já está em produção há ~2 meses. A mensagem que você está vendo hoje no WhatsApp do 5519992612348 provavelmente é:
+1. Uma mensagem antiga (rolagem do histórico), ou
+2. Um envio de outra origem que ainda não mapeei (ex: script externo, N8N, Make, ManyChat, ou uma edge function chamada por webhook que não usa `waleads-messaging.ts`).
 
-### 2. `src/pages/KnowledgeBase.tsx` (bloco Hero, ~linhas 224–231)
-Ajustar a lógica de override para não engolir a tradução quando o idioma ativo é EN/ES:
+## Preciso confirmar antes de propor mudança
 
-```ts
-const isDefaultLang = language === 'pt';
-const heroTitle    = (isDefaultLang && override.title)    ? override.title    : hero.title;
-const heroSubtitle = (isDefaultLang && override.subtitle) ? override.subtitle : hero.subtitle;
-const heroArt      = override.image_url || heroPrinterImg; // imagem continua global
-```
+Antes de eu abrir um plano de correção, me confirme:
 
-Assim o override do Editor HUB (texto em PT) só se aplica em PT; EN/ES caem no `t('kb.hero.*')`. A imagem do Hero continua sendo compartilhada entre idiomas.
+1. **Data/hora exata** da última mensagem que você viu com esse prefixo (screenshot ajuda).
+2. **Vendedor destinatário** (whatsapp do vendedor que recebeu).
 
-## Fora de escopo
-- Não mexer no Editor HUB nem em `site_settings` (não há pedido para overrides por idioma).
-- Nenhuma mudança em outros componentes/tabs.
+Com isso eu:
+- Localizo o registro real em `whatsapp_inbox` / logs do Evolution e identifico qual função disparou (pelo `trigger_source` / `created_at` / metadados).
+- Se for envio recente de fato, encontro o call-site restante e corrijo o header para `📊 SmartOps`.
+- Se for mensagem antiga, apenas confirmo que não há mais envio ativo.
 
-## Verificação
-- Alternar idioma para EN/ES em `/en/knowledge-base` e `/es/base-conocimiento` e conferir que menu superior + Hero trocam de idioma; PT com override configurado continua exibindo o texto customizado.
+Aguardo os dois dados para prosseguir com um plano de correção direcionado.
