@@ -436,74 +436,32 @@ export default function CoursesProfessionalProfile({ initialEmail, startEditing 
         </CardContent>
       </Card>
 
-      {/* Mix de produtos (autopreenchido a partir do CRM/Base de Leads) */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Mix de produtos</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <p className="text-xs text-muted-foreground">
-            Estes dados são carregados automaticamente da base de leads (CRM + histórico de compras) ao buscar pelo e-mail. Você pode ajustar manualmente se necessário.
-          </p>
-          <div>
-            <Label>Produto de interesse</Label>
-            <Input value={form.produto_interesse} onChange={(e) => setField("produto_interesse", e.target.value)} disabled={disabled} placeholder="Ex: Scanner intraoral, Impressora 3D..." />
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <div>
-              <Label>Scanner intraoral</Label>
-              <Input value={form.equip_scanner} onChange={(e) => setField("equip_scanner", e.target.value)} disabled={disabled} />
-            </div>
-            <div>
-              <Label>Scanner de bancada</Label>
-              <Input value={form.equip_scanner_bancada} onChange={(e) => setField("equip_scanner_bancada", e.target.value)} disabled={disabled} />
-            </div>
-            <div>
-              <Label>Notebook</Label>
-              <Input value={form.equip_notebook} onChange={(e) => setField("equip_notebook", e.target.value)} disabled={disabled} />
-            </div>
-            <div>
-              <Label>Software CAD</Label>
-              <Input value={form.equip_cad} onChange={(e) => setField("equip_cad", e.target.value)} disabled={disabled} />
-            </div>
-            <div>
-              <Label>Impressora 3D</Label>
-              <Input value={form.equip_impressora} onChange={(e) => setField("equip_impressora", e.target.value)} disabled={disabled} />
-            </div>
-            <div>
-              <Label>Pós-impressão (wash & cure)</Label>
-              <Input value={form.equip_pos_impressao} onChange={(e) => setField("equip_pos_impressao", e.target.value)} disabled={disabled} />
-            </div>
-            <div>
-              <Label>Fresadora</Label>
-              <Input value={form.equip_fresadora} onChange={(e) => setField("equip_fresadora", e.target.value)} disabled={disabled} />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-2 border-t">
-            <div>
-              <Label>Avaliação — Qualidade (0-5)</Label>
-              <Input type="number" min={0} max={5} step="0.1" value={form.prof_rating_quality || ""} onChange={(e) => setField("prof_rating_quality", parseFloat(e.target.value) || 0)} disabled={disabled} />
-            </div>
-            <div>
-              <Label>Avaliação — Preço (0-5)</Label>
-              <Input type="number" min={0} max={5} step="0.1" value={form.prof_rating_price || ""} onChange={(e) => setField("prof_rating_price", parseFloat(e.target.value) || 0)} disabled={disabled} />
-            </div>
-            <div>
-              <Label>Avaliação — Custo-benefício (0-5)</Label>
-              <Input type="number" min={0} max={5} step="0.1" value={form.prof_rating_value || ""} onChange={(e) => setField("prof_rating_value", parseFloat(e.target.value) || 0)} disabled={disabled} />
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Portifólio Smart Dent — Mix derivado do histórico de compras */}
+      {/* Portifólio Smart Dent — Mix derivado do histórico de compras (tabela normativa) */}
       <ProfessionalMixSummary
         leadId={leadId}
         disabled={disabled}
         cadValue={form.equip_cad}
         onCadChange={(v) => setField("equip_cad", v)}
       />
+
+      {/* Avaliação da experiência (0-5) */}
+      <Card>
+        <CardHeader><CardTitle>Avaliação da experiência</CardTitle></CardHeader>
+        <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div>
+            <Label>Qualidade (0-5)</Label>
+            <Input type="number" min={0} max={5} step="0.1" value={form.prof_rating_quality || ""} onChange={(e) => setField("prof_rating_quality", parseFloat(e.target.value) || 0)} disabled={disabled} />
+          </div>
+          <div>
+            <Label>Preço (0-5)</Label>
+            <Input type="number" min={0} max={5} step="0.1" value={form.prof_rating_price || ""} onChange={(e) => setField("prof_rating_price", parseFloat(e.target.value) || 0)} disabled={disabled} />
+          </div>
+          <div>
+            <Label>Custo-benefício (0-5)</Label>
+            <Input type="number" min={0} max={5} step="0.1" value={form.prof_rating_value || ""} onChange={(e) => setField("prof_rating_value", parseFloat(e.target.value) || 0)} disabled={disabled} />
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Consentimento */}
       <Card>
