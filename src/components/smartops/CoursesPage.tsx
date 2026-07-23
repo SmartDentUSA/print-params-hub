@@ -151,6 +151,7 @@ export default function CoursesPage() {
           <CoursesProfessionalProfile
             key={editingEmail ?? "new"}
             initialEmail={editingEmail}
+            startEditing={Boolean(editingEmail)}
             onSaved={onSaved}
           />
         </DialogContent>

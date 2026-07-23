@@ -62,10 +62,11 @@ type FormState = typeof emptyForm;
 
 interface CoursesProfessionalProfileProps {
   initialEmail?: string;
+  startEditing?: boolean;
   onSaved?: (leadId: string) => void;
 }
 
-export default function CoursesProfessionalProfile({ initialEmail, onSaved }: CoursesProfessionalProfileProps = {}) {
+export default function CoursesProfessionalProfile({ initialEmail, startEditing = false, onSaved }: CoursesProfessionalProfileProps = {}) {
   const { toast } = useToast();
   const [searchEmail, setSearchEmail] = useState(initialEmail ?? "");
   const [searching, setSearching] = useState(false);
@@ -113,14 +114,14 @@ export default function CoursesProfessionalProfile({ initialEmail, onSaved }: Co
       }
       merged.email = data.email ?? email;
       setForm(merged);
-      setLocked(true);
+      setLocked(!startEditing);
       toast({ title: "Ficha carregada", description: `Lead encontrado — ${data.nome ?? email}` });
     } catch (e: any) {
       toast({ title: "Erro ao buscar", description: e.message, variant: "destructive" });
     } finally {
       setSearching(false);
     }
-  }, [searchEmail, toast]);
+  }, [searchEmail, startEditing, toast]);
 
   useEffect(() => {
     if (initialEmail) {
