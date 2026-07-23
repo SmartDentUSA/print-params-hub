@@ -147,8 +147,10 @@ export default function KbTabVideos({ onOpen, letterFilter }: Props) {
     <section>
       {/* Título removido: hero do shell v2 é a única fonte do título nesta aba */}
       <KbSearchBar placeholder={t('kb.videos.search')} value={q} onDebouncedChange={setQ} />
-      <KbChips options={chips} active={chip} onChange={setChip} align="left" />
-      <KbListControls sort={sort} onSortChange={setSort} view={view} onViewChange={setView} />
+      <div className="kb-chips-row">
+        <KbChips options={chips} active={chip} onChange={setChip} align="left" />
+        <KbListControls sort={sort} onSortChange={setSort} view={view} onViewChange={setView} />
+      </div>
       {q.trim() && (
         <div className="kb-count" style={{ opacity: 0.75 }}>
           {t('kb.search.global_hint') !== 'kb.search.global_hint'

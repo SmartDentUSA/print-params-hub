@@ -13,6 +13,11 @@ export const kbStyles = `
 @keyframes kbFadeIn { from { opacity: 0; transform: translateY(7px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes kbShimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
 
+/* Chips + list controls on same row */
+.kb-chips-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.kb-chips-row > .kb-cw { flex: 1 1 auto; margin: 0; }
+.kb-chips-row > .kb-lc { margin: 0; flex: 0 0 auto; }
+
 /* Switcher */
 .kb-switcher-wrap { display: flex; justify-content: center; margin-bottom: 28px; }
 .kb-switcher {
