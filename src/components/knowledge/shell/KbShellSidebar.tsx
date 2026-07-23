@@ -16,6 +16,8 @@ const NAV: { key: NavKey; label: string; icon: React.ReactNode }[] = [
 
 export interface SidebarCategory { key: string; label: string; count?: number; active?: boolean; onClick?: () => void; isHeader?: boolean; }
 
+export interface SidebarCta { enabled?: boolean; title?: string; subtitle?: string; cta_label?: string; cta_url?: string }
+
 interface Props {
   active: NavKey;
   onChange: (key: NavKey) => void;
@@ -24,10 +26,16 @@ interface Props {
   open?: boolean;
   onClose?: () => void;
   showOverview?: boolean;
+  cta?: SidebarCta;
 }
 
-export default function KbShellSidebar({ active, onChange, counts, categories, open, onClose, showOverview = false }: Props) {
+export default function KbShellSidebar({ active, onChange, counts, categories, open, onClose, showOverview = false, cta }: Props) {
   const navItems = NAV.filter((item) => item.key !== 'overview' || showOverview);
+  const ctaEnabled = cta?.enabled !== false;
+  const ctaTitle = cta?.title || 'Soluções de odontologia digital';
+  const ctaSubtitle = cta?.subtitle || 'Mais que tecnologia, entregamos autonomia e rentabilidade para seu consultório ou laboratório.';
+  const ctaLabel = cta?.cta_label || 'Conheça nossas soluções →';
+  const ctaUrl = cta?.cta_url || 'https://smartdent.com.br';
   return (
     <>
       {open && <div className="kbs-backdrop" onClick={onClose} />}
@@ -79,13 +87,15 @@ export default function KbShellSidebar({ active, onChange, counts, categories, o
             </>
           )}
         </div>
-        <div className="kbs-cta">
-          <h4>Soluções de odontologia digital</h4>
-          <p>Mais que tecnologia, entregamos autonomia e rentabilidade para seu consultório ou laboratório.</p>
-          <a href="https://smartdent.com.br" target="_blank" rel="noopener noreferrer">
-            Conheça nossas soluções →
-          </a>
-        </div>
+        {ctaEnabled && (
+          <div className="kbs-cta">
+            <h4>{ctaTitle}</h4>
+            <p>{ctaSubtitle}</p>
+            <a href={ctaUrl} target="_blank" rel="noopener noreferrer">
+              {ctaLabel}
+            </a>
+          </div>
+        )}
       </aside>
     </>
   );
