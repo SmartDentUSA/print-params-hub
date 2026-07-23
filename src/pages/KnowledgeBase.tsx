@@ -187,15 +187,13 @@ export default function KnowledgeBase({ lang = 'pt', forcedTab }: KnowledgeBaseP
     CONTINENT_ORDER.forEach((cont) => {
       const list = grouped.get(cont);
       if (!list || !list.length) return;
-      continentCategories.push({ key: `hdr-${cont}`, label: cont, isHeader: true });
-      list.forEach(({ country, count }) => {
-        continentCategories.push({
-          key: country,
-          label: country,
-          count,
-          active: activeCountry === country,
-          onClick: () => setCountryParam(country),
-        });
+      const total = list.reduce((s, x) => s + x.count, 0);
+      continentCategories.push({
+        key: `cont:${cont}`,
+        label: cont,
+        count: total,
+        active: activeCountry === `cont:${cont}`,
+        onClick: () => setCountryParam(`cont:${cont}`),
       });
     });
     const categories = activeKey === 'distribuidores'
