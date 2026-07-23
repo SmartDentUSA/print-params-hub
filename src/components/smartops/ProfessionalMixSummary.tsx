@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Loader2, Pencil, Star, Trophy, Save, X } from "lucide-react";
 import { toast } from "sonner";
+import { isValidEquipmentLabel } from "@/utils/equipmentLabel";
 
 // ---------- Classificação de categorias ----------
 // Ordem importa: primeiras regras vencem.
