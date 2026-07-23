@@ -170,8 +170,25 @@ export default function KbTabDistribuidores({ country: externalCountry }: KbTabD
 
   const filtered = useMemo(() => {
     const s = q.trim().toLowerCase();
+    const CONTINENT_MAP: Record<string, string> = {
+      brasil: 'América do Sul', brazil: 'América do Sul', argentina: 'América do Sul', chile: 'América do Sul',
+      uruguai: 'América do Sul', uruguay: 'América do Sul', paraguai: 'América do Sul', paraguay: 'América do Sul',
+      bolivia: 'América do Sul', peru: 'América do Sul', colombia: 'América do Sul', venezuela: 'América do Sul',
+      equador: 'América do Sul', ecuador: 'América do Sul',
+      mexico: 'América do Norte', 'estados unidos': 'América do Norte', eua: 'América do Norte', usa: 'América do Norte',
+      'united states': 'América do Norte', canada: 'América do Norte',
+      portugal: 'Europa', espanha: 'Europa', spain: 'Europa', franca: 'Europa', italia: 'Europa',
+      alemanha: 'Europa', germany: 'Europa', 'reino unido': 'Europa', uk: 'Europa',
+    };
+    const contOf = (c: string) => CONTINENT_MAP[normalize(c)] || 'Outros';
+    const isContinent = country.startsWith('cont:');
+    const continentName = isContinent ? country.slice(5) : null;
     return rows.filter((r) => {
-      if (country !== 'all' && normalize(r.pais || '') !== normalize(country)) return false;
+      if (isContinent) {
+        if (contOf(r.pais || '') !== continentName) return false;
+      } else if (country !== 'all') {
+        if (normalize(r.pais || '') !== normalize(country)) return false;
+      }
       if (!s) return true;
       return [r.nome_fantasia, r.razao_social, r.cidade, r.estado, r.pais]
         .filter(Boolean)
