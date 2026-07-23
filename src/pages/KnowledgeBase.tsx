@@ -43,7 +43,7 @@ function getInitialTab(letter?: string, forcedTab?: KbTab): KbTab {
 export default function KnowledgeBase({ lang = 'pt', forcedTab }: KnowledgeBaseProps) {
   const { categoryLetter, contentSlug } = useParams();
   const navigate = useNavigate();
-  const { setLanguage, t } = useLanguage();
+  const { language, setLanguage, t } = useLanguage();
   const { fetchContentBySlug } = useKnowledge();
 
   useEffect(() => { setLanguage(lang); }, [lang, setLanguage]);
@@ -226,8 +226,9 @@ export default function KnowledgeBase({ lang = 'pt', forcedTab }: KnowledgeBaseP
       subtitle: t(`kb.hero.${activeKey}.subtitle`),
     };
     const override = heroOverrides[KB_HERO_SETTING_KEY(activeKey as any)] || {};
-    const heroTitle = override.title || hero.title;
-    const heroSubtitle = override.subtitle || hero.subtitle;
+    const isDefaultLang = language === 'pt';
+    const heroTitle = (isDefaultLang && override.title) ? override.title : hero.title;
+    const heroSubtitle = (isDefaultLang && override.subtitle) ? override.subtitle : hero.subtitle;
     const heroArt = override.image_url || heroPrinterImg;
     const TAB_LETTERS: Partial<Record<KbShellNavKey, string[]>> = {
       videos: ['A', 'E', 'C', 'G'],
