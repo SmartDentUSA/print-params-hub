@@ -16,7 +16,7 @@ import { CAT_ALIASES, CHIP_KEYS, CATEGORIES_WITHOUT_SUBFILTER, normCat, canonFro
 import { translatePrintType } from '@/lib/dentalTaxonomy';
 import { ProcessingInstructionsView } from '@/components/ProcessingInstructionsView';
 import { PRODUCT_CATALOG_ENTITY_TYPES } from '@/lib/catalogEntityTypes';
-import { findCatalogFilter, rowMatchesCatalogFilter } from './catalogSidebarFilters';
+import { findCatalogFilter, rowMatchesCatalogFilter, CATALOG_SIDEBAR_FILTERS } from './catalogSidebarFilters';
 
 const SPECIAL = /\b(FDA|ANVISA|NOVO|LANÇAMENTO|KIT|KOL)\b/i;
 
@@ -388,9 +388,9 @@ const findResinBySubset = (
   return best?.info;
 };
 
-interface KbTabCatalogoProps { filterKey?: string | null }
+interface KbTabCatalogoProps { filterKey?: string | null; onFilterChange?: (key: string) => void }
 
-export default function KbTabCatalogo({ filterKey }: KbTabCatalogoProps = {}) {
+export default function KbTabCatalogo({ filterKey, onFilterChange }: KbTabCatalogoProps = {}) {
   const { t, language } = useLanguage();
   const specLang: SpecLang = (language === 'en' || language === 'es') ? language : 'pt';
   const [docs, setDocs] = useState<Map<string, DocLinks>>(new Map());
@@ -722,14 +722,21 @@ export default function KbTabCatalogo({ filterKey }: KbTabCatalogoProps = {}) {
   // Reset subChip quando a categoria muda
   useEffect(() => { setSubChip('all'); }, [chip]);
 
-  const chips: KbChipOption[] = CHIP_KEYS.map((c) => ({ key: c.key, label: t(c.tk) }));
+  const sidebarChips: KbChipOption[] = CATALOG_SIDEBAR_FILTERS.map((f) => ({ key: f.key, label: f.label }));
+  const legacyChips: KbChipOption[] = CHIP_KEYS.map((c) => ({ key: c.key, label: t(c.tk) }));
   return (
     <section>
       {/* Título removido: hero do shell v2 é a única fonte do título nesta aba */}
       <KbSearchBar placeholder={t('kb.catalogo.search')} value={q} onDebouncedChange={setQ} />
-      {!usingSidebarFilter && (
+      {onFilterChange ? (
+        <KbChips
+          options={sidebarChips}
+          active={filterKey || 'all'}
+          onChange={(k) => onFilterChange(k)}
+        />
+      ) : (
         <>
-          <KbChips options={chips} active={chip} onChange={setChip} />
+          <KbChips options={legacyChips} active={chip} onChange={setChip} />
           {subChips.length > 1 && (
             <KbChips options={subChips} active={subChip} onChange={setSubChip} />
           )}
