@@ -203,10 +203,10 @@ export default function KnowledgeBase({ lang = 'pt', forcedTab }: KnowledgeBaseP
         ]
       : letters.length
       ? [
-          { key: 'all', label: 'Todos os conteúdos', count: total, active: !categoryLetter, onClick: () => navigate(`${basePath}?tab=${tab}`) },
+          { key: 'all', label: 'Tudo', count: total, active: !categoryLetter, onClick: () => navigate(`${basePath}?tab=${tab}`) },
           ...letters.map((l) => ({
             key: l,
-            label: catCounts[l]?.name ?? l,
+            label: (({ A: 'Tutoriais', E: 'Depoimentos' } as Record<string,string>)[l]) ?? catCounts[l]?.name ?? l,
             count: catCounts[l]?.count ?? 0,
             active: categoryLetter?.toUpperCase() === l,
             onClick: () => navigate(`${basePath}/${l.toLowerCase()}`),
