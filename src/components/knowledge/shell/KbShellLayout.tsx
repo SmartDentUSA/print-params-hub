@@ -18,6 +18,7 @@ interface Props {
   heroSubtitle?: string;
   heroArtUrl?: string;
   showAdminButton?: boolean;
+  showOverview?: boolean;
   children: ReactNode;
 }
 
@@ -32,7 +33,7 @@ const TOP_TABS: { key: KbTab; label: string; icon: React.ReactNode }[] = [
 ];
 
 export default function KbShellLayout({
-  active, onChange, counts, categories, heroTitle, heroSubtitle, heroArtUrl, showAdminButton, children,
+  active, onChange, counts, categories, heroTitle, heroSubtitle, heroArtUrl, showAdminButton, showOverview, children,
 }: Props) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   return (
@@ -44,6 +45,7 @@ export default function KbShellLayout({
         categories={categories}
         open={drawerOpen}
         onClose={() => setDrawerOpen(false)}
+        showOverview={showOverview}
       />
       <div className="kbs-main">
         <div className="kbs-topbar">

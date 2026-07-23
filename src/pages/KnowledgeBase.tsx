@@ -22,7 +22,7 @@ import KbTabOverview from '@/components/knowledge/KbTabOverview';
 import heroPrinterImg from '@/assets/kb-hero-printer.jpg';
 import { CATALOG_SIDEBAR_FILTERS, rowMatchesCatalogFilter } from '@/components/knowledge/catalogSidebarFilters';
 import { PRODUCT_CATALOG_ENTITY_TYPES } from '@/lib/catalogEntityTypes';
-import { KB_HERO_SETTING_KEY, KB_CATALOG_PINS_KEY } from '@/components/AdminKbHubEditor';
+import { KB_HERO_SETTING_KEY, KB_CATALOG_PINS_KEY, KB_NAV_SHOW_OVERVIEW_KEY } from '@/components/AdminKbHubEditor';
 
 interface KnowledgeBaseProps { lang?: 'pt' | 'en' | 'es'; forcedTab?: KbTab }
 
@@ -76,15 +76,20 @@ export default function KnowledgeBase({ lang = 'pt', forcedTab }: KnowledgeBaseP
   // Editor HUB overrides (hero + catalog pins) loaded from site_settings.
   const [heroOverrides, setHeroOverrides] = useState<Record<string, { title?: string; subtitle?: string; image_url?: string }>>({});
   const [catalogPins, setCatalogPins] = useState<Record<string, string[]>>({});
+  const [showOverviewNav, setShowOverviewNav] = useState<boolean>(false);
   useEffect(() => {
     (async () => {
       const heroKeys = ['overview','parametros','catalogo','videos','artigos','ebooks','eventos','distribuidores'] as const;
       const { data: heroRows } = await supabase
         .from('site_settings')
         .select('key, value')
-        .in('key', heroKeys.map((k) => KB_HERO_SETTING_KEY(k as any)));
+        .in('key', [...heroKeys.map((k) => KB_HERO_SETTING_KEY(k as any)), KB_NAV_SHOW_OVERVIEW_KEY]);
       const hMap: Record<string, any> = {};
       (heroRows || []).forEach((row: any) => {
+        if (row.key === KB_NAV_SHOW_OVERVIEW_KEY) {
+          setShowOverviewNav(row.value === 'true');
+          return;
+        }
         try { hMap[row.key] = JSON.parse(row.value); } catch { /* noop */ }
       });
       setHeroOverrides(hMap);
@@ -158,6 +163,10 @@ export default function KnowledgeBase({ lang = 'pt', forcedTab }: KnowledgeBaseP
   const [overview, setOverview] = useState<boolean>(() =>
     shellV2 && !forcedTab && !categoryLetter && !new URLSearchParams(window.location.search).get('tab'),
   );
+  // If overview nav is hidden and we defaulted to overview, fall back to the default tab.
+  useEffect(() => {
+    if (!showOverviewNav && overview) setOverview(false);
+  }, [showOverviewNav, overview]);
 
   // Update URL when tab changes (no reload). Skip when route is a dedicated path alias.
   useEffect(() => {
@@ -327,6 +336,7 @@ export default function KnowledgeBase({ lang = 'pt', forcedTab }: KnowledgeBaseP
           heroTitle={heroTitle}
           heroSubtitle={heroSubtitle}
           showAdminButton
+          showOverview={showOverviewNav}
         >
           {overview ? (
             <KbTabOverview onGoto={(t) => { setOverview(false); setTab(t); }} />
