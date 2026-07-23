@@ -50,7 +50,9 @@ export default function KnowledgeBase({ lang = 'pt', forcedTab }: KnowledgeBaseP
   useEffect(() => {
     if (forcedTab) return;
     if (!categoryLetter) return;
-    const mapped = LETTER_TO_TAB[categoryLetter.toLowerCase()];
+    // Prefer explicit ?tab= if present (so a letter shared across tabs stays on the right tab).
+    const explicit = new URLSearchParams(window.location.search).get('tab') as KbTab | null;
+    const mapped = explicit ?? LETTER_TO_TAB[categoryLetter.toLowerCase()];
     if (mapped && mapped !== tab) setTab(mapped);
     setOverview(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -156,7 +158,7 @@ export default function KnowledgeBase({ lang = 'pt', forcedTab }: KnowledgeBaseP
     };
     const hero = heroMap[activeKey];
     const TAB_LETTERS: Partial<Record<KbShellNavKey, string[]>> = {
-      videos: ['A', 'E'],
+      videos: ['A', 'E', 'C', 'G'],
       artigos: ['B', 'C', 'D', 'F'],
       catalogo: ['G'],
     };
@@ -215,10 +217,10 @@ export default function KnowledgeBase({ lang = 'pt', forcedTab }: KnowledgeBaseP
           { key: 'all', label: 'Tudo', count: total, active: !categoryLetter, onClick: () => navigate(`${basePath}?tab=${tab}`) },
           ...letters.map((l) => ({
             key: l,
-            label: (({ A: 'Tutoriais', E: 'Depoimentos' } as Record<string,string>)[l]) ?? catCounts[l]?.name ?? l,
+            label: (({ A: 'Tutoriais', E: 'Depoimentos', C: 'Tecnologia', G: 'Demonstrativos' } as Record<string,string>)[l]) ?? catCounts[l]?.name ?? l,
             count: catCounts[l]?.count ?? 0,
             active: categoryLetter?.toUpperCase() === l,
-            onClick: () => navigate(`${basePath}/${l.toLowerCase()}`),
+            onClick: () => navigate(`${basePath}/${l.toLowerCase()}?tab=${tab}`),
           })),
         ]
       : undefined;
