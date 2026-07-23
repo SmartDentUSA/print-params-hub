@@ -1,5 +1,5 @@
 export const kbShellStyles = `
-.kbs-root{display:flex;min-height:100vh;background:#EDF0F7;color:#0F172A;}
+.kbs-root{display:flex;min-height:100vh;background:#EDF0F7;color:#0F172A;font-family:'Host Grotesk','Inter',system-ui,-apple-system,sans-serif;}
 .kbs-side{width:248px;flex-shrink:0;background:#fff;border-right:1px solid #E5E7EB;display:flex;flex-direction:column;position:sticky;top:0;height:100vh;}
 .kbs-side-logo{padding:24px 20px 20px;}
 .kbs-side-logo img{height:56px;width:auto;}
