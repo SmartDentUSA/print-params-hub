@@ -177,6 +177,7 @@ export default function CoursesProfessionalProfile({ initialEmail, onSaved }: Co
       if (leadId) {
         const { error } = await supabase.from("lia_attendances").update(payload).eq("id", leadId);
         if (error) throw error;
+        onSaved?.(leadId);
       } else {
         const { data, error } = await supabase
           .from("lia_attendances")
@@ -185,6 +186,7 @@ export default function CoursesProfessionalProfile({ initialEmail, onSaved }: Co
           .single();
         if (error) throw error;
         setLeadId(data.id);
+        onSaved?.(data.id);
       }
       setLocked(true);
       toast({ title: "Ficha salva com sucesso" });
