@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -60,9 +60,14 @@ const emptyForm = {
 
 type FormState = typeof emptyForm;
 
-export default function CoursesProfessionalProfile() {
+interface CoursesProfessionalProfileProps {
+  initialEmail?: string;
+  onSaved?: (leadId: string) => void;
+}
+
+export default function CoursesProfessionalProfile({ initialEmail, onSaved }: CoursesProfessionalProfileProps = {}) {
   const { toast } = useToast();
-  const [searchEmail, setSearchEmail] = useState("");
+  const [searchEmail, setSearchEmail] = useState(initialEmail ?? "");
   const [searching, setSearching] = useState(false);
   const [leadId, setLeadId] = useState<string | null>(null);
   const [locked, setLocked] = useState(true); // when a lead is loaded, fields are locked until Edit
