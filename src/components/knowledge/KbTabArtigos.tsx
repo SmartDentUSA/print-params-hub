@@ -27,9 +27,9 @@ interface Row {
   knowledge_categories: { id?: string; letter: string; name: string } | null;
 }
 
-interface Props { onOpen: (slug: string) => void }
+interface Props { onOpen: (slug: string) => void; letterFilter?: string | null }
 
-export default function KbTabArtigos({ onOpen }: Props) {
+export default function KbTabArtigos({ onOpen, letterFilter }: Props) {
   const { t, language } = useLanguage();
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
@@ -54,7 +54,8 @@ export default function KbTabArtigos({ onOpen }: Props) {
         .eq('active', true)
         .order('created_at', { ascending: false });
       // When the user is searching, ignore the active chip and scan the whole base.
-      if (!term && chip !== 'all') query = query.eq('category_id', chip);
+      if (!term && letterFilter) query = query.eq('knowledge_categories.letter', letterFilter.toUpperCase());
+      else if (!term && chip !== 'all') query = query.eq('category_id', chip);
       if (term) {
         const safe = term.replace(/[%,()]/g, ' ');
         query = query.or(`title.ilike.%${safe}%,excerpt.ilike.%${safe}%,content_html.ilike.%${safe}%`).limit(10000);
@@ -107,7 +108,7 @@ export default function KbTabArtigos({ onOpen }: Props) {
       }
     })();
     return () => { cancel = true; };
-  }, [chip, q]);
+  }, [chip, q, letterFilter]);
 
   const filtered = rows;
 
