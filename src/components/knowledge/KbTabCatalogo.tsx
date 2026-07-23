@@ -913,7 +913,7 @@ export default function KbTabCatalogo({ filterKey, pinnedIds, pinnedElsewhereIds
                     <span className="kb-cat-badge" style={{ background: bgBadge, color }}>•</span>
                     <span className="kb-cat-label" style={{ color }}>{categoryLabel(canon, t)}</span>
                     {special && (
-                      <span className="kb-special-badge" style={{ background: '#1A73E810', color: '#1A73E8' }}>{special}</span>
+                      <span className="kb-special-badge" style={{ background: '#DE6E37', color: '#fff' }}>{special}</span>
                     )}
                   </div>
                   <h3 className="kb-title">{p.name}</h3>
@@ -927,7 +927,7 @@ export default function KbTabCatalogo({ filterKey, pinnedIds, pinnedElsewhereIds
                           type="button"
                           className="kb-action-btn"
                           onClick={() => open(lojaUrl)}
-                          style={{ background: '#1A73E8', color: '#fff', borderColor: '#1A73E8' }}
+                          style={{ background: '#363E56', color: '#fff', borderColor: '#363E56' }}
                           title={t('kb.catalogo.actions.loja_title')}
                         >
                           {t('kb.catalogo.actions.loja')}
