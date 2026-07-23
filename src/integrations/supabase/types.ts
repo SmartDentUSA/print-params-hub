@@ -9879,6 +9879,7 @@ export type Database = {
           lia_assign_completed_at: string | null
           lia_assign_lock_at: string | null
           lia_briefing_sent_at: string | null
+          loja_integrada_customer_id: number | null
           lojaintegrada_bairro: string | null
           lojaintegrada_bandeira_cartao: string | null
           lojaintegrada_cep: string | null
@@ -10488,6 +10489,7 @@ export type Database = {
           lia_assign_completed_at?: string | null
           lia_assign_lock_at?: string | null
           lia_briefing_sent_at?: string | null
+          loja_integrada_customer_id?: number | null
           lojaintegrada_bairro?: string | null
           lojaintegrada_bandeira_cartao?: string | null
           lojaintegrada_cep?: string | null
@@ -11097,6 +11099,7 @@ export type Database = {
           lia_assign_completed_at?: string | null
           lia_assign_lock_at?: string | null
           lia_briefing_sent_at?: string | null
+          loja_integrada_customer_id?: number | null
           lojaintegrada_bairro?: string | null
           lojaintegrada_bandeira_cartao?: string | null
           lojaintegrada_cep?: string | null
@@ -11929,6 +11932,66 @@ export type Database = {
           },
         ]
       }
+      loja_integrada_clientes_import: {
+        Row: {
+          ativo: string | null
+          cnpj: string | null
+          cpf: string | null
+          created_at_source: string
+          email: string | null
+          endereco: Json | null
+          grupo: string | null
+          id: number
+          imported_at: string
+          nome: string | null
+          raw: Json | null
+          razao_social: string | null
+          situacao: string | null
+          telefone_celular: string | null
+          telefone_comercial: string | null
+          telefone_principal: string | null
+          tipo: string | null
+        }
+        Insert: {
+          ativo?: string | null
+          cnpj?: string | null
+          cpf?: string | null
+          created_at_source: string
+          email?: string | null
+          endereco?: Json | null
+          grupo?: string | null
+          id: number
+          imported_at?: string
+          nome?: string | null
+          raw?: Json | null
+          razao_social?: string | null
+          situacao?: string | null
+          telefone_celular?: string | null
+          telefone_comercial?: string | null
+          telefone_principal?: string | null
+          tipo?: string | null
+        }
+        Update: {
+          ativo?: string | null
+          cnpj?: string | null
+          cpf?: string | null
+          created_at_source?: string
+          email?: string | null
+          endereco?: Json | null
+          grupo?: string | null
+          id?: number
+          imported_at?: string
+          nome?: string | null
+          raw?: Json | null
+          razao_social?: string | null
+          situacao?: string | null
+          telefone_celular?: string | null
+          telefone_comercial?: string | null
+          telefone_principal?: string | null
+          tipo?: string | null
+        }
+        Relationships: []
+      }
       loja_integrada_order_items: {
         Row: {
           created_at: string | null
@@ -12213,6 +12276,72 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      loja_integrada_pedidos_items_import: {
+        Row: {
+          cliente_id: number | null
+          end_entrega: Json | null
+          end_pagamento: Json | null
+          envio_nome: string | null
+          id: string
+          imported_at: string
+          nome_produto: string | null
+          observacao: string | null
+          order_created_at: string
+          pagamento_nome: string | null
+          pedido_numero: number
+          pedido_situacao: string | null
+          pedido_valor_desconto: number | null
+          pedido_valor_envio: number | null
+          pedido_valor_subtotal: number | null
+          pedido_valor_total: number | null
+          quantidade: number | null
+          raw: Json | null
+          sku_produto: string | null
+        }
+        Insert: {
+          cliente_id?: number | null
+          end_entrega?: Json | null
+          end_pagamento?: Json | null
+          envio_nome?: string | null
+          id?: string
+          imported_at?: string
+          nome_produto?: string | null
+          observacao?: string | null
+          order_created_at: string
+          pagamento_nome?: string | null
+          pedido_numero: number
+          pedido_situacao?: string | null
+          pedido_valor_desconto?: number | null
+          pedido_valor_envio?: number | null
+          pedido_valor_subtotal?: number | null
+          pedido_valor_total?: number | null
+          quantidade?: number | null
+          raw?: Json | null
+          sku_produto?: string | null
+        }
+        Update: {
+          cliente_id?: number | null
+          end_entrega?: Json | null
+          end_pagamento?: Json | null
+          envio_nome?: string | null
+          id?: string
+          imported_at?: string
+          nome_produto?: string | null
+          observacao?: string | null
+          order_created_at?: string
+          pagamento_nome?: string | null
+          pedido_numero?: number
+          pedido_situacao?: string | null
+          pedido_valor_desconto?: number | null
+          pedido_valor_envio?: number | null
+          pedido_valor_subtotal?: number | null
+          pedido_valor_total?: number | null
+          quantidade?: number | null
+          raw?: Json | null
+          sku_produto?: string | null
+        }
+        Relationships: []
       }
       ltv_reactivation_rules: {
         Row: {
@@ -30884,6 +31013,7 @@ export type Database = {
           lia_assign_completed_at: string | null
           lia_assign_lock_at: string | null
           lia_briefing_sent_at: string | null
+          loja_integrada_customer_id: number | null
           lojaintegrada_bairro: string | null
           lojaintegrada_bandeira_cartao: string | null
           lojaintegrada_cep: string | null
@@ -31353,6 +31483,7 @@ export type Database = {
           source_type: string
         }[]
       }
+      match_li_customer_to_lead: { Args: { _li_id: number }; Returns: string }
       match_method_docs: {
         Args: {
           filter_audience?: string[]
