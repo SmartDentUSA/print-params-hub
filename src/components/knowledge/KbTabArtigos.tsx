@@ -57,8 +57,10 @@ export default function KbTabArtigos({ onOpen, letterFilter }: Props) {
         .eq('active', true)
         .order('created_at', { ascending: false });
       // When the user is searching, ignore the active chip and scan the whole base.
-      if (!term && letterFilter) query = query.eq('knowledge_categories.letter', letterFilter.toUpperCase());
-      else if (!term && chip !== 'all') query = query.eq('category_id', chip);
+      // Chip selection has priority over letter route filter: when the user
+      // explicitly picks a category chip, respect it and ignore /letra.
+      if (!term && chip !== 'all') query = query.eq('category_id', chip);
+      else if (!term && letterFilter) query = query.eq('knowledge_categories.letter', letterFilter.toUpperCase());
       if (term) {
         const safe = term.replace(/[%,()]/g, ' ');
         query = query.or(`title.ilike.%${safe}%,excerpt.ilike.%${safe}%,content_html.ilike.%${safe}%`).limit(10000);
