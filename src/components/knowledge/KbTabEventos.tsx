@@ -126,7 +126,7 @@ export default function KbTabEventos() {
       {/* Título removido: hero do shell v2 é a única fonte do título nesta aba */}
       <KbSearchBar placeholder={t('kb.eventos.search')} value={q} onDebouncedChange={setQ} />
       {!loading && <KbResultCount count={filtered.length} noun="event" />}
-      <div className="kb-dgrid">
+      <div className="kb-dgrid" style={{ gridTemplateColumns: 'repeat(4, 1fr)' }}>
         {loading ? (
           <div className="kb-skeleton-grid">
             {Array.from({ length: 6 }).map((_, i) => (<div key={i} className="kb-skeleton-card" />))}
