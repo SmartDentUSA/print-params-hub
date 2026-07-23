@@ -221,17 +221,10 @@ export default function KnowledgeBase({ lang = 'pt', forcedTab }: KnowledgeBaseP
 
   if (shellV2) {
     const activeKey: KbShellNavKey = overview ? 'overview' : tab;
-    const heroMap: Record<KbShellNavKey, { title: string; subtitle: string }> = {
-      overview:       { title: 'Base de Conhecimento', subtitle: 'Tudo o que você precisa para operar a odontologia digital.' },
-      parametros:     { title: 'Parâmetros',    subtitle: 'Parâmetros de impressão testados por impressora e resina.' },
-      catalogo:       { title: 'Catálogo',      subtitle: 'Resinas, impressoras, scanners e consumíveis Smart Dent.' },
-      videos:         { title: 'Vídeos',        subtitle: 'Vídeos tutoriais, casos clínicos e depoimentos.' },
-      artigos:        { title: 'Artigos',       subtitle: 'Artigos técnicos, casos clínicos e guias práticos.' },
-      ebooks:         { title: 'Ebooks',        subtitle: 'Materiais aprofundados para download.' },
-      eventos:        { title: 'Eventos',       subtitle: 'Cursos, feiras e treinamentos.' },
-      distribuidores: { title: 'Revendas',      subtitle: 'Rede oficial de revendas Smart Dent.' },
+    const hero = {
+      title: t(`kb.hero.${activeKey}.title`),
+      subtitle: t(`kb.hero.${activeKey}.subtitle`),
     };
-    const hero = heroMap[activeKey];
     const override = heroOverrides[KB_HERO_SETTING_KEY(activeKey as any)] || {};
     const heroTitle = override.title || hero.title;
     const heroSubtitle = override.subtitle || hero.subtitle;
