@@ -43,7 +43,7 @@ function getInitialTab(letter?: string, forcedTab?: KbTab): KbTab {
 export default function KnowledgeBase({ lang = 'pt', forcedTab }: KnowledgeBaseProps) {
   const { categoryLetter, contentSlug } = useParams();
   const navigate = useNavigate();
-  const { setLanguage } = useLanguage();
+  const { setLanguage, t } = useLanguage();
   const { fetchContentBySlug } = useKnowledge();
 
   useEffect(() => { setLanguage(lang); }, [lang, setLanguage]);
@@ -288,7 +288,7 @@ export default function KnowledgeBase({ lang = 'pt', forcedTab }: KnowledgeBaseP
     });
     const categories = activeKey === 'distribuidores'
       ? [
-          { key: 'all', label: 'Todos os países', count: countryTotal, active: activeCountry === 'all', onClick: () => setCountryParam('all') },
+          { key: 'all', label: t('kb.countries_all'), count: countryTotal, active: activeCountry === 'all', onClick: () => setCountryParam('all') },
           ...continentCategories,
         ]
       : activeKey === 'catalogo'
@@ -298,7 +298,7 @@ export default function KnowledgeBase({ lang = 'pt', forcedTab }: KnowledgeBaseP
             : catalogRowsMeta.filter((r) => rowMatchesCatalogFilter(r, def)).length;
           return {
             key: def.key,
-            label: def.label,
+            label: t(`kb.catalog_filters.${def.key}`, { }) !== `kb.catalog_filters.${def.key}` ? t(`kb.catalog_filters.${def.key}`) : def.label,
             count,
             active: activeCatalogFilter === def.key,
             onClick: () => {
@@ -312,10 +312,10 @@ export default function KnowledgeBase({ lang = 'pt', forcedTab }: KnowledgeBaseP
         })
       : letters.length
       ? [
-          { key: 'all', label: 'Tudo', count: total, active: !categoryLetter, onClick: () => navigate(`${basePath}?tab=${tab}`) },
+          { key: 'all', label: t('kb.letter_labels.all'), count: total, active: !categoryLetter, onClick: () => navigate(`${basePath}?tab=${tab}`) },
           ...letters.map((l) => ({
             key: l,
-            label: (({ A: 'Tutoriais', E: 'Depoimentos', C: 'Tecnologia', G: 'Demonstrativos' } as Record<string,string>)[l]) ?? catCounts[l]?.name ?? l,
+            label: (t(`kb.letter_labels.${l}`) !== `kb.letter_labels.${l}` ? t(`kb.letter_labels.${l}`) : (catCounts[l]?.name ?? l)),
             count: catCounts[l]?.count ?? 0,
             active: categoryLetter?.toUpperCase() === l,
             onClick: () => navigate(`${basePath}/${l.toLowerCase()}?tab=${tab}`),
