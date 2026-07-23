@@ -1,66 +1,50 @@
+## Objetivo
 
-## Situação atual (verificada no banco)
+Excluir fisicamente o cartão pai deprecated `ATOS Block - caixa com 5 unidades` (ID `63d0a419-d860-4939-9e09-1e30f9620597`, slug `/atos-block-caixa-com-5-unidades`, categoria 7. Fresagem / 7.2 Insumos), mantendo apenas as 11 tonalidades já consolidadas.
 
-- **Parent rico** — `ATOS Block - caixa com 5 unidades` (`63d0a419…`) em `7. Fresagem / 7.2 Insumos`
-  - 1 imagem, descrição (170 chars), **5 documentos** ativos em `catalog_documents`, **11 variações** em `catalog_product_variations`, `extra_data` completo (benefits, features, sales_pitch, applications, clinical_brain, technical_specifications, loja_integrada SKU `N94Y9FAUW`)
-  - **0 usos** em `deal_items` (nome "caixa com 5 unidades" nunca foi vendido — o CRM vende as tonalidades individuais)
-- **11 filhos vazios** — `ATOS Block HT A1/A2/A3/B1`, `LT A1/A2/A3/A3.5/B1/Bleach/C2` em `2. CAD / 2.2 SERVIÇO`
-  - Sem imagem, sem descrição, sem docs. Já têm variações próprias (11 filhas × cada, provavelmente uma linha default por SKU).
+## Verificações antes de apagar
 
-Sua sugestão está correta: o parent é o "cartão mestre" e as 11 tonalidades são os SKUs reais que o cliente compra. Fazer o merge preserva conteúdo editorial rico e mantém a granularidade comercial.
+1. Confirmar que as 11 sucessoras estão OK em `system_a_catalog` — cada uma com `image_url`, `description`, categoria `7. Fresagem / 7.2 Insumos`, `active=true`, `visible_in_ui=true`, e 5 documentos ativos em `catalog_documents`. Se qualquer sucessora estiver incompleta, aborto e reporto antes de deletar.
+2. Confirmar que o pai continua com `active=false` (soft-deleted na etapa anterior) e que `extra_data.deprecated.successors` lista os 11 IDs. É a última chance de reverter — depois do DELETE não tem volta.
+3. Checar dependências antes do DELETE para não quebrar FK:
+   - `deal_items` referenciando o pai (esperado: 0, já verificado antes).
+   - Qualquer outra tabela com FK para `system_a_catalog.id` (ex.: `catalog_product_variations`, `catalog_documents`, conteúdos que linkam produto). Vou listar via `information_schema` e decidir por linha:
+     - `catalog_documents` do pai: DELETE (as 55 cópias nas sucessoras já existem).
+     - `catalog_product_variations` do pai (11 linhas): DELETE (as sucessoras têm variações próprias).
+     - Se aparecer FK inesperada com dados relevantes, paro e reporto antes de forçar.
 
-## Categoria correta
+## Execução (via `supabase--insert`, apenas DML)
 
-Recomendo mover as 11 tonalidades para **`7. Fresagem / 7.2 Insumos`** (não manter em `2. CAD / 2.2 SERVIÇO`). Motivos:
-- ATOS Block é insumo de fresagem, não serviço CAD.
-- Todos os documentos, imagem e ficha técnica do parent foram catalogados sob 7.2 Insumos.
-- A sidebar do KB Catálogo já tem chip "Fresagem" — mantém consistência com resto do catálogo.
+```sql
+-- 1. Apagar documentos do pai
+DELETE FROM catalog_documents WHERE product_id = '63d0a419-d860-4939-9e09-1e30f9620597';
 
-Se preferir deixar em 2.2 SERVIÇO, é só me dizer antes de aprovar.
+-- 2. Apagar variações do pai
+DELETE FROM catalog_product_variations WHERE product_id = '63d0a419-d860-4939-9e09-1e30f9620597';
 
-## Plano
+-- 3. Apagar o registro pai
+DELETE FROM system_a_catalog WHERE id = '63d0a419-d860-4939-9e09-1e30f9620597';
+```
 
-### 1. Backfill dos 11 filhos a partir do parent (migração SQL)
-Para cada uma das 11 tonalidades ATOS Block HT/LT, popular a partir do parent:
-- `image_url`, `description`, `brand`, `manufacturer`
-- `product_category = '7. Fresagem'`, `product_subcategory = '7.2 Insumos'` (se aprovado)
-- `extra_data` = merge do `extra_data` do parent com o existente do filho (parent como base, filho sobrescreve). Ajustar `extra_data.loja_integrada` para NULL nos filhos (o SKU `N94Y9FAUW` é da caixa de 5, não das tonalidades individuais — mantê-lo replicado poluiria a reconciliação Loja Integrada).
-- `active = true`, `visible_in_ui = true`, `approved = true`
+## Redirect do slug antigo
 
-Só sobrescreve campos vazios no filho — nunca destrói dado existente.
+O slug `/atos-block-caixa-com-5-unidades` deixará de resolver. Duas opções — me diga qual:
+- **(a)** Não fazer nada — 404 na URL antiga (aceitável se não há tráfego externo).
+- **(b)** Criar redirect 301 para uma das 11 tonalidades (ex.: `/atos-block-ht-a1`) ou para a listagem de categoria Fresagem/Insumos. Isso exigiria uma linha em `external_links` ou lógica no roteador — posso implementar se quiser.
 
-### 2. Republicar os 5 documentos para os 11 filhos
-`catalog_documents` hoje aponta 5 docs ao parent. Duplicar cada documento para os 11 filhos via `INSERT ... SELECT` (mesmo `storage_path`/URL, novo `product_id`). Total: 5 × 11 = 55 novos registros de `catalog_documents`.
+## Validação pós-delete
 
-Alternativa mais enxuta: criar tabela de link `catalog_document_shares` — mas isso muda schema e afeta UI. Fico com a duplicação simples de linhas (docs em Storage não são copiados, só a referência), mantém o `KbTabCatalogo` funcionando sem alteração.
+- `SELECT count(*) FROM system_a_catalog WHERE slug = 'atos-block-caixa-com-5-unidades'` → esperado 0.
+- Recontar produtos ATOS Block ativos em 7.2 Insumos → esperado 11.
+- Abrir `/base-conhecimento?tab=catalogo` chip Fresagem e conferir que os 11 cartões aparecem e o pai sumiu.
 
-### 3. Retirar o parent de circulação
-- `active = false`, `visible_in_ui = false`, `approved = false` no parent `63d0a419…`
-- **Não** dar `DELETE` físico. Motivos:
-  - Preserva histórico e o `slug` `/atos-block-caixa-com-5-unidades` (pode existir link externo / SEO indexado)
-  - `catalog_product_variations` do parent (11 linhas) ficam intactas — podem ter valor histórico
-  - Reversível se algo der errado
-- Adicionar `extra_data.deprecated = { reason: 'consolidated_into_variants', consolidated_at: now(), successors: [11 ids] }` para auditoria
+## O que NÃO muda
 
-Se você quiser deleção física depois de validar visualmente, faço em segunda etapa.
-
-### 4. Redirect do slug antigo
-Adicionar redirect `/atos-block-caixa-com-5-unidades` → primeira tonalidade (ex.: `/atos-block-ht-a1`) ou para a página de categoria Fresagem/Insumos. Confirme qual preferir.
-
-### 5. Validação
-- Reconsultar `system_a_catalog` das 11 tonalidades e conferir imagem/descrição/docs.
-- Abrir `/base-conhecimento?tab=catalogo` e chip "Fresagem" → esperar ver 11 cards ATOS Block com foto e docs.
-- Rodar reconciliação Loja Integrada de novo para confirmar que o SKU `N94Y9FAUW` continua ligado ao parent (não migrado para filhos).
-
-## Escopo — o que NÃO muda
-
-- Nenhum outro produto do catálogo.
-- Nada em `deal_items`, PipeRun, Omie, ou pipelines de vendas.
-- Estrutura de tabelas (só migração de dados via `supabase--insert`, sem `supabase--migration`).
-- Governança do catálogo (`PRODUCT_CATALOG_ENTITY_TYPES`) permanece.
+- Nenhuma das 11 tonalidades.
+- Storage dos PDFs (as URLs são compartilhadas com as cópias já criadas nas sucessoras — nada é removido do bucket).
+- Nenhuma tabela de vendas, PipeRun, Omie ou pipelines.
 
 ## Confirmações antes de executar
 
-1. Mover as 11 tonalidades para **7. Fresagem / 7.2 Insumos** (recomendo), ou manter em **2. CAD / 2.2 SERVIÇO**?
-2. Redirect de `/atos-block-caixa-com-5-unidades` → apontar para qual destino?
-3. OK em desativar o parent (soft-delete) ao invés de apagar fisicamente?
+1. OK apagar fisicamente (irreversível)?
+2. Redirect do slug: (a) 404, (b) redirecionar — se (b), destino?
