@@ -153,7 +153,7 @@ const EQUIP_TABLE_ORDER: EquipCat[] = [
 ];
 
 const EQUIP_TABLE_LABEL: Record<EquipCat, string> = {
-  scanner_3d: "Scanner 3D (Intraoral ou bancada)",
+  scanner_3d: "Scanner 3D",
   notebook: "Notebook",
   dispositivos: "Dispositivos",
   cad: "CAD",
