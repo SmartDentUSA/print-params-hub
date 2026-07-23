@@ -1426,11 +1426,11 @@ Deno.serve(async (req) => {
         if (rawItems) {
           const parsed = parseProposalItems(rawItems);
           updateData.itens_proposta_parsed = parsed.parsed;
-          if (parsed.equipments.scanner) updateData.equip_scanner = parsed.equipments.scanner;
-          if (parsed.equipments.impressora) updateData.equip_impressora = parsed.equipments.impressora;
-          if (parsed.equipments.cad) updateData.equip_cad = parsed.equipments.cad;
-          if (parsed.equipments.pos_impressao) updateData.equip_pos_impressao = parsed.equipments.pos_impressao;
-          if (parsed.equipments.notebook) updateData.equip_notebook = parsed.equipments.notebook;
+          if (isValidEquipmentLabel(parsed.equipments.scanner)) updateData.equip_scanner = parsed.equipments.scanner;
+          if (isValidEquipmentLabel(parsed.equipments.impressora)) updateData.equip_impressora = parsed.equipments.impressora;
+          if (isValidEquipmentLabel(parsed.equipments.cad)) updateData.equip_cad = parsed.equipments.cad;
+          if (isValidEquipmentLabel(parsed.equipments.pos_impressao)) updateData.equip_pos_impressao = parsed.equipments.pos_impressao;
+          if (isValidEquipmentLabel(parsed.equipments.notebook)) updateData.equip_notebook = parsed.equipments.notebook;
           if (parsed.equipments.insumos) updateData.insumos_adquiridos = parsed.equipments.insumos;
           console.log(`[piperun-webhook] Parsed ${parsed.parsed.length} proposal items for won deal ${dealId}`);
         }
