@@ -1,17 +1,18 @@
 import { LayoutGrid, PlaySquare, FileText, BookOpen, Calendar, Store, Sliders, Home, Layers } from 'lucide-react';
 import type { KbTab } from '../KbTabSwitcher';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 type NavKey = KbTab | 'overview';
 
-const NAV: { key: NavKey; label: string; icon: React.ReactNode }[] = [
-  { key: 'overview',       label: 'Visão geral',   icon: <Home /> },
-  { key: 'catalogo',       label: 'Catálogo',      icon: <LayoutGrid /> },
-  { key: 'videos',         label: 'Vídeos',        icon: <PlaySquare /> },
-  { key: 'artigos',        label: 'Artigos',       icon: <FileText /> },
-  { key: 'ebooks',         label: 'Ebooks',        icon: <BookOpen /> },
-  { key: 'eventos',        label: 'Eventos',       icon: <Calendar /> },
-  { key: 'distribuidores', label: 'Revendas',      icon: <Store /> },
-  { key: 'parametros',     label: 'Parâmetros',    icon: <Sliders /> },
+const NAV: { key: NavKey; icon: React.ReactNode }[] = [
+  { key: 'overview',       icon: <Home /> },
+  { key: 'catalogo',       icon: <LayoutGrid /> },
+  { key: 'videos',         icon: <PlaySquare /> },
+  { key: 'artigos',        icon: <FileText /> },
+  { key: 'ebooks',         icon: <BookOpen /> },
+  { key: 'eventos',        icon: <Calendar /> },
+  { key: 'distribuidores', icon: <Store /> },
+  { key: 'parametros',     icon: <Sliders /> },
 ];
 
 export interface SidebarCategory { key: string; label: string; count?: number; active?: boolean; onClick?: () => void; isHeader?: boolean; }
@@ -30,11 +31,12 @@ interface Props {
 }
 
 export default function KbShellSidebar({ active, onChange, counts, categories, open, onClose, showOverview = false, cta }: Props) {
+  const { t } = useLanguage();
   const navItems = NAV.filter((item) => item.key !== 'overview' || showOverview);
   const ctaEnabled = cta?.enabled !== false;
-  const ctaTitle = cta?.title || 'Soluções de odontologia digital';
-  const ctaSubtitle = cta?.subtitle || 'Mais que tecnologia, entregamos autonomia e rentabilidade para seu consultório ou laboratório.';
-  const ctaLabel = cta?.cta_label || 'Conheça nossas soluções →';
+  const ctaTitle = cta?.title || t('kb.sidebar_cta.title');
+  const ctaSubtitle = cta?.subtitle || t('kb.sidebar_cta.subtitle');
+  const ctaLabel = cta?.cta_label || t('kb.sidebar_cta.cta_label');
   const ctaUrl = cta?.cta_url || 'https://smartdent.com.br';
   return (
     <>
@@ -47,7 +49,7 @@ export default function KbShellSidebar({ active, onChange, counts, categories, o
           />
         </div>
         <div className="kbs-side-scroll">
-          <div className="kbs-side-label">Navegação</div>
+          <div className="kbs-side-label">{t('kb.shell.nav')}</div>
           {navItems.map((item) => {
             const count = counts?.[item.key];
             return (
@@ -58,14 +60,14 @@ export default function KbShellSidebar({ active, onChange, counts, categories, o
                 onClick={() => { onChange(item.key); onClose?.(); }}
               >
                 {item.icon}
-                <span>{item.label}</span>
+                <span>{t(`kb.nav.${item.key}`)}</span>
                 {typeof count === 'number' && count > 0 && <span className="kbs-count">{count}</span>}
               </button>
             );
           })}
           {categories && categories.length > 0 && (
             <>
-              <div className="kbs-side-label">Categorias</div>
+              <div className="kbs-side-label">{t('kb.shell.categories')}</div>
               {categories.map((c) => (
                 c.isHeader ? (
                   <div key={c.key} className="kbs-side-label" style={{ marginTop: 12, opacity: 0.75 }}>
