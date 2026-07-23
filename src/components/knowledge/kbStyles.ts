@@ -51,7 +51,8 @@ export const kbStyles = `
   font-family: inherit;
 }
 .kb-si-in::placeholder { color: #9AA0A6; font-size: 15px; }
-.kb-si-in:hover, .kb-si-in:focus { border-color: rgba(255,255,255,0.75); background: rgba(255,255,255,0.55); }
+.kb-si-in:hover { border-color: rgba(255,255,255,0.75); background: rgba(255,255,255,0.55); }
+.kb-si-in:focus { border-color: #DE6E37; background: rgba(255,255,255,0.65); box-shadow: 0 0 0 3px rgba(222,110,55,0.15); }
 
 /* Chips */
 .kb-cw { display: flex; justify-content: center; flex-wrap: wrap; gap: 8px; margin-bottom: 22px; }
