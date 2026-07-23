@@ -7,6 +7,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Settings, Plus, Edit, Trash2, Cpu, Monitor, Palette, Search, Database, RefreshCw, AlertTriangle, Download, FileText, Star } from "lucide-react";
+import { Layout as LayoutIcon } from "lucide-react";
+import { AdminKbHubEditor } from "@/components/AdminKbHubEditor";
 import { SEOAuditPanel } from "@/components/SEOAuditPanel";
 import { useToast } from "@/hooks/use-toast";
 import { useData } from "@/contexts/DataContext";
@@ -644,7 +646,7 @@ export function AdminSettings() {
         </CardHeader>
         <CardContent>
           <Tabs defaultValue="brands">
-            <TabsList className="grid w-full grid-cols-7">
+            <TabsList className="grid w-full grid-cols-8">
               <TabsTrigger value="brands" className="flex items-center gap-2">
                 <Cpu className="w-4 h-4" />
                 Marcas
@@ -664,6 +666,10 @@ export function AdminSettings() {
               <TabsTrigger value="cta3" className="flex items-center gap-2">
                 <Download className="w-4 h-4" />
                 Atalho
+              </TabsTrigger>
+              <TabsTrigger value="hub" className="flex items-center gap-2">
+                <LayoutIcon className="w-4 h-4" />
+                Editor HUB
               </TabsTrigger>
               <TabsTrigger value="seo" className="flex items-center gap-2">
                 <Search className="w-4 h-4" />
