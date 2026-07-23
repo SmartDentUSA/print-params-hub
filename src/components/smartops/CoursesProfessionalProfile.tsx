@@ -105,11 +105,14 @@ export default function CoursesProfessionalProfile({ initialEmail, onSaved }: Co
       }
 
       setLeadId(data.id);
-      setForm({
-        ...emptyForm,
-        ...Object.fromEntries(Object.entries(data).filter(([k]) => k in emptyForm)),
-        email: data.email ?? email,
-      } as FormState);
+      const merged: FormState = { ...emptyForm };
+      for (const k of Object.keys(emptyForm) as (keyof FormState)[]) {
+        const v = (data as any)[k];
+        if (v === null || v === undefined) continue;
+        (merged as any)[k] = typeof emptyForm[k] === "boolean" ? !!v : v;
+      }
+      merged.email = data.email ?? email;
+      setForm(merged);
       setLocked(true);
       toast({ title: "Ficha carregada", description: `Lead encontrado — ${data.nome ?? email}` });
     } catch (e: any) {
