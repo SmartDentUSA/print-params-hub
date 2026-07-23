@@ -722,14 +722,21 @@ export default function KbTabCatalogo({ filterKey, onFilterChange }: KbTabCatalo
   // Reset subChip quando a categoria muda
   useEffect(() => { setSubChip('all'); }, [chip]);
 
-  const chips: KbChipOption[] = CHIP_KEYS.map((c) => ({ key: c.key, label: t(c.tk) }));
+  const sidebarChips: KbChipOption[] = CATALOG_SIDEBAR_FILTERS.map((f) => ({ key: f.key, label: f.label }));
+  const legacyChips: KbChipOption[] = CHIP_KEYS.map((c) => ({ key: c.key, label: t(c.tk) }));
   return (
     <section>
       {/* Título removido: hero do shell v2 é a única fonte do título nesta aba */}
       <KbSearchBar placeholder={t('kb.catalogo.search')} value={q} onDebouncedChange={setQ} />
-      {!usingSidebarFilter && (
+      {onFilterChange ? (
+        <KbChips
+          options={sidebarChips}
+          active={filterKey || 'all'}
+          onChange={(k) => onFilterChange(k)}
+        />
+      ) : (
         <>
-          <KbChips options={chips} active={chip} onChange={setChip} />
+          <KbChips options={legacyChips} active={chip} onChange={setChip} />
           {subChips.length > 1 && (
             <KbChips options={subChips} active={subChip} onChange={setSubChip} />
           )}
