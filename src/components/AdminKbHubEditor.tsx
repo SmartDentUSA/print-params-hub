@@ -11,6 +11,7 @@ import { useData } from '@/contexts/DataContext';
 import { CATALOG_SIDEBAR_FILTERS } from '@/components/knowledge/catalogSidebarFilters';
 import { PRODUCT_CATALOG_ENTITY_TYPES } from '@/lib/catalogEntityTypes';
 import { Save, Image as ImageIcon, Pin, X, Loader2 } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
 
 type HeroKey =
   | 'overview' | 'parametros' | 'catalogo' | 'videos'
@@ -31,6 +32,7 @@ const HERO_TABS: { key: HeroKey; label: string; defaults: { title: string; subti
 
 export const KB_HERO_SETTING_KEY = (k: HeroKey) => `kb_hero_${k}`;
 export const KB_CATALOG_PINS_KEY = (k: string) => `kb_catalog_pins_${k}`;
+export const KB_NAV_SHOW_OVERVIEW_KEY = 'kb_nav_show_overview';
 
 interface CatalogRow { id: string; name: string; product_category: string | null; product_subcategory: string | null }
 
@@ -47,6 +49,8 @@ export function AdminKbHubEditor() {
   const [activeFilter, setActiveFilter] = useState<string>(CATALOG_SIDEBAR_FILTERS[0].key);
   const [productSearch, setProductSearch] = useState('');
   const [uploading, setUploading] = useState<HeroKey | null>(null);
+  const [showOverview, setShowOverview] = useState<boolean>(false);
+  const [savingOverview, setSavingOverview] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -67,6 +71,10 @@ export function AdminKbHubEditor() {
         return [f.key, ids] as const;
       }));
       setPins(Object.fromEntries(pinEntries));
+
+      // Load nav visibility settings
+      const rawShowOverview = await fetchSetting(KB_NAV_SHOW_OVERVIEW_KEY);
+      setShowOverview(rawShowOverview === 'true');
 
       // Load catalog products (allowlist only)
       const { data } = await (supabase.from('system_a_catalog') as any)
@@ -151,8 +159,41 @@ export function AdminKbHubEditor() {
     }
   };
 
+  const saveOverviewVisibility = async (next: boolean) => {
+    setShowOverview(next);
+    setSavingOverview(true);
+    try {
+      const ok = await updateSetting(KB_NAV_SHOW_OVERVIEW_KEY, next ? 'true' : 'false');
+      if (!ok) throw new Error('save failed');
+      toast({ title: 'Navegação atualizada', description: next ? '"Visão geral" visível na sidebar.' : '"Visão geral" oculta da sidebar.' });
+    } catch (e: any) {
+      toast({ title: 'Erro', description: e?.message || 'Falha ao salvar', variant: 'destructive' });
+      setShowOverview(!next);
+    } finally {
+      setSavingOverview(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle>Navegação da Sidebar</CardTitle>
+          <p className="text-sm text-muted-foreground">
+            Controle quais itens aparecem no menu lateral da Base de Conhecimento.
+          </p>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-between rounded-lg border p-4">
+            <div className="space-y-0.5">
+              <Label className="text-sm font-medium">Mostrar item "Visão geral"</Label>
+              <p className="text-xs text-muted-foreground">Quando desligado, o botão "Visão geral" fica oculto da navegação.</p>
+            </div>
+            <Switch checked={showOverview} onCheckedChange={saveOverviewVisibility} disabled={savingOverview} />
+          </div>
+        </CardContent>
+      </Card>
+
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2"><ImageIcon className="w-5 h-5" /> Hero da Base de Conhecimento</CardTitle>
