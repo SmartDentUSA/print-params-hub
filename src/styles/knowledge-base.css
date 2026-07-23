@@ -1,16 +1,23 @@
 /* ============= KNOWLEDGE BASE CSS (SCOPED) ============= */
 
 :root {
-  --kb-primary: #0369a1;
-  --kb-primary-light: #0ea5e9;
-  --kb-accent: #f59e0b;
-  --kb-accent-2: #0c4a6e;
+  /* Smart Dent brand tokens (Manual da Marca) */
+  --sd-navy: #363E56;
+  --sd-blue: #546085;
+  --sd-cool: #8B9EB4;
+  --sd-bg:   #EDF0F7;
+  --sd-accent: #DE6E37;
+
+  --kb-primary: var(--sd-navy);
+  --kb-primary-light: var(--sd-blue);
+  --kb-accent: var(--sd-accent);
+  --kb-accent-2: var(--sd-navy);
   --kb-gray-50: #f9fafb;
   --kb-gray-100: #f3f4f6;
   --kb-gray-700: #374151;
   --kb-gray-900: #111827;
   --kb-muted: #6b7280;
-  --kb-card-bg: #f8fafc;
+  --kb-card-bg: #F5F7FB;
   --kb-radius: 8px;
   --kb-radius-lg: 14px;
   
@@ -23,7 +30,7 @@
 /* ============= BASE STYLING (SCOPED TO .knowledge-article) ============= */
 
 .knowledge-article {
-  font-family: 'Poppins', system-ui, -apple-system, sans-serif;
+  font-family: 'Host Grotesk', 'Poppins', system-ui, -apple-system, sans-serif;
   font-size: var(--text-base);
   color: var(--kb-gray-900);
   line-height: var(--leading-body);
