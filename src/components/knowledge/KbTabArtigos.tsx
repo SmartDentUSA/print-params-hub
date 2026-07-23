@@ -130,7 +130,7 @@ export default function KbTabArtigos({ onOpen, letterFilter }: Props) {
     <section>
       {/* Título removido: hero do shell v2 é a única fonte do título nesta aba */}
       <KbSearchBar placeholder={t('kb.artigos.search')} value={q} onDebouncedChange={setQ} />
-      <KbChips options={chips} active={chip} onChange={setChip} align="left" />
+      <KbChips options={chips} active={chip} onChange={setChip} align="right" />
       {q.trim() && (
         <div className="kb-count" style={{ opacity: 0.75 }}>
           {t('kb.search.global_hint') !== 'kb.search.global_hint'
