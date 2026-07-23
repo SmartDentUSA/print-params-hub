@@ -291,7 +291,18 @@ export default function KnowledgeBase({ lang = 'pt', forcedTab }: KnowledgeBaseP
               {tab === 'videos' && <KbTabVideos onOpen={openArticle} letterFilter={categoryLetter ?? null} />}
               {tab === 'artigos' && <KbTabArtigos onOpen={openArticle} letterFilter={categoryLetter ?? null} />}
               {tab === 'ebooks' && <KbTabEbooks onOpen={openArticle} />}
-              {tab === 'catalogo' && <KbTabCatalogo filterKey={activeCatalogFilter} />}
+              {tab === 'catalogo' && (
+                <KbTabCatalogo
+                  filterKey={activeCatalogFilter}
+                  onFilterChange={(k) => {
+                    const params = new URLSearchParams(window.location.search);
+                    if (k === 'all') params.delete('cat'); else params.set('cat', k);
+                    params.set('tab', 'catalogo');
+                    window.history.replaceState(null, '', `${window.location.pathname}?${params.toString()}${window.location.hash}`);
+                    setActiveCatalogFilter(k);
+                  }}
+                />
+              )}
               {tab === 'distribuidores' && <KbTabDistribuidores country={activeCountry} />}
               {tab === 'eventos' && <KbTabEventos />}
             </>
