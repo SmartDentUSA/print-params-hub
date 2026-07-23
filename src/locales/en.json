@@ -375,6 +375,92 @@
       "caracterizacao": "Characterization",
       "softwares": "Software"
     },
-    "empty": "No results found"
+    "empty": "No results found",
+    "shell": {
+      "nav": "Navigation",
+      "categories": "Categories",
+      "open_menu": "Open menu"
+    },
+    "nav": {
+      "overview": "Overview",
+      "catalogo": "Catalog",
+      "videos": "Videos",
+      "artigos": "Articles",
+      "ebooks": "Ebooks",
+      "eventos": "Events",
+      "distribuidores": "Resellers",
+      "parametros": "Parameters"
+    },
+    "sidebar_cta": {
+      "title": "Digital dentistry solutions",
+      "subtitle": "More than technology — we deliver autonomy and profitability to your clinic or lab.",
+      "cta_label": "Explore our solutions →"
+    },
+    "overview": {
+      "open": "Open →",
+      "cards": {
+        "catalogo": {
+          "title": "Catalog",
+          "desc": "Resins, printers, scanners and consumables."
+        },
+        "videos": {
+          "title": "Videos",
+          "desc": "Tutorials, clinical cases and testimonials."
+        },
+        "artigos": {
+          "title": "Articles",
+          "desc": "Technical publications and practical guides."
+        },
+        "parametros": {
+          "title": "Parameters",
+          "desc": "Print parameters by resin and model."
+        },
+        "ebooks": {
+          "title": "Ebooks",
+          "desc": "In-depth materials for download."
+        },
+        "eventos": {
+          "title": "Events",
+          "desc": "Courses, fairs and training."
+        },
+        "distribuidores": {
+          "title": "Resellers",
+          "desc": "Official Smart Dent reseller network."
+        }
+      }
+    },
+    "letter_labels": {
+      "all": "All",
+      "A": "Tutorials",
+      "E": "Testimonials",
+      "C": "Technology",
+      "G": "Demos"
+    },
+    "countries_all": "All countries",
+    "catalog_filters": {
+      "all": "All",
+      "resinas_3d": "3D Resins",
+      "solucoes": "Solutions",
+      "scanners": "Scanners",
+      "softwares_cad": "Software",
+      "impressoras_3d": "3D Printers",
+      "limpeza_acabamento": "Cleaning",
+      "pos_impressao": "Post-processing",
+      "caracterizacao": "Finishing",
+      "resinas_diretas": "Direct Resins",
+      "cimentos": "Cements",
+      "adesivos": "Adhesives"
+    },
+    "docs_dialog": {
+      "title": "Documents",
+      "open": "Open →",
+      "empty": "No documents available.",
+      "sections": {
+        "cert": "Certificates & Registrations",
+        "laudo": "Reports & Clinical Studies",
+        "apres": "Presentations & Materials",
+        "guia": "Guides & Others"
+      }
+    }
   }
 }
