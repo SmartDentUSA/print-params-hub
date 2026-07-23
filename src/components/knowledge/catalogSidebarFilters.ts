@@ -9,7 +9,7 @@ export type CatalogFilterDef = {
 };
 
 export const CATALOG_SIDEBAR_FILTERS: CatalogFilterDef[] = [
-  { key: 'all',                label: 'Tudo' },
+  { key: 'solucoes',           label: 'Soluções',             chip: 'SOLUÇÕES' },
   { key: 'resinas_3d',         label: 'Resinas 3D',           chip: 'RESINAS 3D' },
   { key: 'scanners',           label: 'Scanners',             chip: 'SCANNERS 3D' },
   { key: 'softwares_cad',      label: 'Softwares CAD',        chip: 'SOFTWARES' },

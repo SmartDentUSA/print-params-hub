@@ -17,6 +17,9 @@ export const CAT_ALIASES: Record<string, string> = {
   'SOFTWARES': 'SOFTWARES',
   'SOFTWARE': 'SOFTWARES',
   'CAD': 'SOFTWARES',
+  'SOLUÇÕES': 'SOLUÇÕES',
+  'SOLUCOES': 'SOLUÇÕES',
+  'SOLUÇÔES': 'SOLUÇÕES',
 };
 
 export const CANONICAL_CATS = Array.from(new Set(Object.values(CAT_ALIASES)));
