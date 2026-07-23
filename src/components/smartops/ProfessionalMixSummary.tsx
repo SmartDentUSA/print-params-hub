@@ -477,7 +477,6 @@ export default function ProfessionalMixSummary({ leadId, disabled, cadValue, onC
                   <th className="px-3 py-2 font-semibold whitespace-nowrap">Primeira compra</th>
                   <th className="px-3 py-2 font-semibold whitespace-nowrap">Última compra</th>
                   <th className="px-3 py-2 font-semibold whitespace-nowrap">Tempo de experiência</th>
-                  <th className="px-3 py-2 font-semibold whitespace-nowrap">Origem</th>
                 </tr>
               </thead>
               <tbody>
@@ -486,20 +485,31 @@ export default function ProfessionalMixSummary({ leadId, disabled, cadValue, onC
                   rows.sort((a, b) => (a.firstDate || "").localeCompare(b.firstDate || ""));
 
                   if (rows.length === 0) {
-                    // CAD vazio: linha com input manual
+                    // CAD vazio: "Não identificado" + dropdown com softwares CAD do catálogo
                     if (cat === "cad") {
                       return (
                         <tr key={cat} className="border-t align-top">
                           <td className="px-3 py-2 font-medium">{EQUIP_TABLE_LABEL[cat]}</td>
                           <td className="px-3 py-2">
                             <div className="flex items-center gap-2">
-                              <Input
-                                value={cadValue}
-                                onChange={(e) => onCadChange(e.target.value)}
-                                placeholder={cadAuto || "Medit Clinic App / BLZdental Lite CAD / Exocad..."}
+                              <Badge variant="outline" className="text-[10px] text-muted-foreground">Não identificado</Badge>
+                              <Select
+                                value={cadValue || ""}
+                                onValueChange={(v) => onCadChange(v)}
                                 disabled={disabled && !cadOverride}
-                                className="h-8 text-xs"
-                              />
+                              >
+                                <SelectTrigger className="h-8 text-xs w-[260px]">
+                                  <SelectValue placeholder="Selecionar CAD do catálogo…" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {cadCatalog.length === 0 && (
+                                    <SelectItem value="__none" disabled>Nenhum CAD ativo no catálogo</SelectItem>
+                                  )}
+                                  {cadCatalog.map((n) => (
+                                    <SelectItem key={n} value={n}>{n}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
                               {!cadOverride && (
                                 <Button size="sm" variant="outline" onClick={() => setCadOverride(true)} disabled={disabled}>
                                   <Pencil className="w-3 h-3" />
@@ -510,7 +520,6 @@ export default function ProfessionalMixSummary({ leadId, disabled, cadValue, onC
                           <td className="px-3 py-2 text-muted-foreground">—</td>
                           <td className="px-3 py-2 text-muted-foreground">—</td>
                           <td className="px-3 py-2 text-muted-foreground">—</td>
-                          <td className="px-3 py-2 text-muted-foreground">—</td>
                         </tr>
                       );
                     }
@@ -518,7 +527,6 @@ export default function ProfessionalMixSummary({ leadId, disabled, cadValue, onC
                       <tr key={cat} className="border-t align-top">
                         <td className="px-3 py-2 font-medium">{EQUIP_TABLE_LABEL[cat]}</td>
                         <td className="px-3 py-2 text-muted-foreground">Sem histórico</td>
-                        <td className="px-3 py-2 text-muted-foreground">—</td>
                         <td className="px-3 py-2 text-muted-foreground">—</td>
                         <td className="px-3 py-2 text-muted-foreground">—</td>
                         <td className="px-3 py-2 text-muted-foreground">—</td>
@@ -535,14 +543,6 @@ export default function ProfessionalMixSummary({ leadId, disabled, cadValue, onC
                       <td className="px-3 py-2 whitespace-nowrap">{r.firstDate ? formatDate(r.firstDate) : "—"}</td>
                       <td className="px-3 py-2 whitespace-nowrap">{r.lastDate ? formatDate(r.lastDate) : "—"}</td>
                       <td className="px-3 py-2 whitespace-nowrap">{r.firstDate ? experienceLabel(r.firstDate) : "—"}</td>
-                      <td className="px-3 py-2 whitespace-nowrap">
-                        <Badge
-                          variant={r.origin === "Histórico de compras" ? "secondary" : "outline"}
-                          className="text-[10px]"
-                        >
-                          {r.origin}
-                        </Badge>
-                      </td>
                     </tr>
                   ));
                 })}
@@ -550,7 +550,7 @@ export default function ProfessionalMixSummary({ leadId, disabled, cadValue, onC
             </table>
           </div>
           <p className="mt-2 text-[11px] text-muted-foreground">
-            Fonte: histórico de compras faturadas (e-commerce) e propostas ganhas no CRM. Propostas abertas, perdidas, canceladas ou expiradas são ignoradas. CAD é derivado automaticamente pelas regras de negócio ou preenchido manualmente pelo vendedor.
+            Fonte: histórico de compras faturadas (e-commerce) e propostas ganhas no CRM. Tempo de experiência = data atual − primeira compra. CAD é derivado automaticamente (Medit → Clinic App, BLZ → Dental Lite CAD, Exocad/Exoplan pelo histórico) ou selecionado no dropdown do catálogo.
           </p>
         </div>
 
