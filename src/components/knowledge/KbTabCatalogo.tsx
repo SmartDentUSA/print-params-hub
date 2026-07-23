@@ -16,7 +16,7 @@ import { CAT_ALIASES, CHIP_KEYS, CATEGORIES_WITHOUT_SUBFILTER, normCat, canonFro
 import { translatePrintType } from '@/lib/dentalTaxonomy';
 import { ProcessingInstructionsView } from '@/components/ProcessingInstructionsView';
 import { PRODUCT_CATALOG_ENTITY_TYPES } from '@/lib/catalogEntityTypes';
-import { findCatalogFilter, rowMatchesCatalogFilter } from './catalogSidebarFilters';
+import { findCatalogFilter, rowMatchesCatalogFilter, CATALOG_SIDEBAR_FILTERS } from './catalogSidebarFilters';
 
 const SPECIAL = /\b(FDA|ANVISA|NOVO|LANÇAMENTO|KIT|KOL)\b/i;
 
@@ -388,9 +388,9 @@ const findResinBySubset = (
   return best?.info;
 };
 
-interface KbTabCatalogoProps { filterKey?: string | null }
+interface KbTabCatalogoProps { filterKey?: string | null; onFilterChange?: (key: string) => void }
 
-export default function KbTabCatalogo({ filterKey }: KbTabCatalogoProps = {}) {
+export default function KbTabCatalogo({ filterKey, onFilterChange }: KbTabCatalogoProps = {}) {
   const { t, language } = useLanguage();
   const specLang: SpecLang = (language === 'en' || language === 'es') ? language : 'pt';
   const [docs, setDocs] = useState<Map<string, DocLinks>>(new Map());
