@@ -14,7 +14,7 @@ const NAV: { key: NavKey; label: string; icon: React.ReactNode }[] = [
   { key: 'parametros',     label: 'Parâmetros',    icon: <Sliders /> },
 ];
 
-export interface SidebarCategory { key: string; label: string; count?: number; active?: boolean; onClick?: () => void; }
+export interface SidebarCategory { key: string; label: string; count?: number; active?: boolean; onClick?: () => void; isHeader?: boolean; }
 
 interface Props {
   active: NavKey;
@@ -57,16 +57,22 @@ export default function KbShellSidebar({ active, onChange, counts, categories, o
             <>
               <div className="kbs-side-label">Categorias</div>
               {categories.map((c) => (
-                <button
-                  key={c.key}
-                  type="button"
-                  className={`kbs-nav-btn${c.active ? ' on' : ''}`}
-                  onClick={() => { c.onClick?.(); onClose?.(); }}
-                >
-                  <Layers />
-                  <span>{c.label}</span>
-                  {typeof c.count === 'number' && <span className="kbs-count">{c.count}</span>}
-                </button>
+                c.isHeader ? (
+                  <div key={c.key} className="kbs-side-label" style={{ marginTop: 12, opacity: 0.75 }}>
+                    {c.label}
+                  </div>
+                ) : (
+                  <button
+                    key={c.key}
+                    type="button"
+                    className={`kbs-nav-btn${c.active ? ' on' : ''}`}
+                    onClick={() => { c.onClick?.(); onClose?.(); }}
+                  >
+                    <Layers />
+                    <span>{c.label}</span>
+                    {typeof c.count === 'number' && <span className="kbs-count">{c.count}</span>}
+                  </button>
+                )
               ))}
             </>
           )}
