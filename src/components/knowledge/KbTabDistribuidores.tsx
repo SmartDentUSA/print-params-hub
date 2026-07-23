@@ -145,12 +145,15 @@ function CountryFlag({ country }: { country?: string | null }) {
   );
 }
 
-export default function KbTabDistribuidores() {
+interface KbTabDistribuidoresProps { country?: string }
+
+export default function KbTabDistribuidores({ country: externalCountry }: KbTabDistribuidoresProps = {}) {
   const { t } = useLanguage();
   const [rows, setRows] = useState<Distributor[]>([]);
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState('');
-  const [country, setCountry] = useState('all');
+  const [countryLocal, setCountryLocal] = useState('all');
+  const country = externalCountry ?? countryLocal;
 
   useEffect(() => {
     (async () => {
@@ -194,8 +197,8 @@ export default function KbTabDistribuidores() {
     <section>
       {/* Título removido: hero do shell v2 é a única fonte do título nesta aba */}
       <KbSearchBar placeholder={t('kb.distribuidores.search')} value={q} onDebouncedChange={setQ} />
-      {availableCountries.length > 1 && (
-        <KbChips options={countryChips} active={country} onChange={setCountry} />
+      {externalCountry === undefined && availableCountries.length > 1 && (
+        <KbChips options={countryChips} active={country} onChange={setCountryLocal} />
       )}
       {!loading && <KbResultCount count={filtered.length} noun="distributor" />}
       <div className="kb-dgrid" style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
