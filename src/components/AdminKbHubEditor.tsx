@@ -227,6 +227,51 @@ export function AdminKbHubEditor() {
 
       <Card>
         <CardHeader>
+          <CardTitle>Card da Sidebar (Soluções)</CardTitle>
+          <p className="text-sm text-muted-foreground">
+            Bloco fixo no rodapé da sidebar da Base de Conhecimento. Desligue para ocultar.
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between rounded-lg border p-4">
+            <div className="space-y-0.5">
+              <Label className="text-sm font-medium">Mostrar card na sidebar</Label>
+              <p className="text-xs text-muted-foreground">Quando desligado, o card fica oculto.</p>
+            </div>
+            <Switch
+              checked={cta.enabled !== false}
+              onCheckedChange={(v) => setCtaField('enabled', v)}
+            />
+          </div>
+          <div className="grid md:grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <Label className="text-xs">Título (padrão: {CTA_DEFAULTS.title})</Label>
+              <Input value={ctaVal('title')} placeholder={CTA_DEFAULTS.title} onChange={(e) => setCtaField('title', e.target.value)} />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Texto do botão (padrão: {CTA_DEFAULTS.cta_label})</Label>
+              <Input value={ctaVal('cta_label')} placeholder={CTA_DEFAULTS.cta_label} onChange={(e) => setCtaField('cta_label', e.target.value)} />
+            </div>
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs">Subtítulo (padrão: {CTA_DEFAULTS.subtitle})</Label>
+            <Textarea rows={2} value={ctaVal('subtitle')} placeholder={CTA_DEFAULTS.subtitle} onChange={(e) => setCtaField('subtitle', e.target.value)} />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs">URL do botão (padrão: {CTA_DEFAULTS.cta_url})</Label>
+            <Input value={ctaVal('cta_url')} placeholder={CTA_DEFAULTS.cta_url} onChange={(e) => setCtaField('cta_url', e.target.value)} />
+          </div>
+          <div className="flex justify-end">
+            <Button size="sm" onClick={saveCta} disabled={savingCta}>
+              {savingCta ? <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" /> : <Save className="w-3.5 h-3.5 mr-1" />}
+              Salvar card
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
           <CardTitle className="flex items-center gap-2"><ImageIcon className="w-5 h-5" /> Hero da Base de Conhecimento</CardTitle>
           <p className="text-sm text-muted-foreground">
             Troque título, subtítulo e imagem exibidos no topo de cada aba. Deixe em branco para usar o padrão do sistema.
