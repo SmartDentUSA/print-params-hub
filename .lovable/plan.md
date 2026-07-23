@@ -1,54 +1,39 @@
-# Por que o texto do "Único Glaze Opalescente..." está aparecendo em Cura profissional
+# Lista de itens PipeRun × Catálogo do sistema
 
-## Diagnóstico (confirmado)
+## O que já confirmei
 
-- O texto exibido em **Pós-impressão — Cura profissional** vem do campo `lia_attendances.equip_pos_impressao`.
-- Ao consultar o banco, encontrei **10+ leads** com o mesmo valor literal armazenado nesse campo (ex.: `alexangelino@hotmail.com`, `gpandolfo@mac.com`, `drthiagocandidomariano@gmail.com` etc.):
+**No CSV `propostas-23-07-2026-15-39-39-600a.csv`:**
+- 920 propostas, 368 linhas com item preenchido.
+- **33 SKUs distintos** (chave = `Código único (Item)` — o ID interno do produto no PipeRun: 383, 384, 385, 987, 1272, 2051, 2246, …).
+- Único texto disponível por item é `Descrição (Item)` — que é a **descrição de marketing**, não o nome do produto (código 383 = "ÚNICO GLAZE OPALESCENTE DO MUNDO!!!…" = **GlazeON** no catálogo).
+- `Marca (Item)`, `Referência (Item)` e `Categoria (Item)` vêm **vazios** no export.
 
-  > "ÚNICO GLAZE OPALESCENTE DO MUNDO!!!Luz LED (1 minuto por fase)Luz Uv (2 minutos por Fase)Glaze Final: sob Luz UV até 48w mantenha por 10 minutos..."
+**No `system_a_catalog`:**
+- 391 produtos com `name` real e `external_id` em UUID/slug.
+- **Não existe** coluna com o ID interno do PipeRun em `system_a_catalog`, `products_catalog` ou `produto_aliases` — o `Código único` da proposta não bate com nenhum `external_id`. Match só é possível por **texto + preço**.
 
-- Esse valor entra via `_shared/piperun-field-map.ts` (`parsed.equipments.pos_impressao`) e `smart-ops-piperun-webhook/index.ts` (linha 1432). Origem provável: um custom field no PipeRun que armazena a **descrição marketing do produto GlazeON** em vez do modelo do equipamento de cura. Está sendo persistido cru em `equip_pos_impressao`.
-- Quando o lead não tem `deal_items` nem pedidos, o fallback do `ProfessionalMixSummary` (adicionado recentemente) usa `equip_pos_impressao` como "equipamento de pós-impressão" e o `classifyEquipTable` joga na linha `cura_prof`, exibindo o texto inteiro.
+## Entregável
 
-Portanto o texto **não é uma classificação errada** — é lixo entrando pela integração PipeRun e sendo exibido fielmente.
+Um único CSV em `/mnt/documents/piperun-x-catalogo-2026-07-23.csv` com uma linha por SKU distinto do PipeRun, colunas:
 
-## Plano de correção (3 camadas)
-
-### 1) Sanitizer defensivo no front (MIX)
-Em `src/components/smartops/ProfessionalMixSummary.tsx`, no bloco de fallback qualification (função `push` dentro do effect), rejeitar valores que claramente **não são modelo de equipamento**:
-- comprimento > 80 caracteres, OU
-- contém `\n`, OU
-- contém `!!!`, OU
-- casa `/(opalescente|glaze|mantenha por|cura final|luz uv|luz led|min(?:uto)s? por fase)/i`, OU
-- possui mais que 8 palavras.
-
-Aplicar a todos os `equip_*` (não só `pos_impressao`) para blindar contra reincidência em outras categorias.
-
-### 2) Guard no ingest / mapping PipeRun
-Em `supabase/functions/_shared/piperun-field-map.ts` e `smart-ops-piperun-webhook/index.ts`:
-- Após `parsed.equipments.*` ser calculado, aplicar mesmo sanitizador (helper `isValidEquipmentLabel`) antes de gravar em `equip_scanner`, `equip_impressora`, `equip_pos_impressao`, `equip_cad`, `equip_fresadora`, `equip_notebook`.
-- Se inválido → não sobrescrever coluna; logar `system_health_logs` (event `equip_field_rejected`) com `lead_id`, campo e trecho inicial.
-
-### 3) Backfill único (limpeza histórica)
-Migration one-shot (SQL) para zerar campos contaminados existentes:
-```sql
-UPDATE public.lia_attendances
-SET equip_pos_impressao = NULL,
-    equip_pos_impressao_serial = NULL
-WHERE equip_pos_impressao ILIKE '%Opalescente do Mundo%'
-   OR equip_pos_impressao ILIKE '%Mantenha por 10 minutos%'
-   OR LENGTH(equip_pos_impressao) > 120;
 ```
-(mesmo padrão para `equip_scanner`, `equip_impressora`, `equip_cad`, `equip_fresadora`, `equip_notebook` — apenas o filtro de LENGTH > 120, sem tocar em valores curtos legítimos)
+piperun_code | descricao_proposta (trecho) | ocorrencias | valor_unit_mediano
+             | match_catalogo (system_a_catalog.name) | sac_id | sac_external_id | sac_category
+             | metodo_match (dict_manual | trigram | price_only | unmatched)
+             | score_similaridade | observacao
+```
 
-## Detalhes técnicos
+E um resumo no chat: total de SKUs, quantos "matched" vs "unmatched", % de cobertura das 368 linhas de item da proposta, e a lista literal dos que ficaram sem match para você decidir.
 
-- Sanitizador central compartilhado: novo `supabase/functions/_shared/equipment-field-guard.ts` exportando `isValidEquipmentLabel(value: string): boolean` e `sanitizeEquipmentLabel(value)`. Front duplica a lógica em `src/utils/equipmentLabel.ts` (regra idêntica).
-- Nenhum outro consumidor de `equip_*` precisa mudar: sanitizador roda **na escrita** (ingest) e **na leitura de fallback** (MIX).
-- Não altero o parser do PipeRun em si — só o gate final antes do `update`.
+## Como vou casar cada SKU (em ordem)
 
-## O que NÃO será alterado
+1. **Dicionário manual** para os códigos recorrentes já identificáveis pela descrição: 383→GlazeON, 384→SmartMake Base, 385/386/387→SmartMake SHADE A/B/C, 389/391/393→SmartMake Effect (emulsões incisais), 392/394→SmartMake Stain (croma), 397→Godê SmartMake, 398→SmartWash, 987→Resina Vitality 1KG, 1272-1276→variações SmartMake/SmartGum, 2051→Curso Imersão 3 dias, 2246→Acessório Rayshape.
+2. **Trigram fuzzy** (`pg_trgm.similarity ≥ 0.35`) do primeiro trecho da descrição (antes de "SERINGA COM…", "Kit contém:", etc.) contra `system_a_catalog.name`.
+3. **Cross-check por preço** contra `products_catalog.preco_venda` para descartar falsos positivos do fuzzy.
+4. Resto = `unmatched`.
 
-- Regras de classify/EquipCat do MIX (já corretas).
-- Fluxo de `deal_items` / Loja Integrada.
-- Outras telas que leem `equip_*` (Ficha Profissional, Dra. LIA, tickets) — passam a ver `NULL` quando o valor era lixo, o que é o comportamento desejado.
+## Escopo
+
+- Auditoria **read-only**. Nada muda no banco, no PipeRun, em edge functions ou na UI.
+- Apenas o CSV de propostas que você enviou nesta thread.
+- Se você aprovar, na sequência posso propor uma migration criando `system_a_catalog.piperun_product_id` (ou tabela `piperun_product_map`) para o parser de propostas parar de depender da descrição de marketing — mas isso é uma tarefa separada, aguardo aprovação em seguida.
