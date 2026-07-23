@@ -22,6 +22,7 @@ import KbTabOverview from '@/components/knowledge/KbTabOverview';
 import heroPrinterImg from '@/assets/kb-hero-printer.jpg';
 import { CATALOG_SIDEBAR_FILTERS, rowMatchesCatalogFilter } from '@/components/knowledge/catalogSidebarFilters';
 import { PRODUCT_CATALOG_ENTITY_TYPES } from '@/lib/catalogEntityTypes';
+import { KB_HERO_SETTING_KEY, KB_CATALOG_PINS_KEY } from '@/components/AdminKbHubEditor';
 
 interface KnowledgeBaseProps { lang?: 'pt' | 'en' | 'es'; forcedTab?: KbTab }
 
@@ -72,6 +73,38 @@ export default function KnowledgeBase({ lang = 'pt', forcedTab }: KnowledgeBaseP
     if (typeof window === 'undefined') return 'all';
     return new URLSearchParams(window.location.search).get('country') || 'all';
   });
+  // Editor HUB overrides (hero + catalog pins) loaded from site_settings.
+  const [heroOverrides, setHeroOverrides] = useState<Record<string, { title?: string; subtitle?: string; image_url?: string }>>({});
+  const [catalogPins, setCatalogPins] = useState<Record<string, string[]>>({});
+  useEffect(() => {
+    (async () => {
+      const heroKeys = ['overview','parametros','catalogo','videos','artigos','ebooks','eventos','distribuidores'] as const;
+      const { data: heroRows } = await supabase
+        .from('site_settings')
+        .select('key, value')
+        .in('key', heroKeys.map((k) => KB_HERO_SETTING_KEY(k as any)));
+      const hMap: Record<string, any> = {};
+      (heroRows || []).forEach((row: any) => {
+        try { hMap[row.key] = JSON.parse(row.value); } catch { /* noop */ }
+      });
+      setHeroOverrides(hMap);
+      const { data: pinRows } = await supabase
+        .from('site_settings')
+        .select('key, value')
+        .in('key', CATALOG_SIDEBAR_FILTERS.map((f) => KB_CATALOG_PINS_KEY(f.key)));
+      const pMap: Record<string, string[]> = {};
+      (pinRows || []).forEach((row: any) => {
+        try {
+          const arr = JSON.parse(row.value);
+          if (Array.isArray(arr)) {
+            const filterKey = String(row.key).replace(/^kb_catalog_pins_/, '');
+            pMap[filterKey] = arr.filter((x: any) => typeof x === 'string');
+          }
+        } catch { /* noop */ }
+      });
+      setCatalogPins(pMap);
+    })();
+  }, []);
   useEffect(() => {
     (async () => {
       const { data } = await supabase
@@ -185,6 +218,10 @@ export default function KnowledgeBase({ lang = 'pt', forcedTab }: KnowledgeBaseP
       distribuidores: { title: 'Revendas',      subtitle: 'Rede oficial de revendas Smart Dent.' },
     };
     const hero = heroMap[activeKey];
+    const override = heroOverrides[KB_HERO_SETTING_KEY(activeKey as any)] || {};
+    const heroTitle = override.title || hero.title;
+    const heroSubtitle = override.subtitle || hero.subtitle;
+    const heroArt = override.image_url || heroPrinterImg;
     const TAB_LETTERS: Partial<Record<KbShellNavKey, string[]>> = {
       videos: ['A', 'E', 'C', 'G'],
       artigos: ['B', 'C', 'D', 'F'],
@@ -280,15 +317,15 @@ export default function KnowledgeBase({ lang = 'pt', forcedTab }: KnowledgeBaseP
         )}
         <KbShellLayout
           active={activeKey}
-          heroArtUrl={heroPrinterImg}
+          heroArtUrl={heroArt}
           onChange={(k) => {
             if (k === 'overview') { setOverview(true); return; }
             setOverview(false);
             setTab(k);
           }}
           categories={categories}
-          heroTitle={hero.title}
-          heroSubtitle={hero.subtitle}
+          heroTitle={heroTitle}
+          heroSubtitle={heroSubtitle}
           showAdminButton
         >
           {overview ? (
@@ -302,6 +339,7 @@ export default function KnowledgeBase({ lang = 'pt', forcedTab }: KnowledgeBaseP
               {tab === 'catalogo' && (
                 <KbTabCatalogo
                   filterKey={activeCatalogFilter}
+                  pinnedIds={catalogPins[activeCatalogFilter]}
                   onFilterChange={(k) => {
                     const params = new URLSearchParams(window.location.search);
                     if (k === 'all') params.delete('cat'); else params.set('cat', k);
