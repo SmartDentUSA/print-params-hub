@@ -152,6 +152,52 @@ export default function CoursesPage() {
                   {p.prof_course_platform && <Badge variant="outline" className="text-xs">{p.prof_course_platform}</Badge>}
                 </div>
 
+                <div className="grid grid-cols-3 gap-2 pt-2 border-t">
+                  <div className="text-center">
+                    <div className="text-lg font-semibold">0</div>
+                    <div className="text-[10px] text-muted-foreground uppercase tracking-wide">Cursos</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-lg font-semibold text-green-600">0</div>
+                    <div className="text-[10px] text-muted-foreground uppercase tracking-wide">Ativos</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-lg font-semibold text-blue-600">0</div>
+                    <div className="text-[10px] text-muted-foreground uppercase tracking-wide">Realizados</div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div className="flex items-center gap-1.5 text-muted-foreground">
+                    <Eye className="w-3.5 h-3.5" />
+                    <span><strong className="text-foreground">0</strong> visualizações</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-muted-foreground">
+                    <MessageCircle className="w-3.5 h-3.5" />
+                    <span><strong className="text-foreground">0</strong> interessados</span>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-muted-foreground">Avaliações</span>
+                  <StarRating value={avgRating(p)} />
+                </div>
+
+                <div className="space-y-1 text-xs border-t pt-2">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Cliente desde:</span>
+                    <span className="font-medium">{formatClienteDesde(p.created_at)}</span>
+                  </div>
+                  <div className="flex justify-between gap-2">
+                    <span className="text-muted-foreground shrink-0">Scanner:</span>
+                    <span className="font-medium truncate text-right">{p.equip_scanner || p.equip_scanner_bancada || "—"}</span>
+                  </div>
+                  <div className="flex justify-between gap-2">
+                    <span className="text-muted-foreground shrink-0">Impressora 3D:</span>
+                    <span className="font-medium truncate text-right">{p.equip_impressora || "—"}</span>
+                  </div>
+                </div>
+
                 <div className="flex gap-2 pt-2">
                   <Button size="sm" variant="outline" className="flex-1" onClick={() => openEdit(p.email)}>
                     <Pencil className="w-3.5 h-3.5 mr-1.5" /> Editar perfil
