@@ -381,6 +381,16 @@
       "categories": "Categorias",
       "open_menu": "Abrir menu"
     },
+    "hero": {
+      "overview":       { "title": "Base de Conhecimento", "subtitle": "Tudo o que você precisa para operar a odontologia digital." },
+      "parametros":     { "title": "Parâmetros",           "subtitle": "Parâmetros de impressão testados por impressora e resina." },
+      "catalogo":       { "title": "Catálogo",             "subtitle": "Resinas, impressoras, scanners e consumíveis Smart Dent." },
+      "videos":         { "title": "Vídeos",               "subtitle": "Vídeos tutoriais, casos clínicos e depoimentos." },
+      "artigos":        { "title": "Artigos",              "subtitle": "Artigos técnicos, casos clínicos e guias práticos." },
+      "ebooks":         { "title": "Ebooks",               "subtitle": "Materiais aprofundados para download." },
+      "eventos":        { "title": "Eventos",              "subtitle": "Cursos, feiras e treinamentos." },
+      "distribuidores": { "title": "Revendas",             "subtitle": "Rede oficial de revendas Smart Dent." }
+    },
     "nav": {
       "overview": "Visão geral",
       "catalogo": "Catálogo",

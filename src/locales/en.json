@@ -381,6 +381,16 @@
       "categories": "Categories",
       "open_menu": "Open menu"
     },
+    "hero": {
+      "overview":       { "title": "Knowledge Base",  "subtitle": "Everything you need to run digital dentistry." },
+      "parametros":     { "title": "Parameters",      "subtitle": "Print parameters tested by printer and resin." },
+      "catalogo":       { "title": "Catalog",         "subtitle": "Resins, printers, scanners and Smart Dent consumables." },
+      "videos":         { "title": "Videos",          "subtitle": "Tutorial videos, clinical cases and testimonials." },
+      "artigos":        { "title": "Articles",        "subtitle": "Technical articles, clinical cases and practical guides." },
+      "ebooks":         { "title": "Ebooks",          "subtitle": "In-depth materials for download." },
+      "eventos":        { "title": "Events",          "subtitle": "Courses, fairs and training." },
+      "distribuidores": { "title": "Resellers",       "subtitle": "Official Smart Dent reseller network." }
+    },
     "nav": {
       "overview": "Overview",
       "catalogo": "Catalog",
