@@ -193,6 +193,26 @@ export default function ProfessionalMixSummary({ leadId, disabled, cadValue, onC
   const [loading, setLoading] = useState(false);
   const [items, setItems] = useState<PurchaseItem[]>([]);
   const [cadOverride, setCadOverride] = useState(false);
+  const [cadCatalog, setCadCatalog] = useState<string[]>([]);
+
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase
+        .from("system_a_catalog")
+        .select("name, product_category, product_subcategory")
+        .eq("active", true)
+        .eq("approved", true)
+        .limit(500);
+      const names = (data ?? [])
+        .filter((r: any) => {
+          const c = `${r.product_category ?? ""} ${r.product_subcategory ?? ""}`.toLowerCase();
+          return /software|cad|exocad|exoplan/.test(c) || /exocad|exoplan|clinic\s*app|lite\s*cad|dental\s*cad/i.test(r.name || "");
+        })
+        .map((r: any) => (r.name || "").trim())
+        .filter(Boolean);
+      setCadCatalog(Array.from(new Set(names)).sort());
+    })();
+  }, []);
 
   useEffect(() => {
     if (!leadId) {
@@ -324,15 +344,15 @@ export default function ProfessionalMixSummary({ leadId, disabled, cadValue, onC
 
   // ---------- CAD auto-derivation ----------
   const cadAuto = useMemo(() => {
-    if (agg.byCatByName.get("cad")?.length) {
-      return agg.byCatByName.get("cad")![0].name; // Exocad or similar from history
-    }
-    const scanners = (agg.byCatByName.get("scanner_intraoral") ?? []).concat(agg.byCatByName.get("scanner_bancada") ?? []);
-    const names = scanners.map((s) => s.name.toLowerCase()).join(" ");
-    if (/medit/.test(names)) return "Medit Clinic App";
-    if (/blz/.test(names)) return "BLZdental Lite CAD";
+    const cadHist = agg.byCatByName.get("cad") ?? [];
+    const exo = cadHist.find((c) => /exocad|exoplan/i.test(c.name));
+    if (exo) return exo.name;
+    const allNames = items.map((i) => i.name.toLowerCase()).join(" ");
+    if (/medit/.test(allNames)) return "Medit Clinic App";
+    if (/\bblz\b|blzdental|blx\s*dental/.test(allNames)) return "BLZ Dental Lite CAD";
+    if (cadHist[0]) return cadHist[0].name;
     return "";
-  }, [agg]);
+  }, [agg, items]);
 
   useEffect(() => {
     if (cadAuto && !cadValue) onCadChange(cadAuto);
