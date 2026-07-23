@@ -22,7 +22,7 @@ import KbTabOverview from '@/components/knowledge/KbTabOverview';
 import heroPrinterImg from '@/assets/kb-hero-printer.jpg';
 import { CATALOG_SIDEBAR_FILTERS, rowMatchesCatalogFilter } from '@/components/knowledge/catalogSidebarFilters';
 import { PRODUCT_CATALOG_ENTITY_TYPES } from '@/lib/catalogEntityTypes';
-import { KB_HERO_SETTING_KEY, KB_CATALOG_PINS_KEY, KB_NAV_SHOW_OVERVIEW_KEY } from '@/components/AdminKbHubEditor';
+import { KB_HERO_SETTING_KEY, KB_CATALOG_PINS_KEY, KB_NAV_SHOW_OVERVIEW_KEY, KB_SIDEBAR_CTA_KEY } from '@/components/AdminKbHubEditor';
 
 interface KnowledgeBaseProps { lang?: 'pt' | 'en' | 'es'; forcedTab?: KbTab }
 
@@ -77,17 +77,22 @@ export default function KnowledgeBase({ lang = 'pt', forcedTab }: KnowledgeBaseP
   const [heroOverrides, setHeroOverrides] = useState<Record<string, { title?: string; subtitle?: string; image_url?: string }>>({});
   const [catalogPins, setCatalogPins] = useState<Record<string, string[]>>({});
   const [showOverviewNav, setShowOverviewNav] = useState<boolean>(false);
+  const [sidebarCta, setSidebarCta] = useState<{ enabled?: boolean; title?: string; subtitle?: string; cta_label?: string; cta_url?: string }>({});
   useEffect(() => {
     (async () => {
       const heroKeys = ['overview','parametros','catalogo','videos','artigos','ebooks','eventos','distribuidores'] as const;
       const { data: heroRows } = await supabase
         .from('site_settings')
         .select('key, value')
-        .in('key', [...heroKeys.map((k) => KB_HERO_SETTING_KEY(k as any)), KB_NAV_SHOW_OVERVIEW_KEY]);
+        .in('key', [...heroKeys.map((k) => KB_HERO_SETTING_KEY(k as any)), KB_NAV_SHOW_OVERVIEW_KEY, KB_SIDEBAR_CTA_KEY]);
       const hMap: Record<string, any> = {};
       (heroRows || []).forEach((row: any) => {
         if (row.key === KB_NAV_SHOW_OVERVIEW_KEY) {
           setShowOverviewNav(row.value === 'true');
+          return;
+        }
+        if (row.key === KB_SIDEBAR_CTA_KEY) {
+          try { setSidebarCta(JSON.parse(row.value) || {}); } catch { /* noop */ }
           return;
         }
         try { hMap[row.key] = JSON.parse(row.value); } catch { /* noop */ }
@@ -337,6 +342,7 @@ export default function KnowledgeBase({ lang = 'pt', forcedTab }: KnowledgeBaseP
           heroSubtitle={heroSubtitle}
           showAdminButton
           showOverview={showOverviewNav}
+          cta={sidebarCta}
         >
           {overview ? (
             <KbTabOverview onGoto={(t) => { setOverview(false); setTab(t); }} />

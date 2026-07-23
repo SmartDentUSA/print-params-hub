@@ -33,6 +33,16 @@ const HERO_TABS: { key: HeroKey; label: string; defaults: { title: string; subti
 export const KB_HERO_SETTING_KEY = (k: HeroKey) => `kb_hero_${k}`;
 export const KB_CATALOG_PINS_KEY = (k: string) => `kb_catalog_pins_${k}`;
 export const KB_NAV_SHOW_OVERVIEW_KEY = 'kb_nav_show_overview';
+export const KB_SIDEBAR_CTA_KEY = 'kb_sidebar_cta';
+
+interface SidebarCtaValue { enabled?: boolean; title?: string; subtitle?: string; cta_label?: string; cta_url?: string }
+const CTA_DEFAULTS: Required<SidebarCtaValue> = {
+  enabled: true,
+  title: 'Soluções de odontologia digital',
+  subtitle: 'Mais que tecnologia, entregamos autonomia e rentabilidade para seu consultório ou laboratório.',
+  cta_label: 'Conheça nossas soluções →',
+  cta_url: 'https://smartdent.com.br',
+};
 
 interface CatalogRow { id: string; name: string; product_category: string | null; product_subcategory: string | null }
 
@@ -51,6 +61,8 @@ export function AdminKbHubEditor() {
   const [uploading, setUploading] = useState<HeroKey | null>(null);
   const [showOverview, setShowOverview] = useState<boolean>(false);
   const [savingOverview, setSavingOverview] = useState(false);
+  const [cta, setCta] = useState<SidebarCtaValue>({});
+  const [savingCta, setSavingCta] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -75,6 +87,9 @@ export function AdminKbHubEditor() {
       // Load nav visibility settings
       const rawShowOverview = await fetchSetting(KB_NAV_SHOW_OVERVIEW_KEY);
       setShowOverview(rawShowOverview === 'true');
+
+      const rawCta = await fetchSetting(KB_SIDEBAR_CTA_KEY);
+      if (rawCta) { try { setCta(JSON.parse(rawCta) || {}); } catch { /* noop */ } }
 
       // Load catalog products (allowlist only)
       const { data } = await (supabase.from('system_a_catalog') as any)
@@ -174,6 +189,22 @@ export function AdminKbHubEditor() {
     }
   };
 
+  const saveCta = async () => {
+    setSavingCta(true);
+    try {
+      const ok = await updateSetting(KB_SIDEBAR_CTA_KEY, JSON.stringify(cta));
+      if (!ok) throw new Error('save failed');
+      toast({ title: 'Card salvo', description: 'Card da sidebar atualizado.' });
+    } catch (e: any) {
+      toast({ title: 'Erro', description: e?.message || 'Falha ao salvar', variant: 'destructive' });
+    } finally {
+      setSavingCta(false);
+    }
+  };
+
+  const ctaVal = (k: keyof SidebarCtaValue) => (cta[k] as any) ?? '';
+  const setCtaField = (k: keyof SidebarCtaValue, v: any) => setCta((prev) => ({ ...prev, [k]: v }));
+
   return (
     <div className="space-y-6">
       <Card>
@@ -190,6 +221,51 @@ export function AdminKbHubEditor() {
               <p className="text-xs text-muted-foreground">Quando desligado, o botão "Visão geral" fica oculto da navegação.</p>
             </div>
             <Switch checked={showOverview} onCheckedChange={saveOverviewVisibility} disabled={savingOverview} />
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Card da Sidebar (Soluções)</CardTitle>
+          <p className="text-sm text-muted-foreground">
+            Bloco fixo no rodapé da sidebar da Base de Conhecimento. Desligue para ocultar.
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between rounded-lg border p-4">
+            <div className="space-y-0.5">
+              <Label className="text-sm font-medium">Mostrar card na sidebar</Label>
+              <p className="text-xs text-muted-foreground">Quando desligado, o card fica oculto.</p>
+            </div>
+            <Switch
+              checked={cta.enabled !== false}
+              onCheckedChange={(v) => setCtaField('enabled', v)}
+            />
+          </div>
+          <div className="grid md:grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <Label className="text-xs">Título (padrão: {CTA_DEFAULTS.title})</Label>
+              <Input value={ctaVal('title')} placeholder={CTA_DEFAULTS.title} onChange={(e) => setCtaField('title', e.target.value)} />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Texto do botão (padrão: {CTA_DEFAULTS.cta_label})</Label>
+              <Input value={ctaVal('cta_label')} placeholder={CTA_DEFAULTS.cta_label} onChange={(e) => setCtaField('cta_label', e.target.value)} />
+            </div>
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs">Subtítulo (padrão: {CTA_DEFAULTS.subtitle})</Label>
+            <Textarea rows={2} value={ctaVal('subtitle')} placeholder={CTA_DEFAULTS.subtitle} onChange={(e) => setCtaField('subtitle', e.target.value)} />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs">URL do botão (padrão: {CTA_DEFAULTS.cta_url})</Label>
+            <Input value={ctaVal('cta_url')} placeholder={CTA_DEFAULTS.cta_url} onChange={(e) => setCtaField('cta_url', e.target.value)} />
+          </div>
+          <div className="flex justify-end">
+            <Button size="sm" onClick={saveCta} disabled={savingCta}>
+              {savingCta ? <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" /> : <Save className="w-3.5 h-3.5 mr-1" />}
+              Salvar card
+            </Button>
           </div>
         </CardContent>
       </Card>
