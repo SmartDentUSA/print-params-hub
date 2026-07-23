@@ -1244,6 +1244,10 @@ export function AdminSettings() {
               <SEOAuditPanel />
             </TabsContent>
 
+            <TabsContent value="hub" className="space-y-4">
+              <AdminKbHubEditor />
+            </TabsContent>
+
             <TabsContent value="data" className="space-y-4">
               <div className="space-y-6">
                 <div>
