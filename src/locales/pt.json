@@ -375,6 +375,92 @@
       "caracterizacao": "Caracterização",
       "softwares": "Softwares"
     },
-    "empty": "Nenhum resultado encontrado"
+    "empty": "Nenhum resultado encontrado",
+    "shell": {
+      "nav": "Navegação",
+      "categories": "Categorias",
+      "open_menu": "Abrir menu"
+    },
+    "nav": {
+      "overview": "Visão geral",
+      "catalogo": "Catálogo",
+      "videos": "Vídeos",
+      "artigos": "Artigos",
+      "ebooks": "Ebooks",
+      "eventos": "Eventos",
+      "distribuidores": "Revendas",
+      "parametros": "Parâmetros"
+    },
+    "sidebar_cta": {
+      "title": "Soluções de odontologia digital",
+      "subtitle": "Mais que tecnologia, entregamos autonomia e rentabilidade para seu consultório ou laboratório.",
+      "cta_label": "Conheça nossas soluções →"
+    },
+    "overview": {
+      "open": "Abrir →",
+      "cards": {
+        "catalogo": {
+          "title": "Catálogo",
+          "desc": "Resinas, impressoras, scanners e consumíveis."
+        },
+        "videos": {
+          "title": "Vídeos",
+          "desc": "Tutoriais, casos clínicos e depoimentos."
+        },
+        "artigos": {
+          "title": "Artigos",
+          "desc": "Publicações técnicas e guias práticos."
+        },
+        "parametros": {
+          "title": "Parâmetros",
+          "desc": "Parâmetros de impressão por resina e modelo."
+        },
+        "ebooks": {
+          "title": "Ebooks",
+          "desc": "Materiais aprofundados para download."
+        },
+        "eventos": {
+          "title": "Eventos",
+          "desc": "Cursos, feiras e treinamentos."
+        },
+        "distribuidores": {
+          "title": "Revendas",
+          "desc": "Rede oficial de revendas Smart Dent."
+        }
+      }
+    },
+    "letter_labels": {
+      "all": "Tudo",
+      "A": "Tutoriais",
+      "E": "Depoimentos",
+      "C": "Tecnologia",
+      "G": "Demonstrativos"
+    },
+    "countries_all": "Todos os países",
+    "catalog_filters": {
+      "all": "Todos",
+      "resinas_3d": "Resinas 3D",
+      "solucoes": "Soluções",
+      "scanners": "Scanners",
+      "softwares_cad": "Softwares",
+      "impressoras_3d": "Impressoras 3D",
+      "limpeza_acabamento": "Limpeza",
+      "pos_impressao": "Pós-impressão",
+      "caracterizacao": "Finalização",
+      "resinas_diretas": "Resinas diretas",
+      "cimentos": "Cimentos",
+      "adesivos": "Adesivos"
+    },
+    "docs_dialog": {
+      "title": "Documentos",
+      "open": "Abrir →",
+      "empty": "Nenhum documento disponível.",
+      "sections": {
+        "cert": "Certificados & Registros",
+        "laudo": "Laudos & Estudos Clínicos",
+        "apres": "Apresentações & Materiais",
+        "guia": "Guias & Outros"
+      }
+    }
   }
 }
