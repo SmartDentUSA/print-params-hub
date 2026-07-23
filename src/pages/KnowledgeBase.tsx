@@ -66,7 +66,7 @@ export default function KnowledgeBase({ lang = 'pt', forcedTab }: KnowledgeBaseP
   const [catalogRowsMeta, setCatalogRowsMeta] = useState<Array<{ name: string | null; product_category: string | null; product_subcategory: string | null }>>([]);
   const [activeCatalogFilter, setActiveCatalogFilter] = useState<string>(() => {
     if (typeof window === 'undefined') return 'all';
-    return new URLSearchParams(window.location.search).get('cat') || 'all';
+    return new URLSearchParams(window.location.search).get('cat') || 'resinas_3d';
   });
   const [activeCountry, setActiveCountry] = useState<string>(() => {
     if (typeof window === 'undefined') return 'all';
