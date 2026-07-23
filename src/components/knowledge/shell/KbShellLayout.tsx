@@ -3,7 +3,7 @@ import { Menu, Settings, LayoutGrid, PlaySquare, FileText, BookOpen, Calendar, S
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { LanguageSelector } from '@/components/LanguageSelector';
-import KbShellSidebar, { type SidebarCategory } from './KbShellSidebar';
+import KbShellSidebar, { type SidebarCategory, type SidebarCta } from './KbShellSidebar';
 import KbHero from './KbHero';
 import type { KbTab } from '../KbTabSwitcher';
 
@@ -19,6 +19,7 @@ interface Props {
   heroArtUrl?: string;
   showAdminButton?: boolean;
   showOverview?: boolean;
+  cta?: SidebarCta;
   children: ReactNode;
 }
 
@@ -33,7 +34,7 @@ const TOP_TABS: { key: KbTab; label: string; icon: React.ReactNode }[] = [
 ];
 
 export default function KbShellLayout({
-  active, onChange, counts, categories, heroTitle, heroSubtitle, heroArtUrl, showAdminButton, showOverview, children,
+  active, onChange, counts, categories, heroTitle, heroSubtitle, heroArtUrl, showAdminButton, showOverview, cta, children,
 }: Props) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   return (
@@ -46,6 +47,7 @@ export default function KbShellLayout({
         open={drawerOpen}
         onClose={() => setDrawerOpen(false)}
         showOverview={showOverview}
+        cta={cta}
       />
       <div className="kbs-main">
         <div className="kbs-topbar">
