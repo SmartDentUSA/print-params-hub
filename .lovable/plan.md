@@ -1,30 +1,49 @@
-# Renomear cabeçalho da nota do vendedor no PipeRun
 
-Trocar o cabeçalho "🤖 Novo Lead atribuído - Dra. L.I.A." (que aparece logo abaixo do "Nova nota adicionada" gerado pelo próprio PipeRun) por um cabeçalho neutro **"📊 Análise SmartOps"**, sem menção à Dra. L.I.A.
+## Objetivo
 
-## Escopo
+Na aba **Catálogo** da Base de Conhecimento, substituir a sidebar atual (que só mostra a letra "G") por uma lista fixa de categorias comerciais, cada uma filtrando a grade por combinação `product_category` + `product_subcategory` (ou nome).
 
-Somente o título da nota de análise/atribuição enviada ao vendedor. Nenhuma outra menção à Dra. L.I.A. (persona do chat, prompts, mensagens ao lead, reativações, etc.) será alterada.
+## Categorias e mapeamento
 
-Observação: o texto "Nova nota adicionada" é gerado automaticamente pelo próprio PipeRun ao criar uma Note — não vem do nosso código e não pode ser removido pelo backend.
+| Rótulo na sidebar        | Filtro aplicado em `KbTabCatalogo`                                             |
+|--------------------------|---------------------------------------------------------------------------------|
+| Tudo                     | chip=all, sub=all                                                              |
+| Resinas 3D               | chip=`RESINAS 3D`, sub=all                                                     |
+| Scanners                 | chip=`SCANNERS 3D`, sub=all                                                    |
+| Softwares CAD            | chip=`SOFTWARES`, sub=all                                                      |
+| Impressoras 3D           | chip=`IMPRESSÃO 3D`, sub startswith `3.4`/`3.5` (IMPRESSORA)                   |
+| Pós-impressão            | sub=`4.1 EQUIPAMENTOS` (equipamentos de cura)                                  |
+| Limpeza e acabamento     | sub=`4.2 LIMPEZA/ACABAMENTO`                                                   |
+| Caracterização           | chip=`CARACTERIZAÇÃO`, sub=all (SMARTMAKE + SMARTGUM)                          |
+| Resinas diretas          | sub=`6.3 RESINAS COMPOSTAS` (Atos Composta + Unichroma)                        |
+| Cimentos                 | sub=`6.2 CIMENTOS` (UNIKK Veneer + Try-in)                                     |
+| Adesivos                 | filtro por nome contendo `ATOS Smart Ortho`                                    |
 
-## Arquivos alterados
+Contagens são calculadas em tempo real a partir de `system_a_catalog` (mesma query e allowlist já existentes — governança do catálogo é preservada).
 
-1. `supabase/functions/smart-ops-lia-assign/index.ts`
-   - Linha 1596 (HTML da nota PipeRun):
-     `<b>🤖 Novo Lead atribuído - Dra. L.I.A.</b><br><br>` → `<b>📊 Análise SmartOps</b><br><br>`
-   - Linha 1406 (texto WhatsApp para o vendedor):
-     `🤖 *Novo Lead atribuído - Dra. L.I.A.*` → `📊 *Análise SmartOps*`
+## Implementação
 
-2. `supabase/functions/_shared/waleads-messaging.ts`
-   - Linha 310: mesma troca do item acima.
+1. **`src/pages/KnowledgeBase.tsx`**
+   - Adicionar novo estado `catalogoFilter` (chave da categoria escolhida) — persistido em `?cat=`.
+   - Buscar contagens por combinação `product_category` + `product_subcategory` uma única vez ao entrar na aba Catálogo, aplicando o mesmo filtro (active/approved/visible_in_ui) e a mesma allowlist `PRODUCT_CATALOG_ENTITY_TYPES` de `KbTabCatalogo`.
+   - Montar `categories` da shell com os 11 itens acima quando `activeKey === 'catalogo'`, cada um com sua contagem calculada.
+   - Passar `filterKey` para `<KbTabCatalogo filterKey={catalogoFilter} />`.
 
-## Não tocar
+2. **`src/components/knowledge/KbTabCatalogo.tsx`**
+   - Aceitar prop opcional `filterKey?: string`.
+   - Em `useEffect([filterKey])`, mapear a chave para `{ chip, subChip, nameContains }` e aplicar via `setChip`/`setSubChip` + novo estado `nameContains`.
+   - Estender o `useMemo` de filtro (linha ~697) para respeitar `nameContains` (case-insensitive, sem acento).
+   - Ocultar a barra interna de `KbChips` quando `filterKey` estiver ativo, para evitar duplicidade de controles (a sidebar passa a ser a única fonte).
 
-- Persona/prompts da Dra. L.I.A. (`dra-lia/*`, `lia-guards`, `dra-lia-export`).
-- Notas de reativação/regra de ouro que carregam `[Dra. L.I.A.]` como marcador de origem sistêmica (contexto operacional distinto do cabeçalho de vendedor).
-- Corpo da nota (lead, contatos, temperatura, etc.) — só o título muda.
+3. **Sem migração**: nada muda em banco. Apenas leitura.
 
-## Deploy
+## Fora de escopo
 
-Redeploy de `smart-ops-lia-assign` após o patch.
+- Não alterar `system_a_catalog`, taxonomia canônica (`kbCategoryTaxonomy.ts`), nem a governança de produto (`PRODUCT_CATALOG_ENTITY_TYPES`).
+- Não mexer em outras abas.
+- SEO/SSR do `seo-proxy` não muda (rotas continuam iguais; filtro é apenas query param).
+
+## Pontos a confirmar
+
+- **"Adesivos = ATOS Smart Ortho"**: hoje esse produto não tem categoria/subcategoria mapeada — devo filtrar por nome contendo `ATOS Smart Ortho`. Ok?
+- **"Pós-impressão (Equipamentos de cura)"**: mapear para `4.1 EQUIPAMENTOS` (curador Wash/Cure e afins). Confirma?
