@@ -20,6 +20,8 @@ import KbShellLayout, { type KbShellNavKey } from '@/components/knowledge/shell/
 import { kbShellStyles } from '@/components/knowledge/shell/kbShellStyles';
 import KbTabOverview from '@/components/knowledge/KbTabOverview';
 import heroPrinterImg from '@/assets/kb-hero-printer.jpg';
+import { CATALOG_SIDEBAR_FILTERS, rowMatchesCatalogFilter } from '@/components/knowledge/catalogSidebarFilters';
+import { PRODUCT_CATALOG_ENTITY_TYPES } from '@/lib/catalogEntityTypes';
 
 interface KnowledgeBaseProps { lang?: 'pt' | 'en' | 'es'; forcedTab?: KbTab }
 
@@ -61,6 +63,11 @@ export default function KnowledgeBase({ lang = 'pt', forcedTab }: KnowledgeBaseP
   const [dialogOpen, setDialogOpen] = useState(false);
   const [catCounts, setCatCounts] = useState<Record<string, { name: string; count: number }>>({});
   const [countryCounts, setCountryCounts] = useState<Array<{ country: string; count: number }>>([]);
+  const [catalogRowsMeta, setCatalogRowsMeta] = useState<Array<{ name: string | null; product_category: string | null; product_subcategory: string | null }>>([]);
+  const [activeCatalogFilter, setActiveCatalogFilter] = useState<string>(() => {
+    if (typeof window === 'undefined') return 'all';
+    return new URLSearchParams(window.location.search).get('cat') || 'all';
+  });
   const [activeCountry, setActiveCountry] = useState<string>(() => {
     if (typeof window === 'undefined') return 'all';
     return new URLSearchParams(window.location.search).get('country') || 'all';
@@ -77,6 +84,19 @@ export default function KnowledgeBase({ lang = 'pt', forcedTab }: KnowledgeBaseP
         m[row.letter] = { name: row.name, count: row.knowledge_contents?.[0]?.count ?? 0 };
       });
       setCatCounts(m);
+    })();
+  }, []);
+  useEffect(() => {
+    (async () => {
+      const { data } = await (supabase
+        .from('system_a_catalog') as any)
+        .select('name, product_category, product_subcategory')
+        .eq('active', true)
+        .eq('approved', true)
+        .eq('visible_in_ui', true)
+        .in('entity_type', PRODUCT_CATALOG_ENTITY_TYPES as unknown as string[]);
+      if (!data) return;
+      setCatalogRowsMeta(data as any[]);
     })();
   }, []);
   useEffect(() => {
@@ -212,6 +232,25 @@ export default function KnowledgeBase({ lang = 'pt', forcedTab }: KnowledgeBaseP
           { key: 'all', label: 'Todos os países', count: countryTotal, active: activeCountry === 'all', onClick: () => setCountryParam('all') },
           ...continentCategories,
         ]
+      : activeKey === 'catalogo'
+      ? CATALOG_SIDEBAR_FILTERS.map((def) => {
+          const count = def.key === 'all'
+            ? catalogRowsMeta.length
+            : catalogRowsMeta.filter((r) => rowMatchesCatalogFilter(r, def)).length;
+          return {
+            key: def.key,
+            label: def.label,
+            count,
+            active: activeCatalogFilter === def.key,
+            onClick: () => {
+              const params = new URLSearchParams(window.location.search);
+              if (def.key === 'all') params.delete('cat'); else params.set('cat', def.key);
+              params.set('tab', 'catalogo');
+              window.history.replaceState(null, '', `${window.location.pathname}?${params.toString()}${window.location.hash}`);
+              setActiveCatalogFilter(def.key);
+            },
+          };
+        })
       : letters.length
       ? [
           { key: 'all', label: 'Tudo', count: total, active: !categoryLetter, onClick: () => navigate(`${basePath}?tab=${tab}`) },
@@ -252,7 +291,7 @@ export default function KnowledgeBase({ lang = 'pt', forcedTab }: KnowledgeBaseP
               {tab === 'videos' && <KbTabVideos onOpen={openArticle} letterFilter={categoryLetter ?? null} />}
               {tab === 'artigos' && <KbTabArtigos onOpen={openArticle} letterFilter={categoryLetter ?? null} />}
               {tab === 'ebooks' && <KbTabEbooks onOpen={openArticle} />}
-              {tab === 'catalogo' && <KbTabCatalogo />}
+              {tab === 'catalogo' && <KbTabCatalogo filterKey={activeCatalogFilter} />}
               {tab === 'distribuidores' && <KbTabDistribuidores country={activeCountry} />}
               {tab === 'eventos' && <KbTabEventos />}
             </>

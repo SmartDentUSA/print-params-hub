@@ -16,6 +16,7 @@ import { CAT_ALIASES, CHIP_KEYS, CATEGORIES_WITHOUT_SUBFILTER, normCat, canonFro
 import { translatePrintType } from '@/lib/dentalTaxonomy';
 import { ProcessingInstructionsView } from '@/components/ProcessingInstructionsView';
 import { PRODUCT_CATALOG_ENTITY_TYPES } from '@/lib/catalogEntityTypes';
+import { findCatalogFilter, rowMatchesCatalogFilter } from './catalogSidebarFilters';
 
 const SPECIAL = /\b(FDA|ANVISA|NOVO|LANÇAMENTO|KIT|KOL)\b/i;
 
@@ -387,7 +388,9 @@ const findResinBySubset = (
   return best?.info;
 };
 
-export default function KbTabCatalogo() {
+interface KbTabCatalogoProps { filterKey?: string | null }
+
+export default function KbTabCatalogo({ filterKey }: KbTabCatalogoProps = {}) {
   const { t, language } = useLanguage();
   const specLang: SpecLang = (language === 'en' || language === 'es') ? language : 'pt';
   const [docs, setDocs] = useState<Map<string, DocLinks>>(new Map());
@@ -402,6 +405,8 @@ export default function KbTabCatalogo() {
   const [chip, setChip] = useState('RESINAS 3D');
   const [subChip, setSubChip] = useState('all');
   const [q, setQ] = useState('');
+  const sidebarDef = useMemo(() => findCatalogFilter(filterKey), [filterKey]);
+  const usingSidebarFilter = !!filterKey && filterKey !== undefined;
   const [sheetResin, setSheetResin] = useState<string | null>(null);
   const [procResin, setProcResin] = useState<ResinInfo | null>(null);
   const [docsModal, setDocsModal] = useState<{ name: string; docs: ResinDocItem[] } | null>(null);
@@ -685,6 +690,10 @@ export default function KbTabCatalogo() {
       return true;
     });
     return deduped.filter((r) => {
+      if (usingSidebarFilter) {
+        return rowMatchesCatalogFilter(r, sidebarDef)
+          && (!term || (r.name?.toLowerCase().includes(term) || stripHtml(r.description).toLowerCase().includes(term)));
+      }
       const canon = canonFromCatalogRow(r.product_category, r.product_subcategory);
       if (!canon) return false;
       if (chip !== 'all' && canon !== chip) return false;
@@ -694,7 +703,7 @@ export default function KbTabCatalogo() {
       if (term && !(r.name?.toLowerCase().includes(term) || stripHtml(r.description).toLowerCase().includes(term))) return false;
       return true;
     });
-  }, [rows, q, chip, subChip]);
+  }, [rows, q, chip, subChip, usingSidebarFilter, sidebarDef]);
 
   // Subcategorias derivadas da categoria ativa (distinct, ordenadas)
   const subChips: KbChipOption[] = useMemo(() => {
@@ -718,9 +727,13 @@ export default function KbTabCatalogo() {
     <section>
       {/* Título removido: hero do shell v2 é a única fonte do título nesta aba */}
       <KbSearchBar placeholder={t('kb.catalogo.search')} value={q} onDebouncedChange={setQ} />
-      <KbChips options={chips} active={chip} onChange={setChip} />
-      {subChips.length > 1 && (
-        <KbChips options={subChips} active={subChip} onChange={setSubChip} />
+      {!usingSidebarFilter && (
+        <>
+          <KbChips options={chips} active={chip} onChange={setChip} />
+          {subChips.length > 1 && (
+            <KbChips options={subChips} active={subChip} onChange={setSubChip} />
+          )}
+        </>
       )}
       {!loading && <KbResultCount count={filtered.length} noun="product" />}
       <div className="kb-grid">
