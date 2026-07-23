@@ -130,8 +130,16 @@ export default function KnowledgeBase({ lang = 'pt', forcedTab }: KnowledgeBaseP
   useEffect(() => {
     if (forcedTab) return;
     const params = new URLSearchParams(window.location.search);
+    let changed = false;
     if (params.get('tab') !== tab) {
       params.set('tab', tab);
+      changed = true;
+    }
+    if (tab === 'catalogo' && !params.get('cat')) {
+      params.set('cat', 'resinas_3d');
+      changed = true;
+    }
+    if (changed) {
       window.history.replaceState(null, '', `${window.location.pathname}?${params.toString()}${window.location.hash}`);
     }
   }, [tab, forcedTab]);
