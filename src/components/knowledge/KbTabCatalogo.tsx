@@ -705,7 +705,7 @@ export default function KbTabCatalogo({ filterKey, pinnedIds, onFilterChange }: 
       if (term && !(r.name?.toLowerCase().includes(term) || stripHtml(r.description).toLowerCase().includes(term))) return false;
       return true;
     });
-  }, [rows, q, chip, subChip, usingSidebarFilter, sidebarDef]);
+  }, [rows, q, chip, subChip, usingSidebarFilter, sidebarDef, pinnedIds]);
 
   // Subcategorias derivadas da categoria ativa (distinct, ordenadas)
   const subChips: KbChipOption[] = useMemo(() => {
