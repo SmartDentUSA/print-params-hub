@@ -40,6 +40,7 @@ import { TaxonomySelect } from "./smartops/TaxonomySelect";
 import { AREA_ATUACAO_OPTIONS, ESPECIALIDADE_OPTIONS } from "@/lib/dentalTaxonomy";
 import { CourseCard } from "./smartops/CourseCard";
 import { CoursesCalendarTab } from "./smartops/CoursesCalendarTab";
+import CoursesProfessionalProfile from "./smartops/CoursesProfessionalProfile";
 
 // ─── Countdown Hook ───
 type CountdownResult = {
