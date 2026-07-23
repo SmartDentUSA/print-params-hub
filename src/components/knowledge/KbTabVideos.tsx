@@ -28,9 +28,9 @@ interface Row {
   knowledge_videos: { thumbnail_url: string | null; video_duration_seconds: number | null; analytics_views: number | null }[];
 }
 
-interface Props { onOpen: (slug: string) => void }
+interface Props { onOpen: (slug: string) => void; letterFilter?: string | null }
 
-export default function KbTabVideos({ onOpen }: Props) {
+export default function KbTabVideos({ onOpen, letterFilter }: Props) {
   const { t, language } = useLanguage();
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
@@ -47,7 +47,8 @@ export default function KbTabVideos({ onOpen }: Props) {
         .select('id, title, title_en, title_es, slug, excerpt, excerpt_en, excerpt_es, og_image_url, created_at, updated_at, category_id, view_count, knowledge_categories!inner(id,letter,name), knowledge_videos!inner(thumbnail_url,video_duration_seconds,analytics_views)')
         .eq('active', true)
         .order('created_at', { ascending: false });
-      if (!term && chip !== 'all') query = query.eq('category_id', chip);
+      if (!term && letterFilter) query = query.eq('knowledge_categories.letter', letterFilter.toUpperCase());
+      else if (!term && chip !== 'all') query = query.eq('category_id', chip);
       if (term) {
         const safe = term.replace(/[%,()]/g, ' ');
         query = query.or(`title.ilike.%${safe}%,excerpt.ilike.%${safe}%,content_html.ilike.%${safe}%`).limit(10000);
@@ -105,7 +106,7 @@ export default function KbTabVideos({ onOpen }: Props) {
       }
     })();
     return () => { cancel = true; };
-  }, [chip, q]);
+  }, [chip, q, letterFilter]);
 
   const filtered = rows;
 
