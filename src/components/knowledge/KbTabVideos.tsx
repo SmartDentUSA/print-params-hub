@@ -50,8 +50,9 @@ export default function KbTabVideos({ onOpen, letterFilter }: Props) {
         .select('id, title, title_en, title_es, slug, excerpt, excerpt_en, excerpt_es, og_image_url, created_at, updated_at, category_id, view_count, knowledge_categories!inner(id,letter,name), knowledge_videos!inner(thumbnail_url,video_duration_seconds,analytics_views)')
         .eq('active', true)
         .order('created_at', { ascending: false });
-      if (!term && letterFilter) query = query.eq('knowledge_categories.letter', letterFilter.toUpperCase());
-      else if (!term && chip !== 'all') query = query.eq('category_id', chip);
+      // Chip selection tem prioridade sobre o filtro de letra da rota.
+      if (!term && chip !== 'all') query = query.eq('category_id', chip);
+      else if (!term && letterFilter) query = query.eq('knowledge_categories.letter', letterFilter.toUpperCase());
       if (term) {
         const safe = term.replace(/[%,()]/g, ' ');
         query = query.or(`title.ilike.%${safe}%,excerpt.ilike.%${safe}%,content_html.ilike.%${safe}%`).limit(10000);
