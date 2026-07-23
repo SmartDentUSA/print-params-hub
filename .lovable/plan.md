@@ -1,24 +1,33 @@
 ## Objetivo
 
-Ocultar por padrão o item **"Visão geral"** da navegação lateral da Base de Conhecimento e adicionar um toggle no **Editor HUB** (Configurações do Sistema) para exibir/ocultar.
+Na aba **Base de Conhecimento → Catálogo**, cada card deve exibir a foto cadastrada em **Painel Admin → Gestão de Catálogo de Produtos** (`system_a_catalog.image_url`) como fonte de verdade. Hoje, quando o produto casa com uma resina, a imagem da tabela `resins` sobrescreve silenciosamente a foto do catálogo — o que impede o admin de trocar a imagem pelo editor do catálogo.
 
-## Mudanças
+## Mudança
 
-### 1. `src/components/AdminKbHubEditor.tsx`
-- Adicionar uma nova chave de setting `kb_nav_show_overview` (string `"true"`/`"false"`, padrão `"false"`).
-- Novo card no topo do editor: **"Navegação da Sidebar"** com um switch:
-  - "Mostrar item 'Visão geral' na navegação" (default: desligado)
-- Exportar `KB_NAV_SHOW_OVERVIEW_KEY` para reuso.
+Arquivo: `src/components/knowledge/KbTabCatalogo.tsx` (linha ~882)
 
-### 2. `src/pages/KnowledgeBase.tsx`
-- Ler o setting `kb_nav_show_overview` via `fetchSetting` na montagem.
-- Passar prop `showOverview: boolean` (default false) para `KbShellSidebar`.
-- Se `showOverview === false` **e** estado inicial seria `overview`, cair para a aba padrão (`catalogo` ou primeira disponível) — assim o usuário nunca fica preso numa view escondida.
+Inverter a precedência de imagem:
 
-### 3. `src/components/knowledge/shell/KbShellSidebar.tsx`
-- Aceitar prop opcional `showOverview?: boolean` (default `false`).
-- Filtrar o item `overview` da lista `NAV` quando `showOverview !== true`.
+```ts
+// antes
+const cardImage = resin?.image_url || p.image_url || null;
 
-## Fora de escopo
-- Nenhuma mudança em backend, RLS, ou dados.
-- Comportamento do hero "overview" (título/subtítulo) permanece; apenas o botão de navegação é ocultado.
+// depois
+const cardImage = p.image_url || resin?.image_url || null;
+```
+
+Assim:
+1. Foto oficial vem do `system_a_catalog.image_url` (Gestão de Catálogo)
+2. Fallback: `resins.image_url` (apenas quando o card não tem imagem no catálogo)
+3. Fallback final: placeholder gradiente com 📦
+
+## Escopo / não-escopo
+
+- Só altera a origem da imagem do card no KB Catálogo.
+- Não mexe em CTAs, specs técnicos, FDS/IFU, apresentações, nem no matching de resina — que continuam como estão.
+- Não altera queries nem edge functions.
+- Sem mudanças em `resins` ou no admin.
+
+## Validação
+
+Após o deploy, abrir `/base-conhecimento?tab=catalogo`, trocar a imagem de uma resina em **Admin → Gestão de Catálogo** e confirmar que o card reflete a nova foto (após refresh).

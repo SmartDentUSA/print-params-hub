@@ -878,8 +878,9 @@ export default function KbTabCatalogo({ filterKey, pinnedIds, onFilterChange }: 
               return null;
             })();
             const specs: SpecRow[] = rawSpecs ? normalizeSpecs(rawSpecs, specLang) : [];
-            // Prefer resin image over catalog image when a resin match exists
-            const cardImage = resin?.image_url || p.image_url || null;
+            // Foto oficial vem de system_a_catalog (Gestão de Catálogo de Produtos).
+            // Fallback: imagem da resina vinculada quando o card não tem foto no catálogo.
+            const cardImage = p.image_url || resin?.image_url || null;
             const open = (url: string | null) => {
               if (url) window.open(url, '_blank', 'noopener,noreferrer');
             };
