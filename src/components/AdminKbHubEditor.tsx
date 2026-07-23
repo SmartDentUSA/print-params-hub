@@ -33,6 +33,16 @@ const HERO_TABS: { key: HeroKey; label: string; defaults: { title: string; subti
 export const KB_HERO_SETTING_KEY = (k: HeroKey) => `kb_hero_${k}`;
 export const KB_CATALOG_PINS_KEY = (k: string) => `kb_catalog_pins_${k}`;
 export const KB_NAV_SHOW_OVERVIEW_KEY = 'kb_nav_show_overview';
+export const KB_SIDEBAR_CTA_KEY = 'kb_sidebar_cta';
+
+interface SidebarCtaValue { enabled?: boolean; title?: string; subtitle?: string; cta_label?: string; cta_url?: string }
+const CTA_DEFAULTS: Required<SidebarCtaValue> = {
+  enabled: true,
+  title: 'Soluções de odontologia digital',
+  subtitle: 'Mais que tecnologia, entregamos autonomia e rentabilidade para seu consultório ou laboratório.',
+  cta_label: 'Conheça nossas soluções →',
+  cta_url: 'https://smartdent.com.br',
+};
 
 interface CatalogRow { id: string; name: string; product_category: string | null; product_subcategory: string | null }
 
@@ -51,6 +61,8 @@ export function AdminKbHubEditor() {
   const [uploading, setUploading] = useState<HeroKey | null>(null);
   const [showOverview, setShowOverview] = useState<boolean>(false);
   const [savingOverview, setSavingOverview] = useState(false);
+  const [cta, setCta] = useState<SidebarCtaValue>({});
+  const [savingCta, setSavingCta] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -75,6 +87,9 @@ export function AdminKbHubEditor() {
       // Load nav visibility settings
       const rawShowOverview = await fetchSetting(KB_NAV_SHOW_OVERVIEW_KEY);
       setShowOverview(rawShowOverview === 'true');
+
+      const rawCta = await fetchSetting(KB_SIDEBAR_CTA_KEY);
+      if (rawCta) { try { setCta(JSON.parse(rawCta) || {}); } catch { /* noop */ } }
 
       // Load catalog products (allowlist only)
       const { data } = await (supabase.from('system_a_catalog') as any)
@@ -173,6 +188,22 @@ export function AdminKbHubEditor() {
       setSavingOverview(false);
     }
   };
+
+  const saveCta = async () => {
+    setSavingCta(true);
+    try {
+      const ok = await updateSetting(KB_SIDEBAR_CTA_KEY, JSON.stringify(cta));
+      if (!ok) throw new Error('save failed');
+      toast({ title: 'Card salvo', description: 'Card da sidebar atualizado.' });
+    } catch (e: any) {
+      toast({ title: 'Erro', description: e?.message || 'Falha ao salvar', variant: 'destructive' });
+    } finally {
+      setSavingCta(false);
+    }
+  };
+
+  const ctaVal = (k: keyof SidebarCtaValue) => (cta[k] as any) ?? '';
+  const setCtaField = (k: keyof SidebarCtaValue, v: any) => setCta((prev) => ({ ...prev, [k]: v }));
 
   return (
     <div className="space-y-6">
