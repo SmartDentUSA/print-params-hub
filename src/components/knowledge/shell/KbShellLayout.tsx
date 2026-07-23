@@ -3,6 +3,7 @@ import { Menu, Settings, LayoutGrid, PlaySquare, FileText, BookOpen, Calendar, S
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { LanguageSelector } from '@/components/LanguageSelector';
+import { useLanguage } from '@/contexts/LanguageContext';
 import KbShellSidebar, { type SidebarCategory, type SidebarCta } from './KbShellSidebar';
 import KbHero from './KbHero';
 import type { KbTab } from '../KbTabSwitcher';
@@ -23,20 +24,21 @@ interface Props {
   children: ReactNode;
 }
 
-const TOP_TABS: { key: KbTab; label: string; icon: React.ReactNode }[] = [
-  { key: 'parametros',     label: 'Parâmetros',    icon: <Sliders /> },
-  { key: 'catalogo',       label: 'Catálogo',      icon: <LayoutGrid /> },
-  { key: 'videos',         label: 'Vídeos',        icon: <PlaySquare /> },
-  { key: 'artigos',        label: 'Artigos',       icon: <FileText /> },
-  { key: 'ebooks',         label: 'Ebooks',        icon: <BookOpen /> },
-  { key: 'distribuidores', label: 'Revendas',      icon: <Store /> },
-  { key: 'eventos',        label: 'Eventos',       icon: <Calendar /> },
+const TOP_TABS: { key: KbTab; icon: React.ReactNode }[] = [
+  { key: 'parametros',     icon: <Sliders /> },
+  { key: 'catalogo',       icon: <LayoutGrid /> },
+  { key: 'videos',         icon: <PlaySquare /> },
+  { key: 'artigos',        icon: <FileText /> },
+  { key: 'ebooks',         icon: <BookOpen /> },
+  { key: 'distribuidores', icon: <Store /> },
+  { key: 'eventos',        icon: <Calendar /> },
 ];
 
 export default function KbShellLayout({
   active, onChange, counts, categories, heroTitle, heroSubtitle, heroArtUrl, showAdminButton, showOverview, cta, children,
 }: Props) {
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const { t } = useLanguage();
   return (
     <div className="kbs-root">
       <KbShellSidebar
@@ -54,20 +56,20 @@ export default function KbShellLayout({
           <button
             type="button"
             className="kbs-mobile-btn"
-            aria-label="Abrir menu"
+            aria-label={t('kb.shell.open_menu')}
             onClick={() => setDrawerOpen(true)}
           >
             <Menu size={18} />
           </button>
           <div className="kbs-toptabs">
-            {TOP_TABS.map((t) => (
+            {TOP_TABS.map((tab) => (
               <button
-                key={t.key}
+                key={tab.key}
                 type="button"
-                className={`kbs-toptab${active === t.key ? ' on' : ''}`}
-                onClick={() => onChange(t.key)}
+                className={`kbs-toptab${active === tab.key ? ' on' : ''}`}
+                onClick={() => onChange(tab.key)}
               >
-                {t.icon}<span>{t.label}</span>
+                {tab.icon}<span>{t(`kb.tabs.${tab.key}`)}</span>
               </button>
             ))}
           </div>
@@ -76,7 +78,7 @@ export default function KbShellLayout({
               <Link to="/admin">
                 <Button variant="outline" size="sm" className="flex items-center gap-2 rounded-full">
                   <Settings className="w-4 h-4" />
-                  <span className="hidden md:inline">Admin</span>
+                  <span className="hidden md:inline">{t('common.admin')}</span>
                 </Button>
               </Link>
             )}
