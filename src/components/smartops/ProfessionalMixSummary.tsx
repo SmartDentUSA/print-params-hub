@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Loader2, Pencil, Star, Trophy, Save, X } from "lucide-react";
 import { toast } from "sonner";
+import { isValidEquipmentLabel } from "@/utils/equipmentLabel";
 
 // ---------- Classificação de categorias ----------
 // Ordem importa: primeiras regras vencem.
@@ -353,6 +354,7 @@ export default function ProfessionalMixSummary({ leadId, disabled, cadValue, onC
               const name = (raw || "").toString().trim();
               if (!name) return;
               if (ACCESSORY_RE.test(name.toLowerCase())) return;
+              if (!isValidEquipmentLabel(name)) return;
               if (covered.has(forced)) return;
               qualItems.push({
                 name,

@@ -5,6 +5,7 @@
  */
 
 import { normalizeAreaAtuacao, normalizeEspecialidade } from "./zernio-field-normalizer.ts";
+import { isValidEquipmentLabel } from "./equipment-field-guard.ts";
 
 export const PIPERUN_API_BASE = "https://api.pipe.run/v1";
 
@@ -1031,11 +1032,11 @@ export function mapDealToAttendance(
     fields.itens_proposta_parsed = parsed.parsed;
     const statusOpp = fields.status_oportunidade;
     if (statusOpp === "ganha") {
-      if (parsed.equipments.scanner) fields.equip_scanner = parsed.equipments.scanner;
-      if (parsed.equipments.impressora) fields.equip_impressora = parsed.equipments.impressora;
-      if (parsed.equipments.cad) fields.equip_cad = parsed.equipments.cad;
-      if (parsed.equipments.pos_impressao) fields.equip_pos_impressao = parsed.equipments.pos_impressao;
-      if (parsed.equipments.notebook) fields.equip_notebook = parsed.equipments.notebook;
+      if (isValidEquipmentLabel(parsed.equipments.scanner)) fields.equip_scanner = parsed.equipments.scanner;
+      if (isValidEquipmentLabel(parsed.equipments.impressora)) fields.equip_impressora = parsed.equipments.impressora;
+      if (isValidEquipmentLabel(parsed.equipments.cad)) fields.equip_cad = parsed.equipments.cad;
+      if (isValidEquipmentLabel(parsed.equipments.pos_impressao)) fields.equip_pos_impressao = parsed.equipments.pos_impressao;
+      if (isValidEquipmentLabel(parsed.equipments.notebook)) fields.equip_notebook = parsed.equipments.notebook;
       if (parsed.equipments.insumos) fields.insumos_adquiridos = parsed.equipments.insumos;
     }
   }
@@ -1074,11 +1075,11 @@ export function mapDealToAttendance(
       fields.itens_proposta_parsed = parsed.parsed;
       const statusOpp = fields.status_oportunidade;
       if (statusOpp === "ganha") {
-        if (parsed.equipments.scanner) fields.equip_scanner = parsed.equipments.scanner;
-        if (parsed.equipments.impressora) fields.equip_impressora = parsed.equipments.impressora;
-        if (parsed.equipments.cad) fields.equip_cad = parsed.equipments.cad;
-        if (parsed.equipments.pos_impressao) fields.equip_pos_impressao = parsed.equipments.pos_impressao;
-        if (parsed.equipments.notebook) fields.equip_notebook = parsed.equipments.notebook;
+        if (isValidEquipmentLabel(parsed.equipments.scanner)) fields.equip_scanner = parsed.equipments.scanner;
+        if (isValidEquipmentLabel(parsed.equipments.impressora)) fields.equip_impressora = parsed.equipments.impressora;
+        if (isValidEquipmentLabel(parsed.equipments.cad)) fields.equip_cad = parsed.equipments.cad;
+        if (isValidEquipmentLabel(parsed.equipments.pos_impressao)) fields.equip_pos_impressao = parsed.equipments.pos_impressao;
+        if (isValidEquipmentLabel(parsed.equipments.notebook)) fields.equip_notebook = parsed.equipments.notebook;
         if (parsed.equipments.insumos) fields.insumos_adquiridos = parsed.equipments.insumos;
       }
     }
