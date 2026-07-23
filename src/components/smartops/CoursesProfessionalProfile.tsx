@@ -119,6 +119,13 @@ export default function CoursesProfessionalProfile({ initialEmail, onSaved }: Co
     }
   }, [searchEmail, toast]);
 
+  useEffect(() => {
+    if (initialEmail) {
+      void loadByEmail();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialEmail]);
+
   const onCepBlur = async () => {
     const cep = form.prof_cep.replace(/\D/g, "");
     if (cep.length !== 8) return;
