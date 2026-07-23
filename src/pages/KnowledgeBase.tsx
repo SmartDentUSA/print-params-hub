@@ -164,16 +164,44 @@ export default function KnowledgeBase({ lang = 'pt', forcedTab }: KnowledgeBaseP
       setActiveCountry(c);
     };
     const countryTotal = countryCounts.reduce((s, c) => s + c.count, 0);
+    const CONTINENT_MAP: Record<string, string> = {
+      brasil: 'América do Sul', brazil: 'América do Sul', argentina: 'América do Sul', chile: 'América do Sul',
+      uruguai: 'América do Sul', uruguay: 'América do Sul', paraguai: 'América do Sul', paraguay: 'América do Sul',
+      bolivia: 'América do Sul', bolívia: 'América do Sul', peru: 'América do Sul', colombia: 'América do Sul',
+      colômbia: 'América do Sul', venezuela: 'América do Sul', equador: 'América do Sul', ecuador: 'América do Sul',
+      mexico: 'América do Norte', méxico: 'América do Norte', 'estados unidos': 'América do Norte',
+      eua: 'América do Norte', usa: 'América do Norte', 'united states': 'América do Norte', canada: 'América do Norte', canadá: 'América do Norte',
+      portugal: 'Europa', espanha: 'Europa', spain: 'Europa', franca: 'Europa', frança: 'Europa', italia: 'Europa', itália: 'Europa',
+      alemanha: 'Europa', germany: 'Europa', 'reino unido': 'Europa', uk: 'Europa',
+    };
+    const norm = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase();
+    const continentOf = (c: string) => CONTINENT_MAP[norm(c)] || 'Outros';
+    const CONTINENT_ORDER = ['América do Sul', 'América do Norte', 'Europa', 'Ásia', 'África', 'Oceania', 'Outros'];
+    const grouped = new Map<string, Array<{ country: string; count: number }>>();
+    countryCounts.forEach((c) => {
+      const k = continentOf(c.country);
+      if (!grouped.has(k)) grouped.set(k, []);
+      grouped.get(k)!.push(c);
+    });
+    const continentCategories: any[] = [];
+    CONTINENT_ORDER.forEach((cont) => {
+      const list = grouped.get(cont);
+      if (!list || !list.length) return;
+      continentCategories.push({ key: `hdr-${cont}`, label: cont, isHeader: true });
+      list.forEach(({ country, count }) => {
+        continentCategories.push({
+          key: country,
+          label: country,
+          count,
+          active: activeCountry === country,
+          onClick: () => setCountryParam(country),
+        });
+      });
+    });
     const categories = activeKey === 'distribuidores'
       ? [
           { key: 'all', label: 'Todos os países', count: countryTotal, active: activeCountry === 'all', onClick: () => setCountryParam('all') },
-          ...countryCounts.map(({ country, count }) => ({
-            key: country,
-            label: country,
-            count,
-            active: activeCountry === country,
-            onClick: () => setCountryParam(country),
-          })),
+          ...continentCategories,
         ]
       : letters.length
       ? [
