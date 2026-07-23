@@ -10,6 +10,7 @@ import KbEmptyState from './KbEmptyState';
 import KbSkeletonGrid from './KbSkeletonGrid';
 import KbContentCard, { KbContentCardData } from './KbContentCard';
 import { resolveCategoryTk } from './kbCategoryTaxonomy';
+import KbListControls, { KbSortKey, KbViewMode } from './KbListControls';
 
 interface Row {
   id: string; title: string; title_en: string | null; title_es: string | null;
@@ -25,6 +26,8 @@ export default function KbTabEbooks({ onOpen }: Props) {
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState('');
+  const [sort, setSort] = useState<KbSortKey>('recent');
+  const [view, setView] = useState<KbViewMode>('grid');
 
   useEffect(() => {
     let cancel = false;
@@ -52,7 +55,19 @@ export default function KbTabEbooks({ onOpen }: Props) {
     return () => { cancel = true; };
   }, [q]);
 
-  const cards: KbContentCardData[] = rows.map((r) => ({
+  const sortedRows = (() => {
+    const arr = rows.slice();
+    if (sort === 'views') {
+      arr.sort((a, b) => (b.view_count ?? 0) - (a.view_count ?? 0));
+    } else if (sort === 'az') {
+      arr.sort((a, b) => (a.title || '').localeCompare(b.title || '', 'pt-BR', { sensitivity: 'base' }));
+    } else {
+      arr.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    }
+    return arr;
+  })();
+
+  const cards: KbContentCardData[] = sortedRows.map((r) => ({
     id: r.id,
     title: (language === 'en' && r.title_en) || (language === 'es' && r.title_es) || r.title,
     excerpt: (language === 'en' && r.excerpt_en) || (language === 'es' && r.excerpt_es) || r.excerpt,
@@ -69,15 +84,16 @@ export default function KbTabEbooks({ onOpen }: Props) {
     <section>
       {/* Título removido: hero do shell v2 é a única fonte do título nesta aba */}
       <KbSearchBar placeholder={t('kb.artigos.search')} value={q} onDebouncedChange={setQ} />
+      <KbListControls sort={sort} onSortChange={setSort} view={view} onViewChange={setView} />
       {!loading && <KbResultCount count={cards.length} noun="article" />}
-      <div className="kb-grid">
+      <div className={`kb-grid${view === 'list' ? ' kb-list' : ''}`}>
         {loading ? (
           <KbSkeletonGrid />
         ) : cards.length === 0 ? (
           <KbEmptyState icon="📘" />
         ) : (
           cards.map((c, i) => (
-            <KbContentCard key={c.id} data={c} index={i} buttonLabel={t('kb.artigos.read_more')} onClick={() => onOpen(rows[i].slug)} />
+            <KbContentCard key={c.id} data={c} index={i} buttonLabel={t('kb.artigos.read_more')} onClick={() => onOpen(sortedRows[i].slug)} />
           ))
         )}
       </div>
