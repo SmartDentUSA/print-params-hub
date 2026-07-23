@@ -356,6 +356,9 @@ export default function KnowledgeBase({ lang = 'pt', forcedTab }: KnowledgeBaseP
                 <KbTabCatalogo
                   filterKey={activeCatalogFilter}
                   pinnedIds={catalogPins[activeCatalogFilter]}
+                  pinnedElsewhereIds={Object.entries(catalogPins)
+                    .filter(([k]) => k !== activeCatalogFilter)
+                    .flatMap(([, ids]) => ids || [])}
                   onFilterChange={(k) => {
                     const params = new URLSearchParams(window.location.search);
                     if (k === 'all') params.delete('cat'); else params.set('cat', k);
