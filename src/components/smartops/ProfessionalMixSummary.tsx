@@ -396,8 +396,7 @@ export default function ProfessionalMixSummary({ leadId, disabled, cadValue, onC
   const consumablesTotal = agg.consumablesTotal || 1;
 
   // ---------- Equipamentos e software (por modelo) ----------
-  type EquipOrigin = "Histórico de compras" | "Proposta ganha" | "Automático" | "Manual";
-  type ModelRow = { name: string; firstDate: string; lastDate: string; origin: EquipOrigin };
+  type ModelRow = { name: string; firstDate: string; lastDate: string };
   const equipTable = new Map<EquipCat, ModelRow[]>();
   for (const it of items) {
     const cat = classifyEquipTable(it);
@@ -406,21 +405,20 @@ export default function ProfessionalMixSummary({ leadId, disabled, cadValue, onC
     const list = equipTable.get(cat) ?? [];
     let row = list.find((r) => r.name.toLowerCase() === key);
     if (!row) {
-      row = { name: titleCase(it.name), firstDate: it.date, lastDate: it.date, origin: it.source === "ecom" ? "Histórico de compras" : "Proposta ganha" };
+      row = { name: titleCase(it.name), firstDate: it.date, lastDate: it.date };
       list.push(row);
       equipTable.set(cat, list);
     } else {
       if (new Date(it.date) < new Date(row.firstDate)) row.firstDate = it.date;
       if (new Date(it.date) > new Date(row.lastDate)) row.lastDate = it.date;
-      if (it.source === "ecom") row.origin = "Histórico de compras";
     }
   }
-  // CAD: manual override (typed by seller) or auto-derivation from scanner history
+  // CAD: manual override ou auto-derivação (Medit → Clinic App, BLZ → Lite CAD, Exocad/Exoplan já capturado)
   if (!equipTable.get("cad")?.length) {
     if (cadValue) {
-      equipTable.set("cad", [{ name: cadValue, firstDate: "", lastDate: "", origin: "Manual" }]);
+      equipTable.set("cad", [{ name: cadValue, firstDate: "", lastDate: "" }]);
     } else if (cadAuto) {
-      equipTable.set("cad", [{ name: cadAuto, firstDate: "", lastDate: "", origin: "Automático" }]);
+      equipTable.set("cad", [{ name: cadAuto, firstDate: "", lastDate: "" }]);
     }
   }
 
