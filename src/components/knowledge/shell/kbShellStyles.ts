@@ -9,6 +9,8 @@ export const kbShellStyles = `
 .kbs-nav-btn:hover{background:#F1F5F9;color:#0F172A;}
 .kbs-nav-btn.on{background:#0F172A;color:#fff;font-weight:600;}
 .kbs-nav-btn.on .kbs-count{background:rgba(255,255,255,.14);color:#fff;}
+.kbs-nav-btn.cat.on{background:#E2E8F0;color:#0F172A;font-weight:600;}
+.kbs-nav-btn.cat.on .kbs-count{background:#0F172A;color:#fff;}
 .kbs-nav-btn svg{width:17px;height:17px;flex-shrink:0;stroke-width:1.75;}
 .kbs-count{margin-left:auto;font-size:11px;background:#EEF2F7;color:#475569;padding:2px 9px;border-radius:12px;font-weight:600;min-width:24px;text-align:center;}
 .kbs-cta{margin:12px;padding:20px 16px;border-radius:14px;background:linear-gradient(160deg,#1E3A5F 0%,#0F172A 100%);color:#fff;}
