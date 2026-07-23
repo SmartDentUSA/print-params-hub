@@ -65,7 +65,7 @@ export default function KbShellSidebar({ active, onChange, counts, categories, o
                   <button
                     key={c.key}
                     type="button"
-                    className={`kbs-nav-btn${c.active ? ' on' : ''}`}
+                    className={`kbs-nav-btn cat${c.active ? ' on' : ''}`}
                     onClick={() => { c.onClick?.(); onClose?.(); }}
                   >
                     <Layers />
