@@ -11,6 +11,7 @@ import KbEmptyState from './KbEmptyState';
 import KbSkeletonGrid from './KbSkeletonGrid';
 import KbContentCard, { KbContentCardData } from './KbContentCard';
 import { resolveCategoryTk } from './kbCategoryTaxonomy';
+import KbListControls, { KbSortKey, KbViewMode } from './KbListControls';
 
 const CHIP_KEYS: { key: string; tk: string }[] = [
   { key: 'all', tk: 'kb.chips.all' },
@@ -35,6 +36,8 @@ export default function KbTabArtigos({ onOpen, letterFilter }: Props) {
   const [loading, setLoading] = useState(true);
   const [chip, setChip] = useState('all');
   const [q, setQ] = useState('');
+  const [sort, setSort] = useState<KbSortKey>('recent');
+  const [view, setView] = useState<KbViewMode>('grid');
 
   useEffect(() => {
     let cancel = false;
@@ -101,8 +104,8 @@ export default function KbTabArtigos({ onOpen, letterFilter }: Props) {
           const topViewed = remaining.slice().sort(byViewsDesc).slice(0, RECENT_COUNT);
           const topViewedIds = new Set(topViewed.map((r: any) => r.id));
           const rest = remaining.filter((r: any) => !topViewedIds.has(r.id));
-          const sorted = [...recent, ...updatedRecent, ...topViewed, ...rest];
-          setRows(sorted as any);
+          const sortedDefault = [...recent, ...updatedRecent, ...topViewed, ...rest];
+          setRows(sortedDefault as any);
         }
         setLoading(false);
       }
@@ -110,7 +113,16 @@ export default function KbTabArtigos({ onOpen, letterFilter }: Props) {
     return () => { cancel = true; };
   }, [chip, q, letterFilter]);
 
-  const filtered = rows;
+  const filtered = (() => {
+    const arr = rows.slice();
+    if (sort === 'views') {
+      arr.sort((a, b) => (b.view_count ?? 0) - (a.view_count ?? 0));
+    } else if (sort === 'az') {
+      arr.sort((a, b) => (a.title || '').localeCompare(b.title || '', 'pt-BR', { sensitivity: 'base' }));
+    }
+    // 'recent' keeps the smart default order from the query effect
+    return arr;
+  })();
 
   const cards: KbContentCardData[] = filtered.map((r) => ({
     id: r.id,
@@ -131,6 +143,7 @@ export default function KbTabArtigos({ onOpen, letterFilter }: Props) {
       {/* Título removido: hero do shell v2 é a única fonte do título nesta aba */}
       <KbSearchBar placeholder={t('kb.artigos.search')} value={q} onDebouncedChange={setQ} />
       <KbChips options={chips} active={chip} onChange={setChip} align="left" />
+      <KbListControls sort={sort} onSortChange={setSort} view={view} onViewChange={setView} />
       {q.trim() && (
         <div className="kb-count" style={{ opacity: 0.75 }}>
           {t('kb.search.global_hint') !== 'kb.search.global_hint'
@@ -139,7 +152,7 @@ export default function KbTabArtigos({ onOpen, letterFilter }: Props) {
         </div>
       )}
       {!loading && <KbResultCount count={cards.length} noun="article" />}
-      <div className="kb-grid">
+      <div className={`kb-grid${view === 'list' ? ' kb-list' : ''}`}>
         {loading ? (
           <KbSkeletonGrid />
         ) : cards.length === 0 ? (
