@@ -5,8 +5,33 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { GraduationCap, Loader2, Pencil, Plus, UserCircle } from "lucide-react";
+import { GraduationCap, Loader2, Pencil, Plus, UserCircle, Star, Eye, MessageCircle } from "lucide-react";
 import CoursesProfessionalProfile from "./CoursesProfessionalProfile";
+
+function formatClienteDesde(iso: string | null): string {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "—";
+  return d.toLocaleDateString("pt-BR", { month: "short", year: "numeric" });
+}
+
+function avgRating(p: { prof_rating_quality: number | null; prof_rating_price: number | null; prof_rating_value: number | null }): number {
+  const vals = [p.prof_rating_quality, p.prof_rating_price, p.prof_rating_value].filter((v): v is number => typeof v === "number" && v > 0);
+  if (vals.length === 0) return 0;
+  return vals.reduce((a, b) => a + b, 0) / vals.length;
+}
+
+function StarRating({ value }: { value: number }) {
+  const full = Math.round(value);
+  return (
+    <div className="flex items-center gap-0.5">
+      {[1, 2, 3, 4, 5].map((i) => (
+        <Star key={i} className={`w-3.5 h-3.5 ${i <= full ? "fill-yellow-400 text-yellow-400" : "text-muted-foreground/30"}`} />
+      ))}
+      <span className="ml-1 text-xs text-muted-foreground">{value > 0 ? value.toFixed(1) : "—"}</span>
+    </div>
+  );
+}
 
 type Professional = {
   id: string;
@@ -18,6 +43,13 @@ type Professional = {
   prof_cro: string | null;
   prof_course_platform: string | null;
   prof_updated_at: string | null;
+  created_at: string | null;
+  equip_scanner: string | null;
+  equip_scanner_bancada: string | null;
+  equip_impressora: string | null;
+  prof_rating_quality: number | null;
+  prof_rating_price: number | null;
+  prof_rating_value: number | null;
 };
 
 export default function CoursesPage() {
@@ -32,7 +64,7 @@ export default function CoursesPage() {
     try {
       const { data, error } = await supabase
         .from("lia_attendances")
-        .select("id, nome, email, area_atuacao, especialidade, prof_photo_url, prof_cro, prof_course_platform, prof_updated_at")
+        .select("id, nome, email, area_atuacao, especialidade, prof_photo_url, prof_cro, prof_course_platform, prof_updated_at, created_at, equip_scanner, equip_scanner_bancada, equip_impressora, prof_rating_quality, prof_rating_price, prof_rating_value")
         .not("prof_updated_at", "is", null)
         .is("merged_into", null)
         .order("prof_updated_at", { ascending: false })
@@ -118,6 +150,52 @@ export default function CoursesPage() {
                   {p.area_atuacao && <Badge variant="secondary" className="text-xs">{p.area_atuacao}</Badge>}
                   {p.especialidade && <Badge variant="outline" className="text-xs">{p.especialidade}</Badge>}
                   {p.prof_course_platform && <Badge variant="outline" className="text-xs">{p.prof_course_platform}</Badge>}
+                </div>
+
+                <div className="grid grid-cols-3 gap-2 pt-2 border-t">
+                  <div className="text-center">
+                    <div className="text-lg font-semibold">0</div>
+                    <div className="text-[10px] text-muted-foreground uppercase tracking-wide">Cursos</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-lg font-semibold text-green-600">0</div>
+                    <div className="text-[10px] text-muted-foreground uppercase tracking-wide">Ativos</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-lg font-semibold text-blue-600">0</div>
+                    <div className="text-[10px] text-muted-foreground uppercase tracking-wide">Realizados</div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div className="flex items-center gap-1.5 text-muted-foreground">
+                    <Eye className="w-3.5 h-3.5" />
+                    <span><strong className="text-foreground">0</strong> visualizações</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-muted-foreground">
+                    <MessageCircle className="w-3.5 h-3.5" />
+                    <span><strong className="text-foreground">0</strong> interessados</span>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-muted-foreground">Avaliações</span>
+                  <StarRating value={avgRating(p)} />
+                </div>
+
+                <div className="space-y-1 text-xs border-t pt-2">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Cliente desde:</span>
+                    <span className="font-medium">{formatClienteDesde(p.created_at)}</span>
+                  </div>
+                  <div className="flex justify-between gap-2">
+                    <span className="text-muted-foreground shrink-0">Scanner:</span>
+                    <span className="font-medium truncate text-right">{p.equip_scanner || p.equip_scanner_bancada || "—"}</span>
+                  </div>
+                  <div className="flex justify-between gap-2">
+                    <span className="text-muted-foreground shrink-0">Impressora 3D:</span>
+                    <span className="font-medium truncate text-right">{p.equip_impressora || "—"}</span>
+                  </div>
                 </div>
 
                 <div className="flex gap-2 pt-2">
