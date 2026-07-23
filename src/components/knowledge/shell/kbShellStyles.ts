@@ -1,8 +1,8 @@
 export const kbShellStyles = `
 .kbs-root{display:flex;min-height:100vh;background:#EEF1F6;color:#0F172A;}
 .kbs-side{width:248px;flex-shrink:0;background:#fff;border-right:1px solid #E5E7EB;display:flex;flex-direction:column;position:sticky;top:0;height:100vh;}
-.kbs-side-logo{padding:20px 20px 16px;}
-.kbs-side-logo img{height:32px;width:auto;}
+.kbs-side-logo{padding:24px 20px 20px;}
+.kbs-side-logo img{height:56px;width:auto;}
 .kbs-side-scroll{flex:1;overflow-y:auto;padding:8px 12px 16px;}
 .kbs-side-label{font-size:11px;font-weight:600;letter-spacing:.08em;color:#94A3B8;text-transform:uppercase;padding:14px 10px 6px;}
 .kbs-nav-btn{width:100%;display:flex;align-items:center;gap:12px;padding:10px 12px;margin-bottom:2px;border:none;background:none;color:#334155;font-size:14px;font-weight:500;border-radius:10px;cursor:pointer;text-align:left;transition:background .15s,color .15s;}
