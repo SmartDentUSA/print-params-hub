@@ -198,7 +198,7 @@
 }
 
 .knowledge-article a:hover {
-  color: var(--kb-primary-light);
+  color: var(--sd-accent);
   text-decoration-thickness: 2px;
 }
 
