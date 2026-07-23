@@ -18,6 +18,13 @@ type Professional = {
   prof_cro: string | null;
   prof_course_platform: string | null;
   prof_updated_at: string | null;
+  created_at: string | null;
+  equip_scanner: string | null;
+  equip_scanner_bancada: string | null;
+  equip_impressora: string | null;
+  prof_rating_quality: number | null;
+  prof_rating_price: number | null;
+  prof_rating_value: number | null;
 };
 
 export default function CoursesPage() {
@@ -32,7 +39,7 @@ export default function CoursesPage() {
     try {
       const { data, error } = await supabase
         .from("lia_attendances")
-        .select("id, nome, email, area_atuacao, especialidade, prof_photo_url, prof_cro, prof_course_platform, prof_updated_at")
+        .select("id, nome, email, area_atuacao, especialidade, prof_photo_url, prof_cro, prof_course_platform, prof_updated_at, created_at, equip_scanner, equip_scanner_bancada, equip_impressora, prof_rating_quality, prof_rating_price, prof_rating_value")
         .not("prof_updated_at", "is", null)
         .is("merged_into", null)
         .order("prof_updated_at", { ascending: false })
