@@ -1,76 +1,69 @@
-# CSV completo de reconciliação de SKUs — antes de gravar nada
 
 ## Objetivo
+Unificar os dois arquivos oficiais da Loja Integrada com o CDP existente para ter identidade e histórico de compra completos por lead — preservando **100% dos timestamps originais** dos pedidos.
 
-Antes de qualquer migration ou registro no banco, entregar **um único CSV mestre** em `/mnt/documents/sku-reconciliacao-completo.csv` com uma linha por SKU externo (PipeRun + Loja Integrada) enriquecido com **tudo que o sistema já sabe** do produto. Você revisa, corrige, e só depois eu construo o `catalog_sku_registry` e as reference-only.
+**Arquivos**
+- `EXPORTAR_CLIENTES.xlsx` — 2.003 clientes (id, email, cpf/cnpj, telefones, endereço, `data-criacao`, situacao).
+- `PEDIDOS_PRODUTOS_DETALHADOS.xlsx` — 3.738 linhas item-a-item (cliente_id, pedido_numero, sku_produto, nome_produto, quantidade, valor_total, pedido_situacao, `pedido_data_criacao`, endereços com CPF/CNPJ).
 
-## Fontes que vou juntar
+## Regra inviolável de timestamps
+Toda linha ingerida usa a **data real do evento** do arquivo:
+- Cliente → `data-criacao` do XLSX vira `created_at_source` no staging.
+- Pedido/Item → `pedido_data_criacao` do XLSX vira `order_created_at` no staging e é a data usada em qualquer agregado (`primeiro_pedido_ecommerce`, `ultimo_pedido_ecommerce`, LTV, mix de produtos, filtros "quem comprou o produto X e quando").
+- `now()` só será gravado em colunas administrativas separadas (`imported_at`) — nunca em campos que representam o evento de negócio.
+- Backfills em `lia_attendances` (LTV, últimos pedidos) usam `MIN/MAX(pedido_data_criacao)` do staging — nada de "data da importação".
+- Reforça a Core Memory de Timestamps e a Ecommerce Timestamps.
 
-1. **PipeRun `produtos…b217.csv`** — 607 produtos, 517 com `Código único`. Traz: `ID do produto`, `Nome`, `Tipo`, `Referência`, `Código único`, `Categoria`, `Status`, `Custo`, `Valor de venda`, `Foto`, `Funil`.
-2. **Loja Integrada `produtos…b435.xlsx`** — 436 SKUs. Traz: `sku`, `sku-pai`, `nome`, `marca`, `ncm`, `gtin`, `mpn`, `peso-em-kg`, `altura-em-cm`, `largura-em-cm`, `comprimento-em-cm`, `categoria-nome-nivel-1..5`, `preco-custo`, `preco-cheio`, `preco-promocional`, `imagem-1..5`, `estoque-quantidade`, `url-video-youtube`, `descricao-completa`, mais 25 colunas `grade-*` de variações (cor, tamanho, voltagem, tipo de fresa etc.).
-3. **Loja Integrada `LISTAR_URL_PRODUTOS.xlsx`** — 190 URLs SEO (`PRODUTO_SKU`, `PRODUTO_URL`, `SEO_TITULO`, `SEO_DESCRICAO`).
-4. **`system_a_catalog`** (391 produtos canônicos) — pego tudo que já existe: `name`, `product_category`, `product_subcategory`, `price`, `promo_price`, `ncm`, `gtin`, `presentation`, `presentation_qty`, `quantity_multiplier`, `image_url`, `og_image_url`, `technical_specs` (jsonb), `clinical_indications`, `contraindications`, `compatibility_list`, `certifications`, `keywords`, `wikidata_qid`, `description`, e as versões `_en` / `_es`.
-5. **`catalog_product_variations`** — se houver linhas ligadas ao catálogo canônico, junto cor / tamanho / cavidade / preço-por-variação.
-6. **`resins`** (82 colunas) — para SKUs que forem resina, puxo `flexural_strength`, `flexural_modulus`, `elongation`, `hardness`, `absorption`, `solubility`, `ansi_class`, `ce_marking`, `iso_certifications`, `application`, `color`, `curing_time`, `wavelength`, `shelf_life`, etc.
-7. **`products_catalog`** — enriquecimento adicional se o produto estiver espelhado ali (marca, garantia, especificações).
-8. **`deal_items`** e **`loja_integrada_order_items`** — contagem `sales_count` e `last_sold_at` por SKU externo.
+## Plano
 
-## Cascata de match (para cada SKU externo)
+### 1. Staging (não invasivo, imutável)
+Criar duas tabelas paralelas às atuais `loja_integrada_orders/items` — não sobrescreve nada que vem por API:
+- `loja_integrada_clientes_import` (PK `id`, `created_at_source TIMESTAMPTZ NOT NULL`, `imported_at DEFAULT now()`).
+- `loja_integrada_pedidos_items_import` (PK `(pedido_numero, sku_produto, cliente_id)`, `order_created_at TIMESTAMPTZ NOT NULL`, `imported_at DEFAULT now()`).
+- Índices por `order_created_at`, `sku_produto`, `cliente_id`, `pedido_situacao` para permitir filtros "quem comprou X entre datas".
 
-1. `external_sku` já presente em `system_a_catalog.extra_data.piperun_code` ou `.loja_sku`.
-2. Nome exato normalizado (lower, sem acento).
-3. **GTIN idêntico** entre Loja Integrada e `system_a_catalog.gtin`.
-4. Trigram fuzzy `pg_trgm.similarity ≥ 0.6`.
-5. Tiebreaker por preço (dif < 10%) quando trigram fica em 0.4–0.6.
-6. Sem match → linha marcada `unmatched` (candidata a virar reference-only depois).
+### 2. Import
+- Converter XLSX → CSV via pandas parseando as datas no formato `MM/DD/YYYY HH:MM:SS` presente nos arquivos.
+- `\copy` para staging preservando strings originais + coluna TIMESTAMPTZ normalizada em UTC.
 
-## Colunas do CSV entregue
+### 3. Reconciliação com as tabelas vivas
+Comparar staging × `loja_integrada_orders` / `order_items`:
+- Pedidos ausentes na tabela viva → gap real de backfill da API (lista separada).
+- Divergências de status ou itens → auditoria.
+- Nenhuma escrita nas tabelas vivas — apenas relatório.
 
-Agrupadas para facilitar revisão. Célula vazia = sistema não tem essa informação (é justamente o que você precisa preencher).
+### 4. Identity resolution → CDP
+Match `EXPORTAR_CLIENTES.id` com `lia_attendances` (`merged_into IS NULL`) na cascata:
+`email` → `cpf` normalizado → `cnpj` normalizado → `telefone-celular`/`telefone-principal` (digits-only).
 
-**Identificação da origem**
-`source`, `external_id`, `external_sku`, `external_referencia`, `external_name`, `external_status`, `external_category_path` (Loja: nível 1 > 2 > 3), `external_url`, `external_seo_title`, `external_seo_description`, `external_image_url`, `external_video_url`.
+Gravar no lead:
+- `loja_integrada_customer_id` (nova coluna).
+- `primeiro_pedido_ecommerce` = `MIN(order_created_at)` dos pedidos pagos.
+- `ultimo_pedido_ecommerce` = `MAX(order_created_at)`.
+- `total_pedidos_ecommerce`, `ltv_ecommerce` — considerando somente status pagos.
 
-**Comercial da origem**
-`piperun_custo`, `piperun_valor_venda`, `loja_preco_custo`, `loja_preco_cheio`, `loja_preco_promocional`, `estoque_quantidade`.
+Sem criação de Deal (Commercial Intent Guard: e-commerce nunca abre Deal).
 
-**Fiscal / logística (Loja Integrada)**
-`ncm_origem`, `gtin_origem`, `mpn_origem`, `peso_kg`, `altura_cm`, `largura_cm`, `comprimento_cm`.
+### 5. Mix de produtos (real, com data)
+`ProfessionalMixSummary` passa a agregar itens do staging mapeados às 6 categorias normativas via `system_a_catalog.categoria`, mantendo o `order_created_at` para permitir cortes por período.
 
-**Variações (Loja Integrada)**
-`sku_pai`, `variacao_cor`, `variacao_tamanho`, `variacao_voltagem`, `variacao_tipo`, `variacao_bloco`, `variacao_impressora`, `variacao_resina`, `variacao_dissilicato`, `variacao_pincel`, `variacao_placa`, `variacao_outros` (agrega os demais campos `grade-*` não vazios).
+### 6. CSV Master de reconciliação (entrega)
+`/mnt/documents/reconciliacao-master-2026-07-23.csv` — 1 linha por SKU único combinando `system_a_catalog` + `resins` + PipeRun (607 ativos) + Loja Integrada (distinct `sku_produto`, ~436), com métricas de venda (qtde, leads distintos, primeira e última venda REAL, valor total) vindas de `deal_items` + staging. Coluna de ação: `MATCH | RENOMEAR | CRIAR | DESATIVAR`.
 
-**Match escolhido**
-`match_method` (`extra_data` | `nome_exato` | `gtin` | `trigram` | `preco_tiebreaker` | `unmatched`), `match_score`, `sac_id`, `sac_name`, `sac_product_category`, `sac_product_subcategory`.
+### 7. Auditoria em chat
+- Clientes casados vs órfãos.
+- Pedidos no staging ausentes em `loja_integrada_orders`.
+- SKUs distintos faltantes no catálogo.
+- Faixa de datas efetivamente coberta pelo staging (min/max `order_created_at`).
 
-**Enriquecimento do `system_a_catalog`** (se match)
-`sac_ncm`, `sac_gtin`, `sac_presentation`, `sac_presentation_qty`, `sac_quantity_multiplier`, `sac_price`, `sac_promo_price`, `sac_image_url`, `sac_technical_specs_json`, `sac_clinical_indications`, `sac_contraindications`, `sac_compatibility_list`, `sac_certifications`, `sac_keywords`, `sac_wikidata_qid`.
+## O que NÃO alterar
+- Funil Vendas / CS do PipeRun.
+- `loja_integrada_orders` / `order_items` (fonte API — staging é paralelo).
+- Origens congeladas (`origin_id` frozen).
+- Nenhum Deal criado por este processo.
 
-**Enriquecimento `resins`** (se o produto for resina)
-`resin_flexural_strength_mpa`, `resin_flexural_modulus_gpa`, `resin_elongation_pct`, `resin_hardness_shore`, `resin_water_absorption`, `resin_solubility`, `resin_ansi_class`, `resin_ce_marking`, `resin_iso_certifications`, `resin_application`, `resin_color`, `resin_curing_time_s`, `resin_wavelength_nm`, `resin_shelf_life_months`, `resin_viscosity_cps`, `resin_density`.
-
-**Variações no catálogo canônico**
-`sac_variations_count`, `sac_variations_summary` (cor/tamanho/preço concatenados).
-
-**Uso histórico**
-`sales_count_piperun` (linhas em `deal_items` com esse `Código único`), `sales_count_ecommerce` (em `loja_integrada_order_items`), `last_sold_at`, `distinct_leads`.
-
-**Decisão sugerida**
-`recommended_action` (`use_existing` | `merge_variation` | `create_reference_only` | `needs_review`), `recommended_product_category`, `recommended_product_subcategory`, `notes` (motivo + qualquer ambiguidade que valha revisar).
-
-## Como executo (read-only)
-
-1. Uma edge function `catalog-sku-audit` (só SELECT, zero INSERT/UPDATE) que carrega os dois arquivos, roda a cascata via `pg_trgm`, cruza com `system_a_catalog`, `catalog_product_variations`, `resins`, `products_catalog`, `deal_items`, `loja_integrada_order_items`, e devolve o CSV completo.
-2. Alternativamente, se preferir mais rápido, faço em `python` no sandbox lendo Supabase via REST — mesmo resultado, sem deploy.
-3. Nenhuma linha do banco é alterada. Nenhuma migration é executada.
-
-## Depois do seu OK no CSV
-
-Aí sim: crio a migration do `catalog_sku_registry`, o bootstrap idempotente, a aba "Referência" na Gestão de Catálogo e o ajuste no MIX/Cursos — exatamente como no plano anterior, mas usando o CSV revisado como fonte de verdade.
-
-## Escolha antes de eu executar
-
-- **Opção A** — executo agora e gravo `/mnt/documents/sku-reconciliacao-completo.csv` (~1.043 linhas). Você revisa, corrige, e me devolve o CSV editado como base do bootstrap.
-- **Opção B** — antes do CSV, quer que eu inclua ainda alguma coluna específica que não listei (ex: Omie CFOP, Omie ID, alguma flag interna)?
-
-Confirma A ou pede ajustes na estrutura de colunas?
+## Detalhes técnicos
+- Migration única com CREATE TABLE + GRANT (`authenticated` SELECT via `has_role(admin)`, `service_role` ALL) + RLS + coluna `lia_attendances.loja_integrada_customer_id TEXT` indexada.
+- Função SQL `public.match_li_customer_to_lead(li_id)` retornando `lead_id` seguindo cascata.
+- Backfill LTV via `UPDATE lia_attendances` a partir de agregado por `cliente_id`, usando exclusivamente `order_created_at` do staging.
+- Script Python que gera o CSV master lê apenas tabelas (nada de `query_leads`).
