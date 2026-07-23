@@ -103,7 +103,7 @@ const sidebarGroups: SidebarGroupDef[] = [
       { id: "so-copilot", title: "🤖 Copilot", icon: Cpu },
       { id: "so-rayshape", title: "Rayshape", icon: Printer },
       { id: "so-stripe", title: "Stripe / Pagamentos", icon: CreditCard },
-      { id: "so-ficha-profissional", title: "Ficha do Profissional", icon: UserCircle },
+      { id: "so-cursos", title: "Cursos", icon: GraduationCap },
     ],
   },
   {

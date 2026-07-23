@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -60,9 +60,14 @@ const emptyForm = {
 
 type FormState = typeof emptyForm;
 
-export default function CoursesProfessionalProfile() {
+interface CoursesProfessionalProfileProps {
+  initialEmail?: string;
+  onSaved?: (leadId: string) => void;
+}
+
+export default function CoursesProfessionalProfile({ initialEmail, onSaved }: CoursesProfessionalProfileProps = {}) {
   const { toast } = useToast();
-  const [searchEmail, setSearchEmail] = useState("");
+  const [searchEmail, setSearchEmail] = useState(initialEmail ?? "");
   const [searching, setSearching] = useState(false);
   const [leadId, setLeadId] = useState<string | null>(null);
   const [locked, setLocked] = useState(true); // when a lead is loaded, fields are locked until Edit
@@ -113,6 +118,13 @@ export default function CoursesProfessionalProfile() {
       setSearching(false);
     }
   }, [searchEmail, toast]);
+
+  useEffect(() => {
+    if (initialEmail) {
+      void loadByEmail();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialEmail]);
 
   const onCepBlur = async () => {
     const cep = form.prof_cep.replace(/\D/g, "");
@@ -172,6 +184,7 @@ export default function CoursesProfessionalProfile() {
       if (leadId) {
         const { error } = await supabase.from("lia_attendances").update(payload).eq("id", leadId);
         if (error) throw error;
+        onSaved?.(leadId);
       } else {
         const { data, error } = await supabase
           .from("lia_attendances")
@@ -180,6 +193,7 @@ export default function CoursesProfessionalProfile() {
           .single();
         if (error) throw error;
         setLeadId(data.id);
+        onSaved?.(data.id);
       }
       setLocked(true);
       toast({ title: "Ficha salva com sucesso" });
