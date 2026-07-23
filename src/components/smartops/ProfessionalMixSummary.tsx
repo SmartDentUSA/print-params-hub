@@ -353,6 +353,7 @@ export default function ProfessionalMixSummary({ leadId, disabled, cadValue, onC
               const name = (raw || "").toString().trim();
               if (!name) return;
               if (ACCESSORY_RE.test(name.toLowerCase())) return;
+              if (!isValidEquipmentLabel(name)) return;
               if (covered.has(forced)) return;
               qualItems.push({
                 name,
