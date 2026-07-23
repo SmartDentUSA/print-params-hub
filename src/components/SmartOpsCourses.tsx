@@ -1294,7 +1294,6 @@ export function SmartOpsCourses() {
         <TabsTrigger value="agendamentos">Agendamentos</TabsTrigger>
         <TabsTrigger value="catalogo">Catálogo</TabsTrigger>
         <TabsTrigger value="inscricoes">Inscrições</TabsTrigger>
-        <TabsTrigger value="ficha">Ficha do Profissional</TabsTrigger>
         <TabsTrigger value="publica-imersoes">Página Pública Imersões</TabsTrigger>
         <TabsTrigger value="publica-aovivo">Página Pública Ao Vivo</TabsTrigger>
         <TabsTrigger value="calendario">Calendário</TabsTrigger>
@@ -1308,9 +1307,6 @@ export function SmartOpsCourses() {
       </TabsContent>
       <TabsContent value="inscricoes">
         <InscricoesTab />
-      </TabsContent>
-      <TabsContent value="ficha">
-        <CoursesProfessionalProfile />
       </TabsContent>
       <TabsContent value="publica-imersoes">
         <PaginaPublicaTab variant="presencial" />
