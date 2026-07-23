@@ -23,9 +23,11 @@ interface Props {
   categories?: SidebarCategory[];
   open?: boolean;
   onClose?: () => void;
+  showOverview?: boolean;
 }
 
-export default function KbShellSidebar({ active, onChange, counts, categories, open, onClose }: Props) {
+export default function KbShellSidebar({ active, onChange, counts, categories, open, onClose, showOverview = false }: Props) {
+  const navItems = NAV.filter((item) => item.key !== 'overview' || showOverview);
   return (
     <>
       {open && <div className="kbs-backdrop" onClick={onClose} />}
@@ -38,7 +40,7 @@ export default function KbShellSidebar({ active, onChange, counts, categories, o
         </div>
         <div className="kbs-side-scroll">
           <div className="kbs-side-label">Navegação</div>
-          {NAV.map((item) => {
+          {navItems.map((item) => {
             const count = counts?.[item.key];
             return (
               <button
