@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Loader2, Pencil, Star, Trophy } from "lucide-react";
 
 // ---------- Classificação de categorias ----------
@@ -111,13 +112,14 @@ function experienceLabel(fromIso: string | null | undefined): string {
   if (!fromIso) return "—";
   const from = new Date(fromIso).getTime();
   const now = Date.now();
-  const days = Math.max(0, Math.floor((now - from) / (1000 * 60 * 60 * 24)));
-  if (days < 30) return `${days} dias`;
-  const months = Math.floor(days / 30.44);
-  if (months < 12) return `${months} ${months === 1 ? "mês" : "meses"}`;
-  const years = Math.floor(months / 12);
-  const remM = months - years * 12;
-  return remM > 0 ? `${years}a ${remM}m` : `${years} ${years === 1 ? "ano" : "anos"}`;
+  const totalMonths = Math.max(0, Math.floor((now - from) / (1000 * 60 * 60 * 24 * 30.44)));
+  const years = Math.floor(totalMonths / 12);
+  const months = totalMonths - years * 12;
+  const y = `${years} ${years === 1 ? "ano" : "anos"}`;
+  const m = `${months} ${months === 1 ? "mês" : "meses"}`;
+  if (years === 0) return m;
+  if (months === 0) return y;
+  return `${y} ${m}`;
 }
 
 // ---------- Types ----------
@@ -132,39 +134,44 @@ type PurchaseItem = {
 
 // ---------- "Equipamentos e software" section categories ----------
 type EquipCat =
-  | "scanner_intraoral"
+  | "scanner_3d"
+  | "notebook"
   | "dispositivos"
+  | "cad"
   | "impressora"
   | "wash_cure"
-  | "cura_prof"
-  | "cad";
+  | "cura_prof";
 
 const EQUIP_TABLE_ORDER: EquipCat[] = [
-  "scanner_intraoral",
+  "scanner_3d",
+  "notebook",
   "dispositivos",
+  "cad",
   "impressora",
   "wash_cure",
   "cura_prof",
-  "cad",
 ];
 
 const EQUIP_TABLE_LABEL: Record<EquipCat, string> = {
-  scanner_intraoral: "Scanner intraoral",
+  scanner_3d: "Scanner 3D (Intraoral ou bancada)",
+  notebook: "Notebook",
   dispositivos: "Dispositivos",
+  cad: "CAD",
   impressora: "Impressora 3D",
   wash_cure: "Pós-impressão — Wash & Cure",
   cura_prof: "Pós-impressão — Cura profissional",
-  cad: "CAD",
 };
 
 const DISPOSITIVOS_RE = /\b(blx\s*dental|io\s*connect|dmc\b|smile\s*lite|fotop|mdi|mini\s*dental|led\s*(?:cure|dental))\b/i;
 const WASH_CURE_RE = /\bwash\s*&?\s*cure\b|\bwash\s*and\s*cure\b/i;
-const CURA_PROF_RE = /\b(asiga\s*cure|magna\s*box|shapecure|c[- ]?cure|mercury|nova\s*cure|cure\s*m\b|uv\s*cure|cura\s+uv|pós[- ]?cura|pos[- ]?cura|otoflash)\b/i;
+const CURA_PROF_RE = /\b(asiga\s*cure|magna\s*box|shapecure|shape\s*cure|c[- ]?cure|mercury|nova\s*cure|cure\s*m\b|uv\s*cure|cura\s+uv|pós[- ]?cura|pos[- ]?cura|otoflash)\b/i;
+const NOTEBOOK_RE = /\b(notebook|avell|workstation|laptop)\b/i;
 
 function classifyEquipTable(it: PurchaseItem): EquipCat | null {
   const n = (it.name || "").toLowerCase();
+  if (NOTEBOOK_RE.test(n)) return "notebook";
   if (DISPOSITIVOS_RE.test(n)) return "dispositivos";
-  if (it.category === "scanner_intraoral") return "scanner_intraoral";
+  if (it.category === "scanner_intraoral" || it.category === "scanner_bancada") return "scanner_3d";
   if (it.category === "impressora") return "impressora";
   if (it.category === "cad") return "cad";
   if (it.category === "pos_impressao") {
@@ -186,6 +193,26 @@ export default function ProfessionalMixSummary({ leadId, disabled, cadValue, onC
   const [loading, setLoading] = useState(false);
   const [items, setItems] = useState<PurchaseItem[]>([]);
   const [cadOverride, setCadOverride] = useState(false);
+  const [cadCatalog, setCadCatalog] = useState<string[]>([]);
+
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase
+        .from("system_a_catalog")
+        .select("name, product_category, product_subcategory")
+        .eq("active", true)
+        .eq("approved", true)
+        .limit(500);
+      const names = (data ?? [])
+        .filter((r: any) => {
+          const c = `${r.product_category ?? ""} ${r.product_subcategory ?? ""}`.toLowerCase();
+          return /software|cad|exocad|exoplan/.test(c) || /exocad|exoplan|clinic\s*app|lite\s*cad|dental\s*cad/i.test(r.name || "");
+        })
+        .map((r: any) => (r.name || "").trim())
+        .filter(Boolean);
+      setCadCatalog(Array.from(new Set(names)).sort());
+    })();
+  }, []);
 
   useEffect(() => {
     if (!leadId) {
@@ -317,15 +344,15 @@ export default function ProfessionalMixSummary({ leadId, disabled, cadValue, onC
 
   // ---------- CAD auto-derivation ----------
   const cadAuto = useMemo(() => {
-    if (agg.byCatByName.get("cad")?.length) {
-      return agg.byCatByName.get("cad")![0].name; // Exocad or similar from history
-    }
-    const scanners = (agg.byCatByName.get("scanner_intraoral") ?? []).concat(agg.byCatByName.get("scanner_bancada") ?? []);
-    const names = scanners.map((s) => s.name.toLowerCase()).join(" ");
-    if (/medit/.test(names)) return "Medit Clinic App";
-    if (/blz/.test(names)) return "BLZdental Lite CAD";
+    const cadHist = agg.byCatByName.get("cad") ?? [];
+    const exo = cadHist.find((c) => /exocad|exoplan/i.test(c.name));
+    if (exo) return exo.name;
+    const allNames = items.map((i) => i.name.toLowerCase()).join(" ");
+    if (/medit/.test(allNames)) return "Medit Clinic App";
+    if (/\bblz\b|blzdental|blx\s*dental/.test(allNames)) return "BLZ Dental Lite CAD";
+    if (cadHist[0]) return cadHist[0].name;
     return "";
-  }, [agg]);
+  }, [agg, items]);
 
   useEffect(() => {
     if (cadAuto && !cadValue) onCadChange(cadAuto);
@@ -369,8 +396,7 @@ export default function ProfessionalMixSummary({ leadId, disabled, cadValue, onC
   const consumablesTotal = agg.consumablesTotal || 1;
 
   // ---------- Equipamentos e software (por modelo) ----------
-  type EquipOrigin = "Histórico de compras" | "Proposta ganha" | "Automático" | "Manual";
-  type ModelRow = { name: string; firstDate: string; lastDate: string; origin: EquipOrigin };
+  type ModelRow = { name: string; firstDate: string; lastDate: string };
   const equipTable = new Map<EquipCat, ModelRow[]>();
   for (const it of items) {
     const cat = classifyEquipTable(it);
@@ -379,21 +405,20 @@ export default function ProfessionalMixSummary({ leadId, disabled, cadValue, onC
     const list = equipTable.get(cat) ?? [];
     let row = list.find((r) => r.name.toLowerCase() === key);
     if (!row) {
-      row = { name: titleCase(it.name), firstDate: it.date, lastDate: it.date, origin: it.source === "ecom" ? "Histórico de compras" : "Proposta ganha" };
+      row = { name: titleCase(it.name), firstDate: it.date, lastDate: it.date };
       list.push(row);
       equipTable.set(cat, list);
     } else {
       if (new Date(it.date) < new Date(row.firstDate)) row.firstDate = it.date;
       if (new Date(it.date) > new Date(row.lastDate)) row.lastDate = it.date;
-      if (it.source === "ecom") row.origin = "Histórico de compras";
     }
   }
-  // CAD: manual override (typed by seller) or auto-derivation from scanner history
+  // CAD: manual override ou auto-derivação (Medit → Clinic App, BLZ → Lite CAD, Exocad/Exoplan já capturado)
   if (!equipTable.get("cad")?.length) {
     if (cadValue) {
-      equipTable.set("cad", [{ name: cadValue, firstDate: "", lastDate: "", origin: "Manual" }]);
+      equipTable.set("cad", [{ name: cadValue, firstDate: "", lastDate: "" }]);
     } else if (cadAuto) {
-      equipTable.set("cad", [{ name: cadAuto, firstDate: "", lastDate: "", origin: "Automático" }]);
+      equipTable.set("cad", [{ name: cadAuto, firstDate: "", lastDate: "" }]);
     }
   }
 
@@ -452,7 +477,6 @@ export default function ProfessionalMixSummary({ leadId, disabled, cadValue, onC
                   <th className="px-3 py-2 font-semibold whitespace-nowrap">Primeira compra</th>
                   <th className="px-3 py-2 font-semibold whitespace-nowrap">Última compra</th>
                   <th className="px-3 py-2 font-semibold whitespace-nowrap">Tempo de experiência</th>
-                  <th className="px-3 py-2 font-semibold whitespace-nowrap">Origem</th>
                 </tr>
               </thead>
               <tbody>
@@ -461,20 +485,31 @@ export default function ProfessionalMixSummary({ leadId, disabled, cadValue, onC
                   rows.sort((a, b) => (a.firstDate || "").localeCompare(b.firstDate || ""));
 
                   if (rows.length === 0) {
-                    // CAD vazio: linha com input manual
+                    // CAD vazio: "Não identificado" + dropdown com softwares CAD do catálogo
                     if (cat === "cad") {
                       return (
                         <tr key={cat} className="border-t align-top">
                           <td className="px-3 py-2 font-medium">{EQUIP_TABLE_LABEL[cat]}</td>
                           <td className="px-3 py-2">
                             <div className="flex items-center gap-2">
-                              <Input
-                                value={cadValue}
-                                onChange={(e) => onCadChange(e.target.value)}
-                                placeholder={cadAuto || "Medit Clinic App / BLZdental Lite CAD / Exocad..."}
+                              <Badge variant="outline" className="text-[10px] text-muted-foreground">Não identificado</Badge>
+                              <Select
+                                value={cadValue || ""}
+                                onValueChange={(v) => onCadChange(v)}
                                 disabled={disabled && !cadOverride}
-                                className="h-8 text-xs"
-                              />
+                              >
+                                <SelectTrigger className="h-8 text-xs w-[260px]">
+                                  <SelectValue placeholder="Selecionar CAD do catálogo…" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {cadCatalog.length === 0 && (
+                                    <SelectItem value="__none" disabled>Nenhum CAD ativo no catálogo</SelectItem>
+                                  )}
+                                  {cadCatalog.map((n) => (
+                                    <SelectItem key={n} value={n}>{n}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
                               {!cadOverride && (
                                 <Button size="sm" variant="outline" onClick={() => setCadOverride(true)} disabled={disabled}>
                                   <Pencil className="w-3 h-3" />
@@ -485,7 +520,6 @@ export default function ProfessionalMixSummary({ leadId, disabled, cadValue, onC
                           <td className="px-3 py-2 text-muted-foreground">—</td>
                           <td className="px-3 py-2 text-muted-foreground">—</td>
                           <td className="px-3 py-2 text-muted-foreground">—</td>
-                          <td className="px-3 py-2 text-muted-foreground">—</td>
                         </tr>
                       );
                     }
@@ -493,7 +527,6 @@ export default function ProfessionalMixSummary({ leadId, disabled, cadValue, onC
                       <tr key={cat} className="border-t align-top">
                         <td className="px-3 py-2 font-medium">{EQUIP_TABLE_LABEL[cat]}</td>
                         <td className="px-3 py-2 text-muted-foreground">Sem histórico</td>
-                        <td className="px-3 py-2 text-muted-foreground">—</td>
                         <td className="px-3 py-2 text-muted-foreground">—</td>
                         <td className="px-3 py-2 text-muted-foreground">—</td>
                         <td className="px-3 py-2 text-muted-foreground">—</td>
@@ -510,14 +543,6 @@ export default function ProfessionalMixSummary({ leadId, disabled, cadValue, onC
                       <td className="px-3 py-2 whitespace-nowrap">{r.firstDate ? formatDate(r.firstDate) : "—"}</td>
                       <td className="px-3 py-2 whitespace-nowrap">{r.lastDate ? formatDate(r.lastDate) : "—"}</td>
                       <td className="px-3 py-2 whitespace-nowrap">{r.firstDate ? experienceLabel(r.firstDate) : "—"}</td>
-                      <td className="px-3 py-2 whitespace-nowrap">
-                        <Badge
-                          variant={r.origin === "Histórico de compras" ? "secondary" : "outline"}
-                          className="text-[10px]"
-                        >
-                          {r.origin}
-                        </Badge>
-                      </td>
                     </tr>
                   ));
                 })}
@@ -525,7 +550,7 @@ export default function ProfessionalMixSummary({ leadId, disabled, cadValue, onC
             </table>
           </div>
           <p className="mt-2 text-[11px] text-muted-foreground">
-            Fonte: histórico de compras faturadas (e-commerce) e propostas ganhas no CRM. Propostas abertas, perdidas, canceladas ou expiradas são ignoradas. CAD é derivado automaticamente pelas regras de negócio ou preenchido manualmente pelo vendedor.
+            Fonte: histórico de compras faturadas (e-commerce) e propostas ganhas no CRM. Tempo de experiência = data atual − primeira compra. CAD é derivado automaticamente (Medit → Clinic App, BLZ → Dental Lite CAD, Exocad/Exoplan pelo histórico) ou selecionado no dropdown do catálogo.
           </p>
         </div>
 
