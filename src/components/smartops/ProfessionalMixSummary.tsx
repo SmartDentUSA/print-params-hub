@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Loader2, Pencil, Star, Trophy } from "lucide-react";
 
 // ---------- Classificação de categorias ----------
@@ -111,13 +112,14 @@ function experienceLabel(fromIso: string | null | undefined): string {
   if (!fromIso) return "—";
   const from = new Date(fromIso).getTime();
   const now = Date.now();
-  const days = Math.max(0, Math.floor((now - from) / (1000 * 60 * 60 * 24)));
-  if (days < 30) return `${days} dias`;
-  const months = Math.floor(days / 30.44);
-  if (months < 12) return `${months} ${months === 1 ? "mês" : "meses"}`;
-  const years = Math.floor(months / 12);
-  const remM = months - years * 12;
-  return remM > 0 ? `${years}a ${remM}m` : `${years} ${years === 1 ? "ano" : "anos"}`;
+  const totalMonths = Math.max(0, Math.floor((now - from) / (1000 * 60 * 60 * 24 * 30.44)));
+  const years = Math.floor(totalMonths / 12);
+  const months = totalMonths - years * 12;
+  const y = `${years} ${years === 1 ? "ano" : "anos"}`;
+  const m = `${months} ${months === 1 ? "mês" : "meses"}`;
+  if (years === 0) return m;
+  if (months === 0) return y;
+  return `${y} ${m}`;
 }
 
 // ---------- Types ----------
@@ -132,39 +134,44 @@ type PurchaseItem = {
 
 // ---------- "Equipamentos e software" section categories ----------
 type EquipCat =
-  | "scanner_intraoral"
+  | "scanner_3d"
+  | "notebook"
   | "dispositivos"
+  | "cad"
   | "impressora"
   | "wash_cure"
-  | "cura_prof"
-  | "cad";
+  | "cura_prof";
 
 const EQUIP_TABLE_ORDER: EquipCat[] = [
-  "scanner_intraoral",
+  "scanner_3d",
+  "notebook",
   "dispositivos",
+  "cad",
   "impressora",
   "wash_cure",
   "cura_prof",
-  "cad",
 ];
 
 const EQUIP_TABLE_LABEL: Record<EquipCat, string> = {
-  scanner_intraoral: "Scanner intraoral",
+  scanner_3d: "Scanner 3D (Intraoral ou bancada)",
+  notebook: "Notebook",
   dispositivos: "Dispositivos",
+  cad: "CAD",
   impressora: "Impressora 3D",
   wash_cure: "Pós-impressão — Wash & Cure",
   cura_prof: "Pós-impressão — Cura profissional",
-  cad: "CAD",
 };
 
 const DISPOSITIVOS_RE = /\b(blx\s*dental|io\s*connect|dmc\b|smile\s*lite|fotop|mdi|mini\s*dental|led\s*(?:cure|dental))\b/i;
 const WASH_CURE_RE = /\bwash\s*&?\s*cure\b|\bwash\s*and\s*cure\b/i;
-const CURA_PROF_RE = /\b(asiga\s*cure|magna\s*box|shapecure|c[- ]?cure|mercury|nova\s*cure|cure\s*m\b|uv\s*cure|cura\s+uv|pós[- ]?cura|pos[- ]?cura|otoflash)\b/i;
+const CURA_PROF_RE = /\b(asiga\s*cure|magna\s*box|shapecure|shape\s*cure|c[- ]?cure|mercury|nova\s*cure|cure\s*m\b|uv\s*cure|cura\s+uv|pós[- ]?cura|pos[- ]?cura|otoflash)\b/i;
+const NOTEBOOK_RE = /\b(notebook|avell|workstation|laptop)\b/i;
 
 function classifyEquipTable(it: PurchaseItem): EquipCat | null {
   const n = (it.name || "").toLowerCase();
+  if (NOTEBOOK_RE.test(n)) return "notebook";
   if (DISPOSITIVOS_RE.test(n)) return "dispositivos";
-  if (it.category === "scanner_intraoral") return "scanner_intraoral";
+  if (it.category === "scanner_intraoral" || it.category === "scanner_bancada") return "scanner_3d";
   if (it.category === "impressora") return "impressora";
   if (it.category === "cad") return "cad";
   if (it.category === "pos_impressao") {
