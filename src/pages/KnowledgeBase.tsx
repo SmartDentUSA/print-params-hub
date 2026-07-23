@@ -88,8 +88,8 @@ export default function KnowledgeBase({ lang = 'pt', forcedTab }: KnowledgeBaseP
   }, []);
   useEffect(() => {
     (async () => {
-      const { data } = await supabase
-        .from('system_a_catalog')
+      const { data } = await (supabase
+        .from('system_a_catalog') as any)
         .select('name, product_category, product_subcategory')
         .eq('active', true)
         .eq('approved', true)
