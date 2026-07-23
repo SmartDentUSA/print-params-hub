@@ -56,6 +56,18 @@ const emptyForm = {
   prof_fapesp_id: "",
   prof_site: "",
   prof_marketing_consent: false,
+  // Mix de produtos (carregado da base de leads / CRM)
+  produto_interesse: "",
+  equip_scanner: "",
+  equip_scanner_bancada: "",
+  equip_notebook: "",
+  equip_cad: "",
+  equip_impressora: "",
+  equip_pos_impressao: "",
+  equip_fresadora: "",
+  prof_rating_quality: 0 as number,
+  prof_rating_price: 0 as number,
+  prof_rating_value: 0 as number,
 };
 
 type FormState = typeof emptyForm;
@@ -86,7 +98,7 @@ export default function CoursesProfessionalProfile({ initialEmail, startEditing 
       const { data, error } = await supabase
         .from("lia_attendances")
         .select(
-          "id, nome, email, area_atuacao, especialidade, pessoa_nascimento, prof_cro, prof_photo_url, prof_mini_cv, prof_course_platform, prof_wa_ddi, prof_wa_number, prof_course_wa_ddi, prof_course_wa_number, prof_cep, prof_country, prof_state, prof_city, prof_neighborhood, prof_street, prof_number, prof_complement, instagram, prof_tiktok, prof_youtube, pessoa_linkedin, prof_lattes, prof_orcid, prof_fapesp_id, prof_site, prof_marketing_consent"
+          "id, nome, email, area_atuacao, especialidade, pessoa_nascimento, prof_cro, prof_photo_url, prof_mini_cv, prof_course_platform, prof_wa_ddi, prof_wa_number, prof_course_wa_ddi, prof_course_wa_number, prof_cep, prof_country, prof_state, prof_city, prof_neighborhood, prof_street, prof_number, prof_complement, instagram, prof_tiktok, prof_youtube, pessoa_linkedin, prof_lattes, prof_orcid, prof_fapesp_id, prof_site, prof_marketing_consent, produto_interesse, equip_scanner, equip_scanner_bancada, equip_notebook, equip_cad, equip_impressora, equip_pos_impressao, equip_fresadora, prof_rating_quality, prof_rating_price, prof_rating_value"
         )
         .ilike("email", email)
         .is("merged_into", null)
