@@ -10,6 +10,7 @@ import KbEmptyState from './KbEmptyState';
 import KbSkeletonGrid from './KbSkeletonGrid';
 import KbContentCard, { KbContentCardData } from './KbContentCard';
 import { resolveCategoryTk } from './kbCategoryTaxonomy';
+import KbListControls, { KbSortKey, KbViewMode } from './KbListControls';
 
 const CHIP_KEYS: { key: string; tk: string }[] = [
   { key: 'all', tk: 'kb.chips.all' },
@@ -36,6 +37,8 @@ export default function KbTabVideos({ onOpen, letterFilter }: Props) {
   const [loading, setLoading] = useState(true);
   const [chip, setChip] = useState('all');
   const [q, setQ] = useState('');
+  const [sort, setSort] = useState<KbSortKey>('recent');
+  const [view, setView] = useState<KbViewMode>('grid');
 
   useEffect(() => {
     let cancel = false;
@@ -108,7 +111,19 @@ export default function KbTabVideos({ onOpen, letterFilter }: Props) {
     return () => { cancel = true; };
   }, [chip, q, letterFilter]);
 
-  const filtered = rows;
+  const filtered = (() => {
+    const arr = rows.slice();
+    if (sort === 'views') {
+      arr.sort((a: any, b: any) => {
+        const va = a?.knowledge_videos?.[0]?.analytics_views ?? a?.view_count ?? 0;
+        const vb = b?.knowledge_videos?.[0]?.analytics_views ?? b?.view_count ?? 0;
+        return vb - va;
+      });
+    } else if (sort === 'az') {
+      arr.sort((a, b) => (a.title || '').localeCompare(b.title || '', 'pt-BR', { sensitivity: 'base' }));
+    }
+    return arr;
+  })();
 
   const cards: KbContentCardData[] = filtered.map((r) => ({
     id: r.id,
@@ -133,6 +148,7 @@ export default function KbTabVideos({ onOpen, letterFilter }: Props) {
       {/* Título removido: hero do shell v2 é a única fonte do título nesta aba */}
       <KbSearchBar placeholder={t('kb.videos.search')} value={q} onDebouncedChange={setQ} />
       <KbChips options={chips} active={chip} onChange={setChip} align="left" />
+      <KbListControls sort={sort} onSortChange={setSort} view={view} onViewChange={setView} />
       {q.trim() && (
         <div className="kb-count" style={{ opacity: 0.75 }}>
           {t('kb.search.global_hint') !== 'kb.search.global_hint'
@@ -140,7 +156,7 @@ export default function KbTabVideos({ onOpen, letterFilter }: Props) {
             : 'Buscando em toda a base de conhecimento'}
         </div>
       )}
-      <div className="kb-grid">
+      <div className={`kb-grid${view === 'list' ? ' kb-list' : ''}`}>
         {loading ? (
           <KbSkeletonGrid />
         ) : cards.length === 0 ? (
