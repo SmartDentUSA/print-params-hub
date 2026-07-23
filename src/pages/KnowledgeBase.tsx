@@ -46,6 +46,15 @@ export default function KnowledgeBase({ lang = 'pt', forcedTab }: KnowledgeBaseP
   useEffect(() => { setLanguage(lang); }, [lang, setLanguage]);
 
   const [tab, setTab] = useState<KbTab>(() => getInitialTab(categoryLetter, forcedTab));
+  // Sync tab when the URL categoryLetter changes (sidebar category click navigates route).
+  useEffect(() => {
+    if (forcedTab) return;
+    if (!categoryLetter) return;
+    const mapped = LETTER_TO_TAB[categoryLetter.toLowerCase()];
+    if (mapped && mapped !== tab) setTab(mapped);
+    setOverview(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [categoryLetter]);
   const [dialogContent, setDialogContent] = useState<any>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [catCounts, setCatCounts] = useState<Record<string, { name: string; count: number }>>({});
@@ -238,8 +247,8 @@ export default function KnowledgeBase({ lang = 'pt', forcedTab }: KnowledgeBaseP
           ) : (
             <>
               {tab === 'parametros' && <KbTabParametros />}
-              {tab === 'videos' && <KbTabVideos onOpen={openArticle} />}
-              {tab === 'artigos' && <KbTabArtigos onOpen={openArticle} />}
+              {tab === 'videos' && <KbTabVideos onOpen={openArticle} letterFilter={categoryLetter ?? null} />}
+              {tab === 'artigos' && <KbTabArtigos onOpen={openArticle} letterFilter={categoryLetter ?? null} />}
               {tab === 'ebooks' && <KbTabEbooks onOpen={openArticle} />}
               {tab === 'catalogo' && <KbTabCatalogo />}
               {tab === 'distribuidores' && <KbTabDistribuidores country={activeCountry} />}
