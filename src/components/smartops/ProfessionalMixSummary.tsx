@@ -5,7 +5,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, Pencil, Star, Trophy } from "lucide-react";
+import { Loader2, Pencil, Star, Trophy, Save, X } from "lucide-react";
+import { toast } from "sonner";
 
 // ---------- Classificação de categorias ----------
 // Ordem importa: primeiras regras vencem.
@@ -189,11 +190,42 @@ interface Props {
   onCadChange: (v: string) => void;
 }
 
+// Colunas em lia_attendances por categoria da tabela de equipamentos.
+// Categorias sem coluna dedicada não expõem persistência de edição.
+const EQUIP_COLS: Partial<Record<EquipCat, { name: string; serial: string }>> = {
+  scanner_3d: { name: "equip_scanner", serial: "equip_scanner_serial" },
+  notebook: { name: "equip_notebook", serial: "equip_notebook_serial" },
+  cad: { name: "equip_cad", serial: "equip_cad_serial" },
+  impressora: { name: "equip_impressora", serial: "equip_impressora_serial" },
+  wash_cure: { name: "equip_pos_impressao", serial: "equip_pos_impressao_serial" },
+};
+
+// Filtros do catálogo (system_a_catalog) por categoria da tabela.
+function catalogFilter(cat: EquipCat, r: { name: string; product_category: string | null; product_subcategory: string | null }): boolean {
+  const c = `${r.product_category ?? ""} ${r.product_subcategory ?? ""}`.toLowerCase();
+  const n = (r.name || "").toLowerCase();
+  switch (cat) {
+    case "scanner_3d": return /scan/.test(c) && !/acess/.test(c);
+    case "cad": return /cad/.test(c) && /software/.test(c);
+    case "impressora": return /impress[aã]o/.test(c) && /impressora/.test(c);
+    case "wash_cure": return /p[oó]s[- ]impress/.test(c) && /equipamento/.test(c) && /(wash|cure|clean|wax)/i.test(n);
+    case "cura_prof": return /p[oó]s[- ]impress/.test(c) && /equipamento/.test(c) && /(cure|cura|shape|asiga|magna|otoflash)/i.test(n);
+    case "notebook": return /notebook|avell|workstation/i.test(n);
+    case "dispositivos": return /blz|dmc|ioconnect|dispositivo/i.test(n);
+    default: return false;
+  }
+}
+
 export default function ProfessionalMixSummary({ leadId, disabled, cadValue, onCadChange }: Props) {
   const [loading, setLoading] = useState(false);
   const [items, setItems] = useState<PurchaseItem[]>([]);
   const [cadOverride, setCadOverride] = useState(false);
   const [cadCatalog, setCadCatalog] = useState<string[]>([]);
+  const [catalog, setCatalog] = useState<Array<{ name: string; product_category: string | null; product_subcategory: string | null }>>([]);
+  const [editMode, setEditMode] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [edits, setEdits] = useState<Partial<Record<EquipCat, { name: string; serial: string }>>>({});
+  const [serials, setSerials] = useState<Partial<Record<EquipCat, string>>>({});
 
   useEffect(() => {
     (async () => {
@@ -202,7 +234,13 @@ export default function ProfessionalMixSummary({ leadId, disabled, cadValue, onC
         .select("name, product_category, product_subcategory")
         .eq("active", true)
         .eq("approved", true)
-        .limit(500);
+        .limit(2000);
+      const rows = (data ?? []).map((r: any) => ({
+        name: (r.name || "").trim(),
+        product_category: r.product_category ?? null,
+        product_subcategory: r.product_subcategory ?? null,
+      })).filter((r) => r.name);
+      setCatalog(rows);
       const names = (data ?? [])
         .filter((r: any) => {
           const c = `${r.product_category ?? ""} ${r.product_subcategory ?? ""}`.toLowerCase();
