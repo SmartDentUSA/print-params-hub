@@ -1,0 +1,491 @@
+import { useEffect, useMemo, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Loader2, Pencil, Star, Trophy } from "lucide-react";
+
+// ---------- Classificação de categorias ----------
+// Ordem importa: primeiras regras vencem.
+type Cat =
+  | "scanner_intraoral"
+  | "scanner_bancada"
+  | "impressora"
+  | "pos_impressao"
+  | "fresadora"
+  | "cad"
+  | "resina_3d"
+  | "caracterizacao"
+  | "limpeza"
+  | "cimentos"
+  | "resinas_diretas"
+  | "adesivos"
+  | "blocos_fresagem"
+  | "outros";
+
+const CAT_LABEL: Record<Cat, string> = {
+  scanner_intraoral: "Scanner intraoral",
+  scanner_bancada: "Scanner de bancada",
+  impressora: "Impressora 3D",
+  pos_impressao: "Pós-impressão (cura)",
+  fresadora: "Fresadora",
+  cad: "CAD / Software",
+  resina_3d: "Resinas 3D",
+  caracterizacao: "Caracterização",
+  limpeza: "Limpeza & Finalização",
+  cimentos: "Cimentos",
+  resinas_diretas: "Resinas diretas",
+  adesivos: "Adesivos",
+  blocos_fresagem: "Blocos & Fresagem",
+  outros: "Outros",
+};
+
+const EQUIPMENT_CATS: Cat[] = [
+  "scanner_intraoral",
+  "scanner_bancada",
+  "impressora",
+  "pos_impressao",
+  "fresadora",
+  "cad",
+];
+const CONSUMABLE_CATS: Cat[] = [
+  "resina_3d",
+  "caracterizacao",
+  "limpeza",
+  "cimentos",
+  "resinas_diretas",
+  "adesivos",
+  "blocos_fresagem",
+];
+
+const ACCESSORY_RE =
+  /\b(painel\s+lcd|tela\s+lcd|teflon|fep|nfep|pelicula|película|filme\s+lcd|filtro|fonte|placa\s+m[ãa]e|cabo|parafuso|kit\s+(?:de\s+)?(?:reposi[çc][ãa]o|manuten[çc][ãa]o)|reposi[çc][ãa]o|manuten[çc][ãa]o|spare|cartucho|bandeja|plataforma\s+de?\s+constru[çc][ãa]o|build\s*plate|vat|cuba|garantia|extensao|extensão|treinamento|curso|aula|consultoria|servi[çc]o|frete|instala[çc][ãa]o)\b/i;
+
+function classify(name: string, category: string | null | undefined): Cat {
+  const n = (name || "").toLowerCase();
+  const c = (category || "").toLowerCase();
+  // Category first
+  if (c.includes("scanner intraoral")) return "scanner_intraoral";
+  if (c.includes("scanner") && c.includes("bancad")) return "scanner_bancada";
+  if (c.includes("impressora")) return "impressora";
+  if (c.includes("pós-cura") || c.includes("pos-cura") || c.includes("pós cura")) return "pos_impressao";
+  if (c.includes("software cad") || c.includes("cad/cam") || c.includes("cad")) return "cad";
+  if (c.includes("kit caracteriz") || c.includes("caracteriz")) return "caracterizacao";
+  if (c.includes("resina 3d")) return "resina_3d";
+  // Name-based fallback
+  if (/\b(medit\s*i[567]00|i600|i700|aoralscan|trios\s*\d|itero|primescan|panda\s*p\d|launca|runyes|shining|emerald)\b/.test(n)) return "scanner_intraoral";
+  if (/\b(scanner\s+de\s+bancada|e1\b|e2\b|e3\b|freedom\s+hd|medit\s*t|autoscan)\b/.test(n)) return "scanner_bancada";
+  if (/\b(halot|elegoo|mars\s*\d|saturn\s*\d|phrozen|sonic\s+(mini|mighty|xl)|anycubic|miicraft|rayshape|edge\s*mini|nextdent|asiga|formlabs)\b/.test(n)) return "impressora";
+  if (/\b(wash\s*&?\s*cure|cure\s*m|mercury|nova\s*cure|c-?cure|pos\s*cura|pós\s*cura|uv\s*cure|cura\s+uv)\b/.test(n)) return "pos_impressao";
+  if (/\b(fresadora|mill|k5|dwx|imes|roland\s+dwx|blz\s*mill)\b/.test(n)) return "fresadora";
+  if (/\b(exocad|exoplan|medit\s+clinic\s+app|blzdental|cad\s*lite|cad\s*pro|3shape\s+(design|dental))\b/.test(n)) return "cad";
+  if (/\b(cimento|cement|luting)\b/.test(n)) return "cimentos";
+  if (/\b(adesivo|primer|bond(?:ing)?)\b/.test(n)) return "adesivos";
+  if (/\b(resina\s+direta|resina\s+composta|composita|composite|z\d{3}|filtek|opallis|charisma|tetric|palfique|estelite)\b/.test(n)) return "resinas_diretas";
+  if (/\b(bloco|disco|zircon|dissilicat|ips\s*e\.?max|pmma|cera\s+cad|puck)\b/.test(n)) return "blocos_fresagem";
+  if (/\b(caracteriz|maquiag|pigment|corante|stain|shade)\b/.test(n)) return "caracterizacao";
+  if (/\b(isopropi|álcool|alcool|filme|lixa|disco\s+de\s+polim|polim|finaliz|limpeza|detergente|glicerina)\b/.test(n)) return "limpeza";
+  if (/\bresina\b/.test(n)) return "resina_3d";
+  return "outros";
+}
+
+// ---------- Utils ----------
+function titleCase(s: string): string {
+  return s
+    .split(/\s+/)
+    .map((w) => (w.length <= 2 ? w.toLowerCase() : w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()))
+    .join(" ");
+}
+
+function formatDate(iso: string | null | undefined) {
+  if (!iso) return "—";
+  try {
+    return new Date(iso).toLocaleDateString("pt-BR");
+  } catch {
+    return "—";
+  }
+}
+
+function experienceLabel(fromIso: string | null | undefined): string {
+  if (!fromIso) return "—";
+  const from = new Date(fromIso).getTime();
+  const now = Date.now();
+  const days = Math.max(0, Math.floor((now - from) / (1000 * 60 * 60 * 24)));
+  if (days < 30) return `${days} dias`;
+  const months = Math.floor(days / 30.44);
+  if (months < 12) return `${months} ${months === 1 ? "mês" : "meses"}`;
+  const years = Math.floor(months / 12);
+  const remM = months - years * 12;
+  return remM > 0 ? `${years}a ${remM}m` : `${years} ${years === 1 ? "ano" : "anos"}`;
+}
+
+// ---------- Types ----------
+type PurchaseItem = {
+  name: string;
+  category: Cat;
+  total: number;
+  date: string; // ISO
+  vendor?: string | null;
+  source: "crm" | "ecom";
+};
+
+interface Props {
+  leadId: string | null;
+  disabled: boolean;
+  cadValue: string;
+  onCadChange: (v: string) => void;
+}
+
+export default function ProfessionalMixSummary({ leadId, disabled, cadValue, onCadChange }: Props) {
+  const [loading, setLoading] = useState(false);
+  const [items, setItems] = useState<PurchaseItem[]>([]);
+  const [cadOverride, setCadOverride] = useState(false);
+
+  useEffect(() => {
+    if (!leadId) {
+      setItems([]);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      try {
+        // Won CRM deals
+        const { data: wonDeals } = await supabase
+          .from("deals")
+          .select("id, owner_name, closed_at")
+          .eq("lead_id", leadId)
+          .eq("status", "ganha");
+        const dealIds = (wonDeals ?? []).map((d: any) => d.id);
+        const dealOwner = new Map<string, { owner_name: string | null; closed_at: string | null }>();
+        (wonDeals ?? []).forEach((d: any) => dealOwner.set(d.id, { owner_name: d.owner_name, closed_at: d.closed_at }));
+
+        const crmItems: PurchaseItem[] = [];
+        if (dealIds.length > 0) {
+          const { data: rows } = await supabase
+            .from("deal_items")
+            .select("deal_id, product_name, product_category, total_value, deal_date, vendor_name")
+            .in("deal_id", dealIds);
+          for (const r of (rows ?? []) as any[]) {
+            const name = r.product_name || "";
+            if (!name) continue;
+            if (ACCESSORY_RE.test(name.toLowerCase())) continue;
+            const owner = dealOwner.get(r.deal_id);
+            crmItems.push({
+              name,
+              category: classify(name, r.product_category),
+              total: Number(r.total_value) || 0,
+              date: (r.deal_date || owner?.closed_at || new Date().toISOString()) as string,
+              vendor: r.vendor_name || owner?.owner_name || null,
+              source: "crm",
+            });
+          }
+        }
+
+        // E-commerce orders (Loja Integrada)
+        const { data: orders } = await supabase
+          .from("loja_integrada_orders")
+          .select("id, data_pedido, status")
+          .eq("attendance_id", leadId);
+        const okOrders = (orders ?? []).filter((o: any) => !["cancelado", "cancelled", "estornado"].includes((o.status || "").toLowerCase()));
+        const orderIds = okOrders.map((o: any) => o.id);
+        const orderDate = new Map<string, string>();
+        okOrders.forEach((o: any) => orderDate.set(o.id, o.data_pedido));
+
+        const ecomItems: PurchaseItem[] = [];
+        if (orderIds.length > 0) {
+          const { data: rows } = await supabase
+            .from("loja_integrada_order_items")
+            .select("order_id, nome_produto, valor_total")
+            .in("order_id", orderIds);
+          for (const r of (rows ?? []) as any[]) {
+            const name = r.nome_produto || "";
+            if (!name) continue;
+            if (ACCESSORY_RE.test(name.toLowerCase())) continue;
+            ecomItems.push({
+              name,
+              category: classify(name, null),
+              total: Number(r.valor_total) || 0,
+              date: orderDate.get(r.order_id) || new Date().toISOString(),
+              vendor: "E-commerce",
+              source: "ecom",
+            });
+          }
+        }
+
+        if (!cancelled) setItems([...crmItems, ...ecomItems]);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [leadId]);
+
+  // ---------- Aggregations ----------
+  const agg = useMemo(() => {
+    const total = items.reduce((s, i) => s + (i.total || 0), 0);
+    const byCat = new Map<Cat, { items: PurchaseItem[]; total: number; firstDate: string }>();
+    for (const it of items) {
+      const b = byCat.get(it.category) ?? { items: [], total: 0, firstDate: it.date };
+      b.items.push(it);
+      b.total += it.total || 0;
+      if (new Date(it.date) < new Date(b.firstDate)) b.firstDate = it.date;
+      byCat.set(it.category, b);
+    }
+
+    // Group items by name within category
+    const byCatByName = new Map<Cat, Array<{ name: string; total: number; firstDate: string; qty: number }>>();
+    for (const [cat, b] of byCat.entries()) {
+      const nm = new Map<string, { name: string; total: number; firstDate: string; qty: number }>();
+      for (const it of b.items) {
+        const key = it.name.toLowerCase();
+        const prev = nm.get(key);
+        if (!prev) nm.set(key, { name: titleCase(it.name), total: it.total || 0, firstDate: it.date, qty: 1 });
+        else {
+          prev.total += it.total || 0;
+          prev.qty += 1;
+          if (new Date(it.date) < new Date(prev.firstDate)) prev.firstDate = it.date;
+        }
+      }
+      byCatByName.set(cat, Array.from(nm.values()).sort((a, b) => a.firstDate.localeCompare(b.firstDate)));
+    }
+
+    const lastPurchase = items.reduce<PurchaseItem | null>((acc, it) => (!acc || new Date(it.date) > new Date(acc.date) ? it : acc), null);
+    const firstPurchase = items.reduce<PurchaseItem | null>((acc, it) => (!acc || new Date(it.date) < new Date(acc.date) ? it : acc), null);
+
+    const consumablesTotal = CONSUMABLE_CATS.reduce((s, c) => s + (byCat.get(c)?.total ?? 0), 0);
+
+    // Expertise tag: distinct categories with at least one purchase (excluding "outros")
+    const distinctCats = Array.from(byCat.keys()).filter((c) => c !== "outros" && (byCat.get(c)?.total ?? 0) > 0).length;
+    let expertiseTag = "Iniciante";
+    let expertiseStars = 1;
+    if (distinctCats >= 9) { expertiseTag = "Especialista"; expertiseStars = 5; }
+    else if (distinctCats >= 6) { expertiseTag = "Avançado"; expertiseStars = 4; }
+    else if (distinctCats >= 3) { expertiseTag = "Intermediário"; expertiseStars = 3; }
+    else if (distinctCats >= 1) { expertiseTag = "Iniciante+"; expertiseStars = 2; }
+
+    return { total, byCat, byCatByName, lastPurchase, firstPurchase, consumablesTotal, distinctCats, expertiseTag, expertiseStars };
+  }, [items]);
+
+  // ---------- CAD auto-derivation ----------
+  const cadAuto = useMemo(() => {
+    if (agg.byCatByName.get("cad")?.length) {
+      return agg.byCatByName.get("cad")![0].name; // Exocad or similar from history
+    }
+    const scanners = (agg.byCatByName.get("scanner_intraoral") ?? []).concat(agg.byCatByName.get("scanner_bancada") ?? []);
+    const names = scanners.map((s) => s.name.toLowerCase()).join(" ");
+    if (/medit/.test(names)) return "Medit Clinic App";
+    if (/blz/.test(names)) return "BLZdental Lite CAD";
+    return "";
+  }, [agg]);
+
+  useEffect(() => {
+    if (cadAuto && !cadValue) onCadChange(cadAuto);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cadAuto]);
+
+  if (!leadId) {
+    return (
+      <Card>
+        <CardHeader><CardTitle>Mix de produtos & Portifólio Smart Dent</CardTitle></CardHeader>
+        <CardContent>
+          <p className="text-sm text-muted-foreground">Busque um profissional pelo e-mail para carregar o histórico de compras.</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (loading) {
+    return (
+      <Card>
+        <CardHeader><CardTitle>Mix de produtos & Portifólio Smart Dent</CardTitle></CardHeader>
+        <CardContent className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Loader2 className="w-4 h-4 animate-spin" /> Carregando histórico...
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (items.length === 0) {
+    return (
+      <Card>
+        <CardHeader><CardTitle>Mix de produtos & Portifólio Smart Dent</CardTitle></CardHeader>
+        <CardContent>
+          <p className="text-sm text-muted-foreground">Nenhuma compra encontrada no histórico Smart Dent (CRM ganho ou e-commerce).</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const totalAll = agg.total || 1;
+  const consumablesTotal = agg.consumablesTotal || 1;
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex flex-wrap items-center gap-3">
+          <span>Mix de produtos & Portifólio Smart Dent</span>
+          <Badge className="bg-orange-100 text-orange-800 hover:bg-orange-100">
+            <Trophy className="w-3 h-3 mr-1" /> {agg.expertiseTag}
+          </Badge>
+          <span className="flex items-center gap-0.5">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <Star
+                key={i}
+                className={`w-4 h-4 ${i < agg.expertiseStars ? "fill-orange-500 text-orange-500" : "text-muted-foreground/30"}`}
+              />
+            ))}
+          </span>
+          <span className="text-xs text-muted-foreground font-normal">
+            {agg.distinctCats} categorias · experiência desde {formatDate(agg.firstPurchase?.date)} ({experienceLabel(agg.firstPurchase?.date)})
+          </span>
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        {/* Header stats */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+          <div className="rounded border p-3 bg-muted/30">
+            <div className="text-xs text-muted-foreground">Última compra</div>
+            <div className="font-semibold">{formatDate(agg.lastPurchase?.date)}</div>
+            <div className="text-xs truncate" title={agg.lastPurchase?.name}>{agg.lastPurchase?.name}</div>
+          </div>
+          <div className="rounded border p-3 bg-muted/30">
+            <div className="text-xs text-muted-foreground">Vendedor da última compra</div>
+            <div className="font-semibold truncate">{agg.lastPurchase?.vendor || "—"}</div>
+          </div>
+          <div className="rounded border p-3 bg-muted/30">
+            <div className="text-xs text-muted-foreground">Total investido</div>
+            <div className="font-semibold">R$ {agg.total.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</div>
+          </div>
+          <div className="rounded border p-3 bg-muted/30">
+            <div className="text-xs text-muted-foreground">Nº de compras</div>
+            <div className="font-semibold">{items.length} itens</div>
+          </div>
+        </div>
+
+        {/* Equipamentos */}
+        <div>
+          <h4 className="font-semibold mb-2">Equipamentos</h4>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {EQUIPMENT_CATS.map((cat) => {
+              const list = agg.byCatByName.get(cat) ?? [];
+              const catTotal = agg.byCat.get(cat)?.total ?? 0;
+              const pct = totalAll > 0 ? (catTotal / totalAll) * 100 : 0;
+
+              // CAD special handling
+              if (cat === "cad") {
+                const cadFromHistory = list.length > 0;
+                return (
+                  <div key={cat} className="rounded border p-3">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-sm font-semibold">{CAT_LABEL[cat]}</span>
+                      {cadFromHistory && (
+                        <Badge variant="outline" className="text-xs">{pct.toFixed(1)}% do mix</Badge>
+                      )}
+                    </div>
+                    {cadFromHistory ? (
+                      <ul className="text-xs space-y-1">
+                        {list.map((it) => (
+                          <li key={it.name} className="flex justify-between gap-2">
+                            <span className="truncate">{it.name}</span>
+                            <span className="text-muted-foreground whitespace-nowrap">{experienceLabel(it.firstDate)}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <Input
+                            value={cadValue}
+                            onChange={(e) => onCadChange(e.target.value)}
+                            placeholder={cadAuto || "Medit Clinic App / BLZdental Lite CAD / Exocad..."}
+                            disabled={disabled && !cadOverride}
+                            className="h-8 text-xs"
+                          />
+                          {!cadOverride && (
+                            <Button size="sm" variant="outline" onClick={() => setCadOverride(true)} disabled={disabled}>
+                              <Pencil className="w-3 h-3" />
+                            </Button>
+                          )}
+                        </div>
+                        {cadAuto && !cadValue && (
+                          <div className="text-[10px] text-muted-foreground">Sugestão automática: {cadAuto}</div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              }
+
+              return (
+                <div key={cat} className="rounded border p-3">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-sm font-semibold">{CAT_LABEL[cat]}</span>
+                    {list.length > 0 && (
+                      <Badge variant="outline" className="text-xs">{pct.toFixed(1)}% do mix</Badge>
+                    )}
+                  </div>
+                  {list.length === 0 ? (
+                    <div className="text-xs text-muted-foreground">Sem histórico</div>
+                  ) : (
+                    <ul className="text-xs space-y-1">
+                      {list.map((it) => (
+                        <li key={it.name} className="flex justify-between gap-2">
+                          <span className="truncate" title={it.name}>{it.name}</span>
+                          <span className="text-muted-foreground whitespace-nowrap">
+                            {formatDate(it.firstDate)} · {experienceLabel(it.firstDate)}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Consumíveis */}
+        <div>
+          <h4 className="font-semibold mb-2">Consumíveis</h4>
+          <div className="space-y-3">
+            {CONSUMABLE_CATS.map((cat) => {
+              const list = agg.byCatByName.get(cat) ?? [];
+              const catTotal = agg.byCat.get(cat)?.total ?? 0;
+              const pctMix = totalAll > 0 ? (catTotal / totalAll) * 100 : 0;
+              const pctCons = consumablesTotal > 0 ? (catTotal / consumablesTotal) * 100 : 0;
+              if (list.length === 0) return null;
+              const firstDate = agg.byCat.get(cat)?.firstDate;
+              return (
+                <div key={cat} className="rounded border p-3">
+                  <div className="flex items-center justify-between mb-2 gap-2 flex-wrap">
+                    <span className="text-sm font-semibold">{CAT_LABEL[cat]}</span>
+                    <div className="flex items-center gap-1">
+                      <Badge variant="secondary" className="text-xs">{pctCons.toFixed(1)}% consumíveis</Badge>
+                      <Badge variant="outline" className="text-xs">{pctMix.toFixed(1)}% mix total</Badge>
+                      <Badge variant="outline" className="text-xs">{experienceLabel(firstDate)}</Badge>
+                    </div>
+                  </div>
+                  <ul className="text-xs space-y-1 columns-1 md:columns-2">
+                    {list.map((it) => (
+                      <li key={it.name} className="flex justify-between gap-2 break-inside-avoid">
+                        <span className="truncate" title={it.name}>{it.name} {it.qty > 1 && <span className="text-muted-foreground">×{it.qty}</span>}</span>
+                        <span className="text-muted-foreground whitespace-nowrap">{formatDate(it.firstDate)}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              );
+            })}
+            {CONSUMABLE_CATS.every((c) => (agg.byCatByName.get(c) ?? []).length === 0) && (
+              <div className="text-xs text-muted-foreground">Sem histórico de consumíveis.</div>
+            )}
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}

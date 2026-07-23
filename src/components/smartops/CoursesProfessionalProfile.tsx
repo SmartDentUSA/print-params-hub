@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { AREA_ATUACAO_OPTIONS, ESPECIALIDADE_OPTIONS } from "@/lib/dentalTaxonomy";
 import { Loader2, Search, Save, Upload, Pencil, Lock } from "lucide-react";
+import ProfessionalMixSummary from "./ProfessionalMixSummary";
 
 type LeadRow = Record<string, any>;
 
@@ -495,6 +496,14 @@ export default function CoursesProfessionalProfile({ initialEmail, startEditing 
           </div>
         </CardContent>
       </Card>
+
+      {/* Portifólio Smart Dent — Mix derivado do histórico de compras */}
+      <ProfessionalMixSummary
+        leadId={leadId}
+        disabled={disabled}
+        cadValue={form.equip_cad}
+        onCadChange={(v) => setField("equip_cad", v)}
+      />
 
       {/* Consentimento */}
       <Card>
