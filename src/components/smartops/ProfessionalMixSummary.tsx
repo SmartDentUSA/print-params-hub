@@ -286,7 +286,61 @@ export default function ProfessionalMixSummary({ leadId, disabled, cadValue, onC
           }
         }
 
-        if (!cancelled) setItems([...crmItems, ...ecomItems]);
+        // Qualification fallback: use equip_* / produto_interesse from lia_attendances
+        // so the MIX table still renders when there are no synced deal_items /
+        // e-commerce orders. Injected only for categories not already covered.
+        const qualItems: PurchaseItem[] = [];
+        try {
+          const { data: lead } = await supabase
+            .from("lia_attendances")
+            .select(
+              "created_at, produto_interesse, equip_scanner, equip_scanner_ativacao, equip_scanner_bancada, equip_scanner_bancada_ativacao, equip_notebook, equip_notebook_ativacao, equip_cad, equip_cad_ativacao, equip_impressora, equip_impressora_ativacao, equip_pos_impressao, equip_pos_impressao_ativacao, equip_fresadora, equip_fresadora_ativacao"
+            )
+            .eq("id", leadId)
+            .maybeSingle();
+          if (lead) {
+            const covered = new Set<Cat>([...crmItems, ...ecomItems].map((i) => i.category));
+            const fallbackDate = (lead as any).created_at || new Date().toISOString();
+            const push = (raw: any, forced: Cat, ativ?: any) => {
+              const name = (raw || "").toString().trim();
+              if (!name) return;
+              if (ACCESSORY_RE.test(name.toLowerCase())) return;
+              if (covered.has(forced)) return;
+              qualItems.push({
+                name,
+                category: forced,
+                total: 0,
+                date: (ativ || fallbackDate) as string,
+                vendor: null,
+                source: "qualification" as any,
+              });
+              covered.add(forced);
+            };
+            push((lead as any).equip_scanner, "scanner_intraoral", (lead as any).equip_scanner_ativacao);
+            push((lead as any).equip_scanner_bancada, "scanner_bancada", (lead as any).equip_scanner_bancada_ativacao);
+            push((lead as any).equip_impressora, "impressora", (lead as any).equip_impressora_ativacao);
+            push((lead as any).equip_pos_impressao, "pos_impressao", (lead as any).equip_pos_impressao_ativacao);
+            push((lead as any).equip_fresadora, "fresadora", (lead as any).equip_fresadora_ativacao);
+            push((lead as any).equip_cad, "cad", (lead as any).equip_cad_ativacao);
+            // produto_interesse: only if it maps cleanly to a category not yet covered
+            const pi = ((lead as any).produto_interesse || "").toString().trim();
+            if (pi && !/info\s*geral|informa|geral/i.test(pi)) {
+              const cat = classify(pi, null);
+              if (cat !== "outros" && !covered.has(cat)) {
+                qualItems.push({
+                  name: pi,
+                  category: cat,
+                  total: 0,
+                  date: fallbackDate,
+                  vendor: null,
+                  source: "qualification" as any,
+                });
+              }
+            }
+          }
+        } catch { /* non-blocking */ }
+
+        if (!cancelled) setItems([...crmItems, ...ecomItems, ...qualItems]);
       } finally {
         if (!cancelled) setLoading(false);
       }
