@@ -369,7 +369,8 @@ export default function ProfessionalMixSummary({ leadId, disabled, cadValue, onC
   const consumablesTotal = agg.consumablesTotal || 1;
 
   // ---------- Equipamentos e software (por modelo) ----------
-  type ModelRow = { name: string; firstDate: string; lastDate: string; origin: "Histórico de compras" | "Proposta ganha" };
+  type EquipOrigin = "Histórico de compras" | "Proposta ganha" | "Automático" | "Manual";
+  type ModelRow = { name: string; firstDate: string; lastDate: string; origin: EquipOrigin };
   const equipTable = new Map<EquipCat, ModelRow[]>();
   for (const it of items) {
     const cat = classifyEquipTable(it);
@@ -387,11 +388,14 @@ export default function ProfessionalMixSummary({ leadId, disabled, cadValue, onC
       if (it.source === "ecom") row.origin = "Histórico de compras";
     }
   }
-  // CAD manual fallback (from field) if no history rows
-  if (!equipTable.get("cad")?.length && cadValue) {
-    equipTable.set("cad", [{ name: cadValue, firstDate: "", lastDate: "", origin: "Proposta ganha" }]);
+  // CAD: manual override (typed by seller) or auto-derivation from scanner history
+  if (!equipTable.get("cad")?.length) {
+    if (cadValue) {
+      equipTable.set("cad", [{ name: cadValue, firstDate: "", lastDate: "", origin: "Manual" }]);
+    } else if (cadAuto) {
+      equipTable.set("cad", [{ name: cadAuto, firstDate: "", lastDate: "", origin: "Automático" }]);
+    }
   }
-  const hasEquipRows = EQUIP_TABLE_ORDER.some((c) => (equipTable.get(c)?.length ?? 0) > 0);
 
   return (
     <Card>
@@ -436,134 +440,94 @@ export default function ProfessionalMixSummary({ leadId, disabled, cadValue, onC
           </div>
         </div>
 
-        {/* Equipamentos */}
+        {/* 2. Equipamentos e software (tabela normativa) */}
         <div>
-          <h4 className="font-semibold mb-2">Equipamentos</h4>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {EQUIPMENT_CATS.map((cat) => {
-              const list = agg.byCatByName.get(cat) ?? [];
-              const catTotal = agg.byCat.get(cat)?.total ?? 0;
-              const pct = totalAll > 0 ? (catTotal / totalAll) * 100 : 0;
+          <h4 className="font-semibold mb-2">2. Equipamentos e software</h4>
+          <div className="overflow-x-auto rounded border">
+            <table className="w-full text-sm">
+              <thead className="bg-muted/40 text-left">
+                <tr>
+                  <th className="px-3 py-2 font-semibold">Categoria</th>
+                  <th className="px-3 py-2 font-semibold">Produtos adquiridos</th>
+                  <th className="px-3 py-2 font-semibold whitespace-nowrap">Primeira compra</th>
+                  <th className="px-3 py-2 font-semibold whitespace-nowrap">Última compra</th>
+                  <th className="px-3 py-2 font-semibold whitespace-nowrap">Tempo de experiência</th>
+                  <th className="px-3 py-2 font-semibold whitespace-nowrap">Origem</th>
+                </tr>
+              </thead>
+              <tbody>
+                {EQUIP_TABLE_ORDER.map((cat) => {
+                  const rows = (equipTable.get(cat) ?? []).slice();
+                  rows.sort((a, b) => (a.firstDate || "").localeCompare(b.firstDate || ""));
 
-              // CAD special handling
-              if (cat === "cad") {
-                const cadFromHistory = list.length > 0;
-                return (
-                  <div key={cat} className="rounded border p-3">
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-sm font-semibold">{CAT_LABEL[cat]}</span>
-                      {cadFromHistory && (
-                        <Badge variant="outline" className="text-xs">{pct.toFixed(1)}% do mix</Badge>
-                      )}
-                    </div>
-                    {cadFromHistory ? (
-                      <ul className="text-xs space-y-1">
-                        {list.map((it) => (
-                          <li key={it.name} className="flex justify-between gap-2">
-                            <span className="truncate">{it.name}</span>
-                            <span className="text-muted-foreground whitespace-nowrap">{experienceLabel(it.firstDate)}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    ) : (
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <Input
-                            value={cadValue}
-                            onChange={(e) => onCadChange(e.target.value)}
-                            placeholder={cadAuto || "Medit Clinic App / BLZdental Lite CAD / Exocad..."}
-                            disabled={disabled && !cadOverride}
-                            className="h-8 text-xs"
-                          />
-                          {!cadOverride && (
-                            <Button size="sm" variant="outline" onClick={() => setCadOverride(true)} disabled={disabled}>
-                              <Pencil className="w-3 h-3" />
-                            </Button>
-                          )}
-                        </div>
-                        {cadAuto && !cadValue && (
-                          <div className="text-[10px] text-muted-foreground">Sugestão automática: {cadAuto}</div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                );
-              }
-
-              return (
-                <div key={cat} className="rounded border p-3">
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-sm font-semibold">{CAT_LABEL[cat]}</span>
-                    {list.length > 0 && (
-                      <Badge variant="outline" className="text-xs">{pct.toFixed(1)}% do mix</Badge>
-                    )}
-                  </div>
-                  {list.length === 0 ? (
-                    <div className="text-xs text-muted-foreground">Sem histórico</div>
-                  ) : (
-                    <ul className="text-xs space-y-1">
-                      {list.map((it) => (
-                        <li key={it.name} className="flex justify-between gap-2">
-                          <span className="truncate" title={it.name}>{it.name}</span>
-                          <span className="text-muted-foreground whitespace-nowrap">
-                            {formatDate(it.firstDate)} · {experienceLabel(it.firstDate)}
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Equipamentos e software (tabela normativa) */}
-        {hasEquipRows && (
-          <div>
-            <h4 className="font-semibold mb-2">2. Equipamentos e software</h4>
-            <div className="overflow-x-auto rounded border">
-              <table className="w-full text-xs">
-                <thead className="bg-muted/50 text-left">
-                  <tr>
-                    <th className="px-3 py-2 font-semibold">Categoria</th>
-                    <th className="px-3 py-2 font-semibold">Produtos adquiridos</th>
-                    <th className="px-3 py-2 font-semibold whitespace-nowrap">Primeira compra</th>
-                    <th className="px-3 py-2 font-semibold whitespace-nowrap">Última compra</th>
-                    <th className="px-3 py-2 font-semibold whitespace-nowrap">Tempo de experiência</th>
-                    <th className="px-3 py-2 font-semibold whitespace-nowrap">Origem</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {EQUIP_TABLE_ORDER.flatMap((cat) => {
-                    const rows = equipTable.get(cat) ?? [];
-                    if (rows.length === 0) return [];
-                    rows.sort((a, b) => (a.firstDate || "").localeCompare(b.firstDate || ""));
-                    return rows.map((r, idx) => (
-                      <tr key={`${cat}-${r.name}`} className="border-t align-top">
-                        {idx === 0 ? (
-                          <td className="px-3 py-2 font-medium" rowSpan={rows.length}>{EQUIP_TABLE_LABEL[cat]}</td>
-                        ) : null}
-                        <td className="px-3 py-2">{r.name}</td>
-                        <td className="px-3 py-2 whitespace-nowrap">{formatDate(r.firstDate)}</td>
-                        <td className="px-3 py-2 whitespace-nowrap">{formatDate(r.lastDate)}</td>
-                        <td className="px-3 py-2 whitespace-nowrap">{experienceLabel(r.firstDate)}</td>
-                        <td className="px-3 py-2 whitespace-nowrap">
-                          <Badge variant={r.origin === "Histórico de compras" ? "secondary" : "outline"} className="text-[10px]">
-                            {r.origin}
-                          </Badge>
-                        </td>
+                  if (rows.length === 0) {
+                    // CAD vazio: linha com input manual
+                    if (cat === "cad") {
+                      return (
+                        <tr key={cat} className="border-t align-top">
+                          <td className="px-3 py-2 font-medium">{EQUIP_TABLE_LABEL[cat]}</td>
+                          <td className="px-3 py-2">
+                            <div className="flex items-center gap-2">
+                              <Input
+                                value={cadValue}
+                                onChange={(e) => onCadChange(e.target.value)}
+                                placeholder={cadAuto || "Medit Clinic App / BLZdental Lite CAD / Exocad..."}
+                                disabled={disabled && !cadOverride}
+                                className="h-8 text-xs"
+                              />
+                              {!cadOverride && (
+                                <Button size="sm" variant="outline" onClick={() => setCadOverride(true)} disabled={disabled}>
+                                  <Pencil className="w-3 h-3" />
+                                </Button>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-3 py-2 text-muted-foreground">—</td>
+                          <td className="px-3 py-2 text-muted-foreground">—</td>
+                          <td className="px-3 py-2 text-muted-foreground">—</td>
+                          <td className="px-3 py-2 text-muted-foreground">—</td>
+                        </tr>
+                      );
+                    }
+                    return (
+                      <tr key={cat} className="border-t align-top">
+                        <td className="px-3 py-2 font-medium">{EQUIP_TABLE_LABEL[cat]}</td>
+                        <td className="px-3 py-2 text-muted-foreground">Sem histórico</td>
+                        <td className="px-3 py-2 text-muted-foreground">—</td>
+                        <td className="px-3 py-2 text-muted-foreground">—</td>
+                        <td className="px-3 py-2 text-muted-foreground">—</td>
+                        <td className="px-3 py-2 text-muted-foreground">—</td>
                       </tr>
-                    ));
-                  })}
-                </tbody>
-              </table>
-            </div>
-            <p className="mt-2 text-[11px] text-muted-foreground">
-              Fonte: histórico de compras faturadas (e-commerce) e propostas ganhas no CRM. Propostas abertas, perdidas, canceladas ou expiradas são ignoradas.
-            </p>
+                    );
+                  }
+
+                  return rows.map((r, idx) => (
+                    <tr key={`${cat}-${r.name}`} className="border-t align-top">
+                      {idx === 0 ? (
+                        <td className="px-3 py-2 font-medium" rowSpan={rows.length}>{EQUIP_TABLE_LABEL[cat]}</td>
+                      ) : null}
+                      <td className="px-3 py-2">{r.name}</td>
+                      <td className="px-3 py-2 whitespace-nowrap">{r.firstDate ? formatDate(r.firstDate) : "—"}</td>
+                      <td className="px-3 py-2 whitespace-nowrap">{r.lastDate ? formatDate(r.lastDate) : "—"}</td>
+                      <td className="px-3 py-2 whitespace-nowrap">{r.firstDate ? experienceLabel(r.firstDate) : "—"}</td>
+                      <td className="px-3 py-2 whitespace-nowrap">
+                        <Badge
+                          variant={r.origin === "Histórico de compras" ? "secondary" : "outline"}
+                          className="text-[10px]"
+                        >
+                          {r.origin}
+                        </Badge>
+                      </td>
+                    </tr>
+                  ));
+                })}
+              </tbody>
+            </table>
           </div>
-        )}
+          <p className="mt-2 text-[11px] text-muted-foreground">
+            Fonte: histórico de compras faturadas (e-commerce) e propostas ganhas no CRM. Propostas abertas, perdidas, canceladas ou expiradas são ignoradas. CAD é derivado automaticamente pelas regras de negócio ou preenchido manualmente pelo vendedor.
+          </p>
+        </div>
 
         {/* Consumíveis */}
         <div>
