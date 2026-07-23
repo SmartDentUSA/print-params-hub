@@ -5,7 +5,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, Pencil, Star, Trophy } from "lucide-react";
+import { Loader2, Pencil, Star, Trophy, Save, X } from "lucide-react";
+import { toast } from "sonner";
 
 // ---------- Classificação de categorias ----------
 // Ordem importa: primeiras regras vencem.
@@ -189,11 +190,42 @@ interface Props {
   onCadChange: (v: string) => void;
 }
 
+// Colunas em lia_attendances por categoria da tabela de equipamentos.
+// Categorias sem coluna dedicada não expõem persistência de edição.
+const EQUIP_COLS: Partial<Record<EquipCat, { name: string; serial: string }>> = {
+  scanner_3d: { name: "equip_scanner", serial: "equip_scanner_serial" },
+  notebook: { name: "equip_notebook", serial: "equip_notebook_serial" },
+  cad: { name: "equip_cad", serial: "equip_cad_serial" },
+  impressora: { name: "equip_impressora", serial: "equip_impressora_serial" },
+  wash_cure: { name: "equip_pos_impressao", serial: "equip_pos_impressao_serial" },
+};
+
+// Filtros do catálogo (system_a_catalog) por categoria da tabela.
+function catalogFilter(cat: EquipCat, r: { name: string; product_category: string | null; product_subcategory: string | null }): boolean {
+  const c = `${r.product_category ?? ""} ${r.product_subcategory ?? ""}`.toLowerCase();
+  const n = (r.name || "").toLowerCase();
+  switch (cat) {
+    case "scanner_3d": return /scan/.test(c) && !/acess/.test(c);
+    case "cad": return /cad/.test(c) && /software/.test(c);
+    case "impressora": return /impress[aã]o/.test(c) && /impressora/.test(c);
+    case "wash_cure": return /p[oó]s[- ]impress/.test(c) && /equipamento/.test(c) && /(wash|cure|clean|wax)/i.test(n);
+    case "cura_prof": return /p[oó]s[- ]impress/.test(c) && /equipamento/.test(c) && /(cure|cura|shape|asiga|magna|otoflash)/i.test(n);
+    case "notebook": return /notebook|avell|workstation/i.test(n);
+    case "dispositivos": return /blz|dmc|ioconnect|dispositivo/i.test(n);
+    default: return false;
+  }
+}
+
 export default function ProfessionalMixSummary({ leadId, disabled, cadValue, onCadChange }: Props) {
   const [loading, setLoading] = useState(false);
   const [items, setItems] = useState<PurchaseItem[]>([]);
   const [cadOverride, setCadOverride] = useState(false);
   const [cadCatalog, setCadCatalog] = useState<string[]>([]);
+  const [catalog, setCatalog] = useState<Array<{ name: string; product_category: string | null; product_subcategory: string | null }>>([]);
+  const [editMode, setEditMode] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [edits, setEdits] = useState<Partial<Record<EquipCat, { name: string; serial: string }>>>({});
+  const [serials, setSerials] = useState<Partial<Record<EquipCat, string>>>({});
 
   useEffect(() => {
     (async () => {
@@ -202,7 +234,13 @@ export default function ProfessionalMixSummary({ leadId, disabled, cadValue, onC
         .select("name, product_category, product_subcategory")
         .eq("active", true)
         .eq("approved", true)
-        .limit(500);
+        .limit(2000);
+      const rows = (data ?? []).map((r: any) => ({
+        name: (r.name || "").trim(),
+        product_category: r.product_category ?? null,
+        product_subcategory: r.product_subcategory ?? null,
+      })).filter((r) => r.name);
+      setCatalog(rows);
       const names = (data ?? [])
         .filter((r: any) => {
           const c = `${r.product_category ?? ""} ${r.product_subcategory ?? ""}`.toLowerCase();
@@ -294,11 +332,21 @@ export default function ProfessionalMixSummary({ leadId, disabled, cadValue, onC
           const { data: lead } = await supabase
             .from("lia_attendances")
             .select(
-              "created_at, produto_interesse, equip_scanner, equip_scanner_ativacao, equip_scanner_bancada, equip_scanner_bancada_ativacao, equip_notebook, equip_notebook_ativacao, equip_cad, equip_cad_ativacao, equip_impressora, equip_impressora_ativacao, equip_pos_impressao, equip_pos_impressao_ativacao, equip_fresadora, equip_fresadora_ativacao"
+              "created_at, produto_interesse, equip_scanner, equip_scanner_ativacao, equip_scanner_serial, equip_scanner_bancada, equip_scanner_bancada_ativacao, equip_scanner_bancada_serial, equip_notebook, equip_notebook_ativacao, equip_notebook_serial, equip_cad, equip_cad_ativacao, equip_cad_serial, equip_impressora, equip_impressora_ativacao, equip_impressora_serial, equip_pos_impressao, equip_pos_impressao_ativacao, equip_pos_impressao_serial, equip_fresadora, equip_fresadora_ativacao, equip_fresadora_serial"
             )
             .eq("id", leadId)
             .maybeSingle();
           if (lead) {
+            // Popular seriais para exibição/edição
+            if (!cancelled) {
+              setSerials({
+                scanner_3d: (lead as any).equip_scanner_serial || (lead as any).equip_scanner_bancada_serial || "",
+                notebook: (lead as any).equip_notebook_serial || "",
+                cad: (lead as any).equip_cad_serial || "",
+                impressora: (lead as any).equip_impressora_serial || "",
+                wash_cure: (lead as any).equip_pos_impressao_serial || "",
+              });
+            }
             const covered = new Set<Cat>([...crmItems, ...ecomItems].map((i) => i.category));
             const fallbackDate = (lead as any).created_at || new Date().toISOString();
             const push = (raw: any, forced: Cat, ativ?: any) => {
@@ -476,6 +524,48 @@ export default function ProfessionalMixSummary({ leadId, disabled, cadValue, onC
     }
   }
 
+  const startEdit = () => {
+    const initial: Partial<Record<EquipCat, { name: string; serial: string }>> = {};
+    for (const cat of EQUIP_TABLE_ORDER) {
+      if (!EQUIP_COLS[cat]) continue;
+      const rows = equipTable.get(cat) ?? [];
+      initial[cat] = { name: rows[0]?.name ?? "", serial: serials[cat] ?? "" };
+    }
+    setEdits(initial);
+    setEditMode(true);
+  };
+
+  const saveEdits = async () => {
+    if (!leadId) return;
+    setSaving(true);
+    try {
+      const payload: Record<string, any> = {};
+      for (const cat of EQUIP_TABLE_ORDER) {
+        const cols = EQUIP_COLS[cat];
+        const val = edits[cat];
+        if (!cols || !val) continue;
+        payload[cols.name] = val.name?.trim() || null;
+        payload[cols.serial] = val.serial?.trim() || null;
+      }
+      const { error } = await supabase.from("lia_attendances").update(payload).eq("id", leadId);
+      if (error) throw error;
+      // Refletir seriais no estado
+      const newSerials: Partial<Record<EquipCat, string>> = { ...serials };
+      for (const cat of EQUIP_TABLE_ORDER) {
+        if (edits[cat]) newSerials[cat] = edits[cat]!.serial;
+      }
+      setSerials(newSerials);
+      // Refletir nomes propagando à tabela (CAD via onCadChange; outros disparam re-render por leadId? não — usamos edits para exibir)
+      if (edits.cad?.name) onCadChange(edits.cad.name);
+      setEditMode(false);
+      toast.success("Equipamentos atualizados");
+    } catch (e: any) {
+      toast.error(`Erro ao salvar: ${e.message ?? e}`);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <Card>
       <CardHeader>
@@ -521,13 +611,30 @@ export default function ProfessionalMixSummary({ leadId, disabled, cadValue, onC
 
         {/* 2. Equipamentos e software (tabela normativa) */}
         <div>
-          <h4 className="font-semibold mb-2">2. Equipamentos e software</h4>
+          <div className="flex items-center justify-between mb-2 gap-2 flex-wrap">
+            <h4 className="font-semibold">2. Equipamentos e software</h4>
+            {!editMode ? (
+              <Button size="sm" variant="outline" onClick={startEdit} disabled={disabled}>
+                <Pencil className="w-3 h-3 mr-1" /> Editar
+              </Button>
+            ) : (
+              <div className="flex gap-2">
+                <Button size="sm" variant="outline" onClick={() => setEditMode(false)} disabled={saving}>
+                  <X className="w-3 h-3 mr-1" /> Cancelar
+                </Button>
+                <Button size="sm" onClick={saveEdits} disabled={saving}>
+                  {saving ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Save className="w-3 h-3 mr-1" />} Salvar
+                </Button>
+              </div>
+            )}
+          </div>
           <div className="overflow-x-auto rounded border">
             <table className="w-full text-sm">
               <thead className="bg-muted/40 text-left">
                 <tr>
                   <th className="px-3 py-2 font-semibold">Categoria</th>
                   <th className="px-3 py-2 font-semibold">Produtos adquiridos</th>
+                  <th className="px-3 py-2 font-semibold whitespace-nowrap">Nº de série</th>
                   <th className="px-3 py-2 font-semibold whitespace-nowrap">Primeira compra</th>
                   <th className="px-3 py-2 font-semibold whitespace-nowrap">Última compra</th>
                   <th className="px-3 py-2 font-semibold whitespace-nowrap">Tempo de experiência</th>
@@ -537,6 +644,52 @@ export default function ProfessionalMixSummary({ leadId, disabled, cadValue, onC
                 {EQUIP_TABLE_ORDER.map((cat) => {
                   const rows = (equipTable.get(cat) ?? []).slice();
                   rows.sort((a, b) => (a.firstDate || "").localeCompare(b.firstDate || ""));
+                  const catalogOptions = catalog.filter((r) => catalogFilter(cat, r)).map((r) => r.name);
+                  const uniqueOptions = Array.from(new Set(catalogOptions)).sort();
+                  const serialVal = serials[cat] ?? "";
+
+                  if (editMode && EQUIP_COLS[cat]) {
+                    const e = edits[cat] ?? { name: rows[0]?.name ?? "", serial: serialVal };
+                    const setField = (k: "name" | "serial", v: string) =>
+                      setEdits((prev) => ({ ...prev, [cat]: { ...(prev[cat] ?? { name: "", serial: "" }), [k]: v } }));
+                    // Garantir que o valor atual (mesmo fora do catálogo) apareça no dropdown
+                    const opts = e.name && !uniqueOptions.includes(e.name) ? [e.name, ...uniqueOptions] : uniqueOptions;
+                    return (
+                      <tr key={cat} className="border-t align-top">
+                        <td className="px-3 py-2 font-medium">{EQUIP_TABLE_LABEL[cat]}</td>
+                        <td className="px-3 py-2">
+                          <Select value={e.name || ""} onValueChange={(v) => setField("name", v)}>
+                            <SelectTrigger className="h-8 text-xs w-[260px]">
+                              <SelectValue placeholder="Selecionar do catálogo…" />
+                            </SelectTrigger>
+                            <SelectContent className="max-h-72">
+                              {opts.length === 0 && <SelectItem value="__none" disabled>Sem itens no catálogo</SelectItem>}
+                              {opts.map((n) => (
+                                <SelectItem key={n} value={n}>{n}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <Input
+                            className="mt-1 h-7 text-xs w-[260px]"
+                            placeholder="ou digitar manualmente"
+                            value={e.name}
+                            onChange={(ev) => setField("name", ev.target.value)}
+                          />
+                        </td>
+                        <td className="px-3 py-2">
+                          <Input
+                            className="h-8 text-xs w-[160px]"
+                            placeholder="Nº de série"
+                            value={e.serial}
+                            onChange={(ev) => setField("serial", ev.target.value)}
+                          />
+                        </td>
+                        <td className="px-3 py-2 text-muted-foreground whitespace-nowrap">{rows[0]?.firstDate ? formatDate(rows[0].firstDate) : "—"}</td>
+                        <td className="px-3 py-2 text-muted-foreground whitespace-nowrap">{rows[0]?.lastDate ? formatDate(rows[0].lastDate) : "—"}</td>
+                        <td className="px-3 py-2 text-muted-foreground whitespace-nowrap">{rows[0]?.firstDate ? experienceLabel(rows[0].firstDate) : "—"}</td>
+                      </tr>
+                    );
+                  }
 
                   if (rows.length === 0) {
                     // CAD vazio: "Não identificado" + dropdown com softwares CAD do catálogo
@@ -571,6 +724,7 @@ export default function ProfessionalMixSummary({ leadId, disabled, cadValue, onC
                               )}
                             </div>
                           </td>
+                          <td className="px-3 py-2 text-muted-foreground">{serialVal || "—"}</td>
                           <td className="px-3 py-2 text-muted-foreground">—</td>
                           <td className="px-3 py-2 text-muted-foreground">—</td>
                           <td className="px-3 py-2 text-muted-foreground">—</td>
@@ -581,6 +735,7 @@ export default function ProfessionalMixSummary({ leadId, disabled, cadValue, onC
                       <tr key={cat} className="border-t align-top">
                         <td className="px-3 py-2 font-medium">{EQUIP_TABLE_LABEL[cat]}</td>
                         <td className="px-3 py-2 text-muted-foreground">Sem histórico</td>
+                        <td className="px-3 py-2 text-muted-foreground">{serialVal || "—"}</td>
                         <td className="px-3 py-2 text-muted-foreground">—</td>
                         <td className="px-3 py-2 text-muted-foreground">—</td>
                         <td className="px-3 py-2 text-muted-foreground">—</td>
@@ -594,6 +749,9 @@ export default function ProfessionalMixSummary({ leadId, disabled, cadValue, onC
                         <td className="px-3 py-2 font-medium" rowSpan={rows.length}>{EQUIP_TABLE_LABEL[cat]}</td>
                       ) : null}
                       <td className="px-3 py-2">{r.name}</td>
+                      {idx === 0 ? (
+                        <td className="px-3 py-2 whitespace-nowrap text-muted-foreground" rowSpan={rows.length}>{serialVal || "—"}</td>
+                      ) : null}
                       <td className="px-3 py-2 whitespace-nowrap">{r.firstDate ? formatDate(r.firstDate) : "—"}</td>
                       <td className="px-3 py-2 whitespace-nowrap">{r.lastDate ? formatDate(r.lastDate) : "—"}</td>
                       <td className="px-3 py-2 whitespace-nowrap">{r.firstDate ? experienceLabel(r.firstDate) : "—"}</td>
