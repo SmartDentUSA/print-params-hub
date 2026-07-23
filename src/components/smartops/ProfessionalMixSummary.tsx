@@ -130,6 +130,51 @@ type PurchaseItem = {
   source: "crm" | "ecom";
 };
 
+// ---------- "Equipamentos e software" section categories ----------
+type EquipCat =
+  | "scanner_intraoral"
+  | "dispositivos"
+  | "impressora"
+  | "wash_cure"
+  | "cura_prof"
+  | "cad";
+
+const EQUIP_TABLE_ORDER: EquipCat[] = [
+  "scanner_intraoral",
+  "dispositivos",
+  "impressora",
+  "wash_cure",
+  "cura_prof",
+  "cad",
+];
+
+const EQUIP_TABLE_LABEL: Record<EquipCat, string> = {
+  scanner_intraoral: "Scanner intraoral",
+  dispositivos: "Dispositivos",
+  impressora: "Impressora 3D",
+  wash_cure: "Pós-impressão — Wash & Cure",
+  cura_prof: "Pós-impressão — Cura profissional",
+  cad: "CAD",
+};
+
+const DISPOSITIVOS_RE = /\b(blx\s*dental|io\s*connect|dmc\b|smile\s*lite|fotop|mdi|mini\s*dental|led\s*(?:cure|dental))\b/i;
+const WASH_CURE_RE = /\bwash\s*&?\s*cure\b|\bwash\s*and\s*cure\b/i;
+const CURA_PROF_RE = /\b(asiga\s*cure|magna\s*box|shapecure|c[- ]?cure|mercury|nova\s*cure|cure\s*m\b|uv\s*cure|cura\s+uv|pós[- ]?cura|pos[- ]?cura|otoflash)\b/i;
+
+function classifyEquipTable(it: PurchaseItem): EquipCat | null {
+  const n = (it.name || "").toLowerCase();
+  if (DISPOSITIVOS_RE.test(n)) return "dispositivos";
+  if (it.category === "scanner_intraoral") return "scanner_intraoral";
+  if (it.category === "impressora") return "impressora";
+  if (it.category === "cad") return "cad";
+  if (it.category === "pos_impressao") {
+    if (WASH_CURE_RE.test(n)) return "wash_cure";
+    if (CURA_PROF_RE.test(n)) return "cura_prof";
+    return "cura_prof";
+  }
+  return null;
+}
+
 interface Props {
   leadId: string | null;
   disabled: boolean;
@@ -323,6 +368,31 @@ export default function ProfessionalMixSummary({ leadId, disabled, cadValue, onC
   const totalAll = agg.total || 1;
   const consumablesTotal = agg.consumablesTotal || 1;
 
+  // ---------- Equipamentos e software (por modelo) ----------
+  type ModelRow = { name: string; firstDate: string; lastDate: string; origin: "Histórico de compras" | "Proposta ganha" };
+  const equipTable = new Map<EquipCat, ModelRow[]>();
+  for (const it of items) {
+    const cat = classifyEquipTable(it);
+    if (!cat) continue;
+    const key = it.name.toLowerCase().trim();
+    const list = equipTable.get(cat) ?? [];
+    let row = list.find((r) => r.name.toLowerCase() === key);
+    if (!row) {
+      row = { name: titleCase(it.name), firstDate: it.date, lastDate: it.date, origin: it.source === "ecom" ? "Histórico de compras" : "Proposta ganha" };
+      list.push(row);
+      equipTable.set(cat, list);
+    } else {
+      if (new Date(it.date) < new Date(row.firstDate)) row.firstDate = it.date;
+      if (new Date(it.date) > new Date(row.lastDate)) row.lastDate = it.date;
+      if (it.source === "ecom") row.origin = "Histórico de compras";
+    }
+  }
+  // CAD manual fallback (from field) if no history rows
+  if (!equipTable.get("cad")?.length && cadValue) {
+    equipTable.set("cad", [{ name: cadValue, firstDate: "", lastDate: "", origin: "Proposta ganha" }]);
+  }
+  const hasEquipRows = EQUIP_TABLE_ORDER.some((c) => (equipTable.get(c)?.length ?? 0) > 0);
+
   return (
     <Card>
       <CardHeader>
@@ -447,6 +517,53 @@ export default function ProfessionalMixSummary({ leadId, disabled, cadValue, onC
             })}
           </div>
         </div>
+
+        {/* Equipamentos e software (tabela normativa) */}
+        {hasEquipRows && (
+          <div>
+            <h4 className="font-semibold mb-2">2. Equipamentos e software</h4>
+            <div className="overflow-x-auto rounded border">
+              <table className="w-full text-xs">
+                <thead className="bg-muted/50 text-left">
+                  <tr>
+                    <th className="px-3 py-2 font-semibold">Categoria</th>
+                    <th className="px-3 py-2 font-semibold">Produtos adquiridos</th>
+                    <th className="px-3 py-2 font-semibold whitespace-nowrap">Primeira compra</th>
+                    <th className="px-3 py-2 font-semibold whitespace-nowrap">Última compra</th>
+                    <th className="px-3 py-2 font-semibold whitespace-nowrap">Tempo de experiência</th>
+                    <th className="px-3 py-2 font-semibold whitespace-nowrap">Origem</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {EQUIP_TABLE_ORDER.flatMap((cat) => {
+                    const rows = equipTable.get(cat) ?? [];
+                    if (rows.length === 0) return [];
+                    rows.sort((a, b) => (a.firstDate || "").localeCompare(b.firstDate || ""));
+                    return rows.map((r, idx) => (
+                      <tr key={`${cat}-${r.name}`} className="border-t align-top">
+                        {idx === 0 ? (
+                          <td className="px-3 py-2 font-medium" rowSpan={rows.length}>{EQUIP_TABLE_LABEL[cat]}</td>
+                        ) : null}
+                        <td className="px-3 py-2">{r.name}</td>
+                        <td className="px-3 py-2 whitespace-nowrap">{formatDate(r.firstDate)}</td>
+                        <td className="px-3 py-2 whitespace-nowrap">{formatDate(r.lastDate)}</td>
+                        <td className="px-3 py-2 whitespace-nowrap">{experienceLabel(r.firstDate)}</td>
+                        <td className="px-3 py-2 whitespace-nowrap">
+                          <Badge variant={r.origin === "Histórico de compras" ? "secondary" : "outline"} className="text-[10px]">
+                            {r.origin}
+                          </Badge>
+                        </td>
+                      </tr>
+                    ));
+                  })}
+                </tbody>
+              </table>
+            </div>
+            <p className="mt-2 text-[11px] text-muted-foreground">
+              Fonte: histórico de compras faturadas (e-commerce) e propostas ganhas no CRM. Propostas abertas, perdidas, canceladas ou expiradas são ignoradas.
+            </p>
+          </div>
+        )}
 
         {/* Consumíveis */}
         <div>
