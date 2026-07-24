@@ -79,9 +79,13 @@ export function DealerProposalWizard({ distributors }: Props) {
 
   const [previewItems, setPreviewItems] = useState<DealerPriceItem[]>([]);
   const [colorMap, setColorMap] = useState<Record<string, string | null>>({});
+  const [qtyMap, setQtyMap] = useState<Record<string, number>>({});
 
   useEffect(() => {
-    if (step === 2) setPreviewItems(items.map((i) => ({ ...i })));
+    if (step === 2) {
+      setPreviewItems(items.map((i) => ({ ...i })));
+      setQtyMap(Object.fromEntries(items.map((i) => [i.id, 1])));
+    }
   }, [step, items]);
 
   useEffect(() => {
@@ -109,7 +113,10 @@ export function DealerProposalWizard({ distributors }: Props) {
   };
   const restoreAllPreviewItems = () => {
     setPreviewItems(items.map((i) => ({ ...i })));
+    setQtyMap(Object.fromEntries(items.map((i) => [i.id, 1])));
   };
+  const getQty = (id: string) => Math.max(0, Number(qtyMap[id] ?? 1));
+  const setQty = (id: string, v: number) => setQtyMap((prev) => ({ ...prev, [id]: Math.max(0, isFinite(v) ? v : 0) }));
 
   const editPreview = (id: string, field: keyof DealerPriceItem, value: any) => {
     setPreviewItems((prev) => prev.map((it) => {
@@ -125,10 +132,10 @@ export function DealerProposalWizard({ distributors }: Props) {
   };
 
   const totals = useMemo(() => {
-    const subtotal = previewItems.reduce((a, b) => a + Number(b.price_base || 0), 0);
-    const total = previewItems.reduce((a, b) => a + Number(b.price_dealer || 0), 0);
+    const subtotal = previewItems.reduce((a, b) => a + Number(b.price_base || 0) * getQty(b.id), 0);
+    const total = previewItems.reduce((a, b) => a + Number(b.price_dealer || 0) * getQty(b.id), 0);
     return { subtotal, discount_total: subtotal - total, total };
-  }, [previewItems]);
+  }, [previewItems, qtyMap]);
 
   const saveProposal = async () => {
     if (!distributor || previewItems.length === 0) return;
