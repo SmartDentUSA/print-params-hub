@@ -185,10 +185,18 @@ export function DealerProposalWizard({ distributors }: Props) {
     loadProposals(distributor.id);
   };
 
-  const stubList: DealerPriceList = list ?? {
-    id: "temp", distributor_id: distributor?.id ?? "", name: "Proposta", currency: "BRL",
-    language: "pt", exchange_rate: null, version: 1, is_active: true, notes: null,
-    created_at: "", updated_at: "",
+  const stubList: DealerPriceList = {
+    id: list?.id ?? "temp",
+    distributor_id: distributor?.id ?? list?.distributor_id ?? "",
+    name: list?.name ?? "Proposta",
+    currency: editingCurrency ?? list?.currency ?? "BRL",
+    language: list?.language ?? "pt",
+    exchange_rate: list?.exchange_rate ?? null,
+    version: list?.version ?? 1,
+    is_active: list?.is_active ?? true,
+    notes: list?.notes ?? null,
+    created_at: list?.created_at ?? "",
+    updated_at: list?.updated_at ?? "",
   };
 
   return (
