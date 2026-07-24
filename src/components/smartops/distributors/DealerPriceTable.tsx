@@ -377,6 +377,7 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
         description: p.description,
         ncm_hs: v.ncm_hs ?? null,
         gtin_ean: v.gtin_ean ?? null,
+        color: v.color ?? null,
         price_base: priced.value,
         presentation: norm2.pres,
         quantity_multiplier: Number(p.quantity_multiplier ?? 1) || 1,
@@ -653,6 +654,7 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
         .update({
           cod: it.cod, sku: (it as any).sku ?? null, name: it.name, ncm_hs: it.ncm_hs, gtin_ean: it.gtin_ean,
           variant: it.variant, unidade: it.unidade, description: it.description,
+          color: (it as any).color ?? null,
           presentation: it.presentation || "Unit",
           quantity_multiplier: Number(it.quantity_multiplier ?? 1),
           presentation_qty: it.presentation_qty ?? null,
@@ -1120,6 +1122,7 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
                       <TableHead className="w-32">{t.hSku}</TableHead>
                       <TableHead className="w-28">{t.hPresQty}</TableHead>
                       <TableHead className="w-24">{t.hPres}</TableHead>
+                      <TableHead className="w-28">{t.hColor}</TableHead>
                       <TableHead className="w-40">{t.hNcm}</TableHead>
                       <TableHead className="w-40">{t.hGtin}</TableHead>
                       <TableHead className="w-28">{t.hUnit}</TableHead>
@@ -1242,6 +1245,14 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
                               ))}
                             </SelectContent>
                           </Select>
+                        </TableCell>
+                        <TableCell>
+                          <Input
+                            value={(it as any).color ?? ""}
+                            onChange={(e) => updateField(it.id, "color" as any, e.target.value)}
+                            className="h-8"
+                            placeholder="—"
+                          />
                         </TableCell>
                         <TableCell>
                           <Input value={it.ncm_hs ?? ""} onChange={(e) => updateField(it.id, "ncm_hs", e.target.value)} className="h-8" />
