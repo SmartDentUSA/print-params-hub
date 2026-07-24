@@ -346,7 +346,7 @@ export async function exportPriceTablePdf(
     if (opts.dark) doc.setFillColor(31, 31, 31); else doc.setFillColor(229, 229, 229);
     doc.rect(leftMargin, cursorY, contentW, h, "F");
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(opts.dark ? 10 : 8.5);
+    doc.setFontSize(opts.dark ? 8 : 7);
     doc.setTextColor(opts.dark ? 255 : 20, opts.dark ? 255 : 20, opts.dark ? 255 : 20);
     doc.text(label, leftMargin + 6, cursorY + (opts.dark ? 11 : 9));
     doc.setTextColor(0, 0, 0);
