@@ -118,10 +118,11 @@ export function exportPriceTableXlsx(
   items: DealerPriceItem[],
   filenamePrefix = "tabela-preco",
 ) {
+  const currency = list?.currency ?? "BRL";
   const header = [
-    "Categoria", "Subcategoria", "COD", "Produto",
-    "Pres #", "Pres", "NCM/HS", "GTIN/EAN", "Unid (×)",
-    "Preço tabela (Unit)", "% Desc.", "Preço dealer (Unit)", "Preço dealer",
+    "Categoria", "Subcategoria", "SKU", "Produto",
+    "Variante", "Pres", "Cor", "Qtd",
+    "Preço unitário", "Desc %", `Desc (${currency})`, "Total",
   ];
   const aoa: any[][] = [header];
   const groups = groupItemsByCategory(items);
@@ -131,15 +132,15 @@ export function exportPriceTableXlsx(
         const row = aoa.length + 1; // 1-based, header on row 1
         aoa.push([
           grp.category, sub.subcategory,
-          it.cod ?? "", it.name,
-          it.presentation_qty ?? "",
+          (it as any).sku ?? it.cod ?? "", it.name,
+          it.variant ?? it.presentation_qty ?? "",
           (it.presentation as string) ?? "Unit",
-          it.ncm_hs ?? "", it.gtin_ean ?? "",
+          (it as any).color ?? "",
           Number(it.quantity_multiplier ?? 1) || 1,
           Number(it.price_base) || 0,
           Number(it.discount_pct) || 0,
-          { f: `ROUND(J${row}*(1-K${row}/100),2)` },   // Preço dealer (Unit)
-          { f: `ROUND(L${row}*I${row},2)` },            // Preço dealer (line total)
+          { f: `ROUND(I${row}*J${row}/100,2)` },        // Desc (currency)
+          { f: `ROUND((I${row}-I${row}*J${row}/100)*H${row},2)` }, // Total
         ]);
       }
     }
@@ -148,7 +149,7 @@ export function exportPriceTableXlsx(
   const ws = XLSX.utils.aoa_to_sheet(aoa);
   ws["!cols"] = [
     { wch: 34 }, { wch: 26 }, { wch: 10 }, { wch: 40 },
-    { wch: 10 }, { wch: 8 }, { wch: 12 }, { wch: 16 }, { wch: 9 },
+    { wch: 14 }, { wch: 8 }, { wch: 14 }, { wch: 8 },
     { wch: 16 }, { wch: 10 }, { wch: 16 }, { wch: 16 },
   ];
   const wb = XLSX.utils.book_new();
