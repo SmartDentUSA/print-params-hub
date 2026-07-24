@@ -3,7 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Trash2, Plus, Search, X } from "lucide-react";
+import { Check, Trash2, Plus, Save, Search, X } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { useKitComponents } from "@/hooks/useKitComponents";
@@ -22,6 +22,8 @@ export function KitComponentsDialog({ open, onOpenChange, aliasId, kitName, vari
   const { components, loading, addComponent, updateQuantity, removeComponent } = useKitComponents(aliasId);
   const [search, setSearch] = useState("");
   const [qty, setQty] = useState<number>(1);
+  const [selected, setSelected] = useState<CatalogVariationOption | null>(null);
+  const [saving, setSaving] = useState(false);
   const { toast } = useToast();
 
   const filtered = useMemo(() => {
@@ -36,13 +38,19 @@ export function KitComponentsDialog({ open, onOpenChange, aliasId, kitName, vari
       .slice(0, 60);
   }, [variations, search]);
 
-  const handleAdd = async (v: CatalogVariationOption) => {
+  const handleAdd = async () => {
+    if (!selected) return;
+    setSaving(true);
     try {
-      await addComponent(v.id, qty || 1);
-      toast({ title: "Componente adicionado" });
+      await addComponent(selected, qty || 1);
+      toast({ title: "Componente salvo", description: selected.parent_name || selected.sku || "" });
       setSearch("");
+      setSelected(null);
+      setQty(1);
     } catch (e: any) {
       toast({ title: "Erro", description: e.message, variant: "destructive" });
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -134,24 +142,39 @@ export function KitComponentsDialog({ open, onOpenChange, aliasId, kitName, vari
                   title="Quantidade"
                 />
               </div>
+              {selected && (
+                <div className="flex items-center justify-between gap-2 rounded-md border border-primary/30 bg-primary/5 p-2 text-xs">
+                  <div className="min-w-0">
+                    <div className="truncate font-medium">{selected.parent_name || selected.presentation || selected.sku}</div>
+                    <div className="truncate text-muted-foreground">{selected.sku || "Produto sem SKU granular"}</div>
+                  </div>
+                  <Button size="sm" className="h-8 shrink-0 text-xs" onClick={handleAdd} disabled={saving}>
+                    <Save className="mr-1 h-3.5 w-3.5" />
+                    {saving ? "Salvando..." : "Salvar componente"}
+                  </Button>
+                </div>
+              )}
               <ScrollArea className="h-[290px] border rounded-md">
                 <div className="p-1">
                   {filtered.map((v) => (
-                    <button
+                    <Button
+                      type="button"
+                      variant="ghost"
                       key={v.id}
-                      onClick={() => handleAdd(v)}
+                      onClick={() => setSelected(v)}
                       className={cn(
-                        "w-full flex items-center gap-2 rounded-sm px-2 py-1.5 text-xs hover:bg-accent cursor-pointer text-left",
+                        "h-auto w-full justify-start gap-2 rounded-sm px-2 py-1.5 text-xs text-left",
+                        selected?.id === v.id && "bg-accent",
                       )}
                     >
-                      <Plus className="h-3 w-3 shrink-0 text-muted-foreground" />
+                      {selected?.id === v.id ? <Check className="h-3 w-3 shrink-0" /> : <Plus className="h-3 w-3 shrink-0 text-muted-foreground" />}
                       <div className="flex-1 min-w-0">
                         <div className="font-medium truncate">{v.parent_name || v.presentation || v.sku}</div>
                         <div className="text-[10px] text-muted-foreground truncate">
                           {[v.sku, v.presentation, v.color].filter(Boolean).join(" · ")}
                         </div>
                       </div>
-                    </button>
+                    </Button>
                   ))}
                   {filtered.length === 0 && (
                     <div className="text-center py-4 text-xs text-muted-foreground">

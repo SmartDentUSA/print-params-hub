@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Check, ChevronsUpDown, Package, Search, Sparkles, X } from "lucide-react";
+import { Check, ChevronsUpDown, Package, Save, Search, Sparkles, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -105,6 +105,8 @@ export function SkuMappingTab() {
   const [statusFilter, setStatusFilter] = useState<"pending" | "mapped" | "kits" | "all">("pending");
   const [sourceFilter, setSourceFilter] = useState<"all" | "deal_items" | "loja_integrada">("all");
   const [orderBy, setOrderBy] = useState<"gmv" | "occurrences" | "name">("gmv");
+  const [pendingMappings, setPendingMappings] = useState<Record<string, CatalogVariationOption>>({});
+  const [savingKey, setSavingKey] = useState<string | null>(null);
 
   const [kitDialog, setKitDialog] = useState<{ open: boolean; aliasId: number | null; name: string }>({
     open: false,
@@ -150,11 +152,19 @@ export function SkuMappingTab() {
   }, [rows]);
 
   const handleMap = async (row: SkuInboxRow, variation: CatalogVariationOption) => {
+    setSavingKey(row.name_key);
     try {
       await saveMapping(row, variation, false);
+      setPendingMappings((current) => {
+        const next = { ...current };
+        delete next[row.name_key];
+        return next;
+      });
       toast({ title: "✅ SKU mapeado", description: variation.sku || variation.parent_name || "" });
     } catch (e: any) {
       toast({ title: "Erro", description: e.message, variant: "destructive" });
+    } finally {
+      setSavingKey(null);
     }
   };
 
@@ -245,7 +255,9 @@ export function SkuMappingTab() {
               </tr>
             </thead>
             <tbody>
-              {filtered.map((r) => (
+              {filtered.map((r) => {
+                const pending = pendingMappings[r.name_key];
+                return (
                 <tr key={r.name_key} className="border-t hover:bg-muted/30">
                   <td className="px-3 py-2 max-w-[260px]">
                     <div className="font-medium truncate">{r.sample_name}</div>
@@ -277,11 +289,22 @@ export function SkuMappingTab() {
                         <Package className="h-3.5 w-3.5 mr-1" /> Editar componentes
                       </Button>
                     ) : (
-                      <VariationPicker
-                        variations={variations}
-                        onSelect={(v) => handleMap(r, v)}
-                        currentSku={r.sku_interno}
-                      />
+                      <div className="flex items-center gap-2">
+                        <VariationPicker
+                          variations={variations}
+                          onSelect={(v) => setPendingMappings((current) => ({ ...current, [r.name_key]: v }))}
+                          currentSku={pending?.sku || pending?.parent_name || r.sku_interno}
+                        />
+                        <Button
+                          size="sm"
+                          className="h-8 text-xs"
+                          disabled={!pending || savingKey === r.name_key}
+                          onClick={() => pending && handleMap(r, pending)}
+                        >
+                          <Save className="mr-1 h-3.5 w-3.5" />
+                          {savingKey === r.name_key ? "Salvando..." : "Salvar"}
+                        </Button>
+                      </div>
                     )}
                   </td>
                   <td className="px-3 py-2">
@@ -296,7 +319,7 @@ export function SkuMappingTab() {
                     )}
                   </td>
                 </tr>
-              ))}
+              )})}
               {filtered.length === 0 && (
                 <tr>
                   <td colSpan={7} className="text-center py-8 text-muted-foreground text-sm">
