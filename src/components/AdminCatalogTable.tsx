@@ -194,7 +194,10 @@ export function AdminCatalogTable({
     patch: Partial<CatalogVariation>,
   ) => {
     if (isPlaceholderVariation(variation)) {
-      const created = await addVariation(productId);
+      const product = products.find((p) => p.id === productId);
+      const resinDefaults =
+        product && isResinRow(product) ? { presentation: "grs" } : undefined;
+      const created = await addVariation(productId, resinDefaults);
       if (created) {
         await upsertField(created.id, patch);
       }
@@ -391,7 +394,7 @@ export function AdminCatalogTable({
                     </TableCell>
                     <TableCell>
                       <Select
-                        value={v.presentation || ""}
+                        value={v.presentation || (isResinRow(product) ? "grs" : "")}
                         onValueChange={async (val) => {
                           try {
                             const patch: any = { presentation: val || null };
@@ -555,7 +558,10 @@ export function AdminCatalogTable({
                                   className="h-7 px-2"
                                   onClick={async () => {
                                     try {
-                                      await addVariation(product.id!);
+                                      await addVariation(
+                                        product.id!,
+                                        isResinRow(product) ? { presentation: "grs" } : undefined,
+                                      );
                                       toast.success("Variação adicionada");
                                     } catch (e: any) {
                                       toast.error(e?.message || "Erro");

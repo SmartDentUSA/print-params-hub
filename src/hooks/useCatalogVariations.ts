@@ -82,7 +82,10 @@ export function useCatalogVariations() {
   );
 
   const addVariation = useCallback(
-    async (productId: string): Promise<CatalogVariation | null> => {
+    async (
+      productId: string,
+      defaults?: Partial<CatalogVariation>,
+    ): Promise<CatalogVariation | null> => {
       const existing = variationsByProduct[productId] || [];
       const nextOrder =
         existing.reduce((m, v) => Math.max(m, v.sort_order ?? 0), 0) + 1;
@@ -94,6 +97,7 @@ export function useCatalogVariations() {
             sort_order: nextOrder,
             source: "admin_catalog_ui",
             presentation_qty: "",
+            ...(defaults || {}),
           },
         ])
         .select()
