@@ -394,7 +394,7 @@ export function AdminCatalogTable({
                     </TableCell>
                     <TableCell>
                       <Select
-                        value={v.presentation || ""}
+                        value={v.presentation || (isResinRow(product) ? "grs" : "")}
                         onValueChange={async (val) => {
                           try {
                             const patch: any = { presentation: val || null };
