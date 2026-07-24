@@ -460,11 +460,24 @@ export function DealerCatalogGrid({ onAddToPriceList }: Props) {
                     {t.empty}
                   </TableCell>
                 </TableRow>
-              ) : (
-                filtered.flatMap((p) => {
+              ) : (() => {
+                const rows: JSX.Element[] = [];
+                let lastGroup = "";
+                filtered.forEach((p) => {
+                  const groupKey = `${p.product_category || "—"} / ${p.product_subcategory || "—"}`;
+                  if (groupKey !== lastGroup) {
+                    lastGroup = groupKey;
+                    rows.push(
+                      <TableRow key={`hdr-${groupKey}`} className="bg-muted/60 hover:bg-muted/60">
+                        <TableCell colSpan={16} className="py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                          {groupKey}
+                        </TableCell>
+                      </TableRow>,
+                    );
+                  }
                   const vars = varsByProduct.get(p.id) || [];
                   if (vars.length === 0) {
-                    return [
+                    rows.push(
                       <TableRow key={p.id} className={p.active ? "" : "opacity-50"}>
                         <TableCell>
                           <Badge variant={p.active ? "default" : "outline"} className="text-[10px]">
@@ -491,12 +504,13 @@ export function DealerCatalogGrid({ onAddToPriceList }: Props) {
                           {/* Variações são criadas em Gestão de Catálogo. */}
                         </TableCell>
                       </TableRow>,
-                    ];
+                    );
+                    return;
                   }
-                  return vars.map((v, idx) => {
+                  vars.forEach((v, idx) => {
                     const isLead = idx === 0;
                     const span = vars.length;
-                    return (
+                    rows.push(
                       <TableRow key={v.id} className={p.active ? "" : "opacity-50"}>
                         {isLead && (
                           <>
