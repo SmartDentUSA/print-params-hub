@@ -1316,6 +1316,62 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
           ))}
         </div>
       )}
+      <Dialog open={addOpen} onOpenChange={setAddOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Adicionar produto Smart Dent</DialogTitle>
+            <DialogDescription>
+              Selecione uma variação liberada para distribuição para adicionar à tabela ({currency}).
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Input
+              autoFocus
+              placeholder="Buscar por produto, SKU, apresentação, cor…"
+              value={addSearch}
+              onChange={(e) => setAddSearch(e.target.value)}
+            />
+            <div className="max-h-[420px] overflow-y-auto border rounded">
+              {addLoading ? (
+                <div className="p-4 text-sm text-muted-foreground">Carregando…</div>
+              ) : addOptions.length === 0 ? (
+                <div className="p-4 text-sm text-muted-foreground">
+                  Nenhuma variação disponível. Ative "Distribuição" em Gestão de Catálogo.
+                </div>
+              ) : (
+                (() => {
+                  const q = addSearch.trim().toLowerCase();
+                  const filtered = q
+                    ? addOptions.filter((o) => {
+                        const hay = `${o.label} ${o.variation.sku ?? ""} ${o.product.external_id ?? ""}`.toLowerCase();
+                        return hay.includes(q);
+                      })
+                    : addOptions;
+                  return filtered.slice(0, 200).map((o) => (
+                    <button
+                      key={o.key}
+                      type="button"
+                      onClick={() => addItemFromOption(o)}
+                      className="w-full flex items-center gap-3 p-2 hover:bg-muted text-left border-b last:border-b-0"
+                    >
+                      {o.product.image_url
+                        ? <img src={o.product.image_url} alt="" className="w-10 h-10 object-contain bg-muted rounded" />
+                        : <div className="w-10 h-10 bg-muted rounded flex items-center justify-center"><ImageOff className="w-4 h-4 text-muted-foreground" /></div>}
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-medium truncate">{o.label}</div>
+                        <div className="text-xs text-muted-foreground truncate">
+                          {[o.product.product_category, o.variation.sku, o.product.external_id].filter(Boolean).join(" · ") || "—"}
+                        </div>
+                      </div>
+                      <Plus className="w-4 h-4 text-primary" />
+                    </button>
+                  ));
+                })()
+              )}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
