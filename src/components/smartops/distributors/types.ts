@@ -143,3 +143,35 @@ export function categoryRank(cat?: string | null, sub?: string | null): number {
   const decPart = subMatch ? parseInt(subMatch[1], 10) : 0;
   return intPart + decPart / 100;
 }
+
+/** Parse a variation quantity label (e.g. "100", "100g", "1kg", "500 grs")
+ * into grams. Returns null when the value can't be interpreted. */
+export function parseVariationQtyGrams(qty: unknown): number | null {
+  if (qty == null) return null;
+  const str = String(qty).toLowerCase().replace(",", ".").trim();
+  if (!str) return null;
+  const m = str.match(/(\d+(?:\.\d+)?)\s*(kg|grs|g|mg)?/);
+  if (!m) return null;
+  let n = parseFloat(m[1]);
+  if (!isFinite(n)) return null;
+  const unit = m[2] || "";
+  if (unit === "kg") n *= 1000;
+  else if (unit === "mg") n /= 1000;
+  return n;
+}
+
+/** Amostras grátis: variação de 100g em 3. IMPRESSÃO 3D → 3.1 RESINAS 3D.
+ * Não devem aparecer no catálogo de distribuição, no import de tabela de
+ * preço, nem no seletor de produtos da proposta. */
+export function isFreeSampleVariation(
+  category?: string | null,
+  subcategory?: string | null,
+  qty?: unknown,
+): boolean {
+  const cat = String(category ?? "").trim();
+  const sub = String(subcategory ?? "").trim();
+  if (!/^\s*3\./.test(cat)) return false;
+  if (!/^\s*3\.1\b/.test(sub)) return false;
+  const grams = parseVariationQtyGrams(qty);
+  return grams === 100;
+}
