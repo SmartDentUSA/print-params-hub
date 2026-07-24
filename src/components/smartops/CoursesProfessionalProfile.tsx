@@ -12,6 +12,8 @@ import { useToast } from "@/hooks/use-toast";
 import { AREA_ATUACAO_OPTIONS, ESPECIALIDADE_OPTIONS } from "@/lib/dentalTaxonomy";
 import { Loader2, Search, Save, Upload, Pencil, Lock } from "lucide-react";
 import ProfessionalMixSummary from "./ProfessionalMixSummary";
+import ProfessionalQualifications from "./ProfessionalQualifications";
+import type { QualificationEntry, UniversityRoleEntry } from "@/lib/mecInstitutions";
 
 type LeadRow = Record<string, any>;
 
@@ -69,6 +71,8 @@ const emptyForm = {
   prof_rating_quality: 0 as number,
   prof_rating_price: 0 as number,
   prof_rating_value: 0 as number,
+  prof_qualifications: {} as Record<string, QualificationEntry[]>,
+  prof_university_roles: [] as UniversityRoleEntry[],
 };
 
 type FormState = typeof emptyForm;
@@ -99,7 +103,7 @@ export default function CoursesProfessionalProfile({ initialEmail, startEditing 
       const { data, error } = await supabase
         .from("lia_attendances")
         .select(
-          "id, nome, email, area_atuacao, especialidade, pessoa_nascimento, prof_cro, prof_photo_url, prof_mini_cv, prof_course_platform, prof_wa_ddi, prof_wa_number, prof_course_wa_ddi, prof_course_wa_number, prof_cep, prof_country, prof_state, prof_city, prof_neighborhood, prof_street, prof_number, prof_complement, instagram, prof_tiktok, prof_youtube, pessoa_linkedin, prof_lattes, prof_orcid, prof_fapesp_id, prof_site, prof_marketing_consent, produto_interesse, equip_scanner, equip_scanner_bancada, equip_notebook, equip_cad, equip_impressora, equip_pos_impressao, equip_fresadora, prof_rating_quality, prof_rating_price, prof_rating_value"
+          "id, nome, email, area_atuacao, especialidade, pessoa_nascimento, prof_cro, prof_photo_url, prof_mini_cv, prof_course_platform, prof_wa_ddi, prof_wa_number, prof_course_wa_ddi, prof_course_wa_number, prof_cep, prof_country, prof_state, prof_city, prof_neighborhood, prof_street, prof_number, prof_complement, instagram, prof_tiktok, prof_youtube, pessoa_linkedin, prof_lattes, prof_orcid, prof_fapesp_id, prof_site, prof_marketing_consent, produto_interesse, equip_scanner, equip_scanner_bancada, equip_notebook, equip_cad, equip_impressora, equip_pos_impressao, equip_fresadora, prof_rating_quality, prof_rating_price, prof_rating_value, prof_qualifications, prof_university_roles"
         )
         .ilike("email", email)
         .is("merged_into", null)
@@ -124,6 +128,13 @@ export default function CoursesProfessionalProfile({ initialEmail, startEditing 
         const v = (data as any)[k];
         if (v === null || v === undefined) continue;
         (merged as any)[k] = typeof emptyForm[k] === "boolean" ? !!v : v;
+      }
+      // Normaliza JSONB
+      if (!merged.prof_qualifications || typeof merged.prof_qualifications !== "object" || Array.isArray(merged.prof_qualifications)) {
+        merged.prof_qualifications = {};
+      }
+      if (!Array.isArray(merged.prof_university_roles)) {
+        merged.prof_university_roles = [];
       }
       merged.email = data.email ?? email;
       setForm(merged);
@@ -437,6 +448,14 @@ export default function CoursesProfessionalProfile({ initialEmail, startEditing 
       </Card>
 
       {/* Portifólio Smart Dent — Mix derivado do histórico de compras (tabela normativa) */}
+      <ProfessionalQualifications
+        disabled={disabled}
+        qualifications={form.prof_qualifications}
+        onQualificationsChange={(v) => setField("prof_qualifications", v)}
+        universityRoles={form.prof_university_roles}
+        onUniversityRolesChange={(v) => setField("prof_university_roles", v)}
+      />
+
       <ProfessionalMixSummary
         leadId={leadId}
         disabled={disabled}
