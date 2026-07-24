@@ -72,6 +72,7 @@ function VariationPicker({
           <div className="p-1">
             {filtered.map((v) => (
               <button
+                type="button"
                 key={v.id}
                 className="w-full flex items-center gap-2 rounded-sm px-2 py-1.5 text-xs hover:bg-accent text-left"
                 onClick={() => {
@@ -161,6 +162,7 @@ export function SkuMappingTab() {
 
   const handleMap = async (row: SkuInboxRow, variation: CatalogVariationOption) => {
     setSavingKey(row.name_key);
+    toast({ title: "Salvando SKU...", description: variation.sku || variation.parent_name || "" });
     try {
       await saveMapping(row, variation, false);
       setPendingMappings((current) => {
@@ -168,7 +170,7 @@ export function SkuMappingTab() {
         delete next[row.name_key];
         return next;
       });
-      toast({ title: "✅ SKU mapeado", description: variation.sku || variation.parent_name || "" });
+      toast({ title: "✅ SKU salvo no banco", description: variation.sku || variation.parent_name || "" });
     } catch (e: any) {
       toast({ title: "Erro", description: e.message, variant: "destructive" });
     } finally {
@@ -293,6 +295,7 @@ export function SkuMappingTab() {
                   <td className="px-3 py-2">
                     {r.is_kit ? (
                       <Button
+                          type="button"
                         variant="outline"
                         size="sm"
                         className="h-8 text-xs"
@@ -310,10 +313,15 @@ export function SkuMappingTab() {
                           currentSku={pending?.sku || pending?.parent_name || r.sku_interno}
                         />
                         <Button
+                          type="button"
                           size="sm"
                           className="h-8 text-xs"
                           disabled={!pending || savingKey === r.name_key}
-                          onClick={() => pending && handleMap(r, pending)}
+                          onClick={(event) => {
+                            event.preventDefault();
+                            event.stopPropagation();
+                            if (pending) void handleMap(r, pending);
+                          }}
                         >
                           <Save className="mr-1 h-3.5 w-3.5" />
                           {savingKey === r.name_key ? "Salvando..." : "Salvar"}
