@@ -193,6 +193,8 @@ export function DealerCatalogGrid({ onAddToPriceList }: Props) {
     const needle = q.trim().toLowerCase();
     const list = items.filter((i) => {
       if (!showInactive && !i.active) return false;
+      // Espelho: só produtos liberados para distribuição em Gestão de Catálogo.
+      if (i?.extra_data?.distribute_enabled !== true) return false;
       if (category !== "all" && i.product_category !== category) return false;
       if (!needle) return true;
       const hay = [i.name, i.name_en, i.name_es, i.product_category, i.product_subcategory, i.external_id, i.slug].join(" ").toLowerCase();
