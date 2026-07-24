@@ -86,6 +86,7 @@ const I18N: Record<string, Record<string, string>> = {
     catStatus: "Status", catPhoto: "Foto", catCod: "COD", catSku: "SKU", catProduct: "Produto",
     catPresQty: "Variação", catPres: "Pres", catNcm: "NCM/HS", catGtin: "GTIN/EAN",
     catUnit: "Unidade", catWeight: "Peso (kg)", catDims: "Dimensões (cm)",
+    catColor: "Cor",
     priceBRL: "Preço BRL", priceUSD: "Preço USD", priceEUR: "Preço EUR",
     empty: "Nenhum produto encontrado.", loading: "Carregando catálogo…",
     activated: "Ativado", deactivated: "Desativado", addVariation: "Adicionar variação",
@@ -104,6 +105,7 @@ const I18N: Record<string, Record<string, string>> = {
     catStatus: "Estado", catPhoto: "Foto", catCod: "COD", catSku: "SKU", catProduct: "Producto",
     catPresQty: "Variación", catPres: "Pres", catNcm: "NCM/HS", catGtin: "GTIN/EAN",
     catUnit: "Unidad", catWeight: "Peso (kg)", catDims: "Dimensiones (cm)",
+    catColor: "Color",
     priceBRL: "Precio BRL", priceUSD: "Precio USD", priceEUR: "Precio EUR",
     empty: "Ningún producto encontrado.", loading: "Cargando catálogo…",
     activated: "Activado", deactivated: "Desactivado", addVariation: "Agregar variación",
@@ -122,6 +124,7 @@ const I18N: Record<string, Record<string, string>> = {
     catStatus: "Status", catPhoto: "Photo", catCod: "COD", catSku: "SKU", catProduct: "Product",
     catPresQty: "Variant", catPres: "Pres", catNcm: "HS Code", catGtin: "GTIN/EAN",
     catUnit: "Unit", catWeight: "Weight (kg)", catDims: "Dimensions (cm)",
+    catColor: "Color",
     priceBRL: "Price BRL", priceUSD: "Price USD", priceEUR: "Price EUR",
     empty: "No products found.", loading: "Loading catalog…",
     activated: "Enabled", deactivated: "Disabled", addVariation: "Add variant",
@@ -429,7 +432,7 @@ export function DealerCatalogGrid({ onAddToPriceList }: Props) {
         <p className="text-sm text-muted-foreground">{t.loading}</p>
       ) : (
         <div className="rounded-md border overflow-x-auto">
-          <Table className="min-w-[2050px]">
+          <Table className="min-w-[2180px]">
             <TableHeader>
               <TableRow>
                 <TableHead className="w-[80px]">{t.catStatus}</TableHead>
@@ -439,6 +442,7 @@ export function DealerCatalogGrid({ onAddToPriceList }: Props) {
                 <TableHead className="w-[120px]">{t.catSku}</TableHead>
                 <TableHead className="w-[110px]">{t.catPresQty}</TableHead>
                 <TableHead className="w-[90px]">{t.catPres}</TableHead>
+                <TableHead className="w-[120px]">{t.catColor}</TableHead>
                 <TableHead className="w-[130px]">{t.catNcm}</TableHead>
                 <TableHead className="w-[150px]">{t.catGtin}</TableHead>
                 <TableHead className="w-[110px]">{t.catWeight}</TableHead>
@@ -453,7 +457,7 @@ export function DealerCatalogGrid({ onAddToPriceList }: Props) {
             <TableBody>
               {filtered.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={16} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={17} className="text-center py-8 text-muted-foreground">
                     {t.empty}
                   </TableCell>
                 </TableRow>
@@ -482,7 +486,7 @@ export function DealerCatalogGrid({ onAddToPriceList }: Props) {
                           {p.product_category && <div className="text-[11px] text-muted-foreground truncate">{p.product_category}{p.product_subcategory ? ` › ${p.product_subcategory}` : ""}</div>}
                         </TableCell>
                         <TableCell className="font-mono text-xs">{codOf(p)}</TableCell>
-                        <TableCell colSpan={10} className="text-xs text-muted-foreground italic">
+                        <TableCell colSpan={11} className="text-xs text-muted-foreground italic">
                           {t.noVariations}
                         </TableCell>
                         <TableCell>
@@ -550,6 +554,15 @@ export function DealerCatalogGrid({ onAddToPriceList }: Props) {
                               ))}
                             </SelectContent>
                           </Select>
+                        </TableCell>
+                        <TableCell>
+                          <Input
+                            className="h-8 text-xs"
+                            value={(v as any).color ?? ""}
+                            readOnly
+                            disabled
+                            placeholder="—"
+                          />
                         </TableCell>
                         <TableCell>
                           <Input

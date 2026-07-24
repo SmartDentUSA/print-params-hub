@@ -54,6 +54,7 @@ export type DealerPriceItem = {
   quantity_multiplier?: number | null;
   presentation_qty?: string | null;
   is_active?: boolean;
+  color?: string | null;
 };
 
 export type PresentationType = "grs" | "Kg" | "Item" | "ml" | "Un";

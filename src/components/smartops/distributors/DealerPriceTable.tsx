@@ -74,7 +74,7 @@ const I18N: Record<string, Record<string, string>> = {
     loading: "Carregando…", selectPrompt: "Selecione um distribuidor para criar/editar sua tabela.",
     emptyTable: "Tabela vazia. Clique em", populateAll: "para popular todos os produtos ativos.",
     noCategory: "Sem categoria",
-    hPhoto: "Foto", hCod: "COD", hSku: "SKU", hProduct: "Produto", hPresQty: "Pres #", hPres: "Pres", hNcm: "NCM/HS", hGtin: "GTIN/EAN",
+    hPhoto: "Foto", hCod: "COD", hSku: "SKU", hProduct: "Produto", hPresQty: "Pres #", hPres: "Pres", hColor: "Cor", hNcm: "NCM/HS", hGtin: "GTIN/EAN",
     hUnit: "Unid (×)", hTablePrice: "Preço tabela (Unit)", hDiscount: "% Desc.",
     hDealerUnit: "Preço dealer (Unit)", hDealerTotal: "Preço dealer",
     catDiscount: "% Desc. categoria", apply: "Aplicar",
@@ -98,7 +98,7 @@ const I18N: Record<string, Record<string, string>> = {
     loading: "Cargando…", selectPrompt: "Seleccione un distribuidor para crear/editar su tabla.",
     emptyTable: "Tabla vacía. Haga clic en", populateAll: "para cargar todos los productos activos.",
     noCategory: "Sin categoría",
-    hPhoto: "Foto", hCod: "COD", hSku: "SKU", hProduct: "Producto", hPresQty: "Pres #", hPres: "Pres", hNcm: "NCM/HS", hGtin: "GTIN/EAN",
+    hPhoto: "Foto", hCod: "COD", hSku: "SKU", hProduct: "Producto", hPresQty: "Pres #", hPres: "Pres", hColor: "Color", hNcm: "NCM/HS", hGtin: "GTIN/EAN",
     hUnit: "Unid (×)", hTablePrice: "Precio tabla (Unit)", hDiscount: "% Desc.",
     hDealerUnit: "Precio dealer (Unit)", hDealerTotal: "Precio dealer",
     catDiscount: "% Desc. categoría", apply: "Aplicar",
@@ -122,7 +122,7 @@ const I18N: Record<string, Record<string, string>> = {
     loading: "Loading…", selectPrompt: "Select a distributor to create/edit its table.",
     emptyTable: "Empty table. Click", populateAll: "to load all active products.",
     noCategory: "Uncategorized",
-    hPhoto: "Photo", hCod: "COD", hSku: "SKU", hProduct: "Product", hPresQty: "Pres #", hPres: "Pres", hNcm: "HS Code", hGtin: "GTIN/EAN",
+    hPhoto: "Photo", hCod: "COD", hSku: "SKU", hProduct: "Product", hPresQty: "Pres #", hPres: "Pres", hColor: "Color", hNcm: "HS Code", hGtin: "GTIN/EAN",
     hUnit: "Qty (×)", hTablePrice: "List price (Unit)", hDiscount: "% Disc.",
     hDealerUnit: "Dealer price (Unit)", hDealerTotal: "Dealer price",
     catDiscount: "% Disc. category", apply: "Apply",
@@ -377,6 +377,7 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
         description: p.description,
         ncm_hs: v.ncm_hs ?? null,
         gtin_ean: v.gtin_ean ?? null,
+        color: v.color ?? null,
         price_base: priced.value,
         presentation: norm2.pres,
         quantity_multiplier: Number(p.quantity_multiplier ?? 1) || 1,
@@ -653,6 +654,7 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
         .update({
           cod: it.cod, sku: (it as any).sku ?? null, name: it.name, ncm_hs: it.ncm_hs, gtin_ean: it.gtin_ean,
           variant: it.variant, unidade: it.unidade, description: it.description,
+          color: (it as any).color ?? null,
           presentation: it.presentation || "Unit",
           quantity_multiplier: Number(it.quantity_multiplier ?? 1),
           presentation_qty: it.presentation_qty ?? null,
@@ -1111,7 +1113,7 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
                 </div>
               </div>
               <div className="border rounded-md overflow-x-auto">
-                <Table className="min-w-[1500px]">
+                <Table className="min-w-[1620px]">
                   <TableHeader>
                     <TableRow>
                       <TableHead className="w-16">{t.hPhoto}</TableHead>
@@ -1120,6 +1122,7 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
                       <TableHead className="w-32">{t.hSku}</TableHead>
                       <TableHead className="w-28">{t.hPresQty}</TableHead>
                       <TableHead className="w-24">{t.hPres}</TableHead>
+                      <TableHead className="w-28">{t.hColor}</TableHead>
                       <TableHead className="w-40">{t.hNcm}</TableHead>
                       <TableHead className="w-40">{t.hGtin}</TableHead>
                       <TableHead className="w-28">{t.hUnit}</TableHead>
@@ -1242,6 +1245,14 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
                               ))}
                             </SelectContent>
                           </Select>
+                        </TableCell>
+                        <TableCell>
+                          <Input
+                            value={(it as any).color ?? ""}
+                            onChange={(e) => updateField(it.id, "color" as any, e.target.value)}
+                            className="h-8"
+                            placeholder="—"
+                          />
                         </TableCell>
                         <TableCell>
                           <Input value={it.ncm_hs ?? ""} onChange={(e) => updateField(it.id, "ncm_hs", e.target.value)} className="h-8" />
