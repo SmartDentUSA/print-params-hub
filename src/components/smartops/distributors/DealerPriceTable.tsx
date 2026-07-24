@@ -424,7 +424,10 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
       return;
     }
     toast.success(`${toInsert.length} novos, ${toUpdate.length} atualizados, ${staleIds.length} removidos (${cur})`);
-    if (fallbackCount > 0) toast.warning(`${fallbackCount} itens sem preço em ${cur} — usando BRL como fallback`);
+    if (missingCount > 0)
+      toast.warning(
+        `${missingCount} itens sem preço em ${cur} — preencha no catálogo antes de gerar proposta`,
+      );
     await loadOrCreate(distributorId);
     // captura snapshot pós-import com estado recém carregado
     const { data: rows } = await supabase.from("dealer_price_items" as any).select("*").eq("price_list_id", list.id);
