@@ -108,6 +108,7 @@ export function SkuMappingTab() {
   const [orderBy, setOrderBy] = useState<"gmv" | "occurrences" | "name">("gmv");
   const [pendingMappings, setPendingMappings] = useState<Record<string, CatalogVariationOption>>({});
   const [savingKey, setSavingKey] = useState<string | null>(null);
+  const [lastSavedKey, setLastSavedKey] = useState<string | null>(null);
   const [visibleCount, setVisibleCount] = useState(100);
 
   const [kitDialog, setKitDialog] = useState<{ open: boolean; aliasId: number | null; name: string }>({
@@ -131,7 +132,9 @@ export function SkuMappingTab() {
     if (sourceFilter !== "all") {
       list = list.filter((r) => r.sources?.includes(sourceFilter));
     }
-    if (statusFilter === "pending") list = list.filter((r) => !r.alias_id || !r.sku_interno);
+    if (statusFilter === "pending") {
+      list = list.filter((r) => !r.alias_id || !r.sku_interno || r.name_key === lastSavedKey);
+    }
     else if (statusFilter === "mapped") list = list.filter((r) => !!r.sku_interno && !r.is_kit);
     else if (statusFilter === "kits") list = list.filter((r) => r.is_kit);
 
@@ -141,7 +144,7 @@ export function SkuMappingTab() {
       return (a.sample_name || "").localeCompare(b.sample_name || "");
     });
     return list;
-  }, [rows, search, statusFilter, sourceFilter, orderBy]);
+  }, [rows, search, statusFilter, sourceFilter, orderBy, lastSavedKey]);
 
   const visibleRows = useMemo(() => filtered.slice(0, visibleCount), [filtered, visibleCount]);
 
@@ -165,6 +168,7 @@ export function SkuMappingTab() {
     toast({ title: "Salvando SKU...", description: variation.sku || variation.parent_name || "" });
     try {
       await saveMapping(row, variation, false);
+      setLastSavedKey(row.name_key);
       setPendingMappings((current) => {
         const next = { ...current };
         delete next[row.name_key];
