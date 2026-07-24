@@ -120,7 +120,7 @@ export function exportPriceTableXlsx(
 ) {
   const currency = list?.currency ?? "BRL";
   const header = [
-    "Categoria", "Subcategoria", "SKU", "Produto",
+    "Categoria", "Subcategoria", "Produto", "SKU",
     "NCM", "GTIN", "Variante", "Pres", "Cor", "Qtd",
     "Preço unitário", "Desc %", `Desc (${currency})`, "Total",
   ];
@@ -132,7 +132,7 @@ export function exportPriceTableXlsx(
         const row = aoa.length + 1; // 1-based, header on row 1
         aoa.push([
           grp.category, sub.subcategory,
-          (it as any).sku ?? it.cod ?? "", it.name,
+          it.name, (it as any).sku ?? it.cod ?? "",
           it.ncm_hs ?? "", it.gtin_ean ?? "",
           it.variant ?? it.presentation_qty ?? "",
           (it.presentation as string) ?? "Unit",
@@ -255,16 +255,16 @@ export async function exportPriceTablePdf(
   const rightMargin = 28;
   const contentW = pageW - leftMargin - rightMargin;
 
-  // 13-column layout: Foto | SKU | Produto | NCM | GTIN | Variante | Pres | Cor | Qtd | Preço unit. | Desc % | Desc (curr) | Total
+  // 13-column layout: Foto | Produto | SKU | NCM | GTIN | Variante | Pres | Cor | Qtd | Preço unit. | Desc % | Desc (curr) | Total
   const head = [[
-    "Foto", "SKU", "Produto", "NCM", "GTIN", "Variante", "Pres", "Cor",
+    "Foto", "Produto", "SKU", "NCM", "GTIN", "Variante", "Pres", "Cor",
     "Qtd", "Preço unit.", "Desc %", `Desc (${currency})`, "Total",
   ]];
   // Portrait A4 contentW ≈ 539pt (595 − 2×28 margins). Sum below ≤ 539.
   const columnStyles: Record<number, any> = {
     0:  { cellWidth: 30, halign: "center", valign: "middle" }, // Foto
-    1:  { cellWidth: 36, halign: "center" },                    // SKU
-    2:  { cellWidth: 96, fontStyle: "bold" },                   // Produto
+    1:  { cellWidth: 96, fontStyle: "bold" },                   // Produto
+    2:  { cellWidth: 36, halign: "center" },                    // SKU
     3:  { cellWidth: 42, halign: "center", fontSize: 5.5 },     // NCM
     4:  { cellWidth: 58, halign: "center", fontSize: 5.5 },     // GTIN
     5:  { cellWidth: 32, halign: "center" },                    // Variante
@@ -288,8 +288,8 @@ export async function exportPriceTablePdf(
     const descAbs = (Number(it.price_base || 0) - Number(it.price_dealer || 0)) * qty;
     const lineTotal = Number(it.price_dealer || 0) * qty;
     const photo = isLeader ? { content: "", rowSpan: span } : null;
-    const sku   = isLeader ? { content: (it as any).sku ?? it.cod ?? "—", rowSpan: span } : null;
     const nome  = isLeader ? { content: it.name, rowSpan: span } : null;
+    const sku   = isLeader ? { content: (it as any).sku ?? it.cod ?? "—", rowSpan: span } : null;
     const cells: any[] = [
       it.ncm_hs ?? "",
       it.gtin_ean ?? "",
@@ -302,7 +302,7 @@ export async function exportPriceTablePdf(
       formatMoney(descAbs, currency),
       formatMoney(lineTotal, currency),
     ];
-    return isLeader ? [photo, sku, nome, ...cells] : cells;
+    return isLeader ? [photo, nome, sku, ...cells] : cells;
   };
 
   const orderRowsForRowSpan = (rows: DealerPriceItem[]) => {
@@ -452,12 +452,12 @@ export async function exportPriceTableDocx(
   const imgs = await preloadImages(items);
 
   // Portrait A4 content width = 11906 - 2*1000 = 9906 DXA. 13 columns.
-  // Same ratio as PDF: Foto|SKU|Produto|NCM|GTIN|Var|Pres|Cor|Qtd|Preço unit.|Desc%|Desc(curr)|Total
-  const widths = [550, 662, 1768, 773, 1068, 589, 405, 552, 405, 810, 515, 773, 1036]; // sum = 9906
+  // Same ratio as PDF: Foto|Produto|SKU|NCM|GTIN|Var|Pres|Cor|Qtd|Preço unit.|Desc%|Desc(curr)|Total
+  const widths = [550, 1768, 662, 773, 1068, 589, 405, 552, 405, 810, 515, 773, 1036]; // sum = 9906
   const totalW = widths.reduce((a, b) => a + b, 0);
   const colCount = widths.length;
   const headers = [
-    "Foto", "SKU", "Produto", "NCM", "GTIN", "Variante", "Pres", "Cor",
+    "Foto", "Produto", "SKU", "NCM", "GTIN", "Variante", "Pres", "Cor",
     "Qtd", "Preço unit.", "Desc %", `Desc (${currency})`, "Total",
   ];
 
@@ -493,8 +493,8 @@ export async function exportPriceTableDocx(
     const lineTotal = Number(it.price_dealer || 0) * qty;
     const values: string[] = [
       "", // photo
-      (it as any).sku ?? it.cod ?? "—",
       it.name,
+      (it as any).sku ?? it.cod ?? "—",
       it.ncm_hs ?? "",
       it.gtin_ean ?? "",
       it.variant ?? it.presentation_qty ?? "",
