@@ -4,9 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, ArrowRight, Save, FileSpreadsheet, FileText, FileType, ImageOff, History, Download } from "lucide-react";
+import { ArrowLeft, ArrowRight, Save, FileSpreadsheet, FileText, FileType, History, Trash2, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 import type { DealerPriceItem, DealerPriceList, Distributor } from "./types";
 import { recalcDealerPrice, recalcDiscount, formatMoney } from "./types";
@@ -28,12 +27,10 @@ type SavedProposal = {
 type Props = { distributors: Distributor[] };
 
 export function DealerProposalWizard({ distributors }: Props) {
-  const [step, setStep] = useState<1 | 2 | 3>(1);
+  const [step, setStep] = useState<1 | 2>(1);
   const [distributorId, setDistributorId] = useState<string>("");
   const [list, setList] = useState<DealerPriceList | null>(null);
   const [items, setItems] = useState<DealerPriceItem[]>([]);
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [selectedCats, setSelectedCats] = useState<Set<string>>(new Set());
   const [header, setHeader] = useState({
     empresa: "", razao_social: "", contato: "", email: "", pais: "",
   });
@@ -68,7 +65,7 @@ export function DealerProposalWizard({ distributors }: Props) {
         .eq("price_list_id", l.id)
         .order("category", { ascending: true }).order("sort_order", { ascending: true });
       setItems(((rows as any) || []) as DealerPriceItem[]);
-      setSelectedIds(new Set());
+      setPreviewItems([]);
     })();
     const d = distributors.find((x) => x.id === distributorId);
     if (d) setHeader({
@@ -80,40 +77,18 @@ export function DealerProposalWizard({ distributors }: Props) {
     });
   }, [distributorId]);
 
-  const groups = useMemo(() => {
-    const m = new Map<string, DealerPriceItem[]>();
-    items.forEach((i) => {
-      const key = i.category || "Sem categoria";
-      if (!m.has(key)) m.set(key, []);
-      m.get(key)!.push(i);
-    });
-    return Array.from(m.entries());
-  }, [items]);
-
-  const toggleCategory = (cat: string, on: boolean) => {
-    const next = new Set(selectedIds);
-    const catItems = items.filter((i) => (i.category || "Sem categoria") === cat);
-    catItems.forEach((i) => { if (on) next.add(i.id); else next.delete(i.id); });
-    setSelectedIds(next);
-    const nc = new Set(selectedCats); if (on) nc.add(cat); else nc.delete(cat);
-    setSelectedCats(nc);
-  };
-
-  const toggleItem = (id: string) => {
-    const next = new Set(selectedIds);
-    next.has(id) ? next.delete(id) : next.add(id);
-    setSelectedIds(next);
-  };
-
-  const proposalItems = useMemo(
-    () => items.filter((i) => selectedIds.has(i.id)),
-    [items, selectedIds],
-  );
   const [previewItems, setPreviewItems] = useState<DealerPriceItem[]>([]);
 
   useEffect(() => {
-    if (step === 3) setPreviewItems(proposalItems.map((i) => ({ ...i })));
-  }, [step]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (step === 2) setPreviewItems(items.map((i) => ({ ...i })));
+  }, [step, items]);
+
+  const removePreviewItem = (id: string) => {
+    setPreviewItems((prev) => prev.filter((p) => p.id !== id));
+  };
+  const restoreAllPreviewItems = () => {
+    setPreviewItems(items.map((i) => ({ ...i })));
+  };
 
   const editPreview = (id: string, field: keyof DealerPriceItem, value: any) => {
     setPreviewItems((prev) => prev.map((it) => {
@@ -165,9 +140,7 @@ export function DealerProposalWizard({ distributors }: Props) {
       <div className="flex items-center gap-2 text-sm">
         <Badge variant={step === 1 ? "default" : "outline"}>1. Distribuidor</Badge>
         <ArrowRight className="w-3 h-3" />
-        <Badge variant={step === 2 ? "default" : "outline"}>2. Produtos</Badge>
-        <ArrowRight className="w-3 h-3" />
-        <Badge variant={step === 3 ? "default" : "outline"}>3. Preview & Export</Badge>
+        <Badge variant={step === 2 ? "default" : "outline"}>2. Preview & Export</Badge>
       </div>
 
       {step === 1 && (
@@ -268,47 +241,6 @@ export function DealerProposalWizard({ distributors }: Props) {
       )}
 
       {step === 2 && (
-        <Card><CardHeader><CardTitle className="text-base">Selecionar categorias e produtos</CardTitle></CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center gap-2 text-sm">
-              <Badge variant="outline">{selectedIds.size} produtos selecionados</Badge>
-              <Button size="sm" variant="ghost" onClick={() => setSelectedIds(new Set(items.map((i) => i.id)))}>Selecionar todos</Button>
-              <Button size="sm" variant="ghost" onClick={() => setSelectedIds(new Set())}>Limpar</Button>
-            </div>
-            <div className="space-y-3 max-h-[520px] overflow-y-auto pr-2">
-              {groups.map(([cat, rows]) => {
-                const allSel = rows.every((r) => selectedIds.has(r.id));
-                return (
-                  <div key={cat} className="border rounded-md p-2">
-                    <label className="flex items-center gap-2 font-semibold text-sm mb-2">
-                      <Checkbox checked={allSel} onCheckedChange={(v) => toggleCategory(cat, !!v)} />
-                      {cat} <span className="text-xs text-muted-foreground">({rows.length})</span>
-                    </label>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-1">
-                      {rows.map((it) => (
-                        <label key={it.id} className="flex items-center gap-2 text-sm py-1 px-2 rounded hover:bg-muted cursor-pointer">
-                          <Checkbox checked={selectedIds.has(it.id)} onCheckedChange={() => toggleItem(it.id)} />
-                          {it.image_url
-                            ? <img src={it.image_url} className="w-8 h-8 object-contain bg-muted rounded" alt="" />
-                            : <ImageOff className="w-4 h-4 text-muted-foreground" />}
-                          <span className="flex-1 truncate">{it.name}</span>
-                          <span className="text-xs text-muted-foreground">{formatMoney(it.price_dealer, list?.currency)}</span>
-                        </label>
-                      ))}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-            <div className="flex justify-between">
-              <Button variant="outline" onClick={() => setStep(1)}><ArrowLeft className="w-4 h-4 mr-1" /> Voltar</Button>
-              <Button onClick={() => setStep(3)} disabled={selectedIds.size === 0}>Gerar preview <ArrowRight className="w-4 h-4 ml-1" /></Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {step === 3 && (
         <div className="space-y-4">
           <Card>
             <CardContent className="p-4 space-y-3">
@@ -331,10 +263,18 @@ export function DealerProposalWizard({ distributors }: Props) {
                 <div><span className="text-muted-foreground">País:</span> <Input className="inline-block w-auto min-w-[240px] h-7 ml-1" value={header.pais} onChange={(e) => setHeader({ ...header, pais: e.target.value })} /></div>
               </div>
 
+              <div className="flex items-center gap-2 text-sm">
+                <Badge variant="outline">{previewItems.length} itens na proposta</Badge>
+                <Button size="sm" variant="ghost" onClick={restoreAllPreviewItems}>
+                  <RotateCcw className="w-3.5 h-3.5 mr-1" /> Restaurar todos
+                </Button>
+              </div>
+
               <div className="overflow-x-auto border rounded">
                 <table className="w-full text-xs">
                   <thead className="bg-slate-900 text-white">
                     <tr>
+                      <th className="p-2 w-8"></th>
                       <th className="p-2 text-left">Foto</th>
                       <th className="p-2 text-left">COD</th>
                       <th className="p-2 text-left">Produto</th>
@@ -349,6 +289,11 @@ export function DealerProposalWizard({ distributors }: Props) {
                   <tbody>
                     {previewItems.map((it) => (
                       <tr key={it.id} className="border-b">
+                        <td className="p-1 text-center">
+                          <Button size="icon" variant="ghost" title="Remover" onClick={() => removePreviewItem(it.id)}>
+                            <Trash2 className="w-3.5 h-3.5 text-destructive" />
+                          </Button>
+                        </td>
                         <td className="p-1">{it.image_url ? <img src={it.image_url} alt="" className="w-10 h-10 object-contain bg-muted rounded" /> : "—"}</td>
                         <td className="p-1"><Input className="h-7" value={it.cod ?? ""} onChange={(e) => editPreview(it.id, "cod", e.target.value)} /></td>
                         <td className="p-1"><Input className="h-7" value={it.name} onChange={(e) => editPreview(it.id, "name", e.target.value)} /></td>
@@ -363,7 +308,7 @@ export function DealerProposalWizard({ distributors }: Props) {
                   </tbody>
                   <tfoot className="bg-slate-100 font-semibold">
                     <tr>
-                      <td colSpan={6} className="p-2 text-right">Totais:</td>
+                      <td colSpan={7} className="p-2 text-right">Totais:</td>
                       <td className="p-2 text-right">{formatMoney(totals.subtotal, list?.currency)}</td>
                       <td className="p-2 text-right">{totals.subtotal > 0 ? ((totals.discount_total / totals.subtotal) * 100).toFixed(1) : 0}%</td>
                       <td className="p-2 text-right text-primary">{formatMoney(totals.total, list?.currency)}</td>
@@ -376,9 +321,9 @@ export function DealerProposalWizard({ distributors }: Props) {
           </Card>
 
           <div className="flex flex-wrap justify-between gap-2">
-            <Button variant="outline" onClick={() => setStep(2)}><ArrowLeft className="w-4 h-4 mr-1" /> Voltar</Button>
+            <Button variant="outline" onClick={() => setStep(1)}><ArrowLeft className="w-4 h-4 mr-1" /> Voltar</Button>
             <div className="flex flex-wrap gap-2">
-              <Button onClick={saveProposal}><Save className="w-4 h-4 mr-1" /> Salvar proposta</Button>
+              <Button onClick={saveProposal} disabled={previewItems.length === 0}><Save className="w-4 h-4 mr-1" /> Salvar proposta</Button>
               <Button variant="outline" onClick={() => exportPriceTableXlsx(distributor, stubList, previewItems, "proposta")}>
                 <FileSpreadsheet className="w-4 h-4 mr-1" /> XLSX
               </Button>

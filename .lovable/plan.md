@@ -1,26 +1,47 @@
-# Backfill peso e dimensões por gramatura (Resinas 3D)
+## Objetivo
 
-## Presets confirmados
-| presentation_qty | dimensions_cm         | weight_kg |
-|------------------|-----------------------|-----------|
-| 250              | 16.0 x 8.0 x 8.0      | 0.35      |
-| 500              | 19.5 x 8.5 x 8.5      | 0.61      |
-| 1000             | 24.5 x 9.5 x 9.5      | 1.13      |
+Remover a etapa 2 (grade de checkboxes "Selecionar categorias e produtos") do gerador de propostas. O fluxo passa a ser **Distribuidor → Preview & Export**, e a inclusão/exclusão de itens acontece diretamente no preview.
 
-Observação: no backfill anterior usei `0.33` para 250g. Este plano corrige para **0.35**.
+## Escopo (apenas frontend)
 
-## Mudanças
+Arquivo: `src/components/smartops/distributors/DealerProposalWizard.tsx`
 
-1. **Backfill de dados** — `UPDATE catalog_product_variations` restrito a variações cujo produto pai é resina (`product_category` ILIKE '%resina%' OR `category` IN ('resin','Resinas')):
-   - Sobrescrever `weight_kg` e `dimensions_cm` conforme a tabela acima quando `presentation_qty` for `250`, `500` ou `1000` (com `presentation` = `grs`/`g` ou vazio).
-   - Sobrescrever mesmo se os campos já estiverem preenchidos (para corrigir o `0.33` anterior e alinhar dimensões).
+### Mudanças
 
-2. **Presets no front** — `src/components/AdminCatalogTable.tsx` (constante `RESIN_GRS_PRESETS`):
-   - Ajustar `250` de `0.33` para `0.35`. Demais valores já batem.
+1. **Steps reduzidos para 2**
+   - Tipo `step: 1 | 2` (era `1 | 2 | 3`).
+   - Barra do topo mostra apenas: `1. Distribuidor` → `2. Preview & Export`.
+   - Botão "Próximo" do passo 1 vai direto para o passo 2 (o gate `disabled` continua exigindo distribuidor + tabela vigente com itens).
 
-## Fora do escopo
-- Não altera variações não-resina.
-- Não altera `presentation` nem `presentation_qty`.
+2. **Remover completamente o bloco do antigo Step 2**
+   - Deletar o `Card` com título "Selecionar categorias e produtos", o resumo "X produtos selecionados", os botões "Selecionar todos"/"Limpar" e a lista agrupada por categoria com checkboxes.
+   - Remover estados que só serviam a esse passo: `selectedIds`, `selectedCats`, e as funções `toggleCategory` / `toggleItem`.
+   - Remover a memo `proposalItems` (derivada de `selectedIds`).
+
+3. **Preview passa a carregar todos os itens da tabela vigente**
+   - `previewItems` inicializa com **todos** os `items` da tabela do distribuidor quando o passo 2 é aberto (ou quando o distribuidor muda).
+   - Fica preservada a possibilidade de edição inline (preço, desconto, preço dealer, código, nome, variante, GTIN, NCM) já existente.
+
+4. **Remoção de itens inline no preview**
+   - Nova coluna à esquerda da tabela do preview com um botão "Remover" (ícone `Trash2` do `lucide-react`, `variant="ghost"`, `size="icon"`) que faz `setPreviewItems(prev => prev.filter(p => p.id !== it.id))`.
+   - Cabeçalho da tabela ganha `<th />` correspondente.
+   - Acima da tabela, um pequeno resumo: `Badge` com contagem "N itens na proposta" + botão "Restaurar todos" que reidrata `previewItems` a partir de `items` (útil quando o usuário remove demais e quer voltar).
+   - `saveProposal` continua exigindo `previewItems.length > 0`; se o usuário zerar a lista, o botão "Salvar proposta" fica desabilitado (novo `disabled`).
+
+5. **Ajuste de navegação**
+   - Botão "Voltar" no passo 2 volta para `setStep(1)` (era `setStep(2)`).
+   - Ao trocar de distribuidor no passo 1, resetar `previewItems` para vazio (será repopulado quando o passo 2 abrir com os novos `items`).
+
+### Fora de escopo
+
+- Nenhuma alteração em edge functions, banco, `dealer_price_items`, catálogo, exportadores (`DealerProposalExport`) ou tipos em `types.ts`.
+- Nenhuma alteração visual no cabeçalho, totais ou export XLSX/PDF/DOCX — recebem `previewItems` como já recebem hoje.
+- A tela `Tabela de Preço` do distribuidor (onde os itens são cadastrados por categoria) permanece intacta — o gerenciamento granular de quais SKUs pertencem à tabela do distribuidor continua acontecendo lá.
 
 ## Validação
-- `SELECT presentation_qty, weight_kg, dimensions_cm, count(*) FROM catalog_product_variations v JOIN system_a_catalog c ON c.id=v.catalog_product_id WHERE (c.product_category ILIKE '%resina%' OR c.category IN ('resin','Resinas')) AND v.presentation_qty IN ('250','500','1000') GROUP BY 1,2,3` — cada gramatura deve retornar uma única combinação de peso/dimensões conforme a tabela.
+
+- Passo 1 → Preview abre com todos os itens da tabela vigente já listados.
+- Remover uma linha some do preview e dos totais imediatamente.
+- "Restaurar todos" recompõe a lista sem recarregar a página.
+- Salvar/Exportar (XLSX, PDF, DOCX) usam somente os itens que restaram no preview.
+- Histórico de propostas (passo 1) continua funcionando.
