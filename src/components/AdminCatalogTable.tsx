@@ -265,8 +265,6 @@ export function AdminCatalogTable({
               <TableHead className="w-20">Peso (kg)</TableHead>
               <TableHead className="w-28">Dim (cm)</TableHead>
               <TableHead className="w-32">BRL</TableHead>
-              <TableHead className="w-32">USD</TableHead>
-              <TableHead className="w-32">EUR</TableHead>
               <TableHead className="w-20 text-center">Status</TableHead>
               <TableHead className="w-24 text-center">Ações</TableHead>
             </TableRow>
