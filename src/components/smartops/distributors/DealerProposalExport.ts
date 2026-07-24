@@ -121,7 +121,7 @@ export function exportPriceTableXlsx(
   const currency = list?.currency ?? "BRL";
   const header = [
     "Categoria", "Subcategoria", "SKU", "Produto",
-    "Variante", "Pres", "Cor", "Qtd",
+    "NCM", "GTIN", "Variante", "Pres", "Cor", "Qtd",
     "Preço unitário", "Desc %", `Desc (${currency})`, "Total",
   ];
   const aoa: any[][] = [header];
@@ -133,14 +133,15 @@ export function exportPriceTableXlsx(
         aoa.push([
           grp.category, sub.subcategory,
           (it as any).sku ?? it.cod ?? "", it.name,
+          it.ncm_hs ?? "", it.gtin_ean ?? "",
           it.variant ?? it.presentation_qty ?? "",
           (it.presentation as string) ?? "Unit",
           (it as any).color ?? "",
           Number(it.quantity_multiplier ?? 1) || 1,
           Number(it.price_base) || 0,
           Number(it.discount_pct) || 0,
-          { f: `ROUND(I${row}*J${row}/100,2)` },        // Desc (currency)
-          { f: `ROUND((I${row}-I${row}*J${row}/100)*H${row},2)` }, // Total
+          { f: `ROUND(K${row}*L${row}/100,2)` },        // Desc (currency) — col K=Preço, L=Desc%
+          { f: `ROUND((K${row}-K${row}*L${row}/100)*J${row},2)` }, // Total — J=Qtd
         ]);
       }
     }
@@ -149,7 +150,7 @@ export function exportPriceTableXlsx(
   const ws = XLSX.utils.aoa_to_sheet(aoa);
   ws["!cols"] = [
     { wch: 34 }, { wch: 26 }, { wch: 10 }, { wch: 40 },
-    { wch: 14 }, { wch: 8 }, { wch: 14 }, { wch: 8 },
+    { wch: 12 }, { wch: 16 }, { wch: 14 }, { wch: 8 }, { wch: 14 }, { wch: 8 },
     { wch: 16 }, { wch: 10 }, { wch: 16 }, { wch: 16 },
   ];
   const wb = XLSX.utils.book_new();
