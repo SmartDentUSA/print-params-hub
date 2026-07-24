@@ -88,6 +88,17 @@ function localeForLang(lang: string | null | undefined): string {
 
 /** Group items keeping first-seen order of categories/subcategories. */
 function groupItemsByCategory(items: DealerPriceItem[]) {
+  // Parses a variant label (e.g. "1000", "1 kg", "500g", "2.5") into a numeric
+  // weight for ordering. Larger presentations come first (1000 → 500 → 250 → 100).
+  const variantWeight = (v: unknown): number => {
+    if (v == null) return -Infinity;
+    const s = String(v).toLowerCase().replace(",", ".");
+    const m = s.match(/(\d+(?:\.\d+)?)/);
+    if (!m) return -Infinity;
+    let n = parseFloat(m[1]);
+    if (/\bkg\b/.test(s)) n *= 1000;
+    return n;
+  };
   type Row = { category: string; subs: { subcategory: string; rows: DealerPriceItem[] }[] };
   const map = new Map<string, Row>();
   for (const it of items) {
@@ -107,6 +118,25 @@ function groupItemsByCategory(items: DealerPriceItem[]) {
       categoryRank(g.category, a.subcategory) - categoryRank(g.category, b.subcategory)
       || a.subcategory.localeCompare(b.subcategory)
     );
+    // Within each subcategory: keep first-seen product-group order, but sort
+    // variations inside each group by descending weight (1000 → 500 → 250 → 100).
+    for (const sub of g.subs) {
+      const firstIdx = new Map<string, number>();
+      sub.rows.forEach((r, i) => {
+        const k = r.catalog_product_id ? `cid:${r.catalog_product_id}` : `id:${r.id}`;
+        if (!firstIdx.has(k)) firstIdx.set(k, i);
+      });
+      sub.rows.sort((a, b) => {
+        const ka = a.catalog_product_id ? `cid:${a.catalog_product_id}` : `id:${a.id}`;
+        const kb = b.catalog_product_id ? `cid:${b.catalog_product_id}` : `id:${b.id}`;
+        const ga = firstIdx.get(ka) ?? 0;
+        const gb = firstIdx.get(kb) ?? 0;
+        if (ga !== gb) return ga - gb;
+        const va = variantWeight(a.variant ?? a.presentation_qty);
+        const vb = variantWeight(b.variant ?? b.presentation_qty);
+        return vb - va;
+      });
+    }
   }
   return groups;
 }
