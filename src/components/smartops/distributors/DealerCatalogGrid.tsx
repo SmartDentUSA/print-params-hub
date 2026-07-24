@@ -395,15 +395,6 @@ export function DealerCatalogGrid({ onAddToPriceList }: Props) {
           <Switch id="show-inactive" checked={showInactive} onCheckedChange={setShowInactive} />
           <label htmlFor="show-inactive" className="text-xs text-muted-foreground cursor-pointer select-none">{t.showInactive}</label>
         </div>
-        <Button
-          variant="outline"
-          onClick={syncFromSystemA}
-          disabled={syncing || loading}
-          title={t.syncTip}
-        >
-          {syncing ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Layers className="w-4 h-4 mr-1" />}
-          {t.syncVariations}
-        </Button>
         <Button onClick={saveAll} disabled={saving || dirtyIds.size === 0}>
           {saving ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Save className="w-4 h-4 mr-1" />}
           {dirtyIds.size > 0 ? `${t.saveAll} (${dirtyIds.size})` : t.saved}
