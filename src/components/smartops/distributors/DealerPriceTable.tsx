@@ -147,6 +147,15 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
   const [showHistory, setShowHistory] = useState(false);
   const [catDiscount, setCatDiscount] = useState<Record<string, string>>({});
   const [showInactive, setShowInactive] = useState(false);
+  const [addOpen, setAddOpen] = useState(false);
+  const [addLoading, setAddLoading] = useState(false);
+  const [addSearch, setAddSearch] = useState("");
+  const [addOptions, setAddOptions] = useState<Array<{
+    key: string;
+    product: any;
+    variation: any;
+    label: string;
+  }>>([]);
 
   const distributor = distributors.find((d) => d.id === distributorId);
   const currency = list?.currency || distributor?.preferred_currency || "BRL";
