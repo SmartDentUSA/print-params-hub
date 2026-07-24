@@ -339,7 +339,9 @@ export function DealerProposalWizard({ distributors }: Props) {
                         <td className="p-1 text-right whitespace-nowrap text-muted-foreground">
                           {formatMoney(((Number(it.price_base) || 0) - (Number(it.price_dealer) || 0)) * getQty(it.id), list?.currency)}
                         </td>
-                        <td className="p-1"><Input className="h-7 text-right font-semibold" type="number" step="0.01" value={it.price_dealer} onChange={(e) => editPreview(it.id, "price_dealer", parseFloat(e.target.value) || 0)} /></td>
+                        <td className="p-1 text-right whitespace-nowrap font-semibold text-primary">
+                          {formatMoney((Number(it.price_dealer) || 0) * getQty(it.id), list?.currency)}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
