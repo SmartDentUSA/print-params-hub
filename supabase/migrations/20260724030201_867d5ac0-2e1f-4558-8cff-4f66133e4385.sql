@@ -1,0 +1,2 @@
+UPDATE public.system_a_catalog SET image_url='https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/catalog-images/products/resina-smart-print-modelo-laqua-1784781553651.png' WHERE id='b72a6c52-b155-4e14-b973-da70fd25a729';
+UPDATE public.system_a_catalog SET image_url='https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/catalog-images/products/nanoclean-2.png' WHERE id='19bc59de-a1f0-4994-b5ab-4c1a2464b7e0';
