@@ -265,12 +265,20 @@ export default function ProfessionalMixSummary({ leadId, disabled, cadValue, onC
         // Won CRM deals
         const { data: wonDeals } = await supabase
           .from("deals")
-          .select("id, owner_name, closed_at")
+          .select("id, piperun_deal_id, owner_name, closed_at")
           .eq("lead_id", leadId)
           .eq("status", "ganha");
-        const dealIds = (wonDeals ?? []).map((d: any) => d.id);
+        // deal_items.deal_id armazena o piperun_deal_id (inteiro como texto),
+        // não o UUID de deals.id. Casar pelo piperun_deal_id.
+        const dealIds = (wonDeals ?? [])
+          .map((d: any) => (d.piperun_deal_id != null ? String(d.piperun_deal_id) : null))
+          .filter((v: string | null): v is string => !!v);
         const dealOwner = new Map<string, { owner_name: string | null; closed_at: string | null }>();
-        (wonDeals ?? []).forEach((d: any) => dealOwner.set(d.id, { owner_name: d.owner_name, closed_at: d.closed_at }));
+        (wonDeals ?? []).forEach((d: any) => {
+          if (d.piperun_deal_id != null) {
+            dealOwner.set(String(d.piperun_deal_id), { owner_name: d.owner_name, closed_at: d.closed_at });
+          }
+        });
 
         const crmItems: PurchaseItem[] = [];
         if (dealIds.length > 0) {
