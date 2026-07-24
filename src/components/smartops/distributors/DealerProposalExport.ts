@@ -121,7 +121,7 @@ export function exportPriceTableXlsx(
   const currency = list?.currency ?? "BRL";
   const header = [
     "Categoria", "Subcategoria", "SKU", "Produto",
-    "Variante", "Pres", "Cor", "Qtd",
+    "NCM", "GTIN", "Variante", "Pres", "Cor", "Qtd",
     "Preço unitário", "Desc %", `Desc (${currency})`, "Total",
   ];
   const aoa: any[][] = [header];
@@ -133,14 +133,15 @@ export function exportPriceTableXlsx(
         aoa.push([
           grp.category, sub.subcategory,
           (it as any).sku ?? it.cod ?? "", it.name,
+          it.ncm_hs ?? "", it.gtin_ean ?? "",
           it.variant ?? it.presentation_qty ?? "",
           (it.presentation as string) ?? "Unit",
           (it as any).color ?? "",
           Number(it.quantity_multiplier ?? 1) || 1,
           Number(it.price_base) || 0,
           Number(it.discount_pct) || 0,
-          { f: `ROUND(I${row}*J${row}/100,2)` },        // Desc (currency)
-          { f: `ROUND((I${row}-I${row}*J${row}/100)*H${row},2)` }, // Total
+          { f: `ROUND(K${row}*L${row}/100,2)` },        // Desc (currency) — col K=Preço, L=Desc%
+          { f: `ROUND((K${row}-K${row}*L${row}/100)*J${row},2)` }, // Total — J=Qtd
         ]);
       }
     }
@@ -149,7 +150,7 @@ export function exportPriceTableXlsx(
   const ws = XLSX.utils.aoa_to_sheet(aoa);
   ws["!cols"] = [
     { wch: 34 }, { wch: 26 }, { wch: 10 }, { wch: 40 },
-    { wch: 14 }, { wch: 8 }, { wch: 14 }, { wch: 8 },
+    { wch: 12 }, { wch: 16 }, { wch: 14 }, { wch: 8 }, { wch: 14 }, { wch: 8 },
     { wch: 16 }, { wch: 10 }, { wch: 16 }, { wch: 16 },
   ];
   const wb = XLSX.utils.book_new();
@@ -253,24 +254,26 @@ export async function exportPriceTablePdf(
   const rightMargin = 28;
   const contentW = pageW - leftMargin - rightMargin;
 
-  // 11-column layout: Foto | SKU | Produto | Variante | Pres | Cor | Qtd | Preço unitário | Desc % | Desc (curr) | Total
+  // 13-column layout: Foto | SKU | Produto | NCM | GTIN | Variante | Pres | Cor | Qtd | Preço unitário | Desc % | Desc (curr) | Total
   const head = [[
-    "Foto", "SKU", "Produto", "Variante", "Pres", "Cor",
+    "Foto", "SKU", "Produto", "NCM", "GTIN", "Variante", "Pres", "Cor",
     "Qtd", "Preço unitário", "Desc %", `Desc (${currency})`, "Total",
   ]];
   // Landscape contentW ≈ 786pt. Sum below = 786.
   const columnStyles: Record<number, any> = {
-    0:  { cellWidth: 40, halign: "center" },
-    1:  { cellWidth: 70 },
-    2:  { cellWidth: 190 },
-    3:  { cellWidth: 60 },
-    4:  { cellWidth: 40 },
-    5:  { cellWidth: 70 },
-    6:  { cellWidth: 34, halign: "right" },
-    7:  { cellWidth: 72, halign: "right" },
-    8:  { cellWidth: 46, halign: "right" },
-    9:  { cellWidth: 72, halign: "right" },
-    10: { cellWidth: 92, halign: "right", fontStyle: "bold" },
+    0:  { cellWidth: 34, halign: "center" },   // Foto
+    1:  { cellWidth: 60 },                      // SKU
+    2:  { cellWidth: 150 },                     // Produto
+    3:  { cellWidth: 50 },                      // NCM
+    4:  { cellWidth: 60 },                      // GTIN
+    5:  { cellWidth: 54 },                      // Variante
+    6:  { cellWidth: 34 },                      // Pres
+    7:  { cellWidth: 60 },                      // Cor
+    8:  { cellWidth: 30, halign: "right" },     // Qtd
+    9:  { cellWidth: 60, halign: "right" },     // Preço unitário
+    10: { cellWidth: 40, halign: "right" },     // Desc %
+    11: { cellWidth: 64, halign: "right" },     // Desc (curr)
+    12: { cellWidth: 90, halign: "right", fontStyle: "bold" }, // Total
   };
 
   // Group by catalog_product_id to compute rowSpan on Foto/COD/Produto,
@@ -287,6 +290,8 @@ export async function exportPriceTablePdf(
     const sku   = isLeader ? { content: (it as any).sku ?? it.cod ?? "—", rowSpan: span } : null;
     const nome  = isLeader ? { content: it.name, rowSpan: span } : null;
     const cells: any[] = [
+      it.ncm_hs ?? "—",
+      it.gtin_ean ?? "—",
       it.variant ?? it.presentation_qty ?? "—",
       (it.presentation as string) ?? "Unit",
       (it as any).color ?? "—",
@@ -441,12 +446,12 @@ export async function exportPriceTableDocx(
   const borders = { top: border, bottom: border, left: border, right: border };
   const imgs = await preloadImages(items);
 
-  // Landscape A4 content width = 16838 - 2*1000 = 14838 DXA. 11 columns.
-  const widths = [1000, 1400, 2900, 1200, 800, 1400, 700, 1400, 900, 1400, 1738]; // sum = 14838
+  // Landscape A4 content width = 16838 - 2*1000 = 14838 DXA. 13 columns.
+  const widths = [900, 1200, 2400, 900, 1100, 1000, 700, 1200, 600, 1200, 800, 1200, 1638]; // sum = 14838
   const totalW = widths.reduce((a, b) => a + b, 0);
   const colCount = widths.length;
   const headers = [
-    "Foto", "SKU", "Produto", "Variante", "Pres", "Cor",
+    "Foto", "SKU", "Produto", "NCM", "GTIN", "Variante", "Pres", "Cor",
     "Qtd", "Preço unitário", "Desc %", `Desc (${currency})`, "Total",
   ];
 
@@ -484,6 +489,8 @@ export async function exportPriceTableDocx(
       "", // photo
       (it as any).sku ?? it.cod ?? "—",
       it.name,
+      it.ncm_hs ?? "—",
+      it.gtin_ean ?? "—",
       it.variant ?? it.presentation_qty ?? "—",
       (it.presentation as string) ?? "Unit",
       (it as any).color ?? "—",
@@ -527,7 +534,7 @@ export async function exportPriceTableDocx(
           margins: { top: 60, bottom: 60, left: 100, right: 100 },
           children: [new Paragraph({
             children: [new TextRun({ text: String(val), size: 18, bold: i === colCount - 1 })],
-            alignment: i >= 6 ? AlignmentType.RIGHT : AlignmentType.LEFT,
+            alignment: i >= 8 ? AlignmentType.RIGHT : AlignmentType.LEFT,
           })],
         });
       }),

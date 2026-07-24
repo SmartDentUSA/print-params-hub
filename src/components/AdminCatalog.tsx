@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, ShoppingCart, AlertTriangle, Filter, RefreshCw, Eye, Sparkles } from "lucide-react";
+import { Plus, ShoppingCart, AlertTriangle, Filter, RefreshCw, Eye, Sparkles, Download } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useCatalogCRUD, CatalogProduct } from "@/hooks/useCatalogCRUD";
 import { AdminModal } from "./AdminModal";
@@ -10,6 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { AdminCatalogTable } from "./AdminCatalogTable";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { SkuMappingTab } from "./admin/catalog/SkuMappingTab";
+import { exportCatalogXlsx } from "./admin/catalog/exportCatalogXlsx";
 
 export function AdminCatalog() {
   const [products, setProducts] = useState<CatalogProduct[]>([]);
@@ -24,6 +25,7 @@ export function AdminCatalog() {
   const [selectedOrigin, setSelectedOrigin] = useState<string>('all');
   const [migrating, setMigrating] = useState(false);
   const [regenDescs, setRegenDescs] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   const { 
     fetchCatalogProducts, 
@@ -329,6 +331,24 @@ export function AdminCatalog() {
               <Button onClick={openCreateDialog}>
                 <Plus className="w-4 h-4 mr-2" />
                 Novo Produto
+              </Button>
+              <Button
+                variant="outline"
+                disabled={exporting || filteredProducts.length === 0}
+                onClick={async () => {
+                  setExporting(true);
+                  try {
+                    await exportCatalogXlsx(filteredProducts);
+                    toast({ title: "Catálogo exportado", description: `${filteredProducts.length} produtos exportados em XLSX.` });
+                  } catch (e: any) {
+                    toast({ title: "Erro ao exportar", description: String(e?.message || e), variant: "destructive" });
+                  } finally {
+                    setExporting(false);
+                  }
+                }}
+              >
+                <Download className={`w-4 h-4 mr-2 ${exporting ? "animate-pulse" : ""}`} />
+                {exporting ? "Exportando..." : "Exportar"}
               </Button>
             </div>
           </div>
