@@ -1,47 +1,64 @@
-## Objetivo
+## Deduplicação L'Aqua — sem perda de dados
 
-Remover a etapa 2 (grade de checkboxes "Selecionar categorias e produtos") do gerador de propostas. O fluxo passa a ser **Distribuidor → Preview & Export**, e a inclusão/exclusão de itens acontece diretamente no preview.
+Auditoria completa das duas linhas em `system_a_catalog`:
 
-## Escopo (apenas frontend)
+| Campo | `84bce10e…` (Fev/26, "Modelo Láqua") | `b72a6c52…` (Jul/26, "L'Aqua") |
+|---|---|---|
+| slug | `resina-smart-print-modelo-laqua` | `resina-laqua` |
+| category | `product` | `consumables` |
+| product_category / subcategory | 3. IMPRESSÃO 3D / 3.2 RESINAS 3D - USO GERAL | idem |
+| description | 142 chars | vazio |
+| technical_specs | 713 chars | 2 chars |
+| clinical_indications | 70 chars | vazio |
+| extra_data | 5.813 chars | 58 chars |
+| meta_description / seo_title | 117 / 45 chars | vazio |
+| name_en / name_es | preenchidos | vazio |
+| wikidata_qid | Q139540872 | vazio |
+| price BRL | 916,66 | vazio |
+| **ncm** | vazio | **9021.29.00** |
+| **gtin** | vazio | vazio |
+| image_url | idêntica | idêntica |
+| visible_in_ui | **true** | false |
+| variações | 4 (100/250/500/1000) sem SKU, com `price_brl 293,70` em 1kg | 4 (100/250/500/1000) **com SKUs 1209–1212** |
 
-Arquivo: `src/components/smartops/distributors/DealerProposalWizard.tsx`
+Referências FK encontradas — **todas apontam para o registro antigo** `84bce10e…`:
+- `knowledge_videos`: 1 vídeo ("Smart Print Model L'Aqua - Pós processamento")
+- `smartops_forms`: 1 form ("# - FORMS - Resina 3D Smart Print Modelo Láqua")
+- `catalog_documents`, `content_bridge`, `catalog_kit_components`, `produto_aliases`: 0
 
-### Mudanças
+### Direção do merge
 
-1. **Steps reduzidos para 2**
-   - Tipo `step: 1 | 2` (era `1 | 2 | 3`).
-   - Barra do topo mostra apenas: `1. Distribuidor` → `2. Preview & Export`.
-   - Botão "Próximo" do passo 1 vai direto para o passo 2 (o gate `disabled` continua exigindo distribuidor + tabela vigente com itens).
+Manter `84bce10e…` como canônico (tem TODO o conteúdo rico + FKs em vídeo/form + `visible_in_ui=true`) e **absorver o que só existe no novo** (NCM + os 4 SKUs 1209–1212).
 
-2. **Remover completamente o bloco do antigo Step 2**
-   - Deletar o `Card` com título "Selecionar categorias e produtos", o resumo "X produtos selecionados", os botões "Selecionar todos"/"Limpar" e a lista agrupada por categoria com checkboxes.
-   - Remover estados que só serviam a esse passo: `selectedIds`, `selectedCats`, e as funções `toggleCategory` / `toggleItem`.
-   - Remover a memo `proposalItems` (derivada de `selectedIds`).
+Ajustar nome/slug para o padrão desejado exibido no print:
+- `name = "Resina 3D Smart Print L'Aqua"`
+- `slug = "resina-laqua"`
+- `category = "consumables"` (alinhado ao restante do 3.2)
 
-3. **Preview passa a carregar todos os itens da tabela vigente**
-   - `previewItems` inicializa com **todos** os `items` da tabela do distribuidor quando o passo 2 é aberto (ou quando o distribuidor muda).
-   - Fica preservada a possibilidade de edição inline (preço, desconto, preço dealer, código, nome, variante, GTIN, NCM) já existente.
+### Passos (migration única, transacional)
 
-4. **Remoção de itens inline no preview**
-   - Nova coluna à esquerda da tabela do preview com um botão "Remover" (ícone `Trash2` do `lucide-react`, `variant="ghost"`, `size="icon"`) que faz `setPreviewItems(prev => prev.filter(p => p.id !== it.id))`.
-   - Cabeçalho da tabela ganha `<th />` correspondente.
-   - Acima da tabela, um pequeno resumo: `Badge` com contagem "N itens na proposta" + botão "Restaurar todos" que reidrata `previewItems` a partir de `items` (útil quando o usuário remove demais e quer voltar).
-   - `saveProposal` continua exigindo `previewItems.length > 0`; se o usuário zerar a lista, o botão "Salvar proposta" fica desabilitado (novo `disabled`).
+1. Em `system_a_catalog` no id antigo `84bce10e…`, aplicar:
+   - `name = 'Resina 3D Smart Print L''Aqua'`
+   - `slug = 'resina-laqua'`
+   - `category = 'consumables'`
+   - `ncm = '9021.29.00'` (apenas se ainda estiver null)
+2. Em `catalog_product_variations`: para cada `presentation_qty` (100/250/500/1000), copiar o `sku` da variação do id novo para a variação correspondente do id antigo (só quando o SKU do antigo estiver null). Preservar o `price_brl = 293,70` já existente em 1kg do antigo.
+3. Deletar as 4 variações do id novo (`b72a6c52…`).
+4. Deletar o registro `b72a6c52…` de `system_a_catalog`.
+5. Antes de tocar em qualquer linha, uma segunda auditoria dentro da migration confirma que não há FK residual apontando para `b72a6c52…` em nenhuma das 7 tabelas mapeadas — abortar se houver.
 
-5. **Ajuste de navegação**
-   - Botão "Voltar" no passo 2 volta para `setStep(1)` (era `setStep(2)`).
-   - Ao trocar de distribuidor no passo 1, resetar `previewItems` para vazio (será repopulado quando o passo 2 abrir com os novos `items`).
+### O que fica preservado
 
-### Fora de escopo
+- Vídeo em `knowledge_videos` (FK intacta, id antigo permanece).
+- Form em `smartops_forms` (FK intacta).
+- Descrição, specs (713), indicações clínicas, extra_data (5,8k), SEO/meta, traduções EN/ES, wikidata QID, preço BRL 916,66.
+- Preço BRL 293,70 na variação 1kg.
+- Os 4 SKUs 1209–1212 (agora vinculados ao id canônico).
+- Imagem (idêntica nas duas linhas).
 
-- Nenhuma alteração em edge functions, banco, `dealer_price_items`, catálogo, exportadores (`DealerProposalExport`) ou tipos em `types.ts`.
-- Nenhuma alteração visual no cabeçalho, totais ou export XLSX/PDF/DOCX — recebem `previewItems` como já recebem hoje.
-- A tela `Tabela de Preço` do distribuidor (onde os itens são cadastrados por categoria) permanece intacta — o gerenciamento granular de quais SKUs pertencem à tabela do distribuidor continua acontecendo lá.
+### O que muda para o usuário
 
-## Validação
+- Um único card em `/base-conhecimento/catalogo` com slug `/resina-laqua`.
+- O card antigo `/resina-smart-print-modelo-laqua` deixa de existir — se quiser posso adicionar um redirect 301 no roteador do KB (fora do escopo desta limpeza, avise se precisar).
 
-- Passo 1 → Preview abre com todos os itens da tabela vigente já listados.
-- Remover uma linha some do preview e dos totais imediatamente.
-- "Restaurar todos" recompõe a lista sem recarregar a página.
-- Salvar/Exportar (XLSX, PDF, DOCX) usam somente os itens que restaram no preview.
-- Histórico de propostas (passo 1) continua funcionando.
+Nenhuma alteração de código — só migration de dados.
