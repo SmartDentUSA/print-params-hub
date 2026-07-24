@@ -443,8 +443,8 @@ export function DealerProposalWizard({ distributors }: Props) {
                     <tr>
                       <th className="p-2 w-8"></th>
                       <th className="p-2 text-left">Foto</th>
-                      <th className="p-2 text-left">SKU</th>
                       <th className="p-2 text-left">Produto</th>
+                      <th className="p-2 text-left">SKU</th>
                       <th className="p-2 text-left">NCM</th>
                       <th className="p-2 text-left">GTIN</th>
                       <th className="p-2 text-left">Variante</th>
@@ -466,8 +466,8 @@ export function DealerProposalWizard({ distributors }: Props) {
                           </Button>
                         </td>
                         <td className="p-1">{it.image_url ? <img src={it.image_url} alt="" className="w-10 h-10 object-contain bg-muted rounded" /> : "—"}</td>
-                        <td className="p-1 whitespace-nowrap">{it.sku ?? it.cod ?? "—"}</td>
                         <td className="p-1 min-w-[220px] whitespace-normal">{it.name}</td>
+                        <td className="p-1 whitespace-nowrap">{it.sku ?? it.cod ?? "—"}</td>
                         <td className="p-1 whitespace-nowrap">{it.ncm_hs ?? "—"}</td>
                         <td className="p-1 whitespace-nowrap">{it.gtin_ean ?? "—"}</td>
                         <td className="p-1 whitespace-nowrap">{it.variant ?? it.presentation_qty ?? "—"}</td>
