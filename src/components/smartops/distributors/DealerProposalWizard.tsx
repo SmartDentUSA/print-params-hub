@@ -78,10 +78,31 @@ export function DealerProposalWizard({ distributors }: Props) {
   }, [distributorId]);
 
   const [previewItems, setPreviewItems] = useState<DealerPriceItem[]>([]);
+  const [colorMap, setColorMap] = useState<Record<string, string | null>>({});
 
   useEffect(() => {
     if (step === 2) setPreviewItems(items.map((i) => ({ ...i })));
   }, [step, items]);
+
+  useEffect(() => {
+    (async () => {
+      const ids = Array.from(new Set(items.map((i) => i.catalog_product_id).filter(Boolean))) as string[];
+      if (ids.length === 0) { setColorMap({}); return; }
+      const { data } = await supabase
+        .from("catalog_product_variations" as any)
+        .select("catalog_product_id,presentation_qty,color")
+        .in("catalog_product_id", ids);
+      const norm = (v: unknown) => String(v ?? "").trim().toLowerCase();
+      const map: Record<string, string | null> = {};
+      ((data as any) || []).forEach((v: any) => {
+        map[`${v.catalog_product_id}::${norm(v.presentation_qty)}`] = v.color ?? null;
+      });
+      setColorMap(map);
+    })();
+  }, [items]);
+
+  const getColor = (it: DealerPriceItem) =>
+    colorMap[`${it.catalog_product_id}::${String(it.presentation_qty ?? "").trim().toLowerCase()}`] ?? "";
 
   const removePreviewItem = (id: string) => {
     setPreviewItems((prev) => prev.filter((p) => p.id !== id));
@@ -276,13 +297,14 @@ export function DealerProposalWizard({ distributors }: Props) {
                     <tr>
                       <th className="p-2 w-8"></th>
                       <th className="p-2 text-left">Foto</th>
-                      <th className="p-2 text-left">COD</th>
+                      <th className="p-2 text-left">SKU</th>
                       <th className="p-2 text-left">Produto</th>
                       <th className="p-2 text-left">Variante</th>
-                      <th className="p-2 text-left">GTIN/EAN</th>
-                      <th className="p-2 text-left">NCM/HS</th>
+                      <th className="p-2 text-left">Pres</th>
+                      <th className="p-2 text-left">Cor</th>
                       <th className="p-2 text-right">Preço</th>
                       <th className="p-2 text-right">Desc.</th>
+                      <th className="p-2 text-right">Desc ({list?.currency ?? "BRL"})</th>
                       <th className="p-2 text-right">Preço dealer</th>
                     </tr>
                   </thead>
@@ -295,13 +317,16 @@ export function DealerProposalWizard({ distributors }: Props) {
                           </Button>
                         </td>
                         <td className="p-1">{it.image_url ? <img src={it.image_url} alt="" className="w-10 h-10 object-contain bg-muted rounded" /> : "—"}</td>
-                        <td className="p-1"><Input className="h-7" value={it.cod ?? ""} onChange={(e) => editPreview(it.id, "cod", e.target.value)} /></td>
-                        <td className="p-1"><Input className="h-7" value={it.name} onChange={(e) => editPreview(it.id, "name", e.target.value)} /></td>
-                        <td className="p-1"><Input className="h-7" value={it.variant ?? ""} onChange={(e) => editPreview(it.id, "variant", e.target.value)} /></td>
-                        <td className="p-1"><Input className="h-7" value={it.gtin_ean ?? ""} onChange={(e) => editPreview(it.id, "gtin_ean", e.target.value)} /></td>
-                        <td className="p-1"><Input className="h-7" value={it.ncm_hs ?? ""} onChange={(e) => editPreview(it.id, "ncm_hs", e.target.value)} /></td>
+                        <td className="p-1 whitespace-nowrap">{it.sku ?? it.cod ?? "—"}</td>
+                        <td className="p-1 min-w-[220px] whitespace-normal">{it.name}</td>
+                        <td className="p-1 whitespace-nowrap">{it.variant ?? it.presentation_qty ?? "—"}</td>
+                        <td className="p-1 whitespace-nowrap">{it.presentation ?? "—"}</td>
+                        <td className="p-1 whitespace-nowrap">{getColor(it) || "—"}</td>
                         <td className="p-1"><Input className="h-7 text-right" type="number" step="0.01" value={it.price_base} onChange={(e) => editPreview(it.id, "price_base", parseFloat(e.target.value) || 0)} /></td>
                         <td className="p-1"><Input className="h-7 text-right" type="number" step="0.1" value={it.discount_pct} onChange={(e) => editPreview(it.id, "discount_pct", parseFloat(e.target.value) || 0)} /></td>
+                        <td className="p-1 text-right whitespace-nowrap text-muted-foreground">
+                          {formatMoney((Number(it.price_base) || 0) - (Number(it.price_dealer) || 0), list?.currency)}
+                        </td>
                         <td className="p-1"><Input className="h-7 text-right font-semibold" type="number" step="0.01" value={it.price_dealer} onChange={(e) => editPreview(it.id, "price_dealer", parseFloat(e.target.value) || 0)} /></td>
                       </tr>
                     ))}
@@ -311,6 +336,7 @@ export function DealerProposalWizard({ distributors }: Props) {
                       <td colSpan={7} className="p-2 text-right">Totais:</td>
                       <td className="p-2 text-right">{formatMoney(totals.subtotal, list?.currency)}</td>
                       <td className="p-2 text-right">{totals.subtotal > 0 ? ((totals.discount_total / totals.subtotal) * 100).toFixed(1) : 0}%</td>
+                      <td className="p-2 text-right">{formatMoney(totals.discount_total, list?.currency)}</td>
                       <td className="p-2 text-right text-primary">{formatMoney(totals.total, list?.currency)}</td>
                     </tr>
                   </tfoot>
