@@ -284,11 +284,22 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
     }
     const allVars = (varRes.data as any) || [];
     const norm = (value: any) => String(value ?? "").trim().toLowerCase().replace(/\s+/g, "");
-    const existingByKey = new Map<string, DealerPriceItem>(
-      items
-        .filter((i) => i.catalog_product_id)
-        .map((i) => [`${i.catalog_product_id}::${norm(i.presentation_qty)}`, i] as const),
-    );
+    // Chave por SKU da variação (única e estável). Produtos com múltiplas cores
+    // compartilham o mesmo product_id e presentation_qty, então usar (product, qty)
+    // fazia todas as variações colapsarem numa única linha.
+    const existingByKey = new Map<string, DealerPriceItem>();
+    for (const i of items) {
+      const skuKey = (i as any).sku ? `sku::${norm((i as any).sku)}` : null;
+      if (skuKey && !existingByKey.has(skuKey)) existingByKey.set(skuKey, i);
+    }
+    // Fallback: linhas legadas sem sku, casadas por product+qty (chave antiga).
+    const legacyByKey = new Map<string, DealerPriceItem>();
+    for (const i of items) {
+      if ((i as any).sku) continue;
+      if (!i.catalog_product_id) continue;
+      const k = `${i.catalog_product_id}::${norm(i.presentation_qty)}`;
+      if (!legacyByKey.has(k)) legacyByKey.set(k, i);
+    }
     const cur = (list.currency || distributor?.preferred_currency || "BRL").toUpperCase();
     const presentationFor = (v: any, p: any): "grs" | "Kg" | "Item" | "ml" => {
       // Prefer explicit value set on the variation (catalog editor).
@@ -357,13 +368,16 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
       if (!p) continue;
       const presRaw = presentationFor(v, p);
       const norm2 = normalizeWeight(v.presentation_qty, presRaw, v.unidade);
-      const key = `${v.catalog_product_id}::${norm(norm2.qty)}`;
       let keySet = validKeysByProduct.get(v.catalog_product_id);
       if (!keySet) { keySet = new Set(); validKeysByProduct.set(v.catalog_product_id, keySet); }
       keySet.add(norm(norm2.qty));
       const priced = priceFor(v, p);
       if (priced.missing) missingCount++;
-      const current = existingByKey.get(key);
+      const skuKey = v.sku ? `sku::${norm(v.sku)}` : null;
+      const legacyKey = `${v.catalog_product_id}::${norm(norm2.qty)}`;
+      const current = (skuKey && existingByKey.get(skuKey)) || legacyByKey.get(legacyKey);
+      // Consome a linha legada para não ser reusada por outra variação do mesmo produto.
+      if (current && !((current as any).sku)) legacyByKey.delete(legacyKey);
       const catalogFields = {
         catalog_product_id: p.id,
         cod: p?.external_id || null,
