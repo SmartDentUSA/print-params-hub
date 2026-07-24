@@ -138,11 +138,18 @@ export function useSkuMappingInbox() {
       }
 
       if (alias_id) {
-        const { error } = await (supabase as any)
+        const { data: updated, error } = await (supabase as any)
           .from("produto_aliases")
           .update(patch)
-          .eq("id", alias_id);
+          .eq("id", alias_id)
+          .select("id")
+          .maybeSingle();
         if (error) throw error;
+        if (!updated) {
+          throw new Error(
+            "Nenhuma linha atualizada — verifique se o usuário tem perfil admin.",
+          );
+        }
       } else {
         const { data, error } = await (supabase as any)
           .from("produto_aliases")
