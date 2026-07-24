@@ -208,7 +208,7 @@ export async function exportPriceTablePdf(
     // safely inside the margin so it never crops. This is layout-independent
     // of the PNG label positions to guarantee alignment.
     const boxX = 32;
-    const boxY = 150;
+    const boxY = 118;
     const boxW = pageW - 64;
     const boxH = 88;
     doc.setDrawColor(200);
@@ -249,7 +249,7 @@ export async function exportPriceTablePdf(
 
   // Table area: header block ends around y=238 — start table below.
   // Bottom margin keeps the letterhead footer (URL + divider) clear.
-  const tableTop = 250;
+  const tableTop = 218;
   const tableBottom = pageH - 80;
   const leftMargin = 28;
   const rightMargin = 28;
@@ -265,8 +265,8 @@ export async function exportPriceTablePdf(
     0:  { cellWidth: 30, halign: "center", valign: "middle" }, // Foto
     1:  { cellWidth: 36, halign: "center" },                    // SKU
     2:  { cellWidth: 96, fontStyle: "bold" },                   // Produto
-    3:  { cellWidth: 42, halign: "center" },                    // NCM
-    4:  { cellWidth: 58, halign: "center" },                    // GTIN
+    3:  { cellWidth: 42, halign: "center", fontSize: 6.5 },     // NCM
+    4:  { cellWidth: 58, halign: "center", fontSize: 6.5 },     // GTIN
     5:  { cellWidth: 32, halign: "center" },                    // Variante
     6:  { cellWidth: 22, halign: "center" },                    // Pres
     7:  { cellWidth: 30, halign: "center" },                    // Cor
