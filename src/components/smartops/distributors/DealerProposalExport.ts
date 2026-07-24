@@ -408,30 +408,33 @@ export async function exportPriceTablePdf(
   );
   const totalDesc = totalTabela - totalDealer;
   const descPct = totalTabela > 0 ? (totalDesc / totalTabela) * 100 : 0;
-  ensureSpace(72);
-  const boxX = pageW - rightMargin - 240;
-  const boxY = cursorY + 6;
-  doc.setDrawColor(200);
-  doc.setFillColor(248, 249, 250);
-  doc.roundedRect(boxX, boxY, 240, 60, 4, 4, "FD");
+  ensureSpace(84);
+  const boxW = 260;
+  const boxX = pageW - rightMargin - boxW;
+  const boxY = cursorY + 8;
+  doc.setDrawColor(230);
+  doc.setFillColor(249, 250, 251);
+  doc.roundedRect(boxX, boxY, boxW, 68, 5, 5, "FD");
+  // Two light rows
   doc.setFont("helvetica", "normal");
-  doc.setFontSize(10);
-  doc.setTextColor(60, 60, 60);
-  doc.text("Preço de tabela:", boxX + 10, boxY + 16);
-  doc.text("Valor de desconto:", boxX + 10, boxY + 32);
+  doc.setFontSize(9.5);
+  doc.setTextColor(90, 90, 90);
+  doc.text("Preço de tabela", boxX + 12, boxY + 18);
+  doc.text("Valor de desconto", boxX + 12, boxY + 34);
+  doc.setTextColor(40, 40, 40);
+  doc.text(formatMoney(totalTabela, currency), boxX + boxW - 12, boxY + 18, { align: "right" });
+  doc.text(`${formatMoney(totalDesc, currency)} (${descPct.toFixed(1)}%)`, boxX + boxW - 12, boxY + 34, { align: "right" });
+  // Divider
+  doc.setDrawColor(220);
+  doc.line(boxX + 10, boxY + 42, boxX + boxW - 10, boxY + 42);
+  // Highlighted total
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(11);
-  doc.setTextColor(20, 20, 20);
-  doc.text("Preço Dealer:", boxX + 10, boxY + 51);
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(10);
-  doc.setTextColor(60, 60, 60);
-  doc.text(formatMoney(totalTabela, currency), boxX + 230, boxY + 16, { align: "right" });
-  doc.text(`${formatMoney(totalDesc, currency)} (${descPct.toFixed(1)}%)`, boxX + 230, boxY + 32, { align: "right" });
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(11);
-  doc.setTextColor(20, 20, 20);
-  doc.text(formatMoney(totalDealer, currency), boxX + 230, boxY + 51, { align: "right" });
+  doc.setFontSize(12);
+  doc.setTextColor(54, 62, 86); // brand navy
+  doc.text("Preço Dealer", boxX + 12, boxY + 58);
+  doc.setTextColor(222, 110, 55); // brand orange
+  doc.text(formatMoney(totalDealer, currency), boxX + boxW - 12, boxY + 58, { align: "right" });
+  doc.setTextColor(0, 0, 0);
 
   doc.save(`${fileBase(distributor, list, opts.filenamePrefix ?? "tabela-preco")}.pdf`);
 }
