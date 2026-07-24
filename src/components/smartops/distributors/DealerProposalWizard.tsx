@@ -139,7 +139,7 @@ export function DealerProposalWizard({ distributors }: Props) {
 
   const saveProposal = async () => {
     if (!distributor || previewItems.length === 0) return;
-    const itemsWithQty = previewItems.map((it) => ({ ...it, quantity: getQty(it.id) }));
+    const itemsWithQty = previewItems.map((it) => ({ ...it, quantity: getQty(it.id), quantity_multiplier: getQty(it.id) }));
     const payload = {
       distributor_id: distributor.id,
       price_list_id: list?.id ?? null,
