@@ -432,7 +432,7 @@ export function DealerCatalogGrid({ onAddToPriceList }: Props) {
         <p className="text-sm text-muted-foreground">{t.loading}</p>
       ) : (
         <div className="rounded-md border overflow-x-auto">
-          <Table className="min-w-[2050px]">
+          <Table className="min-w-[2180px]">
             <TableHeader>
               <TableRow>
                 <TableHead className="w-[80px]">{t.catStatus}</TableHead>
@@ -442,6 +442,7 @@ export function DealerCatalogGrid({ onAddToPriceList }: Props) {
                 <TableHead className="w-[120px]">{t.catSku}</TableHead>
                 <TableHead className="w-[110px]">{t.catPresQty}</TableHead>
                 <TableHead className="w-[90px]">{t.catPres}</TableHead>
+                <TableHead className="w-[120px]">{t.catColor}</TableHead>
                 <TableHead className="w-[130px]">{t.catNcm}</TableHead>
                 <TableHead className="w-[150px]">{t.catGtin}</TableHead>
                 <TableHead className="w-[110px]">{t.catWeight}</TableHead>
@@ -456,7 +457,7 @@ export function DealerCatalogGrid({ onAddToPriceList }: Props) {
             <TableBody>
               {filtered.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={16} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={17} className="text-center py-8 text-muted-foreground">
                     {t.empty}
                   </TableCell>
                 </TableRow>
@@ -485,7 +486,7 @@ export function DealerCatalogGrid({ onAddToPriceList }: Props) {
                           {p.product_category && <div className="text-[11px] text-muted-foreground truncate">{p.product_category}{p.product_subcategory ? ` › ${p.product_subcategory}` : ""}</div>}
                         </TableCell>
                         <TableCell className="font-mono text-xs">{codOf(p)}</TableCell>
-                        <TableCell colSpan={10} className="text-xs text-muted-foreground italic">
+                        <TableCell colSpan={11} className="text-xs text-muted-foreground italic">
                           {t.noVariations}
                         </TableCell>
                         <TableCell>
@@ -553,6 +554,15 @@ export function DealerCatalogGrid({ onAddToPriceList }: Props) {
                               ))}
                             </SelectContent>
                           </Select>
+                        </TableCell>
+                        <TableCell>
+                          <Input
+                            className="h-8 text-xs"
+                            value={(v as any).color ?? ""}
+                            readOnly
+                            disabled
+                            placeholder="—"
+                          />
                         </TableCell>
                         <TableCell>
                           <Input
