@@ -265,8 +265,8 @@ export async function exportPriceTablePdf(
     0:  { cellWidth: 30, halign: "center", valign: "middle" }, // Foto
     1:  { cellWidth: 36, halign: "center" },                    // SKU
     2:  { cellWidth: 96, fontStyle: "bold" },                   // Produto
-    3:  { cellWidth: 42, halign: "center", fontSize: 6.5 },     // NCM
-    4:  { cellWidth: 58, halign: "center", fontSize: 6.5 },     // GTIN
+    3:  { cellWidth: 42, halign: "center", fontSize: 5.5 },     // NCM
+    4:  { cellWidth: 58, halign: "center", fontSize: 5.5 },     // GTIN
     5:  { cellWidth: 32, halign: "center" },                    // Variante
     6:  { cellWidth: 22, halign: "center" },                    // Pres
     7:  { cellWidth: 30, halign: "center" },                    // Cor
