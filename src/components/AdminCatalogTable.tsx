@@ -272,7 +272,7 @@ export function AdminCatalogTable({
           <TableBody>
             {sortedProducts.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={15} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={13} className="text-center py-8 text-muted-foreground">
                   Nenhum produto encontrado.
                 </TableCell>
               </TableRow>
@@ -287,7 +287,7 @@ export function AdminCatalogTable({
                   if (cat !== lastCat) {
                     rows.push(
                       <TableRow key={`cat-${cat}`} className="bg-primary/10 hover:bg-primary/10">
-                        <TableCell colSpan={15} className="py-2 font-bold text-sm text-primary uppercase tracking-wide">
+                        <TableCell colSpan={13} className="py-2 font-bold text-sm text-primary uppercase tracking-wide">
                           {cat}
                         </TableCell>
                       </TableRow>
@@ -298,7 +298,7 @@ export function AdminCatalogTable({
                   if (sub !== lastSub) {
                     rows.push(
                       <TableRow key={`sub-${cat}-${sub}`} className="bg-muted/60 hover:bg-muted/60">
-                        <TableCell colSpan={15} className="py-1.5 pl-6 italic text-xs text-muted-foreground font-semibold">
+                        <TableCell colSpan={13} className="py-1.5 pl-6 italic text-xs text-muted-foreground font-semibold">
                           {sub}
                         </TableCell>
                       </TableRow>
