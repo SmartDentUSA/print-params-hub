@@ -364,13 +364,13 @@ export function DealerProposalWizard({ distributors }: Props) {
             <Button variant="outline" onClick={() => setStep(1)}><ArrowLeft className="w-4 h-4 mr-1" /> Voltar</Button>
             <div className="flex flex-wrap gap-2">
               <Button onClick={saveProposal} disabled={previewItems.length === 0}><Save className="w-4 h-4 mr-1" /> Salvar proposta</Button>
-              <Button variant="outline" onClick={() => exportPriceTableXlsx(distributor, stubList, previewItems.map((it) => ({ ...it, quantity: getQty(it.id) })) as any, "proposta")}>
+              <Button variant="outline" onClick={() => exportPriceTableXlsx(distributor, stubList, previewItems.map((it) => ({ ...it, quantity: getQty(it.id), quantity_multiplier: getQty(it.id) })) as any, "proposta")}>
                 <FileSpreadsheet className="w-4 h-4 mr-1" /> XLSX
               </Button>
-              <Button variant="outline" onClick={() => exportPriceTablePdf(distributor, stubList, previewItems.map((it) => ({ ...it, quantity: getQty(it.id) })) as any, { title: "Proposal / Price Table", filenamePrefix: "proposta" })}>
+              <Button variant="outline" onClick={() => exportPriceTablePdf(distributor, stubList, previewItems.map((it) => ({ ...it, quantity: getQty(it.id), quantity_multiplier: getQty(it.id) })) as any, { title: "Proposal / Price Table", filenamePrefix: "proposta" })}>
                 <FileText className="w-4 h-4 mr-1" /> PDF
               </Button>
-              <Button variant="outline" onClick={() => exportPriceTableDocx(distributor, stubList, previewItems.map((it) => ({ ...it, quantity: getQty(it.id) })) as any, "proposta")}>
+              <Button variant="outline" onClick={() => exportPriceTableDocx(distributor, stubList, previewItems.map((it) => ({ ...it, quantity: getQty(it.id), quantity_multiplier: getQty(it.id) })) as any, "proposta")}>
                 <FileType className="w-4 h-4 mr-1" /> DOCX
               </Button>
             </div>
