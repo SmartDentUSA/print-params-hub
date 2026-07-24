@@ -13,7 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Search, ImageOff, Plus, Lock, Layers, Trash2, Save, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import type { CatalogProduct } from "./types";
-import { categoryRank, PRESENTATION_OPTIONS, type PresentationType } from "./types";
+import { categoryRank, PRESENTATION_OPTIONS, isFreeSampleVariation, type PresentationType } from "./types";
 
 /** Extrai variações a partir de system_a_catalog.extra_data.system_a_live.technical_specs. */
 function parseSpecVariations(specs: Array<{ label: string; value: string }>): {
@@ -213,7 +213,13 @@ export function DealerCatalogGrid({ onAddToPriceList }: Props) {
 
   const varsByProduct = useMemo(() => {
     const map = new Map<string, Variation[]>();
+    // Amostras grátis (100g de resinas 3D em 3.1) não entram no catálogo
+    // de distribuição — o produto ainda pode aparecer via demais variações.
+    const productById = new Map<string, any>();
+    for (const p of items) productById.set(p.id, p);
     for (const v of variations) {
+      const p = productById.get(v.catalog_product_id);
+      if (isFreeSampleVariation(p?.product_category, p?.product_subcategory, v.presentation_qty)) continue;
       if (!map.has(v.catalog_product_id)) map.set(v.catalog_product_id, []);
       map.get(v.catalog_product_id)!.push(v);
     }
@@ -236,7 +242,7 @@ export function DealerCatalogGrid({ onAddToPriceList }: Props) {
       });
     }
     return map;
-  }, [variations]);
+  }, [variations, items]);
 
   const nameFor = (p: any) => (lang === "en" ? p.name_en || p.name : lang === "es" ? p.name_es || p.name : p.name);
   const codOf = (p: any) => p?.external_id || "—";
