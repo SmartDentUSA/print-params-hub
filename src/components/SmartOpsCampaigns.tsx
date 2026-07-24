@@ -455,7 +455,7 @@ function CreateCampaign({
   const [selectedContent, setSelectedContent] = useState<ContentItem | null>(preSelectedContent);
   const [campaignName, setCampaignName] = useState("");
   const [campaignDesc, setCampaignDesc] = useState("");
-  const [sendChannel, setSendChannel] = useState("whatsapp");
+  const [sendChannel, setSendChannel] = useState("evolution");
   const [evolutionInstance, setEvolutionInstance] = useState<string>("");
   const [evolutionInstances, setEvolutionInstances] = useState<Array<{ instance: string; nome: string; phone: string }>>([]);
   const [searchTerm, setSearchTerm] = useState("");
