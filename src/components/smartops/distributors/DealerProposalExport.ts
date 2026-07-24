@@ -269,12 +269,12 @@ export async function exportPriceTablePdf(
     4:  { cellWidth: 58, halign: "center", fontSize: 5.5 },     // GTIN
     5:  { cellWidth: 32, halign: "center" },                    // Variante
     6:  { cellWidth: 22, halign: "center" },                    // Pres
-    7:  { cellWidth: 30, halign: "center" },                    // Cor
+    7:  { cellWidth: 42, halign: "center" },                    // Cor
     8:  { cellWidth: 22, halign: "right" },                     // Qtd
     9:  { cellWidth: 44, halign: "right" },                     // Preço unit.
     10: { cellWidth: 28, halign: "right" },                     // Desc %
     11: { cellWidth: 42, halign: "right" },                     // Desc (curr)
-    12: { cellWidth: 56, halign: "right", fontStyle: "bold" },  // Total
+    12: { cellWidth: 44, halign: "right", fontStyle: "bold" },  // Total
   };
 
   // Group by catalog_product_id to compute rowSpan on Foto/COD/Produto,
