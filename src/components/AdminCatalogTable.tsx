@@ -80,6 +80,7 @@ function isResinRow(p: CatalogProduct): boolean {
 
 /** Presets físicos por gramatura de resina (embalagem padrão). */
 const RESIN_GRS_PRESETS: Record<string, { weight_kg: number; dimensions_cm: string }> = {
+  "2.5": { weight_kg: 0.011, dimensions_cm: "16.0 x 3.0 x 3.0" },
   "250": { weight_kg: 0.35, dimensions_cm: "16.0 x 8.0 x 8.0" },
   "500": { weight_kg: 0.61, dimensions_cm: "19.5 x 8.5 x 8.5" },
   "1000": { weight_kg: 1.13, dimensions_cm: "24.5 x 9.5 x 9.5" },
