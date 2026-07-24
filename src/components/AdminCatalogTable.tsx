@@ -223,6 +223,24 @@ export function AdminCatalogTable({
     (product as any).extra_data = next;
   };
 
+  /** Liberar produto para aparecer no espelho de Distribuição — Tabelas de Preço & Propostas. */
+  const commitDistributeEnabled = async (
+    product: CatalogProduct,
+    value: boolean,
+  ) => {
+    const next = { ...(product.extra_data || {}), distribute_enabled: value };
+    const { error } = await (supabase as any)
+      .from("system_a_catalog")
+      .update({ extra_data: next })
+      .eq("id", product.id!);
+    if (error) {
+      toast.error(error.message || "Erro ao salvar");
+      return;
+    }
+    (product as any).extra_data = next;
+    toast.success(value ? "Liberado para distribuição" : "Removido da distribuição");
+  };
+
   return (
     <TooltipProvider delayDuration={200}>
       <div className="rounded-md border overflow-x-auto">
@@ -525,6 +543,22 @@ export function AdminCatalogTable({
                             <Badge variant={product.approved ? "default" : "destructive"} className="text-[10px]">
                               {product.approved ? "Aprovado" : "Pendente"}
                             </Badge>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <label className="flex items-center gap-1 text-[10px] text-muted-foreground cursor-pointer select-none mt-1">
+                                  <Checkbox
+                                    checked={!!(product as any).extra_data?.distribute_enabled}
+                                    onCheckedChange={(v) =>
+                                      commitDistributeEnabled(product, v === true)
+                                    }
+                                  />
+                                  Distribuição
+                                </label>
+                              </TooltipTrigger>
+                              <TooltipContent side="left" className="text-xs max-w-[220px]">
+                                Libera este produto na tabela espelho de Distribuição — Tabelas de Preço & Propostas → Catálogo de produtos. Lá, somente Preço USD e Preço EUR são editáveis.
+                              </TooltipContent>
+                            </Tooltip>
                           </div>
                         </TableCell>
                         <TableCell rowSpan={list.length} className="align-top">
