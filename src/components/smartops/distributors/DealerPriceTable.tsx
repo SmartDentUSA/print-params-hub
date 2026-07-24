@@ -257,7 +257,9 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
         .select("id,external_id,name,name_en,name_es,image_url,product_category,product_subcategory,description,price,price_usd,price_eur,presentation,quantity_multiplier,extra_data,active,approved")
         .eq("approved", true)
         .eq("active", true)
-        .in("category", ["product", "resin"]),
+        .in("category", ["product", "resin"])
+        // Somente produtos liberados na Gestão de Catálogo (checkbox "Distribuição").
+        .eq("extra_data->>distribute_enabled", "true"),
       supabase
         .from("catalog_product_variations" as any)
         .select("*"),
@@ -265,6 +267,11 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
     if (prodRes.error) { toast.error(prodRes.error.message); setLoading(false); return; }
     if (varRes.error) { toast.error(varRes.error.message); setLoading(false); return; }
     const productsById = new Map<string, any>(((prodRes.data as any) || []).map((p: any) => [p.id, p]));
+    if (productsById.size === 0) {
+      toast.info("Nenhum produto liberado para distribuição. Ative o checkbox 'Distribuição' em Gestão de Catálogo.");
+      setLoading(false);
+      return;
+    }
     const allVars = (varRes.data as any) || [];
     const norm = (value: any) => String(value ?? "").trim().toLowerCase().replace(/\s+/g, "");
     const existingByKey = new Map<string, DealerPriceItem>(
