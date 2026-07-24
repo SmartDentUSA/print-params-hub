@@ -56,8 +56,8 @@ export type DealerPriceItem = {
   is_active?: boolean;
 };
 
-export type PresentationType = "grs" | "Kg" | "Item" | "ml";
-export const PRESENTATION_OPTIONS: PresentationType[] = ["grs", "Kg", "Item", "ml"];
+export type PresentationType = "grs" | "Kg" | "Item" | "ml" | "Un";
+export const PRESENTATION_OPTIONS: PresentationType[] = ["grs", "Kg", "Item", "ml", "Un"];
 
 export type DealerSnapshot = {
   id: string;
