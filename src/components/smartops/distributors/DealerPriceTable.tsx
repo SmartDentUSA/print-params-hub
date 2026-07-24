@@ -323,11 +323,15 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
     // Nunca cruzar moedas — se a moeda-alvo estiver vazia, marca como pendente (0)
     // para o usuário revisar em vez de importar em real por engano.
     const priceFor = (v: any, p: any): { value: number; missing: boolean } => {
+      // USD/EUR são inseridos APENAS no Catálogo de Distribuição
+      // (Distribuição → Catálogo de produtos). Não há fallback para
+      // system_a_catalog nessas moedas — se o preço da moeda-alvo estiver
+      // vazio na variação, o item entra como pendente (0) para revisão.
       const pick =
         cur === "USD"
-          ? (v.price_usd ?? p?.price_usd)
+          ? v.price_usd
           : cur === "EUR"
-          ? (v.price_eur ?? p?.price_eur)
+          ? v.price_eur
           : (v.price_brl ?? p?.price);
       const n = Number(pick);
       if (isFinite(n) && n > 0) return { value: n, missing: false };

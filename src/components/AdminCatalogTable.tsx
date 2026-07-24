@@ -265,8 +265,6 @@ export function AdminCatalogTable({
               <TableHead className="w-20">Peso (kg)</TableHead>
               <TableHead className="w-28">Dim (cm)</TableHead>
               <TableHead className="w-32">BRL</TableHead>
-              <TableHead className="w-32">USD</TableHead>
-              <TableHead className="w-32">EUR</TableHead>
               <TableHead className="w-20 text-center">Status</TableHead>
               <TableHead className="w-24 text-center">Ações</TableHead>
             </TableRow>
@@ -274,7 +272,7 @@ export function AdminCatalogTable({
           <TableBody>
             {sortedProducts.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={15} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={13} className="text-center py-8 text-muted-foreground">
                   Nenhum produto encontrado.
                 </TableCell>
               </TableRow>
@@ -289,7 +287,7 @@ export function AdminCatalogTable({
                   if (cat !== lastCat) {
                     rows.push(
                       <TableRow key={`cat-${cat}`} className="bg-primary/10 hover:bg-primary/10">
-                        <TableCell colSpan={15} className="py-2 font-bold text-sm text-primary uppercase tracking-wide">
+                        <TableCell colSpan={13} className="py-2 font-bold text-sm text-primary uppercase tracking-wide">
                           {cat}
                         </TableCell>
                       </TableRow>
@@ -300,7 +298,7 @@ export function AdminCatalogTable({
                   if (sub !== lastSub) {
                     rows.push(
                       <TableRow key={`sub-${cat}-${sub}`} className="bg-muted/60 hover:bg-muted/60">
-                        <TableCell colSpan={15} className="py-1.5 pl-6 italic text-xs text-muted-foreground font-semibold">
+                        <TableCell colSpan={13} className="py-1.5 pl-6 italic text-xs text-muted-foreground font-semibold">
                           {sub}
                         </TableCell>
                       </TableRow>
@@ -501,26 +499,6 @@ export function AdminCatalogTable({
                         placeholder="0.00"
                         onCommit={(val) => commitVariationField(product.id!, v, {
                           price_brl: val ? Number(val) : null,
-                        })}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <CellInput
-                        value={v.price_usd}
-                        type="number"
-                        placeholder="0.00"
-                        onCommit={(val) => commitVariationField(product.id!, v, {
-                          price_usd: val ? Number(val) : null,
-                        })}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <CellInput
-                        value={v.price_eur}
-                        type="number"
-                        placeholder="0.00"
-                        onCommit={(val) => commitVariationField(product.id!, v, {
-                          price_eur: val ? Number(val) : null,
                         })}
                       />
                     </TableCell>
