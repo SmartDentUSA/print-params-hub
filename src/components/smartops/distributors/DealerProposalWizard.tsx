@@ -5,12 +5,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, ArrowRight, Save, FileSpreadsheet, FileText, FileType, History, Trash2, RotateCcw, Pencil } from "lucide-react";
+import { ArrowLeft, ArrowRight, Save, FileSpreadsheet, FileText, FileType, History, Trash2, RotateCcw, Pencil, Plus, ImageOff } from "lucide-react";
 import { toast } from "sonner";
 import type { DealerPriceItem, DealerPriceList, Distributor } from "./types";
 import { recalcDealerPrice, recalcDiscount, formatMoney } from "./types";
 import { exportPriceTableXlsx, exportPriceTablePdf, exportPriceTableDocx } from "./DealerProposalExport";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 
 type SavedProposal = {
   id: string;
@@ -82,6 +83,15 @@ export function DealerProposalWizard({ distributors }: Props) {
   const [previewItems, setPreviewItems] = useState<DealerPriceItem[]>([]);
   const [colorMap, setColorMap] = useState<Record<string, string | null>>({});
   const [qtyMap, setQtyMap] = useState<Record<string, number>>({});
+  const [addOpen, setAddOpen] = useState(false);
+  const [addLoading, setAddLoading] = useState(false);
+  const [addSearch, setAddSearch] = useState("");
+  const [addOptions, setAddOptions] = useState<Array<{
+    key: string;
+    product: any;
+    variation: any;
+    label: string;
+  }>>([]);
 
   useEffect(() => {
     if (step === 2 && !editingId) {
@@ -136,6 +146,92 @@ export function DealerProposalWizard({ distributors }: Props) {
     setPreviewItems(items.map((i) => ({ ...i })));
     setQtyMap(Object.fromEntries(items.map((i) => [i.id, 1])));
   };
+
+  const openAddDialog = async () => {
+    setAddOpen(true);
+    setAddSearch("");
+    setAddLoading(true);
+    const [prodRes, varRes] = await Promise.all([
+      supabase
+        .from("system_a_catalog" as any)
+        .select("id,external_id,name,name_en,name_es,image_url,product_category,product_subcategory,description,price,price_usd,price_eur,presentation,quantity_multiplier,extra_data,active,approved")
+        .eq("approved", true).eq("active", true)
+        .in("category", ["product", "resin"])
+        .eq("extra_data->>distribute_enabled", "true"),
+      supabase.from("catalog_product_variations" as any).select("*"),
+    ]);
+    setAddLoading(false);
+    if (prodRes.error) { toast.error(prodRes.error.message); return; }
+    if (varRes.error) { toast.error(varRes.error.message); return; }
+    const norm = (v: any) => String(v ?? "").trim().toLowerCase().replace(/\s+/g, "");
+    const existing = new Set(
+      previewItems.filter((i) => i.catalog_product_id).map((i) => `${i.catalog_product_id}::${norm(i.presentation_qty)}`),
+    );
+    const productsById = new Map<string, any>(((prodRes.data as any) || []).map((p: any) => [p.id, p]));
+    const opts: Array<{ key: string; product: any; variation: any; label: string }> = [];
+    for (const v of (varRes.data as any) || []) {
+      const p = productsById.get(v.catalog_product_id);
+      if (!p) continue;
+      const key = `${v.catalog_product_id}::${norm(v.presentation_qty)}`;
+      if (existing.has(key)) continue;
+      const variantLabel = [v.presentation_qty, v.presentation, v.color].filter(Boolean).join(" · ");
+      opts.push({
+        key,
+        product: p,
+        variation: v,
+        label: `${p.name}${variantLabel ? ` — ${variantLabel}` : ""}`,
+      });
+    }
+    opts.sort((a, b) => a.label.localeCompare(b.label));
+    setAddOptions(opts);
+  };
+
+  const addItemFromOption = (opt: { product: any; variation: any }) => {
+    const { product: p, variation: v } = opt;
+    const cur = (editingCurrency ?? list?.currency ?? distributor?.preferred_currency ?? "BRL").toUpperCase();
+    const priceRaw = cur === "USD" ? v.price_usd : cur === "EUR" ? v.price_eur : (v.price_brl ?? p?.price);
+    const priceValue = Number(priceRaw);
+    const priceOk = isFinite(priceValue) && priceValue > 0;
+    const presRaw = String(v.presentation || "").trim();
+    const presentation = (["grs", "Kg", "Item", "ml", "Un"].includes(presRaw) ? presRaw : "Item") as any;
+    const tempId = (globalThis.crypto?.randomUUID?.() ?? `temp-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+    const newItem: DealerPriceItem = {
+      id: tempId,
+      price_list_id: list?.id ?? "temp",
+      catalog_product_id: p.id,
+      cod: p.external_id || null,
+      sku: v.sku ?? null,
+      name: p.name,
+      name_en: p.name_en,
+      name_es: p.name_es,
+      image_url: p.image_url,
+      category: p.product_category,
+      subcategory: p.product_subcategory,
+      description: p.description,
+      ncm_hs: v.ncm_hs ?? null,
+      gtin_ean: v.gtin_ean ?? null,
+      price_base: priceOk ? priceValue : 0,
+      presentation,
+      quantity_multiplier: Number(p.quantity_multiplier ?? 1) || 1,
+      presentation_qty: v.presentation_qty ?? null,
+      unidade: v.unidade || "UN",
+      is_active: true,
+      discount_pct: 0,
+      price_dealer: priceOk ? priceValue : 0,
+      sort_order: previewItems.length,
+      color: v.color ?? null,
+    } as any;
+    setPreviewItems((prev) => [...prev, newItem]);
+    setQtyMap((prev) => ({ ...prev, [tempId]: 1 }));
+    setColorMap((prev) => ({
+      ...prev,
+      [`${p.id}::${String(v.presentation_qty ?? "").trim().toLowerCase()}`]: v.color ?? null,
+    }));
+    setAddOptions((prev) => prev.filter((o) => o.key !== `${p.id}::${String(v.presentation_qty ?? "").trim().toLowerCase().replace(/\s+/g, "")}`));
+    if (!priceOk) toast.warning(`Sem preço em ${cur} — revise antes de exportar`);
+    else toast.success("Produto adicionado à proposta");
+  };
+
   const getQty = (id: string) => Math.max(0, Number(qtyMap[id] ?? 1));
   const setQty = (id: string, v: number) => setQtyMap((prev) => ({ ...prev, [id]: Math.max(0, isFinite(v) ? v : 0) }));
 
@@ -333,6 +429,9 @@ export function DealerProposalWizard({ distributors }: Props) {
 
               <div className="flex items-center gap-2 text-sm">
                 <Badge variant="outline">{previewItems.length} itens na proposta</Badge>
+                <Button size="sm" variant="outline" onClick={openAddDialog}>
+                  <Plus className="w-3.5 h-3.5 mr-1" /> Adicionar produto
+                </Button>
                 <Button size="sm" variant="ghost" onClick={restoreAllPreviewItems}>
                   <RotateCcw className="w-3.5 h-3.5 mr-1" /> Restaurar todos
                 </Button>
@@ -421,6 +520,63 @@ export function DealerProposalWizard({ distributors }: Props) {
           {savedId && <p className="text-xs text-muted-foreground">Proposta salva: {savedId}</p>}
         </div>
       )}
+
+      <Dialog open={addOpen} onOpenChange={setAddOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Adicionar produto Smart Dent</DialogTitle>
+            <DialogDescription>
+              Selecione uma variação liberada para distribuição para incluir na proposta ({editingCurrency ?? list?.currency ?? "BRL"}).
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Input
+              autoFocus
+              placeholder="Buscar por produto, SKU, apresentação, cor…"
+              value={addSearch}
+              onChange={(e) => setAddSearch(e.target.value)}
+            />
+            <div className="max-h-[420px] overflow-y-auto border rounded">
+              {addLoading ? (
+                <div className="p-4 text-sm text-muted-foreground">Carregando…</div>
+              ) : addOptions.length === 0 ? (
+                <div className="p-4 text-sm text-muted-foreground">
+                  Nenhuma variação disponível. Ative "Distribuição" em Gestão de Catálogo.
+                </div>
+              ) : (
+                (() => {
+                  const q = addSearch.trim().toLowerCase();
+                  const filtered = q
+                    ? addOptions.filter((o) => {
+                        const hay = `${o.label} ${o.variation.sku ?? ""} ${o.product.external_id ?? ""}`.toLowerCase();
+                        return hay.includes(q);
+                      })
+                    : addOptions;
+                  return filtered.slice(0, 200).map((o) => (
+                    <button
+                      key={o.key}
+                      type="button"
+                      onClick={() => addItemFromOption(o)}
+                      className="w-full flex items-center gap-3 p-2 hover:bg-muted text-left border-b last:border-b-0"
+                    >
+                      {o.product.image_url
+                        ? <img src={o.product.image_url} alt="" className="w-10 h-10 object-contain bg-muted rounded" />
+                        : <div className="w-10 h-10 bg-muted rounded flex items-center justify-center"><ImageOff className="w-4 h-4 text-muted-foreground" /></div>}
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-medium truncate">{o.label}</div>
+                        <div className="text-xs text-muted-foreground truncate">
+                          {[o.product.product_category, o.variation.sku, o.product.external_id].filter(Boolean).join(" · ") || "—"}
+                        </div>
+                      </div>
+                      <Plus className="w-4 h-4 text-primary" />
+                    </button>
+                  ));
+                })()
+              )}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
