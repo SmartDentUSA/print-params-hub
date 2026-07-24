@@ -446,12 +446,12 @@ export async function exportPriceTableDocx(
   const borders = { top: border, bottom: border, left: border, right: border };
   const imgs = await preloadImages(items);
 
-  // Landscape A4 content width = 16838 - 2*1000 = 14838 DXA. 11 columns.
-  const widths = [1000, 1400, 2900, 1200, 800, 1400, 700, 1400, 900, 1400, 1738]; // sum = 14838
+  // Landscape A4 content width = 16838 - 2*1000 = 14838 DXA. 13 columns.
+  const widths = [900, 1200, 2400, 900, 1100, 1000, 700, 1200, 600, 1200, 800, 1200, 1638]; // sum = 14838
   const totalW = widths.reduce((a, b) => a + b, 0);
   const colCount = widths.length;
   const headers = [
-    "Foto", "SKU", "Produto", "Variante", "Pres", "Cor",
+    "Foto", "SKU", "Produto", "NCM", "GTIN", "Variante", "Pres", "Cor",
     "Qtd", "Preço unitário", "Desc %", `Desc (${currency})`, "Total",
   ];
 
@@ -489,6 +489,8 @@ export async function exportPriceTableDocx(
       "", // photo
       (it as any).sku ?? it.cod ?? "—",
       it.name,
+      it.ncm_hs ?? "—",
+      it.gtin_ean ?? "—",
       it.variant ?? it.presentation_qty ?? "—",
       (it.presentation as string) ?? "Unit",
       (it as any).color ?? "—",
@@ -532,7 +534,7 @@ export async function exportPriceTableDocx(
           margins: { top: 60, bottom: 60, left: 100, right: 100 },
           children: [new Paragraph({
             children: [new TextRun({ text: String(val), size: 18, bold: i === colCount - 1 })],
-            alignment: i >= 6 ? AlignmentType.RIGHT : AlignmentType.LEFT,
+            alignment: i >= 8 ? AlignmentType.RIGHT : AlignmentType.LEFT,
           })],
         });
       }),
