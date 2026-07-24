@@ -45,7 +45,7 @@ function VariationPicker({
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button variant="outline" size="sm" className="justify-between h-8 text-xs font-normal min-w-[180px]">
+        <Button type="button" variant="outline" size="sm" className="justify-between h-8 text-xs font-normal min-w-[180px]">
           <span className="truncate">{currentSku || "Selecionar variação..."}</span>
           <ChevronsUpDown className="ml-1 h-3 w-3 opacity-50" />
         </Button>
@@ -247,7 +247,7 @@ export function SkuMappingTab() {
             { value: "name", label: "A-Z" },
           ]}
         />
-        <Button variant="outline" size="sm" onClick={load} disabled={loading}>
+        <Button type="button" variant="outline" size="sm" onClick={load} disabled={loading}>
           <Sparkles className={cn("mr-2 h-3.5 w-3.5", loading && "animate-pulse")} />
           Recarregar
         </Button>
