@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, ArrowRight, Save, FileSpreadsheet, FileText, FileType, ImageOff, History, Download } from "lucide-react";
+import { ArrowLeft, ArrowRight, Save, FileSpreadsheet, FileText, FileType, History, Trash2, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 import type { DealerPriceItem, DealerPriceList, Distributor } from "./types";
 import { recalcDealerPrice, recalcDiscount, formatMoney } from "./types";
@@ -28,12 +28,10 @@ type SavedProposal = {
 type Props = { distributors: Distributor[] };
 
 export function DealerProposalWizard({ distributors }: Props) {
-  const [step, setStep] = useState<1 | 2 | 3>(1);
+  const [step, setStep] = useState<1 | 2>(1);
   const [distributorId, setDistributorId] = useState<string>("");
   const [list, setList] = useState<DealerPriceList | null>(null);
   const [items, setItems] = useState<DealerPriceItem[]>([]);
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [selectedCats, setSelectedCats] = useState<Set<string>>(new Set());
   const [header, setHeader] = useState({
     empresa: "", razao_social: "", contato: "", email: "", pais: "",
   });
@@ -68,7 +66,7 @@ export function DealerProposalWizard({ distributors }: Props) {
         .eq("price_list_id", l.id)
         .order("category", { ascending: true }).order("sort_order", { ascending: true });
       setItems(((rows as any) || []) as DealerPriceItem[]);
-      setSelectedIds(new Set());
+      setPreviewItems([]);
     })();
     const d = distributors.find((x) => x.id === distributorId);
     if (d) setHeader({
@@ -80,40 +78,18 @@ export function DealerProposalWizard({ distributors }: Props) {
     });
   }, [distributorId]);
 
-  const groups = useMemo(() => {
-    const m = new Map<string, DealerPriceItem[]>();
-    items.forEach((i) => {
-      const key = i.category || "Sem categoria";
-      if (!m.has(key)) m.set(key, []);
-      m.get(key)!.push(i);
-    });
-    return Array.from(m.entries());
-  }, [items]);
-
-  const toggleCategory = (cat: string, on: boolean) => {
-    const next = new Set(selectedIds);
-    const catItems = items.filter((i) => (i.category || "Sem categoria") === cat);
-    catItems.forEach((i) => { if (on) next.add(i.id); else next.delete(i.id); });
-    setSelectedIds(next);
-    const nc = new Set(selectedCats); if (on) nc.add(cat); else nc.delete(cat);
-    setSelectedCats(nc);
-  };
-
-  const toggleItem = (id: string) => {
-    const next = new Set(selectedIds);
-    next.has(id) ? next.delete(id) : next.add(id);
-    setSelectedIds(next);
-  };
-
-  const proposalItems = useMemo(
-    () => items.filter((i) => selectedIds.has(i.id)),
-    [items, selectedIds],
-  );
   const [previewItems, setPreviewItems] = useState<DealerPriceItem[]>([]);
 
   useEffect(() => {
-    if (step === 3) setPreviewItems(proposalItems.map((i) => ({ ...i })));
-  }, [step]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (step === 2) setPreviewItems(items.map((i) => ({ ...i })));
+  }, [step, items]);
+
+  const removePreviewItem = (id: string) => {
+    setPreviewItems((prev) => prev.filter((p) => p.id !== id));
+  };
+  const restoreAllPreviewItems = () => {
+    setPreviewItems(items.map((i) => ({ ...i })));
+  };
 
   const editPreview = (id: string, field: keyof DealerPriceItem, value: any) => {
     setPreviewItems((prev) => prev.map((it) => {
@@ -165,9 +141,7 @@ export function DealerProposalWizard({ distributors }: Props) {
       <div className="flex items-center gap-2 text-sm">
         <Badge variant={step === 1 ? "default" : "outline"}>1. Distribuidor</Badge>
         <ArrowRight className="w-3 h-3" />
-        <Badge variant={step === 2 ? "default" : "outline"}>2. Produtos</Badge>
-        <ArrowRight className="w-3 h-3" />
-        <Badge variant={step === 3 ? "default" : "outline"}>3. Preview & Export</Badge>
+        <Badge variant={step === 2 ? "default" : "outline"}>2. Preview & Export</Badge>
       </div>
 
       {step === 1 && (
