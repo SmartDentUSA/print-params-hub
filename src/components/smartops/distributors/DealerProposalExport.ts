@@ -255,26 +255,26 @@ export async function exportPriceTablePdf(
   const rightMargin = 28;
   const contentW = pageW - leftMargin - rightMargin;
 
-  // 13-column layout: Foto | SKU | Produto | NCM | GTIN | Variante | Pres | Cor | Qtd | Preço unitário | Desc % | Desc (curr) | Total
+  // 13-column layout: Foto | SKU | Produto | NCM | GTIN | Variante | Pres | Cor | Qtd | Preço unit. | Desc % | Desc (curr) | Total
   const head = [[
     "Foto", "SKU", "Produto", "NCM", "GTIN", "Variante", "Pres", "Cor",
-    "Qtd", "Preço unitário", "Desc %", `Desc (${currency})`, "Total",
+    "Qtd", "Preço unit.", "Desc %", `Desc (${currency})`, "Total",
   ]];
   // Portrait A4 contentW ≈ 539pt (595 − 2×28 margins). Sum below ≤ 539.
   const columnStyles: Record<number, any> = {
-    0:  { cellWidth: 26, halign: "center" },   // Foto
-    1:  { cellWidth: 40 },                      // SKU
-    2:  { cellWidth: 90 },                      // Produto
-    3:  { cellWidth: 34 },                      // NCM
-    4:  { cellWidth: 44 },                      // GTIN
-    5:  { cellWidth: 38 },                      // Variante
-    6:  { cellWidth: 24 },                      // Pres
-    7:  { cellWidth: 40 },                      // Cor
-    8:  { cellWidth: 22, halign: "right" },     // Qtd
-    9:  { cellWidth: 42, halign: "right" },     // Preço unitário
-    10: { cellWidth: 28, halign: "right" },     // Desc %
-    11: { cellWidth: 42, halign: "right" },     // Desc (curr)
-    12: { cellWidth: 68, halign: "right", fontStyle: "bold" }, // Total
+    0:  { cellWidth: 30, halign: "center", valign: "middle" }, // Foto
+    1:  { cellWidth: 36, halign: "center" },                    // SKU
+    2:  { cellWidth: 96, fontStyle: "bold" },                   // Produto
+    3:  { cellWidth: 42, halign: "center" },                    // NCM
+    4:  { cellWidth: 58, halign: "center" },                    // GTIN
+    5:  { cellWidth: 32, halign: "center" },                    // Variante
+    6:  { cellWidth: 22, halign: "center" },                    // Pres
+    7:  { cellWidth: 30, halign: "center" },                    // Cor
+    8:  { cellWidth: 22, halign: "right" },                     // Qtd
+    9:  { cellWidth: 44, halign: "right" },                     // Preço unit.
+    10: { cellWidth: 28, halign: "right" },                     // Desc %
+    11: { cellWidth: 42, halign: "right" },                     // Desc (curr)
+    12: { cellWidth: 56, halign: "right", fontStyle: "bold" },  // Total
   };
 
   // Group by catalog_product_id to compute rowSpan on Foto/COD/Produto,
@@ -291,11 +291,11 @@ export async function exportPriceTablePdf(
     const sku   = isLeader ? { content: (it as any).sku ?? it.cod ?? "—", rowSpan: span } : null;
     const nome  = isLeader ? { content: it.name, rowSpan: span } : null;
     const cells: any[] = [
-      it.ncm_hs ?? "—",
-      it.gtin_ean ?? "—",
-      it.variant ?? it.presentation_qty ?? "—",
-      (it.presentation as string) ?? "Unit",
-      (it as any).color ?? "—",
+      it.ncm_hs ?? "",
+      it.gtin_ean ?? "",
+      it.variant ?? it.presentation_qty ?? "",
+      (it.presentation as string) ?? "",
+      (it as any).color ?? "",
       String(qty),
       formatMoney(it.price_base, currency),
       `${Number(it.discount_pct).toFixed(1)}%`,
@@ -365,8 +365,9 @@ export async function exportPriceTablePdf(
         margin: { top: tableTop, bottom: pageH - tableBottom, left: leftMargin, right: rightMargin },
         head,
         body: bodyRows.map(({ it, isLeader, span }) => rowFor(it, isLeader, span)),
-        styles: { fontSize: 7, cellPadding: 2.5, overflow: "linebreak", lineColor: [220, 220, 220], lineWidth: 0.3, minCellHeight: 26, valign: "middle" },
-        headStyles: { fillColor: [55, 65, 81], textColor: 255, fontSize: 7, fontStyle: "bold" },
+        styles: { fontSize: 7.5, cellPadding: 3, overflow: "linebreak", lineColor: [220, 220, 220], lineWidth: 0.3, minCellHeight: 28, valign: "middle", textColor: [35, 35, 35] },
+        headStyles: { fillColor: [54, 62, 86], textColor: 255, fontSize: 7.5, fontStyle: "bold", halign: "center", valign: "middle", cellPadding: 4 },
+        alternateRowStyles: { fillColor: [250, 250, 251] },
         columnStyles,
         theme: "grid",
         willDrawPage: () => {
