@@ -446,8 +446,8 @@ export async function exportPriceTableDocx(
   const borders = { top: border, bottom: border, left: border, right: border };
   const imgs = await preloadImages(items);
 
-  // Landscape A4 content width = 16838 - 2*1000 = 14838 DXA. 13 columns.
-  const widths = [900, 1200, 2400, 900, 1100, 1000, 700, 1200, 600, 1200, 800, 1200, 1638]; // sum = 14838
+  // Portrait A4 content width = 11906 - 2*1000 = 9906 DXA. 13 columns.
+  const widths = [600, 800, 1600, 600, 750, 700, 470, 800, 400, 800, 550, 800, 1036]; // sum = 9906
   const totalW = widths.reduce((a, b) => a + b, 0);
   const colCount = widths.length;
   const headers = [
@@ -575,7 +575,7 @@ export async function exportPriceTableDocx(
     sections: [{
       properties: {
         page: {
-          size: { width: 11906, height: 16838, orientation: "landscape" as any },
+          size: { width: 11906, height: 16838, orientation: "portrait" as any },
           margin: { top: 1000, right: 1000, bottom: 1000, left: 1000 },
         },
       },
