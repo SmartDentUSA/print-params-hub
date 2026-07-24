@@ -478,9 +478,7 @@ export function DealerCatalogGrid({ onAddToPriceList }: Props) {
                           {t.noVariations}
                         </TableCell>
                         <TableCell>
-                          <Button size="sm" variant="outline" onClick={() => addVariation(p.id)}>
-                            <Plus className="w-3.5 h-3.5" />
-                          </Button>
+                          {/* Variações são criadas em Gestão de Catálogo. */}
                         </TableCell>
                       </TableRow>,
                     ];
@@ -509,9 +507,6 @@ export function DealerCatalogGrid({ onAddToPriceList }: Props) {
                             <TableCell rowSpan={span} className="font-medium">
                               <div className="truncate">{nameFor(p)}</div>
                               {p.product_category && <div className="text-[11px] text-muted-foreground truncate">{p.product_category}{p.product_subcategory ? ` › ${p.product_subcategory}` : ""}</div>}
-                              <Button size="sm" variant="ghost" className="mt-1 h-6 px-1 text-[10px]" onClick={() => addVariation(p.id)}>
-                                <Plus className="w-3 h-3 mr-0.5" /> {t.addVariation}
-                              </Button>
                             </TableCell>
                             <TableCell rowSpan={span} className="font-mono text-xs">{codOf(p)}</TableCell>
                           </>
