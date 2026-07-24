@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import type { DealerPriceItem, DealerPriceList, Distributor, DealerSnapshot } from "./types";
 import { recalcDealerPrice, recalcDiscount, formatMoney, PRESENTATION_OPTIONS, categoryRank } from "./types";
 import { exportPriceTableXlsx, exportPriceTablePdf, exportPriceTableDocx } from "./DealerProposalExport";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 
 /** Extrai NCM (compartilhado) + lista de variações {qty, gtin, unit} do technical_specs. */
 function parseSpecVariations(specs: Array<{ label: string; value: string }>): {
