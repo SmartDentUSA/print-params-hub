@@ -318,14 +318,22 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
       const rounded = Number.isInteger(grams) ? String(grams) : String(Math.round(grams * 1000) / 1000);
       return { qty: rounded, pres: "grs" };
     };
-    const priceFor = (v: any, p: any): { value: number; fallback: boolean } => {
-      const pick = cur === "USD" ? (v.price_usd ?? p?.price_usd) : cur === "EUR" ? (v.price_eur ?? p?.price_eur) : (v.price_brl ?? p?.price);
+    // Regra estrita: importar SEMPRE o preço da moeda da tabela do distribuidor.
+    // USD => price_usd, EUR => price_eur, BRL => price_brl.
+    // Nunca cruzar moedas — se a moeda-alvo estiver vazia, marca como pendente (0)
+    // para o usuário revisar em vez de importar em real por engano.
+    const priceFor = (v: any, p: any): { value: number; missing: boolean } => {
+      const pick =
+        cur === "USD"
+          ? (v.price_usd ?? p?.price_usd)
+          : cur === "EUR"
+          ? (v.price_eur ?? p?.price_eur)
+          : (v.price_brl ?? p?.price);
       const n = Number(pick);
-      if (isFinite(n) && n > 0) return { value: n, fallback: false };
-      const brl = Number(v.price_brl ?? p?.price) || 0;
-      return { value: brl, fallback: cur !== "BRL" && brl > 0 };
+      if (isFinite(n) && n > 0) return { value: n, missing: false };
+      return { value: 0, missing: true };
     };
-    let fallbackCount = 0;
+    let missingCount = 0;
     const toInsert: any[] = [];
     const toUpdate: Array<{ id: string; patch: any }> = [];
     const validKeysByProduct = new Map<string, Set<string>>();
@@ -340,7 +348,7 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
       if (!keySet) { keySet = new Set(); validKeysByProduct.set(v.catalog_product_id, keySet); }
       keySet.add(norm(norm2.qty));
       const priced = priceFor(v, p);
-      if (priced.fallback) fallbackCount++;
+      if (priced.missing) missingCount++;
       const current = existingByKey.get(key);
       const catalogFields = {
         catalog_product_id: p.id,
@@ -416,7 +424,10 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
       return;
     }
     toast.success(`${toInsert.length} novos, ${toUpdate.length} atualizados, ${staleIds.length} removidos (${cur})`);
-    if (fallbackCount > 0) toast.warning(`${fallbackCount} itens sem preço em ${cur} — usando BRL como fallback`);
+    if (missingCount > 0)
+      toast.warning(
+        `${missingCount} itens sem preço em ${cur} — preencha no catálogo antes de gerar proposta`,
+      );
     await loadOrCreate(distributorId);
     // captura snapshot pós-import com estado recém carregado
     const { data: rows } = await supabase.from("dealer_price_items" as any).select("*").eq("price_list_id", list.id);
