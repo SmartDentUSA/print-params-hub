@@ -79,9 +79,13 @@ export function DealerProposalWizard({ distributors }: Props) {
 
   const [previewItems, setPreviewItems] = useState<DealerPriceItem[]>([]);
   const [colorMap, setColorMap] = useState<Record<string, string | null>>({});
+  const [qtyMap, setQtyMap] = useState<Record<string, number>>({});
 
   useEffect(() => {
-    if (step === 2) setPreviewItems(items.map((i) => ({ ...i })));
+    if (step === 2) {
+      setPreviewItems(items.map((i) => ({ ...i })));
+      setQtyMap(Object.fromEntries(items.map((i) => [i.id, 1])));
+    }
   }, [step, items]);
 
   useEffect(() => {
@@ -109,7 +113,10 @@ export function DealerProposalWizard({ distributors }: Props) {
   };
   const restoreAllPreviewItems = () => {
     setPreviewItems(items.map((i) => ({ ...i })));
+    setQtyMap(Object.fromEntries(items.map((i) => [i.id, 1])));
   };
+  const getQty = (id: string) => Math.max(0, Number(qtyMap[id] ?? 1));
+  const setQty = (id: string, v: number) => setQtyMap((prev) => ({ ...prev, [id]: Math.max(0, isFinite(v) ? v : 0) }));
 
   const editPreview = (id: string, field: keyof DealerPriceItem, value: any) => {
     setPreviewItems((prev) => prev.map((it) => {
@@ -125,20 +132,21 @@ export function DealerProposalWizard({ distributors }: Props) {
   };
 
   const totals = useMemo(() => {
-    const subtotal = previewItems.reduce((a, b) => a + Number(b.price_base || 0), 0);
-    const total = previewItems.reduce((a, b) => a + Number(b.price_dealer || 0), 0);
+    const subtotal = previewItems.reduce((a, b) => a + Number(b.price_base || 0) * getQty(b.id), 0);
+    const total = previewItems.reduce((a, b) => a + Number(b.price_dealer || 0) * getQty(b.id), 0);
     return { subtotal, discount_total: subtotal - total, total };
-  }, [previewItems]);
+  }, [previewItems, qtyMap]);
 
   const saveProposal = async () => {
     if (!distributor || previewItems.length === 0) return;
+    const itemsWithQty = previewItems.map((it) => ({ ...it, quantity: getQty(it.id) }));
     const payload = {
       distributor_id: distributor.id,
       price_list_id: list?.id ?? null,
       language: list?.language ?? "pt",
       currency: list?.currency ?? "BRL",
       header_data: header,
-      items: previewItems as any,
+      items: itemsWithQty as any,
       totals: totals as any,
       status: "draft",
       proposal_number: `PRO-${Date.now()}`,
@@ -302,6 +310,7 @@ export function DealerProposalWizard({ distributors }: Props) {
                       <th className="p-2 text-left">Variante</th>
                       <th className="p-2 text-left">Pres</th>
                       <th className="p-2 text-left">Cor</th>
+                      <th className="p-2 text-right">Qtd</th>
                       <th className="p-2 text-right">Preço</th>
                       <th className="p-2 text-right">Desc.</th>
                       <th className="p-2 text-right">Desc ({list?.currency ?? "BRL"})</th>
@@ -322,10 +331,13 @@ export function DealerProposalWizard({ distributors }: Props) {
                         <td className="p-1 whitespace-nowrap">{it.variant ?? it.presentation_qty ?? "—"}</td>
                         <td className="p-1 whitespace-nowrap">{it.presentation ?? "—"}</td>
                         <td className="p-1 whitespace-nowrap">{getColor(it) || "—"}</td>
+                        <td className="p-1 w-20">
+                          <Input className="h-7 text-right" type="number" min="0" step="1" value={getQty(it.id)} onChange={(e) => setQty(it.id, parseInt(e.target.value) || 0)} />
+                        </td>
                         <td className="p-1"><Input className="h-7 text-right" type="number" step="0.01" value={it.price_base} onChange={(e) => editPreview(it.id, "price_base", parseFloat(e.target.value) || 0)} /></td>
                         <td className="p-1"><Input className="h-7 text-right" type="number" step="0.1" value={it.discount_pct} onChange={(e) => editPreview(it.id, "discount_pct", parseFloat(e.target.value) || 0)} /></td>
                         <td className="p-1 text-right whitespace-nowrap text-muted-foreground">
-                          {formatMoney((Number(it.price_base) || 0) - (Number(it.price_dealer) || 0), list?.currency)}
+                          {formatMoney(((Number(it.price_base) || 0) - (Number(it.price_dealer) || 0)) * getQty(it.id), list?.currency)}
                         </td>
                         <td className="p-1"><Input className="h-7 text-right font-semibold" type="number" step="0.01" value={it.price_dealer} onChange={(e) => editPreview(it.id, "price_dealer", parseFloat(e.target.value) || 0)} /></td>
                       </tr>
@@ -333,7 +345,7 @@ export function DealerProposalWizard({ distributors }: Props) {
                   </tbody>
                   <tfoot className="bg-slate-100 font-semibold">
                     <tr>
-                      <td colSpan={7} className="p-2 text-right">Totais:</td>
+                      <td colSpan={8} className="p-2 text-right">Totais:</td>
                       <td className="p-2 text-right">{formatMoney(totals.subtotal, list?.currency)}</td>
                       <td className="p-2 text-right">{totals.subtotal > 0 ? ((totals.discount_total / totals.subtotal) * 100).toFixed(1) : 0}%</td>
                       <td className="p-2 text-right">{formatMoney(totals.discount_total, list?.currency)}</td>
@@ -350,13 +362,13 @@ export function DealerProposalWizard({ distributors }: Props) {
             <Button variant="outline" onClick={() => setStep(1)}><ArrowLeft className="w-4 h-4 mr-1" /> Voltar</Button>
             <div className="flex flex-wrap gap-2">
               <Button onClick={saveProposal} disabled={previewItems.length === 0}><Save className="w-4 h-4 mr-1" /> Salvar proposta</Button>
-              <Button variant="outline" onClick={() => exportPriceTableXlsx(distributor, stubList, previewItems, "proposta")}>
+              <Button variant="outline" onClick={() => exportPriceTableXlsx(distributor, stubList, previewItems.map((it) => ({ ...it, quantity: getQty(it.id) })) as any, "proposta")}>
                 <FileSpreadsheet className="w-4 h-4 mr-1" /> XLSX
               </Button>
-              <Button variant="outline" onClick={() => exportPriceTablePdf(distributor, stubList, previewItems, { title: "Proposal / Price Table", filenamePrefix: "proposta" })}>
+              <Button variant="outline" onClick={() => exportPriceTablePdf(distributor, stubList, previewItems.map((it) => ({ ...it, quantity: getQty(it.id) })) as any, { title: "Proposal / Price Table", filenamePrefix: "proposta" })}>
                 <FileText className="w-4 h-4 mr-1" /> PDF
               </Button>
-              <Button variant="outline" onClick={() => exportPriceTableDocx(distributor, stubList, previewItems, "proposta")}>
+              <Button variant="outline" onClick={() => exportPriceTableDocx(distributor, stubList, previewItems.map((it) => ({ ...it, quantity: getQty(it.id) })) as any, "proposta")}>
                 <FileType className="w-4 h-4 mr-1" /> DOCX
               </Button>
             </div>
