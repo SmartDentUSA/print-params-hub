@@ -1,43 +1,70 @@
-## Causa raiz
 
-Ao buscar `alexandreaugustosouza@gmail.com` a ficha carrega o lead (`a84c64bb-…`, Alexandre Augusto Ferreira de Souza) mas o card **Mix de produtos** volta vazio. O lead tem **4 itens reais** em `deal_items` (Base De Teflon Miicraft Plus, NanoClean PoD, Resina Vitality 250g BL1, SmartMake Seal Glaze) vinculados aos deals PipeRun `55649635` e `41803994`, ambos com `status='ganha'` — então os dados existem.
+## Escopo (revisado)
+Mexer **somente no legado WaLeads + SellFlux**. Tudo que já usa Evolution / EvolutionGo (envio, webhook, health-check, `evolution_*` em `team_members`, `wa-broadcast-dispatch`, `smart-ops-evolution-*`, `dra-lia-whatsapp` via Evolution, notify-seller via Evolution) permanece intocado.
 
-O bug está em `src/components/smartops/ProfessionalMixSummary.tsx` (linhas ~266–280):
+Sem banners, sem labels "Legado", sem avisos na UI.
 
-```ts
-const { data: wonDeals } = await supabase
-  .from("deals")
-  .select("id, owner_name, closed_at")        // ← deals.id é UUID
-  .eq("lead_id", leadId).eq("status", "ganha");
-const dealIds = wonDeals.map(d => d.id);       // ← UUIDs
-...
-.from("deal_items").select(...).in("deal_id", dealIds);  // ← deal_items.deal_id é o piperun_deal_id (inteiro)
-```
+## Estado verificado agora
+- `wa_campaigns`: 3 registros ativos → serão desabilitados.
+- `wa_message_queue`: 13 pendentes → serão pausadas.
+- `whatsapp_send_queue`: já vazia e sem consumidor → apenas parar de escrever.
+- `smart-ops-send-waleads`: função ativa apontando para `waleads.roote.com.br` + SellFlux webhook.
+- Segredos: `SELLFLUX_WEBHOOK_CAMPANHAS`, `SELLFLUX_WEBHOOK_LEADS` (após 7 dias de logs limpos, remover).
+- `useEnrollment.ts` ainda dispara tag SellFlux na matrícula.
+- `team_members` continua com `waleads_api_key` / `waleads_*` — colunas ficam, uso cessa.
 
-`deal_items.deal_id` guarda o **`piperun_deal_id`** (ex.: `55649635`), não o UUID de `deals.id`. O `.in(...)` nunca casa, então `crmItems` fica `[]` e o MIX só mostra o fallback de qualificação. Confirmado no banco: `deals` tem colunas `id` (uuid) e `piperun_deal_id` (numérica) separadas.
+## Regra única do turno
+Nenhum código, cron, worker ou UI relacionado a **Evolution** é alterado. Se um arquivo mistura Evolution e WaLeads, só o ramo WaLeads é neutralizado.
 
-## Correção
+## Fases
 
-Arquivo único: `src/components/smartops/ProfessionalMixSummary.tsx`.
+### Fase 0 — Congelamento (SQL)
+1. `UPDATE wa_campaigns SET status='disabled' WHERE status IN ('active','running','scheduled')`.
+2. `ALTER TABLE wa_message_queue ADD COLUMN IF NOT EXISTS paused_at timestamptz`; marcar as 13 pendentes com `paused_at=now()`.
+3. Nenhuma mudança em `team_members` (sem coluna nova). Evolution já tem seu próprio status.
 
-1. Trocar o `select` de `wonDeals` para trazer `piperun_deal_id` além de `id`, `owner_name`, `closed_at`.
-2. Usar `piperun_deal_id` (como string, para casar com o tipo em `deal_items.deal_id`) na lista de IDs e no `Map` de owner/closed_at.
-3. Manter o filtro `status = 'ganha'` (todos os deals do Alexandre já estão como ganha; a auditoria também confirma que a ingestão marca ganho corretamente).
-4. Fallback: se `piperun_deal_id` vier null em algum deal ganho, ignorar aquele deal (evita casar com `null`).
+### Fase 1 — Neutralizar workers/funções WaLeads (sem tocar Evolution)
+1. `smart-ops-send-waleads`: passa a retornar `410 {status:"disabled"}` sem chamar WaLeads nem SellFlux. Callers continuam funcionando (recebem erro silencioso, logado em `message_logs` como `skip`).
+2. Worker da `wa_message_queue` (se houver cron): filtro `paused_at IS NULL` — como todas as linhas pendentes estão pausadas, drena zero. Novo INSERT no futuro só volta a rodar se alguém remover `paused_at` manualmente (fora deste turno).
+3. `whatsapp_send_queue`: remover apenas o INSERT do call-site (produtor). Consumer permanece inerte.
+4. `useEnrollment.ts`: bloco SellFlux vira no-op silencioso (early return antes do fetch).
+5. Webhooks SellFlux (`smart-ops-sellflux-webhook`, `smart-ops-sellflux-sync`, se existirem): passam a retornar `410`.
 
-Depois do fix, a busca do Alexandre passa a mostrar no MIX:
-- Base De Teflon — Miicraft Plus (24/03/2026, R$ 200)
-- NanoClean PoD (24/03/2026, R$ 399)
-- Resina 3D Nano Híbrida Vitality 250g BL1 (22/10/2024, R$ 1.290)
-- SmartMake Seal Glaze (22/10/2024, R$ 278)
+Nada em `_shared/waleads-messaging.ts` mais complexo do que virar no-op — **não** vou transformar em adaptador Evolution (para não arriscar tocar em fluxos Evolution).
 
-## Fora de escopo
+### Fase 2 — UI (silenciosa)
+1. `SmartOpsCampaigns` (dropdown de canal): remover `sellflux` e `waleads` das opções, sem banner. Envio via Evolution/Gmail (que já existe) permanece.
+2. Botões/links diretos que chamam `smart-ops-send-waleads` (se houver na UI) são desabilitados silenciosamente ou apontados para o fluxo Evolution já existente.
+3. Histórico de campanhas continua exibindo registros antigos com `channel='sellflux'|'waleads'` normalmente.
 
-- Não alterar `CoursesProfessionalProfile.tsx`, `CoursesPage.tsx`, schema de `deals`/`deal_items` nem edge functions — o dado está correto no banco, apenas a leitura no front está errada.
-- Fluxo de e-commerce (Loja Integrada) continua igual — o lead não tem pedidos ligados (`attendance_id = 0` orders).
-- Sem migração de banco.
+### Fase 3 — Descomissionamento (só depois de 7 dias sem tráfego)
+1. `delete_secret` em `SELLFLUX_WEBHOOK_LEADS` e `SELLFLUX_WEBHOOK_CAMPANHAS`.
+2. Deletar `smart-ops-send-waleads`, `smart-ops-sellflux-*` e imports órfãos de `_shared/sellflux-field-map.ts`.
 
-## Verificação após a alteração
+## O que **NÃO** vou tocar
+- `supabase/functions/wa-broadcast-dispatch/*` (usa Evolution).
+- `supabase/functions/smart-ops-evolution-*` (todas).
+- `dra-lia-whatsapp` e qualquer envio que já esteja passando pela Evolution.
+- Colunas `evolution_*` em `team_members`.
+- `lia_automations` — permanecem como estão.
+- Card do team_member: **não** adiciono toggle novo nem badge de status Evolution neste turno.
+- Não crio guard universal `canDispatchWhatsApp`, não crio health-check, não crio coluna `automation_whatsapp_enabled`.
 
-- Rebuscar o e-mail e conferir que o MIX renderiza as 4 linhas com datas e valores acima.
-- Testar um segundo lead com apenas pedidos de e-commerce para garantir que a rota `ecomItems` não regrediu.
+## Riscos
+| Risco | Mitigação |
+|---|---|
+| Alguma função Evolution importar de `_shared/waleads-messaging.ts` | Antes de alterar o shared, `rg` por importadores; se algum consumer Evolution aparecer, deixo o shared intocado e neutralizo só nos call-sites WaLeads. |
+| Reprocessar as 13 mensagens paradas por engano | `paused_at` bloqueia; nenhum código vai remover automaticamente. |
+| SellFlux 410 quebrar UI antiga | Callers já tratam erro; `message_logs` registra como `skip`. |
+
+## Verificação
+- `wa_campaigns` status = disabled (0 ativos).
+- `wa_message_queue` pendentes com `paused_at IS NOT NULL`.
+- Zero novos INSERTs em `campaign_send_log` com `channel IN ('sellflux','waleads')`.
+- `message_logs` mostra `tipo LIKE 'waleads_%'` com `status='erro'`/`skip` e nenhum sucesso.
+- Nenhum log novo em funções Evolution (fluxo Evolution inalterado).
+
+## Confirmações antes de executar
+1. Ok deletar as opções `sellflux`/`waleads` do dropdown de canal em Campaigns sem qualquer aviso na UI?
+2. Ok as 13 mensagens pendentes em `wa_message_queue` ficarem paradas indefinidamente (sem reprocessar via Evolution neste turno)?
+3. Confirma que `smart-ops-send-waleads` pode retornar 410 imediatamente (nenhum fluxo Evolution depende dele)?
