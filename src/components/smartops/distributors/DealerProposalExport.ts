@@ -178,9 +178,9 @@ export async function exportPriceTablePdf(
   items: DealerPriceItem[],
   opts: { title?: string; filenamePrefix?: string } = {},
 ) {
-  const doc = new jsPDF({ orientation: "portrait", unit: "pt", format: "a4" });
-  const pageW = doc.internal.pageSize.getWidth();   // 595.28
-  const pageH = doc.internal.pageSize.getHeight();  // 841.89
+  const doc = new jsPDF({ orientation: "landscape", unit: "pt", format: "a4" });
+  const pageW = doc.internal.pageSize.getWidth();   // 841.89 (landscape)
+  const pageH = doc.internal.pageSize.getHeight();  // 595.28
   const currency = list?.currency ?? "BRL";
   const locale = localeForLang(list?.language);
   const bg = await loadProposalBg();
@@ -246,33 +246,31 @@ export async function exportPriceTablePdf(
 
   drawPageChrome();
 
-  // Table area: header block ends at y=210 — start table below.
+  // Table area: header block ends around y=210 — start table below.
   const tableTop = 224;
-  const tableBottom = 780;
+  const tableBottom = pageH - 70;
   const leftMargin = 28;
   const rightMargin = 28;
   const contentW = pageW - leftMargin - rightMargin;
 
-  // 12-column layout matching the on-screen table.
-  // Widths sum to contentW = 539pt.
+  // 11-column layout: Foto | SKU | Produto | Variante | Pres | Cor | Qtd | Preço unitário | Desc % | Desc (curr) | Total
   const head = [[
-    "Foto", "COD", "Produto", "Pres #", "Pres", "NCM/HS", "GTIN/EAN",
-    "Unid (×)", "Preço tabela (Unit)", "% Desc.", "Preço dealer (Unit)", "Preço dealer",
+    "Foto", "SKU", "Produto", "Variante", "Pres", "Cor",
+    "Qtd", "Preço unitário", "Desc %", `Desc (${currency})`, "Total",
   ]];
-  const PHOTO_COL_W = 34;
+  // Landscape contentW ≈ 786pt. Sum below = 786.
   const columnStyles: Record<number, any> = {
-    0:  { cellWidth: PHOTO_COL_W, halign: "center" },
-    1:  { cellWidth: 38 },
-    2:  { cellWidth: 118 },
-    3:  { cellWidth: 32, halign: "right" },
-    4:  { cellWidth: 30 },
-    5:  { cellWidth: 40 },
-    6:  { cellWidth: 58 },
-    7:  { cellWidth: 26, halign: "right" },
+    0:  { cellWidth: 40, halign: "center" },
+    1:  { cellWidth: 70 },
+    2:  { cellWidth: 190 },
+    3:  { cellWidth: 60 },
+    4:  { cellWidth: 40 },
+    5:  { cellWidth: 70 },
+    6:  { cellWidth: 34, halign: "right" },
+    7:  { cellWidth: 72, halign: "right" },
     8:  { cellWidth: 46, halign: "right" },
-    9:  { cellWidth: 30, halign: "right" },
-    10: { cellWidth: 46, halign: "right" },
-    11: { cellWidth: 41, halign: "right", fontStyle: "bold" },
+    9:  { cellWidth: 72, halign: "right" },
+    10: { cellWidth: 92, halign: "right", fontStyle: "bold" },
   };
 
   // Group by catalog_product_id to compute rowSpan on Foto/COD/Produto,
@@ -282,22 +280,23 @@ export async function exportPriceTablePdf(
     it.catalog_product_id ? `cid:${it.catalog_product_id}` : `id:${it.id}`;
 
   const rowFor = (it: DealerPriceItem, isLeader: boolean, span: number) => {
-    const lineTotal = Number(it.price_dealer || 0) * Number(it.quantity_multiplier ?? 1);
-    const photo   = isLeader ? { content: "", rowSpan: span } : null;
-    const cod     = isLeader ? { content: it.cod ?? "—", rowSpan: span } : null;
-    const nome    = isLeader ? { content: it.name, rowSpan: span } : null;
+    const qty = Number(it.quantity_multiplier ?? 1) || 1;
+    const descAbs = (Number(it.price_base || 0) - Number(it.price_dealer || 0)) * qty;
+    const lineTotal = Number(it.price_dealer || 0) * qty;
+    const photo = isLeader ? { content: "", rowSpan: span } : null;
+    const sku   = isLeader ? { content: (it as any).sku ?? it.cod ?? "—", rowSpan: span } : null;
+    const nome  = isLeader ? { content: it.name, rowSpan: span } : null;
     const cells: any[] = [
-      it.presentation_qty ?? "—",
+      it.variant ?? it.presentation_qty ?? "—",
       (it.presentation as string) ?? "Unit",
-      it.ncm_hs ?? "—",
-      it.gtin_ean ?? "—",
-      String(Number(it.quantity_multiplier ?? 1) || 1),
+      (it as any).color ?? "—",
+      String(qty),
       formatMoney(it.price_base, currency),
       `${Number(it.discount_pct).toFixed(1)}%`,
-      formatMoney(it.price_dealer, currency),
+      formatMoney(descAbs, currency),
       formatMoney(lineTotal, currency),
     ];
-    return isLeader ? [photo, cod, nome, ...cells] : cells;
+    return isLeader ? [photo, sku, nome, ...cells] : cells;
   };
 
   const orderRowsForRowSpan = (rows: DealerPriceItem[]) => {
