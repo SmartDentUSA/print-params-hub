@@ -4267,6 +4267,7 @@ export type Database = {
           catalog_product_id: string | null
           category: string | null
           cod: string | null
+          color: string | null
           created_at: string
           description: string | null
           discount_pct: number
@@ -4296,6 +4297,7 @@ export type Database = {
           catalog_product_id?: string | null
           category?: string | null
           cod?: string | null
+          color?: string | null
           created_at?: string
           description?: string | null
           discount_pct?: number
@@ -4325,6 +4327,7 @@ export type Database = {
           catalog_product_id?: string | null
           category?: string | null
           cod?: string | null
+          color?: string | null
           created_at?: string
           description?: string | null
           discount_pct?: number
