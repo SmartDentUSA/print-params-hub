@@ -214,7 +214,24 @@ export function DealerCatalogGrid({ onAddToPriceList }: Props) {
       if (!map.has(v.catalog_product_id)) map.set(v.catalog_product_id, []);
       map.get(v.catalog_product_id)!.push(v);
     }
-    for (const arr of map.values()) arr.sort((a, b) => a.sort_order - b.sort_order);
+    // Variations desc by numeric weight (1000 → 500 → 250 → 100); fallback to sort_order.
+    const weight = (s: unknown): number => {
+      if (s == null) return -Infinity;
+      const str = String(s).toLowerCase().replace(",", ".");
+      const m = str.match(/(\d+(?:\.\d+)?)/);
+      if (!m) return -Infinity;
+      let n = parseFloat(m[1]);
+      if (/\bkg\b/.test(str)) n *= 1000;
+      return n;
+    };
+    for (const arr of map.values()) {
+      arr.sort((a, b) => {
+        const wa = weight(a.presentation_qty);
+        const wb = weight(b.presentation_qty);
+        if (wa !== wb) return wb - wa;
+        return a.sort_order - b.sort_order;
+      });
+    }
     return map;
   }, [variations]);
 
