@@ -1282,9 +1282,7 @@ function CreateCampaign({
                 <Select value={sendChannel} onValueChange={setSendChannel}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="whatsapp">WhatsApp (WaLeads)</SelectItem>
                     <SelectItem value="evolution">WhatsApp (Evolution)</SelectItem>
-                    <SelectItem value="sellflux">SellFlux</SelectItem>
                     <SelectItem value="sms">📱 SMS (DisparoPro)</SelectItem>
                     <SelectItem value="email">📧 Email (Gmail)</SelectItem>
                     <SelectItem value="registro">Apenas registrar</SelectItem>
