@@ -270,6 +270,10 @@ export function DealerProposalWizard({ distributors }: Props) {
                               <TableCell className="text-right">{arr.length}</TableCell>
                               <TableCell className="text-right font-semibold">{formatMoney(total, p.currency)}</TableCell>
                               <TableCell className="text-right whitespace-nowrap">
+                                <Button size="icon" variant="ghost" title="Editar"
+                                  onClick={() => loadProposalForEdit(p)}>
+                                  <Pencil className="w-3.5 h-3.5" />
+                                </Button>
                                 <Button size="icon" variant="ghost" title="XLSX"
                                   onClick={() => exportPriceTableXlsx(distributor, propList, arr, "proposta")}>
                                   <FileSpreadsheet className="w-3.5 h-3.5" />
