@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -107,6 +107,7 @@ export function SkuMappingTab() {
   const [orderBy, setOrderBy] = useState<"gmv" | "occurrences" | "name">("gmv");
   const [pendingMappings, setPendingMappings] = useState<Record<string, CatalogVariationOption>>({});
   const [savingKey, setSavingKey] = useState<string | null>(null);
+  const [visibleCount, setVisibleCount] = useState(100);
 
   const [kitDialog, setKitDialog] = useState<{ open: boolean; aliasId: number | null; name: string }>({
     open: false,
@@ -140,6 +141,13 @@ export function SkuMappingTab() {
     });
     return list;
   }, [rows, search, statusFilter, sourceFilter, orderBy]);
+
+  const visibleRows = useMemo(() => filtered.slice(0, visibleCount), [filtered, visibleCount]);
+
+  // Reset pagination when filters change
+  useEffect(() => {
+    setVisibleCount(100);
+  }, [search, statusFilter, sourceFilter, orderBy]);
 
   const totals = useMemo(() => {
     const mapped = rows.filter((r) => !!r.sku_interno).length;
@@ -255,7 +263,7 @@ export function SkuMappingTab() {
               </tr>
             </thead>
             <tbody>
-              {filtered.map((r) => {
+              {visibleRows.map((r) => {
                 const pending = pendingMappings[r.name_key];
                 return (
                 <tr key={r.name_key} className="border-t hover:bg-muted/30">
@@ -336,6 +344,16 @@ export function SkuMappingTab() {
             </tbody>
           </table>
         </div>
+        {visibleCount < filtered.length && (
+          <div className="flex items-center justify-center gap-3 border-t p-3 bg-muted/20">
+            <span className="text-xs text-muted-foreground">
+              Mostrando {visibleRows.length} de {filtered.length}
+            </span>
+            <Button variant="outline" size="sm" onClick={() => setVisibleCount((c) => c + 200)}>
+              Carregar mais 200
+            </Button>
+          </div>
+        )}
       </div>
 
       <KitComponentsDialog
