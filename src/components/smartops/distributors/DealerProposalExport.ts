@@ -208,9 +208,9 @@ export async function exportPriceTablePdf(
     // safely inside the margin so it never crops. This is layout-independent
     // of the PNG label positions to guarantee alignment.
     const boxX = 32;
-    const boxY = 118;
+    const boxY = 150;
     const boxW = pageW - 64;
-    const boxH = 92;
+    const boxH = 88;
     doc.setDrawColor(200);
     doc.setFillColor(255, 255, 255);
     doc.roundedRect(boxX, boxY, boxW, boxH, 4, 4, "FD");
@@ -247,9 +247,10 @@ export async function exportPriceTablePdf(
 
   drawPageChrome();
 
-  // Table area: header block ends around y=210 — start table below.
-  const tableTop = 224;
-  const tableBottom = pageH - 70;
+  // Table area: header block ends around y=238 — start table below.
+  // Bottom margin keeps the letterhead footer (URL + divider) clear.
+  const tableTop = 250;
+  const tableBottom = pageH - 80;
   const leftMargin = 28;
   const rightMargin = 28;
   const contentW = pageW - leftMargin - rightMargin;
