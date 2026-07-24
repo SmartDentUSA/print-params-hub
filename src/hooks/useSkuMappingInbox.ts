@@ -108,60 +108,27 @@ export function useSkuMappingInbox() {
   const saveMapping = useCallback(
     async (row: SkuInboxRow, variation: CatalogVariationOption | null, isKit: boolean) => {
       const nameVariant = row.sample_name.trim();
-      const patch: Record<string, any> = {
-        nome_variante: nameVariant,
-        nome_canonico: variation
-          ? [variation.parent_name, variation.presentation].filter(Boolean).join(" — ") ||
-            variation.sku ||
-            nameVariant
-          : nameVariant,
-        sku_interno: isKit
-          ? `KIT-${nameVariant.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}`
-          : variation?.sku ?? null,
-        categoria: variation?.parent_category ?? null,
-        subcategoria: null,
-        ativo: true,
-        is_kit: isKit,
-      };
+      const nomeCanonico = variation
+        ? [variation.parent_name, variation.presentation].filter(Boolean).join(" — ") ||
+          variation.sku ||
+          nameVariant
+        : nameVariant;
+      const skuInterno = isKit
+        ? `KIT-${nameVariant.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}`
+        : variation?.sku ?? null;
 
-      let alias_id = row.alias_id;
-      if (!alias_id) {
-        // Look up by lowercased name; if exists, update — else insert.
-        const { data: existing } = await (supabase as any)
-          .from("produto_aliases")
-          .select("id")
-          .ilike("nome_variante", nameVariant)
-          .order("created_at", { ascending: false })
-          .limit(1)
-          .maybeSingle();
-        if (existing?.id) alias_id = existing.id;
-      }
-
-      if (alias_id) {
-        const { data: updated, error } = await (supabase as any)
-          .from("produto_aliases")
-          .update(patch)
-          .eq("id", alias_id)
-          .select("id")
-          .maybeSingle();
-        if (error) throw error;
-        if (!updated) {
-          throw new Error(
-            "Nenhuma linha atualizada — verifique se o usuário tem perfil admin.",
-          );
-        }
-      } else {
-        const { data, error } = await (supabase as any)
-          .from("produto_aliases")
-          .insert([patch])
-          .select("id")
-          .single();
-        if (error) throw error;
-        alias_id = data.id;
-      }
+      const { data, error } = await (supabase as any).rpc("save_produto_alias", {
+        p_alias_id: row.alias_id ?? null,
+        p_nome_variante: nameVariant,
+        p_nome_canonico: nomeCanonico,
+        p_sku_interno: skuInterno,
+        p_categoria: variation?.parent_category ?? null,
+        p_is_kit: isKit,
+      });
+      if (error) throw error;
 
       await load();
-      return alias_id!;
+      return data as number;
     },
     [load],
   );

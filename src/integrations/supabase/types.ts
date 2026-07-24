@@ -31691,6 +31691,17 @@ export type Database = {
         Returns: undefined
       }
       safe_to_timestamptz: { Args: { p: string }; Returns: string }
+      save_produto_alias: {
+        Args: {
+          p_alias_id: number
+          p_categoria: string
+          p_is_kit: boolean
+          p_nome_canonico: string
+          p_nome_variante: string
+          p_sku_interno: string
+        }
+        Returns: number
+      }
       search_knowledge_base: {
         Args: { language_code?: string; search_query: string }
         Returns: {
