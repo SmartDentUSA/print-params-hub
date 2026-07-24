@@ -342,10 +342,10 @@ export function DealerProposalWizard({ distributors }: Props) {
                       <th className="p-2 text-left">Pres</th>
                       <th className="p-2 text-left">Cor</th>
                       <th className="p-2 text-right">Qtd</th>
-                      <th className="p-2 text-right">Preço</th>
-                      <th className="p-2 text-right">Desc.</th>
-                      <th className="p-2 text-right">Desc ({list?.currency ?? "BRL"})</th>
-                      <th className="p-2 text-right">Preço dealer</th>
+                      <th className="p-2 text-right">Preço unitário</th>
+                      <th className="p-2 text-right">Desc %</th>
+                      <th className="p-2 text-right">Desc ({editingCurrency ?? list?.currency ?? "BRL"})</th>
+                      <th className="p-2 text-right">Total</th>
                     </tr>
                   </thead>
                   <tbody>
