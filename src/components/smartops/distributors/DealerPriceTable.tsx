@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import type { DealerPriceItem, DealerPriceList, Distributor, DealerSnapshot } from "./types";
 import { recalcDealerPrice, recalcDiscount, formatMoney, PRESENTATION_OPTIONS, categoryRank } from "./types";
 import { exportPriceTableXlsx, exportPriceTablePdf, exportPriceTableDocx } from "./DealerProposalExport";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 
 /** Extrai NCM (compartilhado) + lista de variações {qty, gtin, unit} do technical_specs. */
 function parseSpecVariations(specs: Array<{ label: string; value: string }>): {
@@ -146,6 +147,15 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
   const [showHistory, setShowHistory] = useState(false);
   const [catDiscount, setCatDiscount] = useState<Record<string, string>>({});
   const [showInactive, setShowInactive] = useState(false);
+  const [addOpen, setAddOpen] = useState(false);
+  const [addLoading, setAddLoading] = useState(false);
+  const [addSearch, setAddSearch] = useState("");
+  const [addOptions, setAddOptions] = useState<Array<{
+    key: string;
+    product: any;
+    variation: any;
+    label: string;
+  }>>([]);
 
   const distributor = distributors.find((d) => d.id === distributorId);
   const currency = list?.currency || distributor?.preferred_currency || "BRL";
@@ -695,6 +705,87 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
     await autoSnapshot(`${t.autoRemove}: ${removed?.name ?? id.slice(0, 8)}`, next);
   };
 
+  const openAddDialog = async () => {
+    if (!list) return;
+    setAddOpen(true);
+    setAddSearch("");
+    setAddLoading(true);
+    const [prodRes, varRes] = await Promise.all([
+      supabase
+        .from("system_a_catalog" as any)
+        .select("id,external_id,name,name_en,name_es,image_url,product_category,product_subcategory,description,price,price_usd,price_eur,presentation,quantity_multiplier,extra_data,active,approved")
+        .eq("approved", true).eq("active", true)
+        .in("category", ["product", "resin"])
+        .eq("extra_data->>distribute_enabled", "true"),
+      supabase.from("catalog_product_variations" as any).select("*"),
+    ]);
+    setAddLoading(false);
+    if (prodRes.error) { toast.error(prodRes.error.message); return; }
+    if (varRes.error) { toast.error(varRes.error.message); return; }
+    const norm = (v: any) => String(v ?? "").trim().toLowerCase().replace(/\s+/g, "");
+    const existing = new Set(
+      items.filter((i) => i.catalog_product_id).map((i) => `${i.catalog_product_id}::${norm(i.presentation_qty)}`),
+    );
+    const productsById = new Map<string, any>(((prodRes.data as any) || []).map((p: any) => [p.id, p]));
+    const opts: Array<{ key: string; product: any; variation: any; label: string }> = [];
+    for (const v of (varRes.data as any) || []) {
+      const p = productsById.get(v.catalog_product_id);
+      if (!p) continue;
+      const key = `${v.catalog_product_id}::${norm(v.presentation_qty)}`;
+      if (existing.has(key)) continue;
+      const variantLabel = [v.presentation_qty, v.presentation, v.color].filter(Boolean).join(" · ");
+      opts.push({
+        key,
+        product: p,
+        variation: v,
+        label: `${p.name}${variantLabel ? ` — ${variantLabel}` : ""}`,
+      });
+    }
+    opts.sort((a, b) => a.label.localeCompare(b.label));
+    setAddOptions(opts);
+  };
+
+  const addItemFromOption = async (opt: { product: any; variation: any }) => {
+    if (!list) return;
+    const { product: p, variation: v } = opt;
+    const cur = (list.currency || distributor?.preferred_currency || "BRL").toUpperCase();
+    const priceRaw = cur === "USD" ? v.price_usd : cur === "EUR" ? v.price_eur : (v.price_brl ?? p?.price);
+    const priceValue = Number(priceRaw);
+    const priceOk = isFinite(priceValue) && priceValue > 0;
+    const presRaw = String(v.presentation || "").trim();
+    const presentation = (["grs", "Kg", "Item", "ml"].includes(presRaw) ? presRaw : "Item") as any;
+    const payload = {
+      price_list_id: list.id,
+      catalog_product_id: p.id,
+      cod: p.external_id || null,
+      sku: v.sku ?? null,
+      name: p.name,
+      name_en: p.name_en,
+      name_es: p.name_es,
+      image_url: p.image_url,
+      category: p.product_category,
+      subcategory: p.product_subcategory,
+      description: p.description,
+      ncm_hs: v.ncm_hs ?? null,
+      gtin_ean: v.gtin_ean ?? null,
+      price_base: priceOk ? priceValue : 0,
+      presentation,
+      quantity_multiplier: Number(p.quantity_multiplier ?? 1) || 1,
+      presentation_qty: v.presentation_qty ?? null,
+      unidade: v.unidade || "UN",
+      is_active: true,
+      discount_pct: 0,
+      price_dealer: priceOk ? priceValue : 0,
+      sort_order: items.length,
+    };
+    const { error } = await supabase.from("dealer_price_items" as any).insert(payload);
+    if (error) { toast.error(error.message); return; }
+    toast.success("Produto adicionado");
+    if (!priceOk) toast.warning(`Sem preço em ${cur} — revise antes de gerar proposta`);
+    setAddOptions((prev) => prev.filter((o) => !(o.product.id === p.id && String(o.variation.presentation_qty ?? "") === String(v.presentation_qty ?? ""))));
+    await loadOrCreate(distributorId);
+  };
+
   const toggleItemActive = async (id: string, next: boolean) => {
     const { error } = await supabase
       .from("dealer_price_items" as any)
@@ -822,6 +913,9 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
           <>
             <Button variant="outline" onClick={importCatalog} disabled={loading}>
               <RefreshCw className="w-4 h-4 mr-1" /> {t.importCatalog}
+            </Button>
+            <Button variant="outline" onClick={openAddDialog} disabled={loading}>
+              <Plus className="w-4 h-4 mr-1" /> Adicionar produto
             </Button>
             <Button onClick={saveAll} disabled={saving || dirtyIds.size === 0}>
               {saving ? `${t.save}…` : dirtyIds.size > 0 ? `${t.save} (${dirtyIds.size})` : t.saved}
@@ -1222,6 +1316,62 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
           ))}
         </div>
       )}
+      <Dialog open={addOpen} onOpenChange={setAddOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Adicionar produto Smart Dent</DialogTitle>
+            <DialogDescription>
+              Selecione uma variação liberada para distribuição para adicionar à tabela ({currency}).
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Input
+              autoFocus
+              placeholder="Buscar por produto, SKU, apresentação, cor…"
+              value={addSearch}
+              onChange={(e) => setAddSearch(e.target.value)}
+            />
+            <div className="max-h-[420px] overflow-y-auto border rounded">
+              {addLoading ? (
+                <div className="p-4 text-sm text-muted-foreground">Carregando…</div>
+              ) : addOptions.length === 0 ? (
+                <div className="p-4 text-sm text-muted-foreground">
+                  Nenhuma variação disponível. Ative "Distribuição" em Gestão de Catálogo.
+                </div>
+              ) : (
+                (() => {
+                  const q = addSearch.trim().toLowerCase();
+                  const filtered = q
+                    ? addOptions.filter((o) => {
+                        const hay = `${o.label} ${o.variation.sku ?? ""} ${o.product.external_id ?? ""}`.toLowerCase();
+                        return hay.includes(q);
+                      })
+                    : addOptions;
+                  return filtered.slice(0, 200).map((o) => (
+                    <button
+                      key={o.key}
+                      type="button"
+                      onClick={() => addItemFromOption(o)}
+                      className="w-full flex items-center gap-3 p-2 hover:bg-muted text-left border-b last:border-b-0"
+                    >
+                      {o.product.image_url
+                        ? <img src={o.product.image_url} alt="" className="w-10 h-10 object-contain bg-muted rounded" />
+                        : <div className="w-10 h-10 bg-muted rounded flex items-center justify-center"><ImageOff className="w-4 h-4 text-muted-foreground" /></div>}
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-medium truncate">{o.label}</div>
+                        <div className="text-xs text-muted-foreground truncate">
+                          {[o.product.product_category, o.variation.sku, o.product.external_id].filter(Boolean).join(" · ") || "—"}
+                        </div>
+                      </div>
+                      <Plus className="w-4 h-4 text-primary" />
+                    </button>
+                  ));
+                })()
+              )}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
