@@ -914,9 +914,6 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
             <Button variant="outline" onClick={importCatalog} disabled={loading}>
               <RefreshCw className="w-4 h-4 mr-1" /> {t.importCatalog}
             </Button>
-            <Button variant="outline" onClick={openAddDialog} disabled={loading}>
-              <Plus className="w-4 h-4 mr-1" /> Adicionar produto
-            </Button>
             <Button onClick={saveAll} disabled={saving || dirtyIds.size === 0}>
               {saving ? `${t.save}…` : dirtyIds.size > 0 ? `${t.save} (${dirtyIds.size})` : t.saved}
             </Button>
