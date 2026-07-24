@@ -139,7 +139,7 @@ export function DealerProposalWizard({ distributors }: Props) {
 
   const saveProposal = async () => {
     if (!distributor || previewItems.length === 0) return;
-    const itemsWithQty = previewItems.map((it) => ({ ...it, quantity: getQty(it.id) }));
+    const itemsWithQty = previewItems.map((it) => ({ ...it, quantity: getQty(it.id), quantity_multiplier: getQty(it.id) }));
     const payload = {
       distributor_id: distributor.id,
       price_list_id: list?.id ?? null,
@@ -339,7 +339,9 @@ export function DealerProposalWizard({ distributors }: Props) {
                         <td className="p-1 text-right whitespace-nowrap text-muted-foreground">
                           {formatMoney(((Number(it.price_base) || 0) - (Number(it.price_dealer) || 0)) * getQty(it.id), list?.currency)}
                         </td>
-                        <td className="p-1"><Input className="h-7 text-right font-semibold" type="number" step="0.01" value={it.price_dealer} onChange={(e) => editPreview(it.id, "price_dealer", parseFloat(e.target.value) || 0)} /></td>
+                        <td className="p-1 text-right whitespace-nowrap font-semibold text-primary">
+                          {formatMoney((Number(it.price_dealer) || 0) * getQty(it.id), list?.currency)}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -362,13 +364,13 @@ export function DealerProposalWizard({ distributors }: Props) {
             <Button variant="outline" onClick={() => setStep(1)}><ArrowLeft className="w-4 h-4 mr-1" /> Voltar</Button>
             <div className="flex flex-wrap gap-2">
               <Button onClick={saveProposal} disabled={previewItems.length === 0}><Save className="w-4 h-4 mr-1" /> Salvar proposta</Button>
-              <Button variant="outline" onClick={() => exportPriceTableXlsx(distributor, stubList, previewItems.map((it) => ({ ...it, quantity: getQty(it.id) })) as any, "proposta")}>
+              <Button variant="outline" onClick={() => exportPriceTableXlsx(distributor, stubList, previewItems.map((it) => ({ ...it, quantity: getQty(it.id), quantity_multiplier: getQty(it.id) })) as any, "proposta")}>
                 <FileSpreadsheet className="w-4 h-4 mr-1" /> XLSX
               </Button>
-              <Button variant="outline" onClick={() => exportPriceTablePdf(distributor, stubList, previewItems.map((it) => ({ ...it, quantity: getQty(it.id) })) as any, { title: "Proposal / Price Table", filenamePrefix: "proposta" })}>
+              <Button variant="outline" onClick={() => exportPriceTablePdf(distributor, stubList, previewItems.map((it) => ({ ...it, quantity: getQty(it.id), quantity_multiplier: getQty(it.id) })) as any, { title: "Proposal / Price Table", filenamePrefix: "proposta" })}>
                 <FileText className="w-4 h-4 mr-1" /> PDF
               </Button>
-              <Button variant="outline" onClick={() => exportPriceTableDocx(distributor, stubList, previewItems.map((it) => ({ ...it, quantity: getQty(it.id) })) as any, "proposta")}>
+              <Button variant="outline" onClick={() => exportPriceTableDocx(distributor, stubList, previewItems.map((it) => ({ ...it, quantity: getQty(it.id), quantity_multiplier: getQty(it.id) })) as any, "proposta")}>
                 <FileType className="w-4 h-4 mr-1" /> DOCX
               </Button>
             </div>
