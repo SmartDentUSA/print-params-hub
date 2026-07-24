@@ -502,26 +502,6 @@ export function AdminCatalogTable({
                         })}
                       />
                     </TableCell>
-                    <TableCell>
-                      <CellInput
-                        value={v.price_usd}
-                        type="number"
-                        placeholder="0.00"
-                        onCommit={(val) => commitVariationField(product.id!, v, {
-                          price_usd: val ? Number(val) : null,
-                        })}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <CellInput
-                        value={v.price_eur}
-                        type="number"
-                        placeholder="0.00"
-                        onCommit={(val) => commitVariationField(product.id!, v, {
-                          price_eur: val ? Number(val) : null,
-                        })}
-                      />
-                    </TableCell>
 
                     {idx === 0 ? (
                       <>
