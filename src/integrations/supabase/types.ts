@@ -2769,7 +2769,8 @@ export type Database = {
       }
       catalog_kit_components: {
         Row: {
-          component_variation_id: string
+          component_catalog_product_id: string | null
+          component_variation_id: string | null
           created_at: string
           id: string
           kit_alias_id: number
@@ -2778,7 +2779,8 @@ export type Database = {
           updated_at: string
         }
         Insert: {
-          component_variation_id: string
+          component_catalog_product_id?: string | null
+          component_variation_id?: string | null
           created_at?: string
           id?: string
           kit_alias_id: number
@@ -2787,7 +2789,8 @@ export type Database = {
           updated_at?: string
         }
         Update: {
-          component_variation_id?: string
+          component_catalog_product_id?: string | null
+          component_variation_id?: string | null
           created_at?: string
           id?: string
           kit_alias_id?: number
@@ -2796,6 +2799,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "catalog_kit_components_component_catalog_product_id_fkey"
+            columns: ["component_catalog_product_id"]
+            isOneToOne: false
+            referencedRelation: "system_a_catalog"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "catalog_kit_components_component_variation_id_fkey"
             columns: ["component_variation_id"]
