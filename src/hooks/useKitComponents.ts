@@ -5,7 +5,7 @@ import type { CatalogVariationOption } from "@/hooks/useSkuMappingInbox";
 export interface KitComponent {
   id: string;
   kit_alias_id: number;
-  component_variation_id: string;
+  component_variation_id: string | null;
   component_catalog_product_id?: string | null;
   quantity: number;
   sort_order: number;
