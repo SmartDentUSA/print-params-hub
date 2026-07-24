@@ -139,13 +139,14 @@ export function DealerProposalWizard({ distributors }: Props) {
 
   const saveProposal = async () => {
     if (!distributor || previewItems.length === 0) return;
+    const itemsWithQty = previewItems.map((it) => ({ ...it, quantity: getQty(it.id) }));
     const payload = {
       distributor_id: distributor.id,
       price_list_id: list?.id ?? null,
       language: list?.language ?? "pt",
       currency: list?.currency ?? "BRL",
       header_data: header,
-      items: previewItems as any,
+      items: itemsWithQty as any,
       totals: totals as any,
       status: "draft",
       proposal_number: `PRO-${Date.now()}`,
