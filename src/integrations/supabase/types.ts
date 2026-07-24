@@ -2767,6 +2767,58 @@ export type Database = {
           },
         ]
       }
+      catalog_kit_components: {
+        Row: {
+          component_variation_id: string
+          created_at: string
+          id: string
+          kit_alias_id: number
+          quantity: number
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          component_variation_id: string
+          created_at?: string
+          id?: string
+          kit_alias_id: number
+          quantity?: number
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          component_variation_id?: string
+          created_at?: string
+          id?: string
+          kit_alias_id?: number
+          quantity?: number
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "catalog_kit_components_component_variation_id_fkey"
+            columns: ["component_variation_id"]
+            isOneToOne: false
+            referencedRelation: "catalog_product_variations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "catalog_kit_components_kit_alias_id_fkey"
+            columns: ["kit_alias_id"]
+            isOneToOne: false
+            referencedRelation: "produto_aliases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "catalog_kit_components_kit_alias_id_fkey"
+            columns: ["kit_alias_id"]
+            isOneToOne: false
+            referencedRelation: "v_sku_mapping_inbox"
+            referencedColumns: ["alias_id"]
+          },
+        ]
+      }
       catalog_product_variations: {
         Row: {
           catalog_product_id: string
@@ -3751,6 +3803,7 @@ export type Database = {
           nfe_number: string | null
           nome_produto: string | null
           num_parcelas: number | null
+          parent_deal_item_id: string | null
           payment_method: string | null
           product_category: string | null
           product_code: string | null
@@ -3787,6 +3840,7 @@ export type Database = {
           nfe_number?: string | null
           nome_produto?: string | null
           num_parcelas?: number | null
+          parent_deal_item_id?: string | null
           payment_method?: string | null
           product_category?: string | null
           product_code?: string | null
@@ -3823,6 +3877,7 @@ export type Database = {
           nfe_number?: string | null
           nome_produto?: string | null
           num_parcelas?: number | null
+          parent_deal_item_id?: string | null
           payment_method?: string | null
           product_category?: string | null
           product_code?: string | null
@@ -3990,6 +4045,34 @@ export type Database = {
             columns: ["lead_id"]
             isOneToOne: false
             referencedRelation: "vw_vendas_ganhas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_items_parent_deal_item_id_fkey"
+            columns: ["parent_deal_item_id"]
+            isOneToOne: false
+            referencedRelation: "deal_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_items_parent_deal_item_id_fkey"
+            columns: ["parent_deal_item_id"]
+            isOneToOne: false
+            referencedRelation: "v_deal_items_normalized"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_items_parent_deal_item_id_fkey"
+            columns: ["parent_deal_item_id"]
+            isOneToOne: false
+            referencedRelation: "vw_deal_items_dedup"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_items_parent_deal_item_id_fkey"
+            columns: ["parent_deal_item_id"]
+            isOneToOne: false
+            referencedRelation: "vw_vendas_por_produto"
             referencedColumns: ["id"]
           },
         ]
@@ -16425,6 +16508,7 @@ export type Database = {
           categoria: string | null
           created_at: string | null
           id: number
+          is_kit: boolean
           nome_canonico: string
           nome_variante: string
           sku_interno: string | null
@@ -16435,6 +16519,7 @@ export type Database = {
           categoria?: string | null
           created_at?: string | null
           id?: number
+          is_kit?: boolean
           nome_canonico: string
           nome_variante: string
           sku_interno?: string | null
@@ -16445,6 +16530,7 @@ export type Database = {
           categoria?: string | null
           created_at?: string | null
           id?: number
+          is_kit?: boolean
           nome_canonico?: string
           nome_variante?: string
           sku_interno?: string | null
@@ -25988,6 +26074,26 @@ export type Database = {
         }
         Relationships: []
       }
+      v_deal_items_expanded: {
+        Row: {
+          deal_date: string | null
+          deal_id: string | null
+          id: string | null
+          is_expansion: boolean | null
+          lead_id: string | null
+          parent_deal_item_id: string | null
+          product_code: string | null
+          product_name: string | null
+          proposal_id: string | null
+          quantity: number | null
+          sku: string | null
+          source: string | null
+          total_value: number | null
+          unit_value: number | null
+          vendor_name: string | null
+        }
+        Relationships: []
+      }
       v_deal_items_normalized: {
         Row: {
           categoria: string | null
@@ -27925,6 +28031,25 @@ export type Database = {
           produto: string | null
           proprietario_lead_crm: string | null
           seller_name: string | null
+        }
+        Relationships: []
+      }
+      v_sku_mapping_inbox: {
+        Row: {
+          alias_ativo: boolean | null
+          alias_id: number | null
+          categoria: string | null
+          gmv: number | null
+          is_kit: boolean | null
+          name_key: string | null
+          nome_canonico: string | null
+          occurrences: number | null
+          sample_code: string | null
+          sample_name: string | null
+          sample_sku: string | null
+          sku_interno: string | null
+          sources: string | null
+          subcategoria: string | null
         }
         Relationships: []
       }

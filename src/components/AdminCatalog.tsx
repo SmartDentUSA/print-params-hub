@@ -8,6 +8,8 @@ import { useCatalogCRUD, CatalogProduct } from "@/hooks/useCatalogCRUD";
 import { AdminModal } from "./AdminModal";
 import { supabase } from "@/integrations/supabase/client";
 import { AdminCatalogTable } from "./AdminCatalogTable";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { SkuMappingTab } from "./admin/catalog/SkuMappingTab";
 
 export function AdminCatalog() {
   const [products, setProducts] = useState<CatalogProduct[]>([]);
@@ -275,7 +277,14 @@ export function AdminCatalog() {
 
   return (
     <div className="space-y-6">
-      <Card>
+      <Tabs defaultValue="catalog" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="catalog">Catálogo</TabsTrigger>
+          <TabsTrigger value="sku-mapping">Mapeamento de SKU</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="catalog">
+        <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
@@ -427,7 +436,28 @@ export function AdminCatalog() {
             onToggleActive={handleToggleActive}
           />
         </CardContent>
-      </Card>
+        </Card>
+        </TabsContent>
+
+        <TabsContent value="sku-mapping">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <ShoppingCart className="w-5 h-5" />
+                Mapeamento de SKU & Kits
+              </CardTitle>
+              <CardDescription>
+                Associe itens brutos vindos de propostas do CRM e pedidos da Loja Integrada às variações
+                do catálogo. Marque como <strong>Kit</strong> para expandir automaticamente os componentes
+                nos itens da proposta e no cálculo de mix de produtos.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <SkuMappingTab />
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
 
       {/* Modal de criação/edição */}
       <AdminModal
