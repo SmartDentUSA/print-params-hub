@@ -289,8 +289,9 @@ export async function exportPriceTablePdf(
     const lineTotal = Number(it.price_dealer || 0) * qty;
     const photo = isLeader ? { content: "", rowSpan: span } : null;
     const nome  = isLeader ? { content: it.name, rowSpan: span } : null;
-    const sku   = isLeader ? { content: (it as any).sku ?? it.cod ?? "—", rowSpan: span } : null;
+    const sku   = (it as any).sku ?? it.cod ?? "—";
     const cells: any[] = [
+      sku,
       it.ncm_hs ?? "",
       it.gtin_ean ?? "",
       it.variant ?? it.presentation_qty ?? "",
@@ -302,7 +303,7 @@ export async function exportPriceTablePdf(
       formatMoney(descAbs, currency),
       formatMoney(lineTotal, currency),
     ];
-    return isLeader ? [photo, nome, sku, ...cells] : cells;
+    return isLeader ? [photo, nome, ...cells] : cells;
   };
 
   const orderRowsForRowSpan = (rows: DealerPriceItem[]) => {
