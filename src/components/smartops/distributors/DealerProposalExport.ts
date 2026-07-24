@@ -179,9 +179,9 @@ export async function exportPriceTablePdf(
   items: DealerPriceItem[],
   opts: { title?: string; filenamePrefix?: string } = {},
 ) {
-  const doc = new jsPDF({ orientation: "landscape", unit: "pt", format: "a4" });
-  const pageW = doc.internal.pageSize.getWidth();   // 841.89 (landscape)
-  const pageH = doc.internal.pageSize.getHeight();  // 595.28
+  const doc = new jsPDF({ orientation: "portrait", unit: "pt", format: "a4" });
+  const pageW = doc.internal.pageSize.getWidth();   // 595.28 (portrait)
+  const pageH = doc.internal.pageSize.getHeight();  // 841.89
   const currency = list?.currency ?? "BRL";
   const locale = localeForLang(list?.language);
   const bg = await loadProposalBg();
@@ -259,21 +259,21 @@ export async function exportPriceTablePdf(
     "Foto", "SKU", "Produto", "NCM", "GTIN", "Variante", "Pres", "Cor",
     "Qtd", "Preço unitário", "Desc %", `Desc (${currency})`, "Total",
   ]];
-  // Landscape contentW ≈ 786pt. Sum below = 786.
+  // Portrait A4 contentW ≈ 539pt (595 − 2×28 margins). Sum below ≤ 539.
   const columnStyles: Record<number, any> = {
-    0:  { cellWidth: 34, halign: "center" },   // Foto
-    1:  { cellWidth: 60 },                      // SKU
-    2:  { cellWidth: 150 },                     // Produto
-    3:  { cellWidth: 50 },                      // NCM
-    4:  { cellWidth: 60 },                      // GTIN
-    5:  { cellWidth: 54 },                      // Variante
-    6:  { cellWidth: 34 },                      // Pres
-    7:  { cellWidth: 60 },                      // Cor
-    8:  { cellWidth: 30, halign: "right" },     // Qtd
-    9:  { cellWidth: 60, halign: "right" },     // Preço unitário
-    10: { cellWidth: 40, halign: "right" },     // Desc %
-    11: { cellWidth: 64, halign: "right" },     // Desc (curr)
-    12: { cellWidth: 90, halign: "right", fontStyle: "bold" }, // Total
+    0:  { cellWidth: 26, halign: "center" },   // Foto
+    1:  { cellWidth: 40 },                      // SKU
+    2:  { cellWidth: 90 },                      // Produto
+    3:  { cellWidth: 34 },                      // NCM
+    4:  { cellWidth: 44 },                      // GTIN
+    5:  { cellWidth: 38 },                      // Variante
+    6:  { cellWidth: 24 },                      // Pres
+    7:  { cellWidth: 40 },                      // Cor
+    8:  { cellWidth: 22, halign: "right" },     // Qtd
+    9:  { cellWidth: 42, halign: "right" },     // Preço unitário
+    10: { cellWidth: 28, halign: "right" },     // Desc %
+    11: { cellWidth: 42, halign: "right" },     // Desc (curr)
+    12: { cellWidth: 68, halign: "right", fontStyle: "bold" }, // Total
   };
 
   // Group by catalog_product_id to compute rowSpan on Foto/COD/Produto,
@@ -446,8 +446,8 @@ export async function exportPriceTableDocx(
   const borders = { top: border, bottom: border, left: border, right: border };
   const imgs = await preloadImages(items);
 
-  // Landscape A4 content width = 16838 - 2*1000 = 14838 DXA. 13 columns.
-  const widths = [900, 1200, 2400, 900, 1100, 1000, 700, 1200, 600, 1200, 800, 1200, 1638]; // sum = 14838
+  // Portrait A4 content width = 11906 - 2*1000 = 9906 DXA. 13 columns.
+  const widths = [600, 800, 1600, 600, 750, 700, 470, 800, 400, 800, 550, 800, 1036]; // sum = 9906
   const totalW = widths.reduce((a, b) => a + b, 0);
   const colCount = widths.length;
   const headers = [
@@ -575,7 +575,7 @@ export async function exportPriceTableDocx(
     sections: [{
       properties: {
         page: {
-          size: { width: 11906, height: 16838, orientation: "landscape" as any },
+          size: { width: 11906, height: 16838, orientation: "portrait" as any },
           margin: { top: 1000, right: 1000, bottom: 1000, left: 1000 },
         },
       },
