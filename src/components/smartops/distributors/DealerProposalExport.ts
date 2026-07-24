@@ -254,24 +254,26 @@ export async function exportPriceTablePdf(
   const rightMargin = 28;
   const contentW = pageW - leftMargin - rightMargin;
 
-  // 11-column layout: Foto | SKU | Produto | Variante | Pres | Cor | Qtd | Preço unitário | Desc % | Desc (curr) | Total
+  // 13-column layout: Foto | SKU | Produto | NCM | GTIN | Variante | Pres | Cor | Qtd | Preço unitário | Desc % | Desc (curr) | Total
   const head = [[
-    "Foto", "SKU", "Produto", "Variante", "Pres", "Cor",
+    "Foto", "SKU", "Produto", "NCM", "GTIN", "Variante", "Pres", "Cor",
     "Qtd", "Preço unitário", "Desc %", `Desc (${currency})`, "Total",
   ]];
   // Landscape contentW ≈ 786pt. Sum below = 786.
   const columnStyles: Record<number, any> = {
-    0:  { cellWidth: 40, halign: "center" },
-    1:  { cellWidth: 70 },
-    2:  { cellWidth: 190 },
-    3:  { cellWidth: 60 },
-    4:  { cellWidth: 40 },
-    5:  { cellWidth: 70 },
-    6:  { cellWidth: 34, halign: "right" },
-    7:  { cellWidth: 72, halign: "right" },
-    8:  { cellWidth: 46, halign: "right" },
-    9:  { cellWidth: 72, halign: "right" },
-    10: { cellWidth: 92, halign: "right", fontStyle: "bold" },
+    0:  { cellWidth: 34, halign: "center" },   // Foto
+    1:  { cellWidth: 60 },                      // SKU
+    2:  { cellWidth: 150 },                     // Produto
+    3:  { cellWidth: 50 },                      // NCM
+    4:  { cellWidth: 60 },                      // GTIN
+    5:  { cellWidth: 54 },                      // Variante
+    6:  { cellWidth: 34 },                      // Pres
+    7:  { cellWidth: 60 },                      // Cor
+    8:  { cellWidth: 30, halign: "right" },     // Qtd
+    9:  { cellWidth: 60, halign: "right" },     // Preço unitário
+    10: { cellWidth: 40, halign: "right" },     // Desc %
+    11: { cellWidth: 64, halign: "right" },     // Desc (curr)
+    12: { cellWidth: 90, halign: "right", fontStyle: "bold" }, // Total
   };
 
   // Group by catalog_product_id to compute rowSpan on Foto/COD/Produto,
@@ -288,6 +290,8 @@ export async function exportPriceTablePdf(
     const sku   = isLeader ? { content: (it as any).sku ?? it.cod ?? "—", rowSpan: span } : null;
     const nome  = isLeader ? { content: it.name, rowSpan: span } : null;
     const cells: any[] = [
+      it.ncm_hs ?? "—",
+      it.gtin_ean ?? "—",
       it.variant ?? it.presentation_qty ?? "—",
       (it.presentation as string) ?? "Unit",
       (it as any).color ?? "—",
