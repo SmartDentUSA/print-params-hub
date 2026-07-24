@@ -452,19 +452,20 @@ export async function exportPriceTableDocx(
   const imgs = await preloadImages(items);
 
   // Portrait A4 content width = 11906 - 2*1000 = 9906 DXA. 13 columns.
-  const widths = [600, 800, 1600, 600, 750, 700, 470, 800, 400, 800, 550, 800, 1036]; // sum = 9906
+  // Same ratio as PDF: Foto|SKU|Produto|NCM|GTIN|Var|Pres|Cor|Qtd|Preço unit.|Desc%|Desc(curr)|Total
+  const widths = [550, 662, 1768, 773, 1068, 589, 405, 552, 405, 810, 515, 773, 1036]; // sum = 9906
   const totalW = widths.reduce((a, b) => a + b, 0);
   const colCount = widths.length;
   const headers = [
     "Foto", "SKU", "Produto", "NCM", "GTIN", "Variante", "Pres", "Cor",
-    "Qtd", "Preço unitário", "Desc %", `Desc (${currency})`, "Total",
+    "Qtd", "Preço unit.", "Desc %", `Desc (${currency})`, "Total",
   ];
 
   const headerRow = new TableRow({
     tableHeader: true,
     children: headers.map((h, i) => new TableCell({
       borders, width: { size: widths[i], type: WidthType.DXA },
-      shading: { fill: "374151", type: ShadingType.CLEAR, color: "auto" },
+      shading: { fill: "363E56", type: ShadingType.CLEAR, color: "auto" },
       margins: { top: 80, bottom: 80, left: 100, right: 100 },
       children: [new Paragraph({ children: [new TextRun({ text: h, bold: true, color: "FFFFFF" })] })],
     })),
@@ -494,11 +495,11 @@ export async function exportPriceTableDocx(
       "", // photo
       (it as any).sku ?? it.cod ?? "—",
       it.name,
-      it.ncm_hs ?? "—",
-      it.gtin_ean ?? "—",
-      it.variant ?? it.presentation_qty ?? "—",
-      (it.presentation as string) ?? "Unit",
-      (it as any).color ?? "—",
+      it.ncm_hs ?? "",
+      it.gtin_ean ?? "",
+      it.variant ?? it.presentation_qty ?? "",
+      (it.presentation as string) ?? "",
+      (it as any).color ?? "",
       String(qty),
       formatMoney(it.price_base, currency),
       `${Number(it.discount_pct).toFixed(1)}%`,
