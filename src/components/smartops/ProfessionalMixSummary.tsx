@@ -227,6 +227,7 @@ export default function ProfessionalMixSummary({ leadId, disabled, cadValue, onC
   const [saving, setSaving] = useState(false);
   const [edits, setEdits] = useState<Partial<Record<EquipCat, { name: string; serial: string }>>>({});
   const [serials, setSerials] = useState<Partial<Record<EquipCat, string>>>({});
+  const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
     (async () => {
@@ -380,6 +381,21 @@ export default function ProfessionalMixSummary({ leadId, disabled, cadValue, onC
             push((lead as any).equip_pos_impressao, "pos_impressao", (lead as any).equip_pos_impressao_ativacao);
             push((lead as any).equip_fresadora, "fresadora", (lead as any).equip_fresadora_ativacao);
             push((lead as any).equip_cad, "cad", (lead as any).equip_cad_ativacao);
+            // Notebook não tem Cat própria — injeta como "outros" e classifyEquipTable
+            // reconhece pelo nome (NOTEBOOK_RE) na renderização da tabela.
+            {
+              const nb = ((lead as any).equip_notebook || "").toString().trim();
+              if (nb && isValidEquipmentLabel(nb) && !ACCESSORY_RE.test(nb.toLowerCase())) {
+                qualItems.push({
+                  name: nb,
+                  category: "outros" as Cat,
+                  total: 0,
+                  date: ((lead as any).equip_notebook_ativacao || fallbackDate) as string,
+                  vendor: null,
+                  source: "qualification" as any,
+                });
+              }
+            }
             // produto_interesse: only if it maps cleanly to a category not yet covered
             const pi = ((lead as any).produto_interesse || "").toString().trim();
             if (pi && !/info\s*geral|informa|geral/i.test(pi)) {
@@ -406,7 +422,7 @@ export default function ProfessionalMixSummary({ leadId, disabled, cadValue, onC
     return () => {
       cancelled = true;
     };
-  }, [leadId]);
+  }, [leadId, refreshKey]);
 
   // ---------- Aggregations ----------
   const agg = useMemo(() => {
@@ -569,6 +585,8 @@ export default function ProfessionalMixSummary({ leadId, disabled, cadValue, onC
       if (edits.cad?.name) onCadChange(edits.cad.name);
       setEditMode(false);
       toast.success("Equipamentos atualizados");
+      // Recarrega o histórico para refletir os novos equipamentos na tabela.
+      setRefreshKey((k) => k + 1);
     } catch (e: any) {
       toast.error(`Erro ao salvar: ${e.message ?? e}`);
     } finally {
