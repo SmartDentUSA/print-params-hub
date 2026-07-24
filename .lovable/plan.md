@@ -1,28 +1,26 @@
-# Popular campo "Pres" com "grs" nas Resinas 3D
+# Backfill peso e dimensões por gramatura (Resinas 3D)
 
-## Objetivo
-No Catálogo de Produtos, garantir que a coluna **Pres** (unidade de apresentação) das variações de Resinas 3D venha preenchida com **"grs"** por padrão, tanto para linhas existentes quanto para novas.
+## Presets confirmados
+| presentation_qty | dimensions_cm         | weight_kg |
+|------------------|-----------------------|-----------|
+| 250              | 16.0 x 8.0 x 8.0      | 0.35      |
+| 500              | 19.5 x 8.5 x 8.5      | 0.61      |
+| 1000             | 24.5 x 9.5 x 9.5      | 1.13      |
 
-## Escopo
-Aplica-se apenas a variações (`catalog_product_variations`) cujo produto pai esteja na categoria de resina (`product_category` ILIKE '%resina%' OR `category` IN ('resin','Resinas')). Não afeta impressoras, serviços, insumos etc.
+Observação: no backfill anterior usei `0.33` para 250g. Este plano corrige para **0.35**.
 
 ## Mudanças
 
-1. **Migração de dados (backfill único)**
-   - `UPDATE catalog_product_variations` setando `presentation = 'grs'` onde `presentation IS NULL OR presentation = ''`, restrito às variações cujo `catalog_product_id` pertence a produtos de resina.
-   - Também aplicar presets físicos (`weight_kg`, `dimensions_cm`) quando `presentation_qty` bater com 250/500/1000 e os campos estiverem vazios — mesma tabela `RESIN_GRS_PRESETS` já usada no front (`AdminCatalogTable.tsx`).
+1. **Backfill de dados** — `UPDATE catalog_product_variations` restrito a variações cujo produto pai é resina (`product_category` ILIKE '%resina%' OR `category` IN ('resin','Resinas')):
+   - Sobrescrever `weight_kg` e `dimensions_cm` conforme a tabela acima quando `presentation_qty` for `250`, `500` ou `1000` (com `presentation` = `grs`/`g` ou vazio).
+   - Sobrescrever mesmo se os campos já estiverem preenchidos (para corrigir o `0.33` anterior e alinhar dimensões).
 
-2. **UI — `src/components/AdminCatalogTable.tsx`**
-   - No `<Select>` da coluna Pres (linha ~393), quando a linha for resina (`isResinRow(product)`) e `v.presentation` estiver vazio, exibir "grs" como valor default no `SelectValue` (visual) e considerar "grs" como valor efetivo ao salvar outros campos da mesma linha.
-   - No autosave de `presentation_qty` (linha ~378), remover a condição `!v.presentation` que hoje só grava "grs" se estiver vazio, e passar a gravar "grs" sempre que a linha for resina e a unidade atual não for uma explicitamente diferente (ex.: "ml", "un").
-
-3. **Criação de novas variações de resina**
-   - No hook/local que insere nova variação (a confirmar em `useCatalogVariations`), quando o produto pai for resina, default `presentation = 'grs'` no INSERT.
+2. **Presets no front** — `src/components/AdminCatalogTable.tsx` (constante `RESIN_GRS_PRESETS`):
+   - Ajustar `250` de `0.33` para `0.35`. Demais valores já batem.
 
 ## Fora do escopo
-- Não altera categorias, nomes canônicos, SKUs, mapeamentos de alias, nem variações de não-resinas.
-- Não mexe em `system_a_catalog` (só `catalog_product_variations`).
+- Não altera variações não-resina.
+- Não altera `presentation` nem `presentation_qty`.
 
 ## Validação
-- Após a migração, rodar `SELECT count(*) FROM catalog_product_variations v JOIN system_a_catalog c ON c.id = v.catalog_product_id WHERE (c.product_category ILIKE '%resina%' OR c.category IN ('resin','Resinas')) AND (v.presentation IS NULL OR v.presentation = '')` — deve retornar 0.
-- Abrir Gestão de Catálogo → filtrar Resinas 3D → confirmar visualmente que a coluna Pres está preenchida com "grs" em todas as linhas.
+- `SELECT presentation_qty, weight_kg, dimensions_cm, count(*) FROM catalog_product_variations v JOIN system_a_catalog c ON c.id=v.catalog_product_id WHERE (c.product_category ILIKE '%resina%' OR c.category IN ('resin','Resinas')) AND v.presentation_qty IN ('250','500','1000') GROUP BY 1,2,3` — cada gramatura deve retornar uma única combinação de peso/dimensões conforme a tabela.
