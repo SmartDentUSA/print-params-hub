@@ -1,28 +1,43 @@
-## Ocultar amostras grátis (100g) no catálogo de distribuição
+## Causa raiz
 
-Na aba **Distribuição → Catálogo de Produtos** (`DealerCatalogGrid`), esconder variações cuja quantidade seja **100** dentro de **3. IMPRESSÃO 3D → 3.1 RESINAS 3D** (são amostras grátis, não entram em proposta).
+Ao buscar `alexandreaugustosouza@gmail.com` a ficha carrega o lead (`a84c64bb-…`, Alexandre Augusto Ferreira de Souza) mas o card **Mix de produtos** volta vazio. O lead tem **4 itens reais** em `deal_items` (Base De Teflon Miicraft Plus, NanoClean PoD, Resina Vitality 250g BL1, SmartMake Seal Glaze) vinculados aos deals PipeRun `55649635` e `41803994`, ambos com `status='ganha'` — então os dados existem.
 
-### Escopo
-- Apenas UI de distribuição:
-  - `DealerCatalogGrid.tsx` (grid visual do catálogo de distribuição)
-  - `DealerPriceTable.tsx` — no fluxo "Importar do Catálogo" (para não trazer o 100 ao criar tabela de preço nova)
-  - `DealerProposalWizard.tsx` — no seletor de produtos (para não permitir adicionar 100g em proposta)
-- **NÃO alterar**:
-  - Gestão de Catálogo (`AdminCatalogTable`) — 100g continua existindo no cadastro.
-  - Base de Conhecimento / Catálogo público.
-  - `system_a_catalog` / `catalog_product_variations` (nenhuma mudança de banco).
-  - Tabelas de preço já existentes com item 100 (mantém histórico).
+O bug está em `src/components/smartops/ProfessionalMixSummary.tsx` (linhas ~266–280):
 
-### Regra de filtro
-Ocultar variação quando **todas** condições:
-1. `category` começa com `3.` (IMPRESSÃO 3D) e `subcategory` começa com `3.1` (RESINAS 3D).
-2. `presentation_qty` (ou label da variação) parseia como `100` — usando o mesmo parser numérico já usado na ordenação por peso.
+```ts
+const { data: wonDeals } = await supabase
+  .from("deals")
+  .select("id, owner_name, closed_at")        // ← deals.id é UUID
+  .eq("lead_id", leadId).eq("status", "ganha");
+const dealIds = wonDeals.map(d => d.id);       // ← UUIDs
+...
+.from("deal_items").select(...).in("deal_id", dealIds);  // ← deal_items.deal_id é o piperun_deal_id (inteiro)
+```
 
-Categorias 3.2+ (uso geral etc.) e demais categorias não são afetadas.
+`deal_items.deal_id` guarda o **`piperun_deal_id`** (ex.: `55649635`), não o UUID de `deals.id`. O `.in(...)` nunca casa, então `crmItems` fica `[]` e o MIX só mostra o fallback de qualificação. Confirmado no banco: `deals` tem colunas `id` (uuid) e `piperun_deal_id` (numérica) separadas.
 
-### Detalhes técnicos
-- Criar helper `isFreeSampleVariation(category, subcategory, qty)` em `src/components/smartops/distributors/types.ts` (ao lado de `categoryRank`) para uso compartilhado.
-- Aplicar em:
-  - `DealerCatalogGrid` — filtrar antes de agrupar por categoria.
-  - `DealerPriceTable.importCatalog` — filtrar variações antes do upsert.
-  - `DealerProposalWizard` — filtrar variações listadas no diálogo "Adicionar produto" e no preview inicial.
+## Correção
+
+Arquivo único: `src/components/smartops/ProfessionalMixSummary.tsx`.
+
+1. Trocar o `select` de `wonDeals` para trazer `piperun_deal_id` além de `id`, `owner_name`, `closed_at`.
+2. Usar `piperun_deal_id` (como string, para casar com o tipo em `deal_items.deal_id`) na lista de IDs e no `Map` de owner/closed_at.
+3. Manter o filtro `status = 'ganha'` (todos os deals do Alexandre já estão como ganha; a auditoria também confirma que a ingestão marca ganho corretamente).
+4. Fallback: se `piperun_deal_id` vier null em algum deal ganho, ignorar aquele deal (evita casar com `null`).
+
+Depois do fix, a busca do Alexandre passa a mostrar no MIX:
+- Base De Teflon — Miicraft Plus (24/03/2026, R$ 200)
+- NanoClean PoD (24/03/2026, R$ 399)
+- Resina 3D Nano Híbrida Vitality 250g BL1 (22/10/2024, R$ 1.290)
+- SmartMake Seal Glaze (22/10/2024, R$ 278)
+
+## Fora de escopo
+
+- Não alterar `CoursesProfessionalProfile.tsx`, `CoursesPage.tsx`, schema de `deals`/`deal_items` nem edge functions — o dado está correto no banco, apenas a leitura no front está errada.
+- Fluxo de e-commerce (Loja Integrada) continua igual — o lead não tem pedidos ligados (`attendance_id = 0` orders).
+- Sem migração de banco.
+
+## Verificação após a alteração
+
+- Rebuscar o e-mail e conferir que o MIX renderiza as 4 linhas com datas e valores acima.
+- Testar um segundo lead com apenas pedidos de e-commerce para garantir que a rota `ecomItems` não regrediu.
