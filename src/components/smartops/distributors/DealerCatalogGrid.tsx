@@ -83,7 +83,7 @@ const I18N: Record<string, Record<string, string>> = {
   pt: {
     search: "Buscar produto…", cat: "Categoria", allCats: "Todas categorias",
     items: "itens", showInactive: "Mostrar inativos",
-    catStatus: "Status", catPhoto: "Foto", catCod: "COD", catSku: "SKU", catProduct: "Produto",
+    catStatus: "Status", catPhoto: "Foto", catSku: "SKU", catProduct: "Produto",
     catPresQty: "Variação", catPres: "Pres", catNcm: "NCM/HS", catGtin: "GTIN/EAN",
     catUnit: "Unidade", catWeight: "Peso (kg)", catDims: "Dimensões (cm)",
     catColor: "Cor",
@@ -102,7 +102,7 @@ const I18N: Record<string, Record<string, string>> = {
   es: {
     search: "Buscar producto…", cat: "Categoría", allCats: "Todas las categorías",
     items: "ítems", showInactive: "Mostrar inactivos",
-    catStatus: "Estado", catPhoto: "Foto", catCod: "COD", catSku: "SKU", catProduct: "Producto",
+    catStatus: "Estado", catPhoto: "Foto", catSku: "SKU", catProduct: "Producto",
     catPresQty: "Variación", catPres: "Pres", catNcm: "NCM/HS", catGtin: "GTIN/EAN",
     catUnit: "Unidad", catWeight: "Peso (kg)", catDims: "Dimensiones (cm)",
     catColor: "Color",
@@ -121,7 +121,7 @@ const I18N: Record<string, Record<string, string>> = {
   en: {
     search: "Search product…", cat: "Category", allCats: "All categories",
     items: "items", showInactive: "Show inactive",
-    catStatus: "Status", catPhoto: "Photo", catCod: "COD", catSku: "SKU", catProduct: "Product",
+    catStatus: "Status", catPhoto: "Photo", catSku: "SKU", catProduct: "Product",
     catPresQty: "Variant", catPres: "Pres", catNcm: "HS Code", catGtin: "GTIN/EAN",
     catUnit: "Unit", catWeight: "Weight (kg)", catDims: "Dimensions (cm)",
     catColor: "Color",
@@ -432,13 +432,12 @@ export function DealerCatalogGrid({ onAddToPriceList }: Props) {
         <p className="text-sm text-muted-foreground">{t.loading}</p>
       ) : (
         <div className="rounded-md border overflow-x-auto">
-          <Table className="min-w-[2180px]">
+          <Table className="min-w-[2070px]">
             <TableHeader>
               <TableRow>
                 <TableHead className="w-[80px]">{t.catStatus}</TableHead>
                 <TableHead className="w-[64px]">{t.catPhoto}</TableHead>
                 <TableHead className="min-w-[260px]">{t.catProduct}</TableHead>
-                <TableHead className="w-[110px]">{t.catCod}</TableHead>
                 <TableHead className="w-[120px]">{t.catSku}</TableHead>
                 <TableHead className="w-[110px]">{t.catPresQty}</TableHead>
                 <TableHead className="w-[90px]">{t.catPres}</TableHead>
@@ -457,7 +456,7 @@ export function DealerCatalogGrid({ onAddToPriceList }: Props) {
             <TableBody>
               {filtered.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={17} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={16} className="text-center py-8 text-muted-foreground">
                     {t.empty}
                   </TableCell>
                 </TableRow>
@@ -485,8 +484,7 @@ export function DealerCatalogGrid({ onAddToPriceList }: Props) {
                           <div className="truncate">{nameFor(p)}</div>
                           {p.product_category && <div className="text-[11px] text-muted-foreground truncate">{p.product_category}{p.product_subcategory ? ` › ${p.product_subcategory}` : ""}</div>}
                         </TableCell>
-                        <TableCell className="font-mono text-xs">{codOf(p)}</TableCell>
-                        <TableCell colSpan={11} className="text-xs text-muted-foreground italic">
+                        <TableCell colSpan={12} className="text-xs text-muted-foreground italic">
                           {t.noVariations}
                         </TableCell>
                         <TableCell>
@@ -520,7 +518,6 @@ export function DealerCatalogGrid({ onAddToPriceList }: Props) {
                               <div className="truncate">{nameFor(p)}</div>
                               {p.product_category && <div className="text-[11px] text-muted-foreground truncate">{p.product_category}{p.product_subcategory ? ` › ${p.product_subcategory}` : ""}</div>}
                             </TableCell>
-                            <TableCell rowSpan={span} className="font-mono text-xs">{codOf(p)}</TableCell>
                           </>
                         )}
                         <TableCell>
