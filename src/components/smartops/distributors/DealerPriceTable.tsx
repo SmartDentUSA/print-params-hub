@@ -1113,7 +1113,7 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
                 </div>
               </div>
               <div className="border rounded-md overflow-x-auto">
-                <Table className="min-w-[1500px]">
+                <Table className="min-w-[1620px]">
                   <TableHeader>
                     <TableRow>
                       <TableHead className="w-16">{t.hPhoto}</TableHead>
