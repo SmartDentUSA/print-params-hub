@@ -25138,6 +25138,7 @@ export type Database = {
           node_id: string | null
           node_index: number
           node_type: string
+          paused_at: string | null
           retry_count: number
           scheduled_at: string
           sent_at: string | null
@@ -25158,6 +25159,7 @@ export type Database = {
           node_id?: string | null
           node_index: number
           node_type: string
+          paused_at?: string | null
           retry_count?: number
           scheduled_at: string
           sent_at?: string | null
@@ -25178,6 +25180,7 @@ export type Database = {
           node_id?: string | null
           node_index?: number
           node_type?: string
+          paused_at?: string | null
           retry_count?: number
           scheduled_at?: string
           sent_at?: string | null
@@ -30134,6 +30137,7 @@ export type Database = {
           node_id: string | null
           node_index: number
           node_type: string
+          paused_at: string | null
           retry_count: number
           scheduled_at: string
           sent_at: string | null
