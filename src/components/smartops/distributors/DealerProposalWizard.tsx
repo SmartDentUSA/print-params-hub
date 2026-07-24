@@ -106,21 +106,32 @@ export function DealerProposalWizard({ distributors }: Props) {
       if (ids.length === 0) { setColorMap({}); return; }
       const { data } = await supabase
         .from("catalog_product_variations" as any)
-        .select("catalog_product_id,presentation_qty,color")
+        .select("catalog_product_id,presentation_qty,color,sku")
         .in("catalog_product_id", ids);
       const norm = (v: unknown) => String(v ?? "").trim().toLowerCase();
       const map: Record<string, string | null> = {};
       ((data as any) || []).forEach((v: any) => {
+        // Key by SKU (unique per variation) to avoid color collision when
+        // multiple variations share the same product_id + presentation_qty
+        // (e.g. Vitality: 8 SKUs em 250g, cada um com cor distinta).
+        if (v.sku) map[`sku::${norm(v.sku)}`] = v.color ?? null;
+        // Fallback bucket (last-write-wins) para casos sem SKU.
         map[`${v.catalog_product_id}::${norm(v.presentation_qty)}`] = v.color ?? null;
       });
       setColorMap(map);
     })();
   }, [items]);
 
-  const getColor = (it: DealerPriceItem) =>
-    (it as any).color
-    ?? colorMap[`${it.catalog_product_id}::${String(it.presentation_qty ?? "").trim().toLowerCase()}`]
-    ?? "";
+  const getColor = (it: DealerPriceItem) => {
+    const norm = (v: unknown) => String(v ?? "").trim().toLowerCase();
+    const skuKey = (it as any).sku ?? (it as any).cod;
+    return (
+      (it as any).color
+      ?? (skuKey ? colorMap[`sku::${norm(skuKey)}`] : null)
+      ?? colorMap[`${it.catalog_product_id}::${norm(it.presentation_qty)}`]
+      ?? ""
+    );
+  };
 
   const loadProposalForEdit = (p: SavedProposal) => {
     const arr = Array.isArray(p.items) ? (p.items as any[]) : [];
