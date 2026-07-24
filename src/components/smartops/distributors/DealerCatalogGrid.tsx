@@ -521,7 +521,8 @@ export function DealerCatalogGrid({ onAddToPriceList }: Props) {
                             className="h-8 text-xs font-mono"
                             value={v.sku ?? ""}
                             placeholder={skuOf(p) !== "—" ? skuOf(p) : "SKU"}
-                            onChange={(e) => patchVariation(v.id, { sku: e.target.value || null })}
+                            readOnly
+                            disabled
                           />
                         </TableCell>
                         <TableCell>
@@ -529,13 +530,15 @@ export function DealerCatalogGrid({ onAddToPriceList }: Props) {
                             className="h-8 text-xs"
                             value={v.presentation_qty ?? ""}
                             placeholder={t.variantPlaceholder}
-                            onChange={(e) => patchVariation(v.id, { presentation_qty: e.target.value })}
+                            readOnly
+                            disabled
                           />
                         </TableCell>
                         <TableCell>
                           <Select
                             value={v.presentation ?? "Item"}
-                            onValueChange={(val) => patchVariation(v.id, { presentation: val as PresentationType })}
+                            disabled
+                            onValueChange={() => {}}
                           >
                             <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
                             <SelectContent>
@@ -549,14 +552,16 @@ export function DealerCatalogGrid({ onAddToPriceList }: Props) {
                           <Input
                             className="h-8 text-xs font-mono"
                             value={v.ncm_hs ?? ""}
-                            onChange={(e) => patchVariation(v.id, { ncm_hs: e.target.value })}
+                            readOnly
+                            disabled
                           />
                         </TableCell>
                         <TableCell>
                           <Input
                             className="h-8 text-xs font-mono"
                             value={v.gtin_ean ?? ""}
-                            onChange={(e) => patchVariation(v.id, { gtin_ean: e.target.value })}
+                            readOnly
+                            disabled
                           />
                         </TableCell>
                          <TableCell>
@@ -566,14 +571,8 @@ export function DealerCatalogGrid({ onAddToPriceList }: Props) {
                             inputMode="decimal"
                             value={(v as any).__weightDraft ?? (v.weight_kg ?? "")}
                             placeholder="kg"
-                            onChange={(e) => {
-                              const raw = e.target.value.replace(/[^\d.,]/g, "");
-                              patchVariation(v.id, { __weightDraft: raw, weight_kg: parseNum(raw) } as any);
-                            }}
-                            onBlur={(e) => {
-                              const n = parseNum(e.target.value);
-                              patchVariation(v.id, { __weightDraft: undefined, weight_kg: n } as any);
-                            }}
+                            readOnly
+                            disabled
                           />
                         </TableCell>
                         <TableCell>
@@ -581,14 +580,16 @@ export function DealerCatalogGrid({ onAddToPriceList }: Props) {
                             className="h-8 text-xs"
                             value={v.dimensions_cm ?? ""}
                             placeholder="C×L×A"
-                            onChange={(e) => patchVariation(v.id, { dimensions_cm: e.target.value || null })}
+                            readOnly
+                            disabled
                           />
                         </TableCell>
                         <TableCell>
                           <Input
                             className="h-8 text-xs"
                             value={v.unidade ?? ""}
-                            onChange={(e) => patchVariation(v.id, { unidade: e.target.value })}
+                            readOnly
+                            disabled
                           />
                         </TableCell>
                         <TableCell>
@@ -596,7 +597,8 @@ export function DealerCatalogGrid({ onAddToPriceList }: Props) {
                             className="h-8 text-xs text-right"
                             inputMode="decimal"
                             value={v.price_brl ?? ""}
-                            onChange={(e) => patchVariation(v.id, { price_brl: parseNum(e.target.value) })}
+                            readOnly
+                            disabled
                             placeholder="R$"
                           />
                         </TableCell>
@@ -619,9 +621,7 @@ export function DealerCatalogGrid({ onAddToPriceList }: Props) {
                           />
                         </TableCell>
                         <TableCell>
-                          <Button size="icon" variant="ghost" onClick={() => removeVariation(v.id)} title={t.confirmDelete}>
-                            <Trash2 className="w-3.5 h-3.5 text-destructive" />
-                          </Button>
+                          {/* Espelho: gerenciamento de variações fica em Gestão de Catálogo. */}
                         </TableCell>
                       </TableRow>
                     );
