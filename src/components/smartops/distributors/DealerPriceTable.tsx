@@ -571,25 +571,31 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
     const ids = items.map((i) => i.catalog_product_id).filter(Boolean) as string[];
     if (ids.length === 0) { toast.info("Nenhum item ligado ao catálogo."); return { updated: 0, fallback: 0 }; }
     setSaving(true);
-    const { data: cat, error } = await supabase
-      .from("system_a_catalog" as any)
-      .select("id,price,price_usd,price_eur")
-      .in("id", ids);
+    const { data: variations, error } = await supabase
+      .from("catalog_product_variations" as any)
+      .select("catalog_product_id,presentation_qty,price_brl,price_usd,price_eur")
+      .in("catalog_product_id", ids);
     if (error) { toast.error(error.message); setSaving(false); return { updated: 0, fallback: 0 }; }
     const cur = (targetCurrency || "BRL").toUpperCase();
-    const byId = new Map<string, any>(((cat as any) || []).map((p: any) => [p.id, p]));
+    const normQty = (value: unknown) => String(value ?? "").trim().toLowerCase().replace(/\s+/g, "");
+    const byVariation = new Map<string, any>(
+      (((variations as any) || []) as any[]).map((variation) => [
+        `${variation.catalog_product_id}::${normQty(variation.presentation_qty)}`,
+        variation,
+      ]),
+    );
     let updated = 0;
     let fallback = 0;
     const nextItems: DealerPriceItem[] = items.map((it) => {
-      const p = it.catalog_product_id ? byId.get(it.catalog_product_id) : null;
-      if (!p) return it;
-      const pick = cur === "USD" ? p.price_usd : cur === "EUR" ? p.price_eur : p.price;
-      let value = Number(pick);
-      if (!(value > 0)) { const brl = Number(p.price) || 0; value = brl; if (cur !== "BRL" && brl > 0) fallback++; }
-      if (!(value > 0)) return it;
+      if (!it.catalog_product_id) return it;
+      const variation = byVariation.get(`${it.catalog_product_id}::${normQty(it.presentation_qty)}`);
+      if (!variation) return it;
+      const pick = cur === "USD" ? variation.price_usd : cur === "EUR" ? variation.price_eur : variation.price_brl;
+      const value = Number(pick);
+      if (!(value > 0)) fallback++;
       const price_dealer = recalcDealerPrice(value, Number(it.discount_pct) || 0);
       updated++;
-      return { ...it, price_base: value, price_dealer };
+      return { ...it, price_base: value > 0 ? value : 0, price_dealer: value > 0 ? price_dealer : 0 };
     });
     // Persist updates in parallel
     const changed = nextItems.filter((n, i) => n !== items[i]);
@@ -606,7 +612,7 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
     setDirtyIds(new Set());
     setSaving(false);
     toast.success(`${updated} preços recalculados (${cur})`);
-    if (fallback > 0) toast.warning(`${fallback} itens sem preço em ${cur} — usando BRL como fallback`);
+    if (fallback > 0) toast.warning(`${fallback} itens sem preço em ${cur} — mantidos em 0, sem converter ou usar outra moeda`);
     if (opts.snapshotLabel) await autoSnapshot(opts.snapshotLabel, nextItems);
     return { updated, fallback };
   };
