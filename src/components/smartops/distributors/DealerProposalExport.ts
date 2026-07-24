@@ -240,7 +240,7 @@ export async function exportPriceTablePdf(
     const boxX = 32;
     const boxY = 118;
     const boxW = pageW - 64;
-    const boxH = 88;
+    const boxH = 112;
     doc.setDrawColor(200);
     doc.setFillColor(255, 255, 255);
     doc.roundedRect(boxX, boxY, boxW, boxH, 4, 4, "FD");
@@ -251,14 +251,14 @@ export async function exportPriceTablePdf(
     const valueCol1X = boxX + 90;
     const labelCol2X = boxX + boxW / 2 + 4;
     const valueCol2X = boxX + boxW / 2 + 86;
-    const rowY = (i: number) => boxY + 14 + i * 15;
+    const rowY = (i: number) => boxY + 18 + i * 19;
     const drawField = (lx: number, vx: number, i: number, label: string, value: string) => {
       doc.setFont("helvetica", "bold");
-      doc.setFontSize(7.5);
+      doc.setFontSize(8);
       doc.setTextColor(110, 110, 110);
       doc.text(label, lx, rowY(i));
       doc.setFont("helvetica", "normal");
-      doc.setFontSize(9);
+      doc.setFontSize(10);
       doc.setTextColor(20, 20, 20);
       const maxW = (vx === valueCol1X ? labelCol2X - vx - 8 : boxX + boxW - vx - 8);
       const text = doc.splitTextToSize(String(value || "—"), maxW)[0];
@@ -279,7 +279,7 @@ export async function exportPriceTablePdf(
 
   // Table area: header block ends around y=238 — start table below.
   // Bottom margin keeps the letterhead footer (URL + divider) clear.
-  const tableTop = 218;
+  const tableTop = 245;
   const tableBottom = pageH - 80;
   const leftMargin = 28;
   const rightMargin = 28;
@@ -617,10 +617,11 @@ export async function exportPriceTableDocx(
         },
       },
       children: [
-        new Paragraph({ heading: HeadingLevel.HEADING_1, children: [new TextRun({ text: "SMART DENT — Price Table", bold: true })] }),
-        new Paragraph({ children: [new TextRun({ text: `Distribuidor: ${distributor?.razao_social ?? "—"}` })] }),
-        new Paragraph({ children: [new TextRun({ text: `Contato: ${distributor?.buyer_name ?? distributor?.owner_name ?? "—"}  ·  E-mail: ${distributor?.buyer_email ?? distributor?.owner_email ?? "—"}` })] }),
-        new Paragraph({ children: [new TextRun({ text: `País: ${distributor?.pais ?? "—"}  ·  Moeda: ${currency}  ·  Versão: v${list?.version ?? 1}  ·  Data: ${new Date().toLocaleDateString("pt-BR")}` })] }),
+        new Paragraph({ heading: HeadingLevel.HEADING_1, spacing: { before: 240, after: 240 }, children: [new TextRun({ text: "SMART DENT — Price Table", bold: true, size: 40 })] }),
+        new Paragraph({ spacing: { after: 120 }, children: [new TextRun({ text: `Distribuidor: ${distributor?.razao_social ?? "—"}`, size: 22 })] }),
+        new Paragraph({ spacing: { after: 120 }, children: [new TextRun({ text: `Contato: ${distributor?.buyer_name ?? distributor?.owner_name ?? "—"}  ·  E-mail: ${distributor?.buyer_email ?? distributor?.owner_email ?? "—"}`, size: 22 })] }),
+        new Paragraph({ spacing: { after: 120 }, children: [new TextRun({ text: `País: ${distributor?.pais ?? "—"}  ·  Moeda: ${currency}  ·  Versão: v${list?.version ?? 1}  ·  Data: ${new Date().toLocaleDateString("pt-BR")}`, size: 22 })] }),
+        new Paragraph({ children: [new TextRun("")] }),
         new Paragraph({ children: [new TextRun("")] }),
         table,
         new Paragraph({ children: [new TextRun("")] }),
