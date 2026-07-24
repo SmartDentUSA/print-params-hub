@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, ArrowRight, Save, FileSpreadsheet, FileText, FileType, History, Trash2, RotateCcw } from "lucide-react";
+import { ArrowLeft, ArrowRight, Save, FileSpreadsheet, FileText, FileType, History, Trash2, RotateCcw, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import type { DealerPriceItem, DealerPriceList, Distributor } from "./types";
 import { recalcDealerPrice, recalcDiscount, formatMoney } from "./types";
@@ -36,6 +36,8 @@ export function DealerProposalWizard({ distributors }: Props) {
   });
   const [savedId, setSavedId] = useState<string | null>(null);
   const [pastProposals, setPastProposals] = useState<SavedProposal[]>([]);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingCurrency, setEditingCurrency] = useState<string | null>(null);
 
   const distributor = distributors.find((d) => d.id === distributorId);
 
@@ -82,11 +84,11 @@ export function DealerProposalWizard({ distributors }: Props) {
   const [qtyMap, setQtyMap] = useState<Record<string, number>>({});
 
   useEffect(() => {
-    if (step === 2) {
+    if (step === 2 && !editingId) {
       setPreviewItems(items.map((i) => ({ ...i })));
       setQtyMap(Object.fromEntries(items.map((i) => [i.id, 1])));
     }
-  }, [step, items]);
+  }, [step, items, editingId]);
 
   useEffect(() => {
     (async () => {
@@ -106,7 +108,26 @@ export function DealerProposalWizard({ distributors }: Props) {
   }, [items]);
 
   const getColor = (it: DealerPriceItem) =>
-    colorMap[`${it.catalog_product_id}::${String(it.presentation_qty ?? "").trim().toLowerCase()}`] ?? "";
+    (it as any).color
+    ?? colorMap[`${it.catalog_product_id}::${String(it.presentation_qty ?? "").trim().toLowerCase()}`]
+    ?? "";
+
+  const loadProposalForEdit = (p: SavedProposal) => {
+    const arr = Array.isArray(p.items) ? (p.items as any[]) : [];
+    setEditingId(p.id);
+    setEditingCurrency(p.currency);
+    setHeader({
+      empresa: p.header_data?.empresa ?? "",
+      razao_social: p.header_data?.razao_social ?? "",
+      contato: p.header_data?.contato ?? "",
+      email: p.header_data?.email ?? "",
+      pais: p.header_data?.pais ?? "",
+    });
+    setPreviewItems(arr.map((i) => ({ ...i })) as DealerPriceItem[]);
+    setQtyMap(Object.fromEntries(arr.map((i: any) => [i.id, Number(i.quantity ?? i.quantity_multiplier ?? 1) || 1])));
+    setSavedId(p.id);
+    setStep(2);
+  };
 
   const removePreviewItem = (id: string) => {
     setPreviewItems((prev) => prev.filter((p) => p.id !== id));
@@ -140,21 +161,27 @@ export function DealerProposalWizard({ distributors }: Props) {
   const saveProposal = async () => {
     if (!distributor || previewItems.length === 0) return;
     const itemsWithQty = previewItems.map((it) => ({ ...it, quantity: getQty(it.id), quantity_multiplier: getQty(it.id) }));
-    const payload = {
+    const payload: any = {
       distributor_id: distributor.id,
       price_list_id: list?.id ?? null,
       language: list?.language ?? "pt",
-      currency: list?.currency ?? "BRL",
+      currency: editingCurrency ?? list?.currency ?? "BRL",
       header_data: header,
       items: itemsWithQty as any,
       totals: totals as any,
       status: "draft",
-      proposal_number: `PRO-${Date.now()}`,
     };
-    const { data, error } = await supabase.from("dealer_proposals" as any).insert(payload).select("id").single();
-    if (error) return toast.error("Erro ao salvar: " + error.message);
-    setSavedId((data as any).id);
-    toast.success("Proposta salva");
+    if (editingId) {
+      const { error } = await supabase.from("dealer_proposals" as any).update(payload).eq("id", editingId);
+      if (error) return toast.error("Erro ao atualizar: " + error.message);
+      toast.success("Proposta atualizada");
+    } else {
+      payload.proposal_number = `PRO-${Date.now()}`;
+      const { data, error } = await supabase.from("dealer_proposals" as any).insert(payload).select("id").single();
+      if (error) return toast.error("Erro ao salvar: " + error.message);
+      setSavedId((data as any).id);
+      toast.success("Proposta salva");
+    }
     loadProposals(distributor.id);
   };
 
