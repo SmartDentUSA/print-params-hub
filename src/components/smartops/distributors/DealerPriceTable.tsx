@@ -403,6 +403,23 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
         });
       }
     }
+    // Pre-limpa colisões no índice único (price_list_id, sku):
+    // se algum item existente na tabela tem o mesmo SKU que vamos gravar
+    // em OUTRA linha (update/insert), removemos essas linhas antes.
+    const targetSkus = new Set<string>();
+    for (const u of toUpdate) if ((u.patch as any).sku) targetSkus.add(String((u.patch as any).sku));
+    for (const ins of toInsert) if (ins.sku) targetSkus.add(String(ins.sku));
+    const updateIds = new Set(toUpdate.map((u) => u.id));
+    const collidingIds = items
+      .filter((it) => (it as any).sku && targetSkus.has(String((it as any).sku)) && !updateIds.has(it.id))
+      .map((it) => it.id);
+    if (collidingIds.length > 0) {
+      const { error: delColErr } = await supabase
+        .from("dealer_price_items" as any)
+        .delete()
+        .in("id", collidingIds);
+      if (delColErr) { toast.error(`Erro ao remover SKUs duplicados: ${delColErr.message}`); setLoading(false); return; }
+    }
     const updateResults = await Promise.all(
       toUpdate.map(({ id, patch }) =>
         supabase.from("dealer_price_items" as any).update(patch).eq("id", id),
