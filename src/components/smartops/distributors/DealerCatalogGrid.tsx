@@ -653,8 +653,9 @@ export function DealerCatalogGrid({ onAddToPriceList }: Props) {
                       </TableRow>
                     );
                   });
-                })
-              )}
+                });
+                return rows;
+              })()}
             </TableBody>
           </Table>
         </div>
