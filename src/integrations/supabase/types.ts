@@ -10188,6 +10188,7 @@ export type Database = {
           prof_number: string | null
           prof_orcid: string | null
           prof_photo_url: string | null
+          prof_qualifications: Json
           prof_rating_price: number | null
           prof_rating_quality: number | null
           prof_rating_value: number | null
@@ -10195,6 +10196,7 @@ export type Database = {
           prof_state: string | null
           prof_street: string | null
           prof_tiktok: string | null
+          prof_university_roles: Json
           prof_updated_at: string | null
           prof_wa_ddi: string | null
           prof_wa_number: string | null
@@ -10798,6 +10800,7 @@ export type Database = {
           prof_number?: string | null
           prof_orcid?: string | null
           prof_photo_url?: string | null
+          prof_qualifications?: Json
           prof_rating_price?: number | null
           prof_rating_quality?: number | null
           prof_rating_value?: number | null
@@ -10805,6 +10808,7 @@ export type Database = {
           prof_state?: string | null
           prof_street?: string | null
           prof_tiktok?: string | null
+          prof_university_roles?: Json
           prof_updated_at?: string | null
           prof_wa_ddi?: string | null
           prof_wa_number?: string | null
@@ -11408,6 +11412,7 @@ export type Database = {
           prof_number?: string | null
           prof_orcid?: string | null
           prof_photo_url?: string | null
+          prof_qualifications?: Json
           prof_rating_price?: number | null
           prof_rating_quality?: number | null
           prof_rating_value?: number | null
@@ -11415,6 +11420,7 @@ export type Database = {
           prof_state?: string | null
           prof_street?: string | null
           prof_tiktok?: string | null
+          prof_university_roles?: Json
           prof_updated_at?: string | null
           prof_wa_ddi?: string | null
           prof_wa_number?: string | null
@@ -31364,6 +31370,7 @@ export type Database = {
           prof_number: string | null
           prof_orcid: string | null
           prof_photo_url: string | null
+          prof_qualifications: Json
           prof_rating_price: number | null
           prof_rating_quality: number | null
           prof_rating_value: number | null
@@ -31371,6 +31378,7 @@ export type Database = {
           prof_state: string | null
           prof_street: string | null
           prof_tiktok: string | null
+          prof_university_roles: Json
           prof_updated_at: string | null
           prof_wa_ddi: string | null
           prof_wa_number: string | null
