@@ -117,7 +117,7 @@ export function useSkuMappingInbox() {
         ? `KIT-${nameVariant.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}`
         : variation?.sku ?? null;
 
-      const { data, error } = await (supabase as any).rpc("save_produto_alias", {
+      const { data: savedAliasId, error } = await (supabase as any).rpc("save_produto_alias", {
         p_alias_id: row.alias_id ?? null,
         p_nome_variante: nameVariant,
         p_nome_canonico: nomeCanonico,
@@ -127,10 +127,34 @@ export function useSkuMappingInbox() {
       });
       if (error) throw error;
 
-      await load();
-      return data as number;
+      const { data: savedAlias, error: verificationError } = await (supabase as any)
+        .from("produto_aliases")
+        .select("id, nome_canonico, sku_interno, categoria, is_kit, ativo")
+        .eq("id", savedAliasId)
+        .single();
+      if (verificationError) throw verificationError;
+      if (!isKit && savedAlias?.sku_interno !== skuInterno) {
+        throw new Error("O banco não confirmou o SKU selecionado.");
+      }
+
+      setRows((current) =>
+        current.map((item) =>
+          item.name_key === row.name_key
+            ? {
+                ...item,
+                alias_id: savedAlias.id,
+                nome_canonico: savedAlias.nome_canonico,
+                sku_interno: savedAlias.sku_interno,
+                categoria: savedAlias.categoria,
+                is_kit: savedAlias.is_kit,
+                alias_ativo: savedAlias.ativo,
+              }
+            : item,
+        ),
+      );
+      return savedAlias.id as number;
     },
-    [load],
+    [],
   );
 
   return { rows, variations, loading, load, saveMapping };
