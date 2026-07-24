@@ -263,7 +263,13 @@ export function SkuMappingTab() {
                     <div className="font-medium truncate">{r.sample_name}</div>
                     <div className="text-[10px] text-muted-foreground">{r.sources}</div>
                   </td>
-                  <td className="px-3 py-2 text-xs text-muted-foreground">{r.sample_code || "—"}</td>
+                  <td className="px-3 py-2 text-xs">
+                    {r.sku_interno ? (
+                      <span className="font-mono font-semibold text-emerald-600">{r.sku_interno}</span>
+                    ) : (
+                      <span className="text-muted-foreground">{r.sample_code || "—"}</span>
+                    )}
+                  </td>
                   <td className="px-3 py-2 text-right tabular-nums">{Number(r.occurrences).toLocaleString("pt-BR")}</td>
                   <td className="px-3 py-2 text-right tabular-nums text-xs">{formatBRL(Number(r.gmv))}</td>
                   <td className="px-3 py-2">
