@@ -448,6 +448,14 @@ export default function CoursesProfessionalProfile({ initialEmail, startEditing 
       </Card>
 
       {/* Portifólio Smart Dent — Mix derivado do histórico de compras (tabela normativa) */}
+      <ProfessionalQualifications
+        disabled={disabled}
+        qualifications={form.prof_qualifications}
+        onQualificationsChange={(v) => setField("prof_qualifications", v)}
+        universityRoles={form.prof_university_roles}
+        onUniversityRolesChange={(v) => setField("prof_university_roles", v)}
+      />
+
       <ProfessionalMixSummary
         leadId={leadId}
         disabled={disabled}
