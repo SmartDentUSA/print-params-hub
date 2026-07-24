@@ -174,6 +174,12 @@ export function AdminCatalogTable({
     products.map((p) => ({ id: p.id!, slug: p.slug, name: p.name })),
   );
 
+  // Local override so the "Distribuição" checkbox reflects the new value
+  // immediately (props from parent are not refetched on every toggle).
+  const [distributeOverride, setDistributeOverride] = useState<
+    Record<string, boolean>
+  >({});
+
   const sortedProducts = useMemo(() => {
     return [...products].sort((a, b) => {
       const ca = (a.product_category || "~~sem~~").toString();
@@ -239,6 +245,7 @@ export function AdminCatalogTable({
     }
     (product as any).extra_data = next;
     toast.success(value ? "Liberado para distribuição" : "Removido da distribuição");
+    setDistributeOverride((prev) => ({ ...prev, [product.id!]: value }));
   };
 
   return (
@@ -547,7 +554,10 @@ export function AdminCatalogTable({
                               <TooltipTrigger asChild>
                                 <label className="flex items-center gap-1 text-[10px] text-muted-foreground cursor-pointer select-none mt-1">
                                   <Checkbox
-                                    checked={!!(product as any).extra_data?.distribute_enabled}
+                                    checked={
+                                      distributeOverride[product.id!] ??
+                                      !!(product as any).extra_data?.distribute_enabled
+                                    }
                                     onCheckedChange={(v) =>
                                       commitDistributeEnabled(product, v === true)
                                     }
