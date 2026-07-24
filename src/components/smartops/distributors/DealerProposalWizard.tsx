@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, ArrowRight, Save, FileSpreadsheet, FileText, FileType, History, Trash2, RotateCcw, Pencil, Plus, ImageOff } from "lucide-react";
 import { toast } from "sonner";
 import type { DealerPriceItem, DealerPriceList, Distributor } from "./types";
-import { recalcDealerPrice, recalcDiscount, formatMoney } from "./types";
+import { recalcDealerPrice, recalcDiscount, formatMoney, isFreeSampleVariation } from "./types";
 import { exportPriceTableXlsx, exportPriceTablePdf, exportPriceTableDocx } from "./DealerProposalExport";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
@@ -183,6 +183,8 @@ export function DealerProposalWizard({ distributors }: Props) {
     for (const v of (varRes.data as any) || []) {
       const p = productsById.get(v.catalog_product_id);
       if (!p) continue;
+      // Amostras grátis (100g em 3.1 RESINAS 3D) não podem ser adicionadas a propostas.
+      if (isFreeSampleVariation(p.product_category, p.product_subcategory, v.presentation_qty)) continue;
       const key = `${v.catalog_product_id}::${norm(v.presentation_qty)}`;
       if (existing.has(key)) continue;
       const variantLabel = [v.presentation_qty, v.presentation, v.color].filter(Boolean).join(" · ");
