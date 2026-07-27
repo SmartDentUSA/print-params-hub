@@ -120,10 +120,9 @@ Deno.serve(async (req) => {
       skipped.push({ email, reason: "already_in_vendas", canonical_id: canonicalResolved.id });
       continue;
     }
-    if (inCs) {
-      skipped.push({ email, reason: "already_in_cs", canonical_id: canonicalResolved.id });
-      continue;
-    }
+    // Golden Rule: CS open deals are NOT skipped — create new Vendas deal
+    // without touching the CS deal (lia-assign enforces this separation).
+    // Estagnados: lia-assign closes them and opens a fresh Vendas deal.
     eligible.push({ email, lead_id: canonicalResolved.id });
   }
 
