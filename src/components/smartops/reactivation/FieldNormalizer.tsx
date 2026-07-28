@@ -290,10 +290,29 @@ export function FieldNormalizer() {
               <div key={m.from}>{m.from} → {m.to ?? "(vazio)"}</div>
             ))}
           </div>
+          <div className="text-xs space-y-1">
+            {preview === null ? (
+              <span className="flex items-center gap-2 text-muted-foreground">
+                <Loader2 className="w-3.5 h-3.5 animate-spin" /> Simulando (dry-run)…
+              </span>
+            ) : (
+              <>
+                <p className="font-medium">
+                  Simulação: {preview.total.toLocaleString("pt-BR")} lead(s) serão atualizados.
+                </p>
+                {preview.warnings.map((w) => (
+                  <p key={w} className="text-amber-600">⚠ {w}</p>
+                ))}
+              </>
+            )}
+          </div>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={merge.isPending}>Cancelar</AlertDialogCancel>
-            <AlertDialogAction disabled={merge.isPending} onClick={(e) => { e.preventDefault(); applyMerge(); }}>
-              {merge.isPending && <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" />}
+            <AlertDialogCancel disabled={apply.isPending}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={apply.isPending || preview === null || preview.total === 0}
+              onClick={(e) => { e.preventDefault(); applyMerge(); }}
+            >
+              {apply.isPending && <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" />}
               Confirmar e atualizar
             </AlertDialogAction>
           </AlertDialogFooter>
