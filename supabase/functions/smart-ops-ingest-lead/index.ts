@@ -1250,6 +1250,34 @@ Deno.serve(async (req) => {
       incomingData[key] = value;
     }
 
+    // --- Column allowlist filter ---
+    // Strip any key that isn't an actual column on lia_attendances (e.g.
+    // `area_de_atuacao`, `qual_a_sua_area_de_atuacao`, `tem_impressora_3d`).
+    // Those slugged Meta answers must live in `form_data` JSONB only — never
+    // as inferred columns, which caused PGRST204 (`column not found in schema
+    // cache`) and dropped the whole lead in the wild.
+    try {
+      const known = await getLiaColumns(supabase);
+      const droppedKeys: string[] = [];
+      for (const key of Object.keys(incomingData)) {
+        if (!known.has(key)) {
+          droppedKeys.push(key);
+          delete incomingData[key];
+        }
+      }
+      if (droppedKeys.length > 0) {
+        supabase.from("system_health_logs").insert({
+          function_name: "smart-ops-ingest-lead",
+          severity: "info",
+          event_type: "unknown_columns_dropped",
+          lead_email: email,
+          details: { source, form_name: formName, dropped: droppedKeys },
+        }).then(() => {}, () => {});
+      }
+    } catch (e) {
+      console.warn("[ingest-lead] column allowlist filter skipped:", e);
+    }
+
     // --- form_data JSONB catch-all: preserve ALL form fields (even without dedicated columns) ---
     if (source === "form" || formName) {
       const existingFormData = (existingLead?.form_data as Record<string, unknown>) || {};
