@@ -1221,6 +1221,7 @@ Deno.serve(async (req) => {
     // cache`) and dropped the whole lead in the wild.
     try {
       const known = await getLiaColumns(supabase);
+      if (!known) throw new Error("column list unavailable — skipping filter");
       const droppedKeys: string[] = [];
       for (const key of Object.keys(incomingData)) {
         if (!known.has(key)) {
