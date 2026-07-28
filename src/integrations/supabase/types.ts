@@ -13171,6 +13171,71 @@ export type Database = {
           },
         ]
       }
+      meta_form_mappings: {
+        Row: {
+          active: boolean
+          commercial_eligible: boolean
+          created_at: string
+          form_id: string
+          form_name_meta: string | null
+          id: string
+          last_lead_at: string | null
+          leads_count: number
+          notes: string | null
+          origin_system_b: string | null
+          product_catalog_id: string | null
+          product_name: string | null
+          source: string
+          updated_at: string
+          updated_by: string | null
+          workflow_stage_target: string | null
+        }
+        Insert: {
+          active?: boolean
+          commercial_eligible?: boolean
+          created_at?: string
+          form_id: string
+          form_name_meta?: string | null
+          id?: string
+          last_lead_at?: string | null
+          leads_count?: number
+          notes?: string | null
+          origin_system_b?: string | null
+          product_catalog_id?: string | null
+          product_name?: string | null
+          source?: string
+          updated_at?: string
+          updated_by?: string | null
+          workflow_stage_target?: string | null
+        }
+        Update: {
+          active?: boolean
+          commercial_eligible?: boolean
+          created_at?: string
+          form_id?: string
+          form_name_meta?: string | null
+          id?: string
+          last_lead_at?: string | null
+          leads_count?: number
+          notes?: string | null
+          origin_system_b?: string | null
+          product_catalog_id?: string | null
+          product_name?: string | null
+          source?: string
+          updated_at?: string
+          updated_by?: string | null
+          workflow_stage_target?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meta_form_mappings_product_catalog_id_fkey"
+            columns: ["product_catalog_id"]
+            isOneToOne: false
+            referencedRelation: "system_a_catalog"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       meta_lead_event_buffer: {
         Row: {
           attempts: number
