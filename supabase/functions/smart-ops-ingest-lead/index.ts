@@ -64,6 +64,12 @@ function extractField(payload: Record<string, unknown>, ...keys: string[]): stri
       if (!v) continue;
       const nk = normalizeAscii(k);
       if (nk.includes(needle)) {
+        const raw = String(v).trim();
+        // NUNCA desfazer slug em identificadores: e-mails legítimos usam "_"
+        // (`vini_valiatti@hotmail.com`) e telefones não têm slug.
+        if (raw.includes("@") || /^[+\d][\d\s().-]{6,}$/.test(raw)) {
+          return raw.replace(/\s+/g, " ").trim();
+        }
         // Unslug values that arrived slugged from Meta (`clínica_ou_consultório`)
         return String(v).replace(/_/g, " ").replace(/\s+/g, " ").trim();
       }
