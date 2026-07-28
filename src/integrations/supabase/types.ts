@@ -5938,6 +5938,48 @@ export type Database = {
         }
         Relationships: []
       }
+      gate2_config_toml_snapshot: {
+        Row: {
+          notes: string | null
+          raw_block: string | null
+          slug: string
+          snapshot_taken_at: string
+          verify_jwt: boolean | null
+        }
+        Insert: {
+          notes?: string | null
+          raw_block?: string | null
+          slug: string
+          snapshot_taken_at?: string
+          verify_jwt?: boolean | null
+        }
+        Update: {
+          notes?: string | null
+          raw_block?: string | null
+          slug?: string
+          snapshot_taken_at?: string
+          verify_jwt?: boolean | null
+        }
+        Relationships: []
+      }
+      gate2_functions_fs_snapshot: {
+        Row: {
+          has_index_ts: boolean
+          slug: string
+          snapshot_taken_at: string
+        }
+        Insert: {
+          has_index_ts?: boolean
+          slug: string
+          snapshot_taken_at?: string
+        }
+        Update: {
+          has_index_ts?: boolean
+          slug?: string
+          snapshot_taken_at?: string
+        }
+        Relationships: []
+      }
       google_indexing_log: {
         Row: {
           article_slug: string | null
@@ -26554,6 +26596,28 @@ export type Database = {
           },
         ]
       }
+      v_gate2_edge_function_config_drift: {
+        Row: {
+          declared_in_config_toml: boolean | null
+          drift_status: string | null
+          present_in_repo: boolean | null
+          slug: string | null
+          verify_jwt_declared: boolean | null
+          verify_jwt_effective_note: string | null
+        }
+        Relationships: []
+      }
+      v_gate2_orphan_lead_id_columns: {
+        Row: {
+          column_name: unknown
+          current_reference: unknown
+          data_type: string | null
+          fk_status: string | null
+          is_nullable: string | null
+          table_name: unknown
+        }
+        Relationships: []
+      }
       v_h2_as_questions: {
         Row: {
           answer_block: string | null
@@ -30360,6 +30424,40 @@ export type Database = {
           valor_insumo: number
           valor_total: number
         }[]
+      }
+      fn_gate2_edge_function_config_drift: {
+        Args: never
+        Returns: {
+          declared_in_config_toml: boolean | null
+          drift_status: string | null
+          present_in_repo: boolean | null
+          slug: string | null
+          verify_jwt_declared: boolean | null
+          verify_jwt_effective_note: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "v_gate2_edge_function_config_drift"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      fn_gate2_orphan_lead_id_columns: {
+        Args: never
+        Returns: {
+          column_name: unknown
+          current_reference: unknown
+          data_type: string | null
+          fk_status: string | null
+          is_nullable: string | null
+          table_name: unknown
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "v_gate2_orphan_lead_id_columns"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
       fn_generate_recurrent_turmas: {
         Args: {
