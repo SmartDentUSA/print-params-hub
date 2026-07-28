@@ -30187,6 +30187,7 @@ export type Database = {
         Args: { _new_specs: Json; _sac_id: string }
         Returns: undefined
       }
+      backfill_activity_identity: { Args: { p_limit?: number }; Returns: Json }
       calculate_lead_intelligence_score: {
         Args: { p_lead_id: string }
         Returns: undefined
@@ -31921,6 +31922,13 @@ export type Database = {
       release_seller_note_slot: {
         Args: { p_content_hash: string; p_deal_id: number }
         Returns: undefined
+      }
+      resolve_lead_identity: {
+        Args: { p_lead_id: string }
+        Returns: {
+          company_id: string
+          person_id: string
+        }[]
       }
       safe_to_timestamptz: { Args: { p: string }; Returns: string }
       save_produto_alias: {
