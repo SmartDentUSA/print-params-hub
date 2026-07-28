@@ -86,6 +86,45 @@ export type Database = {
         }
         Relationships: []
       }
+      _gate0_runtime_audit: {
+        Row: {
+          body_size: number | null
+          captured_at: string
+          error: string | null
+          fetch_status: number | null
+          runtime_sha256: string | null
+          slug: string
+          status: string | null
+          updated_at: number | null
+          verify_jwt: boolean | null
+          version: number | null
+        }
+        Insert: {
+          body_size?: number | null
+          captured_at?: string
+          error?: string | null
+          fetch_status?: number | null
+          runtime_sha256?: string | null
+          slug: string
+          status?: string | null
+          updated_at?: number | null
+          verify_jwt?: boolean | null
+          version?: number | null
+        }
+        Update: {
+          body_size?: number | null
+          captured_at?: string
+          error?: string | null
+          fetch_status?: number | null
+          runtime_sha256?: string | null
+          slug?: string
+          status?: string | null
+          updated_at?: number | null
+          verify_jwt?: boolean | null
+          version?: number | null
+        }
+        Relationships: []
+      }
       agent_actions_log: {
         Row: {
           action_title: string
