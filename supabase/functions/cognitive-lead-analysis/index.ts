@@ -172,6 +172,16 @@ serve(async (req) => {
       });
     }
 
+    // Gate 2.2.3 — canonical shadow probe (log only).
+    {
+      const { assertCanonicalLead } = await import("../_shared/assert-canonical-lead.ts");
+      await assertCanonicalLead(supabase, leadData.id as string, {
+        source: "cognitive-lead-analysis",
+        op: "entry:after_lead_load",
+        extra: { has_email: Boolean(email), had_leadId_input: Boolean(leadId) },
+      });
+    }
+
     // ── Guard 1.5: Advisory lock per lead (prevents concurrent COG runs of same lead) ──
     // Frente 1: isolates cognitive-lead-analysis writes from in-flight chat turns on the
     // same lia_attendances row. If lock can't be acquired, another worker is processing
