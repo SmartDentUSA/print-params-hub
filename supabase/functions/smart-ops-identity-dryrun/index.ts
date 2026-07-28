@@ -59,10 +59,10 @@ Deno.serve(async (req) => {
 
   const { data: sellersRaw } = await supabase
     .from("team_members")
-    .select("nome, piperun_owner_id, ativo")
+    .select("nome_completo, piperun_owner_id, ativo")
     .eq("ativo", true);
   const sellers: ActiveSeller[] = (sellersRaw || [])
-    .map((s: Record<string, unknown>) => ({ piperun_owner_id: Number(s.piperun_owner_id), name: String(s.nome ?? "") }))
+    .map((s: Record<string, unknown>) => ({ piperun_owner_id: Number(s.piperun_owner_id), name: String(s.nome_completo ?? "") }))
     .filter((s) => Number.isFinite(s.piperun_owner_id) && s.piperun_owner_id > 0);
 
   const results: Array<Record<string, unknown>> = [];
