@@ -31973,6 +31973,19 @@ export type Database = {
       }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
+      smart_ops_field_normalize_allowed_fields: {
+        Args: never
+        Returns: string[]
+      }
+      smart_ops_field_normalize_apply: {
+        Args: {
+          p_dry_run?: boolean
+          p_field: string
+          p_from: string[]
+          p_to: string
+        }
+        Returns: Json
+      }
       smart_ops_field_normalize_distinct: {
         Args: { p_field: string }
         Returns: {

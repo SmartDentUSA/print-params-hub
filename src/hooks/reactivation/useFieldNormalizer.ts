@@ -53,6 +53,52 @@ export function useMergeFieldValues() {
   });
 }
 
+export interface NormalizeApplyResult {
+  dry_run: boolean;
+  affected: number;
+  to_value_is_new: boolean;
+  warning: string | null;
+}
+
+export interface NormalizeGroup { to: string | null; from: string[] }
+
+/**
+ * Calls the smart_ops_field_normalize_apply RPC once per target value.
+ * dryRun=true only counts (nothing is written).
+ */
+export function useApplyFieldNormalize() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      field, groups, dryRun,
+    }: { field: string; groups: NormalizeGroup[]; dryRun: boolean }) => {
+      const out: Array<NormalizeApplyResult & { to: string | null }> = [];
+      for (const g of groups) {
+        const { data, error } = await (supabase as any).rpc("smart_ops_field_normalize_apply", {
+          p_field: field,
+          p_from: g.from,
+          p_to: g.to,
+          p_dry_run: dryRun,
+        });
+        if (error) throw error;
+        out.push({ ...(data as NormalizeApplyResult), to: g.to });
+      }
+      return {
+        field,
+        dryRun,
+        total: out.reduce((n, r) => n + (r.affected || 0), 0),
+        warnings: out.filter((r) => r.warning).map((r) => r.warning as string),
+        results: out,
+      };
+    },
+    onSuccess: (res) => {
+      if (!res.dryRun) {
+        qc.invalidateQueries({ queryKey: ["field-normalize", "values", res.field] });
+      }
+    },
+  });
+}
+
 // Client-side slug suggestion, mirrors backend logic.
 export function slugify(s: string | undefined | null): string {
   if (!s) return "";
