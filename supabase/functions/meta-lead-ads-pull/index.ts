@@ -215,6 +215,12 @@ Deno.serve(async (req) => {
   const MAX_PAGES = 3;
   let bucPct = 0;
   let bucRaw: unknown = null;
+  // Window completeness: only a fully drained window may advance the
+  // gap-detector watermark (`meta_pull_ok`). Any abort (transport exhaustion,
+  // throttle, HTTP error, page/timeout cap with pages left) keeps the window
+  // "open" so the next cycle re-expands the lookback and revisits it.
+  let windowComplete = true;
+  let incompleteReason: string | null = null;
 
   const ingestUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1/smart-ops-ingest-lead`;
   const ingestHeaders = {
@@ -256,6 +262,8 @@ Deno.serve(async (req) => {
         await log(supabase, "error", "meta_pull_fetch_exhausted", {
           form_id: formId, attempts, retries: attemptLog,
         });
+        windowComplete = false;
+        incompleteReason = "fetch_exhausted";
         break;
       }
       if (attemptLog.length) {
@@ -276,6 +284,8 @@ Deno.serve(async (req) => {
           form_id: formId, status: res.status, buc_pct: bucPct, buc_raw: bucRaw,
           retry_after_seconds: askedSeconds, backoff_minutes: minutes, attempts,
         });
+        windowComplete = false;
+        incompleteReason = "rate_limited";
         break;
       }
 
@@ -284,6 +294,8 @@ Deno.serve(async (req) => {
         await log(supabase, "warning", "meta_pull_http_error", {
           form_id: formId, status: res.status, body_preview: errText.slice(0, 500),
         });
+        windowComplete = false;
+        incompleteReason = `http_${res.status}`;
         break;
       }
 
@@ -455,6 +467,12 @@ Deno.serve(async (req) => {
       nextUrl = body?.paging?.next || null;
     }
 
+    // Loop exited with pages still pending (MAX_PAGES or timeout cap).
+    if (windowComplete && nextUrl) {
+      windowComplete = false;
+      incompleteReason = pageCount >= MAX_PAGES ? "max_pages_reached" : "timeout_reached";
+    }
+
     // Even on success, if BUC is climbing toward the ceiling, preemptively back off
     if (bucPct >= BUC_BACKOFF) {
       await setBackoff(supabase, 30, `buc_ceiling_${bucPct}`);
@@ -462,16 +480,25 @@ Deno.serve(async (req) => {
       await log(supabase, "warning", "meta_pull_buc_warning", { buc_pct: bucPct, form_id: formId, buc_raw: bucRaw });
     }
 
-    await log(supabase, "info", "meta_pull_ok", {
+    // NOTE: `meta_pull_ok` is the watermark read by the gap detector. Emitting it
+    // after a partial run would mark an unread window as read = silent lead loss.
+    await log(
+      supabase,
+      windowComplete ? "info" : "warning",
+      windowComplete ? "meta_pull_ok" : "meta_pull_window_incomplete",
+      {
       form_id: formId, idx, total, leads_fetched: leadsFetched,
       forwarded, skipped, pages: pageCount, configured_since_minutes: sinceMinutes,
       effective_since_minutes: effectiveSinceMinutes,
+      incomplete_reason: incompleteReason,
+      will_retry_next_cycle: !windowComplete,
       buc_pct: bucPct, duration_ms: Date.now() - startedAt,
       cycle_hint: `${total} forms x 5min cron = ${total * 5}min per-form polling cadence`,
     });
 
     return new Response(JSON.stringify({
-      ok: true, form_id: formId, idx, total, leads_fetched: leadsFetched,
+      ok: windowComplete, window_complete: windowComplete, incomplete_reason: incompleteReason,
+      form_id: formId, idx, total, leads_fetched: leadsFetched,
       forwarded, skipped, pages: pageCount, buc_pct: bucPct,
     }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (e) {
