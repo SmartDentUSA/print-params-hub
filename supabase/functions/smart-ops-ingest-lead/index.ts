@@ -789,20 +789,15 @@ Deno.serve(async (req) => {
       }
     }
 
-    // --- Step 1: Resolve canonical lead via identity cascade (email → phone → merged_into chain) ---
+    // --- Step 1: Resolve canonical lead via identity cascade (phone → email → merged_into chain) ---
+    // Phone is the primary identifier (more stable than email). Email match alone is logged as
+    // `matched_by=email_only` for review — email changes shouldn't recreate leads, but a phone-less
+    // email hit deserves human eyes to confirm it's the same person.
     let existingLead: Record<string, any> | null = null;
     let matchedVia: "email" | "phone" | null = null;
     let incomingEmailDiffersFromCanonical = false;
 
-    {
-      const { data: byEmail } = await supabase
-        .from("lia_attendances")
-        .select("*")
-        .eq("email", email)
-        .maybeSingle();
-      if (byEmail) { existingLead = byEmail; matchedVia = "email"; }
-    }
-    if (!existingLead && telefoneNormalized) {
+    if (telefoneNormalized) {
       const { data: byPhone } = await supabase
         .from("lia_attendances")
         .select("*")
@@ -828,6 +823,37 @@ Deno.serve(async (req) => {
           existingLead = byPhoneFuzzy;
           matchedVia = 'phone';
           console.log(`[ingest-lead] FUZZY_PHONE_MATCH: found ${byPhoneFuzzy.email} via last9=${last9}`);
+        }
+      }
+    }
+    // Only after phone lookup fails do we fall back to email — and we flag it for review.
+    if (!existingLead && email) {
+      const { data: byEmail } = await supabase
+        .from("lia_attendances")
+        .select("*")
+        .eq("email", email)
+        .maybeSingle();
+      if (byEmail) {
+        existingLead = byEmail;
+        matchedVia = "email";
+        console.log(`[ingest-lead] EMAIL_ONLY_MATCH: lead=${byEmail.id} email=${email} incoming_phone=${telefoneNormalized || "(none)"} canonical_phone=${byEmail.telefone_normalized || "(none)"}`);
+        try {
+          await supabase.from("system_health_logs").insert({
+            component: "smart-ops-ingest-lead",
+            severity: "info",
+            event_type: "matched_by_email_only",
+            message: `Lead matched via email after phone lookup miss — review recommended`,
+            payload: {
+              lead_id: byEmail.id,
+              incoming_email: email,
+              incoming_phone_normalized: telefoneNormalized || null,
+              canonical_phone_normalized: byEmail.telefone_normalized || null,
+              source: source || null,
+              form_name: formName || null,
+            },
+          });
+        } catch (e) {
+          console.warn("[ingest-lead] matched_by_email_only log failed:", e);
         }
       }
     }
