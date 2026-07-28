@@ -247,7 +247,8 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.piperun-api-test]
-verify_jwt = false
+enabled = false
+verify_jwt = true
 
 [functions.smart-ops-send-waleads]
 verify_jwt = false
