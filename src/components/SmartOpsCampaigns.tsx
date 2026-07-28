@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { Save, Bookmark, Trash2 } from "lucide-react";
 import { SmartOpsWaGroupCampaigns } from "@/components/smartops/wa-groups/SmartOpsWaGroupCampaigns";
+import { MetaFormMappingsPanel } from "@/components/smartops/meta-forms/MetaFormMappingsPanel";
 import { EmailCampaignWizard } from "@/components/smartops/EmailCampaignWizard";
 
 // ── Types ──
@@ -2788,6 +2789,7 @@ export function SmartOpsCampaigns() {
           <TabsTrigger value="rascunhos">Rascunhos</TabsTrigger>
           <TabsTrigger value="historico">Histórico</TabsTrigger>
           <TabsTrigger value="grupos-wa">Grupos WA</TabsTrigger>
+          <TabsTrigger value="formularios-meta">Formulários Meta</TabsTrigger>
         </TabsList>
 
         <TabsContent value="biblioteca">
@@ -2809,6 +2811,9 @@ export function SmartOpsCampaigns() {
         </TabsContent>
         <TabsContent value="grupos-wa">
           <SmartOpsWaGroupCampaigns />
+        </TabsContent>
+        <TabsContent value="formularios-meta">
+          <MetaFormMappingsPanel />
         </TabsContent>
       </Tabs>
     </div>
