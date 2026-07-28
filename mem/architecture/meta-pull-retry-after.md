@@ -11,3 +11,5 @@ type: feature
 Em `meta-lead-ads-pull`, o valor retornado define a duração do `cron_state.meta_pull_backoff_until` (1–120min, fallback 30min) em vez dos 30min fixos. Falha total de transporte emite `meta_pull_fetch_exhausted` (severity=error); retries emitem `meta_pull_retried`.
 
 Testes: `supabase/functions/meta-lead-ads-pull/meta-retry_test.ts` (10 casos, `deno test`).
+
+**Watermark de janela (retentativa automática).** O gap-detector lê o último `meta_pull_ok` daquele `form_id` para expandir o lookback. Por isso `meta_pull_ok` só é emitido quando a janela foi 100% drenada. Qualquer abort — `fetch_exhausted`, `rate_limited`, `http_4xx/5xx`, `max_pages_reached`, `timeout_reached` — emite `meta_pull_window_incomplete` (severity=warning, com `incomplete_reason` e `will_retry_next_cycle:true`) e NÃO move o watermark. Resultado: o próximo ciclo do round-robin re-expande o lookback até cobrir a janela falhada. Sem isso, um `meta_pull_ok` após falha marcaria como lida uma janela nunca lida = perda silenciosa.
