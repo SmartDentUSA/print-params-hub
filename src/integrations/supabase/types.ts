@@ -31731,6 +31731,12 @@ export type Database = {
       increment_lookup_hit: { Args: { lookup_id: string }; Returns: undefined }
       is_admin: { Args: { user_id: string }; Returns: boolean }
       is_author: { Args: { user_id: string }; Returns: boolean }
+      list_table_columns: {
+        Args: { p_table: string }
+        Returns: {
+          column_name: string
+        }[]
+      }
       log_automation_message: {
         Args: {
           p_error?: string
