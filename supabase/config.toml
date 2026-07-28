@@ -447,3 +447,6 @@ verify_jwt = false
 
 [functions.short-link-redirect]
 verify_jwt = false
+
+[functions.smart-ops-identity-dryrun]
+verify_jwt = true
