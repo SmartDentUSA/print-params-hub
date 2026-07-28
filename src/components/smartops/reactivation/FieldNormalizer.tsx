@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { toast } from "@/hooks/use-toast";
 import {
-  useFieldOptions, useFieldValues, useMergeFieldValues, suggestCanonical,
+  useFieldOptions, useFieldValues, useApplyFieldNormalize, suggestCanonical,
 } from "@/hooks/reactivation/useFieldNormalizer";
 
 type FieldGroup = { label: string; fields: Array<{ key: string; label: string }> };
@@ -64,10 +64,11 @@ export function FieldNormalizer() {
   const [field, setField] = useState<string | null>("area_atuacao");
   const [mappings, setMappings] = useState<Record<string, string>>({}); // from -> to (NULL_SENTINEL = clear)
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [preview, setPreview] = useState<{ total: number; warnings: string[] } | null>(null);
 
   const opts = useFieldOptions(field);
   const vals = useFieldValues(field);
-  const merge = useMergeFieldValues();
+  const apply = useApplyFieldNormalize();
 
   const canonicalSet = useMemo(
     () => new Set((opts.data?.options ?? []).map((o) => o)),
@@ -82,9 +83,21 @@ export function FieldNormalizer() {
       .map(([from, to]) => ({ from, to: to === NULL_SENTINEL ? null : to }));
   }, [mappings]);
 
+  // Group variants by their final value — one RPC call per target.
+  const groups = useMemo(() => {
+    const map = new Map<string, { to: string | null; from: string[] }>();
+    for (const m of pendingList) {
+      const k = m.to ?? NULL_SENTINEL;
+      if (!map.has(k)) map.set(k, { to: m.to, from: [] });
+      map.get(k)!.from.push(m.from);
+    }
+    return [...map.values()];
+  }, [pendingList]);
+
   const changeField = (v: string) => {
     setField(v);
     setMappings({});
+    setPreview(null);
   };
 
   const autoSuggest = () => {
@@ -105,17 +118,30 @@ export function FieldNormalizer() {
     });
   };
 
-  const applyMerge = async () => {
-    if (!field || pendingList.length === 0) return;
+  const openConfirm = async () => {
+    if (!field || groups.length === 0) return;
+    setPreview(null);
+    setConfirmOpen(true);
     try {
-      const res = await merge.mutateAsync({ field, mappings: pendingList });
+      const res = await apply.mutateAsync({ field, groups, dryRun: true });
+      setPreview({ total: res.total, warnings: res.warnings });
+    } catch (e: any) {
+      setConfirmOpen(false);
+      toast({ title: "Falha na simulação", description: e?.message ?? String(e), variant: "destructive" });
+    }
+  };
+
+  const applyMerge = async () => {
+    if (!field || groups.length === 0) return;
+    try {
+      const res = await apply.mutateAsync({ field, groups, dryRun: false });
       toast({
-        title: `Base atualizada — ${res.total_updated} linha(s) reescritas`,
-        description: `${pendingList.length} mesclagem(ns) aplicadas em ${field}.`,
+        title: `Base atualizada — ${res.total} lead(s) reescritos`,
+        description: `${pendingList.length} variante(s) normalizada(s) em ${field}.`,
       });
       setMappings({});
+      setPreview(null);
       setConfirmOpen(false);
-      // Force immediate refetch so merged values disappear from the table.
       await Promise.all([vals.refetch(), opts.refetch()]);
     } catch (e: any) {
       toast({ title: "Falha ao atualizar", description: e?.message ?? String(e), variant: "destructive" });
@@ -166,8 +192,8 @@ export function FieldNormalizer() {
             <Button variant="outline" size="sm" disabled={!opts.data || opts.data.no_auto_suggest || opts.isLoading} onClick={autoSuggest}>
               <Sparkles className="w-3.5 h-3.5 mr-1" /> Sugerir automaticamente
             </Button>
-            <Button size="sm" disabled={pendingList.length === 0 || merge.isPending} onClick={() => setConfirmOpen(true)}>
-              {merge.isPending ? <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" /> : <Wand2 className="w-3.5 h-3.5 mr-1" />}
+            <Button size="sm" disabled={groups.length === 0 || apply.isPending} onClick={openConfirm}>
+              {apply.isPending ? <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" /> : <Wand2 className="w-3.5 h-3.5 mr-1" />}
               Atualizar base ({pendingList.length})
             </Button>
           </div>
