@@ -7,6 +7,7 @@ import {
   normalizeZernioLead,
   mapFormToProduct,
 } from "../_shared/zernio-field-normalizer.ts";
+import { fetchMetaWithRetry, retryDelaySeconds } from "../_shared/meta-retry.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -244,15 +245,36 @@ Deno.serve(async (req) => {
   try {
     while (nextUrl && pageCount < MAX_PAGES && Date.now() - startedAt < TIMEOUT_MS) {
       pageCount++;
-      const res = await fetch(nextUrl);
+      const attemptLog: Array<{ attempt: number; delayMs: number; reason: string }> = [];
+      const { response: res, attempts, retryAfterSeconds } = await fetchMetaWithRetry(nextUrl, {
+        maxRetries: 3,
+        onRetry: (info) => attemptLog.push(info),
+      });
+
+      if (!res) {
+        // All attempts failed at transport level — do not lose the window silently.
+        await log(supabase, "error", "meta_pull_fetch_exhausted", {
+          form_id: formId, attempts, retries: attemptLog,
+        });
+        break;
+      }
+      if (attemptLog.length) {
+        await log(supabase, "warning", "meta_pull_retried", { form_id: formId, attempts, retries: attemptLog });
+      }
       const buc = parseBUC(res.headers.get("x-business-use-case-usage"));
       if (buc) { bucPct = Math.max(bucPct, buc.pct); bucRaw = buc.raw; }
 
       if (res.status === 429 || (res.status >= 400 && bucPct >= BUC_BACKOFF)) {
-        // Meta is throttling — back off entire function for 30min
-        await setBackoff(supabase, 30, `http_${res.status}_buc_${bucPct}`);
+        // Meta is throttling — honor the wait it asked for (Retry-After /
+        // estimated_time_to_regain_access), falling back to 30min.
+        const askedSeconds = retryAfterSeconds ?? retryDelaySeconds(res.headers);
+        const minutes = askedSeconds !== null
+          ? Math.min(120, Math.max(1, Math.ceil(askedSeconds / 60)))
+          : 30;
+        await setBackoff(supabase, minutes, `http_${res.status}_buc_${bucPct}_retry_after_${askedSeconds ?? "none"}`);
         await log(supabase, "warning", "meta_pull_rate_limited_form", {
           form_id: formId, status: res.status, buc_pct: bucPct, buc_raw: bucRaw,
+          retry_after_seconds: askedSeconds, backoff_minutes: minutes, attempts,
         });
         break;
       }
