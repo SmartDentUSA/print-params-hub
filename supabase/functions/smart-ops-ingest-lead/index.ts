@@ -17,6 +17,67 @@ const corsHeaders = {
 
 const normalizePhone = normalizeBrazilianPhone;
 
+// ── Column allowlist cache ──
+// Prevents "column X not found in schema cache" errors when unknown slugged
+// keys (e.g. `area_de_atuacao`, `qual_a_sua_area_de_atuacao`) sneak into the
+// auto-forward block below and land on an INSERT/UPDATE against lia_attendances.
+let _liaColumnsCache: Set<string> | null = null;
+async function getLiaColumns(
+  supabase: ReturnType<typeof createClient>,
+): Promise<Set<string>> {
+  if (_liaColumnsCache) return _liaColumnsCache;
+  try {
+    const { data, error } = await supabase
+      .from("information_schema.columns" as never)
+      .select("column_name")
+      .eq("table_schema", "public")
+      .eq("table_name", "lia_attendances");
+    if (!error && Array.isArray(data) && data.length > 0) {
+      _liaColumnsCache = new Set((data as Array<{ column_name: string }>).map((r) => r.column_name));
+      return _liaColumnsCache;
+    }
+  } catch (e) {
+    console.warn("[ingest-lead] getLiaColumns via PostgREST failed:", e);
+  }
+  // PostgREST typically doesn't expose information_schema; fall back to a
+  // permissive-but-safe RPC via `pg_catalog` through a raw SELECT is impossible
+  // here, so we ship a hardcoded snapshot as last resort. Any missing column
+  // simply means enrichment on that field is skipped until the next boot after
+  // the snapshot is refreshed.
+  _liaColumnsCache = new Set(LIA_COLUMN_FALLBACK);
+  return _liaColumnsCache;
+}
+
+// Snapshot fallback — refreshed manually when schema changes. Missing columns
+// here only affect the auto-forward path (explicit fields in incomingData still
+// go through). Keep in sync with `public.lia_attendances`.
+const LIA_COLUMN_FALLBACK = [
+  "id","created_at","updated_at","merged_into",
+  "nome","email","telefone_raw","telefone_normalized",
+  "area_atuacao","especialidade","como_digitaliza","tem_impressora","impressora_modelo",
+  "scanner_marca","tem_scanner","resina_interesse","produto_interesse","produto_interesse_auto",
+  "source","form_name","form_data","raw_payload","origem_campanha","origem_primeiro_contato",
+  "utm_source","utm_medium","utm_campaign","utm_term","ip_origem",
+  "empresa_nome","empresa_cnpj","empresa_razao_social","empresa_segmento","empresa_website","empresa_ie","empresa_porte",
+  "pessoa_cargo","pessoa_cpf","pessoa_genero","pessoa_nascimento","pessoa_linkedin","pessoa_facebook",
+  "software_cad","volume_mensal_pecas","principal_aplicacao",
+  "cidade","uf","pais_origem","informacao_desejada","codigo_contrato","temperatura_lead",
+  "sdr_scanner_interesse","sdr_impressora_interesse","sdr_software_cad_interesse","sdr_cursos_interesse",
+  "sdr_insumos_lab_interesse","sdr_pos_impressao_interesse","sdr_solucoes_interesse","sdr_dentistica_interesse",
+  "sdr_caracterizacao_interesse","sdr_marca_impressora_param","sdr_modelo_impressora_param","sdr_resina_param",
+  "sdr_suporte_equipamento","sdr_suporte_tipo","sdr_suporte_descricao",
+  "cs_treinamento","data_treinamento","data_contrato","reuniao_agendada","data_primeiro_contato",
+  "status_oportunidade","valor_oportunidade","proprietario_lead_crm",
+  "equip_scanner","equip_scanner_serial","equip_impressora","equip_impressora_serial",
+  "equip_cad","equip_cad_serial","equip_pos_impressao","equip_pos_impressao_serial",
+  "equip_notebook","equip_notebook_serial","insumos_adquiridos",
+  "tags_crm","motivo_perda","comentario_perda","id_cliente_smart",
+  "sellflux_custom_fields",
+  "platform","platform_lead_id","platform_form_id","platform_campaign_id","platform_ad_id","platform_adgroup_id",
+  "lead_stage_detected","piperun_id","piperun_link","pessoa_piperun_id","empresa_piperun_id",
+  "crm_lock_until","crm_creation_blocked","needs_manual_review",
+];
+
 // Fontes comerciais que devem forçar criação de novo Deal no Funil de Vendas
 // quando o lead já existe em outro funil (ex.: Estagnados, Reativação).
 const NEW_DEAL_SOURCES = new Set([
@@ -1187,6 +1248,34 @@ Deno.serve(async (req) => {
       if (key in incomingData) continue;
       if (typeof value === "object") continue;
       incomingData[key] = value;
+    }
+
+    // --- Column allowlist filter ---
+    // Strip any key that isn't an actual column on lia_attendances (e.g.
+    // `area_de_atuacao`, `qual_a_sua_area_de_atuacao`, `tem_impressora_3d`).
+    // Those slugged Meta answers must live in `form_data` JSONB only — never
+    // as inferred columns, which caused PGRST204 (`column not found in schema
+    // cache`) and dropped the whole lead in the wild.
+    try {
+      const known = await getLiaColumns(supabase);
+      const droppedKeys: string[] = [];
+      for (const key of Object.keys(incomingData)) {
+        if (!known.has(key)) {
+          droppedKeys.push(key);
+          delete incomingData[key];
+        }
+      }
+      if (droppedKeys.length > 0) {
+        supabase.from("system_health_logs").insert({
+          function_name: "smart-ops-ingest-lead",
+          severity: "info",
+          event_type: "unknown_columns_dropped",
+          lead_email: email,
+          details: { source, form_name: formName, dropped: droppedKeys },
+        }).then(() => {}, () => {});
+      }
+    } catch (e) {
+      console.warn("[ingest-lead] column allowlist filter skipped:", e);
     }
 
     // --- form_data JSONB catch-all: preserve ALL form fields (even without dedicated columns) ---

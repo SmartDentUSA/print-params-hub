@@ -400,6 +400,24 @@ Deno.serve(async (req) => {
                ingest_status: ir.status,
                response_preview: responsePreview.slice(0, 500),
              });
+              // Safety-net buffer: park the raw event so it can be reprocessed
+              // after the ingest bug is fixed. Idempotent by leadgen_id.
+              try {
+                await supabase.from("meta_lead_event_buffer").upsert({
+                  leadgen_id: String(lead.id),
+                  form_id: String(lead.form_id || formId),
+                  page_id: null,
+                  form_name: originLabel,
+                  raw_fields: fieldMap,
+                  raw_payload: payload,
+                  status: "pending_ingest",
+                  attempts: 1,
+                  last_attempt_at: new Date().toISOString(),
+                  error_message: `ingest_status=${ir.status} ${responsePreview.slice(0, 200)}`,
+                }, { onConflict: "leadgen_id" });
+              } catch (bufErr) {
+                console.warn(`[${FN}] buffer insert failed`, bufErr);
+              }
            }
         } catch (e) {
           skipped++;
