@@ -30187,7 +30187,10 @@ export type Database = {
         Args: { _new_specs: Json; _sac_id: string }
         Returns: undefined
       }
-      backfill_activity_identity: { Args: { p_limit?: number }; Returns: Json }
+      backfill_activity_identity: {
+        Args: { p_limit?: number; p_seconds?: number }
+        Returns: Json
+      }
       calculate_lead_intelligence_score: {
         Args: { p_lead_id: string }
         Returns: undefined
