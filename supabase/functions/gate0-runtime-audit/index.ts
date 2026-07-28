@@ -1,6 +1,7 @@
 // Ephemeral Gate 0 audit function. Deployed only to compute runtime bundle hashes.
 // Deleted immediately after Gate 0 completes. PAT is never logged or echoed.
 import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 
 const PROJECT_REF = 'okeogjgqijbfkudfjadz';
 const MGMT_API = 'https://api.supabase.com';
@@ -14,15 +15,26 @@ async function sha256Hex(data: Uint8Array | string): Promise<string> {
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
-  const pat = Deno.env.get('SB_MGMT_PAT');
+  const pat = Deno.env.get('SB_MGMT_PAT') ?? Deno.env.get('SB_MANAGEMENT_PAT');
   if (!pat) {
-    return new Response(JSON.stringify({ error: 'SB_MGMT_PAT missing' }), {
+    return new Response(JSON.stringify({ error: 'SB_MGMT_PAT/SB_MANAGEMENT_PAT missing' }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
 
   const auth = { Authorization: `Bearer ${pat}` };
+
+  const url = new URL(req.url);
+  const offset = parseInt(url.searchParams.get('offset') ?? '0', 10);
+  const limit = parseInt(url.searchParams.get('limit') ?? '25', 10);
+  const retryOnly = url.searchParams.get('retry') === '1';
+  const sleepMs = parseInt(url.searchParams.get('sleep_ms') ?? '0', 10);
+
+  const sb = createClient(
+    Deno.env.get('SUPABASE_URL')!,
+    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+  );
 
   // 1. List all deployed functions
   const listRes = await fetch(`${MGMT_API}/v1/projects/${PROJECT_REF}/functions`, { headers: auth });
@@ -41,11 +53,27 @@ Deno.serve(async (req) => {
     updated_at: number;
   }>;
 
-  // 2. For each function, fetch body and hash it
+  const total = functions.length;
+  let slice: typeof functions;
+
+  if (retryOnly) {
+    const { data: failed } = await sb
+      .from('_gate0_runtime_audit')
+      .select('slug')
+      .neq('fetch_status', 200)
+      .limit(limit);
+    const failedSlugs = new Set((failed ?? []).map((r: { slug: string }) => r.slug));
+    slice = functions.filter((f) => failedSlugs.has(f.slug)).slice(0, limit);
+  } else {
+    slice = functions.slice(offset, offset + limit);
+  }
+
+  // 2. For each function in slice, fetch body and hash it
+  const CONCURRENCY = retryOnly ? 2 : 6;
   const results: Array<Record<string, unknown>> = [];
-  const CONCURRENCY = 6;
-  for (let i = 0; i < functions.length; i += CONCURRENCY) {
-    const batch = functions.slice(i, i + CONCURRENCY);
+  for (let i = 0; i < slice.length; i += CONCURRENCY) {
+    const batch = slice.slice(i, i + CONCURRENCY);
+    if (sleepMs > 0 && i > 0) await new Promise((r) => setTimeout(r, sleepMs));
     const chunk = await Promise.all(batch.map(async (fn) => {
       try {
         const bodyRes = await fetch(
@@ -93,12 +121,25 @@ Deno.serve(async (req) => {
     results.push(...chunk);
   }
 
+  if (results.length > 0) {
+    const { error } = await sb.from('_gate0_runtime_audit').upsert(results, { onConflict: 'slug' });
+    if (error) {
+      return new Response(
+        JSON.stringify({ error: 'upsert_failed', details: error.message, total, offset, processed: results.length }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      );
+    }
+  }
+
   return new Response(
     JSON.stringify({
       project_ref: PROJECT_REF,
-      total: results.length,
+      total_functions: total,
+      offset,
+      limit,
+      processed: results.length,
+      next_offset: offset + results.length < total ? offset + results.length : null,
       generated_at: new Date().toISOString(),
-      functions: results,
     }),
     { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
   );
