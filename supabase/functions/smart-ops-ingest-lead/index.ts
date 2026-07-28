@@ -623,6 +623,20 @@ Deno.serve(async (req) => {
           if (!canon.platform_form_id && (payload.platform_form_id || payload.meta_form_id)) {
             updates.platform_form_id = String(payload.platform_form_id || payload.meta_form_id);
           }
+          // Gate 2.2.3 — canonical shadow probe (log only, no control-flow change).
+          try {
+            const { assertCanonicalLead } = await import("../_shared/assert-canonical-lead.ts");
+            await assertCanonicalLead(supabase, canon.id as string, {
+              source: "smart-ops-ingest-lead",
+              op: "redelivery:update:lia_attendances",
+              extra: {
+                via: deferredRedeliveryVia,
+                leadgen_id: dedupeId ? String(dedupeId) : null,
+              },
+            });
+          } catch (_e) {
+            /* shadow probe must never break ingestion */
+          }
           try {
             await supabase
               .from("lia_attendances")

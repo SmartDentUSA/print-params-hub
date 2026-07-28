@@ -866,6 +866,16 @@ Deno.serve(async (req) => {
       currentDealsHistory = currentLead.piperun_deals_history;
     }
 
+    // Gate 2.2.3 — canonical shadow probe (log only, no control-flow change).
+    if (leadId) {
+      const { assertCanonicalLead } = await import("../_shared/assert-canonical-lead.ts");
+      await assertCanonicalLead(supabase, leadId, {
+        source: "smart-ops-piperun-webhook",
+        op: "entry:after_lead_resolve",
+        extra: { deal_id: dealId ?? null },
+      });
+    }
+
     // ─── Build update payload ───
     const updateData: Record<string, unknown> = {};
 

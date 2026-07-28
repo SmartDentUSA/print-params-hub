@@ -2729,6 +2729,16 @@ Deno.serve(async (req) => {
 
     console.log(`[lia-assign] Processing lead: ${email || lead_id}`);
 
+    // Gate 2.2.3 — canonical shadow probe (log only, does NOT change control flow).
+    if (lead_id) {
+      const { assertCanonicalLead } = await import("../_shared/assert-canonical-lead.ts");
+      await assertCanonicalLead(supabase, String(lead_id), {
+        source: "smart-ops-lia-assign",
+        op: "entry:handler",
+        extra: { trigger, source, has_email: Boolean(email) },
+      });
+    }
+
     // ── 1. Fetch lead from lia_attendances ──
     let query = supabase.from("lia_attendances").select("*");
     if (lead_id) {
