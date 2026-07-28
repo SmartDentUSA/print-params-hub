@@ -31802,6 +31802,15 @@ export type Database = {
           column_name: string
         }[]
       }
+      list_unmapped_meta_forms: {
+        Args: never
+        Returns: {
+          form_id: string
+          form_name: string
+          last_lead_at: string
+          leads_count: number
+        }[]
+      }
       log_automation_message: {
         Args: {
           p_error?: string
