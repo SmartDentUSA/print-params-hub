@@ -28,6 +28,8 @@ Deno.serve(async (req) => {
   const url = new URL(req.url);
   const offset = parseInt(url.searchParams.get('offset') ?? '0', 10);
   const limit = parseInt(url.searchParams.get('limit') ?? '25', 10);
+  const retryOnly = url.searchParams.get('retry') === '1';
+  const sleepMs = parseInt(url.searchParams.get('sleep_ms') ?? '0', 10);
 
   const sb = createClient(
     Deno.env.get('SUPABASE_URL')!,
@@ -52,13 +54,26 @@ Deno.serve(async (req) => {
   }>;
 
   const total = functions.length;
-  const slice = functions.slice(offset, offset + limit);
+  let slice: typeof functions;
+
+  if (retryOnly) {
+    const { data: failed } = await sb
+      .from('_gate0_runtime_audit')
+      .select('slug')
+      .neq('fetch_status', 200)
+      .limit(limit);
+    const failedSlugs = new Set((failed ?? []).map((r: { slug: string }) => r.slug));
+    slice = functions.filter((f) => failedSlugs.has(f.slug)).slice(0, limit);
+  } else {
+    slice = functions.slice(offset, offset + limit);
+  }
 
   // 2. For each function in slice, fetch body and hash it
-  const CONCURRENCY = 6;
+  const CONCURRENCY = retryOnly ? 2 : 6;
   const results: Array<Record<string, unknown>> = [];
   for (let i = 0; i < slice.length; i += CONCURRENCY) {
     const batch = slice.slice(i, i + CONCURRENCY);
+    if (sleepMs > 0 && i > 0) await new Promise((r) => setTimeout(r, sleepMs));
     const chunk = await Promise.all(batch.map(async (fn) => {
       try {
         const bodyRes = await fetch(
