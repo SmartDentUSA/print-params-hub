@@ -1112,7 +1112,7 @@ Deno.serve(async (req) => {
 
     // --- Step 3: Build incoming data ---
     const incomingData: Record<string, unknown> = {
-      nome, email, telefone_raw: telefoneRaw, telefone_normalized: telefoneNormalized,
+      nome, email: email || null, telefone_raw: telefoneRaw, telefone_normalized: telefoneNormalized,
       area_atuacao: areaAtuacao, especialidade, como_digitaliza: comoDigitaliza,
       tem_impressora: temImpressora, impressora_modelo: impressoraModelo,
       scanner_marca: scannerMarca,
