@@ -258,9 +258,11 @@ Deno.serve(async (req) => {
       body?.sender ??
       TARGET_INSTANCE;
 
-    if (!isAllowedInstance(instanceName)) {
+    const activeInstances = await loadActiveInstances();
+    const cfg = matchInstance(activeInstances, instanceName);
+    if (!cfg) {
       await logHealth("info", "skipped_other_instance", { instanceName, event });
-      return Response.json({ skipped: "other_instance", instanceName }, { headers: corsHeaders });
+      return Response.json({ skipped: "instance_not_active", instanceName }, { headers: corsHeaders });
     }
 
     if (event && !/messages[._-]?upsert|MESSAGES_UPSERT|message[._-]?received/i.test(event)) {
@@ -281,7 +283,7 @@ Deno.serve(async (req) => {
     for (const m of messages) {
       if (!m) continue;
       // Sempre usa nome canônico para casar com wa_groups/team_members/UI.
-      results.push(await handleMessage(canonicalInstanceName(instanceName), m));
+      results.push(await handleMessage(cfg, m));
     }
 
     const savedCount = results.filter((r) => r?.saved).length;
