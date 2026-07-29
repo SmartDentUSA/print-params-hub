@@ -23,7 +23,8 @@ import { addDealNote, piperunPut } from "../_shared/piperun-field-map.ts";
 import { buildSellerDealSummaryHTML } from "../_shared/seller-summary.ts";
 import { validateLeadIdentity, logRejectedLead } from "../_shared/lead-identity-guard.ts";
 import { normalizeBrazilianPhone } from "../_shared/phone-normalize.ts";
-import { isValidEquipmentLabel } from "../_shared/equipment-field-guard.ts";
+import { sanitizeEquipmentLabel } from "../_shared/equipment-field-guard.ts";
+import { normalizeAreaAtuacao } from "../_shared/zernio-field-normalizer.ts";
 import { hydrateDealPayload, needsHydration, fetchCompanyContacts } from "../_shared/piperun-deal-hydrate.ts";
 import { claimSellerNoteSlot, releaseSellerNoteSlot } from "../_shared/seller-note-lock.ts";
 
@@ -702,7 +703,8 @@ Deno.serve(async (req) => {
         created_at: ids.dealCreatedAt || new Date().toISOString(),
         lead_status: resolvedStatus,
         produto_interesse: customFields.produtoInteresse || null,
-        area_atuacao: ids.personJobTitle || null,
+        // Cargo/QSA só vira área de atuação se casar com a taxonomia canônica.
+        area_atuacao: normalizeAreaAtuacao(ids.personJobTitle || undefined),
         proprietario_lead_crm: (() => {
           const cand = ids.ownerName || (ids.ownerId ? PIPERUN_USERS[ids.ownerId]?.name : null) || null;
           // Guard: never persist a purely numeric owner name (PipeRun user ID leak)
@@ -1079,7 +1081,11 @@ Deno.serve(async (req) => {
     if (ids.personCity) updateData.cidade = ids.personCity;
     if (ids.personState) updateData.uf = ids.personState;
     if (ids.personCpf) updateData.pessoa_cpf = ids.personCpf;
-    if (ids.personJobTitle) { updateData.pessoa_cargo = ids.personJobTitle; updateData.area_atuacao = ids.personJobTitle; }
+    if (ids.personJobTitle) {
+      updateData.pessoa_cargo = ids.personJobTitle;
+      const areaCanon = normalizeAreaAtuacao(ids.personJobTitle);
+      if (areaCanon) updateData.area_atuacao = areaCanon;
+    }
     if (ids.personGender) updateData.pessoa_genero = ids.personGender;
     if (ids.personLinkedin) updateData.pessoa_linkedin = ids.personLinkedin;
     if (ids.personFacebook) updateData.pessoa_facebook = ids.personFacebook;
@@ -1437,11 +1443,15 @@ Deno.serve(async (req) => {
         if (rawItems) {
           const parsed = parseProposalItems(rawItems);
           updateData.itens_proposta_parsed = parsed.parsed;
-          if (isValidEquipmentLabel(parsed.equipments.scanner)) updateData.equip_scanner = parsed.equipments.scanner;
-          if (isValidEquipmentLabel(parsed.equipments.impressora)) updateData.equip_impressora = parsed.equipments.impressora;
-          if (isValidEquipmentLabel(parsed.equipments.cad)) updateData.equip_cad = parsed.equipments.cad;
-          if (isValidEquipmentLabel(parsed.equipments.pos_impressao)) updateData.equip_pos_impressao = parsed.equipments.pos_impressao;
-          if (isValidEquipmentLabel(parsed.equipments.notebook)) updateData.equip_notebook = parsed.equipments.notebook;
+          const setEquip = (col: string, raw: unknown) => {
+            const clean = sanitizeEquipmentLabel(raw);
+            if (clean) (updateData as Record<string, unknown>)[col] = clean;
+          };
+          setEquip("equip_scanner", parsed.equipments.scanner);
+          setEquip("equip_impressora", parsed.equipments.impressora);
+          setEquip("equip_cad", parsed.equipments.cad);
+          setEquip("equip_pos_impressao", parsed.equipments.pos_impressao);
+          setEquip("equip_notebook", parsed.equipments.notebook);
           if (parsed.equipments.insumos) updateData.insumos_adquiridos = parsed.equipments.insumos;
           console.log(`[piperun-webhook] Parsed ${parsed.parsed.length} proposal items for won deal ${dealId}`);
         }
