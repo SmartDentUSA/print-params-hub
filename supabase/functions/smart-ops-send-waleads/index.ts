@@ -83,6 +83,18 @@ Deno.serve(async (req) => {
         `${EVO_BASE}/instance/connectionState/${encodeURIComponent(instance)}`,
         { headers: { apikey } },
       );
+      if (!stRes.ok) {
+        const t = await stRes.text();
+        console.error(JSON.stringify({ event: "wa.send.state_http_error", instance, status: stRes.status }));
+        return json({
+          success: false,
+          error: `evolution_state_${stRes.status}`,
+          instance,
+          detail: stRes.status === 401
+            ? `Credencial inválida para a instância "${instance}". Atualize o campo evolution_api_key do membro do time.`
+            : `Não foi possível verificar a conexão da instância "${instance}": ${t.slice(0, 200)}`,
+        }, 409);
+      }
       const stJson = await stRes.json().catch(() => null);
       const state = stJson?.instance?.state ?? stJson?.state ?? null;
       if (state && state !== "open") {
