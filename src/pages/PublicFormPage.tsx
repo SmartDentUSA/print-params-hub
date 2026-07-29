@@ -143,6 +143,24 @@ export default function PublicFormPage() {
   const effectiveDisplayMode = displayOverride || form?.display_mode || "list";
   const isStepMode = effectiveDisplayMode === "step";
   const isFirstThreeMode = effectiveDisplayMode === "first_three";
+  const embedRootRef = useRef<HTMLDivElement | null>(null);
+
+  // Em modo embed, informa a altura ao container (landing page) para evitar scroll interno.
+  useEffect(() => {
+    if (!isEmbed) return;
+    const el = embedRootRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const post = () => {
+      window.parent?.postMessage(
+        { type: "smartops-form-height", height: el.scrollHeight, slug },
+        "*",
+      );
+    };
+    post();
+    const ro = new ResizeObserver(post);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [isEmbed, slug]);
   // Filter fields by conditional logic against current answers
   const allRenderableFields = fields.filter((f) => isFieldVisible(f, values));
   const renderableFields = isFirstThreeMode
