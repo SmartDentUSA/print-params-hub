@@ -184,14 +184,11 @@ export default function PublicFormPage() {
 
     let frame = 0;
     const postHeight = () => {
-      const body = document.body;
-      const doc = document.documentElement;
+      // Mede apenas o conteúdo do formulário. Usar body/documentElement causa
+      // loop de crescimento no mobile (o body acompanha a altura do iframe).
       const height = Math.ceil(Math.max(
         el.scrollHeight,
-        el.offsetHeight,
         el.getBoundingClientRect().height,
-        body?.scrollHeight || 0,
-        doc?.scrollHeight || 0,
       ));
       window.parent?.postMessage(
         { type: "smartops-form-height", height, slug },
@@ -209,7 +206,6 @@ export default function PublicFormPage() {
     schedulePost();
     const observer = typeof ResizeObserver !== "undefined" ? new ResizeObserver(schedulePost) : null;
     observer?.observe(el);
-    if (document.body) observer?.observe(document.body);
     const timers = [80, 180, 360, 720].map((delay) => window.setTimeout(postHeight, delay));
     window.addEventListener("load", schedulePost);
 
