@@ -79,20 +79,28 @@ Deno.serve(async (req) => {
   const debug: any = { errors: [] as string[], sources: {} as Record<string, number> }
 
   // ------------------------------------------------------------------ inbox
-  let q = supabase
-    .from('whatsapp_inbox')
-    .select('id, phone, phone_normalized, remote_jid, sender_name, instance_name, lead_id, is_group')
-    .order('created_at', { ascending: false })
-    .limit(limit)
-  if (onlyInstance) q = q.eq('instance_name', onlyInstance)
-  const { data: rows, error: rowsErr } = await q
-  if (rowsErr) {
-    return new Response(JSON.stringify({ error: rowsErr.message }), {
-      status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    })
+  // PostgREST devolve no máximo 1000 linhas por request → pagina até `limit`
+  const rows: any[] = []
+  const PAGE = 1000
+  for (let from = 0; from < limit; from += PAGE) {
+    let q = supabase
+      .from('whatsapp_inbox')
+      .select('id, phone, phone_normalized, remote_jid, sender_name, instance_name, lead_id, is_group')
+      .order('created_at', { ascending: false })
+      .range(from, Math.min(from + PAGE, limit) - 1)
+    if (onlyInstance) q = q.eq('instance_name', onlyInstance)
+    const { data: page, error: pageErr } = await q
+    if (pageErr) {
+      return new Response(JSON.stringify({ error: pageErr.message }), {
+        status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+    if (!page?.length) break
+    rows.push(...page)
+    if (page.length < PAGE) break
   }
 
-  const pending = (rows ?? []).filter((r: any) =>
+  const pending = rows.filter((r: any) =>
     !r.lead_id && !r.is_group && isLid(r.phone_normalized || r.phone))
   const lidKeys = [...new Set(pending.map((r: any) => digits(r.phone_normalized || r.phone)))]
   const pendingSet = new Set(lidKeys)
