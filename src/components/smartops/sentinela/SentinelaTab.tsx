@@ -285,7 +285,21 @@ export function SentinelaTab() {
         <div className="flex items-center gap-2">
           <Shield className="w-5 h-5 text-indigo-600" />
           <h3 className="text-lg font-semibold">Sentinela — Inteligência de Mercado</h3>
-          <Badge variant="outline" className="text-xs">Instância Danilo Henrique</Badge>
+          <Select
+            value={selectedInstance}
+            onValueChange={(v) => { setSelectedInstance(v); loadGroups(v); }}
+          >
+            <SelectTrigger className="h-8 w-[220px] text-xs">
+              <SelectValue placeholder="Selecionar instância" />
+            </SelectTrigger>
+            <SelectContent>
+              {instances.map((i) => (
+                <SelectItem key={i.instance_name} value={i.instance_name} className="text-xs">
+                  {i.label || i.instance_name} {i.active ? "• ativa" : "• inativa"}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <Badge variant="outline" className="text-xs">{totalGroupCount} grupos ativos</Badge>
         </div>
         <div className="flex items-center gap-2">
@@ -438,10 +452,42 @@ export function SentinelaTab() {
         <TabsContent value="cfg" className="space-y-3">
           <Card>
             <CardHeader>
+              <CardTitle className="text-sm">Instâncias de captura ({instances.filter((i) => i.active).length} ativas)</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-1">
+              {instances.length === 0 && (
+                <div className="text-sm text-muted-foreground">Nenhuma instância Evolution encontrada.</div>
+              )}
+              {instances.map((i) => (
+                <div key={i.instance_name} className="flex items-center justify-between gap-4 py-2 border-b last:border-0 flex-wrap">
+                  <div className="min-w-0">
+                    <div className="text-sm truncate">{i.label || i.instance_name}</div>
+                    <div className="text-xs text-muted-foreground">{i.instance_name}</div>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <label className="flex items-center gap-2 text-xs">
+                      Captura ativa
+                      <Switch checked={i.active} onCheckedChange={(v) => saveInstance(i, { active: v })} />
+                    </label>
+                    <label className="flex items-center gap-2 text-xs">
+                      Grupos
+                      <Switch checked={i.capture_groups} onCheckedChange={(v) => saveInstance(i, { capture_groups: v })} />
+                    </label>
+                    <label className="flex items-center gap-2 text-xs">
+                      Conversas
+                      <Switch checked={i.capture_direct} onCheckedChange={(v) => saveInstance(i, { capture_direct: v })} />
+                    </label>
+                  </div>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
               <CardTitle className="text-sm">Webhook Evolution</CardTitle>
             </CardHeader>
             <CardContent className="text-xs text-muted-foreground space-y-2">
-              <p>Endpoint para registrar na instância <b>Danilo Henrique</b>:</p>
+              <p>Endpoint para registrar em cada instância marcada como <b>captura ativa</b>:</p>
               <code className="block bg-muted p-2 rounded break-all">
                 https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/sentinela-webhook-receiver
               </code>
