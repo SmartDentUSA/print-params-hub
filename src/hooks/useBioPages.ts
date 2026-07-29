@@ -52,6 +52,84 @@ function mapRow(r: any): BioPage {
   };
 }
 
+async function fetchBioSourceOptions(): Promise<BioSourceOption[]> {
+  const { data: forms, error: formsError } = await (supabase as any)
+    .from("smartops_forms")
+    .select("id, name, slug, title, subtitle, description, hero_image_url, active")
+    .eq("active", true)
+    .order("name");
+  if (formsError) throw formsError;
+
+  const { data: lps } = await (supabase as any)
+    .from("smartops_form_landing_pages")
+    .select("id, form_id, hero_image_url, status")
+    .eq("status", "published");
+
+  const lpByForm = new Map<string, any>();
+  (lps ?? []).forEach((lp: any) => lpByForm.set(lp.form_id, lp));
+
+  // Somente formulários/LPs que possuem link encurtado disponível
+  const { data: shortLinks } = await (supabase as any)
+    .from("smartops_short_links")
+    .select("short_code, form_slug, default_target");
+  const shortByKey = new Map<string, string>();
+  (shortLinks ?? []).forEach((l: any) => {
+    if (!l.form_slug || !l.short_code) return;
+    shortByKey.set(`${l.default_target}:${l.form_slug}`, `https://s.smartdent.com.br/${l.short_code}`);
+  });
+
+  const options: BioSourceOption[] = [];
+  (forms ?? []).forEach((f: any) => {
+    const label = f.title || f.name;
+    const description = f.subtitle || f.description || null;
+    const formShort = shortByKey.get(`form:${f.slug}`);
+    if (formShort) {
+      options.push({
+        key: `form:${f.slug}`,
+        kind: "form",
+        slug: f.slug,
+        label,
+        description,
+        image_url: f.hero_image_url ?? null,
+        url: formShort,
+      });
+    }
+    const lp = lpByForm.get(f.id);
+    const lpShort = shortByKey.get(`landing_page:${f.slug}`);
+    if (lp && lpShort) {
+      options.push({
+        key: `landing_page:${f.slug}`,
+        kind: "landing_page",
+        slug: f.slug,
+        label,
+        description,
+        image_url: lp.hero_image_url ?? f.hero_image_url ?? null,
+        url: lpShort,
+      });
+    }
+  });
+  return options;
+}
+
+function hydratePageItems(page: BioPage, sources: BioSourceOption[]): BioPage {
+  const sourceByKey = new Map(sources.map((source) => [source.key, source]));
+  return {
+    ...page,
+    items: page.items.map((item) => {
+      const liveSource = sourceByKey.get(item.id);
+      if (!liveSource) return item;
+      return {
+        ...item,
+        kind: liveSource.kind,
+        label: item.label || liveSource.label,
+        description: item.description ?? liveSource.description,
+        image_url: liveSource.image_url ?? item.image_url ?? null,
+        url: liveSource.url,
+      };
+    }),
+  };
+}
+
 export function useBioPages() {
   return useQuery({
     queryKey: ["smartops_bio_pages"],
@@ -61,7 +139,8 @@ export function useBioPages() {
         .select("*")
         .order("created_at", { ascending: false });
       if (error) throw error;
-      return ((data ?? []) as any[]).map(mapRow);
+      const sourceOptions = await fetchBioSourceOptions();
+      return ((data ?? []) as any[]).map((row) => hydratePageItems(mapRow(row), sourceOptions));
     },
   });
 }
@@ -78,7 +157,9 @@ export function useBioPage(slug?: string) {
         .eq("active", true)
         .maybeSingle();
       if (error) throw error;
-      return data ? mapRow(data) : null;
+      if (!data) return null;
+      const sourceOptions = await fetchBioSourceOptions();
+      return hydratePageItems(mapRow(data), sourceOptions);
     },
   });
 }
@@ -127,64 +208,7 @@ export interface BioSourceOption {
 export function useBioSourceOptions() {
   return useQuery({
     queryKey: ["smartops_bio_sources"],
-    queryFn: async (): Promise<BioSourceOption[]> => {
-      const { data: forms, error: formsError } = await (supabase as any)
-        .from("smartops_forms")
-        .select("id, name, slug, title, subtitle, description, hero_image_url, active")
-        .eq("active", true)
-        .order("name");
-      if (formsError) throw formsError;
-
-      const { data: lps } = await (supabase as any)
-        .from("smartops_form_landing_pages")
-        .select("id, form_id, hero_image_url, status")
-        .eq("status", "published");
-
-      const lpByForm = new Map<string, any>();
-      (lps ?? []).forEach((lp: any) => lpByForm.set(lp.form_id, lp));
-
-      // Somente formulários/LPs que possuem link encurtado disponível
-      const { data: shortLinks } = await (supabase as any)
-        .from("smartops_short_links")
-        .select("short_code, form_slug, default_target");
-      const shortByKey = new Map<string, string>();
-      (shortLinks ?? []).forEach((l: any) => {
-        if (!l.form_slug || !l.short_code) return;
-        shortByKey.set(`${l.default_target}:${l.form_slug}`, `https://s.smartdent.com.br/${l.short_code}`);
-      });
-
-      const options: BioSourceOption[] = [];
-      (forms ?? []).forEach((f: any) => {
-        const label = f.title || f.name;
-        const description = f.subtitle || f.description || null;
-        const formShort = shortByKey.get(`form:${f.slug}`);
-        if (formShort) {
-          options.push({
-            key: `form:${f.slug}`,
-            kind: "form",
-            slug: f.slug,
-            label,
-            description,
-            image_url: f.hero_image_url ?? null,
-            url: formShort,
-          });
-        }
-        const lp = lpByForm.get(f.id);
-        const lpShort = shortByKey.get(`landing_page:${f.slug}`);
-        if (lp && lpShort) {
-          options.push({
-            key: `landing_page:${f.slug}`,
-            kind: "landing_page",
-            slug: f.slug,
-            label,
-            description,
-            image_url: lp.hero_image_url ?? f.hero_image_url ?? null,
-            url: lpShort,
-          });
-        }
-      });
-      return options;
-    },
+    queryFn: fetchBioSourceOptions,
     staleTime: 2 * 60 * 1000,
   });
 }
