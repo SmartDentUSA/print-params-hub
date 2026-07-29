@@ -30342,6 +30342,10 @@ export type Database = {
         Returns: Json
       }
       execute_agent_sql: { Args: { query: string }; Returns: Json }
+      find_lead_id_by_email_ci: {
+        Args: { p_email: string; p_exclude_id?: string }
+        Returns: string
+      }
       fn_atualizar_parcelas_vencidas: { Args: never; Returns: undefined }
       fn_calc_workflow_score: {
         Args: { p_lead_id: string }
