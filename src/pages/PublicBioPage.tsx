@@ -4,6 +4,7 @@ import { Helmet } from "react-helmet-async";
 import { Instagram, Youtube, Facebook, Linkedin, Globe, MessageCircle, Share2, ArrowRight, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { useBioPage, DEFAULT_LOGO_URL, type BioItem, type BioSocialLinks } from "@/hooks/useBioPages";
+import { useEffect, useState } from "react";
 
 const SOCIAL_ICONS: Array<{ key: keyof BioSocialLinks; Icon: typeof Instagram; label: string }> = [
   { key: "instagram", Icon: Instagram, label: "Instagram" },
@@ -15,20 +16,35 @@ const SOCIAL_ICONS: Array<{ key: keyof BioSocialLinks; Icon: typeof Instagram; l
 ];
 
 function BioCard({ item }: { item: BioItem }) {
+  const [imageAspectRatio, setImageAspectRatio] = useState<number | null>(null);
+
+  useEffect(() => {
+    setImageAspectRatio(null);
+  }, [item.image_url]);
+
   return (
     <a
       href={item.url}
       target={item.url.startsWith("http") ? "_blank" : undefined}
       rel="noopener noreferrer"
-      className="group flex flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-lg"
+      className="group flex h-fit w-full max-w-xs flex-col self-start overflow-hidden rounded-2xl border border-border bg-card shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-lg"
     >
-      <div className="relative w-full overflow-hidden bg-muted">
+      <div
+        className="relative w-full overflow-hidden bg-muted"
+        style={imageAspectRatio ? { aspectRatio: imageAspectRatio } : undefined}
+      >
         {item.image_url ? (
           <img
             src={item.image_url}
             alt={item.label}
             loading="lazy"
             decoding="async"
+            onLoad={(event) => {
+              const { naturalWidth, naturalHeight } = event.currentTarget;
+              if (naturalWidth > 0 && naturalHeight > 0) {
+                setImageAspectRatio(naturalWidth / naturalHeight);
+              }
+            }}
             className="block h-auto w-full transition-transform duration-300 group-hover:scale-105"
           />
         ) : (
@@ -136,7 +152,13 @@ export default function PublicBioPage() {
           </button>
         </header>
 
-        <section className="mt-8 grid grid-cols-2 gap-3 sm:gap-4">
+        <section
+          className={
+            page.items.length === 1
+              ? "mt-8 flex justify-center"
+              : "mt-8 grid grid-cols-2 items-start justify-items-center gap-3 sm:gap-4"
+          }
+        >
           {page.items.map((item) => (
             <BioCard key={item.id} item={item} />
           ))}
