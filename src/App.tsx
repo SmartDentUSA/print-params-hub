@@ -21,6 +21,7 @@ const AgentEmbed = lazy(() => import("./pages/AgentEmbed"));
 const AgendaPublica = lazy(() => import("./pages/AgendaPublica"));
 const PublicFormPage = lazy(() => import("./pages/PublicFormPage"));
 const PublicLandingPage = lazy(() => import("./pages/PublicLandingPage"));
+const PublicBioPage = lazy(() => import("./pages/PublicBioPage"));
 const PublicCourseEnrollment = lazy(() => import("./pages/PublicCourseEnrollment"));
 const ROICalculatorPage = lazy(() => import("./pages/ROICalculatorPage"));
 const PublicDistributorRegister = lazy(() => import("./pages/PublicDistributorRegister"));
@@ -156,6 +157,9 @@ const App = () => (
 
       {/* Public landing pages (per-form) */}
       <Route path="/lp/:slug" element={<PublicLandingPage />} />
+
+      {/* Link na bio */}
+      <Route path="/bio/:slug" element={<PublicBioPage />} />
       
       {/* Support Resources / Product Catalog (Category G) */}
       <Route path="/support-resources" element={<SupportResources />} />
