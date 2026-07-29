@@ -35,19 +35,23 @@ function evalRule(rule: ConditionRule, answers: Record<string, any>): boolean {
     case "is_not_empty":
       return !isEmpty(answer);
     case "equals": {
+      if (isEmpty(answer)) return false;
       if (Array.isArray(answer)) return answer.map(norm).includes(norm(rule.value));
       return norm(answer) === norm(rule.value);
     }
     case "not_equals": {
+      if (isEmpty(answer)) return false;
       if (Array.isArray(answer)) return !answer.map(norm).includes(norm(rule.value));
       return norm(answer) !== norm(rule.value);
     }
     case "in": {
+      if (isEmpty(answer)) return false;
       const list = Array.isArray(rule.value) ? rule.value.map(norm) : [norm(rule.value)];
       if (Array.isArray(answer)) return answer.map(norm).some((a) => list.includes(a));
       return list.includes(norm(answer));
     }
     case "not_in": {
+      if (isEmpty(answer)) return false;
       const list = Array.isArray(rule.value) ? rule.value.map(norm) : [norm(rule.value)];
       if (Array.isArray(answer)) return !answer.map(norm).some((a) => list.includes(a));
       return !list.includes(norm(answer));
