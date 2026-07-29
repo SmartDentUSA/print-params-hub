@@ -919,7 +919,7 @@ export default function PublicFormPage() {
             )}
             {visibleFields.map((field) => (
               <div key={field.id} className="space-y-1.5">
-                <Label>
+                <Label style={isEmbed ? { color: "#0f172a", opacity: 1 } : undefined}>
                   {field.label}
                   {field.required && <span className="text-destructive ml-1">*</span>}
                 </Label>
