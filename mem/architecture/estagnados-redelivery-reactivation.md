@@ -33,3 +33,7 @@ Se adicionar novos pipelines reativáveis, atualizar `canonPipelineId === 72938`
 **Cobertura universal (não é só Meta):** o gate `canonPipelineId === 72938 && formName` na rota B (`enrichment_merge`) dispara para QUALQUER fonte que preencha `form_name` no payload — Meta Lead Ads, formulários System A (`PublicFormPage`, `PublicLandingPage`, `SmartOpsFormFlowStandalone`, `QualificationFormInline`), SellFlux webhook e ManyChat bridge. Todos passam por `smart-ops-ingest-lead` → rota B, então o hatch reativa Estagnados→Vendas independente do canal. Só ficam de fora: leads canônicos que não hit `existingLead` (i.e., leads totalmente novos — que não estão em Estagnados por definição) e handoffs sem `form_name` (raw WA/Instagram).
 
 **How to apply:** Ao adicionar novos pipelines "reativáveis", estender o check nos dois blocos acima.
+
+**Guard fail-closed do lia-assign (29/07/2026):** o próprio `smart-ops-lia-assign` bloqueava leads Estagnados com `existing_lead_no_new_conversion_cdp_only` quando o caller (crons Meta, sweeps) não enviava `new_conversion_confirmed` + `conversion_key`. Agora existe escape hatch no guard: `piperun_pipeline_id === PIPELINES.ESTAGNADOS && form_name` → segue o decision tree (fecha Estagnados + abre VENDAS). VENDAS/CS continuam intocáveis.
+
+**Motivo de perda:** `LOST_REASON_NOVO_INTERESSE = "Entrou novamente em contato"`.
