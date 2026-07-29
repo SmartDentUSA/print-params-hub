@@ -789,9 +789,15 @@ export default function PublicFormPage() {
       `}</style>
       {/* Brand color strip */}
       <div className="brand-strip fixed top-0 left-0 right-0 h-1 z-50" />
-      <div className="form-grid w-full max-w-5xl mt-1 grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-12 items-start">
+      <div
+        className={
+          isEmbed
+            ? "form-grid w-full max-w-xl grid grid-cols-1 items-start"
+            : "form-grid w-full max-w-5xl mt-1 grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-12 items-start"
+        }
+      >
         {/* Left column — media + text (sticky on desktop) */}
-        <div className="md:sticky md:top-8 space-y-6">
+        <div className={`md:sticky md:top-8 space-y-6 ${isEmbed ? "hidden" : ""}`}>
           {/* Mídia HERO */}
           {form.media_type === "video" && form.video_embed_url && (
             <div className="video-glow w-full rounded-lg overflow-hidden" style={{ aspectRatio: "16/9" }}>
