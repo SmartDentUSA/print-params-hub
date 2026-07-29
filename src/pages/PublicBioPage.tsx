@@ -1,0 +1,154 @@
+import { useParams } from "react-router-dom";
+import { Helmet } from "react-helmet-async";
+import { Instagram, Youtube, Facebook, Linkedin, Globe, MessageCircle, Share2, ArrowRight, Loader2 } from "lucide-react";
+import { toast } from "sonner";
+import { useBioPage, DEFAULT_LOGO_URL, type BioItem, type BioSocialLinks } from "@/hooks/useBioPages";
+
+const SOCIAL_ICONS: Array<{ key: keyof BioSocialLinks; Icon: typeof Instagram; label: string }> = [
+  { key: "instagram", Icon: Instagram, label: "Instagram" },
+  { key: "youtube", Icon: Youtube, label: "YouTube" },
+  { key: "facebook", Icon: Facebook, label: "Facebook" },
+  { key: "linkedin", Icon: Linkedin, label: "LinkedIn" },
+  { key: "whatsapp", Icon: MessageCircle, label: "WhatsApp" },
+  { key: "website", Icon: Globe, label: "Site" },
+];
+
+function BioCard({ item }: { item: BioItem }) {
+  return (
+    <a
+      href={item.url}
+      target={item.url.startsWith("http") ? "_blank" : undefined}
+      rel="noopener noreferrer"
+      className="group flex flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-lg"
+    >
+      <div className="relative aspect-[4/3] w-full overflow-hidden bg-muted">
+        {item.image_url ? (
+          <img
+            src={item.image_url}
+            alt={item.label}
+            loading="lazy"
+            decoding="async"
+            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+          />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-primary/15 to-primary/5 text-primary">
+            <ArrowRight className="h-8 w-8" />
+          </div>
+        )}
+      </div>
+      <div className="flex flex-1 flex-col gap-2 p-3">
+        <h2 className="text-sm font-semibold leading-snug text-foreground line-clamp-2">{item.label}</h2>
+        {item.description && (
+          <p className="text-xs text-muted-foreground line-clamp-2">{item.description}</p>
+        )}
+        <span className="mt-auto inline-flex items-center justify-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground transition-colors group-hover:bg-primary/90">
+          {item.button_text || "Acessar"}
+          <ArrowRight className="h-3.5 w-3.5" />
+        </span>
+      </div>
+    </a>
+  );
+}
+
+export default function PublicBioPage() {
+  const { slug } = useParams<{ slug: string }>();
+  const { data: page, isLoading } = useBioPage(slug);
+
+  const share = async () => {
+    const url = window.location.href;
+    const title = page?.title ?? "Smart Dent";
+    if (navigator.share) {
+      try {
+        await navigator.share({ title, url });
+        return;
+      } catch {
+        /* usuário cancelou */
+      }
+    }
+    await navigator.clipboard.writeText(url);
+    toast.success("Link copiado!");
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (!page) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background px-6 text-center">
+        <p className="text-muted-foreground">Página não encontrada ou desativada.</p>
+      </div>
+    );
+  }
+
+  const socials = SOCIAL_ICONS.filter(({ key }) => !!page.social_links?.[key]);
+
+  return (
+    <div className="min-h-screen bg-background">
+      <Helmet>
+        <title>{`${page.title} | Smart Dent | Fluxo Digital`}</title>
+        <meta name="description" content={page.subtitle || `Links oficiais de ${page.title}.`} />
+        <meta property="og:title" content={page.title} />
+        <meta property="og:description" content={page.subtitle || `Links oficiais de ${page.title}.`} />
+        <meta property="og:type" content="website" />
+        <meta name="twitter:card" content="summary_large_image" />
+      </Helmet>
+
+      <main className="mx-auto w-full max-w-2xl px-4 py-10">
+        <header className="flex flex-col items-center text-center">
+          <img
+            src={page.logo_url || DEFAULT_LOGO_URL}
+            alt={`Logo ${page.title}`}
+            className="h-20 w-20 rounded-2xl object-contain shadow-sm"
+          />
+          <h1 className="mt-4 text-2xl font-bold text-foreground">{page.title}</h1>
+          {page.subtitle && <p className="mt-1 text-sm text-muted-foreground">{page.subtitle}</p>}
+
+          {socials.length > 0 && (
+            <nav aria-label="Redes sociais" className="mt-4 flex items-center gap-2">
+              {socials.map(({ key, Icon, label }) => (
+                <a
+                  key={key}
+                  href={page.social_links[key]}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label={label}
+                  className="rounded-full border border-border bg-card p-2 text-muted-foreground transition-colors hover:text-primary"
+                >
+                  <Icon className="h-4 w-4" />
+                </a>
+              ))}
+            </nav>
+          )}
+
+          <button
+            type="button"
+            onClick={share}
+            className="mt-4 inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-primary"
+          >
+            <Share2 className="h-3.5 w-3.5" />
+            Compartilhar
+          </button>
+        </header>
+
+        <section className="mt-8 grid grid-cols-2 gap-3 sm:gap-4">
+          {page.items.map((item) => (
+            <BioCard key={item.id} item={item} />
+          ))}
+        </section>
+
+        {page.items.length === 0 && (
+          <p className="mt-10 text-center text-sm text-muted-foreground">Nenhum link publicado ainda.</p>
+        )}
+
+        <footer className="mt-12 text-center text-xs text-muted-foreground">
+          © {new Date().getFullYear()} Smart Dent | Fluxo Digital
+        </footer>
+      </main>
+    </div>
+  );
+}
