@@ -136,6 +136,8 @@ export default function PublicFormPage() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Simple inline toast
+  const [inlineError, setInlineError] = useState<string | null>(null);
   const [currentStep, setCurrentStep] = useState(0);
   // Embed mode (usado pela landing page): renderiza somente o formulário,
   // sem coluna de mídia/texto e sem fundo de página.
@@ -638,8 +640,6 @@ export default function PublicFormPage() {
     }
   };
 
-  // Simple inline toast
-  const [inlineError, setInlineError] = useState<string | null>(null);
   const toast_inline = (msg: string) => {
     setInlineError(msg);
     setTimeout(() => setInlineError(null), 4000);
