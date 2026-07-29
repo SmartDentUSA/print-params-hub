@@ -13,15 +13,27 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const sb = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-// Nome canônico = como está cadastrado em wa_groups/team_members/UI.
+// Fallback caso não exista nenhuma instância configurada em sentinela_instances.
 const TARGET_INSTANCE = "Danilo-Henrique";
 // Aceita aliases: "Danilo-Henrique", "danilo_henrique", "DANILO HENRIQUE", etc.
 const normalizeInstance = (s: string) => (s ?? "").toLowerCase().replace(/[\s_-]/g, "");
-const ALLOWED_INSTANCES = ["Danilo Henrique", "Danilo-Henrique"].map(normalizeInstance);
-const isAllowedInstance = (s: string) => ALLOWED_INSTANCES.includes(normalizeInstance(s));
 
-function canonicalInstanceName(_instanceName: string): string {
-  return TARGET_INSTANCE;
+type InstanceCfg = { instance_name: string; capture_groups: boolean; capture_direct: boolean };
+
+async function loadActiveInstances(): Promise<InstanceCfg[]> {
+  const { data, error } = await sb
+    .from("sentinela_instances")
+    .select("instance_name, capture_groups, capture_direct")
+    .eq("active", true);
+  if (error || !data?.length) {
+    return [{ instance_name: TARGET_INSTANCE, capture_groups: true, capture_direct: false }];
+  }
+  return data as InstanceCfg[];
+}
+
+function matchInstance(list: InstanceCfg[], incoming: string): InstanceCfg | null {
+  const n = normalizeInstance(incoming);
+  return list.find((i) => normalizeInstance(i.instance_name) === n) ?? null;
 }
 
 function safeGroupName(remoteJid: string, raw: any, existingName?: string | null): string {
