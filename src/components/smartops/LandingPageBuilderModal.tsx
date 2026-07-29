@@ -548,6 +548,7 @@ const EDITOR_SECTIONS: { id: string; label: string }[] = [
   { id: "sec-beneficios", label: "O que a Smart Dent entrega" },
   { id: "sec-comparativo", label: "Tabela comparativa" },
   { id: "sec-faq", label: "FAQ" },
+  { id: "sec-formulario", label: "Formulário na página" },
   { id: "sec-cta-final", label: "CTA final" },
   { id: "sec-rodape", label: "Rodapé" },
 ];
