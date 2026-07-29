@@ -43,6 +43,9 @@ interface Conversation {
   unread_count: number;
   instance_name: string | null;
   is_group: boolean;
+  funil: string | null;
+  vendedor: string | null;
+  treinamento: string | null;
 }
 
 interface TeamMember {
@@ -121,30 +124,78 @@ export function SmartOpsWhatsAppInbox({ refreshKey }: { refreshKey: number }) {
           unread_count: 0,
           instance_name: (msg as any).instance_name ?? null,
           is_group: Boolean((msg as any).is_group),
+          funil: null,
+          vendedor: null,
+          treinamento: null,
         });
       }
     }
 
-    const leadIds = [...new Set([...map.values()].filter(c => c.lead_id).map(c => c.lead_id!))];
+    const convs = [...map.values()];
+    const last8 = (v?: string | null) => (v || "").replace(/\D/g, "").slice(-8);
+
+    const leadIds = [...new Set(convs.filter(c => c.lead_id).map(c => c.lead_id!))];
+    const phoneKeys = [...new Set(convs.filter(c => !c.is_group).map(c => (c.phone_normalized || c.phone_raw || "").replace(/\D/g, "")).filter(Boolean))];
+
+    const leadRows: any[] = [];
     if (leadIds.length > 0) {
-      const { data: leads } = await supabase
+      const { data } = await supabase
         .from("lia_attendances")
-        .select("id, nome, telefone_normalized, telefone_raw")
+        .select("id, nome, telefone_normalized, telefone_raw, piperun_pipeline_name, funil_entrada_crm, piperun_stage_name, proprietario_lead_crm, cs_treinamento, data_treinamento")
         .in("id", leadIds);
-      if (leads) {
-        const leadMap = new Map(leads.map(l => [l.id, l]));
-        for (const conv of map.values()) {
-          if (conv.lead_id) {
-            const lead = leadMap.get(conv.lead_id);
-            if (lead) {
-              conv.lead_name = lead.nome || null;
-            }
-          }
+      if (data) leadRows.push(...data);
+    }
+    if (phoneKeys.length > 0) {
+      const variants = [...new Set(phoneKeys.flatMap(p => [p, p.startsWith("55") ? p.slice(2) : "55" + p]))];
+      const { data } = await supabase
+        .from("lia_attendances")
+        .select("id, nome, telefone_normalized, telefone_raw, piperun_pipeline_name, funil_entrada_crm, piperun_stage_name, proprietario_lead_crm, cs_treinamento, data_treinamento")
+        .is("merged_into", null)
+        .in("telefone_normalized", variants.slice(0, 400));
+      if (data) leadRows.push(...data);
+    }
+
+    const byId = new Map(leadRows.map(l => [l.id, l]));
+    const byPhone = new Map<string, any>();
+    for (const l of leadRows) {
+      const k = last8(l.telefone_normalized || l.telefone_raw);
+      if (k && !byPhone.has(k)) byPhone.set(k, l);
+    }
+
+    for (const conv of convs) {
+      const lead = (conv.lead_id && byId.get(conv.lead_id)) || (!conv.is_group ? byPhone.get(last8(conv.phone_normalized || conv.phone_raw)) : null);
+      if (!lead) continue;
+      conv.lead_id = conv.lead_id || lead.id;
+      conv.lead_name = lead.nome || conv.lead_name;
+      conv.funil = lead.piperun_pipeline_name || lead.funil_entrada_crm || null;
+      conv.vendedor = lead.proprietario_lead_crm || null;
+      conv.treinamento = lead.cs_treinamento
+        ? `${lead.cs_treinamento}${lead.data_treinamento ? ` • ${new Date(lead.data_treinamento).toLocaleDateString("pt-BR")}` : ""}`
+        : null;
+    }
+
+    // Status de treinamento vindo das matrículas (timeline de cursos)
+    const enrichIds = [...new Set(convs.filter(c => c.lead_id).map(c => c.lead_id!))];
+    if (enrichIds.length > 0) {
+      const { data: enrolls } = await supabase
+        .from("smartops_course_enrollments")
+        .select("lead_id, status, turma_snapshot, enrolled_at")
+        .in("lead_id", enrichIds)
+        .order("enrolled_at", { ascending: false });
+      if (enrolls) {
+        const eMap = new Map<string, any>();
+        for (const e of enrolls) if (e.lead_id && !eMap.has(e.lead_id)) eMap.set(e.lead_id, e);
+        for (const conv of convs) {
+          if (!conv.lead_id) continue;
+          const e = eMap.get(conv.lead_id);
+          if (!e) continue;
+          const curso = (e.turma_snapshot as any)?.course_name || (e.turma_snapshot as any)?.curso || "";
+          conv.treinamento = `${e.status || "matriculado"}${curso ? ` • ${curso}` : ""}`;
         }
       }
     }
 
-    setConversations([...map.values()]);
+    setConversations(convs);
     setLoading(false);
   };
 
@@ -250,6 +301,8 @@ export function SmartOpsWhatsAppInbox({ refreshKey }: { refreshKey: number }) {
     // Text match on name/message
     if (c.lead_name && c.lead_name.toLowerCase().includes(qText)) return true;
     if (c.last_message && c.last_message.toLowerCase().includes(qText)) return true;
+    if (c.vendedor && c.vendedor.toLowerCase().includes(qText)) return true;
+    if (c.funil && c.funil.toLowerCase().includes(qText)) return true;
 
     // Phone match: full, DDD+9, or last 9 digits
     if (!q) return true;
@@ -357,6 +410,25 @@ export function SmartOpsWhatsAppInbox({ refreshKey }: { refreshKey: number }) {
                 </div>
                 {conv.lead_name && (
                   <p className="text-[10px] text-muted-foreground mb-0.5">📱 {formatPhone(conv.phone_raw)}</p>
+                )}
+                {(conv.funil || conv.vendedor || conv.treinamento) && (
+                  <div className="flex flex-wrap gap-1 mb-1">
+                    {conv.funil && (
+                      <Badge variant="outline" className="text-[9px] px-1.5 py-0 border-blue-300 text-blue-700 bg-blue-50">
+                        🎯 {conv.funil}
+                      </Badge>
+                    )}
+                    {conv.vendedor && (
+                      <Badge variant="outline" className="text-[9px] px-1.5 py-0 border-purple-300 text-purple-700 bg-purple-50">
+                        👤 {conv.vendedor}
+                      </Badge>
+                    )}
+                    {conv.treinamento && (
+                      <Badge variant="outline" className="text-[9px] px-1.5 py-0 border-amber-300 text-amber-700 bg-amber-50">
+                        🎓 {conv.treinamento}
+                      </Badge>
+                    )}
+                  </div>
                 )}
                 <p className="text-xs text-muted-foreground truncate">{conv.last_message}</p>
                 {conv.instance_name && (
