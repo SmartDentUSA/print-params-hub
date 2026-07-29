@@ -55,9 +55,10 @@ interface SubmittedScreenProps {
   form: FormData;
   company: any;
   redirectUrl: string | null;
+  isEmbed?: boolean;
 }
 
-function SubmittedScreen({ form, company, redirectUrl }: SubmittedScreenProps) {
+function SubmittedScreen({ form, company, redirectUrl, isEmbed = false }: SubmittedScreenProps) {
   const [autoRedirectFailed, setAutoRedirectFailed] = useState(false);
   const isWhatsApp = redirectUrl?.includes("whatsapp.com") || redirectUrl?.startsWith("whatsapp://");
   const inIframe = typeof window !== "undefined" && window.self !== window.top;
@@ -85,8 +86,8 @@ function SubmittedScreen({ form, company, redirectUrl }: SubmittedScreenProps) {
   }, [redirectUrl, inIframe]);
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-surface text-foreground">
-      <div className="text-center space-y-6 p-8 max-w-md w-full bg-card rounded-2xl shadow-medium border border-border">
+    <div className={`${isEmbed ? "min-h-0" : "min-h-screen bg-gradient-surface"} flex items-center justify-center text-foreground`}>
+      <div className={`${isEmbed ? "p-0 shadow-none border-0 bg-transparent" : "p-8 bg-card rounded-2xl shadow-medium border border-border"} text-center space-y-6 max-w-md w-full`}>
         <CheckCircle className="w-16 h-16 mx-auto" style={{ color: `hsl(var(--brand-h, 215), var(--brand-s, 78%), var(--brand-l, 54%))` }} />
         <div className="space-y-2">
           <p className="text-lg font-medium">{form.success_message || "Obrigado!"}</p>
@@ -115,7 +116,7 @@ function SubmittedScreen({ form, company, redirectUrl }: SubmittedScreenProps) {
           </p>
         )}
 
-        {company?.logo_url && (
+        {!isEmbed && company?.logo_url && (
           <img src={company.logo_url} alt={company.name || "Smart Dent"} className="h-8 mx-auto opacity-80" />
         )}
       </div>
@@ -627,6 +628,7 @@ export default function PublicFormPage() {
         form={form}
         company={company}
         redirectUrl={redirectUrl}
+        isEmbed={isEmbed}
       />
     );
   }
@@ -711,7 +713,7 @@ export default function PublicFormPage() {
           --form-label: #0f172a;
           --form-muted: rgba(15,23,42,0.62);
         }
-        .public-form-page[data-embed="true"] .brand-strip { display: none; }
+        .public-form-page[data-embed="true"] .brand-strip { display: none !important; }
         .public-form-page[data-embed="true"] label {
           font-size: 0.8125rem;
           font-weight: 600;
@@ -814,7 +816,7 @@ export default function PublicFormPage() {
         ${(form as any).custom_css || ""}
       `}</style>
       {/* Brand color strip */}
-      <div className="brand-strip fixed top-0 left-0 right-0 h-1 z-50" />
+      {!isEmbed && <div className="brand-strip fixed top-0 left-0 right-0 h-1 z-50" />}
       <div
         className={
           isEmbed
