@@ -1062,7 +1062,7 @@ export default function PublicFormPage() {
       </div>
 
       {/* Seções extras (landing page) */}
-      {Array.isArray((form as any).extra_sections) && (form as any).extra_sections.length > 0 && (
+      {!isEmbed && Array.isArray((form as any).extra_sections) && (form as any).extra_sections.length > 0 && (
         <div className="w-full max-w-5xl mt-12 space-y-12">
           {(form as any).extra_sections.map((sec: any, idx: number) => {
             if (!sec || !sec.type) return null;
