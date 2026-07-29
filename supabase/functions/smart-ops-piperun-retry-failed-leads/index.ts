@@ -290,18 +290,27 @@ Deno.serve(async (req) => {
 
       const ids = (orphanCandidates || []).map((l: any) => l.id);
       if (ids.length > 0) {
-        // Filter out leads that already have a published/backfilled contact log
+        // Filter out leads already handled. BUGFIX 2026-07-29: this used to read
+        // `details.lead_id`, which these log rows never carry (the id lives in the
+        // `lead_id` COLUMN). The set was always empty, so the same ~148 leads were
+        // re-sent to the backfill every 15 min forever (~4.7k log rows/day).
         const { data: publishedLogs } = await supabase
           .from("system_health_logs")
-          .select("details")
+          .select("lead_id, details")
           .in("error_type", [
             "piperun_person_contact_published",
             "piperun_person_contact_backfilled",
+            // Quarantine: PipeRun keeps silently rejecting these; retrying is a no-op.
+            "piperun_email_silently_rejected",
+            "piperun_contact_still_missing_after_resync",
+            "piperun_person_contact_backfill_failed",
           ])
-          .gte("created_at", sinceIso);
+          .gte("created_at", sinceIso)
+          .not("lead_id", "is", null)
+          .limit(5000);
         const publishedIds = new Set(
           (publishedLogs || [])
-            .map((l: any) => l?.details?.lead_id)
+            .map((l: any) => l?.lead_id ?? l?.details?.lead_id)
             .filter(Boolean),
         );
         const targets = (orphanCandidates || []).filter((l: any) => !publishedIds.has(l.id));
