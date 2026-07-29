@@ -706,6 +706,22 @@ export default function PublicFormPage() {
         .public-form-page[data-embed="true"] {
           background: transparent !important;
           min-height: 0;
+          --form-heading: #0f172a;
+          --form-body: #1f2937;
+          --form-label: #0f172a;
+          --form-muted: rgba(15,23,42,0.62);
+        }
+        .public-form-page[data-embed="true"] .brand-strip { display: none; }
+        .public-form-page[data-embed="true"] label {
+          font-size: 0.8125rem;
+          font-weight: 600;
+          letter-spacing: 0.01em;
+        }
+        .public-form-page[data-embed="true"] input,
+        .public-form-page[data-embed="true"] select,
+        .public-form-page[data-embed="true"] textarea {
+          background: #fff;
+          border-color: rgba(15,23,42,0.14);
         }
         .public-form-page {
           --brand:       hsl(var(--brand-h), var(--brand-s), var(--brand-l));
