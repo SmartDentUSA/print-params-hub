@@ -45,13 +45,22 @@ function extractMediaType(m: any): string | null {
   return null
 }
 
-async function fetchMessages(instance: string, apikey: string, page: number, limit: number) {
-  const res = await fetch(`${EVO_BASE}/chat/findMessages/${enc(instance)}`, {
+async function callFindMessages(instance: string, apikey: string, page: number, limit: number) {
+  return await fetch(`${EVO_BASE}/chat/findMessages/${enc(instance)}`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', apikey: apikey || EVO_KEY },
+    headers: { 'Content-Type': 'application/json', apikey },
     body: JSON.stringify({ where: {}, page, offset: limit, limit }),
     signal: AbortSignal.timeout(30_000),
   })
+}
+
+async function fetchMessages(instance: string, apikey: string, page: number, limit: number) {
+  let res = await callFindMessages(instance, apikey || EVO_KEY, page, limit)
+  // Fallback: apikey por instância inválida → tenta a chave global
+  if ((res.status === 401 || res.status === 403) && apikey && apikey !== EVO_KEY) {
+    await res.text().catch(() => '')
+    res = await callFindMessages(instance, EVO_KEY, page, limit)
+  }
   if (!res.ok) throw new Error(`findMessages ${res.status}: ${(await res.text()).slice(0, 200)}`)
   const data = await res.json()
   const records = Array.isArray(data)
@@ -132,7 +141,11 @@ Deno.serve(async (req) => {
           if (!waId) { skipped++; continue }
 
           const fromMe = m?.key?.fromMe === true
-          const phoneSource = isGroup ? (m?.key?.participant ?? jid) : jid
+          const rawSource = isGroup ? (m?.key?.participant ?? jid) : jid
+          // WhatsApp LID privacy: prefer o número real quando a Evolution o expõe
+          const phoneSource = String(rawSource).includes('@lid')
+            ? (m?.key?.senderPn ?? m?.key?.remoteJidAlt ?? m?.senderPn ?? rawSource)
+            : rawSource
           const phone = normalizePhone(String(phoneSource).split('@')[0])
           if (!phone) { skipped++; continue }
 
@@ -195,15 +208,24 @@ Deno.serve(async (req) => {
       .limit(500)
 
     const phones = [...new Set((unlinked ?? []).map(r => r.phone_normalized!).filter(Boolean))]
+      .filter(p => p.length >= 10 && p.length <= 13) // descarta LIDs (15+ dígitos)
     if (phones.length) {
+      const variants = [...new Set(phones.flatMap(p => [p, `+${p}`, `+55${p}`, `55${p}`]))]
       const { data: leads } = await supabase
         .from('lia_attendances')
         .select('id, telefone_normalized')
-        .in('telefone_normalized', phones)
+        .in('telefone_normalized', variants)
         .is('merged_into', null)
-      const leadByPhone = new Map((leads ?? []).map(l => [l.telefone_normalized as string, l.id as string]))
+      const leadByPhone = new Map<string, string>()
+      for (const l of leads ?? []) {
+        const digits = String(l.telefone_normalized ?? '').replace(/\D/g, '')
+        if (!digits) continue
+        leadByPhone.set(digits, l.id as string)
+        if (digits.startsWith('55')) leadByPhone.set(digits.slice(2), l.id as string)
+      }
       for (const row of unlinked ?? []) {
-        const leadId = leadByPhone.get(row.phone_normalized!)
+        const d = row.phone_normalized!
+        const leadId = leadByPhone.get(d) ?? leadByPhone.get(`55${d}`) ?? leadByPhone.get(d.replace(/^55/, ''))
         if (!leadId) continue
         await supabase.from('whatsapp_inbox').update({ lead_id: leadId, matched_by: 'phone_capture' }).eq('id', row.id)
         linked++
