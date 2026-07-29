@@ -144,6 +144,10 @@ export default function PublicFormPage() {
   const isStepMode = effectiveDisplayMode === "step";
   const isFirstThreeMode = effectiveDisplayMode === "first_three";
   const embedRootRef = useRef<HTMLDivElement | null>(null);
+  // No modo "3 primeiras perguntas" o formulário MOSTRA 3 campos primeiro,
+  // mas continua coletando todas as perguntas de qualificação: ao avançar,
+  // os campos restantes são revelados antes do envio.
+  const [revealedAll, setRevealedAll] = useState(false);
 
   // Em modo embed, informa a altura ao container (landing page) para evitar scroll interno.
   useEffect(() => {
@@ -163,9 +167,11 @@ export default function PublicFormPage() {
   }, [isEmbed, slug]);
   // Filter fields by conditional logic against current answers
   const allRenderableFields = fields.filter((f) => isFieldVisible(f, values));
-  const renderableFields = isFirstThreeMode
+  const renderableFields = isFirstThreeMode && !revealedAll
     ? allRenderableFields.slice(0, 3)
     : allRenderableFields;
+  const hasHiddenQualificationFields =
+    isFirstThreeMode && !revealedAll && allRenderableFields.length > 3;
   const totalSteps = renderableFields.length;
   const safeStep = Math.min(currentStep, Math.max(0, totalSteps - 1));
   const visibleFields = isStepMode
