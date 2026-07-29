@@ -42,7 +42,7 @@
 
     /* Muted elements */
     --muted: 215 16% 94%;
-    --muted-foreground: 215 13% 56%;
+    --muted-foreground: 215 16% 40%;
 
     /* Accent - Tech teal */
     --accent: 174 62% 47%;
@@ -116,7 +116,7 @@
     --secondary-foreground: 215 16% 94%;
 
     --muted: 215 16% 16%;
-    --muted-foreground: 215 13% 56%;
+    --muted-foreground: 215 16% 68%;
 
     --accent: 174 62% 57%;
     --accent-foreground: 215 25% 8%;
