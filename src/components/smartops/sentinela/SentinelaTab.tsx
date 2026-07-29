@@ -87,6 +87,26 @@ export function SentinelaTab() {
   const [totalGroupCount, setTotalGroupCount] = useState<number>(0);
   const [instances, setInstances] = useState<InstanceCfg[]>([]);
   const [selectedInstance, setSelectedInstance] = useState<string>("");
+  const [registering, setRegistering] = useState(false);
+  const [webhookResults, setWebhookResults] = useState<any[]>([]);
+
+  async function registerWebhooks(dryRun: boolean) {
+    setRegistering(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("sentinela-register-webhooks", {
+        body: { dry_run: dryRun },
+      });
+      if (error) throw error;
+      const results = (data as any)?.results ?? [];
+      setWebhookResults(results);
+      if (results.length === 0) toast.info("Nenhuma instância com captura ativa.");
+      else toast.success(dryRun ? "Simulação concluída" : "Webhooks registrados");
+    } catch (e: any) {
+      toast.error("Falha ao registrar webhooks: " + (e?.message ?? String(e)));
+    } finally {
+      setRegistering(false);
+    }
+  }
 
   const sinceISO = useMemo(
     () => new Date(Date.now() - PERIOD_HOURS[period] * 3600 * 1000).toISOString(),
