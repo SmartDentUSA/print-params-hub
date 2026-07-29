@@ -151,6 +151,32 @@ Deno.serve(async (req) => {
       console.warn("connectionState check failed", e);
     }
 
+    const pendingSince = new Date(Date.now() - 60 * 60_000).toISOString();
+    const { data: lastPending } = await supabase
+      .from("whatsapp_inbox")
+      .select("wa_message_id, remote_jid, raw_payload, created_at")
+      .eq("direction", "outbound")
+      .eq("instance_name", instance)
+      .not("wa_message_id", "is", null)
+      .gte("created_at", pendingSince)
+      .or("raw_payload->response->>status.eq.PENDING,raw_payload->>delivery_status_raw.eq.PENDING")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (lastPending?.wa_message_id && lastPending?.remote_jid) {
+      const currentStatus = await findMessageStatus(instance, apikey, lastPending.remote_jid, lastPending.wa_message_id);
+      if (!currentStatus || currentStatus === "PENDING") {
+        return json({
+          success: false,
+          error: "instance_has_stuck_pending_message",
+          instance,
+          status: currentStatus ?? "unknown",
+          detail: `A instância "${instance}" tem mensagem recente ainda sem confirmação do WhatsApp. Reconecte/atualize a sessão antes de novos envios para evitar "Aguardando mensagem" no destinatário.`,
+        }, 409);
+      }
+    }
+
     await warmupContact(instance, apikey, target);
 
     const url = `${EVO_BASE}/message/sendText/${encodeURIComponent(instance)}`;
