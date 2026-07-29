@@ -36,6 +36,7 @@ export type LPSectionKey =
   | "comparison"
   | "testimonials"
   | "faq"
+  | "inlineForm"
   | "finalCta";
 
 export type LPContent = {
@@ -131,6 +132,7 @@ export type LPContent = {
     footnote?: string;
   };
   faq?: { title?: string; items: { q: string; a: string }[] };
+  inlineForm?: { eyebrow?: string; title?: string; sub?: string; note?: string };
   finalCta?: { headline: string; sub?: string; cta: string };
   legal?: string;
 };
@@ -139,6 +141,8 @@ interface Props {
   content: LPContent;
   heroImageUrl?: string | null;
   onCta?: (source: string) => void;
+  /** Formulário embutido (renderizado na seção "inlineForm"). */
+  formSlot?: React.ReactNode;
 }
 
 // Design system tokens (spec: single strong purple + orange accent + navy text).
@@ -742,7 +746,7 @@ function ComparisonSection({ comparison }: { comparison: NonNullable<LPContent["
   );
 }
 
-export function PremiumLandingTemplate({ content, heroImageUrl, onCta }: Props) {
+export function PremiumLandingTemplate({ content, heroImageUrl, onCta, formSlot }: Props) {
   const c = content;
   const cta = (source: string) => () => onCta?.(source);
   const sectionOn = (k: LPSectionKey) => c.sectionsEnabled?.[k] !== false;
@@ -1356,6 +1360,32 @@ export function PremiumLandingTemplate({ content, heroImageUrl, onCta }: Props) 
       )}
 
       {/* FINAL CTA */}
+      {sectionOn("inlineForm") && formSlot && (
+        <section id="formulario" className="py-20 md:py-24" style={{ background: GRADIENT_SOFT }}>
+          <div className="mx-auto max-w-3xl px-6">
+            <div className="text-center">
+              {c.inlineForm?.eyebrow && (
+                <span className="inline-flex rounded-full border border-[var(--lp-orange)]/30 bg-[var(--lp-orange)]/10 px-3 py-1 text-[11px] font-bold uppercase tracking-widest text-[var(--lp-orange)]">
+                  {c.inlineForm.eyebrow}
+                </span>
+              )}
+              <h2 className="mt-4 text-3xl md:text-4xl font-black tracking-tight text-[var(--lp-text)]">
+                {c.inlineForm?.title ?? "Preencha e fale com um especialista"}
+              </h2>
+              {c.inlineForm?.sub && (
+                <p className="mt-4 text-lg text-[var(--lp-text-soft)]">{c.inlineForm.sub}</p>
+              )}
+            </div>
+            <div className="mt-8 rounded-2xl border border-[var(--lp-border)] bg-white p-5 md:p-7 shadow-[0_20px_60px_-30px_rgba(0,0,0,0.35)]">
+              {formSlot}
+            </div>
+            {c.inlineForm?.note && (
+              <p className="mt-4 text-center text-xs text-[var(--lp-text-soft)]">{c.inlineForm.note}</p>
+            )}
+          </div>
+        </section>
+      )}
+
       {sectionOn("finalCta") && c.finalCta && (
         <section id="contato" className="relative py-20 md:py-24 overflow-hidden text-white" style={{ background: GRADIENT_BRAND }}>
           <div className="absolute -top-32 left-1/2 -translate-x-1/2 w-[640px] h-[640px] rounded-full bg-white opacity-10 blur-3xl" aria-hidden />

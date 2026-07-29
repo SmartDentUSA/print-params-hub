@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -136,8 +136,31 @@ export default function PublicFormPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [currentStep, setCurrentStep] = useState(0);
-  const isStepMode = form?.display_mode === "step";
-  const isFirstThreeMode = form?.display_mode === "first_three";
+  // Embed mode (usado pela landing page): renderiza somente o formulário,
+  // sem coluna de mídia/texto e sem fundo de página.
+  const isEmbed = searchParams.get("embed") === "1";
+  const displayOverride = searchParams.get("display");
+  const effectiveDisplayMode = displayOverride || form?.display_mode || "list";
+  const isStepMode = effectiveDisplayMode === "step";
+  const isFirstThreeMode = effectiveDisplayMode === "first_three";
+  const embedRootRef = useRef<HTMLDivElement | null>(null);
+
+  // Em modo embed, informa a altura ao container (landing page) para evitar scroll interno.
+  useEffect(() => {
+    if (!isEmbed) return;
+    const el = embedRootRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const post = () => {
+      window.parent?.postMessage(
+        { type: "smartops-form-height", height: el.scrollHeight, slug },
+        "*",
+      );
+    };
+    post();
+    const ro = new ResizeObserver(post);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [isEmbed, slug]);
   // Filter fields by conditional logic against current answers
   const allRenderableFields = fields.filter((f) => isFieldVisible(f, values));
   const renderableFields = isFirstThreeMode
@@ -604,8 +627,10 @@ export default function PublicFormPage() {
 
   return (
     <div
-      className={`public-form-page min-h-screen flex flex-col items-center p-4 pt-8 md:pt-16 ${(form as any).theme_mode === "dark" ? "dark" : ""}`}
+      ref={embedRootRef}
+      className={`public-form-page flex flex-col items-center ${isEmbed ? "p-0" : "min-h-screen p-4 pt-8 md:pt-16"} ${(form as any).theme_mode === "dark" ? "dark" : ""}`}
       data-layout={(form as any).layout_variant || "split"}
+      data-embed={isEmbed ? "true" : "false"}
       data-pp-default={(() => {
         const f: any = form;
         const t = f.bg_type || "solid";
@@ -671,6 +696,10 @@ export default function PublicFormPage() {
           --brand-h: 215;
           --brand-s: 78%;
           --brand-l: 54%;
+        }
+        .public-form-page[data-embed="true"] {
+          background: transparent !important;
+          min-height: 0;
         }
         .public-form-page {
           --brand:       hsl(var(--brand-h), var(--brand-s), var(--brand-l));
@@ -764,9 +793,15 @@ export default function PublicFormPage() {
       `}</style>
       {/* Brand color strip */}
       <div className="brand-strip fixed top-0 left-0 right-0 h-1 z-50" />
-      <div className="form-grid w-full max-w-5xl mt-1 grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-12 items-start">
+      <div
+        className={
+          isEmbed
+            ? "form-grid w-full max-w-xl grid grid-cols-1 items-start"
+            : "form-grid w-full max-w-5xl mt-1 grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-12 items-start"
+        }
+      >
         {/* Left column — media + text (sticky on desktop) */}
-        <div className="md:sticky md:top-8 space-y-6">
+        <div className={`md:sticky md:top-8 space-y-6 ${isEmbed ? "hidden" : ""}`}>
           {/* Mídia HERO */}
           {form.media_type === "video" && form.video_embed_url && (
             <div className="video-glow w-full rounded-lg overflow-hidden" style={{ aspectRatio: "16/9" }}>
@@ -1027,7 +1062,7 @@ export default function PublicFormPage() {
       </div>
 
       {/* Seções extras (landing page) */}
-      {Array.isArray((form as any).extra_sections) && (form as any).extra_sections.length > 0 && (
+      {!isEmbed && Array.isArray((form as any).extra_sections) && (form as any).extra_sections.length > 0 && (
         <div className="w-full max-w-5xl mt-12 space-y-12">
           {(form as any).extra_sections.map((sec: any, idx: number) => {
             if (!sec || !sec.type) return null;

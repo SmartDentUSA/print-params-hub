@@ -73,6 +73,28 @@ export default function PublicLandingPage() {
     [lp],
   );
 
+  const inlineFormUrl = useMemo(
+    () =>
+      lp
+        ? `/f/${lp.smartops_forms.slug}?embed=1&display=first_three&utm_source=landing_page&utm_medium=inline_form`
+        : null,
+    [lp],
+  );
+
+  // Altura dinâmica do formulário embutido (postMessage vindo de /f/:slug?embed=1)
+  const [inlineHeight, setInlineHeight] = useState(520);
+  useEffect(() => {
+    const onMessage = (e: MessageEvent) => {
+      if (e.origin !== window.location.origin) return;
+      const d = e.data;
+      if (d && d.type === "smartops-form-height" && typeof d.height === "number") {
+        setInlineHeight(Math.max(280, Math.min(1600, Math.ceil(d.height) + 16)));
+      }
+    };
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
+  }, []);
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-white">
@@ -98,6 +120,17 @@ export default function PublicLandingPage() {
         content={lp.content}
         heroImageUrl={lp.hero_image_url}
         onCta={() => setModalOpen(true)}
+        formSlot={
+          inlineFormUrl ? (
+            <iframe
+              title={`Formulário ${lp.smartops_forms.name}`}
+              src={inlineFormUrl}
+              className="w-full border-0 bg-transparent"
+              style={{ height: inlineHeight }}
+              scrolling="no"
+            />
+          ) : null
+        }
       />
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
         <DialogContent className="max-w-2xl p-0 overflow-hidden">
