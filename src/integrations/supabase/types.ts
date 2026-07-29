@@ -32204,6 +32204,15 @@ export type Database = {
           stage_to_name: string
         }[]
       }
+      wa_match_leads_by_names: {
+        Args: { p_names: string[] }
+        Returns: {
+          lead_id: string
+          match_count: number
+          norm_name: string
+        }[]
+      }
+      wa_normalize_name: { Args: { p_name: string }; Returns: string }
     }
     Enums: {
       app_role: "admin" | "user" | "author" | "distribuidor"
