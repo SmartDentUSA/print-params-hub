@@ -341,8 +341,6 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
     ld.updated_at && `🔄 Último: ${formatDate(ld.updated_at)}`,
     ld.total_deals && `💼 ${ld.total_deals} deal${ld.total_deals !== 1 ? "s" : ""}`,
     person?.nome && `👤 ${person.nome}`,
-    ld.area_atuacao,
-    ld.especialidade && `🦷 ${ld.especialidade}`,
     ld.piperun_stage_name && `📍 ${ld.piperun_stage_name}`,
   ].filter(Boolean) as string[];
 
