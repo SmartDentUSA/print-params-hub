@@ -136,8 +136,13 @@ export default function PublicFormPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [currentStep, setCurrentStep] = useState(0);
-  const isStepMode = form?.display_mode === "step";
-  const isFirstThreeMode = form?.display_mode === "first_three";
+  // Embed mode (usado pela landing page): renderiza somente o formulário,
+  // sem coluna de mídia/texto e sem fundo de página.
+  const isEmbed = searchParams.get("embed") === "1";
+  const displayOverride = searchParams.get("display");
+  const effectiveDisplayMode = displayOverride || form?.display_mode || "list";
+  const isStepMode = effectiveDisplayMode === "step";
+  const isFirstThreeMode = effectiveDisplayMode === "first_three";
   // Filter fields by conditional logic against current answers
   const allRenderableFields = fields.filter((f) => isFieldVisible(f, values));
   const renderableFields = isFirstThreeMode
