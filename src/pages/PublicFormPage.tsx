@@ -872,6 +872,16 @@ export default function PublicFormPage() {
           <form
             onSubmit={(e) => {
               if (isStepMode && !isLastStep) { e.preventDefault(); goNext(); return; }
+              if (hasHiddenQualificationFields) {
+                e.preventDefault();
+                for (const f of renderableFields) {
+                  const err = validateField(f);
+                  if (err) { setInlineError(err); return; }
+                }
+                setInlineError(null);
+                setRevealedAll(true);
+                return;
+              }
               handleSubmit(e);
             }}
             className="space-y-5"
