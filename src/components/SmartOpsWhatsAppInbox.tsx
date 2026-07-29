@@ -49,7 +49,7 @@ interface TeamMember {
   id: string;
   nome_completo: string;
   whatsapp_number: string | null;
-  waleads_api_key: string | null;
+  evolution_instance_name: string | null;
 }
 
 export function SmartOpsWhatsAppInbox({ refreshKey }: { refreshKey: number }) {
@@ -166,9 +166,9 @@ export function SmartOpsWhatsAppInbox({ refreshKey }: { refreshKey: number }) {
   const loadTeamMembers = async () => {
     const { data } = await supabase
       .from("team_members")
-      .select("id, nome_completo, whatsapp_number, waleads_api_key")
+      .select("id, nome_completo, whatsapp_number, evolution_instance_name")
       .eq("ativo", true)
-      .not("waleads_api_key", "is", null);
+      .not("evolution_instance_name", "is", null);
     if (data) {
       setTeamMembers(data);
       if (data.length > 0) setSelectedMember(data[0].id);
