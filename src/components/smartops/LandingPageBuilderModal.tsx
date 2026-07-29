@@ -14,11 +14,13 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { Loader2, Sparkles, FileText, ExternalLink, Rocket, Pencil, Package, Upload } from "lucide-react";
+import { Loader2, Sparkles, FileText, ExternalLink, Rocket, Pencil, Package, Upload, ArrowUp, ArrowDown, GripVertical } from "lucide-react";
 import {
   PremiumLandingTemplate,
   DEFAULT_LP_CONTENT,
   LP_THEMES,
+  DEFAULT_SECTION_ORDER,
+  resolveSectionOrder,
   type LPThemeKey,
   type LPContent,
   type LPSectionKey,
@@ -143,6 +145,9 @@ export function LandingPageBuilderModal({ open, onOpenChange, form }: Props) {
     if (!form) return null;
     const payload: Record<string, unknown> = {
       form_id: form.id,
+      mode: lp?.mode ?? "ai",
+      input_prompt: lp?.input_prompt ?? "",
+      status: lp?.status ?? "draft",
       ...patch,
     };
     const { data, error } = await supabase
@@ -553,7 +558,24 @@ function LivePreview({ content, heroImage }: { content: LPContent; heroImage: st
   );
 }
 
+const SECTION_LABELS: Record<LPSectionKey, string> = {
+  positioning: "Oferta / Posicionamento",
+  howItWorks: "Como funciona",
+  price: "Preço",
+  conditions: "Condições",
+  modules: "Módulos",
+  regionalRules: "Uso da licença",
+  implementation: "Implantação",
+  benefits: "O que a Smart Dent entrega",
+  comparison: "Tabela comparativa",
+  testimonials: "Depoimentos",
+  faq: "FAQ",
+  inlineForm: "Formulário na página",
+  finalCta: "CTA final",
+};
+
 const EDITOR_SECTIONS: { id: string; label: string }[] = [
+  { id: "sec-ordem", label: "Ordem das seções" },
   { id: "sec-aparencia", label: "Aparência" },
   { id: "sec-hero", label: "Hero" },
   { id: "sec-como-funciona", label: "Como funciona" },
@@ -642,8 +664,71 @@ function ContentEditor({
   const toggleSection = (k: LPSectionKey) => (v: boolean) =>
     patch({ sectionsEnabled: { ...sectionsEnabled, [k]: v } });
 
+  const sectionOrder = resolveSectionOrder(content.sectionsOrder);
+  const moveSection = (key: LPSectionKey, dir: -1 | 1) => {
+    const idx = sectionOrder.indexOf(key);
+    const target = idx + dir;
+    if (idx < 0 || target < 0 || target >= sectionOrder.length) return;
+    const next = [...sectionOrder];
+    [next[idx], next[target]] = [next[target], next[idx]];
+    patch({ sectionsOrder: next });
+  };
+
   return (
     <>
+      <Section title="Ordem das seções" anchorId="sec-ordem">
+        <p className="text-[11px] text-muted-foreground">
+          Use as setas para mover cada bloco. A prévia e a página publicada seguem esta ordem.
+        </p>
+        <div className="space-y-1">
+          {sectionOrder.map((key, i) => (
+            <div
+              key={key}
+              className={`flex items-center gap-2 rounded-md border px-2 py-1.5 ${
+                isOn(key) ? "border-border bg-white" : "border-dashed border-border bg-muted/40 opacity-60"
+              }`}
+            >
+              <GripVertical className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+              <span className="flex-1 truncate text-xs font-medium">
+                {SECTION_LABELS[key] ?? key}
+                {!isOn(key) && <span className="ml-1 text-[10px] text-muted-foreground">(oculta)</span>}
+              </span>
+              <Button
+                type="button"
+                size="icon"
+                variant="ghost"
+                className="h-6 w-6"
+                disabled={i === 0}
+                onClick={() => moveSection(key, -1)}
+                aria-label="Mover para cima"
+              >
+                <ArrowUp className="h-3.5 w-3.5" />
+              </Button>
+              <Button
+                type="button"
+                size="icon"
+                variant="ghost"
+                className="h-6 w-6"
+                disabled={i === sectionOrder.length - 1}
+                onClick={() => moveSection(key, 1)}
+                aria-label="Mover para baixo"
+              >
+                <ArrowDown className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+          ))}
+        </div>
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          className="h-7 text-xs"
+          onClick={() => patch({ sectionsOrder: [...DEFAULT_SECTION_ORDER] })}
+        >
+          Restaurar ordem padrão
+        </Button>
+      </Section>
+
       <Section title="Aparência (paleta de cores)" anchorId="sec-aparencia">
         <div className="grid grid-cols-2 gap-2">
           {(Object.keys(LP_THEMES) as LPThemeKey[]).map((key) => {
