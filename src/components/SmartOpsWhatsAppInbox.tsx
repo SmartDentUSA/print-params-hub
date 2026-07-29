@@ -258,6 +258,27 @@ export function SmartOpsWhatsAppInbox({ refreshKey }: { refreshKey: number }) {
     }
   };
 
+  const [resolving, setResolving] = useState(false);
+
+  const handleResolveIdentities = async () => {
+    setResolving(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("smart-ops-wa-resolve-lid", {
+        body: { dry_run: false, limit: 5000 },
+      });
+      if (error) throw error;
+      const d = data as any;
+      toast.success(
+        `${d?.updated_rows ?? 0} conversas vinculadas (${d?.matched_by_phone ?? 0} por telefone, ${d?.matched_by_name ?? 0} por nome)`,
+      );
+      loadConversations();
+    } catch (err) {
+      toast.error(`Erro ao resolver identidades: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setResolving(false);
+    }
+  };
+
   const handleSend = async () => {
     if (!replyText.trim() || !selectedPhone || !selectedMember) return;
     setSending(true);
@@ -459,6 +480,17 @@ export function SmartOpsWhatsAppInbox({ refreshKey }: { refreshKey: number }) {
           <span>{conversations.length} conversas</span>
           <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => loadConversations()}>
             <RefreshCw className="w-3 h-3" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-6 px-2 text-[10px]"
+            onClick={handleResolveIdentities}
+            disabled={resolving}
+            title="Resolver identidades (LID → lead)"
+          >
+            {resolving ? <Loader2 className="w-3 h-3 animate-spin" /> : <User className="w-3 h-3" />}
+            <span className="ml-1">Resolver identidades</span>
           </Button>
         </div>
       </div>
