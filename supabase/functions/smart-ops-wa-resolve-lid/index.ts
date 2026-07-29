@@ -193,19 +193,17 @@ Deno.serve(async (req) => {
       const n = normName(nm)
       return n.split(' ').length >= 2 && n.length >= 8
     })
-    for (let i = 0; i < candidates.length; i += 15) {
-      const chunk = candidates.slice(i, i + 15)
-      const ors = chunk
-        .map(([, nm]) => `nome.ilike.%${nm.trim().replace(/[,()]/g, ' ')}%`)
-        .join(',')
-      const { data: leads, error } = await supabase
-        .from('lia_attendances').select('id, nome')
-        .is('merged_into', null).or(ors).limit(500)
+    for (let i = 0; i < candidates.length; i += 100) {
+      const chunk = candidates.slice(i, i + 100)
+      const { data: matches, error } = await supabase.rpc('wa_match_leads_by_names', {
+        p_names: chunk.map(([, nm]) => nm),
+      })
       if (error) { debug.errors.push(`name_batch: ${error.message}`); continue }
+      const byNorm = new Map<string, string>()
+      for (const m of (matches ?? []) as any[]) byNorm.set(m.norm_name, m.lead_id)
       for (const [lk, nm] of chunk) {
-        const n = normName(nm)
-        const exact = (leads ?? []).filter((l: any) => normName(l.nome) === n)
-        if (exact.length === 1) hits.set(lk, { lidKey: lk, leadId: exact[0].id, how: 'name', name: nm })
+        const leadId = byNorm.get(normName(nm))
+        if (leadId) hits.set(lk, { lidKey: lk, leadId, how: 'name', name: nm })
       }
     }
   }
