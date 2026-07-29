@@ -529,7 +529,24 @@ function LivePreview({ content, heroImage }: { content: LPContent; heroImage: st
         style={{ scrollbarWidth: "thin", scrollbarGutter: "stable" }}
       >
         <div className="mx-auto min-h-full" style={{ maxWidth: 1200 }}>
-          <PremiumLandingTemplate content={content} heroImageUrl={heroImage || null} />
+          <PremiumLandingTemplate
+            content={content}
+            heroImageUrl={heroImage || null}
+            formSlot={
+              <div className="space-y-4">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="space-y-1.5">
+                    <div className="h-3 w-32 rounded bg-slate-200" />
+                    <div className="h-10 w-full rounded-md border border-slate-200 bg-slate-50" />
+                  </div>
+                ))}
+                <div className="h-10 w-full rounded-md bg-slate-300" />
+                <p className="text-center text-[11px] text-slate-500">
+                  Prévia — na página publicada aparecem as 3 primeiras perguntas reais do formulário.
+                </p>
+              </div>
+            }
+          />
         </div>
       </div>
     </div>
