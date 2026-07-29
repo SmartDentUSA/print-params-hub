@@ -184,15 +184,15 @@ const App = () => (
 );
 
 function ReformatBatchGlobal() {
-  const { pathname } = useLocation();
-  if (pathname.startsWith('/embed')) return null;
+  const { pathname, search } = useLocation();
+  if (pathname.startsWith('/embed') || search.includes('embed=1')) return null;
   return <ReformatBatchWidget />;
 }
 
 // Only render the floating widget outside admin and embed routes
 function DraLIAGlobal() {
-  const { pathname } = useLocation();
-  if (pathname.startsWith('/admin') || pathname.startsWith('/embed') || pathname.startsWith('/social') || pathname.startsWith('/agenda') || pathname.startsWith('/ferramentas')) return null;
+  const { pathname, search } = useLocation();
+  if (search.includes('embed=1') || pathname.startsWith('/admin') || pathname.startsWith('/embed') || pathname.startsWith('/social') || pathname.startsWith('/agenda') || pathname.startsWith('/ferramentas')) return null;
   return (
     <ChunkErrorBoundary>
       <Suspense fallback={null}>
@@ -203,8 +203,8 @@ function DraLIAGlobal() {
 }
 
 function FooterGlobal() {
-  const { pathname } = useLocation();
-  if (pathname.startsWith('/admin') || pathname.startsWith('/embed') || pathname.startsWith('/social') || pathname.startsWith('/agenda') || pathname.startsWith('/ferramentas')) return null;
+  const { pathname, search } = useLocation();
+  if (search.includes('embed=1') || pathname.startsWith('/admin') || pathname.startsWith('/embed') || pathname.startsWith('/social') || pathname.startsWith('/agenda') || pathname.startsWith('/ferramentas')) return null;
   return <Footer />;
 }
 
