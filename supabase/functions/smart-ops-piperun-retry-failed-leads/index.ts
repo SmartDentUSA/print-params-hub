@@ -314,6 +314,18 @@ Deno.serve(async (req) => {
             .filter(Boolean),
         );
         const targets = (orphanCandidates || []).filter((l: any) => !publishedIds.has(l.id));
+        await supabase.from("system_health_logs").insert({
+          function_name: "smart-ops-piperun-retry-failed-leads",
+          severity: "info",
+          error_type: "contact_backfill_target_audit",
+          details: {
+            candidates: ids.length,
+            dedup_log_rows: (publishedLogs || []).length,
+            dedup_ids: publishedIds.size,
+            targets: targets.length,
+            sample_targets: targets.slice(0, 5).map((t: any) => t.id),
+          },
+        });
         if (targets.length > 0) {
           const batch = targets.slice(0, 50).map((t: any) => t.id);
           contactBackfill = { invoked: true, lead_count: batch.length };
