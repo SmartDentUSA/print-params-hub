@@ -902,12 +902,12 @@ export default function PublicFormPage() {
               if (isStepMode && !isLastStep) { e.preventDefault(); goNext(); return; }
               if (hasHiddenQualificationFields) {
                 e.preventDefault();
-                for (const f of renderableFields) {
+                for (const f of visibleFields) {
                   const err = validateField(f);
                   if (err) { setInlineError(err); return; }
                 }
                 setInlineError(null);
-                setRevealCount((c) => c + NEXT_BATCH);
+                setQualificationBatchStart(qualificationBatchEnd);
                 return;
               }
               handleSubmit(e);
