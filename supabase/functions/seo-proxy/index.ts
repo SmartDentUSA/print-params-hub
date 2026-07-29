@@ -209,7 +209,7 @@ async function fetchKnowledgeContext(supabase: any, opts?: { categoryId?: string
   const limit = opts?.limit || 5;
   
   const [productsRes, categoriesRes, authorsRes, articlesRes, testimonialsRes, linksRes] = await Promise.all([
-    supabase.from('system_a_catalog').select('name, slug, description, image_url, category').eq('active', true).eq('approved', true).eq('category', 'product').order('order_index').limit(limit),
+    supabase.from('system_a_catalog').select('name, slug, description, image_url, category').eq('active', true).eq('approved', true).eq('category', 'product').order('display_order', { ascending: true, nullsFirst: false }).limit(limit),
     supabase.from('knowledge_categories').select('id, name, letter').eq('enabled', true).order('order_index'),
     supabase.from('authors').select('name, specialty, mini_bio, photo_url').eq('active', true).order('order_index').limit(limit),
     (() => {
