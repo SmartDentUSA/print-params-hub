@@ -1,4 +1,5 @@
 import { useParams } from "react-router-dom";
+import { getPublicOrigin } from "@/utils/publicOrigin";
 import { Helmet } from "react-helmet-async";
 import { Instagram, Youtube, Facebook, Linkedin, Globe, MessageCircle, Share2, ArrowRight, Loader2 } from "lucide-react";
 import { toast } from "sonner";
@@ -55,7 +56,7 @@ export default function PublicBioPage() {
   const { data: page, isLoading } = useBioPage(slug);
 
   const share = async () => {
-    const url = window.location.href;
+    const url = `${getPublicOrigin()}/bio/${page?.slug ?? ""}`;
     const title = page?.title ?? "Smart Dent";
     if (navigator.share) {
       try {
