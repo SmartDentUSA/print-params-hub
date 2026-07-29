@@ -320,15 +320,13 @@ export async function diagnoseLead(
     try {
       const { data: forms } = await supabase
         .from("smartops_form_field_responses")
-        .select("field_name,field_label,value,created_at")
+        .select("field_label,value,created_at")
         .eq("lead_id", lead.id as string)
         .order("created_at", { ascending: false })
         .limit(80);
       for (const r of (forms ?? []) as Array<Record<string, unknown>>) {
-        const fn = norm(r.field_name);
         const fl = norm(r.field_label);
         const v = String(r.value ?? "");
-        if (fn && !formIndex.has(fn)) formIndex.set(fn, v);
         if (fl && !formIndex.has(fl)) formIndex.set(fl, v);
       }
     } catch (_e) { /* swallow */ }
