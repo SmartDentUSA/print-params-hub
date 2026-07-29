@@ -532,8 +532,10 @@ export async function verifyAndRecoverPersonContact(
         lead_email: email,
         details: {
           person_id: personId,
-          missing_email: !finalHasEmail,
-          missing_phone: !finalHasPhone,
+          // NOTE: these flags describe the PIPERUN CARD after the PUT, not the CDP
+          // record. The lead may well have an email locally (see lead_email above).
+          email_missing_on_piperun_card: !finalHasEmail,
+          phone_missing_on_piperun_card: !finalHasPhone,
           retried_email: retriedEmail,
           retried_phone: retriedPhone,
           owner_search_returned_self_or_null: true,
