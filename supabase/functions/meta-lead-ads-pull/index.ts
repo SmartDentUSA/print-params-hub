@@ -106,6 +106,69 @@ async function setBackoff(supabase: SupabaseClient, minutes: number, reason: str
   );
 }
 
+async function replayOneBufferedLead(supabase: SupabaseClient): Promise<void> {
+  const { data: buffered, error: readError } = await supabase
+    .from("meta_lead_event_buffer")
+    .select("id, leadgen_id, raw_payload, attempts")
+    .eq("status", "pending_ingest")
+    .lt("attempts", 10)
+    .order("created_at", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+
+  if (readError || !buffered?.id || !buffered.raw_payload) return;
+
+  const ingestUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1/smart-ops-ingest-lead`;
+  try {
+    const response = await fetch(ingestUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+      },
+      body: JSON.stringify(buffered.raw_payload),
+    });
+    const responseText = await response.text();
+    let responseBody: Record<string, unknown> = {};
+    try { responseBody = JSON.parse(responseText); } catch { /* non-JSON error body */ }
+
+    if (response.ok && responseBody.success === true && responseBody.lead_id) {
+      await supabase.from("meta_lead_event_buffer").update({
+        status: "processed",
+        processed_lead_id: String(responseBody.lead_id),
+        error_message: null,
+        attempts: Number(buffered.attempts || 0) + 1,
+        last_attempt_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      }).eq("id", buffered.id);
+      await log(supabase, "info", "meta_buffer_replay_processed", {
+        leadgen_id: buffered.leadgen_id,
+        lead_id: responseBody.lead_id,
+      });
+      return;
+    }
+
+    await supabase.from("meta_lead_event_buffer").update({
+      attempts: Number(buffered.attempts || 0) + 1,
+      last_attempt_at: new Date().toISOString(),
+      error_message: `replay_status=${response.status} ${responseText.slice(0, 300)}`,
+      updated_at: new Date().toISOString(),
+    }).eq("id", buffered.id);
+    await log(supabase, "warning", "meta_buffer_replay_failed", {
+      leadgen_id: buffered.leadgen_id,
+      status: response.status,
+      response_preview: responseText.slice(0, 300),
+    });
+  } catch (error) {
+    await supabase.from("meta_lead_event_buffer").update({
+      attempts: Number(buffered.attempts || 0) + 1,
+      last_attempt_at: new Date().toISOString(),
+      error_message: `replay_transport_error=${String(error).slice(0, 300)}`,
+      updated_at: new Date().toISOString(),
+    }).eq("id", buffered.id);
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -121,6 +184,11 @@ Deno.serve(async (req) => {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
+
+  // Drain one parked event on every invocation. Previously failures were
+  // persisted in meta_lead_event_buffer but never consumed, turning a
+  // transient 500/502 into permanent silent lead loss.
+  await replayOneBufferedLead(supabase);
 
   let sinceMinutes = 30;
   try {
