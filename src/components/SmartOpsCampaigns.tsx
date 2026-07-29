@@ -21,6 +21,7 @@ import {
 import { Save, Bookmark, Trash2 } from "lucide-react";
 import { SmartOpsWaGroupCampaigns } from "@/components/smartops/wa-groups/SmartOpsWaGroupCampaigns";
 import { MetaFormMappingsPanel } from "@/components/smartops/meta-forms/MetaFormMappingsPanel";
+import { BioLinkPanel } from "@/components/smartops/bio/BioLinkPanel";
 import { EmailCampaignWizard } from "@/components/smartops/EmailCampaignWizard";
 
 // ── Types ──
