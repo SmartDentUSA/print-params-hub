@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { supabase } from '@/integrations/supabase/client';
 import { getPageTrackingSessionId } from '@/hooks/usePageTracking';
 import draLiaAvatar from '@/assets/dra-lia-avatar.png';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -274,13 +275,21 @@ export default function DraLIA({ embedded = false }: DraLIAProps) {
     const checkKnownLead = async () => {
       try {
         const sid = sessionId.current;
-        // Check if this session has a known lead in lia_attendances via REST
-        const resp = await fetch(
-          `${SUPABASE_URL}/rest/v1/lia_attendances?session_id=eq.${encodeURIComponent(sid)}&nome=not.is.null&select=id,nome,email&limit=1`,
-          { headers: { apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY, Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}` } }
-        );
-        const rows = await resp.json();
-        const data = Array.isArray(rows) && rows.length > 0 ? rows[0] : null;
+        // Sessions belong to agent_sessions; lia_attendances has no session_id.
+        const { data: session } = await supabase
+          .from('agent_sessions')
+          .select('lead_id')
+          .eq('session_id', sid)
+          .maybeSingle();
+        if (!session?.lead_id) return;
+
+        const { data } = await supabase
+          .from('lia_attendances')
+          .select('id,nome,email')
+          .eq('id', session.lead_id)
+          .is('merged_into', null)
+          .not('nome', 'is', null)
+          .maybeSingle();
 
         if (data?.nome) {
           const firstName = data.nome.split(' ')[0];
