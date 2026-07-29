@@ -512,10 +512,20 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Identidade: telefone é o identificador primário. E-mail passou a ser
+    // opcional (coluna `lia_attendances.email` é nullable desde 2026-07-29).
+    // Só rejeitamos quando NÃO há e-mail E NÃO há telefone.
     if (!email) {
-      return new Response(JSON.stringify({ error: "Email obrigatório" }), {
-        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      const anyPhone = String(
+        payload.phone_number || payload.phone || payload.mobile ||
+        payload.telefone || payload.celular || payload.user_phone || "",
+      ).replace(/\D/g, "");
+      if (!anyPhone) {
+        return new Response(JSON.stringify({ error: "Informe e-mail ou telefone" }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      console.log("[ingest-lead] Lead sem e-mail aceito (identidade por telefone)");
     }
 
     // Filter test emails to prevent polluting the database
