@@ -609,8 +609,10 @@ export default function PublicFormPage() {
 
   return (
     <div
-      className={`public-form-page min-h-screen flex flex-col items-center p-4 pt-8 md:pt-16 ${(form as any).theme_mode === "dark" ? "dark" : ""}`}
+      ref={embedRootRef}
+      className={`public-form-page flex flex-col items-center ${isEmbed ? "p-0" : "min-h-screen p-4 pt-8 md:pt-16"} ${(form as any).theme_mode === "dark" ? "dark" : ""}`}
       data-layout={(form as any).layout_variant || "split"}
+      data-embed={isEmbed ? "true" : "false"}
       data-pp-default={(() => {
         const f: any = form;
         const t = f.bg_type || "solid";
