@@ -148,7 +148,10 @@ export default function PublicFormPage() {
   // No modo "3 primeiras perguntas" o formulário MOSTRA 3 campos primeiro,
   // mas continua coletando todas as perguntas de qualificação: ao avançar,
   // os campos restantes são revelados antes do envio.
-  const [revealedAll, setRevealedAll] = useState(false);
+  // Revelação progressiva: começa com 3 campos e libera +2 a cada "Continuar".
+  const FIRST_BATCH = 3;
+  const NEXT_BATCH = 2;
+  const [revealCount, setRevealCount] = useState(FIRST_BATCH);
 
   // Em modo embed, informa a altura ao container (landing page) para evitar scroll interno.
   useEffect(() => {
@@ -168,11 +171,11 @@ export default function PublicFormPage() {
   }, [isEmbed, slug]);
   // Filter fields by conditional logic against current answers
   const allRenderableFields = fields.filter((f) => isFieldVisible(f, values));
-  const renderableFields = isFirstThreeMode && !revealedAll
-    ? allRenderableFields.slice(0, 3)
+  const renderableFields = isFirstThreeMode
+    ? allRenderableFields.slice(0, revealCount)
     : allRenderableFields;
   const hasHiddenQualificationFields =
-    isFirstThreeMode && !revealedAll && allRenderableFields.length > 3;
+    isFirstThreeMode && allRenderableFields.length > renderableFields.length;
   const totalSteps = renderableFields.length;
   const safeStep = Math.min(currentStep, Math.max(0, totalSteps - 1));
   const visibleFields = isStepMode
@@ -708,13 +711,15 @@ export default function PublicFormPage() {
         .public-form-page[data-embed="true"] {
           background: transparent !important;
           min-height: 0;
-          --form-heading: #0f172a;
-          --form-body: #1f2937;
-          --form-label: #0f172a;
-          --form-muted: rgba(15,23,42,0.62);
+          --form-heading: #0f172a !important;
+          --form-body: #1f2937 !important;
+          --form-label: #0f172a !important;
+          --form-muted: rgba(15,23,42,0.62) !important;
         }
         .public-form-page[data-embed="true"] .brand-strip { display: none !important; }
-        .public-form-page[data-embed="true"] label {
+        .public-form-page[data-embed="true"] label,
+        .public-form-page[data-embed="true"] .text-foreground {
+          color: #0f172a !important;
           font-size: 0.8125rem;
           font-weight: 600;
           letter-spacing: 0.01em;
@@ -897,7 +902,7 @@ export default function PublicFormPage() {
                   if (err) { setInlineError(err); return; }
                 }
                 setInlineError(null);
-                setRevealedAll(true);
+                setRevealCount((c) => c + NEXT_BATCH);
                 return;
               }
               handleSubmit(e);
