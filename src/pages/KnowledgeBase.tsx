@@ -137,7 +137,7 @@ export default function KnowledgeBase({ lang = 'pt', forcedTab }: KnowledgeBaseP
         .eq('active', true)
         .eq('approved', true)
         .eq('visible_in_ui', true)
-        .in('entity_type', PRODUCT_CATALOG_ENTITY_TYPES as unknown as string[]);
+        .in('category', PRODUCT_CATALOG_ENTITY_TYPES as unknown as string[]);
       if (!data) return;
       setCatalogRowsMeta(data as any[]);
     })();
