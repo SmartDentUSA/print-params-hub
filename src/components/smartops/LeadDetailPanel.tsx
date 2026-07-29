@@ -341,8 +341,6 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
     ld.updated_at && `🔄 Último: ${formatDate(ld.updated_at)}`,
     ld.total_deals && `💼 ${ld.total_deals} deal${ld.total_deals !== 1 ? "s" : ""}`,
     person?.nome && `👤 ${person.nome}`,
-    ld.area_atuacao,
-    ld.especialidade && `🦷 ${ld.especialidade}`,
     ld.piperun_stage_name && `📍 ${ld.piperun_stage_name}`,
   ].filter(Boolean) as string[];
 
@@ -1053,6 +1051,28 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
         <div>
           <div className="lead-name">{ld.nome}</div>
           <div className={`buyer-type ${tipoCls}`}>{tipoTxt}</div>
+          {(ld.area_atuacao || ld.especialidade) && (
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6, margin: "6px 0" }}>
+              {ld.area_atuacao && (
+                <span
+                  className="ctx-badge"
+                  title="Área de atuação"
+                  style={{ background: "rgba(59,130,246,0.15)", color: "#3b82f6", fontWeight: 700, fontSize: "0.72rem" }}
+                >
+                  🩺 Área: {ld.area_atuacao}
+                </span>
+              )}
+              {ld.especialidade && (
+                <span
+                  className="ctx-badge"
+                  title="Especialidade"
+                  style={{ background: "rgba(168,85,247,0.15)", color: "#a855f7", fontWeight: 700, fontSize: "0.72rem" }}
+                >
+                  🦷 Especialidade: {ld.especialidade}
+                </span>
+              )}
+            </div>
+          )}
           <div className="badges-row">
             {support_summary && support_summary.open > 0 && (
               <span className="ctx-badge ctx-badge-support">🔧 {support_summary.open} chamado{support_summary.open !== 1 ? "s" : ""} aberto{support_summary.open !== 1 ? "s" : ""}</span>
