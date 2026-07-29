@@ -74,27 +74,36 @@ Deno.serve(async (req) => {
   const dryRun: boolean = body.dry_run === true
   const onlyInstance: string | null = body.instance_name ?? null
   const nameMatch: boolean = body.enable_name_match !== false
-  const limit: number = Math.min(Math.max(Number(body.limit ?? 8000), 100), 20000)
+  const limit: number = Math.min(Math.max(Number(body.limit ?? 1500), 100), 5000)
 
   const debug: any = { errors: [] as string[], sources: {} as Record<string, number> }
 
   // ------------------------------------------------------------------ inbox
-  let q = supabase
-    .from('whatsapp_inbox')
-    .select('id, phone, phone_normalized, remote_jid, sender_name, instance_name, lead_id, is_group')
-    .order('created_at', { ascending: false })
-    .limit(limit)
-  if (onlyInstance) q = q.eq('instance_name', onlyInstance)
-  const { data: rows, error: rowsErr } = await q
-  if (rowsErr) {
-    return new Response(JSON.stringify({ error: rowsErr.message }), {
-      status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    })
+  // PostgREST devolve no máximo 1000 linhas por request → pagina até `limit`
+  const rows: any[] = []
+  const PAGE = 1000
+  for (let from = 0; from < limit; from += PAGE) {
+    let q = supabase
+      .from('whatsapp_inbox')
+      .select('id, phone, phone_normalized, remote_jid, sender_name, instance_name, lead_id, is_group')
+      .order('created_at', { ascending: false })
+      .range(from, Math.min(from + PAGE, limit) - 1)
+    if (onlyInstance) q = q.eq('instance_name', onlyInstance)
+    const { data: page, error: pageErr } = await q
+    if (pageErr) {
+      return new Response(JSON.stringify({ error: pageErr.message }), {
+        status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+    if (!page?.length) break
+    rows.push(...page)
+    if (page.length < PAGE) break
   }
 
-  const pending = (rows ?? []).filter((r: any) =>
+  const pending = rows.filter((r: any) =>
     !r.lead_id && !r.is_group && isLid(r.phone_normalized || r.phone))
   const lidKeys = [...new Set(pending.map((r: any) => digits(r.phone_normalized || r.phone)))]
+  const pendingSet = new Set(lidKeys)
   debug.pending_rows = pending.length
   debug.pending_lids = lidKeys.length
 
@@ -107,7 +116,7 @@ Deno.serve(async (req) => {
   }
 
   // payload consultado só para os LIDs ainda sem telefone (evita baixar JSON gigante)
-  const needPayload = lidKeys.filter((lk) => !phoneByLid.has(lk)).slice(0, 200)
+  const needPayload = lidKeys.filter((lk) => !phoneByLid.has(lk)).slice(0, 100)
   for (let i = 0; i < needPayload.length; i += 20) {
     const batch = needPayload.slice(i, i + 20)
     await Promise.all(batch.map(async (lk) => {
@@ -151,8 +160,10 @@ Deno.serve(async (req) => {
       try {
         const recs = await evoPost(`/chat/findContacts/${enc(instance)}`, apikey, { where: {} })
         for (const rec of (Array.isArray(recs) ? recs : []) as any[]) {
-          const lk = digits(String(rec?.remoteJid ?? rec?.id ?? '').split('@')[0])
-          if (!lk) continue
+          const jid = String(rec?.remoteJid ?? '')
+          if (!jid || jid.includes('@g.us') || jid.includes('broadcast')) continue
+          const lk = digits(jid.split('@')[0])
+          if (!lk || !pendingSet.has(lk)) continue
           if (rec?.pushName && !nameByLid.get(lk)) nameByLid.set(lk, String(rec.pushName))
         }
       } catch (e) {
@@ -193,19 +204,17 @@ Deno.serve(async (req) => {
       const n = normName(nm)
       return n.split(' ').length >= 2 && n.length >= 8
     })
-    for (let i = 0; i < candidates.length; i += 15) {
-      const chunk = candidates.slice(i, i + 15)
-      const ors = chunk
-        .map(([, nm]) => `nome.ilike.%${nm.trim().replace(/[,()]/g, ' ')}%`)
-        .join(',')
-      const { data: leads, error } = await supabase
-        .from('lia_attendances').select('id, nome')
-        .is('merged_into', null).or(ors).limit(500)
+    for (let i = 0; i < candidates.length; i += 100) {
+      const chunk = candidates.slice(i, i + 100)
+      const { data: matches, error } = await supabase.rpc('wa_match_leads_by_names', {
+        p_names: chunk.map(([, nm]) => nm),
+      })
       if (error) { debug.errors.push(`name_batch: ${error.message}`); continue }
+      const byNorm = new Map<string, string>()
+      for (const m of (matches ?? []) as any[]) byNorm.set(m.norm_name, m.lead_id)
       for (const [lk, nm] of chunk) {
-        const n = normName(nm)
-        const exact = (leads ?? []).filter((l: any) => normName(l.nome) === n)
-        if (exact.length === 1) hits.set(lk, { lidKey: lk, leadId: exact[0].id, how: 'name', name: nm })
+        const leadId = byNorm.get(normName(nm))
+        if (leadId) hits.set(lk, { lidKey: lk, leadId, how: 'name', name: nm })
       }
     }
   }
