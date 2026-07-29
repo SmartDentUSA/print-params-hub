@@ -151,6 +151,8 @@ Deno.serve(async (req) => {
       console.warn("connectionState check failed", e);
     }
 
+    await warmupContact(instance, apikey, target);
+
     const url = `${EVO_BASE}/message/sendText/${encodeURIComponent(instance)}`;
 
     const res = await fetch(url, {
@@ -168,6 +170,35 @@ Deno.serve(async (req) => {
     let payload: any = null;
     try { payload = JSON.parse(text); } catch { /* ignore */ }
 
+    const messageId = payload?.key?.id ?? null;
+    const remoteJid = payload?.key?.remoteJid ?? `${target}@s.whatsapp.net`;
+    let status = baileysStatus(payload);
+
+    if (messageId && (!status || status === "PENDING")) {
+      await sleep(1_500);
+      status = await findMessageStatus(instance, apikey, remoteJid, messageId) ?? status;
+    }
+
+    const rawPayload = {
+      source,
+      metadata,
+      response: payload,
+      delivery_status_raw: status,
+      delivery_guard_checked_at: new Date().toISOString(),
+    };
+
+    if (!status || !ACK_OK.has(status)) {
+      console.error(JSON.stringify({ event: "wa.send.pending_or_unknown", instance, target, messageId, status }));
+      return json({
+        success: false,
+        error: "message_not_acknowledged",
+        instance,
+        message_id: messageId,
+        status: status ?? "unknown",
+        detail: `A instância "${instance}" aceitou a mensagem, mas o WhatsApp não confirmou entrega ao servidor (status ${status ?? "unknown"}). Reconecte/atualize a sessão desta instância antes de enviar novamente para evitar "Aguardando mensagem" no destinatário.`,
+      }, 409);
+    }
+
     await supabase.from("whatsapp_inbox").insert({
       phone: target,
       phone_normalized: target,
@@ -176,14 +207,14 @@ Deno.serve(async (req) => {
       lead_id,
       team_member_id: tm.id,
       instance_name: instance,
-      wa_message_id: payload?.key?.id ?? null,
-      remote_jid: payload?.key?.remoteJid ?? `${target}@s.whatsapp.net`,
+      wa_message_id: messageId,
+      remote_jid: remoteJid,
       is_group: false,
       sender_name: tm.nome_completo ?? null,
-      raw_payload: { source, metadata, response: payload },
+      raw_payload: rawPayload,
     });
 
-    return json({ success: true, instance, message_id: payload?.key?.id ?? null });
+    return json({ success: true, instance, message_id: messageId, status });
   } catch (err) {
     console.error("send error", err);
     return json({ success: false, error: String((err as Error)?.message ?? err) }, 500);
