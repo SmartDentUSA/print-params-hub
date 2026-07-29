@@ -9888,7 +9888,7 @@ export type Database = {
           data_ultima_compra_smart_slice: string | null
           dealer_id: string | null
           do_not_contact: boolean
-          email: string
+          email: string | null
           email_bounced: boolean
           email_bounced_at: string | null
           email_bounced_reason: string | null
@@ -10500,7 +10500,7 @@ export type Database = {
           data_ultima_compra_smart_slice?: string | null
           dealer_id?: string | null
           do_not_contact?: boolean
-          email: string
+          email?: string | null
           email_bounced?: boolean
           email_bounced_at?: string | null
           email_bounced_reason?: string | null
@@ -11112,7 +11112,7 @@ export type Database = {
           data_ultima_compra_smart_slice?: string | null
           dealer_id?: string | null
           do_not_contact?: boolean
-          email?: string
+          email?: string | null
           email_bounced?: boolean
           email_bounced_at?: string | null
           email_bounced_reason?: string | null
@@ -31199,7 +31199,7 @@ export type Database = {
           data_ultima_compra_smart_slice: string | null
           dealer_id: string | null
           do_not_contact: boolean
-          email: string
+          email: string | null
           email_bounced: boolean
           email_bounced_at: string | null
           email_bounced_reason: string | null
