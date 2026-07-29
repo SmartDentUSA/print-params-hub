@@ -411,6 +411,25 @@ export function SmartOpsWhatsAppInbox({ refreshKey }: { refreshKey: number }) {
                 {conv.lead_name && (
                   <p className="text-[10px] text-muted-foreground mb-0.5">📱 {formatPhone(conv.phone_raw)}</p>
                 )}
+                {(conv.funil || conv.vendedor || conv.treinamento) && (
+                  <div className="flex flex-wrap gap-1 mb-1">
+                    {conv.funil && (
+                      <Badge variant="outline" className="text-[9px] px-1.5 py-0 border-blue-300 text-blue-700 bg-blue-50">
+                        🎯 {conv.funil}
+                      </Badge>
+                    )}
+                    {conv.vendedor && (
+                      <Badge variant="outline" className="text-[9px] px-1.5 py-0 border-purple-300 text-purple-700 bg-purple-50">
+                        👤 {conv.vendedor}
+                      </Badge>
+                    )}
+                    {conv.treinamento && (
+                      <Badge variant="outline" className="text-[9px] px-1.5 py-0 border-amber-300 text-amber-700 bg-amber-50">
+                        🎓 {conv.treinamento}
+                      </Badge>
+                    )}
+                  </div>
+                )}
                 <p className="text-xs text-muted-foreground truncate">{conv.last_message}</p>
                 {conv.instance_name && (
                   <Badge variant="secondary" className="mt-1 mr-1 text-[9px] px-1.5 py-0">
