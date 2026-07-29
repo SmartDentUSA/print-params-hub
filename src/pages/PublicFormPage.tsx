@@ -1120,18 +1120,36 @@ export default function PublicFormPage() {
                 </Button>
               </div>
             ) : (
-              <Button
-                type="submit"
-                className="w-full"
-                disabled={submitting}
-                style={{ backgroundColor: 'var(--brand)', borderColor: 'var(--brand-dark)' }}
-              >
-                {submitting
-                  ? "Enviando..."
-                  : hasHiddenQualificationFields
-                    ? "Continuar"
-                    : (form.cta_text || "Enviar")}
-              </Button>
+              <div className="flex gap-2">
+                {isFirstThreeMode && qualificationBatchStart > 0 && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="flex-1"
+                    disabled={submitting}
+                    onClick={() => {
+                      setInlineError(null);
+                      setQualificationBatchStart((s) =>
+                        s <= FIRST_BATCH ? 0 : s - NEXT_BATCH,
+                      );
+                    }}
+                  >
+                    Voltar
+                  </Button>
+                )}
+                <Button
+                  type="submit"
+                  className="flex-1"
+                  disabled={submitting}
+                  style={{ backgroundColor: 'var(--brand)', borderColor: 'var(--brand-dark)' }}
+                >
+                  {submitting
+                    ? "Enviando..."
+                    : hasHiddenQualificationFields
+                      ? "Continuar"
+                      : (form.cta_text || "Enviar")}
+                </Button>
+              </div>
             )}
             {form.trust_text && (
               <p className="text-xs text-center text-muted-foreground pt-1">{form.trust_text}</p>
