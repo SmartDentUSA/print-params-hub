@@ -136,6 +136,8 @@ export default function PublicFormPage() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Simple inline toast
+  const [inlineError, setInlineError] = useState<string | null>(null);
   const [currentStep, setCurrentStep] = useState(0);
   // Embed mode (usado pela landing page): renderiza somente o formulário,
   // sem coluna de mídia/texto e sem fundo de página.
@@ -153,22 +155,6 @@ export default function PublicFormPage() {
   const NEXT_BATCH = 2;
   const [qualificationBatchStart, setQualificationBatchStart] = useState(0);
 
-  // Em modo embed, informa a altura ao container (landing page) para evitar scroll interno.
-  useEffect(() => {
-    if (!isEmbed) return;
-    const el = embedRootRef.current;
-    if (!el || typeof ResizeObserver === "undefined") return;
-    const post = () => {
-      window.parent?.postMessage(
-        { type: "smartops-form-height", height: el.scrollHeight, slug },
-        "*",
-      );
-    };
-    post();
-    const ro = new ResizeObserver(post);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, [isEmbed, slug]);
   // Filter fields by conditional logic against current answers
   const allRenderableFields = fields.filter((f) => isFieldVisible(f, values));
   const currentBatchSize = qualificationBatchStart === 0 ? FIRST_BATCH : NEXT_BATCH;
@@ -187,6 +173,53 @@ export default function PublicFormPage() {
       ? currentQualificationFields
       : renderableFields;
   const isLastStep = !isStepMode || safeStep >= totalSteps - 1;
+
+  // Em modo embed, informa a altura real ao container (landing page) para evitar corte.
+  // A medição precisa rodar depois do loading e a cada troca de batch (+2 perguntas),
+  // porque o ref não existe no primeiro render e o iframe não cresce sozinho.
+  useEffect(() => {
+    if (!isEmbed) return;
+    const el = embedRootRef.current;
+    if (!el) return;
+
+    let frame = 0;
+    const postHeight = () => {
+      const body = document.body;
+      const doc = document.documentElement;
+      const height = Math.ceil(Math.max(
+        el.scrollHeight,
+        el.offsetHeight,
+        el.getBoundingClientRect().height,
+        body?.scrollHeight || 0,
+        doc?.scrollHeight || 0,
+      ));
+      window.parent?.postMessage(
+        { type: "smartops-form-height", height, slug },
+        "*",
+      );
+    };
+    const schedulePost = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        postHeight();
+        requestAnimationFrame(postHeight);
+      });
+    };
+
+    schedulePost();
+    const observer = typeof ResizeObserver !== "undefined" ? new ResizeObserver(schedulePost) : null;
+    observer?.observe(el);
+    if (document.body) observer?.observe(document.body);
+    const timers = [80, 180, 360, 720].map((delay) => window.setTimeout(postHeight, delay));
+    window.addEventListener("load", schedulePost);
+
+    return () => {
+      cancelAnimationFrame(frame);
+      timers.forEach((timer) => window.clearTimeout(timer));
+      observer?.disconnect();
+      window.removeEventListener("load", schedulePost);
+    };
+  }, [isEmbed, slug, loading, submitted, qualificationBatchStart, visibleFields.length, inlineError, submitting]);
 
   const validateField = (field: FormField): string | null => {
     const val = values[field.id];
@@ -607,8 +640,6 @@ export default function PublicFormPage() {
     }
   };
 
-  // Simple inline toast
-  const [inlineError, setInlineError] = useState<string | null>(null);
   const toast_inline = (msg: string) => {
     setInlineError(msg);
     setTimeout(() => setInlineError(null), 4000);
