@@ -29,6 +29,7 @@ import {
   X,
 } from "lucide-react";
 import { toast } from "sonner";
+import { getPublicOrigin } from "@/utils/publicOrigin";
 import {
   useBioPages,
   useBioSourceOptions,
@@ -111,7 +112,7 @@ export function BioLinkPanel() {
     return (sources ?? []).filter((s) => `${s.label} ${s.slug}`.toLowerCase().includes(q));
   }, [sources, pickerSearch]);
 
-  const publicUrl = (slug: string) => `${window.location.origin}/bio/${slug}`;
+  const publicUrl = (slug: string) => `${getPublicOrigin()}/bio/${slug}`;
 
   const toggleSource = (key: string) => {
     if (!editor) return;
