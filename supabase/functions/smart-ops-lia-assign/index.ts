@@ -2879,7 +2879,7 @@ Deno.serve(async (req) => {
     );
     const estagnadosFormReactivation =
       canonPipelineId === PIPELINES.ESTAGNADOS &&
-      Boolean(lead.form_name || enrichment_form_name || (payload as any)?.form_name);
+      Boolean(lead.form_name || enrichment_form_name || (body as any)?.form_name);
     if (
       force_new_deal !== true &&
       hasAnyCrmLink &&
