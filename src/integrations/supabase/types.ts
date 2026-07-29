@@ -25483,7 +25483,9 @@ export type Database = {
           created_at: string
           direction: string
           id: string
+          instance_name: string | null
           intent_detected: string | null
+          is_group: boolean
           lead_id: string | null
           matched_by: string | null
           media_type: string | null
@@ -25493,14 +25495,20 @@ export type Database = {
           phone_normalized: string | null
           processed_at: string | null
           raw_payload: Json | null
+          remote_jid: string | null
           seller_notified: boolean | null
+          sender_name: string | null
+          team_member_id: string | null
+          wa_message_id: string | null
         }
         Insert: {
           confidence_score?: number | null
           created_at?: string
           direction?: string
           id?: string
+          instance_name?: string | null
           intent_detected?: string | null
+          is_group?: boolean
           lead_id?: string | null
           matched_by?: string | null
           media_type?: string | null
@@ -25510,14 +25518,20 @@ export type Database = {
           phone_normalized?: string | null
           processed_at?: string | null
           raw_payload?: Json | null
+          remote_jid?: string | null
           seller_notified?: boolean | null
+          sender_name?: string | null
+          team_member_id?: string | null
+          wa_message_id?: string | null
         }
         Update: {
           confidence_score?: number | null
           created_at?: string
           direction?: string
           id?: string
+          instance_name?: string | null
           intent_detected?: string | null
+          is_group?: boolean
           lead_id?: string | null
           matched_by?: string | null
           media_type?: string | null
@@ -25527,7 +25541,11 @@ export type Database = {
           phone_normalized?: string | null
           processed_at?: string | null
           raw_payload?: Json | null
+          remote_jid?: string | null
           seller_notified?: boolean | null
+          sender_name?: string | null
+          team_member_id?: string | null
+          wa_message_id?: string | null
         }
         Relationships: [
           {

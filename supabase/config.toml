@@ -406,6 +406,9 @@ verify_jwt = false
 [functions.smart-ops-reassign-danilo-vendas]
 verify_jwt = false
 
+[functions.smart-ops-wa-capture-conversations]
+verify_jwt = false
+
 [functions.wa-sync-groups]
 verify_jwt = false
 
