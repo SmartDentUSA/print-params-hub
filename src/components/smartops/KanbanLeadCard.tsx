@@ -144,6 +144,16 @@ export function KanbanLeadCard({ lead, showDaysStagnant = false, onDragStart, on
             📍 {[lead.cidade, lead.uf].filter(Boolean).join("-")}
           </div>
         )}
+        {(lead.area_atuacao || lead.especialidade) && (
+          <div className="flex flex-wrap gap-0.5">
+            {lead.area_atuacao && (
+              <Badge className="text-[9px] px-1 py-0 font-semibold bg-primary/15 text-primary" title="Área de atuação">🩺 {lead.area_atuacao}</Badge>
+            )}
+            {lead.especialidade && (
+              <Badge className="text-[9px] px-1 py-0 font-semibold bg-secondary text-secondary-foreground" title="Especialidade">🦷 {lead.especialidade}</Badge>
+            )}
+          </div>
+        )}
         <div className="flex flex-wrap gap-0.5">
           {lead.produto_interesse && (
             <Badge variant="outline" className="text-[9px] px-1 py-0">{lead.produto_interesse}</Badge>
