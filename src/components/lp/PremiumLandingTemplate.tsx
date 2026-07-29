@@ -45,6 +45,7 @@ export type LPContent = {
   theme?: LPThemeKey;
   resellerBadge?: string;
   sectionsEnabled?: Partial<Record<LPSectionKey, boolean>>;
+  sectionsOrder?: LPSectionKey[];
   nav?: { items: { label: string; anchor?: string }[]; cta?: string };
   trustBar?: string[];
   hero: {
@@ -746,10 +747,43 @@ function ComparisonSection({ comparison }: { comparison: NonNullable<LPContent["
   );
 }
 
+export const DEFAULT_SECTION_ORDER: LPSectionKey[] = [
+  "positioning",
+  "howItWorks",
+  "price",
+  "benefits",
+  "modules",
+  "regionalRules",
+  "implementation",
+  "testimonials",
+  "conditions",
+  "comparison",
+  "faq",
+  "inlineForm",
+  "finalCta",
+];
+
+export function resolveSectionOrder(order?: LPSectionKey[]): LPSectionKey[] {
+  const seen = new Set<LPSectionKey>();
+  const out: LPSectionKey[] = [];
+  (order ?? []).forEach((k) => {
+    if (DEFAULT_SECTION_ORDER.includes(k) && !seen.has(k)) {
+      seen.add(k);
+      out.push(k);
+    }
+  });
+  DEFAULT_SECTION_ORDER.forEach((k) => {
+    if (!seen.has(k)) out.push(k);
+  });
+  return out;
+}
+
 export function PremiumLandingTemplate({ content, heroImageUrl, onCta, formSlot }: Props) {
   const c = content;
   const cta = (source: string) => () => onCta?.(source);
   const sectionOn = (k: LPSectionKey) => c.sectionsEnabled?.[k] !== false;
+  const sectionOrder = resolveSectionOrder(c.sectionsOrder);
+  const ord = (k: LPSectionKey) => sectionOrder.indexOf(k);
 
   return (
     <div
@@ -864,9 +898,11 @@ export function PremiumLandingTemplate({ content, heroImageUrl, onCta, formSlot 
         </div>
       </section>
 
+      <div className="flex flex-col">
+
       {/* POSITIONING BANNER */}
       {sectionOn("positioning") && c.positioning && (
-        <section className="border-y border-[var(--lp-border)] bg-white py-16">
+        <section className="border-y border-[var(--lp-border)] bg-white py-16" style={{ order: ord("positioning") }}>
           <div className="mx-auto max-w-6xl px-5 sm:px-8">
             <div
               className="grid gap-8 rounded-3xl border border-[var(--lp-orange)]/20 p-8 sm:p-10 lg:grid-cols-[auto_1fr] lg:items-center"
@@ -917,7 +953,7 @@ export function PremiumLandingTemplate({ content, heroImageUrl, onCta, formSlot 
 
       {/* HOW IT WORKS */}
       {sectionOn("howItWorks") && c.howItWorks && c.howItWorks.items.length > 0 && (
-        <section id="como-funciona" className="py-20 md:py-24 bg-white">
+        <section id="como-funciona" className="py-20 md:py-24 bg-white" style={{ order: ord("howItWorks") }}>
           <div className="max-w-6xl mx-auto px-6">
             {c.howItWorks.title && (
               <h2 className="text-3xl md:text-4xl font-black tracking-tight text-center max-w-2xl mx-auto text-[var(--lp-text)]">
@@ -945,7 +981,7 @@ export function PremiumLandingTemplate({ content, heroImageUrl, onCta, formSlot 
 
       {/* PRICE CARD */}
       {sectionOn("price") && c.price && (
-        <section id="preco" className="py-20 md:py-24" style={{ background: GRADIENT_SOFT }}>
+        <section id="preco" className="py-20 md:py-24" style={{ order: ord("price"),  background: GRADIENT_SOFT }}>
           <div className="max-w-3xl mx-auto px-6">
             <div
               className="rounded-3xl bg-white overflow-hidden border border-[var(--lp-border)]"
@@ -993,7 +1029,7 @@ export function PremiumLandingTemplate({ content, heroImageUrl, onCta, formSlot 
       {/* CONDITIONS */}
       {/* BENEFITS */}
       {sectionOn("benefits") && c.benefits && c.benefits.items.length > 0 && (
-        <section id="beneficios" className="py-20 md:py-24 bg-white">
+        <section id="beneficios" className="py-20 md:py-24 bg-white" style={{ order: ord("benefits") }}>
           <div className="max-w-6xl mx-auto px-6">
             {c.benefits.title && (
               <h2 className="text-3xl md:text-4xl font-black tracking-tight text-center max-w-2xl mx-auto text-[var(--lp-text)]">
@@ -1025,7 +1061,7 @@ export function PremiumLandingTemplate({ content, heroImageUrl, onCta, formSlot 
 
       {/* MODULES — Ultimate Lab Bundle */}
       {sectionOn("modules") && c.modules && c.modules.items.length > 0 && (
-        <section id="modulos" className="py-20 md:py-24 bg-[var(--lp-bg-soft)]">
+        <section id="modulos" className="py-20 md:py-24 bg-[var(--lp-bg-soft)]" style={{ order: ord("modules") }}>
           <div className="max-w-6xl mx-auto px-6">
             <div className="max-w-3xl">
               {c.modules.eyebrow && (
@@ -1076,7 +1112,7 @@ export function PremiumLandingTemplate({ content, heroImageUrl, onCta, formSlot 
 
       {/* REGIONAL RULES — Uso seguro e regular da licença */}
       {sectionOn("regionalRules") && c.regionalRules && c.regionalRules.items.length > 0 && (
-        <section id="uso-regular" className="py-20 md:py-24 bg-white">
+        <section id="uso-regular" className="py-20 md:py-24 bg-white" style={{ order: ord("regionalRules") }}>
           <div className="max-w-4xl mx-auto px-6">
             <div
               className="rounded-3xl border border-[var(--lp-border)] bg-white p-8 md:p-10"
@@ -1118,7 +1154,7 @@ export function PremiumLandingTemplate({ content, heroImageUrl, onCta, formSlot 
 
       {/* IMPLEMENTATION — Implantação, ativação, treinamento e suporte */}
       {sectionOn("implementation") && c.implementation && (
-        <section id="implantacao" className="py-20 md:py-24" style={{ background: GRADIENT_SOFT }}>
+        <section id="implantacao" className="py-20 md:py-24" style={{ order: ord("implementation"),  background: GRADIENT_SOFT }}>
           <div className="max-w-6xl mx-auto px-6">
             <div className="max-w-3xl mx-auto text-center">
               <h2 className="text-3xl md:text-4xl font-black tracking-tight text-[var(--lp-text)]">
@@ -1177,7 +1213,7 @@ export function PremiumLandingTemplate({ content, heroImageUrl, onCta, formSlot 
 
       {/* TESTIMONIALS */}
       {sectionOn("testimonials") && c.testimonials && c.testimonials.items.length > 0 && (
-        <section className="py-20 md:py-24 bg-[var(--lp-bg-soft)]">
+        <section className="py-20 md:py-24 bg-[var(--lp-bg-soft)]" style={{ order: ord("testimonials") }}>
           <div className="max-w-6xl mx-auto px-6">
             {c.testimonials.title && (
               <h2 className="text-3xl md:text-4xl font-black tracking-tight text-center max-w-2xl mx-auto text-[var(--lp-text)]">
@@ -1246,7 +1282,7 @@ export function PremiumLandingTemplate({ content, heroImageUrl, onCta, formSlot 
 
       {/* FAQ */}
       {sectionOn("conditions") && c.conditions && (c.conditions.cards ?? []).length > 0 && (
-        <section id="condicoes" className="py-20 md:py-24 bg-white">
+        <section id="condicoes" className="py-20 md:py-24 bg-white" style={{ order: ord("conditions") }}>
           <div className="max-w-7xl mx-auto px-6">
             {(c.conditions.title || c.conditions.subtitle) && (
               <div className="max-w-3xl mx-auto text-center">
@@ -1333,11 +1369,13 @@ export function PremiumLandingTemplate({ content, heroImageUrl, onCta, formSlot 
       )}
 
       {sectionOn("comparison") && c.comparison && c.comparison.columns?.length > 0 && (c.comparison.rows?.length ?? 0) > 0 && (
-        <ComparisonSection comparison={c.comparison} />
+        <div style={{ order: ord("comparison") }}>
+          <ComparisonSection comparison={c.comparison} />
+        </div>
       )}
 
       {sectionOn("faq") && c.faq && c.faq.items.length > 0 && (
-        <section id="faq" className="py-20 md:py-24 bg-white">
+        <section id="faq" className="py-20 md:py-24 bg-white" style={{ order: ord("faq") }}>
           <div className="max-w-3xl mx-auto px-6">
             <h2 className="text-3xl md:text-4xl font-black tracking-tight text-center text-[var(--lp-text)]">
               {c.faq.title ?? "Perguntas frequentes"}
@@ -1361,7 +1399,7 @@ export function PremiumLandingTemplate({ content, heroImageUrl, onCta, formSlot 
 
       {/* FINAL CTA */}
       {sectionOn("inlineForm") && formSlot && (
-        <section id="formulario" className="py-20 md:py-24" style={{ background: GRADIENT_SOFT }}>
+        <section id="formulario" className="py-20 md:py-24" style={{ order: ord("inlineForm"),  background: GRADIENT_SOFT }}>
           <div className="mx-auto max-w-3xl px-6">
             <div className="text-center">
               {c.inlineForm?.eyebrow && (
@@ -1387,7 +1425,7 @@ export function PremiumLandingTemplate({ content, heroImageUrl, onCta, formSlot 
       )}
 
       {sectionOn("finalCta") && c.finalCta && (
-        <section id="contato" className="relative py-20 md:py-24 overflow-hidden text-white" style={{ background: GRADIENT_BRAND }}>
+        <section id="contato" className="relative py-20 md:py-24 overflow-hidden text-white" style={{ order: ord("finalCta"),  background: GRADIENT_BRAND }}>
           <div className="absolute -top-32 left-1/2 -translate-x-1/2 w-[640px] h-[640px] rounded-full bg-white opacity-10 blur-3xl" aria-hidden />
           <div className="relative max-w-3xl mx-auto px-6 text-center">
             <h2 className="text-3xl md:text-5xl font-black tracking-tight leading-tight">{c.finalCta.headline}</h2>
@@ -1407,6 +1445,8 @@ export function PremiumLandingTemplate({ content, heroImageUrl, onCta, formSlot 
           </div>
         </section>
       )}
+
+      </div>
 
       {/* FOOTER */}
       <footer className="bg-white text-[var(--lp-brand-2)] text-xs border-t border-[var(--lp-border)]">
