@@ -88,7 +88,7 @@ export default function PublicLandingPage() {
       if (e.origin !== window.location.origin) return;
       const d = e.data;
       if (d && d.type === "smartops-form-height" && typeof d.height === "number") {
-        setInlineHeight(Math.max(280, Math.min(1600, Math.ceil(d.height) + 16)));
+        setInlineHeight(Math.max(320, Math.min(2600, Math.ceil(d.height) + 40)));
       }
     };
     window.addEventListener("message", onMessage);
@@ -126,7 +126,7 @@ export default function PublicLandingPage() {
               title={`Formulário ${lp.smartops_forms.name}`}
               src={inlineFormUrl}
               className="w-full border-0 bg-transparent"
-              style={{ height: inlineHeight }}
+              style={{ height: inlineHeight, display: "block" }}
               scrolling="no"
             />
           ) : null
