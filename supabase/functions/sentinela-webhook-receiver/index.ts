@@ -13,15 +13,27 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const sb = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-// Nome canônico = como está cadastrado em wa_groups/team_members/UI.
+// Fallback caso não exista nenhuma instância configurada em sentinela_instances.
 const TARGET_INSTANCE = "Danilo-Henrique";
 // Aceita aliases: "Danilo-Henrique", "danilo_henrique", "DANILO HENRIQUE", etc.
 const normalizeInstance = (s: string) => (s ?? "").toLowerCase().replace(/[\s_-]/g, "");
-const ALLOWED_INSTANCES = ["Danilo Henrique", "Danilo-Henrique"].map(normalizeInstance);
-const isAllowedInstance = (s: string) => ALLOWED_INSTANCES.includes(normalizeInstance(s));
 
-function canonicalInstanceName(_instanceName: string): string {
-  return TARGET_INSTANCE;
+type InstanceCfg = { instance_name: string; capture_groups: boolean; capture_direct: boolean };
+
+async function loadActiveInstances(): Promise<InstanceCfg[]> {
+  const { data, error } = await sb
+    .from("sentinela_instances")
+    .select("instance_name, capture_groups, capture_direct")
+    .eq("active", true);
+  if (error || !data?.length) {
+    return [{ instance_name: TARGET_INSTANCE, capture_groups: true, capture_direct: false }];
+  }
+  return data as InstanceCfg[];
+}
+
+function matchInstance(list: InstanceCfg[], incoming: string): InstanceCfg | null {
+  const n = normalizeInstance(incoming);
+  return list.find((i) => normalizeInstance(i.instance_name) === n) ?? null;
 }
 
 function safeGroupName(remoteJid: string, raw: any, existingName?: string | null): string {
@@ -52,7 +64,7 @@ function extractPictureUrl(raw: any): string | null {
 }
 
 async function ensureWaGroup(instance: string, remoteJid: string, raw: any) {
-  const canonicalInstance = canonicalInstanceName(instance);
+  const canonicalInstance = instance;
   const now = new Date().toISOString();
   const { data: existing, error: lookupErr } = await sb
     .from("wa_groups")
@@ -147,19 +159,27 @@ async function resolveLeadId(phone: string | null): Promise<string | null> {
   return data?.[0]?.id ?? null;
 }
 
-async function handleMessage(instance: string, raw: any) {
-  const canonicalInstance = canonicalInstanceName(instance);
+async function handleMessage(cfg: InstanceCfg, raw: any) {
+  const canonicalInstance = cfg.instance_name;
   const key = raw?.key ?? raw?.message?.key ?? {};
   const remoteJid: string | undefined =
     key?.remoteJid ?? raw?.remoteJid ?? raw?.chatId ?? raw?.chat ?? raw?.from;
-  if (!remoteJid || !String(remoteJid).endsWith("@g.us")) return { skipped: "not_group", remoteJid: remoteJid ?? null };
+  if (!remoteJid) return { skipped: "no_remote_jid" };
+  const isGroup = String(remoteJid).endsWith("@g.us");
+  if (isGroup && !cfg.capture_groups) return { skipped: "groups_capture_off" };
+  if (!isGroup) {
+    if (!cfg.capture_direct) return { skipped: "direct_capture_off" };
+    if (!String(remoteJid).includes("@s.whatsapp.net")) return { skipped: "not_supported_jid" };
+  }
 
   const messageId: string | undefined = key?.id ?? raw?.messageId ?? raw?.id;
   const fromMe: boolean = !!(key?.fromMe ?? raw?.fromMe ?? raw?.isFromMe);
   if (fromMe) return { skipped: "from_me" };
 
   // Descobre/atualiza o grupo em wa_groups antes de registrar a mensagem.
-  const { group } = await ensureWaGroup(canonicalInstance, remoteJid, raw);
+  const { group } = isGroup
+    ? await ensureWaGroup(canonicalInstance, remoteJid, raw)
+    : { group: null as any };
 
   // Check sentinela_config if group is known
   if (group?.id) {
@@ -173,7 +193,7 @@ async function handleMessage(instance: string, raw: any) {
 
   const participant: string | undefined =
     key?.participant ?? raw?.participant ?? key?.participantPn ?? raw?.senderPn;
-  const senderJid = participant ?? null;
+  const senderJid = (isGroup ? participant : (participant ?? String(remoteJid))) ?? null;
   const senderPhone = senderJid && senderJid.includes("@s.whatsapp.net") ? digits(senderJid) : null;
   const senderName = raw?.pushName ?? raw?.notifyName ?? null;
 
@@ -194,7 +214,8 @@ async function handleMessage(instance: string, raw: any) {
     instance_name: canonicalInstance,
     group_id: group?.id ?? null,
     group_jid: remoteJid,
-    group_name: group?.name ?? null,
+    group_name: isGroup ? (group?.name ?? null) : (raw?.pushName ?? null),
+    is_group: isGroup,
     message_id: messageId ?? null,
     sender_jid: senderJid,
     sender_phone: senderPhone,
@@ -237,9 +258,11 @@ Deno.serve(async (req) => {
       body?.sender ??
       TARGET_INSTANCE;
 
-    if (!isAllowedInstance(instanceName)) {
+    const activeInstances = await loadActiveInstances();
+    const cfg = matchInstance(activeInstances, instanceName);
+    if (!cfg) {
       await logHealth("info", "skipped_other_instance", { instanceName, event });
-      return Response.json({ skipped: "other_instance", instanceName }, { headers: corsHeaders });
+      return Response.json({ skipped: "instance_not_active", instanceName }, { headers: corsHeaders });
     }
 
     if (event && !/messages[._-]?upsert|MESSAGES_UPSERT|message[._-]?received/i.test(event)) {
@@ -260,7 +283,7 @@ Deno.serve(async (req) => {
     for (const m of messages) {
       if (!m) continue;
       // Sempre usa nome canônico para casar com wa_groups/team_members/UI.
-      results.push(await handleMessage(canonicalInstanceName(instanceName), m));
+      results.push(await handleMessage(cfg, m));
     }
 
     const savedCount = results.filter((r) => r?.saved).length;
