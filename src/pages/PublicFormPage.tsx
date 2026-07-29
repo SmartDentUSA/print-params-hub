@@ -1067,7 +1067,11 @@ export default function PublicFormPage() {
                 disabled={submitting}
                 style={{ backgroundColor: 'var(--brand)', borderColor: 'var(--brand-dark)' }}
               >
-                {submitting ? "Enviando..." : (form.cta_text || "Enviar")}
+                {submitting
+                  ? "Enviando..."
+                  : hasHiddenQualificationFields
+                    ? "Continuar"
+                    : (form.cta_text || "Enviar")}
               </Button>
             )}
             {form.trust_text && (
