@@ -143,21 +143,35 @@ export function useBioSourceOptions() {
       const lpByForm = new Map<string, any>();
       (lps ?? []).forEach((lp: any) => lpByForm.set(lp.form_id, lp));
 
+      // Somente formulários/LPs que possuem link encurtado disponível
+      const { data: shortLinks } = await (supabase as any)
+        .from("smartops_short_links")
+        .select("short_code, form_slug, default_target");
+      const shortByKey = new Map<string, string>();
+      (shortLinks ?? []).forEach((l: any) => {
+        if (!l.form_slug || !l.short_code) return;
+        shortByKey.set(`${l.default_target}:${l.form_slug}`, `https://s.smartdent.com.br/${l.short_code}`);
+      });
+
       const options: BioSourceOption[] = [];
       (forms ?? []).forEach((f: any) => {
         const label = f.title || f.name;
         const description = f.subtitle || f.description || null;
-        options.push({
-          key: `form:${f.slug}`,
-          kind: "form",
-          slug: f.slug,
-          label,
-          description,
-          image_url: f.hero_image_url ?? null,
-          url: `/f/${f.slug}`,
-        });
+        const formShort = shortByKey.get(`form:${f.slug}`);
+        if (formShort) {
+          options.push({
+            key: `form:${f.slug}`,
+            kind: "form",
+            slug: f.slug,
+            label,
+            description,
+            image_url: f.hero_image_url ?? null,
+            url: formShort,
+          });
+        }
         const lp = lpByForm.get(f.id);
-        if (lp) {
+        const lpShort = shortByKey.get(`landing_page:${f.slug}`);
+        if (lp && lpShort) {
           options.push({
             key: `landing_page:${f.slug}`,
             kind: "landing_page",
@@ -165,7 +179,7 @@ export function useBioSourceOptions() {
             label,
             description,
             image_url: lp.hero_image_url ?? f.hero_image_url ?? null,
-            url: `/lp/${f.slug}`,
+            url: lpShort,
           });
         }
       });
