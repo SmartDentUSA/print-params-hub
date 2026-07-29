@@ -108,23 +108,26 @@ Deno.serve(async (req) => {
 
   // payload consultado só para os LIDs ainda sem telefone (evita baixar JSON gigante)
   const needPayload = lidKeys.filter((lk) => !phoneByLid.has(lk)).slice(0, 200)
-  for (const lk of needPayload) {
-    const { data: one } = await supabase
-      .from('whatsapp_inbox')
-      .select('raw_payload')
-      .or(`phone_normalized.eq.${lk},phone.eq.${lk}`)
-      .not('raw_payload', 'is', null)
-      .limit(1)
-    const p = (one?.[0]?.raw_payload ?? {}) as any
-    const phoneCands = [
-      p?.key?.senderPn, p?.key?.remoteJidAlt, p?.senderPn, p?.remoteJidAlt,
-      p?.customer?.number, p?.data?.key?.senderPn, p?.data?.key?.remoteJidAlt,
-    ]
-    for (const c of phoneCands) {
-      if (isRealPhone(c)) { phoneByLid.set(lk, digits(String(c).split('@')[0])); break }
-    }
-    const nm = p?.pushName || p?.data?.pushName
-    if (nm && !nameByLid.get(lk)) nameByLid.set(lk, String(nm))
+  for (let i = 0; i < needPayload.length; i += 20) {
+    const batch = needPayload.slice(i, i + 20)
+    await Promise.all(batch.map(async (lk) => {
+      const { data: one } = await supabase
+        .from('whatsapp_inbox')
+        .select('raw_payload')
+        .eq('phone', lk)
+        .not('raw_payload', 'is', null)
+        .limit(1)
+      const p = (one?.[0]?.raw_payload ?? {}) as any
+      const phoneCands = [
+        p?.key?.senderPn, p?.key?.remoteJidAlt, p?.senderPn, p?.remoteJidAlt,
+        p?.customer?.number, p?.data?.key?.senderPn, p?.data?.key?.remoteJidAlt,
+      ]
+      for (const c of phoneCands) {
+        if (isRealPhone(c)) { phoneByLid.set(lk, digits(String(c).split('@')[0])); break }
+      }
+      const nm = p?.pushName || p?.data?.pushName
+      if (nm && !nameByLid.get(lk)) nameByLid.set(lk, String(nm))
+    }))
   }
   debug.sources.phone_from_payload = phoneByLid.size
 
