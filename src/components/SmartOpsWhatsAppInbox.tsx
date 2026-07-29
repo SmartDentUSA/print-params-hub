@@ -49,7 +49,7 @@ interface TeamMember {
   id: string;
   nome_completo: string;
   whatsapp_number: string | null;
-  waleads_api_key: string | null;
+  evolution_instance_name: string | null;
 }
 
 export function SmartOpsWhatsAppInbox({ refreshKey }: { refreshKey: number }) {
