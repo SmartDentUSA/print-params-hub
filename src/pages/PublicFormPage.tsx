@@ -146,12 +146,12 @@ export default function PublicFormPage() {
   const isFirstThreeMode = effectiveDisplayMode === "first_three";
   const embedRootRef = useRef<HTMLDivElement | null>(null);
   // No modo "3 primeiras perguntas" o formulário MOSTRA 3 campos primeiro,
-  // mas continua coletando todas as perguntas de qualificação: ao avançar,
-  // os campos restantes são revelados antes do envio.
-  // Revelação progressiva: começa com 3 campos e libera +2 a cada "Continuar".
+  // mas continua coletando todas as perguntas de qualificação em etapas.
+  // Depois da primeira tela, troca o bloco atual por +2 perguntas por vez
+  // (sem manter as perguntas já preenchidas visíveis abaixo).
   const FIRST_BATCH = 3;
   const NEXT_BATCH = 2;
-  const [revealCount, setRevealCount] = useState(FIRST_BATCH);
+  const [qualificationBatchStart, setQualificationBatchStart] = useState(0);
 
   // Em modo embed, informa a altura ao container (landing page) para evitar scroll interno.
   useEffect(() => {
@@ -171,16 +171,21 @@ export default function PublicFormPage() {
   }, [isEmbed, slug]);
   // Filter fields by conditional logic against current answers
   const allRenderableFields = fields.filter((f) => isFieldVisible(f, values));
-  const renderableFields = isFirstThreeMode
-    ? allRenderableFields.slice(0, revealCount)
-    : allRenderableFields;
-  const hasHiddenQualificationFields =
-    isFirstThreeMode && allRenderableFields.length > renderableFields.length;
+  const currentBatchSize = qualificationBatchStart === 0 ? FIRST_BATCH : NEXT_BATCH;
+  const qualificationBatchEnd = qualificationBatchStart + currentBatchSize;
+  const currentQualificationFields = allRenderableFields.slice(
+    qualificationBatchStart,
+    qualificationBatchEnd,
+  );
+  const renderableFields = allRenderableFields;
+  const hasHiddenQualificationFields = isFirstThreeMode && qualificationBatchEnd < allRenderableFields.length;
   const totalSteps = renderableFields.length;
   const safeStep = Math.min(currentStep, Math.max(0, totalSteps - 1));
   const visibleFields = isStepMode
     ? (renderableFields[safeStep] ? [renderableFields[safeStep]] : [])
-    : renderableFields;
+    : isFirstThreeMode
+      ? currentQualificationFields
+      : renderableFields;
   const isLastStep = !isStepMode || safeStep >= totalSteps - 1;
 
   const validateField = (field: FormField): string | null => {
@@ -897,12 +902,12 @@ export default function PublicFormPage() {
               if (isStepMode && !isLastStep) { e.preventDefault(); goNext(); return; }
               if (hasHiddenQualificationFields) {
                 e.preventDefault();
-                for (const f of renderableFields) {
+                for (const f of visibleFields) {
                   const err = validateField(f);
                   if (err) { setInlineError(err); return; }
                 }
                 setInlineError(null);
-                setRevealCount((c) => c + NEXT_BATCH);
+                setQualificationBatchStart(qualificationBatchEnd);
                 return;
               }
               handleSubmit(e);
