@@ -81,7 +81,7 @@ Deno.serve(async (req) => {
   // ------------------------------------------------------------------ inbox
   let q = supabase
     .from('whatsapp_inbox')
-    .select('id, phone, phone_normalized, remote_jid, sender_name, instance_name, lead_id, is_group, raw_payload')
+    .select('id, phone, phone_normalized, remote_jid, sender_name, instance_name, lead_id, is_group')
     .order('created_at', { ascending: false })
     .limit(limit)
   if (onlyInstance) q = q.eq('instance_name', onlyInstance)
@@ -103,7 +103,19 @@ Deno.serve(async (req) => {
   const nameByLid = new Map<string, string>()
   for (const r of pending) {
     const lk = digits(r.phone_normalized || r.phone)
-    const p = (r.raw_payload ?? {}) as any
+    if (r.sender_name && !nameByLid.get(lk)) nameByLid.set(lk, String(r.sender_name))
+  }
+
+  // payload consultado só para os LIDs ainda sem telefone (evita baixar JSON gigante)
+  const needPayload = lidKeys.filter((lk) => !phoneByLid.has(lk)).slice(0, 200)
+  for (const lk of needPayload) {
+    const { data: one } = await supabase
+      .from('whatsapp_inbox')
+      .select('raw_payload')
+      .or(`phone_normalized.eq.${lk},phone.eq.${lk}`)
+      .not('raw_payload', 'is', null)
+      .limit(1)
+    const p = (one?.[0]?.raw_payload ?? {}) as any
     const phoneCands = [
       p?.key?.senderPn, p?.key?.remoteJidAlt, p?.senderPn, p?.remoteJidAlt,
       p?.customer?.number, p?.data?.key?.senderPn, p?.data?.key?.remoteJidAlt,
@@ -111,7 +123,7 @@ Deno.serve(async (req) => {
     for (const c of phoneCands) {
       if (isRealPhone(c)) { phoneByLid.set(lk, digits(String(c).split('@')[0])); break }
     }
-    const nm = r.sender_name || p?.pushName || p?.data?.pushName
+    const nm = p?.pushName || p?.data?.pushName
     if (nm && !nameByLid.get(lk)) nameByLid.set(lk, String(nm))
   }
   debug.sources.phone_from_payload = phoneByLid.size
@@ -171,18 +183,26 @@ Deno.serve(async (req) => {
     }
   }
 
-  // 2) nome (somente match único)
+  // 2) nome (somente match único) — em lotes para não estourar o tempo
   if (nameMatch) {
-    for (const [lk, rawName] of nameByLid) {
-      if (hits.has(lk)) continue
-      const n = normName(rawName)
-      if (n.split(' ').length < 2 || n.length < 8) continue // exige nome composto
-      const { data: leads } = await supabase
+    const candidates = [...nameByLid.entries()].filter(([lk, nm]) => {
+      if (hits.has(lk)) return false
+      const n = normName(nm)
+      return n.split(' ').length >= 2 && n.length >= 8
+    })
+    for (let i = 0; i < candidates.length; i += 15) {
+      const chunk = candidates.slice(i, i + 15)
+      const ors = chunk
+        .map(([, nm]) => `nome.ilike.%${nm.trim().replace(/[,()]/g, ' ')}%`)
+        .join(',')
+      const { data: leads, error } = await supabase
         .from('lia_attendances').select('id, nome')
-        .is('merged_into', null).ilike('nome', `%${rawName.trim()}%`).limit(5)
-      const exact = (leads ?? []).filter((l: any) => normName(l.nome) === n)
-      if (exact.length === 1) {
-        hits.set(lk, { lidKey: lk, leadId: exact[0].id, how: 'name', name: rawName })
+        .is('merged_into', null).or(ors).limit(500)
+      if (error) { debug.errors.push(`name_batch: ${error.message}`); continue }
+      for (const [lk, nm] of chunk) {
+        const n = normName(nm)
+        const exact = (leads ?? []).filter((l: any) => normName(l.nome) === n)
+        if (exact.length === 1) hits.set(lk, { lidKey: lk, leadId: exact[0].id, how: 'name', name: nm })
       }
     }
   }
