@@ -64,7 +64,7 @@ function extractPictureUrl(raw: any): string | null {
 }
 
 async function ensureWaGroup(instance: string, remoteJid: string, raw: any) {
-  const canonicalInstance = canonicalInstanceName(instance);
+  const canonicalInstance = instance;
   const now = new Date().toISOString();
   const { data: existing, error: lookupErr } = await sb
     .from("wa_groups")
@@ -159,19 +159,27 @@ async function resolveLeadId(phone: string | null): Promise<string | null> {
   return data?.[0]?.id ?? null;
 }
 
-async function handleMessage(instance: string, raw: any) {
-  const canonicalInstance = canonicalInstanceName(instance);
+async function handleMessage(cfg: InstanceCfg, raw: any) {
+  const canonicalInstance = cfg.instance_name;
   const key = raw?.key ?? raw?.message?.key ?? {};
   const remoteJid: string | undefined =
     key?.remoteJid ?? raw?.remoteJid ?? raw?.chatId ?? raw?.chat ?? raw?.from;
-  if (!remoteJid || !String(remoteJid).endsWith("@g.us")) return { skipped: "not_group", remoteJid: remoteJid ?? null };
+  if (!remoteJid) return { skipped: "no_remote_jid" };
+  const isGroup = String(remoteJid).endsWith("@g.us");
+  if (isGroup && !cfg.capture_groups) return { skipped: "groups_capture_off" };
+  if (!isGroup) {
+    if (!cfg.capture_direct) return { skipped: "direct_capture_off" };
+    if (!String(remoteJid).includes("@s.whatsapp.net")) return { skipped: "not_supported_jid" };
+  }
 
   const messageId: string | undefined = key?.id ?? raw?.messageId ?? raw?.id;
   const fromMe: boolean = !!(key?.fromMe ?? raw?.fromMe ?? raw?.isFromMe);
   if (fromMe) return { skipped: "from_me" };
 
   // Descobre/atualiza o grupo em wa_groups antes de registrar a mensagem.
-  const { group } = await ensureWaGroup(canonicalInstance, remoteJid, raw);
+  const { group } = isGroup
+    ? await ensureWaGroup(canonicalInstance, remoteJid, raw)
+    : { group: null as any };
 
   // Check sentinela_config if group is known
   if (group?.id) {
@@ -185,7 +193,7 @@ async function handleMessage(instance: string, raw: any) {
 
   const participant: string | undefined =
     key?.participant ?? raw?.participant ?? key?.participantPn ?? raw?.senderPn;
-  const senderJid = participant ?? null;
+  const senderJid = (isGroup ? participant : (participant ?? String(remoteJid))) ?? null;
   const senderPhone = senderJid && senderJid.includes("@s.whatsapp.net") ? digits(senderJid) : null;
   const senderName = raw?.pushName ?? raw?.notifyName ?? null;
 
@@ -206,7 +214,8 @@ async function handleMessage(instance: string, raw: any) {
     instance_name: canonicalInstance,
     group_id: group?.id ?? null,
     group_jid: remoteJid,
-    group_name: group?.name ?? null,
+    group_name: isGroup ? (group?.name ?? null) : (raw?.pushName ?? null),
+    is_group: isGroup,
     message_id: messageId ?? null,
     sender_jid: senderJid,
     sender_phone: senderPhone,
