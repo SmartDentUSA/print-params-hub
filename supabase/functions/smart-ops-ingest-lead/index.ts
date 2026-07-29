@@ -512,10 +512,20 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Identidade: telefone é o identificador primário. E-mail passou a ser
+    // opcional (coluna `lia_attendances.email` é nullable desde 2026-07-29).
+    // Só rejeitamos quando NÃO há e-mail E NÃO há telefone.
     if (!email) {
-      return new Response(JSON.stringify({ error: "Email obrigatório" }), {
-        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      const anyPhone = String(
+        payload.phone_number || payload.phone || payload.mobile ||
+        payload.telefone || payload.celular || payload.user_phone || "",
+      ).replace(/\D/g, "");
+      if (!anyPhone) {
+        return new Response(JSON.stringify({ error: "Informe e-mail ou telefone" }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      console.log("[ingest-lead] Lead sem e-mail aceito (identidade por telefone)");
     }
 
     // Filter test emails to prevent polluting the database
@@ -1102,7 +1112,7 @@ Deno.serve(async (req) => {
 
     // --- Step 3: Build incoming data ---
     const incomingData: Record<string, unknown> = {
-      nome, email, telefone_raw: telefoneRaw, telefone_normalized: telefoneNormalized,
+      nome, email: email || null, telefone_raw: telefoneRaw, telefone_normalized: telefoneNormalized,
       area_atuacao: areaAtuacao, especialidade, como_digitaliza: comoDigitaliza,
       tem_impressora: temImpressora, impressora_modelo: impressoraModelo,
       scanner_marca: scannerMarca,
@@ -1643,7 +1653,10 @@ Deno.serve(async (req) => {
         phoneNormalized: telefoneNormalized,
         rawPhone: telefoneRaw,
       });
-      if (!identity.ok) {
+      // E-mail é opcional quando o telefone é válido (telefone é o identificador
+      // primário). Só bloqueamos se faltar nome ou telefone.
+      const blocking = identity.missing.filter((m) => m !== "email");
+      if (blocking.length > 0) {
         await logRejectedLead(supabase, {
           functionName: "smart-ops-ingest-lead",
           source,
@@ -1697,6 +1710,36 @@ Deno.serve(async (req) => {
         }
       }
 
+      if (insertError) {
+        // ── UPSERT de segurança em corrida/duplicidade ──
+        // 23505 = unique_violation. Pode vir de `email` (lead criado por outra
+        // execução concorrente) ou de `piperun_id` (reenvio de webhook).
+        // Nesses casos, o lead já existe: atualizamos em vez de perder o lead.
+        if ((insertError as { code?: string }).code === "23505") {
+          const conflictPiperunId = (newLeadData as Record<string, unknown>).piperun_id as string | undefined;
+          let q = supabase.from("lia_attendances").select("id");
+          q = /piperun_id/.test(insertError.message) && conflictPiperunId
+            ? q.eq("piperun_id", conflictPiperunId)
+            : q.eq("email", email);
+          const { data: conflictRow } = await q.limit(1).maybeSingle();
+          if (conflictRow?.id) {
+            const upd: Record<string, unknown> = { ...incomingData };
+            // nunca sobrescreve identificadores canônicos com vazio
+            for (const k of Object.keys(upd)) {
+              if (upd[k] === null || upd[k] === "") delete upd[k];
+            }
+            const { error: updErr } = await supabase
+              .from("lia_attendances")
+              .update(upd)
+              .eq("id", conflictRow.id);
+            if (!updErr) {
+              console.log(`[ingest-lead] UPSERT_ON_CONFLICT: lead existente ${conflictRow.id} atualizado (${insertError.message})`);
+              newLead = { id: conflictRow.id };
+              insertError = null;
+            }
+          }
+        }
+      }
       if (insertError) {
         console.error("[ingest-lead] Insert error:", insertError);
         try { await supabase.from("system_health_logs").insert({ function_name: "smart-ops-ingest-lead", severity: "error", error_type: "lead_insert_failed", lead_email: email, details: { error: insertError.message } }); } catch {}
