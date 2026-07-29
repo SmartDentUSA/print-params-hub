@@ -83,12 +83,26 @@ export default function PublicLandingPage() {
 
   // Altura dinâmica do formulário embutido (postMessage vindo de /f/:slug?embed=1)
   const [inlineHeight, setInlineHeight] = useState(520);
+  const syncInlineIframeHeight = (iframe: HTMLIFrameElement | null) => {
+    if (!iframe) return;
+    try {
+      const doc = iframe.contentDocument;
+      if (!doc) return;
+      const height = Math.ceil(Math.max(
+        doc.body?.scrollHeight || 0,
+        doc.documentElement?.scrollHeight || 0,
+      ));
+      if (height > 0) setInlineHeight(Math.max(320, Math.min(3200, height + 56)));
+    } catch {
+      // Same-origin esperado; se falhar, o postMessage/scroll interno continua como fallback.
+    }
+  };
   useEffect(() => {
     const onMessage = (e: MessageEvent) => {
       if (e.origin !== window.location.origin) return;
       const d = e.data;
       if (d && d.type === "smartops-form-height" && typeof d.height === "number") {
-        setInlineHeight(Math.max(320, Math.min(2600, Math.ceil(d.height) + 40)));
+        setInlineHeight(Math.max(320, Math.min(3200, Math.ceil(d.height) + 56)));
       }
     };
     window.addEventListener("message", onMessage);
@@ -126,8 +140,15 @@ export default function PublicLandingPage() {
               title={`Formulário ${lp.smartops_forms.name}`}
               src={inlineFormUrl}
               className="w-full border-0 bg-transparent"
-              style={{ height: inlineHeight, display: "block" }}
-              scrolling="no"
+              style={{ height: inlineHeight, display: "block", overflow: "auto" }}
+              scrolling="auto"
+              onLoad={(event) => {
+                const iframe = event.currentTarget;
+                syncInlineIframeHeight(iframe);
+                [120, 320, 720, 1200].forEach((delay) => {
+                  window.setTimeout(() => syncInlineIframeHeight(iframe), delay);
+                });
+              }}
             />
           ) : null
         }
