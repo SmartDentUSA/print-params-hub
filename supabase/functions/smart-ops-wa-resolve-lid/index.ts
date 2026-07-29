@@ -74,7 +74,7 @@ Deno.serve(async (req) => {
   const dryRun: boolean = body.dry_run === true
   const onlyInstance: string | null = body.instance_name ?? null
   const nameMatch: boolean = body.enable_name_match !== false
-  const limit: number = Math.min(Math.max(Number(body.limit ?? 8000), 100), 20000)
+  const limit: number = Math.min(Math.max(Number(body.limit ?? 1500), 100), 5000)
 
   const debug: any = { errors: [] as string[], sources: {} as Record<string, number> }
 
@@ -107,7 +107,7 @@ Deno.serve(async (req) => {
   }
 
   // payload consultado só para os LIDs ainda sem telefone (evita baixar JSON gigante)
-  const needPayload = lidKeys.filter((lk) => !phoneByLid.has(lk)).slice(0, 200)
+  const needPayload = lidKeys.filter((lk) => !phoneByLid.has(lk)).slice(0, 100)
   for (let i = 0; i < needPayload.length; i += 20) {
     const batch = needPayload.slice(i, i + 20)
     await Promise.all(batch.map(async (lk) => {
@@ -151,8 +151,10 @@ Deno.serve(async (req) => {
       try {
         const recs = await evoPost(`/chat/findContacts/${enc(instance)}`, apikey, { where: {} })
         for (const rec of (Array.isArray(recs) ? recs : []) as any[]) {
-          const lk = digits(String(rec?.remoteJid ?? rec?.id ?? '').split('@')[0])
-          if (!lk) continue
+          const jid = String(rec?.remoteJid ?? '')
+          if (!jid || jid.includes('@g.us') || jid.includes('broadcast')) continue
+          const lk = digits(jid.split('@')[0])
+          if (!lk || !pendingSet.has(lk)) continue
           if (rec?.pushName && !nameByLid.get(lk)) nameByLid.set(lk, String(rec.pushName))
         }
       } catch (e) {
