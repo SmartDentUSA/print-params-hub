@@ -1017,7 +1017,7 @@ async function resolveOriginId(apiToken: string, formName: string | null): Promi
 
 // ─── §4.6 Estagnados → Vendas: Motivo de perda "Novo interesse" ───
 
-const LOST_REASON_NOVO_INTERESSE = "Solicitou novo contato através de formulários";
+const LOST_REASON_NOVO_INTERESSE = "Entrou novamente em contato";
 const lostReasonCache = new Map<string, number>();
 
 /**
@@ -2868,7 +2868,25 @@ Deno.serve(async (req) => {
       (lead as Record<string, unknown>).pessoa_piperun_id ||
       (lead as Record<string, unknown>).piperun_pipeline_id,
     );
-    if (force_new_deal !== true && hasAnyCrmLink && autoFormSource && !hasExplicitNewConversion) {
+    // ESCAPE HATCH — Funil Estagnados (72938):
+    // Regra de negócio: preenchimento de formulário = novo interesse real.
+    // Se o canonical está em Estagnados e chegou um form_name, o fluxo segue
+    // (fecha o Estagnados como perdido "Entrou novamente em contato" e abre
+    // novo deal em VENDAS). VENDAS e CS continuam intocáveis pelas regras
+    // do decision tree mais abaixo.
+    const canonPipelineId = Number(
+      (lead as Record<string, unknown>).piperun_pipeline_id ?? 0,
+    );
+    const estagnadosFormReactivation =
+      canonPipelineId === PIPELINES.ESTAGNADOS &&
+      Boolean(lead.form_name || enrichment_form_name || (body as any)?.form_name);
+    if (
+      force_new_deal !== true &&
+      hasAnyCrmLink &&
+      autoFormSource &&
+      !hasExplicitNewConversion &&
+      !estagnadosFormReactivation
+    ) {
       console.warn(
         `[lia-assign] CRM_TOUCH_BLOCKED: lead ${lead.id} (${lead.email}) já tem vínculo CRM e não há nova conversão confirmada`,
       );
