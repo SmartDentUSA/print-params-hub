@@ -18514,6 +18514,7 @@ export type Database = {
           id: string
           instance_name: string
           intent: string | null
+          is_group: boolean
           lead_id: string | null
           media_type: string | null
           media_url: string | null
@@ -18545,6 +18546,7 @@ export type Database = {
           id?: string
           instance_name?: string
           intent?: string | null
+          is_group?: boolean
           lead_id?: string | null
           media_type?: string | null
           media_url?: string | null
@@ -18576,6 +18578,7 @@ export type Database = {
           id?: string
           instance_name?: string
           intent?: string | null
+          is_group?: boolean
           lead_id?: string | null
           media_type?: string | null
           media_url?: string | null
@@ -18682,6 +18685,39 @@ export type Database = {
           summary?: string
           supporting_msgs?: string[] | null
           title?: string
+        }
+        Relationships: []
+      }
+      sentinela_instances: {
+        Row: {
+          active: boolean
+          capture_direct: boolean
+          capture_groups: boolean
+          created_at: string
+          id: string
+          instance_name: string
+          label: string | null
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          capture_direct?: boolean
+          capture_groups?: boolean
+          created_at?: string
+          id?: string
+          instance_name: string
+          label?: string | null
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          capture_direct?: boolean
+          capture_groups?: boolean
+          created_at?: string
+          id?: string
+          instance_name?: string
+          label?: string | null
+          updated_at?: string
         }
         Relationships: []
       }
