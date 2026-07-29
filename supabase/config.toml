@@ -45,6 +45,12 @@ verify_jwt = false
 [functions.sentinela-webhook-receiver]
 verify_jwt = false
 
+[functions.evolution-webhook-fanout]
+verify_jwt = false
+
+[functions.sentinela-register-webhooks]
+verify_jwt = false
+
 [functions.flow-executor]
 verify_jwt = false
 

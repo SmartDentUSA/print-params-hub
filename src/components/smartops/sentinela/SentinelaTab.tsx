@@ -87,6 +87,26 @@ export function SentinelaTab() {
   const [totalGroupCount, setTotalGroupCount] = useState<number>(0);
   const [instances, setInstances] = useState<InstanceCfg[]>([]);
   const [selectedInstance, setSelectedInstance] = useState<string>("");
+  const [registering, setRegistering] = useState(false);
+  const [webhookResults, setWebhookResults] = useState<any[]>([]);
+
+  async function registerWebhooks(dryRun: boolean) {
+    setRegistering(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("sentinela-register-webhooks", {
+        body: { dry_run: dryRun },
+      });
+      if (error) throw error;
+      const results = (data as any)?.results ?? [];
+      setWebhookResults(results);
+      if (results.length === 0) toast.info("Nenhuma instância com captura ativa.");
+      else toast.success(dryRun ? "Simulação concluída" : "Webhooks registrados");
+    } catch (e: any) {
+      toast.error("Falha ao registrar webhooks: " + (e?.message ?? String(e)));
+    } finally {
+      setRegistering(false);
+    }
+  }
 
   const sinceISO = useMemo(
     () => new Date(Date.now() - PERIOD_HOURS[period] * 3600 * 1000).toISOString(),
@@ -487,11 +507,35 @@ export function SentinelaTab() {
               <CardTitle className="text-sm">Webhook Evolution</CardTitle>
             </CardHeader>
             <CardContent className="text-xs text-muted-foreground space-y-2">
-              <p>Endpoint para registrar em cada instância marcada como <b>captura ativa</b>:</p>
+              <p>
+                A Evolution aceita <b>apenas uma URL de webhook por instância</b>. Por isso registramos um
+                <b> fan-out</b>, que replica cada evento para o handler legado (<code>evolution-webhook-handler</code>,
+                usado pelo CS/Inbox) e para o <code>sentinela-webhook-receiver</code>.
+              </p>
               <code className="block bg-muted p-2 rounded break-all">
-                https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/sentinela-webhook-receiver
+                https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/evolution-webhook-fanout
               </code>
-              <p>Evento: <b>MESSAGES_UPSERT</b>. Não sobrescrever webhooks existentes — adicionar como destino adicional.</p>
+              <p>Evento: <b>MESSAGES_UPSERT</b> (eventos já existentes na instância são preservados).</p>
+              <div className="flex gap-2 pt-1">
+                <Button size="sm" variant="outline" disabled={registering} onClick={() => registerWebhooks(true)}>
+                  Simular (dry-run)
+                </Button>
+                <Button size="sm" disabled={registering} onClick={() => registerWebhooks(false)}>
+                  {registering ? "Registrando..." : "Registrar nas instâncias ativas"}
+                </Button>
+              </div>
+              {webhookResults.length > 0 && (
+                <div className="pt-2 space-y-1">
+                  {webhookResults.map((r, idx) => (
+                    <div key={idx} className="flex items-center justify-between gap-2 border-b last:border-0 py-1">
+                      <span className="truncate">{r.instance}</span>
+                      <span className={r.status === "failed" || r.status === "skipped" ? "text-destructive" : "text-foreground"}>
+                        {r.status}{r.reason ? ` (${r.reason})` : ""}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
           <Card>
