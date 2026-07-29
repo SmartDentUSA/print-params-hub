@@ -19007,6 +19007,48 @@ export type Database = {
         }
         Relationships: []
       }
+      smartops_bio_pages: {
+        Row: {
+          active: boolean
+          created_at: string
+          id: string
+          items: Json
+          logo_url: string | null
+          slug: string
+          social_links: Json
+          subtitle: string | null
+          title: string
+          updated_at: string
+          view_count: number
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          items?: Json
+          logo_url?: string | null
+          slug: string
+          social_links?: Json
+          subtitle?: string | null
+          title?: string
+          updated_at?: string
+          view_count?: number
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          items?: Json
+          logo_url?: string | null
+          slug?: string
+          social_links?: Json
+          subtitle?: string | null
+          title?: string
+          updated_at?: string
+          view_count?: number
+        }
+        Relationships: []
+      }
       smartops_course_enrollments: {
         Row: {
           area_atuacao: string | null
