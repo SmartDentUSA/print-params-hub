@@ -95,6 +95,7 @@ Deno.serve(async (req) => {
   const pending = (rows ?? []).filter((r: any) =>
     !r.lead_id && !r.is_group && isLid(r.phone_normalized || r.phone))
   const lidKeys = [...new Set(pending.map((r: any) => digits(r.phone_normalized || r.phone)))]
+  const pendingSet = new Set(lidKeys)
   debug.pending_rows = pending.length
   debug.pending_lids = lidKeys.length
 
