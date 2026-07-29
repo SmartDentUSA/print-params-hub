@@ -1653,7 +1653,10 @@ Deno.serve(async (req) => {
         phoneNormalized: telefoneNormalized,
         rawPhone: telefoneRaw,
       });
-      if (!identity.ok) {
+      // E-mail é opcional quando o telefone é válido (telefone é o identificador
+      // primário). Só bloqueamos se faltar nome ou telefone.
+      const blocking = identity.missing.filter((m) => m !== "email");
+      if (blocking.length > 0) {
         await logRejectedLead(supabase, {
           functionName: "smart-ops-ingest-lead",
           source,
