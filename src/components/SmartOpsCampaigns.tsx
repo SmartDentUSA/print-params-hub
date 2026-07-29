@@ -2813,7 +2813,18 @@ export function SmartOpsCampaigns() {
           <SmartOpsWaGroupCampaigns />
         </TabsContent>
         <TabsContent value="formularios-meta">
-          <MetaFormMappingsPanel />
+          <Tabs defaultValue="mapeamentos" className="space-y-4">
+            <TabsList>
+              <TabsTrigger value="mapeamentos">Mapeamentos</TabsTrigger>
+              <TabsTrigger value="link-na-bio">Link na Bio</TabsTrigger>
+            </TabsList>
+            <TabsContent value="mapeamentos">
+              <MetaFormMappingsPanel />
+            </TabsContent>
+            <TabsContent value="link-na-bio">
+              <BioLinkPanel />
+            </TabsContent>
+          </Tabs>
         </TabsContent>
       </Tabs>
     </div>
