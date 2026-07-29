@@ -5,7 +5,7 @@
  */
 
 import { normalizeAreaAtuacao, normalizeEspecialidade } from "./zernio-field-normalizer.ts";
-import { isValidEquipmentLabel } from "./equipment-field-guard.ts";
+import { isValidEquipmentLabel, sanitizeEquipmentLabel } from "./equipment-field-guard.ts";
 
 export const PIPERUN_API_BASE = "https://api.pipe.run/v1";
 
