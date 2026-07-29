@@ -88,11 +88,11 @@ export default function PublicLandingPage() {
     try {
       const doc = iframe.contentDocument;
       if (!doc) return;
-      const height = Math.ceil(Math.max(
-        doc.body?.scrollHeight || 0,
-        doc.documentElement?.scrollHeight || 0,
-      ));
-      if (height > 0) setInlineHeight(Math.max(320, Math.min(3200, height + 56)));
+      const root = doc.querySelector(".public-form-page") as HTMLElement | null;
+      const height = root
+        ? Math.ceil(Math.max(root.scrollHeight, root.getBoundingClientRect().height))
+        : 0;
+      if (height > 0) setInlineHeight(Math.max(320, Math.min(3200, height + 24)));
     } catch {
       // Same-origin esperado; se falhar, o postMessage/scroll interno continua como fallback.
     }
@@ -102,7 +102,7 @@ export default function PublicLandingPage() {
       if (e.origin !== window.location.origin) return;
       const d = e.data;
       if (d && d.type === "smartops-form-height" && typeof d.height === "number") {
-        setInlineHeight(Math.max(320, Math.min(3200, Math.ceil(d.height) + 56)));
+        setInlineHeight(Math.max(320, Math.min(3200, Math.ceil(d.height) + 24)));
       }
     };
     window.addEventListener("message", onMessage);
