@@ -22,27 +22,17 @@ function BioCard({ item }: { item: BioItem }) {
       rel="noopener noreferrer"
       className="group flex flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-lg"
     >
-      <div className="relative aspect-video w-full overflow-hidden bg-muted">
+      <div className="relative w-full overflow-hidden bg-muted">
         {item.image_url ? (
-          <>
-            <img
-              src={item.image_url}
-              alt=""
-              aria-hidden="true"
-              loading="lazy"
-              decoding="async"
-              className="absolute inset-0 h-full w-full scale-110 object-cover blur-xl opacity-60"
-            />
-            <img
-              src={item.image_url}
-              alt={item.label}
-              loading="lazy"
-              decoding="async"
-              className="relative h-full w-full object-contain transition-transform duration-300 group-hover:scale-105"
-            />
-          </>
+          <img
+            src={item.image_url}
+            alt={item.label}
+            loading="lazy"
+            decoding="async"
+            className="block h-auto w-full transition-transform duration-300 group-hover:scale-105"
+          />
         ) : (
-          <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-primary/15 to-primary/5 text-primary">
+          <div className="flex aspect-video w-full items-center justify-center bg-gradient-to-br from-primary/15 to-primary/5 text-primary">
             <ArrowRight className="h-8 w-8" />
           </div>
         )}
