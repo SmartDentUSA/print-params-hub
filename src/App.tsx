@@ -192,7 +192,7 @@ function ReformatBatchGlobal() {
 // Only render the floating widget outside admin and embed routes
 function DraLIAGlobal() {
   const { pathname, search } = useLocation();
-  if (search.includes('embed=1') || pathname.startsWith('/admin') || pathname.startsWith('/embed') || pathname.startsWith('/social') || pathname.startsWith('/agenda') || pathname.startsWith('/ferramentas')) return null;
+  if (search.includes('embed=1') || pathname.startsWith('/admin') || pathname.startsWith('/embed') || pathname.startsWith('/social') || pathname.startsWith('/agenda') || pathname.startsWith('/ferramentas') || pathname.startsWith('/lp') || pathname.startsWith('/bio')) return null;
   return (
     <ChunkErrorBoundary>
       <Suspense fallback={null}>
@@ -204,7 +204,7 @@ function DraLIAGlobal() {
 
 function FooterGlobal() {
   const { pathname, search } = useLocation();
-  if (search.includes('embed=1') || pathname.startsWith('/admin') || pathname.startsWith('/embed') || pathname.startsWith('/social') || pathname.startsWith('/agenda') || pathname.startsWith('/ferramentas')) return null;
+  if (search.includes('embed=1') || pathname.startsWith('/admin') || pathname.startsWith('/embed') || pathname.startsWith('/social') || pathname.startsWith('/agenda') || pathname.startsWith('/ferramentas') || pathname.startsWith('/lp') || pathname.startsWith('/bio')) return null;
   return <Footer />;
 }
 
