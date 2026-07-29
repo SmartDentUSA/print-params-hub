@@ -711,8 +711,8 @@ export default function PublicFormPage() {
         .public-form-page[data-embed="true"] {
           background: transparent !important;
           min-height: 0;
-          --form-heading: #0f172a;
-          --form-body: #1f2937;
+          --form-heading: #0f172a !important;
+          --form-body: #1f2937 !important;
           --form-label: #0f172a !important;
           --form-muted: rgba(15,23,42,0.62) !important;
         }
