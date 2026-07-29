@@ -697,6 +697,10 @@ export default function PublicFormPage() {
           --brand-s: 78%;
           --brand-l: 54%;
         }
+        .public-form-page[data-embed="true"] {
+          background: transparent !important;
+          min-height: 0;
+        }
         .public-form-page {
           --brand:       hsl(var(--brand-h), var(--brand-s), var(--brand-l));
           --brand-dark:  hsl(var(--brand-h), var(--brand-s), calc(var(--brand-l) - 12%));
