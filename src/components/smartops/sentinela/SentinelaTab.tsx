@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Shield, Play, RefreshCw, TrendingUp, Flame, AlertTriangle, Swords, Sparkles, Settings2 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -60,6 +61,15 @@ interface GroupCfg {
   member_count: number | null;
 }
 
+interface InstanceCfg {
+  id?: string;
+  instance_name: string;
+  label: string | null;
+  capture_groups: boolean;
+  capture_direct: boolean;
+  active: boolean;
+}
+
 const SENT_COLORS: Record<string, string> = {
   positive: "#22c55e",
   neutral: "#94a3b8",
@@ -75,6 +85,8 @@ export function SentinelaTab() {
   const [insights, setInsights] = useState<Insight[]>([]);
   const [groups, setGroups] = useState<GroupCfg[]>([]);
   const [totalGroupCount, setTotalGroupCount] = useState<number>(0);
+  const [instances, setInstances] = useState<InstanceCfg[]>([]);
+  const [selectedInstance, setSelectedInstance] = useState<string>("");
 
   const sinceISO = useMemo(
     () => new Date(Date.now() - PERIOD_HOURS[period] * 3600 * 1000).toISOString(),
@@ -83,8 +95,51 @@ export function SentinelaTab() {
 
   async function loadAll() {
     setLoading(true);
-    await Promise.all([loadMessages(), loadInsights(), loadGroups()]);
+    await Promise.all([loadMessages(), loadInsights(), loadInstances()]);
     setLoading(false);
+  }
+
+  async function loadInstances() {
+    const [{ data: cfgs }, { data: tms }] = await Promise.all([
+      supabase.from("sentinela_instances").select("id, instance_name, label, capture_groups, capture_direct, active"),
+      supabase.from("team_members").select("evolution_instance_name, nome_completo").not("evolution_instance_name", "is", null),
+    ]);
+
+    const map = new Map<string, InstanceCfg>();
+    for (const c of (cfgs ?? []) as any[]) map.set(c.instance_name, c as InstanceCfg);
+    for (const t of (tms ?? []) as any[]) {
+      const name = t.evolution_instance_name as string;
+      if (!name || map.has(name)) continue;
+      map.set(name, { instance_name: name, label: t.nome_completo ?? null, capture_groups: true, capture_direct: false, active: false });
+    }
+    const list = Array.from(map.values()).sort((a, b) => a.instance_name.localeCompare(b.instance_name));
+    setInstances(list);
+
+    const preferred = selectedInstance || list.find((i) => i.active)?.instance_name || list[0]?.instance_name || "";
+    setSelectedInstance(preferred);
+    if (preferred) await loadGroups(preferred);
+  }
+
+  async function saveInstance(inst: InstanceCfg, patch: Partial<InstanceCfg>) {
+    const { error } = await supabase
+      .from("sentinela_instances")
+      .upsert(
+        {
+          id: inst.id,
+          instance_name: inst.instance_name,
+          label: inst.label,
+          capture_groups: patch.capture_groups ?? inst.capture_groups,
+          capture_direct: patch.capture_direct ?? inst.capture_direct,
+          active: patch.active ?? inst.active,
+        },
+        { onConflict: "instance_name" }
+      );
+    if (error) {
+      toast.error("Sem permissão: " + error.message);
+      return;
+    }
+    toast.success("Instância atualizada");
+    await loadInstances();
   }
 
   async function loadMessages() {
@@ -111,11 +166,17 @@ export function SentinelaTab() {
     setInsights((data as any) ?? []);
   }
 
-  async function loadGroups() {
+  async function loadGroups(instanceName?: string) {
+    const inst = instanceName ?? selectedInstance;
+    if (!inst) {
+      setGroups([]);
+      setTotalGroupCount(0);
+      return;
+    }
     const { data: gs } = await supabase
       .from("wa_groups")
       .select("id, name, member_count, ativo, instance_name")
-      .eq("instance_name", "Danilo Henrique")
+      .eq("instance_name", inst)
       .eq("ativo", true)
       .order("member_count", { ascending: false })
       .limit(500);
