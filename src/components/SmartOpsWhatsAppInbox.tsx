@@ -135,7 +135,13 @@ export function SmartOpsWhatsAppInbox({ refreshKey }: { refreshKey: number }) {
     const last8 = (v?: string | null) => (v || "").replace(/\D/g, "").slice(-8);
 
     const leadIds = [...new Set(convs.filter(c => c.lead_id).map(c => c.lead_id!))];
-    const phoneKeys = [...new Set(convs.filter(c => !c.is_group).map(c => (c.phone_normalized || c.phone_raw || "").replace(/\D/g, "")).filter(Boolean))];
+    const phoneKeys = [...new Set(
+      convs
+        .filter(c => !c.is_group)
+        .map(c => (c.phone_normalized || c.phone_raw || "").replace(/\D/g, ""))
+        // Ignora identificadores internos do WhatsApp (@lid) — não são telefones
+        .filter(p => p.length >= 12)
+    )];
 
     const leadRows: any[] = [];
     if (leadIds.length > 0) {
@@ -146,7 +152,11 @@ export function SmartOpsWhatsAppInbox({ refreshKey }: { refreshKey: number }) {
       if (data) leadRows.push(...data);
     }
     if (phoneKeys.length > 0) {
-      const variants = [...new Set(phoneKeys.flatMap(p => [p, p.startsWith("55") ? p.slice(2) : "55" + p]))];
+      // lia_attendances.telefone_normalized é gravado como "+55DDXXXXXXXXX"
+      const variants = [...new Set(phoneKeys.flatMap(p => {
+        const base = p.startsWith("55") ? p : "55" + p;
+        return [`+${base}`, base, `+${base.slice(2)}`];
+      }))];
       const { data } = await supabase
         .from("lia_attendances")
         .select("id, nome, telefone_normalized, telefone_raw, piperun_pipeline_name, funil_entrada_crm, piperun_stage_name, proprietario_lead_crm, cs_treinamento, data_treinamento")
