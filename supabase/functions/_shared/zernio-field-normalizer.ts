@@ -78,10 +78,39 @@ const AREA_ATUACAO_CANONICAL = [
 ];
 const AREA_ATUACAO_LOOKUP = buildCanonicalLookup(AREA_ATUACAO_CANONICAL);
 
+// Sinônimos reais observados no CRM (cargo/QSA, formulários livres, imports
+// legados). Espelha src/hooks/reactivation/useFieldNormalizer.ts.
+const AREA_ATUACAO_SYNONYMS: Record<string, string> = {
+  consultorio: "CLÍNICA OU CONSULTÓRIO",
+  clinica: "CLÍNICA OU CONSULTÓRIO",
+  clinica_consultorio: "CLÍNICA OU CONSULTÓRIO",
+  clinico: "CLÍNICA OU CONSULTÓRIO",
+  clinico_geral: "CLÍNICA OU CONSULTÓRIO",
+  dentista: "CLÍNICA OU CONSULTÓRIO",
+  cirurgiao_dentista: "CLÍNICA OU CONSULTÓRIO",
+  cirurgia_dentista: "CLÍNICA OU CONSULTÓRIO",
+  odontologia: "CLÍNICA OU CONSULTÓRIO",
+  protetico: "LABORATÓRIO DE PRÓTESE",
+  laboratorio: "LABORATÓRIO DE PRÓTESE",
+  laboratorio_de_protese: "LABORATÓRIO DE PRÓTESE",
+  tecnico_em_protese: "LABORATÓRIO DE PRÓTESE",
+  tecnico_em_protese_dentaria: "LABORATÓRIO DE PRÓTESE",
+  radiologia: "RADIOLOGIA ODONTOLÓGICA",
+  radiologista: "RADIOLOGIA ODONTOLÓGICA",
+  clinica_de_radiologia: "RADIOLOGIA ODONTOLÓGICA",
+  alinhadores: "EMPRESA DE ALINHADORES",
+  planning: "PLANNING CENTER",
+  ensino: "EDUCAÇÃO",
+  professor: "EDUCAÇÃO",
+  universidade: "EDUCAÇÃO",
+};
+
 export function normalizeAreaAtuacao(raw: string | undefined): string | null {
   const slug = slugify(raw);
   if (!slug) return null;
-  return AREA_ATUACAO_LOOKUP.get(slug) ?? fuzzyMatchCanonical(slug, AREA_ATUACAO_LOOKUP);
+  return AREA_ATUACAO_LOOKUP.get(slug)
+    ?? AREA_ATUACAO_SYNONYMS[slug]
+    ?? fuzzyMatchCanonical(slug, AREA_ATUACAO_LOOKUP);
 }
 
 // 2. Especialidade
