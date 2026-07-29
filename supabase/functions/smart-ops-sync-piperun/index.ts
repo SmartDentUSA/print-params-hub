@@ -229,6 +229,8 @@ async function findLeadByCascade(
       .is("merged_into", null)
       .maybeSingle();
     if (byEmail) return byEmail as LeadRecord;
+    const ciMatch = await findLeadByEmail(supabase, email);
+    if (ciMatch) return ciMatch;
   }
 
   return null;
@@ -239,17 +241,20 @@ async function findLeadByEmail(
   email: string,
   excludeId?: string,
 ): Promise<LeadRecord | null> {
-  let query = supabase
+  // Case-insensitive lookup aligned with the unique index lower(email)
+  // (lia_attendances_email_ci_key). PostgREST cannot express lower(col),
+  // so we resolve the id via RPC (index scan) and then fetch the columns.
+  const { data: matchId } = await supabase.rpc("find_lead_id_by_email_ci", {
+    p_email: email,
+    p_exclude_id: excludeId ?? null,
+  });
+  if (!matchId) return null;
+
+  const { data } = await supabase
     .from("lia_attendances")
     .select(SELECT_COLS)
-    .eq("email", email.toLowerCase().trim())
-    .is("merged_into", null);
-
-  if (excludeId) {
-    query = query.neq("id", excludeId);
-  }
-
-  const { data } = await query.maybeSingle();
+    .eq("id", matchId as string)
+    .maybeSingle();
   return (data as LeadRecord | null) ?? null;
 }
 
