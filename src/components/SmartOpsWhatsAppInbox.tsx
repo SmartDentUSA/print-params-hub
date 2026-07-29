@@ -204,7 +204,7 @@ export function SmartOpsWhatsAppInbox({ refreshKey }: { refreshKey: number }) {
     try {
       const conv = conversations.find(c => c.phone_normalized === selectedPhone);
 
-      const { error } = await supabase.functions.invoke("smart-ops-send-waleads", {
+      const { data, error } = await supabase.functions.invoke("smart-ops-send-waleads", {
         body: {
           team_member_id: selectedMember,
           phone: conv?.phone_raw || selectedPhone,
@@ -214,7 +214,20 @@ export function SmartOpsWhatsAppInbox({ refreshKey }: { refreshKey: number }) {
         },
       });
 
-      if (error) throw error;
+      if (error) {
+        // Lê o corpo JSON do erro para exibir a causa real (ex.: instância desconectada)
+        let detail = error.message;
+        const res = (error as any)?.context;
+        if (res && typeof res.json === "function") {
+          const bodyErr = await res.json().catch(() => null);
+          if (bodyErr?.detail) detail = bodyErr.detail;
+          else if (bodyErr?.error) detail = bodyErr.error;
+        }
+        throw new Error(detail);
+      }
+      if (data && (data as any).success === false) {
+        throw new Error((data as any).detail || (data as any).error);
+      }
       toast.success("Mensagem enviada");
       setReplyText("");
       setTimeout(() => loadMessages(selectedPhone), 1000);

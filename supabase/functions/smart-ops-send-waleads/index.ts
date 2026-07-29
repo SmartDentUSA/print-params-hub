@@ -73,7 +73,45 @@ Deno.serve(async (req) => {
     }
 
     const apikey = tm.evolution_api_key || GLOBAL_KEY;
-    const url = `${EVO_BASE}/message/sendText/${encodeURIComponent(tm.evolution_instance_name)}`;
+    const instance = tm.evolution_instance_name;
+
+    // Pre-flight: instância precisa estar "open". Se estiver "connecting"/"close",
+    // o Baileys aceita o POST mas a mensagem nunca é entregue de fato — o
+    // destinatário vê "Aguardando mensagem. Esta ação pode levar alguns minutos".
+    try {
+      const stRes = await fetch(
+        `${EVO_BASE}/instance/connectionState/${encodeURIComponent(instance)}`,
+        { headers: { apikey } },
+      );
+      if (!stRes.ok) {
+        const t = await stRes.text();
+        console.error(JSON.stringify({ event: "wa.send.state_http_error", instance, status: stRes.status }));
+        return json({
+          success: false,
+          error: `evolution_state_${stRes.status}`,
+          instance,
+          detail: stRes.status === 401
+            ? `Credencial inválida para a instância "${instance}". Atualize o campo evolution_api_key do membro do time.`
+            : `Não foi possível verificar a conexão da instância "${instance}": ${t.slice(0, 200)}`,
+        }, 409);
+      }
+      const stJson = await stRes.json().catch(() => null);
+      const state = stJson?.instance?.state ?? stJson?.state ?? null;
+      if (state && state !== "open") {
+        console.error(JSON.stringify({ event: "wa.send.instance_not_open", instance, state }));
+        return json({
+          success: false,
+          error: "instance_not_connected",
+          state,
+          instance,
+          detail: `A instância "${instance}" está com status "${state}". Reconecte o WhatsApp (QR Code) antes de enviar — mensagens enviadas nesse estado ficam como "Aguardando mensagem" para o destinatário.`,
+        }, 409);
+      }
+    } catch (e) {
+      console.warn("connectionState check failed", e);
+    }
+
+    const url = `${EVO_BASE}/message/sendText/${encodeURIComponent(instance)}`;
 
     const res = await fetch(url, {
       method: "POST",
@@ -83,7 +121,7 @@ Deno.serve(async (req) => {
     const text = await res.text();
 
     if (!res.ok) {
-      console.error(JSON.stringify({ event: "wa.send.fail", instance: tm.evolution_instance_name, status: res.status, body: text.slice(0, 500) }));
+      console.error(JSON.stringify({ event: "wa.send.fail", instance, status: res.status, body: text.slice(0, 500) }));
       return json({ success: false, error: `evolution_${res.status}`, detail: text.slice(0, 500) }, 502);
     }
 
@@ -97,7 +135,7 @@ Deno.serve(async (req) => {
       message_text: String(message),
       lead_id,
       team_member_id: tm.id,
-      instance_name: tm.evolution_instance_name,
+      instance_name: instance,
       wa_message_id: payload?.key?.id ?? null,
       remote_jid: payload?.key?.remoteJid ?? `${target}@s.whatsapp.net`,
       is_group: false,
@@ -105,7 +143,7 @@ Deno.serve(async (req) => {
       raw_payload: { source, metadata, response: payload },
     });
 
-    return json({ success: true, instance: tm.evolution_instance_name, message_id: payload?.key?.id ?? null });
+    return json({ success: true, instance, message_id: payload?.key?.id ?? null });
   } catch (err) {
     console.error("send error", err);
     return json({ success: false, error: String((err as Error)?.message ?? err) }, 500);
