@@ -144,6 +144,10 @@ export default function PublicFormPage() {
   const isStepMode = effectiveDisplayMode === "step";
   const isFirstThreeMode = effectiveDisplayMode === "first_three";
   const embedRootRef = useRef<HTMLDivElement | null>(null);
+  // No modo "3 primeiras perguntas" o formulário MOSTRA 3 campos primeiro,
+  // mas continua coletando todas as perguntas de qualificação: ao avançar,
+  // os campos restantes são revelados antes do envio.
+  const [revealedAll, setRevealedAll] = useState(false);
 
   // Em modo embed, informa a altura ao container (landing page) para evitar scroll interno.
   useEffect(() => {
@@ -163,9 +167,11 @@ export default function PublicFormPage() {
   }, [isEmbed, slug]);
   // Filter fields by conditional logic against current answers
   const allRenderableFields = fields.filter((f) => isFieldVisible(f, values));
-  const renderableFields = isFirstThreeMode
+  const renderableFields = isFirstThreeMode && !revealedAll
     ? allRenderableFields.slice(0, 3)
     : allRenderableFields;
+  const hasHiddenQualificationFields =
+    isFirstThreeMode && !revealedAll && allRenderableFields.length > 3;
   const totalSteps = renderableFields.length;
   const safeStep = Math.min(currentStep, Math.max(0, totalSteps - 1));
   const visibleFields = isStepMode
@@ -700,6 +706,22 @@ export default function PublicFormPage() {
         .public-form-page[data-embed="true"] {
           background: transparent !important;
           min-height: 0;
+          --form-heading: #0f172a;
+          --form-body: #1f2937;
+          --form-label: #0f172a;
+          --form-muted: rgba(15,23,42,0.62);
+        }
+        .public-form-page[data-embed="true"] .brand-strip { display: none; }
+        .public-form-page[data-embed="true"] label {
+          font-size: 0.8125rem;
+          font-weight: 600;
+          letter-spacing: 0.01em;
+        }
+        .public-form-page[data-embed="true"] input,
+        .public-form-page[data-embed="true"] select,
+        .public-form-page[data-embed="true"] textarea {
+          background: #fff;
+          border-color: rgba(15,23,42,0.14);
         }
         .public-form-page {
           --brand:       hsl(var(--brand-h), var(--brand-s), var(--brand-l));
@@ -866,6 +888,16 @@ export default function PublicFormPage() {
           <form
             onSubmit={(e) => {
               if (isStepMode && !isLastStep) { e.preventDefault(); goNext(); return; }
+              if (hasHiddenQualificationFields) {
+                e.preventDefault();
+                for (const f of renderableFields) {
+                  const err = validateField(f);
+                  if (err) { setInlineError(err); return; }
+                }
+                setInlineError(null);
+                setRevealedAll(true);
+                return;
+              }
               handleSubmit(e);
             }}
             className="space-y-5"
@@ -1051,7 +1083,11 @@ export default function PublicFormPage() {
                 disabled={submitting}
                 style={{ backgroundColor: 'var(--brand)', borderColor: 'var(--brand-dark)' }}
               >
-                {submitting ? "Enviando..." : (form.cta_text || "Enviar")}
+                {submitting
+                  ? "Enviando..."
+                  : hasHiddenQualificationFields
+                    ? "Continuar"
+                    : (form.cta_text || "Enviar")}
               </Button>
             )}
             {form.trust_text && (
