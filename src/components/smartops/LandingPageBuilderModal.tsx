@@ -822,6 +822,38 @@ function ContentEditor({
         />
       </Section>
 
+      <Section
+        title="Formulário na página"
+        anchorId="sec-formulario"
+        toggle={{ enabled: isOn("inlineForm"), onChange: toggleSection("inlineForm") }}
+      >
+        <p className="text-[11px] text-muted-foreground">
+          Embute o formulário desta landing page (as 3 primeiras perguntas) direto na página, além dos botões de CTA.
+        </p>
+        <TextField
+          label="Eyebrow"
+          value={content.inlineForm?.eyebrow ?? ""}
+          onChange={(v) => patch({ inlineForm: { ...(content.inlineForm ?? {}), eyebrow: v } })}
+        />
+        <TextField
+          label="Título"
+          value={content.inlineForm?.title ?? ""}
+          onChange={(v) => patch({ inlineForm: { ...(content.inlineForm ?? {}), title: v } })}
+          placeholder="Preencha e fale com um especialista"
+        />
+        <TextField
+          label="Subtítulo"
+          value={content.inlineForm?.sub ?? ""}
+          onChange={(v) => patch({ inlineForm: { ...(content.inlineForm ?? {}), sub: v } })}
+          multiline
+        />
+        <TextField
+          label="Nota abaixo do formulário"
+          value={content.inlineForm?.note ?? ""}
+          onChange={(v) => patch({ inlineForm: { ...(content.inlineForm ?? {}), note: v } })}
+        />
+      </Section>
+
       <Section title="O que os dentistas dizem" anchorId="sec-depoimentos" toggle={{ enabled: isOn("testimonials"), onChange: toggleSection("testimonials") }}>
         <TextField
           label="Título"
