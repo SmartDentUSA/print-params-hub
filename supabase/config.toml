@@ -415,6 +415,9 @@ verify_jwt = false
 [functions.smart-ops-wa-capture-conversations]
 verify_jwt = false
 
+[functions.smart-ops-wa-resolve-lid]
+verify_jwt = false
+
 [functions.wa-sync-groups]
 verify_jwt = false
 
