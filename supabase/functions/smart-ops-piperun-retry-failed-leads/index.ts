@@ -294,9 +294,14 @@ Deno.serve(async (req) => {
         // `details.lead_id`, which these log rows never carry (the id lives in the
         // `lead_id` COLUMN). The set was always empty, so the same ~148 leads were
         // re-sent to the backfill every 15 min forever (~4.7k log rows/day).
+        // BUGFIX #2 (2026-07-29): `.limit(5000)` is silently capped at PostgREST's
+        // max-rows (1000), so the dedup set was truncated and ~50 already-handled
+        // leads leaked back into the batch every tick. Scope the query to the
+        // candidate ids instead — exact, bounded, and immune to the row cap.
         const { data: publishedLogs } = await supabase
           .from("system_health_logs")
-          .select("lead_id, details")
+          .select("lead_id")
+          .in("lead_id", ids)
           .in("error_type", [
             "piperun_person_contact_published",
             "piperun_person_contact_backfilled",
@@ -306,14 +311,25 @@ Deno.serve(async (req) => {
             "piperun_person_contact_backfill_failed",
           ])
           .gte("created_at", sinceIso)
-          .not("lead_id", "is", null)
-          .limit(5000);
+          .not("lead_id", "is", null);
         const publishedIds = new Set(
           (publishedLogs || [])
-            .map((l: any) => l?.lead_id ?? l?.details?.lead_id)
+            .map((l: any) => l?.lead_id)
             .filter(Boolean),
         );
         const targets = (orphanCandidates || []).filter((l: any) => !publishedIds.has(l.id));
+        await supabase.from("system_health_logs").insert({
+          function_name: "smart-ops-piperun-retry-failed-leads",
+          severity: "info",
+          error_type: "contact_backfill_target_audit",
+          details: {
+            candidates: ids.length,
+            dedup_log_rows: (publishedLogs || []).length,
+            dedup_ids: publishedIds.size,
+            targets: targets.length,
+            sample_targets: targets.slice(0, 5).map((t: any) => t.id),
+          },
+        });
         if (targets.length > 0) {
           const batch = targets.slice(0, 50).map((t: any) => t.id);
           contactBackfill = { invoked: true, lead_count: batch.length };
