@@ -7409,6 +7409,7 @@ export type Database = {
           event_timestamp: string
           event_type: string
           id: string
+          identity_resolved_at: string | null
           ip_address: string | null
           lead_id: string
           person_id: string | null
@@ -7428,6 +7429,7 @@ export type Database = {
           event_timestamp?: string
           event_type: string
           id?: string
+          identity_resolved_at?: string | null
           ip_address?: string | null
           lead_id: string
           person_id?: string | null
@@ -7447,6 +7449,7 @@ export type Database = {
           event_timestamp?: string
           event_type?: string
           id?: string
+          identity_resolved_at?: string | null
           ip_address?: string | null
           lead_id?: string
           person_id?: string | null
