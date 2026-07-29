@@ -11,7 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Send, Search, MessageSquare, Phone, User, RefreshCw } from "lucide-react";
+import { Send, Search, MessageSquare, Phone, User, RefreshCw, DownloadCloud, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -27,6 +27,9 @@ interface InboxMessage {
   lead_id: string | null;
   intent_detected: string | null;
   confidence_score: number | null;
+  instance_name?: string | null;
+  sender_name?: string | null;
+  is_group?: boolean | null;
 }
 
 interface Conversation {
@@ -38,6 +41,8 @@ interface Conversation {
   lead_id: string | null;
   intent: string | null;
   unread_count: number;
+  instance_name: string | null;
+  is_group: boolean;
 }
 
 interface TeamMember {
@@ -57,6 +62,8 @@ export function SmartOpsWhatsAppInbox({ refreshKey }: { refreshKey: number }) {
   const [sending, setSending] = useState(false);
   const [searchFilter, setSearchFilter] = useState("");
   const [loading, setLoading] = useState(true);
+  const [instanceFilter, setInstanceFilter] = useState<string>("all");
+  const [syncing, setSyncing] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -89,7 +96,7 @@ export function SmartOpsWhatsAppInbox({ refreshKey }: { refreshKey: number }) {
     setLoading(true);
     const { data, error } = await supabase
       .from("whatsapp_inbox")
-      .select("phone_normalized, phone, message_text, created_at, direction, lead_id, intent_detected")
+      .select("phone_normalized, phone, message_text, created_at, direction, lead_id, intent_detected, instance_name, is_group")
       .order("created_at", { ascending: false })
       .limit(1000);
 
@@ -112,6 +119,8 @@ export function SmartOpsWhatsAppInbox({ refreshKey }: { refreshKey: number }) {
           lead_id: msg.lead_id,
           intent: msg.intent_detected,
           unread_count: 0,
+          instance_name: (msg as any).instance_name ?? null,
+          is_group: Boolean((msg as any).is_group),
         });
       }
     }
@@ -166,6 +175,28 @@ export function SmartOpsWhatsAppInbox({ refreshKey }: { refreshKey: number }) {
     }
   };
 
+  const handleSyncInstances = async () => {
+    setSyncing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("smart-ops-wa-capture-conversations", {
+        body: { since_hours: 168, pages: 5, page_size: 200 },
+      });
+      if (error) throw error;
+      const res = (data as any)?.results ?? [];
+      const inserted = res.reduce((a: number, r: any) => a + (r.inserted || 0), 0);
+      const failed = res.filter((r: any) => r.error);
+      toast.success(`${inserted} mensagens capturadas de ${res.length} instância(s)`);
+      if (failed.length) {
+        toast.warning(`Instâncias com erro: ${failed.map((f: any) => f.instance).join(", ")}`);
+      }
+      loadConversations();
+    } catch (err) {
+      toast.error(`Erro ao sincronizar: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setSyncing(false);
+    }
+  };
+
   const handleSend = async () => {
     if (!replyText.trim() || !selectedPhone || !selectedMember) return;
     setSending(true);
@@ -195,7 +226,10 @@ export function SmartOpsWhatsAppInbox({ refreshKey }: { refreshKey: number }) {
   };
 
   // Enhanced search: match full phone, DDD+9, or last 9 digits
+  const instanceOptions = [...new Set(conversations.map(c => c.instance_name).filter(Boolean))] as string[];
+
   const filteredConversations = conversations.filter(c => {
+    if (instanceFilter !== "all" && c.instance_name !== instanceFilter) return false;
     if (!searchFilter) return true;
     const q = searchFilter.toLowerCase().replace(/\D/g, "");
     const qText = searchFilter.toLowerCase();
@@ -251,6 +285,29 @@ export function SmartOpsWhatsAppInbox({ refreshKey }: { refreshKey: number }) {
               className="pl-9"
             />
           </div>
+          <div className="flex items-center gap-2 mt-2">
+            <Select value={instanceFilter} onValueChange={setInstanceFilter}>
+              <SelectTrigger className="h-8 text-xs flex-1">
+                <SelectValue placeholder="Todas as instâncias" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas as instâncias</SelectItem>
+                {instanceOptions.map((inst) => (
+                  <SelectItem key={inst} value={inst}>{inst}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 px-2"
+              onClick={handleSyncInstances}
+              disabled={syncing}
+              title="Capturar conversas de todas as instâncias (vendedor, CS e suporte)"
+            >
+              {syncing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <DownloadCloud className="w-3.5 h-3.5" />}
+            </Button>
+          </div>
         </div>
         <div className="flex-1 overflow-y-auto">
           {loading ? (
@@ -289,6 +346,11 @@ export function SmartOpsWhatsAppInbox({ refreshKey }: { refreshKey: number }) {
                   <p className="text-[10px] text-muted-foreground mb-0.5">📱 {formatPhone(conv.phone_raw)}</p>
                 )}
                 <p className="text-xs text-muted-foreground truncate">{conv.last_message}</p>
+                {conv.instance_name && (
+                  <Badge variant="secondary" className="mt-1 mr-1 text-[9px] px-1.5 py-0">
+                    {conv.instance_name}{conv.is_group ? " • grupo" : ""}
+                  </Badge>
+                )}
                 {conv.intent && (
                   <Badge variant="outline" className={cn("mt-1 text-[10px] px-1.5 py-0", intentColor(conv.intent))}>
                     {conv.intent}
