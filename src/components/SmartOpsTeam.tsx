@@ -361,14 +361,22 @@ export function SmartOpsTeam() {
   };
 
   const handleSave = async () => {
-    if (!form.nome_completo || !form.email || !form.whatsapp_number) {
-      toast({ title: "Preencha todos os campos", variant: "destructive" }); return;
+    const faltando: string[] = [];
+    if (!form.nome_completo?.trim()) faltando.push("Nome completo");
+    if (!form.email?.trim()) faltando.push("E-mail");
+    if (!form.whatsapp_number?.trim()) faltando.push("WhatsApp");
+    if (faltando.length) {
+      toast({ title: "Campos obrigatórios", description: faltando.join(", "), variant: "destructive" });
+      return;
     }
     const nullify = (v: string) => (v && v.trim() ? v.trim() : null);
     const evolutionBaseUrl = form.evolution_base_url?.trim() || "http://82.25.75.61:8080";
     const evoGoBaseUrl = form.evo_go_base_url?.trim() || "http://82.25.75.61:8081";
     const payload = {
       ...form,
+      nome_completo: form.nome_completo.trim(),
+      email: form.email.trim().toLowerCase(),
+      whatsapp_number: form.whatsapp_number.trim(),
       evolution_base_url: evolutionBaseUrl,
       evo_go_base_url: evoGoBaseUrl,
       piperun_owner_id: nullify(form.piperun_owner_id) as any,
@@ -381,12 +389,29 @@ export function SmartOpsTeam() {
       evo_go_instance_id: nullify(form.evo_go_instance_id) as any,
       evo_go_instance_token: nullify(form.evo_go_instance_token) as any,
     };
+    const describeError = (message: string) => {
+      if (/duplicate key|already exists/i.test(message) && /email/i.test(message)) {
+        return "Já existe um membro com esse e-mail (pode estar inativo). Edite o existente ou use outro e-mail.";
+      }
+      if (/row-level security|permission denied/i.test(message)) {
+        return "Sem permissão: apenas administradores podem cadastrar membros.";
+      }
+      return message;
+    };
     if (editing) {
       const { error } = await supabase.from("team_members").update(payload).eq("id", editing.id);
-      if (error) { toast({ title: "Erro", description: error.message, variant: "destructive" }); return; }
+      if (error) {
+        console.error("[team_members] update failed", error);
+        toast({ title: "Erro ao salvar", description: describeError(error.message), variant: "destructive" });
+        return;
+      }
     } else {
       const { error } = await supabase.from("team_members").insert(payload);
-      if (error) { toast({ title: "Erro", description: error.message, variant: "destructive" }); return; }
+      if (error) {
+        console.error("[team_members] insert failed", error);
+        toast({ title: "Erro ao salvar", description: describeError(error.message), variant: "destructive" });
+        return;
+      }
     }
     setDialogOpen(false);
     fetchMembers();
