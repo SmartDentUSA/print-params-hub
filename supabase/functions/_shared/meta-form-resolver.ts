@@ -51,7 +51,7 @@ function splitStageTarget(target: string | null): { stage: string | null; sub: s
   const rawSub = target.slice(idx + 2);
   return {
     stage: STAGE_PREFIX_MAP[rawStage] ?? rawStage,
-    sub: SUBCATEGORY_SLUG_MAP[rawSub] ?? rawSub || null,
+    sub: SUBCATEGORY_SLUG_MAP[rawSub] ?? (rawSub || null),
   };
 }
 
