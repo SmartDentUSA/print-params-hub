@@ -24618,193 +24618,6 @@ export type Database = {
         }
         Relationships: []
       }
-      wa_followup_queue: {
-        Row: {
-          created_at: string | null
-          followup_enviado_at: string | null
-          followup_tentativas: number | null
-          id: string
-          lead_id: string
-          phone: string
-          sdr_etapa: string | null
-          session_id: string
-          status: string | null
-          ultima_msg_at: string
-        }
-        Insert: {
-          created_at?: string | null
-          followup_enviado_at?: string | null
-          followup_tentativas?: number | null
-          id?: string
-          lead_id: string
-          phone: string
-          sdr_etapa?: string | null
-          session_id: string
-          status?: string | null
-          ultima_msg_at: string
-        }
-        Update: {
-          created_at?: string | null
-          followup_enviado_at?: string | null
-          followup_tentativas?: number | null
-          id?: string
-          lead_id?: string
-          phone?: string
-          sdr_etapa?: string | null
-          session_id?: string
-          status?: string | null
-          ultima_msg_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "wa_followup_queue_lead_id_fkey"
-            columns: ["lead_id"]
-            isOneToOne: false
-            referencedRelation: "lead_model_routing"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "wa_followup_queue_lead_id_fkey"
-            columns: ["lead_id"]
-            isOneToOne: false
-            referencedRelation: "lia_attendances"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "wa_followup_queue_lead_id_fkey"
-            columns: ["lead_id"]
-            isOneToOne: false
-            referencedRelation: "v_bi_atividades_unnested"
-            referencedColumns: ["lead_id"]
-          },
-          {
-            foreignKeyName: "wa_followup_queue_lead_id_fkey"
-            columns: ["lead_id"]
-            isOneToOne: false
-            referencedRelation: "v_lead_academy"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "wa_followup_queue_lead_id_fkey"
-            columns: ["lead_id"]
-            isOneToOne: false
-            referencedRelation: "v_lead_cognitive"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "wa_followup_queue_lead_id_fkey"
-            columns: ["lead_id"]
-            isOneToOne: false
-            referencedRelation: "v_lead_commercial"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "wa_followup_queue_lead_id_fkey"
-            columns: ["lead_id"]
-            isOneToOne: false
-            referencedRelation: "v_lead_ecommerce"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "wa_followup_queue_lead_id_fkey"
-            columns: ["lead_id"]
-            isOneToOne: false
-            referencedRelation: "v_lead_pipeline"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "wa_followup_queue_lead_id_fkey"
-            columns: ["lead_id"]
-            isOneToOne: false
-            referencedRelation: "v_lead_stage_purchases"
-            referencedColumns: ["lead_id"]
-          },
-          {
-            foreignKeyName: "wa_followup_queue_lead_id_fkey"
-            columns: ["lead_id"]
-            isOneToOne: false
-            referencedRelation: "v_leads_correto"
-            referencedColumns: ["lead_id"]
-          },
-          {
-            foreignKeyName: "wa_followup_queue_lead_id_fkey"
-            columns: ["lead_id"]
-            isOneToOne: false
-            referencedRelation: "v_leads_pendentes_atribuicao"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "wa_followup_queue_lead_id_fkey"
-            columns: ["lead_id"]
-            isOneToOne: false
-            referencedRelation: "v_opportunity_engine"
-            referencedColumns: ["lead_id"]
-          },
-          {
-            foreignKeyName: "wa_followup_queue_lead_id_fkey"
-            columns: ["lead_id"]
-            isOneToOne: false
-            referencedRelation: "v_pipeline_atual"
-            referencedColumns: ["lead_id"]
-          },
-          {
-            foreignKeyName: "wa_followup_queue_lead_id_fkey"
-            columns: ["lead_id"]
-            isOneToOne: false
-            referencedRelation: "v_reactivation_candidates"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "wa_followup_queue_lead_id_fkey"
-            columns: ["lead_id"]
-            isOneToOne: false
-            referencedRelation: "v_timing_alerts"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "wa_followup_queue_lead_id_fkey"
-            columns: ["lead_id"]
-            isOneToOne: false
-            referencedRelation: "v_workflow_portfolio"
-            referencedColumns: ["lead_id"]
-          },
-          {
-            foreignKeyName: "wa_followup_queue_lead_id_fkey"
-            columns: ["lead_id"]
-            isOneToOne: false
-            referencedRelation: "v_workflow_timeline"
-            referencedColumns: ["lead_id"]
-          },
-          {
-            foreignKeyName: "wa_followup_queue_lead_id_fkey"
-            columns: ["lead_id"]
-            isOneToOne: false
-            referencedRelation: "vw_leads_orfaos_recentes"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "wa_followup_queue_lead_id_fkey"
-            columns: ["lead_id"]
-            isOneToOne: false
-            referencedRelation: "vw_leads_qualidade_ruim"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "wa_followup_queue_lead_id_fkey"
-            columns: ["lead_id"]
-            isOneToOne: false
-            referencedRelation: "vw_lia_attendances_enriched"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "wa_followup_queue_lead_id_fkey"
-            columns: ["lead_id"]
-            isOneToOne: false
-            referencedRelation: "vw_vendas_ganhas"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       wa_group_dispatch_log: {
         Row: {
           caption_fingerprint: string | null
@@ -25365,7 +25178,7 @@ export type Database = {
           evo_message_id: string | null
           group_jid: string
           id: string
-          node_id: string | null
+          node_id: string
           node_index: number
           node_type: string
           paused_at: string | null
@@ -25386,7 +25199,7 @@ export type Database = {
           evo_message_id?: string | null
           group_jid: string
           id?: string
-          node_id?: string | null
+          node_id: string
           node_index: number
           node_type: string
           paused_at?: string | null
@@ -25407,7 +25220,7 @@ export type Database = {
           evo_message_id?: string | null
           group_jid?: string
           id?: string
-          node_id?: string | null
+          node_id?: string
           node_index?: number
           node_type?: string
           paused_at?: string | null
@@ -30409,7 +30222,7 @@ export type Database = {
           evo_message_id: string | null
           group_jid: string
           id: string
-          node_id: string | null
+          node_id: string
           node_index: number
           node_type: string
           paused_at: string | null
