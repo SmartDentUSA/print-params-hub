@@ -1,8 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import {
-  normalizeZernioLead,
-  mapFormToProduct,
-} from "../_shared/zernio-field-normalizer.ts";
+import { normalizeZernioLead } from "../_shared/zernio-field-normalizer.ts";
+import { resolveMetaForm } from "../_shared/meta-form-resolver.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -75,7 +73,9 @@ async function processLead(
       adId: payload.lead?.adId ?? null,
       platform: payload.account?.platform ?? null,
     });
-    const productMapping = mapFormToProduct(payload.lead.formId);
+    const productMapping = await resolveMetaForm(supabase, payload.lead.formId);
+    const mappedProductName = productMapping.resolved ? productMapping.productName : null;
+    const mappedOrigin = productMapping.resolved ? productMapping.originSystemB : null;
 
     const ingestResponse = await fetch(
       `${SUPABASE_URL}/functions/v1/smart-ops-ingest-lead`,
@@ -89,8 +89,8 @@ async function processLead(
           source: "meta_lead_ads",
           new_conversion_confirmed: true,
           conversion_key: `meta_leadgen:${leadgenId}`,
-          form_name: payload.lead.formName ?? productMapping?.originSystemB ?? null,
-          origem_campanha: payload.lead.campaignName ?? payload.lead.formName ?? productMapping?.originSystemB ?? null,
+          form_name: payload.lead.formName ?? mappedOrigin ?? null,
+          origem_campanha: payload.lead.campaignName ?? payload.lead.formName ?? mappedOrigin ?? null,
           utm_source: "facebook",
           utm_medium: "paid",
           utm_campaign: payload.lead.campaignName ?? (payload.lead.formId ? `form_${payload.lead.formId}` : null),
@@ -111,8 +111,8 @@ async function processLead(
           tem_scanner: normalized.scanner?.status === "nao_digitaliza" ? "não" : (normalized.scanner?.label ? "sim" : null),
           tem_impressora: normalized.impressora?.status === "nao_tem" ? "não" : (normalized.impressora?.label ? "sim" : null),
           impressora_modelo: normalized.impressora?.label ?? null,
-          produto_interesse: productMapping?.productName ?? null,
-          produto_interesse_auto: productMapping?.productName ?? null,
+          produto_interesse: mappedProductName,
+          produto_interesse_auto: mappedProductName,
           leadgen_id: leadgenId,
           needs_manual_review: normalized.needsManualReview,
           zernio_delivery_id: payload.id,
