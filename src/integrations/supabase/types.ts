@@ -23198,15 +23198,21 @@ export type Database = {
           elevenlabs_voice_id: string | null
           email: string
           evo_go_base_url: string | null
+          evo_go_enabled: boolean
           evo_go_instance_id: string | null
           evo_go_instance_name: string | null
           evo_go_instance_token: string | null
+          evo_go_last_check_at: string | null
+          evo_go_status: string
           evolution_api_key: string | null
           evolution_base_url: string | null
+          evolution_enabled: boolean
           evolution_group_key_broken_at: string | null
           evolution_instance_name: string | null
+          evolution_last_check_at: string | null
           evolution_lid: string | null
           evolution_phone: string | null
+          evolution_status: string
           group_management_provider: string
           group_message_provider: string
           id: string
@@ -23237,15 +23243,21 @@ export type Database = {
           elevenlabs_voice_id?: string | null
           email: string
           evo_go_base_url?: string | null
+          evo_go_enabled?: boolean
           evo_go_instance_id?: string | null
           evo_go_instance_name?: string | null
           evo_go_instance_token?: string | null
+          evo_go_last_check_at?: string | null
+          evo_go_status?: string
           evolution_api_key?: string | null
           evolution_base_url?: string | null
+          evolution_enabled?: boolean
           evolution_group_key_broken_at?: string | null
           evolution_instance_name?: string | null
+          evolution_last_check_at?: string | null
           evolution_lid?: string | null
           evolution_phone?: string | null
+          evolution_status?: string
           group_management_provider?: string
           group_message_provider?: string
           id?: string
@@ -23276,15 +23288,21 @@ export type Database = {
           elevenlabs_voice_id?: string | null
           email?: string
           evo_go_base_url?: string | null
+          evo_go_enabled?: boolean
           evo_go_instance_id?: string | null
           evo_go_instance_name?: string | null
           evo_go_instance_token?: string | null
+          evo_go_last_check_at?: string | null
+          evo_go_status?: string
           evolution_api_key?: string | null
           evolution_base_url?: string | null
+          evolution_enabled?: boolean
           evolution_group_key_broken_at?: string | null
           evolution_instance_name?: string | null
+          evolution_last_check_at?: string | null
           evolution_lid?: string | null
           evolution_phone?: string | null
+          evolution_status?: string
           group_management_provider?: string
           group_message_provider?: string
           id?: string
@@ -25345,6 +25363,7 @@ export type Database = {
       }
       wa_message_queue: {
         Row: {
+          blocked_provider: string | null
           campaign_id: string
           content_json: Json
           created_at: string
@@ -25367,6 +25386,7 @@ export type Database = {
           status: string
         }
         Insert: {
+          blocked_provider?: string | null
           campaign_id: string
           content_json?: Json
           created_at?: string
@@ -25389,6 +25409,7 @@ export type Database = {
           status?: string
         }
         Update: {
+          blocked_provider?: string | null
           campaign_id?: string
           content_json?: Json
           created_at?: string
@@ -30472,6 +30493,7 @@ export type Database = {
       claim_pending_wa_messages: {
         Args: { p_limit?: number }
         Returns: {
+          blocked_provider: string | null
           campaign_id: string
           content_json: Json
           created_at: string

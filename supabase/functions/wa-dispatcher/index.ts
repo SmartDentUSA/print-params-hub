@@ -5,6 +5,13 @@ import { createClient, SupabaseClient } from 'https://esm.sh/@supabase/supabase-
 import { sendText, sendMedia, sleep, corsHeaders, findMessageStatus, mapBaileysStatus, warmupGroup, resolveApiKey, GLOBAL_EVOLUTION_KEY, findRecentOutgoingByText } from '../_shared/evolution.ts'
 import { spDateTimeToUtc, spWeekday, spStartOfDay, addDaysSp } from '../_shared/timezone.ts'
 import { resolveAiContent } from '../_shared/wa-ai-content.ts'
+import {
+  resolveProvider,
+  operationForJid,
+  WaProviderBlockedError,
+  logProvider,
+  type WaTeamMember,
+} from '../_shared/wa-provider-router.ts'
 
 const SUPABASE_URL     = Deno.env.get('SUPABASE_URL')!
 const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -91,12 +98,12 @@ serve(async (req) => {
     const groupHealthByJid = new Map<string, string>((groupRows ?? []).map((g: any) => [g.group_jid, g.session_health ?? 'ok']))
     const instanceNames = Array.from(new Set((groupRows ?? []).map((g: any) => g.instance_name).filter(Boolean))) as string[]
 
-    type TMCreds = { id: string; evolution_api_key: string|null; evolution_group_key_broken_at: string|null; evo_go_instance_token: string|null; evo_go_base_url: string|null }
+    type TMCreds = WaTeamMember & { id: string }
     const tmByInstance = new Map<string, TMCreds>()
     if (instanceNames.length) {
-      const { data: tmRows } = await supabase.from('team_members').select('id, evolution_instance_name, evolution_api_key, evolution_group_key_broken_at, evo_go_instance_token, evo_go_base_url').in('evolution_instance_name', instanceNames)
+      const { data: tmRows } = await supabase.from('team_members').select('id, nome_completo, evolution_instance_name, evolution_api_key, evolution_base_url, evolution_enabled, evolution_status, evolution_group_key_broken_at, evo_go_instance_id, evo_go_instance_token, evo_go_base_url, evo_go_enabled, evo_go_status').in('evolution_instance_name', instanceNames)
       for (const tm of tmRows ?? []) {
-        if (tm.evolution_instance_name) tmByInstance.set(tm.evolution_instance_name, { id: tm.id, evolution_api_key: tm.evolution_api_key ?? null, evolution_group_key_broken_at: tm.evolution_group_key_broken_at ?? null, evo_go_instance_token: tm.evo_go_instance_token ?? null, evo_go_base_url: tm.evo_go_base_url ?? 'http://82.25.75.61:8081' })
+        if (tm.evolution_instance_name) tmByInstance.set(tm.evolution_instance_name, tm as TMCreds)
       }
     }
 
@@ -108,11 +115,37 @@ serve(async (req) => {
       const tm          = instance ? tmByInstance.get(instance) : undefined
       const isGroup     = item.group_jid?.endsWith('@g.us') ?? false
       const apikey      = resolveApiKey({ teamMember: tm, isGroup })
-      const evoGoToken  = tm?.evo_go_instance_token ?? null
-      const evoGoBase   = tm?.evo_go_base_url ?? 'http://82.25.75.61:8081'
-      // Evolution API (:8080) tem prioridade — Evolution Go (:8081) só quando não
-      // houver apikey própria da instância na Evolution API.
-      const useEvoGo    = !!evoGoToken && !tm?.evolution_api_key
+      // REGRA GLOBAL DOS PROVEDORES: o router decide pelo tipo de operação.
+      // Modo dual → grupo sempre EvolutionGO, individual sempre Evolution API.
+      // Sem modo dual → comportamento legado preservado. Nunca há fallback automático.
+      let routed
+      try {
+        routed = resolveProvider(tm, operationForJid(item.group_jid ?? ''))
+      } catch (e) {
+        if (e instanceof WaProviderBlockedError) {
+          await supabase.from('wa_message_queue').update({
+            status: 'blocked_provider',
+            blocked_provider: e.blockedProvider,
+            error_message: e.message,
+          }).eq('id', item.id)
+          results.push({ id: item.id, status: 'blocked_provider', error: e.message })
+          continue
+        }
+        throw e
+      }
+      logProvider('wa-dispatcher', routed)
+      const useEvoGo    = routed.provider === 'evolution_go'
+      const evoGoToken  = useEvoGo ? routed.credential : (tm?.evo_go_instance_token ?? null)
+      const evoGoBase   = useEvoGo ? routed.baseUrl : (tm?.evo_go_base_url ?? 'http://82.25.75.61:8081')
+      if (useEvoGo && !evoGoToken) {
+        await supabase.from('wa_message_queue').update({
+          status: 'blocked_provider',
+          blocked_provider: 'evolution_go',
+          error_message: 'EvolutionGO sem token configurado para esta instância.',
+        }).eq('id', item.id)
+        results.push({ id: item.id, status: 'blocked_provider' })
+        continue
+      }
 
       if (isGroup && groupHealthByJid.get(item.group_jid) === 'session_broken') {
         await supabase.from('wa_message_queue').update({ status: 'blocked_session', error_message: 'Sessão de grupo quebrada no Evolution; reconecte/repareie a instância antes de reenviar.' }).eq('id', item.id)
@@ -257,7 +290,7 @@ serve(async (req) => {
         }
 
         const now = new Date().toISOString()
-        await supabase.from('wa_message_queue').update({ status: 'sent', sent_at: now, evo_message_id: evoId, delivery_status: 'sent_to_server', delivery_checked_at: now }).eq('id', item.id)
+        await supabase.from('wa_message_queue').update({ status: 'sent', sent_at: now, evo_message_id: evoId, delivery_status: 'sent_to_server', delivery_checked_at: now, last_provider: routed.provider, blocked_provider: null }).eq('id', item.id)
         await supabase.from('wa_send_log').insert({ queue_id: item.id, campaign_id: item.campaign_id, group_jid: item.group_jid, instance_name: instance ?? 'unknown', node_type: item.node_type, success: true, http_status: 200, evo_message_id: evoId, sent_at: now })
         // Blasts registram fingerprint para impedir reenvio do mesmo post.
         // Fluxos não usam conteúdo como identidade: sequence_no é a chave.

@@ -33,6 +33,12 @@ interface TeamMember {
   evo_go_instance_id: string | null;
   evo_go_instance_token: string | null;
   evo_go_base_url: string | null;
+  evolution_enabled: boolean | null;
+  evolution_status: string | null;
+  evolution_last_check_at: string | null;
+  evo_go_enabled: boolean | null;
+  evo_go_status: string | null;
+  evo_go_last_check_at: string | null;
   messaging_provider: string | null;
   ativo: boolean;
 }
@@ -61,10 +67,22 @@ const EMPTY_FORM = {
   evo_go_instance_id: "",
   evo_go_instance_token: "",
   evo_go_base_url: "",
+  evolution_enabled: false,
+  evo_go_enabled: false,
   messaging_provider: "waleads",
 };
 
 type EvolutionStatus = "open" | "connecting" | "close" | "unknown";
+
+const STATUS_LABEL: Record<EvolutionStatus, string> = {
+  open: "connected",
+  connecting: "connecting",
+  close: "disconnected",
+  unknown: "unknown",
+};
+
+const formatCheckedAt = (iso: string | null | undefined) =>
+  iso ? new Date(iso).toLocaleString("pt-BR") : "nunca verificado";
 
 function EvolutionStatusBadge({ status }: { status: EvolutionStatus }) {
   if (status === "open") return <Badge className="bg-green-600 text-white text-[10px]">🟢 Conectado</Badge>;
@@ -182,6 +200,8 @@ export function SmartOpsTeam() {
       evo_go_instance_id: m.evo_go_instance_id || "",
       evo_go_instance_token: m.evo_go_instance_token || "",
       evo_go_base_url: m.evo_go_base_url || "",
+      evolution_enabled: m.evolution_enabled === true,
+      evo_go_enabled: m.evo_go_enabled === true,
       messaging_provider: m.messaging_provider || "waleads",
     });
     setEvolutionStatus("unknown");
@@ -199,6 +219,17 @@ export function SmartOpsTeam() {
     }
   };
 
+  /** Persiste o status de conexão do provedor — é ele que habilita o modo dual no router. */
+  const persistStatus = async (memberId: string, provider: "evolution" | "evo_go", state: EvolutionStatus) => {
+    if (!memberId) return;
+    const payload =
+      provider === "evolution"
+        ? { evolution_status: STATUS_LABEL[state], evolution_last_check_at: new Date().toISOString() }
+        : { evo_go_status: STATUS_LABEL[state], evo_go_last_check_at: new Date().toISOString() };
+    await supabase.from("team_members").update(payload).eq("id", memberId);
+    setMembers((prev) => prev.map((m) => (m.id === memberId ? { ...m, ...payload } : m)));
+  };
+
   const fetchEvolutionStatus = async (memberId: string, instanceName: string) => {
     try {
       const { data, error } = await supabase.functions.invoke("smart-ops-evolution-manager", {
@@ -208,11 +239,13 @@ export function SmartOpsTeam() {
       const state = (data?.state || data?.status || "close") as string;
       if (state === "open" || state === "connecting" || state === "close") {
         setEvolutionStatus(state);
+        persistStatus(memberId, "evolution", state);
       } else {
         setEvolutionStatus("unknown");
       }
     } catch {
       setEvolutionStatus("close");
+      persistStatus(memberId, "evolution", "close");
     }
   };
 
@@ -225,6 +258,7 @@ export function SmartOpsTeam() {
       const state = (data?.state || "close") as string;
       if (state === "open" || state === "connecting" || state === "close") {
         setEvoGoStatus(state);
+        persistStatus(memberId, "evo_go", state);
       } else {
         setEvoGoStatus("unknown");
       }
@@ -520,9 +554,29 @@ export function SmartOpsTeam() {
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Configurações WaLeads</p>
               <div><Label>API Key WaLeads</Label><Input type="password" value={form.waleads_api_key} onChange={(e) => setForm({ ...form, waleads_api_key: e.target.value })} placeholder="API Key do ChatCenter/WaLeads" /></div>
               <Separator className="my-2" />
+              {form.evolution_enabled && form.evo_go_enabled && evolutionStatus === "open" && evoGoStatus === "open" && (
+                <div className="rounded-md border border-emerald-500/40 bg-emerald-500/10 p-2 text-[11px] leading-relaxed">
+                  <p className="font-semibold">Modo dual ativo</p>
+                  <p>Evolution API: mensagens individuais</p>
+                  <p>EvolutionGO: grupos</p>
+                  <p className="text-muted-foreground">Sem fallback automático — cada função fica presa ao seu provedor.</p>
+                </div>
+              )}
               <div className="flex items-center justify-between">
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Configurações Evolution</p>
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Evolution API — mensagens individuais</p>
                 <EvolutionStatusBadge status={evolutionStatus} />
+              </div>
+              <div className="flex items-center justify-between rounded-md border p-2">
+                <div>
+                  <Label className="text-xs">Integração ativada</Label>
+                  <p className="text-[10px] text-muted-foreground">
+                    Última verificação: {formatCheckedAt(editing?.evolution_last_check_at)}
+                  </p>
+                </div>
+                <Switch
+                  checked={!!form.evolution_enabled}
+                  onCheckedChange={(v) => setForm({ ...form, evolution_enabled: v })}
+                />
               </div>
               <div>
                 <Label>Nome da Instância</Label>
@@ -587,7 +641,7 @@ export function SmartOpsTeam() {
               </Button>
               <Separator className="my-2" />
               <div className="flex items-center justify-between">
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Configurações Evolution GO</p>
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">EvolutionGO — grupos</p>
                 <button
                   type="button"
                   onClick={() => editing && fetchEvoGoStatus(editing.id)}
@@ -596,6 +650,18 @@ export function SmartOpsTeam() {
                 >
                   <EvolutionStatusBadge status={evoGoStatus} />
                 </button>
+              </div>
+              <div className="flex items-center justify-between rounded-md border p-2">
+                <div>
+                  <Label className="text-xs">Integração ativada</Label>
+                  <p className="text-[10px] text-muted-foreground">
+                    Última verificação: {formatCheckedAt(editing?.evo_go_last_check_at)}
+                  </p>
+                </div>
+                <Switch
+                  checked={!!form.evo_go_enabled}
+                  onCheckedChange={(v) => setForm({ ...form, evo_go_enabled: v })}
+                />
               </div>
               <div>
                 <Label>Instance ID</Label>
@@ -667,6 +733,9 @@ export function SmartOpsTeam() {
                   {m.waleads_api_key ? <Badge className="bg-blue-600 text-white text-[10px]">WL</Badge> : null}
                   {m.messaging_provider === "evolution" ? <Badge className="bg-purple-600 text-white text-[10px]">EV</Badge> : null}
                   {m.messaging_provider === "evolution_go" ? <Badge className="bg-fuchsia-500 text-white text-[10px]">EG</Badge> : null}
+                  {m.evolution_enabled && m.evo_go_enabled && m.evolution_status === "connected" && m.evo_go_status === "connected" ? (
+                    <Badge className="bg-emerald-600 text-white text-[10px]">DUAL</Badge>
+                  ) : null}
                   {!m.manychat_api_key && !m.waleads_api_key && m.messaging_provider !== "evolution" && m.messaging_provider !== "evolution_go" && <span className="text-muted-foreground text-xs">—</span>}
                 </TableCell>
                 <TableCell><Switch checked={m.ativo} onCheckedChange={() => toggleAtivo(m)} /></TableCell>
