@@ -6,6 +6,8 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Search } from 'lucide-react';
 import { toast } from 'sonner';
+import { PlatformPicker } from './PlatformPicker';
+import { ALL_PLATFORM_VALUES } from './socialPlatforms';
 
 type Group = { id: string; name: string | null; member_count: number | null };
 
@@ -23,6 +25,7 @@ export function PostGruposAddModal({
   const [groups, setGroups] = useState<Group[]>([]);
   const [query, setQuery] = useState('');
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [platforms, setPlatforms] = useState<string[]>([...ALL_PLATFORM_VALUES]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -63,6 +66,7 @@ export function PostGruposAddModal({
       instance_name: instanceName,
       group_id,
       enabled: true,
+      platforms,
     }));
     const { error } = await supabase.from('post_group_targets').insert(rows);
     setSaving(false);
@@ -115,9 +119,19 @@ export function PostGruposAddModal({
           )}
         </div>
 
+        <div className="space-y-2">
+          <p className="text-xs uppercase tracking-wide text-muted-foreground font-medium">
+            Redes sociais que serão enviadas para estes grupos
+          </p>
+          <PlatformPicker value={platforms} onChange={setPlatforms} />
+          {platforms.length === 0 && (
+            <p className="text-xs text-destructive">Selecione ao menos uma rede social.</p>
+          )}
+        </div>
+
         <DialogFooter>
           <Button variant="outline" onClick={onClose} disabled={saving}>Cancelar</Button>
-          <Button onClick={add} disabled={selected.size === 0 || saving}>
+          <Button onClick={add} disabled={selected.size === 0 || platforms.length === 0 || saving}>
             Adicionar ({selected.size})
           </Button>
         </DialogFooter>
