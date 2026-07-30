@@ -11,7 +11,8 @@
 //               exatamente 1 lead candidato (evita vínculo errado).
 //
 // POST { dry_run?: boolean, instance_name?: string, limit?: number,
-//        enable_name_match?: boolean (default true), debug?: boolean }
+//        enable_name_match?: boolean (default FALSE — match por nome é opt-in),
+//        debug?: boolean }
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { corsHeaders, EVO_BASE, EVO_KEY } from '../_shared/evolution.ts'
@@ -73,7 +74,8 @@ Deno.serve(async (req) => {
   const body = await req.json().catch(() => ({} as any))
   const dryRun: boolean = body.dry_run === true
   const onlyInstance: string | null = body.instance_name ?? null
-  const nameMatch: boolean = body.enable_name_match !== false
+  // Política: match SEMPRE por telefone real. Nome só se explicitamente pedido.
+  const nameMatch: boolean = body.enable_name_match === true
   const limit: number = Math.min(Math.max(Number(body.limit ?? 1500), 100), 5000)
 
   const debug: any = { errors: [] as string[], sources: {} as Record<string, number> }

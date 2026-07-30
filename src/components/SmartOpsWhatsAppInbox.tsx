@@ -264,13 +264,11 @@ export function SmartOpsWhatsAppInbox({ refreshKey }: { refreshKey: number }) {
     setResolving(true);
     try {
       const { data, error } = await supabase.functions.invoke("smart-ops-wa-resolve-lid", {
-        body: { dry_run: false, limit: 5000 },
+        body: { dry_run: false, limit: 5000, enable_name_match: false },
       });
       if (error) throw error;
       const d = data as any;
-      toast.success(
-        `${d?.updated_rows ?? 0} conversas vinculadas (${d?.matched_by_phone ?? 0} por telefone, ${d?.matched_by_name ?? 0} por nome)`,
-      );
+      toast.success(`${d?.updated_rows ?? 0} conversas vinculadas por telefone`);
       loadConversations();
     } catch (err) {
       toast.error(`Erro ao resolver identidades: ${err instanceof Error ? err.message : String(err)}`);
