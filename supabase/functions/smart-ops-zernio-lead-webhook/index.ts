@@ -171,9 +171,13 @@ async function processLead(
         .from("system_health_logs")
         .insert({
           function_name: "smart-ops-zernio-lead-webhook",
-          status: "warning",
-          error_message: `timeline_insert_failed: ${String(timelineErr).slice(0, 1000)}`,
-          metadata: { leadgen_id: leadgenId, lead_id: leadId },
+          severity: "warning",
+          error_type: "timeline_insert_failed",
+          lead_id: leadId,
+          details: {
+            leadgen_id: leadgenId,
+            erro: String(timelineErr).slice(0, 1000),
+          },
         })
         .then(() => {}, () => {});
     }
@@ -205,12 +209,19 @@ async function processLead(
       })
       .eq("leadgen_id", leadgenId);
 
-    await supabase.from("system_health_logs").insert({
-      function_name: "smart-ops-zernio-lead-webhook",
-      status: "error",
-      error_message: String(err).slice(0, 2000),
-      metadata: { leadgen_id: leadgenId, zernio_delivery_id: payload.id },
-    });
+    await supabase
+      .from("system_health_logs")
+      .insert({
+        function_name: "smart-ops-zernio-lead-webhook",
+        severity: "error",
+        error_type: "background_process_failed",
+        details: {
+          leadgen_id: leadgenId,
+          zernio_delivery_id: payload.id,
+          erro: String(err).slice(0, 2000),
+        },
+      })
+      .then(() => {}, () => {});
   }
 }
 
