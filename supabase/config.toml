@@ -465,3 +465,6 @@ verify_jwt = false
 
 [functions.smart-ops-identity-dryrun]
 verify_jwt = true
+
+[functions.smart-ops-lead-welcome]
+verify_jwt = false
