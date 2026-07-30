@@ -2051,16 +2051,12 @@ async function executarReativacaoSdrCaptacao(
 
   const companyId = (lead.empresa_piperun_id as number | null) ?? null;
 
-  // 2. Busca deals abertos no Funil Estagnados
+  // 2. Busca deals do lead. Só os ABERTOS de Estagnados serão fechados;
+  //    lista vazia é cenário VÁLIDO (todos já perdidos, ou só CS) e NÃO aborta.
   const allDeals = await findPersonDeals(apiToken, personId);
-  const estagnDeals = allDeals.filter(
+  const estagnAbertos = allDeals.filter(
     (d) => Number(d.status) === 0 && Number(d.pipeline_id) === PIPELINES.ESTAGNADOS
   );
-
-  if (estagnDeals.length === 0) {
-    console.log("[lia-assign] SDR-CAPTAÇÃO reativação: nenhum deal Estagnados encontrado para", leadEmail);
-    return false;
-  }
 
   // ─── GOLDEN RULE: bloqueia somente por VENDAS aberto/recente.
   // Deals CS são intocáveis e não participam do gate: permanecem exatamente
@@ -2085,7 +2081,7 @@ async function executarReativacaoSdrCaptacao(
           reason: verdict.reason,
           preserved_deal_id: verdict.preservedDeal?.id ? String(verdict.preservedDeal.id) : null,
           person_id: personId,
-          estagnados_open: estagnDeals.map((d) => String(d.id)),
+          estagnados_open: estagnAbertos.map((d) => String(d.id)),
         },
         source_channel: "form",
         event_timestamp: new Date().toISOString(),
@@ -2096,8 +2092,36 @@ async function executarReativacaoSdrCaptacao(
     return false;
   }
 
+  // ─── Escopo da reativação: apenas Casos 2, 3 e 4 da regra de ouro.
+  // Roda DEPOIS do guard para não roubar a atribuição de open_vendas_deal_exists.
+  const temHistoricoEstagnados = allDeals.some(
+    (d) => Number(d.pipeline_id) === PIPELINES.ESTAGNADOS
+  );
+  const temCS = allDeals.some(
+    (d) => Number(d.pipeline_id) === PIPELINES.CS_ONBOARDING
+        || Number(d.pipeline_id) === PIPELINES.GANHOS_ALEATORIOS_CS
+  );
+  if (!temHistoricoEstagnados && !temCS) {
+    console.log(
+      "[lia-assign] SDR-CAPTAÇÃO: lead sem histórico em Estagnados/CS — skip.",
+      leadEmail, "deals:", allDeals.length,
+    );
+    supabase.from("system_health_logs").insert({
+      function_name: "smart-ops-lia-assign",
+      severity: "warning",
+      error_type: "reativacao_sem_historico_estagnados_cs",
+      details: {
+        lead_id: leadId,
+        person_id: personId,
+        total_deals: allDeals.length,
+        pipelines_encontrados: [...new Set(allDeals.map((d) => Number(d.pipeline_id)))],
+      },
+    }).then(() => {}, () => {});
+    return false;
+  }
+
   console.log(
-    `[lia-assign] SDR-CAPTAÇÃO: ${estagnDeals.length} deal(s) Estagnados serão fechados após a criação do novo VENDAS. ids=${estagnDeals.map((d) => d.id).join(",")}`,
+    `[lia-assign] SDR-CAPTAÇÃO: ${estagnAbertos.length} deal(s) Estagnados abertos serão fechados após a criação do novo VENDAS. ids=${estagnAbertos.map((d) => d.id).join(",") || "nenhum"}`,
   );
 
   // 4. Fresh Round Robin — NUNCA herda owner anterior
@@ -2238,7 +2262,7 @@ async function executarReativacaoSdrCaptacao(
   // em Estagnados. Deals CS nunca entram nesta lista e nunca são alterados.
   const lostReasonId = await resolveLostReasonId(apiToken);
   const closedEstagnados: string[] = [];
-  for (const estagnDeal of estagnDeals) {
+  for (const estagnDeal of estagnAbertos) {
     try {
       const closed = await closeDealAsLost(
         apiToken,
@@ -2278,6 +2302,10 @@ async function executarReativacaoSdrCaptacao(
       novo_deal_id: newDealId,
       novo_owner: newOwnerName,
       motivo_fechamento: LOST_REASON_NOVO_INTERESSE,
+      estagnados_abertos_fechados: estagnAbertos.length,
+      caso_regra: estagnAbertos.length > 0
+        ? "estagnados_com_abertos"
+        : "estagnados_sem_abertos_ou_cs",
     },
     source_channel: "form",
     event_timestamp: new Date().toISOString(),
