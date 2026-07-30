@@ -16,6 +16,8 @@ interface BlastBody {
   campaign_name?: string
   allow_duplicate?: boolean
   dedupe_window_days?: number
+  /** Rede social de origem do post (defesa em profundidade do filtro por grupo) */
+  platform?: string
 }
 
 function canonicalJson(v: unknown): string {
@@ -63,14 +65,48 @@ serve(async (req) => {
     return Response.json({ ok: false, error: 'Nenhum grupo elegível (admin + enabled)' }, { status: 400, headers: corsHeaders })
   }
 
+  // ===== FILTRO DE PLATAFORMA POR GRUPO (defesa em profundidade) =====
+  // A decisão primária vive em social-post-auto-blast; aqui apenas revalidamos
+  // contra post_group_targets.platforms. platforms vazio = sem restrição.
+  let platformEligible = eligible
+  const skippedByPlatform: { group_jid: string; name: string; platforms: string[] }[] = []
+  const platform = typeof body.platform === 'string' ? body.platform.trim().toLowerCase() : ''
+  if (platform) {
+    const { data: tgts } = await supabase
+      .from('post_group_targets')
+      .select('group_id, platforms')
+      .in('group_id', eligible.map(g => g.id))
+    const byGroup = new Map<string, string[]>(
+      (tgts ?? []).map((t: any) => [t.group_id, Array.isArray(t.platforms) ? t.platforms : []]),
+    )
+    platformEligible = eligible.filter(g => {
+      const allowed = byGroup.get(g.id)
+      if (!allowed || allowed.length === 0) return true
+      const ok = allowed.map(p => String(p).toLowerCase()).includes(platform)
+      if (!ok) skippedByPlatform.push({ group_jid: g.group_jid, name: g.name, platforms: allowed })
+      return ok
+    })
+    if (skippedByPlatform.length > 0) {
+      console.log('[wa-group-blast] platform filter', JSON.stringify({ platform, skipped: skippedByPlatform.length }))
+    }
+    if (platformEligible.length === 0) {
+      return Response.json({
+        ok: false,
+        error: 'platform_filtered',
+        message: `Nenhum grupo aceita posts de "${platform}".`,
+        skipped_by_platform: skippedByPlatform,
+      }, { status: 409, headers: corsHeaders })
+    }
+  }
+
   // ===== DEDUPE GLOBAL POR (group_jid + content_hash) =====
   const contentHash = await md5Hex(`${body.message_type}|${canonicalJson(body.content)}`)
   const windowDays = Math.max(1, body.dedupe_window_days ?? 30)
   const skippedDuplicates: { group_jid: string; name: string; last_sent_at: string | null }[] = []
-  let dedupedEligible = eligible
+  let dedupedEligible = platformEligible
 
   if (!body.allow_duplicate) {
-    const jids = eligible.map(g => g.group_jid)
+    const jids = platformEligible.map(g => g.group_jid)
     const { data: fps } = await supabase
       .from('wa_group_sent_fingerprints')
       .select('group_jid, last_sent_at')
@@ -79,12 +115,12 @@ serve(async (req) => {
       .gt('last_sent_at', new Date(Date.now() - windowDays * 86_400_000).toISOString())
     const blocked = new Map<string, string>((fps ?? []).map((r: any) => [r.group_jid, r.last_sent_at]))
     if (blocked.size > 0) {
-      for (const g of eligible) {
+      for (const g of platformEligible) {
         if (blocked.has(g.group_jid)) {
           skippedDuplicates.push({ group_jid: g.group_jid, name: g.name, last_sent_at: blocked.get(g.group_jid) ?? null })
         }
       }
-      dedupedEligible = eligible.filter(g => !blocked.has(g.group_jid))
+      dedupedEligible = platformEligible.filter(g => !blocked.has(g.group_jid))
     }
   }
 
@@ -180,6 +216,7 @@ serve(async (req) => {
     content_hash:       contentHash,
     dedupe_window_days: windowDays,
     skipped_duplicates: skippedDuplicates,
+    skipped_by_platform: skippedByPlatform,
     forced_duplicate:   !!body.allow_duplicate,
   }, { headers: corsHeaders })
 })

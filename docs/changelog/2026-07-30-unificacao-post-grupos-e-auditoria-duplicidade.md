@@ -59,3 +59,22 @@ Autorizada a remoção pelo dashboard Supabase (Functions → `social-post-group
 ### Risco conhecido — NÃO resolvido nesta rodada
 
 `wa-dispatcher` e `wa-broadcast-dispatch` gravam o registro de controle **depois** do envio externo (Evolution), e não antes. Se o processo morrer entre o POST e a gravação, existe janela de reenvio. Fica para uma rodada própria, por tocar infraestrutura compartilhada com campanhas manuais de marketing. **Nada foi alterado nessas duas funções.**
+
+## Adendo — 30/jul/2026 (auditoria de timestamps + filtro de plataforma)
+
+### Contradição do `platforms` do grupo "Dashboard - SMDT - Diária" — RESOLVIDA
+- Linha `a0bb516f-cf9b-4bb6-9942-a55f53ab379f`: `platforms=['instagram']`, `updated_at = created_at = 2026-07-06 22:11:54` (idênticos).
+- `post_group_targets` **não tinha** trigger de `updated_at` (confirmado: zero triggers em `pg_trigger`), e o frontend (`PostGruposInstanceCard.updatePlatforms`) faz `.update({ platforms })` **sem** enviar `updated_at`. Resultado: timestamp congelado na criação.
+- Prova de que a alteração é recente: `xmin` dessa linha = **59317890** = `max(xmin)` de toda a tabela (383 linhas). Ou seja, é a transação **mais recente** que tocou `post_group_targets` — muito depois das linhas criadas em 07/jul (xmin ~43.98M). O valor `['instagram']` foi gravado recentemente, quase certamente pelo clique no checkbox durante esta conversa.
+- **Não existe log de mudança**: sem audit table para essa tabela, sem pgaudit habilitado, sem log de aplicação no frontend. Não é possível identificar o autor exato — só a ordem relativa via `xmin`.
+
+### Reavaliação do item 1 do diagnóstico anterior
+A conclusão "Dashboard tinha `platforms=['instagram']` desde 06/jul e mesmo assim recebeu posts de Facebook em 28-29/jul, logo o filtro era ignorado" **não se sustenta**. A evidência do `xmin` indica que em 28-29/jul o grupo estava com `platforms=[]` (sem restrição) e recebeu Facebook corretamente. Não há evidência de bug "filtro salvo e ignorado" — o filtro nunca foi exercitado em produção. Item 1 rebaixado de "bug confirmado" para **"não comprovado / provável comportamento correto"**.
+
+### Correções aplicadas
+1. Migration: função `public.set_updated_at()` + triggers `BEFORE UPDATE` em `post_group_targets` e `post_group_instance_config` (esta última tinha a mesma exposição).
+2. `wa-group-blast`: passa a aceitar `platform` opcional e revalidar contra `post_group_targets.platforms` (defesa em profundidade; `platforms=[]` = sem restrição). Retorna `409 platform_filtered` se nenhum grupo aceitar. `social-post-auto-blast` agora envia `platform` em cada chamada.
+3. `PlatformPicker`: exibe apenas redes com posts existentes em `social_posts` (hoje instagram/facebook/tiktok/youtube); redes já selecionadas continuam visíveis para desmarcar.
+
+### Pendente (bloqueado por decisão do usuário)
+- Teste controlado com post real (item **a**) — segurado.
