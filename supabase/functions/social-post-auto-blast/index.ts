@@ -140,30 +140,37 @@ serve(async (req) => {
     });
   }
 
-  function jidsFor(instance: string, platform: string | null): string[] {
-    const list = targetsByInstance[instance] ?? [];
-    return list
-      .filter((t) => t.platforms.length === 0 || (platform ? t.platforms.includes(platform) : true))
-      .map((t) => t.jid);
-  }
-
   let dispatched = 0;
   let skipped = 0;
   let deduped_suppressed = 0;
   let maxSeqDispatched = lastSeq;
 
   for (const post of capped) {
-    const url = post.short_link || post.post_url;
-    if (!url) { skipped++; continue; }
-    const captionBody = (post.caption ?? '').trim();
-    if (!captionBody) { skipped++; continue; }
-    const text = `${captionBody}\n\n${url}`;
+    const variants = (variantsByRep.get(post.id) ?? [post]).filter(
+      (v: any) => (v.short_link || v.post_url) && String(v.caption ?? '').trim(),
+    );
+    if (variants.length === 0) { skipped++; continue; }
 
     let anyDispatched = false;
     for (const instance of instanceNames) {
-      const jids = jidsFor(instance, post.platform ?? null);
-      if (jids.length === 0) continue;
-      try {
+      const list = targetsByInstance[instance] ?? [];
+      if (list.length === 0) continue;
+
+      // Cada grupo recebe apenas UMA mensagem: a da primeira rede permitida.
+      const jidsByVariant = new Map<string, string[]>();
+      for (const t of list) {
+        const allowed = t.platforms.length === 0
+          ? variants
+          : variants.filter((v: any) => t.platforms.includes(v.platform));
+        const chosen = allowed[0];
+        if (!chosen) continue;
+        (jidsByVariant.get(chosen.id) ?? jidsByVariant.set(chosen.id, []).get(chosen.id)!).push(t.jid);
+      }
+
+      for (const [variantId, jids] of jidsByVariant) {
+        const variant = variants.find((v: any) => v.id === variantId)!;
+        const text = `${String(variant.caption ?? '').trim()}\n\n${variant.short_link || variant.post_url}`;
+        try {
         const resp = await fetch(`${SUPABASE_URL}/functions/v1/wa-group-blast`, {
           method: 'POST',
           headers: {
@@ -174,14 +181,15 @@ serve(async (req) => {
             group_jids: jids,
             message_type: 'msg',
             content: { text },
-            campaign_name: `Auto #${post.blast_seq ?? '-'} | ${post.platform ?? 'post'} | ${String(post.id).slice(0, 8)}`,
+            campaign_name: `Auto #${post.blast_seq ?? '-'} | ${variant.platform ?? 'post'} | ${String(variant.id).slice(0, 8)}`,
           }),
         });
         const json = await resp.json().catch(() => ({}));
         if (resp.ok && json?.ok) { dispatched++; anyDispatched = true; }
         else console.warn('[social-post-auto-blast] wa-group-blast', instance, resp.status, json?.error ?? json?.message);
-      } catch (e) {
-        console.error('[social-post-auto-blast] blast call failed', instance, e);
+        } catch (e) {
+          console.error('[social-post-auto-blast] blast call failed', instance, e);
+        }
       }
     }
 
