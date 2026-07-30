@@ -313,9 +313,9 @@ export function SentinelaTab() {
               <SelectValue placeholder="Selecionar instância" />
             </SelectTrigger>
             <SelectContent>
-              {instances.map((i) => (
+              {instances.filter((i) => i.active).map((i) => (
                 <SelectItem key={i.instance_name} value={i.instance_name} className="text-xs">
-                  {i.label || i.instance_name} {i.active ? "• ativa" : "• inativa"}
+                  {i.label || i.instance_name} • ativa
                 </SelectItem>
               ))}
             </SelectContent>
