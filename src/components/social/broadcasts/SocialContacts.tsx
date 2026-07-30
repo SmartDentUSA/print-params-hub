@@ -101,7 +101,7 @@ export function SocialContacts() {
               <tr>
                 <th className="p-3">Contato</th>
                 <th className="p-3">Plataforma</th>
-                <th className="p-3">ManyChat ID</th>
+                <th className="p-3">Telefone / ID</th>
                 <th className="p-3">Tags</th>
                 <th className="p-3">Inscrito</th>
                 <th className="p-3">Visto</th>
@@ -111,19 +111,24 @@ export function SocialContacts() {
               {contacts!.map((c: any) => {
                 const mcId = c.custom_fields?.manychat_id ?? null;
                 const channel = c.channel ?? 'instagram';
+                const rawIdentifier: string | null =
+                  c.custom_fields?.platformIdentifier ??
+                  (/^\d{10,15}$/.test(String(c.ig_user_id ?? '')) ? `+${c.ig_user_id}` : null);
+                const phone = channel === 'whatsapp' ? rawIdentifier : null;
+                const secondary = phone ?? mcId ?? rawIdentifier;
                 return (
                   <tr key={c.ig_user_id} className="border-t border-border">
                     <td className="p-3">
-                      <div className="font-medium">{c.ig_username ?? '—'}</div>
+                      <div className="font-medium">{c.ig_username ?? phone ?? '—'}</div>
                       <div className="text-xs text-muted-foreground font-mono truncate max-w-[220px]">{c.ig_user_id}</div>
                     </td>
                     <td className="p-3">
                       <Badge variant="outline" className={`capitalize ${PLATFORM_COLORS[channel] ?? ''}`}>{channel}</Badge>
                     </td>
                     <td className="p-3">
-                      {mcId ? (
-                        <button onClick={() => copy(mcId)} className="inline-flex items-center gap-1 text-xs font-mono hover:text-primary">
-                          <Copy className="w-3 h-3" /> {mcId}
+                      {secondary ? (
+                        <button onClick={() => copy(secondary)} className="inline-flex items-center gap-1 text-xs font-mono hover:text-primary">
+                          <Copy className="w-3 h-3" /> {secondary}
                         </button>
                       ) : <span className="text-xs text-muted-foreground">—</span>}
                     </td>
