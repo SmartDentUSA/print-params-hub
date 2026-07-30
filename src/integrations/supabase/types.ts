@@ -19113,6 +19113,7 @@ export type Database = {
           equip_writeback_error: string | null
           equipment_data: Json | null
           especialidade: string | null
+          google_review_invited_at: string | null
           id: string
           instagram: string | null
           is_client_smartdent: boolean | null
@@ -19120,6 +19121,8 @@ export type Database = {
           notes: string | null
           nps_sent_at: string | null
           nps_status: string | null
+          nps_token: string | null
+          nps_token_expires_at: string | null
           numero_contrato: string | null
           numero_nf: string | null
           numero_proposta: string | null
@@ -19165,6 +19168,7 @@ export type Database = {
           equip_writeback_error?: string | null
           equipment_data?: Json | null
           especialidade?: string | null
+          google_review_invited_at?: string | null
           id?: string
           instagram?: string | null
           is_client_smartdent?: boolean | null
@@ -19172,6 +19176,8 @@ export type Database = {
           notes?: string | null
           nps_sent_at?: string | null
           nps_status?: string | null
+          nps_token?: string | null
+          nps_token_expires_at?: string | null
           numero_contrato?: string | null
           numero_nf?: string | null
           numero_proposta?: string | null
@@ -19217,6 +19223,7 @@ export type Database = {
           equip_writeback_error?: string | null
           equipment_data?: Json | null
           especialidade?: string | null
+          google_review_invited_at?: string | null
           id?: string
           instagram?: string | null
           is_client_smartdent?: boolean | null
@@ -19224,6 +19231,8 @@ export type Database = {
           notes?: string | null
           nps_sent_at?: string | null
           nps_status?: string | null
+          nps_token?: string | null
+          nps_token_expires_at?: string | null
           numero_contrato?: string | null
           numero_nf?: string | null
           numero_proposta?: string | null
