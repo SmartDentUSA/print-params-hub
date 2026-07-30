@@ -25895,24 +25895,39 @@ export type Database = {
       }
       zernio_leadgen_dedup: {
         Row: {
+          completed_at: string | null
           first_delivery_id: string | null
           lead_id: string | null
           leadgen_id: string
+          process_error: string | null
+          process_status: string
           processed_at: string
+          raw_payload: Json | null
+          retry_count: number
           zernio_lead_id: string | null
         }
         Insert: {
+          completed_at?: string | null
           first_delivery_id?: string | null
           lead_id?: string | null
           leadgen_id: string
+          process_error?: string | null
+          process_status?: string
           processed_at?: string
+          raw_payload?: Json | null
+          retry_count?: number
           zernio_lead_id?: string | null
         }
         Update: {
+          completed_at?: string | null
           first_delivery_id?: string | null
           lead_id?: string | null
           leadgen_id?: string
+          process_error?: string | null
+          process_status?: string
           processed_at?: string
+          raw_payload?: Json | null
+          retry_count?: number
           zernio_lead_id?: string | null
         }
         Relationships: []
