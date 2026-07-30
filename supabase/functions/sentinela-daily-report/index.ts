@@ -15,7 +15,8 @@ const EVO_GLOBAL_KEY = Deno.env.get("EVOLUTION_API_KEY") ?? "";
 
 const sb = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-const TARGET_INSTANCE = "Danilo Henrique";
+// Instância de envio: "Danilo Henrique" foi aposentada — usa smartdent_marketing.
+const TARGET_INSTANCE = "smartdent_marketing";
 const DANILO_JID = "5519992612348@s.whatsapp.net";
 
 async function logHealth(level: "info" | "warning" | "error", message: string, payload?: any) {
