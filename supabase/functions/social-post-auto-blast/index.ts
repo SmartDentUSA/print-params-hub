@@ -33,7 +33,7 @@ serve(async (req) => {
     .maybeSingle();
   const lastSeq = Number(ptrRow?.value ?? 0) || 0;
 
-  const selectCols = 'id, platform, caption, post_url, short_link, product_name, created_at, blast_seq, caption_fingerprint';
+  const selectCols = 'id, platform, caption, post_url, short_link, product_name, created_at, blast_seq, caption_fingerprint, media_url, media_urls, media_type, thumbnail_url';
   let query = sb
     .from('social_posts')
     .select(selectCols)
