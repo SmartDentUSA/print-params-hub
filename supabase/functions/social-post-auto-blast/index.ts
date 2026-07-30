@@ -68,6 +68,7 @@ serve(async (req) => {
   }
   const representatives: any[] = [];
   const suppressedIdsByRep = new Map<string, string[]>();
+  const variantsByRep = new Map<string, any[]>();
   for (const [key, arr] of groups) {
     const sorted = [...arr].sort((a, b) => {
       const pa = PLATFORM_PRIORITY[a.platform] ?? 99;
