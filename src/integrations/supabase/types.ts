@@ -23194,10 +23194,12 @@ export type Database = {
         Row: {
           ativo: boolean
           created_at: string
+          direct_message_provider: string
           elevenlabs_voice_id: string | null
           email: string
           evo_go_base_url: string | null
           evo_go_instance_id: string | null
+          evo_go_instance_name: string | null
           evo_go_instance_token: string | null
           evolution_api_key: string | null
           evolution_base_url: string | null
@@ -23205,6 +23207,8 @@ export type Database = {
           evolution_instance_name: string | null
           evolution_lid: string | null
           evolution_phone: string | null
+          group_management_provider: string
+          group_message_provider: string
           id: string
           manychat_api_key: string | null
           manychat_page_id: string | null
@@ -23229,10 +23233,12 @@ export type Database = {
         Insert: {
           ativo?: boolean
           created_at?: string
+          direct_message_provider?: string
           elevenlabs_voice_id?: string | null
           email: string
           evo_go_base_url?: string | null
           evo_go_instance_id?: string | null
+          evo_go_instance_name?: string | null
           evo_go_instance_token?: string | null
           evolution_api_key?: string | null
           evolution_base_url?: string | null
@@ -23240,6 +23246,8 @@ export type Database = {
           evolution_instance_name?: string | null
           evolution_lid?: string | null
           evolution_phone?: string | null
+          group_management_provider?: string
+          group_message_provider?: string
           id?: string
           manychat_api_key?: string | null
           manychat_page_id?: string | null
@@ -23264,10 +23272,12 @@ export type Database = {
         Update: {
           ativo?: boolean
           created_at?: string
+          direct_message_provider?: string
           elevenlabs_voice_id?: string | null
           email?: string
           evo_go_base_url?: string | null
           evo_go_instance_id?: string | null
+          evo_go_instance_name?: string | null
           evo_go_instance_token?: string | null
           evolution_api_key?: string | null
           evolution_base_url?: string | null
@@ -23275,6 +23285,8 @@ export type Database = {
           evolution_instance_name?: string | null
           evolution_lid?: string | null
           evolution_phone?: string | null
+          group_management_provider?: string
+          group_message_provider?: string
           id?: string
           manychat_api_key?: string | null
           manychat_page_id?: string | null
@@ -25343,6 +25355,7 @@ export type Database = {
           evo_message_id: string | null
           group_jid: string
           id: string
+          last_provider: string | null
           node_id: string
           node_index: number
           node_type: string
@@ -25364,6 +25377,7 @@ export type Database = {
           evo_message_id?: string | null
           group_jid: string
           id?: string
+          last_provider?: string | null
           node_id: string
           node_index: number
           node_type: string
@@ -25385,6 +25399,7 @@ export type Database = {
           evo_message_id?: string | null
           group_jid?: string
           id?: string
+          last_provider?: string | null
           node_id?: string
           node_index?: number
           node_type?: string
@@ -25419,6 +25434,59 @@ export type Database = {
           },
         ]
       }
+      wa_provider_session_health: {
+        Row: {
+          consecutive_errors: number
+          created_at: string
+          id: string
+          last_error: string | null
+          last_error_at: string | null
+          last_success_at: string | null
+          provider: string
+          provider_instance: string
+          scope: string
+          status: string
+          team_member_id: string
+          updated_at: string
+        }
+        Insert: {
+          consecutive_errors?: number
+          created_at?: string
+          id?: string
+          last_error?: string | null
+          last_error_at?: string | null
+          last_success_at?: string | null
+          provider: string
+          provider_instance: string
+          scope: string
+          status?: string
+          team_member_id: string
+          updated_at?: string
+        }
+        Update: {
+          consecutive_errors?: number
+          created_at?: string
+          id?: string
+          last_error?: string | null
+          last_error_at?: string | null
+          last_success_at?: string | null
+          provider?: string
+          provider_instance?: string
+          scope?: string
+          status?: string
+          team_member_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wa_provider_session_health_team_member_id_fkey"
+            columns: ["team_member_id"]
+            isOneToOne: false
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       wa_send_log: {
         Row: {
           campaign_id: string | null
@@ -25429,10 +25497,14 @@ export type Database = {
           http_status: number | null
           id: string
           instance_name: string | null
+          internal_http_status: number | null
           node_type: string | null
+          provider: string | null
+          provider_instance: string | null
           queue_id: string | null
           sent_at: string
           success: boolean
+          upstream_http_status: number | null
         }
         Insert: {
           campaign_id?: string | null
@@ -25443,10 +25515,14 @@ export type Database = {
           http_status?: number | null
           id?: string
           instance_name?: string | null
+          internal_http_status?: number | null
           node_type?: string | null
+          provider?: string | null
+          provider_instance?: string | null
           queue_id?: string | null
           sent_at?: string
           success: boolean
+          upstream_http_status?: number | null
         }
         Update: {
           campaign_id?: string | null
@@ -25457,10 +25533,14 @@ export type Database = {
           http_status?: number | null
           id?: string
           instance_name?: string | null
+          internal_http_status?: number | null
           node_type?: string | null
+          provider?: string | null
+          provider_instance?: string | null
           queue_id?: string | null
           sent_at?: string
           success?: boolean
+          upstream_http_status?: number | null
         }
         Relationships: []
       }
@@ -30402,6 +30482,7 @@ export type Database = {
           evo_message_id: string | null
           group_jid: string
           id: string
+          last_provider: string | null
           node_id: string
           node_index: number
           node_type: string
