@@ -87,17 +87,31 @@ Deno.serve(async (req) => {
   for (const m of (members ?? []) as any[]) {
     if (m.evolution_instance_name && m.evolution_api_key) credsByInstance.set(m.evolution_instance_name, m);
   }
+  const GLOBAL_KEY = Deno.env.get("EVO_KEY") ?? "";
 
   const results: any[] = [];
 
   for (const name of names) {
     const creds = credsByInstance.get(name);
-    if (!creds) {
+    if (!creds && !GLOBAL_KEY) {
       results.push({ instance: name, status: "skipped", reason: "missing_credentials" });
       continue;
     }
-    const base = String(creds.evolution_base_url || DEFAULT_BASE).replace(/\/$/, "");
-    const apikey = creds.evolution_api_key as string;
+    const base = String(creds?.evolution_base_url || DEFAULT_BASE).replace(/\/$/, "");
+    // Chaves por instância podem estar desatualizadas: mantém fallback global.
+    const keyCandidates = Array.from(
+      new Set([creds?.evolution_api_key, GLOBAL_KEY].filter(Boolean) as string[]),
+    );
+    let apikey = keyCandidates[0];
+    for (const k of keyCandidates) {
+      try {
+        const probe = await fetch(`${base}/webhook/find/${encodeURIComponent(name)}`, {
+          headers: { apikey: k },
+          signal: AbortSignal.timeout(8000),
+        });
+        if (probe.status !== 401 && probe.status !== 403) { apikey = k; break; }
+      } catch { /* tenta a próxima */ }
+    }
 
     let current = { url: null as string | null, events: [] as string[], enabled: null as boolean | null };
     try {
