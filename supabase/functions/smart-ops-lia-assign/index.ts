@@ -1812,34 +1812,28 @@ Retorne APENAS JSON válido: {"historico":"...","oportunidade":"..."}`;
 
 // ─── Outbound Messages (Source-Based) ───
 
-async function sendWaLeadsMessage(
+// WaLeads removido — envio de briefing agora é 100% Evolution via smart-ops-lia-notify-seller.
+async function sendSellerBriefing(
   supabaseUrl: string,
   serviceKey: string,
   teamMemberId: string,
-  phone: string,
-  message: string,
-  leadId: string
+  leadId: string,
+  trigger = "lia_assign"
 ): Promise<{ success: boolean; status?: number; response?: string }> {
   try {
-    const res = await fetch(`${supabaseUrl}/functions/v1/smart-ops-send-waleads`, {
+    const res = await fetch(`${supabaseUrl}/functions/v1/smart-ops-lia-notify-seller`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${serviceKey}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        team_member_id: teamMemberId,
-        phone,
-        tipo: "text",
-        message,
-        lead_id: leadId,
-      }),
+      body: JSON.stringify({ lead_id: leadId, team_member_id: teamMemberId, trigger }),
     });
     const resText = await res.text();
-    console.log(`[lia-assign] WaLeads response: status=${res.status} body=${resText.slice(0, 500)}`);
+    console.log(`[lia-assign] notify-seller response: status=${res.status} body=${resText.slice(0, 300)}`);
     return { success: res.ok, status: res.status, response: resText.slice(0, 300) };
   } catch (e) {
-    console.warn("[lia-assign] WaLeads send error:", e);
+    console.warn("[lia-assign] notify-seller send error:", e);
     return { success: false, response: String(e) };
   }
 }

@@ -15,8 +15,19 @@ const corsHeaders = {
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const SENDER_INSTANCE = Deno.env.get("NOTIFY_SELLER_INSTANCE") ?? "Danilo Henrique";
+// Instância padrão de envio: a antiga "Danilo Henrique" não existe mais no Evolution
+// (404 desde 24/jul/2026). Fallback agora é smartdent_marketing.
+const DEFAULT_SENDER_INSTANCE = Deno.env.get("NOTIFY_SELLER_INSTANCE") ?? "smartdent_marketing";
 const LOCK_HOURS = 24;
+
+// Instâncias inválidas/legadas que nunca devem ser usadas como sender
+const INVALID_INSTANCES = new Set(["danilo henrique", "waleads", "p", "t", "s", ""]);
+
+function resolveSenderInstance(name?: string | null): string {
+  const v = (name || "").trim();
+  if (!v || v.length < 3 || INVALID_INSTANCES.has(v.toLowerCase())) return DEFAULT_SENDER_INSTANCE;
+  return v;
+}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -62,13 +73,16 @@ Deno.serve(async (req) => {
     if (leadErr || !lead) return json({ error: `lead not found: ${leadErr?.message || lead_id}` }, 404);
     if (sellerErr || !seller) return json({ error: `seller not found: ${sellerErr?.message || team_member_id}` }, 404);
 
+    const senderInstance = resolveSenderInstance((seller as any).evolution_instance_name);
+    const senderKey = ((seller as any).evolution_api_key as string | null)?.trim() || EVO_KEY;
+
     const rawPhone = (seller as any).whatsapp_number as string | null;
     const cleanPhone = normalizePhone(rawPhone || "");
     if (!cleanPhone || cleanPhone.length < 10) {
       await logMsg(supabase, {
         lead_id, team_member_id, whatsapp_number: rawPhone,
         tipo: "briefing_vendedor_block", status: "erro",
-        evolution_instance: SENDER_INSTANCE,
+        evolution_instance: senderInstance,
         mensagem_preview: null,
         error_details: "seller_missing_whatsapp",
       });
@@ -84,10 +98,10 @@ Deno.serve(async (req) => {
     let errorDetails: string | null = null;
     try {
       const res = await fetch(
-        `${EVO_BASE}/message/sendText/${encodeURIComponent(SENDER_INSTANCE)}`,
+        `${EVO_BASE}/message/sendText/${encodeURIComponent(senderInstance)}`,
         {
           method: "POST",
-          headers: { "Content-Type": "application/json", apikey: EVO_KEY },
+          headers: { "Content-Type": "application/json", apikey: senderKey },
           body: JSON.stringify({ number: toNumber, text: briefing }),
           signal: AbortSignal.timeout(60_000),
         }
@@ -107,12 +121,12 @@ Deno.serve(async (req) => {
       whatsapp_number: toNumber,
       tipo: "briefing_vendedor",
       status,
-      evolution_instance: SENDER_INSTANCE,
+      evolution_instance: senderInstance,
       mensagem_preview: briefing.slice(0, 900),
       error_details: errorDetails,
     });
 
-    console.log(`[notify-seller v33] lead=${lead_id} seller=${seller.nome_completo} status=${status} trigger=${trigger}`);
+    console.log(`[notify-seller v34] lead=${lead_id} seller=${seller.nome_completo} instance=${senderInstance} status=${status} trigger=${trigger}`);
     return json({ success: status === "enviado", status, error: errorDetails });
   } catch (err) {
     console.error("[notify-seller v33] fatal:", err);
