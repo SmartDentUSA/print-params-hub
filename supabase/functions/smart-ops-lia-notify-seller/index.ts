@@ -1,4 +1,4 @@
-// smart-ops-lia-notify-seller — v33
+// smart-ops-lia-notify-seller — v35
 // Envia briefing SmartOps para o vendedor via Evolution API.
 // Substitui a versão fantasma (v32) que ainda usava o header antigo
 // "🤖 Novo Lead - Dra. L.I.A.". Agora delega ao buildSellerNotification
@@ -17,20 +17,10 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 // Instância padrão de envio: a antiga "Danilo Henrique" não existe mais no Evolution
 // (404 desde 24/jul/2026). Fallback agora é smartdent_marketing.
-const DEFAULT_SENDER_INSTANCE = Deno.env.get("NOTIFY_SELLER_INSTANCE") ?? "smartdent_marketing";
+// TODO envio institucional (briefing/novos leads/avisos) sai SEMPRE pela instância
+// de marketing. A antiga "Danilo Henrique" foi aposentada.
+const SENDER_INSTANCE = Deno.env.get("NOTIFY_SELLER_INSTANCE") ?? "smartdent_marketing";
 const LOCK_HOURS = 24;
-
-// Instâncias inválidas/legadas que nunca devem ser usadas como sender
-const INVALID_INSTANCES = new Set([
-  "danilo henrique", "danilo-henrique", "danilo_henrique", "danilohenrique",
-  "waleads", "p", "t", "s", "",
-]);
-
-function resolveSenderInstance(name?: string | null): string {
-  const v = (name || "").trim();
-  if (!v || v.length < 3 || INVALID_INSTANCES.has(v.toLowerCase())) return DEFAULT_SENDER_INSTANCE;
-  return v;
-}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
