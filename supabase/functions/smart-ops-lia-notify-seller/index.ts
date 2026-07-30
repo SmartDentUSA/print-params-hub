@@ -21,7 +21,10 @@ const DEFAULT_SENDER_INSTANCE = Deno.env.get("NOTIFY_SELLER_INSTANCE") ?? "smart
 const LOCK_HOURS = 24;
 
 // Instâncias inválidas/legadas que nunca devem ser usadas como sender
-const INVALID_INSTANCES = new Set(["danilo henrique", "waleads", "p", "t", "s", ""]);
+const INVALID_INSTANCES = new Set([
+  "danilo henrique", "danilo-henrique", "danilo_henrique", "danilohenrique",
+  "waleads", "p", "t", "s", "",
+]);
 
 function resolveSenderInstance(name?: string | null): string {
   const v = (name || "").trim();

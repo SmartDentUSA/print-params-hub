@@ -14,7 +14,8 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const sb = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
 // Fallback caso não exista nenhuma instância configurada em sentinela_instances.
-const TARGET_INSTANCE = "Danilo-Henrique";
+// A instância "Danilo-Henrique" foi aposentada — tudo passa por smartdent_marketing.
+const TARGET_INSTANCE = "smartdent_marketing";
 // Aceita aliases: "Danilo-Henrique", "danilo_henrique", "DANILO HENRIQUE", etc.
 const normalizeInstance = (s: string) => (s ?? "").toLowerCase().replace(/[\s_-]/g, "");
 
