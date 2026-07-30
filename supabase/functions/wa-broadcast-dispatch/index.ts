@@ -63,8 +63,14 @@ async function dispatch(supabase: any, broadcastId: string): Promise<Response> {
     return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   }
 
-  // Pega instância Evolution default (primeira ativa)
-  const { data: tm } = await supabase.from('team_members').select('evolution_instance_name, evolution_api_key, evolution_phone').eq('ativo', true).not('evolution_api_key', 'is', null).limit(1).single();
+  // Instância institucional fixa: smartdent_marketing (substitui Danilo Henrique)
+  const { data: tm } = await supabase
+    .from('team_members')
+    .select('evolution_instance_name, evolution_api_key, evolution_phone')
+    .eq('evolution_instance_name', 'smartdent_marketing')
+    .not('evolution_api_key', 'is', null)
+    .limit(1)
+    .maybeSingle();
   if (!tm) {
     await supabase.from('social_broadcasts').update({ status: 'failed', segment: { ...seg, error: 'no_evolution_instance' } }).eq('id', broadcastId);
     return new Response(JSON.stringify({ error: 'no_evolution_instance' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
