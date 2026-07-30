@@ -19118,6 +19118,8 @@ export type Database = {
           is_client_smartdent: boolean | null
           lead_id: string | null
           notes: string | null
+          nps_sent_at: string | null
+          nps_status: string | null
           numero_contrato: string | null
           numero_nf: string | null
           numero_proposta: string | null
@@ -19168,6 +19170,8 @@ export type Database = {
           is_client_smartdent?: boolean | null
           lead_id?: string | null
           notes?: string | null
+          nps_sent_at?: string | null
+          nps_status?: string | null
           numero_contrato?: string | null
           numero_nf?: string | null
           numero_proposta?: string | null
@@ -19218,6 +19222,8 @@ export type Database = {
           is_client_smartdent?: boolean | null
           lead_id?: string | null
           notes?: string | null
+          nps_sent_at?: string | null
+          nps_status?: string | null
           numero_contrato?: string | null
           numero_nf?: string | null
           numero_proposta?: string | null
@@ -19684,6 +19690,7 @@ export type Database = {
           especialidade: string | null
           id: string
           instagram: string | null
+          lead_id: string | null
           name: string
           phone: string | null
         }
@@ -19698,6 +19705,7 @@ export type Database = {
           especialidade?: string | null
           id?: string
           instagram?: string | null
+          lead_id?: string | null
           name: string
           phone?: string | null
         }
@@ -19712,6 +19720,7 @@ export type Database = {
           especialidade?: string | null
           id?: string
           instagram?: string | null
+          lead_id?: string | null
           name?: string
           phone?: string | null
         }
@@ -19721,6 +19730,153 @@ export type Database = {
             columns: ["enrollment_id"]
             isOneToOne: false
             referencedRelation: "smartops_course_enrollments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "smartops_enrollment_companions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "lead_model_routing"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "smartops_enrollment_companions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "lia_attendances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "smartops_enrollment_companions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_bi_atividades_unnested"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "smartops_enrollment_companions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_academy"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "smartops_enrollment_companions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_cognitive"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "smartops_enrollment_companions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_commercial"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "smartops_enrollment_companions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_ecommerce"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "smartops_enrollment_companions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_pipeline"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "smartops_enrollment_companions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_stage_purchases"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "smartops_enrollment_companions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_leads_correto"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "smartops_enrollment_companions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_leads_pendentes_atribuicao"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "smartops_enrollment_companions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_opportunity_engine"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "smartops_enrollment_companions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_pipeline_atual"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "smartops_enrollment_companions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_reactivation_candidates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "smartops_enrollment_companions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_timing_alerts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "smartops_enrollment_companions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_workflow_portfolio"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "smartops_enrollment_companions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_workflow_timeline"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "smartops_enrollment_companions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_leads_orfaos_recentes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "smartops_enrollment_companions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_leads_qualidade_ruim"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "smartops_enrollment_companions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_lia_attendances_enriched"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "smartops_enrollment_companions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_vendas_ganhas"
             referencedColumns: ["id"]
           },
         ]
@@ -30260,6 +30416,7 @@ export type Database = {
         Returns: string
       }
       fn_atualizar_parcelas_vencidas: { Args: never; Returns: undefined }
+      fn_auto_update_enrollment_status: { Args: never; Returns: undefined }
       fn_calc_workflow_score: {
         Args: { p_lead_id: string }
         Returns: undefined
