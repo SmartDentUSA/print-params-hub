@@ -6,7 +6,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { corsHeaders, EVO_BASE, EVO_KEY } from '../_shared/evolution.ts'
 
-const CAPTURE_ROLES = ['vendedor', 'cs', 'suporte']
+const CAPTURE_ROLES = ['vendedor', 'cs', 'suporte', 'marketing']
 const enc = (s: string) => encodeURIComponent(s)
 
 type Member = {
