@@ -35,15 +35,17 @@ serve(async (req) => {
   const results: any[] = [];
 
   for (const p of due) {
-    const ids = Array.from(new Set(Object.values(p.zernio_post_ids ?? {}).filter(Boolean) as string[]));
-    for (const zid of ids) {
+    // A API exige o platform no body do unpublish.
+    const entries = Object.entries(p.zernio_post_ids ?? {}).filter(([, v]) => Boolean(v)) as [string, string][];
+    for (const [platform, zid] of entries) {
       const res = await fetch(`${ZERNIO_BASE}/posts/${zid}/unpublish`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ platform }),
       });
       const txt = await res.text();
-      results.push({ post_id: p.id, zernio_post_id: zid, status: res.status, body: txt.slice(0, 400) });
-      console.log(JSON.stringify({ event: 'unpublish', zid, status: res.status }));
+      results.push({ post_id: p.id, platform, zernio_post_id: zid, status: res.status, body: txt.slice(0, 400) });
+      console.log(JSON.stringify({ event: 'unpublish', platform, zid, status: res.status }));
     }
     await sb.from('social_scheduled_posts')
       .update({ status: 'unpublished', updated_at: new Date().toISOString() })
