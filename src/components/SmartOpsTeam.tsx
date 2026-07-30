@@ -554,9 +554,29 @@ export function SmartOpsTeam() {
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Configurações WaLeads</p>
               <div><Label>API Key WaLeads</Label><Input type="password" value={form.waleads_api_key} onChange={(e) => setForm({ ...form, waleads_api_key: e.target.value })} placeholder="API Key do ChatCenter/WaLeads" /></div>
               <Separator className="my-2" />
+              {form.evolution_enabled && form.evo_go_enabled && evolutionStatus === "open" && evoGoStatus === "open" && (
+                <div className="rounded-md border border-emerald-500/40 bg-emerald-500/10 p-2 text-[11px] leading-relaxed">
+                  <p className="font-semibold">Modo dual ativo</p>
+                  <p>Evolution API: mensagens individuais</p>
+                  <p>EvolutionGO: grupos</p>
+                  <p className="text-muted-foreground">Sem fallback automático — cada função fica presa ao seu provedor.</p>
+                </div>
+              )}
               <div className="flex items-center justify-between">
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Configurações Evolution</p>
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Evolution API — mensagens individuais</p>
                 <EvolutionStatusBadge status={evolutionStatus} />
+              </div>
+              <div className="flex items-center justify-between rounded-md border p-2">
+                <div>
+                  <Label className="text-xs">Integração ativada</Label>
+                  <p className="text-[10px] text-muted-foreground">
+                    Última verificação: {formatCheckedAt(editing?.evolution_last_check_at)}
+                  </p>
+                </div>
+                <Switch
+                  checked={!!form.evolution_enabled}
+                  onCheckedChange={(v) => setForm({ ...form, evolution_enabled: v })}
+                />
               </div>
               <div>
                 <Label>Nome da Instância</Label>
@@ -621,7 +641,7 @@ export function SmartOpsTeam() {
               </Button>
               <Separator className="my-2" />
               <div className="flex items-center justify-between">
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Configurações Evolution GO</p>
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">EvolutionGO — grupos</p>
                 <button
                   type="button"
                   onClick={() => editing && fetchEvoGoStatus(editing.id)}
@@ -630,6 +650,18 @@ export function SmartOpsTeam() {
                 >
                   <EvolutionStatusBadge status={evoGoStatus} />
                 </button>
+              </div>
+              <div className="flex items-center justify-between rounded-md border p-2">
+                <div>
+                  <Label className="text-xs">Integração ativada</Label>
+                  <p className="text-[10px] text-muted-foreground">
+                    Última verificação: {formatCheckedAt(editing?.evo_go_last_check_at)}
+                  </p>
+                </div>
+                <Switch
+                  checked={!!form.evo_go_enabled}
+                  onCheckedChange={(v) => setForm({ ...form, evo_go_enabled: v })}
+                />
               </div>
               <div>
                 <Label>Instance ID</Label>
