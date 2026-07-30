@@ -28,7 +28,7 @@ export function SocialContacts() {
   const { data: contacts, isLoading } = useQuery({
     queryKey: ['social-contacts', q, platform],
     queryFn: async () => {
-      let query = supabase.from('social_contacts').select('*').order('last_seen_at', { ascending: false, nullsFirst: false }).limit(200);
+      let query = supabase.from('social_contacts').select('*').order('last_seen_at', { ascending: false, nullsFirst: false }).limit(1000);
       if (platform !== 'all') query = query.eq('channel', platform);
       if (q) {
         const digits = q.replace(/\D/g, '');
