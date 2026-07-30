@@ -44,7 +44,8 @@ import {
   type PipeRunDealData,
 } from "../_shared/piperun-field-map.ts";
 
-const WALEADS_ENABLED = false; // Pausado — usar Evolution API (smart-ops-lead-welcome + smart-ops-lia-notify-seller)
+// WaLeads desativado e removido do código — envio 100% Evolution
+// (smart-ops-lead-welcome + smart-ops-lia-notify-seller).
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -1812,34 +1813,28 @@ Retorne APENAS JSON válido: {"historico":"...","oportunidade":"..."}`;
 
 // ─── Outbound Messages (Source-Based) ───
 
-async function sendWaLeadsMessage(
+// WaLeads removido — envio de briefing agora é 100% Evolution via smart-ops-lia-notify-seller.
+async function sendSellerBriefing(
   supabaseUrl: string,
   serviceKey: string,
   teamMemberId: string,
-  phone: string,
-  message: string,
-  leadId: string
+  leadId: string,
+  trigger = "lia_assign"
 ): Promise<{ success: boolean; status?: number; response?: string }> {
   try {
-    const res = await fetch(`${supabaseUrl}/functions/v1/smart-ops-send-waleads`, {
+    const res = await fetch(`${supabaseUrl}/functions/v1/smart-ops-lia-notify-seller`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${serviceKey}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        team_member_id: teamMemberId,
-        phone,
-        tipo: "text",
-        message,
-        lead_id: leadId,
-      }),
+      body: JSON.stringify({ lead_id: leadId, team_member_id: teamMemberId, trigger }),
     });
     const resText = await res.text();
-    console.log(`[lia-assign] WaLeads response: status=${res.status} body=${resText.slice(0, 500)}`);
+    console.log(`[lia-assign] notify-seller response: status=${res.status} body=${resText.slice(0, 300)}`);
     return { success: res.ok, status: res.status, response: resText.slice(0, 300) };
   } catch (e) {
-    console.warn("[lia-assign] WaLeads send error:", e);
+    console.warn("[lia-assign] notify-seller send error:", e);
     return { success: false, response: String(e) };
   }
 }
@@ -1937,36 +1932,30 @@ async function triggerOutboundMessages(
       return;
     }
 
-    // Fetch team member with WaLeads config
+    // Fetch team member (Evolution config)
     const { data: member } = await supabase
       .from("team_members")
-      .select("id, nome_completo, waleads_api_key, whatsapp_number")
+      .select("id, nome_completo, whatsapp_number, evolution_instance_name")
       .eq("id", teamMemberId)
       .single();
 
-    if (!member?.waleads_api_key) {
-      console.log(`[lia-assign] Team member ${teamMemberId} has no waleads_api_key, skipping`);
+    if (!member) {
+      console.log(`[lia-assign] Team member ${teamMemberId} not found, skipping outbound`);
       return;
     }
 
     const isLiaSource = LIA_SOURCES.includes(lead.source as string);
 
     // ── A. Message seller → lead ──
-    if (isLiaSource) {
-      console.log("[lia-assign] LIA source → generating AI greeting");
-      const aiGreeting = await generateAILeadGreeting(lead, member.nome_completo);
-      await sendWaLeadsMessage(supabaseUrl, serviceKey, member.id, phone, aiGreeting, leadId);
-    } else {
+    if (!isLiaSource) {
       console.log("[lia-assign] Non-LIA source → using template message");
       await sendTemplateMessage(supabase, supabaseUrl, serviceKey, lead, member.id, phone);
     }
 
-    // ── B. Structured notification → seller (ALWAYS) ──
-    console.log("[lia-assign] Building structured seller notification");
-    const briefing = await buildSellerNotification(lead, supabase);
+    // ── B. Briefing → vendedor (SEMPRE, via Evolution) ──
     if (member.whatsapp_number) {
-      await sendWaLeadsMessage(supabaseUrl, serviceKey, member.id, member.whatsapp_number, briefing, leadId);
-      console.log(`[lia-assign] Seller briefing sent to ${member.nome_completo} (${member.whatsapp_number})`);
+      await sendSellerBriefing(supabaseUrl, serviceKey, member.id, leadId, "trigger_outbound");
+      console.log(`[lia-assign] Seller briefing dispatched to ${member.nome_completo} (${member.whatsapp_number})`);
     } else {
       console.log(`[lia-assign] No whatsapp_number for ${member.nome_completo}, briefing not sent`);
     }
@@ -4478,7 +4467,7 @@ Deno.serve(async (req) => {
     console.log(`[lia-assign] Lead updated: owner=${assignedOwnerName}, flow=${flowType}, funil=${updateFields.funil_entrada_crm || "n/a"}`);
 
     // ── 7. Outbound automation ──
-    // WaLeads pausado — usar smart-ops-lia-notify-seller (Evolution API, instância Danilo Henrique)
+    // Briefing via smart-ops-lia-notify-seller (Evolution API, instância do vendedor / smartdent_marketing)
     if (assignedTeamMemberId && assignedTeamMemberId !== "fallback-admin") {
       try {
         const notifyRes = await fetch(`${SUPABASE_URL}/functions/v1/smart-ops-lia-notify-seller`, {
