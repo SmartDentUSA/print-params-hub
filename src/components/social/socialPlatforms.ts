@@ -3,6 +3,12 @@ export const SOCIAL_PLATFORMS = [
   { value: 'facebook', label: 'Facebook' },
   { value: 'tiktok', label: 'TikTok' },
   { value: 'youtube', label: 'YouTube' },
+  { value: 'linkedin', label: 'LinkedIn' },
+  { value: 'twitter', label: 'X / Twitter' },
+  { value: 'pinterest', label: 'Pinterest' },
+  { value: 'reddit', label: 'Reddit' },
+  { value: 'gmb', label: 'Google Meu Negócio' },
+  { value: 'gallery', label: 'Galeria' },
 ] as const;
 
 export const ALL_PLATFORM_VALUES = SOCIAL_PLATFORMS.map((p) => p.value) as string[];

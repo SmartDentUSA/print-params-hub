@@ -1,5 +1,5 @@
 import { Checkbox } from '@/components/ui/checkbox';
-import { SOCIAL_PLATFORMS } from './socialPlatforms';
+import { SOCIAL_PLATFORMS, ALL_PLATFORM_VALUES } from './socialPlatforms';
 
 export function PlatformPicker({
   value,
@@ -15,7 +15,16 @@ export function PlatformPicker({
   }
 
   return (
-    <div className={`flex flex-wrap gap-3 ${className}`}>
+    <div className={className}>
+      <div className="flex items-center gap-3 mb-2 text-xs">
+        <button type="button" className="text-primary hover:underline" onClick={() => onChange([...ALL_PLATFORM_VALUES])}>
+          Selecionar todas
+        </button>
+        <button type="button" className="text-muted-foreground hover:underline" onClick={() => onChange([])}>
+          Limpar
+        </button>
+      </div>
+      <div className="grid grid-cols-2 gap-2">
       {SOCIAL_PLATFORMS.map((p) => (
         <label
           key={p.value}
@@ -25,6 +34,7 @@ export function PlatformPicker({
           {p.label}
         </label>
       ))}
+      </div>
     </div>
   );
 }
