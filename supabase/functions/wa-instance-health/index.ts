@@ -23,14 +23,14 @@ serve(async (req) => {
     if (!name || seen.has(name)) continue;
     seen.add(name);
     const base = String(tm.evo_go_base_url ?? 'http://82.25.75.61:8081').replace(/\/$/, '');
-    const paths = ['/session/status', '/status', '/instance/status'];
+    const paths = ['/instance/status', '/session/status'];
     let result: any = { instance: name, base, checks: [] as any[] };
     for (const p of paths) {
       try {
         const ctrl = new AbortController();
         const t = setTimeout(() => ctrl.abort(), 8000);
         const res = await fetch(`${base}${p}`, {
-          headers: { token: tm.evo_go_instance_token, Authorization: `Bearer ${tm.evo_go_instance_token}` },
+          headers: { apikey: tm.evo_go_instance_token },
           signal: ctrl.signal,
         });
         clearTimeout(t);
