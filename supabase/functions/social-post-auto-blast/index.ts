@@ -51,11 +51,17 @@ function pickMedia(v: any): { url: string; kind: 'image' | 'video' } | null {
   if (Array.isArray(v?.media_urls)) candidates.push(...v.media_urls);
   if (v?.media_url) candidates.push({ url: v.media_url, type: v.media_type });
   for (const c of candidates) {
-    const url = typeof c === 'string' ? c : (c?.url ?? c?.public_url ?? null);
+    let url = typeof c === 'string' ? c : (c?.url ?? c?.public_url ?? null);
     if (!url || !/^https?:\/\//i.test(url)) continue;
+    // Miniaturas do YouTube vêm em 120px — sobe para hqdefault.
+    url = String(url).replace('i.ytimg.com', 'i.ytimg.com').replace(/\/default\.jpg/, '/hqdefault.jpg');
     const t = String((typeof c === 'object' && c?.type) || v?.media_type || '').toLowerCase();
     const ext = (String(url).split('?')[0].split('.').pop() || '').toLowerCase();
-    const isVideo = t.includes('video') || ['mp4', 'mov', 'webm', 'm4v'].includes(ext);
+    // A extensão manda: muitos posts (ex.: YouTube) marcam type=video mas a URL
+    // disponível é a thumbnail .jpg — enviar como vídeo quebraria no WhatsApp.
+    const imageExt = ['jpg', 'jpeg', 'png', 'webp', 'gif'].includes(ext);
+    const videoExt = ['mp4', 'mov', 'webm', 'm4v'].includes(ext);
+    const isVideo = videoExt || (!imageExt && t.includes('video'));
     return { url, kind: isVideo ? 'video' : 'image' };
   }
   return null;
