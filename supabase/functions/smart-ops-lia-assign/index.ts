@@ -2106,17 +2106,19 @@ async function executarReativacaoSdrCaptacao(
       "[lia-assign] SDR-CAPTAÇÃO: lead sem histórico em Estagnados/CS — skip.",
       leadEmail, "deals:", allDeals.length,
     );
-    supabase.from("system_health_logs").insert({
-      function_name: "smart-ops-lia-assign",
-      severity: "warning",
-      error_type: "reativacao_sem_historico_estagnados_cs",
-      details: {
-        lead_id: leadId,
-        person_id: personId,
-        total_deals: allDeals.length,
-        pipelines_encontrados: [...new Set(allDeals.map((d) => Number(d.pipeline_id)))],
-      },
-    }).then(() => {}, () => {});
+    try {
+      await supabase.from("system_health_logs").insert({
+        function_name: "smart-ops-lia-assign",
+        severity: "warning",
+        error_type: "reativacao_sem_historico_estagnados_cs",
+        details: {
+          lead_id: leadId,
+          person_id: personId,
+          total_deals: allDeals.length,
+          pipelines_encontrados: [...new Set(allDeals.map((d) => Number(d.pipeline_id)))],
+        },
+      });
+    } catch (_) { /* log nunca derruba o fluxo */ }
     return false;
   }
 
