@@ -8,6 +8,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Plus, Trash2, Smartphone } from 'lucide-react';
 import { toast } from 'sonner';
 import { PostGruposAddModal } from './PostGruposAddModal';
+import { PlatformPicker } from './PlatformPicker';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { ALL_PLATFORM_VALUES, platformLabel } from './socialPlatforms';
 
 type Instance = {
   id: string;
@@ -23,6 +26,7 @@ type TargetRow = {
   group_name: string | null;
   member_count: number | null;
   tipo: string | null;
+  platforms: string[] | null;
 };
 
 export function PostGruposInstanceCard({ instance, onChanged }: { instance: Instance; onChanged: () => void }) {
@@ -36,7 +40,7 @@ export function PostGruposInstanceCard({ instance, onChanged }: { instance: Inst
     const [{ data: rows }, { count }] = await Promise.all([
       supabase
         .from('v_post_group_targets_detail')
-        .select('target_id, group_id, group_name, member_count, tipo')
+        .select('target_id, group_id, group_name, member_count, tipo, platforms')
         .eq('instance_name', instance.instance_name)
         .order('member_count', { ascending: false }),
       supabase
@@ -67,6 +71,18 @@ export function PostGruposInstanceCard({ instance, onChanged }: { instance: Inst
     if (error) return toast.error('Falha ao remover grupo');
     toast.success('Grupo removido');
     load();
+  }
+
+  async function updatePlatforms(target_id: string, platforms: string[]) {
+    setTargets((prev) => prev.map((t) => (t.target_id === target_id ? { ...t, platforms } : t)));
+    const { error } = await supabase
+      .from('post_group_targets')
+      .update({ platforms })
+      .eq('id', target_id);
+    if (error) {
+      toast.error('Falha ao salvar redes sociais');
+      load();
+    }
   }
 
   const totalMembers = targets.reduce((sum, t) => sum + (t.member_count ?? 0), 0);
@@ -121,6 +137,7 @@ export function PostGruposInstanceCard({ instance, onChanged }: { instance: Inst
                 <TableHeader>
                   <TableRow>
                     <TableHead>Nome do grupo</TableHead>
+                    <TableHead className="w-56">Redes sociais</TableHead>
                     <TableHead className="w-24 text-right">Membros</TableHead>
                     <TableHead className="w-16"></TableHead>
                   </TableRow>
@@ -131,6 +148,29 @@ export function PostGruposInstanceCard({ instance, onChanged }: { instance: Inst
                       <TableCell className="font-medium">
                         <span className="inline-block w-2 h-2 rounded-full bg-emerald-500 mr-2" />
                         {t.group_name ?? '(sem nome)'}
+                      </TableCell>
+                      <TableCell>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button variant="outline" size="sm" className="h-7 text-xs font-normal">
+                              {(() => {
+                                const list = t.platforms ?? [];
+                                if (list.length === 0 || list.length === ALL_PLATFORM_VALUES.length) return 'Todas as redes';
+                                return list.map(platformLabel).join(', ');
+                              })()}
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-56" align="start">
+                            <p className="text-xs text-muted-foreground mb-2">
+                              Enviar para este grupo apenas posts de:
+                            </p>
+                            <PlatformPicker
+                              value={t.platforms?.length ? t.platforms : [...ALL_PLATFORM_VALUES]}
+                              onChange={(next) => updatePlatforms(t.target_id, next)}
+                              className="flex-col gap-2"
+                            />
+                          </PopoverContent>
+                        </Popover>
                       </TableCell>
                       <TableCell className="text-right tabular-nums">
                         {(t.member_count ?? 0).toLocaleString('pt-BR')}

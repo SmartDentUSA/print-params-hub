@@ -68,6 +68,7 @@ serve(async (req) => {
   }
   const representatives: any[] = [];
   const suppressedIdsByRep = new Map<string, string[]>();
+  const variantsByRep = new Map<string, any[]>();
   for (const [key, arr] of groups) {
     const sorted = [...arr].sort((a, b) => {
       const pa = PLATFORM_PRIORITY[a.platform] ?? 99;
@@ -86,6 +87,7 @@ serve(async (req) => {
     const siblings = arr.filter((r) => r.id !== rep.id).map((r) => r.id);
     representatives.push(rep);
     suppressedIdsByRep.set(rep.id, siblings);
+    variantsByRep.set(rep.id, sorted);
     if (siblings.length > 0) {
       console.log('[social-post-auto-blast] deduped by seq', JSON.stringify({
         key,
@@ -116,7 +118,7 @@ serve(async (req) => {
   // targets por instância
   const { data: targets } = await sb
     .from('post_group_targets')
-    .select('instance_name, group_id, enabled')
+    .select('instance_name, group_id, enabled, platforms')
     .in('instance_name', instanceNames)
     .eq('enabled', true);
   const targetIds = Array.from(new Set((targets ?? []).map((t: any) => t.group_id).filter(Boolean)));
@@ -126,11 +128,16 @@ serve(async (req) => {
     : { data: [] as any[] } as any;
   const groupById = new Map<string, any>((waGroups ?? []).map((g: any) => [g.id, g]));
 
-  const jidsByInstance: Record<string, string[]> = {};
+  // jids por instância + plataformas permitidas (vazio = todas)
+  type TargetJid = { jid: string; platforms: string[] };
+  const targetsByInstance: Record<string, TargetJid[]> = {};
   for (const t of (targets ?? []) as any[]) {
     const g = groupById.get(t.group_id);
     if (!g || !g.group_jid || !g.is_admin || !g.enabled) continue;
-    (jidsByInstance[t.instance_name] ??= []).push(g.group_jid);
+    (targetsByInstance[t.instance_name] ??= []).push({
+      jid: g.group_jid,
+      platforms: Array.isArray(t.platforms) ? t.platforms : [],
+    });
   }
 
   let dispatched = 0;
@@ -139,17 +146,31 @@ serve(async (req) => {
   let maxSeqDispatched = lastSeq;
 
   for (const post of capped) {
-    const url = post.short_link || post.post_url;
-    if (!url) { skipped++; continue; }
-    const captionBody = (post.caption ?? '').trim();
-    if (!captionBody) { skipped++; continue; }
-    const text = `${captionBody}\n\n${url}`;
+    const variants = (variantsByRep.get(post.id) ?? [post]).filter(
+      (v: any) => (v.short_link || v.post_url) && String(v.caption ?? '').trim(),
+    );
+    if (variants.length === 0) { skipped++; continue; }
 
     let anyDispatched = false;
     for (const instance of instanceNames) {
-      const jids = jidsByInstance[instance] ?? [];
-      if (jids.length === 0) continue;
-      try {
+      const list = targetsByInstance[instance] ?? [];
+      if (list.length === 0) continue;
+
+      // Cada grupo recebe apenas UMA mensagem: a da primeira rede permitida.
+      const jidsByVariant = new Map<string, string[]>();
+      for (const t of list) {
+        const allowed = t.platforms.length === 0
+          ? variants
+          : variants.filter((v: any) => t.platforms.includes(v.platform));
+        const chosen = allowed[0];
+        if (!chosen) continue;
+        (jidsByVariant.get(chosen.id) ?? jidsByVariant.set(chosen.id, []).get(chosen.id)!).push(t.jid);
+      }
+
+      for (const [variantId, jids] of jidsByVariant) {
+        const variant = variants.find((v: any) => v.id === variantId)!;
+        const text = `${String(variant.caption ?? '').trim()}\n\n${variant.short_link || variant.post_url}`;
+        try {
         const resp = await fetch(`${SUPABASE_URL}/functions/v1/wa-group-blast`, {
           method: 'POST',
           headers: {
@@ -160,14 +181,15 @@ serve(async (req) => {
             group_jids: jids,
             message_type: 'msg',
             content: { text },
-            campaign_name: `Auto #${post.blast_seq ?? '-'} | ${post.platform ?? 'post'} | ${String(post.id).slice(0, 8)}`,
+            campaign_name: `Auto #${post.blast_seq ?? '-'} | ${variant.platform ?? 'post'} | ${String(variant.id).slice(0, 8)}`,
           }),
         });
         const json = await resp.json().catch(() => ({}));
         if (resp.ok && json?.ok) { dispatched++; anyDispatched = true; }
         else console.warn('[social-post-auto-blast] wa-group-blast', instance, resp.status, json?.error ?? json?.message);
-      } catch (e) {
-        console.error('[social-post-auto-blast] blast call failed', instance, e);
+        } catch (e) {
+          console.error('[social-post-auto-blast] blast call failed', instance, e);
+        }
       }
     }
 
