@@ -1,50 +1,27 @@
-# Gate -1 — próximos passos (aguardando aprovação humana)
+# Zernio webhook: responder em <5s e processar em background
 
-Este plano é a proposta de execução do Gate -1 baseada no relatório de pré-verificação já entregue. **Nada aqui roda sem aprovação explícita.**
+## Problema
+O endpoint `smart-ops-zernio-lead-webhook` só responde depois de terminar todo o pipeline: valida assinatura, grava o dedup, chama `smart-ops-ingest-lead` (que por sua vez faz CRM/PipeRun) e só então devolve 200. Esse encadeamento passa dos 5s de limite da Zernio, então 32 de 34 entregas abortam na 1ª tentativa e voltam como retry. No retry o dedup por `leadgen_id` já existe, então responde `deduped: true` — o lead entra uma vez só, mas todo delivery gasta duas tentativas e fica sem confirmação de sucesso real.
 
-## Contexto
+## Correção
+Separar "aceitar" de "processar":
 
-O relatório de pré-verificação confirmou dois P0 estruturais (código/schema) e não pôde confirmar histórico de invocações porque a retenção de logs acessível a esta sessão é de <10 min. Ação de revogação/rotação/desligamento não depende da contagem histórica para ser correta — depende só da superfície de risco atual.
+1. No caminho síncrono ficam apenas operações rápidas: verificação da assinatura HMAC, parse do JSON, checagem de `lead.leadgenId` e o INSERT atômico em `zernio_leadgen_dedup`.
+2. Se o INSERT retorna conflito (23505), responde `200 { deduped: true }` na hora, como hoje.
+3. Se o INSERT passa, agenda o restante (normalização dos campos, mapeamento de produto, chamada ao `smart-ops-ingest-lead`, update do `lead_id` no dedup) com `EdgeRuntime.waitUntil(...)` e responde `200 { accepted: true, leadgen_id }` imediatamente.
+4. Em caso de falha no processamento em background: registrar o erro em `zernio_leadgen_dedup` (campo de erro/status) e em `system_health_logs`, para que a falha não fique invisível agora que o 200 é dado antes.
 
-## Ações propostas (ordem)
+## Recuperação de falhas
+Como a Zernio não vai mais reentregar (recebe 200 na primeira), a linha de dedup vira o registro de estado: quando o ingest falha, ela fica marcada com o erro e sem `lead_id`. Um passo de reprocesso manual/cron pode varrer linhas com `lead_id IS NULL` e erro registrado e reenviar ao ingest.
 
-### Passo 1 — Rotação de `PIPERUN_API_KEY` (obrigatório, primeiro)
-1. Gerar nova chave no dashboard PipeRun.
-2. Atualizar secret no Supabase (`update_secret PIPERUN_API_KEY`).
-3. Aguardar propagação (edge functions relêem a env em cold start).
-4. Confirmar smoke test em `piperun-list-pipelines` (GET) — se responder 200, propagação OK.
+## Detalhes técnicos
+- Arquivo: `supabase/functions/smart-ops-zernio-lead-webhook/index.ts`.
+- Usar `EdgeRuntime.waitUntil(promise)` (suportado no runtime Deno do Supabase) para manter a invocação viva após o `Response`.
+- Manter a resposta 401 para assinatura inválida e 400 para JSON inválido / `leadgenId` ausente — todos síncronos e rápidos.
+- Nenhuma mudança no `smart-ops-ingest-lead` nem no `social-flow-webhook`.
+- Migration pequena em `zernio_leadgen_dedup`: colunas `process_status` (`pending`/`done`/`failed`, default `pending`) e `process_error` text, com GRANTs preservados.
 
-Motivo: a chave antiga foi loggada em URL (`piperun-api-test` linhas 63/82–91). Trata como comprometida.
-
-### Passo 2 — Contenção de `piperun-api-test`
-Opção A (recomendada): marcar `enabled = false` em `supabase/config.toml` para a função, redeploy automático.
-Opção B: setar `verify_jwt = true` (fecha para anon mas mantém acessível a admin logado). Como só é usado em diagnóstico manual, A é mais simples.
-
-### Passo 3 — Contenção de `execute_agent_sql`
-Migration única:
-```sql
-REVOKE EXECUTE ON FUNCTION public.execute_agent_sql(text) FROM PUBLIC, anon, authenticated;
--- service_role já tem por ser owner de tabelas / superuser da API; manter para não quebrar chamadas server-side eventuais
-ALTER FUNCTION public.execute_agent_sql(text) SET search_path = public;
-```
-Após revogar, monitorar por 24h se algo do produto quebra (esperado: nada, dado que não há caller no repo). Se sim, decidir: `GRANT` cirúrgico para role específico ou refatorar caller para não usar SQL-como-texto.
-
-### Passo 4 — Desabilitar `trg_auto_dedup_phone` (opcional, sem urgência)
-Trigger parou de emitir merges em jun/2026. Amostragem de 10 casos anteriores não mostrou merge de pessoas distintas. Proposta: **manter ligado**, mas ampliar amostra para 50 casos (queries de leitura) antes de decidir. Nada a fazer no Gate -1.
-
-## Não faz parte deste gate
-- Nenhuma limpeza de `merged_into` autorreferenciado.
-- Nenhum backfill de identidade.
-- Nenhuma mudança em `smart-ops-lia-assign`, Cérebro Copilot, Golden Rule.
-- Nenhuma migração de dado.
-
-## Critério de sucesso
-- Nova `PIPERUN_API_KEY` ativa; edge functions PipeRun funcionando (verificado por 1 GET).
-- `piperun-api-test` retorna 404/desligado.
-- `execute_agent_sql` retorna erro de permissão para anon/authenticated.
-- Nenhum error rate novo em `system_health_logs` nas 2h seguintes.
-
-## Rollback
-- Rotação de chave: manter a antiga válida no PipeRun por 24h antes de revogá-la lá.
-- `piperun-api-test`: reverter `enabled` no config.toml.
-- Grants em `execute_agent_sql`: `GRANT EXECUTE ... TO authenticated` (reverso do REVOKE).
+## Validação
+- Reenviar um payload de teste e confirmar tempo de resposta bem abaixo de 5s.
+- Conferir nos logs da função que o ingest continua concluindo depois do 200.
+- Conferir com a Zernio (ou nos logs) que as próximas entregas passam na 1ª tentativa, sem `deduped: true`.
