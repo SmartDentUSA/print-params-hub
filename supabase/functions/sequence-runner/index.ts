@@ -58,7 +58,14 @@ serve(async (req) => {
     .lte('next_step_at', new Date().toISOString())
     .limit(50);
 
-  const { data: tm } = await supabase.from('team_members').select('evolution_instance_name, evolution_api_key').eq('ativo', true).not('evolution_api_key', 'is', null).limit(1).single();
+  // Envio institucional: sempre pela instância de marketing (substitui Danilo Henrique)
+  const { data: tm } = await supabase
+    .from('team_members')
+    .select('evolution_instance_name, evolution_api_key')
+    .eq('evolution_instance_name', 'smartdent_marketing')
+    .not('evolution_api_key', 'is', null)
+    .limit(1)
+    .maybeSingle();
   let processed = 0;
 
   for (const e of enrollments ?? []) {
