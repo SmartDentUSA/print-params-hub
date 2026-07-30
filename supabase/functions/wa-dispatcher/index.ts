@@ -110,7 +110,9 @@ serve(async (req) => {
       const apikey      = resolveApiKey({ teamMember: tm, isGroup })
       const evoGoToken  = tm?.evo_go_instance_token ?? null
       const evoGoBase   = tm?.evo_go_base_url ?? 'http://82.25.75.61:8081'
-      const useEvoGo    = !!evoGoToken
+      // Evolution API (:8080) tem prioridade — Evolution Go (:8081) só quando não
+      // houver apikey própria da instância na Evolution API.
+      const useEvoGo    = !!evoGoToken && !tm?.evolution_api_key
 
       if (isGroup && groupHealthByJid.get(item.group_jid) === 'session_broken') {
         await supabase.from('wa_message_queue').update({ status: 'blocked_session', error_message: 'Grupo bloqueado.' }).eq('id', item.id)
