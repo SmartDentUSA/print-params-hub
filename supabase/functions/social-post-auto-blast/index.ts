@@ -181,6 +181,7 @@ serve(async (req) => {
             group_jids: jids,
             message_type: 'msg',
             content: { text },
+            platform: variant.platform ?? undefined,
             campaign_name: `Auto #${post.blast_seq ?? '-'} | ${variant.platform ?? 'post'} | ${String(variant.id).slice(0, 8)}`,
           }),
         });
