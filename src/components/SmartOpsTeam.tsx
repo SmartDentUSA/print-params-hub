@@ -220,7 +220,7 @@ export function SmartOpsTeam() {
   };
 
   const fetchEvolutionStatus = async (memberId: string, instanceName: string) => {
-    // (definido abaixo em persistStatus)
+    // status persistido em team_members para o router de provedores decidir o modo dual
     try {
       const { data, error } = await supabase.functions.invoke("smart-ops-evolution-manager", {
         body: { action: "get_status", instance_name: instanceName, member_id: memberId },
