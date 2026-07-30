@@ -155,10 +155,10 @@ async function processLead(
         .from("lead_activity_log")
         .insert({
           lead_id: leadId,
-          event_type: "meta_lead_received",
+          event_type: "zernio_lead_raw",
           event_timestamp: eventTs ?? new Date().toISOString(),
           event_data: payload,
-          entity_type: "meta_form",
+          entity_type: "meta_lead_form",
           entity_id: payload.lead.formId ?? null,
           entity_name: payload.lead.formName ?? null,
           source_channel: "zernio_webhook",
