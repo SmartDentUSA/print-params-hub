@@ -16427,6 +16427,7 @@ export type Database = {
           group_id: string
           id: string
           instance_name: string | null
+          platforms: string[]
           updated_at: string
         }
         Insert: {
@@ -16435,6 +16436,7 @@ export type Database = {
           group_id: string
           id?: string
           instance_name?: string | null
+          platforms?: string[]
           updated_at?: string
         }
         Update: {
@@ -16443,6 +16445,7 @@ export type Database = {
           group_id?: string
           id?: string
           instance_name?: string | null
+          platforms?: string[]
           updated_at?: string
         }
         Relationships: [
@@ -28033,6 +28036,7 @@ export type Database = {
           instance_name: string | null
           is_primary: boolean | null
           member_count: number | null
+          platforms: string[] | null
           target_id: string | null
           tipo: string | null
         }
