@@ -200,6 +200,8 @@ export function SmartOpsTeam() {
       evo_go_instance_id: m.evo_go_instance_id || "",
       evo_go_instance_token: m.evo_go_instance_token || "",
       evo_go_base_url: m.evo_go_base_url || "",
+      evolution_enabled: m.evolution_enabled === true,
+      evo_go_enabled: m.evo_go_enabled === true,
       messaging_provider: m.messaging_provider || "waleads",
     });
     setEvolutionStatus("unknown");
