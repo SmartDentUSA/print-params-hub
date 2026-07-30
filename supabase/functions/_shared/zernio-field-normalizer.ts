@@ -308,6 +308,20 @@ export interface NormalizedZernioLead {
   impressora: ImpressoraNormalizationResult | null;
   extras: Record<string, string>;
   needsManualReview: boolean;
+  platform_campaign_id: string | null;
+  platform_adgroup_id: string | null;
+  platform_ad_id: string | null;
+  meta_platform: string | null;
+}
+
+// Contexto fora de `fields` no payload Zernio: IDs de campanha/adset/ad e a
+// plataforma de origem. Opcional para manter compatibilidade com chamadas
+// existentes que passam apenas os fields.
+export interface ZernioLeadContext {
+  campaignId?: string | null;
+  adsetId?: string | null;
+  adId?: string | null;
+  platform?: string | null;
 }
 
 type FieldRole = "fullName" | "email" | "phone" | "area" | "especialidade" | "scanner" | "impressora";
@@ -322,7 +336,10 @@ const FIELD_KEY_MAP: Record<string, FieldRole> = {
   [slugify("tem_impressora?")]: "impressora",
 };
 
-export function normalizeZernioLead(rawFields: Record<string, string>): NormalizedZernioLead {
+export function normalizeZernioLead(
+  rawFields: Record<string, string>,
+  context?: ZernioLeadContext,
+): NormalizedZernioLead {
   const result: NormalizedZernioLead = {
     fullName: null,
     email: null,
@@ -333,6 +350,10 @@ export function normalizeZernioLead(rawFields: Record<string, string>): Normaliz
     impressora: null,
     extras: {},
     needsManualReview: false,
+    platform_campaign_id: context?.campaignId ?? null,
+    platform_adgroup_id: context?.adsetId ?? null,
+    platform_ad_id: context?.adId ?? null,
+    meta_platform: context?.platform ?? null,
   };
 
   for (const [rawKey, rawValue] of Object.entries(rawFields)) {
