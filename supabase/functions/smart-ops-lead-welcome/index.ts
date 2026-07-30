@@ -34,6 +34,19 @@ function normalizePhone(raw: string | null | undefined): string | null {
 async function getLiaConfig(supa: ReturnType<typeof createClient>) {
   const { data: member } = await supa.from("team_members")
     .select("evolution_instance_name").eq("role", "lia_comms").eq("ativo", true).limit(1).single();
+  if (!member?.evolution_instance_name) {
+    try {
+      await supa.from("system_health_logs").insert({
+        function_name: "smart-ops-lead-welcome",
+        severity: "warning",
+        error_type: "lia_comms_inativo",
+        details: {
+          motivo: "Nenhum team_member com role=lia_comms e ativo=true",
+          fallback: "Dra. Lia",
+        },
+      });
+    } catch { /* silencioso */ }
+  }
   const instance = member?.evolution_instance_name || "Dra. Lia";
   const { data: cfg } = await supa.from("system_config")
     .select("config_value").eq("config_key", "evolution_lia_api_key").maybeSingle();
@@ -130,6 +143,25 @@ async function upsertWhatsAppContact(
 }
 
 async function sendViaEvolution(instance: string, apiKey: string, phone: string, text: string) {
+  return await sendViaEvolutionImpl(instance, apiKey, phone, text);
+}
+
+async function isInstanceOpen(instance: string, apiKey: string): Promise<boolean> {
+  try {
+    const res = await fetch(
+      `${EVOLUTION_BASE}/instance/connectionState/${encodeURIComponent(instance)}`,
+      { headers: { apikey: apiKey }, signal: AbortSignal.timeout(8_000) }
+    );
+    if (!res.ok) return false;
+    const j = await res.json();
+    const state = j?.instance?.state ?? j?.state;
+    return state === "open";
+  } catch {
+    return false;
+  }
+}
+
+async function sendViaEvolutionImpl(instance: string, apiKey: string, phone: string, text: string) {
   try {
     const res = await fetch(
       `${EVOLUTION_BASE}/message/sendText/${encodeURIComponent(instance)}`,
