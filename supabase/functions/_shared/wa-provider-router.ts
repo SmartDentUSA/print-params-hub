@@ -47,6 +47,7 @@ export interface WaTeamMember {
   evolution_status?: string | null
   evolution_group_key_broken_at?: string | null
   evo_go_instance_id?: string | null
+  evo_go_instance_name?: string | null
   evo_go_instance_token?: string | null
   evo_go_base_url?: string | null
   evo_go_enabled?: boolean | null
