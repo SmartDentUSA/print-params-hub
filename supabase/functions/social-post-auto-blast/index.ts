@@ -86,6 +86,7 @@ serve(async (req) => {
     const siblings = arr.filter((r) => r.id !== rep.id).map((r) => r.id);
     representatives.push(rep);
     suppressedIdsByRep.set(rep.id, siblings);
+    variantsByRep.set(rep.id, sorted);
     if (siblings.length > 0) {
       console.log('[social-post-auto-blast] deduped by seq', JSON.stringify({
         key,
