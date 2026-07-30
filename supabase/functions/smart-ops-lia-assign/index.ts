@@ -44,7 +44,8 @@ import {
   type PipeRunDealData,
 } from "../_shared/piperun-field-map.ts";
 
-const WALEADS_ENABLED = false; // Pausado — usar Evolution API (smart-ops-lead-welcome + smart-ops-lia-notify-seller)
+// WaLeads desativado e removido do código — envio 100% Evolution
+// (smart-ops-lead-welcome + smart-ops-lia-notify-seller).
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -4466,7 +4467,7 @@ Deno.serve(async (req) => {
     console.log(`[lia-assign] Lead updated: owner=${assignedOwnerName}, flow=${flowType}, funil=${updateFields.funil_entrada_crm || "n/a"}`);
 
     // ── 7. Outbound automation ──
-    // WaLeads pausado — usar smart-ops-lia-notify-seller (Evolution API, instância Danilo Henrique)
+    // Briefing via smart-ops-lia-notify-seller (Evolution API, instância do vendedor / smartdent_marketing)
     if (assignedTeamMemberId && assignedTeamMemberId !== "fallback-admin") {
       try {
         const notifyRes = await fetch(`${SUPABASE_URL}/functions/v1/smart-ops-lia-notify-seller`, {
