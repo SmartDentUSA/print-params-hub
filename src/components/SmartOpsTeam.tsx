@@ -228,11 +228,13 @@ export function SmartOpsTeam() {
       const state = (data?.state || data?.status || "close") as string;
       if (state === "open" || state === "connecting" || state === "close") {
         setEvolutionStatus(state);
+        persistStatus(memberId, "evolution", state);
       } else {
         setEvolutionStatus("unknown");
       }
     } catch {
       setEvolutionStatus("close");
+      persistStatus(memberId, "evolution", "close");
     }
   };
 
@@ -245,6 +247,7 @@ export function SmartOpsTeam() {
       const state = (data?.state || "close") as string;
       if (state === "open" || state === "connecting" || state === "close") {
         setEvoGoStatus(state);
+        persistStatus(memberId, "evo_go", state);
       } else {
         setEvoGoStatus("unknown");
       }
