@@ -219,9 +219,18 @@ export function SmartOpsTeam() {
     }
   };
 
+  /** Persiste o status de conexão do provedor — é ele que habilita o modo dual no router. */
+  const persistStatus = async (memberId: string, provider: "evolution" | "evo_go", state: EvolutionStatus) => {
+    if (!memberId) return;
+    const payload =
+      provider === "evolution"
+        ? { evolution_status: STATUS_LABEL[state], evolution_last_check_at: new Date().toISOString() }
+        : { evo_go_status: STATUS_LABEL[state], evo_go_last_check_at: new Date().toISOString() };
+    await supabase.from("team_members").update(payload).eq("id", memberId);
+    setMembers((prev) => prev.map((m) => (m.id === memberId ? { ...m, ...payload } : m)));
+  };
+
   const fetchEvolutionStatus = async (memberId: string, instanceName: string) => {
-    // status persistido em team_members para o router de provedores decidir o modo dual
-    void 0;
     try {
       const { data, error } = await supabase.functions.invoke("smart-ops-evolution-manager", {
         body: { action: "get_status", instance_name: instanceName, member_id: memberId },
