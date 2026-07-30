@@ -19,11 +19,14 @@ const corsHeaders = {
 interface ZernioLeadReceivedPayload {
   event: string;
   id: string;
+  timestamp?: string;
   lead: {
     id: string;
     leadgenId: string;
     formId?: string;
     formName?: string;
+    createdAt?: string;
+    isOrganic?: boolean;
     campaignName?: string;
     adsetName?: string;
     adName?: string;
@@ -135,6 +138,44 @@ async function processLead(
       throw new Error(
         `ingest-lead retornou 200 sem lead_id: ${JSON.stringify(ingestResult)}`,
       );
+    }
+
+    // Camada de observabilidade: nunca pode derrubar o lead.
+    try {
+      const eventTs = payload.lead?.createdAt ?? payload.timestamp ?? null;
+      if (!payload.lead?.createdAt) {
+        console.warn(
+          "[zernio] lead.createdAt ausente, usando fallback",
+          leadgenId,
+          { fallback: eventTs },
+        );
+      }
+
+      const { error: timelineError } = await supabase
+        .from("lead_activity_log")
+        .insert({
+          lead_id: leadId,
+          event_type: "meta_lead_received",
+          event_timestamp: eventTs ?? new Date().toISOString(),
+          event_data: payload,
+          entity_type: "meta_form",
+          entity_id: payload.lead.formId ?? null,
+          entity_name: payload.lead.formName ?? null,
+          source_channel: "zernio_webhook",
+        });
+
+      if (timelineError) throw new Error(timelineError.message);
+    } catch (timelineErr) {
+      console.error("[zernio] falha ao gravar timeline:", timelineErr);
+      await supabase
+        .from("system_health_logs")
+        .insert({
+          function_name: "smart-ops-zernio-lead-webhook",
+          status: "warning",
+          error_message: `timeline_insert_failed: ${String(timelineErr).slice(0, 1000)}`,
+          metadata: { leadgen_id: leadgenId, lead_id: leadId },
+        })
+        .then(() => {}, () => {});
     }
 
     await supabase
