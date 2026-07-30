@@ -216,7 +216,14 @@ serve(async (req) => {
 
       for (const [variantId, jids] of jidsByVariant) {
         const variant = variants.find((v: any) => v.id === variantId)!;
-        const text = `${String(variant.caption ?? '').trim()}\n\n${variant.short_link || variant.post_url}`;
+        const link = variant.short_link || variant.post_url;
+        const summary = await buildSummary(String(variant.caption ?? ''), String(variant.platform ?? 'post'));
+        const text = `${summary}\n\n${link}`;
+        const media = pickMedia(variant);
+        const messageType = media ? media.kind : 'msg';
+        const content = media
+          ? { media_url: media.url, caption: text }
+          : { text };
         try {
         const resp = await fetch(`${SUPABASE_URL}/functions/v1/wa-group-blast`, {
           method: 'POST',
@@ -226,8 +233,8 @@ serve(async (req) => {
           },
           body: JSON.stringify({
             group_jids: jids,
-            message_type: 'msg',
-            content: { text },
+            message_type: messageType,
+            content,
             platform: variant.platform ?? undefined,
             campaign_name: `Auto #${post.blast_seq ?? '-'} | ${variant.platform ?? 'post'} | ${String(variant.id).slice(0, 8)}`,
           }),
