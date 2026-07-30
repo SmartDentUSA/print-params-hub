@@ -104,8 +104,11 @@ serve(async (req) => {
     return Response.json({ ok: false, error: 'scheduled_at inválido' }, { status: 400, headers: corsHeaders })
   }
 
-  // Single-node flow stored on campaign for traceability
-  const flowNode = { id: crypto.randomUUID(), type: body.message_type, ...body.content }
+  // Single-node flow stored on campaign for traceability.
+  // node_id determinístico (content_hash) — nunca aleatório, nunca nulo:
+  // garante que a constraint uq_wa_message_queue_campaign_group_node bloqueie reenvio idêntico.
+  const deterministicNodeId = `blast:${contentHash}:${body.message_type}:0`
+  const flowNode = { id: deterministicNodeId, type: body.message_type, ...body.content }
 
   const { data: camp, error: ce } = await supabase
     .from('wa_campaigns')
