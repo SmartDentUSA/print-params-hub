@@ -427,6 +427,9 @@ verify_jwt = false
 [functions.wa-dispatcher]
 verify_jwt = false
 
+[functions.wa-provider-selftest]
+verify_jwt = false
+
 [functions.wa-verify-lead]
 verify_jwt = false
 
