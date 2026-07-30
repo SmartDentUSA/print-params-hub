@@ -1931,36 +1931,30 @@ async function triggerOutboundMessages(
       return;
     }
 
-    // Fetch team member with WaLeads config
+    // Fetch team member (Evolution config)
     const { data: member } = await supabase
       .from("team_members")
-      .select("id, nome_completo, waleads_api_key, whatsapp_number")
+      .select("id, nome_completo, whatsapp_number, evolution_instance_name")
       .eq("id", teamMemberId)
       .single();
 
-    if (!member?.waleads_api_key) {
-      console.log(`[lia-assign] Team member ${teamMemberId} has no waleads_api_key, skipping`);
+    if (!member) {
+      console.log(`[lia-assign] Team member ${teamMemberId} not found, skipping outbound`);
       return;
     }
 
     const isLiaSource = LIA_SOURCES.includes(lead.source as string);
 
     // ── A. Message seller → lead ──
-    if (isLiaSource) {
-      console.log("[lia-assign] LIA source → generating AI greeting");
-      const aiGreeting = await generateAILeadGreeting(lead, member.nome_completo);
-      await sendWaLeadsMessage(supabaseUrl, serviceKey, member.id, phone, aiGreeting, leadId);
-    } else {
+    if (!isLiaSource) {
       console.log("[lia-assign] Non-LIA source → using template message");
       await sendTemplateMessage(supabase, supabaseUrl, serviceKey, lead, member.id, phone);
     }
 
-    // ── B. Structured notification → seller (ALWAYS) ──
-    console.log("[lia-assign] Building structured seller notification");
-    const briefing = await buildSellerNotification(lead, supabase);
+    // ── B. Briefing → vendedor (SEMPRE, via Evolution) ──
     if (member.whatsapp_number) {
-      await sendWaLeadsMessage(supabaseUrl, serviceKey, member.id, member.whatsapp_number, briefing, leadId);
-      console.log(`[lia-assign] Seller briefing sent to ${member.nome_completo} (${member.whatsapp_number})`);
+      await sendSellerBriefing(supabaseUrl, serviceKey, member.id, leadId, "trigger_outbound");
+      console.log(`[lia-assign] Seller briefing dispatched to ${member.nome_completo} (${member.whatsapp_number})`);
     } else {
       console.log(`[lia-assign] No whatsapp_number for ${member.nome_completo}, briefing not sent`);
     }
