@@ -28,9 +28,17 @@ export function SocialContacts() {
   const { data: contacts, isLoading } = useQuery({
     queryKey: ['social-contacts', q, platform],
     queryFn: async () => {
-      let query = supabase.from('social_contacts').select('*').order('last_seen_at', { ascending: false, nullsFirst: false }).limit(200);
+      let query = supabase.from('social_contacts').select('*').order('last_seen_at', { ascending: false, nullsFirst: false }).limit(1000);
       if (platform !== 'all') query = query.eq('channel', platform);
-      if (q) query = query.or(`ig_username.ilike.%${q}%,ig_user_id.ilike.%${q}%`);
+      if (q) {
+        const digits = q.replace(/\D/g, '');
+        const parts = [`ig_username.ilike.%${q}%`, `ig_user_id.ilike.%${q}%`];
+        if (digits.length >= 4) {
+          parts.push(`ig_user_id.ilike.%${digits}%`);
+          parts.push(`custom_fields->>platformIdentifier.ilike.%${digits}%`);
+        }
+        query = query.or(parts.join(','));
+      }
       const { data, error } = await query;
       if (error) throw error;
       return data ?? [];
@@ -93,7 +101,7 @@ export function SocialContacts() {
               <tr>
                 <th className="p-3">Contato</th>
                 <th className="p-3">Plataforma</th>
-                <th className="p-3">ManyChat ID</th>
+                <th className="p-3">Telefone / ID</th>
                 <th className="p-3">Tags</th>
                 <th className="p-3">Inscrito</th>
                 <th className="p-3">Visto</th>
@@ -103,19 +111,24 @@ export function SocialContacts() {
               {contacts!.map((c: any) => {
                 const mcId = c.custom_fields?.manychat_id ?? null;
                 const channel = c.channel ?? 'instagram';
+                const rawIdentifier: string | null =
+                  c.custom_fields?.platformIdentifier ??
+                  (/^\d{10,15}$/.test(String(c.ig_user_id ?? '')) ? `+${c.ig_user_id}` : null);
+                const phone = channel === 'whatsapp' ? rawIdentifier : null;
+                const secondary = phone ?? mcId ?? rawIdentifier;
                 return (
                   <tr key={c.ig_user_id} className="border-t border-border">
                     <td className="p-3">
-                      <div className="font-medium">{c.ig_username ?? '—'}</div>
+                      <div className="font-medium">{c.ig_username ?? phone ?? '—'}</div>
                       <div className="text-xs text-muted-foreground font-mono truncate max-w-[220px]">{c.ig_user_id}</div>
                     </td>
                     <td className="p-3">
                       <Badge variant="outline" className={`capitalize ${PLATFORM_COLORS[channel] ?? ''}`}>{channel}</Badge>
                     </td>
                     <td className="p-3">
-                      {mcId ? (
-                        <button onClick={() => copy(mcId)} className="inline-flex items-center gap-1 text-xs font-mono hover:text-primary">
-                          <Copy className="w-3 h-3" /> {mcId}
+                      {secondary ? (
+                        <button onClick={() => copy(secondary)} className="inline-flex items-center gap-1 text-xs font-mono hover:text-primary">
+                          <Copy className="w-3 h-3" /> {secondary}
                         </button>
                       ) : <span className="text-xs text-muted-foreground">—</span>}
                     </td>
