@@ -30,7 +30,15 @@ export function SocialContacts() {
     queryFn: async () => {
       let query = supabase.from('social_contacts').select('*').order('last_seen_at', { ascending: false, nullsFirst: false }).limit(200);
       if (platform !== 'all') query = query.eq('channel', platform);
-      if (q) query = query.or(`ig_username.ilike.%${q}%,ig_user_id.ilike.%${q}%`);
+      if (q) {
+        const digits = q.replace(/\D/g, '');
+        const parts = [`ig_username.ilike.%${q}%`, `ig_user_id.ilike.%${q}%`];
+        if (digits.length >= 4) {
+          parts.push(`ig_user_id.ilike.%${digits}%`);
+          parts.push(`custom_fields->>platformIdentifier.ilike.%${digits}%`);
+        }
+        query = query.or(parts.join(','));
+      }
       const { data, error } = await query;
       if (error) throw error;
       return data ?? [];
