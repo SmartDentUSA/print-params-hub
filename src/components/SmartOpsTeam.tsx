@@ -33,6 +33,12 @@ interface TeamMember {
   evo_go_instance_id: string | null;
   evo_go_instance_token: string | null;
   evo_go_base_url: string | null;
+  evolution_enabled: boolean | null;
+  evolution_status: string | null;
+  evolution_last_check_at: string | null;
+  evo_go_enabled: boolean | null;
+  evo_go_status: string | null;
+  evo_go_last_check_at: string | null;
   messaging_provider: string | null;
   ativo: boolean;
 }
@@ -61,10 +67,22 @@ const EMPTY_FORM = {
   evo_go_instance_id: "",
   evo_go_instance_token: "",
   evo_go_base_url: "",
+  evolution_enabled: false,
+  evo_go_enabled: false,
   messaging_provider: "waleads",
 };
 
 type EvolutionStatus = "open" | "connecting" | "close" | "unknown";
+
+const STATUS_LABEL: Record<EvolutionStatus, string> = {
+  open: "connected",
+  connecting: "connecting",
+  close: "disconnected",
+  unknown: "unknown",
+};
+
+const formatCheckedAt = (iso: string | null | undefined) =>
+  iso ? new Date(iso).toLocaleString("pt-BR") : "nunca verificado";
 
 function EvolutionStatusBadge({ status }: { status: EvolutionStatus }) {
   if (status === "open") return <Badge className="bg-green-600 text-white text-[10px]">🟢 Conectado</Badge>;
