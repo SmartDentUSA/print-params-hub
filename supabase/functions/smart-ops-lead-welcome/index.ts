@@ -231,6 +231,23 @@ async function processLead(
   const linkWa       = `https://wa.me/${sellerPhone}?text=${waText}`;
   const nomeLead     = ((lead.nome as string) || "Doutor(a)").split(" ")[0];
 
+  // ── GUARDA: instância precisa estar conectada ─────────────────────────────
+  if (!(await isInstanceOpen(instance, apiKey))) {
+    await supa.from("boas_vindas_locks").delete().eq("lead_id", leadId);
+    await safeLog(supa, leadId, phone, "skipped", `instancia offline: ${instance}`, instance);
+    try {
+      await supa.from("system_health_logs").insert({
+        function_name: "smart-ops-lead-welcome",
+        severity: "error",
+        error_type: "welcome_instancia_offline",
+        lead_id: leadId,
+        details: { instance, motivo: "state != open" },
+      });
+    } catch { /* silencioso */ }
+    return { leadId, result: "instancia_offline" };
+  }
+  // ──────────────────────────────────────────────────────────────────────────
+
   // ── PASSO 1: Registrar lead como contato no WhatsApp ──────────────────────
   const nomeCompleto = (lead.nome as string) || nomeLead;
   await upsertWhatsAppContact(instance, apiKey, phone, nomeCompleto);
