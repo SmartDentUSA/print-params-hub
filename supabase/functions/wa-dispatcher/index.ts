@@ -115,7 +115,7 @@ serve(async (req) => {
       const useEvoGo    = !!evoGoToken && !tm?.evolution_api_key
 
       if (isGroup && groupHealthByJid.get(item.group_jid) === 'session_broken') {
-        await supabase.from('wa_message_queue').update({ status: 'blocked_session', error_message: 'Grupo bloqueado.' }).eq('id', item.id)
+        await supabase.from('wa_message_queue').update({ status: 'blocked_session', error_message: 'Sessão de grupo quebrada no Evolution; reconecte/repareie a instância antes de reenviar.' }).eq('id', item.id)
         results.push({ id: item.id, status: 'blocked_session' }); continue
       }
       // status='sending' já foi setado atomicamente por claim_pending_wa_messages
@@ -288,14 +288,15 @@ serve(async (req) => {
         let blockedBySession = false
         if (isGroup && isSessionError) {
           const { data: g } = await supabase.from('wa_groups').select('consecutive_send_errors').eq('group_jid', item.group_jid).maybeSingle()
-          const nextCount = (g?.consecutive_send_errors ?? 0) + 1; const shouldBlock = nextCount >= 2
-          await supabase.from('wa_groups').update({ consecutive_send_errors: nextCount, last_send_error: msg.slice(0, 500), last_send_error_at: new Date().toISOString(), ...(shouldBlock ? { session_health: 'session_broken' } : {}) }).eq('group_jid', item.group_jid)
-          if (shouldBlock) { blockedBySession = true; await supabase.from('wa_message_queue').update({ status: 'blocked_session', error_message: 'Sessao quebrada.' }).eq('group_jid', item.group_jid).eq('status', 'pending') }
+          const nextCount = (g?.consecutive_send_errors ?? 0) + 1
+          blockedBySession = true
+          await supabase.from('wa_groups').update({ consecutive_send_errors: nextCount, last_send_error: msg.slice(0, 500), last_send_error_at: new Date().toISOString(), session_health: 'session_broken' }).eq('group_jid', item.group_jid)
+          await supabase.from('wa_message_queue').update({ status: 'blocked_session', error_message: 'Sessão de grupo quebrada no Evolution; reconecte/repareie a instância antes de reenviar.' }).eq('group_jid', item.group_jid).in('status', ['pending', 'sending'])
         }
         await supabase.from('wa_message_queue').update({ status: blockedBySession ? 'blocked_session' : (isFinal ? 'failed' : 'pending'), error_message: msg.slice(0, 500), retry_count: retries, ...(isFinal || blockedBySession ? {} : { scheduled_at: new Date(Date.now() + 30 * 60_000).toISOString() }) }).eq('id', item.id)
         await supabase.from('wa_send_log').insert({ queue_id: item.id, campaign_id: item.campaign_id, group_jid: item.group_jid, instance_name: instance ?? 'unknown', node_type: item.node_type, success: false, http_status: 500, error_message: msg.slice(0, 500) })
         if (isFinal) await supabase.from('wa_campaigns').update({ status: 'error' }).eq('id', item.campaign_id)
-        results.push({ id: item.id, status: isFinal ? 'failed' : 'retrying', error: msg })
+        results.push({ id: item.id, status: blockedBySession ? 'blocked_session' : (isFinal ? 'failed' : 'retrying'), error: msg })
         console.error(`[v66eg] ERRO [${item.node_type}]: ${msg}`)
       }
       if (pending.indexOf(item) < pending.length - 1) await sleep(delayMs + jitter)
