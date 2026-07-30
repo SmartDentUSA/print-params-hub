@@ -27,7 +27,13 @@ interface ZernioLeadReceivedPayload {
     campaignName?: string;
     adsetName?: string;
     adName?: string;
+    campaignId?: string;
+    adsetId?: string;
+    adId?: string;
     fields: Record<string, string>;
+  };
+  account?: {
+    platform?: string;
   };
 }
 
@@ -118,7 +124,12 @@ Deno.serve(async (req) => {
     });
   }
 
-  const normalized = normalizeZernioLead(payload.lead.fields ?? {});
+  const normalized = normalizeZernioLead(payload.lead.fields ?? {}, {
+    campaignId: payload.lead?.campaignId ?? null,
+    adsetId: payload.lead?.adsetId ?? null,
+    adId: payload.lead?.adId ?? null,
+    platform: payload.account?.platform ?? null,
+  });
   const productMapping = mapFormToProduct(payload.lead.formId);
 
   try {
@@ -162,6 +173,10 @@ Deno.serve(async (req) => {
           needs_manual_review: normalized.needsManualReview,
           zernio_delivery_id: payload.id,
           zernio_lead_id: payload.lead.id,
+          platform_campaign_id: normalized.platform_campaign_id,
+          platform_adgroup_id: normalized.platform_adgroup_id,
+          platform_ad_id: normalized.platform_ad_id,
+          meta_platform: normalized.meta_platform,
           _zernio_extras: normalized.extras,
         }),
       },
