@@ -66,8 +66,16 @@ Deno.serve(async (req) => {
     if (leadErr || !lead) return json({ error: `lead not found: ${leadErr?.message || lead_id}` }, 404);
     if (sellerErr || !seller) return json({ error: `seller not found: ${sellerErr?.message || team_member_id}` }, 404);
 
-    const senderInstance = resolveSenderInstance((seller as any).evolution_instance_name);
-    const senderKey = ((seller as any).evolution_api_key as string | null)?.trim() || EVO_KEY;
+    // Sender fixo: instância de marketing (credencial própria dela, nunca a do vendedor)
+    const senderInstance = SENDER_INSTANCE;
+    const { data: senderRow } = await supabase
+      .from("team_members")
+      .select("evolution_api_key")
+      .eq("evolution_instance_name", senderInstance)
+      .not("evolution_api_key", "is", null)
+      .limit(1)
+      .maybeSingle();
+    const senderKey = ((senderRow as any)?.evolution_api_key as string | null)?.trim() || EVO_KEY;
 
     const rawPhone = (seller as any).whatsapp_number as string | null;
     const cleanPhone = normalizePhone(rawPhone || "");
