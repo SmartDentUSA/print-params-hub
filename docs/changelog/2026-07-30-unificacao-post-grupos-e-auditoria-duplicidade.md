@@ -37,3 +37,25 @@ Fluxo canônico único mantido: `social-post-auto-blast` → `wa-group-blast` �
 4. Remoção manual da edge function `social-post-group-dispatch` no dashboard Supabase.
 
 Commit/PR: gerado por esta alteração no branch atual do projeto Lovable.
+
+---
+
+## Fechamento — 30/jul/2026
+
+Migration aplicada: `supabase/migrations/20260730032351_ef1da6c8-33ec-43cf-a9c3-9d58835f56ac.sql`
+
+| # | Alteração | Detalhe |
+|---|---|---|
+| 1 | `wa_message_queue.node_id` → `NOT NULL` | **Ressalva:** `SET NOT NULL` valida linhas existentes (não é só para inserts novos). As 36 linhas legado (29/mai–06/jul) receberam backfill determinístico `node_id = 'legacy:' || id` antes do `ALTER`. Nenhuma linha nova desde 06/jul tinha `node_id` nulo — a correção do `wa-group-blast` (`blast:<content_hash>:<type>:0`) está segurando |
+| 2 | `DROP TABLE wa_followup_queue` | Estrutura morta (0 linhas, 0 escritores). Se reativar no futuro: tabela nova, já nascendo com `UNIQUE(lead_id, sdr_etapa)` |
+| 3 | `DROP CONSTRAINT email_sequence_dispatches_unique_step` | Mantida a canônica `email_sequence_dispatches_sequence_id_step_id_lead_id_key`. Dedupe funcional inalterado |
+
+`whatsapp_send_queue`: **nenhuma alteração de schema** nesta rodada. Status registrado: legado, sem uso ativo (6 linhas, última 27/mai/2026, único escritor `fn_enqueue_whatsapp`, sem chamadores).
+
+### Edge function órfã `social-post-group-dispatch`
+
+Autorizada a remoção pelo dashboard Supabase (Functions → `social-post-group-dispatch` → Delete). **Código-fonte não recuperável (sem API de export); function removida sem backup em 30/jul/2026.** Confirmada inerte desde 03–07/jul (zero efeito observável, zero campanhas geradas).
+
+### Risco conhecido — NÃO resolvido nesta rodada
+
+`wa-dispatcher` e `wa-broadcast-dispatch` gravam o registro de controle **depois** do envio externo (Evolution), e não antes. Se o processo morrer entre o POST e a gravação, existe janela de reenvio. Fica para uma rodada própria, por tocar infraestrutura compartilhada com campanhas manuais de marketing. **Nada foi alterado nessas duas funções.**
