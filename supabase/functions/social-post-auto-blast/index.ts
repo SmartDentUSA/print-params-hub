@@ -116,7 +116,7 @@ serve(async (req) => {
   // targets por instância
   const { data: targets } = await sb
     .from('post_group_targets')
-    .select('instance_name, group_id, enabled')
+    .select('instance_name, group_id, enabled, platforms')
     .in('instance_name', instanceNames)
     .eq('enabled', true);
   const targetIds = Array.from(new Set((targets ?? []).map((t: any) => t.group_id).filter(Boolean)));
@@ -126,11 +126,23 @@ serve(async (req) => {
     : { data: [] as any[] } as any;
   const groupById = new Map<string, any>((waGroups ?? []).map((g: any) => [g.id, g]));
 
-  const jidsByInstance: Record<string, string[]> = {};
+  // jids por instância + plataformas permitidas (vazio = todas)
+  type TargetJid = { jid: string; platforms: string[] };
+  const targetsByInstance: Record<string, TargetJid[]> = {};
   for (const t of (targets ?? []) as any[]) {
     const g = groupById.get(t.group_id);
     if (!g || !g.group_jid || !g.is_admin || !g.enabled) continue;
-    (jidsByInstance[t.instance_name] ??= []).push(g.group_jid);
+    (targetsByInstance[t.instance_name] ??= []).push({
+      jid: g.group_jid,
+      platforms: Array.isArray(t.platforms) ? t.platforms : [],
+    });
+  }
+
+  function jidsFor(instance: string, platform: string | null): string[] {
+    const list = targetsByInstance[instance] ?? [];
+    return list
+      .filter((t) => t.platforms.length === 0 || (platform ? t.platforms.includes(platform) : true))
+      .map((t) => t.jid);
   }
 
   let dispatched = 0;
@@ -147,7 +159,7 @@ serve(async (req) => {
 
     let anyDispatched = false;
     for (const instance of instanceNames) {
-      const jids = jidsByInstance[instance] ?? [];
+      const jids = jidsFor(instance, post.platform ?? null);
       if (jids.length === 0) continue;
       try {
         const resp = await fetch(`${SUPABASE_URL}/functions/v1/wa-group-blast`, {
