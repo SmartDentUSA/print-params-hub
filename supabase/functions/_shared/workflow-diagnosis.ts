@@ -1151,6 +1151,7 @@ function _pickFirst(
 
 export function buildLeadProfilingRoteiro(
   lead: Record<string, unknown>,
+  lookup?: RoteiroLookup,
 ): RoteiroItem[] {
   const spec: Array<{
     ordem: number;
@@ -1159,6 +1160,8 @@ export function buildLeadProfilingRoteiro(
     pergunta_canonica: string;
     cols: string[];
     extra_cols?: string[];
+    aliases?: string[];
+    extra_aliases?: string[];
     gancho: string;
   }> = [
     {
@@ -1169,6 +1172,8 @@ export function buildLeadProfilingRoteiro(
         "Confirma sua área de atuação e especialidade (clínica, laboratório, radiologia, planning…)?",
       cols: ["area_atuacao"],
       extra_cols: ["especialidade"],
+      aliases: ["area de atuacao", "atuacao"],
+      extra_aliases: ["especialidade"],
       gancho: "",
     },
     {
@@ -1184,6 +1189,7 @@ export function buildLeadProfilingRoteiro(
         "tem_scanner",
         "como_digitaliza",
       ],
+      aliases: ["scanner", "digitaliza", "moldagem digital", "captura"],
       gancho: "Scanner Smart Dent (BLZ INO100/200, Medit i700/i900)",
     },
     {
@@ -1193,6 +1199,7 @@ export function buildLeadProfilingRoteiro(
       pergunta_canonica:
         "Qual software CAD você utiliza hoje (exocad, Medit Clic App, Blz CAD, outro)?",
       cols: ["software_cad", "equip_cad"],
+      aliases: ["cad", "software"],
       gancho: "exocad DentalCAD Smart Dent",
     },
     {
@@ -1202,6 +1209,7 @@ export function buildLeadProfilingRoteiro(
       pergunta_canonica:
         "Atualmente você utiliza qual impressora 3D no dia a dia (RayShape, Phrozen, Anycubic, FormLabs…)?",
       cols: ["equip_impressora", "impressora_modelo", "sdr_modelo_impressora_param"],
+      aliases: ["impressora", "impressao 3d", "printer"],
       gancho: "RayShape EdgeMini / EdgePro",
     },
     {
@@ -1211,6 +1219,7 @@ export function buildLeadProfilingRoteiro(
       pergunta_canonica:
         "Você imprime modelos? Com qual resina (Smart Dent, Yller, Makertech, outras)?",
       cols: ["imprime_modelos"],
+      aliases: ["modelo"],
       gancho: "Resina Smart Dent Model",
     },
     {
@@ -1220,6 +1229,7 @@ export function buildLeadProfilingRoteiro(
       pergunta_canonica:
         "Você imprime placas miorrelaxantes? Com qual resina (Smart Dent Splint, FGM, importada…)?",
       cols: ["imprime_placas", "sdr_quantas_placas"],
+      aliases: ["placa", "miorrelaxante"],
       gancho: "Resina Smart Dent Splint",
     },
     {
@@ -1229,6 +1239,7 @@ export function buildLeadProfilingRoteiro(
       pergunta_canonica:
         "Você imprime elementos dentários de longa duração? Com qual resina?",
       cols: ["imprime_resinas_ld"],
+      aliases: ["longa duracao", "elemento dentario", "provisorio", "definitivo"],
       gancho: "Resina Smart Dent Permanente",
     },
     {
@@ -1238,6 +1249,7 @@ export function buildLeadProfilingRoteiro(
       pergunta_canonica:
         "Você imprime guias cirúrgicas? Com qual resina?",
       cols: ["imprime_guias"],
+      aliases: ["guia cirurgica", "guia"],
       gancho: "Resina Smart Dent Surgical Guide",
     },
     {
@@ -1247,13 +1259,16 @@ export function buildLeadProfilingRoteiro(
       pergunta_canonica:
         "Quanto de resina você consome por mês e com qual fornecedor compra hoje?",
       cols: ["sdr_resina_atual", "resina_consumo_mensal_estimado", "sdr_usa_resina_smartdent"],
+      aliases: ["resina", "consumo", "fornecedor"],
       gancho: "Kit recorrente Smart Dent (assinatura mensal)",
     },
   ];
 
   return spec.map((it) => {
-    const main = _pickFirst(lead, it.cols);
-    const extra = it.extra_cols ? _pickFirst(lead, it.extra_cols) : "";
+    const main = _pickFirst(lead, it.cols, lookup, it.aliases ?? []);
+    const extra = it.extra_cols
+      ? _pickFirst(lead, it.extra_cols, lookup, it.extra_aliases ?? [])
+      : "";
     const raw = [main, extra].filter(Boolean).join(" / ");
     const out: RoteiroItem = {
       ordem: it.ordem,
