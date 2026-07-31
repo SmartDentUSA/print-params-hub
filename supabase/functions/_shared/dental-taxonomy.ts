@@ -161,6 +161,10 @@ export const SCANNER_OPTIONS: TaxonomyOption[] = [
   { value: "Aidite Rapid 5 Scanner", label: "Aidite Rapid 5 Scanner" },
   { value: "Eagle IOS", label: "Eagle IOS" },
   { value: "Runyes IOS 3.0", label: "Runyes IOS 3.0" },
+  { value: "3Shape Trios", label: "3Shape Trios" },
+  { value: "3Shape Trios 3", label: "3Shape Trios 3" },
+  { value: "3Shape Trios 4", label: "3Shape Trios 4" },
+  { value: "3Shape Trios 5", label: "3Shape Trios 5" },
   { value: "OUTROS", label: "Outros" },
 ];
 
@@ -185,6 +189,14 @@ export function canonicalizeScanner(raw: string | null | undefined): ScannerCano
     return { como_digitaliza: model, scanner_marca: "Medit", tem_scanner: "SIM" };
   }
   if (/\bmedit\b/.test(s)) return { como_digitaliza: "Medit", scanner_marca: "Medit", tem_scanner: "SIM" };
+  // 3Shape / Trios
+  const trios = s.match(/trios\s*([345])/);
+  if (trios) {
+    return { como_digitaliza: `3Shape Trios ${trios[1]}`, scanner_marca: "3Shape", tem_scanner: "SIM" };
+  }
+  if (/3\s*shape|3shape|\btrios\b/.test(s)) {
+    return { como_digitaliza: "3Shape Trios", scanner_marca: "3Shape", tem_scanner: "SIM" };
+  }
   // iTero
   const itero = s.match(/itero\s*(element\s*e?1|e1|element\s*e?2|e2|5d\s*plus|5d|lumina)/);
   if (itero) {
