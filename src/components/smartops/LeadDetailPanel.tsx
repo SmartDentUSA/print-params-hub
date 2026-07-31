@@ -2072,7 +2072,36 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
 
       {/* ── CS — Treinamentos ── */}
       {activeTab === "cs" && (
-        <CsEnrollmentsTab leadId={lead.id} />
+        <>
+          {nps && nps.count > 0 && (
+            <div className="tab-content">
+              <div className="sec">⭐ NPS pós-treinamento</div>
+              <div className="stats-grid" style={{ marginBottom: 12 }}>
+                <div className="stat"><div className="num">{nps.nps_0_10}</div><div className="lbl">NPS (0–10)</div></div>
+                <div className="stat"><div className="num">{nps.avg_satisfacao ?? "—"}</div><div className="lbl">Satisfação (1–5)</div></div>
+                <div className="stat"><div className="num">{nps.avg_treinamentos ?? "—"}</div><div className="lbl">Treinamentos (1–5)</div></div>
+                <div className="stat"><div className="num">{nps.count}</div><div className="lbl">Respostas</div></div>
+              </div>
+              <table className="tbl">
+                <thead>
+                  <tr><th>Data</th><th>Satisfação</th><th>Treinamentos</th><th>Recomendação</th><th>Comentário</th></tr>
+                </thead>
+                <tbody>
+                  {nps.responses.map((r: any) => (
+                    <tr key={r.id}>
+                      <td>{formatDate(r.created_at)}</td>
+                      <td>{r.score_satisfacao}/5</td>
+                      <td>{r.score_treinamentos}/5</td>
+                      <td>{r.score_recomendacao}/5</td>
+                      <td>{r.comment || "—"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+          <CsEnrollmentsTab leadId={lead.id} />
+        </>
       )}
 
       {/* ── ERP — Dados do Omie ── */}
