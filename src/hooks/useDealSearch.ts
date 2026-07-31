@@ -45,7 +45,7 @@ export function useDealSearch() {
 
       const list: DealSearchListItem[] = data?.results ?? [];
       if (!data?.found || list.length === 0) {
-        setError('Nenhum deal encontrado. Tente outro ID ou e-mail.');
+        setError('Nenhum deal encontrado. Tente o nome, e-mail, telefone, CNPJ, PipeRun ID ou Deal ID.');
         return;
       }
 

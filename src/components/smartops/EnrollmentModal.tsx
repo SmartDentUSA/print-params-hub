@@ -303,7 +303,7 @@ export function EnrollmentModal({ course, preselectedTurmaId, open, onClose }: P
               <div className="space-y-4">
                 <div className="flex gap-2">
                   <Input
-                    placeholder="PipeRun ID, Deal ID ou e-mail..."
+                    placeholder="Nome, e-mail, telefone, CNPJ, PipeRun ID ou Deal ID..."
                     value={dealIdInput}
                     onChange={(e) => setDealIdInput(e.target.value)}
                     onKeyDown={(e) => e.key === "Enter" && handleSearch()}
