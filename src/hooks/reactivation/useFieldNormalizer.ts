@@ -2,9 +2,12 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
 export interface FieldValueRow { value: string | null; count: number }
+export interface FieldOptionMeta { value: string; sku: string | null; category: string | null }
 export interface FieldOptionsResult {
   field: string;
   options: string[];
+  /** Presente para campos de produto: nome canônico + SKU oficial do catálogo. */
+  option_meta?: FieldOptionMeta[];
   source: string;
   no_auto_suggest: boolean;
 }
