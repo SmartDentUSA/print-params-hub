@@ -173,7 +173,9 @@ export function KitComponentsDialog({ open, onOpenChange, aliasId, kitName, vari
                     >
                       {selected?.id === v.id ? <Check className="h-3 w-3 shrink-0" /> : <Plus className="h-3 w-3 shrink-0 text-muted-foreground" />}
                       <div className="flex-1 min-w-0">
-                        <div className="font-medium truncate">{v.parent_name || v.presentation || v.sku}</div>
+                        <div className="font-medium truncate">
+                          {[v.parent_name, v.presentation].filter(Boolean).join(" — ") || v.sku}
+                        </div>
                         <div className="text-[10px] text-muted-foreground truncate">
                           {[v.sku, v.presentation, v.color].filter(Boolean).join(" · ")}
                         </div>
