@@ -467,7 +467,10 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
         if (evData.forma_envio) ecommerceDetail["Envio"] = evData.forma_envio;
         if (evData.cupom && typeof evData.cupom === "object" && evData.cupom.codigo) ecommerceDetail["Cupom"] = evData.cupom.codigo;
         if (evData.itens && Array.isArray(evData.itens) && evData.itens.length > 0) {
-          ecommerceDetail["Itens"] = evData.itens.map((it: any) => `${it.nome} (${it.qty}× R$${Number(it.preco || 0).toFixed(0)})`).slice(0, 4).join(", ");
+          ecommerceDetail["Itens"] = evData.itens
+            .map((it: any) => `${canonName(it.nome)} (${it.qty}× R$${Number(it.preco || 0).toFixed(0)})`)
+            .slice(0, 4)
+            .join(", ");
         }
         if (evData.fonte) ecommerceDetail["Fonte"] = evData.fonte;
       }
@@ -839,7 +842,7 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
     proposals.forEach((prop: any) => {
       const items = (Array.isArray(prop.items) ? prop.items : []).filter(isValidItem);
       const itensSummary = items.length > 0
-        ? items.slice(0, 3).map((it: any) => `${it.qtd || it.quantidade || it.quantity || 1}× ${getItemName(it)}`).join(", ") + (items.length > 3 ? ` (+${items.length - 3})` : "")
+        ? items.slice(0, 3).map((it: any) => `${it.qtd || it.quantidade || it.quantity || 1}× ${canonName(getItemName(it))}`).join(", ") + (items.length > 3 ? ` (+${items.length - 3})` : "")
         : (d.product && d.product !== ld.nome) ? d.product : "—";
       const freteVal = Number(prop.valor_frete || prop.value_freight || 0);
       const freteTipo = prop.tipo_frete || prop.freight_type || "";
@@ -879,7 +882,7 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
     (ld.proposals_data as any[]).forEach((prop: any) => {
       const items = (Array.isArray(prop.items) ? prop.items : []).filter(isValidItem);
       const itensSummary = items.length > 0
-        ? items.slice(0, 3).map((it: any) => `${it.quantity || it.qtd || 1}× ${getItemName(it)}`).join(", ") + (items.length > 3 ? ` (+${items.length - 3})` : "")
+        ? items.slice(0, 3).map((it: any) => `${it.quantity || it.qtd || 1}× ${canonName(getItemName(it))}`).join(", ") + (items.length > 3 ? ` (+${items.length - 3})` : "")
         : "—";
       const freteVal = Number(prop.valor_frete || prop.value_freight || 0);
       const freteTipo = prop.tipo_frete || prop.freight_type || "";
