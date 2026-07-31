@@ -524,6 +524,7 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
     });
     dedupedActivityLogs.forEach((ev: any) => {
       const isEcommerce = ev.source_channel === "ecommerce";
+      const isForm = (ev.event_type || "") === "form_submission";
       const evData = ev.event_data || {};
       const ecommerceDetail: Record<string, string> = {};
       if (isEcommerce) {
@@ -544,6 +545,43 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
         }
         if (evData.fonte) ecommerceDetail["Fonte"] = evData.fonte;
       }
+
+      if (isForm) {
+        const formName = evData.form_name || ev.entity_name || "Formulário";
+        const evTime = new Date(ev.event_timestamp || ev.created_at).getTime();
+        // Respostas completas: casa a submissão dinâmica mais próxima no tempo (±10min)
+        const matchedSubmission = (detail?.form_submissions || []).find((s) => {
+          if (!s.submitted_at) return false;
+          const sameName = s.form_name && formName && String(s.form_name).toLowerCase() === String(formName).toLowerCase();
+          const near = Math.abs(new Date(s.submitted_at).getTime() - evTime) < 10 * 60 * 1000;
+          return near && (sameName || !s.form_name);
+        });
+        const answers: Record<string, string> = {};
+        matchedSubmission?.fields.forEach((f) => {
+          if (isUsefulFormValue(f.value)) answers[f.label] = String(f.value).trim();
+        });
+        // Snapshot de form_data do mesmo formulário
+        const snapshot = findFormDataSnapshot(ld.form_data, formName, evTime);
+        if (snapshot) {
+          Object.assign(answers, formAnswersToDetail(snapshot.responses as Record<string, unknown>));
+          Object.assign(answers, formAnswersToDetail(snapshot.raw_fields as Record<string, unknown>));
+        }
+        // Fallback: o que veio no próprio event_data
+        const fallback = formAnswersToDetail(evData);
+        for (const [k, v] of Object.entries(fallback)) if (!(k in answers)) answers[k] = v;
+
+        const answerCount = Object.keys(answers).length;
+        events.push({
+          date: ev.event_timestamp || ev.created_at,
+          dotCls: "tl-dot-lead",
+          title: `📝 Formulário — ${formName}`,
+          desc: answerCount > 0 ? `${answerCount} campo(s) respondido(s)` : "Submissão sem campos registrados",
+          tags: evData.source ? [String(evData.source)] : [],
+          detail: answers,
+        });
+        return;
+      }
+
       events.push({
         date: ev.event_timestamp || ev.created_at,
         dotCls: isEcommerce ? "tl-dot-buy" : "tl-dot-crm",
