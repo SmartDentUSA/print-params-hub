@@ -208,19 +208,6 @@ async function derivedOptions(
   field: string,
 ): Promise<{ options: string[]; source: string } | null> {
   switch (field) {
-    case "produto_interesse":
-    case "produto_interesse_auto": {
-      const { data: mfm } = await supabase
-        .from("meta_form_mappings")
-        .select("product_name")
-        .not("product_name", "is", null);
-      const fromMappings = uniqSorted((mfm ?? []).map((r: any) => r.product_name));
-      const existing = await distinctFromLeads(supabase, field);
-      return {
-        options: uniqSorted([...fromMappings, ...existing]),
-        source: "derived:meta_form_mappings+leads",
-      };
-    }
     case "piperun_pipeline_name": {
       const { data } = await supabase.from("deals").select("pipeline_name").not("pipeline_name", "is", null).limit(20000);
       return { options: uniqSorted((data ?? []).map((r: any) => r.pipeline_name)), source: "derived:deals.pipeline_name" };
