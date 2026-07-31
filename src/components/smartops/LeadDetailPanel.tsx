@@ -92,8 +92,16 @@ interface DetailResponse {
   support_tickets: SupportTicket[];
   support_summary: SupportSummary | null;
   activity_log: ActivityLogEvent[];
+  form_submissions?: FormSubmission[];
   nps?: NpsSummary | null;
   catalog_index?: Record<string, CatalogResolution>;
+}
+
+interface FormSubmission {
+  form_id: string | null;
+  form_name: string | null;
+  submitted_at: string | null;
+  fields: { label: string; value: string }[];
 }
 
 interface NpsSummary {
