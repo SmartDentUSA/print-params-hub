@@ -180,7 +180,10 @@ async function derivedOptions(
       const { data } = await supabase.from("deals").select("status").not("status", "is", null).limit(20000);
       const fromDeals = uniqSorted((data ?? []).map((r: any) => r.status));
       const existing = await distinctFromLeads(supabase, "status_piperun");
-      return { options: uniqSorted([...fromDeals, ...existing]), source: "derived:deals.status+leads" };
+      return {
+        options: uniqSorted([...fromDeals, ...existing, "aberta", "ganha", "perdida"]),
+        source: "derived:deals.status+leads",
+      };
     }
     case "proprietario_lead_crm": {
       const { data } = await supabase
