@@ -202,6 +202,68 @@ interface TLEvent {
   detail?: Record<string, string>;
 }
 
+// ─── Formulários: rótulos amigáveis e chaves de ruído técnico ───
+const FORM_FIELD_LABELS: Record<string, string> = {
+  nome: "Nome",
+  email: "E-mail",
+  telefone: "Telefone",
+  telefone_raw: "Telefone",
+  telefone_normalized: "Telefone",
+  cidade: "Cidade",
+  uf: "UF",
+  area_atuacao: "Área de atuação",
+  especialidade: "Especialidade",
+  especialidade_principal: "Especialidade principal",
+  produto_interesse: "Produto de interesse",
+  produto_interesse_auto: "Produto detectado",
+  tem_scanner: "Tem scanner",
+  scanner_marca: "Marca do scanner",
+  tem_impressora: "Tem impressora",
+  impressora_modelo: "Impressora / marca",
+  impressora_marca: "Marca da impressora",
+  como_digitaliza: "Como digitaliza",
+  software_cad: "Software CAD",
+  volume_mensal_pecas: "Volume mensal de peças",
+  principal_aplicacao: "Principal aplicação",
+  resina_interesse: "Resina de interesse",
+  empresa_nome: "Empresa",
+  form_name: "Formulário",
+  origem_campanha: "Campanha",
+  source: "Origem",
+  mensagem: "Mensagem",
+  observacoes: "Observações",
+};
+
+const FORM_NOISE_KEYS = new Set([
+  "dedupe_key", "piperun_link", "lead_id", "id", "form_id", "field_id",
+  "created_at", "updated_at", "submitted_at", "raw_payload", "utm_content",
+  "fbclid", "gclid", "leadgen_id", "campaign_id", "adset_id", "ad_id",
+]);
+
+const humanizeFormKey = (key: string): string =>
+  FORM_FIELD_LABELS[key] ||
+  key.replace(/_/g, " ").replace(/^./, (c) => c.toUpperCase());
+
+const isUsefulFormValue = (val: unknown): boolean => {
+  if (val == null) return false;
+  if (typeof val === "object") return false;
+  const s = String(val).trim();
+  if (!s || s === "[object Object]" || s === "null" || s === "undefined") return false;
+  return true;
+};
+
+/** Converte um objeto de respostas de formulário em pares rótulo → valor legíveis. */
+function formAnswersToDetail(source: Record<string, unknown> | null | undefined): Record<string, string> {
+  const out: Record<string, string> = {};
+  if (!source || typeof source !== "object") return out;
+  for (const [k, v] of Object.entries(source)) {
+    if (FORM_NOISE_KEYS.has(k)) continue;
+    if (!isUsefulFormValue(v)) continue;
+    out[humanizeFormKey(k)] = String(v).trim();
+  }
+  return out;
+}
+
 // ─── Cognitive analysis call ───
 async function runCognitiveAnalysis(leadId: string): Promise<string> {
   const res = await fetch(`${API_BASE}/cognitive-lead-analysis`, {
