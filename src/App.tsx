@@ -23,6 +23,7 @@ const PublicFormPage = lazy(() => import("./pages/PublicFormPage"));
 const PublicLandingPage = lazy(() => import("./pages/PublicLandingPage"));
 const PublicBioPage = lazy(() => import("./pages/PublicBioPage"));
 const PublicCourseEnrollment = lazy(() => import("./pages/PublicCourseEnrollment"));
+const PublicNps = lazy(() => import("./pages/PublicNps"));
 const ROICalculatorPage = lazy(() => import("./pages/ROICalculatorPage"));
 const PublicDistributorRegister = lazy(() => import("./pages/PublicDistributorRegister"));
 const DistributorCountryPage = lazy(() => import("./pages/DistributorCountryPage"));
@@ -117,6 +118,9 @@ const App = () => (
 
       {/* Public course enrollment (online/online_ao_vivo/workshop/webinar) */}
       <Route path="/inscricao/:slug" element={<PublicCourseEnrollment />} />
+
+      {/* NPS pós-treinamento (link por token, sem login) */}
+      <Route path="/nps/:token" element={<PublicNps />} />
       
       {/* English routes */}
       <Route path="/en/knowledge-base" element={<KnowledgeBase lang="en" />} />
