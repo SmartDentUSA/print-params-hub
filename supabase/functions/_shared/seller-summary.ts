@@ -61,6 +61,33 @@ export async function buildSellerDealSummaryHTML(
   const email = (lead.email as string | null) || null;
   const phoneDigits = String(lead.telefone_normalized || lead.telefone_raw || "").replace(/\D/g, "");
 
+  // ── Identidade saneada ──────────────────────────────────────────────
+  // Leads vindos de importação podem ter e-mail sintético
+  // (import_*@placeholder.local) e nome "Nome não informado". Nunca expor
+  // isso ao vendedor: tenta recuperar nome/e-mail reais de outro lead
+  // canônico com o MESMO telefone antes de cair para "—".
+  const isPlaceholderEmail = (v: unknown) =>
+    !v || /@placeholder\.local$/i.test(String(v)) || !String(v).includes("@");
+  const isEmptyName = (v: unknown) =>
+    !v || /^(nome n[ãa]o informado|sem nome|-|n\/a)$/i.test(String(v).trim());
+
+  let displayName = isEmptyName(lead.nome) ? null : String(lead.nome);
+  let displayEmail = isPlaceholderEmail(lead.email) ? null : String(lead.email);
+  if ((!displayName || !displayEmail) && phoneDigits.length >= 10) {
+    try {
+      const { data: twins } = await supabase
+        .from("lia_attendances")
+        .select("nome,email,telefone_normalized,created_at")
+        .is("merged_into", null)
+        .ilike("telefone_normalized", `%${phoneDigits.slice(-11)}`)
+        .limit(10);
+      for (const t of (twins || []) as Array<Record<string, unknown>>) {
+        if (!displayName && !isEmptyName(t.nome)) displayName = String(t.nome);
+        if (!displayEmail && !isPlaceholderEmail(t.email)) displayEmail = String(t.email);
+      }
+    } catch (_) { /* best-effort */ }
+  }
+
   // ── Parallel fetches (best-effort; never fail the whole note) ──
   const phoneSessionId = phoneDigits || null;
   const [ecomRes, enrollRes, formsRes, agentLeadRes, agentBySessionRes] = await Promise.all([
@@ -123,8 +150,8 @@ export async function buildSellerDealSummaryHTML(
   // 1. Identidade
   sections.push(
     `<b>👤 Identidade</b><br>` +
-    `• Nome: ${esc(lead.nome)}<br>` +
-    `• E-mail: ${esc(lead.email)}<br>` +
+    `• Nome: ${esc(displayName || "—")}<br>` +
+    `• E-mail: ${esc(displayEmail || "—")}<br>` +
     `• Telefone: ${esc(lead.telefone_normalized || lead.telefone_raw)}<br>` +
     `• Cidade/UF: ${esc(lead.cidade || "—")}/${esc(lead.uf || "—")}<br>` +
     `• Área: ${esc(lead.area_atuacao)} | Especialidade: ${esc(lead.especialidade)}<br>`,
