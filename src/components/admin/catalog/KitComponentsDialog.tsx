@@ -28,8 +28,12 @@ export function KitComponentsDialog({ open, onOpenChange, aliasId, kitName, vari
 
   const filtered = useMemo(() => {
     const s = search.toLowerCase().trim();
-    if (!s) return variations.slice(0, 60);
-    return variations
+    // Só variações reais do catálogo (produtos pai sem variação ficam de fora).
+    const onlyVariations = variations.filter(
+      (v) => !v.id.startsWith("cat:") && (v.sku || v.presentation || v.color),
+    );
+    if (!s) return onlyVariations.slice(0, 60);
+    return onlyVariations
       .filter((v) =>
         [v.parent_name, v.presentation, v.sku, v.color, v.parent_category]
           .filter(Boolean)
@@ -169,7 +173,9 @@ export function KitComponentsDialog({ open, onOpenChange, aliasId, kitName, vari
                     >
                       {selected?.id === v.id ? <Check className="h-3 w-3 shrink-0" /> : <Plus className="h-3 w-3 shrink-0 text-muted-foreground" />}
                       <div className="flex-1 min-w-0">
-                        <div className="font-medium truncate">{v.parent_name || v.presentation || v.sku}</div>
+                        <div className="font-medium truncate">
+                          {[v.parent_name, v.presentation].filter(Boolean).join(" — ") || v.sku}
+                        </div>
                         <div className="text-[10px] text-muted-foreground truncate">
                           {[v.sku, v.presentation, v.color].filter(Boolean).join(" · ")}
                         </div>
