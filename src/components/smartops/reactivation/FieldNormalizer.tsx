@@ -83,7 +83,6 @@ export function FieldNormalizer() {
     return m;
   }, [opts.data]);
   const isProductField = field === "produto_interesse" || field === "produto_interesse_auto";
-  const catalogList = opts.data?.option_meta ?? [];
 
   const pendingList = useMemo(() => {
     return Object.entries(mappings)
