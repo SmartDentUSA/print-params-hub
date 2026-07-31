@@ -161,6 +161,10 @@ export const SCANNER_OPTIONS: TaxonomyOption[] = [
   { value: "Aidite Rapid 5 Scanner", label: "Aidite Rapid 5 Scanner" },
   { value: "Eagle IOS", label: "Eagle IOS" },
   { value: "Runyes IOS 3.0", label: "Runyes IOS 3.0" },
+  { value: "3Shape Trios", label: "3Shape Trios" },
+  { value: "3Shape Trios 3", label: "3Shape Trios 3" },
+  { value: "3Shape Trios 4", label: "3Shape Trios 4" },
+  { value: "3Shape Trios 5", label: "3Shape Trios 5" },
   { value: "OUTROS", label: "Outros" },
 ];
 
