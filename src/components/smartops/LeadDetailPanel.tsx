@@ -420,7 +420,7 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
       proposals.forEach((prop: any) => {
         const items = (Array.isArray(prop.items) ? prop.items : []).filter(isValidItem);
         items.forEach((item: any) => {
-          const name = getItemName(item);
+          const name = canonName(getItemName(item));
           const qty = item.qtd || item.quantidade || item.quantity || 1;
           allItems.push(`${name} (${qty}×)`);
         });
@@ -774,7 +774,7 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
     proposals.forEach((prop: any) => {
       const items = (Array.isArray(prop.items) ? prop.items : []).filter(isValidItem);
       items.forEach((item: any) => {
-        const name = getItemName(item);
+        const name = canonName(getItemName(item));
         const qty = Number(item.qtd || item.quantidade || item.quantity || 1);
         const total = Number(item.valor_total || item.total_value || item.total || qty * Number(item.valor_unitario || item.unit_value || item.unit || 0));
         if (!productAggMap[name]) productAggMap[name] = { qty: 0, totalVal: 0 };
@@ -787,7 +787,8 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
   const dealsWithoutProposals = wonDeals.filter((d: any) => !Array.isArray(d.proposals) || d.proposals.length === 0);
   if (dealsWithoutProposals.length > 0 && ld.itens_proposta_parsed && Array.isArray(ld.itens_proposta_parsed) && ld.itens_proposta_parsed.length > 0) {
     ld.itens_proposta_parsed.forEach((item: any) => {
-      const name = item.name || item.item || "Produto";
+      const rawName = item.name || item.item || "Produto";
+      const name = canonName(rawName);
       // Ignorar itens corrompidos com HTML
       if (name.includes('<') || name.includes('rgb(') || name.length > 100) return;
       const qty = Number(item.qty || item.quantidade || 1);
@@ -915,8 +916,9 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
     proposals.forEach((prop: any) => {
       const items = (Array.isArray(prop.items) ? prop.items : []).filter(isValidItem);
       items.forEach((item: any) => {
-        const name = getItemName(item);
-        const cod = String(item.sku || item.external_code || item.item_id || item.cod || item.referencia || "—");
+        const rawName = getItemName(item);
+        const name = canonName(rawName);
+        const cod = canonSku(rawName, String(item.sku || item.external_code || item.item_id || item.cod || item.referencia || "—"));
         const qty = Number(item.qtd || item.quantidade || item.quantity || 1);
         const total = Number(item.valor_total || item.total_value || item.total || qty * Number(item.valor_unitario || item.unit_value || item.unit || 0));
         const key = name.toLowerCase().trim();
@@ -934,12 +936,13 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
   if (dealsWithoutProposals.length > 0 && ld.itens_proposta_parsed && Array.isArray(ld.itens_proposta_parsed) && ld.itens_proposta_parsed.length > 0) {
     const mostRecentWon = wonDeals[0] || allDeals[0];
     ld.itens_proposta_parsed.forEach((item: any) => {
-      const name = item.name || item.item || "Produto";
+      const rawName = item.name || item.item || "Produto";
+      const name = canonName(rawName);
       // Ignorar itens corrompidos com HTML
       if (name.includes('<') || name.includes('rgb(') || name.length > 100) return;
       const key = name.toLowerCase().trim();
       if (!mixMap[key]) {
-        mixMap[key] = { cod: "—", name, deals: new Set(), qtyTotal: 0, receita: 0, timestamps: [] };
+        mixMap[key] = { cod: canonSku(rawName, "—"), name, deals: new Set(), qtyTotal: 0, receita: 0, timestamps: [] };
       }
       mixMap[key].deals.add(String(mostRecentWon?.deal_id || "—"));
       mixMap[key].qtyTotal += Number(item.qty || item.quantidade || 1);
@@ -951,8 +954,9 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
     const orderItems: any[] = Array.isArray(order.itens) ? order.itens : [];
     if (orderItems.length > 0) {
       orderItems.forEach((item: any) => {
-        const name = String(item.nome || item.name || "Produto E-com");
-        const cod = String(item.sku || item.referencia || "—");
+        const rawName = String(item.nome || item.name || "Produto E-com");
+        const name = canonName(rawName);
+        const cod = canonSku(rawName, String(item.sku || item.referencia || "—"));
         const qty = Number(item.qty || item.quantidade || 1);
         const unitPrice = Number(item.preco || item.valor_unitario || 0);
         const total = qty * unitPrice;
@@ -984,8 +988,9 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
     (ld.proposals_data as any[]).forEach((prop: any) => {
       const items = (Array.isArray(prop.items) ? prop.items : []).filter(isValidItem);
       items.forEach((item: any) => {
-        const name = getItemName(item);
-        const cod = String(item.code || item.reference || item.sku || "—");
+        const rawName = getItemName(item);
+        const name = canonName(rawName);
+        const cod = canonSku(rawName, String(item.code || item.reference || item.sku || "—"));
         const qty = Number(item.quantity || item.qtd || 1);
         const total = Number(item.value || item.cost || 0);
         const key = name.toLowerCase().trim();
