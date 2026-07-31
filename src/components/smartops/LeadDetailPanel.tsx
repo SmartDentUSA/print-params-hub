@@ -264,6 +264,54 @@ function formAnswersToDetail(source: Record<string, unknown> | null | undefined)
   return out;
 }
 
+interface FormDataSnapshot {
+  key: string;
+  form_name: string;
+  submitted_at: string | null;
+  source?: string | null;
+  responses?: Record<string, unknown> | null;
+  raw_fields?: Record<string, unknown> | null;
+}
+
+/** Achata `lia_attendances.form_data` em uma lista de snapshots de submissão. */
+function flattenFormData(formData: unknown): FormDataSnapshot[] {
+  const out: FormDataSnapshot[] = [];
+  if (!formData || typeof formData !== "object" || Array.isArray(formData)) return out;
+  for (const [formName, bucket] of Object.entries(formData as Record<string, unknown>)) {
+    const list = Array.isArray(bucket) ? bucket : [bucket];
+    list.forEach((snap: any, i: number) => {
+      if (!snap || typeof snap !== "object") return;
+      out.push({
+        key: `${formName}|${snap.submitted_at || i}`,
+        form_name: formName === "_unnamed" ? "Formulário" : formName,
+        submitted_at: snap.submitted_at || null,
+        source: snap.source || null,
+        responses: snap.responses && typeof snap.responses === "object" ? snap.responses : null,
+        raw_fields: snap.raw_fields && typeof snap.raw_fields === "object" ? snap.raw_fields : (snap.responses ? null : snap),
+      });
+    });
+  }
+  return out;
+}
+
+/** Encontra o snapshot de form_data correspondente a um evento (mesmo nome, ±30min). */
+function findFormDataSnapshot(formData: unknown, formName: string, evTime: number): FormDataSnapshot | null {
+  const snaps = flattenFormData(formData);
+  const byName = snaps.filter(
+    (s) => s.form_name.toLowerCase() === String(formName || "").toLowerCase(),
+  );
+  const pool = byName.length > 0 ? byName : snaps;
+  let best: FormDataSnapshot | null = null;
+  let bestDelta = Infinity;
+  for (const s of pool) {
+    if (!s.submitted_at) continue;
+    const delta = Math.abs(new Date(s.submitted_at).getTime() - evTime);
+    if (delta < bestDelta) { best = s; bestDelta = delta; }
+  }
+  if (best && bestDelta <= 30 * 60 * 1000) return best;
+  return byName.length === 1 ? byName[0] : null;
+}
+
 // ─── Cognitive analysis call ───
 async function runCognitiveAnalysis(leadId: string): Promise<string> {
   const res = await fetch(`${API_BASE}/cognitive-lead-analysis`, {
