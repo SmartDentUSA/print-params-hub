@@ -18,13 +18,13 @@ const FIELD_WHITELIST = new Set<string>([
   "especialidade",
   "tem_scanner",
   "equip_scanner",
-  "scanner_modelo",
-  "marca_scanner",
+  "equip_scanner_bancada",
+  "scanner_marca",
   "tem_impressora",
   "impressora_modelo",
-  "marca_impressora",
-  "tem_cad",
-  "tem_fresadora",
+  "sdr_marca_impressora_param",
+  "equip_cad",
+  "equip_fresadora",
   "imprime_modelos",
   "imprime_placas",
   "imprime_guias",
@@ -32,15 +32,15 @@ const FIELD_WHITELIST = new Set<string>([
   "sdr_software_cad_interesse",
   "produto_interesse",
   "produto_interesse_auto",
-  "temperatura",
+  "temperatura_lead",
   "real_status",
   "prazo_compra",
   "tipo_local",
   "sdr_completo",
   "uf",
-  "funil_crm",
-  "etapa_crm",
-  "status_piperun",
+  "piperun_pipeline_name",
+  "piperun_stage_name",
+  "piperun_status",
   "proprietario_lead_crm",
   // read-only listing (no auto suggest, still safe to merge manually)
   "origem_primeiro_contato",
@@ -58,19 +58,19 @@ const UF_LIST = [
 
 const FALLBACK_OPTIONS: Record<string, string[]> = {
   tem_impressora: ["SIM", "NÃO"],
-  tem_cad: ["SIM", "NÃO"],
-  tem_fresadora: ["SIM", "NÃO"],
+  equip_cad: ["SIM", "NÃO"],
+  equip_fresadora: ["SIM", "NÃO"],
   imprime_modelos: ["SIM", "NÃO"],
   imprime_placas: ["SIM", "NÃO"],
-  temperatura: ["FRIO", "MORNO", "QUENTE"],
+  temperatura_lead: ["FRIO", "MORNO", "QUENTE"],
   real_status: ["ativo", "perdido", "cliente", "renutrir"],
   tipo_local: ["clinica", "laboratorio", "radiologia", "planning_center", "outro"],
   sdr_completo: ["SIM", "NÃO"],
   prazo_compra: ["imediato", "30_dias", "60_dias", "90_dias", "sem_prazo"],
   uf: UF_LIST,
   // marca_* derived from the corresponding equipment lists; filled by handler.
-  marca_scanner: [],
-  marca_impressora: [],
+  scanner_marca: [],
+  sdr_marca_impressora_param: [],
 };
 
 // Fields where auto-suggest should NOT run (avoid destroying UTM/campaign data)
@@ -112,11 +112,11 @@ async function listOptions(supabase: any, field: string): Promise<{ options: str
     return { options: [...union].sort(), source: "smartops_form_fields" };
   }
   // marca_* derives from equipment lists in the same table
-  if (field === "marca_scanner") {
+  if (field === "scanner_marca") {
     const { options } = await listOptions(supabase, "equip_scanner");
     return { options, source: "derived:equip_scanner" };
   }
-  if (field === "marca_impressora") {
+  if (field === "sdr_marca_impressora_param") {
     const { options } = await listOptions(supabase, "impressora_modelo");
     return { options, source: "derived:impressora_modelo" };
   }
@@ -168,18 +168,18 @@ async function derivedOptions(
         source: "derived:meta_form_mappings+leads",
       };
     }
-    case "funil_crm": {
+    case "piperun_pipeline_name": {
       const { data } = await supabase.from("deals").select("pipeline_name").not("pipeline_name", "is", null).limit(20000);
       return { options: uniqSorted((data ?? []).map((r: any) => r.pipeline_name)), source: "derived:deals.pipeline_name" };
     }
-    case "etapa_crm": {
+    case "piperun_stage_name": {
       const { data } = await supabase.from("deals").select("stage_name").not("stage_name", "is", null).limit(20000);
       return { options: uniqSorted((data ?? []).map((r: any) => r.stage_name)), source: "derived:deals.stage_name" };
     }
-    case "status_piperun": {
+    case "piperun_status": {
       const { data } = await supabase.from("deals").select("status").not("status", "is", null).limit(20000);
       const fromDeals = uniqSorted((data ?? []).map((r: any) => r.status));
-      const existing = await distinctFromLeads(supabase, "status_piperun");
+      const existing = await distinctFromLeads(supabase, "piperun_status");
       return {
         options: uniqSorted([...fromDeals, ...existing, "aberta", "ganha", "perdida"]),
         source: "derived:deals.status+leads",
