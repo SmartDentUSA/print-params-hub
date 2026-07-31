@@ -587,7 +587,10 @@ export async function diagnoseLead(
     const enriched = intentLabel ? await fetchEnrichedProductDossier(supabase, intentLabel) : null;
     const liveDossier = enriched?.live ?? null;
 
-    const seed = seedSpinBriefing(diag, lead, liveDossier);
+    const seed = seedSpinBriefing(diag, lead, liveDossier, {
+      formIndex,
+      customFieldsIndex,
+    });
     diag.spin = seed;
     if (opts.enableLLM !== false) {
       const llm = await enrichSpinWithLLM(supabase, diag, lead, seed, liveDossier);
