@@ -99,7 +99,7 @@ Deno.serve(async (req) => {
 
     const { data: enrollments, error: eE } = await supabase
       .from("smartops_course_enrollments")
-      .select("id, lead_id, turma_id, nome, nps_sent_at")
+      .select("id, lead_id, turma_id, person_name, nps_sent_at")
       .in("turma_id", turmaIds)
       .is("nps_sent_at", null)
       .not("lead_id", "is", null);
@@ -132,7 +132,7 @@ Deno.serve(async (req) => {
           .eq("id", enr.id);
         if (eUpd) throw eUpd;
 
-        const nome = firstName(enr.nome ?? lead?.nome);
+        const nome = firstName(enr.person_name ?? lead?.nome);
         const turma = (turmas ?? []).find((t: any) => t.id === enr.turma_id);
         const link = `${NPS_BASE_URL}/nps/${token}`;
         const text =
