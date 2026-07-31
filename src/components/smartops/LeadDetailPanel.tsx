@@ -92,8 +92,16 @@ interface DetailResponse {
   support_tickets: SupportTicket[];
   support_summary: SupportSummary | null;
   activity_log: ActivityLogEvent[];
+  form_submissions?: FormSubmission[];
   nps?: NpsSummary | null;
   catalog_index?: Record<string, CatalogResolution>;
+}
+
+interface FormSubmission {
+  form_id: string | null;
+  form_name: string | null;
+  submitted_at: string | null;
+  fields: { label: string; value: string }[];
 }
 
 interface NpsSummary {
@@ -192,6 +200,116 @@ interface TLEvent {
   desc: string;
   tags?: string[];
   detail?: Record<string, string>;
+}
+
+// ─── Formulários: rótulos amigáveis e chaves de ruído técnico ───
+const FORM_FIELD_LABELS: Record<string, string> = {
+  nome: "Nome",
+  email: "E-mail",
+  telefone: "Telefone",
+  telefone_raw: "Telefone",
+  telefone_normalized: "Telefone",
+  cidade: "Cidade",
+  uf: "UF",
+  area_atuacao: "Área de atuação",
+  especialidade: "Especialidade",
+  especialidade_principal: "Especialidade principal",
+  produto_interesse: "Produto de interesse",
+  produto_interesse_auto: "Produto detectado",
+  tem_scanner: "Tem scanner",
+  scanner_marca: "Marca do scanner",
+  tem_impressora: "Tem impressora",
+  impressora_modelo: "Impressora / marca",
+  impressora_marca: "Marca da impressora",
+  como_digitaliza: "Como digitaliza",
+  software_cad: "Software CAD",
+  volume_mensal_pecas: "Volume mensal de peças",
+  principal_aplicacao: "Principal aplicação",
+  resina_interesse: "Resina de interesse",
+  empresa_nome: "Empresa",
+  form_name: "Formulário",
+  origem_campanha: "Campanha",
+  source: "Origem",
+  mensagem: "Mensagem",
+  observacoes: "Observações",
+};
+
+const FORM_NOISE_KEYS = new Set([
+  "dedupe_key", "piperun_link", "lead_id", "id", "form_id", "field_id",
+  "created_at", "updated_at", "submitted_at", "raw_payload", "utm_content",
+  "fbclid", "gclid", "leadgen_id", "campaign_id", "adset_id", "ad_id",
+]);
+
+const humanizeFormKey = (key: string): string =>
+  FORM_FIELD_LABELS[key] ||
+  key.replace(/_/g, " ").replace(/^./, (c) => c.toUpperCase());
+
+const isUsefulFormValue = (val: unknown): boolean => {
+  if (val == null) return false;
+  if (typeof val === "object") return false;
+  const s = String(val).trim();
+  if (!s || s === "[object Object]" || s === "null" || s === "undefined") return false;
+  return true;
+};
+
+/** Converte um objeto de respostas de formulário em pares rótulo → valor legíveis. */
+function formAnswersToDetail(source: Record<string, unknown> | null | undefined): Record<string, string> {
+  const out: Record<string, string> = {};
+  if (!source || typeof source !== "object") return out;
+  for (const [k, v] of Object.entries(source)) {
+    if (FORM_NOISE_KEYS.has(k)) continue;
+    if (!isUsefulFormValue(v)) continue;
+    out[humanizeFormKey(k)] = String(v).trim();
+  }
+  return out;
+}
+
+interface FormDataSnapshot {
+  key: string;
+  form_name: string;
+  submitted_at: string | null;
+  source?: string | null;
+  responses?: Record<string, unknown> | null;
+  raw_fields?: Record<string, unknown> | null;
+}
+
+/** Achata `lia_attendances.form_data` em uma lista de snapshots de submissão. */
+function flattenFormData(formData: unknown): FormDataSnapshot[] {
+  const out: FormDataSnapshot[] = [];
+  if (!formData || typeof formData !== "object" || Array.isArray(formData)) return out;
+  for (const [formName, bucket] of Object.entries(formData as Record<string, unknown>)) {
+    const list = Array.isArray(bucket) ? bucket : [bucket];
+    list.forEach((snap: any, i: number) => {
+      if (!snap || typeof snap !== "object") return;
+      out.push({
+        key: `${formName}|${snap.submitted_at || i}`,
+        form_name: formName === "_unnamed" ? "Formulário" : formName,
+        submitted_at: snap.submitted_at || null,
+        source: snap.source || null,
+        responses: snap.responses && typeof snap.responses === "object" ? snap.responses : null,
+        raw_fields: snap.raw_fields && typeof snap.raw_fields === "object" ? snap.raw_fields : (snap.responses ? null : snap),
+      });
+    });
+  }
+  return out;
+}
+
+/** Encontra o snapshot de form_data correspondente a um evento (mesmo nome, ±30min). */
+function findFormDataSnapshot(formData: unknown, formName: string, evTime: number): FormDataSnapshot | null {
+  const snaps = flattenFormData(formData);
+  const byName = snaps.filter(
+    (s) => s.form_name.toLowerCase() === String(formName || "").toLowerCase(),
+  );
+  const pool = byName.length > 0 ? byName : snaps;
+  let best: FormDataSnapshot | null = null;
+  let bestDelta = Infinity;
+  for (const s of pool) {
+    if (!s.submitted_at) continue;
+    const delta = Math.abs(new Date(s.submitted_at).getTime() - evTime);
+    if (delta < bestDelta) { best = s; bestDelta = delta; }
+  }
+  if (best && bestDelta <= 30 * 60 * 1000) return best;
+  return byName.length === 1 ? byName[0] : null;
 }
 
 // ─── Cognitive analysis call ───
@@ -445,6 +563,8 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
 
     // Activity log events (e-commerce, forms, SDR, etc.) — deduplicate by event_type+entity_id
     const seenActivityKeys = new Set<string>();
+    const usedSnapshotKeys = new Set<string>();
+    const usedSubmissionKeys = new Set<string>();
     const dedupedActivityLogs = (detail?.activity_log || []).filter((ev: any) => {
       if (!ev.entity_id) return true;
       const key = `${ev.event_type}|${ev.entity_id}`;
@@ -454,6 +574,7 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
     });
     dedupedActivityLogs.forEach((ev: any) => {
       const isEcommerce = ev.source_channel === "ecommerce";
+      const isForm = (ev.event_type || "") === "form_submission";
       const evData = ev.event_data || {};
       const ecommerceDetail: Record<string, string> = {};
       if (isEcommerce) {
@@ -474,6 +595,45 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
         }
         if (evData.fonte) ecommerceDetail["Fonte"] = evData.fonte;
       }
+
+      if (isForm) {
+        const formName = evData.form_name || ev.entity_name || "Formulário";
+        const evTime = new Date(ev.event_timestamp || ev.created_at).getTime();
+        // Respostas completas: casa a submissão dinâmica mais próxima no tempo (±10min)
+        const matchedSubmission = (detail?.form_submissions || []).find((s) => {
+          if (!s.submitted_at) return false;
+          const sameName = s.form_name && formName && String(s.form_name).toLowerCase() === String(formName).toLowerCase();
+          const near = Math.abs(new Date(s.submitted_at).getTime() - evTime) < 10 * 60 * 1000;
+          return near && (sameName || !s.form_name);
+        });
+        const answers: Record<string, string> = {};
+        matchedSubmission?.fields.forEach((f) => {
+          if (isUsefulFormValue(f.value)) answers[f.label] = String(f.value).trim();
+        });
+        // Snapshot de form_data do mesmo formulário
+        const snapshot = findFormDataSnapshot(ld.form_data, formName, evTime);
+        if (snapshot) {
+          usedSnapshotKeys.add(snapshot.key);
+          Object.assign(answers, formAnswersToDetail(snapshot.responses as Record<string, unknown>));
+          Object.assign(answers, formAnswersToDetail(snapshot.raw_fields as Record<string, unknown>));
+        }
+        if (matchedSubmission?.submitted_at) usedSubmissionKeys.add(`${matchedSubmission.form_id || ""}|${matchedSubmission.submitted_at}`);
+        // Fallback: o que veio no próprio event_data
+        const fallback = formAnswersToDetail(evData);
+        for (const [k, v] of Object.entries(fallback)) if (!(k in answers)) answers[k] = v;
+
+        const answerCount = Object.keys(answers).length;
+        events.push({
+          date: ev.event_timestamp || ev.created_at,
+          dotCls: "tl-dot-lead",
+          title: `📝 Formulário — ${formName}`,
+          desc: answerCount > 0 ? `${answerCount} campo(s) respondido(s)` : "Submissão sem campos registrados",
+          tags: evData.source ? [String(evData.source)] : [],
+          detail: answers,
+        });
+        return;
+      }
+
       events.push({
         date: ev.event_timestamp || ev.created_at,
         dotCls: isEcommerce ? "tl-dot-buy" : "tl-dot-crm",
@@ -487,6 +647,41 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
           ...(evData.status ? { Status: evData.status } : {}),
           ...(evData.fonte ? { Fonte: evData.fonte } : {}),
         },
+      });
+    });
+
+    // Submissões de formulário sem evento correspondente no activity log
+    flattenFormData(ld.form_data).forEach((snap) => {
+      if (usedSnapshotKeys.has(snap.key)) return;
+      const answers = {
+        ...formAnswersToDetail(snap.responses as Record<string, unknown>),
+        ...formAnswersToDetail(snap.raw_fields as Record<string, unknown>),
+      };
+      if (Object.keys(answers).length === 0) return;
+      events.push({
+        date: snap.submitted_at || ld.created_at,
+        dotCls: "tl-dot-lead",
+        title: `📝 Formulário — ${snap.form_name}`,
+        desc: `${Object.keys(answers).length} campo(s) respondido(s)`,
+        tags: snap.source ? [String(snap.source)] : [],
+        detail: answers,
+      });
+    });
+
+    (detail?.form_submissions || []).forEach((sub) => {
+      const key = `${sub.form_id || ""}|${sub.submitted_at || ""}`;
+      if (usedSubmissionKeys.has(key)) return;
+      const answers: Record<string, string> = {};
+      sub.fields.forEach((f) => {
+        if (isUsefulFormValue(f.value)) answers[f.label] = String(f.value).trim();
+      });
+      if (Object.keys(answers).length === 0) return;
+      events.push({
+        date: sub.submitted_at || ld.created_at,
+        dotCls: "tl-dot-lead",
+        title: `📝 Formulário — ${sub.form_name || "Formulário do sistema"}`,
+        desc: `${Object.keys(answers).length} campo(s) respondido(s)`,
+        detail: answers,
       });
     });
 
