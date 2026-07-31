@@ -8,6 +8,7 @@ import {
   mapFormToProduct,
 } from "../_shared/zernio-field-normalizer.ts";
 import { fetchMetaWithRetry, retryDelaySeconds } from "../_shared/meta-retry.ts";
+import { resolveMetaForm } from "../_shared/meta-form-resolver.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -404,8 +405,13 @@ Deno.serve(async (req) => {
           const rawFields: Record<string, string> = {};
           for (const f of fieldData) rawFields[String(f.name || "")] = (f.values || [])[0] || "";
           const normalized = normalizeZernioLead(rawFields);
-          const productMapping = mapFormToProduct(String(lead.form_id || formId));
-          if (productMapping) {
+          // Fonte de verdade: meta_form_mappings (editável na UI). O de-para
+          // hardcoded só entra se o form_id ainda não estiver mapeado no banco.
+          const dbMapping = await resolveMetaForm(supabase, String(lead.form_id || formId));
+          const productMapping = dbMapping.resolved
+            ? { originSystemB: dbMapping.originSystemB ?? "", productName: dbMapping.productName ?? "" }
+            : mapFormToProduct(String(lead.form_id || formId));
+          if (productMapping?.originSystemB) {
             originLabel = productMapping.originSystemB;
           }
 
