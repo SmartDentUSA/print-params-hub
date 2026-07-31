@@ -165,6 +165,45 @@ async function handleDetail(supabase: ReturnType<typeof createClient>, url: URL)
     .order("event_timestamp", { ascending: false })
     .limit(100);
 
+  // 6c. Respostas de formulário (campos dinâmicos do sistema)
+  const { data: formFieldRows } = await supabase
+    .from("smartops_form_field_responses")
+    .select("id, form_id, field_label, value, created_at")
+    .eq("lead_id", id)
+    .order("created_at", { ascending: false })
+    .limit(300);
+
+  const formIds = [...new Set(((formFieldRows || []) as any[]).map((r) => r.form_id).filter(Boolean))];
+  let formNameById: Record<string, string> = {};
+  if (formIds.length > 0) {
+    const { data: formsRows } = await supabase
+      .from("smartops_forms")
+      .select("id, name")
+      .in("id", formIds);
+    for (const f of ((formsRows || []) as any[])) formNameById[f.id] = f.name;
+  }
+
+  // Agrupa respostas por (form_id + minuto de envio) = uma submissão
+  const submissionMap = new Map<string, any>();
+  for (const r of ((formFieldRows || []) as any[])) {
+    const ts = r.created_at ? new Date(r.created_at) : null;
+    const bucket = ts ? new Date(Math.floor(ts.getTime() / 60000) * 60000).toISOString() : "unknown";
+    const key = `${r.form_id || "?"}|${bucket}`;
+    if (!submissionMap.has(key)) {
+      submissionMap.set(key, {
+        form_id: r.form_id,
+        form_name: formNameById[r.form_id] || null,
+        submitted_at: r.created_at,
+        fields: [] as { label: string; value: string }[],
+      });
+    }
+    const entry = submissionMap.get(key);
+    if (r.field_label && r.value != null && String(r.value).trim() !== "") {
+      entry.fields.push({ label: String(r.field_label), value: String(r.value) });
+    }
+  }
+  const form_submissions = [...submissionMap.values()].filter((s) => s.fields.length > 0);
+
   // Enrich tickets with message counts
   const enrichedTickets = await Promise.all((tickets || []).map(async (t: any) => {
     const { count } = await supabase
@@ -279,6 +318,7 @@ async function handleDetail(supabase: ReturnType<typeof createClient>, url: URL)
     support_tickets: enrichedTickets,
     support_summary: supportSummary,
     activity_log: activityLog || [],
+    form_submissions,
     nps,
     catalog_index,
   };
