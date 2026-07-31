@@ -28,8 +28,12 @@ export function KitComponentsDialog({ open, onOpenChange, aliasId, kitName, vari
 
   const filtered = useMemo(() => {
     const s = search.toLowerCase().trim();
-    if (!s) return variations.slice(0, 60);
-    return variations
+    // Só variações reais do catálogo (produtos pai sem variação ficam de fora).
+    const onlyVariations = variations.filter(
+      (v) => !v.id.startsWith("cat:") && (v.sku || v.presentation || v.color),
+    );
+    if (!s) return onlyVariations.slice(0, 60);
+    return onlyVariations
       .filter((v) =>
         [v.parent_name, v.presentation, v.sku, v.color, v.parent_category]
           .filter(Boolean)
