@@ -83,7 +83,6 @@ export function FieldNormalizer() {
     return m;
   }, [opts.data]);
   const isProductField = field === "produto_interesse" || field === "produto_interesse_auto";
-  const catalogList = opts.data?.option_meta ?? [];
 
   const pendingList = useMemo(() => {
     return Object.entries(mappings)
@@ -190,44 +189,12 @@ export function FieldNormalizer() {
 
       {isProductField && (
         <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Catálogo de produtos — Nome | SKU</CardTitle>
-            <p className="text-xs text-muted-foreground mt-1">
-              Lista oficial vinda do catálogo de produtos (nome canônico + SKU da variação).
-              Não inclui nomes de itens de propostas do CRM nem do Omie, e nunca traz preços.
+          <CardContent className="py-3">
+            <p className="text-xs text-muted-foreground">
+              A associação de itens brutos (propostas do CRM e pedidos da Loja Integrada) a
+              variações do catálogo e kits é feita em <strong>Produtos → Mapeamento de SKU &amp; Kits</strong>.
+              Aqui só normalizamos o valor do campo no lead.
             </p>
-          </CardHeader>
-          <CardContent>
-            {opts.isLoading ? (
-              <div className="flex items-center gap-2 text-sm text-muted-foreground py-4">
-                <Loader2 className="w-4 h-4 animate-spin" /> Carregando catálogo…
-              </div>
-            ) : catalogList.length === 0 ? (
-              <p className="text-sm text-muted-foreground py-4">Nenhum produto no catálogo.</p>
-            ) : (
-              <div className="max-h-80 overflow-auto border rounded-md">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Nome</TableHead>
-                      <TableHead className="w-32">SKU</TableHead>
-                      <TableHead className="w-40">Categoria</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {catalogList.map((p) => (
-                      <TableRow key={p.value}>
-                        <TableCell className="text-sm">{p.value}</TableCell>
-                        <TableCell className="font-mono text-xs">
-                          {p.sku ?? <span className="text-muted-foreground italic">sem SKU</span>}
-                        </TableCell>
-                        <TableCell className="text-xs text-muted-foreground">{p.category ?? "—"}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            )}
           </CardContent>
         </Card>
       )}
