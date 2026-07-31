@@ -1,0 +1,1 @@
+UPDATE public.team_members SET evolution_api_key='20693E04-9529-467D-BB17-B92A5D54A3B1', evolution_base_url=COALESCE(NULLIF(evolution_base_url,''),'http://82.25.75.61:8080') WHERE evolution_instance_name='smartdent_marketing';
