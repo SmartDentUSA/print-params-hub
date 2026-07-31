@@ -76,7 +76,7 @@ Deno.serve(async (req) => {
 
     const { data: enr } = await supabase
       .from("smartops_course_enrollments")
-      .select("id, course_id, lead_id, email, nps_status, nps_token_expires_at")
+      .select("id, course_id, lead_id, nps_status, nps_token_expires_at")
       .eq("nps_token", body.token)
       .maybeSingle();
 
@@ -86,11 +86,21 @@ Deno.serve(async (req) => {
       return json({ error: "token_expirado" }, 410);
     }
 
+    let leadEmail: string | null = null;
+    if (enr.lead_id) {
+      const { data: lead } = await supabase
+        .from("lia_attendances")
+        .select("email")
+        .eq("id", enr.lead_id)
+        .maybeSingle();
+      leadEmail = (lead?.email as string | null) ?? null;
+    }
+
     const { error: eIns } = await supabase.from("smartops_nps_responses").insert({
       enrollment_id: enr.id,
       course_id: enr.course_id,
       lead_id: enr.lead_id,
-      email: enr.email ?? null,
+      email: leadEmail,
       score_satisfacao: body.score_satisfacao,
       score_treinamentos: body.score_treinamentos,
       score_recomendacao: body.score_recomendacao,
