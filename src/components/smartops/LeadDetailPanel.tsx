@@ -650,6 +650,41 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
       });
     });
 
+    // Submissões de formulário sem evento correspondente no activity log
+    flattenFormData(ld.form_data).forEach((snap) => {
+      if (usedSnapshotKeys.has(snap.key)) return;
+      const answers = {
+        ...formAnswersToDetail(snap.responses as Record<string, unknown>),
+        ...formAnswersToDetail(snap.raw_fields as Record<string, unknown>),
+      };
+      if (Object.keys(answers).length === 0) return;
+      events.push({
+        date: snap.submitted_at || ld.created_at,
+        dotCls: "tl-dot-lead",
+        title: `📝 Formulário — ${snap.form_name}`,
+        desc: `${Object.keys(answers).length} campo(s) respondido(s)`,
+        tags: snap.source ? [String(snap.source)] : [],
+        detail: answers,
+      });
+    });
+
+    (detail?.form_submissions || []).forEach((sub) => {
+      const key = `${sub.form_id || ""}|${sub.submitted_at || ""}`;
+      if (usedSubmissionKeys.has(key)) return;
+      const answers: Record<string, string> = {};
+      sub.fields.forEach((f) => {
+        if (isUsefulFormValue(f.value)) answers[f.label] = String(f.value).trim();
+      });
+      if (Object.keys(answers).length === 0) return;
+      events.push({
+        date: sub.submitted_at || ld.created_at,
+        dotCls: "tl-dot-lead",
+        title: `📝 Formulário — ${sub.form_name || "Formulário do sistema"}`,
+        desc: `${Object.keys(answers).length} campo(s) respondido(s)`,
+        detail: answers,
+      });
+    });
+
     // Academy
     if (ld.astron_courses_total > 0) {
       events.push({
