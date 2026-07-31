@@ -3,6 +3,7 @@
 // Toda a lógica pós-insert (status, timeline, convite Google) é da trigger do banco.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { z } from "https://esm.sh/zod@3.23.8";
+import { addDealNote } from "../_shared/piperun-field-map.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -107,6 +108,37 @@ Deno.serve(async (req) => {
       comment: body.comment ?? null,
     });
     if (eIns) throw eIns;
+
+    // Espelha a nota de NPS no deal do PipeRun (best-effort, não bloqueia a resposta).
+    try {
+      const apiToken = Deno.env.get("PIPERUN_API_KEY");
+      if (apiToken && enr.lead_id) {
+        const { data: lead } = await supabase
+          .from("lia_attendances")
+          .select("nome, piperun_id")
+          .eq("id", enr.lead_id)
+          .maybeSingle();
+        const dealId = Number(lead?.piperun_id);
+        if (dealId && Number.isFinite(dealId)) {
+          const nps10 = body.score_recomendacao * 2;
+          const classificacao = nps10 >= 9 ? "Promotor" : nps10 >= 7 ? "Neutro" : "Detrator";
+          const note = [
+            "<b>⭐ NPS pós-treinamento</b>",
+            `NPS: <b>${nps10}/10</b> (${classificacao})`,
+            `Satisfação geral: ${body.score_satisfacao}/5`,
+            `Treinamentos: ${body.score_treinamentos}/5`,
+            `Recomendação: ${body.score_recomendacao}/5`,
+            body.comment ? `Comentário: ${body.comment}` : null,
+          ].filter(Boolean).join("<br>");
+          const res = await addDealNote(apiToken, dealId, note);
+          if (!res.success) {
+            console.warn(`[${FN}] piperun note failed`, JSON.stringify(res.data).slice(0, 300));
+          }
+        }
+      }
+    } catch (e) {
+      console.warn(`[${FN}] piperun note error`, String(e));
+    }
 
     // Mesmo critério da trigger; confirmamos lendo google_review_invited_at.
     let showGoogleInvite = body.score_recomendacao >= 4;

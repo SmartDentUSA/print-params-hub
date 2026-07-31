@@ -1,4 +1,9 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import {
+  loadCatalogResolver,
+  buildCatalogIndex,
+  normName,
+} from "../_shared/catalog-sku-resolver.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -243,6 +248,27 @@ async function handleDetail(supabase: ReturnType<typeof createClient>, url: URL)
   if (!portfolio) portfolio = transformPortfolioFromLead(lead, taxonomyMap);
   const portfolio_embed_url = null;
 
+  // 8. NPS pós-treinamento
+  const { data: npsRows } = await supabase
+    .from("smartops_nps_responses")
+    .select("id, course_id, enrollment_id, score_satisfacao, score_treinamentos, score_recomendacao, comment, created_at")
+    .eq("lead_id", id)
+    .order("created_at", { ascending: false })
+    .limit(20);
+  const nps = buildNpsSummary((npsRows || []) as any[]);
+
+  // 9. Índice canônico de catálogo (SKU oficial + nomenclatura)
+  let catalog_index: Record<string, unknown> = {};
+  try {
+    const names = collectProductNames(lead, activityLog || []);
+    if (names.size > 0) {
+      const resolver = await loadCatalogResolver(supabase);
+      catalog_index = buildCatalogIndex(resolver, names);
+    }
+  } catch (e) {
+    console.warn("[leads-api] catalog index failed:", e);
+  }
+
   const response = {
     lead,
     person,
@@ -253,11 +279,68 @@ async function handleDetail(supabase: ReturnType<typeof createClient>, url: URL)
     support_tickets: enrichedTickets,
     support_summary: supportSummary,
     activity_log: activityLog || [],
+    nps,
+    catalog_index,
   };
 
   return new Response(JSON.stringify(response), {
     status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
+}
+
+// ─── NPS summary ───
+function buildNpsSummary(rows: any[]) {
+  if (!rows || rows.length === 0) {
+    return { count: 0, last: null, avg_satisfacao: null, avg_treinamentos: null, avg_recomendacao: null, nps_0_10: null, classificacao: null, responses: [] };
+  }
+  const avg = (k: string) =>
+    Math.round((rows.reduce((s, r) => s + (Number(r[k]) || 0), 0) / rows.length) * 10) / 10;
+  const last = rows[0];
+  const nps010 = Math.round((Number(last.score_recomendacao) || 0) * 2 * 10) / 10;
+  const classificacao = nps010 >= 9 ? "promotor" : nps010 >= 7 ? "neutro" : "detrator";
+  return {
+    count: rows.length,
+    last,
+    avg_satisfacao: avg("score_satisfacao"),
+    avg_treinamentos: avg("score_treinamentos"),
+    avg_recomendacao: avg("score_recomendacao"),
+    nps_0_10: nps010,
+    classificacao,
+    responses: rows,
+  };
+}
+
+// ─── Coleta de todos os nomes de produto que o card exibe ───
+function collectProductNames(lead: any, activityLog: any[]): Set<string> {
+  const names = new Set<string>();
+  const push = (v: unknown) => {
+    const s = String(v ?? "").trim();
+    if (s && s.length <= 120 && !s.includes("<") && normName(s)) names.add(s);
+  };
+
+  const deals = Array.isArray(lead.piperun_deals_history) ? lead.piperun_deals_history : [];
+  for (const d of deals) {
+    const proposals = Array.isArray(d?.proposals) ? d.proposals : [];
+    for (const p of proposals) {
+      const items = Array.isArray(p?.items) ? p.items : [];
+      for (const it of items) push(it?.product_name || it?.nome || it?.name);
+    }
+  }
+  for (const p of (Array.isArray(lead.proposals_data) ? lead.proposals_data : [])) {
+    for (const it of (Array.isArray(p?.items) ? p.items : [])) push(it?.product_name || it?.nome || it?.name);
+  }
+  for (const it of (Array.isArray(lead.itens_proposta_parsed) ? lead.itens_proposta_parsed : [])) {
+    push(it?.name || it?.item);
+  }
+  for (const o of (Array.isArray(lead.lojaintegrada_pedidos_historico) ? lead.lojaintegrada_pedidos_historico : [])) {
+    for (const it of (Array.isArray(o?.itens) ? o.itens : [])) push(it?.nome || it?.name);
+  }
+  for (const ev of activityLog) {
+    push(ev?.entity_name);
+    const items = ev?.event_data?.itens;
+    if (Array.isArray(items)) for (const it of items) push(it?.nome || it?.name);
+  }
+  return names;
 }
 
 // ─── Subcategory mapping per stage ───

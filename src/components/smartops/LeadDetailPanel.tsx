@@ -92,6 +92,26 @@ interface DetailResponse {
   support_tickets: SupportTicket[];
   support_summary: SupportSummary | null;
   activity_log: ActivityLogEvent[];
+  nps?: NpsSummary | null;
+  catalog_index?: Record<string, CatalogResolution>;
+}
+
+interface NpsSummary {
+  count: number;
+  last: Record<string, any> | null;
+  avg_satisfacao: number | null;
+  avg_treinamentos: number | null;
+  avg_recomendacao: number | null;
+  nps_0_10: number | null;
+  classificacao: "promotor" | "neutro" | "detrator" | null;
+  responses: Record<string, any>[];
+}
+
+interface CatalogResolution {
+  sku: string | null;
+  canonical_name: string;
+  category: string | null;
+  matched: boolean;
 }
 
 type TabKey = "historico" | "cognitivo" | "upsell" | "fluxo" | "lis" | "acoes" | "cs" | "erp" | "financeiro" | "rayshape";
@@ -323,6 +343,30 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
   const support_summary = detail.support_summary;
   const tags = (ld.tags_crm as string[]) || [];
 
+  // ── Catálogo canônico (SKU oficial + nomenclatura ajustada) ──
+  const catalogIndex = detail.catalog_index || {};
+  const catKey = (raw: unknown) =>
+    String(raw ?? "")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .replace(/<[^>]*>/g, " ")
+      .replace(/[^a-z0-9+]+/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+  const canonProduct = (raw: unknown): CatalogResolution | null => catalogIndex[catKey(raw)] || null;
+  const canonName = (raw: unknown): string => canonProduct(raw)?.canonical_name || String(raw ?? "").trim();
+  const canonSku = (raw: unknown, fallback: string): string => {
+    const sku = canonProduct(raw)?.sku;
+    if (sku) return sku;
+    return fallback && fallback !== "—" ? fallback : "—";
+  };
+
+  // ── NPS pós-treinamento ──
+  const nps = detail.nps || null;
+  const npsScore = nps?.nps_0_10 ?? null;
+  const npsCls = nps?.classificacao === "promotor" ? "green" : nps?.classificacao === "detrator" ? "red" : "";
+
   // LIS
   const lis = ld.intelligence_score_total || (ld.intelligence_score as any)?.score_total || 0;
   const lisCls = lis >= 70 ? "lis-hot" : lis >= 40 ? "lis-warm" : "lis-cold";
@@ -376,7 +420,7 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
       proposals.forEach((prop: any) => {
         const items = (Array.isArray(prop.items) ? prop.items : []).filter(isValidItem);
         items.forEach((item: any) => {
-          const name = getItemName(item);
+          const name = canonName(getItemName(item));
           const qty = item.qtd || item.quantidade || item.quantity || 1;
           allItems.push(`${name} (${qty}×)`);
         });
@@ -423,7 +467,10 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
         if (evData.forma_envio) ecommerceDetail["Envio"] = evData.forma_envio;
         if (evData.cupom && typeof evData.cupom === "object" && evData.cupom.codigo) ecommerceDetail["Cupom"] = evData.cupom.codigo;
         if (evData.itens && Array.isArray(evData.itens) && evData.itens.length > 0) {
-          ecommerceDetail["Itens"] = evData.itens.map((it: any) => `${it.nome} (${it.qty}× R$${Number(it.preco || 0).toFixed(0)})`).slice(0, 4).join(", ");
+          ecommerceDetail["Itens"] = evData.itens
+            .map((it: any) => `${canonName(it.nome)} (${it.qty}× R$${Number(it.preco || 0).toFixed(0)})`)
+            .slice(0, 4)
+            .join(", ");
         }
         if (evData.fonte) ecommerceDetail["Fonte"] = evData.fonte;
       }
@@ -730,7 +777,7 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
     proposals.forEach((prop: any) => {
       const items = (Array.isArray(prop.items) ? prop.items : []).filter(isValidItem);
       items.forEach((item: any) => {
-        const name = getItemName(item);
+        const name = canonName(getItemName(item));
         const qty = Number(item.qtd || item.quantidade || item.quantity || 1);
         const total = Number(item.valor_total || item.total_value || item.total || qty * Number(item.valor_unitario || item.unit_value || item.unit || 0));
         if (!productAggMap[name]) productAggMap[name] = { qty: 0, totalVal: 0 };
@@ -743,7 +790,8 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
   const dealsWithoutProposals = wonDeals.filter((d: any) => !Array.isArray(d.proposals) || d.proposals.length === 0);
   if (dealsWithoutProposals.length > 0 && ld.itens_proposta_parsed && Array.isArray(ld.itens_proposta_parsed) && ld.itens_proposta_parsed.length > 0) {
     ld.itens_proposta_parsed.forEach((item: any) => {
-      const name = item.name || item.item || "Produto";
+      const rawName = item.name || item.item || "Produto";
+      const name = canonName(rawName);
       // Ignorar itens corrompidos com HTML
       if (name.includes('<') || name.includes('rgb(') || name.length > 100) return;
       const qty = Number(item.qty || item.quantidade || 1);
@@ -794,7 +842,7 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
     proposals.forEach((prop: any) => {
       const items = (Array.isArray(prop.items) ? prop.items : []).filter(isValidItem);
       const itensSummary = items.length > 0
-        ? items.slice(0, 3).map((it: any) => `${it.qtd || it.quantidade || it.quantity || 1}× ${getItemName(it)}`).join(", ") + (items.length > 3 ? ` (+${items.length - 3})` : "")
+        ? items.slice(0, 3).map((it: any) => `${it.qtd || it.quantidade || it.quantity || 1}× ${canonName(getItemName(it))}`).join(", ") + (items.length > 3 ? ` (+${items.length - 3})` : "")
         : (d.product && d.product !== ld.nome) ? d.product : "—";
       const freteVal = Number(prop.valor_frete || prop.value_freight || 0);
       const freteTipo = prop.tipo_frete || prop.freight_type || "";
@@ -834,7 +882,7 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
     (ld.proposals_data as any[]).forEach((prop: any) => {
       const items = (Array.isArray(prop.items) ? prop.items : []).filter(isValidItem);
       const itensSummary = items.length > 0
-        ? items.slice(0, 3).map((it: any) => `${it.quantity || it.qtd || 1}× ${getItemName(it)}`).join(", ") + (items.length > 3 ? ` (+${items.length - 3})` : "")
+        ? items.slice(0, 3).map((it: any) => `${it.quantity || it.qtd || 1}× ${canonName(getItemName(it))}`).join(", ") + (items.length > 3 ? ` (+${items.length - 3})` : "")
         : "—";
       const freteVal = Number(prop.valor_frete || prop.value_freight || 0);
       const freteTipo = prop.tipo_frete || prop.freight_type || "";
@@ -871,8 +919,9 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
     proposals.forEach((prop: any) => {
       const items = (Array.isArray(prop.items) ? prop.items : []).filter(isValidItem);
       items.forEach((item: any) => {
-        const name = getItemName(item);
-        const cod = String(item.sku || item.external_code || item.item_id || item.cod || item.referencia || "—");
+        const rawName = getItemName(item);
+        const name = canonName(rawName);
+        const cod = canonSku(rawName, String(item.sku || item.external_code || item.item_id || item.cod || item.referencia || "—"));
         const qty = Number(item.qtd || item.quantidade || item.quantity || 1);
         const total = Number(item.valor_total || item.total_value || item.total || qty * Number(item.valor_unitario || item.unit_value || item.unit || 0));
         const key = name.toLowerCase().trim();
@@ -890,12 +939,13 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
   if (dealsWithoutProposals.length > 0 && ld.itens_proposta_parsed && Array.isArray(ld.itens_proposta_parsed) && ld.itens_proposta_parsed.length > 0) {
     const mostRecentWon = wonDeals[0] || allDeals[0];
     ld.itens_proposta_parsed.forEach((item: any) => {
-      const name = item.name || item.item || "Produto";
+      const rawName = item.name || item.item || "Produto";
+      const name = canonName(rawName);
       // Ignorar itens corrompidos com HTML
       if (name.includes('<') || name.includes('rgb(') || name.length > 100) return;
       const key = name.toLowerCase().trim();
       if (!mixMap[key]) {
-        mixMap[key] = { cod: "—", name, deals: new Set(), qtyTotal: 0, receita: 0, timestamps: [] };
+        mixMap[key] = { cod: canonSku(rawName, "—"), name, deals: new Set(), qtyTotal: 0, receita: 0, timestamps: [] };
       }
       mixMap[key].deals.add(String(mostRecentWon?.deal_id || "—"));
       mixMap[key].qtyTotal += Number(item.qty || item.quantidade || 1);
@@ -907,8 +957,9 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
     const orderItems: any[] = Array.isArray(order.itens) ? order.itens : [];
     if (orderItems.length > 0) {
       orderItems.forEach((item: any) => {
-        const name = String(item.nome || item.name || "Produto E-com");
-        const cod = String(item.sku || item.referencia || "—");
+        const rawName = String(item.nome || item.name || "Produto E-com");
+        const name = canonName(rawName);
+        const cod = canonSku(rawName, String(item.sku || item.referencia || "—"));
         const qty = Number(item.qty || item.quantidade || 1);
         const unitPrice = Number(item.preco || item.valor_unitario || 0);
         const total = qty * unitPrice;
@@ -940,8 +991,9 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
     (ld.proposals_data as any[]).forEach((prop: any) => {
       const items = (Array.isArray(prop.items) ? prop.items : []).filter(isValidItem);
       items.forEach((item: any) => {
-        const name = getItemName(item);
-        const cod = String(item.code || item.reference || item.sku || "—");
+        const rawName = getItemName(item);
+        const name = canonName(rawName);
+        const cod = canonSku(rawName, String(item.code || item.reference || item.sku || "—"));
         const qty = Number(item.quantity || item.qtd || 1);
         const total = Number(item.value || item.cost || 0);
         const key = name.toLowerCase().trim();
@@ -1074,6 +1126,19 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
             </div>
           )}
           <div className="badges-row">
+            {npsScore !== null && (
+              <span
+                className="ctx-badge"
+                title={`NPS pós-treinamento · ${nps?.count} resposta(s)${nps?.last?.comment ? ` · "${nps.last.comment}"` : ""}`}
+                style={{
+                  background: npsCls === "green" ? "rgba(34,197,94,0.15)" : npsCls === "red" ? "rgba(239,68,68,0.15)" : "rgba(234,179,8,0.15)",
+                  color: npsCls === "green" ? "#22c55e" : npsCls === "red" ? "#ef4444" : "#eab308",
+                  fontWeight: 700,
+                }}
+              >
+                ⭐ NPS {npsScore}/10 · {nps?.classificacao}
+              </span>
+            )}
             {support_summary && support_summary.open > 0 && (
               <span className="ctx-badge ctx-badge-support">🔧 {support_summary.open} chamado{support_summary.open !== 1 ? "s" : ""} aberto{support_summary.open !== 1 ? "s" : ""}</span>
             )}
@@ -2007,7 +2072,36 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
 
       {/* ── CS — Treinamentos ── */}
       {activeTab === "cs" && (
-        <CsEnrollmentsTab leadId={lead.id} />
+        <>
+          {nps && nps.count > 0 && (
+            <div className="tab-content">
+              <div className="sec">⭐ NPS pós-treinamento</div>
+              <div className="stats-grid" style={{ marginBottom: 12 }}>
+                <div className="stat"><div className="num">{nps.nps_0_10}</div><div className="lbl">NPS (0–10)</div></div>
+                <div className="stat"><div className="num">{nps.avg_satisfacao ?? "—"}</div><div className="lbl">Satisfação (1–5)</div></div>
+                <div className="stat"><div className="num">{nps.avg_treinamentos ?? "—"}</div><div className="lbl">Treinamentos (1–5)</div></div>
+                <div className="stat"><div className="num">{nps.count}</div><div className="lbl">Respostas</div></div>
+              </div>
+              <table className="tbl">
+                <thead>
+                  <tr><th>Data</th><th>Satisfação</th><th>Treinamentos</th><th>Recomendação</th><th>Comentário</th></tr>
+                </thead>
+                <tbody>
+                  {nps.responses.map((r: any) => (
+                    <tr key={r.id}>
+                      <td>{formatDate(r.created_at)}</td>
+                      <td>{r.score_satisfacao}/5</td>
+                      <td>{r.score_treinamentos}/5</td>
+                      <td>{r.score_recomendacao}/5</td>
+                      <td>{r.comment || "—"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+          <CsEnrollmentsTab leadId={lead.id} />
+        </>
       )}
 
       {/* ── ERP — Dados do Omie ── */}
