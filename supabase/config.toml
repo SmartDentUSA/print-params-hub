@@ -477,3 +477,6 @@ verify_jwt = false
 
 [functions.cs-nps-responder]
 verify_jwt = false
+
+[functions.piperun-equipment-backfill]
+verify_jwt = false
