@@ -471,3 +471,9 @@ verify_jwt = true
 
 [functions.smart-ops-lead-welcome]
 verify_jwt = false
+
+[functions.cs-enviar-nps]
+verify_jwt = false
+
+[functions.cs-nps-responder]
+verify_jwt = false
