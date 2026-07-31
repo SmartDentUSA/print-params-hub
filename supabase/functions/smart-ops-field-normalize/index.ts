@@ -120,11 +120,97 @@ async function listOptions(supabase: any, field: string): Promise<{ options: str
     const { options } = await listOptions(supabase, "impressora_modelo");
     return { options, source: "derived:impressora_modelo" };
   }
+  // DB-derived canonicals for fields that have no form-field definition.
+  const derived = await derivedOptions(supabase, field);
+  if (derived) return derived;
   const fallback = FALLBACK_OPTIONS[field];
   if (fallback && fallback.length > 0) {
     return { options: fallback, source: "fallback_constant" };
   }
   return { options: [], source: "none" };
+}
+
+function uniqSorted(values: Array<unknown>): string[] {
+  const set = new Set<string>();
+  for (const v of values) {
+    const s = String(v ?? "").trim();
+    if (s) set.add(s);
+  }
+  return [...set].sort((a, b) => a.localeCompare(b, "pt-BR"));
+}
+
+/** Distinct non-null values already present in a lia_attendances column. */
+async function distinctFromLeads(supabase: any, column: string): Promise<string[]> {
+  const { data } = await supabase
+    .from("lia_attendances")
+    .select(column)
+    .is("merged_into", null)
+    .not(column, "is", null)
+    .limit(20000);
+  return uniqSorted((data ?? []).map((r: Record<string, unknown>) => r[column]));
+}
+
+async function derivedOptions(
+  supabase: any,
+  field: string,
+): Promise<{ options: string[]; source: string } | null> {
+  switch (field) {
+    case "produto_interesse":
+    case "produto_interesse_auto": {
+      const { data: mfm } = await supabase
+        .from("meta_form_mappings")
+        .select("product_name")
+        .not("product_name", "is", null);
+      const fromMappings = uniqSorted((mfm ?? []).map((r: any) => r.product_name));
+      const existing = await distinctFromLeads(supabase, field);
+      return {
+        options: uniqSorted([...fromMappings, ...existing]),
+        source: "derived:meta_form_mappings+leads",
+      };
+    }
+    case "funil_crm": {
+      const { data } = await supabase.from("deals").select("pipeline_name").not("pipeline_name", "is", null).limit(20000);
+      return { options: uniqSorted((data ?? []).map((r: any) => r.pipeline_name)), source: "derived:deals.pipeline_name" };
+    }
+    case "etapa_crm": {
+      const { data } = await supabase.from("deals").select("stage_name").not("stage_name", "is", null).limit(20000);
+      return { options: uniqSorted((data ?? []).map((r: any) => r.stage_name)), source: "derived:deals.stage_name" };
+    }
+    case "status_piperun": {
+      const { data } = await supabase.from("deals").select("status").not("status", "is", null).limit(20000);
+      const fromDeals = uniqSorted((data ?? []).map((r: any) => r.status));
+      const existing = await distinctFromLeads(supabase, "status_piperun");
+      return {
+        options: uniqSorted([...fromDeals, ...existing, "aberta", "ganha", "perdida"]),
+        source: "derived:deals.status+leads",
+      };
+    }
+    case "proprietario_lead_crm": {
+      const { data } = await supabase
+        .from("team_members")
+        .select("nome_completo")
+        .eq("ativo", true)
+        .not("nome_completo", "is", null);
+      return { options: uniqSorted((data ?? []).map((r: any) => r.nome_completo)), source: "derived:team_members" };
+    }
+    case "form_name": {
+      const { data } = await supabase
+        .from("meta_form_mappings")
+        .select("form_name_meta")
+        .not("form_name_meta", "is", null);
+      const fromMappings = uniqSorted((data ?? []).map((r: any) => r.form_name_meta));
+      const existing = await distinctFromLeads(supabase, "form_name");
+      return { options: uniqSorted([...fromMappings, ...existing]), source: "derived:meta_form_mappings+leads" };
+    }
+    case "origem_primeiro_contato":
+    case "utm_campaign":
+    case "cidade": {
+      const existing = await distinctFromLeads(supabase, field);
+      return { options: existing, source: "derived:leads_distinct" };
+    }
+    default:
+      return null;
+  }
 }
 
 async function listValues(supabase: any, field: string) {
