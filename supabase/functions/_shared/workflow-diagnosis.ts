@@ -1098,14 +1098,55 @@ export function renderDiagnosisForPrompt(diag: WorkflowDiagnosis): string {
 const ROTEIRO_NEG_RE =
   /^\s*(n[aã]o(?:\s|,|\.|$)|ainda\s*n[aã]o|n\/a|nenhum[ao]?|sem\s+|—|-|0)\s*/i;
 
-function _pickFirst(lead: Record<string, unknown>, keys: string[]): string {
+/**
+ * Índices auxiliares (respostas de formulário + custom_fields do raw_payload)
+ * para o roteiro enxergar valores que nunca chegaram às colunas normalizadas
+ * de lia_attendances.
+ */
+export type RoteiroLookup = {
+  formIndex?: Map<string, string>;
+  customFieldsIndex?: Map<string, string>;
+};
+
+function _clean(v: unknown): string {
+  if (v == null) return "";
+  const s = String(v).trim();
+  if (!s || s === "—" || s === "-" || s.toLowerCase() === "null" || s.toLowerCase() === "undefined") return "";
+  return s;
+}
+
+/** Busca em um índice por chave exata (normalizada) ou por substring do alias. */
+function _pickFromIndex(idx: Map<string, string> | undefined, keys: string[], aliases: string[]): string {
+  if (!idx || idx.size === 0) return "";
   for (const k of keys) {
-    const v = lead[k];
-    if (v == null) continue;
-    const s = String(v).trim();
-    if (s && s !== "—" && s !== "-" && s.toLowerCase() !== "null") return s;
+    const hit = _clean(idx.get(norm(k)) ?? idx.get(k.toLowerCase()));
+    if (hit) return hit;
+  }
+  const als = aliases.map((a) => norm(a)).filter(Boolean);
+  if (als.length === 0) return "";
+  for (const [k, v] of idx.entries()) {
+    const val = _clean(v);
+    if (!val) continue;
+    if (als.some((a) => k.includes(a))) return val;
   }
   return "";
+}
+
+function _pickFirst(
+  lead: Record<string, unknown>,
+  keys: string[],
+  lookup?: RoteiroLookup,
+  aliases: string[] = [],
+): string {
+  for (const k of keys) {
+    const s = _clean(lead[k]);
+    if (s) return s;
+  }
+  // Fallback 1: respostas de formulário (smartops_form_field_responses)
+  const fromForm = _pickFromIndex(lookup?.formIndex, keys, aliases);
+  if (fromForm) return fromForm;
+  // Fallback 2: raw_payload.custom_fields
+  return _pickFromIndex(lookup?.customFieldsIndex, keys, aliases);
 }
 
 export function buildLeadProfilingRoteiro(
