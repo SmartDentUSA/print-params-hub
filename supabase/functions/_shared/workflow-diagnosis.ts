@@ -587,7 +587,10 @@ export async function diagnoseLead(
     const enriched = intentLabel ? await fetchEnrichedProductDossier(supabase, intentLabel) : null;
     const liveDossier = enriched?.live ?? null;
 
-    const seed = seedSpinBriefing(diag, lead, liveDossier);
+    const seed = seedSpinBriefing(diag, lead, liveDossier, {
+      formIndex,
+      customFieldsIndex,
+    });
     diag.spin = seed;
     if (opts.enableLLM !== false) {
       const llm = await enrichSpinWithLLM(supabase, diag, lead, seed, liveDossier);
@@ -1098,18 +1101,60 @@ export function renderDiagnosisForPrompt(diag: WorkflowDiagnosis): string {
 const ROTEIRO_NEG_RE =
   /^\s*(n[aã]o(?:\s|,|\.|$)|ainda\s*n[aã]o|n\/a|nenhum[ao]?|sem\s+|—|-|0)\s*/i;
 
-function _pickFirst(lead: Record<string, unknown>, keys: string[]): string {
+/**
+ * Índices auxiliares (respostas de formulário + custom_fields do raw_payload)
+ * para o roteiro enxergar valores que nunca chegaram às colunas normalizadas
+ * de lia_attendances.
+ */
+export type RoteiroLookup = {
+  formIndex?: Map<string, string>;
+  customFieldsIndex?: Map<string, string>;
+};
+
+function _clean(v: unknown): string {
+  if (v == null) return "";
+  const s = String(v).trim();
+  if (!s || s === "—" || s === "-" || s.toLowerCase() === "null" || s.toLowerCase() === "undefined") return "";
+  return s;
+}
+
+/** Busca em um índice por chave exata (normalizada) ou por substring do alias. */
+function _pickFromIndex(idx: Map<string, string> | undefined, keys: string[], aliases: string[]): string {
+  if (!idx || idx.size === 0) return "";
   for (const k of keys) {
-    const v = lead[k];
-    if (v == null) continue;
-    const s = String(v).trim();
-    if (s && s !== "—" && s !== "-" && s.toLowerCase() !== "null") return s;
+    const hit = _clean(idx.get(norm(k)) ?? idx.get(k.toLowerCase()));
+    if (hit) return hit;
+  }
+  const als = aliases.map((a) => norm(a)).filter(Boolean);
+  if (als.length === 0) return "";
+  for (const [k, v] of idx.entries()) {
+    const val = _clean(v);
+    if (!val) continue;
+    if (als.some((a) => k.includes(a))) return val;
   }
   return "";
 }
 
+function _pickFirst(
+  lead: Record<string, unknown>,
+  keys: string[],
+  lookup?: RoteiroLookup,
+  aliases: string[] = [],
+): string {
+  for (const k of keys) {
+    const s = _clean(lead[k]);
+    if (s) return s;
+  }
+  // Fallback 1: respostas de formulário (smartops_form_field_responses)
+  const fromForm = _pickFromIndex(lookup?.formIndex, keys, aliases);
+  if (fromForm) return fromForm;
+  // Fallback 2: raw_payload.custom_fields
+  return _pickFromIndex(lookup?.customFieldsIndex, keys, aliases);
+}
+
 export function buildLeadProfilingRoteiro(
   lead: Record<string, unknown>,
+  lookup?: RoteiroLookup,
 ): RoteiroItem[] {
   const spec: Array<{
     ordem: number;
@@ -1118,6 +1163,8 @@ export function buildLeadProfilingRoteiro(
     pergunta_canonica: string;
     cols: string[];
     extra_cols?: string[];
+    aliases?: string[];
+    extra_aliases?: string[];
     gancho: string;
   }> = [
     {
@@ -1128,6 +1175,8 @@ export function buildLeadProfilingRoteiro(
         "Confirma sua área de atuação e especialidade (clínica, laboratório, radiologia, planning…)?",
       cols: ["area_atuacao"],
       extra_cols: ["especialidade"],
+      aliases: ["area de atuacao", "atuacao"],
+      extra_aliases: ["especialidade"],
       gancho: "",
     },
     {
@@ -1143,6 +1192,7 @@ export function buildLeadProfilingRoteiro(
         "tem_scanner",
         "como_digitaliza",
       ],
+      aliases: ["scanner", "digitaliza", "moldagem digital", "captura"],
       gancho: "Scanner Smart Dent (BLZ INO100/200, Medit i700/i900)",
     },
     {
@@ -1152,6 +1202,7 @@ export function buildLeadProfilingRoteiro(
       pergunta_canonica:
         "Qual software CAD você utiliza hoje (exocad, Medit Clic App, Blz CAD, outro)?",
       cols: ["software_cad", "equip_cad"],
+      aliases: ["cad", "software"],
       gancho: "exocad DentalCAD Smart Dent",
     },
     {
@@ -1161,6 +1212,7 @@ export function buildLeadProfilingRoteiro(
       pergunta_canonica:
         "Atualmente você utiliza qual impressora 3D no dia a dia (RayShape, Phrozen, Anycubic, FormLabs…)?",
       cols: ["equip_impressora", "impressora_modelo", "sdr_modelo_impressora_param"],
+      aliases: ["impressora", "impressao 3d", "printer"],
       gancho: "RayShape EdgeMini / EdgePro",
     },
     {
@@ -1170,6 +1222,7 @@ export function buildLeadProfilingRoteiro(
       pergunta_canonica:
         "Você imprime modelos? Com qual resina (Smart Dent, Yller, Makertech, outras)?",
       cols: ["imprime_modelos"],
+      aliases: ["modelo"],
       gancho: "Resina Smart Dent Model",
     },
     {
@@ -1179,6 +1232,7 @@ export function buildLeadProfilingRoteiro(
       pergunta_canonica:
         "Você imprime placas miorrelaxantes? Com qual resina (Smart Dent Splint, FGM, importada…)?",
       cols: ["imprime_placas", "sdr_quantas_placas"],
+      aliases: ["placa", "miorrelaxante"],
       gancho: "Resina Smart Dent Splint",
     },
     {
@@ -1188,6 +1242,7 @@ export function buildLeadProfilingRoteiro(
       pergunta_canonica:
         "Você imprime elementos dentários de longa duração? Com qual resina?",
       cols: ["imprime_resinas_ld"],
+      aliases: ["longa duracao", "elemento dentario", "provisorio", "definitivo"],
       gancho: "Resina Smart Dent Permanente",
     },
     {
@@ -1197,6 +1252,7 @@ export function buildLeadProfilingRoteiro(
       pergunta_canonica:
         "Você imprime guias cirúrgicas? Com qual resina?",
       cols: ["imprime_guias"],
+      aliases: ["guia cirurgica", "guia"],
       gancho: "Resina Smart Dent Surgical Guide",
     },
     {
@@ -1206,13 +1262,16 @@ export function buildLeadProfilingRoteiro(
       pergunta_canonica:
         "Quanto de resina você consome por mês e com qual fornecedor compra hoje?",
       cols: ["sdr_resina_atual", "resina_consumo_mensal_estimado", "sdr_usa_resina_smartdent"],
+      aliases: ["resina", "consumo", "fornecedor"],
       gancho: "Kit recorrente Smart Dent (assinatura mensal)",
     },
   ];
 
   return spec.map((it) => {
-    const main = _pickFirst(lead, it.cols);
-    const extra = it.extra_cols ? _pickFirst(lead, it.extra_cols) : "";
+    const main = _pickFirst(lead, it.cols, lookup, it.aliases ?? []);
+    const extra = it.extra_cols
+      ? _pickFirst(lead, it.extra_cols, lookup, it.extra_aliases ?? [])
+      : "";
     const raw = [main, extra].filter(Boolean).join(" / ");
     const out: RoteiroItem = {
       ordem: it.ordem,
@@ -1240,6 +1299,7 @@ function seedSpinBriefing(
   diag: WorkflowDiagnosis,
   lead: Record<string, unknown>,
   live?: LiveProductDossier | null,
+  lookup?: RoteiroLookup,
 ): SpinBriefing {
   const role = String(lead.area_atuacao || lead.especialidade || "profissional");
   const stackStages = Array.from(new Set(diag.stack_atual.map(s => STAGE_LABEL[s.stage] || s.stage)));
@@ -1350,7 +1410,7 @@ function seedSpinBriefing(
   // ── ROTEIRO CANÔNICO (espelha "# - Formulário exocad I.A.") ──
   // Vendedor segue na ordem; cada item ❓ a_descobrir ou ⚠️ gap_ofensivo
   // vira UMA pergunta de SITUAÇÃO. Itens ✅ declarado: só reconhecimento.
-  const roteiro = buildLeadProfilingRoteiro(lead);
+  const roteiro = buildLeadProfilingRoteiro(lead, lookup);
   const pendentes = roteiro.filter((r) => r.status !== "declarado");
   const gaps = roteiro.filter((r) => r.status === "gap_ofensivo");
 
