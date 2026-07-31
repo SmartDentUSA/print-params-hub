@@ -1299,6 +1299,7 @@ function seedSpinBriefing(
   diag: WorkflowDiagnosis,
   lead: Record<string, unknown>,
   live?: LiveProductDossier | null,
+  lookup?: RoteiroLookup,
 ): SpinBriefing {
   const role = String(lead.area_atuacao || lead.especialidade || "profissional");
   const stackStages = Array.from(new Set(diag.stack_atual.map(s => STAGE_LABEL[s.stage] || s.stage)));
@@ -1409,7 +1410,7 @@ function seedSpinBriefing(
   // ── ROTEIRO CANÔNICO (espelha "# - Formulário exocad I.A.") ──
   // Vendedor segue na ordem; cada item ❓ a_descobrir ou ⚠️ gap_ofensivo
   // vira UMA pergunta de SITUAÇÃO. Itens ✅ declarado: só reconhecimento.
-  const roteiro = buildLeadProfilingRoteiro(lead);
+  const roteiro = buildLeadProfilingRoteiro(lead, lookup);
   const pendentes = roteiro.filter((r) => r.status !== "declarado");
   const gaps = roteiro.filter((r) => r.status === "gap_ofensivo");
 
