@@ -89,8 +89,11 @@ async function processLead(
           source: "meta_lead_ads",
           new_conversion_confirmed: true,
           conversion_key: `meta_leadgen:${leadgenId}`,
-          form_name: payload.lead.formName ?? mappedOrigin ?? null,
-          origem_campanha: payload.lead.campaignName ?? payload.lead.formName ?? mappedOrigin ?? null,
+          // Origem governada: o rótulo oficial de meta_form_mappings (origin_system_b)
+          // SEMPRE vence o nome cru do formulário na Meta. Só cai para formName
+          // quando o form_id não está mapeado.
+          form_name: mappedOrigin ?? payload.lead.formName ?? null,
+          origem_campanha: payload.lead.campaignName ?? mappedOrigin ?? payload.lead.formName ?? null,
           utm_source: "facebook",
           utm_medium: "paid",
           utm_campaign: payload.lead.campaignName ?? (payload.lead.formId ? `form_${payload.lead.formId}` : null),
