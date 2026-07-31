@@ -563,6 +563,8 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
 
     // Activity log events (e-commerce, forms, SDR, etc.) — deduplicate by event_type+entity_id
     const seenActivityKeys = new Set<string>();
+    const usedSnapshotKeys = new Set<string>();
+    const usedSubmissionKeys = new Set<string>();
     const dedupedActivityLogs = (detail?.activity_log || []).filter((ev: any) => {
       if (!ev.entity_id) return true;
       const key = `${ev.event_type}|${ev.entity_id}`;
@@ -611,9 +613,11 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
         // Snapshot de form_data do mesmo formulário
         const snapshot = findFormDataSnapshot(ld.form_data, formName, evTime);
         if (snapshot) {
+          usedSnapshotKeys.add(snapshot.key);
           Object.assign(answers, formAnswersToDetail(snapshot.responses as Record<string, unknown>));
           Object.assign(answers, formAnswersToDetail(snapshot.raw_fields as Record<string, unknown>));
         }
+        if (matchedSubmission?.submitted_at) usedSubmissionKeys.add(`${matchedSubmission.form_id || ""}|${matchedSubmission.submitted_at}`);
         // Fallback: o que veio no próprio event_data
         const fallback = formAnswersToDetail(evData);
         for (const [k, v] of Object.entries(fallback)) if (!(k in answers)) answers[k] = v;
