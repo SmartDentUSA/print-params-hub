@@ -20,6 +20,12 @@ const BodySchema = z.object({
   comment: z.string().trim().max(2000).optional(),
 });
 
+// Tela 2b: relato adicional do participante insatisfeito (mesmo token).
+const FollowUpSchema = z.object({
+  token: z.string().trim().min(16).max(200),
+  follow_up_comment: z.string().trim().min(1).max(2000),
+});
+
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
     status, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -34,7 +40,37 @@ Deno.serve(async (req) => {
   );
 
   try {
-    const parsed = BodySchema.safeParse(await req.json().catch(() => null));
+    const raw = await req.json().catch(() => null);
+
+    const followUp = FollowUpSchema.safeParse(raw);
+    if (followUp.success) {
+      const { data: e2 } = await supabase
+        .from("smartops_course_enrollments")
+        .select("id")
+        .eq("nps_token", followUp.data.token)
+        .maybeSingle();
+      if (!e2) return json({ error: "token_invalido" }, 404);
+      const { data: resp } = await supabase
+        .from("smartops_nps_responses")
+        .select("id, comment")
+        .eq("enrollment_id", e2.id)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (!resp) return json({ error: "resposta_nao_encontrada" }, 404);
+      const merged = [resp.comment, followUp.data.follow_up_comment]
+        .map((v) => (v ?? "").toString().trim())
+        .filter(Boolean)
+        .join("\n---\n");
+      const { error: eUpd } = await supabase
+        .from("smartops_nps_responses")
+        .update({ comment: merged })
+        .eq("id", resp.id);
+      if (eUpd) throw eUpd;
+      return json({ ok: true });
+    }
+
+    const parsed = BodySchema.safeParse(raw);
     if (!parsed.success) return json({ error: "invalid_payload" }, 400);
     const body = parsed.data;
 
