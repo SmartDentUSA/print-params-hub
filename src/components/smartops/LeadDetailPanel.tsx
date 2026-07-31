@@ -94,6 +94,24 @@ interface DetailResponse {
   activity_log: ActivityLogEvent[];
 }
 
+interface NpsSummary {
+  count: number;
+  last: Record<string, any> | null;
+  avg_satisfacao: number | null;
+  avg_treinamentos: number | null;
+  avg_recomendacao: number | null;
+  nps_0_10: number | null;
+  classificacao: "promotor" | "neutro" | "detrator" | null;
+  responses: Record<string, any>[];
+}
+
+interface CatalogResolution {
+  sku: string | null;
+  canonical_name: string;
+  category: string | null;
+  matched: boolean;
+}
+
 type TabKey = "historico" | "cognitivo" | "upsell" | "fluxo" | "lis" | "acoes" | "cs" | "erp" | "financeiro" | "rayshape";
 
 const TABS: { key: TabKey; label: string }[] = [
