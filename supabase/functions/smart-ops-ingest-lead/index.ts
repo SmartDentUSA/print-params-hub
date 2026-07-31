@@ -556,8 +556,20 @@ Deno.serve(async (req) => {
     // ── Canonicalização determinística (rule-based) ──
     const areaAtuacao = canonicalizeArea(areaAtuacaoRaw) ?? areaAtuacaoRaw;
     const especialidade = canonicalizeSpecialty(especialidadeRaw) ?? especialidadeRaw;
-    const scannerCanon = canonicalizeScanner(comoDigitalizaRaw || temScannerRaw);
-    const printerCanon = canonicalizePrinter(temImpressoraRaw || impressoraModeloRaw);
+    const scannerMarcaRaw = payload.scanner_marca ? String(payload.scanner_marca).trim() : null;
+    // Marca/modelo informado no formulário SEMPRE vence a resposta genérica ("sim"/"não"),
+    // senão a marca real (ex.: ANYCUBIC, 3Shape) era descartada e virava OUTRAS/OUTROS.
+    const isGenericAnswer = (v?: string | null) =>
+      !v || /^(sim|s|nao|não|n|possuo|tenho|utilizo)\b/i.test(String(v).trim());
+    const scannerCanon = canonicalizeScanner(
+      (!isGenericAnswer(comoDigitalizaRaw) && comoDigitalizaRaw) ||
+      (!isGenericAnswer(scannerMarcaRaw) && scannerMarcaRaw) ||
+      comoDigitalizaRaw || temScannerRaw,
+    );
+    const printerCanon = canonicalizePrinter(
+      (!isGenericAnswer(impressoraModeloRaw) && impressoraModeloRaw) ||
+      temImpressoraRaw || impressoraModeloRaw,
+    );
     const comoDigitaliza = scannerCanon.como_digitaliza ?? comoDigitalizaRaw;
     const scannerMarca = scannerCanon.scanner_marca;
     const temScanner = scannerCanon.tem_scanner ?? temScannerRaw;
