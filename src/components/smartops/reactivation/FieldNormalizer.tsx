@@ -77,6 +77,14 @@ export function FieldNormalizer() {
 
   const rows = useMemo(() => vals.data?.values ?? [], [vals.data]);
 
+  const skuByOption = useMemo(() => {
+    const m = new Map<string, string | null>();
+    for (const o of opts.data?.option_meta ?? []) m.set(o.value, o.sku);
+    return m;
+  }, [opts.data]);
+  const isProductField = field === "produto_interesse" || field === "produto_interesse_auto";
+  const catalogList = opts.data?.option_meta ?? [];
+
   const pendingList = useMemo(() => {
     return Object.entries(mappings)
       .filter(([from, to]) => !!to && from !== to)
@@ -180,6 +188,50 @@ export function FieldNormalizer() {
         </CardContent>
       </Card>
 
+      {isProductField && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Catálogo de produtos — Nome | SKU</CardTitle>
+            <p className="text-xs text-muted-foreground mt-1">
+              Lista oficial vinda do catálogo de produtos (nome canônico + SKU da variação).
+              Não inclui nomes de itens de propostas do CRM nem do Omie, e nunca traz preços.
+            </p>
+          </CardHeader>
+          <CardContent>
+            {opts.isLoading ? (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground py-4">
+                <Loader2 className="w-4 h-4 animate-spin" /> Carregando catálogo…
+              </div>
+            ) : catalogList.length === 0 ? (
+              <p className="text-sm text-muted-foreground py-4">Nenhum produto no catálogo.</p>
+            ) : (
+              <div className="max-h-80 overflow-auto border rounded-md">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Nome</TableHead>
+                      <TableHead className="w-32">SKU</TableHead>
+                      <TableHead className="w-40">Categoria</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {catalogList.map((p) => (
+                      <TableRow key={p.value}>
+                        <TableCell className="text-sm">{p.value}</TableCell>
+                        <TableCell className="font-mono text-xs">
+                          {p.sku ?? <span className="text-muted-foreground italic">sem SKU</span>}
+                        </TableCell>
+                        <TableCell className="text-xs text-muted-foreground">{p.category ?? "—"}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
       <Card>
         <CardHeader className="flex flex-row items-center justify-between gap-3">
           <div>
@@ -256,7 +308,12 @@ export function FieldNormalizer() {
                             <SelectContent>
                               <SelectItem value={NULL_SENTINEL}>— limpar (deixar vazio)</SelectItem>
                               {(opts.data?.options ?? []).map((o) => (
-                                <SelectItem key={o} value={o}>{o}</SelectItem>
+                                <SelectItem key={o} value={o}>
+                                  {o}
+                                  {skuByOption.get(o) && (
+                                    <span className="text-muted-foreground font-mono"> · SKU {skuByOption.get(o)}</span>
+                                  )}
+                                </SelectItem>
                               ))}
                             </SelectContent>
                           </Select>
