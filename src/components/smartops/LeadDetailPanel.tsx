@@ -1126,6 +1126,19 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
             </div>
           )}
           <div className="badges-row">
+            {npsScore !== null && (
+              <span
+                className="ctx-badge"
+                title={`NPS pós-treinamento · ${nps?.count} resposta(s)${nps?.last?.comment ? ` · "${nps.last.comment}"` : ""}`}
+                style={{
+                  background: npsCls === "green" ? "rgba(34,197,94,0.15)" : npsCls === "red" ? "rgba(239,68,68,0.15)" : "rgba(234,179,8,0.15)",
+                  color: npsCls === "green" ? "#22c55e" : npsCls === "red" ? "#ef4444" : "#eab308",
+                  fontWeight: 700,
+                }}
+              >
+                ⭐ NPS {npsScore}/10 · {nps?.classificacao}
+              </span>
+            )}
             {support_summary && support_summary.open > 0 && (
               <span className="ctx-badge ctx-badge-support">🔧 {support_summary.open} chamado{support_summary.open !== 1 ? "s" : ""} aberto{support_summary.open !== 1 ? "s" : ""}</span>
             )}
