@@ -92,6 +92,8 @@ interface DetailResponse {
   support_tickets: SupportTicket[];
   support_summary: SupportSummary | null;
   activity_log: ActivityLogEvent[];
+  nps?: NpsSummary | null;
+  catalog_index?: Record<string, CatalogResolution>;
 }
 
 interface NpsSummary {
@@ -340,6 +342,30 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
   const support_tickets = detail.support_tickets || [];
   const support_summary = detail.support_summary;
   const tags = (ld.tags_crm as string[]) || [];
+
+  // ── Catálogo canônico (SKU oficial + nomenclatura ajustada) ──
+  const catalogIndex = detail.catalog_index || {};
+  const catKey = (raw: unknown) =>
+    String(raw ?? "")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .replace(/<[^>]*>/g, " ")
+      .replace(/[^a-z0-9+]+/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+  const canonProduct = (raw: unknown): CatalogResolution | null => catalogIndex[catKey(raw)] || null;
+  const canonName = (raw: unknown): string => canonProduct(raw)?.canonical_name || String(raw ?? "").trim();
+  const canonSku = (raw: unknown, fallback: string): string => {
+    const sku = canonProduct(raw)?.sku;
+    if (sku) return sku;
+    return fallback && fallback !== "—" ? fallback : "—";
+  };
+
+  // ── NPS pós-treinamento ──
+  const nps = detail.nps || null;
+  const npsScore = nps?.nps_0_10 ?? null;
+  const npsCls = nps?.classificacao === "promotor" ? "green" : nps?.classificacao === "detrator" ? "red" : "";
 
   // LIS
   const lis = ld.intelligence_score_total || (ld.intelligence_score as any)?.score_total || 0;
