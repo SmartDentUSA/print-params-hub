@@ -31152,6 +31152,7 @@ export type Database = {
         Returns: Json
       }
       fn_safe_date: { Args: { p_text: string }; Returns: string }
+      fn_safe_timestamptz: { Args: { p_text: string }; Returns: string }
       fn_saude_sistema: {
         Args: never
         Returns: {
