@@ -124,17 +124,7 @@ export function useEnrollment() {
         } catch (e: any) { console.warn('[tags]', e); }
       }
 
-      // 4. Kanban PipeRun (best-effort) — pipeline e stage dinamicos por curso
-      if (p.dealResult.matched_deal.deal_id) {
-        await supabase.functions.invoke('smart-ops-kanban-move', {
-          body: {
-            deal_id:           p.dealResult.matched_deal.deal_id,
-            target_stage:      p.course.stage_after_enroll,
-            pipeline_id:       p.course.pipeline_id_kanban,
-            check_golden_rule: true,
-          },
-        }).catch((e: any) => console.warn('[kanban]', e));
-      }
+      // 4. (removido) Move de etapa no PipeRun — movimentação de funil é manual (Golden Rule).
 
       // 5. Log de atividade — event_type (não activity_type)
       await (supabase as any).from('lead_activity_log').insert({

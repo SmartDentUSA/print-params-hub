@@ -87,7 +87,6 @@ export function SmartOpsKanban() {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
   const [draggedId, setDraggedId] = useState<string | null>(null);
-  const [movingToPiperun, setMovingToPiperun] = useState(false);
   const [search, setSearch] = useState("");
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [activeTab, setActiveTab] = useState("vendas");
@@ -245,25 +244,8 @@ export function SmartOpsKanban() {
     }
     fetchTabCounts();
 
-    if (lead.piperun_id) {
-      setMovingToPiperun(true);
-      try {
-        const { data: prResult, error: prError } = await supabase.functions.invoke("smart-ops-kanban-move", {
-          body: { piperun_id: lead.piperun_id, new_status: newStatus },
-        });
-        if (prError) {
-          toast({ title: "Lead movido localmente", description: `PipeRun não sincronizado`, variant: "destructive" });
-        } else if (prResult?.skipped) {
-          toast({ title: "Lead movido", description: `Sem mapeamento PipeRun` });
-        } else if (prResult?.success) {
-          toast({ title: "Lead movido + PipeRun ✅" });
-        }
-      } catch (err) {
-        console.error("[Kanban] PipeRun sync error:", err);
-      } finally {
-        setMovingToPiperun(false);
-      }
-    }
+    // Movimentação de etapa no PipeRun é manual (Golden Rule): nenhuma sincronização automática aqui.
+    toast({ title: "Lead movido localmente" });
     setDraggedId(null);
   };
 
@@ -291,10 +273,6 @@ export function SmartOpsKanban() {
           <RefreshCw className="h-4 w-4" />
         </Button>
       </div>
-
-      {movingToPiperun && (
-        <div className="text-xs text-muted-foreground animate-pulse">⏳ Sincronizando PipeRun...</div>
-      )}
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="flex flex-wrap h-auto gap-1 bg-transparent p-0">
