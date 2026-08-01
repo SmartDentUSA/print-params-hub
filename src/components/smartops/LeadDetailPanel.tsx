@@ -576,6 +576,27 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
       const isEcommerce = ev.source_channel === "ecommerce";
       const isForm = (ev.event_type || "") === "form_submission";
       const evData = ev.event_data || {};
+
+      // Atividades realizadas no CRM (ligação, reunião, WhatsApp, e-mail, tarefa)
+      if ((ev.event_type || "") === "crm_activity") {
+        const kindLabel = evData.kind_label || "Atividade";
+        const icon = evData.icon || "🗒️";
+        const detail: Record<string, string> = {};
+        if (evData.owner) detail["Responsável"] = String(evData.owner);
+        if (evData.comment) detail["Comentário"] = String(evData.comment);
+        if (evData.deal_id) detail["Negócio"] = `#${evData.deal_id}`;
+        detail["Situação"] = evData.concluida ? "Concluída" : "Pendente";
+        events.push({
+          date: ev.event_timestamp || ev.created_at,
+          dotCls: "tl-dot-crm",
+          title: `${icon} ${kindLabel} — ${evData.title || ev.entity_name || "CRM"}`,
+          desc: evData.comment ? String(evData.comment).slice(0, 140) : ownerDisplay(evData.owner) || "",
+          tags: ["PipeRun"],
+          detail,
+        });
+        return;
+      }
+
       const ecommerceDetail: Record<string, string> = {};
       if (isEcommerce) {
         if (evData.valor) ecommerceDetail["Valor"] = formatBRLFull(evData.valor);
