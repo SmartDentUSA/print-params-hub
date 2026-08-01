@@ -1,30 +1,32 @@
-# Corrigir `etapa_crm` inexistente no Copilot
+# Desligamento do `smart-ops-kanban-move`
 
-`lia_attendances.etapa_crm` não existe no banco. As referências no Copilot causam erro `column does not exist` em selects, filtros e no update de etapa. A coluna real do funil CRM é **`piperun_stage_name`** (31.714 de 32.746 leads canônicos preenchidos, sincronizada do PipeRun junto com `piperun_stage_id` e `piperun_stage_changed_at`).
+A auditoria da semana (25/07 → 01/08) não encontrou nenhuma execução da função: zero registros em `system_health_logs` e todas as 50.202 transições em `piperun_stage_transitions` com `source = auto_trigger` (leitura do webhook). Os três chamadores existentes estão mortos, quebrados ou fora da Golden Rule.
 
-## Deploy 1 — somente leitura
+## Situação dos chamadores
 
-Em `supabase/functions/smart-ops-copilot/index.ts`, trocar `etapa_crm` por `piperun_stage_name` em todos os pontos de leitura:
+| Chamador | Estado | Ação |
+|---|---|---|
+| `src/components/SmartOpsKanban.tsx` | `SmartOpsKanban` é exportado mas não é importado em nenhum lugar de `src/` — código morto | Remover o bloco de invoke (e o estado `movingToPiperun` que só existe para ele) |
+| `src/hooks/useEnrollment.ts` (linha 129) | Envia `{ deal_id, target_stage, pipeline_id, check_golden_rule }`; a função só aceita `{ piperun_id, new_status }` → falha silenciosa em `.catch(console.warn)` desde sempre | Remover a chamada; a matrícula deixa de tentar mover o card |
+| `smart-ops-copilot` → tool `move_crm_stage` | Funciona, mas faz PUT direto de `stage_id`+`pipeline_id` sem guard de Golden Rule e escreve em `etapa_crm` (coluna inexistente) | Remover a tool do schema e o executor |
 
-- selects padrão de leads (linhas ~1106, 1157, 1845, 1898, 2117, 2127)
-- allowlist de campos e colunas expostas ao LLM (~1130, 1809, 2196)
-- agregação por etapa (~1826-1828)
-- checagem de campo faltante no diagnóstico (~2225)
-- descrições dos schemas de tools (~207, 208, 254) passam a citar `piperun_stage_name`
+## Passos
 
-Mesma troca no ponto equivalente de `smart-ops-piperun-webhook/index.ts` (~1676, 1687), que também lê `etapa_crm` no check de completude.
+1. **`useEnrollment.ts`** — apagar o passo 4 (invoke do kanban-move). Nada mais no hook depende dele; o log `treinamento_agendado` e o writeback continuam.
+2. **`SmartOpsKanban.tsx`** — remover a invoke e a UI de "sincronizando PipeRun". O drag-drop continua atualizando `lead_status` local (comportamento atual, componente não renderizado).
+3. **`smart-ops-copilot/index.ts`** — remover a entrada `move_crm_stage` do array de tools, o `case` no dispatcher e a função `executeMoveCrmStage`. Isso também elimina 3 das referências a `etapa_crm`. Deploy só via Lovable/CLI (arquivo ~170 KB), nunca por MCP.
+4. **Função** — manter `supabase/functions/smart-ops-kanban-move/` e a entrada em `supabase/config.toml` no lugar por ora, sem chamadores. Sem deleção nesta etapa: se aparecer necessidade de move manual, a função volta a ser usada com guard próprio.
 
-Nesta fase a tool `move_lead_stage` continua movendo o deal no PipeRun via `smart-ops-kanban-move`, mas **não escreve** a etapa local: o update local é removido e a resposta informa que a etapa local será atualizada pelo webhook do PipeRun. Assim nenhuma escrita nova entra em campo de funil antes da validação.
+## Consequência operacional
 
-Validar depois do deploy: pedir ao Copilot contagem de leads por etapa e comparar com os números do time comercial; conferir que `etapa_crm does not exist` desaparece dos logs por 24 h.
+Depois disso, nenhuma automação move card no PipeRun exceto:
+- `smart-ops-lia-assign`, apenas na criação do deal ou na reativação Estagnados → Vendas;
+- `smart-ops-stagnant-processor`, restrito ao funil Estagnados e com cron desativado.
 
-## Deploy 2 — liberar escrita (após validação)
-
-Reativar em `move_lead_stage` a escrita local de `piperun_stage_name` + `piperun_stage_id` + `piperun_stage_changed_at`, mantendo o move no PipeRun como fonte da verdade.
+Movimentação de etapa em Vendas passa a ser 100% manual na UI do PipeRun, e o `smart-ops-piperun-webhook` continua espelhando as mudanças para `piperun_stage_name` / timeline.
 
 ## Detalhes técnicos
 
-- `src/integrations/supabase/types.ts` é gerado pela API do Supabase; como não há mudança de schema, ele não é editado à mão. A declaração de `etapa_crm` nele é resíduo e será corrigida na próxima regeneração automática.
-- As migrations `20260722175031_…` e `20260728223606_…` citam `etapa_crm` apenas dentro da allowlist de campos da função `smart_ops_field_normalize_distinct` — não houve rename de coluna; o campo simplesmente nunca existiu. Ajuste dessa allowlist fica fora deste escopo (a função rejeita o campo com erro explícito, sem risco de dado corrompido).
-- `smart-ops-copilot/index.ts` tem ~170 KB: deploy apenas via Lovable/CLI, nunca por MCP `deploy_edge_function`.
-- Rollback: redeploy da versão anterior da Edge Function.
+- Nenhuma migration; nenhuma mudança de schema.
+- A correção completa de `etapa_crm` no Copilot (≈15 pontos de leitura) fica no plano separado já aprovado; aqui só saem as referências dentro de `move_crm_stage`.
+- Rollback: redeploy da versão anterior do Copilot e revert dos dois arquivos de frontend.
