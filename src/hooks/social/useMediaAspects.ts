@@ -18,23 +18,24 @@ export function useMediaAspects(items: Array<{ url?: string; type?: string }>): 
       setAspects([]);
       return;
     }
+    const load = (url: string, useCors: boolean) =>
+      new Promise<MediaAspect | null>((resolve) => {
+        const img = new Image();
+        if (useCors) img.crossOrigin = 'anonymous';
+        img.onload = () =>
+          resolve({
+            url,
+            width: img.naturalWidth,
+            height: img.naturalHeight,
+            ratio: img.naturalHeight ? img.naturalWidth / img.naturalHeight : 0,
+          });
+        img.onerror = () => resolve(null);
+        img.src = url;
+      });
+
     Promise.all(
-      imageItems.map(
-        (m) =>
-          new Promise<MediaAspect | null>((resolve) => {
-            const img = new Image();
-            img.crossOrigin = 'anonymous';
-            img.onload = () =>
-              resolve({
-                url: m.url,
-                width: img.naturalWidth,
-                height: img.naturalHeight,
-                ratio: img.naturalHeight ? img.naturalWidth / img.naturalHeight : 0,
-              });
-            img.onerror = () => resolve(null);
-            img.src = m.url;
-          }),
-      ),
+      // Tenta com CORS e, se falhar (bucket sem header), refaz sem crossOrigin
+      imageItems.map((m) => load(m.url, true).then((r) => r ?? load(m.url, false))),
     ).then((arr) => {
       if (!cancelled) setAspects(arr.filter(Boolean) as MediaAspect[]);
     });
