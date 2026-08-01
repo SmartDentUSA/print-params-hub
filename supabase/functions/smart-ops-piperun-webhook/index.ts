@@ -27,6 +27,7 @@ import { sanitizeEquipmentLabel } from "../_shared/equipment-field-guard.ts";
 import { normalizeAreaAtuacao } from "../_shared/zernio-field-normalizer.ts";
 import { hydrateDealPayload, needsHydration, fetchCompanyContacts } from "../_shared/piperun-deal-hydrate.ts";
 import { claimSellerNoteSlot, releaseSellerNoteSlot } from "../_shared/seller-note-lock.ts";
+import { syncPiperunActivitiesToTimeline } from "../_shared/piperun-activity-normalizer.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
