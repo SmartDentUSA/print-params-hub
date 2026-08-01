@@ -356,6 +356,9 @@ verify_jwt = false
 [functions.backfill-ltv]
 verify_jwt = false
 
+[functions.backfill-crm-activities]
+verify_jwt = false
+
 [functions.import-proposals-csv]
 verify_jwt = false
 

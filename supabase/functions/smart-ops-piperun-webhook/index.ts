@@ -27,6 +27,7 @@ import { sanitizeEquipmentLabel } from "../_shared/equipment-field-guard.ts";
 import { normalizeAreaAtuacao } from "../_shared/zernio-field-normalizer.ts";
 import { hydrateDealPayload, needsHydration, fetchCompanyContacts } from "../_shared/piperun-deal-hydrate.ts";
 import { claimSellerNoteSlot, releaseSellerNoteSlot } from "../_shared/seller-note-lock.ts";
+import { syncPiperunActivitiesToTimeline } from "../_shared/piperun-activity-normalizer.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -1605,6 +1606,17 @@ Deno.serve(async (req) => {
     }).then(({ error }) => {
       if (error) console.warn("[piperun-webhook] timeline insert error:", error.message);
     });
+
+    // ─── Atividades do CRM → Timeline Unificada (dedupe por activity.id) ───
+    try {
+      if (Array.isArray(deal.activities) && (deal.activities as unknown[]).length > 0) {
+        const res = await syncPiperunActivitiesToTimeline(supabase, leadId, deal.activities);
+        if (res.error) console.warn("[piperun-webhook] crm_activity sync error:", res.error);
+        else if (res.inserted > 0) console.log(`[piperun-webhook] crm_activity +${res.inserted} lead=${leadId}`);
+      }
+    } catch (e) {
+      console.warn("[piperun-webhook] crm_activity sync exception:", (e as Error).message);
+    }
 
     // ─── Seller Summary Note → PipeRun (idempotent via hash) ───
     try {
