@@ -10,8 +10,18 @@ import type { PostInput } from '@/lib/social/postSchema';
  * pelos canais selecionados. Evita o erro "Aspect ratio is outside range"
  * do Zernio (Instagram Feed rejeita imagens verticais 9:16, por exemplo).
  */
-export function MediaCompatibilityPanel({ value }: { value: PostInput }) {
-  const aspects = useMediaAspects(value.media_items);
+export function MediaCompatibilityPanel({
+  value,
+  extraUrls = [],
+}: {
+  value: PostInput;
+  extraUrls?: string[];
+}) {
+  const items = [
+    ...extraUrls.map((url) => ({ url, type: 'image' })),
+    ...value.media_items,
+  ];
+  const aspects = useMediaAspects(items);
   if (aspects.length === 0 || value.channels.length === 0) return null;
 
   const selected = value.channels
