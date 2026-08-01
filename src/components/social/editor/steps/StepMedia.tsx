@@ -12,6 +12,7 @@ import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { MediaItemsEditor } from '../MediaItemsEditor';
 import { MediaCompatibilityPanel } from '../MediaCompatibilityPanel';
+import { ChannelRequirementsPanel } from '../ChannelRequirementsPanel';
 import type { PostInput } from '@/lib/social/postSchema';
 import { presetForPlatform, IMAGE_PRESETS, type ImagePresetId } from '@/lib/social/imagePresets';
 import {
@@ -409,9 +410,12 @@ export function StepMedia({
           hint="Imagens ou vídeos (até 500MB cada)"
           onSplitIntoPosts={onSplitIntoPosts}
         />
-        {value.media_items.length > 0 && value.channels.length > 0 && (
-          <div className="mt-3">
-            <MediaCompatibilityPanel value={value} />
+        {value.channels.length > 0 && (
+          <div className="mt-3 space-y-3">
+            <ChannelRequirementsPanel value={value} />
+            {totalMediaCount > 0 && (
+              <MediaCompatibilityPanel value={value} extraUrls={carrosselImages} />
+            )}
           </div>
         )}
       </div>
