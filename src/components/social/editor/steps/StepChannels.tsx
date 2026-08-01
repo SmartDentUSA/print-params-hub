@@ -4,6 +4,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { SOCIAL_CHANNELS, SOCIAL_BRAND_HEX, type SocialPlatform } from '@/lib/socialChannels';
 import type { ChannelInput, PostInput } from '@/lib/social/postSchema';
 import { CHANNEL_FORMAT_OPTIONS, ChannelFormatIcon, type ChannelFormatOption } from '../ChannelFormatIcon';
+import { ChannelRequirementsPanel } from '../ChannelRequirementsPanel';
 
 interface Props {
   value: PostInput;
@@ -66,6 +67,8 @@ export function StepChannels({ value, onChange }: Props) {
           Cada formato marcado gera <strong>1 publicação separada</strong> — Feed, Reels e Stories do mesmo perfil viram 3 posts distintos.
         </p>
       </div>
+
+      {value.channels.length > 0 && <ChannelRequirementsPanel value={value} />}
 
       {value.channels.some(needsExtras) && (
         <div className="space-y-3 pt-2">
