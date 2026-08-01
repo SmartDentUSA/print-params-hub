@@ -1607,6 +1607,17 @@ Deno.serve(async (req) => {
       if (error) console.warn("[piperun-webhook] timeline insert error:", error.message);
     });
 
+    // ─── Atividades do CRM → Timeline Unificada (dedupe por activity.id) ───
+    try {
+      if (Array.isArray(deal.activities) && (deal.activities as unknown[]).length > 0) {
+        const res = await syncPiperunActivitiesToTimeline(supabase, leadId, deal.activities);
+        if (res.error) console.warn("[piperun-webhook] crm_activity sync error:", res.error);
+        else if (res.inserted > 0) console.log(`[piperun-webhook] crm_activity +${res.inserted} lead=${leadId}`);
+      }
+    } catch (e) {
+      console.warn("[piperun-webhook] crm_activity sync exception:", (e as Error).message);
+    }
+
     // ─── Seller Summary Note → PipeRun (idempotent via hash) ───
     try {
       const PIPERUN_API_KEY = Deno.env.get("PIPERUN_API_KEY") || Deno.env.get("PIPERUN_API_TOKEN");
