@@ -204,8 +204,8 @@ const tools = [
       parameters: {
         type: "object",
         properties: {
-          filters: { type: "object", description: "Filtros como {email: '...', cidade: '...', etapa_crm: '...'}" },
-          select: { type: "string", description: "Colunas a retornar (padrão: id,nome,email,telefone,etapa_crm,cidade,intelligence_score_total)" },
+          filters: { type: "object", description: "Filtros como {email: '...', cidade: '...', piperun_stage_name: '...'}" },
+          select: { type: "string", description: "Colunas a retornar (padrão: id,nome,email,telefone,piperun_stage_name,cidade,intelligence_score_total)" },
           limit: { type: "number", description: "Máximo de resultados (padrão 20, máx 50)" },
           search_text: { type: "string", description: "Busca textual no nome ou email" }
         },
@@ -222,7 +222,7 @@ const tools = [
         type: "object",
         properties: {
           lead_id: { type: "string", description: "UUID do lead" },
-          updates: { type: "object", description: "Campos a atualizar ex: {etapa_crm: 'negociacao', notas_sdr: '...'}" }
+          updates: { type: "object", description: "Campos a atualizar ex: {piperun_stage_name: 'negociacao', notas_sdr: '...'}" }
         },
         required: ["lead_id", "updates"]
       }
@@ -251,7 +251,7 @@ const tools = [
       parameters: {
         type: "object",
         properties: {
-          filters: { type: "object", description: "Filtros complexos: {cidade: '...', tem_impressora: 'sim', etapa_crm: '...', min_score: 50}" },
+          filters: { type: "object", description: "Filtros complexos: {cidade: '...', tem_impressora: 'sim', piperun_stage_name: '...', min_score: 50}" },
           description: { type: "string", description: "Descrição do público criado" }
         },
         required: ["filters"]
@@ -1087,7 +1087,7 @@ const tools = [
 // --- TOOL EXECUTORS ---
 
 async function executeQueryLeads(args: any) {
-  const select = args.select || "id,nome,email,telefone,etapa_crm,cidade,intelligence_score_total,tags_crm";
+  const select = args.select || "id,nome,email,telefone,piperun_stage_name,cidade,intelligence_score_total,tags_crm";
   const limit = Math.min(args.limit || 20, 50);
   let query = supabase.from("lia_attendances").select(select).limit(limit);
 
@@ -1111,7 +1111,7 @@ async function executeQueryLeads(args: any) {
 
 async function executeUpdateLead(args: any) {
   const safeFields = [
-    "etapa_crm", "notas_sdr", "tags_crm", "urgency_level", "interest_timeline",
+    "piperun_stage_name", "notas_sdr", "tags_crm", "urgency_level", "interest_timeline",
     "como_digitaliza", "especialidade", "cidade", "area_atuacao",
     "tem_impressora", "tem_scanner", "software_cad", "volume_mensal_pecas",
     "informacao_desejada", "comentario_perda", "cs_treinamento",
@@ -1138,7 +1138,7 @@ async function executeAddTags(args: any) {
 }
 
 async function executeCreateAudience(args: any) {
-  let query = supabase.from("lia_attendances").select("id,nome,email,telefone,etapa_crm,cidade,intelligence_score_total").limit(50);
+  let query = supabase.from("lia_attendances").select("id,nome,email,telefone,piperun_stage_name,cidade,intelligence_score_total").limit(50);
   const f = args.filters || {};
   for (const [key, value] of Object.entries(f)) {
     if (key === "min_score") {
@@ -1790,7 +1790,7 @@ async function executeQueryTable(args: any) {
 
 async function executeDescribeTable(args: any) {
   const schemas: Record<string, string[]> = {
-    lia_attendances: ["id","nome","email","telefone","cidade","etapa_crm","tags_crm","intelligence_score_total","urgency_level","interest_timeline","tem_impressora","tem_scanner","especialidade","created_at","proprietario_lead_crm","total_messages","total_sessions","proposals_total_value","lojaintegrada_ultimo_pedido_valor"],
+    lia_attendances: ["id","nome","email","telefone","cidade","piperun_stage_name","tags_crm","intelligence_score_total","urgency_level","interest_timeline","tem_impressora","tem_scanner","especialidade","created_at","proprietario_lead_crm","total_messages","total_sessions","proposals_total_value","lojaintegrada_ultimo_pedido_valor"],
     knowledge_contents: ["id","title","excerpt","slug","content_html","category_id","keywords","active","author_id","created_at"],
     knowledge_videos: ["id","title","description","url","embed_url","thumbnail_url","video_type","panda_tags","content_id","pandavideo_id","analytics_views","analytics_plays"],
     team_members: ["id","nome","email","telefone","papel","ativo"],
@@ -1807,9 +1807,9 @@ async function executeQueryStats(args: any) {
       return { metric: "total_leads", value: count };
     }
     case "leads_por_etapa": {
-      const { data } = await supabase.from("lia_attendances").select("etapa_crm").not("etapa_crm", "is", null);
+      const { data } = await supabase.from("lia_attendances").select("piperun_stage_name").not("piperun_stage_name", "is", null);
       const grouped: Record<string, number> = {};
-      data?.forEach((l: any) => { grouped[l.etapa_crm] = (grouped[l.etapa_crm] || 0) + 1; });
+      data?.forEach((l: any) => { grouped[l.piperun_stage_name] = (grouped[l.piperun_stage_name] || 0) + 1; });
       return { metric: "leads_por_etapa", data: grouped };
     }
     case "leads_por_cidade": {
@@ -1826,7 +1826,7 @@ async function executeQueryStats(args: any) {
       return { metric: "score_medio", value: avg, total_com_score: scores.length };
     }
     case "leads_recentes": {
-      const { data } = await supabase.from("lia_attendances").select("id,nome,email,created_at,etapa_crm").order("created_at", { ascending: false }).limit(10);
+      const { data } = await supabase.from("lia_attendances").select("id,nome,email,created_at,piperun_stage_name").order("created_at", { ascending: false }).limit(10);
       return { metric: "leads_recentes", leads: data };
     }
     default:
@@ -1879,7 +1879,7 @@ async function executeUnifyLeads(args: any) {
   if (filters.length === 0) return { error: "Forneça email ou telefone para buscar duplicatas" };
 
   const { data } = await supabase.from("lia_attendances")
-    .select("id,nome,email,telefone,created_at,etapa_crm")
+    .select("id,nome,email,telefone,created_at,piperun_stage_name")
     .or(filters.join(","))
     .limit(20);
 
@@ -2126,7 +2126,7 @@ async function executeVerifyConsolidation(args: any) {
   try {
     const criticalFields = [
       "pessoa_hash", "empresa_hash", "nome", "email", "telefone_normalized",
-      "etapa_crm", "piperun_deals_history", "empresa_nome", "empresa_piperun_id",
+      "piperun_stage_name", "piperun_deals_history", "empresa_nome", "empresa_piperun_id",
       "proposals_data", "proposals_total_value", "piperun_id", "pessoa_piperun_id",
       "cidade", "produto_interesse", "proprietario_lead_crm"
     ];
@@ -2155,7 +2155,7 @@ async function executeVerifyConsolidation(args: any) {
       if (!lead.pessoa_hash) missing.push("pessoa_hash");
       if (!lead.empresa_hash) missing.push("empresa_hash");
       if (!lead.telefone_normalized) missing.push("telefone");
-      if (!lead.etapa_crm) missing.push("etapa_crm");
+      if (!lead.piperun_stage_name) missing.push("piperun_stage_name");
       if (!lead.cidade) missing.push("cidade");
       if (!lead.produto_interesse) missing.push("produto_interesse");
       if (!lead.proprietario_lead_crm) missing.push("proprietario_lead_crm");
