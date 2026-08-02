@@ -1,0 +1,1 @@
+SELECT copilot_brain.refresh_all();
