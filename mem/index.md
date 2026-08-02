@@ -11,3 +11,4 @@
 - [Placeholder Identity Guard](mem://architecture/placeholder-identity-guard) — Nota do vendedor nunca mostra import_*@placeholder.local / "Nome não informado"; recupera identidade real pelo telefone
 - [Meta Form Origin Governance](mem://integration/meta-form-origin-governance) — Origem no CRM = origin_system_b de meta_form_mappings; nome cru do form Meta é só fallback
 - [kanban-move Desligado](mem://architecture/kanban-move-desligado) — smart-ops-kanban-move sem chamadores; move de etapa em Vendas é manual
+- [Lead Opportunities Taxonomy Auto-Register](mem://architecture/lead-opportunities-taxonomy-autoregister) — Trigger cadastra product_key ausente em product_taxonomy; impede erro 23503 em massa no compute-opportunity-engine
