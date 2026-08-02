@@ -1673,7 +1673,7 @@ Deno.serve(async (req) => {
     try {
       const { data: check } = await supabase
         .from("lia_attendances")
-        .select("pessoa_hash, empresa_hash, nome, email, telefone_normalized, etapa_crm, piperun_deals_history, empresa_nome, empresa_piperun_id, proposals_data, proposals_total_value, piperun_id, pessoa_piperun_id, cidade, produto_interesse, proprietario_lead_crm")
+        .select("pessoa_hash, empresa_hash, nome, email, telefone_normalized, piperun_stage_name, piperun_deals_history, empresa_nome, empresa_piperun_id, proposals_data, proposals_total_value, piperun_id, pessoa_piperun_id, cidade, produto_interesse, proprietario_lead_crm")
         .eq("id", leadId)
         .single();
 
@@ -1684,7 +1684,7 @@ Deno.serve(async (req) => {
         if (!check.pessoa_hash) missing.push("pessoa_hash");
         if (!check.empresa_hash) missing.push("empresa_hash");
         if (!check.telefone_normalized) missing.push("telefone");
-        if (!check.etapa_crm) missing.push("etapa_crm");
+        if (!check.piperun_stage_name) missing.push("etapa_crm");
         if (!check.cidade) missing.push("cidade");
         if (!check.produto_interesse) missing.push("produto_interesse");
         if (!check.proprietario_lead_crm) missing.push("proprietario_lead_crm");
