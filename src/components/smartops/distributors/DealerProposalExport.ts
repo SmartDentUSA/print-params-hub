@@ -244,7 +244,15 @@ export async function exportPriceTablePdf(
     const pageNo = (doc as any).internal.getCurrentPageInfo?.().pageNumber ?? 1;
     if (paintedPages.has(pageNo)) return;
     paintedPages.add(pageNo);
-    doc.addImage(bg, "PNG", 0, 0, pageW, pageH, undefined, "FAST");
+    if (bg) {
+      try {
+        doc.addImage(bg, "PNG", 0, 0, pageW, pageH, undefined, "FAST");
+      } catch {
+        drawFallbackLetterhead();
+      }
+    } else {
+      drawFallbackLetterhead();
+    }
     // Header field overlay — a compact block placed below the PNG title area,
     // safely inside the margin so it never crops. This is layout-independent
     // of the PNG label positions to guarantee alignment.
