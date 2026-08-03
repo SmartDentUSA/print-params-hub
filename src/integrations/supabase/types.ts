@@ -32120,6 +32120,7 @@ export type Database = {
       painel_comercial_refresh: { Args: { p_mes?: string }; Returns: undefined }
       painel_comercial_top_produtos: { Args: { p_mes?: string }; Returns: Json }
       painel_comercial_vendedores: { Args: { p_mes?: string }; Returns: Json }
+      painel_funil_refresh: { Args: { p_mes?: string }; Returns: undefined }
       painel_match_taxonomy: {
         Args: { p_nome: string }
         Returns: {
