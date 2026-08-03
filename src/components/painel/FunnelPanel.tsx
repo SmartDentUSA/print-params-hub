@@ -3,23 +3,23 @@ import { StatusBadge, statusFromData } from "./StatusBadge";
 
 /**
  * Funil visual: barras centralizadas que afunilam de cima para baixo.
- * A largura é proporcional ao volume acumulado da etapa; entre as etapas
- * mostramos o % de passagem e destacamos o maior gargalo.
+ * Volume da etapa = leads nela ou em qualquer etapa posterior (soma-sufixo
+ * de `atual`), o que garante o afunilamento. Entre as etapas mostramos o
+ * % de passagem e destacamos o maior gargalo.
  */
 export function FunnelPanel({ rows }: { rows: PainelFunilRow[] }) {
   const ordenadas = [...rows].sort((a, b) => a.ordem - b.ordem);
-  const topo = Math.max(1, ...ordenadas.map((r) => r.acumulado ?? r.atual));
+  const volumes = ordenadas.map((_, i) =>
+    ordenadas.slice(i).reduce((acc, r) => acc + (r.atual ?? 0), 0),
+  );
+  const topo = Math.max(1, ...volumes);
   const hasTempo = ordenadas.some((r) => r.media_dias !== null);
 
-  const passagens = ordenadas.map((r, i) => {
-    if (i === 0) return null;
-    const antes = ordenadas[i - 1].acumulado ?? ordenadas[i - 1].atual;
-    const agora = r.acumulado ?? r.atual;
-    return antes > 0 ? (agora / antes) * 100 : null;
-  });
-  const menorPassagem = Math.min(
-    ...passagens.filter((p): p is number => p !== null),
+  const passagens = volumes.map((v, i) =>
+    i === 0 ? null : volumes[i - 1] > 0 ? (v / volumes[i - 1]) * 100 : null,
   );
+  const validas = passagens.filter((p): p is number => p !== null);
+  const menorPassagem = validas.length ? Math.min(...validas) : null;
 
   return (
     <div className="pc-card p-4">
@@ -30,7 +30,7 @@ export function FunnelPanel({ rows }: { rows: PainelFunilRow[] }) {
 
       <div className="pc-funnel">
         {ordenadas.map((r, i) => {
-          const volume = r.acumulado ?? r.atual;
+          const volume = volumes[i];
           const largura = Math.max(24, Math.round((volume / topo) * 100));
           const hue = 232 - Math.round((i / Math.max(1, ordenadas.length - 1)) * 80);
           const passagem = passagens[i];
