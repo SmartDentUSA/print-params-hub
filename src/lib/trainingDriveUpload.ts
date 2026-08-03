@@ -27,12 +27,13 @@ export interface PrepareResult {
 }
 
 async function authHeaders(): Promise<HeadersInit> {
-  // Mesma rota da criação de pasta do Drive: a função aceita a chave
-  // publicável; o token do usuário vai junto apenas quando existe, para
-  // registrar quem enviou a mídia.
+  // A função exige um JWT de usuário válido: sem sessão, nem tentamos chamar.
   const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
   const { data } = await supabase.auth.getSession();
-  const token = data.session?.access_token || anonKey;
+  const token = data.session?.access_token;
+  if (!token) {
+    throw new Error("Faça login novamente para enviar mídias de treinamento");
+  }
   return {
     Authorization: `Bearer ${token}`,
     apikey: anonKey,
