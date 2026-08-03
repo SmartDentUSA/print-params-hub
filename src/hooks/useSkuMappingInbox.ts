@@ -22,6 +22,7 @@ export interface CatalogVariationOption {
   id: string;
   sku: string | null;
   presentation: string | null;
+  presentation_qty: string | null;
   color: string | null;
   catalog_product_id: string;
   parent_name: string | null;
@@ -46,8 +47,10 @@ export function useSkuMappingInbox() {
         (supabase as any)
           .from("catalog_product_variations")
           .select(
-            "id, sku, presentation, color, catalog_product_id, system_a_catalog:catalog_product_id ( name, product_category, product_subcategory )",
+            "id, sku, presentation, presentation_qty, color, catalog_product_id, system_a_catalog:catalog_product_id ( name, product_category, product_subcategory )",
           )
+          .order("catalog_product_id", { ascending: true })
+          .order("sort_order", { ascending: true })
           .limit(5000),
       ]);
       if (inbox.error) throw inbox.error;
@@ -57,6 +60,7 @@ export function useSkuMappingInbox() {
         id: v.id,
         sku: v.sku,
         presentation: v.presentation,
+        presentation_qty: v.presentation_qty,
         color: v.color,
         catalog_product_id: v.catalog_product_id,
         parent_name: v.system_a_catalog?.name ?? null,
@@ -86,6 +90,7 @@ export function useSkuMappingInbox() {
           id: `cat:${c.id}`,
           sku,
           presentation: null,
+          presentation_qty: null,
           color: null,
           catalog_product_id: c.id,
           parent_name: c.name,
@@ -112,7 +117,12 @@ export function useSkuMappingInbox() {
     async (row: SkuInboxRow, variation: CatalogVariationOption | null, isKit: boolean) => {
       const nameVariant = row.sample_name.trim();
       const nomeCanonico = variation
-        ? [variation.parent_name, variation.presentation].filter(Boolean).join(" — ") ||
+        ? [
+            variation.parent_name,
+            [variation.presentation_qty, variation.presentation].filter(Boolean).join(" "),
+          ]
+            .filter(Boolean)
+            .join(" — ") ||
           variation.sku ||
           nameVariant
         : nameVariant;
