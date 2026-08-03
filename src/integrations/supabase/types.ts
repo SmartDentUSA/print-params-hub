@@ -32057,6 +32057,23 @@ export type Database = {
       increment_lookup_hit: { Args: { lookup_id: string }; Returns: undefined }
       is_admin: { Args: { user_id: string }; Returns: boolean }
       is_author: { Args: { user_id: string }; Returns: boolean }
+      list_lead_origins: {
+        Args: never
+        Returns: {
+          active_leads_count: number
+          first_lead_at: string
+          is_active: boolean
+          last_lead_at: string
+          leads_count: number
+          mapped: boolean
+          mapping_id: string
+          origin_key: string
+          origin_name: string
+          origin_type: string
+          source_kind: string
+          workflow_stage_target: string
+        }[]
+      }
       list_table_columns: {
         Args: { p_table: string }
         Returns: {
