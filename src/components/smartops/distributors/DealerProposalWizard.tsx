@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, ArrowRight, Save, FileSpreadsheet, FileText, FileType, History, Trash2, RotateCcw, Pencil, Plus, ImageOff } from "lucide-react";
 import { toast } from "sonner";
 import type { DealerPriceItem, DealerPriceList, Distributor } from "./types";
-import { recalcDealerPrice, recalcDiscount, formatMoney, isFreeSampleVariation, categoryRank, isKitProduct, kitFirst } from "./types";
+import { recalcDealerPrice, recalcDiscount, formatMoney, isFreeSampleVariation, categoryRank, isKitProduct, kitFirst, compareProductName, parseVariationQtyGrams } from "./types";
 import { exportPriceTableXlsx, safePdf, safeDocx } from "./DealerProposalExport";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
@@ -291,11 +291,21 @@ export function DealerProposalWizard({ distributors }: Props) {
       for (const sub of g.subs) {
         sub.rows = sub.rows
           .map((r, i) => ({ r, i }))
-          .sort((x, y) =>
-            kitFirst(
+          .sort((x, y) => {
+            const kf = kitFirst(
               isKitProduct(x.r.name, (x.r as any).sku, x.r.subcategory),
               isKitProduct(y.r.name, (y.r as any).sku, y.r.subcategory),
-            ) || x.i - y.i)
+            );
+            if (kf !== 0) return kf;
+            // Sequência lógica de nome; variações do mesmo produto ficam juntas
+            // e ordenadas pela quantidade (maior primeiro).
+            const nc = compareProductName(x.r.name, y.r.name);
+            if (nc !== 0) return nc;
+            const qa = parseVariationQtyGrams((x.r as any).variant ?? (x.r as any).presentation_qty);
+            const qb = parseVariationQtyGrams((y.r as any).variant ?? (y.r as any).presentation_qty);
+            if (qa != null && qb != null && qa !== qb) return qb - qa;
+            return x.i - y.i;
+          })
           .map((e) => e.r);
       }
     }
