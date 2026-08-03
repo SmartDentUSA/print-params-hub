@@ -448,6 +448,9 @@ verify_jwt = false
 [functions.training-create-drive-folder]
 verify_jwt = false
 
+[functions.training-drive-media-upload]
+verify_jwt = true
+
 [functions.training-factory-trigger]
 verify_jwt = false
 
