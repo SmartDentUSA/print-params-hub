@@ -1,0 +1,104 @@
+/* Painel Comercial — TV dashboard. Tokens escopados para não afetar o app. */
+.painel {
+  --pc-bg: 220 40% 6%;
+  --pc-surface: 220 34% 10%;
+  --pc-surface-2: 220 30% 14%;
+  --pc-border: 220 24% 20%;
+  --pc-text: 210 30% 96%;
+  --pc-text-dim: 215 16% 66%;
+  --pc-accent: 168 76% 45%;
+  --pc-ok: 152 62% 45%;
+  --pc-warn: 38 92% 55%;
+  --pc-gap: 0 72% 55%;
+  --pc-info: 205 90% 58%;
+
+  min-height: 100vh;
+  background: radial-gradient(120% 100% at 50% 0%, hsl(220 44% 12%) 0%, hsl(var(--pc-bg)) 60%);
+  color: hsl(var(--pc-text));
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  padding: 1.25rem 1.5rem 2rem;
+}
+
+.painel h1, .painel h2, .painel .pc-num {
+  font-family: "Space Grotesk", Inter, ui-sans-serif, sans-serif;
+  letter-spacing: -0.02em;
+}
+
+.pc-card {
+  background: linear-gradient(180deg, hsl(var(--pc-surface-2)) 0%, hsl(var(--pc-surface)) 100%);
+  border: 1px solid hsl(var(--pc-border));
+  border-radius: 14px;
+}
+
+.pc-label {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  color: hsl(var(--pc-text-dim));
+}
+
+.pc-num { font-size: 2rem; font-weight: 700; line-height: 1.05; }
+.pc-num-sm { font-size: 1.35rem; font-weight: 700; line-height: 1.1; }
+.pc-dim { color: hsl(var(--pc-text-dim)); }
+
+.pc-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.6rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 0.12rem 0.42rem;
+  border-radius: 999px;
+  border: 1px solid currentColor;
+}
+.pc-badge-ok { color: hsl(var(--pc-ok)); }
+.pc-badge-parcial { color: hsl(var(--pc-warn)); }
+.pc-badge-gap { color: hsl(var(--pc-gap)); }
+
+.pc-up { color: hsl(var(--pc-ok)); }
+.pc-down { color: hsl(var(--pc-gap)); }
+.pc-accent { color: hsl(var(--pc-accent)); }
+.pc-info { color: hsl(var(--pc-info)); }
+
+.pc-table { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
+.pc-table th {
+  text-align: left;
+  font-size: 0.62rem;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: hsl(var(--pc-text-dim));
+  padding: 0.4rem 0.5rem;
+  border-bottom: 1px solid hsl(var(--pc-border));
+  white-space: nowrap;
+}
+.pc-table td {
+  padding: 0.42rem 0.5rem;
+  border-bottom: 1px solid hsl(var(--pc-border) / 0.5);
+  white-space: nowrap;
+}
+.pc-table tbody tr:nth-child(even) { background: hsl(var(--pc-surface-2) / 0.5); }
+.pc-table .pc-right { text-align: right; }
+
+.pc-bar {
+  height: 8px;
+  border-radius: 999px;
+  background: hsl(var(--pc-border));
+  overflow: hidden;
+}
+.pc-bar > span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, hsl(var(--pc-accent)), hsl(var(--pc-info)));
+}
+
+.pc-funnel-step {
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 0.7rem 0.6rem;
+  border-radius: 12px;
+  background: hsl(var(--pc-surface-2));
+  border: 1px solid hsl(var(--pc-border));
+}
