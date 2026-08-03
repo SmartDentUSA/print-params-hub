@@ -10,6 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { AdminCatalogTable } from "./AdminCatalogTable";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { SkuMappingTab } from "./admin/catalog/SkuMappingTab";
+import { OffCatalogTab } from "./admin/catalog/OffCatalogTab";
 import { exportCatalogXlsx } from "./admin/catalog/exportCatalogXlsx";
 
 export function AdminCatalog() {
@@ -283,6 +284,7 @@ export function AdminCatalog() {
         <TabsList>
           <TabsTrigger value="catalog">Catálogo</TabsTrigger>
           <TabsTrigger value="sku-mapping">Mapeamento de SKU</TabsTrigger>
+          <TabsTrigger value="off-catalog">Fora do Catálogo</TabsTrigger>
         </TabsList>
 
         <TabsContent value="catalog">
@@ -474,6 +476,25 @@ export function AdminCatalog() {
             </CardHeader>
             <CardContent>
               <SkuMappingTab />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="off-catalog">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <AlertTriangle className="w-5 h-5" />
+                Itens fora do catálogo (propostas do CRM)
+              </CardTitle>
+              <CardDescription>
+                Produtos identificados nas propostas do CRM que não existem no catálogo do sistema.
+                Selecione a variação correspondente do catálogo ou crie um nome de match canônico para
+                que os relatórios e o mix de produtos reconheçam o item.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <OffCatalogTab />
             </CardContent>
           </Card>
         </TabsContent>
