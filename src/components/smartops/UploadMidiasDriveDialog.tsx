@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { useTurmaParticipants, isBlockedStatus, type TurmaParticipant } from "@/hooks/useTurmaParticipants";
 import { useTurmaDriveMedia } from "@/hooks/useTurmaDriveMedia";
+import { useTurmaDriveInventory, upperKebabName } from "@/hooks/useTurmaDriveInventory";
 import { prepareUpload, runUpload, readDimensions, cancelUpload } from "@/lib/trainingDriveUpload";
 
 type DestSpec = {
@@ -182,6 +183,7 @@ export function UploadMidiasDriveDialog({
 
   const { data: participants = [] } = useTurmaParticipants(turmaId, open);
   const { data: media = [], refetch: refetchMedia } = useTurmaDriveMedia(turmaId, open);
+  const { data: inventory, refetch: refetchInventory } = useTurmaDriveInventory(turmaId, open);
 
   useEffect(() => {
     if (!open || !turmaId) return;
@@ -203,8 +205,12 @@ export function UploadMidiasDriveDialog({
       if (m.status !== "completed") continue;
       map[m.destination_key] = (map[m.destination_key] || 0) + 1;
     }
+    // O Drive é a fonte de verdade: arquivos enviados manualmente também contam.
+    for (const [k, n] of Object.entries(inventory?.counts || {})) {
+      map[k] = Math.max(map[k] || 0, n);
+    }
     return map;
-  }, [media]);
+  }, [media, inventory]);
 
   const testimonialsByKey = useMemo(() => {
     const map = new Map<string, { count: number; link: string | null }>();
@@ -216,6 +222,21 @@ export function UploadMidiasDriveDialog({
     }
     return map;
   }, [media]);
+
+  // Depoimentos já existentes no Drive (upload manual): casa pelo nome do arquivo.
+  const driveTestimonialCount = useMemo(() => {
+    const names = inventory?.names?.["videos_depoimentos"] || [];
+    const map = new Map<string, number>();
+    for (const p of participants) {
+      const token = upperKebabName(p.name);
+      if (!token) continue;
+      const n = names.filter((f) => f.toUpperCase().includes(token)).length;
+      if (n) map.set(p.key, n);
+    }
+    return map;
+  }, [inventory, participants]);
+
+  const driveTestimonialTotal = inventory?.names?.["videos_depoimentos"]?.length ?? 0;
 
   const dayOptions = days.length
     ? days.map((d) => ({ value: String(d.day_number), label: `Dia ${d.day_number} — ${fmt(d.date)}` }))
@@ -299,23 +320,27 @@ export function UploadMidiasDriveDialog({
     onOpenChange(v);
   };
 
-  const semDepoimento = activeParticipants.filter((p) => !testimonialsByKey.get(p.key)).length;
+  const semDepoimento = activeParticipants.filter(
+    (p) => !testimonialsByKey.get(p.key) && !driveTestimonialCount.get(p.key),
+  ).length;
 
   const participantCard = (p: TurmaParticipant) => {
     const t = testimonialsByKey.get(p.key);
+    const driveCount = driveTestimonialCount.get(p.key) ?? 0;
+    const total = Math.max(t?.count ?? 0, driveCount);
     const inFlight = queue.some((q) => q.status === "uploading" && (q.companionId ? `c:${q.companionId}` : `e:${q.enrollmentId}`) === p.key);
     const failed = queue.some((q) => q.status === "error" && (q.companionId ? `c:${q.companionId}` : `e:${q.enrollmentId}`) === p.key);
     return (
       <DropCard
         key={p.key}
         dest={{ ...TESTIMONIAL_DEST, folderName: p.name, tag: `${p.type}${p.status ? ` · ${p.status}` : ""}` }}
-        count={t?.count ?? 0}
+        count={total}
         subtitle={TESTIMONIAL_DEST.path}
         onFiles={(files) => addFiles(files, TESTIMONIAL_DEST, { enrollmentId: p.enrollment_id, companionId: p.companion_id, name: p.name })}
         footer={
           <div className="flex items-center justify-between gap-2">
             <span className="text-[10px] text-muted-foreground">
-              {inFlight ? "enviando…" : failed ? "erro no último envio" : t ? `${t.count} depoimento(s)` : "sem vídeo"}
+              {inFlight ? "enviando…" : failed ? "erro no último envio" : total ? `${total} depoimento(s)` : "sem vídeo"}
             </span>
             {t?.link && (
               <Button variant="ghost" size="sm" className="h-6 px-2 text-[10px]" asChild>
