@@ -24203,6 +24203,131 @@ export type Database = {
         }
         Relationships: []
       }
+      training_drive_media: {
+        Row: {
+          bytes_uploaded: number
+          category: string
+          companion_id: string | null
+          created_at: string
+          destination_key: string
+          drive_file_id: string | null
+          drive_folder_id: string
+          drive_web_view_link: string | null
+          enrollment_id: string | null
+          error_message: string | null
+          exception_reason: string | null
+          generated_filename: string
+          height: number | null
+          id: string
+          mime_type: string
+          orientation: string | null
+          original_filename: string
+          participant_name_snapshot: string | null
+          participant_type: string | null
+          resumable_session_uri: string | null
+          size_bytes: number
+          status: string
+          training_date: string | null
+          training_day: number | null
+          turma_id: string
+          updated_at: string
+          uploaded_at: string | null
+          uploaded_by: string
+          width: number | null
+        }
+        Insert: {
+          bytes_uploaded?: number
+          category: string
+          companion_id?: string | null
+          created_at?: string
+          destination_key: string
+          drive_file_id?: string | null
+          drive_folder_id: string
+          drive_web_view_link?: string | null
+          enrollment_id?: string | null
+          error_message?: string | null
+          exception_reason?: string | null
+          generated_filename: string
+          height?: number | null
+          id?: string
+          mime_type: string
+          orientation?: string | null
+          original_filename: string
+          participant_name_snapshot?: string | null
+          participant_type?: string | null
+          resumable_session_uri?: string | null
+          size_bytes: number
+          status?: string
+          training_date?: string | null
+          training_day?: number | null
+          turma_id: string
+          updated_at?: string
+          uploaded_at?: string | null
+          uploaded_by: string
+          width?: number | null
+        }
+        Update: {
+          bytes_uploaded?: number
+          category?: string
+          companion_id?: string | null
+          created_at?: string
+          destination_key?: string
+          drive_file_id?: string | null
+          drive_folder_id?: string
+          drive_web_view_link?: string | null
+          enrollment_id?: string | null
+          error_message?: string | null
+          exception_reason?: string | null
+          generated_filename?: string
+          height?: number | null
+          id?: string
+          mime_type?: string
+          orientation?: string | null
+          original_filename?: string
+          participant_name_snapshot?: string | null
+          participant_type?: string | null
+          resumable_session_uri?: string | null
+          size_bytes?: number
+          status?: string
+          training_date?: string | null
+          training_day?: number | null
+          turma_id?: string
+          updated_at?: string
+          uploaded_at?: string | null
+          uploaded_by?: string
+          width?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "training_drive_media_companion_id_fkey"
+            columns: ["companion_id"]
+            isOneToOne: false
+            referencedRelation: "smartops_enrollment_companions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "training_drive_media_enrollment_id_fkey"
+            columns: ["enrollment_id"]
+            isOneToOne: false
+            referencedRelation: "smartops_course_enrollments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "training_drive_media_turma_id_fkey"
+            columns: ["turma_id"]
+            isOneToOne: false
+            referencedRelation: "smartops_course_turmas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "training_drive_media_turma_id_fkey"
+            columns: ["turma_id"]
+            isOneToOne: false
+            referencedRelation: "v_turmas_com_vagas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       training_factory_assets: {
         Row: {
           asset_type: string
@@ -30445,6 +30570,10 @@ export type Database = {
       calculate_lead_intelligence_score: {
         Args: { p_lead_id: string }
         Returns: undefined
+      }
+      can_manage_training_media: {
+        Args: { _user_id: string }
+        Returns: boolean
       }
       check_copilot_brain_drift: { Args: never; Returns: Json }
       claim_active_sequence_enrollments: {
