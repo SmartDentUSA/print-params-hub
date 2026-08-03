@@ -425,26 +425,28 @@ export function UploadMidiasDriveDialog({
 
             <TabsContent value="videos" className="mt-3">
               <div className="space-y-5">
-                {VIDEO_DESTS.map((d) => (
-                  <div key={d.key} className="space-y-2">
-                    <div className="flex items-center gap-2">
-                      <div className="text-sm font-semibold">{d.folderName}</div>
-                      <Badge variant="secondary" className="font-mono text-[10px]">{d.folderTag}</Badge>
-                      <Badge variant="outline" className="font-mono text-[10px]">{countByDest[d.key] || 0} arq</Badge>
+                {[...dayOptions, { value: "geral", label: "Geral (sem dia específico)" }].map((o) => {
+                  const dayTotal = VIDEO_DESTS.reduce((sum, d) => sum + (countByDestDay[`${d.key}|${o.value}`] || 0), 0);
+                  return (
+                    <div key={o.value} className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <div className="text-sm font-semibold">{o.label}</div>
+                        <Badge variant="outline" className="font-mono text-[10px]">{dayTotal} arq</Badge>
+                      </div>
+                      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                        {VIDEO_DESTS.map((d) => (
+                          <DropCard
+                            key={`${o.value}-${d.key}`}
+                            dest={d}
+                            count={countByDestDay[`${d.key}|${o.value}`] || 0}
+                            subtitle={d.path}
+                            onFiles={(files) => addFiles(files, d, { day: o.value })}
+                          />
+                        ))}
+                      </div>
                     </div>
-                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                      {[...dayOptions, { value: "geral", label: "Geral (sem dia específico)" }].map((o) => (
-                        <DropCard
-                          key={`${d.key}-${o.value}`}
-                          dest={{ ...d, folderName: o.label }}
-                          count={countByDestDay[`${d.key}|${o.value}`] || 0}
-                          subtitle={d.path}
-                          onFiles={(files) => addFiles(files, d, { day: o.value })}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </TabsContent>
 
