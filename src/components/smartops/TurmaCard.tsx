@@ -64,9 +64,10 @@ export function TurmaCard({ turma, companionCount, status, onEnroll, onShare }: 
     const url = turma.drive_folder_url ?? turma.factory_drive_folder_url ?? null;
     if (id) setDriveFolderId(id);
     if (url) setDriveFolderUrl(url);
-    if (!id && !url) {
-      const derived = url ?? null;
-      if (!derived) return;
+    // Se só houver URL, extrai o id para liberar o upload de mídias
+    if (!id && url) {
+      const m = url.match(/\/folders\/([^/?#]+)/);
+      if (m) setDriveFolderId(m[1]);
     }
   }, [turma.drive_folder_id, turma.factory_drive_folder_id, turma.drive_folder_url, turma.factory_drive_folder_url]);
   const { data: driveMedia = [] } = useTurmaDriveMedia(turma.id, !!driveFolderId);
