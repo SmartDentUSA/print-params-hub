@@ -183,6 +183,8 @@ export function DealerProposalWizard({ distributors }: Props) {
     for (const v of (varRes.data as any) || []) {
       const p = productsById.get(v.catalog_product_id);
       if (!p) continue;
+      // Controle granular por variação (Gestão de Catálogo → coluna "Dist.").
+      if (v.distribute_enabled === false) continue;
       // Amostras grátis (100g em 3.1 RESINAS 3D) não podem ser adicionadas a propostas.
       if (isFreeSampleVariation(p.product_category, p.product_subcategory, v.presentation_qty)) continue;
       const key = `${v.catalog_product_id}::${norm(v.presentation_qty)}`;
