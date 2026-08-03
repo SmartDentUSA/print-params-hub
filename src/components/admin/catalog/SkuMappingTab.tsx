@@ -265,6 +265,11 @@ export function SkuMappingTab() {
     try {
       await saveMapping(row, variation, false);
       setLastSavedKey(row.name_key);
+      if (offCatalogMode) {
+        setCats((c) => ({ ...c, [row.name_key]: variation.parent_category || c[row.name_key] || "" }));
+        setSubs((c) => ({ ...c, [row.name_key]: variation.parent_subcategory || c[row.name_key] || "" }));
+        setResolved((c) => ({ ...c, [row.name_key]: variation.sku || variation.parent_name || "vinculado" }));
+      }
       setPendingMappings((current) => {
         const next = { ...current };
         delete next[row.name_key];
