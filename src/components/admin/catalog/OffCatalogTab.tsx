@@ -136,6 +136,34 @@ export function OffCatalogTab() {
   const [names, setNames] = useState<Record<string, string>>({});
   const [savingKey, setSavingKey] = useState<string | null>(null);
   const [resolved, setResolved] = useState<Record<string, string>>({});
+  const [cats, setCats] = useState<Record<string, string>>({});
+  const [subs, setSubs] = useState<Record<string, string>>({});
+
+  // Listas oficiais de categoria/subcategoria vindas do catálogo.
+  const categoryOptions = useMemo(() => {
+    const s = new Set<string>();
+    variations.forEach((v) => v.parent_category && s.add(v.parent_category.trim()));
+    return Array.from(s).sort((a, b) => a.localeCompare(b));
+  }, [variations]);
+
+  const subcategoryOptions = useMemo(() => {
+    const map = new Map<string, Set<string>>();
+    variations.forEach((v) => {
+      if (!v.parent_subcategory) return;
+      const key = (v.parent_category || "").trim();
+      if (!map.has(key)) map.set(key, new Set());
+      map.get(key)!.add(v.parent_subcategory.trim());
+    });
+    return map;
+  }, [variations]);
+
+  const subOptionsFor = (categoria: string) => {
+    const exact = subcategoryOptions.get((categoria || "").trim());
+    if (exact && exact.size) return Array.from(exact).sort((a, b) => a.localeCompare(b));
+    const all = new Set<string>();
+    subcategoryOptions.forEach((set) => set.forEach((x) => all.add(x)));
+    return Array.from(all).sort((a, b) => a.localeCompare(b));
+  };
 
   // Catalog fingerprints (names + skus) to detect "not in catalog".
   const catalogIndex = useMemo(() => {
@@ -183,14 +211,19 @@ export function OffCatalogTab() {
       count: offCatalog.length,
       gmv: offCatalog.reduce((s, r) => s + Number(r.gmv || 0), 0),
       named: offCatalog.filter((r) => !!r.nome_canonico || resolved[r.name_key]).length,
+      classified: offCatalog.filter(
+        (r) => !!(cats[r.name_key] ?? r.categoria) && !!(subs[r.name_key] ?? r.subcategoria),
+      ).length,
     }),
-    [offCatalog, resolved],
+    [offCatalog, resolved, cats, subs],
   );
 
   const handleLinkCatalog = async (row: SkuInboxRow, v: CatalogVariationOption) => {
     setSavingKey(row.name_key);
     try {
       await saveMapping(row, v, false);
+      setCats((c) => ({ ...c, [row.name_key]: v.parent_category || c[row.name_key] || "" }));
+      setSubs((c) => ({ ...c, [row.name_key]: v.parent_subcategory || c[row.name_key] || "" }));
       setResolved((c) => ({ ...c, [row.name_key]: v.sku || v.parent_name || "vinculado" }));
       toast({ title: "✅ Vinculado ao catálogo", description: v.parent_name || v.sku || "" });
     } catch (e: any) {
@@ -202,9 +235,11 @@ export function OffCatalogTab() {
 
   const handleCreateName = async (row: SkuInboxRow) => {
     const value = (names[row.name_key] ?? row.nome_canonico ?? row.sample_name).trim();
+    const categoria = (cats[row.name_key] ?? row.categoria ?? "").trim() || null;
+    const subcategoria = (subs[row.name_key] ?? row.subcategoria ?? "").trim() || null;
     setSavingKey(row.name_key);
     try {
-      await saveCanonicalName(row, value);
+      await saveCanonicalName(row, value, categoria, subcategoria);
       setResolved((c) => ({ ...c, [row.name_key]: value }));
       toast({ title: "✅ Nome de match criado", description: value });
     } catch (e: any) {
@@ -216,10 +251,11 @@ export function OffCatalogTab() {
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <SummaryCard label="Itens fora do catálogo" value={String(totals.count)} accent="warning" />
         <SummaryCard label="GMV envolvido" value={formatBRL(totals.gmv)} />
         <SummaryCard label="Com nome de match" value={`${totals.named} / ${totals.count}`} accent="success" />
+        <SummaryCard label="Classificados (cat/subcat)" value={`${totals.classified} / ${totals.count}`} />
       </div>
 
       <div className="flex flex-wrap items-end gap-3">
@@ -260,6 +296,8 @@ export function OffCatalogTab() {
                 <th className="text-right px-3 py-2">GMV</th>
                 <th className="text-left px-3 py-2">Sugestão</th>
                 <th className="text-left px-3 py-2">Selecionar do catálogo</th>
+                <th className="text-left px-3 py-2">Categoria</th>
+                <th className="text-left px-3 py-2">Subcategoria</th>
                 <th className="text-left px-3 py-2">Ou criar nome de match</th>
                 <th className="text-left px-3 py-2">Status</th>
               </tr>
@@ -269,6 +307,8 @@ export function OffCatalogTab() {
                 const pick = picked[r.name_key];
                 const sug = suggest(r.sample_name, variations);
                 const done = resolved[r.name_key];
+                const catValue = cats[r.name_key] ?? r.categoria ?? pick?.parent_category ?? "";
+                const subValue = subs[r.name_key] ?? r.subcategoria ?? pick?.parent_subcategory ?? "";
                 return (
                   <tr key={r.name_key} className="border-t hover:bg-muted/30 align-top">
                     <td className="px-3 py-2 max-w-[260px]">
@@ -316,6 +356,29 @@ export function OffCatalogTab() {
                       </div>
                     </td>
                     <td className="px-3 py-2">
+                      <Input
+                        list="offcat-categories"
+                        value={catValue}
+                        placeholder="Categoria..."
+                        onChange={(e) => setCats((c) => ({ ...c, [r.name_key]: e.target.value }))}
+                        className="h-8 text-xs min-w-[150px]"
+                      />
+                    </td>
+                    <td className="px-3 py-2">
+                      <Input
+                        list={`offcat-subs-${r.name_key}`}
+                        value={subValue}
+                        placeholder="Subcategoria..."
+                        onChange={(e) => setSubs((c) => ({ ...c, [r.name_key]: e.target.value }))}
+                        className="h-8 text-xs min-w-[150px]"
+                      />
+                      <datalist id={`offcat-subs-${r.name_key}`}>
+                        {subOptionsFor(catValue).map((s) => (
+                          <option key={s} value={s} />
+                        ))}
+                      </datalist>
+                    </td>
+                    <td className="px-3 py-2">
                       <div className="flex items-center gap-2">
                         <Input
                           value={names[r.name_key] ?? r.nome_canonico ?? ""}
@@ -351,13 +414,18 @@ export function OffCatalogTab() {
               })}
               {offCatalog.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="text-center py-8 text-muted-foreground text-sm">
+                  <td colSpan={9} className="text-center py-8 text-muted-foreground text-sm">
                     {loading ? "Carregando..." : "Nenhum item fora do catálogo 🎉"}
                   </td>
                 </tr>
               )}
             </tbody>
           </table>
+          <datalist id="offcat-categories">
+            {categoryOptions.map((c) => (
+              <option key={c} value={c} />
+            ))}
+          </datalist>
         </div>
         {visibleCount < offCatalog.length && (
           <div className="flex items-center justify-center gap-3 border-t p-3 bg-muted/20">
