@@ -4781,16 +4781,23 @@ export type Database = {
           company_id: string | null
           created_at: string | null
           currency: string | null
+          custom_fields: Json | null
           deal_hash: string | null
           deal_source: string | null
+          deal_title: string | null
+          description: string | null
+          forecast_close_at: string | null
           freight_type: string | null
           id: string
           is_deleted: boolean | null
           items_text: string | null
+          last_contact_at: string | null
           last_stage_updated_at: string | null
           lead_id: string | null
           loss_comment: string | null
           loss_reason: string | null
+          notes_text: string | null
+          origin_group: string | null
           origin_name: string | null
           owner_id: number | null
           owner_name: string | null
@@ -4803,6 +4810,8 @@ export type Database = {
           piperun_deal_id: string | null
           piperun_origin_id: number | null
           piperun_origin_name: string | null
+          piperun_updated_at: string | null
+          probability: number | null
           product: string | null
           product_category: string | null
           proposals: Json | null
@@ -4810,6 +4819,7 @@ export type Database = {
           stage_name: string | null
           started_in_stage_id: number | null
           status: string | null
+          tags: string[] | null
           temperature: string | null
           updated_at: string | null
           value: number | null
@@ -4822,16 +4832,23 @@ export type Database = {
           company_id?: string | null
           created_at?: string | null
           currency?: string | null
+          custom_fields?: Json | null
           deal_hash?: string | null
           deal_source?: string | null
+          deal_title?: string | null
+          description?: string | null
+          forecast_close_at?: string | null
           freight_type?: string | null
           id?: string
           is_deleted?: boolean | null
           items_text?: string | null
+          last_contact_at?: string | null
           last_stage_updated_at?: string | null
           lead_id?: string | null
           loss_comment?: string | null
           loss_reason?: string | null
+          notes_text?: string | null
+          origin_group?: string | null
           origin_name?: string | null
           owner_id?: number | null
           owner_name?: string | null
@@ -4844,6 +4861,8 @@ export type Database = {
           piperun_deal_id?: string | null
           piperun_origin_id?: number | null
           piperun_origin_name?: string | null
+          piperun_updated_at?: string | null
+          probability?: number | null
           product?: string | null
           product_category?: string | null
           proposals?: Json | null
@@ -4851,6 +4870,7 @@ export type Database = {
           stage_name?: string | null
           started_in_stage_id?: number | null
           status?: string | null
+          tags?: string[] | null
           temperature?: string | null
           updated_at?: string | null
           value?: number | null
@@ -4863,16 +4883,23 @@ export type Database = {
           company_id?: string | null
           created_at?: string | null
           currency?: string | null
+          custom_fields?: Json | null
           deal_hash?: string | null
           deal_source?: string | null
+          deal_title?: string | null
+          description?: string | null
+          forecast_close_at?: string | null
           freight_type?: string | null
           id?: string
           is_deleted?: boolean | null
           items_text?: string | null
+          last_contact_at?: string | null
           last_stage_updated_at?: string | null
           lead_id?: string | null
           loss_comment?: string | null
           loss_reason?: string | null
+          notes_text?: string | null
+          origin_group?: string | null
           origin_name?: string | null
           owner_id?: number | null
           owner_name?: string | null
@@ -4885,6 +4912,8 @@ export type Database = {
           piperun_deal_id?: string | null
           piperun_origin_id?: number | null
           piperun_origin_name?: string | null
+          piperun_updated_at?: string | null
+          probability?: number | null
           product?: string | null
           product_category?: string | null
           proposals?: Json | null
@@ -4892,6 +4921,7 @@ export type Database = {
           stage_name?: string | null
           started_in_stage_id?: number | null
           status?: string | null
+          tags?: string[] | null
           temperature?: string | null
           updated_at?: string | null
           value?: number | null
