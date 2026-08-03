@@ -106,7 +106,11 @@ export default function PainelComercial() {
           value={fmtBRL(k?.receita_mes, true)}
           status={k?.receita_mes ? "ok" : "gap"}
           delta={variacao(k?.receita_mes, k?.receita_mes_anterior)}
-          deltaLabel="vs mês anterior"
+          deltaLabel={
+            k?.receita_periodo_comparado
+              ? `vs mesmo período (${k.receita_periodo_comparado})`
+              : "vs mesmo período do mês anterior"
+          }
         />
         <KpiCard
           label="Vs. mês anterior"
@@ -117,7 +121,7 @@ export default function PainelComercial() {
           }
           status={k?.receita_mes_anterior ? "ok" : "gap"}
           tone={(variacao(k?.receita_mes, k?.receita_mes_anterior) ?? 0) >= 0 ? "ok" : "gap"}
-          sub={`mês anterior: ${fmtBRL(k?.receita_mes_anterior, true)}`}
+          sub={`${k?.receita_periodo_comparado ?? "mês anterior"}: ${fmtBRL(k?.receita_mes_anterior, true)}`}
         />
         <KpiCard
           label="Leads gerados"
