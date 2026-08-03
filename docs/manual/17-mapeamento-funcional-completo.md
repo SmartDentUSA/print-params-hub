@@ -248,3 +248,213 @@ Cadastro E-E-A-T dos autores (Person Schema) que assinam os artigos — requisit
 **2)** Lista de `roi_cards` com badges e ações; a calculadora pública vive em `/roi` (`ROICalculatorPage`).
 **3)** Selecionar card → revisar parâmetros (custo/hora do dentista, estágios delegáveis, resinas/modelos) → publicar.
 **4)** **Tabelas:** `roi_cards`, `roi_card_items`, `roi_card_cad_types`, `resins`, `models`. Regra: dedução do custo-hora do dentista nos estágios delegáveis.
+
+---
+
+# 4. Módulo: Operações & Vendas / Marketing
+
+## 4.1 Mapeamento 7×3
+
+**1)** Motor de regras que cruza os 7 estágios do fluxo digital (scanner, CAD, impressão, pós-processamento, acabamento, cursos, milling) com 3 dimensões (produto concorrente, produto SmartDent, campo de formulário SDR), gerando o portfólio do lead e regras de upsell/cross-sell.
+**2)** Grades por tipo de mapeamento (concorrente/produto/campo SDR) com "+ Adicionar" por célula; tabela de regras com toggle ativo e exclusão; `NewRuleForm`.
+**3)** Escolher a dimensão → preencher células → criar regra (célula vazia → produto sugerido) → ativar → oportunidades passam a ser calculadas.
+**4)** **Processamento:** `fn_sync_form_response_to_portfolio`, `fn_portfolio_cell_update`, `compute-opportunity-engine` (LLM calcula Next Best Action 0-100); trigger `trg_autoregister_product_taxonomy` evita erro 23503. **Tabelas:** `workflow_cell_mappings`, `opportunity_rules`, `lead_opportunities`, `product_taxonomy`, `system_a_catalog`, `smartops_form_fields`. **Dependências:** Formulários (entrada) → Campanhas/Reativação (saída).
+
+## 4.2 Campanhas (Central de Campanhas)
+
+**1)** Central de marketing outbound: biblioteca de conteúdo, wizard de campanha (segmento → mensagem → disparo), campanhas de WhatsApp em grupos, e-mail, SMS, bio-link e o painel **Origens**.
+**2)** Abas/sub-painéis: Biblioteca de Conteúdo (sync do Sistema A), **Criar Campanha** (wizard 3 passos com segmentação por RFM/etapa/produto), `SmartOpsWaGroupCampaigns` (grupos + `PromoSeqInspector`), `MetaFormMappingsPanel` → **Origens** (formulários Meta + formulários próprios + origens orgânicas, mapeadas para produto e célula 7×3), `BioLinkPanel`, `EmailCampaignWizard` (fila, enviados, histórico), saldo/disparo de SMS, `CampaignLinkPicker` (usa short links existentes, nunca cria URL nova).
+**3)** Sincronizar conteúdo → criar campanha → escolher segmento (apenas leads canônicos) → montar mensagem com link curto → agendar → acompanhar fila/enviados e atribuição de conversão.
+**4)** **Inputs:** segmentos, templates, mídias, mapeamentos de origem. **Processamento:** edges `sync-content-from-a`, `smart-ops-sms-balance`, `smart-ops-sms-disparopro`, scheduler de e-mail (Gmail, 499/dia, janela 07:30-19:00), roteador WA; RPCs `fn_campaign_email_stats`, `fn_campaign_conversions`, `fn_sms_campaign_attribution`, `list_lead_origins`. **Outputs:** mensagens WA/SMS/e-mail, `campaign_send_log`, atribuição de receita. **Tabelas:** `campaigns`, `campaign_sessions`, `campaign_segments`, `campaign_send_log`, `campaign_links`, `short_links`, `meta_form_mappings`, `smartops_bio_pages`, `email_sequences`, `wa_groups`. **Integrações:** Meta Lead Ads/Zernio, EvolutionGO, DisparoPro, Gmail.
+
+## 4.3 Distribuição
+
+**1)** Hub de distribuidores/revendas: cadastro, catálogo liberado, tabela de preço por distribuidor e gerador de propostas comerciais (PDF/XLSX/DOCX), além do repositório **Mídias & Artes** (Google Drive).
+**2)** Abas: **Distribuidores** (`SmartOpsDistributors`), **Catálogo** (`DealerCatalogGrid`), **Tabela de Preço** (`DealerPriceTable` + snapshots), **Gerar Proposta** (`DealerProposalWizard`), **Mídias & Artes** (`GoogleDriveGallery`, cards por categoria); `FxRateBadge` para câmbio.
+**3)** Cadastrar distribuidor → montar tabela de preço (KIT primeiro, ordem lógica por nome, variações agrupadas) → snapshot → gerar proposta (prévia agrupada por categoria/subcategoria) → exportar PDF (cabeçalho completo só na pág. 1; páginas 2+ com nº da proposta e "Página X de N").
+**4)** **Tabelas:** `distributors`, `dealers`, `dealer_price_lists`, `dealer_price_items`, `dealer_price_list_snapshots`, `dealer_proposals`, `system_a_catalog`, `catalog_product_variations`, `catalog_kit_components`. **Processamento:** geração client-side (`DealerProposalExport.ts`) com `kitFirst`/`categoryRank`; asset local `src/assets/proposal-bg.png`. **Integrações:** Google Drive (mídias), câmbio.
+
+## 4.4 Reativação & Fluxos
+
+**1)** Motor de reativação por LTV e documentação viva das automações de CRM/ingestão — recupera clientes inativos com ofertas complementares baseadas no tempo médio de retorno.
+**2)** Abas: **Regras LTV** (`LtvRules` + `LtvRunsPanel`), **Fluxos Editor** (canvas ReactFlow `OperationalFlowEditor`), **Ingestão de Leads** (`IngestionMap`), **Regras CRM** (`CrmRulesMap`), **Normalizar Campos** (`FieldNormalizer`, 32 campos com canônico + `derivedOptions`), **Configurações** (`ReactivationSettings` com pipelines PipeRun: CS, Vendas, LTV, LTV Lost).
+**3)** Configurar pipelines → criar regra LTV (janela, produto complementar, canal) → simular → ativar → acompanhar runs → normalizar campos divergentes.
+**4)** **Processamento:** `ltv_reactivation_rules`/`ltv_reactivation_runs`, `reactivation_rules`, `reactivation_sequences`, `operational_flows`/`_versions`/`shadow_log`; edges `smart-ops-field-normalize`, `smart-ops-piperun-webhook`; RPCs `fn_mark_reactivation_response`, `fn_pause_reactivation_manual`, `fn_close_reactivation_on_deal_won`. **Regra de ouro:** deals estagnados → `perdida` + **novo deal em Vendas**; CS e Comercial intocados. **Integrações:** PipeRun, Sellflux, Evolution.
+
+## 4.5 Eventos
+
+**1)** Cadastro de congressos/eventos exibidos na base de conhecimento e nas páginas públicas, com conteúdo multilíngue e pesquisa assistida por IA.
+**2)** Tabela + modal (nome, país via `Country.getAllCountries()`, datas, cidade), `EventWebResearchButton` (pesquisa web por IA), `EventReferenceUploads`, `EventAboutByLanguage`, `EventCoverByLanguage`.
+**3)** Novo evento → dados básicos → pesquisa IA para preencher "sobre" → capas por idioma → publicar.
+**4)** **Tabelas:** `smartops_events`; trigger `fn_notify_event_changed`. **Integrações:** AI Gateway (pesquisa/redação), Storage de capas.
+
+## 4.6 Copilot
+
+**1)** Assistente executivo (persona Gerente Comercial Sênior) que responde sobre a operação e **executa ações** — nunca pergunta, executa. Fonte única de leitura = **Cérebro Comercial** (`copilot_brain`), zero alucinação.
+**2)** Chat streaming com seletor de modelo (DS V4-Pro / V4-Flash / Gemini), microfone (speech-to-text), upload de arquivo (CSV inline; PDF/DOCX/TXT/MD via RAG), badges de sugestão, alertas realtime de novo lead.
+**3)** Perguntar (ex.: "receita de julho vs junho") → receber resposta baseada no Cérebro → pedir ação (enviar WhatsApp, mover etapa, criar audiência, gerar relatório) → confirmar execução.
+**4)** **Inputs:** prompt, arquivos, `BRAIN CONTEXT` injetado por turno. **Processamento:** edge `smart-ops-copilot` (SSE) + `copilot-ingest-method-doc`; `get_copilot_brain()` (SECURITY DEFINER); allowlist de ações (send_whatsapp, send_sms, notify_seller, send_to_sellflux, bulk_campaign, move_crm_stage, update_lead, add_tags, unify_leads, create_audience, generate_commercial_report, get_lead_card) + 5 tools RAG read-only. **Tabelas:** schema `copilot_brain` (`brain_overview`, `brain_sales_month`, `brain_sales_ranking`, `brain_pipeline`, `brain_products_sold`, `brain_equipment`, `brain_alerts`, `brain_meta`), `smartdent_method_docs`, `agent_embeddings`, `ai_token_usage`; Storage `smartdent-method-docs`; realtime em `lia_attendances`. **Integrações:** AI Gateway (DeepSeek/Gemini), Evolution, PipeRun, Sellflux.
+
+## 4.7 Rayshape
+
+**1)** Rastreamento de proprietários da impressora **Rayshape Edge Mini**: quem comprou, quem recomprou consumível e quem está crítico/em atenção — base de recompra de resina e vitality shades.
+**2)** Filtros por categoria (recomprou/crítico/atenção/cedo) e tipo de venda, busca, modal **Adicionar manualmente** (busca de lead, data da impressora, deal, nota), botão Atualizar; realtime em `deals`.
+**3)** Filtrar "crítico" → abrir lead → acionar campanha/WhatsApp de recompra → registrar proprietário manual quando a venda não estiver no CRM.
+**4)** **Processamento:** RPCs `fn_rayshape_owners`, `fn_rayshape_product_units`, `fn_rayshape_vitality_shades`. **Tabelas:** `deals`, `deal_items`, `rayshape_manual_owners`, `lia_attendances`. **Integração:** PipeRun (via espelho de deals).
+
+## 4.8 Stripe / Pagamentos
+
+**1)** Controle das unidades pagas via Stripe (licenças/assinaturas/dongles): status de cobrança, ativação, vencimento e vínculo com lead e vendedor.
+**2)** Busca + filtro de status (todas/ativa/vencida/cancelada/trial), edição inline de status por linha, colunas de ativação/dongle/faturamento.
+**3)** Buscar cliente → conferir assinatura → atualizar status operacional (ativação/dongle) → validar eventos `stripe_invoice_paid` na timeline.
+**4)** **Inputs:** webhooks Stripe (checkout, invoice, subscription). **Processamento:** edge de webhook Stripe grava unidades/assinaturas e loga `lead_activity_log`. **Tabelas:** `stripe_payment_units`, `stripe_subscriptions`, `omie_vendedores` (lookup), `lia_attendances`, `deals`, `lead_activity_log`; campos `stripe_event_id`, `stripe_checkout_id`, `stripe_customer_id`, `stripe_subscription_id`. **Integrações:** Stripe API/Webhooks; Omie (nome do vendedor).
+
+## 4.9 Cursos (Online / Astron)
+
+**1)** Diretório de profissionais e cursos online (Astron Academy), com equipamento detectado automaticamente a partir dos deals ganhos — sustenta liberação de acesso e enriquecimento do CDP.
+**2)** Lista de profissionais (`prof_*`), botão **Adicionar profissional** com `CoursesProfessionalProfile`, ações Editar perfil / Adicionar curso.
+**3)** Buscar profissional → editar perfil (área, especialidade, instituição) → liberar curso/módulo → acompanhar progresso.
+**4)** **Processamento:** detecção de equipamento por regex sobre `deal_items` (scanner/impressora), sync Astron. **Tabelas:** `lia_attendances`, `deals`, `deal_items`, `astron_courses`, `astron_modules`, `astron_lessons`, `astron_member_access`, `online_courses`, `lead_course_progress`, `cad_course_unlocks`. **Integrações:** Astron Academy, Sellflux, PandaVideo.
+
+---
+
+# 5. Módulo: Ferramentas & Mídia
+
+## 5.1 Ferramentas
+
+**1)** Caixa de ferramentas de conteúdo/SEO em lote: exportação de apostilas, enriquecimento SEO, reformatação de HTML por IA, geração de páginas de parâmetros (categoria F) e vínculo vídeo↔produto.
+**2)** Painéis compostos: `ApostilaExport`, `AdminArticleEnricher`, `AdminArticleReformatter` (card "Reformatar HTML de Artigos com IA"), `AdminParameterPages`, `AdminVideoProductLinks`.
+**3)** Selecionar escopo (categoria/lote) → executar → acompanhar progresso/erros → revisar em Artigos.
+**4)** **Edge functions:** `generate-parameter-pages`, `reformat-article-html`, `enrich-article-seo`, `sync-pandavideo`. **Tabelas:** `knowledge_contents`, `parameter_sets`, `parameter_views`, `knowledge_videos`, `models`. **Integrações:** AI Gateway, PandaVideo.
+
+## 5.2 PandaVideo
+
+**1)** Diagnóstico e sincronização da videoteca PandaVideo: metadados, pastas, métricas de audiência e vínculo com produtos/artigos.
+**2)** `AdminPandaVideoSync` (sincronizar), `AdminPandaVideoTest` (console de teste: `videoId`, `startDate`, `endDate`, path livre, detecção de estrutura da resposta), `AdminVideoAnalyticsDashboard`.
+**3)** Rodar sync → testar endpoint específico se houver divergência → analisar métricas → vincular vídeo a produto/artigo.
+**4)** **Edge functions:** `sync-pandavideo`, `pandavideo-test`. **Tabelas:** `knowledge_videos`, `knowledge_video_metrics_log`, `pandavideo_folders`. **Integração:** PandaVideo API; saída secundária = video sitemap (`api/video-sitemap.ts`).
+
+---
+
+# 6. Módulo: Administração & Sistema
+
+## 6.1 Estatísticas
+
+**1)** Painel de estatísticas do catálogo/parâmetros e da Dra. LIA (uso, RAG, cobertura) — visão de saúde de conteúdo e do agente.
+**2)** `AdminStats` (cards + distribuição por marca via `DataContext`) e `AdminDraLIAStats` (RPC `get_rag_stats`).
+**3)** Abrir a seção → ler cards → agir nas lacunas (conteúdo faltante, gaps de conhecimento).
+**4)** **Tabelas:** `models`, `brands`, `parameter_sets`, `knowledge_contents`, `agent_embeddings`, `agent_knowledge_gaps`, `agent_interactions`.
+
+## 6.2 Usuários
+
+**1)** Gestão de contas de acesso ao admin e seus papéis (admin, author, user, distribuidor) — controle de superfície administrativa.
+**2)** Botão de adicionar usuário (e-mail/senha/papel), modal de edição, exclusão com `AlertDialog`, badges de papel.
+**3)** Adicionar usuário → definir papel → validar acesso (sidebar filtra por papel) → revogar quando necessário.
+**4)** **Processamento:** edge `create-user` (usa service role no servidor). **Tabelas:** `user_roles` (papéis **nunca** em `profiles`), `auth.users` (gerida pelo Supabase), função `has_role(uuid, app_role)` SECURITY DEFINER usada nas RLS.
+> ⚠️ Pendência técnica: a listagem em `AdminUsers.tsx` ainda usa dados mock (`mockUsers`) — a leitura real de `auth.users`/`user_roles` deve ser feita por edge function com service role.
+
+## 6.3 Configurações
+
+**1)** Configuração central do sistema: marcas, modelos, resinas, conjuntos de parâmetros, editor do KB Hub, auditoria SEO, import/export de dados e rotinas de manutenção.
+**2)** `AdminModal` genérico (brand/model/resin/parameter), `AdminKbHubEditor`, `SEOAuditPanel`, `DataExport`, `DataImport`, `useAdminMaintenance`, `AdminParameterPages` embutido.
+**3)** Escolher entidade → CRUD via modal → rodar auditoria SEO → exportar/importar CSV → executar manutenção (sync KB, reviews, export).
+**4)** **Edge functions:** `sync-knowledge-base`, `sync-google-reviews`, `data-export`. **Tabelas:** `brands`, `models`, `resins`, `parameter_sets`, `site_settings`, `operational_settings`, `export_jobs`, `google_reviews`. **Integrações:** Google Business/Places, Sistema A.
+
+---
+
+# 7. Módulo: Social Publisher (`/social`)
+
+Shell: `SocialLayout` + `SocialSidebar`; rotas em `src/App.tsx:82-97`. Publicação, DMs, métricas e contatos são intermediados pela **Zernio** (broker de Instagram/Facebook/TikTok/YouTube/Pinterest); grupos de WhatsApp via **EvolutionGO**; reputação via **Google**.
+
+## 7.1 Dashboard
+**1)** Visão geral: métricas do período e fila dos próximos 7 dias.
+**2)** Botões **Sincronizar** e **Criar Post**; 4 `MetricCard`; lista de posts futuros com editar e **Reenfileirar** (retry).
+**3)** Sincronizar → checar métricas → corrigir posts com falha → criar novo post.
+**4)** Hooks `useSocialMetrics`, `useUpcomingPosts`, `useZernioSync`, `useRetryPublish`; tabelas `social_scheduled_posts`, `social_posts`; edge `social-posts-sync`.
+
+## 7.2 Criar Post
+**1)** Wizard de 5 passos (Conteúdo, Mídia, Canais, Agendamento, Revisão) para compor e agendar publicações multicanal; importa carrossel do Sistema A por query param.
+**2)** `StepContent`/`StepMedia`/`StepChannels`/`StepSchedule`/`StepReview`, `SocialPostPreview`, `MediaCropDialog`, `MultiUploadChoiceDialog`, `SystemACarouselPicker`, `ChannelRequirementsPanel`, `MediaCompatibilityPanel`; upload **sem limite de tamanho**.
+**3)** Escrever/gerar legenda por IA → subir mídia e cortar por formato → escolher canais (regras de compatibilidade) → agendar → revisar → salvar.
+**4)** Tabelas `social_scheduled_posts`; Storage `wa-media`; edges `social-caption-generator`, `social-knowledge-fetch`, `social-generate-image`; integrações: AI Gateway + Zernio (publicação).
+
+## 7.3 Calendário
+**1)** Calendário mensal de posts agendados/publicados com reagendamento por drag-and-drop.
+**2)** Navegação de mês, `CalendarFilters` (plataforma/status), `CalendarDayCell`, `CalendarPostChip`, `RescheduleDialog`.
+**3)** Arrastar o chip para o novo dia → confirmar no diálogo → data atualizada.
+**4)** Hooks `useCalendarPosts`, `useReschedulePost`; tabelas `social_scheduled_posts`, `social_posts`.
+
+## 7.4 Banco de Posts
+**1)** Acervo dos posts publicados sincronizados, reutilizável para campanhas e grupos de WhatsApp.
+**2)** Chips de plataforma, busca textual, filtros de formato/período/ordenação, botão **Sincronizar**, grid `SocialPostCard`.
+**3)** Sincronizar → filtrar → reutilizar post (broadcast histórico ou Post Grupos).
+**4)** Hook `useSocialPostsBank`; tabela `social_posts`; edge `social-posts-sync`; integração Zernio.
+
+## 7.5 Analytics
+**1)** Desempenho de conteúdo: engajamento, alcance, impressões e views, com melhor horário e top 10.
+**2)** Seletor de período (7/30/90), filtro de plataforma, **Sync**, **CSV**; gráficos `recharts` (linha, barra por plataforma, heatmap hora×dia), tabela top 10.
+**3)** Escolher período → sincronizar métricas → ler heatmap → exportar CSV.
+**4)** Hooks `useSocialAnalytics`, `useResyncMetrics`; tabela `social_posts`; edge `zernio-metrics-sync`.
+
+## 7.6 Flows IG DM
+**1)** Automações comentário→DM no Instagram (palavra-chave dispara entrega de link/mídia) — captura de lead direto da rede social.
+**2)** Lista com criar/duplicar/editar/excluir e `Switch` de ativação; editor com configuração de trigger, `LinkPicker`/`SocialPostLinkPicker`, `ImageLibraryDialog`, `ZernioStatsButton` (triggers/DMs/contatos únicos); tela de **Sessões**.
+**3)** Criar fluxo → definir palavra-chave e post-alvo → montar mensagem/link → ativar → provisionar automação Zernio → monitorar sessões e stats.
+**4)** Tabelas `social_flows`, `social_triggers`, `social_flow_midias`, `social_flow_links_manuais`, view `v_flow_link_picker`, `social_sessions`; edge `zernio-copa-setup`; integrações Zernio ("Copa") + Instagram.
+> Requisito: fluxos comentário→DM exigem ID de automação Zernio provisionado.
+
+## 7.7 Broadcasts
+**1)** Disparo pontual de DM no Instagram para um segmento de contatos.
+**2)** Diálogo multi-etapa (nome → conta/mensagem com `EmojiPicker` → filtros de audiência `onlyFollowers`/`onlySubscribed`/tags → seleção de contatos → agendamento) e **Disparar**; `HistoricalPostBroadcast` para reenviar post antigo.
+**3)** Sincronizar contatos → criar broadcast → filtrar audiência → agendar/disparar → conferir status.
+**4)** Tabelas `social_zernio_accounts`, `social_contacts`, `social_broadcasts`; edges `zernio-contacts-sync`, `zernio-broadcast-dispatch`.
+
+## 7.8 Sequências
+**1)** Réguas de nutrição em múltiplos passos (mensagem, link IG, link YouTube, promo_seq) com delays entre etapas.
+**2)** Lista com `Switch` ativo, duplicar e excluir (`AlertDialog`); editor com construtor de passos, `SocialPostLinkPicker`, `PromoSeqInspector` (compartilhado com WA Grupos), prévia de contagem de contatos.
+**3)** Nova sequência → adicionar passos e delays → escolher audiência → ativar.
+**4)** Tabelas `social_sequences`, `social_contacts`; ponte com as sequências promocionais de WhatsApp (`components/smartops/wa-groups`).
+
+## 7.9 Contatos
+**1)** Base unificada de contatos sociais (IG/FB/WhatsApp/TikTok) sincronizada da Zernio — audiência dos broadcasts e sequências.
+**2)** Busca (`ig_username`, `ig_user_id`, `custom_fields->>platformIdentifier`), filtro de plataforma, **Sincronizar**, copiar ID, badges por canal.
+**3)** Sincronizar → filtrar canal → localizar contato → usar em broadcast/sequência.
+**4)** Tabela `social_contacts`; edge `zernio-contacts-sync`.
+
+## 7.10 Avaliações
+**1)** Reputação Google: avaliações públicas (Places) e respostas automáticas geradas por IA (Business Profile, sob OAuth).
+**2)** Botão **Sincronizar agora**, cards (Total / Média / Última sincronização), alternador de idioma (pt/en/es), badge de conexão (Conectado / Token expirado / Desconectado), botões **Conectar/Reconectar Google Business Profile**, tabela de respostas com status (Publicado/Gerando/Erro).
+**3)** Conectar OAuth → sincronizar → revisar avaliações → publicar resposta gerada.
+**4)** Hooks `useGoogleConnection`, `useGoogleReviews`, `usePlacesReputation`; tabelas `google_reviews`, `google_oauth_tokens`; edges `sync-google-reviews`, `google-oauth-callback`; integrações Google Places + Business Profile + AI Gateway.
+
+## 7.11 Post Grupos
+**1)** Distribuição automática de todo post novo para grupos de WhatsApp, por instância EvolutionGO — amplia alcance orgânico sem trabalho manual.
+**2)** Abas **Instâncias** e **Histórico de disparos**; cards de resumo (membros impactados / grupos selecionados); card por instância com toggle de ativação, flag de primária, `PostGruposAddModal` (adicionar grupos), remoção de alvo; tabela de fingerprints enviados.
+**3)** Ativar a instância → adicionar grupos-alvo → novos posts sincronizados são disparados automaticamente → auditar no histórico (dedupe por fingerprint e cooldown).
+**4)** Tabelas `team_members` (`evolution_instance_name`, `evolution_phone`), `post_group_instance_config`, `post_group_targets`, view `v_post_group_targets_detail`, `wa_groups`, `wa_group_sent_fingerprints`; RPCs `fn_check_group_global_dedup`, `fn_check_group_send_cooldown`, `claim_pending_social_posts`; disparo por cron server-side; integração EvolutionGO.
+
+---
+
+# 8. Mapa de dependências entre módulos
+
+| Origem | Destino | Ponto de integração |
+|---|---|---|
+| Formulários / Origens | Público-Lista (CDP) | `smart-ops-ingest-lead` → `smart-ops-lia-assign` (Golden Rule) |
+| Público-Lista | Campanhas / Sequências | segmentos sobre leads canônicos (`merged_into IS NULL`) |
+| Mapeamento 7×3 | Reativação & Campanhas | `lead_opportunities` + `opportunity_rules` |
+| Catálogo (Produtos) | Distribuição / Propostas / RAG | `system_a_catalog` + `catalog_product_variations` + SKU resolver |
+| Artigos / Knowledge Hub | Dra. LIA & Copilot | `agent_embeddings` + tools RAG read-only |
+| Tokens IA | AI Routing | custo por `task_type` orienta escolha de modelo |
+| Equipe | Automações / WhatsApp / Distribuição de leads | credenciais por instância + `piperun_owner_id` |
+| PipeRun webhook | Relatórios / Bowtie / Painel TV | `deals`, `piperun_stage_transitions`, `painel_comercial_cache` |
+| Treinamentos | NPS / Público-Lista | `smartops_nps_responses` → nota no CRM + badge no card |
+| Banco de Posts | Post Grupos / Broadcasts | `social_posts` → `post_group_targets` / `social_broadcasts` |
+| Stripe | Público-Lista / Cursos | `stripe_payment_units` → ativação e `lead_activity_log` |
+
+# 9. Pendências e riscos identificados
+
+1. **Usuários** — listagem mock; expor via edge function com service role (P1 segurança/operação).
+2. `lia_attendances` com 610 colunas — normalização progressiva recomendada (ver cap. 16).
+3. Post Grupos não tem chamada de disparo no frontend: a execução é cron/server-side; monitorar em Saúde do Sistema.
+4. Documentos de resina × catálogo permanecem separados por decisão arquitetural — não unificar.
+5. Cobertura histórica de atividades/propostas do CRM depende de backfills; validar antes de fechar indicadores retroativos.
