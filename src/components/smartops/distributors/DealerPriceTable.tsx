@@ -976,10 +976,10 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
             <Button variant="outline" onClick={() => exportPriceTableXlsx(distributor, list, items)}>
               <FileSpreadsheet className="w-4 h-4 mr-1" /> XLSX
             </Button>
-            <Button variant="outline" onClick={() => exportPriceTablePdf(distributor, list, items)}>
+            <Button variant="outline" onClick={() => safePdf(distributor, list, items)}>
               <FileText className="w-4 h-4 mr-1" /> PDF
             </Button>
-            <Button variant="outline" onClick={() => exportPriceTableDocx(distributor, list, items)}>
+            <Button variant="outline" onClick={() => safeDocx(distributor, list, items)}>
               <FileType className="w-4 h-4 mr-1" /> DOCX
             </Button>
             {onGenerateProposal && (

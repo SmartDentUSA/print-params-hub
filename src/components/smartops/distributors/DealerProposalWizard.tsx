@@ -398,11 +398,11 @@ export function DealerProposalWizard({ distributors }: Props) {
                                   <FileSpreadsheet className="w-3.5 h-3.5" />
                                 </Button>
                                 <Button size="icon" variant="ghost" title="PDF"
-                                  onClick={() => exportPriceTablePdf(distributor, propList, arr, { title: "Proposal / Price Table", filenamePrefix: "proposta" })}>
+                                  onClick={() => safePdf(distributor, propList, arr, { title: "Proposal / Price Table", filenamePrefix: "proposta" })}>
                                   <FileText className="w-3.5 h-3.5" />
                                 </Button>
                                 <Button size="icon" variant="ghost" title="DOCX"
-                                  onClick={() => exportPriceTableDocx(distributor, propList, arr, "proposta")}>
+                                  onClick={() => safeDocx(distributor, propList, arr, "proposta")}>
                                   <FileType className="w-3.5 h-3.5" />
                                 </Button>
                               </TableCell>
@@ -524,10 +524,10 @@ export function DealerProposalWizard({ distributors }: Props) {
               <Button variant="outline" onClick={() => exportPriceTableXlsx(distributor, stubList, previewItems.map((it) => ({ ...it, color: getColor(it), quantity: getQty(it.id), quantity_multiplier: getQty(it.id) })) as any, "proposta")}>
                 <FileSpreadsheet className="w-4 h-4 mr-1" /> XLSX
               </Button>
-              <Button variant="outline" onClick={() => exportPriceTablePdf(distributor, stubList, previewItems.map((it) => ({ ...it, color: getColor(it), quantity: getQty(it.id), quantity_multiplier: getQty(it.id) })) as any, { title: "Proposal / Price Table", filenamePrefix: "proposta" })}>
+              <Button variant="outline" onClick={() => safePdf(distributor, stubList, previewItems.map((it) => ({ ...it, color: getColor(it), quantity: getQty(it.id), quantity_multiplier: getQty(it.id) })) as any, { title: "Proposal / Price Table", filenamePrefix: "proposta" })}>
                 <FileText className="w-4 h-4 mr-1" /> PDF
               </Button>
-              <Button variant="outline" onClick={() => exportPriceTableDocx(distributor, stubList, previewItems.map((it) => ({ ...it, color: getColor(it), quantity: getQty(it.id), quantity_multiplier: getQty(it.id) })) as any, "proposta")}>
+              <Button variant="outline" onClick={() => safeDocx(distributor, stubList, previewItems.map((it) => ({ ...it, color: getColor(it), quantity: getQty(it.id), quantity_multiplier: getQty(it.id) })) as any, "proposta")}>
                 <FileType className="w-4 h-4 mr-1" /> DOCX
               </Button>
             </div>
