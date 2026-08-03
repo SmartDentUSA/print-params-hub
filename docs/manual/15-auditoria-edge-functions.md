@@ -6,8 +6,8 @@
 
 | Classificação | Qtd |
 |---|---|
-| ativa | 165 |
-| SUSPEITA MORTA | 37 |
+| ativa | 171 |
+| SUSPEITA MORTA | 31 |
 | operacional-pontual (one-off/backfill) | 35 |
 
 Gatilhos detectados: `cron` (64 funções agendadas), `vercel-rewrite` (15 rotas públicas), `ui` (chamadas do painel), `fn-chain` (uma função chama outra), `webhook-externo` (Meta, Zernio, Stripe, Sellflux, ManyChat, Loja Integrada, EvolutionGO).
@@ -34,7 +34,7 @@ Gatilhos detectados: `cron` (64 funções agendadas), `vercel-rewrite` (15 rotas
 
 ## 3. Funções sem gatilho detectado (candidatas a remoção)
 
-`astron-member-lookup`, `email-track-open`, `enrichment-safety-net-cron`, `export-parametros-ia`, `export-processing-instructions`, `link-videos-to-articles`, `llms-txt`, `mcp`, `mcp-server`, `piperun-offline-enrich`, `poll-loja-integrada-orders`, `seo-proxy`, `smart-ops-ingest-asset-from-a`, `smart-ops-kanban-move`, `smart-ops-lead-welcome`, `smart-ops-leads-api`, `smart-ops-meta-ads-insights`, `smart-ops-meta-ads-manager`, `smart-ops-piperun-detach-wrong-person`, `smart-ops-preview-seller-note`, `smart-ops-proactive-outreach`, `smart-ops-sellflux-sync`, `smart-ops-sequence-email-tick`, `smart-ops-stagnant-processor`, `smart-ops-tldv-sync`, `sync-sistema-a`, `test-api-viewer`, `training-factory-carousel`, `training-factory-generate-image`, `training-factory-render`, `training-factory-trigger`, `video-sitemap`, `wa-instance-health`, `wa-provider-selftest`, `wa-verify-lead`, `zernio-accounts-sync`, `zernio-provision-flow`
+`astron-member-lookup`, `enrichment-safety-net-cron`, `export-parametros-ia`, `export-processing-instructions`, `link-videos-to-articles`, `mcp`, `mcp-server`, `piperun-offline-enrich`, `poll-loja-integrada-orders`, `smart-ops-ingest-asset-from-a`, `smart-ops-kanban-move`, `smart-ops-meta-ads-insights`, `smart-ops-meta-ads-manager`, `smart-ops-piperun-detach-wrong-person`, `smart-ops-preview-seller-note`, `smart-ops-proactive-outreach`, `smart-ops-sellflux-sync`, `smart-ops-sequence-email-tick`, `smart-ops-stagnant-processor`, `smart-ops-tldv-sync`, `sync-sistema-a`, `test-api-viewer`, `training-factory-carousel`, `training-factory-generate-image`, `training-factory-render`, `training-factory-trigger`, `wa-instance-health`, `wa-provider-selftest`, `wa-verify-lead`, `zernio-accounts-sync`, `zernio-provision-flow`
 
 > Antes de excluir: confirmar 30 dias sem invocação nos logs da função. Recomendo desativar (retornar 410 Gone) por 1 sprint e só então deletar.
 
@@ -194,7 +194,7 @@ Origem (cron | webhook externo | painel | rewrite Vercel)
 
 **Problemas encontrados**
 - 189 endpoints públicos operando com service role sem autenticação ou assinatura.
-- 37 funções sem gatilho detectável e 35 scripts pontuais ainda publicados.
+- 31 funções sem gatilho detectável e 35 scripts pontuais ainda publicados.
 - Ausência total de testes automatizados nas funções (nenhum `*_test.ts`).
 - `system_health_logs` sem retenção; custo e lentidão crescentes.
 - Funções muito grandes (acima de 1.000 linhas) concentrando regra de negócio e I/O no mesmo arquivo.
