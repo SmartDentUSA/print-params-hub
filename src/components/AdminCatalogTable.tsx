@@ -504,6 +504,41 @@ export function AdminCatalogTable({
                       />
                     </TableCell>
 
+                    <TableCell className="text-center">
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className="inline-flex">
+                            <Checkbox
+                              checked={
+                                v.distribute_enabled ??
+                                (distributeOverride[product.id!] ??
+                                  !!(product as any).extra_data?.distribute_enabled)
+                              }
+                              onCheckedChange={async (val) => {
+                                try {
+                                  await commitVariationField(product.id!, v, {
+                                    distribute_enabled: val === true,
+                                  });
+                                  toast.success(
+                                    val === true
+                                      ? "Variação liberada na distribuição"
+                                      : "Variação oculta na distribuição",
+                                  );
+                                } catch (e: any) {
+                                  toast.error(e?.message || "Erro ao salvar");
+                                }
+                              }}
+                            />
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent side="left" className="text-xs max-w-[220px]">
+                          Controle granular: define se ESTA variação (SKU /
+                          apresentação) aparece no catálogo de Distribuição.
+                          Sem marcação própria, herda a liberação do produto.
+                        </TooltipContent>
+                      </Tooltip>
+                    </TableCell>
+
                     {idx === 0 ? (
                       <>
                         <TableCell rowSpan={list.length} className="align-top">
