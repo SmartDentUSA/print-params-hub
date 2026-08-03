@@ -37,7 +37,9 @@ function suggest(name: string, variations: CatalogVariationOption[]) {
   if (!t.length) return null;
   let best: { v: CatalogVariationOption; score: number } | null = null;
   for (const v of variations) {
-    const label = [v.parent_name, v.presentation, v.color].filter(Boolean).join(" ");
+    const label = [v.parent_name, v.presentation_qty, v.presentation, v.color]
+      .filter(Boolean)
+      .join(" ");
     const vt = tokens(label);
     if (!vt.length) continue;
     const hits = t.filter((x) => vt.includes(x)).length;
@@ -64,9 +66,9 @@ function VariationPicker({
     if (!s) return variations.slice(0, 40);
     return variations
       .filter((v) =>
-        [v.parent_name, v.presentation, v.sku, v.color, v.parent_category]
+        [v.parent_name, v.presentation_qty, v.presentation, v.sku, v.color, v.parent_category]
           .filter(Boolean)
-          .some((f) => (f as string).toLowerCase().includes(s)),
+          .some((f) => String(f).toLowerCase().includes(s)),
       )
       .slice(0, 40);
   }, [variations, search]);
@@ -112,9 +114,16 @@ function VariationPicker({
               >
                 <Check className={cn("h-3 w-3", currentSku === v.sku ? "opacity-100" : "opacity-0")} />
                 <div className="flex-1 min-w-0">
-                  <div className="font-medium truncate">{v.parent_name || v.presentation || v.sku}</div>
+                  <div className="font-medium truncate">
+                    {[
+                      v.parent_name || v.sku,
+                      [v.presentation_qty, v.presentation].filter(Boolean).join(" "),
+                    ]
+                      .filter(Boolean)
+                      .join(" — ")}
+                  </div>
                   <div className="text-[10px] text-muted-foreground truncate">
-                    {[v.sku, v.presentation, v.color].filter(Boolean).join(" · ")}
+                    {[v.sku, v.color].filter(Boolean).join(" · ")}
                   </div>
                 </div>
               </button>

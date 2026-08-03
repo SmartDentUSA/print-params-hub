@@ -366,6 +366,8 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
     for (const v of allVars) {
       const p = productsById.get(v.catalog_product_id);
       if (!p) continue;
+      // Controle granular por variação (Gestão de Catálogo → coluna "Dist.").
+      if (v.distribute_enabled === false) continue;
       // Amostras grátis (100g em 3.1 RESINAS 3D) não entram na tabela de preço.
       if (isFreeSampleVariation(p.product_category, p.product_subcategory, v.presentation_qty)) continue;
       const presRaw = presentationFor(v, p);
@@ -766,6 +768,7 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
     for (const v of (varRes.data as any) || []) {
       const p = productsById.get(v.catalog_product_id);
       if (!p) continue;
+      if (v.distribute_enabled === false) continue;
       const key = `${v.catalog_product_id}::${norm(v.presentation_qty)}`;
       if (existing.has(key)) continue;
       const variantLabel = [v.presentation_qty, v.presentation, v.color].filter(Boolean).join(" · ");

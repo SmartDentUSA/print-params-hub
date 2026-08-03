@@ -265,6 +265,7 @@ export function AdminCatalogTable({
               <TableHead className="w-20">Peso (kg)</TableHead>
               <TableHead className="w-28">Dim (cm)</TableHead>
               <TableHead className="w-32">BRL</TableHead>
+              <TableHead className="w-16 text-center">Dist.</TableHead>
               <TableHead className="w-20 text-center">Status</TableHead>
               <TableHead className="w-24 text-center">Ações</TableHead>
             </TableRow>
@@ -272,7 +273,7 @@ export function AdminCatalogTable({
           <TableBody>
             {sortedProducts.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={13} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={14} className="text-center py-8 text-muted-foreground">
                   Nenhum produto encontrado.
                 </TableCell>
               </TableRow>
@@ -287,7 +288,7 @@ export function AdminCatalogTable({
                   if (cat !== lastCat) {
                     rows.push(
                       <TableRow key={`cat-${cat}`} className="bg-primary/10 hover:bg-primary/10">
-                        <TableCell colSpan={13} className="py-2 font-bold text-sm text-primary uppercase tracking-wide">
+                        <TableCell colSpan={14} className="py-2 font-bold text-sm text-primary uppercase tracking-wide">
                           {cat}
                         </TableCell>
                       </TableRow>
@@ -298,7 +299,7 @@ export function AdminCatalogTable({
                   if (sub !== lastSub) {
                     rows.push(
                       <TableRow key={`sub-${cat}-${sub}`} className="bg-muted/60 hover:bg-muted/60">
-                        <TableCell colSpan={13} className="py-1.5 pl-6 italic text-xs text-muted-foreground font-semibold">
+                        <TableCell colSpan={14} className="py-1.5 pl-6 italic text-xs text-muted-foreground font-semibold">
                           {sub}
                         </TableCell>
                       </TableRow>
@@ -501,6 +502,41 @@ export function AdminCatalogTable({
                           price_brl: val ? Number(val) : null,
                         })}
                       />
+                    </TableCell>
+
+                    <TableCell className="text-center">
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className="inline-flex">
+                            <Checkbox
+                              checked={
+                                v.distribute_enabled ??
+                                (distributeOverride[product.id!] ??
+                                  !!(product as any).extra_data?.distribute_enabled)
+                              }
+                              onCheckedChange={async (val) => {
+                                try {
+                                  await commitVariationField(product.id!, v, {
+                                    distribute_enabled: val === true,
+                                  });
+                                  toast.success(
+                                    val === true
+                                      ? "Variação liberada na distribuição"
+                                      : "Variação oculta na distribuição",
+                                  );
+                                } catch (e: any) {
+                                  toast.error(e?.message || "Erro ao salvar");
+                                }
+                              }}
+                            />
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent side="left" className="text-xs max-w-[220px]">
+                          Controle granular: define se ESTA variação (SKU /
+                          apresentação) aparece no catálogo de Distribuição.
+                          Sem marcação própria, herda a liberação do produto.
+                        </TooltipContent>
+                      </Tooltip>
                     </TableCell>
 
                     {idx === 0 ? (
