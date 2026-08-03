@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, ArrowRight, Save, FileSpreadsheet, FileText, FileType, History, Trash2, RotateCcw, Pencil, Plus, ImageOff } from "lucide-react";
 import { toast } from "sonner";
 import type { DealerPriceItem, DealerPriceList, Distributor } from "./types";
-import { recalcDealerPrice, recalcDiscount, formatMoney, isFreeSampleVariation } from "./types";
+import { recalcDealerPrice, recalcDiscount, formatMoney, isFreeSampleVariation, categoryRank } from "./types";
 import { exportPriceTableXlsx, safePdf, safeDocx } from "./DealerProposalExport";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
@@ -269,6 +269,28 @@ export function DealerProposalWizard({ distributors }: Props) {
     return { subtotal, discount_total: subtotal - total, total };
   }, [previewItems, qtyMap]);
 
+  /** Same visual segmentation as the price table / PDF: categoria › subcategoria. */
+  const groupedPreview = useMemo(() => {
+    const map = new Map<string, { category: string; subs: { subcategory: string; rows: DealerPriceItem[] }[] }>();
+    previewItems.forEach((it) => {
+      const cat = ((it as any).category ?? "").trim() || "Outros";
+      const sub = ((it as any).subcategory ?? "").trim() || "Geral";
+      let entry = map.get(cat);
+      if (!entry) { entry = { category: cat, subs: [] }; map.set(cat, entry); }
+      let subEntry = entry.subs.find((s) => s.subcategory === sub);
+      if (!subEntry) { subEntry = { subcategory: sub, rows: [] }; entry.subs.push(subEntry); }
+      subEntry.rows.push(it);
+    });
+    const groups = [...map.values()];
+    groups.sort((a, b) => categoryRank(a.category) - categoryRank(b.category) || a.category.localeCompare(b.category));
+    for (const g of groups) {
+      g.subs.sort((a, b) =>
+        categoryRank(g.category, a.subcategory) - categoryRank(g.category, b.subcategory)
+        || a.subcategory.localeCompare(b.subcategory));
+    }
+    return groups;
+  }, [previewItems]);
+
   const saveProposal = async () => {
     if (!distributor || previewItems.length === 0) return;
     const itemsWithQty = previewItems.map((it) => ({ ...it, quantity: getQty(it.id), quantity_multiplier: getQty(it.id) }));
@@ -473,7 +495,23 @@ export function DealerProposalWizard({ distributors }: Props) {
                     </tr>
                   </thead>
                   <tbody>
-                    {previewItems.map((it) => (
+                    {groupedPreview.map((grp) => (
+                      <Fragment key={`cat-${grp.category}`}>
+                        <tr className="bg-slate-900 text-white">
+                          <td colSpan={14} className="p-2 font-semibold uppercase tracking-wide">
+                            {grp.category}
+                          </td>
+                        </tr>
+                        {grp.subs.map((sub) => (
+                          <Fragment key={`sub-${grp.category}-${sub.subcategory}`}>
+                            {(grp.subs.length > 1 || sub.subcategory !== "Geral") && (
+                              <tr className="bg-slate-100">
+                                <td colSpan={14} className="p-1.5 pl-3 font-medium text-slate-700 uppercase text-[11px] tracking-wide">
+                                  {sub.subcategory}
+                                </td>
+                              </tr>
+                            )}
+                            {sub.rows.map((it) => (
                       <tr key={it.id} className="border-b">
                         <td className="p-1 text-center">
                           <Button size="icon" variant="ghost" title="Remover" onClick={() => removePreviewItem(it.id)}>
@@ -500,6 +538,10 @@ export function DealerProposalWizard({ distributors }: Props) {
                           {formatMoney((Number(it.price_dealer) || 0) * getQty(it.id), editingCurrency ?? list?.currency)}
                         </td>
                       </tr>
+                            ))}
+                          </Fragment>
+                        ))}
+                      </Fragment>
                     ))}
                   </tbody>
                   <tfoot className="bg-slate-100 font-semibold">
