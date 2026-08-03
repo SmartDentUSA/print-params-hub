@@ -10,6 +10,8 @@ import { formatDatePtBr } from "@/lib/courseUtils";
 import { GerarDocButton } from "@/components/GerarDocButton";
 import { GerarCrachasButton } from "@/components/GerarCrachasButton";
 import { CriarPastaDriveButton } from "@/components/smartops/CriarPastaDriveButton";
+import { UploadMidiasDriveButton } from "@/components/smartops/UploadMidiasDriveButton";
+import { useTurmaDriveMedia, summarizeMedia } from "@/hooks/useTurmaDriveMedia";
 import { AddTurmaToWaGroupButton } from "@/components/smartops/AddTurmaToWaGroupButton";
 import { CreateTurmaWaGroupButton } from "@/components/smartops/CreateTurmaWaGroupButton";
 import { useTurmaWaGroup } from "@/hooks/useTurmaWaGroup";
@@ -54,6 +56,17 @@ interface Props {
 export function TurmaCard({ turma, companionCount, status, onEnroll, onShare }: Props) {
   const pct = turma.slots > 0 ? Math.round((turma.enrolled_count / turma.slots) * 100) : 0;
   const lotado = (turma.vagas_disponiveis ?? 0) === 0;
+  const [driveFolderId, setDriveFolderId] = useState<string | null>(turma.drive_folder_id ?? turma.factory_drive_folder_id ?? null);
+  const [driveFolderUrl, setDriveFolderUrl] = useState<string | null>(turma.drive_folder_url ?? turma.factory_drive_folder_url ?? null);
+  const { data: driveMedia = [] } = useTurmaDriveMedia(turma.id, !!driveFolderId);
+  const mediaCounts = summarizeMedia(driveMedia);
+  const depoimentosParticipantes = new Set(
+    driveMedia
+      .filter((m) => m.destination_key === "videos_depoimentos" && m.status === "completed")
+      .map((m) => m.companion_id || m.enrollment_id)
+      .filter(Boolean) as string[],
+  ).size;
+  const semDepoimento = Math.max(0, (turma.enrolled_count ?? 0) + companionCount - depoimentosParticipantes);
   const isMuted = status?.variant === "muted";
   const { group: waGroup, loading: waChecking, refetch: refetchWaGroup } = useTurmaWaGroup(turma.id);
   const effectiveWaGroup = waGroup ?? (turma.whatsapp_group_link
@@ -176,8 +189,21 @@ export function TurmaCard({ turma, companionCount, status, onEnroll, onShare }: 
         />
       </div>
 
+      {driveFolderId && (
+        <div className="mt-2 flex flex-wrap items-center gap-2 text-[10px] text-muted-foreground">
+          <span>{mediaCounts.fotos} fotos</span>
+          <span>·</span>
+          <span>{mediaCounts.videos} vídeos</span>
+          <span>·</span>
+          <span>{mediaCounts.depoimentos} depoimentos</span>
+          {semDepoimento > 0 && (
+            <span className="text-amber-600 dark:text-amber-400">· {semDepoimento} sem depoimento</span>
+          )}
+        </div>
+      )}
+
       {/* Footer */}
-      <div className="mt-3 pt-3 border-t flex items-center justify-between gap-2">
+      <div className="mt-3 pt-3 border-t flex items-center justify-between gap-2 flex-wrap">
         {turma.instructor_name ? (
           <span className="flex items-center gap-1.5 text-xs text-muted-foreground truncate">
             <User className="w-3 h-3 shrink-0" />
@@ -188,11 +214,22 @@ export function TurmaCard({ turma, companionCount, status, onEnroll, onShare }: 
           <GerarDocButton turmaId={turma.id} turmaLabel={turma.label} />
           <CriarPastaDriveButton
             turmaId={turma.id}
-            folderUrl={
-              (turma as any).drive_folder_url ??
-              (turma as any).factory_drive_folder_url ??
-              null
-            }
+            folderUrl={driveFolderUrl}
+            onCreated={(url) => {
+              setDriveFolderUrl(url);
+              const m = url.match(/\/folders\/([^/?#]+)/);
+              if (m) setDriveFolderId(m[1]);
+            }}
+          />
+          <UploadMidiasDriveButton
+            turmaId={turma.id}
+            turmaNumber={turma.turma_number ?? null}
+            turmaLabel={turma.label}
+            courseTitle={turma.course_title}
+            startDate={turma.start_date}
+            endDate={turma.end_date}
+            folderId={driveFolderId}
+            folderUrl={driveFolderUrl}
           />
           <GerarCrachasButton turmaId={turma.id} turmaLabel={turma.label} />
           <CreateTurmaWaGroupButton
