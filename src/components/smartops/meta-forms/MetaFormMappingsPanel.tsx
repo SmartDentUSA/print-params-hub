@@ -351,7 +351,7 @@ export function MetaFormMappingsPanel() {
             <div className="space-y-3">
               {!editor.id && (
                 <div>
-                  <Label className="text-xs">Form ID (Meta)</Label>
+                  <Label className="text-xs">Chave da origem (form ID Meta, slug do formulário ou nome da origem)</Label>
                   <Input
                     value={editor.form_id}
                     onChange={(e) => setEditor({ ...editor, form_id: e.target.value })}
@@ -360,7 +360,7 @@ export function MetaFormMappingsPanel() {
                 </div>
               )}
               <div>
-                <Label className="text-xs">Nome do formulário na Meta</Label>
+                <Label className="text-xs">Nome do formulário / origem</Label>
                 <Input
                   value={editor.form_name_meta}
                   onChange={(e) => setEditor({ ...editor, form_name_meta: e.target.value })}
