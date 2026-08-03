@@ -24224,13 +24224,13 @@ export type Database = {
           original_filename: string
           participant_name_snapshot: string | null
           participant_type: string | null
-          resumable_session_uri: string | null
           size_bytes: number
           status: string
           training_date: string | null
           training_day: number | null
           turma_id: string
           updated_at: string
+          upload_session_id: string | null
           uploaded_at: string | null
           uploaded_by: string
           width: number | null
@@ -24255,13 +24255,13 @@ export type Database = {
           original_filename: string
           participant_name_snapshot?: string | null
           participant_type?: string | null
-          resumable_session_uri?: string | null
           size_bytes: number
           status?: string
           training_date?: string | null
           training_day?: number | null
           turma_id: string
           updated_at?: string
+          upload_session_id?: string | null
           uploaded_at?: string | null
           uploaded_by: string
           width?: number | null
@@ -24286,13 +24286,13 @@ export type Database = {
           original_filename?: string
           participant_name_snapshot?: string | null
           participant_type?: string | null
-          resumable_session_uri?: string | null
           size_bytes?: number
           status?: string
           training_date?: string | null
           training_day?: number | null
           turma_id?: string
           updated_at?: string
+          upload_session_id?: string | null
           uploaded_at?: string | null
           uploaded_by?: string
           width?: number | null
