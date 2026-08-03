@@ -170,3 +170,28 @@
   color: hsl(var(--pc-gap));
   font-weight: 700;
 }
+/* Header / legenda / footer / layout mid-grid (espelha o HTML de referência) */
+.pc-logo {
+  width: 32px; height: 32px; border-radius: 12px;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 16px;
+  background: linear-gradient(135deg, hsl(190 100% 50%), hsl(263 83% 58%));
+  color: hsl(var(--background));
+}
+.pc-legend {
+  display: flex; gap: 18px; flex-wrap: wrap;
+  padding: 6px 10px; border: 1px solid hsl(var(--border));
+  border-radius: 8px; background: hsl(var(--card));
+  font-size: 0.7rem; color: hsl(var(--muted-foreground));
+}
+.pc-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 5px; }
+.pc-dot-ok { background: hsl(160 84% 39%); }
+.pc-dot-parcial { background: hsl(38 92% 50%); }
+.pc-dot-gap { background: hsl(0 84% 60%); }
+.pc-mid-grid { display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 2.1fr); gap: 0.75rem; }
+@media (max-width: 1200px) { .pc-mid-grid { grid-template-columns: 1fr; } }
+.pc-footer {
+  border-top: 1px solid hsl(var(--border));
+  padding-top: 8px; text-align: center;
+  font-size: 0.65rem; color: hsl(var(--muted-foreground));
+}

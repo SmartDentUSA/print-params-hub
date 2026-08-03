@@ -50,10 +50,13 @@ export default function PainelComercial() {
 
   return (
     <main className="painel">
-      <header className="flex items-end justify-between mb-4">
-        <div>
-          <h1 className="text-2xl font-bold">Painel Comercial</h1>
-          <p className="pc-label mt-1">{k ? mesLabel(k.mes_ref) : "carregando"}</p>
+      <header className="flex items-end justify-between mb-3">
+        <div className="flex items-center gap-3">
+          <span className="pc-logo" aria-hidden>◈</span>
+          <div>
+            <h1 className="text-2xl font-bold">Painel Comercial — Smart Dent</h1>
+            <p className="pc-label mt-1">{k ? mesLabel(k.mes_ref) : "carregando"}</p>
+          </div>
         </div>
         <div className="text-right">
           <div className="pc-num-sm">
@@ -62,6 +65,12 @@ export default function PainelComercial() {
           <div className="pc-label">{agora.toLocaleDateString("pt-BR")}</div>
         </div>
       </header>
+
+      <div className="pc-legend mb-3">
+        <span><i className="pc-dot pc-dot-ok" />dado completo</span>
+        <span><i className="pc-dot pc-dot-parcial" />parcial</span>
+        <span><i className="pc-dot pc-dot-gap" />sem dado</span>
+      </div>
 
       <section className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-8 gap-3 mb-3">
         <KpiCard
@@ -72,9 +81,15 @@ export default function PainelComercial() {
           deltaLabel="vs mês anterior"
         />
         <KpiCard
-          label="Receita mês anterior"
-          value={fmtBRL(k?.receita_mes_anterior, true)}
+          label="Vs. mês anterior"
+          value={
+            variacao(k?.receita_mes, k?.receita_mes_anterior) === null
+              ? "—"
+              : fmtPct(variacao(k?.receita_mes, k?.receita_mes_anterior))
+          }
           status={k?.receita_mes_anterior ? "ok" : "gap"}
+          tone={(variacao(k?.receita_mes, k?.receita_mes_anterior) ?? 0) >= 0 ? "ok" : "gap"}
+          sub={`mês anterior: ${fmtBRL(k?.receita_mes_anterior, true)}`}
         />
         <KpiCard
           label="Leads gerados"
@@ -119,22 +134,25 @@ export default function PainelComercial() {
         />
       </section>
 
-      <section className="mb-3">
+      <section className="pc-mid-grid mb-3">
         <FunnelPanel rows={funil.data ?? []} />
-      </section>
-
-      <section className="grid grid-cols-1 gap-3 mb-3">
-        <SellerPerformanceTable rows={vendedores.data ?? []} />
-        <ActivityTable rows={atividades.data ?? []} />
+        <div className="grid grid-cols-1 gap-3 min-w-0">
+          <SellerPerformanceTable rows={vendedores.data ?? []} />
+          <ActivityTable rows={atividades.data ?? []} />
+        </div>
       </section>
 
       <section className="mb-3">
         <OriginPanel rows={origens.data ?? []} />
       </section>
 
-      <section>
+      <section className="mb-3">
         <TopProductsGrid rows={produtos.data ?? []} />
       </section>
+
+      <footer className="pc-footer">
+        Painel Comercial Smart Dent · dados do Sistema B · atualização automática a cada 15 min
+      </footer>
     </main>
   );
 }
