@@ -99,7 +99,7 @@ function AgendamentosTab() {
   const [filterKey, setFilterKey] = useState<"todos" | "abertas" | "agora" | "encerrados">("todos");
   const [sort, setSort] = useState<"date_asc" | "date_desc" | "occupancy_desc" | "title">("date_asc");
 
-  const { data: turmas = [], isLoading } = useQuery({
+  const { data: turmasRaw = [], isLoading } = useQuery({
     queryKey: ["v_turmas_com_vagas"],
     queryFn: async () => {
       const { data, error } = await (supabase as any)
@@ -111,6 +111,25 @@ function AgendamentosTab() {
       return data as TurmaComVagas[];
     },
   });
+
+  // A view v_turmas_com_vagas não expõe as colunas do Drive — buscamos direto na tabela
+  const { data: driveMap = {} } = useQuery({
+    queryKey: ["turmas_drive_folders"],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("smartops_course_turmas")
+        .select("id, drive_folder_id, drive_folder_url, factory_drive_folder_id, factory_drive_folder_url");
+      if (error) return {};
+      const map: Record<string, any> = {};
+      for (const row of data || []) map[row.id] = row;
+      return map;
+    },
+  });
+
+  const turmas = useMemo(
+    () => turmasRaw.map((t) => ({ ...t, ...(driveMap[t.id] || {}) })) as TurmaComVagas[],
+    [turmasRaw, driveMap],
+  );
 
   // Fetch companion counts per turma
   const turmaIds = useMemo(() => turmas.map(t => t.id), [turmas]);
