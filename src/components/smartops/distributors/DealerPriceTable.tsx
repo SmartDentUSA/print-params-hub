@@ -11,7 +11,7 @@ import { Download, RefreshCw, Trash2, Plus, ImageOff, FileSpreadsheet, FileText,
 import { toast } from "sonner";
 import type { DealerPriceItem, DealerPriceList, Distributor, DealerSnapshot } from "./types";
 import { recalcDealerPrice, recalcDiscount, formatMoney, PRESENTATION_OPTIONS, categoryRank, isFreeSampleVariation } from "./types";
-import { exportPriceTableXlsx, exportPriceTablePdf, exportPriceTableDocx } from "./DealerProposalExport";
+import { exportPriceTableXlsx, safePdf, safeDocx } from "./DealerProposalExport";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 
 /** Extrai NCM (compartilhado) + lista de variações {qty, gtin, unit} do technical_specs. */
@@ -976,10 +976,10 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
             <Button variant="outline" onClick={() => exportPriceTableXlsx(distributor, list, items)}>
               <FileSpreadsheet className="w-4 h-4 mr-1" /> XLSX
             </Button>
-            <Button variant="outline" onClick={() => exportPriceTablePdf(distributor, list, items)}>
+            <Button variant="outline" onClick={() => safePdf(distributor, list, items)}>
               <FileText className="w-4 h-4 mr-1" /> PDF
             </Button>
-            <Button variant="outline" onClick={() => exportPriceTableDocx(distributor, list, items)}>
+            <Button variant="outline" onClick={() => safeDocx(distributor, list, items)}>
               <FileType className="w-4 h-4 mr-1" /> DOCX
             </Button>
             {onGenerateProposal && (

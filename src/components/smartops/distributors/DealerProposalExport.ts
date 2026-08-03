@@ -4,6 +4,7 @@ import autoTable from "jspdf-autotable";
 import { Document, Packer, Paragraph, Table, TableCell, TableRow, TextRun, WidthType, HeadingLevel, AlignmentType, BorderStyle, ShadingType } from "docx";
 import { ImageRun } from "docx";
 import { saveAs } from "file-saver";
+import { toast } from "sonner";
 import type { DealerPriceItem, DealerPriceList, Distributor } from "./types";
 import { formatMoney, categoryRank } from "./types";
 import proposalBgAsset from "@/assets/proposal-bg.png.asset.json";
@@ -16,19 +17,30 @@ function fileBase(distributor: Distributor | undefined, list: DealerPriceList | 
 }
 
 // ---------- Background helpers ----------
-let bgDataUrlCache: string | null = null;
-async function loadProposalBg(): Promise<string> {
-  if (bgDataUrlCache) return bgDataUrlCache;
-  const res = await fetch(proposalBgAsset.url);
-  const blob = await res.blob();
-  const dataUrl: string = await new Promise((resolve, reject) => {
-    const r = new FileReader();
-    r.onload = () => resolve(r.result as string);
-    r.onerror = reject;
-    r.readAsDataURL(blob);
-  });
-  bgDataUrlCache = dataUrl;
-  return dataUrl;
+// The letterhead PNG lives in the Lovable asset pipeline. When that URL is not
+// reachable (custom domain / SPA catch-all returns index.html) the fetch still
+// succeeds with an HTML body, and feeding that to jsPDF.addImage throws — which
+// used to abort the whole PDF silently. Validate the payload and degrade
+// gracefully instead of failing.
+let bgDataUrlCache: string | null | undefined;
+async function loadProposalBg(): Promise<string | null> {
+  if (bgDataUrlCache !== undefined) return bgDataUrlCache;
+  try {
+    const res = await fetch(proposalBgAsset.url);
+    if (!res.ok) { bgDataUrlCache = null; return null; }
+    const blob = await res.blob();
+    if (!(blob.type || "").toLowerCase().startsWith("image/")) { bgDataUrlCache = null; return null; }
+    const dataUrl: string = await new Promise((resolve, reject) => {
+      const r = new FileReader();
+      r.onload = () => resolve(r.result as string);
+      r.onerror = reject;
+      r.readAsDataURL(blob);
+    });
+    bgDataUrlCache = dataUrl.startsWith("data:image/") ? dataUrl : null;
+  } catch {
+    bgDataUrlCache = null;
+  }
+  return bgDataUrlCache;
 }
 
 function resolveDealerId(d: Distributor | undefined): string {
@@ -229,11 +241,38 @@ export async function exportPriceTablePdf(
   // Draw background + overlay all header fields. Called BEFORE table content
   // on each page (via willDrawPage) so rows stay visible on top of the PNG.
   const paintedPages = new Set<number>();
+  // Minimal branded letterhead used when the PNG asset is unavailable.
+  const drawFallbackLetterhead = () => {
+    doc.setFillColor(31, 31, 31);
+    doc.rect(0, 0, pageW, 96, "F");
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(18);
+    doc.setTextColor(255, 255, 255);
+    doc.text("SMART DENT | FLUXO DIGITAL", 32, 46);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(10);
+    doc.text(opts.title ?? "Proposal / Price Table", 32, 70);
+    doc.setTextColor(0, 0, 0);
+    doc.setDrawColor(200);
+    doc.line(28, pageH - 52, pageW - 28, pageH - 52);
+    doc.setFontSize(8);
+    doc.setTextColor(120, 120, 120);
+    doc.text("smartdent.com.br", 28, pageH - 38);
+    doc.setTextColor(0, 0, 0);
+  };
   const drawPageChrome = () => {
     const pageNo = (doc as any).internal.getCurrentPageInfo?.().pageNumber ?? 1;
     if (paintedPages.has(pageNo)) return;
     paintedPages.add(pageNo);
-    doc.addImage(bg, "PNG", 0, 0, pageW, pageH, undefined, "FAST");
+    if (bg) {
+      try {
+        doc.addImage(bg, "PNG", 0, 0, pageW, pageH, undefined, "FAST");
+      } catch {
+        drawFallbackLetterhead();
+      }
+    } else {
+      drawFallbackLetterhead();
+    }
     // Header field overlay — a compact block placed below the PNG title area,
     // safely inside the margin so it never crops. This is layout-independent
     // of the PNG label positions to guarantee alignment.
@@ -636,4 +675,22 @@ export async function exportPriceTableDocx(
 
   const blob = await Packer.toBlob(doc);
   saveAs(blob, `${fileBase(distributor, list, filenamePrefix)}.docx`);
+}
+/** UI-safe wrappers: never fail silently — surface the error to the user. */
+export async function safePdf(...args: Parameters<typeof exportPriceTablePdf>) {
+  try {
+    await exportPriceTablePdf(...args);
+  } catch (e) {
+    console.error("[proposta] falha ao gerar PDF", e);
+    toast.error("Não foi possível gerar o PDF", { description: (e as Error)?.message ?? "Erro desconhecido" });
+  }
+}
+
+export async function safeDocx(...args: Parameters<typeof exportPriceTableDocx>) {
+  try {
+    await exportPriceTableDocx(...args);
+  } catch (e) {
+    console.error("[proposta] falha ao gerar DOCX", e);
+    toast.error("Não foi possível gerar o DOCX", { description: (e as Error)?.message ?? "Erro desconhecido" });
+  }
 }
