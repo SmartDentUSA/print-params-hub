@@ -263,11 +263,32 @@ export function UploadMidiasDriveDialog({
     return map;
   }, [media, inventory]);
 
-  const dayOptions = days.length
-    ? days.map((d) => ({ value: String(d.day_number), label: `Dia ${d.day_number} — ${fmt(d.date)}` }))
-    : startDate
-      ? [{ value: "1", label: `Dia 1 — ${fmt(startDate)}` }]
-      : [];
+  /** Dias derivados do intervalo da turma (start → end), usados quando
+   *  smartops_turma_days está vazio ou incompleto. */
+  const rangeDays = useMemo(() => {
+    if (!startDate) return [] as { day_number: number; date: string }[];
+    const start = new Date(`${String(startDate).slice(0, 10)}T12:00:00`);
+    const end = new Date(`${String(endDate || startDate).slice(0, 10)}T12:00:00`);
+    if (isNaN(start.getTime()) || isNaN(end.getTime()) || end < start) {
+      return [{ day_number: 1, date: String(startDate).slice(0, 10) }];
+    }
+    const out: { day_number: number; date: string }[] = [];
+    const cursor = new Date(start);
+    let n = 1;
+    while (cursor <= end && n <= 15) {
+      out.push({ day_number: n, date: cursor.toISOString().slice(0, 10) });
+      cursor.setDate(cursor.getDate() + 1);
+      n++;
+    }
+    return out;
+  }, [startDate, endDate]);
+
+  const effectiveDays = days.length >= rangeDays.length && days.length ? days : rangeDays;
+
+  const dayOptions = effectiveDays.map((d) => ({
+    value: String(d.day_number),
+    label: `Dia ${d.day_number} — ${fmt(d.date)}`,
+  }));
 
   const addFiles = (
     files: FileList | null,
