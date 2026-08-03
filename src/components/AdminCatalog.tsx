@@ -10,7 +10,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { AdminCatalogTable } from "./AdminCatalogTable";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { SkuMappingTab } from "./admin/catalog/SkuMappingTab";
-import { OffCatalogTab } from "./admin/catalog/OffCatalogTab";
 import { exportCatalogXlsx } from "./admin/catalog/exportCatalogXlsx";
 
 export function AdminCatalog() {
@@ -284,7 +283,6 @@ export function AdminCatalog() {
         <TabsList>
           <TabsTrigger value="catalog">Catálogo</TabsTrigger>
           <TabsTrigger value="sku-mapping">Mapeamento de SKU</TabsTrigger>
-          <TabsTrigger value="off-catalog">Fora do Catálogo</TabsTrigger>
         </TabsList>
 
         <TabsContent value="catalog">
@@ -471,30 +469,13 @@ export function AdminCatalog() {
               <CardDescription>
                 Associe itens brutos vindos de propostas do CRM e pedidos da Loja Integrada às variações
                 do catálogo. Marque como <strong>Kit</strong> para expandir automaticamente os componentes
-                nos itens da proposta e no cálculo de mix de produtos.
+                nos itens da proposta e no cálculo de mix de produtos. Use o status{" "}
+                <strong>Fora do catálogo</strong> para tratar itens das propostas do CRM que não existem no
+                catálogo: vincule a uma variação, defina categoria/subcategoria ou crie um nome de match canônico.
               </CardDescription>
             </CardHeader>
             <CardContent>
               <SkuMappingTab />
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="off-catalog">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <AlertTriangle className="w-5 h-5" />
-                Itens fora do catálogo (propostas do CRM)
-              </CardTitle>
-              <CardDescription>
-                Produtos identificados nas propostas do CRM que não existem no catálogo do sistema.
-                Selecione a variação correspondente do catálogo ou crie um nome de match canônico para
-                que os relatórios e o mix de produtos reconheçam o item.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <OffCatalogTab />
             </CardContent>
           </Card>
         </TabsContent>
