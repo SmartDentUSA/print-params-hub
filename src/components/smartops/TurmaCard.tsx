@@ -10,6 +10,8 @@ import { formatDatePtBr } from "@/lib/courseUtils";
 import { GerarDocButton } from "@/components/GerarDocButton";
 import { GerarCrachasButton } from "@/components/GerarCrachasButton";
 import { CriarPastaDriveButton } from "@/components/smartops/CriarPastaDriveButton";
+import { UploadMidiasDriveButton } from "@/components/smartops/UploadMidiasDriveButton";
+import { useTurmaDriveMedia, summarizeMedia } from "@/hooks/useTurmaDriveMedia";
 import { AddTurmaToWaGroupButton } from "@/components/smartops/AddTurmaToWaGroupButton";
 import { CreateTurmaWaGroupButton } from "@/components/smartops/CreateTurmaWaGroupButton";
 import { useTurmaWaGroup } from "@/hooks/useTurmaWaGroup";
@@ -54,6 +56,17 @@ interface Props {
 export function TurmaCard({ turma, companionCount, status, onEnroll, onShare }: Props) {
   const pct = turma.slots > 0 ? Math.round((turma.enrolled_count / turma.slots) * 100) : 0;
   const lotado = (turma.vagas_disponiveis ?? 0) === 0;
+  const [driveFolderId, setDriveFolderId] = useState<string | null>(turma.drive_folder_id ?? turma.factory_drive_folder_id ?? null);
+  const [driveFolderUrl, setDriveFolderUrl] = useState<string | null>(turma.drive_folder_url ?? turma.factory_drive_folder_url ?? null);
+  const { data: driveMedia = [] } = useTurmaDriveMedia(turma.id, !!driveFolderId);
+  const mediaCounts = summarizeMedia(driveMedia);
+  const depoimentosParticipantes = new Set(
+    driveMedia
+      .filter((m) => m.destination_key === "videos_depoimentos" && m.status === "completed")
+      .map((m) => m.companion_id || m.enrollment_id)
+      .filter(Boolean) as string[],
+  ).size;
+  const semDepoimento = Math.max(0, (turma.enrolled_count ?? 0) + companionCount - depoimentosParticipantes);
   const isMuted = status?.variant === "muted";
   const { group: waGroup, loading: waChecking, refetch: refetchWaGroup } = useTurmaWaGroup(turma.id);
   const effectiveWaGroup = waGroup ?? (turma.whatsapp_group_link
