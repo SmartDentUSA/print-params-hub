@@ -1,0 +1,1 @@
+ALTER TABLE public.training_drive_media ALTER COLUMN uploaded_by SET NOT NULL;
