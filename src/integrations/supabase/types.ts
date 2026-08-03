@@ -24224,6 +24224,7 @@ export type Database = {
           original_filename: string
           participant_name_snapshot: string | null
           participant_type: string | null
+          resumable_session_uri: string | null
           size_bytes: number
           status: string
           training_date: string | null
@@ -24255,6 +24256,7 @@ export type Database = {
           original_filename: string
           participant_name_snapshot?: string | null
           participant_type?: string | null
+          resumable_session_uri?: string | null
           size_bytes: number
           status?: string
           training_date?: string | null
@@ -24286,6 +24288,7 @@ export type Database = {
           original_filename?: string
           participant_name_snapshot?: string | null
           participant_type?: string | null
+          resumable_session_uri?: string | null
           size_bytes?: number
           status?: string
           training_date?: string | null
