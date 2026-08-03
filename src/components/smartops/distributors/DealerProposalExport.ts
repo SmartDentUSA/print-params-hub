@@ -237,6 +237,7 @@ export async function exportPriceTablePdf(
   const pais = distributor?.pais ?? "—";
   const dealerId = resolveDealerId(distributor);
   const dataStr = new Date(list?.created_at ?? Date.now()).toLocaleDateString(locale);
+  const propostaNo = `${dealerId}-V${list?.version ?? 1}${list?.id ? `-${list.id.slice(0, 4).toUpperCase()}` : ""}`;
 
   // Draw background + overlay all header fields. Called BEFORE table content
   // on each page (via willDrawPage) so rows stay visible on top of the PNG.
@@ -260,6 +261,17 @@ export async function exportPriceTablePdf(
     doc.text("smartdent.com.br", 28, pageH - 38);
     doc.setTextColor(0, 0, 0);
   };
+  // Compact header for pages 2+: only proposal number (page numbers are
+  // stamped at the end, once the total page count is known).
+  const drawContinuationHeader = () => {
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(9);
+    doc.setTextColor(54, 62, 86);
+    doc.text(`PROPOSTA ${propostaNo}`, 32, 122);
+    doc.setDrawColor(220);
+    doc.line(32, 130, pageW - 32, 130);
+    doc.setTextColor(0, 0, 0);
+  };
   const drawPageChrome = () => {
     const pageNo = (doc as any).internal.getCurrentPageInfo?.().pageNumber ?? 1;
     if (paintedPages.has(pageNo)) return;
@@ -272,6 +284,11 @@ export async function exportPriceTablePdf(
       }
     } else {
       drawFallbackLetterhead();
+    }
+    // From page 2 on, no distributor block — just the proposal number.
+    if (pageNo > 1) {
+      drawContinuationHeader();
+      return;
     }
     // Header field overlay — a compact block placed below the PNG title area,
     // safely inside the margin so it never crops. This is layout-independent
@@ -319,6 +336,7 @@ export async function exportPriceTablePdf(
   // Table area: header block ends around y=238 — start table below.
   // Bottom margin keeps the letterhead footer (URL + divider) clear.
   const tableTop = 245;
+  const tableTopCont = 142; // pages 2+ start right below the compact header
   const tableBottom = pageH - 80;
   const leftMargin = 28;
   const rightMargin = 28;
@@ -405,7 +423,7 @@ export async function exportPriceTablePdf(
     if (cursorY + needed > tableBottom) {
       doc.addPage();
       drawPageChrome();
-      cursorY = tableTop;
+      cursorY = tableTopCont;
     }
   };
 
@@ -432,7 +450,7 @@ export async function exportPriceTablePdf(
       const orderedItems = bodyRows.map((b) => b.it);
       autoTable(doc, {
         startY: cursorY,
-        margin: { top: tableTop, bottom: pageH - tableBottom, left: leftMargin, right: rightMargin },
+        margin: { top: tableTopCont, bottom: pageH - tableBottom, left: leftMargin, right: rightMargin },
         head,
         body: bodyRows.map(({ it, isLeader, span }) => rowFor(it, isLeader, span)),
         styles: { fontSize: 5.5, cellPadding: 3, overflow: "linebreak", lineColor: [220, 220, 220], lineWidth: 0.3, minCellHeight: 28, valign: "middle", textColor: [35, 35, 35] },
@@ -505,6 +523,17 @@ export async function exportPriceTablePdf(
   doc.setTextColor(222, 110, 55); // brand orange
   doc.text(formatMoney(totalDealer, currency), boxX + boxW - 12, boxY + 58, { align: "right" });
   doc.setTextColor(0, 0, 0);
+
+  // Sequential page numbers (needs the final page count).
+  const totalPages = (doc as any).internal.getNumberOfPages?.() ?? 1;
+  for (let p = 1; p <= totalPages; p++) {
+    doc.setPage(p);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+    doc.setTextColor(120, 120, 120);
+    doc.text(`Página ${p} de ${totalPages}`, pageW - 32, pageH - 62, { align: "right" });
+    doc.setTextColor(0, 0, 0);
+  }
 
   doc.save(`${fileBase(distributor, list, opts.filenamePrefix ?? "tabela-preco")}.pdf`);
 }
