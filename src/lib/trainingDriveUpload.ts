@@ -138,3 +138,20 @@ export async function runUpload(
   }
   throw new Error("Drive não confirmou a conclusão do arquivo");
 }
+
+export interface DriveInventory {
+  counts: Record<string, number>;
+  names: Record<string, string[]>;
+}
+
+/** Conta arquivos já existentes nas subpastas do Drive (inclui uploads manuais). */
+export async function fetchDriveInventory(turmaId: string): Promise<DriveInventory> {
+  const resp = await fetch(`${FN_URL}?action=inventory&turma_id=${encodeURIComponent(turmaId)}`, {
+    method: "POST",
+    headers: { ...(await authHeaders()), "Content-Type": "application/json" },
+    body: JSON.stringify({ turma_id: turmaId }),
+  });
+  const json = await resp.json().catch(() => ({}));
+  if (!resp.ok) throw new Error(json?.error || `Falha ao ler o Drive (${resp.status})`);
+  return { counts: json?.counts || {}, names: json?.names || {} };
+}

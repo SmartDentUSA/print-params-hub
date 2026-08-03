@@ -128,6 +128,31 @@ serve(async (req) => {
     }
 
     /* ----------------------------- STATUS ---------------------------- */
+    if (action === "inventory") {
+      const turmaId = url.searchParams.get("turma_id") || (await req.json().catch(() => ({})))?.turma_id;
+      if (!turmaId) return json({ error: "turma_id obrigatório" }, 400);
+      const turma = await loadTurma(db, String(turmaId));
+      if (!turma) return json({ error: "Turma não encontrada" }, 404);
+      const subfolders = (turma.drive_subfolders || {}) as Record<string, string>;
+      const keys = Object.keys(DESTINATIONS).filter((k) => subfolders[k]);
+      if (!keys.length) return json({ counts: {}, names: {} });
+      const token = await getDriveAccessToken();
+      const counts: Record<string, number> = {};
+      const names: Record<string, string[]> = {};
+      await Promise.all(keys.map(async (k) => {
+        try {
+          const list = await driveListNames(token, subfolders[k]);
+          names[k] = list;
+          counts[k] = list.length;
+        } catch (e) {
+          console.error("[inventory]", k, String((e as any)?.message || e));
+          names[k] = [];
+          counts[k] = 0;
+        }
+      }));
+      return json({ counts, names });
+    }
+
     if (action === "status") {
       const uploadId = url.searchParams.get("upload_id") || "";
       const { data, error } = await db
