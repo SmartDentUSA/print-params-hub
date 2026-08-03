@@ -130,9 +130,17 @@ export function useSkuMappingInbox() {
       });
       if (error) throw error;
 
+      // `save_produto_alias` não recebe subcategoria — grava em seguida.
+      if (variation?.parent_subcategory) {
+        await (supabase as any)
+          .from("produto_aliases")
+          .update({ subcategoria: variation.parent_subcategory })
+          .eq("id", savedAliasId);
+      }
+
       const { data: savedAlias, error: verificationError } = await (supabase as any)
         .from("produto_aliases")
-        .select("id, nome_canonico, sku_interno, categoria, is_kit, ativo")
+        .select("id, nome_canonico, sku_interno, categoria, subcategoria, is_kit, ativo")
         .eq("id", savedAliasId)
         .single();
       if (verificationError) throw verificationError;
@@ -149,6 +157,7 @@ export function useSkuMappingInbox() {
                 nome_canonico: savedAlias.nome_canonico,
                 sku_interno: savedAlias.sku_interno,
                 categoria: savedAlias.categoria,
+                subcategoria: savedAlias.subcategoria ?? item.subcategoria,
                 is_kit: savedAlias.is_kit,
                 alias_ativo: savedAlias.ativo,
               }
@@ -165,7 +174,12 @@ export function useSkuMappingInbox() {
    * SKU yet). Used by the "Fora do Catálogo" tab.
    */
   const saveCanonicalName = useCallback(
-    async (row: SkuInboxRow, canonicalName: string, categoria?: string | null) => {
+    async (
+      row: SkuInboxRow,
+      canonicalName: string,
+      categoria?: string | null,
+      subcategoria?: string | null,
+    ) => {
       const nomeCanonico = canonicalName.trim();
       if (!nomeCanonico) throw new Error("Informe o nome canônico.");
 
@@ -179,10 +193,24 @@ export function useSkuMappingInbox() {
       });
       if (error) throw error;
 
+      const nextSub = subcategoria ?? row.subcategoria ?? null;
+      if (nextSub) {
+        await (supabase as any)
+          .from("produto_aliases")
+          .update({ subcategoria: nextSub })
+          .eq("id", savedAliasId);
+      }
+
       setRows((current) =>
         current.map((item) =>
           item.name_key === row.name_key
-            ? { ...item, alias_id: savedAliasId as number, nome_canonico: nomeCanonico, categoria: categoria ?? item.categoria }
+            ? {
+                ...item,
+                alias_id: savedAliasId as number,
+                nome_canonico: nomeCanonico,
+                categoria: categoria ?? item.categoria,
+                subcategoria: nextSub ?? item.subcategoria,
+              }
             : item,
         ),
       );
