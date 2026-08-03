@@ -245,50 +245,92 @@ export function MetaFormMappingsPanel() {
       </Card>
 
       <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <AlertTriangle className="h-4 w-4 text-amber-500" />
-            Origens não associadas
-            {unmapped && unmapped.length > 0 && <Badge variant="destructive">{unmapped.length}</Badge>}
-          </CardTitle>
-          <CardDescription>
-            Formulários que já aparecem em leads reais mas ainda não têm linha em meta_form_mappings.
-          </CardDescription>
+        <CardHeader className="flex flex-row items-start justify-between gap-4">
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4 text-amber-500" />
+              Origens não associadas
+              {unmappedOrigins.length > 0 && <Badge variant="destructive">{unmappedOrigins.length}</Badge>}
+            </CardTitle>
+            <CardDescription>
+              Todas as origens que já aparecem em leads reais — formulários Meta, formulários do sistema e
+              demais canais (inbound, outbound e integrações) — que ainda não têm mapeamento cadastrado.
+            </CardDescription>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="relative">
+              <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                className="pl-8 w-56"
+                placeholder="Buscar origem..."
+                value={originSearch}
+                onChange={(e) => setOriginSearch(e.target.value)}
+              />
+            </div>
+            <Select value={typeFilter} onValueChange={setTypeFilter}>
+              <SelectTrigger className="w-48"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos os tipos</SelectItem>
+                {Object.entries(ORIGIN_TYPE_LABEL).map(([v, label]) => (
+                  <SelectItem key={v} value={v}>{label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </CardHeader>
         <CardContent>
-          {loadingUnmapped ? (
+          {loadingOrigins ? (
             <Skeleton className="h-20 w-full" />
-          ) : !unmapped || unmapped.length === 0 ? (
+          ) : unmappedOrigins.length === 0 ? (
             <p className="text-sm text-muted-foreground py-4 text-center">
-              Nenhuma origem pendente — todos os formulários com leads estão mapeados.
+              Nenhuma origem pendente com os filtros atuais.
             </p>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Formulário</TableHead>
+                  <TableHead>Origem</TableHead>
+                  <TableHead>Nome atual</TableHead>
+                  <TableHead>Tipo</TableHead>
                   <TableHead className="text-right">Leads</TableHead>
-                  <TableHead>Último lead</TableHead>
-                  <TableHead className="w-40" />
+                  <TableHead className="text-right">Ativos (90d)</TableHead>
+                  <TableHead>Célula 7×3</TableHead>
+                  <TableHead>Criado em</TableHead>
+                  <TableHead className="w-16" />
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {unmapped.map((u) => (
-                  <TableRow key={u.form_id}>
-                    <TableCell>
-                      <div className="font-medium">{u.form_name || "(sem nome)"}</div>
-                      <div className="text-xs text-muted-foreground font-mono">{u.form_id}</div>
+                {unmappedOrigins.map((o) => (
+                  <TableRow key={`${o.source_kind}:${o.origin_key}`}>
+                    <TableCell className="max-w-[260px]">
+                      <div className="font-mono text-xs truncate">{o.origin_key}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {SOURCE_KIND_LABEL[o.source_kind] ?? o.source_kind}
+                      </div>
                     </TableCell>
-                    <TableCell className="text-right tabular-nums">{u.leads_count}</TableCell>
-                    <TableCell className="text-xs text-muted-foreground">{fmtDate(u.last_lead_at)}</TableCell>
+                    <TableCell className="max-w-[260px]">
+                      <div className="truncate">{o.origin_name || "(sem nome)"}</div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={o.is_active ? "outline" : "secondary"}>
+                        {ORIGIN_TYPE_LABEL[o.origin_type] ?? o.origin_type}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">{o.leads_count}</TableCell>
+                    <TableCell className="text-right tabular-nums">{o.active_leads_count}</TableCell>
+                    <TableCell className="text-xs">
+                      {workflowCellLabel(o.workflow_stage_target) ?? "—"}
+                    </TableCell>
+                    <TableCell className="text-xs text-muted-foreground">{fmtDate(o.first_lead_at)}</TableCell>
                     <TableCell className="text-right">
                       <Button
-                        size="sm"
-                        variant="outline"
+                        variant="ghost"
+                        size="icon"
                         disabled={!canWrite}
-                        onClick={() => setEditor(emptyEditor(u.form_id, u.form_name ?? ""))}
+                        title="Editar origem"
+                        onClick={() => openOriginEditor(o)}
                       >
-                        <Plus className="h-4 w-4 mr-1" /> Criar mapeamento
+                        <Pencil className="h-4 w-4" />
                       </Button>
                     </TableCell>
                   </TableRow>
