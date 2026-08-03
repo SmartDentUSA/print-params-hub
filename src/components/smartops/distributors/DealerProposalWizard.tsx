@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, ArrowRight, Save, FileSpreadsheet, FileText, FileType, History, Trash2, RotateCcw, Pencil, Plus, ImageOff } from "lucide-react";
 import { toast } from "sonner";
 import type { DealerPriceItem, DealerPriceList, Distributor } from "./types";
-import { recalcDealerPrice, recalcDiscount, formatMoney, isFreeSampleVariation } from "./types";
+import { recalcDealerPrice, recalcDiscount, formatMoney, isFreeSampleVariation, categoryRank } from "./types";
 import { exportPriceTableXlsx, safePdf, safeDocx } from "./DealerProposalExport";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
@@ -268,6 +268,28 @@ export function DealerProposalWizard({ distributors }: Props) {
     const total = previewItems.reduce((a, b) => a + Number(b.price_dealer || 0) * getQty(b.id), 0);
     return { subtotal, discount_total: subtotal - total, total };
   }, [previewItems, qtyMap]);
+
+  /** Same visual segmentation as the price table / PDF: categoria › subcategoria. */
+  const groupedPreview = useMemo(() => {
+    const map = new Map<string, { category: string; subs: { subcategory: string; rows: DealerPriceItem[] }[] }>();
+    previewItems.forEach((it) => {
+      const cat = ((it as any).category ?? "").trim() || "Outros";
+      const sub = ((it as any).subcategory ?? "").trim() || "Geral";
+      let entry = map.get(cat);
+      if (!entry) { entry = { category: cat, subs: [] }; map.set(cat, entry); }
+      let subEntry = entry.subs.find((s) => s.subcategory === sub);
+      if (!subEntry) { subEntry = { subcategory: sub, rows: [] }; entry.subs.push(subEntry); }
+      subEntry.rows.push(it);
+    });
+    const groups = [...map.values()];
+    groups.sort((a, b) => categoryRank(a.category) - categoryRank(b.category) || a.category.localeCompare(b.category));
+    for (const g of groups) {
+      g.subs.sort((a, b) =>
+        categoryRank(g.category, a.subcategory) - categoryRank(g.category, b.subcategory)
+        || a.subcategory.localeCompare(b.subcategory));
+    }
+    return groups;
+  }, [previewItems]);
 
   const saveProposal = async () => {
     if (!distributor || previewItems.length === 0) return;
