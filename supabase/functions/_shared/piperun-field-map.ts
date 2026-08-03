@@ -1516,6 +1516,34 @@ export interface RichDealSnapshot {
   company_id: number | null;
   synced_at: string;
   proposals: RichProposalSnapshot[];
+  // ─── Payload completo do PipeRun (usado pelo espelho public.deals) ───
+  /** Alias canônico de `origem` — o espelho lê `origin_name`. */
+  origin_name: string | null;
+  origin_id: number | null;
+  origin_group: string | null;
+  stage_id: number | null;
+  /** Lead-Timing da etapa: quando entrou na etapa atual. */
+  last_stage_updated_at: string | null;
+  started_in_stage_id: number | null;
+  updated_at: string | null;
+  temperature: string | null;
+  probability: number | null;
+  loss_reason: string | null;
+  loss_comment: string | null;
+  forecast_close_at: string | null;
+  last_contact_at: string | null;
+  tags: string[];
+  notes_text: string | null;
+  description: string | null;
+  /** Itens da proposta em texto (SKU · nome · qtd) para relatórios/timeline. */
+  items_text: string | null;
+  freight_type: string | null;
+  payment_method: string | null;
+  payment_installments: number | null;
+  currency: string | null;
+  billing_entity: string | null;
+  /** Custom fields do PipeRun achatados em `{ nome: valor }`. */
+  custom_fields: Record<string, string>;
 }
 
 /**
@@ -1603,6 +1631,61 @@ export function buildRichDealSnapshot(
   // Origin name
   const origem = deal.origin?.name || null;
 
+  // ─── Payload completo ───
+  const d = deal as unknown as Record<string, any>;
+  const num = (v: unknown): number | null => {
+    if (v === null || v === undefined || v === "") return null;
+    const n = Number(v);
+    return Number.isFinite(n) ? n : null;
+  };
+  const str = (v: unknown): string | null => {
+    const s = v == null ? "" : String(v).trim();
+    return s ? s : null;
+  };
+  const nested = (v: unknown, ...keys: string[]): string | null => {
+    if (!v) return null;
+    if (typeof v === "string") return str(v);
+    if (typeof v === "object") {
+      for (const k of keys) {
+        const val = (v as Record<string, unknown>)[k];
+        if (val != null && String(val).trim()) return String(val).trim();
+      }
+    }
+    return null;
+  };
+
+  const lossObj = d.lost_reason ?? d.loss_reason ?? d.lostReason;
+  const tags: string[] = Array.isArray(d.tags)
+    ? d.tags.map((t: unknown) => nested(t, "name", "title") || "").filter(Boolean)
+    : [];
+  const notesText = Array.isArray(d.notes)
+    ? d.notes.map((n: any) => stripHtmlShared(n?.text || n?.note || "")).filter(Boolean).join(" | ").slice(0, 4000) || null
+    : stripHtmlShared(d.notes) || null;
+
+  const itemsText = proposalSnapshots
+    .flatMap((p) => p.items)
+    .map((it) => [it.sku, it.nome, it.qtd > 1 ? `x${it.qtd}` : ""].filter(Boolean).join(" · "))
+    .filter(Boolean)
+    .join(" | ")
+    .slice(0, 4000) || null;
+
+  const firstProposal = proposalSnapshots[0];
+  const customFields: Record<string, string> = {};
+  const rawCf = d.custom_fields;
+  if (Array.isArray(rawCf)) {
+    for (const cf of rawCf) {
+      const name = nested(cf, "name", "label", "title");
+      const value = cf?.value ?? cf?.values ?? cf?.text;
+      if (name && value != null && String(value).trim()) {
+        customFields[name] = Array.isArray(value) ? value.join(", ") : String(value).trim();
+      }
+    }
+  } else if (rawCf && typeof rawCf === "object") {
+    for (const [k, v] of Object.entries(rawCf as Record<string, unknown>)) {
+      if (v != null && String(v).trim()) customFields[k] = String(v).trim();
+    }
+  }
+
   return {
     deal_id: dealId,
     deal_hash: deal.hash || null,
@@ -1625,6 +1708,30 @@ export function buildRichDealSnapshot(
     company_id: deal.company_id ? Number(deal.company_id) : null,
     synced_at: new Date().toISOString(),
     proposals: proposalSnapshots,
+    // ─── Payload completo ───
+    origin_name: origem ?? nested(d.origin, "name") ?? str(d.origin_name),
+    origin_id: num(d.origin_id ?? (d.origin as any)?.id),
+    origin_group: nested(d.origin_group ?? (d.origin as any)?.group, "name") ?? str(d.origin_group_name),
+    stage_id: num(d.stage_id ?? (d.stage as any)?.id),
+    last_stage_updated_at: str(d.last_stage_updated_at ?? d.stage_updated_at ?? d.last_stage_at ?? (d.stage as any)?.updated_at),
+    started_in_stage_id: num(d.started_in_stage_id ?? d.first_stage_id),
+    updated_at: str(d.updated_at),
+    temperature: nested(d.temperature, "name", "label") ?? str(d.temperature_name ?? d.temperature_id),
+    probability: num(d.probability ?? d.close_probability ?? d.probability_close),
+    loss_reason: nested(lossObj, "name", "reason", "title") ?? str(d.loss_reason_name),
+    loss_comment: str(d.lost_comment ?? d.loss_comment ?? (lossObj as any)?.comment),
+    forecast_close_at: str(d.forecast_close_at ?? d.expected_close_at ?? d.close_forecast_at),
+    last_contact_at: str(d.last_contact_at ?? d.last_interaction_at),
+    tags,
+    notes_text: notesText,
+    description: stripHtmlShared(d.description) || null,
+    items_text: itemsText,
+    freight_type: firstProposal?.tipo_frete || str(d.freight_type),
+    payment_method: str(d.payment_method ?? (d.proposals as any)?.[0]?.payment_method),
+    payment_installments: firstProposal?.parcelas || num(d.installments),
+    currency: str(d.currency ?? (d.proposals as any)?.[0]?.currency) ?? "BRL",
+    billing_entity: nested(d.billing_company ?? d.billing_entity, "name", "trade_name", "corporate_name"),
+    custom_fields: customFields,
   };
 }
 

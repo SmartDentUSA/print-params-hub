@@ -33,6 +33,11 @@ const HYDRATE_INCLUDES = [
   "files",
   "tags",
   "origin",
+  "origin.group",
+  "temperature",
+  "loss_reason",
+  "lost_reason",
+  "notes",
   "stage",
   "pipeline",
   "owner",
@@ -70,6 +75,41 @@ export function needsHydration(deal: Record<string, unknown>): {
   const cf = deal.custom_fields as unknown[] | undefined;
   if ((!cf || (Array.isArray(cf) && cf.length === 0)) && (deal.value != null && Number(deal.value) > 0)) {
     return { needs: true, reason: "empty_custom_fields_with_value" };
+  }
+
+  // ─── Blocos comerciais do payload completo ───
+  // Origem: obrigatória para relatórios de canal
+  const origin = deal.origin as Record<string, unknown> | undefined;
+  if (!origin && !deal.origin_id && !deal.origin_name) {
+    return { needs: true, reason: "no_origin_block" };
+  }
+
+  // Temperatura / probabilidade (usadas no forecast)
+  if (deal.temperature === undefined && deal.temperature_id === undefined) {
+    return { needs: true, reason: "no_temperature" };
+  }
+
+  // Propostas/itens: deal com valor precisa ter itens para o mix de produtos
+  const proposals = deal.proposals as unknown[] | undefined;
+  const proposalsEmpty = !Array.isArray(proposals) || proposals.length === 0;
+  if (proposalsEmpty && deal.value != null && Number(deal.value) > 0) {
+    return { needs: true, reason: "no_proposals_with_value" };
+  }
+  if (Array.isArray(proposals) && proposals.length > 0) {
+    const anyItems = proposals.some((p) => Array.isArray((p as Record<string, unknown>)?.items) &&
+      ((p as Record<string, unknown>).items as unknown[]).length > 0);
+    if (!anyItems) return { needs: true, reason: "proposals_without_items" };
+  }
+
+  // Timing de etapa (tempo em cada etapa no funil)
+  if (!deal.last_stage_updated_at && !deal.stage_updated_at && !deal.last_stage_at) {
+    return { needs: true, reason: "no_stage_timing" };
+  }
+
+  // Motivo de perda em deals fechados como perdidos
+  const statusRaw = String(deal.status ?? "");
+  if ((statusRaw === "3" || /perd/i.test(statusRaw)) && !deal.lost_reason && !deal.loss_reason) {
+    return { needs: true, reason: "lost_without_reason" };
   }
 
   return { needs: false, reason: "complete" };
@@ -114,12 +154,37 @@ export async function hydrateDealPayload(
 
     // Para arrays/objetos sensíveis: se o GET veio vazio e o webhook tem
     // dado, mantém o do webhook (caso raro de proteção dupla).
-    for (const k of ["proposals", "custom_fields", "activities", "files", "involved_users"]) {
+    for (const k of [
+      "proposals",
+      "custom_fields",
+      "activities",
+      "files",
+      "involved_users",
+      "tags",
+      "notes",
+      "origin",
+      "temperature",
+      "lost_reason",
+      "loss_reason",
+    ]) {
       const fetchedVal = merged[k];
       const webhookVal = webhookDeal[k];
       const fetchedEmpty = !fetchedVal || (Array.isArray(fetchedVal) && fetchedVal.length === 0);
       const webhookHas = webhookVal && (!Array.isArray(webhookVal) || webhookVal.length > 0);
       if (fetchedEmpty && webhookHas) merged[k] = webhookVal;
+    }
+
+    // Timestamps reais do evento nunca devem ser substituídos por now()/GET vazio
+    for (const k of [
+      "created_at",
+      "closed_at",
+      "updated_at",
+      "last_stage_updated_at",
+      "stage_updated_at",
+      "last_contact_at",
+      "forecast_close_at",
+    ]) {
+      if (!merged[k] && webhookDeal[k]) merged[k] = webhookDeal[k];
     }
 
     // ─── Identity preservation ───
