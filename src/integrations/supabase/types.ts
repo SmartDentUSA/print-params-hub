@@ -24233,7 +24233,7 @@ export type Database = {
           updated_at: string
           upload_session_id: string | null
           uploaded_at: string | null
-          uploaded_by: string | null
+          uploaded_by: string
           width: number | null
         }
         Insert: {
@@ -24265,7 +24265,7 @@ export type Database = {
           updated_at?: string
           upload_session_id?: string | null
           uploaded_at?: string | null
-          uploaded_by?: string | null
+          uploaded_by: string
           width?: number | null
         }
         Update: {
@@ -24297,7 +24297,7 @@ export type Database = {
           updated_at?: string
           upload_session_id?: string | null
           uploaded_at?: string | null
-          uploaded_by?: string | null
+          uploaded_by?: string
           width?: number | null
         }
         Relationships: [

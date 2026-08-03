@@ -41,27 +41,51 @@ function json(body: unknown, status = 200) {
 
 const admin = () => createClient(SUPABASE_URL, SERVICE_ROLE, { auth: { persistSession: false } });
 
-// Mesma rota de autenticação da criação de pasta do Drive
-// (training-create-drive-folder): a função roda com verify_jwt = false e usa
-// service role. O usuário é resolvido apenas de forma opcional, para
-// registrar quem enviou a mídia — nunca para bloquear o envio.
-async function authorize(req: Request) {
+// Autenticação obrigatória: Bearer JWT válido + permissão de equipe.
+// O service_role permanece exclusivamente dentro desta função.
+type AuthResult =
+  | { ok: true; user: { id: string }; isAdmin: boolean; db: any }
+  | { ok: false; status: number; error: string };
+
+async function authorize(req: Request): Promise<AuthResult> {
   const authHeader = req.headers.get("Authorization") || "";
-  const db = admin();
-  let user: any = null;
-  if (authHeader.startsWith("Bearer ")) {
-    try {
-      const userClient = createClient(SUPABASE_URL, ANON_KEY, {
-        global: { headers: { Authorization: authHeader } },
-        auth: { persistSession: false },
-      });
-      const { data } = await userClient.auth.getUser();
-      user = data?.user ?? null;
-    } catch (_e) {
-      user = null;
-    }
+  if (!authHeader.startsWith("Bearer ")) {
+    return { ok: false, status: 401, error: "Autenticação obrigatória" };
   }
-  return { user, db };
+  const token = authHeader.slice("Bearer ".length).trim();
+  if (!token || token === ANON_KEY) {
+    return { ok: false, status: 401, error: "Autenticação obrigatória" };
+  }
+
+  const userClient = createClient(SUPABASE_URL, ANON_KEY, {
+    global: { headers: { Authorization: `Bearer ${token}` } },
+    auth: { persistSession: false },
+  });
+  const { data, error } = await userClient.auth.getUser();
+  const user = data?.user ?? null;
+  if (error || !user) {
+    return { ok: false, status: 401, error: "Sessão inválida ou expirada" };
+  }
+
+  const db = admin();
+  const { data: allowed, error: permErr } = await db.rpc("can_manage_training_media", {
+    _user_id: user.id,
+  });
+  if (permErr) {
+    return { ok: false, status: 403, error: `Falha ao validar permissão: ${permErr.message}` };
+  }
+  if (allowed !== true) {
+    return { ok: false, status: 403, error: "Usuário sem permissão para enviar mídias de treinamento" };
+  }
+
+  const { data: adminRole } = await db
+    .from("user_roles")
+    .select("user_id")
+    .eq("user_id", user.id)
+    .eq("role", "admin")
+    .maybeSingle();
+
+  return { ok: true, user: { id: user.id }, isAdmin: !!adminRole, db };
 }
 
 async function loadTurma(db: any, turmaId: string) {
@@ -80,7 +104,10 @@ serve(async (req) => {
   try {
     const url = new URL(req.url);
     const action = (url.searchParams.get("action") || "").toLowerCase();
-    const { user, db } = await authorize(req);
+    const auth = await authorize(req);
+    if (!auth.ok) return json({ error: auth.error }, auth.status);
+    const { user, isAdmin, db } = auth;
+    const ownsRow = (row: any) => isAdmin || row?.uploaded_by === user.id;
 
     /* ----------------------------- CHUNK ----------------------------- */
     if (action === "chunk") {
@@ -95,6 +122,7 @@ serve(async (req) => {
         .maybeSingle();
       if (error) return json({ error: error.message }, 500);
       if (!row) return json({ error: "Upload não encontrado" }, 404);
+      if (!ownsRow(row)) return json({ error: "Upload pertence a outro usuário" }, 403);
       if (row.status === "completed") {
         return json({ done: true, received: row.size_bytes, drive_file_id: row.drive_file_id });
       }
@@ -162,6 +190,7 @@ serve(async (req) => {
         .maybeSingle();
       if (error) return json({ error: error.message }, 500);
       if (!data) return json({ error: "Upload não encontrado" }, 404);
+      if (!ownsRow(data)) return json({ error: "Upload pertence a outro usuário" }, 403);
       return json(data);
     }
 
@@ -175,6 +204,7 @@ serve(async (req) => {
         .eq("id", uploadId)
         .maybeSingle();
       if (!row) return json({ error: "Upload não encontrado" }, 404);
+      if (!ownsRow(row)) return json({ error: "Upload pertence a outro usuário" }, 403);
       if (row.status === "completed") return json({ error: "Upload já concluído" }, 409);
       if (row.resumable_session_uri) await driveCancelResumable(row.resumable_session_uri);
       await db.from("training_drive_media").update({ status: "cancelled", resumable_session_uri: null }).eq("id", row.id);
@@ -341,7 +371,7 @@ serve(async (req) => {
         status: "pending",
         resumable_session_uri: sessionUri,
         exception_reason: exceptionReason,
-        uploaded_by: user?.id ?? null,
+        uploaded_by: user.id,
       })
       .select("id")
       .single();
