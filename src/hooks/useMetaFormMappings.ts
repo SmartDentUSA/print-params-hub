@@ -27,6 +27,47 @@ export interface UnmappedForm {
   last_lead_at: string | null;
 }
 
+export type OriginSourceKind = "meta_form" | "system_form" | "origin";
+
+export interface LeadOrigin {
+  origin_key: string;
+  origin_name: string;
+  origin_type: string;
+  source_kind: OriginSourceKind;
+  leads_count: number;
+  active_leads_count: number;
+  first_lead_at: string | null;
+  last_lead_at: string | null;
+  workflow_stage_target: string | null;
+  is_active: boolean;
+  mapping_id: string | null;
+  mapped: boolean;
+}
+
+export function useLeadOrigins() {
+  return useQuery({
+    queryKey: ["meta_form_mappings", "lead_origins"],
+    queryFn: async (): Promise<LeadOrigin[]> => {
+      const { data, error } = await supabase.rpc("list_lead_origins" as any);
+      if (error) throw error;
+      return ((data ?? []) as any[]).map((r) => ({
+        origin_key: r.origin_key,
+        origin_name: r.origin_name ?? r.origin_key,
+        origin_type: r.origin_type ?? "inbound",
+        source_kind: (r.source_kind ?? "origin") as OriginSourceKind,
+        leads_count: Number(r.leads_count ?? 0),
+        active_leads_count: Number(r.active_leads_count ?? 0),
+        first_lead_at: r.first_lead_at ?? null,
+        last_lead_at: r.last_lead_at ?? null,
+        workflow_stage_target: r.workflow_stage_target ?? null,
+        is_active: r.is_active ?? true,
+        mapping_id: r.mapping_id ?? null,
+        mapped: !!r.mapped,
+      }));
+    },
+  });
+}
+
 export function useMetaFormMappings() {
   return useQuery({
     queryKey: ["meta_form_mappings"],
