@@ -64,13 +64,6 @@ Deno.serve(async (req) => {
 
   try {
     const { deals: openRemote, reportedTotal } = await fetchDealsByStatus(PIPERUN_API_KEY, 0);
-    // Real CRM status for the stale rows: never guess "perdida" for a won deal.
-    const wonRemote = mode === "apply"
-      ? (await fetchDealsByStatus(PIPERUN_API_KEY, 1)).deals
-      : new Map<string, Deal>();
-    const lostRemote = mode === "apply"
-      ? (await fetchDealsByStatus(PIPERUN_API_KEY, 2)).deals
-      : new Map<string, Deal>();
 
     // Local open mirror rows
     const localIds: string[] = [];
@@ -92,37 +85,24 @@ Deno.serve(async (req) => {
     const stale = localIds.filter((id) => !openRemote.has(id));
     const missingLocally = [...openRemote.keys()].filter((id) => !localIds.includes(id));
 
+    // NOTE: PipeRun's `status=1|2` deal listings do NOT expose historical
+    // won/lost deals, so we never guess a final status here. Stale rows are
+    // flagged (`is_deleted=true` while still `status='aberta'`) so they leave
+    // the "funil ativo" counters, and `piperun-vendas-status-hydrate` pulls the
+    // authoritative status deal-by-deal afterwards.
     let closed = 0;
-    let marked_won = 0;
-    let marked_lost = 0;
-    let marked_deleted = 0;
     if (mode === "apply" && stale.length > 0) {
-      const buckets: Record<string, string[]> = { ganha: [], perdida: [], deleted: [] };
-      for (const id of stale) {
-        if (wonRemote.has(id)) buckets.ganha.push(id);
-        else if (lostRemote.has(id)) buckets.perdida.push(id);
-        else buckets.deleted.push(id);
-      }
       const nowIso = new Date().toISOString();
-      for (const [bucket, ids] of Object.entries(buckets)) {
-        for (let i = 0; i < ids.length; i += 200) {
-          const slice = ids.slice(i, i + 200);
-          const patch = bucket === "deleted"
-            ? { is_deleted: true, updated_at: nowIso }
-            : { status: bucket, closed_at: nowIso, updated_at: nowIso };
-          const { error, count } = await supabase
-            .from("deals")
-            .update(patch, { count: "exact" })
-            .in("piperun_deal_id", slice)
-            .eq("pipeline_id", VENDAS_PIPELINE_ID)
-            .eq("status", "aberta");
-          if (error) throw new Error(error.message);
-          const n = count ?? slice.length;
-          closed += n;
-          if (bucket === "ganha") marked_won += n;
-          else if (bucket === "perdida") marked_lost += n;
-          else marked_deleted += n;
-        }
+      for (let i = 0; i < stale.length; i += 200) {
+        const slice = stale.slice(i, i + 200);
+        const { error, count } = await supabase
+          .from("deals")
+          .update({ is_deleted: true, updated_at: nowIso }, { count: "exact" })
+          .in("piperun_deal_id", slice)
+          .eq("pipeline_id", VENDAS_PIPELINE_ID)
+          .eq("status", "aberta");
+        if (error) throw new Error(error.message);
+        closed += count ?? slice.length;
       }
     }
 
@@ -136,9 +116,6 @@ Deno.serve(async (req) => {
       open_missing_locally: missingLocally.length,
       missing_sample: missingLocally.slice(0, 20),
       closed,
-      marked_won,
-      marked_lost,
-      marked_deleted,
       elapsed_ms: Date.now() - startedAt,
     };
 

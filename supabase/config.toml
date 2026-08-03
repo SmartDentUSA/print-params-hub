@@ -30,6 +30,9 @@ verify_jwt = false
 [functions.piperun-vendas-open-recon]
 verify_jwt = false
 
+[functions.piperun-vendas-status-hydrate]
+verify_jwt = false
+
 [functions.meta-lead-ads-backfill]
 verify_jwt = false
 
