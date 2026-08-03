@@ -238,6 +238,31 @@ export function UploadMidiasDriveDialog({
 
   const driveTestimonialTotal = inventory?.names?.["videos_depoimentos"]?.length ?? 0;
 
+  /** Contagem por destino + dia (banco + arquivos já existentes no Drive). */
+  const countByDestDay = useMemo(() => {
+    const map: Record<string, number> = {};
+    for (const m of media) {
+      if (m.status !== "completed") continue;
+      const day = m.training_day ? String(m.training_day) : "geral";
+      const k = `${m.destination_key}|${day}`;
+      map[k] = (map[k] || 0) + 1;
+    }
+    for (const [dest, names] of Object.entries(inventory?.names || {})) {
+      const perDay: Record<string, number> = {};
+      for (const n of names) {
+        const up = n.toUpperCase();
+        const m = up.match(/_DIA-(\d)_/);
+        const day = m ? m[1] : up.includes("_GERAL_") ? "geral" : "sem";
+        perDay[day] = (perDay[day] || 0) + 1;
+      }
+      for (const [day, n] of Object.entries(perDay)) {
+        const k = `${dest}|${day}`;
+        map[k] = Math.max(map[k] || 0, n);
+      }
+    }
+    return map;
+  }, [media, inventory]);
+
   const dayOptions = days.length
     ? days.map((d) => ({ value: String(d.day_number), label: `Dia ${d.day_number} — ${fmt(d.date)}` }))
     : startDate
@@ -399,32 +424,27 @@ export function UploadMidiasDriveDialog({
             </TabsContent>
 
             <TabsContent value="videos" className="mt-3">
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {VIDEO_DESTS.map((d) => {
-                  const day = dayByDest[d.key] || "";
-                  return (
-                    <DropCard
-                      key={d.key}
-                      dest={d}
-                      count={countByDest[d.key] || 0}
-                      subtitle={d.path}
-                      disabled={!day}
-                      disabledHint="Selecione o dia para liberar"
-                      onFiles={(files) => addFiles(files, d, { day })}
-                    >
-                      <div className="space-y-1">
-                        <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">Dia do treinamento</Label>
-                        <Select value={day} onValueChange={(v) => setDayByDest((s) => ({ ...s, [d.key]: v }))}>
-                          <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Selecione o dia" /></SelectTrigger>
-                          <SelectContent>
-                            {dayOptions.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
-                            <SelectItem value="geral">Geral</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </DropCard>
-                  );
-                })}
+              <div className="space-y-5">
+                {VIDEO_DESTS.map((d) => (
+                  <div key={d.key} className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <div className="text-sm font-semibold">{d.folderName}</div>
+                      <Badge variant="secondary" className="font-mono text-[10px]">{d.folderTag}</Badge>
+                      <Badge variant="outline" className="font-mono text-[10px]">{countByDest[d.key] || 0} arq</Badge>
+                    </div>
+                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                      {[...dayOptions, { value: "geral", label: "Geral (sem dia específico)" }].map((o) => (
+                        <DropCard
+                          key={`${d.key}-${o.value}`}
+                          dest={{ ...d, folderName: o.label }}
+                          count={countByDestDay[`${d.key}|${o.value}`] || 0}
+                          subtitle={d.path}
+                          onFiles={(files) => addFiles(files, d, { day: o.value })}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                ))}
               </div>
             </TabsContent>
 
