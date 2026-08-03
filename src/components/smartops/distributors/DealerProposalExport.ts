@@ -531,7 +531,7 @@ export async function exportPriceTablePdf(
     doc.setFont("helvetica", "normal");
     doc.setFontSize(8);
     doc.setTextColor(120, 120, 120);
-    doc.text(`Página ${p} de ${totalPages}`, pageW - 32, pageH - 38, { align: "right" });
+    doc.text(`Página ${p} de ${totalPages}`, pageW - 32, pageH - 62, { align: "right" });
     doc.setTextColor(0, 0, 0);
   }
 
