@@ -1584,12 +1584,30 @@ Deno.serve(async (req) => {
 
     // ─── Record timeline event in lead_activity_log (append-only) ───
     const timelineEventType = isWon ? "crm_deal_won" : isLost ? "crm_deal_lost" : isNewLead ? "crm_deal_created" : "crm_deal_updated";
+    // Data REAL do acontecimento no CRM (nunca now()):
+    //  - criação  → deal.created_at
+    //  - ganha/perdida → deal.closed_at (fallback updated_at)
+    //  - atualização → deal.updated_at
+    const parseRealTs = (v: unknown): string | null => {
+      const s = v == null ? "" : String(v).trim();
+      if (!s) return null;
+      const d = new Date(s.includes("T") ? s : s.replace(" ", "T") + "Z");
+      return isNaN(d.getTime()) ? null : d.toISOString();
+    };
+    const dealUpdatedAtIso = parseRealTs(deal.updated_at);
+    const timelineEventTs =
+      (timelineEventType === "crm_deal_created"
+        ? parseRealTs(ids.dealCreatedAt)
+        : timelineEventType === "crm_deal_won" || timelineEventType === "crm_deal_lost"
+          ? parseRealTs(ids.dealClosedAt) ?? dealUpdatedAtIso
+          : dealUpdatedAtIso ?? parseRealTs(ids.dealCreatedAt)) ?? new Date().toISOString();
     await supabase.from("lead_activity_log").insert({
       lead_id: leadId,
       event_type: timelineEventType,
       entity_type: "deal",
       entity_id: dealId ? String(dealId) : null,
       entity_name: ids.pipelineName || ids.stageName || null,
+      event_timestamp: timelineEventTs,
       event_data: {
         deal_id: dealId,
         pipeline: ids.pipelineName,
@@ -1599,6 +1617,9 @@ Deno.serve(async (req) => {
         status: currentDealStatus,
         tags_added: journeyTagsAdded,
         is_new: isNewLead,
+        deal_created_at: ids.dealCreatedAt,
+        deal_closed_at: ids.dealClosedAt,
+        deal_updated_at: dealUpdatedAtIso,
         fonte: "piperun",
       },
       source_channel: "crm",
