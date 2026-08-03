@@ -16,19 +16,30 @@ function fileBase(distributor: Distributor | undefined, list: DealerPriceList | 
 }
 
 // ---------- Background helpers ----------
-let bgDataUrlCache: string | null = null;
-async function loadProposalBg(): Promise<string> {
-  if (bgDataUrlCache) return bgDataUrlCache;
-  const res = await fetch(proposalBgAsset.url);
-  const blob = await res.blob();
-  const dataUrl: string = await new Promise((resolve, reject) => {
-    const r = new FileReader();
-    r.onload = () => resolve(r.result as string);
-    r.onerror = reject;
-    r.readAsDataURL(blob);
-  });
-  bgDataUrlCache = dataUrl;
-  return dataUrl;
+// The letterhead PNG lives in the Lovable asset pipeline. When that URL is not
+// reachable (custom domain / SPA catch-all returns index.html) the fetch still
+// succeeds with an HTML body, and feeding that to jsPDF.addImage throws — which
+// used to abort the whole PDF silently. Validate the payload and degrade
+// gracefully instead of failing.
+let bgDataUrlCache: string | null | undefined;
+async function loadProposalBg(): Promise<string | null> {
+  if (bgDataUrlCache !== undefined) return bgDataUrlCache;
+  try {
+    const res = await fetch(proposalBgAsset.url);
+    if (!res.ok) { bgDataUrlCache = null; return null; }
+    const blob = await res.blob();
+    if (!(blob.type || "").toLowerCase().startsWith("image/")) { bgDataUrlCache = null; return null; }
+    const dataUrl: string = await new Promise((resolve, reject) => {
+      const r = new FileReader();
+      r.onload = () => resolve(r.result as string);
+      r.onerror = reject;
+      r.readAsDataURL(blob);
+    });
+    bgDataUrlCache = dataUrl.startsWith("data:image/") ? dataUrl : null;
+  } catch {
+    bgDataUrlCache = null;
+  }
+  return bgDataUrlCache;
 }
 
 function resolveDealerId(d: Distributor | undefined): string {
