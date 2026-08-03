@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -496,16 +496,16 @@ export function DealerProposalWizard({ distributors }: Props) {
                   </thead>
                   <tbody>
                     {groupedPreview.map((grp) => (
-                      <>
-                        <tr key={`cat-${grp.category}`} className="bg-slate-900 text-white">
+                      <Fragment key={`cat-${grp.category}`}>
+                        <tr className="bg-slate-900 text-white">
                           <td colSpan={14} className="p-2 font-semibold uppercase tracking-wide">
                             {grp.category}
                           </td>
                         </tr>
                         {grp.subs.map((sub) => (
-                          <>
+                          <Fragment key={`sub-${grp.category}-${sub.subcategory}`}>
                             {(grp.subs.length > 1 || sub.subcategory !== "Geral") && (
-                              <tr key={`sub-${grp.category}-${sub.subcategory}`} className="bg-slate-100">
+                              <tr className="bg-slate-100">
                                 <td colSpan={14} className="p-1.5 pl-3 font-medium text-slate-700 uppercase text-[11px] tracking-wide">
                                   {sub.subcategory}
                                 </td>
@@ -539,9 +539,9 @@ export function DealerProposalWizard({ distributors }: Props) {
                         </td>
                       </tr>
                             ))}
-                          </>
+                          </Fragment>
                         ))}
-                      </>
+                      </Fragment>
                     ))}
                   </tbody>
                   <tfoot className="bg-slate-100 font-semibold">
