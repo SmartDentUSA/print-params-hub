@@ -297,6 +297,7 @@ export function UploadMidiasDriveDialog({
       }, controller.signal);
       setQueue((q) => q.map((x) => (x.id === itemId ? { ...x, status: "done", sent: base.file.size, link: res.drive_web_view_link } : x)));
       void refetchMedia();
+      void refetchInventory();
       qc.invalidateQueries({ queryKey: ["turma-drive-media", turmaId] });
     } catch (err: any) {
       const msg = err?.message || String(err);
@@ -430,7 +431,10 @@ export function UploadMidiasDriveDialog({
             <TabsContent value="depoimentos" className="mt-3 space-y-3">
               <div className="flex items-center justify-between">
                 <div className="text-xs text-muted-foreground">Uma janela de upload por participante — o nome do arquivo é gerado com o nome do aluno.</div>
-                <Badge variant="secondary">{semDepoimento} sem depoimento</Badge>
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline" className="font-mono text-[10px]">{driveTestimonialTotal} no Drive</Badge>
+                  <Badge variant="secondary">{semDepoimento} sem depoimento</Badge>
+                </div>
               </div>
 
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
