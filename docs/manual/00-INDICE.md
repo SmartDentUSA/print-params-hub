@@ -38,3 +38,4 @@ Documentação de engenharia reversa completa. Base: código do repositório e i
 - Referências de código usam `caminho/arquivo.ts:linha`.
 - O sistema é chamado internamente de **Sistema B** (backend operacional/CRM); **Sistema A** é o catálogo público de produtos consumido por API.
 - Não foi executado nenhum teste de carga, pentest ou instrumentação de runtime; as seções de performance e segurança baseiam-se em `pg_stat_statements`, linter do Supabase e leitura de código.
+- [17 — Mapeamento Funcional Completo (Enterprise)](./17-mapeamento-funcional-completo.md) — especificação de todos os módulos do menu: objetivo, componentes, how-to, dados/integrações
