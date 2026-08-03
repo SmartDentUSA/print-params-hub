@@ -64,6 +64,7 @@ import {
   categoryRank,
   isKitProduct,
   kitFirst,
+  compareProductName,
 } from "@/components/smartops/distributors/types";
 import { supabase } from "@/integrations/supabase/client";
 
