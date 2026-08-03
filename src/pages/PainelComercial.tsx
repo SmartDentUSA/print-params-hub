@@ -18,6 +18,7 @@ import {
   fmtPct,
   variacao,
 } from "@/hooks/painel/usePainelComercial";
+import { useFiltroVendedoresAtivos } from "@/hooks/painel/useVendedoresAtivos";
 
 const mesLabel = (iso: string) =>
   new Date(`${iso}-01T12:00:00`).toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
@@ -40,6 +41,7 @@ export default function PainelComercial() {
   const atividades = usePainelAtividades(mesAtual);
   const origens = usePainelOrigens(mesAtual);
   const produtos = usePainelTopProdutos(mesAtual);
+  const filtrarAtivos = useFiltroVendedoresAtivos();
 
   const k = kpis.data;
   const totalProdutos = k?.receita_produtos_total ?? null;
@@ -124,8 +126,8 @@ export default function PainelComercial() {
       </section>
 
       <section className="grid grid-cols-1 gap-3 mb-3">
-        <SellerPerformanceTable rows={vendedores.data ?? []} />
-        <ActivityTable rows={atividades.data ?? []} />
+        <SellerPerformanceTable rows={filtrarAtivos(vendedores.data ?? [])} />
+        <ActivityTable rows={filtrarAtivos(atividades.data ?? [])} />
       </section>
 
       <section className="mb-3">
