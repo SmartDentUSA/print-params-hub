@@ -7,6 +7,7 @@ export interface PainelKpis {
   mes_ref: string;
   receita_mes: number | null;
   receita_mes_anterior: number | null;
+  receita_periodo_comparado?: string | null;
   leads_mes: number | null;
   leads_mes_anterior: number | null;
   leads_periodo_comparado?: string | null;
