@@ -32120,6 +32120,7 @@ export type Database = {
       painel_comercial_refresh: { Args: { p_mes?: string }; Returns: undefined }
       painel_comercial_top_produtos: { Args: { p_mes?: string }; Returns: Json }
       painel_comercial_vendedores: { Args: { p_mes?: string }; Returns: Json }
+      painel_filtrar_ativos: { Args: { p_payload: Json }; Returns: Json }
       painel_funil_refresh: { Args: { p_mes?: string }; Returns: undefined }
       painel_match_taxonomy: {
         Args: { p_nome: string }
@@ -32127,6 +32128,13 @@ export type Database = {
           display_name: string
           subcategory: string
           workflow_stage: string
+        }[]
+      }
+      painel_nome_norm: { Args: { p_nome: string }; Returns: string }
+      painel_vendedores_ativos: {
+        Args: never
+        Returns: {
+          nome_norm: string
         }[]
       }
       process_meta_lead_batch: { Args: never; Returns: undefined }
