@@ -155,6 +155,16 @@ export function kitFirst(a: boolean, b: boolean): number {
   return a === b ? 0 : a ? -1 : 1;
 }
 
+/** Natural (pt-BR, numeric-aware) name comparator used by every catalog list
+ *  so that, inside a category/subcategory and after the KIT block, products
+ *  follow a logical alphabetical/numeric sequence. */
+export function compareProductName(a?: string | null, b?: string | null): number {
+  return String(a ?? "").localeCompare(String(b ?? ""), "pt", {
+    numeric: true,
+    sensitivity: "base",
+  });
+}
+
 /** Parse a variation quantity label (e.g. "100", "100g", "1kg", "500 grs")
  * into grams. Returns null when the value can't be interpreted. */
 export function parseVariationQtyGrams(qty: unknown): number | null {
