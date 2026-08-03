@@ -314,7 +314,7 @@ serve(async (req) => {
         status: "pending",
         resumable_session_uri: sessionUri,
         exception_reason: exceptionReason,
-        uploaded_by: user.id,
+        uploaded_by: user?.id ?? null,
       })
       .select("id")
       .single();
