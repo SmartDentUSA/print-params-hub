@@ -157,5 +157,36 @@ export function useSkuMappingInbox() {
     [],
   );
 
-  return { rows, variations, loading, load, saveMapping };
+  /**
+   * Creates/updates an alias using a manually typed canonical name (no catalog
+   * SKU yet). Used by the "Fora do Catálogo" tab.
+   */
+  const saveCanonicalName = useCallback(
+    async (row: SkuInboxRow, canonicalName: string, categoria?: string | null) => {
+      const nomeCanonico = canonicalName.trim();
+      if (!nomeCanonico) throw new Error("Informe o nome canônico.");
+
+      const { data: savedAliasId, error } = await (supabase as any).rpc("save_produto_alias", {
+        p_alias_id: row.alias_id ?? null,
+        p_nome_variante: row.sample_name.trim(),
+        p_nome_canonico: nomeCanonico,
+        p_sku_interno: row.sku_interno ?? null,
+        p_categoria: categoria ?? row.categoria ?? null,
+        p_is_kit: row.is_kit ?? false,
+      });
+      if (error) throw error;
+
+      setRows((current) =>
+        current.map((item) =>
+          item.name_key === row.name_key
+            ? { ...item, alias_id: savedAliasId as number, nome_canonico: nomeCanonico, categoria: categoria ?? item.categoria }
+            : item,
+        ),
+      );
+      return savedAliasId as number;
+    },
+    [],
+  );
+
+  return { rows, variations, loading, load, saveMapping, saveCanonicalName };
 }
