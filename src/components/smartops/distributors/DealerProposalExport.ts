@@ -4,6 +4,7 @@ import autoTable from "jspdf-autotable";
 import { Document, Packer, Paragraph, Table, TableCell, TableRow, TextRun, WidthType, HeadingLevel, AlignmentType, BorderStyle, ShadingType } from "docx";
 import { ImageRun } from "docx";
 import { saveAs } from "file-saver";
+import { toast } from "sonner";
 import type { DealerPriceItem, DealerPriceList, Distributor } from "./types";
 import { formatMoney, categoryRank } from "./types";
 import proposalBgAsset from "@/assets/proposal-bg.png.asset.json";
@@ -674,4 +675,22 @@ export async function exportPriceTableDocx(
 
   const blob = await Packer.toBlob(doc);
   saveAs(blob, `${fileBase(distributor, list, filenamePrefix)}.docx`);
+}
+/** UI-safe wrappers: never fail silently — surface the error to the user. */
+export async function safePdf(...args: Parameters<typeof exportPriceTablePdf>) {
+  try {
+    await exportPriceTablePdf(...args);
+  } catch (e) {
+    console.error("[proposta] falha ao gerar PDF", e);
+    toast.error("Não foi possível gerar o PDF", { description: (e as Error)?.message ?? "Erro desconhecido" });
+  }
+}
+
+export async function safeDocx(...args: Parameters<typeof exportPriceTableDocx>) {
+  try {
+    await exportPriceTableDocx(...args);
+  } catch (e) {
+    console.error("[proposta] falha ao gerar DOCX", e);
+    toast.error("Não foi possível gerar o DOCX", { description: (e as Error)?.message ?? "Erro desconhecido" });
+  }
 }

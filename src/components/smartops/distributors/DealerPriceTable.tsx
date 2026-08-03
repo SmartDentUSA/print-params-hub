@@ -11,7 +11,7 @@ import { Download, RefreshCw, Trash2, Plus, ImageOff, FileSpreadsheet, FileText,
 import { toast } from "sonner";
 import type { DealerPriceItem, DealerPriceList, Distributor, DealerSnapshot } from "./types";
 import { recalcDealerPrice, recalcDiscount, formatMoney, PRESENTATION_OPTIONS, categoryRank, isFreeSampleVariation } from "./types";
-import { exportPriceTableXlsx, exportPriceTablePdf, exportPriceTableDocx } from "./DealerProposalExport";
+import { exportPriceTableXlsx, safePdf, safeDocx } from "./DealerProposalExport";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 
 /** Extrai NCM (compartilhado) + lista de variações {qty, gtin, unit} do technical_specs. */
