@@ -162,7 +162,7 @@
 }
 .pc-funnel-gap {
   font-size: 0.64rem;
-  color: hsl(var(--pc-muted));
+  color: hsl(var(--pc-text-dim));
   letter-spacing: 0.02em;
   padding: 0.05rem 0;
 }
