@@ -91,7 +91,7 @@ const rpc = async <T,>(fn: string, args?: Record<string, unknown>): Promise<T> =
 export function usePainelKpis(mes?: string) {
   return useQuery({
     queryKey: ["painel-kpis", mes],
-    queryFn: () => rpc<PainelKpis>("painel_comercial_kpis", mes ? { p_mes: mes } : undefined),
+    queryFn: () => rpc<PainelKpis>("painel_comercial_kpis_cache", mes ? { p_mes: mes } : undefined),
     refetchInterval: REFETCH,
   });
 }
