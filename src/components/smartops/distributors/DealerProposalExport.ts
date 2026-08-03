@@ -240,6 +240,25 @@ export async function exportPriceTablePdf(
   // Draw background + overlay all header fields. Called BEFORE table content
   // on each page (via willDrawPage) so rows stay visible on top of the PNG.
   const paintedPages = new Set<number>();
+  // Minimal branded letterhead used when the PNG asset is unavailable.
+  const drawFallbackLetterhead = () => {
+    doc.setFillColor(31, 31, 31);
+    doc.rect(0, 0, pageW, 96, "F");
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(18);
+    doc.setTextColor(255, 255, 255);
+    doc.text("SMART DENT | FLUXO DIGITAL", 32, 46);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(10);
+    doc.text(opts.title ?? "Proposal / Price Table", 32, 70);
+    doc.setTextColor(0, 0, 0);
+    doc.setDrawColor(200);
+    doc.line(28, pageH - 52, pageW - 28, pageH - 52);
+    doc.setFontSize(8);
+    doc.setTextColor(120, 120, 120);
+    doc.text("smartdent.com.br", 28, pageH - 38);
+    doc.setTextColor(0, 0, 0);
+  };
   const drawPageChrome = () => {
     const pageNo = (doc as any).internal.getCurrentPageInfo?.().pageNumber ?? 1;
     if (paintedPages.has(pageNo)) return;
