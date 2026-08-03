@@ -193,7 +193,7 @@ export function AdminCatalogTable({
       // KITs primeiro dentro da própria categoria/subcategoria.
       const kf = kitFirst(isKitProduct(a.name, sa), isKitProduct(b.name, sb));
       if (kf !== 0) return kf;
-      return (a.name || "").localeCompare(b.name || "");
+      return compareProductName(a.name, b.name);
     });
   }, [products]);
 
