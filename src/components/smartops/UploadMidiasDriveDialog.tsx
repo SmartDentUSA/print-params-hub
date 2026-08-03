@@ -11,26 +11,49 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { ExternalLink, Upload, X, RotateCcw, CheckCircle2, AlertCircle, Loader2, ImagePlus, Video } from "lucide-react";
+import { cn } from "@/lib/utils";
+import {
+  ExternalLink, Upload, X, RotateCcw, CheckCircle2, AlertCircle, Loader2,
+  ImagePlus, Video, Camera, Users, Wrench, Clapperboard, MessageSquareQuote,
+} from "lucide-react";
 import { useTurmaParticipants, isBlockedStatus, type TurmaParticipant } from "@/hooks/useTurmaParticipants";
 import { useTurmaDriveMedia } from "@/hooks/useTurmaDriveMedia";
 import { prepareUpload, runUpload, readDimensions, cancelUpload } from "@/lib/trainingDriveUpload";
 
-const PHOTO_DESTS = [
-  { key: "fotos_turma", label: "Foto da turma", path: "03 - Fotos Originais › 01 - Foto da Turma" },
-  { key: "fotos_participantes_certificados", label: "Participantes com certificados", path: "03 - Fotos Originais › 02 - Participantes com Certificados" },
-  { key: "fotos_atividades", label: "Atividades práticas", path: "03 - Fotos Originais › 03 - Atividades Práticas" },
-  { key: "fotos_equipamentos", label: "Equipamentos e resultados", path: "03 - Fotos Originais › 04 - Equipamentos e Resultados" },
-  { key: "fotos_bastidores", label: "Bastidores", path: "03 - Fotos Originais › 05 - Bastidores" },
+type DestSpec = {
+  key: string;
+  label: string;
+  folderTag: string;
+  folderName: string;
+  path: string;
+  tag: string;
+  hint: string;
+  accept: string;
+  icon: typeof Camera;
+  requiresDay?: boolean;
+};
+
+const PHOTO_DESTS: DestSpec[] = [
+  { key: "fotos_turma", label: "Foto da turma", folderTag: "03 - Fotos Originais", folderName: "01 – Foto da Turma", path: "03 - Fotos Originais › 01 - Foto da Turma", tag: "Fotografia de Grupo", hint: "Foto oficial em grupo com todos os alunos, professores e equipe do treinamento.", accept: "image/*", icon: Camera },
+  { key: "fotos_participantes_certificados", label: "Participantes com certificados", folderTag: "03 - Fotos Originais", folderName: "02 – Participantes com Certificados", path: "03 - Fotos Originais › 02 - Participantes com Certificados", tag: "Entrega de Certificados", hint: "Fotos individuais ou em duplas na entrega dos certificados.", accept: "image/*", icon: Users },
+  { key: "fotos_atividades", label: "Atividades práticas", folderTag: "03 - Fotos Originais", folderName: "03 – Atividades Práticas", path: "03 - Fotos Originais › 03 - Atividades Práticas", tag: "Hands-on", hint: "Registros dos alunos executando as atividades práticas.", accept: "image/*", icon: Wrench },
+  { key: "fotos_equipamentos", label: "Equipamentos e resultados", folderTag: "03 - Fotos Originais", folderName: "04 – Equipamentos e Resultados", path: "03 - Fotos Originais › 04 - Equipamentos e Resultados", tag: "Produto & Resultado", hint: "Impressoras, scanners, resinas e peças finalizadas.", accept: "image/*", icon: ImagePlus },
+  { key: "fotos_bastidores", label: "Bastidores", folderTag: "03 - Fotos Originais", folderName: "05 – Bastidores", path: "03 - Fotos Originais › 05 - Bastidores", tag: "Making of", hint: "Coffee break, montagem da sala e momentos informais.", accept: "image/*", icon: Clapperboard },
 ];
 
-const VIDEO_DESTS = [
-  { key: "videos_vertical", label: "Vídeo vertical", path: "04 - Vídeos Originais › 01 - Vídeos Verticais" },
-  { key: "videos_horizontal", label: "Vídeo horizontal", path: "04 - Vídeos Originais › 02 - Vídeos Horizontais" },
-  { key: "videos_depoimentos", label: "Depoimento", path: "04 - Vídeos Originais › 03 - Depoimentos" },
-  { key: "videos_atividades", label: "Atividade prática", path: "04 - Vídeos Originais › 04 - Atividades Práticas" },
-  { key: "videos_bastidores", label: "Bastidores", path: "04 - Vídeos Originais › 05 - Bastidores" },
+const VIDEO_DESTS: DestSpec[] = [
+  { key: "videos_vertical", label: "Vídeos verticais", folderTag: "04 - Vídeos Originais", folderName: "01 – Vídeos Verticais", path: "04 - Vídeos Originais › 01 - Vídeos Verticais", tag: "9:16 — Reels / Stories", hint: "Vídeos gravados na vertical para redes sociais.", accept: "video/*", icon: Video, requiresDay: true },
+  { key: "videos_horizontal", label: "Vídeos horizontais", folderTag: "04 - Vídeos Originais", folderName: "02 – Vídeos Horizontais", path: "04 - Vídeos Originais › 02 - Vídeos Horizontais", tag: "16:9 — YouTube", hint: "Vídeos gravados na horizontal, aulas e panorâmicas.", accept: "video/*", icon: Video, requiresDay: true },
+  { key: "videos_atividades", label: "Atividades práticas", folderTag: "04 - Vídeos Originais", folderName: "04 – Atividades Práticas", path: "04 - Vídeos Originais › 04 - Atividades Práticas", tag: "Hands-on", hint: "Vídeos das etapas práticas do treinamento.", accept: "video/*", icon: Wrench, requiresDay: true },
+  { key: "videos_bastidores", label: "Bastidores", folderTag: "04 - Vídeos Originais", folderName: "05 – Bastidores", path: "04 - Vídeos Originais › 05 - Bastidores", tag: "Making of", hint: "Bastidores, preparação e momentos informais.", accept: "video/*", icon: Clapperboard, requiresDay: true },
 ];
+
+const TESTIMONIAL_DEST: DestSpec = {
+  key: "videos_depoimentos", label: "Depoimento", folderTag: "04 - Vídeos Originais", folderName: "03 – Depoimentos",
+  path: "04 - Vídeos Originais › 03 - Depoimentos", tag: "Depoimento individual",
+  hint: "Um vídeo por participante. O nome do arquivo é gerado com o nome do aluno.",
+  accept: "video/*", icon: MessageSquareQuote,
+};
 
 type QueueStatus = "waiting" | "uploading" | "done" | "error" | "canceled";
 
@@ -71,21 +94,91 @@ function fmt(d?: string | null) {
   return `${day}/${m}/${y}`;
 }
 
+interface DropCardProps {
+  dest: DestSpec;
+  count: number;
+  subtitle?: string;
+  disabled?: boolean;
+  disabledHint?: string;
+  children?: React.ReactNode;
+  footer?: React.ReactNode;
+  onFiles: (files: FileList | null) => void;
+}
+
+function DropCard({ dest, count, subtitle, disabled, disabledHint, children, footer, onFiles }: DropCardProps) {
+  const input = useRef<HTMLInputElement>(null);
+  const [over, setOver] = useState(false);
+  const Icon = dest.icon;
+
+  return (
+    <div className={cn("rounded-xl border-2 p-3 flex flex-col gap-3 transition-colors", disabled ? "border-border opacity-60" : "border-border hover:border-primary/40")}>
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex items-start gap-2 min-w-0">
+          <div className="rounded-lg bg-muted p-2 shrink-0">
+            <Icon className="h-4 w-4 text-muted-foreground" />
+          </div>
+          <div className="min-w-0">
+            <Badge variant="secondary" className="mb-1 font-mono text-[10px]">{dest.folderTag}</Badge>
+            <div className="text-sm font-semibold leading-tight truncate">{dest.folderName}</div>
+            {subtitle && <div className="text-[11px] text-muted-foreground truncate">{subtitle}</div>}
+          </div>
+        </div>
+        <Badge variant="outline" className="shrink-0 font-mono text-[10px]">{count} arq</Badge>
+      </div>
+
+      <Badge variant="outline" className="w-fit text-[10px]">{dest.tag}</Badge>
+      <p className="rounded-md bg-muted/50 p-2 text-[11px] leading-snug text-muted-foreground">{dest.hint}</p>
+
+      {children}
+
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={() => input.current?.click()}
+        onDragOver={(e) => { if (disabled) return; e.preventDefault(); setOver(true); }}
+        onDragLeave={() => setOver(false)}
+        onDrop={(e) => {
+          if (disabled) return;
+          e.preventDefault(); setOver(false);
+          onFiles(e.dataTransfer.files);
+        }}
+        className={cn(
+          "rounded-lg border-2 border-dashed p-4 text-center transition-colors",
+          disabled ? "cursor-not-allowed border-border" : over ? "border-primary bg-primary/5" : "border-border hover:border-primary/50 hover:bg-muted/40",
+        )}
+      >
+        <Upload className="mx-auto mb-1 h-4 w-4 text-muted-foreground" />
+        <div className="text-xs">
+          Arraste para <span className="font-semibold text-primary underline">{dest.folderName}</span>
+        </div>
+        <div className="mt-0.5 font-mono text-[10px] text-muted-foreground">
+          {disabled ? (disabledHint || "Indisponível") : dest.accept.startsWith("image") ? "JPG, PNG, WEBP, HEIC" : "MP4, MOV, WEBM"}
+        </div>
+      </button>
+
+      {footer}
+
+      <input
+        ref={input}
+        type="file"
+        accept={dest.accept}
+        multiple
+        hidden
+        onChange={(e) => { onFiles(e.target.files); e.target.value = ""; }}
+      />
+    </div>
+  );
+}
+
 export function UploadMidiasDriveDialog({
   open, onOpenChange, turmaId, turmaNumber, turmaLabel, courseTitle, startDate, endDate, folderUrl,
 }: Props) {
   const { toast } = useToast();
   const qc = useQueryClient();
   const [queue, setQueue] = useState<QueueItem[]>([]);
-  const [photoDest, setPhotoDest] = useState(PHOTO_DESTS[0].key);
-  const [videoDest, setVideoDest] = useState(VIDEO_DESTS[0].key);
-  const [videoDay, setVideoDay] = useState<string>("");
+  const [dayByDest, setDayByDest] = useState<Record<string, string>>({});
   const [days, setDays] = useState<{ day_number: number; date: string }[]>([]);
   const [exceptionReason, setExceptionReason] = useState("");
-  const [exceptionMode, setExceptionMode] = useState(false);
-  const photoInput = useRef<HTMLInputElement>(null);
-  const videoInput = useRef<HTMLInputElement>(null);
-  const pendingTarget = useRef<{ enrollmentId: string | null; companionId: string | null; name: string | null } | null>(null);
 
   const { data: participants = [] } = useTurmaParticipants(turmaId, open);
   const { data: media = [], refetch: refetchMedia } = useTurmaDriveMedia(turmaId, open);
@@ -104,6 +197,15 @@ export function UploadMidiasDriveDialog({
   const activeParticipants = participants.filter((p) => !isBlockedStatus(p.status));
   const blockedParticipants = participants.filter((p) => isBlockedStatus(p.status));
 
+  const countByDest = useMemo(() => {
+    const map: Record<string, number> = {};
+    for (const m of media) {
+      if (m.status !== "completed") continue;
+      map[m.destination_key] = (map[m.destination_key] || 0) + 1;
+    }
+    return map;
+  }, [media]);
+
   const testimonialsByKey = useMemo(() => {
     const map = new Map<string, { count: number; link: string | null }>();
     for (const m of media) {
@@ -121,25 +223,25 @@ export function UploadMidiasDriveDialog({
       ? [{ value: "1", label: `Dia 1 — ${fmt(startDate)}` }]
       : [];
 
-  const addFiles = (files: FileList | null, kind: "photo" | "video") => {
+  const addFiles = (
+    files: FileList | null,
+    dest: DestSpec,
+    opts?: { day?: string; enrollmentId?: string | null; companionId?: string | null; name?: string | null; exceptionReason?: string | null },
+  ) => {
     if (!files?.length) return;
-    const dest = kind === "photo"
-      ? PHOTO_DESTS.find((d) => d.key === photoDest)!
-      : VIDEO_DESTS.find((d) => d.key === videoDest)!;
-    const isTestimonial = dest.key === "videos_depoimentos";
-    const target = pendingTarget.current;
-    pendingTarget.current = null;
+    const isTestimonial = dest.key === TESTIMONIAL_DEST.key;
+    const day = opts?.day;
 
     const items: QueueItem[] = Array.from(files).map((file) => ({
       id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
       file,
       destinationKey: dest.key,
       destinationPath: dest.path,
-      trainingDay: kind === "video" && !isTestimonial ? (videoDay === "geral" ? "geral" : videoDay ? Number(videoDay) : null) : null,
-      enrollmentId: isTestimonial ? (target?.enrollmentId ?? null) : null,
-      companionId: isTestimonial ? (target?.companionId ?? null) : null,
-      exceptionReason: isTestimonial && !target?.enrollmentId ? (exceptionReason || null) : null,
-      participantName: isTestimonial ? (target?.name ?? "Participante não localizado") : null,
+      trainingDay: dest.requiresDay ? (day === "geral" ? "geral" : day ? Number(day) : null) : null,
+      enrollmentId: isTestimonial ? (opts?.enrollmentId ?? null) : null,
+      companionId: isTestimonial ? (opts?.companionId ?? null) : null,
+      exceptionReason: isTestimonial && !opts?.enrollmentId ? (opts?.exceptionReason || null) : null,
+      participantName: isTestimonial ? (opts?.name ?? "Participante não localizado") : null,
       status: "waiting",
       sent: 0,
     }));
@@ -197,29 +299,38 @@ export function UploadMidiasDriveDialog({
     onOpenChange(v);
   };
 
-  const pickTestimonial = (p: TurmaParticipant) => {
-    pendingTarget.current = { enrollmentId: p.enrollment_id, companionId: p.companion_id, name: p.name };
-    setVideoDest("videos_depoimentos");
-    const ok = window.confirm(`Este vídeo será associado a ${p.name} e enviado para 04 - Vídeos Originais/03 - Depoimentos.`);
-    if (!ok) { pendingTarget.current = null; return; }
-    videoInput.current?.click();
-  };
-
-  const pickException = () => {
-    if (exceptionReason.trim().length < 5) {
-      toast({ title: "Justificativa obrigatória", description: "Descreva por que o participante não está cadastrado.", variant: "destructive" });
-      return;
-    }
-    pendingTarget.current = { enrollmentId: null, companionId: null, name: "Participante não localizado" };
-    setVideoDest("videos_depoimentos");
-    videoInput.current?.click();
-  };
-
   const semDepoimento = activeParticipants.filter((p) => !testimonialsByKey.get(p.key)).length;
+
+  const participantCard = (p: TurmaParticipant) => {
+    const t = testimonialsByKey.get(p.key);
+    const inFlight = queue.some((q) => q.status === "uploading" && (q.companionId ? `c:${q.companionId}` : `e:${q.enrollmentId}`) === p.key);
+    const failed = queue.some((q) => q.status === "error" && (q.companionId ? `c:${q.companionId}` : `e:${q.enrollmentId}`) === p.key);
+    return (
+      <DropCard
+        key={p.key}
+        dest={{ ...TESTIMONIAL_DEST, folderName: p.name, tag: `${p.type}${p.status ? ` · ${p.status}` : ""}` }}
+        count={t?.count ?? 0}
+        subtitle={TESTIMONIAL_DEST.path}
+        onFiles={(files) => addFiles(files, TESTIMONIAL_DEST, { enrollmentId: p.enrollment_id, companionId: p.companion_id, name: p.name })}
+        footer={
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[10px] text-muted-foreground">
+              {inFlight ? "enviando…" : failed ? "erro no último envio" : t ? `${t.count} depoimento(s)` : "sem vídeo"}
+            </span>
+            {t?.link && (
+              <Button variant="ghost" size="sm" className="h-6 px-2 text-[10px]" asChild>
+                <a href={t.link} target="_blank" rel="noopener noreferrer">Ver no Drive</a>
+              </Button>
+            )}
+          </div>
+        }
+      />
+    );
+  };
 
   return (
     <Dialog open={open} onOpenChange={requestClose}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
+      <DialogContent className="max-w-5xl max-h-[92vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle>Upload de Mídias</DialogTitle>
           <DialogDescription asChild>
@@ -243,131 +354,92 @@ export function UploadMidiasDriveDialog({
           <TabsList>
             <TabsTrigger value="fotos" className="gap-1.5"><ImagePlus className="h-4 w-4" /> Fotos</TabsTrigger>
             <TabsTrigger value="videos" className="gap-1.5"><Video className="h-4 w-4" /> Vídeos</TabsTrigger>
+            <TabsTrigger value="depoimentos" className="gap-1.5"><MessageSquareQuote className="h-4 w-4" /> Depoimentos</TabsTrigger>
           </TabsList>
 
           <ScrollArea className="flex-1 pr-3">
-            <TabsContent value="fotos" className="space-y-3 mt-3">
-              <div className="space-y-1.5">
-                <Label>Destino da foto</Label>
-                <Select value={photoDest} onValueChange={setPhotoDest}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {PHOTO_DESTS.map((d) => <SelectItem key={d.key} value={d.key}>{d.label}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-                <p className="text-xs text-muted-foreground">
-                  Destino: Imersão {turmaNumber ?? "S/N"} › {PHOTO_DESTS.find((d) => d.key === photoDest)?.path}
-                </p>
+            <TabsContent value="fotos" className="mt-3">
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {PHOTO_DESTS.map((d) => (
+                  <DropCard
+                    key={d.key}
+                    dest={d}
+                    count={countByDest[d.key] || 0}
+                    subtitle={d.path}
+                    onFiles={(files) => addFiles(files, d)}
+                  />
+                ))}
               </div>
-              <Button onClick={() => photoInput.current?.click()} className="gap-1.5">
-                <Upload className="h-4 w-4" /> Selecionar fotos
-              </Button>
-              <input ref={photoInput} type="file" accept="image/*" multiple hidden
-                onChange={(e) => { addFiles(e.target.files, "photo"); e.target.value = ""; }} />
             </TabsContent>
 
-            <TabsContent value="videos" className="space-y-3 mt-3">
-              <div className="space-y-1.5">
-                <Label>Tipo de vídeo</Label>
-                <Select value={videoDest} onValueChange={setVideoDest}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {VIDEO_DESTS.map((d) => <SelectItem key={d.key} value={d.key}>{d.label}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-                <p className="text-xs text-muted-foreground">
-                  Destino: Imersão {turmaNumber ?? "S/N"} › {VIDEO_DESTS.find((d) => d.key === videoDest)?.path}
-                </p>
+            <TabsContent value="videos" className="mt-3">
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {VIDEO_DESTS.map((d) => {
+                  const day = dayByDest[d.key] || "";
+                  return (
+                    <DropCard
+                      key={d.key}
+                      dest={d}
+                      count={countByDest[d.key] || 0}
+                      subtitle={d.path}
+                      disabled={!day}
+                      disabledHint="Selecione o dia para liberar"
+                      onFiles={(files) => addFiles(files, d, { day })}
+                    >
+                      <div className="space-y-1">
+                        <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">Dia do treinamento</Label>
+                        <Select value={day} onValueChange={(v) => setDayByDest((s) => ({ ...s, [d.key]: v }))}>
+                          <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Selecione o dia" /></SelectTrigger>
+                          <SelectContent>
+                            {dayOptions.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+                            <SelectItem value="geral">Geral</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </DropCard>
+                  );
+                })}
+              </div>
+            </TabsContent>
+
+            <TabsContent value="depoimentos" className="mt-3 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="text-xs text-muted-foreground">Uma janela de upload por participante — o nome do arquivo é gerado com o nome do aluno.</div>
+                <Badge variant="secondary">{semDepoimento} sem depoimento</Badge>
               </div>
 
-              {videoDest !== "videos_depoimentos" ? (
-                <>
-                  <div className="space-y-1.5">
-                    <Label>Classificação do dia</Label>
-                    <Select value={videoDay} onValueChange={setVideoDay}>
-                      <SelectTrigger><SelectValue placeholder="Selecione o dia" /></SelectTrigger>
-                      <SelectContent>
-                        {dayOptions.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
-                        <SelectItem value="geral">Geral</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <Button disabled={!videoDay} onClick={() => videoInput.current?.click()} className="gap-1.5">
-                    <Upload className="h-4 w-4" /> Selecionar vídeos
-                  </Button>
-                  {!videoDay && <p className="text-xs text-muted-foreground">Selecione o dia para liberar o envio.</p>}
-                </>
-              ) : (
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <Label>Participantes da turma</Label>
-                    <Badge variant="secondary">{semDepoimento} sem depoimento</Badge>
-                  </div>
-                  {activeParticipants.map((p) => {
-                    const t = testimonialsByKey.get(p.key);
-                    const inFlight = queue.some((q) => q.status === "uploading" && (q.companionId ? `c:${q.companionId}` : `e:${q.enrollmentId}`) === p.key);
-                    const failed = queue.some((q) => q.status === "error" && (q.companionId ? `c:${q.companionId}` : `e:${q.enrollmentId}`) === p.key);
-                    return (
-                      <div key={p.key} className="flex items-center justify-between gap-2 rounded-md border p-2">
-                        <div className="min-w-0">
-                          <div className="text-sm font-medium truncate">{p.name}</div>
-                          <div className="flex items-center gap-1.5 mt-0.5">
-                            <Badge variant="outline" className="text-[10px]">{p.type}</Badge>
-                            {p.status && <Badge variant="outline" className="text-[10px]">{p.status}</Badge>}
-                            <span className="text-[10px] text-muted-foreground">
-                              {inFlight ? "enviando" : failed ? "erro" : t ? `${t.count} enviado(s)` : "sem vídeo"}
-                            </span>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-1 shrink-0">
-                          {t?.link && (
-                            <Button variant="ghost" size="sm" asChild>
-                              <a href={t.link} target="_blank" rel="noopener noreferrer">Ver no Drive</a>
-                            </Button>
-                          )}
-                          <Button size="sm" variant={t ? "outline" : "default"} onClick={() => pickTestimonial(p)}>
-                            {t ? "Adicionar outro vídeo" : "Enviar depoimento"}
-                          </Button>
-                        </div>
-                      </div>
-                    );
-                  })}
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {activeParticipants.map(participantCard)}
+              </div>
 
-                  {blockedParticipants.length > 0 && (
-                    <div className="rounded-md border border-dashed p-2 space-y-1 opacity-60">
-                      <div className="text-xs font-medium">Cancelados / ausentes</div>
-                      {blockedParticipants.map((p) => (
-                        <div key={p.key} className="flex items-center justify-between text-xs">
-                          <span className="truncate">{p.name} — {p.status}</span>
-                          <Button size="sm" variant="ghost" disabled>Enviar depoimento</Button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  <div className="rounded-md border-2 border-dashed border-amber-500/60 bg-amber-500/5 p-2 space-y-2">
-                    <div className="text-xs font-semibold text-amber-600">Participante não localizado (exceção)</div>
-                    {exceptionMode ? (
-                      <>
-                        <Textarea
-                          value={exceptionReason}
-                          onChange={(e) => setExceptionReason(e.target.value)}
-                          placeholder="Justifique por que o participante não está cadastrado na turma"
-                          rows={2}
-                        />
-                        <div className="flex gap-1.5">
-                          <Button size="sm" variant="outline" onClick={pickException}>Selecionar vídeo</Button>
-                          <Button size="sm" variant="ghost" onClick={() => setExceptionMode(false)}>Cancelar</Button>
-                        </div>
-                      </>
-                    ) : (
-                      <Button size="sm" variant="ghost" onClick={() => setExceptionMode(true)}>Usar exceção</Button>
-                    )}
+              {blockedParticipants.length > 0 && (
+                <div className="rounded-lg border border-dashed p-3 opacity-60">
+                  <div className="mb-1 text-xs font-medium">Cancelados / ausentes</div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {blockedParticipants.map((p) => (
+                      <Badge key={p.key} variant="outline" className="text-[10px]">{p.name} — {p.status}</Badge>
+                    ))}
                   </div>
                 </div>
               )}
-              <input ref={videoInput} type="file" accept="video/*" multiple hidden
-                onChange={(e) => { addFiles(e.target.files, "video"); e.target.value = ""; }} />
+
+              <div className="rounded-xl border-2 border-dashed border-amber-500/60 bg-amber-500/5 p-3 space-y-2">
+                <div className="text-xs font-semibold text-amber-600">Participante não localizado (exceção)</div>
+                <Textarea
+                  value={exceptionReason}
+                  onChange={(e) => setExceptionReason(e.target.value)}
+                  placeholder="Justifique por que o participante não está cadastrado na turma (mín. 5 caracteres)"
+                  rows={2}
+                />
+                <DropCard
+                  dest={{ ...TESTIMONIAL_DEST, folderName: "Participante não localizado", tag: "Exceção justificada" }}
+                  count={testimonialsByKey.get("x")?.count ?? 0}
+                  subtitle={TESTIMONIAL_DEST.path}
+                  disabled={exceptionReason.trim().length < 5}
+                  disabledHint="Preencha a justificativa"
+                  onFiles={(files) => addFiles(files, TESTIMONIAL_DEST, { name: "Participante não localizado", exceptionReason })}
+                />
+              </div>
             </TabsContent>
 
             {queue.length > 0 && (
