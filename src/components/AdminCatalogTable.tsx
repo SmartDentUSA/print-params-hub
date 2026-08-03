@@ -62,6 +62,8 @@ import { useCatalogDocCounts } from "@/hooks/useCatalogDocCounts";
 import {
   PRESENTATION_OPTIONS,
   categoryRank,
+  isKitProduct,
+  kitFirst,
 } from "@/components/smartops/distributors/types";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -188,6 +190,9 @@ export function AdminCatalogTable({
       const sa = ((a as any).product_subcategory || "").toString();
       const sb = ((b as any).product_subcategory || "").toString();
       if (sa !== sb) return sa.localeCompare(sb, "pt", { numeric: true });
+      // KITs primeiro dentro da própria categoria/subcategoria.
+      const kf = kitFirst(isKitProduct(a.name, sa), isKitProduct(b.name, sb));
+      if (kf !== 0) return kf;
       return (a.name || "").localeCompare(b.name || "");
     });
   }, [products]);

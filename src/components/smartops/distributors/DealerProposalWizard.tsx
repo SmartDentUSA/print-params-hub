@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, ArrowRight, Save, FileSpreadsheet, FileText, FileType, History, Trash2, RotateCcw, Pencil, Plus, ImageOff } from "lucide-react";
 import { toast } from "sonner";
 import type { DealerPriceItem, DealerPriceList, Distributor } from "./types";
-import { recalcDealerPrice, recalcDiscount, formatMoney, isFreeSampleVariation, categoryRank } from "./types";
+import { recalcDealerPrice, recalcDiscount, formatMoney, isFreeSampleVariation, categoryRank, isKitProduct, kitFirst } from "./types";
 import { exportPriceTableXlsx, safePdf, safeDocx } from "./DealerProposalExport";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
@@ -287,6 +287,17 @@ export function DealerProposalWizard({ distributors }: Props) {
       g.subs.sort((a, b) =>
         categoryRank(g.category, a.subcategory) - categoryRank(g.category, b.subcategory)
         || a.subcategory.localeCompare(b.subcategory));
+      // KITs no topo de cada subcategoria (ordem estável no restante).
+      for (const sub of g.subs) {
+        sub.rows = sub.rows
+          .map((r, i) => ({ r, i }))
+          .sort((x, y) =>
+            kitFirst(
+              isKitProduct(x.r.name, (x.r as any).sku, x.r.subcategory),
+              isKitProduct(y.r.name, (y.r as any).sku, y.r.subcategory),
+            ) || x.i - y.i)
+          .map((e) => e.r);
+      }
     }
     return groups;
   }, [previewItems]);

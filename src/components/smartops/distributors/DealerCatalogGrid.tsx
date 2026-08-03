@@ -13,7 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Search, ImageOff, Plus, Lock, Layers, Trash2, Save, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import type { CatalogProduct } from "./types";
-import { categoryRank, PRESENTATION_OPTIONS, isFreeSampleVariation, type PresentationType } from "./types";
+import { categoryRank, PRESENTATION_OPTIONS, isFreeSampleVariation, isKitProduct, kitFirst, type PresentationType } from "./types";
 
 /** Extrai variações a partir de system_a_catalog.extra_data.system_a_live.technical_specs. */
 function parseSpecVariations(specs: Array<{ label: string; value: string }>): {
@@ -207,6 +207,9 @@ export function DealerCatalogGrid({ onAddToPriceList }: Props) {
       const ra = categoryRank(a.product_category, a.product_subcategory);
       const rb = categoryRank(b.product_category, b.product_subcategory);
       if (ra !== rb) return ra - rb;
+      // KITs sempre no topo da própria categoria/subcategoria.
+      const kf = kitFirst(isKitProduct(a.name, a.product_subcategory), isKitProduct(b.name, b.product_subcategory));
+      if (kf !== 0) return kf;
       return String(a.name || "").localeCompare(String(b.name || ""));
     });
   }, [items, q, category, showInactive]);
