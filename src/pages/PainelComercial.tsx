@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import "@/styles/painel-comercial.css";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { KpiCard } from "@/components/painel/KpiCard";
 import { FunnelPanel } from "@/components/painel/FunnelPanel";
 import { SellerPerformanceTable } from "@/components/painel/SellerPerformanceTable";
@@ -29,9 +30,24 @@ export default function PainelComercial() {
     return () => clearInterval(t);
   }, []);
 
-  const mesAtual = useMemo(() => {
+  const defaultMes = useMemo(() => {
     const d = new Date();
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`;
+  }, []);
+  const [mesAtual, setMesAtual] = useState(defaultMes);
+
+  const monthOptions = useMemo(() => {
+    const meses = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
+    const now = new Date();
+    const opts: { value: string; label: string }[] = [];
+    for (let i = 0; i < 24; i++) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      opts.push({
+        value: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`,
+        label: `${meses[d.getMonth()]}/${d.getFullYear()}`,
+      });
+    }
+    return opts;
   }, []);
 
   const kpis = usePainelKpis(mesAtual);
@@ -58,11 +74,23 @@ export default function PainelComercial() {
             <p className="pc-label mt-1">{k ? mesLabel(k.mes_ref) : "carregando"}</p>
           </div>
         </div>
-        <div className="text-right">
+        <div className="flex items-center gap-3">
+          <Select value={mesAtual} onValueChange={setMesAtual}>
+            <SelectTrigger className="w-[150px] h-9 text-xs bg-transparent border-white/15 text-inherit">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {monthOptions.map((o) => (
+                <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <div className="text-right">
           <div className="pc-num-sm">
             {agora.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
           </div>
           <div className="pc-label">{agora.toLocaleDateString("pt-BR")}</div>
+          </div>
         </div>
       </header>
 
