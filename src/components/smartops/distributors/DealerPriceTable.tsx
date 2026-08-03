@@ -10,7 +10,7 @@ import { Switch } from "@/components/ui/switch";
 import { Download, RefreshCw, Trash2, Plus, ImageOff, FileSpreadsheet, FileText, FileType, History, Save, RotateCcw, Eye, EyeOff, Layers } from "lucide-react";
 import { toast } from "sonner";
 import type { DealerPriceItem, DealerPriceList, Distributor, DealerSnapshot } from "./types";
-import { recalcDealerPrice, recalcDiscount, formatMoney, PRESENTATION_OPTIONS, categoryRank, isFreeSampleVariation, isKitProduct, kitFirst } from "./types";
+import { recalcDealerPrice, recalcDiscount, formatMoney, PRESENTATION_OPTIONS, categoryRank, isFreeSampleVariation, isKitProduct, kitFirst, compareProductName } from "./types";
 import { exportPriceTableXlsx, safePdf, safeDocx } from "./DealerProposalExport";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 
@@ -1200,7 +1200,12 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
                         if (kf !== 0) return kf;
                         const ia = firstIndex.get(ka)!;
                         const ib = firstIndex.get(kb)!;
-                        if (ia !== ib) return ia - ib;
+                        if (ka !== kb) {
+                          // Sequência lógica de nome entre produtos distintos.
+                          const nc = compareProductName(a.name, b.name);
+                          if (nc !== 0) return nc;
+                          if (ia !== ib) return ia - ib;
+                        }
                         // Within a product group, sort variations by qty DESC
                         // (1000 > 500 > 250). Non-numeric qty falls back to
                         // original order.

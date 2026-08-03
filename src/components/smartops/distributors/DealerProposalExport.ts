@@ -6,7 +6,7 @@ import { ImageRun } from "docx";
 import { saveAs } from "file-saver";
 import { toast } from "sonner";
 import type { DealerPriceItem, DealerPriceList, Distributor } from "./types";
-import { formatMoney, categoryRank, isKitProduct, kitFirst } from "./types";
+import { formatMoney, categoryRank, isKitProduct, kitFirst, compareProductName } from "./types";
 import proposalBgUrl from "@/assets/proposal-bg.png";
 import { getStorageImageUrl } from "@/utils/storageImage";
 
@@ -145,7 +145,11 @@ function groupItemsByCategory(items: DealerPriceItem[]) {
         if (kf !== 0) return kf;
         const ga = firstIdx.get(ka) ?? 0;
         const gb = firstIdx.get(kb) ?? 0;
-        if (ga !== gb) return ga - gb;
+        if (ka !== kb) {
+          const nc = compareProductName(a.name, b.name);
+          if (nc !== 0) return nc;
+          if (ga !== gb) return ga - gb;
+        }
         const va = variantWeight(a.variant ?? a.presentation_qty);
         const vb = variantWeight(b.variant ?? b.presentation_qty);
         return vb - va;
