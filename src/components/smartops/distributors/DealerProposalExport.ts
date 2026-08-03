@@ -6,7 +6,7 @@ import { ImageRun } from "docx";
 import { saveAs } from "file-saver";
 import { toast } from "sonner";
 import type { DealerPriceItem, DealerPriceList, Distributor } from "./types";
-import { formatMoney, categoryRank } from "./types";
+import { formatMoney, categoryRank, isKitProduct, kitFirst } from "./types";
 import proposalBgUrl from "@/assets/proposal-bg.png";
 import { getStorageImageUrl } from "@/utils/storageImage";
 
@@ -141,6 +141,8 @@ function groupItemsByCategory(items: DealerPriceItem[]) {
       sub.rows.sort((a, b) => {
         const ka = a.catalog_product_id ? `cid:${a.catalog_product_id}` : `id:${a.id}`;
         const kb = b.catalog_product_id ? `cid:${b.catalog_product_id}` : `id:${b.id}`;
+        const kf = kitFirst(isKitProduct(a.name, a.sku, a.subcategory), isKitProduct(b.name, b.sku, b.subcategory));
+        if (kf !== 0) return kf;
         const ga = firstIdx.get(ka) ?? 0;
         const gb = firstIdx.get(kb) ?? 0;
         if (ga !== gb) return ga - gb;
