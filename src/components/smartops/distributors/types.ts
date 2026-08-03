@@ -146,6 +146,16 @@ export function categoryRank(cat?: string | null, sub?: string | null): number {
 
 /** Parse a variation quantity label (e.g. "100", "100g", "1kg", "500 grs")
  * into grams. Returns null when the value can't be interpreted. */
+export function isKitProduct(...parts: Array<unknown>): boolean {
+  const hay = parts.map((p) => String(p ?? "")).join(" ").toLowerCase();
+  return /(^|[^a-z])kits?([^a-z]|$)/.test(hay);
+}
+
+/** Sort comparator helper: KITs first inside their own category/subcategory. */
+export function kitFirst(a: boolean, b: boolean): number {
+  return a === b ? 0 : a ? -1 : 1;
+}
+
 export function parseVariationQtyGrams(qty: unknown): number | null {
   if (qty == null) return null;
   const str = String(qty).toLowerCase().replace(",", ".").trim();
