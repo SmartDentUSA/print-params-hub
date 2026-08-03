@@ -8,6 +8,7 @@ import { formatDatePtBr } from "@/lib/courseUtils";
 import { GerarDocButton } from "@/components/GerarDocButton";
 import { GerarCrachasButton } from "@/components/GerarCrachasButton";
 import { CriarPastaDriveButton } from "@/components/smartops/CriarPastaDriveButton";
+import { UploadMidiasDriveButton } from "@/components/smartops/UploadMidiasDriveButton";
 import { AddTurmaToWaGroupButton } from "@/components/smartops/AddTurmaToWaGroupButton";
 import { CreateTurmaWaGroupButton } from "@/components/smartops/CreateTurmaWaGroupButton";
 import { useTurmaWaGroup } from "@/hooks/useTurmaWaGroup";
@@ -57,6 +58,13 @@ export function TurmaListRow({ turma, companionCount, status, onEnroll }: Props)
     : null);
   const [factoryOpen, setFactoryOpen] = useState(false);
   const factoryStatus = (turma as any).factory_status as string | null | undefined;
+
+  const driveFolderUrl =
+    (turma as any).drive_folder_url ?? (turma as any).factory_drive_folder_url ?? null;
+  const driveFolderId =
+    (turma as any).drive_folder_id ??
+    (turma as any).factory_drive_folder_id ??
+    (driveFolderUrl ? (String(driveFolderUrl).match(/\/folders\/([^/?#]+)/)?.[1] ?? null) : null);
 
   const pctColor =
     pct >= 100 ? "text-rose-600 dark:text-rose-400"
@@ -159,11 +167,17 @@ export function TurmaListRow({ turma, companionCount, status, onEnroll }: Props)
           <GerarDocButton turmaId={turma.id} turmaLabel={turma.label} />
           <CriarPastaDriveButton
             turmaId={turma.id}
-            folderUrl={
-              (turma as any).drive_folder_url ??
-              (turma as any).factory_drive_folder_url ??
-              null
-            }
+            folderUrl={driveFolderUrl}
+          />
+          <UploadMidiasDriveButton
+            turmaId={turma.id}
+            turmaNumber={turma.turma_number ?? null}
+            turmaLabel={turma.label}
+            courseTitle={turma.course_title}
+            startDate={turma.start_date}
+            endDate={turma.end_date}
+            folderId={driveFolderId}
+            folderUrl={driveFolderUrl}
           />
           <GerarCrachasButton turmaId={turma.id} turmaLabel={turma.label} />
           <CreateTurmaWaGroupButton
