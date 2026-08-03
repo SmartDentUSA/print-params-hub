@@ -2874,6 +2874,7 @@ export type Database = {
           color: string | null
           created_at: string
           dimensions_cm: string | null
+          distribute_enabled: boolean | null
           gtin_ean: string | null
           id: string
           ncm_hs: string | null
@@ -2894,6 +2895,7 @@ export type Database = {
           color?: string | null
           created_at?: string
           dimensions_cm?: string | null
+          distribute_enabled?: boolean | null
           gtin_ean?: string | null
           id?: string
           ncm_hs?: string | null
@@ -2914,6 +2916,7 @@ export type Database = {
           color?: string | null
           created_at?: string
           dimensions_cm?: string | null
+          distribute_enabled?: boolean | null
           gtin_ean?: string | null
           id?: string
           ncm_hs?: string | null
