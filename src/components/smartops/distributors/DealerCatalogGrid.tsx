@@ -219,6 +219,8 @@ export function DealerCatalogGrid({ onAddToPriceList }: Props) {
     for (const p of items) productById.set(p.id, p);
     for (const v of variations) {
       const p = productById.get(v.catalog_product_id);
+      // Controle granular por variação (Gestão de Catálogo → coluna "Dist.").
+      if ((v as any).distribute_enabled === false) continue;
       if (isFreeSampleVariation(p?.product_category, p?.product_subcategory, v.presentation_qty)) continue;
       if (!map.has(v.catalog_product_id)) map.set(v.catalog_product_id, []);
       map.get(v.catalog_product_id)!.push(v);
