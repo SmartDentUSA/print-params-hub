@@ -449,7 +449,7 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.training-drive-media-upload]
-verify_jwt = true
+verify_jwt = false
 
 [functions.training-factory-trigger]
 verify_jwt = false
