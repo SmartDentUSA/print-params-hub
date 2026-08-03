@@ -81,7 +81,11 @@ export default function PainelComercial() {
           value={fmtNum(k?.leads_mes)}
           status={k?.leads_mes ? "ok" : "gap"}
           delta={variacao(k?.leads_mes, k?.leads_mes_anterior)}
-          deltaLabel="vs mês anterior"
+          deltaLabel={
+            k?.leads_periodo_comparado
+              ? `vs mesmo período (${k.leads_periodo_comparado})`
+              : "vs mesmo período do mês anterior"
+          }
           tone="info"
         />
         <KpiCard

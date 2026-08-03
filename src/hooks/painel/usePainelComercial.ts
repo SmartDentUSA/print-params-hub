@@ -9,6 +9,7 @@ export interface PainelKpis {
   receita_mes_anterior: number | null;
   leads_mes: number | null;
   leads_mes_anterior: number | null;
+  leads_periodo_comparado?: string | null;
   funil_atual: number | null;
   leads_perdidos: number | null;
   leads_reativados: number | null;
