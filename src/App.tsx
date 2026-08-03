@@ -32,6 +32,7 @@ const KnowledgeArticleRedirect = lazy(() => import("./pages/KnowledgeArticleRedi
 const SupportResources = lazy(() => import("./pages/SupportResources"));
 const SmartOpsFormFlowStandalone = lazy(() => import("./pages/SmartOpsFormFlowStandalone"));
 const WaFlowVisualizerPage = lazy(() => import("./pages/WaFlowVisualizerPage"));
+const PainelComercial = lazy(() => import("./pages/PainelComercial"));
 const DraLIA = lazy(() => import("./components/DraLIA"));
 
 // Social Publisher (heavy admin sub-app)
@@ -73,6 +74,7 @@ const App = () => (
       <Route path="/:brandSlug/:modelSlug" element={<Index />} />
       <Route path="/:brandSlug/:modelSlug/:resinSlug" element={<Index />} />
       <Route path="/admin" element={<AdminViewSecure />} />
+      <Route path="/painel-comercial" element={<PainelComercial />} />
       <Route path="/admin/form-flow/:formId" element={<SmartOpsFormFlowStandalone />} />
       <Route path="/smartops/wa-flow-visualizer" element={<WaFlowVisualizerPage />} />
 
