@@ -189,7 +189,7 @@
 .pc-dot-parcial { background: hsl(38 92% 50%); }
 .pc-dot-gap { background: hsl(0 84% 60%); }
 .pc-mid-grid { display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 2.1fr); gap: 0.75rem; }
-@media (max-width: 1280px) { .pc-mid-grid { grid-template-columns: 1fr; } }
+@media (max-width: 1200px) { .pc-mid-grid { grid-template-columns: 1fr; } }
 .pc-footer {
   border-top: 1px solid hsl(var(--border));
   padding-top: 8px; text-align: center;
