@@ -495,7 +495,23 @@ export function DealerProposalWizard({ distributors }: Props) {
                     </tr>
                   </thead>
                   <tbody>
-                    {previewItems.map((it) => (
+                    {groupedPreview.map((grp) => (
+                      <>
+                        <tr key={`cat-${grp.category}`} className="bg-slate-900 text-white">
+                          <td colSpan={14} className="p-2 font-semibold uppercase tracking-wide">
+                            {grp.category}
+                          </td>
+                        </tr>
+                        {grp.subs.map((sub) => (
+                          <>
+                            {(grp.subs.length > 1 || sub.subcategory !== "Geral") && (
+                              <tr key={`sub-${grp.category}-${sub.subcategory}`} className="bg-slate-100">
+                                <td colSpan={14} className="p-1.5 pl-3 font-medium text-slate-700 uppercase text-[11px] tracking-wide">
+                                  {sub.subcategory}
+                                </td>
+                              </tr>
+                            )}
+                            {sub.rows.map((it) => (
                       <tr key={it.id} className="border-b">
                         <td className="p-1 text-center">
                           <Button size="icon" variant="ghost" title="Remover" onClick={() => removePreviewItem(it.id)}>
@@ -522,6 +538,10 @@ export function DealerProposalWizard({ distributors }: Props) {
                           {formatMoney((Number(it.price_dealer) || 0) * getQty(it.id), editingCurrency ?? list?.currency)}
                         </td>
                       </tr>
+                            ))}
+                          </>
+                        ))}
+                      </>
                     ))}
                   </tbody>
                   <tfoot className="bg-slate-100 font-semibold">
