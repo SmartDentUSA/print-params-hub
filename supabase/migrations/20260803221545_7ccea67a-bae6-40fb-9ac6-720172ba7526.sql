@@ -1,0 +1,1 @@
+ALTER TABLE public.training_drive_media ADD COLUMN IF NOT EXISTS resumable_session_uri TEXT;
