@@ -122,7 +122,7 @@ serve(async (req) => {
         await db.from("training_drive_media").update({ status: "uploading", bytes_uploaded: res.received }).eq("id", uploadId);
         return json({ done: false, received: res.received });
       } catch (e: any) {
-        await db.from("training_drive_media").update({ status: "error", error_message: String(e?.message || e).slice(0, 500) }).eq("id", uploadId);
+        await db.from("training_drive_media").update({ status: "failed", error_message: String(e?.message || e).slice(0, 500) }).eq("id", uploadId);
         return json({ error: e?.message || String(e) }, 502);
       }
     }
@@ -177,7 +177,7 @@ serve(async (req) => {
       if (!row) return json({ error: "Upload não encontrado" }, 404);
       if (row.status === "completed") return json({ error: "Upload já concluído" }, 409);
       if (row.resumable_session_uri) await driveCancelResumable(row.resumable_session_uri);
-      await db.from("training_drive_media").update({ status: "canceled", resumable_session_uri: null }).eq("id", row.id);
+      await db.from("training_drive_media").update({ status: "cancelled", resumable_session_uri: null }).eq("id", row.id);
       return json({ ok: true });
     }
 
@@ -281,7 +281,7 @@ serve(async (req) => {
           return json({ error: "Depoimento exige participante da turma ou justificativa de exceção" }, 400);
         }
         participantName = "Participante não localizado";
-        participantType = "excecao";
+        participantType = "nao_localizado";
       }
     }
 
@@ -314,7 +314,9 @@ serve(async (req) => {
 
     const width = Number.isFinite(Number(body?.width)) ? Number(body.width) : null;
     const height = Number.isFinite(Number(body?.height)) ? Number(body.height) : null;
-    const orientation = width && height ? (width >= height ? "landscape" : "portrait") : null;
+    const orientation = width && height
+      ? (width === height ? "quadrado" : width > height ? "horizontal" : "vertical")
+      : null;
 
     const { data: inserted, error: insErr } = await db
       .from("training_drive_media")
