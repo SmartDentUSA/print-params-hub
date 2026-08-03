@@ -13,15 +13,30 @@ import { Pencil, Plus, Search, AlertTriangle, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import {
   useMetaFormMappings,
-  useUnmappedMetaForms,
+  useLeadOrigins,
   useCatalogProductOptions,
   useSaveMetaFormMapping,
   useIsAdminUser,
   type MetaFormMapping,
+  type LeadOrigin,
 } from "@/hooks/useMetaFormMappings";
 import { WORKFLOW_7X3_CELLS, workflowCellLabel } from "@/lib/workflowCells";
 
 const NONE = "__none__";
+
+const ORIGIN_TYPE_LABEL: Record<string, string> = {
+  meta: "Meta / Social",
+  sistema: "Formulário do sistema",
+  integracao: "Integração",
+  outbound: "Outbound",
+  inbound: "Inbound",
+};
+
+const SOURCE_KIND_LABEL: Record<string, string> = {
+  meta_form: "Formulário Meta",
+  system_form: "Formulário do sistema",
+  origin: "Origem de lead",
+};
 
 function fmtDate(v?: string | null) {
   if (!v) return "—";
@@ -40,14 +55,14 @@ interface EditorState {
   active: boolean;
 }
 
-function emptyEditor(form_id = "", form_name = ""): EditorState {
+function emptyEditor(form_id = "", form_name = "", workflow?: string | null): EditorState {
   return {
     form_id,
     form_name_meta: form_name,
     origin_system_b: form_name,
     product_catalog_id: NONE,
     product_name: "",
-    workflow_stage_target: NONE,
+    workflow_stage_target: workflow || NONE,
     commercial_eligible: true,
     active: true,
   };
@@ -69,12 +84,14 @@ function fromMapping(m: MetaFormMapping): EditorState {
 
 export function MetaFormMappingsPanel() {
   const { data: mappings, isLoading, refetch: refetchMappings } = useMetaFormMappings();
-  const { data: unmapped, isLoading: loadingUnmapped, refetch: refetchUnmapped } = useUnmappedMetaForms();
+  const { data: origins, isLoading: loadingOrigins, refetch: refetchOrigins } = useLeadOrigins();
   const { data: products } = useCatalogProductOptions();
   const { data: isAdmin } = useIsAdminUser();
   const save = useSaveMetaFormMapping();
 
   const [search, setSearch] = useState("");
+  const [originSearch, setOriginSearch] = useState("");
+  const [typeFilter, setTypeFilter] = useState("all");
   const [editor, setEditor] = useState<EditorState | null>(null);
 
   const filtered = useMemo(() => {
@@ -88,6 +105,26 @@ export function MetaFormMappingsPanel() {
   }, [mappings, search]);
 
   const canWrite = !!isAdmin;
+
+  const unmappedOrigins = useMemo(() => {
+    const q = originSearch.trim().toLowerCase();
+    return (origins ?? [])
+      .filter((o) => !o.mapped)
+      .filter((o) => typeFilter === "all" || o.origin_type === typeFilter)
+      .filter((o) =>
+        !q ||
+        [o.origin_key, o.origin_name].some((v) => String(v ?? "").toLowerCase().includes(q))
+      );
+  }, [origins, originSearch, typeFilter]);
+
+  const openOriginEditor = (o: LeadOrigin) => {
+    const existing = (mappings ?? []).find((m) => m.form_id === o.origin_key);
+    if (existing) {
+      setEditor(fromMapping(existing));
+      return;
+    }
+    setEditor(emptyEditor(o.origin_key, o.origin_name, o.workflow_stage_target));
+  };
 
   const handleSave = async () => {
     if (!editor) return;
@@ -111,7 +148,7 @@ export function MetaFormMappingsPanel() {
       });
       toast.success(editor.id ? "Mapeamento atualizado" : "Mapeamento criado");
       setEditor(null);
-      refetchUnmapped();
+      refetchOrigins();
     } catch (e: any) {
       toast.error(e?.message ?? "Falha ao gravar");
     }
@@ -122,9 +159,10 @@ export function MetaFormMappingsPanel() {
       <Card>
         <CardHeader className="flex flex-row items-start justify-between gap-4">
           <div>
-            <CardTitle>Formulários Meta</CardTitle>
+            <CardTitle>Origens</CardTitle>
             <CardDescription>
-              Fonte única de verdade do mapeamento formulário → produto → célula do Workflow 7×3.
+              Fonte única de verdade das origens de leads — formulários Meta, formulários do sistema e
+              demais canais → produto → célula do Workflow 7×3.
               {!canWrite && " Você tem acesso somente leitura (edição restrita a administradores)."}
             </CardDescription>
           </div>
@@ -138,7 +176,7 @@ export function MetaFormMappingsPanel() {
                 onChange={(e) => setSearch(e.target.value)}
               />
             </div>
-            <Button variant="outline" size="icon" onClick={() => { refetchMappings(); refetchUnmapped(); }}>
+            <Button variant="outline" size="icon" onClick={() => { refetchMappings(); refetchOrigins(); }}>
               <RefreshCw className="h-4 w-4" />
             </Button>
             {canWrite && (
