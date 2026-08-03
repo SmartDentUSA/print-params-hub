@@ -18,6 +18,8 @@ export interface CatalogVariation {
   color: string | null;
   sort_order: number | null;
   source: string | null;
+  /** NULL = herda a liberação do produto em Gestão de Catálogo */
+  distribute_enabled: boolean | null;
 }
 
 /**
@@ -40,7 +42,7 @@ export function useCatalogVariations() {
       const { data, error } = await supabase
         .from("catalog_product_variations")
         .select(
-          "id, catalog_product_id, sku, presentation, presentation_qty, unidade, ncm_hs, gtin_ean, weight_kg, dimensions_cm, price_brl, price_usd, price_eur, color, sort_order, source",
+          "id, catalog_product_id, sku, presentation, presentation_qty, unidade, ncm_hs, gtin_ean, weight_kg, dimensions_cm, price_brl, price_usd, price_eur, color, sort_order, source, distribute_enabled",
         )
         .in("catalog_product_id", productIds)
         .order("sort_order", { ascending: true });
@@ -153,6 +155,7 @@ export function makePlaceholderVariation(productId: string): CatalogVariation {
     color: null,
     sort_order: 0,
     source: null,
+    distribute_enabled: null,
   };
 }
 
