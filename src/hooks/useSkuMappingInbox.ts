@@ -26,6 +26,7 @@ export interface CatalogVariationOption {
   catalog_product_id: string;
   parent_name: string | null;
   parent_category: string | null;
+  parent_subcategory: string | null;
 }
 
 export function useSkuMappingInbox() {
@@ -45,7 +46,7 @@ export function useSkuMappingInbox() {
         (supabase as any)
           .from("catalog_product_variations")
           .select(
-            "id, sku, presentation, color, catalog_product_id, system_a_catalog:catalog_product_id ( name, product_category )",
+            "id, sku, presentation, color, catalog_product_id, system_a_catalog:catalog_product_id ( name, product_category, product_subcategory )",
           )
           .limit(5000),
       ]);
@@ -60,13 +61,14 @@ export function useSkuMappingInbox() {
         catalog_product_id: v.catalog_product_id,
         parent_name: v.system_a_catalog?.name ?? null,
         parent_category: v.system_a_catalog?.product_category ?? null,
+        parent_subcategory: v.system_a_catalog?.product_subcategory ?? null,
       }));
 
       // Fallback: system_a_catalog products (allowlist) when there are no
       // granular variations. Each catalog row is exposed as a single option.
       const { data: catalogRows } = await (supabase as any)
         .from("system_a_catalog")
-        .select("id, name, slug, category, product_category, extra_data")
+        .select("id, name, slug, category, product_category, product_subcategory, extra_data")
         .in("category", ["product", "resin", "Resinas", "consumables", "Serviços"])
         .eq("active", true)
         .limit(5000);
@@ -88,6 +90,7 @@ export function useSkuMappingInbox() {
           catalog_product_id: c.id,
           parent_name: c.name,
           parent_category: c.product_category || c.category || null,
+          parent_subcategory: c.product_subcategory || null,
         });
       }
 
