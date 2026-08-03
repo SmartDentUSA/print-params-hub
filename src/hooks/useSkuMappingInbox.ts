@@ -26,6 +26,7 @@ export interface CatalogVariationOption {
   catalog_product_id: string;
   parent_name: string | null;
   parent_category: string | null;
+  parent_subcategory: string | null;
 }
 
 export function useSkuMappingInbox() {
@@ -45,7 +46,7 @@ export function useSkuMappingInbox() {
         (supabase as any)
           .from("catalog_product_variations")
           .select(
-            "id, sku, presentation, color, catalog_product_id, system_a_catalog:catalog_product_id ( name, product_category )",
+            "id, sku, presentation, color, catalog_product_id, system_a_catalog:catalog_product_id ( name, product_category, product_subcategory )",
           )
           .limit(5000),
       ]);
@@ -60,13 +61,14 @@ export function useSkuMappingInbox() {
         catalog_product_id: v.catalog_product_id,
         parent_name: v.system_a_catalog?.name ?? null,
         parent_category: v.system_a_catalog?.product_category ?? null,
+        parent_subcategory: v.system_a_catalog?.product_subcategory ?? null,
       }));
 
       // Fallback: system_a_catalog products (allowlist) when there are no
       // granular variations. Each catalog row is exposed as a single option.
       const { data: catalogRows } = await (supabase as any)
         .from("system_a_catalog")
-        .select("id, name, slug, category, product_category, extra_data")
+        .select("id, name, slug, category, product_category, product_subcategory, extra_data")
         .in("category", ["product", "resin", "Resinas", "consumables", "Serviços"])
         .eq("active", true)
         .limit(5000);
@@ -88,6 +90,7 @@ export function useSkuMappingInbox() {
           catalog_product_id: c.id,
           parent_name: c.name,
           parent_category: c.product_category || c.category || null,
+          parent_subcategory: c.product_subcategory || null,
         });
       }
 
@@ -127,9 +130,17 @@ export function useSkuMappingInbox() {
       });
       if (error) throw error;
 
+      // `save_produto_alias` não recebe subcategoria — grava em seguida.
+      if (variation?.parent_subcategory) {
+        await (supabase as any)
+          .from("produto_aliases")
+          .update({ subcategoria: variation.parent_subcategory })
+          .eq("id", savedAliasId);
+      }
+
       const { data: savedAlias, error: verificationError } = await (supabase as any)
         .from("produto_aliases")
-        .select("id, nome_canonico, sku_interno, categoria, is_kit, ativo")
+        .select("id, nome_canonico, sku_interno, categoria, subcategoria, is_kit, ativo")
         .eq("id", savedAliasId)
         .single();
       if (verificationError) throw verificationError;
@@ -146,6 +157,7 @@ export function useSkuMappingInbox() {
                 nome_canonico: savedAlias.nome_canonico,
                 sku_interno: savedAlias.sku_interno,
                 categoria: savedAlias.categoria,
+                subcategoria: savedAlias.subcategoria ?? item.subcategoria,
                 is_kit: savedAlias.is_kit,
                 alias_ativo: savedAlias.ativo,
               }
@@ -162,7 +174,12 @@ export function useSkuMappingInbox() {
    * SKU yet). Used by the "Fora do Catálogo" tab.
    */
   const saveCanonicalName = useCallback(
-    async (row: SkuInboxRow, canonicalName: string, categoria?: string | null) => {
+    async (
+      row: SkuInboxRow,
+      canonicalName: string,
+      categoria?: string | null,
+      subcategoria?: string | null,
+    ) => {
       const nomeCanonico = canonicalName.trim();
       if (!nomeCanonico) throw new Error("Informe o nome canônico.");
 
@@ -176,10 +193,24 @@ export function useSkuMappingInbox() {
       });
       if (error) throw error;
 
+      const nextSub = subcategoria ?? row.subcategoria ?? null;
+      if (nextSub) {
+        await (supabase as any)
+          .from("produto_aliases")
+          .update({ subcategoria: nextSub })
+          .eq("id", savedAliasId);
+      }
+
       setRows((current) =>
         current.map((item) =>
           item.name_key === row.name_key
-            ? { ...item, alias_id: savedAliasId as number, nome_canonico: nomeCanonico, categoria: categoria ?? item.categoria }
+            ? {
+                ...item,
+                alias_id: savedAliasId as number,
+                nome_canonico: nomeCanonico,
+                categoria: categoria ?? item.categoria,
+                subcategoria: nextSub ?? item.subcategoria,
+              }
             : item,
         ),
       );
