@@ -32087,6 +32087,90 @@ export type Database = {
       }
       normalize_name_for_compare: { Args: { n: string }; Returns: string }
       normalize_text: { Args: { text_input: string }; Returns: string }
+      painel_comercial_atividades: {
+        Args: { p_mes?: string }
+        Returns: {
+          atividade: number
+          email: number
+          fechados: number
+          fop_whatsapp: number
+          lembrete: number
+          ligacao: number
+          media_interacoes_fechar: number
+          reuniao: number
+          tentativa_ligacao: number
+          total: number
+          vendedor: string
+        }[]
+      }
+      painel_comercial_funil: {
+        Args: never
+        Returns: {
+          atual: number
+          etapa: string
+          media_dias: number
+          ordem: number
+          pct_perda: number
+          qtd_saidas: number
+        }[]
+      }
+      painel_comercial_kpis: { Args: { p_mes?: string }; Returns: Json }
+      painel_comercial_origens: {
+        Args: { p_mes?: string }
+        Returns: {
+          ativos: number
+          campanha: string
+          etapa_maior_perda: string
+          ganhos: number
+          lead_time_dias: number
+          leads_gerados: number
+          origem: string
+          pct_conversao: number
+          pct_perda: number
+          perdidos: number
+          receita: number
+        }[]
+      }
+      painel_comercial_top_produtos: {
+        Args: { p_mes?: string }
+        Returns: {
+          posicao: number
+          produto: string
+          receita: number
+          subcategory: string
+          workflow_stage: string
+        }[]
+      }
+      painel_comercial_vendedores: {
+        Args: { p_mes?: string }
+        Returns: {
+          apresentacoes: number
+          conversao_apresent: number
+          funil_atual: number
+          leads_mes_anterior: number
+          leads_novos: number
+          pct_abandono: number
+          pedidos: number
+          receita_equip: number
+          receita_insumos: number
+          receita_insumos_ltv: number
+          receita_insumos_novos: number
+          receita_upsell: number
+          t_medio_fecham: number
+          t_medio_negoc: number
+          t_medio_qualif: number
+          total_vendas: number
+          vendedor: string
+        }[]
+      }
+      painel_match_taxonomy: {
+        Args: { p_nome: string }
+        Returns: {
+          display_name: string
+          subcategory: string
+          workflow_stage: string
+        }[]
+      }
       process_meta_lead_batch: { Args: never; Returns: undefined }
       query_printer_brand_distribution: {
         Args: never
