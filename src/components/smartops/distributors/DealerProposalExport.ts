@@ -7,7 +7,7 @@ import { saveAs } from "file-saver";
 import { toast } from "sonner";
 import type { DealerPriceItem, DealerPriceList, Distributor } from "./types";
 import { formatMoney, categoryRank } from "./types";
-import proposalBgAsset from "@/assets/proposal-bg.png.asset.json";
+import proposalBgUrl from "@/assets/proposal-bg.png";
 import { getStorageImageUrl } from "@/utils/storageImage";
 
 function fileBase(distributor: Distributor | undefined, list: DealerPriceList | null, prefix = "tabela-preco") {
@@ -26,7 +26,7 @@ let bgDataUrlCache: string | null | undefined;
 async function loadProposalBg(): Promise<string | null> {
   if (bgDataUrlCache !== undefined) return bgDataUrlCache;
   try {
-    const res = await fetch(proposalBgAsset.url);
+    const res = await fetch(proposalBgUrl);
     if (!res.ok) { bgDataUrlCache = null; return null; }
     const blob = await res.blob();
     if (!(blob.type || "").toLowerCase().startsWith("image/")) { bgDataUrlCache = null; return null; }
