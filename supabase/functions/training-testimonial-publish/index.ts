@@ -254,23 +254,31 @@ serve(async (req) => {
       } catch { /* sitemap não bloqueia publicação */ }
     }
 
-    // ── Kit social pendente de aprovação ─────────────────────────────────
+    // ── Kit social pendente de aprovação (nunca publica sozinho) ──────────
+    const kitRunId = t.social_kit_run_id || crypto.randomUUID();
     try {
-      await db.from("training_social_deliverables").insert({
+      const { error: dErr } = await db.from("training_social_deliverables").insert({
         turma_id: t.turma_id,
-        kind: "testimonial",
-        status: "pending_approval",
+        kit_run_id: kitRunId,
+        platform: "instagram",
+        post_type: article.social?.suggested_format === "feed" ? "feed" : "reels",
+        caption: article.social?.instagram_caption || payload.excerpt,
+        hashtags: Array.isArray(article.social?.hashtags) ? article.social.hashtags : [],
         title: payload.title,
-        copy: article.social?.instagram_caption || payload.excerpt,
-        hashtags: article.social?.hashtags || [],
-        payload: {
+        description: payload.excerpt,
+        status: "pending_review",
+        agent_source: "training-testimonial-publish",
+        suggested_at: new Date().toISOString(),
+        rag_context_snapshot: { query: rag.query, sources: sources.map((s) => ({ type: s.source_type, title: s.title })) },
+        copy_context_snapshot: {
           testimonial_id: t.id,
           knowledge_content_id: contentId,
           public_url: publicUrl,
-          suggested_format: article.social?.suggested_format || "reels",
+          participant_name: t.participant_name,
           drive_file_id: t.drive_file_id,
         },
       });
+      if (dErr) throw new Error(dErr.message);
     } catch (e) {
       await logEvent(db, t.id, "social_kit", "error", String((e as Error).message));
     }
@@ -282,6 +290,7 @@ serve(async (req) => {
       public_url: publicUrl,
       validation_errors: errors,
       rag_chunks: ragChunks,
+      social_kit_run_id: kitRunId,
       rag_indexed_at: ragChunks > 0 ? new Date().toISOString() : null,
       sitemap_pinged_at: shouldPublish ? new Date().toISOString() : null,
       video_publish_status: videoStatus,
