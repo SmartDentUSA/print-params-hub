@@ -47,6 +47,30 @@ Deno.serve(async (req) => {
     const r = await call(token, "GET", `deals/${dealId}/users`);
     const arr = ((r.data as any)?.data ?? []) as any[];
     out.push({ path: r.path, status: r.status, users: arr.map((u) => ({ id: u.id, name: u.name, pivot: u.pivot })) });
+  } else if (mode === "cleanup_deals") {
+    // Limpeza em lote: para cada deal informado, remove envolvidos que não são o dono.
+    const ids = ((body.deal_ids as (string | number)[]) ?? []).map(String);
+    const dryRun = body.dry_run !== false;
+    for (const id of ids) {
+      const r = await call(token, "GET", `deals/${id}/users`);
+      const arr = ((r.data as any)?.data ?? []) as any[];
+      const owner = arr.find((u) => Number(u?.pivot?.flags) === 1);
+      const extras = arr.filter((u) => Number(u?.pivot?.flags) !== 1);
+      const removed: number[] = [];
+      if (!dryRun) {
+        for (const u of extras) {
+          const d = await call(token, "DELETE", `deals/${id}/users/${u.id}`);
+          if (d.ok) removed.push(Number(u.id));
+        }
+      }
+      out.push({
+        deal_id: id,
+        owner: owner ? { id: owner.id, name: owner.name } : null,
+        extras: extras.map((u) => ({ id: u.id, name: u.name, role: u?.pivot?.role })),
+        removed,
+        dry_run: dryRun,
+      });
+    }
   } else if (mode === "sweep" && userId) {
     const paths = [
       ["DELETE", `deals/${dealId}/users/${userId}`],
