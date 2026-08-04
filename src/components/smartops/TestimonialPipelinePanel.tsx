@@ -1,4 +1,4 @@
-import { AlertTriangle, CheckCircle2, ExternalLink, FileText, Loader2, Mic, RefreshCw, Sparkles } from "lucide-react";
+import { AlertTriangle, CheckCircle2, ExternalLink, FileText, Loader2, Mic, RefreshCw, Sparkles, Video } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
