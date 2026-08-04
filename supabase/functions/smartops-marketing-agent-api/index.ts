@@ -155,6 +155,18 @@ async function loadTurma(db: any, turmaId: string) {
   return data;
 }
 
+/** Carrega turma pelo número (ex.: 157). Se houver mais de uma, usa a mais recente. */
+async function loadTurmaByNumber(db: any, turmaNumber: number) {
+  const { data, error } = await db
+    .from("smartops_course_turmas")
+    .select(TURMA_SELECT)
+    .eq("turma_number", turmaNumber)
+    .order("start_date", { ascending: false, nullsFirst: false })
+    .limit(1);
+  if (error) throw new Error(`turma_number: ${error.message}`);
+  return (data || [])[0] || null;
+}
+
 async function countsFor(db: any, turmaIds: string[]) {
   const enrolled = new Map<string, number>();
   const companions = new Map<string, number>();
@@ -546,17 +558,44 @@ serve(async (req) => {
       return res;
     }
 
+    // /trainings/by-number/{turma_number}[/sub]
+    const byNum = rawPath.match(/^\/trainings\/by-number\/([^/]+)(\/participants|\/media-inventory|\/media-gaps)?$/);
+    if (byNum) {
+      const raw = decodeURIComponent(byNum[1]).trim();
+      const sub = byNum[2] || "";
+      endpointName = `/trainings/by-number/{turma_number}${sub}`;
+      if (!/^\d{1,6}$/.test(raw)) {
+        await log(400, { reason: "turma_number inválido" });
+        return json({ error: "turma_number inválido (esperado inteiro, ex.: 157)" }, 400);
+      }
+      const turma = await loadTurmaByNumber(db, Number(raw));
+      if (!turma) {
+        await log(404, { reason: "turma não encontrada por número" });
+        return json({ error: `Turma ${raw} não encontrada` }, 404);
+      }
+      turmaIdForLog = turma.id;
+      let res: Response;
+      if (sub === "/participants") res = await handleParticipants(db, turma);
+      else if (sub === "/media-inventory") res = await handleInventory(db, turma);
+      else if (sub === "/media-gaps") res = await handleGaps(db, turma);
+      else res = await handleTraining(db, turma);
+      await log(200);
+      return res;
+    }
+
     const m = rawPath.match(/^\/trainings\/([^/]+)(\/participants|\/media-inventory|\/media-gaps)?$/);
     if (m) {
-      const turmaId = decodeURIComponent(m[1]);
+      const ident = decodeURIComponent(m[1]).trim();
       const sub = m[2] || "";
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(ident);
+      const isNumber = /^\d{1,6}$/.test(ident);
       endpointName = `/trainings/{turma_id}${sub}`;
-      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(turmaId)) {
-        await log(400, { reason: "turma_id inválido" });
-        return json({ error: "turma_id inválido (esperado UUID)" }, 400);
+      if (!isUuid && !isNumber) {
+        await log(400, { reason: "identificador inválido" });
+        return json({ error: "Identificador inválido (use o UUID da turma ou o número da turma, ex.: 157)" }, 400);
       }
-      turmaIdForLog = turmaId;
-      const turma = await loadTurma(db, turmaId);
+      const turma = isUuid ? await loadTurma(db, ident) : await loadTurmaByNumber(db, Number(ident));
+      turmaIdForLog = turma?.id ?? (isUuid ? ident : null);
       if (!turma) {
         await log(404, { reason: "turma não encontrada" });
         return json({ error: "Turma não encontrada" }, 404);
