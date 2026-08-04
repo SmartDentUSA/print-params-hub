@@ -54,6 +54,7 @@ Deno.serve(async (req) => {
   const sinceMinutes = Number(body.since_minutes ?? 45);
   const limit = Math.min(Number(body.limit ?? 120), 400);
   const dryRun = body.dry_run === true;
+  const offset = Math.max(Number(body.offset ?? 0), 0);
   const fromIso = typeof body.from === "string"
     ? new Date(body.from).toISOString()
     : new Date(Date.now() - sinceMinutes * 60_000).toISOString();
@@ -68,7 +69,7 @@ Deno.serve(async (req) => {
       .not("piperun_deal_id", "is", null)
       .gte("updated_at", fromIso)
       .order("updated_at", { ascending: false })
-      .limit(limit);
+      .range(offset, offset + limit - 1);
     if (toIso) q = q.lte("updated_at", toIso);
     const { data: candidates, error: candErr } = await q;
     if (candErr) return json({ ok: false, error: candErr.message }, 500);
@@ -160,6 +161,7 @@ Deno.serve(async (req) => {
     const summary = {
       ok: true,
       window: { from: fromIso, to: toIso },
+      offset,
       deals: list.length,
       hydrated,
       candidates_rows: rows.length,
