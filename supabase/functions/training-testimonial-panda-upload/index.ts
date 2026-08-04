@@ -135,23 +135,29 @@ serve(async (req) => {
     if (!state) throw new Error(`Vídeo ${videoId} não localizado no Panda após o upload`);
 
     const conversion = (state.status || "unknown").toUpperCase();
+    const resolvedVideoId = resolvePandaVideoId(state, videoId, folder.id);
+    if (String(state.id) === folder.id) {
+      await logEvent(db, t.id, "panda_upload", "warning",
+        `API do Panda devolveu o id da pasta (${folder.id}); id do vídeo resolvido como ${resolvedVideoId}`,
+        { api_id: state.id, resolved: resolvedVideoId, video_player: state.video_player }, auth.actor);
+    }
     if (state.folder_id && state.folder_id !== folder.id) {
       const msg = `Vídeo ${videoId} ficou na pasta ${state.folder_id} em vez da pasta oficial ${folder.id}`;
       await logEvent(db, t.id, "panda_folder_check", "error", msg, state.raw, auth.actor);
       await setStatus(db, t.id, "pending_review", {
-        pandavideo_id: state.id,
+        pandavideo_id: resolvedVideoId,
         panda_folder_id: state.folder_id,
         video_conversion_status: conversion,
         video_publish_status: "pasta_incorreta",
         panda_last_error: msg,
         review_notes: msg,
       });
-      return jsonResponse({ error: msg, status: "wrong_folder", pandavideo_id: state.id }, 409);
+      return jsonResponse({ error: msg, status: "wrong_folder", pandavideo_id: resolvedVideoId }, 409);
     }
 
     const failed = conversion === "ERROR" || conversion === "FAILED";
     const patch: Record<string, unknown> = {
-      pandavideo_id: state.id,
+      pandavideo_id: resolvedVideoId,
       pandavideo_external_id: state.video_external_id,
       panda_folder_id: state.folder_id || folder.id,
       panda_folder_verified_at: new Date().toISOString(),
@@ -160,7 +166,7 @@ serve(async (req) => {
       thumbnail_url: state.thumbnail,
       video_conversion_status: conversion,
       video_provider: "pandavideo",
-      video_provider_id: state.id,
+      video_provider_id: resolvedVideoId,
       video_embed_url: state.video_player,
       video_publish_status: failed ? "conversao_falhou" : "no_panda",
       video_publish_error: failed ? `Conversão retornou ${conversion}` : null,
@@ -173,12 +179,12 @@ serve(async (req) => {
     await setStatus(db, t.id, failed ? "pending_review" : (t.transcript_raw ? "transcribed" : "uploaded"), patch);
     await logEvent(db, t.id, "panda_upload", failed ? "error" : "success",
       failed ? `Conversão ${conversion}` : "Vídeo publicado na pasta oficial de Depoimentos",
-      { pandavideo_id: state.id, folder_id: state.folder_id || folder.id, conversion }, auth.actor);
+      { pandavideo_id: resolvedVideoId, folder_id: state.folder_id || folder.id, conversion }, auth.actor);
 
     return jsonResponse({
       status: failed ? "conversion_failed" : "uploaded",
       testimonial_id: t.id,
-      pandavideo_id: state.id,
+      pandavideo_id: resolvedVideoId,
       pandavideo_external_id: state.video_external_id,
       panda_folder_id: state.folder_id || folder.id,
       panda_folder_name: folder.name,
