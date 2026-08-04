@@ -14,3 +14,4 @@
 - [Lead Opportunities Taxonomy Auto-Register](mem://architecture/lead-opportunities-taxonomy-autoregister) — Trigger cadastra product_key ausente em product_taxonomy; impede erro 23503 em massa no compute-opportunity-engine
 - [Painel Comercial (TV)](mem://features/painel-comercial-tv) — /painel-comercial lê só painel_comercial_cache (refresh por cron 15 min); nunca consulta deals/transições direto
 - [Email Integrity Guard](mem://architecture/email-integrity-guard) — Trigger fn_sanitize_lead_email + _shared/email-sanitize.ts: email canônico único, secundários em email_secundarios, bruto inválido em email_invalido_raw
+- [CRM Timeline Parity](mem://architecture/crm-timeline-parity) — crm_proposal/crm_deal_snapshot emitidos por webhook + reconciliador API; pendências em crm_timeline_unresolved
