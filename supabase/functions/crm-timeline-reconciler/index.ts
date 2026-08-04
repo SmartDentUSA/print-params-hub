@@ -157,9 +157,6 @@ Deno.serve(async (req) => {
     const ins = await insertTimelineEvents(supabase, rows);
     if (unresolved.length > 0) await recordUnresolved(supabase, unresolved);
 
-    // Reprocesso: marca pendências cujo lead já apareceu
-    await supabase.rpc("noop_placeholder").then(() => {}, () => {});
-
     const summary = {
       ok: true,
       window: { from: fromIso, to: toIso },
