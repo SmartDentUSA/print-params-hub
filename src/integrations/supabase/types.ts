@@ -7434,6 +7434,7 @@ export type Database = {
         Row: {
           company_id: string | null
           created_at: string | null
+          dedupe_hash: string | null
           duration_seconds: number | null
           entity_id: string | null
           entity_name: string | null
@@ -7454,6 +7455,7 @@ export type Database = {
         Insert: {
           company_id?: string | null
           created_at?: string | null
+          dedupe_hash?: string | null
           duration_seconds?: number | null
           entity_id?: string | null
           entity_name?: string | null
@@ -7474,6 +7476,7 @@ export type Database = {
         Update: {
           company_id?: string | null
           created_at?: string | null
+          dedupe_hash?: string | null
           duration_seconds?: number | null
           entity_id?: string | null
           entity_name?: string | null
@@ -30975,6 +30978,16 @@ export type Database = {
           receita_total: number
           ticket_medio: number
         }[]
+      }
+      fn_lal_dedupe_hash: {
+        Args: {
+          _entity_id: string
+          _event_data: Json
+          _event_timestamp: string
+          _event_type: string
+          _source_channel: string
+        }
+        Returns: string
       }
       fn_link_page_views_to_lead: {
         Args: { p_lead_id: string; p_session_id: string }
