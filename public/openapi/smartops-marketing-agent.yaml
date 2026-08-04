@@ -1,22 +1,33 @@
 openapi: 3.1.0
 info:
-  title: SmartOps – Marketing Treinamentos (somente leitura)
+  title: SmartOps – Marketing Treinamentos
   version: "1.0.0"
   description: >
-    API somente leitura do Sistema B para o GPT privado "SmartOps – Marketing Treinamentos".
-    Nesta fase a API NÃO cria, atualiza ou exclui registros, não envia arquivos, não aprova
-    materiais, não agenda publicações e não publica em redes sociais. Apenas GET e OPTIONS
-    são aceitos; qualquer método de escrita retorna 405.
+    API do Sistema B para o GPT privado "SmartOps – Marketing Treinamentos".
+    As rotas de consulta (`/smartops-marketing-agent-api/...`) são somente leitura: aceitam
+    apenas GET e OPTIONS e retornam 405 em qualquer método de escrita.
+    As rotas do pipeline de depoimentos e de entregáveis executam ações controladas
+    (transcrição, upload ao Panda Video, publicação do artigo e registro de KITs sociais).
+    Ordem obrigatória para depoimentos: auditar mídia → confirmar participante →
+    transcribeTrainingTestimonial → uploadTrainingTestimonialToPanda (confirmar
+    `panda_folder_id`, conversão e `video_player`) → publishTrainingTestimonial.
+    Nunca chamar publishTrainingTestimonial antes de o Panda retornar `pandavideo_id`,
+    `video_player`, status de conversão válido e `panda_folder_id` correto.
+    `force` e `force_reupload` só podem ser usados a pedido expresso do usuário.
 servers:
-  - url: https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/smartops-marketing-agent-api
-    description: Edge Function pública (autenticada por Bearer token exclusivo)
+  - url: https://okeogjgqijbfkudfjadz.supabase.co/functions/v1
+    description: Edge Functions do Sistema B (autenticadas por Bearer token exclusivo)
 security:
   - MarketingAgentKey: []
 tags:
   - name: Treinamentos
     description: Consulta de turmas, participantes e mídias no Google Drive
+  - name: Depoimentos
+    description: Transcrição, envio ao Panda Video e publicação dos depoimentos
+  - name: Entregáveis
+    description: Registro e revisão de KITs de conteúdo para redes sociais
 paths:
-  /eligible-trainings:
+  /smartops-marketing-agent-api/eligible-trainings:
     get:
       operationId: listEligibleTrainings
       tags: [Treinamentos]
@@ -66,7 +77,7 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "405": { $ref: "#/components/responses/MethodNotAllowed" }
         "500": { $ref: "#/components/responses/ServerError" }
-  /trainings/by-number/{turma_number}:
+  /smartops-marketing-agent-api/trainings/by-number/{turma_number}:
     get:
       operationId: getTrainingDetails
       tags: [Treinamentos]
@@ -112,7 +123,7 @@ paths:
         "404": { $ref: "#/components/responses/NotFound" }
         "405": { $ref: "#/components/responses/MethodNotAllowed" }
         "500": { $ref: "#/components/responses/ServerError" }
-  /trainings/by-number/{turma_number}/participants:
+  /smartops-marketing-agent-api/trainings/by-number/{turma_number}/participants:
     get:
       operationId: listTrainingParticipants
       tags: [Treinamentos]
@@ -167,7 +178,7 @@ paths:
         "404": { $ref: "#/components/responses/NotFound" }
         "405": { $ref: "#/components/responses/MethodNotAllowed" }
         "500": { $ref: "#/components/responses/ServerError" }
-  /trainings/by-number/{turma_number}/media-inventory:
+  /smartops-marketing-agent-api/trainings/by-number/{turma_number}/media-inventory:
     get:
       operationId: getTrainingMediaInventory
       tags: [Treinamentos]
@@ -223,7 +234,7 @@ paths:
         "404": { $ref: "#/components/responses/NotFound" }
         "405": { $ref: "#/components/responses/MethodNotAllowed" }
         "500": { $ref: "#/components/responses/ServerError" }
-  /trainings/by-number/{turma_number}/media-gaps:
+  /smartops-marketing-agent-api/trainings/by-number/{turma_number}/media-gaps:
     get:
       operationId: getTrainingMediaGaps
       tags: [Treinamentos]
@@ -263,6 +274,154 @@ paths:
         "404": { $ref: "#/components/responses/NotFound" }
         "405": { $ref: "#/components/responses/MethodNotAllowed" }
         "500": { $ref: "#/components/responses/ServerError" }
+  /training-testimonial-transcribe:
+    post:
+      operationId: transcribeTrainingTestimonial
+      tags: [Depoimentos]
+      summary: Transcreve um depoimento da turma
+      description: >
+        Transcreve o vídeo do depoimento já enviado ao Google Drive (categoria
+        `videos_depoimentos`) e grava transcrição literal e revisada. Exige participante
+        identificado — sem isso retorna status `awaiting_identification` e nada é publicado.
+        Limite atual de 25 MB por arquivo de áudio/vídeo.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TranscribeRequest" }
+            example: { drive_file_id: "ID_DO_ARQUIVO_NO_DRIVE", force: false }
+      responses:
+        "200":
+          description: Resultado da transcrição
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TestimonialResult" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "500": { $ref: "#/components/responses/ServerError" }
+  /training-testimonial-panda-upload:
+    post:
+      operationId: uploadTrainingTestimonialToPanda
+      tags: [Depoimentos]
+      summary: Envia o depoimento à pasta oficial "Depoimentos" do Panda Video
+      description: >
+        Baixa o vídeo do Drive e envia para a pasta oficial do Panda Video (ID mantido
+        apenas como segredo do backend). Valida a pasta antes e depois da conversão, bloqueia
+        reenvio pelo mesmo `drive_file_id` e nunca faz fallback para a raiz do Panda.
+        Registra `pandavideo_id`, `pandavideo_external_id`, `panda_folder_id`, `video_player`,
+        `video_hls`, `thumbnail_url`, duração e status de conversão.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PandaUploadRequest" }
+            example: { testimonial_id: "UUID_DO_DEPOIMENTO", force_reupload: false }
+      responses:
+        "200":
+          description: Resultado do envio ao Panda
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PandaUploadResult" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "500": { $ref: "#/components/responses/ServerError" }
+  /training-testimonial-publish:
+    post:
+      operationId: publishTrainingTestimonial
+      tags: [Depoimentos]
+      summary: Gera e publica o artigo do depoimento na Base de Conhecimento
+      description: >
+        Gera o artigo (categoria E) a partir da transcrição revisada e do contexto técnico da
+        RAG interna, valida o conteúdo editorialmente e publica quando `publish` for true.
+        Falas vêm exclusivamente da transcrição. Só deve ser chamada após o Panda confirmar
+        `pandavideo_id`, `video_player`, conversão válida e `panda_folder_id` correto.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PublishTestimonialRequest" }
+            example: { testimonial_id: "UUID_DO_DEPOIMENTO", publish: true }
+      responses:
+        "200":
+          description: Resultado da geração/publicação
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PublishTestimonialResult" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "500": { $ref: "#/components/responses/ServerError" }
+  /smartops-marketing-agent-deliveries/kits:
+    post:
+      operationId: createTrainingSocialKit
+      tags: [Entregáveis]
+      summary: Registra um KIT de conteúdo social da turma
+      description: >
+        Cria entregáveis em status `generated` para aprovação humana no Sistema B.
+        Não publica, não agenda e não altera mídia do Drive.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SocialKitRequest" }
+            example:
+              turma_number: 157
+              deliverables:
+                - platform: "instagram"
+                  post_type: "reel"
+                  caption: "Legenda gerada a partir do contexto real da turma."
+                  hashtags: ["odontologiadigital"]
+                  media:
+                    - drive_file_id: "EXEMPLO_FILE_ID"
+                      destination_key: "videos_vertical"
+                      is_cover: true
+                      position: 1
+      responses:
+        "200":
+          description: KIT registrado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SocialKitResult" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "500": { $ref: "#/components/responses/ServerError" }
+  /smartops-marketing-agent-deliveries/deliverables/{deliverable_id}:
+    patch:
+      operationId: reviseTrainingDeliverable
+      tags: [Entregáveis]
+      summary: Revisa um entregável ainda não aprovado
+      description: Atualiza legenda, hashtags, CTA, título, descrição ou mídia de um entregável em status `generated`.
+      parameters:
+        - name: deliverable_id
+          in: path
+          required: true
+          description: UUID do entregável.
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DeliverableRevision" }
+            example:
+              caption: "Legenda revisada sem preços nem promessas de resultado."
+              hashtags: ["chairsideprint"]
+      responses:
+        "200":
+          description: Entregável atualizado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SocialKitResult" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "500": { $ref: "#/components/responses/ServerError" }
 
 components:
   securitySchemes:
@@ -285,6 +444,18 @@ components:
         application/json:
           schema: { $ref: "#/components/schemas/Error" }
           example: { error: "Credencial inválida" }
+    Forbidden:
+      description: Sem permissão para mídias de treinamento
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+          example: { error: "Sem permissão para mídias de treinamento" }
+    RateLimited:
+      description: Limite de chamadas por minuto excedido
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+          example: { error: "Limite de chamadas excedido, tente novamente em instantes" }
     NotFound:
       description: Turma ou rota não encontrada
       content:
@@ -309,6 +480,114 @@ components:
       properties:
         error: { type: string, description: "Mensagem de erro em português" }
       required: [error]
+    TranscribeRequest:
+      type: object
+      description: Informe drive_file_id, media_id ou testimonial_id.
+      properties:
+        drive_file_id: { type: string, description: "ID do arquivo do depoimento no Google Drive" }
+        media_id: { type: string, format: uuid, description: "ID do registro de mídia do Drive" }
+        testimonial_id: { type: string, format: uuid, description: "ID do depoimento já registrado" }
+        force: { type: boolean, default: false, description: "Reprocessa mesmo já transcrito. Só com pedido expresso do usuário." }
+    TestimonialResult:
+      type: object
+      properties:
+        testimonial_id: { type: string, format: uuid }
+        status:
+          type: string
+          description: "uploaded | awaiting_identification | transcribing | transcribed | pending_review | failed"
+        participant_name: { type: string, nullable: true }
+        duration_seconds: { type: number, nullable: true }
+        transcription_confidence: { type: number, nullable: true }
+        transcript_raw: { type: string, nullable: true }
+        transcript_revised: { type: string, nullable: true }
+        analysis: { type: object, additionalProperties: true, nullable: true }
+    PandaUploadRequest:
+      type: object
+      description: Informe testimonial_id ou drive_file_id.
+      properties:
+        testimonial_id: { type: string, format: uuid }
+        drive_file_id: { type: string }
+        force_reupload: { type: boolean, default: false, description: "Reenvia ao Panda. Só com pedido expresso do usuário." }
+    PandaUploadResult:
+      type: object
+      properties:
+        testimonial_id: { type: string, format: uuid }
+        status:
+          type: string
+          description: "uploaded | already_uploaded | converted | conversion_failed | failed"
+        pandavideo_id: { type: string, nullable: true }
+        pandavideo_external_id: { type: string, nullable: true }
+        panda_folder_id: { type: string, nullable: true, description: "Deve ser a pasta oficial de Depoimentos" }
+        video_conversion_status: { type: string, nullable: true }
+        video_player: { type: string, nullable: true }
+        video_hls: { type: string, nullable: true }
+        thumbnail_url: { type: string, nullable: true }
+        duration_seconds: { type: number, nullable: true }
+        published_at: { type: string, nullable: true }
+    PublishTestimonialRequest:
+      type: object
+      required: [testimonial_id]
+      properties:
+        testimonial_id: { type: string, format: uuid }
+        publish: { type: boolean, default: false, description: "true publica o artigo; false gera rascunho para revisão" }
+    PublishTestimonialResult:
+      type: object
+      properties:
+        testimonial_id: { type: string, format: uuid }
+        status:
+          type: string
+          description: "pending_review | validation_failed | published | indexed | rag_available | failed"
+        knowledge_content_id: { type: string, format: uuid, nullable: true }
+        knowledge_slug: { type: string, nullable: true }
+        public_url: { type: string, nullable: true, description: "/base-conhecimento/e/{slug}" }
+        rag_chunks: { type: integer, nullable: true }
+        validation_errors: { type: array, items: { type: string } }
+    KitMedia:
+      type: object
+      required: [drive_file_id]
+      properties:
+        drive_file_id: { type: string }
+        destination_key: { type: string, nullable: true }
+        media_role: { type: string, nullable: true }
+        is_cover: { type: boolean, nullable: true }
+        position: { type: integer, nullable: true }
+    KitDeliverable:
+      type: object
+      required: [platform, post_type, media]
+      properties:
+        platform: { type: string, description: "instagram | facebook | tiktok | youtube | linkedin" }
+        post_type: { type: string, description: "feed | carousel | reel | story | short | video" }
+        account_id: { type: string, nullable: true }
+        caption: { type: string, nullable: true }
+        hashtags: { type: array, items: { type: string } }
+        first_comment: { type: string, nullable: true }
+        cta: { type: string, nullable: true }
+        title: { type: string, nullable: true }
+        description: { type: string, nullable: true }
+        media: { type: array, items: { $ref: "#/components/schemas/KitMedia" } }
+    SocialKitRequest:
+      type: object
+      required: [turma_number, deliverables]
+      properties:
+        turma_number: { type: integer, minimum: 1 }
+        deliverables: { type: array, items: { $ref: "#/components/schemas/KitDeliverable" } }
+    DeliverableRevision:
+      type: object
+      properties:
+        caption: { type: string, nullable: true }
+        hashtags: { type: array, items: { type: string } }
+        first_comment: { type: string, nullable: true }
+        cta: { type: string, nullable: true }
+        title: { type: string, nullable: true }
+        description: { type: string, nullable: true }
+        media: { type: array, items: { $ref: "#/components/schemas/KitMedia" } }
+    SocialKitResult:
+      type: object
+      properties:
+        ok: { type: boolean }
+        turma_id: { type: string, format: uuid, nullable: true }
+        deliverable_ids: { type: array, items: { type: string, format: uuid } }
+        status: { type: string, nullable: true, description: "generated" }
     EligibleTraining:
       type: object
       properties:
