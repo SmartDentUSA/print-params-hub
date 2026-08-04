@@ -201,14 +201,14 @@ serve(async (req) => {
     const mime = String(meta?.mimeType || row.mime_type || "video/mp4");
     const declaredSize = Number(meta?.size || row.video_size_bytes || 0);
     if (declaredSize && declaredSize > MAX_AUDIO_BYTES) {
-      const msg = `Vídeo de ${(declaredSize / 1024 / 1024).toFixed(1)} MB excede o limite de 25 MB da transcrição. Envie uma versão compactada ou apenas o áudio.`;
+      const msg = `Vídeo de ${(declaredSize / 1024 / 1024).toFixed(1)} MB excede o limite de 500 MB da transcrição. Envie uma versão compactada ou apenas o áudio.`;
       await failTestimonial(db, row.id, "transcription", msg, { size_bytes: declaredSize });
       return jsonResponse({ error: msg, testimonial_id: row.id }, 413);
     }
 
     const bytes = await driveDownloadFile(token, fileId);
     if (bytes.byteLength > MAX_AUDIO_BYTES) {
-      const msg = `Arquivo baixado tem ${(bytes.byteLength / 1024 / 1024).toFixed(1)} MB e excede o limite de 25 MB da transcrição.`;
+      const msg = `Arquivo baixado tem ${(bytes.byteLength / 1024 / 1024).toFixed(1)} MB e excede o limite de 500 MB da transcrição.`;
       await failTestimonial(db, row.id, "transcription", msg);
       return jsonResponse({ error: msg, testimonial_id: row.id }, 413);
     }
