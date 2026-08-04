@@ -29,6 +29,12 @@ import { hydrateDealPayload, needsHydration, fetchCompanyContacts } from "../_sh
 import { claimSellerNoteSlot, releaseSellerNoteSlot } from "../_shared/seller-note-lock.ts";
 import { syncPiperunActivitiesToTimeline } from "../_shared/piperun-activity-normalizer.ts";
 import { sanitizeEmailField } from "../_shared/email-sanitize.ts";
+import {
+  buildProposalEvents,
+  buildStageSnapshotEvent,
+  insertTimelineEvents,
+  type DealContext,
+} from "../_shared/crm-timeline-events.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
