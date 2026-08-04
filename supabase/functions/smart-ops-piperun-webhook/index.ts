@@ -623,6 +623,7 @@ Deno.serve(async (req) => {
         companyCnpj: ids.companyCnpj,
         phoneNormalized: phoneNormalizedForCascade,
         dealHash: ids.dealHash,
+        personName: ids.personName || (deal.title ? String(deal.title).split(" - ")[0] : null),
       },
     );
 
