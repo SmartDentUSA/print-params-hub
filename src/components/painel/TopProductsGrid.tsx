@@ -1,59 +1,113 @@
 import { PainelProdutoRow, fmtBRL } from "@/hooks/painel/usePainelComercial";
 import { StatusBadge, statusFromData } from "./StatusBadge";
 
-const STAGE_LABEL: Record<string, string> = {
-  etapa_1_scanner: "1. Captura digital",
-  etapa_2_cad: "2. CAD",
-  etapa_3_impressao: "3. Impressão 3D",
-  etapa_4_pos_impressao: "4. Pós-impressão",
-  etapa_5_finalizacao: "5. Finalização",
-  etapa_6_cursos: "6. Cursos",
-  etapa_7_fresagem: "7. Fresagem",
-  nao_classificado: "Não classificado",
-};
+/** 7 etapas do workflow, na ordem, com as subcategorias esperadas de cada uma. */
+const STAGES: { key: string; n: number; label: string; subs: string[] }[] = [
+  {
+    key: "etapa_1_scanner",
+    n: 1,
+    label: "Captura Digital",
+    subs: ["Scanner Intraoral", "Scanner Bancada", "Acessórios", "Notebook", "Peças/Partes"],
+  },
+  { key: "etapa_2_cad", n: 2, label: "CAD", subs: ["Software", "Créditos IA CAD", "Serviço"] },
+  {
+    key: "etapa_3_impressao",
+    n: 3,
+    label: "Impressão 3D",
+    subs: ["Resinas", "Impressora", "Software", "Acessórios / Peças"],
+  },
+  {
+    key: "etapa_4_pos_impressao",
+    n: 4,
+    label: "Pós-Impressão",
+    subs: ["Equipamentos", "Limpeza/Acabamento"],
+  },
+  {
+    key: "etapa_5_finalizacao",
+    n: 5,
+    label: "Finalização",
+    subs: ["Caracterização", "Instalação", "Dentística/Orto"],
+  },
+  { key: "etapa_6_cursos", n: 6, label: "Cursos", subs: ["Presencial", "Online"] },
+  {
+    key: "etapa_7_fresagem",
+    n: 7,
+    label: "Fresagem",
+    subs: ["Insumos", "Serviço", "Equipamentos / Software / Acessórios"],
+  },
+];
+
+const norm = (s: string) =>
+  s
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
 
 export function TopProductsGrid({ rows }: { rows: PainelProdutoRow[] }) {
-  const grupos = new Map<string, PainelProdutoRow[]>();
+  const porEtapa = new Map<string, Map<string, PainelProdutoRow[]>>();
   rows.forEach((r) => {
-    const key = `${r.workflow_stage}||${r.subcategory}`;
-    grupos.set(key, [...(grupos.get(key) ?? []), r]);
+    const stage = porEtapa.get(r.workflow_stage) ?? new Map<string, PainelProdutoRow[]>();
+    const sub = r.subcategory || "Outros";
+    stage.set(sub, [...(stage.get(sub) ?? []), r]);
+    porEtapa.set(r.workflow_stage, stage);
   });
-  const entries = Array.from(grupos.entries()).sort(
-    (a, b) =>
-      (b[1][0]?.receita ?? 0) - (a[1][0]?.receita ?? 0)
-  );
 
   return (
     <div className="pc-card p-4">
       <div className="flex items-center justify-between mb-3">
-        <h2 className="text-base font-semibold">Top produtos por etapa do workflow</h2>
-        <StatusBadge status={statusFromData(rows.length > 0)} />
+        <h2 className="text-base font-semibold">Top 5 produtos mais vendidos por etapa</h2>
+        <StatusBadge status={statusFromData(rows.length > 0, false)} />
       </div>
-      {entries.length === 0 ? (
-        <p className="pc-dim text-sm">Sem faturamento de produtos no período.</p>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
-          {entries.map(([key, itens]) => {
-            const [stage, sub] = key.split("||");
-            return (
-              <div key={key} className="rounded-xl p-3" style={{ background: "hsl(var(--pc-surface-2))" }}>
-                <div className="pc-label">{STAGE_LABEL[stage] ?? stage}</div>
-                <div className="text-xs font-semibold mb-2">{sub}</div>
-                <ol className="space-y-1">
-                  {itens.map((i) => (
-                    <li key={i.posicao} className="flex justify-between gap-2 text-[0.72rem]">
-                      <span className="truncate" title={i.produto}>
-                        {i.posicao}. {i.produto}
-                      </span>
-                      <span className="pc-accent whitespace-nowrap">{fmtBRL(i.receita, true)}</span>
-                    </li>
-                  ))}
-                </ol>
+
+      <div className="pc-stages-grid">
+        {STAGES.map((stage) => {
+          const dados = porEtapa.get(stage.key) ?? new Map<string, PainelProdutoRow[]>();
+          const extras = Array.from(dados.keys()).filter(
+            (s) => !stage.subs.some((exp) => norm(exp) === norm(s)),
+          );
+          const subs = [...stage.subs, ...extras];
+
+          return (
+            <div key={stage.key} className="pc-stage-col">
+              <div className="pc-stage-head">
+                <span className="pc-accent mr-1">{stage.n}</span>
+                {stage.label}
               </div>
-            );
-          })}
-        </div>
-      )}
+              {subs.map((sub) => {
+                const itens = (
+                  dados.get(sub) ??
+                  Array.from(dados.entries()).find(([k]) => norm(k) === norm(sub))?.[1] ??
+                  []
+                )
+                  .slice()
+                  .sort((a, b) => a.posicao - b.posicao)
+                  .slice(0, 5);
+
+                return (
+                  <div key={sub} className="pc-subcat-block">
+                    <span className="pc-subcat-label">{sub}</span>
+                    {itens.length === 0 ? (
+                      <span className="pc-subcat-empty">sem venda no período</span>
+                    ) : (
+                      itens.map((i) => (
+                        <div key={`${i.posicao}-${i.produto}`} className="pc-prod-item">
+                          <span className="pc-prod-rank">{i.posicao}</span>
+                          <span className="pc-prod-nome" title={i.produto}>
+                            {i.produto}
+                          </span>
+                          <span className="pc-prod-val">{fmtBRL(i.receita, true)}</span>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }

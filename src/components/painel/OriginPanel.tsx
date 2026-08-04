@@ -51,17 +51,17 @@ export function OriginPanel({ rows }: { rows: PainelOrigemRow[] }) {
   const completo = rows.some((r) => (r.ganhos ?? 0) > 0);
 
   return (
-    <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
+    <div className="grid grid-cols-1 gap-3">
       <div className="pc-card p-4">
         <div className="flex items-center justify-between mb-3">
-          <h2 className="text-base font-semibold">Origem inbound</h2>
+          <h2 className="text-base font-semibold">Origem dos leads — Inbound</h2>
           <StatusBadge status={statusFromData(inbound.length > 0, completo)} />
         </div>
         <OriginTable rows={inbound} />
       </div>
       <div className="pc-card p-4">
         <div className="flex items-center justify-between mb-3">
-          <h2 className="text-base font-semibold">Origem outbound e base</h2>
+          <h2 className="text-base font-semibold">Origem dos leads — Outbound</h2>
           <StatusBadge status={statusFromData(outbound.length > 0, completo)} />
         </div>
         <OriginTable rows={outbound} />
