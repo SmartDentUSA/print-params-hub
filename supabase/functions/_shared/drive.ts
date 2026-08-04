@@ -154,15 +154,6 @@ export async function driveTrashFile(token: string, fileId: string): Promise<voi
   });
 }
 
-async function _driveDownloadFileLegacy(fileId: string): Promise<Uint8Array> {
-  const resp = await fetch(
-    `${GATEWAY_BASE}${DRIVE_PATH}/files/${fileId}?alt=media&supportsAllDrives=true`,
-    { headers: gwHeaders() },
-  );
-  if (!resp.ok) throw new Error(`Drive download ${resp.status}: ${await resp.text()}`);
-  return new Uint8Array(await resp.arrayBuffer());
-}
-
 export function slugForFilename(input: string): string {
   return String(input || "")
     .normalize("NFD")
