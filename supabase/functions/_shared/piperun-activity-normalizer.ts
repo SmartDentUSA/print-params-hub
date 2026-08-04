@@ -116,6 +116,8 @@ export function normalizePiperunActivities(leadId: string, activities: unknown):
         concluida: done,
         duration: a.duration ?? null,
         fonte: "piperun",
+        // Chave de negócio: id da atividade no PipeRun (imutável).
+        dedupe_key: `activity:${id}`,
       },
     });
   }

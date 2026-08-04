@@ -1657,6 +1657,19 @@ Deno.serve(async (req) => {
         : timelineEventType === "crm_deal_won" || timelineEventType === "crm_deal_lost"
           ? parseRealTs(ids.dealClosedAt) ?? dealUpdatedAtIso
           : dealUpdatedAtIso ?? parseRealTs(ids.dealCreatedAt)) ?? new Date().toISOString();
+    // ─── Chave de idempotência de negócio ───
+    // event_timestamp NÃO serve como versão: o PipeRun mantém `updated_at`
+    // congelado enquanto o deal muda de etapa. Usamos snapshot de negócio:
+    // deal + etapa + status + valor + owner + timestamp real.
+    const dealEventSig = [
+      dealId ?? "",
+      dealSnapshot?.stage_id ?? "",
+      ids.stageName ?? "",
+      currentDealStatus ?? "",
+      deal.value != null ? String(Number(deal.value)) : "",
+      ids.ownerName ?? "",
+      timelineEventTs,
+    ].join("|");
     await supabase.from("lead_activity_log").insert({
       lead_id: leadId,
       event_type: timelineEventType,
@@ -1699,6 +1712,7 @@ Deno.serve(async (req) => {
         items: (dealSnapshot?.proposals ?? []).flatMap((p) => p.items ?? []).slice(0, 40),
         tags: dealSnapshot?.tags ?? [],
         custom_fields: dealSnapshot?.custom_fields ?? {},
+        dedupe_key: dealEventSig,
       },
       source_channel: "crm",
       value_numeric: deal.value != null ? Number(deal.value) : null,
