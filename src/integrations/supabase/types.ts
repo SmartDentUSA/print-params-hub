@@ -7686,6 +7686,75 @@ export type Database = {
           },
         ]
       }
+      lead_activity_log_dedup_backup_20260804: {
+        Row: {
+          company_id: string | null
+          created_at: string | null
+          dedupe_hash: string | null
+          duration_seconds: number | null
+          entity_id: string | null
+          entity_name: string | null
+          entity_type: string | null
+          event_data: Json
+          event_timestamp: string
+          event_type: string
+          id: string
+          identity_resolved_at: string | null
+          ip_address: string | null
+          lead_id: string
+          person_id: string | null
+          purged_at: string
+          source_channel: string | null
+          updated_at: string | null
+          user_agent: string | null
+          value_numeric: number | null
+        }
+        Insert: {
+          company_id?: string | null
+          created_at?: string | null
+          dedupe_hash?: string | null
+          duration_seconds?: number | null
+          entity_id?: string | null
+          entity_name?: string | null
+          entity_type?: string | null
+          event_data: Json
+          event_timestamp: string
+          event_type: string
+          id: string
+          identity_resolved_at?: string | null
+          ip_address?: string | null
+          lead_id: string
+          person_id?: string | null
+          purged_at?: string
+          source_channel?: string | null
+          updated_at?: string | null
+          user_agent?: string | null
+          value_numeric?: number | null
+        }
+        Update: {
+          company_id?: string | null
+          created_at?: string | null
+          dedupe_hash?: string | null
+          duration_seconds?: number | null
+          entity_id?: string | null
+          entity_name?: string | null
+          entity_type?: string | null
+          event_data?: Json
+          event_timestamp?: string
+          event_type?: string
+          id?: string
+          identity_resolved_at?: string | null
+          ip_address?: string | null
+          lead_id?: string
+          person_id?: string | null
+          purged_at?: string
+          source_channel?: string | null
+          updated_at?: string | null
+          user_agent?: string | null
+          value_numeric?: number | null
+        }
+        Relationships: []
+      }
       lead_cart_history: {
         Row: {
           abandoned_at: string | null
