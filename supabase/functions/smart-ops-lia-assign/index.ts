@@ -30,6 +30,7 @@ import {
   ORIGINS,
   piperunPost,
   piperunPut,
+  pruneDealInvolvedUsers,
   piperunGet,
   addDealNote,
   mapAttendanceToDealCustomFields,
@@ -836,6 +837,15 @@ async function updateExistingDeal(
   console.log(`[lia-assign] Updating deal ${dealId}: owner=${ownerId ?? "PRESERVED"}, origin=PRESERVED, company=${companyId || "none"}`, JSON.stringify(updatePayload).slice(0, 500));
   const updateRes = await piperunPut(apiToken, `deals/${dealId}`, updatePayload);
   console.log(`[lia-assign] Deal update: ${updateRes.success} (${updateRes.status})${!updateRes.success ? " body=" + JSON.stringify(updateRes.data).slice(0, 400) : ""}`);
+  // OWNER HANDOFF CLEANUP: PipeRun mantém o dono anterior como "usuário
+  // envolvido" (pivot.flags = 0) após um PUT owner_id, fazendo o deal parecer
+  // pertencer a dois vendedores. Remove os envolvidos que não são o novo dono.
+  if (updateRes.success && ownerId !== null) {
+    const pruned = await pruneDealInvolvedUsers(apiToken, dealId, ownerId);
+    if (pruned.removed.length > 0 || pruned.failed.length > 0) {
+      console.log(`[lia-assign] Involved-users cleanup deal ${dealId}: removed=${pruned.removed.join(",") || "none"} failed=${pruned.failed.join(",") || "none"}`);
+    }
+  }
   // Persist successfully sent custom fields locally for audit / dedupe
   if (updateRes.success && cfPayload.length > 0) {
     try {
@@ -882,6 +892,14 @@ async function moveDealToVendas(
   console.log(`[lia-assign] Moving deal ${dealId} from Estagnados → Vendas, owner=${ownerId}, origin=PRESERVED`);
   const updateRes = await piperunPut(apiToken, `deals/${dealId}`, updatePayload);
   console.log(`[lia-assign] Deal move: ${updateRes.success} (${updateRes.status})`);
+  // OWNER HANDOFF CLEANUP (reativação Estagnados → Vendas): remove o vendedor
+  // anterior da lista de envolvidos para o deal ficar só com o novo dono.
+  if (updateRes.success) {
+    const pruned = await pruneDealInvolvedUsers(apiToken, dealId, ownerId);
+    if (pruned.removed.length > 0 || pruned.failed.length > 0) {
+      console.log(`[lia-assign] Involved-users cleanup (move) deal ${dealId}: removed=${pruned.removed.join(",") || "none"} failed=${pruned.failed.join(",") || "none"}`);
+    }
+  }
 
   // Briefing apenas se aterrissar em VENDAS/SEM_CONTATO.
   if (stageId === STAGES_VENDAS.SEM_CONTATO) {

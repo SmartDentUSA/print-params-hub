@@ -518,3 +518,6 @@ verify_jwt = false
 
 [functions.crm-xlsx-timeline-ingest]
 verify_jwt = false
+
+[functions.piperun-involved-probe]
+verify_jwt = false

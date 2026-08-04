@@ -1411,6 +1411,53 @@ export async function piperunPut(
 /**
  * Add a note to a PipeRun deal (for L.I.A. cognitive analysis injection)
  */
+/**
+ * PipeRun keeps the PREVIOUS owner attached to the deal as an "involved user"
+ * (pivot.flags = 0) when the owner is changed via PUT /deals/{id}. That makes
+ * the deal look like it belongs to two sellers at once after a reassignment /
+ * lead reactivation.
+ *
+ * The only supported way to detach an involved user is:
+ *   DELETE /deals/{dealId}/users/{userId}   → 204 No Content
+ *
+ * This helper reads the current involved users and detaches everyone except
+ * the current owner (flags = 1) and any user explicitly listed in `keepUserIds`.
+ */
+export async function pruneDealInvolvedUsers(
+  apiToken: string,
+  dealId: number,
+  ownerId: number,
+  keepUserIds: number[] = []
+): Promise<{ removed: number[]; failed: number[]; total: number }> {
+  const removed: number[] = [];
+  const failed: number[] = [];
+  const keep = new Set<number>([Number(ownerId), ...keepUserIds.map(Number)].filter((n) => Number.isFinite(n) && n > 0));
+
+  const list = await piperunGet(apiToken, `deals/${dealId}/users`);
+  const rows = (((list.data as Record<string, unknown>)?.data ?? []) as Array<Record<string, unknown>>) || [];
+  if (!list.success || !Array.isArray(rows)) {
+    return { removed, failed, total: 0 };
+  }
+
+  for (const row of rows) {
+    const uid = Number(row.id);
+    const pivot = (row.pivot ?? {}) as Record<string, unknown>;
+    const isOwner = Number(pivot.flags) === 1;
+    if (!Number.isFinite(uid) || uid <= 0 || isOwner || keep.has(uid)) continue;
+
+    const url = `${PIPERUN_API_BASE}/deals/${dealId}/users/${uid}?token=${apiToken}`;
+    try {
+      const res = await fetch(url, { method: "DELETE" });
+      if (res.ok) removed.push(uid);
+      else failed.push(uid);
+    } catch {
+      failed.push(uid);
+    }
+  }
+
+  return { removed, failed, total: rows.length };
+}
+
 export async function addDealNote(
   apiToken: string,
   dealId: number,
