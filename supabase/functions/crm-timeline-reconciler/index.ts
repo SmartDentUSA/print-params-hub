@@ -156,7 +156,14 @@ Deno.serve(async (req) => {
     }
 
     const ins = await insertTimelineEvents(supabase, rows);
-    if (unresolved.length > 0) await recordUnresolved(supabase, unresolved);
+    let unresolvedRecorded = 0;
+    let unresolvedError: string | null = null;
+    if (unresolved.length > 0) {
+      const u = await recordUnresolved(supabase, unresolved);
+      unresolvedRecorded = u.recorded;
+      unresolvedError = u.error ?? null;
+      if (u.error) console.warn("[crm-timeline-reconciler] unresolved insert error:", u.error);
+    }
 
     const summary = {
       ok: true,
@@ -168,6 +175,8 @@ Deno.serve(async (req) => {
       inserted: ins.inserted,
       duplicates: ins.duplicates,
       unresolved: unresolved.length,
+      unresolved_recorded: unresolvedRecorded,
+      unresolved_error: unresolvedError,
       skipped_non_canonical: skippedNonCanonical,
       error: ins.error ?? null,
     };

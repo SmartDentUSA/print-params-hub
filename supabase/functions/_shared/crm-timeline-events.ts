@@ -218,7 +218,25 @@ export async function recordUnresolved(
   }));
   const { error } = await supabase
     .from("crm_timeline_unresolved")
-    .upsert(rows, { onConflict: "kind,entity_id", ignoreDuplicates: false });
-  if (error) return { recorded: 0, error: error.message };
-  return { recorded: rows.length };
+    .insert(rows);
+  if (!error) return { recorded: rows.length };
+
+  // Índice único é parcial (kind, entity_id) — PostgREST não aceita onConflict
+  // nesse caso: inserimos linha a linha e, em conflito, atualizamos a pendência.
+  let recorded = 0;
+  let firstError: string | undefined;
+  for (const row of rows) {
+    const { error: e1 } = await supabase.from("crm_timeline_unresolved").insert(row);
+    if (!e1) { recorded++; continue; }
+    if (String(e1.code) === "23505" || /duplicate key/i.test(e1.message ?? "")) {
+      const upd = await supabase
+        .from("crm_timeline_unresolved")
+        .update({ payload: row.payload, event_timestamp: row.event_timestamp })
+        .eq("kind", row.kind)
+        .eq("entity_id", row.entity_id as string);
+      if (!upd.error) recorded++;
+      else if (!firstError) firstError = upd.error.message;
+    } else if (!firstError) firstError = e1.message;
+  }
+  return { recorded, error: firstError };
 }
