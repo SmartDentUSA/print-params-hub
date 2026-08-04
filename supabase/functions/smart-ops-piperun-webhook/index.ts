@@ -1103,6 +1103,10 @@ Deno.serve(async (req) => {
     if (ids.companyEmail) updateData.empresa_email = ids.companyEmail;
     // Raw payload (auditoria)
     updateData.piperun_raw_payload = deal;
+    // E-mails: nunca perder dados — secundários e valor bruto inválido
+    // ficam preservados em colunas dedicadas.
+    if (emailExtras.length > 0) updateData.email_secundarios = emailExtras;
+    if (emailInvalidRaw) updateData.email_invalido_raw = emailInvalidRaw;
 
     // Deal status
     const dealStatus = deal.status;
