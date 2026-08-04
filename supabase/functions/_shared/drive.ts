@@ -145,6 +145,24 @@ export async function driveDownloadFile(_token: string, fileId: string): Promise
   return new Uint8Array(await resp.arrayBuffer());
 }
 
+/** Manda o arquivo para a lixeira do Drive (mais seguro que delete definitivo). */
+export async function driveTrashFile(token: string, fileId: string): Promise<void> {
+  await driveFetch(token, `/files/${fileId}?supportsAllDrives=true&fields=id,trashed`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ trashed: true }),
+  });
+}
+
+async function _driveDownloadFileLegacy(fileId: string): Promise<Uint8Array> {
+  const resp = await fetch(
+    `${GATEWAY_BASE}${DRIVE_PATH}/files/${fileId}?alt=media&supportsAllDrives=true`,
+    { headers: gwHeaders() },
+  );
+  if (!resp.ok) throw new Error(`Drive download ${resp.status}: ${await resp.text()}`);
+  return new Uint8Array(await resp.arrayBuffer());
+}
+
 export function slugForFilename(input: string): string {
   return String(input || "")
     .normalize("NFD")
