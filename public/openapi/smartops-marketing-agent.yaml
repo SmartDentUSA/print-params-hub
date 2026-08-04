@@ -444,3 +444,185 @@ paths:
         "404": { $ref: "#/components/responses/NotFound" }
         "405": { $ref: "#/components/responses/MethodNotAllowed" }
         "500": { $ref: "#/components/responses/ServerError" }
+
+components:
+  securitySchemes:
+    MarketingAgentKey:
+      type: http
+      scheme: bearer
+      description: >
+        Token exclusivo servidor-servidor (SMARTOPS_MARKETING_AGENT_API_KEY).
+        Chaves anon, service_role e JWT de usuário do frontend são rejeitados com 401.
+  responses:
+    BadRequest:
+      description: Parâmetro inválido
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+          example: { error: "Identificador inválido (use o UUID da turma ou o número da turma, ex.: 157)" }
+    Unauthorized:
+      description: Credencial ausente ou inválida
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+          example: { error: "Credencial inválida" }
+    NotFound:
+      description: Turma ou rota não encontrada
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+          example: { error: "Turma não encontrada" }
+    MethodNotAllowed:
+      description: Método de escrita bloqueado nesta fase
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+          example: { error: "Método não permitido. Esta API é somente leitura (GET)." }
+    ServerError:
+      description: Erro interno
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+          example: { error: "Erro interno ao processar a consulta" }
+  schemas:
+    Error:
+      type: object
+      properties:
+        error: { type: string, description: "Mensagem de erro em português" }
+      required: [error]
+    EligibleTraining:
+      type: object
+      properties:
+        turma_id: { type: string, format: uuid }
+        turma_number: { type: integer, nullable: true }
+        course_title: { type: string }
+        turma_label: { type: string, nullable: true }
+        start_date: { type: string, nullable: true, description: "Data ISO (yyyy-mm-dd)" }
+        end_date: { type: string, nullable: true }
+        status:
+          type: string
+          description: "agendada | em_andamento | concluida | cancelada | inativa | sem_data"
+        enrolled_count: { type: integer }
+        companions_count: { type: integer }
+        drive_folder_url: { type: string, nullable: true }
+        is_eligible: { type: boolean }
+        blocking_reasons: { type: array, items: { type: string } }
+    TurmaDay:
+      type: object
+      properties:
+        day_number: { type: integer, nullable: true }
+        date: { type: string, nullable: true }
+        start_time: { type: string, nullable: true }
+        end_time: { type: string, nullable: true }
+        topic: { type: string, nullable: true }
+    TrainingDetail:
+      type: object
+      properties:
+        turma_id: { type: string, format: uuid }
+        turma_number: { type: integer, nullable: true }
+        turma_label: { type: string, nullable: true }
+        course:
+          type: object
+          properties:
+            title: { type: string }
+            slug: { type: string, nullable: true }
+            duration_days: { type: integer, nullable: true }
+        start_date: { type: string, nullable: true }
+        end_date: { type: string, nullable: true }
+        location: { type: string, nullable: true }
+        modality: { type: string, nullable: true }
+        status: { type: string }
+        days: { type: array, items: { $ref: "#/components/schemas/TurmaDay" } }
+        enrolled_count: { type: integer }
+        companions_count: { type: integer }
+        drive_folder_id: { type: string, nullable: true }
+        drive_folder_url: { type: string, nullable: true }
+        drive_subfolder_keys: { type: array, items: { type: string } }
+        drive_structure:
+          type: object
+          properties:
+            expected: { type: integer }
+            present: { type: integer }
+            missing: { type: array, items: { type: string } }
+            complete: { type: boolean }
+        is_eligible: { type: boolean }
+        blocking_reasons: { type: array, items: { type: string } }
+    Participant:
+      type: object
+      properties:
+        enrollment_id: { type: string, format: uuid }
+        participant_name: { type: string, nullable: true }
+        participant_type: { type: string, description: "titular" }
+        enrollment_status: { type: string, nullable: true }
+        companion_id: { type: string, format: uuid, nullable: true }
+        companion_name: { type: string, nullable: true }
+        companion_type: { type: string, nullable: true, description: "acompanhante" }
+    MediaFile:
+      type: object
+      properties:
+        drive_file_id: { type: string }
+        filename: { type: string }
+        mime_type: { type: string, nullable: true }
+        size_bytes: { type: integer, nullable: true }
+        created_time: { type: string, nullable: true }
+        width: { type: integer, nullable: true }
+        height: { type: integer, nullable: true }
+        orientation: { type: string, nullable: true, description: "vertical | horizontal" }
+        kind: { type: string, description: "photo | video" }
+        day: { type: string, description: "Dia 1 | Dia 2 | Dia 3 | Geral" }
+        participant_name: { type: string, nullable: true }
+        db_status: { type: string, nullable: true }
+        registered_in_db: { type: boolean }
+    MediaDestination:
+      type: object
+      properties:
+        destination_key:
+          type: string
+          description: >
+            fotos_turma | fotos_participantes_certificados | fotos_atividades | fotos_equipamentos |
+            fotos_bastidores | videos_vertical | videos_horizontal | videos_depoimentos |
+            videos_atividades | videos_bastidores
+        label: { type: string }
+        kind: { type: string }
+        requires_day: { type: boolean }
+        is_testimonial: { type: boolean }
+        drive_folder_id: { type: string }
+        file_count: { type: integer }
+        drive_error: { type: string, nullable: true }
+        files: { type: array, items: { $ref: "#/components/schemas/MediaFile" } }
+    MediaInventory:
+      type: object
+      properties:
+        turma_id: { type: string, format: uuid }
+        turma_number: { type: integer, nullable: true }
+        course_title: { type: string }
+        drive_folder_url: { type: string, nullable: true }
+        total_files: { type: integer }
+        missing_subfolders: { type: array, items: { type: string } }
+        destinations: { type: array, items: { $ref: "#/components/schemas/MediaDestination" } }
+    MediaGapItem:
+      type: object
+      properties:
+        destination_key: { type: string }
+        filename: { type: string, nullable: true }
+        drive_file_id: { type: string, nullable: true }
+        mime_type: { type: string, nullable: true }
+        expected_kind: { type: string, nullable: true }
+        status: { type: string, nullable: true }
+        error: { type: string, nullable: true }
+    MediaGaps:
+      type: object
+      properties:
+        turma_id: { type: string, format: uuid }
+        turma_number: { type: integer, nullable: true }
+        course_title: { type: string }
+        present_categories: { type: array, items: { type: string } }
+        missing_categories: { type: array, items: { type: string } }
+        videos_without_day: { type: array, items: { $ref: "#/components/schemas/MediaGapItem" } }
+        testimonials_without_participant: { type: array, items: { $ref: "#/components/schemas/MediaGapItem" } }
+        participants_without_testimonial: { type: array, items: { type: string } }
+        invalid_formats: { type: array, items: { $ref: "#/components/schemas/MediaGapItem" } }
+        pending_records: { type: array, items: { $ref: "#/components/schemas/MediaGapItem" } }
+        failed_records: { type: array, items: { $ref: "#/components/schemas/MediaGapItem" } }
+        drive_files_without_db_record: { type: array, items: { $ref: "#/components/schemas/MediaGapItem" } }
+        db_records_without_drive_file: { type: array, items: { $ref: "#/components/schemas/MediaGapItem" } }
