@@ -195,10 +195,12 @@ serve(async (req) => {
     const msg = String((e as Error).message || e);
     console.error("[training-testimonial-panda-upload]", msg);
     if (testimonialId) {
-      await db.from("training_testimonials")
-        .update({ panda_last_error: msg.slice(0, 2000), video_publish_status: "erro" })
-        .eq("id", testimonialId).catch?.(() => {});
-      await failTestimonial(db, testimonialId, "panda_upload", msg).catch(() => {});
+      try {
+        await db.from("training_testimonials")
+          .update({ panda_last_error: msg.slice(0, 2000), video_publish_status: "erro" })
+          .eq("id", testimonialId);
+        await failTestimonial(db, testimonialId, "panda_upload", msg);
+      } catch { /* erro já retornado ao chamador */ }
     }
     return jsonResponse({ error: msg, testimonial_id: testimonialId }, 500);
   }
