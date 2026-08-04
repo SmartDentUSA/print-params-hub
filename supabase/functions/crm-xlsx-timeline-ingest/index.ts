@@ -3,6 +3,7 @@
 // REGRAS: sempre usa a data real do evento (nunca now()); dedupe por (event_type, entity_id);
 // NUNCA altera deals nem funis (somente escreve eventos de timeline).
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { recordUnresolved } from "../_shared/crm-timeline-events.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -132,12 +133,26 @@ Deno.serve(async (req) => {
     const out: Row[] = [];
     let unresolved = 0;
     let noDate = 0;
+    const unresolvedEntries: Parameters<typeof recordUnresolved>[1] = [];
 
     for (const r of rows) {
       const entityId = str(r.source_id);
       if (!entityId) continue;
       const leadId = resolve(r);
-      if (!leadId) { unresolved++; continue; }
+      if (!leadId) {
+        unresolved++;
+        unresolvedEntries.push({
+          source: "xlsx",
+          kind: kind,
+          entity_id: entityId,
+          deal_id: num(r.deal_id),
+          person_piperun_id: num(r.person_id),
+          email: str(r.email),
+          event_timestamp: iso(r.concluido_em) || iso(r.created_at) || iso(r.inicio),
+          payload: r as Record<string, unknown>,
+        });
+        continue;
+      }
 
       if (kind === "activity") {
         const ts = iso(r.concluido_em) || iso(r.inicio) || iso(r.created_at) || iso(r.prazo);
@@ -228,6 +243,7 @@ Deno.serve(async (req) => {
     }
 
     if (out.length === 0) {
+      if (unresolvedEntries.length > 0) await recordUnresolved(supabase, unresolvedEntries);
       return new Response(JSON.stringify({ ok: true, received: rows.length, inserted: 0, unresolved, no_date: noDate }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -255,6 +271,10 @@ Deno.serve(async (req) => {
 
     let inserted = 0;
     const errors: string[] = [];
+    if (unresolvedEntries.length > 0) {
+      const u = await recordUnresolved(supabase, unresolvedEntries);
+      if (u.error) errors.push(`unresolved: ${u.error}`);
+    }
     for (let i = 0; i < toInsert.length; i += 200) {
       const chunk = toInsert.slice(i, i + 200);
       const { error } = await supabase.from("lead_activity_log").insert(chunk);
