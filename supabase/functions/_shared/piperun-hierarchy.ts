@@ -11,6 +11,7 @@ import {
   piperunPost,
   piperunPut,
   piperunGet,
+  updateDealOwner,
   addDealNote,
   customFieldsToDealPayload,
   PESSOA_CUSTOM_FIELDS,
@@ -226,10 +227,14 @@ export async function updateExistingDeal(
   // ORIGIN FROZEN on existing deals — origin is set only on createNewDeal.
   const updatePayload: Record<string, unknown> = {};
   if (cfPayload.length > 0) updatePayload.custom_fields = cfPayload;
-  if (ownerId !== null) updatePayload.owner_id = ownerId;
   if (companyId) updatePayload.company_id = companyId;
 
-  await piperunPut(apiToken, `deals/${dealId}`, updatePayload);
+  if (ownerId !== null) {
+    // Canonical owner-change path: PUT + prune leftover involved users.
+    await updateDealOwner(apiToken, dealId, ownerId, updatePayload);
+  } else {
+    await piperunPut(apiToken, `deals/${dealId}`, updatePayload);
+  }
 
   const noteText = await buildNotification(lead, supabase);
   await addDealNote(apiToken, dealId, noteText);
@@ -251,13 +256,12 @@ export async function moveDealToVendas(
   const updatePayload: Record<string, unknown> = {
     pipeline_id: PIPELINES.VENDAS,
     stage_id: stageId,
-    owner_id: ownerId,
     freezed: 0,
   };
   if (cfPayload.length > 0) updatePayload.custom_fields = cfPayload;
   if (companyId) updatePayload.company_id = companyId;
 
-  await piperunPut(apiToken, `deals/${dealId}`, updatePayload);
+  await updateDealOwner(apiToken, dealId, ownerId, updatePayload);
 
   const noteText = "🔄 [Dra. L.I.A.] Deal reativado do funil Estagnados → Funil de Vendas\n\n" +
     await buildNotification(lead, supabase);
