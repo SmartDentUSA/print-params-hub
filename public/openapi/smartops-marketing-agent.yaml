@@ -76,9 +76,11 @@ paths:
         - name: turma_number
           in: path
           required: true
-          description: "Numero da turma (ex.: 157). Se houver mais de uma, usa a mais recente."
+          description: Número operacional da turma, por exemplo 157.
           schema:
             type: integer
+            minimum: 1
+          example: 157
       responses:
         "200":
           description: Detalhes da turma
@@ -122,9 +124,11 @@ paths:
         - name: turma_number
           in: path
           required: true
-          description: "Numero da turma (ex.: 157). Se houver mais de uma, usa a mais recente."
+          description: Número operacional da turma, por exemplo 157.
           schema:
             type: integer
+            minimum: 1
+          example: 157
       responses:
         "200":
           description: Participantes
@@ -173,9 +177,11 @@ paths:
         - name: turma_number
           in: path
           required: true
-          description: "Numero da turma (ex.: 157). Se houver mais de uma, usa a mais recente."
+          description: Número operacional da turma, por exemplo 157.
           schema:
             type: integer
+            minimum: 1
+          example: 157
       responses:
         "200":
           description: Inventário
@@ -227,9 +233,11 @@ paths:
         - name: turma_number
           in: path
           required: true
-          description: "Numero da turma (ex.: 157). Se houver mais de uma, usa a mais recente."
+          description: Número operacional da turma, por exemplo 157.
           schema:
             type: integer
+            minimum: 1
+          example: 157
       responses:
         "200":
           description: Lacunas
