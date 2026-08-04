@@ -24895,6 +24895,12 @@ export type Database = {
           low_confidence_segments: Json
           media_id: string | null
           mime_type: string | null
+          panda_folder_id: string | null
+          panda_folder_verified_at: string | null
+          panda_last_error: string | null
+          panda_uploaded_at: string | null
+          pandavideo_external_id: string | null
+          pandavideo_id: string | null
           participant_name: string | null
           participant_snapshot: Json | null
           participant_type: string | null
@@ -24907,6 +24913,7 @@ export type Database = {
           sitemap_pinged_at: string | null
           social_kit_run_id: string | null
           status: string
+          thumbnail_url: string | null
           transcribed_at: string | null
           transcript_raw: string | null
           transcript_revised: string | null
@@ -24917,7 +24924,11 @@ export type Database = {
           updated_at: string
           validation_errors: Json
           version: number
+          video_conversion_status: string | null
+          video_description: string | null
           video_embed_url: string | null
+          video_hls: string | null
+          video_player: string | null
           video_provider: string | null
           video_provider_id: string | null
           video_publish_error: string | null
@@ -24925,6 +24936,7 @@ export type Database = {
           video_published_at: string | null
           video_sha256: string | null
           video_size_bytes: number | null
+          video_title: string | null
         }
         Insert: {
           analysis?: Json | null
@@ -24946,6 +24958,12 @@ export type Database = {
           low_confidence_segments?: Json
           media_id?: string | null
           mime_type?: string | null
+          panda_folder_id?: string | null
+          panda_folder_verified_at?: string | null
+          panda_last_error?: string | null
+          panda_uploaded_at?: string | null
+          pandavideo_external_id?: string | null
+          pandavideo_id?: string | null
           participant_name?: string | null
           participant_snapshot?: Json | null
           participant_type?: string | null
@@ -24958,6 +24976,7 @@ export type Database = {
           sitemap_pinged_at?: string | null
           social_kit_run_id?: string | null
           status?: string
+          thumbnail_url?: string | null
           transcribed_at?: string | null
           transcript_raw?: string | null
           transcript_revised?: string | null
@@ -24968,7 +24987,11 @@ export type Database = {
           updated_at?: string
           validation_errors?: Json
           version?: number
+          video_conversion_status?: string | null
+          video_description?: string | null
           video_embed_url?: string | null
+          video_hls?: string | null
+          video_player?: string | null
           video_provider?: string | null
           video_provider_id?: string | null
           video_publish_error?: string | null
@@ -24976,6 +24999,7 @@ export type Database = {
           video_published_at?: string | null
           video_sha256?: string | null
           video_size_bytes?: number | null
+          video_title?: string | null
         }
         Update: {
           analysis?: Json | null
@@ -24997,6 +25021,12 @@ export type Database = {
           low_confidence_segments?: Json
           media_id?: string | null
           mime_type?: string | null
+          panda_folder_id?: string | null
+          panda_folder_verified_at?: string | null
+          panda_last_error?: string | null
+          panda_uploaded_at?: string | null
+          pandavideo_external_id?: string | null
+          pandavideo_id?: string | null
           participant_name?: string | null
           participant_snapshot?: Json | null
           participant_type?: string | null
@@ -25009,6 +25039,7 @@ export type Database = {
           sitemap_pinged_at?: string | null
           social_kit_run_id?: string | null
           status?: string
+          thumbnail_url?: string | null
           transcribed_at?: string | null
           transcript_raw?: string | null
           transcript_revised?: string | null
@@ -25019,7 +25050,11 @@ export type Database = {
           updated_at?: string
           validation_errors?: Json
           version?: number
+          video_conversion_status?: string | null
+          video_description?: string | null
           video_embed_url?: string | null
+          video_hls?: string | null
+          video_player?: string | null
           video_provider?: string | null
           video_provider_id?: string | null
           video_publish_error?: string | null
@@ -25027,6 +25062,7 @@ export type Database = {
           video_published_at?: string | null
           video_sha256?: string | null
           video_size_bytes?: number | null
+          video_title?: string | null
         }
         Relationships: [
           {
