@@ -521,3 +521,6 @@ verify_jwt = false
 
 [functions.piperun-involved-probe]
 verify_jwt = false
+
+[functions.piperun-involved-cleanup]
+verify_jwt = false
