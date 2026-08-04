@@ -21,7 +21,7 @@ import {
 } from "../_shared/testimonial-pipeline.ts";
 import {
   assertTestimonialsFolder, buildTestimonialDescription, buildTestimonialTitle,
-  getPandaVideo, uploadTestimonialVideo, waitForConversion,
+  getPandaVideo, resolvePandaVideoId, uploadTestimonialVideo, waitForConversion,
 } from "../_shared/pandavideo-testimonials.ts";
 
 serve(async (req) => {
