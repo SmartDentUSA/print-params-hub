@@ -28,6 +28,7 @@ import { normalizeAreaAtuacao } from "../_shared/zernio-field-normalizer.ts";
 import { hydrateDealPayload, needsHydration, fetchCompanyContacts } from "../_shared/piperun-deal-hydrate.ts";
 import { claimSellerNoteSlot, releaseSellerNoteSlot } from "../_shared/seller-note-lock.ts";
 import { syncPiperunActivitiesToTimeline } from "../_shared/piperun-activity-normalizer.ts";
+import { sanitizeEmailField } from "../_shared/email-sanitize.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -591,7 +592,16 @@ Deno.serve(async (req) => {
     // direto a partir da company). Sem isso o auto-create aborta com
     // `deal_without_email_after_hydration`.
     const personEmailRaw = ids.personEmail || ((deal.person as Record<string, unknown>)?.email ? String((deal.person as Record<string, unknown>).email) : null);
-    const personEmail = normalizeEmail(personEmailRaw || ids.companyEmail || null);
+    const emailSan = sanitizeEmailField(personEmailRaw || ids.companyEmail || null);
+    const personEmail = emailSan.primary;
+    const emailExtras = emailSan.extras;
+    const emailInvalidRaw = emailSan.invalidRaw;
+    if (emailInvalidRaw) {
+      console.warn(`[piperun-webhook] email inválido preservado (deal=${dealId}): "${emailInvalidRaw}"`);
+    }
+    if (emailExtras.length > 0) {
+      console.log(`[piperun-webhook] ${emailExtras.length} e-mail(s) secundário(s) preservado(s) (deal=${dealId})`);
+    }
     const personPhoneEffective = ids.personPhone || ids.companyPhone || null;
     const identitySource = personEmailRaw ? "person" : (ids.companyEmail ? "company_fallback" : "none");
     const phoneNormalizedForCascade = normalizeBrazilianPhone(personPhoneEffective);
@@ -699,6 +709,7 @@ Deno.serve(async (req) => {
       const newLeadData: Record<string, unknown> = {
         nome: personName,
         email: personEmail.toLowerCase().trim(),
+        ...(emailExtras.length > 0 ? { email_secundarios: emailExtras } : {}),
         telefone_raw: personPhoneEffective,
         telefone_normalized: phoneNormalized,
         piperun_id: dealId,
