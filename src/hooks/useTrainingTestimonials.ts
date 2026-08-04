@@ -68,7 +68,14 @@ export function useTrainingTestimonials(turmaId?: string | null, enabled = true)
   }, [enabled, load]);
 
   const invoke = useCallback(
-    async (fn: "training-testimonial-transcribe" | "training-testimonial-publish", body: Record<string, unknown>, id: string) => {
+    async (
+      fn:
+        | "training-testimonial-transcribe"
+        | "training-testimonial-publish"
+        | "training-testimonial-panda-upload",
+      body: Record<string, unknown>,
+      id: string,
+    ) => {
       setBusyId(id);
       try {
         const { data, error } = await supabase.functions.invoke(fn, { body });
