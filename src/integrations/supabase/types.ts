@@ -9925,8 +9925,10 @@ export type Database = {
           email_bounced: boolean
           email_bounced_at: string | null
           email_bounced_reason: string | null
+          email_invalido_raw: string | null
           email_last_attempt_at: string | null
           email_last_attempt_status: string | null
+          email_secundarios: string[] | null
           empresa_cidade: string | null
           empresa_cnae: string | null
           empresa_cnaes: Json | null
@@ -10537,8 +10539,10 @@ export type Database = {
           email_bounced?: boolean
           email_bounced_at?: string | null
           email_bounced_reason?: string | null
+          email_invalido_raw?: string | null
           email_last_attempt_at?: string | null
           email_last_attempt_status?: string | null
+          email_secundarios?: string[] | null
           empresa_cidade?: string | null
           empresa_cnae?: string | null
           empresa_cnaes?: Json | null
@@ -11149,8 +11153,10 @@ export type Database = {
           email_bounced?: boolean
           email_bounced_at?: string | null
           email_bounced_reason?: string | null
+          email_invalido_raw?: string | null
           email_last_attempt_at?: string | null
           email_last_attempt_status?: string | null
+          email_secundarios?: string[] | null
           empresa_cidade?: string | null
           empresa_cnae?: string | null
           empresa_cnaes?: Json | null
@@ -31592,8 +31598,10 @@ export type Database = {
           email_bounced: boolean
           email_bounced_at: string | null
           email_bounced_reason: string | null
+          email_invalido_raw: string | null
           email_last_attempt_at: string | null
           email_last_attempt_status: string | null
+          email_secundarios: string[] | null
           empresa_cidade: string | null
           empresa_cnae: string | null
           empresa_cnaes: Json | null
