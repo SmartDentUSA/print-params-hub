@@ -171,8 +171,9 @@ Deno.serve(async (req) => {
     };
 
     await supabase.from("system_health_logs").insert({
-      check_type: "crm_timeline_reconciler",
-      status: ins.error ? "warning" : "ok",
+      function_name: "crm-timeline-reconciler",
+      severity: ins.error ? "warning" : "info",
+      error_type: ins.error ? "insert_error" : "run_summary",
       details: summary,
     }).then(() => {}, () => {});
 
