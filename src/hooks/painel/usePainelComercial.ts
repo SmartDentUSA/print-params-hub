@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
-const REFETCH = 15 * 60 * 1000; // TV: 15 min
+const REFETCH = 5 * 60 * 1000; // TV: 5 min
 
 export interface PainelKpis {
   mes_ref: string;
@@ -23,6 +23,8 @@ export interface PainelFunilRow {
   etapa: string;
   ordem: number;
   atual: number;
+  /** leads que alcançaram a etapa (volume real do funil) */
+  volume?: number | null;
   media_dias: number | null;
   pct_perda: number | null;
   qtd_saidas: number;
