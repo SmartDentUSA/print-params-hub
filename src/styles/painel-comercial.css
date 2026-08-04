@@ -195,3 +195,30 @@
   padding-top: 8px; text-align: center;
   font-size: 0.65rem; color: hsl(var(--muted-foreground));
 }
+/* Top produtos por etapa (7 colunas do workflow) */
+.pc-stages-grid {
+  display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 0.75rem;
+}
+@media (max-width: 1200px) { .pc-stages-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+@media (max-width: 700px) { .pc-stages-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.pc-stage-col {
+  background: hsl(var(--pc-surface-2));
+  border: 1px solid hsl(var(--pc-border));
+  border-radius: 12px; padding: 0.4rem 0.5rem;
+  display: flex; flex-direction: column; gap: 0.35rem; min-width: 0;
+}
+.pc-stage-head {
+  font-size: 0.7rem; font-weight: 700;
+  padding-bottom: 0.4rem; border-bottom: 1px solid hsl(var(--pc-border));
+}
+.pc-subcat-block { display: flex; flex-direction: column; gap: 0.2rem; min-width: 0; }
+.pc-subcat-label {
+  font-size: 0.56rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em;
+  color: hsl(263 83% 72%); background: hsl(263 83% 58% / 0.14);
+  border-radius: 5px; padding: 0.15rem 0.35rem; width: fit-content;
+}
+.pc-prod-item { display: flex; align-items: baseline; gap: 0.3rem; font-size: 0.66rem; min-width: 0; }
+.pc-prod-rank { color: hsl(var(--pc-text-dim)); width: 0.75rem; flex-shrink: 0; }
+.pc-prod-nome { color: hsl(var(--pc-text-dim)); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pc-prod-val { color: hsl(var(--pc-accent)); font-weight: 600; flex-shrink: 0; }
+.pc-subcat-empty { font-size: 0.62rem; font-style: italic; color: hsl(var(--pc-text-dim)); }
