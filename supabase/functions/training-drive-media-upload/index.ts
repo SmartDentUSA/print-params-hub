@@ -67,8 +67,8 @@ async function authorize(req: Request): Promise<AuthResult> {
     return { ok: false, status: 401, error: "Sessão inválida ou expirada" };
   }
 
-  const db = admin();
-  const { data: allowed, error: permErr } = await db.rpc("can_manage_training_media", {
+  // O RPC exige _user_id = auth.uid(); precisa rodar no contexto do usuário autenticado.
+  const { data: allowed, error: permErr } = await userClient.rpc("can_manage_training_media", {
     _user_id: user.id,
   });
   if (permErr) {
@@ -78,6 +78,7 @@ async function authorize(req: Request): Promise<AuthResult> {
     return { ok: false, status: 403, error: "Usuário sem permissão para enviar mídias de treinamento" };
   }
 
+  const db = admin();
   const { data: adminRole } = await db
     .from("user_roles")
     .select("user_id")
