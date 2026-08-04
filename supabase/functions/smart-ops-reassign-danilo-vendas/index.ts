@@ -2,7 +2,7 @@
 // para vendedores ativos via Round Robin e mover stage para "Sem contato" (379940).
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
-import { piperunPut, addDealNote, piperunGet } from "../_shared/piperun-field-map.ts";
+import { piperunPut, addDealNote, piperunGet, updateDealOwner } from "../_shared/piperun-field-map.ts";
 
 const PIPELINE_VENDAS = 18784;
 const STAGE_SEM_CONTATO_FALLBACK = 379940;
@@ -83,8 +83,7 @@ Deno.serve(async (req) => {
     const previousStage = (deal as any).stage_name as string | null;
 
     // 2a. PipeRun PUT
-    const putRes = await piperunPut(PIPERUN_API_KEY, `deals/${piperunDealId}`, {
-      user_id: newOwnerId,
+    const putRes = await updateDealOwner(PIPERUN_API_KEY, piperunDealId, newOwnerId, {
       stage_id: stageSemContato,
     });
 
