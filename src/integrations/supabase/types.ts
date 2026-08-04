@@ -18156,6 +18156,7 @@ export type Database = {
           description_es: string | null
           external_id: string | null
           fda_510k: string | null
+          fda_gudid: Json | null
           id: string
           image_background_removed_url: string | null
           image_url: string | null
@@ -18240,6 +18241,7 @@ export type Database = {
           description_es?: string | null
           external_id?: string | null
           fda_510k?: string | null
+          fda_gudid?: Json | null
           id?: string
           image_background_removed_url?: string | null
           image_url?: string | null
@@ -18324,6 +18326,7 @@ export type Database = {
           description_es?: string | null
           external_id?: string | null
           fda_510k?: string | null
+          fda_gudid?: Json | null
           id?: string
           image_background_removed_url?: string | null
           image_url?: string | null
