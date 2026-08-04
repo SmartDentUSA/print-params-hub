@@ -284,3 +284,40 @@ export async function driveGetWebViewLink(token: string, fileId: string): Promis
     return `https://drive.google.com/file/d/${fileId}/view`;
   }
 }
+/* ------------------------------------------------------------------ */
+/* Read-only detailed listing (used by smartops-marketing-agent-api)   */
+/* ------------------------------------------------------------------ */
+
+export interface DriveFileDetail {
+  id: string;
+  name: string;
+  mimeType: string | null;
+  size: number | null;
+  createdTime: string | null;
+  width: number | null;
+  height: number | null;
+}
+
+/** List files inside a folder with metadata (size, mime, dimensions). */
+export async function driveListFilesDetailed(
+  token: string,
+  folderId: string,
+): Promise<DriveFileDetail[]> {
+  const q = encodeURIComponent(`'${folderId}' in parents and trashed=false`);
+  const fields = encodeURIComponent(
+    "files(id,name,mimeType,size,createdTime,imageMediaMetadata(width,height),videoMediaMetadata(width,height))",
+  );
+  const data = await driveFetch(
+    token,
+    `/files?q=${q}&fields=${fields}&pageSize=1000&orderBy=name&supportsAllDrives=true&includeItemsFromAllDrives=true`,
+  );
+  return (data.files || []).map((f: any) => ({
+    id: String(f.id),
+    name: String(f.name || ""),
+    mimeType: f.mimeType ?? null,
+    size: f.size != null ? Number(f.size) : null,
+    createdTime: f.createdTime ?? null,
+    width: f.imageMediaMetadata?.width ?? f.videoMediaMetadata?.width ?? null,
+    height: f.imageMediaMetadata?.height ?? f.videoMediaMetadata?.height ?? null,
+  }));
+}
