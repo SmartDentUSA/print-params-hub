@@ -24636,6 +24636,203 @@ export type Database = {
           },
         ]
       }
+      training_social_deliverable_media: {
+        Row: {
+          created_at: string
+          deliverable_id: string
+          drive_file_id: string
+          drive_folder_id: string
+          drive_web_view_link: string | null
+          duration_seconds: number | null
+          generated_filename: string
+          height: number | null
+          id: string
+          is_cover: boolean
+          media_role: string | null
+          mime_type: string | null
+          position: number
+          size_bytes: number | null
+          superseded_by: string | null
+          version: number
+          width: number | null
+        }
+        Insert: {
+          created_at?: string
+          deliverable_id: string
+          drive_file_id: string
+          drive_folder_id: string
+          drive_web_view_link?: string | null
+          duration_seconds?: number | null
+          generated_filename: string
+          height?: number | null
+          id?: string
+          is_cover?: boolean
+          media_role?: string | null
+          mime_type?: string | null
+          position?: number
+          size_bytes?: number | null
+          superseded_by?: string | null
+          version?: number
+          width?: number | null
+        }
+        Update: {
+          created_at?: string
+          deliverable_id?: string
+          drive_file_id?: string
+          drive_folder_id?: string
+          drive_web_view_link?: string | null
+          duration_seconds?: number | null
+          generated_filename?: string
+          height?: number | null
+          id?: string
+          is_cover?: boolean
+          media_role?: string | null
+          mime_type?: string | null
+          position?: number
+          size_bytes?: number | null
+          superseded_by?: string | null
+          version?: number
+          width?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "training_social_deliverable_media_deliverable_id_fkey"
+            columns: ["deliverable_id"]
+            isOneToOne: false
+            referencedRelation: "training_social_deliverables"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "training_social_deliverable_media_superseded_by_fkey"
+            columns: ["superseded_by"]
+            isOneToOne: false
+            referencedRelation: "training_social_deliverable_media"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      training_social_deliverables: {
+        Row: {
+          account_id: string | null
+          agent_source: string | null
+          approved_at: string | null
+          approved_by: string | null
+          caption: string | null
+          copy_context_snapshot: Json | null
+          created_at: string
+          cta: string | null
+          description: string | null
+          edited_at: string | null
+          edited_by: string | null
+          first_comment: string | null
+          hashtags: Json
+          id: string
+          kit_run_id: string
+          platform: string
+          post_type: string
+          rag_context_snapshot: Json | null
+          review_notes: string | null
+          scheduled_post_id: string | null
+          status: string
+          suggested_at: string | null
+          suggestion_basis: Json | null
+          suggestion_confidence: string | null
+          title: string | null
+          turma_id: string
+          updated_at: string
+          version: number
+        }
+        Insert: {
+          account_id?: string | null
+          agent_source?: string | null
+          approved_at?: string | null
+          approved_by?: string | null
+          caption?: string | null
+          copy_context_snapshot?: Json | null
+          created_at?: string
+          cta?: string | null
+          description?: string | null
+          edited_at?: string | null
+          edited_by?: string | null
+          first_comment?: string | null
+          hashtags?: Json
+          id?: string
+          kit_run_id?: string
+          platform: string
+          post_type: string
+          rag_context_snapshot?: Json | null
+          review_notes?: string | null
+          scheduled_post_id?: string | null
+          status?: string
+          suggested_at?: string | null
+          suggestion_basis?: Json | null
+          suggestion_confidence?: string | null
+          title?: string | null
+          turma_id: string
+          updated_at?: string
+          version?: number
+        }
+        Update: {
+          account_id?: string | null
+          agent_source?: string | null
+          approved_at?: string | null
+          approved_by?: string | null
+          caption?: string | null
+          copy_context_snapshot?: Json | null
+          created_at?: string
+          cta?: string | null
+          description?: string | null
+          edited_at?: string | null
+          edited_by?: string | null
+          first_comment?: string | null
+          hashtags?: Json
+          id?: string
+          kit_run_id?: string
+          platform?: string
+          post_type?: string
+          rag_context_snapshot?: Json | null
+          review_notes?: string | null
+          scheduled_post_id?: string | null
+          status?: string
+          suggested_at?: string | null
+          suggestion_basis?: Json | null
+          suggestion_confidence?: string | null
+          title?: string | null
+          turma_id?: string
+          updated_at?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "training_social_deliverables_scheduled_post_id_fkey"
+            columns: ["scheduled_post_id"]
+            isOneToOne: false
+            referencedRelation: "social_scheduled_posts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "training_social_deliverables_scheduled_post_id_fkey"
+            columns: ["scheduled_post_id"]
+            isOneToOne: false
+            referencedRelation: "v_social_posts_for_ai"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "training_social_deliverables_turma_id_fkey"
+            columns: ["turma_id"]
+            isOneToOne: false
+            referencedRelation: "smartops_course_turmas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "training_social_deliverables_turma_id_fkey"
+            columns: ["turma_id"]
+            isOneToOne: false
+            referencedRelation: "v_turmas_com_vagas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       upsell_predictions: {
         Row: {
           generated_at: string | null
@@ -30683,6 +30880,10 @@ export type Database = {
         Args: { _new_specs: Json; _sac_id: string }
         Returns: undefined
       }
+      approve_training_deliverable: {
+        Args: { _deliverable_id: string; _scheduled_at?: string }
+        Returns: Json
+      }
       backfill_activity_identity: {
         Args: { p_limit?: number; p_seconds?: number }
         Returns: Json
@@ -32570,6 +32771,10 @@ export type Database = {
           count: number
           value: string
         }[]
+      }
+      suggest_training_post_slot: {
+        Args: { _format?: string; _platform: string; _window_days?: number }
+        Returns: Json
       }
       try_acquire_briefing_lock: {
         Args: { p_lead_id: string }
