@@ -3592,10 +3592,9 @@ Deno.serve(async (req) => {
           assignedTeamMemberId = null;
           flowType = "rerouted_blocked_seller_vendas";
 
-          await piperunPut(PIPERUN_API_KEY, `deals/${vendaDeal.id}`, {
+          await updateDealOwner(PIPERUN_API_KEY, Number(vendaDeal.id), assignedOwnerId, {
             pipeline_id: PIPELINES.DISTRIBUIDOR_LEADS,
             stage_id: STAGES_DISTRIBUIDOR.DISTRIBUIDOR_DE_LEADS,
-            owner_id: assignedOwnerId,
           });
           await updateExistingDeal(PIPERUN_API_KEY, Number(vendaDeal.id), assignedOwnerId, customFields, lead as Record<string, unknown>, companyId, supabase, inputFormResponses);
           try {
