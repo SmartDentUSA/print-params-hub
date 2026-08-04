@@ -31,6 +31,7 @@ import {
   piperunPost,
   piperunPut,
   pruneDealInvolvedUsers,
+  updateDealOwner,
   piperunGet,
   addDealNote,
   mapAttendanceToDealCustomFields,
