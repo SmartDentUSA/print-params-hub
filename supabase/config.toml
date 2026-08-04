@@ -507,3 +507,6 @@ verify_jwt = false
 
 [functions.training-testimonial-publish]
 verify_jwt = false
+
+[functions.training-testimonial-panda-upload]
+verify_jwt = false
