@@ -47,6 +47,19 @@ Deno.serve(async (req) => {
     const r = await call(token, "GET", `deals/${dealId}/users`);
     const arr = ((r.data as any)?.data ?? []) as any[];
     out.push({ path: r.path, status: r.status, users: arr.map((u) => ({ id: u.id, name: u.name, pivot: u.pivot })) });
+  } else if (mode === "sweep" && userId) {
+    const paths = [
+      ["DELETE", `deals/${dealId}/users/${userId}`],
+      ["DELETE", `deals/${dealId}/user/${userId}`],
+      ["DELETE", `dealsUsers/${userId}?deal_id=${dealId}`],
+      ["DELETE", `deals/${dealId}/involvedUser/${userId}`],
+      ["DELETE", `involved-users/${userId}?deal_id=${dealId}`],
+      ["GET", `deals/${dealId}?with[]=involvedUsers`],
+    ] as const;
+    for (const [m, p2] of paths) out.push(await call(token, m, p2));
+    const r = await call(token, "GET", `deals/${dealId}/users`);
+    const arr = ((r.data as any)?.data ?? []) as any[];
+    out.push({ path: "after", users: arr.map((u) => ({ id: u.id, name: u.name, pivot: u.pivot })) });
   } else if (mode === "put_users") {
     const field = String(body.field ?? "users");
     const ids = (body.user_ids as number[]) ?? [];
