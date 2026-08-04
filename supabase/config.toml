@@ -512,3 +512,6 @@ verify_jwt = false
 verify_jwt = false
 
 
+
+[functions.crm-xlsx-timeline-ingest]
+verify_jwt = false
