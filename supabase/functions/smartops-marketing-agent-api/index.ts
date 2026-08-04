@@ -8,6 +8,8 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getDriveAccessToken, driveListFilesDetailed } from "../_shared/drive.ts";
+import { loadTrainingContext } from "../_shared/training-context.ts";
+import { buildTrainingRagQuery, searchTrainingRag } from "../_shared/training-rag.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -412,6 +414,27 @@ async function handleInventory(db: any, turma: any) {
   });
 }
 
+/** Contexto editorial da turma (curso, etapas, equipamentos, público) + RAG. */
+async function handleContext(db: any, turma: any) {
+  const ctx = await loadTrainingContext(db, turma);
+  const query = buildTrainingRagQuery({
+    course_title: ctx.course.title,
+    stage_topic: ctx.stages.map((s) => s.topic).filter(Boolean).slice(0, 3).join(" "),
+    equipment: ctx.equipment,
+    products: ctx.course.related_product_names,
+  });
+  const rag = await searchTrainingRag(db, query, 6);
+  return json({ ...ctx, rag });
+}
+
+async function handleRagSearch(db: any, url: URL) {
+  const q = (url.searchParams.get("q") || "").trim();
+  if (!q) return json({ error: "Parâmetro q é obrigatório" }, 400);
+  const limit = Math.min(Math.max(Number(url.searchParams.get("limit") || 6) || 6, 1), 12);
+  const rag = await searchTrainingRag(db, q, limit);
+  return json(rag);
+}
+
 async function handleGaps(db: any, turma: any) {
   const inv = await buildInventory(db, turma);
   const { data: enrolls } = await db
@@ -558,8 +581,15 @@ serve(async (req) => {
       return res;
     }
 
+    if (rawPath === "/rag/search") {
+      endpointName = "/rag/search";
+      const res = await handleRagSearch(db, url);
+      await log(res.status);
+      return res;
+    }
+
     // /trainings/by-number/{turma_number}[/sub]
-    const byNum = rawPath.match(/^\/trainings\/by-number\/([^/]+)(\/participants|\/media-inventory|\/media-gaps)?$/);
+    const byNum = rawPath.match(/^\/trainings\/by-number\/([^/]+)(\/participants|\/media-inventory|\/media-gaps|\/context)?$/);
     if (byNum) {
       const raw = decodeURIComponent(byNum[1]).trim();
       const sub = byNum[2] || "";
@@ -578,12 +608,13 @@ serve(async (req) => {
       if (sub === "/participants") res = await handleParticipants(db, turma);
       else if (sub === "/media-inventory") res = await handleInventory(db, turma);
       else if (sub === "/media-gaps") res = await handleGaps(db, turma);
+      else if (sub === "/context") res = await handleContext(db, turma);
       else res = await handleTraining(db, turma);
       await log(200);
       return res;
     }
 
-    const m = rawPath.match(/^\/trainings\/([^/]+)(\/participants|\/media-inventory|\/media-gaps)?$/);
+    const m = rawPath.match(/^\/trainings\/([^/]+)(\/participants|\/media-inventory|\/media-gaps|\/context)?$/);
     if (m) {
       const ident = decodeURIComponent(m[1]).trim();
       const sub = m[2] || "";
@@ -604,6 +635,7 @@ serve(async (req) => {
       if (sub === "/participants") res = await handleParticipants(db, turma);
       else if (sub === "/media-inventory") res = await handleInventory(db, turma);
       else if (sub === "/media-gaps") res = await handleGaps(db, turma);
+      else if (sub === "/context") res = await handleContext(db, turma);
       else res = await handleTraining(db, turma);
       await log(200);
       return res;

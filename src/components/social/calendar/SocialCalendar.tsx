@@ -14,6 +14,7 @@ import { useReschedulePost } from '@/hooks/social/useReschedulePost';
 import { CalendarDayCell } from './CalendarDayCell';
 import { CalendarFilters, type CalendarFiltersValue } from './CalendarFilters';
 import { RescheduleDialog } from './RescheduleDialog';
+import { TrainingApprovals } from '@/components/social/training/TrainingApprovals';
 
 const WEEKDAYS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 
@@ -162,6 +163,8 @@ export function SocialCalendar() {
           setPending(null);
         }}
       />
+
+      <TrainingApprovals />
     </div>
   );
 }
