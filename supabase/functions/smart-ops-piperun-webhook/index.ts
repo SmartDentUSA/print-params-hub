@@ -320,6 +320,7 @@ async function findLeadByCascade(
     companyCnpj?: string | null;
     phoneNormalized?: string | null;
     dealHash?: string | null;
+    personName?: string | null;
   },
 ): Promise<LeadRecord | null> {
   const selectCols = "id, nome, telefone_normalized, produto_interesse, lead_status, tags_crm, piperun_deals_history, piperun_id";
@@ -427,6 +428,30 @@ async function findLeadByCascade(
       .limit(1)
       .maybeSingle();
     if (byPhone) return byPhone as LeadRecord;
+  }
+
+  // 9. RACE FALLBACK: lead recém-criado pelo lia-assign (< 30 min) que ainda
+  // não gravou piperun_id/pessoa_piperun_id quando o webhook chegou.
+  // Só casa por nome EXATO e apenas se o lead ainda não tem deal canônico.
+  if (opts?.personName) {
+    const nameTrim = String(opts.personName).trim();
+    if (nameTrim.length >= 5) {
+      const since = new Date(Date.now() - 30 * 60_000).toISOString();
+      const { data: byRecentName } = await supabase
+        .from("lia_attendances")
+        .select(selectCols)
+        .ilike("nome", nameTrim)
+        .is("merged_into", null)
+        .is("piperun_id", null)
+        .gte("created_at", since)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (byRecentName) {
+        console.log(`[piperun-webhook] cascade hit=recent_name_race deal=${dealId} nome="${nameTrim}"`);
+        return byRecentName as LeadRecord;
+      }
+    }
   }
 
   return null;
