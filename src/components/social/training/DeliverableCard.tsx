@@ -100,20 +100,35 @@ export function DeliverableCard({ deliverable: d, onEdit }: Props) {
         </div>
       )}
 
-      <div className="flex flex-wrap gap-2">
-        {d.media.map((m) => (
-          <a
-            key={m.id}
-            href={m.drive_web_view_link ?? `https://drive.google.com/file/d/${m.drive_file_id}/view`}
-            target="_blank"
-            rel="noreferrer"
-            className="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs hover:bg-muted"
-          >
-            <ExternalLink className="h-3 w-3" />
-            {m.generated_filename}
-          </a>
-        ))}
-      </div>
+      {!!d.media.length && (
+        <div className="grid grid-cols-3 gap-2">
+          {d.media.map((m) => (
+            <a
+              key={m.id}
+              href={m.drive_web_view_link ?? `https://drive.google.com/file/d/${m.drive_file_id}/view`}
+              target="_blank"
+              rel="noreferrer"
+              title={m.generated_filename}
+              className="group relative block aspect-square overflow-hidden rounded-md border bg-muted"
+            >
+              <img
+                src={`https://drive.google.com/thumbnail?id=${m.drive_file_id}&sz=w400`}
+                alt={m.generated_filename}
+                loading="lazy"
+                className="h-full w-full object-cover transition-transform group-hover:scale-105"
+                onError={(e) => {
+                  (e.currentTarget as HTMLImageElement).style.display = 'none';
+                }}
+              />
+              <span className="absolute inset-x-0 bottom-0 truncate bg-background/80 px-1 py-0.5 text-[10px] leading-tight">
+                {m.is_cover ? '★ ' : ''}
+                {m.generated_filename}
+              </span>
+              <ExternalLink className="absolute right-1 top-1 h-3 w-3 opacity-0 transition-opacity group-hover:opacity-100" />
+            </a>
+          ))}
+        </div>
+      )}
 
       <div className="flex flex-wrap items-end gap-2 border-t pt-3">
         <div className="space-y-1">
