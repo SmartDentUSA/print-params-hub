@@ -3,14 +3,17 @@ import { StatusBadge, statusFromData } from "./StatusBadge";
 
 /**
  * Funil visual: barras centralizadas que afunilam de cima para baixo.
- * Volume da etapa = leads nela ou em qualquer etapa posterior (soma-sufixo
- * de `atual`), o que garante o afunilamento. Entre as etapas mostramos o
- * % de passagem e destacamos o maior gargalo.
+ * Volume da etapa = leads que efetivamente alcançaram a etapa (vindo do
+ * banco em `volume`); fallback = soma-sufixo de `atual`. Entre as etapas
+ * mostramos o % de passagem e destacamos o maior gargalo.
  */
 export function FunnelPanel({ rows }: { rows: PainelFunilRow[] }) {
   const ordenadas = [...rows].sort((a, b) => a.ordem - b.ordem);
-  const volumes = ordenadas.map((_, i) =>
-    ordenadas.slice(i).reduce((acc, r) => acc + (r.atual ?? 0), 0),
+  const temVolume = ordenadas.some((r) => (r.volume ?? 0) > 0);
+  const volumes = ordenadas.map((r, i) =>
+    temVolume
+      ? r.volume ?? 0
+      : ordenadas.slice(i).reduce((acc, x) => acc + (x.atual ?? 0), 0),
   );
   const topo = Math.max(1, ...volumes);
   const hasTempo = ordenadas.some((r) => r.media_dias !== null);
