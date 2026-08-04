@@ -12966,6 +12966,45 @@ export type Database = {
           },
         ]
       }
+      marketing_agent_api_log: {
+        Row: {
+          caller_fingerprint: string | null
+          created_at: string
+          details: Json
+          duration_ms: number | null
+          endpoint: string
+          id: string
+          method: string
+          ok: boolean
+          status_code: number
+          turma_id: string | null
+        }
+        Insert: {
+          caller_fingerprint?: string | null
+          created_at?: string
+          details?: Json
+          duration_ms?: number | null
+          endpoint: string
+          id?: string
+          method: string
+          ok?: boolean
+          status_code: number
+          turma_id?: string | null
+        }
+        Update: {
+          caller_fingerprint?: string | null
+          created_at?: string
+          details?: Json
+          duration_ms?: number | null
+          endpoint?: string
+          id?: string
+          method?: string
+          ok?: boolean
+          status_code?: number
+          turma_id?: string | null
+        }
+        Relationships: []
+      }
       marketing_assets: {
         Row: {
           archived_at: string | null
