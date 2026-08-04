@@ -492,3 +492,6 @@ verify_jwt = false
 
 [functions.piperun-equipment-backfill]
 verify_jwt = false
+
+[functions.smartops-marketing-agent-api]
+verify_jwt = false
