@@ -32961,6 +32961,10 @@ export type Database = {
       }
       normalize_name_for_compare: { Args: { n: string }; Returns: string }
       normalize_text: { Args: { text_input: string }; Returns: string }
+      painel_atividades_refresh: {
+        Args: { p_mes?: string }
+        Returns: undefined
+      }
       painel_comercial_atividades: { Args: { p_mes?: string }; Returns: Json }
       painel_comercial_bloco: {
         Args: { p_bloco: string; p_mes?: string }
@@ -32990,6 +32994,10 @@ export type Database = {
         Returns: {
           nome_norm: string
         }[]
+      }
+      painel_vendedores_refresh: {
+        Args: { p_mes?: string }
+        Returns: undefined
       }
       process_meta_lead_batch: { Args: never; Returns: undefined }
       query_printer_brand_distribution: {
