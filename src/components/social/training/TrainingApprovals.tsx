@@ -26,7 +26,7 @@ export function TrainingApprovals() {
         </Card>
       )}
 
-      <div className="grid gap-3 lg:grid-cols-2">
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
         {data.map((d) => (
           <DeliverableCard key={d.id} deliverable={d} onEdit={setEditing} />
         ))}
