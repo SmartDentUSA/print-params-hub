@@ -1955,11 +1955,20 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
                     </tr>
                   </thead>
                   <tbody>
-                    {allProposalItems.map((item, ii) => (
+                    {allProposalItems.map((item, ii) => {
+                      const canon = canonProduct(item.name);
+                      const displaySku = canon?.sku || (item.sku && item.sku !== "—" ? item.sku : "—");
+                      const displayName = canon?.canonical_name || item.name;
+                      return (
                       <tr key={ii}>
                         <td style={{ fontFamily: "'DM Mono', monospace", fontSize: 11 }}>#{item.dealId}</td>
-                        <td style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "var(--muted2)", maxWidth: 100, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={item.sku}>{item.sku}</td>
-                        <td style={{ maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.name}</td>
+                        <td
+                          style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: canon?.sku ? "var(--text)" : "var(--muted2)", maxWidth: 100, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+                          title={canon?.sku ? `SKU do catálogo (CRM: ${item.sku})` : `Sem SKU no catálogo — código do CRM: ${item.sku}`}
+                        >
+                          {displaySku}
+                        </td>
+                        <td style={{ maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={displayName}>{displayName}</td>
                         <td style={{ fontFamily: "'DM Mono', monospace", textAlign: "right" }}>{item.qty}×</td>
                         <td style={{ fontFamily: "'DM Mono', monospace", textAlign: "right", color: "var(--muted2)" }}>{formatBRLFull(item.unitVal)}</td>
                         <td style={{ fontFamily: "'DM Mono', monospace", textAlign: "right", color: "var(--text)" }}>{formatBRLFull(item.totalVal)}</td>
@@ -1969,7 +1978,8 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
                           </span>
                         </td>
                       </tr>
-                    ))}
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
