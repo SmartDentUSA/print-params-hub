@@ -32975,6 +32975,10 @@ export type Database = {
       painel_comercial_kpis_cache: { Args: { p_mes?: string }; Returns: Json }
       painel_comercial_origens: { Args: { p_mes?: string }; Returns: Json }
       painel_comercial_refresh: { Args: { p_mes?: string }; Returns: undefined }
+      painel_comercial_refresh_all: {
+        Args: { p_mes?: string }
+        Returns: undefined
+      }
       painel_comercial_top_produtos: { Args: { p_mes?: string }; Returns: Json }
       painel_comercial_vendedores: { Args: { p_mes?: string }; Returns: Json }
       painel_filtrar_ativos: { Args: { p_payload: Json }; Returns: Json }
