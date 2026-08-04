@@ -25,6 +25,14 @@ export interface TrainingTestimonial {
   public_url: string | null;
   rag_chunks: number | null;
   video_publish_status: string | null;
+  pandavideo_id: string | null;
+  pandavideo_external_id: string | null;
+  panda_folder_id: string | null;
+  video_conversion_status: string | null;
+  video_player: string | null;
+  video_hls: string | null;
+  thumbnail_url: string | null;
+  panda_last_error: string | null;
   created_at: string;
   updated_at: string;
 }
