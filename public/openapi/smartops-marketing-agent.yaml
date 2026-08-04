@@ -76,7 +76,7 @@ paths:
         - name: turma_id
           in: path
           required: true
-          description: UUID da turma no Sistema B ou o numero da turma (ex.: 157).
+          description: "UUID da turma no Sistema B ou o numero da turma (ex.: 157)."
           schema:
             type: string
       responses:
@@ -122,7 +122,7 @@ paths:
         - name: turma_id
           in: path
           required: true
-          description: UUID da turma no Sistema B ou o numero da turma (ex.: 157).
+          description: "UUID da turma no Sistema B ou o numero da turma (ex.: 157)."
           schema:
             type: string
       responses:
@@ -173,7 +173,7 @@ paths:
         - name: turma_id
           in: path
           required: true
-          description: UUID da turma no Sistema B ou o numero da turma (ex.: 157).
+          description: "UUID da turma no Sistema B ou o numero da turma (ex.: 157)."
           schema:
             type: string
       responses:
@@ -227,7 +227,7 @@ paths:
         - name: turma_id
           in: path
           required: true
-          description: UUID da turma no Sistema B ou o numero da turma (ex.: 157).
+          description: "UUID da turma no Sistema B ou o numero da turma (ex.: 157)."
           schema:
             type: string
       responses:
@@ -447,7 +447,7 @@ components:
         - name: turma_number
           in: path
           required: true
-          description: Numero da turma (ex.: 157). Se houver mais de uma, usa a mais recente.
+          description: "Numero da turma (ex.: 157). Se houver mais de uma, usa a mais recente."
           schema:
             type: integer
       responses:
@@ -493,7 +493,7 @@ components:
         - name: turma_number
           in: path
           required: true
-          description: Numero da turma (ex.: 157). Se houver mais de uma, usa a mais recente.
+          description: "Numero da turma (ex.: 157). Se houver mais de uma, usa a mais recente."
           schema:
             type: integer
       responses:
@@ -544,7 +544,7 @@ components:
         - name: turma_number
           in: path
           required: true
-          description: Numero da turma (ex.: 157). Se houver mais de uma, usa a mais recente.
+          description: "Numero da turma (ex.: 157). Se houver mais de uma, usa a mais recente."
           schema:
             type: integer
       responses:
@@ -598,7 +598,7 @@ components:
         - name: turma_number
           in: path
           required: true
-          description: Numero da turma (ex.: 157). Se houver mais de uma, usa a mais recente.
+          description: "Numero da turma (ex.: 157). Se houver mais de uma, usa a mais recente."
           schema:
             type: integer
       responses:
