@@ -15,7 +15,7 @@ export const GATEWAY = "https://ai.gateway.lovable.dev/v1";
 export const CHAT_MODEL = "openai/gpt-5.6-sol";
 export const STT_MODEL = "openai/gpt-4o-transcribe";
 /** Limite do gateway de transcrição (25 MiB). */
-export const MAX_AUDIO_BYTES = 25 * 1024 * 1024;
+export const MAX_AUDIO_BYTES = 500 * 1024 * 1024;
 
 export function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {

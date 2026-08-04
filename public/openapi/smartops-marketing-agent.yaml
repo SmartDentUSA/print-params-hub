@@ -283,7 +283,7 @@ paths:
         Transcreve o vídeo do depoimento já enviado ao Google Drive (categoria
         `videos_depoimentos`) e grava transcrição literal e revisada. Exige participante
         identificado — sem isso retorna status `awaiting_identification` e nada é publicado.
-        Limite atual de 25 MB por arquivo de áudio/vídeo.
+        Limite atual de 500 MB por arquivo de áudio/vídeo.
       requestBody:
         required: true
         content:
@@ -307,11 +307,8 @@ paths:
       tags: [Depoimentos]
       summary: Envia o depoimento à pasta oficial "Depoimentos" do Panda Video
       description: >
-        Baixa o vídeo do Drive e envia para a pasta oficial do Panda Video (ID mantido
-        apenas como segredo do backend). Valida a pasta antes e depois da conversão, bloqueia
-        reenvio pelo mesmo `drive_file_id` e nunca faz fallback para a raiz do Panda.
-        Registra `pandavideo_id`, `pandavideo_external_id`, `panda_folder_id`, `video_player`,
-        `video_hls`, `thumbnail_url`, duração e status de conversão.
+        Envia o depoimento do Google Drive à pasta oficial do Panda Video,
+        impede duplicidade e retorna os dados do vídeo convertido.
       requestBody:
         required: true
         content:
@@ -335,10 +332,8 @@ paths:
       tags: [Depoimentos]
       summary: Gera e publica o artigo do depoimento na Base de Conhecimento
       description: >
-        Gera o artigo (categoria E) a partir da transcrição revisada e do contexto técnico da
-        RAG interna, valida o conteúdo editorialmente e publica quando `publish` for true.
-        Falas vêm exclusivamente da transcrição. Só deve ser chamada após o Panda confirmar
-        `pandavideo_id`, `video_player`, conversão válida e `panda_folder_id` correto.
+        Gera e publica o artigo do depoimento após validar transcrição,
+        participante, vídeo convertido no Panda e fontes da RAG.
       requestBody:
         required: true
         content:
