@@ -1,4 +1,4 @@
-openapi: 3.0.3
+openapi: 3.1.0
 info:
   title: SmartOps – Marketing Treinamentos (somente leitura)
   version: "1.0.0"
@@ -21,11 +21,7 @@ paths:
       operationId: listEligibleTrainings
       tags: [Treinamentos]
       summary: Lista turmas aptas à produção de KIT de marketing
-      description: >
-        Retorna turmas ativas, não canceladas, com datas futuras/em andamento/recém concluídas
-        (até 60 dias), com pelo menos uma inscrição válida, pasta do Google Drive criada e
-        estrutura de subpastas existente. Turmas inaptas vêm com os motivos do bloqueio.
-        O dia da semana nunca é usado como critério de aptidão.
+      description: Lista turmas ativas, não canceladas, com data válida, inscrição, pasta do Drive e subpastas. Pode incluir turmas inaptas com os motivos do bloqueio. O dia da semana não define a aptidão.
       parameters:
         - name: only_eligible
           in: query
@@ -77,7 +73,13 @@ paths:
       summary: Dados oficiais da turma
       description: Retorna curso, número, datas, dias cadastrados, status, inscritos e completude da estrutura do Drive.
       parameters:
-        - $ref: "#/components/parameters/TurmaId"
+        - name: turma_id
+          in: path
+          required: true
+          description: UUID da turma no Sistema B.
+          schema:
+            type: string
+            format: uuid
       responses:
         "200":
           description: Detalhes da turma
@@ -118,7 +120,13 @@ paths:
         Retorna inscritos titulares e acompanhantes da turma informada. Não retorna CPF,
         telefone, e-mail, endereço ou outros dados desnecessários.
       parameters:
-        - $ref: "#/components/parameters/TurmaId"
+        - name: turma_id
+          in: path
+          required: true
+          description: UUID da turma no Sistema B.
+          schema:
+            type: string
+            format: uuid
       responses:
         "200":
           description: Participantes
@@ -162,13 +170,15 @@ paths:
       operationId: getTrainingMediaInventory
       tags: [Treinamentos]
       summary: Inventário real das mídias no Google Drive
-      description: >
-        Lê diretamente as subpastas registradas em drive_subfolders e retorna, por destino,
-        os arquivos com nome oficial, MIME type, tamanho, data de criação, orientação/dimensões,
-        classificação foto/vídeo, Dia 1/2/3/Geral, participante (depoimentos) e a situação
-        registrada em training_drive_media. Nenhuma credencial ou URI de sessão é exposta.
+      description: Consulta as subpastas da turma no Google Drive e retorna arquivos, formatos, tamanhos, dimensões, orientação, dia, participante e situação no banco. Não expõe credenciais nem sessões de upload.
       parameters:
-        - $ref: "#/components/parameters/TurmaId"
+        - name: turma_id
+          in: path
+          required: true
+          description: UUID da turma no Sistema B.
+          schema:
+            type: string
+            format: uuid
       responses:
         "200":
           description: Inventário
@@ -215,13 +225,15 @@ paths:
       operationId: getTrainingMediaGaps
       tags: [Treinamentos]
       summary: Lacunas de mídia frente ao checklist oficial
-      description: >
-        Compara o inventário do Drive com o checklist oficial e aponta categorias presentes e
-        ausentes, vídeos sem dia, depoimentos sem participante, participantes sem depoimento,
-        formatos incompatíveis, registros pendentes e com falha, arquivos do Drive sem registro
-        no banco e registros do banco sem arquivo localizado no Drive.
+      description: Compara o Google Drive com o checklist e informa categorias ausentes, vídeos sem dia, depoimentos sem participante, formatos inválidos, falhas e divergências entre Drive e banco.
       parameters:
-        - $ref: "#/components/parameters/TurmaId"
+        - name: turma_id
+          in: path
+          required: true
+          description: UUID da turma no Sistema B.
+          schema:
+            type: string
+            format: uuid
       responses:
         "200":
           description: Lacunas
@@ -255,13 +267,6 @@ components:
       description: >
         Token exclusivo servidor-servidor (SMARTOPS_MARKETING_AGENT_API_KEY).
         Chaves anon, service_role e JWT de usuário do frontend são rejeitados com 401.
-  parameters:
-    TurmaId:
-      name: turma_id
-      in: path
-      required: true
-      description: UUID da turma no Sistema B.
-      schema: { type: string, format: uuid }
   responses:
     BadRequest:
       description: Parâmetro inválido
