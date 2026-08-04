@@ -472,6 +472,8 @@ export function UploadMidiasDriveDialog({
             </TabsContent>
 
             <TabsContent value="depoimentos" className="mt-3 space-y-3">
+              <TestimonialPipelinePanel turmaId={turmaId} open={open} />
+
               <div className="flex items-center justify-between">
                 <div className="text-xs text-muted-foreground">Uma janela de upload por participante — o nome do arquivo é gerado com o nome do aluno.</div>
                 <div className="flex items-center gap-2">
