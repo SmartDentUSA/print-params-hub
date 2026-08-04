@@ -34,32 +34,11 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Corrige typos comuns de digitação em domínios populares (gmail.comm, hotmail.con, etc).
-// Não altera domínios desconhecidos.
+// Sanitizador único (corrige typos, separa listas "a@x.com, b@y.com",
+// rejeita domínio puro/placeholder) — nada é descartado: secundários e valor
+// bruto inválido são preservados em colunas próprias.
 function normalizeEmail(raw: string | null | undefined): string | null {
-  if (!raw) return null;
-  let e = String(raw).toLowerCase().trim();
-  if (!e || !e.includes("@")) return null;
-  const [local, domainRaw] = e.split("@");
-  if (!local || !domainRaw) return null;
-  let domain = domainRaw.replace(/\.+$/, "");
-  const TYPO_MAP: Record<string, string> = {
-    "gmail.comm": "gmail.com",
-    "gmail.con": "gmail.com",
-    "gmail.co": "gmail.com",
-    "gmail.cm": "gmail.com",
-    "gmal.com": "gmail.com",
-    "gnail.com": "gmail.com",
-    "hotmail.comm": "hotmail.com",
-    "hotmail.con": "hotmail.com",
-    "hotnail.com": "hotmail.com",
-    "outlook.comm": "outlook.com",
-    "outlook.con": "outlook.com",
-    "yahoo.comm": "yahoo.com",
-    "yahoo.con": "yahoo.com",
-  };
-  if (TYPO_MAP[domain]) domain = TYPO_MAP[domain];
-  return `${local}@${domain}`;
+  return sanitizeEmailField(raw).primary;
 }
 
 function isStagnantPipeline(pipelineId: number | undefined): boolean {
