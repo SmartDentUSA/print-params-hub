@@ -31716,6 +31716,7 @@ export type Database = {
       }
       fn_omie_score_label: { Args: { score: number }; Returns: string }
       fn_owner_purchase_history: { Args: { _lead_id: string }; Returns: Json }
+      fn_painel_stage_canon: { Args: { p_stage: string }; Returns: string }
       fn_pause_reactivation_manual: {
         Args: { p_lead_id: string }
         Returns: undefined
