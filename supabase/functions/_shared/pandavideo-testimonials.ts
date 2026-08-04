@@ -124,6 +124,15 @@ export interface PandaVideoState {
   raw: any;
 }
 
+/** Remove um vídeo do Panda (usado para limpar artefatos de teste). */
+export async function deletePandaVideo(videoId: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/videos/${videoId}`, {
+    method: "DELETE",
+    headers: { Authorization: pandaApiKey() },
+  });
+  if (!res.ok) throw new Error(`Panda DELETE ${res.status}: ${(await res.text()).slice(0, 300)}`);
+}
+
 export async function getPandaVideo(videoId: string): Promise<PandaVideoState | null> {
   try {
     const data = await pandaFetch(`/videos/${videoId}`);

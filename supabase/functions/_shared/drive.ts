@@ -145,6 +145,15 @@ export async function driveDownloadFile(_token: string, fileId: string): Promise
   return new Uint8Array(await resp.arrayBuffer());
 }
 
+/** Manda o arquivo para a lixeira do Drive (mais seguro que delete definitivo). */
+export async function driveTrashFile(token: string, fileId: string): Promise<void> {
+  await driveFetch(token, `/files/${fileId}?supportsAllDrives=true&fields=id,trashed`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ trashed: true }),
+  });
+}
+
 export function slugForFilename(input: string): string {
   return String(input || "")
     .normalize("NFD")
