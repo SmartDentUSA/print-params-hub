@@ -124,32 +124,13 @@ export interface PandaVideoState {
   raw: any;
 }
 
-/** O id real do vídeo aparece no player (`.../embed/?v=<uuid>`). */
-export function extractPandaVideoIdFromPlayer(playerUrl?: string | null): string | null {
-  const m = /[?&]v=([0-9a-f-]{16,})/i.exec(String(playerUrl || ""));
-  return m ? m[1] : null;
-}
-
-/**
- * Resolve o id do vídeo de forma defensiva: o player é a fonte mais confiável,
- * depois o id retornado pela API (desde que não seja o id da pasta) e por fim o
- * id que enviamos no upload. Evita gravar id de pasta em `pandavideo_id`.
- */
-export function resolvePandaVideoId(
-  state: { id?: string | null; video_player?: string | null } | null,
-  uploadedId: string,
-  folderId: string,
-): string {
-  const fromPlayer = extractPandaVideoIdFromPlayer(state?.video_player);
-  if (fromPlayer) return fromPlayer;
-  const apiId = state?.id ? String(state.id) : "";
-  if (apiId && apiId !== folderId) return apiId;
-  return uploadedId;
-}
-
 /** Remove um vídeo do Panda (usado para limpar artefatos de teste). */
 export async function deletePandaVideo(videoId: string): Promise<void> {
-  await pandaFetch(`/videos/${videoId}`, { method: "DELETE" });
+  const res = await fetch(`${API_BASE}/videos/${videoId}`, {
+    method: "DELETE",
+    headers: { Authorization: pandaApiKey() },
+  });
+  if (!res.ok) throw new Error(`Panda DELETE ${res.status}: ${(await res.text()).slice(0, 300)}`);
 }
 
 export async function getPandaVideo(videoId: string): Promise<PandaVideoState | null> {
