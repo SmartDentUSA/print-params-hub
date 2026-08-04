@@ -355,6 +355,16 @@ async function findLeadByCascade(
       .limit(1)
       .maybeSingle();
     if (byAstron) return byAstron as LeadRecord;
+    // 4c. By email_secundarios (lead já existe com esse e-mail como secundário)
+    const { data: bySecondary } = await supabase
+      .from("lia_attendances")
+      .select(selectCols)
+      .contains("email_secundarios", [email.toLowerCase().trim()])
+      .is("merged_into", null)
+      .order("updated_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (bySecondary) return bySecondary as LeadRecord;
   }
 
   // 5. By deal hash (deals never change hash, mesmo se piperun_id mudar)
