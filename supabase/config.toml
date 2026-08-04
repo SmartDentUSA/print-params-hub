@@ -511,3 +511,6 @@ verify_jwt = false
 [functions.training-testimonial-panda-upload]
 verify_jwt = false
 
+
+[functions.training-testimonial-cleanup-temp]
+verify_jwt = false
