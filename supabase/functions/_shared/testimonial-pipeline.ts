@@ -31,26 +31,47 @@ export function serviceClient() {
   );
 }
 
+/** Comparação de tempo constante — evita vazamento por timing. */
+export function safeEqualSecret(a: string, b: string): boolean {
+  const ea = new TextEncoder().encode(a);
+  const eb = new TextEncoder().encode(b);
+  if (ea.length !== eb.length) return false;
+  let diff = 0;
+  for (let i = 0; i < ea.length; i++) diff |= ea[i] ^ eb[i];
+  return diff === 0;
+}
+
 /**
  * Autoriza a chamada. Aceita:
  *  - service role (chamadas internas)
- *  - chave do agente SmartOps Marketing (x-api-key)
+ *  - chave do agente SmartOps Marketing em `x-api-key` OU `Authorization: Bearer`
  *  - JWT de usuário com permissão can_manage_training_media
+ *
+ * A chave anon NUNCA é aceita como credencial do agente.
  */
 export async function authorizeTestimonialCall(req: Request): Promise<
   { ok: true; actor: string | null } | { ok: false; status: number; error: string }
 > {
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-  const agentKey = Deno.env.get("SMARTOPS_MARKETING_AGENT_API_KEY");
+  const anonKey = (Deno.env.get("SUPABASE_ANON_KEY") || "").trim();
+  const agentKey = (Deno.env.get("SMARTOPS_MARKETING_AGENT_API_KEY") || "").trim();
   const headerKey = req.headers.get("x-api-key");
-  if (agentKey && headerKey && headerKey === agentKey) return { ok: true, actor: null };
+  if (agentKey && headerKey && safeEqualSecret(headerKey.trim(), agentKey)) {
+    return { ok: true, actor: null };
+  }
 
   const authHeader = req.headers.get("Authorization") || "";
   if (!authHeader.startsWith("Bearer ")) {
     return { ok: false, status: 401, error: "Não autenticado" };
   }
-  const token = authHeader.slice(7);
-  if (token === serviceKey) return { ok: true, actor: null };
+  const token = authHeader.slice(7).trim();
+  if (!token) return { ok: false, status: 401, error: "Não autenticado" };
+  // Chave anon jamais vale como credencial de agente/serviço.
+  if (anonKey && safeEqualSecret(token, anonKey)) {
+    return { ok: false, status: 401, error: "Credencial inválida" };
+  }
+  if (agentKey && safeEqualSecret(token, agentKey)) return { ok: true, actor: null };
+  if (serviceKey && safeEqualSecret(token, serviceKey)) return { ok: true, actor: null };
 
   const userClient = createClient(
     Deno.env.get("SUPABASE_URL")!,
