@@ -12,7 +12,8 @@ function statusVariant(status: string): "default" | "secondary" | "outline" | "d
 }
 
 export function TestimonialPipelinePanel({ turmaId, open }: { turmaId: string; open: boolean }) {
-  const { items, loading, busyId, reload, transcribe, generate, summary } = useTrainingTestimonials(turmaId, open);
+  const { items, loading, busyId, reload, transcribe, generate, uploadToPanda, summary } =
+    useTrainingTestimonials(turmaId, open);
 
   const card = (t: TrainingTestimonial) => {
     const busy = busyId === t.id;
@@ -46,6 +47,11 @@ export function TestimonialPipelinePanel({ turmaId, open }: { turmaId: string; o
           {typeof t.rag_chunks === "number" && t.rag_chunks > 0 && (
             <Badge variant="outline" className="text-[10px]">RAG {t.rag_chunks} trechos</Badge>
           )}
+          {t.pandavideo_id && (
+            <Badge variant="outline" className="text-[10px]">
+              Panda {String(t.video_conversion_status || "").toLowerCase() || "enviado"}
+            </Badge>
+          )}
         </div>
 
         {errs.length > 0 && (
@@ -65,6 +71,15 @@ export function TestimonialPipelinePanel({ turmaId, open }: { turmaId: string; o
           </Button>
           <Button size="sm" className="h-7 text-[11px]" disabled={busy || !canGenerate} onClick={() => generate(t, true)}>
             <Sparkles className="mr-1 h-3 w-3" /> Publicar
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-7 text-[11px]"
+            disabled={busy || !t.drive_file_id || Boolean(t.pandavideo_id)}
+            onClick={() => uploadToPanda(t)}
+          >
+            <Video className="mr-1 h-3 w-3" /> {t.pandavideo_id ? "No Panda" : "Enviar ao Panda"}
           </Button>
           {t.public_url && (
             <Button size="sm" variant="ghost" className="h-7 text-[11px]" asChild>
