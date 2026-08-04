@@ -155,6 +155,18 @@ async function loadTurma(db: any, turmaId: string) {
   return data;
 }
 
+/** Carrega turma pelo número (ex.: 157). Se houver mais de uma, usa a mais recente. */
+async function loadTurmaByNumber(db: any, turmaNumber: number) {
+  const { data, error } = await db
+    .from("smartops_course_turmas")
+    .select(TURMA_SELECT)
+    .eq("turma_number", turmaNumber)
+    .order("start_date", { ascending: false, nullsFirst: false })
+    .limit(1);
+  if (error) throw new Error(`turma_number: ${error.message}`);
+  return (data || [])[0] || null;
+}
+
 async function countsFor(db: any, turmaIds: string[]) {
   const enrolled = new Map<string, number>();
   const companions = new Map<string, number>();
