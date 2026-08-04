@@ -202,7 +202,8 @@ serve(async (req) => {
     // ── Vídeo do depoimento vinculado ao artigo ───────────────────────────
     let videoStatus = "sem_provedor";
     if (t.video_embed_url) {
-      const { error: vErr } = await db.from("knowledge_videos").upsert({
+      await db.from("knowledge_videos").delete().eq("content_id", contentId).eq("source", "training_testimonial");
+      const { error: vErr } = await db.from("knowledge_videos").insert({
         content_id: contentId,
         title: payload.title.slice(0, 180),
         url: t.video_embed_url,
@@ -213,7 +214,7 @@ serve(async (req) => {
         video_transcript: transcript,
         order_index: 0,
         source: "training_testimonial",
-      }, { onConflict: "content_id,url" });
+      });
       videoStatus = vErr ? `erro: ${vErr.message}` : "vinculado";
     }
 
