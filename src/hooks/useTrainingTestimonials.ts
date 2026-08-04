@@ -116,6 +116,20 @@ export function useTrainingTestimonials(turmaId?: string | null, enabled = true)
     [invoke],
   );
 
+  const uploadToPanda = useCallback(
+    async (t: TrainingTestimonial) => {
+      try {
+        const data = await invoke("training-testimonial-panda-upload", { testimonial_id: t.id }, t.id);
+        if (data?.status === "already_uploaded") toast.info("Vídeo já está na pasta Depoimentos do Panda");
+        else if (data?.status === "conversion_failed") toast.warning("Upload feito, mas a conversão no Panda falhou");
+        else toast.success("Vídeo enviado à pasta Depoimentos do Panda Video");
+      } catch (e: any) {
+        toast.error(`Envio ao Panda falhou: ${e.message}`);
+      }
+    },
+    [invoke],
+  );
+
   const summary = useMemo(() => {
     const by = (s: string[]) => items.filter((i) => s.includes(i.status)).length;
     return {
@@ -127,5 +141,5 @@ export function useTrainingTestimonials(turmaId?: string | null, enabled = true)
     };
   }, [items]);
 
-  return { items, loading, busyId, reload: load, transcribe, generate, summary };
+  return { items, loading, busyId, reload: load, transcribe, generate, uploadToPanda, summary };
 }
