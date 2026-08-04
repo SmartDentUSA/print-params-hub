@@ -1,7 +1,7 @@
 // deno-lint-ignore-file no-explicit-any
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { piperunPut } from "../_shared/piperun-field-map.ts";
+import { piperunPut, updateDealOwner } from "../_shared/piperun-field-map.ts";
 
 /**
  * smart-ops-restore-vendas-snapshot
@@ -88,10 +88,9 @@ Deno.serve(async (req) => {
     if (!dryRun) {
       for (const c of slice2) {
         try {
-          const put = await piperunPut(PIPERUN_API_KEY, `deals/${c.deal_id}`, {
+          const put = await updateDealOwner(PIPERUN_API_KEY, Number(c.deal_id), Number(c.current_owner_id), {
             pipeline_id: PIPELINE_VENDAS,
             stage_id: Number(c.target_stage_id),
-            owner_id: Number(c.current_owner_id),
             freezed: 0,
           });
           if (!put.success) {
@@ -219,10 +218,9 @@ Deno.serve(async (req) => {
   if (!dryRun) {
     for (const a of slice) {
       try {
-        const put = await piperunPut(PIPERUN_API_KEY, `deals/${a.deal_id}`, {
+        const put = await updateDealOwner(PIPERUN_API_KEY, Number(a.deal_id), Number(a.target_owner_id), {
           pipeline_id: PIPELINE_VENDAS,
           stage_id: a.target_stage_id,
-          owner_id: a.target_owner_id,
           freezed: 0,
         });
         if (!put.success) {

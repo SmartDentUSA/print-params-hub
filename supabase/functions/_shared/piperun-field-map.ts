@@ -1458,6 +1458,36 @@ export async function pruneDealInvolvedUsers(
   return { removed, failed, total: rows.length };
 }
 
+/**
+ * CANONICAL owner-change path. NEVER call `piperunPut(deals/{id})` with
+ * `owner_id`/`user_id` directly — PipeRun leaves the previous owner attached as
+ * an involved user (pivot.flags = 0) and the deal ends up with two sellers.
+ *
+ * This helper performs the PUT and then always prunes the leftover involvements.
+ */
+export async function updateDealOwner(
+  apiToken: string,
+  dealId: number,
+  ownerId: number,
+  extraPayload: Record<string, unknown> = {},
+  keepUserIds: number[] = []
+): Promise<{ success: boolean; status: number; data: unknown; pruned?: { removed: number[]; failed: number[]; total: number } }> {
+  const { owner_id: _o, user_id: _u, ...rest } = extraPayload as Record<string, unknown>;
+  const res = await piperunPut(apiToken, `deals/${dealId}`, { ...rest, owner_id: Number(ownerId) });
+  if (!res.success) return { success: false, status: res.status, data: res.data };
+
+  let pruned: { removed: number[]; failed: number[]; total: number } | undefined;
+  try {
+    pruned = await pruneDealInvolvedUsers(apiToken, dealId, Number(ownerId), keepUserIds);
+    if (pruned.removed.length > 0) {
+      console.log(`[piperun] deal ${dealId} owner=${ownerId} pruned involved:`, pruned.removed.join(","));
+    }
+  } catch (e) {
+    console.warn(`[piperun] prune failed for deal ${dealId}:`, e);
+  }
+  return { success: true, status: res.status, data: res.data, pruned };
+}
+
 export async function addDealNote(
   apiToken: string,
   dealId: number,
