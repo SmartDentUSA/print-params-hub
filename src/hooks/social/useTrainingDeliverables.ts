@@ -115,3 +115,19 @@ export function useApproveDeliverable() {
     onError: (e: any) => toast({ title: 'Falha na aprovação', description: e.message, variant: 'destructive' }),
   });
 }
+
+export function useDeleteDeliverable() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      await supabase.from('training_social_deliverable_media').delete().eq('deliverable_id', id);
+      const { error } = await supabase.from('training_social_deliverables').delete().eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['training-deliverables'] });
+      toast({ title: 'Entregável excluído' });
+    },
+    onError: (e: any) => toast({ title: 'Erro ao excluir', description: e.message, variant: 'destructive' }),
+  });
+}
