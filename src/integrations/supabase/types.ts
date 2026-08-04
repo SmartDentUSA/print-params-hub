@@ -24833,6 +24833,253 @@ export type Database = {
           },
         ]
       }
+      training_testimonial_events: {
+        Row: {
+          actor: string | null
+          created_at: string
+          details: Json | null
+          id: string
+          message: string | null
+          status: string
+          step: string
+          testimonial_id: string
+        }
+        Insert: {
+          actor?: string | null
+          created_at?: string
+          details?: Json | null
+          id?: string
+          message?: string | null
+          status: string
+          step: string
+          testimonial_id: string
+        }
+        Update: {
+          actor?: string | null
+          created_at?: string
+          details?: Json | null
+          id?: string
+          message?: string | null
+          status?: string
+          step?: string
+          testimonial_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "training_testimonial_events_testimonial_id_fkey"
+            columns: ["testimonial_id"]
+            isOneToOne: false
+            referencedRelation: "training_testimonials"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      training_testimonials: {
+        Row: {
+          analysis: Json | null
+          companion_id: string | null
+          course_id: string | null
+          created_at: string
+          drive_file_id: string
+          drive_folder_id: string | null
+          drive_web_view_link: string | null
+          duration_seconds: number | null
+          edited_at: string | null
+          edited_by: string | null
+          enrollment_id: string | null
+          generated_filename: string | null
+          id: string
+          knowledge_content_id: string | null
+          knowledge_slug: string | null
+          language: string | null
+          low_confidence_segments: Json
+          media_id: string | null
+          mime_type: string | null
+          participant_name: string | null
+          participant_snapshot: Json | null
+          participant_type: string | null
+          processed_by: string | null
+          public_url: string | null
+          rag_chunks: number
+          rag_context_snapshot: Json | null
+          rag_indexed_at: string | null
+          review_notes: string | null
+          sitemap_pinged_at: string | null
+          social_kit_run_id: string | null
+          status: string
+          transcribed_at: string | null
+          transcript_raw: string | null
+          transcript_revised: string | null
+          transcript_segments: Json | null
+          transcription_confidence: number | null
+          transcription_model: string | null
+          turma_id: string
+          updated_at: string
+          validation_errors: Json
+          version: number
+          video_embed_url: string | null
+          video_provider: string | null
+          video_provider_id: string | null
+          video_publish_error: string | null
+          video_publish_status: string | null
+          video_published_at: string | null
+          video_sha256: string | null
+          video_size_bytes: number | null
+        }
+        Insert: {
+          analysis?: Json | null
+          companion_id?: string | null
+          course_id?: string | null
+          created_at?: string
+          drive_file_id: string
+          drive_folder_id?: string | null
+          drive_web_view_link?: string | null
+          duration_seconds?: number | null
+          edited_at?: string | null
+          edited_by?: string | null
+          enrollment_id?: string | null
+          generated_filename?: string | null
+          id?: string
+          knowledge_content_id?: string | null
+          knowledge_slug?: string | null
+          language?: string | null
+          low_confidence_segments?: Json
+          media_id?: string | null
+          mime_type?: string | null
+          participant_name?: string | null
+          participant_snapshot?: Json | null
+          participant_type?: string | null
+          processed_by?: string | null
+          public_url?: string | null
+          rag_chunks?: number
+          rag_context_snapshot?: Json | null
+          rag_indexed_at?: string | null
+          review_notes?: string | null
+          sitemap_pinged_at?: string | null
+          social_kit_run_id?: string | null
+          status?: string
+          transcribed_at?: string | null
+          transcript_raw?: string | null
+          transcript_revised?: string | null
+          transcript_segments?: Json | null
+          transcription_confidence?: number | null
+          transcription_model?: string | null
+          turma_id: string
+          updated_at?: string
+          validation_errors?: Json
+          version?: number
+          video_embed_url?: string | null
+          video_provider?: string | null
+          video_provider_id?: string | null
+          video_publish_error?: string | null
+          video_publish_status?: string | null
+          video_published_at?: string | null
+          video_sha256?: string | null
+          video_size_bytes?: number | null
+        }
+        Update: {
+          analysis?: Json | null
+          companion_id?: string | null
+          course_id?: string | null
+          created_at?: string
+          drive_file_id?: string
+          drive_folder_id?: string | null
+          drive_web_view_link?: string | null
+          duration_seconds?: number | null
+          edited_at?: string | null
+          edited_by?: string | null
+          enrollment_id?: string | null
+          generated_filename?: string | null
+          id?: string
+          knowledge_content_id?: string | null
+          knowledge_slug?: string | null
+          language?: string | null
+          low_confidence_segments?: Json
+          media_id?: string | null
+          mime_type?: string | null
+          participant_name?: string | null
+          participant_snapshot?: Json | null
+          participant_type?: string | null
+          processed_by?: string | null
+          public_url?: string | null
+          rag_chunks?: number
+          rag_context_snapshot?: Json | null
+          rag_indexed_at?: string | null
+          review_notes?: string | null
+          sitemap_pinged_at?: string | null
+          social_kit_run_id?: string | null
+          status?: string
+          transcribed_at?: string | null
+          transcript_raw?: string | null
+          transcript_revised?: string | null
+          transcript_segments?: Json | null
+          transcription_confidence?: number | null
+          transcription_model?: string | null
+          turma_id?: string
+          updated_at?: string
+          validation_errors?: Json
+          version?: number
+          video_embed_url?: string | null
+          video_provider?: string | null
+          video_provider_id?: string | null
+          video_publish_error?: string | null
+          video_publish_status?: string | null
+          video_published_at?: string | null
+          video_sha256?: string | null
+          video_size_bytes?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "training_testimonials_companion_id_fkey"
+            columns: ["companion_id"]
+            isOneToOne: false
+            referencedRelation: "smartops_enrollment_companions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "training_testimonials_enrollment_id_fkey"
+            columns: ["enrollment_id"]
+            isOneToOne: false
+            referencedRelation: "smartops_course_enrollments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "training_testimonials_knowledge_content_id_fkey"
+            columns: ["knowledge_content_id"]
+            isOneToOne: false
+            referencedRelation: "knowledge_contents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "training_testimonials_knowledge_content_id_fkey"
+            columns: ["knowledge_content_id"]
+            isOneToOne: false
+            referencedRelation: "v_testimonials_geo"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "training_testimonials_media_id_fkey"
+            columns: ["media_id"]
+            isOneToOne: false
+            referencedRelation: "training_drive_media"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "training_testimonials_turma_id_fkey"
+            columns: ["turma_id"]
+            isOneToOne: false
+            referencedRelation: "smartops_course_turmas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "training_testimonials_turma_id_fkey"
+            columns: ["turma_id"]
+            isOneToOne: false
+            referencedRelation: "v_turmas_com_vagas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       upsell_predictions: {
         Row: {
           generated_at: string | null
