@@ -249,6 +249,9 @@ verify_jwt = false
 [functions.smart-ops-piperun-webhook]
 verify_jwt = false
 
+[functions.crm-timeline-reconciler]
+verify_jwt = false
+
 [functions.smart-ops-cs-processor]
 verify_jwt = false
 

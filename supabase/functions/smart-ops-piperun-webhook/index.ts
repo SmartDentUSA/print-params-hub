@@ -29,6 +29,12 @@ import { hydrateDealPayload, needsHydration, fetchCompanyContacts } from "../_sh
 import { claimSellerNoteSlot, releaseSellerNoteSlot } from "../_shared/seller-note-lock.ts";
 import { syncPiperunActivitiesToTimeline } from "../_shared/piperun-activity-normalizer.ts";
 import { sanitizeEmailField } from "../_shared/email-sanitize.ts";
+import {
+  buildProposalEvents,
+  buildStageSnapshotEvent,
+  insertTimelineEvents,
+  type DealContext,
+} from "../_shared/crm-timeline-events.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -1729,6 +1735,44 @@ Deno.serve(async (req) => {
       }
     } catch (e) {
       console.warn("[piperun-webhook] crm_activity sync exception:", (e as Error).message);
+    }
+
+    // ─── Propostas + Snapshot de etapa → Timeline (paridade com o ingest XLSX) ───
+    try {
+      const crmCtx: DealContext = {
+        dealId: dealId ?? null,
+        pipelineName: ids.pipelineName ?? null,
+        stageName: ids.stageName ?? null,
+        stageId: dealSnapshot?.stage_id ?? null,
+        status: currentDealStatus ?? null,
+        ownerName: ids.ownerName ?? null,
+        originName: dealSnapshot?.origin_name ?? null,
+        value: deal.value != null ? Number(deal.value) : null,
+        createdAt: ids.dealCreatedAt ?? null,
+        closedAt: ids.dealClosedAt ?? null,
+        lossReason: dealSnapshot?.loss_reason ?? null,
+      };
+
+      const proposalRows = buildProposalEvents(leadId, crmCtx, deal.proposals);
+      const stageRow = buildStageSnapshotEvent(
+        leadId,
+        crmCtx,
+        dealSnapshot?.last_stage_updated_at ??
+          (deal as Record<string, unknown>).stage_updated_at ??
+          ids.dealCreatedAt,
+      );
+      const crmRows = stageRow ? [...proposalRows, stageRow] : proposalRows;
+      if (crmRows.length > 0) {
+        const res = await insertTimelineEvents(supabase, crmRows);
+        if (res.error) console.warn("[piperun-webhook] crm timeline insert error:", res.error);
+        if (res.inserted > 0) {
+          console.log(
+            `[piperun-webhook] crm_proposal/crm_deal_snapshot +${res.inserted} (dup ${res.duplicates}) lead=${leadId}`,
+          );
+        }
+      }
+    } catch (e) {
+      console.warn("[piperun-webhook] crm proposal/snapshot exception:", (e as Error).message);
     }
 
     // ─── Seller Summary Note → PipeRun (idempotent via hash) ───

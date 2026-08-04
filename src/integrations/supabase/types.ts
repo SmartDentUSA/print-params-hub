@@ -3624,6 +3624,60 @@ export type Database = {
         }
         Relationships: []
       }
+      crm_timeline_unresolved: {
+        Row: {
+          attempts: number
+          created_at: string
+          deal_id: number | null
+          email: string | null
+          entity_id: string | null
+          event_timestamp: string | null
+          id: string
+          kind: string
+          last_attempt_at: string
+          payload: Json
+          person_piperun_id: number | null
+          resolved_at: string | null
+          resolved_lead_id: string | null
+          source: string
+          updated_at: string
+        }
+        Insert: {
+          attempts?: number
+          created_at?: string
+          deal_id?: number | null
+          email?: string | null
+          entity_id?: string | null
+          event_timestamp?: string | null
+          id?: string
+          kind: string
+          last_attempt_at?: string
+          payload?: Json
+          person_piperun_id?: number | null
+          resolved_at?: string | null
+          resolved_lead_id?: string | null
+          source: string
+          updated_at?: string
+        }
+        Update: {
+          attempts?: number
+          created_at?: string
+          deal_id?: number | null
+          email?: string | null
+          entity_id?: string | null
+          event_timestamp?: string | null
+          id?: string
+          kind?: string
+          last_attempt_at?: string
+          payload?: Json
+          person_piperun_id?: number | null
+          resolved_at?: string | null
+          resolved_lead_id?: string | null
+          source?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       cron_state: {
         Row: {
           key: string
