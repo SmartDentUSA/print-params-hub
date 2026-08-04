@@ -980,8 +980,34 @@ Deno.serve(async (req) => {
     // Promove o deal recebido para canônico apenas quando NÃO estamos
     // preservando um deal protegido pré-existente.
     if (!preserveCanonical) {
-      updateData.piperun_id = dealId;
-      updateData.piperun_link = `https://app.pipe.run/#/deals/${dealId}`;
+      // ── Guarda de unicidade: `lia_attendances.piperun_id` é UNIQUE. Se outro
+      // lead já detém este deal_id, promover aqui explodiria com 23505 e
+      // abortaria TODO o update (perda silenciosa do evento). Nesse caso
+      // mantemos o piperun_id atual e apenas registramos o conflito.
+      const { data: pidHolder } = await supabase
+        .from("lia_attendances")
+        .select("id")
+        .eq("piperun_id", dealId)
+        .is("merged_into", null)
+        .maybeSingle();
+      const holderId = (pidHolder as { id?: string } | null)?.id ?? null;
+      if (holderId && holderId !== leadId) {
+        console.warn(
+          `[piperun-webhook] PIPERUN_ID_CONFLICT deal=${dealId} já pertence ao lead ${holderId}; mantendo piperun_id do lead ${leadId}`,
+        );
+        try {
+          await supabase.from("system_health_logs").insert({
+            function_name: "smart-ops-piperun-webhook",
+            severity: "warning",
+            error_type: "piperun_id_conflict",
+            lead_email: personEmail,
+            details: { deal_id: dealId, holder_lead_id: holderId, matched_lead_id: leadId },
+          });
+        } catch {}
+      } else {
+        updateData.piperun_id = dealId;
+        updateData.piperun_link = `https://app.pipe.run/#/deals/${dealId}`;
+      }
     }
 
     // Update nome from PipeRun (source of truth) — but only if it's a valid name
