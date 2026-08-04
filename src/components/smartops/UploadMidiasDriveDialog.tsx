@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { TestimonialPipelinePanel } from "@/components/smartops/TestimonialPipelinePanel";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
@@ -472,6 +473,8 @@ export function UploadMidiasDriveDialog({
             </TabsContent>
 
             <TabsContent value="depoimentos" className="mt-3 space-y-3">
+              <TestimonialPipelinePanel turmaId={turmaId} open={open} />
+
               <div className="flex items-center justify-between">
                 <div className="text-xs text-muted-foreground">Uma janela de upload por participante — o nome do arquivo é gerado com o nome do aluno.</div>
                 <div className="flex items-center gap-2">

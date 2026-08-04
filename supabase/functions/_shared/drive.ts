@@ -128,6 +128,23 @@ export async function driveUploadFile(opts: UploadOpts): Promise<string> {
 }
 
 /** Slug for filenames: strip diacritics, keep letters/numbers, use underscores. No PII. */
+export async function driveGetFileMeta(token: string, fileId: string): Promise<any> {
+  return await driveFetch(
+    token,
+    `/files/${fileId}?fields=id,name,mimeType,size,parents,webViewLink,videoMediaMetadata&supportsAllDrives=true`,
+  );
+}
+
+/** Download raw bytes of a Drive file (alt=media) through the connector gateway. */
+export async function driveDownloadFile(_token: string, fileId: string): Promise<Uint8Array> {
+  const resp = await fetch(
+    `${GATEWAY_BASE}${DRIVE_PATH}/files/${fileId}?alt=media&supportsAllDrives=true`,
+    { headers: gwHeaders() },
+  );
+  if (!resp.ok) throw new Error(`Drive download ${resp.status}: ${await resp.text()}`);
+  return new Uint8Array(await resp.arrayBuffer());
+}
+
 export function slugForFilename(input: string): string {
   return String(input || "")
     .normalize("NFD")
