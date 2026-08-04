@@ -66,198 +66,9 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "405": { $ref: "#/components/responses/MethodNotAllowed" }
         "500": { $ref: "#/components/responses/ServerError" }
-  /trainings/{turma_id}:
-    get:
-      operationId: getTrainingDetails
-      tags: [Treinamentos]
-      summary: Dados oficiais da turma
-      description: Retorna curso, número, datas, dias cadastrados, status, inscritos e completude da estrutura do Drive.
-      parameters:
-        - name: turma_id
-          in: path
-          required: true
-          description: "UUID da turma no Sistema B ou o numero da turma (ex.: 157)."
-          schema:
-            type: string
-      responses:
-        "200":
-          description: Detalhes da turma
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/TrainingDetail" }
-              example:
-                turma_id: "d45c332e-546a-4cc4-bd30-6dbd5c01af1b"
-                turma_number: 169
-                turma_label: "169º"
-                course: { title: "Imersão Chairside Print", slug: "imersao-chairside-print", duration_days: 3 }
-                start_date: "2026-10-14"
-                end_date: "2026-10-16"
-                location: "São Paulo - SP"
-                modality: "presencial"
-                status: "agendada"
-                days:
-                  - { day_number: 1, date: "2026-10-14", start_time: "09:00", end_time: "18:00", topic: "Fundamentos" }
-                enrolled_count: 12
-                companions_count: 3
-                drive_folder_id: "EXEMPLO_FOLDER_ID"
-                drive_folder_url: "https://drive.google.com/drive/folders/EXEMPLO"
-                drive_subfolder_keys: ["fotos_turma", "videos_vertical", "videos_depoimentos"]
-                drive_structure: { expected: 10, present: 10, missing: [], complete: true }
-                is_eligible: true
-                blocking_reasons: []
-        "400": { $ref: "#/components/responses/BadRequest" }
-        "401": { $ref: "#/components/responses/Unauthorized" }
-        "404": { $ref: "#/components/responses/NotFound" }
-        "405": { $ref: "#/components/responses/MethodNotAllowed" }
-        "500": { $ref: "#/components/responses/ServerError" }
-  /trainings/{turma_id}/participants:
-    get:
-      operationId: listTrainingParticipants
-      tags: [Treinamentos]
-      summary: Participantes exclusivos da turma
-      description: >
-        Retorna inscritos titulares e acompanhantes da turma informada. Não retorna CPF,
-        telefone, e-mail, endereço ou outros dados desnecessários.
-      parameters:
-        - name: turma_id
-          in: path
-          required: true
-          description: "UUID da turma no Sistema B ou o numero da turma (ex.: 157)."
-          schema:
-            type: string
-      responses:
-        "200":
-          description: Participantes
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  turma_id: { type: string, format: uuid }
-                  turma_number: { type: integer, nullable: true }
-                  count: { type: integer }
-                  participants:
-                    type: array
-                    items: { $ref: "#/components/schemas/Participant" }
-              example:
-                turma_id: "d45c332e-546a-4cc4-bd30-6dbd5c01af1b"
-                turma_number: 169
-                count: 2
-                participants:
-                  - enrollment_id: "11111111-1111-1111-1111-111111111111"
-                    participant_name: "PARTICIPANTE EXEMPLO 1"
-                    participant_type: "titular"
-                    enrollment_status: "finalizado"
-                    companion_id: null
-                    companion_name: null
-                    companion_type: null
-                  - enrollment_id: "11111111-1111-1111-1111-111111111111"
-                    participant_name: "PARTICIPANTE EXEMPLO 1"
-                    participant_type: "titular"
-                    enrollment_status: "finalizado"
-                    companion_id: "22222222-2222-2222-2222-222222222222"
-                    companion_name: "ACOMPANHANTE EXEMPLO"
-                    companion_type: "acompanhante"
-        "400": { $ref: "#/components/responses/BadRequest" }
-        "401": { $ref: "#/components/responses/Unauthorized" }
-        "404": { $ref: "#/components/responses/NotFound" }
-        "405": { $ref: "#/components/responses/MethodNotAllowed" }
-        "500": { $ref: "#/components/responses/ServerError" }
-  /trainings/{turma_id}/media-inventory:
-    get:
-      operationId: getTrainingMediaInventory
-      tags: [Treinamentos]
-      summary: Inventário real das mídias no Google Drive
-      description: Consulta as subpastas da turma no Google Drive e retorna arquivos, formatos, tamanhos, dimensões, orientação, dia, participante e situação no banco. Não expõe credenciais nem sessões de upload.
-      parameters:
-        - name: turma_id
-          in: path
-          required: true
-          description: "UUID da turma no Sistema B ou o numero da turma (ex.: 157)."
-          schema:
-            type: string
-      responses:
-        "200":
-          description: Inventário
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/MediaInventory" }
-              example:
-                turma_id: "d45c332e-546a-4cc4-bd30-6dbd5c01af1b"
-                turma_number: 169
-                course_title: "Imersão Chairside Print"
-                drive_folder_url: "https://drive.google.com/drive/folders/EXEMPLO"
-                total_files: 1
-                missing_subfolders: []
-                destinations:
-                  - destination_key: "videos_vertical"
-                    label: "04 - Vídeos Originais › 01 - Vídeos Verticais"
-                    kind: "video"
-                    requires_day: true
-                    is_testimonial: false
-                    drive_folder_id: "EXEMPLO_SUBFOLDER_ID"
-                    file_count: 1
-                    drive_error: null
-                    files:
-                      - drive_file_id: "EXEMPLO_FILE_ID"
-                        filename: "T169_IMERSAO_CHAIRSIDE_PRINT_2026-10-14_DIA-1_VIDEO_VERTICAL_001.mp4"
-                        mime_type: "video/mp4"
-                        size_bytes: 48213456
-                        created_time: "2026-10-14T18:22:03.000Z"
-                        width: 1080
-                        height: 1920
-                        orientation: "vertical"
-                        kind: "video"
-                        day: "Dia 1"
-                        participant_name: null
-                        db_status: "completed"
-                        registered_in_db: true
-        "400": { $ref: "#/components/responses/BadRequest" }
-        "401": { $ref: "#/components/responses/Unauthorized" }
-        "404": { $ref: "#/components/responses/NotFound" }
-        "405": { $ref: "#/components/responses/MethodNotAllowed" }
-        "500": { $ref: "#/components/responses/ServerError" }
-  /trainings/{turma_id}/media-gaps:
-    get:
-      operationId: getTrainingMediaGaps
-      tags: [Treinamentos]
-      summary: Lacunas de mídia frente ao checklist oficial
-      description: Compara o Google Drive com o checklist e informa categorias ausentes, vídeos sem dia, depoimentos sem participante, formatos inválidos, falhas e divergências entre Drive e banco.
-      parameters:
-        - name: turma_id
-          in: path
-          required: true
-          description: "UUID da turma no Sistema B ou o numero da turma (ex.: 157)."
-          schema:
-            type: string
-      responses:
-        "200":
-          description: Lacunas
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/MediaGaps" }
-              example:
-                turma_id: "d45c332e-546a-4cc4-bd30-6dbd5c01af1b"
-                turma_number: 169
-                course_title: "Imersão Chairside Print"
-                present_categories: ["videos_vertical"]
-                missing_categories: ["fotos_turma", "fotos_participantes_certificados", "videos_depoimentos"]
-                videos_without_day: []
-                testimonials_without_participant: []
-                participants_without_testimonial: ["PARTICIPANTE EXEMPLO 1"]
-                invalid_formats: []
-                pending_records: []
-                failed_records: []
-                drive_files_without_db_record: []
-                db_records_without_drive_file: []
-        "400": { $ref: "#/components/responses/BadRequest" }
-        "401": { $ref: "#/components/responses/Unauthorized" }
-        "404": { $ref: "#/components/responses/NotFound" }
-        "405": { $ref: "#/components/responses/MethodNotAllowed" }
-        "500": { $ref: "#/components/responses/ServerError" }
   /trainings/by-number/{turma_number}:
     get:
-      operationId: getTrainingByNumber
+      operationId: getTrainingDetails
       tags: [Treinamentos]
       summary: Dados oficiais da turma
       description: Retorna curso, número, datas, dias cadastrados, status, inscritos e completude da estrutura do Drive.
@@ -265,9 +76,11 @@ paths:
         - name: turma_number
           in: path
           required: true
-          description: "Numero da turma (ex.: 157). Se houver mais de uma, usa a mais recente."
+          description: Número operacional da turma, por exemplo 157.
           schema:
             type: integer
+            minimum: 1
+          example: 157
       responses:
         "200":
           description: Detalhes da turma
@@ -301,7 +114,7 @@ paths:
         "500": { $ref: "#/components/responses/ServerError" }
   /trainings/by-number/{turma_number}/participants:
     get:
-      operationId: listTrainingParticipantsByNumber
+      operationId: listTrainingParticipants
       tags: [Treinamentos]
       summary: Participantes exclusivos da turma
       description: >
@@ -311,9 +124,11 @@ paths:
         - name: turma_number
           in: path
           required: true
-          description: "Numero da turma (ex.: 157). Se houver mais de uma, usa a mais recente."
+          description: Número operacional da turma, por exemplo 157.
           schema:
             type: integer
+            minimum: 1
+          example: 157
       responses:
         "200":
           description: Participantes
@@ -354,7 +169,7 @@ paths:
         "500": { $ref: "#/components/responses/ServerError" }
   /trainings/by-number/{turma_number}/media-inventory:
     get:
-      operationId: getTrainingMediaInventoryByNumber
+      operationId: getTrainingMediaInventory
       tags: [Treinamentos]
       summary: Inventário real das mídias no Google Drive
       description: Consulta as subpastas da turma no Google Drive e retorna arquivos, formatos, tamanhos, dimensões, orientação, dia, participante e situação no banco. Não expõe credenciais nem sessões de upload.
@@ -362,9 +177,11 @@ paths:
         - name: turma_number
           in: path
           required: true
-          description: "Numero da turma (ex.: 157). Se houver mais de uma, usa a mais recente."
+          description: Número operacional da turma, por exemplo 157.
           schema:
             type: integer
+            minimum: 1
+          example: 157
       responses:
         "200":
           description: Inventário
@@ -408,7 +225,7 @@ paths:
         "500": { $ref: "#/components/responses/ServerError" }
   /trainings/by-number/{turma_number}/media-gaps:
     get:
-      operationId: getTrainingMediaGapsByNumber
+      operationId: getTrainingMediaGaps
       tags: [Treinamentos]
       summary: Lacunas de mídia frente ao checklist oficial
       description: Compara o Google Drive com o checklist e informa categorias ausentes, vídeos sem dia, depoimentos sem participante, formatos inválidos, falhas e divergências entre Drive e banco.
@@ -416,9 +233,11 @@ paths:
         - name: turma_number
           in: path
           required: true
-          description: "Numero da turma (ex.: 157). Se houver mais de uma, usa a mais recente."
+          description: Número operacional da turma, por exemplo 157.
           schema:
             type: integer
+            minimum: 1
+          example: 157
       responses:
         "200":
           description: Lacunas
