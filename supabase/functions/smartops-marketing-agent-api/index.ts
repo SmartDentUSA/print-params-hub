@@ -435,20 +435,6 @@ async function handleRagSearch(db: any, url: URL) {
   return json(rag);
 }
 
-async function handleInventoryLegacy(db: any, turma: any) {
-  const inv = await buildInventory(db, turma);
-  const totalFiles = inv.destinations.reduce((a, d) => a + d.file_count, 0);
-  return json({
-    turma_id: turma.id,
-    turma_number: turma.turma_number,
-    course_title: courseTitle(turma),
-    drive_folder_url: turma.drive_folder_url,
-    total_files: totalFiles,
-    missing_subfolders: inv.missing_subfolders,
-    destinations: inv.destinations,
-  });
-}
-
 async function handleGaps(db: any, turma: any) {
   const inv = await buildInventory(db, turma);
   const { data: enrolls } = await db
