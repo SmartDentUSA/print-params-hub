@@ -255,11 +255,46 @@ export function canonicalizeScanner(raw: string | null | undefined): ScannerCano
   if (/\beagle\b/.test(s)) return { como_digitaliza: "Eagle IOS", scanner_marca: "Eagle", tem_scanner: "SIM" };
   // Runyes
   if (/runyes/.test(s)) return { como_digitaliza: "Runyes IOS 3.0", scanner_marca: "Runyes", tem_scanner: "SIM" };
+  // Marca informada sem modelo (ex.: "Straumann", "Medit", "Dentsply") → preserva a marca
+  {
+    const brand = matchScannerBrandOnly(s);
+    if (brand) return { como_digitaliza: brand, scanner_marca: brand, tem_scanner: "SIM" };
+  }
   // Positive answer but unknown brand
   if (/^(sim|s|possuo|tenho|ja digitalizo|digitalizo|utilizo)/.test(s)) {
     return { como_digitaliza: "OUTROS", scanner_marca: null, tem_scanner: "SIM" };
   }
   return { como_digitaliza: "OUTROS", scanner_marca: null, tem_scanner: "SIM" };
+}
+
+/** Marcas de scanner reconhecidas quando o lead informa só a marca (sem modelo). */
+const SCANNER_BRAND_TOKENS: Array<[RegExp, string]> = [
+  [/straumann/, "Straumann"],
+  [/\bmedit\b/, "Medit"],
+  [/3\s*shape|3shape/, "3Shape"],
+  [/align|invisalign|itero/, "Align"],
+  [/shining/, "Shining 3D"],
+  [/dentsply|sirona|cerec/, "Dentsply Sirona"],
+  [/dexis|carestream/, "Dexis"],
+  [/planmeca/, "Planmeca"],
+  [/3\s*disc|3disc/, "3DISC"],
+  [/\bblz\b/, "BLZ"],
+  [/helios/, "Helios"],
+  [/panda/, "Panda"],
+  [/aidite/, "Aidite"],
+  [/eagle/, "Eagle"],
+  [/runyes/, "Runyes"],
+  [/launca/, "Launca"],
+  [/\bup3d\b|up\s*3d/, "UP3D"],
+  [/vatech/, "Vatech"],
+  [/fussen/, "Fussen"],
+];
+
+export function matchScannerBrandOnly(normalized: string): string | null {
+  for (const [re, brand] of SCANNER_BRAND_TOKENS) {
+    if (re.test(normalized)) return brand;
+  }
+  return null;
 }
 
 // ─── Impressora ───────────────────────────────────────────────────────────────
