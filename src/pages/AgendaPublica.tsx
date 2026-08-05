@@ -447,6 +447,17 @@ function PublicTurmaCard({ turma, status }: { turma: TurmaComVagas; status: Coun
         </div>
       )}
       <ShareButton turma={turma} />
+      {turma.turma_number != null && (
+        <button
+          type="button"
+          onClick={() => window.open(`/turma${turma.turma_number}`, "_blank", "noopener,noreferrer")}
+          title="Participantes e acompanhantes"
+          aria-label="Participantes e acompanhantes"
+          className="absolute top-2 right-12 z-10 inline-flex items-center justify-center w-8 h-8 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground shadow-md transition-colors"
+        >
+          <Users className="w-4 h-4" />
+        </button>
+      )}
       <div className="p-5 flex flex-col flex-1">
       <div className="mb-3 flex items-center gap-2 flex-wrap">
         {isOnline && !coverUrl && <LiveBadge modality={turma.modality} />}
