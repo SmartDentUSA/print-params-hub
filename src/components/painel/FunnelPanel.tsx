@@ -8,7 +8,7 @@ import { StatusBadge, statusFromData } from "./StatusBadge";
  */
 export function FunnelPanel({ rows }: { rows: PainelFunilRow[] }) {
   const ordenadas = [...rows].sort((a, b) => (a.ordem ?? 0) - (b.ordem ?? 0));
-  const volumes = ordenadas.map((r) => r.volume ?? 0);
+  const volumes = ordenadas.map((r) => r.volume_acumulado ?? r.volume ?? 0);
   const topo = volumes[0] ?? 0;
   const hasTempo = ordenadas.some((r) => r.media_dias !== null && r.media_dias !== undefined);
 
@@ -17,6 +17,7 @@ export function FunnelPanel({ rows }: { rows: PainelFunilRow[] }) {
   );
   const validas = passagens.filter((p): p is number => p !== null);
   const menorPassagem = validas.length ? Math.min(...validas) : null;
+  const idxGargalo = menorPassagem === null ? -1 : passagens.indexOf(menorPassagem);
 
   return (
     <div className="pc-panel">
@@ -38,7 +39,7 @@ export function FunnelPanel({ rows }: { rows: PainelFunilRow[] }) {
           const volume = volumes[i];
           const largura = topo > 0 ? Math.max(4, (volume / topo) * 100) : 100;
           const passagem = passagens[i];
-          const gargalo = passagem !== null && passagem === menorPassagem;
+          const gargalo = i === idxGargalo;
           const perda = r.pct_perda;
           const perdaClass =
             perda === null || perda === undefined
