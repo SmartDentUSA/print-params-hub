@@ -2,8 +2,8 @@ import { PainelFunilRow, fmtDias, fmtNum, fmtPct } from "@/hooks/painel/usePaine
 import { StatusBadge, statusFromData } from "./StatusBadge";
 
 /**
- * Funil visual em CSS puro: barras centralizadas que afunilam de cima para
- * baixo, com % de passagem entre etapas e destaque do maior gargalo.
+ * Funil em formato de tabela: ETAPA | VOLUME (barra + número) | HOJE | MED | PERDA,
+ * com linha de "% passagem" entre etapas e destaque do maior gargalo.
  * Largura da barra = volume da etapa / volume da primeira etapa.
  */
 export function FunnelPanel({ rows }: { rows: PainelFunilRow[] }) {
@@ -26,9 +26,17 @@ export function FunnelPanel({ rows }: { rows: PainelFunilRow[] }) {
       </div>
 
       <div className="pc-funil">
+        <div className="pc-funil-head">
+          <span>Etapa</span>
+          <span>Volume</span>
+          <span className="ta-r">Hoje</span>
+          <span className="ta-r">Méd</span>
+          <span className="ta-r">Perda</span>
+        </div>
+
         {ordenadas.map((r, i) => {
           const volume = volumes[i];
-          const largura = topo > 0 ? Math.max(34, (volume / topo) * 100) : 100;
+          const largura = topo > 0 ? Math.max(4, (volume / topo) * 100) : 100;
           const passagem = passagens[i];
           const gargalo = passagem !== null && passagem === menorPassagem;
           const perda = r.pct_perda;
@@ -43,24 +51,27 @@ export function FunnelPanel({ rows }: { rows: PainelFunilRow[] }) {
           const isFinal = i === ordenadas.length - 1;
 
           return (
-            <div key={`${r.etapa}-${r.ordem}`} className="w-full flex flex-col items-center">
+            <div key={`${r.etapa}-${r.ordem}`} className="pc-funil-group">
               {passagem !== null && (
                 <div className={`pc-passagem${gargalo ? " is-gargalo" : ""}`}>
                   ↓ <b>{fmtPct(passagem)}</b> passagem{gargalo ? " — maior gargalo" : ""}
                 </div>
               )}
-              <div
-                className={`pc-funil-bar${isFinal ? " is-final" : ""}`}
-                data-ordem={r.ordem ?? i + 1}
-                style={{ width: `${largura}%` }}
-                title={r.etapa}
-              >
-                <span className="fb-nome">{r.etapa ?? "—"}</span>
-                <span className="fb-sub">
-                  atual: {fmtNum(r.atual)} · {fmtDias(r.media_dias)}
+              <div className="pc-funil-row" title={r.etapa ?? undefined}>
+                <span className="fr-nome">{r.etapa ?? "—"}</span>
+                <span className="fr-barwrap">
+                  <span
+                    className={`pc-funil-bar${isFinal ? " is-final" : ""}`}
+                    data-ordem={r.ordem ?? i + 1}
+                    style={{ width: `${largura}%` }}
+                  />
+                  <span className="fr-qtd">{fmtNum(volume)}</span>
                 </span>
-                <span className={`pc-perda${perdaClass}`}>perda {fmtPct(perda)}</span>
-                <span className="fb-qtd">{fmtNum(volume)}</span>
+                <span className="fr-num">{fmtNum(r.atual)}</span>
+                <span className="fr-num">{fmtDias(r.media_dias)}</span>
+                <span className="fr-num">
+                  <span className={`pc-perda${perdaClass}`}>{fmtPct(perda)}</span>
+                </span>
               </div>
             </div>
           );
