@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import bgAsset from "@/assets/turma-welcome-bg.png.asset.json";
+import bgImage from "@/assets/turma-welcome-bg.png";
 
 interface WelcomeParticipant {
   name: string;
@@ -87,7 +87,7 @@ export default function TurmaWelcome() {
       <style>{`
         .tw-root {
           position: fixed; inset: 0; overflow: hidden;
-          background: #04101c url('${bgAsset.url}') center / cover no-repeat;
+          background: #04101c url('${bgImage}') center / cover no-repeat;
           color: #fff;
           font-family: 'Inter', system-ui, sans-serif;
           display: flex;
