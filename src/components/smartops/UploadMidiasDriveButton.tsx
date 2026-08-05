@@ -31,10 +31,10 @@ export function UploadMidiasDriveButton({
                 variant="outline"
                 size="sm"
                 disabled={disabled}
-                className="gap-1.5"
+                className="h-7 gap-1 px-2 text-xs"
                 onClick={(e) => { e.stopPropagation(); setOpen(true); }}
               >
-                <UploadCloud className="h-4 w-4" />
+                <UploadCloud className="h-3.5 w-3.5" />
                 Upload de Mídias
               </Button>
             </span>

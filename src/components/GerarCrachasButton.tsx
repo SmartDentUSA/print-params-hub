@@ -63,10 +63,10 @@ export function GerarCrachasButton({ turmaId, turmaLabel }: Props) {
             size="icon"
             onClick={handleGerar}
             disabled={loading}
-            className="h-8 w-8"
+            className="h-7 w-7"
             aria-label="Gerar crachás"
           >
-            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <IdCard className="h-4 w-4" />}
+            {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <IdCard className="h-3.5 w-3.5" />}
           </Button>
         </TooltipTrigger>
         <TooltipContent>Gerar crachás (PDF dobrável)</TooltipContent>

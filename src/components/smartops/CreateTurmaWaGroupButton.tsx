@@ -63,9 +63,9 @@ export function CreateTurmaWaGroupButton({ turmaId, group, checking, onCreated }
               size="icon"
               onClick={handleClick}
               disabled={disabled}
-              className="h-8 w-8"
+              className="h-7 w-7"
             >
-              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Users className="h-4 w-4" />}
+              {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Users className="h-3.5 w-3.5" />}
             </Button>
             <span className={cn("absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-card", dotColor)} />
           </span>

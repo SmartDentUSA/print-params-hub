@@ -22,8 +22,8 @@ export function BoasVindasButton({ turmaNumber }: BoasVindasButtonProps) {
   };
 
   return (
-    <Button variant="outline" size="sm" onClick={handleClick} className="gap-1.5">
-      <PartyPopper className="h-4 w-4" />
+    <Button variant="outline" size="sm" onClick={handleClick} className="h-7 gap-1 px-2 text-xs">
+      <PartyPopper className="h-3.5 w-3.5" />
       Boas-vindas
     </Button>
   );

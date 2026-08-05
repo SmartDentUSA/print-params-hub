@@ -77,15 +77,15 @@ export function CriarPastaDriveButton({ turmaId, folderUrl, onCreated }: Props) 
         size="sm"
         onClick={handleClick}
         disabled={loading}
-        className="gap-1.5"
+        className="h-7 gap-1 px-2 text-xs"
         title={currentUrl ? "Abrir pasta no Google Drive" : "Criar pasta no Google Drive"}
       >
         {loading ? (
-          <Loader2 className="h-4 w-4 animate-spin" />
+          <Loader2 className="h-3.5 w-3.5 animate-spin" />
         ) : currentUrl ? (
-          <FolderOpen className="h-4 w-4" />
+          <FolderOpen className="h-3.5 w-3.5" />
         ) : (
-          <FolderPlus className="h-4 w-4" />
+          <FolderPlus className="h-3.5 w-3.5" />
         )}
         {loading ? "Criando..." : currentUrl ? "Abrir Pasta" : "Criar Pasta"}
       </Button>
@@ -93,15 +93,15 @@ export function CriarPastaDriveButton({ turmaId, folderUrl, onCreated }: Props) 
         <Button
           variant="ghost"
           size="icon"
-          className="h-8 w-8"
+          className="h-7 w-7"
           onClick={handleRefresh}
           disabled={refreshing}
           title="Atualizar descrição no Drive"
         >
           {refreshing ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
           ) : (
-            <RefreshCw className="h-4 w-4" />
+            <RefreshCw className="h-3.5 w-3.5" />
           )}
         </Button>
       )}

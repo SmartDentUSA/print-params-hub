@@ -59,12 +59,12 @@ export function GerarDocButton({ turmaId, turmaLabel }: GerarDocButtonProps) {
       size="sm"
       onClick={handleGerar}
       disabled={loading}
-      className="gap-1.5"
+      className="h-7 gap-1 px-2 text-xs"
     >
       {loading ? (
-        <Loader2 className="h-4 w-4 animate-spin" />
+        <Loader2 className="h-3.5 w-3.5 animate-spin" />
       ) : (
-        <FileText className="h-4 w-4" />
+        <FileText className="h-3.5 w-3.5" />
       )}
       {loading ? "Gerando..." : "Gerar Doc"}
     </Button>
