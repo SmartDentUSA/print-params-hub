@@ -33205,6 +33205,14 @@ export type Database = {
         Args: { p_mes?: string }
         Returns: undefined
       }
+      painel_classifica_item: {
+        Args: {
+          p_nome: string
+          p_subcategory: string
+          p_workflow_stage: string
+        }
+        Returns: string
+      }
       painel_comercial_atividades: { Args: { p_mes?: string }; Returns: Json }
       painel_comercial_bloco: {
         Args: { p_bloco: string; p_mes?: string }

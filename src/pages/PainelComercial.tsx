@@ -63,6 +63,10 @@ export default function PainelComercial() {
     totalProdutos && k?.receita_equipamentos != null ? (k.receita_equipamentos / totalProdutos) * 100 : null;
   const pctInsumos =
     totalProdutos && k?.receita_insumos != null ? (k.receita_insumos / totalProdutos) * 100 : null;
+  const pctSoftServ =
+    totalProdutos && k?.receita_software_servico != null
+      ? (k.receita_software_servico / totalProdutos) * 100
+      : null;
 
   return (
     <main className="painel">
@@ -102,7 +106,7 @@ export default function PainelComercial() {
         <span><i className="pc-dot pc-dot-gap" />sem dado</span>
       </div>
 
-      <section className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-8 gap-3 mb-3">
+      <section className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-9 gap-3 mb-3">
         <KpiCard
           label="Receita do mês"
           value={fmtBRL(k?.receita_mes, true)}
@@ -165,6 +169,12 @@ export default function PainelComercial() {
           value={fmtPct(pctInsumos)}
           status={pctInsumos === null ? "gap" : "ok"}
           sub={fmtBRL(k?.receita_insumos, true)}
+        />
+        <KpiCard
+          label="Receita software/serviço"
+          value={fmtPct(pctSoftServ)}
+          status={pctSoftServ === null ? "gap" : "ok"}
+          sub={fmtBRL(k?.receita_software_servico, true)}
         />
       </section>
 
