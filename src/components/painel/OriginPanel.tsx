@@ -1,5 +1,6 @@
 import { PainelOrigemRow, fmtBRL, fmtDias, fmtNum, fmtPct } from "@/hooks/painel/usePainelComercial";
 import { StatusBadge, statusFromData } from "./StatusBadge";
+import { mergeOriginRows } from "@/lib/painel/originMerge";
 
 function OriginTable({ rows }: { rows: PainelOrigemRow[] }) {
   const ordenadas = [...rows].sort((a, b) => (b.leads_gerados ?? 0) - (a.leads_gerados ?? 0));
@@ -43,7 +44,9 @@ function OriginTable({ rows }: { rows: PainelOrigemRow[] }) {
   );
 }
 
-export function OriginPanel({ rows }: { rows: PainelOrigemRow[] }) {
+export function OriginPanel({ rows: rawRows }: { rows: PainelOrigemRow[] }) {
+  // Junta origens/campanhas equivalentes (prefixos "# -", "Meta Ads —", typos, acentos)
+  const rows = mergeOriginRows(rawRows);
   const completo = rows.some((r) => (r.ganhos ?? 0) > 0);
   const temTipo = rows.some((r) => r.tipo);
 
