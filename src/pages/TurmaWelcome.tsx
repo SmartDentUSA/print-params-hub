@@ -31,8 +31,9 @@ function formatPeriodo(start?: string | null, end?: string | null) {
 }
 
 export default function TurmaWelcome() {
-  const { turmaSlug } = useParams();
-  const numero = String(turmaSlug || "").replace(/\D/g, "");
+  const params = useParams();
+  const slug = params.turmaSlug || params.brandSlug || "";
+  const numero = String(slug).replace(/\D/g, "");
   const [data, setData] = useState<WelcomeData | null>(null);
   const [error, setError] = useState<string | null>(null);
 
