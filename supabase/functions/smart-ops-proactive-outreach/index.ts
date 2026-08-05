@@ -198,11 +198,11 @@ Deno.serve(async (req) => {
       if (lead.proprietario_lead_crm) {
         const { data: member } = await supabase
           .from("team_members")
-          .select("id, waleads_api_key")
+          .select("id, evolution_instance_name")
           .eq("nome_completo", lead.proprietario_lead_crm)
           .eq("ativo", true)
           .single();
-        if (member?.waleads_api_key) teamMemberId = member.id;
+        if (member?.evolution_instance_name) teamMemberId = member.id;
       }
 
       if (!teamMemberId) {
@@ -210,7 +210,7 @@ Deno.serve(async (req) => {
           .from("team_members")
           .select("id")
           .eq("ativo", true)
-          .not("waleads_api_key", "is", null)
+          .not("evolution_instance_name", "is", null)
           .limit(1)
           .single();
         if (fallback) teamMemberId = fallback.id;

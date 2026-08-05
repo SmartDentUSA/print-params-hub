@@ -105,14 +105,14 @@ export async function notifySellerEscalation(
     if (!attendance) { console.warn(`[escalation] No attendance found for ${leadEmail}`); return; }
 
     // 2. Find team member by proprietario_lead_crm
-    let teamMember: { id: string; nome_completo: string; whatsapp_number: string; waleads_api_key: string | null } | null = null;
+    let teamMember: { id: string; nome_completo: string; whatsapp_number: string; evolution_instance_name: string | null } | null = null;
     if (attendance.proprietario_lead_crm) {
-      const { data: tm } = await supabase.from("team_members").select("id, nome_completo, whatsapp_number, waleads_api_key").eq("piperun_owner_id", attendance.proprietario_lead_crm).eq("ativo", true).maybeSingle();
+      const { data: tm } = await supabase.from("team_members").select("id, nome_completo, whatsapp_number, evolution_instance_name").eq("piperun_owner_id", attendance.proprietario_lead_crm).eq("ativo", true).maybeSingle();
       teamMember = tm;
     }
     // Fallback: first active vendedor
     if (!teamMember) {
-      const { data: tm } = await supabase.from("team_members").select("id, nome_completo, whatsapp_number, waleads_api_key").eq("ativo", true).eq("role", "vendedor").limit(1).maybeSingle();
+      const { data: tm } = await supabase.from("team_members").select("id, nome_completo, whatsapp_number, evolution_instance_name").eq("ativo", true).eq("role", "vendedor").limit(1).maybeSingle();
       teamMember = tm;
     }
     if (!teamMember) { console.warn(`[escalation] No team member found for escalation`); return; }
@@ -163,7 +163,7 @@ ${cognitiveBlock}`.replace(/\n{3,}/g, "\n\n");
     console.log(`[escalation] ${escalationType} escalation logged for ${leadEmail} → ${teamMember.nome_completo}`);
 
     // 6. Send via WaLeads if API key available
-    if (teamMember.waleads_api_key) {
+    if (teamMember.evolution_instance_name) {
       try {
         const sellerPhone = teamMember.whatsapp_number;
         if (!sellerPhone) {

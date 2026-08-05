@@ -516,11 +516,11 @@ export async function triggerOutboundMessages(
   try {
     const { data: member } = await supabase
       .from("team_members")
-      .select("id, nome_completo, waleads_api_key, whatsapp_number")
+      .select("id, nome_completo, evolution_instance_name, whatsapp_number")
       .eq("id", teamMemberId)
       .single();
 
-    if (!member?.waleads_api_key) return;
+    if (!member?.evolution_instance_name) return;
 
     const isLiaSource = LIA_SOURCES.includes(lead.source as string);
     const leadId = lead.id as string;

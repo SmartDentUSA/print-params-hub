@@ -802,13 +802,13 @@ async function notifySellerHandoff(
     }
 
     // 2. Find the responsible seller
-    let teamMember: { id: string; nome_completo: string; whatsapp_number: string; waleads_api_key: string | null } | null = null;
+    let teamMember: { id: string; nome_completo: string; whatsapp_number: string; evolution_instance_name: string | null } | null = null;
 
     if (attendance.proprietario_lead_crm) {
       const ownerFirstName = (attendance.proprietario_lead_crm as string).split(" ")[0];
       const { data: tm } = await supabase
         .from("team_members")
-        .select("id, nome_completo, whatsapp_number, waleads_api_key")
+        .select("id, nome_completo, whatsapp_number, evolution_instance_name")
         .ilike("nome_completo", `%${ownerFirstName}%`)
         .eq("ativo", true)
         .limit(1)
@@ -820,7 +820,7 @@ async function notifySellerHandoff(
     if (!teamMember) {
       const { data: tm } = await supabase
         .from("team_members")
-        .select("id, nome_completo, whatsapp_number, waleads_api_key")
+        .select("id, nome_completo, whatsapp_number, evolution_instance_name")
         .eq("ativo", true)
         .eq("role", "vendedor")
         .limit(1)
@@ -964,7 +964,7 @@ ${cognitiveBlock}`.replace(/\n{3,}/g, "\n\n");
     }
 
     // 6. Send notification to seller's phone
-    if (teamMember.waleads_api_key) {
+    if (teamMember.evolution_instance_name) {
       try {
         const sendResp = await fetch(`${SUPABASE_URL}/functions/v1/smart-ops-send-waleads`, {
           method: "POST",
@@ -1032,7 +1032,7 @@ ${cognitiveBlock}`.replace(/\n{3,}/g, "\n\n");
     }
 
     // 7. Send message FROM seller TO lead (creates the seller→lead link)
-    if (teamMember.waleads_api_key && attendance.telefone_normalized) {
+    if (teamMember.evolution_instance_name && attendance.telefone_normalized) {
       try {
         const BLOCKED_SELLER_NAMES = ["celular","comercial","vendedor","suporte","cs","principal","teste","bot","atendimento","equipe","contato","whatsapp","telefone"];
         let sellerFirstName = teamMember.nome_completo.split(" ")[0];

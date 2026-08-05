@@ -266,8 +266,8 @@ const tools = [
       parameters: {
         type: "object",
         properties: {
-          seller_name: { type: "string", description: "Nome do membro da equipe (busca em team_members para encontrar o team_member_id e waleads_api_key). Pode ser vendedor OU CS." },
-          role: { type: "string", description: "Papel do remetente: 'cs' (Customer Success/pós-venda), 'vendedor', 'sdr'. Quando informado sem seller_name, pega automaticamente o primeiro membro ativo com esse role e waleads_api_key configurado." },
+          seller_name: { type: "string", description: "Nome do membro da equipe (busca em team_members para encontrar o team_member_id e evolution_instance_name). Pode ser vendedor OU CS." },
+          role: { type: "string", description: "Papel do remetente: 'cs' (Customer Success/pós-venda), 'vendedor', 'sdr'. Quando informado sem seller_name, pega automaticamente o primeiro membro ativo com esse role e evolution_instance_name configurado." },
           lead_name: { type: "string", description: "Nome do lead (alternativa ao phone — busca em lia_attendances)" },
           lead_id: { type: "string", description: "UUID do lead" },
           phone: { type: "string", description: "Telefone do lead com DDD (se não informar, busca pelo lead_name ou lead_id)" },
@@ -1160,14 +1160,14 @@ async function executeSendWhatsapp(args: any) {
     let teamMemberId: string | undefined;
     if (args.seller_name) {
       const { data: sellers } = await supabase.from("team_members")
-        .select("id,nome_completo,whatsapp_number,waleads_api_key")
+        .select("id,nome_completo,whatsapp_number,evolution_instance_name")
         .ilike("nome_completo", `%${args.seller_name}%`)
         .eq("ativo", true)
         .limit(3);
       if (!sellers || sellers.length === 0) {
         // Try nome field too
         const { data: sellers2 } = await supabase.from("team_members")
-          .select("id,nome_completo,whatsapp_number,waleads_api_key")
+          .select("id,nome_completo,whatsapp_number,evolution_instance_name")
           .ilike("nome_completo", `%${args.seller_name}%`)
           .limit(3);
         if (!sellers2 || sellers2.length === 0) return { error: `Vendedor "${args.seller_name}" não encontrado em team_members` };
@@ -1179,13 +1179,13 @@ async function executeSendWhatsapp(args: any) {
       }
     }
 
-    // 1b. If no seller_name but role provided → pick first active team_member with that role + waleads_api_key
+    // 1b. If no seller_name but role provided → pick first active team_member with that role + evolution_instance_name
     if (!teamMemberId && args.role) {
       const { data: roleMember } = await supabase.from("team_members")
         .select("id,nome_completo,role")
         .eq("role", args.role)
         .eq("ativo", true)
-        .not("waleads_api_key", "is", null)
+        .not("evolution_instance_name", "is", null)
         .limit(1)
         .maybeSingle();
       if (!roleMember) return { error: `Nenhum membro ativo com role='${args.role}' e WaLeads configurado encontrado.` };
@@ -1214,11 +1214,11 @@ async function executeSendWhatsapp(args: any) {
 
     if (!phone) return { error: "Telefone não informado e não foi possível resolver pelo lead_name/lead_id" };
 
-    // 3. If no seller specified, try to find first active team member with waleads_api_key
+    // 3. If no seller specified, try to find first active team member with evolution_instance_name
     if (!teamMemberId) {
       const { data: defaultSeller } = await supabase.from("team_members")
         .select("id,nome_completo")
-        .not("waleads_api_key", "is", null)
+        .not("evolution_instance_name", "is", null)
         .eq("ativo", true)
         .limit(1);
       if (defaultSeller && defaultSeller.length > 0) {

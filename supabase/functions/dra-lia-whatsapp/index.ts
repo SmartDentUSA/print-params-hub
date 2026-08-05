@@ -577,7 +577,7 @@ Deno.serve(async (req) => {
           .select("id")
           .ilike("nome_completo", `%${att.proprietario_lead_crm.split(" ")[0]}%`)
           .eq("ativo", true)
-          .not("waleads_api_key", "is", null)
+          .not("evolution_instance_name", "is", null)
           .limit(1)
           .single();
 
@@ -590,14 +590,14 @@ Deno.serve(async (req) => {
         .from("team_members")
         .select("id")
         .eq("ativo", true)
-        .not("waleads_api_key", "is", null)
+        .not("evolution_instance_name", "is", null)
         .limit(1)
         .single();
 
       if (fallbackTm) {
         teamMemberId = fallbackTm.id;
       } else {
-        console.warn("[dra-lia-wa] No team member with waleads_api_key found — reply NOT sent");
+        console.warn("[dra-lia-wa] No team member with evolution_instance_name found — reply NOT sent");
       }
     }
 
@@ -663,10 +663,10 @@ Deno.serve(async (req) => {
         const firstName = ownerName.split(" ")[0];
         const { data: members } = await supabase
           .from("team_members")
-          .select("id, nome_completo, whatsapp_number, waleads_api_key")
+          .select("id, nome_completo, whatsapp_number, evolution_instance_name")
           .ilike("nome_completo", `%${firstName}%`)
           .eq("ativo", true)
-          .not("waleads_api_key", "is", null)
+          .not("evolution_instance_name", "is", null)
           .limit(1);
         if (members && members.length > 0 && members[0].whatsapp_number) {
           const m = members[0];

@@ -144,24 +144,24 @@ Deno.serve(async (req) => {
         // ─── WaLeads path (fallback) ───
         if (rule.waleads_ativo && lead.telefone_normalized) {
           const waleadsTipo = rule.waleads_tipo || "text";
-          let waleadsApiKey: string | null = null;
+          let evolutionInstanceName: string | null = null;
           let teamMemberId: string | null = null;
           let teamMemberWhatsapp: string | null = null;
 
           if (rule.team_member_id) {
             const { data: tm } = await supabase
               .from("team_members")
-              .select("id, waleads_api_key, whatsapp_number")
+              .select("id, evolution_instance_name, whatsapp_number")
               .eq("id", rule.team_member_id)
               .single();
-            if (tm?.waleads_api_key) {
-              waleadsApiKey = tm.waleads_api_key;
+            if (tm?.evolution_instance_name) {
+              evolutionInstanceName = tm.evolution_instance_name;
               teamMemberId = tm.id;
               teamMemberWhatsapp = tm.whatsapp_number;
             }
           }
 
-          if (waleadsApiKey) {
+          if (evolutionInstanceName) {
             let messageStatus = "skipped";
             let errorDetails: string | null = null;
             let preview = "";
@@ -183,7 +183,7 @@ Deno.serve(async (req) => {
                 preview = `[${waleadsTipo}] ${rule.waleads_media_url || ""}`.slice(0, 200);
               }
 
-              const waRes = await fetch(`${WALEADS_BASE_URL}/public/message/${waleadsTipo}?key=${waleadsApiKey}`, {
+              const waRes = await fetch(`${WALEADS_BASE_URL}/public/message/${waleadsTipo}?key=${evolutionInstanceName}`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(apiBody),
