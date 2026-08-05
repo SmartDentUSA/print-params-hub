@@ -1,0 +1,1 @@
+update public.team_members set messaging_provider = 'evolution' where evolution_instance_name is not null and coalesce(messaging_provider,'waleads') = 'waleads';
