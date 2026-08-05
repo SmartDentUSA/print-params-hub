@@ -31485,6 +31485,10 @@ export type Database = {
         Args: { p_lead_id: string }
         Returns: undefined
       }
+      fn_expand_deal_proposals_to_items: {
+        Args: { p_deal_id: string }
+        Returns: number
+      }
       fn_faturamento_mes: {
         Args: { p_ano: number; p_mes: number }
         Returns: {
