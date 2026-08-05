@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { getStorageImageUrl } from '@/utils/storageImage';
 import KbSectionHeader from './KbSectionHeader';
 import KbChips, { KbChipOption } from './KbChips';
 import KbResinSheetDialog from './KbResinSheetDialog';
@@ -172,7 +173,13 @@ export default function KbTabParametros() {
                   onClick={() => setModel(m)}
                 >
                   {m.image_url ? (
-                    <img src={m.image_url} alt={m.name} className="kb-model-thumb" />
+                    <img
+                      src={getStorageImageUrl(m.image_url, { width: 120, height: 120, quality: 60, resize: 'cover' })}
+                      alt={m.name}
+                      className="kb-model-thumb"
+                      loading="lazy"
+                      decoding="async"
+                    />
                   ) : (
                     <div className="kb-model-thumb kb-model-thumb-fallback">🖨️</div>
                   )}
@@ -197,7 +204,12 @@ export default function KbTabParametros() {
               <>
                 <header className="kb-param-h">
                   {model.image_url ? (
-                    <img src={model.image_url} alt={model.name} className="kb-param-h-img" />
+                    <img
+                      src={getStorageImageUrl(model.image_url, { width: 320, quality: 70 })}
+                      alt={model.name}
+                      className="kb-param-h-img"
+                      decoding="async"
+                    />
                   ) : (
                     <div className="kb-param-h-img kb-param-h-img-fallback">🖨️</div>
                   )}
@@ -247,7 +259,13 @@ function ResinCard({ p, index, t, onOpenSheet }: { p: ParamRow; index: number; t
     <article className="kb-rcard" style={{ animationDelay: `${index * 18}ms` }}>
       <div className="kb-rcard-top">
         {r?.image_url ? (
-          <img src={r.image_url} alt={p.resin_name} className="kb-rcard-img" />
+          <img
+            src={getStorageImageUrl(r.image_url, { width: 200, quality: 65, resize: 'cover' })}
+            alt={p.resin_name}
+            className="kb-rcard-img"
+            loading="lazy"
+            decoding="async"
+          />
         ) : (
           <div className="kb-rcard-img kb-rcard-img-fallback">💉</div>
         )}
