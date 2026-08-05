@@ -126,11 +126,12 @@
   font-family: var(--pc-font-num);
   font-weight: 700;
   white-space: nowrap;
-  overflow: hidden; text-overflow: ellipsis;
+  flex: 0 0 auto;
 }
 .painel .pc-funil-bar .fb-sub {
   font-size: calc(8.5px * var(--pc-scale));
   opacity: 0.85; font-weight: 500; white-space: nowrap;
+  min-width: 0; overflow: hidden; text-overflow: ellipsis;
 }
 .painel .pc-funil-bar .fb-qtd {
   font-family: var(--pc-font-num);
