@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Share2, MoreVertical, MapPin, Video, User, Sparkles } from "lucide-react";
+import { Share2, MoreVertical, MapPin, Video, User, Sparkles, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
@@ -139,6 +139,18 @@ export function TurmaCard({ turma, companionCount, status, onEnroll, onShare }: 
           {onShare && (
             <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onShare}>
               <Share2 className="w-3.5 h-3.5" />
+            </Button>
+          )}
+          {turma.turma_number != null && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7"
+              title="Participantes e acompanhantes"
+              aria-label="Participantes e acompanhantes"
+              onClick={() => window.open(`/turma${turma.turma_number}`, "_blank", "noopener,noreferrer")}
+            >
+              <Users className="w-3.5 h-3.5" />
             </Button>
           )}
           <DropdownMenu>
