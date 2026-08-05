@@ -81,10 +81,10 @@ Deno.serve(async (req) => {
     if (leadIds.length) {
       const { data: leads } = await supabase
         .from("lia_attendances")
-        .select("id, empresa_estado, estado")
+        .select("id, empresa_uf, uf")
         .in("id", leadIds);
       for (const l of leads || []) {
-        const uf = String((l as any).empresa_estado || (l as any).estado || "").trim();
+        const uf = String((l as any).empresa_uf || (l as any).uf || "").trim();
         if (uf) leadUf.set(String((l as any).id), uf);
       }
     }
