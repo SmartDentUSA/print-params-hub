@@ -2,6 +2,13 @@
 import Stripe from "npm:stripe@17";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { normalizeBrazilianPhone } from "../_shared/phone-normalize.ts";
+import {
+  createStubLead,
+  notifyExecutivesOfPayment,
+  notifySellerOfPayment,
+  resolveLeadSeller,
+  type PaymentNotice,
+} from "../_shared/stripe-notify.ts";
 
 const STRIPE_SECRET_KEY = Deno.env.get("STRIPE_SECRET_KEY") ?? "";
 
@@ -204,17 +211,36 @@ async function handle(req: Request): Promise<Response> {
   const customer = extractCustomer(event);
   const { amount, currency, status } = extractAmount(event);
   const products = extractProducts(event);
-  const leadId = await resolveLead(customer.phone, customer.email);
+  const obj = event.data.object as any;
+  const internalProduct: string | null = obj?.metadata?.product ?? products?.[0]?.name ?? null;
+  const platform: string | null = obj?.metadata?.platform ?? null;
+
+  let leadId = await resolveLead(customer.phone, customer.email);
 
   if (!leadId) {
-    await supabase
-      .from("stripe_webhook_events")
-      .update({ error: "lead_not_found" })
-      .eq("event_id", event.id);
-    return new Response(JSON.stringify({ ok: true, lead_not_found: true, phone: customer.phone, email: customer.email }), { status: 200, headers: { "Content-Type": "application/json" } });
+    // Comprador ainda não existe no CDP: cria lead-stub em vez de perder a venda.
+    leadId = await createStubLead(supabase, {
+      email: customer.email,
+      phone: customer.phone,
+      name: customer.name,
+      product: internalProduct,
+      platform,
+    });
+
+    if (leadId) {
+      await supabase
+        .from("stripe_webhook_events")
+        .update({ lead_id: leadId, error: "lead_auto_created" })
+        .eq("event_id", event.id);
+    } else {
+      await supabase
+        .from("stripe_webhook_events")
+        .update({ error: "lead_not_found_no_email" })
+        .eq("event_id", event.id);
+      return new Response(JSON.stringify({ ok: true, lead_not_found: true, phone: customer.phone, email: customer.email }), { status: 200, headers: { "Content-Type": "application/json" } });
+    }
   }
 
-  const obj = event.data.object as any;
   const stripeObjectId: string | null = obj?.id ?? null;
   const mode: string | null = obj?.mode ?? (event.type.startsWith("customer.subscription") ? "subscription" : "payment");
   const title = buildTitle(mapping.event_type, amount, currency, products);
