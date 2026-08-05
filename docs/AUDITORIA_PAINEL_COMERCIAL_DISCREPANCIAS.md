@@ -311,6 +311,43 @@ Migrations no projeto `okeogjgqijbfkudfjadz` (consolidadas em
   R$ 3.532.576,63 para R$ 2.843.804,42) — o valor antigo vinha de uma versão anterior
   das funções, congelada no cache.
 
+### Reincidência às 19h de 05/08 — a causa raiz era fora do painel
+
+Depois das correções acima a receita voltou a oscilar, sempre com a **mesma diferença de
+R$ 24.342,00** (cache R$ 139.124,44 × recomputo R$ 163.466,44, às 19:16 UTC), e sempre
+concentrada em um único vendedor. Rastreando até a linha:
+
+O negócio **62330220** existe uma vez só em `deals` (há índice único em `piperun_deal_id`)
+e alternava entre dois estados completos:
+
+| | pipeline | etapa | status | valor | `piperun_updated_at` |
+|---|---|---|---|---|---|
+| A (18:20) | Funil de vendas | Fechamento | aberta | R$ 28.000 | 03/08 17:25 |
+| B (19:15) | CS Onboarding | Em espera | **ganha** | R$ 24.000 | 04/08 11:24 |
+
+`piperun_stage_transitions` mostra o que aconteceu de verdade: em 04/08 09:59 o negócio
+passou de "Fechamento" (Funil de vendas) para "Novos clientes" e depois "Em espera", já no
+CS Onboarding — **mudou de pipeline mantendo o mesmo `deal_id`**. B é o estado atual; A é o
+estado de 03/08.
+
+O que reescrevia A por cima de B: `fn_sync_normalized_from_lead` aplica cada snapshot de
+`lia_attendances.piperun_deals_history` em `deals` com `ON CONFLICT (piperun_deal_id) DO
+UPDATE` **sem comparar recência**. O sync do pipeline de origem (`sync-piperun-vendas-1h`,
+minuto :05, e o incremental de 30 min) ainda devolve o negócio com o estado antigo; o sync
+do destino (`sync-piperun-cs-1h`, minuto :15) devolve o atual. Vencia quem rodasse por
+último — e a receita do mês oscilava junto. O par que compunha a diferença: 62330220
+(R$ 24.000) + 62386695 (R$ 342) = **R$ 24.342,00**.
+
+Correção (migration `deals_upsert_nao_regride_snapshot_antigo`): o `DO UPDATE` ganhou um
+`WHERE` que só aceita snapshot igual ou mais recente que o gravado. A mesma guarda foi
+aplicada em `upsertDealHistory` (`supabase/functions/_shared/piperun-field-map.ts`), que
+protege o histórico do próprio lead — **essa metade só passa a valer no próximo deploy das
+edge functions**; a guarda no banco já está ativa e é a que o painel enxerga.
+
+Vale notar: os itens 1 e 2 desta auditoria (fallback de `closed_at` e snapshot único) eram
+problemas reais e continuam corrigidos, mas não eram *esta* causa — eles mascaravam parte do
+sintoma. A oscilação só parou com a guarda no upsert de `deals`.
+
 ### O que ficou de fora
 
 - **#9 fonte do Top Produtos**: continua vindo de `vw_produtos_faturados` (Omie) enquanto o

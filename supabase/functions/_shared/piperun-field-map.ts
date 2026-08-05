@@ -1816,6 +1816,13 @@ export function buildRichDealSnapshot(
  * Upsert a deal snapshot into the deals history array.
  * Shared across webhook, sync, and full-sync.
  */
+const snapshotTime = (s: unknown): number => {
+  const raw = (s as { updated_at?: unknown } | null)?.updated_at;
+  if (typeof raw !== "string" && typeof raw !== "number") return NaN;
+  const t = new Date(raw).getTime();
+  return Number.isFinite(t) ? t : NaN;
+};
+
 export function upsertDealHistory(
   currentHistory: unknown[] | null,
   snapshot: RichDealSnapshot,
@@ -1823,6 +1830,13 @@ export function upsertDealHistory(
   const history = (Array.isArray(currentHistory) ? [...currentHistory] : []) as RichDealSnapshot[];
   const idx = history.findIndex((d) => String(d.deal_id) === String(snapshot.deal_id));
   if (idx >= 0) {
+    // Anti-regressão: um negócio que muda de pipeline mantém o mesmo deal_id, e o
+    // sync do pipeline de origem ainda o devolve com o estado anterior. Sem esta
+    // guarda o snapshot antigo sobrescrevia o atual e o registro passava a
+    // alternar entre os dois a cada rodada de sync.
+    const atual = snapshotTime(history[idx]);
+    const novo = snapshotTime(snapshot);
+    if (Number.isFinite(atual) && Number.isFinite(novo) && novo < atual) return history;
     history[idx] = snapshot;
   } else {
     history.push(snapshot);
