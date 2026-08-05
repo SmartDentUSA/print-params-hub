@@ -3,6 +3,7 @@ import { LanguageFlags } from '@/components/LanguageFlags';
 import { Share2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { getStorageImageUrl } from '@/utils/storageImage';
 
 export interface KbContentCardData {
   id: string;
