@@ -205,9 +205,9 @@ Deno.serve(async (req) => {
     // Find support team member (Patrícia or first available)
     const { data: supportMember } = await supabase
       .from("team_members")
-      .select("id, waleads_api_key, nome_completo, whatsapp_number")
+      .select("id, evolution_instance_name, nome_completo, whatsapp_number")
       .eq("ativo", true)
-      .not("waleads_api_key", "is", null)
+      .not("evolution_instance_name", "is", null)
       .order("nome_completo")
       .limit(5);
 

@@ -24,7 +24,6 @@ interface TeamMember {
   whatsapp_number: string;
   piperun_owner_id: string | null;
   manychat_api_key: string | null;
-  waleads_api_key: string | null;
   evolution_instance_name: string | null;
   evolution_api_key: string | null;
   evolution_phone: string | null;
@@ -58,7 +57,6 @@ const EMPTY_FORM = {
   role: "vendedor",
   piperun_owner_id: "",
   manychat_api_key: "",
-  waleads_api_key: "",
   evolution_instance_name: "",
   evolution_api_key: "",
   evolution_phone: "",
@@ -69,7 +67,7 @@ const EMPTY_FORM = {
   evo_go_base_url: "",
   evolution_enabled: false,
   evo_go_enabled: false,
-  messaging_provider: "waleads",
+  messaging_provider: "evolution",
 };
 
 type EvolutionStatus = "open" | "connecting" | "close" | "unknown";
@@ -191,7 +189,6 @@ export function SmartOpsTeam() {
       role: m.role,
       piperun_owner_id: m.piperun_owner_id || "",
       manychat_api_key: m.manychat_api_key || "",
-      waleads_api_key: m.waleads_api_key || "",
       evolution_instance_name: m.evolution_instance_name || "",
       evolution_api_key: m.evolution_api_key || "",
       evolution_phone: m.evolution_phone || "",
@@ -202,7 +199,7 @@ export function SmartOpsTeam() {
       evo_go_base_url: m.evo_go_base_url || "",
       evolution_enabled: m.evolution_enabled === true,
       evo_go_enabled: m.evo_go_enabled === true,
-      messaging_provider: m.messaging_provider || "waleads",
+      messaging_provider: m.messaging_provider || "evolution",
     });
     setEvolutionStatus("unknown");
     setEvoGoStatus("unknown");
@@ -415,7 +412,6 @@ export function SmartOpsTeam() {
       evo_go_base_url: evoGoBaseUrl,
       piperun_owner_id: nullify(form.piperun_owner_id) as any,
       manychat_api_key: nullify(form.manychat_api_key) as any,
-      waleads_api_key: nullify(form.waleads_api_key) as any,
       evolution_instance_name: nullify(form.evolution_instance_name) as any,
       evolution_api_key: nullify(form.evolution_api_key) as any,
       evolution_phone: nullify(form.evolution_phone) as any,
@@ -551,9 +547,6 @@ export function SmartOpsTeam() {
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Configurações ManyChat</p>
               <div><Label>API Key ManyChat</Label><Input type="password" value={form.manychat_api_key} onChange={(e) => setForm({ ...form, manychat_api_key: e.target.value })} placeholder="Bearer token do ManyChat" /></div>
               <Separator className="my-2" />
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Configurações WaLeads</p>
-              <div><Label>API Key WaLeads</Label><Input type="password" value={form.waleads_api_key} onChange={(e) => setForm({ ...form, waleads_api_key: e.target.value })} placeholder="API Key do ChatCenter/WaLeads" /></div>
-              <Separator className="my-2" />
               {form.evolution_enabled && form.evo_go_enabled && evolutionStatus === "open" && evoGoStatus === "open" && (
                 <div className="rounded-md border border-emerald-500/40 bg-emerald-500/10 p-2 text-[11px] leading-relaxed">
                   <p className="font-semibold">Modo dual ativo</p>
@@ -628,7 +621,6 @@ export function SmartOpsTeam() {
                 <Select value={form.messaging_provider} onValueChange={(v) => setForm({ ...form, messaging_provider: v })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="waleads">WaLeads</SelectItem>
                     <SelectItem value="evolution">Evolution API</SelectItem>
                     <SelectItem value="evolution_go">Evolution GO</SelectItem>
                     <SelectItem value="manychat">ManyChat</SelectItem>
@@ -730,20 +722,19 @@ export function SmartOpsTeam() {
                 <TableCell><Badge variant="outline">{m.role}</Badge></TableCell>
                 <TableCell className="space-x-1">
                   {m.manychat_api_key ? <Badge className="bg-green-600 text-white text-[10px]">MC</Badge> : null}
-                  {m.waleads_api_key ? <Badge className="bg-blue-600 text-white text-[10px]">WL</Badge> : null}
                   {m.messaging_provider === "evolution" ? <Badge className="bg-purple-600 text-white text-[10px]">EV</Badge> : null}
                   {m.messaging_provider === "evolution_go" ? <Badge className="bg-fuchsia-500 text-white text-[10px]">EG</Badge> : null}
                   {m.evolution_enabled && m.evo_go_enabled && m.evolution_status === "connected" && m.evo_go_status === "connected" ? (
                     <Badge className="bg-emerald-600 text-white text-[10px]">DUAL</Badge>
                   ) : null}
-                  {!m.manychat_api_key && !m.waleads_api_key && m.messaging_provider !== "evolution" && m.messaging_provider !== "evolution_go" && <span className="text-muted-foreground text-xs">—</span>}
+                  {!m.manychat_api_key && m.messaging_provider !== "evolution" && m.messaging_provider !== "evolution_go" && <span className="text-muted-foreground text-xs">—</span>}
                 </TableCell>
                 <TableCell><Switch checked={m.ativo} onCheckedChange={() => toggleAtivo(m)} /></TableCell>
                 <TableCell className="space-x-1">
                   <Button variant="ghost" size="sm" onClick={() => openEdit(m)}>Editar</Button>
-                  {m.waleads_api_key && (
+                  {m.evolution_instance_name && (
                     <Button variant="outline" size="sm" onClick={() => openTestWaLeads(m)}>
-                      <Send className="w-3 h-3 mr-1" /> Testar WL
+                      <Send className="w-3 h-3 mr-1" /> Testar WA
                     </Button>
                   )}
                   <Button variant="destructive" size="sm" onClick={() => setDeleteTarget(m)} title="Excluir membro">

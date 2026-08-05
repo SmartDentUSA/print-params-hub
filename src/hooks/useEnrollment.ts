@@ -58,7 +58,7 @@ export function useEnrollment() {
         }
       }
 
-      // Resolver CS team member id (para o cron achar a waleads_api_key)
+      // Resolver CS team member id (para o cron achar a instância Evolution)
       let csTeamMemberId: string | null = null;
       try {
         const { data: csRow } = await (supabase as any).from('team_members')

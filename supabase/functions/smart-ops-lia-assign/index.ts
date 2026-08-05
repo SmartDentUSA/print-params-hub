@@ -1175,13 +1175,13 @@ async function pickRandomActiveVendedor(
 ): Promise<TeamMember> {
   // WALEADS_ENABLED: priorização por WaLeads pausada
   // if (WALEADS_ENABLED) {
-  //   // Priority: vendedores with waleads_api_key configured
+  //   // Priority: vendedores with evolution_instance_name configured
   //   const { data: waMembers } = await supabase
   //     .from("team_members")
   //     .select("id, nome_completo, piperun_owner_id")
   //     .eq("ativo", true)
   //     .eq("role", "vendedor")
-  //     .not("waleads_api_key", "is", null);
+  //     .not("evolution_instance_name", "is", null);
   //
   //   if (waMembers && waMembers.length > 0) {
   //     const idx = Math.floor(Math.random() * waMembers.length);
@@ -3137,7 +3137,7 @@ Deno.serve(async (req) => {
     if (lead.proprietario_lead_crm && !isBlockedSeller({ ownerName: lead.proprietario_lead_crm as string })) {
       const { data: currentOwner } = await supabase
         .from("team_members")
-        .select("id, nome_completo, piperun_owner_id, ativo, waleads_api_key")
+        .select("id, nome_completo, piperun_owner_id, ativo, evolution_instance_name")
         .ilike("nome_completo", lead.proprietario_lead_crm)
         .maybeSingle();
 
