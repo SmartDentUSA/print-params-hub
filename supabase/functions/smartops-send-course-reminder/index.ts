@@ -104,17 +104,27 @@ Deno.serve(async (req) => {
           continue;
         }
 
-        const { data: cs } = await supabase
+        let { data: cs } = await supabase
           .from("team_members")
           .select("id, nome_completo, evolution_instance_name")
           .eq("id", (e as any).cs_team_member_id)
           .maybeSingle();
 
+        // Fallback institucional: instância Evolution smartdent_marketing
         if (!cs?.evolution_instance_name) {
-          failed.push({ id: (e as any).id, error: "CS sem evolution_instance_name" });
+          const { data: inst } = await supabase
+            .from("team_members")
+            .select("id, nome_completo, evolution_instance_name")
+            .eq("evolution_instance_name", "smartdent_marketing")
+            .maybeSingle();
+          cs = inst ?? cs;
+        }
+
+        if (!cs?.evolution_instance_name) {
+          failed.push({ id: (e as any).id, error: "nenhuma instância Evolution disponível" });
           await supabase.from("smartops_course_enrollments").update({
             wa_reminder_sent_at: null,
-            wa_reminder_error: "CS sem evolution_instance_name",
+            wa_reminder_error: "nenhuma instância Evolution disponível",
           }).eq("id", (e as any).id);
           continue;
         }
@@ -153,7 +163,6 @@ Deno.serve(async (req) => {
           body: {
             to: phone,
             message,
-            evolution_instance_name: cs.evolution_instance_name,
             lead_id: (e as any).lead_id,
             team_member_id: cs.id,
             source: "enrollment_reminder_1h",
