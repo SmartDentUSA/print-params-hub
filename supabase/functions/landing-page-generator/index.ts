@@ -390,6 +390,7 @@ Deno.serve(async (req) => {
         messages,
         max_tokens: 8000,
         response_format: { type: "json_object" },
+        stream: true,
       };
       if (!model.startsWith("openai/")) body.temperature = 0.55;
       if (opts.priority) body.service_tier = "priority";
@@ -403,23 +404,55 @@ Deno.serve(async (req) => {
       });
     };
 
+    // Consome o SSE do gateway e devolve o texto acumulado. Chamada bufferizada
+    // estourava o limite de ~2min do runtime e o cliente recebia erro genérico.
+    const readStream = async (res: Response): Promise<string> => {
+      const reader = res.body!.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let out = "";
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() ?? "";
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed.startsWith("data:")) continue;
+          const payload = trimmed.slice(5).trim();
+          if (!payload || payload === "[DONE]") continue;
+          try {
+            const chunk = JSON.parse(payload);
+            out += chunk?.choices?.[0]?.delta?.content ?? "";
+          } catch {
+            // linha parcial/keep-alive — ignora
+          }
+        }
+      }
+      return out;
+    };
+
     const cascade: Array<{ model: string; priority?: boolean }> = [
-      { model: "openai/gpt-5.5", priority: true },
-      { model: "openai/gpt-5.4", priority: true },
+      { model: "google/gemini-3.6-flash" },
+      { model: "openai/gpt-5.6-sol", priority: true },
       { model: "google/gemini-3.1-pro-preview" },
-      { model: "google/gemini-3-flash-preview" },
     ];
 
     let aiRes: Response | null = null;
+    let usedModel = "";
     for (const step of cascade) {
+      const t0 = Date.now();
       aiRes = await callModel(step.model, { priority: step.priority });
-      if (aiRes.ok) break;
+      console.log(`[lp-gen] ${step.model} status=${aiRes.status} in ${Date.now() - t0}ms mode=${mode}`);
+      if (aiRes.ok) { usedModel = step.model; break; }
       if (![400, 402, 404, 429, 500, 502, 503].includes(aiRes.status)) break;
     }
 
     if (!aiRes || !aiRes.ok) {
       const errText = await aiRes.text();
       const status = aiRes.status;
+      console.error(`[lp-gen] falha gateway status=${status} detail=${errText.slice(0, 300)}`);
       return new Response(
         JSON.stringify({
           error: status === 429 ? "rate_limited" : status === 402 ? "credits_exhausted" : "ai_error",
@@ -429,9 +462,9 @@ Deno.serve(async (req) => {
       );
     }
 
-    const json = await aiRes.json();
-    let raw: string = json?.choices?.[0]?.message?.content ?? "";
+    let raw = await readStream(aiRes);
     raw = raw.replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/i, "").trim();
+    console.log(`[lp-gen] modelo=${usedModel} chars=${raw.length}`);
     let content: unknown;
     try {
       content = JSON.parse(raw);
