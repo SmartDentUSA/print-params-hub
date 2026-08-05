@@ -6,6 +6,7 @@ import KbSearchBar from './KbSearchBar';
 import KbResultCount from './KbResultCount';
 import KbEmptyState from './KbEmptyState';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { getStorageImageUrl } from '@/utils/storageImage';
 import { Country } from 'country-state-city';
 import 'flag-icons/css/flag-icons.min.css';
 
@@ -152,7 +153,13 @@ export default function KbTabEventos() {
               >
                 <div style={{ aspectRatio: '16 / 9', background: '#f1f5f9', position: 'relative' }}>
                   {cover ? (
-                    <img src={cover} alt={e.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} loading="lazy" />
+                    <img
+                      src={getStorageImageUrl(cover, { width: 480, height: 270, quality: 65, resize: 'cover' })}
+                      alt={e.name}
+                      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                      loading="lazy"
+                      decoding="async"
+                    />
                   ) : (
                     <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8', fontSize: 40 }}>📅</div>
                   )}
