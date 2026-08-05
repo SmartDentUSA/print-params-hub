@@ -101,45 +101,65 @@
    =========================================================== */
 .painel .pc-funil {
   display: flex; flex-direction: column;
-  align-items: center;           /* barras centradas = forma de funil */
+  align-items: stretch;
   gap: 3px;
   padding: calc(4px * var(--pc-scale)) 0;
+}
+
+/* Grid de colunas: ETAPA | VOLUME | HOJE | MED | PERDA */
+.painel .pc-funil-head,
+.painel .pc-funil-row {
+  display: grid;
+  grid-template-columns: minmax(110px, 18%) 1fr 52px 52px 60px;
+  align-items: center;
+  gap: calc(8px * var(--pc-scale));
+}
+.painel .pc-funil-head {
+  font-size: calc(8px * var(--pc-scale));
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--pc-text-mute);
+  padding: 0 calc(4px * var(--pc-scale)) 2px;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+.painel .pc-funil-head .ta-r { text-align: right; }
+.painel .pc-funil-group { display: flex; flex-direction: column; }
+.painel .pc-funil-row { padding: calc(3px * var(--pc-scale)) calc(4px * var(--pc-scale)); }
+.painel .pc-funil-row .fr-nome {
+  font-family: var(--pc-font-num);
+  font-weight: 700;
+  font-size: calc(10.5px * var(--pc-scale));
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.painel .pc-funil-row .fr-barwrap {
+  display: flex; align-items: center; gap: calc(8px * var(--pc-scale));
+  min-width: 0;
+}
+.painel .pc-funil-row .fr-qtd {
+  font-family: var(--pc-font-num);
+  font-weight: 700;
+  font-size: calc(12.5px * var(--pc-scale));
+  white-space: nowrap;
+}
+.painel .pc-funil-row .fr-num {
+  font-family: var(--pc-font-num);
+  font-size: calc(10px * var(--pc-scale));
+  text-align: right;
+  color: var(--pc-text-mute);
+  white-space: nowrap;
 }
 
 .painel .pc-funil-bar {
   position: relative;
   box-sizing: border-box;
-  border-radius: 8px;
-  padding: calc(6px * var(--pc-scale)) calc(10px * var(--pc-scale));
-  color: #fff;
-  font-weight: 600;
-  font-size: calc(10.5px * var(--pc-scale));
-  display: flex; align-items: center; justify-content: space-between;
-  gap: calc(8px * var(--pc-scale));
+  border-radius: 4px;
+  height: calc(14px * var(--pc-scale));
+  flex: 0 0 auto;
   box-shadow: 0 2px 6px rgba(0,0,0,0.25);
   transition: filter 0.15s ease;
   min-width: 0;
 }
 .painel .pc-funil-bar:hover { filter: brightness(1.12); }
-
-.painel .pc-funil-bar .fb-nome {
-  font-family: var(--pc-font-num);
-  font-weight: 700;
-  white-space: nowrap;
-  flex: 0 0 auto;
-}
-.painel .pc-funil-bar .fb-sub {
-  font-size: calc(8.5px * var(--pc-scale));
-  opacity: 0.85; font-weight: 500; white-space: nowrap;
-  min-width: 0; overflow: hidden; text-overflow: ellipsis;
-}
-.painel .pc-funil-bar .fb-qtd {
-  font-family: var(--pc-font-num);
-  font-weight: 700;
-  font-size: calc(13px * var(--pc-scale));
-  margin-left: auto;             /* volume sempre encostado à direita */
-  white-space: nowrap;
-}
 
 /* Rampa de cor por etapa: azul → roxo → magenta.
    A etapa final é sempre verde (ganho), venha na ordem que vier. */
@@ -169,7 +189,7 @@
 .painel .pc-passagem {
   font-size: calc(8.5px * var(--pc-scale));
   color: var(--pc-text-mute);
-  text-align: center;
+  padding-left: calc(19% + 8px * var(--pc-scale));
 }
 .painel .pc-passagem b { color: var(--pc-ok); }
 .painel .pc-passagem.is-gargalo   { color: var(--pc-danger); font-weight: 600; }
@@ -223,8 +243,7 @@
 }
 @media (max-width: 700px) {
   .painel { padding-left: 16px; padding-right: 16px; }
-  .painel .pc-funil-bar { flex-wrap: wrap; gap: 4px; }
-  .painel .pc-funil-bar .fb-qtd { margin-left: 0; }
+  .painel .pc-funil-head, .painel .pc-funil-row { grid-template-columns: minmax(80px, 24%) 1fr 40px 40px 46px; }
 }
 
 /* ===========================================================
