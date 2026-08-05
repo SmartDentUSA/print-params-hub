@@ -727,20 +727,19 @@ export function SmartOpsTeam() {
                 <TableCell><Badge variant="outline">{m.role}</Badge></TableCell>
                 <TableCell className="space-x-1">
                   {m.manychat_api_key ? <Badge className="bg-green-600 text-white text-[10px]">MC</Badge> : null}
-                  {m.waleads_api_key ? <Badge className="bg-blue-600 text-white text-[10px]">WL</Badge> : null}
                   {m.messaging_provider === "evolution" ? <Badge className="bg-purple-600 text-white text-[10px]">EV</Badge> : null}
                   {m.messaging_provider === "evolution_go" ? <Badge className="bg-fuchsia-500 text-white text-[10px]">EG</Badge> : null}
                   {m.evolution_enabled && m.evo_go_enabled && m.evolution_status === "connected" && m.evo_go_status === "connected" ? (
                     <Badge className="bg-emerald-600 text-white text-[10px]">DUAL</Badge>
                   ) : null}
-                  {!m.manychat_api_key && !m.waleads_api_key && m.messaging_provider !== "evolution" && m.messaging_provider !== "evolution_go" && <span className="text-muted-foreground text-xs">—</span>}
+                  {!m.manychat_api_key && m.messaging_provider !== "evolution" && m.messaging_provider !== "evolution_go" && <span className="text-muted-foreground text-xs">—</span>}
                 </TableCell>
                 <TableCell><Switch checked={m.ativo} onCheckedChange={() => toggleAtivo(m)} /></TableCell>
                 <TableCell className="space-x-1">
                   <Button variant="ghost" size="sm" onClick={() => openEdit(m)}>Editar</Button>
-                  {m.waleads_api_key && (
+                  {m.evolution_instance_name && (
                     <Button variant="outline" size="sm" onClick={() => openTestWaLeads(m)}>
-                      <Send className="w-3 h-3 mr-1" /> Testar WL
+                      <Send className="w-3 h-3 mr-1" /> Testar WA
                     </Button>
                   )}
                   <Button variant="destructive" size="sm" onClick={() => setDeleteTarget(m)} title="Excluir membro">
