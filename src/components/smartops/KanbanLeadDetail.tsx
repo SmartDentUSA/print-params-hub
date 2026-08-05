@@ -561,6 +561,14 @@ export function KanbanLeadDetail({ lead, open, onClose }: KanbanLeadDetailProps)
 
   if (!lead) return null;
 
+  const categoryCounts: Record<string, number> = {};
+  for (const ev of timelineEvents) {
+    categoryCounts[ev.category] = (categoryCounts[ev.category] || 0) + 1;
+  }
+  const visibleTimeline = activeCats.length === 0
+    ? timelineEvents
+    : timelineEvents.filter((ev) => activeCats.includes(ev.category));
+
   const PESSOA_KEYS = ["pessoa_cpf", "pessoa_cargo", "pessoa_genero", "pessoa_nascimento", "pessoa_linkedin", "pessoa_facebook", "pessoa_observation", "pessoa_piperun_id"];
   const EMPRESA_KEYS = ["empresa_nome", "empresa_razao_social", "empresa_cnpj", "empresa_ie", "empresa_segmento", "empresa_porte", "empresa_situacao", "empresa_website", "empresa_cnae", "empresa_piperun_id"];
   const SDR_KEYS = ["sdr_scanner_interesse", "sdr_impressora_interesse", "sdr_software_cad_interesse", "sdr_caracterizacao_interesse", "sdr_cursos_interesse", "sdr_dentistica_interesse", "sdr_insumos_lab_interesse", "sdr_pos_impressao_interesse", "sdr_solucoes_interesse", "sdr_marca_impressora_param", "sdr_modelo_impressora_param", "sdr_resina_param", "sdr_suporte_equipamento", "sdr_suporte_tipo", "sdr_suporte_descricao"];
