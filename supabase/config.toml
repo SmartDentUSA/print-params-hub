@@ -524,3 +524,6 @@ verify_jwt = false
 
 [functions.piperun-involved-cleanup]
 verify_jwt = false
+
+[functions.turma-welcome]
+verify_jwt = false
