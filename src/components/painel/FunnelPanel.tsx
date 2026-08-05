@@ -64,8 +64,9 @@ export function FunnelPanel({ rows }: { rows: PainelFunilRow[] }) {
                     className={`pc-funil-bar${isFinal ? " is-final" : ""}`}
                     data-ordem={r.ordem ?? i + 1}
                     style={{ width: `${largura}%` }}
-                  />
-                  <span className="fr-qtd">{fmtNum(volume)}</span>
+                  >
+                    <span className="fr-qtd-in">{fmtNum(volume)}</span>
+                  </span>
                 </span>
                 <span className="fr-num">{fmtNum(r.atual)}</span>
                 <span className="fr-num">{fmtDias(r.media_dias)}</span>
