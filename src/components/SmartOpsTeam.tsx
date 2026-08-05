@@ -24,7 +24,6 @@ interface TeamMember {
   whatsapp_number: string;
   piperun_owner_id: string | null;
   manychat_api_key: string | null;
-  waleads_api_key: string | null;
   evolution_instance_name: string | null;
   evolution_api_key: string | null;
   evolution_phone: string | null;
@@ -58,7 +57,6 @@ const EMPTY_FORM = {
   role: "vendedor",
   piperun_owner_id: "",
   manychat_api_key: "",
-  waleads_api_key: "",
   evolution_instance_name: "",
   evolution_api_key: "",
   evolution_phone: "",
@@ -191,7 +189,6 @@ export function SmartOpsTeam() {
       role: m.role,
       piperun_owner_id: m.piperun_owner_id || "",
       manychat_api_key: m.manychat_api_key || "",
-      waleads_api_key: m.waleads_api_key || "",
       evolution_instance_name: m.evolution_instance_name || "",
       evolution_api_key: m.evolution_api_key || "",
       evolution_phone: m.evolution_phone || "",
@@ -415,7 +412,6 @@ export function SmartOpsTeam() {
       evo_go_base_url: evoGoBaseUrl,
       piperun_owner_id: nullify(form.piperun_owner_id) as any,
       manychat_api_key: nullify(form.manychat_api_key) as any,
-      waleads_api_key: nullify(form.waleads_api_key) as any,
       evolution_instance_name: nullify(form.evolution_instance_name) as any,
       evolution_api_key: nullify(form.evolution_api_key) as any,
       evolution_phone: nullify(form.evolution_phone) as any,
