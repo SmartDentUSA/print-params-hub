@@ -27,6 +27,8 @@ export interface PainelFunilRow {
   atual: number;
   /** leads que alcançaram a etapa (volume real do funil) */
   volume?: number | null;
+  /** funil real: alcançou esta etapa OU qualquer posterior. Monotônico. */
+  volume_acumulado?: number | null;
   media_dias: number | null;
   pct_perda: number | null;
   qtd_saidas: number;
