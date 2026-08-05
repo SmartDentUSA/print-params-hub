@@ -57,7 +57,7 @@ Deno.serve(async (req) => {
 
     const { data: enrollments, error: eErr } = await supabase
       .from("smartops_course_enrollments")
-      .select("id, person_name, status")
+      .select("id, person_name, status, empresa_estado, empresa_cidade, lead_id")
       .eq("turma_id", turma.id)
       .order("person_name");
     if (eErr) throw eErr;
@@ -75,8 +75,28 @@ Deno.serve(async (req) => {
       companions = comps || [];
     }
 
+    // Estado (UF) — enrollment primeiro, fallback no lead
+    const leadIds = valid.map((e) => (e as any).lead_id).filter(Boolean);
+    const leadUf = new Map<string, string>();
+    if (leadIds.length) {
+      const { data: leads } = await supabase
+        .from("lia_attendances")
+        .select("id, empresa_estado, estado")
+        .in("id", leadIds);
+      for (const l of leads || []) {
+        const uf = String((l as any).empresa_estado || (l as any).estado || "").trim();
+        if (uf) leadUf.set(String((l as any).id), uf);
+      }
+    }
+    const normUf = (v: string) => {
+      const t = String(v || "").trim();
+      return t.length <= 3 ? t.toUpperCase() : t;
+    };
+
     const participants = valid.map((e) => ({
       name: displayName(e.person_name || ""),
+      state: normUf((e as any).empresa_estado || leadUf.get(String((e as any).lead_id)) || ""),
+      city: String((e as any).empresa_cidade || "").trim() || null,
       full_name: String(e.person_name || "").trim(),
       companions: companions
         .filter((c) => c.enrollment_id === e.id)
