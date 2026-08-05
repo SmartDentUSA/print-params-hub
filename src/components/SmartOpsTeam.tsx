@@ -551,9 +551,6 @@ export function SmartOpsTeam() {
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Configurações ManyChat</p>
               <div><Label>API Key ManyChat</Label><Input type="password" value={form.manychat_api_key} onChange={(e) => setForm({ ...form, manychat_api_key: e.target.value })} placeholder="Bearer token do ManyChat" /></div>
               <Separator className="my-2" />
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Configurações WaLeads</p>
-              <div><Label>API Key WaLeads</Label><Input type="password" value={form.waleads_api_key} onChange={(e) => setForm({ ...form, waleads_api_key: e.target.value })} placeholder="API Key do ChatCenter/WaLeads" /></div>
-              <Separator className="my-2" />
               {form.evolution_enabled && form.evo_go_enabled && evolutionStatus === "open" && evoGoStatus === "open" && (
                 <div className="rounded-md border border-emerald-500/40 bg-emerald-500/10 p-2 text-[11px] leading-relaxed">
                   <p className="font-semibold">Modo dual ativo</p>
