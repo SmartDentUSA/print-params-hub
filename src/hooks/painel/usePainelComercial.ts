@@ -17,6 +17,8 @@ export interface PainelKpis {
   receita_produtos_total: number | null;
   receita_equipamentos: number | null;
   receita_insumos: number | null;
+  /** licença, software, crédito de IA, curso e serviço — não é insumo nem equipamento */
+  receita_software_servico: number | null;
 }
 
 export interface PainelFunilRow {
