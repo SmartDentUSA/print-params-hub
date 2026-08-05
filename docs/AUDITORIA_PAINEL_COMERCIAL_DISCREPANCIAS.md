@@ -3,7 +3,9 @@
 **Data da verificação**: 05/08/2026, entre 18:10 e 18:25 UTC
 **Projeto**: Sistema B — `okeogjgqijbfkudfjadz`
 **Escopo**: `/painel-comercial` (`src/pages/PainelComercial.tsx`, `src/hooks/painel/usePainelComercial.ts`, `src/components/painel/*`) e as funções `painel_*` no Postgres.
-**Natureza deste documento**: diagnóstico. Nenhuma função, migration ou dado foi alterado.
+**Natureza deste documento**: diagnóstico (parte 1) + registro das correções aplicadas (última seção).
+**Status**: corrigido em 05/08/2026 — ver "Correções aplicadas" no fim do arquivo. As seções de
+diagnóstico descrevem o estado ANTES da correção e ficam como referência.
 
 ---
 
@@ -269,6 +271,54 @@ O mesmo vale para os ganhos: dos 51 negócios ganhos de agosto, **49 estão em "
 6. **Separar coorte de fechamento** no bloco de origens (#8).
 7. **Rotular a fonte** do Top Produtos e do corte top-5 (#9, #10).
 8. **Remover os blocos legados** de `painel_comercial_refresh` (#12) e alinhar a perda do funil ao pipeline de Estagnados (#11).
+
+---
+
+## Correções aplicadas — 05/08/2026
+
+Migrations no projeto `okeogjgqijbfkudfjadz` (consolidadas em
+`supabase/migrations/20260805184546_painel_comercial_discrepancias.sql`):
+`painel_comercial_fix_kpis_e_funil`, `_fix_vendedores_origens_filtro`,
+`_fix_refresh_e_cron`, `_rateio_por_negocio`, `_base_composicao_explicita`.
+
+| # | O que foi feito | Verificação (cache de 18:57 UTC, ago/26) |
+|---|---|---|
+| 1 | Receita passa a usar só `closed_at` (fim do fallback para `piperun_created_at`) e o cron saiu de `*/5` para `2,7,12,…,57` — fora dos minutos dos syncs do PipeRun | receita estável em R$ 105.796,44 em refreshes consecutivos (antes alternava com R$ 130.138,44) |
+| 2 | `painel_comercial_refresh_all` roda sob `REPEATABLE READ` (snapshot único) | os 6 blocos gravam com o mesmo `updated_at` e os mesmos totais |
+| 3 | 6 meses recalculados (03–08/2026) + job diário `painel-comercial-refresh-historico` (06:40 UTC, 6 meses) + `painel_comercial_meses_disponiveis()` alimentando o seletor | seletor passa a listar só meses existentes no cache |
+| 4 | "No funil" vira leads distintos com corte de 12 meses no KPI, no funil e na tabela de vendedores | 983 / 998 / 987 (antes 982 / 1.062 / 1.238) |
+| 5 | Coluna "Leads" da tabela de vendedores renomeada para "Negócios" (é contagem de negócios criados) | rótulo + `title` explicando |
+| 6 | Tabela de vendedores passa a usar `painel_classifica_item` e ganha a coluna "Soft/Serv." | equipamentos: KPI = tabela = R$ 28.713,72 |
+| 7 | `painel_filtrar_ativos` só esconde vendedor inativo **sem** movimento no mês | jul/26: tabela volta a somar R$ 2.843.804,42 = KPI (antes R$ 2.768.574,42) |
+| 8 | Conversão por origem calculada sobre a própria coorte (`ganhos_coorte`), inclusive no merge do front | conversão máxima 100,0% (antes 128,6%) |
+| 9 | Top Produtos ganha o rótulo da fonte ("faturamento (Omie) · top 5 por subcategoria") | continua sendo outra fonte, agora declarada |
+| 10 | Mix rateado **por negócio** (não mais sobre a base global/por vendedor) e base da composição explícita: `receita_produtos_total` (coberto), `receita_sem_composicao`, `receita_nao_classificada` | equip + insumos + soft + não classificado = base; base + sem composição = receita, em todos os meses |
+| 11 | Perda do funil passa a contar a saída para o pipeline Estagnados; a base inclui os negócios que migraram para lá | Negociação 21,7% e Fechamento 31,8% (antes 0,0%) |
+| 12 | Blocos legados de vendedores/atividades/origens removidos de `painel_comercial_refresh` | a função grava só kpis, funil e top_produtos |
+
+### Efeitos colaterais esperados (números que mudaram de verdade)
+
+- **Composição de receita**: o rateio por negócio muda o mix. Ago/26 saiu de
+  equip R$ 38.511,37 / insumos R$ 53.360,56 / soft R$ 13.924,51 (rateio global) para
+  equip R$ 28.713,72 / insumos R$ 72.896,44 / soft R$ 4.186,28.
+- **Cobertura da composição**: onde não há linha de proposta, não há composição.
+  Abr/26 tem R$ 1.327.853,33 de R$ 1.855.914,99 em negócios sem proposta detalhada — o
+  painel agora informa isso em vez de projetar o mix dos 28% restantes sobre o total.
+- **Volumes do funil**: com os negócios que foram para Estagnados de volta na base, o
+  volume acumulado da primeira etapa passou de 1.346 para 3.533 leads, e a perda por
+  etapa deixou de ser artificialmente baixa.
+- **Meses anteriores**: as receitas caíram para o valor recomputado (jul/26 de
+  R$ 3.532.576,63 para R$ 2.843.804,42) — o valor antigo vinha de uma versão anterior
+  das funções, congelada no cache.
+
+### O que ficou de fora
+
+- **#9 fonte do Top Produtos**: continua vindo de `vw_produtos_faturados` (Omie) enquanto o
+  resto do painel vem do CRM. Unificar exigiria decidir qual é a fonte oficial de receita
+  por produto — decisão de negócio, não de código. Por ora está rotulado na tela.
+- **Base de rateio**: as linhas de proposta somam mais que o valor do negócio (ago/26:
+  R$ 215.229,10 contra R$ 130.138,44). O rateio preserva o total, mas a proporção continua
+  vindo da proposta, não do faturado.
 
 ---
 

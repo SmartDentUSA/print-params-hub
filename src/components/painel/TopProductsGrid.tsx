@@ -57,7 +57,11 @@ export function TopProductsGrid({ rows }: { rows: PainelProdutoRow[] }) {
   return (
     <div className="pc-card p-4">
       <div className="flex items-center justify-between mb-3">
-        <h2 className="text-base font-semibold">Top 5 produtos mais vendidos por etapa</h2>
+        <div>
+          <h2 className="text-base font-semibold">Top 5 produtos mais vendidos por etapa</h2>
+          {/* fonte diferente da dos KPIs (CRM PipeRun): aqui é faturamento */}
+          <p className="pc-label mt-0.5">faturamento (Omie) · top 5 por subcategoria</p>
+        </div>
         <StatusBadge status={statusFromData(rows.length > 0, false)} />
       </div>
 

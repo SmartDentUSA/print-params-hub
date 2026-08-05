@@ -15,9 +15,9 @@ export function SellerPerformanceTable({ rows }: { rows: PainelVendedorRow[] }) 
           <thead>
             <tr>
               <th>Vendedor</th>
-              <th className="pc-right">Leads</th>
+              <th className="pc-right" title="Negócios criados no pipeline de vendas no mês">Negócios</th>
               <th className="pc-right">Mês ant.</th>
-              <th className="pc-right">No funil</th>
+              <th className="pc-right" title="Leads com negócio aberto (últimos 12 meses)">No funil</th>
               <th className="pc-right">Pedidos</th>
               <th className="pc-right">Abandono <StatusBadge status="ok" /></th>
               <th className="pc-right">Qualif. <StatusBadge status="ok" /></th>
@@ -29,6 +29,7 @@ export function SellerPerformanceTable({ rows }: { rows: PainelVendedorRow[] }) 
               <th className="pc-right">Insumos LTV <StatusBadge status="ok" /></th>
               <th className="pc-right">Insumos novos <StatusBadge status="parcial" /></th>
               <th className="pc-right">Equip.</th>
+              <th className="pc-right" title="Licença, software, crédito de IA, curso e serviço">Soft/Serv.</th>
               <th className="pc-right">Upsell <StatusBadge status="ok" /></th>
               <th className="pc-right">Total <StatusBadge status="ok" /></th>
               <th className="pc-right">% Meta <StatusBadge status="gap" /></th>
@@ -60,6 +61,7 @@ export function SellerPerformanceTable({ rows }: { rows: PainelVendedorRow[] }) 
                 <td className="pc-right">{fmtBRL(r.receita_insumos_ltv, true)}</td>
                 <td className="pc-right">{fmtBRL(r.receita_insumos_novos, true)}</td>
                 <td className="pc-right">{fmtBRL(r.receita_equip, true)}</td>
+                <td className="pc-right">{fmtBRL(r.receita_software_servico, true)}</td>
                 <td className="pc-right">{fmtBRL(r.receita_upsell, true)}</td>
                 <td className="pc-right pc-num-sm">{fmtBRL(r.total_vendas, true)}</td>
                 <td className="pc-right pc-dim">—</td>

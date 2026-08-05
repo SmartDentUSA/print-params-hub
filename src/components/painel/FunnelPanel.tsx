@@ -29,10 +29,12 @@ export function FunnelPanel({ rows }: { rows: PainelFunilRow[] }) {
       <div className="pc-funil">
         <div className="pc-funil-head">
           <span>Etapa</span>
-          <span>Volume</span>
-          <span className="ta-r">Hoje</span>
+          <span title="Leads que alcançaram esta etapa ou qualquer posterior (12 meses)">Volume</span>
+          <span className="ta-r" title="Leads com negócio aberto hoje nesta etapa">Hoje</span>
           <span className="ta-r">Méd</span>
-          <span className="ta-r">Perda</span>
+          <span className="ta-r" title="Alcançaram a etapa e saíram do funil: perdidos + migrados para Estagnados">
+            Perda
+          </span>
         </div>
 
         {ordenadas.map((r, i) => {

@@ -14,11 +14,16 @@ export interface PainelKpis {
   funil_atual: number | null;
   leads_perdidos: number | null;
   leads_reativados: number | null;
+  /** base da composição: receita dos negócios que têm linhas de proposta */
   receita_produtos_total: number | null;
   receita_equipamentos: number | null;
   receita_insumos: number | null;
   /** licença, software, crédito de IA, curso e serviço — não é insumo nem equipamento */
   receita_software_servico: number | null;
+  /** receita de negócios ganhos sem nenhuma linha de proposta — fica fora da composição */
+  receita_sem_composicao?: number | null;
+  /** itens com proposta que a taxonomia não conseguiu classificar */
+  receita_nao_classificada?: number | null;
 }
 
 export interface PainelFunilRow {
@@ -36,8 +41,10 @@ export interface PainelFunilRow {
 
 export interface PainelVendedorRow {
   vendedor: string;
+  /** negócios criados no pipeline de vendas no mês (não é contagem de leads) */
   leads_novos: number;
   leads_mes_anterior: number;
+  /** leads distintos com negócio aberto, mesmo corte de 12 meses do KPI */
   funil_atual: number;
   pedidos: number;
   pct_abandono: number | null;
@@ -51,6 +58,8 @@ export interface PainelVendedorRow {
   receita_insumos_novos: number | null;
   receita_equip: number | null;
   receita_upsell: number | null;
+  /** licença, software, crédito de IA, curso e serviço — mesma classe do KPI */
+  receita_software_servico?: number | null;
   total_vendas: number | null;
 }
 
@@ -78,7 +87,10 @@ export interface PainelOrigemRow {
   perdidos: number;
   pct_perda: number | null;
   etapa_maior_perda: string | null;
+  /** negócios fechados NO MÊS (visão de caixa), independentemente de quando o lead entrou */
   ganhos: number;
+  /** leads DESTA coorte que já converteram — base da conversão (nunca passa de 100%) */
+  ganhos_coorte?: number | null;
   lead_time_dias: number | null;
   pct_conversao: number | null;
   receita: number | null;
@@ -135,6 +147,20 @@ export function usePainelOrigens(mes?: string) {
     queryKey: ["painel-origens", mes],
     queryFn: () => rpc<PainelOrigemRow[]>("painel_comercial_origens", mes ? { p_mes: mes } : undefined),
     refetchInterval: REFETCH,
+  });
+}
+
+export interface PainelMesDisponivel {
+  mes: string;
+  atualizado_em: string;
+}
+
+/** Meses que existem no cache — o seletor não deve oferecer mês que nunca foi calculado. */
+export function usePainelMesesDisponiveis() {
+  return useQuery({
+    queryKey: ["painel-meses"],
+    queryFn: () => rpc<PainelMesDisponivel[]>("painel_comercial_meses_disponiveis"),
+    staleTime: REFETCH,
   });
 }
 
