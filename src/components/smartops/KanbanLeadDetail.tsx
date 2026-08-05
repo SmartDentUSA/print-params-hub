@@ -629,16 +629,48 @@ export function KanbanLeadDetail({ lead, open, onClose }: KanbanLeadDetailProps)
             </>
           ) : null}
 
-          {/* ===== TIMELINE ATIVA (real-time) ===== */}
-          <Section title={`Timeline (${timelineEvents.length})`} emoji="⏱️" defaultOpen>
+          {/* ===== TIMELINE UNIFICADA (real-time) ===== */}
+          <Section title={`Timeline (${visibleTimeline.length}${activeCats.length > 0 ? `/${timelineEvents.length}` : ""})`} emoji="⏱️" defaultOpen>
+            {timelineEvents.length > 0 && (
+              <div className="flex flex-wrap gap-1 mb-2">
+                {TIMELINE_CATEGORIES.filter((c) => categoryCounts[c.key] > 0).map((c) => {
+                  const on = activeCats.includes(c.key);
+                  return (
+                    <button
+                      key={c.key}
+                      type="button"
+                      onClick={() =>
+                        setActiveCats((prev) =>
+                          prev.includes(c.key) ? prev.filter((k) => k !== c.key) : [...prev, c.key],
+                        )
+                      }
+                      className={`rounded-full border px-2 py-0.5 text-[10px] transition-colors ${
+                        on ? "bg-primary text-primary-foreground border-primary" : "bg-muted/40 text-muted-foreground hover:bg-muted"
+                      }`}
+                    >
+                      {c.emoji} {c.label} ({categoryCounts[c.key]})
+                    </button>
+                  );
+                })}
+                {activeCats.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setActiveCats([])}
+                    className="rounded-full border px-2 py-0.5 text-[10px] text-muted-foreground hover:bg-muted"
+                  >
+                    limpar
+                  </button>
+                )}
+              </div>
+            )}
             {loadingMsgs && timelineEvents.length === 0 ? (
               <p className="text-xs text-muted-foreground">Carregando timeline...</p>
-            ) : timelineEvents.length === 0 ? (
-              <p className="text-xs text-muted-foreground italic">Nenhum evento registrado ainda. Eventos de CRM, E-commerce, LIA e WhatsApp aparecerão aqui em tempo real.</p>
+            ) : visibleTimeline.length === 0 ? (
+              <p className="text-xs text-muted-foreground italic">Nenhum evento nessa seleção. Eventos de CRM, mensagens, e-mail, conteúdo, compras, suporte e NPS aparecem aqui em tempo real.</p>
             ) : (
               <div className="max-h-[350px] overflow-y-auto pr-1">
-                {timelineEvents.map((event) => (
-                  <TimelineItem key={event.id} event={event} />
+                {visibleTimeline.map((event) => (
+                  <TimelineItem key={event.item_id} event={event} />
                 ))}
               </div>
             )}
