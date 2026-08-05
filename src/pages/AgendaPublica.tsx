@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Helmet } from "react-helmet-async";
 import { supabase } from "@/integrations/supabase/client";
-import { CalendarDays, MapPin, User, RefreshCw, Share2, Clock, Timer, Radio } from "lucide-react";
+import { CalendarDays, MapPin, User, Users, RefreshCw, Share2, Clock, Timer, Radio } from "lucide-react";
 import { formatDatePtBr, formatWeekday } from "@/lib/courseUtils";
 import { formatTurmaNumber } from "@/lib/turmaNumber";
 import { cn } from "@/lib/utils";
@@ -447,6 +447,17 @@ function PublicTurmaCard({ turma, status }: { turma: TurmaComVagas; status: Coun
         </div>
       )}
       <ShareButton turma={turma} />
+      {turma.turma_number != null && (
+        <button
+          type="button"
+          onClick={() => window.open(`/turma${turma.turma_number}`, "_blank", "noopener,noreferrer")}
+          title="Participantes e acompanhantes"
+          aria-label="Participantes e acompanhantes"
+          className="absolute top-2 right-12 z-10 inline-flex items-center justify-center w-8 h-8 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground shadow-md transition-colors"
+        >
+          <Users className="w-4 h-4" />
+        </button>
+      )}
       <div className="p-5 flex flex-col flex-1">
       <div className="mb-3 flex items-center gap-2 flex-wrap">
         {isOnline && !coverUrl && <LiveBadge modality={turma.modality} />}
