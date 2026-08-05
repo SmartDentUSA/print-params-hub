@@ -2734,6 +2734,7 @@ export type Database = {
           document_type: string | null
           extracted_at: string | null
           extracted_text: string | null
+          extraction_attempts: number
           extraction_error: string | null
           extraction_method: string | null
           extraction_status: string | null
@@ -2758,6 +2759,7 @@ export type Database = {
           document_type?: string | null
           extracted_at?: string | null
           extracted_text?: string | null
+          extraction_attempts?: number
           extraction_error?: string | null
           extraction_method?: string | null
           extraction_status?: string | null
@@ -2782,6 +2784,7 @@ export type Database = {
           document_type?: string | null
           extracted_at?: string | null
           extracted_text?: string | null
+          extraction_attempts?: number
           extraction_error?: string | null
           extraction_method?: string | null
           extraction_status?: string | null
@@ -18000,6 +18003,7 @@ export type Database = {
           external_url: string | null
           extracted_at: string | null
           extracted_text: string | null
+          extraction_attempts: number
           extraction_error: string | null
           extraction_method: string | null
           extraction_status: string | null
@@ -18039,6 +18043,7 @@ export type Database = {
           external_url?: string | null
           extracted_at?: string | null
           extracted_text?: string | null
+          extraction_attempts?: number
           extraction_error?: string | null
           extraction_method?: string | null
           extraction_status?: string | null
@@ -18078,6 +18083,7 @@ export type Database = {
           external_url?: string | null
           extracted_at?: string | null
           extracted_text?: string | null
+          extraction_attempts?: number
           extraction_error?: string | null
           extraction_method?: string | null
           extraction_status?: string | null
