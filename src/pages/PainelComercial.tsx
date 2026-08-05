@@ -51,7 +51,7 @@ export default function PainelComercial() {
   }, []);
 
   const kpis = usePainelKpis(mesAtual);
-  const funil = usePainelFunil();
+  const funil = usePainelFunil(mesAtual);
   const vendedores = usePainelVendedores(mesAtual);
   const atividades = usePainelAtividades(mesAtual);
   const origens = usePainelOrigens(mesAtual);
@@ -71,7 +71,9 @@ export default function PainelComercial() {
           <span className="pc-logo" aria-hidden>◈</span>
           <div>
             <h1 className="text-2xl font-bold">Painel Comercial — Smart Dent</h1>
-            <p className="pc-label mt-1">{k ? mesLabel(k.mes_ref) : "carregando"}</p>
+            <p className="pc-label mt-1">
+              {k?.mes_ref ? mesLabel(k.mes_ref) : "sem dados para este mês"}
+            </p>
           </div>
         </div>
         <div className="flex items-center gap-3">
@@ -183,7 +185,7 @@ export default function PainelComercial() {
       </section>
 
       <footer className="pc-footer">
-        Painel Comercial Smart Dent · dados do Sistema B · atualização automática a cada 15 min
+        Painel Comercial Smart Dent · dados do Sistema B · atualização automática a cada 5 min
       </footer>
     </main>
   );

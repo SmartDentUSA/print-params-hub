@@ -1,224 +1,318 @@
-/* Painel Comercial — TV dashboard. Tokens escopados para não afetar o app. */
+/* ===========================================================
+   Painel Comercial — Smart Dent
+   Tokens escopados em .painel: nada vaza para o resto do app.
+   Ajuste --pc-scale para leitura em TV (1.35 ≈ 3 m de distância).
+   =========================================================== */
 .painel {
-  --pc-bg: 220 40% 6%;
-  --pc-surface: 220 34% 10%;
-  --pc-surface-2: 220 30% 14%;
-  --pc-border: 220 24% 20%;
-  --pc-text: 210 30% 96%;
-  --pc-text-dim: 215 16% 66%;
-  --pc-accent: 168 76% 45%;
-  --pc-ok: 152 62% 45%;
-  --pc-warn: 38 92% 55%;
-  --pc-gap: 0 72% 55%;
-  --pc-info: 205 90% 58%;
+  --pc-scale: 1;
 
+  --pc-bg:        #0a0f1e;
+  --pc-surface:   #111827;
+  --pc-surface2:  #1a2235;
+  --pc-border:    #1f2d45;
+
+  --pc-accent:    #00d4ff;   /* números de destaque */
+  --pc-roxo:      #7c3aed;
+  --pc-ok:        #10b981;   /* ganho / positivo */
+  --pc-alerta:    #f59e0b;
+  --pc-danger:    #ef4444;
+
+  --pc-text:      #e2e8f0;
+  --pc-text-dim:  #94a3b8;
+  --pc-text-mute: #64748b;
+
+  --pc-radius:    12px;
+  --pc-gap:       8px;
+
+  --pc-font:      'Inter', system-ui, sans-serif;
+  --pc-font-num:  'Space Grotesk', 'Inter', sans-serif;
+
+  background: var(--pc-bg);
+  color: var(--pc-text);
+  font-family: var(--pc-font);
+  font-size: calc(11.5px * var(--pc-scale));
+  line-height: 1.35;
   min-height: 100vh;
-  background: radial-gradient(120% 100% at 50% 0%, hsl(220 44% 12%) 0%, hsl(var(--pc-bg)) 60%);
-  color: hsl(var(--pc-text));
-  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
-  padding: 1.25rem 1.5rem 2rem;
+  padding: calc(12px * var(--pc-scale)) calc(24px * var(--pc-scale));
 }
 
-.painel h1, .painel h2, .painel .pc-num {
-  font-family: "Space Grotesk", Inter, ui-sans-serif, sans-serif;
+.painel .pc-label {
+  font-size: calc(11px * var(--pc-scale));
+  color: var(--pc-text-mute);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.painel .pc-num-sm {
+  font-family: var(--pc-font-num);
+  font-size: calc(17px * var(--pc-scale));
+  font-weight: 700;
+  color: var(--pc-accent);
+}
+.painel .pc-logo {
+  width: calc(32px * var(--pc-scale));
+  height: calc(32px * var(--pc-scale));
+  background: linear-gradient(135deg, var(--pc-accent), var(--pc-roxo));
+  border-radius: 12px;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: calc(16px * var(--pc-scale));
+  flex-shrink: 0;
+}
+
+/* --- Legenda de status --- */
+.painel .pc-legend {
+  display: flex; gap: calc(18px * var(--pc-scale)); flex-wrap: wrap;
+  font-size: calc(11px * var(--pc-scale));
+  color: var(--pc-text-dim);
+}
+.painel .pc-dot {
+  display: inline-block; width: 8px; height: 8px;
+  border-radius: 50%; margin-right: 5px; vertical-align: middle;
+}
+.painel .pc-dot-ok      { background: var(--pc-ok); }
+.painel .pc-dot-parcial { background: var(--pc-alerta); }
+.painel .pc-dot-gap     { background: var(--pc-danger); }
+
+/* --- Painéis e cards --- */
+.painel .pc-panel {
+  background: var(--pc-surface);
+  border: 1px solid var(--pc-border);
+  border-radius: var(--pc-radius);
+  padding: calc(10px * var(--pc-scale)) calc(12px * var(--pc-scale));
+  min-width: 0;
+}
+.painel .pc-panel-title {
+  font-family: var(--pc-font-num);
+  font-size: calc(12px * var(--pc-scale));
+  font-weight: 700; color: #fff;
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: calc(6px * var(--pc-scale));
+}
+
+/* --- Layout: funil à esquerda, tabelas à direita --- */
+.painel .pc-mid-grid {
+  display: grid;
+  grid-template-columns: minmax(420px, 480px) minmax(0, 1fr);
+  gap: var(--pc-gap);
+  align-items: start;
+}
+
+/* ===========================================================
+   FUNIL
+   =========================================================== */
+.painel .pc-funil {
+  display: flex; flex-direction: column;
+  align-items: center;           /* barras centradas = forma de funil */
+  gap: 3px;
+  padding: calc(4px * var(--pc-scale)) 0;
+}
+
+.painel .pc-funil-bar {
+  position: relative;
+  box-sizing: border-box;
+  border-radius: 8px;
+  padding: calc(6px * var(--pc-scale)) calc(10px * var(--pc-scale));
+  color: #fff;
+  font-weight: 600;
+  font-size: calc(10.5px * var(--pc-scale));
+  display: flex; align-items: center; justify-content: space-between;
+  gap: calc(8px * var(--pc-scale));
+  box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+  transition: filter 0.15s ease;
+  min-width: 0;
+}
+.painel .pc-funil-bar:hover { filter: brightness(1.12); }
+
+.painel .pc-funil-bar .fb-nome {
+  font-family: var(--pc-font-num);
+  font-weight: 700;
+  white-space: nowrap;
+  flex: 0 0 auto;
+}
+.painel .pc-funil-bar .fb-sub {
+  font-size: calc(8.5px * var(--pc-scale));
+  opacity: 0.85; font-weight: 500; white-space: nowrap;
+  min-width: 0; overflow: hidden; text-overflow: ellipsis;
+}
+.painel .pc-funil-bar .fb-qtd {
+  font-family: var(--pc-font-num);
+  font-weight: 700;
+  font-size: calc(13px * var(--pc-scale));
+  margin-left: auto;             /* volume sempre encostado à direita */
+  white-space: nowrap;
+}
+
+/* Rampa de cor por etapa: azul → roxo → magenta.
+   A etapa final é sempre verde (ganho), venha na ordem que vier. */
+.painel .pc-funil-bar                 { background: linear-gradient(90deg, #1e3a8a, #1e40af); }
+.painel .pc-funil-bar[data-ordem="2"] { background: linear-gradient(90deg, #1e40af, #2549b8); }
+.painel .pc-funil-bar[data-ordem="3"] { background: linear-gradient(90deg, #2549b8, #3b3fc2); }
+.painel .pc-funil-bar[data-ordem="4"] { background: linear-gradient(90deg, #4b34c9, #5f2fd0); }
+.painel .pc-funil-bar[data-ordem="5"] { background: linear-gradient(90deg, #6d2ad6, #7c3aed); }
+.painel .pc-funil-bar[data-ordem="6"] { background: linear-gradient(90deg, #8b2fd8, #a855f7); }
+.painel .pc-funil-bar[data-ordem="7"] { background: linear-gradient(90deg, #a133c4, #c026d3); }
+.painel .pc-funil-bar[data-ordem="8"] { background: linear-gradient(90deg, #b8309e, #db2777); }
+.painel .pc-funil-bar.is-final        { background: linear-gradient(90deg, #0d9488, #10b981); }
+
+/* Badge de perda dentro da barra */
+.painel .pc-perda {
+  font-size: calc(8px * var(--pc-scale));
+  font-weight: 700;
+  padding: 1px 5px; border-radius: 6px;
+  background: rgba(0,0,0,0.3);
+  color: #d1fae5;
+  white-space: nowrap;
+}
+.painel .pc-perda--alerta  { background: rgba(245,158,11,0.5); color: #fed7aa; }
+.painel .pc-perda--critico { background: rgba(239,68,68,0.5);  color: #fecaca; }
+
+/* Linha de passagem entre etapas */
+.painel .pc-passagem {
+  font-size: calc(8.5px * var(--pc-scale));
+  color: var(--pc-text-mute);
+  text-align: center;
+}
+.painel .pc-passagem b { color: var(--pc-ok); }
+.painel .pc-passagem.is-gargalo   { color: var(--pc-danger); font-weight: 600; }
+.painel .pc-passagem.is-gargalo b { color: var(--pc-danger); }
+
+/* ===========================================================
+   TABELAS
+   =========================================================== */
+.painel .pc-scroll-x { overflow-x: auto; }
+.painel table {
+  width: 100%; border-collapse: collapse;
+  font-size: calc(11px * var(--pc-scale));
+  table-layout: fixed;
+}
+.painel thead th {
+  text-align: left;
+  padding: calc(4px * var(--pc-scale)) calc(6px * var(--pc-scale));
+  color: var(--pc-text-mute);
+  font-weight: 600; text-transform: uppercase;
+  font-size: calc(9.5px * var(--pc-scale));
+  letter-spacing: 0.3px;
+  border-bottom: 1px solid var(--pc-border);
+  white-space: normal; word-break: break-word;
+  line-height: 1.3; vertical-align: bottom;
+  width: calc(90px * var(--pc-scale));
+}
+.painel thead th.col-nome { width: calc(110px * var(--pc-scale)); }
+.painel tbody td {
+  padding: calc(3px * var(--pc-scale)) calc(8px * var(--pc-scale));
+  border-bottom: 1px solid rgba(31,45,69,0.5);
+  white-space: nowrap;
+}
+.painel tbody tr:hover { background: rgba(255,255,255,0.02); }
+.painel .pc-nome { font-weight: 600; color: #fff; }
+.painel .pc-num  { font-family: var(--pc-font-num); }
+.painel .pc-muted{ color: var(--pc-text-mute); font-style: italic; }
+
+.painel .pc-footer {
+  border-top: 1px solid var(--pc-border);
+  padding: calc(8px * var(--pc-scale)) 0;
+  text-align: center;
+  color: var(--pc-text-mute);
+  font-size: calc(9.5px * var(--pc-scale));
+}
+
+/* ===========================================================
+   RESPONSIVO
+   =========================================================== */
+@media (max-width: 1200px) {
+  .painel .pc-mid-grid { grid-template-columns: 1fr; }
+}
+@media (max-width: 700px) {
+  .painel { padding-left: 16px; padding-right: 16px; }
+  .painel .pc-funil-bar { flex-wrap: wrap; gap: 4px; }
+  .painel .pc-funil-bar .fb-qtd { margin-left: 0; }
+}
+
+/* ===========================================================
+   PRESERVADO — classes usadas por KpiCard, StatusBadge,
+   SellerPerformanceTable, ActivityTable, OriginPanel e
+   TopProductsGrid. Reescritas nos tokens novos.
+   =========================================================== */
+.painel .pc-card {
+  background: linear-gradient(180deg, var(--pc-surface2) 0%, var(--pc-surface) 100%);
+  border: 1px solid var(--pc-border);
+  border-radius: 14px;
+  min-width: 0;
+}
+.painel h1, .painel h2, .painel .pc-num-lg {
+  font-family: var(--pc-font-num);
   letter-spacing: -0.02em;
 }
+.painel .pc-num { font-size: calc(2rem * var(--pc-scale)); font-weight: 700; line-height: 1.05; }
+.painel .pc-dim { color: var(--pc-text-dim); }
 
-.pc-card {
-  background: linear-gradient(180deg, hsl(var(--pc-surface-2)) 0%, hsl(var(--pc-surface)) 100%);
-  border: 1px solid hsl(var(--pc-border));
-  border-radius: 14px;
-}
-
-.pc-label {
-  font-size: 0.68rem;
-  text-transform: uppercase;
-  letter-spacing: 0.09em;
-  color: hsl(var(--pc-text-dim));
-}
-
-.pc-num { font-size: 2rem; font-weight: 700; line-height: 1.05; }
-.pc-num-sm { font-size: 1.35rem; font-weight: 700; line-height: 1.1; }
-.pc-dim { color: hsl(var(--pc-text-dim)); }
-
-.pc-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.3rem;
-  font-size: 0.6rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  padding: 0.12rem 0.42rem;
-  border-radius: 999px;
+.painel .pc-badge {
+  display: inline-flex; align-items: center; gap: 0.3rem;
+  font-size: calc(0.6rem * var(--pc-scale));
+  font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em;
+  padding: 0.12rem 0.42rem; border-radius: 999px;
   border: 1px solid currentColor;
 }
-.pc-badge-ok { color: hsl(var(--pc-ok)); }
-.pc-badge-parcial { color: hsl(var(--pc-warn)); }
-.pc-badge-gap { color: hsl(var(--pc-gap)); }
+.painel .pc-badge-ok      { color: var(--pc-ok); }
+.painel .pc-badge-parcial { color: var(--pc-alerta); }
+.painel .pc-badge-gap     { color: var(--pc-danger); }
 
-.pc-up { color: hsl(var(--pc-ok)); }
-.pc-down { color: hsl(var(--pc-gap)); }
-.pc-accent { color: hsl(var(--pc-accent)); }
-.pc-info { color: hsl(var(--pc-info)); }
+.painel .pc-up     { color: var(--pc-ok); }
+.painel .pc-down   { color: var(--pc-danger); }
+.painel .pc-accent { color: var(--pc-accent); }
+.painel .pc-info   { color: var(--pc-accent); }
 
-.pc-table { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
-.pc-table th {
-  text-align: left;
-  font-size: 0.62rem;
-  text-transform: uppercase;
-  letter-spacing: 0.07em;
-  color: hsl(var(--pc-text-dim));
-  padding: 0.4rem 0.5rem;
-  border-bottom: 1px solid hsl(var(--pc-border));
+.painel .pc-table { width: 100%; border-collapse: collapse; font-size: calc(0.78rem * var(--pc-scale)); }
+.painel .pc-table th {
+  text-align: left; font-size: calc(0.62rem * var(--pc-scale));
+  text-transform: uppercase; letter-spacing: 0.07em;
+  color: var(--pc-text-mute);
+  padding: 0.4rem 0.5rem; border-bottom: 1px solid var(--pc-border);
   white-space: nowrap;
 }
-.pc-table td {
+.painel .pc-table td {
   padding: 0.42rem 0.5rem;
-  border-bottom: 1px solid hsl(var(--pc-border) / 0.5);
+  border-bottom: 1px solid rgba(31,45,69,0.5);
   white-space: nowrap;
 }
-.pc-table tbody tr:nth-child(even) { background: hsl(var(--pc-surface-2) / 0.5); }
-.pc-table .pc-right { text-align: right; }
+.painel .pc-table tbody tr:nth-child(even) { background: rgba(26,34,53,0.5); }
+.painel .pc-table .pc-right { text-align: right; }
 
-.pc-bar {
-  height: 8px;
-  border-radius: 999px;
-  background: hsl(var(--pc-border));
-  overflow: hidden;
+.painel .pc-bar {
+  height: 8px; border-radius: 999px;
+  background: var(--pc-border); overflow: hidden;
 }
-.pc-bar > span {
-  display: block;
-  height: 100%;
-  border-radius: 999px;
-  background: linear-gradient(90deg, hsl(var(--pc-accent)), hsl(var(--pc-info)));
+.painel .pc-bar > span {
+  display: block; height: 100%; border-radius: 999px;
+  background: linear-gradient(90deg, var(--pc-accent), var(--pc-roxo));
 }
 
-.pc-funnel-step {
-  flex: 1 1 0;
-  min-width: 0;
-  padding: 0.7rem 0.6rem;
-  border-radius: 12px;
-  background: hsl(var(--pc-surface-2));
-  border: 1px solid hsl(var(--pc-border));
-}
-
-/* ---- Funil visual (afunilamento vertical) ---- */
-.pc-funnel {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.15rem;
-}
-.pc-funnel-row {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  width: 100%;
-}
-.pc-funnel-bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.6rem;
-  padding: 0.4rem 0.85rem;
-  border-radius: 10px;
-  color: #fff;
-  box-shadow: inset 0 1px 0 hsl(0 0% 100% / 0.14);
-  min-width: 0;
-  overflow: hidden;
-  transition: width 400ms ease;
-}
-.pc-funnel-bar .pc-fn-name {
-  font-weight: 700;
-  font-size: 0.78rem;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.pc-funnel-bar .pc-fn-meta {
-  font-size: 0.64rem;
-  opacity: 0.85;
-  white-space: nowrap;
-}
-.pc-fn-chip {
-  font-size: 0.6rem;
-  font-weight: 700;
-  padding: 0.1rem 0.4rem;
-  border-radius: 999px;
-  background: hsl(0 0% 100% / 0.16);
-  white-space: nowrap;
-}
-.pc-fn-chip[data-alto="true"] {
-  background: hsl(var(--pc-gap) / 0.9);
-}
-.pc-fn-total {
-  font-size: 1rem;
-  font-weight: 800;
-  min-width: 3.5rem;
-  text-align: right;
-  white-space: nowrap;
-}
-.pc-funnel-gap {
-  font-size: 0.64rem;
-  color: hsl(var(--pc-text-dim));
-  letter-spacing: 0.02em;
-  padding: 0.05rem 0;
-}
-.pc-funnel-gap[data-gargalo="true"] {
-  color: hsl(var(--pc-gap));
-  font-weight: 700;
-}
-/* Header / legenda / footer / layout mid-grid (espelha o HTML de referência) */
-.pc-logo {
-  width: 32px; height: 32px; border-radius: 12px;
-  display: inline-flex; align-items: center; justify-content: center;
-  font-size: 16px;
-  background: linear-gradient(135deg, hsl(190 100% 50%), hsl(263 83% 58%));
-  color: hsl(var(--background));
-}
-.pc-legend {
-  display: flex; gap: 18px; flex-wrap: wrap;
-  padding: 6px 10px; border: 1px solid hsl(var(--border));
-  border-radius: 8px; background: hsl(var(--card));
-  font-size: 0.7rem; color: hsl(var(--muted-foreground));
-}
-.pc-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 5px; }
-.pc-dot-ok { background: hsl(160 84% 39%); }
-.pc-dot-parcial { background: hsl(38 92% 50%); }
-.pc-dot-gap { background: hsl(0 84% 60%); }
-.pc-mid-grid { display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 2.1fr); gap: 0.75rem; }
-@media (max-width: 1200px) { .pc-mid-grid { grid-template-columns: 1fr; } }
-.pc-footer {
-  border-top: 1px solid hsl(var(--border));
-  padding-top: 8px; text-align: center;
-  font-size: 0.65rem; color: hsl(var(--muted-foreground));
-}
 /* Top produtos por etapa (7 colunas do workflow) */
-.pc-stages-grid {
-  display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 0.75rem;
-}
-@media (max-width: 1200px) { .pc-stages-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
-@media (max-width: 700px) { .pc-stages-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-.pc-stage-col {
-  background: hsl(var(--pc-surface-2));
-  border: 1px solid hsl(var(--pc-border));
+.painel .pc-stages-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 0.75rem; }
+@media (max-width: 1200px) { .painel .pc-stages-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+@media (max-width: 700px)  { .painel .pc-stages-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.painel .pc-stage-col {
+  background: var(--pc-surface2);
+  border: 1px solid var(--pc-border);
   border-radius: 12px; padding: 0.4rem 0.5rem;
   display: flex; flex-direction: column; gap: 0.35rem; min-width: 0;
 }
-.pc-stage-head {
-  font-size: 0.7rem; font-weight: 700;
-  padding-bottom: 0.4rem; border-bottom: 1px solid hsl(var(--pc-border));
+.painel .pc-stage-head {
+  font-size: calc(0.7rem * var(--pc-scale)); font-weight: 700;
+  padding-bottom: 0.4rem; border-bottom: 1px solid var(--pc-border);
 }
-.pc-subcat-block { display: flex; flex-direction: column; gap: 0.2rem; min-width: 0; }
-.pc-subcat-label {
-  font-size: 0.56rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em;
-  color: hsl(263 83% 72%); background: hsl(263 83% 58% / 0.14);
+.painel .pc-subcat-block { display: flex; flex-direction: column; gap: 0.2rem; min-width: 0; }
+.painel .pc-subcat-label {
+  font-size: calc(0.56rem * var(--pc-scale)); font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.03em;
+  color: #c4b5fd; background: rgba(124,58,237,0.18);
   border-radius: 5px; padding: 0.15rem 0.35rem; width: fit-content;
 }
-.pc-prod-item { display: flex; align-items: baseline; gap: 0.3rem; font-size: 0.66rem; min-width: 0; }
-.pc-prod-rank { color: hsl(var(--pc-text-dim)); width: 0.75rem; flex-shrink: 0; }
-.pc-prod-nome { color: hsl(var(--pc-text-dim)); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.pc-prod-val { color: hsl(var(--pc-accent)); font-weight: 600; flex-shrink: 0; }
-.pc-subcat-empty { font-size: 0.62rem; font-style: italic; color: hsl(var(--pc-text-dim)); }
+.painel .pc-prod-item { display: flex; align-items: baseline; gap: 0.3rem; font-size: calc(0.66rem * var(--pc-scale)); min-width: 0; }
+.painel .pc-prod-rank { color: var(--pc-text-mute); width: 0.75rem; flex-shrink: 0; }
+.painel .pc-prod-nome { color: var(--pc-text-dim); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.painel .pc-prod-val  { color: var(--pc-accent); font-weight: 600; flex-shrink: 0; }
+.painel .pc-subcat-empty { font-size: calc(0.62rem * var(--pc-scale)); font-style: italic; color: var(--pc-text-mute); }
+.painel .pc-funnel-step {
+  flex: 1 1 0; min-width: 0; padding: 0.7rem 0.6rem; border-radius: 12px;
+  background: var(--pc-surface2); border: 1px solid var(--pc-border);
+}

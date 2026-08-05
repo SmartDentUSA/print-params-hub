@@ -67,6 +67,8 @@ export interface PainelAtividadeRow {
 export interface PainelOrigemRow {
   origem: string;
   campanha: string;
+  /** classificação da origem (pode não vir se a migration ainda não rodou) */
+  tipo?: "Inbound" | "Outbound";
   leads_gerados: number;
   ativos: number;
   perdidos: number;
@@ -100,10 +102,10 @@ export function usePainelKpis(mes?: string) {
   });
 }
 
-export function usePainelFunil() {
+export function usePainelFunil(mes?: string) {
   return useQuery({
-    queryKey: ["painel-funil"],
-    queryFn: () => rpc<PainelFunilRow[]>("painel_comercial_funil"),
+    queryKey: ["painel-funil", mes],
+    queryFn: () => rpc<PainelFunilRow[]>("painel_comercial_funil", mes ? { p_mes: mes } : undefined),
     refetchInterval: REFETCH,
   });
 }

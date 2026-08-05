@@ -1,10 +1,8 @@
 import { PainelOrigemRow, fmtBRL, fmtDias, fmtNum, fmtPct } from "@/hooks/painel/usePainelComercial";
 import { StatusBadge, statusFromData } from "./StatusBadge";
 
-const isInbound = (origem: string) =>
-  /meta|face|insta|orgânic|organic|whatsapp|e-commerce|ecommerce|site|google|form/i.test(origem);
-
 function OriginTable({ rows }: { rows: PainelOrigemRow[] }) {
+  const ordenadas = [...rows].sort((a, b) => (b.leads_gerados ?? 0) - (a.leads_gerados ?? 0));
   return (
     <div className="overflow-x-auto">
       <table className="pc-table">
@@ -24,7 +22,7 @@ function OriginTable({ rows }: { rows: PainelOrigemRow[] }) {
           </tr>
         </thead>
         <tbody>
-          {rows.map((r) => (
+          {ordenadas.map((r) => (
             <tr key={`${r.origem}::${r.campanha}`}>
               <td className="font-medium max-w-[15rem] truncate" title={r.origem}>{r.origem}</td>
               <td className="pc-dim max-w-[12rem] truncate" title={r.campanha}>{r.campanha}</td>
@@ -46,9 +44,24 @@ function OriginTable({ rows }: { rows: PainelOrigemRow[] }) {
 }
 
 export function OriginPanel({ rows }: { rows: PainelOrigemRow[] }) {
-  const inbound = rows.filter((r) => isInbound(r.origem)).slice(0, 12);
-  const outbound = rows.filter((r) => !isInbound(r.origem)).slice(0, 12);
   const completo = rows.some((r) => (r.ganhos ?? 0) > 0);
+  const temTipo = rows.some((r) => r.tipo);
+
+  // Fallback: sem o campo `tipo` (migration não aplicada) mantém uma tabela única.
+  if (!temTipo) {
+    return (
+      <div className="pc-card p-4">
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-base font-semibold">Origem dos leads</h2>
+          <StatusBadge status={statusFromData(rows.length > 0, completo)} />
+        </div>
+        <OriginTable rows={rows} />
+      </div>
+    );
+  }
+
+  const inbound = rows.filter((r) => r.tipo === "Inbound");
+  const outbound = rows.filter((r) => r.tipo === "Outbound");
 
   return (
     <div className="grid grid-cols-1 gap-3">
