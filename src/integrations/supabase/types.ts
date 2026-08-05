@@ -31878,6 +31878,22 @@ export type Database = {
         }
         Returns: string
       }
+      fn_lead_timeline_unified: {
+        Args: { p_categories?: string[]; p_lead_id: string; p_limit?: number }
+        Returns: {
+          category: string
+          description: string
+          entity_id: string
+          entity_type: string
+          event_data: Json
+          event_timestamp: string
+          event_type: string
+          item_id: string
+          source_channel: string
+          title: string
+          value_numeric: number
+        }[]
+      }
       fn_link_page_views_to_lead: {
         Args: { p_lead_id: string; p_session_id: string }
         Returns: number
