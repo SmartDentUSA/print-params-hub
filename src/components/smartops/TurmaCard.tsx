@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import type { TurmaComVagas } from "@/types/courses";
 import { formatDatePtBr } from "@/lib/courseUtils";
 import { GerarDocButton } from "@/components/GerarDocButton";
+import { BoasVindasButton } from "@/components/BoasVindasButton";
 import { GerarCrachasButton } from "@/components/GerarCrachasButton";
 import { CriarPastaDriveButton } from "@/components/smartops/CriarPastaDriveButton";
 import { UploadMidiasDriveButton } from "@/components/smartops/UploadMidiasDriveButton";
@@ -224,6 +225,7 @@ export function TurmaCard({ turma, companionCount, status, onEnroll, onShare }: 
         ) : <span />}
         <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
           <GerarDocButton turmaId={turma.id} turmaLabel={turma.label} />
+          <BoasVindasButton turmaNumber={turma.turma_number ?? null} />
           <CriarPastaDriveButton
             turmaId={turma.id}
             folderUrl={driveFolderUrl}
