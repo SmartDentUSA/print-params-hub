@@ -67,7 +67,7 @@ const EMPTY_FORM = {
   evo_go_base_url: "",
   evolution_enabled: false,
   evo_go_enabled: false,
-  messaging_provider: "waleads",
+  messaging_provider: "evolution",
 };
 
 type EvolutionStatus = "open" | "connecting" | "close" | "unknown";
@@ -199,7 +199,7 @@ export function SmartOpsTeam() {
       evo_go_base_url: m.evo_go_base_url || "",
       evolution_enabled: m.evolution_enabled === true,
       evo_go_enabled: m.evo_go_enabled === true,
-      messaging_provider: m.messaging_provider || "waleads",
+      messaging_provider: m.messaging_provider || "evolution",
     });
     setEvolutionStatus("unknown");
     setEvoGoStatus("unknown");
@@ -621,7 +621,6 @@ export function SmartOpsTeam() {
                 <Select value={form.messaging_provider} onValueChange={(v) => setForm({ ...form, messaging_provider: v })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="waleads">WaLeads</SelectItem>
                     <SelectItem value="evolution">Evolution API</SelectItem>
                     <SelectItem value="evolution_go">Evolution GO</SelectItem>
                     <SelectItem value="manychat">ManyChat</SelectItem>
