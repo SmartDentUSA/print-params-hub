@@ -53,15 +53,59 @@ export function buildPaymentMessage(n: PaymentNotice, sellerName: string | null)
   ].join("\n");
 }
 
-async function senderKey(supabase: any): Promise<string> {
+async function instanceKey(supabase: any, instance: string): Promise<string> {
   const { data } = await supabase
     .from("team_members")
     .select("evolution_api_key")
-    .eq("evolution_instance_name", SENDER_INSTANCE)
+    .eq("evolution_instance_name", instance)
     .not("evolution_api_key", "is", null)
     .limit(1)
     .maybeSingle();
   return ((data as any)?.evolution_api_key as string | null)?.trim() || EVO_KEY;
+}
+
+async function isOpen(instance: string, key: string): Promise<boolean> {
+  try {
+    const r = await fetch(`${EVO_BASE}/instance/connectionState/${encodeURIComponent(instance)}`, {
+      headers: { apikey: key },
+      signal: AbortSignal.timeout(12_000),
+    });
+    if (!r.ok) return false;
+    const j = await r.json();
+    return j?.instance?.state === "open";
+  } catch {
+    return false;
+  }
+}
+
+let _sender: { instance: string; key: string } | null = null;
+
+/** Instância institucional preferida; se estiver desconectada, cai para a 1ª instância aberta. */
+async function resolveSender(supabase: any): Promise<{ instance: string; key: string } | null> {
+  if (_sender) return _sender;
+  const primaryKey = await instanceKey(supabase, SENDER_INSTANCE);
+  if (await isOpen(SENDER_INSTANCE, primaryKey)) {
+    _sender = { instance: SENDER_INSTANCE, key: primaryKey };
+    return _sender;
+  }
+  console.warn(`[stripe-notify] instância ${SENDER_INSTANCE} desconectada — buscando fallback`);
+  const { data } = await supabase
+    .from("team_members")
+    .select("evolution_instance_name, evolution_api_key")
+    .not("evolution_api_key", "is", null)
+    .eq("ativo", true);
+  const seen = new Set<string>([SENDER_INSTANCE]);
+  for (const m of (data ?? []) as any[]) {
+    const name = (m.evolution_instance_name as string | null)?.trim();
+    const key = (m.evolution_api_key as string | null)?.trim();
+    if (!name || !key || seen.has(name)) continue;
+    seen.add(name);
+    if (await isOpen(name, key)) {
+      _sender = { instance: name, key };
+      return _sender;
+    }
+  }
+  return null;
 }
 
 async function sendAndLog(supabase: any, params: {
@@ -79,23 +123,30 @@ async function sendAndLog(supabase: any, params: {
   const to = clean.startsWith("55") ? clean : `55${clean}`;
   let status: "enviado" | "erro" = "enviado";
   let error_details: string | null = null;
+  let usedInstance = SENDER_INSTANCE;
   try {
-    const key = await senderKey(supabase);
-    const res = await fetch(`${EVO_BASE}/message/sendText/${encodeURIComponent(SENDER_INSTANCE)}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", apikey: key },
-      body: JSON.stringify({ number: to, text: params.text }),
-      signal: AbortSignal.timeout(30_000),
-    });
-    if (!res.ok) {
+    const sender = await resolveSender(supabase);
+    if (!sender) {
       status = "erro";
-      error_details = `sendText ${res.status}: ${(await res.text()).slice(0, 300)}`;
+      error_details = "nenhuma_instancia_evolution_conectada";
+    } else {
+      usedInstance = sender.instance;
+      const res = await fetch(`${EVO_BASE}/message/sendText/${encodeURIComponent(sender.instance)}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", apikey: sender.key },
+        body: JSON.stringify({ number: to, text: params.text }),
+        signal: AbortSignal.timeout(30_000),
+      });
+      if (!res.ok) {
+        status = "erro";
+        error_details = `sendText ${res.status} via ${sender.instance}: ${(await res.text()).slice(0, 260)}`;
+      }
     }
   } catch (e) {
     status = "erro";
     error_details = e instanceof Error ? e.message : String(e);
   }
-  await logMsg(supabase, { ...params, whatsapp_number: to, status, error_details });
+  await logMsg(supabase, { ...params, whatsapp_number: to, status, error_details, instance: usedInstance });
   return status === "enviado";
 }
 
@@ -107,6 +158,7 @@ async function logMsg(supabase: any, p: {
   text?: string;
   status: string;
   error_details: string | null;
+  instance?: string;
 }) {
   try {
     await supabase.from("message_logs").insert({
@@ -118,7 +170,7 @@ async function logMsg(supabase: any, p: {
       error_details: p.error_details,
       mensagem_preview: (p.text ?? "").slice(0, 500) || null,
       data_envio: new Date().toISOString(),
-      evolution_instance: SENDER_INSTANCE,
+      evolution_instance: p.instance ?? SENDER_INSTANCE,
     });
   } catch (e) {
     console.error("[stripe-notify] message_logs insert error:", (e as Error).message);
