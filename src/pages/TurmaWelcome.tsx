@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import bgAsset from "@/assets/turma-welcome-bg.png.asset.json";
 
 interface WelcomeParticipant {
   name: string;
