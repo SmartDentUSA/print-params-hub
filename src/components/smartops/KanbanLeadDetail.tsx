@@ -507,12 +507,11 @@ export function KanbanLeadDetail({ lead, open, onClose }: KanbanLeadDetailProps)
       .order("created_at", { ascending: false })
       .limit(100);
 
-    const p4 = supabase
-      .from("lead_activity_log")
-      .select("id, event_type, event_timestamp, entity_type, entity_id, entity_name, event_data, source_channel, value_numeric")
-      .eq("lead_id", lead.id)
-      .order("event_timestamp", { ascending: false })
-      .limit(200);
+    // Timeline unificada (CRM + mensagens + e-mail + conteúdo + compras + suporte + NPS)
+    const p4 = supabase.rpc("fn_lead_timeline_unified" as never, {
+      p_lead_id: lead.id,
+      p_limit: 400,
+    } as never);
 
     Promise.all([p1, p2, p3, p4]).then(([r1, r2, r3, r4]) => {
       const logs = (r1.data || []) as MsgLog[];
@@ -520,7 +519,7 @@ export function KanbanLeadDetail({ lead, open, onClose }: KanbanLeadDetailProps)
       setSellerMsgs(logs.filter((l) => SELLER_TO_LEAD_TYPES.includes(l.tipo || "")));
       setLiaInteractions((r2.data || []) as AgentInteraction[]);
       setWhatsappMsgs((r3.data || []) as WhatsAppMsg[]);
-      setTimelineEvents((r4.data || []) as TimelineEvent[]);
+      setTimelineEvents(((r4.data || []) as unknown) as TimelineEvent[]);
       setLoadingMsgs(false);
     });
 
@@ -536,7 +535,19 @@ export function KanbanLeadDetail({ lead, open, onClose }: KanbanLeadDetailProps)
           filter: `lead_id=eq.${lead.id}`,
         },
         (payload) => {
-          const newEvent = payload.new as TimelineEvent;
+          const raw = payload.new as Record<string, unknown>;
+          const newEvent: TimelineEvent = {
+            item_id: `lal:${String(raw.id)}`,
+            category: "sistema",
+            event_type: String(raw.event_type ?? "evento"),
+            event_timestamp: String(raw.event_timestamp ?? new Date().toISOString()),
+            title: (raw.entity_name as string) ?? null,
+            description: null,
+            entity_id: (raw.entity_id as string) ?? null,
+            event_data: (raw.event_data as Record<string, unknown>) ?? {},
+            source_channel: (raw.source_channel as string) ?? null,
+            value_numeric: (raw.value_numeric as number) ?? null,
+          };
           setTimelineEvents((prev) => [newEvent, ...prev]);
         }
       )
