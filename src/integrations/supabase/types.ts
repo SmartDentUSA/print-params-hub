@@ -33221,10 +33221,15 @@ export type Database = {
       painel_comercial_funil: { Args: { p_mes?: string }; Returns: Json }
       painel_comercial_kpis: { Args: { p_mes?: string }; Returns: Json }
       painel_comercial_kpis_cache: { Args: { p_mes?: string }; Returns: Json }
+      painel_comercial_meses_disponiveis: { Args: never; Returns: Json }
       painel_comercial_origens: { Args: { p_mes?: string }; Returns: Json }
       painel_comercial_refresh: { Args: { p_mes?: string }; Returns: undefined }
       painel_comercial_refresh_all: {
         Args: { p_mes?: string }
+        Returns: undefined
+      }
+      painel_comercial_refresh_meses: {
+        Args: { p_meses?: number }
         Returns: undefined
       }
       painel_comercial_top_produtos: { Args: { p_mes?: string }; Returns: Json }
