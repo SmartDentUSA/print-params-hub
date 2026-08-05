@@ -343,6 +343,16 @@ async function handle(req: Request): Promise<Response> {
     }
   }
 
+  await runPaymentNotifications({
+    event,
+    leadId,
+    amount,
+    currency,
+    customer: { name: customer.name, email: customer.email, phone: customer.phone },
+    internalProduct,
+    stripeProduct: products.map((p) => p.name).filter(Boolean)[0] ?? null,
+  });
+
   return new Response(JSON.stringify({ ok: true, lead_id: leadId, event_type: mapping.event_type }), {
     status: 200,
     headers: { "Content-Type": "application/json" },
