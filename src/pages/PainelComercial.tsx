@@ -172,7 +172,7 @@ export default function PainelComercial() {
         <FunnelPanel rows={funil.data ?? []} />
         <div className="grid grid-cols-1 gap-3 min-w-0">
           <SellerPerformanceTable rows={vendedores.data ?? []} />
-          <ActivityTable rows={atividades.data ?? []} />
+          <ActivityTable rows={atividades.data ?? []} periodo={mesLabel(mesAtual.slice(0, 7))} />
         </div>
       </section>
 
