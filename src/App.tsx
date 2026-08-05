@@ -1,5 +1,5 @@
 import { lazy, Suspense } from "react";
-import { Routes, Route, useLocation, Navigate } from "react-router-dom";
+import { Routes, Route, useLocation, Navigate, useParams } from "react-router-dom";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import { Footer } from "./components/Footer";
@@ -33,6 +33,7 @@ const SupportResources = lazy(() => import("./pages/SupportResources"));
 const SmartOpsFormFlowStandalone = lazy(() => import("./pages/SmartOpsFormFlowStandalone"));
 const WaFlowVisualizerPage = lazy(() => import("./pages/WaFlowVisualizerPage"));
 const PainelComercial = lazy(() => import("./pages/PainelComercial"));
+const TurmaWelcome = lazy(() => import("./pages/TurmaWelcome"));
 const DraLIA = lazy(() => import("./components/DraLIA"));
 
 // Social Publisher (heavy admin sub-app)
@@ -54,6 +55,13 @@ const PostGrupos = lazy(() => import("./components/social/PostGrupos").then(m =>
 function PageTracker() {
   usePageTracking();
   return null;
+}
+
+// /turma157 → tela de boas-vindas; qualquer outro slug raiz continua no Index
+function RootSlugGate() {
+  const { brandSlug } = useParams();
+  if (/^turma\d+$/i.test(String(brandSlug || ""))) return <TurmaWelcome />;
+  return <Index />;
 }
 
 function RouteFallback() {
