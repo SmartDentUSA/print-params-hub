@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import bgImage from "@/assets/turma-welcome-bg.png";
 
 interface WelcomeParticipant {
   name: string;
@@ -81,60 +82,23 @@ export default function TurmaWelcome() {
   const nameSize =
     nomes.length > 24 ? "1.4vw" : nomes.length > 16 ? "1.8vw" : nomes.length > 9 ? "2.2vw" : "2.8vw";
 
-  const periodo = formatPeriodo(data?.turma.start_date, data?.turma.end_date);
-
   return (
     <div className="tw-root">
       <style>{`
         .tw-root {
           position: fixed; inset: 0; overflow: hidden;
-          background:
-            radial-gradient(1200px 800px at 62% 48%, #123a52 0%, rgba(18,58,82,0) 62%),
-            linear-gradient(135deg, #04101c 0%, #061a2b 45%, #030b14 100%);
+          background: #04101c url('${bgImage}') center / cover no-repeat;
           color: #fff;
           font-family: 'Inter', system-ui, sans-serif;
-          display: flex; flex-direction: column;
-          padding: 4vh 5vw;
+          display: flex;
+          padding: 26vh 6vw 14vh;
         }
-        .tw-root::after {
-          content: ''; position: absolute; inset: 0; pointer-events: none;
-          background-image: repeating-linear-gradient(0deg, rgba(255,255,255,.035) 0 1px, transparent 1px 3px);
-          opacity: .5;
-        }
-        .tw-accent { display: flex; align-items: center; gap: .5rem; margin-bottom: 1.2vh; }
-        .tw-accent i { width: 9px; height: 9px; border-radius: 50%; background: #f26522; display: block; }
-        .tw-accent span { height: 2px; width: 12vw; background: #f26522; display: block; }
-        .tw-title { color: #fff; font-size: 5.2vw; font-weight: 800; letter-spacing: -.02em; line-height: .95; margin: 0; }
-        .tw-sub { font-size: 1.9vw; letter-spacing: .22em; color: #9fb3c2; text-transform: uppercase; margin: .6vh 0 0; font-weight: 300; }
-        .tw-meta { margin-top: 1vh; font-size: 1.05vw; color: #6f8698; letter-spacing: .12em; text-transform: uppercase; }
-        .tw-names { flex: 1; display: flex; align-items: center; justify-content: center; }
+        .tw-names { flex: 1; display: flex; align-items: center; justify-content: center; position: relative; z-index: 1; }
         .tw-grid { display: grid; gap: 1.2vh 4vw; width: 100%; justify-items: center; }
         .tw-name { font-weight: 600; letter-spacing: .01em; text-align: center; }
         .tw-name.tw-companion { color: #b9cad6; font-weight: 400; }
         .tw-state { display: inline-block; margin-top: .4vh; font-size: .95vw; font-weight: 700; letter-spacing: .14em; color: #f26522; text-transform: uppercase; }
-        .tw-footer { display: flex; align-items: flex-end; justify-content: space-between; gap: 2vw; position: relative; z-index: 1; }
-        .tw-addr { display: flex; gap: 3vw; font-size: .72vw; color: #cfdae2; line-height: 1.5; }
-        .tw-addr b { display: block; font-size: .85vw; color: #fff; margin-bottom: .3vh; }
-        .tw-flag { font-size: .8vw; font-weight: 700; letter-spacing: .1em; color: #f26522; margin-right: .8vw; padding-top: .2vh; }
-        .tw-brand { font-size: 2vw; font-weight: 700; letter-spacing: .12em; color: #fff; opacity: .95; }
-        .tw-brand span { color: #f26522; }
       `}</style>
-
-      <header style={{ position: "relative", zIndex: 1 }}>
-        <div className="tw-accent"><i /><span /></div>
-        <h1 className="tw-title">BEM VINDOS!</h1>
-        <p className="tw-sub">{data?.course.title || "Treinamento Smart Dent"}</p>
-        <div className="tw-meta">
-          {[
-            data?.turma.number ? `Turma #${data.turma.number}` : `Turma ${numero}`,
-            periodo,
-            data?.turma.location,
-            data?.course.instructor_name ? `Instrutor: ${data.course.instructor_name}` : null,
-          ]
-            .filter(Boolean)
-            .join("  •  ")}
-        </div>
-      </header>
 
       <main className="tw-names">
         {error ? (
@@ -170,30 +134,6 @@ export default function TurmaWelcome() {
           </div>
         )}
       </main>
-
-      <footer className="tw-footer">
-        <div className="tw-addr">
-          <div style={{ display: "flex" }}>
-            <span className="tw-flag">BR</span>
-            <div>
-              <b>Smart Dent — BR</b>
-              São Carlos - SP<br />
-              R. Dr. Procópio de Tolêdo Malta, 62 - Morada dos Deuses<br />
-              São Carlos - SP, 13562-291
-            </div>
-          </div>
-          <div style={{ display: "flex" }}>
-            <span className="tw-flag">US</span>
-            <div>
-              <b>Smart Dent — USA</b>
-              University of North Carolina<br />
-              9201 University City Blvd, Charlotte, NC<br />
-              28223, USA
-            </div>
-          </div>
-        </div>
-        <div className="tw-brand"><span>/</span>SMART DENT</div>
-      </footer>
     </div>
   );
 }
