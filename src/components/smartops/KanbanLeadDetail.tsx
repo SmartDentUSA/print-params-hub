@@ -485,6 +485,7 @@ export function KanbanLeadDetail({ lead, open, onClose }: KanbanLeadDetailProps)
       setTimelineEvents([]);
       return;
     }
+    setActiveCats([]);
     setLoadingMsgs(true);
 
     const p1 = supabase
