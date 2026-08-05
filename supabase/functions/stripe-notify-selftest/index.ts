@@ -32,7 +32,27 @@ Deno.serve(async (req) => {
     state = { error: (e as Error).message };
   }
   if (new URL(req.url).searchParams.get("state_only") === "1") {
-    return new Response(JSON.stringify({ instance: INSTANCE, state }, null, 2), {
+    const { data: all } = await supabase
+      .from("team_members")
+      .select("evolution_instance_name, evolution_api_key")
+      .not("evolution_api_key", "is", null);
+    const seen = new Set<string>();
+    const states: any[] = [];
+    for (const m of (all ?? []) as any[]) {
+      const name = m.evolution_instance_name as string;
+      if (!name || seen.has(name)) continue;
+      seen.add(name);
+      try {
+        const r = await fetch(`${EVO_BASE}/instance/connectionState/${encodeURIComponent(name)}`, {
+          headers: { apikey: (m.evolution_api_key as string).trim() },
+          signal: AbortSignal.timeout(12_000),
+        });
+        states.push({ name, status: r.status, body: (await r.text()).slice(0, 200) });
+      } catch (e) {
+        states.push({ name, error: (e as Error).message });
+      }
+    }
+    return new Response(JSON.stringify({ instance: INSTANCE, state, states }, null, 2), {
       headers: { "Content-Type": "application/json" },
     });
   }
