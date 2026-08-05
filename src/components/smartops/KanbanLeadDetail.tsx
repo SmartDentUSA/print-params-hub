@@ -337,16 +337,31 @@ interface WhatsAppMsg {
 }
 
 interface TimelineEvent {
-  id: string;
+  item_id: string;
+  category: string;
   event_type: string;
   event_timestamp: string;
-  entity_type: string | null;
+  title: string | null;
+  description: string | null;
+  entity_type?: string | null;
   entity_id: string | null;
-  entity_name: string | null;
   event_data: Record<string, unknown>;
   source_channel: string | null;
   value_numeric: number | null;
 }
+
+const TIMELINE_CATEGORIES: { key: string; label: string; emoji: string }[] = [
+  { key: "crm", label: "CRM", emoji: "📈" },
+  { key: "mensagem", label: "Mensagens", emoji: "💬" },
+  { key: "email", label: "E-mail", emoji: "📧" },
+  { key: "conteudo", label: "Conteúdo", emoji: "📚" },
+  { key: "compra", label: "Compras", emoji: "🛒" },
+  { key: "suporte", label: "Suporte", emoji: "🛠️" },
+  { key: "nps", label: "NPS", emoji: "⭐" },
+  { key: "formulario", label: "Formulários", emoji: "📝" },
+  { key: "curso", label: "Cursos", emoji: "🎓" },
+  { key: "sistema", label: "Sistema", emoji: "⚙️" },
+];
 
 const TIMELINE_EMOJI: Record<string, string> = {
   crm_deal_created: "🆕",
@@ -388,9 +403,9 @@ const TIMELINE_LABEL: Record<string, string> = {
 };
 
 function TimelineItem({ event }: { event: TimelineEvent }) {
-  const emoji = TIMELINE_EMOJI[event.event_type] || "📌";
-  const label = TIMELINE_LABEL[event.event_type] || event.event_type.replace(/_/g, " ");
   const data = event.event_data || {};
+  const emoji = TIMELINE_EMOJI[event.event_type] || (typeof data.icon === "string" ? (data.icon as string) : "") || "📌";
+  const label = TIMELINE_LABEL[event.event_type] || event.title || event.event_type.replace(/_/g, " ");
   const isNew = Date.now() - new Date(event.event_timestamp).getTime() < 60_000;
 
   return (
@@ -405,8 +420,8 @@ function TimelineItem({ event }: { event: TimelineEvent }) {
         )}
       </div>
       <div className="text-xs font-medium">{label}</div>
-      {event.entity_name && (
-        <div className="text-[10px] text-muted-foreground truncate">{event.entity_name}</div>
+      {event.description && (
+        <div className="text-[10px] text-muted-foreground truncate">{event.description}</div>
       )}
       {event.value_numeric != null && event.value_numeric > 0 && (
         <Badge variant="secondary" className="text-[9px] px-1 py-0 mt-0.5">
