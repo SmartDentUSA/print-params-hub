@@ -331,10 +331,14 @@ Deno.serve(async (req) => {
     console.error("[stripe-webhook] unhandled error:", msg, (err as Error)?.stack);
     try {
       await supabase.from("system_health_logs").insert({
-        check_type: "stripe_webhook_error",
-        status: "error",
-        message: msg.slice(0, 500),
-        details: { stack: ((err as Error)?.stack ?? "").slice(0, 2000) },
+        function_name: "stripe-webhook",
+        severity: "error",
+        error_type: "unhandled_exception",
+        details: {
+          message: msg.slice(0, 500),
+          stack: ((err as Error)?.stack ?? "").slice(0, 2000),
+          has_stripe_secret_key: Boolean(STRIPE_SECRET_KEY),
+        },
       });
     } catch (_) { /* ignore */ }
     return new Response(JSON.stringify({ ok: false, error: msg }), {
