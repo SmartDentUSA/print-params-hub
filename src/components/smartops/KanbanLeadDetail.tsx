@@ -337,16 +337,31 @@ interface WhatsAppMsg {
 }
 
 interface TimelineEvent {
-  id: string;
+  item_id: string;
+  category: string;
   event_type: string;
   event_timestamp: string;
-  entity_type: string | null;
+  title: string | null;
+  description: string | null;
+  entity_type?: string | null;
   entity_id: string | null;
-  entity_name: string | null;
   event_data: Record<string, unknown>;
   source_channel: string | null;
   value_numeric: number | null;
 }
+
+const TIMELINE_CATEGORIES: { key: string; label: string; emoji: string }[] = [
+  { key: "crm", label: "CRM", emoji: "📈" },
+  { key: "mensagem", label: "Mensagens", emoji: "💬" },
+  { key: "email", label: "E-mail", emoji: "📧" },
+  { key: "conteudo", label: "Conteúdo", emoji: "📚" },
+  { key: "compra", label: "Compras", emoji: "🛒" },
+  { key: "suporte", label: "Suporte", emoji: "🛠️" },
+  { key: "nps", label: "NPS", emoji: "⭐" },
+  { key: "formulario", label: "Formulários", emoji: "📝" },
+  { key: "curso", label: "Cursos", emoji: "🎓" },
+  { key: "sistema", label: "Sistema", emoji: "⚙️" },
+];
 
 const TIMELINE_EMOJI: Record<string, string> = {
   crm_deal_created: "🆕",
@@ -388,9 +403,9 @@ const TIMELINE_LABEL: Record<string, string> = {
 };
 
 function TimelineItem({ event }: { event: TimelineEvent }) {
-  const emoji = TIMELINE_EMOJI[event.event_type] || "📌";
-  const label = TIMELINE_LABEL[event.event_type] || event.event_type.replace(/_/g, " ");
   const data = event.event_data || {};
+  const emoji = TIMELINE_EMOJI[event.event_type] || (typeof data.icon === "string" ? (data.icon as string) : "") || "📌";
+  const label = TIMELINE_LABEL[event.event_type] || event.title || event.event_type.replace(/_/g, " ");
   const isNew = Date.now() - new Date(event.event_timestamp).getTime() < 60_000;
 
   return (
@@ -405,8 +420,8 @@ function TimelineItem({ event }: { event: TimelineEvent }) {
         )}
       </div>
       <div className="text-xs font-medium">{label}</div>
-      {event.entity_name && (
-        <div className="text-[10px] text-muted-foreground truncate">{event.entity_name}</div>
+      {event.description && (
+        <div className="text-[10px] text-muted-foreground truncate">{event.description}</div>
       )}
       {event.value_numeric != null && event.value_numeric > 0 && (
         <Badge variant="secondary" className="text-[9px] px-1 py-0 mt-0.5">
@@ -432,6 +447,7 @@ export function KanbanLeadDetail({ lead, open, onClose }: KanbanLeadDetailProps)
   const [liaInteractions, setLiaInteractions] = useState<AgentInteraction[]>([]);
   const [whatsappMsgs, setWhatsappMsgs] = useState<WhatsAppMsg[]>([]);
   const [timelineEvents, setTimelineEvents] = useState<TimelineEvent[]>([]);
+  const [activeCats, setActiveCats] = useState<string[]>([]);
   const [loadingMsgs, setLoadingMsgs] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const { provenance } = useEquipmentProvenance(open ? lead?.id : null);
@@ -469,6 +485,7 @@ export function KanbanLeadDetail({ lead, open, onClose }: KanbanLeadDetailProps)
       setTimelineEvents([]);
       return;
     }
+    setActiveCats([]);
     setLoadingMsgs(true);
 
     const p1 = supabase
@@ -492,12 +509,11 @@ export function KanbanLeadDetail({ lead, open, onClose }: KanbanLeadDetailProps)
       .order("created_at", { ascending: false })
       .limit(100);
 
-    const p4 = supabase
-      .from("lead_activity_log")
-      .select("id, event_type, event_timestamp, entity_type, entity_id, entity_name, event_data, source_channel, value_numeric")
-      .eq("lead_id", lead.id)
-      .order("event_timestamp", { ascending: false })
-      .limit(200);
+    // Timeline unificada (CRM + mensagens + e-mail + conteúdo + compras + suporte + NPS)
+    const p4 = supabase.rpc("fn_lead_timeline_unified" as never, {
+      p_lead_id: lead.id,
+      p_limit: 400,
+    } as never);
 
     Promise.all([p1, p2, p3, p4]).then(([r1, r2, r3, r4]) => {
       const logs = (r1.data || []) as MsgLog[];
@@ -505,7 +521,7 @@ export function KanbanLeadDetail({ lead, open, onClose }: KanbanLeadDetailProps)
       setSellerMsgs(logs.filter((l) => SELLER_TO_LEAD_TYPES.includes(l.tipo || "")));
       setLiaInteractions((r2.data || []) as AgentInteraction[]);
       setWhatsappMsgs((r3.data || []) as WhatsAppMsg[]);
-      setTimelineEvents((r4.data || []) as TimelineEvent[]);
+      setTimelineEvents(((r4.data || []) as unknown) as TimelineEvent[]);
       setLoadingMsgs(false);
     });
 
@@ -521,7 +537,19 @@ export function KanbanLeadDetail({ lead, open, onClose }: KanbanLeadDetailProps)
           filter: `lead_id=eq.${lead.id}`,
         },
         (payload) => {
-          const newEvent = payload.new as TimelineEvent;
+          const raw = payload.new as Record<string, unknown>;
+          const newEvent: TimelineEvent = {
+            item_id: `lal:${String(raw.id)}`,
+            category: "sistema",
+            event_type: String(raw.event_type ?? "evento"),
+            event_timestamp: String(raw.event_timestamp ?? new Date().toISOString()),
+            title: (raw.entity_name as string) ?? null,
+            description: null,
+            entity_id: (raw.entity_id as string) ?? null,
+            event_data: (raw.event_data as Record<string, unknown>) ?? {},
+            source_channel: (raw.source_channel as string) ?? null,
+            value_numeric: (raw.value_numeric as number) ?? null,
+          };
           setTimelineEvents((prev) => [newEvent, ...prev]);
         }
       )
@@ -533,6 +561,14 @@ export function KanbanLeadDetail({ lead, open, onClose }: KanbanLeadDetailProps)
   }, [lead?.id, open]);
 
   if (!lead) return null;
+
+  const categoryCounts: Record<string, number> = {};
+  for (const ev of timelineEvents) {
+    categoryCounts[ev.category] = (categoryCounts[ev.category] || 0) + 1;
+  }
+  const visibleTimeline = activeCats.length === 0
+    ? timelineEvents
+    : timelineEvents.filter((ev) => activeCats.includes(ev.category));
 
   const PESSOA_KEYS = ["pessoa_cpf", "pessoa_cargo", "pessoa_genero", "pessoa_nascimento", "pessoa_linkedin", "pessoa_facebook", "pessoa_observation", "pessoa_piperun_id"];
   const EMPRESA_KEYS = ["empresa_nome", "empresa_razao_social", "empresa_cnpj", "empresa_ie", "empresa_segmento", "empresa_porte", "empresa_situacao", "empresa_website", "empresa_cnae", "empresa_piperun_id"];
@@ -603,16 +639,48 @@ export function KanbanLeadDetail({ lead, open, onClose }: KanbanLeadDetailProps)
             </>
           ) : null}
 
-          {/* ===== TIMELINE ATIVA (real-time) ===== */}
-          <Section title={`Timeline (${timelineEvents.length})`} emoji="⏱️" defaultOpen>
+          {/* ===== TIMELINE UNIFICADA (real-time) ===== */}
+          <Section title={`Timeline (${visibleTimeline.length}${activeCats.length > 0 ? `/${timelineEvents.length}` : ""})`} emoji="⏱️" defaultOpen>
+            {timelineEvents.length > 0 && (
+              <div className="flex flex-wrap gap-1 mb-2">
+                {TIMELINE_CATEGORIES.filter((c) => categoryCounts[c.key] > 0).map((c) => {
+                  const on = activeCats.includes(c.key);
+                  return (
+                    <button
+                      key={c.key}
+                      type="button"
+                      onClick={() =>
+                        setActiveCats((prev) =>
+                          prev.includes(c.key) ? prev.filter((k) => k !== c.key) : [...prev, c.key],
+                        )
+                      }
+                      className={`rounded-full border px-2 py-0.5 text-[10px] transition-colors ${
+                        on ? "bg-primary text-primary-foreground border-primary" : "bg-muted/40 text-muted-foreground hover:bg-muted"
+                      }`}
+                    >
+                      {c.emoji} {c.label} ({categoryCounts[c.key]})
+                    </button>
+                  );
+                })}
+                {activeCats.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setActiveCats([])}
+                    className="rounded-full border px-2 py-0.5 text-[10px] text-muted-foreground hover:bg-muted"
+                  >
+                    limpar
+                  </button>
+                )}
+              </div>
+            )}
             {loadingMsgs && timelineEvents.length === 0 ? (
               <p className="text-xs text-muted-foreground">Carregando timeline...</p>
-            ) : timelineEvents.length === 0 ? (
-              <p className="text-xs text-muted-foreground italic">Nenhum evento registrado ainda. Eventos de CRM, E-commerce, LIA e WhatsApp aparecerão aqui em tempo real.</p>
+            ) : visibleTimeline.length === 0 ? (
+              <p className="text-xs text-muted-foreground italic">Nenhum evento nessa seleção. Eventos de CRM, mensagens, e-mail, conteúdo, compras, suporte e NPS aparecem aqui em tempo real.</p>
             ) : (
               <div className="max-h-[350px] overflow-y-auto pr-1">
-                {timelineEvents.map((event) => (
-                  <TimelineItem key={event.id} event={event} />
+                {visibleTimeline.map((event) => (
+                  <TimelineItem key={event.item_id} event={event} />
                 ))}
               </div>
             )}
