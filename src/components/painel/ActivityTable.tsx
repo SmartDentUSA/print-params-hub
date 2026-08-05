@@ -1,13 +1,16 @@
 import { PainelAtividadeRow, fmtNum } from "@/hooks/painel/usePainelComercial";
 import { StatusBadge, statusFromData } from "./StatusBadge";
 
-export function ActivityTable({ rows }: { rows: PainelAtividadeRow[] }) {
+export function ActivityTable({ rows, periodo }: { rows: PainelAtividadeRow[]; periodo?: string }) {
   const completo = rows.some((r) => r.media_interacoes_fechar !== null);
 
   return (
     <div className="pc-card p-4">
       <div className="flex items-center justify-between mb-3">
-        <h2 className="text-base font-semibold">Atividades por vendedor</h2>
+        <div>
+          <h2 className="text-base font-semibold">Atividades por vendedor</h2>
+          <p className="pc-label mt-0.5">{periodo ? `no mês — ${periodo}` : "no mês selecionado"}</p>
+        </div>
         <StatusBadge status={statusFromData(rows.length > 0, completo)} />
       </div>
       <div className="overflow-x-auto">
