@@ -102,7 +102,7 @@ export default function TurmaWelcome() {
         .tw-accent { display: flex; align-items: center; gap: .5rem; margin-bottom: 1.2vh; }
         .tw-accent i { width: 9px; height: 9px; border-radius: 50%; background: #f26522; display: block; }
         .tw-accent span { height: 2px; width: 12vw; background: #f26522; display: block; }
-        .tw-title { font-size: 5.2vw; font-weight: 800; letter-spacing: -.02em; line-height: .95; margin: 0; }
+        .tw-title { color: #fff; font-size: 5.2vw; font-weight: 800; letter-spacing: -.02em; line-height: .95; margin: 0; }
         .tw-sub { font-size: 1.9vw; letter-spacing: .22em; color: #9fb3c2; text-transform: uppercase; margin: .6vh 0 0; font-weight: 300; }
         .tw-meta { margin-top: 1vh; font-size: 1.05vw; color: #6f8698; letter-spacing: .12em; text-transform: uppercase; }
         .tw-names { flex: 1; display: flex; align-items: center; justify-content: center; }
@@ -112,7 +112,7 @@ export default function TurmaWelcome() {
         .tw-footer { display: flex; align-items: flex-end; justify-content: space-between; gap: 2vw; position: relative; z-index: 1; }
         .tw-addr { display: flex; gap: 3vw; font-size: .72vw; color: #cfdae2; line-height: 1.5; }
         .tw-addr b { display: block; font-size: .85vw; color: #fff; margin-bottom: .3vh; }
-        .tw-flag { font-size: 1.6vw; margin-right: .6vw; }
+        .tw-flag { font-size: .8vw; font-weight: 700; letter-spacing: .1em; color: #f26522; margin-right: .8vw; padding-top: .2vh; }
         .tw-brand { font-size: 2vw; font-weight: 700; letter-spacing: .12em; color: #fff; opacity: .95; }
         .tw-brand span { color: #f26522; }
       `}</style>
@@ -170,7 +170,7 @@ export default function TurmaWelcome() {
       <footer className="tw-footer">
         <div className="tw-addr">
           <div style={{ display: "flex" }}>
-            <span className="tw-flag">🇧🇷</span>
+            <span className="tw-flag">BR</span>
             <div>
               <b>Smart Dent — BR</b>
               São Carlos - SP<br />
@@ -179,7 +179,7 @@ export default function TurmaWelcome() {
             </div>
           </div>
           <div style={{ display: "flex" }}>
-            <span className="tw-flag">🇺🇸</span>
+            <span className="tw-flag">US</span>
             <div>
               <b>Smart Dent — USA</b>
               University of North Carolina<br />
