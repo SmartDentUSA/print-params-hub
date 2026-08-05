@@ -14,15 +14,12 @@ const json = (body: unknown, status = 200) =>
 
 const BLOCKED = ["cancelado", "cancelada", "ausente", "no_show"];
 
-// Nome curto para telão: "Dr. João Pedro Silva" -> "João Pedro"
+// Nome completo para telão (apenas limpa títulos e espaços extras)
 function displayName(raw: string): string {
-  const clean = String(raw || "")
+  return String(raw || "")
     .replace(/\s+/g, " ")
     .trim()
     .replace(/^(dr|dra|drª|prof|profa)\.?\s+/i, "");
-  const parts = clean.split(" ").filter(Boolean);
-  if (parts.length <= 2) return clean;
-  return `${parts[0]} ${parts[1]}`;
 }
 
 Deno.serve(async (req) => {
