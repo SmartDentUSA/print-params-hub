@@ -349,6 +349,44 @@ async function handle(req: Request): Promise<Response> {
   });
 }
 
+async function runPaymentNotifications(args: {
+  event: Stripe.Event;
+  leadId: string;
+  amount: number | null;
+  currency: string | null;
+  customer: { name: string | null; email: string | null; phone: string | null };
+  internalProduct: string | null;
+  stripeProduct: string | null;
+}) {
+  const { event, leadId } = args;
+  const obj = event.data.object as any;
+
+  let kind: PaymentNotice["kind"] | null = null;
+  if (event.type === "checkout.session.completed") kind = "ativacao";
+  else if (event.type === "invoice.paid" && (obj?.subscription || obj?.parent?.subscription_details)) kind = "mensalidade";
+  if (!kind) return;
+
+  const notice: PaymentNotice = {
+    kind,
+    customerName: args.customer.name,
+    customerEmail: args.customer.email,
+    customerPhone: args.customer.phone,
+    amount: args.amount,
+    currency: args.currency,
+    internalProduct: args.internalProduct,
+    stripeProduct: args.stripeProduct,
+    paidAt: new Date(event.created * 1000),
+  };
+
+  try {
+    const seller = await resolveLeadSeller(supabase, leadId);
+    await notifySellerOfPayment(supabase, leadId, notice);
+    await notifyExecutivesOfPayment(supabase, leadId, notice, seller?.nome_completo ?? null);
+  } catch (e) {
+    console.error("[stripe-webhook] notification error:", (e as Error).message);
+  }
+}
+
 Deno.serve(async (req) => {
   try {
     return await handle(req);
