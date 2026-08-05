@@ -3,11 +3,24 @@ import Stripe from "npm:stripe@17";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { normalizeBrazilianPhone } from "../_shared/phone-normalize.ts";
 
-const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY") ?? "", {
-  apiVersion: "2025-08-27.basil" as any,
-  httpClient: Stripe.createFetchHttpClient(),
-});
-const cryptoProvider = Stripe.createSubtleCryptoProvider();
+const STRIPE_SECRET_KEY = Deno.env.get("STRIPE_SECRET_KEY") ?? "";
+
+let _stripe: Stripe | null = null;
+function getStripe(): Stripe {
+  if (!_stripe) {
+    _stripe = new Stripe(STRIPE_SECRET_KEY || "sk_placeholder", {
+      apiVersion: "2025-08-27.basil" as any,
+      httpClient: Stripe.createFetchHttpClient(),
+    });
+  }
+  return _stripe;
+}
+
+let _cryptoProvider: ReturnType<typeof Stripe.createSubtleCryptoProvider> | null = null;
+function getCryptoProvider() {
+  if (!_cryptoProvider) _cryptoProvider = Stripe.createSubtleCryptoProvider();
+  return _cryptoProvider;
+}
 
 const WEBHOOK_SECRET = Deno.env.get("STRIPE_WEBHOOK_SECRET") ?? "";
 
