@@ -232,31 +232,57 @@ async function sendEnrollmentWA(p: {
   enrollmentId: string; leadId: string; leadPhone?: string; personName: string;
   course: SmartopsCourse; turma: Turma; days: TurmaDay[]; csEmail: string;
 }) {
+  const markError = async (msg: string) => {
+    await (supabase as any).from('smartops_course_enrollments')
+      .update({ wa_error: msg }).eq('id', p.enrollmentId);
+  };
   try {
-    if (!p.leadPhone) return;
+    if (!p.leadPhone) { await markError('sem telefone no lead'); return; }
     const phone = formatPhoneWaleads(p.leadPhone);
-    if (!phone) return;
+    if (!phone) { await markError(`telefone inválido: ${p.leadPhone}`); return; }
 
-    // CS por email — sem filtro de role (não existe role 'cs')
-    const { data: cs } = await (supabase as any).from('team_members')
-      .select('id, nome_completo, waleads_api_key')
-      .eq('email', p.csEmail).eq('ativo', true).maybeSingle();
-    if (!cs?.waleads_api_key) return;
+    // CS por email — envio via Evolution (WaLeads descontinuado).
+    let { data: cs } = await (supabase as any).from('team_members')
+      .select('id, nome_completo, evolution_instance_name')
+      .eq('email', p.csEmail).eq('ativo', true)
+      .not('evolution_instance_name', 'is', null).maybeSingle();
+
+    // Fallback institucional: instância smartdent_marketing
+    if (!cs) {
+      const { data: inst } = await (supabase as any).from('team_members')
+        .select('id, nome_completo, evolution_instance_name')
+        .eq('evolution_instance_name', 'smartdent_marketing').maybeSingle();
+      cs = inst ?? null;
+    }
+    if (!cs?.id) { await markError('nenhuma instância Evolution disponível para o CS'); return; }
+
+    // Cronograma: usa os dias carregados; se vazio, cai no snapshot da turma
+    const days = (p.days?.length ? p.days : ((p.turma as any)?.days ?? [])) as TurmaDay[];
 
     const template = p.course.whatsapp_message_template || DEFAULT_ENROLLMENT_TEMPLATE;
     const message  = interpolateTemplate(template,
-      buildTemplateVars(p.course, p.turma, p.days, p.personName, cs.nome_completo));
+      buildTemplateVars(p.course, p.turma, days, p.personName, cs.nome_completo ?? 'Equipe SmartDent'));
 
     const { error } = await supabase.functions.invoke('smart-ops-send-waleads', {
       body: {
-        to: phone, message, waleads_api_key: cs.waleads_api_key,
+        to: phone, message,
         lead_id: p.leadId, team_member_id: cs.id, source: 'enrollment_confirmation',
         metadata: { enrollment_id: p.enrollmentId, course_id: p.course.id, turma_id: p.turma.id },
       },
     });
 
+    if (error) {
+      const detail = await (async () => {
+        try { return await (error as any).context?.text?.(); } catch { return null; }
+      })();
+      await markError(String(detail || (error as any).message || error));
+      return;
+    }
     await (supabase as any).from('smartops_course_enrollments')
-      .update(error ? { wa_error: String(error) } : { wa_sent_at: new Date().toISOString() })
+      .update({ wa_sent_at: new Date().toISOString(), wa_error: null })
       .eq('id', p.enrollmentId);
-  } catch (e) { console.warn('[WA]', e); }
+  } catch (e: any) {
+    console.warn('[WA]', e);
+    await markError(String(e?.message ?? e)).catch(() => {});
+  }
 }
