@@ -192,7 +192,9 @@
 .painel .pc-passagem {
   font-size: calc(8.5px * var(--pc-scale));
   color: var(--pc-text-mute);
-  padding-left: calc(19% + 8px * var(--pc-scale));
+  padding-left: 19%;
+  padding-right: calc(164px * var(--pc-scale));
+  text-align: center;
 }
 .painel .pc-passagem b { color: var(--pc-ok); }
 .painel .pc-passagem.is-gargalo   { color: var(--pc-danger); font-weight: 600; }
