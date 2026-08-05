@@ -70,7 +70,7 @@ const App = () => (
     <Suspense fallback={<RouteFallback />}>
     <Routes>
       <Route path="/" element={<Navigate to="/base-conhecimento?tab=parametros" replace />} />
-      <Route path="/:brandSlug" element={<Index />} />
+      <Route path="/:brandSlug" element={<RootSlugGate />} />
       <Route path="/:brandSlug/:modelSlug" element={<Index />} />
       <Route path="/:brandSlug/:modelSlug/:resinSlug" element={<Index />} />
       <Route path="/admin" element={<AdminViewSecure />} />
