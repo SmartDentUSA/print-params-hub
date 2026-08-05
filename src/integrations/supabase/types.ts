@@ -4167,6 +4167,13 @@ export type Database = {
             foreignKeyName: "deal_items_parent_deal_item_id_fkey"
             columns: ["parent_deal_item_id"]
             isOneToOne: false
+            referencedRelation: "v_deal_items_dedup"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_items_parent_deal_item_id_fkey"
+            columns: ["parent_deal_item_id"]
+            isOneToOne: false
             referencedRelation: "v_deal_items_normalized"
             referencedColumns: ["id"]
           },
@@ -27279,6 +27286,229 @@ export type Database = {
           workflow_score: number | null
         }
         Relationships: []
+      }
+      v_deal_items_dedup: {
+        Row: {
+          cod_produto: string | null
+          data_proposta: string | null
+          deal_date: string | null
+          deal_id: string | null
+          freight_type: string | null
+          freight_value: number | null
+          id: string | null
+          installments: number | null
+          lead_id: string | null
+          metodo_pagamento: string | null
+          nfe_chave: string | null
+          nfe_number: string | null
+          nome_produto: string | null
+          num_parcelas: number | null
+          parent_deal_item_id: string | null
+          payment_method: string | null
+          product_category: string | null
+          product_code: string | null
+          product_name: string | null
+          product_subcategory: string | null
+          proposal_id: string | null
+          proposta_raw: Json | null
+          quantidade: number | null
+          quantity: number | null
+          serial_number: string | null
+          sku: string | null
+          source: string | null
+          synced_at: string | null
+          tipo_frete: string | null
+          total_value: number | null
+          unit_value: number | null
+          valor_frete: number | null
+          valor_total: number | null
+          valor_unitario: number | null
+          vendor_name: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "deal_items_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "lead_model_routing"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_items_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "lia_attendances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_items_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_bi_atividades_unnested"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "deal_items_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_academy"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_items_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_cognitive"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_items_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_commercial"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_items_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_ecommerce"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_items_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_pipeline"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_items_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_stage_purchases"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "deal_items_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_leads_correto"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "deal_items_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_leads_pendentes_atribuicao"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_items_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_opportunity_engine"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "deal_items_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_pipeline_atual"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "deal_items_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_reactivation_candidates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_items_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_timing_alerts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_items_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_workflow_portfolio"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "deal_items_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_workflow_timeline"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "deal_items_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_leads_orfaos_recentes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_items_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_leads_qualidade_ruim"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_items_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_lia_attendances_enriched"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_items_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_vendas_ganhas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_items_parent_deal_item_id_fkey"
+            columns: ["parent_deal_item_id"]
+            isOneToOne: false
+            referencedRelation: "deal_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_items_parent_deal_item_id_fkey"
+            columns: ["parent_deal_item_id"]
+            isOneToOne: false
+            referencedRelation: "v_deal_items_dedup"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_items_parent_deal_item_id_fkey"
+            columns: ["parent_deal_item_id"]
+            isOneToOne: false
+            referencedRelation: "v_deal_items_normalized"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_items_parent_deal_item_id_fkey"
+            columns: ["parent_deal_item_id"]
+            isOneToOne: false
+            referencedRelation: "vw_deal_items_dedup"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_items_parent_deal_item_id_fkey"
+            columns: ["parent_deal_item_id"]
+            isOneToOne: false
+            referencedRelation: "vw_vendas_por_produto"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       v_deal_items_expanded: {
         Row: {
