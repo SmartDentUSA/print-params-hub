@@ -150,18 +150,29 @@ function buildTitle(mapped: string, amount: number | null, currency: string | nu
   return [`Stripe: ${label}`, money, productName].filter(Boolean).join(" — ");
 }
 
-Deno.serve(async (req) => {
+async function handle(req: Request): Promise<Response> {
   if (req.method === "OPTIONS") return new Response("ok", { status: 200 });
   if (req.method !== "POST") return new Response("method not allowed", { status: 405 });
 
   const signature = req.headers.get("stripe-signature");
   if (!signature) return new Response("missing signature", { status: 400 });
 
+  if (!WEBHOOK_SECRET) {
+    console.error("[stripe-webhook] missing STRIPE_WEBHOOK_SECRET env var");
+    return new Response("missing webhook secret", { status: 500 });
+  }
+
   const body = await req.text();
 
   let event: Stripe.Event;
   try {
-    event = await stripe.webhooks.constructEventAsync(body, signature, WEBHOOK_SECRET, undefined, cryptoProvider);
+    event = await getStripe().webhooks.constructEventAsync(
+      body,
+      signature,
+      WEBHOOK_SECRET,
+      undefined,
+      getCryptoProvider(),
+    );
   } catch (err) {
     console.error("[stripe-webhook] signature verification failed:", (err as Error).message);
     return new Response(`signature error: ${(err as Error).message}`, { status: 400 });
@@ -266,8 +277,8 @@ Deno.serve(async (req) => {
     let units: Array<{ product_name: string | null; unit_total: number | null }> = [];
     try {
       const sessionId = stripeObjectId;
-      if (sessionId) {
-        const li = await stripe.checkout.sessions.listLineItems(sessionId, { limit: 100 });
+      if (sessionId && STRIPE_SECRET_KEY) {
+        const li = await getStripe().checkout.sessions.listLineItems(sessionId, { limit: 100 });
         const lineItems = li?.data ?? [];
         for (const it of lineItems) {
           const qty = Number(it?.quantity ?? 1) || 1;
@@ -310,4 +321,25 @@ Deno.serve(async (req) => {
     status: 200,
     headers: { "Content-Type": "application/json" },
   });
+}
+
+Deno.serve(async (req) => {
+  try {
+    return await handle(req);
+  } catch (err) {
+    const msg = (err as Error)?.message ?? String(err);
+    console.error("[stripe-webhook] unhandled error:", msg, (err as Error)?.stack);
+    try {
+      await supabase.from("system_health_logs").insert({
+        check_type: "stripe_webhook_error",
+        status: "error",
+        message: msg.slice(0, 500),
+        details: { stack: ((err as Error)?.stack ?? "").slice(0, 2000) },
+      });
+    } catch (_) { /* ignore */ }
+    return new Response(JSON.stringify({ ok: false, error: msg }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
 });
