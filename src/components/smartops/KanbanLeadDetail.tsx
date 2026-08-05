@@ -447,6 +447,7 @@ export function KanbanLeadDetail({ lead, open, onClose }: KanbanLeadDetailProps)
   const [liaInteractions, setLiaInteractions] = useState<AgentInteraction[]>([]);
   const [whatsappMsgs, setWhatsappMsgs] = useState<WhatsAppMsg[]>([]);
   const [timelineEvents, setTimelineEvents] = useState<TimelineEvent[]>([]);
+  const [activeCats, setActiveCats] = useState<string[]>([]);
   const [loadingMsgs, setLoadingMsgs] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const { provenance } = useEquipmentProvenance(open ? lead?.id : null);
