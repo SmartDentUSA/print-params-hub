@@ -105,7 +105,15 @@ export default function KbContentCard({ data, index, buttonLabel, onClick }: Pro
     <article className="kb-card" style={{ animationDelay: `${index * 22}ms` }}>
       <div className="kb-cthumb-wrap" onClick={onClick} role="button" tabIndex={0}>
         {data.imageUrl ? (
-          <img className="kb-cthumb" src={data.imageUrl} alt={data.title} loading="lazy" />
+          <img
+            className="kb-cthumb"
+            src={getStorageImageUrl(data.imageUrl, { width: 480, height: 270, quality: 65, resize: "cover" })}
+            alt={data.title}
+            loading="lazy"
+            decoding="async"
+            width={480}
+            height={270}
+          />
         ) : (
           <div className="kb-cthumb kb-cthumb-fallback" style={{ background: cat.gradient }}>
             <span>{cat.emoji}</span>
