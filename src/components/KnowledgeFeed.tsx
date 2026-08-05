@@ -16,6 +16,7 @@ import { LanguageFlags } from '@/components/LanguageFlags';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { getKnowledgeBasePath, getLocalizedTitle, getLocalizedExcerpt } from '@/utils/i18nPaths';
 import { getArticleUrl, isCategoryEnabled } from '@/utils/knowledgeUrls';
+import { getStorageImageUrl } from '@/utils/storageImage';
 
 const getCategoryColor = (letter: string) => {
   const colors: Record<string, string> = {
@@ -148,10 +149,13 @@ export const KnowledgeFeed = () => {
                 >
                   <div className="aspect-video overflow-hidden bg-muted">
                     <img
-                      src={imageUrl}
+                      src={getStorageImageUrl(imageUrl, { width: 480, height: 270, quality: 65, resize: 'cover' })}
                       alt={imageAlt}
                       className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
                       loading="lazy"
+                      decoding="async"
+                      width={480}
+                      height={270}
                     />
                   </div>
                   
