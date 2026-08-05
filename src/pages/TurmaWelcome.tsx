@@ -4,6 +4,8 @@ import { supabase } from "@/integrations/supabase/client";
 
 interface WelcomeParticipant {
   name: string;
+  state?: string | null;
+  city?: string | null;
   full_name: string;
   companions: string[];
 }
@@ -109,6 +111,7 @@ export default function TurmaWelcome() {
         .tw-grid { display: grid; gap: 1.2vh 4vw; width: 100%; justify-items: center; }
         .tw-name { font-weight: 600; letter-spacing: .01em; text-align: center; }
         .tw-name.tw-companion { color: #b9cad6; font-weight: 400; }
+        .tw-state { display: inline-block; margin-top: .4vh; font-size: .95vw; font-weight: 700; letter-spacing: .14em; color: #f26522; text-transform: uppercase; }
         .tw-footer { display: flex; align-items: flex-end; justify-content: space-between; gap: 2vw; position: relative; z-index: 1; }
         .tw-addr { display: flex; gap: 3vw; font-size: .72vw; color: #cfdae2; line-height: 1.5; }
         .tw-addr b { display: block; font-size: .85vw; color: #fff; margin-bottom: .3vh; }
@@ -152,6 +155,7 @@ export default function TurmaWelcome() {
             {data.participants.map((p, i) => (
               <div key={`${p.full_name}-${i}`} style={{ textAlign: "center" }}>
                 <div className="tw-name" style={{ fontSize: nameSize }}>{p.name}</div>
+                {p.state ? <div className="tw-state">{p.state}</div> : null}
                 {p.companions.map((c, j) => (
                   <div
                     key={`${c}-${j}`}
