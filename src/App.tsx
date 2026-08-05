@@ -1,5 +1,5 @@
 import { lazy, Suspense } from "react";
-import { Routes, Route, useLocation, Navigate } from "react-router-dom";
+import { Routes, Route, useLocation, Navigate, useParams } from "react-router-dom";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import { Footer } from "./components/Footer";
@@ -33,6 +33,7 @@ const SupportResources = lazy(() => import("./pages/SupportResources"));
 const SmartOpsFormFlowStandalone = lazy(() => import("./pages/SmartOpsFormFlowStandalone"));
 const WaFlowVisualizerPage = lazy(() => import("./pages/WaFlowVisualizerPage"));
 const PainelComercial = lazy(() => import("./pages/PainelComercial"));
+const TurmaWelcome = lazy(() => import("./pages/TurmaWelcome"));
 const DraLIA = lazy(() => import("./components/DraLIA"));
 
 // Social Publisher (heavy admin sub-app)
@@ -56,6 +57,13 @@ function PageTracker() {
   return null;
 }
 
+// /turma157 → tela de boas-vindas; qualquer outro slug raiz continua no Index
+function RootSlugGate() {
+  const { brandSlug } = useParams();
+  if (/^turma\d+$/i.test(String(brandSlug || ""))) return <TurmaWelcome />;
+  return <Index />;
+}
+
 function RouteFallback() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-surface">
@@ -70,7 +78,7 @@ const App = () => (
     <Suspense fallback={<RouteFallback />}>
     <Routes>
       <Route path="/" element={<Navigate to="/base-conhecimento?tab=parametros" replace />} />
-      <Route path="/:brandSlug" element={<Index />} />
+      <Route path="/:brandSlug" element={<RootSlugGate />} />
       <Route path="/:brandSlug/:modelSlug" element={<Index />} />
       <Route path="/:brandSlug/:modelSlug/:resinSlug" element={<Index />} />
       <Route path="/admin" element={<AdminViewSecure />} />
@@ -198,7 +206,7 @@ function ReformatBatchGlobal() {
 // Only render the floating widget outside admin and embed routes
 function DraLIAGlobal() {
   const { pathname, search } = useLocation();
-  if (search.includes('embed=1') || pathname.startsWith('/admin') || pathname.startsWith('/embed') || pathname.startsWith('/social') || pathname.startsWith('/agenda') || pathname.startsWith('/ferramentas') || pathname.startsWith('/lp') || pathname.startsWith('/bio')) return null;
+  if (search.includes('embed=1') || pathname.startsWith('/admin') || pathname.startsWith('/embed') || pathname.startsWith('/social') || pathname.startsWith('/agenda') || pathname.startsWith('/ferramentas') || pathname.startsWith('/lp') || pathname.startsWith('/bio') || /^\/turma\d+$/i.test(pathname)) return null;
   return (
     <ChunkErrorBoundary>
       <Suspense fallback={null}>
@@ -210,7 +218,7 @@ function DraLIAGlobal() {
 
 function FooterGlobal() {
   const { pathname, search } = useLocation();
-  if (search.includes('embed=1') || pathname.startsWith('/admin') || pathname.startsWith('/embed') || pathname.startsWith('/social') || pathname.startsWith('/agenda') || pathname.startsWith('/ferramentas') || pathname.startsWith('/lp') || pathname.startsWith('/bio')) return null;
+  if (search.includes('embed=1') || pathname.startsWith('/admin') || pathname.startsWith('/embed') || pathname.startsWith('/social') || pathname.startsWith('/agenda') || pathname.startsWith('/ferramentas') || pathname.startsWith('/lp') || pathname.startsWith('/bio') || /^\/turma\d+$/i.test(pathname)) return null;
   return <Footer />;
 }
 

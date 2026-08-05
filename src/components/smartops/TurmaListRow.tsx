@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import type { TurmaComVagas } from "@/types/courses";
 import { formatDatePtBr } from "@/lib/courseUtils";
 import { GerarDocButton } from "@/components/GerarDocButton";
+import { BoasVindasButton } from "@/components/BoasVindasButton";
 import { GerarCrachasButton } from "@/components/GerarCrachasButton";
 import { CriarPastaDriveButton } from "@/components/smartops/CriarPastaDriveButton";
 import { UploadMidiasDriveButton } from "@/components/smartops/UploadMidiasDriveButton";
@@ -165,6 +166,7 @@ export function TurmaListRow({ turma, companionCount, status, onEnroll }: Props)
       <TableCell onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-end gap-1">
           <GerarDocButton turmaId={turma.id} turmaLabel={turma.label} />
+          <BoasVindasButton turmaNumber={turma.turma_number ?? null} />
           <CriarPastaDriveButton
             turmaId={turma.id}
             folderUrl={driveFolderUrl}
