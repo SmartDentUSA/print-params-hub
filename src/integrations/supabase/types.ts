@@ -16715,6 +16715,7 @@ export type Database = {
           display_name: string
           id: string
           is_competitor: boolean | null
+          is_generic: boolean
           is_smartdent: boolean | null
           match_patterns: string[] | null
           opportunity_type: string | null
@@ -16729,6 +16730,7 @@ export type Database = {
           display_name: string
           id?: string
           is_competitor?: boolean | null
+          is_generic?: boolean
           is_smartdent?: boolean | null
           match_patterns?: string[] | null
           opportunity_type?: string | null
@@ -16743,6 +16745,7 @@ export type Database = {
           display_name?: string
           id?: string
           is_competitor?: boolean | null
+          is_generic?: boolean
           is_smartdent?: boolean | null
           match_patterns?: string[] | null
           opportunity_type?: string | null
