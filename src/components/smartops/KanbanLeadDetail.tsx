@@ -350,6 +350,15 @@ interface TimelineEvent {
   value_numeric: number | null;
 }
 
+interface NpsRow {
+  id: string;
+  created_at: string;
+  score_satisfacao: number | null;
+  score_treinamentos: number | null;
+  score_recomendacao: number | null;
+  comment: string | null;
+}
+
 const TIMELINE_CATEGORIES: { key: string; label: string; emoji: string }[] = [
   { key: "crm", label: "CRM", emoji: "📈" },
   { key: "mensagem", label: "Mensagens", emoji: "💬" },
