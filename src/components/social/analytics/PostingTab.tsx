@@ -125,8 +125,12 @@ export function PostingTab({ filters }: { filters: ZernioAnalyticsFilters }) {
       return m;
     }).filter((m) => m.size > 0);
     const dates = Array.from(new Set(perAccount.flatMap((m) => Array.from(m.keys())))).sort();
-    // Forward-fill por conta para evitar saltos quando uma conta começa a reportar depois
-    const last = perAccount.map(() => 0);
+    // Forward + backward fill por conta: evita saltos quando uma conta começa a reportar depois
+    const first = perAccount.map((m) => {
+      const k = Array.from(m.keys()).sort()[0];
+      return k ? (m.get(k) ?? 0) : 0;
+    });
+    const last = [...first];
     return dates.map((d) => {
       let total = 0;
       perAccount.forEach((m, i) => {
