@@ -344,7 +344,7 @@ const TIMELINE_LABEL: Record<string, string> = {
 };
 
 // ─── LEAD ROW COMPONENT ───
-function LeadRow({ lead, active, onClick }: { lead: LeadFull; active: boolean; onClick: () => void }) {
+function LeadRow({ lead, active, onClick, nps }: { lead: LeadFull; active: boolean; onClick: () => void; nps?: { score: number; date: string } }) {
   const lis = (lead.intelligence_score as Record<string, unknown>)?.score_total as number || lead.intelligence_score_total || 0;
   const lc = lisColor(lis);
   const bt = lead.buyer_type;
@@ -400,6 +400,18 @@ function LeadRow({ lead, active, onClick }: { lead: LeadFull; active: boolean; o
         )}
         {(lead.software_cad || lead.status_cad === "tem_exocad") && (
           <span className="intel-lr-tag intel-tag-cad">💻 {lead.software_cad || "Exocad"}</span>
+        )}
+        {nps && (
+          <span
+            className="intel-lr-tag"
+            title={`NPS ${nps.score}/10 · respondido em ${new Date(nps.date).toLocaleDateString("pt-BR")}`}
+            style={{
+              background: nps.score >= 9 ? "hsl(142 60% 92%)" : nps.score >= 7 ? "hsl(45 90% 92%)" : "hsl(0 70% 94%)",
+              color: nps.score >= 9 ? "hsl(142 70% 24%)" : nps.score >= 7 ? "hsl(35 80% 28%)" : "hsl(0 70% 32%)",
+            }}
+          >
+            {"★".repeat(Math.max(1, Math.round(nps.score / 2)))}{"☆".repeat(5 - Math.max(1, Math.round(nps.score / 2)))} {nps.score}/10
+          </span>
         )}
       </div>
       <div className="intel-lr-bottom">
@@ -573,6 +585,31 @@ export function SmartOpsLeadsList() {
 
   useEffect(() => { fetchLeads(); }, [fetchLeads]);
   useEffect(() => { setPage(0); }, [debouncedSearch, buyerFilter, advFilters]);
+
+  // NPS das estrelas para os leads visíveis
+  const [npsMap, setNpsMap] = useState<Record<string, { score: number; date: string }>>({});
+  useEffect(() => {
+    const ids = leads.map(l => l.id);
+    if (!ids.length) { setNpsMap({}); return; }
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from("smartops_nps_responses")
+        .select("lead_id, score_recomendacao, created_at")
+        .in("lead_id", ids)
+        .order("created_at", { ascending: false });
+      if (cancelled || !data) return;
+      const map: Record<string, { score: number; date: string }> = {};
+      for (const r of data as any[]) {
+        if (!r.lead_id || map[r.lead_id]) continue;
+        const s = Number(r.score_recomendacao);
+        if (!Number.isFinite(s)) continue;
+        map[r.lead_id] = { score: Math.round(s * 2), date: r.created_at };
+      }
+      setNpsMap(map);
+    })();
+    return () => { cancelled = true; };
+  }, [leads]);
 
   const totalPages = Math.ceil(totalCount / PAGE_SIZE);
 
@@ -801,6 +838,7 @@ export function SmartOpsLeadsList() {
                     lead={lead}
                     active={selectedLead?.id === lead.id}
                     onClick={() => setSelectedLead(lead)}
+                    nps={npsMap[lead.id]}
                   />
                 ))}
                 {totalPages > 1 && (
