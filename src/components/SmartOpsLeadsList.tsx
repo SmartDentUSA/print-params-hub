@@ -388,9 +388,13 @@ function LeadRow({ lead, active, onClick }: { lead: LeadFull; active: boolean; o
         <span className={`intel-lr-tag ${bt === "company" ? "intel-tag-pj" : bt === "person" ? "intel-tag-pf" : "intel-tag-unk"}`}>
           {bt === "company" ? "🏢 Empresa" : bt === "person" ? "👤 Pessoa" : "❓"}
         </span>
-        {lead.equip_scanner && !/^n[ãa]o\b/i.test(lead.equip_scanner) && (
-          <span className="intel-lr-tag intel-tag-scanner">🔬 {lead.equip_scanner.split(" ").slice(0, 2).join(" ")}</span>
-        )}
+        {(() => {
+          const sc = lead.equip_scanner
+            || ((lead as any).scanner_marca as string | null)
+            || ((lead as any).como_digitaliza as string | null);
+          if (!sc || /^n[ãa]o\b/i.test(sc) || /^(sim|tenho)$/i.test(sc.trim())) return null;
+          return <span className="intel-lr-tag intel-tag-scanner">🔬 {sc.split(" ").slice(0, 2).join(" ")}</span>;
+        })()}
         {lead.impressora_modelo && !/^n[ãa]o\b/i.test(lead.impressora_modelo) && (
           <span className="intel-lr-tag intel-tag-imp">🖨️ {lead.impressora_modelo.split(" ").slice(0, 2).join(" ")}</span>
         )}
