@@ -456,6 +456,7 @@ export function KanbanLeadDetail({ lead, open, onClose }: KanbanLeadDetailProps)
   const [liaInteractions, setLiaInteractions] = useState<AgentInteraction[]>([]);
   const [whatsappMsgs, setWhatsappMsgs] = useState<WhatsAppMsg[]>([]);
   const [timelineEvents, setTimelineEvents] = useState<TimelineEvent[]>([]);
+  const [npsRows, setNpsRows] = useState<NpsRow[]>([]);
   const [activeCats, setActiveCats] = useState<string[]>([]);
   const [loadingMsgs, setLoadingMsgs] = useState(false);
   const [syncing, setSyncing] = useState(false);
@@ -492,6 +493,7 @@ export function KanbanLeadDetail({ lead, open, onClose }: KanbanLeadDetailProps)
       setLiaInteractions([]);
       setWhatsappMsgs([]);
       setTimelineEvents([]);
+      setNpsRows([]);
       return;
     }
     setActiveCats([]);
@@ -524,13 +526,20 @@ export function KanbanLeadDetail({ lead, open, onClose }: KanbanLeadDetailProps)
       p_limit: 400,
     } as never);
 
-    Promise.all([p1, p2, p3, p4]).then(([r1, r2, r3, r4]) => {
+    const p5 = supabase
+      .from("smartops_nps_responses")
+      .select("id, created_at, score_satisfacao, score_treinamentos, score_recomendacao, comment")
+      .eq("lead_id", lead.id)
+      .order("created_at", { ascending: false });
+
+    Promise.all([p1, p2, p3, p4, p5]).then(([r1, r2, r3, r4, r5]) => {
       const logs = (r1.data || []) as MsgLog[];
       setSystemMsgs(logs.filter((l) => SYSTEM_TO_SELLER_TYPES.includes(l.tipo || "")));
       setSellerMsgs(logs.filter((l) => SELLER_TO_LEAD_TYPES.includes(l.tipo || "")));
       setLiaInteractions((r2.data || []) as AgentInteraction[]);
       setWhatsappMsgs((r3.data || []) as WhatsAppMsg[]);
       setTimelineEvents(((r4.data || []) as unknown) as TimelineEvent[]);
+      setNpsRows(((r5.data || []) as unknown) as NpsRow[]);
       setLoadingMsgs(false);
     });
 
