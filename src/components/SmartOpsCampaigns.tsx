@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { CampaignLinkPicker } from "@/components/smartops/CampaignLinkPicker";
 import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import ZernioAdsTab from "@/components/campaigns/ZernioAdsTab";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
