@@ -43,8 +43,8 @@ export function InternalChannelsTab({ days }: { days: number }) {
             <p className="text-sm text-muted-foreground text-center py-6">Nenhuma instância cadastrada.</p>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-              {data!.instances.map((i) => (
-                <div key={i.instance} className="rounded-lg border border-border p-3 space-y-2">
+              {data!.instances.map((i, idx) => (
+                <div key={`${i.instance}-${i.phone ?? ''}-${idx}`} className="rounded-lg border border-border p-3 space-y-2">
                   <div className="flex items-start justify-between gap-2">
                     <div>
                       <div className="font-medium leading-tight">{i.name ?? i.instance}</div>
