@@ -1,5 +1,5 @@
 import { NavLink, useLocation } from 'react-router-dom';
-import { LayoutDashboard, PenSquare, Calendar, Database, BarChart3, Workflow, Megaphone, Users, ArrowLeft, Star, Send } from 'lucide-react';
+import { LayoutDashboard, PenSquare, Calendar, Database, BarChart3, Workflow, Megaphone, Users, ArrowLeft, Star, Send, Inbox } from 'lucide-react';
 import {
   Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel,
   SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarHeader, SidebarFooter, useSidebar,
@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils';
 
 const items = [
   { title: 'Dashboard',     url: '/social',             icon: LayoutDashboard, end: true },
+  { title: 'Conversas',     url: '/social/conversas',   icon: Inbox },
   { title: 'Criar Post',    url: '/social/novo',        icon: PenSquare },
   { title: 'Calendário',    url: '/social/calendario',  icon: Calendar },
   { title: 'Banco de Posts',url: '/social/banco',       icon: Database },
