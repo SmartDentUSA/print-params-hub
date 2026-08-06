@@ -41,7 +41,7 @@ const SmartOpsLogs = lazy(() => import("@/components/SmartOpsLogs").then(m => ({
 const SmartOpsSystemHealth = lazy(() => import("@/components/SmartOpsSystemHealth").then(m => ({ default: m.SmartOpsSystemHealth })));
 const SmartOpsContentProduction = lazy(() => import("@/components/SmartOpsContentProduction").then(m => ({ default: m.SmartOpsContentProduction })));
 const SmartOpsWhatsAppInbox = lazy(() => import("@/components/SmartOpsWhatsAppInbox").then(m => ({ default: m.SmartOpsWhatsAppInbox })));
-const SmartOpsFormBuilder = lazy(() => import("@/components/SmartOpsFormBuilder").then(m => ({ default: m.SmartOpsFormBuilder })));
+const SmartOpsFormsHub = lazy(() => import("@/components/smartops/SmartOpsFormsHub").then(m => ({ default: m.SmartOpsFormsHub })));
 const SmartOpsCourses = lazy(() => import("@/components/SmartOpsCourses").then(m => ({ default: m.SmartOpsCourses })));
 const SmartOpsAIUsageDashboard = lazy(() => import("@/components/SmartOpsAIUsageDashboard").then(m => ({ default: m.SmartOpsAIUsageDashboard })));
 const SmartOpsAIRouting = lazy(() => import("@/components/SmartOpsAIRouting").then(m => ({ default: m.SmartOpsAIRouting })));
@@ -330,7 +330,7 @@ export default function AdminViewSecure() {
       case 'so-conteudo': return <SmartOpsContentProduction key={`conteudo-${refreshKey}`} />;
       case 'so-saude': return <SmartOpsSystemHealth key={`saude-${refreshKey}`} />;
       case 'so-whatsapp': return <SmartOpsWhatsAppInbox key={`whatsapp-${refreshKey}`} refreshKey={refreshKey} />;
-      case 'so-formularios': return <SmartOpsFormBuilder key={`forms-${refreshKey}`} />;
+      case 'so-formularios': return <SmartOpsFormsHub key={`forms-${refreshKey}`} />;
       case 'so-treinamentos': return <SmartOpsCourses key={`training-${refreshKey}`} />;
       case 'so-tokens-ia': return <SmartOpsAIUsageDashboard />;
       case 'so-ai-routing': return <SmartOpsAIRouting />;
