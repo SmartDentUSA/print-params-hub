@@ -134,9 +134,15 @@ export function SocialInbox() {
                         <div className="mt-1 flex items-center gap-1">
                           <Badge variant="outline" className="text-[10px] capitalize">{c.platform}</Badge>
                           {leadMatches?.[c.id]?.lead ? (
-                            <Badge variant="secondary" className="text-[10px] gap-1">
-                              <UserCheck className="w-3 h-3" /> Lead
-                            </Badge>
+                            leadMatches[c.id].is_customer ? (
+                              <Badge className="text-[10px] gap-1 bg-primary/15 text-primary hover:bg-primary/20">
+                                <UserCheck className="w-3 h-3" /> Cliente
+                              </Badge>
+                            ) : (
+                              <Badge variant="secondary" className="text-[10px] gap-1">
+                                <UserCheck className="w-3 h-3" /> Lead
+                              </Badge>
+                            )
                           ) : leadMatches ? (
                             <Badge variant="outline" className="text-[10px] gap-1 text-muted-foreground">
                               <UserX className="w-3 h-3" /> Sem cadastro
@@ -181,9 +187,14 @@ export function SocialInbox() {
                 <div className="ml-auto flex items-center gap-2">
                   {selectedMatch?.lead ? (
                     <a href={`/smart-ops/leads?lead=${selectedMatch.lead.id}`} target="_blank" rel="noreferrer">
-                      <Badge variant="secondary" className="gap-1 text-[10px]">
+                      <Badge variant={selectedMatch.is_customer ? 'default' : 'secondary'} className="gap-1 text-[10px]">
                         <UserCheck className="w-3 h-3" />
+                        <span className="font-semibold">{selectedMatch.is_customer ? 'Cliente' : 'Lead'}</span>
+                        <span className="opacity-70">·</span>
                         {selectedMatch.lead.nome ?? 'Lead'}
+                        {selectedMatch.is_customer && (selectedMatch.won_deals ?? 0) > 0 && (
+                          <span className="opacity-70">· {selectedMatch.won_deals} deal(s) ganho(s)</span>
+                        )}
                         {selectedMatch.matched_by && <span className="opacity-70">· {selectedMatch.matched_by}</span>}
                       </Badge>
                     </a>
