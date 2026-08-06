@@ -1,0 +1,1 @@
+update public.smartops_bio_pages set logo_url='https://admin.smartdent.com.br/favicon-512x512.png?v=11' where slug='smart-dent-fluxo-digital';
