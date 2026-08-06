@@ -791,15 +791,16 @@ export function KanbanLeadDetail({ lead, open, onClose }: KanbanLeadDetailProps)
                 </span>
               </div>
             )}
-            {(lead.tem_scanner !== "não" && lead.tem_scanner) && (
+            {(lead.tem_scanner !== "não" && (s(lead, "scanner_marca") || lead.tem_scanner)) && (
               <div className="flex justify-between text-sm py-1 items-center gap-2">
                 <span className="text-muted-foreground">📷 Scanner</span>
                 <span className="font-medium text-right max-w-[60%] break-words flex items-center gap-1 justify-end">
                   <ProvenanceBadge p={provenance.equip_scanner} />
-                  <span>{String(lead.tem_scanner)}</span>
+                  <span>{String(s(lead, "scanner_marca") || lead.tem_scanner)}</span>
                 </span>
               </div>
             )}
+            <DetailRow label="Marca do scanner" value={s(lead, "scanner_marca")} emoji="🏷️" />
             <DetailRow label="Digitalização" value={lead.como_digitaliza} emoji="🔍" />
             {lead.software_cad && (
               <div className="flex justify-between text-sm py-1 items-center gap-2">
