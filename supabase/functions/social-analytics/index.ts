@@ -27,6 +27,10 @@ const ROUTES: Record<string, [string, string[]]> = {
   inbox_response_time: ['/analytics/inbox/response-time', ['fromDate', 'toDate', 'profileId', 'platform', 'accountId']],
   inbox_source_breakdown: ['/analytics/inbox/source-breakdown', ['fromDate', 'toDate', 'profileId', 'platform', 'accountId']],
   inbox_top_accounts: ['/analytics/inbox/top-accounts', ['fromDate', 'toDate', 'profileId', 'platform', 'source', 'limit']],
+  // ── Ads (Meta/Google via Zernio) ──
+  ads_list: ['/ads', ['platform', 'profileId', 'accountId', 'status', 'campaignName', 'adSetName', 'search', 'days', 'fromDate', 'toDate', 'limit', 'page', 'sortBy', 'order']],
+  ads_campaigns: ['/ads/campaigns', ['platform', 'profileId', 'accountId', 'status', 'search', 'days', 'fromDate', 'toDate', 'limit', 'page', 'sortBy', 'order']],
+  ads_insights: ['/ads/insights', ['accountId', 'objectId', 'level', 'days', 'fromDate', 'toDate', 'fields', 'timeIncrement', 'after']],
 };
 
 serve(async (req) => {

@@ -17,3 +17,4 @@
 - [CRM Timeline Parity](mem://architecture/crm-timeline-parity) — crm_proposal/crm_deal_snapshot emitidos por webhook + reconciliador API; pendências em crm_timeline_unresolved
 - [Zernio Social Analytics](mem://integration/zernio-social-analytics) — Aba Analytics (Publicações/Inbox/Canais internos) via social-analytics + fn_social_internal_analytics
 - [Zernio Unified Inbox](mem://integration/zernio-unified-inbox) — Aba Conversas do Social Publisher lê/responde DMs via edge function social-inbox (proxy Zernio)
+- [Zernio Ads Manager](mem://integration/zernio-ads-manager) — Aba Anúncios (Central de Campanhas) lê campanhas/anúncios/insights Meta via social-analytics
