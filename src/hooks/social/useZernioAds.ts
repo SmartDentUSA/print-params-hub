@@ -260,3 +260,31 @@ export function useAdsPeriodInsights(accounts: AdAccountRef[], days: number) {
     },
   });
 }
+
+// ---------------------------------------------------------------------------
+// Receita (propostas ganhas) por campanha — vem do CRM (deals ganhas), não da Zernio.
+// ---------------------------------------------------------------------------
+
+export function useCampaignRevenue(days: number) {
+  const fromDate = isoDaysAgo(days);
+  const toDate = new Date().toISOString().slice(0, 10);
+  return useQuery({
+    queryKey: ['campaign-revenue', fromDate, toDate],
+    staleTime: 5 * 60_000,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('fn_campaign_revenue', {
+        p_from: fromDate,
+        p_to: toDate,
+      });
+      if (error) throw error;
+      const byCampaign = new Map<string, { revenue: number; wonDeals: number }>();
+      let total = 0;
+      for (const row of (data ?? []) as Array<{ platform_campaign_id: string; revenue: number; won_deals: number }>) {
+        const revenue = num(row.revenue);
+        byCampaign.set(String(row.platform_campaign_id), { revenue, wonDeals: num(row.won_deals) });
+        total += revenue;
+      }
+      return { byCampaign, total, fromDate, toDate };
+    },
+  });
+}
