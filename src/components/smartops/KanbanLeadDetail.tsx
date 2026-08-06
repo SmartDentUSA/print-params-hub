@@ -646,6 +646,45 @@ export function KanbanLeadDetail({ lead, open, onClose }: KanbanLeadDetailProps)
         </SheetHeader>
 
         <div className="mt-4 space-y-2">
+          {/* ===== NPS PÓS-TREINAMENTO ===== */}
+          {npsRows.length > 0 && (
+            <>
+              <div className="rounded-lg border p-3 space-y-2">
+                <h4 className="text-xs font-semibold uppercase text-muted-foreground">
+                  ⭐ NPS pós-treinamento ({npsRows.length} resposta{npsRows.length > 1 ? "s" : ""})
+                </h4>
+                <div className="grid grid-cols-4 gap-2 text-center">
+                  <div className="rounded-md bg-muted/40 p-2">
+                    <div className="text-lg font-bold">{npsScore ?? "—"}</div>
+                    <div className="text-[10px] text-muted-foreground">NPS (0–10)</div>
+                  </div>
+                  <div className="rounded-md bg-muted/40 p-2">
+                    <div className="text-lg font-bold">{npsLast?.score_satisfacao ?? "—"}</div>
+                    <div className="text-[10px] text-muted-foreground">Satisfação</div>
+                  </div>
+                  <div className="rounded-md bg-muted/40 p-2">
+                    <div className="text-lg font-bold">{npsLast?.score_treinamentos ?? "—"}</div>
+                    <div className="text-[10px] text-muted-foreground">Treinamentos</div>
+                  </div>
+                  <div className="rounded-md bg-muted/40 p-2">
+                    <div className="text-lg font-bold">{npsLast?.score_recomendacao ?? "—"}</div>
+                    <div className="text-[10px] text-muted-foreground">Recomendação</div>
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  {npsRows.map((r) => (
+                    <div key={r.id} className="text-[11px] text-muted-foreground">
+                      📅 Respondido em <span className="font-medium text-foreground">{fmtDateTime(r.created_at)}</span>
+                      {r.score_recomendacao != null && <> · nota {r.score_recomendacao * 2}/10</>}
+                      {r.comment && <div className="italic pl-4">"{r.comment}"</div>}
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <Separator />
+            </>
+          )}
+
           {/* ===== RESUMO FINANCEIRO (hero card) ===== */}
           {(n(lead, "ltv_total") != null && n(lead, "ltv_total")! > 0) || (n(lead, "proposals_total_value") != null && n(lead, "proposals_total_value")! > 0) || (n(lead, "intelligence_score_total") != null && n(lead, "intelligence_score_total")! > 0) ? (
             <>
