@@ -15,4 +15,5 @@
 - [Painel Comercial (TV)](mem://features/painel-comercial-tv) — /painel-comercial lê só painel_comercial_cache (refresh por cron 15 min); nunca consulta deals/transições direto
 - [Email Integrity Guard](mem://architecture/email-integrity-guard) — Trigger fn_sanitize_lead_email + _shared/email-sanitize.ts: email canônico único, secundários em email_secundarios, bruto inválido em email_invalido_raw
 - [CRM Timeline Parity](mem://architecture/crm-timeline-parity) — crm_proposal/crm_deal_snapshot emitidos por webhook + reconciliador API; pendências em crm_timeline_unresolved
+- [Zernio Social Analytics](mem://integration/zernio-social-analytics) — Aba Analytics (Publicações/Inbox/Canais internos) via social-analytics + fn_social_internal_analytics
 - [Zernio Unified Inbox](mem://integration/zernio-unified-inbox) — Aba Conversas do Social Publisher lê/responde DMs via edge function social-inbox (proxy Zernio)
