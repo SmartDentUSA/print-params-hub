@@ -115,21 +115,42 @@ export function PostingTab({ filters }: { filters: ZernioAnalyticsFilters }) {
   );
 
   const followerSeries = useMemo(() => {
-    const byDate = new Map<string, number>();
     const statsMap: Record<string, any[]> = (followers.data as any)?.stats ?? {};
-    Object.values(statsMap).forEach((hist) => {
+    const perAccount = Object.values(statsMap).map((hist) => {
+      const m = new Map<string, number>();
       (hist ?? []).forEach((h: any) => {
         const d = String(h.date ?? h.day ?? '').slice(0, 10);
-        if (!d) return;
-        byDate.set(d, (byDate.get(d) ?? 0) + num(h.followers ?? h.followerCount ?? h.count));
+        if (d) m.set(d, num(h.followers ?? h.followerCount ?? h.count));
       });
+      return m;
+    }).filter((m) => m.size > 0);
+    const dates = Array.from(new Set(perAccount.flatMap((m) => Array.from(m.keys())))).sort();
+    // Forward-fill por conta para evitar saltos quando uma conta começa a reportar depois
+    const last = perAccount.map(() => 0);
+    return dates.map((d) => {
+      let total = 0;
+      perAccount.forEach((m, i) => {
+        const v = m.get(d);
+        if (typeof v === 'number') last[i] = v;
+        total += last[i];
+      });
+      return { date: d.slice(5), seguidores: total };
     });
-    return Array.from(byDate.entries()).sort(([a], [b]) => a.localeCompare(b)).map(([date, seguidores]) => ({ date: date.slice(5), seguidores }));
   }, [followers.data]);
 
-  const followerGrowth = followerSeries.length > 1
-    ? followerSeries[followerSeries.length - 1].seguidores - followerSeries[0].seguidores
-    : 0;
+  const followerGrowth = useMemo(() => {
+    const accs: any[] = (followers.data as any)?.accounts ?? [];
+    if (accs.length) return accs.reduce((s, a) => s + num(a.growth), 0);
+    return followerSeries.length > 1
+      ? followerSeries[followerSeries.length - 1].seguidores - followerSeries[0].seguidores
+      : 0;
+  }, [followers.data, followerSeries]);
+
+  const avgEngagementRate = useMemo(() => {
+    const vals = rows.map((r) => num(r.engagementRate)).filter((v) => v > 0);
+    if (!vals.length) return 0;
+    return vals.reduce((s, v) => s + v, 0) / vals.length;
+  }, [rows]);
 
   const handleExport = () => {
     const cols = ['platform', 'date', 'content', ...METRICS.map((m) => m.key), 'engagement', 'engagementRate', 'url'];
@@ -153,7 +174,7 @@ export function PostingTab({ filters }: { filters: ZernioAnalyticsFilters }) {
       <KpiStrip
         loading={posts.isLoading}
         kpis={[
-          { label: 'Taxa de engajamento', value: `${num(overview.engagementRate ?? overview.avgEngagementRate).toFixed(1)}%`, icon: <TrendingUp className="w-3.5 h-3.5" /> },
+          { label: 'Taxa de engajamento', value: `${num((overview as any).engagementRate ?? (overview as any).avgEngagementRate ?? avgEngagementRate).toFixed(1)}%`, hint: `${rows.length} posts`, icon: <TrendingUp className="w-3.5 h-3.5" /> },
           { label: 'Alcance', value: num(overview.reach ?? rows.reduce((s, r) => s + r.reach, 0)), icon: <Eye className="w-3.5 h-3.5" /> },
           { label: 'Impressões', value: num(overview.impressions ?? rows.reduce((s, r) => s + r.impressions, 0)), icon: <BarChart3 className="w-3.5 h-3.5" /> },
           { label: 'Engajamento', value: rows.reduce((s, r) => s + r.engagement, 0), icon: <Heart className="w-3.5 h-3.5" /> },
