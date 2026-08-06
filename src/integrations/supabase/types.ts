@@ -21402,6 +21402,39 @@ export type Database = {
           },
         ]
       }
+      social_dm_sent_log: {
+        Row: {
+          created_at: string
+          dedup_key: string
+          id: string
+          message_hash: string
+          message_preview: string | null
+          platform: string
+          recipient_id: string
+          source: string | null
+        }
+        Insert: {
+          created_at?: string
+          dedup_key: string
+          id?: string
+          message_hash: string
+          message_preview?: string | null
+          platform?: string
+          recipient_id: string
+          source?: string | null
+        }
+        Update: {
+          created_at?: string
+          dedup_key?: string
+          id?: string
+          message_hash?: string
+          message_preview?: string | null
+          platform?: string
+          recipient_id?: string
+          source?: string | null
+        }
+        Relationships: []
+      }
       social_flow_links_manuais: {
         Row: {
           created_at: string | null
@@ -33437,6 +33470,17 @@ export type Database = {
           claimed: boolean
           reason: string
         }[]
+      }
+      try_claim_social_dm: {
+        Args: {
+          _message_hash: string
+          _message_preview?: string
+          _platform: string
+          _recipient_id: string
+          _source?: string
+          _window_minutes?: number
+        }
+        Returns: boolean
       }
       try_lock_cognitive_analysis: {
         Args: { target_lead_id: string }

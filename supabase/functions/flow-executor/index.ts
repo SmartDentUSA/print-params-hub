@@ -1,6 +1,7 @@
 // flow-executor — avança sessões de social_flows
 import { serve } from 'https://deno.land/std@0.224.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { claimDmSend } from '../_shared/dm-dedup.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -71,7 +72,10 @@ serve(async (req) => {
         if (type === 'send_dm' || type === 'send_comment_reply') {
           if (zernio && s.ig_user_id) {
             const msg = template(cfg.message ?? '', state);
-            try { await sendDm(zernio, s.ig_user_id, msg); } catch (e) { console.error('dm fail', e); }
+            const ok = await claimDmSend(supabase, { recipientId: s.ig_user_id, message: msg, source: `flow-executor:${flow.id}` });
+            if (ok) {
+              try { await sendDm(zernio, s.ig_user_id, msg); } catch (e) { console.error('dm fail', e); }
+            }
           }
         } else if (type === 'wait') {
           const secs = Number(cfg.seconds ?? 60);
@@ -85,7 +89,10 @@ serve(async (req) => {
         } else if (type === 'collect_input') {
           const msg = template(cfg.prompt ?? '', state);
           if (zernio && s.ig_user_id && msg) {
-            try { await sendDm(zernio, s.ig_user_id, msg); } catch (e) { console.error('dm fail', e); }
+            const ok = await claimDmSend(supabase, { recipientId: s.ig_user_id, message: msg, source: `flow-executor:${flow.id}:collect_input` });
+            if (ok) {
+              try { await sendDm(zernio, s.ig_user_id, msg); } catch (e) { console.error('dm fail', e); }
+            }
           }
           await supabase.from('social_sessions').update({
             current_node_id: currentId, state, status: 'waiting_input',
