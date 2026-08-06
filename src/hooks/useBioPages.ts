@@ -42,7 +42,7 @@ export const DEFAULT_SOCIAL_LINKS: BioSocialLinks = {
 };
 
 // Ícone SD servido direto de /public (evita depender do CDN de assets no preview)
-export const DEFAULT_LOGO_URL = "/favicon-512x512.png?v=10";
+export const DEFAULT_LOGO_URL = "/favicon-512x512.png?v=11";
 
 function mapRow(r: any): BioPage {
   return {
