@@ -383,14 +383,33 @@ Resultado (grid × base da composição): ago R$ 148.485 / R$ 148.896 · jul R$ 
 R$ 2.843.804 · jun R$ 1.983.487 / R$ 2.002.616. A diferença é o corte de top-5 por
 subcategoria mais o que segue sem classificação.
 
-**Ainda sem classificação** (nomes que o CRM usa e a taxonomia não conhece — precisam de
-decisão de negócio sobre etapa/subcategoria): `KIT STARTER`, `KIT CHAIRSIDE`,
-`KIT COMPLEMENTAR - MAKE`, `Ativação DentalCAD Ultimate Lab Bundle - RMS`,
-`Ponteira BLZ`, `Placas De Acetato`, `Reposição Teflon - Miicraft`, líquidos de
-pigmentação de zircônia e `NANO CLEAN - 9GR`. Somam de R$ 12 mil a R$ 71 mil por mês e
-não aparecem no grid (a etapa `nao_classificado` não é renderizada). Foram mapeados
-apenas os dois casos inequívocos: `A50 - Ryzen 7 - RTX4050` → Notebook CAD
-(R$ 492.900 em 6 meses) e `MODEL PLUS - 1 KG` → Resinas 3D (R$ 90.861).
+### Kits: o kit não aparece, os componentes sim
+
+Kits vendidos (`KIT CHAIRSIDE`, `KIT STARTER`) entravam como uma linha só, sem
+classificação, e sumiam da tela. Por definição do usuário, **o kit não deve aparecer como
+produto — cada componente aparece na categoria/subcategoria dele**. O grid passa a
+explodir o item pelos componentes cadastrados em `catalog_kit_components`, rateando o
+valor pelo preço de tabela de cada um e multiplicando a quantidade:
+
+| Kit no catálogo | Composição |
+|---|---|
+| KIT CHAIRSIDE | Bio Temp B1 100g (R$ 240) + NanoClean PoD 160g (R$ 399) + Bite Splint +Flex 1kg (R$ 1.925) + GlazeON Splint (R$ 275) |
+| Plano Starter PNP | NanoClean PoD 160g (R$ 399) + Bio Vitality 250g (R$ 1.859) + Bite Splint +Flex 1kg (R$ 1.925) + GlazeON Splint (R$ 275) |
+
+`KIT CHAIRSIDE` casa pelo nome. `KIT STARTER` é o nome que o CRM usa para o
+**Plano Starter PNP** — registrado em `produto_aliases` como variante de nome, e o grid
+passa a resolver variante → canônico antes de procurar o kit, para que qualquer apelido
+cadastrado funcione daqui para frente.
+
+Efeito em jul/26: os 25 KIT STARTER foram distribuídos e o não classificado caiu de
+**R$ 71.303 para R$ 4.695**; "Resina Vitality" foi de 208 para 233 unidades.
+
+**Ainda sem classificação** (R$ 630 a R$ 4,7 mil/mês): `Ativação DentalCAD Ultimate Lab
+Bundle - RMS`, `Ponteira BLZ`, `Placas De Acetato`, `Reposição Teflon - Miicraft`,
+`NANO CLEAN - 9GR`, líquidos de pigmentação de zircônia, `KIT COMPLEMENTAR - MAKE` e
+`AMOSTRA UNICROMA` (esta com valor zero). Foram mapeados os dois casos inequívocos:
+`A50 - Ryzen 7 - RTX4050` → Notebook CAD (R$ 492.900 em 6 meses) e `MODEL PLUS - 1 KG` →
+Resinas 3D (R$ 90.861).
 
 ### O que ficou de fora
 
