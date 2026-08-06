@@ -530,3 +530,6 @@ verify_jwt = false
 
 [functions.social-inbox]
 verify_jwt = true
+
+[functions.social-inbox-lead-link]
+verify_jwt = true
