@@ -1582,6 +1582,16 @@ Deno.serve(async (req) => {
     // Normalize to relational tables (people/companies/deals)
     callNormalizeFromLead(supabase, leadId).catch(() => {});
 
+    // ─── Mesh Stripe ↔ CDP ───
+    // O cadastro acabou de ser criado/atualizado com CNPJ/e-mail/telefone reais:
+    // reaponta pagamentos Stripe que ficaram em lead-stub para este lead.
+    try {
+      const { reconcileStripeToLead } = await import("../_shared/stripe-lead-reconcile.ts");
+      await reconcileStripeToLead(supabase, leadId, { source: "smart-ops-piperun-webhook" });
+    } catch (stripeMeshErr) {
+      console.error("[piperun-webhook] stripe mesh error:", (stripeMeshErr as Error).message);
+    }
+
     // Find team member
     let teamMember = null;
     const resolvedOwnerEmail = ids.ownerEmail || (ids.ownerId ? PIPERUN_USERS[ids.ownerId]?.email : null);
