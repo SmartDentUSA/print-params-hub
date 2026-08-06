@@ -1970,14 +1970,15 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
                   <tbody>
                     {allProposalItems.map((item, ii) => {
                       const canon = canonProduct(item.name);
-                      const displaySku = canon?.sku || (item.sku && item.sku !== "—" ? item.sku : "—");
+                      const canonSkuVal = canonSkuOf(item.name);
+                      const displaySku = canonSkuVal || (isRealSku(item.sku) ? item.sku : "—");
                       const displayName = canon?.canonical_name || item.name;
                       return (
                       <tr key={ii}>
                         <td style={{ fontFamily: "'DM Mono', monospace", fontSize: 11 }}>#{item.dealId}</td>
                         <td
-                          style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: canon?.sku ? "var(--text)" : "var(--muted2)", maxWidth: 100, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
-                          title={canon?.sku ? `SKU do catálogo (CRM: ${item.sku})` : `Sem SKU no catálogo — código do CRM: ${item.sku}`}
+                          style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: canonSkuVal ? "var(--text)" : "var(--muted2)", maxWidth: 100, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+                          title={canonSkuVal ? `SKU do catálogo (CRM: ${item.sku})` : `Sem SKU no catálogo — código do CRM: ${item.sku}`}
                         >
                           {displaySku}
                         </td>
