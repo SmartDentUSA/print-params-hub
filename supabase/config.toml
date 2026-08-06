@@ -527,3 +527,6 @@ verify_jwt = false
 
 [functions.turma-welcome]
 verify_jwt = false
+
+[functions.social-inbox]
+verify_jwt = true
