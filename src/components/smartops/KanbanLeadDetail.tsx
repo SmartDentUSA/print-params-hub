@@ -800,7 +800,6 @@ export function KanbanLeadDetail({ lead, open, onClose }: KanbanLeadDetailProps)
                 </span>
               </div>
             )}
-            <DetailRow label="Marca do scanner" value={s(lead, "scanner_marca")} emoji="🏷️" />
             <DetailRow label="Digitalização" value={lead.como_digitaliza} emoji="🔍" />
             {lead.software_cad && (
               <div className="flex justify-between text-sm py-1 items-center gap-2">
