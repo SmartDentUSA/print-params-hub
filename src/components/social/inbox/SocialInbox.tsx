@@ -131,7 +131,18 @@ export function SocialInbox() {
                           <span className="ml-auto text-[10px] text-muted-foreground shrink-0">{fmt(c.updatedTime)}</span>
                         </div>
                         <p className="text-xs text-muted-foreground truncate">{c.lastMessage || '—'}</p>
-                        <Badge variant="outline" className="mt-1 text-[10px] capitalize">{c.platform}</Badge>
+                        <div className="mt-1 flex items-center gap-1">
+                          <Badge variant="outline" className="text-[10px] capitalize">{c.platform}</Badge>
+                          {leadMatches?.[c.id]?.lead ? (
+                            <Badge variant="secondary" className="text-[10px] gap-1">
+                              <UserCheck className="w-3 h-3" /> Lead
+                            </Badge>
+                          ) : leadMatches ? (
+                            <Badge variant="outline" className="text-[10px] gap-1 text-muted-foreground">
+                              <UserX className="w-3 h-3" /> Sem cadastro
+                            </Badge>
+                          ) : null}
+                        </div>
                       </div>
                     </button>
                   </li>
