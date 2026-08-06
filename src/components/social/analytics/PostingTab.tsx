@@ -61,7 +61,11 @@ export function PostingTab({ filters }: { filters: ZernioAnalyticsFilters }) {
   }, [posts.data]);
 
   const overview = posts.data?.overview ?? {};
-  const totalFollowers = (posts.data?.accounts ?? []).reduce((s, a) => s + num(a.followerCount), 0);
+  const totalFollowers = useMemo(() => {
+    const fromStats: any[] = (followers.data as any)?.accounts ?? [];
+    if (fromStats.length) return fromStats.reduce((s, a) => s + num(a.currentFollowers), 0);
+    return (posts.data?.accounts ?? []).reduce((s, a: any) => s + num(a.followersCount ?? a.followerCount), 0);
+  }, [followers.data, posts.data]);
 
   const series = useMemo(
     () => (daily.data?.dailyData ?? []).map((d) => ({
@@ -92,12 +96,13 @@ export function PostingTab({ filters }: { filters: ZernioAnalyticsFilters }) {
   }, [best.data]);
 
   const freqRows = useMemo(() => {
-    const raw: any[] = (freq.data as any)?.data ?? (freq.data as any)?.rows ?? (freq.data as any)?.frequencies ?? [];
+    const f: any = freq.data ?? {};
+    const raw: any[] = f.frequency ?? f.data ?? f.rows ?? f.frequencies ?? [];
     return raw.map((r) => ({
       platform: r.platform ?? '—',
       postsPorSemana: num(r.posts_per_week ?? r.postsPerWeek),
       engajamento: num(r.avg_engagement_rate ?? r.avgEngagementRate ?? r.engagement_rate),
-      semanas: num(r.week_count ?? r.weeks),
+      semanas: num(r.weeks_count ?? r.week_count ?? r.weeks),
     }));
   }, [freq.data]);
 
@@ -110,14 +115,13 @@ export function PostingTab({ filters }: { filters: ZernioAnalyticsFilters }) {
   );
 
   const followerSeries = useMemo(() => {
-    const accounts: any[] = (followers.data as any)?.accounts ?? [];
     const byDate = new Map<string, number>();
-    accounts.forEach((acc) => {
-      const hist: any[] = acc.history ?? acc.dataPoints ?? acc.followerHistory ?? [];
-      hist.forEach((h) => {
+    const statsMap: Record<string, any[]> = (followers.data as any)?.stats ?? {};
+    Object.values(statsMap).forEach((hist) => {
+      (hist ?? []).forEach((h: any) => {
         const d = String(h.date ?? h.day ?? '').slice(0, 10);
         if (!d) return;
-        byDate.set(d, (byDate.get(d) ?? 0) + num(h.followerCount ?? h.followers ?? h.count));
+        byDate.set(d, (byDate.get(d) ?? 0) + num(h.followers ?? h.followerCount ?? h.count));
       });
     });
     return Array.from(byDate.entries()).sort(([a], [b]) => a.localeCompare(b)).map(([date, seguidores]) => ({ date: date.slice(5), seguidores }));

@@ -53,7 +53,7 @@ export function usePostAnalytics(f: ZernioAnalyticsFilters) {
   return useZernio<{
     overview?: Record<string, number>;
     posts?: PostRow[];
-    accounts?: Array<{ _id?: string; platform?: string; username?: string; displayName?: string; followerCount?: number }>;
+    accounts?: Array<{ _id?: string; platform?: string; username?: string; displayName?: string; followersCount?: number | null }>;
     hasAnalyticsAccess?: boolean;
   }>('posts', { ...base(f), ...dateRange(f.days), limit: 100, sortBy: 'engagement', order: 'desc' });
 }
@@ -73,7 +73,7 @@ export function useBestTime(f: ZernioAnalyticsFilters) {
 }
 
 export function usePostingFrequency(f: ZernioAnalyticsFilters) {
-  return useZernio<{ data?: any[]; rows?: any[]; frequencies?: any[] }>('posting_frequency', base(f));
+  return useZernio<{ frequency?: any[]; data?: any[]; rows?: any[]; frequencies?: any[] }>('posting_frequency', base(f));
 }
 
 export function useContentDecay(f: ZernioAnalyticsFilters) {
@@ -84,7 +84,7 @@ export function useContentDecay(f: ZernioAnalyticsFilters) {
 }
 
 export function useFollowerStats(f: ZernioAnalyticsFilters) {
-  return useZernio<{ accounts?: any[]; stats?: Record<string, any> }>('follower_stats', {
+  return useZernio<{ accounts?: any[]; stats?: Record<string, Array<{ date: string; followers: number }>> }>('follower_stats', {
     ...dateRange(f.days),
     granularity: 'daily',
   });
