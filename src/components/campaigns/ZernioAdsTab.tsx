@@ -189,7 +189,7 @@ export default function ZernioAdsTab() {
       <p className="text-xs text-muted-foreground">
         Métricas do período selecionado ({PERIODS.find((p) => p.value === days)?.label.toLowerCase()})
         {periodQ.data ? `: ${periodQ.data.fromDate} a ${periodQ.data.toDate}` : ''}. Somente contas Meta
-        possuem insights por período na Zernio.
+        possuem insights por período na Zernio; valores dos anúncios (linhas filhas) são acumulados desde o início.
       </p>
 
       <Card>
