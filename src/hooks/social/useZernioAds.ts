@@ -87,7 +87,7 @@ async function fetchAllPages<T>(
   action: string,
   key: 'ads' | 'campaigns',
   params: Record<string, unknown>,
-  maxPages = 5,
+  maxPages = 10,
 ): Promise<T[]> {
   const out: T[] = [];
   let total = Infinity;
@@ -124,7 +124,7 @@ export function useZernioAds(filters: AdsFilters) {
         platform: filters.platform,
         status: filters.status,
         days: filters.days,
-      }, 8),
+      }, 10),
     }),
     staleTime: 5 * 60_000,
   });
@@ -160,5 +160,103 @@ export function useAdDailyInsights(
         fields: 'spend,impressions,clicks,ctr,cpc,cpm,reach',
       }),
     staleTime: 5 * 60_000,
+  });
+}
+// ---------------------------------------------------------------------------
+// Métricas do PERÍODO (Zernio /ads e /ads/campaigns retornam métricas LIFETIME).
+// Usamos /ads/insights com fromDate/toDate por conta de anúncios.
+// ---------------------------------------------------------------------------
+
+export interface PeriodMetrics {
+  spend: number;
+  impressions: number;
+  clicks: number;
+  leads: number;
+  ctr?: number;
+  cpc?: number;
+}
+
+export interface AdAccountRef {
+  accountId: string;
+  platformAdAccountId: string;
+  platform: string;
+}
+
+const LEAD_ACTION_TYPES = new Set([
+  'lead',
+  'onsite_conversion.lead_grouped',
+  'offsite_conversion.fb_pixel_lead',
+]);
+
+function num(v: unknown) {
+  const n = typeof v === 'string' ? parseFloat(v) : typeof v === 'number' ? v : 0;
+  return Number.isFinite(n) ? n : 0;
+}
+
+function leadsFromActions(actions: unknown): number {
+  if (!Array.isArray(actions)) return 0;
+  let best = 0;
+  for (const a of actions as Array<{ action_type?: string; value?: string }>) {
+    if (a?.action_type && LEAD_ACTION_TYPES.has(a.action_type)) best = Math.max(best, num(a.value));
+  }
+  return best;
+}
+
+function isoDaysAgo(days: number) {
+  const d = new Date();
+  d.setDate(d.getDate() - (days - 1));
+  return d.toISOString().slice(0, 10);
+}
+
+/** Insights agregados no período, por campanha (chave = platformCampaignId). */
+export function useAdsPeriodInsights(accounts: AdAccountRef[], days: number) {
+  // Zernio só expõe insights por conta para Meta/Facebook hoje.
+  const supported = accounts.filter((a) => a.platform === 'facebook' && a.platformAdAccountId);
+  const key = supported.map((a) => `${a.accountId}:${a.platformAdAccountId}`).sort().join('|');
+
+  return useQuery({
+    queryKey: ['zernio-ads-period', key, days],
+    enabled: supported.length > 0,
+    staleTime: 5 * 60_000,
+    queryFn: async () => {
+      const fromDate = isoDaysAgo(days);
+      const toDate = new Date().toISOString().slice(0, 10);
+      const results = await Promise.allSettled(
+        supported.map((a) =>
+          callAds<{ data: Array<Record<string, unknown>> }>('ads_insights', {
+            accountId: a.accountId,
+            objectId: a.platformAdAccountId,
+            level: 'campaign',
+            fromDate,
+            toDate,
+            fields: 'campaign_id,spend,impressions,clicks,ctr,cpc,actions',
+          }),
+        ),
+      );
+      const byCampaign = new Map<string, PeriodMetrics>();
+      const totals: PeriodMetrics = { spend: 0, impressions: 0, clicks: 0, leads: 0 };
+      let covered = 0;
+      for (const r of results) {
+        if (r.status !== 'fulfilled') continue;
+        covered++;
+        for (const row of r.value?.data ?? []) {
+          const id = String(row.campaign_id ?? '');
+          const m: PeriodMetrics = {
+            spend: num(row.spend),
+            impressions: num(row.impressions),
+            clicks: num(row.clicks),
+            leads: leadsFromActions(row.actions),
+            ctr: row.ctr !== undefined ? num(row.ctr) : undefined,
+            cpc: row.cpc !== undefined ? num(row.cpc) : undefined,
+          };
+          if (id) byCampaign.set(id, m);
+          totals.spend += m.spend;
+          totals.impressions += m.impressions;
+          totals.clicks += m.clicks;
+          totals.leads += m.leads;
+        }
+      }
+      return { byCampaign, totals, fromDate, toDate, covered, requested: supported.length };
+    },
   });
 }

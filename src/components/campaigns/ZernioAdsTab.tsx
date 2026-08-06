@@ -10,6 +10,8 @@ import { AdDetailDialog } from './ZernioAdDetailDialog';
 import {
   useZernioAdCampaigns,
   useZernioAds,
+  useAdsPeriodInsights,
+  type AdAccountRef,
   type ZernioAd,
   type ZernioAdCampaign,
 } from '@/hooks/social/useZernioAds';
@@ -80,18 +82,42 @@ export default function ZernioAdsTab() {
     return map;
   }, [ads]);
 
+  const adAccounts = useMemo<AdAccountRef[]>(() => {
+    const map = new Map<string, AdAccountRef>();
+    for (const c of campaigns) {
+      if (!c.platformAdAccountId) continue;
+      map.set(`${c.accountId}:${c.platformAdAccountId}`, {
+        accountId: c.accountId,
+        platformAdAccountId: c.platformAdAccountId,
+        platform: c.platform,
+      });
+    }
+    return [...map.values()];
+  }, [campaigns]);
+
+  const periodQ = useAdsPeriodInsights(adAccounts, Number(days));
+  const periodByCampaign = periodQ.data?.byCampaign;
+
   const totals = useMemo(() => {
     const acc = { spend: 0, impressions: 0, clicks: 0, conversions: 0 };
+    if (!periodByCampaign) return acc;
+    const term = search.trim().toLowerCase();
+    if (!term) {
+      const t = periodQ.data!.totals;
+      return { spend: t.spend, impressions: t.impressions, clicks: t.clicks, conversions: t.leads };
+    }
     for (const c of filtered) {
-      acc.spend += c.metrics?.spend ?? 0;
-      acc.impressions += c.metrics?.impressions ?? 0;
-      acc.clicks += c.metrics?.clicks ?? 0;
-      acc.conversions += c.metrics?.conversions ?? 0;
+      const m = periodByCampaign.get(c.platformCampaignId ?? '');
+      if (!m) continue;
+      acc.spend += m.spend;
+      acc.impressions += m.impressions;
+      acc.clicks += m.clicks;
+      acc.conversions += m.leads;
     }
     return acc;
-  }, [filtered]);
+  }, [filtered, periodByCampaign, periodQ.data, search]);
 
-  const loading = campaignsQ.isLoading || adsQ.isLoading;
+  const loading = campaignsQ.isLoading || adsQ.isLoading || periodQ.isLoading;
   const err = (campaignsQ.error ?? adsQ.error) as Error | null;
 
   return (
@@ -128,7 +154,7 @@ export default function ZernioAdsTab() {
         <Button
           variant="outline"
           size="sm"
-          onClick={() => { campaignsQ.refetch(); adsQ.refetch(); }}
+          onClick={() => { campaignsQ.refetch(); adsQ.refetch(); periodQ.refetch(); }}
           disabled={loading}
         >
           <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
@@ -160,6 +186,11 @@ export default function ZernioAdsTab() {
           </Card>
         ))}
       </div>
+      <p className="text-xs text-muted-foreground">
+        Métricas do período selecionado ({PERIODS.find((p) => p.value === days)?.label.toLowerCase()})
+        {periodQ.data ? `: ${periodQ.data.fromDate} a ${periodQ.data.toDate}` : ''}. Somente contas Meta
+        possuem insights por período na Zernio; valores dos anúncios (linhas filhas) são acumulados desde o início.
+      </p>
 
       <Card>
         <CardHeader className="pb-2">
@@ -198,6 +229,9 @@ export default function ZernioAdsTab() {
                     const key = c.platformCampaignId ?? c.campaignName;
                     const children = adsByCampaign.get(c.platformCampaignId ?? '') ?? [];
                     const isOpen = !!open[key];
+                    const pm = periodByCampaign?.get(c.platformCampaignId ?? '');
+                    const pLeads = pm?.leads;
+                    const pCpl = pm && pLeads ? pm.spend / pLeads : undefined;
                     return (
                       <>
                         <tr key={key} className="border-b hover:bg-muted/30">
@@ -214,13 +248,13 @@ export default function ZernioAdsTab() {
                           <td className="px-3 py-2 text-muted-foreground">{c.platformAdAccountName ?? '—'}</td>
                           <td className="px-3 py-2"><StatusBadge status={c.status} /></td>
                           <td className="px-3 py-2 text-right">{budgetLabel(c)}</td>
-                          <td className="px-3 py-2 text-right font-medium">{fmtMoney(c.metrics?.spend, c.currency)}</td>
-                          <td className="px-3 py-2 text-right">{fmtInt(c.metrics?.impressions)}</td>
-                          <td className="px-3 py-2 text-right">{fmtInt(c.metrics?.clicks)}</td>
-                          <td className="px-3 py-2 text-right">{fmtPct(c.metrics?.ctr)}</td>
-                          <td className="px-3 py-2 text-right">{fmtMoney(c.metrics?.cpc, c.currency)}</td>
-                          <td className="px-3 py-2 text-right">{fmtInt(c.metrics?.actions?.lead ?? c.metrics?.conversions)}</td>
-                          <td className="px-3 py-2 text-right">{fmtMoney(c.metrics?.costPerConversion, c.currency)}</td>
+                          <td className="px-3 py-2 text-right font-medium">{fmtMoney(pm ? pm.spend : undefined, c.currency)}</td>
+                          <td className="px-3 py-2 text-right">{fmtInt(pm?.impressions)}</td>
+                          <td className="px-3 py-2 text-right">{fmtInt(pm?.clicks)}</td>
+                          <td className="px-3 py-2 text-right">{fmtPct(pm?.ctr)}</td>
+                          <td className="px-3 py-2 text-right">{fmtMoney(pm?.cpc, c.currency)}</td>
+                          <td className="px-3 py-2 text-right">{fmtInt(pLeads)}</td>
+                          <td className="px-3 py-2 text-right">{fmtMoney(pCpl, c.currency)}</td>
                         </tr>
                         {isOpen &&
                           children.map((a) => (
