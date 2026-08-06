@@ -473,11 +473,24 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
       .replace(/\s+/g, " ")
       .trim();
   const canonProduct = (raw: unknown): CatalogResolution | null => catalogIndex[catKey(raw)] || null;
+  // SKU real = código do catálogo (numérico/alfanumérico curto).
+  // Slugs (ex.: "scanner-intraoral-medit-i700") NÃO são SKU e não devem aparecer.
+  const isRealSku = (v: unknown): boolean => {
+    const s = String(v ?? "").trim();
+    if (!s || s === "—") return false;
+    if (/\s/.test(s)) return false;
+    if (s.includes("-") && /[a-z]/.test(s)) return false;
+    return s.length <= 24;
+  };
+  const canonSkuOf = (raw: unknown): string | null => {
+    const sku = canonProduct(raw)?.sku;
+    return isRealSku(sku) ? String(sku) : null;
+  };
   const canonName = (raw: unknown): string => canonProduct(raw)?.canonical_name || String(raw ?? "").trim();
   const canonSku = (raw: unknown, fallback: string): string => {
-    const sku = canonProduct(raw)?.sku;
+    const sku = canonSkuOf(raw);
     if (sku) return sku;
-    return fallback && fallback !== "—" ? fallback : "—";
+    return isRealSku(fallback) ? fallback : "—";
   };
 
   // ── NPS pós-treinamento ──
