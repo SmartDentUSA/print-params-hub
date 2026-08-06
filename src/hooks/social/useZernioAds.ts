@@ -81,16 +81,37 @@ async function callAds<T>(action: string, params: Record<string, unknown>): Prom
   return data as T;
 }
 
+const PAGE_SIZE = 100; // Zernio limita limit <= 100
+
+async function fetchAllPages<T>(
+  action: string,
+  key: 'ads' | 'campaigns',
+  params: Record<string, unknown>,
+  maxPages = 5,
+): Promise<T[]> {
+  const out: T[] = [];
+  let total = Infinity;
+  for (let page = 1; page <= maxPages; page++) {
+    const res = await callAds<Record<string, unknown>>(action, { ...params, limit: PAGE_SIZE, page });
+    const items = (res?.[key] as T[]) ?? [];
+    out.push(...items);
+    const pagination = res?.pagination as { total?: number } | undefined;
+    if (typeof pagination?.total === 'number') total = pagination.total;
+    if (items.length < PAGE_SIZE || out.length >= total) break;
+  }
+  return out;
+}
+
 export function useZernioAdCampaigns(filters: AdsFilters) {
   return useQuery({
     queryKey: ['zernio-ad-campaigns', filters],
-    queryFn: () =>
-      callAds<{ campaigns: ZernioAdCampaign[]; pagination?: { total: number } }>('ads_campaigns', {
+    queryFn: async () => ({
+      campaigns: await fetchAllPages<ZernioAdCampaign>('ads_campaigns', 'campaigns', {
         platform: filters.platform,
         status: filters.status,
         days: filters.days,
-        limit: 200,
       }),
+    }),
     staleTime: 5 * 60_000,
   });
 }
@@ -98,13 +119,13 @@ export function useZernioAdCampaigns(filters: AdsFilters) {
 export function useZernioAds(filters: AdsFilters) {
   return useQuery({
     queryKey: ['zernio-ads', filters],
-    queryFn: () =>
-      callAds<{ ads: ZernioAd[]; pagination?: { total: number } }>('ads_list', {
+    queryFn: async () => ({
+      ads: await fetchAllPages<ZernioAd>('ads_list', 'ads', {
         platform: filters.platform,
         status: filters.status,
         days: filters.days,
-        limit: 500,
-      }),
+      }, 8),
+    }),
     staleTime: 5 * 60_000,
   });
 }
