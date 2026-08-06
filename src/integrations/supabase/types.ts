@@ -32342,6 +32342,7 @@ export type Database = {
         Args: { p_campaign_id: string }
         Returns: Json
       }
+      fn_social_internal_analytics: { Args: { p_days?: number }; Returns: Json }
       fn_stage_dh_leads: { Args: { p_data: Json }; Returns: number }
       fn_suggest_cross_sell: { Args: { p_lead_id: string }; Returns: Json }
       fn_sync_normalized_from_lead: {
