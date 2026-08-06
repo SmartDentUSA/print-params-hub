@@ -124,32 +124,6 @@ export default function PublicBioPage() {
           />
           <h1 className="mt-4 text-2xl font-bold text-foreground">{page.title}</h1>
           {page.subtitle && <p className="mt-1 text-sm text-muted-foreground">{page.subtitle}</p>}
-
-          {socials.length > 0 && (
-            <nav aria-label="Redes sociais" className="mt-4 flex items-center gap-2">
-              {socials.map(({ key, Icon, label }) => (
-                <a
-                  key={key}
-                  href={page.social_links[key]}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  aria-label={label}
-                  className="rounded-full border border-border bg-card p-2 text-muted-foreground transition-colors hover:text-primary"
-                >
-                  <Icon className="h-4 w-4" />
-                </a>
-              ))}
-            </nav>
-          )}
-
-          <button
-            type="button"
-            onClick={share}
-            className="mt-4 inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-primary"
-          >
-            <Share2 className="h-3.5 w-3.5" />
-            Compartilhar
-          </button>
         </header>
 
         <section
@@ -168,7 +142,35 @@ export default function PublicBioPage() {
           <p className="mt-10 text-center text-sm text-muted-foreground">Nenhum link publicado ainda.</p>
         )}
 
-        <footer className="mt-12 text-center text-xs text-muted-foreground">
+        <div className="mt-12 flex flex-col items-center gap-4">
+          {socials.length > 0 && (
+            <nav aria-label="Redes sociais" className="flex items-center gap-2">
+              {socials.map(({ key, Icon, label }) => (
+                <a
+                  key={key}
+                  href={page.social_links[key]}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label={label}
+                  className="rounded-full border border-border bg-card p-2 text-muted-foreground transition-colors hover:text-primary"
+                >
+                  <Icon className="h-4 w-4" />
+                </a>
+              ))}
+            </nav>
+          )}
+
+          <button
+            type="button"
+            onClick={share}
+            className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-primary"
+          >
+            <Share2 className="h-3.5 w-3.5" />
+            Compartilhar
+          </button>
+        </div>
+
+        <footer className="mt-8 text-center text-xs text-muted-foreground">
           © {new Date().getFullYear()} Smart Dent | Fluxo Digital
         </footer>
       </main>
