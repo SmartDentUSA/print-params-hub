@@ -350,6 +350,15 @@ interface TimelineEvent {
   value_numeric: number | null;
 }
 
+interface NpsRow {
+  id: string;
+  created_at: string;
+  score_satisfacao: number | null;
+  score_treinamentos: number | null;
+  score_recomendacao: number | null;
+  comment: string | null;
+}
+
 const TIMELINE_CATEGORIES: { key: string; label: string; emoji: string }[] = [
   { key: "crm", label: "CRM", emoji: "📈" },
   { key: "mensagem", label: "Mensagens", emoji: "💬" },
@@ -447,6 +456,7 @@ export function KanbanLeadDetail({ lead, open, onClose }: KanbanLeadDetailProps)
   const [liaInteractions, setLiaInteractions] = useState<AgentInteraction[]>([]);
   const [whatsappMsgs, setWhatsappMsgs] = useState<WhatsAppMsg[]>([]);
   const [timelineEvents, setTimelineEvents] = useState<TimelineEvent[]>([]);
+  const [npsRows, setNpsRows] = useState<NpsRow[]>([]);
   const [activeCats, setActiveCats] = useState<string[]>([]);
   const [loadingMsgs, setLoadingMsgs] = useState(false);
   const [syncing, setSyncing] = useState(false);
@@ -483,6 +493,7 @@ export function KanbanLeadDetail({ lead, open, onClose }: KanbanLeadDetailProps)
       setLiaInteractions([]);
       setWhatsappMsgs([]);
       setTimelineEvents([]);
+      setNpsRows([]);
       return;
     }
     setActiveCats([]);
@@ -515,13 +526,20 @@ export function KanbanLeadDetail({ lead, open, onClose }: KanbanLeadDetailProps)
       p_limit: 400,
     } as never);
 
-    Promise.all([p1, p2, p3, p4]).then(([r1, r2, r3, r4]) => {
+    const p5 = supabase
+      .from("smartops_nps_responses")
+      .select("id, created_at, score_satisfacao, score_treinamentos, score_recomendacao, comment")
+      .eq("lead_id", lead.id)
+      .order("created_at", { ascending: false });
+
+    Promise.all([p1, p2, p3, p4, p5]).then(([r1, r2, r3, r4, r5]) => {
       const logs = (r1.data || []) as MsgLog[];
       setSystemMsgs(logs.filter((l) => SYSTEM_TO_SELLER_TYPES.includes(l.tipo || "")));
       setSellerMsgs(logs.filter((l) => SELLER_TO_LEAD_TYPES.includes(l.tipo || "")));
       setLiaInteractions((r2.data || []) as AgentInteraction[]);
       setWhatsappMsgs((r3.data || []) as WhatsAppMsg[]);
       setTimelineEvents(((r4.data || []) as unknown) as TimelineEvent[]);
+      setNpsRows(((r5.data || []) as unknown) as NpsRow[]);
       setLoadingMsgs(false);
     });
 
@@ -570,6 +588,17 @@ export function KanbanLeadDetail({ lead, open, onClose }: KanbanLeadDetailProps)
     ? timelineEvents
     : timelineEvents.filter((ev) => activeCats.includes(ev.category));
 
+  // ── NPS pós-treinamento (nota 0–10 = recomendação × 2) ──
+  const npsLast = npsRows[0] || null;
+  const npsScore = npsLast?.score_recomendacao != null ? npsLast.score_recomendacao * 2 : null;
+  const npsClass = npsScore == null ? null : npsScore >= 9 ? "Promotor" : npsScore >= 7 ? "Neutro" : "Detrator";
+  const npsBadgeCls =
+    npsClass === "Promotor"
+      ? "bg-green-100 text-green-800 hover:bg-green-100"
+      : npsClass === "Detrator"
+        ? "bg-red-100 text-red-800 hover:bg-red-100"
+        : "bg-amber-100 text-amber-800 hover:bg-amber-100";
+
   const PESSOA_KEYS = ["pessoa_cpf", "pessoa_cargo", "pessoa_genero", "pessoa_nascimento", "pessoa_linkedin", "pessoa_facebook", "pessoa_observation", "pessoa_piperun_id"];
   const EMPRESA_KEYS = ["empresa_nome", "empresa_razao_social", "empresa_cnpj", "empresa_ie", "empresa_segmento", "empresa_porte", "empresa_situacao", "empresa_website", "empresa_cnae", "empresa_piperun_id"];
   const SDR_KEYS = ["sdr_scanner_interesse", "sdr_impressora_interesse", "sdr_software_cad_interesse", "sdr_caracterizacao_interesse", "sdr_cursos_interesse", "sdr_dentistica_interesse", "sdr_insumos_lab_interesse", "sdr_pos_impressao_interesse", "sdr_solucoes_interesse", "sdr_marca_impressora_param", "sdr_modelo_impressora_param", "sdr_resina_param", "sdr_suporte_equipamento", "sdr_suporte_tipo", "sdr_suporte_descricao"];
@@ -605,10 +634,57 @@ export function KanbanLeadDetail({ lead, open, onClose }: KanbanLeadDetailProps)
             {lead.score != null && lead.score > 0 && (
               <Badge className="bg-primary/10 text-primary">{lead.score} pts</Badge>
             )}
+            {npsScore != null && (
+              <Badge
+                className={npsBadgeCls}
+                title={`NPS respondido em ${fmtDateTime(npsLast?.created_at)}${npsLast?.comment ? ` · "${npsLast.comment}"` : ""}`}
+              >
+                ⭐ NPS {npsScore}/10 · {npsClass} · {fmtDate(npsLast?.created_at)}
+              </Badge>
+            )}
           </div>
         </SheetHeader>
 
         <div className="mt-4 space-y-2">
+          {/* ===== NPS PÓS-TREINAMENTO ===== */}
+          {npsRows.length > 0 && (
+            <>
+              <div className="rounded-lg border p-3 space-y-2">
+                <h4 className="text-xs font-semibold uppercase text-muted-foreground">
+                  ⭐ NPS pós-treinamento ({npsRows.length} resposta{npsRows.length > 1 ? "s" : ""})
+                </h4>
+                <div className="grid grid-cols-4 gap-2 text-center">
+                  <div className="rounded-md bg-muted/40 p-2">
+                    <div className="text-lg font-bold">{npsScore ?? "—"}</div>
+                    <div className="text-[10px] text-muted-foreground">NPS (0–10)</div>
+                  </div>
+                  <div className="rounded-md bg-muted/40 p-2">
+                    <div className="text-lg font-bold">{npsLast?.score_satisfacao ?? "—"}</div>
+                    <div className="text-[10px] text-muted-foreground">Satisfação</div>
+                  </div>
+                  <div className="rounded-md bg-muted/40 p-2">
+                    <div className="text-lg font-bold">{npsLast?.score_treinamentos ?? "—"}</div>
+                    <div className="text-[10px] text-muted-foreground">Treinamentos</div>
+                  </div>
+                  <div className="rounded-md bg-muted/40 p-2">
+                    <div className="text-lg font-bold">{npsLast?.score_recomendacao ?? "—"}</div>
+                    <div className="text-[10px] text-muted-foreground">Recomendação</div>
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  {npsRows.map((r) => (
+                    <div key={r.id} className="text-[11px] text-muted-foreground">
+                      📅 Respondido em <span className="font-medium text-foreground">{fmtDateTime(r.created_at)}</span>
+                      {r.score_recomendacao != null && <> · nota {r.score_recomendacao * 2}/10</>}
+                      {r.comment && <div className="italic pl-4">"{r.comment}"</div>}
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <Separator />
+            </>
+          )}
+
           {/* ===== RESUMO FINANCEIRO (hero card) ===== */}
           {(n(lead, "ltv_total") != null && n(lead, "ltv_total")! > 0) || (n(lead, "proposals_total_value") != null && n(lead, "proposals_total_value")! > 0) || (n(lead, "intelligence_score_total") != null && n(lead, "intelligence_score_total")! > 0) ? (
             <>
