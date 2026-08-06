@@ -50,6 +50,7 @@ const SocialBroadcasts = lazy(() => import("./components/social/broadcasts/Socia
 const SocialSequences = lazy(() => import("./components/social/broadcasts/SocialSequences").then(m => ({ default: m.SocialSequences })));
 const SocialContacts = lazy(() => import("./components/social/broadcasts/SocialContacts").then(m => ({ default: m.SocialContacts })));
 const SocialReviews = lazy(() => import("./components/social/reviews/SocialReviews").then(m => ({ default: m.SocialReviews })));
+const SocialInbox = lazy(() => import("./components/social/inbox/SocialInbox").then(m => ({ default: m.SocialInbox })));
 const PostGrupos = lazy(() => import("./components/social/PostGrupos").then(m => ({ default: m.PostGrupos })));
 
 function PageTracker() {
@@ -102,6 +103,7 @@ const App = () => (
         <Route path="sequencias" element={<SocialSequences />} />
         <Route path="contatos" element={<SocialContacts />} />
         <Route path="avaliacoes" element={<SocialReviews />} />
+        <Route path="conversas" element={<SocialInbox />} />
         <Route path="post-grupos" element={<PostGrupos />} />
       </Route>
 
