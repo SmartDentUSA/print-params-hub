@@ -35,6 +35,27 @@ function extract(text: string) {
 type Lead = { id: string; nome: string | null; email: string | null; telefone_normalized: string | null; instagram: string | null };
 const LEAD_COLS = 'id, nome, email, telefone_normalized, instagram';
 
+/** Cliente = tem ao menos 1 deal GANHO. Sem deal ganho = apenas lead. */
+async function classifyLead(supabase: any, leadId: string): Promise<{
+  is_customer: boolean; won_deals: number; ltv_total: number;
+}> {
+  const { count } = await supabase.from('deals')
+    .select('id', { count: 'exact', head: true })
+    .eq('lead_id', leadId).eq('status', 'ganha');
+  let won = Number(count ?? 0);
+
+  const { data: lead } = await supabase.from('lia_attendances')
+    .select('ltv_total, status_oportunidade, piperun_deals_history')
+    .eq('id', leadId).maybeSingle();
+
+  if (won === 0) {
+    const hist = Array.isArray(lead?.piperun_deals_history) ? lead!.piperun_deals_history : [];
+    won = hist.filter((d: any) => /ganh/i.test(String(d?.status ?? d?.deal_status ?? '')) || String(d?.status) === '2').length;
+    if (won === 0 && /ganh/i.test(String(lead?.status_oportunidade ?? ''))) won = 1;
+  }
+  return { is_customer: won > 0, won_deals: won, ltv_total: Number(lead?.ltv_total ?? 0) };
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
@@ -91,10 +112,14 @@ serve(async (req) => {
           name: c.participantName, username: c.participantUsername,
           text: [c.lastMessage, c.text].filter(Boolean).join('\n'),
         });
+        const cls = lead ? await classifyLead(supabase, lead.id) : null;
         results.push({
           conversationId: c.id,
           matched_by,
           lead: lead ? { id: lead.id, nome: lead.nome, email: lead.email, telefone: lead.telefone_normalized } : null,
+          is_customer: cls?.is_customer ?? false,
+          won_deals: cls?.won_deals ?? 0,
+          ltv_total: cls?.ltv_total ?? 0,
         });
       }
       return json({ results });
