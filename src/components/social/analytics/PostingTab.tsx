@@ -42,16 +42,16 @@ export function PostingTab({ filters }: { filters: ZernioAnalyticsFilters }) {
   const followers = useFollowerStats(filters);
 
   const rows = useMemo(() => {
-    return (posts.data?.posts ?? []).map((p) => {
+    return (posts.data?.posts ?? []).map((p: any) => {
       const a = p.analytics ?? {};
-      const platform = p.platformAnalytics?.[0]?.platform ?? '—';
+      const platform = p.platform ?? p.platforms?.[0]?.platform ?? p.platformAnalytics?.[0]?.platform ?? '—';
       const engagement = num(a.likes) + num(a.comments) + num(a.shares) + num(a.saves);
       return {
-        id: p.postId,
+        id: p._id ?? p.postId,
         platform,
         content: p.content ?? '',
-        thumb: p.thumbnailUrl ?? null,
-        url: p.platformAnalytics?.[0]?.platformPostUrl ?? null,
+        thumb: p.thumbnailUrl ?? p.mediaItems?.[0]?.thumbnail ?? null,
+        url: p.platformPostUrl ?? p.platforms?.[0]?.platformPostUrl ?? null,
         date: p.publishedAt ?? p.scheduledFor ?? null,
         engagement,
         ...Object.fromEntries(METRICS.map((m) => [m.key, num((a as any)[m.key])])),
