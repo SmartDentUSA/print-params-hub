@@ -149,7 +149,7 @@ serve(async (req) => {
       if (rows.length === 0) return json({ linked: true, lead_id: leadId, inserted: 0 });
 
       const { error, data } = await supabase.from('lead_activity_log')
-        .upsert(rows as any[], { onConflict: 'dedupe_hash', ignoreDuplicates: true })
+        .upsert(rows as any[], { onConflict: 'lead_id,event_type,dedupe_hash', ignoreDuplicates: true })
         .select('id');
       if (error) return json({ error: error.message }, 500);
 
