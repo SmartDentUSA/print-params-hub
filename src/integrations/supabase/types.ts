@@ -33258,6 +33258,13 @@ export type Database = {
         Args: { p_mes?: string }
         Returns: undefined
       }
+      painel_catalogo_etapa: {
+        Args: { p_categoria: string; p_subcategoria: string }
+        Returns: {
+          subcategory: string
+          workflow_stage: string
+        }[]
+      }
       painel_classifica_item: {
         Args: {
           p_nome: string
