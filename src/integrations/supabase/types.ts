@@ -33263,6 +33263,10 @@ export type Database = {
       painel_nome_norm: { Args: { p_nome: string }; Returns: string }
       painel_norm_vendedor: { Args: { p_nome: string }; Returns: string }
       painel_origens_refresh: { Args: { p_mes?: string }; Returns: undefined }
+      painel_top_produtos_refresh: {
+        Args: { p_mes?: string }
+        Returns: undefined
+      }
       painel_vendedores_ativos: {
         Args: never
         Returns: {
