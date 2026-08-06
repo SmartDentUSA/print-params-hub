@@ -586,6 +586,31 @@ export function SmartOpsLeadsList() {
   useEffect(() => { fetchLeads(); }, [fetchLeads]);
   useEffect(() => { setPage(0); }, [debouncedSearch, buyerFilter, advFilters]);
 
+  // NPS das estrelas para os leads visíveis
+  const [npsMap, setNpsMap] = useState<Record<string, { score: number; date: string }>>({});
+  useEffect(() => {
+    const ids = leads.map(l => l.id);
+    if (!ids.length) { setNpsMap({}); return; }
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from("smartops_nps_responses")
+        .select("lead_id, score_recomendacao, created_at")
+        .in("lead_id", ids)
+        .order("created_at", { ascending: false });
+      if (cancelled || !data) return;
+      const map: Record<string, { score: number; date: string }> = {};
+      for (const r of data as any[]) {
+        if (!r.lead_id || map[r.lead_id]) continue;
+        const s = Number(r.score_recomendacao);
+        if (!Number.isFinite(s)) continue;
+        map[r.lead_id] = { score: Math.round(s * 2), date: r.created_at };
+      }
+      setNpsMap(map);
+    })();
+    return () => { cancelled = true; };
+  }, [leads]);
+
   const totalPages = Math.ceil(totalCount / PAGE_SIZE);
 
   const exportCSV = () => {
@@ -813,6 +838,7 @@ export function SmartOpsLeadsList() {
                     lead={lead}
                     active={selectedLead?.id === lead.id}
                     onClick={() => setSelectedLead(lead)}
+                    nps={npsMap[lead.id]}
                   />
                 ))}
                 {totalPages > 1 && (
