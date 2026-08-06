@@ -50,8 +50,13 @@ serve(async (req) => {
   const [path, allowed] = route;
   const qs = new URLSearchParams();
   for (const p of allowed) {
-    const raw = payload[p];
+    let raw = payload[p];
     if (raw === undefined || raw === null || raw === '' || raw === 'all') continue;
+    // Zernio aceita no máximo limit=100
+    if (p === 'limit') {
+      const n = Number(raw);
+      raw = Number.isFinite(n) ? Math.min(Math.max(Math.trunc(n), 1), 100) : 100;
+    }
     // heatmap usa "action" como nome de param no Zernio; recebemos como action_type
     qs.set(p === 'action_type' ? 'action' : p, String(raw));
   }
