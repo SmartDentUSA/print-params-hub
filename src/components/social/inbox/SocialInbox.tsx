@@ -7,11 +7,12 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { RefreshCw, Send, ExternalLink, Search, Inbox } from 'lucide-react';
+import { RefreshCw, Send, ExternalLink, Search, Inbox, UserCheck, UserX, ListPlus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   useZernioConversations, useZernioMessages, useSendZernioMessage, type ZernioConversation,
 } from '@/hooks/social/useZernioInbox';
+import { useInboxLeadMatches, useLogConversationToTimeline } from '@/hooks/social/useInboxLeadLink';
 
 const PLATFORMS = [
   { id: 'all', label: 'Todas' },
@@ -45,6 +46,9 @@ export function SocialInbox() {
   const conversations = data?.data ?? [];
   const { data: msgData, isLoading: loadingMsgs } = useZernioMessages(selected);
   const send = useSendZernioMessage();
+  const { data: leadMatches } = useInboxLeadMatches(conversations);
+  const logTimeline = useLogConversationToTimeline();
+  const selectedMatch = selected ? leadMatches?.[selected.id] : undefined;
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -64,6 +68,7 @@ export function SocialInbox() {
   };
 
   const totalUnread = conversations.reduce((s, c) => s + (c.unreadCount ?? 0), 0);
+  const identified = Object.values(leadMatches ?? {}).filter((m) => m.lead).length;
 
   return (
     <div className="p-4 md:p-6 space-y-4">
@@ -75,6 +80,7 @@ export function SocialInbox() {
           <p className="text-sm text-muted-foreground">
             Inbox unificada do Zernio — DMs de Instagram, Facebook, WhatsApp e mais
             {totalUnread > 0 && <> · <span className="text-primary font-medium">{totalUnread} não lidas</span></>}
+            {identified > 0 && <> · <span className="text-primary font-medium">{identified} com cadastro de lead</span></>}
           </p>
         </div>
         <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching}>
