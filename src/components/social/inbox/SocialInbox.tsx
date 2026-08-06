@@ -7,11 +7,12 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { RefreshCw, Send, ExternalLink, Search, Inbox } from 'lucide-react';
+import { RefreshCw, Send, ExternalLink, Search, Inbox, UserCheck, UserX, ListPlus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   useZernioConversations, useZernioMessages, useSendZernioMessage, type ZernioConversation,
 } from '@/hooks/social/useZernioInbox';
+import { useInboxLeadMatches, useLogConversationToTimeline } from '@/hooks/social/useInboxLeadLink';
 
 const PLATFORMS = [
   { id: 'all', label: 'Todas' },
@@ -45,6 +46,9 @@ export function SocialInbox() {
   const conversations = data?.data ?? [];
   const { data: msgData, isLoading: loadingMsgs } = useZernioMessages(selected);
   const send = useSendZernioMessage();
+  const { data: leadMatches } = useInboxLeadMatches(conversations);
+  const logTimeline = useLogConversationToTimeline();
+  const selectedMatch = selected ? leadMatches?.[selected.id] : undefined;
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -64,6 +68,7 @@ export function SocialInbox() {
   };
 
   const totalUnread = conversations.reduce((s, c) => s + (c.unreadCount ?? 0), 0);
+  const identified = Object.values(leadMatches ?? {}).filter((m) => m.lead).length;
 
   return (
     <div className="p-4 md:p-6 space-y-4">
@@ -75,6 +80,7 @@ export function SocialInbox() {
           <p className="text-sm text-muted-foreground">
             Inbox unificada do Zernio — DMs de Instagram, Facebook, WhatsApp e mais
             {totalUnread > 0 && <> · <span className="text-primary font-medium">{totalUnread} não lidas</span></>}
+            {identified > 0 && <> · <span className="text-primary font-medium">{identified} com cadastro de lead</span></>}
           </p>
         </div>
         <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching}>
@@ -125,7 +131,18 @@ export function SocialInbox() {
                           <span className="ml-auto text-[10px] text-muted-foreground shrink-0">{fmt(c.updatedTime)}</span>
                         </div>
                         <p className="text-xs text-muted-foreground truncate">{c.lastMessage || '—'}</p>
-                        <Badge variant="outline" className="mt-1 text-[10px] capitalize">{c.platform}</Badge>
+                        <div className="mt-1 flex items-center gap-1">
+                          <Badge variant="outline" className="text-[10px] capitalize">{c.platform}</Badge>
+                          {leadMatches?.[c.id]?.lead ? (
+                            <Badge variant="secondary" className="text-[10px] gap-1">
+                              <UserCheck className="w-3 h-3" /> Lead
+                            </Badge>
+                          ) : leadMatches ? (
+                            <Badge variant="outline" className="text-[10px] gap-1 text-muted-foreground">
+                              <UserX className="w-3 h-3" /> Sem cadastro
+                            </Badge>
+                          ) : null}
+                        </div>
                       </div>
                     </button>
                   </li>
@@ -155,12 +172,33 @@ export function SocialInbox() {
                   </p>
                 </div>
                 {selected.url && (
-                  <Button asChild variant="ghost" size="sm" className="ml-auto">
+                  <Button asChild variant="ghost" size="sm">
                     <a href={selected.url} target="_blank" rel="noreferrer">
                       <ExternalLink className="w-3.5 h-3.5" />
                     </a>
                   </Button>
                 )}
+                <div className="ml-auto flex items-center gap-2">
+                  {selectedMatch?.lead ? (
+                    <a href={`/smart-ops/leads?lead=${selectedMatch.lead.id}`} target="_blank" rel="noreferrer">
+                      <Badge variant="secondary" className="gap-1 text-[10px]">
+                        <UserCheck className="w-3 h-3" />
+                        {selectedMatch.lead.nome ?? 'Lead'}
+                        {selectedMatch.matched_by && <span className="opacity-70">· {selectedMatch.matched_by}</span>}
+                      </Badge>
+                    </a>
+                  ) : (
+                    <Badge variant="outline" className="gap-1 text-[10px] text-muted-foreground">
+                      <UserX className="w-3 h-3" /> Sem cadastro
+                    </Badge>
+                  )}
+                  <Button variant="outline" size="sm" disabled={logTimeline.isPending || messages.length === 0}
+                    onClick={() => logTimeline.mutate({
+                      conversation: selected, messages, leadId: selectedMatch?.lead?.id ?? null,
+                    })}>
+                    <ListPlus className="w-3.5 h-3.5 mr-1.5" /> Timeline do lead
+                  </Button>
+                </div>
               </div>
 
               <ScrollArea className="flex-1 p-4">
