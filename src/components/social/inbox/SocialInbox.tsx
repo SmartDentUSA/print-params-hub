@@ -172,12 +172,33 @@ export function SocialInbox() {
                   </p>
                 </div>
                 {selected.url && (
-                  <Button asChild variant="ghost" size="sm" className="ml-auto">
+                  <Button asChild variant="ghost" size="sm">
                     <a href={selected.url} target="_blank" rel="noreferrer">
                       <ExternalLink className="w-3.5 h-3.5" />
                     </a>
                   </Button>
                 )}
+                <div className="ml-auto flex items-center gap-2">
+                  {selectedMatch?.lead ? (
+                    <a href={`/smart-ops/leads?lead=${selectedMatch.lead.id}`} target="_blank" rel="noreferrer">
+                      <Badge variant="secondary" className="gap-1 text-[10px]">
+                        <UserCheck className="w-3 h-3" />
+                        {selectedMatch.lead.nome ?? 'Lead'}
+                        {selectedMatch.matched_by && <span className="opacity-70">· {selectedMatch.matched_by}</span>}
+                      </Badge>
+                    </a>
+                  ) : (
+                    <Badge variant="outline" className="gap-1 text-[10px] text-muted-foreground">
+                      <UserX className="w-3 h-3" /> Sem cadastro
+                    </Badge>
+                  )}
+                  <Button variant="outline" size="sm" disabled={logTimeline.isPending || messages.length === 0}
+                    onClick={() => logTimeline.mutate({
+                      conversation: selected, messages, leadId: selectedMatch?.lead?.id ?? null,
+                    })}>
+                    <ListPlus className="w-3.5 h-3.5 mr-1.5" /> Timeline do lead
+                  </Button>
+                </div>
               </div>
 
               <ScrollArea className="flex-1 p-4">
