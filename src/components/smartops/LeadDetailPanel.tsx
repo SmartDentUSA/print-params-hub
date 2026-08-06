@@ -473,11 +473,24 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
       .replace(/\s+/g, " ")
       .trim();
   const canonProduct = (raw: unknown): CatalogResolution | null => catalogIndex[catKey(raw)] || null;
+  // SKU real = código do catálogo (numérico/alfanumérico curto).
+  // Slugs (ex.: "scanner-intraoral-medit-i700") NÃO são SKU e não devem aparecer.
+  const isRealSku = (v: unknown): boolean => {
+    const s = String(v ?? "").trim();
+    if (!s || s === "—") return false;
+    if (/\s/.test(s)) return false;
+    if (s.includes("-") && /[a-z]/.test(s)) return false;
+    return s.length <= 24;
+  };
+  const canonSkuOf = (raw: unknown): string | null => {
+    const sku = canonProduct(raw)?.sku;
+    return isRealSku(sku) ? String(sku) : null;
+  };
   const canonName = (raw: unknown): string => canonProduct(raw)?.canonical_name || String(raw ?? "").trim();
   const canonSku = (raw: unknown, fallback: string): string => {
-    const sku = canonProduct(raw)?.sku;
+    const sku = canonSkuOf(raw);
     if (sku) return sku;
-    return fallback && fallback !== "—" ? fallback : "—";
+    return isRealSku(fallback) ? fallback : "—";
   };
 
   // ── NPS pós-treinamento ──
@@ -1957,14 +1970,15 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
                   <tbody>
                     {allProposalItems.map((item, ii) => {
                       const canon = canonProduct(item.name);
-                      const displaySku = canon?.sku || (item.sku && item.sku !== "—" ? item.sku : "—");
+                      const canonSkuVal = canonSkuOf(item.name);
+                      const displaySku = canonSkuVal || (isRealSku(item.sku) ? item.sku : "—");
                       const displayName = canon?.canonical_name || item.name;
                       return (
                       <tr key={ii}>
                         <td style={{ fontFamily: "'DM Mono', monospace", fontSize: 11 }}>#{item.dealId}</td>
                         <td
-                          style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: canon?.sku ? "var(--text)" : "var(--muted2)", maxWidth: 100, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
-                          title={canon?.sku ? `SKU do catálogo (CRM: ${item.sku})` : `Sem SKU no catálogo — código do CRM: ${item.sku}`}
+                          style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: canonSkuVal ? "var(--text)" : "var(--muted2)", maxWidth: 100, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+                          title={canonSkuVal ? `SKU do catálogo (CRM: ${item.sku})` : `Sem SKU no catálogo — código do CRM: ${item.sku}`}
                         >
                           {displaySku}
                         </td>
