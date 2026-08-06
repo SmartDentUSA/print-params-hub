@@ -31684,6 +31684,14 @@ export type Database = {
           total: number
         }[]
       }
+      fn_campaign_revenue: {
+        Args: { p_from: string; p_to: string }
+        Returns: {
+          platform_campaign_id: string
+          revenue: number
+          won_deals: number
+        }[]
+      }
       fn_check_group_global_dedup: {
         Args: {
           p_content_hash: string
