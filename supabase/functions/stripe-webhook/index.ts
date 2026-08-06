@@ -2,6 +2,8 @@
 import Stripe from "npm:stripe@17";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { normalizeBrazilianPhone } from "../_shared/phone-normalize.ts";
+import { isRealEmail } from "../_shared/email-sanitize.ts";
+import { reconcileStripeToLead } from "../_shared/stripe-lead-reconcile.ts";
 import {
   createStubLead,
   notifyExecutivesOfPayment,
@@ -119,7 +121,46 @@ function extractProducts(event: Stripe.Event): Array<{ name: string | null; pric
   }));
 }
 
-async function resolveLead(phoneRaw: string | null, email: string | null): Promise<string | null> {
+async function resolveLead(
+  phoneRaw: string | null,
+  email: string | null,
+  hints?: { leadIdHint?: string | null; taxIds?: string[] },
+): Promise<string | null> {
+  // 0. lead_id/client_reference_id explícito no checkout — sempre vence.
+  const hint = hints?.leadIdHint?.trim();
+  if (hint && /^[0-9a-f-]{36}$/i.test(hint)) {
+    const { data } = await supabase
+      .from("lia_attendances")
+      .select("id, merged_into")
+      .eq("id", hint)
+      .maybeSingle();
+    if (data?.id) return ((data as any).merged_into ?? data.id) as string;
+  }
+
+  // 1. CNPJ/CPF do checkout (tax_ids) — identidade forte.
+  for (const raw of hints?.taxIds ?? []) {
+    const d = String(raw ?? "").replace(/\D/g, "");
+    if (d.length === 14) {
+      const { data } = await supabase
+        .from("lia_attendances")
+        .select("id")
+        .is("merged_into", null)
+        .eq("empresa_cnpj", d)
+        .limit(1)
+        .maybeSingle();
+      if (data?.id) return data.id as string;
+    } else if (d.length === 11) {
+      const { data } = await supabase
+        .from("lia_attendances")
+        .select("id")
+        .is("merged_into", null)
+        .eq("pessoa_cpf", d)
+        .limit(1)
+        .maybeSingle();
+      if (data?.id) return data.id as string;
+    }
+  }
+
   const normalized = normalizeBrazilianPhone(phoneRaw ?? undefined);
   if (normalized) {
     const digits = normalized.replace(/\D/g, "");
@@ -132,7 +173,7 @@ async function resolveLead(phoneRaw: string | null, email: string | null): Promi
       .maybeSingle();
     if (data?.id) return data.id as string;
   }
-  if (email) {
+  if (email && isRealEmail(email)) {
     const { data } = await supabase
       .from("lia_attendances")
       .select("id")
@@ -215,7 +256,19 @@ async function handle(req: Request): Promise<Response> {
   const internalProduct: string | null = obj?.metadata?.product ?? products?.[0]?.name ?? null;
   const platform: string | null = obj?.metadata?.platform ?? null;
 
-  let leadId = await resolveLead(customer.phone, customer.email);
+  const taxIds: string[] = [
+    ...(Array.isArray(obj?.customer_details?.tax_ids)
+      ? obj.customer_details.tax_ids.map((t: any) => t?.value)
+      : []),
+    obj?.metadata?.cnpj,
+    obj?.metadata?.cpf,
+    obj?.metadata?.tax_id,
+  ].filter(Boolean).map((v: any) => String(v));
+
+  let leadId = await resolveLead(customer.phone, customer.email, {
+    leadIdHint: obj?.metadata?.lead_id ?? obj?.client_reference_id ?? null,
+    taxIds,
+  });
 
   if (!leadId) {
     // Comprador ainda não existe no CDP: cria lead-stub em vez de perder a venda.
@@ -352,6 +405,10 @@ async function handle(req: Request): Promise<Response> {
     internalProduct,
     stripeProduct: products.map((p) => p.name).filter(Boolean)[0] ?? null,
   });
+
+  // Mesh: reaponta pagamentos anteriores do mesmo comprador (stubs/placeholders)
+  // para o cadastro resolvido agora.
+  await reconcileStripeToLead(supabase, leadId, { source: "stripe-webhook" });
 
   return new Response(JSON.stringify({ ok: true, lead_id: leadId, event_type: mapping.event_type }), {
     status: 200,
