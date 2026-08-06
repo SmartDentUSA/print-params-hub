@@ -14,7 +14,7 @@ import { SmartOpsLogs } from "./SmartOpsLogs";
 import { SmartOpsSystemHealth } from "./SmartOpsSystemHealth";
 import { SmartOpsContentProduction } from "./SmartOpsContentProduction";
 import { SmartOpsWhatsAppInbox } from "./SmartOpsWhatsAppInbox";
-import { SmartOpsFormBuilder } from "./SmartOpsFormBuilder";
+import { SmartOpsFormsHub } from "./smartops/SmartOpsFormsHub";
 import { SmartOpsCourses } from "./SmartOpsCourses";
 import { SmartOpsAIUsageDashboard } from "./SmartOpsAIUsageDashboard";
 import { IntelligenceWithSentinela } from "./smartops/sentinela/IntelligenceWithSentinela";
@@ -135,7 +135,7 @@ export function SmartOpsTab() {
           <SmartOpsWhatsAppInbox key={`whatsapp-${refreshKey}`} refreshKey={refreshKey} />
         </TabsContent>
         <TabsContent value="formularios">
-          <SmartOpsFormBuilder key={`forms-${refreshKey}`} />
+          <SmartOpsFormsHub key={`forms-${refreshKey}`} />
         </TabsContent>
         <TabsContent value="treinamentos">
           <SmartOpsCourses key={`training-${refreshKey}`} />
