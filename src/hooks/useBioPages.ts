@@ -41,9 +41,8 @@ export const DEFAULT_SOCIAL_LINKS: BioSocialLinks = {
   linkedin: "https://www.linkedin.com/company/smartdent-brasil/",
 };
 
-import smartDentLogo from "@/assets/smartdent-logo-512.png.asset.json";
-
-export const DEFAULT_LOGO_URL = smartDentLogo.url;
+// Ícone SD servido direto de /public (evita depender do CDN de assets no preview)
+export const DEFAULT_LOGO_URL = "/favicon-512x512.png?v=7";
 
 function mapRow(r: any): BioPage {
   return {
