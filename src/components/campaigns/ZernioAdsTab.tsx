@@ -11,6 +11,7 @@ import {
   useZernioAdCampaigns,
   useZernioAds,
   useAdsPeriodInsights,
+  useCampaignRevenue,
   type AdAccountRef,
   type ZernioAd,
   type ZernioAdCampaign,
@@ -33,6 +34,11 @@ export function fmtInt(v?: number | null) {
 export function fmtPct(v?: number | null) {
   if (v === undefined || v === null) return '—';
   return `${v.toFixed(2)}%`;
+}
+export function fmtRoi(revenue?: number, spend?: number) {
+  if (!spend || revenue === undefined || revenue === null) return '—';
+  const roi = ((revenue - spend) / spend) * 100;
+  return `${roi > 0 ? '+' : ''}${roi.toFixed(0)}%`;
 }
 
 function StatusBadge({ status }: { status?: string }) {
@@ -97,6 +103,8 @@ export default function ZernioAdsTab() {
 
   const periodQ = useAdsPeriodInsights(adAccounts, Number(days));
   const periodByCampaign = periodQ.data?.byCampaign;
+  const revenueQ = useCampaignRevenue(Number(days));
+  const revenueByCampaign = revenueQ.data?.byCampaign;
 
   const totals = useMemo(() => {
     const acc = { spend: 0, impressions: 0, clicks: 0, conversions: 0 };
@@ -116,6 +124,15 @@ export default function ZernioAdsTab() {
     }
     return acc;
   }, [filtered, periodByCampaign, periodQ.data, search]);
+
+  const revenueTotal = useMemo(() => {
+    if (!revenueByCampaign) return 0;
+    const term = search.trim().toLowerCase();
+    if (!term) return revenueQ.data?.total ?? 0;
+    let sum = 0;
+    for (const c of filtered) sum += revenueByCampaign.get(c.platformCampaignId ?? '')?.revenue ?? 0;
+    return sum;
+  }, [filtered, revenueByCampaign, revenueQ.data, search]);
 
   const loading = campaignsQ.isLoading || adsQ.isLoading || periodQ.isLoading;
   const err = (campaignsQ.error ?? adsQ.error) as Error | null;
@@ -154,7 +171,7 @@ export default function ZernioAdsTab() {
         <Button
           variant="outline"
           size="sm"
-          onClick={() => { campaignsQ.refetch(); adsQ.refetch(); periodQ.refetch(); }}
+          onClick={() => { campaignsQ.refetch(); adsQ.refetch(); periodQ.refetch(); revenueQ.refetch(); }}
           disabled={loading}
         >
           <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
@@ -171,12 +188,14 @@ export default function ZernioAdsTab() {
         </Card>
       )}
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
         {[
           { label: 'Investimento', value: fmtMoney(totals.spend) },
           { label: 'Impressões', value: fmtInt(totals.impressions) },
           { label: 'Cliques', value: fmtInt(totals.clicks) },
           { label: 'Conversões', value: fmtInt(totals.conversions) },
+          { label: 'Receita', value: fmtMoney(revenueTotal) },
+          { label: 'ROI', value: fmtRoi(revenueTotal, totals.spend) },
         ].map((k) => (
           <Card key={k.label}>
             <CardContent className="py-4">
@@ -222,6 +241,8 @@ export default function ZernioAdsTab() {
                     <th className="px-3 py-2 text-right">CPC</th>
                     <th className="px-3 py-2 text-right">Leads</th>
                     <th className="px-3 py-2 text-right">Custo/lead</th>
+                    <th className="px-3 py-2 text-right">Receita</th>
+                    <th className="px-3 py-2 text-right">ROI</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -232,6 +253,7 @@ export default function ZernioAdsTab() {
                     const pm = periodByCampaign?.get(c.platformCampaignId ?? '');
                     const pLeads = pm?.leads;
                     const pCpl = pm && pLeads ? pm.spend / pLeads : undefined;
+                    const rev = revenueByCampaign?.get(c.platformCampaignId ?? '')?.revenue;
                     return (
                       <>
                         <tr key={key} className="border-b hover:bg-muted/30">
@@ -255,6 +277,18 @@ export default function ZernioAdsTab() {
                           <td className="px-3 py-2 text-right">{fmtMoney(pm?.cpc, c.currency)}</td>
                           <td className="px-3 py-2 text-right">{fmtInt(pLeads)}</td>
                           <td className="px-3 py-2 text-right">{fmtMoney(pCpl, c.currency)}</td>
+                          <td className="px-3 py-2 text-right font-medium">{fmtMoney(rev, c.currency)}</td>
+                          <td
+                            className={`px-3 py-2 text-right font-medium ${
+                              rev !== undefined && pm?.spend
+                                ? rev - pm.spend >= 0
+                                  ? 'text-emerald-600'
+                                  : 'text-destructive'
+                                : ''
+                            }`}
+                          >
+                            {fmtRoi(rev, pm?.spend)}
+                          </td>
                         </tr>
                         {isOpen &&
                           children.map((a) => (
@@ -282,6 +316,8 @@ export default function ZernioAdsTab() {
                               <td className="px-3 py-2 text-right">{fmtMoney(a.metrics?.cpc, a.currency)}</td>
                               <td className="px-3 py-2 text-right">{fmtInt(a.metrics?.actions?.lead ?? a.metrics?.conversions)}</td>
                               <td className="px-3 py-2 text-right">{fmtMoney(a.metrics?.costPerConversion, a.currency)}</td>
+                              <td className="px-3 py-2 text-right text-muted-foreground">—</td>
+                              <td className="px-3 py-2 text-right text-muted-foreground">—</td>
                             </tr>
                           ))}
                       </>
