@@ -62,8 +62,9 @@ serve(async (req) => {
     }
     // 2. telefone
     for (const phone of phones) {
+      const variants = [`+55${phone}`, `55${phone}`, phone];
       const { data } = await supabase.from('lia_attendances').select(LEAD_COLS)
-        .is('merged_into', null).eq('telefone_normalized', phone).limit(1);
+        .is('merged_into', null).in('telefone_normalized', variants).limit(1);
       if (data?.length) return { lead: data[0] as Lead, matched_by: 'telefone' };
     }
     // 3. @instagram salvo no lead
