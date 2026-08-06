@@ -7,6 +7,10 @@ export interface InboxLeadMatch {
   conversationId: string;
   matched_by: string | null;
   lead: { id: string; nome: string | null; email: string | null; telefone: string | null } | null;
+  /** true = tem deal ganho (cliente); false = apenas lead */
+  is_customer?: boolean;
+  won_deals?: number;
+  ltv_total?: number;
 }
 
 async function callLink<T>(body: Record<string, unknown>): Promise<T> {
