@@ -588,6 +588,17 @@ export function KanbanLeadDetail({ lead, open, onClose }: KanbanLeadDetailProps)
     ? timelineEvents
     : timelineEvents.filter((ev) => activeCats.includes(ev.category));
 
+  // ── NPS pós-treinamento (nota 0–10 = recomendação × 2) ──
+  const npsLast = npsRows[0] || null;
+  const npsScore = npsLast?.score_recomendacao != null ? npsLast.score_recomendacao * 2 : null;
+  const npsClass = npsScore == null ? null : npsScore >= 9 ? "Promotor" : npsScore >= 7 ? "Neutro" : "Detrator";
+  const npsBadgeCls =
+    npsClass === "Promotor"
+      ? "bg-green-100 text-green-800 hover:bg-green-100"
+      : npsClass === "Detrator"
+        ? "bg-red-100 text-red-800 hover:bg-red-100"
+        : "bg-amber-100 text-amber-800 hover:bg-amber-100";
+
   const PESSOA_KEYS = ["pessoa_cpf", "pessoa_cargo", "pessoa_genero", "pessoa_nascimento", "pessoa_linkedin", "pessoa_facebook", "pessoa_observation", "pessoa_piperun_id"];
   const EMPRESA_KEYS = ["empresa_nome", "empresa_razao_social", "empresa_cnpj", "empresa_ie", "empresa_segmento", "empresa_porte", "empresa_situacao", "empresa_website", "empresa_cnae", "empresa_piperun_id"];
   const SDR_KEYS = ["sdr_scanner_interesse", "sdr_impressora_interesse", "sdr_software_cad_interesse", "sdr_caracterizacao_interesse", "sdr_cursos_interesse", "sdr_dentistica_interesse", "sdr_insumos_lab_interesse", "sdr_pos_impressao_interesse", "sdr_solucoes_interesse", "sdr_marca_impressora_param", "sdr_modelo_impressora_param", "sdr_resina_param", "sdr_suporte_equipamento", "sdr_suporte_tipo", "sdr_suporte_descricao"];
@@ -622,6 +633,14 @@ export function KanbanLeadDetail({ lead, open, onClose }: KanbanLeadDetailProps)
             )}
             {lead.score != null && lead.score > 0 && (
               <Badge className="bg-primary/10 text-primary">{lead.score} pts</Badge>
+            )}
+            {npsScore != null && (
+              <Badge
+                className={npsBadgeCls}
+                title={`NPS respondido em ${fmtDateTime(npsLast?.created_at)}${npsLast?.comment ? ` · "${npsLast.comment}"` : ""}`}
+              >
+                ⭐ NPS {npsScore}/10 · {npsClass} · {fmtDate(npsLast?.created_at)}
+              </Badge>
             )}
           </div>
         </SheetHeader>
