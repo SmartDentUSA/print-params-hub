@@ -101,7 +101,10 @@ export interface PainelProdutoRow {
   subcategory: string;
   posicao: number;
   produto: string;
+  /** valor rateado por negócio — mesma base da composição de receita dos KPIs */
   receita: number | null;
+  /** unidades das propostas aceitas dos negócios ganhos no mês */
+  quantidade?: number | null;
 }
 
 const rpc = async <T,>(fn: string, args?: Record<string, unknown>): Promise<T> => {

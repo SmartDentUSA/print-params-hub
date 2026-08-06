@@ -348,11 +348,52 @@ Vale notar: os itens 1 e 2 desta auditoria (fallback de `closed_at` e snapshot �
 problemas reais e continuam corrigidos, mas não eram *esta* causa — eles mascaravam parte do
 sintoma. A oscilação só parou com a guarda no upsert de `deals`.
 
+### Top Produtos — corrigido em 06/08 (substitui o item #9)
+
+O grid vinha de `vw_produtos_faturados` (Omie), que soma **tudo que sai com nota**:
+venda, bonificação (CFOP 5.910/6.910), remessa (5.914/5.915/5.916/5.917/6.916/6.917/
+6.908), baixa por perda (5.927), devolução (5.202/6.202), outras saídas (x.949) e —
+pior — o faturamento antecipado de venda para entrega futura (5.922/6.922) **junto com**
+a remessa correspondente (5.117/6.117), contando a mesma venda duas vezes.
+
+| Mês | Exibido (Omie, tudo) | Venda efetiva |
+|---|---|---|
+| ago/26 | R$ 174.447 | R$ 77.938 |
+| jul/26 | R$ 3.775.271 | R$ 2.443.198 |
+| jun/26 | R$ 4.624.498 | R$ 2.750.283 |
+
+**Decisão do usuário**: o grid passa a usar os **itens das propostas aceitas dos
+negócios ganhos** (CRM), a mesma fonte da receita do painel. O valor por produto usa o
+mesmo rateio por negócio dos KPIs, então a soma do grid fecha com a base da composição,
+e a **quantidade** vendida passa a ser exibida.
+
+Junto vieram dois erros de classificação em `painel_match_taxonomy`, que desempatava
+pelo `display_name` mais longo em vez do padrão mais específico:
+
+| Produto na nota | Ia para | Agora vai para |
+|---|---|---|
+| SCANNER INTRAORAL BLZ INO200 | **Aoralscan (concorrente)** — o padrão `aoral` casa dentro de "intr**AORAL**" | BLZ INO 200 |
+| POS CURA - RAYSHAPE SHAPECURE D | **Rayshape Edge Mini** (impressora) | UV ShapeCure D (pós-impressão) |
+
+O scanner da própria SmartDent aparecia no painel como produto de concorrente. Também
+foram unificadas as subcategorias `resina` e `resinas`, que abriam duas colunas para a
+mesma coisa.
+
+Resultado (grid × base da composição): ago R$ 148.485 / R$ 148.896 · jul R$ 2.757.052 /
+R$ 2.843.804 · jun R$ 1.983.487 / R$ 2.002.616. A diferença é o corte de top-5 por
+subcategoria mais o que segue sem classificação.
+
+**Ainda sem classificação** (nomes que o CRM usa e a taxonomia não conhece — precisam de
+decisão de negócio sobre etapa/subcategoria): `KIT STARTER`, `KIT CHAIRSIDE`,
+`KIT COMPLEMENTAR - MAKE`, `Ativação DentalCAD Ultimate Lab Bundle - RMS`,
+`Ponteira BLZ`, `Placas De Acetato`, `Reposição Teflon - Miicraft`, líquidos de
+pigmentação de zircônia e `NANO CLEAN - 9GR`. Somam de R$ 12 mil a R$ 71 mil por mês e
+não aparecem no grid (a etapa `nao_classificado` não é renderizada). Foram mapeados
+apenas os dois casos inequívocos: `A50 - Ryzen 7 - RTX4050` → Notebook CAD
+(R$ 492.900 em 6 meses) e `MODEL PLUS - 1 KG` → Resinas 3D (R$ 90.861).
+
 ### O que ficou de fora
 
-- **#9 fonte do Top Produtos**: continua vindo de `vw_produtos_faturados` (Omie) enquanto o
-  resto do painel vem do CRM. Unificar exigiria decidir qual é a fonte oficial de receita
-  por produto — decisão de negócio, não de código. Por ora está rotulado na tela.
 - **Base de rateio**: as linhas de proposta somam mais que o valor do negócio (ago/26:
   R$ 215.229,10 contra R$ 130.138,44). O rateio preserva o total, mas a proporção continua
   vindo da proposta, não do faturado.
