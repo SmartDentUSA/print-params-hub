@@ -2790,6 +2790,7 @@ export function SmartOpsCampaigns() {
           <TabsTrigger value="historico">Histórico</TabsTrigger>
           <TabsTrigger value="grupos-wa">Grupos WA</TabsTrigger>
           <TabsTrigger value="formularios-meta">Origens</TabsTrigger>
+          <TabsTrigger value="anuncios">Anúncios</TabsTrigger>
         </TabsList>
 
         <TabsContent value="biblioteca">
@@ -2814,6 +2815,9 @@ export function SmartOpsCampaigns() {
         </TabsContent>
         <TabsContent value="formularios-meta">
           <MetaFormMappingsPanel />
+        </TabsContent>
+        <TabsContent value="anuncios">
+          <ZernioAdsTab />
         </TabsContent>
       </Tabs>
     </div>
