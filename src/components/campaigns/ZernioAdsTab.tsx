@@ -229,6 +229,9 @@ export default function ZernioAdsTab() {
                     const key = c.platformCampaignId ?? c.campaignName;
                     const children = adsByCampaign.get(c.platformCampaignId ?? '') ?? [];
                     const isOpen = !!open[key];
+                    const pm = periodByCampaign?.get(c.platformCampaignId ?? '');
+                    const pLeads = pm?.leads;
+                    const pCpl = pm && pLeads ? pm.spend / pLeads : undefined;
                     return (
                       <>
                         <tr key={key} className="border-b hover:bg-muted/30">
@@ -245,13 +248,13 @@ export default function ZernioAdsTab() {
                           <td className="px-3 py-2 text-muted-foreground">{c.platformAdAccountName ?? '—'}</td>
                           <td className="px-3 py-2"><StatusBadge status={c.status} /></td>
                           <td className="px-3 py-2 text-right">{budgetLabel(c)}</td>
-                          <td className="px-3 py-2 text-right font-medium">{fmtMoney(c.metrics?.spend, c.currency)}</td>
-                          <td className="px-3 py-2 text-right">{fmtInt(c.metrics?.impressions)}</td>
-                          <td className="px-3 py-2 text-right">{fmtInt(c.metrics?.clicks)}</td>
-                          <td className="px-3 py-2 text-right">{fmtPct(c.metrics?.ctr)}</td>
-                          <td className="px-3 py-2 text-right">{fmtMoney(c.metrics?.cpc, c.currency)}</td>
-                          <td className="px-3 py-2 text-right">{fmtInt(c.metrics?.actions?.lead ?? c.metrics?.conversions)}</td>
-                          <td className="px-3 py-2 text-right">{fmtMoney(c.metrics?.costPerConversion, c.currency)}</td>
+                          <td className="px-3 py-2 text-right font-medium">{fmtMoney(pm ? pm.spend : undefined, c.currency)}</td>
+                          <td className="px-3 py-2 text-right">{fmtInt(pm?.impressions)}</td>
+                          <td className="px-3 py-2 text-right">{fmtInt(pm?.clicks)}</td>
+                          <td className="px-3 py-2 text-right">{fmtPct(pm?.ctr)}</td>
+                          <td className="px-3 py-2 text-right">{fmtMoney(pm?.cpc, c.currency)}</td>
+                          <td className="px-3 py-2 text-right">{fmtInt(pLeads)}</td>
+                          <td className="px-3 py-2 text-right">{fmtMoney(pCpl, c.currency)}</td>
                         </tr>
                         {isOpen &&
                           children.map((a) => (
