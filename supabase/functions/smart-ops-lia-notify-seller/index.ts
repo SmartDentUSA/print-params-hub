@@ -37,6 +37,36 @@ Deno.serve(async (req) => {
       return json({ error: "lead_id and team_member_id are required" }, 400);
     }
 
+    // ── Config editável na UI (seller_briefing_config) ──
+    const { data: cfg } = await supabase
+      .from("seller_briefing_config")
+      .select("*")
+      .limit(1)
+      .maybeSingle();
+
+    if (cfg && cfg.ativo === false) {
+      console.log("[notify-seller v36] automação desativada na UI — skip");
+      return json({ skipped: true, reason: "automacao_desativada" });
+    }
+    if (cfg && cfg.canal !== "whatsapp") {
+      console.log(`[notify-seller v36] canal configurado = ${cfg.canal} (não whatsapp) — skip`);
+      return json({ skipped: true, reason: `canal_${cfg.canal}_nao_suportado` });
+    }
+    if (cfg?.horario_inicio && cfg?.horario_fim) {
+      const nowSp = new Intl.DateTimeFormat("pt-BR", {
+        timeZone: "America/Sao_Paulo",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false,
+      }).format(new Date());
+      const ini = String(cfg.horario_inicio).slice(0, 5);
+      const fim = String(cfg.horario_fim).slice(0, 5);
+      if (nowSp < ini || nowSp > fim) {
+        console.log(`[notify-seller v36] fora da janela ${ini}-${fim} (agora ${nowSp}) — skip`);
+        return json({ skipped: true, reason: "fora_da_janela" });
+      }
+    }
+
     // ── Dedup lock (últimas 24h) ──
     const sinceIso = new Date(Date.now() - LOCK_HOURS * 3600 * 1000).toISOString();
     const { data: existing } = await supabase
@@ -66,8 +96,8 @@ Deno.serve(async (req) => {
     if (leadErr || !lead) return json({ error: `lead not found: ${leadErr?.message || lead_id}` }, 404);
     if (sellerErr || !seller) return json({ error: `seller not found: ${sellerErr?.message || team_member_id}` }, 404);
 
-    // Sender fixo: instância de marketing (credencial própria dela, nunca a do vendedor)
-    const senderInstance = SENDER_INSTANCE;
+    // Sender: instância configurada na UI (credencial própria dela, nunca a do vendedor)
+    const senderInstance = (cfg?.sender_instance as string | null)?.trim() || SENDER_INSTANCE;
     const { data: senderRow } = await supabase
       .from("team_members")
       .select("evolution_api_key")
@@ -91,12 +121,29 @@ Deno.serve(async (req) => {
     }
     const toNumber = cleanPhone.startsWith("55") ? cleanPhone : `55${cleanPhone}`;
 
-    // ── Build briefing (header já é "📊 Análise SmartOps") ──
-    const briefing = await buildSellerNotification(lead as Record<string, unknown>, supabase);
+    // ── Build briefing (padrão: header "📊 Análise SmartOps") ──
+    let briefing = cfg && cfg.usar_template_padrao === false && cfg.mensagem_template
+      ? renderTemplate(String(cfg.mensagem_template), lead as Record<string, unknown>)
+      : await buildSellerNotification(lead as Record<string, unknown>, supabase);
+
+    if (cfg?.incluir_link_wa !== false) {
+      const leadPhone = String(
+        (lead as any).telefone_normalized || (lead as any).telefone_raw || ""
+      ).replace(/\D/g, "");
+      if (leadPhone.length >= 10) {
+        const jid = leadPhone.startsWith("55") ? leadPhone : `55${leadPhone}`;
+        const preset = renderTemplate(
+          String(cfg?.link_wa_mensagem ?? ""),
+          lead as Record<string, unknown>
+        );
+        briefing += `\n\n👉 Abrir conversa com o lead:\nhttps://wa.me/${jid}${preset ? `?text=${encodeURIComponent(preset)}` : ""}`;
+      }
+    }
 
     // ── Send via Evolution (sempre pela instância sender configurada) ──
     let status: "enviado" | "erro" = "enviado";
     let errorDetails: string | null = null;
+    let providerMessageId: string | null = null;
     try {
       const res = await fetch(
         `${EVO_BASE}/message/sendText/${encodeURIComponent(senderInstance)}`,
@@ -110,6 +157,9 @@ Deno.serve(async (req) => {
       if (!res.ok) {
         status = "erro";
         errorDetails = `sendText ${res.status}: ${(await res.text()).slice(0, 300)}`;
+      } else {
+        const payload = await res.json().catch(() => null);
+        providerMessageId = (payload?.key?.id as string | undefined) ?? null;
       }
     } catch (e) {
       status = "erro";
@@ -125,6 +175,7 @@ Deno.serve(async (req) => {
       evolution_instance: senderInstance,
       mensagem_preview: briefing.slice(0, 900),
       error_details: errorDetails,
+      provider_message_id: providerMessageId,
     });
 
     console.log(`[notify-seller v34] lead=${lead_id} seller=${seller.nome_completo} instance=${senderInstance} status=${status} trigger=${trigger}`);
@@ -142,6 +193,21 @@ function json(payload: unknown, status = 200) {
   });
 }
 
+// Interpola {{variavel}} / {variavel} com campos do lead
+function renderTemplate(tpl: string, lead: Record<string, unknown>): string {
+  if (!tpl) return "";
+  const nome = String(lead.nome ?? lead.nome_completo ?? "").trim();
+  const extra: Record<string, unknown> = {
+    ...lead,
+    nome,
+    primeiro_nome: nome.split(/\s+/)[0] ?? "",
+  };
+  return tpl.replace(/\{\{?\s*([\w.]+)\s*\}?\}/g, (_m, key: string) => {
+    const v = extra[key];
+    return v === null || v === undefined || v === "" ? "" : String(v);
+  });
+}
+
 async function logMsg(
   supabase: ReturnType<typeof createClient>,
   row: {
@@ -153,6 +219,7 @@ async function logMsg(
     evolution_instance: string;
     mensagem_preview: string | null;
     error_details?: string | null;
+    provider_message_id?: string | null;
   }
 ) {
   try {
@@ -165,6 +232,7 @@ async function logMsg(
       evolution_instance: row.evolution_instance,
       mensagem_preview: row.mensagem_preview,
       error_details: row.error_details ?? null,
+      provider_message_id: row.provider_message_id ?? null,
       data_envio: new Date().toISOString(),
     });
   } catch (e) {

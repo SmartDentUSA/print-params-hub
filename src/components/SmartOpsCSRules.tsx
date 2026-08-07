@@ -16,6 +16,7 @@ import { Plus, Pencil, Trash2, Upload, Loader2 } from "lucide-react";
 import { WaLeadsVariableBar, HighlightVariables } from "@/components/smartops/WaLeadsVariableBar";
 import { WaLeadsMediaPreview } from "@/components/smartops/WaLeadsMediaPreview";
 import { SmartOpsLiaAutomations } from "@/components/smartops/SmartOpsLiaAutomations";
+import { SellerBriefingAutomation } from "@/components/smartops/SellerBriefingAutomation";
 
 const ACCEPT_BY_TIPO: Record<string, string> = {
   image: "image/*",
@@ -779,6 +780,7 @@ export function SmartOpsCSRules() {
         </DialogContent>
       </Dialog>
       <SmartOpsLiaAutomations />
+      <SellerBriefingAutomation />
     </div>
   );
 }

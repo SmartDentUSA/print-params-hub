@@ -13178,6 +13178,8 @@ export type Database = {
           id: string
           lead_id: string | null
           mensagem_preview: string | null
+          provider_message_id: string | null
+          purged_at: string | null
           status: string
           team_member_id: string | null
           tipo: string | null
@@ -13192,6 +13194,8 @@ export type Database = {
           id?: string
           lead_id?: string | null
           mensagem_preview?: string | null
+          provider_message_id?: string | null
+          purged_at?: string | null
           status?: string
           team_member_id?: string | null
           tipo?: string | null
@@ -13206,6 +13210,8 @@ export type Database = {
           id?: string
           lead_id?: string | null
           mensagem_preview?: string | null
+          provider_message_id?: string | null
+          purged_at?: string | null
           status?: string
           team_member_id?: string | null
           tipo?: string | null
@@ -18722,6 +18728,72 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      seller_briefing_config: {
+        Row: {
+          ativo: boolean
+          canal: string
+          created_at: string
+          delay_minutos: number
+          horario_fim: string
+          horario_inicio: string
+          id: string
+          incluir_link_wa: boolean
+          link_wa_mensagem: string
+          mensagem_template: string | null
+          purge_enabled: boolean
+          purge_hora: number
+          purge_idade_horas: number
+          purge_last_run_at: string | null
+          quando: string
+          sender_instance: string
+          singleton: boolean
+          updated_at: string
+          usar_template_padrao: boolean
+        }
+        Insert: {
+          ativo?: boolean
+          canal?: string
+          created_at?: string
+          delay_minutos?: number
+          horario_fim?: string
+          horario_inicio?: string
+          id?: string
+          incluir_link_wa?: boolean
+          link_wa_mensagem?: string
+          mensagem_template?: string | null
+          purge_enabled?: boolean
+          purge_hora?: number
+          purge_idade_horas?: number
+          purge_last_run_at?: string | null
+          quando?: string
+          sender_instance?: string
+          singleton?: boolean
+          updated_at?: string
+          usar_template_padrao?: boolean
+        }
+        Update: {
+          ativo?: boolean
+          canal?: string
+          created_at?: string
+          delay_minutos?: number
+          horario_fim?: string
+          horario_inicio?: string
+          id?: string
+          incluir_link_wa?: boolean
+          link_wa_mensagem?: string
+          mensagem_template?: string | null
+          purge_enabled?: boolean
+          purge_hora?: number
+          purge_idade_horas?: number
+          purge_last_run_at?: string | null
+          quando?: string
+          sender_instance?: string
+          singleton?: boolean
+          updated_at?: string
+          usar_template_padrao?: boolean
+        }
+        Relationships: []
       }
       sentinela_config: {
         Row: {
