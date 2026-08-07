@@ -159,7 +159,7 @@ Deno.serve(async (req) => {
             }
           }
 
-          if (evolutionInstanceName) {
+          if (teamMemberId) {
             let messageStatus = "skipped";
             let errorDetails: string | null = null;
             let preview = "";
@@ -167,23 +167,31 @@ Deno.serve(async (req) => {
             try {
               const leadRecord = lead as Record<string, unknown>;
               const chatPhone = formatPhoneForWhatsApp(lead.telefone_normalized || "");
-              let apiBody: Record<string, unknown>;
+              const apiBody: Record<string, unknown> = {
+                team_member_id: teamMemberId,
+                phone: chatPhone,
+                tipo: waTipo,
+                lead_id: lead.id,
+              };
 
               if (waTipo === "text") {
                 const msg = replaceVariables(rule.mensagem_wa || "", leadRecord);
-                apiBody = { chat: chatPhone, message: msg, isGroup: false };
+                apiBody.message = msg;
                 preview = msg.slice(0, 200);
               } else {
-                apiBody = { chat: chatPhone, url: rule.wa_media_url, isGroup: false };
+                apiBody.media_url = rule.wa_media_url;
                 if (rule.wa_media_caption) {
                   apiBody.caption = replaceVariables(rule.wa_media_caption, leadRecord);
                 }
                 preview = `[${waTipo}] ${rule.wa_media_url || ""}`.slice(0, 200);
               }
 
-              const waRes = await fetch(`${WALEADS_BASE_URL}/public/message/${waTipo}?key=${evolutionInstanceName}`, {
+              const waRes = await fetch(`${SUPABASE_URL}/functions/v1/smart-ops-wa-send`, {
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: `Bearer ${SERVICE_ROLE_KEY}`,
+                },
                 body: JSON.stringify(apiBody),
               });
 
