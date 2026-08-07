@@ -65,6 +65,24 @@ export function SmartOpsLiaAutomations() {
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<LiaAutomation | null>(null);
   const [savingId, setSavingId] = useState<string | null>(null);
+  const [creating, setCreating] = useState(false);
+
+  const newDraft = (): LiaAutomation => ({
+    id: "",
+    slug: "",
+    nome: "",
+    subtitulo: "",
+    icone: "message-square",
+    cor: "blue",
+    trigger_event: null,
+    trigger_tags: [],
+    canal: "whatsapp",
+    horario_inicio: "08:00",
+    horario_fim: "18:00",
+    mensagem_horario_comercial: "",
+    mensagem_fora_horario: "",
+    ativo: false,
+  });
 
   const load = async () => {
     setLoading(true);
@@ -97,6 +115,36 @@ export function SmartOpsLiaAutomations() {
 
   const saveEdit = async () => {
     if (!editing) return;
+    if (!editing.id) {
+      if (!editing.nome.trim()) {
+        toast.error("Informe o nome da automação");
+        return;
+      }
+      setSavingId("new");
+      const { error } = await supabase.functions.invoke("automacoes-lia", {
+        method: "POST",
+        body: {
+          nome: editing.nome,
+          subtitulo: editing.subtitulo,
+          canal: editing.canal,
+          trigger_tags: editing.trigger_tags,
+          horario_inicio: editing.horario_inicio,
+          horario_fim: editing.horario_fim,
+          mensagem_horario_comercial: editing.mensagem_horario_comercial,
+          mensagem_fora_horario: editing.mensagem_fora_horario,
+        },
+      });
+      setSavingId(null);
+      if (error) {
+        toast.error("Falha ao criar automação");
+      } else {
+        toast.success("Automação criada");
+        setEditing(null);
+        setCreating(false);
+        load();
+      }
+      return;
+    }
     setSavingId(editing.id);
     const { error } = await supabase.functions.invoke("automacoes-lia", {
       method: "PATCH",
@@ -135,7 +183,14 @@ export function SmartOpsLiaAutomations() {
             {ativasCount} {ativasCount === 1 ? "ativa" : "ativas"}
           </Badge>
         </div>
-        <Button size="sm" variant="outline" disabled title="Em breve">
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => {
+            setCreating(true);
+            setEditing(newDraft());
+          }}
+        >
           <Plus className="w-4 h-4 mr-1" /> Nova automação
         </Button>
       </CardHeader>
