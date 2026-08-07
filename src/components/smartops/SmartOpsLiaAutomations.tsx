@@ -428,6 +428,32 @@ export function SmartOpsLiaAutomations() {
                 </div>
               </div>
 
+              <div>
+                <Label className="text-xs">Instância que dispara (WhatsApp)</Label>
+                <Select
+                  value={editing.evolution_instance_name ?? ""}
+                  onValueChange={(v) =>
+                    setEditing({ ...editing, evolution_instance_name: v || null })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione uma instância ativa" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {instances.map((i) => (
+                      <SelectItem key={i.id} value={i.evolution_instance_name}>
+                        {i.nome_completo || i.evolution_instance_name}
+                        {i.evolution_phone ? ` · ${i.evolution_phone}` : ""}
+                        {i.evolution_status === "connected" ? " · conectada" : ` · ${i.evolution_status ?? "sem status"}`}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-[11px] text-muted-foreground mt-1">
+                  Sem instância definida, o envio usa o membro com papel <code>lia_comms</code>.
+                </p>
+              </div>
+
               <div className="space-y-2">
                 <Label className="text-xs">Mensagem horário comercial</Label>
                 <MessageVariableBar
