@@ -10,3 +10,7 @@ type: feature
 - Receita soma TODAS as propostas ganhas após a conversão, independente do produto anunciado (cross-sell é esperado).
 - `fn_campaign_revenue_detail(p_campaign_id,p_from,p_to)` lista por deal: lead, funil, valor, conversão, fechamento, lead time, `campaign_product` (produto_interesse) vs `purchased_products` (deal_items) e flag `cross_sell`.
 - UI: aba Anúncios (`ZernioAdsTab`) mostra colunas Receita (clicável → `CampaignRevenueDialog`), ROI, Vendas e Lead time.
+## Âncora de conversão (auditoria 07/08/2026)
+- Quando o evento `meta_ads_lead_entry`/`zernio_lead_raw` não traz `campaignId` no payload, o fallback usa `platform_campaign_id` do lead **com o `event_timestamp` real do evento** — NUNCA `entrada_sistema`/`created_at`.
+- Motivo: `entrada_sistema` é o 1º contato histórico do lead. Com ele, vendas de 2023 e de meses anteriores eram atribuídas a campanhas de julho/2026 (ex.: Larissa 2023, Claudio 2023, Fábio e Eduardo em março), inflando receita de R$ 40.294 e gerando lead time de 1.224 d / 308 d.
+- Receita limpa (histórico completo): 61.070 / 28.000 / 28.000 / 1.140 — 1 deal ganho por campanha.
