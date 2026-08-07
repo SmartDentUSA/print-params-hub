@@ -258,7 +258,9 @@ export default function ZernioAdsTab() {
                     <th className="px-3 py-2 text-right">Receita</th>
                     <th className="px-3 py-2 text-right">ROI</th>
                     <th className="px-3 py-2 text-right">Vendas</th>
-                    <th className="px-3 py-2 text-right">Lead time</th>
+                    <th className="px-3 py-2 text-right" title="Média de dias entre a entrada no Funil de Vendas e a entrada no funil de CS">
+                      Lead time (Vendas → CS)
+                    </th>
                     <th className="px-3 py-2 text-right">Impressões</th>
                     <th className="px-3 py-2 text-right">Cliques</th>
                     <th className="px-3 py-2 text-right">CTR</th>
