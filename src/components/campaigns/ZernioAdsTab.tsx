@@ -41,7 +41,8 @@ export function fmtPct(v?: number | null) {
   return `${v.toFixed(2)}%`;
 }
 export function fmtRoi(revenue?: number, spend?: number) {
-  if (!spend || revenue === undefined || revenue === null) return '—';
+  if (spend === undefined || spend === null || revenue === undefined || revenue === null) return '—';
+  if (spend <= 0) return revenue > 0 ? '∞' : '—';
   const roi = ((revenue - spend) / spend) * 100;
   return `${roi > 0 ? '+' : ''}${roi.toFixed(0)}%`;
 }
@@ -110,6 +111,11 @@ export default function ZernioAdsTab() {
   const periodByCampaign = periodQ.data?.byCampaign;
   const revenueQ = useCampaignRevenue(Number(days));
   const revenueByCampaign = revenueQ.data?.byCampaign;
+  const revenueLoaded = !!revenueQ.data;
+
+  /** Investido da campanha: insights do período; se a Zernio não retornar, usa o acumulado. */
+  const spendOf = (c: ZernioAdCampaign) =>
+    periodByCampaign?.get(c.platformCampaignId ?? '')?.spend ?? c.metrics?.spend;
 
   const totals = useMemo(() => {
     const acc = { spend: 0, impressions: 0, clicks: 0, conversions: 0 };
@@ -131,13 +137,20 @@ export default function ZernioAdsTab() {
   }, [filtered, periodByCampaign, periodQ.data, search]);
 
   const revenueTotal = useMemo(() => {
-    if (!revenueByCampaign) return 0;
+    if (!revenueByCampaign) return undefined;
     const term = search.trim().toLowerCase();
     if (!term) return revenueQ.data?.total ?? 0;
     let sum = 0;
     for (const c of filtered) sum += revenueByCampaign.get(c.platformCampaignId ?? '')?.revenue ?? 0;
     return sum;
   }, [filtered, revenueByCampaign, revenueQ.data, search]);
+
+  const spendTotal = useMemo(() => {
+    if (totals.spend > 0) return totals.spend;
+    let sum = 0;
+    for (const c of filtered) sum += periodByCampaign?.get(c.platformCampaignId ?? '')?.spend ?? c.metrics?.spend ?? 0;
+    return sum;
+  }, [filtered, periodByCampaign, totals.spend]);
 
   const loading = campaignsQ.isLoading || adsQ.isLoading || periodQ.isLoading;
   const err = (campaignsQ.error ?? adsQ.error) as Error | null;
@@ -200,7 +213,7 @@ export default function ZernioAdsTab() {
           { label: 'Cliques', value: fmtInt(totals.clicks) },
           { label: 'Conversões', value: fmtInt(totals.conversions) },
           { label: 'Receita', value: fmtMoney(revenueTotal) },
-          { label: 'ROI', value: fmtRoi(revenueTotal, totals.spend) },
+          { label: 'ROI', value: fmtRoi(revenueTotal, spendTotal) },
         ].map((k) => (
           <Card key={k.label}>
             <CardContent className="py-4">
@@ -258,7 +271,10 @@ export default function ZernioAdsTab() {
                     const pm = periodByCampaign?.get(c.platformCampaignId ?? '');
                     const pLeads = pm?.leads;
                     const pCpl = pm && pLeads ? pm.spend / pLeads : undefined;
-                    const rev = revenueByCampaign?.get(c.platformCampaignId ?? '')?.revenue;
+                    const spend = spendOf(c);
+                    const rev = revenueLoaded
+                      ? revenueByCampaign?.get(c.platformCampaignId ?? '')?.revenue ?? 0
+                      : undefined;
                     return (
                       <>
                         <tr key={key} className="border-b hover:bg-muted/30">
@@ -275,18 +291,18 @@ export default function ZernioAdsTab() {
                           <td className="px-3 py-2 text-muted-foreground">{c.platformAdAccountName ?? '—'}</td>
                           <td className="px-3 py-2"><StatusBadge status={c.status} /></td>
                           <td className="px-3 py-2 text-right">{budgetLabel(c)}</td>
-                          <td className="px-3 py-2 text-right font-medium">{fmtMoney(pm ? pm.spend : undefined, c.currency)}</td>
+                          <td className="px-3 py-2 text-right font-medium">{fmtMoney(spend, c.currency)}</td>
                           <td className="px-3 py-2 text-right font-medium">{fmtMoney(rev, c.currency)}</td>
                           <td
                             className={`px-3 py-2 text-right font-medium ${
-                              rev !== undefined && pm?.spend
-                                ? rev - pm.spend >= 0
+                              rev !== undefined && spend
+                                ? rev - spend >= 0
                                   ? 'text-emerald-600'
                                   : 'text-destructive'
                                 : ''
                             }`}
                           >
-                            {fmtRoi(rev, pm?.spend)}
+                            {fmtRoi(rev, spend)}
                           </td>
                           <td className="px-3 py-2 text-right">{fmtInt(pm?.impressions)}</td>
                           <td className="px-3 py-2 text-right">{fmtInt(pm?.clicks)}</td>
