@@ -1,7 +1,7 @@
 // smart-ops-wa-purge-briefings — v1
 // Apaga (para todos) as mensagens de briefing enviadas aos vendedores,
-// mantendo o WhatsApp do vendedor limpo. Só roda às 06:00 ou 23:00 (config),
-// salvo quando chamado com { force: true } pela UI.
+// mantendo o WhatsApp do vendedor limpo. Roda na hora configurada na UI
+// (qualquer hora, fuso São Paulo), salvo quando chamado com { force: true }.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { EVO_BASE, EVO_KEY } from "../_shared/evolution.ts";

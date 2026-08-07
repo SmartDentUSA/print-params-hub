@@ -297,18 +297,18 @@ export function SellerBriefingAutomation() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="space-y-1.5">
               <Label className="text-xs">Hora da limpeza</Label>
-              <Select
-                value={String(cfg.purge_hora)}
-                onValueChange={(v) => patch({ purge_hora: Number(v) })}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="6">06:00</SelectItem>
-                  <SelectItem value="23">23:00</SelectItem>
-                </SelectContent>
-              </Select>
+              <Input
+                type="time"
+                step={3600}
+                value={`${String(cfg.purge_hora ?? 6).padStart(2, "0")}:00`}
+                onChange={(e) => {
+                  const h = Number((e.target.value || "06:00").split(":")[0]);
+                  patch({ purge_hora: Number.isFinite(h) ? Math.min(23, Math.max(0, h)) : 6 });
+                }}
+              />
+              <p className="text-[10px] text-muted-foreground">
+                Qualquer horário (hora cheia, fuso São Paulo)
+              </p>
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Apagar mensagens com mais de (horas)</Label>
