@@ -69,13 +69,17 @@ export function SellerBriefingAutomation() {
   const save = async () => {
     if (!cfg) return;
     setSaving(true);
-    const { id, purge_last_run_at, ...rest } = cfg;
+    const { id, purge_last_run_at, ...rest } = cfg as BriefingConfig & Record<string, unknown>;
+    // remove campos gerenciados pelo banco para evitar erro de update
+    delete (rest as Record<string, unknown>).created_at;
+    delete (rest as Record<string, unknown>).updated_at;
+    delete (rest as Record<string, unknown>).singleton;
     const { error } = await supabase
       .from("seller_briefing_config")
       .update(rest as never)
       .eq("id", id);
     setSaving(false);
-    if (error) toast.error("Falha ao salvar configuração");
+    if (error) toast.error(`Falha ao salvar configuração: ${error.message}`);
     else toast.success("Configuração salva");
   };
 

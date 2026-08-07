@@ -1,0 +1,2 @@
+ALTER TABLE public.seller_briefing_config DROP CONSTRAINT IF EXISTS seller_briefing_config_purge_hora_chk;
+ALTER TABLE public.seller_briefing_config ADD CONSTRAINT seller_briefing_config_purge_hora_chk CHECK (purge_hora >= 0 AND purge_hora <= 23);
