@@ -265,8 +265,8 @@ export function useAdsPeriodInsights(accounts: AdAccountRef[], days: number) {
 // Receita (propostas ganhas) por campanha — vem do CRM (deals ganhas), não da Zernio.
 // ---------------------------------------------------------------------------
 
-export function useCampaignRevenue(days: number) {
-  const fromDate = isoDaysAgo(days);
+export function useCampaignRevenue(days: number | null) {
+  const fromDate = days === null ? '2000-01-01' : isoDaysAgo(days);
   const toDate = new Date().toISOString().slice(0, 10);
   return useQuery({
     queryKey: ['campaign-revenue', fromDate, toDate],
@@ -330,8 +330,8 @@ export interface CampaignRevenueDeal {
   cross_sell: boolean | null;
 }
 
-export function useCampaignRevenueDetail(campaignId: string | null, days: number) {
-  const fromDate = isoDaysAgo(days);
+export function useCampaignRevenueDetail(campaignId: string | null, days: number | null) {
+  const fromDate = days === null ? '2000-01-01' : isoDaysAgo(days);
   const toDate = new Date().toISOString().slice(0, 10);
   return useQuery({
     queryKey: ['campaign-revenue-detail', campaignId, fromDate, toDate],

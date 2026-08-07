@@ -111,7 +111,7 @@ export default function ZernioAdsTab() {
 
   const periodQ = useAdsPeriodInsights(adAccounts, Number(days));
   const periodByCampaign = periodQ.data?.byCampaign;
-  const revenueQ = useCampaignRevenue(Number(days));
+  const revenueQ = useCampaignRevenue(days === ALL_TIME ? null : Number(days));
   const revenueByCampaign = revenueQ.data?.byCampaign;
   const revenueLoaded = !!revenueQ.data;
 
@@ -258,8 +258,8 @@ export default function ZernioAdsTab() {
                     <th className="px-3 py-2 text-right">Receita</th>
                     <th className="px-3 py-2 text-right">ROI</th>
                     <th className="px-3 py-2 text-right">Vendas</th>
-                    <th className="px-3 py-2 text-right" title="Média de dias entre a entrada no Funil de Vendas e a entrada no funil de CS">
-                      Lead time (Vendas → CS)
+                    <th className="px-3 py-2 text-right" title="Média de dias entre a entrada do lead na campanha e a primeira entrada ganha no funil de CS">
+                      Lead time (Campanha → CS)
                     </th>
                     <th className="px-3 py-2 text-right">Impressões</th>
                     <th className="px-3 py-2 text-right">Cliques</th>
@@ -386,7 +386,7 @@ export default function ZernioAdsTab() {
       <CampaignRevenueDialog
         campaignId={revDetail?.id ?? null}
         campaignName={revDetail?.name}
-        days={Number(days)}
+        days={days === ALL_TIME ? null : Number(days)}
         onClose={() => setRevDetail(null)}
       />
     </div>
