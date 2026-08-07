@@ -226,7 +226,7 @@ async function logMsg(
   }
 ) {
   try {
-    await supabase.from("message_logs").insert({
+    const payload = {
       lead_id: row.lead_id,
       team_member_id: row.team_member_id,
       whatsapp_number: row.whatsapp_number,
@@ -237,7 +237,33 @@ async function logMsg(
       error_details: row.error_details ?? null,
       provider_message_id: row.provider_message_id ?? null,
       data_envio: new Date().toISOString(),
-    });
+    };
+
+    // Existe um índice único parcial (lead_id, tipo, data_envio_dia) para
+    // tipo='briefing_vendedor'. Se já houver uma linha do dia (ex.: placeholder
+    // "pendente"), o insert falha silenciosamente e o envio real não fica
+    // registrado. Então: atualiza a linha do dia se existir, senão insere.
+    const dia = new Date().toISOString().slice(0, 10);
+    const { data: sameDay } = await supabase
+      .from("message_logs")
+      .select("id")
+      .eq("lead_id", row.lead_id)
+      .eq("tipo", row.tipo)
+      .eq("data_envio_dia", dia)
+      .limit(1)
+      .maybeSingle();
+
+    if (sameDay?.id) {
+      const { error } = await supabase
+        .from("message_logs")
+        .update(payload)
+        .eq("id", (sameDay as any).id);
+      if (error) console.warn("[notify-seller] log update failed:", error.message);
+      return;
+    }
+
+    const { error } = await supabase.from("message_logs").insert(payload);
+    if (error) console.warn("[notify-seller] log insert failed:", error.message);
   } catch (e) {
     console.warn("[notify-seller v33] log insert failed:", e);
   }
