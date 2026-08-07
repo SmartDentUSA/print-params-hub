@@ -235,9 +235,14 @@ Deno.serve(async (req) => {
     const remoteJid = payload?.key?.remoteJid ?? `${target}@s.whatsapp.net`;
     let status = baileysStatus(payload);
 
-    if (messageId && (!status || status === "PENDING")) {
-      await sleep(1_500);
-      status = await findMessageStatus(instance, apikey, remoteJid, messageId) ?? status;
+    // O ACK do WhatsApp chega de forma assíncrona: consulta em janelas curtas
+    // até o Baileys registrar SERVER_ACK/DELIVERY_ACK/READ.
+    if (messageId) {
+      for (const wait of [1_500, 2_000, 3_000]) {
+        if (status && ACK_OK.has(status)) break;
+        await sleep(wait);
+        status = (await findMessageStatus(instance, apikey, remoteJid, messageId)) ?? status;
+      }
     }
 
     const rawPayload = {
