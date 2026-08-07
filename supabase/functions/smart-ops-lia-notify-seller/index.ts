@@ -33,6 +33,9 @@ Deno.serve(async (req) => {
     const lead_id = body?.lead_id as string | undefined;
     const team_member_id = body?.team_member_id as string | undefined;
     const trigger = (body?.trigger as string | undefined) || "unknown";
+    // Envio de TESTE: manda o briefing para um número arbitrário, sem lock,
+    // sem janela de horário e sem gravar em message_logs.
+    const test_phone = (normalizeBrazilianPhone(String(body?.test_phone ?? "")) || "").replace(/\D/g, "") || null;
 
     if (!lead_id || !team_member_id) {
       return json({ error: "lead_id and team_member_id are required" }, 400);
@@ -59,7 +62,7 @@ Deno.serve(async (req) => {
       console.log(`[notify-seller v37] WhatsApp desativado (canais=${canaisAtivos.join("|")}) — skip`);
       return json({ skipped: true, reason: "canal_whatsapp_desativado" });
     }
-    if (cfg?.horario_inicio && cfg?.horario_fim) {
+    if (!test_phone && cfg?.horario_inicio && cfg?.horario_fim) {
       const nowSp = new Intl.DateTimeFormat("pt-BR", {
         timeZone: "America/Sao_Paulo",
         hour: "2-digit",
@@ -88,7 +91,7 @@ Deno.serve(async (req) => {
       .limit(1)
       .maybeSingle();
 
-    if (existing?.id) {
+    if (!test_phone && existing?.id) {
       console.log(`[notify-seller v33] Lock existente lead=${lead_id} — skip`);
       return json({ skipped: true, reason: "lock" });
     }
@@ -131,7 +134,7 @@ Deno.serve(async (req) => {
       });
       return json({ error: "seller missing whatsapp_number" }, 422);
     }
-    const toNumber = cleanPhone;
+    const toNumber = test_phone || cleanPhone;
 
     // ── Frase pré-montada do link (template da automação) ──
     const includeWaLink = cfg?.incluir_link_wa !== false;
@@ -187,7 +190,7 @@ Deno.serve(async (req) => {
       errorDetails = e instanceof Error ? e.message : String(e);
     }
 
-    await logMsg(supabase, {
+    if (!test_phone) await logMsg(supabase, {
       lead_id,
       team_member_id,
       whatsapp_number: toNumber,
