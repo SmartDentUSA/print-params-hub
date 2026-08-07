@@ -31,7 +31,18 @@ Deno.serve(async (req) => {
   const go = { base: strip(tm.evo_go_base_url || "http://82.25.75.61:8081"), inst: tm.evo_go_instance_name || tm.evo_go_instance_id || "", key: tm.evo_go_instance_token || "" };
 
   // 1) Grupo via EvolutionGO
-  try {
+  const directJid: string = body.group_jid ?? "";
+  if (directJid && groupText) {
+    try {
+      const res = await fetch(`${go.base}/send/text`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", apikey: go.key },
+        body: JSON.stringify({ number: directJid, text: groupText }),
+        signal: AbortSignal.timeout(60_000),
+      });
+      out.group_send = { status: res.status, body: (await res.text()).slice(0, 400), jid: directJid };
+    } catch (e) { out.group_error = String((e as Error).message ?? e); }
+  } else try {
     const gr = await fetch(`${evo.base}/group/fetchAllGroups/${encodeURIComponent(evo.inst)}?getParticipants=false`, {
       headers: { "Content-Type": "application/json", apikey: evo.key },
       signal: AbortSignal.timeout(120_000),
