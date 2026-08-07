@@ -237,20 +237,59 @@ Regras:
 }
 
 // Link click-to-chat para o vendedor abrir a conversa com o lead direto do
-// celular. telefone_normalized chega como "+5511984200228"; o wa.me só aceita
-// dígitos, com DDI.
-export function waMeLink(raw: string | null | undefined): string | null {
+// celular, já com a abordagem escrita. telefone_normalized chega como
+// "+5511984200228"; o wa.me só aceita dígitos, com DDI.
+export function waMeLink(
+  raw: string | null | undefined,
+  texto?: string | null
+): string | null {
   const digits = String(raw ?? "").replace(/\D/g, "");
   if (!digits) return null;
   const comDdi = digits.startsWith("55") ? digits : `55${digits}`;
   // 55 + DDD (2) + número (8 ou 9)
   if (comDdi.length < 12 || comDdi.length > 13) return null;
-  return `https://wa.me/${comDdi}`;
+  const base = `https://wa.me/${comDdi}`;
+  return texto ? `${base}?text=${encodeURIComponent(texto)}` : base;
+}
+
+// Primeiro nome, com a caixa alta do CRM corrigida ("FULANO" → "Fulano").
+export function primeiroNome(raw: unknown): string | null {
+  const completo = String(raw ?? "").trim();
+  if (!completo) return null;
+  const primeiro = completo.split(/\s+/)[0];
+  if (!primeiro) return null;
+  return primeiro === primeiro.toUpperCase()
+    ? primeiro.charAt(0) + primeiro.slice(1).toLowerCase()
+    : primeiro;
+}
+
+// Abordagem que já vai escrita no link — o vendedor só confere e envia.
+export function mensagemAbordagem(
+  lead: Record<string, unknown>,
+  sellerName?: string | null
+): string {
+  const nomeLead = primeiroNome(lead.nome);
+  const nomeVendedor = primeiroNome(sellerName);
+  const produto = String(
+    lead.produto_interesse || lead.produto_interesse_auto || ""
+  ).trim();
+
+  const saudacao = nomeLead ? `Olá ${nomeLead}` : "Olá";
+  // Sem artigo antes do nome: a equipe tem vendedores e vendedoras, e
+  // "aqui é o Janaína" sairia errado.
+  const apresentacao = nomeVendedor
+    ? `aqui é ${nomeVendedor} da Smart Dent`
+    : "aqui é a Smart Dent";
+  // "sobre" evita ter de acertar o gênero de cada produto do catálogo.
+  const motivo = produto ? `. Você entrou em contato sobre ${produto}` : "";
+
+  return `${saudacao}, ${apresentacao}${motivo}. Está disponível agora?`;
 }
 
 export async function buildSellerNotification(
   lead: Record<string, unknown>,
-  supabase: SupabaseClient
+  supabase: SupabaseClient,
+  sellerName?: string | null
 ): Promise<string> {
   const phone = (lead.telefone_normalized || lead.telefone_raw) as string | null;
   const urgencyEmoji = (lead.urgency_level === "alta") ? "🔴" : (lead.urgency_level === "media") ? "🟡" : "🟢";
@@ -324,7 +363,9 @@ export async function buildSellerNotification(
     `👤 Lead: ${lead.nome || "N/A"}`,
     `📧 Email: ${lead.email || "N/A"}`,
     `📱 Tel: ${phone || "N/A"}`,
-    ...(waMeLink(phone) ? [`💬 Chamar agora: ${waMeLink(phone)}`] : []),
+    ...(waMeLink(phone, mensagemAbordagem(lead, sellerName))
+      ? [`💬 Chamar agora: ${waMeLink(phone, mensagemAbordagem(lead, sellerName))}`]
+      : []),
     `🦷 Área de atuação: ${lead.area_atuacao || "N/A"}`,
     `🦷 Especialidade: ${lead.especialidade || "N/A"}`,
     `🎯 Interesse: ${lead.produto_interesse || "N/A"}`,

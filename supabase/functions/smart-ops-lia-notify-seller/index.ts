@@ -119,7 +119,11 @@ Deno.serve(async (req) => {
     const toNumber = cleanPhone.startsWith("55") ? cleanPhone : `55${cleanPhone}`;
 
     // ── Build briefing (header já é "📊 Análise SmartOps") ──
-    const briefing = await buildSellerNotification(lead as Record<string, unknown>, supabase);
+    const briefing = await buildSellerNotification(
+      lead as Record<string, unknown>,
+      supabase,
+      (seller as { nome_completo?: string | null }).nome_completo ?? null
+    );
 
     // ── Send via Evolution (sempre pela instância sender configurada) ──
     let status: "enviado" | "erro" = "enviado";
