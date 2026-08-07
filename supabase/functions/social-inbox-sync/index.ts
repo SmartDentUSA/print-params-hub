@@ -67,7 +67,9 @@ serve(async (req) => {
     return await res.json().catch(() => ({}));
   };
 
+  const debug = body.debug === true;
   const stats = { conversations: 0, linked: 0, unmatched: 0, inserted: 0, errors: [] as string[] };
+  const samples: any[] = [];
 
   try {
     const convPayload = await zfetch(`/inbox/conversations?limit=${maxConversations}&sortOrder=desc`);
@@ -103,6 +105,10 @@ serve(async (req) => {
           messages,
         });
 
+        if (debug && samples.length < 2) {
+          samples.push({ conversation: c, firstMessages: messages.slice(0, 3), result });
+        }
+
         if (result?.linked) {
           stats.linked++;
           stats.inserted += Number(result.inserted ?? 0);
@@ -121,7 +127,7 @@ serve(async (req) => {
       details: stats as any,
     } as any);
 
-    return json({ ok: true, ...stats });
+    return json({ ok: true, ...stats, ...(debug ? { samples } : {}) });
   } catch (e: any) {
     console.error('[social-inbox-sync] fatal', e);
     return json({ error: String(e?.message ?? e), ...stats }, 500);
