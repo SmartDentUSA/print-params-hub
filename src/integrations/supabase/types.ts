@@ -2183,7 +2183,7 @@ export type Database = {
           subject_snapshot: string | null
           telefone: string | null
           temperatura: string | null
-          waleads_message_id: string | null
+          wa_message_id: string | null
         }
         Insert: {
           anchor_product?: string | null
@@ -2219,7 +2219,7 @@ export type Database = {
           subject_snapshot?: string | null
           telefone?: string | null
           temperatura?: string | null
-          waleads_message_id?: string | null
+          wa_message_id?: string | null
         }
         Update: {
           anchor_product?: string | null
@@ -2255,7 +2255,7 @@ export type Database = {
           subject_snapshot?: string | null
           telefone?: string | null
           temperatura?: string | null
-          waleads_message_id?: string | null
+          wa_message_id?: string | null
         }
         Relationships: [
           {
@@ -3721,17 +3721,17 @@ export type Database = {
           media_url: string | null
           mensagem_evolution: string | null
           mensagem_fora_horario: string | null
-          mensagem_waleads: string | null
+          mensagem_wa: string | null
           produto_interesse: string | null
           team_member_id: string | null
           template_manychat: string | null
           tipo: string | null
           trigger_event: string | null
           usar_ia: boolean | null
-          waleads_ativo: boolean | null
-          waleads_media_caption: string | null
-          waleads_media_url: string | null
-          waleads_tipo: string | null
+          wa_ativo: boolean | null
+          wa_media_caption: string | null
+          wa_media_url: string | null
+          wa_tipo: string | null
         }
         Insert: {
           ativo?: boolean
@@ -3751,17 +3751,17 @@ export type Database = {
           media_url?: string | null
           mensagem_evolution?: string | null
           mensagem_fora_horario?: string | null
-          mensagem_waleads?: string | null
+          mensagem_wa?: string | null
           produto_interesse?: string | null
           team_member_id?: string | null
           template_manychat?: string | null
           tipo?: string | null
           trigger_event?: string | null
           usar_ia?: boolean | null
-          waleads_ativo?: boolean | null
-          waleads_media_caption?: string | null
-          waleads_media_url?: string | null
-          waleads_tipo?: string | null
+          wa_ativo?: boolean | null
+          wa_media_caption?: string | null
+          wa_media_url?: string | null
+          wa_tipo?: string | null
         }
         Update: {
           ativo?: boolean
@@ -3781,17 +3781,17 @@ export type Database = {
           media_url?: string | null
           mensagem_evolution?: string | null
           mensagem_fora_horario?: string | null
-          mensagem_waleads?: string | null
+          mensagem_wa?: string | null
           produto_interesse?: string | null
           team_member_id?: string | null
           template_manychat?: string | null
           tipo?: string | null
           trigger_event?: string | null
           usar_ia?: boolean | null
-          waleads_ativo?: boolean | null
-          waleads_media_caption?: string | null
-          waleads_media_url?: string | null
-          waleads_tipo?: string | null
+          wa_ativo?: boolean | null
+          wa_media_caption?: string | null
+          wa_media_url?: string | null
+          wa_tipo?: string | null
         }
         Relationships: [
           {
@@ -10248,7 +10248,7 @@ export type Database = {
           last_seller_note_hash: string | null
           last_sync_at: string | null
           last_sync_source: string | null
-          last_waleads_instance: string | null
+          last_wa_instance: string | null
           lead_card_published_at: string | null
           lead_card_url: string | null
           lead_routing: string | null
@@ -10862,7 +10862,7 @@ export type Database = {
           last_seller_note_hash?: string | null
           last_sync_at?: string | null
           last_sync_source?: string | null
-          last_waleads_instance?: string | null
+          last_wa_instance?: string | null
           lead_card_published_at?: string | null
           lead_card_url?: string | null
           lead_routing?: string | null
@@ -11476,7 +11476,7 @@ export type Database = {
           last_seller_note_hash?: string | null
           last_sync_at?: string | null
           last_sync_source?: string | null
-          last_waleads_instance?: string | null
+          last_wa_instance?: string | null
           lead_card_published_at?: string | null
           lead_card_url?: string | null
           lead_routing?: string | null
@@ -12762,7 +12762,7 @@ export type Database = {
           target_stage_id: string | null
           trigger_days_list: number[]
           updated_at: string
-          waleads_message: string | null
+          wa_message: string | null
           whatsapp_template_id: string | null
         }
         Insert: {
@@ -12792,7 +12792,7 @@ export type Database = {
           target_stage_id?: string | null
           trigger_days_list?: number[]
           updated_at?: string
-          waleads_message?: string | null
+          wa_message?: string | null
           whatsapp_template_id?: string | null
         }
         Update: {
@@ -12822,7 +12822,7 @@ export type Database = {
           target_stage_id?: string | null
           trigger_days_list?: number[]
           updated_at?: string
-          waleads_message?: string | null
+          wa_message?: string | null
           whatsapp_template_id?: string | null
         }
         Relationships: [
@@ -23610,9 +23610,6 @@ export type Database = {
           voice_sample_url: string | null
           voice_similarity_boost: number | null
           voice_stability: number | null
-          waleads_api_key: string | null
-          waleads_instance_name: string | null
-          waleads_phone_number: string | null
           whatsapp_number: string
         }
         Insert: {
@@ -23655,9 +23652,6 @@ export type Database = {
           voice_sample_url?: string | null
           voice_similarity_boost?: number | null
           voice_stability?: number | null
-          waleads_api_key?: string | null
-          waleads_instance_name?: string | null
-          waleads_phone_number?: string | null
           whatsapp_number: string
         }
         Update: {
@@ -23700,9 +23694,6 @@ export type Database = {
           voice_sample_url?: string | null
           voice_similarity_boost?: number | null
           voice_stability?: number | null
-          waleads_api_key?: string | null
-          waleads_instance_name?: string | null
-          waleads_phone_number?: string | null
           whatsapp_number?: string
         }
         Relationships: []
@@ -29381,7 +29372,7 @@ export type Database = {
           intelligence_score_total: number | null
           last_deal_date: string | null
           last_purchase_any_source: string | null
-          last_waleads_instance: string | null
+          last_wa_instance: string | null
           lead_status: string | null
           lojaintegrada_ltv: number | null
           lojaintegrada_total_pedidos_pagos: number | null
@@ -29436,7 +29427,7 @@ export type Database = {
           intelligence_score_total?: number | null
           last_deal_date?: string | null
           last_purchase_any_source?: never
-          last_waleads_instance?: string | null
+          last_wa_instance?: string | null
           lead_status?: string | null
           lojaintegrada_ltv?: number | null
           lojaintegrada_total_pedidos_pagos?: number | null
@@ -29491,7 +29482,7 @@ export type Database = {
           intelligence_score_total?: number | null
           last_deal_date?: string | null
           last_purchase_any_source?: never
-          last_waleads_instance?: string | null
+          last_wa_instance?: string | null
           lead_status?: string | null
           lojaintegrada_ltv?: number | null
           lojaintegrada_total_pedidos_pagos?: number | null
@@ -30958,7 +30949,7 @@ export type Database = {
           last_seller_note_hash: string | null
           last_sync_at: string | null
           last_sync_source: string | null
-          last_waleads_instance: string | null
+          last_wa_instance: string | null
           lead_card_published_at: string | null
           lead_card_url: string | null
           lead_stage_detected: string | null
@@ -32852,7 +32843,7 @@ export type Database = {
           last_seller_note_hash: string | null
           last_sync_at: string | null
           last_sync_source: string | null
-          last_waleads_instance: string | null
+          last_wa_instance: string | null
           lead_card_published_at: string | null
           lead_card_url: string | null
           lead_routing: string | null
