@@ -48,9 +48,15 @@ Deno.serve(async (req) => {
       console.log("[notify-seller v36] automação desativada na UI — skip");
       return json({ skipped: true, reason: "automacao_desativada" });
     }
-    if (cfg && cfg.canal !== "whatsapp") {
-      console.log(`[notify-seller v36] canal configurado = ${cfg.canal} (não whatsapp) — skip`);
-      return json({ skipped: true, reason: `canal_${cfg.canal}_nao_suportado` });
+    // Canais são independentes: ativar e-mail/SMS NÃO suspende o WhatsApp.
+    // `canal` aceita valor único ("whatsapp") ou lista ("whatsapp,email,sms").
+    const canaisAtivos = String(cfg?.canal ?? "whatsapp")
+      .split(",")
+      .map((c) => c.trim().toLowerCase())
+      .filter(Boolean);
+    if (cfg && !canaisAtivos.includes("whatsapp")) {
+      console.log(`[notify-seller v37] WhatsApp desativado (canais=${canaisAtivos.join("|")}) — skip`);
+      return json({ skipped: true, reason: "canal_whatsapp_desativado" });
     }
     if (cfg?.horario_inicio && cfg?.horario_fim) {
       const nowSp = new Intl.DateTimeFormat("pt-BR", {
