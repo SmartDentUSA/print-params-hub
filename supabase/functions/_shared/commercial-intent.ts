@@ -56,12 +56,26 @@ export interface CommercialIntentResult {
 function looksLikeInternalEmail(email?: string | null): boolean {
   if (!email) return false;
   const e = email.toLowerCase();
-  return (
-    e.endsWith("@smartdent.com.br") ||
-    e.endsWith("@whatsapp.lead") ||
-    /^wa_\d+/.test(e) ||
-    /test|teste|example/.test(e)
-  );
+  const [local = "", domain = ""] = e.split("@");
+  // Internal / synthetic domains.
+  const syntheticDomains = [
+    "smartdent.com.br",
+    "smartdent.invalid",
+    "whatsapp.lead",
+    "example.com",
+    "example.org",
+    "test.com",
+    "localhost",
+  ];
+  if (syntheticDomains.includes(domain)) return true;
+  if (domain.endsWith(".invalid") || domain.endsWith(".local") || domain.endsWith(".test")) return true;
+  // Synthetic local parts: wa_123..., teste.etapa5, test-qa, qa+teste
+  if (/^wa_\d+/.test(local)) return true;
+  if (/^(qa|test|teste)([._+-]|$)/.test(local)) return true;
+  // NOTE: do NOT match "test"/"teste" as a bare substring — real customer
+  // addresses like `julesteste.1@gmail.com` or `protestecnica@...` were being
+  // silently blocked from the CRM by that rule.
+  return false;
 }
 
 /**

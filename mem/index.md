@@ -23,3 +23,4 @@
 - [Zernio Ads Manager](mem://integration/zernio-ads-manager) — Aba Anúncios (Central de Campanhas) lê campanhas/anúncios/insights Meta via social-analytics
 - [Campaign Revenue Attribution](mem://marketing/campaign-revenue-attribution) — Receita/vendas por campanha só com closed_at real após a conversão; lead time = entrada Vendas → entrada CS
 - [Lead Origin Inbound/Outbound](mem://architecture/lead-origin-inbound-outbound-classification) — lead_origin_classification + set_origin_acquisition_type sobrepõem a heurística Inbound/Outbound
+- [Synthetic Email Guard](mem://architecture/synthetic-email-guard-precision) — commercial-intent só bloqueia domínios sintéticos; lia-assign tolera email null
