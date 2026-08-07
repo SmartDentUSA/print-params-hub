@@ -31714,6 +31714,14 @@ export type Database = {
           total: number
         }[]
       }
+      fn_campaign_funnel_times: {
+        Args: never
+        Returns: {
+          cs_at: string
+          lead_id: string
+          vendas_at: string
+        }[]
+      }
       fn_campaign_revenue: {
         Args: { p_from: string; p_to: string }
         Returns: {
