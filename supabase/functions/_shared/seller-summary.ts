@@ -152,12 +152,16 @@ export async function buildSellerDealSummaryHTML(
   // JID canônico para o link do WhatsApp: repara telefone legado de 8 dígitos
   // (falta o 9) e DDI — sem isso o wa.me abre um número inexistente e o
   // WhatsApp não identifica o cliente.
-  const waJid = (normalizeBrazilianPhone(String(lead.telefone_normalized || lead.telefone_raw || "")) || "")
-    .replace(/\D/g, "");
+  const waJid = pickWaJid(lead);
   const waPreset = String(opts.waLinkPreset ?? "").trim();
   const waLink = waJid.length >= 12
     ? `https://wa.me/${waJid}${waPreset ? `?text=${encodeURIComponent(waPreset)}` : ""}`
     : "";
+  if (opts.includeWaLink !== false && !waLink) {
+    console.warn(
+      `[seller-summary] wa link ausente lead=${String(lead.id ?? "?")} telefone="${String(lead.telefone_normalized ?? lead.telefone_raw ?? "")}"`,
+    );
+  }
 
   sections.push(`<b>🧾 Resumo do Lead — Smart Dent</b>`);
   sections.push(`<i>Atualizado em ${fmtDate(new Date().toISOString())}</i><br>`);
@@ -182,7 +186,9 @@ export async function buildSellerDealSummaryHTML(
     `• Área: ${esc(lead.area_atuacao)} | Especialidade: ${esc(lead.especialidade)}<br>` +
     (opts.includeWaLink !== false && waLink
       ? `👉 Abrir conversa com o lead: <a href="${waLink}">${waLink}</a><br>`
-      : ""),
+      : opts.includeWaLink !== false
+        ? `⚠️ Telefone incompleto/inválido — link do WhatsApp indisponível.<br>`
+        : ""),
   );
 
   // 3. CRM histórico (a partir do piperun_deals_history)
