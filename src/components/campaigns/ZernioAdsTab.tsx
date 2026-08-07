@@ -362,7 +362,14 @@ export default function ZernioAdsTab() {
                               <td className="px-3 py-2 text-right">{fmtPct(a.metrics?.ctr)}</td>
                               <td className="px-3 py-2 text-right">{fmtMoney(a.metrics?.cpc, a.currency)}</td>
                               <td className="px-3 py-2 text-right">{fmtInt(a.metrics?.actions?.lead ?? a.metrics?.conversions)}</td>
-                              <td className="px-3 py-2 text-right">{fmtMoney(a.metrics?.costPerConversion, a.currency)}</td>
+                              <td className="px-3 py-2 text-right">
+                                {(() => {
+                                  const adLeads = a.metrics?.actions?.lead ?? a.metrics?.conversions ?? 0;
+                                  const adSpend = a.metrics?.spend;
+                                  if (!adLeads || !adSpend) return <span className="text-muted-foreground">—</span>;
+                                  return fmtMoney(adSpend / adLeads, a.currency);
+                                })()}
+                              </td>
                             </tr>
                           ))}
                       </>

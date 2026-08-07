@@ -1737,6 +1737,69 @@ Deno.serve(async (req) => {
     });
 
     // ─── Atividades do CRM → Timeline Unificada (dedupe por activity.id) ───
+    // ─── Lead time (Vendas → CS) calculado no momento em que um deal GANHO
+    //     entra em um funil de CS. Vai para a timeline do lead como evento
+    //     próprio, para ser localizado facilmente.
+    try {
+      const isCsPipeline =
+        ids.pipelineId === PIPELINES.CS_ONBOARDING ||
+        ids.pipelineId === PIPELINES.GANHOS_ALEATORIOS_CS ||
+        /\bcs\b|onboarding/i.test(String(ids.pipelineName ?? ""));
+      if (isWon && isCsPipeline) {
+        const { data: vendasDeals } = await supabase
+          .from("deals")
+          .select("piperun_created_at, created_at, pipeline_id, pipeline_name")
+          .eq("lead_id", leadId)
+          .order("piperun_created_at", { ascending: true })
+          .limit(200);
+        const vendasStart = (vendasDeals ?? [])
+          .filter(
+            (d: Record<string, unknown>) =>
+              Number(d.pipeline_id) === PIPELINES.VENDAS ||
+              /vendas/i.test(String(d.pipeline_name ?? "")),
+          )
+          .map((d: Record<string, unknown>) =>
+            parseRealTs(d.piperun_created_at) ?? parseRealTs(d.created_at),
+          )
+          .filter((v): v is string => !!v)
+          .sort()[0];
+        const csEntry = parseRealTs(ids.dealClosedAt) ?? timelineEventTs;
+        if (vendasStart) {
+          const days =
+            Math.round(
+              ((new Date(csEntry).getTime() - new Date(vendasStart).getTime()) / 86400000) * 10,
+            ) / 10;
+          if (days >= 0) {
+            await supabase.from("lead_activity_log").insert({
+              lead_id: leadId,
+              event_type: "crm_lead_time_vendas_cs",
+              entity_type: "deal",
+              entity_id: dealId ? String(dealId) : null,
+              entity_name: `Lead time ${days} d (Vendas → CS)`,
+              event_timestamp: csEntry,
+              event_data: {
+                kind: "lead_time",
+                kind_label: `Lead time ${days} d (Vendas → CS)`,
+                icon: "⏱️",
+                lead_time_days: days,
+                vendas_at: vendasStart,
+                cs_at: csEntry,
+                cs_pipeline: ids.pipelineName ?? null,
+                deal_id: dealId,
+                fonte: "piperun",
+                dedupe_key: `lead_time|${dealId ?? ""}|${vendasStart}|${csEntry}`,
+              },
+              source_channel: "crm",
+              value_numeric: days,
+            });
+            console.log(`[piperun-webhook] lead_time ${days}d lead=${leadId} deal=${dealId}`);
+          }
+        }
+      }
+    } catch (e) {
+      console.warn("[piperun-webhook] lead_time calc exception:", (e as Error).message);
+    }
+
     try {
       if (Array.isArray(deal.activities) && (deal.activities as unknown[]).length > 0) {
         const res = await syncPiperunActivitiesToTimeline(supabase, leadId, deal.activities);
