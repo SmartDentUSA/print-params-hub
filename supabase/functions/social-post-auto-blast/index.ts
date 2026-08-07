@@ -257,10 +257,22 @@ serve(async (req) => {
     const siblings = suppressedIdsByRep.get(post.id) ?? [];
     deduped_suppressed += siblings.length;
     const idsToMark = [post.id, ...siblings];
-    await sb.from('social_posts').update({ auto_blast_at: new Date().toISOString() }).in('id', idsToMark);
-    if (!anyDispatched) skipped++;
+    // Se nenhum grupo aceitou o post (ex.: filtro de plataforma do grupo), não
+    // consumimos o post: ele volta na próxima rodada por até 24h, para que ajustar
+    // a configuração de grupos/plataformas ainda permita o disparo.
+    const ageMs = Date.now() - new Date(post.created_at ?? 0).getTime();
+    const keepForRetry = !anyDispatched && ageMs < 24 * 60 * 60 * 1000;
+    if (!keepForRetry) {
+      await sb.from('social_posts').update({ auto_blast_at: new Date().toISOString() }).in('id', idsToMark);
+    }
+    if (!anyDispatched) {
+      skipped++;
+      console.warn('[social-post-auto-blast] nenhum grupo elegível', JSON.stringify({
+        post_id: post.id, platform: post.platform, blast_seq: post.blast_seq, keep_for_retry: keepForRetry,
+      }));
+    }
     const seqNum = Number(post.blast_seq ?? 0);
-    if (seqNum > maxSeqDispatched) maxSeqDispatched = seqNum;
+    if (!keepForRetry && seqNum > maxSeqDispatched) maxSeqDispatched = seqNum;
   }
 
   if (maxSeqDispatched > lastSeq) {
