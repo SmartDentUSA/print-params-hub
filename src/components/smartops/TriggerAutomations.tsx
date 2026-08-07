@@ -135,7 +135,7 @@ function useTeamMembersWithInstances() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("team_members")
-        .select("id, nome_completo, role, evolution_instance_name, evolution_phone, whatsapp_number")
+        .select("id, nome_completo, role, evolution_instance_name, evolution_phone, whatsapp_number, evolution_enabled, evolution_status")
         .eq("ativo", true)
         .order("nome_completo");
       if (error) throw error;
@@ -299,8 +299,16 @@ export function TriggerAutomations() {
   const setAct = (patch: Record<string, unknown>) =>
     setDraft((d) => ({ ...d, action_config: { ...(d.action_config ?? {}), ...patch } }));
 
+  // Só instâncias realmente utilizáveis: habilitadas e conectadas. Instância
+  // desconectada aceita o POST mas nunca entrega a mensagem.
   const instances = useMemo(
-    () => (members ?? []).filter((m) => m.evolution_instance_name),
+    () =>
+      (members ?? []).filter(
+        (m: any) =>
+          m.evolution_instance_name &&
+          m.evolution_enabled !== false &&
+          m.evolution_status === "connected",
+      ),
     [members],
   );
 

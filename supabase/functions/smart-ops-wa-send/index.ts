@@ -93,20 +93,37 @@ Deno.serve(async (req) => {
     if (team_member_id) {
       const { data } = await supabase
         .from("team_members")
-        .select("id, nome_completo, evolution_instance_name, evolution_api_key")
+        .select("id, nome_completo, evolution_instance_name, evolution_api_key, evolution_enabled, evolution_status")
         .eq("id", team_member_id)
         .maybeSingle();
       tm = data;
     }
-    if (!tm?.evolution_instance_name) {
+    // Fallback só entra em cena quando o membro escolhido não tem instância utilizável
+    // (sem nome, desabilitada ou desconectada) — senão a mensagem sai por um número
+    // que não está ativo e nunca é entregue.
+    const usable = (m: any) =>
+      !!m?.evolution_instance_name &&
+      m?.evolution_enabled !== false &&
+      (m?.evolution_status ?? "connected") === "connected";
+    if (!usable(tm)) {
       const { data } = await supabase
         .from("team_members")
-        .select("id, nome_completo, evolution_instance_name, evolution_api_key")
+        .select("id, nome_completo, evolution_instance_name, evolution_api_key, evolution_enabled, evolution_status")
         .eq("ativo", true)
+        .eq("evolution_enabled", true)
+        .eq("evolution_status", "connected")
         .not("evolution_instance_name", "is", null)
         .limit(1)
         .maybeSingle();
-      tm = tm?.evolution_instance_name ? tm : data;
+      if (data) {
+        console.warn(JSON.stringify({
+          event: "wa_send.instance_fallback",
+          requested_team_member_id: team_member_id ?? null,
+          requested_instance: tm?.evolution_instance_name ?? null,
+          fallback_instance: data.evolution_instance_name,
+        }));
+        tm = data;
+      }
     }
     if (!tm?.evolution_instance_name) {
       return json({ success: false, error: "no_evolution_instance_configured" }, 400);

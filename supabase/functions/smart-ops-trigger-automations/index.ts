@@ -183,7 +183,8 @@ async function detectHits(
     .map((r: any) => ({
       lead_id: r.lead_id,
       ref: `social_dm:${r.id}`,
-      text: (r.event_data as any)?.text ?? null,
+      // Zernio grava o conteúdo em `message`; `text` só existe em alguns canais.
+      text: (r.event_data as any)?.text ?? (r.event_data as any)?.message ?? null,
       detail: { channel: r.source_channel, at: r.event_timestamp },
     }));
 }
