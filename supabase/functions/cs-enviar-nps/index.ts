@@ -160,6 +160,39 @@ Deno.serve(async (req) => {
           .update({ nps_sent_at: new Date().toISOString(), nps_status: "aguardando" })
           .eq("id", enr.id);
         if (eSent) throw eSent;
+
+        // Timeline do lead: registra a mensagem completa enviada.
+        try {
+          await supabase.from("message_logs").insert({
+            lead_id: enr.lead_id,
+            tipo: "nps_whatsapp",
+            mensagem_preview: text.slice(0, 1000),
+            status: "enviado",
+            whatsapp_number: phone,
+            evolution_instance: instance,
+            data_envio: new Date().toISOString(),
+          });
+          await supabase.from("lead_activity_log").insert({
+            lead_id: enr.lead_id,
+            event_type: "nps_convite_enviado",
+            event_timestamp: new Date().toISOString(),
+            source_channel: "whatsapp",
+            entity_type: "enrollment",
+            entity_id: String(enr.id),
+            entity_name: "Convite NPS enviado",
+            event_data: {
+              kind: "nps",
+              kind_label: "Convite NPS enviado",
+              icon: "⭐",
+              mensagem: text,
+              link,
+              telefone: phone,
+              instancia: instance,
+              turma: turma?.label ?? null,
+              fonte: FN,
+            },
+          });
+        } catch (_e) { /* timeline nunca bloqueia o envio */ }
         enviados++;
       } catch (e) {
         falhas.push({ enrollment_id: enr.id, message: String((e as Error)?.message ?? e) });

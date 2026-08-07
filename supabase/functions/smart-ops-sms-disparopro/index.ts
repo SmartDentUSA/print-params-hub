@@ -255,6 +255,7 @@ Deno.serve(async (req) => {
         const nowIso = new Date().toISOString();
         const messageLogRows = [];
         const sendLogRows = [];
+        const activityRows = [];
 
         for (let i = 0; i < batch.length; i++) {
           const lead: any = batch[i];
@@ -302,10 +303,37 @@ Deno.serve(async (req) => {
             provider_detail_message: String(detailMessage || "").slice(0, 500),
             sent_at: nowIso,
           });
+
+          activityRows.push({
+            lead_id: lead.id,
+            event_type: ok ? "sms_enviado" : "sms_envio_falhou",
+            event_timestamp: nowIso,
+            source_channel: "disparopro",
+            entity_type: "campaign",
+            entity_id: String(sessionCampaignId),
+            entity_name: ok ? "SMS enviado" : "SMS falhou",
+            event_data: {
+              kind: "mensagem",
+              kind_label: ok ? "SMS enviado" : "SMS falhou",
+              icon: "📱",
+              mensagem: message,
+              telefone: lead.numero,
+              campanha: camp.name || null,
+              provider: "disparopro",
+              provider_status: providerStatus,
+              provider_message_id: protocol,
+              descricao_detalhe: String(detailMessage || "").slice(0, 500),
+              fonte: "smart-ops-sms-disparopro",
+            },
+          });
         }
 
         if (messageLogRows.length) await supabase.from("message_logs").insert(messageLogRows);
         if (sendLogRows.length) await supabase.from("campaign_send_log").insert(sendLogRows);
+        if (activityRows.length) {
+          const { error: actErr } = await supabase.from("lead_activity_log").insert(activityRows);
+          if (actErr) console.error("[sms-disparopro] lead_activity_log:", actErr.message);
+        }
 
         const partialStatus = failed === 0 ? "running" : (sent === 0 ? "running" : "running");
         await supabase.from("campaign_sessions").update({
