@@ -192,6 +192,7 @@ Deno.serve(async (req) => {
       deleted_by_scan: deletedScan,
       scan_matches: scanned,
       failed,
+      debug: body?.debug === true ? debug : undefined,
     });
   } catch (e) {
     return json({ error: e instanceof Error ? e.message : String(e) }, 500);
