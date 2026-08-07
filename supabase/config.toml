@@ -536,3 +536,6 @@ verify_jwt = true
 
 [functions.wa-cs-test-send]
 verify_jwt = false
+
+[functions.smart-ops-wa-purge-briefings]
+verify_jwt = false
