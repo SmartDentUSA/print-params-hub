@@ -36,15 +36,20 @@ Deno.serve(async (req) => {
       headers: { "Content-Type": "application/json", apikey: go.key },
       signal: AbortSignal.timeout(120_000),
     });
-    const groups = gr.ok ? await gr.json() : [];
+    const rawTxt = await gr.text();
+    out.group_fetch = { status: gr.status, sample: rawTxt.slice(0, 300) };
+    let groups: any = [];
+    try { groups = JSON.parse(rawTxt); } catch { groups = []; }
+    if (groups && !Array.isArray(groups)) groups = groups.groups ?? groups.data ?? [];
+    out.group_count = Array.isArray(groups) ? groups.length : 0;
     const norm = (s: string) => (s || "").toLowerCase();
-    const matches = (Array.isArray(groups) ? groups : []).filter((g: any) => norm(g.subject).includes(norm(groupQuery)));
-    out.group_candidates = matches.map((g: any) => ({ id: g.id, subject: g.subject }));
+    const matches = (Array.isArray(groups) ? groups : []).filter((g: any) => norm(g.subject ?? g.name ?? g.Name ?? g.GroupName).includes(norm(groupQuery)));
+    out.group_candidates = matches.map((g: any) => ({ id: g.id ?? g.JID ?? g.jid, subject: g.subject ?? g.name ?? g.Name ?? g.GroupName }));
     if (matches.length === 1 && groupText) {
       const res = await fetch(`${go.base}/message/sendText/${encodeURIComponent(go.inst)}`, {
         method: "POST",
         headers: { "Content-Type": "application/json", apikey: go.key },
-        body: JSON.stringify({ number: matches[0].id, text: groupText }),
+        body: JSON.stringify({ number: matches[0].id ?? matches[0].JID ?? matches[0].jid, text: groupText }),
         signal: AbortSignal.timeout(60_000),
       });
       out.group_send = { status: res.status, body: (await res.text()).slice(0, 400), jid: matches[0].id };
