@@ -152,12 +152,16 @@ export async function buildSellerDealSummaryHTML(
   // JID canônico para o link do WhatsApp: repara telefone legado de 8 dígitos
   // (falta o 9) e DDI — sem isso o wa.me abre um número inexistente e o
   // WhatsApp não identifica o cliente.
-  const waJid = (normalizeBrazilianPhone(String(lead.telefone_normalized || lead.telefone_raw || "")) || "")
-    .replace(/\D/g, "");
+  const waJid = pickWaJid(lead);
   const waPreset = String(opts.waLinkPreset ?? "").trim();
   const waLink = waJid.length >= 12
     ? `https://wa.me/${waJid}${waPreset ? `?text=${encodeURIComponent(waPreset)}` : ""}`
     : "";
+  if (opts.includeWaLink !== false && !waLink) {
+    console.warn(
+      `[seller-summary] wa link ausente lead=${String(lead.id ?? "?")} telefone="${String(lead.telefone_normalized ?? lead.telefone_raw ?? "")}"`,
+    );
+  }
 
   sections.push(`<b>🧾 Resumo do Lead — Smart Dent</b>`);
   sections.push(`<i>Atualizado em ${fmtDate(new Date().toISOString())}</i><br>`);
@@ -182,7 +186,9 @@ export async function buildSellerDealSummaryHTML(
     `• Área: ${esc(lead.area_atuacao)} | Especialidade: ${esc(lead.especialidade)}<br>` +
     (opts.includeWaLink !== false && waLink
       ? `👉 Abrir conversa com o lead: <a href="${waLink}">${waLink}</a><br>`
-      : ""),
+      : opts.includeWaLink !== false
+        ? `⚠️ Telefone incompleto/inválido — link do WhatsApp indisponível.<br>`
+        : ""),
   );
 
   // 3. CRM histórico (a partir do piperun_deals_history)
@@ -308,6 +314,26 @@ export async function buildSellerBriefingText(
 ): Promise<string> {
   const { html } = await buildSellerDealSummaryHTML(supabase, lead, opts);
   return htmlNoteToWhatsApp(html);
+}
+
+/**
+ * JID para o link wa.me. Varre TODOS os telefones conhecidos do lead — o
+ * `telefone_normalized` às vezes chega truncado do Meta Lead Ads (ex.
+ * `+55479924623`, 11 dígitos) e sozinho invalidaria o link.
+ */
+export function pickWaJid(lead: Record<string, unknown>): string {
+  const candidates = [
+    lead.telefone_normalized,
+    lead.telefone_raw,
+    (lead as any).wa_phone,
+    (lead as any).astron_phone,
+    (lead as any).empresa_telefone,
+  ];
+  for (const c of candidates) {
+    const jid = (normalizeBrazilianPhone(String(c ?? "")) || "").replace(/\D/g, "");
+    if (jid.length >= 12) return jid;
+  }
+  return "";
 }
 
 function htmlNoteToWhatsApp(html: string): string {

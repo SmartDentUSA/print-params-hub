@@ -6,6 +6,7 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { buildSellerNotification } from "../_shared/wa-messaging.ts";
+import { pickWaJid } from "../_shared/seller-summary.ts";
 import { EVO_BASE, EVO_KEY, normalizePhone } from "../_shared/evolution.ts";
 import { normalizeBrazilianPhone } from "../_shared/phone-normalize.ts";
 
@@ -156,11 +157,11 @@ Deno.serve(async (req) => {
 
     // Template custom não tem o link embutido — anexa com a frase pronta.
     if (includeWaLink && !briefing.includes("wa.me/")) {
-      const leadJid = (normalizeBrazilianPhone(
-        String((lead as any).telefone_normalized || (lead as any).telefone_raw || "")
-      ) || "").replace(/\D/g, "");
+      const leadJid = pickWaJid(lead as Record<string, unknown>);
       if (leadJid.length >= 12) {
         briefing += `\n\n👉 Abrir conversa com o lead:\nhttps://wa.me/${leadJid}${waPreset ? `?text=${encodeURIComponent(waPreset)}` : ""}`;
+      } else {
+        console.warn(`[notify-seller] sem telefone válido para link wa lead=${lead_id}`);
       }
     }
 
