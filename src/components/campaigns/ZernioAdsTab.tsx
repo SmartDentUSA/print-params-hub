@@ -235,14 +235,14 @@ export default function ZernioAdsTab() {
                     <th className="px-3 py-2 text-left">Status</th>
                     <th className="px-3 py-2 text-right">Orçamento</th>
                     <th className="px-3 py-2 text-right">Investido</th>
+                    <th className="px-3 py-2 text-right">Receita</th>
+                    <th className="px-3 py-2 text-right">ROI</th>
                     <th className="px-3 py-2 text-right">Impressões</th>
                     <th className="px-3 py-2 text-right">Cliques</th>
                     <th className="px-3 py-2 text-right">CTR</th>
                     <th className="px-3 py-2 text-right">CPC</th>
                     <th className="px-3 py-2 text-right">Leads</th>
                     <th className="px-3 py-2 text-right">Custo/lead</th>
-                    <th className="px-3 py-2 text-right">Receita</th>
-                    <th className="px-3 py-2 text-right">ROI</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -271,12 +271,6 @@ export default function ZernioAdsTab() {
                           <td className="px-3 py-2"><StatusBadge status={c.status} /></td>
                           <td className="px-3 py-2 text-right">{budgetLabel(c)}</td>
                           <td className="px-3 py-2 text-right font-medium">{fmtMoney(pm ? pm.spend : undefined, c.currency)}</td>
-                          <td className="px-3 py-2 text-right">{fmtInt(pm?.impressions)}</td>
-                          <td className="px-3 py-2 text-right">{fmtInt(pm?.clicks)}</td>
-                          <td className="px-3 py-2 text-right">{fmtPct(pm?.ctr)}</td>
-                          <td className="px-3 py-2 text-right">{fmtMoney(pm?.cpc, c.currency)}</td>
-                          <td className="px-3 py-2 text-right">{fmtInt(pLeads)}</td>
-                          <td className="px-3 py-2 text-right">{fmtMoney(pCpl, c.currency)}</td>
                           <td className="px-3 py-2 text-right font-medium">{fmtMoney(rev, c.currency)}</td>
                           <td
                             className={`px-3 py-2 text-right font-medium ${
@@ -289,6 +283,12 @@ export default function ZernioAdsTab() {
                           >
                             {fmtRoi(rev, pm?.spend)}
                           </td>
+                          <td className="px-3 py-2 text-right">{fmtInt(pm?.impressions)}</td>
+                          <td className="px-3 py-2 text-right">{fmtInt(pm?.clicks)}</td>
+                          <td className="px-3 py-2 text-right">{fmtPct(pm?.ctr)}</td>
+                          <td className="px-3 py-2 text-right">{fmtMoney(pm?.cpc, c.currency)}</td>
+                          <td className="px-3 py-2 text-right">{fmtInt(pLeads)}</td>
+                          <td className="px-3 py-2 text-right">{fmtMoney(pCpl, c.currency)}</td>
                         </tr>
                         {isOpen &&
                           children.map((a) => (
@@ -310,14 +310,14 @@ export default function ZernioAdsTab() {
                               <td className="px-3 py-2"><StatusBadge status={a.status} /></td>
                               <td className="px-3 py-2 text-right">{budgetLabel(a)}</td>
                               <td className="px-3 py-2 text-right">{fmtMoney(a.metrics?.spend, a.currency)}</td>
+                              <td className="px-3 py-2 text-right text-muted-foreground">—</td>
+                              <td className="px-3 py-2 text-right text-muted-foreground">—</td>
                               <td className="px-3 py-2 text-right">{fmtInt(a.metrics?.impressions)}</td>
                               <td className="px-3 py-2 text-right">{fmtInt(a.metrics?.clicks)}</td>
                               <td className="px-3 py-2 text-right">{fmtPct(a.metrics?.ctr)}</td>
                               <td className="px-3 py-2 text-right">{fmtMoney(a.metrics?.cpc, a.currency)}</td>
                               <td className="px-3 py-2 text-right">{fmtInt(a.metrics?.actions?.lead ?? a.metrics?.conversions)}</td>
                               <td className="px-3 py-2 text-right">{fmtMoney(a.metrics?.costPerConversion, a.currency)}</td>
-                              <td className="px-3 py-2 text-right text-muted-foreground">—</td>
-                              <td className="px-3 py-2 text-right text-muted-foreground">—</td>
                             </tr>
                           ))}
                       </>
