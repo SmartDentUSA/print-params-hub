@@ -18,3 +18,4 @@
 - [Zernio Social Analytics](mem://integration/zernio-social-analytics) — Aba Analytics (Publicações/Inbox/Canais internos) via social-analytics + fn_social_internal_analytics
 - [Zernio Unified Inbox](mem://integration/zernio-unified-inbox) — Aba Conversas do Social Publisher lê/responde DMs via edge function social-inbox (proxy Zernio)
 - [Zernio Ads Manager](mem://integration/zernio-ads-manager) — Aba Anúncios (Central de Campanhas) lê campanhas/anúncios/insights Meta via social-analytics
+- [Campaign Revenue Attribution](mem://marketing/campaign-revenue-attribution) — Receita/vendas/lead time por campanha só com closed_at real e após a conversão do lead; detalhe com cross-sell
