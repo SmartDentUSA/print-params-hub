@@ -110,8 +110,9 @@ serve(async (req) => {
     }
 
     await supabase.from('system_health_logs').insert({
-      check_name: 'social_inbox_sync',
-      status: stats.errors.length > 0 ? 'warning' : 'ok',
+      function_name: 'social-inbox-sync',
+      severity: stats.errors.length > 0 ? 'warning' : 'info',
+      error_type: stats.errors.length > 0 ? 'zernio_partial_failure' : 'sync_summary',
       details: stats as any,
     } as any);
 
