@@ -21,7 +21,12 @@ const PERIODS = [
   { value: '7', label: 'Últimos 7 dias' },
   { value: '30', label: 'Últimos 30 dias' },
   { value: '90', label: 'Últimos 90 dias' },
+  { value: '365', label: 'Últimos 12 meses' },
+  { value: '1100', label: 'Histórico (todo o período)' },
 ];
+
+/** Valor de "days" que representa o histórico completo (limite Meta ~37 meses). */
+const ALL_TIME = '1100';
 
 export function fmtMoney(v?: number | null, currency = 'BRL') {
   if (v === undefined || v === null) return '—';
@@ -65,7 +70,7 @@ export default function ZernioAdsTab() {
   const filters = {
     platform: platform === 'all' ? undefined : platform,
     status: status === 'all' ? undefined : status,
-    days: Number(days),
+    days: days === ALL_TIME ? undefined : Number(days),
   };
   const campaignsQ = useZernioAdCampaigns(filters);
   const adsQ = useZernioAds(filters);
