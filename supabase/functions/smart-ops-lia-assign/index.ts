@@ -1168,28 +1168,11 @@ interface TeamMember {
 }
 
 /**
- * Pick a random active vendedor, prioritizing those with WhatsApp API key.
+ * Pick a random active vendedor.
  */
 async function pickRandomActiveVendedor(
   supabase: ReturnType<typeof createClient>
 ): Promise<TeamMember> {
-  // WALEADS_ENABLED: priorização por WhatsApp pausada
-  // if (WALEADS_ENABLED) {
-  //   // Priority: vendedores with evolution_instance_name configured
-  //   const { data: waMembers } = await supabase
-  //     .from("team_members")
-  //     .select("id, nome_completo, piperun_owner_id")
-  //     .eq("ativo", true)
-  //     .eq("role", "vendedor")
-  //     .not("evolution_instance_name", "is", null);
-  //
-  //   if (waMembers && waMembers.length > 0) {
-  //     const idx = Math.floor(Math.random() * waMembers.length);
-  //     console.log(`[lia-assign] Selected WhatsApp-enabled vendedor: ${waMembers[idx].nome_completo}`);
-  //     return waMembers[idx] as TeamMember;
-  //   }
-  // }
-
   // Fallback: any active vendedor
   const { data: members } = await supabase
     .from("team_members")
