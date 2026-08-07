@@ -152,7 +152,13 @@ Deno.serve(async (req) => {
           }
           const payload = await res.json();
           const records: any[] = payload?.messages?.records ?? payload?.records ?? (Array.isArray(payload) ? payload : []);
-          debug.push({ phone, records: records.length, sample_keys: Object.keys(payload ?? {}) });
+          debug.push({
+            phone,
+            records: records.length,
+            total: payload?.messages?.total,
+            pages: payload?.messages?.pages,
+            sample: records[0] ? JSON.stringify(records[0]).slice(0, 900) : null,
+          });
           for (const m of records) {
             const key = m?.key ?? {};
             if (!key?.fromMe || !key?.id) continue;
