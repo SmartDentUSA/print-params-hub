@@ -13,7 +13,7 @@ const date = (v?: string | null) => (v ? new Date(v).toLocaleDateString('pt-BR')
 interface Props {
   campaignId: string | null;
   campaignName?: string;
-  days: number;
+  days: number | null;
   onClose: () => void;
 }
 
@@ -55,9 +55,9 @@ export function CampaignRevenueDialog({ campaignId, campaignName, days, onClose 
                   <th className="px-2 py-2 text-right">Valor</th>
                   <th className="px-2 py-2 text-center">Conversão</th>
                   <th className="px-2 py-2 text-center">Fechamento</th>
-                  <th className="px-2 py-2 text-center">Entrou em Vendas</th>
+                   <th className="px-2 py-2 text-center">Entrou na campanha</th>
                   <th className="px-2 py-2 text-center">Entrou no CS</th>
-                  <th className="px-2 py-2 text-right">Lead time (Vendas → CS)</th>
+                   <th className="px-2 py-2 text-right">Lead time (Campanha → CS)</th>
                   <th className="px-2 py-2 text-left">Anunciado → comprado</th>
                 </tr>
               </thead>
