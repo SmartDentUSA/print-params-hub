@@ -152,23 +152,63 @@ O wizard usa este painel como fonte: ao escolher o canal **API Oficial Meta**
 no passo 1, o select de templates lista **apenas os `APPROVED`**. `PENDING` e
 `REJECTED` não podem ser escolhidos.
 
-Cada variável do template é mapeada para uma coluna do lead, e o mapeamento é
-salvo em `campaigns.wa_variable_map` no formato `{"1":"nome","2":"produto_interesse"}`.
+Cada variável do template aceita **duas origens**, escolhidas pelo usuário:
 
-**Alerta obrigatório no mapeamento**: variável vazia faz a Meta rejeitar o
-envio. Ao lado de cada mapeamento, mostrar quantos leads do segmento têm
-aquele campo preenchido.
+1. **Coluna do lead** — o valor muda a cada destinatário
+2. **Valor fixo da campanha** — o mesmo texto para todos, digitado na criação
 
-Esse alerta não é teórico. Medição na base em 07/08/2026, no segmento de
-2.145 leads com telefone ligados a RayShape:
+O mapeamento é salvo em `campaigns.wa_variable_map`, com a origem explícita:
+
+```json
+{
+  "1": { "tipo": "coluna", "valor": "nome" },
+  "2": { "tipo": "fixo",   "valor": "Impressora 3D RayShape Edge Mini" }
+}
+```
+
+Valor fixo não é um detalhe de conveniência — é o que torna a campanha de
+produto confiável. Ver a medição abaixo.
+
+**Alerta obrigatório no mapeamento por coluna**: variável vazia faz a Meta
+rejeitar o envio. Ao lado de cada mapeamento, mostrar quantos leads do
+segmento têm aquele campo preenchido.
+
+### Medição que sustenta essas regras
+
+Base em 07/08/2026, segmento de **2.172 leads** com telefone ligados a
+RayShape.
+
+Preenchimento:
 
 | Campo | Preenchido | Serve de variável? |
 |---|---|---|
-| `nome` | 2.145 (100%) | sim |
-| `area_atuacao` | 2.048 (95%) | com reserva para os 97 restantes |
-| `especialidade` | **202 (9%)** | não |
+| `nome` | 2.172 (100%) | sim |
+| `produto_interesse` | 2.161 (99,5%) | só com ressalva — ver abaixo |
+| `area_atuacao` | 2.048 (95%) | com reserva para os restantes |
+| `especialidade` | **202 (9%)** | não — reprovaria 91% dos envios |
 
-Mapear `especialidade` numa variável faria 91% dos envios falharem.
+Formato de `produto_interesse`: nenhuma quebra de linha, nenhum espaço
+sobrando, maior valor com 53 caracteres. Tecnicamente seguro.
+
+O problema está no **conteúdo**, não no preenchimento:
+
+| Situação | Leads | Efeito |
+|---|---|---|
+| Produto coerente com a campanha | 2.121 | ok, mas em **10 grafias distintas** |
+| Sem produto nenhum | 11 | envio rejeitado pela Meta |
+| **Produto diferente do da campanha** | **40** | mensagem incoerente |
+
+As 10 grafias do mesmo produto incluem `Impressora 3D Rayshape Edge Mini`
+(1.702), `RayShape Edge Mini` (299), `rayshape` (59, em minúsculo) e
+`Rayshape Edge Mini a Impressora 3D para Odontologia` (3).
+
+Os 40 com produto diferente entraram no segmento por **possuírem** uma
+RayShape (`equip_impressora`), mas declararam interesse em outra coisa —
+`Scanner Intraoral MEDIT i600`, `BLZ Ino200`, `Ativação DentalCAD Ultimate
+Lab Bundle`. Numa campanha de ativação RayShape, a mensagem se contradiria.
+
+**Conclusão**: em campanha de produto único, a variável do produto deve ser
+valor fixo. A coluna do lead só se justifica em campanha multiproduto.
 
 ---
 
