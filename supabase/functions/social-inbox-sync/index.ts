@@ -81,9 +81,14 @@ serve(async (req) => {
       if (lastTs < cutoff) continue;
 
       stats.conversations++;
+      const accountId = String(
+        c.accountId ?? c.account?.id ?? c.socialAccountId ?? c.account_id ?? c.pageId ?? '',
+      );
       try {
+        const qs = new URLSearchParams({ limit: String(messagesPerConv) });
+        if (accountId) qs.set('accountId', accountId);
         const msgPayload = await zfetch(
-          `/inbox/conversations/${encodeURIComponent(convId)}/messages?limit=${messagesPerConv}`,
+          `/inbox/conversations/${encodeURIComponent(convId)}/messages?${qs}`,
         );
         const messages = asArray(msgPayload);
         if (messages.length === 0) continue;
