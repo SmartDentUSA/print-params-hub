@@ -286,6 +286,37 @@ export async function warmupGroup(
  * Consulta o estado real (Baileys) de uma mensagem já enviada.
  * Retorna o status bruto: PENDING | SERVER_ACK | DELIVERY_ACK | READ | PLAYED | null se não encontrada.
  */
+/**
+ * Extrai o ACK real de um registro de mensagem do Evolution.
+ * Em versões recentes o status NÃO vem em `record.status` — vem na lista
+ * `MessageUpdate[]` (uma linha por atualização). Ler só `record.status`
+ * fazia toda mensagem parecer "PENDING"/desconhecida e disparava falso
+ * positivo de "sessão quebrada".
+ */
+const ACK_RANK: Record<string, number> = {
+  ERROR: 0,
+  PENDING: 1,
+  SERVER_ACK: 2,
+  DELIVERY_ACK: 3,
+  READ: 4,
+  PLAYED: 5,
+}
+
+export function extractRecordStatus(m: any): string | null {
+  const candidates: string[] = []
+  const push = (v: unknown) => {
+    if (v) candidates.push(String(v).toUpperCase())
+  }
+  push(m?.status)
+  push(m?.message?.status)
+  const updates = m?.MessageUpdate ?? m?.messageUpdate ?? m?.message_update
+  if (Array.isArray(updates)) for (const u of updates) push(u?.status)
+  if (!candidates.length) return null
+  return candidates.reduce((best, cur) =>
+    (ACK_RANK[cur] ?? -1) > (ACK_RANK[best] ?? -1) ? cur : best,
+  )
+}
+
 export async function findMessageStatus(
   groupJid: string,
   messageId: string,
@@ -305,7 +336,7 @@ export async function findMessageStatus(
     const records = Array.isArray(data) ? data : (data?.messages?.records ?? data?.records ?? [])
     const m = Array.isArray(records) && records.length ? records[0] : null
     if (!m) return null
-    return (m.status ?? m?.message?.status ?? null) as string | null
+    return extractRecordStatus(m)
   } catch (_) {
     return null
   }
