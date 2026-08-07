@@ -277,14 +277,72 @@ export function useCampaignRevenue(days: number) {
         p_to: toDate,
       });
       if (error) throw error;
-      const byCampaign = new Map<string, { revenue: number; wonDeals: number }>();
+      const byCampaign = new Map<
+        string,
+        { revenue: number; wonDeals: number; wonLeads: number; leadsConverted: number; leadTimeDays: number | null }
+      >();
       let total = 0;
-      for (const row of (data ?? []) as Array<{ platform_campaign_id: string; revenue: number; won_deals: number }>) {
+      let wonDealsTotal = 0;
+      for (const row of (data ?? []) as Array<{
+        platform_campaign_id: string;
+        revenue: number;
+        won_deals: number;
+        won_leads: number;
+        leads_converted: number;
+        avg_lead_time_days: number | null;
+      }>) {
         const revenue = num(row.revenue);
-        byCampaign.set(String(row.platform_campaign_id), { revenue, wonDeals: num(row.won_deals) });
+        byCampaign.set(String(row.platform_campaign_id), {
+          revenue,
+          wonDeals: num(row.won_deals),
+          wonLeads: num(row.won_leads),
+          leadsConverted: num(row.leads_converted),
+          leadTimeDays: row.avg_lead_time_days === null ? null : num(row.avg_lead_time_days),
+        });
         total += revenue;
+        wonDealsTotal += num(row.won_deals);
       }
-      return { byCampaign, total, fromDate, toDate };
+      return { byCampaign, total, wonDealsTotal, fromDate, toDate };
+    },
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Detalhe da receita de uma campanha: negócios ganhos após a conversão do lead,
+// com produto da campanha vs produtos realmente comprados (cross-sell).
+// ---------------------------------------------------------------------------
+
+export interface CampaignRevenueDeal {
+  lead_id: string;
+  lead_name: string | null;
+  deal_id: string;
+  piperun_deal_id: string | null;
+  deal_title: string | null;
+  pipeline_name: string | null;
+  deal_value: number | null;
+  converted_at: string | null;
+  closed_at: string | null;
+  lead_time_days: number | null;
+  campaign_product: string | null;
+  purchased_products: string[] | null;
+  cross_sell: boolean | null;
+}
+
+export function useCampaignRevenueDetail(campaignId: string | null, days: number) {
+  const fromDate = isoDaysAgo(days);
+  const toDate = new Date().toISOString().slice(0, 10);
+  return useQuery({
+    queryKey: ['campaign-revenue-detail', campaignId, fromDate, toDate],
+    enabled: !!campaignId,
+    staleTime: 5 * 60_000,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('fn_campaign_revenue_detail', {
+        p_campaign_id: campaignId,
+        p_from: fromDate,
+        p_to: toDate,
+      });
+      if (error) throw error;
+      return (data ?? []) as CampaignRevenueDeal[];
     },
   });
 }
