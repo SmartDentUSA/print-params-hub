@@ -4,6 +4,7 @@
  */
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { logAIUsage, extractUsage } from "./log-ai-usage.ts";
+import { buildSellerBriefingText } from "./seller-summary.ts";
 
 type SupabaseClient = ReturnType<typeof createClient>;
 
@@ -240,102 +241,9 @@ export async function buildSellerNotification(
   lead: Record<string, unknown>,
   supabase: SupabaseClient
 ): Promise<string> {
-  const phone = (lead.telefone_normalized || lead.telefone_raw) as string | null;
-  const urgencyEmoji = (lead.urgency_level === "alta") ? "🔴" : (lead.urgency_level === "media") ? "🟡" : "🟢";
-
-  // Fetch last user message via leads bridge
-  let lastQuestion = "";
-  try {
-    const { data: leadsRec } = await supabase
-      .from("leads")
-      .select("id")
-      .eq("email", lead.email as string)
-      .maybeSingle();
-    if (leadsRec?.id) {
-      const { data: lastMsg } = await supabase
-        .from("agent_interactions")
-        .select("user_message")
-        .eq("lead_id", leadsRec.id)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      if (lastMsg?.user_message) lastQuestion = String(lastMsg.user_message).slice(0, 200);
-    }
-  } catch (e) {
-    console.warn("[wa-messaging] Failed to fetch last question:", e);
-  }
-
-  // Enrich with real deal history
-  const dealsCtx = await fetchDealsContext(supabase, lead);
-
-  // AI-generated HISTÓRICO + OPORTUNIDADE
-  let historico = "";
-  let oportunidade = "";
-  try {
-    const aiResult = await generateHistoricoOportunidade(lead, dealsCtx);
-    historico = aiResult.historico;
-    oportunidade = aiResult.oportunidade;
-  } catch (e) {
-    console.warn("[wa-messaging] AI historico failed:", e);
-  }
-
-  // Fallback static texts
-  if (!historico) {
-    const parts: string[] = [];
-    const fc = dealsCtx.firstContactAt || (lead.data_primeiro_contato || lead.created_at) as string | undefined;
-    if (fc) parts.push(`Primeiro contato em ${formatDate(fc)}`);
-    if (lead.lojaintegrada_cliente_id) parts.push(`Cliente e-commerce (ID: ${lead.lojaintegrada_cliente_id})`);
-    else parts.push("Sem compras anteriores no e-commerce");
-    if (lead.astron_user_id) parts.push(`Cursos: ${lead.astron_courses_completed || 0}/${lead.astron_courses_total || 0} concluídos`);
-    else parts.push("Sem cadastro na plataforma de cursos");
-    if (dealsCtx.currentOwner) parts.push(`Vendedor atual: ${dealsCtx.currentOwner}`);
-    if (dealsCtx.distinctOwners.length > 1) parts.push(`Owners no histórico: ${dealsCtx.distinctOwners.join(", ")}`);
-    else if (!dealsCtx.currentOwner && lead.proprietario_lead_crm) parts.push(`Vendedor: ${lead.proprietario_lead_crm}`);
-    else if (!dealsCtx.currentOwner) parts.push("Nunca teve contato com vendedor");
-    if (dealsCtx.total > 0) parts.push(`${dealsCtx.total} deal(s) (${dealsCtx.ganhos} ganhos / ${dealsCtx.perdidos} perdidos / ${dealsCtx.abertos} abertos)`);
-    historico = parts.join(". ") + ".";
-  }
-  if (!oportunidade) {
-    const parts: string[] = [];
-    if (lead.software_cad) parts.push(`Possui software CAD (${lead.software_cad})`);
-    if (lead.tem_impressora && lead.tem_impressora !== "nao") parts.push(`Impressora: ${lead.impressora_modelo || lead.tem_impressora}`);
-    if (lead.tem_scanner && lead.tem_scanner !== "nao") parts.push(`Scanner: ${lead.tem_scanner}`);
-    if (lead.urgency_level) parts.push(`Urgência ${lead.urgency_level}`);
-    if (lead.primary_motivation) parts.push(`motivado por ${lead.primary_motivation}`);
-    if (lead.objection_risk) parts.push(`Risco de objeção: ${lead.objection_risk}`);
-    oportunidade = parts.length > 0 ? parts.join(". ") + "." : "Sem dados suficientes.";
-  }
-
-  const lines: string[] = [
-    `📊 *Análise SmartOps*`,
-    ``,
-    `👤 Lead: ${lead.nome || "N/A"}`,
-    `📧 Email: ${lead.email || "N/A"}`,
-    `📱 Tel: ${phone || "N/A"}`,
-    `🦷 Área de atuação: ${lead.area_atuacao || "N/A"}`,
-    `🦷 Especialidade: ${lead.especialidade || "N/A"}`,
-    `🎯 Interesse: ${lead.produto_interesse || "N/A"}`,
-    `🌡️ Temp: ${lead.temperatura_lead || lead.urgency_level || "N/A"}`,
-    `🔗 PipeRun: ${lead.piperun_link || "N/A"}`,
-    `💬 Última pergunta do lead: ${lastQuestion || "N/A"}`,
-    `🏷️ Contexto: ${lead.rota_inicial_lia || "N/A"}`,
-    `📍 Etapa CRM: ${lead.ultima_etapa_comercial || "N/A"}`,
-    ``,
-    `*HISTÓRICO:* ${historico}`,
-    `*OPORTUNIDADE:* ${oportunidade}`,
-    ``,
-    `🧠 *Análise Cognitiva:*`,
-    `Confiança: ${lead.confidence_score_analysis || 0}%`,
-    `Estágio: ${lead.lead_stage_detected || "N/A"}`,
-    `Urgência: ${urgencyEmoji} ${lead.urgency_level || "N/A"}`,
-    `Timeline: ${lead.interest_timeline || "N/A"}`,
-    `Perfil: ${lead.psychological_profile || "N/A"}`,
-    `Motivação: ${lead.primary_motivation || "N/A"}`,
-    `Risco objeção: ${lead.objection_risk || "N/A"}`,
-    `Abordagem: ${lead.recommended_approach || "N/A"}`,
-  ];
-
-  return lines.join("\n");
+  // Fonte única: mesmo conteúdo da nota "Resumo do Lead" do PipeRun,
+  // renderizado em texto para WhatsApp. Sem pitch/RAG/inteligência/diagnóstico.
+  return await buildSellerBriefingText(supabase, lead);
 }
 
 function formatDate(val: unknown): string {

@@ -279,3 +279,35 @@ export async function buildSellerDealSummaryHTML(
   const hash = await sha256Hex(`${opts.dealId ?? ""}::${hashable}`);
   return { html, hash };
 }
+
+/**
+ * Plain-text (WhatsApp) version of the "Resumo do Lead" briefing.
+ * Mesma estrutura da nota do PipeRun: Origem (com produto de interesse),
+ * Identidade (com o link do WhatsApp logo abaixo), CRM, E-commerce,
+ * Cursos e Equipamentos. SEM pitch, RAG, inteligência, diagnóstico,
+ * formulários ou bloco de links.
+ */
+export async function buildSellerBriefingText(
+  supabase: SupabaseClient,
+  lead: Record<string, unknown>,
+): Promise<string> {
+  const { html } = await buildSellerDealSummaryHTML(supabase, lead);
+  return htmlNoteToWhatsApp(html);
+}
+
+function htmlNoteToWhatsApp(html: string): string {
+  const text = html
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/&nbsp;/g, " ")
+    .replace(/<a\s[^>]*href="([^"]+)"[^>]*>.*?<\/a>/gi, "$1")
+    .replace(/<\/?(b|strong)>/gi, "*")
+    .replace(/<\/?(i|em)>/gi, "_")
+    .replace(/<[^>]+>/g, "")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+  return text;
+}
