@@ -32,8 +32,8 @@ Deno.serve(async (req) => {
 
   // 1) Grupo via EvolutionGO
   try {
-    const gr = await fetch(`${go.base}/group/fetchAllGroups/${encodeURIComponent(go.inst)}?getParticipants=false`, {
-      headers: { "Content-Type": "application/json", apikey: go.key },
+    const gr = await fetch(`${evo.base}/group/fetchAllGroups/${encodeURIComponent(evo.inst)}?getParticipants=false`, {
+      headers: { "Content-Type": "application/json", apikey: evo.key },
       signal: AbortSignal.timeout(120_000),
     });
     const rawTxt = await gr.text();
@@ -46,13 +46,14 @@ Deno.serve(async (req) => {
     const matches = (Array.isArray(groups) ? groups : []).filter((g: any) => norm(g.subject ?? g.name ?? g.Name ?? g.GroupName).includes(norm(groupQuery)));
     out.group_candidates = matches.map((g: any) => ({ id: g.id ?? g.JID ?? g.jid, subject: g.subject ?? g.name ?? g.Name ?? g.GroupName }));
     if (matches.length === 1 && groupText) {
-      const res = await fetch(`${go.base}/message/sendText/${encodeURIComponent(go.inst)}`, {
+      const jid = matches[0].id ?? matches[0].JID ?? matches[0].jid;
+      const res = await fetch(`${go.base}/send/text`, {
         method: "POST",
         headers: { "Content-Type": "application/json", apikey: go.key },
-        body: JSON.stringify({ number: matches[0].id ?? matches[0].JID ?? matches[0].jid, text: groupText }),
+        body: JSON.stringify({ number: jid, text: groupText }),
         signal: AbortSignal.timeout(60_000),
       });
-      out.group_send = { status: res.status, body: (await res.text()).slice(0, 400), jid: matches[0].id };
+      out.group_send = { status: res.status, body: (await res.text()).slice(0, 400), jid };
     }
   } catch (e) { out.group_error = String((e as Error).message ?? e); }
 
