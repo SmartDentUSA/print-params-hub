@@ -362,6 +362,8 @@ interface NpsRow {
 const TIMELINE_CATEGORIES: { key: string; label: string; emoji: string }[] = [
   { key: "crm", label: "CRM", emoji: "📈" },
   { key: "mensagem", label: "Mensagens", emoji: "💬" },
+  { key: "social", label: "Redes sociais", emoji: "📸" },
+  { key: "agente", label: "Dra. LIA", emoji: "🤖" },
   { key: "email", label: "E-mail", emoji: "📧" },
   { key: "conteudo", label: "Conteúdo", emoji: "📚" },
   { key: "compra", label: "Compras", emoji: "🛒" },
