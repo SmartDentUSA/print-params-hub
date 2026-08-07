@@ -55,7 +55,9 @@ export function CampaignRevenueDialog({ campaignId, campaignName, days, onClose 
                   <th className="px-2 py-2 text-right">Valor</th>
                   <th className="px-2 py-2 text-center">Conversão</th>
                   <th className="px-2 py-2 text-center">Fechamento</th>
-                  <th className="px-2 py-2 text-right">Lead time</th>
+                  <th className="px-2 py-2 text-center">Entrou em Vendas</th>
+                  <th className="px-2 py-2 text-center">Entrou no CS</th>
+                  <th className="px-2 py-2 text-right">Lead time (Vendas → CS)</th>
                   <th className="px-2 py-2 text-left">Anunciado → comprado</th>
                 </tr>
               </thead>
@@ -72,6 +74,8 @@ export function CampaignRevenueDialog({ campaignId, campaignName, days, onClose 
                     <td className="px-2 py-2 text-right font-medium">{money(r.deal_value)}</td>
                     <td className="px-2 py-2 text-center text-xs">{date(r.converted_at)}</td>
                     <td className="px-2 py-2 text-center text-xs">{date(r.closed_at)}</td>
+                    <td className="px-2 py-2 text-center text-xs">{date(r.vendas_at)}</td>
+                    <td className="px-2 py-2 text-center text-xs">{date(r.cs_at)}</td>
                     <td className="px-2 py-2 text-right text-xs">
                       {r.lead_time_days === null ? '—' : `${r.lead_time_days} d`}
                     </td>
