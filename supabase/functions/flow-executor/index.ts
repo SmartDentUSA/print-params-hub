@@ -72,7 +72,7 @@ serve(async (req) => {
         if (type === 'send_dm' || type === 'send_comment_reply') {
           if (zernio && s.ig_user_id) {
             const msg = template(cfg.message ?? '', state);
-            const ok = await claimDmSend(supabase, { recipientId: s.ig_user_id, message: msg, source: `flow-executor:${flow.id}` });
+            const ok = await claimDmSend(supabase, { recipientId: s.ig_user_id, message: msg, source: `flow-executor:${flow.id}`, windowMinutes: 1440 });
             if (ok) {
               try { await sendDm(zernio, s.ig_user_id, msg); } catch (e) { console.error('dm fail', e); }
             }
@@ -89,7 +89,7 @@ serve(async (req) => {
         } else if (type === 'collect_input') {
           const msg = template(cfg.prompt ?? '', state);
           if (zernio && s.ig_user_id && msg) {
-            const ok = await claimDmSend(supabase, { recipientId: s.ig_user_id, message: msg, source: `flow-executor:${flow.id}:collect_input` });
+            const ok = await claimDmSend(supabase, { recipientId: s.ig_user_id, message: msg, source: `flow-executor:${flow.id}:collect_input`, windowMinutes: 1440 });
             if (ok) {
               try { await sendDm(zernio, s.ig_user_id, msg); } catch (e) { console.error('dm fail', e); }
             }
