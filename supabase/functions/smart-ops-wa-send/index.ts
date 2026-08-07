@@ -27,9 +27,27 @@ function json(body: unknown, status = 200) {
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
+// O Evolution só devolve `status` no POST de envio (sempre "PENDING").
+// O ACK real fica em `MessageUpdate[]` no registro de /chat/findMessages —
+// ler apenas `record.status` marcava toda mensagem como não confirmada.
+const ACK_RANK: Record<string, number> = {
+  ERROR: 0,
+  PENDING: 1,
+  SERVER_ACK: 2,
+  DELIVERY_ACK: 3,
+  READ: 4,
+  PLAYED: 5,
+};
+
 function baileysStatus(payload: any): string | null {
-  const raw = payload?.status ?? payload?.message?.status ?? null;
-  return raw ? String(raw).toUpperCase() : null;
+  const candidates: string[] = [];
+  const push = (v: unknown) => { if (v) candidates.push(String(v).toUpperCase()); };
+  push(payload?.status);
+  push(payload?.message?.status);
+  const updates = payload?.MessageUpdate ?? payload?.messageUpdate ?? payload?.message_update;
+  if (Array.isArray(updates)) for (const u of updates) push(u?.status);
+  if (!candidates.length) return null;
+  return candidates.reduce((best, cur) => ((ACK_RANK[cur] ?? -1) > (ACK_RANK[best] ?? -1) ? cur : best));
 }
 
 async function warmupContact(instance: string, apikey: string, target: string) {
