@@ -7,8 +7,6 @@
  * via addDealNote and for persisting `last_seller_note_hash` / `_at`.
  */
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { diagnoseLead, renderDiagnosisHTML } from "./workflow-diagnosis.ts";
-import { fetchProductDossier } from "./product-rag.ts";
 
 type SupabaseClient = ReturnType<typeof createClient>;
 
@@ -142,101 +140,36 @@ export async function buildSellerDealSummaryHTML(
   }
 
   // ── Build sections ──
+  // ATENÇÃO: esta nota vai para o HISTÓRICO do deal no PipeRun e deve conter
+  // APENAS histórico/dados do lead — sem pitch, RAG, inteligência ou
+  // diagnóstico (esses vivem no briefing do vendedor, não no histórico).
   const sections: string[] = [];
 
   sections.push(`<b>🧾 Resumo do Lead — Smart Dent</b>`);
   sections.push(`<i>Atualizado em ${fmtDate(new Date().toISOString())}</i><br>`);
 
-  // 1. Identidade
+  // 1. Origem
+  sections.push(
+    `<b>🎯 Origem</b><br>` +
+    `• Primeiro contato: ${fmtDate(lead.data_primeiro_contato || lead.created_at)}<br>` +
+    `• Origem PipeRun: ${esc(lead.piperun_origin_name)}<br>` +
+    `• Campanha: ${esc(lead.utm_campaign || lead.origem_campanha)}<br>` +
+    `• Formulário inicial: ${esc(lead.form_name)}<br>` +
+    `• Produto de interesse: ${esc(lead.produto_interesse || lead.produto_interesse_auto)}<br>`,
+  );
+
+  // 2. Identidade
   sections.push(
     `<b>👤 Identidade</b><br>` +
     `• Nome: ${esc(displayName || "—")}<br>` +
     `• E-mail: ${esc(displayEmail || "—")}<br>` +
     `• Telefone: ${esc(lead.telefone_normalized || lead.telefone_raw)}<br>` +
     `• Cidade/UF: ${esc(lead.cidade || "—")}/${esc(lead.uf || "—")}<br>` +
-    `• Área: ${esc(lead.area_atuacao)} | Especialidade: ${esc(lead.especialidade)}<br>`,
+    `• Área: ${esc(lead.area_atuacao)} | Especialidade: ${esc(lead.especialidade)}<br>` +
+    (phoneDigits.length >= 10
+      ? `👉 Abrir conversa com o lead: <a href="https://wa.me/${phoneDigits.startsWith("55") ? phoneDigits : "55" + phoneDigits}">https://wa.me/${phoneDigits.startsWith("55") ? phoneDigits : "55" + phoneDigits}</a><br>`
+      : ""),
   );
-
-  // 2. Origem
-  sections.push(
-    `<b>🎯 Origem</b><br>` +
-    `• Primeiro contato: ${fmtDate(lead.data_primeiro_contato || lead.created_at)}<br>` +
-    `• Origem PipeRun: ${esc(lead.piperun_origin_name)}<br>` +
-    `• Campanha: ${esc(lead.utm_campaign || lead.origem_campanha)}<br>` +
-    `• Formulário inicial: ${esc(lead.form_name)}<br>`,
-  );
-
-  // ── 2b. PITCH ACIONÁVEL (cabeçalho — o vendedor lê isso primeiro) ──
-  // Built once via diagnoseLead so we can surface the LLM's TIMING, persona,
-  // ponte, alerta + the RAG benefits of the matched product. The full SPIN
-  // diagnostic still runs below (idempotent via cache inside diagnoseLead's
-  // dependencies), but this short header is what the seller actually reads.
-  let diagForHeader: Awaited<ReturnType<typeof diagnoseLead>> | null = null;
-  try {
-    diagForHeader = await diagnoseLead(supabase, lead, { enableLLM: true });
-  } catch (e) {
-    console.warn("[seller-summary] diagnoseLead failed (header skipped):", e);
-  }
-  if (diagForHeader) {
-    const pitch: string[] = [];
-    const intent = diagForHeader.intent;
-    const spin = diagForHeader.spin;
-    const produto = intent?.matched_product_label || intent?.produto || null;
-    pitch.push(`<b>🎯 PITCH — ${esc(produto || "Produto a confirmar")}</b>`);
-
-    if (spin?.timing) {
-      const faixa: Record<string, string> = {
-        AGORA: "🔥 AGORA (≤7d)",
-        CURTO: "⚡ CURTO (8-30d)",
-        MEDIO: "🕐 MÉDIO (1-3m)",
-        FRIO: "❄️ FRIO (>3m)",
-        TIMING_INDETERMINADO: "❔ TIMING indef.",
-      };
-      const label = faixa[spin.timing.faixa] || `⏱ ${esc(spin.timing.faixa)}`;
-      const acao = spin.timing.acao_recomendada ? ` · ${esc(spin.timing.acao_recomendada)}` : "";
-      pitch.push(`• ${label}${acao}`);
-    }
-    if (spin?.perfil_profissional) {
-      const p = spin.perfil_profissional;
-      pitch.push(`• 👤 ${esc(p.persona)} · ${esc(p.porte)} · ${esc(p.maturidade_digital)} (tom: ${esc(p.tom_recomendado)})`);
-    }
-    if (spin?.ponte_produto) {
-      pitch.push(`• 💡 ${esc(spin.ponte_produto)}`);
-    }
-    if (spin?.alerta_lacuna) {
-      pitch.push(`• 🚨 ${esc(spin.alerta_lacuna)}`);
-    }
-
-    // Top 3 perguntas SPIN priorizadas (apenas se LLM funcionou)
-    if (spin?.llm_succeeded) {
-      const top3: Array<{ tag: string; q: string }> = [];
-      const sq = spin.perguntas_spin;
-      if (sq?.situacao?.[0]) top3.push({ tag: "S", q: sq.situacao[0] });
-      if (sq?.problema?.[0]) top3.push({ tag: "P", q: sq.problema[0] });
-      if (sq?.necessidade?.[0]) top3.push({ tag: "N", q: sq.necessidade[0] });
-      if (top3.length) {
-        pitch.push(`<b>💬 3 perguntas-chave:</b>`);
-        for (const t of top3) pitch.push(`&nbsp;&nbsp;${t.tag} → ${esc(t.q)}`);
-      }
-    }
-
-    // RAG: top 3 benefícios do produto-alvo (oficial Smart Dent)
-    if (produto) {
-      try {
-        const dossier = await fetchProductDossier(supabase, produto);
-        if (dossier?.benefits?.length) {
-          pitch.push(`<b>📚 RAG (${esc(dossier.name)}):</b>`);
-          for (const b of dossier.benefits.slice(0, 3)) {
-            pitch.push(`&nbsp;&nbsp;◦ ${esc(String(b).slice(0, 160))}`);
-          }
-        }
-      } catch (e) {
-        console.warn("[seller-summary] RAG dossier fetch failed:", e);
-      }
-    }
-
-    sections.push(pitch.join("<br>") + "<br>");
-  }
 
   // 3. CRM histórico (a partir do piperun_deals_history)
   const history = (lead.piperun_deals_history as Array<Record<string, unknown>> | null) || [];
@@ -324,101 +257,17 @@ export async function buildSellerDealSummaryHTML(
     sections.push(`<b>🎓 Cursos & Treinamentos</b><br>• Sem matrículas registradas.<br>`);
   }
 
-  // 6. 7x3 — formulários (smartops_form_field_responses)
-  const formResponses = ((formsRes as any)?.data as Array<Record<string, unknown>>) || [];
-  // Look up form names in parallel (one extra query, bounded)
-  const formIds = Array.from(new Set(formResponses.map(r => r.form_id).filter(Boolean))) as string[];
-  const formNameMap = new Map<string, string>();
-  if (formIds.length) {
-    const { data: formMeta } = await supabase
-      .from("smartops_forms")
-      .select("id,name")
-      .in("id", formIds);
-    for (const f of (formMeta || []) as Array<{ id: string; name: string }>) {
-      formNameMap.set(f.id, f.name);
-    }
-  }
+  // 6. Equipamentos declarados
   const equipLines: string[] = [];
-  if (lead.tem_impressora && lead.tem_impressora !== "nao") equipLines.push(`Impressora: ${esc(lead.impressora_modelo || lead.tem_impressora)}`);
-  if (lead.tem_scanner && lead.tem_scanner !== "nao") equipLines.push(`Scanner: ${esc(lead.tem_scanner)}`);
+  if (lead.tem_impressora) equipLines.push(`Impressora: ${esc(lead.impressora_modelo || lead.tem_impressora)}`);
+  if (lead.tem_scanner) equipLines.push(`Scanner: ${esc(lead.tem_scanner)}`);
   if (lead.software_cad) equipLines.push(`CAD: ${esc(lead.software_cad)}`);
   if (lead.volume_mensal_pecas) equipLines.push(`Volume mensal: ${esc(lead.volume_mensal_pecas)}`);
   if (lead.principal_aplicacao) equipLines.push(`Aplicação: ${esc(lead.principal_aplicacao)}`);
-
-  let formsBlock = "";
-  if (opts.highlightFormResponses?.length) {
-    formsBlock += `<b>📝 Formulário recente: ${esc(opts.highlightFormName || "—")}</b><br>` +
-      opts.highlightFormResponses.map(r => `• <b>${esc(r.label)}:</b> ${esc(r.value)}`).join("<br>") + "<br>";
-  }
-  if (formResponses.length) {
-    // Group by form_id; keep newest submission timestamp per group
-    const grouped = new Map<string, { ts: string; rows: Array<Record<string, unknown>> }>();
-    for (const r of formResponses) {
-      const key = String(r.form_id || "_unknown");
-      const ts = String(r.created_at || "");
-      const g = grouped.get(key);
-      if (!g) grouped.set(key, { ts, rows: [r] });
-      else { g.rows.push(r); if (ts > g.ts) g.ts = ts; }
-    }
-    const groups = Array.from(grouped.entries())
-      .sort((a, b) => b[1].ts.localeCompare(a[1].ts))
-      .slice(0, 5);
-    formsBlock += `<b>📋 Formulários (${grouped.size})</b><br>`;
-    for (const [fid, g] of groups) {
-      const name = formNameMap.get(fid) || "Formulário";
-      const fields = g.rows.slice(0, 10)
-        .map(r => `&nbsp;&nbsp;◦ <b>${esc(r.field_label || "—")}:</b> ${esc(r.value)}`)
-        .join("<br>");
-      formsBlock += `• <b>${esc(name)}</b> (${fmtDate(g.ts)})<br>${fields || "&nbsp;&nbsp;◦ —"}<br>`;
-    }
-  }
   if (equipLines.length) {
-    formsBlock += `<b>🛠️ Equipamentos declarados</b><br>${equipLines.map(l => `• ${l}`).join("<br>")}<br>`;
-  }
-  if (formsBlock) sections.push(formsBlock);
-
-  // 7. Interações Dra. L.I.A. — only show if there is real activity
-  if (lastQuestions.length || Number(lead.total_messages) > 0) {
-    const qLines = lastQuestions.length
-      ? lastQuestions.map(q => `&nbsp;&nbsp;◦ "${esc(q)}"`).join("<br>")
-      : "&nbsp;&nbsp;◦ —";
-    sections.push(
-      `<b>💬 Dra. L.I.A.</b><br>` +
-      `• Sessões: ${esc(lead.total_sessions || 0)} | Mensagens: ${esc(lead.total_messages || 0)}<br>` +
-      `• Últimas perguntas:<br>${qLines}<br>`,
-    );
+    sections.push(`<b>🛠️ Equipamentos declarados</b><br>${equipLines.map(l => `• ${l}`).join("<br>")}<br>`);
   }
 
-  // 8. Inteligência
-  const intelLines: string[] = [];
-  if (lead.confidence_score_analysis) intelLines.push(`Confiança: ${esc(lead.confidence_score_analysis)}%`);
-  if (lead.lead_stage_detected) intelLines.push(`Estágio detectado: ${esc(lead.lead_stage_detected)}`);
-  if (lead.urgency_level) intelLines.push(`Urgência: ${esc(lead.urgency_level)}`);
-  if (lead.psychological_profile) intelLines.push(`Perfil: ${esc(lead.psychological_profile)}`);
-  if (lead.primary_motivation) intelLines.push(`Motivação: ${esc(lead.primary_motivation)}`);
-  if (lead.objection_risk) intelLines.push(`Risco de objeção: ${esc(lead.objection_risk)}`);
-  if (lead.recommended_approach) intelLines.push(`Abordagem: ${esc(lead.recommended_approach)}`);
-  if (intelLines.length) {
-    sections.push(`<b>🧠 Inteligência</b><br>${intelLines.map(l => `• ${l}`).join("<br>")}<br>`);
-  }
-
-  // 8b. Diagnóstico Fluxo Digital 7×3 (cross-ref Motor de Regras)
-  try {
-    // Reuse the header diagnosis when available — avoids paying for the
-    // expensive LLM enrichment twice in the same note.
-    const diag = diagForHeader ?? await diagnoseLead(supabase, lead, { enableLLM: true });
-    const diagHtml = renderDiagnosisHTML(diag);
-    if (diagHtml) sections.push(diagHtml);
-  } catch (e) {
-    console.warn("[seller-summary] workflow diagnosis failed:", e);
-  }
-
-  // 9. Links rápidos
-  const links: string[] = [];
-  if (lead.piperun_link) links.push(`<a href="${esc(lead.piperun_link)}">PipeRun Deal</a>`);
-  if (phoneDigits) links.push(`<a href="https://wa.me/${phoneDigits}">WhatsApp</a>`);
-  if (leadId) links.push(`<a href="https://parametros.smartdent.com.br/admin?lead=${esc(leadId)}">Ficha Smart Ops</a>`);
-  if (links.length) sections.push(`<b>🔗 Links</b><br>${links.join(" · ")}`);
 
   const html = sections.join("<br>");
   // Hash excludes the "Atualizado em <hoje>" line so daily re-runs with
