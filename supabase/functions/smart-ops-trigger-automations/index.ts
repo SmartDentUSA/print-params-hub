@@ -297,10 +297,21 @@ Deno.serve(async (req) => {
         .maybeSingle();
       if (!a) return json({ error: "automation_not_found" }, 404);
       const cfg = (a.action_config ?? {}) as Record<string, any>;
+      const testClient = normalizePhone(body?.client_phone ?? destino) ?? "";
+      const presetTest = interpolate(String(cfg.client_link_message ?? ""), {
+        nome: "Teste",
+        primeiro_nome: "Teste",
+      });
       const msg = interpolate(String(cfg.mensagem ?? ""), {
         nome: "Teste",
         primeiro_nome: "Teste",
         link: cfg.link_url ?? "",
+        mensagem_cliente: "mensagem de teste recebida no WhatsApp",
+        canal_origem: a.trigger_source,
+        telefone: testClient,
+        link_cliente: testClient
+          ? `https://wa.me/${testClient}${presetTest ? `?text=${encodeURIComponent(presetTest)}` : ""}`
+          : "",
       });
       if (a.action_type === "sms") {
         const r = await sendSms(normalizePhone(destino) ?? "", msg);
@@ -368,10 +379,30 @@ Deno.serve(async (req) => {
           if (!lead || lead.merged_into) { skipped++; continue; }
 
           const channel = String(a.action_type);
+          const destinatario = String(cfg.destinatario ?? "lead"); // lead | interno
+          const leadPhone = normalizePhone(lead.telefone_normalized ?? lead.telefone);
+
+          // Destino interno: a mensagem vai para o celular de um membro do time
+          // (ex.: suporte) com um link wa.me já apontando para o cliente.
+          let internoPhone: string | null = null;
+          if (destinatario === "interno") {
+            internoPhone = normalizePhone(cfg.notify_phone);
+            if (!internoPhone && cfg.notify_team_member_id) {
+              const { data: nm } = await supabase
+                .from("team_members")
+                .select("evolution_phone, whatsapp_number")
+                .eq("id", cfg.notify_team_member_id)
+                .maybeSingle();
+              internoPhone = normalizePhone((nm as any)?.evolution_phone ?? (nm as any)?.whatsapp_number);
+            }
+          }
+
           const destino =
-            channel === "email"
-              ? String(lead.email ?? "").trim().toLowerCase()
-              : normalizePhone(lead.telefone_normalized ?? lead.telefone);
+            destinatario === "interno"
+              ? internoPhone
+              : channel === "email"
+                ? String(lead.email ?? "").trim().toLowerCase()
+                : leadPhone;
           if (!destino) { skipped++; continue; }
 
           // Cooldown por lead
@@ -407,6 +438,18 @@ Deno.serve(async (req) => {
             email: lead.email ?? "",
             telefone: lead.telefone ?? "",
           };
+          // Link wa.me para o suporte abrir a conversa com o cliente já com a
+          // primeira mensagem pronta.
+          const presetCliente = interpolate(String(cfg.client_link_message ?? ""), ctx);
+          const linkCliente = leadPhone
+            ? `https://wa.me/${leadPhone}${presetCliente ? `?text=${encodeURIComponent(presetCliente)}` : ""}`
+            : "";
+          (ctx as Record<string, unknown>).link_cliente = linkCliente;
+          (ctx as Record<string, unknown>).mensagem_cliente = String(hit.text ?? "").slice(0, 400);
+          (ctx as Record<string, unknown>).canal_origem = String(a.trigger_source ?? "");
+
+          if (destinatario === "interno" && !linkCliente) { skipped++; continue; }
+
           const message = interpolate(String(cfg.mensagem ?? ""), ctx);
           if (!message.trim()) { skipped++; continue; }
 

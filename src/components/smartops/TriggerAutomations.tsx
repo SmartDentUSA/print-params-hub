@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { EmailHtmlEditor } from "@/components/smartops/EmailHtmlEditor";
 import {
   Select,
   SelectContent,
@@ -119,7 +120,17 @@ const emptyDraft = (): Partial<TriggerAutomation> => ({
   trigger_event: "clicked",
   trigger_config: { provider: "evolution", team_member_ids: [], keywords: [] },
   action_type: "whatsapp",
-  action_config: { mensagem: "", link_url: "", assunto: "", team_member_id: null },
+  action_config: {
+    mensagem: "",
+    link_url: "",
+    assunto: "",
+    html: "",
+    team_member_id: null,
+    destinatario: "lead",
+    notify_team_member_id: null,
+    notify_phone: "",
+    client_link_message: "",
+  },
   horario_inicio: 9,
   horario_fim: 18,
   dias_semana: [1, 2, 3, 4, 5],
@@ -406,6 +417,9 @@ export function TriggerAutomations() {
                 </div>
               );
             })}
+            <Button variant="outline" size="sm" className="w-full" onClick={() => openEditor()}>
+              <Plus className="w-4 h-4 mr-1" /> Adicionar automação
+            </Button>
           </TabsContent>
 
           {/* ───── Fila ───── */}
@@ -636,45 +650,123 @@ export function TriggerAutomations() {
                 )}
               </div>
 
-              {draft.action_type === "email" && (
+              {/* Quem recebe a mensagem */}
+              {draft.action_type !== "email" && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div>
+                    <Label>Quem recebe</Label>
+                    <Select
+                      value={String(act.destinatario ?? "lead")}
+                      onValueChange={(v) => setAct({ destinatario: v })}
+                    >
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="lead">O próprio cliente/lead</SelectItem>
+                        <SelectItem value="interno">Celular interno (ex.: suporte)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {String(act.destinatario ?? "lead") === "interno" && (
+                    <div>
+                      <Label>Celular interno que recebe o aviso</Label>
+                      <Select
+                        value={String(act.notify_team_member_id ?? "")}
+                        onValueChange={(v) => setAct({ notify_team_member_id: v })}
+                      >
+                        <SelectTrigger><SelectValue placeholder="Selecionar membro do time…" /></SelectTrigger>
+                        <SelectContent>
+                          {(members ?? []).map((m: any) => (
+                            <SelectItem key={m.id} value={m.id}>
+                              {m.nome_completo} — {m.evolution_phone ?? m.whatsapp_number ?? "sem número"}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Input
+                        className="mt-2"
+                        value={String(act.notify_phone ?? "")}
+                        onChange={(e) => setAct({ notify_phone: e.target.value })}
+                        placeholder="Ou digite o número: 5516999999999"
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Editor por canal */}
+              {draft.action_type === "email" ? (
+                <div className="space-y-2">
+                  <div>
+                    <Label>Assunto do e-mail</Label>
+                    <Input
+                      value={String(act.assunto ?? "")}
+                      onChange={(e) => setAct({ assunto: e.target.value })}
+                      placeholder="Assunto do e-mail"
+                    />
+                  </div>
+                  <Label>Editor de e-mail (HTML + preview ao vivo)</Label>
+                  <EmailHtmlEditor
+                    value={String(act.html ?? act.mensagem ?? "")}
+                    onChange={(html) => setAct({ html, mensagem: html })}
+                    expanded
+                  />
+                </div>
+              ) : draft.action_type === "sms" ? (
+                <div className="border rounded-lg p-3 space-y-2 bg-muted/20">
+                  <Label>Editor de SMS</Label>
+                  <Textarea
+                    rows={4}
+                    value={String(act.mensagem ?? "")}
+                    onChange={(e) => setAct({ mensagem: e.target.value })}
+                    placeholder="Oi {{primeiro_nome}}, veja: {{link}}"
+                  />
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-muted-foreground">
+                      Sem acentos/emoji o SMS cabe em 160 caracteres. Link é encurtado por lead.
+                    </span>
+                    <span className={smsLength > 160 ? "text-destructive font-medium" : "text-muted-foreground"}>
+                      {smsLength}/160
+                    </span>
+                  </div>
+                </div>
+              ) : (
                 <div>
-                  <Label>Assunto</Label>
-                  <Input
-                    value={String(act.assunto ?? "")}
-                    onChange={(e) => setAct({ assunto: e.target.value })}
-                    placeholder="Assunto do e-mail"
+                  <Label>Mensagem do WhatsApp</Label>
+                  <Textarea
+                    rows={6}
+                    value={String(act.mensagem ?? "")}
+                    onChange={(e) => setAct({ mensagem: e.target.value })}
+                    placeholder={
+                      String(act.destinatario ?? "lead") === "interno"
+                        ? "Time, o cliente {{nome}} chamou no WhatsApp: \"{{mensagem_cliente}}\". Entrar em contato: {{link_cliente}}"
+                        : "Oi {{primeiro_nome}}, tudo bem? {{link}}"
+                    }
                   />
                 </div>
               )}
 
-              <div>
-                <Label>
-                  {draft.action_type === "sms"
-                    ? "Mensagem do SMS (link encurtado automático)"
-                    : draft.action_type === "email"
-                      ? "Conteúdo do e-mail (HTML permitido)"
-                      : "Mensagem do WhatsApp"}
-                </Label>
-                <Textarea
-                  rows={draft.action_type === "email" ? 8 : 5}
-                  value={String(act.mensagem ?? "")}
-                  onChange={(e) => setAct({ mensagem: e.target.value })}
-                  placeholder={
-                    draft.action_type === "sms"
-                      ? "Oi {{primeiro_nome}}, veja: {{link}}"
-                      : "Oi {{primeiro_nome}}, tudo bem? {{link}}"
-                  }
-                />
-                <p className="text-xs text-muted-foreground mt-1">
-                  Variáveis: <code>{"{{primeiro_nome}}"}</code> <code>{"{{nome}}"}</code>{" "}
-                  <code>{"{{link}}"}</code> <code>{"{{telefone}}"}</code> <code>{"{{email}}"}</code>
-                  {draft.action_type === "sms" && (
-                    <span className={smsLength > 160 ? " text-destructive" : ""}>
-                      {" "}· {smsLength}/160 caracteres
-                    </span>
-                  )}
-                </p>
-              </div>
+              <p className="text-xs text-muted-foreground">
+                Variáveis: <code>{"{{primeiro_nome}}"}</code> <code>{"{{nome}}"}</code>{" "}
+                <code>{"{{link}}"}</code> <code>{"{{telefone}}"}</code> <code>{"{{email}}"}</code>{" "}
+                <code>{"{{mensagem_cliente}}"}</code> <code>{"{{link_cliente}}"}</code>{" "}
+                <code>{"{{canal_origem}}"}</code>
+              </p>
+
+              {String(act.destinatario ?? "lead") === "interno" && draft.action_type !== "email" && (
+                <div>
+                  <Label>Mensagem pronta que o suporte enviará ao cliente ({"{{link_cliente}}"})</Label>
+                  <Textarea
+                    rows={3}
+                    value={String(act.client_link_message ?? "")}
+                    onChange={(e) => setAct({ client_link_message: e.target.value })}
+                    placeholder="Olá, aqui é do suporte técnico da Smart Dent, utilize este número para falar com a gente, em que posso te ajudar?"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Vira um link <code>wa.me</code> do número do cliente com este texto já digitado — o suporte
+                    só clica e envia.
+                  </p>
+                </div>
+              )}
 
               <div>
                 <Label>Link de destino (será encurtado por lead)</Label>
