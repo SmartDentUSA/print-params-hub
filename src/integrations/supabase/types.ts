@@ -31687,9 +31687,30 @@ export type Database = {
       fn_campaign_revenue: {
         Args: { p_from: string; p_to: string }
         Returns: {
+          avg_lead_time_days: number
+          leads_converted: number
           platform_campaign_id: string
           revenue: number
           won_deals: number
+          won_leads: number
+        }[]
+      }
+      fn_campaign_revenue_detail: {
+        Args: { p_campaign_id: string; p_from: string; p_to: string }
+        Returns: {
+          campaign_product: string
+          closed_at: string
+          converted_at: string
+          cross_sell: boolean
+          deal_id: string
+          deal_title: string
+          deal_value: number
+          lead_id: string
+          lead_name: string
+          lead_time_days: number
+          pipeline_name: string
+          piperun_deal_id: string
+          purchased_products: string[]
         }[]
       }
       fn_check_group_global_dedup: {
