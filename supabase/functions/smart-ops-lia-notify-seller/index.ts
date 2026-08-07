@@ -7,6 +7,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { buildSellerNotification } from "../_shared/wa-messaging.ts";
 import { EVO_BASE, EVO_KEY, normalizePhone } from "../_shared/evolution.ts";
+import { normalizeBrazilianPhone } from "../_shared/phone-normalize.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -117,8 +118,10 @@ Deno.serve(async (req) => {
     const senderKey = ((senderRow as any)?.evolution_api_key as string | null)?.trim() || EVO_KEY;
 
     const rawPhone = (seller as any).whatsapp_number as string | null;
-    const cleanPhone = normalizePhone(rawPhone || "");
-    if (!cleanPhone || cleanPhone.length < 10) {
+    // Normalizador canônico (repara celular legado de 8 dígitos e DDI).
+    const cleanPhone = (normalizeBrazilianPhone(rawPhone || "") || normalizePhone(rawPhone || "") || "")
+      .replace(/\D/g, "");
+    if (!cleanPhone || cleanPhone.length < 12) {
       await logMsg(supabase, {
         lead_id, team_member_id, whatsapp_number: rawPhone,
         tipo: "briefing_vendedor_block", status: "erro",
@@ -128,26 +131,33 @@ Deno.serve(async (req) => {
       });
       return json({ error: "seller missing whatsapp_number" }, 422);
     }
-    const toNumber = cleanPhone.startsWith("55") ? cleanPhone : `55${cleanPhone}`;
+    const toNumber = cleanPhone;
 
-    // ── Build briefing (padrão: header "📊 Análise SmartOps") ──
-    let briefing = cfg && cfg.usar_template_padrao === false && cfg.mensagem_template
-      ? renderTemplate(String(cfg.mensagem_template), lead as Record<string, unknown>)
-      : await buildSellerNotification(lead as Record<string, unknown>, supabase);
+    // ── Frase pré-montada do link (template da automação) ──
+    const includeWaLink = cfg?.incluir_link_wa !== false;
+    const waPreset = includeWaLink
+      ? renderTemplate(String(cfg?.link_wa_mensagem ?? ""), lead as Record<string, unknown>).trim()
+      : "";
 
-    // O briefing padrão já traz o link do WhatsApp logo abaixo da Identidade.
-    // Só anexa no fim quando o texto ainda não tem link (ex.: template custom).
-    if (cfg?.incluir_link_wa !== false && !briefing.includes("wa.me/")) {
-      const leadPhone = String(
-        (lead as any).telefone_normalized || (lead as any).telefone_raw || ""
-      ).replace(/\D/g, "");
-      if (leadPhone.length >= 10) {
-        const jid = leadPhone.startsWith("55") ? leadPhone : `55${leadPhone}`;
-        const preset = renderTemplate(
-          String(cfg?.link_wa_mensagem ?? ""),
-          lead as Record<string, unknown>
-        );
-        briefing += `\n\n👉 Abrir conversa com o lead:\nhttps://wa.me/${jid}${preset ? `?text=${encodeURIComponent(preset)}` : ""}`;
+    // ── Build briefing ──
+    // Template custom da automação tem prioridade quando preenchido.
+    const customTpl = String(cfg?.mensagem_template ?? "").trim();
+    const useCustom = !!customTpl && cfg?.usar_template_padrao === false;
+    let briefing = useCustom
+      ? renderTemplate(customTpl, lead as Record<string, unknown>)
+      : await buildSellerNotification(lead as Record<string, unknown>, supabase, {
+          includeWaLink,
+          waLinkPreset: waPreset || null,
+        });
+    console.log(`[notify-seller v38] template=${useCustom ? "custom" : "padrao"} link=${includeWaLink} preset_len=${waPreset.length}`);
+
+    // Template custom não tem o link embutido — anexa com a frase pronta.
+    if (includeWaLink && !briefing.includes("wa.me/")) {
+      const leadJid = (normalizeBrazilianPhone(
+        String((lead as any).telefone_normalized || (lead as any).telefone_raw || "")
+      ) || "").replace(/\D/g, "");
+      if (leadJid.length >= 12) {
+        briefing += `\n\n👉 Abrir conversa com o lead:\nhttps://wa.me/${leadJid}${waPreset ? `?text=${encodeURIComponent(waPreset)}` : ""}`;
       }
     }
 
