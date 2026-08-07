@@ -9,6 +9,7 @@ import { PhoneInputWithDDI } from "@/components/PhoneInputWithDDI";
 import { useCompanyData } from "@/hooks/useCompanyData";
 import { Slider } from "@/components/ui/slider";
 import { isFieldVisible } from "@/lib/formConditions";
+import { linkLeadToPageSession } from "@/hooks/usePageTracking";
 
 interface FormField {
   id: string;
