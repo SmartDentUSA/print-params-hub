@@ -610,10 +610,10 @@ export function TriggerAutomations() {
 
             {/* Ação */}
             <div className="border rounded-lg p-3 space-y-3">
-              <p className="text-sm font-medium">2. O que fazer</p>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <p className="text-sm font-medium">2. O que fazer — canal, destino e instância</p>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 <div>
-                  <Label>Ação</Label>
+                  <Label>Canal (o quê)</Label>
                   <Select
                     value={draft.action_type}
                     onValueChange={(v: ActionType) => setDraft((d) => ({ ...d, action_type: v }))}
@@ -626,9 +626,26 @@ export function TriggerAutomations() {
                     </SelectContent>
                   </Select>
                 </div>
-                {draft.action_type === "whatsapp" && (
-                  <div>
-                    <Label>Instância que envia</Label>
+                <div>
+                  <Label>Destino (para quem)</Label>
+                  {draft.action_type === "email" ? (
+                    <Input value="E-mail do lead" disabled />
+                  ) : (
+                    <Select
+                      value={String(act.destinatario ?? "lead")}
+                      onValueChange={(v) => setAct({ destinatario: v })}
+                    >
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="lead">O próprio cliente/lead</SelectItem>
+                        <SelectItem value="interno">Celular interno (ex.: suporte)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  )}
+                </div>
+                <div>
+                  <Label>Instância que envia</Label>
+                  {draft.action_type === "whatsapp" ? (
                     <Select
                       value={String(act.team_member_id ?? "")}
                       onValueChange={(v) => {
@@ -646,50 +663,41 @@ export function TriggerAutomations() {
                         ))}
                       </SelectContent>
                     </Select>
-                  </div>
-                )}
+                  ) : (
+                    <Input
+                      value={draft.action_type === "sms" ? "DisparoPro (SMS)" : "Gmail (e-mail)"}
+                      disabled
+                    />
+                  )}
+                </div>
               </div>
 
-              {/* Quem recebe a mensagem */}
-              {draft.action_type !== "email" && (
+              {draft.action_type !== "email" && String(act.destinatario ?? "lead") === "interno" && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <div>
-                    <Label>Quem recebe</Label>
+                    <Label>Celular interno que recebe o aviso</Label>
                     <Select
-                      value={String(act.destinatario ?? "lead")}
-                      onValueChange={(v) => setAct({ destinatario: v })}
+                      value={String(act.notify_team_member_id ?? "")}
+                      onValueChange={(v) => setAct({ notify_team_member_id: v })}
                     >
-                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectTrigger><SelectValue placeholder="Selecionar membro do time…" /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="lead">O próprio cliente/lead</SelectItem>
-                        <SelectItem value="interno">Celular interno (ex.: suporte)</SelectItem>
+                        {(members ?? []).map((m: any) => (
+                          <SelectItem key={m.id} value={m.id}>
+                            {m.nome_completo} — {m.evolution_phone ?? m.whatsapp_number ?? "sem número"}
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>
-                  {String(act.destinatario ?? "lead") === "interno" && (
-                    <div>
-                      <Label>Celular interno que recebe o aviso</Label>
-                      <Select
-                        value={String(act.notify_team_member_id ?? "")}
-                        onValueChange={(v) => setAct({ notify_team_member_id: v })}
-                      >
-                        <SelectTrigger><SelectValue placeholder="Selecionar membro do time…" /></SelectTrigger>
-                        <SelectContent>
-                          {(members ?? []).map((m: any) => (
-                            <SelectItem key={m.id} value={m.id}>
-                              {m.nome_completo} — {m.evolution_phone ?? m.whatsapp_number ?? "sem número"}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <Input
-                        className="mt-2"
-                        value={String(act.notify_phone ?? "")}
-                        onChange={(e) => setAct({ notify_phone: e.target.value })}
-                        placeholder="Ou digite o número: 5516999999999"
-                      />
-                    </div>
-                  )}
+                  <div>
+                    <Label>Ou número direto</Label>
+                    <Input
+                      value={String(act.notify_phone ?? "")}
+                      onChange={(e) => setAct({ notify_phone: e.target.value })}
+                      placeholder="5516999999999"
+                    />
+                  </div>
                 </div>
               )}
 
