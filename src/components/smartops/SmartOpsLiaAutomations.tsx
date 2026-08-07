@@ -65,6 +65,24 @@ export function SmartOpsLiaAutomations() {
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<LiaAutomation | null>(null);
   const [savingId, setSavingId] = useState<string | null>(null);
+  const [creating, setCreating] = useState(false);
+
+  const newDraft = (): LiaAutomation => ({
+    id: "",
+    slug: "",
+    nome: "",
+    subtitulo: "",
+    icone: "message-square",
+    cor: "blue",
+    trigger_event: null,
+    trigger_tags: [],
+    canal: "whatsapp",
+    horario_inicio: "08:00",
+    horario_fim: "18:00",
+    mensagem_horario_comercial: "",
+    mensagem_fora_horario: "",
+    ativo: false,
+  });
 
   const load = async () => {
     setLoading(true);
@@ -97,6 +115,36 @@ export function SmartOpsLiaAutomations() {
 
   const saveEdit = async () => {
     if (!editing) return;
+    if (!editing.id) {
+      if (!editing.nome.trim()) {
+        toast.error("Informe o nome da automação");
+        return;
+      }
+      setSavingId("new");
+      const { error } = await supabase.functions.invoke("automacoes-lia", {
+        method: "POST",
+        body: {
+          nome: editing.nome,
+          subtitulo: editing.subtitulo,
+          canal: editing.canal,
+          trigger_tags: editing.trigger_tags,
+          horario_inicio: editing.horario_inicio,
+          horario_fim: editing.horario_fim,
+          mensagem_horario_comercial: editing.mensagem_horario_comercial,
+          mensagem_fora_horario: editing.mensagem_fora_horario,
+        },
+      });
+      setSavingId(null);
+      if (error) {
+        toast.error("Falha ao criar automação");
+      } else {
+        toast.success("Automação criada");
+        setEditing(null);
+        setCreating(false);
+        load();
+      }
+      return;
+    }
     setSavingId(editing.id);
     const { error } = await supabase.functions.invoke("automacoes-lia", {
       method: "PATCH",
@@ -135,7 +183,14 @@ export function SmartOpsLiaAutomations() {
             {ativasCount} {ativasCount === 1 ? "ativa" : "ativas"}
           </Badge>
         </div>
-        <Button size="sm" variant="outline" disabled title="Em breve">
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => {
+            setCreating(true);
+            setEditing(newDraft());
+          }}
+        >
           <Plus className="w-4 h-4 mr-1" /> Nova automação
         </Button>
       </CardHeader>
@@ -247,13 +302,67 @@ export function SmartOpsLiaAutomations() {
         )}
       </CardContent>
 
-      <Dialog open={!!editing} onOpenChange={(o) => !o && setEditing(null)}>
+      <Dialog
+        open={!!editing}
+        onOpenChange={(o) => {
+          if (!o) {
+            setEditing(null);
+            setCreating(false);
+          }
+        }}
+      >
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Editar — {editing?.nome}</DialogTitle>
+            <DialogTitle>
+              {creating ? "Nova automação LIA" : `Editar — ${editing?.nome}`}
+            </DialogTitle>
           </DialogHeader>
           {editing && (
             <div className="space-y-4">
+              {creating && (
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label className="text-xs">Nome</Label>
+                    <Input
+                      value={editing.nome}
+                      placeholder="Ex.: Follow-up de proposta"
+                      onChange={(e) => setEditing({ ...editing, nome: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Subtítulo</Label>
+                    <Input
+                      value={editing.subtitulo ?? ""}
+                      placeholder="Descrição curta"
+                      onChange={(e) => setEditing({ ...editing, subtitulo: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Canal</Label>
+                    <Input
+                      value={editing.canal}
+                      placeholder="whatsapp"
+                      onChange={(e) => setEditing({ ...editing, canal: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Gatilhos (separados por vírgula)</Label>
+                    <Input
+                      value={editing.trigger_tags.join(", ")}
+                      placeholder="proposta_enviada, sem_resposta"
+                      onChange={(e) =>
+                        setEditing({
+                          ...editing,
+                          trigger_tags: e.target.value
+                            .split(",")
+                            .map((t) => t.trim())
+                            .filter(Boolean),
+                        })
+                      }
+                    />
+                  </div>
+                </div>
+              )}
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <Label className="text-xs">Início horário comercial</Label>
@@ -316,11 +425,23 @@ export function SmartOpsLiaAutomations() {
             </div>
           )}
           <DialogFooter>
-            <Button variant="outline" onClick={() => setEditing(null)}>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setEditing(null);
+                setCreating(false);
+              }}
+            >
               Cancelar
             </Button>
             <Button onClick={saveEdit} disabled={!!savingId}>
-              {savingId ? <Loader2 className="w-4 h-4 animate-spin" /> : "Salvar"}
+              {savingId ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : creating ? (
+                "Criar automação"
+              ) : (
+                "Salvar"
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
