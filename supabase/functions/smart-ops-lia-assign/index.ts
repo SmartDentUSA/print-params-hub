@@ -1321,7 +1321,32 @@ async function buildSellerNotification(
   // Identidade (link do WhatsApp logo abaixo), CRM, E-commerce, Cursos e
   // Equipamentos. Sem pitch, RAG, inteligência, diagnóstico ou formulários.
   const { enriched: enrichedLead, meta: enrichMeta } = await enrichLeadFromIdentity(supabase, lead);
-  const text = await buildSellerBriefingText(supabase, enrichedLead);
+  // Frase pronta do link vem do template configurado na automação (UI).
+  const { data: cfg } = await supabase
+    .from("seller_briefing_config")
+    .select("incluir_link_wa, link_wa_mensagem")
+    .limit(1)
+    .maybeSingle();
+  const includeWaLink = (cfg as any)?.incluir_link_wa !== false;
+  const nome = String(enrichedLead.nome ?? "").trim();
+  const waPreset = includeWaLink
+    ? String((cfg as any)?.link_wa_mensagem ?? "").replace(
+        /\{\{?\s*([\w.]+)\s*\}?\}/g,
+        (_m: string, key: string) => {
+          const src: Record<string, unknown> = {
+            ...enrichedLead,
+            nome,
+            primeiro_nome: nome.split(/\s+/)[0] ?? "",
+          };
+          const v = src[key];
+          return v === null || v === undefined || v === "" ? "" : String(v);
+        },
+      ).trim()
+    : "";
+  const text = await buildSellerBriefingText(supabase, enrichedLead, {
+    includeWaLink,
+    waLinkPreset: waPreset || null,
+  });
   if (enrichedLead.id) {
     logBriefingAudit(supabase, String(enrichedLead.id), enrichMeta, text.length, (enrichedLead.email as string | null) ?? null);
   }
