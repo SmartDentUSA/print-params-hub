@@ -12085,6 +12085,7 @@ export type Database = {
           canal: string
           cor: string
           created_at: string
+          evolution_instance_name: string | null
           function_name: string | null
           horario_fim: string | null
           horario_inicio: string | null
@@ -12105,6 +12106,7 @@ export type Database = {
           canal?: string
           cor?: string
           created_at?: string
+          evolution_instance_name?: string | null
           function_name?: string | null
           horario_fim?: string | null
           horario_inicio?: string | null
@@ -12125,6 +12127,7 @@ export type Database = {
           canal?: string
           cor?: string
           created_at?: string
+          evolution_instance_name?: string | null
           function_name?: string | null
           horario_fim?: string | null
           horario_inicio?: string | null

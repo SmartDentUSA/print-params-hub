@@ -10,12 +10,20 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-function isBusinessHours(): boolean {
-  const sp   = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }));
-  const day  = sp.getDay();
-  const mins = sp.getHours() * 60 + sp.getMinutes();
-  if (day >= 1 && day <= 5) return mins >= 8 * 60 && mins < 18 * 60;
-  if (day === 6)            return mins >= 8 * 60 && mins < 12 * 60;
+function toMinutes(hhmm: string | null | undefined, fallback: number): number {
+  const m = /^(\d{1,2}):(\d{2})/.exec(hhmm ?? "");
+  if (!m) return fallback;
+  return Number(m[1]) * 60 + Number(m[2]);
+}
+
+function isBusinessHours(inicio?: string | null, fim?: string | null): boolean {
+  const sp    = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }));
+  const day   = sp.getDay();
+  const mins  = sp.getHours() * 60 + sp.getMinutes();
+  const start = toMinutes(inicio, 8 * 60);
+  const end   = toMinutes(fim, 18 * 60);
+  if (day >= 1 && day <= 5) return mins >= start && mins < end;
+  if (day === 6)            return mins >= start && mins < Math.min(end, 12 * 60);
   return false;
 }
 
@@ -31,9 +39,36 @@ function normalizePhone(raw: string | null | undefined): string | null {
   return (d.length === 11 || d.length === 10) ? `55${d}` : null;
 }
 
-async function getLiaConfig(supa: ReturnType<typeof createClient>) {
+async function getLiaConfig(
+  supa: ReturnType<typeof createClient>,
+  preferredInstance?: string | null,
+) {
+  // 1) Instância escolhida na automação (UI) — credencial por instância
+  if (preferredInstance) {
+    const { data: chosen } = await supa.from("team_members")
+      .select("evolution_instance_name, evolution_api_key")
+      .eq("evolution_instance_name", preferredInstance)
+      .eq("ativo", true)
+      .maybeSingle();
+    if (chosen?.evolution_instance_name) {
+      return {
+        instance: chosen.evolution_instance_name as string,
+        apiKey: (chosen.evolution_api_key as string) || Deno.env.get("EVOLUTION_API_KEY") || "SmartDent_LIA_2026",
+      };
+    }
+    try {
+      await supa.from("system_health_logs").insert({
+        function_name: "smart-ops-lead-welcome",
+        severity: "warning",
+        error_type: "instancia_configurada_invalida",
+        details: { instancia: preferredInstance, motivo: "não encontrada ou inativa em team_members" },
+      });
+    } catch { /* silencioso */ }
+  }
+
+  // 2) Fallback legado: membro com role lia_comms
   const { data: member } = await supa.from("team_members")
-    .select("evolution_instance_name").eq("role", "lia_comms").eq("ativo", true).limit(1).single();
+    .select("evolution_instance_name, evolution_api_key").eq("role", "lia_comms").eq("ativo", true).limit(1).maybeSingle();
   if (!member?.evolution_instance_name) {
     try {
       await supa.from("system_health_logs").insert({
@@ -54,15 +89,22 @@ async function getLiaConfig(supa: ReturnType<typeof createClient>) {
   if (cfg?.config_value) {
     try { apiKey = JSON.parse(cfg.config_value as string); } catch { apiKey = cfg.config_value as string; }
   }
+  if (member?.evolution_api_key) apiKey = member.evolution_api_key as string;
   return { instance, apiKey };
 }
 
 async function getAutomacao(supa: ReturnType<typeof createClient>) {
   const { data } = await supa.from("lia_automations")
-    .select("mensagem_horario_comercial, mensagem_fora_horario, ativo")
+    .select("mensagem_horario_comercial, mensagem_fora_horario, ativo, horario_inicio, horario_fim, evolution_instance_name")
     .eq("slug", "boas_vindas_lead").single();
   if (!data || !data.ativo) return null;
-  return { msgComercial: data.mensagem_horario_comercial, msgForaHorario: data.mensagem_fora_horario };
+  return {
+    msgComercial: data.mensagem_horario_comercial,
+    msgForaHorario: data.mensagem_fora_horario,
+    horarioInicio: data.horario_inicio as string | null,
+    horarioFim: data.horario_fim as string | null,
+    instancia: data.evolution_instance_name as string | null,
+  };
 }
 
 function buildMessage(template: string, vars: Record<string, string>): string {
@@ -181,7 +223,12 @@ async function sendViaEvolutionImpl(instance: string, apiKey: string, phone: str
 async function processLead(
   supa: ReturnType<typeof createClient>,
   lead: Record<string, unknown>,
-  automacao: { msgComercial: string; msgForaHorario: string },
+  automacao: {
+    msgComercial: string;
+    msgForaHorario: string;
+    horarioInicio?: string | null;
+    horarioFim?: string | null;
+  },
   instance: string,
   apiKey: string
 ): Promise<{ leadId: string; result: string }> {
@@ -257,7 +304,14 @@ async function processLead(
   // ──────────────────────────────────────────────────────────────────────────
 
   // ── PASSO 2: Enviar mensagem de boas-vindas ────────────────────────────────
-  const template = isBusinessHours() ? automacao.msgComercial : automacao.msgForaHorario;
+  const comercial = isBusinessHours(automacao.horarioInicio, automacao.horarioFim);
+  const template  = (comercial ? automacao.msgComercial : automacao.msgForaHorario)
+                    || automacao.msgComercial || automacao.msgForaHorario || "";
+  if (!template.trim()) {
+    await supa.from("boas_vindas_locks").delete().eq("lead_id", leadId);
+    await safeLog(supa, leadId, phone, "skipped", `template vazio (${comercial ? "comercial" : "fora do horário"})`, instance);
+    return { leadId, result: "template_vazio" };
+  }
   const message  = buildMessage(template, { nome: nomeLead, produto, vendedor: nomeVendedor, link_wa: linkWa });
 
   const evo = await sendViaEvolution(instance, apiKey, phone, message);
@@ -287,9 +341,10 @@ Deno.serve(async (req) => {
       try { const b = await req.json(); singleLeadId = b?.lead_id || null; } catch { /* cron mode */ }
     }
 
-    const [automacao, liaConfig] = await Promise.all([getAutomacao(supa), getLiaConfig(supa)]);
+    const automacao = await getAutomacao(supa);
     if (!automacao)
       return new Response(JSON.stringify({ skipped: true, reason: "automacao_inativa" }), { headers: corsHeaders });
+    const liaConfig = await getLiaConfig(supa, automacao.instancia);
 
     let leads: Record<string, unknown>[];
     if (singleLeadId) {
@@ -321,7 +376,13 @@ Deno.serve(async (req) => {
     }
 
     return new Response(
-      JSON.stringify({ ok: true, total: leads.length, instance: liaConfig.instance, business_hours: isBusinessHours(), results }),
+      JSON.stringify({
+        ok: true,
+        total: leads.length,
+        instance: liaConfig.instance,
+        business_hours: isBusinessHours(automacao.horarioInicio, automacao.horarioFim),
+        results,
+      }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (e) {
