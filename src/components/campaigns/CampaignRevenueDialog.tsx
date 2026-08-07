@@ -95,7 +95,7 @@ export function CampaignRevenueDialog({ campaignId, campaignName, days, onClose 
                   <td className="px-2 py-2 text-xs uppercase text-muted-foreground">Total</td>
                   <td />
                   <td className="px-2 py-2 text-right font-bold">{money(total)}</td>
-                  <td colSpan={4} />
+                  <td colSpan={6} />
                 </tr>
               </tfoot>
             </table>
