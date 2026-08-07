@@ -134,7 +134,11 @@ Deno.serve(async (req) => {
       );
 
       const isBriefing = (text: string) =>
-        /resumo do lead/i.test(text) || /🧾/.test(text) || (/origem piperun/i.test(text) && /identidade/i.test(text));
+        /an[áa]lise smartops/i.test(text) ||
+        /resumo do lead/i.test(text) ||
+        /🧾/.test(text) ||
+        /app\.pipe\.run\/#\/deals\//i.test(text) ||
+        (/hist[óo]rico:/i.test(text) && /oportunidade:/i.test(text));
 
       for (const phone of phones) {
         const remoteJid = `${phone}@s.whatsapp.net`;
@@ -162,12 +166,14 @@ Deno.serve(async (req) => {
           for (const m of records) {
             const key = m?.key ?? {};
             if (!key?.fromMe || !key?.id) continue;
-            const ts = Number(m?.messageTimestamp ?? 0) * 1000;
+            const rawTs = Number(m?.messageTimestamp ?? 0);
+            const ts = rawTs > 1e12 ? rawTs : rawTs * 1000;
             if (ts && ts > cutoffMs) continue;
             const text =
               m?.message?.conversation ??
               m?.message?.extendedTextMessage?.text ??
               m?.message?.imageMessage?.caption ??
+              m?.message?.documentMessage?.caption ??
               "";
             if (!text || !isBriefing(String(text))) continue;
             scanned++;
