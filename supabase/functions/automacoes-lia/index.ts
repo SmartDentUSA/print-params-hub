@@ -122,6 +122,7 @@ Deno.serve(async (req) => {
         "horario_fim",
         "trigger_tags",
         "canal",
+        "evolution_instance_name",
       ];
       const update: Record<string, unknown> = {};
       for (const k of allowed) if (k in rest) update[k] = rest[k];
