@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AdDetailDialog } from './ZernioAdDetailDialog';
+import { CampaignRevenueDialog } from './CampaignRevenueDialog';
 import {
   useZernioAdCampaigns,
   useZernioAds,
@@ -67,6 +68,7 @@ export default function ZernioAdsTab() {
   const [search, setSearch] = useState('');
   const [open, setOpen] = useState<Record<string, boolean>>({});
   const [detail, setDetail] = useState<ZernioAd | null>(null);
+  const [revDetail, setRevDetail] = useState<{ id: string; name?: string } | null>(null);
 
   const filters = {
     platform: platform === 'all' ? undefined : platform,
@@ -255,6 +257,8 @@ export default function ZernioAdsTab() {
                     <th className="px-3 py-2 text-right">Investido</th>
                     <th className="px-3 py-2 text-right">Receita</th>
                     <th className="px-3 py-2 text-right">ROI</th>
+                    <th className="px-3 py-2 text-right">Vendas</th>
+                    <th className="px-3 py-2 text-right">Lead time</th>
                     <th className="px-3 py-2 text-right">Impressões</th>
                     <th className="px-3 py-2 text-right">Cliques</th>
                     <th className="px-3 py-2 text-right">CTR</th>
@@ -275,6 +279,7 @@ export default function ZernioAdsTab() {
                     const rev = revenueLoaded
                       ? revenueByCampaign?.get(c.platformCampaignId ?? '')?.revenue ?? 0
                       : undefined;
+                    const rq = revenueByCampaign?.get(c.platformCampaignId ?? '');
                     return (
                       <>
                         <tr key={key} className="border-b hover:bg-muted/30">
@@ -292,7 +297,18 @@ export default function ZernioAdsTab() {
                           <td className="px-3 py-2"><StatusBadge status={c.status} /></td>
                           <td className="px-3 py-2 text-right">{budgetLabel(c)}</td>
                           <td className="px-3 py-2 text-right font-medium">{fmtMoney(spend, c.currency)}</td>
-                          <td className="px-3 py-2 text-right font-medium">{fmtMoney(rev, c.currency)}</td>
+                          <td className="px-3 py-2 text-right font-medium">
+                            <button
+                              className="underline-offset-2 hover:underline disabled:no-underline"
+                              disabled={!c.platformCampaignId}
+                              onClick={() =>
+                                c.platformCampaignId &&
+                                setRevDetail({ id: c.platformCampaignId, name: c.campaignName })
+                              }
+                            >
+                              {fmtMoney(rev, c.currency)}
+                            </button>
+                          </td>
                           <td
                             className={`px-3 py-2 text-right font-medium ${
                               rev !== undefined && spend
@@ -303,6 +319,10 @@ export default function ZernioAdsTab() {
                             }`}
                           >
                             {fmtRoi(rev, spend)}
+                          </td>
+                          <td className="px-3 py-2 text-right">{fmtInt(rq?.wonDeals)}</td>
+                          <td className="px-3 py-2 text-right">
+                            {rq?.leadTimeDays === null || rq?.leadTimeDays === undefined ? '—' : `${rq.leadTimeDays} d`}
                           </td>
                           <td className="px-3 py-2 text-right">{fmtInt(pm?.impressions)}</td>
                           <td className="px-3 py-2 text-right">{fmtInt(pm?.clicks)}</td>
@@ -333,6 +353,8 @@ export default function ZernioAdsTab() {
                               <td className="px-3 py-2 text-right">{fmtMoney(a.metrics?.spend, a.currency)}</td>
                               <td className="px-3 py-2 text-right text-muted-foreground">—</td>
                               <td className="px-3 py-2 text-right text-muted-foreground">—</td>
+                              <td className="px-3 py-2 text-right text-muted-foreground">—</td>
+                              <td className="px-3 py-2 text-right text-muted-foreground">—</td>
                               <td className="px-3 py-2 text-right">{fmtInt(a.metrics?.impressions)}</td>
                               <td className="px-3 py-2 text-right">{fmtInt(a.metrics?.clicks)}</td>
                               <td className="px-3 py-2 text-right">{fmtPct(a.metrics?.ctr)}</td>
@@ -352,6 +374,12 @@ export default function ZernioAdsTab() {
       </Card>
 
       <AdDetailDialog ad={detail} days={Number(days)} onClose={() => setDetail(null)} />
+      <CampaignRevenueDialog
+        campaignId={revDetail?.id ?? null}
+        campaignName={revDetail?.name}
+        days={Number(days)}
+        onClose={() => setRevDetail(null)}
+      />
     </div>
   );
 }
