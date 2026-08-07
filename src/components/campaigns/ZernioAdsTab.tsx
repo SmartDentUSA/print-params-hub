@@ -271,7 +271,10 @@ export default function ZernioAdsTab() {
                     const pm = periodByCampaign?.get(c.platformCampaignId ?? '');
                     const pLeads = pm?.leads;
                     const pCpl = pm && pLeads ? pm.spend / pLeads : undefined;
-                    const rev = revenueByCampaign?.get(c.platformCampaignId ?? '')?.revenue;
+                    const spend = spendOf(c);
+                    const rev = revenueLoaded
+                      ? revenueByCampaign?.get(c.platformCampaignId ?? '')?.revenue ?? 0
+                      : undefined;
                     return (
                       <>
                         <tr key={key} className="border-b hover:bg-muted/30">
@@ -288,18 +291,18 @@ export default function ZernioAdsTab() {
                           <td className="px-3 py-2 text-muted-foreground">{c.platformAdAccountName ?? '—'}</td>
                           <td className="px-3 py-2"><StatusBadge status={c.status} /></td>
                           <td className="px-3 py-2 text-right">{budgetLabel(c)}</td>
-                          <td className="px-3 py-2 text-right font-medium">{fmtMoney(pm ? pm.spend : undefined, c.currency)}</td>
+                          <td className="px-3 py-2 text-right font-medium">{fmtMoney(spend, c.currency)}</td>
                           <td className="px-3 py-2 text-right font-medium">{fmtMoney(rev, c.currency)}</td>
                           <td
                             className={`px-3 py-2 text-right font-medium ${
-                              rev !== undefined && pm?.spend
-                                ? rev - pm.spend >= 0
+                              rev !== undefined && spend
+                                ? rev - spend >= 0
                                   ? 'text-emerald-600'
                                   : 'text-destructive'
                                 : ''
                             }`}
                           >
-                            {fmtRoi(rev, pm?.spend)}
+                            {fmtRoi(rev, spend)}
                           </td>
                           <td className="px-3 py-2 text-right">{fmtInt(pm?.impressions)}</td>
                           <td className="px-3 py-2 text-right">{fmtInt(pm?.clicks)}</td>
