@@ -8984,6 +8984,36 @@ export type Database = {
           },
         ]
       }
+      lead_origin_classification: {
+        Row: {
+          acquisition_type: string
+          created_at: string
+          notes: string | null
+          origin_key: string
+          origin_name: string | null
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          acquisition_type: string
+          created_at?: string
+          notes?: string | null
+          origin_key: string
+          origin_name?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          acquisition_type?: string
+          created_at?: string
+          notes?: string | null
+          origin_key?: string
+          origin_name?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       lead_page_views: {
         Row: {
           browser: string | null
@@ -31702,6 +31732,7 @@ export type Database = {
           closed_at: string
           converted_at: string
           cross_sell: boolean
+          cs_at: string
           deal_id: string
           deal_title: string
           deal_value: number
@@ -31711,6 +31742,7 @@ export type Database = {
           pipeline_name: string
           piperun_deal_id: string
           purchased_products: string[]
+          vendas_at: string
         }[]
       }
       fn_check_group_global_dedup: {
@@ -33188,6 +33220,8 @@ export type Database = {
       list_lead_origins: {
         Args: never
         Returns: {
+          acquisition_source: string
+          acquisition_type: string
           active_leads_count: number
           first_lead_at: string
           is_active: boolean
@@ -33450,6 +33484,10 @@ export type Database = {
           slug: string
           title: string
         }[]
+      }
+      set_origin_acquisition_type: {
+        Args: { p_origin_key: string; p_origin_name?: string; p_type: string }
+        Returns: undefined
       }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
