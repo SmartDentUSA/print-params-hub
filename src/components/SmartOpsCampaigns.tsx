@@ -459,7 +459,7 @@ function CreateCampaign({
   const [campaignDesc, setCampaignDesc] = useState("");
   const [sendChannel, setSendChannel] = useState("evolution");
   const [evolutionInstance, setEvolutionInstance] = useState<string>("");
-  const [evolutionInstances, setEvolutionInstances] = useState<Array<{ instance: string; nome: string; phone: string }>>([]);
+  const [evolutionInstances, setEvolutionInstances] = useState<Array<{ instance: string; nome: string; phone: string; status: string }>>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [searchResults, setSearchResults] = useState<ContentItem[]>([]);
 
@@ -882,18 +882,27 @@ function CreateCampaign({
     (async () => {
       const { data } = await supabase
         .from("team_members")
-        .select("nome_completo, evolution_instance_name, evolution_phone")
+        .select("nome_completo, evolution_instance_name, evolution_phone, evolution_status")
         .eq("ativo", true)
         .not("evolution_instance_name", "is", null);
-      const list = (data || [])
-        .filter((r: any) => r.evolution_instance_name)
-        .map((r: any) => ({
-          instance: r.evolution_instance_name as string,
-          nome: (r.nome_completo as string) || r.evolution_instance_name,
-          phone: (r.evolution_phone as string) || "",
-        }));
+      // Uma opção por instância, não por pessoa: o cadastro já chegou a ter oito
+      // vendedores apontando para a mesma linha, o que fazia a lista prometer
+      // telefones que não existiam.
+      const porInstancia = new Map<string, { instance: string; nome: string; phone: string; status: string }>();
+      for (const r of (data || []) as Record<string, string | null>[]) {
+        const instance = r.evolution_instance_name;
+        if (!instance || porInstancia.has(instance)) continue;
+        porInstancia.set(instance, {
+          instance,
+          nome: r.nome_completo || instance,
+          phone: r.evolution_phone || "",
+          status: r.evolution_status || "unknown",
+        });
+      }
+      const list = [...porInstancia.values()];
       setEvolutionInstances(list);
-      if (list.length === 1) setEvolutionInstance(list[0].instance);
+      const conectadas = list.filter((i) => i.status === "connected");
+      if (conectadas.length === 1) setEvolutionInstance(conectadas[0].instance);
     })();
   }, [sendChannel]);
 
@@ -1302,20 +1311,30 @@ function CreateCampaign({
                     <SelectValue placeholder={evolutionInstances.length ? "Selecione um telefone conectado" : "Nenhuma instância configurada"} />
                   </SelectTrigger>
                   <SelectContent>
-                    {evolutionInstances.map(i => (
-                      <SelectItem key={i.instance} value={i.instance}>
-                        <span className="inline-flex items-center gap-2">
-                          <span className="w-2 h-2 rounded-full bg-green-500" />
-                          {i.nome}{i.phone ? ` — +${i.phone}` : ""}
-                          <span className="text-xs text-muted-foreground">({i.instance})</span>
-                        </span>
-                      </SelectItem>
-                    ))}
+                    {evolutionInstances.map(i => {
+                      const conectada = i.status === "connected";
+                      return (
+                        <SelectItem key={i.instance} value={i.instance} disabled={!conectada}>
+                          <span className="inline-flex items-center gap-2">
+                            <span className={`w-2 h-2 rounded-full ${conectada ? "bg-green-500" : "bg-red-500"}`} />
+                            {i.nome}{i.phone ? ` — +${i.phone}` : ""}
+                            <span className="text-xs text-muted-foreground">({i.instance})</span>
+                            {!conectada && (
+                              <span className="text-xs text-red-600">{i.status}</span>
+                            )}
+                          </span>
+                        </SelectItem>
+                      );
+                    })}
                   </SelectContent>
                 </Select>
-                {!evolutionInstances.length && (
+                {!evolutionInstances.length ? (
                   <p className="text-xs text-muted-foreground mt-1">Nenhum vendedor com instância Evolution ativa.</p>
-                )}
+                ) : !evolutionInstances.some(i => i.status === "connected") ? (
+                  <p className="text-xs text-red-600 mt-1">
+                    Nenhuma instância conectada no momento — reconecte no Evolution antes de disparar.
+                  </p>
+                ) : null}
               </div>
             )}
             <div>
