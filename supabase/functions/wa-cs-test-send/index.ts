@@ -42,7 +42,7 @@ Deno.serve(async (req) => {
       });
       out.group_send = { status: res.status, body: (await res.text()).slice(0, 400), jid: directJid };
     } catch (e) { out.group_error = String((e as Error).message ?? e); }
-  } else try {
+  } else if (groupText) try {
     const gr = await fetch(`${evo.base}/group/fetchAllGroups/${encodeURIComponent(evo.inst)}?getParticipants=false`, {
       headers: { "Content-Type": "application/json", apikey: evo.key },
       signal: AbortSignal.timeout(120_000),
