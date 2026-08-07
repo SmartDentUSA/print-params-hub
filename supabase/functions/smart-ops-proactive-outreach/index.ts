@@ -219,7 +219,7 @@ Deno.serve(async (req) => {
       if (!teamMemberId) { skipped++; continue; }
 
       try {
-        const sendRes = await fetch(`${SUPABASE_URL}/functions/v1/smart-ops-send-waleads`, {
+        const sendRes = await fetch(`${SUPABASE_URL}/functions/v1/smart-ops-wa-send`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",

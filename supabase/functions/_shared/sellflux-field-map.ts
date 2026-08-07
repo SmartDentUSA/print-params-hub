@@ -269,7 +269,7 @@ export function migrateLegacyTags(legacyTags: string[]): {
  * Format phone number for WaLeads API: digits only, with country code 55 for BR numbers.
  * WaLeads rejects numbers with "+" prefix — always return digits only.
  */
-export function formatPhoneForWaLeads(raw: string): string {
+export function formatPhoneForWhatsApp(raw: string): string {
   const digits = raw.replace(/\D/g, "");
   // If 10-11 digits (BR without country code), prepend 55
   if (digits.length >= 10 && digits.length <= 11 && !digits.startsWith("55")) {

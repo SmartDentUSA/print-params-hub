@@ -2,13 +2,13 @@ import { useState } from "react";
 import { FileText, ImageIcon, Music, Video } from "lucide-react";
 import { getStorageImageUrl } from "@/utils/storageImage";
 
-interface WaLeadsMediaPreviewProps {
+interface MessageMediaPreviewProps {
   tipo: string;
   url: string;
   compact?: boolean;
 }
 
-export function WaLeadsMediaPreview({ tipo, url, compact = false }: WaLeadsMediaPreviewProps) {
+export function MessageMediaPreview({ tipo, url, compact = false }: MessageMediaPreviewProps) {
   const [imgError, setImgError] = useState(false);
 
   if (!url) {

@@ -170,7 +170,7 @@ ${cognitiveBlock}`.replace(/\n{3,}/g, "\n\n");
           console.warn(`[escalation] Seller ${teamMember.nome_completo} has no whatsapp_number — skipping WaLeads send`);
           return;
         }
-        const sendResp = await fetch(`${SUPABASE_URL}/functions/v1/smart-ops-send-waleads`, {
+        const sendResp = await fetch(`${SUPABASE_URL}/functions/v1/smart-ops-wa-send`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",

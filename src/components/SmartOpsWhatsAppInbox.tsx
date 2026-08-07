@@ -284,7 +284,7 @@ export function SmartOpsWhatsAppInbox({ refreshKey }: { refreshKey: number }) {
     try {
       const conv = conversations.find(c => c.phone_normalized === selectedPhone);
 
-      const { data, error } = await supabase.functions.invoke("smart-ops-send-waleads", {
+      const { data, error } = await supabase.functions.invoke("smart-ops-wa-send", {
         body: {
           team_member_id: selectedMember,
           phone: conv?.phone_raw || selectedPhone,

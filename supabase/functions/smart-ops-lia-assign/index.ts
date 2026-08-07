@@ -3,7 +3,7 @@ import { logAIUsage, extractUsage } from "../_shared/log-ai-usage.ts";
 import { evaluateCommercialIntent } from "../_shared/commercial-intent.ts";
 import { isCompanyLikeName } from "../_shared/identity-utils.ts";
 import { isFakeEmail } from "../_shared/lead-identity-guard.ts";
-import { fetchDealsContext, type DealsContext } from "../_shared/waleads-messaging.ts";
+import { fetchDealsContext, type DealsContext } from "../_shared/wa-messaging.ts";
 import {
   enrichLeadFromIdentity,
   buildDeterministicCognitiveFallback,
@@ -1907,7 +1907,7 @@ async function sendTemplateMessage(
       payload.caption = rule.waleads_media_caption || "";
     }
 
-    await fetch(`${supabaseUrl}/functions/v1/smart-ops-send-waleads`, {
+    await fetch(`${supabaseUrl}/functions/v1/smart-ops-wa-send`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${serviceKey}`,

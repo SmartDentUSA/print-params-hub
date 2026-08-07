@@ -16,7 +16,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Loader2, Send, Trash2, UserRoundCheck } from "lucide-react";
-import { WaLeadsVariableBar } from "@/components/smartops/WaLeadsVariableBar";
+import { MessageVariableBar } from "@/components/smartops/MessageVariableBar";
 
 interface BriefingConfig {
   id: string;
@@ -229,7 +229,7 @@ export function SellerBriefingAutomation() {
             {!cfg.usar_template_padrao && (
               <div className="space-y-2">
                 <Label className="text-xs">Mensagem personalizada</Label>
-                <WaLeadsVariableBar
+                <MessageVariableBar
                   onInsert={(k) =>
                     patch({ mensagem_template: `${cfg.mensagem_template ?? ""}{{${k}}}` })
                   }
@@ -259,7 +259,7 @@ export function SellerBriefingAutomation() {
             {cfg.incluir_link_wa && (
               <div className="space-y-2">
                 <Label className="text-xs">Mensagem pré-preenchida no link</Label>
-                <WaLeadsVariableBar
+                <MessageVariableBar
                   onInsert={(k) =>
                     patch({ link_wa_mensagem: `${cfg.link_wa_mensagem ?? ""}{{${k}}}` })
                   }

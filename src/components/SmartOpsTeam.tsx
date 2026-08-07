@@ -488,7 +488,7 @@ export function SmartOpsTeam() {
     if (!testMember || !testPhone) return;
     setTestSending(true);
     try {
-      const { data, error } = await supabase.functions.invoke("smart-ops-send-waleads", {
+      const { data, error } = await supabase.functions.invoke("smart-ops-wa-send", {
         body: {
           team_member_id: testMember.id,
           phone: testPhone,

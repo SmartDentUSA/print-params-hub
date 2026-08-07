@@ -13,8 +13,8 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Pencil, Trash2, Upload, Loader2 } from "lucide-react";
-import { WaLeadsVariableBar, HighlightVariables } from "@/components/smartops/WaLeadsVariableBar";
-import { WaLeadsMediaPreview } from "@/components/smartops/WaLeadsMediaPreview";
+import { MessageVariableBar, HighlightVariables } from "@/components/smartops/MessageVariableBar";
+import { MessageMediaPreview } from "@/components/smartops/MessageMediaPreview";
 import { SmartOpsLiaAutomations } from "@/components/smartops/SmartOpsLiaAutomations";
 import { SellerBriefingAutomation } from "@/components/smartops/SellerBriefingAutomation";
 
@@ -355,7 +355,7 @@ export function SmartOpsCSRules() {
           {r.waleads_ativo && (
             <div className="flex items-start gap-2">
               {r.waleads_tipo !== "text" && r.waleads_media_url && (
-                <WaLeadsMediaPreview tipo={r.waleads_tipo || "image"} url={r.waleads_media_url} compact />
+                <MessageMediaPreview tipo={r.waleads_tipo || "image"} url={r.waleads_media_url} compact />
               )}
               <div className="space-y-0.5">
                 <span className="text-primary">
@@ -671,7 +671,7 @@ export function SmartOpsCSRules() {
 
                   {form.waleads_tipo === "text" ? (
                     <div className="space-y-2">
-                      <WaLeadsVariableBar onInsert={insertVariable} />
+                      <MessageVariableBar onInsert={insertVariable} />
                       <div>
                         <Label className="text-xs">Mensagem</Label>
                         <Textarea
@@ -728,11 +728,11 @@ export function SmartOpsCSRules() {
                       </div>
 
                       {form.waleads_media_url && (
-                        <WaLeadsMediaPreview tipo={form.waleads_tipo} url={form.waleads_media_url} />
+                        <MessageMediaPreview tipo={form.waleads_tipo} url={form.waleads_media_url} />
                       )}
 
                       <div className="space-y-2">
-                        <WaLeadsVariableBar onInsert={insertCaptionVariable} />
+                        <MessageVariableBar onInsert={insertCaptionVariable} />
                         <div>
                           <Label className="text-xs">Legenda (opcional)</Label>
                           <Input

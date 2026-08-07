@@ -559,7 +559,7 @@ Deno.serve(async (req) => {
     let waMessage = stripMarkdownForWhatsApp(liaResponse);
     waMessage = smartTruncateForWhatsApp(waMessage, MAX_WHATSAPP_LENGTH, ragLinks[0] || null);
 
-    // 5. Send reply via smart-ops-send-waleads (same path as manual card)
+    // 5. Send reply via smart-ops-wa-send (same path as manual card)
     let replySent = false;
     let teamMemberId: string | null = null;
 
@@ -601,10 +601,10 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Call smart-ops-send-waleads internally (same code path as the manual card)
+    // Call smart-ops-wa-send internally (same code path as the manual card)
     if (teamMemberId) {
       try {
-        const sendUrl = `${SUPABASE_URL}/functions/v1/smart-ops-send-waleads`;
+        const sendUrl = `${SUPABASE_URL}/functions/v1/smart-ops-wa-send`;
         const sendRes = await fetch(sendUrl, {
           method: "POST",
           headers: {
@@ -622,7 +622,7 @@ Deno.serve(async (req) => {
         });
 
         const sendBody = await sendRes.text();
-        console.log(`[dra-lia-wa] send-waleads status=${sendRes.status} body=${sendBody.slice(0, 300)}`);
+        console.log(`[dra-lia-wa] wa-send status=${sendRes.status} body=${sendBody.slice(0, 300)}`);
 
         try {
           const parsed = JSON.parse(sendBody);
@@ -631,11 +631,11 @@ Deno.serve(async (req) => {
           replySent = sendRes.ok;
         }
       } catch (e) {
-        console.error("[dra-lia-wa] send-waleads call error:", e);
+        console.error("[dra-lia-wa] wa-send call error:", e);
       }
     }
 
-    // 6. Log inbound in whatsapp_inbox (outbound is persisted by smart-ops-send-waleads)
+    // 6. Log inbound in whatsapp_inbox (outbound is persisted by smart-ops-wa-send)
     await supabase.from("whatsapp_inbox").insert({
       phone: phoneDigits,
       phone_normalized: phoneSuffix,
@@ -679,7 +679,7 @@ Deno.serve(async (req) => {
             `Cognitivo: ${hotLead?.lead_stage_detected || "?"} | Urgência: ${hotLead?.urgency_level || "?"}`,
             `Ação: ${hotLead?.recommended_approach || "Contato imediato"}`,
           ].join("\n");
-          await fetch(`${SUPABASE_URL}/functions/v1/smart-ops-send-waleads`, {
+          await fetch(`${SUPABASE_URL}/functions/v1/smart-ops-wa-send`, {
             method: "POST",
             headers: { "Content-Type": "application/json", Authorization: `Bearer ${SERVICE_ROLE_KEY}` },
             body: JSON.stringify({ team_member_id: m.id, phone: m.whatsapp_number, tipo: "text", message: alertMsg, lead_id: leadId }),

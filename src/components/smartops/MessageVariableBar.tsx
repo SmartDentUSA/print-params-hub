@@ -17,11 +17,11 @@ const LEAD_VARIABLES = [
   { key: "astron_email", label: "Email Plataforma" },
 ];
 
-interface WaLeadsVariableBarProps {
+interface MessageVariableBarProps {
   onInsert: (varKey: string) => void;
 }
 
-export function WaLeadsVariableBar({ onInsert }: WaLeadsVariableBarProps) {
+export function MessageVariableBar({ onInsert }: MessageVariableBarProps) {
   return (
     <div className="space-y-1">
       <span className="text-[10px] text-muted-foreground">Inserir variável:</span>

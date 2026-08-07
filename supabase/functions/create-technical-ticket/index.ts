@@ -222,7 +222,7 @@ Deno.serve(async (req) => {
         // Send to support WhatsApp number (16 3419-4735)
         const supportPhone = "551634194735";
         
-        const sendResp = await fetch(`${SUPABASE_URL}/functions/v1/smart-ops-send-waleads`, {
+        const sendResp = await fetch(`${SUPABASE_URL}/functions/v1/smart-ops-wa-send`, {
           method: "POST",
           headers: {
             Authorization: `Bearer ${Deno.env.get("SUPABASE_ANON_KEY")}`,
