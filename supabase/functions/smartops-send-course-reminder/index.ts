@@ -95,29 +95,22 @@ Deno.serve(async (req) => {
           .maybeSingle();
         if (!claim) continue;
 
-        if (!(e as any).cs_team_member_id) {
-          failed.push({ id: (e as any).id, error: "cs_team_member_id ausente" });
-          await supabase.from("smartops_course_enrollments").update({
-            wa_reminder_sent_at: null,
-            wa_reminder_error: "cs_team_member_id ausente",
-          }).eq("id", (e as any).id);
-          continue;
-        }
-
+        // REGRA: tudo que é treinamento/NPS sai pelo celular do CS (cs_principal).
+        const CS_INSTANCE = Deno.env.get("CS_EVOLUTION_INSTANCE") ?? "cs_principal";
         let { data: cs } = await supabase
           .from("team_members")
           .select("id, nome_completo, evolution_instance_name")
-          .eq("id", (e as any).cs_team_member_id)
+          .eq("evolution_instance_name", CS_INSTANCE)
           .maybeSingle();
 
-        // Fallback institucional: instância Evolution smartdent_marketing
-        if (!cs?.evolution_instance_name) {
-          const { data: inst } = await supabase
+        // Fallback: CS responsável da turma, se houver instância própria.
+        if (!cs?.evolution_instance_name && (e as any).cs_team_member_id) {
+          const { data: owner } = await supabase
             .from("team_members")
             .select("id, nome_completo, evolution_instance_name")
-            .eq("evolution_instance_name", "smartdent_marketing")
+            .eq("id", (e as any).cs_team_member_id)
             .maybeSingle();
-          cs = inst ?? cs;
+          cs = owner ?? cs;
         }
 
         if (!cs?.evolution_instance_name) {
