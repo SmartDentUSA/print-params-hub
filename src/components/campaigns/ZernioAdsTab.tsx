@@ -41,7 +41,8 @@ export function fmtPct(v?: number | null) {
   return `${v.toFixed(2)}%`;
 }
 export function fmtRoi(revenue?: number, spend?: number) {
-  if (!spend || revenue === undefined || revenue === null) return '—';
+  if (spend === undefined || spend === null || revenue === undefined || revenue === null) return '—';
+  if (spend <= 0) return revenue > 0 ? '∞' : '—';
   const roi = ((revenue - spend) / spend) * 100;
   return `${roi > 0 ? '+' : ''}${roi.toFixed(0)}%`;
 }
@@ -110,6 +111,11 @@ export default function ZernioAdsTab() {
   const periodByCampaign = periodQ.data?.byCampaign;
   const revenueQ = useCampaignRevenue(Number(days));
   const revenueByCampaign = revenueQ.data?.byCampaign;
+  const revenueLoaded = !!revenueQ.data;
+
+  /** Investido da campanha: insights do período; se a Zernio não retornar, usa o acumulado. */
+  const spendOf = (c: ZernioAdCampaign) =>
+    periodByCampaign?.get(c.platformCampaignId ?? '')?.spend ?? c.metrics?.spend;
 
   const totals = useMemo(() => {
     const acc = { spend: 0, impressions: 0, clicks: 0, conversions: 0 };
@@ -131,13 +137,20 @@ export default function ZernioAdsTab() {
   }, [filtered, periodByCampaign, periodQ.data, search]);
 
   const revenueTotal = useMemo(() => {
-    if (!revenueByCampaign) return 0;
+    if (!revenueByCampaign) return undefined;
     const term = search.trim().toLowerCase();
     if (!term) return revenueQ.data?.total ?? 0;
     let sum = 0;
     for (const c of filtered) sum += revenueByCampaign.get(c.platformCampaignId ?? '')?.revenue ?? 0;
     return sum;
   }, [filtered, revenueByCampaign, revenueQ.data, search]);
+
+  const spendTotal = useMemo(() => {
+    if (totals.spend > 0) return totals.spend;
+    let sum = 0;
+    for (const c of filtered) sum += periodByCampaign?.get(c.platformCampaignId ?? '')?.spend ?? c.metrics?.spend ?? 0;
+    return sum;
+  }, [filtered, periodByCampaign, totals.spend]);
 
   const loading = campaignsQ.isLoading || adsQ.isLoading || periodQ.isLoading;
   const err = (campaignsQ.error ?? adsQ.error) as Error | null;
@@ -200,7 +213,7 @@ export default function ZernioAdsTab() {
           { label: 'Cliques', value: fmtInt(totals.clicks) },
           { label: 'Conversões', value: fmtInt(totals.conversions) },
           { label: 'Receita', value: fmtMoney(revenueTotal) },
-          { label: 'ROI', value: fmtRoi(revenueTotal, totals.spend) },
+          { label: 'ROI', value: fmtRoi(revenueTotal, spendTotal) },
         ].map((k) => (
           <Card key={k.label}>
             <CardContent className="py-4">
