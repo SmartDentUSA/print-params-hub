@@ -162,7 +162,7 @@ export default function ZernioAdsTab() {
           </SelectContent>
         </Select>
         <Select value={days} onValueChange={setDays}>
-          <SelectTrigger className="w-[170px]"><SelectValue /></SelectTrigger>
+          <SelectTrigger className="w-[220px]"><SelectValue /></SelectTrigger>
           <SelectContent>
             {PERIODS.map((p) => <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>)}
           </SelectContent>
