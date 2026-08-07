@@ -297,10 +297,21 @@ Deno.serve(async (req) => {
         .maybeSingle();
       if (!a) return json({ error: "automation_not_found" }, 404);
       const cfg = (a.action_config ?? {}) as Record<string, any>;
+      const testClient = normalizePhone(body?.client_phone ?? destino) ?? "";
+      const presetTest = interpolate(String(cfg.client_link_message ?? ""), {
+        nome: "Teste",
+        primeiro_nome: "Teste",
+      });
       const msg = interpolate(String(cfg.mensagem ?? ""), {
         nome: "Teste",
         primeiro_nome: "Teste",
         link: cfg.link_url ?? "",
+        mensagem_cliente: "mensagem de teste recebida no WhatsApp",
+        canal_origem: a.trigger_source,
+        telefone: testClient,
+        link_cliente: testClient
+          ? `https://wa.me/${testClient}${presetTest ? `?text=${encodeURIComponent(presetTest)}` : ""}`
+          : "",
       });
       if (a.action_type === "sms") {
         const r = await sendSms(normalizePhone(destino) ?? "", msg);
