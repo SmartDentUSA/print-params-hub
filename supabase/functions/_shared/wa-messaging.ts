@@ -4,6 +4,7 @@
  */
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { logAIUsage, extractUsage } from "./log-ai-usage.ts";
+import { buildSellerBriefingText } from "./seller-summary.ts";
 
 type SupabaseClient = ReturnType<typeof createClient>;
 
