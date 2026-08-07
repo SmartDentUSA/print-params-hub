@@ -174,9 +174,17 @@ serve(async (req) => {
 
       if (rows.length === 0) return json({ linked: true, lead_id: leadId, inserted: 0 });
 
+      // O índice único de dedupe é parcial (WHERE dedupe_hash IS NOT NULL),
+      // então o PostgREST não pode usá-lo em ON CONFLICT: filtramos antes de inserir.
+      const hashes = (rows as any[]).map((r) => r.dedupe_hash);
+      const { data: existing } = await supabase.from('lead_activity_log')
+        .select('dedupe_hash').eq('lead_id', leadId).in('dedupe_hash', hashes);
+      const seen = new Set((existing ?? []).map((e: any) => e.dedupe_hash));
+      const fresh = (rows as any[]).filter((r) => !seen.has(r.dedupe_hash));
+      if (fresh.length === 0) return json({ linked: true, lead_id: leadId, matched_by: matchedBy, inserted: 0 });
+
       const { error, data } = await supabase.from('lead_activity_log')
-        .upsert(rows as any[], { onConflict: 'lead_id,event_type,dedupe_hash', ignoreDuplicates: true })
-        .select('id');
+        .insert(fresh as any[]).select('id');
       if (error) return json({ error: error.message }, 500);
 
       return json({ linked: true, lead_id: leadId, matched_by: matchedBy, inserted: data?.length ?? 0 });
