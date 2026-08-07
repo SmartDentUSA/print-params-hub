@@ -632,13 +632,27 @@ export function TriggerAutomations() {
                     <Input value="E-mail do lead" disabled />
                   ) : (
                     <Select
-                      value={String(act.destinatario ?? "lead")}
-                      onValueChange={(v) => setAct({ destinatario: v })}
+                      value={
+                        String(act.destinatario ?? "lead") === "interno"
+                          ? String(act.notify_team_member_id ?? "interno")
+                          : "lead"
+                      }
+                      onValueChange={(v) => {
+                        if (v === "lead") {
+                          setAct({ destinatario: "lead", notify_team_member_id: null });
+                        } else {
+                          setAct({ destinatario: "interno", notify_team_member_id: v });
+                        }
+                      }}
                     >
-                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectTrigger><SelectValue placeholder="Selecionar destino…" /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="lead">O próprio cliente/lead</SelectItem>
-                        <SelectItem value="interno">Celular interno (ex.: suporte)</SelectItem>
+                        {(members ?? []).map((m: any) => (
+                          <SelectItem key={m.id} value={m.id}>
+                            {m.nome_completo} — {m.evolution_phone ?? m.whatsapp_number ?? "sem número"}
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   )}
@@ -673,31 +687,13 @@ export function TriggerAutomations() {
               </div>
 
               {draft.action_type !== "email" && String(act.destinatario ?? "lead") === "interno" && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <div>
-                    <Label>Celular interno que recebe o aviso</Label>
-                    <Select
-                      value={String(act.notify_team_member_id ?? "")}
-                      onValueChange={(v) => setAct({ notify_team_member_id: v })}
-                    >
-                      <SelectTrigger><SelectValue placeholder="Selecionar membro do time…" /></SelectTrigger>
-                      <SelectContent>
-                        {(members ?? []).map((m: any) => (
-                          <SelectItem key={m.id} value={m.id}>
-                            {m.nome_completo} — {m.evolution_phone ?? m.whatsapp_number ?? "sem número"}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label>Ou número direto</Label>
-                    <Input
-                      value={String(act.notify_phone ?? "")}
-                      onChange={(e) => setAct({ notify_phone: e.target.value })}
-                      placeholder="5516999999999"
-                    />
-                  </div>
+                <div>
+                  <Label>Ou número direto (sobrepõe o destino acima)</Label>
+                  <Input
+                    value={String(act.notify_phone ?? "")}
+                    onChange={(e) => setAct({ notify_phone: e.target.value })}
+                    placeholder="5516999999999"
+                  />
                 </div>
               )}
 
