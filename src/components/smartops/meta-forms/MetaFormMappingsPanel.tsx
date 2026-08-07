@@ -17,8 +17,10 @@ import {
   useCatalogProductOptions,
   useSaveMetaFormMapping,
   useIsAdminUser,
+  useSetOriginAcquisitionType,
   type MetaFormMapping,
   type LeadOrigin,
+  type AcquisitionType,
 } from "@/hooks/useMetaFormMappings";
 import { WORKFLOW_7X3_CELLS, workflowCellLabel } from "@/lib/workflowCells";
 
@@ -37,6 +39,8 @@ const SOURCE_KIND_LABEL: Record<string, string> = {
   system_form: "Formulário do sistema",
   origin: "Origem de lead",
 };
+
+const AUTO = "__auto__";
 
 function fmtDate(v?: string | null) {
   if (!v) return "—";
@@ -88,10 +92,12 @@ export function MetaFormMappingsPanel() {
   const { data: products } = useCatalogProductOptions();
   const { data: isAdmin } = useIsAdminUser();
   const save = useSaveMetaFormMapping();
+  const setAcquisition = useSetOriginAcquisitionType();
 
   const [search, setSearch] = useState("");
   const [originSearch, setOriginSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
+  const [acqFilter, setAcqFilter] = useState("all");
   const [editor, setEditor] = useState<EditorState | null>(null);
 
   const filtered = useMemo(() => {
@@ -111,11 +117,29 @@ export function MetaFormMappingsPanel() {
     return (origins ?? [])
       .filter((o) => !o.mapped)
       .filter((o) => typeFilter === "all" || o.origin_type === typeFilter)
+      .filter((o) => acqFilter === "all" || o.acquisition_type === acqFilter)
       .filter((o) =>
         !q ||
         [o.origin_key, o.origin_name].some((v) => String(v ?? "").toLowerCase().includes(q))
       );
-  }, [origins, originSearch, typeFilter]);
+  }, [origins, originSearch, typeFilter, acqFilter]);
+
+  const handleAcquisitionChange = async (o: LeadOrigin, value: string) => {
+    try {
+      await setAcquisition.mutateAsync({
+        originKey: o.origin_key,
+        type: value === AUTO ? null : (value as AcquisitionType),
+        originName: o.origin_name,
+      });
+      toast.success(
+        value === AUTO
+          ? "Classificação manual removida (volta à detecção automática)"
+          : `Origem marcada como ${value === "outbound" ? "Outbound" : "Inbound"}`
+      );
+    } catch (e: any) {
+      toast.error(e?.message ?? "Falha ao classificar origem");
+    }
+  };
 
   const openOriginEditor = (o: LeadOrigin) => {
     const existing = (mappings ?? []).find((m) => m.form_id === o.origin_key);
