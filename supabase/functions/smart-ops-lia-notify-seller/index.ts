@@ -1,8 +1,13 @@
-// smart-ops-lia-notify-seller — v35
-// Envia briefing SmartOps para o vendedor via Evolution API.
+// smart-ops-lia-notify-seller — v36
+// Envia briefing SmartOps para o vendedor via Evolution API, sempre pela
+// instância institucional de marketing.
 // Substitui a versão fantasma (v32) que ainda usava o header antigo
 // "🤖 Novo Lead - Dra. L.I.A.". Agora delega ao buildSellerNotification
 // compartilhado, que já formata com "📊 Análise SmartOps".
+//
+// v36 desfaz a fila de pendentes: aceita seller_name/seller_phone (como os
+// triggers do banco chamam), tranca só em briefing entregue e fecha a linha
+// 'pendente' gravada pelo trigger em vez de abandoná-la.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { buildSellerNotification } from "../_shared/waleads-messaging.ts";
@@ -30,20 +35,42 @@ Deno.serve(async (req) => {
   try {
     const body = await req.json().catch(() => ({}));
     const lead_id = body?.lead_id as string | undefined;
-    const team_member_id = body?.team_member_id as string | undefined;
     const trigger = (body?.trigger as string | undefined) || "unknown";
 
-    if (!lead_id || !team_member_id) {
-      return json({ error: "lead_id and team_member_id are required" }, 400);
+    // Os triggers do banco (fn_notify_seller_on_lead_assigned,
+    // fn_trigger_briefing_notify_seller, fn_trigger_briefing_vendedor_imediato)
+    // chamam com seller_name/seller_phone; o smart-ops-lia-assign chama com
+    // team_member_id. Exigir só team_member_id fazia todo envio por trigger
+    // morrer em 400 antes de chegar no envio.
+    let team_member_id = body?.team_member_id as string | undefined;
+    const sellerName = (body?.seller_name as string | undefined)?.trim() || null;
+    const sellerPhone = (body?.seller_phone as string | undefined)?.trim() || null;
+
+    if (!lead_id) return json({ error: "lead_id is required" }, 400);
+
+    if (!team_member_id && (sellerName || sellerPhone)) {
+      team_member_id = await resolveTeamMemberId(supabase, sellerName, sellerPhone);
+    }
+
+    if (!team_member_id) {
+      return json(
+        { error: "team_member_id, seller_name or seller_phone is required", lead_id },
+        400
+      );
     }
 
     // ── Dedup lock (últimas 24h) ──
+    // Só briefing efetivamente entregue trava um novo envio. As linhas
+    // 'pendente' são reserva gravada pelo trigger ANTES da chamada — se
+    // entrarem no lock, a própria reserva impede o envio que ela deveria
+    // proteger.
     const sinceIso = new Date(Date.now() - LOCK_HOURS * 3600 * 1000).toISOString();
     const { data: existing } = await supabase
       .from("message_logs")
       .select("id")
       .eq("lead_id", lead_id)
       .in("tipo", ["briefing_vendedor", "briefing_vendedor_block"])
+      .eq("status", "enviado")
       .gte("created_at", sinceIso)
       .limit(1)
       .maybeSingle();
@@ -135,6 +162,44 @@ Deno.serve(async (req) => {
   }
 });
 
+// Resolve o vendedor a partir do nome (como vem do CRM em
+// proprietario_lead_crm) ou do telefone, para atender as chamadas dos triggers.
+async function resolveTeamMemberId(
+  supabase: ReturnType<typeof createClient>,
+  sellerName: string | null,
+  sellerPhone: string | null
+): Promise<string | undefined> {
+  if (sellerName) {
+    const { data } = await supabase
+      .from("team_members")
+      .select("id")
+      .eq("ativo", true)
+      .ilike("nome_completo", sellerName)
+      .limit(1)
+      .maybeSingle<{ id: string }>();
+    if (data?.id) return data.id;
+  }
+
+  if (sellerPhone) {
+    const digits = normalizePhone(sellerPhone);
+    if (digits.length >= 10) {
+      const suffix = digits.slice(-9);
+      const { data } = await supabase
+        .from("team_members")
+        .select("id, whatsapp_number")
+        .eq("ativo", true)
+        .not("whatsapp_number", "is", null)
+        .returns<{ id: string; whatsapp_number: string }[]>();
+      const hit = data?.find(
+        (r) => normalizePhone(String(r.whatsapp_number)).slice(-9) === suffix
+      );
+      if (hit?.id) return hit.id;
+    }
+  }
+
+  return undefined;
+}
+
 function json(payload: unknown, status = 200) {
   return new Response(JSON.stringify(payload), {
     status,
@@ -155,19 +220,38 @@ async function logMsg(
     error_details?: string | null;
   }
 ) {
+  const payload = {
+    lead_id: row.lead_id,
+    team_member_id: row.team_member_id,
+    whatsapp_number: row.whatsapp_number,
+    tipo: row.tipo,
+    status: row.status,
+    evolution_instance: row.evolution_instance,
+    mensagem_preview: row.mensagem_preview,
+    error_details: row.error_details ?? null,
+    data_envio: new Date().toISOString(),
+  };
+
   try {
-    await supabase.from("message_logs").insert({
-      lead_id: row.lead_id,
-      team_member_id: row.team_member_id,
-      whatsapp_number: row.whatsapp_number,
-      tipo: row.tipo,
-      status: row.status,
-      evolution_instance: row.evolution_instance,
-      mensagem_preview: row.mensagem_preview,
-      error_details: row.error_details ?? null,
-      data_envio: new Date().toISOString(),
-    });
+    // O trigger grava uma linha 'pendente' antes de chamar esta função. Fechamos
+    // essa mesma linha com o resultado real em vez de abrir outra — era isso que
+    // deixava a fila de pendentes crescendo indefinidamente.
+    const { data: pending } = await supabase
+      .from("message_logs")
+      .select("id")
+      .eq("lead_id", row.lead_id)
+      .eq("tipo", "briefing_vendedor")
+      .eq("status", "pendente")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle<{ id: string }>();
+
+    if (pending?.id) {
+      await supabase.from("message_logs").update(payload).eq("id", pending.id);
+    } else {
+      await supabase.from("message_logs").insert(payload);
+    }
   } catch (e) {
-    console.warn("[notify-seller v33] log insert failed:", e);
+    console.warn("[notify-seller v36] log write failed:", e);
   }
 }
