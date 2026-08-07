@@ -236,6 +236,18 @@ Regras:
   return buildStaticGreeting(lead, sellerName);
 }
 
+// Link click-to-chat para o vendedor abrir a conversa com o lead direto do
+// celular. telefone_normalized chega como "+5511984200228"; o wa.me só aceita
+// dígitos, com DDI.
+export function waMeLink(raw: string | null | undefined): string | null {
+  const digits = String(raw ?? "").replace(/\D/g, "");
+  if (!digits) return null;
+  const comDdi = digits.startsWith("55") ? digits : `55${digits}`;
+  // 55 + DDD (2) + número (8 ou 9)
+  if (comDdi.length < 12 || comDdi.length > 13) return null;
+  return `https://wa.me/${comDdi}`;
+}
+
 export async function buildSellerNotification(
   lead: Record<string, unknown>,
   supabase: SupabaseClient
@@ -312,6 +324,7 @@ export async function buildSellerNotification(
     `👤 Lead: ${lead.nome || "N/A"}`,
     `📧 Email: ${lead.email || "N/A"}`,
     `📱 Tel: ${phone || "N/A"}`,
+    ...(waMeLink(phone) ? [`💬 Chamar agora: ${waMeLink(phone)}`] : []),
     `🦷 Área de atuação: ${lead.area_atuacao || "N/A"}`,
     `🦷 Especialidade: ${lead.especialidade || "N/A"}`,
     `🎯 Interesse: ${lead.produto_interesse || "N/A"}`,
