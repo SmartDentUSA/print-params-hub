@@ -7,6 +7,7 @@
  * via addDealNote and for persisting `last_seller_note_hash` / `_at`.
  */
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { normalizeBrazilianPhone } from "./phone-normalize.ts";
 
 type SupabaseClient = ReturnType<typeof createClient>;
 
@@ -48,6 +49,10 @@ export interface SellerSummaryOptions {
   /** PipeRun deal id this note is being posted on — used only for hashing
    * so the same content posted on two different deals counts as two notes. */
   dealId?: number | null;
+  /** Inclui o link "Abrir conversa com o lead" (default: true). */
+  includeWaLink?: boolean;
+  /** Frase pré-montada (já interpolada) que vai no `?text=` do link wa.me. */
+  waLinkPreset?: string | null;
 }
 
 export async function buildSellerDealSummaryHTML(
@@ -144,6 +149,15 @@ export async function buildSellerDealSummaryHTML(
   // APENAS histórico/dados do lead — sem pitch, RAG, inteligência ou
   // diagnóstico (esses vivem no briefing do vendedor, não no histórico).
   const sections: string[] = [];
+  // JID canônico para o link do WhatsApp: repara telefone legado de 8 dígitos
+  // (falta o 9) e DDI — sem isso o wa.me abre um número inexistente e o
+  // WhatsApp não identifica o cliente.
+  const waJid = (normalizeBrazilianPhone(String(lead.telefone_normalized || lead.telefone_raw || "")) || "")
+    .replace(/\D/g, "");
+  const waPreset = String(opts.waLinkPreset ?? "").trim();
+  const waLink = waJid.length >= 12
+    ? `https://wa.me/${waJid}${waPreset ? `?text=${encodeURIComponent(waPreset)}` : ""}`
+    : "";
 
   sections.push(`<b>🧾 Resumo do Lead — Smart Dent</b>`);
   sections.push(`<i>Atualizado em ${fmtDate(new Date().toISOString())}</i><br>`);
@@ -166,8 +180,8 @@ export async function buildSellerDealSummaryHTML(
     `• Telefone: ${esc(lead.telefone_normalized || lead.telefone_raw)}<br>` +
     `• Cidade/UF: ${esc(lead.cidade || "—")}/${esc(lead.uf || "—")}<br>` +
     `• Área: ${esc(lead.area_atuacao)} | Especialidade: ${esc(lead.especialidade)}<br>` +
-    (phoneDigits.length >= 10
-      ? `👉 Abrir conversa com o lead: <a href="https://wa.me/${phoneDigits.startsWith("55") ? phoneDigits : "55" + phoneDigits}">https://wa.me/${phoneDigits.startsWith("55") ? phoneDigits : "55" + phoneDigits}</a><br>`
+    (opts.includeWaLink !== false && waLink
+      ? `👉 Abrir conversa com o lead: <a href="${waLink}">${waLink}</a><br>`
       : ""),
   );
 
@@ -290,8 +304,9 @@ export async function buildSellerDealSummaryHTML(
 export async function buildSellerBriefingText(
   supabase: SupabaseClient,
   lead: Record<string, unknown>,
+  opts: SellerSummaryOptions = {},
 ): Promise<string> {
-  const { html } = await buildSellerDealSummaryHTML(supabase, lead);
+  const { html } = await buildSellerDealSummaryHTML(supabase, lead, opts);
   return htmlNoteToWhatsApp(html);
 }
 

@@ -4,7 +4,7 @@
  */
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { logAIUsage, extractUsage } from "./log-ai-usage.ts";
-import { buildSellerBriefingText } from "./seller-summary.ts";
+import { buildSellerBriefingText, type SellerSummaryOptions } from "./seller-summary.ts";
 
 type SupabaseClient = ReturnType<typeof createClient>;
 
@@ -239,11 +239,12 @@ Regras:
 
 export async function buildSellerNotification(
   lead: Record<string, unknown>,
-  supabase: SupabaseClient
+  supabase: SupabaseClient,
+  opts: SellerSummaryOptions = {},
 ): Promise<string> {
   // Fonte única: mesmo conteúdo da nota "Resumo do Lead" do PipeRun,
   // renderizado em texto para WhatsApp. Sem pitch/RAG/inteligência/diagnóstico.
-  return await buildSellerBriefingText(supabase, lead);
+  return await buildSellerBriefingText(supabase, lead, opts);
 }
 
 function formatDate(val: unknown): string {
