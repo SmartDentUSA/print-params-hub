@@ -136,10 +136,9 @@ Deno.serve(async (req) => {
         const turma = (turmas ?? []).find((t: any) => t.id === enr.turma_id);
         const link = `${NPS_BASE_URL}/nps/${token}`;
         const text =
-          `Olá${nome ? `, ${nome}` : ""}! Aqui é a Smart Dent 💙\n\n` +
-          `Esperamos que o treinamento${turma?.label ? ` *${turma.label}*` : ""} tenha sido proveitoso.\n` +
-          `Sua opinião é muito importante para continuarmos evoluindo — são só 3 perguntas rápidas (menos de 1 minuto):\n\n` +
-          `${link}\n\nObrigado por fazer parte da nossa história!`;
+          `Oie${nome ? ` ${nome}` : ""} espero qu esteja bem!\n\n` +
+          `Sua opinião é muito importante para continuarmos evoluindo, são só 3 perguntas rápidas e resposta anônima pois queremos sua sinceridade (menos de 1 minuto):\n\n` +
+          `${link}`;
 
         const res = await fetch(`${baseUrl}/message/sendText/${encodeURIComponent(instance)}`, {
           method: "POST",
