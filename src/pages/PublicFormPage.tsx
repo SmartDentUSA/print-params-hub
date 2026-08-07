@@ -9,6 +9,7 @@ import { PhoneInputWithDDI } from "@/components/PhoneInputWithDDI";
 import { useCompanyData } from "@/hooks/useCompanyData";
 import { Slider } from "@/components/ui/slider";
 import { isFieldVisible } from "@/lib/formConditions";
+import { linkLeadToPageSession } from "@/hooks/usePageTracking";
 
 interface FormField {
   id: string;
@@ -534,6 +535,8 @@ export default function PublicFormPage() {
 
       // Gravar respostas dos campos de mapeamento
       const leadId = ingestData?.lead_id;
+      // Vincula a navegação anônima desta sessão ao lead identificado
+      if (leadId) void linkLeadToPageSession(leadId);
       if (form.form_purpose === "sdr_captacao" && leadId) {
         const mappingFields = activeFields.filter((f) => f.workflow_cell_target);
         if (mappingFields.length > 0) {

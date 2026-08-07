@@ -3,6 +3,7 @@ import { useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 
 const SESSION_KEY = "sd_page_session";
+const LEAD_KEY = "sd_known_lead_id";
 const DEBOUNCE_MS = 2000;
 
 function getOrCreateSessionId(): string {
@@ -12,6 +13,35 @@ function getOrCreateSessionId(): string {
     sessionStorage.setItem(SESSION_KEY, sid);
   }
   return sid;
+}
+
+/** Lead já identificado neste navegador (persistido entre sessões). */
+function getKnownLeadId(): string | null {
+  try {
+    const v = localStorage.getItem(LEAD_KEY);
+    return v && /^[0-9a-f-]{36}$/i.test(v) ? v : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Marca o lead identificado e vincula todas as visitas anônimas
+ * da sessão atual a ele (fonte da verdade da timeline).
+ */
+export async function linkLeadToPageSession(leadId: string | null | undefined) {
+  if (!leadId) return;
+  try { localStorage.setItem(LEAD_KEY, leadId); } catch {}
+  const sessionId = sessionStorage.getItem(SESSION_KEY);
+  if (!sessionId) return;
+  try {
+    await supabase.rpc("fn_link_page_views_to_lead" as never, {
+      p_session_id: sessionId,
+      p_lead_id: leadId,
+    } as never);
+  } catch {
+    /* tracking nunca deve quebrar o fluxo do usuário */
+  }
 }
 
 function getUtmParams(): Record<string, string | null> {
@@ -185,6 +215,7 @@ export function usePageTracking() {
 
       const insertPayload: Record<string, any> = {
         session_id: sessionId,
+        lead_id: getKnownLeadId(),
         page_path: path,
         page_title: document.title,
         page_type: pageType,
