@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { EmailHtmlEditor } from "@/components/smartops/EmailHtmlEditor";
 import {
   Select,
   SelectContent,
@@ -119,7 +120,17 @@ const emptyDraft = (): Partial<TriggerAutomation> => ({
   trigger_event: "clicked",
   trigger_config: { provider: "evolution", team_member_ids: [], keywords: [] },
   action_type: "whatsapp",
-  action_config: { mensagem: "", link_url: "", assunto: "", team_member_id: null },
+  action_config: {
+    mensagem: "",
+    link_url: "",
+    assunto: "",
+    html: "",
+    team_member_id: null,
+    destinatario: "lead",
+    notify_team_member_id: null,
+    notify_phone: "",
+    client_link_message: "",
+  },
   horario_inicio: 9,
   horario_fim: 18,
   dias_semana: [1, 2, 3, 4, 5],
@@ -406,6 +417,15 @@ export function TriggerAutomations() {
                 </div>
               );
             })}
+          </TabsContent>
+
+          {/* Botão + no fim da lista */}
+          <TabsContent value="lista" className="pt-0" forceMount={undefined as never}>
+            <div className="pt-1">
+              <Button variant="outline" size="sm" className="w-full" onClick={() => openEditor()}>
+                <Plus className="w-4 h-4 mr-1" /> Adicionar automação
+              </Button>
+            </div>
           </TabsContent>
 
           {/* ───── Fila ───── */}
