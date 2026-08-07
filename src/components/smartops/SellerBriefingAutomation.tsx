@@ -66,6 +66,17 @@ export function SellerBriefingAutomation() {
 
   const patch = (p: Partial<BriefingConfig>) => setCfg((c) => (c ? { ...c, ...p } : c));
 
+  // Canais são independentes: ativar E-mail/SMS não suspende o WhatsApp.
+  const canais = String(cfg?.canal ?? "whatsapp")
+    .split(",")
+    .map((c) => c.trim().toLowerCase())
+    .filter(Boolean);
+  const hasCanal = (c: string) => canais.includes(c);
+  const toggleCanal = (c: string, on: boolean) => {
+    const next = on ? Array.from(new Set([...canais, c])) : canais.filter((x) => x !== c);
+    patch({ canal: next.join(",") });
+  };
+
   const save = async () => {
     if (!cfg) return;
     setSaving(true);
@@ -135,18 +146,26 @@ export function SellerBriefingAutomation() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="space-y-1.5">
             <Label className="text-xs uppercase tracking-wide text-muted-foreground">
-              O quê (canal)
+              O quê (canais)
             </Label>
-            <Select value={cfg.canal} onValueChange={(v) => patch({ canal: v })}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="whatsapp">WhatsApp</SelectItem>
-                <SelectItem value="email">E-mail</SelectItem>
-                <SelectItem value="sms">SMS</SelectItem>
-              </SelectContent>
-            </Select>
+            <div className="rounded-md border divide-y">
+              {[
+                { key: "whatsapp", label: "WhatsApp" },
+                { key: "email", label: "E-mail" },
+                { key: "sms", label: "SMS" },
+              ].map((c) => (
+                <div key={c.key} className="flex items-center justify-between px-3 py-2">
+                  <span className="text-sm">{c.label}</span>
+                  <Switch
+                    checked={hasCanal(c.key)}
+                    onCheckedChange={(v) => toggleCanal(c.key, v)}
+                  />
+                </div>
+              ))}
+            </div>
+            <p className="text-[10px] text-muted-foreground">
+              Canais independentes — ativar um não suspende os outros
+            </p>
           </div>
 
           <div className="space-y-1.5">
@@ -213,7 +232,7 @@ export function SellerBriefingAutomation() {
         </div>
 
         {/* MENSAGEM */}
-        {cfg.canal === "whatsapp" && (
+        {hasCanal("whatsapp") && (
           <div className="space-y-4 rounded-lg border p-4">
             <div className="flex items-center justify-between">
               <div>
@@ -276,10 +295,9 @@ export function SellerBriefingAutomation() {
           </div>
         )}
 
-        {cfg.canal !== "whatsapp" && (
+        {canais.length === 0 && (
           <div className="rounded-lg border border-dashed p-4 text-xs text-muted-foreground">
-            Canal <strong>{cfg.canal}</strong> selecionado: o envio por WhatsApp fica suspenso e o
-            briefing não é disparado até que o canal volte para WhatsApp.
+            Nenhum canal ativo — o briefing não será disparado. Ative pelo menos um canal.
           </div>
         )}
 
