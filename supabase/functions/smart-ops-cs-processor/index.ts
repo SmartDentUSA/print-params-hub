@@ -142,7 +142,6 @@ Deno.serve(async (req) => {
         // ─── WhatsApp path (fallback) ───
         if (rule.wa_ativo && lead.telefone_normalized) {
           const waTipo = rule.wa_tipo || "text";
-          let evolutionInstanceName: string | null = null;
           let teamMemberId: string | null = null;
           let teamMemberWhatsapp: string | null = null;
 
@@ -153,7 +152,6 @@ Deno.serve(async (req) => {
               .eq("id", rule.team_member_id)
               .single();
             if (tm?.evolution_instance_name) {
-              evolutionInstanceName = tm.evolution_instance_name;
               teamMemberId = tm.id;
               teamMemberWhatsapp = tm.whatsapp_number;
             }
