@@ -141,7 +141,11 @@ function buildEvoGo(tm: WaTeamMember, operation: WaOperation, dualMode: boolean)
   return {
     provider: 'evolution_go',
     baseUrl: stripSlash(clean(tm.evo_go_base_url) || DEFAULT_EVO_GO_BASE_URL),
-    instance: clean(tm.evo_go_instance_name ?? tm.evolution_instance_name) || clean(tm.evo_go_instance_id),
+    // Prioridade: nome EvoGo explícito > id/nome da instância EvoGo > nome Evolution.
+    // O nome Evolution só serve de último recurso: quando a instância EvoGo tem
+    // sufixo próprio (ex.: smartdent_marketing_evogo), usar o nome Evolution
+    // aponta para uma instância inexistente e o envio falha com "no active session".
+    instance: clean(tm.evo_go_instance_name) || clean(tm.evo_go_instance_id) || clean(tm.evolution_instance_name),
     credential: clean(tm.evo_go_instance_token),
     teamMemberId: tm.id ?? null,
     operation,
