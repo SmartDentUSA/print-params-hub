@@ -96,5 +96,6 @@ Deno.serve(async (req) => {
     } catch (e) { out.sms_error = String((e as Error).message ?? e); }
   }
 
+  console.log("[wa-cs-test-send]", JSON.stringify(out));
   return Response.json({ ok: true, ...out }, { headers: corsHeaders });
 });
