@@ -1316,132 +1316,16 @@ async function buildSellerNotification(
   lead: Record<string, unknown>,
   supabase: ReturnType<typeof createClient>
 ): Promise<string> {
-  // Enrich in-memory from canonical siblings + Omie signal (does NOT persist).
+  // Fonte única: mesmo conteúdo da nota "Resumo do Lead" do PipeRun,
+  // renderizado em texto para WhatsApp — Origem (com produto de interesse),
+  // Identidade (link do WhatsApp logo abaixo), CRM, E-commerce, Cursos e
+  // Equipamentos. Sem pitch, RAG, inteligência, diagnóstico ou formulários.
   const { enriched: enrichedLead, meta: enrichMeta } = await enrichLeadFromIdentity(supabase, lead);
-  const phone = (enrichedLead.telefone_normalized || enrichedLead.telefone_raw) as string | null;
-
-  // Fetch last user message via leads bridge
-  let lastQuestion = "";
-  try {
-    const { data: leadsRec } = await supabase
-      .from("leads")
-      .select("id")
-      .eq("email", enrichedLead.email as string)
-      .maybeSingle();
-    if (leadsRec?.id) {
-      const { data: lastMsg } = await supabase
-        .from("agent_interactions")
-        .select("user_message")
-        .eq("lead_id", leadsRec.id)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      if (lastMsg?.user_message) lastQuestion = String(lastMsg.user_message).slice(0, 200);
-    }
-  } catch (e) {
-    console.warn("[lia-assign] Failed to fetch last question:", e);
-  }
-
-  // Enrich with real deal history (current owner, distinct owners, first contact date)
-  const dealsCtx = await fetchDealsContext(supabase, enrichedLead);
-
-  // AI-generated HISTÓRICO + OPORTUNIDADE
-  let historico = "";
-  let oportunidade = "";
-  try {
-    const aiResult = await generateHistoricoOportunidade(enrichedLead, dealsCtx);
-    historico = aiResult.historico;
-    oportunidade = aiResult.oportunidade;
-  } catch (e) {
-    console.warn("[lia-assign] AI historico/oportunidade failed:", e);
-  }
-
-  // Fallback static texts
-  if (!historico) {
-    historico = buildHistoricoFallback(enrichedLead, dealsCtx);
-  }
-  if (!oportunidade) {
-    const parts: string[] = [];
-    if (enrichedLead.software_cad) parts.push(`Possui software CAD (${enrichedLead.software_cad})`);
-    const imp = enrichedLead.impressora_modelo || enrichedLead.equip_impressora;
-    if (imp) parts.push(`Impressora: ${imp}`);
-    else if (enrichedLead.tem_impressora && enrichedLead.tem_impressora !== "nao" && enrichedLead.tem_impressora !== "não") parts.push(`Tem impressora: ${enrichedLead.tem_impressora}`);
-    const scn = enrichedLead.scanner_marca || enrichedLead.equip_scanner;
-    if (scn) parts.push(`Scanner: ${scn}`);
-    else if (enrichedLead.tem_scanner && enrichedLead.tem_scanner !== "nao" && enrichedLead.tem_scanner !== "não") parts.push(`Tem scanner: ${enrichedLead.tem_scanner}`);
-    if (enrichedLead.omie_codigo_cliente) parts.push(`Cliente Smart Dent (Omie #${enrichedLead.omie_codigo_cliente}) — faturado R$${enrichedLead.omie_faturamento_total || 0}`);
-    if (enrichedLead.urgency_level) parts.push(`Urgência ${enrichedLead.urgency_level}`);
-    if (enrichedLead.primary_motivation) parts.push(`motivado por ${enrichedLead.primary_motivation}`);
-    if (enrichedLead.objection_risk) parts.push(`Risco de objeção: ${enrichedLead.objection_risk}`);
-    oportunidade = parts.length > 0 ? parts.join(". ") + "." : "Sem dados suficientes.";
-  }
-
-  // Deterministic cognitive fallback when cognitive_analysis hasn't run yet.
-  const cog = enrichedLead.cognitive_analysis
-    ? {
-        confidence: Number(enrichedLead.confidence_score_analysis || 0),
-        estagio: String(enrichedLead.lead_stage_detected || "N/A"),
-        urgencia: String(enrichedLead.urgency_level || "N/A"),
-        timeline: String(enrichedLead.interest_timeline || "N/A"),
-        perfil: String(enrichedLead.psychological_profile || "N/A"),
-        motivacao: String(enrichedLead.primary_motivation || "N/A"),
-        risco: String(enrichedLead.objection_risk || "N/A"),
-        abordagem: String(enrichedLead.recommended_approach || "N/A"),
-        is_fallback: false as const,
-      }
-    : buildDeterministicCognitiveFallback(enrichedLead);
-  const urgencyEmoji = (cog.urgencia === "alta") ? "🔴" : (cog.urgencia === "media") ? "🟡" : "🟢";
-  const cogHeader = cog.is_fallback
-    ? "📋 *Perfil Inicial* (análise cognitiva completa após primeiras conversas com a LIA)"
-    : "🧠 *Análise Cognitiva:*";
-
-  // 7×3 Workflow Diagnosis (stack atual × intent → perguntas + combo + posicionamento)
-  let diagBlock = "";
-  try {
-    const diag = await diagnoseLead(supabase, enrichedLead, { enableLLM: true });
-    diagBlock = renderDiagnosisWhatsApp(diag);
-  } catch (e) {
-    console.warn("[lia-assign] workflow diagnosis (wa) failed:", e);
-  }
-
-  // Build template
-  const lines: string[] = [
-    `📊 *Análise SmartOps*`,
-    ``,
-    `👤 Lead: ${enrichedLead.nome || "N/A"}`,
-    `📧 Email: ${enrichedLead.email || "N/A"}`,
-    `📱 Tel: ${phone || "N/A"}`,
-    ...buildOriginLines(enrichedLead, "wa"),
-    `🦷 Área de atuação: ${enrichedLead.area_atuacao || "N/A"}`,
-    `🦷 Especialidade: ${enrichedLead.especialidade || "N/A"}`,
-    `🎯 Interesse: ${enrichedLead.produto_interesse || "N/A"}`,
-    `🌡️ Temp: ${enrichedLead.temperatura_lead || cog.urgencia}`,
-    `🔗 PipeRun: ${enrichedLead.piperun_link || "N/A"}`,
-    `💬 Última pergunta do lead: ${lastQuestion || "N/A"}`,
-    `🏷️ Contexto: ${enrichedLead.rota_inicial_lia || "N/A"}`,
-    `📍 Etapa CRM: ${enrichedLead.ultima_etapa_comercial || "N/A"}`,
-    ``,
-    ...(diagBlock ? [diagBlock, ``] : []),
-    `*HISTÓRICO:* ${historico}`,
-    `*OPORTUNIDADE:* ${oportunidade}`,
-    ``,
-    cogHeader,
-    `Confiança: ${cog.confidence}%`,
-    `Estágio: ${cog.estagio}`,
-    `Urgência: ${urgencyEmoji} ${cog.urgencia}`,
-    `Timeline: ${cog.timeline}`,
-    `Perfil: ${cog.perfil}`,
-    `Motivação: ${cog.motivacao}`,
-    `Risco objeção: ${cog.risco}`,
-    `Abordagem: ${cog.abordagem}`,
-  ];
-
-  // Fire-and-forget audit
+  const text = await buildSellerBriefingText(supabase, enrichedLead);
   if (enrichedLead.id) {
-    logBriefingAudit(supabase, String(enrichedLead.id), enrichMeta, lines.join("\n").length, (enrichedLead.email as string | null) ?? null);
+    logBriefingAudit(supabase, String(enrichedLead.id), enrichMeta, text.length, (enrichedLead.email as string | null) ?? null);
   }
-
-  return lines.join("\n");
+  return text;
 }
 
 /**
