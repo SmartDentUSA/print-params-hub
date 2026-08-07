@@ -223,7 +223,12 @@ async function sendViaEvolutionImpl(instance: string, apiKey: string, phone: str
 async function processLead(
   supa: ReturnType<typeof createClient>,
   lead: Record<string, unknown>,
-  automacao: { msgComercial: string; msgForaHorario: string },
+  automacao: {
+    msgComercial: string;
+    msgForaHorario: string;
+    horarioInicio?: string | null;
+    horarioFim?: string | null;
+  },
   instance: string,
   apiKey: string
 ): Promise<{ leadId: string; result: string }> {
@@ -299,7 +304,14 @@ async function processLead(
   // ──────────────────────────────────────────────────────────────────────────
 
   // ── PASSO 2: Enviar mensagem de boas-vindas ────────────────────────────────
-  const template = isBusinessHours() ? automacao.msgComercial : automacao.msgForaHorario;
+  const comercial = isBusinessHours(automacao.horarioInicio, automacao.horarioFim);
+  const template  = (comercial ? automacao.msgComercial : automacao.msgForaHorario)
+                    || automacao.msgComercial || automacao.msgForaHorario || "";
+  if (!template.trim()) {
+    await supa.from("boas_vindas_locks").delete().eq("lead_id", leadId);
+    await safeLog(supa, leadId, phone, "skipped", `template vazio (${comercial ? "comercial" : "fora do horário"})`, instance);
+    return { leadId, result: "template_vazio" };
+  }
   const message  = buildMessage(template, { nome: nomeLead, produto, vendedor: nomeVendedor, link_wa: linkWa });
 
   const evo = await sendViaEvolution(instance, apiKey, phone, message);
@@ -329,9 +341,10 @@ Deno.serve(async (req) => {
       try { const b = await req.json(); singleLeadId = b?.lead_id || null; } catch { /* cron mode */ }
     }
 
-    const [automacao, liaConfig] = await Promise.all([getAutomacao(supa), getLiaConfig(supa)]);
+    const automacao = await getAutomacao(supa);
     if (!automacao)
       return new Response(JSON.stringify({ skipped: true, reason: "automacao_inativa" }), { headers: corsHeaders });
+    const liaConfig = await getLiaConfig(supa, automacao.instancia);
 
     let leads: Record<string, unknown>[];
     if (singleLeadId) {
@@ -363,7 +376,13 @@ Deno.serve(async (req) => {
     }
 
     return new Response(
-      JSON.stringify({ ok: true, total: leads.length, instance: liaConfig.instance, business_hours: isBusinessHours(), results }),
+      JSON.stringify({
+        ok: true,
+        total: leads.length,
+        instance: liaConfig.instance,
+        business_hours: isBusinessHours(automacao.horarioInicio, automacao.horarioFim),
+        results,
+      }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (e) {
