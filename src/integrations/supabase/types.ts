@@ -25315,6 +25315,152 @@ export type Database = {
           },
         ]
       }
+      trigger_automation_queue: {
+        Row: {
+          automation_id: string
+          channel: string
+          created_at: string
+          dedupe_hash: string
+          destino: string | null
+          error_message: string | null
+          id: string
+          lead_id: string | null
+          prioridade: number
+          provider_message_id: string | null
+          rendered_message: string | null
+          rendered_subject: string | null
+          scheduled_at: string
+          sent_at: string | null
+          short_link_url: string | null
+          status: string
+          trigger_detail: Json
+          trigger_ref: string
+          updated_at: string
+        }
+        Insert: {
+          automation_id: string
+          channel: string
+          created_at?: string
+          dedupe_hash: string
+          destino?: string | null
+          error_message?: string | null
+          id?: string
+          lead_id?: string | null
+          prioridade?: number
+          provider_message_id?: string | null
+          rendered_message?: string | null
+          rendered_subject?: string | null
+          scheduled_at?: string
+          sent_at?: string | null
+          short_link_url?: string | null
+          status?: string
+          trigger_detail?: Json
+          trigger_ref: string
+          updated_at?: string
+        }
+        Update: {
+          automation_id?: string
+          channel?: string
+          created_at?: string
+          dedupe_hash?: string
+          destino?: string | null
+          error_message?: string | null
+          id?: string
+          lead_id?: string | null
+          prioridade?: number
+          provider_message_id?: string | null
+          rendered_message?: string | null
+          rendered_subject?: string | null
+          scheduled_at?: string
+          sent_at?: string | null
+          short_link_url?: string | null
+          status?: string
+          trigger_detail?: Json
+          trigger_ref?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "trigger_automation_queue_automation_id_fkey"
+            columns: ["automation_id"]
+            isOneToOne: false
+            referencedRelation: "trigger_automations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      trigger_automations: {
+        Row: {
+          action_config: Json
+          action_type: string
+          ativo: boolean
+          cooldown_horas: number
+          created_at: string
+          dedupe_window_minutes: number
+          delay_minutos: number
+          descricao: string | null
+          dias_semana: number[]
+          horario_fim: number
+          horario_inicio: number
+          id: string
+          instance_name: string | null
+          last_run_at: string | null
+          max_por_dia: number
+          nome: string
+          prioridade: number
+          trigger_config: Json
+          trigger_event: string
+          trigger_source: string
+          updated_at: string
+        }
+        Insert: {
+          action_config?: Json
+          action_type?: string
+          ativo?: boolean
+          cooldown_horas?: number
+          created_at?: string
+          dedupe_window_minutes?: number
+          delay_minutos?: number
+          descricao?: string | null
+          dias_semana?: number[]
+          horario_fim?: number
+          horario_inicio?: number
+          id?: string
+          instance_name?: string | null
+          last_run_at?: string | null
+          max_por_dia?: number
+          nome: string
+          prioridade?: number
+          trigger_config?: Json
+          trigger_event?: string
+          trigger_source?: string
+          updated_at?: string
+        }
+        Update: {
+          action_config?: Json
+          action_type?: string
+          ativo?: boolean
+          cooldown_horas?: number
+          created_at?: string
+          dedupe_window_minutes?: number
+          delay_minutos?: number
+          descricao?: string | null
+          dias_semana?: number[]
+          horario_fim?: number
+          horario_inicio?: number
+          id?: string
+          instance_name?: string | null
+          last_run_at?: string | null
+          max_por_dia?: number
+          nome?: string
+          prioridade?: number
+          trigger_config?: Json
+          trigger_event?: string
+          trigger_source?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       upsell_predictions: {
         Row: {
           generated_at: string | null
@@ -33626,6 +33772,24 @@ export type Database = {
           _window_minutes?: number
         }
         Returns: boolean
+      }
+      try_claim_trigger_automation_send: {
+        Args: {
+          _automation_id: string
+          _channel: string
+          _dedupe_hash: string
+          _destino: string
+          _lead_id: string
+          _prioridade?: number
+          _rendered_message?: string
+          _rendered_subject?: string
+          _scheduled_at?: string
+          _short_link_url?: string
+          _trigger_detail?: Json
+          _trigger_ref: string
+          _window_minutes?: number
+        }
+        Returns: string
       }
       try_lock_cognitive_analysis: {
         Args: { target_lead_id: string }

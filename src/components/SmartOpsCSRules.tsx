@@ -17,6 +17,7 @@ import { MessageVariableBar, HighlightVariables } from "@/components/smartops/Me
 import { MessageMediaPreview } from "@/components/smartops/MessageMediaPreview";
 import { SmartOpsLiaAutomations } from "@/components/smartops/SmartOpsLiaAutomations";
 import { SellerBriefingAutomation } from "@/components/smartops/SellerBriefingAutomation";
+import { TriggerAutomations } from "@/components/smartops/TriggerAutomations";
 
 const ACCEPT_BY_TIPO: Record<string, string> = {
   image: "image/*",
@@ -781,6 +782,7 @@ export function SmartOpsCSRules() {
       </Dialog>
       <SmartOpsLiaAutomations />
       <SellerBriefingAutomation />
+      <TriggerAutomations />
     </div>
   );
 }
