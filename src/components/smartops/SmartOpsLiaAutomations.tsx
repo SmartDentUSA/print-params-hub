@@ -14,6 +14,13 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import {
@@ -43,8 +50,17 @@ interface LiaAutomation {
   horario_fim: string | null;
   mensagem_horario_comercial: string | null;
   mensagem_fora_horario: string | null;
+  evolution_instance_name: string | null;
   ativo: boolean;
   metrics?: { enviadasHoje: number; enviadasTotal: number; cliques: number; taxa: number };
+}
+
+interface WaInstance {
+  id: string;
+  nome_completo: string | null;
+  evolution_instance_name: string;
+  evolution_phone: string | null;
+  evolution_status: string | null;
 }
 
 const ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -66,6 +82,7 @@ export function SmartOpsLiaAutomations() {
   const [editing, setEditing] = useState<LiaAutomation | null>(null);
   const [savingId, setSavingId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
+  const [instances, setInstances] = useState<WaInstance[]>([]);
 
   const newDraft = (): LiaAutomation => ({
     id: "",
@@ -81,6 +98,7 @@ export function SmartOpsLiaAutomations() {
     horario_fim: "18:00",
     mensagem_horario_comercial: "",
     mensagem_fora_horario: "",
+    evolution_instance_name: null,
     ativo: false,
   });
 
@@ -97,6 +115,14 @@ export function SmartOpsLiaAutomations() {
 
   useEffect(() => {
     load();
+    (async () => {
+      const { data } = await supabase
+        .from("team_members")
+        .select("id, nome_completo, evolution_instance_name, evolution_phone, evolution_status")
+        .eq("ativo", true)
+        .not("evolution_instance_name", "is", null);
+      setInstances((data ?? []) as WaInstance[]);
+    })();
   }, []);
 
   const toggleActive = async (a: LiaAutomation, ativo: boolean) => {
@@ -130,6 +156,7 @@ export function SmartOpsLiaAutomations() {
           trigger_tags: editing.trigger_tags,
           horario_inicio: editing.horario_inicio,
           horario_fim: editing.horario_fim,
+          evolution_instance_name: editing.evolution_instance_name,
           mensagem_horario_comercial: editing.mensagem_horario_comercial,
           mensagem_fora_horario: editing.mensagem_fora_horario,
         },
@@ -154,6 +181,7 @@ export function SmartOpsLiaAutomations() {
         mensagem_fora_horario: editing.mensagem_fora_horario,
         horario_inicio: editing.horario_inicio,
         horario_fim: editing.horario_fim,
+        evolution_instance_name: editing.evolution_instance_name,
       },
     });
     setSavingId(null);
