@@ -1890,7 +1890,7 @@ async function executarReativacaoSdrCaptacao(
   opts: { newConversionConfirmed?: boolean; conversionKey?: string | null } = {},
 ): Promise<boolean> {
   const leadId = lead.id as string;
-  const leadEmail = (lead.email as string).trim().toLowerCase();
+  const leadEmail = String((lead.email as string) ?? "").trim().toLowerCase();
 
   // Fail-safe definitivo: nenhum caller legado pode reativar Estagnados ou criar
   // Deal em VENDAS sem prova explícita de nova conversão real. Re-entrega Meta,
@@ -3093,7 +3093,7 @@ Deno.serve(async (req) => {
     }
 
     // ── 5. Smart PipeRun Sync: Pessoa → Empresa → Deal ──
-    const leadEmail = (lead.email as string).trim().toLowerCase();
+    const leadEmail = String((lead.email as string) ?? "").trim().toLowerCase();
     let piperunId = lead.piperun_id as string | null;
     let personId: number | null = lead.pessoa_piperun_id as number | null;
     let companyId: number | null = lead.empresa_piperun_id as number | null;
