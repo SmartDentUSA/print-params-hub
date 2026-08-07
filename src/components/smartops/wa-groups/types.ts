@@ -233,7 +233,15 @@ export interface WaQueueRow {
   node_id: string | null;
   sequence_no: number;
   node_type: string;
-  status: "pending" | "sending" | "sent" | "failed" | "skipped";
+  status:
+    | "pending"
+    | "sending"
+    | "sent"
+    | "failed"
+    | "skipped"
+    | "blocked_session"
+    | "blocked_provider";
+  group_jid: string | null;
   scheduled_at: string;
   sent_at: string | null;
   error_message: string | null;
