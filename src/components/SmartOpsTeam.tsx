@@ -156,11 +156,11 @@ export function SmartOpsTeam() {
 
   useEffect(() => () => stopPolling(), []);
 
-  // WaLeads test state
+  // WhatsApp test state
   const [testDialogOpen, setTestDialogOpen] = useState(false);
   const [testMember, setTestMember] = useState<TeamMember | null>(null);
   const [testPhone, setTestPhone] = useState("");
-  const [testMessage, setTestMessage] = useState("Olá! Esta é uma mensagem de teste do WaLeads. 🚀");
+  const [testMessage, setTestMessage] = useState("Olá! Esta é uma mensagem de teste do WhatsApp. 🚀");
   const [testSending, setTestSending] = useState(false);
 
   const fetchMembers = async () => {
@@ -477,10 +477,10 @@ export function SmartOpsTeam() {
     fetchMembers();
   };
 
-  const openTestWaLeads = (m: TeamMember) => {
+  const openTestWhatsApp = (m: TeamMember) => {
     setTestMember(m);
     setTestPhone(m.whatsapp_number);
-    setTestMessage("Olá! Esta é uma mensagem de teste do WaLeads. 🚀");
+    setTestMessage("Olá! Esta é uma mensagem de teste do WhatsApp. 🚀");
     setTestDialogOpen(true);
   };
 
@@ -524,7 +524,7 @@ export function SmartOpsTeam() {
           <DialogContent className="max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>{editing ? "Editar Membro" : "Novo Membro"}</DialogTitle>
-              <DialogDescription>Configure dados pessoais e credenciais de mensageria (WaLeads, Evolution API e Evolution GO).</DialogDescription>
+              <DialogDescription>Configure dados pessoais e credenciais de mensageria (WhatsApp, Evolution API e Evolution GO).</DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
               <div><Label>Nome Completo</Label><Input value={form.nome_completo} onChange={(e) => handleNameChange(e.target.value)} /></div>
@@ -733,7 +733,7 @@ export function SmartOpsTeam() {
                 <TableCell className="space-x-1">
                   <Button variant="ghost" size="sm" onClick={() => openEdit(m)}>Editar</Button>
                   {m.evolution_instance_name && (
-                    <Button variant="outline" size="sm" onClick={() => openTestWaLeads(m)}>
+                    <Button variant="outline" size="sm" onClick={() => openTestWhatsApp(m)}>
                       <Send className="w-3 h-3 mr-1" /> Testar WA
                     </Button>
                   )}
@@ -748,11 +748,11 @@ export function SmartOpsTeam() {
       </CardContent>
     </Card>
 
-    {/* WaLeads Test Dialog */}
+    {/* WhatsApp Test Dialog */}
     <Dialog open={testDialogOpen} onOpenChange={setTestDialogOpen}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Testar Envio WaLeads — {testMember?.nome_completo}</DialogTitle>
+          <DialogTitle>Testar Envio WhatsApp — {testMember?.nome_completo}</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
           <div>

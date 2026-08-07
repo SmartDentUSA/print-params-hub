@@ -46,7 +46,7 @@ import {
   type PipeRunDealData,
 } from "../_shared/piperun-field-map.ts";
 
-// WaLeads desativado e removido do código — envio 100% Evolution
+// WhatsApp desativado e removido do código — envio 100% Evolution
 // (smart-ops-lead-welcome + smart-ops-lia-notify-seller).
 
 const corsHeaders = {
@@ -1168,12 +1168,12 @@ interface TeamMember {
 }
 
 /**
- * Pick a random active vendedor, prioritizing those with WaLeads API key.
+ * Pick a random active vendedor, prioritizing those with WhatsApp API key.
  */
 async function pickRandomActiveVendedor(
   supabase: ReturnType<typeof createClient>
 ): Promise<TeamMember> {
-  // WALEADS_ENABLED: priorização por WaLeads pausada
+  // WALEADS_ENABLED: priorização por WhatsApp pausada
   // if (WALEADS_ENABLED) {
   //   // Priority: vendedores with evolution_instance_name configured
   //   const { data: waMembers } = await supabase
@@ -1185,7 +1185,7 @@ async function pickRandomActiveVendedor(
   //
   //   if (waMembers && waMembers.length > 0) {
   //     const idx = Math.floor(Math.random() * waMembers.length);
-  //     console.log(`[lia-assign] Selected WaLeads-enabled vendedor: ${waMembers[idx].nome_completo}`);
+  //     console.log(`[lia-assign] Selected WhatsApp-enabled vendedor: ${waMembers[idx].nome_completo}`);
   //     return waMembers[idx] as TeamMember;
   //   }
   // }
@@ -1832,7 +1832,7 @@ Retorne APENAS JSON válido: {"historico":"...","oportunidade":"..."}`;
 
 // ─── Outbound Messages (Source-Based) ───
 
-// WaLeads removido — envio de briefing agora é 100% Evolution via smart-ops-lia-notify-seller.
+// WhatsApp removido — envio de briefing agora é 100% Evolution via smart-ops-lia-notify-seller.
 async function sendSellerBriefing(
   supabaseUrl: string,
   serviceKey: string,
@@ -1872,7 +1872,7 @@ async function sendTemplateMessage(
       .select("*")
       .eq("trigger_event", "NOVO_LEAD")
       .eq("ativo", true)
-      .eq("waleads_ativo", true);
+      .eq("wa_ativo", true);
 
     if (!rules || rules.length === 0) {
       console.log("[lia-assign] No NOVO_LEAD automation rules found");
@@ -1898,13 +1898,13 @@ async function sendTemplateMessage(
     const payload: Record<string, unknown> = {
       team_member_id: teamMemberId,
       phone,
-      tipo: rule.waleads_tipo || "text",
-      message: rule.mensagem_waleads || "",
+      tipo: rule.wa_tipo || "text",
+      message: rule.mensagem_wa || "",
       lead_id: lead.id,
     };
-    if (rule.waleads_media_url) {
-      payload.media_url = rule.waleads_media_url;
-      payload.caption = rule.waleads_media_caption || "";
+    if (rule.wa_media_url) {
+      payload.media_url = rule.wa_media_url;
+      payload.caption = rule.wa_media_caption || "";
     }
 
     await fetch(`${supabaseUrl}/functions/v1/smart-ops-wa-send`, {
@@ -3086,7 +3086,7 @@ Deno.serve(async (req) => {
       console.warn("[lia-assign] SDR-CAPTAÇÃO reativação falhou, continuando com fluxo normal");
     }
 
-    // ── 2. Select owner via Round Robin (prioritize WaLeads) ──
+    // ── 2. Select owner via Round Robin (prioritize WhatsApp) ──
     let assignedOwnerId: number;
     let assignedTeamMemberId: string | null = null;
     let assignedOwnerName: string;

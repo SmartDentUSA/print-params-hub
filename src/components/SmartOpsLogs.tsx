@@ -36,7 +36,7 @@ function classifySource(eventType: string, sourceChannel: string | null, entityT
   if (et.includes("sent") || et.includes("envio") || et.includes("sync") || et.includes("campaign")) {
     const fonte = ch.includes("sellflux") ? "SellFlux"
       : ch.includes("piperun") || ent.includes("piperun") ? "PipeRun"
-      : ch.includes("waleads") || et.includes("whatsapp") ? "WaLeads"
+      : ch.includes("waleads") || et.includes("whatsapp") ? "WhatsApp"
       : ch.includes("astron") || ent.includes("astron") ? "Astron"
       : ch || "Sistema";
     return { fonte, direcao: "Saída" };
@@ -44,7 +44,7 @@ function classifySource(eventType: string, sourceChannel: string | null, entityT
 
   // Entrada
   const fonte = ch.includes("ecommerce") || ch.includes("loja") || et.includes("order") || et.includes("pedido") ? "E-commerce"
-    : ch.includes("waleads") || ch.includes("whatsapp") || et.includes("whatsapp") ? "WaLeads"
+    : ch.includes("waleads") || ch.includes("whatsapp") || et.includes("whatsapp") ? "WhatsApp"
     : ch.includes("piperun") || ent.includes("piperun") || et.includes("deal") || et.includes("stage") ? "PipeRun"
     : ch.includes("sellflux") ? "SellFlux"
     : ch.includes("astron") || ent.includes("astron") || et.includes("course") || et.includes("login") ? "Astron"

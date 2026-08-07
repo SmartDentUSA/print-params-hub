@@ -36,7 +36,7 @@ interface OutreachRule {
   sellflux_template_id: string; // placeholder — fill with real IDs
   lia_tag: string;
   filter: (lead: OutreachCandidate, nowMs: number) => boolean;
-  messageBuilder: (lead: OutreachCandidate) => string; // WaLeads fallback
+  messageBuilder: (lead: OutreachCandidate) => string; // WhatsApp fallback
 }
 
 const OUTREACH_RULES: OutreachRule[] = [
@@ -191,7 +191,7 @@ Deno.serve(async (req) => {
         continue;
       }
 
-      // ─── WaLeads fallback ───
+      // ─── WhatsApp fallback ───
       const message = matchedRule.messageBuilder(lead);
 
       let teamMemberId: string | null = null;

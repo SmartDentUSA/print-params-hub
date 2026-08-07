@@ -1027,7 +1027,7 @@ ${cognitiveBlock}`.replace(/\n{3,}/g, "\n\n");
           else console.log(`[handoff] lead_sdr_interactions recorded for lead ${attendance.id}`);
         });
       } catch (e) {
-        console.warn(`[handoff] WaLeads send error:`, e);
+        console.warn(`[handoff] WhatsApp send error:`, e);
       }
     }
 
@@ -1150,7 +1150,7 @@ REGRAS OBRIGATÓRIAS:
           status: "enviado",
         });
       } catch (e) {
-        console.warn(`[handoff] Seller→Lead WaLeads send error:`, e);
+        console.warn(`[handoff] Seller→Lead WhatsApp send error:`, e);
       }
     }
 

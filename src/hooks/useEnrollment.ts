@@ -241,7 +241,7 @@ async function sendEnrollmentWA(p: {
     const phone = formatPhoneWhatsApp(p.leadPhone);
     if (!phone) { await markError(`telefone inválido: ${p.leadPhone}`); return; }
 
-    // CS por email — envio via Evolution (WaLeads descontinuado).
+    // CS por email — envio via Evolution (WhatsApp descontinuado).
     let { data: cs } = await (supabase as any).from('team_members')
       .select('id, nome_completo, evolution_instance_name')
       .eq('email', p.csEmail).eq('ativo', true)

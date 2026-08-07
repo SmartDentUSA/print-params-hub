@@ -1,6 +1,6 @@
 /**
  * LIA Escalation — intent detection, seller notification, and handoff engine.
- * Handles vendedor/cs_suporte/especialista routing and WaLeads notifications.
+ * Handles vendedor/cs_suporte/especialista routing and WhatsApp notifications.
  * Extracted from dra-lia/index.ts for modularity and testability.
  */
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -162,12 +162,12 @@ ${cognitiveBlock}`.replace(/\n{3,}/g, "\n\n");
 
     console.log(`[escalation] ${escalationType} escalation logged for ${leadEmail} → ${teamMember.nome_completo}`);
 
-    // 6. Send via WaLeads if API key available
+    // 6. Send via WhatsApp if API key available
     if (teamMember.evolution_instance_name) {
       try {
         const sellerPhone = teamMember.whatsapp_number;
         if (!sellerPhone) {
-          console.warn(`[escalation] Seller ${teamMember.nome_completo} has no whatsapp_number — skipping WaLeads send`);
+          console.warn(`[escalation] Seller ${teamMember.nome_completo} has no whatsapp_number — skipping WhatsApp send`);
           return;
         }
         const sendResp = await fetch(`${SUPABASE_URL}/functions/v1/smart-ops-wa-send`, {
@@ -199,7 +199,7 @@ ${cognitiveBlock}`.replace(/\n{3,}/g, "\n\n");
             .eq("tipo", `escalation_${escalationType}`)
             .order("created_at", { ascending: false })
             .limit(1);
-          console.log(`[escalation] WaLeads notification sent to ${teamMember.nome_completo} via ${sendResult.provider || "unknown"}`);
+          console.log(`[escalation] WhatsApp notification sent to ${teamMember.nome_completo} via ${sendResult.provider || "unknown"}`);
         } else {
           await supabase.from("message_logs")
             .update({ status: "erro", error_details: (sendResult.response || `HTTP ${sendResp.status}`).slice(0, 500) })
@@ -207,10 +207,10 @@ ${cognitiveBlock}`.replace(/\n{3,}/g, "\n\n");
             .eq("tipo", `escalation_${escalationType}`)
             .order("created_at", { ascending: false })
             .limit(1);
-          console.warn(`[escalation] WaLeads send failed: HTTP ${sendResp.status} success=${sendResult.success} response=${sendResult.response?.slice(0, 200)}`);
+          console.warn(`[escalation] WhatsApp send failed: HTTP ${sendResp.status} success=${sendResult.success} response=${sendResult.response?.slice(0, 200)}`);
         }
       } catch (e) {
-        console.warn(`[escalation] WaLeads send error:`, e);
+        console.warn(`[escalation] WhatsApp send error:`, e);
       }
     }
   } catch (e) {
