@@ -116,6 +116,7 @@ Deno.serve(async (req) => {
     // ── Fallback: varredura do chat (logs antigos sem provider_message_id) ──
     // Busca as mensagens enviadas por nós no chat de cada vendedor e apaga
     // as que são briefing ("Resumo do Lead").
+    const debug: any[] = [];
     let scanned = 0;
     let deletedScan = 0;
     const senderInstance = (cfg.sender_instance as string | null) || null;
@@ -145,11 +146,13 @@ Deno.serve(async (req) => {
             signal: AbortSignal.timeout(25_000),
           });
           if (!res.ok) {
+            debug.push({ phone, status: res.status });
             console.warn(`[purge-briefings] findMessages ${res.status}: ${(await res.text()).slice(0, 200)}`);
             continue;
           }
           const payload = await res.json();
           const records: any[] = payload?.messages?.records ?? payload?.records ?? (Array.isArray(payload) ? payload : []);
+          debug.push({ phone, records: records.length, sample_keys: Object.keys(payload ?? {}) });
           for (const m of records) {
             const key = m?.key ?? {};
             if (!key?.fromMe || !key?.id) continue;
