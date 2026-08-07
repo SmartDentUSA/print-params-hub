@@ -6,8 +6,6 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const WALEADS_BASE_URL = "https://waleads.roote.com.br";
-
 // Map rule tipo to CS tags
 const CS_TAG_MAP: Record<string, string> = {
   onboarding: "CS_ONBOARDING_INICIO",
