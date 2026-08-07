@@ -135,7 +135,9 @@ Deno.serve(async (req) => {
       ? renderTemplate(String(cfg.mensagem_template), lead as Record<string, unknown>)
       : await buildSellerNotification(lead as Record<string, unknown>, supabase);
 
-    if (cfg?.incluir_link_wa !== false) {
+    // O briefing padrão já traz o link do WhatsApp logo abaixo da Identidade.
+    // Só anexa no fim quando o texto ainda não tem link (ex.: template custom).
+    if (cfg?.incluir_link_wa !== false && !briefing.includes("wa.me/")) {
       const leadPhone = String(
         (lead as any).telefone_normalized || (lead as any).telefone_raw || ""
       ).replace(/\D/g, "");
