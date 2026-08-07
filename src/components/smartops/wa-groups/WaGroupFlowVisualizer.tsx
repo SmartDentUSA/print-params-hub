@@ -6,9 +6,10 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   MessageSquare, Clock, Sparkles, Image as ImageIcon, Video, Link2,
-  CheckCircle2, XCircle, Loader2, Timer,
+  CheckCircle2, XCircle, Loader2, Timer, AlertOctagon, RefreshCw,
   Hand, List, LayoutList,
 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import type { WaQueueRow, WaCampaignRow } from "./types";
 
 interface Props { campaignId: string }
@@ -25,6 +26,8 @@ const statusVariant: Record<string, string> = {
   sent: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/30",
   failed: "bg-red-500/15 text-red-700 dark:text-red-400 border-red-500/30",
   skipped: "bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/30",
+  blocked_session: "bg-red-500/15 text-red-700 dark:text-red-400 border-red-500/30",
+  blocked_provider: "bg-red-500/15 text-red-700 dark:text-red-400 border-red-500/30",
 };
 
 function countdown(target: string | null): string {
@@ -46,6 +49,7 @@ export function WaGroupFlowVisualizer({ campaignId }: Props) {
   const [queue, setQueue] = useState<WaQueueRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [, setTick] = useState(0);
+  const [repairing, setRepairing] = useState<string | null>(null);
 
   const fetchAll = useCallback(async () => {
     const sb = supabase as any;
@@ -60,6 +64,22 @@ export function WaGroupFlowVisualizer({ campaignId }: Props) {
   }, [campaignId]);
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
+
+  const reactivateGroup = async (groupJid: string) => {
+    setRepairing(groupJid);
+    try {
+      const { data, error } = await (supabase as any).rpc("fn_wa_reactivate_group", {
+        p_group_jid: groupJid,
+      });
+      if (error) throw error;
+      toast.success(`Grupo reativado — ${(data as any)?.released ?? 0} mensagem(ns) re-enfileirada(s)`);
+      fetchAll();
+    } catch (e: any) {
+      toast.error(e?.message ?? "Falha ao reativar o grupo");
+    } finally {
+      setRepairing(null);
+    }
+  };
 
   // Realtime
   useEffect(() => {
@@ -140,7 +160,9 @@ export function WaGroupFlowVisualizer({ campaignId }: Props) {
             row.status === "sent" ? CheckCircle2 :
             row.status === "failed" ? XCircle :
             row.status === "sending" ? Loader2 :
+            row.status?.startsWith("blocked") ? AlertOctagon :
             Timer;
+          const blocked = row.status?.startsWith("blocked");
           return (
             <div key={row.id} className="relative">
               <div className="absolute -left-[19px] top-3 w-3 h-3 rounded-full bg-background border-2 border-primary" />
@@ -163,6 +185,20 @@ export function WaGroupFlowVisualizer({ campaignId }: Props) {
                     </div>
                     {row.error_message && (
                       <p className="text-[11px] text-red-600 mt-1">⚠ {row.error_message}</p>
+                    )}
+                    {blocked && row.group_jid && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="mt-2 h-7 text-[11px]"
+                        disabled={repairing === row.group_jid}
+                        onClick={() => reactivateGroup(row.group_jid!)}
+                      >
+                        <RefreshCw
+                          className={`w-3 h-3 mr-1 ${repairing === row.group_jid ? "animate-spin" : ""}`}
+                        />
+                        Reativar sessão e reenfileirar
+                      </Button>
                     )}
                   </div>
                 </div>
