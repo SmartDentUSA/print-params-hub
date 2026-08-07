@@ -521,27 +521,55 @@ Deno.serve(async (req) => {
           })
           .eq("id", row.id);
 
-        if (result.ok) {
-          sent++;
-          if (row.lead_id) {
-            await supabase.from("lead_activity_log").insert({
-              lead_id: row.lead_id,
-              event_type: `automation_${row.channel}_sent`,
-              source_channel: "trigger_automation",
-              event_timestamp: new Date().toISOString(),
-              dedupe_hash: row.dedupe_hash,
-              event_data: {
-                automation: auto.nome,
-                canal: row.channel,
-                destino: row.destino,
-                mensagem: row.rendered_message,
-                short_link: row.short_link_url,
-              },
-            }).then(() => null, () => null);
+        // Timeline do lead: sempre registra (sucesso ou falha), sempre sem
+        // duplicação — dedupe_hash único por envio (índice uq_lal_dedupe).
+        if (row.lead_id) {
+          const canalLabel = row.channel === "sms"
+            ? "SMS"
+            : row.channel === "email"
+            ? "E-mail"
+            : "WhatsApp";
+          const icon = row.channel === "sms" ? "📲" : row.channel === "email" ? "✉️" : "💬";
+          const evt = result.ok
+            ? `automation_${row.channel}_sent`
+            : `automation_${row.channel}_failed`;
+          const { error: talErr } = await supabase.from("lead_activity_log").insert({
+            lead_id: row.lead_id,
+            event_type: evt,
+            entity_type: "trigger_automation",
+            entity_id: String(row.id),
+            entity_name: auto.nome ?? "Automação por gatilho",
+            source_channel: row.channel === "email" ? "email" : row.channel,
+            event_timestamp: new Date().toISOString(),
+            dedupe_hash: `trigger_automation:${row.channel}:${row.dedupe_hash}`,
+            event_data: {
+              kind: "automacao",
+              kind_label: result.ok
+                ? `${canalLabel} enviado (automação)`
+                : `Falha no envio de ${canalLabel} (automação)`,
+              icon,
+              automation: auto.nome,
+              automation_id: auto.id,
+              canal: row.channel,
+              destino: row.destino,
+              assunto: row.rendered_subject ?? null,
+              mensagem: row.rendered_message,
+              short_link: row.short_link_url,
+              trigger_ref: row.trigger_ref ?? null,
+              status: result.ok ? "enviado" : "falhou",
+              erro: result.ok ? null : String(result.error ?? "").slice(0, 300),
+              provider_message_id: result.providerId ?? null,
+              fonte: "trigger_automation",
+              dedupe_key: `trigger_automation:${row.dedupe_hash}`,
+            },
+          });
+          if (talErr && !/duplicate key|23505/i.test(`${talErr.code} ${talErr.message}`)) {
+            console.error(JSON.stringify({ event: "trigger.timeline_error", queue_id: row.id, error: talErr.message }));
           }
-        } else {
-          failed++;
         }
+
+        if (result.ok) sent++;
+        else failed++;
       }
     }
 
