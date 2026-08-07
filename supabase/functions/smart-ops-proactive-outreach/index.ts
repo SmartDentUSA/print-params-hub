@@ -245,10 +245,10 @@ Deno.serve(async (req) => {
             proactive_count: count + 1,
             tags_crm: newTags,
           }).eq("id", lead.id);
-          results.push({ lead: lead.nome, type: matchedRule.type, status: "sent", provider: "waleads" });
+          results.push({ lead: lead.nome, type: matchedRule.type, status: "sent", provider: "evolution" });
         } else {
           errors++;
-          results.push({ lead: lead.nome, type: matchedRule.type, status: "error", provider: "waleads" });
+          results.push({ lead: lead.nome, type: matchedRule.type, status: "error", provider: "evolution" });
         }
 
         await supabase.from("message_logs").insert({
@@ -262,7 +262,7 @@ Deno.serve(async (req) => {
       } catch (sendErr) {
         errors++;
         console.error(`[proactive-outreach] Send error for ${lead.nome}:`, sendErr);
-        results.push({ lead: lead.nome, type: matchedRule.type, status: "exception", provider: "waleads" });
+        results.push({ lead: lead.nome, type: matchedRule.type, status: "exception", provider: "evolution" });
       }
     }
 

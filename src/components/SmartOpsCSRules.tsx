@@ -223,11 +223,11 @@ export function SmartOpsCSRules() {
     setForm(f => ({ ...f, wa_media_caption: f.wa_media_caption + `{{${varKey}}}` }));
   };
 
-  const [uploadingField, setUploadingField] = useState<null | "media" | "waleads">(null);
+  const [uploadingField, setUploadingField] = useState<null | "media" | "wa">(null);
 
   const handleMediaUpload = async (
     file: File,
-    target: "media" | "waleads",
+    target: "media" | "wa",
     tipo: string,
   ) => {
     if (!file) return;
@@ -704,23 +704,23 @@ export function SmartOpsCSRules() {
                             type="button"
                             variant="outline"
                             size="sm"
-                            disabled={uploadingField === "waleads"}
-                            onClick={() => document.getElementById("waleads-upload-input")?.click()}
+                            disabled={uploadingField === "wa"}
+                            onClick={() => document.getElementById("wa-upload-input")?.click()}
                           >
-                            {uploadingField === "waleads" ? (
+                            {uploadingField === "wa" ? (
                               <Loader2 className="h-4 w-4 animate-spin" />
                             ) : (
                               <><Upload className="h-4 w-4 mr-1" />Upload</>
                             )}
                           </Button>
                           <input
-                            id="waleads-upload-input"
+                            id="wa-upload-input"
                             type="file"
                             hidden
                             accept={ACCEPT_BY_TIPO[form.wa_tipo] || "*/*"}
                             onChange={(e) => {
                               const f = e.target.files?.[0];
-                              if (f) handleMediaUpload(f, "waleads", form.wa_tipo);
+                              if (f) handleMediaUpload(f, "wa", form.wa_tipo);
                               e.target.value = "";
                             }}
                           />
