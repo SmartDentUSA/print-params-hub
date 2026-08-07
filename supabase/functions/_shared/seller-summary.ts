@@ -149,6 +149,15 @@ export async function buildSellerDealSummaryHTML(
   // APENAS histórico/dados do lead — sem pitch, RAG, inteligência ou
   // diagnóstico (esses vivem no briefing do vendedor, não no histórico).
   const sections: string[] = [];
+  // JID canônico para o link do WhatsApp: repara telefone legado de 8 dígitos
+  // (falta o 9) e DDI — sem isso o wa.me abre um número inexistente e o
+  // WhatsApp não identifica o cliente.
+  const waJid = (normalizeBrazilianPhone(String(lead.telefone_normalized || lead.telefone_raw || "")) || "")
+    .replace(/\D/g, "");
+  const waPreset = String(opts.waLinkPreset ?? "").trim();
+  const waLink = waJid.length >= 12
+    ? `https://wa.me/${waJid}${waPreset ? `?text=${encodeURIComponent(waPreset)}` : ""}`
+    : "";
 
   sections.push(`<b>🧾 Resumo do Lead — Smart Dent</b>`);
   sections.push(`<i>Atualizado em ${fmtDate(new Date().toISOString())}</i><br>`);
@@ -171,8 +180,8 @@ export async function buildSellerDealSummaryHTML(
     `• Telefone: ${esc(lead.telefone_normalized || lead.telefone_raw)}<br>` +
     `• Cidade/UF: ${esc(lead.cidade || "—")}/${esc(lead.uf || "—")}<br>` +
     `• Área: ${esc(lead.area_atuacao)} | Especialidade: ${esc(lead.especialidade)}<br>` +
-    (phoneDigits.length >= 10
-      ? `👉 Abrir conversa com o lead: <a href="https://wa.me/${phoneDigits.startsWith("55") ? phoneDigits : "55" + phoneDigits}">https://wa.me/${phoneDigits.startsWith("55") ? phoneDigits : "55" + phoneDigits}</a><br>`
+    (opts.includeWaLink !== false && waLink
+      ? `👉 Abrir conversa com o lead: <a href="${waLink}">${waLink}</a><br>`
       : ""),
   );
 
