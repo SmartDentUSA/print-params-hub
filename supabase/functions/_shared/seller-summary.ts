@@ -7,6 +7,7 @@
  * via addDealNote and for persisting `last_seller_note_hash` / `_at`.
  */
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { normalizeBrazilianPhone } from "./phone-normalize.ts";
 
 type SupabaseClient = ReturnType<typeof createClient>;
 
@@ -48,6 +49,10 @@ export interface SellerSummaryOptions {
   /** PipeRun deal id this note is being posted on — used only for hashing
    * so the same content posted on two different deals counts as two notes. */
   dealId?: number | null;
+  /** Inclui o link "Abrir conversa com o lead" (default: true). */
+  includeWaLink?: boolean;
+  /** Frase pré-montada (já interpolada) que vai no `?text=` do link wa.me. */
+  waLinkPreset?: string | null;
 }
 
 export async function buildSellerDealSummaryHTML(
