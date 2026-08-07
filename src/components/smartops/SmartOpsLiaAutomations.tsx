@@ -302,13 +302,67 @@ export function SmartOpsLiaAutomations() {
         )}
       </CardContent>
 
-      <Dialog open={!!editing} onOpenChange={(o) => !o && setEditing(null)}>
+      <Dialog
+        open={!!editing}
+        onOpenChange={(o) => {
+          if (!o) {
+            setEditing(null);
+            setCreating(false);
+          }
+        }}
+      >
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Editar — {editing?.nome}</DialogTitle>
+            <DialogTitle>
+              {creating ? "Nova automação LIA" : `Editar — ${editing?.nome}`}
+            </DialogTitle>
           </DialogHeader>
           {editing && (
             <div className="space-y-4">
+              {creating && (
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label className="text-xs">Nome</Label>
+                    <Input
+                      value={editing.nome}
+                      placeholder="Ex.: Follow-up de proposta"
+                      onChange={(e) => setEditing({ ...editing, nome: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Subtítulo</Label>
+                    <Input
+                      value={editing.subtitulo ?? ""}
+                      placeholder="Descrição curta"
+                      onChange={(e) => setEditing({ ...editing, subtitulo: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Canal</Label>
+                    <Input
+                      value={editing.canal}
+                      placeholder="whatsapp"
+                      onChange={(e) => setEditing({ ...editing, canal: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Gatilhos (separados por vírgula)</Label>
+                    <Input
+                      value={editing.trigger_tags.join(", ")}
+                      placeholder="proposta_enviada, sem_resposta"
+                      onChange={(e) =>
+                        setEditing({
+                          ...editing,
+                          trigger_tags: e.target.value
+                            .split(",")
+                            .map((t) => t.trim())
+                            .filter(Boolean),
+                        })
+                      }
+                    />
+                  </div>
+                </div>
+              )}
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <Label className="text-xs">Início horário comercial</Label>
