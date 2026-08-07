@@ -93,6 +93,7 @@ Deno.serve(async (req) => {
         trigger_tags: Array.isArray(body?.trigger_tags) ? body.trigger_tags : [],
         horario_inicio: body?.horario_inicio ?? "08:00",
         horario_fim: body?.horario_fim ?? "18:00",
+        evolution_instance_name: body?.evolution_instance_name ?? null,
         mensagem_horario_comercial: body?.mensagem_horario_comercial ?? null,
         mensagem_fora_horario: body?.mensagem_fora_horario ?? null,
         ativo: body?.ativo ?? false,
