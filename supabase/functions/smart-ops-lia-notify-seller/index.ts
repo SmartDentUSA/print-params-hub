@@ -68,12 +68,15 @@ Deno.serve(async (req) => {
     }
 
     // ── Dedup lock (últimas 24h) ──
+    // Conta apenas ENVIOS REAIS. Logs "pendente" gravados pelo trigger duplicado
+    // fn_notify_seller_on_lead_assigned NÃO podem bloquear o envio legítimo.
     const sinceIso = new Date(Date.now() - LOCK_HOURS * 3600 * 1000).toISOString();
     const { data: existing } = await supabase
       .from("message_logs")
       .select("id")
       .eq("lead_id", lead_id)
       .in("tipo", ["briefing_vendedor", "briefing_vendedor_block"])
+      .in("status", ["enviado", "erro"])
       .gte("created_at", sinceIso)
       .limit(1)
       .maybeSingle();
