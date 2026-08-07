@@ -425,11 +425,23 @@ export function SmartOpsLiaAutomations() {
             </div>
           )}
           <DialogFooter>
-            <Button variant="outline" onClick={() => setEditing(null)}>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setEditing(null);
+                setCreating(false);
+              }}
+            >
               Cancelar
             </Button>
             <Button onClick={saveEdit} disabled={!!savingId}>
-              {savingId ? <Loader2 className="w-4 h-4 animate-spin" /> : "Salvar"}
+              {savingId ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : creating ? (
+                "Criar automação"
+              ) : (
+                "Salvar"
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
