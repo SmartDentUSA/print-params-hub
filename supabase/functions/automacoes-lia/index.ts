@@ -69,6 +69,44 @@ Deno.serve(async (req) => {
       return json({ automations: enriched });
     }
 
+    if (req.method === "POST") {
+      const body = await req.json();
+      const nome = String(body?.nome ?? "").trim();
+      if (!nome) return json({ error: "nome required" }, 400);
+
+      const slugBase = String(body?.slug ?? nome)
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "");
+      const slug = `${slugBase || "automacao"}-${Date.now().toString(36)}`;
+
+      const insert = {
+        slug,
+        nome,
+        subtitulo: body?.subtitulo ?? null,
+        icone: body?.icone ?? "message-square",
+        cor: body?.cor ?? "blue",
+        canal: body?.canal ?? "whatsapp",
+        trigger_event: body?.trigger_event ?? null,
+        trigger_tags: Array.isArray(body?.trigger_tags) ? body.trigger_tags : [],
+        horario_inicio: body?.horario_inicio ?? "08:00",
+        horario_fim: body?.horario_fim ?? "18:00",
+        mensagem_horario_comercial: body?.mensagem_horario_comercial ?? null,
+        mensagem_fora_horario: body?.mensagem_fora_horario ?? null,
+        ativo: body?.ativo ?? false,
+      };
+
+      const { data, error } = await supabase
+        .from("lia_automations")
+        .insert(insert)
+        .select()
+        .single();
+      if (error) throw error;
+      return json({ automation: data });
+    }
+
     if (req.method === "PUT" || req.method === "PATCH") {
       const body = await req.json();
       const { id, ...rest } = body ?? {};
