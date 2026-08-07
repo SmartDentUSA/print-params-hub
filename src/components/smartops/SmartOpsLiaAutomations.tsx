@@ -318,6 +318,22 @@ export function SmartOpsLiaAutomations() {
                         <Send className="w-3 h-3" />
                         {a.canal}
                       </span>
+                      <span className="flex items-center gap-1">
+                        <Bot className="w-3 h-3" />
+                        {a.evolution_instance_name ? (
+                          <>
+                            {a.evolution_instance_name}
+                            {(() => {
+                              const inst = instances.find(
+                                (i) => i.evolution_instance_name === a.evolution_instance_name,
+                              );
+                              return inst?.evolution_phone ? ` · ${inst.evolution_phone}` : "";
+                            })()}
+                          </>
+                        ) : (
+                          <span className="text-amber-600">instância não definida</span>
+                        )}
+                      </span>
                     </div>
                     <Button size="sm" variant="ghost" onClick={() => setEditing(a)}>
                       <Pencil className="w-3 h-3 mr-1" /> Editar
