@@ -1,4 +1,4 @@
-import { PainelProdutoRow, fmtBRL } from "@/hooks/painel/usePainelComercial";
+import { PainelProdutoRow, fmtBRL, fmtNum } from "@/hooks/painel/usePainelComercial";
 import { StatusBadge, statusFromData } from "./StatusBadge";
 
 /** 7 etapas do workflow, na ordem, com as subcategorias esperadas de cada uma. */
@@ -57,7 +57,13 @@ export function TopProductsGrid({ rows }: { rows: PainelProdutoRow[] }) {
   return (
     <div className="pc-card p-4">
       <div className="flex items-center justify-between mb-3">
-        <h2 className="text-base font-semibold">Top 5 produtos mais vendidos por etapa</h2>
+        <div>
+          <h2 className="text-base font-semibold">Top 5 produtos mais vendidos por etapa</h2>
+          {/* mesma fonte dos KPIs: itens das propostas aceitas dos negócios ganhos */}
+          <p className="pc-label mt-0.5">
+            propostas aceitas dos negócios ganhos · top 5 por subcategoria
+          </p>
+        </div>
         <StatusBadge status={statusFromData(rows.length > 0, false)} />
       </div>
 
@@ -96,6 +102,9 @@ export function TopProductsGrid({ rows }: { rows: PainelProdutoRow[] }) {
                           <span className="pc-prod-rank">{i.posicao}</span>
                           <span className="pc-prod-nome" title={i.produto}>
                             {i.produto}
+                            {i.quantidade ? (
+                              <span className="pc-dim"> · {fmtNum(i.quantidade)} un</span>
+                            ) : null}
                           </span>
                           <span className="pc-prod-val">{fmtBRL(i.receita, true)}</span>
                         </div>

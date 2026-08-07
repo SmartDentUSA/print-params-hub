@@ -16,9 +16,11 @@ function OriginTable({ rows }: { rows: PainelOrigemRow[] }) {
             <th className="pc-right">Perdidos</th>
             <th className="pc-right">% perda</th>
             <th>Etapa maior perda</th>
-            <th className="pc-right">Ganhos</th>
+            <th className="pc-right" title="Negócios fechados no mês (visão de caixa)">Ganhos</th>
             <th className="pc-right">Lead time</th>
-            <th className="pc-right">Conversão</th>
+            <th className="pc-right" title="Leads desta coorte que já converteram ÷ leads da coorte">
+              Conversão
+            </th>
             <th className="pc-right">Receita</th>
           </tr>
         </thead>

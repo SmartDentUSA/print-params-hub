@@ -301,6 +301,11 @@ verify_jwt = false
 [functions.smart-ops-lia-assign]
 verify_jwt = false
 
+# Chamada pelos triggers de banco (fn_notify_seller_on_lead_assigned e afins)
+# via net.http_post, sem header Authorization.
+[functions.smart-ops-lia-notify-seller]
+verify_jwt = false
+
 [functions.smart-ops-piperun-retry-failed-leads]
 verify_jwt = false
 

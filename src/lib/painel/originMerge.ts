@@ -66,6 +66,7 @@ export function mergeOriginRows(rows: PainelOrigemRow[]): PainelOrigemRow[] {
     const ativos = list.reduce((s, r) => s + num(r.ativos), 0);
     const perdidos = list.reduce((s, r) => s + num(r.perdidos), 0);
     const ganhos = list.reduce((s, r) => s + num(r.ganhos), 0);
+    const ganhosCoorte = list.reduce((s, r) => s + num(r.ganhos_coorte), 0);
     const receita = list.reduce((s, r) => s + num(r.receita), 0);
 
     // lead time médio ponderado pelos ganhos (fallback: leads)
@@ -91,10 +92,13 @@ export function mergeOriginRows(rows: PainelOrigemRow[]): PainelOrigemRow[] {
       ativos,
       perdidos,
       ganhos,
+      ganhos_coorte: ganhosCoorte,
       receita,
       lead_time_dias: leadTime,
       pct_perda: leads > 0 ? (perdidos / leads) * 100 : null,
-      pct_conversao: leads > 0 ? (ganhos / leads) * 100 : null,
+      // conversão sobre a própria coorte: `ganhos` são fechamentos do mês e podem
+      // vir de leads antigos, o que produzia conversões acima de 100%.
+      pct_conversao: leads > 0 ? (ganhosCoorte / leads) * 100 : null,
       etapa_maior_perda: etapa,
     });
   });

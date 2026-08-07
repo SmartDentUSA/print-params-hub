@@ -14,6 +14,7 @@ import {
   usePainelAtividades,
   usePainelOrigens,
   usePainelTopProdutos,
+  usePainelMesesDisponiveis,
   fmtBRL,
   fmtNum,
   fmtPct,
@@ -36,19 +37,21 @@ export default function PainelComercial() {
   }, []);
   const [mesAtual, setMesAtual] = useState(defaultMes);
 
+  // Só oferece meses que existem no cache: o painel lê payloads pré-calculados e
+  // um mês nunca calculado abriria a tela inteira vazia, sem distinguir de "sem venda".
+  const mesesDisponiveis = usePainelMesesDisponiveis();
   const monthOptions = useMemo(() => {
     const meses = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
-    const now = new Date();
-    const opts: { value: string; label: string }[] = [];
-    for (let i = 0; i < 24; i++) {
-      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      opts.push({
-        value: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`,
-        label: `${meses[d.getMonth()]}/${d.getFullYear()}`,
-      });
-    }
-    return opts;
-  }, []);
+    const label = (iso: string) => {
+      const [ano, mes] = iso.split("-");
+      return `${meses[Number(mes) - 1]}/${ano}`;
+    };
+    const doCache = (mesesDisponiveis.data ?? [])
+      .map((m) => String(m.mes).slice(0, 10))
+      .filter(Boolean);
+    const valores = doCache.includes(defaultMes) ? doCache : [defaultMes, ...doCache];
+    return valores.map((value) => ({ value, label: label(value) }));
+  }, [mesesDisponiveis.data, defaultMes]);
 
   const kpis = usePainelKpis(mesAtual);
   const funil = usePainelFunil(mesAtual);
@@ -177,6 +180,21 @@ export default function PainelComercial() {
           sub={fmtBRL(k?.receita_software_servico, true)}
         />
       </section>
+
+      {/* A composição só existe para negócios com linhas de proposta; o que fica de
+          fora aparece aqui em vez de ser diluído no rateio. */}
+      {totalProdutos !== null && (
+        <p className="pc-label mb-3">
+          Composição calculada sobre {fmtBRL(totalProdutos, true)}
+          {k?.receita_mes ? ` (${fmtPct((totalProdutos / k.receita_mes) * 100)} da receita)` : ""}
+          {k?.receita_sem_composicao
+            ? ` · ${fmtBRL(k.receita_sem_composicao, true)} em negócios sem proposta detalhada`
+            : ""}
+          {k?.receita_nao_classificada
+            ? ` · ${fmtBRL(k.receita_nao_classificada, true)} em itens não classificados`
+            : ""}
+        </p>
+      )}
 
       <section className="pc-mid-grid mb-3">
         <FunnelPanel rows={funil.data ?? []} />
