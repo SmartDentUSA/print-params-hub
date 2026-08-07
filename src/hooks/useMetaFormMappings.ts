@@ -28,6 +28,7 @@ export interface UnmappedForm {
 }
 
 export type OriginSourceKind = "meta_form" | "system_form" | "origin";
+export type AcquisitionType = "inbound" | "outbound";
 
 export interface LeadOrigin {
   origin_key: string;
@@ -42,6 +43,8 @@ export interface LeadOrigin {
   is_active: boolean;
   mapping_id: string | null;
   mapped: boolean;
+  acquisition_type: AcquisitionType;
+  acquisition_source: "manual" | "auto";
 }
 
 export function useLeadOrigins() {
@@ -63,7 +66,30 @@ export function useLeadOrigins() {
         is_active: r.is_active ?? true,
         mapping_id: r.mapping_id ?? null,
         mapped: !!r.mapped,
+        acquisition_type: (r.acquisition_type === "outbound" ? "outbound" : "inbound") as AcquisitionType,
+        acquisition_source: r.acquisition_source === "manual" ? "manual" : "auto",
       }));
+    },
+  });
+}
+
+export function useSetOriginAcquisitionType() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      originKey,
+      type,
+      originName,
+    }: { originKey: string; type: AcquisitionType | null; originName?: string | null }) => {
+      const { error } = await supabase.rpc("set_origin_acquisition_type" as any, {
+        p_origin_key: originKey,
+        p_type: type,
+        p_origin_name: originName ?? null,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["meta_form_mappings", "lead_origins"] });
     },
   });
 }

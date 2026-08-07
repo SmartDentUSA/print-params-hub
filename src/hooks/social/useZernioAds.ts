@@ -322,6 +322,8 @@ export interface CampaignRevenueDeal {
   deal_value: number | null;
   converted_at: string | null;
   closed_at: string | null;
+  vendas_at: string | null;
+  cs_at: string | null;
   lead_time_days: number | null;
   campaign_product: string | null;
   purchased_products: string[] | null;

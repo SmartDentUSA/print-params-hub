@@ -17,8 +17,10 @@ import {
   useCatalogProductOptions,
   useSaveMetaFormMapping,
   useIsAdminUser,
+  useSetOriginAcquisitionType,
   type MetaFormMapping,
   type LeadOrigin,
+  type AcquisitionType,
 } from "@/hooks/useMetaFormMappings";
 import { WORKFLOW_7X3_CELLS, workflowCellLabel } from "@/lib/workflowCells";
 
@@ -37,6 +39,8 @@ const SOURCE_KIND_LABEL: Record<string, string> = {
   system_form: "Formulário do sistema",
   origin: "Origem de lead",
 };
+
+const AUTO = "__auto__";
 
 function fmtDate(v?: string | null) {
   if (!v) return "—";
@@ -88,10 +92,12 @@ export function MetaFormMappingsPanel() {
   const { data: products } = useCatalogProductOptions();
   const { data: isAdmin } = useIsAdminUser();
   const save = useSaveMetaFormMapping();
+  const setAcquisition = useSetOriginAcquisitionType();
 
   const [search, setSearch] = useState("");
   const [originSearch, setOriginSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
+  const [acqFilter, setAcqFilter] = useState("all");
   const [editor, setEditor] = useState<EditorState | null>(null);
 
   const filtered = useMemo(() => {
@@ -111,11 +117,29 @@ export function MetaFormMappingsPanel() {
     return (origins ?? [])
       .filter((o) => !o.mapped)
       .filter((o) => typeFilter === "all" || o.origin_type === typeFilter)
+      .filter((o) => acqFilter === "all" || o.acquisition_type === acqFilter)
       .filter((o) =>
         !q ||
         [o.origin_key, o.origin_name].some((v) => String(v ?? "").toLowerCase().includes(q))
       );
-  }, [origins, originSearch, typeFilter]);
+  }, [origins, originSearch, typeFilter, acqFilter]);
+
+  const handleAcquisitionChange = async (o: LeadOrigin, value: string) => {
+    try {
+      await setAcquisition.mutateAsync({
+        originKey: o.origin_key,
+        type: value === AUTO ? null : (value as AcquisitionType),
+        originName: o.origin_name,
+      });
+      toast.success(
+        value === AUTO
+          ? "Classificação manual removida (volta à detecção automática)"
+          : `Origem marcada como ${value === "outbound" ? "Outbound" : "Inbound"}`
+      );
+    } catch (e: any) {
+      toast.error(e?.message ?? "Falha ao classificar origem");
+    }
+  };
 
   const openOriginEditor = (o: LeadOrigin) => {
     const existing = (mappings ?? []).find((m) => m.form_id === o.origin_key);
@@ -255,6 +279,8 @@ export function MetaFormMappingsPanel() {
             <CardDescription>
               Todas as origens que já aparecem em leads reais — formulários Meta, formulários do sistema e
               demais canais (inbound, outbound e integrações) — que ainda não têm mapeamento cadastrado.
+              Use a coluna <strong>Aquisição</strong> para informar ao sistema se a origem é Inbound ou
+              Outbound — isso alimenta a separação Inbound/Outbound do Painel Comercial.
             </CardDescription>
           </div>
           <div className="flex items-center gap-2">
@@ -276,6 +302,14 @@ export function MetaFormMappingsPanel() {
                 ))}
               </SelectContent>
             </Select>
+            <Select value={acqFilter} onValueChange={setAcqFilter}>
+              <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Inbound + Outbound</SelectItem>
+                <SelectItem value="inbound">Só Inbound</SelectItem>
+                <SelectItem value="outbound">Só Outbound</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </CardHeader>
         <CardContent>
@@ -292,6 +326,7 @@ export function MetaFormMappingsPanel() {
                   <TableHead>Origem</TableHead>
                   <TableHead>Nome atual</TableHead>
                   <TableHead>Tipo</TableHead>
+                  <TableHead className="w-44">Aquisição</TableHead>
                   <TableHead className="text-right">Leads</TableHead>
                   <TableHead className="text-right">Ativos (90d)</TableHead>
                   <TableHead>Célula 7×3</TableHead>
@@ -315,6 +350,24 @@ export function MetaFormMappingsPanel() {
                       <Badge variant={o.is_active ? "outline" : "secondary"}>
                         {ORIGIN_TYPE_LABEL[o.origin_type] ?? o.origin_type}
                       </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Select
+                        value={o.acquisition_source === "manual" ? o.acquisition_type : AUTO}
+                        disabled={!canWrite || setAcquisition.isPending}
+                        onValueChange={(v) => handleAcquisitionChange(o, v)}
+                      >
+                        <SelectTrigger className="h-8 w-40 text-xs">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value={AUTO}>
+                            Automático ({o.acquisition_type === "outbound" ? "Outbound" : "Inbound"})
+                          </SelectItem>
+                          <SelectItem value="inbound">Inbound</SelectItem>
+                          <SelectItem value="outbound">Outbound</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </TableCell>
                     <TableCell className="text-right tabular-nums">{o.leads_count}</TableCell>
                     <TableCell className="text-right tabular-nums">{o.active_leads_count}</TableCell>
