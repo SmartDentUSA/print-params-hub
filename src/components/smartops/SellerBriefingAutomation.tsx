@@ -90,6 +90,8 @@ export function SellerBriefingAutomation() {
     });
     setPurging(false);
     if (error) toast.error("Falha ao limpar mensagens");
+    else if ((data?.deleted ?? 0) === 0)
+      toast.info("Nenhuma mensagem de briefing encontrada para apagar (o WhatsApp só permite apagar mensagens ainda disponíveis no histórico da instância).");
     else
       toast.success(
         `Limpeza concluída — ${data?.deleted ?? 0} apagadas${data?.failed ? `, ${data.failed} falhas` : ""}`,

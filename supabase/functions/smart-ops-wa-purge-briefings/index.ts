@@ -49,7 +49,8 @@ Deno.serve(async (req) => {
       }
     }
 
-    const cutoff = new Date(Date.now() - Number(cfg.purge_idade_horas ?? 24) * 3600 * 1000).toISOString();
+    const cutoffMs = Date.now() - Number(cfg.purge_idade_horas ?? 24) * 3600 * 1000;
+    const cutoff = new Date(cutoffMs).toISOString();
 
     const { data: rows, error } = await supabase
       .from("message_logs")
@@ -81,33 +82,112 @@ Deno.serve(async (req) => {
     let deleted = 0;
     let failed = 0;
 
+    const deleteMsg = async (instance: string, apikey: string, id: string, remoteJid: string) => {
+      const url = new URL(`${EVO_BASE}/chat/deleteMessageForEveryone/${encodeURIComponent(instance)}`);
+      const res = await fetch(url.toString(), {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json", apikey },
+        body: JSON.stringify({ id, remoteJid, fromMe: true }),
+        signal: AbortSignal.timeout(20_000),
+      });
+      if (!res.ok) console.warn(`[purge-briefings] delete ${res.status}: ${(await res.text()).slice(0, 200)}`);
+      return res.ok;
+    };
+
     for (const row of rows ?? []) {
       const instance = row.evolution_instance || cfg.sender_instance;
       const phone = (row.whatsapp_number || "").replace(/\D/g, "");
       if (!instance || !phone || !row.provider_message_id) { failed++; continue; }
       const apikey = await resolveKey(instance);
       try {
-        const url = new URL(`${EVO_BASE}/chat/deleteMessageForEveryone/${encodeURIComponent(instance)}`);
-        const res = await fetch(url.toString(), {
-          method: "DELETE",
-          headers: { "Content-Type": "application/json", apikey },
-          body: JSON.stringify({
-            id: row.provider_message_id,
-            remoteJid: `${phone}@s.whatsapp.net`,
-            fromMe: true,
-          }),
-          signal: AbortSignal.timeout(20_000),
-        });
-        if (res.ok) {
+        const ok = await deleteMsg(instance, apikey, row.provider_message_id, `${phone}@s.whatsapp.net`);
+        if (ok) {
           deleted++;
           await supabase.from("message_logs").update({ purged_at: new Date().toISOString() }).eq("id", row.id);
         } else {
           failed++;
-          console.warn(`[purge-briefings] delete ${res.status}: ${(await res.text()).slice(0, 200)}`);
         }
       } catch (e) {
         failed++;
         console.warn("[purge-briefings] delete error:", e);
+      }
+    }
+
+    // ── Fallback: varredura do chat (logs antigos sem provider_message_id) ──
+    // Busca as mensagens enviadas por nós no chat de cada vendedor e apaga
+    // as que são briefing ("Resumo do Lead").
+    const debug: any[] = [];
+    let scanned = 0;
+    let deletedScan = 0;
+    const senderInstance = (cfg.sender_instance as string | null) || null;
+    if (senderInstance) {
+      const apikey = await resolveKey(senderInstance);
+      const { data: phoneRows } = await supabase
+        .from("message_logs")
+        .select("whatsapp_number")
+        .eq("tipo", "briefing_vendedor")
+        .not("whatsapp_number", "is", null)
+        .order("created_at", { ascending: false })
+        .limit(2000);
+      const phones = Array.from(
+        new Set((phoneRows ?? []).map((r: any) => String(r.whatsapp_number || "").replace(/\D/g, "")).filter((p) => p.length >= 10)),
+      );
+
+      const isBriefing = (text: string) =>
+        /an[áa]lise smartops/i.test(text) ||
+        /resumo do lead/i.test(text) ||
+        /🧾/.test(text) ||
+        /app\.pipe\.run\/#\/deals\//i.test(text) ||
+        (/hist[óo]rico:/i.test(text) && /oportunidade:/i.test(text));
+
+      for (const phone of phones) {
+        const remoteJid = `${phone}@s.whatsapp.net`;
+        try {
+          const res = await fetch(`${EVO_BASE}/chat/findMessages/${encodeURIComponent(senderInstance)}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", apikey },
+            body: JSON.stringify({ where: { key: { remoteJid } }, limit: 200 }),
+            signal: AbortSignal.timeout(25_000),
+          });
+          if (!res.ok) {
+            debug.push({ phone, status: res.status });
+            console.warn(`[purge-briefings] findMessages ${res.status}: ${(await res.text()).slice(0, 200)}`);
+            continue;
+          }
+          const payload = await res.json();
+          const records: any[] = payload?.messages?.records ?? payload?.records ?? (Array.isArray(payload) ? payload : []);
+          debug.push({
+            phone,
+            records: records.length,
+            total: payload?.messages?.total,
+            pages: payload?.messages?.pages,
+            sample: records[0] ? JSON.stringify(records[0]).slice(0, 900) : null,
+          });
+          for (const m of records) {
+            const key = m?.key ?? {};
+            if (!key?.fromMe || !key?.id) continue;
+            const rawTs = Number(m?.messageTimestamp ?? 0);
+            const ts = rawTs > 1e12 ? rawTs : rawTs * 1000;
+            if (ts && ts > cutoffMs) continue;
+            const text =
+              m?.message?.conversation ??
+              m?.message?.extendedTextMessage?.text ??
+              m?.message?.imageMessage?.caption ??
+              m?.message?.documentMessage?.caption ??
+              "";
+            if (!text || !isBriefing(String(text))) continue;
+            scanned++;
+            try {
+              if (await deleteMsg(senderInstance, apikey, key.id, key.remoteJid || remoteJid)) deletedScan++;
+              else failed++;
+            } catch (e) {
+              failed++;
+              console.warn("[purge-briefings] scan delete error:", e);
+            }
+          }
+        } catch (e) {
+          console.warn("[purge-briefings] findMessages error:", e);
+        }
       }
     }
 
@@ -116,7 +196,16 @@ Deno.serve(async (req) => {
       .update({ purge_last_run_at: new Date().toISOString() })
       .eq("id", cfg.id);
 
-    return json({ success: true, candidates: (rows ?? []).length, deleted, failed });
+    return json({
+      success: true,
+      candidates: (rows ?? []).length,
+      deleted: deleted + deletedScan,
+      deleted_by_log: deleted,
+      deleted_by_scan: deletedScan,
+      scan_matches: scanned,
+      failed,
+      debug: body?.debug === true ? debug : undefined,
+    });
   } catch (e) {
     return json({ error: e instanceof Error ? e.message : String(e) }, 500);
   }
