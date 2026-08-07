@@ -152,7 +152,7 @@ Deno.serve(async (req) => {
           cs_nome: cs.nome_completo ?? "",
         });
 
-        const { error: sendErr } = await supabase.functions.invoke("smart-ops-send-waleads", {
+        const { error: sendErr } = await supabase.functions.invoke("smart-ops-wa-send", {
           body: {
             to: phone,
             message,

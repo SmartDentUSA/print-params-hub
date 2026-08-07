@@ -27,7 +27,7 @@ import {
   Send,
   Loader2,
 } from "lucide-react";
-import { HighlightVariables, WaLeadsVariableBar } from "@/components/smartops/WaLeadsVariableBar";
+import { HighlightVariables, MessageVariableBar } from "@/components/smartops/MessageVariableBar";
 
 interface LiaAutomation {
   id: string;
@@ -277,7 +277,7 @@ export function SmartOpsLiaAutomations() {
 
               <div className="space-y-2">
                 <Label className="text-xs">Mensagem horário comercial</Label>
-                <WaLeadsVariableBar
+                <MessageVariableBar
                   onInsert={(k) =>
                     setEditing({
                       ...editing,
@@ -297,7 +297,7 @@ export function SmartOpsLiaAutomations() {
 
               <div className="space-y-2">
                 <Label className="text-xs">Mensagem fora do horário</Label>
-                <WaLeadsVariableBar
+                <MessageVariableBar
                   onInsert={(k) =>
                     setEditing({
                       ...editing,

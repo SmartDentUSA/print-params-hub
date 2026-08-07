@@ -1,4 +1,4 @@
-// smart-ops-send-waleads — envio de WhatsApp via Evolution API (WaLeads descontinuado).
+// smart-ops-wa-send — envio de WhatsApp via Evolution API (WaLeads descontinuado).
 // Mantém o nome da função por retrocompat com os call-sites existentes.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 

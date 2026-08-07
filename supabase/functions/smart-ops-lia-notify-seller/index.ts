@@ -5,7 +5,7 @@
 // compartilhado, que já formata com "📊 Análise SmartOps".
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-import { buildSellerNotification } from "../_shared/waleads-messaging.ts";
+import { buildSellerNotification } from "../_shared/wa-messaging.ts";
 import { EVO_BASE, EVO_KEY, normalizePhone } from "../_shared/evolution.ts";
 
 const corsHeaders = {

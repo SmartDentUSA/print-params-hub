@@ -102,7 +102,7 @@ export async function fetchDealsContext(
       recent: list.slice(0, 5),
     };
   } catch (e) {
-    console.warn("[waleads-messaging] fetchDealsContext failed:", e);
+    console.warn("[wa-messaging] fetchDealsContext failed:", e);
     return empty;
   }
 }
@@ -137,7 +137,7 @@ function stripUnknownSellerNames(text: string, allowedOwners: string[], leadName
   });
 }
 
-export async function sendWaLeadsMessage(
+export async function sendWhatsAppMessage(
   supabaseUrl: string,
   serviceKey: string,
   teamMemberId: string,
@@ -146,7 +146,7 @@ export async function sendWaLeadsMessage(
   leadId: string
 ): Promise<{ success: boolean; status?: number; response?: string }> {
   try {
-    const res = await fetch(`${supabaseUrl}/functions/v1/smart-ops-send-waleads`, {
+    const res = await fetch(`${supabaseUrl}/functions/v1/smart-ops-wa-send`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${serviceKey}`,
@@ -163,7 +163,7 @@ export async function sendWaLeadsMessage(
     const resText = await res.text();
     return { success: res.ok, status: res.status, response: resText.slice(0, 300) };
   } catch (e) {
-    console.warn("[waleads-messaging] Send error:", e);
+    console.warn("[wa-messaging] Send error:", e);
     return { success: false, response: String(e) };
   }
 }
@@ -222,7 +222,7 @@ Regras:
     const data = await res.json();
     const usage = extractUsage(data);
     await logAIUsage({
-      functionName: "waleads-messaging",
+      functionName: "wa-messaging",
       actionLabel: "generate-greeting",
       model: "google/gemini-2.5-flash-lite",
       promptTokens: usage.prompt_tokens,
@@ -231,7 +231,7 @@ Regras:
     const content = data.choices?.[0]?.message?.content?.trim();
     if (content && content.length > 20) return content;
   } catch (e) {
-    console.warn("[waleads-messaging] AI greeting failed:", e);
+    console.warn("[wa-messaging] AI greeting failed:", e);
   }
   return buildStaticGreeting(lead, sellerName);
 }
@@ -262,7 +262,7 @@ export async function buildSellerNotification(
       if (lastMsg?.user_message) lastQuestion = String(lastMsg.user_message).slice(0, 200);
     }
   } catch (e) {
-    console.warn("[waleads-messaging] Failed to fetch last question:", e);
+    console.warn("[wa-messaging] Failed to fetch last question:", e);
   }
 
   // Enrich with real deal history
@@ -276,7 +276,7 @@ export async function buildSellerNotification(
     historico = aiResult.historico;
     oportunidade = aiResult.oportunidade;
   } catch (e) {
-    console.warn("[waleads-messaging] AI historico failed:", e);
+    console.warn("[wa-messaging] AI historico failed:", e);
   }
 
   // Fallback static texts
@@ -413,7 +413,7 @@ Retorne APENAS JSON: {"historico":"...","oportunidade":"..."}`;
   const data = await res.json();
   const usage = extractUsage(data);
   await logAIUsage({
-    functionName: "waleads-messaging",
+    functionName: "wa-messaging",
     actionLabel: "generate-briefing-gemini-lite",
     model: "google/gemini-2.5-flash-lite",
     promptTokens: usage.prompt_tokens,
@@ -490,13 +490,13 @@ export async function sendTemplateMessage(
       payload.caption = rule.waleads_media_caption || "";
     }
 
-    await fetch(`${supabaseUrl}/functions/v1/smart-ops-send-waleads`, {
+    await fetch(`${supabaseUrl}/functions/v1/smart-ops-wa-send`, {
       method: "POST",
       headers: { Authorization: `Bearer ${serviceKey}`, "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
   } catch (e) {
-    console.warn("[waleads-messaging] Template message error:", e);
+    console.warn("[wa-messaging] Template message error:", e);
   }
 }
 
@@ -527,7 +527,7 @@ export async function triggerOutboundMessages(
 
     if (isLiaSource) {
       const aiGreeting = await generateAILeadGreeting(lead, member.nome_completo);
-      await sendWaLeadsMessage(supabaseUrl, serviceKey, member.id, phone, aiGreeting, leadId);
+      await sendWhatsAppMessage(supabaseUrl, serviceKey, member.id, phone, aiGreeting, leadId);
     } else {
       await sendTemplateMessage(supabase, supabaseUrl, serviceKey, lead, member.id, phone);
     }
@@ -549,9 +549,9 @@ export async function triggerOutboundMessages(
         console.log('[notifySeller] dedup blocked - already sent today');
         return { skipped: true, reason: 'already_notified_today' };
       }
-      await sendWaLeadsMessage(supabaseUrl, serviceKey, member.id, member.whatsapp_number, briefing, leadId);
+      await sendWhatsAppMessage(supabaseUrl, serviceKey, member.id, member.whatsapp_number, briefing, leadId);
     }
   } catch (e) {
-    console.warn("[waleads-messaging] Outbound messages error:", e);
+    console.warn("[wa-messaging] Outbound messages error:", e);
   }
 }

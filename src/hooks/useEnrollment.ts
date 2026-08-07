@@ -5,7 +5,7 @@ import type {
   SmartopsCourse, DealSearchResult, Turma, TurmaDay,
   EnrollmentCompanion, ProposalItem, EquipmentData,
 } from '@/types/courses';
-import { formatPhoneWaleads, EQUIP_CONFIG, normalizeDateBR } from '@/lib/courseUtils';
+import { formatPhoneWhatsApp, EQUIP_CONFIG, normalizeDateBR } from '@/lib/courseUtils';
 import { buildTemplateVars, interpolateTemplate, DEFAULT_ENROLLMENT_TEMPLATE } from '@/lib/courseWhatsapp';
 import type { EquipKey } from '@/types/courses';
 
@@ -238,7 +238,7 @@ async function sendEnrollmentWA(p: {
   };
   try {
     if (!p.leadPhone) { await markError('sem telefone no lead'); return; }
-    const phone = formatPhoneWaleads(p.leadPhone);
+    const phone = formatPhoneWhatsApp(p.leadPhone);
     if (!phone) { await markError(`telefone inválido: ${p.leadPhone}`); return; }
 
     // CS por email — envio via Evolution (WaLeads descontinuado).
@@ -263,7 +263,7 @@ async function sendEnrollmentWA(p: {
     const message  = interpolateTemplate(template,
       buildTemplateVars(p.course, p.turma, days, p.personName, cs.nome_completo ?? 'Equipe SmartDent'));
 
-    const { error } = await supabase.functions.invoke('smart-ops-send-waleads', {
+    const { error } = await supabase.functions.invoke('smart-ops-wa-send', {
       body: {
         to: phone, message,
         lead_id: p.leadId, team_member_id: cs.id, source: 'enrollment_confirmation',

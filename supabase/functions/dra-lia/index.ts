@@ -966,7 +966,7 @@ ${cognitiveBlock}`.replace(/\n{3,}/g, "\n\n");
     // 6. Send notification to seller's phone
     if (teamMember.evolution_instance_name) {
       try {
-        const sendResp = await fetch(`${SUPABASE_URL}/functions/v1/smart-ops-send-waleads`, {
+        const sendResp = await fetch(`${SUPABASE_URL}/functions/v1/smart-ops-wa-send`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -1122,7 +1122,7 @@ REGRAS OBRIGATÓRIAS:
           console.log(`[handoff] Using fallback greeting for ${leadFirstName}`);
         }
 
-        await fetch(`${SUPABASE_URL}/functions/v1/smart-ops-send-waleads`, {
+        await fetch(`${SUPABASE_URL}/functions/v1/smart-ops-wa-send`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",

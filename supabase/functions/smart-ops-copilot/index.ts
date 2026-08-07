@@ -1229,7 +1229,7 @@ async function executeSendWhatsapp(args: any) {
       }
     }
 
-    // 4. Call send-waleads with team_member_id
+    // 4. Call wa-send with team_member_id
     const payload: any = {
       team_member_id: teamMemberId,
       phone,
@@ -1240,7 +1240,7 @@ async function executeSendWhatsapp(args: any) {
     if (args.media_url) payload.media_url = args.media_url;
     if (args.caption) payload.caption = args.caption;
 
-    const response = await fetch(`${SUPABASE_URL}/functions/v1/smart-ops-send-waleads`, {
+    const response = await fetch(`${SUPABASE_URL}/functions/v1/smart-ops-wa-send`, {
       method: "POST",
       headers: { "Content-Type": "application/json", "Authorization": `Bearer ${SUPABASE_SERVICE_ROLE_KEY}` },
       body: JSON.stringify(payload)

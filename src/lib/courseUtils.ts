@@ -121,7 +121,7 @@ export function resolveLocal(c: Pick<SmartopsCourse, 'modality'|'location'|'meet
   return 'Online — link será enviado em breve';
 }
 
-export function formatPhoneWaleads(raw?: string): string | null {
+export function formatPhoneWhatsApp(raw?: string): string | null {
   if (!raw) return null;
   const d = raw.replace(/\D/g, '').replace(/^0/, '');
   const w = d.startsWith('55') ? d : `55${d}`;
