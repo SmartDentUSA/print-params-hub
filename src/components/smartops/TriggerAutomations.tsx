@@ -417,15 +417,9 @@ export function TriggerAutomations() {
                 </div>
               );
             })}
-          </TabsContent>
-
-          {/* Botão + no fim da lista */}
-          <TabsContent value="lista" className="pt-0" forceMount={undefined as never}>
-            <div className="pt-1">
-              <Button variant="outline" size="sm" className="w-full" onClick={() => openEditor()}>
-                <Plus className="w-4 h-4 mr-1" /> Adicionar automação
-              </Button>
-            </div>
+            <Button variant="outline" size="sm" className="w-full" onClick={() => openEditor()}>
+              <Plus className="w-4 h-4 mr-1" /> Adicionar automação
+            </Button>
           </TabsContent>
 
           {/* ───── Fila ───── */}
