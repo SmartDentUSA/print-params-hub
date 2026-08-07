@@ -305,7 +305,7 @@ export async function findMessageStatus(
     const records = Array.isArray(data) ? data : (data?.messages?.records ?? data?.records ?? [])
     const m = Array.isArray(records) && records.length ? records[0] : null
     if (!m) return null
-    return (m.status ?? m?.message?.status ?? null) as string | null
+    return extractRecordStatus(m)
   } catch (_) {
     return null
   }
