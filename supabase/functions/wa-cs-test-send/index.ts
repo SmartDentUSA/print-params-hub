@@ -32,6 +32,24 @@ Deno.serve(async (req) => {
 
   // 1) Grupo via EvolutionGO
   const directJid: string = body.group_jid ?? "";
+  const viaEvo: boolean = body.group_via_evolution === true;
+  if (viaEvo && directJid && groupText) {
+    try {
+      const r = await fetch(`${go.base}/session/status`, { headers: { apikey: go.key }, signal: AbortSignal.timeout(20_000) });
+      out.evogo_session = { status: r.status, body: (await r.text()).slice(0, 300) };
+    } catch (e) { out.evogo_session = { error: String((e as Error).message ?? e) }; }
+    try {
+      const res = await fetch(`${evo.base}/message/sendText/${encodeURIComponent(evo.inst)}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", apikey: evo.key },
+        body: JSON.stringify({ number: directJid, text: groupText }),
+        signal: AbortSignal.timeout(60_000),
+      });
+      out.group_send_evolution = { status: res.status, body: (await res.text()).slice(0, 300), jid: directJid };
+    } catch (e) { out.group_error = String((e as Error).message ?? e); }
+    console.log("[wa-cs-test-send]", JSON.stringify(out));
+    return Response.json({ ok: true, ...out });
+  }
   if (directJid && groupText) {
     try {
       const res = await fetch(`${go.base}/send/text`, {
