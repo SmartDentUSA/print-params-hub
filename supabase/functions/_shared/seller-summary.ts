@@ -316,6 +316,35 @@ export async function buildSellerBriefingText(
   return htmlNoteToWhatsApp(html);
 }
 
+/**
+ * JID para o link wa.me. Varre TODOS os telefones conhecidos do lead — o
+ * `telefone_normalized` às vezes chega truncado do Meta Lead Ads (ex.
+ * `+55479924623`, 11 dígitos) e sozinho invalidaria o link.
+ */
+export function pickWaJid(lead: Record<string, unknown>): string {
+  const candidates = [
+    lead.telefone_normalized,
+    lead.telefone_raw,
+    (lead as any).wa_phone,
+    (lead as any).astron_phone,
+    (lead as any).empresa_telefone,
+  ];
+  for (const c of candidates) {
+    const jid = (normalizeBrazilianPhone(String(c ?? "")) || "").replace(/\D/g, "");
+    if (jid.length >= 12) return jid;
+  }
+  return "";
+}
+
+async function _unusedBuildSellerBriefingText(
+  supabase: SupabaseClient,
+  lead: Record<string, unknown>,
+  opts: SellerSummaryOptions = {},
+): Promise<string> {
+  const { html } = await buildSellerDealSummaryHTML(supabase, lead, opts);
+  return htmlNoteToWhatsApp(html);
+}
+
 function htmlNoteToWhatsApp(html: string): string {
   const text = html
     .replace(/<br\s*\/?>/gi, "\n")
