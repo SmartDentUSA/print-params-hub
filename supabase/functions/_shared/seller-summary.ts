@@ -336,15 +336,6 @@ export function pickWaJid(lead: Record<string, unknown>): string {
   return "";
 }
 
-async function _unusedBuildSellerBriefingText(
-  supabase: SupabaseClient,
-  lead: Record<string, unknown>,
-  opts: SellerSummaryOptions = {},
-): Promise<string> {
-  const { html } = await buildSellerDealSummaryHTML(supabase, lead, opts);
-  return htmlNoteToWhatsApp(html);
-}
-
 function htmlNoteToWhatsApp(html: string): string {
   const text = html
     .replace(/<br\s*\/?>/gi, "\n")
