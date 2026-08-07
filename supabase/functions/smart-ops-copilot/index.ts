@@ -262,7 +262,7 @@ const tools = [
     type: "function",
     function: {
       name: "send_whatsapp",
-      description: "Envia mensagem WhatsApp para um lead via WaLeads usando o celular de um membro da equipe (vendedor OU CS). Pode resolver membro e lead por nome automaticamente. Use role='cs' quando o usuário pedir 'enviar pelo CS', 'pelo pós-venda', 'pelo customer success'.",
+      description: "Envia mensagem WhatsApp para um lead via WhatsApp usando o celular de um membro da equipe (vendedor OU CS). Pode resolver membro e lead por nome automaticamente. Use role='cs' quando o usuário pedir 'enviar pelo CS', 'pelo pós-venda', 'pelo customer success'.",
       parameters: {
         type: "object",
         properties: {
@@ -1188,7 +1188,7 @@ async function executeSendWhatsapp(args: any) {
         .not("evolution_instance_name", "is", null)
         .limit(1)
         .maybeSingle();
-      if (!roleMember) return { error: `Nenhum membro ativo com role='${args.role}' e WaLeads configurado encontrado.` };
+      if (!roleMember) return { error: `Nenhum membro ativo com role='${args.role}' e WhatsApp configurado encontrado.` };
       teamMemberId = roleMember.id;
       console.log(`[Copilot] Resolved by role=${args.role} → ${roleMember.nome_completo} (${roleMember.id})`);
     }
@@ -1225,7 +1225,7 @@ async function executeSendWhatsapp(args: any) {
         teamMemberId = defaultSeller[0].id;
         console.log(`[Copilot] No seller specified, using default: ${defaultSeller[0].nome_completo}`);
       } else {
-        return { error: "Nenhum vendedor com WaLeads configurado encontrado. Informe seller_name." };
+        return { error: "Nenhum vendedor com WhatsApp configurado encontrado. Informe seller_name." };
       }
     }
 

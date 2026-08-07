@@ -268,7 +268,7 @@ verify_jwt = false
 enabled = false
 verify_jwt = true
 
-[functions.smart-ops-send-waleads]
+[functions.smart-ops-wa-send]
 verify_jwt = false
 
 [functions.backfill-lia-leads]

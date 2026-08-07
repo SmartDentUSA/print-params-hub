@@ -6,8 +6,6 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const WALEADS_BASE_URL = "https://waleads.roote.com.br";
-
 // Map rule tipo to CS tags
 const CS_TAG_MAP: Record<string, string> = {
   onboarding: "CS_ONBOARDING_INICIO",
@@ -65,7 +63,7 @@ Deno.serve(async (req) => {
       if (!leads?.length) continue;
 
       for (const lead of leads) {
-        const logTipo = rule.waleads_ativo ? `waleads_cs_${rule.id}` : `cs_${rule.template_manychat}`;
+        const logTipo = rule.wa_ativo ? `wa_cs_${rule.id}` : `cs_${rule.template_manychat}`;
 
         // Check if already sent
         const { data: existingLog } = await supabase
@@ -85,15 +83,15 @@ Deno.serve(async (req) => {
         }
 
         // ─── SellFlux path ───
-        if (SELLFLUX_API_TOKEN && rule.mensagem_waleads && lead.telefone_normalized) {
+        if (SELLFLUX_API_TOKEN && rule.mensagem_wa && lead.telefone_normalized) {
           const leadRecord = lead as Record<string, unknown>;
-          const result = await sendViaSellFlux(SELLFLUX_API_TOKEN, leadRecord, rule.mensagem_waleads);
+          const result = await sendViaSellFlux(SELLFLUX_API_TOKEN, leadRecord, rule.mensagem_wa);
 
           await supabase.from("message_logs").insert({
             lead_id: lead.id,
             team_member_id: csMember?.id || null,
             tipo: `sellflux_cs_${rule.id}`,
-            mensagem_preview: `[SellFlux CS] ${rule.tipo}: template ${rule.mensagem_waleads} para ${lead.nome}`.slice(0, 200),
+            mensagem_preview: `[SellFlux CS] ${rule.tipo}: template ${rule.mensagem_wa} para ${lead.nome}`.slice(0, 200),
             status: result.success ? "enviado" : "erro",
             error_details: result.success ? null : result.response,
           });
@@ -141,10 +139,9 @@ Deno.serve(async (req) => {
           continue;
         }
 
-        // ─── WaLeads path (fallback) ───
-        if (rule.waleads_ativo && lead.telefone_normalized) {
-          const waleadsTipo = rule.waleads_tipo || "text";
-          let evolutionInstanceName: string | null = null;
+        // ─── WhatsApp path (fallback) ───
+        if (rule.wa_ativo && lead.telefone_normalized) {
+          const waTipo = rule.wa_tipo || "text";
           let teamMemberId: string | null = null;
           let teamMemberWhatsapp: string | null = null;
 
@@ -155,13 +152,12 @@ Deno.serve(async (req) => {
               .eq("id", rule.team_member_id)
               .single();
             if (tm?.evolution_instance_name) {
-              evolutionInstanceName = tm.evolution_instance_name;
               teamMemberId = tm.id;
               teamMemberWhatsapp = tm.whatsapp_number;
             }
           }
 
-          if (evolutionInstanceName) {
+          if (teamMemberId) {
             let messageStatus = "skipped";
             let errorDetails: string | null = null;
             let preview = "";
@@ -169,23 +165,31 @@ Deno.serve(async (req) => {
             try {
               const leadRecord = lead as Record<string, unknown>;
               const chatPhone = formatPhoneForWhatsApp(lead.telefone_normalized || "");
-              let apiBody: Record<string, unknown>;
+              const apiBody: Record<string, unknown> = {
+                team_member_id: teamMemberId,
+                phone: chatPhone,
+                tipo: waTipo,
+                lead_id: lead.id,
+              };
 
-              if (waleadsTipo === "text") {
-                const msg = replaceVariables(rule.mensagem_waleads || "", leadRecord);
-                apiBody = { chat: chatPhone, message: msg, isGroup: false };
+              if (waTipo === "text") {
+                const msg = replaceVariables(rule.mensagem_wa || "", leadRecord);
+                apiBody.message = msg;
                 preview = msg.slice(0, 200);
               } else {
-                apiBody = { chat: chatPhone, url: rule.waleads_media_url, isGroup: false };
-                if (rule.waleads_media_caption) {
-                  apiBody.caption = replaceVariables(rule.waleads_media_caption, leadRecord);
+                apiBody.media_url = rule.wa_media_url;
+                if (rule.wa_media_caption) {
+                  apiBody.caption = replaceVariables(rule.wa_media_caption, leadRecord);
                 }
-                preview = `[${waleadsTipo}] ${rule.waleads_media_url || ""}`.slice(0, 200);
+                preview = `[${waTipo}] ${rule.wa_media_url || ""}`.slice(0, 200);
               }
 
-              const waRes = await fetch(`${WALEADS_BASE_URL}/public/message/${waleadsTipo}?key=${evolutionInstanceName}`, {
+              const waRes = await fetch(`${SUPABASE_URL}/functions/v1/smart-ops-wa-send`, {
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: `Bearer ${SERVICE_ROLE_KEY}`,
+                },
                 body: JSON.stringify(apiBody),
               });
 
@@ -201,7 +205,7 @@ Deno.serve(async (req) => {
               lead_id: lead.id,
               team_member_id: teamMemberId,
               whatsapp_number: teamMemberWhatsapp,
-              tipo: `waleads_cs_${rule.id}`,
+              tipo: `wa_cs_${rule.id}`,
               mensagem_preview: preview,
               status: messageStatus,
               error_details: errorDetails,

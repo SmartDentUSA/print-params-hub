@@ -32,7 +32,7 @@ export interface LtvRule {
   product_suggestion_source: "last_deal" | "category" | "manual";
   product_category: string | null;
   notify_seller: boolean;
-  waleads_message: string | null;
+  wa_message: string | null;
   min_ltv: number;
   max_open_ltv_deals: number;
   cooldown_days: number;
@@ -59,7 +59,7 @@ const empty = (): LtvRule => ({
   product_suggestion_source: "last_deal",
   product_category: null,
   notify_seller: false,
-  waleads_message: "",
+  wa_message: "",
   min_ltv: 0,
   max_open_ltv_deals: 1,
   cooldown_days: 30,
@@ -273,7 +273,7 @@ export function LtvRuleEditor({
           {form.notify_seller && (
             <div>
               <Label>Mensagem WhatsApp</Label>
-              <Textarea value={form.waleads_message ?? ""} onChange={(e) => update("waleads_message", e.target.value)} rows={3}
+              <Textarea value={form.wa_message ?? ""} onChange={(e) => update("wa_message", e.target.value)} rows={3}
                 placeholder="Olá {seller_name}, seu cliente {person_name} completou {days} dias de compra…" />
             </div>
           )}

@@ -59,17 +59,17 @@ Deno.serve(async (req) => {
 
     const { data: rules } = await supabase
       .from("cs_automation_rules")
-      .select("trigger_event, template_manychat, mensagem_waleads, produto_interesse")
+      .select("trigger_event, template_manychat, mensagem_wa, produto_interesse")
       .eq("ativo", true)
       .like("trigger_event", "est%");
 
     const rulesMap = new Map<string, { template: string; sellflux_template?: string; produto?: string }>();
     if (rules) {
       for (const r of rules) {
-        if (r.trigger_event && (r.template_manychat || r.mensagem_waleads)) {
+        if (r.trigger_event && (r.template_manychat || r.mensagem_wa)) {
           rulesMap.set(r.trigger_event, {
             template: r.template_manychat || "",
-            sellflux_template: r.mensagem_waleads || undefined,
+            sellflux_template: r.mensagem_wa || undefined,
             produto: r.produto_interesse || undefined,
           });
         }

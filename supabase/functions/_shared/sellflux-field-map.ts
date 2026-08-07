@@ -263,11 +263,11 @@ export function migrateLegacyTags(legacyTags: string[]): {
   };
 }
 
-// ─── Phone formatting for WaLeads API ───
+// ─── Phone formatting for WhatsApp API ───
 
 /**
- * Format phone number for WaLeads API: digits only, with country code 55 for BR numbers.
- * WaLeads rejects numbers with "+" prefix — always return digits only.
+ * Format phone number for WhatsApp API: digits only, with country code 55 for BR numbers.
+ * WhatsApp rejects numbers with "+" prefix — always return digits only.
  */
 export function formatPhoneForWhatsApp(raw: string): string {
   const digits = raw.replace(/\D/g, "");

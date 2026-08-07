@@ -50,11 +50,11 @@ interface Rule {
   tipo: string | null;
   template_manychat: string | null;
   manychat_ativo: boolean;
-  waleads_ativo: boolean;
-  waleads_tipo: string | null;
-  mensagem_waleads: string | null;
-  waleads_media_url: string | null;
-  waleads_media_caption: string | null;
+  wa_ativo: boolean;
+  wa_tipo: string | null;
+  mensagem_wa: string | null;
+  wa_media_url: string | null;
+  wa_media_caption: string | null;
   evolution_ativo: boolean;
   mensagem_evolution: string | null;
   horario_inicio: string | null;
@@ -81,7 +81,7 @@ const TRIGGER_OPTIONS = [
   { value: "perdido", label: "Perdido" },
 ];
 
-const WALEADS_TIPOS = [
+const WA_TIPOS = [
   { value: "text", label: "Texto" },
   { value: "image", label: "Imagem" },
   { value: "audio", label: "Áudio" },
@@ -124,11 +124,11 @@ const defaultForm = {
   tipo: "text",
   template_manychat: "",
   manychat_ativo: true,
-  waleads_ativo: false,
-  waleads_tipo: "text",
-  mensagem_waleads: "",
-  waleads_media_url: "",
-  waleads_media_caption: "",
+  wa_ativo: false,
+  wa_tipo: "text",
+  mensagem_wa: "",
+  wa_media_url: "",
+  wa_media_caption: "",
   evolution_ativo: false,
   mensagem_evolution: "",
   horario_inicio: "08:00",
@@ -181,11 +181,11 @@ export function SmartOpsCSRules() {
       tipo: r.tipo || "text",
       template_manychat: r.template_manychat || "",
       manychat_ativo: r.manychat_ativo ?? true,
-      waleads_ativo: r.waleads_ativo ?? false,
-      waleads_tipo: r.waleads_tipo || "text",
-      mensagem_waleads: r.mensagem_waleads || "",
-      waleads_media_url: r.waleads_media_url || "",
-      waleads_media_caption: r.waleads_media_caption || "",
+      wa_ativo: r.wa_ativo ?? false,
+      wa_tipo: r.wa_tipo || "text",
+      mensagem_wa: r.mensagem_wa || "",
+      wa_media_url: r.wa_media_url || "",
+      wa_media_caption: r.wa_media_caption || "",
       evolution_ativo: r.evolution_ativo ?? false,
       mensagem_evolution: r.mensagem_evolution || "",
       horario_inicio: (r.horario_inicio || "08:00").slice(0, 5),
@@ -204,14 +204,14 @@ export function SmartOpsCSRules() {
     const textarea = textareaRef.current;
     const tag = `{{${varKey}}}`;
     if (!textarea) {
-      setForm(f => ({ ...f, mensagem_waleads: f.mensagem_waleads + tag }));
+      setForm(f => ({ ...f, mensagem_wa: f.mensagem_wa + tag }));
       return;
     }
     const start = textarea.selectionStart;
     const end = textarea.selectionEnd;
-    const text = form.mensagem_waleads;
+    const text = form.mensagem_wa;
     const newText = text.substring(0, start) + tag + text.substring(end);
-    setForm(f => ({ ...f, mensagem_waleads: newText }));
+    setForm(f => ({ ...f, mensagem_wa: newText }));
     setTimeout(() => {
       textarea.focus();
       const pos = start + tag.length;
@@ -220,14 +220,14 @@ export function SmartOpsCSRules() {
   };
 
   const insertCaptionVariable = (varKey: string) => {
-    setForm(f => ({ ...f, waleads_media_caption: f.waleads_media_caption + `{{${varKey}}}` }));
+    setForm(f => ({ ...f, wa_media_caption: f.wa_media_caption + `{{${varKey}}}` }));
   };
 
-  const [uploadingField, setUploadingField] = useState<null | "media" | "waleads">(null);
+  const [uploadingField, setUploadingField] = useState<null | "media" | "wa">(null);
 
   const handleMediaUpload = async (
     file: File,
-    target: "media" | "waleads",
+    target: "media" | "wa",
     tipo: string,
   ) => {
     if (!file) return;
@@ -252,7 +252,7 @@ export function SmartOpsCSRules() {
           ...(tipo === "document" ? { media_filename: file.name } : {}),
         }));
       } else {
-        setForm(f => ({ ...f, waleads_media_url: url }));
+        setForm(f => ({ ...f, wa_media_url: url }));
       }
       toast({ title: "Upload concluído" });
     } catch (err) {
@@ -272,11 +272,11 @@ export function SmartOpsCSRules() {
       tipo: form.tipo,
       template_manychat: form.template_manychat || null,
       manychat_ativo: form.manychat_ativo,
-      waleads_ativo: form.waleads_ativo,
-      waleads_tipo: form.waleads_tipo,
-      mensagem_waleads: form.mensagem_waleads || null,
-      waleads_media_url: form.waleads_media_url || null,
-      waleads_media_caption: form.waleads_media_caption || null,
+      wa_ativo: form.wa_ativo,
+      wa_tipo: form.wa_tipo,
+      mensagem_wa: form.mensagem_wa || null,
+      wa_media_url: form.wa_media_url || null,
+      wa_media_caption: form.wa_media_caption || null,
       evolution_ativo: form.evolution_ativo,
       mensagem_evolution: form.mensagem_evolution || null,
       horario_inicio: form.horario_inicio || null,
@@ -341,7 +341,7 @@ export function SmartOpsCSRules() {
           {(r.horario_inicio || r.horario_fim) && (
             <span>🕐 {(r.horario_inicio || "00:00").slice(0, 5)}–{(r.horario_fim || "23:59").slice(0, 5)} · {formatDias(r.dias_semana)}</span>
           )}
-          <span>{TIPO_ICON[r.tipo || "text"]} {WALEADS_TIPOS.find(t => t.value === (r.tipo || "text"))?.label}</span>
+          <span>{TIPO_ICON[r.tipo || "text"]} {WA_TIPOS.find(t => t.value === (r.tipo || "text"))?.label}</span>
         </div>
         {r.enviar_fora_horario && r.mensagem_fora_horario && (
           <div className="text-[11px] text-muted-foreground">
@@ -352,23 +352,23 @@ export function SmartOpsCSRules() {
           {r.manychat_ativo && (
             <span className="text-primary">✓ ManyChat: <span className="font-mono">{r.template_manychat || "—"}</span></span>
           )}
-          {r.waleads_ativo && (
+          {r.wa_ativo && (
             <div className="flex items-start gap-2">
-              {r.waleads_tipo !== "text" && r.waleads_media_url && (
-                <MessageMediaPreview tipo={r.waleads_tipo || "image"} url={r.waleads_media_url} compact />
+              {r.wa_tipo !== "text" && r.wa_media_url && (
+                <MessageMediaPreview tipo={r.wa_tipo || "image"} url={r.wa_media_url} compact />
               )}
               <div className="space-y-0.5">
                 <span className="text-primary">
-                  ✓ WaLeads ({WALEADS_TIPOS.find(t => t.value === r.waleads_tipo)?.label})
+                  ✓ WhatsApp ({WA_TIPOS.find(t => t.value === r.wa_tipo)?.label})
                 </span>
-                {r.waleads_tipo === "text" && r.mensagem_waleads && (
+                {r.wa_tipo === "text" && r.mensagem_wa && (
                   <div className="block">
-                    <HighlightVariables text={r.mensagem_waleads.substring(0, 80) + (r.mensagem_waleads.length > 80 ? "…" : "")} />
+                    <HighlightVariables text={r.mensagem_wa.substring(0, 80) + (r.mensagem_wa.length > 80 ? "…" : "")} />
                   </div>
                 )}
-                {r.waleads_tipo !== "text" && r.waleads_media_caption && (
+                {r.wa_tipo !== "text" && r.wa_media_caption && (
                   <div className="block">
-                    <HighlightVariables text={r.waleads_media_caption.substring(0, 60) + (r.waleads_media_caption.length > 60 ? "…" : "")} />
+                    <HighlightVariables text={r.wa_media_caption.substring(0, 60) + (r.wa_media_caption.length > 60 ? "…" : "")} />
                   </div>
                 )}
               </div>
@@ -377,7 +377,7 @@ export function SmartOpsCSRules() {
           {r.evolution_ativo && (
             <span className="text-primary">✓ Evolution</span>
           )}
-          {!r.manychat_ativo && !r.waleads_ativo && !r.evolution_ativo && (
+          {!r.manychat_ativo && !r.wa_ativo && !r.evolution_ativo && (
             <span className="text-muted-foreground">Nenhum canal ativo</span>
           )}
         </div>
@@ -491,7 +491,7 @@ export function SmartOpsCSRules() {
                 <Select value={form.tipo} onValueChange={(v) => setForm({ ...form, tipo: v })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {WALEADS_TIPOS.map(t => (
+                    {WA_TIPOS.map(t => (
                       <SelectItem key={t.value} value={t.value}>{TIPO_ICON[t.value]} {t.label}</SelectItem>
                     ))}
                   </SelectContent>
@@ -502,7 +502,7 @@ export function SmartOpsCSRules() {
             {/* Mídia geral (quando tipo != texto) */}
             {form.tipo !== "text" && (
               <div className="space-y-2 p-3 border rounded-md bg-muted/30">
-                <Label className="text-xs font-semibold">Mídia ({WALEADS_TIPOS.find(t => t.value === form.tipo)?.label})</Label>
+                <Label className="text-xs font-semibold">Mídia ({WA_TIPOS.find(t => t.value === form.tipo)?.label})</Label>
                 <div>
                   <Label className="text-xs">URL da mídia</Label>
                   <div className="flex gap-2">
@@ -649,54 +649,54 @@ export function SmartOpsCSRules() {
 
             <Separator />
 
-            {/* WaLeads */}
+            {/* WhatsApp */}
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <Label className="font-semibold">WaLeads</Label>
-                <Switch checked={form.waleads_ativo} onCheckedChange={(v) => setForm({ ...form, waleads_ativo: v })} />
+                <Label className="font-semibold">WhatsApp</Label>
+                <Switch checked={form.wa_ativo} onCheckedChange={(v) => setForm({ ...form, wa_ativo: v })} />
               </div>
-              {form.waleads_ativo && (
+              {form.wa_ativo && (
                 <div className="space-y-3">
                   <div>
                     <Label className="text-xs">Tipo de Mensagem</Label>
-                    <Select value={form.waleads_tipo} onValueChange={(v) => setForm({ ...form, waleads_tipo: v })}>
+                    <Select value={form.wa_tipo} onValueChange={(v) => setForm({ ...form, wa_tipo: v })}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        {WALEADS_TIPOS.map(t => (
+                        {WA_TIPOS.map(t => (
                           <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
                   </div>
 
-                  {form.waleads_tipo === "text" ? (
+                  {form.wa_tipo === "text" ? (
                     <div className="space-y-2">
                       <MessageVariableBar onInsert={insertVariable} />
                       <div>
                         <Label className="text-xs">Mensagem</Label>
                         <Textarea
                           ref={textareaRef}
-                          value={form.mensagem_waleads}
-                          onChange={(e) => setForm({ ...form, mensagem_waleads: e.target.value })}
+                          value={form.mensagem_wa}
+                          onChange={(e) => setForm({ ...form, mensagem_wa: e.target.value })}
                           placeholder="Olá {{nome}}! Vi que se interessou pelo {{produto_interesse}}..."
                           rows={4}
                         />
                       </div>
-                      {form.mensagem_waleads && (
+                      {form.mensagem_wa && (
                         <div className="p-2 bg-muted/50 rounded border">
                           <span className="text-[10px] text-muted-foreground block mb-1">Preview:</span>
-                          <HighlightVariables text={form.mensagem_waleads} />
+                          <HighlightVariables text={form.mensagem_wa} />
                         </div>
                       )}
                     </div>
                   ) : (
                     <div className="space-y-3">
                       <div>
-                        <Label className="text-xs">URL da mídia ({WALEADS_TIPOS.find(t => t.value === form.waleads_tipo)?.label})</Label>
+                        <Label className="text-xs">URL da mídia ({WA_TIPOS.find(t => t.value === form.wa_tipo)?.label})</Label>
                         <div className="flex gap-2">
                           <Input
-                            value={form.waleads_media_url}
-                            onChange={(e) => setForm({ ...form, waleads_media_url: e.target.value })}
+                            value={form.wa_media_url}
+                            onChange={(e) => setForm({ ...form, wa_media_url: e.target.value })}
                             placeholder="https://..."
                             className="flex-1"
                           />
@@ -704,31 +704,31 @@ export function SmartOpsCSRules() {
                             type="button"
                             variant="outline"
                             size="sm"
-                            disabled={uploadingField === "waleads"}
-                            onClick={() => document.getElementById("waleads-upload-input")?.click()}
+                            disabled={uploadingField === "wa"}
+                            onClick={() => document.getElementById("wa-upload-input")?.click()}
                           >
-                            {uploadingField === "waleads" ? (
+                            {uploadingField === "wa" ? (
                               <Loader2 className="h-4 w-4 animate-spin" />
                             ) : (
                               <><Upload className="h-4 w-4 mr-1" />Upload</>
                             )}
                           </Button>
                           <input
-                            id="waleads-upload-input"
+                            id="wa-upload-input"
                             type="file"
                             hidden
-                            accept={ACCEPT_BY_TIPO[form.waleads_tipo] || "*/*"}
+                            accept={ACCEPT_BY_TIPO[form.wa_tipo] || "*/*"}
                             onChange={(e) => {
                               const f = e.target.files?.[0];
-                              if (f) handleMediaUpload(f, "waleads", form.waleads_tipo);
+                              if (f) handleMediaUpload(f, "wa", form.wa_tipo);
                               e.target.value = "";
                             }}
                           />
                         </div>
                       </div>
 
-                      {form.waleads_media_url && (
-                        <MessageMediaPreview tipo={form.waleads_tipo} url={form.waleads_media_url} />
+                      {form.wa_media_url && (
+                        <MessageMediaPreview tipo={form.wa_tipo} url={form.wa_media_url} />
                       )}
 
                       <div className="space-y-2">
@@ -736,15 +736,15 @@ export function SmartOpsCSRules() {
                         <div>
                           <Label className="text-xs">Legenda (opcional)</Label>
                           <Input
-                            value={form.waleads_media_caption}
-                            onChange={(e) => setForm({ ...form, waleads_media_caption: e.target.value })}
+                            value={form.wa_media_caption}
+                            onChange={(e) => setForm({ ...form, wa_media_caption: e.target.value })}
                             placeholder="Confira {{nome}}! Novidades sobre {{produto_interesse}}"
                           />
                         </div>
-                        {form.waleads_media_caption && (
+                        {form.wa_media_caption && (
                           <div className="p-2 bg-muted/50 rounded border">
                             <span className="text-[10px] text-muted-foreground block mb-1">Preview legenda:</span>
-                            <HighlightVariables text={form.waleads_media_caption} />
+                            <HighlightVariables text={form.wa_media_caption} />
                           </div>
                         )}
                       </div>
@@ -768,7 +768,7 @@ export function SmartOpsCSRules() {
                   <Textarea
                     value={form.mensagem_evolution}
                     onChange={(e) => setForm({ ...form, mensagem_evolution: e.target.value })}
-                    placeholder="Deixe vazio para usar a mesma mensagem do WaLeads"
+                    placeholder="Deixe vazio para usar a mesma mensagem do WhatsApp"
                     rows={4}
                   />
                 </div>

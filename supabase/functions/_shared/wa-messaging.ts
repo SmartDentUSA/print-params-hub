@@ -1,5 +1,5 @@
 /**
- * WaLeads Messaging — send messages, build notifications, AI greetings.
+ * WhatsApp Messaging — send messages, build notifications, AI greetings.
  * Extracted from smart-ops-lia-assign for reuse.
  */
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -460,7 +460,7 @@ export async function sendTemplateMessage(
       .select("*")
       .eq("trigger_event", "NOVO_LEAD")
       .eq("ativo", true)
-      .eq("waleads_ativo", true);
+      .eq("wa_ativo", true);
 
     if (!rules || rules.length === 0) return;
 
@@ -481,13 +481,13 @@ export async function sendTemplateMessage(
     const payload: Record<string, unknown> = {
       team_member_id: teamMemberId,
       phone,
-      tipo: rule.waleads_tipo || "text",
-      message: rule.mensagem_waleads || "",
+      tipo: rule.wa_tipo || "text",
+      message: rule.mensagem_wa || "",
       lead_id: lead.id,
     };
-    if (rule.waleads_media_url) {
-      payload.media_url = rule.waleads_media_url;
-      payload.caption = rule.waleads_media_caption || "";
+    if (rule.wa_media_url) {
+      payload.media_url = rule.wa_media_url;
+      payload.caption = rule.wa_media_caption || "";
     }
 
     await fetch(`${supabaseUrl}/functions/v1/smart-ops-wa-send`, {
