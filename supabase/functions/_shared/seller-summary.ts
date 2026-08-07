@@ -304,8 +304,9 @@ export async function buildSellerDealSummaryHTML(
 export async function buildSellerBriefingText(
   supabase: SupabaseClient,
   lead: Record<string, unknown>,
+  opts: SellerSummaryOptions = {},
 ): Promise<string> {
-  const { html } = await buildSellerDealSummaryHTML(supabase, lead);
+  const { html } = await buildSellerDealSummaryHTML(supabase, lead, opts);
   return htmlNoteToWhatsApp(html);
 }
 
