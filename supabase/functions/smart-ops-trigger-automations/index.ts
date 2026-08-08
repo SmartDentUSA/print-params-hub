@@ -400,14 +400,24 @@ Deno.serve(async (req) => {
 
           const { data: lead } = await supabase
             .from("lia_attendances")
-            .select("id, nome, email, telefone, telefone_normalized, merged_into")
+            .select("id, nome, email, telefone, telefone_normalized, wa_phone, merged_into")
             .eq("id", hit.lead_id)
             .maybeSingle();
           if (!lead || lead.merged_into) { skipped++; continue; }
 
           const channel = String(a.action_type);
           const destinatario = String(cfg.destinatario ?? "lead"); // lead | interno
-          const leadPhone = normalizePhone(lead.telefone_normalized ?? lead.telefone);
+          // Telefone de quem mandou a mensagem tem prioridade sobre o cadastro.
+          const leadPhone =
+            extractSenderPhone(
+              [
+                (hit.detail as any)?.phone,
+                lead.telefone_normalized,
+                lead.telefone,
+                (lead as any).wa_phone,
+              ],
+              hit.text,
+            ) ?? null;
 
           // Destino interno: a mensagem vai para o celular de um membro do time
           // (ex.: suporte) com um link wa.me já apontando para o cliente.
@@ -475,9 +485,22 @@ Deno.serve(async (req) => {
           (ctx as Record<string, unknown>).mensagem_cliente = String(hit.text ?? "").slice(0, 400);
           (ctx as Record<string, unknown>).canal_origem = String(a.trigger_source ?? "");
 
-          if (destinatario === "interno" && !linkCliente) { skipped++; continue; }
-
-          const message = interpolate(String(cfg.mensagem ?? ""), ctx);
+          const tpl = String(cfg.mensagem ?? "");
+          let message = interpolate(tpl, ctx);
+          // Notificação interna: o link do cliente é obrigatório. Se o template
+          // não referencia {{link_cliente}}, anexamos automaticamente com o
+          // telefone de quem mandou a mensagem e a mensagem recebida.
+          if (destinatario === "interno") {
+            if (!leadPhone) { skipped++; continue; }
+            if (!/\{\{\s*link_cliente\s*\}\}/.test(tpl)) {
+              const recebida = String(hit.text ?? "").slice(0, 300);
+              message =
+                `${message.trim()}\n\n` +
+                `👤 ${lead.nome ?? "Cliente"} — +${leadPhone}\n` +
+                (recebida ? `💬 "${recebida}"\n` : "") +
+                `➡️ Falar com o cliente: ${linkCliente}`;
+            }
+          }
           if (!message.trim()) { skipped++; continue; }
 
           const scheduledAt = nextAllowedAt(
