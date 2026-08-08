@@ -4,6 +4,7 @@
  * Extracted from dra-lia/index.ts for modularity and testability.
  */
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { getWaAutomationSetting, renderWaTemplate } from "./wa-automation-settings.ts";
 
 // deno-lint-ignore no-explicit-any
 type SupabaseClient = any;
@@ -163,7 +164,24 @@ ${cognitiveBlock}`.replace(/\n{3,}/g, "\n\n");
     console.log(`[escalation] ${escalationType} escalation logged for ${leadEmail} → ${teamMember.nome_completo}`);
 
     // 6. Send via WhatsApp if API key available
-    if (teamMember.evolution_instance_name) {
+    // Configuração editável em Automações → Automações sem UI
+    const waSetting = await getWaAutomationSetting(supabase, "lia_escalation");
+    if (!waSetting.ativo) {
+      console.log("[escalation] automação de WhatsApp desativada na UI — apenas log");
+      return;
+    }
+    let senderTeamMemberId = teamMember.id;
+    if (waSetting.wa_instance_name) {
+      const { data: senderTm } = await supabase
+        .from("team_members")
+        .select("id")
+        .eq("evolution_instance_name", waSetting.wa_instance_name)
+        .eq("ativo", true)
+        .limit(1)
+        .maybeSingle();
+      if (senderTm?.id) senderTeamMemberId = senderTm.id;
+    }
+    if (teamMember.evolution_instance_name || waSetting.wa_instance_name) {
       try {
         const sellerPhone = teamMember.whatsapp_number;
         if (!sellerPhone) {
@@ -177,10 +195,12 @@ ${cognitiveBlock}`.replace(/\n{3,}/g, "\n\n");
             "Authorization": `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
           },
           body: JSON.stringify({
-            team_member_id: teamMember.id,
+            team_member_id: senderTeamMemberId,
             phone: sellerPhone,
             tipo: "text",
-            message: notificationMsg,
+            message: waSetting.message_template
+              ? renderWaTemplate(waSetting.message_template, { lead: notificationMsg })
+              : notificationMsg,
             lead_id: attendance.id,
           }),
           signal: AbortSignal.timeout(5000),
