@@ -19912,6 +19912,7 @@ export type Database = {
           max_capacity: number | null
           meeting_link: string | null
           modality: string
+          nps_message_template: string | null
           pipeline_id_kanban: number
           public_enrollment_enabled: boolean
           public_visible: boolean | null
@@ -19925,12 +19926,14 @@ export type Database = {
           recurrence_weekdays: number[] | null
           related_product_ids: string[]
           related_product_names: string[]
+          reminder_message_template: string | null
           sellflux_campaign_tag: string | null
           signup_form_url: string | null
           slug: string
           stage_after_enroll: string
           title: string
           updated_at: string | null
+          wa_instance_name: string | null
           whatsapp_group_link: string | null
           whatsapp_message_template: string | null
         }
@@ -19950,6 +19953,7 @@ export type Database = {
           max_capacity?: number | null
           meeting_link?: string | null
           modality: string
+          nps_message_template?: string | null
           pipeline_id_kanban?: number
           public_enrollment_enabled?: boolean
           public_visible?: boolean | null
@@ -19963,12 +19967,14 @@ export type Database = {
           recurrence_weekdays?: number[] | null
           related_product_ids?: string[]
           related_product_names?: string[]
+          reminder_message_template?: string | null
           sellflux_campaign_tag?: string | null
           signup_form_url?: string | null
           slug: string
           stage_after_enroll?: string
           title: string
           updated_at?: string | null
+          wa_instance_name?: string | null
           whatsapp_group_link?: string | null
           whatsapp_message_template?: string | null
         }
@@ -19988,6 +19994,7 @@ export type Database = {
           max_capacity?: number | null
           meeting_link?: string | null
           modality?: string
+          nps_message_template?: string | null
           pipeline_id_kanban?: number
           public_enrollment_enabled?: boolean
           public_visible?: boolean | null
@@ -20001,12 +20008,14 @@ export type Database = {
           recurrence_weekdays?: number[] | null
           related_product_ids?: string[]
           related_product_names?: string[]
+          reminder_message_template?: string | null
           sellflux_campaign_tag?: string | null
           signup_form_url?: string | null
           slug?: string
           stage_after_enroll?: string
           title?: string
           updated_at?: string | null
+          wa_instance_name?: string | null
           whatsapp_group_link?: string | null
           whatsapp_message_template?: string | null
         }
