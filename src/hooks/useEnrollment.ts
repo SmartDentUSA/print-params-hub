@@ -241,11 +241,24 @@ async function sendEnrollmentWA(p: {
     const phone = formatPhoneWhatsApp(p.leadPhone);
     if (!phone) { await markError(`telefone inválido: ${p.leadPhone}`); return; }
 
+    // Instância configurada no card do curso tem prioridade.
+    let cs: any = null;
+    const courseInstance = (p.course as any).wa_instance_name as string | null;
+    if (courseInstance) {
+      const { data: byCourse } = await (supabase as any).from('team_members')
+        .select('id, nome_completo, evolution_instance_name')
+        .eq('evolution_instance_name', courseInstance).maybeSingle();
+      cs = byCourse ?? null;
+    }
+
     // CS por email — envio via Evolution (WhatsApp descontinuado).
-    let { data: cs } = await (supabase as any).from('team_members')
+    if (!cs) {
+      const { data: byEmail } = await (supabase as any).from('team_members')
       .select('id, nome_completo, evolution_instance_name')
       .eq('email', p.csEmail).eq('ativo', true)
       .not('evolution_instance_name', 'is', null).maybeSingle();
+      cs = byEmail ?? null;
+    }
 
     // Fallback institucional: instância smartdent_marketing
     if (!cs) {
