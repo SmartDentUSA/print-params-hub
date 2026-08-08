@@ -25764,6 +25764,48 @@ export type Database = {
           },
         ]
       }
+      wa_automation_settings: {
+        Row: {
+          ativo: boolean
+          created_at: string
+          descricao: string | null
+          function_name: string
+          id: string
+          message_template: string | null
+          nome: string
+          slug: string
+          updated_at: string
+          variaveis: string[]
+          wa_instance_name: string | null
+        }
+        Insert: {
+          ativo?: boolean
+          created_at?: string
+          descricao?: string | null
+          function_name: string
+          id?: string
+          message_template?: string | null
+          nome: string
+          slug: string
+          updated_at?: string
+          variaveis?: string[]
+          wa_instance_name?: string | null
+        }
+        Update: {
+          ativo?: boolean
+          created_at?: string
+          descricao?: string | null
+          function_name?: string
+          id?: string
+          message_template?: string | null
+          nome?: string
+          slug?: string
+          updated_at?: string
+          variaveis?: string[]
+          wa_instance_name?: string | null
+        }
+        Relationships: []
+      }
       wa_campaign_groups: {
         Row: {
           campaign_id: string
