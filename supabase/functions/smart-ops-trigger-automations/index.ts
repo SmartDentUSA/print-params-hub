@@ -486,20 +486,16 @@ Deno.serve(async (req) => {
           (ctx as Record<string, unknown>).canal_origem = String(a.trigger_source ?? "");
 
           const tpl = String(cfg.mensagem ?? "");
-          let message = interpolate(tpl, ctx);
-          // Notificação interna: o link do cliente é obrigatório. Se o template
-          // não referencia {{link_cliente}}, anexamos automaticamente com o
-          // telefone de quem mandou a mensagem e a mensagem recebida.
-          if (destinatario === "interno") {
-            if (!leadPhone) { skipped++; continue; }
-            if (!/\{\{\s*link_cliente\s*\}\}/.test(tpl)) {
-              const recebida = String(hit.text ?? "").slice(0, 300);
-              message =
-                `${message.trim()}\n\n` +
-                `👤 ${lead.nome ?? "Cliente"} — +${leadPhone}\n` +
-                (recebida ? `💬 "${recebida}"\n` : "") +
-                `➡️ Falar com o cliente: ${linkCliente}`;
-            }
+          const message = interpolate(tpl, ctx);
+          // Notificação interna com {{link_cliente}} no template exige o
+          // telefone do cliente — sem ele o link sairia vazio.
+          if (
+            destinatario === "interno" &&
+            /\{\{\s*link_cliente\s*\}\}/.test(tpl) &&
+            !leadPhone
+          ) {
+            skipped++;
+            continue;
           }
           if (!message.trim()) { skipped++; continue; }
 
