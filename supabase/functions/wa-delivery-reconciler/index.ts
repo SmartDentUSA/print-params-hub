@@ -86,17 +86,32 @@ serve(async (req) => {
         delivery_attempts: attempts,
       }).eq('id', it.id)
     } else if (ageMin > STUCK_MINUTES) {
-      // Travada → re-agenda pro dispatcher (mantém evo_message_id pra detectar dupe)
-      summary.stuck_requeued++
-      await supabase.from('wa_message_queue').update({
-        delivery_status: 'failed_undelivered',
-        delivery_checked_at: nowIso,
-        delivery_attempts: attempts,
-        status: 'pending',
-        retry_count: 0,
-        scheduled_at: nowIso,
-        error_message: `Não entregue após ${Math.floor(ageMin)}min (Baileys=${raw ?? 'not_found'})`,
-      }).eq('id', it.id)
+      const explicitError = String(raw ?? '').toUpperCase() === 'ERROR'
+      if (explicitError) {
+        // Falha explícita do Baileys → re-agenda pro dispatcher tentar de novo.
+        summary.stuck_requeued++
+        await supabase.from('wa_message_queue').update({
+          delivery_status: 'failed_undelivered',
+          delivery_checked_at: nowIso,
+          delivery_attempts: attempts,
+          status: 'pending',
+          retry_count: 0,
+          scheduled_at: nowIso,
+          error_message: `Baileys retornou ERROR após ${Math.floor(ageMin)}min`,
+        }).eq('id', it.id)
+      } else {
+        // `not_found` NÃO é falha: o Evolution aceitou a mensagem (temos
+        // evo_message_id) mas o store do Baileys não guarda/expõe o ACK de
+        // grupo. Reenviar aqui duplicava a mensagem no grupo — então apenas
+        // paramos de checar e marcamos como não verificável.
+        summary.unverified++
+        await supabase.from('wa_message_queue').update({
+          delivery_status: 'unverified',
+          delivery_checked_at: nowIso,
+          delivery_attempts: attempts,
+          error_message: `Entrega não confirmada pelo Baileys (${raw ?? 'sem registro no store'}) — mensagem foi aceita pelo Evolution`,
+        }).eq('id', it.id)
+      }
     } else {
       summary.still_pending++
       await supabase.from('wa_message_queue').update({
