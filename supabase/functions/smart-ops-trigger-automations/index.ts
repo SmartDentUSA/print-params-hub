@@ -42,6 +42,24 @@ function normalizePhone(raw?: string | null): string | null {
 
 const firstName = (n?: string | null) => String(n ?? "").trim().split(/\s+/)[0] ?? "";
 
+/** Extrai o telefone de quem enviou a mensagem (Zernio grava em `username`
+ *  para WhatsApp; formulários trazem "Phone number: ..." no corpo). */
+function extractSenderPhone(
+  candidates: (string | null | undefined)[],
+  text?: string | null,
+): string | null {
+  for (const c of candidates) {
+    const p = normalizePhone(c);
+    if (p) return p;
+  }
+  const m = String(text ?? "").match(/(?:phone|telefone|whatsapp|celular)[^\d+]{0,12}([\d()\s.+-]{10,20})/i);
+  if (m) {
+    const p = normalizePhone(m[1]);
+    if (p) return p;
+  }
+  return null;
+}
+
 function interpolate(tpl: string, ctx: Record<string, unknown>): string {
   return String(tpl ?? "").replace(/\{\{\s*([\w.]+)\s*\}\}/g, (_, k: string) => {
     const v = ctx[k];
@@ -180,13 +198,22 @@ async function detectHits(
     .limit(300);
   return (data ?? [])
     .filter((r: any) => matchesKeywords((r.event_data as any)?.text ?? (r.event_data as any)?.message))
-    .map((r: any) => ({
-      lead_id: r.lead_id,
-      ref: `social_dm:${r.id}`,
+    .map((r: any) => {
+      const ed = (r.event_data ?? {}) as Record<string, any>;
       // Zernio grava o conteúdo em `message`; `text` só existe em alguns canais.
-      text: (r.event_data as any)?.text ?? (r.event_data as any)?.message ?? null,
-      detail: { channel: r.source_channel, at: r.event_timestamp },
-    }));
+      const text = ed.text ?? ed.message ?? null;
+      return {
+        lead_id: r.lead_id,
+        ref: `social_dm:${r.id}`,
+        text,
+        detail: {
+          channel: r.source_channel,
+          at: r.event_timestamp,
+          // WhatsApp via Zernio: o telefone do remetente vem em `username`.
+          phone: extractSenderPhone([ed.phone, ed.from, ed.username, ed.sender_phone], text),
+        },
+      };
+    });
 }
 
 // ───────────────────────── Envio por canal ─────────────────────────
