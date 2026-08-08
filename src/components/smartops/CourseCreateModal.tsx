@@ -389,6 +389,12 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
   const loadTurmas = async (courseId: string) => {
     setTurmasLoading(true);
     try {
+      // placeholder-noop
+    } finally {
+      setTurmasLoading(false);
+    }
+    setTurmasLoading(true);
+    try {
       const { data } = await (supabase as any)
         .from("smartops_course_turmas")
         .select("*, days:smartops_turma_days(*)")
