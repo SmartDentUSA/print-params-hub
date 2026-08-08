@@ -67,7 +67,8 @@ Deno.serve(async (req) => {
       .select(`
         id, lead_id, person_name, turma_snapshot, course_id, turma_id, cs_team_member_id,
         course:smartops_courses!inner(
-          id, title, modality, instructor_name, whatsapp_group_link, meeting_link
+          id, title, modality, instructor_name, whatsapp_group_link, meeting_link,
+          wa_instance_name, reminder_message_template
         )
       `)
       .is("wa_reminder_sent_at", null)
@@ -95,8 +96,9 @@ Deno.serve(async (req) => {
           .maybeSingle();
         if (!claim) continue;
 
-        // REGRA: tudo que é treinamento/NPS sai pelo celular do CS (cs_principal).
-        const CS_INSTANCE = Deno.env.get("CS_EVOLUTION_INSTANCE") ?? "cs_principal";
+        // Instância configurada no card do curso; fallback: celular do CS (cs_principal).
+        const CS_INSTANCE = (course.wa_instance_name as string | null)
+          || Deno.env.get("CS_EVOLUTION_INSTANCE") || "cs_principal";
         let { data: cs } = await supabase
           .from("team_members")
           .select("id, nome_completo, evolution_instance_name")
@@ -141,7 +143,8 @@ Deno.serve(async (req) => {
         const snap: any = (e as any).turma_snapshot ?? {};
         const days: any[] = Array.isArray(snap.days) ? snap.days : [];
         const d0 = days[0] ?? {};
-        const message = interpolate(DEFAULT_REMINDER_TEMPLATE, {
+        const tpl = (course.reminder_message_template as string | null) || DEFAULT_REMINDER_TEMPLATE;
+        const message = interpolate(tpl, {
           nome: (e as any).person_name ?? "",
           curso: course.title ?? "",
           turma_label: snap.label ?? "",
