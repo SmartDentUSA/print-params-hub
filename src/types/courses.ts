@@ -91,6 +91,9 @@ export interface SmartopsCourse {
   whatsapp_group_link?: string;
   sellflux_campaign_tag?: string;
   whatsapp_message_template?: string;
+  wa_instance_name?: string | null;
+  reminder_message_template?: string | null;
+  nps_message_template?: string | null;
   pipeline_id_kanban: number;
   stage_after_enroll: string;
   public_visible: boolean;

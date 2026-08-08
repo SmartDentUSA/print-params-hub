@@ -32,6 +32,19 @@ export const DEFAULT_REMINDER_TEMPLATE = `Olá, {{nome}}! 👋
 Até já!
 *{{cs_nome}}*`;
 
+export const DEFAULT_NPS_TEMPLATE = `Oie {{nome}}, espero que esteja bem!
+
+Sua opinião sobre o treinamento *{{curso}}* é muito importante para continuarmos evoluindo. São só 3 perguntas rápidas e a resposta é anônima (menos de 1 minuto):
+
+{{link_nps}}`;
+
+export const NPS_TEMPLATE_VARIABLES = [
+  { key: '{{nome}}',        desc: 'Primeiro nome do participante' },
+  { key: '{{curso}}',       desc: 'Título do curso' },
+  { key: '{{turma_label}}', desc: 'Ex: Turma Abril 2026' },
+  { key: '{{link_nps}}',    desc: 'Link único da pesquisa de NPS' },
+] as const;
+
 export const TEMPLATE_VARIABLES = [
   { key: '{{nome}}',           desc: 'Nome do participante' },
   { key: '{{curso}}',          desc: 'Título do curso' },

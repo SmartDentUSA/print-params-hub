@@ -22,6 +22,7 @@ import CoverImageUpload from "./CoverImageUpload";
 import { slugify, buildCourseTag, MODALITY_CONFIG } from "@/lib/courseUtils";
 import {
   TEMPLATE_VARIABLES, DEFAULT_ENROLLMENT_TEMPLATE,
+  DEFAULT_REMINDER_TEMPLATE, DEFAULT_NPS_TEMPLATE, NPS_TEMPLATE_VARIABLES,
   interpolateTemplate, buildCronogramaText,
 } from "@/lib/courseWhatsapp";
 import type { SmartopsCourse, TurmaDay } from "@/types/courses";
@@ -276,6 +277,10 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
   const [publicVisible, setPublicVisible] = useState(false);
   const [publicEnrollmentEnabled, setPublicEnrollmentEnabled] = useState(false);
   const [waTemplate, setWaTemplate] = useState(DEFAULT_ENROLLMENT_TEMPLATE);
+  const [reminderTemplate, setReminderTemplate] = useState(DEFAULT_REMINDER_TEMPLATE);
+  const [npsTemplate, setNpsTemplate] = useState(DEFAULT_NPS_TEMPLATE);
+  const [waInstance, setWaInstance] = useState<string>("__default__");
+  const [waInstances, setWaInstances] = useState<Array<{ nome: string; instance: string; phone: string | null; status: string | null }>>([]);
   const [certificateBody, setCertificateBody] = useState(DEFAULT_CERTIFICATE_BODY);
 
   // Produtos do portfólio Smart Dent vinculados a cursos online.
@@ -305,6 +310,28 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
   const [turmas, setTurmas] = useState<LocalTurma[]>([]);
   const [turmasLoading, setTurmasLoading] = useState(false);
 
+  // Instâncias WhatsApp disponíveis para os envios de treinamento
+  useEffect(() => {
+    (async () => {
+      const { data } = await (supabase as any)
+        .from("team_members")
+        .select("nome_completo, evolution_instance_name, evolution_phone, evolution_status")
+        .not("evolution_instance_name", "is", null)
+        .eq("ativo", true)
+        .order("nome_completo");
+      setWaInstances(
+        (data ?? [])
+          .filter((m: any) => !!m.evolution_instance_name)
+          .map((m: any) => ({
+            nome: m.nome_completo || m.evolution_instance_name,
+            instance: m.evolution_instance_name,
+            phone: m.evolution_phone ?? null,
+            status: m.evolution_status ?? null,
+          })),
+      );
+    })();
+  }, []);
+
   // Load existing course data
   useEffect(() => {
     if (!course) {
@@ -316,6 +343,9 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
       setSignupFormUrl("");
       setPipelineId(83896); setStageAfterEnroll("treinamento_agendado");
       setPublicVisible(false); setWaTemplate(DEFAULT_ENROLLMENT_TEMPLATE);
+      setReminderTemplate(DEFAULT_REMINDER_TEMPLATE);
+      setNpsTemplate(DEFAULT_NPS_TEMPLATE);
+      setWaInstance("__default__");
       setPublicEnrollmentEnabled(false);
       setRecurrenceEnabled(false); setRecurrenceType('weeks'); setRecurrenceInterval(1);
       setRecurrenceBaseDate(''); setRecurrenceTimeStart('09:00'); setRecurrenceTimeEnd('11:00');
@@ -344,6 +374,9 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
     setPublicVisible(course.public_visible);
     setPublicEnrollmentEnabled(Boolean((course as any).public_enrollment_enabled));
     setWaTemplate(course.whatsapp_message_template || DEFAULT_ENROLLMENT_TEMPLATE);
+    setReminderTemplate((course as any).reminder_message_template || DEFAULT_REMINDER_TEMPLATE);
+    setNpsTemplate((course as any).nps_message_template || DEFAULT_NPS_TEMPLATE);
+    setWaInstance((course as any).wa_instance_name || "__default__");
     setCertificateBody(course.certificate_body_template || DEFAULT_CERTIFICATE_BODY);
     setRelatedProductIds(((course as any).related_product_ids ?? []) as string[]);
     setRelatedProductNames(((course as any).related_product_names ?? []) as string[]);
@@ -672,6 +705,9 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
         signup_form_url: signupFormUrl || null,
         whatsapp_group_link: whatsappGroupLink || null,
         whatsapp_message_template: waTemplate !== DEFAULT_ENROLLMENT_TEMPLATE ? waTemplate : null,
+        reminder_message_template: reminderTemplate && reminderTemplate !== DEFAULT_REMINDER_TEMPLATE ? reminderTemplate : null,
+        nps_message_template: npsTemplate && npsTemplate !== DEFAULT_NPS_TEMPLATE ? npsTemplate : null,
+        wa_instance_name: waInstance && waInstance !== "__default__" ? waInstance : null,
         certificate_body_template: certificateBody && certificateBody !== DEFAULT_CERTIFICATE_BODY ? certificateBody : null,
         pipeline_id_kanban: pipelineId,
         stage_after_enroll: stageAfterEnroll,
@@ -1144,7 +1180,29 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
 
             {/* ─── Mensagem WhatsApp ─── */}
             <div className="space-y-3">
-              <h3 className="font-semibold">Mensagem WhatsApp</h3>
+              <h3 className="font-semibold">Mensagens de WhatsApp do treinamento</h3>
+              <p className="text-xs text-muted-foreground">
+                Toda automação de treinamento (confirmação de matrícula, lembrete de aula e pesquisa de NPS)
+                é configurada aqui, por curso — inclusive o número que faz o envio.
+              </p>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs">Instância que envia as mensagens deste treinamento</Label>
+                <Select value={waInstance} onValueChange={setWaInstance}>
+                  <SelectTrigger><SelectValue placeholder="Padrão do CS" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__default__">Padrão do CS (cs_principal)</SelectItem>
+                    {waInstances.map((i) => (
+                      <SelectItem key={i.instance} value={i.instance}>
+                        {i.nome} — {i.instance}{i.phone ? ` · ${i.phone}` : ""}
+                        {i.status && i.status !== "open" ? " (offline)" : ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <Label className="text-xs mt-2 block">Confirmação de matrícula</Label>
 
               <div className="flex flex-wrap gap-1">
                 {TEMPLATE_VARIABLES.map((v) => (
@@ -1173,6 +1231,53 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
                 <div className="bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-lg p-4 text-sm whitespace-pre-wrap max-h-48 overflow-auto">
                   {waPreview}
                 </div>
+              </div>
+
+              {/* Lembrete de aula (1h antes) */}
+              <div className="pt-2 space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs">Lembrete de aula (1h antes)</Label>
+                  <Button type="button" variant="ghost" size="sm" className="text-xs"
+                    onClick={() => setReminderTemplate(DEFAULT_REMINDER_TEMPLATE)}>
+                    Restaurar padrão
+                  </Button>
+                </div>
+                <div className="flex flex-wrap gap-1">
+                  {TEMPLATE_VARIABLES.map((v) => (
+                    <Badge key={`rem-${v.key}`} variant="outline" className="cursor-pointer hover:bg-primary/10"
+                      title={v.desc}
+                      onClick={() => setReminderTemplate((t) => `${t}${v.key}`)}>
+                      {v.key}
+                    </Badge>
+                  ))}
+                </div>
+                <Textarea rows={7} className="font-mono text-sm"
+                  value={reminderTemplate} onChange={(e) => setReminderTemplate(e.target.value)} />
+              </div>
+
+              {/* Pesquisa de NPS */}
+              <div className="pt-2 space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs">Pesquisa de NPS (após o treinamento)</Label>
+                  <Button type="button" variant="ghost" size="sm" className="text-xs"
+                    onClick={() => setNpsTemplate(DEFAULT_NPS_TEMPLATE)}>
+                    Restaurar padrão
+                  </Button>
+                </div>
+                <div className="flex flex-wrap gap-1">
+                  {NPS_TEMPLATE_VARIABLES.map((v) => (
+                    <Badge key={`nps-${v.key}`} variant="outline" className="cursor-pointer hover:bg-primary/10"
+                      title={v.desc}
+                      onClick={() => setNpsTemplate((t) => `${t}${v.key}`)}>
+                      {v.key}
+                    </Badge>
+                  ))}
+                </div>
+                <Textarea rows={7} className="font-mono text-sm"
+                  value={npsTemplate} onChange={(e) => setNpsTemplate(e.target.value)} />
+                <p className="text-[11px] text-muted-foreground">
+                  Se o texto não incluir <code>{"{{link_nps}}"}</code>, o link é anexado ao final automaticamente.
+                </p>
               </div>
             </div>
 
