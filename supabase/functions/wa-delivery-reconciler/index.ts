@@ -57,7 +57,7 @@ serve(async (req) => {
     }
   }
 
-  const summary = { checked: 0, delivered: 0, read: 0, stuck_requeued: 0, still_pending: 0 }
+  const summary = { checked: 0, delivered: 0, read: 0, stuck_requeued: 0, unverified: 0, still_pending: 0 }
   const nowIso = new Date().toISOString()
 
   for (const it of items) {
