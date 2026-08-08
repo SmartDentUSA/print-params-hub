@@ -310,6 +310,28 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
   const [turmas, setTurmas] = useState<LocalTurma[]>([]);
   const [turmasLoading, setTurmasLoading] = useState(false);
 
+  // Instâncias WhatsApp disponíveis para os envios de treinamento
+  useEffect(() => {
+    (async () => {
+      const { data } = await (supabase as any)
+        .from("team_members")
+        .select("nome_completo, evolution_instance_name, evolution_phone, evolution_status")
+        .not("evolution_instance_name", "is", null)
+        .eq("ativo", true)
+        .order("nome_completo");
+      setWaInstances(
+        (data ?? [])
+          .filter((m: any) => !!m.evolution_instance_name)
+          .map((m: any) => ({
+            nome: m.nome_completo || m.evolution_instance_name,
+            instance: m.evolution_instance_name,
+            phone: m.evolution_phone ?? null,
+            status: m.evolution_status ?? null,
+          })),
+      );
+    })();
+  }, []);
+
   // Load existing course data
   useEffect(() => {
     if (!course) {
