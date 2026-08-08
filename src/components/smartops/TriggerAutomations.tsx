@@ -736,6 +736,43 @@ export function TriggerAutomations() {
               ) : (
                 <div>
                   <Label>Mensagem do WhatsApp</Label>
+                  <div className="flex flex-wrap items-center gap-1 my-1">
+                    {["primeiro_nome", "nome", "telefone", "email", "mensagem_cliente", "link_cliente", "link", "canal_origem"].map(
+                      (v) => (
+                        <Button
+                          key={v}
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          className="h-6 px-2 text-[11px]"
+                          onClick={() =>
+                            setAct({ mensagem: `${String(act.mensagem ?? "")}{{${v}}}` })
+                          }
+                        >
+                          {`{{${v}}}`}
+                        </Button>
+                      ),
+                    )}
+                    {String(act.destinatario ?? "lead") === "interno" && (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="secondary"
+                        className="h-6 px-2 text-[11px]"
+                        onClick={() =>
+                          setAct({
+                            mensagem:
+                              "🚨 Novo contato de cliente no WhatsApp ({{canal_origem}})\n\n" +
+                              "👤 {{nome}} — {{telefone}}\n" +
+                              '💬 "{{mensagem_cliente}}"\n\n' +
+                              "➡️ Falar com o cliente: {{link_cliente}}",
+                          })
+                        }
+                      >
+                        Preencher modelo de aviso interno
+                      </Button>
+                    )}
+                  </div>
                   <Textarea
                     rows={6}
                     value={String(act.mensagem ?? "")}
@@ -746,6 +783,13 @@ export function TriggerAutomations() {
                         : "Oi {{primeiro_nome}}, tudo bem? {{link}}"
                     }
                   />
+                  {String(act.destinatario ?? "lead") === "interno" &&
+                    !/\{\{\s*link_cliente\s*\}\}/.test(String(act.mensagem ?? "")) && (
+                      <p className="text-xs text-destructive mt-1">
+                        Aviso interno sem <code>{"{{link_cliente}}"}</code> — o suporte receberá a mensagem
+                        sem o link pronto para responder ao cliente.
+                      </p>
+                    )}
                 </div>
               )}
 
