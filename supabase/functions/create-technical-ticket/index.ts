@@ -202,7 +202,9 @@ Deno.serve(async (req) => {
     const whatsappMessage = `🚨 *NOVO CHAMADO TÉCNICO*\\nSmart Dent Suporte\\n\\n*Chamado:* ${ticketFullId}\\n\\n*Cliente:* ${lead.nome}\\n*Telefone:* ${lead.telefone_normalized || lead.telefone_raw || "N/A"}\\n*E-mail:* ${lead.email}\\n*Cidade:* ${lead.cidade || "N/A"} ${lead.uf ? `- ${lead.uf}` : ""}\\n\\n*Equipamentos registrados:*\\n${equipmentList.length > 0 ? equipmentList.join("\\n") : "Nenhum registrado"}\\n\\n*Compras registradas:*\\n${purchaseInfo.length > 0 ? purchaseInfo.join("\\n") : "Sem compras registradas"}\\n\\n*Cursos Smart Dent Academy:*\\n${coursesInfo}\\n\\n*Histórico de atendimentos:*\\n${historyInfo}\\n\\n---\\n\\n*Equipamento com problema:*\\n${equipment || "Não especificado"}\\n\\n${diagBlock ? `*Diagnóstico:*\\n${diagBlock}\\n` : ""}\\n*Resumo do cliente:*\\n"${client_summary || "Não fornecido"}"\\n\\n*Resumo IA:*\\n${aiSummary || "Não gerado"}\\n\\n---\\n\\n*Histórico de conversa:*\\n${convoPreview || "[sem histórico]"}\\n\\n---\\n\\n⚡ *Ação recomendada:* Contato técnico prioritário.\\nAbrir atendimento e atualizar ticket.`;
 
     // 7. Send WhatsApp notification to support team
-    // Find support team member (Patrícia or first available)
+    // Configuração editável em Automações → Automações sem UI
+    const waSetting = await getWaAutomationSetting(supabase, "technical_ticket");
+    const preferredInstance = waSetting.wa_instance_name ?? "Suporte_tecnico";
     const { data: supportMember } = await supabase
       .from("team_members")
       .select("id, evolution_instance_name, nome_completo, whatsapp_number")
@@ -211,13 +213,21 @@ Deno.serve(async (req) => {
       .order("nome_completo")
       .limit(5);
 
-    // Prefer member whose name contains "Patricia" or "Patrícia", else first
+    // Prefer the configured instance, then Patrícia, then first available
+    const byInstance = supportMember?.find(
+      (m: { evolution_instance_name: string | null }) => m.evolution_instance_name === preferredInstance,
+    );
     const patricia = supportMember?.find((m: { nome_completo: string }) => /patr[íi]cia/i.test(m.nome_completo));
-    const teamMember = patricia || supportMember?.[0];
+    const teamMember = byInstance || patricia || supportMember?.[0];
+    const waText = waSetting.message_template
+      ? renderWaTemplate(waSetting.message_template, { ticket: whatsappMessage })
+      : whatsappMessage;
 
     let notificationStatus = "not_sent";
 
-    if (teamMember) {
+    if (!waSetting.ativo) {
+      notificationStatus = "disabled";
+    } else if (teamMember) {
       try {
         // Send to support WhatsApp number (16 3419-4735)
         const supportPhone = "551634194735";
@@ -232,7 +242,7 @@ Deno.serve(async (req) => {
             team_member_id: teamMember.id,
             phone: supportPhone,
             tipo: "text",
-            message: whatsappMessage,
+            message: waText,
             lead_id,
           }),
         });
