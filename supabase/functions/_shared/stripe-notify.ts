@@ -7,7 +7,9 @@
 // deno-lint-ignore-file no-explicit-any
 import { EVO_BASE, EVO_KEY, normalizePhone } from "./evolution.ts";
 import { normalizeBrazilianPhone } from "./phone-normalize.ts";
+import { getWaAutomationSetting, renderWaTemplate } from "./wa-automation-settings.ts";
 
+const SETTING_SLUG = "stripe_payment_notice";
 const SENDER_INSTANCE = Deno.env.get("NOTIFY_SELLER_INSTANCE") ?? "smartdent_marketing";
 
 export interface PaymentNotice {
@@ -35,9 +37,24 @@ function spFmt(d: Date, opts: Intl.DateTimeFormatOptions): string {
   return new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Sao_Paulo", ...opts }).format(d);
 }
 
-export function buildPaymentMessage(n: PaymentNotice, sellerName: string | null): string {
+export function buildPaymentMessage(n: PaymentNotice, sellerName: string | null, template?: string | null): string {
   const header = n.kind === "ativacao" ? "💲 Nova ativação 💲" : "💲 Nova mensalidade 💲";
   const sub = n.kind === "ativacao" ? "💳 Pagamento da Ativação realizada" : "💳 Pagamento da Mensalidade realizado";
+  if (template) {
+    return renderWaTemplate(template, {
+      titulo: header,
+      subtitulo: sub,
+      produto_interno: n.internalProduct,
+      cliente: n.customerName,
+      email: n.customerEmail,
+      telefone: n.customerPhone,
+      valor: money(n.amount, n.currency),
+      hora: spFmt(n.paidAt, { hour: "2-digit", minute: "2-digit" }),
+      produto_stripe: n.stripeProduct,
+      data: spFmt(n.paidAt, { day: "2-digit", month: "2-digit", year: "numeric" }),
+      vendedor: sellerName,
+    });
+  }
   return [
     header,
     sub,
@@ -83,18 +100,20 @@ let _sender: { instance: string; key: string } | null = null;
 /** Instância institucional preferida; se estiver desconectada, cai para a 1ª instância aberta. */
 async function resolveSender(supabase: any): Promise<{ instance: string; key: string } | null> {
   if (_sender) return _sender;
-  const primaryKey = await instanceKey(supabase, SENDER_INSTANCE);
-  if (await isOpen(SENDER_INSTANCE, primaryKey)) {
-    _sender = { instance: SENDER_INSTANCE, key: primaryKey };
+  const setting = await getWaAutomationSetting(supabase, SETTING_SLUG);
+  const preferred = setting.wa_instance_name ?? SENDER_INSTANCE;
+  const primaryKey = await instanceKey(supabase, preferred);
+  if (await isOpen(preferred, primaryKey)) {
+    _sender = { instance: preferred, key: primaryKey };
     return _sender;
   }
-  console.warn(`[stripe-notify] instância ${SENDER_INSTANCE} desconectada — buscando fallback`);
+  console.warn(`[stripe-notify] instância ${preferred} desconectada — buscando fallback`);
   const { data } = await supabase
     .from("team_members")
     .select("evolution_instance_name, evolution_api_key")
     .not("evolution_api_key", "is", null)
     .eq("ativo", true);
-  const seen = new Set<string>([SENDER_INSTANCE]);
+  const seen = new Set<string>([preferred]);
   for (const m of (data ?? []) as any[]) {
     const name = (m.evolution_instance_name as string | null)?.trim();
     const key = (m.evolution_api_key as string | null)?.trim();
@@ -259,9 +278,11 @@ export async function notifySellerOfPayment(
   leadId: string,
   notice: PaymentNotice,
 ): Promise<{ sent: boolean; reason?: string }> {
+  const setting = await getWaAutomationSetting(supabase, SETTING_SLUG);
+  if (!setting.ativo) return { sent: false, reason: "automacao_desativada" };
   const seller = await resolveLeadSeller(supabase, leadId);
   if (!seller) return { sent: false, reason: "no_seller_assigned" };
-  const text = buildPaymentMessage(notice, seller.nome_completo);
+  const text = buildPaymentMessage(notice, seller.nome_completo, setting.message_template);
   const ok = await sendAndLog(supabase, {
     phone: seller.phone,
     text,
@@ -279,6 +300,8 @@ export async function notifyExecutivesOfPayment(
   notice: PaymentNotice,
   sellerName: string | null,
 ): Promise<{ sent: number; total: number }> {
+  const setting = await getWaAutomationSetting(supabase, SETTING_SLUG);
+  if (!setting.ativo) return { sent: 0, total: 0 };
   const { data: recipients, error } = await supabase
     .from("stripe_payment_notify_recipients")
     .select("nome, phone")
@@ -288,7 +311,7 @@ export async function notifyExecutivesOfPayment(
     return { sent: 0, total: 0 };
   }
   const list = (recipients ?? []) as Array<{ nome: string; phone: string }>;
-  const text = buildPaymentMessage(notice, sellerName);
+  const text = buildPaymentMessage(notice, sellerName, setting.message_template);
   let sent = 0;
   for (const r of list) {
     const ok = await sendAndLog(supabase, {
