@@ -1180,7 +1180,29 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
 
             {/* ─── Mensagem WhatsApp ─── */}
             <div className="space-y-3">
-              <h3 className="font-semibold">Mensagem WhatsApp</h3>
+              <h3 className="font-semibold">Mensagens de WhatsApp do treinamento</h3>
+              <p className="text-xs text-muted-foreground">
+                Toda automação de treinamento (confirmação de matrícula, lembrete de aula e pesquisa de NPS)
+                é configurada aqui, por curso — inclusive o número que faz o envio.
+              </p>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs">Instância que envia as mensagens deste treinamento</Label>
+                <Select value={waInstance} onValueChange={setWaInstance}>
+                  <SelectTrigger><SelectValue placeholder="Padrão do CS" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__default__">Padrão do CS (cs_principal)</SelectItem>
+                    {waInstances.map((i) => (
+                      <SelectItem key={i.instance} value={i.instance}>
+                        {i.nome} — {i.instance}{i.phone ? ` · ${i.phone}` : ""}
+                        {i.status && i.status !== "open" ? " (offline)" : ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <Label className="text-xs mt-2 block">Confirmação de matrícula</Label>
 
               <div className="flex flex-wrap gap-1">
                 {TEMPLATE_VARIABLES.map((v) => (
@@ -1209,6 +1231,53 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
                 <div className="bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-lg p-4 text-sm whitespace-pre-wrap max-h-48 overflow-auto">
                   {waPreview}
                 </div>
+              </div>
+
+              {/* Lembrete de aula (1h antes) */}
+              <div className="pt-2 space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs">Lembrete de aula (1h antes)</Label>
+                  <Button type="button" variant="ghost" size="sm" className="text-xs"
+                    onClick={() => setReminderTemplate(DEFAULT_REMINDER_TEMPLATE)}>
+                    Restaurar padrão
+                  </Button>
+                </div>
+                <div className="flex flex-wrap gap-1">
+                  {TEMPLATE_VARIABLES.map((v) => (
+                    <Badge key={`rem-${v.key}`} variant="outline" className="cursor-pointer hover:bg-primary/10"
+                      title={v.desc}
+                      onClick={() => setReminderTemplate((t) => `${t}${v.key}`)}>
+                      {v.key}
+                    </Badge>
+                  ))}
+                </div>
+                <Textarea rows={7} className="font-mono text-sm"
+                  value={reminderTemplate} onChange={(e) => setReminderTemplate(e.target.value)} />
+              </div>
+
+              {/* Pesquisa de NPS */}
+              <div className="pt-2 space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs">Pesquisa de NPS (após o treinamento)</Label>
+                  <Button type="button" variant="ghost" size="sm" className="text-xs"
+                    onClick={() => setNpsTemplate(DEFAULT_NPS_TEMPLATE)}>
+                    Restaurar padrão
+                  </Button>
+                </div>
+                <div className="flex flex-wrap gap-1">
+                  {NPS_TEMPLATE_VARIABLES.map((v) => (
+                    <Badge key={`nps-${v.key}`} variant="outline" className="cursor-pointer hover:bg-primary/10"
+                      title={v.desc}
+                      onClick={() => setNpsTemplate((t) => `${t}${v.key}`)}>
+                      {v.key}
+                    </Badge>
+                  ))}
+                </div>
+                <Textarea rows={7} className="font-mono text-sm"
+                  value={npsTemplate} onChange={(e) => setNpsTemplate(e.target.value)} />
+                <p className="text-[11px] text-muted-foreground">
+                  Se o texto não incluir <code>{"{{link_nps}}"}</code>, o link é anexado ao final automaticamente.
+                </p>
               </div>
             </div>
 
