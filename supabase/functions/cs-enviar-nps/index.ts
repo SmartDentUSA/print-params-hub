@@ -43,45 +43,40 @@ Deno.serve(async (req) => {
     } catch { /* silencioso */ }
   };
 
-  try {
-    // Instância CS (Ana Paula) — mesmo canal já usado pelo CS.
+  // Resolve credenciais/conexão da instância configurada no card do curso (fallback: CS).
+  type Creds = { instance: string; baseUrl: string; apikey: string };
+  const credsCache = new Map<string, Creds | null>();
+  const resolveInstance = async (name: string): Promise<Creds | null> => {
+    if (credsCache.has(name)) return credsCache.get(name) ?? null;
+    let out: Creds | null = null;
     const { data: tm } = await supabase
       .from("team_members")
-      .select("evolution_instance_name, evolution_api_key, evolution_base_url, evolution_enabled, evolution_status")
-      .eq("evolution_instance_name", CS_INSTANCE)
+      .select("evolution_instance_name, evolution_api_key, evolution_base_url, evolution_enabled")
+      .eq("evolution_instance_name", name)
       .maybeSingle();
-
     if (!tm || tm.evolution_enabled !== true) {
-      await log("error", "cs_instance_indisponivel", { instance: CS_INSTANCE, enabled: tm?.evolution_enabled ?? null });
-      return new Response(JSON.stringify({ ok: false, error: "cs_instance_indisponivel" }), {
-        status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-    const baseUrl = ((tm.evolution_base_url as string) || EVO_BASE_DEFAULT).replace(/\/+$/, "");
-    const apikey = (tm.evolution_api_key as string) || GLOBAL_KEY;
-    const instance = tm.evolution_instance_name as string;
-
-    // Guarda de conexão: não tentar enviar de instância offline.
-    try {
-      const st = await fetch(`${baseUrl}/instance/connectionState/${encodeURIComponent(instance)}`, {
-        headers: { apikey },
-        signal: AbortSignal.timeout(15_000),
-      });
-      const stJson = await st.json().catch(() => null);
-      const state = stJson?.instance?.state ?? stJson?.state ?? null;
-      if (state !== "open") {
-        await log("error", "cs_instance_offline", { instance, state });
-        return new Response(JSON.stringify({ ok: false, error: "cs_instance_offline", state }), {
-          status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      await log("error", "instancia_indisponivel", { instance: name, enabled: tm?.evolution_enabled ?? null });
+    } else {
+      const baseUrl = ((tm.evolution_base_url as string) || EVO_BASE_DEFAULT).replace(/\/+$/, "");
+      const apikey = (tm.evolution_api_key as string) || GLOBAL_KEY;
+      try {
+        const st = await fetch(`${baseUrl}/instance/connectionState/${encodeURIComponent(name)}`, {
+          headers: { apikey },
+          signal: AbortSignal.timeout(15_000),
         });
+        const stJson = await st.json().catch(() => null);
+        const state = stJson?.instance?.state ?? stJson?.state ?? null;
+        if (state !== "open") await log("error", "instancia_offline", { instance: name, state });
+        else out = { instance: name, baseUrl, apikey };
+      } catch (e) {
+        await log("error", "connection_state_falhou", { instance: name, message: String((e as Error)?.message ?? e) });
       }
-    } catch (e) {
-      await log("error", "connection_state_falhou", { instance, message: String((e as Error)?.message ?? e) });
-      return new Response(JSON.stringify({ ok: false, error: "connection_state_falhou" }), {
-        status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
     }
+    credsCache.set(name, out);
+    return out;
+  };
 
+  try {
     // Turmas que terminaram ontem, sem NPS enviado.
     const yesterday = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);
     const { data: turmas, error: eT } = await supabase
@@ -99,7 +94,7 @@ Deno.serve(async (req) => {
 
     const { data: enrollments, error: eE } = await supabase
       .from("smartops_course_enrollments")
-      .select("id, lead_id, turma_id, person_name, nps_sent_at")
+      .select("id, lead_id, turma_id, course_id, person_name, nps_sent_at")
       .in("turma_id", turmaIds)
       .is("nps_sent_at", null)
       .not("lead_id", "is", null);
@@ -132,13 +127,34 @@ Deno.serve(async (req) => {
           .eq("id", enr.id);
         if (eUpd) throw eUpd;
 
+        const { data: courseRow } = await supabase
+          .from("smartops_courses")
+          .select("title, wa_instance_name, nps_message_template")
+          .eq("id", enr.course_id)
+          .maybeSingle();
+
+        const creds = await resolveInstance((courseRow?.wa_instance_name as string | null) || CS_INSTANCE);
+        if (!creds) {
+          falhas.push({ enrollment_id: enr.id, motivo: "instancia_indisponivel" });
+          continue;
+        }
+        const { instance, baseUrl, apikey } = creds;
+
         const nome = firstName(enr.person_name ?? lead?.nome);
         const turma = (turmas ?? []).find((t: any) => t.id === enr.turma_id);
         const link = `${NPS_BASE_URL}/nps/${token}`;
-        const text =
-          `Oie${nome ? ` ${nome}` : ""} espero qu esteja bem!\n\n` +
+        const tpl = (courseRow?.nps_message_template as string | null) ||
+          `Oie${nome ? " {{nome}}" : ""} espero qu esteja bem!\n\n` +
           `Sua opinião é muito importante para continuarmos evoluindo, são só 3 perguntas rápidas e resposta anônima pois queremos sua sinceridade (menos de 1 minuto):\n\n` +
-          `${link}`;
+          `{{link_nps}}`;
+        let text = tpl
+          .replace(/\{\{nome\}\}/g, nome)
+          .replace(/\{\{curso\}\}/g, (courseRow?.title as string | null) ?? "")
+          .replace(/\{\{turma_label\}\}/g, turma?.label ?? "")
+          .replace(/\{\{link_nps\}\}/g, link)
+          .replace(/\n{3,}/g, "\n\n")
+          .trim();
+        if (!text.includes(link)) text = `${text}\n\n${link}`;
 
         const res = await fetch(`${baseUrl}/message/sendText/${encodeURIComponent(instance)}`, {
           method: "POST",
