@@ -1,6 +1,7 @@
 // training-factory-publish — publica assets da fábrica de conteúdo de turma
 // Recebe: { run_id: string }
 import { createClient } from 'npm:@supabase/supabase-js@2'
+import { getWaAutomationSetting, renderWaTemplate } from '../_shared/wa-automation-settings.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -28,13 +29,36 @@ const REEL_CHANNELS = [
   { platform: 'tiktok', format: 'Video' },
 ]
 
-async function sendEvolutionText(number: string, text: string): Promise<{ ok: boolean; error?: string }> {
+async function resolveWaSender(supabase: any): Promise<{ ativo: boolean; instance: string; key: string; template: string | null }> {
+  const setting = await getWaAutomationSetting(supabase, 'training_factory_publish')
+  const instance = setting.wa_instance_name ?? EVOLUTION_INSTANCE
+  let key = EVOLUTION_API_KEY
   try {
-    const url = `${EVOLUTION_BASE_URL}/message/sendText/${encodeURIComponent(EVOLUTION_INSTANCE)}`
+    const { data } = await supabase
+      .from('team_members')
+      .select('evolution_api_key')
+      .eq('evolution_instance_name', instance)
+      .not('evolution_api_key', 'is', null)
+      .limit(1)
+      .maybeSingle()
+    key = ((data as any)?.evolution_api_key as string | null)?.trim() || EVOLUTION_API_KEY
+  } catch (_) { /* usa a chave global */ }
+  return { ativo: setting.ativo, instance, key, template: setting.message_template }
+}
+
+async function sendEvolutionText(
+  number: string,
+  text: string,
+  sender: { ativo: boolean; instance: string; key: string; template: string | null },
+): Promise<{ ok: boolean; error?: string }> {
+  if (!sender.ativo) return { ok: false, error: 'automacao_desativada' }
+  const body = sender.template ? renderWaTemplate(sender.template, { aviso: text }) : text
+  try {
+    const url = `${EVOLUTION_BASE_URL}/message/sendText/${encodeURIComponent(sender.instance)}`
     const res = await fetch(url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', apikey: EVOLUTION_API_KEY },
-      body: JSON.stringify({ number, text }),
+      headers: { 'Content-Type': 'application/json', apikey: sender.key },
+      body: JSON.stringify({ number, text: body }),
       signal: AbortSignal.timeout(45_000),
     })
     if (!res.ok) {
@@ -136,7 +160,7 @@ Deno.serve(async (req) => {
           continue
         }
         const number = phone.startsWith('55') ? phone : `55${phone}`
-        const r = await sendEvolutionText(number, text)
+        const r = await sendEvolutionText(number, text, await resolveWaSender(supabase))
         if (r.ok) {
           await supabase
             .from('training_factory_assets')
@@ -177,7 +201,7 @@ Deno.serve(async (req) => {
             failed++
             continue
           }
-          const r = await sendEvolutionText(jid, text)
+          const r = await sendEvolutionText(jid, text, await resolveWaSender(supabase))
           if (r.ok) sent++
           else failed++
           await sleep(3000)

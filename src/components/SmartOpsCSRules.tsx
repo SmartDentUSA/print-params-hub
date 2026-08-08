@@ -19,6 +19,7 @@ import { SmartOpsLiaAutomations } from "@/components/smartops/SmartOpsLiaAutomat
 import { SellerBriefingAutomation } from "@/components/smartops/SellerBriefingAutomation";
 import { TriggerAutomations } from "@/components/smartops/TriggerAutomations";
 import { WaAutomationsInventory } from "@/components/smartops/WaAutomationsInventory";
+import { WaAutomationSettings } from "@/components/smartops/WaAutomationSettings";
 
 const ACCEPT_BY_TIPO: Record<string, string> = {
   image: "image/*",
@@ -797,6 +798,8 @@ export function SmartOpsCSRules() {
           <p>Acesse <strong>Treinamentos → Catálogo → editar curso → Mensagens de WhatsApp do treinamento</strong>.</p>
         </CardContent>
       </Card>
+
+      <WaAutomationSettings />
 
       <WaAutomationsInventory />
     </div>

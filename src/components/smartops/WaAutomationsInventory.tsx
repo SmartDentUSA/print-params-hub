@@ -21,11 +21,11 @@ const ROWS: Row[] = [
   { nome: "Broadcast de marketing", fn: "wa-broadcast-dispatch", instancia: "smartdent_marketing", onde: "Campanhas → Grupos WhatsApp / Social Publisher", status: "outra" },
   { nome: "Sequências / cadências", fn: "sequence-runner", instancia: "smartdent_marketing", onde: "Campanhas → Sequências", status: "outra" },
   { nome: "Reativação proativa", fn: "smart-ops-proactive-outreach", instancia: "smartdent_marketing", onde: "Reativação → Réguas", status: "outra" },
-  { nome: "Aviso de pagamento Stripe", fn: "_shared/stripe-notify", instancia: "smartdent_marketing", onde: "Sem UI — instância e texto fixos na função", status: "sem-ui" },
-  { nome: "Ticket técnico", fn: "create-technical-ticket", instancia: "Suporte_tecnico", onde: "Sem UI — instância e texto fixos na função", status: "sem-ui" },
-  { nome: "Escalação da LIA para humano", fn: "_shared/lia-escalation", instancia: "Suporte_tecnico", onde: "Sem UI — instância e texto fixos na função", status: "sem-ui" },
-  { nome: "Relatório diário Sentinela", fn: "sentinela-daily-report", instancia: "smartdent_marketing", onde: "Sentinela → Configuração (parcial)", status: "sem-ui" },
-  { nome: "Publicação de treinamento", fn: "training-factory-publish", instancia: "smartdent_marketing", onde: "Sem UI — aviso fixo na função", status: "sem-ui" },
+  { nome: "Aviso de pagamento Stripe", fn: "_shared/stripe-notify", instancia: "smartdent_marketing", onde: "Automações → Automações sem UI", status: "ui" },
+  { nome: "Ticket técnico", fn: "create-technical-ticket", instancia: "Suporte_tecnico", onde: "Automações → Automações sem UI", status: "ui" },
+  { nome: "Escalação da LIA para humano", fn: "_shared/lia-escalation", instancia: "Suporte_tecnico", onde: "Automações → Automações sem UI", status: "ui" },
+  { nome: "Relatório diário Sentinela", fn: "sentinela-daily-report", instancia: "smartdent_marketing", onde: "Automações → Automações sem UI", status: "ui" },
+  { nome: "Publicação de treinamento", fn: "training-factory-publish", instancia: "smartdent_marketing", onde: "Automações → Automações sem UI", status: "ui" },
   { nome: "Copilot — envio manual", fn: "smart-ops-copilot", instancia: "smartdent_marketing", onde: "Copilot (ação sob demanda, não agendável)", status: "sem-ui" },
 ];
 
