@@ -184,7 +184,15 @@ export function WaGroupFlowVisualizer({ campaignId }: Props) {
                       {row.sent_at && <> · Enviado: {new Date(row.sent_at).toLocaleString("pt-BR")}</>}
                     </div>
                     {row.error_message && (
-                      <p className="text-[11px] text-red-600 mt-1">⚠ {row.error_message}</p>
+                      <p
+                        className={`text-[11px] mt-1 ${
+                          /não confirmada/i.test(row.error_message)
+                            ? "text-amber-600"
+                            : "text-red-600"
+                        }`}
+                      >
+                        {/não confirmada/i.test(row.error_message) ? "ℹ" : "⚠"} {row.error_message}
+                      </p>
                     )}
                     {blocked && row.group_jid && (
                       <Button
