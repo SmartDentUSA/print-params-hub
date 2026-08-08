@@ -15,12 +15,24 @@ type Setting = {
   slug: string;
   nome: string;
   descricao: string | null;
-  funcao: string | null;
+  function_name: string | null;
   ativo: boolean;
   wa_instance_name: string | null;
   message_template: string | null;
   variaveis: string[] | null;
 };
+
+// Texto padrão de cada automação, apenas informativo (a função usa este texto
+// quando o modelo abaixo está vazio).
+const DEFAULT_HINT: Record<string, string> = {
+  stripe_payment_notice: "Aviso de pagamento com cliente, produto, valor, hora e vendedor.",
+  technical_ticket: "Chamado técnico completo: cliente, equipamentos, compras, diagnóstico e histórico.",
+  lia_escalation: "Aviso de escalação da LIA com o resumo do lead e o motivo do handoff.",
+  sentinela_daily_report: "Resumo Sentinela 24h: volume de mensagens, sentimento, sinais de compra e tópicos.",
+  training_factory_publish: "Aviso de publicação dos assets da turma (canais e status).",
+};
+
+const cleanVar = (v: string) => v.replace(/[{}]/g, "").trim();
 
 export function WaAutomationSettings() {
   const [rows, setRows] = useState<Setting[]>([]);
@@ -33,7 +45,7 @@ export function WaAutomationSettings() {
       const [{ data: settings, error }, { data: members }] = await Promise.all([
         supabase
           .from("wa_automation_settings")
-          .select("id, slug, nome, descricao, funcao, ativo, wa_instance_name, message_template, variaveis")
+          .select("id, slug, nome, descricao, function_name, ativo, wa_instance_name, message_template, variaveis")
           .order("nome"),
         supabase
           .from("team_members")
@@ -70,7 +82,7 @@ export function WaAutomationSettings() {
   };
 
   const insertVar = (row: Setting, v: string) =>
-    patch(row.slug, { message_template: `${row.message_template ?? ""}{{${v}}}` });
+    patch(row.slug, { message_template: `${row.message_template ?? ""}{{${cleanVar(v)}}}` });
 
   return (
     <Card>
@@ -98,7 +110,7 @@ export function WaAutomationSettings() {
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
                     <p className="font-medium">{row.nome}</p>
-                    <Badge variant="outline" className="font-mono text-[10px]">{row.funcao ?? row.slug}</Badge>
+                    <Badge variant="outline" className="font-mono text-[10px]">{row.function_name ?? row.slug}</Badge>
                     <Badge
                       variant="outline"
                       className={row.ativo ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-muted text-muted-foreground"}
@@ -146,6 +158,11 @@ export function WaAutomationSettings() {
                     onChange={(e) => patch(row.slug, { message_template: e.target.value })}
                     className="font-mono text-xs"
                   />
+                  {DEFAULT_HINT[row.slug] && (
+                    <p className="text-[11px] text-muted-foreground">
+                      Padrão da função: {DEFAULT_HINT[row.slug]}
+                    </p>
+                  )}
                   {(row.variaveis?.length ?? 0) > 0 && (
                     <div className="flex flex-wrap gap-1.5 pt-1">
                       {row.variaveis!.map((v) => (
@@ -155,7 +172,7 @@ export function WaAutomationSettings() {
                           onClick={() => insertVar(row, v)}
                           className="rounded border bg-muted px-1.5 py-0.5 font-mono text-[10px] hover:bg-accent"
                         >
-                          {`{{${v}}}`}
+                          {`{{${cleanVar(v)}}}`}
                         </button>
                       ))}
                     </div>
