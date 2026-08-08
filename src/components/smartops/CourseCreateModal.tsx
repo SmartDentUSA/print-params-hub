@@ -22,6 +22,7 @@ import CoverImageUpload from "./CoverImageUpload";
 import { slugify, buildCourseTag, MODALITY_CONFIG } from "@/lib/courseUtils";
 import {
   TEMPLATE_VARIABLES, DEFAULT_ENROLLMENT_TEMPLATE,
+  DEFAULT_REMINDER_TEMPLATE, DEFAULT_NPS_TEMPLATE, NPS_TEMPLATE_VARIABLES,
   interpolateTemplate, buildCronogramaText,
 } from "@/lib/courseWhatsapp";
 import type { SmartopsCourse, TurmaDay } from "@/types/courses";
@@ -276,6 +277,10 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
   const [publicVisible, setPublicVisible] = useState(false);
   const [publicEnrollmentEnabled, setPublicEnrollmentEnabled] = useState(false);
   const [waTemplate, setWaTemplate] = useState(DEFAULT_ENROLLMENT_TEMPLATE);
+  const [reminderTemplate, setReminderTemplate] = useState(DEFAULT_REMINDER_TEMPLATE);
+  const [npsTemplate, setNpsTemplate] = useState(DEFAULT_NPS_TEMPLATE);
+  const [waInstance, setWaInstance] = useState<string>("__default__");
+  const [waInstances, setWaInstances] = useState<Array<{ nome: string; instance: string; phone: string | null; status: string | null }>>([]);
   const [certificateBody, setCertificateBody] = useState(DEFAULT_CERTIFICATE_BODY);
 
   // Produtos do portfólio Smart Dent vinculados a cursos online.
@@ -316,6 +321,9 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
       setSignupFormUrl("");
       setPipelineId(83896); setStageAfterEnroll("treinamento_agendado");
       setPublicVisible(false); setWaTemplate(DEFAULT_ENROLLMENT_TEMPLATE);
+      setReminderTemplate(DEFAULT_REMINDER_TEMPLATE);
+      setNpsTemplate(DEFAULT_NPS_TEMPLATE);
+      setWaInstance("__default__");
       setPublicEnrollmentEnabled(false);
       setRecurrenceEnabled(false); setRecurrenceType('weeks'); setRecurrenceInterval(1);
       setRecurrenceBaseDate(''); setRecurrenceTimeStart('09:00'); setRecurrenceTimeEnd('11:00');
@@ -344,6 +352,9 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
     setPublicVisible(course.public_visible);
     setPublicEnrollmentEnabled(Boolean((course as any).public_enrollment_enabled));
     setWaTemplate(course.whatsapp_message_template || DEFAULT_ENROLLMENT_TEMPLATE);
+    setReminderTemplate((course as any).reminder_message_template || DEFAULT_REMINDER_TEMPLATE);
+    setNpsTemplate((course as any).nps_message_template || DEFAULT_NPS_TEMPLATE);
+    setWaInstance((course as any).wa_instance_name || "__default__");
     setCertificateBody(course.certificate_body_template || DEFAULT_CERTIFICATE_BODY);
     setRelatedProductIds(((course as any).related_product_ids ?? []) as string[]);
     setRelatedProductNames(((course as any).related_product_names ?? []) as string[]);
