@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { logAIUsage, extractUsage } from "../_shared/log-ai-usage.ts";
+import { getWaAutomationSetting, renderWaTemplate } from "../_shared/wa-automation-settings.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
