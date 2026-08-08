@@ -783,6 +783,19 @@ export function SmartOpsCSRules() {
       <SmartOpsLiaAutomations />
       <SellerBriefingAutomation />
       <TriggerAutomations />
+
+      <Card className="mt-4 border-dashed">
+        <CardHeader>
+          <CardTitle className="text-base">Automações de treinamento</CardTitle>
+        </CardHeader>
+        <CardContent className="text-sm text-muted-foreground space-y-1">
+          <p>
+            Confirmação de matrícula, lembrete de aula (1h antes) e pesquisa de NPS são configurados
+            <strong> dentro do card de cada curso</strong> — incluindo a instância de WhatsApp que faz o envio.
+          </p>
+          <p>Acesse <strong>Treinamentos → Catálogo → editar curso → Mensagens de WhatsApp do treinamento</strong>.</p>
+        </CardContent>
+      </Card>
     </div>
   );
 }
