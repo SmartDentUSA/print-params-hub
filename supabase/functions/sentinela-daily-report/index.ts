@@ -2,6 +2,7 @@
 // em um insight de momentum e envia resumo via WA para Danilo.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import { getWaAutomationSetting, renderWaTemplate } from "../_shared/wa-automation-settings.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -16,7 +17,7 @@ const EVO_GLOBAL_KEY = Deno.env.get("EVOLUTION_API_KEY") ?? "";
 const sb = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
 // Instância de envio: "Danilo Henrique" foi aposentada — usa smartdent_marketing.
-const TARGET_INSTANCE = "smartdent_marketing";
+const DEFAULT_INSTANCE = "smartdent_marketing";
 const DANILO_JID = "5519992612348@s.whatsapp.net";
 
 async function logHealth(level: "info" | "warning" | "error", message: string, payload?: any) {
@@ -124,12 +125,21 @@ Deno.serve(async (req) => {
   try {
     const report = await buildReport();
 
-    let sent: any = { skipped: "instance_blocked" };
-    if (!(await isInstanceBlocked(TARGET_INSTANCE))) {
-      try {
-        sent = await sendWa(DANILO_JID, report.summary, TARGET_INSTANCE);
-      } catch (e) {
-        sent = { error: e instanceof Error ? e.message : String(e) };
+    const setting = await getWaAutomationSetting(sb, "sentinela_daily_report");
+    const targetInstance = setting.wa_instance_name ?? DEFAULT_INSTANCE;
+    const text = setting.message_template
+      ? renderWaTemplate(setting.message_template, { relatorio: report.summary })
+      : report.summary;
+
+    let sent: any = { skipped: "automacao_desativada" };
+    if (setting.ativo) {
+      sent = { skipped: "instance_blocked" };
+      if (!(await isInstanceBlocked(targetInstance))) {
+        try {
+          sent = await sendWa(DANILO_JID, text, targetInstance);
+        } catch (e) {
+          sent = { error: e instanceof Error ? e.message : String(e) };
+        }
       }
     }
 
