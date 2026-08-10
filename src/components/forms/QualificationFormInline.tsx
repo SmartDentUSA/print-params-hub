@@ -39,6 +39,9 @@ interface Props {
   submitLabel?: string;
   submitting?: boolean;
   onSubmit: (payload: QualificationSubmitPayload) => Promise<void> | void;
+  /** Chamado quando o formulário não está disponível (inativo/sem perguntas),
+   * para que o fluxo consiga ser concluído sem qualificação. */
+  onSkip?: () => Promise<void> | void;
 }
 
 /**
@@ -47,7 +50,7 @@ interface Props {
  * public course enrollment flow for non-clients so the lead is fully qualified
  * before the matrícula is created.
  */
-export function QualificationFormInline({ slug, submitLabel, submitting, onSubmit }: Props) {
+export function QualificationFormInline({ slug, submitLabel, submitting, onSubmit, onSkip }: Props) {
   const [loading, setLoading] = useState(true);
   const [formId, setFormId] = useState<string | null>(null);
   const [formName, setFormName] = useState<string | undefined>(undefined);
@@ -160,9 +163,17 @@ export function QualificationFormInline({ slug, submitLabel, submitting, onSubmi
 
   if (!formId || total === 0) {
     return (
-      <p className="text-sm text-muted-foreground py-4">
-        Não conseguimos carregar as perguntas. Tente novamente em instantes.
-      </p>
+      <div className="space-y-3 py-4">
+        <p className="text-sm text-muted-foreground">
+          Não conseguimos carregar as perguntas agora — mas sua inscrição pode ser concluída normalmente.
+        </p>
+        {onSkip && (
+          <Button className="w-full" disabled={submitting} onClick={() => void onSkip()}>
+            {submitting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+            {submitLabel ?? "Concluir inscrição"}
+          </Button>
+        )}
+      </div>
     );
   }
 
