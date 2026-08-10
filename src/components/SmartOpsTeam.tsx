@@ -12,7 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Loader2, Trash2 } from "lucide-react";
+import { Plus, Loader2, Trash2, RefreshCw } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 
 interface TeamMember {
@@ -89,26 +89,58 @@ const ROLE_LABEL: Record<string, string> = {
   marketing: "Marketing",
 };
 
-/** Mostra o estado real gravado no banco — sem badges decorativos. */
-function ConnectionCell({ member }: { member: TeamMember }) {
-  const individual = member.evolution_enabled
-    ? member.evolution_status === "connected"
-      ? { label: "Individual conectado", cls: "bg-green-600 text-white" }
-      : { label: "Individual desconectado", cls: "bg-destructive text-destructive-foreground" }
-    : null;
-  const grupos = member.evo_go_enabled
-    ? member.evo_go_status === "connected"
-      ? { label: "Grupos conectados", cls: "bg-green-600 text-white" }
-      : { label: "Grupos desconectados", cls: "bg-destructive text-destructive-foreground" }
-    : null;
+type LiveState = "open" | "connecting" | "close" | "unknown" | "checking" | "stale";
 
-  if (!individual && !grupos) {
+interface LiveEntry {
+  evolution?: LiveState;
+  evoGo?: LiveState;
+  checkedAt?: string;
+}
+
+const LIVE_BADGE: Record<Exclude<LiveState, "stale">, { cls: string; suffix: string }> = {
+  open: { cls: "bg-green-600 text-white", suffix: "conectado" },
+  connecting: { cls: "bg-yellow-500 text-white", suffix: "aguardando QR" },
+  close: { cls: "bg-destructive text-destructive-foreground", suffix: "desconectado" },
+  unknown: { cls: "bg-muted text-muted-foreground", suffix: "sem resposta" },
+  checking: { cls: "bg-muted text-muted-foreground", suffix: "verificando…" },
+};
+
+/**
+ * Mostra APENAS o estado verificado ao vivo no provedor.
+ * Enquanto não houver verificação nesta sessão, o estado do banco é exibido
+ * como "não verificado" — nunca como conectado.
+ */
+function ConnectionCell({ member, live }: { member: TeamMember; live?: LiveEntry }) {
+  const hasEvolution = !!(member.evolution_instance_name && (member.evolution_enabled || member.evolution_api_key));
+  const hasEvoGo = !!(member.evo_go_instance_token || member.evo_go_instance_id);
+
+  if (!hasEvolution && !hasEvoGo) {
     return <span className="text-xs text-muted-foreground">sem integração</span>;
   }
+
+  const render = (prefix: string, state: LiveState | undefined) => {
+    if (!state || state === "stale") {
+      return (
+        <Badge variant="outline" className="text-[10px] text-muted-foreground">
+          {prefix}: não verificado
+        </Badge>
+      );
+    }
+    const cfg = LIVE_BADGE[state];
+    return <Badge className={`${cfg.cls} text-[10px]`}>{prefix}: {cfg.suffix}</Badge>;
+  };
+
   return (
-    <div className="flex flex-wrap gap-1">
-      {individual && <Badge className={`${individual.cls} text-[10px]`}>{individual.label}</Badge>}
-      {grupos && <Badge className={`${grupos.cls} text-[10px]`}>{grupos.label}</Badge>}
+    <div className="flex flex-col gap-1">
+      <div className="flex flex-wrap gap-1">
+        {hasEvolution && render("Individual", live?.evolution)}
+        {hasEvoGo && render("Grupos", live?.evoGo)}
+      </div>
+      <span className="text-[10px] text-muted-foreground">
+        {live?.checkedAt
+          ? `verificado ${new Date(live.checkedAt).toLocaleTimeString("pt-BR")}`
+          : `último registro: ${formatCheckedAt(member.evolution_last_check_at || member.evo_go_last_check_at)}`}
+      </span>
     </div>
   );
 }
@@ -176,6 +208,8 @@ export function SmartOpsTeam() {
   const [qrSrc, setQrSrc] = useState<string | null>(null);
   const [qrError, setQrError] = useState<string | null>(null);
   const [evoConnecting, setEvoConnecting] = useState(false);
+  const [live, setLive] = useState<Record<string, LiveEntry>>({});
+  const [checkingAll, setCheckingAll] = useState(false);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const stopPolling = () => {
@@ -194,6 +228,96 @@ export function SmartOpsTeam() {
   };
 
   useEffect(() => { fetchMembers(); }, []);
+
+  /** Consulta o provedor de verdade (Evolution / EvoGo) e grava o resultado. */
+  const verifyMember = async (m: TeamMember) => {
+    const hasEvolution = !!(m.evolution_instance_name && (m.evolution_enabled || m.evolution_api_key));
+    const hasEvoGo = !!(m.evo_go_instance_token || m.evo_go_instance_id);
+    if (!hasEvolution && !hasEvoGo) return;
+
+    setLive((prev) => ({
+      ...prev,
+      [m.id]: {
+        evolution: hasEvolution ? "checking" : undefined,
+        evoGo: hasEvoGo ? "checking" : undefined,
+        checkedAt: prev[m.id]?.checkedAt,
+      },
+    }));
+
+    const readState = (raw: unknown): LiveState => {
+      const s = String(raw ?? "");
+      return s === "open" || s === "connecting" || s === "close" ? s : "unknown";
+    };
+
+    let evolutionState: LiveState | undefined;
+    let evoGoState: LiveState | undefined;
+
+    if (hasEvolution) {
+      try {
+        const { data, error } = await supabase.functions.invoke("smart-ops-evolution-manager", {
+          body: { action: "get_status", instance_name: m.evolution_instance_name, member_id: m.id },
+        });
+        if (error) throw error;
+        evolutionState = readState(data?.state ?? data?.status);
+      } catch {
+        evolutionState = "unknown";
+      }
+    }
+
+    if (hasEvoGo) {
+      try {
+        const { data, error } = await supabase.functions.invoke("smart-ops-evogo-status", {
+          body: { member_id: m.id },
+        });
+        if (error) throw error;
+        evoGoState = readState(data?.state);
+      } catch {
+        evoGoState = "unknown";
+      }
+    }
+
+    const checkedAt = new Date().toISOString();
+    setLive((prev) => ({ ...prev, [m.id]: { evolution: evolutionState, evoGo: evoGoState, checkedAt } }));
+
+    // Só persiste estados conclusivos — "sem resposta" não vira "conectado" nem apaga histórico.
+    const payload: Record<string, string> = {};
+    if (evolutionState && evolutionState !== "unknown") {
+      payload.evolution_status = STATUS_LABEL[evolutionState as EvolutionStatus];
+      payload.evolution_last_check_at = checkedAt;
+    }
+    if (evoGoState && evoGoState !== "unknown") {
+      payload.evo_go_status = STATUS_LABEL[evoGoState as EvolutionStatus];
+      payload.evo_go_last_check_at = checkedAt;
+    }
+    if (Object.keys(payload).length > 0) {
+      await supabase.from("team_members").update(payload).eq("id", m.id);
+      setMembers((prev) => prev.map((x) => (x.id === m.id ? { ...x, ...payload } as TeamMember : x)));
+    }
+  };
+
+  const verifyAll = async (list?: TeamMember[]) => {
+    const target = (list ?? members).filter((m) => m.ativo);
+    if (target.length === 0) return;
+    setCheckingAll(true);
+    const queue = [...target];
+    const worker = async () => {
+      while (queue.length) {
+        const next = queue.shift();
+        if (next) await verifyMember(next);
+      }
+    };
+    await Promise.all([worker(), worker(), worker()]);
+    setCheckingAll(false);
+  };
+
+  // Verificação automática ao abrir a tela — evita status fantasma do banco.
+  const autoCheckedRef = useRef(false);
+  useEffect(() => {
+    if (loading || autoCheckedRef.current || members.length === 0) return;
+    autoCheckedRef.current = true;
+    verifyAll(members);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, members.length]);
 
   const openAdd = () => {
     setEditing(null);
@@ -513,7 +637,17 @@ export function SmartOpsTeam() {
     <>
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
-        <CardTitle>Equipe Smart Ops</CardTitle>
+        <div>
+          <CardTitle>Equipe Smart Ops</CardTitle>
+          <p className="text-xs text-muted-foreground mt-1">
+            Conexões verificadas ao vivo em cada provedor (Evolution / EvoGo) — não é o valor salvo no banco.
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+        <Button size="sm" variant="outline" onClick={() => verifyAll()} disabled={checkingAll}>
+          <RefreshCw className={`w-4 h-4 mr-1 ${checkingAll ? "animate-spin" : ""}`} />
+          {checkingAll ? "Verificando..." : "Verificar conexões"}
+        </Button>
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger asChild>
             <Button size="sm" onClick={openAdd}><Plus className="w-4 h-4 mr-1" /> Adicionar</Button>
@@ -705,6 +839,7 @@ export function SmartOpsTeam() {
             <Button onClick={handleSave} className="w-full">Salvar</Button>
           </DialogContent>
         </Dialog>
+        </div>
       </CardHeader>
       <CardContent>
         <Table>
@@ -732,7 +867,7 @@ export function SmartOpsTeam() {
                       <div className="text-xs text-muted-foreground">{m.email}</div>
                     </TableCell>
                     <TableCell className="font-mono text-xs">{m.whatsapp_number || "—"}</TableCell>
-                    <TableCell><ConnectionCell member={m} /></TableCell>
+                    <TableCell><ConnectionCell member={m} live={live[m.id]} /></TableCell>
                     <TableCell><Switch checked={m.ativo} onCheckedChange={() => toggleAtivo(m)} /></TableCell>
                     <TableCell className="text-right space-x-1">
                       <Button variant="ghost" size="sm" onClick={() => openEdit(m)}>Editar</Button>
