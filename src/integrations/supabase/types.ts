@@ -16986,6 +16986,503 @@ export type Database = {
         }
         Relationships: []
       }
+      professional_courses: {
+        Row: {
+          address: string | null
+          category: string | null
+          certificate: boolean
+          city: string | null
+          country: string | null
+          course_platform: string | null
+          cover_image_url: string | null
+          created_at: string
+          created_source: string
+          description: string | null
+          duration_days: number | null
+          end_date: string | null
+          end_time: string | null
+          enrolled_count: number
+          featured: boolean
+          id: string
+          instagram: string | null
+          installments: number | null
+          interested_count: number
+          internal_notes: string | null
+          language: string | null
+          materials_included: string | null
+          max_students: number | null
+          meeting_link: string | null
+          modality: string
+          online_platform: string | null
+          prerequisites: string | null
+          price_brl: number | null
+          producer_lead_id: string
+          promo_price_brl: number | null
+          public_visible: boolean
+          published_at: string | null
+          registration_url: string | null
+          schedule: Json
+          slug: string | null
+          start_date: string | null
+          start_time: string | null
+          state: string | null
+          status: string
+          subtitle: string | null
+          syllabus: Json
+          tags: string[]
+          target_audience: string | null
+          title: string
+          updated_at: string
+          venue: string | null
+          video_url: string | null
+          views_count: number
+          whatsapp_ddi: string | null
+          whatsapp_number: string | null
+          workload_hours: number | null
+        }
+        Insert: {
+          address?: string | null
+          category?: string | null
+          certificate?: boolean
+          city?: string | null
+          country?: string | null
+          course_platform?: string | null
+          cover_image_url?: string | null
+          created_at?: string
+          created_source?: string
+          description?: string | null
+          duration_days?: number | null
+          end_date?: string | null
+          end_time?: string | null
+          enrolled_count?: number
+          featured?: boolean
+          id?: string
+          instagram?: string | null
+          installments?: number | null
+          interested_count?: number
+          internal_notes?: string | null
+          language?: string | null
+          materials_included?: string | null
+          max_students?: number | null
+          meeting_link?: string | null
+          modality?: string
+          online_platform?: string | null
+          prerequisites?: string | null
+          price_brl?: number | null
+          producer_lead_id: string
+          promo_price_brl?: number | null
+          public_visible?: boolean
+          published_at?: string | null
+          registration_url?: string | null
+          schedule?: Json
+          slug?: string | null
+          start_date?: string | null
+          start_time?: string | null
+          state?: string | null
+          status?: string
+          subtitle?: string | null
+          syllabus?: Json
+          tags?: string[]
+          target_audience?: string | null
+          title: string
+          updated_at?: string
+          venue?: string | null
+          video_url?: string | null
+          views_count?: number
+          whatsapp_ddi?: string | null
+          whatsapp_number?: string | null
+          workload_hours?: number | null
+        }
+        Update: {
+          address?: string | null
+          category?: string | null
+          certificate?: boolean
+          city?: string | null
+          country?: string | null
+          course_platform?: string | null
+          cover_image_url?: string | null
+          created_at?: string
+          created_source?: string
+          description?: string | null
+          duration_days?: number | null
+          end_date?: string | null
+          end_time?: string | null
+          enrolled_count?: number
+          featured?: boolean
+          id?: string
+          instagram?: string | null
+          installments?: number | null
+          interested_count?: number
+          internal_notes?: string | null
+          language?: string | null
+          materials_included?: string | null
+          max_students?: number | null
+          meeting_link?: string | null
+          modality?: string
+          online_platform?: string | null
+          prerequisites?: string | null
+          price_brl?: number | null
+          producer_lead_id?: string
+          promo_price_brl?: number | null
+          public_visible?: boolean
+          published_at?: string | null
+          registration_url?: string | null
+          schedule?: Json
+          slug?: string | null
+          start_date?: string | null
+          start_time?: string | null
+          state?: string | null
+          status?: string
+          subtitle?: string | null
+          syllabus?: Json
+          tags?: string[]
+          target_audience?: string | null
+          title?: string
+          updated_at?: string
+          venue?: string | null
+          video_url?: string | null
+          views_count?: number
+          whatsapp_ddi?: string | null
+          whatsapp_number?: string | null
+          workload_hours?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "professional_courses_producer_lead_id_fkey"
+            columns: ["producer_lead_id"]
+            isOneToOne: false
+            referencedRelation: "lead_model_routing"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "professional_courses_producer_lead_id_fkey"
+            columns: ["producer_lead_id"]
+            isOneToOne: false
+            referencedRelation: "lia_attendances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "professional_courses_producer_lead_id_fkey"
+            columns: ["producer_lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_bi_atividades_unnested"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "professional_courses_producer_lead_id_fkey"
+            columns: ["producer_lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_academy"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "professional_courses_producer_lead_id_fkey"
+            columns: ["producer_lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_cognitive"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "professional_courses_producer_lead_id_fkey"
+            columns: ["producer_lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_commercial"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "professional_courses_producer_lead_id_fkey"
+            columns: ["producer_lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_ecommerce"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "professional_courses_producer_lead_id_fkey"
+            columns: ["producer_lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_pipeline"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "professional_courses_producer_lead_id_fkey"
+            columns: ["producer_lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_stage_purchases"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "professional_courses_producer_lead_id_fkey"
+            columns: ["producer_lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_leads_correto"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "professional_courses_producer_lead_id_fkey"
+            columns: ["producer_lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_leads_pendentes_atribuicao"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "professional_courses_producer_lead_id_fkey"
+            columns: ["producer_lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_opportunity_engine"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "professional_courses_producer_lead_id_fkey"
+            columns: ["producer_lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_pipeline_atual"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "professional_courses_producer_lead_id_fkey"
+            columns: ["producer_lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_reactivation_candidates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "professional_courses_producer_lead_id_fkey"
+            columns: ["producer_lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_timing_alerts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "professional_courses_producer_lead_id_fkey"
+            columns: ["producer_lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_workflow_portfolio"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "professional_courses_producer_lead_id_fkey"
+            columns: ["producer_lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_workflow_timeline"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "professional_courses_producer_lead_id_fkey"
+            columns: ["producer_lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_leads_orfaos_recentes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "professional_courses_producer_lead_id_fkey"
+            columns: ["producer_lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_leads_qualidade_ruim"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "professional_courses_producer_lead_id_fkey"
+            columns: ["producer_lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_lia_attendances_enriched"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "professional_courses_producer_lead_id_fkey"
+            columns: ["producer_lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_vendas_ganhas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      professional_portal_tokens: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          expires_at: string
+          id: string
+          last_used_at: string | null
+          lead_id: string
+          revoked_at: string | null
+          token: string
+          updated_at: string
+          uses: number
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          expires_at?: string
+          id?: string
+          last_used_at?: string | null
+          lead_id: string
+          revoked_at?: string | null
+          token: string
+          updated_at?: string
+          uses?: number
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          expires_at?: string
+          id?: string
+          last_used_at?: string | null
+          lead_id?: string
+          revoked_at?: string | null
+          token?: string
+          updated_at?: string
+          uses?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "professional_portal_tokens_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "lead_model_routing"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "professional_portal_tokens_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "lia_attendances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "professional_portal_tokens_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_bi_atividades_unnested"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "professional_portal_tokens_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_academy"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "professional_portal_tokens_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_cognitive"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "professional_portal_tokens_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_commercial"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "professional_portal_tokens_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_ecommerce"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "professional_portal_tokens_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_pipeline"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "professional_portal_tokens_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_stage_purchases"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "professional_portal_tokens_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_leads_correto"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "professional_portal_tokens_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_leads_pendentes_atribuicao"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "professional_portal_tokens_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_opportunity_engine"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "professional_portal_tokens_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_pipeline_atual"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "professional_portal_tokens_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_reactivation_candidates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "professional_portal_tokens_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_timing_alerts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "professional_portal_tokens_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_workflow_portfolio"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "professional_portal_tokens_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_workflow_timeline"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "professional_portal_tokens_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_leads_orfaos_recentes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "professional_portal_tokens_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_leads_qualidade_ruim"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "professional_portal_tokens_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_lia_attendances_enriched"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "professional_portal_tokens_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_vendas_ganhas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       promotion_usage: {
         Row: {
           channel: string | null
