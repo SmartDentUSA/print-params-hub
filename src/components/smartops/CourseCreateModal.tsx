@@ -276,7 +276,9 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
   const [pipelineId, setPipelineId] = useState(83896);
   const [stageAfterEnroll, setStageAfterEnroll] = useState("treinamento_agendado");
   const [publicVisible, setPublicVisible] = useState(false);
-  const [publicEnrollmentEnabled, setPublicEnrollmentEnabled] = useState(false);
+  // Inscrição pública própria é o padrão para cursos online/workshops/webinars —
+  // o link externo (`signup_form_url`) é só fallback legado.
+  const [publicEnrollmentEnabled, setPublicEnrollmentEnabled] = useState(true);
   const [waTemplate, setWaTemplate] = useState(DEFAULT_ENROLLMENT_TEMPLATE);
   const [reminderTemplate, setReminderTemplate] = useState(DEFAULT_REMINDER_TEMPLATE);
   const [npsTemplate, setNpsTemplate] = useState(DEFAULT_NPS_TEMPLATE);
@@ -1000,7 +1002,7 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
               </div>
 
               <div>
-                <Label>Link do formulário de inscrição</Label>
+                <Label>Link externo de inscrição (opcional)</Label>
                 <Input
                   type="url"
                   placeholder="https://..."
@@ -1008,7 +1010,9 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
                   onChange={(e) => setSignupFormUrl(e.target.value)}
                 />
                 <p className="text-xs text-muted-foreground mt-1">
-                  URL exibida no botão "Inscreva-se" do card público da agenda.
+                  Use apenas se o curso NÃO usar a inscrição pública própria. Com
+                  "Abrir inscrições públicas" ativo, o botão "Inscreva-se" sempre
+                  aponta para o formulário próprio do curso.
                 </p>
               </div>
 
