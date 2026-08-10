@@ -50,6 +50,7 @@ Deno.serve(async (req) => {
       course_id: enr.course_id,
       lead_id: enr.lead_id,
       email: body.email ?? null,
+      survey_type: body.survey_type ?? "pos_treinamento",
       score_satisfacao: body.score_satisfacao,
       score_treinamentos: body.score_treinamentos,
       score_recomendacao: body.score_recomendacao,
