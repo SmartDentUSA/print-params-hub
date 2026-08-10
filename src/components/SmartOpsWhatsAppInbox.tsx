@@ -14,6 +14,7 @@ import {
 import { Send, Search, MessageSquare, Phone, User, RefreshCw, DownloadCloud, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { useTeamPhoneDirectory } from "@/hooks/useTeamPhoneDirectory";
 
 interface InboxMessage {
   id: string;
@@ -57,6 +58,7 @@ interface TeamMember {
 
 export function SmartOpsWhatsAppInbox({ refreshKey }: { refreshKey: number }) {
   const [conversations, setConversations] = useState<Conversation[]>([]);
+  const { matchAny: matchTeam } = useTeamPhoneDirectory();
   const [selectedPhone, setSelectedPhone] = useState<string | null>(null);
   const [messages, setMessages] = useState<InboxMessage[]>([]);
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
@@ -327,6 +329,10 @@ export function SmartOpsWhatsAppInbox({ refreshKey }: { refreshKey: number }) {
     const q = searchFilter.toLowerCase().replace(/\D/g, "");
     const qText = searchFilter.toLowerCase();
 
+    // Nome do membro da equipe também é pesquisável
+    const team = matchTeam(c.phone_raw, c.phone_normalized);
+    if (team && team.nome_completo.toLowerCase().includes(qText)) return true;
+
     // Text match on name/message
     if (c.lead_name && c.lead_name.toLowerCase().includes(qText)) return true;
     if (c.last_message && c.last_message.toLowerCase().includes(qText)) return true;
@@ -410,7 +416,9 @@ export function SmartOpsWhatsAppInbox({ refreshKey }: { refreshKey: number }) {
           ) : filteredConversations.length === 0 ? (
             <div className="p-4 text-center text-muted-foreground text-sm">Nenhuma conversa encontrada</div>
           ) : (
-            filteredConversations.map((conv) => (
+            filteredConversations.map((conv) => {
+              const team = matchTeam(conv.phone_raw, conv.phone_normalized);
+              return (
               <button
                 key={conv.phone_normalized}
                 onClick={() => setSelectedPhone(conv.phone_normalized)}
@@ -421,7 +429,12 @@ export function SmartOpsWhatsAppInbox({ refreshKey }: { refreshKey: number }) {
               >
                 <div className="flex items-center justify-between mb-1">
                   <span className="font-medium text-sm truncate flex items-center gap-1.5">
-                    {conv.lead_name ? (
+                    {team ? (
+                      <>
+                        <User className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                        {team.nome_completo}
+                      </>
+                    ) : conv.lead_name ? (
                       <>
                         <User className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
                         {conv.lead_name}
@@ -437,10 +450,17 @@ export function SmartOpsWhatsAppInbox({ refreshKey }: { refreshKey: number }) {
                     {formatTime(conv.last_at)}
                   </span>
                 </div>
-                {conv.lead_name && (
+                {team && (
+                  <div className="mb-1">
+                    <Badge variant="outline" className="text-[9px] px-1.5 py-0 border-emerald-300 text-emerald-700 bg-emerald-50">
+                      🧑‍💼 Equipe{team.role ? ` • ${team.role}` : ""}{team.ativo ? "" : " • inativo"}
+                    </Badge>
+                  </div>
+                )}
+                {(team || conv.lead_name) && (
                   <p className="text-[10px] text-muted-foreground mb-0.5">📱 {formatPhone(conv.phone_raw)}</p>
                 )}
-                {(conv.funil || conv.vendedor || conv.treinamento) && (
+                {!team && (conv.funil || conv.vendedor || conv.treinamento) && (
                   <div className="flex flex-wrap gap-1 mb-1">
                     {conv.funil && (
                       <Badge variant="outline" className="text-[9px] px-1.5 py-0 border-blue-300 text-blue-700 bg-blue-50">
@@ -471,7 +491,8 @@ export function SmartOpsWhatsAppInbox({ refreshKey }: { refreshKey: number }) {
                   </Badge>
                 )}
               </button>
-            ))
+              );
+            })
           )}
         </div>
         <div className="p-2 border-t text-xs text-muted-foreground text-center flex items-center justify-center gap-2">
@@ -508,15 +529,24 @@ export function SmartOpsWhatsAppInbox({ refreshKey }: { refreshKey: number }) {
             <div className="p-3 border-b flex items-center justify-between bg-muted/30">
               <div>
                 <p className="font-medium text-sm">
-                  {conversations.find(c => c.phone_normalized === selectedPhone)?.lead_name || formatPhone(conversations.find(c => c.phone_normalized === selectedPhone)?.phone_raw || selectedPhone)}
+                  {matchTeam(conversations.find(c => c.phone_normalized === selectedPhone)?.phone_raw, selectedPhone)?.nome_completo
+                    || conversations.find(c => c.phone_normalized === selectedPhone)?.lead_name
+                    || formatPhone(conversations.find(c => c.phone_normalized === selectedPhone)?.phone_raw || selectedPhone)}
                 </p>
                 <p className="text-xs text-muted-foreground">
                   📱 {formatPhone(conversations.find(c => c.phone_normalized === selectedPhone)?.phone_raw || selectedPhone)}
                 </p>
               </div>
-              <Badge variant="outline" className="text-xs">
-                {messages.length} msgs
-              </Badge>
+              <div className="flex items-center gap-2">
+                {matchTeam(conversations.find(c => c.phone_normalized === selectedPhone)?.phone_raw, selectedPhone) && (
+                  <Badge variant="outline" className="text-xs border-emerald-300 text-emerald-700 bg-emerald-50">
+                    🧑‍💼 Membro da equipe
+                  </Badge>
+                )}
+                <Badge variant="outline" className="text-xs">
+                  {messages.length} msgs
+                </Badge>
+              </div>
             </div>
 
             {/* Messages */}
