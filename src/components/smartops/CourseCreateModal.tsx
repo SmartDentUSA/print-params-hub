@@ -1035,7 +1035,7 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
                   {isEdit && publicEnrollmentEnabled && (course as any)?.slug && (
                     <div className="flex items-center gap-2 text-xs">
                       <code className="px-2 py-1 rounded bg-background border border-border break-all">
-                        {window.location.origin}/inscricao/{(course as any).slug}
+                        {getPublicOrigin()}/inscricao/{(course as any).slug}
                       </code>
                       <Button
                         type="button"
@@ -1043,7 +1043,7 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
                         variant="outline"
                         onClick={() => {
                           navigator.clipboard.writeText(
-                            `${window.location.origin}/inscricao/${(course as any).slug}`,
+                            `${getPublicOrigin()}/inscricao/${(course as any).slug}`,
                           );
                           toast({ title: 'Link copiado' });
                         }}
