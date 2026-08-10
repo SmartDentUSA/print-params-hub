@@ -46,7 +46,7 @@ export function useInboxLeadMatches(conversations: ZernioConversation[]) {
 export function useLogConversationToTimeline() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (vars: { conversation: ZernioConversation; messages: ZernioMessage[]; leadId?: string | null }) =>
+    mutationFn: (vars: { conversation: ZernioConversation; messages: ZernioMessage[]; leadId?: string | null; silent?: boolean }) =>
       callLink<{ linked: boolean; lead_id?: string; inserted?: number; reason?: string }>({
         action: 'log_timeline',
         conversationId: vars.conversation.id,
@@ -63,7 +63,13 @@ export function useLogConversationToTimeline() {
           senderName: m.senderName,
         })),
       }),
-    onSuccess: (res) => {
+    onSuccess: (res, vars) => {
+      if (vars?.silent) {
+        if (res.linked) {
+          qc.invalidateQueries({ queryKey: ['lead-timeline'] });
+        }
+        return;
+      }
       if (!res.linked) {
         toast.error('Nenhum cadastro de lead encontrado para este contato.');
         return;
@@ -72,6 +78,9 @@ export function useLogConversationToTimeline() {
       qc.invalidateQueries({ queryKey: ['inbox-lead-matches'] });
       qc.invalidateQueries({ queryKey: ['lead-timeline'] });
     },
-    onError: (e: any) => toast.error(`Erro ao registrar: ${String(e?.message ?? e)}`),
+    onError: (e: any, vars) => {
+      if (vars?.silent) return;
+      toast.error(`Erro ao registrar: ${String(e?.message ?? e)}`);
+    },
   });
 }
