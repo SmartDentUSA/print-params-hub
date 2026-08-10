@@ -8,6 +8,8 @@ import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, Loader2, Pencil, Plus, Save, Trash2, Copy } from "lucide-react";
 import ProfessionalCourseForm from "./ProfessionalCourseForm";
 import { emptyCourseDraft, COURSE_MODALITIES, COURSE_STATUS, type ProfessionalCourse, type ProfessionalCourseDraft } from "@/types/professionalCourses";
+import { getCourseStatusBadge } from "@/lib/courseStatusBadge";
+import { cn } from "@/lib/utils";
 
 interface Props {
   open: boolean;
@@ -192,10 +194,19 @@ export default function ProfessionalCoursesModal({ open, onOpenChange, professio
                         {[COURSE_MODALITIES.find((m) => m.value === c.modality)?.label, c.city, c.start_date].filter(Boolean).join(" · ")}
                       </div>
                       <div className="flex flex-wrap gap-1 mt-1.5">
+                        {(() => {
+                          const st = getCourseStatusBadge(c);
+                          return (
+                            <span className={cn("text-xs px-2 py-0.5 rounded-full border font-medium", st.cls)}>
+                              {st.label}
+                            </span>
+                          );
+                        })()}
                         <Badge variant="secondary" className="text-xs">{COURSE_STATUS.find((s) => s.value === c.status)?.label ?? c.status}</Badge>
                         {c.public_visible && <Badge variant="outline" className="text-xs">Público</Badge>}
                         {c.created_source === "portal" && <Badge variant="outline" className="text-xs">Via portal</Badge>}
                         {c.max_students ? <Badge variant="outline" className="text-xs">{c.enrolled_count}/{c.max_students} vagas</Badge> : null}
+                        <Badge variant="outline" className="text-xs">{c.views_count ?? 0} views</Badge>
                       </div>
                     </div>
                     <div className="flex items-center gap-1 shrink-0">
