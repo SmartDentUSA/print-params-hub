@@ -112,6 +112,34 @@ const LIVE_BADGE: Record<Exclude<LiveState, "stale">, { cls: string; suffix: str
  * Enquanto não houver verificação nesta sessão, o estado do banco é exibido
  * como "não verificado" — nunca como conectado.
  */
+function LeadRotationCell({ member }: { member: TeamMember }) {
+  if (member.role !== "vendedor") {
+    return <span className="text-xs text-muted-foreground">não se aplica</span>;
+  }
+  const ownerId = Number(member.piperun_owner_id);
+  const hasOwner = Number.isFinite(ownerId) && ownerId > 0;
+
+  if (!member.ativo) {
+    return (
+      <Badge variant="outline" className="text-[10px] text-muted-foreground">
+        fora do rodízio · inativo
+      </Badge>
+    );
+  }
+  if (!hasOwner) {
+    return (
+      <Badge variant="outline" className="text-[10px] text-amber-600 border-amber-600/40">
+        fora do rodízio · sem ID PipeRun
+      </Badge>
+    );
+  }
+  return (
+    <Badge variant="outline" className="text-[10px] text-emerald-600 border-emerald-600/40">
+      recebendo leads
+    </Badge>
+  );
+}
+
 function ConnectionCell({ member, live }: { member: TeamMember; live?: LiveEntry }) {
   const hasEvolution = !!(member.evolution_instance_name && (member.evolution_enabled || member.evolution_api_key));
   const hasEvoGo = !!(member.evo_go_instance_token || member.evo_go_instance_id);
