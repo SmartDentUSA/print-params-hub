@@ -140,25 +140,12 @@ async function resolveLead(
   // 1. CNPJ/CPF do checkout (tax_ids) — identidade forte.
   for (const raw of hints?.taxIds ?? []) {
     const d = String(raw ?? "").replace(/\D/g, "");
-    if (d.length === 14) {
-      const { data } = await supabase
-        .from("lia_attendances")
-        .select("id")
-        .is("merged_into", null)
-        .eq("empresa_cnpj", d)
-        .limit(1)
-        .maybeSingle();
-      if (data?.id) return data.id as string;
-    } else if (d.length === 11) {
-      const { data } = await supabase
-        .from("lia_attendances")
-        .select("id")
-        .is("merged_into", null)
-        .eq("pessoa_cpf", d)
-        .limit(1)
-        .maybeSingle();
-      if (data?.id) return data.id as string;
-    }
+    if (d.length !== 14 && d.length !== 11) continue;
+    // Casa ignorando pontuação: o CRM pode guardar "21.257.735/0001-75"
+    // enquanto o Stripe envia só dígitos (e vice-versa).
+    const { data } = await supabase.rpc("fn_find_lead_by_tax_id", { _tax_id: d });
+    const hit = Array.isArray(data) ? data[0] : null;
+    if (hit?.lead_id) return hit.lead_id as string;
   }
 
   const normalized = normalizeBrazilianPhone(phoneRaw ?? undefined);
