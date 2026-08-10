@@ -5,7 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, Star, Send, CheckCircle2, AlertTriangle, MessageSquare } from "lucide-react";
+import { Loader2, Star, Send, CheckCircle2, ThumbsUp, ThumbsDown, Minus } from "lucide-react";
 
 interface NpsRow {
   enrollment_id: string;
@@ -277,6 +277,53 @@ function StatCard({ icon, label, value }: { icon: React.ReactNode; label: string
       <CardContent className="p-4">
         <div className="flex items-center gap-2 text-xs text-muted-foreground">{icon}<span>{label}</span></div>
         <div className="text-2xl font-bold mt-1">{value}</div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function QuestionDistribution({
+  label,
+  counts,
+  total,
+  avg,
+  score,
+}: {
+  label: string;
+  counts: number[];
+  total: number;
+  avg: number | null;
+  score: number | null;
+}) {
+  const pct = (n: number) => (total ? (n / total) * 100 : 0);
+  const tone = (i: number) =>
+    i >= 4 ? "bg-emerald-500" : i === 3 ? "bg-emerald-500/30" : i === 2 ? "bg-muted-foreground/40" : "bg-muted";
+  return (
+    <Card>
+      <CardContent className="p-4">
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <div className="text-xs text-muted-foreground line-clamp-2">{label}</div>
+            <div className="text-2xl font-bold mt-1">{score ?? "—"}</div>
+            <div className="text-xs text-muted-foreground mt-1">
+              Média <span className="font-semibold text-foreground">{avg ? `${avg.toFixed(1)}/5` : "—"}</span>
+            </div>
+          </div>
+          <div className="flex items-end gap-1.5 h-24">
+            {[1, 2, 3, 4, 5].map((s, i) => (
+              <div key={s} className="flex flex-col items-center justify-end w-9 h-full">
+                <div className="text-[10px] text-muted-foreground mb-1">{s}</div>
+                <div className="relative w-full flex-1 rounded-sm bg-muted/40 flex items-end overflow-hidden">
+                  <div
+                    className={`w-full rounded-sm ${tone(s)}`}
+                    style={{ height: `${Math.max(pct(counts[i]), counts[i] ? 4 : 2)}%` }}
+                  />
+                </div>
+                <div className="text-[10px] text-muted-foreground mt-1">{pct(counts[i]).toFixed(1)}%</div>
+              </div>
+            ))}
+          </div>
+        </div>
       </CardContent>
     </Card>
   );
