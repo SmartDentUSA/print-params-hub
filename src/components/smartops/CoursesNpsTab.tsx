@@ -331,11 +331,11 @@ function QuestionDistribution({
                 <div className="text-[10px] text-muted-foreground mb-1">{s}</div>
                 <div className="relative w-full flex-1 rounded-sm bg-muted/40 flex items-end overflow-hidden">
                   <div
-                    className={`w-full rounded-sm ${tone(s)}`}
+                    className={`w-full rounded-sm ${tone(i)}`}
                     style={{ height: `${Math.max(pct(counts[i]), counts[i] ? 4 : 2)}%` }}
                   />
                 </div>
-                <div className="text-[10px] text-muted-foreground mt-1">{pct(counts[i]).toFixed(1)}%</div>
+                <div className="text-[10px] text-muted-foreground mt-1 leading-tight text-center">{counts[i]}<br />{pct(counts[i]).toFixed(0)}%</div>
               </div>
             ))}
           </div>
