@@ -80,10 +80,13 @@ Deno.serve(async (req) => {
     // Body opcional: { backfill_days: N } reenvia para todas as turmas encerradas
     // nos últimos N dias cujos participantes nunca receberam a pesquisa.
     let backfillDays = 0;
+    let maxEnvios = 0; // 0 = sem limite
     try {
       const body = await req.json();
       const n = Number(body?.backfill_days);
       if (Number.isFinite(n) && n > 0) backfillDays = Math.min(Math.floor(n), 365);
+      const l = Number(body?.limit);
+      if (Number.isFinite(l) && l > 0) maxEnvios = Math.min(Math.floor(l), 200);
     } catch { /* sem body = modo cron diário */ }
 
     const yesterday = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);
@@ -115,6 +118,7 @@ Deno.serve(async (req) => {
     const falhas: unknown[] = [];
 
     for (const enr of list as any[]) {
+      if (maxEnvios > 0 && enviados >= maxEnvios) break;
       try {
         const { data: lead } = await supabase
           .from("lia_attendances")
