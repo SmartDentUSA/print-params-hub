@@ -357,15 +357,99 @@ export default function PublicCourseEnrollment() {
                 <div className="grid grid-cols-2 gap-3">
                   <Button
                     variant="outline"
-                    disabled={submitting}
-                    onClick={() => submitEnrollment(true)}
+                    disabled={submitting || lookingUp}
+                    onClick={startClientConfirmation}
                   >
-                    {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Sim, sou cliente"}
+                    {lookingUp ? <Loader2 className="w-4 h-4 animate-spin" /> : "Sim, já sou cliente"}
                   </Button>
                   <Button disabled={submitting} onClick={() => setPhase("qualify")}>
                     {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Ainda não"}
                   </Button>
                 </div>
+              </div>
+            )}
+
+            {phase === "confirm_data" && (
+              <div className="space-y-4">
+                <div>
+                  <p className="font-medium">
+                    {lookup?.found ? "Estas informações estão corretas?" : "Complete seus dados"}
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    {lookup?.found
+                      ? "Encontramos seu cadastro na Smart Dent. Confirme ou corrija antes de continuar."
+                      : "Não localizamos seu cadastro com estes contatos. Informe os dados abaixo."}
+                  </p>
+                </div>
+
+                {lookup?.found && (
+                  <div className="rounded-lg border border-border bg-muted/40 p-4 text-sm space-y-1">
+                    <div><span className="text-muted-foreground">Nome: </span>{lookup.nome || form.nome}</div>
+                    {lookup.empresa && (
+                      <div><span className="text-muted-foreground">Empresa: </span>{lookup.empresa}</div>
+                    )}
+                    <div><span className="text-muted-foreground">E-mail: </span>{lookup.email_masked || form.email}</div>
+                    <div><span className="text-muted-foreground">Celular: </span>{lookup.telefone_masked || form.telefone}</div>
+                  </div>
+                )}
+
+                <div className="space-y-3">
+                  <div>
+                    <Label>Área de atuação</Label>
+                    <div className="grid grid-cols-2 gap-2 mt-1">
+                      {AREAS.map((a) => (
+                        <button
+                          key={a}
+                          type="button"
+                          onClick={() => setConfirmData((s) => ({ ...s, area_atuacao: a }))}
+                          className={`text-left rounded-lg border px-3 py-2 text-sm transition ${
+                            confirmData.area_atuacao === a
+                              ? "border-primary bg-primary/10"
+                              : "border-border hover:border-primary/50"
+                          }`}
+                        >
+                          {a}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <Label htmlFor="especialidade">Especialidade</Label>
+                    <Input
+                      id="especialidade"
+                      value={confirmData.especialidade}
+                      maxLength={160}
+                      onChange={(e) => setConfirmData((s) => ({ ...s, especialidade: e.target.value }))}
+                      placeholder="Ex.: Implantodontia, Ortodontia, Prótese…"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="cidade">Cidade</Label>
+                    <Input
+                      id="cidade"
+                      value={confirmData.cidade}
+                      maxLength={120}
+                      onChange={(e) => setConfirmData((s) => ({ ...s, cidade: e.target.value }))}
+                      placeholder="Sua cidade"
+                    />
+                  </div>
+                </div>
+
+                <Button
+                  className="w-full"
+                  disabled={submitting || !confirmData.area_atuacao}
+                  onClick={() =>
+                    submitEnrollment(true, undefined, {
+                      area_atuacao: confirmData.area_atuacao || undefined,
+                      especialidade: confirmData.especialidade.trim() || undefined,
+                      cidade: confirmData.cidade.trim() || undefined,
+                      confirmed: true,
+                    })
+                  }
+                >
+                  {submitting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                  Confirmar e continuar
+                </Button>
               </div>
             )}
 
@@ -438,6 +522,7 @@ function NpsForm({
         body: {
           enrollment_id: enrollmentId,
           email: defaultEmail,
+          survey_type: "demonstracao_ao_vivo",
           score_satisfacao: satisf,
           score_treinamentos: train,
           score_recomendacao: rec,
@@ -457,10 +542,11 @@ function NpsForm({
   return (
     <div className="space-y-5 pt-2">
       <div className="text-center">
-        <h3 className="text-lg font-semibold">Gostaríamos da sua opinião sincera</h3>
+        <h3 className="text-lg font-semibold">NPS — Demonstrações ao Vivo</h3>
+        <p className="text-sm text-muted-foreground">Gostaríamos da sua opinião sincera.</p>
       </div>
       <NpsQuestion label="Até o momento qual o nível de satisfação com a Smart Dent?" value={satisf} onChange={setSatisf} />
-      <NpsQuestion label="Como você classifica a qualidade dos treinamentos recebidos até o momento?" value={train} onChange={setTrain} />
+      <NpsQuestion label="Como você classifica a qualidade das demonstrações e conteúdos ao vivo da Smart Dent?" value={train} onChange={setTrain} />
       <NpsQuestion label="Qual a probabilidade de você recomendar a Smart Dent para um colega?" value={rec} onChange={setRec} />
       <div>
         <Label>Comentário (opcional)</Label>
