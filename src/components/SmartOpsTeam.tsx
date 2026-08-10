@@ -510,38 +510,11 @@ export function SmartOpsTeam() {
     fetchMembers();
   };
 
-  const openTestWhatsApp = (m: TeamMember) => {
-    setTestMember(m);
-    setTestPhone(m.whatsapp_number);
-    setTestMessage("Olá! Esta é uma mensagem de teste do WhatsApp. 🚀");
-    setTestDialogOpen(true);
-  };
-
-  const handleTestSend = async () => {
-    if (!testMember || !testPhone) return;
-    setTestSending(true);
-    try {
-      const { data, error } = await supabase.functions.invoke("smart-ops-wa-send", {
-        body: {
-          team_member_id: testMember.id,
-          phone: testPhone,
-          tipo: "text",
-          message: testMessage,
-          test_mode: true,
-        },
-      });
-      if (error) throw error;
-      if (data?.success) {
-        toast({ title: "✅ Mensagem enviada!", description: `Enviado para ${testPhone}` });
-      } else {
-        toast({ title: "⚠️ Falha no envio", description: data?.response || "Verifique a API Key", variant: "destructive" });
-      }
-    } catch (err) {
-      toast({ title: "Erro", description: String(err), variant: "destructive" });
-    } finally {
-      setTestSending(false);
-    }
-  };
+  const grouped = members.reduce<Record<string, TeamMember[]>>((acc, m) => {
+    const key = ROLE_ORDER.includes(m.role as (typeof ROLE_ORDER)[number]) ? m.role : "suporte";
+    (acc[key] ||= []).push(m);
+    return acc;
+  }, {});
 
   if (loading) return <div className="text-center py-12 text-muted-foreground">Carregando equipe...</div>;
 
