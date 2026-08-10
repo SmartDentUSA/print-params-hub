@@ -7,6 +7,9 @@ import { Input } from "@/components/ui/input";
 import { Loader2, Star, TrendingUp, MessageSquare, Users, CheckCircle2 } from "lucide-react";
 
 const SURVEY_TYPE = "demonstracao_ao_vivo";
+// Origem do NPS de Demonstrações: formulário público usado nos Cursos Online
+const ORIGIN_FORM_SLUG = "curso-online-qualificacao";
+const ONLINE_MODALITIES = ["online", "online_ao_vivo"];
 
 const fmtDT = (d?: string | null) =>
   d
@@ -86,10 +89,14 @@ export function NpsDemosTab() {
               .select("id, person_name, course_id")
               .in("id", enrollmentIds)
           : Promise.resolve({ data: [] as any[] }),
-        supabase.from("smartops_courses").select("id, title, modality").limit(1000),
+        supabase
+          .from("smartops_courses")
+          .select("id, title, modality")
+          .in("modality", ONLINE_MODALITIES)
+          .limit(1000),
         supabase
           .from("smartops_course_enrollments")
-          .select("id, course_id, created_at")
+          .select("id, course_id, created_at, source")
           .order("created_at", { ascending: false })
           .limit(3000),
       ]);
@@ -118,6 +125,7 @@ export function NpsDemosTab() {
       const enrollByCourse = new Map<string, number>();
       for (const e of (recentEnrollments.data || []) as any[]) {
         if (!e.course_id || !e.created_at) continue;
+        if (!courseMap.has(e.course_id)) continue; // só cursos online
         if (new Date(e.created_at).getTime() < cutoff) continue;
         enrollByCourse.set(e.course_id, (enrollByCourse.get(e.course_id) || 0) + 1);
       }
@@ -170,6 +178,14 @@ export function NpsDemosTab() {
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      </div>
+
+      <p className="text-xs text-muted-foreground">
+        Origem: formulário público <code className="font-mono">{ORIGIN_FORM_SLUG}</code> — o mesmo usado nas
+        inscrições dos Cursos Online (modalidades ao vivo/online).
+      </p>
+
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <StatCard icon={<CheckCircle2 className="w-4 h-4 text-emerald-600" />} label="Respostas" value={stats.respondidos} />
         <StatCard icon={<Star className="w-4 h-4 text-amber-500" />} label="NPS (-100 a 100)" value={stats.nps ?? "—"} />
         <StatCard icon={<TrendingUp className="w-4 h-4" />} label="Nota média (0-10)" value={stats.media ?? "—"} />
@@ -179,7 +195,7 @@ export function NpsDemosTab() {
       <Card>
         <CardContent className="p-4 space-y-3">
           <div className="flex items-center gap-2 text-sm font-semibold">
-            <TrendingUp className="w-4 h-4 text-emerald-600" /> Cursos em alta (inscrições nos últimos 30 dias)
+            <TrendingUp className="w-4 h-4 text-emerald-600" /> Cursos Online em alta (inscrições nos últimos 30 dias)
           </div>
           {trending.length === 0 ? (
             <p className="text-sm text-muted-foreground">Sem inscrições nos últimos 30 dias.</p>
