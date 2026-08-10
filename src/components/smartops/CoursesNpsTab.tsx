@@ -161,8 +161,6 @@ export function CoursesNpsTab() {
   }, [rows]);
 
   const filtered = rows.filter((r) => {
-    return true;
-  }) && rows.filter((r) => {
     if (filter === "respondidos" && !r.responded_at) return false;
     if (filter === "pendentes" && (!r.sent_at || r.responded_at)) return false;
     if (filter === "falhados" && r.sent_at) return false;
