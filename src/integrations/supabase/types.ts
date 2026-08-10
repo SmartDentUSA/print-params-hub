@@ -21460,6 +21460,7 @@ export type Database = {
           score_recomendacao: number | null
           score_satisfacao: number | null
           score_treinamentos: number | null
+          survey_type: string
         }
         Insert: {
           comment?: string | null
@@ -21472,6 +21473,7 @@ export type Database = {
           score_recomendacao?: number | null
           score_satisfacao?: number | null
           score_treinamentos?: number | null
+          survey_type?: string
         }
         Update: {
           comment?: string | null
@@ -21484,6 +21486,7 @@ export type Database = {
           score_recomendacao?: number | null
           score_satisfacao?: number | null
           score_treinamentos?: number | null
+          survey_type?: string
         }
         Relationships: [
           {

@@ -14,6 +14,15 @@ const BodySchema = z.object({
   email: z.string().trim().email().max(255),
   telefone: z.string().trim().min(10).max(20),
   is_client_smartdent: z.boolean().optional(),
+  // Dados confirmados/corrigidos pelo cliente na tela "estas informações estão corretas?"
+  confirmation: z
+    .object({
+      area_atuacao: z.string().trim().max(120).optional(),
+      especialidade: z.string().trim().max(160).optional(),
+      cidade: z.string().trim().max(120).optional(),
+      confirmed: z.boolean().optional(),
+    })
+    .optional(),
   qualification: z
     .object({
       form_id: z.string().uuid().optional(),
@@ -148,6 +157,10 @@ Deno.serve(async (req) => {
         produto_interesse_auto: productNames[0] ?? null,
         // Pass DB column answers (area_atuacao, especialidade, tem_scanner, etc.)
         ...(q.db_columns ?? {}),
+        // Dados confirmados pelo cliente têm prioridade sobre inferências
+        ...(body.confirmation?.area_atuacao ? { area_atuacao: body.confirmation.area_atuacao } : {}),
+        ...(body.confirmation?.especialidade ? { especialidade: body.confirmation.especialidade } : {}),
+        ...(body.confirmation?.cidade ? { cidade: body.confirmation.cidade } : {}),
         form_responses: q.form_responses ?? [],
       };
       const customFields = { ...(q.custom_fields ?? {}) };
@@ -186,6 +199,39 @@ Deno.serve(async (req) => {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
+
+    // 3b. Confirmação de cadastro pelo próprio cliente (fonte mais confiável).
+    if (body.confirmation?.confirmed) {
+      const conf: Record<string, string> = {};
+      if (body.confirmation.area_atuacao) conf.area_atuacao = body.confirmation.area_atuacao;
+      if (body.confirmation.especialidade) conf.especialidade = body.confirmation.especialidade;
+      if (body.confirmation.cidade) conf.cidade = body.confirmation.cidade;
+      if (Object.keys(conf).length > 0) {
+        await supabase
+          .from("lia_attendances")
+          .update(conf)
+          .eq("id", leadId)
+          .then(() => {}, (e) => console.warn("[confirm-update]", e));
+      }
+      await supabase
+        .from("lead_activity_log")
+        .insert({
+          lead_id: leadId,
+          event_type: "dados_confirmados_cliente",
+          entity_type: "course_enrollment",
+          entity_name: course.title,
+          source_channel: "formulario_publico",
+          event_data: {
+            ...conf,
+            course_title: course.title,
+            description: [
+              "Cliente confirmou seus dados na inscrição pública",
+              ...Object.entries(conf).map(([k, v]) => `${k}: ${v}`),
+            ].join("\n"),
+          },
+        })
+        .then(() => {}, (e) => console.warn("[confirm-activity]", e));
     }
 
     // 4b. Persist Workflow 7×3 mapping responses (used by SDR mapping panel).
