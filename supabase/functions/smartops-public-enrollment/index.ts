@@ -157,6 +157,10 @@ Deno.serve(async (req) => {
         produto_interesse_auto: productNames[0] ?? null,
         // Pass DB column answers (area_atuacao, especialidade, tem_scanner, etc.)
         ...(q.db_columns ?? {}),
+        // Dados confirmados pelo cliente têm prioridade sobre inferências
+        ...(body.confirmation?.area_atuacao ? { area_atuacao: body.confirmation.area_atuacao } : {}),
+        ...(body.confirmation?.especialidade ? { especialidade: body.confirmation.especialidade } : {}),
+        ...(body.confirmation?.cidade ? { cidade: body.confirmation.cidade } : {}),
         form_responses: q.form_responses ?? [],
       };
       const customFields = { ...(q.custom_fields ?? {}) };
