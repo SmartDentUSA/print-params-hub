@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Star, CheckCircle2 } from "lucide-react";
 import {
@@ -16,14 +17,11 @@ import {
 
 const QUALIFICATION_FORM_SLUG = "curso-online-qualificacao";
 
-const AREAS = [
-  "Dentista",
-  "Protético / Laboratório",
-  "Clínica / Consultório",
-  "Distribuidor / Revenda",
-  "Estudante",
-  "Outro",
-];
+import {
+  AREA_ATUACAO_OPTIONS,
+  ESPECIALIDADE_OPTIONS,
+  canonicalize,
+} from "@/lib/dentalTaxonomy";
 
 type LeadLookup = {
   found: boolean;
@@ -203,8 +201,8 @@ export default function PublicCourseEnrollment() {
       const res = (data as LeadLookup) ?? { found: false };
       setLookup(res);
       setConfirmData({
-        area_atuacao: res.area_atuacao ?? "",
-        especialidade: res.especialidade ?? "",
+        area_atuacao: canonicalize(AREA_ATUACAO_OPTIONS, res.area_atuacao),
+        especialidade: canonicalize(ESPECIALIDADE_OPTIONS, res.especialidade),
         cidade: res.cidade ?? "",
       });
       setPhase("confirm_data");
@@ -396,32 +394,35 @@ export default function PublicCourseEnrollment() {
                 <div className="space-y-3">
                   <div>
                     <Label>Área de atuação</Label>
-                    <div className="grid grid-cols-2 gap-2 mt-1">
-                      {AREAS.map((a) => (
-                        <button
-                          key={a}
-                          type="button"
-                          onClick={() => setConfirmData((s) => ({ ...s, area_atuacao: a }))}
-                          className={`text-left rounded-lg border px-3 py-2 text-sm transition ${
-                            confirmData.area_atuacao === a
-                              ? "border-primary bg-primary/10"
-                              : "border-border hover:border-primary/50"
-                          }`}
-                        >
-                          {a}
-                        </button>
-                      ))}
-                    </div>
+                    <Select
+                      value={confirmData.area_atuacao || undefined}
+                      onValueChange={(v) => setConfirmData((s) => ({ ...s, area_atuacao: v }))}
+                    >
+                      <SelectTrigger className="mt-1">
+                        <SelectValue placeholder="Selecione sua área de atuação" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {AREA_ATUACAO_OPTIONS.map((o) => (
+                          <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                   <div>
                     <Label htmlFor="especialidade">Especialidade</Label>
-                    <Input
-                      id="especialidade"
-                      value={confirmData.especialidade}
-                      maxLength={160}
-                      onChange={(e) => setConfirmData((s) => ({ ...s, especialidade: e.target.value }))}
-                      placeholder="Ex.: Implantodontia, Ortodontia, Prótese…"
-                    />
+                    <Select
+                      value={confirmData.especialidade || undefined}
+                      onValueChange={(v) => setConfirmData((s) => ({ ...s, especialidade: v }))}
+                    >
+                      <SelectTrigger id="especialidade" className="mt-1">
+                        <SelectValue placeholder="Selecione sua especialidade" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {ESPECIALIDADE_OPTIONS.map((o) => (
+                          <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                   <div>
                     <Label htmlFor="cidade">Cidade</Label>
