@@ -129,15 +129,33 @@ export function CoursesNpsTab() {
   const stats = useMemo(() => {
     const disparados = rows.filter((r) => r.sent_at).length;
     const respondidos = rows.filter((r) => r.responded_at).length;
-    const falhados = rows.filter((r) => !r.sent_at).length;
     const withScore = rows.filter((r) => r.recomendacao);
     const promotores = withScore.filter((r) => r.recomendacao! * 2 >= 9).length;
+    const neutros = withScore.filter((r) => r.recomendacao! * 2 >= 7 && r.recomendacao! * 2 <= 8).length;
     const detratores = withScore.filter((r) => r.recomendacao! * 2 <= 6).length;
     const nps = withScore.length ? Math.round(((promotores - detratores) / withScore.length) * 100) : null;
     const media = withScore.length
       ? (withScore.reduce((s, r) => s + r.recomendacao! * 2, 0) / withScore.length).toFixed(1)
       : null;
-    return { disparados, respondidos, falhados, nps, media, total: withScore.length };
+    return { disparados, respondidos, promotores, neutros, detratores, nps, media, total: withScore.length };
+  }, [rows]);
+
+  const questions = useMemo(() => {
+    const build = (label: string, pick: (r: NpsRow) => number | null) => {
+      const values = rows.map(pick).filter((v): v is number => !!v);
+      const counts = [1, 2, 3, 4, 5].map((s) => values.filter((v) => v === s).length);
+      const total = values.length;
+      const avg = total ? values.reduce((a, b) => a + b, 0) / total : null;
+      const promo = counts[4] + counts[3];
+      const detr = counts[0] + counts[1] + counts[2];
+      const score = total ? Math.round(((promo - detr) / total) * 100) : null;
+      return { label, counts, total, avg, score };
+    };
+    return [
+      build("Pergunta 1 — Satisfação geral com o treinamento", (r) => r.satisfacao),
+      build("Pergunta 2 — Qualidade dos treinamentos/conteúdo", (r) => r.treinamentos),
+      build("Pergunta 3 — Recomendaria para um colega", (r) => r.recomendacao),
+    ];
   }, [rows]);
 
   const filtered = rows.filter((r) => {
@@ -151,12 +169,19 @@ export function CoursesNpsTab() {
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+      <div className="grid grid-cols-2 lg:grid-cols-6 gap-3">
         <StatCard icon={<Send className="w-4 h-4" />} label="NPS disparados" value={stats.disparados} />
         <StatCard icon={<CheckCircle2 className="w-4 h-4 text-emerald-600" />} label="Respondidos" value={stats.respondidos} />
-        <StatCard icon={<AlertTriangle className="w-4 h-4 text-red-600" />} label="Falhados / não enviados" value={stats.falhados} />
-        <StatCard icon={<Star className="w-4 h-4 text-amber-500" />} label="NPS (-100 a 100)" value={stats.nps ?? "—"} />
-        <StatCard icon={<MessageSquare className="w-4 h-4" />} label="Nota média (0-10)" value={stats.media ?? "—"} />
+        <StatCard icon={<ThumbsUp className="w-4 h-4 text-emerald-600" />} label="Promotores" value={stats.promotores} />
+        <StatCard icon={<Minus className="w-4 h-4 text-amber-600" />} label="Neutros" value={stats.neutros} />
+        <StatCard icon={<ThumbsDown className="w-4 h-4 text-red-600" />} label="Detratores" value={stats.detratores} />
+        <StatCard icon={<Star className="w-4 h-4 text-amber-500" />} label="Nota média (0-10)" value={stats.media ?? "—"} />
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+        {questions.map((q) => (
+          <QuestionDistribution key={q.label} {...q} />
+        ))}
       </div>
 
       <div className="flex items-center gap-2 flex-wrap">
