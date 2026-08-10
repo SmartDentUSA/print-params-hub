@@ -296,14 +296,60 @@ Deno.serve(async (req) => {
     if (!enrollment) throw new Error("enrollment_creation_failed");
 
     // 7. Activity log
+    const qaLines = (body.qualification?.form_responses ?? []).map(
+      (r) => `${r.label}: ${r.value}`,
+    );
     await supabase.from("lead_activity_log").insert({
       lead_id: leadId,
       event_type: "inscricao_curso_publica",
       entity_type: "course_enrollment",
       entity_id: enrollment.id,
       entity_name: course.title,
-      event_data: { turma_id: turmaId, source: "public_form" },
+      source_channel: "formulario_publico",
+      user_agent: req.headers.get("user-agent"),
+      event_data: {
+        turma_id: turmaId,
+        source: "public_form",
+        course_id: course.id,
+        course_slug: course.slug,
+        course_title: course.title,
+        form_name: formName,
+        nome: body.nome,
+        email,
+        telefone: phone,
+        is_client_smartdent: isExistingClient || Boolean(body.is_client_smartdent),
+        produtos: productNames,
+        respostas: body.qualification?.form_responses ?? [],
+        description: [
+          `Inscrição pública em "${course.title}"`,
+          ...(qaLines.length > 0 ? ["Qualificação:", ...qaLines] : []),
+        ].join("\n"),
+      },
     }).then(() => {}, (e) => console.warn("[activity]", e));
+
+    // 7b. Each qualification answer as its own timeline entry, so the lead
+    // card shows the full questionnaire (same shape as form ingest events).
+    if ((body.qualification?.form_responses?.length ?? 0) > 0) {
+      const answerRows = body.qualification!.form_responses!.map((r) => ({
+        lead_id: leadId!,
+        event_type: "form_response",
+        entity_type: "form_field",
+        entity_id: enrollment!.id,
+        entity_name: r.label,
+        source_channel: "formulario_publico",
+        event_data: {
+          form_name: formName,
+          course_title: course.title,
+          label: r.label,
+          value: r.value,
+          description: `${r.label}: ${r.value}`,
+        },
+      }));
+      await supabase
+        .from("lead_activity_log")
+        .insert(answerRows)
+        .then(() => {}, (e) => console.warn("[activity-answers]", e));
+    }
 
     const showNps = isExistingClient || Boolean(body.is_client_smartdent);
 
