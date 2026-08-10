@@ -117,6 +117,9 @@ verify_jwt = false
 [functions.create-user]
 verify_jwt = true
 
+[functions.list-users]
+verify_jwt = true
+
 [functions.wa-contact-sync-cron]
 verify_jwt = false
 
