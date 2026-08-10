@@ -160,6 +160,11 @@ export function CoursesNpsTab() {
     ];
   }, [rows]);
 
+  const { insights, isLoading: insightsLoading } = useNpsQuestionInsights(
+    "NPS pós-treinamento",
+    questions,
+  );
+
   const filtered = rows.filter((r) => {
     if (filter === "respondidos" && !r.responded_at) return false;
     if (filter === "pendentes" && (!r.sent_at || r.responded_at)) return false;
@@ -295,12 +300,16 @@ function QuestionDistribution({
   total,
   avg,
   score,
+  insight,
+  insightLoading,
 }: {
   label: string;
   counts: number[];
   total: number;
   avg: number | null;
   score: number | null;
+  insight?: string | null;
+  insightLoading?: boolean;
 }) {
   const pct = (n: number) => (total ? (n / total) * 100 : 0);
   const tone = (i: number) =>
@@ -330,6 +339,16 @@ function QuestionDistribution({
               </div>
             ))}
           </div>
+        </div>
+        <div className="mt-3 pt-3 border-t text-xs text-muted-foreground flex gap-2">
+          <Sparkles className="w-3.5 h-3.5 text-primary shrink-0 mt-0.5" />
+          {insightLoading ? (
+            <span className="italic">Analisando com IA…</span>
+          ) : insight ? (
+            <span className="leading-relaxed">{insight}</span>
+          ) : (
+            <span className="italic">Análise indisponível.</span>
+          )}
         </div>
       </CardContent>
     </Card>
