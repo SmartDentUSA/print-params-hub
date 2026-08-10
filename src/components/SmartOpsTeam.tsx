@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -720,8 +720,8 @@ export function SmartOpsTeam() {
           </TableHeader>
           <TableBody>
             {ROLE_ORDER.filter((r) => grouped[r]?.length).map((role) => (
-              <>
-                <TableRow key={`h-${role}`} className="bg-muted/50 hover:bg-muted/50">
+              <Fragment key={role}>
+                <TableRow className="bg-muted/50 hover:bg-muted/50">
                   <TableCell colSpan={5} className="py-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                     {ROLE_LABEL[role] || role} · {grouped[role].length}
                   </TableCell>
@@ -743,7 +743,7 @@ export function SmartOpsTeam() {
                     </TableCell>
                   </TableRow>
                 ))}
-              </>
+              </Fragment>
             ))}
           </TableBody>
         </Table>
