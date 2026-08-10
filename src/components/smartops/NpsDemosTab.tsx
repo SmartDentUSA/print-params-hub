@@ -1,18 +1,34 @@
 import React, { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Loader2, Star, CheckCircle2, MessageSquare } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { toast } from "sonner";
+import { Loader2, Star, CheckCircle2, ThumbsUp, ThumbsDown, Minus } from "lucide-react";
 
 interface NpsRow {
   enrollment_id: string;
   person_name: string;
+  email: string | null;
   course_title: string;
   turma_label: string;
   end_date: string | null;
   enrolled_at: string | null;
   responded_at: string | null;
+  satisfacao: number | null;
+  treinamentos: number | null;
+  recomendacao: number | null;
+  comment: string | null;
+}
+
+interface Participant {
+  key: string;
+  name: string;
+  email: string | null;
+  demos: number;
+  lastResponse: string | null;
+  lastDays: number | null;
   satisfacao: number | null;
   treinamentos: number | null;
   recomendacao: number | null;
