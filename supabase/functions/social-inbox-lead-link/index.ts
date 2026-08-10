@@ -33,8 +33,29 @@ function extract(text: string) {
   return { emails, phones };
 }
 
-type Lead = { id: string; nome: string | null; email: string | null; telefone_normalized: string | null; instagram: string | null };
-const LEAD_COLS = 'id, nome, email, telefone_normalized, instagram';
+type Lead = {
+  id: string; nome: string | null; email: string | null; telefone_normalized: string | null;
+  instagram: string | null; instagram_user_id?: string | null; facebook_psid?: string | null;
+  tiktok_user_id?: string | null;
+};
+const LEAD_COLS = 'id, nome, email, telefone_normalized, instagram, instagram_user_id, facebook_psid, tiktok_user_id';
+
+/** Coluna do lead que guarda o ID nativo de cada plataforma. */
+function idColumnFor(channel: string): 'instagram_user_id' | 'facebook_psid' | 'tiktok_user_id' | null {
+  switch ((channel ?? '').toLowerCase()) {
+    case 'instagram': return 'instagram_user_id';
+    case 'facebook': return 'facebook_psid';
+    case 'tiktok': return 'tiktok_user_id';
+    default: return null;
+  }
+}
+
+const PLATFORM_ID_LABEL: Record<string, string> = {
+  instagram: 'ID Instagram',
+  facebook: 'ID Facebook',
+  tiktok: 'ID TikTok',
+  whatsapp: 'WhatsApp',
+};
 
 /** Cliente = tem ao menos 1 deal GANHO. Sem deal ganho = apenas lead. */
 async function classifyLead(supabase: any, leadId: string): Promise<{
@@ -71,10 +92,36 @@ serve(async (req) => {
 
   const findLead = async (opts: {
     name?: string | null; username?: string | null; text?: string | null;
+    channel?: string | null; platformUserId?: string | null;
   }): Promise<{ lead: Lead | null; matched_by: string | null }> => {
     const { emails, phones } = extract(String(opts.text ?? ''));
     const username = String(opts.username ?? '').replace(/^@/, '').trim();
     const name = String(opts.name ?? '').trim();
+    const channel = String(opts.channel ?? '').toLowerCase();
+    const platformId = String(opts.platformUserId ?? '').trim();
+
+    // 0. ID nativo da plataforma (Instagram/Facebook/TikTok) — identidade mais forte
+    const idCol = idColumnFor(channel);
+    if (idCol && platformId) {
+      const { data } = await supabase.from('lia_attendances').select(LEAD_COLS)
+        .is('merged_into', null).eq(idCol, platformId).limit(1);
+      if (data?.length) return { lead: data[0] as Lead, matched_by: `${channel}_id` };
+    }
+    // 0b. WhatsApp: o identificador é o próprio telefone
+    if (channel === 'whatsapp' && platformId) {
+      const d = platformId.replace(/\D/g, '');
+      if (d.length >= 10) {
+        const { data } = await supabase.rpc('fn_find_lead_by_social_id', {
+          _channel: 'whatsapp', _platform_user_id: d,
+        });
+        const hit = Array.isArray(data) ? data[0] : null;
+        if (hit?.lead_id) {
+          const { data: l } = await supabase.from('lia_attendances').select(LEAD_COLS)
+            .eq('id', hit.lead_id).maybeSingle();
+          if (l) return { lead: l as Lead, matched_by: 'whatsapp_phone' };
+        }
+      }
+    }
 
     // 1. e-mail (mais forte)
     for (const email of emails) {
@@ -102,6 +149,14 @@ serve(async (req) => {
       if (data?.length === 1) return { lead: data[0] as Lead, matched_by: 'nome' };
     }
     return { lead: null, matched_by: null };
+  };
+
+  /** Grava o ID nativo da plataforma no cadastro do lead (não sobrescreve). */
+  const persistPlatformId = async (lead: Lead, channel: string, platformUserId?: string | null) => {
+    const col = idColumnFor(channel);
+    if (!col || !platformUserId) return;
+    if ((lead as any)[col]) return;
+    await supabase.from('lia_attendances').update({ [col]: platformUserId }).eq('id', lead.id);
   };
 
   try {
@@ -155,9 +210,11 @@ serve(async (req) => {
 
         const { lead, matched_by } = await findLead({
           name: c.participantName, username: c.participantUsername, text: allText,
+          channel: convPlatform, platformUserId: c.participantId ?? null,
         });
         if (!lead) continue;
         linked++;
+        await persistPlatformId(lead, convPlatform, c.participantId ? String(c.participantId) : null);
 
         // enriquece o contato espelhado com o que veio da DM
         const contactId = String(c.participantId ?? c.contactId ?? c.participantUsername ?? '');
@@ -248,15 +305,21 @@ serve(async (req) => {
       let linked = 0, timeline = 0;
       const details: any[] = [];
       for (const c of contacts ?? []) {
-        const identifier = String((c.custom_fields as any)?.platformIdentifier ?? c.ig_user_id ?? '');
+        const channelRaw = String(c.channel ?? 'instagram');
+        const identifier = String(
+          (c as any).platform_user_id ?? (c.custom_fields as any)?.platformIdentifier ?? c.ig_user_id ?? '',
+        );
         const { lead, matched_by } = await findLead({
           name: (c.custom_fields as any)?.name ?? c.ig_username,
           username: c.ig_username,
           text: [identifier, (c.custom_fields as any)?.email, (c.custom_fields as any)?.phone].filter(Boolean).join('\n'),
+          channel: channelRaw,
+          platformUserId: identifier || null,
         });
         if (!lead) continue;
         linked++;
-        const channel = String(c.channel ?? 'instagram');
+        const channel = channelRaw;
+        await persistPlatformId(lead, channel, identifier || null);
         await supabase.from('social_contacts')
           .update({ lead_id: lead.id, custom_fields: { ...(c.custom_fields as any ?? {}), lead_matched_by: matched_by } })
           .eq('ig_user_id', c.ig_user_id);
@@ -268,22 +331,24 @@ serve(async (req) => {
             .eq('id', lead.id);
         }
 
-        const hash = `social_identity:${channel}:${c.ig_user_id}`;
+        const hash = `social_identity:${channel}:${identifier || c.ig_user_id}`;
         const { data: exists } = await supabase.from('lead_activity_log')
           .select('id').eq('dedupe_hash', hash).limit(1);
         if (!exists?.length) {
+          const label = PLATFORM_ID_LABEL[channel] ?? `ID ${channel}`;
           const { error: iErr } = await supabase.from('lead_activity_log').insert({
             lead_id: lead.id,
             event_type: 'social_identity_linked',
             event_timestamp: c.last_seen_at ?? new Date().toISOString(),
             source_channel: `zernio_${channel}`,
             entity_type: 'social_contact',
-            entity_id: String(c.ig_user_id),
-            entity_name: c.ig_username ?? identifier ?? 'Contato social',
+            entity_id: String(identifier || c.ig_user_id),
+            entity_name: `${label} identificado`,
             event_data: {
+              kind_label: `${label} identificado`,
+              message: `${label}: ${identifier || '—'}${c.ig_username ? ` · @${String(c.ig_username).replace(/^@/, '')}` : ''}`,
               platform: channel,
-              platform_user_id: String(c.ig_user_id),
-              platform_identifier: identifier || null,
+              platform_user_id: identifier || null,
               username: c.ig_username ?? null,
               matched_by,
             },
@@ -291,7 +356,7 @@ serve(async (req) => {
           } as any);
           if (!iErr) timeline++;
         }
-        details.push({ contact_id: c.ig_user_id, channel, lead_id: lead.id, nome: lead.nome, matched_by });
+        details.push({ platform_user_id: identifier, channel, lead_id: lead.id, nome: lead.nome, matched_by });
       }
       return json({ scanned: contacts?.length ?? 0, linked, timeline_events: timeline, details: details.slice(0, 50) });
     }
@@ -303,6 +368,7 @@ serve(async (req) => {
         const { lead, matched_by } = await findLead({
           name: c.participantName, username: c.participantUsername,
           text: [c.lastMessage, c.text].filter(Boolean).join('\n'),
+          channel: c.platform ?? null, platformUserId: c.participantId ?? null,
         });
         const cls = lead ? await classifyLead(supabase, lead.id) : null;
         results.push({
