@@ -77,12 +77,22 @@ Deno.serve(async (req) => {
   };
 
   try {
-    // Turmas que terminaram ontem, sem NPS enviado.
+    // Body opcional: { backfill_days: N } reenvia para todas as turmas encerradas
+    // nos últimos N dias cujos participantes nunca receberam a pesquisa.
+    let backfillDays = 0;
+    try {
+      const body = await req.json();
+      const n = Number(body?.backfill_days);
+      if (Number.isFinite(n) && n > 0) backfillDays = Math.min(Math.floor(n), 365);
+    } catch { /* sem body = modo cron diário */ }
+
     const yesterday = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);
-    const { data: turmas, error: eT } = await supabase
-      .from("smartops_course_turmas")
-      .select("id, label, end_date")
-      .eq("end_date", yesterday);
+    const q = supabase.from("smartops_course_turmas").select("id, label, end_date");
+    const { data: turmas, error: eT } = backfillDays > 0
+      ? await q
+          .gte("end_date", new Date(Date.now() - backfillDays * 86_400_000).toISOString().slice(0, 10))
+          .lte("end_date", yesterday)
+      : await q.eq("end_date", yesterday);
     if (eT) throw eT;
 
     const turmaIds = (turmas ?? []).map((t: any) => t.id);
