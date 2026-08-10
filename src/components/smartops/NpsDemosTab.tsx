@@ -105,8 +105,9 @@ export function NpsDemosTab() {
       const enrollRows = enrollments || [];
       const turmaIds = [...new Set(enrollRows.map((r: any) => r.turma_id).filter(Boolean))];
       const enrollmentIds = enrollRows.map((r: any) => r.id);
+      const leadIds = [...new Set(enrollRows.map((r: any) => r.lead_id).filter(Boolean))];
 
-      const [turmas, responses, overrides] = await Promise.all([
+      const [turmas, responses, overrides, leads] = await Promise.all([
         turmaIds.length
           ? supabase.from("smartops_course_turmas").select("id, label, end_date").in("id", turmaIds)
           : Promise.resolve({ data: [] as any[] }),
@@ -121,9 +122,13 @@ export function NpsDemosTab() {
               .order("created_at", { ascending: false })
           : Promise.resolve({ data: [] as any[] }),
         supabase.from("smartops_nps_demo_overrides").select("email, force_next"),
+        leadIds.length
+          ? supabase.from("lia_attendances").select("id, email").in("id", leadIds)
+          : Promise.resolve({ data: [] as any[] }),
       ]);
 
       const turmaMap = new Map((turmas.data || []).map((t: any) => [t.id, t]));
+      const leadEmailMap = new Map<string, string | null>((leads.data || []).map((l: any) => [l.id, l.email ?? null]));
       const courseMap = new Map((onlineCourses || []).map((c: any) => [c.id, c.title]));
       const respMap = new Map<string, any>();
       for (const r of responses.data || []) if (!respMap.has(r.enrollment_id)) respMap.set(r.enrollment_id, r);
@@ -139,7 +144,7 @@ export function NpsDemosTab() {
           return {
             enrollment_id: e.id,
             person_name: e.person_name || "Sem nome",
-            email: r?.email ?? null,
+            email: r?.email ?? leadEmailMap.get(e.lead_id) ?? null,
             lead_id: e.lead_id ?? r?.lead_id ?? null,
             course_title: courseMap.get(e.course_id) || "—",
             turma_label: t?.label || "—",
