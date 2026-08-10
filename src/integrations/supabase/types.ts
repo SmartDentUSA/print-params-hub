@@ -32671,6 +32671,14 @@ export type Database = {
           nome: string
         }[]
       }
+      fn_find_lead_by_tax_id: {
+        Args: { _tax_id: string }
+        Returns: {
+          lead_id: string
+          matched_by: string
+          nome: string
+        }[]
+      }
       fn_form_leads_sem_piperun: {
         Args: never
         Returns: {
