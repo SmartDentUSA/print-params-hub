@@ -16,6 +16,27 @@ import {
 
 const QUALIFICATION_FORM_SLUG = "curso-online-qualificacao";
 
+const AREAS = [
+  "Dentista",
+  "Protético / Laboratório",
+  "Clínica / Consultório",
+  "Distribuidor / Revenda",
+  "Estudante",
+  "Outro",
+];
+
+type LeadLookup = {
+  found: boolean;
+  nome?: string | null;
+  area_atuacao?: string | null;
+  especialidade?: string | null;
+  cidade?: string | null;
+  empresa?: string | null;
+  email_masked?: string | null;
+  telefone_masked?: string | null;
+  is_client?: boolean;
+};
+
 type Course = {
   id: string;
   slug: string;
@@ -86,10 +107,13 @@ export default function PublicCourseEnrollment() {
 
   // After submit
   const [phase, setPhase] = useState<
-    "form" | "ask_client" | "qualify" | "nps" | "done"
+    "form" | "ask_client" | "confirm_data" | "qualify" | "nps" | "done"
   >("form");
   const [enrollmentId, setEnrollmentId] = useState<string | null>(null);
   const [showNps, setShowNps] = useState(false);
+  const [lookup, setLookup] = useState<LeadLookup | null>(null);
+  const [lookingUp, setLookingUp] = useState(false);
+  const [confirmData, setConfirmData] = useState({ area_atuacao: "", especialidade: "", cidade: "" });
 
   useEffect(() => {
     (async () => {
@@ -127,6 +151,7 @@ export default function PublicCourseEnrollment() {
   async function submitEnrollment(
     isClient: boolean | null,
     qualification?: QualificationSubmitPayload,
+    confirmation?: { area_atuacao?: string; especialidade?: string; cidade?: string; confirmed: boolean },
   ) {
     const parsed = formSchema.safeParse(form);
     if (!parsed.success) {
@@ -150,6 +175,7 @@ export default function PublicCourseEnrollment() {
           telefone: form.telefone,
           is_client_smartdent: isClient ?? undefined,
           qualification: qualification ?? undefined,
+          confirmation: confirmation ?? undefined,
         },
       });
       if (error) throw error;
@@ -164,6 +190,30 @@ export default function PublicCourseEnrollment() {
       toast({ title: "Erro", description: err.message ?? "Falha ao inscrever.", variant: "destructive" });
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  // Cliente existente: busca o cadastro para ele confirmar os dados antes do NPS.
+  async function startClientConfirmation() {
+    setLookingUp(true);
+    try {
+      const { data } = await supabase.functions.invoke("smartops-public-lead-lookup", {
+        body: { email: form.email, telefone: form.telefone },
+      });
+      const res = (data as LeadLookup) ?? { found: false };
+      setLookup(res);
+      setConfirmData({
+        area_atuacao: res.area_atuacao ?? "",
+        especialidade: res.especialidade ?? "",
+        cidade: res.cidade ?? "",
+      });
+      setPhase("confirm_data");
+    } catch {
+      // Sem cadastro localizado seguimos pedindo os dados em branco
+      setLookup({ found: false });
+      setPhase("confirm_data");
+    } finally {
+      setLookingUp(false);
     }
   }
 
