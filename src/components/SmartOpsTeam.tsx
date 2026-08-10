@@ -118,6 +118,11 @@ function ConnectionCell({ member, live }: { member: TeamMember; live?: LiveEntry
 
   if (!hasEvolution && !hasEvoGo) {
     return <span className="text-xs text-muted-foreground">sem integração</span>;
+  const hasEvolution = !!(member.evolution_instance_name && (member.evolution_enabled || member.evolution_api_key));
+  const hasEvoGo = !!(member.evo_go_instance_token || member.evo_go_instance_id);
+
+  if (!hasEvolution && !hasEvoGo) {
+    return <span className="text-xs text-muted-foreground">sem integração</span>;
   }
 
   const render = (prefix: string, state: LiveState | undefined) => {
