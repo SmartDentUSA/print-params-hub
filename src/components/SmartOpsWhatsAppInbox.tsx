@@ -416,7 +416,9 @@ export function SmartOpsWhatsAppInbox({ refreshKey }: { refreshKey: number }) {
           ) : filteredConversations.length === 0 ? (
             <div className="p-4 text-center text-muted-foreground text-sm">Nenhuma conversa encontrada</div>
           ) : (
-            filteredConversations.map((conv) => (
+            filteredConversations.map((conv) => {
+              const team = matchTeam(conv.phone_raw, conv.phone_normalized);
+              return (
               <button
                 key={conv.phone_normalized}
                 onClick={() => setSelectedPhone(conv.phone_normalized)}
@@ -427,7 +429,12 @@ export function SmartOpsWhatsAppInbox({ refreshKey }: { refreshKey: number }) {
               >
                 <div className="flex items-center justify-between mb-1">
                   <span className="font-medium text-sm truncate flex items-center gap-1.5">
-                    {conv.lead_name ? (
+                    {team ? (
+                      <>
+                        <User className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                        {team.nome_completo}
+                      </>
+                    ) : conv.lead_name ? (
                       <>
                         <User className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
                         {conv.lead_name}
@@ -443,10 +450,17 @@ export function SmartOpsWhatsAppInbox({ refreshKey }: { refreshKey: number }) {
                     {formatTime(conv.last_at)}
                   </span>
                 </div>
-                {conv.lead_name && (
+                {team && (
+                  <div className="mb-1">
+                    <Badge variant="outline" className="text-[9px] px-1.5 py-0 border-emerald-300 text-emerald-700 bg-emerald-50">
+                      🧑‍💼 Equipe{team.role ? ` • ${team.role}` : ""}{team.ativo ? "" : " • inativo"}
+                    </Badge>
+                  </div>
+                )}
+                {(team || conv.lead_name) && (
                   <p className="text-[10px] text-muted-foreground mb-0.5">📱 {formatPhone(conv.phone_raw)}</p>
                 )}
-                {(conv.funil || conv.vendedor || conv.treinamento) && (
+                {!team && (conv.funil || conv.vendedor || conv.treinamento) && (
                   <div className="flex flex-wrap gap-1 mb-1">
                     {conv.funil && (
                       <Badge variant="outline" className="text-[9px] px-1.5 py-0 border-blue-300 text-blue-700 bg-blue-50">
@@ -477,7 +491,8 @@ export function SmartOpsWhatsAppInbox({ refreshKey }: { refreshKey: number }) {
                   </Badge>
                 )}
               </button>
-            ))
+              );
+            })
           )}
         </div>
         <div className="p-2 border-t text-xs text-muted-foreground text-center flex items-center justify-center gap-2">
