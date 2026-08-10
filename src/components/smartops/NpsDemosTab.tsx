@@ -5,7 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, Star, Users, CheckCircle2, MessageSquare } from "lucide-react";
+import { Loader2, Star, CheckCircle2, MessageSquare } from "lucide-react";
 
 interface NpsRow {
   enrollment_id: string;
@@ -62,7 +62,6 @@ function npsLabel(recomendacao: number | null) {
 
 export function NpsDemosTab() {
   const [search, setSearch] = useState("");
-  const [filter, setFilter] = useState<"todos" | "respondidos" | "sem_resposta">("todos");
 
   const { data, isLoading } = useQuery({
     queryKey: ["smartops-nps-demos-overview"],
@@ -125,16 +124,16 @@ export function NpsDemosTab() {
             recomendacao: r?.score_recomendacao ?? null,
             comment: r?.comment ?? null,
           } as NpsRow;
-        });
+        })
+        // NPS é obrigatório para agendar a demonstração: só existem respostas
+        .filter((r) => r.responded_at);
     },
   });
 
   const rows = data || [];
 
   const stats = useMemo(() => {
-    const inscritos = rows.length;
-    const respondidos = rows.filter((r) => r.responded_at).length;
-    const semResposta = inscritos - respondidos;
+    const respondidos = rows.length;
     const withScore = rows.filter((r) => r.recomendacao);
     const promotores = withScore.filter((r) => r.recomendacao! * 2 >= 9).length;
     const detratores = withScore.filter((r) => r.recomendacao! * 2 <= 6).length;
@@ -142,12 +141,10 @@ export function NpsDemosTab() {
     const media = withScore.length
       ? (withScore.reduce((s, r) => s + r.recomendacao! * 2, 0) / withScore.length).toFixed(1)
       : null;
-    return { inscritos, respondidos, semResposta, nps, media, total: withScore.length };
+    return { respondidos, nps, media, total: withScore.length };
   }, [rows]);
 
   const filtered = rows.filter((r) => {
-    if (filter === "respondidos" && !r.responded_at) return false;
-    if (filter === "sem_resposta" && r.responded_at) return false;
     const q = search.trim().toLowerCase();
     if (!q) return true;
     return [r.person_name, r.course_title, r.turma_label, r.comment].some((v) => (v || "").toLowerCase().includes(q));
@@ -155,10 +152,8 @@ export function NpsDemosTab() {
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
-        <StatCard icon={<Users className="w-4 h-4" />} label="Inscritos (demonstrações)" value={stats.inscritos} />
-        <StatCard icon={<CheckCircle2 className="w-4 h-4 text-emerald-600" />} label="Respondidos" value={stats.respondidos} />
-        <StatCard icon={<MessageSquare className="w-4 h-4 text-muted-foreground" />} label="Sem resposta" value={stats.semResposta} />
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
+        <StatCard icon={<CheckCircle2 className="w-4 h-4 text-emerald-600" />} label="Respostas" value={stats.respondidos} />
         <StatCard icon={<Star className="w-4 h-4 text-amber-500" />} label="NPS (-100 a 100)" value={stats.nps ?? "—"} />
         <StatCard icon={<MessageSquare className="w-4 h-4" />} label="Nota média (0-10)" value={stats.media ?? "—"} />
       </div>
@@ -170,14 +165,6 @@ export function NpsDemosTab() {
           placeholder="Buscar por participante, curso, turma ou comentário…"
           className="max-w-sm"
         />
-        <Select value={filter} onValueChange={(v: any) => setFilter(v)}>
-          <SelectTrigger className="w-[220px]"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="todos">Todos</SelectItem>
-            <SelectItem value="respondidos">Somente respondidos</SelectItem>
-            <SelectItem value="sem_resposta">Sem resposta</SelectItem>
-          </SelectContent>
-        </Select>
         <span className="text-xs text-muted-foreground">{filtered.length} registro(s)</span>
       </div>
 
@@ -215,11 +202,7 @@ export function NpsDemosTab() {
                     </td>
                     <td className="p-3 whitespace-nowrap">{fmtDT(r.enrolled_at)}</td>
                     <td className="p-3 whitespace-nowrap">
-                      {r.responded_at ? (
-                        fmtDT(r.responded_at)
-                      ) : (
-                        <Badge variant="secondary" className="text-[10px]">sem resposta</Badge>
-                      )}
+                      {fmtDT(r.responded_at)}
                     </td>
                     <td className="p-3">
                       {n ? (
