@@ -332,6 +332,7 @@ export default function PublicCourseEnrollment() {
                   submitLabel="Concluir inscrição"
                   submitting={submitting}
                   onSubmit={(payload) => submitEnrollment(false, payload)}
+                  onSkip={() => submitEnrollment(false)}
                 />
               </div>
             )}
