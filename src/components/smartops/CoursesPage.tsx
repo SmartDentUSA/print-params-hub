@@ -291,6 +291,57 @@ export default function CoursesPage() {
                   </div>
                 </div>
 
+                <div className="border-t pt-2 space-y-1.5">
+                  <div className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium">Cursos</div>
+                  {(coursesByProf[p.id] ?? []).length === 0 ? (
+                    <div className="text-xs text-muted-foreground">Nenhum curso cadastrado.</div>
+                  ) : (
+                    (coursesByProf[p.id] ?? []).slice(0, 4).map((c) => {
+                      const st = getCourseStatusBadge(c);
+                      return (
+                        <button
+                          key={c.id}
+                          type="button"
+                          onClick={() => {
+                            setCoursesStartNew(false);
+                            setCoursesFor(p);
+                          }}
+                          className="w-full text-left rounded-md border bg-muted/30 px-2 py-1.5 hover:bg-muted transition-colors"
+                        >
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-medium truncate flex-1">{c.title}</span>
+                            <span className={cn("shrink-0 text-[10px] px-1.5 py-0.5 rounded-full border font-medium", st.cls)}>
+                              {st.label}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-3 mt-1 text-[11px] text-muted-foreground">
+                            <span className="flex items-center gap-1">
+                              <UserCircle className="w-3 h-3" />
+                              {c.enrolled_count ?? 0}{c.max_students ? `/${c.max_students}` : ""} inscritos
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <Eye className="w-3 h-3" />
+                              {c.views_count ?? 0} views
+                            </span>
+                          </div>
+                        </button>
+                      );
+                    })
+                  )}
+                  {(coursesByProf[p.id] ?? []).length > 4 && (
+                    <button
+                      type="button"
+                      className="text-[11px] text-primary hover:underline"
+                      onClick={() => {
+                        setCoursesStartNew(false);
+                        setCoursesFor(p);
+                      }}
+                    >
+                      Ver todos os {(coursesByProf[p.id] ?? []).length} cursos
+                    </button>
+                  )}
+                </div>
+
                 <div className="flex items-center justify-between text-xs">
                   <span className="text-muted-foreground">Avaliações</span>
                   <StarRating value={avgRating(p)} />
