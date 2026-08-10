@@ -5,7 +5,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { Loader2, Star, CheckCircle2, ThumbsUp, ThumbsDown, Minus } from "lucide-react";
+import { Loader2, Star, CheckCircle2, ThumbsUp, ThumbsDown, Minus, Sparkles } from "lucide-react";
+import { useNpsQuestionInsights } from "@/hooks/useNpsQuestionInsights";
 
 interface NpsRow {
   enrollment_id: string;
@@ -235,6 +236,7 @@ export function NpsDemosTab() {
   }, [rows]);
 
   const filtered = participants.filter((p) => {
+
     const q = search.trim().toLowerCase();
     if (!q) return true;
     return [p.name, p.email, p.comment].some((v) => (v || "").toLowerCase().includes(q));
