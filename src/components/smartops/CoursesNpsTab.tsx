@@ -5,7 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, Star, Send, CheckCircle2, AlertTriangle, MessageSquare } from "lucide-react";
+import { Loader2, Star, Send, CheckCircle2, ThumbsUp, ThumbsDown, Minus } from "lucide-react";
 
 interface NpsRow {
   enrollment_id: string;
@@ -129,15 +129,33 @@ export function CoursesNpsTab() {
   const stats = useMemo(() => {
     const disparados = rows.filter((r) => r.sent_at).length;
     const respondidos = rows.filter((r) => r.responded_at).length;
-    const falhados = rows.filter((r) => !r.sent_at).length;
     const withScore = rows.filter((r) => r.recomendacao);
     const promotores = withScore.filter((r) => r.recomendacao! * 2 >= 9).length;
+    const neutros = withScore.filter((r) => r.recomendacao! * 2 >= 7 && r.recomendacao! * 2 <= 8).length;
     const detratores = withScore.filter((r) => r.recomendacao! * 2 <= 6).length;
     const nps = withScore.length ? Math.round(((promotores - detratores) / withScore.length) * 100) : null;
     const media = withScore.length
       ? (withScore.reduce((s, r) => s + r.recomendacao! * 2, 0) / withScore.length).toFixed(1)
       : null;
-    return { disparados, respondidos, falhados, nps, media, total: withScore.length };
+    return { disparados, respondidos, promotores, neutros, detratores, nps, media, total: withScore.length };
+  }, [rows]);
+
+  const questions = useMemo(() => {
+    const build = (label: string, pick: (r: NpsRow) => number | null) => {
+      const values = rows.map(pick).filter((v): v is number => !!v);
+      const counts = [1, 2, 3, 4, 5].map((s) => values.filter((v) => v === s).length);
+      const total = values.length;
+      const avg = total ? values.reduce((a, b) => a + b, 0) / total : null;
+      const promo = counts[4] + counts[3];
+      const detr = counts[0] + counts[1] + counts[2];
+      const score = total ? Math.round(((promo - detr) / total) * 100) : null;
+      return { label, counts, total, avg, score };
+    };
+    return [
+      build("Pergunta 1 — Satisfação geral com o treinamento", (r) => r.satisfacao),
+      build("Pergunta 2 — Qualidade dos treinamentos/conteúdo", (r) => r.treinamentos),
+      build("Pergunta 3 — Recomendaria para um colega", (r) => r.recomendacao),
+    ];
   }, [rows]);
 
   const filtered = rows.filter((r) => {
@@ -151,12 +169,19 @@ export function CoursesNpsTab() {
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+      <div className="grid grid-cols-2 lg:grid-cols-6 gap-3">
         <StatCard icon={<Send className="w-4 h-4" />} label="NPS disparados" value={stats.disparados} />
         <StatCard icon={<CheckCircle2 className="w-4 h-4 text-emerald-600" />} label="Respondidos" value={stats.respondidos} />
-        <StatCard icon={<AlertTriangle className="w-4 h-4 text-red-600" />} label="Falhados / não enviados" value={stats.falhados} />
-        <StatCard icon={<Star className="w-4 h-4 text-amber-500" />} label="NPS (-100 a 100)" value={stats.nps ?? "—"} />
-        <StatCard icon={<MessageSquare className="w-4 h-4" />} label="Nota média (0-10)" value={stats.media ?? "—"} />
+        <StatCard icon={<ThumbsUp className="w-4 h-4 text-emerald-600" />} label="Promotores" value={stats.promotores} />
+        <StatCard icon={<Minus className="w-4 h-4 text-amber-600" />} label="Neutros" value={stats.neutros} />
+        <StatCard icon={<ThumbsDown className="w-4 h-4 text-red-600" />} label="Detratores" value={stats.detratores} />
+        <StatCard icon={<Star className="w-4 h-4 text-amber-500" />} label="Nota média (0-10)" value={stats.media ?? "—"} />
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+        {questions.map((q) => (
+          <QuestionDistribution key={q.label} {...q} />
+        ))}
       </div>
 
       <div className="flex items-center gap-2 flex-wrap">
@@ -252,6 +277,53 @@ function StatCard({ icon, label, value }: { icon: React.ReactNode; label: string
       <CardContent className="p-4">
         <div className="flex items-center gap-2 text-xs text-muted-foreground">{icon}<span>{label}</span></div>
         <div className="text-2xl font-bold mt-1">{value}</div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function QuestionDistribution({
+  label,
+  counts,
+  total,
+  avg,
+  score,
+}: {
+  label: string;
+  counts: number[];
+  total: number;
+  avg: number | null;
+  score: number | null;
+}) {
+  const pct = (n: number) => (total ? (n / total) * 100 : 0);
+  const tone = (i: number) =>
+    i >= 4 ? "bg-emerald-500" : i === 3 ? "bg-emerald-500/30" : i === 2 ? "bg-muted-foreground/40" : "bg-muted";
+  return (
+    <Card>
+      <CardContent className="p-4">
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <div className="text-xs text-muted-foreground line-clamp-2">{label}</div>
+            <div className="text-2xl font-bold mt-1">{score ?? "—"}</div>
+            <div className="text-xs text-muted-foreground mt-1">
+              Média <span className="font-semibold text-foreground">{avg ? `${avg.toFixed(1)}/5` : "—"}</span>
+            </div>
+          </div>
+          <div className="flex items-end gap-1.5 h-24">
+            {[1, 2, 3, 4, 5].map((s, i) => (
+              <div key={s} className="flex flex-col items-center justify-end w-9 h-full">
+                <div className="text-[10px] text-muted-foreground mb-1">{s}</div>
+                <div className="relative w-full flex-1 rounded-sm bg-muted/40 flex items-end overflow-hidden">
+                  <div
+                    className={`w-full rounded-sm ${tone(s)}`}
+                    style={{ height: `${Math.max(pct(counts[i]), counts[i] ? 4 : 2)}%` }}
+                  />
+                </div>
+                <div className="text-[10px] text-muted-foreground mt-1">{pct(counts[i]).toFixed(1)}%</div>
+              </div>
+            ))}
+          </div>
+        </div>
       </CardContent>
     </Card>
   );
