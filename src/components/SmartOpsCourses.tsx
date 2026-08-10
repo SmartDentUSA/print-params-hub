@@ -1310,7 +1310,7 @@ function InscricoesTab() {
 export function SmartOpsCourses() {
   return (
     <Tabs defaultValue="agendamentos" className="space-y-4">
-      <TabsList>
+      <TabsList className="flex w-full flex-wrap justify-start gap-1 h-auto">
         <TabsTrigger value="agendamentos">Agendamentos</TabsTrigger>
         <TabsTrigger value="catalogo">Catálogo</TabsTrigger>
         <TabsTrigger value="inscricoes">Inscrições</TabsTrigger>
