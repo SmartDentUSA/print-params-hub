@@ -21448,6 +21448,33 @@ export type Database = {
         }
         Relationships: []
       }
+      smartops_nps_demo_overrides: {
+        Row: {
+          created_at: string
+          email: string
+          force_next: boolean
+          id: string
+          lead_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          force_next?: boolean
+          id?: string
+          lead_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          force_next?: boolean
+          id?: string
+          lead_id?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       smartops_nps_responses: {
         Row: {
           comment: string | null
