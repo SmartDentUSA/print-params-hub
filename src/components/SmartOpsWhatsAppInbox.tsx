@@ -529,15 +529,24 @@ export function SmartOpsWhatsAppInbox({ refreshKey }: { refreshKey: number }) {
             <div className="p-3 border-b flex items-center justify-between bg-muted/30">
               <div>
                 <p className="font-medium text-sm">
-                  {conversations.find(c => c.phone_normalized === selectedPhone)?.lead_name || formatPhone(conversations.find(c => c.phone_normalized === selectedPhone)?.phone_raw || selectedPhone)}
+                  {matchTeam(conversations.find(c => c.phone_normalized === selectedPhone)?.phone_raw, selectedPhone)?.nome_completo
+                    || conversations.find(c => c.phone_normalized === selectedPhone)?.lead_name
+                    || formatPhone(conversations.find(c => c.phone_normalized === selectedPhone)?.phone_raw || selectedPhone)}
                 </p>
                 <p className="text-xs text-muted-foreground">
                   📱 {formatPhone(conversations.find(c => c.phone_normalized === selectedPhone)?.phone_raw || selectedPhone)}
                 </p>
               </div>
-              <Badge variant="outline" className="text-xs">
-                {messages.length} msgs
-              </Badge>
+              <div className="flex items-center gap-2">
+                {matchTeam(conversations.find(c => c.phone_normalized === selectedPhone)?.phone_raw, selectedPhone) && (
+                  <Badge variant="outline" className="text-xs border-emerald-300 text-emerald-700 bg-emerald-50">
+                    🧑‍💼 Membro da equipe
+                  </Badge>
+                )}
+                <Badge variant="outline" className="text-xs">
+                  {messages.length} msgs
+                </Badge>
+              </div>
             </div>
 
             {/* Messages */}
