@@ -453,8 +453,36 @@ async function handle(req: Request): Promise<Response> {
       .eq("event_id", event.id);
   }
 
+  const recurring = isSubscriptionEvent(event);
+  const paidAtDate = new Date(event.created * 1000);
+
+  // Espelha a assinatura (status/vencimento) para o painel RMS
+  if (recurring) {
+    try {
+      await upsertSubscription(event, leadId, products);
+    } catch (e) {
+      console.error("[stripe-webhook] upsertSubscription error:", (e as Error).message);
+    }
+  }
+
+  // Mensalidade paga → atualiza as unidades existentes em vez de criar linha nova
+  if (recurring && (event.type === "invoice.paid" || event.type === "checkout.session.completed")) {
+    try {
+      await markMensalidadePaid(
+        leadId,
+        paidAtDate,
+        periodEndOf(event),
+        customer.stripe_customer_id,
+        products.map((p) => p.name).filter(Boolean)[0] ?? internalProduct,
+      );
+    } catch (e) {
+      console.error("[stripe-webhook] markMensalidadePaid error:", (e as Error).message);
+    }
+  }
+
   // Expand into stripe_payment_units (one row per dongle unit) on checkout.completed
-  if (event.type === "checkout.session.completed") {
+  // Somente compras de ativação criam unidade — mensalidade recorrente não gera dongle novo.
+  if (event.type === "checkout.session.completed" && !recurring) {
     // Build unit rows. Attempt to expand via listLineItems, but never let a
     // Stripe API error skip the insert — always fall back to a single unit
     // row so the RMS dashboard reflects the payment.
@@ -490,7 +518,9 @@ async function handle(req: Request): Promise<Response> {
         unit_index: idx + 1,
         unit_total: u.unit_total,
         product_name: u.product_name,
-        paid_at: new Date(event.created * 1000).toISOString(),
+        paid_at: paidAtDate.toISOString(),
+        ativacao_data: paidAtDate.toISOString().slice(0, 10),
+        ativacao_status: "Pendente",
       }));
       const { error: unitsErr } = await supabase
         .from("stripe_payment_units")
