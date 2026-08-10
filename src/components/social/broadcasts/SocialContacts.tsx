@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Users, Search, RefreshCw, Copy, UserCheck } from 'lucide-react';
+import { Users, Search, RefreshCw, Copy, UserCheck, MessageSquare } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
