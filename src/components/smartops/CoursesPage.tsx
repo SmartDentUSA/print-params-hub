@@ -5,8 +5,10 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { GraduationCap, Loader2, Pencil, Plus, UserCircle, Star, Eye, MessageCircle } from "lucide-react";
+import { GraduationCap, Loader2, Pencil, Plus, UserCircle, Star, Eye, MessageCircle, Link2, BookOpen } from "lucide-react";
 import CoursesProfessionalProfile from "./CoursesProfessionalProfile";
+import ProfessionalCoursesModal from "./courses/ProfessionalCoursesModal";
+import ShareCoursePortalDialog from "./courses/ShareCoursePortalDialog";
 
 function formatClienteDesde(iso: string | null): string {
   if (!iso) return "—";
@@ -50,7 +52,11 @@ type Professional = {
   prof_rating_quality: number | null;
   prof_rating_price: number | null;
   prof_rating_value: number | null;
+  prof_wa_ddi?: string | null;
+  prof_wa_number?: string | null;
 };
+
+type CourseStats = { total: number; ativos: number; realizados: number; views: number; interested: number };
 
 // Classificação de equipamentos a partir de deals ganhos (espelha smart-ops-backfill-equipment-from-deals).
 const ACCESSORY_RE = /\b(painel\s+lcd|tela\s+lcd|teflon|fep|nfep|pelicula|película|filme|filtro|fonte|placa\s+m[ãa]e|cabo|adesivo|parafuso|kit\s+(?:de\s+)?(?:reposi[çc][ãa]o|manuten[çc][ãa]o|limpeza)|reposi[çc][ãa]o|manuten[çc][ãa]o|spare|cartucho|bandeja|plataforma\s+de?\s+constru[çc][ãa]o|build\s*plate|vat|cuba|elastico|elástico|bombinha|seringa|ponta|broca|garantia|extensao|extensão|treinamento|curso|aula|consultoria|servi[çc]o|frete|instala[çc][ãa]o)\b/i;
@@ -81,13 +87,17 @@ export default function CoursesPage() {
   const [wonEquip, setWonEquip] = useState<Record<string, { scanner?: string; impressora?: string }>>({});
   const [modalOpen, setModalOpen] = useState(false);
   const [editingEmail, setEditingEmail] = useState<string | undefined>(undefined);
+  const [courseStats, setCourseStats] = useState<Record<string, CourseStats>>({});
+  const [coursesFor, setCoursesFor] = useState<Professional | null>(null);
+  const [coursesStartNew, setCoursesStartNew] = useState(false);
+  const [shareFor, setShareFor] = useState<Professional | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
       const { data, error } = await supabase
         .from("lia_attendances")
-        .select("id, nome, email, area_atuacao, especialidade, prof_photo_url, prof_cro, prof_course_platform, prof_updated_at, created_at, equip_scanner, equip_scanner_bancada, equip_impressora, prof_rating_quality, prof_rating_price, prof_rating_value")
+        .select("id, nome, email, area_atuacao, especialidade, prof_photo_url, prof_cro, prof_course_platform, prof_updated_at, created_at, equip_scanner, equip_scanner_bancada, equip_impressora, prof_rating_quality, prof_rating_price, prof_rating_value, prof_wa_ddi, prof_wa_number")
         .not("prof_updated_at", "is", null)
         .is("merged_into", null)
         .order("prof_updated_at", { ascending: false })
@@ -98,6 +108,29 @@ export default function CoursesPage() {
 
       // Carrega equipamentos a partir de deals ganhos
       const leadIds = list.map((p) => p.id);
+
+      // Estatísticas de cursos por profissional
+      if (leadIds.length > 0) {
+        const { data: pcourses } = await supabase
+          .from("professional_courses")
+          .select("producer_lead_id, status, end_date, views_count, interested_count")
+          .in("producer_lead_id", leadIds);
+        const stats: Record<string, CourseStats> = {};
+        const today = new Date().toISOString().slice(0, 10);
+        for (const c of (pcourses ?? []) as any[]) {
+          const s = (stats[c.producer_lead_id] ??= { total: 0, ativos: 0, realizados: 0, views: 0, interested: 0 });
+          s.total += 1;
+          const encerrado = c.status === "encerrado" || (c.end_date && c.end_date < today);
+          if (encerrado) s.realizados += 1;
+          else if (c.status === "publicado") s.ativos += 1;
+          s.views += c.views_count ?? 0;
+          s.interested += c.interested_count ?? 0;
+        }
+        setCourseStats(stats);
+      } else {
+        setCourseStats({});
+      }
+
       if (leadIds.length > 0) {
         const { data: wonDeals } = await supabase
           .from("deals")
@@ -210,15 +243,15 @@ export default function CoursesPage() {
 
                 <div className="grid grid-cols-3 gap-2 pt-2 border-t">
                   <div className="text-center">
-                    <div className="text-lg font-semibold">0</div>
+                    <div className="text-lg font-semibold">{courseStats[p.id]?.total ?? 0}</div>
                     <div className="text-[10px] text-muted-foreground uppercase tracking-wide">Cursos</div>
                   </div>
                   <div className="text-center">
-                    <div className="text-lg font-semibold text-green-600">0</div>
+                    <div className="text-lg font-semibold text-green-600">{courseStats[p.id]?.ativos ?? 0}</div>
                     <div className="text-[10px] text-muted-foreground uppercase tracking-wide">Ativos</div>
                   </div>
                   <div className="text-center">
-                    <div className="text-lg font-semibold text-blue-600">0</div>
+                    <div className="text-lg font-semibold text-blue-600">{courseStats[p.id]?.realizados ?? 0}</div>
                     <div className="text-[10px] text-muted-foreground uppercase tracking-wide">Realizados</div>
                   </div>
                 </div>
@@ -226,11 +259,11 @@ export default function CoursesPage() {
                 <div className="grid grid-cols-2 gap-2 text-xs">
                   <div className="flex items-center gap-1.5 text-muted-foreground">
                     <Eye className="w-3.5 h-3.5" />
-                    <span><strong className="text-foreground">0</strong> visualizações</span>
+                    <span><strong className="text-foreground">{courseStats[p.id]?.views ?? 0}</strong> visualizações</span>
                   </div>
                   <div className="flex items-center gap-1.5 text-muted-foreground">
                     <MessageCircle className="w-3.5 h-3.5" />
-                    <span><strong className="text-foreground">0</strong> interessados</span>
+                    <span><strong className="text-foreground">{courseStats[p.id]?.interested ?? 0}</strong> interessados</span>
                   </div>
                 </div>
 
@@ -254,21 +287,31 @@ export default function CoursesPage() {
                   </div>
                 </div>
 
-                <div className="flex gap-2 pt-2">
-                  <Button size="sm" variant="outline" className="flex-1" onClick={() => openEdit(p.email)}>
+                <div className="grid grid-cols-2 gap-2 pt-2">
+                  <Button size="sm" variant="outline" onClick={() => openEdit(p.email)}>
                     <Pencil className="w-3.5 h-3.5 mr-1.5" /> Editar perfil
                   </Button>
                   <Button
                     size="sm"
-                    className="flex-1"
-                    onClick={() =>
-                      toast({
-                        title: "Em breve",
-                        description: "Cadastro de cursos por profissional será liberado na próxima fase.",
-                      })
-                    }
+                    onClick={() => {
+                      setCoursesStartNew(true);
+                      setCoursesFor(p);
+                    }}
                   >
                     <Plus className="w-3.5 h-3.5 mr-1.5" /> Adicionar curso
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => {
+                      setCoursesStartNew(false);
+                      setCoursesFor(p);
+                    }}
+                  >
+                    <BookOpen className="w-3.5 h-3.5 mr-1.5" /> Ver cursos
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => setShareFor(p)}>
+                    <Link2 className="w-3.5 h-3.5 mr-1.5" /> Compartilhar link
                   </Button>
                 </div>
               </CardContent>
@@ -290,6 +333,25 @@ export default function CoursesPage() {
           />
         </DialogContent>
       </Dialog>
+
+      {coursesFor && (
+        <ProfessionalCoursesModal
+          key={`${coursesFor.id}-${coursesStartNew}`}
+          open={!!coursesFor}
+          onOpenChange={(o) => !o && setCoursesFor(null)}
+          professional={{ id: coursesFor.id, nome: coursesFor.nome, email: coursesFor.email }}
+          startNew={coursesStartNew}
+          onChanged={() => void load()}
+        />
+      )}
+
+      {shareFor && (
+        <ShareCoursePortalDialog
+          open={!!shareFor}
+          onOpenChange={(o) => !o && setShareFor(null)}
+          professional={shareFor}
+        />
+      )}
     </div>
   );
 }
