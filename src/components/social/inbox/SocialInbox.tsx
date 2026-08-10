@@ -7,12 +7,13 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { RefreshCw, Send, ExternalLink, Search, Inbox, UserCheck, UserX, ListPlus } from 'lucide-react';
+import { RefreshCw, Send, ExternalLink, Search, Inbox, UserCheck, UserX, ListPlus, BadgeCheck } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   useZernioConversations, useZernioMessages, useSendZernioMessage, type ZernioConversation,
 } from '@/hooks/social/useZernioInbox';
 import { useInboxLeadMatches, useLogConversationToTimeline } from '@/hooks/social/useInboxLeadLink';
+import { useTeamPhoneDirectory } from '@/hooks/useTeamPhoneDirectory';
 
 const PLATFORMS = [
   { id: 'all', label: 'Todas' },
@@ -49,6 +50,10 @@ export function SocialInbox() {
   const { data: leadMatches } = useInboxLeadMatches(conversations);
   const logTimeline = useLogConversationToTimeline();
   const selectedMatch = selected ? leadMatches?.[selected.id] : undefined;
+  const { matchAny: matchTeam } = useTeamPhoneDirectory();
+  const selectedTeam = selected
+    ? matchTeam(selected.participantId, selected.participantUsername, selected.participantName)
+    : null;
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -133,7 +138,11 @@ export function SocialInbox() {
                         <p className="text-xs text-muted-foreground truncate">{c.lastMessage || '—'}</p>
                         <div className="mt-1 flex items-center gap-1">
                           <Badge variant="outline" className="text-[10px] capitalize">{c.platform}</Badge>
-                          {leadMatches?.[c.id]?.lead ? (
+                          {matchTeam(c.participantId, c.participantUsername, c.participantName) ? (
+                            <Badge variant="outline" className="text-[10px] gap-1 border-emerald-300 text-emerald-700 bg-emerald-50">
+                              <BadgeCheck className="w-3 h-3" /> Equipe
+                            </Badge>
+                          ) : leadMatches?.[c.id]?.lead ? (
                             leadMatches[c.id].is_customer ? (
                               <Badge className="text-[10px] gap-1 bg-primary/15 text-primary hover:bg-primary/20">
                                 <UserCheck className="w-3 h-3" /> Cliente
@@ -185,7 +194,15 @@ export function SocialInbox() {
                   </Button>
                 )}
                 <div className="ml-auto flex items-center gap-2">
-                  {selectedMatch?.lead ? (
+                  {selectedTeam ? (
+                    <Badge variant="outline" className="gap-1 text-[10px] border-emerald-300 text-emerald-700 bg-emerald-50">
+                      <BadgeCheck className="w-3 h-3" />
+                      <span className="font-semibold">Equipe</span>
+                      <span className="opacity-70">·</span>
+                      {selectedTeam.nome_completo}
+                      {selectedTeam.role && <span className="opacity-70">· {selectedTeam.role}</span>}
+                    </Badge>
+                  ) : selectedMatch?.lead ? (
                     <a href={`/smart-ops/leads?lead=${selectedMatch.lead.id}`} target="_blank" rel="noreferrer">
                       <Badge variant={selectedMatch.is_customer ? 'default' : 'secondary'} className="gap-1 text-[10px]">
                         <UserCheck className="w-3 h-3" />
