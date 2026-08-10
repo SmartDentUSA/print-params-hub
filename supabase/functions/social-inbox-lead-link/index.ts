@@ -16,6 +16,7 @@ function json(body: unknown, status = 200) {
 
 const EMAIL_RE = /[\w.+-]+@[\w-]+\.[\w.-]+/g;
 const PHONE_RE = /(?:\+?55\s*)?\(?\d{2}\)?\s*\d{4,5}[-.\s]?\d{4}/g;
+const ZERNIO_BASE = 'https://zernio.com/api/v1';
 
 function digits(v: string) { return (v ?? '').replace(/\D/g, ''); }
 
@@ -104,6 +105,132 @@ serve(async (req) => {
   };
 
   try {
+    // Varre as DMs (Instagram/Facebook/WhatsApp) do Zernio, extrai e-mail/telefone do texto
+    // das mensagens, casa com a base de leads e registra na timeline.
+    if (action === 'scan_dms') {
+      const apiKey = Deno.env.get('ZERNIO_API_KEY');
+      if (!apiKey) return json({ error: 'ZERNIO_API_KEY não configurada' }, 500);
+      const platform = body.platform && body.platform !== 'all' ? String(body.platform) : null;
+      const maxConversations = Math.min(Number(body.limit ?? 60), 200);
+
+      const zfetch = async (path: string) => {
+        const res = await fetch(`${ZERNIO_BASE}${path}`, { headers: { Authorization: `Bearer ${apiKey}` } });
+        if (!res.ok) throw new Error(`Zernio ${path} ${res.status}: ${(await res.text()).slice(0, 200)}`);
+        return await res.json();
+      };
+
+      const convParams = new URLSearchParams({ limit: String(Math.min(maxConversations, 100)), sortOrder: 'desc' });
+      if (platform) convParams.set('platform', platform);
+      if (body.accountId) convParams.set('accountId', String(body.accountId));
+      const convJson = await zfetch(`/inbox/conversations?${convParams}`);
+      const conversations: any[] = convJson.conversations ?? convJson.data ?? [];
+
+      let scanned = 0, linked = 0, timeline = 0, withIdentifiers = 0;
+      const details: any[] = [];
+
+      for (const c of conversations.slice(0, maxConversations)) {
+        scanned++;
+        const convPlatform = String(c.platform ?? platform ?? 'instagram');
+        const accountId = c.accountId ?? body.accountId;
+        let messages: any[] = [];
+        try {
+          const qs = new URLSearchParams({ limit: '50' });
+          if (accountId) qs.set('accountId', String(accountId));
+          const mj = await zfetch(`/inbox/conversations/${encodeURIComponent(c.id)}/messages?${qs}`);
+          messages = mj.messages ?? mj.data ?? [];
+        } catch (e) {
+          console.error(JSON.stringify({ event: 'scan_dms.messages_fail', conv: c.id, error: String(e) }));
+          continue;
+        }
+
+        const texts = messages.map((m: any) => {
+          const attach = (m.attachments ?? [])
+            .map((a: any) => a?.payload?.generic?.elements?.[0]?.title ?? '')
+            .join(' ');
+          return [m.message, attach].filter(Boolean).join(' ');
+        });
+        const allText = [c.lastMessage, ...texts].filter(Boolean).join('\n');
+        const found = extract(allText);
+        if (found.emails.length || found.phones.length) withIdentifiers++;
+
+        const { lead, matched_by } = await findLead({
+          name: c.participantName, username: c.participantUsername, text: allText,
+        });
+        if (!lead) continue;
+        linked++;
+
+        // enriquece o contato espelhado com o que veio da DM
+        const contactId = String(c.participantId ?? c.contactId ?? c.participantUsername ?? '');
+        if (contactId) {
+          const { data: existing } = await supabase.from('social_contacts')
+            .select('ig_user_id, custom_fields').eq('ig_user_id', contactId).maybeSingle();
+          if (existing) {
+            await supabase.from('social_contacts').update({
+              lead_id: lead.id,
+              custom_fields: {
+                ...((existing.custom_fields as any) ?? {}),
+                lead_matched_by: matched_by,
+                dm_email: found.emails[0] ?? (existing.custom_fields as any)?.dm_email ?? null,
+                dm_phone: found.phones[0] ?? (existing.custom_fields as any)?.dm_phone ?? null,
+              },
+            }).eq('ig_user_id', contactId);
+          }
+        }
+
+        if (convPlatform === 'instagram' && !lead.instagram && c.participantUsername) {
+          await supabase.from('lia_attendances')
+            .update({ instagram: `@${String(c.participantUsername).replace(/^@/, '')}` })
+            .eq('id', lead.id);
+        }
+
+        const rows = messages.map((m: any, i: number) => {
+          const text = String(texts[i] ?? '').trim();
+          if (!text) return null;
+          const out = m.direction === 'outgoing';
+          const ts = m.sentAt ?? m.createdAt ?? new Date().toISOString();
+          return {
+            lead_id: lead.id,
+            event_type: out ? 'social_dm_sent' : 'social_dm_received',
+            event_timestamp: new Date(ts).toISOString(),
+            source_channel: `zernio_${convPlatform}`,
+            entity_type: 'social_conversation',
+            entity_id: String(m.id ?? `${c.id}:${ts}`),
+            entity_name: c.participantName ?? c.participantUsername ?? 'Conversa social',
+            event_data: {
+              platform: convPlatform,
+              conversation_id: c.id,
+              direction: out ? 'outgoing' : 'incoming',
+              sender: out ? 'Smart Dent' : (m.senderName ?? c.participantName ?? null),
+              username: c.participantUsername ?? null,
+              message: text.slice(0, 4000),
+              matched_by,
+              extracted: { emails: found.emails, phones: found.phones },
+            },
+            dedupe_hash: `zernio_dm:${String(m.id ?? `${c.id}:${ts}`)}`,
+          };
+        }).filter(Boolean) as any[];
+
+        if (rows.length) {
+          const hashes = rows.map((r) => r.dedupe_hash);
+          const { data: dup } = await supabase.from('lead_activity_log')
+            .select('dedupe_hash').eq('lead_id', lead.id).in('dedupe_hash', hashes);
+          const seen = new Set((dup ?? []).map((d: any) => d.dedupe_hash));
+          const fresh = rows.filter((r) => !seen.has(r.dedupe_hash));
+          if (fresh.length) {
+            const { data: ins } = await supabase.from('lead_activity_log').insert(fresh).select('id');
+            timeline += ins?.length ?? 0;
+          }
+        }
+
+        details.push({
+          conversation_id: c.id, platform: convPlatform, lead_id: lead.id,
+          nome: lead.nome, matched_by, emails: found.emails, phones: found.phones,
+        });
+      }
+
+      return json({ scanned, with_identifiers: withIdentifiers, linked, timeline_events: timeline, details: details.slice(0, 50) });
+    }
+
     // Identifica contatos do Zernio (Instagram/Facebook/WhatsApp) contra a base de leads
     // e registra os IDs de plataforma na timeline do lead.
     if (action === 'link_contacts') {
