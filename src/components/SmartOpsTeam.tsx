@@ -896,7 +896,7 @@ export function SmartOpsTeam() {
         {rolesWithMembers.length === 0 ? (
           <p className="text-sm text-muted-foreground py-8 text-center">Nenhum membro com os filtros selecionados.</p>
         ) : (
-          <Accordion type="multiple" defaultValue={[...ROLE_ORDER]} className="space-y-2">
+          <Accordion type="multiple" className="space-y-2">
             {rolesWithMembers.map((role) => {
               const list = grouped[role];
               const ativos = list.filter((m) => m.ativo).length;
