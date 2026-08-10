@@ -201,6 +201,39 @@ Deno.serve(async (req) => {
       });
     }
 
+    // 3b. Confirmação de cadastro pelo próprio cliente (fonte mais confiável).
+    if (body.confirmation?.confirmed) {
+      const conf: Record<string, string> = {};
+      if (body.confirmation.area_atuacao) conf.area_atuacao = body.confirmation.area_atuacao;
+      if (body.confirmation.especialidade) conf.especialidade = body.confirmation.especialidade;
+      if (body.confirmation.cidade) conf.cidade = body.confirmation.cidade;
+      if (Object.keys(conf).length > 0) {
+        await supabase
+          .from("lia_attendances")
+          .update(conf)
+          .eq("id", leadId)
+          .then(() => {}, (e) => console.warn("[confirm-update]", e));
+      }
+      await supabase
+        .from("lead_activity_log")
+        .insert({
+          lead_id: leadId,
+          event_type: "dados_confirmados_cliente",
+          entity_type: "course_enrollment",
+          entity_name: course.title,
+          source_channel: "formulario_publico",
+          event_data: {
+            ...conf,
+            course_title: course.title,
+            description: [
+              "Cliente confirmou seus dados na inscrição pública",
+              ...Object.entries(conf).map(([k, v]) => `${k}: ${v}`),
+            ].join("\n"),
+          },
+        })
+        .then(() => {}, (e) => console.warn("[confirm-activity]", e));
+    }
+
     // 4b. Persist Workflow 7×3 mapping responses (used by SDR mapping panel).
     // The course's related products are the source of truth — the user-facing
     // answer (model owned) is appended for context.
