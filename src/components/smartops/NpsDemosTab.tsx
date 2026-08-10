@@ -253,6 +253,7 @@ export function NpsDemosTab() {
   const { insights, isLoading: insightsLoading } = useNpsQuestionInsights(
     "NPS Demonstrações ao Vivo",
     questions,
+    "demonstracao_ao_vivo",
   );
 
   const filtered = participants.filter((p) => {

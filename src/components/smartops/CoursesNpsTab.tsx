@@ -160,6 +160,7 @@ export function CoursesNpsTab() {
   const { insights, isLoading: insightsLoading } = useNpsQuestionInsights(
     "NPS pós-treinamento",
     questions,
+    "pos_treinamento",
   );
 
   const filtered = rows.filter((r) => {
