@@ -59,9 +59,9 @@ Deno.serve(async (req) => {
     const { data: leads } = await supabase
       .from("lia_attendances")
       .select(
-        "id, nome, email, telefone, area_atuacao, especialidade, cidade, empresa_nome, piperun_id, omie_cliente_id, real_status",
+        "id, nome, email, telefone_raw, telefone_normalized, area_atuacao, especialidade, cidade, empresa_nome, piperun_id, real_status",
       )
-      .or(`email.eq.${email},telefone.eq.${phone}`)
+      .or(`email.eq.${email},telefone_normalized.eq.${phone}`)
       .is("merged_into", null)
       .order("updated_at", { ascending: false })
       .limit(1);
@@ -83,8 +83,8 @@ Deno.serve(async (req) => {
         cidade: lead.cidade ?? null,
         empresa: lead.empresa_nome ?? null,
         email_masked: maskEmail(lead.email),
-        telefone_masked: maskPhone(lead.telefone),
-        is_client: Boolean(lead.piperun_id || lead.omie_cliente_id),
+        telefone_masked: maskPhone(lead.telefone_normalized || lead.telefone_raw),
+        is_client: Boolean(lead.piperun_id) || /cliente/i.test(String(lead.real_status || "")),
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
