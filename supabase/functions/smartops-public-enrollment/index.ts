@@ -14,6 +14,15 @@ const BodySchema = z.object({
   email: z.string().trim().email().max(255),
   telefone: z.string().trim().min(10).max(20),
   is_client_smartdent: z.boolean().optional(),
+  // Dados confirmados/corrigidos pelo cliente na tela "estas informações estão corretas?"
+  confirmation: z
+    .object({
+      area_atuacao: z.string().trim().max(120).optional(),
+      especialidade: z.string().trim().max(160).optional(),
+      cidade: z.string().trim().max(120).optional(),
+      confirmed: z.boolean().optional(),
+    })
+    .optional(),
   qualification: z
     .object({
       form_id: z.string().uuid().optional(),
