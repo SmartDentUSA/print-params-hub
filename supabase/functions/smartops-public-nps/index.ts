@@ -10,6 +10,7 @@ const corsHeaders = {
 const BodySchema = z.object({
   enrollment_id: z.string().uuid(),
   email: z.string().trim().email().max(255).optional(),
+  survey_type: z.enum(["pos_treinamento", "demonstracao_ao_vivo"]).optional(),
   score_satisfacao: z.number().int().min(1).max(5),
   score_treinamentos: z.number().int().min(1).max(5),
   score_recomendacao: z.number().int().min(1).max(5),
