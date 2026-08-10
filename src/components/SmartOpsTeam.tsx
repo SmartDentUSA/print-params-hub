@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -10,6 +10,8 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Loader2, Trash2, RefreshCw } from "lucide-react";
@@ -603,6 +605,8 @@ export function SmartOpsTeam() {
 
   const [deleteTarget, setDeleteTarget] = useState<TeamMember | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<"todos" | "ativos" | "inativos">("todos");
+  const [connFilter, setConnFilter] = useState<"todos" | "conectados" | "desconectados">("todos");
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
@@ -625,11 +629,26 @@ export function SmartOpsTeam() {
     fetchMembers();
   };
 
-  const grouped = members.reduce<Record<string, TeamMember[]>>((acc, m) => {
+  const isConnected = (m: TeamMember) => {
+    const l = live[m.id];
+    return l?.evolution === "open" || l?.evoGo === "open";
+  };
+
+  const visibleMembers = members.filter((m) => {
+    if (statusFilter === "ativos" && !m.ativo) return false;
+    if (statusFilter === "inativos" && m.ativo) return false;
+    if (connFilter === "conectados" && !isConnected(m)) return false;
+    if (connFilter === "desconectados" && isConnected(m)) return false;
+    return true;
+  });
+
+  const grouped = visibleMembers.reduce<Record<string, TeamMember[]>>((acc, m) => {
     const key = ROLE_ORDER.includes(m.role as (typeof ROLE_ORDER)[number]) ? m.role : "suporte";
     (acc[key] ||= []).push(m);
     return acc;
   }, {});
+
+  const rolesWithMembers = ROLE_ORDER.filter((r) => grouped[r]?.length);
 
   if (loading) return <div className="text-center py-12 text-muted-foreground">Carregando equipe...</div>;
 
@@ -842,45 +861,95 @@ export function SmartOpsTeam() {
         </div>
       </CardHeader>
       <CardContent>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Membro</TableHead>
-              <TableHead>WhatsApp</TableHead>
-              <TableHead>Conexão WhatsApp</TableHead>
-              <TableHead className="w-20">Ativo</TableHead>
-              <TableHead className="w-32 text-right">Ações</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {ROLE_ORDER.filter((r) => grouped[r]?.length).map((role) => (
-              <Fragment key={role}>
-                <TableRow className="bg-muted/50 hover:bg-muted/50">
-                  <TableCell colSpan={5} className="py-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    {ROLE_LABEL[role] || role} · {grouped[role].length}
-                  </TableCell>
-                </TableRow>
-                {grouped[role].map((m) => (
-                  <TableRow key={m.id}>
-                    <TableCell>
-                      <div className="font-medium">{m.nome_completo}</div>
-                      <div className="text-xs text-muted-foreground">{m.email}</div>
-                    </TableCell>
-                    <TableCell className="font-mono text-xs">{m.whatsapp_number || "—"}</TableCell>
-                    <TableCell><ConnectionCell member={m} live={live[m.id]} /></TableCell>
-                    <TableCell><Switch checked={m.ativo} onCheckedChange={() => toggleAtivo(m)} /></TableCell>
-                    <TableCell className="text-right space-x-1">
-                      <Button variant="ghost" size="sm" onClick={() => openEdit(m)}>Editar</Button>
-                      <Button variant="ghost" size="sm" onClick={() => setDeleteTarget(m)} title="Excluir membro">
-                        <Trash2 className="w-3.5 h-3.5 text-destructive" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </Fragment>
-            ))}
-          </TableBody>
-        </Table>
+        <div className="flex flex-wrap items-center gap-4 mb-4">
+          <div className="space-y-1">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Situação</p>
+            <ToggleGroup
+              type="single"
+              size="sm"
+              value={statusFilter}
+              onValueChange={(v) => v && setStatusFilter(v as typeof statusFilter)}
+            >
+              <ToggleGroupItem value="todos" className="text-xs px-3">Todos</ToggleGroupItem>
+              <ToggleGroupItem value="ativos" className="text-xs px-3">Ativos</ToggleGroupItem>
+              <ToggleGroupItem value="inativos" className="text-xs px-3">Desativados</ToggleGroupItem>
+            </ToggleGroup>
+          </div>
+          <div className="space-y-1">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Conexão WhatsApp (verificada)</p>
+            <ToggleGroup
+              type="single"
+              size="sm"
+              value={connFilter}
+              onValueChange={(v) => v && setConnFilter(v as typeof connFilter)}
+            >
+              <ToggleGroupItem value="todos" className="text-xs px-3">Todos</ToggleGroupItem>
+              <ToggleGroupItem value="conectados" className="text-xs px-3">Conectados</ToggleGroupItem>
+              <ToggleGroupItem value="desconectados" className="text-xs px-3">Não conectados</ToggleGroupItem>
+            </ToggleGroup>
+          </div>
+          <span className="text-xs text-muted-foreground ml-auto">
+            {visibleMembers.length} de {members.length} membros
+          </span>
+        </div>
+
+        {rolesWithMembers.length === 0 ? (
+          <p className="text-sm text-muted-foreground py-8 text-center">Nenhum membro com os filtros selecionados.</p>
+        ) : (
+          <Accordion type="multiple" defaultValue={[...ROLE_ORDER]} className="space-y-2">
+            {rolesWithMembers.map((role) => {
+              const list = grouped[role];
+              const ativos = list.filter((m) => m.ativo).length;
+              const conectados = list.filter(isConnected).length;
+              return (
+                <AccordionItem key={role} value={role} className="border rounded-md px-3">
+                  <AccordionTrigger className="hover:no-underline py-3">
+                    <div className="flex flex-1 items-center justify-between gap-3 pr-2">
+                      <span className="text-sm font-semibold">{ROLE_LABEL[role] || role}</span>
+                      <div className="flex items-center gap-1.5">
+                        <Badge variant="outline" className="text-[10px]">{list.length} membros</Badge>
+                        <Badge variant="outline" className="text-[10px]">{ativos} ativos</Badge>
+                        <Badge variant="outline" className="text-[10px]">{conectados} conectados</Badge>
+                      </div>
+                    </div>
+                  </AccordionTrigger>
+                  <AccordionContent>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Membro</TableHead>
+                          <TableHead>WhatsApp</TableHead>
+                          <TableHead>Conexão WhatsApp</TableHead>
+                          <TableHead className="w-20">Ativo</TableHead>
+                          <TableHead className="w-32 text-right">Ações</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {list.map((m) => (
+                          <TableRow key={m.id}>
+                            <TableCell>
+                              <div className="font-medium">{m.nome_completo}</div>
+                              <div className="text-xs text-muted-foreground">{m.email}</div>
+                            </TableCell>
+                            <TableCell className="font-mono text-xs">{m.whatsapp_number || "—"}</TableCell>
+                            <TableCell><ConnectionCell member={m} live={live[m.id]} /></TableCell>
+                            <TableCell><Switch checked={m.ativo} onCheckedChange={() => toggleAtivo(m)} /></TableCell>
+                            <TableCell className="text-right space-x-1">
+                              <Button variant="ghost" size="sm" onClick={() => openEdit(m)}>Editar</Button>
+                              <Button variant="ghost" size="sm" onClick={() => setDeleteTarget(m)} title="Excluir membro">
+                                <Trash2 className="w-3.5 h-3.5 text-destructive" />
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </AccordionContent>
+                </AccordionItem>
+              );
+            })}
+          </Accordion>
+        )}
       </CardContent>
     </Card>
 
