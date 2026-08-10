@@ -7,7 +7,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { RefreshCw, Send, ExternalLink, Search, Inbox, UserCheck, UserX, ListPlus, BadgeCheck } from 'lucide-react';
+import { RefreshCw, Send, ExternalLink, Search, Inbox, UserCheck, UserX, BadgeCheck } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   useZernioConversations, useZernioMessages, useSendZernioMessage, type ZernioConversation,
@@ -231,12 +231,6 @@ export function SocialInbox() {
                       <UserX className="w-3 h-3" /> Sem cadastro
                     </Badge>
                   )}
-                  <Button variant="outline" size="sm" disabled={logTimeline.isPending || messages.length === 0}
-                    onClick={() => logTimeline.mutate({
-                      conversation: selected, messages, leadId: selectedMatch?.lead?.id ?? null,
-                    })}>
-                    <ListPlus className="w-3.5 h-3.5 mr-1.5" /> Timeline do lead
-                  </Button>
                 </div>
               </div>
 
