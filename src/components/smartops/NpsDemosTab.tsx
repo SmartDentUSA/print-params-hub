@@ -66,15 +66,14 @@ function Stars({ value }: { value: number | null }) {
 
 function npsLabel(recomendacao: number | null) {
   if (!recomendacao) return null;
-  const nps10 = recomendacao * 2;
-  const cls = nps10 >= 9 ? "Promotor" : nps10 >= 7 ? "Neutro" : "Detrator";
+  const cls = recomendacao === 5 ? "Promotor" : recomendacao === 4 ? "Neutro" : "Detrator";
   const color =
     cls === "Promotor"
       ? "bg-emerald-500/15 text-emerald-600"
       : cls === "Neutro"
       ? "bg-amber-500/15 text-amber-600"
       : "bg-red-500/15 text-red-600";
-  return { nps10, cls, color };
+  return { score: recomendacao, cls, color };
 }
 
 const daysSince = (d: string) => Math.floor((Date.now() - new Date(d).getTime()) / 86400000);
@@ -195,8 +194,26 @@ export function NpsDemosTab() {
         return (b.lastResponse || "").localeCompare(a.lastResponse || "");
       });
 
-      // NPS é obrigatório para agendar a demonstração: só existem respostas
-      return { rows: all.filter((r) => r.responded_at), participants };
+      // KPIs e gráficos representam a última avaliação de cada participante.
+      // Avaliações anteriores continuam preservadas no banco, mas não duplicam o resultado atual.
+      const latestRows: NpsRow[] = participants
+        .filter((p) => p.lastResponse)
+        .map((p) => ({
+          enrollment_id: p.key,
+          person_name: p.name,
+          email: p.email,
+          lead_id: null,
+          course_title: "—",
+          turma_label: "—",
+          end_date: null,
+          enrolled_at: null,
+          responded_at: p.lastResponse,
+          satisfacao: p.satisfacao,
+          treinamentos: p.treinamentos,
+          recomendacao: p.recomendacao,
+          comment: p.comment,
+        }));
+      return { rows: latestRows, participants };
     },
   });
 
@@ -206,12 +223,12 @@ export function NpsDemosTab() {
   const stats = useMemo(() => {
     const respondidos = rows.length;
     const withScore = rows.filter((r) => r.recomendacao);
-    const promotores = withScore.filter((r) => r.recomendacao! * 2 >= 9).length;
-    const neutros = withScore.filter((r) => r.recomendacao! * 2 >= 7 && r.recomendacao! * 2 <= 8).length;
-    const detratores = withScore.filter((r) => r.recomendacao! * 2 <= 6).length;
+    const promotores = withScore.filter((r) => r.recomendacao === 5).length;
+    const neutros = withScore.filter((r) => r.recomendacao === 4).length;
+    const detratores = withScore.filter((r) => (r.recomendacao ?? 0) <= 3).length;
     const nps = withScore.length ? Math.round(((promotores - detratores) / withScore.length) * 100) : null;
     const media = withScore.length
-      ? (withScore.reduce((s, r) => s + r.recomendacao! * 2, 0) / withScore.length).toFixed(1)
+      ? (withScore.reduce((s, r) => s + r.recomendacao!, 0) / withScore.length).toFixed(1)
       : null;
     return { respondidos, promotores, neutros, detratores, nps, media };
   }, [rows]);
@@ -270,7 +287,7 @@ export function NpsDemosTab() {
         <StatCard icon={<ThumbsUp className="w-4 h-4 text-emerald-600" />} label="Promotores" value={stats.promotores} />
         <StatCard icon={<Minus className="w-4 h-4 text-amber-600" />} label="Neutros" value={stats.neutros} />
         <StatCard icon={<ThumbsDown className="w-4 h-4 text-red-600" />} label="Detratores" value={stats.detratores} />
-        <StatCard icon={<Star className="w-4 h-4 text-amber-500" />} label="Nota média (0-10)" value={stats.media ?? "—"} />
+        <StatCard icon={<Star className="w-4 h-4 text-amber-500" />} label="Nota média (1-5)" value={stats.media ?? "—"} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
@@ -351,7 +368,7 @@ export function NpsDemosTab() {
                     <td className="p-3">
                       {n ? (
                         <span className={`px-2 py-0.5 rounded-md text-xs font-semibold ${n.color}`}>
-                          {n.nps10}/10 · {n.cls}
+                          {n.score}/5 · {n.cls}
                         </span>
                       ) : (
                         <span className="text-muted-foreground">—</span>
