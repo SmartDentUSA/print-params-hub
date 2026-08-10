@@ -920,6 +920,7 @@ export function SmartOpsTeam() {
                           <TableHead>Membro</TableHead>
                           <TableHead>WhatsApp</TableHead>
                           <TableHead>Conexão WhatsApp</TableHead>
+                          <TableHead>Distribuidor de leads</TableHead>
                           <TableHead className="w-20">Ativo</TableHead>
                           <TableHead className="w-32 text-right">Ações</TableHead>
                         </TableRow>
@@ -933,6 +934,7 @@ export function SmartOpsTeam() {
                             </TableCell>
                             <TableCell className="font-mono text-xs">{m.whatsapp_number || "—"}</TableCell>
                             <TableCell><ConnectionCell member={m} live={live[m.id]} /></TableCell>
+                            <TableCell><LeadRotationCell member={m} /></TableCell>
                             <TableCell><Switch checked={m.ativo} onCheckedChange={() => toggleAtivo(m)} /></TableCell>
                             <TableCell className="text-right space-x-1">
                               <Button variant="ghost" size="sm" onClick={() => openEdit(m)}>Editar</Button>
