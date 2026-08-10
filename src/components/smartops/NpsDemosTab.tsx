@@ -274,8 +274,13 @@ export function NpsDemosTab() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
-        {questions.map((q) => (
-          <QuestionDistribution key={q.label} {...q} />
+        {questions.map((q, i) => (
+          <QuestionDistribution
+            key={q.label}
+            {...q}
+            insight={insights[i] ?? null}
+            insightLoading={insightsLoading}
+          />
         ))}
       </div>
 
