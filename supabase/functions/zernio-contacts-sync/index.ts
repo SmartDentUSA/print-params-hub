@@ -56,9 +56,18 @@ serve(async (req) => {
         const cf = { ...(c.customFields ?? {}) };
         // preservar manychat_id se vier do payload (legacy/integração)
         if (c.manychatId && !cf.manychat_id) cf.manychat_id = c.manychatId;
+        const zernioId = String(c.id ?? c._id ?? '');
+        const rawIdent = c.platformIdentifier ? String(c.platformIdentifier) : null;
+        // WhatsApp: o identificador é telefone → guardamos só dígitos + E.164
+        const identDigits = rawIdent ? rawIdent.replace(/\D/g, '') : '';
+        const isWa = platform === 'whatsapp';
+        const platformUserId = isWa ? (identDigits || null) : rawIdent;
         return {
           // PK ig_user_id é reaproveitado como external_id global (id do contato Zernio)
-          ig_user_id: String(c.id ?? c._id),
+          ig_user_id: zernioId,
+          zernio_contact_id: zernioId || null,
+          platform_user_id: platformUserId,
+          phone_e164: isWa && identDigits.length >= 10 && identDigits.length <= 15 ? `+${identDigits}` : null,
           ig_username: c.name ?? c.displayIdentifier ?? null,
           channel: platform,
           is_follower: c.isFollower ?? null,
