@@ -112,6 +112,34 @@ const LIVE_BADGE: Record<Exclude<LiveState, "stale">, { cls: string; suffix: str
  * Enquanto não houver verificação nesta sessão, o estado do banco é exibido
  * como "não verificado" — nunca como conectado.
  */
+function LeadRotationCell({ member }: { member: TeamMember }) {
+  if (member.role !== "vendedor") {
+    return <span className="text-xs text-muted-foreground">não se aplica</span>;
+  }
+  const ownerId = Number(member.piperun_owner_id);
+  const hasOwner = Number.isFinite(ownerId) && ownerId > 0;
+
+  if (!member.ativo) {
+    return (
+      <Badge variant="outline" className="text-[10px] text-muted-foreground">
+        fora do rodízio · inativo
+      </Badge>
+    );
+  }
+  if (!hasOwner) {
+    return (
+      <Badge variant="outline" className="text-[10px] text-amber-600 border-amber-600/40">
+        fora do rodízio · sem ID PipeRun
+      </Badge>
+    );
+  }
+  return (
+    <Badge variant="outline" className="text-[10px] text-emerald-600 border-emerald-600/40">
+      recebendo leads
+    </Badge>
+  );
+}
+
 function ConnectionCell({ member, live }: { member: TeamMember; live?: LiveEntry }) {
   const hasEvolution = !!(member.evolution_instance_name && (member.evolution_enabled || member.evolution_api_key));
   const hasEvoGo = !!(member.evo_go_instance_token || member.evo_go_instance_id);
@@ -920,6 +948,7 @@ export function SmartOpsTeam() {
                           <TableHead>Membro</TableHead>
                           <TableHead>WhatsApp</TableHead>
                           <TableHead>Conexão WhatsApp</TableHead>
+                          <TableHead>Distribuidor de leads</TableHead>
                           <TableHead className="w-20">Ativo</TableHead>
                           <TableHead className="w-32 text-right">Ações</TableHead>
                         </TableRow>
@@ -933,6 +962,7 @@ export function SmartOpsTeam() {
                             </TableCell>
                             <TableCell className="font-mono text-xs">{m.whatsapp_number || "—"}</TableCell>
                             <TableCell><ConnectionCell member={m} live={live[m.id]} /></TableCell>
+                            <TableCell><LeadRotationCell member={m} /></TableCell>
                             <TableCell><Switch checked={m.ativo} onCheckedChange={() => toggleAtivo(m)} /></TableCell>
                             <TableCell className="text-right space-x-1">
                               <Button variant="ghost" size="sm" onClick={() => openEdit(m)}>Editar</Button>
