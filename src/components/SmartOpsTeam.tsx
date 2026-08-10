@@ -605,6 +605,8 @@ export function SmartOpsTeam() {
 
   const [deleteTarget, setDeleteTarget] = useState<TeamMember | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<"todos" | "ativos" | "inativos">("todos");
+  const [connFilter, setConnFilter] = useState<"todos" | "conectados" | "desconectados">("todos");
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
