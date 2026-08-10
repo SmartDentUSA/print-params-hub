@@ -95,6 +95,24 @@ export function SocialContacts() {
     navigator.clipboard.writeText(txt).then(() => toast.success('Copiado'));
   };
 
+  const [scanning, setScanning] = useState(false);
+  const scanDms = async () => {
+    setScanning(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('social-inbox-lead-link', {
+        body: { action: 'scan_dms', limit: 60, platform },
+      });
+      if (error) throw error;
+      if ((data as any)?.error) throw new Error((data as any).error);
+      const d = data as any;
+      toast.success(`${d.scanned ?? 0} conversa(s) lidas · ${d.linked ?? 0} lead(s) associado(s) · ${d.timeline_events ?? 0} evento(s) na timeline`);
+      qc.invalidateQueries({ queryKey: ['social-contacts'] });
+      qc.invalidateQueries({ queryKey: ['social-contacts-leads'] });
+    } catch (e: any) {
+      toast.error(`Falha ao varrer DMs: ${e.message ?? e}`);
+    } finally { setScanning(false); }
+  };
+
   return (
     <div className="container mx-auto p-6 max-w-6xl space-y-4">
       <header className="flex items-start justify-between gap-3">
@@ -106,6 +124,10 @@ export function SocialContacts() {
           <Button onClick={linkLeads} disabled={linking} variant="outline" title="Casa os contatos com a base de leads e grava os IDs de Instagram/Facebook na timeline">
             <UserCheck className={`w-4 h-4 mr-1.5 ${linking ? 'animate-pulse' : ''}`} />
             {linking ? 'Identificando…' : 'Identificar leads'}
+          </Button>
+          <Button onClick={scanDms} disabled={scanning} variant="outline" title="Lê as DMs, extrai e-mail/telefone das mensagens e associa aos leads da base">
+            <MessageSquare className={`w-4 h-4 mr-1.5 ${scanning ? 'animate-pulse' : ''}`} />
+            {scanning ? 'Varrendo DMs…' : 'Varrer DMs'}
           </Button>
           <Button onClick={sync} disabled={syncing} variant="outline">
             <RefreshCw className={`w-4 h-4 mr-1.5 ${syncing ? 'animate-spin' : ''}`} />
