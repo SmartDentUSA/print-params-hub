@@ -64,6 +64,11 @@ Deno.serve(async (req) => {
       const media = (
         (body.score_satisfacao + body.score_treinamentos + body.score_recomendacao) / 3
       ).toFixed(1);
+      const surveyType = body.survey_type ?? "pos_treinamento";
+      const surveyLabel =
+        surveyType === "demonstracao_ao_vivo"
+          ? "NPS Demonstrações ao Vivo"
+          : "NPS pós-treinamento";
       await supabase
         .from("lead_activity_log")
         .insert({
@@ -71,16 +76,17 @@ Deno.serve(async (req) => {
           event_type: "nps_respondido",
           entity_type: "course_enrollment",
           entity_id: enr.id,
-          entity_name: "NPS pós-inscrição",
+          entity_name: surveyLabel,
           source_channel: "formulario_publico",
           value_numeric: Number(media),
           event_data: {
+            survey_type: surveyType,
             score_satisfacao: body.score_satisfacao,
             score_treinamentos: body.score_treinamentos,
             score_recomendacao: body.score_recomendacao,
             comment: body.comment ?? null,
             description: [
-              `NPS respondido (média ${media})`,
+              `${surveyLabel} respondido (média ${media})`,
               `Satisfação: ${body.score_satisfacao}`,
               `Treinamentos: ${body.score_treinamentos}`,
               `Recomendação: ${body.score_recomendacao}`,
