@@ -627,11 +627,26 @@ export function SmartOpsTeam() {
     fetchMembers();
   };
 
-  const grouped = members.reduce<Record<string, TeamMember[]>>((acc, m) => {
+  const isConnected = (m: TeamMember) => {
+    const l = live[m.id];
+    return l?.evolution === "open" || l?.evoGo === "open";
+  };
+
+  const visibleMembers = members.filter((m) => {
+    if (statusFilter === "ativos" && !m.ativo) return false;
+    if (statusFilter === "inativos" && m.ativo) return false;
+    if (connFilter === "conectados" && !isConnected(m)) return false;
+    if (connFilter === "desconectados" && isConnected(m)) return false;
+    return true;
+  });
+
+  const grouped = visibleMembers.reduce<Record<string, TeamMember[]>>((acc, m) => {
     const key = ROLE_ORDER.includes(m.role as (typeof ROLE_ORDER)[number]) ? m.role : "suporte";
     (acc[key] ||= []).push(m);
     return acc;
   }, {});
+
+  const rolesWithMembers = ROLE_ORDER.filter((r) => grouped[r]?.length);
 
   if (loading) return <div className="text-center py-12 text-muted-foreground">Carregando equipe...</div>;
 
