@@ -41,6 +41,7 @@ import { AREA_ATUACAO_OPTIONS, ESPECIALIDADE_OPTIONS } from "@/lib/dentalTaxonom
 import { CourseCard } from "./smartops/CourseCard";
 import { CoursesCalendarTab } from "./smartops/CoursesCalendarTab";
 import { CoursesNpsTab } from "./smartops/CoursesNpsTab";
+import { NpsDemosTab } from "./smartops/NpsDemosTab";
 
 // ─── Countdown Hook ───
 type CountdownResult = {
@@ -1317,7 +1318,8 @@ export function SmartOpsCourses() {
         <TabsTrigger value="publica-imersoes">Página Pública Imersões</TabsTrigger>
         <TabsTrigger value="publica-aovivo">Página Pública Ao Vivo</TabsTrigger>
         <TabsTrigger value="calendario">Calendário</TabsTrigger>
-        <TabsTrigger value="nps">NPS</TabsTrigger>
+        <TabsTrigger value="nps">NPS Pós-Treinamento</TabsTrigger>
+        <TabsTrigger value="nps-demos">NPS Demonstrações</TabsTrigger>
       </TabsList>
 
       <TabsContent value="agendamentos">
@@ -1340,6 +1342,9 @@ export function SmartOpsCourses() {
       </TabsContent>
       <TabsContent value="nps">
         <CoursesNpsTab />
+      </TabsContent>
+      <TabsContent value="nps-demos">
+        <NpsDemosTab />
       </TabsContent>
     </Tabs>
   );

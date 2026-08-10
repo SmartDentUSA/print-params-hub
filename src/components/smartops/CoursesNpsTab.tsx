@@ -89,6 +89,7 @@ export function CoursesNpsTab() {
               .from("smartops_nps_responses")
               .select("enrollment_id, created_at, score_satisfacao, score_treinamentos, score_recomendacao, comment")
               .in("enrollment_id", enrollmentIds)
+              .eq("survey_type", "pos_treinamento")
               .order("created_at", { ascending: false })
           : Promise.resolve({ data: [] as any[] }),
       ]);
