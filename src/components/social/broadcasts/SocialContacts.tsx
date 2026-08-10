@@ -1,8 +1,7 @@
 import { useState } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Users, Search, RefreshCw, Copy, UserCheck, MessageSquare } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
+import { Users, Copy } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -20,30 +19,18 @@ const PLATFORM_COLORS: Record<string, string> = {
 };
 
 export function SocialContacts() {
-  const qc = useQueryClient();
-  const [q, setQ] = useState('');
   const [platform, setPlatform] = useState<PlatformFilter>('all');
-  const [syncing, setSyncing] = useState(false);
-  const [linking, setLinking] = useState(false);
 
   const { data: contacts, isLoading } = useQuery({
-    queryKey: ['social-contacts', q, platform],
+    queryKey: ['social-contacts', platform],
     queryFn: async () => {
       let query = supabase.from('social_contacts').select('*').order('last_seen_at', { ascending: false, nullsFirst: false }).limit(1000);
       if (platform !== 'all') query = query.eq('channel', platform);
-      if (q) {
-        const digits = q.replace(/\D/g, '');
-        const parts = [`ig_username.ilike.%${q}%`, `ig_user_id.ilike.%${q}%`];
-        if (digits.length >= 4) {
-          parts.push(`ig_user_id.ilike.%${digits}%`);
-          parts.push(`custom_fields->>platformIdentifier.ilike.%${digits}%`);
-        }
-        query = query.or(parts.join(','));
-      }
       const { data, error } = await query;
       if (error) throw error;
       return data ?? [];
     },
+    refetchInterval: 120_000,
   });
 
   const leadIds = [...new Set((contacts ?? []).map((c: any) => c.lead_id).filter(Boolean))] as string[];
@@ -60,57 +47,8 @@ export function SocialContacts() {
     },
   });
 
-  const sync = async () => {
-    setSyncing(true);
-    try {
-      const { data, error } = await supabase.functions.invoke('zernio-contacts-sync', { body: {} });
-      if (error) throw error;
-      if ((data as any)?.error) throw new Error((data as any).error);
-      const synced = (data as any)?.synced ?? 0;
-      toast.success(`Sincronizados ${synced} contatos do Zernio`);
-      qc.invalidateQueries({ queryKey: ['social-contacts'] });
-    } catch (e: any) {
-      toast.error(`Falha ao sincronizar: ${e.message ?? e}`);
-    } finally { setSyncing(false); }
-  };
-
-  const linkLeads = async () => {
-    setLinking(true);
-    try {
-      const { data, error } = await supabase.functions.invoke('social-inbox-lead-link', {
-        body: { action: 'link_contacts', limit: 500, channel: platform },
-      });
-      if (error) throw error;
-      if ((data as any)?.error) throw new Error((data as any).error);
-      const d = data as any;
-      toast.success(`${d.linked ?? 0} contato(s) vinculado(s) a leads · ${d.timeline_events ?? 0} evento(s) na timeline`);
-      qc.invalidateQueries({ queryKey: ['social-contacts'] });
-      qc.invalidateQueries({ queryKey: ['social-contacts-leads'] });
-    } catch (e: any) {
-      toast.error(`Falha ao identificar leads: ${e.message ?? e}`);
-    } finally { setLinking(false); }
-  };
-
   const copy = (txt: string) => {
     navigator.clipboard.writeText(txt).then(() => toast.success('Copiado'));
-  };
-
-  const [scanning, setScanning] = useState(false);
-  const scanDms = async () => {
-    setScanning(true);
-    try {
-      const { data, error } = await supabase.functions.invoke('social-inbox-lead-link', {
-        body: { action: 'scan_dms', limit: 60, platform },
-      });
-      if (error) throw error;
-      if ((data as any)?.error) throw new Error((data as any).error);
-      const d = data as any;
-      toast.success(`${d.scanned ?? 0} conversa(s) lidas · ${d.linked ?? 0} lead(s) associado(s) · ${d.timeline_events ?? 0} evento(s) na timeline`);
-      qc.invalidateQueries({ queryKey: ['social-contacts'] });
-      qc.invalidateQueries({ queryKey: ['social-contacts-leads'] });
-    } catch (e: any) {
-      toast.error(`Falha ao varrer DMs: ${e.message ?? e}`);
-    } finally { setScanning(false); }
   };
 
   return (
@@ -118,29 +56,14 @@ export function SocialContacts() {
       <header className="flex items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2"><Users className="w-6 h-6" /> Contacts</h1>
-          <p className="text-sm text-muted-foreground">Manage contacts across all platforms (Zernio)</p>
-        </div>
-        <div className="flex gap-2">
-          <Button onClick={linkLeads} disabled={linking} variant="outline" title="Casa os contatos com a base de leads e grava os IDs de Instagram/Facebook na timeline">
-            <UserCheck className={`w-4 h-4 mr-1.5 ${linking ? 'animate-pulse' : ''}`} />
-            {linking ? 'Identificando…' : 'Identificar leads'}
-          </Button>
-          <Button onClick={scanDms} disabled={scanning} variant="outline" title="Lê as DMs, extrai e-mail/telefone das mensagens e associa aos leads da base">
-            <MessageSquare className={`w-4 h-4 mr-1.5 ${scanning ? 'animate-pulse' : ''}`} />
-            {scanning ? 'Varrendo DMs…' : 'Varrer DMs'}
-          </Button>
-          <Button onClick={sync} disabled={syncing} variant="outline">
-            <RefreshCw className={`w-4 h-4 mr-1.5 ${syncing ? 'animate-spin' : ''}`} />
-            {syncing ? 'Sincronizando…' : 'Sincronizar Zernio'}
-          </Button>
+          <p className="text-sm text-muted-foreground">
+            Contatos de todas as plataformas (Zernio) — sincronização, identificação de leads e
+            registro na timeline são automáticos.
+          </p>
         </div>
       </header>
 
       <div className="flex flex-wrap gap-2 items-center">
-        <div className="relative max-w-sm flex-1 min-w-[240px]">
-          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-          <Input value={q} onChange={(e) => setQ(e.target.value)} className="pl-9" placeholder="Buscar por @, nome ou ID" />
-        </div>
         <div className="flex gap-1 flex-wrap">
           {PLATFORMS.map((p) => (
             <Button key={p} size="sm" variant={platform === p ? 'default' : 'outline'} className="capitalize h-8" onClick={() => setPlatform(p)}>
@@ -152,7 +75,7 @@ export function SocialContacts() {
 
       {isLoading ? <Skeleton className="h-64" /> : contacts?.length === 0 ? (
         <Card><CardContent className="py-12 text-center text-sm text-muted-foreground">
-          Nenhum contato. Clique em <span className="font-medium">Sincronizar Zernio</span> para puxar os contatos das contas conectadas.
+          Nenhum contato ainda. A sincronização com o Zernio roda automaticamente.
         </CardContent></Card>
       ) : (
         <Card><CardContent className="p-0">
@@ -161,7 +84,8 @@ export function SocialContacts() {
               <tr>
                 <th className="p-3">Contato</th>
                 <th className="p-3">Plataforma</th>
-                <th className="p-3">Telefone / ID</th>
+                <th className="p-3">Telefone</th>
+                <th className="p-3">ID da plataforma</th>
                 <th className="p-3">Lead</th>
                 <th className="p-3">Tags</th>
                 <th className="p-3">Inscrito</th>
@@ -170,26 +94,36 @@ export function SocialContacts() {
             </thead>
             <tbody>
               {contacts!.map((c: any) => {
-                const mcId = c.custom_fields?.manychat_id ?? null;
                 const channel = c.channel ?? 'instagram';
                 const rawIdentifier: string | null =
-                  c.custom_fields?.platformIdentifier ??
-                  (/^\d{10,15}$/.test(String(c.ig_user_id ?? '')) ? `+${c.ig_user_id}` : null);
-                const phone = channel === 'whatsapp' ? rawIdentifier : null;
-                const secondary = phone ?? mcId ?? rawIdentifier;
+                  c.platform_user_id ?? c.custom_fields?.platformIdentifier ?? null;
+                const phoneDigits = String(
+                  c.phone_e164 ?? (channel === 'whatsapp' ? rawIdentifier ?? '' : c.custom_fields?.dm_phone ?? ''),
+                ).replace(/\D/g, '');
+                const phone = phoneDigits.length >= 10 ? `+${phoneDigits}` : null;
+                const platformId = channel === 'whatsapp' ? null : rawIdentifier;
                 return (
                   <tr key={c.ig_user_id} className="border-t border-border">
                     <td className="p-3">
                       <div className="font-medium">{c.ig_username ?? phone ?? '—'}</div>
-                      <div className="text-xs text-muted-foreground font-mono truncate max-w-[220px]">{c.ig_user_id}</div>
+                      <div className="text-xs text-muted-foreground font-mono truncate max-w-[220px]">
+                        Zernio: {c.zernio_contact_id ?? c.ig_user_id}
+                      </div>
                     </td>
                     <td className="p-3">
                       <Badge variant="outline" className={`capitalize ${PLATFORM_COLORS[channel] ?? ''}`}>{channel}</Badge>
                     </td>
                     <td className="p-3">
-                      {secondary ? (
-                        <button onClick={() => copy(secondary)} className="inline-flex items-center gap-1 text-xs font-mono hover:text-primary">
-                          <Copy className="w-3 h-3" /> {secondary}
+                      {phone ? (
+                        <button onClick={() => copy(phone)} className="inline-flex items-center gap-1 text-xs font-mono hover:text-primary">
+                          <Copy className="w-3 h-3" /> {phone}
+                        </button>
+                      ) : <span className="text-xs text-muted-foreground">—</span>}
+                    </td>
+                    <td className="p-3">
+                      {platformId ? (
+                        <button onClick={() => copy(platformId)} className="inline-flex items-center gap-1 text-xs font-mono hover:text-primary" title={`ID ${channel}`}>
+                          <Copy className="w-3 h-3" /> {platformId}
                         </button>
                       ) : <span className="text-xs text-muted-foreground">—</span>}
                     </td>
