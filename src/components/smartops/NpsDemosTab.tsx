@@ -11,6 +11,7 @@ interface NpsRow {
   enrollment_id: string;
   person_name: string;
   email: string | null;
+  lead_id: string | null;
   course_title: string;
   turma_label: string;
   end_date: string | null;
@@ -70,16 +71,23 @@ function npsLabel(recomendacao: number | null) {
   const nps10 = recomendacao * 2;
   const cls = nps10 >= 9 ? "Promotor" : nps10 >= 7 ? "Neutro" : "Detrator";
   const color =
-    cls === "Promotor" ? "bg-emerald-500/15 text-emerald-600" : cls === "Neutro" ? "bg-amber-500/15 text-amber-600" : "bg-red-500/15 text-red-600";
+    cls === "Promotor"
+      ? "bg-emerald-500/15 text-emerald-600"
+      : cls === "Neutro"
+      ? "bg-amber-500/15 text-amber-600"
+      : "bg-red-500/15 text-red-600";
   return { nps10, cls, color };
 }
 
+const daysSince = (d: string) => Math.floor((Date.now() - new Date(d).getTime()) / 86400000);
+
 export function NpsDemosTab() {
   const [search, setSearch] = useState("");
+  const queryClient = useQueryClient();
 
   const { data, isLoading } = useQuery({
     queryKey: ["smartops-nps-demos-overview"],
-    queryFn: async (): Promise<NpsRow[]> => {
+    queryFn: async () => {
       // Cursos online (origem do NPS de demonstrações ao vivo)
       const { data: onlineCourses, error: coursesErr } = await supabase
         .from("smartops_courses")
@@ -88,39 +96,45 @@ export function NpsDemosTab() {
         .limit(1000);
       if (coursesErr) throw coursesErr;
       const onlineCourseIds = (onlineCourses || []).map((c: any) => c.id);
-      if (!onlineCourseIds.length) return [];
+      if (!onlineCourseIds.length) return { rows: [] as NpsRow[], participants: [] as Participant[] };
 
       const { data: enrollments, error } = await supabase
         .from("smartops_course_enrollments")
-        .select("id, person_name, turma_id, course_id, created_at")
+        .select("id, person_name, turma_id, course_id, created_at, lead_id")
         .in("course_id", onlineCourseIds)
         .order("created_at", { ascending: false })
         .limit(1000);
       if (error) throw error;
-      const rows = enrollments || [];
-      const turmaIds = [...new Set(rows.map((r: any) => r.turma_id).filter(Boolean))];
-      const enrollmentIds = rows.map((r: any) => r.id);
+      const enrollRows = enrollments || [];
+      const turmaIds = [...new Set(enrollRows.map((r: any) => r.turma_id).filter(Boolean))];
+      const enrollmentIds = enrollRows.map((r: any) => r.id);
 
-      const [turmas, responses] = await Promise.all([
+      const [turmas, responses, overrides] = await Promise.all([
         turmaIds.length
           ? supabase.from("smartops_course_turmas").select("id, label, end_date").in("id", turmaIds)
           : Promise.resolve({ data: [] as any[] }),
         enrollmentIds.length
           ? supabase
               .from("smartops_nps_responses")
-              .select("enrollment_id, created_at, score_satisfacao, score_treinamentos, score_recomendacao, comment")
+              .select(
+                "enrollment_id, lead_id, email, created_at, score_satisfacao, score_treinamentos, score_recomendacao, comment"
+              )
               .in("enrollment_id", enrollmentIds)
               .eq("survey_type", "demonstracao_ao_vivo")
               .order("created_at", { ascending: false })
           : Promise.resolve({ data: [] as any[] }),
+        supabase.from("smartops_nps_demo_overrides").select("email, force_next"),
       ]);
 
       const turmaMap = new Map((turmas.data || []).map((t: any) => [t.id, t]));
       const courseMap = new Map((onlineCourses || []).map((c: any) => [c.id, c.title]));
       const respMap = new Map<string, any>();
       for (const r of responses.data || []) if (!respMap.has(r.enrollment_id)) respMap.set(r.enrollment_id, r);
+      const overrideMap = new Map<string, boolean>(
+        (overrides.data || []).map((o: any) => [String(o.email).toLowerCase(), !!o.force_next])
+      );
 
-      return rows
+      const all: NpsRow[] = enrollRows
         .filter((e: any) => courseMap.has(e.course_id))
         .map((e: any) => {
           const t: any = turmaMap.get(e.turma_id);
@@ -128,6 +142,8 @@ export function NpsDemosTab() {
           return {
             enrollment_id: e.id,
             person_name: e.person_name || "Sem nome",
+            email: r?.email ?? null,
+            lead_id: e.lead_id ?? r?.lead_id ?? null,
             course_title: courseMap.get(e.course_id) || "—",
             turma_label: t?.label || "—",
             end_date: t?.end_date ?? null,
@@ -138,48 +154,135 @@ export function NpsDemosTab() {
             recomendacao: r?.score_recomendacao ?? null,
             comment: r?.comment ?? null,
           } as NpsRow;
-        })
-        // NPS é obrigatório para agendar a demonstração: só existem respostas
-        .filter((r) => r.responded_at);
+        });
+
+      // Participantes: agrupa por e-mail (fallback lead_id / nome)
+      const byKey = new Map<string, Participant & { forceNext: boolean }>();
+      for (const r of all) {
+        const key = (r.email || r.lead_id || r.person_name).toString().toLowerCase();
+        const cur = byKey.get(key);
+        if (!cur) {
+          byKey.set(key, {
+            key,
+            name: r.person_name,
+            email: r.email,
+            demos: 1,
+            lastResponse: r.responded_at,
+            lastDays: r.responded_at ? daysSince(r.responded_at) : null,
+            satisfacao: r.satisfacao,
+            treinamentos: r.treinamentos,
+            recomendacao: r.recomendacao,
+            comment: r.comment,
+            forceNext: r.email ? overrideMap.get(r.email.toLowerCase()) ?? false : false,
+          });
+        } else {
+          cur.demos += 1;
+          if (!cur.email && r.email) {
+            cur.email = r.email;
+            cur.forceNext = overrideMap.get(r.email.toLowerCase()) ?? false;
+          }
+          if (r.responded_at && (!cur.lastResponse || r.responded_at > cur.lastResponse)) {
+            cur.lastResponse = r.responded_at;
+            cur.lastDays = daysSince(r.responded_at);
+            cur.satisfacao = r.satisfacao;
+            cur.treinamentos = r.treinamentos;
+            cur.recomendacao = r.recomendacao;
+            cur.comment = r.comment;
+          }
+        }
+      }
+
+      const participants = [...byKey.values()].sort((a, b) => {
+        if (!!b.lastResponse !== !!a.lastResponse) return b.lastResponse ? 1 : -1;
+        return (b.lastResponse || "").localeCompare(a.lastResponse || "");
+      });
+
+      // NPS é obrigatório para agendar a demonstração: só existem respostas
+      return { rows: all.filter((r) => r.responded_at), participants };
     },
   });
 
-  const rows = data || [];
+  const rows = data?.rows || [];
+  const participants = (data?.participants || []) as (Participant & { forceNext: boolean })[];
 
   const stats = useMemo(() => {
     const respondidos = rows.length;
     const withScore = rows.filter((r) => r.recomendacao);
     const promotores = withScore.filter((r) => r.recomendacao! * 2 >= 9).length;
+    const neutros = withScore.filter((r) => r.recomendacao! * 2 >= 7 && r.recomendacao! * 2 <= 8).length;
     const detratores = withScore.filter((r) => r.recomendacao! * 2 <= 6).length;
     const nps = withScore.length ? Math.round(((promotores - detratores) / withScore.length) * 100) : null;
     const media = withScore.length
       ? (withScore.reduce((s, r) => s + r.recomendacao! * 2, 0) / withScore.length).toFixed(1)
       : null;
-    return { respondidos, nps, media, total: withScore.length };
+    return { respondidos, promotores, neutros, detratores, nps, media };
   }, [rows]);
 
-  const filtered = rows.filter((r) => {
+  const questions = useMemo(() => {
+    const build = (label: string, pick: (r: NpsRow) => number | null) => {
+      const values = rows.map(pick).filter((v): v is number => !!v);
+      const counts = [1, 2, 3, 4, 5].map((s) => values.filter((v) => v === s).length);
+      const total = values.length;
+      const avg = total ? values.reduce((a, b) => a + b, 0) / total : null;
+      const promo = counts[4] + counts[3];
+      const detr = counts[0] + counts[1] + counts[2];
+      const score = total ? Math.round(((promo - detr) / total) * 100) : null;
+      return { label, counts, total, avg, score };
+    };
+    return [
+      build("Pergunta 1 — Satisfação com a demonstração", (r) => r.satisfacao),
+      build("Pergunta 2 — Qualidade dos treinamentos/conteúdo", (r) => r.treinamentos),
+      build("Pergunta 3 — Recomendaria para um colega", (r) => r.recomendacao),
+    ];
+  }, [rows]);
+
+  const filtered = participants.filter((p) => {
     const q = search.trim().toLowerCase();
     if (!q) return true;
-    return [r.person_name, r.course_title, r.turma_label, r.comment].some((v) => (v || "").toLowerCase().includes(q));
+    return [p.name, p.email, p.comment].some((v) => (v || "").toLowerCase().includes(q));
   });
+
+  const toggleForce = async (p: Participant & { forceNext: boolean }, next: boolean) => {
+    if (!p.email) {
+      toast.error("Participante sem e-mail — não é possível controlar o NPS obrigatório.");
+      return;
+    }
+    const email = p.email.toLowerCase();
+    const { error } = await supabase
+      .from("smartops_nps_demo_overrides")
+      .upsert({ email, force_next: next, updated_at: new Date().toISOString() }, { onConflict: "email" });
+    if (error) {
+      toast.error("Falha ao salvar: " + error.message);
+      return;
+    }
+    toast.success(next ? "NPS obrigatório liberado no próximo agendamento." : "NPS obrigatório desativado.");
+    queryClient.invalidateQueries({ queryKey: ["smartops-nps-demos-overview"] });
+  };
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
-        <StatCard icon={<CheckCircle2 className="w-4 h-4 text-emerald-600" />} label="Respostas" value={stats.respondidos} />
-        <StatCard icon={<Star className="w-4 h-4 text-amber-500" />} label="NPS (-100 a 100)" value={stats.nps ?? "—"} />
-        <StatCard icon={<MessageSquare className="w-4 h-4" />} label="Nota média (0-10)" value={stats.media ?? "—"} />
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+        <StatCard icon={<CheckCircle2 className="w-4 h-4 text-emerald-600" />} label="Respondidos" value={stats.respondidos} />
+        <StatCard icon={<ThumbsUp className="w-4 h-4 text-emerald-600" />} label="Promotores" value={stats.promotores} />
+        <StatCard icon={<Minus className="w-4 h-4 text-amber-600" />} label="Neutros" value={stats.neutros} />
+        <StatCard icon={<ThumbsDown className="w-4 h-4 text-red-600" />} label="Detratores" value={stats.detratores} />
+        <StatCard icon={<Star className="w-4 h-4 text-amber-500" />} label="Nota média (0-10)" value={stats.media ?? "—"} />
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+        {questions.map((q) => (
+          <QuestionDistribution key={q.label} {...q} />
+        ))}
       </div>
 
       <div className="flex items-center gap-2 flex-wrap">
         <Input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Buscar por participante, curso, turma ou comentário…"
+          placeholder="Buscar participante, e-mail ou observação…"
           className="max-w-sm"
         />
-        <span className="text-xs text-muted-foreground">{filtered.length} registro(s)</span>
+        <span className="text-xs text-muted-foreground">{filtered.length} participante(s)</span>
       </div>
 
       {isLoading ? (
@@ -187,36 +290,54 @@ export function NpsDemosTab() {
           <Loader2 className="w-5 h-5 animate-spin mr-2" /> Carregando NPS…
         </div>
       ) : filtered.length === 0 ? (
-        <div className="text-center py-16 text-muted-foreground text-sm">Nenhum registro de NPS encontrado.</div>
+        <div className="text-center py-16 text-muted-foreground text-sm">Nenhum participante encontrado.</div>
       ) : (
         <div className="rounded-xl border overflow-x-auto bg-card">
           <table className="w-full text-sm">
             <thead className="bg-muted/50 text-xs uppercase text-muted-foreground">
               <tr>
                 <th className="text-left p-3">Participante</th>
-                <th className="text-left p-3">Curso / Turma</th>
-                <th className="text-left p-3">Data da inscrição</th>
-                <th className="text-left p-3">Data da resposta</th>
+                <th className="text-left p-3">Demonstrações inscritas</th>
+                <th className="text-left p-3">Última avaliação</th>
+                <th className="text-left p-3">NPS obrigatório no próximo agendamento</th>
                 <th className="text-left p-3">NPS</th>
                 <th className="text-left p-3">Satisfação</th>
                 <th className="text-left p-3">Treinamentos</th>
                 <th className="text-left p-3">Recomendação</th>
-                <th className="text-left p-3 min-w-[260px]">Observação do participante</th>
+                <th className="text-left p-3 min-w-[260px]">Observação</th>
               </tr>
             </thead>
             <tbody>
-              {filtered.map((r) => {
-                const n = npsLabel(r.recomendacao);
+              {filtered.map((p) => {
+                const n = npsLabel(p.recomendacao);
                 return (
-                  <tr key={r.enrollment_id} className="border-t align-top">
-                    <td className="p-3 font-medium">{r.person_name}</td>
+                  <tr key={p.key} className="border-t align-top">
                     <td className="p-3">
-                      <div>{r.course_title}</div>
-                      <div className="text-xs text-muted-foreground">{r.turma_label} · fim {fmt(r.end_date)}</div>
+                      <div className="font-medium">{p.name}</div>
+                      <div className="text-xs text-muted-foreground">{p.email || "sem e-mail"}</div>
                     </td>
-                    <td className="p-3 whitespace-nowrap">{fmtDT(r.enrolled_at)}</td>
+                    <td className="p-3 font-semibold">{p.demos}</td>
                     <td className="p-3 whitespace-nowrap">
-                      {fmtDT(r.responded_at)}
+                      {p.lastResponse ? (
+                        <>
+                          <div>{p.lastDays === 0 ? "hoje" : `${p.lastDays} dia(s)`}</div>
+                          <div className="text-xs text-muted-foreground">{fmtDT(p.lastResponse)}</div>
+                        </>
+                      ) : (
+                        <span className="text-muted-foreground">sem avaliação</span>
+                      )}
+                    </td>
+                    <td className="p-3">
+                      <div className="flex items-center gap-2">
+                        <Switch
+                          checked={p.forceNext}
+                          disabled={!p.email}
+                          onCheckedChange={(v) => toggleForce(p, v)}
+                        />
+                        <span className="text-xs text-muted-foreground">
+                          {p.forceNext ? "liberado" : "seguir regra de 30 dias"}
+                        </span>
+                      </div>
                     </td>
                     <td className="p-3">
                       {n ? (
@@ -227,10 +348,10 @@ export function NpsDemosTab() {
                         <span className="text-muted-foreground">—</span>
                       )}
                     </td>
-                    <td className="p-3"><Stars value={r.satisfacao} /></td>
-                    <td className="p-3"><Stars value={r.treinamentos} /></td>
-                    <td className="p-3"><Stars value={r.recomendacao} /></td>
-                    <td className="p-3 text-muted-foreground whitespace-pre-wrap">{r.comment || "—"}</td>
+                    <td className="p-3"><Stars value={p.satisfacao} /></td>
+                    <td className="p-3"><Stars value={p.treinamentos} /></td>
+                    <td className="p-3"><Stars value={p.recomendacao} /></td>
+                    <td className="p-3 text-muted-foreground whitespace-pre-wrap">{p.comment || "—"}</td>
                   </tr>
                 );
               })}
@@ -248,6 +369,53 @@ function StatCard({ icon, label, value }: { icon: React.ReactNode; label: string
       <CardContent className="p-4">
         <div className="flex items-center gap-2 text-xs text-muted-foreground">{icon}<span>{label}</span></div>
         <div className="text-2xl font-bold mt-1">{value}</div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function QuestionDistribution({
+  label,
+  counts,
+  total,
+  avg,
+  score,
+}: {
+  label: string;
+  counts: number[];
+  total: number;
+  avg: number | null;
+  score: number | null;
+}) {
+  const pct = (n: number) => (total ? (n / total) * 100 : 0);
+  const tone = (i: number) =>
+    i >= 4 ? "bg-emerald-500" : i === 3 ? "bg-emerald-500/30" : i === 2 ? "bg-muted-foreground/40" : "bg-muted";
+  return (
+    <Card>
+      <CardContent className="p-4">
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <div className="text-xs text-muted-foreground line-clamp-2">{label}</div>
+            <div className="text-2xl font-bold mt-1">{score ?? "—"}</div>
+            <div className="text-xs text-muted-foreground mt-1">
+              Média <span className="font-semibold text-foreground">{avg ? `${avg.toFixed(1)}/5` : "—"}</span>
+            </div>
+          </div>
+          <div className="flex items-end gap-1.5 h-24">
+            {[1, 2, 3, 4, 5].map((s, i) => (
+              <div key={s} className="flex flex-col items-center justify-end w-9 h-full">
+                <div className="text-[10px] text-muted-foreground mb-1">{s}</div>
+                <div className="relative w-full flex-1 rounded-sm bg-muted/40 flex items-end overflow-hidden">
+                  <div
+                    className={`w-full rounded-sm ${tone(s)}`}
+                    style={{ height: `${Math.max(pct(counts[i]), counts[i] ? 4 : 2)}%` }}
+                  />
+                </div>
+                <div className="text-[10px] text-muted-foreground mt-1">{pct(counts[i]).toFixed(1)}%</div>
+              </div>
+            ))}
+          </div>
+        </div>
       </CardContent>
     </Card>
   );
