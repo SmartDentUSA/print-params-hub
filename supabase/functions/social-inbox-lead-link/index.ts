@@ -210,9 +210,11 @@ serve(async (req) => {
 
         const { lead, matched_by } = await findLead({
           name: c.participantName, username: c.participantUsername, text: allText,
+          channel: convPlatform, platformUserId: c.participantId ?? null,
         });
         if (!lead) continue;
         linked++;
+        await persistPlatformId(lead, convPlatform, c.participantId ? String(c.participantId) : null);
 
         // enriquece o contato espelhado com o que veio da DM
         const contactId = String(c.participantId ?? c.contactId ?? c.participantUsername ?? '');
@@ -303,15 +305,21 @@ serve(async (req) => {
       let linked = 0, timeline = 0;
       const details: any[] = [];
       for (const c of contacts ?? []) {
-        const identifier = String((c.custom_fields as any)?.platformIdentifier ?? c.ig_user_id ?? '');
+        const channelRaw = String(c.channel ?? 'instagram');
+        const identifier = String(
+          (c as any).platform_user_id ?? (c.custom_fields as any)?.platformIdentifier ?? c.ig_user_id ?? '',
+        );
         const { lead, matched_by } = await findLead({
           name: (c.custom_fields as any)?.name ?? c.ig_username,
           username: c.ig_username,
           text: [identifier, (c.custom_fields as any)?.email, (c.custom_fields as any)?.phone].filter(Boolean).join('\n'),
+          channel: channelRaw,
+          platformUserId: identifier || null,
         });
         if (!lead) continue;
         linked++;
-        const channel = String(c.channel ?? 'instagram');
+        const channel = channelRaw;
+        await persistPlatformId(lead, channel, identifier || null);
         await supabase.from('social_contacts')
           .update({ lead_id: lead.id, custom_fields: { ...(c.custom_fields as any ?? {}), lead_matched_by: matched_by } })
           .eq('ig_user_id', c.ig_user_id);
@@ -323,22 +331,24 @@ serve(async (req) => {
             .eq('id', lead.id);
         }
 
-        const hash = `social_identity:${channel}:${c.ig_user_id}`;
+        const hash = `social_identity:${channel}:${identifier || c.ig_user_id}`;
         const { data: exists } = await supabase.from('lead_activity_log')
           .select('id').eq('dedupe_hash', hash).limit(1);
         if (!exists?.length) {
+          const label = PLATFORM_ID_LABEL[channel] ?? `ID ${channel}`;
           const { error: iErr } = await supabase.from('lead_activity_log').insert({
             lead_id: lead.id,
             event_type: 'social_identity_linked',
             event_timestamp: c.last_seen_at ?? new Date().toISOString(),
             source_channel: `zernio_${channel}`,
             entity_type: 'social_contact',
-            entity_id: String(c.ig_user_id),
-            entity_name: c.ig_username ?? identifier ?? 'Contato social',
+            entity_id: String(identifier || c.ig_user_id),
+            entity_name: `${label} identificado`,
             event_data: {
+              kind_label: `${label} identificado`,
+              message: `${label}: ${identifier || '—'}${c.ig_username ? ` · @${String(c.ig_username).replace(/^@/, '')}` : ''}`,
               platform: channel,
-              platform_user_id: String(c.ig_user_id),
-              platform_identifier: identifier || null,
+              platform_user_id: identifier || null,
               username: c.ig_username ?? null,
               matched_by,
             },
@@ -346,7 +356,7 @@ serve(async (req) => {
           } as any);
           if (!iErr) timeline++;
         }
-        details.push({ contact_id: c.ig_user_id, channel, lead_id: lead.id, nome: lead.nome, matched_by });
+        details.push({ platform_user_id: identifier, channel, lead_id: lead.id, nome: lead.nome, matched_by });
       }
       return json({ scanned: contacts?.length ?? 0, linked, timeline_events: timeline, details: details.slice(0, 50) });
     }
@@ -358,6 +368,7 @@ serve(async (req) => {
         const { lead, matched_by } = await findLead({
           name: c.participantName, username: c.participantUsername,
           text: [c.lastMessage, c.text].filter(Boolean).join('\n'),
+          channel: c.platform ?? null, platformUserId: c.participantId ?? null,
         });
         const cls = lead ? await classifyLead(supabase, lead.id) : null;
         results.push({
