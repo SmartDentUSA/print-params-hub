@@ -399,7 +399,7 @@ export default function PublicCourseEnrollment() {
                       onValueChange={(v) => setConfirmData((s) => ({ ...s, area_atuacao: v }))}
                     >
                       <SelectTrigger className="mt-1">
-                        <SelectValue placeholder="Selecione sua área de atuação" />
+                        <SelectValue placeholder="Selecione uma opção" />
                       </SelectTrigger>
                       <SelectContent>
                         {AREA_ATUACAO_OPTIONS.map((o) => (
@@ -415,7 +415,7 @@ export default function PublicCourseEnrollment() {
                       onValueChange={(v) => setConfirmData((s) => ({ ...s, especialidade: v }))}
                     >
                       <SelectTrigger id="especialidade" className="mt-1">
-                        <SelectValue placeholder="Selecione sua especialidade" />
+                        <SelectValue placeholder="Selecione uma opção" />
                       </SelectTrigger>
                       <SelectContent>
                         {ESPECIALIDADE_OPTIONS.map((o) => (
@@ -423,16 +423,6 @@ export default function PublicCourseEnrollment() {
                         ))}
                       </SelectContent>
                     </Select>
-                  </div>
-                  <div>
-                    <Label htmlFor="cidade">Cidade</Label>
-                    <Input
-                      id="cidade"
-                      value={confirmData.cidade}
-                      maxLength={120}
-                      onChange={(e) => setConfirmData((s) => ({ ...s, cidade: e.target.value }))}
-                      placeholder="Sua cidade"
-                    />
                   </div>
                 </div>
 
@@ -443,7 +433,6 @@ export default function PublicCourseEnrollment() {
                     submitEnrollment(true, undefined, {
                       area_atuacao: confirmData.area_atuacao || undefined,
                       especialidade: confirmData.especialidade.trim() || undefined,
-                      cidade: confirmData.cidade.trim() || undefined,
                       confirmed: true,
                     })
                   }
