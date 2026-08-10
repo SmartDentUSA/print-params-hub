@@ -25,6 +25,17 @@ interface NpsRow {
 const fmt = (d?: string | null) =>
   d ? new Date(d).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" }) : "—";
 
+const fmtDT = (d?: string | null) =>
+  d
+    ? new Date(d).toLocaleString("pt-BR", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      })
+    : "—";
+
 function Stars({ value }: { value: number | null }) {
   if (!value) return <span className="text-muted-foreground">—</span>;
   return (
@@ -179,8 +190,8 @@ export function CoursesNpsTab() {
               <tr>
                 <th className="text-left p-3">Participante</th>
                 <th className="text-left p-3">Curso / Turma</th>
-                <th className="text-left p-3">Enviado</th>
-                <th className="text-left p-3">Respondido</th>
+                <th className="text-left p-3">Data de envio</th>
+                <th className="text-left p-3">Data da resposta</th>
                 <th className="text-left p-3">NPS</th>
                 <th className="text-left p-3">Satisfação</th>
                 <th className="text-left p-3">Treinamentos</th>
@@ -198,12 +209,12 @@ export function CoursesNpsTab() {
                       <div>{r.course_title}</div>
                       <div className="text-xs text-muted-foreground">{r.turma_label} · fim {fmt(r.end_date)}</div>
                     </td>
-                    <td className="p-3">
-                      {r.sent_at ? fmt(r.sent_at) : <Badge variant="destructive" className="text-[10px]">não enviado</Badge>}
+                    <td className="p-3 whitespace-nowrap">
+                      {r.sent_at ? fmtDT(r.sent_at) : <Badge variant="destructive" className="text-[10px]">não enviado</Badge>}
                     </td>
-                    <td className="p-3">
+                    <td className="p-3 whitespace-nowrap">
                       {r.responded_at ? (
-                        fmt(r.responded_at)
+                        fmtDT(r.responded_at)
                       ) : r.sent_at ? (
                         <Badge variant="secondary" className="text-[10px]">aguardando</Badge>
                       ) : (
