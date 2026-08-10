@@ -201,8 +201,8 @@ export default function PublicCourseEnrollment() {
       const res = (data as LeadLookup) ?? { found: false };
       setLookup(res);
       setConfirmData({
-        area_atuacao: res.area_atuacao ?? "",
-        especialidade: res.especialidade ?? "",
+        area_atuacao: canonicalize(AREA_ATUACAO_OPTIONS, res.area_atuacao),
+        especialidade: canonicalize(ESPECIALIDADE_OPTIONS, res.especialidade),
         cidade: res.cidade ?? "",
       });
       setPhase("confirm_data");
