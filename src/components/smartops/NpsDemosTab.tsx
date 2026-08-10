@@ -5,7 +5,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { Loader2, Star, CheckCircle2, ThumbsUp, ThumbsDown, Minus } from "lucide-react";
+import { Loader2, Star, CheckCircle2, ThumbsUp, ThumbsDown, Minus, Sparkles } from "lucide-react";
+import { useNpsQuestionInsights } from "@/hooks/useNpsQuestionInsights";
 
 interface NpsRow {
   enrollment_id: string;
@@ -234,6 +235,11 @@ export function NpsDemosTab() {
     ];
   }, [rows]);
 
+  const { insights, isLoading: insightsLoading } = useNpsQuestionInsights(
+    "NPS Demonstrações ao Vivo",
+    questions,
+  );
+
   const filtered = participants.filter((p) => {
     const q = search.trim().toLowerCase();
     if (!q) return true;
@@ -268,8 +274,13 @@ export function NpsDemosTab() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
-        {questions.map((q) => (
-          <QuestionDistribution key={q.label} {...q} />
+        {questions.map((q, i) => (
+          <QuestionDistribution
+            key={q.label}
+            {...q}
+            insight={insights[i] ?? null}
+            insightLoading={insightsLoading}
+          />
         ))}
       </div>
 
@@ -378,12 +389,16 @@ function QuestionDistribution({
   total,
   avg,
   score,
+  insight,
+  insightLoading,
 }: {
   label: string;
   counts: number[];
   total: number;
   avg: number | null;
   score: number | null;
+  insight?: string | null;
+  insightLoading?: boolean;
 }) {
   const pct = (n: number) => (total ? (n / total) * 100 : 0);
   const tone = (i: number) =>
@@ -413,6 +428,16 @@ function QuestionDistribution({
               </div>
             ))}
           </div>
+        </div>
+        <div className="mt-3 pt-3 border-t text-xs text-muted-foreground flex gap-2">
+          <Sparkles className="w-3.5 h-3.5 text-primary shrink-0 mt-0.5" />
+          {insightLoading ? (
+            <span className="italic">Analisando com IA…</span>
+          ) : insight ? (
+            <span className="leading-relaxed">{insight}</span>
+          ) : (
+            <span className="italic">Análise indisponível.</span>
+          )}
         </div>
       </CardContent>
     </Card>

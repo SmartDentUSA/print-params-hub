@@ -545,3 +545,6 @@ verify_jwt = false
 
 [functions.professional-course-portal]
 verify_jwt = false
+
+[functions.nps-question-insight]
+verify_jwt = false
