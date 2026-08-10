@@ -236,7 +236,6 @@ export function NpsDemosTab() {
   }, [rows]);
 
   const filtered = participants.filter((p) => {
-
     const q = search.trim().toLowerCase();
     if (!q) return true;
     return [p.name, p.email, p.comment].some((v) => (v || "").toLowerCase().includes(q));
