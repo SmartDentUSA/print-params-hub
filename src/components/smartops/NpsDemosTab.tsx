@@ -177,9 +177,6 @@ export function NpsDemosTab() {
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-      </div>
-
       <p className="text-xs text-muted-foreground">
         Origem: formulário público <code className="font-mono">{ORIGIN_FORM_SLUG}</code> — o mesmo usado nas
         inscrições dos Cursos Online (modalidades ao vivo/online).
