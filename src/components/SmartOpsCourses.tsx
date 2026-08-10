@@ -1319,7 +1319,7 @@ export function SmartOpsCourses() {
         <TabsTrigger value="publica-aovivo">Página Pública Ao Vivo</TabsTrigger>
         <TabsTrigger value="calendario">Calendário</TabsTrigger>
         <TabsTrigger value="nps">NPS Pós-Treinamento</TabsTrigger>
-        <TabsTrigger value="nps-demos">NPS Demonstrações</TabsTrigger>
+        <TabsTrigger value="nps-demos">Treinamentos Online</TabsTrigger>
       </TabsList>
 
       <TabsContent value="agendamentos">
