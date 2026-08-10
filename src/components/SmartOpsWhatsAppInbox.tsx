@@ -14,6 +14,7 @@ import {
 import { Send, Search, MessageSquare, Phone, User, RefreshCw, DownloadCloud, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { useTeamPhoneDirectory } from "@/hooks/useTeamPhoneDirectory";
 
 interface InboxMessage {
   id: string;
@@ -57,6 +58,7 @@ interface TeamMember {
 
 export function SmartOpsWhatsAppInbox({ refreshKey }: { refreshKey: number }) {
   const [conversations, setConversations] = useState<Conversation[]>([]);
+  const { matchAny: matchTeam } = useTeamPhoneDirectory();
   const [selectedPhone, setSelectedPhone] = useState<string | null>(null);
   const [messages, setMessages] = useState<InboxMessage[]>([]);
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
@@ -326,6 +328,10 @@ export function SmartOpsWhatsAppInbox({ refreshKey }: { refreshKey: number }) {
     if (!searchFilter) return true;
     const q = searchFilter.toLowerCase().replace(/\D/g, "");
     const qText = searchFilter.toLowerCase();
+
+    // Nome do membro da equipe também é pesquisável
+    const team = matchTeam(c.phone_raw, c.phone_normalized);
+    if (team && team.nome_completo.toLowerCase().includes(qText)) return true;
 
     // Text match on name/message
     if (c.lead_name && c.lead_name.toLowerCase().includes(qText)) return true;
