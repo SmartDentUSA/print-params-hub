@@ -5,7 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, Star, Send, CheckCircle2, AlertTriangle, MessageSquare } from "lucide-react";
+import { Loader2, Star, Users, CheckCircle2, MessageSquare } from "lucide-react";
 
 interface NpsRow {
   enrollment_id: string;
@@ -13,8 +13,7 @@ interface NpsRow {
   course_title: string;
   turma_label: string;
   end_date: string | null;
-  sent_at: string | null;
-  status: string | null;
+  enrolled_at: string | null;
   responded_at: string | null;
   satisfacao: number | null;
   treinamentos: number | null;
@@ -63,7 +62,7 @@ function npsLabel(recomendacao: number | null) {
 
 export function NpsDemosTab() {
   const [search, setSearch] = useState("");
-  const [filter, setFilter] = useState<"todos" | "respondidos" | "pendentes" | "falhados">("todos");
+  const [filter, setFilter] = useState<"todos" | "respondidos" | "sem_resposta">("todos");
 
   const { data, isLoading } = useQuery({
     queryKey: ["smartops-nps-demos-overview"],
@@ -80,7 +79,7 @@ export function NpsDemosTab() {
 
       const { data: enrollments, error } = await supabase
         .from("smartops_course_enrollments")
-        .select("id, person_name, nps_sent_at, nps_status, turma_id, course_id, created_at")
+        .select("id, person_name, turma_id, course_id, created_at")
         .in("course_id", onlineCourseIds)
         .order("created_at", { ascending: false })
         .limit(1000);
@@ -108,7 +107,6 @@ export function NpsDemosTab() {
       const respMap = new Map<string, any>();
       for (const r of responses.data || []) if (!respMap.has(r.enrollment_id)) respMap.set(r.enrollment_id, r);
 
-      const today = new Date().toISOString().slice(0, 10);
       return rows
         .filter((e: any) => courseMap.has(e.course_id))
         .map((e: any) => {
@@ -120,26 +118,23 @@ export function NpsDemosTab() {
             course_title: courseMap.get(e.course_id) || "—",
             turma_label: t?.label || "—",
             end_date: t?.end_date ?? null,
-            sent_at: e.nps_sent_at ?? null,
-            status: e.nps_status ?? null,
+            enrolled_at: e.created_at ?? null,
             responded_at: r?.created_at ?? null,
             satisfacao: r?.score_satisfacao ?? null,
             treinamentos: r?.score_treinamentos ?? null,
             recomendacao: r?.score_recomendacao ?? null,
             comment: r?.comment ?? null,
           } as NpsRow;
-        })
-        // respondidos, disparados, ou turmas já encerradas (elegíveis a NPS)
-        .filter((r) => r.responded_at || r.sent_at || (r.end_date && r.end_date < today));
+        });
     },
   });
 
   const rows = data || [];
 
   const stats = useMemo(() => {
-    const disparados = rows.filter((r) => r.sent_at).length;
+    const inscritos = rows.length;
     const respondidos = rows.filter((r) => r.responded_at).length;
-    const falhados = rows.filter((r) => !r.sent_at && !r.responded_at).length;
+    const semResposta = inscritos - respondidos;
     const withScore = rows.filter((r) => r.recomendacao);
     const promotores = withScore.filter((r) => r.recomendacao! * 2 >= 9).length;
     const detratores = withScore.filter((r) => r.recomendacao! * 2 <= 6).length;
@@ -147,13 +142,12 @@ export function NpsDemosTab() {
     const media = withScore.length
       ? (withScore.reduce((s, r) => s + r.recomendacao! * 2, 0) / withScore.length).toFixed(1)
       : null;
-    return { disparados, respondidos, falhados, nps, media, total: withScore.length };
+    return { inscritos, respondidos, semResposta, nps, media, total: withScore.length };
   }, [rows]);
 
   const filtered = rows.filter((r) => {
     if (filter === "respondidos" && !r.responded_at) return false;
-    if (filter === "pendentes" && (!r.sent_at || r.responded_at)) return false;
-    if (filter === "falhados" && (r.sent_at || r.responded_at)) return false;
+    if (filter === "sem_resposta" && r.responded_at) return false;
     const q = search.trim().toLowerCase();
     if (!q) return true;
     return [r.person_name, r.course_title, r.turma_label, r.comment].some((v) => (v || "").toLowerCase().includes(q));
@@ -162,9 +156,9 @@ export function NpsDemosTab() {
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
-        <StatCard icon={<Send className="w-4 h-4" />} label="NPS disparados" value={stats.disparados} />
+        <StatCard icon={<Users className="w-4 h-4" />} label="Inscritos (demonstrações)" value={stats.inscritos} />
         <StatCard icon={<CheckCircle2 className="w-4 h-4 text-emerald-600" />} label="Respondidos" value={stats.respondidos} />
-        <StatCard icon={<AlertTriangle className="w-4 h-4 text-red-600" />} label="Falhados / não enviados" value={stats.falhados} />
+        <StatCard icon={<MessageSquare className="w-4 h-4 text-muted-foreground" />} label="Sem resposta" value={stats.semResposta} />
         <StatCard icon={<Star className="w-4 h-4 text-amber-500" />} label="NPS (-100 a 100)" value={stats.nps ?? "—"} />
         <StatCard icon={<MessageSquare className="w-4 h-4" />} label="Nota média (0-10)" value={stats.media ?? "—"} />
       </div>
@@ -181,8 +175,7 @@ export function NpsDemosTab() {
           <SelectContent>
             <SelectItem value="todos">Todos</SelectItem>
             <SelectItem value="respondidos">Somente respondidos</SelectItem>
-            <SelectItem value="pendentes">Enviados sem resposta</SelectItem>
-            <SelectItem value="falhados">Falhados / não enviados</SelectItem>
+            <SelectItem value="sem_resposta">Sem resposta</SelectItem>
           </SelectContent>
         </Select>
         <span className="text-xs text-muted-foreground">{filtered.length} registro(s)</span>
@@ -201,7 +194,7 @@ export function NpsDemosTab() {
               <tr>
                 <th className="text-left p-3">Participante</th>
                 <th className="text-left p-3">Curso / Turma</th>
-                <th className="text-left p-3">Data de envio</th>
+                <th className="text-left p-3">Data da inscrição</th>
                 <th className="text-left p-3">Data da resposta</th>
                 <th className="text-left p-3">NPS</th>
                 <th className="text-left p-3">Satisfação</th>
@@ -220,16 +213,12 @@ export function NpsDemosTab() {
                       <div>{r.course_title}</div>
                       <div className="text-xs text-muted-foreground">{r.turma_label} · fim {fmt(r.end_date)}</div>
                     </td>
-                    <td className="p-3 whitespace-nowrap">
-                      {r.sent_at ? fmtDT(r.sent_at) : <Badge variant="destructive" className="text-[10px]">não enviado</Badge>}
-                    </td>
+                    <td className="p-3 whitespace-nowrap">{fmtDT(r.enrolled_at)}</td>
                     <td className="p-3 whitespace-nowrap">
                       {r.responded_at ? (
                         fmtDT(r.responded_at)
-                      ) : r.sent_at ? (
-                        <Badge variant="secondary" className="text-[10px]">aguardando</Badge>
                       ) : (
-                        "—"
+                        <Badge variant="secondary" className="text-[10px]">sem resposta</Badge>
                       )}
                     </td>
                     <td className="p-3">
