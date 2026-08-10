@@ -83,6 +83,38 @@ const STATUS_LABEL: Record<EvolutionStatus, string> = {
 const formatCheckedAt = (iso: string | null | undefined) =>
   iso ? new Date(iso).toLocaleString("pt-BR") : "nunca verificado";
 
+const ROLE_ORDER = ["vendedor", "cs", "suporte", "marketing"] as const;
+const ROLE_LABEL: Record<string, string> = {
+  vendedor: "Vendedores",
+  cs: "Customer Success",
+  suporte: "Suporte",
+  marketing: "Marketing",
+};
+
+/** Mostra o estado real gravado no banco — sem badges decorativos. */
+function ConnectionCell({ member }: { member: TeamMember }) {
+  const individual = member.evolution_enabled
+    ? member.evolution_status === "connected"
+      ? { label: "Individual conectado", cls: "bg-green-600 text-white" }
+      : { label: "Individual desconectado", cls: "bg-destructive text-destructive-foreground" }
+    : null;
+  const grupos = member.evo_go_enabled
+    ? member.evo_go_status === "connected"
+      ? { label: "Grupos conectados", cls: "bg-green-600 text-white" }
+      : { label: "Grupos desconectados", cls: "bg-destructive text-destructive-foreground" }
+    : null;
+
+  if (!individual && !grupos) {
+    return <span className="text-xs text-muted-foreground">sem integração</span>;
+  }
+  return (
+    <div className="flex flex-wrap gap-1">
+      {individual && <Badge className={`${individual.cls} text-[10px]`}>{individual.label}</Badge>}
+      {grupos && <Badge className={`${grupos.cls} text-[10px]`}>{grupos.label}</Badge>}
+    </div>
+  );
+}
+
 function EvolutionStatusBadge({ status }: { status: EvolutionStatus }) {
   if (status === "open") return <Badge className="bg-green-600 text-white text-[10px]">🟢 Conectado</Badge>;
   if (status === "connecting") return <Badge className="bg-yellow-500 text-white text-[10px]">🟡 Aguardando QR</Badge>;
