@@ -5,7 +5,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, Star, Send, CheckCircle2, ThumbsUp, ThumbsDown, Minus } from "lucide-react";
+import { Loader2, Star, Send, CheckCircle2, ThumbsUp, ThumbsDown, Minus, Sparkles } from "lucide-react";
+import { useNpsQuestionInsights } from "@/hooks/useNpsQuestionInsights";
 
 interface NpsRow {
   enrollment_id: string;
@@ -160,6 +161,8 @@ export function CoursesNpsTab() {
   }, [rows]);
 
   const filtered = rows.filter((r) => {
+    return true;
+  }) && rows.filter((r) => {
     if (filter === "respondidos" && !r.responded_at) return false;
     if (filter === "pendentes" && (!r.sent_at || r.responded_at)) return false;
     if (filter === "falhados" && r.sent_at) return false;
