@@ -146,10 +146,8 @@ export function CoursesNpsTab() {
       const counts = [1, 2, 3, 4, 5].map((s) => values.filter((v) => v === s).length);
       const total = values.length;
       const avg = total ? values.reduce((a, b) => a + b, 0) / total : null;
-      // Mesma classificação do NPS (nota×2): 5 = promotor, 4 = neutro, ≤3 = detrator
-      const promo = counts[4];
-      const detr = counts[0] + counts[1] + counts[2];
-      const score = total ? Math.round(((promo - detr) / total) * 100) : null;
+      // Cada estrela mantém seu valor literal: 1→1, 2→2, 3→3, 4→4 e 5→5.
+      const score = avg;
       return { label, counts, total, avg, score };
     };
     return [
@@ -319,9 +317,9 @@ function QuestionDistribution({
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0">
             <div className="text-xs text-muted-foreground line-clamp-2">{label}</div>
-            <div className="text-2xl font-bold mt-1">{score ?? "—"}</div>
+            <div className="text-2xl font-bold mt-1">{score != null ? `${score.toFixed(1)}/5` : "—"}</div>
             <div className="text-xs text-muted-foreground mt-1">
-              Média <span className="font-semibold text-foreground">{avg ? `${avg.toFixed(1)}/5` : "—"}</span>
+              <span className="font-semibold text-foreground">{total}</span> resposta(s)
             </div>
           </div>
           <div className="flex items-end gap-1.5 h-24">
