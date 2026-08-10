@@ -140,25 +140,12 @@ async function resolveLead(
   // 1. CNPJ/CPF do checkout (tax_ids) — identidade forte.
   for (const raw of hints?.taxIds ?? []) {
     const d = String(raw ?? "").replace(/\D/g, "");
-    if (d.length === 14) {
-      const { data } = await supabase
-        .from("lia_attendances")
-        .select("id")
-        .is("merged_into", null)
-        .eq("empresa_cnpj", d)
-        .limit(1)
-        .maybeSingle();
-      if (data?.id) return data.id as string;
-    } else if (d.length === 11) {
-      const { data } = await supabase
-        .from("lia_attendances")
-        .select("id")
-        .is("merged_into", null)
-        .eq("pessoa_cpf", d)
-        .limit(1)
-        .maybeSingle();
-      if (data?.id) return data.id as string;
-    }
+    if (d.length !== 14 && d.length !== 11) continue;
+    // Casa ignorando pontuação: o CRM pode guardar "21.257.735/0001-75"
+    // enquanto o Stripe envia só dígitos (e vice-versa).
+    const { data } = await supabase.rpc("fn_find_lead_by_tax_id", { _tax_id: d });
+    const hit = Array.isArray(data) ? data[0] : null;
+    if (hit?.lead_id) return hit.lead_id as string;
   }
 
   const normalized = normalizeBrazilianPhone(phoneRaw ?? undefined);
@@ -196,6 +183,124 @@ function buildTitle(mapped: string, amount: number | null, currency: string | nu
     .replace(/^stripe_/, "")
     .replace(/_/g, " ");
   return [`Stripe: ${label}`, money, productName].filter(Boolean).join(" — ");
+}
+
+/** Assinatura (mensalidade) vs pagamento único (ativação). */
+function isSubscriptionEvent(event: Stripe.Event): boolean {
+  const obj = event.data.object as any;
+  if (event.type.startsWith("customer.subscription")) return true;
+  if (obj?.mode === "subscription") return true;
+  if (obj?.subscription || obj?.parent?.subscription_details?.subscription) return true;
+  const names = [obj?.metadata?.product, ...(extractProducts(event).map((p) => p.name) ?? [])]
+    .filter(Boolean).join(" ").toLowerCase();
+  if (/mensalidade|monthly|recorren/.test(names)) return true;
+  const lines: any[] = obj?.lines?.data ?? obj?.line_items?.data ?? [];
+  return lines.some((li) => li?.price?.recurring || li?.plan);
+}
+
+function subscriptionIdOf(event: Stripe.Event): string | null {
+  const obj = event.data.object as any;
+  if (event.type.startsWith("customer.subscription")) return obj?.id ?? null;
+  const s = obj?.subscription ?? obj?.parent?.subscription_details?.subscription ?? null;
+  return typeof s === "string" ? s : s?.id ?? null;
+}
+
+function periodEndOf(event: Stripe.Event): string | null {
+  const obj = event.data.object as any;
+  const ts =
+    obj?.current_period_end ??
+    obj?.items?.data?.[0]?.current_period_end ??
+    obj?.lines?.data?.[0]?.period?.end ??
+    null;
+  return typeof ts === "number" ? new Date(ts * 1000).toISOString() : null;
+}
+
+/** Espelha a assinatura em stripe_subscriptions (status, vencimento, MRR do painel RMS). */
+async function upsertSubscription(event: Stripe.Event, leadId: string, products: Array<{ name: string | null }>) {
+  const subId = subscriptionIdOf(event);
+  if (!subId) return;
+  const obj = event.data.object as any;
+  const customerId = typeof obj?.customer === "string" ? obj.customer : obj?.customer?.id ?? null;
+
+  let status: string | null = event.type.startsWith("customer.subscription") ? obj?.status ?? null : null;
+  let cancelAtPeriodEnd: boolean | null = event.type.startsWith("customer.subscription")
+    ? Boolean(obj?.cancel_at_period_end)
+    : null;
+  let canceledAt: string | null = typeof obj?.canceled_at === "number"
+    ? new Date(obj.canceled_at * 1000).toISOString()
+    : null;
+  let periodEnd = periodEndOf(event);
+  let productName = products.map((p) => p.name).filter(Boolean)[0] ?? obj?.metadata?.product ?? null;
+
+  // invoice.paid não traz o estado da assinatura: busca na API quando possível.
+  if ((!status || !periodEnd) && STRIPE_SECRET_KEY) {
+    try {
+      const s = await getStripe().subscriptions.retrieve(subId);
+      status = status ?? s.status ?? null;
+      cancelAtPeriodEnd = cancelAtPeriodEnd ?? Boolean((s as any).cancel_at_period_end);
+      canceledAt = canceledAt ?? (typeof (s as any).canceled_at === "number" ? new Date((s as any).canceled_at * 1000).toISOString() : null);
+      const pe = (s as any).current_period_end ?? (s as any).items?.data?.[0]?.current_period_end ?? null;
+      periodEnd = periodEnd ?? (typeof pe === "number" ? new Date(pe * 1000).toISOString() : null);
+      productName = productName ?? ((s as any).items?.data?.[0]?.price?.nickname ?? null);
+    } catch (e) {
+      console.error("[stripe-webhook] subscriptions.retrieve failed:", (e as Error).message);
+    }
+  }
+
+  const row: Record<string, unknown> = {
+    stripe_subscription_id: subId,
+    stripe_customer_id: customerId,
+    lead_id: leadId,
+    status: status ?? (event.type === "invoice.paid" ? "active" : null),
+    product: productName,
+    current_period_end: periodEnd,
+    cancel_at_period_end: cancelAtPeriodEnd,
+    canceled_at: canceledAt,
+    platform: obj?.metadata?.platform ?? null,
+    updated_at: new Date().toISOString(),
+  };
+  for (const k of Object.keys(row)) if (row[k] === null || row[k] === undefined) delete row[k];
+  row.stripe_subscription_id = subId;
+  row.lead_id = leadId;
+
+  const { error } = await supabase
+    .from("stripe_subscriptions")
+    .upsert(row, { onConflict: "stripe_subscription_id" });
+  if (error) console.error("[stripe-webhook] subscription upsert error:", error);
+}
+
+/** Marca a mensalidade paga nas unidades (dongles) já existentes do lead. */
+async function markMensalidadePaid(leadId: string, paidAt: Date, periodEnd: string | null, customerId: string | null, productName: string | null) {
+  const { data: units } = await supabase
+    .from("stripe_payment_units")
+    .select("id, paid_at")
+    .eq("lead_id", leadId)
+    .order("paid_at", { ascending: true });
+
+  const dueDate = (periodEnd ? new Date(periodEnd) : paidAt).toISOString().slice(0, 10);
+
+  if (units?.length) {
+    const ids = units.map((u: any) => u.id);
+    const { error } = await supabase
+      .from("stripe_payment_units")
+      .update({ mensalidade_data: dueDate, mensalidade_status: "Paga" })
+      .in("id", ids);
+    if (error) console.error("[stripe-webhook] mensalidade update error:", error);
+    return;
+  }
+
+  // Nenhuma unidade ainda (mensalidade chegou antes da ativação): cria uma para
+  // o cliente aparecer no painel RMS.
+  const { error } = await supabase.from("stripe_payment_units").insert({
+    lead_id: leadId,
+    stripe_customer_id: customerId,
+    unit_index: 1,
+    product_name: productName,
+    paid_at: paidAt.toISOString(),
+    mensalidade_data: dueDate,
+    mensalidade_status: "Paga",
+  } as any);
+  if (error) console.error("[stripe-webhook] mensalidade unit insert error:", error);
 }
 
 async function handle(req: Request): Promise<Response> {
@@ -348,8 +453,36 @@ async function handle(req: Request): Promise<Response> {
       .eq("event_id", event.id);
   }
 
+  const recurring = isSubscriptionEvent(event);
+  const paidAtDate = new Date(event.created * 1000);
+
+  // Espelha a assinatura (status/vencimento) para o painel RMS
+  if (recurring) {
+    try {
+      await upsertSubscription(event, leadId, products);
+    } catch (e) {
+      console.error("[stripe-webhook] upsertSubscription error:", (e as Error).message);
+    }
+  }
+
+  // Mensalidade paga → atualiza as unidades existentes em vez de criar linha nova
+  if (recurring && (event.type === "invoice.paid" || event.type === "checkout.session.completed")) {
+    try {
+      await markMensalidadePaid(
+        leadId,
+        paidAtDate,
+        periodEndOf(event),
+        customer.stripe_customer_id,
+        products.map((p) => p.name).filter(Boolean)[0] ?? internalProduct,
+      );
+    } catch (e) {
+      console.error("[stripe-webhook] markMensalidadePaid error:", (e as Error).message);
+    }
+  }
+
   // Expand into stripe_payment_units (one row per dongle unit) on checkout.completed
-  if (event.type === "checkout.session.completed") {
+  // Somente compras de ativação criam unidade — mensalidade recorrente não gera dongle novo.
+  if (event.type === "checkout.session.completed" && !recurring) {
     // Build unit rows. Attempt to expand via listLineItems, but never let a
     // Stripe API error skip the insert — always fall back to a single unit
     // row so the RMS dashboard reflects the payment.
@@ -385,7 +518,9 @@ async function handle(req: Request): Promise<Response> {
         unit_index: idx + 1,
         unit_total: u.unit_total,
         product_name: u.product_name,
-        paid_at: new Date(event.created * 1000).toISOString(),
+        paid_at: paidAtDate.toISOString(),
+        ativacao_data: paidAtDate.toISOString().slice(0, 10),
+        ativacao_status: "Pendente",
       }));
       const { error: unitsErr } = await supabase
         .from("stripe_payment_units")
