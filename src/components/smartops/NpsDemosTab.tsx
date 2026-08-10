@@ -262,6 +262,7 @@ export function NpsDemosTab() {
   );
 
   const filtered = participants.filter((p) => {
+    if (!p.lastResponse) return false; // NPS é obrigatório: só entram participantes que responderam
     const q = search.trim().toLowerCase();
     if (!q) return true;
     return [p.name, p.email, p.comment].some((v) => (v || "").toLowerCase().includes(q));
