@@ -10,10 +10,9 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Send, Loader2, Trash2 } from "lucide-react";
+import { Plus, Loader2, Trash2 } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { SmartOpsSellerAutomations } from "./SmartOpsSellerAutomations";
 
@@ -188,13 +187,6 @@ export function SmartOpsTeam() {
   };
 
   useEffect(() => () => stopPolling(), []);
-
-  // WhatsApp test state
-  const [testDialogOpen, setTestDialogOpen] = useState(false);
-  const [testMember, setTestMember] = useState<TeamMember | null>(null);
-  const [testPhone, setTestPhone] = useState("");
-  const [testMessage, setTestMessage] = useState("Olá! Esta é uma mensagem de teste do WhatsApp. 🚀");
-  const [testSending, setTestSending] = useState(false);
 
   const fetchMembers = async () => {
     const { data } = await supabase.from("team_members").select("*").order("role").order("nome_completo");
@@ -757,30 +749,6 @@ export function SmartOpsTeam() {
         </Table>
       </CardContent>
     </Card>
-
-    {/* WhatsApp Test Dialog */}
-    <Dialog open={testDialogOpen} onOpenChange={setTestDialogOpen}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Testar Envio WhatsApp — {testMember?.nome_completo}</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-4">
-          <div>
-            <Label>Telefone destino</Label>
-            <Input value={testPhone} onChange={(e) => setTestPhone(e.target.value)} placeholder="+5511999999999" />
-          </div>
-          <div>
-            <Label>Mensagem</Label>
-            <Textarea value={testMessage} onChange={(e) => setTestMessage(e.target.value)} rows={3} />
-          </div>
-          <Button onClick={handleTestSend} disabled={testSending} className="w-full">
-            <Send className="w-4 h-4 mr-2" />
-            {testSending ? "Enviando..." : "Enviar teste"}
-          </Button>
-          <p className="text-xs text-muted-foreground">Modo teste: a mensagem será enviada e registrada nos logs com sufixo _test.</p>
-        </div>
-      </DialogContent>
-    </Dialog>
 
     {/* Evolution QR Dialog */}
     <Dialog
