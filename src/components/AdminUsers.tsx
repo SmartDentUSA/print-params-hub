@@ -16,9 +16,19 @@ interface UserData {
   id: string;
   email: string;
   created_at: string;
-  role: 'admin' | 'author' | 'user' | 'distribuidor';
+  last_sign_in_at?: string | null;
+  roles: Array<'admin' | 'author' | 'user' | 'distribuidor'>;
   email_confirmed: boolean;
 }
+
+type Role = 'admin' | 'author' | 'user' | 'distribuidor';
+
+const ROLE_LABEL: Record<Role, string> = {
+  admin: 'Admin',
+  author: 'Autor',
+  distribuidor: 'Distribuição',
+  user: 'Usuário',
+};
 
 export function AdminUsers() {
   const [users, setUsers] = useState<UserData[]>([]);
@@ -40,33 +50,19 @@ export function AdminUsers() {
   const loadUsers = async () => {
     try {
       setLoading(true);
-      
-      // Get users from auth.users (this would need a server function in real implementation)
-      // For now, we'll simulate with some data since we can't directly query auth.users
-      const mockUsers: UserData[] = [
-        {
-          id: "089ab19a-83dd-45ca-94c8-8190d8403283",
-          email: "danilohen@gmail.com",
-          created_at: "2025-09-03T11:49:51.900912+00:00",
-          role: 'admin',
-          email_confirmed: true
-        },
-        {
-          id: "123e4567-e89b-12d3-a456-426614174000",
-          email: "user@example.com", 
-          created_at: "2025-09-01T10:30:00.000000+00:00",
-          role: 'user',
-          email_confirmed: true
-        }
-      ];
-      
-      setUsers(mockUsers);
-    } catch (error) {
+
+      const { data, error } = await supabase.functions.invoke('list-users');
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      setUsers(data?.users ?? []);
+    } catch (error: any) {
       toast({
         title: "Erro ao carregar usuários",
-        description: "Não foi possível carregar a lista de usuários.",
+        description: error?.message || "Não foi possível carregar a lista de usuários.",
         variant: "destructive",
       });
+      setUsers([]);
     } finally {
       setLoading(false);
     }
@@ -121,7 +117,7 @@ export function AdminUsers() {
     }
   };
 
-  const handleUpdateUserRole = async (userId: string, newRole: 'admin' | 'author' | 'user' | 'distribuidor') => {
+  const handleUpdateUserRole = async (userId: string, newRole: Role) => {
     try {
       // Update role in user_roles table
       const { error } = await supabase
@@ -133,10 +129,7 @@ export function AdminUsers() {
 
       if (error) throw error;
 
-      // Update local state
-      setUsers(users.map(user => 
-        user.id === userId ? { ...user, role: newRole } : user
-      ));
+      await loadUsers();
 
       toast({
         title: "Permissão atualizada",
