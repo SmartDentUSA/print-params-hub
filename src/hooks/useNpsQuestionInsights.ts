@@ -9,19 +9,23 @@ export interface NpsQuestionStat {
   score: number | null;
 }
 
-/** Análise por pergunta gerada pela IA do sistema (Lovable AI Gateway). */
-export function useNpsQuestionInsights(surveyLabel: string, questions: NpsQuestionStat[]) {
+/** Análise por pergunta gerada pela IA do sistema, com dossiê histórico real (cursos, turmas, segmentos, comentários). */
+export function useNpsQuestionInsights(
+  surveyLabel: string,
+  questions: NpsQuestionStat[],
+  surveyType: "pos_treinamento" | "demonstracao_ao_vivo" = "pos_treinamento",
+) {
   const hasData = questions.some((q) => q.total > 0);
   const signature = JSON.stringify(questions.map((q) => [q.total, q.avg, q.score, q.counts]));
 
   const { data, isLoading } = useQuery({
-    queryKey: ["nps-question-insights", surveyLabel, signature],
+    queryKey: ["nps-question-insights", surveyLabel, surveyType, signature],
     enabled: hasData,
     staleTime: 30 * 60 * 1000,
     retry: false,
     queryFn: async (): Promise<Record<number, string>> => {
       const { data, error } = await supabase.functions.invoke("nps-question-insight", {
-        body: { survey_label: surveyLabel, questions },
+        body: { survey_label: surveyLabel, survey_type: surveyType, questions },
       });
       if (error) throw error;
       const out: Record<number, string> = {};
