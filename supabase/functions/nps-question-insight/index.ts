@@ -260,16 +260,14 @@ ${context.text}`;
     }
 
     const data = await res.json();
-    const raw =
-      data?.output_text ??
-      (Array.isArray(data?.output)
-        ? data.output
-            .flatMap((o: any) => (Array.isArray(o?.content) ? o.content : []))
-            .filter((c: any) => c?.type === "output_text" || typeof c?.text === "string")
-            .map((c: any) => c.text)
-            .join("")
-        : "") ||
-      "{}";
+    const joined = Array.isArray(data?.output)
+      ? data.output
+          .flatMap((o: any) => (Array.isArray(o?.content) ? o.content : []))
+          .filter((c: any) => c?.type === "output_text" || typeof c?.text === "string")
+          .map((c: any) => c.text)
+          .join("")
+      : "";
+    const raw = String(data?.output_text || joined || "{}");
     let parsed: any = {};
     try { parsed = JSON.parse(raw); } catch { parsed = {}; }
     const list = Array.isArray(parsed?.insights) ? parsed.insights : [];
