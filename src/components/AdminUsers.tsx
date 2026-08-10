@@ -11,6 +11,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Users, UserPlus, Trash2, Edit, Shield, User, Truck } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { useActiveTeamMembers } from "@/hooks/useActiveTeamMembers";
 
 interface UserData {
   id: string;
@@ -42,6 +43,7 @@ export function AdminUsers() {
   const [isCreating, setIsCreating] = useState(false);
   const [createdCredentials, setCreatedCredentials] = useState<{email: string, password: string} | null>(null);
   const { toast } = useToast();
+  const { data: teamMembers = [], isLoading: loadingMembers } = useActiveTeamMembers();
 
   useEffect(() => {
     loadUsers();
@@ -235,6 +237,30 @@ export function AdminUsers() {
                     </>
                   ) : (
                     <>
+                      <div>
+                        <Label htmlFor="team-member">Team member</Label>
+                        <Select
+                          value={newUserEmail || undefined}
+                          onValueChange={(value) => setNewUserEmail(value)}
+                          disabled={isCreating || loadingMembers}
+                        >
+                          <SelectTrigger id="team-member">
+                            <SelectValue placeholder={loadingMembers ? "Carregando..." : "Selecione um team member"} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {teamMembers
+                              .filter((m) => !!m.email)
+                              .map((m) => (
+                                <SelectItem key={m.id} value={m.email as string}>
+                                  {m.nome_completo}{m.role ? ` — ${m.role}` : ""} ({m.email})
+                                </SelectItem>
+                              ))}
+                          </SelectContent>
+                        </Select>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Ou digite um email manualmente abaixo.
+                        </p>
+                      </div>
                       <div>
                         <Label htmlFor="email">Email</Label>
                         <Input
