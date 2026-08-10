@@ -526,7 +526,13 @@ export function SmartOpsTeam() {
               <DialogTitle>{editing ? "Editar Membro" : "Novo Membro"}</DialogTitle>
               <DialogDescription>Configure dados pessoais e credenciais de mensageria (WhatsApp, Evolution API e Evolution GO).</DialogDescription>
             </DialogHeader>
-            <div className="space-y-4">
+            <Tabs defaultValue="dados" className="mt-2">
+              <TabsList className="w-full">
+                <TabsTrigger value="dados" className="flex-1">Dados do membro</TabsTrigger>
+                <TabsTrigger value="wa" className="flex-1">WhatsApp individual</TabsTrigger>
+                <TabsTrigger value="grupos" className="flex-1">Grupos (EvoGo)</TabsTrigger>
+              </TabsList>
+              <TabsContent value="dados" className="space-y-4 pt-2">
               <div><Label>Nome Completo</Label><Input value={form.nome_completo} onChange={(e) => handleNameChange(e.target.value)} /></div>
               <div><Label>Email</Label><Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></div>
               <div><Label>WhatsApp (+55...)</Label><Input value={form.whatsapp_number} onChange={(e) => setForm({ ...form, whatsapp_number: e.target.value })} placeholder="+5511999999999" /></div>
@@ -546,7 +552,9 @@ export function SmartOpsTeam() {
               <Separator className="my-2" />
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Configurações ManyChat</p>
               <div><Label>API Key ManyChat</Label><Input type="password" value={form.manychat_api_key} onChange={(e) => setForm({ ...form, manychat_api_key: e.target.value })} placeholder="Bearer token do ManyChat" /></div>
-              <Separator className="my-2" />
+              </TabsContent>
+
+              <TabsContent value="wa" className="space-y-4 pt-2">
               {form.evolution_enabled && form.evo_go_enabled && evolutionStatus === "open" && evoGoStatus === "open" && (
                 <div className="rounded-md border border-emerald-500/40 bg-emerald-500/10 p-2 text-[11px] leading-relaxed">
                   <p className="font-semibold">Modo dual ativo</p>
@@ -631,7 +639,9 @@ export function SmartOpsTeam() {
               <Button variant="outline" onClick={connectWhatsApp} disabled={evoConnecting} className="w-full">
                 📱 {evoConnecting ? "Conectando..." : "Conectar WhatsApp"}
               </Button>
-              <Separator className="my-2" />
+              </TabsContent>
+
+              <TabsContent value="grupos" className="space-y-4 pt-2">
               <div className="flex items-center justify-between">
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">EvolutionGO — grupos</p>
                 <button
@@ -693,8 +703,9 @@ export function SmartOpsTeam() {
               >
                 📱 Conectar WhatsApp (EvoGo)
               </Button>
-              <Button onClick={handleSave} className="w-full">Salvar</Button>
-            </div>
+              </TabsContent>
+            </Tabs>
+            <Button onClick={handleSave} className="w-full">Salvar</Button>
           </DialogContent>
         </Dialog>
       </CardHeader>
