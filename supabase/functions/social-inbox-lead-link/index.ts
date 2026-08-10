@@ -104,6 +104,71 @@ serve(async (req) => {
   };
 
   try {
+    // Identifica contatos do Zernio (Instagram/Facebook/WhatsApp) contra a base de leads
+    // e registra os IDs de plataforma na timeline do lead.
+    if (action === 'link_contacts') {
+      const limit = Math.min(Number(body.limit ?? 300), 1000);
+      const onlyUnlinked = body.only_unlinked !== false;
+      let q = supabase.from('social_contacts')
+        .select('ig_user_id, ig_username, channel, lead_id, custom_fields, last_seen_at')
+        .order('last_seen_at', { ascending: false, nullsFirst: false })
+        .limit(limit);
+      if (onlyUnlinked) q = q.is('lead_id', null);
+      if (body.channel && body.channel !== 'all') q = q.eq('channel', String(body.channel));
+      const { data: contacts, error: cErr } = await q;
+      if (cErr) return json({ error: cErr.message }, 500);
+
+      let linked = 0, timeline = 0;
+      const details: any[] = [];
+      for (const c of contacts ?? []) {
+        const identifier = String((c.custom_fields as any)?.platformIdentifier ?? c.ig_user_id ?? '');
+        const { lead, matched_by } = await findLead({
+          name: (c.custom_fields as any)?.name ?? c.ig_username,
+          username: c.ig_username,
+          text: [identifier, (c.custom_fields as any)?.email, (c.custom_fields as any)?.phone].filter(Boolean).join('\n'),
+        });
+        if (!lead) continue;
+        linked++;
+        const channel = String(c.channel ?? 'instagram');
+        await supabase.from('social_contacts')
+          .update({ lead_id: lead.id, custom_fields: { ...(c.custom_fields as any ?? {}), lead_matched_by: matched_by } })
+          .eq('ig_user_id', c.ig_user_id);
+
+        // @instagram do lead fica preenchido quando ainda estiver vazio
+        if (channel === 'instagram' && !lead.instagram && c.ig_username) {
+          await supabase.from('lia_attendances')
+            .update({ instagram: `@${String(c.ig_username).replace(/^@/, '')}` })
+            .eq('id', lead.id);
+        }
+
+        const hash = `social_identity:${channel}:${c.ig_user_id}`;
+        const { data: exists } = await supabase.from('lead_activity_log')
+          .select('id').eq('dedupe_hash', hash).limit(1);
+        if (!exists?.length) {
+          const { error: iErr } = await supabase.from('lead_activity_log').insert({
+            lead_id: lead.id,
+            event_type: 'social_identity_linked',
+            event_timestamp: c.last_seen_at ?? new Date().toISOString(),
+            source_channel: `zernio_${channel}`,
+            entity_type: 'social_contact',
+            entity_id: String(c.ig_user_id),
+            entity_name: c.ig_username ?? identifier ?? 'Contato social',
+            event_data: {
+              platform: channel,
+              platform_user_id: String(c.ig_user_id),
+              platform_identifier: identifier || null,
+              username: c.ig_username ?? null,
+              matched_by,
+            },
+            dedupe_hash: hash,
+          } as any);
+          if (!iErr) timeline++;
+        }
+        details.push({ contact_id: c.ig_user_id, channel, lead_id: lead.id, nome: lead.nome, matched_by });
+      }
+      return json({ scanned: contacts?.length ?? 0, linked, timeline_events: timeline, details: details.slice(0, 50) });
+    }
+
     if (action === 'resolve') {
       const items: any[] = Array.isArray(body.conversations) ? body.conversations : [];
       const results: any[] = [];

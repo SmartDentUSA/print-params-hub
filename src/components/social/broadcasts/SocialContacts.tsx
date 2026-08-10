@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Users, Search, RefreshCw, Copy } from 'lucide-react';
+import { Users, Search, RefreshCw, Copy, UserCheck } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
@@ -24,6 +24,7 @@ export function SocialContacts() {
   const [q, setQ] = useState('');
   const [platform, setPlatform] = useState<PlatformFilter>('all');
   const [syncing, setSyncing] = useState(false);
+  const [linking, setLinking] = useState(false);
 
   const { data: contacts, isLoading } = useQuery({
     queryKey: ['social-contacts', q, platform],
@@ -45,6 +46,20 @@ export function SocialContacts() {
     },
   });
 
+  const leadIds = [...new Set((contacts ?? []).map((c: any) => c.lead_id).filter(Boolean))] as string[];
+  const { data: leadNames } = useQuery({
+    queryKey: ['social-contacts-leads', leadIds.join(',')],
+    enabled: leadIds.length > 0,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('lia_attendances')
+        .select('id, nome, real_status')
+        .in('id', leadIds.slice(0, 500));
+      if (error) throw error;
+      return Object.fromEntries((data ?? []).map((l: any) => [l.id, l]));
+    },
+  });
+
   const sync = async () => {
     setSyncing(true);
     try {
@@ -59,6 +74,23 @@ export function SocialContacts() {
     } finally { setSyncing(false); }
   };
 
+  const linkLeads = async () => {
+    setLinking(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('social-inbox-lead-link', {
+        body: { action: 'link_contacts', limit: 500, channel: platform },
+      });
+      if (error) throw error;
+      if ((data as any)?.error) throw new Error((data as any).error);
+      const d = data as any;
+      toast.success(`${d.linked ?? 0} contato(s) vinculado(s) a leads · ${d.timeline_events ?? 0} evento(s) na timeline`);
+      qc.invalidateQueries({ queryKey: ['social-contacts'] });
+      qc.invalidateQueries({ queryKey: ['social-contacts-leads'] });
+    } catch (e: any) {
+      toast.error(`Falha ao identificar leads: ${e.message ?? e}`);
+    } finally { setLinking(false); }
+  };
+
   const copy = (txt: string) => {
     navigator.clipboard.writeText(txt).then(() => toast.success('Copiado'));
   };
@@ -70,10 +102,16 @@ export function SocialContacts() {
           <h1 className="text-2xl font-bold flex items-center gap-2"><Users className="w-6 h-6" /> Contacts</h1>
           <p className="text-sm text-muted-foreground">Manage contacts across all platforms (Zernio)</p>
         </div>
-        <Button onClick={sync} disabled={syncing} variant="outline">
-          <RefreshCw className={`w-4 h-4 mr-1.5 ${syncing ? 'animate-spin' : ''}`} />
-          {syncing ? 'Sincronizando…' : 'Sincronizar Zernio'}
-        </Button>
+        <div className="flex gap-2">
+          <Button onClick={linkLeads} disabled={linking} variant="outline" title="Casa os contatos com a base de leads e grava os IDs de Instagram/Facebook na timeline">
+            <UserCheck className={`w-4 h-4 mr-1.5 ${linking ? 'animate-pulse' : ''}`} />
+            {linking ? 'Identificando…' : 'Identificar leads'}
+          </Button>
+          <Button onClick={sync} disabled={syncing} variant="outline">
+            <RefreshCw className={`w-4 h-4 mr-1.5 ${syncing ? 'animate-spin' : ''}`} />
+            {syncing ? 'Sincronizando…' : 'Sincronizar Zernio'}
+          </Button>
+        </div>
       </header>
 
       <div className="flex flex-wrap gap-2 items-center">
@@ -102,6 +140,7 @@ export function SocialContacts() {
                 <th className="p-3">Contato</th>
                 <th className="p-3">Plataforma</th>
                 <th className="p-3">Telefone / ID</th>
+                <th className="p-3">Lead</th>
                 <th className="p-3">Tags</th>
                 <th className="p-3">Inscrito</th>
                 <th className="p-3">Visto</th>
@@ -131,6 +170,17 @@ export function SocialContacts() {
                           <Copy className="w-3 h-3" /> {secondary}
                         </button>
                       ) : <span className="text-xs text-muted-foreground">—</span>}
+                    </td>
+                    <td className="p-3">
+                      {c.lead_id ? (
+                        <a href={`/admin/leads?lead=${c.lead_id}`} className="inline-flex items-center gap-1 text-xs hover:underline">
+                          <Badge variant="outline" className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30">
+                            {leadNames?.[c.lead_id]?.nome ?? 'Lead'}
+                          </Badge>
+                        </a>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">sem cadastro</span>
+                      )}
                     </td>
                     <td className="p-3">{(c.tags ?? []).slice(0, 3).map((t: string) => <Badge key={t} variant="secondary" className="mr-1">{t}</Badge>)}</td>
                     <td className="p-3">{c.subscribed ? '✓' : '✕'}</td>

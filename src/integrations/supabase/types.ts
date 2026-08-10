@@ -32480,6 +32480,13 @@ export type Database = {
       }
       fn_atualizar_parcelas_vencidas: { Args: never; Returns: undefined }
       fn_auto_update_enrollment_status: { Args: never; Returns: undefined }
+      fn_backfill_wa_inbox_lead_ids: {
+        Args: { p_limit?: number }
+        Returns: {
+          matched_conversations: number
+          updated_rows: number
+        }[]
+      }
       fn_calc_workflow_score: {
         Args: { p_lead_id: string }
         Returns: undefined
@@ -33133,6 +33140,22 @@ export type Database = {
           form_name: string
           lead_id: string
           nome: string
+        }[]
+      }
+      fn_resolve_wa_inbox_leads: {
+        Args: { p_keys: string[] }
+        Returns: {
+          conv_key: string
+          email: string
+          etapa: string
+          funil: string
+          is_customer: boolean
+          lead_id: string
+          matched_by: string
+          nome: string
+          real_status: string
+          telefone: string
+          vendedor: string
         }[]
       }
       fn_resumo_familias: {

@@ -134,54 +134,39 @@ export function SmartOpsWhatsAppInbox({ refreshKey }: { refreshKey: number }) {
     }
 
     const convs = [...map.values()];
-    const last8 = (v?: string | null) => (v || "").replace(/\D/g, "").slice(-8);
 
-    const leadIds = [...new Set(convs.filter(c => c.lead_id).map(c => c.lead_id!))];
-    const phoneKeys = [...new Set(
-      convs
-        .filter(c => !c.is_group)
-        .map(c => (c.phone_normalized || c.phone_raw || "").replace(/\D/g, ""))
-        // Ignora identificadores internos do WhatsApp (@lid) — não são telefones
-        .filter(p => p.length >= 12)
-    )];
+    // Match server-side: telefone (últimos 8 dígitos), @lid, telefone alternativo e da empresa
+    const keys = [...new Set(convs.filter(c => !c.is_group).map(c => c.phone_normalized || c.phone_raw).filter(Boolean))];
+    const byKey = new Map<string, any>();
+    if (keys.length > 0) {
+      const { data: matches, error: mErr } = await supabase.rpc("fn_resolve_wa_inbox_leads", { p_keys: keys });
+      if (mErr) console.error("Erro no match de leads:", mErr);
+      for (const m of (matches as any[]) ?? []) byKey.set(m.conv_key, m);
+    }
 
-    const leadRows: any[] = [];
+    const leadIds = [...new Set([
+      ...convs.filter(c => c.lead_id).map(c => c.lead_id!),
+      ...[...byKey.values()].map((m: any) => m.lead_id),
+    ])];
+    const byId = new Map<string, any>();
     if (leadIds.length > 0) {
       const { data } = await supabase
         .from("lia_attendances")
-        .select("id, nome, telefone_normalized, telefone_raw, piperun_pipeline_name, funil_entrada_crm, piperun_stage_name, proprietario_lead_crm, cs_treinamento, data_treinamento")
-        .in("id", leadIds);
-      if (data) leadRows.push(...data);
-    }
-    if (phoneKeys.length > 0) {
-      // lia_attendances.telefone_normalized é gravado como "+55DDXXXXXXXXX"
-      const variants = [...new Set(phoneKeys.flatMap(p => {
-        const base = p.startsWith("55") ? p : "55" + p;
-        return [`+${base}`, base, `+${base.slice(2)}`];
-      }))];
-      const { data } = await supabase
-        .from("lia_attendances")
-        .select("id, nome, telefone_normalized, telefone_raw, piperun_pipeline_name, funil_entrada_crm, piperun_stage_name, proprietario_lead_crm, cs_treinamento, data_treinamento")
-        .is("merged_into", null)
-        .in("telefone_normalized", variants.slice(0, 400));
-      if (data) leadRows.push(...data);
-    }
-
-    const byId = new Map(leadRows.map(l => [l.id, l]));
-    const byPhone = new Map<string, any>();
-    for (const l of leadRows) {
-      const k = last8(l.telefone_normalized || l.telefone_raw);
-      if (k && !byPhone.has(k)) byPhone.set(k, l);
+        .select("id, nome, piperun_pipeline_name, funil_entrada_crm, piperun_stage_name, proprietario_lead_crm, cs_treinamento, data_treinamento")
+        .in("id", leadIds.slice(0, 500));
+      for (const l of data ?? []) byId.set(l.id, l);
     }
 
     for (const conv of convs) {
-      const lead = (conv.lead_id && byId.get(conv.lead_id)) || (!conv.is_group ? byPhone.get(last8(conv.phone_normalized || conv.phone_raw)) : null);
-      if (!lead) continue;
-      conv.lead_id = conv.lead_id || lead.id;
-      conv.lead_name = lead.nome || conv.lead_name;
-      conv.funil = lead.piperun_pipeline_name || lead.funil_entrada_crm || null;
-      conv.vendedor = lead.proprietario_lead_crm || null;
-      conv.treinamento = lead.cs_treinamento
+      const match = byKey.get(conv.phone_normalized) || byKey.get(conv.phone_raw);
+      const leadId = conv.lead_id || match?.lead_id || null;
+      if (!leadId) continue;
+      const lead = byId.get(leadId);
+      conv.lead_id = leadId;
+      conv.lead_name = lead?.nome || match?.nome || conv.lead_name;
+      conv.funil = lead?.piperun_pipeline_name || lead?.funil_entrada_crm || match?.funil || null;
+      conv.vendedor = lead?.proprietario_lead_crm || match?.vendedor || null;
+      conv.treinamento = lead?.cs_treinamento
         ? `${lead.cs_treinamento}${lead.data_treinamento ? ` • ${new Date(lead.data_treinamento).toLocaleDateString("pt-BR")}` : ""}`
         : null;
     }
@@ -265,12 +250,17 @@ export function SmartOpsWhatsAppInbox({ refreshKey }: { refreshKey: number }) {
   const handleResolveIdentities = async () => {
     setResolving(true);
     try {
+      const { data: bf, error: bfErr } = await supabase.rpc("fn_backfill_wa_inbox_lead_ids", { p_limit: 5000 });
+      if (bfErr) throw bfErr;
+      const row = Array.isArray(bf) ? (bf as any[])[0] : (bf as any);
       const { data, error } = await supabase.functions.invoke("smart-ops-wa-resolve-lid", {
         body: { dry_run: false, limit: 5000, enable_name_match: false },
       });
       if (error) throw error;
       const d = data as any;
-      toast.success(`${d?.updated_rows ?? 0} conversas vinculadas por telefone`);
+      toast.success(
+        `${Number(row?.updated_rows ?? 0) + Number(d?.updated_rows ?? 0)} mensagens vinculadas a leads (${row?.matched_conversations ?? 0} conversas identificadas)`,
+      );
       loadConversations();
     } catch (err) {
       toast.error(`Erro ao resolver identidades: ${err instanceof Error ? err.message : String(err)}`);

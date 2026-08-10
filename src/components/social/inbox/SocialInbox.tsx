@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -64,6 +64,17 @@ export function SocialInbox() {
 
   const messages = (msgData?.messages ?? []).slice().sort(
     (a, b) => new Date(a.sentAt ?? a.createdAt ?? 0).getTime() - new Date(b.sentAt ?? b.createdAt ?? 0).getTime());
+
+  // Grava automaticamente a conversa na timeline do lead identificado (silencioso, 1x por conversa)
+  const autoLogged = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    if (!selected || !selectedMatch?.lead?.id || messages.length === 0) return;
+    const key = `${selected.id}:${messages.length}`;
+    if (autoLogged.current.has(key)) return;
+    autoLogged.current.add(key);
+    logTimeline.mutate({ conversation: selected, messages, leadId: selectedMatch.lead.id, silent: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selected?.id, selectedMatch?.lead?.id, messages.length]);
 
   const onSend = () => {
     const text = draft.trim();
