@@ -57,6 +57,38 @@ Deno.serve(async (req) => {
     });
     if (eIns) throw eIns;
 
+    // Timeline: NPS answers belong to the lead's single source of truth.
+    if (enr.lead_id) {
+      const media = (
+        (body.score_satisfacao + body.score_treinamentos + body.score_recomendacao) / 3
+      ).toFixed(1);
+      await supabase
+        .from("lead_activity_log")
+        .insert({
+          lead_id: enr.lead_id,
+          event_type: "nps_respondido",
+          entity_type: "course_enrollment",
+          entity_id: enr.id,
+          entity_name: "NPS pós-inscrição",
+          source_channel: "formulario_publico",
+          value_numeric: Number(media),
+          event_data: {
+            score_satisfacao: body.score_satisfacao,
+            score_treinamentos: body.score_treinamentos,
+            score_recomendacao: body.score_recomendacao,
+            comment: body.comment ?? null,
+            description: [
+              `NPS respondido (média ${media})`,
+              `Satisfação: ${body.score_satisfacao}`,
+              `Treinamentos: ${body.score_treinamentos}`,
+              `Recomendação: ${body.score_recomendacao}`,
+              ...(body.comment ? [`Observação: ${body.comment}`] : []),
+            ].join("\n"),
+          },
+        })
+        .then(() => {}, (e) => console.warn("[nps-activity]", e));
+    }
+
     return new Response(JSON.stringify({ ok: true }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
