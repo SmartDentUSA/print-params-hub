@@ -32226,6 +32226,10 @@ export type Database = {
         }[]
       }
       fn_is_pipeline_venda: { Args: { pipeline: string }; Returns: boolean }
+      fn_is_rayshape_edge_printer: {
+        Args: { p_name: string }
+        Returns: boolean
+      }
       fn_itens_propostas_ganhas_mes: {
         Args: { p_ano?: number; p_mes?: number }
         Returns: {
