@@ -10155,6 +10155,7 @@ export type Database = {
           erp_status: string | null
           erp_updated_at: string | null
           especialidade: string | null
+          facebook_psid: string | null
           form_data: Json | null
           form_name: string | null
           forma_pagamento: string | null
@@ -10215,6 +10216,7 @@ export type Database = {
           imprime_resinas_ld: string | null
           informacao_desejada: string | null
           instagram: string | null
+          instagram_user_id: string | null
           insumos_adquiridos: string | null
           integrador_contact_synced_at: string | null
           intelligence_score: Json | null
@@ -10592,6 +10594,7 @@ export type Database = {
           tem_impressora: string | null
           tem_scanner: string | null
           temperatura_lead: string | null
+          tiktok_user_id: string | null
           timeline_cad: Json | null
           timeline_cursos: Json | null
           timeline_finalizacao: Json | null
@@ -10769,6 +10772,7 @@ export type Database = {
           erp_status?: string | null
           erp_updated_at?: string | null
           especialidade?: string | null
+          facebook_psid?: string | null
           form_data?: Json | null
           form_name?: string | null
           forma_pagamento?: string | null
@@ -10829,6 +10833,7 @@ export type Database = {
           imprime_resinas_ld?: string | null
           informacao_desejada?: string | null
           instagram?: string | null
+          instagram_user_id?: string | null
           insumos_adquiridos?: string | null
           integrador_contact_synced_at?: string | null
           intelligence_score?: Json | null
@@ -11206,6 +11211,7 @@ export type Database = {
           tem_impressora?: string | null
           tem_scanner?: string | null
           temperatura_lead?: string | null
+          tiktok_user_id?: string | null
           timeline_cad?: Json | null
           timeline_cursos?: Json | null
           timeline_finalizacao?: Json | null
@@ -11383,6 +11389,7 @@ export type Database = {
           erp_status?: string | null
           erp_updated_at?: string | null
           especialidade?: string | null
+          facebook_psid?: string | null
           form_data?: Json | null
           form_name?: string | null
           forma_pagamento?: string | null
@@ -11443,6 +11450,7 @@ export type Database = {
           imprime_resinas_ld?: string | null
           informacao_desejada?: string | null
           instagram?: string | null
+          instagram_user_id?: string | null
           insumos_adquiridos?: string | null
           integrador_contact_synced_at?: string | null
           intelligence_score?: Json | null
@@ -11820,6 +11828,7 @@ export type Database = {
           tem_impressora?: string | null
           tem_scanner?: string | null
           temperatura_lead?: string | null
+          tiktok_user_id?: string | null
           timeline_cad?: Json | null
           timeline_cursos?: Json | null
           timeline_finalizacao?: Json | null
@@ -21864,8 +21873,11 @@ export type Database = {
           is_follower: boolean | null
           last_seen_at: string | null
           lead_id: string | null
+          phone_e164: string | null
+          platform_user_id: string | null
           subscribed: boolean | null
           tags: string[] | null
+          zernio_contact_id: string | null
         }
         Insert: {
           channel?: string | null
@@ -21877,8 +21889,11 @@ export type Database = {
           is_follower?: boolean | null
           last_seen_at?: string | null
           lead_id?: string | null
+          phone_e164?: string | null
+          platform_user_id?: string | null
           subscribed?: boolean | null
           tags?: string[] | null
+          zernio_contact_id?: string | null
         }
         Update: {
           channel?: string | null
@@ -21890,8 +21905,11 @@ export type Database = {
           is_follower?: boolean | null
           last_seen_at?: string | null
           lead_id?: string | null
+          phone_e164?: string | null
+          platform_user_id?: string | null
           subscribed?: boolean | null
           tags?: string[] | null
+          zernio_contact_id?: string | null
         }
         Relationships: [
           {
@@ -32645,6 +32663,14 @@ export type Database = {
           top_vendedor_rec: number
         }[]
       }
+      fn_find_lead_by_social_id: {
+        Args: { _channel: string; _platform_user_id: string }
+        Returns: {
+          lead_id: string
+          matched_by: string
+          nome: string
+        }[]
+      }
       fn_form_leads_sem_piperun: {
         Args: never
         Returns: {
@@ -33516,6 +33542,7 @@ export type Database = {
           erp_status: string | null
           erp_updated_at: string | null
           especialidade: string | null
+          facebook_psid: string | null
           form_data: Json | null
           form_name: string | null
           forma_pagamento: string | null
@@ -33576,6 +33603,7 @@ export type Database = {
           imprime_resinas_ld: string | null
           informacao_desejada: string | null
           instagram: string | null
+          instagram_user_id: string | null
           insumos_adquiridos: string | null
           integrador_contact_synced_at: string | null
           intelligence_score: Json | null
@@ -33953,6 +33981,7 @@ export type Database = {
           tem_impressora: string | null
           tem_scanner: string | null
           temperatura_lead: string | null
+          tiktok_user_id: string | null
           timeline_cad: Json | null
           timeline_cursos: Json | null
           timeline_finalizacao: Json | null
