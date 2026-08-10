@@ -33248,6 +33248,18 @@ export type Database = {
         Args: { p_lead_id: string }
         Returns: undefined
       }
+      fn_team_seller_stats: {
+        Args: { _months?: number }
+        Returns: {
+          conversao: number
+          deals_ganhos: number
+          deals_total: number
+          member_id: string
+          nome_completo: string
+          receita: number
+          ultimo_ganho: string
+        }[]
+      }
       fn_tendencia_receita: {
         Args: { p_meses?: number }
         Returns: {

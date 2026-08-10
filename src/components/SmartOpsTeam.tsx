@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -9,10 +9,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Textarea } from "@/components/ui/textarea";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Send, Loader2, Trash2 } from "lucide-react";
+import { Plus, Loader2, Trash2 } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { SmartOpsSellerAutomations } from "./SmartOpsSellerAutomations";
 
@@ -81,6 +81,38 @@ const STATUS_LABEL: Record<EvolutionStatus, string> = {
 
 const formatCheckedAt = (iso: string | null | undefined) =>
   iso ? new Date(iso).toLocaleString("pt-BR") : "nunca verificado";
+
+const ROLE_ORDER = ["vendedor", "cs", "suporte", "marketing"] as const;
+const ROLE_LABEL: Record<string, string> = {
+  vendedor: "Vendedores",
+  cs: "Customer Success",
+  suporte: "Suporte",
+  marketing: "Marketing",
+};
+
+/** Mostra o estado real gravado no banco — sem badges decorativos. */
+function ConnectionCell({ member }: { member: TeamMember }) {
+  const individual = member.evolution_enabled
+    ? member.evolution_status === "connected"
+      ? { label: "Individual conectado", cls: "bg-green-600 text-white" }
+      : { label: "Individual desconectado", cls: "bg-destructive text-destructive-foreground" }
+    : null;
+  const grupos = member.evo_go_enabled
+    ? member.evo_go_status === "connected"
+      ? { label: "Grupos conectados", cls: "bg-green-600 text-white" }
+      : { label: "Grupos desconectados", cls: "bg-destructive text-destructive-foreground" }
+    : null;
+
+  if (!individual && !grupos) {
+    return <span className="text-xs text-muted-foreground">sem integração</span>;
+  }
+  return (
+    <div className="flex flex-wrap gap-1">
+      {individual && <Badge className={`${individual.cls} text-[10px]`}>{individual.label}</Badge>}
+      {grupos && <Badge className={`${grupos.cls} text-[10px]`}>{grupos.label}</Badge>}
+    </div>
+  );
+}
 
 function EvolutionStatusBadge({ status }: { status: EvolutionStatus }) {
   if (status === "open") return <Badge className="bg-green-600 text-white text-[10px]">🟢 Conectado</Badge>;
@@ -155,13 +187,6 @@ export function SmartOpsTeam() {
   };
 
   useEffect(() => () => stopPolling(), []);
-
-  // WhatsApp test state
-  const [testDialogOpen, setTestDialogOpen] = useState(false);
-  const [testMember, setTestMember] = useState<TeamMember | null>(null);
-  const [testPhone, setTestPhone] = useState("");
-  const [testMessage, setTestMessage] = useState("Olá! Esta é uma mensagem de teste do WhatsApp. 🚀");
-  const [testSending, setTestSending] = useState(false);
 
   const fetchMembers = async () => {
     const { data } = await supabase.from("team_members").select("*").order("role").order("nome_completo");
@@ -477,38 +502,11 @@ export function SmartOpsTeam() {
     fetchMembers();
   };
 
-  const openTestWhatsApp = (m: TeamMember) => {
-    setTestMember(m);
-    setTestPhone(m.whatsapp_number);
-    setTestMessage("Olá! Esta é uma mensagem de teste do WhatsApp. 🚀");
-    setTestDialogOpen(true);
-  };
-
-  const handleTestSend = async () => {
-    if (!testMember || !testPhone) return;
-    setTestSending(true);
-    try {
-      const { data, error } = await supabase.functions.invoke("smart-ops-wa-send", {
-        body: {
-          team_member_id: testMember.id,
-          phone: testPhone,
-          tipo: "text",
-          message: testMessage,
-          test_mode: true,
-        },
-      });
-      if (error) throw error;
-      if (data?.success) {
-        toast({ title: "✅ Mensagem enviada!", description: `Enviado para ${testPhone}` });
-      } else {
-        toast({ title: "⚠️ Falha no envio", description: data?.response || "Verifique a API Key", variant: "destructive" });
-      }
-    } catch (err) {
-      toast({ title: "Erro", description: String(err), variant: "destructive" });
-    } finally {
-      setTestSending(false);
-    }
-  };
+  const grouped = members.reduce<Record<string, TeamMember[]>>((acc, m) => {
+    const key = ROLE_ORDER.includes(m.role as (typeof ROLE_ORDER)[number]) ? m.role : "suporte";
+    (acc[key] ||= []).push(m);
+    return acc;
+  }, {});
 
   if (loading) return <div className="text-center py-12 text-muted-foreground">Carregando equipe...</div>;
 
@@ -526,7 +524,13 @@ export function SmartOpsTeam() {
               <DialogTitle>{editing ? "Editar Membro" : "Novo Membro"}</DialogTitle>
               <DialogDescription>Configure dados pessoais e credenciais de mensageria (WhatsApp, Evolution API e Evolution GO).</DialogDescription>
             </DialogHeader>
-            <div className="space-y-4">
+            <Tabs defaultValue="dados" className="mt-2">
+              <TabsList className="w-full">
+                <TabsTrigger value="dados" className="flex-1">Dados do membro</TabsTrigger>
+                <TabsTrigger value="wa" className="flex-1">WhatsApp individual</TabsTrigger>
+                <TabsTrigger value="grupos" className="flex-1">Grupos (EvoGo)</TabsTrigger>
+              </TabsList>
+              <TabsContent value="dados" className="space-y-4 pt-2">
               <div><Label>Nome Completo</Label><Input value={form.nome_completo} onChange={(e) => handleNameChange(e.target.value)} /></div>
               <div><Label>Email</Label><Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></div>
               <div><Label>WhatsApp (+55...)</Label><Input value={form.whatsapp_number} onChange={(e) => setForm({ ...form, whatsapp_number: e.target.value })} placeholder="+5511999999999" /></div>
@@ -546,7 +550,9 @@ export function SmartOpsTeam() {
               <Separator className="my-2" />
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Configurações ManyChat</p>
               <div><Label>API Key ManyChat</Label><Input type="password" value={form.manychat_api_key} onChange={(e) => setForm({ ...form, manychat_api_key: e.target.value })} placeholder="Bearer token do ManyChat" /></div>
-              <Separator className="my-2" />
+              </TabsContent>
+
+              <TabsContent value="wa" className="space-y-4 pt-2">
               {form.evolution_enabled && form.evo_go_enabled && evolutionStatus === "open" && evoGoStatus === "open" && (
                 <div className="rounded-md border border-emerald-500/40 bg-emerald-500/10 p-2 text-[11px] leading-relaxed">
                   <p className="font-semibold">Modo dual ativo</p>
@@ -631,7 +637,9 @@ export function SmartOpsTeam() {
               <Button variant="outline" onClick={connectWhatsApp} disabled={evoConnecting} className="w-full">
                 📱 {evoConnecting ? "Conectando..." : "Conectar WhatsApp"}
               </Button>
-              <Separator className="my-2" />
+              </TabsContent>
+
+              <TabsContent value="grupos" className="space-y-4 pt-2">
               <div className="flex items-center justify-between">
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">EvolutionGO — grupos</p>
                 <button
@@ -693,8 +701,9 @@ export function SmartOpsTeam() {
               >
                 📱 Conectar WhatsApp (EvoGo)
               </Button>
-              <Button onClick={handleSave} className="w-full">Salvar</Button>
-            </div>
+              </TabsContent>
+            </Tabs>
+            <Button onClick={handleSave} className="w-full">Salvar</Button>
           </DialogContent>
         </Dialog>
       </CardHeader>
@@ -702,75 +711,44 @@ export function SmartOpsTeam() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Nome</TableHead>
-              <TableHead>Email</TableHead>
+              <TableHead>Membro</TableHead>
               <TableHead>WhatsApp</TableHead>
-              <TableHead>Piperun ID</TableHead>
-              <TableHead>Função</TableHead>
-              <TableHead>Integrações</TableHead>
-              <TableHead>Ativo</TableHead>
-              <TableHead></TableHead>
+              <TableHead>Conexão WhatsApp</TableHead>
+              <TableHead className="w-20">Ativo</TableHead>
+              <TableHead className="w-32 text-right">Ações</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {members.map((m) => (
-              <TableRow key={m.id}>
-                <TableCell className="font-medium">{m.nome_completo}</TableCell>
-                <TableCell>{m.email}</TableCell>
-                <TableCell className="font-mono text-xs">{m.whatsapp_number}</TableCell>
-                <TableCell className="font-mono text-xs">{m.piperun_owner_id || "—"}</TableCell>
-                <TableCell><Badge variant="outline">{m.role}</Badge></TableCell>
-                <TableCell className="space-x-1">
-                  {m.manychat_api_key ? <Badge className="bg-green-600 text-white text-[10px]">MC</Badge> : null}
-                  {m.messaging_provider === "evolution" ? <Badge className="bg-purple-600 text-white text-[10px]">EV</Badge> : null}
-                  {m.messaging_provider === "evolution_go" ? <Badge className="bg-fuchsia-500 text-white text-[10px]">EG</Badge> : null}
-                  {m.evolution_enabled && m.evo_go_enabled && m.evolution_status === "connected" && m.evo_go_status === "connected" ? (
-                    <Badge className="bg-emerald-600 text-white text-[10px]">DUAL</Badge>
-                  ) : null}
-                  {!m.manychat_api_key && m.messaging_provider !== "evolution" && m.messaging_provider !== "evolution_go" && <span className="text-muted-foreground text-xs">—</span>}
-                </TableCell>
-                <TableCell><Switch checked={m.ativo} onCheckedChange={() => toggleAtivo(m)} /></TableCell>
-                <TableCell className="space-x-1">
-                  <Button variant="ghost" size="sm" onClick={() => openEdit(m)}>Editar</Button>
-                  {m.evolution_instance_name && (
-                    <Button variant="outline" size="sm" onClick={() => openTestWhatsApp(m)}>
-                      <Send className="w-3 h-3 mr-1" /> Testar WA
-                    </Button>
-                  )}
-                  <Button variant="destructive" size="sm" onClick={() => setDeleteTarget(m)} title="Excluir membro">
-                    <Trash2 className="w-3 h-3" />
-                  </Button>
-                </TableCell>
-              </TableRow>
+            {ROLE_ORDER.filter((r) => grouped[r]?.length).map((role) => (
+              <Fragment key={role}>
+                <TableRow className="bg-muted/50 hover:bg-muted/50">
+                  <TableCell colSpan={5} className="py-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    {ROLE_LABEL[role] || role} · {grouped[role].length}
+                  </TableCell>
+                </TableRow>
+                {grouped[role].map((m) => (
+                  <TableRow key={m.id}>
+                    <TableCell>
+                      <div className="font-medium">{m.nome_completo}</div>
+                      <div className="text-xs text-muted-foreground">{m.email}</div>
+                    </TableCell>
+                    <TableCell className="font-mono text-xs">{m.whatsapp_number || "—"}</TableCell>
+                    <TableCell><ConnectionCell member={m} /></TableCell>
+                    <TableCell><Switch checked={m.ativo} onCheckedChange={() => toggleAtivo(m)} /></TableCell>
+                    <TableCell className="text-right space-x-1">
+                      <Button variant="ghost" size="sm" onClick={() => openEdit(m)}>Editar</Button>
+                      <Button variant="ghost" size="sm" onClick={() => setDeleteTarget(m)} title="Excluir membro">
+                        <Trash2 className="w-3.5 h-3.5 text-destructive" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </Fragment>
             ))}
           </TableBody>
         </Table>
       </CardContent>
     </Card>
-
-    {/* WhatsApp Test Dialog */}
-    <Dialog open={testDialogOpen} onOpenChange={setTestDialogOpen}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Testar Envio WhatsApp — {testMember?.nome_completo}</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-4">
-          <div>
-            <Label>Telefone destino</Label>
-            <Input value={testPhone} onChange={(e) => setTestPhone(e.target.value)} placeholder="+5511999999999" />
-          </div>
-          <div>
-            <Label>Mensagem</Label>
-            <Textarea value={testMessage} onChange={(e) => setTestMessage(e.target.value)} rows={3} />
-          </div>
-          <Button onClick={handleTestSend} disabled={testSending} className="w-full">
-            <Send className="w-4 h-4 mr-2" />
-            {testSending ? "Enviando..." : "Enviar teste"}
-          </Button>
-          <p className="text-xs text-muted-foreground">Modo teste: a mensagem será enviada e registrada nos logs com sufixo _test.</p>
-        </div>
-      </DialogContent>
-    </Dialog>
 
     {/* Evolution QR Dialog */}
     <Dialog
