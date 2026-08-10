@@ -139,7 +139,7 @@ export function NpsDemosTab() {
   const stats = useMemo(() => {
     const disparados = rows.filter((r) => r.sent_at).length;
     const respondidos = rows.filter((r) => r.responded_at).length;
-    const falhados = rows.filter((r) => !r.sent_at).length;
+    const falhados = rows.filter((r) => !r.sent_at && !r.responded_at).length;
     const withScore = rows.filter((r) => r.recomendacao);
     const promotores = withScore.filter((r) => r.recomendacao! * 2 >= 9).length;
     const detratores = withScore.filter((r) => r.recomendacao! * 2 <= 6).length;
@@ -153,7 +153,7 @@ export function NpsDemosTab() {
   const filtered = rows.filter((r) => {
     if (filter === "respondidos" && !r.responded_at) return false;
     if (filter === "pendentes" && (!r.sent_at || r.responded_at)) return false;
-    if (filter === "falhados" && r.sent_at) return false;
+    if (filter === "falhados" && (r.sent_at || r.responded_at)) return false;
     const q = search.trim().toLowerCase();
     if (!q) return true;
     return [r.person_name, r.course_title, r.turma_label, r.comment].some((v) => (v || "").toLowerCase().includes(q));
