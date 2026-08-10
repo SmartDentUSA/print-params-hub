@@ -4,12 +4,28 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Loader2, Star, TrendingUp, MessageSquare, Users, CheckCircle2 } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Loader2, Star, Send, CheckCircle2, AlertTriangle, MessageSquare } from "lucide-react";
 
-const SURVEY_TYPE = "demonstracao_ao_vivo";
-// Origem do NPS de Demonstrações: formulário público usado nos Cursos Online
-const ORIGIN_FORM_SLUG = "curso-online-qualificacao";
+interface NpsRow {
+  enrollment_id: string;
+  person_name: string;
+  course_title: string;
+  turma_label: string;
+  end_date: string | null;
+  sent_at: string | null;
+  status: string | null;
+  responded_at: string | null;
+  satisfacao: number | null;
+  treinamentos: number | null;
+  recomendacao: number | null;
+  comment: string | null;
+}
+
 const ONLINE_MODALITIES = ["online", "online_ao_vivo"];
+
+const fmt = (d?: string | null) =>
+  d ? new Date(d).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" }) : "—";
 
 const fmtDT = (d?: string | null) =>
   d
@@ -29,246 +45,191 @@ function Stars({ value }: { value: number | null }) {
       {[1, 2, 3, 4, 5].map((i) => (
         <Star
           key={i}
-          className={
-            i <= value ? "w-3.5 h-3.5 fill-amber-400 text-amber-400" : "w-3.5 h-3.5 text-muted-foreground/40"
-          }
+          className={i <= value ? "w-3.5 h-3.5 fill-amber-400 text-amber-400" : "w-3.5 h-3.5 text-muted-foreground/40"}
         />
       ))}
     </span>
   );
 }
 
-function npsClass(recomendacao: number | null) {
+function npsLabel(recomendacao: number | null) {
   if (!recomendacao) return null;
   const nps10 = recomendacao * 2;
   const cls = nps10 >= 9 ? "Promotor" : nps10 >= 7 ? "Neutro" : "Detrator";
   const color =
-    cls === "Promotor"
-      ? "bg-emerald-500/15 text-emerald-600"
-      : cls === "Neutro"
-      ? "bg-amber-500/15 text-amber-600"
-      : "bg-red-500/15 text-red-600";
+    cls === "Promotor" ? "bg-emerald-500/15 text-emerald-600" : cls === "Neutro" ? "bg-amber-500/15 text-amber-600" : "bg-red-500/15 text-red-600";
   return { nps10, cls, color };
-}
-
-interface Row {
-  id: string;
-  person_name: string;
-  course_id: string | null;
-  course_title: string;
-  created_at: string;
-  satisfacao: number | null;
-  demos: number | null;
-  recomendacao: number | null;
-  comment: string | null;
-  lead_id: string | null;
 }
 
 export function NpsDemosTab() {
   const [search, setSearch] = useState("");
+  const [filter, setFilter] = useState<"todos" | "respondidos" | "pendentes" | "falhados">("todos");
 
   const { data, isLoading } = useQuery({
-    queryKey: ["smartops-nps-demos"],
-    queryFn: async () => {
-      const { data: responses, error } = await supabase
-        .from("smartops_nps_responses")
-        .select(
-          "id, enrollment_id, course_id, lead_id, email, score_satisfacao, score_treinamentos, score_recomendacao, comment, created_at, survey_type",
-        )
-        .eq("survey_type", SURVEY_TYPE)
-        .order("created_at", { ascending: false })
+    queryKey: ["smartops-nps-demos-overview"],
+    queryFn: async (): Promise<NpsRow[]> => {
+      const { data: enrollments, error } = await supabase
+        .from("smartops_course_enrollments")
+        .select("id, person_name, nps_sent_at, nps_status, turma_id, course_id")
+        .order("nps_sent_at", { ascending: false, nullsFirst: false })
         .limit(1000);
       if (error) throw error;
-      const resp = responses || [];
+      const rows = enrollments || [];
+      const turmaIds = [...new Set(rows.map((r: any) => r.turma_id).filter(Boolean))];
+      const courseIds = [...new Set(rows.map((r: any) => r.course_id).filter(Boolean))];
+      const enrollmentIds = rows.map((r: any) => r.id);
 
-      const enrollmentIds = [...new Set(resp.map((r: any) => r.enrollment_id).filter(Boolean))];
-      const [enrollments, courses, recentEnrollments] = await Promise.all([
+      const [turmas, courses, responses] = await Promise.all([
+        turmaIds.length
+          ? supabase.from("smartops_course_turmas").select("id, label, end_date").in("id", turmaIds)
+          : Promise.resolve({ data: [] as any[] }),
+        courseIds.length
+          ? supabase
+              .from("smartops_courses")
+              .select("id, title")
+              .in("id", courseIds)
+              .in("modality", ONLINE_MODALITIES)
+          : Promise.resolve({ data: [] as any[] }),
         enrollmentIds.length
           ? supabase
-              .from("smartops_course_enrollments")
-              .select("id, person_name, course_id")
-              .in("id", enrollmentIds)
+              .from("smartops_nps_responses")
+              .select("enrollment_id, created_at, score_satisfacao, score_treinamentos, score_recomendacao, comment")
+              .in("enrollment_id", enrollmentIds)
+              .eq("survey_type", "demonstracao_ao_vivo")
+              .order("created_at", { ascending: false })
           : Promise.resolve({ data: [] as any[] }),
-        supabase
-          .from("smartops_courses")
-          .select("id, title, modality")
-          .in("modality", ONLINE_MODALITIES)
-          .limit(1000),
-        supabase
-          .from("smartops_course_enrollments")
-          .select("id, course_id, created_at, source")
-          .order("created_at", { ascending: false })
-          .limit(3000),
       ]);
 
-      const enrMap = new Map((enrollments.data || []).map((e: any) => [e.id, e]));
+      const turmaMap = new Map((turmas.data || []).map((t: any) => [t.id, t]));
       const courseMap = new Map((courses.data || []).map((c: any) => [c.id, c.title]));
+      const respMap = new Map<string, any>();
+      for (const r of responses.data || []) if (!respMap.has(r.enrollment_id)) respMap.set(r.enrollment_id, r);
 
-      const rows: Row[] = resp.map((r: any) => {
-        const e: any = enrMap.get(r.enrollment_id);
-        return {
-          id: r.id,
-          person_name: e?.person_name || r.email || "Sem nome",
-          course_id: r.course_id ?? e?.course_id ?? null,
-          course_title: courseMap.get(r.course_id ?? e?.course_id) || "—",
-          created_at: r.created_at,
-          satisfacao: r.score_satisfacao ?? null,
-          demos: r.score_treinamentos ?? null,
-          recomendacao: r.score_recomendacao ?? null,
-          comment: r.comment ?? null,
-          lead_id: r.lead_id ?? null,
-        };
-      });
-
-      // "Em alta": inscrições dos últimos 30 dias por curso + NPS médio
-      const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000;
-      const enrollByCourse = new Map<string, number>();
-      for (const e of (recentEnrollments.data || []) as any[]) {
-        if (!e.course_id || !e.created_at) continue;
-        if (!courseMap.has(e.course_id)) continue; // só cursos online
-        if (new Date(e.created_at).getTime() < cutoff) continue;
-        enrollByCourse.set(e.course_id, (enrollByCourse.get(e.course_id) || 0) + 1);
-      }
-
-      const trending = [...enrollByCourse.entries()]
-        .map(([courseId, inscritos]) => {
-          const courseRows = rows.filter((r) => r.course_id === courseId && r.recomendacao);
-          const promot = courseRows.filter((r) => r.recomendacao! * 2 >= 9).length;
-          const detra = courseRows.filter((r) => r.recomendacao! * 2 <= 6).length;
+      const today = new Date().toISOString().slice(0, 10);
+      return rows
+        .filter((e: any) => courseMap.has(e.course_id))
+        .map((e: any) => {
+          const t: any = turmaMap.get(e.turma_id);
+          const r = respMap.get(e.id);
           return {
-            course_id: courseId,
-            title: courseMap.get(courseId) || "—",
-            inscritos,
-            respostas: courseRows.length,
-            nps: courseRows.length ? Math.round(((promot - detra) / courseRows.length) * 100) : null,
-            media: courseRows.length
-              ? (courseRows.reduce((s, r) => s + r.recomendacao! * 2, 0) / courseRows.length).toFixed(1)
-              : null,
-          };
+            enrollment_id: e.id,
+            person_name: e.person_name || "Sem nome",
+            course_title: courseMap.get(e.course_id) || "—",
+            turma_label: t?.label || "—",
+            end_date: t?.end_date ?? null,
+            sent_at: e.nps_sent_at ?? null,
+            status: e.nps_status ?? null,
+            responded_at: r?.created_at ?? null,
+            satisfacao: r?.score_satisfacao ?? null,
+            treinamentos: r?.score_treinamentos ?? null,
+            recomendacao: r?.score_recomendacao ?? null,
+            comment: r?.comment ?? null,
+          } as NpsRow;
         })
-        .sort((a, b) => b.inscritos - a.inscritos || (b.nps ?? -101) - (a.nps ?? -101))
-        .slice(0, 8);
-
-      return { rows, trending };
+        // apenas turmas já encerradas (elegíveis a NPS) ou com disparo registrado
+        .filter((r) => r.course_title !== "—")
+        .filter((r) => r.sent_at || (r.end_date && r.end_date < today));
     },
   });
 
-  const rows = data?.rows || [];
-  const trending = data?.trending || [];
+  const rows = data || [];
 
   const stats = useMemo(() => {
+    const disparados = rows.filter((r) => r.sent_at).length;
+    const respondidos = rows.filter((r) => r.responded_at).length;
+    const falhados = rows.filter((r) => !r.sent_at).length;
     const withScore = rows.filter((r) => r.recomendacao);
-    const promot = withScore.filter((r) => r.recomendacao! * 2 >= 9).length;
-    const detra = withScore.filter((r) => r.recomendacao! * 2 <= 6).length;
-    return {
-      respondidos: rows.length,
-      nps: withScore.length ? Math.round(((promot - detra) / withScore.length) * 100) : null,
-      media: withScore.length
-        ? (withScore.reduce((s, r) => s + r.recomendacao! * 2, 0) / withScore.length).toFixed(1)
-        : null,
-      comentarios: rows.filter((r) => r.comment).length,
-    };
+    const promotores = withScore.filter((r) => r.recomendacao! * 2 >= 9).length;
+    const detratores = withScore.filter((r) => r.recomendacao! * 2 <= 6).length;
+    const nps = withScore.length ? Math.round(((promotores - detratores) / withScore.length) * 100) : null;
+    const media = withScore.length
+      ? (withScore.reduce((s, r) => s + r.recomendacao! * 2, 0) / withScore.length).toFixed(1)
+      : null;
+    return { disparados, respondidos, falhados, nps, media, total: withScore.length };
   }, [rows]);
 
-  const q = search.trim().toLowerCase();
-  const filtered = rows.filter((r) =>
-    !q ? true : [r.person_name, r.course_title, r.comment].some((v) => (v || "").toLowerCase().includes(q)),
-  );
+  const filtered = rows.filter((r) => {
+    if (filter === "respondidos" && !r.responded_at) return false;
+    if (filter === "pendentes" && (!r.sent_at || r.responded_at)) return false;
+    if (filter === "falhados" && r.sent_at) return false;
+    const q = search.trim().toLowerCase();
+    if (!q) return true;
+    return [r.person_name, r.course_title, r.turma_label, r.comment].some((v) => (v || "").toLowerCase().includes(q));
+  });
 
   return (
     <div className="space-y-4">
-      <p className="text-xs text-muted-foreground">
-        Origem: formulário público <code className="font-mono">{ORIGIN_FORM_SLUG}</code> — o mesmo usado nas
-        inscrições dos Cursos Online (modalidades ao vivo/online).
-      </p>
-
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <StatCard icon={<CheckCircle2 className="w-4 h-4 text-emerald-600" />} label="Respostas" value={stats.respondidos} />
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+        <StatCard icon={<Send className="w-4 h-4" />} label="NPS disparados" value={stats.disparados} />
+        <StatCard icon={<CheckCircle2 className="w-4 h-4 text-emerald-600" />} label="Respondidos" value={stats.respondidos} />
+        <StatCard icon={<AlertTriangle className="w-4 h-4 text-red-600" />} label="Falhados / não enviados" value={stats.falhados} />
         <StatCard icon={<Star className="w-4 h-4 text-amber-500" />} label="NPS (-100 a 100)" value={stats.nps ?? "—"} />
-        <StatCard icon={<TrendingUp className="w-4 h-4" />} label="Nota média (0-10)" value={stats.media ?? "—"} />
-        <StatCard icon={<MessageSquare className="w-4 h-4" />} label="Com observação" value={stats.comentarios} />
+        <StatCard icon={<MessageSquare className="w-4 h-4" />} label="Nota média (0-10)" value={stats.media ?? "—"} />
       </div>
 
-      <Card>
-        <CardContent className="p-4 space-y-3">
-          <div className="flex items-center gap-2 text-sm font-semibold">
-            <TrendingUp className="w-4 h-4 text-emerald-600" /> Cursos Online em alta (inscrições nos últimos 30 dias)
-          </div>
-          {trending.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Sem inscrições nos últimos 30 dias.</p>
-          ) : (
-            <div className="space-y-2">
-              {trending.map((t, i) => {
-                const max = trending[0].inscritos || 1;
-                return (
-                  <div key={t.course_id} className="space-y-1">
-                    <div className="flex items-center justify-between text-sm gap-2">
-                      <span className="truncate">
-                        <span className="text-muted-foreground mr-2">#{i + 1}</span>
-                        {t.title}
-                      </span>
-                      <span className="flex items-center gap-2 shrink-0">
-                        <Badge variant="secondary" className="text-[10px]">
-                          <Users className="w-3 h-3 mr-1" />
-                          {t.inscritos}
-                        </Badge>
-                        {t.nps !== null && (
-                          <Badge variant="outline" className="text-[10px]">NPS {t.nps} · {t.media}/10</Badge>
-                        )}
-                      </span>
-                    </div>
-                    <div className="h-1.5 rounded-full bg-muted overflow-hidden">
-                      <div
-                        className="h-full bg-primary"
-                        style={{ width: `${Math.round((t.inscritos / max) * 100)}%` }}
-                      />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      <Input
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        placeholder="Buscar por participante, curso ou observação…"
-        className="max-w-sm"
-      />
+      <div className="flex items-center gap-2 flex-wrap">
+        <Input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Buscar por participante, curso, turma ou comentário…"
+          className="max-w-sm"
+        />
+        <Select value={filter} onValueChange={(v: any) => setFilter(v)}>
+          <SelectTrigger className="w-[220px]"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="todos">Todos</SelectItem>
+            <SelectItem value="respondidos">Somente respondidos</SelectItem>
+            <SelectItem value="pendentes">Enviados sem resposta</SelectItem>
+            <SelectItem value="falhados">Falhados / não enviados</SelectItem>
+          </SelectContent>
+        </Select>
+        <span className="text-xs text-muted-foreground">{filtered.length} registro(s)</span>
+      </div>
 
       {isLoading ? (
         <div className="flex items-center justify-center py-16 text-muted-foreground">
-          <Loader2 className="w-5 h-5 animate-spin mr-2" /> Carregando NPS de demonstrações…
+          <Loader2 className="w-5 h-5 animate-spin mr-2" /> Carregando NPS…
         </div>
       ) : filtered.length === 0 ? (
-        <div className="text-center py-16 text-muted-foreground text-sm">
-          Nenhuma resposta de NPS de demonstrações ao vivo ainda.
-        </div>
+        <div className="text-center py-16 text-muted-foreground text-sm">Nenhum registro de NPS encontrado.</div>
       ) : (
         <div className="rounded-xl border overflow-x-auto bg-card">
           <table className="w-full text-sm">
             <thead className="bg-muted/50 text-xs uppercase text-muted-foreground">
               <tr>
                 <th className="text-left p-3">Participante</th>
-                <th className="text-left p-3">Curso / Demonstração</th>
+                <th className="text-left p-3">Curso / Turma</th>
+                <th className="text-left p-3">Data de envio</th>
                 <th className="text-left p-3">Data da resposta</th>
                 <th className="text-left p-3">NPS</th>
                 <th className="text-left p-3">Satisfação</th>
-                <th className="text-left p-3">Demonstrações</th>
+                <th className="text-left p-3">Treinamentos</th>
                 <th className="text-left p-3">Recomendação</th>
                 <th className="text-left p-3 min-w-[260px]">Observação do participante</th>
               </tr>
             </thead>
             <tbody>
               {filtered.map((r) => {
-                const n = npsClass(r.recomendacao);
+                const n = npsLabel(r.recomendacao);
                 return (
-                  <tr key={r.id} className="border-t align-top">
+                  <tr key={r.enrollment_id} className="border-t align-top">
                     <td className="p-3 font-medium">{r.person_name}</td>
-                    <td className="p-3">{r.course_title}</td>
-                    <td className="p-3 whitespace-nowrap">{fmtDT(r.created_at)}</td>
+                    <td className="p-3">
+                      <div>{r.course_title}</div>
+                      <div className="text-xs text-muted-foreground">{r.turma_label} · fim {fmt(r.end_date)}</div>
+                    </td>
+                    <td className="p-3 whitespace-nowrap">
+                      {r.sent_at ? fmtDT(r.sent_at) : <Badge variant="destructive" className="text-[10px]">não enviado</Badge>}
+                    </td>
+                    <td className="p-3 whitespace-nowrap">
+                      {r.responded_at ? (
+                        fmtDT(r.responded_at)
+                      ) : r.sent_at ? (
+                        <Badge variant="secondary" className="text-[10px]">aguardando</Badge>
+                      ) : (
+                        "—"
+                      )}
+                    </td>
                     <td className="p-3">
                       {n ? (
                         <span className={`px-2 py-0.5 rounded-md text-xs font-semibold ${n.color}`}>
@@ -279,7 +240,7 @@ export function NpsDemosTab() {
                       )}
                     </td>
                     <td className="p-3"><Stars value={r.satisfacao} /></td>
-                    <td className="p-3"><Stars value={r.demos} /></td>
+                    <td className="p-3"><Stars value={r.treinamentos} /></td>
                     <td className="p-3"><Stars value={r.recomendacao} /></td>
                     <td className="p-3 text-muted-foreground whitespace-pre-wrap">{r.comment || "—"}</td>
                   </tr>
