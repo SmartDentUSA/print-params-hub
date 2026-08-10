@@ -24,6 +24,7 @@ const PublicLandingPage = lazy(() => import("./pages/PublicLandingPage"));
 const PublicBioPage = lazy(() => import("./pages/PublicBioPage"));
 const PublicCourseEnrollment = lazy(() => import("./pages/PublicCourseEnrollment"));
 const PublicNps = lazy(() => import("./pages/PublicNps"));
+const ProfessionalCoursePortal = lazy(() => import("./pages/ProfessionalCoursePortal"));
 const ROICalculatorPage = lazy(() => import("./pages/ROICalculatorPage"));
 const PublicDistributorRegister = lazy(() => import("./pages/PublicDistributorRegister"));
 const DistributorCountryPage = lazy(() => import("./pages/DistributorCountryPage"));
@@ -133,6 +134,9 @@ const App = () => (
 
       {/* NPS pós-treinamento (link por token, sem login) */}
       <Route path="/nps/:token" element={<PublicNps />} />
+
+      {/* Portal do profissional para cadastrar/editar seus cursos (link por token, sem login) */}
+      <Route path="/portal-cursos/:token" element={<ProfessionalCoursePortal />} />
       
       {/* English routes */}
       <Route path="/en/knowledge-base" element={<KnowledgeBase lang="en" />} />
