@@ -397,7 +397,27 @@ Deno.serve(async (req) => {
         .then(() => {}, (e) => console.warn("[activity-answers]", e));
     }
 
-    const showNps = isExistingClient || Boolean(body.is_client_smartdent);
+    let showNps = isExistingClient || Boolean(body.is_client_smartdent);
+
+    // NPS de demonstrações é obrigatório apenas 1x a cada 30 dias por lead/email.
+    if (showNps) {
+      const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+      let recent = supabase
+        .from("smartops_nps_responses")
+        .select("id")
+        .eq("survey_type", "demonstracao_ao_vivo")
+        .gte("created_at", since)
+        .limit(1);
+      if (leadId) {
+        recent = recent.eq("lead_id", leadId);
+      } else if (body.email) {
+        recent = recent.eq("email", String(body.email).toLowerCase().trim());
+      }
+      if (leadId || body.email) {
+        const { data: recentRows } = await recent;
+        if ((recentRows?.length ?? 0) > 0) showNps = false;
+      }
+    }
 
     return new Response(
       JSON.stringify({
