@@ -419,6 +419,24 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Override manual do painel: força o NPS obrigatório no próximo agendamento.
+    const overrideEmail = body.email ? String(body.email).toLowerCase().trim() : null;
+    if (overrideEmail) {
+      const { data: ov } = await supabase
+        .from("smartops_nps_demo_overrides")
+        .select("id, force_next")
+        .eq("email", overrideEmail)
+        .maybeSingle();
+      if (ov?.force_next) {
+        showNps = true;
+        await supabase
+          .from("smartops_nps_demo_overrides")
+          .update({ force_next: false, updated_at: new Date().toISOString() })
+          .eq("id", ov.id)
+          .then(() => {}, (e) => console.warn("[nps-override-consume]", e));
+      }
+    }
+
     return new Response(
       JSON.stringify({
         ok: true,
