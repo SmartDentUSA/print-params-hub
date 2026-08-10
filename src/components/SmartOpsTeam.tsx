@@ -714,46 +714,39 @@ export function SmartOpsTeam() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Nome</TableHead>
-              <TableHead>Email</TableHead>
+              <TableHead>Membro</TableHead>
               <TableHead>WhatsApp</TableHead>
-              <TableHead>Piperun ID</TableHead>
-              <TableHead>Função</TableHead>
-              <TableHead>Integrações</TableHead>
-              <TableHead>Ativo</TableHead>
-              <TableHead></TableHead>
+              <TableHead>Conexão WhatsApp</TableHead>
+              <TableHead className="w-20">Ativo</TableHead>
+              <TableHead className="w-32 text-right">Ações</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {members.map((m) => (
-              <TableRow key={m.id}>
-                <TableCell className="font-medium">{m.nome_completo}</TableCell>
-                <TableCell>{m.email}</TableCell>
-                <TableCell className="font-mono text-xs">{m.whatsapp_number}</TableCell>
-                <TableCell className="font-mono text-xs">{m.piperun_owner_id || "—"}</TableCell>
-                <TableCell><Badge variant="outline">{m.role}</Badge></TableCell>
-                <TableCell className="space-x-1">
-                  {m.manychat_api_key ? <Badge className="bg-green-600 text-white text-[10px]">MC</Badge> : null}
-                  {m.messaging_provider === "evolution" ? <Badge className="bg-purple-600 text-white text-[10px]">EV</Badge> : null}
-                  {m.messaging_provider === "evolution_go" ? <Badge className="bg-fuchsia-500 text-white text-[10px]">EG</Badge> : null}
-                  {m.evolution_enabled && m.evo_go_enabled && m.evolution_status === "connected" && m.evo_go_status === "connected" ? (
-                    <Badge className="bg-emerald-600 text-white text-[10px]">DUAL</Badge>
-                  ) : null}
-                  {!m.manychat_api_key && m.messaging_provider !== "evolution" && m.messaging_provider !== "evolution_go" && <span className="text-muted-foreground text-xs">—</span>}
-                </TableCell>
-                <TableCell><Switch checked={m.ativo} onCheckedChange={() => toggleAtivo(m)} /></TableCell>
-                <TableCell className="space-x-1">
-                  <Button variant="ghost" size="sm" onClick={() => openEdit(m)}>Editar</Button>
-                  {m.evolution_instance_name && (
-                    <Button variant="outline" size="sm" onClick={() => openTestWhatsApp(m)}>
-                      <Send className="w-3 h-3 mr-1" /> Testar WA
-                    </Button>
-                  )}
-                  <Button variant="destructive" size="sm" onClick={() => setDeleteTarget(m)} title="Excluir membro">
-                    <Trash2 className="w-3 h-3" />
-                  </Button>
-                </TableCell>
-              </TableRow>
+            {ROLE_ORDER.filter((r) => grouped[r]?.length).map((role) => (
+              <>
+                <TableRow key={`h-${role}`} className="bg-muted/50 hover:bg-muted/50">
+                  <TableCell colSpan={5} className="py-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    {ROLE_LABEL[role] || role} · {grouped[role].length}
+                  </TableCell>
+                </TableRow>
+                {grouped[role].map((m) => (
+                  <TableRow key={m.id}>
+                    <TableCell>
+                      <div className="font-medium">{m.nome_completo}</div>
+                      <div className="text-xs text-muted-foreground">{m.email}</div>
+                    </TableCell>
+                    <TableCell className="font-mono text-xs">{m.whatsapp_number || "—"}</TableCell>
+                    <TableCell><ConnectionCell member={m} /></TableCell>
+                    <TableCell><Switch checked={m.ativo} onCheckedChange={() => toggleAtivo(m)} /></TableCell>
+                    <TableCell className="text-right space-x-1">
+                      <Button variant="ghost" size="sm" onClick={() => openEdit(m)}>Editar</Button>
+                      <Button variant="ghost" size="sm" onClick={() => setDeleteTarget(m)} title="Excluir membro">
+                        <Trash2 className="w-3.5 h-3.5 text-destructive" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </>
             ))}
           </TableBody>
         </Table>
