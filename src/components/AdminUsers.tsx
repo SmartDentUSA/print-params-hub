@@ -308,6 +308,7 @@ export function AdminUsers() {
                   <TableHead>Permissão</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Criado em</TableHead>
+                  <TableHead>Último acesso</TableHead>
                   <TableHead>Ações</TableHead>
                 </TableRow>
               </TableHeader>
@@ -316,17 +317,31 @@ export function AdminUsers() {
                   <TableRow key={user.id}>
                     <TableCell className="font-medium">{user.email}</TableCell>
                     <TableCell>
-                      <Badge variant={user.role === 'admin' ? 'default' : user.role === 'author' ? 'outline' : 'secondary'}>
-                        {user.role === 'admin' ? (
-                          <><Shield className="w-3 h-3 mr-1" /> Admin</>
-                        ) : user.role === 'author' ? (
-                          <><Edit className="w-3 h-3 mr-1" /> Autor</>
-                        ) : user.role === 'distribuidor' ? (
-                          <><Truck className="w-3 h-3 mr-1" /> Distribuição</>
+                      <div className="flex flex-wrap gap-1">
+                        {user.roles.length === 0 ? (
+                          <Badge variant="secondary">
+                            <User className="w-3 h-3 mr-1" /> Sem permissão
+                          </Badge>
                         ) : (
-                          <><User className="w-3 h-3 mr-1" /> Usuário</>
+                          user.roles.map((role) => (
+                            <Badge
+                              key={role}
+                              variant={role === 'admin' ? 'default' : role === 'author' ? 'outline' : 'secondary'}
+                            >
+                              {role === 'admin' ? (
+                                <Shield className="w-3 h-3 mr-1" />
+                              ) : role === 'author' ? (
+                                <Edit className="w-3 h-3 mr-1" />
+                              ) : role === 'distribuidor' ? (
+                                <Truck className="w-3 h-3 mr-1" />
+                              ) : (
+                                <User className="w-3 h-3 mr-1" />
+                              )}
+                              {ROLE_LABEL[role]}
+                            </Badge>
+                          ))
                         )}
-                      </Badge>
+                      </div>
                     </TableCell>
                     <TableCell>
                       <Badge variant={user.email_confirmed ? 'outline' : 'destructive'}>
@@ -335,6 +350,11 @@ export function AdminUsers() {
                     </TableCell>
                     <TableCell>
                       {new Date(user.created_at).toLocaleDateString('pt-BR')}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {user.last_sign_in_at
+                        ? new Date(user.last_sign_in_at).toLocaleDateString('pt-BR')
+                        : '—'}
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
@@ -367,11 +387,11 @@ export function AdminUsers() {
                               <div>
                                 <Label>Permissão Atual</Label>
                                 <Select 
-                                  value={user.role} 
-                                  onValueChange={(value: 'admin' | 'author' | 'user' | 'distribuidor') => handleUpdateUserRole(user.id, value)}
+                                  value={user.roles[0] ?? undefined}
+                                  onValueChange={(value: Role) => handleUpdateUserRole(user.id, value)}
                                 >
                                   <SelectTrigger>
-                                    <SelectValue />
+                                    <SelectValue placeholder="Selecione uma permissão" />
                                   </SelectTrigger>
                                   <SelectContent>
                                     <SelectItem value="user">Usuário</SelectItem>
