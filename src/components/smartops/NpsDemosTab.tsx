@@ -68,27 +68,30 @@ export function NpsDemosTab() {
   const { data, isLoading } = useQuery({
     queryKey: ["smartops-nps-demos-overview"],
     queryFn: async (): Promise<NpsRow[]> => {
+      // Cursos online (origem do NPS de demonstrações ao vivo)
+      const { data: onlineCourses, error: coursesErr } = await supabase
+        .from("smartops_courses")
+        .select("id, title")
+        .in("modality", ONLINE_MODALITIES)
+        .limit(1000);
+      if (coursesErr) throw coursesErr;
+      const onlineCourseIds = (onlineCourses || []).map((c: any) => c.id);
+      if (!onlineCourseIds.length) return [];
+
       const { data: enrollments, error } = await supabase
         .from("smartops_course_enrollments")
-        .select("id, person_name, nps_sent_at, nps_status, turma_id, course_id")
-        .order("nps_sent_at", { ascending: false, nullsFirst: false })
+        .select("id, person_name, nps_sent_at, nps_status, turma_id, course_id, created_at")
+        .in("course_id", onlineCourseIds)
+        .order("created_at", { ascending: false })
         .limit(1000);
       if (error) throw error;
       const rows = enrollments || [];
       const turmaIds = [...new Set(rows.map((r: any) => r.turma_id).filter(Boolean))];
-      const courseIds = [...new Set(rows.map((r: any) => r.course_id).filter(Boolean))];
       const enrollmentIds = rows.map((r: any) => r.id);
 
-      const [turmas, courses, responses] = await Promise.all([
+      const [turmas, responses] = await Promise.all([
         turmaIds.length
           ? supabase.from("smartops_course_turmas").select("id, label, end_date").in("id", turmaIds)
-          : Promise.resolve({ data: [] as any[] }),
-        courseIds.length
-          ? supabase
-              .from("smartops_courses")
-              .select("id, title")
-              .in("id", courseIds)
-              .in("modality", ONLINE_MODALITIES)
           : Promise.resolve({ data: [] as any[] }),
         enrollmentIds.length
           ? supabase
@@ -101,7 +104,7 @@ export function NpsDemosTab() {
       ]);
 
       const turmaMap = new Map((turmas.data || []).map((t: any) => [t.id, t]));
-      const courseMap = new Map((courses.data || []).map((c: any) => [c.id, c.title]));
+      const courseMap = new Map((onlineCourses || []).map((c: any) => [c.id, c.title]));
       const respMap = new Map<string, any>();
       for (const r of responses.data || []) if (!respMap.has(r.enrollment_id)) respMap.set(r.enrollment_id, r);
 
@@ -126,9 +129,8 @@ export function NpsDemosTab() {
             comment: r?.comment ?? null,
           } as NpsRow;
         })
-        // apenas turmas já encerradas (elegíveis a NPS) ou com disparo registrado
-        .filter((r) => r.course_title !== "—")
-        .filter((r) => r.sent_at || (r.end_date && r.end_date < today));
+        // respondidos, disparados, ou turmas já encerradas (elegíveis a NPS)
+        .filter((r) => r.responded_at || r.sent_at || (r.end_date && r.end_date < today));
     },
   });
 
@@ -137,7 +139,7 @@ export function NpsDemosTab() {
   const stats = useMemo(() => {
     const disparados = rows.filter((r) => r.sent_at).length;
     const respondidos = rows.filter((r) => r.responded_at).length;
-    const falhados = rows.filter((r) => !r.sent_at).length;
+    const falhados = rows.filter((r) => !r.sent_at && !r.responded_at).length;
     const withScore = rows.filter((r) => r.recomendacao);
     const promotores = withScore.filter((r) => r.recomendacao! * 2 >= 9).length;
     const detratores = withScore.filter((r) => r.recomendacao! * 2 <= 6).length;
@@ -151,7 +153,7 @@ export function NpsDemosTab() {
   const filtered = rows.filter((r) => {
     if (filter === "respondidos" && !r.responded_at) return false;
     if (filter === "pendentes" && (!r.sent_at || r.responded_at)) return false;
-    if (filter === "falhados" && r.sent_at) return false;
+    if (filter === "falhados" && (r.sent_at || r.responded_at)) return false;
     const q = search.trim().toLowerCase();
     if (!q) return true;
     return [r.person_name, r.course_title, r.turma_label, r.comment].some((v) => (v || "").toLowerCase().includes(q));
