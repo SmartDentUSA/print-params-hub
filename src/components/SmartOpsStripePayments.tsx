@@ -253,11 +253,18 @@ export function SmartOpsStripePayments() {
       setInvoicePaidByLead(invoicePaid);
       setFirstSubInvoiceByLead(firstSubInvoice);
 
-      // Subscriptions map by customer
+      // Subscriptions map by customer e por lead (o Stripe cria um customer novo
+      // por checkout, então o customer da ativação ≠ o da mensalidade)
       const subByCustomer = new Map<string, Subscription>();
+      const subByLead = new Map<string, Subscription>();
       for (const s of subs) {
         if (s.stripe_customer_id && !subByCustomer.has(s.stripe_customer_id)) {
           subByCustomer.set(s.stripe_customer_id, s);
+        }
+        if (s.lead_id) {
+          const prev = subByLead.get(s.lead_id);
+          const rank = (x?: Subscription) => (x?.status === "active" || x?.status === "trialing" ? 2 : x ? 1 : 0);
+          if (!prev || rank(s) > rank(prev)) subByLead.set(s.lead_id, s);
         }
       }
 
@@ -268,7 +275,9 @@ export function SmartOpsStripePayments() {
 
       const built: Row[] = units.map(u => {
         const lead = u.lead_id ? leadMap.get(u.lead_id) : undefined;
-        const sub = u.stripe_customer_id ? subByCustomer.get(u.stripe_customer_id) : undefined;
+        const sub =
+          (u.stripe_customer_id ? subByCustomer.get(u.stripe_customer_id) : undefined) ??
+          (u.lead_id ? subByLead.get(u.lead_id) : undefined);
         const sellerCode = u.stripe_seller_id ?? null;
         const vendedorLabel = sellerCode
           ? vendMap.get(sellerCode) || sellerCode
