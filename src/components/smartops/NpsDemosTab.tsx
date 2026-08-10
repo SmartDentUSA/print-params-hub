@@ -38,9 +38,6 @@ interface Participant {
 
 const ONLINE_MODALITIES = ["online", "online_ao_vivo"];
 
-const fmt = (d?: string | null) =>
-  d ? new Date(d).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" }) : "—";
-
 const fmtDT = (d?: string | null) =>
   d
     ? new Date(d).toLocaleString("pt-BR", {
