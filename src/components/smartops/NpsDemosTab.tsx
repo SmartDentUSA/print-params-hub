@@ -251,7 +251,7 @@ export function NpsDemosTab() {
   }, [rows]);
 
   const { insights, isLoading: insightsLoading } = useNpsQuestionInsights(
-    "NPS Demonstrações ao Vivo",
+    "Treinamentos Online",
     questions,
     "demonstracao_ao_vivo",
   );
