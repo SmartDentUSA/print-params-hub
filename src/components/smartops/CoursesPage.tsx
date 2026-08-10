@@ -9,6 +9,8 @@ import { GraduationCap, Loader2, Pencil, Plus, UserCircle, Star, Eye, MessageCir
 import CoursesProfessionalProfile from "./CoursesProfessionalProfile";
 import ProfessionalCoursesModal from "./courses/ProfessionalCoursesModal";
 import ShareCoursePortalDialog from "./courses/ShareCoursePortalDialog";
+import { getCourseStatusBadge } from "@/lib/courseStatusBadge";
+import { cn } from "@/lib/utils";
 
 function formatClienteDesde(iso: string | null): string {
   if (!iso) return "—";
@@ -58,6 +60,22 @@ type Professional = {
 
 type CourseStats = { total: number; ativos: number; realizados: number; views: number; interested: number };
 
+type ProfCourseRow = {
+  id: string;
+  producer_lead_id: string;
+  title: string;
+  status: string | null;
+  modality: string | null;
+  start_date: string | null;
+  end_date: string | null;
+  start_time: string | null;
+  end_time: string | null;
+  enrolled_count: number | null;
+  max_students: number | null;
+  views_count: number | null;
+  interested_count: number | null;
+};
+
 // Classificação de equipamentos a partir de deals ganhos (espelha smart-ops-backfill-equipment-from-deals).
 const ACCESSORY_RE = /\b(painel\s+lcd|tela\s+lcd|teflon|fep|nfep|pelicula|película|filme|filtro|fonte|placa\s+m[ãa]e|cabo|adesivo|parafuso|kit\s+(?:de\s+)?(?:reposi[çc][ãa]o|manuten[çc][ãa]o|limpeza)|reposi[çc][ãa]o|manuten[çc][ãa]o|spare|cartucho|bandeja|plataforma\s+de?\s+constru[çc][ãa]o|build\s*plate|vat|cuba|elastico|elástico|bombinha|seringa|ponta|broca|garantia|extensao|extensão|treinamento|curso|aula|consultoria|servi[çc]o|frete|instala[çc][ãa]o)\b/i;
 const SCANNER_RE = /\b(medit\s*i[567]00|i600|i700|aoralscan\s*\d?|trios\s*\d|itero|primescan|panda\s*p\d|launca\s*\w*|runyes|shining\s*\w*|emerald)\b/i;
@@ -88,6 +106,7 @@ export default function CoursesPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingEmail, setEditingEmail] = useState<string | undefined>(undefined);
   const [courseStats, setCourseStats] = useState<Record<string, CourseStats>>({});
+  const [coursesByProf, setCoursesByProf] = useState<Record<string, ProfCourseRow[]>>({});
   const [coursesFor, setCoursesFor] = useState<Professional | null>(null);
   const [coursesStartNew, setCoursesStartNew] = useState(false);
   const [shareFor, setShareFor] = useState<Professional | null>(null);
@@ -113,9 +132,11 @@ export default function CoursesPage() {
       if (leadIds.length > 0) {
         const { data: pcourses } = await supabase
           .from("professional_courses")
-          .select("producer_lead_id, status, end_date, views_count, interested_count")
-          .in("producer_lead_id", leadIds);
+          .select("id, producer_lead_id, title, status, modality, start_date, end_date, start_time, end_time, enrolled_count, max_students, views_count, interested_count")
+          .in("producer_lead_id", leadIds)
+          .order("start_date", { ascending: true, nullsFirst: false });
         const stats: Record<string, CourseStats> = {};
+        const grouped: Record<string, ProfCourseRow[]> = {};
         const today = new Date().toISOString().slice(0, 10);
         for (const c of (pcourses ?? []) as any[]) {
           const s = (stats[c.producer_lead_id] ??= { total: 0, ativos: 0, realizados: 0, views: 0, interested: 0 });
@@ -125,10 +146,13 @@ export default function CoursesPage() {
           else if (c.status === "publicado") s.ativos += 1;
           s.views += c.views_count ?? 0;
           s.interested += c.interested_count ?? 0;
+          (grouped[c.producer_lead_id] ??= []).push(c as ProfCourseRow);
         }
         setCourseStats(stats);
+        setCoursesByProf(grouped);
       } else {
         setCourseStats({});
+        setCoursesByProf({});
       }
 
       if (leadIds.length > 0) {
