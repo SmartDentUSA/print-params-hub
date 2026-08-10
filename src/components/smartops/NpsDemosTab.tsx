@@ -221,7 +221,8 @@ export function NpsDemosTab() {
       const counts = [1, 2, 3, 4, 5].map((s) => values.filter((v) => v === s).length);
       const total = values.length;
       const avg = total ? values.reduce((a, b) => a + b, 0) / total : null;
-      const promo = counts[4] + counts[3];
+      // Mesma classificação do NPS (nota×2): 5 = promotor, 4 = neutro, ≤3 = detrator
+      const promo = counts[4];
       const detr = counts[0] + counts[1] + counts[2];
       const score = total ? Math.round(((promo - detr) / total) * 100) : null;
       return { label, counts, total, avg, score };
