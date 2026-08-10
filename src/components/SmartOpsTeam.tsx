@@ -14,7 +14,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Loader2, Trash2 } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
-import { SmartOpsSellerAutomations } from "./SmartOpsSellerAutomations";
 
 interface TeamMember {
   id: string;
@@ -786,7 +785,6 @@ export function SmartOpsTeam() {
       </DialogContent>
     </Dialog>
 
-    <SmartOpsSellerAutomations />
 
     <AlertDialog open={!!deleteTarget} onOpenChange={(o) => !o && setDeleteTarget(null)}>
       <AlertDialogContent>
