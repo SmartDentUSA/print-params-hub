@@ -234,7 +234,7 @@ Deno.serve(async (req) => {
     for (const a of autos ?? []) {
       const configurados = String(a.canal ?? "whatsapp").split(",").map((c: string) => c.trim().toLowerCase()).filter(Boolean);
       const canais = testMode && testCanais.length > 0
-        ? testCanais.filter((c) => configurados.includes(c))
+        ? testCanais // em teste, respeita o canal pedido mesmo que ainda não esteja salvo
         : configurados;
       if (canais.length === 0) {
         results.push({ automation: a.nome, skipped: "nenhum_canal_ativo" });
