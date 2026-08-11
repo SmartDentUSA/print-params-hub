@@ -233,7 +233,8 @@ export function SmartOpsStripePayments() {
           const ed = r.event_data ?? {};
           const isSubscription =
             !!ed.stripe_subscription_id ||
-            String(ed.mode ?? "").toLowerCase() === "subscription";
+            String(ed.mode ?? "").toLowerCase() === "subscription" ||
+            !!ed.parent?.subscription_details?.subscription;
           if (!isSubscription) continue;
           const v = Number(r.value_numeric ?? 0);
           if (isFinite(v)) {
