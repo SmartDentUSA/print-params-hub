@@ -16,6 +16,8 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Loader2, Send, Trash2, UserRoundCheck } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { MessageVariableBar } from "@/components/smartops/MessageVariableBar";
 
 interface BriefingConfig {
@@ -24,6 +26,10 @@ interface BriefingConfig {
   canal: string;
   sender_instance: string;
   quando: string;
+  gate_pipeline_id: string | null;
+  gate_pipeline_name: string | null;
+  gate_stage_ids: string[];
+  gate_stage_names: string[];
   delay_minutos: number;
   horario_inicio: string;
   horario_fim: string;
@@ -37,12 +43,20 @@ interface BriefingConfig {
   purge_last_run_at: string | null;
 }
 
+interface CrmOption {
+  id: string;
+  name: string;
+}
+
 export function SellerBriefingAutomation() {
   const [cfg, setCfg] = useState<BriefingConfig | null>(null);
   const [instances, setInstances] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [purging, setPurging] = useState(false);
+  const [pipelines, setPipelines] = useState<CrmOption[]>([]);
+  const [stages, setStages] = useState<CrmOption[]>([]);
+  const [loadingCrm, setLoadingCrm] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -64,7 +78,43 @@ export function SellerBriefingAutomation() {
     })();
   }, []);
 
+  // Funis do CRM
+  useEffect(() => {
+    (async () => {
+      setLoadingCrm(true);
+      const { data } = await supabase.functions.invoke("piperun-list-pipelines", {
+        body: { resource: "pipelines" },
+      });
+      setPipelines(((data?.items ?? []) as any[]).map((i) => ({ id: String(i.id), name: i.name })));
+      setLoadingCrm(false);
+    })();
+  }, []);
+
+  // Etapas do funil selecionado
+  const pipelineId = cfg?.gate_pipeline_id ?? null;
+  useEffect(() => {
+    if (!pipelineId) {
+      setStages([]);
+      return;
+    }
+    (async () => {
+      setLoadingCrm(true);
+      const { data } = await supabase.functions.invoke("piperun-list-pipelines", {
+        body: { resource: "stages", pipeline_id: pipelineId },
+      });
+      setStages(((data?.items ?? []) as any[]).map((i) => ({ id: String(i.id), name: i.name })));
+      setLoadingCrm(false);
+    })();
+  }, [pipelineId]);
+
   const patch = (p: Partial<BriefingConfig>) => setCfg((c) => (c ? { ...c, ...p } : c));
+
+  const stageIds = cfg?.gate_stage_ids ?? [];
+  const toggleStage = (s: CrmOption, on: boolean) => {
+    const ids = on ? Array.from(new Set([...stageIds, s.id])) : stageIds.filter((x) => x !== s.id);
+    const names = stages.filter((st) => ids.includes(st.id)).map((st) => st.name);
+    patch({ gate_stage_ids: ids, gate_stage_names: names });
+  };
 
   // Canais são independentes: ativar E-mail/SMS não suspende o WhatsApp.
   const canais = String(cfg?.canal ?? "whatsapp")
