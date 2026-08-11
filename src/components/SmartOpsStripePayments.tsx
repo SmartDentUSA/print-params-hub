@@ -361,6 +361,7 @@ export function SmartOpsStripePayments() {
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return rows.filter(r => {
+      if (kindFilter !== "all" && r.charge_kind !== kindFilter) return false;
       if (statusFilter !== "all") {
         const s = (r.mensalidade_status || "").toLowerCase();
         if (statusFilter === "ativa" && !(s === "ativa" || s.startsWith("vence em"))) return false;
@@ -379,7 +380,7 @@ export function SmartOpsStripePayments() {
         (r.id_smartdent || "").toLowerCase().includes(q)
       );
     });
-  }, [rows, search, statusFilter]);
+  }, [rows, search, statusFilter, kindFilter]);
 
   async function updateUnit(unitId: string, patch: Partial<PaymentUnit>) {
     const { error } = await supabase.from("stripe_payment_units").update(patch).eq("id", unitId);
