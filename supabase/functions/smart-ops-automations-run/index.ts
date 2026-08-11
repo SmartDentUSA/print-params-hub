@@ -260,7 +260,7 @@ Deno.serve(async (req) => {
           .from("lia_attendances")
           .select("*")
           .is("merged_into", null)
-          .not("nome_completo", "is", null)
+          .not("nome", "is", null)
           .order("updated_at", { ascending: false })
           .limit(1)
           .maybeSingle();
