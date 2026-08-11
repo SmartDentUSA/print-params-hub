@@ -73,6 +73,20 @@ export function SmartOpsAutomationsBuilder() {
   const [testPhone, setTestPhone] = useState("");
   const [testEmail, setTestEmail] = useState("");
   const [testCanais, setTestCanais] = useState<string[]>([]);
+  const [stats, setStats] = useState<Record<string, { enviados: number; erros: number; ultimo_envio: string | null }>>({});
+
+  const loadStats = async () => {
+    const { data } = await (supabase as any).rpc("fn_automation_run_stats");
+    const map: Record<string, { enviados: number; erros: number; ultimo_envio: string | null }> = {};
+    ((data ?? []) as any[]).forEach((r) => {
+      map[String(r.automation_id)] = {
+        enviados: Number(r.enviados ?? 0),
+        erros: Number(r.erros ?? 0),
+        ultimo_envio: r.ultimo_envio ?? null,
+      };
+    });
+    setStats(map);
+  };
 
   useEffect(() => {
     (async () => {
@@ -88,6 +102,7 @@ export function SmartOpsAutomationsBuilder() {
       setInstances(uniq.sort());
       setPipelines((((pipes as any)?.data?.items ?? []) as any[]).map((i) => ({ id: String(i.id), name: i.name })));
       setLoading(false);
+      loadStats();
     })();
   }, []);
 
@@ -169,6 +184,7 @@ export function SmartOpsAutomationsBuilder() {
       else toast.error(`${label} não enviado: ${r.error ?? r.skipped ?? "erro desconhecido"}`);
     });
     if (results.every((r) => r.ok)) setTestFor(null);
+    loadStats();
   };
 
   if (loading) {
