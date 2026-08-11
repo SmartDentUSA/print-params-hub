@@ -382,12 +382,18 @@ Deno.serve(async (req) => {
     }
 
     let emailHtml: string;
-    try {
-      emailHtml = forceFormDestination(html, cta_config);
-    } catch (error) {
-      return new Response(JSON.stringify({ error: error instanceof Error ? error.message : "CTA de formulário inválido" }), {
-        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+    // Automações SmartOps enviam mensagens transacionais (sem CTA de formulário).
+    // Só as campanhas de marketing exigem a URL encurtada oficial.
+    if (body?.skip_cta_check === true) {
+      emailHtml = html;
+    } else {
+      try {
+        emailHtml = forceFormDestination(html, cta_config);
+      } catch (error) {
+        return new Response(JSON.stringify({ error: error instanceof Error ? error.message : "CTA de formulário inválido" }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
     }
 
     // ────────── Mode: TEST EMAIL — send one right now, no queue ──────────
