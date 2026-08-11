@@ -306,6 +306,22 @@ async function processLead(
     return { leadId, result: `no_seller_phone:${vendedorNome}` };
   }
 
+  // ── GUARDA: número do vendedor precisa estar LIBERADO para boas-vindas ─────
+  // Vendedor com WhatsApp quebrado/inexistente é desmarcado na UI
+  // (team_members.wa_welcome_link_enabled = false) e nunca entra no link.
+  {
+    let q = supa.from("team_members").select("wa_welcome_link_enabled").limit(1);
+    q = sellerRow?.id
+      ? q.eq("id", sellerRow.id as string)
+      : q.ilike("nome_completo", `%${vendedorNome}%`);
+    const { data: tm } = await q.maybeSingle();
+    if (tm && tm.wa_welcome_link_enabled === false) {
+      await supa.from("boas_vindas_locks").delete().eq("lead_id", leadId);
+      await safeLog(supa, leadId, phone, "skipped", `vendedor sem numero liberado: ${vendedorNome}`);
+      return { leadId, result: `seller_wa_disabled:${vendedorNome}` };
+    }
+  }
+
   // Produto SEMPRE do interesse real do lead — nunca um nome genérico/aleatório.
   const produto      = ((lead.produto_interesse as string | null)?.trim())
                     || ((lead.produto_interesse_auto as string | null)?.trim())

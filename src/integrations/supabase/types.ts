@@ -24185,6 +24185,7 @@ export type Database = {
           voice_sample_url: string | null
           voice_similarity_boost: number | null
           voice_stability: number | null
+          wa_welcome_link_enabled: boolean
           whatsapp_number: string
         }
         Insert: {
@@ -24227,6 +24228,7 @@ export type Database = {
           voice_sample_url?: string | null
           voice_similarity_boost?: number | null
           voice_stability?: number | null
+          wa_welcome_link_enabled?: boolean
           whatsapp_number: string
         }
         Update: {
@@ -24269,6 +24271,7 @@ export type Database = {
           voice_sample_url?: string | null
           voice_similarity_boost?: number | null
           voice_stability?: number | null
+          wa_welcome_link_enabled?: boolean
           whatsapp_number?: string
         }
         Relationships: []

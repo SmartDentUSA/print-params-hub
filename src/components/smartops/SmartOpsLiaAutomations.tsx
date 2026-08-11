@@ -58,6 +58,14 @@ interface WaInstance {
   evolution_status: string | null;
 }
 
+interface SellerNumber {
+  id: string;
+  nome_completo: string | null;
+  role: string | null;
+  phone: string | null;
+  wa_welcome_link_enabled: boolean;
+}
+
 const ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
   "message-square-dot": MessageSquareDot,
   "file-text": FileText,
@@ -78,6 +86,8 @@ export function SmartOpsLiaAutomations() {
   const [savingId, setSavingId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [instances, setInstances] = useState<WaInstance[]>([]);
+  const [sellers, setSellers] = useState<SellerNumber[]>([]);
+  const [togglingSeller, setTogglingSeller] = useState<string | null>(null);
 
   const newDraft = (): LiaAutomation => ({
     id: "",
@@ -126,7 +136,47 @@ export function SmartOpsLiaAutomations() {
         .order("nome_completo");
       setInstances((data ?? []) as WaInstance[]);
     })();
+    (async () => {
+      const { data } = await supabase
+        .from("team_members")
+        .select("id, nome_completo, role, whatsapp_number, notification_phone, wa_welcome_link_enabled")
+        .eq("ativo", true)
+        .order("nome_completo");
+      setSellers(
+        ((data ?? []) as any[])
+          .map((m) => ({
+            id: m.id as string,
+            nome_completo: m.nome_completo as string | null,
+            role: m.role as string | null,
+            phone: (m.notification_phone || m.whatsapp_number || null) as string | null,
+            wa_welcome_link_enabled: m.wa_welcome_link_enabled !== false,
+          }))
+          .filter((m) => !!m.phone),
+      );
+    })();
   }, []);
+
+  const toggleSellerNumber = async (s: SellerNumber, enabled: boolean) => {
+    setTogglingSeller(s.id);
+    setSellers((prev) =>
+      prev.map((x) => (x.id === s.id ? { ...x, wa_welcome_link_enabled: enabled } : x)),
+    );
+    const { error } = await supabase
+      .from("team_members")
+      .update({ wa_welcome_link_enabled: enabled } as never)
+      .eq("id", s.id);
+    setTogglingSeller(null);
+    if (error) {
+      toast.error("Falha ao atualizar o número do vendedor");
+      setSellers((prev) =>
+        prev.map((x) => (x.id === s.id ? { ...x, wa_welcome_link_enabled: !enabled } : x)),
+      );
+    } else {
+      toast.success(
+        `${s.nome_completo ?? "Vendedor"} ${enabled ? "liberado" : "bloqueado"} nas boas-vindas`,
+      );
+    }
+  };
 
   const toggleActive = async (a: LiaAutomation, ativo: boolean) => {
     setItems((prev) => prev.map((x) => (x.id === a.id ? { ...x, ativo } : x)));
@@ -496,6 +546,57 @@ export function SmartOpsLiaAutomations() {
                 <p className="text-[11px] text-muted-foreground">
                   Marque o membro cujo número vai disparar esta mensagem (apenas um). Sem seleção, o
                   envio usa o membro com papel <code>lia_comms</code>.
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-xs">
+                  Números de vendedores liberados no link da mensagem
+                </Label>
+                {sellers.length === 0 ? (
+                  <p className="text-xs text-muted-foreground rounded border p-3">
+                    Nenhum membro da equipe com número cadastrado.
+                  </p>
+                ) : (
+                  <ScrollArea className="h-56 rounded border">
+                    <div className="divide-y">
+                      {sellers.map((s) => (
+                        <label
+                          key={s.id}
+                          className="flex items-center gap-3 p-2.5 cursor-pointer hover:bg-muted/50"
+                        >
+                          <Checkbox
+                            checked={s.wa_welcome_link_enabled}
+                            disabled={togglingSeller === s.id}
+                            onCheckedChange={(v) => toggleSellerNumber(s, v === true)}
+                          />
+                          <div className="min-w-0 flex-1">
+                            <div className="text-sm font-medium truncate">
+                              {s.nome_completo ?? "—"}
+                            </div>
+                            <div className="text-[11px] text-muted-foreground truncate">
+                              {s.phone}
+                              {s.role ? ` · ${s.role}` : ""}
+                            </div>
+                          </div>
+                          <Badge
+                            variant="outline"
+                            className={
+                              s.wa_welcome_link_enabled
+                                ? "text-[10px] bg-green-50 text-green-700 border-green-200"
+                                : "text-[10px] bg-amber-50 text-amber-700 border-amber-200"
+                            }
+                          >
+                            {s.wa_welcome_link_enabled ? "liberado" : "bloqueado"}
+                          </Badge>
+                        </label>
+                      ))}
+                    </div>
+                  </ScrollArea>
+                )}
+                <p className="text-[11px] text-muted-foreground">
+                  Desmarque o vendedor cujo WhatsApp está quebrado/inexistente: o lead dele não recebe
+                  boas-vindas até o número ser corrigido — assim nenhum link quebrado é enviado.
                 </p>
               </div>
 
