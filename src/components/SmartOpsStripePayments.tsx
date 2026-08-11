@@ -118,14 +118,39 @@ const PRE_STATUSES = ["Pendente", "Agendada", "Concluída", "Bloqueada"];
 const ATIV_STATUSES = ["Pendente", "Em andamento", "Concluída", "Cancelada"];
 const MENS_STATUSES = ["A vencer", "Paga", "Vencida", "Cancelada", "Trial"];
 
-const PRODUCT_LABELS: Record<string, string> = {
-  ativacao_dentalcad_ultimate_lab_bundle_rms: "Ativação DentalCAD Ultimate Lab Bundle - RMS",
-  ativacao_exocad_dentalcad_ia: "Ativação DentalCAD Ultimate Lab Bundle - RMS",
-  exocad_ultimate_bundle_rms: "Exocad Ultimate Bundle (RMS)",
-  mensalidade_dentalcad_ultimate_lab_bundle_rms: "Mensalidade DentalCAD Ultimate Lab Bundle - RMS",
+// Produtos do catálogo (System A) — nome oficial + slug canônico
+const CATALOG_ATIVACAO = {
+  name: "Ativação DentalCAD Ultimate Lab Bundle - RMS",
+  slug: "ativacao-dentalcad-ultimate-lab-bundle-rms",
+};
+const CATALOG_MENSALIDADE = {
+  name: "Assinatura mensal DentalCAD Ultimate Lab Bundle - RMS",
+  slug: "mensalidade-dentalcad-ultimate-lab-bundle-rms",
 };
 
-function productLabel(slug: string | null | undefined): string {
+const PRODUCT_LABELS: Record<string, string> = {
+  ativacao_dentalcad_ultimate_lab_bundle_rms: CATALOG_ATIVACAO.name,
+  ativacao_exocad_dentalcad_ia: CATALOG_ATIVACAO.name,
+  exocad_ultimate_bundle_rms: CATALOG_MENSALIDADE.name,
+  mensalidade_dentalcad_ultimate_lab_bundle_rms: CATALOG_MENSALIDADE.name,
+};
+
+// Resolve a descrição crua da Stripe para o produto do catálogo.
+function resolveCatalogProduct(
+  raw: string | null | undefined,
+  chargeKind?: string | null,
+): { name: string; slug: string } | null {
+  const t = (raw || "").toLowerCase();
+  if (chargeKind === "mensalidade") return CATALOG_MENSALIDADE;
+  if (t && (t.includes("ativa") || t.includes("implanta") || t.includes("setup"))) return CATALOG_ATIVACAO;
+  if (chargeKind === "ativacao") return CATALOG_ATIVACAO;
+  if (t.includes("ultimate bundle") || t.includes("ultimate lab bundle")) return CATALOG_MENSALIDADE;
+  return null;
+}
+
+function productLabel(slug: string | null | undefined, chargeKind?: string | null): string {
+  const resolved = resolveCatalogProduct(slug, chargeKind);
+  if (resolved) return resolved.name;
   if (!slug) return "—";
   return PRODUCT_LABELS[slug] || slug;
 }
@@ -665,7 +690,21 @@ export function SmartOpsStripePayments() {
                   {isFirst && <td rowSpan={span} className="p-2 whitespace-nowrap align-top">{fmtDateTime(r.payment_at)}</td>}
                   {isFirst && (
                     <td rowSpan={span} className="p-2 text-xs align-top">
-                      {productLabel(r.produto)}
+                      {productLabel(r.produto, r.charge_kind)}
+                      {(() => {
+                        const cat = resolveCatalogProduct(r.produto, r.charge_kind);
+                        if (!cat) return null;
+                        return (
+                          <a
+                            href={`/${cat.slug}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="block font-mono text-[10px] text-muted-foreground hover:text-primary hover:underline"
+                          >
+                            /{cat.slug}
+                          </a>
+                        );
+                      })()}
                       <div className="mt-1">
                         <Badge
                           variant="outline"
