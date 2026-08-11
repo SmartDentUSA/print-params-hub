@@ -126,6 +126,14 @@ function productLabel(slug: string | null | undefined): string {
   return PRODUCT_LABELS[slug] || slug;
 }
 
+// A cobrança de "Ativação e Implantação Inicial" NUNCA é mensalidade.
+// Primeiro vem a ativação (pagamento único), só depois a mensalidade (assinatura).
+function isAtivacaoCharge(text: string | null | undefined): boolean {
+  const t = (text || "").toLowerCase();
+  if (!t) return false;
+  return t.includes("ativa") || t.includes("implanta") || t.includes("setup");
+}
+
 function deriveMensalidadeLabel(sub: { status: string | null; current_period_end: string | null; cancel_at_period_end: boolean | null } | null): string | null {
   if (!sub || !sub.status) return null;
   const s = sub.status.toLowerCase();
