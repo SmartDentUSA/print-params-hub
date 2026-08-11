@@ -133,9 +133,6 @@ async function sendSms(phone: string, message: string) {
 }
 
 // ── E-mail (Gmail via connector gateway) ────────────────────────────────────
-const b64std = (s: string) => btoa(unescape(encodeURIComponent(s)));
-const b64url = (s: string) => b64std(s).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-
 async function sendEmail(to: string, subject: string, html: string, fromName: string) {
   // Delega para smart-ops-send-gmail (mesmo caminho já validado nas Campanhas de e-mail).
   const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
