@@ -1974,6 +1974,26 @@ Deno.serve(async (req) => {
         if (error) console.warn("[piperun-webhook] brain refresh failed:", error.message);
       });
 
+    // ─── Automações SmartOps: disparo por evento do CRM (não por cron) ───
+    // Cada alteração de deal avalia as regras ativas (funil + etapa) na hora.
+    {
+      const p = fetch(`${SUPABASE_URL}/functions/v1/smart-ops-automations-run`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${SERVICE_ROLE_KEY}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          lead_id: leadId,
+          deal_id: dealId ?? null,
+          pipeline_id: ids.pipelineId ?? null,
+          pipeline_name: ids.pipelineName ?? null,
+          stage_id: ids.stageId ?? null,
+          stage_name: ids.stageName ?? null,
+          source: "piperun_webhook",
+        }),
+      }).catch((e) => console.warn("[piperun-webhook] automations trigger error:", e));
+      // @ts-ignore
+      if (typeof EdgeRuntime !== "undefined" && EdgeRuntime.waitUntil) EdgeRuntime.waitUntil(p);
+    }
+
     return new Response(JSON.stringify({
       success: true,
       lead_id: leadId,
