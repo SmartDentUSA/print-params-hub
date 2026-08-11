@@ -275,6 +275,7 @@ async function markMensalidadePaid(leadId: string, paidAt: Date, periodEnd: stri
     .from("stripe_payment_units")
     .select("id, paid_at")
     .eq("lead_id", leadId)
+    .eq("charge_kind", "ativacao")
     .order("paid_at", { ascending: true });
 
   const dueDate = (periodEnd ? new Date(periodEnd) : paidAt).toISOString().slice(0, 10);
@@ -299,6 +300,7 @@ async function markMensalidadePaid(leadId: string, paidAt: Date, periodEnd: stri
     paid_at: paidAt.toISOString(),
     mensalidade_data: dueDate,
     mensalidade_status: "Paga",
+    charge_kind: "mensalidade",
   } as any);
   if (error) console.error("[stripe-webhook] mensalidade unit insert error:", error);
 }
@@ -523,6 +525,7 @@ async function handle(req: Request): Promise<Response> {
         paid_at: paidAtDate.toISOString(),
         ativacao_data: paidAtDate.toISOString().slice(0, 10),
         ativacao_status: "Pendente",
+        charge_kind: "ativacao",
       }));
       const { error: unitsErr } = await supabase
         .from("stripe_payment_units")
