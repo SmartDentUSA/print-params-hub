@@ -23144,13 +23144,16 @@ export type Database = {
         Row: {
           ativacao_data: string | null
           ativacao_status: string | null
+          ativo: boolean | null
           created_at: string
+          hw_suficiente: boolean | null
           id: string
           id_dongle: string | null
           id_smartdent: string | null
           lead_id: string | null
           mensalidade_data: string | null
           mensalidade_status: string | null
+          numero_rms: string | null
           paid_at: string | null
           pre_ativacao_data: string | null
           pre_ativacao_status: string | null
@@ -23162,17 +23165,22 @@ export type Database = {
           unit_index: number
           unit_total: number | null
           updated_at: string
+          verificado: boolean | null
+          versoes_piratas: boolean | null
         }
         Insert: {
           ativacao_data?: string | null
           ativacao_status?: string | null
+          ativo?: boolean | null
           created_at?: string
+          hw_suficiente?: boolean | null
           id?: string
           id_dongle?: string | null
           id_smartdent?: string | null
           lead_id?: string | null
           mensalidade_data?: string | null
           mensalidade_status?: string | null
+          numero_rms?: string | null
           paid_at?: string | null
           pre_ativacao_data?: string | null
           pre_ativacao_status?: string | null
@@ -23184,17 +23192,22 @@ export type Database = {
           unit_index?: number
           unit_total?: number | null
           updated_at?: string
+          verificado?: boolean | null
+          versoes_piratas?: boolean | null
         }
         Update: {
           ativacao_data?: string | null
           ativacao_status?: string | null
+          ativo?: boolean | null
           created_at?: string
+          hw_suficiente?: boolean | null
           id?: string
           id_dongle?: string | null
           id_smartdent?: string | null
           lead_id?: string | null
           mensalidade_data?: string | null
           mensalidade_status?: string | null
+          numero_rms?: string | null
           paid_at?: string | null
           pre_ativacao_data?: string | null
           pre_ativacao_status?: string | null
@@ -23206,6 +23219,8 @@ export type Database = {
           unit_index?: number
           unit_total?: number | null
           updated_at?: string
+          verificado?: boolean | null
+          versoes_piratas?: boolean | null
         }
         Relationships: [
           {
