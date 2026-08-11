@@ -312,7 +312,21 @@ async function processLead(
                     || "nossos produtos";
   const nomeVendedor = (sellerRow?.nome_completo as string) || vendedorNome;
   const waText       = encodeURIComponent(`Olá ${nomeVendedor}, quero saber mais sobre ${produto}`);
-  const linkWa       = `https://wa.me/${sellerPhone}?text=${waText}`;
+  // O link só pode usar a grafia do número que EXISTE no WhatsApp (com/sem o 9).
+  const sellerJid    = (await resolveWaNumber(instance, apiKey, sellerPhone)) || sellerPhone;
+  const linkWa       = `https://wa.me/${sellerJid}?text=${waText}`;
+  if (sellerJid === sellerPhone) {
+    // não confirmado no WhatsApp — registra para o time corrigir o cadastro
+    try {
+      await supa.from("system_health_logs").insert({
+        function_name: "smart-ops-lead-welcome",
+        severity: "warning",
+        error_type: "vendedor_whatsapp_nao_confirmado",
+        lead_id: leadId,
+        details: { vendedor: nomeVendedor, telefone: sellerPhone },
+      });
+    } catch { /* silencioso */ }
+  }
   const nomeLead     = ((lead.nome as string) || "Doutor(a)").split(" ")[0];
 
   // ── GUARDA: instância precisa estar conectada ─────────────────────────────
