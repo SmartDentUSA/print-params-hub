@@ -272,7 +272,10 @@ async function processLead(
     return { leadId, result: `no_seller_phone:${vendedorNome}` };
   }
 
-  const produto      = ((lead.produto_interesse as string | null)?.trim()) || "nossos produtos";
+  // Produto SEMPRE do interesse real do lead — nunca um nome genérico/aleatório.
+  const produto      = ((lead.produto_interesse as string | null)?.trim())
+                    || ((lead.produto_interesse_auto as string | null)?.trim())
+                    || "nossos produtos";
   const nomeVendedor = (sellerRow?.nome_completo as string) || vendedorNome;
   const waText       = encodeURIComponent(`Olá ${nomeVendedor}, quero saber mais sobre ${produto}`);
   const linkWa       = `https://wa.me/${sellerPhone}?text=${waText}`;
@@ -349,13 +352,13 @@ Deno.serve(async (req) => {
     let leads: Record<string, unknown>[];
     if (singleLeadId) {
       const { data } = await supa.from("lia_attendances")
-        .select("id, nome, telefone_raw, telefone_normalized, produto_interesse, proprietario_lead_crm")
+        .select("id, nome, telefone_raw, telefone_normalized, produto_interesse, produto_interesse_auto, proprietario_lead_crm")
         .eq("id", singleLeadId).is("merged_into", null).single();
       leads = data ? [data] : [];
     } else {
       const since48h = new Date(Date.now() - 48 * 3600_000).toISOString();
       const { data } = await supa.from("lia_attendances")
-        .select("id, nome, telefone_raw, telefone_normalized, produto_interesse, proprietario_lead_crm")
+        .select("id, nome, telefone_raw, telefone_normalized, produto_interesse, produto_interesse_auto, proprietario_lead_crm")
         .ilike("piperun_pipeline_name", "%funil%vendas%")
         .ilike("piperun_stage_name", "%sem%contato%")
         .is("merged_into", null)
