@@ -1128,7 +1128,7 @@ function InscricoesTab() {
       {/* Filtros */}
       <div className="flex flex-wrap gap-3 items-end">
         <div className="flex-1 min-w-[200px]">
-          <Input placeholder="Buscar por nome..." value={filters.search}
+          <Input placeholder="Buscar por participante ou acompanhante..." value={filters.search}
             onChange={(e) => { setFilters((f) => ({ ...f, search: e.target.value })); setPage(0); }} />
         </div>
         <Select value={filters.status} onValueChange={(v) => { setFilters((f) => ({ ...f, status: v === "all" ? "" : v })); setPage(0); }}>
