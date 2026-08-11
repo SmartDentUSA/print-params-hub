@@ -11,6 +11,9 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
+} from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Loader2, Plus, Save, Send, Trash2, Workflow } from "lucide-react";
@@ -36,6 +39,10 @@ interface Automation {
   mensagem_template: string | null;
   mensagem_fora_horario: string | null;
   cooldown_horas: number;
+  email_assunto: string | null;
+  email_html: string | null;
+  email_remetente: string | null;
+  sms_template: string | null;
 }
 
 interface CrmOption {
@@ -62,6 +69,10 @@ export function SmartOpsAutomationsBuilder() {
   const [stagesByPipeline, setStagesByPipeline] = useState<Record<string, CrmOption[]>>({});
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [testFor, setTestFor] = useState<Automation | null>(null);
+  const [testPhone, setTestPhone] = useState("");
+  const [testEmail, setTestEmail] = useState("");
+  const [testCanais, setTestCanais] = useState<string[]>([]);
 
   useEffect(() => {
     (async () => {
@@ -126,20 +137,38 @@ export function SmartOpsAutomationsBuilder() {
     toast.success("Automação excluída");
   };
 
-  const testSend = async (a: Automation) => {
-    const phone = window.prompt("Número para o envio de teste (com DDD):", "");
-    if (!phone) return;
+  const openTest = (a: Automation) => {
+    const canais = String(a.canal ?? "").split(",").map((c) => c.trim().toLowerCase()).filter(Boolean);
+    setTestFor(a);
+    setTestCanais(canais);
+  };
+
+  const runTest = async () => {
+    const a = testFor;
+    if (!a) return;
+    if (testCanais.length === 0) return toast.error("Selecione ao menos um canal para o teste");
+    const needPhone = testCanais.some((c) => c === "whatsapp" || c === "sms");
+    if (needPhone && !testPhone.trim()) return toast.error("Informe o número para WhatsApp/SMS");
+    if (testCanais.includes("email") && !testEmail.trim()) return toast.error("Informe o e-mail de teste");
     setBusyId(a.id);
     const { data, error } = await supabase.functions.invoke("smart-ops-automations-run", {
-      body: { automation_id: a.id, test_phone: phone },
+      body: {
+        automation_id: a.id,
+        test_canais: testCanais,
+        test_phone: needPhone ? testPhone.trim() : null,
+        test_email: testCanais.includes("email") ? testEmail.trim() : null,
+      },
     });
     setBusyId(null);
-    if (error) toast.error("Falha no envio de teste");
-    else {
-      const r = (data?.results ?? [])[0];
-      if (r?.ok) toast.success(`Teste enviado — identificador ${r.run_uid ?? "teste"}`);
-      else toast.error(`Teste não enviado: ${r?.error ?? r?.skipped ?? "erro desconhecido"}`);
-    }
+    if (error) return toast.error(`Falha no envio de teste: ${error.message}`);
+    const results = (data?.results ?? []) as any[];
+    if (results.length === 0) return toast.error("Nada enviado — verifique canais e mensagens da automação");
+    results.forEach((r) => {
+      const label = String(r.canal ?? "").toUpperCase();
+      if (r.ok) toast.success(`${label} enviado — ${r.run_uid ?? "teste"}`);
+      else toast.error(`${label} não enviado: ${r.error ?? r.skipped ?? "erro desconhecido"}`);
+    });
+    if (results.every((r) => r.ok)) setTestFor(null);
   };
 
   if (loading) {
