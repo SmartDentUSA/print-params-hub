@@ -157,6 +157,10 @@ Deno.serve(async (req) => {
     const onlyId = body?.automation_id as string | undefined;
     // Modo teste: renderiza e envia para um número, sem lock e sem janela.
     const testPhone = normalizePhone(String(body?.test_phone ?? ""));
+    const testEmail = String(body?.test_email ?? "").trim() || null;
+    const testCanais = (Array.isArray(body?.test_canais) ? body.test_canais : [])
+      .map((c: any) => norm(c)).filter(Boolean) as string[];
+    const testMode = !!(testPhone || testEmail);
     const lookbackMin = Number(body?.lookback_minutes ?? 180);
     // ── Modo evento (webhook do CRM) ──────────────────────────────────────────
     // O motor não depende mais de cron: o webhook do PipeRun chama esta função
@@ -167,7 +171,7 @@ Deno.serve(async (req) => {
     const evPipelineName = body?.pipeline_name ?? null;
     const evStageId = body?.stage_id ?? null;
     const evStageName = body?.stage_name ?? null;
-    const eventMode = !!evLeadId && !testPhone;
+    const eventMode = !!evLeadId && !testMode;
     const skipDelay = body?.skip_delay === true;
 
     // Reagenda a própria função depois do atraso configurado (sem cron).
@@ -200,9 +204,12 @@ Deno.serve(async (req) => {
     const results: any[] = [];
 
     for (const a of autos ?? []) {
-      const canais = String(a.canal ?? "whatsapp").split(",").map((c: string) => c.trim().toLowerCase()).filter(Boolean);
-      if (!canais.includes("whatsapp")) {
-        results.push({ automation: a.nome, skipped: "canal_whatsapp_desativado" });
+      const configurados = String(a.canal ?? "whatsapp").split(",").map((c: string) => c.trim().toLowerCase()).filter(Boolean);
+      const canais = testMode && testCanais.length > 0
+        ? testCanais.filter((c) => configurados.includes(c))
+        : configurados;
+      if (canais.length === 0) {
+        results.push({ automation: a.nome, skipped: "nenhum_canal_ativo" });
         continue;
       }
 
@@ -210,7 +217,7 @@ Deno.serve(async (req) => {
       const ini = String(a.horario_inicio ?? "00:00").slice(0, 5);
       const fim = String(a.horario_fim ?? "23:59").slice(0, 5);
       const dentroJanela = hhmm >= ini && hhmm <= fim;
-      if (!testPhone && !dentroJanela && !a.mensagem_fora_horario) {
+      if (!testMode && !dentroJanela && !a.mensagem_fora_horario) {
         results.push({ automation: a.nome, skipped: `fora_da_janela ${ini}-${fim}` });
         continue;
       }
@@ -220,7 +227,7 @@ Deno.serve(async (req) => {
 
       // ── Seleciona deals que entraram na etapa configurada dentro do lookback ──
       let leads: any[] = [];
-      if (testPhone) {
+      if (testMode) {
         const { data: lead } = await supabase
           .from("lia_attendances")
           .select("*")
