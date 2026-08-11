@@ -21,7 +21,7 @@ import {
 import { buildTemplateVars, interpolateTemplate, DEFAULT_ENROLLMENT_TEMPLATE } from "@/lib/courseWhatsapp";
 import { useDealSearch } from "@/hooks/useDealSearch";
 import { useEnrollment } from "@/hooks/useEnrollment";
-import { toast } from "sonner";
+import { useToast } from "@/hooks/use-toast";
 import { EquipmentSerialsSection } from "./EquipmentSerialsSection";
 import { AREA_ATUACAO_OPTIONS, ESPECIALIDADE_OPTIONS } from "@/lib/dentalTaxonomy";
 import { TaxonomySelect } from "./TaxonomySelect";
@@ -128,6 +128,7 @@ export function EnrollmentModal({ course, preselectedTurmaId, open, onClose }: P
   const [step, setStep] = useState(1);
   const dealSearch = useDealSearch();
   const { enroll } = useEnrollment();
+  const { toast } = useToast();
   const [dealIdInput, setDealIdInput] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
