@@ -496,6 +496,66 @@ export function SmartOpsAutomationsBuilder() {
           </Card>
         );
       })}
+
+      <Dialog open={!!testFor} onOpenChange={(o) => !o && setTestFor(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Enviar teste — {testFor?.nome}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label className="text-xs">Canais do teste</Label>
+              <div className="rounded-md border divide-y">
+                {CANAIS.filter((c) =>
+                  String(testFor?.canal ?? "").split(",").map((x) => x.trim().toLowerCase()).includes(c.key),
+                ).map((c) => (
+                  <label key={c.key} className="flex items-center gap-2 px-3 py-2 text-sm cursor-pointer">
+                    <Checkbox
+                      checked={testCanais.includes(c.key)}
+                      onCheckedChange={(v) =>
+                        setTestCanais((s) => (v === true ? Array.from(new Set([...s, c.key])) : s.filter((x) => x !== c.key)))
+                      }
+                    />
+                    {c.label}
+                  </label>
+                ))}
+                {String(testFor?.canal ?? "").trim() === "" && (
+                  <p className="px-3 py-2 text-xs text-muted-foreground">
+                    Nenhum canal ativado nesta automação — ative WhatsApp, E-mail ou SMS e salve.
+                  </p>
+                )}
+              </div>
+            </div>
+            {testCanais.some((c) => c === "whatsapp" || c === "sms") && (
+              <div className="space-y-1.5">
+                <Label className="text-xs">Número (WhatsApp / SMS)</Label>
+                <Input placeholder="5519999999999" value={testPhone} onChange={(e) => setTestPhone(e.target.value)} />
+              </div>
+            )}
+            {testCanais.includes("email") && (
+              <div className="space-y-1.5">
+                <Label className="text-xs">E-mail de teste</Label>
+                <Input
+                  type="email"
+                  placeholder="voce@smartdent.com.br"
+                  value={testEmail}
+                  onChange={(e) => setTestEmail(e.target.value)}
+                />
+              </div>
+            )}
+            <p className="text-[11px] text-muted-foreground">
+              O teste usa o último lead atualizado para preencher as variáveis. Salve a automação antes de testar.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setTestFor(null)}>Cancelar</Button>
+            <Button onClick={runTest} disabled={busyId === testFor?.id}>
+              {busyId === testFor?.id ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Send className="w-4 h-4 mr-1" />}
+              Enviar teste
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
