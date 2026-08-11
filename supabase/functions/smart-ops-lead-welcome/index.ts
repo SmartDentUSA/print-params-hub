@@ -220,6 +220,40 @@ async function sendViaEvolutionImpl(instance: string, apiKey: string, phone: str
   }
 }
 
+/**
+ * Descobre o JID real do número no WhatsApp. No Brasil há duas grafias
+ * possíveis (com e sem o 9 do celular) — o link wa.me só funciona na grafia
+ * que realmente existe. Retorna o número canônico ou null se não existir.
+ */
+async function resolveWaNumber(
+  instance: string,
+  apiKey: string,
+  phone: string,
+): Promise<string | null> {
+  const d = phone.replace(/\D/g, "");
+  const variants = new Set<string>([d]);
+  if (d.startsWith("55") && d.length === 13 && d[4] === "9") variants.add(d.slice(0, 4) + d.slice(5));
+  if (d.startsWith("55") && d.length === 12) variants.add(d.slice(0, 4) + "9" + d.slice(4));
+  try {
+    const res = await fetch(
+      `${EVOLUTION_BASE}/chat/whatsappNumbers/${encodeURIComponent(instance)}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json", apikey: apiKey },
+        body: JSON.stringify({ numbers: [...variants] }),
+        signal: AbortSignal.timeout(12_000),
+      },
+    );
+    if (!res.ok) return null;
+    const rows = await res.json() as Array<{ exists?: boolean; jid?: string; number?: string }>;
+    const hit = (rows || []).find((r) => r?.exists);
+    if (!hit) return null;
+    return String(hit.jid || hit.number || "").replace(/@.*$/, "").replace(/\D/g, "") || null;
+  } catch {
+    return null;
+  }
+}
+
 async function processLead(
   supa: ReturnType<typeof createClient>,
   lead: Record<string, unknown>,
