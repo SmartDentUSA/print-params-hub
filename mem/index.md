@@ -25,3 +25,4 @@
 - [Lead Origin Inbound/Outbound](mem://architecture/lead-origin-inbound-outbound-classification) — lead_origin_classification + set_origin_acquisition_type sobrepõem a heurística Inbound/Outbound
 - [Synthetic Email Guard](mem://architecture/synthetic-email-guard-precision) — commercial-intent só bloqueia domínios sintéticos; lia-assign tolera email null
 - [Evolution ACK MessageUpdate](mem://integration/evolution-ack-message-update) — ACK real vem em MessageUpdate[].status; ler record.status gera falso PENDING/"sessão quebrada"
+- [Seller Briefing Single Trigger](mem://architecture/seller-briefing-single-trigger) — Briefing usa só trg_seller_briefing + claim atômico em message_logs; triggers paralelos causavam mensagem repetida
