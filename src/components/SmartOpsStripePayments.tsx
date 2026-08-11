@@ -807,7 +807,6 @@ export function SmartOpsStripePayments() {
               }))}
               {groups.length === 0 && (
                 <tr>
-                  <td colSpan={17} className="p-8 text-center text-muted-foreground text-sm">
                   <td colSpan={19} className="p-8 text-center text-muted-foreground text-sm">
                     Nenhum pagamento encontrado.
                   </td>
