@@ -277,11 +277,11 @@ async function logMsg(
   supabase: ReturnType<typeof createClient>,
   row: {
     lead_id: string;
-    team_member_id: string;
+    team_member_id: string | null;
     whatsapp_number: string | null;
     tipo: string;
     status: string;
-    evolution_instance: string;
+    evolution_instance: string | null;
     mensagem_preview: string | null;
     error_details?: string | null;
     provider_message_id?: string | null;
