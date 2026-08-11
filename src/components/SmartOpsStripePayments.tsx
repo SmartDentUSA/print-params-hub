@@ -33,7 +33,10 @@ interface PaymentUnit {
   ativacao_status: string | null;
   mensalidade_data: string | null;
   mensalidade_status: string | null;
+  charge_kind: string | null;
 }
+
+type ChargeKind = "ativacao" | "mensalidade";
 
 interface Subscription {
   stripe_customer_id: string | null;
@@ -88,6 +91,7 @@ interface Row {
   ativacao_status: string | null;
   mensalidade_first_due: string | null;
   mensalidade_status: string | null;
+  charge_kind: ChargeKind;
   subscription_status: string | null;
   current_period_end: string | null;
   cancel_at_period_end: boolean | null;
@@ -169,6 +173,7 @@ export function SmartOpsStripePayments() {
   const [refreshing, setRefreshing] = useState(false);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "ativa" | "vencida" | "cancelada" | "trial">("all");
+  const [kindFilter, setKindFilter] = useState<"ativacao" | "mensalidade" | "all">("ativacao");
   const [selectedLead, setSelectedLead] = useState<{ id: string; nome: string } | null>(null);
   const [vendedores, setVendedores] = useState<Vendedor[]>([]);
   const [invoicePaidByLead, setInvoicePaidByLead] = useState<Map<string, number>>(new Map());
@@ -334,6 +339,7 @@ export function SmartOpsStripePayments() {
             u.mensalidade_status ||
             deriveMensalidadeLabel(sub ?? null) ||
             ((u.lead_id && (invoicePaid.get(u.lead_id) ?? 0) > 0) ? "Paga" : null),
+          charge_kind: ((u as any).charge_kind === "mensalidade" ? "mensalidade" : "ativacao") as ChargeKind,
           subscription_status: sub?.status ?? null,
           current_period_end: sub?.current_period_end ?? null,
           cancel_at_period_end: sub?.cancel_at_period_end ?? null,
@@ -352,7 +358,7 @@ export function SmartOpsStripePayments() {
 
   useEffect(() => { load(); }, [load]);
 
-  const filtered = useMemo(() => {
+  const searchFiltered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return rows.filter(r => {
       if (statusFilter !== "all") {
@@ -374,6 +380,11 @@ export function SmartOpsStripePayments() {
       );
     });
   }, [rows, search, statusFilter]);
+
+  const filtered = useMemo(
+    () => (kindFilter === "all" ? searchFiltered : searchFiltered.filter(r => r.charge_kind === kindFilter)),
+    [searchFiltered, kindFilter],
+  );
 
   async function updateUnit(unitId: string, patch: Partial<PaymentUnit>) {
     const { error } = await supabase.from("stripe_payment_units").update(patch).eq("id", unitId);
@@ -438,7 +449,6 @@ export function SmartOpsStripePayments() {
   };
 
   const kpis = useMemo(() => {
-    let ativacoesPagas = 0;
     let subsAtivas = 0;
     let subsFalhas = 0;
     let preAtivPend = 0;
@@ -451,38 +461,24 @@ export function SmartOpsStripePayments() {
     let mensNaoPaga = 0;
     const now = Date.now();
     const DAY = 86400000;
-    for (const r of filtered) {
-      const prod = (r.produto || "").toLowerCase();
-      const isMensalidade = prod.includes("assinatura") || prod.includes("mensal") || prod.includes("recorren");
-      const isAtivacao = prod.includes("ativa") || prod.includes("implanta") || prod.includes("bundle") || prod.includes("setup");
-      if (!isMensalidade && isAtivacao) ativacoesPagas += r.valor || 0;
-      const ativDone = isDoneStatus(r.ativacao_status) || !!r.ativacao_at;
-      if (ativDone) ativas += 1;
-      if (!ativDone) ativPend += 1;
-      if (!r.pre_ativacao_at && !isDoneStatus(r.pre_ativacao_status)) preAtivPend += 1;
-      const ss = (r.subscription_status || "").toLowerCase();
-      if (ss === "active" || ss === "trialing") subsAtivas += 1;
-      if (isFailedStatus(r.mensalidade_status) || ss === "past_due" || ss === "canceled" || ss === "unpaid") subsFalhas += 1;
-      if (!r.id_dongle || !r.id_dongle.trim()) semDongle += 1;
+    // Ativações: somente unidades de RMS (cobranças de ativação). Cobranças
+    // recorrentes (mensalidade) nunca contam como unidade vendida.
+    const ativUnits = searchFiltered.filter(r => r.charge_kind !== "mensalidade");
+    const ativacoesPagas = ativUnits.reduce((s, r) => s + (r.valor || 0), 0);
+    const pagamentosAtiv = new Set(ativUnits.map(r => `${r.lead_id ?? "nolead"}|${r.payment_at}`)).size;
 
-      // Aging da primeira mensalidade (só unidades ativadas)
-      if (ativDone && r.lead_id) {
-        const first = firstSubInvoiceByLead.get(r.lead_id);
-        if (first) {
-          const diff = Math.floor((now - first.getTime()) / DAY);
-          if (diff >= 0 && diff <= 10) mens0a10 += 1;
-          else if (diff <= 20) mens11a20 += 1;
-          else if (diff <= 30) mens21a30 += 1;
-          else if (diff > 30) mensNaoPaga += 1;
-        } else if (r.ativacao_at) {
-          const at = new Date(r.ativacao_at).getTime();
-          if (isFinite(at) && (now - at) > 30 * DAY) mensNaoPaga += 1;
-        }
-      }
+    for (const r of ativUnits) {
+      const ativDone = isDoneStatus(r.ativacao_status);
+      if (ativDone) ativas += 1; else ativPend += 1;
+      if (!isDoneStatus(r.pre_ativacao_status)) preAtivPend += 1;
+      if (!r.id_dongle || !r.id_dongle.trim()) semDongle += 1;
     }
-    // Mensalidades — de lead_activity_log (stripe_invoice_paid), restrito aos leads em filtered
+
+    // Mensalidades — por cliente (lead), nunca por unidade
     const leadsInView = new Set<string>();
-    for (const r of filtered) if (r.lead_id) leadsInView.add(r.lead_id);
+    for (const r of ativUnits) if (r.lead_id) leadsInView.add(r.lead_id);
+    const subStatusByLead = new Map<string, string>();
+    for (const r of rows) if (r.lead_id && r.subscription_status) subStatusByLead.set(r.lead_id, r.subscription_status.toLowerCase());
     let mensalidadesPagas = 0;
     let primeirasMensalidadesClientes = 0;
     for (const lid of leadsInView) {
@@ -491,11 +487,22 @@ export function SmartOpsStripePayments() {
         mensalidadesPagas += v;
         primeirasMensalidadesClientes += 1;
       }
+      const ss = subStatusByLead.get(lid) ?? "";
+      if (ss === "active" || ss === "trialing") subsAtivas += 1;
+      if (ss === "past_due" || ss === "canceled" || ss === "unpaid") subsFalhas += 1;
+      const first = firstSubInvoiceByLead.get(lid);
+      if (first) {
+        const diff = Math.floor((now - first.getTime()) / DAY);
+        if (diff >= 0 && diff <= 10) mens0a10 += 1;
+        else if (diff <= 20) mens11a20 += 1;
+        else if (diff <= 30) mens21a30 += 1;
+        else mensNaoPaga += 1;
+      }
     }
-    const ticketMedio = groups.length > 0 ? total / groups.length : 0;
+    const ticketMedio = pagamentosAtiv > 0 ? ativacoesPagas / pagamentosAtiv : 0;
     return {
-      pagamentos: groups.length,
-      unidades: filtered.length,
+      pagamentos: pagamentosAtiv,
+      unidades: ativUnits.length,
       ticketMedio,
       ativacoesPagas,
       mensalidadesPagas,
@@ -511,7 +518,7 @@ export function SmartOpsStripePayments() {
       mens21a30,
       mensNaoPaga,
     };
-  }, [filtered, groups, total, invoicePaidByLead, firstSubInvoiceByLead]);
+  }, [rows, searchFiltered, invoicePaidByLead, firstSubInvoiceByLead]);
 
   if (loading) {
     return (
@@ -538,6 +545,15 @@ export function SmartOpsStripePayments() {
             className="pl-8 w-72"
           />
         </div>
+        <select
+          value={kindFilter}
+          onChange={e => setKindFilter(e.target.value as any)}
+          className="h-9 rounded-md border border-border bg-background px-2 text-sm"
+        >
+          <option value="ativacao">Ativações (unidades RMS)</option>
+          <option value="mensalidade">Mensalidades (assinatura)</option>
+          <option value="all">Ativações + mensalidades</option>
+        </select>
         <select
           value={statusFilter}
           onChange={e => setStatusFilter(e.target.value as any)}
@@ -647,7 +663,21 @@ export function SmartOpsStripePayments() {
                   {isFirst && <td rowSpan={span} className="p-2 text-muted-foreground align-top">{r.email || "—"}</td>}
                   {isFirst && <td rowSpan={span} className="p-2 text-muted-foreground align-top">{r.telefone || "—"}</td>}
                   {isFirst && <td rowSpan={span} className="p-2 whitespace-nowrap align-top">{fmtDateTime(r.payment_at)}</td>}
-                  {isFirst && <td rowSpan={span} className="p-2 text-xs align-top">{productLabel(r.produto)}</td>}
+                  {isFirst && (
+                    <td rowSpan={span} className="p-2 text-xs align-top">
+                      {productLabel(r.produto)}
+                      <div className="mt-1">
+                        <Badge
+                          variant="outline"
+                          className={r.charge_kind === "mensalidade"
+                            ? "bg-sky-500/10 text-sky-400 border-sky-500/30"
+                            : "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"}
+                        >
+                          {r.charge_kind === "mensalidade" ? "Mensalidade" : "Ativação"}
+                        </Badge>
+                      </div>
+                    </td>
+                  )}
                   {isFirst && (
                     <td rowSpan={span} className="p-2 text-right whitespace-nowrap align-top">
                       {fmtBRL(g.units.reduce((s, u) => s + (u.valor || 0), 0))}
@@ -701,7 +731,7 @@ export function SmartOpsStripePayments() {
                         const v = e.target.value.trim().toUpperCase();
                         if ((v || null) !== (r.numero_rms ?? null)) updateUnit(r.unit_id, { numero_rms: v || null } as any);
                       }}
-                      placeholder="RMS000000"
+                      placeholder="—"
                       className="h-7 rounded border border-border bg-background px-1 text-xs w-24 font-mono"
                     />
                   </td>
@@ -796,12 +826,12 @@ export function SmartOpsStripePayments() {
                       onChange={e => updateUnit(r.unit_id, { mensalidade_status: e.target.value || null })}
                       className="h-7 rounded border border-border bg-background px-1 text-xs"
                     >
-                      <option value="">— {deriveMensalidadeLabel({ status: r.subscription_status, current_period_end: r.current_period_end, cancel_at_period_end: r.cancel_at_period_end }) || ((isDoneStatus(r.ativacao_status) || r.ativacao_at) ? "Sem assinatura" : "Aguardando ativação")}</option>
+                      <option value="">— {deriveMensalidadeLabel({ status: r.subscription_status, current_period_end: r.current_period_end, cancel_at_period_end: r.cancel_at_period_end }) || (isDoneStatus(r.ativacao_status) ? "Sem assinatura" : "Aguardando ativação")}</option>
                       {MENS_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
                     </select>
                     {r.mensalidade_status ? (
                       <div className="mt-1"><Badge variant="outline" className={statusColor(r.mensalidade_status)}>{r.mensalidade_status}</Badge></div>
-                    ) : (!isDoneStatus(r.ativacao_status) && !r.ativacao_at) && (
+                    ) : !isDoneStatus(r.ativacao_status) && (
                       <div className="mt-1 text-[10px] text-muted-foreground">Ativação primeiro</div>
                     )}
                   </td>

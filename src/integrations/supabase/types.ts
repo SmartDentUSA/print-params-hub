@@ -23145,6 +23145,7 @@ export type Database = {
           ativacao_data: string | null
           ativacao_status: string | null
           ativo: boolean | null
+          charge_kind: string | null
           created_at: string
           hw_suficiente: boolean | null
           id: string
@@ -23172,6 +23173,7 @@ export type Database = {
           ativacao_data?: string | null
           ativacao_status?: string | null
           ativo?: boolean | null
+          charge_kind?: string | null
           created_at?: string
           hw_suficiente?: boolean | null
           id?: string
@@ -23199,6 +23201,7 @@ export type Database = {
           ativacao_data?: string | null
           ativacao_status?: string | null
           ativo?: boolean | null
+          charge_kind?: string | null
           created_at?: string
           hw_suficiente?: boolean | null
           id?: string
