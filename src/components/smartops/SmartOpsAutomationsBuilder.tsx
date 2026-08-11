@@ -387,7 +387,7 @@ export function SmartOpsAutomationsBuilder() {
               {/* CONSTRUTOR DE MENSAGEM */}
               <div className="space-y-4 rounded-lg border p-4">
                 <div className="space-y-2">
-                  <Label className="text-xs">Mensagem (dentro da janela)</Label>
+                  <Label className="text-xs">Mensagem WhatsApp (dentro da janela)</Label>
                   <MessageVariableBar
                     onInsert={(k) => patch(a.id, { mensagem_template: `${a.mensagem_template ?? ""}{{${k}}}` })}
                   />
@@ -409,6 +409,73 @@ export function SmartOpsAutomationsBuilder() {
                     onChange={(e) => patch(a.id, { mensagem_fora_horario: e.target.value })}
                   />
                 </div>
+
+                {hasCanal("sms") && (
+                  <div className="space-y-2 border-t pt-4">
+                    <Label className="text-xs">
+                      Mensagem SMS (máx. 160 caracteres) — {String(a.sms_template ?? "").length}/160
+                    </Label>
+                    <MessageVariableBar
+                      onInsert={(k) => patch(a.id, { sms_template: `${a.sms_template ?? ""}{{${k}}}` })}
+                    />
+                    <Textarea
+                      rows={3}
+                      maxLength={160}
+                      placeholder="Ex: {{primeiro_nome}}, a Smart Dent tem novidades sobre {{produto_interesse}}."
+                      value={a.sms_template ?? ""}
+                      onChange={(e) => patch(a.id, { sms_template: e.target.value })}
+                    />
+                    <p className="text-[10px] text-muted-foreground">
+                      Sem mensagem SMS própria, o motor usa a mensagem do WhatsApp cortada em 160 caracteres.
+                    </p>
+                  </div>
+                )}
+
+                {hasCanal("email") && (
+                  <div className="space-y-3 border-t pt-4">
+                    <Label className="text-xs uppercase tracking-wide text-muted-foreground">Editor de e-mail</Label>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">Assunto</Label>
+                        <Input
+                          placeholder="Ex: {{primeiro_nome}}, sobre {{produto_interesse}}"
+                          value={a.email_assunto ?? ""}
+                          onChange={(e) => patch(a.id, { email_assunto: e.target.value })}
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">Remetente</Label>
+                        <Input
+                          placeholder="Smart Dent | Fluxo Digital"
+                          value={a.email_remetente ?? ""}
+                          onChange={(e) => patch(a.id, { email_remetente: e.target.value })}
+                        />
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-xs">Corpo do e-mail (HTML)</Label>
+                      <MessageVariableBar
+                        onInsert={(k) => patch(a.id, { email_html: `${a.email_html ?? ""}{{${k}}}` })}
+                      />
+                      <Textarea
+                        rows={10}
+                        className="font-mono text-xs"
+                        placeholder={'<p>Olá {{primeiro_nome}},</p>\n<p>Sobre {{produto_interesse}}...</p>'}
+                        value={a.email_html ?? ""}
+                        onChange={(e) => patch(a.id, { email_html: e.target.value })}
+                      />
+                    </div>
+                    {(a.email_html ?? "").trim() && (
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">Pré-visualização</Label>
+                        <div
+                          className="rounded-md border bg-background p-3 text-sm prose prose-sm max-w-none"
+                          dangerouslySetInnerHTML={{ __html: a.email_html ?? "" }}
+                        />
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               <div className="flex justify-between">
@@ -416,7 +483,7 @@ export function SmartOpsAutomationsBuilder() {
                   <Trash2 className="w-4 h-4 mr-1" /> Excluir
                 </Button>
                 <div className="flex gap-2">
-                  <Button variant="outline" size="sm" onClick={() => testSend(a)} disabled={busyId === a.id}>
+                  <Button variant="outline" size="sm" onClick={() => openTest(a)} disabled={busyId === a.id}>
                     <Send className="w-4 h-4 mr-1" /> Enviar teste
                   </Button>
                   <Button size="sm" onClick={() => save(a)} disabled={busyId === a.id}>
