@@ -32,14 +32,54 @@ Deno.serve(async (req) => {
   try {
     const body = await req.json().catch(() => ({}));
     const lead_id = body?.lead_id as string | undefined;
-    const team_member_id = body?.team_member_id as string | undefined;
+    let team_member_id = body?.team_member_id as string | undefined;
+    const seller_name = (body?.seller_name as string | undefined)?.trim() || null;
     const trigger = (body?.trigger as string | undefined) || "unknown";
     // Envio de TESTE: manda o briefing para um número arbitrário, sem lock,
     // sem janela de horário e sem gravar em message_logs.
     const test_phone = (normalizeBrazilianPhone(String(body?.test_phone ?? "")) || "").replace(/\D/g, "") || null;
 
-    if (!lead_id || !team_member_id) {
-      return json({ error: "lead_id and team_member_id are required" }, 400);
+    if (!lead_id) {
+      return json({ error: "lead_id is required" }, 400);
+    }
+
+    // O trigger de banco (fn_trigger_seller_briefing) envia `seller_name` em vez de
+    // `team_member_id`. Resolver aqui, senão o briefing morre em 400 e o log fica "pendente".
+    if (!team_member_id) {
+      const nome = seller_name
+        || ((await supabase.from("lia_attendances").select("proprietario_lead_crm").eq("id", lead_id).maybeSingle())
+              .data as any)?.proprietario_lead_crm
+        || null;
+      if (!nome) return json({ error: "team_member_id or seller_name is required" }, 400);
+      const { data: tm } = await supabase
+        .from("team_members")
+        .select("id, nome_completo")
+        .ilike("nome_completo", nome)
+        .eq("ativo", true)
+        .limit(1)
+        .maybeSingle();
+      let resolved = (tm as any)?.id as string | undefined;
+      if (!resolved) {
+        const { data: fuzzy } = await supabase
+          .from("team_members")
+          .select("id, nome_completo")
+          .ilike("nome_completo", `%${nome.split(/\s+/)[0]}%`)
+          .eq("ativo", true)
+          .limit(5);
+        const lower = nome.toLowerCase();
+        resolved = (fuzzy || []).find((r: any) => lower.includes(String(r.nome_completo || "").toLowerCase().split(/\s+/)[0]))?.id
+          || (fuzzy || [])[0]?.id;
+      }
+      if (!resolved) {
+        await logMsg(supabase, {
+          lead_id, team_member_id: null, whatsapp_number: null,
+          tipo: "briefing_vendedor_block", status: "erro",
+          evolution_instance: null, mensagem_preview: null,
+          error_details: `seller_name_not_resolved:${nome}`,
+        });
+        return json({ error: `seller_name not resolved: ${nome}` }, 404);
+      }
+      team_member_id = resolved;
     }
 
     // ── Config editável na UI (seller_briefing_config) ──
@@ -237,11 +277,11 @@ async function logMsg(
   supabase: ReturnType<typeof createClient>,
   row: {
     lead_id: string;
-    team_member_id: string;
+    team_member_id: string | null;
     whatsapp_number: string | null;
     tipo: string;
     status: string;
-    evolution_instance: string;
+    evolution_instance: string | null;
     mensagem_preview: string | null;
     error_details?: string | null;
     provider_message_id?: string | null;
