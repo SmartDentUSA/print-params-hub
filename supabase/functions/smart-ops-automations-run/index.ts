@@ -91,6 +91,16 @@ Deno.serve(async (req) => {
     // Modo teste: renderiza e envia para um número, sem lock e sem janela.
     const testPhone = normalizePhone(String(body?.test_phone ?? ""));
     const lookbackMin = Number(body?.lookback_minutes ?? 180);
+    // ── Modo evento (webhook do CRM) ──────────────────────────────────────────
+    // O motor não depende mais de cron: o webhook do PipeRun chama esta função
+    // com o lead + deal alterado e nós avaliamos as regras na hora.
+    const evLeadId = body?.lead_id ? String(body.lead_id) : null;
+    const evDealId = body?.deal_id ?? null;
+    const evPipelineId = body?.pipeline_id ?? null;
+    const evPipelineName = body?.pipeline_name ?? null;
+    const evStageId = body?.stage_id ?? null;
+    const evStageName = body?.stage_name ?? null;
+    const eventMode = !!evLeadId && !testPhone;
 
     let q = supabase.from("smartops_automations").select("*");
     if (onlyId) q = q.eq("id", onlyId);
@@ -131,6 +141,30 @@ Deno.serve(async (req) => {
           .limit(1)
           .maybeSingle();
         if (lead) leads = [{ lead, deal_id: null }];
+      } else if (eventMode) {
+        // Avalia o gate contra o deal que acabou de mudar no CRM.
+        if (a.gate_pipeline_id && String(a.gate_pipeline_id) !== String(evPipelineId ?? "")) {
+          results.push({ automation: a.nome, skipped: "pipeline_diferente" });
+          continue;
+        }
+        if (!a.gate_pipeline_id && a.gate_pipeline_name && norm(evPipelineName) !== norm(a.gate_pipeline_name)) {
+          results.push({ automation: a.nome, skipped: "pipeline_diferente" });
+          continue;
+        }
+        const byId = stageIds.length > 0 && stageIds.includes(String(evStageId ?? ""));
+        const byName = stageNames.length > 0 && stageNames.includes(norm(evStageName));
+        const noGate = stageIds.length === 0 && stageNames.length === 0;
+        if (!byId && !byName && !noGate) {
+          results.push({ automation: a.nome, skipped: "etapa_diferente" });
+          continue;
+        }
+        const { data: lead } = await supabase
+          .from("lia_attendances").select("*").eq("id", evLeadId).is("merged_into", null).maybeSingle();
+        if (!lead) {
+          results.push({ automation: a.nome, skipped: "lead_nao_canonico" });
+          continue;
+        }
+        leads = [{ lead, deal_id: evDealId ?? null }];
       } else {
         const sinceIso = new Date(Date.now() - (lookbackMin + Number(a.delay_minutos ?? 0)) * 60_000).toISOString();
         const untilIso = new Date(Date.now() - Number(a.delay_minutos ?? 0) * 60_000).toISOString();
