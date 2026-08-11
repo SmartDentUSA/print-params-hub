@@ -1609,7 +1609,24 @@ Deno.serve(async (req) => {
     let messageStatus = "skipped";
     let errorDetails: string | null = null;
 
-    if (SELLFLUX_WEBHOOK_CAMPANHAS && leadTelefone && isNewLead) {
+    // GATE: respeita o switch "Boas-vindas ao Lead" (lia_automations.slug=boas_vindas_lead).
+    // Se estiver desativado, NENHUMA mensagem de boas-vindas é enviada por este webhook.
+    let welcomeEnabled = false;
+    try {
+      const { data: wcfg } = await supabase
+        .from("lia_automations")
+        .select("ativo")
+        .eq("slug", "boas_vindas_lead")
+        .maybeSingle();
+      welcomeEnabled = !!wcfg?.ativo;
+    } catch (_e) {
+      welcomeEnabled = false;
+    }
+
+    if (!welcomeEnabled) {
+      messageStatus = "skipped";
+      errorDetails = "boas_vindas_desativada";
+    } else if (SELLFLUX_WEBHOOK_CAMPANHAS && leadTelefone && isNewLead) {
       const { data: fullLead } = await supabase
         .from("lia_attendances")
         .select("*")
@@ -1648,7 +1665,8 @@ Deno.serve(async (req) => {
       lead_id: leadId,
       team_member_id: teamMember?.id || null,
       whatsapp_number: teamMember?.whatsapp_number || null,
-      tipo: "boas_vindas",
+      // Quando nada é enviado, este log é apenas o registro da atribuição no CRM.
+      tipo: messageStatus === "skipped" ? "atribuicao_crm" : "boas_vindas",
       mensagem_preview: `Atribuição de ${ids.ownerName || "vendedor"} para ${leadNome}${journeyTagsAdded.length ? ` +TAGs: ${journeyTagsAdded.join(",")}` : ""}`,
       status: messageStatus,
       error_details: errorDetails,
