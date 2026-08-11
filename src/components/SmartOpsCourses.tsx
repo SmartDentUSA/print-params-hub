@@ -899,6 +899,20 @@ function InscricoesTab() {
   const { data: result, isLoading } = useQuery({
     queryKey: ["smartops_enrollments", page, filters],
     queryFn: async () => {
+      // Busca também por nome de acompanhante: resolve os enrollment_ids antes
+      let companionEnrollmentIds: string[] = [];
+      const term = filters.search.trim();
+      if (term) {
+        const { data: comps } = await (supabase as any)
+          .from("smartops_enrollment_companions")
+          .select("enrollment_id")
+          .ilike("name", `%${term}%`)
+          .limit(500);
+        companionEnrollmentIds = Array.from(
+          new Set(((comps ?? []) as any[]).map((c) => c.enrollment_id).filter(Boolean))
+        );
+      }
+
       let q = (supabase as any)
         .from("smartops_course_enrollments")
         .select(
@@ -918,7 +932,13 @@ function InscricoesTab() {
 
       if (filters.status) q = q.eq("status", filters.status);
       if (filters.course_id) q = q.eq("course_id", filters.course_id);
-      if (filters.search) q = q.ilike("person_name", `%${filters.search}%`);
+      if (term) {
+        const orParts = [`person_name.ilike.*${term}*`];
+        if (companionEnrollmentIds.length > 0) {
+          orParts.push(`id.in.(${companionEnrollmentIds.join(",")})`);
+        }
+        q = q.or(orParts.join(","));
+      }
 
       q = q.range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
       const { data, error, count } = await q;
