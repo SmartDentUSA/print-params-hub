@@ -80,6 +80,73 @@ async function sendWhatsApp(supabase: any, instance: string, phone: string, mess
   return { ok: true, error: null, id: (payload as any)?.key?.id ?? null };
 }
 
+// ── SMS (DisparoPro HTTPS MT) ────────────────────────────────────────────────
+async function sendSms(phone: string, message: string) {
+  const token = Deno.env.get("DISPARO_PRO_TOKEN");
+  if (!token) return { ok: false, error: "DISPARO_PRO_TOKEN_nao_configurado", id: null };
+  const texto = message.replace(/\s+/g, " ").trim().slice(0, 160);
+  const res = await fetch("https://apihttp.disparopro.com.br:8433/mt", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify([{
+      numero: phone,
+      servico: Deno.env.get("DISPARO_PRO_SERVICO") || "short",
+      mensagem: texto,
+      codificacao: "0",
+      nome_campanha: "SmartOps Automacao",
+    }]),
+    signal: AbortSignal.timeout(25_000),
+  });
+  const raw = await res.text();
+  let item: any = {};
+  try {
+    const p = JSON.parse(raw);
+    item = Array.isArray(p?.detail) ? p.detail[0] : (p?.detail ?? p);
+  } catch { /* keep raw */ }
+  const accepted = res.ok && (item?.status === "ACCEPTED" || item?.status === "SENT");
+  if (!accepted) return { ok: false, error: `sms_${res.status}:${String(item?.descricao_detalhe ?? raw).slice(0, 200)}`, id: null };
+  return { ok: true, error: null, id: item?.id ? String(item.id) : null };
+}
+
+// ── E-mail (Gmail via connector gateway) ────────────────────────────────────
+const b64std = (s: string) => btoa(unescape(encodeURIComponent(s)));
+const b64url = (s: string) => b64std(s).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+
+async function sendEmail(to: string, subject: string, html: string, fromName: string) {
+  const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+  const GOOGLE_MAIL_API_KEY = Deno.env.get("GOOGLE_MAIL_API_KEY");
+  if (!LOVABLE_API_KEY || !GOOGLE_MAIL_API_KEY) {
+    return { ok: false, error: "gmail_connector_nao_configurado", id: null };
+  }
+  const doc = /<html[\s>]/i.test(html)
+    ? html
+    : `<!doctype html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="margin:0;padding:16px;font-family:Arial,Helvetica,sans-serif;color:#222">${html}</body></html>`;
+  const raw = [
+    `To: ${to}`,
+    `Subject: =?UTF-8?B?${b64std(subject || "(sem assunto)")}?=`,
+    `From: ${fromName} <me@gmail>`,
+    `MIME-Version: 1.0`,
+    `Content-Language: pt-BR`,
+    `Content-Type: text/html; charset="UTF-8"`,
+    `Content-Transfer-Encoding: base64`,
+    ``,
+    b64std(doc).replace(/(.{76})/g, "$1\r\n"),
+  ].join("\r\n");
+  const res = await fetch("https://connector-gateway.lovable.dev/google_mail/gmail/v1/users/me/messages/send", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${LOVABLE_API_KEY}`,
+      "X-Connection-Api-Key": GOOGLE_MAIL_API_KEY,
+    },
+    body: JSON.stringify({ raw: b64url(raw) }),
+    signal: AbortSignal.timeout(25_000),
+  });
+  const j = await res.json().catch(() => ({}));
+  if (!res.ok) return { ok: false, error: `gmail_${res.status}:${String((j as any)?.error?.message ?? JSON.stringify(j)).slice(0, 200)}`, id: null };
+  return { ok: true, error: null, id: (j as any)?.id ?? null };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
