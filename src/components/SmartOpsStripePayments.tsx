@@ -663,7 +663,21 @@ export function SmartOpsStripePayments() {
                   {isFirst && <td rowSpan={span} className="p-2 text-muted-foreground align-top">{r.email || "—"}</td>}
                   {isFirst && <td rowSpan={span} className="p-2 text-muted-foreground align-top">{r.telefone || "—"}</td>}
                   {isFirst && <td rowSpan={span} className="p-2 whitespace-nowrap align-top">{fmtDateTime(r.payment_at)}</td>}
-                  {isFirst && <td rowSpan={span} className="p-2 text-xs align-top">{productLabel(r.produto)}</td>}
+                  {isFirst && (
+                    <td rowSpan={span} className="p-2 text-xs align-top">
+                      {productLabel(r.produto)}
+                      <div className="mt-1">
+                        <Badge
+                          variant="outline"
+                          className={r.charge_kind === "mensalidade"
+                            ? "bg-sky-500/10 text-sky-400 border-sky-500/30"
+                            : "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"}
+                        >
+                          {r.charge_kind === "mensalidade" ? "Mensalidade" : "Ativação"}
+                        </Badge>
+                      </div>
+                    </td>
+                  )}
                   {isFirst && (
                     <td rowSpan={span} className="p-2 text-right whitespace-nowrap align-top">
                       {fmtBRL(g.units.reduce((s, u) => s + (u.valor || 0), 0))}
@@ -717,7 +731,7 @@ export function SmartOpsStripePayments() {
                         const v = e.target.value.trim().toUpperCase();
                         if ((v || null) !== (r.numero_rms ?? null)) updateUnit(r.unit_id, { numero_rms: v || null } as any);
                       }}
-                      placeholder="RMS000000"
+                      placeholder="—"
                       className="h-7 rounded border border-border bg-background px-1 text-xs w-24 font-mono"
                     />
                   </td>
