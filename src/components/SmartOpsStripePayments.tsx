@@ -22,6 +22,11 @@ interface PaymentUnit {
   id_dongle: string | null;
   stripe_seller_id: string | null;
   id_smartdent: string | null;
+  numero_rms: string | null;
+  verificado: boolean | null;
+  hw_suficiente: boolean | null;
+  versoes_piratas: boolean | null;
+  ativo: boolean | null;
   pre_ativacao_data: string | null;
   pre_ativacao_status: string | null;
   ativacao_data: string | null;
@@ -72,6 +77,11 @@ interface Row {
   stripe_seller_id: string | null;
   id_dongle: string | null;
   id_smartdent: string | null;
+  numero_rms: string | null;
+  verificado: boolean | null;
+  hw_suficiente: boolean | null;
+  versoes_piratas: boolean | null;
+  ativo: boolean | null;
   pre_ativacao_at: string | null;
   pre_ativacao_status: string | null;
   ativacao_at: string | null;
@@ -300,6 +310,11 @@ export function SmartOpsStripePayments() {
           stripe_seller_id: sellerCode,
           id_dongle: u.id_dongle ?? null,
           id_smartdent: (u as any).id_smartdent ?? null,
+          numero_rms: (u as any).numero_rms ?? null,
+          verificado: (u as any).verificado ?? null,
+          hw_suficiente: (u as any).hw_suficiente ?? null,
+          versoes_piratas: (u as any).versoes_piratas ?? null,
+          ativo: (u as any).ativo ?? null,
           pre_ativacao_at: u.pre_ativacao_data,
           pre_ativacao_status: u.pre_ativacao_status,
           ativacao_at: u.ativacao_data,
@@ -339,7 +354,10 @@ export function SmartOpsStripePayments() {
         r.nome.toLowerCase().includes(q) ||
         r.email.toLowerCase().includes(q) ||
         r.telefone.toLowerCase().includes(q) ||
-        r.produto.toLowerCase().includes(q)
+        r.produto.toLowerCase().includes(q) ||
+        (r.numero_rms || "").toLowerCase().includes(q) ||
+        (r.id_dongle || "").toLowerCase().includes(q) ||
+        (r.id_smartdent || "").toLowerCase().includes(q)
       );
     });
   }, [rows, search, statusFilter]);
@@ -356,6 +374,11 @@ export function SmartOpsStripePayments() {
       if ("stripe_seller_id" in patch) next.stripe_seller_id = patch.stripe_seller_id ?? null;
       if ("id_dongle" in patch) next.id_dongle = patch.id_dongle ?? null;
       if ("id_smartdent" in patch) next.id_smartdent = (patch as any).id_smartdent ?? null;
+      if ("numero_rms" in patch) next.numero_rms = (patch as any).numero_rms ?? null;
+      if ("verificado" in patch) next.verificado = (patch as any).verificado ?? null;
+      if ("hw_suficiente" in patch) next.hw_suficiente = (patch as any).hw_suficiente ?? null;
+      if ("versoes_piratas" in patch) next.versoes_piratas = (patch as any).versoes_piratas ?? null;
+      if ("ativo" in patch) next.ativo = (patch as any).ativo ?? null;
       if ("pre_ativacao_data" in patch) next.pre_ativacao_at = patch.pre_ativacao_data ?? null;
       if ("pre_ativacao_status" in patch) next.pre_ativacao_status = patch.pre_ativacao_status ?? null;
       if ("ativacao_data" in patch) next.ativacao_at = patch.ativacao_data ?? null;
@@ -584,7 +607,9 @@ export function SmartOpsStripePayments() {
                 <th className="text-left p-2">Vendedor</th>
                 <th className="text-left p-2">ID Sistema</th>
                 <th className="text-left p-2">ID Smart Dent</th>
+                <th className="text-left p-2">Nº RMS</th>
                 <th className="text-left p-2">ID Dongle</th>
+                <th className="text-left p-2">Checks</th>
                 <th className="text-left p-2">Pré-ativação</th>
                 <th className="text-left p-2">Status Pré</th>
                 <th className="text-left p-2">Ativação</th>
@@ -656,6 +681,18 @@ export function SmartOpsStripePayments() {
                     />
                   </td>
                   <td className="p-2">
+                    <input
+                      type="text"
+                      defaultValue={r.numero_rms ?? ""}
+                      onBlur={e => {
+                        const v = e.target.value.trim().toUpperCase();
+                        if ((v || null) !== (r.numero_rms ?? null)) updateUnit(r.unit_id, { numero_rms: v || null } as any);
+                      }}
+                      placeholder="RMS000000"
+                      className="h-7 rounded border border-border bg-background px-1 text-xs w-24 font-mono"
+                    />
+                  </td>
+                  <td className="p-2">
                     {span > 1 && (
                       <div className="text-[10px] text-muted-foreground mb-1">Unid. {r.unit_index}/{span}</div>
                     )}
@@ -669,6 +706,26 @@ export function SmartOpsStripePayments() {
                       placeholder="—"
                       className="h-7 rounded border border-border bg-background px-1 text-xs w-32"
                     />
+                  </td>
+                  <td className="p-2">
+                    <div className="flex flex-col gap-0.5 text-[10px] text-muted-foreground">
+                      {([
+                        ["verificado", "Verif."],
+                        ["hw_suficiente", "HW ok"],
+                        ["versoes_piratas", "Pirata"],
+                        ["ativo", "Ativo"],
+                      ] as const).map(([field, label]) => (
+                        <label key={field} className="flex items-center gap-1 whitespace-nowrap cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={!!r[field]}
+                            onChange={e => updateUnit(r.unit_id, { [field]: e.target.checked } as any)}
+                            className="h-3 w-3 accent-primary"
+                          />
+                          {label}
+                        </label>
+                      ))}
+                    </div>
                   </td>
                   <td className="p-2">
                     <input
@@ -750,7 +807,7 @@ export function SmartOpsStripePayments() {
               }))}
               {groups.length === 0 && (
                 <tr>
-                  <td colSpan={17} className="p-8 text-center text-muted-foreground text-sm">
+                  <td colSpan={19} className="p-8 text-center text-muted-foreground text-sm">
                     Nenhum pagamento encontrado.
                   </td>
                 </tr>
