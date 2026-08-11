@@ -167,8 +167,10 @@ Deno.serve(async (req) => {
         .maybeSingle(),
     ]);
 
-    if (leadErr || !lead) return json({ error: `lead not found: ${leadErr?.message || lead_id}` }, 404);
-    if (leadErr || !lead) { await releaseClaim(supabase, lead_id, !!test_phone); }
+    if (leadErr || !lead) {
+      await releaseClaim(supabase, lead_id, !!test_phone);
+      return json({ error: `lead not found: ${leadErr?.message || lead_id}` }, 404);
+    }
     if (sellerErr || !seller) {
       await releaseClaim(supabase, lead_id, !!test_phone);
       return json({ error: `seller not found: ${sellerErr?.message || team_member_id}` }, 404);
@@ -271,7 +273,6 @@ Deno.serve(async (req) => {
     return json({ success: status === "enviado", status, error: errorDetails });
   } catch (err) {
     console.error("[notify-seller v33] fatal:", err);
-    try { await releaseClaim(supabase, (await Promise.resolve(null)) as any, false); } catch { /* noop */ }
     return json({ error: err instanceof Error ? err.message : String(err) }, 500);
   }
 });
