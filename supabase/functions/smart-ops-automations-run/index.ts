@@ -299,78 +299,106 @@ Deno.serve(async (req) => {
       }
 
       for (const { lead, deal_id } of leads) {
-        const tpl = (!dentroJanela && a.mensagem_fora_horario) ? a.mensagem_fora_horario : a.mensagem_template;
-        if (!tpl || !String(tpl).trim()) {
-          results.push({ automation: a.nome, lead_id: lead.id, skipped: "sem_mensagem" });
-          continue;
-        }
-        const message = renderTemplate(String(tpl), lead);
-
-        // Destino
-        let destino: string | null = null;
+        // Resolve telefone/e-mail de destino (uma vez por lead)
         let destinatarioTipo = String(a.destinatario ?? "lead");
-        if (testPhone) { destino = testPhone; destinatarioTipo = "teste"; }
-        else if (destinatarioTipo === "numero_fixo") destino = normalizePhone(String(a.destino_numero ?? ""));
-        else if (destinatarioTipo === "vendedor") {
+        let fone: string | null = null;
+        let mail: string | null = null;
+
+        if (testMode) {
+          destinatarioTipo = "teste";
+          fone = testPhone;
+          mail = testEmail;
+        } else if (destinatarioTipo === "numero_fixo") {
+          fone = normalizePhone(String(a.destino_numero ?? ""));
+          mail = String(lead.email ?? "").trim() || null;
+        } else if (destinatarioTipo === "vendedor") {
           const { data: tm } = await supabase
-            .from("team_members").select("whatsapp_number")
+            .from("team_members").select("whatsapp_number, email")
             .ilike("nome_completo", String(lead.proprietario_lead_crm ?? ""))
             .eq("ativo", true).limit(1).maybeSingle();
-          destino = normalizePhone(String((tm as any)?.whatsapp_number ?? ""));
-        } else destino = normalizePhone(String(lead.telefone ?? lead.whatsapp ?? ""));
-
-        if (!destino) {
-          results.push({ automation: a.nome, lead_id: lead.id, skipped: "destino_invalido" });
-          continue;
+          fone = normalizePhone(String((tm as any)?.whatsapp_number ?? ""));
+          mail = String((tm as any)?.email ?? "").trim() || null;
+        } else {
+          fone = normalizePhone(String(lead.telefone ?? lead.whatsapp ?? ""));
+          mail = String(lead.email ?? "").trim() || null;
         }
 
-        // Cooldown por lead
-        if (!testPhone) {
-          const cdIso = new Date(Date.now() - Number(a.cooldown_horas ?? 24) * 3600_000).toISOString();
-          const { data: recent } = await supabase
-            .from("smartops_automation_runs").select("id")
-            .eq("automation_id", a.id).eq("lead_id", lead.id)
-            .neq("status", "erro").gte("created_at", cdIso).limit(1).maybeSingle();
-          if (recent?.id) {
-            results.push({ automation: a.nome, lead_id: lead.id, skipped: "cooldown" });
+        for (const canal of canais) {
+          const baseTpl = canal === "sms"
+            ? (a.sms_template || a.mensagem_template)
+            : ((!dentroJanela && a.mensagem_fora_horario) ? a.mensagem_fora_horario : a.mensagem_template);
+          const emailHtmlTpl = a.email_html || a.mensagem_template;
+          const tpl = canal === "email" ? emailHtmlTpl : baseTpl;
+          if (!tpl || !String(tpl).trim()) {
+            results.push({ automation: a.nome, canal, lead_id: lead.id, skipped: "sem_mensagem" });
             continue;
           }
-        }
+          const message = renderTemplate(String(tpl), lead);
+          const assunto = canal === "email"
+            ? renderTemplate(String(a.email_assunto ?? a.nome ?? "Smart Dent"), lead)
+            : null;
 
-        // Claim atômico: o índice único (automation_id, lead_id, run_date) impede duplicidade.
-        let runId: string | null = null;
-        let runUid: string | null = null;
-        if (!testPhone) {
-          const { data: claim, error: claimErr } = await supabase
-            .from("smartops_automation_runs")
-            .insert({
-              automation_id: a.id, automation_nome: a.nome, lead_id: lead.id, deal_id,
-              canal: "whatsapp", destino, destinatario_tipo: destinatarioTipo,
-              sender_instance: a.sender_instance, status: "pendente",
-              mensagem_preview: message.slice(0, 2000),
-            })
-            .select("id, run_uid").maybeSingle();
-          if (claimErr || !claim) {
-            results.push({ automation: a.nome, lead_id: lead.id, skipped: "claim_lock" });
+          const destino = canal === "email" ? mail : fone;
+          if (!destino) {
+            results.push({ automation: a.nome, canal, lead_id: lead.id, skipped: "destino_invalido" });
             continue;
           }
-          runId = claim.id; runUid = claim.run_uid;
+
+          // Cooldown por lead/canal
+          if (!testMode) {
+            const cdIso = new Date(Date.now() - Number(a.cooldown_horas ?? 24) * 3600_000).toISOString();
+            const { data: recent } = await supabase
+              .from("smartops_automation_runs").select("id")
+              .eq("automation_id", a.id).eq("lead_id", lead.id).eq("canal", canal)
+              .neq("status", "erro").gte("created_at", cdIso).limit(1).maybeSingle();
+            if (recent?.id) {
+              results.push({ automation: a.nome, canal, lead_id: lead.id, skipped: "cooldown" });
+              continue;
+            }
+          }
+
+          // Claim atômico: índice único (automation_id, lead_id, canal, run_date).
+          let runId: string | null = null;
+          let runUid: string | null = null;
+          if (!testMode) {
+            const { data: claim, error: claimErr } = await supabase
+              .from("smartops_automation_runs")
+              .insert({
+                automation_id: a.id, automation_nome: a.nome, lead_id: lead.id, deal_id,
+                canal, destino, destinatario_tipo: destinatarioTipo,
+                sender_instance: canal === "whatsapp" ? a.sender_instance : canal,
+                status: "pendente",
+                mensagem_preview: (assunto ? `${assunto} — ` : "") + message.slice(0, 2000),
+              })
+              .select("id, run_uid").maybeSingle();
+            if (claimErr || !claim) {
+              results.push({ automation: a.nome, canal, lead_id: lead.id, skipped: "claim_lock" });
+              continue;
+            }
+            runId = claim.id; runUid = claim.run_uid;
+          }
+
+          const sent = canal === "whatsapp"
+            ? await sendWhatsApp(supabase, String(a.sender_instance), destino, message)
+            : canal === "sms"
+              ? await sendSms(destino, message)
+              : canal === "email"
+                ? await sendEmail(destino, String(assunto ?? a.nome), message, String(a.email_remetente ?? "Smart Dent | Fluxo Digital"))
+                : { ok: false, error: `canal_nao_suportado:${canal}`, id: null };
+
+          if (runId) {
+            await supabase.from("smartops_automation_runs").update({
+              status: sent.ok ? "enviado" : "erro",
+              provider_message_id: sent.id,
+              error_details: sent.error,
+            }).eq("id", runId);
+          }
+
+          results.push({
+            automation: a.nome, canal, lead_id: lead.id, run_uid: runUid,
+            destino, ok: sent.ok, error: sent.error,
+          });
         }
-
-        const sent = await sendWhatsApp(supabase, String(a.sender_instance), destino, message);
-
-        if (runId) {
-          await supabase.from("smartops_automation_runs").update({
-            status: sent.ok ? "enviado" : "erro",
-            provider_message_id: sent.id,
-            error_details: sent.error,
-          }).eq("id", runId);
-        }
-
-        results.push({
-          automation: a.nome, lead_id: lead.id, run_uid: runUid,
-          destino, ok: sent.ok, error: sent.error,
-        });
       }
     }
 
