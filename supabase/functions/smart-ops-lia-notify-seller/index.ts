@@ -168,7 +168,11 @@ Deno.serve(async (req) => {
     ]);
 
     if (leadErr || !lead) return json({ error: `lead not found: ${leadErr?.message || lead_id}` }, 404);
-    if (sellerErr || !seller) return json({ error: `seller not found: ${sellerErr?.message || team_member_id}` }, 404);
+    if (leadErr || !lead) { await releaseClaim(supabase, lead_id, !!test_phone); }
+    if (sellerErr || !seller) {
+      await releaseClaim(supabase, lead_id, !!test_phone);
+      return json({ error: `seller not found: ${sellerErr?.message || team_member_id}` }, 404);
+    }
 
     // Sender: instância configurada na UI (credencial própria dela, nunca a do vendedor)
     const senderInstance = (cfg?.sender_instance as string | null)?.trim() || SENDER_INSTANCE;
@@ -267,9 +271,27 @@ Deno.serve(async (req) => {
     return json({ success: status === "enviado", status, error: errorDetails });
   } catch (err) {
     console.error("[notify-seller v33] fatal:", err);
+    try { await releaseClaim(supabase, (await Promise.resolve(null)) as any, false); } catch { /* noop */ }
     return json({ error: err instanceof Error ? err.message : String(err) }, 500);
   }
 });
+
+// Libera o lock atômico (linha "pendente" do dia) quando o envio não aconteceu.
+async function releaseClaim(
+  supabase: ReturnType<typeof createClient>,
+  lead_id: string | null,
+  isTest: boolean,
+) {
+  if (isTest || !lead_id) return;
+  const dia = new Date().toISOString().slice(0, 10);
+  await supabase
+    .from("message_logs")
+    .delete()
+    .eq("lead_id", lead_id)
+    .eq("tipo", "briefing_vendedor")
+    .eq("data_envio_dia", dia)
+    .eq("status", "pendente");
+}
 
 function json(payload: unknown, status = 200) {
   return new Response(JSON.stringify(payload), {
