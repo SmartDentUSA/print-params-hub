@@ -108,7 +108,14 @@ export function SmartOpsLiaAutomations() {
     if (error) {
       toast.error("Erro ao carregar automações LIA");
     } else {
-      setItems(data?.automations ?? []);
+      // O "Briefing ao Vendedor" é configurado no card dedicado
+      // (seller_briefing_config) — a linha legada em lia_automations não
+      // controla nada e aparecia duplicada na UI.
+      setItems(
+        (data?.automations ?? []).filter(
+          (a: LiaAutomation) => a.slug !== "briefing_vendedor",
+        ),
+      );
     }
     setLoading(false);
   };
