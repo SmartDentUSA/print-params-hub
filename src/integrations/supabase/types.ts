@@ -32680,6 +32680,16 @@ export type Database = {
       }
       fn_atualizar_parcelas_vencidas: { Args: never; Returns: undefined }
       fn_auto_update_enrollment_status: { Args: never; Returns: undefined }
+      fn_automation_run_stats: {
+        Args: never
+        Returns: {
+          automation_id: string
+          enviados: number
+          erros: number
+          ultimo_canal: string
+          ultimo_envio: string
+        }[]
+      }
       fn_backfill_wa_inbox_lead_ids: {
         Args: { p_limit?: number }
         Returns: {

@@ -73,6 +73,20 @@ export function SmartOpsAutomationsBuilder() {
   const [testPhone, setTestPhone] = useState("");
   const [testEmail, setTestEmail] = useState("");
   const [testCanais, setTestCanais] = useState<string[]>([]);
+  const [stats, setStats] = useState<Record<string, { enviados: number; erros: number; ultimo_envio: string | null }>>({});
+
+  const loadStats = async () => {
+    const { data } = await (supabase as any).rpc("fn_automation_run_stats");
+    const map: Record<string, { enviados: number; erros: number; ultimo_envio: string | null }> = {};
+    ((data ?? []) as any[]).forEach((r) => {
+      map[String(r.automation_id)] = {
+        enviados: Number(r.enviados ?? 0),
+        erros: Number(r.erros ?? 0),
+        ultimo_envio: r.ultimo_envio ?? null,
+      };
+    });
+    setStats(map);
+  };
 
   useEffect(() => {
     (async () => {
@@ -88,6 +102,7 @@ export function SmartOpsAutomationsBuilder() {
       setInstances(uniq.sort());
       setPipelines((((pipes as any)?.data?.items ?? []) as any[]).map((i) => ({ id: String(i.id), name: i.name })));
       setLoading(false);
+      loadStats();
     })();
   }, []);
 
@@ -169,6 +184,7 @@ export function SmartOpsAutomationsBuilder() {
       else toast.error(`${label} não enviado: ${r.error ?? r.skipped ?? "erro desconhecido"}`);
     });
     if (results.every((r) => r.ok)) setTestFor(null);
+    loadStats();
   };
 
   if (loading) {
@@ -225,8 +241,27 @@ export function SmartOpsAutomationsBuilder() {
           <Card key={a.id}>
             <CardHeader className="flex flex-row items-start justify-between space-y-0">
               <div className="flex items-center gap-2 flex-1">
-                <div className="p-2 rounded-lg bg-primary/10">
-                  <Workflow className="w-5 h-5 text-primary" />
+                <div className="flex flex-col items-center gap-1 min-w-[84px]">
+                  <div className="p-2 rounded-lg bg-primary/10">
+                    <Workflow className="w-5 h-5 text-primary" />
+                  </div>
+                  <span className="text-[15px] font-bold leading-none tabular-nums">
+                    {stats[a.id]?.enviados ?? 0}
+                  </span>
+                  <span className="text-[10px] text-muted-foreground leading-none">enviadas</span>
+                  <span className="text-[10px] text-muted-foreground leading-tight text-center">
+                    {stats[a.id]?.ultimo_envio
+                      ? new Date(stats[a.id].ultimo_envio as string).toLocaleString("pt-BR", {
+                          day: "2-digit", month: "2-digit", year: "2-digit",
+                          hour: "2-digit", minute: "2-digit",
+                        })
+                      : "sem envios"}
+                  </span>
+                  {(stats[a.id]?.erros ?? 0) > 0 && (
+                    <span className="text-[10px] text-destructive leading-none">
+                      {stats[a.id].erros} erro(s)
+                    </span>
+                  )}
                 </div>
                 <div className="flex-1 space-y-1">
                   <Input
