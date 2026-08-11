@@ -22,6 +22,11 @@ interface PaymentUnit {
   id_dongle: string | null;
   stripe_seller_id: string | null;
   id_smartdent: string | null;
+  numero_rms: string | null;
+  verificado: boolean | null;
+  hw_suficiente: boolean | null;
+  versoes_piratas: boolean | null;
+  ativo: boolean | null;
   pre_ativacao_data: string | null;
   pre_ativacao_status: string | null;
   ativacao_data: string | null;
@@ -72,6 +77,11 @@ interface Row {
   stripe_seller_id: string | null;
   id_dongle: string | null;
   id_smartdent: string | null;
+  numero_rms: string | null;
+  verificado: boolean | null;
+  hw_suficiente: boolean | null;
+  versoes_piratas: boolean | null;
+  ativo: boolean | null;
   pre_ativacao_at: string | null;
   pre_ativacao_status: string | null;
   ativacao_at: string | null;
@@ -300,6 +310,11 @@ export function SmartOpsStripePayments() {
           stripe_seller_id: sellerCode,
           id_dongle: u.id_dongle ?? null,
           id_smartdent: (u as any).id_smartdent ?? null,
+          numero_rms: (u as any).numero_rms ?? null,
+          verificado: (u as any).verificado ?? null,
+          hw_suficiente: (u as any).hw_suficiente ?? null,
+          versoes_piratas: (u as any).versoes_piratas ?? null,
+          ativo: (u as any).ativo ?? null,
           pre_ativacao_at: u.pre_ativacao_data,
           pre_ativacao_status: u.pre_ativacao_status,
           ativacao_at: u.ativacao_data,
@@ -356,6 +371,11 @@ export function SmartOpsStripePayments() {
       if ("stripe_seller_id" in patch) next.stripe_seller_id = patch.stripe_seller_id ?? null;
       if ("id_dongle" in patch) next.id_dongle = patch.id_dongle ?? null;
       if ("id_smartdent" in patch) next.id_smartdent = (patch as any).id_smartdent ?? null;
+      if ("numero_rms" in patch) next.numero_rms = (patch as any).numero_rms ?? null;
+      if ("verificado" in patch) next.verificado = (patch as any).verificado ?? null;
+      if ("hw_suficiente" in patch) next.hw_suficiente = (patch as any).hw_suficiente ?? null;
+      if ("versoes_piratas" in patch) next.versoes_piratas = (patch as any).versoes_piratas ?? null;
+      if ("ativo" in patch) next.ativo = (patch as any).ativo ?? null;
       if ("pre_ativacao_data" in patch) next.pre_ativacao_at = patch.pre_ativacao_data ?? null;
       if ("pre_ativacao_status" in patch) next.pre_ativacao_status = patch.pre_ativacao_status ?? null;
       if ("ativacao_data" in patch) next.ativacao_at = patch.ativacao_data ?? null;
