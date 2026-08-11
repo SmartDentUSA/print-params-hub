@@ -17,6 +17,7 @@ import { MessageVariableBar, HighlightVariables } from "@/components/smartops/Me
 import { MessageMediaPreview } from "@/components/smartops/MessageMediaPreview";
 import { SmartOpsLiaAutomations } from "@/components/smartops/SmartOpsLiaAutomations";
 import { SellerBriefingAutomation } from "@/components/smartops/SellerBriefingAutomation";
+import { SmartOpsAutomationsBuilder } from "@/components/smartops/SmartOpsAutomationsBuilder";
 import { TriggerAutomations } from "@/components/smartops/TriggerAutomations";
 import { WaAutomationsInventory } from "@/components/smartops/WaAutomationsInventory";
 import { WaAutomationSettings } from "@/components/smartops/WaAutomationSettings";
@@ -785,6 +786,7 @@ export function SmartOpsCSRules() {
         </DialogContent>
       </Dialog>
       <SellerBriefingAutomation />
+      <SmartOpsAutomationsBuilder />
       <TriggerAutomations />
 
       <Card className="mt-4 border-dashed">

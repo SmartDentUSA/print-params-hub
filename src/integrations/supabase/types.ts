@@ -19913,6 +19913,143 @@ export type Database = {
         }
         Relationships: []
       }
+      smartops_automation_runs: {
+        Row: {
+          automation_id: string
+          automation_nome: string | null
+          canal: string
+          created_at: string
+          deal_id: string | null
+          destinatario_tipo: string | null
+          destino: string | null
+          error_details: string | null
+          id: string
+          lead_id: string | null
+          mensagem_preview: string | null
+          provider_message_id: string | null
+          run_date: string
+          run_uid: string
+          sender_instance: string | null
+          status: string
+        }
+        Insert: {
+          automation_id: string
+          automation_nome?: string | null
+          canal?: string
+          created_at?: string
+          deal_id?: string | null
+          destinatario_tipo?: string | null
+          destino?: string | null
+          error_details?: string | null
+          id?: string
+          lead_id?: string | null
+          mensagem_preview?: string | null
+          provider_message_id?: string | null
+          run_date?: string
+          run_uid?: string
+          sender_instance?: string | null
+          status?: string
+        }
+        Update: {
+          automation_id?: string
+          automation_nome?: string | null
+          canal?: string
+          created_at?: string
+          deal_id?: string | null
+          destinatario_tipo?: string | null
+          destino?: string | null
+          error_details?: string | null
+          id?: string
+          lead_id?: string | null
+          mensagem_preview?: string | null
+          provider_message_id?: string | null
+          run_date?: string
+          run_uid?: string
+          sender_instance?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "smartops_automation_runs_automation_id_fkey"
+            columns: ["automation_id"]
+            isOneToOne: false
+            referencedRelation: "smartops_automations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      smartops_automations: {
+        Row: {
+          ativo: boolean
+          canal: string
+          cooldown_horas: number
+          created_at: string
+          delay_minutos: number
+          descricao: string | null
+          destinatario: string
+          destino_numero: string | null
+          gate_pipeline_id: string | null
+          gate_pipeline_name: string | null
+          gate_stage_ids: string[]
+          gate_stage_names: string[]
+          horario_fim: string
+          horario_inicio: string
+          id: string
+          mensagem_fora_horario: string | null
+          mensagem_template: string | null
+          nome: string
+          quando: string
+          sender_instance: string
+          updated_at: string
+        }
+        Insert: {
+          ativo?: boolean
+          canal?: string
+          cooldown_horas?: number
+          created_at?: string
+          delay_minutos?: number
+          descricao?: string | null
+          destinatario?: string
+          destino_numero?: string | null
+          gate_pipeline_id?: string | null
+          gate_pipeline_name?: string | null
+          gate_stage_ids?: string[]
+          gate_stage_names?: string[]
+          horario_fim?: string
+          horario_inicio?: string
+          id?: string
+          mensagem_fora_horario?: string | null
+          mensagem_template?: string | null
+          nome?: string
+          quando?: string
+          sender_instance?: string
+          updated_at?: string
+        }
+        Update: {
+          ativo?: boolean
+          canal?: string
+          cooldown_horas?: number
+          created_at?: string
+          delay_minutos?: number
+          descricao?: string | null
+          destinatario?: string
+          destino_numero?: string | null
+          gate_pipeline_id?: string | null
+          gate_pipeline_name?: string | null
+          gate_stage_ids?: string[]
+          gate_stage_names?: string[]
+          horario_fim?: string
+          horario_inicio?: string
+          id?: string
+          mensagem_fora_horario?: string | null
+          mensagem_template?: string | null
+          nome?: string
+          quando?: string
+          sender_instance?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       smartops_bio_pages: {
         Row: {
           active: boolean

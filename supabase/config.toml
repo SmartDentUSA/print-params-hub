@@ -551,3 +551,6 @@ verify_jwt = false
 
 [functions.nps-question-insight]
 verify_jwt = false
+
+[functions.smart-ops-automations-run]
+verify_jwt = false
