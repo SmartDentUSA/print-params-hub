@@ -101,6 +101,28 @@ Deno.serve(async (req) => {
     const evStageId = body?.stage_id ?? null;
     const evStageName = body?.stage_name ?? null;
     const eventMode = !!evLeadId && !testPhone;
+    const skipDelay = body?.skip_delay === true;
+
+    // Reagenda a própria função depois do atraso configurado (sem cron).
+    const scheduleDelayed = (automationId: string, minutes: number) => {
+      const p = (async () => {
+        await new Promise((r) => setTimeout(r, Math.min(minutes, 15) * 60_000));
+        await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/smart-ops-automations-run`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+          },
+          body: JSON.stringify({
+            automation_id: automationId, skip_delay: true,
+            lead_id: evLeadId, deal_id: evDealId, pipeline_id: evPipelineId,
+            pipeline_name: evPipelineName, stage_id: evStageId, stage_name: evStageName,
+          }),
+        }).catch((e) => console.warn("[automations-run] delayed self-call failed:", e));
+      })();
+      // @ts-ignore
+      if (typeof EdgeRuntime !== "undefined" && EdgeRuntime.waitUntil) EdgeRuntime.waitUntil(p);
+    };
 
     let q = supabase.from("smartops_automations").select("*");
     if (onlyId) q = q.eq("id", onlyId);
@@ -165,6 +187,12 @@ Deno.serve(async (req) => {
           continue;
         }
         leads = [{ lead, deal_id: evDealId ?? null }];
+        const delayMin = Number(a.delay_minutos ?? 0);
+        if (delayMin > 0 && !skipDelay) {
+          scheduleDelayed(String(a.id), delayMin);
+          results.push({ automation: a.nome, scheduled_in_minutes: Math.min(delayMin, 15) });
+          continue;
+        }
       } else {
         const sinceIso = new Date(Date.now() - (lookbackMin + Number(a.delay_minutos ?? 0)) * 60_000).toISOString();
         const untilIso = new Date(Date.now() - Number(a.delay_minutos ?? 0) * 60_000).toISOString();
