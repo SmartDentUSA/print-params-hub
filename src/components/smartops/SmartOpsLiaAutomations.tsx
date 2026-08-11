@@ -14,13 +14,8 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import {
@@ -125,9 +120,10 @@ export function SmartOpsLiaAutomations() {
     (async () => {
       const { data } = await supabase
         .from("team_members")
-        .select("id, nome_completo, evolution_instance_name, evolution_phone, evolution_status")
+        .select("id, nome_completo, role, evolution_instance_name, evolution_phone, evolution_status")
         .eq("ativo", true)
-        .not("evolution_instance_name", "is", null);
+        .not("evolution_instance_name", "is", null)
+        .order("nome_completo");
       setInstances((data ?? []) as WaInstance[]);
     })();
   }, []);
