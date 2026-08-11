@@ -241,8 +241,27 @@ export function SmartOpsAutomationsBuilder() {
           <Card key={a.id}>
             <CardHeader className="flex flex-row items-start justify-between space-y-0">
               <div className="flex items-center gap-2 flex-1">
-                <div className="p-2 rounded-lg bg-primary/10">
-                  <Workflow className="w-5 h-5 text-primary" />
+                <div className="flex flex-col items-center gap-1 min-w-[84px]">
+                  <div className="p-2 rounded-lg bg-primary/10">
+                    <Workflow className="w-5 h-5 text-primary" />
+                  </div>
+                  <span className="text-[15px] font-bold leading-none tabular-nums">
+                    {stats[a.id]?.enviados ?? 0}
+                  </span>
+                  <span className="text-[10px] text-muted-foreground leading-none">enviadas</span>
+                  <span className="text-[10px] text-muted-foreground leading-tight text-center">
+                    {stats[a.id]?.ultimo_envio
+                      ? new Date(stats[a.id].ultimo_envio as string).toLocaleString("pt-BR", {
+                          day: "2-digit", month: "2-digit", year: "2-digit",
+                          hour: "2-digit", minute: "2-digit",
+                        })
+                      : "sem envios"}
+                  </span>
+                  {(stats[a.id]?.erros ?? 0) > 0 && (
+                    <span className="text-[10px] text-destructive leading-none">
+                      {stats[a.id].erros} erro(s)
+                    </span>
+                  )}
                 </div>
                 <div className="flex-1 space-y-1">
                   <Input
