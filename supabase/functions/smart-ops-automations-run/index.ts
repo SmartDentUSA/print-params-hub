@@ -52,6 +52,29 @@ function renderTemplate(tpl: string, lead: Record<string, any>) {
   return String(tpl ?? "").replace(/\{\{\s*([a-z0-9_]+)\s*\}\}/gi, (_m, k) => dict[String(k).toLowerCase()] ?? "");
 }
 
+// Resolve o JID canônico no WhatsApp (corrige 9º dígito brasileiro).
+async function resolveWaNumber(instance: string, apikey: string, phone: string): Promise<string | null> {
+  const d = (phone || "").replace(/\D/g, "");
+  const variants = new Set<string>([d]);
+  if (d.startsWith("55") && d.length === 13 && d[4] === "9") variants.add(d.slice(0, 4) + d.slice(5));
+  if (d.startsWith("55") && d.length === 12) variants.add(d.slice(0, 4) + "9" + d.slice(4));
+  try {
+    const res = await fetch(`${EVO_BASE}/chat/whatsappNumbers/${encodeURIComponent(instance)}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", apikey },
+      body: JSON.stringify({ numbers: [...variants] }),
+      signal: AbortSignal.timeout(12_000),
+    });
+    if (!res.ok) return null;
+    const rows = await res.json() as Array<{ exists?: boolean; jid?: string; number?: string }>;
+    const hit = (rows || []).find((r) => r?.exists);
+    if (!hit) return null;
+    return String(hit.jid || hit.number || "").replace(/@.*$/, "").replace(/\D/g, "") || null;
+  } catch {
+    return null;
+  }
+}
+
 async function sendWhatsApp(supabase: any, instance: string, phone: string, message: string) {
   const { data: row } = await supabase
     .from("team_members")
@@ -69,10 +92,11 @@ async function sendWhatsApp(supabase: any, instance: string, phone: string, mess
   const state = (stJson as any)?.instance?.state ?? (stJson as any)?.state ?? null;
   if (state !== "open") return { ok: false, error: `instance_not_connected:${state ?? "unknown"}`, id: null };
 
+  const target = (await resolveWaNumber(instance, apikey, phone)) || phone;
   const res = await fetch(`${EVO_BASE}/message/sendText/${encodeURIComponent(instance)}`, {
     method: "POST",
     headers: { "Content-Type": "application/json", apikey },
-    body: JSON.stringify({ number: phone, text: message }),
+    body: JSON.stringify({ number: target, text: message }),
     signal: AbortSignal.timeout(25_000),
   });
   const payload = await res.json().catch(() => ({}));
@@ -173,6 +197,8 @@ Deno.serve(async (req) => {
     const evStageName = body?.stage_name ?? null;
     const eventMode = !!evLeadId && !testMode;
     const skipDelay = body?.skip_delay === true;
+    // Gatilho do evento: casa com a coluna `quando` da automação.
+    const evTrigger = norm(body?.trigger ?? "") || "etapa_alterada";
 
     // Reagenda a própria função depois do atraso configurado (sem cron).
     const scheduleDelayed = (automationId: string, minutes: number) => {
@@ -186,6 +212,7 @@ Deno.serve(async (req) => {
           },
           body: JSON.stringify({
             automation_id: automationId, skip_delay: true,
+            trigger: evTrigger,
             lead_id: evLeadId, deal_id: evDealId, pipeline_id: evPipelineId,
             pipeline_name: evPipelineName, stage_id: evStageId, stage_name: evStageName,
           }),
@@ -238,6 +265,11 @@ Deno.serve(async (req) => {
           .maybeSingle();
         if (lead) leads = [{ lead, deal_id: null }];
       } else if (eventMode) {
+        // 1) Gatilho precisa casar com o evento recebido.
+        if (norm(a.quando ?? "etapa_alterada") !== evTrigger) {
+          results.push({ automation: a.nome, skipped: `gatilho_diferente:${evTrigger}` });
+          continue;
+        }
         // Avalia o gate contra o deal que acabou de mudar no CRM.
         if (a.gate_pipeline_id && String(a.gate_pipeline_id) !== String(evPipelineId ?? "")) {
           results.push({ automation: a.nome, skipped: "pipeline_diferente" });
@@ -250,6 +282,12 @@ Deno.serve(async (req) => {
         const byId = stageIds.length > 0 && stageIds.includes(String(evStageId ?? ""));
         const byName = stageNames.length > 0 && stageNames.includes(norm(evStageName));
         const noGate = stageIds.length === 0 && stageNames.length === 0;
+        // Em "etapa_alterada" o gate de etapa é obrigatório: sem etapa selecionada a
+        // regra dispararia em qualquer alteração de deal do CRM.
+        if (noGate && evTrigger === "etapa_alterada") {
+          results.push({ automation: a.nome, skipped: "sem_etapa_configurada" });
+          continue;
+        }
         if (!byId && !byName && !noGate) {
           results.push({ automation: a.nome, skipped: "etapa_diferente" });
           continue;
@@ -312,11 +350,22 @@ Deno.serve(async (req) => {
           fone = normalizePhone(String(a.destino_numero ?? ""));
           mail = String(lead.email ?? "").trim() || null;
         } else if (destinatarioTipo === "vendedor") {
-          const { data: tm } = await supabase
-            .from("team_members").select("whatsapp_number, email")
-            .ilike("nome_completo", String(lead.proprietario_lead_crm ?? ""))
-            .eq("ativo", true).limit(1).maybeSingle();
-          fone = normalizePhone(String((tm as any)?.whatsapp_number ?? ""));
+          const ownerName = String(lead.proprietario_lead_crm ?? "").trim();
+          let tm: any = null;
+          if (ownerName) {
+            const { data: exact } = await supabase
+              .from("team_members").select("notification_phone, whatsapp_number, email")
+              .ilike("nome_completo", ownerName).eq("ativo", true).limit(1).maybeSingle();
+            tm = exact;
+            if (!tm) {
+              const { data: fuzzy } = await supabase
+                .from("team_members").select("notification_phone, whatsapp_number, email")
+                .ilike("nome_completo", `%${ownerName.split(/\s+/)[0]}%`)
+                .eq("ativo", true).limit(1).maybeSingle();
+              tm = fuzzy;
+            }
+          }
+          fone = normalizePhone(String((tm as any)?.notification_phone ?? (tm as any)?.whatsapp_number ?? ""));
           mail = String((tm as any)?.email ?? "").trim() || null;
         } else {
           fone = normalizePhone(String(lead.telefone ?? lead.whatsapp ?? ""));

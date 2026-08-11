@@ -4406,6 +4406,25 @@ Deno.serve(async (req) => {
 
     console.log(`[lia-assign] Lead updated: owner=${assignedOwnerName}, flow=${flowType}, funil=${updateFields.funil_entrada_crm || "n/a"}`);
 
+    // ── Automações SmartOps: gatilhos de criação/atribuição de lead ──
+    // O motor filtra pela coluna `quando` (lead_criado / lead_atribuido).
+    for (const autoTrigger of ["lead_criado", "lead_atribuido"]) {
+      try {
+        const p = fetch(`${SUPABASE_URL}/functions/v1/smart-ops-automations-run`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${SERVICE_ROLE_KEY}` },
+          body: JSON.stringify({
+            lead_id: lead.id,
+            trigger: autoTrigger,
+            deal_id: null,
+            source: "lia_assign",
+          }),
+        }).catch((e) => console.warn("[lia-assign] automations trigger error:", e));
+        // @ts-ignore
+        if (typeof EdgeRuntime !== "undefined" && EdgeRuntime.waitUntil) EdgeRuntime.waitUntil(p);
+      } catch { /* non-fatal */ }
+    }
+
     // ── 7. Outbound automation ──
     // Briefing via smart-ops-lia-notify-seller (Evolution API, instância do vendedor / smartdent_marketing)
     if (assignedTeamMemberId && assignedTeamMemberId !== "fallback-admin") {

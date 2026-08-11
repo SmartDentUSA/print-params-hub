@@ -1982,6 +1982,7 @@ Deno.serve(async (req) => {
         headers: { Authorization: `Bearer ${SERVICE_ROLE_KEY}`, "Content-Type": "application/json" },
         body: JSON.stringify({
           lead_id: leadId,
+          trigger: "etapa_alterada",
           deal_id: dealId ?? null,
           pipeline_id: ids.pipelineId ?? null,
           pipeline_name: ids.pipelineName ?? null,
