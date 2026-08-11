@@ -1,6 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
-import { useToast } from '@/hooks/use-toast';
+import { toast as sonnerToast } from 'sonner';
 import type {
   SmartopsCourse, DealSearchResult, Turma, TurmaDay,
   EnrollmentCompanion, ProposalItem, EquipmentData,
@@ -32,7 +32,10 @@ interface EnrollParams {
 
 export function useEnrollment() {
   const qc        = useQueryClient();
-  const { toast } = useToast();
+  const toast = (o: { title?: string; description?: string; variant?: string }) =>
+    o.variant === "destructive"
+      ? sonnerToast.error(o.title ?? "Erro", { description: o.description })
+      : sonnerToast.success(o.title ?? "", { description: o.description });
 
   const enroll = async (p: EnrollParams): Promise<boolean> => {
     try {
