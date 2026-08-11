@@ -33,6 +33,7 @@ interface PaymentUnit {
   ativacao_status: string | null;
   mensalidade_data: string | null;
   mensalidade_status: string | null;
+  charge_kind: string | null;
 }
 
 type ChargeKind = "ativacao" | "mensalidade";
@@ -172,6 +173,7 @@ export function SmartOpsStripePayments() {
   const [refreshing, setRefreshing] = useState(false);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "ativa" | "vencida" | "cancelada" | "trial">("all");
+  const [kindFilter, setKindFilter] = useState<"ativacao" | "mensalidade" | "all">("ativacao");
   const [selectedLead, setSelectedLead] = useState<{ id: string; nome: string } | null>(null);
   const [vendedores, setVendedores] = useState<Vendedor[]>([]);
   const [invoicePaidByLead, setInvoicePaidByLead] = useState<Map<string, number>>(new Map());
@@ -337,6 +339,7 @@ export function SmartOpsStripePayments() {
             u.mensalidade_status ||
             deriveMensalidadeLabel(sub ?? null) ||
             ((u.lead_id && (invoicePaid.get(u.lead_id) ?? 0) > 0) ? "Paga" : null),
+          charge_kind: ((u as any).charge_kind === "mensalidade" ? "mensalidade" : "ativacao") as ChargeKind,
           subscription_status: sub?.status ?? null,
           current_period_end: sub?.current_period_end ?? null,
           cancel_at_period_end: sub?.cancel_at_period_end ?? null,
