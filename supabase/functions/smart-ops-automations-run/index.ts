@@ -154,6 +154,7 @@ async function sendEmail(to: string, subject: string, html: string, fromName: st
         from_name: fromName,
         subject: subject || "(sem assunto)",
         html: doc,
+        skip_cta_check: true,
         test_email: to, // envio 1:1 imediato
       }),
       signal: AbortSignal.timeout(45_000),
