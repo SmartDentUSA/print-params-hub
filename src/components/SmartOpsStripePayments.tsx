@@ -546,6 +546,15 @@ export function SmartOpsStripePayments() {
           />
         </div>
         <select
+          value={kindFilter}
+          onChange={e => setKindFilter(e.target.value as any)}
+          className="h-9 rounded-md border border-border bg-background px-2 text-sm"
+        >
+          <option value="ativacao">Ativações (unidades RMS)</option>
+          <option value="mensalidade">Mensalidades (assinatura)</option>
+          <option value="all">Ativações + mensalidades</option>
+        </select>
+        <select
           value={statusFilter}
           onChange={e => setStatusFilter(e.target.value as any)}
           className="h-9 rounded-md border border-border bg-background px-2 text-sm"
