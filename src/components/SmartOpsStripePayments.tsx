@@ -35,6 +35,8 @@ interface PaymentUnit {
   mensalidade_status: string | null;
 }
 
+type ChargeKind = "ativacao" | "mensalidade";
+
 interface Subscription {
   stripe_customer_id: string | null;
   stripe_subscription_id: string | null;
@@ -88,6 +90,7 @@ interface Row {
   ativacao_status: string | null;
   mensalidade_first_due: string | null;
   mensalidade_status: string | null;
+  charge_kind: ChargeKind;
   subscription_status: string | null;
   current_period_end: string | null;
   cancel_at_period_end: boolean | null;
