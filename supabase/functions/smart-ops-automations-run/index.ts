@@ -52,6 +52,29 @@ function renderTemplate(tpl: string, lead: Record<string, any>) {
   return String(tpl ?? "").replace(/\{\{\s*([a-z0-9_]+)\s*\}\}/gi, (_m, k) => dict[String(k).toLowerCase()] ?? "");
 }
 
+// Resolve o JID canônico no WhatsApp (corrige 9º dígito brasileiro).
+async function resolveWaNumber(instance: string, apikey: string, phone: string): Promise<string | null> {
+  const d = (phone || "").replace(/\D/g, "");
+  const variants = new Set<string>([d]);
+  if (d.startsWith("55") && d.length === 13 && d[4] === "9") variants.add(d.slice(0, 4) + d.slice(5));
+  if (d.startsWith("55") && d.length === 12) variants.add(d.slice(0, 4) + "9" + d.slice(4));
+  try {
+    const res = await fetch(`${EVO_BASE}/chat/whatsappNumbers/${encodeURIComponent(instance)}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", apikey },
+      body: JSON.stringify({ numbers: [...variants] }),
+      signal: AbortSignal.timeout(12_000),
+    });
+    if (!res.ok) return null;
+    const rows = await res.json() as Array<{ exists?: boolean; jid?: string; number?: string }>;
+    const hit = (rows || []).find((r) => r?.exists);
+    if (!hit) return null;
+    return String(hit.jid || hit.number || "").replace(/@.*$/, "").replace(/\D/g, "") || null;
+  } catch {
+    return null;
+  }
+}
+
 async function sendWhatsApp(supabase: any, instance: string, phone: string, message: string) {
   const { data: row } = await supabase
     .from("team_members")
@@ -69,10 +92,11 @@ async function sendWhatsApp(supabase: any, instance: string, phone: string, mess
   const state = (stJson as any)?.instance?.state ?? (stJson as any)?.state ?? null;
   if (state !== "open") return { ok: false, error: `instance_not_connected:${state ?? "unknown"}`, id: null };
 
+  const target = (await resolveWaNumber(instance, apikey, phone)) || phone;
   const res = await fetch(`${EVO_BASE}/message/sendText/${encodeURIComponent(instance)}`, {
     method: "POST",
     headers: { "Content-Type": "application/json", apikey },
-    body: JSON.stringify({ number: phone, text: message }),
+    body: JSON.stringify({ number: target, text: message }),
     signal: AbortSignal.timeout(25_000),
   });
   const payload = await res.json().catch(() => ({}));
