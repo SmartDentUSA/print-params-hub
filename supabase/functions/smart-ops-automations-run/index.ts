@@ -133,42 +133,43 @@ async function sendSms(phone: string, message: string) {
 }
 
 // ── E-mail (Gmail via connector gateway) ────────────────────────────────────
-const b64std = (s: string) => btoa(unescape(encodeURIComponent(s)));
-const b64url = (s: string) => b64std(s).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-
 async function sendEmail(to: string, subject: string, html: string, fromName: string) {
-  const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-  const GOOGLE_MAIL_API_KEY = Deno.env.get("GOOGLE_MAIL_API_KEY");
-  if (!LOVABLE_API_KEY || !GOOGLE_MAIL_API_KEY) {
-    return { ok: false, error: "gmail_connector_nao_configurado", id: null };
-  }
+  // Delega para smart-ops-send-gmail (mesmo caminho já validado nas Campanhas de e-mail).
+  const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
+  const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const doc = /<html[\s>]/i.test(html)
     ? html
     : `<!doctype html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="margin:0;padding:16px;font-family:Arial,Helvetica,sans-serif;color:#222">${html}</body></html>`;
-  const raw = [
-    `To: ${to}`,
-    `Subject: =?UTF-8?B?${b64std(subject || "(sem assunto)")}?=`,
-    `From: ${fromName} <me@gmail>`,
-    `MIME-Version: 1.0`,
-    `Content-Language: pt-BR`,
-    `Content-Type: text/html; charset="UTF-8"`,
-    `Content-Transfer-Encoding: base64`,
-    ``,
-    b64std(doc).replace(/(.{76})/g, "$1\r\n"),
-  ].join("\r\n");
-  const res = await fetch("https://connector-gateway.lovable.dev/google_mail/gmail/v1/users/me/messages/send", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${LOVABLE_API_KEY}`,
-      "X-Connection-Api-Key": GOOGLE_MAIL_API_KEY,
-    },
-    body: JSON.stringify({ raw: b64url(raw) }),
-    signal: AbortSignal.timeout(25_000),
-  });
-  const j = await res.json().catch(() => ({}));
-  if (!res.ok) return { ok: false, error: `gmail_${res.status}:${String((j as any)?.error?.message ?? JSON.stringify(j)).slice(0, 200)}`, id: null };
-  return { ok: true, error: null, id: (j as any)?.id ?? null };
+  try {
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/smart-ops-send-gmail`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${SERVICE_KEY}`,
+        apikey: SERVICE_KEY,
+      },
+      body: JSON.stringify({
+        campaign_name: `Automação: ${subject || "SmartOps"}`,
+        description: "smartops_automation",
+        from_name: fromName,
+        subject: subject || "(sem assunto)",
+        html: doc,
+        test_email: to, // envio 1:1 imediato
+      }),
+      signal: AbortSignal.timeout(45_000),
+    });
+    const j = await res.json().catch(() => ({}));
+    if (!res.ok || (j as any)?.ok === false) {
+      return {
+        ok: false,
+        error: `gmail_${res.status}:${String((j as any)?.error ?? JSON.stringify(j)).slice(0, 200)}`,
+        id: null,
+      };
+    }
+    return { ok: true, error: null, id: (j as any)?.send_log_id ?? (j as any)?.id ?? null };
+  } catch (e) {
+    return { ok: false, error: `gmail_exception:${String(e).slice(0, 180)}`, id: null };
+  }
 }
 
 Deno.serve(async (req) => {
@@ -233,7 +234,7 @@ Deno.serve(async (req) => {
     for (const a of autos ?? []) {
       const configurados = String(a.canal ?? "whatsapp").split(",").map((c: string) => c.trim().toLowerCase()).filter(Boolean);
       const canais = testMode && testCanais.length > 0
-        ? testCanais.filter((c) => configurados.includes(c))
+        ? testCanais // em teste, respeita o canal pedido mesmo que ainda não esteja salvo
         : configurados;
       if (canais.length === 0) {
         results.push({ automation: a.nome, skipped: "nenhum_canal_ativo" });
@@ -259,7 +260,7 @@ Deno.serve(async (req) => {
           .from("lia_attendances")
           .select("*")
           .is("merged_into", null)
-          .not("nome_completo", "is", null)
+          .not("nome", "is", null)
           .order("updated_at", { ascending: false })
           .limit(1)
           .maybeSingle();
