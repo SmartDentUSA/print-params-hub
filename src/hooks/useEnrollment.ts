@@ -37,10 +37,11 @@ export function useEnrollment() {
       ? sonnerToast.error(o.title ?? "Erro", { description: o.description })
       : sonnerToast.success(o.title ?? "", { description: o.description });
 
-  const enroll = async (p: EnrollParams): Promise<boolean> => {
+  const enroll = async (p: EnrollParams): Promise<{ ok: boolean; error?: string }> => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Não autenticado');
+      const { data: { session } } = await supabase.auth.getSession();
+      const user = session?.user;
+      if (!user) throw new Error('Sessão expirada — faça login novamente e repita o agendamento.');
 
       const turmaSnapshot = {
         ...p.selectedTurma,
@@ -65,7 +66,7 @@ export function useEnrollment() {
       let csTeamMemberId: string | null = null;
       try {
         const { data: csRow } = await (supabase as any).from('team_members')
-          .select('id').eq('email', user.email!).eq('ativo', true).maybeSingle();
+          .select('id').eq('email', user.email ?? '').eq('ativo', true).maybeSingle();
         csTeamMemberId = csRow?.id ?? null;
       } catch (e) { console.warn('[cs lookup]', e); }
 
@@ -107,7 +108,12 @@ export function useEnrollment() {
         })
         .select('id').single();
 
-      if (eEnroll) throw eEnroll;
+      if (eEnroll) {
+        console.error('[enrollment insert]', eEnroll);
+        throw new Error(
+          `${eEnroll.message}${eEnroll.details ? ` — ${eEnroll.details}` : ''}${eEnroll.hint ? ` (${eEnroll.hint})` : ''}`
+        );
+      }
 
       // 2. Companions (best-effort)
       const valid = p.companions.filter(c => c.name?.trim());
@@ -186,10 +192,12 @@ export function useEnrollment() {
         title: 'Agendamento confirmado!',
         description: `${p.formData.person_name} inscrito(a) na ${p.selectedTurma.label}${noPhone}`,
       });
-      return true;
+      return { ok: true };
     } catch (err: any) {
-      toast({ title: 'Erro ao agendar', description: err.message, variant: 'destructive' });
-      return false;
+      const msg = err?.message ?? String(err);
+      console.error('[enrollment]', err);
+      toast({ title: 'Erro ao agendar', description: msg, variant: 'destructive' });
+      return { ok: false, error: msg };
     }
   };
 
