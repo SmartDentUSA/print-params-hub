@@ -19244,6 +19244,10 @@ export type Database = {
           canal: string
           created_at: string
           delay_minutos: number
+          gate_pipeline_id: string | null
+          gate_pipeline_name: string | null
+          gate_stage_ids: string[]
+          gate_stage_names: string[]
           horario_fim: string
           horario_inicio: string
           id: string
@@ -19265,6 +19269,10 @@ export type Database = {
           canal?: string
           created_at?: string
           delay_minutos?: number
+          gate_pipeline_id?: string | null
+          gate_pipeline_name?: string | null
+          gate_stage_ids?: string[]
+          gate_stage_names?: string[]
           horario_fim?: string
           horario_inicio?: string
           id?: string
@@ -19286,6 +19294,10 @@ export type Database = {
           canal?: string
           created_at?: string
           delay_minutos?: number
+          gate_pipeline_id?: string | null
+          gate_pipeline_name?: string | null
+          gate_stage_ids?: string[]
+          gate_stage_names?: string[]
           horario_fim?: string
           horario_inicio?: string
           id?: string
