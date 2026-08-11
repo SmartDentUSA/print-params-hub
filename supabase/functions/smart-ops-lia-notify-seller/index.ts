@@ -137,6 +137,26 @@ Deno.serve(async (req) => {
       return json({ skipped: true, reason: "lock" });
     }
 
+    // ── Lock ATÔMICO (anti-duplicidade em race) ──
+    // Vários gatilhos/chamadores podem invocar a função no mesmo segundo; a checagem
+    // acima é read-then-write e perde a corrida. O índice único parcial
+    // (lead_id, tipo, data_envio_dia) garante que só UM envio por lead/dia prossiga.
+    if (!test_phone) {
+      const dia = new Date().toISOString().slice(0, 10);
+      const { error: claimErr } = await supabase.from("message_logs").insert({
+        lead_id,
+        team_member_id,
+        tipo: "briefing_vendedor",
+        status: "pendente",
+        data_envio_dia: dia,
+        data_envio: new Date().toISOString(),
+      });
+      if (claimErr) {
+        console.log(`[notify-seller v39] claim recusado lead=${lead_id}: ${claimErr.message}`);
+        return json({ skipped: true, reason: "claim_lock" });
+      }
+    }
+
     // ── Fetch lead + seller ──
     const [{ data: lead, error: leadErr }, { data: seller, error: sellerErr }] = await Promise.all([
       supabase.from("lia_attendances").select("*").eq("id", lead_id).maybeSingle(),
