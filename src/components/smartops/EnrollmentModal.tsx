@@ -264,9 +264,36 @@ export function EnrollmentModal({ course, preselectedTurmaId, open, onClose }: P
   }, [dealSearch.result]);
 
   const handleSubmit = async () => {
-    if (!dealSearch.result || !selectedTurma) return;
+    if (!dealSearch.result) {
+      toast({
+        title: 'Cliente não selecionado',
+        description: 'Volte ao passo 1 e selecione o cliente/deal antes de confirmar.',
+        variant: 'destructive',
+      });
+      setStep(1);
+      return;
+    }
+    if (!selectedTurma) {
+      toast({
+        title: 'Turma não selecionada',
+        description: 'Volte ao passo 3 e escolha a turma antes de confirmar.',
+        variant: 'destructive',
+      });
+      goToStep(3);
+      return;
+    }
+    if (!dealSearch.result.matched_deal?.deal_id) {
+      toast({
+        title: 'Deal inválido',
+        description: 'O cliente selecionado não tem um deal vinculado. Refaça a busca no passo 1.',
+        variant: 'destructive',
+      });
+      setStep(1);
+      return;
+    }
     setSubmitting(true);
-    const ok = await enroll({
+    try {
+      const ok = await enroll({
       course,
       dealResult: dealSearch.result,
       formData,
@@ -278,9 +305,18 @@ export function EnrollmentModal({ course, preselectedTurmaId, open, onClose }: P
       notes,
       instagram: formData.instagram,
       numero_proposta: numeroProposta,
-    });
-    setSubmitting(false);
-    if (ok) onClose();
+      });
+      if (ok) onClose();
+    } catch (e: any) {
+      console.error('[enrollment submit]', e);
+      toast({
+        title: 'Erro ao confirmar agendamento',
+        description: e?.message ?? 'Erro inesperado. Verifique se você está logado e tente novamente.',
+        variant: 'destructive',
+      });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const updateForm = (field: string, value: string) =>
