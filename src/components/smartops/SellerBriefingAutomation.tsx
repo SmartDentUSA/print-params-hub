@@ -193,7 +193,7 @@ export function SellerBriefingAutomation() {
 
       <CardContent className="space-y-6">
         {/* O QUE / QUANDO / COMO */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-5 gap-4">
           <div className="space-y-1.5">
             <Label className="text-xs uppercase tracking-wide text-muted-foreground">
               O quê (canais)
@@ -229,6 +229,79 @@ export function SellerBriefingAutomation() {
                 <SelectItem value="lead_criado">Assim que o lead é criado</SelectItem>
               </SelectContent>
             </Select>
+            <p className="text-[10px] text-muted-foreground">
+              O disparo só ocorre se o lead estiver na etapa selecionada ao lado
+            </p>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+              Funil do CRM
+            </Label>
+            <Select
+              value={cfg.gate_pipeline_id ?? ""}
+              onValueChange={(v) => {
+                const p = pipelines.find((x) => x.id === v);
+                patch({
+                  gate_pipeline_id: v,
+                  gate_pipeline_name: p?.name ?? null,
+                  gate_stage_ids: [],
+                  gate_stage_names: [],
+                });
+              }}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder={loadingCrm ? "Carregando..." : "Selecione o funil"} />
+              </SelectTrigger>
+              <SelectContent>
+                {pipelines.map((p) => (
+                  <SelectItem key={p.id} value={p.id}>
+                    {p.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {!cfg.gate_pipeline_id && cfg.gate_pipeline_name && (
+              <p className="text-[10px] text-muted-foreground">
+                Configurado por nome: {cfg.gate_pipeline_name}
+              </p>
+            )}
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+              Etapas permitidas
+            </Label>
+            <ScrollArea className="h-[132px] rounded-md border">
+              <div className="divide-y">
+                {stages.length === 0 && (
+                  <p className="px-3 py-2 text-xs text-muted-foreground">
+                    {cfg.gate_pipeline_id
+                      ? loadingCrm
+                        ? "Carregando etapas..."
+                        : "Nenhuma etapa encontrada"
+                      : "Selecione um funil primeiro"}
+                  </p>
+                )}
+                {stages.map((s) => (
+                  <label
+                    key={s.id}
+                    className="flex items-center gap-2 px-3 py-2 text-sm cursor-pointer hover:bg-muted/50"
+                  >
+                    <Checkbox
+                      checked={stageIds.includes(s.id)}
+                      onCheckedChange={(v) => toggleStage(s, v === true)}
+                    />
+                    <span className="truncate">{s.name}</span>
+                  </label>
+                ))}
+              </div>
+            </ScrollArea>
+            {(cfg.gate_stage_names ?? []).length > 0 && (
+              <p className="text-[10px] text-muted-foreground truncate">
+                Ativas: {(cfg.gate_stage_names ?? []).join(", ")}
+              </p>
+            )}
           </div>
 
           <div className="space-y-1.5">
