@@ -254,6 +254,8 @@ export function SmartOpsStripePayments() {
             String(ed.mode ?? "").toLowerCase() === "subscription" ||
             !!ed.parent?.subscription_details?.subscription;
           if (!isSubscription) continue;
+          // Exclui explicitamente a cobrança de ativação/implantação inicial
+          if (isAtivacaoCharge(ed.description) || isAtivacaoCharge(ed.product_name)) continue;
           const v = Number(r.value_numeric ?? 0);
           if (isFinite(v)) {
             invoicePaid.set(r.lead_id, (invoicePaid.get(r.lead_id) ?? 0) + v);
