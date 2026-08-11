@@ -137,6 +137,26 @@ Deno.serve(async (req) => {
       return json({ skipped: true, reason: "lock" });
     }
 
+    // ── Lock ATÔMICO (anti-duplicidade em race) ──
+    // Vários gatilhos/chamadores podem invocar a função no mesmo segundo; a checagem
+    // acima é read-then-write e perde a corrida. O índice único parcial
+    // (lead_id, tipo, data_envio_dia) garante que só UM envio por lead/dia prossiga.
+    if (!test_phone) {
+      const dia = new Date().toISOString().slice(0, 10);
+      const { error: claimErr } = await supabase.from("message_logs").insert({
+        lead_id,
+        team_member_id,
+        tipo: "briefing_vendedor",
+        status: "pendente",
+        data_envio_dia: dia,
+        data_envio: new Date().toISOString(),
+      });
+      if (claimErr) {
+        console.log(`[notify-seller v39] claim recusado lead=${lead_id}: ${claimErr.message}`);
+        return json({ skipped: true, reason: "claim_lock" });
+      }
+    }
+
     // ── Fetch lead + seller ──
     const [{ data: lead, error: leadErr }, { data: seller, error: sellerErr }] = await Promise.all([
       supabase.from("lia_attendances").select("*").eq("id", lead_id).maybeSingle(),
@@ -147,8 +167,14 @@ Deno.serve(async (req) => {
         .maybeSingle(),
     ]);
 
-    if (leadErr || !lead) return json({ error: `lead not found: ${leadErr?.message || lead_id}` }, 404);
-    if (sellerErr || !seller) return json({ error: `seller not found: ${sellerErr?.message || team_member_id}` }, 404);
+    if (leadErr || !lead) {
+      await releaseClaim(supabase, lead_id, !!test_phone);
+      return json({ error: `lead not found: ${leadErr?.message || lead_id}` }, 404);
+    }
+    if (sellerErr || !seller) {
+      await releaseClaim(supabase, lead_id, !!test_phone);
+      return json({ error: `seller not found: ${sellerErr?.message || team_member_id}` }, 404);
+    }
 
     // Sender: instância configurada na UI (credencial própria dela, nunca a do vendedor)
     const senderInstance = (cfg?.sender_instance as string | null)?.trim() || SENDER_INSTANCE;
@@ -250,6 +276,23 @@ Deno.serve(async (req) => {
     return json({ error: err instanceof Error ? err.message : String(err) }, 500);
   }
 });
+
+// Libera o lock atômico (linha "pendente" do dia) quando o envio não aconteceu.
+async function releaseClaim(
+  supabase: ReturnType<typeof createClient>,
+  lead_id: string | null,
+  isTest: boolean,
+) {
+  if (isTest || !lead_id) return;
+  const dia = new Date().toISOString().slice(0, 10);
+  await supabase
+    .from("message_logs")
+    .delete()
+    .eq("lead_id", lead_id)
+    .eq("tipo", "briefing_vendedor")
+    .eq("data_envio_dia", dia)
+    .eq("status", "pendente");
+}
 
 function json(payload: unknown, status = 200) {
   return new Response(JSON.stringify(payload), {
