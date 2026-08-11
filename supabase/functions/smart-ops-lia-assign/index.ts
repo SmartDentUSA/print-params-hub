@@ -4416,7 +4416,7 @@ Deno.serve(async (req) => {
           body: JSON.stringify({
             lead_id: lead.id,
             trigger: autoTrigger,
-            deal_id: dealId ?? null,
+            deal_id: null,
             source: "lia_assign",
           }),
         }).catch((e) => console.warn("[lia-assign] automations trigger error:", e));
