@@ -392,6 +392,8 @@ export function SmartOpsCSRules() {
 
   return (
     <div className="space-y-4">
+      <SmartOpsLiaAutomations />
+
       <Accordion type="multiple" defaultValue={ROLE_SECTIONS.map(r => r.key)} className="space-y-3">
         {ROLE_SECTIONS.map((section) => {
           const sectionMembers = members.filter(m => m.role === section.key);
@@ -782,7 +784,6 @@ export function SmartOpsCSRules() {
           </div>
         </DialogContent>
       </Dialog>
-      <SmartOpsLiaAutomations />
       <SellerBriefingAutomation />
       <TriggerAutomations />
 
