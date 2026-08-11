@@ -19988,6 +19988,9 @@ export type Database = {
           descricao: string | null
           destinatario: string
           destino_numero: string | null
+          email_assunto: string | null
+          email_html: string | null
+          email_remetente: string | null
           gate_pipeline_id: string | null
           gate_pipeline_name: string | null
           gate_stage_ids: string[]
@@ -20000,6 +20003,7 @@ export type Database = {
           nome: string
           quando: string
           sender_instance: string
+          sms_template: string | null
           updated_at: string
         }
         Insert: {
@@ -20011,6 +20015,9 @@ export type Database = {
           descricao?: string | null
           destinatario?: string
           destino_numero?: string | null
+          email_assunto?: string | null
+          email_html?: string | null
+          email_remetente?: string | null
           gate_pipeline_id?: string | null
           gate_pipeline_name?: string | null
           gate_stage_ids?: string[]
@@ -20023,6 +20030,7 @@ export type Database = {
           nome?: string
           quando?: string
           sender_instance?: string
+          sms_template?: string | null
           updated_at?: string
         }
         Update: {
@@ -20034,6 +20042,9 @@ export type Database = {
           descricao?: string | null
           destinatario?: string
           destino_numero?: string | null
+          email_assunto?: string | null
+          email_html?: string | null
+          email_remetente?: string | null
           gate_pipeline_id?: string | null
           gate_pipeline_name?: string | null
           gate_stage_ids?: string[]
@@ -20046,6 +20057,7 @@ export type Database = {
           nome?: string
           quando?: string
           sender_instance?: string
+          sms_template?: string | null
           updated_at?: string
         }
         Relationships: []
