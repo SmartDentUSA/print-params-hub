@@ -330,7 +330,10 @@ export function SmartOpsStripePayments() {
           ativacao_at: u.ativacao_data,
           ativacao_status: u.ativacao_status,
           mensalidade_first_due: u.mensalidade_data,
-          mensalidade_status: u.mensalidade_status || deriveMensalidadeLabel(sub ?? null) || null,
+          mensalidade_status:
+            u.mensalidade_status ||
+            deriveMensalidadeLabel(sub ?? null) ||
+            ((u.lead_id && (invoicePaid.get(u.lead_id) ?? 0) > 0) ? "Paga" : null),
           subscription_status: sub?.status ?? null,
           current_period_end: sub?.current_period_end ?? null,
           cancel_at_period_end: sub?.cancel_at_period_end ?? null,
