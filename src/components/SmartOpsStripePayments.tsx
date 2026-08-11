@@ -126,6 +126,14 @@ function productLabel(slug: string | null | undefined): string {
   return PRODUCT_LABELS[slug] || slug;
 }
 
+// A cobrança de "Ativação e Implantação Inicial" NUNCA é mensalidade.
+// Primeiro vem a ativação (pagamento único), só depois a mensalidade (assinatura).
+function isAtivacaoCharge(text: string | null | undefined): boolean {
+  const t = (text || "").toLowerCase();
+  if (!t) return false;
+  return t.includes("ativa") || t.includes("implanta") || t.includes("setup");
+}
+
 function deriveMensalidadeLabel(sub: { status: string | null; current_period_end: string | null; cancel_at_period_end: boolean | null } | null): string | null {
   if (!sub || !sub.status) return null;
   const s = sub.status.toLowerCase();
@@ -246,6 +254,8 @@ export function SmartOpsStripePayments() {
             String(ed.mode ?? "").toLowerCase() === "subscription" ||
             !!ed.parent?.subscription_details?.subscription;
           if (!isSubscription) continue;
+          // Exclui explicitamente a cobrança de ativação/implantação inicial
+          if (isAtivacaoCharge(ed.description) || isAtivacaoCharge(ed.product_name)) continue;
           const v = Number(r.value_numeric ?? 0);
           if (isFinite(v)) {
             invoicePaid.set(r.lead_id, (invoicePaid.get(r.lead_id) ?? 0) + v);
@@ -320,7 +330,10 @@ export function SmartOpsStripePayments() {
           ativacao_at: u.ativacao_data,
           ativacao_status: u.ativacao_status,
           mensalidade_first_due: u.mensalidade_data,
-          mensalidade_status: u.mensalidade_status || deriveMensalidadeLabel(sub ?? null) || null,
+          mensalidade_status:
+            u.mensalidade_status ||
+            deriveMensalidadeLabel(sub ?? null) ||
+            ((u.lead_id && (invoicePaid.get(u.lead_id) ?? 0) > 0) ? "Paga" : null),
           subscription_status: sub?.status ?? null,
           current_period_end: sub?.current_period_end ?? null,
           cancel_at_period_end: sub?.cancel_at_period_end ?? null,
@@ -783,11 +796,13 @@ export function SmartOpsStripePayments() {
                       onChange={e => updateUnit(r.unit_id, { mensalidade_status: e.target.value || null })}
                       className="h-7 rounded border border-border bg-background px-1 text-xs"
                     >
-                      <option value="">— {deriveMensalidadeLabel({ status: r.subscription_status, current_period_end: r.current_period_end, cancel_at_period_end: r.cancel_at_period_end }) || "Sem assinatura"}</option>
+                      <option value="">— {deriveMensalidadeLabel({ status: r.subscription_status, current_period_end: r.current_period_end, cancel_at_period_end: r.cancel_at_period_end }) || ((isDoneStatus(r.ativacao_status) || r.ativacao_at) ? "Sem assinatura" : "Aguardando ativação")}</option>
                       {MENS_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
                     </select>
-                    {r.mensalidade_status && (
+                    {r.mensalidade_status ? (
                       <div className="mt-1"><Badge variant="outline" className={statusColor(r.mensalidade_status)}>{r.mensalidade_status}</Badge></div>
+                    ) : (!isDoneStatus(r.ativacao_status) && !r.ativacao_at) && (
+                      <div className="mt-1 text-[10px] text-muted-foreground">Ativação primeiro</div>
                     )}
                   </td>
                   <td className="p-2">
