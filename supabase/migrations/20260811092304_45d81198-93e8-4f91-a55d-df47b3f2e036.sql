@@ -1,0 +1,1 @@
+SELECT cron.unschedule('smartops-automations-run-5min');
