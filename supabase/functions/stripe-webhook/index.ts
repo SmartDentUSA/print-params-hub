@@ -400,7 +400,9 @@ async function handle(req: Request): Promise<Response> {
   }
 
   const stripeObjectId: string | null = obj?.id ?? null;
-  const mode: string | null = obj?.mode ?? (event.type.startsWith("customer.subscription") ? "subscription" : "payment");
+  const recurring = isSubscriptionEvent(event);
+  const stripeSubscriptionId = subscriptionIdOf(event);
+  const mode: string = obj?.mode ?? (recurring ? "subscription" : "payment");
   const title = buildTitle(mapping.event_type, amount, currency, products);
   const description = products.map((p) => p.name).filter(Boolean).join(" | ") || obj?.description || obj?.failure_message || null;
 
@@ -416,6 +418,7 @@ async function handle(req: Request): Promise<Response> {
     mode,
     stripe_event_id: event.id,
     stripe_object_id: stripeObjectId,
+    stripe_subscription_id: stripeSubscriptionId,
     stripe_customer_id: customer.stripe_customer_id,
     customer: {
       name: customer.name,
@@ -453,7 +456,6 @@ async function handle(req: Request): Promise<Response> {
       .eq("event_id", event.id);
   }
 
-  const recurring = isSubscriptionEvent(event);
   const paidAtDate = new Date(event.created * 1000);
 
   // Espelha a assinatura (status/vencimento) para o painel RMS
