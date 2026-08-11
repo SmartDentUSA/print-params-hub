@@ -445,7 +445,6 @@ export function SmartOpsStripePayments() {
   };
 
   const kpis = useMemo(() => {
-    let ativacoesPagas = 0;
     let subsAtivas = 0;
     let subsFalhas = 0;
     let preAtivPend = 0;
@@ -458,38 +457,24 @@ export function SmartOpsStripePayments() {
     let mensNaoPaga = 0;
     const now = Date.now();
     const DAY = 86400000;
-    for (const r of filtered) {
-      const prod = (r.produto || "").toLowerCase();
-      const isMensalidade = prod.includes("assinatura") || prod.includes("mensal") || prod.includes("recorren");
-      const isAtivacao = prod.includes("ativa") || prod.includes("implanta") || prod.includes("bundle") || prod.includes("setup");
-      if (!isMensalidade && isAtivacao) ativacoesPagas += r.valor || 0;
-      const ativDone = isDoneStatus(r.ativacao_status) || !!r.ativacao_at;
-      if (ativDone) ativas += 1;
-      if (!ativDone) ativPend += 1;
-      if (!r.pre_ativacao_at && !isDoneStatus(r.pre_ativacao_status)) preAtivPend += 1;
-      const ss = (r.subscription_status || "").toLowerCase();
-      if (ss === "active" || ss === "trialing") subsAtivas += 1;
-      if (isFailedStatus(r.mensalidade_status) || ss === "past_due" || ss === "canceled" || ss === "unpaid") subsFalhas += 1;
-      if (!r.id_dongle || !r.id_dongle.trim()) semDongle += 1;
+    // Ativações: somente unidades de RMS (cobranças de ativação). Cobranças
+    // recorrentes (mensalidade) nunca contam como unidade vendida.
+    const ativUnits = rows.filter(r => r.charge_kind !== "mensalidade" && filtered.some(f => f.unit_id === r.unit_id));
+    const ativacoesPagas = ativUnits.reduce((s, r) => s + (r.valor || 0), 0);
+    const pagamentosAtiv = new Set(ativUnits.map(r => `${r.lead_id ?? "nolead"}|${r.payment_at}`)).size;
 
-      // Aging da primeira mensalidade (só unidades ativadas)
-      if (ativDone && r.lead_id) {
-        const first = firstSubInvoiceByLead.get(r.lead_id);
-        if (first) {
-          const diff = Math.floor((now - first.getTime()) / DAY);
-          if (diff >= 0 && diff <= 10) mens0a10 += 1;
-          else if (diff <= 20) mens11a20 += 1;
-          else if (diff <= 30) mens21a30 += 1;
-          else if (diff > 30) mensNaoPaga += 1;
-        } else if (r.ativacao_at) {
-          const at = new Date(r.ativacao_at).getTime();
-          if (isFinite(at) && (now - at) > 30 * DAY) mensNaoPaga += 1;
-        }
-      }
+    for (const r of ativUnits) {
+      const ativDone = isDoneStatus(r.ativacao_status);
+      if (ativDone) ativas += 1; else ativPend += 1;
+      if (!isDoneStatus(r.pre_ativacao_status)) preAtivPend += 1;
+      if (!r.id_dongle || !r.id_dongle.trim()) semDongle += 1;
     }
-    // Mensalidades — de lead_activity_log (stripe_invoice_paid), restrito aos leads em filtered
+
+    // Mensalidades — por cliente (lead), nunca por unidade
     const leadsInView = new Set<string>();
-    for (const r of filtered) if (r.lead_id) leadsInView.add(r.lead_id);
+    for (const r of ativUnits) if (r.lead_id) leadsInView.add(r.lead_id);
+    const subStatusByLead = new Map<string, string>();
+    for (const r of rows) if (r.lead_id && r.subscription_status) subStatusByLead.set(r.lead_id, r.subscription_status.toLowerCase());
     let mensalidadesPagas = 0;
     let primeirasMensalidadesClientes = 0;
     for (const lid of leadsInView) {
@@ -498,11 +483,22 @@ export function SmartOpsStripePayments() {
         mensalidadesPagas += v;
         primeirasMensalidadesClientes += 1;
       }
+      const ss = subStatusByLead.get(lid) ?? "";
+      if (ss === "active" || ss === "trialing") subsAtivas += 1;
+      if (ss === "past_due" || ss === "canceled" || ss === "unpaid") subsFalhas += 1;
+      const first = firstSubInvoiceByLead.get(lid);
+      if (first) {
+        const diff = Math.floor((now - first.getTime()) / DAY);
+        if (diff >= 0 && diff <= 10) mens0a10 += 1;
+        else if (diff <= 20) mens11a20 += 1;
+        else if (diff <= 30) mens21a30 += 1;
+        else mensNaoPaga += 1;
+      }
     }
-    const ticketMedio = groups.length > 0 ? total / groups.length : 0;
+    const ticketMedio = pagamentosAtiv > 0 ? ativacoesPagas / pagamentosAtiv : 0;
     return {
-      pagamentos: groups.length,
-      unidades: filtered.length,
+      pagamentos: pagamentosAtiv,
+      unidades: ativUnits.length,
       ticketMedio,
       ativacoesPagas,
       mensalidadesPagas,
@@ -518,7 +514,7 @@ export function SmartOpsStripePayments() {
       mens21a30,
       mensNaoPaga,
     };
-  }, [filtered, groups, total, invoicePaidByLead, firstSubInvoiceByLead]);
+  }, [rows, filtered, invoicePaidByLead, firstSubInvoiceByLead]);
 
   if (loading) {
     return (
