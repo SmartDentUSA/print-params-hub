@@ -431,29 +431,71 @@ export function SmartOpsLiaAutomations() {
                 </div>
               </div>
 
-              <div>
-                <Label className="text-xs">Instância que dispara (WhatsApp)</Label>
-                <Select
-                  value={editing.evolution_instance_name ?? ""}
-                  onValueChange={(v) =>
-                    setEditing({ ...editing, evolution_instance_name: v || null })
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione uma instância ativa" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {instances.map((i) => (
-                      <SelectItem key={i.id} value={i.evolution_instance_name}>
-                        {i.nome_completo || i.evolution_instance_name}
-                        {i.evolution_phone ? ` · ${i.evolution_phone}` : ""}
-                        {i.evolution_status === "connected" ? " · conectada" : ` · ${i.evolution_status ?? "sem status"}`}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <p className="text-[11px] text-muted-foreground mt-1">
-                  Sem instância definida, o envio usa o membro com papel <code>lia_comms</code>.
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs">Número liberado para esta mensagem</Label>
+                  {editing.evolution_instance_name && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-6 px-2 text-[11px]"
+                      onClick={() => setEditing({ ...editing, evolution_instance_name: null })}
+                    >
+                      Limpar seleção
+                    </Button>
+                  )}
+                </div>
+                {instances.length === 0 ? (
+                  <p className="text-xs text-muted-foreground rounded border p-3">
+                    Nenhum membro da equipe com instância WhatsApp configurada.
+                  </p>
+                ) : (
+                  <ScrollArea className="h-56 rounded border">
+                    <div className="divide-y">
+                      {instances.map((i) => {
+                        const checked = editing.evolution_instance_name === i.evolution_instance_name;
+                        const connected = i.evolution_status === "connected";
+                        return (
+                          <label
+                            key={i.id}
+                            className="flex items-center gap-3 p-2.5 cursor-pointer hover:bg-muted/50"
+                          >
+                            <Checkbox
+                              checked={checked}
+                              onCheckedChange={(v) =>
+                                setEditing({
+                                  ...editing,
+                                  evolution_instance_name: v ? i.evolution_instance_name : null,
+                                })
+                              }
+                            />
+                            <div className="min-w-0 flex-1">
+                              <div className="text-sm font-medium truncate">
+                                {i.nome_completo || i.evolution_instance_name}
+                              </div>
+                              <div className="text-[11px] text-muted-foreground truncate">
+                                {i.evolution_phone || "sem número"} · {i.evolution_instance_name}
+                              </div>
+                            </div>
+                            <Badge
+                              variant="outline"
+                              className={
+                                connected
+                                  ? "text-[10px] bg-green-50 text-green-700 border-green-200"
+                                  : "text-[10px] bg-muted text-muted-foreground"
+                              }
+                            >
+                              {connected ? "conectada" : i.evolution_status ?? "sem status"}
+                            </Badge>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </ScrollArea>
+                )}
+                <p className="text-[11px] text-muted-foreground">
+                  Marque o membro cujo número vai disparar esta mensagem (apenas um). Sem seleção, o
+                  envio usa o membro com papel <code>lia_comms</code>.
                 </p>
               </div>
 
