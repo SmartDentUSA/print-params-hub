@@ -220,6 +220,40 @@ async function sendViaEvolutionImpl(instance: string, apiKey: string, phone: str
   }
 }
 
+/**
+ * Descobre o JID real do número no WhatsApp. No Brasil há duas grafias
+ * possíveis (com e sem o 9 do celular) — o link wa.me só funciona na grafia
+ * que realmente existe. Retorna o número canônico ou null se não existir.
+ */
+async function resolveWaNumber(
+  instance: string,
+  apiKey: string,
+  phone: string,
+): Promise<string | null> {
+  const d = phone.replace(/\D/g, "");
+  const variants = new Set<string>([d]);
+  if (d.startsWith("55") && d.length === 13 && d[4] === "9") variants.add(d.slice(0, 4) + d.slice(5));
+  if (d.startsWith("55") && d.length === 12) variants.add(d.slice(0, 4) + "9" + d.slice(4));
+  try {
+    const res = await fetch(
+      `${EVOLUTION_BASE}/chat/whatsappNumbers/${encodeURIComponent(instance)}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json", apikey: apiKey },
+        body: JSON.stringify({ numbers: [...variants] }),
+        signal: AbortSignal.timeout(12_000),
+      },
+    );
+    if (!res.ok) return null;
+    const rows = await res.json() as Array<{ exists?: boolean; jid?: string; number?: string }>;
+    const hit = (rows || []).find((r) => r?.exists);
+    if (!hit) return null;
+    return String(hit.jid || hit.number || "").replace(/@.*$/, "").replace(/\D/g, "") || null;
+  } catch {
+    return null;
+  }
+}
+
 async function processLead(
   supa: ReturnType<typeof createClient>,
   lead: Record<string, unknown>,
@@ -278,7 +312,21 @@ async function processLead(
                     || "nossos produtos";
   const nomeVendedor = (sellerRow?.nome_completo as string) || vendedorNome;
   const waText       = encodeURIComponent(`Olá ${nomeVendedor}, quero saber mais sobre ${produto}`);
-  const linkWa       = `https://wa.me/${sellerPhone}?text=${waText}`;
+  // O link só pode usar a grafia do número que EXISTE no WhatsApp (com/sem o 9).
+  const sellerJid    = (await resolveWaNumber(instance, apiKey, sellerPhone)) || sellerPhone;
+  const linkWa       = `https://wa.me/${sellerJid}?text=${waText}`;
+  if (sellerJid === sellerPhone) {
+    // não confirmado no WhatsApp — registra para o time corrigir o cadastro
+    try {
+      await supa.from("system_health_logs").insert({
+        function_name: "smart-ops-lead-welcome",
+        severity: "warning",
+        error_type: "vendedor_whatsapp_nao_confirmado",
+        lead_id: leadId,
+        details: { vendedor: nomeVendedor, telefone: sellerPhone },
+      });
+    } catch { /* silencioso */ }
+  }
   const nomeLead     = ((lead.nome as string) || "Doutor(a)").split(" ")[0];
 
   // ── GUARDA: instância precisa estar conectada ─────────────────────────────
