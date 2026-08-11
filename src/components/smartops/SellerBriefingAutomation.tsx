@@ -16,6 +16,8 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Loader2, Send, Trash2, UserRoundCheck } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { MessageVariableBar } from "@/components/smartops/MessageVariableBar";
 
 interface BriefingConfig {
@@ -24,6 +26,10 @@ interface BriefingConfig {
   canal: string;
   sender_instance: string;
   quando: string;
+  gate_pipeline_id: string | null;
+  gate_pipeline_name: string | null;
+  gate_stage_ids: string[];
+  gate_stage_names: string[];
   delay_minutos: number;
   horario_inicio: string;
   horario_fim: string;
@@ -37,12 +43,20 @@ interface BriefingConfig {
   purge_last_run_at: string | null;
 }
 
+interface CrmOption {
+  id: string;
+  name: string;
+}
+
 export function SellerBriefingAutomation() {
   const [cfg, setCfg] = useState<BriefingConfig | null>(null);
   const [instances, setInstances] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [purging, setPurging] = useState(false);
+  const [pipelines, setPipelines] = useState<CrmOption[]>([]);
+  const [stages, setStages] = useState<CrmOption[]>([]);
+  const [loadingCrm, setLoadingCrm] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -64,7 +78,43 @@ export function SellerBriefingAutomation() {
     })();
   }, []);
 
+  // Funis do CRM
+  useEffect(() => {
+    (async () => {
+      setLoadingCrm(true);
+      const { data } = await supabase.functions.invoke("piperun-list-pipelines", {
+        body: { resource: "pipelines" },
+      });
+      setPipelines(((data?.items ?? []) as any[]).map((i) => ({ id: String(i.id), name: i.name })));
+      setLoadingCrm(false);
+    })();
+  }, []);
+
+  // Etapas do funil selecionado
+  const pipelineId = cfg?.gate_pipeline_id ?? null;
+  useEffect(() => {
+    if (!pipelineId) {
+      setStages([]);
+      return;
+    }
+    (async () => {
+      setLoadingCrm(true);
+      const { data } = await supabase.functions.invoke("piperun-list-pipelines", {
+        body: { resource: "stages", pipeline_id: pipelineId },
+      });
+      setStages(((data?.items ?? []) as any[]).map((i) => ({ id: String(i.id), name: i.name })));
+      setLoadingCrm(false);
+    })();
+  }, [pipelineId]);
+
   const patch = (p: Partial<BriefingConfig>) => setCfg((c) => (c ? { ...c, ...p } : c));
+
+  const stageIds = cfg?.gate_stage_ids ?? [];
+  const toggleStage = (s: CrmOption, on: boolean) => {
+    const ids = on ? Array.from(new Set([...stageIds, s.id])) : stageIds.filter((x) => x !== s.id);
+    const names = stages.filter((st) => ids.includes(st.id)).map((st) => st.name);
+    patch({ gate_stage_ids: ids, gate_stage_names: names });
+  };
 
   // Canais são independentes: ativar E-mail/SMS não suspende o WhatsApp.
   const canais = String(cfg?.canal ?? "whatsapp")
@@ -143,7 +193,7 @@ export function SellerBriefingAutomation() {
 
       <CardContent className="space-y-6">
         {/* O QUE / QUANDO / COMO */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-5 gap-4">
           <div className="space-y-1.5">
             <Label className="text-xs uppercase tracking-wide text-muted-foreground">
               O quê (canais)
@@ -179,6 +229,79 @@ export function SellerBriefingAutomation() {
                 <SelectItem value="lead_criado">Assim que o lead é criado</SelectItem>
               </SelectContent>
             </Select>
+            <p className="text-[10px] text-muted-foreground">
+              O disparo só ocorre se o lead estiver na etapa selecionada ao lado
+            </p>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+              Funil do CRM
+            </Label>
+            <Select
+              value={cfg.gate_pipeline_id ?? ""}
+              onValueChange={(v) => {
+                const p = pipelines.find((x) => x.id === v);
+                patch({
+                  gate_pipeline_id: v,
+                  gate_pipeline_name: p?.name ?? null,
+                  gate_stage_ids: [],
+                  gate_stage_names: [],
+                });
+              }}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder={loadingCrm ? "Carregando..." : "Selecione o funil"} />
+              </SelectTrigger>
+              <SelectContent>
+                {pipelines.map((p) => (
+                  <SelectItem key={p.id} value={p.id}>
+                    {p.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {!cfg.gate_pipeline_id && cfg.gate_pipeline_name && (
+              <p className="text-[10px] text-muted-foreground">
+                Configurado por nome: {cfg.gate_pipeline_name}
+              </p>
+            )}
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+              Etapas permitidas
+            </Label>
+            <ScrollArea className="h-[132px] rounded-md border">
+              <div className="divide-y">
+                {stages.length === 0 && (
+                  <p className="px-3 py-2 text-xs text-muted-foreground">
+                    {cfg.gate_pipeline_id
+                      ? loadingCrm
+                        ? "Carregando etapas..."
+                        : "Nenhuma etapa encontrada"
+                      : "Selecione um funil primeiro"}
+                  </p>
+                )}
+                {stages.map((s) => (
+                  <label
+                    key={s.id}
+                    className="flex items-center gap-2 px-3 py-2 text-sm cursor-pointer hover:bg-muted/50"
+                  >
+                    <Checkbox
+                      checked={stageIds.includes(s.id)}
+                      onCheckedChange={(v) => toggleStage(s, v === true)}
+                    />
+                    <span className="truncate">{s.name}</span>
+                  </label>
+                ))}
+              </div>
+            </ScrollArea>
+            {(cfg.gate_stage_names ?? []).length > 0 && (
+              <p className="text-[10px] text-muted-foreground truncate">
+                Ativas: {(cfg.gate_stage_names ?? []).join(", ")}
+              </p>
+            )}
           </div>
 
           <div className="space-y-1.5">
