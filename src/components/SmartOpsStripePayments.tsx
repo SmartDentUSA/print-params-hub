@@ -826,12 +826,12 @@ export function SmartOpsStripePayments() {
                       onChange={e => updateUnit(r.unit_id, { mensalidade_status: e.target.value || null })}
                       className="h-7 rounded border border-border bg-background px-1 text-xs"
                     >
-                      <option value="">— {deriveMensalidadeLabel({ status: r.subscription_status, current_period_end: r.current_period_end, cancel_at_period_end: r.cancel_at_period_end }) || ((isDoneStatus(r.ativacao_status) || r.ativacao_at) ? "Sem assinatura" : "Aguardando ativação")}</option>
+                      <option value="">— {deriveMensalidadeLabel({ status: r.subscription_status, current_period_end: r.current_period_end, cancel_at_period_end: r.cancel_at_period_end }) || (isDoneStatus(r.ativacao_status) ? "Sem assinatura" : "Aguardando ativação")}</option>
                       {MENS_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
                     </select>
                     {r.mensalidade_status ? (
                       <div className="mt-1"><Badge variant="outline" className={statusColor(r.mensalidade_status)}>{r.mensalidade_status}</Badge></div>
-                    ) : (!isDoneStatus(r.ativacao_status) && !r.ativacao_at) && (
+                    ) : !isDoneStatus(r.ativacao_status) && (
                       <div className="mt-1 text-[10px] text-muted-foreground">Ativação primeiro</div>
                     )}
                   </td>
