@@ -134,6 +134,7 @@ export function EnrollmentModal({ course, preselectedTurmaId, open, onClose }: P
       : sonnerToast.success(o.title ?? "", { description: o.description });
   const [dealIdInput, setDealIdInput] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   // Step 2 form
   const [formData, setFormData] = useState({
@@ -269,7 +270,14 @@ export function EnrollmentModal({ course, preselectedTurmaId, open, onClose }: P
   }, [dealSearch.result]);
 
   const handleSubmit = async () => {
+    console.log('[enrollment] confirmar clicado', {
+      hasResult: !!dealSearch.result,
+      turma: selectedTurmaId,
+      dealId: dealSearch.result?.matched_deal?.deal_id,
+    });
+    setSubmitError(null);
     if (!dealSearch.result) {
+      setSubmitError('Cliente/deal não selecionado — volte ao passo 1.');
       toast({
         title: 'Cliente não selecionado',
         description: 'Volte ao passo 1 e selecione o cliente/deal antes de confirmar.',
@@ -279,6 +287,7 @@ export function EnrollmentModal({ course, preselectedTurmaId, open, onClose }: P
       return;
     }
     if (!selectedTurma) {
+      setSubmitError('Turma não selecionada — volte ao passo 3.');
       toast({
         title: 'Turma não selecionada',
         description: 'Volte ao passo 3 e escolha a turma antes de confirmar.',
@@ -288,6 +297,7 @@ export function EnrollmentModal({ course, preselectedTurmaId, open, onClose }: P
       return;
     }
     if (!dealSearch.result.matched_deal?.deal_id) {
+      setSubmitError('O cliente selecionado não tem deal vinculado — refaça a busca no passo 1.');
       toast({
         title: 'Deal inválido',
         description: 'O cliente selecionado não tem um deal vinculado. Refaça a busca no passo 1.',
@@ -298,7 +308,7 @@ export function EnrollmentModal({ course, preselectedTurmaId, open, onClose }: P
     }
     setSubmitting(true);
     try {
-      const ok = await enroll({
+      const { ok, error } = await enroll({
       course,
       dealResult: dealSearch.result,
       formData,
@@ -312,8 +322,10 @@ export function EnrollmentModal({ course, preselectedTurmaId, open, onClose }: P
       numero_proposta: numeroProposta,
       });
       if (ok) onClose();
+      else setSubmitError(error || 'Falha ao gravar o agendamento.');
     } catch (e: any) {
       console.error('[enrollment submit]', e);
+      setSubmitError(e?.message ?? 'Erro inesperado.');
       toast({
         title: 'Erro ao confirmar agendamento',
         description: e?.message ?? 'Erro inesperado. Verifique se você está logado e tente novamente.',
@@ -937,6 +949,12 @@ export function EnrollmentModal({ course, preselectedTurmaId, open, onClose }: P
                     {submitting ? "Confirmando..." : "Confirmar Agendamento"}
                   </Button>
                 </div>
+                {submitError && (
+                  <div className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive flex items-start gap-2">
+                    <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+                    <span className="whitespace-pre-wrap break-words">{submitError}</span>
+                  </div>
+                )}
               </div>
             )}
           </div>
