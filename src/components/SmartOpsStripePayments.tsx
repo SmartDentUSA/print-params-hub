@@ -463,7 +463,7 @@ export function SmartOpsStripePayments() {
     const DAY = 86400000;
     // Ativações: somente unidades de RMS (cobranças de ativação). Cobranças
     // recorrentes (mensalidade) nunca contam como unidade vendida.
-    const ativUnits = rows.filter(r => r.charge_kind !== "mensalidade" && filtered.some(f => f.unit_id === r.unit_id));
+    const ativUnits = searchFiltered.filter(r => r.charge_kind !== "mensalidade");
     const ativacoesPagas = ativUnits.reduce((s, r) => s + (r.valor || 0), 0);
     const pagamentosAtiv = new Set(ativUnits.map(r => `${r.lead_id ?? "nolead"}|${r.payment_at}`)).size;
 
@@ -518,7 +518,7 @@ export function SmartOpsStripePayments() {
       mens21a30,
       mensNaoPaga,
     };
-  }, [rows, filtered, invoicePaidByLead, firstSubInvoiceByLead]);
+  }, [rows, searchFiltered, invoicePaidByLead, firstSubInvoiceByLead]);
 
   if (loading) {
     return (
