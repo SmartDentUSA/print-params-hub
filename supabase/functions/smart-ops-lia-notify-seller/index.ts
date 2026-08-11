@@ -118,6 +118,43 @@ Deno.serve(async (req) => {
       }
     }
 
+    // ── Gate de funil/etapa (configurável na UI) ──────────────────────────────
+    // Briefing só sai para leads que estão na(s) etapa(s) selecionada(s) do funil
+    // escolhido no CRM (padrão: "Sem contato" do Funil de Vendas).
+    const gatePipelineId = ((cfg as any)?.gate_pipeline_id as string | null)?.trim() || null;
+    const gatePipelineName = ((cfg as any)?.gate_pipeline_name as string | null)?.trim() || null;
+    const gateStageIds = (((cfg as any)?.gate_stage_ids as string[] | null) ?? [])
+      .map((s) => String(s).trim())
+      .filter(Boolean);
+    const gateStageNames = (((cfg as any)?.gate_stage_names as string[] | null) ?? [])
+      .map((s) => String(s).trim().toLowerCase())
+      .filter(Boolean);
+
+    if (!test_phone && (gateStageIds.length > 0 || gateStageNames.length > 0)) {
+      const { data: dealRows } = await supabase
+        .from("deals")
+        .select("pipeline_id, pipeline_name, stage_id, stage_name, created_at")
+        .eq("lead_id", lead_id)
+        .order("created_at", { ascending: false })
+        .limit(20);
+
+      const norm = (v: unknown) => String(v ?? "").trim().toLowerCase();
+      const matches = (dealRows ?? []).some((d: any) => {
+        if (gatePipelineId && String(d.pipeline_id ?? "") !== gatePipelineId) return false;
+        if (!gatePipelineId && gatePipelineName && norm(d.pipeline_name) !== norm(gatePipelineName)) return false;
+        const byId = gateStageIds.length > 0 && gateStageIds.includes(String(d.stage_id ?? ""));
+        const byName = gateStageNames.length > 0 && gateStageNames.includes(norm(d.stage_name));
+        return byId || byName;
+      });
+
+      if (!matches) {
+        console.log(
+          `[notify-seller v40] lead=${lead_id} fora da etapa permitida (funil=${gatePipelineName ?? gatePipelineId ?? "*"}, etapas=${gateStageNames.join("|") || gateStageIds.join("|")}) — skip`,
+        );
+        return json({ skipped: true, reason: "etapa_nao_permitida" });
+      }
+    }
+
     // ── Dedup lock (últimas 24h) ──
     // Conta apenas ENVIOS REAIS. Logs "pendente" gravados pelo trigger duplicado
     // fn_notify_seller_on_lead_assigned NÃO podem bloquear o envio legítimo.
