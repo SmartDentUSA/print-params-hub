@@ -282,6 +282,10 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
   const [waTemplate, setWaTemplate] = useState(DEFAULT_ENROLLMENT_TEMPLATE);
   const [reminderTemplate, setReminderTemplate] = useState(DEFAULT_REMINDER_TEMPLATE);
   const [npsTemplate, setNpsTemplate] = useState(DEFAULT_NPS_TEMPLATE);
+  const [npsSmsEnabled, setNpsSmsEnabled] = useState(false);
+  const [npsSmsTemplate, setNpsSmsTemplate] = useState(DEFAULT_NPS_SMS_TEMPLATE);
+  const [npsSmsDelayDays, setNpsSmsDelayDays] = useState(2);
+  const [npsSmsMaxAttempts, setNpsSmsMaxAttempts] = useState(2);
   const [waInstance, setWaInstance] = useState<string>("__default__");
   const [waInstances, setWaInstances] = useState<Array<{ nome: string; instance: string; phone: string | null; status: string | null }>>([]);
   const [certificateBody, setCertificateBody] = useState(DEFAULT_CERTIFICATE_BODY);
@@ -348,6 +352,10 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
       setPublicVisible(false); setWaTemplate(DEFAULT_ENROLLMENT_TEMPLATE);
       setReminderTemplate(DEFAULT_REMINDER_TEMPLATE);
       setNpsTemplate(DEFAULT_NPS_TEMPLATE);
+      setNpsSmsEnabled(false);
+      setNpsSmsTemplate(DEFAULT_NPS_SMS_TEMPLATE);
+      setNpsSmsDelayDays(2);
+      setNpsSmsMaxAttempts(2);
       setWaInstance("__default__");
       setPublicEnrollmentEnabled(false);
       setRecurrenceEnabled(false); setRecurrenceType('weeks'); setRecurrenceInterval(1);
@@ -379,6 +387,10 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
     setWaTemplate(course.whatsapp_message_template || DEFAULT_ENROLLMENT_TEMPLATE);
     setReminderTemplate((course as any).reminder_message_template || DEFAULT_REMINDER_TEMPLATE);
     setNpsTemplate((course as any).nps_message_template || DEFAULT_NPS_TEMPLATE);
+    setNpsSmsEnabled(Boolean((course as any).nps_sms_followup_enabled));
+    setNpsSmsTemplate((course as any).nps_sms_template || DEFAULT_NPS_SMS_TEMPLATE);
+    setNpsSmsDelayDays(Number((course as any).nps_sms_delay_days ?? 2));
+    setNpsSmsMaxAttempts(Number((course as any).nps_sms_max_attempts ?? 2));
     setWaInstance((course as any).wa_instance_name || "__default__");
     setCertificateBody(course.certificate_body_template || DEFAULT_CERTIFICATE_BODY);
     setRelatedProductIds(((course as any).related_product_ids ?? []) as string[]);
@@ -710,6 +722,10 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
         whatsapp_message_template: waTemplate !== DEFAULT_ENROLLMENT_TEMPLATE ? waTemplate : null,
         reminder_message_template: reminderTemplate && reminderTemplate !== DEFAULT_REMINDER_TEMPLATE ? reminderTemplate : null,
         nps_message_template: npsTemplate && npsTemplate !== DEFAULT_NPS_TEMPLATE ? npsTemplate : null,
+        nps_sms_followup_enabled: npsSmsEnabled,
+        nps_sms_template: npsSmsTemplate && npsSmsTemplate !== DEFAULT_NPS_SMS_TEMPLATE ? npsSmsTemplate : null,
+        nps_sms_delay_days: Math.max(1, Number(npsSmsDelayDays) || 2),
+        nps_sms_max_attempts: Math.max(1, Number(npsSmsMaxAttempts) || 1),
         wa_instance_name: waInstance && waInstance !== "__default__" ? waInstance : null,
         certificate_body_template: certificateBody && certificateBody !== DEFAULT_CERTIFICATE_BODY ? certificateBody : null,
         pipeline_id_kanban: pipelineId,
