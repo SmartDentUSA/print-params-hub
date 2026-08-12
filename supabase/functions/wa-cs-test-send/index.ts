@@ -104,11 +104,25 @@ Deno.serve(async (req) => {
     try {
       const token = Deno.env.get("DISPARO_PRO_TOKEN");
       const id = String(body.sms_status_id);
-      const res = await fetch(`https://apihttp.disparopro.com.br:8433/mt/${encodeURIComponent(id)}`, {
-        headers: { Authorization: `Bearer ${token}` },
-        signal: AbortSignal.timeout(30_000),
-      });
-      out.sms_status = { status: res.status, body: (await res.text()).slice(0, 800) };
+      const paths = [
+        `/mt/${encodeURIComponent(id)}`,
+        `/mt/status/${encodeURIComponent(id)}`,
+        `/dr/${encodeURIComponent(id)}`,
+        `/mt?id=${encodeURIComponent(id)}`,
+        `/status?id=${encodeURIComponent(id)}`,
+        `/dr`,
+      ];
+      const probes: unknown[] = [];
+      for (const p of paths) {
+        try {
+          const res = await fetch(`https://apihttp.disparopro.com.br:8433${p}`, {
+            headers: { Authorization: `Bearer ${token}` },
+            signal: AbortSignal.timeout(20_000),
+          });
+          probes.push({ path: p, status: res.status, body: (await res.text()).slice(0, 400) });
+        } catch (e) { probes.push({ path: p, error: String((e as Error).message ?? e) }); }
+      }
+      out.sms_status = probes;
     } catch (e) { out.sms_status_error = String((e as Error).message ?? e); }
   }
   if (npsLink) {
