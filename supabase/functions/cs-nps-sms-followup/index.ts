@@ -13,6 +13,43 @@ const FN = "cs-nps-sms-followup";
 const DISPARO_PRO_URL = "https://apihttp.disparopro.com.br:8433/mt";
 const DISPARO_PRO_SERVICO = Deno.env.get("DISPARO_PRO_SERVICO") || "short";
 const NPS_BASE_URL = (Deno.env.get("NPS_PUBLIC_BASE_URL") ?? "https://admin.smartdent.com.br").replace(/\/+$/, "");
+// Encurtador próprio (rewrite /r/:code -> short-link-redirect). A DisparoPro
+// bloqueia URLs longas/desconhecidas, então o SMS sempre sai com link curto.
+const SHORT_BASE = (Deno.env.get("SHORT_LINK_BASE_R") ?? "https://admin.smartdent.com.br/r").replace(/\/+$/, "");
+
+function randomCode(len = 6): string {
+  const alphabet = "abcdefghijkmnpqrstuvwxyz23456789";
+  const bytes = new Uint8Array(len);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, (b) => alphabet[b % alphabet.length]).join("");
+}
+
+// Reusa o short link já criado para o mesmo destino; só cria um novo se não existir.
+async function shortenNpsLink(
+  supabase: any,
+  destination: string,
+  leadId: string | null,
+): Promise<string> {
+  const { data: existing } = await supabase
+    .from("short_links")
+    .select("code")
+    .eq("destination_url", destination)
+    .limit(1)
+    .maybeSingle();
+  if (existing?.code) return `${SHORT_BASE}/${existing.code}`;
+
+  for (let i = 0; i < 5; i++) {
+    const code = randomCode(6);
+    const { error } = await supabase.from("short_links").insert({
+      code,
+      destination_url: destination,
+      lead_id: leadId,
+      produto: "nps_sms",
+    });
+    if (!error) return `${SHORT_BASE}/${code}`;
+  }
+  return destination;
+}
 
 export const DEFAULT_NPS_SMS = "Oie {{nome}}! Sua opiniao sobre o treinamento e muito importante. 3 perguntas rapidas: {{link_nps}}";
 
@@ -143,7 +180,8 @@ Deno.serve(async (req) => {
           if (eT) throw eT;
         }
 
-        const link = `${NPS_BASE_URL}/nps/${token}`;
+        const fullLink = `${NPS_BASE_URL}/nps/${token}`;
+        const link = await shortenNpsLink(supabase, fullLink, enr.lead_id ?? null);
         const nome = firstName(enr.person_name ?? lead?.nome);
         let text = String(course.nps_sms_template || DEFAULT_NPS_SMS)
           .replace(/\{\{nome\}\}/g, nome)
