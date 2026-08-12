@@ -1,11 +1,13 @@
 import React, { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, Star, Send, CheckCircle2, ThumbsUp, ThumbsDown, Minus, Sparkles } from "lucide-react";
+import { Loader2, Star, Send, CheckCircle2, ThumbsUp, ThumbsDown, Minus, Sparkles, MessageSquare } from "lucide-react";
 import { useNpsQuestionInsights } from "@/hooks/useNpsQuestionInsights";
 
 interface NpsRow {
@@ -62,6 +64,28 @@ function npsLabel(recomendacao: number | null) {
 export function CoursesNpsTab() {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<"todos" | "respondidos" | "pendentes" | "falhados">("todos");
+  const [sending, setSending] = useState<string | null>(null);
+  const queryClient = useQueryClient();
+
+  const enviarAgora = async (ids: string[], label: string) => {
+    if (!ids.length) return;
+    setSending(label);
+    try {
+      const { data, error } = await supabase.functions.invoke("cs-nps-sms-followup", {
+        body: { enrollment_ids: ids, force: true },
+      });
+      if (error) throw error;
+      const enviados = (data as any)?.enviados ?? 0;
+      const falhas = (data as any)?.falhas ?? 0;
+      if (enviados > 0) toast.success(`SMS enviado para ${enviados} participante(s).`);
+      if (!enviados) toast.error(`Nenhum SMS enviado${falhas ? ` — ${falhas} falha(s)` : ""}.`);
+      queryClient.invalidateQueries({ queryKey: ["smartops-nps-overview"] });
+    } catch (e: any) {
+      toast.error(e?.message ?? "Falha ao enviar SMS.");
+    } finally {
+      setSending(null);
+    }
+  };
 
   const { data, isLoading } = useQuery({
     queryKey: ["smartops-nps-overview"],
