@@ -239,6 +239,7 @@ Deno.serve(async (req) => {
               icon: "📩",
               mensagem: text,
               link,
+              link_completo: fullLink,
               telefone: phone,
               tentativa: sent + 1,
               fonte: FN,
