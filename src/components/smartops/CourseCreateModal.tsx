@@ -24,6 +24,7 @@ import { slugify, buildCourseTag, MODALITY_CONFIG } from "@/lib/courseUtils";
 import {
   TEMPLATE_VARIABLES, DEFAULT_ENROLLMENT_TEMPLATE,
   DEFAULT_REMINDER_TEMPLATE, DEFAULT_NPS_TEMPLATE, NPS_TEMPLATE_VARIABLES,
+  DEFAULT_NPS_SMS_TEMPLATE, NPS_SMS_TEMPLATE_VARIABLES,
   interpolateTemplate, buildCronogramaText,
 } from "@/lib/courseWhatsapp";
 import type { SmartopsCourse, TurmaDay } from "@/types/courses";
@@ -1299,6 +1300,58 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
                 <p className="text-[11px] text-muted-foreground">
                   Se o texto não incluir <code>{"{{link_nps}}"}</code>, o link é anexado ao final automaticamente.
                 </p>
+              </div>
+
+              {/* Follow-up NPS por SMS */}
+              <div className="pt-4 mt-2 border-t space-y-2">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label className="text-xs">Follow-up NPS (SMS para quem não respondeu)</Label>
+                    <p className="text-[11px] text-muted-foreground">
+                      Envia o mesmo link exclusivo do participante por SMS às 08:00, apenas para quem
+                      recebeu o NPS no WhatsApp e ainda não respondeu.
+                    </p>
+                  </div>
+                  <Switch checked={npsSmsEnabled} onCheckedChange={setNpsSmsEnabled} />
+                </div>
+
+                {npsSmsEnabled && (
+                  <div className="space-y-2">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <Label className="text-xs">Primeiro envio (dias após o NPS)</Label>
+                        <Input type="number" min={1} max={60} value={npsSmsDelayDays}
+                          onChange={(e) => setNpsSmsDelayDays(Number(e.target.value))} />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">Quantas vezes enviar (sem resposta)</Label>
+                        <Input type="number" min={1} max={10} value={npsSmsMaxAttempts}
+                          onChange={(e) => setNpsSmsMaxAttempts(Number(e.target.value))} />
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] text-muted-foreground">Horário padrão de envio: 08:00</span>
+                      <Button type="button" variant="ghost" size="sm" className="text-xs"
+                        onClick={() => setNpsSmsTemplate(DEFAULT_NPS_SMS_TEMPLATE)}>
+                        Restaurar padrão
+                      </Button>
+                    </div>
+                    <div className="flex flex-wrap gap-1">
+                      {NPS_SMS_TEMPLATE_VARIABLES.map((v) => (
+                        <Badge key={`npssms-${v.key}`} variant="outline" className="cursor-pointer hover:bg-primary/10"
+                          title={v.desc}
+                          onClick={() => setNpsSmsTemplate((t) => `${t}${v.key}`)}>
+                          {v.key}
+                        </Badge>
+                      ))}
+                    </div>
+                    <Textarea rows={3} className="font-mono text-sm"
+                      value={npsSmsTemplate} onChange={(e) => setNpsSmsTemplate(e.target.value)} />
+                    <p className="text-[11px] text-muted-foreground">
+                      {npsSmsTemplate.length} caracteres — SMS ideal até 160. O link é anexado ao final se faltar.
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
 
