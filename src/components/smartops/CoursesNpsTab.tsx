@@ -235,6 +235,16 @@ export function CoursesNpsTab() {
           </SelectContent>
         </Select>
         <span className="text-xs text-muted-foreground">{filtered.length} registro(s)</span>
+        <Button
+          size="sm"
+          variant="outline"
+          className="ml-auto"
+          disabled={sending === "lote"}
+          onClick={() => enviarAgora(filtered.filter((r) => !r.responded_at).map((r) => r.enrollment_id), "lote")}
+        >
+          {sending === "lote" ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <MessageSquare className="w-3.5 h-3.5 mr-1.5" />}
+          Enviar agora (SMS) — {filtered.filter((r) => !r.responded_at).length} sem resposta
+        </Button>
       </div>
 
       {isLoading ? (
@@ -257,6 +267,7 @@ export function CoursesNpsTab() {
                 <th className="text-left p-3">Treinamentos</th>
                 <th className="text-left p-3">Recomendação</th>
                 <th className="text-left p-3 min-w-[260px]">Observação do participante</th>
+                <th className="text-left p-3">Ação</th>
               </tr>
             </thead>
             <tbody>
@@ -294,6 +305,24 @@ export function CoursesNpsTab() {
                     <td className="p-3"><Stars value={r.treinamentos} /></td>
                     <td className="p-3"><Stars value={r.recomendacao} /></td>
                     <td className="p-3 text-muted-foreground whitespace-pre-wrap">{r.comment || "—"}</td>
+                    <td className="p-3 whitespace-nowrap">
+                      {r.responded_at ? (
+                        <span className="text-xs text-muted-foreground">respondido</span>
+                      ) : (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={sending === r.enrollment_id}
+                          onClick={() => enviarAgora([r.enrollment_id], r.enrollment_id)}
+                          title="Enviar SMS com o link exclusivo do participante"
+                        >
+                          {sending === r.enrollment_id
+                            ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+                            : <MessageSquare className="w-3.5 h-3.5 mr-1.5" />}
+                          Enviar agora
+                        </Button>
+                      )}
+                    </td>
                   </tr>
                 );
               })}
