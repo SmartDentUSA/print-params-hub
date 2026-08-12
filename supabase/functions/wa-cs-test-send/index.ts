@@ -100,6 +100,17 @@ Deno.serve(async (req) => {
   }
 
   // 3) SMS via DisparoPro
+  if (body.sms_status_id) {
+    try {
+      const token = Deno.env.get("DISPARO_PRO_TOKEN");
+      const id = String(body.sms_status_id);
+      const res = await fetch(`https://apihttp.disparopro.com.br:8433/mt/${encodeURIComponent(id)}`, {
+        headers: { Authorization: `Bearer ${token}` },
+        signal: AbortSignal.timeout(30_000),
+      });
+      out.sms_status = { status: res.status, body: (await res.text()).slice(0, 800) };
+    } catch (e) { out.sms_status_error = String((e as Error).message ?? e); }
+  }
   if (npsLink) {
     try {
       const token = Deno.env.get("DISPARO_PRO_TOKEN");
@@ -107,7 +118,13 @@ Deno.serve(async (req) => {
       const res = await fetch("https://apihttp.disparopro.com.br:8433/mt", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify([{ numero: smsPhone, servico: "short", mensagem: msg, codificacao: "0", nome_campanha: "teste_nps" }]),
+        body: JSON.stringify([{
+          numero: smsPhone,
+          servico: String(body.sms_servico ?? "short"),
+          mensagem: msg,
+          codificacao: "0",
+          nome_campanha: "teste_nps",
+        }]),
         signal: AbortSignal.timeout(60_000),
       });
       out.sms_send = { status: res.status, body: (await res.text()).slice(0, 600), chars: msg.length };
