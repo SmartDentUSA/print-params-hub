@@ -103,7 +103,7 @@ Deno.serve(async (req) => {
   if (npsLink) {
     try {
       const token = Deno.env.get("DISPARO_PRO_TOKEN");
-      const msg = `Smart Dent: avalie seu treinamento em 1 min: ${npsLink}`;
+      const msg = String(body.sms_text ?? `Smart Dent: avalie seu treinamento em 1 min: ${npsLink}`);
       const res = await fetch("https://apihttp.disparopro.com.br:8433/mt", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
