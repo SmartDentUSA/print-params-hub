@@ -24,6 +24,7 @@ import { slugify, buildCourseTag, MODALITY_CONFIG } from "@/lib/courseUtils";
 import {
   TEMPLATE_VARIABLES, DEFAULT_ENROLLMENT_TEMPLATE,
   DEFAULT_REMINDER_TEMPLATE, DEFAULT_NPS_TEMPLATE, NPS_TEMPLATE_VARIABLES,
+  DEFAULT_NPS_SMS_TEMPLATE, NPS_SMS_TEMPLATE_VARIABLES,
   interpolateTemplate, buildCronogramaText,
 } from "@/lib/courseWhatsapp";
 import type { SmartopsCourse, TurmaDay } from "@/types/courses";
@@ -282,6 +283,10 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
   const [waTemplate, setWaTemplate] = useState(DEFAULT_ENROLLMENT_TEMPLATE);
   const [reminderTemplate, setReminderTemplate] = useState(DEFAULT_REMINDER_TEMPLATE);
   const [npsTemplate, setNpsTemplate] = useState(DEFAULT_NPS_TEMPLATE);
+  const [npsSmsEnabled, setNpsSmsEnabled] = useState(false);
+  const [npsSmsTemplate, setNpsSmsTemplate] = useState(DEFAULT_NPS_SMS_TEMPLATE);
+  const [npsSmsDelayDays, setNpsSmsDelayDays] = useState(2);
+  const [npsSmsMaxAttempts, setNpsSmsMaxAttempts] = useState(2);
   const [waInstance, setWaInstance] = useState<string>("__default__");
   const [waInstances, setWaInstances] = useState<Array<{ nome: string; instance: string; phone: string | null; status: string | null }>>([]);
   const [certificateBody, setCertificateBody] = useState(DEFAULT_CERTIFICATE_BODY);
@@ -348,6 +353,10 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
       setPublicVisible(false); setWaTemplate(DEFAULT_ENROLLMENT_TEMPLATE);
       setReminderTemplate(DEFAULT_REMINDER_TEMPLATE);
       setNpsTemplate(DEFAULT_NPS_TEMPLATE);
+      setNpsSmsEnabled(false);
+      setNpsSmsTemplate(DEFAULT_NPS_SMS_TEMPLATE);
+      setNpsSmsDelayDays(2);
+      setNpsSmsMaxAttempts(2);
       setWaInstance("__default__");
       setPublicEnrollmentEnabled(false);
       setRecurrenceEnabled(false); setRecurrenceType('weeks'); setRecurrenceInterval(1);
@@ -379,6 +388,10 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
     setWaTemplate(course.whatsapp_message_template || DEFAULT_ENROLLMENT_TEMPLATE);
     setReminderTemplate((course as any).reminder_message_template || DEFAULT_REMINDER_TEMPLATE);
     setNpsTemplate((course as any).nps_message_template || DEFAULT_NPS_TEMPLATE);
+    setNpsSmsEnabled(Boolean((course as any).nps_sms_followup_enabled));
+    setNpsSmsTemplate((course as any).nps_sms_template || DEFAULT_NPS_SMS_TEMPLATE);
+    setNpsSmsDelayDays(Number((course as any).nps_sms_delay_days ?? 2));
+    setNpsSmsMaxAttempts(Number((course as any).nps_sms_max_attempts ?? 2));
     setWaInstance((course as any).wa_instance_name || "__default__");
     setCertificateBody(course.certificate_body_template || DEFAULT_CERTIFICATE_BODY);
     setRelatedProductIds(((course as any).related_product_ids ?? []) as string[]);
@@ -710,6 +723,10 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
         whatsapp_message_template: waTemplate !== DEFAULT_ENROLLMENT_TEMPLATE ? waTemplate : null,
         reminder_message_template: reminderTemplate && reminderTemplate !== DEFAULT_REMINDER_TEMPLATE ? reminderTemplate : null,
         nps_message_template: npsTemplate && npsTemplate !== DEFAULT_NPS_TEMPLATE ? npsTemplate : null,
+        nps_sms_followup_enabled: npsSmsEnabled,
+        nps_sms_template: npsSmsTemplate && npsSmsTemplate !== DEFAULT_NPS_SMS_TEMPLATE ? npsSmsTemplate : null,
+        nps_sms_delay_days: Math.max(1, Number(npsSmsDelayDays) || 2),
+        nps_sms_max_attempts: Math.max(1, Number(npsSmsMaxAttempts) || 1),
         wa_instance_name: waInstance && waInstance !== "__default__" ? waInstance : null,
         certificate_body_template: certificateBody && certificateBody !== DEFAULT_CERTIFICATE_BODY ? certificateBody : null,
         pipeline_id_kanban: pipelineId,
@@ -1283,6 +1300,58 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
                 <p className="text-[11px] text-muted-foreground">
                   Se o texto não incluir <code>{"{{link_nps}}"}</code>, o link é anexado ao final automaticamente.
                 </p>
+              </div>
+
+              {/* Follow-up NPS por SMS */}
+              <div className="pt-4 mt-2 border-t space-y-2">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label className="text-xs">Follow-up NPS (SMS para quem não respondeu)</Label>
+                    <p className="text-[11px] text-muted-foreground">
+                      Envia o mesmo link exclusivo do participante por SMS às 08:00, apenas para quem
+                      recebeu o NPS no WhatsApp e ainda não respondeu.
+                    </p>
+                  </div>
+                  <Switch checked={npsSmsEnabled} onCheckedChange={setNpsSmsEnabled} />
+                </div>
+
+                {npsSmsEnabled && (
+                  <div className="space-y-2">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <Label className="text-xs">Primeiro envio (dias após o NPS)</Label>
+                        <Input type="number" min={1} max={60} value={npsSmsDelayDays}
+                          onChange={(e) => setNpsSmsDelayDays(Number(e.target.value))} />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">Quantas vezes enviar (sem resposta)</Label>
+                        <Input type="number" min={1} max={10} value={npsSmsMaxAttempts}
+                          onChange={(e) => setNpsSmsMaxAttempts(Number(e.target.value))} />
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] text-muted-foreground">Horário padrão de envio: 08:00</span>
+                      <Button type="button" variant="ghost" size="sm" className="text-xs"
+                        onClick={() => setNpsSmsTemplate(DEFAULT_NPS_SMS_TEMPLATE)}>
+                        Restaurar padrão
+                      </Button>
+                    </div>
+                    <div className="flex flex-wrap gap-1">
+                      {NPS_SMS_TEMPLATE_VARIABLES.map((v) => (
+                        <Badge key={`npssms-${v.key}`} variant="outline" className="cursor-pointer hover:bg-primary/10"
+                          title={v.desc}
+                          onClick={() => setNpsSmsTemplate((t) => `${t}${v.key}`)}>
+                          {v.key}
+                        </Badge>
+                      ))}
+                    </div>
+                    <Textarea rows={3} className="font-mono text-sm"
+                      value={npsSmsTemplate} onChange={(e) => setNpsSmsTemplate(e.target.value)} />
+                    <p className="text-[11px] text-muted-foreground">
+                      {npsSmsTemplate.length} caracteres — SMS ideal até 160. O link é anexado ao final se faltar.
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
 

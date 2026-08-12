@@ -45,6 +45,16 @@ export const NPS_TEMPLATE_VARIABLES = [
   { key: '{{link_nps}}',    desc: 'Link único da pesquisa de NPS' },
 ] as const;
 
+// SMS de follow-up (limite prático de 160 caracteres, sem acentos/formatação)
+export const DEFAULT_NPS_SMS_TEMPLATE =
+  'Oie {{nome}}! Sua opiniao sobre o treinamento e muito importante. 3 perguntas rapidas: {{link_nps}}';
+
+export const NPS_SMS_TEMPLATE_VARIABLES = [
+  { key: '{{nome}}',        desc: 'Primeiro nome do participante' },
+  { key: '{{curso}}',       desc: 'Título do curso' },
+  { key: '{{link_nps}}',    desc: 'Link único da pesquisa de NPS' },
+] as const;
+
 export const TEMPLATE_VARIABLES = [
   { key: '{{nome}}',           desc: 'Nome do participante' },
   { key: '{{curso}}',          desc: 'Título do curso' },

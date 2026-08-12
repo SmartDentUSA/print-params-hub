@@ -20136,6 +20136,8 @@ export type Database = {
           lead_id: string | null
           notes: string | null
           nps_sent_at: string | null
+          nps_sms_count: number
+          nps_sms_last_sent_at: string | null
           nps_status: string | null
           nps_token: string | null
           nps_token_expires_at: string | null
@@ -20191,6 +20193,8 @@ export type Database = {
           lead_id?: string | null
           notes?: string | null
           nps_sent_at?: string | null
+          nps_sms_count?: number
+          nps_sms_last_sent_at?: string | null
           nps_status?: string | null
           nps_token?: string | null
           nps_token_expires_at?: string | null
@@ -20246,6 +20250,8 @@ export type Database = {
           lead_id?: string | null
           notes?: string | null
           nps_sent_at?: string | null
+          nps_sms_count?: number
+          nps_sms_last_sent_at?: string | null
           nps_status?: string | null
           nps_token?: string | null
           nps_token_expires_at?: string | null
@@ -20580,6 +20586,10 @@ export type Database = {
           meeting_link: string | null
           modality: string
           nps_message_template: string | null
+          nps_sms_delay_days: number
+          nps_sms_followup_enabled: boolean
+          nps_sms_max_attempts: number
+          nps_sms_template: string | null
           pipeline_id_kanban: number
           public_enrollment_enabled: boolean
           public_visible: boolean | null
@@ -20621,6 +20631,10 @@ export type Database = {
           meeting_link?: string | null
           modality: string
           nps_message_template?: string | null
+          nps_sms_delay_days?: number
+          nps_sms_followup_enabled?: boolean
+          nps_sms_max_attempts?: number
+          nps_sms_template?: string | null
           pipeline_id_kanban?: number
           public_enrollment_enabled?: boolean
           public_visible?: boolean | null
@@ -20662,6 +20676,10 @@ export type Database = {
           meeting_link?: string | null
           modality?: string
           nps_message_template?: string | null
+          nps_sms_delay_days?: number
+          nps_sms_followup_enabled?: boolean
+          nps_sms_max_attempts?: number
+          nps_sms_template?: string | null
           pipeline_id_kanban?: number
           public_enrollment_enabled?: boolean
           public_visible?: boolean | null
