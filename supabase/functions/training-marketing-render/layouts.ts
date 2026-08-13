@@ -79,8 +79,6 @@ export function buildSvg(input: LayoutInput): { svg: string; width: number; heig
   const { width: W, height: H } = spec;
   const isStory = H === 1920;
 
-  // Área da fotografia: sempre em cima; o texto vive na faixa gráfica inferior.
-  const photoH = isStory ? Math.round(H * 0.72) : H === 1080 ? Math.round(H * 0.62) : Math.round(H * 0.63);
   const align = input.focus === "top" ? "xMidYMin" : input.focus === "bottom" ? "xMidYMax" : "xMidYMid";
 
   const b = Math.min(Math.max(input.brightness ?? 1, 0.9), 1.1);
@@ -91,8 +89,19 @@ export function buildSvg(input: LayoutInput): { svg: string; width: number; heig
   const subSize = isStory ? 40 : 36;
   const titleLines = wrap(input.title, titleSize, W - pad * 2, 3);
   const subLines = wrap(input.subtitle, subSize, W - pad * 2, 2);
+  const ctaTextRaw = String(input.cta || "").toUpperCase();
 
-  const blockTop = photoH + 56;
+  // A faixa de texto define sua própria altura; a fotografia ocupa o resto.
+  const kickerH = 44;
+  const titleH = titleLines.length * (titleSize * 1.12);
+  const subH = subLines.length * (subSize * 1.35);
+  const ctaH = ctaTextRaw ? 72 : 0;
+  const blockH = 56 + kickerH + titleH + 18 + subH + (ctaH ? 40 + ctaH : 0) + pad;
+  const photoH = Math.round(
+    Math.min(Math.max(H - blockH, H * 0.45), H * 0.78),
+  );
+
+  const blockTop = photoH + 56 + kickerH;
   let y = blockTop + titleSize;
   const titleTspans = titleLines
     .map((l, i) => `<text x="${pad}" y="${y + i * (titleSize * 1.12)}" font-family="Poppins" font-weight="700" font-size="${titleSize}" fill="${WHITE}" letter-spacing="-1">${esc(l.toUpperCase())}</text>`)
@@ -101,8 +110,9 @@ export function buildSvg(input: LayoutInput): { svg: string; width: number; heig
   const subTspans = subLines
     .map((l, i) => `<text x="${pad}" y="${y + i * (subSize * 1.35)}" font-family="Poppins" font-weight="400" font-size="${subSize}" fill="#CFE3F5">${esc(l)}</text>`)
     .join("");
-  const ctaY = H - pad - 34;
-  const ctaText = esc(String(input.cta || "").toUpperCase());
+  y = y + subLines.length * (subSize * 1.35) + 40;
+  const ctaY = Math.min(y + 46, H - pad - 20);
+  const ctaText = esc(ctaTextRaw);
   const ctaW = Math.min(W - pad * 2, Math.round(ctaText.length * subSize * 0.6) + 96);
 
   return {
