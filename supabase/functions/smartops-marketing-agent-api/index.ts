@@ -453,6 +453,12 @@ async function handleGaps(db: any, turma: any) {
 
   const present: string[] = [];
   const missing: string[] = [];
+  const scheduled: string[] = [];
+  const categoryStatus: any[] = [];
+  // Dia esperado: categorias de encerramento só são exigidas no último dia real da turma.
+  const effectiveCurrent = Number(schedule.current_training_day ?? 0);
+  const expectedDayOf = (key: string) =>
+    DESTINATIONS[key]?.lastDayOnly ? (schedule.last_training_day || 1) : 1;
   const videosWithoutDay: any[] = [];
   const testimonialsWithoutParticipant: any[] = [];
   const invalidFormats: any[] = [];
@@ -463,7 +469,11 @@ async function handleGaps(db: any, turma: any) {
   for (const d of inv.destinations) {
     const spec = DESTINATIONS[d.destination_key];
     if (d.file_count > 0) present.push(d.destination_key);
-    else if (spec?.required) missing.push(d.destination_key);
+    else if (spec?.required) {
+      const expectedDay = expectedDayOf(d.destination_key);
+      if (expectedDay > effectiveCurrent) scheduled.push(d.destination_key);
+      else missing.push(d.destination_key);
+    }
     for (const f of d.files) {
       driveFileIds.add(f.drive_file_id);
       if (spec.requiresDay && (!f.day || f.day === "Geral")) {
@@ -491,7 +501,30 @@ async function handleGaps(db: any, turma: any) {
     }
   }
   for (const key of inv.missing_subfolders) {
-    if (DESTINATIONS[key]?.required && !missing.includes(key)) missing.push(key);
+    if (!DESTINATIONS[key]?.required) continue;
+    if (missing.includes(key) || scheduled.includes(key) || present.includes(key)) continue;
+    if (expectedDayOf(key) > effectiveCurrent) scheduled.push(key);
+    else missing.push(key);
+  }
+
+  for (const key of Object.keys(DESTINATIONS)) {
+    const spec = DESTINATIONS[key];
+    const expectedDay = expectedDayOf(key);
+    const status = present.includes(key)
+      ? "present"
+      : scheduled.includes(key)
+        ? "scheduled"
+        : missing.includes(key)
+          ? "missing"
+          : "optional";
+    categoryStatus.push({
+      category: key,
+      label: spec.label,
+      required: spec.required,
+      expected_day: expectedDay,
+      status,
+      is_gap: status === "missing",
+    });
   }
 
   const rows = inv.db_rows as any[];
@@ -539,6 +572,8 @@ async function handleGaps(db: any, turma: any) {
     invalid_training_days: invalidDays,
     present_categories: present,
     missing_categories: missing,
+    scheduled_categories: scheduled,
+    category_status: categoryStatus,
     videos_without_day: videosWithoutDay,
     testimonials_without_participant: testimonialsWithoutParticipant,
     participants_without_testimonial: participantsWithoutTestimonial,
