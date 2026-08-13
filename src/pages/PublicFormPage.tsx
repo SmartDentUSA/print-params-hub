@@ -423,7 +423,7 @@ export default function PublicFormPage() {
     const f: any = form;
     const sp = new URLSearchParams(window.location.search);
     // Set document.title BEFORE firing page_view so GA4 records the form name
-    const formTitle = `${f.name} | Smart Dent`;
+    const formTitle = f.seo_title || `${f.name} | Smart Dent`;
     document.title = formTitle;
     try {
       const gtag = (window as any).gtag;
