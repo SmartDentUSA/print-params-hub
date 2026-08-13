@@ -96,7 +96,7 @@ export function buildSvg(input: LayoutInput): { svg: string; width: number; heig
   const titleH = titleLines.length * (titleSize * 1.12);
   const subH = subLines.length * (subSize * 1.35);
   const ctaH = ctaTextRaw ? 72 : 0;
-  const blockH = 56 + kickerH + titleH + 18 + subH + (ctaH ? 40 + ctaH : 0) + pad;
+  const blockH = 96 + kickerH + titleH + 18 + subH + (ctaH ? 40 + ctaH : 0) + pad;
   const photoH = Math.round(
     Math.min(Math.max(H - blockH, H * 0.45), H * 0.78),
   );
