@@ -10,6 +10,13 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getDriveAccessToken, driveListFilesDetailed } from "../_shared/drive.ts";
 import { loadTrainingContext } from "../_shared/training-context.ts";
 import { buildTrainingRagQuery, searchTrainingRag } from "../_shared/training-rag.ts";
+import {
+  authorizeMedia,
+  buildAccessUrls,
+  eligibleFor,
+  resolveTrainingSchedule,
+  type AuthorizedMedia,
+} from "../_shared/training-media-access.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -437,6 +444,7 @@ async function handleRagSearch(db: any, url: URL) {
 
 async function handleGaps(db: any, turma: any) {
   const inv = await buildInventory(db, turma);
+  const schedule = await resolveTrainingSchedule(db, turma);
   const { data: enrolls } = await db
     .from("smartops_course_enrollments")
     .select("id, person_name, status")
@@ -448,6 +456,7 @@ async function handleGaps(db: any, turma: any) {
   const videosWithoutDay: any[] = [];
   const testimonialsWithoutParticipant: any[] = [];
   const invalidFormats: any[] = [];
+  const invalidDays: any[] = [];
   const driveOnly: any[] = [];
 
   const driveFileIds = new Set<string>();
@@ -459,6 +468,15 @@ async function handleGaps(db: any, turma: any) {
       driveFileIds.add(f.drive_file_id);
       if (spec.requiresDay && (!f.day || f.day === "Geral")) {
         videosWithoutDay.push({ destination_key: d.destination_key, filename: f.filename });
+      }
+      const dayNum = Number(String(f.day || "").replace(/\D/g, ""));
+      if (dayNum && schedule.total_training_days && dayNum > schedule.last_training_day) {
+        invalidDays.push({
+          destination_key: d.destination_key,
+          filename: f.filename,
+          day_number: dayNum,
+          reason: `INVALID_TRAINING_DAY: a turma tem ${schedule.total_training_days} dia(s)`,
+        });
       }
       if (spec.testimonial && !f.participant_name) {
         testimonialsWithoutParticipant.push({ destination_key: d.destination_key, filename: f.filename });
@@ -491,10 +509,34 @@ async function handleGaps(db: any, turma: any) {
     (n) => n && !covered.has(n.toUpperCase().replace(/\s+/g, " ").trim()),
   );
 
+  // Cobertura por dia real da turma (nunca 3 dias fixos).
+  const dayCoverage = schedule.days.map((d) => {
+    const files = inv.destinations.flatMap((dest) =>
+      (dest.files || []).filter((f: any) => Number(String(f.day || "").replace(/\D/g, "")) === d.day_number)
+        .map((f: any) => ({ destination_key: dest.destination_key, filename: f.filename, drive_file_id: f.drive_file_id })),
+    );
+    const inFuture = !!d.date && d.date > new Date().toISOString().slice(0, 10);
+    return {
+      day_number: d.day_number,
+      date: d.date,
+      topic: d.topic,
+      file_count: files.length,
+      files,
+      status: files.length ? "covered" : inFuture ? "not_applicable_yet" : "missing",
+    };
+  });
+
   return json({
     turma_id: turma.id,
     turma_number: turma.turma_number,
     course_title: courseTitle(turma),
+    total_training_days: schedule.total_training_days,
+    last_training_day: schedule.last_training_day,
+    current_training_day: schedule.current_training_day,
+    schedule_source: schedule.schedule_source,
+    schedule_inconsistency: schedule.inconsistency,
+    day_coverage: dayCoverage,
+    invalid_training_days: invalidDays,
     present_categories: present,
     missing_categories: missing,
     videos_without_day: videosWithoutDay,
@@ -508,7 +550,96 @@ async function handleGaps(db: any, turma: any) {
   });
 }
 
+
+/* ------------------- acesso real às mídias (leitura) ------------------- */
+
+function mediaPayload(media: AuthorizedMedia, urls: any) {
+  return {
+    drive_file_id: media.drive_file_id,
+    media_id: media.media_id,
+    filename: media.filename,
+    mime_type: media.mime_type,
+    kind: media.kind,
+    size_bytes: media.size_bytes,
+    width: media.width,
+    height: media.height,
+    orientation: media.orientation,
+    duration_seconds: media.duration_seconds,
+    destination_key: media.destination_key,
+    day_number: media.day_number,
+    participant_id: media.participant_id,
+    participant_name: media.participant_name,
+    registered_in_db: media.registered_in_db,
+    eligible_for: eligibleFor(media),
+    access: { ...urls, read_only: true },
+  };
+}
+
+const ACCESS_ERROR_STATUS: Record<string, number> = {
+  MEDIA_NOT_FOUND: 404,
+  MEDIA_NOT_IN_TRAINING: 403,
+  TRAINING_DRIVE_NOT_CONFIGURED: 409,
+};
+
+async function handleMediaAccess(db: any, turma: any, url: URL) {
+  const fileId = (url.searchParams.get("drive_file_id") || "").trim();
+  if (!fileId) return json({ error: "MISSING_PARAM", message: "Parâmetro drive_file_id é obrigatório" }, 400);
+  const res = await authorizeMedia(db, turma, fileId);
+  if (!res.ok) return json({ error: res.error, message: res.message }, ACCESS_ERROR_STATUS[res.error] || 400);
+  const urls = await buildAccessUrls(SUPABASE_URL, turma.id, fileId, res.media.kind);
+  return json({ turma_id: turma.id, turma_number: turma.turma_number, media: mediaPayload(res.media, urls) });
+}
+
+async function handleMediaAccessBatch(db: any, turma: any, url: URL) {
+  const raw = (url.searchParams.get("drive_file_ids") || "").trim();
+  let ids = raw ? raw.split(",").map((s) => s.trim()).filter(Boolean) : [];
+
+  // Sem lista explícita: usa o inventário da turma com filtros opcionais.
+  if (!ids.length) {
+    const inv = await buildInventory(db, turma);
+    const wantedKeys = (url.searchParams.get("destination_keys") || "").split(",").map((s) => s.trim()).filter(Boolean);
+    const wantedDay = url.searchParams.get("day_number");
+    for (const d of inv.destinations) {
+      if (wantedKeys.length && !wantedKeys.includes(d.destination_key)) continue;
+      for (const f of d.files || []) {
+        if (wantedDay && Number(String((f as any).day || "").replace(/\D/g, "")) !== Number(wantedDay)) continue;
+        ids.push((f as any).drive_file_id);
+      }
+    }
+  }
+
+  const limit = Math.min(Math.max(Number(url.searchParams.get("limit") || 25) || 25, 1), 50);
+  const offset = Math.max(Number(url.searchParams.get("offset") || 0) || 0, 0);
+  const total = ids.length;
+  const page = ids.slice(offset, offset + limit);
+
+  const items: any[] = [];
+  const errors: any[] = [];
+  for (const id of page) {
+    const res = await authorizeMedia(db, turma, id);
+    if (!res.ok) {
+      errors.push({ drive_file_id: id, error: res.error, message: res.message });
+      continue;
+    }
+    const urls = await buildAccessUrls(SUPABASE_URL, turma.id, id, res.media.kind);
+    items.push(mediaPayload(res.media, urls));
+  }
+
+  return json({
+    turma_id: turma.id,
+    turma_number: turma.turma_number,
+    total,
+    offset,
+    limit,
+    next_offset: offset + limit < total ? offset + limit : null,
+    count: items.length,
+    media: items,
+    errors,
+  });
+}
+
 /* -------------------------- servidor -------------------------- */
+
 
 serve(async (req) => {
   const started = Date.now();
@@ -589,7 +720,7 @@ serve(async (req) => {
     }
 
     // /trainings/by-number/{turma_number}[/sub]
-    const byNum = rawPath.match(/^\/trainings\/by-number\/([^/]+)(\/participants|\/media-inventory|\/media-gaps|\/context)?$/);
+    const byNum = rawPath.match(/^\/trainings\/by-number\/([^/]+)(\/participants|\/media-inventory|\/media-gaps|\/media-access|\/media-access-batch|\/context)?$/);
     if (byNum) {
       const raw = decodeURIComponent(byNum[1]).trim();
       const sub = byNum[2] || "";
@@ -608,13 +739,15 @@ serve(async (req) => {
       if (sub === "/participants") res = await handleParticipants(db, turma);
       else if (sub === "/media-inventory") res = await handleInventory(db, turma);
       else if (sub === "/media-gaps") res = await handleGaps(db, turma);
+      else if (sub === "/media-access") res = await handleMediaAccess(db, turma, url);
+      else if (sub === "/media-access-batch") res = await handleMediaAccessBatch(db, turma, url);
       else if (sub === "/context") res = await handleContext(db, turma);
       else res = await handleTraining(db, turma);
-      await log(200);
+      await log(res.status);
       return res;
     }
 
-    const m = rawPath.match(/^\/trainings\/([^/]+)(\/participants|\/media-inventory|\/media-gaps|\/context)?$/);
+    const m = rawPath.match(/^\/trainings\/([^/]+)(\/participants|\/media-inventory|\/media-gaps|\/media-access|\/media-access-batch|\/context)?$/);
     if (m) {
       const ident = decodeURIComponent(m[1]).trim();
       const sub = m[2] || "";
@@ -635,9 +768,11 @@ serve(async (req) => {
       if (sub === "/participants") res = await handleParticipants(db, turma);
       else if (sub === "/media-inventory") res = await handleInventory(db, turma);
       else if (sub === "/media-gaps") res = await handleGaps(db, turma);
+      else if (sub === "/media-access") res = await handleMediaAccess(db, turma, url);
+      else if (sub === "/media-access-batch") res = await handleMediaAccessBatch(db, turma, url);
       else if (sub === "/context") res = await handleContext(db, turma);
       else res = await handleTraining(db, turma);
-      await log(200);
+      await log(res.status);
       return res;
     }
 
