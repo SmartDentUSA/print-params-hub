@@ -148,8 +148,7 @@ export function buildSvg(input: LayoutInput): { svg: string; width: number; heig
 
   <!-- LOGO OFICIAL: arquivo original aplicado, sem redesenho -->
   <g>
-    <rect x="${pad}" y="${pad - 10}" width="150" height="150" rx="24" fill="${WHITE}"/>
-    <image x="${pad + 10}" y="${pad}" width="130" height="130" preserveAspectRatio="xMidYMid meet" xlink:href="${input.logoDataUri}"/>
+    <image x="${pad}" y="${pad}" width="340" height="72" preserveAspectRatio="xMinYMid meet" xlink:href="${input.logoDataUri}"/>
   </g>
 
   <g>
