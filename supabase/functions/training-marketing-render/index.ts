@@ -102,6 +102,10 @@ Deno.serve(async (req) => {
   const auth = req.headers.get("Authorization") || "";
   const provided = auth.replace(/^Bearer\s+/i, "").trim() || req.headers.get("x-api-key") || "";
   let allowed = (!!AGENT_KEY && provided === AGENT_KEY) || (!!SERVICE_ROLE && provided === SERVICE_ROLE);
+  try {
+    const role = JSON.parse(atob(provided.split(".")[1] || "")).role;
+    console.log(`[training-marketing-render] caller role=${role} allowed_by_key=${allowed}`);
+  } catch (_e) { /* chave opaca de API */ }
   // Alternativa: usuário logado do Sistema B com permissão de mídias de treinamento.
   if (!allowed && provided) {
     try {
@@ -116,10 +120,6 @@ Deno.serve(async (req) => {
     }
   }
   if (!allowed) return json({ error: "UNAUTHORIZED", message: "Credencial inválida ou sem permissão" }, 401);
-  try {
-    const role = JSON.parse(atob((provided.split(".")[1] || ""))).role;
-    console.log(`[training-marketing-render] caller role=${role}`);
-  } catch (_e) { /* chave opaca de API */ }
 
   try {
     const parsed = BodySchema.safeParse(await req.json().catch(() => ({})));
