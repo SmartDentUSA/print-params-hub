@@ -99,10 +99,10 @@ Deno.serve(async (req) => {
   if (req.method !== "POST") return json({ error: "METHOD_NOT_ALLOWED" }, 405);
 
   // ---- auth: mesma chave da API de leitura do agente (server-side only) ----
-  if (!AGENT_KEY) return json({ error: "CONFIG", message: "SMARTOPS_MARKETING_AGENT_API_KEY não configurada" }, 500);
   const auth = req.headers.get("Authorization") || "";
   const provided = auth.replace(/^Bearer\s+/i, "").trim() || req.headers.get("x-api-key") || "";
-  if (provided !== AGENT_KEY) return json({ error: "UNAUTHORIZED", message: "Chave de API inválida" }, 401);
+  const ok = (!!AGENT_KEY && provided === AGENT_KEY) || (!!SERVICE_ROLE && provided === SERVICE_ROLE);
+  if (!ok) return json({ error: "UNAUTHORIZED", message: "Chave de API inválida" }, 401);
 
   try {
     const parsed = BodySchema.safeParse(await req.json().catch(() => ({})));
