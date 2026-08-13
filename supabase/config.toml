@@ -560,3 +560,6 @@ verify_jwt = false
 
 [functions.training-media-proxy]
 verify_jwt = false
+
+[functions.training-marketing-render]
+verify_jwt = false
