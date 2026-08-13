@@ -21460,6 +21460,9 @@ export type Database = {
           muted_color: string | null
           name: string
           product_catalog_id: string | null
+          seo_description: string | null
+          seo_keywords: string | null
+          seo_title: string | null
           show_progress: boolean
           slug: string
           submissions_count: number
@@ -21517,6 +21520,9 @@ export type Database = {
           muted_color?: string | null
           name: string
           product_catalog_id?: string | null
+          seo_description?: string | null
+          seo_keywords?: string | null
+          seo_title?: string | null
           show_progress?: boolean
           slug: string
           submissions_count?: number
@@ -21574,6 +21580,9 @@ export type Database = {
           muted_color?: string | null
           name?: string
           product_catalog_id?: string | null
+          seo_description?: string | null
+          seo_keywords?: string | null
+          seo_title?: string | null
           show_progress?: boolean
           slug?: string
           submissions_count?: number

@@ -41,6 +41,9 @@ interface FormData {
   media_type: string | null;
   video_thumbnail_url: string | null;
   video_embed_url: string | null;
+  seo_title?: string | null;
+  seo_description?: string | null;
+  seo_keywords?: string | null;
   workflow_stage_target: string | null;
   brand_color_h: number | null;
   brand_color_s: number | null;
@@ -279,21 +282,50 @@ export default function PublicFormPage() {
     load();
   }, [slug]);
 
-  // OG image meta tag
+  // SEO meta tags (title, description, canonical, og/twitter)
   useEffect(() => {
     if (!form) return;
-    const ogImage =
-      form.media_type === "video" ? form.video_thumbnail_url : form.hero_image_url;
-    if (!ogImage) return;
-    let meta = document.querySelector<HTMLMetaElement>('meta[property="og:image"]');
-    if (!meta) {
-      meta = document.createElement("meta");
-      meta.setAttribute("property", "og:image");
-      document.head.appendChild(meta);
+    const url = `${window.location.origin}${window.location.pathname}`;
+    const seoTitle = form.seo_title || `${form.title || form.name} | Smart Dent`;
+    const seoDesc =
+      form.seo_description ||
+      form.subtitle ||
+      (form.description || "").replace(/\s+/g, " ").slice(0, 155);
+    const created: HTMLElement[] = [];
+
+    const upsertMeta = (attr: "name" | "property", key: string, content?: string | null) => {
+      if (!content) return;
+      let el = document.querySelector<HTMLMetaElement>(`meta[${attr}="${key}"]`);
+      if (!el) {
+        el = document.createElement("meta");
+        el.setAttribute(attr, key);
+        document.head.appendChild(el);
+        created.push(el);
+      }
+      el.setAttribute("content", content);
+    };
+
+    document.title = seoTitle;
+    upsertMeta("name", "description", seoDesc);
+    upsertMeta("name", "keywords", form.seo_keywords);
+    upsertMeta("property", "og:title", seoTitle);
+    upsertMeta("property", "og:description", seoDesc);
+    upsertMeta("property", "og:type", "website");
+    upsertMeta("property", "og:url", url);
+    upsertMeta("property", "og:image", form.hero_image_url);
+    upsertMeta("name", "twitter:card", "summary_large_image");
+
+    let canonical = document.querySelector<HTMLLinkElement>('link[rel="canonical"]');
+    if (!canonical) {
+      canonical = document.createElement("link");
+      canonical.rel = "canonical";
+      document.head.appendChild(canonical);
+      created.push(canonical);
     }
-    meta.setAttribute("content", ogImage);
+    canonical.href = url;
+
     return () => {
-      meta?.removeAttribute("content");
+      created.forEach((el) => el.remove());
     };
   }, [form]);
 
@@ -391,7 +423,7 @@ export default function PublicFormPage() {
     const f: any = form;
     const sp = new URLSearchParams(window.location.search);
     // Set document.title BEFORE firing page_view so GA4 records the form name
-    const formTitle = `${f.name} | Smart Dent`;
+    const formTitle = f.seo_title || `${f.name} | Smart Dent`;
     document.title = formTitle;
     try {
       const gtag = (window as any).gtag;
@@ -866,37 +898,8 @@ export default function PublicFormPage() {
       >
         {/* Left column — media + text (sticky on desktop) */}
         <div className={`md:sticky md:top-8 space-y-6 ${isEmbed ? "hidden" : ""}`}>
-          {/* Mídia HERO */}
-          {form.media_type === "video" && form.video_embed_url && (
-            <div className="video-glow w-full rounded-lg overflow-hidden" style={{ aspectRatio: "16/9" }}>
-              <iframe
-                src={form.video_embed_url}
-                className="w-full h-full"
-                allowFullScreen
-                allow="autoplay; encrypted-media"
-                style={{ border: 0 }}
-              />
-            </div>
-          )}
-          {form.media_type === "video" && !form.video_embed_url && form.video_thumbnail_url && (
-            <img
-              src={form.video_thumbnail_url}
-              alt={form.hero_image_alt ?? ""}
-              className="w-full rounded-lg object-cover"
-              crossOrigin="anonymous"
-              onLoad={handleHeroImageLoad}
-            />
-          )}
-          {form.media_type === "video" && form.video_embed_url && form.video_thumbnail_url && (
-            <img
-              src={form.video_thumbnail_url}
-              alt=""
-              className="hidden"
-              crossOrigin="anonymous"
-              onLoad={handleHeroImageLoad}
-            />
-          )}
-          {form.media_type !== "video" && form.hero_image_url && (
+          {/* Mídia HERO (somente imagem — vídeos removidos dos formulários) */}
+          {form.hero_image_url && (
             <img
               src={form.hero_image_url}
               alt={form.hero_image_alt ?? ""}

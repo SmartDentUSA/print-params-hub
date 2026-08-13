@@ -201,6 +201,9 @@ export function SmartOpsFormBuilder() {
   const [metaRedirect, setMetaRedirect] = useState("");
   const [metaHeroImageUrl, setMetaHeroImageUrl] = useState("");
   const [metaHeroImageAlt, setMetaHeroImageAlt] = useState("");
+  const [metaSeoTitle, setMetaSeoTitle] = useState("");
+  const [metaSeoDescription, setMetaSeoDescription] = useState("");
+  const [metaSeoKeywords, setMetaSeoKeywords] = useState("");
   const [metaCampaignIdentifier, setMetaCampaignIdentifier] = useState("");
   const [metaProductCatalogId, setMetaProductCatalogId] = useState("");
   const [metaWorkflowStageTarget, setMetaWorkflowStageTarget] = useState("");
@@ -480,6 +483,9 @@ export function SmartOpsFormBuilder() {
     setMetaRedirect(form.success_redirect_url || "");
     setMetaHeroImageUrl(form.hero_image_url || "");
     setMetaHeroImageAlt(form.hero_image_alt || "");
+    setMetaSeoTitle((form as any).seo_title || "");
+    setMetaSeoDescription((form as any).seo_description || "");
+    setMetaSeoKeywords((form as any).seo_keywords || "");
     setMetaCampaignIdentifier(form.campaign_identifier || "");
     setMetaProductCatalogId(form.product_catalog_id || "");
     setMetaWorkflowStageTarget(form.workflow_stage_target || "");
@@ -533,6 +539,9 @@ export function SmartOpsFormBuilder() {
         success_redirect_url: metaRedirect || null,
         hero_image_url: metaHeroImageUrl || null,
         hero_image_alt: metaHeroImageAlt || null,
+        seo_title: metaSeoTitle.trim() || null,
+        seo_description: metaSeoDescription.trim() || null,
+        seo_keywords: metaSeoKeywords.trim() || null,
         campaign_identifier: metaCampaignIdentifier || null,
         product_catalog_id: metaProductCatalogId || null,
         workflow_stage_target: metaWorkflowStageTarget || null,
@@ -816,6 +825,38 @@ export function SmartOpsFormBuilder() {
                 <div>
                   <label className="text-xs font-medium">Etapa Workflow (workflow_stage_target)</label>
                   <Input value={metaWorkflowStageTarget} onChange={(e) => setMetaWorkflowStageTarget(e.target.value)} placeholder="ex: 1_captura_digital__scanner_intraoral" />
+                </div>
+              </div>
+
+              {/* SEO */}
+              <div className="border-t pt-3 space-y-3">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">SEO</p>
+                <div>
+                  <label className="text-xs font-medium">Título SEO ({metaSeoTitle.length}/60)</label>
+                  <Input
+                    value={metaSeoTitle}
+                    maxLength={70}
+                    onChange={(e) => setMetaSeoTitle(e.target.value)}
+                    placeholder="ex: Scanner Intraoral Medit i700 | Smart Dent"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-medium">Meta descrição ({metaSeoDescription.length}/155)</label>
+                  <Textarea
+                    value={metaSeoDescription}
+                    maxLength={200}
+                    rows={3}
+                    onChange={(e) => setMetaSeoDescription(e.target.value)}
+                    placeholder="Resumo em até 155 caracteres que aparece no Google."
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-medium">Palavras-chave</label>
+                  <Input
+                    value={metaSeoKeywords}
+                    onChange={(e) => setMetaSeoKeywords(e.target.value)}
+                    placeholder="scanner intraoral, smart dent, odontologia digital"
+                  />
                 </div>
               </div>
 
