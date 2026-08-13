@@ -71,9 +71,9 @@ function isJwtLike(token: string): boolean {
 
 /* -------------------------- helpers -------------------------- */
 
-const DESTINATIONS: Record<string, { label: string; kind: "photo" | "video"; requiresDay: boolean; testimonial: boolean; required: boolean }> = {
-  fotos_turma: { label: "03 - Fotos Originais › 01 - Foto da Turma", kind: "photo", requiresDay: false, testimonial: false, required: true },
-  fotos_participantes_certificados: { label: "03 - Fotos Originais › 02 - Participantes com Certificados", kind: "photo", requiresDay: false, testimonial: false, required: true },
+const DESTINATIONS: Record<string, { label: string; kind: "photo" | "video"; requiresDay: boolean; testimonial: boolean; required: boolean; lastDayOnly?: boolean }> = {
+  fotos_turma: { label: "03 - Fotos Originais › 01 - Foto da Turma", kind: "photo", requiresDay: false, testimonial: false, required: true, lastDayOnly: true },
+  fotos_participantes_certificados: { label: "03 - Fotos Originais › 02 - Participantes com Certificados", kind: "photo", requiresDay: false, testimonial: false, required: true, lastDayOnly: true },
   fotos_atividades: { label: "03 - Fotos Originais › 03 - Atividades Práticas", kind: "photo", requiresDay: false, testimonial: false, required: true },
   fotos_equipamentos: { label: "03 - Fotos Originais › 04 - Equipamentos e Resultados", kind: "photo", requiresDay: false, testimonial: false, required: false },
   fotos_bastidores: { label: "03 - Fotos Originais › 05 - Bastidores", kind: "photo", requiresDay: false, testimonial: false, required: false },
