@@ -8,7 +8,6 @@ import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { TestimonialPipelinePanel } from "@/components/smartops/TestimonialPipelinePanel";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -423,14 +422,14 @@ export function UploadMidiasDriveDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <Tabs defaultValue="fotos" className="flex-1 overflow-hidden flex flex-col">
-          <TabsList>
+        <Tabs defaultValue="fotos" className="flex min-h-0 flex-1 flex-col overflow-hidden">
+          <TabsList className="shrink-0">
             <TabsTrigger value="fotos" className="gap-1.5"><ImagePlus className="h-4 w-4" /> Fotos</TabsTrigger>
             <TabsTrigger value="videos" className="gap-1.5"><Video className="h-4 w-4" /> Vídeos</TabsTrigger>
             <TabsTrigger value="depoimentos" className="gap-1.5"><MessageSquareQuote className="h-4 w-4" /> Depoimentos</TabsTrigger>
           </TabsList>
 
-          <ScrollArea className="flex-1 pr-3">
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pr-3">
             <TabsContent value="fotos" className="mt-3">
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 {PHOTO_DESTS.map((d) => (
@@ -560,7 +559,7 @@ export function UploadMidiasDriveDialog({
                 })}
               </div>
             )}
-          </ScrollArea>
+          </div>
         </Tabs>
       </DialogContent>
     </Dialog>
