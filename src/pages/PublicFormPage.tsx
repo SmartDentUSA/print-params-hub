@@ -866,37 +866,8 @@ export default function PublicFormPage() {
       >
         {/* Left column — media + text (sticky on desktop) */}
         <div className={`md:sticky md:top-8 space-y-6 ${isEmbed ? "hidden" : ""}`}>
-          {/* Mídia HERO */}
-          {form.media_type === "video" && form.video_embed_url && (
-            <div className="video-glow w-full rounded-lg overflow-hidden" style={{ aspectRatio: "16/9" }}>
-              <iframe
-                src={form.video_embed_url}
-                className="w-full h-full"
-                allowFullScreen
-                allow="autoplay; encrypted-media"
-                style={{ border: 0 }}
-              />
-            </div>
-          )}
-          {form.media_type === "video" && !form.video_embed_url && form.video_thumbnail_url && (
-            <img
-              src={form.video_thumbnail_url}
-              alt={form.hero_image_alt ?? ""}
-              className="w-full rounded-lg object-cover"
-              crossOrigin="anonymous"
-              onLoad={handleHeroImageLoad}
-            />
-          )}
-          {form.media_type === "video" && form.video_embed_url && form.video_thumbnail_url && (
-            <img
-              src={form.video_thumbnail_url}
-              alt=""
-              className="hidden"
-              crossOrigin="anonymous"
-              onLoad={handleHeroImageLoad}
-            />
-          )}
-          {form.media_type !== "video" && form.hero_image_url && (
+          {/* Mídia HERO (somente imagem — vídeos removidos dos formulários) */}
+          {form.hero_image_url && (
             <img
               src={form.hero_image_url}
               alt={form.hero_image_alt ?? ""}
