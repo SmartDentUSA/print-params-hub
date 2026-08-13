@@ -347,3 +347,53 @@ export async function driveListFilesDetailed(
     height: f.imageMediaMetadata?.height ?? f.videoMediaMetadata?.height ?? null,
   }));
 }
+
+/* ------------------------------------------------------------------ */
+/* Streaming read (used by training-media-proxy)                       */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Streams a Drive file through the connector gateway, forwarding an optional
+ * Range header. Returns the raw upstream Response (body is a stream).
+ */
+export async function driveStreamFile(fileId: string, range?: string | null): Promise<Response> {
+  const headers: Record<string, string> = { ...(gwHeaders() as Record<string, string>) };
+  if (range) headers.Range = range;
+  return await fetch(
+    `${GATEWAY_BASE}${DRIVE_PATH}/files/${encodeURIComponent(fileId)}?alt=media&supportsAllDrives=true`,
+    { headers },
+  );
+}
+
+/** Metadata needed to authorize and describe a media file. */
+export async function driveGetAccessMeta(fileId: string): Promise<{
+  id: string;
+  name: string;
+  mimeType: string | null;
+  size: number | null;
+  parents: string[];
+  width: number | null;
+  height: number | null;
+  durationMillis: number | null;
+  trashed: boolean;
+} | null> {
+  try {
+    const data = await driveFetch(
+      "gateway",
+      `/files/${encodeURIComponent(fileId)}?fields=id,name,mimeType,size,parents,trashed,imageMediaMetadata(width,height),videoMediaMetadata(width,height,durationMillis)&supportsAllDrives=true`,
+    );
+    return {
+      id: String(data.id),
+      name: String(data.name || ""),
+      mimeType: data.mimeType ?? null,
+      size: data.size != null ? Number(data.size) : null,
+      parents: Array.isArray(data.parents) ? data.parents.map(String) : [],
+      width: data.imageMediaMetadata?.width ?? data.videoMediaMetadata?.width ?? null,
+      height: data.imageMediaMetadata?.height ?? data.videoMediaMetadata?.height ?? null,
+      durationMillis: data.videoMediaMetadata?.durationMillis != null ? Number(data.videoMediaMetadata.durationMillis) : null,
+      trashed: !!data.trashed,
+    };
+  } catch {
+    return null;
+  }
+}
