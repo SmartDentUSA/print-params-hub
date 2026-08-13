@@ -80,7 +80,7 @@ export function buildSvg(input: LayoutInput): { svg: string; width: number; heig
   const isStory = H === 1920;
 
   // Área da fotografia: sempre em cima; o texto vive na faixa gráfica inferior.
-  const photoH = isStory ? Math.round(H * 0.72) : Math.round(H * 0.66);
+  const photoH = isStory ? Math.round(H * 0.72) : H === 1080 ? Math.round(H * 0.62) : Math.round(H * 0.63);
   const align = input.focus === "top" ? "xMidYMin" : input.focus === "bottom" ? "xMidYMax" : "xMidYMid";
 
   const b = Math.min(Math.max(input.brightness ?? 1, 0.9), 1.1);
@@ -137,7 +137,10 @@ export function buildSvg(input: LayoutInput): { svg: string; width: number; heig
   <rect x="0" y="${photoH - 6}" width="${W}" height="6" fill="${BLUE_LIGHT}"/>
 
   <!-- LOGO OFICIAL: arquivo original aplicado, sem redesenho -->
-  <image x="${pad}" y="${pad - 14}" width="132" height="132" preserveAspectRatio="xMidYMid meet" xlink:href="${input.logoDataUri}"/>
+  <g>
+    <rect x="${pad}" y="${pad - 10}" width="150" height="150" rx="24" fill="${WHITE}"/>
+    <image x="${pad + 10}" y="${pad}" width="130" height="130" preserveAspectRatio="xMidYMid meet" xlink:href="${input.logoDataUri}"/>
+  </g>
 
   <g>
     <rect x="${W - pad - 300}" y="${pad + 10}" width="300" height="72" rx="36" fill="${ORANGE}"/>
