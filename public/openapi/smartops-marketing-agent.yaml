@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: SmartOps – Marketing Treinamentos
-  version: "1.0.0"
+  version: "1.2.0"
   description: >
     API do Sistema B para o GPT privado "SmartOps – Marketing Treinamentos".
     As rotas de consulta (`/smartops-marketing-agent-api/...`) são somente leitura: aceitam
@@ -795,6 +795,25 @@ components:
         course_title: { type: string }
         present_categories: { type: array, items: { type: string } }
         missing_categories: { type: array, items: { type: string } }
+        scheduled_categories:
+          type: array
+          description: Categorias obrigatórias cujo dia esperado ainda não chegou (não são lacunas).
+          items: { type: string }
+        category_status:
+          type: array
+          description: Situação por categoria com o dia esperado real (fotos_turma e fotos_participantes_certificados usam o último dia da turma).
+          items:
+            type: object
+            properties:
+              category: { type: string }
+              label: { type: string }
+              required: { type: boolean }
+              expected_day: { type: integer }
+              status: { type: string, enum: [present, scheduled, missing, optional] }
+              is_gap: { type: boolean }
+        total_training_days: { type: integer }
+        last_training_day: { type: integer }
+        current_training_day: { type: integer, nullable: true }
         videos_without_day: { type: array, items: { $ref: "#/components/schemas/MediaGapItem" } }
         testimonials_without_participant: { type: array, items: { $ref: "#/components/schemas/MediaGapItem" } }
         participants_without_testimonial: { type: array, items: { type: string } }
