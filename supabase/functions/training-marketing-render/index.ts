@@ -108,7 +108,7 @@ Deno.serve(async (req) => {
       const asUser = createClient(SUPABASE_URL, SERVICE_ROLE);
       const { data: u } = await asUser.auth.getUser(provided);
       if (u?.user?.id) {
-        const { data: can } = await asUser.rpc("can_manage_training_media", { p_user_id: u.user.id });
+        const { data: can } = await asUser.rpc("can_manage_training_media", { _user_id: u.user.id });
         allowed = can === true;
       }
     } catch (_e) {
