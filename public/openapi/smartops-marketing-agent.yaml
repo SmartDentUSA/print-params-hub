@@ -274,6 +274,90 @@ paths:
         "404": { $ref: "#/components/responses/NotFound" }
         "405": { $ref: "#/components/responses/MethodNotAllowed" }
         "500": { $ref: "#/components/responses/ServerError" }
+  /smartops-marketing-agent-api/trainings/by-number/{turma_number}/media-access:
+    get:
+      operationId: getTrainingMediaAccess
+      tags: [Treinamentos]
+      summary: Acesso temporário somente-leitura a uma mídia real da turma
+      description: >
+        Devolve metadados reais (tipo, dimensões, orientação, duração, dia, participante)
+        e URLs temporárias de leitura (original, prévia e miniatura) para UM arquivo do
+        Google Drive, desde que ele pertença comprovadamente à turma informada.
+        As URLs expiram em 1 hora e não autorizam qualquer escrita, mover ou excluir.
+        Erros possíveis: MEDIA_NOT_FOUND, MEDIA_NOT_IN_TRAINING, TRAINING_DRIVE_NOT_CONFIGURED.
+      parameters:
+        - name: turma_number
+          in: path
+          required: true
+          schema: { type: integer, minimum: 1 }
+          example: 157
+        - name: drive_file_id
+          in: query
+          required: true
+          description: ID do arquivo no Google Drive, obtido no inventário de mídias.
+          schema: { type: string }
+      responses:
+        "200":
+          description: Mídia autorizada com URLs temporárias
+          content:
+            application/json:
+              schema: { type: object }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "405": { $ref: "#/components/responses/MethodNotAllowed" }
+        "500": { $ref: "#/components/responses/ServerError" }
+  /smartops-marketing-agent-api/trainings/by-number/{turma_number}/media-access-batch:
+    get:
+      operationId: getTrainingMediaAccessBatch
+      tags: [Treinamentos]
+      summary: Acesso temporário em lote às mídias reais da turma
+      description: >
+        Igual ao acesso individual, porém em lote e paginado (até 50 por página).
+        Sem `drive_file_ids`, usa todo o inventário da turma, opcionalmente filtrado por
+        `destination_keys` e `day_number`. O `day_number` só é válido se existir na
+        programação real da turma (duração dinâmica, nunca fixa em 3 dias).
+      parameters:
+        - name: turma_number
+          in: path
+          required: true
+          schema: { type: integer, minimum: 1 }
+          example: 157
+        - name: drive_file_ids
+          in: query
+          required: false
+          description: Lista de IDs separados por vírgula.
+          schema: { type: string }
+        - name: destination_keys
+          in: query
+          required: false
+          description: Categorias do checklist separadas por vírgula.
+          schema: { type: string }
+        - name: day_number
+          in: query
+          required: false
+          description: Dia real do treinamento.
+          schema: { type: integer, minimum: 1 }
+        - name: limit
+          in: query
+          required: false
+          schema: { type: integer, minimum: 1, maximum: 50, default: 25 }
+        - name: offset
+          in: query
+          required: false
+          schema: { type: integer, minimum: 0, default: 0 }
+      responses:
+        "200":
+          description: Página de mídias autorizadas
+          content:
+            application/json:
+              schema: { type: object }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "405": { $ref: "#/components/responses/MethodNotAllowed" }
+        "500": { $ref: "#/components/responses/ServerError" }
   /training-testimonial-transcribe:
     post:
       operationId: transcribeTrainingTestimonial
