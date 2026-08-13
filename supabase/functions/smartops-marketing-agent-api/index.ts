@@ -675,6 +675,25 @@ async function handleMediaAccessBatch(db: any, turma: any, url: URL) {
 
 /* -------------------------- servidor -------------------------- */
 
+// Origens onde o schema OpenAPI está publicado. Lido sempre com cache-buster para
+// que a Action do agente nunca consuma uma versão antiga.
+const SPEC_SOURCES = [
+  "https://admin.smartdent.com.br/openapi/smartops-marketing-agent.yaml",
+  "https://print-params-hub.lovable.app/openapi/smartops-marketing-agent.yaml",
+];
+
+async function fetchSpec(): Promise<string | null> {
+  for (const base of SPEC_SOURCES) {
+    try {
+      const r = await fetch(`${base}?v=${Date.now()}`, { cache: "no-store", headers: { "Cache-Control": "no-cache" } });
+      if (!r.ok) continue;
+      const text = await r.text();
+      if (/^openapi:/m.test(text)) return text;
+    } catch (_) { /* tenta a próxima origem */ }
+  }
+  return null;
+}
+
 
 serve(async (req) => {
   const started = Date.now();
