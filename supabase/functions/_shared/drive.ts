@@ -397,3 +397,14 @@ export async function driveGetAccessMeta(fileId: string): Promise<{
     return null;
   }
 }
+
+/** Short-lived Google thumbnail URL (used for previews; never authoritative). */
+export async function driveGetThumbnailLink(fileId: string, size = 1600): Promise<string | null> {
+  try {
+    const data = await driveFetch("gateway", `/files/${encodeURIComponent(fileId)}?fields=thumbnailLink&supportsAllDrives=true`);
+    const link = data?.thumbnailLink ? String(data.thumbnailLink) : null;
+    return link ? link.replace(/=s\d+$/, `=s${size}`) : null;
+  } catch {
+    return null;
+  }
+}
