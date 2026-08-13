@@ -101,8 +101,21 @@ Deno.serve(async (req) => {
   // ---- auth: mesma chave da API de leitura do agente (server-side only) ----
   const auth = req.headers.get("Authorization") || "";
   const provided = auth.replace(/^Bearer\s+/i, "").trim() || req.headers.get("x-api-key") || "";
-  const ok = (!!AGENT_KEY && provided === AGENT_KEY) || (!!SERVICE_ROLE && provided === SERVICE_ROLE);
-  if (!ok) return json({ error: "UNAUTHORIZED", message: "Chave de API inválida" }, 401);
+  let allowed = (!!AGENT_KEY && provided === AGENT_KEY) || (!!SERVICE_ROLE && provided === SERVICE_ROLE);
+  // Alternativa: usuário logado do Sistema B com permissão de mídias de treinamento.
+  if (!allowed && provided) {
+    try {
+      const asUser = createClient(SUPABASE_URL, SERVICE_ROLE);
+      const { data: u } = await asUser.auth.getUser(provided);
+      if (u?.user?.id) {
+        const { data: can } = await asUser.rpc("can_manage_training_media", { p_user_id: u.user.id });
+        allowed = can === true;
+      }
+    } catch (_e) {
+      allowed = false;
+    }
+  }
+  if (!allowed) return json({ error: "UNAUTHORIZED", message: "Credencial inválida ou sem permissão" }, 401);
 
   try {
     const parsed = BodySchema.safeParse(await req.json().catch(() => ({})));
