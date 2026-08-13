@@ -71,9 +71,9 @@ function isJwtLike(token: string): boolean {
 
 /* -------------------------- helpers -------------------------- */
 
-const DESTINATIONS: Record<string, { label: string; kind: "photo" | "video"; requiresDay: boolean; testimonial: boolean; required: boolean }> = {
-  fotos_turma: { label: "03 - Fotos Originais › 01 - Foto da Turma", kind: "photo", requiresDay: false, testimonial: false, required: true },
-  fotos_participantes_certificados: { label: "03 - Fotos Originais › 02 - Participantes com Certificados", kind: "photo", requiresDay: false, testimonial: false, required: true },
+const DESTINATIONS: Record<string, { label: string; kind: "photo" | "video"; requiresDay: boolean; testimonial: boolean; required: boolean; lastDayOnly?: boolean }> = {
+  fotos_turma: { label: "03 - Fotos Originais › 01 - Foto da Turma", kind: "photo", requiresDay: false, testimonial: false, required: true, lastDayOnly: true },
+  fotos_participantes_certificados: { label: "03 - Fotos Originais › 02 - Participantes com Certificados", kind: "photo", requiresDay: false, testimonial: false, required: true, lastDayOnly: true },
   fotos_atividades: { label: "03 - Fotos Originais › 03 - Atividades Práticas", kind: "photo", requiresDay: false, testimonial: false, required: true },
   fotos_equipamentos: { label: "03 - Fotos Originais › 04 - Equipamentos e Resultados", kind: "photo", requiresDay: false, testimonial: false, required: false },
   fotos_bastidores: { label: "03 - Fotos Originais › 05 - Bastidores", kind: "photo", requiresDay: false, testimonial: false, required: false },
@@ -453,6 +453,12 @@ async function handleGaps(db: any, turma: any) {
 
   const present: string[] = [];
   const missing: string[] = [];
+  const scheduled: string[] = [];
+  const categoryStatus: any[] = [];
+  // Dia esperado: categorias de encerramento só são exigidas no último dia real da turma.
+  const effectiveCurrent = Number(schedule.current_training_day ?? 0);
+  const expectedDayOf = (key: string) =>
+    DESTINATIONS[key]?.lastDayOnly ? (schedule.last_training_day || 1) : 1;
   const videosWithoutDay: any[] = [];
   const testimonialsWithoutParticipant: any[] = [];
   const invalidFormats: any[] = [];
@@ -463,7 +469,11 @@ async function handleGaps(db: any, turma: any) {
   for (const d of inv.destinations) {
     const spec = DESTINATIONS[d.destination_key];
     if (d.file_count > 0) present.push(d.destination_key);
-    else if (spec?.required) missing.push(d.destination_key);
+    else if (spec?.required) {
+      const expectedDay = expectedDayOf(d.destination_key);
+      if (expectedDay > effectiveCurrent) scheduled.push(d.destination_key);
+      else missing.push(d.destination_key);
+    }
     for (const f of d.files) {
       driveFileIds.add(f.drive_file_id);
       if (spec.requiresDay && (!f.day || f.day === "Geral")) {
@@ -491,7 +501,30 @@ async function handleGaps(db: any, turma: any) {
     }
   }
   for (const key of inv.missing_subfolders) {
-    if (DESTINATIONS[key]?.required && !missing.includes(key)) missing.push(key);
+    if (!DESTINATIONS[key]?.required) continue;
+    if (missing.includes(key) || scheduled.includes(key) || present.includes(key)) continue;
+    if (expectedDayOf(key) > effectiveCurrent) scheduled.push(key);
+    else missing.push(key);
+  }
+
+  for (const key of Object.keys(DESTINATIONS)) {
+    const spec = DESTINATIONS[key];
+    const expectedDay = expectedDayOf(key);
+    const status = present.includes(key)
+      ? "present"
+      : scheduled.includes(key)
+        ? "scheduled"
+        : missing.includes(key)
+          ? "missing"
+          : "optional";
+    categoryStatus.push({
+      category: key,
+      label: spec.label,
+      required: spec.required,
+      expected_day: expectedDay,
+      status,
+      is_gap: status === "missing",
+    });
   }
 
   const rows = inv.db_rows as any[];
@@ -539,6 +572,8 @@ async function handleGaps(db: any, turma: any) {
     invalid_training_days: invalidDays,
     present_categories: present,
     missing_categories: missing,
+    scheduled_categories: scheduled,
+    category_status: categoryStatus,
     videos_without_day: videosWithoutDay,
     testimonials_without_participant: testimonialsWithoutParticipant,
     participants_without_testimonial: participantsWithoutTestimonial,
@@ -640,6 +675,25 @@ async function handleMediaAccessBatch(db: any, turma: any, url: URL) {
 
 /* -------------------------- servidor -------------------------- */
 
+// Origens onde o schema OpenAPI está publicado. Lido sempre com cache-buster para
+// que a Action do agente nunca consuma uma versão antiga.
+const SPEC_SOURCES = [
+  "https://admin.smartdent.com.br/openapi/smartops-marketing-agent.yaml",
+  "https://print-params-hub.lovable.app/openapi/smartops-marketing-agent.yaml",
+];
+
+async function fetchSpec(): Promise<string | null> {
+  for (const base of SPEC_SOURCES) {
+    try {
+      const r = await fetch(`${base}?v=${Date.now()}`, { cache: "no-store", headers: { "Cache-Control": "no-cache" } });
+      if (!r.ok) continue;
+      const text = await r.text();
+      if (/^openapi:/m.test(text)) return text;
+    } catch (_) { /* tenta a próxima origem */ }
+  }
+  return null;
+}
+
 
 serve(async (req) => {
   const started = Date.now();
@@ -676,6 +730,35 @@ serve(async (req) => {
 
     // Autenticação
     const authHeader = req.headers.get("Authorization") || "";
+
+    // Schema OpenAPI sempre fresco (sem cache e sem credencial) para (re)importar a Action.
+    if (rawPath === "/openapi" || rawPath === "/openapi.yaml") {
+      endpointName = "/openapi.yaml";
+      const spec = await fetchSpec();
+      if (!spec) {
+        await log(502, { reason: "schema OpenAPI indisponível" });
+        return json({ error: "OPENAPI_UNAVAILABLE" }, 502);
+      }
+      await log(200);
+      return new Response(spec, {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/yaml; charset=utf-8", "Cache-Control": "no-store, max-age=0" },
+      });
+    }
+
+    if (rawPath === "/tools") {
+      endpointName = "/tools";
+      const spec = await fetchSpec();
+      const ops = spec ? Array.from(spec.matchAll(/operationId:\s*([A-Za-z0-9_]+)/g)).map((m) => m[1]) : [];
+      await log(200);
+      return json({
+        schema_url: `${SUPABASE_URL}/functions/v1/smartops-marketing-agent-api/openapi.yaml`,
+        operation_ids: ops,
+        has_media_access: ops.includes("getTrainingMediaAccess"),
+        has_media_access_batch: ops.includes("getTrainingMediaAccessBatch"),
+      });
+    }
+
     if (!AGENT_KEY) {
       await log(500, { reason: "SMARTOPS_MARKETING_AGENT_API_KEY não configurada" });
       return json({ error: "API não configurada" }, 500);
