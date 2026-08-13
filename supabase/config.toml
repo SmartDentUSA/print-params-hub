@@ -557,3 +557,6 @@ verify_jwt = false
 
 [functions.smart-ops-automations-run]
 verify_jwt = false
+
+[functions.training-media-proxy]
+verify_jwt = false
