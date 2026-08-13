@@ -711,6 +711,35 @@ serve(async (req) => {
 
     // Autenticação
     const authHeader = req.headers.get("Authorization") || "";
+
+    // Schema OpenAPI sempre fresco (sem cache e sem credencial) para (re)importar a Action.
+    if (rawPath === "/openapi" || rawPath === "/openapi.yaml") {
+      endpointName = "/openapi.yaml";
+      const spec = await fetchSpec();
+      if (!spec) {
+        await log(502, { reason: "schema OpenAPI indisponível" });
+        return json({ error: "OPENAPI_UNAVAILABLE" }, 502);
+      }
+      await log(200);
+      return new Response(spec, {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/yaml; charset=utf-8", "Cache-Control": "no-store, max-age=0" },
+      });
+    }
+
+    if (rawPath === "/tools") {
+      endpointName = "/tools";
+      const spec = await fetchSpec();
+      const ops = spec ? Array.from(spec.matchAll(/operationId:\s*([A-Za-z0-9_]+)/g)).map((m) => m[1]) : [];
+      await log(200);
+      return json({
+        schema_url: `${SUPABASE_URL}/functions/v1/smartops-marketing-agent-api/openapi.yaml`,
+        operation_ids: ops,
+        has_media_access: ops.includes("getTrainingMediaAccess"),
+        has_media_access_batch: ops.includes("getTrainingMediaAccessBatch"),
+      });
+    }
+
     if (!AGENT_KEY) {
       await log(500, { reason: "SMARTOPS_MARKETING_AGENT_API_KEY não configurada" });
       return json({ error: "API não configurada" }, 500);
