@@ -570,6 +570,7 @@ export function SmartOpsTeam() {
   };
 
   const handleSave = async () => {
+    void 0;
     const faltando: string[] = [];
     if (!form.nome_completo?.trim()) faltando.push("Nome completo");
     if (!form.email?.trim()) faltando.push("E-mail");
