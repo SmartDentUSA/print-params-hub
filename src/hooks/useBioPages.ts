@@ -55,7 +55,7 @@ function mapRow(r: any): BioPage {
 async function fetchBioSourceOptions(): Promise<BioSourceOption[]> {
   const { data: forms, error: formsError } = await (supabase as any)
     .from("smartops_forms")
-    .select("id, name, slug, title, subtitle, description, hero_image_url, active")
+    .select("id, name, slug, title, subtitle, description, hero_image_url, active, bio_enabled_form, bio_enabled_landing")
     .eq("active", true)
     .order("name");
   if (formsError) throw formsError;
@@ -83,7 +83,7 @@ async function fetchBioSourceOptions(): Promise<BioSourceOption[]> {
     const label = f.title || f.name;
     const description = f.subtitle || f.description || null;
     const formShort = shortByKey.get(`form:${f.slug}`);
-    if (formShort) {
+    if (formShort && f.bio_enabled_form) {
       options.push({
         key: `form:${f.slug}`,
         kind: "form",
@@ -96,7 +96,7 @@ async function fetchBioSourceOptions(): Promise<BioSourceOption[]> {
     }
     const lp = lpByForm.get(f.id);
     const lpShort = shortByKey.get(`landing_page:${f.slug}`);
-    if (lp && lpShort) {
+    if (lp && lpShort && f.bio_enabled_landing) {
       options.push({
         key: `landing_page:${f.slug}`,
         kind: "landing_page",

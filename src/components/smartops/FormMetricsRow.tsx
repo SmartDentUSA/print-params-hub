@@ -25,6 +25,7 @@ interface Props {
   shortLinkLanding?: ShortLinkInfo | null;
   generatingTarget?: "form" | "landing_page" | null;
   onGenerateShortLink?: (target: "form" | "landing_page") => void;
+  onToggleBio?: (target: "form" | "landing_page") => void;
   onToggleActive: () => void;
   onEditMeta: () => void;
   onEditFields: () => void;
@@ -123,6 +124,7 @@ export function FormMetricsRow({
   shortLinkLanding,
   generatingTarget,
   onGenerateShortLink,
+  onToggleBio,
   onToggleActive,
   onEditMeta,
   onEditFields,
@@ -167,6 +169,26 @@ export function FormMetricsRow({
               onGenerate={() => onGenerateShortLink?.("landing_page")}
             />
           )}
+        </div>
+        <div className="flex items-center gap-3 mt-1.5 flex-wrap text-[10px]">
+          <span className="text-muted-foreground uppercase tracking-wide">Link da Bio</span>
+          <label className="inline-flex items-center gap-1.5">
+            <Switch
+              className="scale-75"
+              checked={!!form.bio_enabled_form}
+              onCheckedChange={() => onToggleBio?.("form")}
+            />
+            <span>Formulário</span>
+          </label>
+          <label className="inline-flex items-center gap-1.5">
+            <Switch
+              className="scale-75"
+              checked={!!form.bio_enabled_landing}
+              disabled={!hasLandingPage}
+              onCheckedChange={() => onToggleBio?.("landing_page")}
+            />
+            <span className={hasLandingPage ? "" : "text-muted-foreground"}>Landing page</span>
+          </label>
         </div>
       </div>
 
