@@ -563,3 +563,9 @@ verify_jwt = false
 
 [functions.training-marketing-render]
 verify_jwt = false
+
+[functions.smart-ops-evolution-manager]
+verify_jwt = false
+
+[functions.smart-ops-evogo-qr]
+verify_jwt = false

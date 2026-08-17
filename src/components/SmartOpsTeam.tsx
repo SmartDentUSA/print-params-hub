@@ -237,6 +237,7 @@ export function SmartOpsTeam() {
   const [qrModalOpen, setQrModalOpen] = useState(false);
   const [qrSrc, setQrSrc] = useState<string | null>(null);
   const [qrError, setQrError] = useState<string | null>(null);
+  const [qrProvider, setQrProvider] = useState<"evolution" | "evolution_go">("evolution");
   const [evoConnecting, setEvoConnecting] = useState(false);
   const [live, setLive] = useState<Record<string, LiveEntry>>({});
   const [checkingAll, setCheckingAll] = useState(false);
@@ -505,6 +506,7 @@ export function SmartOpsTeam() {
     setQrSrc(null);
     setQrError(null);
     setEvoConnecting(true);
+    setQrProvider("evolution");
     setQrModalOpen(true);
 
     try {
@@ -560,7 +562,10 @@ export function SmartOpsTeam() {
           } catch {/* keep polling */}
         }, 3000);
       } else {
-        setQrError(`QR não retornado. Debug: ${JSON.stringify(data)}`);
+        setQrError(
+          `Não foi possível gerar o QR agora. A Evolution não respondeu ao /instance/connect. ` +
+            `Tente novamente em alguns segundos. Debug: ${JSON.stringify(data?.debug ?? data)}`,
+        );
         setEvoConnecting(false);
       }
     } catch (err) {
@@ -569,7 +574,78 @@ export function SmartOpsTeam() {
     }
   };
 
+  /** QR do EvolutionGO (wuzapi, :8081) — abre no mesmo modal. */
+  const connectEvoGo = async () => {
+    const memberId = editing?.id || null;
+    const token = form.evo_go_instance_token?.trim();
+    if (!memberId && !token) {
+      toast({ title: "Informe o Instance Token do EvoGo antes", variant: "destructive" });
+      return;
+    }
+    stopPolling();
+    setQrSrc(null);
+    setQrError(null);
+    setEvoConnecting(true);
+    setQrProvider("evolution_go");
+    setQrModalOpen(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("smart-ops-evogo-qr", {
+        body: {
+          member_id: memberId,
+          instance_token: token || undefined,
+          base_url: form.evo_go_base_url?.trim() || undefined,
+        },
+      });
+      if (error) throw error;
+
+      if (data?.state === "open") {
+        setEvoGoStatus("open");
+        setEvoConnecting(false);
+        setQrModalOpen(false);
+        if (memberId) persistStatus(memberId, "evo_go", "open");
+        toast({ title: "✅ EvolutionGO já conectado!" });
+        return;
+      }
+
+      const qrcode = data?.qrcode as string | undefined;
+      if (qrcode) {
+        setQrSrc(qrcode.startsWith("data:") ? qrcode : `data:image/png;base64,${qrcode}`);
+        setEvoGoStatus("connecting");
+        const startedAt = Date.now();
+        pollingRef.current = setInterval(async () => {
+          if (Date.now() - startedAt > 5 * 60 * 1000) {
+            stopPolling();
+            setEvoConnecting(false);
+            toast({ title: "Tempo esgotado", description: "QR expirou. Gere um novo.", variant: "destructive" });
+            return;
+          }
+          if (!memberId) return;
+          try {
+            const { data: st } = await supabase.functions.invoke("smart-ops-evogo-status", {
+              body: { member_id: memberId },
+            });
+            if (st?.state === "open") {
+              stopPolling();
+              setEvoGoStatus("open");
+              setEvoConnecting(false);
+              setQrModalOpen(false);
+              persistStatus(memberId, "evo_go", "open");
+              toast({ title: "✅ EvolutionGO conectado!" });
+            }
+          } catch {/* keep polling */}
+        }, 3000);
+      } else {
+        setQrError(`QR do EvoGo não retornado. Debug: ${JSON.stringify(data?.debug ?? data)}`);
+        setEvoConnecting(false);
+      }
+    } catch (err) {
+      setEvoConnecting(false);
+      setQrError(`Erro ao conectar EvoGo: ${String(err)}`);
+    }
+  };
+
   const handleSave = async () => {
+    // validação de campos obrigatórios
     const faltando: string[] = [];
     if (!form.nome_completo?.trim()) faltando.push("Nome completo");
     if (!form.email?.trim()) faltando.push("E-mail");
@@ -869,17 +945,20 @@ export function SmartOpsTeam() {
                 />
               </div>
               <WebhookInfoBlock info={evoGoWebhook} onCopy={copyToClipboard} />
+              <Button variant="outline" onClick={connectEvoGo} disabled={evoConnecting} className="w-full">
+                📱 {evoConnecting ? "Conectando..." : "Conectar WhatsApp (EvoGo)"}
+              </Button>
               <Button
-                variant="outline"
+                variant="ghost"
+                size="sm"
                 onClick={() => {
                   const base = (form.evo_go_base_url?.trim() || "http://82.25.75.61:8081").replace(/\/$/, "");
                   const id = form.evo_go_instance_id?.trim();
-                  const url = id ? `${base}/manager/instances/${id}/settings` : `${base}/manager`;
-                  window.open(url, "_blank", "noopener,noreferrer");
+                  window.open(id ? `${base}/manager/instances/${id}/settings` : `${base}/manager`, "_blank", "noopener,noreferrer");
                 }}
-                className="w-full"
+                className="w-full text-xs"
               >
-                📱 Conectar WhatsApp (EvoGo)
+                Abrir manager do EvoGo
               </Button>
               </TabsContent>
             </Tabs>
@@ -996,7 +1075,9 @@ export function SmartOpsTeam() {
     >
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Conectar WhatsApp Evolution</DialogTitle>
+          <DialogTitle>
+            {qrProvider === "evolution_go" ? "Conectar WhatsApp EvolutionGO (grupos)" : "Conectar WhatsApp Evolution"}
+          </DialogTitle>
         </DialogHeader>
         <div className="space-y-4 text-center">
           {qrSrc ? (
