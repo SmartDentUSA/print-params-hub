@@ -505,6 +505,7 @@ export function SmartOpsTeam() {
     setQrSrc(null);
     setQrError(null);
     setEvoConnecting(true);
+    setQrProvider("evolution");
     setQrModalOpen(true);
 
     try {
@@ -560,12 +561,85 @@ export function SmartOpsTeam() {
           } catch {/* keep polling */}
         }, 3000);
       } else {
-        setQrError(`QR não retornado. Debug: ${JSON.stringify(data)}`);
+        setQrError(
+          `Não foi possível gerar o QR agora. A Evolution não respondeu ao /instance/connect. ` +
+            `Tente novamente em alguns segundos. Debug: ${JSON.stringify(data?.debug ?? data)}`,
+        );
         setEvoConnecting(false);
       }
     } catch (err) {
       setEvoConnecting(false);
       setQrError(`Erro ao conectar: ${String(err)}`);
+    }
+  };
+
+  /** QR do EvolutionGO (wuzapi, :8081) — abre no mesmo modal. */
+  const connectEvoGo = async () => {
+    const memberId = editing?.id || null;
+    const token = form.evo_go_instance_token?.trim();
+    if (!memberId && !token) {
+      toast({ title: "Informe o Instance Token do EvoGo antes", variant: "destructive" });
+      return;
+    }
+    stopPolling();
+    setQrSrc(null);
+    setQrError(null);
+    setEvoConnecting(true);
+    setQrProvider("evolution_go");
+    setQrModalOpen(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("smart-ops-evogo-qr", {
+        body: {
+          member_id: memberId,
+          instance_token: token || undefined,
+          base_url: form.evo_go_base_url?.trim() || undefined,
+        },
+      });
+      if (error) throw error;
+
+      if (data?.state === "open") {
+        setEvoGoStatus("open");
+        setEvoConnecting(false);
+        setQrModalOpen(false);
+        if (memberId) persistStatus(memberId, "evo_go", "open");
+        toast({ title: "✅ EvolutionGO já conectado!" });
+        return;
+      }
+
+      const qrcode = data?.qrcode as string | undefined;
+      if (qrcode) {
+        setQrSrc(qrcode.startsWith("data:") ? qrcode : `data:image/png;base64,${qrcode}`);
+        setEvoGoStatus("connecting");
+        const startedAt = Date.now();
+        pollingRef.current = setInterval(async () => {
+          if (Date.now() - startedAt > 5 * 60 * 1000) {
+            stopPolling();
+            setEvoConnecting(false);
+            toast({ title: "Tempo esgotado", description: "QR expirou. Gere um novo.", variant: "destructive" });
+            return;
+          }
+          if (!memberId) return;
+          try {
+            const { data: st } = await supabase.functions.invoke("smart-ops-evogo-status", {
+              body: { member_id: memberId },
+            });
+            if (st?.state === "open") {
+              stopPolling();
+              setEvoGoStatus("open");
+              setEvoConnecting(false);
+              setQrModalOpen(false);
+              persistStatus(memberId, "evo_go", "open");
+              toast({ title: "✅ EvolutionGO conectado!" });
+            }
+          } catch {/* keep polling */}
+        }, 3000);
+      } else {
+        setQrError(`QR do EvoGo não retornado. Debug: ${JSON.stringify(data?.debug ?? data)}`);
+        setEvoConnecting(false);
+      }
+    } catch (err) {
+      setEvoConnecting(false);
+      setQrError(`Erro ao conectar EvoGo: ${String(err)}`);
     }
   };
 
