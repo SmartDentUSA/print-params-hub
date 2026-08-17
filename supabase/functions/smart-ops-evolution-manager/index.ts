@@ -95,10 +95,6 @@ Deno.serve(async (req) => {
       return r;
     };
 
-    if (action === "get_status") {
-      // continua abaixo
-    }
-
     // Diagnóstico: o servidor Evolution consegue pairear alguma instância?
     if (action === "probe_create") {
       const tmp = `diag_${Date.now()}`;
