@@ -598,6 +598,22 @@ export function SmartOpsFormBuilder() {
     fetchForms();
   };
 
+  const toggleBio = async (form: any, target: "form" | "landing_page") => {
+    const column = target === "form" ? "bio_enabled_form" : "bio_enabled_landing";
+    const next = !form[column];
+    const { error } = await supabase.from("smartops_forms" as any)
+      .update({ [column]: next } as any)
+      .eq("id", form.id);
+    if (error) {
+      toast.error("Falha ao atualizar Link da Bio");
+      return;
+    }
+    toast.success(
+      `${target === "form" ? "Formulário" : "Landing page"} ${next ? "disponível" : "removido"} no Link da Bio`,
+    );
+    fetchForms();
+  };
+
   const deleteForm = async (id: string) => {
     if (!confirm("Excluir formulário e todos os campos?")) return;
     await supabase.from("smartops_forms" as any).delete().eq("id", id);
@@ -1359,6 +1375,7 @@ export function SmartOpsFormBuilder() {
                       shortLinkLanding={shortLinksBySlug[form.slug]?.landing_page || null}
                       generatingTarget={generatingShort[form.slug] || null}
                       onGenerateShortLink={(target) => handleGenerateShortLink(form.slug, target)}
+                      onToggleBio={(target) => toggleBio(form, target)}
                       onToggleActive={() => toggleActive(form)}
                       onEditMeta={() => openEditMeta(form)}
                       onEditFields={() => setEditingForm(form)}
