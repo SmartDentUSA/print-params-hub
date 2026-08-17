@@ -945,17 +945,20 @@ export function SmartOpsTeam() {
                 />
               </div>
               <WebhookInfoBlock info={evoGoWebhook} onCopy={copyToClipboard} />
+              <Button variant="outline" onClick={connectEvoGo} disabled={evoConnecting} className="w-full">
+                📱 {evoConnecting ? "Conectando..." : "Conectar WhatsApp (EvoGo)"}
+              </Button>
               <Button
-                variant="outline"
+                variant="ghost"
+                size="sm"
                 onClick={() => {
                   const base = (form.evo_go_base_url?.trim() || "http://82.25.75.61:8081").replace(/\/$/, "");
                   const id = form.evo_go_instance_id?.trim();
-                  const url = id ? `${base}/manager/instances/${id}/settings` : `${base}/manager`;
-                  window.open(url, "_blank", "noopener,noreferrer");
+                  window.open(id ? `${base}/manager/instances/${id}/settings` : `${base}/manager`, "_blank", "noopener,noreferrer");
                 }}
-                className="w-full"
+                className="w-full text-xs"
               >
-                📱 Conectar WhatsApp (EvoGo)
+                Abrir manager do EvoGo
               </Button>
               </TabsContent>
             </Tabs>
@@ -1072,7 +1075,9 @@ export function SmartOpsTeam() {
     >
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Conectar WhatsApp Evolution</DialogTitle>
+          <DialogTitle>
+            {qrProvider === "evolution_go" ? "Conectar WhatsApp EvolutionGO (grupos)" : "Conectar WhatsApp Evolution"}
+          </DialogTitle>
         </DialogHeader>
         <div className="space-y-4 text-center">
           {qrSrc ? (
