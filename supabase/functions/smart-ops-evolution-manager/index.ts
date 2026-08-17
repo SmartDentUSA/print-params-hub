@@ -121,18 +121,18 @@ Deno.serve(async (req) => {
       const debug: Record<string, unknown> = { state0, status_http: st.status };
 
       // 1ª tentativa: /instance/connect
-      let attempt = await call(`${base}/instance/connect/${enc(instance)}`, apikey, { method: "GET" }, 25_000);
+      let attempt = await call(`${base}/instance/connect/${enc(instance)}`, apikey, { method: "GET" }, 12_000);
       let qr = await toDataUrl(attempt.body);
       debug.connect_http = attempt.status;
       if (attempt.error) debug.connect_error = attempt.error;
 
       // Instância travada em "close": restart e novas tentativas
       if (!qr) {
-        const rs = await call(`${base}/instance/restart/${enc(instance)}`, apikey, { method: "POST" }, 20_000);
+        const rs = await call(`${base}/instance/restart/${enc(instance)}`, apikey, { method: "POST" }, 10_000);
         debug.restart_http = rs.status;
-        for (let i = 0; i < 3 && !qr; i++) {
-          await sleep(2500);
-          attempt = await call(`${base}/instance/connect/${enc(instance)}`, apikey, { method: "GET" }, 25_000);
+        for (let i = 0; i < 2 && !qr; i++) {
+          await sleep(1500);
+          attempt = await call(`${base}/instance/connect/${enc(instance)}`, apikey, { method: "GET" }, 12_000);
           debug[`retry${i + 1}_http`] = attempt.status;
           if (attempt.error) debug[`retry${i + 1}_error`] = attempt.error;
           const s = extractState(attempt.body);
@@ -150,6 +150,7 @@ Deno.serve(async (req) => {
         qrcode: qr,
         pairing_code: attempt.body?.pairingCode ?? null,
         raw_status: attempt.status,
+        raw_body: qr ? undefined : JSON.stringify(attempt.body).slice(0, 300),
         source: "connect",
         debug: qr ? undefined : debug,
       });
