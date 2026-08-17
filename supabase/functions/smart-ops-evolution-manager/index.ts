@@ -96,6 +96,30 @@ Deno.serve(async (req) => {
     };
 
     if (action === "get_status") {
+      // continua abaixo
+    }
+
+    // Diagnóstico: o servidor Evolution consegue pairear alguma instância?
+    if (action === "probe_create") {
+      const tmp = `diag_${Date.now()}`;
+      const globalKey = Deno.env.get("EVO_KEY") ?? apikey;
+      const cr = await call(`${base}/instance/create`, globalKey, {
+        method: "POST",
+        body: JSON.stringify({ instanceName: tmp, qrcode: true, integration: "WHATSAPP-BAILEYS" }),
+      }, 40_000);
+      const qr = await toDataUrl(cr.body?.qrcode ?? cr.body);
+      await call(`${base}/instance/delete/${enc(tmp)}`, globalKey, { method: "DELETE" }, 15_000);
+      return json({
+        ok: !!qr,
+        probe_instance: tmp,
+        create_http: cr.status,
+        create_error: (cr as any).error ?? null,
+        qr_generated: !!qr,
+        body_keys: cr.body && typeof cr.body === "object" ? Object.keys(cr.body) : String(cr.body).slice(0, 200),
+      });
+    }
+
+    if (action === "get_status") {
       const r = await statusOf();
       const state = extractState(r.body) ?? "unknown";
       return json({ ok: r.ok, state, connected: state === "open", data: r.body, http: r.status });
