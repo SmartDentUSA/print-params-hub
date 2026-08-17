@@ -22,6 +22,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import {
   Dialog,
   DialogContent,
@@ -187,6 +188,7 @@ export function SmartOpsFormBuilder() {
   const [landingPageForm, setLandingPageForm] = useState<SmartOpsForm | null>(null);
   const [showCreate, setShowCreate] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [activeFilter, setActiveFilter] = useState<"all" | "active" | "inactive">("all");
   const [newName, setNewName] = useState("");
   const [newPurpose, setNewPurpose] = useState("captacao");
   const nameInputRef = useRef<HTMLInputElement | null>(null);
@@ -364,6 +366,16 @@ export function SmartOpsFormBuilder() {
       .map((s) => normalizeSearch(String(s)))
       .join(" ");
     return haystack.includes(term);
+  };
+
+  const matchesFilters = (form: SmartOpsForm) => {
+    const activeMatch =
+      activeFilter === "all"
+        ? true
+        : activeFilter === "active"
+          ? form.active
+          : !form.active;
+    return activeMatch && matchesSearch(form);
   };
 
   const handleCreate = async () => {
@@ -1293,11 +1305,30 @@ export function SmartOpsFormBuilder() {
                 </Button>
               ))}
             </div>
+            <div className="flex items-center gap-2 text-xs">
+              <span className="text-muted-foreground mr-1">Status:</span>
+              <ToggleGroup
+                type="single"
+                value={activeFilter}
+                onValueChange={(v) => v && setActiveFilter(v as "all" | "active" | "inactive")}
+                className="border rounded-md p-0.5 bg-background"
+              >
+                <ToggleGroupItem value="all" aria-label="Todos" className="h-6 px-2.5 text-[11px] data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">
+                  Todos
+                </ToggleGroupItem>
+                <ToggleGroupItem value="active" aria-label="Ativos" className="h-6 px-2.5 text-[11px] data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">
+                  Ativos
+                </ToggleGroupItem>
+                <ToggleGroupItem value="inactive" aria-label="Inativos" className="h-6 px-2.5 text-[11px] data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">
+                  Inativos
+                </ToggleGroupItem>
+              </ToggleGroup>
+            </div>
           </div>
 
           {/* Grupos por finalidade */}
           {Object.entries(PURPOSE_CONFIG).map(([purposeKey, cfg]) => {
-            const groupForms = forms.filter((f) => f.form_purpose === purposeKey && matchesSearch(f));
+            const groupForms = forms.filter((f) => f.form_purpose === purposeKey && matchesFilters(f));
             if (groupForms.length === 0) return null;
             return (
               <section key={purposeKey} className="space-y-3">
@@ -1343,19 +1374,24 @@ export function SmartOpsFormBuilder() {
             );
           })}
 
-          {searchQuery &&
+          {(searchQuery || activeFilter !== "all") &&
             Object.entries(PURPOSE_CONFIG).every(
-              ([purposeKey]) => !forms.some((f) => f.form_purpose === purposeKey && matchesSearch(f))
+              ([purposeKey]) => !forms.some((f) => f.form_purpose === purposeKey && matchesFilters(f))
             ) && (
               <div className="text-sm text-muted-foreground">
-                Nenhum formulário encontrado para “{searchQuery}”.
+                Nenhum formulário encontrado
+                {searchQuery && ` para “${searchQuery}”`}
+                {activeFilter !== "all" && ` com status “${activeFilter === "active" ? "Ativos" : "Inativos"}”`}.
                 <Button
                   variant="link"
                   size="sm"
                   className="h-auto px-1 py-0"
-                  onClick={() => setSearchQuery("")}
+                  onClick={() => {
+                    setSearchQuery("");
+                    setActiveFilter("all");
+                  }}
                 >
-                  Limpar busca
+                  Limpar filtros
                 </Button>
               </div>
             )}
