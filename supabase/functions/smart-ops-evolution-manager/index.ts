@@ -121,7 +121,7 @@ Deno.serve(async (req) => {
       const debug: Record<string, unknown> = { state0, status_http: st.status };
 
       // 1ª tentativa: /instance/connect
-      let attempt = await call(`${base}/instance/connect/${enc(instance)}`, apikey, { method: "GET" }, 12_000);
+      let attempt = await call(`${base}/instance/connect/${enc(instance)}`, apikey, { method: "GET" }, 40_000);
       let qr = await toDataUrl(attempt.body);
       debug.connect_http = attempt.status;
       if (attempt.error) debug.connect_error = attempt.error;
@@ -130,9 +130,9 @@ Deno.serve(async (req) => {
       if (!qr) {
         const rs = await call(`${base}/instance/restart/${enc(instance)}`, apikey, { method: "POST" }, 10_000);
         debug.restart_http = rs.status;
-        for (let i = 0; i < 2 && !qr; i++) {
+        for (let i = 0; i < 1 && !qr; i++) {
           await sleep(1500);
-          attempt = await call(`${base}/instance/connect/${enc(instance)}`, apikey, { method: "GET" }, 12_000);
+          attempt = await call(`${base}/instance/connect/${enc(instance)}`, apikey, { method: "GET" }, 20_000);
           debug[`retry${i + 1}_http`] = attempt.status;
           if (attempt.error) debug[`retry${i + 1}_error`] = attempt.error;
           const s = extractState(attempt.body);
@@ -148,9 +148,9 @@ Deno.serve(async (req) => {
       if (!qr) {
         const lo = await call(`${base}/instance/logout/${enc(instance)}`, apikey, { method: "DELETE" }, 12_000);
         debug.logout_http = lo.status;
-        for (let i = 0; i < 2 && !qr; i++) {
+        for (let i = 0; i < 1 && !qr; i++) {
           await sleep(1500);
-          attempt = await call(`${base}/instance/connect/${enc(instance)}`, apikey, { method: "GET" }, 12_000);
+          attempt = await call(`${base}/instance/connect/${enc(instance)}`, apikey, { method: "GET" }, 25_000);
           debug[`post_logout${i + 1}_http`] = attempt.status;
           if (attempt.error) debug[`post_logout${i + 1}_error`] = attempt.error;
           qr = await toDataUrl(attempt.body);
