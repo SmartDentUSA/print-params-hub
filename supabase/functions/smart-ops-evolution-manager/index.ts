@@ -98,7 +98,7 @@ Deno.serve(async (req) => {
     // Diagnóstico: o servidor Evolution consegue pairear alguma instância?
     if (action === "probe_create") {
       const tmp = `diag_${Date.now()}`;
-      const globalKey = Deno.env.get("EVO_KEY") ?? apikey;
+      const globalKey = ((await req.headers.get("x-evo-global")) ?? Deno.env.get("EVO_KEY") ?? apikey) as string;
       const cr = await call(`${base}/instance/create`, globalKey, {
         method: "POST",
         body: JSON.stringify({ instanceName: tmp, qrcode: true, integration: "WHATSAPP-BAILEYS" }),
