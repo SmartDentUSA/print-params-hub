@@ -143,6 +143,20 @@ Deno.serve(async (req) => {
         }
       }
 
+      // Evolution v2 responde {"count":0} quando há sessão antiga presa:
+      // só solta QR novo depois do logout. Seguro aqui — o estado não é "open".
+      if (!qr) {
+        const lo = await call(`${base}/instance/logout/${enc(instance)}`, apikey, { method: "DELETE" }, 12_000);
+        debug.logout_http = lo.status;
+        for (let i = 0; i < 2 && !qr; i++) {
+          await sleep(1500);
+          attempt = await call(`${base}/instance/connect/${enc(instance)}`, apikey, { method: "GET" }, 12_000);
+          debug[`post_logout${i + 1}_http`] = attempt.status;
+          if (attempt.error) debug[`post_logout${i + 1}_error`] = attempt.error;
+          qr = await toDataUrl(attempt.body);
+        }
+      }
+
       return json({
         ok: !!qr,
         instance_name: instance,
