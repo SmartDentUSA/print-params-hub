@@ -273,6 +273,7 @@ export function CoursesNpsTab() {
                 <th className="text-left p-3">Participante</th>
                 <th className="text-left p-3">Curso / Turma</th>
                 <th className="text-left p-3">Data de envio</th>
+                <th className="text-left p-3">Canal</th>
                 <th className="text-left p-3">Data da resposta</th>
                 <th className="text-left p-3">NPS</th>
                 <th className="text-left p-3">Satisfação</th>
@@ -294,6 +295,28 @@ export function CoursesNpsTab() {
                     </td>
                     <td className="p-3 whitespace-nowrap">
                       {r.sent_at ? fmtDT(r.sent_at) : <Badge variant="destructive" className="text-[10px]">não enviado</Badge>}
+                    </td>
+                    <td className="p-3 whitespace-nowrap text-xs">
+                      {r.wa_sent_at || r.sms_sent_at ? (
+                        <div className="space-y-1">
+                          {r.wa_sent_at && (
+                            <div>
+                              <Badge variant="secondary" className="text-[10px] mr-1">WhatsApp</Badge>
+                              <span className="text-muted-foreground">{fmtDT(r.wa_sent_at)}</span>
+                            </div>
+                          )}
+                          {r.sms_sent_at && (
+                            <div>
+                              <Badge variant="secondary" className="text-[10px] mr-1">
+                                SMS{r.sms_count > 1 ? ` ×${r.sms_count}` : ""}
+                              </Badge>
+                              <span className="text-muted-foreground">{fmtDT(r.sms_sent_at)}</span>
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
                     </td>
                     <td className="p-3 whitespace-nowrap">
                       {r.responded_at ? (
