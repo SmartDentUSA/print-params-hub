@@ -1,0 +1,1 @@
+SELECT public.painel_comercial_refresh(date_trunc('month', now())::date);
