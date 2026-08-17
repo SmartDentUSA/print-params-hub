@@ -237,6 +237,7 @@ export function SmartOpsTeam() {
   const [qrModalOpen, setQrModalOpen] = useState(false);
   const [qrSrc, setQrSrc] = useState<string | null>(null);
   const [qrError, setQrError] = useState<string | null>(null);
+  const [qrProvider, setQrProvider] = useState<"evolution" | "evolution_go">("evolution");
   const [evoConnecting, setEvoConnecting] = useState(false);
   const [live, setLive] = useState<Record<string, LiveEntry>>({});
   const [checkingAll, setCheckingAll] = useState(false);
