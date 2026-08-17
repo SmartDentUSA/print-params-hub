@@ -17,6 +17,9 @@ interface NpsRow {
   turma_label: string;
   end_date: string | null;
   sent_at: string | null;
+  wa_sent_at: string | null;
+  sms_sent_at: string | null;
+  sms_count: number;
   status: string | null;
   responded_at: string | null;
   satisfacao: number | null;
@@ -92,7 +95,9 @@ export function CoursesNpsTab() {
     queryFn: async (): Promise<NpsRow[]> => {
       const { data: enrollments, error } = await supabase
         .from("smartops_course_enrollments")
-        .select("id, person_name, nps_sent_at, nps_status, turma_id, course_id")
+        .select(
+          "id, person_name, nps_sent_at, nps_status, turma_id, course_id, nps_sms_count, nps_sms_last_sent_at",
+        )
         .order("nps_sent_at", { ascending: false, nullsFirst: false })
         .limit(1000);
       if (error) throw error;
@@ -128,13 +133,20 @@ export function CoursesNpsTab() {
         .map((e: any) => {
           const t: any = turmaMap.get(e.turma_id);
           const r = respMap.get(e.id);
+          const waSent: string | null = e.nps_sent_at ?? null;
+          const smsSent: string | null = e.nps_sms_last_sent_at ?? null;
+          const lastSent =
+            waSent && smsSent ? (new Date(smsSent) > new Date(waSent) ? smsSent : waSent) : (smsSent ?? waSent);
           return {
             enrollment_id: e.id,
             person_name: e.person_name || "Sem nome",
             course_title: courseMap.get(e.course_id) || "—",
             turma_label: t?.label || "—",
             end_date: t?.end_date ?? null,
-            sent_at: e.nps_sent_at ?? null,
+            sent_at: lastSent,
+            wa_sent_at: waSent,
+            sms_sent_at: smsSent,
+            sms_count: Number(e.nps_sms_count ?? 0),
             status: e.nps_status ?? null,
             responded_at: r?.created_at ?? null,
             satisfacao: r?.score_satisfacao ?? null,
