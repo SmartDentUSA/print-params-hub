@@ -164,6 +164,7 @@ export function CoursesNpsTab() {
 
   const stats = useMemo(() => {
     const disparados = rows.filter((r) => r.sent_at).length;
+    const porSms = rows.filter((r) => r.sms_sent_at).length;
     const respondidos = rows.filter((r) => r.responded_at).length;
     const withScore = rows.filter((r) => r.recomendacao);
     const promotores = withScore.filter((r) => r.recomendacao === 5).length;
@@ -173,7 +174,7 @@ export function CoursesNpsTab() {
     const media = withScore.length
       ? (withScore.reduce((s, r) => s + r.recomendacao!, 0) / withScore.length).toFixed(1)
       : null;
-    return { disparados, respondidos, promotores, neutros, detratores, nps, media, total: withScore.length };
+    return { disparados, porSms, respondidos, promotores, neutros, detratores, nps, media, total: withScore.length };
   }, [rows]);
 
   const questions = useMemo(() => {
@@ -210,8 +211,9 @@ export function CoursesNpsTab() {
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 lg:grid-cols-6 gap-3">
+      <div className="grid grid-cols-2 lg:grid-cols-7 gap-3">
         <StatCard icon={<Send className="w-4 h-4" />} label="NPS disparados" value={stats.disparados} />
+        <StatCard icon={<MessageSquare className="w-4 h-4 text-sky-600" />} label="Via SMS" value={stats.porSms} />
         <StatCard icon={<CheckCircle2 className="w-4 h-4 text-emerald-600" />} label="Respondidos" value={stats.respondidos} />
         <StatCard icon={<ThumbsUp className="w-4 h-4 text-emerald-600" />} label="Promotores" value={stats.promotores} />
         <StatCard icon={<Minus className="w-4 h-4 text-amber-600" />} label="Neutros" value={stats.neutros} />
