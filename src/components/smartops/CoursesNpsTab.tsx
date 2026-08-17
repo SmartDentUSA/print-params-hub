@@ -17,6 +17,9 @@ interface NpsRow {
   turma_label: string;
   end_date: string | null;
   sent_at: string | null;
+  wa_sent_at: string | null;
+  sms_sent_at: string | null;
+  sms_count: number;
   status: string | null;
   responded_at: string | null;
   satisfacao: number | null;
@@ -92,7 +95,9 @@ export function CoursesNpsTab() {
     queryFn: async (): Promise<NpsRow[]> => {
       const { data: enrollments, error } = await supabase
         .from("smartops_course_enrollments")
-        .select("id, person_name, nps_sent_at, nps_status, turma_id, course_id")
+        .select(
+          "id, person_name, nps_sent_at, nps_status, turma_id, course_id, nps_sms_count, nps_sms_last_sent_at",
+        )
         .order("nps_sent_at", { ascending: false, nullsFirst: false })
         .limit(1000);
       if (error) throw error;
@@ -128,13 +133,20 @@ export function CoursesNpsTab() {
         .map((e: any) => {
           const t: any = turmaMap.get(e.turma_id);
           const r = respMap.get(e.id);
+          const waSent: string | null = e.nps_sent_at ?? null;
+          const smsSent: string | null = e.nps_sms_last_sent_at ?? null;
+          const lastSent =
+            waSent && smsSent ? (new Date(smsSent) > new Date(waSent) ? smsSent : waSent) : (smsSent ?? waSent);
           return {
             enrollment_id: e.id,
             person_name: e.person_name || "Sem nome",
             course_title: courseMap.get(e.course_id) || "—",
             turma_label: t?.label || "—",
             end_date: t?.end_date ?? null,
-            sent_at: e.nps_sent_at ?? null,
+            sent_at: lastSent,
+            wa_sent_at: waSent,
+            sms_sent_at: smsSent,
+            sms_count: Number(e.nps_sms_count ?? 0),
             status: e.nps_status ?? null,
             responded_at: r?.created_at ?? null,
             satisfacao: r?.score_satisfacao ?? null,
@@ -152,6 +164,7 @@ export function CoursesNpsTab() {
 
   const stats = useMemo(() => {
     const disparados = rows.filter((r) => r.sent_at).length;
+    const porSms = rows.filter((r) => r.sms_sent_at).length;
     const respondidos = rows.filter((r) => r.responded_at).length;
     const withScore = rows.filter((r) => r.recomendacao);
     const promotores = withScore.filter((r) => r.recomendacao === 5).length;
@@ -161,7 +174,7 @@ export function CoursesNpsTab() {
     const media = withScore.length
       ? (withScore.reduce((s, r) => s + r.recomendacao!, 0) / withScore.length).toFixed(1)
       : null;
-    return { disparados, respondidos, promotores, neutros, detratores, nps, media, total: withScore.length };
+    return { disparados, porSms, respondidos, promotores, neutros, detratores, nps, media, total: withScore.length };
   }, [rows]);
 
   const questions = useMemo(() => {
@@ -198,8 +211,9 @@ export function CoursesNpsTab() {
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 lg:grid-cols-6 gap-3">
+      <div className="grid grid-cols-2 lg:grid-cols-7 gap-3">
         <StatCard icon={<Send className="w-4 h-4" />} label="NPS disparados" value={stats.disparados} />
+        <StatCard icon={<MessageSquare className="w-4 h-4 text-sky-600" />} label="Via SMS" value={stats.porSms} />
         <StatCard icon={<CheckCircle2 className="w-4 h-4 text-emerald-600" />} label="Respondidos" value={stats.respondidos} />
         <StatCard icon={<ThumbsUp className="w-4 h-4 text-emerald-600" />} label="Promotores" value={stats.promotores} />
         <StatCard icon={<Minus className="w-4 h-4 text-amber-600" />} label="Neutros" value={stats.neutros} />
@@ -261,6 +275,7 @@ export function CoursesNpsTab() {
                 <th className="text-left p-3">Participante</th>
                 <th className="text-left p-3">Curso / Turma</th>
                 <th className="text-left p-3">Data de envio</th>
+                <th className="text-left p-3">Canal</th>
                 <th className="text-left p-3">Data da resposta</th>
                 <th className="text-left p-3">NPS</th>
                 <th className="text-left p-3">Satisfação</th>
@@ -282,6 +297,28 @@ export function CoursesNpsTab() {
                     </td>
                     <td className="p-3 whitespace-nowrap">
                       {r.sent_at ? fmtDT(r.sent_at) : <Badge variant="destructive" className="text-[10px]">não enviado</Badge>}
+                    </td>
+                    <td className="p-3 whitespace-nowrap text-xs">
+                      {r.wa_sent_at || r.sms_sent_at ? (
+                        <div className="space-y-1">
+                          {r.wa_sent_at && (
+                            <div>
+                              <Badge variant="secondary" className="text-[10px] mr-1">WhatsApp</Badge>
+                              <span className="text-muted-foreground">{fmtDT(r.wa_sent_at)}</span>
+                            </div>
+                          )}
+                          {r.sms_sent_at && (
+                            <div>
+                              <Badge variant="secondary" className="text-[10px] mr-1">
+                                SMS{r.sms_count > 1 ? ` ×${r.sms_count}` : ""}
+                              </Badge>
+                              <span className="text-muted-foreground">{fmtDT(r.sms_sent_at)}</span>
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
                     </td>
                     <td className="p-3 whitespace-nowrap">
                       {r.responded_at ? (
