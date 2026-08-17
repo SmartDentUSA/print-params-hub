@@ -21434,6 +21434,8 @@ export type Database = {
           bg_image_url: string | null
           bg_overlay_opacity: number | null
           bg_type: string | null
+          bio_enabled_form: boolean
+          bio_enabled_landing: boolean
           body_color: string | null
           brand_color_h: number | null
           brand_color_l: number | null
@@ -21494,6 +21496,8 @@ export type Database = {
           bg_image_url?: string | null
           bg_overlay_opacity?: number | null
           bg_type?: string | null
+          bio_enabled_form?: boolean
+          bio_enabled_landing?: boolean
           body_color?: string | null
           brand_color_h?: number | null
           brand_color_l?: number | null
@@ -21554,6 +21558,8 @@ export type Database = {
           bg_image_url?: string | null
           bg_overlay_opacity?: number | null
           bg_type?: string | null
+          bio_enabled_form?: boolean
+          bio_enabled_landing?: boolean
           body_color?: string | null
           brand_color_h?: number | null
           brand_color_l?: number | null
