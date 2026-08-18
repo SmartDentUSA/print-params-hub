@@ -28,23 +28,16 @@ Deno.serve(async (req) => {
 
   const { date: today, hour } = spNow();
 
+  // Campanha é sempre um envio único, na data e hora escolhidas na criação.
   const { data: scheduled } = await admin
     .from("push_campaigns")
-    .select("id, schedule_at, send_hour, date_start, date_end, last_run_date")
+    .select("id")
     .eq("status", "agendada")
-    .limit(200);
+    .lte("schedule_at", new Date().toISOString())
+    .order("schedule_at", { ascending: true })
+    .limit(20);
 
-  const nowIso = new Date().toISOString();
-  const due = (scheduled ?? []).filter((c) => {
-    if (c.last_run_date === today) return false;
-    if (c.send_hour === null || c.send_hour === undefined) {
-      return !!c.schedule_at && c.schedule_at <= nowIso;
-    }
-    if (Number(c.send_hour) !== hour) return false;
-    if (c.date_start && today < c.date_start) return false;
-    if (c.date_end && today > c.date_end) return false;
-    return true;
-  }).slice(0, 20);
+  const due = scheduled ?? [];
 
   const results: Array<{ id: string; ok: boolean }> = [];
   for (const c of due ?? []) {
@@ -57,13 +50,6 @@ Deno.serve(async (req) => {
         },
         body: JSON.stringify({ campaign_id: c.id }),
       });
-      // Campanha com janela de datas continua ativa até a data final.
-      const recorrente = c.send_hour !== null && c.send_hour !== undefined
-        && (!c.date_end || today < c.date_end);
-      await admin.from("push_campaigns").update({
-        last_run_date: today,
-        status: recorrente ? "agendada" : "enviada",
-      }).eq("id", c.id);
       results.push({ id: c.id, ok: res.ok });
     } catch {
       results.push({ id: c.id, ok: false });
