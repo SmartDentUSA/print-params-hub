@@ -114,13 +114,22 @@ Deno.serve(async (req) => {
       const res = await fetch(DISPARO_PRO_URL, {
         method: "POST",
         headers: { Authorization: `Bearer ${smsToken}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ numero: phone, servico: DISPARO_PRO_SERVICO, mensagem: msg }),
+        body: JSON.stringify([{
+          numero: phone,
+          servico: DISPARO_PRO_SERVICO,
+          mensagem: msg,
+          codificacao: "0",
+          nome_campanha: "Acesso Cliente",
+        }]),
+        signal: AbortSignal.timeout(45_000),
       });
       const raw = await res.text();
-      if (!res.ok) {
+      const accepted = res.ok && /ACCEPTED|"status"\s*:\s*"?(0|200|ok)/i.test(raw);
+      if (!accepted) {
         await log("error", "sms_send_failed", { phone: maskPhone(phone), status: res.status, raw: raw.slice(0, 500) });
         return json({ ok: false, error: "Não foi possível enviar o SMS agora." }, 502);
       }
+      await log("info", "sms_sent", { phone: maskPhone(phone), raw: raw.slice(0, 300) });
       return json({ ok: true, phone_masked: maskPhone(phone) });
     }
 
