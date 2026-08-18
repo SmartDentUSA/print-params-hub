@@ -1,14 +1,13 @@
-import { Settings, BookOpen } from "lucide-react";
 import { LanguageSelector } from "@/components/LanguageSelector";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { Link, useLocation } from "react-router-dom";
-import { Button } from "@/components/ui/button";
+import { useLocation } from "react-router-dom";
+import { AccountButton } from "@/components/AccountButton";
 
 interface HeaderProps {
   showAdminButton?: boolean;
 }
 
-export function Header({ showAdminButton = false }: HeaderProps) {
+export function Header({ showAdminButton: _showAdminButton = false }: HeaderProps) {
   const { t } = useLanguage();
   const location = useLocation();
   const isKnowledgeBasePage = location.pathname.startsWith('/base-conhecimento');
@@ -36,14 +35,7 @@ export function Header({ showAdminButton = false }: HeaderProps) {
 
         {/* Actions */}
         <div className="flex items-center gap-1 md:gap-2">
-          {showAdminButton && (
-            <Link to="/admin">
-              <Button variant="outline" size="sm" className="flex items-center gap-2">
-                <Settings className="w-4 h-4" />
-                <span className="hidden md:inline">{t('common.admin')}</span>
-              </Button>
-            </Link>
-          )}
+          <AccountButton />
           <LanguageSelector />
         </div>
       </div>

@@ -1,8 +1,7 @@
 import { useState, type ReactNode } from 'react';
-import { Menu, Settings, LayoutGrid, PlaySquare, FileText, BookOpen, Calendar, Store, Sliders } from 'lucide-react';
-import { Link } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
+import { Menu, LayoutGrid, PlaySquare, FileText, BookOpen, Calendar, Store, Sliders } from 'lucide-react';
 import { LanguageSelector } from '@/components/LanguageSelector';
+import { AccountButton } from '@/components/AccountButton';
 import { useLanguage } from '@/contexts/LanguageContext';
 import KbShellSidebar, { type SidebarCategory, type SidebarCta } from './KbShellSidebar';
 import KbHero from './KbHero';
@@ -74,14 +73,7 @@ export default function KbShellLayout({
             ))}
           </div>
           <div className="kbs-topright">
-            {showAdminButton && (
-              <Link to="/admin">
-                <Button variant="outline" size="sm" className="flex items-center gap-2 rounded-full">
-                  <Settings className="w-4 h-4" />
-                  <span className="hidden md:inline">{t('common.admin')}</span>
-                </Button>
-              </Link>
-            )}
+            <AccountButton />
             <LanguageSelector />
           </div>
         </div>
