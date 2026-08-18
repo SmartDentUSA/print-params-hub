@@ -192,6 +192,26 @@ export async function driveListNames(
   return (data.files || []).map((f: any) => String(f.name || ""));
 }
 
+/** List full file metadata inside a folder (id, name, mimeType, size). */
+export async function driveListFiles(
+  token: string,
+  folderId: string,
+): Promise<Array<{ id: string; name: string; mimeType: string; size?: number; webViewLink?: string; createdTime?: string }>> {
+  const q = encodeURIComponent([`'${folderId}' in parents`, "trashed=false"].join(" and "));
+  const data = await driveFetch(
+    token,
+    `/files?q=${q}&fields=files(id,name,mimeType,size,webViewLink,createdTime)&pageSize=1000&supportsAllDrives=true&includeItemsFromAllDrives=true`,
+  );
+  return (data.files || []).map((f: any) => ({
+    id: String(f.id),
+    name: String(f.name || ""),
+    mimeType: String(f.mimeType || ""),
+    size: f.size ? Number(f.size) : undefined,
+    webViewLink: f.webViewLink ? String(f.webViewLink) : undefined,
+    createdTime: f.createdTime ? String(f.createdTime) : undefined,
+  }));
+}
+
 /**
  * Start a resumable upload session. Returns the session URI already rewritten
  * to the connector gateway when possible, so chunk PUTs stay authenticated
