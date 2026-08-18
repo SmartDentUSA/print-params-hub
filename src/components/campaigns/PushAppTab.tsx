@@ -426,7 +426,7 @@ export function PushAppTab() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2"><Send className="w-5 h-5" /> Envio</CardTitle>
-          <CardDescription>Envie agora ou programe entre 06:00 e 23:00.</CardDescription>
+          <CardDescription>Envie agora ou escolha a data e a hora do disparo desta campanha (06:00–23:00).</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-wrap items-end gap-3">
           <Button onClick={() => submit("now")} disabled={sending}>
@@ -434,8 +434,17 @@ export function PushAppTab() {
             {sending ? "Enviando..." : `Enviar agora (${audience ?? 0})`}
           </Button>
           <div className="space-y-1">
-            <Label className="text-xs">Programar para</Label>
-            <Input type="datetime-local" value={scheduleAt} onChange={(e) => setScheduleAt(e.target.value)} className="w-56" />
+            <Label className="text-xs">Data do disparo</Label>
+            <DatePickerInput value={sendDate} onChange={setSendDate} className="w-44" placeholder="Escolher data" />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs">Hora</Label>
+            <Select value={sendHour} onValueChange={setSendHour}>
+              <SelectTrigger className="w-28"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {HOURS.map((h) => <SelectItem key={h} value={h}>{h}:00</SelectItem>)}
+              </SelectContent>
+            </Select>
           </div>
           <Button variant="outline" onClick={() => submit("schedule")} disabled={sending}>
             <Clock className="w-4 h-4 mr-2" /> Programar
@@ -447,7 +456,20 @@ export function PushAppTab() {
       <Card>
         <CardHeader>
           <CardTitle>Campanhas push</CardTitle>
-          <CardDescription>Enviados, falhas e cliques por campanha.</CardDescription>
+          <CardDescription>Disparos, enviados, falhas e cliques por campanha.</CardDescription>
+          <div className="grid gap-3 sm:grid-cols-4 pt-3">
+            {[
+              { label: "Disparos", value: totals.disparos, icon: Send },
+              { label: "Enviados", value: totals.enviados, icon: BellRing },
+              { label: "Cliques no push", value: totals.cliques, icon: MousePointerClick },
+              { label: "Falhas", value: totals.falhas, icon: Clock },
+            ].map((k) => (
+              <div key={k.label} className="rounded-lg border border-border p-3">
+                <p className="text-xs text-muted-foreground flex items-center gap-1"><k.icon className="w-3.5 h-3.5" /> {k.label}</p>
+                <p className="text-2xl font-semibold">{k.value}</p>
+              </div>
+            ))}
+          </div>
         </CardHeader>
         <CardContent className="overflow-x-auto">
           <Table>
