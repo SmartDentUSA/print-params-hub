@@ -15,8 +15,9 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { driveDownloadFile, driveGetFileMeta, getDriveAccessToken } from "../_shared/drive.ts";
 import {
   authorizeTestimonialCall, chat, corsHeadersTestimonial, extensionForMime, failTestimonial,
-  GATEWAY, jsonResponse, logEvent, MAX_AUDIO_BYTES, parseJsonBlock, serviceClient, setStatus,
-  sha256Hex, STT_MODEL, TESTIMONIAL_DESTINATION_KEY,
+  GATEWAY, jsonResponse, logEvent, matchParticipantByName, MAX_AUDIO_BYTES, parseJsonBlock,
+  serviceClient, setStatus, sha256Hex, STT_MODEL, TESTIMONIAL_DESTINATION_KEY,
+  type ParticipantCandidate,
 } from "../_shared/testimonial-pipeline.ts";
 
 const REVISION_PROMPT = `Você revisa transcrições de depoimentos de alunos de treinamentos odontológicos digitais da Smart Dent.
@@ -46,6 +47,33 @@ Responda SOMENTE JSON:
 }
 
 As "quotes" devem ser trechos contínuos copiados da transcrição literal, sem edição.`;
+
+const NAME_PROMPT = `Você extrai APENAS o nome que a pessoa fala ao se apresentar em um depoimento.
+Não invente nome. Se ninguém se apresentar com nome próprio, retorne null.
+Responda SOMENTE JSON: {"spoken_name": "nome como foi falado" | null}`;
+
+/** Inscritos e acompanhantes da turma, para casar com o nome falado. */
+async function loadTurmaCandidates(db: any, turmaId: string): Promise<ParticipantCandidate[]> {
+  const out: ParticipantCandidate[] = [];
+  const { data: enrollments } = await db
+    .from("smartops_course_enrollments")
+    .select("id, nome")
+    .eq("turma_id", turmaId);
+  for (const e of enrollments || []) {
+    if (e?.nome) out.push({ kind: "enrollment", id: e.id, name: String(e.nome) });
+  }
+  const ids = (enrollments || []).map((e: any) => e.id);
+  if (ids.length) {
+    const { data: companions } = await db
+      .from("smartops_enrollment_companions")
+      .select("id, nome, enrollment_id")
+      .in("enrollment_id", ids);
+    for (const c of companions || []) {
+      if (c?.nome) out.push({ kind: "companion", id: c.id, name: String(c.nome) });
+    }
+  }
+  return out;
+}
 
 async function transcribeBytes(bytes: Uint8Array, filename: string): Promise<string> {
   const key = Deno.env.get("LOVABLE_API_KEY");
@@ -178,14 +206,6 @@ serve(async (req) => {
     if (upsertErr) throw new Error(`Falha ao registrar depoimento: ${upsertErr.message}`);
     testimonialId = row.id;
 
-    if (!enrollmentId && !companionId) {
-      await setStatus(db, row.id, "awaiting_identification", {
-        review_notes: "Participante não vinculado à turma — identifique antes de transcrever.",
-      });
-      await logEvent(db, row.id, "identification", "blocked", "Participante não identificado");
-      return jsonResponse({ status: "awaiting_identification", testimonial_id: row.id }, 409);
-    }
-
     if (row.transcript_raw && !force) {
       return jsonResponse({
         status: row.status, testimonial_id: row.id, already_transcribed: true,
@@ -218,6 +238,58 @@ serve(async (req) => {
 
     // ── Transcrição literal ───────────────────────────────────────────────
     const raw = await transcribeBytes(bytes, filename);
+
+    // ── Identificação pela fala (quando ninguém foi vinculado no upload) ──
+    let resolvedEnrollmentId = enrollmentId;
+    let resolvedCompanionId = companionId;
+    if (!resolvedEnrollmentId && !resolvedCompanionId) {
+      let spoken: string | null = null;
+      try {
+        const nameRaw = await chat([
+          { role: "system", content: NAME_PROMPT },
+          { role: "user", content: raw.slice(0, 4000) },
+        ], { json: true });
+        spoken = parseJsonBlock<any>(nameRaw)?.spoken_name || null;
+      } catch (e) {
+        await logEvent(db, row.id, "identification", "error", String((e as Error).message));
+      }
+
+      const candidates = await loadTurmaCandidates(db, turmaId);
+      const match = spoken ? matchParticipantByName(spoken, candidates) : null;
+      if (match) {
+        if (match.kind === "enrollment") resolvedEnrollmentId = match.id;
+        else resolvedCompanionId = match.id;
+        participantName = match.name;
+        if (match.kind === "enrollment") {
+          const { data: enr } = await db
+            .from("smartops_course_enrollments")
+            .select("id, nome, email, instagram, especialidade, area_atuacao, empresa_cidade, empresa_estado, status")
+            .eq("id", match.id)
+            .maybeSingle();
+          if (enr) participantSnapshot = enr as Record<string, unknown>;
+        }
+        await db.from("training_testimonials").update({
+          enrollment_id: resolvedEnrollmentId,
+          companion_id: resolvedCompanionId,
+          participant_name: participantName,
+          participant_type: resolvedEnrollmentId ? "enrollment" : "companion",
+          participant_snapshot: participantSnapshot,
+        }).eq("id", row.id);
+        await logEvent(db, row.id, "identification", "success", `Participante identificado pela fala: ${participantName}`, { spoken });
+      } else {
+        await setStatus(db, row.id, "awaiting_identification", {
+          transcript_raw: raw,
+          transcription_model: STT_MODEL,
+          transcribed_at: new Date().toISOString(),
+          review_notes: spoken
+            ? `Nome falado "${spoken}" não casou com nenhum inscrito da turma — selecione o participante.`
+            : "Participante não identificado na fala — selecione manualmente.",
+          auto_process: false,
+        });
+        await logEvent(db, row.id, "identification", "blocked", "Participante não identificado", { spoken });
+        return jsonResponse({ status: "awaiting_identification", testimonial_id: row.id, spoken_name: spoken }, 409);
+      }
+    }
 
     // ── Revisão + análise (sem inventar nada) ─────────────────────────────
     const revisionRaw = await chat([
