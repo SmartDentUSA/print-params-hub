@@ -441,6 +441,11 @@ function PublicTurmaCard({ turma, status }: { turma: TurmaComVagas; status: Coun
   const endTime = hhmm(turma.end_time);
   const endDateValue = turma.end_date ?? turma.start_date;
 
+  const authed = useAuthedSession();
+  const driveFolderId = ((turma as any).drive_folder_id ?? (turma as any).factory_drive_folder_id ?? null) as string | null;
+  const driveFolderUrl = ((turma as any).drive_folder_url ?? (turma as any).factory_drive_folder_url ?? null) as string | null;
+  const canUpload = authed && !!driveFolderId;
+
   return (
     <div className={cn("pp-card relative overflow-hidden flex flex-col min-h-[360px]", isMuted && "opacity-60")}>
       {coverUrl && (
