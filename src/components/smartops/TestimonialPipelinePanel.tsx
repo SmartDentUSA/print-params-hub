@@ -1,4 +1,4 @@
-import { AlertTriangle, CheckCircle2, ExternalLink, FileText, Loader2, Mic, RefreshCw, Sparkles, Video } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Clock, ExternalLink, FileText, Loader2, Mic, RefreshCw, Sparkles, Video } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -38,6 +38,12 @@ export function TestimonialPipelinePanel({ turmaId, open }: { turmaId: string; o
         )}
 
         <div className="flex flex-wrap items-center gap-1.5 text-[10px] text-muted-foreground">
+          {t.auto_process !== false && ["uploaded", "transcribed"].includes(t.status) && (
+            <Badge variant="secondary" className="gap-1 text-[10px]">
+              <Clock className="h-3 w-3" /> na fila automática
+              {Number(t.auto_attempts || 0) > 0 ? ` · tentativa ${t.auto_attempts}` : ""}
+            </Badge>
+          )}
           {t.transcription_confidence != null && (
             <Badge variant="outline" className="font-mono text-[10px]">
               conf. {Number(t.transcription_confidence).toFixed(2)}
@@ -53,6 +59,12 @@ export function TestimonialPipelinePanel({ turmaId, open }: { turmaId: string; o
             </Badge>
           )}
         </div>
+
+        {t.auto_last_error && (
+          <div className="rounded border border-destructive/40 bg-destructive/5 p-2 text-[11px] text-destructive">
+            Última falha automática: {t.auto_last_error}
+          </div>
+        )}
 
         {errs.length > 0 && (
           <div className="flex items-start gap-1.5 rounded border border-amber-500/50 bg-amber-500/5 p-2 text-[11px] text-amber-700">
@@ -104,7 +116,8 @@ export function TestimonialPipelinePanel({ turmaId, open }: { turmaId: string; o
         <div>
           <div className="text-sm font-semibold">Pipeline de depoimentos</div>
           <div className="text-[11px] text-muted-foreground">
-            Transcrição → artigo da Categoria E → RAG. Nada vai para redes sociais sem aprovação.
+            Automático a cada 2 min: transcrição → identificação do participante → artigo da Categoria E → RAG.
+            Nada vai para redes sociais sem aprovação.
           </div>
         </div>
         <Button size="sm" variant="ghost" className="h-7" onClick={() => void reload()} disabled={loading}>
@@ -114,6 +127,9 @@ export function TestimonialPipelinePanel({ turmaId, open }: { turmaId: string; o
 
       <div className="flex flex-wrap gap-1.5 text-[10px]">
         <Badge variant="outline">{summary.total} vídeos</Badge>
+        {summary.naFila > 0 && (
+          <Badge variant="secondary" className="gap-1"><Clock className="h-3 w-3" />{summary.naFila} na fila</Badge>
+        )}
         <Badge variant="secondary">{summary.aTranscrever} a transcrever</Badge>
         <Badge variant="secondary">{summary.aGerar} a gerar</Badge>
         {summary.emRevisao > 0 && <Badge variant="destructive">{summary.emRevisao} em revisão</Badge>}
