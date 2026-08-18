@@ -7,6 +7,19 @@ import { formatDatePtBr, formatWeekday } from "@/lib/courseUtils";
 import { formatTurmaNumber } from "@/lib/turmaNumber";
 import { cn } from "@/lib/utils";
 import type { TurmaComVagas } from "@/types/courses";
+import { UploadMidiasDriveButton } from "@/components/smartops/UploadMidiasDriveButton";
+
+/** Sessão autenticada: o upload de mídias exige JWT de usuário. */
+function useAuthedSession() {
+  const [authed, setAuthed] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    supabase.auth.getSession().then(({ data }) => { if (alive) setAuthed(!!data.session); });
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => setAuthed(!!s));
+    return () => { alive = false; sub.subscription.unsubscribe(); };
+  }, []);
+  return authed;
+}
 
 type AgendaVariant = "presencial" | "online";
 
@@ -428,6 +441,11 @@ function PublicTurmaCard({ turma, status }: { turma: TurmaComVagas; status: Coun
   const endTime = hhmm(turma.end_time);
   const endDateValue = turma.end_date ?? turma.start_date;
 
+  const authed = useAuthedSession();
+  const driveFolderId = ((turma as any).drive_folder_id ?? (turma as any).factory_drive_folder_id ?? null) as string | null;
+  const driveFolderUrl = ((turma as any).drive_folder_url ?? (turma as any).factory_drive_folder_url ?? null) as string | null;
+  const canUpload = authed && !!driveFolderId;
+
   return (
     <div className={cn("pp-card relative overflow-hidden flex flex-col min-h-[360px]", isMuted && "opacity-60")}>
       {coverUrl && (
@@ -556,6 +574,21 @@ function PublicTurmaCard({ turma, status }: { turma: TurmaComVagas; status: Coun
               </div>
             );
           })()}
+
+          {canUpload && (
+            <div className="mt-3 flex justify-center">
+              <UploadMidiasDriveButton
+                turmaId={turma.id}
+                turmaNumber={turma.turma_number ?? null}
+                turmaLabel={turma.label}
+                courseTitle={turma.course_title}
+                startDate={turma.start_date}
+                endDate={turma.end_date}
+                folderId={driveFolderId}
+                folderUrl={driveFolderUrl}
+              />
+            </div>
+          )}
         </>
       ) : (
         <>
