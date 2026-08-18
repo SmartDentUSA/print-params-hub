@@ -55,7 +55,7 @@ export default function KbResinDocsDialog({ open, onClose, resinName, docs }: Pr
                     <li
                       key={`${d.url}-${i}`}
                       className="flex items-start gap-3 rounded-md border border-border/60 bg-card px-3 py-2 hover:bg-accent/40 transition-colors cursor-pointer"
-                      onClick={() => open_(d.url)}
+                      onClick={() => open_(d.url, d.name, d.kind)}
                     >
                       <span className="text-base leading-tight pt-0.5">{ICON[d.kind]}</span>
                       <span className="flex-1 text-sm leading-snug text-foreground break-words">{d.name}</span>
