@@ -7,6 +7,7 @@ import { usePageTracking } from "./hooks/usePageTracking";
 import { ChunkErrorBoundary } from "./components/ChunkErrorBoundary";
 import { ReformatBatchWidget } from "./components/ReformatBatchWidget";
 import { SessionPresence } from "@/hooks/useSessionPresence";
+import { PushOptInGate } from "./components/PushOptInGate";
 
 // Lazy: heavy / admin / non-landing routes
 const AdminViewSecure = lazy(() => import("./pages/AdminViewSecure"));
@@ -80,6 +81,7 @@ const App = () => (
   <>
     <ChunkErrorBoundary>
     <SessionPresence />
+    <PushOptInGate />
     <Suspense fallback={<RouteFallback />}>
     <Routes>
       <Route path="/" element={<Navigate to="/base-conhecimento?tab=parametros" replace />} />
