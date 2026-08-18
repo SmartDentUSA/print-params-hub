@@ -1476,7 +1476,7 @@ export default function DraLIA({ embedded = false }: DraLIAProps) {
         <aside
           aria-live="polite"
           aria-label="Nova notificação Smart Dent"
-          className={`fixed right-4 z-[60] w-[calc(100vw-2rem)] max-w-sm overflow-hidden rounded-md border border-border bg-card text-card-foreground shadow-large animate-in slide-in-from-bottom-4 duration-300 sm:right-6 ${isOpen ? 'bottom-[min(45rem,calc(100vh-1rem))]' : 'bottom-24'}`}
+          className={`fixed right-4 z-[60] w-[calc(100vw-2rem)] max-w-sm overflow-hidden rounded-md border border-border bg-card text-card-foreground shadow-large animate-in slide-in-from-bottom-4 duration-300 sm:right-6 ${isOpen ? 'top-4 sm:top-auto sm:bottom-[608px]' : 'bottom-24'}`}
         >
           {inAppPush.image && (
             <img src={inAppPush.image} alt="" className="h-28 w-full object-cover" />
