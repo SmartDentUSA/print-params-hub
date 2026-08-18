@@ -18,10 +18,15 @@ const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
 function normalizePhone(raw: string): string {
-  const d = String(raw || "").replace(/\D+/g, "");
+  let d = String(raw || "").replace(/\D+/g, "");
   if (!d) return "";
+  // remove prefixos 55 repetidos (ex.: usuário digita "55199926123" -> não virar 5555...)
+  while (d.length > 11 && d.startsWith("55")) {
+    const rest = d.slice(2);
+    if (rest.length >= 10) d = rest; else break;
+  }
   if (d.length === 10 || d.length === 11) return `55${d}`;
-  return d;
+  return d.length > 11 ? `55${d.slice(-11)}` : d;
 }
 function maskPhone(p: string): string {
   const d = p.replace(/\D+/g, "");
