@@ -323,7 +323,6 @@ export default function AgendaPublica({ variant = "presencial" }: AgendaPublicaP
 
   // Para Online ao Vivo / Online: 1 card por curso, com todas as turmas dentro.
   const onlineCourseGroups = useMemo(() => {
-    void 0;
     if (variant !== "online") return [];
     const map = new Map<string, TurmaComVagas[]>();
     for (const t of turmas) {
@@ -338,6 +337,29 @@ export default function AgendaPublica({ variant = "presencial" }: AgendaPublicaP
       }))
       .sort((a, b) => (a.turmas[0]?.start_date || "").localeCompare(b.turmas[0]?.start_date || ""));
   }, [turmas, variant]);
+
+  // Pastas do Drive (só para equipe autenticada): habilita o upload de mídias direto do celular.
+  const authed = useAuthedSession();
+  const { data: driveFolders = {} } = useQuery({
+    queryKey: ["public_agenda_drive_folders", variant],
+    enabled: authed,
+    staleTime: 60_000,
+    queryFn: async (): Promise<Record<string, { id: string | null; url: string | null }>> => {
+      const { data, error } = await (supabase as any)
+        .from("smartops_course_turmas")
+        .select("id, drive_folder_id, drive_folder_url, factory_drive_folder_id, factory_drive_folder_url")
+        .eq("active", true);
+      if (error) throw error;
+      const map: Record<string, { id: string | null; url: string | null }> = {};
+      for (const r of (data ?? []) as any[]) {
+        map[r.id] = {
+          id: r.drive_folder_id ?? r.factory_drive_folder_id ?? null,
+          url: r.drive_folder_url ?? r.factory_drive_folder_url ?? null,
+        };
+      }
+      return map;
+    },
+  });
 
   return (
     <div className="pp-root min-h-screen">
@@ -388,6 +410,8 @@ export default function AgendaPublica({ variant = "presencial" }: AgendaPublicaP
               <PublicTurmaCard
                 key={t.id}
                 turma={t}
+                driveFolderId={driveFolders[t.id]?.id ?? null}
+                driveFolderUrl={driveFolders[t.id]?.url ?? null}
                 status={getCountdown(t.start_date, t.start_time, t.end_date, t.end_time, t.modality)}
               />
             ))}
