@@ -68,6 +68,61 @@ async function ensureUniqueSlug(db: any, base: string, ignoreId?: string | null)
   return `${root}-${Date.now()}`;
 }
 
+function esc(v: unknown): string {
+  return String(v ?? "")
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+/** Ficha pública do participante: nome, cidade/UF, especialidade, curso e turma. */
+function buildParticipantCard(f: Record<string, string | null>): string {
+  const rows = [
+    ["Participante", f.nome],
+    ["Cidade", f.cidade && f.uf ? `${f.cidade} — ${f.uf}` : f.cidade || f.uf],
+    ["Especialidade", f.especialidade || f.area_atuacao],
+    ["Treinamento", f.curso],
+    ["Turma", f.turma],
+  ].filter(([, v]) => Boolean(v));
+  if (!rows.length) return "";
+  return [
+    `<h2>Ficha do participante</h2>`,
+    `<ul class="testimonial-participant-card">`,
+    ...rows.map(([k, v]) => `<li><strong>${esc(k)}:</strong> ${esc(v)}</li>`),
+    `</ul>`,
+  ].join("");
+}
+
+/** Transcrição completa exposta para busca (interna e externa). */
+function buildTranscriptSection(transcript: string): string {
+  const paragraphs = transcript
+    .split(/\n{2,}|(?<=[.!?])\s{2,}/)
+    .map((p) => p.trim())
+    .filter(Boolean);
+  const body = (paragraphs.length ? paragraphs : [transcript]).map((p) => `<p>${esc(p)}</p>`).join("");
+  return `<h2>Transcrição completa do depoimento</h2>${body}`;
+}
+
+function buildJsonLd(f: Record<string, string | null>, opts: {
+  title: string; url: string; transcript: string;
+}): string {
+  const data: Record<string, unknown> = {
+    "@context": "https://schema.org",
+    "@type": "Review",
+    name: opts.title,
+    url: opts.url,
+    reviewBody: opts.transcript.slice(0, 4000),
+    itemReviewed: { "@type": "Course", name: f.curso || "Treinamento Smart Dent", provider: { "@type": "Organization", name: "Smart Dent" } },
+    author: {
+      "@type": "Person",
+      name: f.nome || "Participante",
+      ...(f.especialidade || f.area_atuacao ? { jobTitle: f.especialidade || f.area_atuacao } : {}),
+      ...(f.cidade || f.uf
+        ? { address: { "@type": "PostalAddress", addressLocality: f.cidade || undefined, addressRegion: f.uf || undefined, addressCountry: "BR" } }
+        : {}),
+    },
+  };
+  return `<script type="application/ld+json">${JSON.stringify(data)}</script>`;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeadersTestimonial });
 
@@ -135,10 +190,38 @@ serve(async (req) => {
         : "(nenhuma fonte interna acima do limiar — não invente contexto técnico)",
     ].join("\n");
 
+    // ── Ficha real do participante (dados públicos apenas) ────────────────
+    let snap: any = t.participant_snapshot || null;
+    if (t.enrollment_id) {
+      const { data: enr } = await db
+        .from("smartops_course_enrollments")
+        .select("id, nome, especialidade, area_atuacao, empresa_cidade, empresa_estado")
+        .eq("id", t.enrollment_id)
+        .maybeSingle();
+      if (enr) snap = { ...(snap || {}), ...enr };
+    }
+    const ficha: Record<string, string | null> = {
+      nome: t.participant_name || snap?.nome || null,
+      cidade: snap?.empresa_cidade || null,
+      uf: snap?.empresa_estado || null,
+      especialidade: snap?.especialidade || null,
+      area_atuacao: snap?.area_atuacao || null,
+      curso: ctx.course.title || null,
+      turma: String(ctx.turma.label || ctx.turma.turma_number || "") || null,
+    };
+    if (snap) {
+      await db.from("training_testimonials").update({
+        participant_snapshot: snap,
+        especialidade: ficha.especialidade,
+        area_atuacao: ficha.area_atuacao,
+      }).eq("id", t.id).then(() => {}, () => {});
+    }
+
     const participantLine = [
-      `Participante: ${t.participant_name || "não informado"}`,
-      t.participant_snapshot?.especialidade ? `Especialidade: ${t.participant_snapshot.especialidade}` : "",
-      t.participant_snapshot?.empresa_cidade ? `Cidade: ${t.participant_snapshot.empresa_cidade}` : "",
+      `Participante: ${ficha.nome || "não informado"}`,
+      ficha.especialidade ? `Especialidade: ${ficha.especialidade}` : "",
+      ficha.area_atuacao ? `Área de atuação: ${ficha.area_atuacao}` : "",
+      ficha.cidade ? `Cidade: ${ficha.cidade}${ficha.uf ? ` - ${ficha.uf}` : ""}` : "",
     ].filter(Boolean).join("\n");
 
     const articleRaw = await chat([
@@ -151,12 +234,22 @@ serve(async (req) => {
     const article = parseJsonBlock<any>(articleRaw);
 
     const slug = await ensureUniqueSlug(db, article.slug || article.title, t.knowledge_content_id);
+
+    // Corpo final = ficha real + artigo gerado + transcrição completa + JSON-LD.
+    const publicUrlPath = `/base-conhecimento/e/${slug}`;
+    const finalHtml = [
+      buildParticipantCard(ficha),
+      String(article.body_html || ""),
+      buildTranscriptSection(transcript),
+      buildJsonLd(ficha, { title: String(article.title || ""), url: publicUrlPath, transcript }),
+    ].filter(Boolean).join("\n");
+
     const errors = validateTestimonialArticle({
       title: String(article.title || ""),
       slug,
       meta_description: String(article.meta_description || ""),
       excerpt: String(article.excerpt || ""),
-      content_html: String(article.body_html || ""),
+      content_html: finalHtml,
       quotes: Array.isArray(article.quotes_used) ? article.quotes_used : [],
       transcript: `${t.transcript_raw || ""}\n${t.transcript_revised || ""}`,
     });
@@ -171,9 +264,12 @@ serve(async (req) => {
       title: String(article.title || "").slice(0, 200),
       slug,
       excerpt: String(article.excerpt || "").slice(0, 500),
-      content_html: String(article.body_html || ""),
+      content_html: finalHtml,
       meta_description: String(article.meta_description || "").slice(0, 200),
-      keywords: Array.isArray(article.keywords) ? article.keywords.slice(0, 12) : [],
+      keywords: [
+        ...(Array.isArray(article.keywords) ? article.keywords.slice(0, 12) : []),
+        ficha.especialidade, ficha.cidade, ficha.uf,
+      ].filter(Boolean) as string[],
       faqs: Array.isArray(article.faqs) ? article.faqs : [],
       active: shouldPublish,
       created_by: "training-testimonial",
@@ -181,6 +277,7 @@ serve(async (req) => {
         testimonial_id: t.id,
         turma_id: t.turma_id,
         participant_name: t.participant_name,
+        participant_ficha: ficha,
         rag_sources: sources.map((s) => ({ type: s.source_type, title: s.title, score: s.score })),
         quotes_used: article.quotes_used || [],
         generated_at: new Date().toISOString(),
@@ -197,7 +294,7 @@ serve(async (req) => {
       contentId = data.id;
     }
 
-    const publicUrl = `/base-conhecimento/e/${slug}`;
+    const publicUrl = publicUrlPath;
 
     // ── Vídeo do depoimento vinculado ao artigo ───────────────────────────
     let videoStatus = "sem_provedor";
@@ -223,7 +320,9 @@ serve(async (req) => {
     if (shouldPublish) {
       try {
         const { generateTextEmbedding } = await import("../_shared/generate-embedding.ts");
-        const plain = String(article.body_html || "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+        const plain = `${participantLine}\n${finalHtml}`
+          .replace(/<script[\s\S]*?<\/script>/gi, " ")
+          .replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
         const chunks: string[] = [];
         for (let i = 0; i < plain.length; i += 750) chunks.push(plain.slice(i, i + 900));
         await db.from("agent_embeddings").delete().contains("metadata", { testimonial_id: t.id });
@@ -238,6 +337,8 @@ serve(async (req) => {
             metadata: {
               testimonial_id: t.id, turma_id: t.turma_id, title: payload.title,
               url: publicUrl, participant_name: t.participant_name, source: "training_testimonial",
+              especialidade: ficha.especialidade, area_atuacao: ficha.area_atuacao,
+              cidade: ficha.cidade, uf: ficha.uf, curso: ficha.curso, turma: ficha.turma,
             },
           });
           if (!error) ragChunks++;

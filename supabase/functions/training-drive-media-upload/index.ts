@@ -101,6 +101,49 @@ async function loadTurma(db: any, turmaId: string) {
   return data;
 }
 
+/**
+ * Registra o depoimento no pipeline assim que o vídeo entra na pasta
+ * "Depoimentos". A fila automática (training-testimonial-auto-process) cuida
+ * de transcrever, identificar o participante e publicar o artigo.
+ * Reenvio do mesmo arquivo não duplica: drive_file_id é único.
+ */
+async function enqueueTestimonial(db: any, row: any, driveFileId: string | null, webViewLink: string | null) {
+  if (row?.destination_key !== "videos_depoimentos" || !driveFileId) return;
+  try {
+    const { data: turma } = await db
+      .from("smartops_course_turmas")
+      .select("id, course_id")
+      .eq("id", row.turma_id)
+      .maybeSingle();
+    const hasParticipant = Boolean(row.enrollment_id || row.companion_id);
+    const { error } = await db.from("training_testimonials").upsert({
+      turma_id: row.turma_id,
+      course_id: turma?.course_id ?? null,
+      media_id: row.id,
+      drive_file_id: driveFileId,
+      drive_folder_id: row.drive_folder_id ?? null,
+      drive_web_view_link: webViewLink,
+      generated_filename: row.generated_filename ?? null,
+      mime_type: row.mime_type ?? null,
+      video_size_bytes: row.size_bytes ?? null,
+      enrollment_id: row.enrollment_id ?? null,
+      companion_id: row.companion_id ?? null,
+      participant_name: row.participant_name_snapshot ?? null,
+      participant_type: row.enrollment_id ? "enrollment" : row.companion_id ? "companion" : null,
+      status: hasParticipant ? "uploaded" : "awaiting_identification",
+      auto_process: true,
+      auto_attempts: 0,
+      auto_next_attempt_at: new Date().toISOString(),
+      auto_last_error: null,
+    }, { onConflict: "drive_file_id", ignoreDuplicates: true });
+    if (error) throw new Error(error.message);
+    console.log(JSON.stringify({ event: "testimonial_enqueued", media_id: row.id, drive_file_id: driveFileId }));
+  } catch (e) {
+    // Nunca derruba o upload: o painel permite acionar manualmente.
+    console.error("[testimonial-enqueue]", String((e as any)?.message || e));
+  }
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
@@ -120,7 +163,7 @@ serve(async (req) => {
 
       const { data: row, error } = await db
         .from("training_drive_media")
-        .select("id, uploaded_by, size_bytes, resumable_session_uri, status, bytes_uploaded, drive_file_id")
+        .select("id, uploaded_by, size_bytes, resumable_session_uri, status, bytes_uploaded, drive_file_id, destination_key, turma_id, drive_folder_id, generated_filename, mime_type, enrollment_id, companion_id, participant_name_snapshot")
         .eq("id", uploadId)
         .maybeSingle();
       if (error) return json({ error: error.message }, 500);
@@ -148,6 +191,7 @@ serve(async (req) => {
             uploaded_at: new Date().toISOString(),
             error_message: null,
           }).eq("id", uploadId);
+          await enqueueTestimonial(db, row, res.fileId ?? null, link);
           return json({ done: true, received: Number(row.size_bytes), drive_file_id: res.fileId, drive_web_view_link: link });
         }
         await db.from("training_drive_media").update({ status: "uploading", bytes_uploaded: res.received }).eq("id", uploadId);

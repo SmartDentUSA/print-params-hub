@@ -255,3 +255,39 @@ export async function sha256Hex(bytes: Uint8Array): Promise<string> {
   const digest = await crypto.subtle.digest("SHA-256", bytes);
   return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, "0")).join("");
 }
+
+export interface ParticipantCandidate {
+  kind: "enrollment" | "companion";
+  id: string;
+  name: string;
+}
+
+/**
+ * Casa um nome falado com os inscritos/acompanhantes da turma.
+ * Tolerante a acento e sobrenome parcial, mas conservador: só aceita quando há
+ * exatamente um candidato compatível — nunca atribui ao participante errado.
+ */
+export function matchParticipantByName(
+  spoken: string,
+  candidates: ParticipantCandidate[],
+): ParticipantCandidate | null {
+  const target = normalizeForMatch(spoken);
+  if (target.length < 3) return null;
+  const targetTokens = target.split(" ").filter((t) => t.length >= 3);
+  if (!targetTokens.length) return null;
+
+  const scored = candidates.map((c) => {
+    const name = normalizeForMatch(c.name);
+    const tokens = name.split(" ").filter((t) => t.length >= 3);
+    if (!tokens.length) return { c, score: 0 };
+    if (name === target) return { c, score: 100 };
+    const shared = tokens.filter((t) => targetTokens.includes(t)).length;
+    const firstMatch = tokens[0] && targetTokens[0] === tokens[0] ? 1 : 0;
+    return { c, score: shared * 10 + firstMatch * 5 };
+  }).filter((s) => s.score >= 15) // pelo menos nome + sobrenome, ou primeiro nome exato + 1 token
+    .sort((a, b) => b.score - a.score);
+
+  if (!scored.length) return null;
+  if (scored.length > 1 && scored[0].score === scored[1].score) return null;
+  return scored[0].c;
+}

@@ -26129,6 +26129,11 @@ export type Database = {
       training_testimonials: {
         Row: {
           analysis: Json | null
+          auto_attempts: number
+          auto_last_error: string | null
+          auto_locked_at: string | null
+          auto_next_attempt_at: string | null
+          auto_process: boolean
           companion_id: string | null
           course_id: string | null
           created_at: string
@@ -26192,6 +26197,11 @@ export type Database = {
         }
         Insert: {
           analysis?: Json | null
+          auto_attempts?: number
+          auto_last_error?: string | null
+          auto_locked_at?: string | null
+          auto_next_attempt_at?: string | null
+          auto_process?: boolean
           companion_id?: string | null
           course_id?: string | null
           created_at?: string
@@ -26255,6 +26265,11 @@ export type Database = {
         }
         Update: {
           analysis?: Json | null
+          auto_attempts?: number
+          auto_last_error?: string | null
+          auto_locked_at?: string | null
+          auto_next_attempt_at?: string | null
+          auto_process?: boolean
           companion_id?: string | null
           course_id?: string | null
           created_at?: string
@@ -33099,6 +33114,83 @@ export type Database = {
         Returns: boolean
       }
       fn_churn_risk: { Args: never; Returns: Json }
+      fn_claim_testimonial_auto_jobs: {
+        Args: { _limit?: number }
+        Returns: {
+          analysis: Json | null
+          auto_attempts: number
+          auto_last_error: string | null
+          auto_locked_at: string | null
+          auto_next_attempt_at: string | null
+          auto_process: boolean
+          companion_id: string | null
+          course_id: string | null
+          created_at: string
+          drive_file_id: string
+          drive_folder_id: string | null
+          drive_web_view_link: string | null
+          duration_seconds: number | null
+          edited_at: string | null
+          edited_by: string | null
+          enrollment_id: string | null
+          generated_filename: string | null
+          id: string
+          knowledge_content_id: string | null
+          knowledge_slug: string | null
+          language: string | null
+          low_confidence_segments: Json
+          media_id: string | null
+          mime_type: string | null
+          panda_folder_id: string | null
+          panda_folder_verified_at: string | null
+          panda_last_error: string | null
+          panda_uploaded_at: string | null
+          pandavideo_external_id: string | null
+          pandavideo_id: string | null
+          participant_name: string | null
+          participant_snapshot: Json | null
+          participant_type: string | null
+          processed_by: string | null
+          public_url: string | null
+          rag_chunks: number
+          rag_context_snapshot: Json | null
+          rag_indexed_at: string | null
+          review_notes: string | null
+          sitemap_pinged_at: string | null
+          social_kit_run_id: string | null
+          status: string
+          thumbnail_url: string | null
+          transcribed_at: string | null
+          transcript_raw: string | null
+          transcript_revised: string | null
+          transcript_segments: Json | null
+          transcription_confidence: number | null
+          transcription_model: string | null
+          turma_id: string
+          updated_at: string
+          validation_errors: Json
+          version: number
+          video_conversion_status: string | null
+          video_description: string | null
+          video_embed_url: string | null
+          video_hls: string | null
+          video_player: string | null
+          video_provider: string | null
+          video_provider_id: string | null
+          video_publish_error: string | null
+          video_publish_status: string | null
+          video_published_at: string | null
+          video_sha256: string | null
+          video_size_bytes: number | null
+          video_title: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "training_testimonials"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       fn_classify_deal_category: {
         Args: { p_category: string; p_product: string }
         Returns: string
