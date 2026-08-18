@@ -417,6 +417,7 @@ export function UploadMidiasDriveDialog({
         key={p.key}
         dest={{ ...TESTIMONIAL_DEST, folderName: p.name, tag: `${p.type}${p.status ? ` · ${p.status}` : ""}` }}
         count={total}
+        target={targetFor("videos_depoimentos")}
         subtitle={TESTIMONIAL_DEST.path}
         onFiles={(files) => addFiles(files, TESTIMONIAL_DEST, { enrollmentId: p.enrollment_id, companionId: p.companion_id, name: p.name })}
         footer={
@@ -472,6 +473,7 @@ export function UploadMidiasDriveDialog({
                     key={d.key}
                     dest={d}
                     count={countByDest[d.key] || 0}
+                    target={targetFor(d.key)}
                     subtitle={d.path}
                     onFiles={(files) => addFiles(files, d)}
                   />
@@ -495,6 +497,7 @@ export function UploadMidiasDriveDialog({
                             key={`${o.value}-${d.key}`}
                             dest={d}
                             count={countByDestDay[`${d.key}|${o.value}`] || 0}
+                            target={targetFor(d.key)}
                             subtitle={d.path}
                             onFiles={(files) => addFiles(files, d, { day: o.value })}
                           />
