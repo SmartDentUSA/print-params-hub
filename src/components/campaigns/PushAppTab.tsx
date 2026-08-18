@@ -102,9 +102,10 @@ export function PushAppTab() {
       supabase.from("push_subscriptions").select("id", { count: "exact", head: true }).eq("enabled", true),
       supabase
         .from("push_subscriptions")
-        .select("id", { count: "exact", head: true })
+        .select("lead_id, endpoint")
         .eq("enabled", true)
-        .gte("last_seen_at", new Date(Date.now() - 30 * 60 * 1000).toISOString()),
+        .gte("last_seen_at", new Date(Date.now() - 30 * 60 * 1000).toISOString())
+        .limit(1000),
       supabase
         .from("client_access_invites")
         .select("lead_id, destino")
@@ -118,11 +119,20 @@ export function PushAppTab() {
       supabase.from("campaign_segments").select("id, name, filters").order("name").limit(100),
     ]);
     setTotalSubs(subsRes.count ?? 0);
+    // Contagem por PESSOA (não por dispositivo): mesmo usuário em 2 computadores = 1 online.
+    const identity = (leadId?: string | null, destino?: string | null) =>
+      leadId || (destino ? String(destino).replace(/\D/g, "").slice(-10) || String(destino).toLowerCase() : "");
+    const onlinePeople = new Set<string>();
+    ((onlineRes.data ?? []) as Array<{ lead_id: string | null; endpoint: string | null }>).forEach((r) => {
+      const key = r.lead_id || `device:${r.endpoint ?? ""}`;
+      if (key) onlinePeople.add(key);
+    });
     const sessionRows = (sessionsRes.data ?? []) as Array<{ lead_id: string | null; destino: string | null }>;
-    const sessionsOnline = new Set(
-      sessionRows.map((r) => r.lead_id ?? String(r.destino ?? "").replace(/\D/g, "").slice(-10)).filter(Boolean),
-    ).size;
-    setOnlineNow(Math.max(onlineRes.count ?? 0, sessionsOnline));
+    sessionRows.forEach((r) => {
+      const key = identity(r.lead_id, r.destino);
+      if (key) onlinePeople.add(key);
+    });
+    setOnlineNow(onlinePeople.size);
     setSegments((segRes.data ?? []) as Array<{ id: string; name: string; filters: Record<string, string> }>);
     const uniq = (arr: (string | null)[]) => [...new Set(arr.filter(Boolean) as string[])].sort((a, b) => a.localeCompare(b, "pt-BR"));
     const rows = (leadsRes.data ?? []) as Array<Record<string, string | null>>;
