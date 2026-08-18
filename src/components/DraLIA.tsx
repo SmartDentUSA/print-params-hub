@@ -34,6 +34,7 @@ interface DraLIAProps {
 }
 
 interface InAppPush {
+  id?: string;
   title: string;
   body: string;
   url: string;
@@ -286,6 +287,37 @@ export default function DraLIA({ embedded = false }: DraLIAProps) {
     navigator.serviceWorker.addEventListener("message", handlePushMessage);
     return () => navigator.serviceWorker.removeEventListener("message", handlePushMessage);
   }, [embedded]);
+
+  useEffect(() => {
+    if (embedded) return;
+    let active = true;
+
+    const loadInAppPush = async () => {
+      const { data, error } = await supabase.functions.invoke("push-subscribe", {
+        body: { action: "inbox" },
+      });
+      if (!active || error) return;
+      const notification = (data as { notification?: InAppPush | null } | null)?.notification;
+      if (!notification?.id || !notification.title) return;
+      const dismissedId = localStorage.getItem("smartdent_dismissed_push_id");
+      if (dismissedId !== notification.id) setInAppPush(notification);
+    };
+
+    loadInAppPush();
+    const interval = window.setInterval(loadInAppPush, 30_000);
+    const handleFocus = () => loadInAppPush();
+    window.addEventListener("focus", handleFocus);
+    return () => {
+      active = false;
+      window.clearInterval(interval);
+      window.removeEventListener("focus", handleFocus);
+    };
+  }, [embedded]);
+
+  const dismissInAppPush = () => {
+    if (inAppPush?.id) localStorage.setItem("smartdent_dismissed_push_id", inAppPush.id);
+    setInAppPush(null);
+  };
   const generateSessionId = () => {
     const id = crypto.randomUUID();
     sessionStorage.setItem('dra_lia_session', id);
@@ -1464,13 +1496,13 @@ export default function DraLIA({ embedded = false }: DraLIAProps) {
                 size="icon"
                 className="-mr-2 -mt-2 h-8 w-8 shrink-0"
                 aria-label="Fechar notificação"
-                onClick={() => setInAppPush(null)}
+                onClick={dismissInAppPush}
               >
                 <X className="h-4 w-4" />
               </Button>
             </div>
             <Button asChild size="sm" className="mt-3 w-full">
-              <a href={inAppPush.url} target="_blank" rel="noopener noreferrer" onClick={() => setInAppPush(null)}>
+              <a href={inAppPush.url} target="_blank" rel="noopener noreferrer" onClick={dismissInAppPush}>
                 Abrir link <ExternalLink className="h-4 w-4" />
               </a>
             </Button>
