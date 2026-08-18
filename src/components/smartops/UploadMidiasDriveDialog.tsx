@@ -20,6 +20,7 @@ import { useTurmaParticipants, isBlockedStatus, type TurmaParticipant } from "@/
 import { useTurmaDriveMedia } from "@/hooks/useTurmaDriveMedia";
 import { useTurmaDriveInventory, upperKebabName } from "@/hooks/useTurmaDriveInventory";
 import { prepareUpload, runUpload, readDimensions, cancelUpload, resolvedMimeType } from "@/lib/trainingDriveUpload";
+import { targetFor, isGoalReached, TURMA_MEDIA_TARGET } from "@/lib/trainingMediaTargets";
 
 type DestSpec = {
   key: string;
@@ -98,6 +99,7 @@ function fmt(d?: string | null) {
 interface DropCardProps {
   dest: DestSpec;
   count: number;
+  target?: number;
   subtitle?: string;
   disabled?: boolean;
   disabledHint?: string;
@@ -106,13 +108,17 @@ interface DropCardProps {
   onFiles: (files: FileList | null) => void;
 }
 
-function DropCard({ dest, count, subtitle, disabled, disabledHint, children, footer, onFiles }: DropCardProps) {
+function DropCard({ dest, count, target = 0, subtitle, disabled, disabledHint, children, footer, onFiles }: DropCardProps) {
   const input = useRef<HTMLInputElement>(null);
   const [over, setOver] = useState(false);
   const Icon = dest.icon;
+  const done = isGoalReached(count, target);
 
   return (
-    <div className={cn("rounded-xl border-2 p-3 flex flex-col gap-3 transition-colors", disabled ? "border-border opacity-60" : "border-border hover:border-primary/40")}>
+    <div className={cn(
+      "rounded-xl border-2 p-3 flex flex-col gap-3 transition-colors",
+      disabled ? "border-border opacity-60" : done ? "border-emerald-500/60 bg-emerald-500/5" : "border-border hover:border-primary/40",
+    )}>
       <div className="flex items-start justify-between gap-2">
         <div className="flex items-start gap-2 min-w-0">
           <div className="rounded-lg bg-muted p-2 shrink-0">
@@ -124,7 +130,21 @@ function DropCard({ dest, count, subtitle, disabled, disabledHint, children, foo
             {subtitle && <div className="text-[11px] text-muted-foreground truncate">{subtitle}</div>}
           </div>
         </div>
-        <Badge variant="outline" className="shrink-0 font-mono text-[10px]">{count} arq</Badge>
+        <div className="flex shrink-0 items-center gap-1.5">
+          {target > 0 && (
+            <span
+              aria-label={done ? "Meta atingida" : "Meta pendente"}
+              title={done ? "Meta atingida" : `Faltam ${Math.max(target - count, 0)} arquivo(s)`}
+              className={cn("h-2.5 w-2.5 rounded-full", done ? "bg-emerald-500" : count > 0 ? "bg-amber-500" : "bg-muted-foreground/30")}
+            />
+          )}
+          <Badge
+            variant="outline"
+            className={cn("font-mono text-[10px]", done && "border-emerald-500/50 text-emerald-600")}
+          >
+            {target > 0 ? `${count}/${target}` : `${count}`} arq
+          </Badge>
+        </div>
       </div>
 
       <Badge variant="outline" className="w-fit text-[10px]">{dest.tag}</Badge>
@@ -397,6 +417,7 @@ export function UploadMidiasDriveDialog({
         key={p.key}
         dest={{ ...TESTIMONIAL_DEST, folderName: p.name, tag: `${p.type}${p.status ? ` · ${p.status}` : ""}` }}
         count={total}
+        target={targetFor("videos_depoimentos")}
         subtitle={TESTIMONIAL_DEST.path}
         onFiles={(files) => addFiles(files, TESTIMONIAL_DEST, { enrollmentId: p.enrollment_id, companionId: p.companion_id, name: p.name })}
         footer={
@@ -452,6 +473,7 @@ export function UploadMidiasDriveDialog({
                     key={d.key}
                     dest={d}
                     count={countByDest[d.key] || 0}
+                    target={targetFor(d.key)}
                     subtitle={d.path}
                     onFiles={(files) => addFiles(files, d)}
                   />
@@ -475,6 +497,7 @@ export function UploadMidiasDriveDialog({
                             key={`${o.value}-${d.key}`}
                             dest={d}
                             count={countByDestDay[`${d.key}|${o.value}`] || 0}
+                            target={targetFor(d.key)}
                             subtitle={d.path}
                             onFiles={(files) => addFiles(files, d, { day: o.value })}
                           />
