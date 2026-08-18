@@ -26,6 +26,65 @@ function getKnownLeadId(): string | null {
 }
 
 /**
+ * Resolve o lead do cliente autenticado (portal de clientes).
+ * O login por celular grava `lead_id` em `user_metadata`.
+ */
+export async function resolveAuthenticatedLeadId(): Promise<string | null> {
+  try {
+    const { data } = await supabase.auth.getSession();
+    const meta = data.session?.user?.user_metadata as { lead_id?: string } | undefined;
+    const leadId = meta?.lead_id;
+    if (leadId && /^[0-9a-f-]{36}$/i.test(leadId)) {
+      if (getKnownLeadId() !== leadId) await linkLeadToPageSession(leadId);
+      else { try { localStorage.setItem(LEAD_KEY, leadId); } catch {} }
+      return leadId;
+    }
+  } catch { /* tracking nunca quebra o fluxo */ }
+  return getKnownLeadId();
+}
+
+/**
+ * Registra uma interação de conteúdo (artigo, vídeo, áudio, documento) do
+ * lead identificado. Vai para `lead_page_views` e aparece na timeline unificada.
+ */
+export async function trackContentEvent(params: {
+  action: string;
+  contentType: string;
+  title?: string | null;
+  slug?: string | null;
+  path?: string | null;
+  extra?: Record<string, unknown>;
+}): Promise<void> {
+  try {
+    const leadId = await resolveAuthenticatedLeadId();
+    const sessionId = getOrCreateSessionId();
+    const utms = getUtmParams();
+    await supabase.from("lead_page_views" as any).insert({
+      session_id: sessionId,
+      lead_id: leadId,
+      page_path: params.path || (params.slug ? `${window.location.pathname}#${params.slug}` : window.location.pathname),
+      page_title: params.title || document.title,
+      page_type: `kb_${params.contentType}`,
+      referrer: window.location.href,
+      utm_source: utms.utm_source,
+      utm_medium: utms.utm_medium,
+      utm_campaign: utms.utm_campaign,
+      utm_content: utms.utm_content,
+      utm_term: utms.utm_term,
+      device_type: getDeviceType(),
+      browser: getBrowser(),
+      extra_data: {
+        action: params.action,
+        content_type: params.contentType,
+        content_title: params.title ?? null,
+        content_slug: params.slug ?? null,
+        ...(params.extra ?? {}),
+      },
+    } as any);
+  } catch { /* noop */ }
+}
+
+/**
  * Marca o lead identificado e vincula todas as visitas anônimas
  * da sessão atual a ele (fonte da verdade da timeline).
  */
@@ -106,6 +165,15 @@ export function usePageTracking() {
   const lastTracked = useRef<string>("");
   const lastPixelKey = useRef<string>("");
   const timerRef = useRef<ReturnType<typeof setTimeout>>();
+
+  // Identidade do cliente autenticado: vincula sessão de tracking ao lead.
+  useEffect(() => {
+    void resolveAuthenticatedLeadId();
+    const { data: sub } = supabase.auth.onAuthStateChange(() => {
+      void resolveAuthenticatedLeadId();
+    });
+    return () => sub.subscription.unsubscribe();
+  }, []);
 
   useEffect(() => {
     const path = location.pathname;
