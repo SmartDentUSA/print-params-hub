@@ -104,7 +104,7 @@ export function PushAppTab() {
         .from("push_subscriptions")
         .select("id", { count: "exact", head: true })
         .eq("enabled", true)
-        .gte("last_seen_at", new Date(Date.now() - 5 * 60 * 1000).toISOString()),
+        .gte("last_seen_at", new Date(Date.now() - 30 * 60 * 1000).toISOString()),
       supabase
         .from("lia_attendances")
         .select("uf, piperun_stage_name, piperun_pipeline_name, proprietario_lead_crm, origem_primeiro_contato, especialidade")

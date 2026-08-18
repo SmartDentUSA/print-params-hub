@@ -584,3 +584,6 @@ verify_jwt = false
 
 [functions.push-click]
 verify_jwt = false
+
+[functions.client-presence-ping]
+verify_jwt = false

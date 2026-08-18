@@ -6,6 +6,7 @@ import { Footer } from "./components/Footer";
 import { usePageTracking } from "./hooks/usePageTracking";
 import { ChunkErrorBoundary } from "./components/ChunkErrorBoundary";
 import { ReformatBatchWidget } from "./components/ReformatBatchWidget";
+import { SessionPresence } from "@/hooks/useSessionPresence";
 
 // Lazy: heavy / admin / non-landing routes
 const AdminViewSecure = lazy(() => import("./pages/AdminViewSecure"));
@@ -78,6 +79,7 @@ function RouteFallback() {
 const App = () => (
   <>
     <ChunkErrorBoundary>
+    <SessionPresence />
     <Suspense fallback={<RouteFallback />}>
     <Routes>
       <Route path="/" element={<Navigate to="/base-conhecimento?tab=parametros" replace />} />
