@@ -21,11 +21,39 @@ export default function ClientLogin() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [searchParams] = useSearchParams();
+  const isSafe = (p: string | null | undefined): p is string =>
+    !!p && p.startsWith("/") && !p.startsWith("//") && !p.startsWith("/entrar");
   const nextParam = searchParams.get("next");
-  const nextPath =
-    nextParam && nextParam.startsWith("/") && !nextParam.startsWith("//")
-      ? nextParam
+  let stored: string | null = null;
+  try {
+    stored = localStorage.getItem("postLoginNext");
+  } catch {
+    stored = null;
+  }
+  const nextPath = isSafe(nextParam)
+    ? nextParam
+    : isSafe(stored)
+      ? stored
       : "/base-conhecimento?tab=parametros";
+
+  const goNext = () => {
+    try {
+      localStorage.removeItem("postLoginNext");
+    } catch {
+      /* ignore */
+    }
+    navigate(nextPath, { replace: true });
+  };
+
+  useEffect(() => {
+    if (isSafe(nextParam)) {
+      try {
+        localStorage.setItem("postLoginNext", nextParam);
+      } catch {
+        /* ignore */
+      }
+    }
+  }, [nextParam]);
 
   const [phone, setPhone] = useState("");
   const [sending, setSending] = useState(false);
@@ -64,7 +92,7 @@ export default function ClientLogin() {
       if (eSess) throw eSess;
       const primeiro = String(data.nome ?? "").trim().split(/\s+/)[0];
       toast({ title: `Bem-vindo(a)${primeiro ? `, ${primeiro}` : ""}!`, description: "Acesso liberado." });
-      navigate(nextPath, { replace: true });
+      goNext();
     } catch (err) {
       toast({ title: "Acesso não liberado", description: (err as Error).message, variant: "destructive" });
     } finally {
@@ -85,7 +113,7 @@ export default function ClientLogin() {
       });
       if (eSess) throw eSess;
       toast({ title: "Acesso confirmado!", description: "Bem-vindo(a) à Smart Dent." });
-      navigate(nextPath, { replace: true });
+      goNext();
     } catch (err) {
       toast({ title: "Erro", description: (err as Error).message, variant: "destructive" });
     } finally {
