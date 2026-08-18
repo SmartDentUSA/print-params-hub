@@ -208,6 +208,43 @@ export function usePageTracking() {
     return () => sub.subscription.unsubscribe();
   }, []);
 
+  // Cliques do usuário identificado (links, botões, players, downloads).
+  useEffect(() => {
+    let lastKey = "";
+    let lastAt = 0;
+
+    const onClick = (ev: MouseEvent) => {
+      const el = (ev.target as HTMLElement | null)?.closest(
+        "a, button, [role='button'], video, audio, [data-track-label]",
+      ) as HTMLElement | null;
+      if (!el) return;
+
+      const label =
+        el.getAttribute("data-track-label") ||
+        el.getAttribute("aria-label") ||
+        (el.textContent || "").replace(/\s+/g, " ").trim() ||
+        el.getAttribute("title") ||
+        el.tagName.toLowerCase();
+      if (!label) return;
+
+      const href = (el as HTMLAnchorElement).href || el.getAttribute("data-track-target") || null;
+      const key = `${label}|${href ?? ""}|${window.location.pathname}`;
+      const now = Date.now();
+      if (key === lastKey && now - lastAt < 1500) return;
+      lastKey = key;
+      lastAt = now;
+
+      void trackClickEvent({
+        label: label.slice(0, 120),
+        target: href,
+        extra: { element: el.tagName.toLowerCase() },
+      });
+    };
+
+    document.addEventListener("click", onClick, { capture: true, passive: true });
+    return () => document.removeEventListener("click", onClick, { capture: true } as EventListenerOptions);
+  }, []);
+
   useEffect(() => {
     const path = location.pathname;
 
