@@ -123,6 +123,25 @@ Deno.serve(async (req) => {
         user_id: userId,
       });
 
+      // Timeline do lead: login do cliente no portal
+      try {
+        await supabase.from("lead_activity_log").insert({
+          lead_id: lead.id,
+          event_type: "client_portal_login",
+          event_timestamp: nowIso,
+          source_channel: "portal_cliente",
+          entity_type: "client_access",
+          entity_name: lead.nome ?? phone,
+          event_data: {
+            label: `Login do cliente no portal (celular ${maskPhone(phone)})`,
+            phone,
+            canal: "direto",
+            user_id: userId,
+          },
+          dedupe_hash: `client_portal_login:${phone}:${nowIso.slice(0, 16)}`,
+        });
+      } catch { /* noop */ }
+
       return json({
         ok: true,
         email,

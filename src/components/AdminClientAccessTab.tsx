@@ -67,7 +67,17 @@ export function AdminClientAccessTab() {
   }, []);
 
   const term = search.trim().toLowerCase();
-  const filtered = rows.filter((r) => {
+  // Apenas o último registro por destino (celular/e-mail)
+  const latestByDestino = Array.from(
+    rows.reduce((map, r) => {
+      const key = (r.destino || "").trim().toLowerCase();
+      const current = map.get(key);
+      if (!current || new Date(r.sent_at).getTime() > new Date(current.sent_at).getTime()) map.set(key, r);
+      return map;
+    }, new Map<string, InviteRow>()).values()
+  ).sort((a, b) => new Date(b.sent_at).getTime() - new Date(a.sent_at).getTime());
+
+  const filtered = latestByDestino.filter((r) => {
     if (term && !`${r.nome ?? ""} ${r.destino ?? ""}`.toLowerCase().includes(term)) return false;
     if (filter === "confirmados") return !!r.confirmed_at;
     if (filter === "pendentes") return !r.confirmed_at;
@@ -75,9 +85,9 @@ export function AdminClientAccessTab() {
     return true;
   });
 
-  const total = rows.length;
-  const confirmados = rows.filter((r) => r.confirmed_at).length;
-  const onlineCount = rows.filter(liveOnline).length;
+  const total = latestByDestino.length;
+  const confirmados = latestByDestino.filter((r) => r.confirmed_at).length;
+  const onlineCount = latestByDestino.filter(liveOnline).length;
 
   return (
     <Card className="bg-gradient-card border-border shadow-medium">
