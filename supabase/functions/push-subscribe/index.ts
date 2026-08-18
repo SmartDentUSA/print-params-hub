@@ -65,6 +65,39 @@ Deno.serve(async (req) => {
       return json({ ok: true });
     }
 
+    // Teste real: envia um push para a assinatura informada e devolve o erro exato do provedor.
+    if (action === "test") {
+      const endpoint = String(body?.endpoint || "");
+      if (!endpoint) return json({ ok: false, error: "Endpoint ausente." }, 400);
+      const { data: sub } = await admin.from("push_subscriptions")
+        .select("id, endpoint, p256dh, auth")
+        .eq("endpoint", endpoint)
+        .maybeSingle();
+      if (!sub) return json({ ok: false, error: "Assinatura não encontrada no banco." }, 404);
+      const pub = Deno.env.get("VAPID_PUBLIC_KEY");
+      const priv = Deno.env.get("VAPID_PRIVATE_KEY");
+      if (!pub || !priv) return json({ ok: false, error: "Chaves VAPID não configuradas." }, 500);
+      webpush.setVapidDetails(Deno.env.get("VAPID_SUBJECT") ?? "mailto:marketing@smartdent.com.br", pub, priv);
+      try {
+        const res = await webpush.sendNotification(
+          { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
+          JSON.stringify({
+            title: "Smart Dent — teste de push",
+            body: "Se você está vendo isso, as notificações funcionam neste dispositivo.",
+            url: "/",
+            tag: `push-test-${Date.now()}`,
+          }),
+        );
+        return json({ ok: true, provider_status: (res as { statusCode?: number })?.statusCode ?? null });
+      } catch (err) {
+        const status = (err as { statusCode?: number })?.statusCode ?? null;
+        if (status === 404 || status === 410) {
+          await admin.from("push_subscriptions").update({ enabled: false }).eq("id", sub.id);
+        }
+        return json({ ok: false, provider_status: status, error: String((err as Error)?.message ?? err).slice(0, 400) }, 200);
+      }
+    }
+
     if (action === "subscribe") {
       const endpoint = String(body?.endpoint || "");
       const p256dh = String(body?.keys?.p256dh || body?.p256dh || "");
