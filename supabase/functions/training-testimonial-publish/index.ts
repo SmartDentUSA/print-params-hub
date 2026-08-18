@@ -212,8 +212,6 @@ serve(async (req) => {
     if (snap) {
       await db.from("training_testimonials").update({
         participant_snapshot: snap,
-        especialidade: ficha.especialidade,
-        area_atuacao: ficha.area_atuacao,
       }).eq("id", t.id).then(() => {}, () => {});
     }
 

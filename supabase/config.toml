@@ -523,6 +523,9 @@ verify_jwt = false
 [functions.training-testimonial-panda-upload]
 verify_jwt = false
 
+[functions.training-testimonial-auto-process]
+verify_jwt = false
+
 
 
 [functions.crm-xlsx-timeline-ingest]
