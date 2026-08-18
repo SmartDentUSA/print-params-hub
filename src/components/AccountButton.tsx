@@ -8,9 +8,15 @@ export function AccountButton() {
   const [nome, setNome] = useState<string | null>(null);
   const location = useLocation();
   const next = `${location.pathname}${location.search}`;
-  const loginHref = nome
-    ? "/entrar"
-    : `/entrar?next=${encodeURIComponent(next)}`;
+  const loginHref = `/entrar?next=${encodeURIComponent(next)}`;
+
+  const rememberNext = () => {
+    try {
+      localStorage.setItem("postLoginNext", next);
+    } catch {
+      /* ignore */
+    }
+  };
 
   useEffect(() => {
     let alive = true;
@@ -29,6 +35,7 @@ export function AccountButton() {
   return (
     <Link
       to={loginHref}
+      onClick={rememberNext}
       className="flex items-center gap-2 rounded-full px-2 py-1 transition-colors hover:bg-muted"
       aria-label="Entrar ou cadastrar-se"
     >
