@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,6 +20,12 @@ export default function ClientLogin() {
   const { token } = useParams<{ token?: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const [searchParams] = useSearchParams();
+  const nextParam = searchParams.get("next");
+  const nextPath =
+    nextParam && nextParam.startsWith("/") && !nextParam.startsWith("//")
+      ? nextParam
+      : "/base-conhecimento?tab=parametros";
 
   const [phone, setPhone] = useState("");
   const [sending, setSending] = useState(false);
@@ -58,7 +64,7 @@ export default function ClientLogin() {
       if (eSess) throw eSess;
       const primeiro = String(data.nome ?? "").trim().split(/\s+/)[0];
       toast({ title: `Bem-vindo(a)${primeiro ? `, ${primeiro}` : ""}!`, description: "Acesso liberado." });
-      navigate("/base-conhecimento?tab=parametros", { replace: true });
+      navigate(nextPath, { replace: true });
     } catch (err) {
       toast({ title: "Acesso não liberado", description: (err as Error).message, variant: "destructive" });
     } finally {
@@ -79,7 +85,7 @@ export default function ClientLogin() {
       });
       if (eSess) throw eSess;
       toast({ title: "Acesso confirmado!", description: "Bem-vindo(a) à Smart Dent." });
-      navigate("/base-conhecimento?tab=parametros", { replace: true });
+      navigate(nextPath, { replace: true });
     } catch (err) {
       toast({ title: "Erro", description: (err as Error).message, variant: "destructive" });
     } finally {
