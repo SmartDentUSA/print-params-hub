@@ -473,6 +473,8 @@ export function AdminUsers() {
           </div>
         </CardContent>
       </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
