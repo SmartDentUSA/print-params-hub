@@ -26,3 +26,4 @@
 - [Synthetic Email Guard](mem://architecture/synthetic-email-guard-precision) — commercial-intent só bloqueia domínios sintéticos; lia-assign tolera email null
 - [Evolution ACK MessageUpdate](mem://integration/evolution-ack-message-update) — ACK real vem em MessageUpdate[].status; ler record.status gera falso PENDING/"sessão quebrada"
 - [Seller Briefing Single Trigger](mem://architecture/seller-briefing-single-trigger) — Briefing usa só trg_seller_briefing + claim atômico em message_logs; triggers paralelos causavam mensagem repetida
+- [Client Portal Content Tracking](mem://architecture/client-portal-content-tracking) — Cliente logado: lead_id do user_metadata + conteúdo visto na Base de Conhecimento na timeline
