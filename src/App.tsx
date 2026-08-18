@@ -78,6 +78,7 @@ function RouteFallback() {
 const App = () => (
   <>
     <ChunkErrorBoundary>
+    <SessionPresence />
     <Suspense fallback={<RouteFallback />}>
     <Routes>
       <Route path="/" element={<Navigate to="/base-conhecimento?tab=parametros" replace />} />
