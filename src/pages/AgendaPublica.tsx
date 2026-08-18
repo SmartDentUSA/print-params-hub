@@ -323,6 +323,7 @@ export default function AgendaPublica({ variant = "presencial" }: AgendaPublicaP
 
   // Para Online ao Vivo / Online: 1 card por curso, com todas as turmas dentro.
   const onlineCourseGroups = useMemo(() => {
+    void 0;
     if (variant !== "online") return [];
     const map = new Map<string, TurmaComVagas[]>();
     for (const t of turmas) {
