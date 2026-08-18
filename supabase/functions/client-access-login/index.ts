@@ -18,10 +18,15 @@ const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
 function normalizePhone(raw: string): string {
-  const d = String(raw || "").replace(/\D+/g, "");
+  let d = String(raw || "").replace(/\D+/g, "");
   if (!d) return "";
+  // remove prefixos 55 repetidos (ex.: usuário digita "55199926123" -> não virar 5555...)
+  while (d.length > 11 && d.startsWith("55")) {
+    const rest = d.slice(2);
+    if (rest.length >= 10) d = rest; else break;
+  }
   if (d.length === 10 || d.length === 11) return `55${d}`;
-  return d;
+  return d.length > 11 ? `55${d.slice(-11)}` : d;
 }
 function maskPhone(p: string): string {
   const d = p.replace(/\D+/g, "");
@@ -110,18 +115,41 @@ Deno.serve(async (req) => {
       if (!hashed) throw new Error("Falha ao gerar sessão.");
 
       const nowIso = new Date().toISOString();
-      await supabase.from("client_access_invites").insert({
-        lead_id: lead.id,
-        nome: lead.nome,
-        destino: phone,
-        canal: "direto",
-        token: newToken(),
-        status: "confirmado",
-        confirmed_at: nowIso,
-        first_login_at: nowIso,
-        last_seen_at: nowIso,
-        user_id: userId,
-      });
+      // 1 registro por cliente: atualiza o existente em vez de duplicar a cada login
+      const { data: existing } = await supabase
+        .from("client_access_invites")
+        .select("id, first_login_at")
+        .eq("lead_id", lead.id)
+        .order("created_at", { ascending: false })
+        .limit(1);
+      if (existing?.[0]?.id) {
+        await supabase
+          .from("client_access_invites")
+          .update({
+            nome: lead.nome,
+            destino: phone,
+            canal: "direto",
+            status: "confirmado",
+            confirmed_at: nowIso,
+            first_login_at: existing[0].first_login_at ?? nowIso,
+            last_seen_at: nowIso,
+            user_id: userId,
+          })
+          .eq("id", existing[0].id);
+      } else {
+        await supabase.from("client_access_invites").insert({
+          lead_id: lead.id,
+          nome: lead.nome,
+          destino: phone,
+          canal: "direto",
+          token: newToken(),
+          status: "confirmado",
+          confirmed_at: nowIso,
+          first_login_at: nowIso,
+          last_seen_at: nowIso,
+          user_id: userId,
+        });
+      }
 
       // Timeline do lead: login do cliente no portal
       try {

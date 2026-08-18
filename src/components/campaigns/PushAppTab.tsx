@@ -98,13 +98,18 @@ export function PushAppTab() {
   }, [produtoInteresse, cidade, uf, stageName, pipeline, owner, origem, especialidade, clienteFilter, temScanner, temPrinter, platform, recencia, ltvMin, scoreMin, onlineOnly]);
 
   const loadOptions = useCallback(async () => {
-    const [subsRes, onlineRes, leadsRes, segRes] = await Promise.all([
+    const [subsRes, onlineRes, sessionsRes, leadsRes, segRes] = await Promise.all([
       supabase.from("push_subscriptions").select("id", { count: "exact", head: true }).eq("enabled", true),
       supabase
         .from("push_subscriptions")
         .select("id", { count: "exact", head: true })
         .eq("enabled", true)
         .gte("last_seen_at", new Date(Date.now() - 30 * 60 * 1000).toISOString()),
+      supabase
+        .from("client_access_invites")
+        .select("lead_id, destino")
+        .gte("last_seen_at", new Date(Date.now() - 30 * 60 * 1000).toISOString())
+        .limit(1000),
       supabase
         .from("lia_attendances")
         .select("uf, piperun_stage_name, piperun_pipeline_name, proprietario_lead_crm, origem_primeiro_contato, especialidade")
@@ -113,7 +118,11 @@ export function PushAppTab() {
       supabase.from("campaign_segments").select("id, name, filters").order("name").limit(100),
     ]);
     setTotalSubs(subsRes.count ?? 0);
-    setOnlineNow(onlineRes.count ?? 0);
+    const sessionRows = (sessionsRes.data ?? []) as Array<{ lead_id: string | null; destino: string | null }>;
+    const sessionsOnline = new Set(
+      sessionRows.map((r) => r.lead_id ?? String(r.destino ?? "").replace(/\D/g, "").slice(-10)).filter(Boolean),
+    ).size;
+    setOnlineNow(Math.max(onlineRes.count ?? 0, sessionsOnline));
     setSegments((segRes.data ?? []) as Array<{ id: string; name: string; filters: Record<string, string> }>);
     const uniq = (arr: (string | null)[]) => [...new Set(arr.filter(Boolean) as string[])].sort((a, b) => a.localeCompare(b, "pt-BR"));
     const rows = (leadsRes.data ?? []) as Array<Record<string, string | null>>;
@@ -252,7 +261,8 @@ export function PushAppTab() {
             <div>
               <CardTitle className="flex items-center gap-2"><Users className="w-5 h-5" /> Segmentação de usuários</CardTitle>
               <CardDescription>
-                {totalSubs ?? 0} usuários com push ativo · {onlineNow ?? 0} online agora
+                {totalSubs ?? 0} usuários com push ativo · {onlineNow ?? 0} online agora (sessões)
+                {(totalSubs ?? 0) === 0 && " · nenhum dispositivo aceitou notificações ainda"}
               </CardDescription>
             </div>
             <div className="flex items-center gap-2">
@@ -348,7 +358,7 @@ export function PushAppTab() {
           <div className="flex items-center justify-between gap-3 rounded-md border border-border px-3 py-2 md:col-span-2">
             <div>
               <Label className="text-xs flex items-center gap-1"><Radio className="w-3.5 h-3.5" /> Somente usuários online agora</Label>
-              <p className="text-[11px] text-muted-foreground">Ativos nos últimos 5 minutos ({onlineNow ?? 0})</p>
+              <p className="text-[11px] text-muted-foreground">Ativos nos últimos 30 minutos ({onlineNow ?? 0})</p>
             </div>
             <Switch checked={onlineOnly} onCheckedChange={setOnlineOnly} />
           </div>

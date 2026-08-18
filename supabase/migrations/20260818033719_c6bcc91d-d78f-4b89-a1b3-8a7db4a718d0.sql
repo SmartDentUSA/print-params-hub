@@ -1,0 +1,1 @@
+DELETE FROM public.client_access_invites WHERE destino = '5555199926123';
