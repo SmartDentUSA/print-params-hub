@@ -487,7 +487,10 @@ function PublicTurmaCard({ turma, status, driveFolderId = null, driveFolderUrl =
   const endDateValue = turma.end_date ?? turma.start_date;
 
   const isTeamMember = useTeamMemberSession();
-  const canUpload = isTeamMember && !!driveFolderId;
+  // O acesso é definido pela identidade do Team Member. A ausência de pasta
+  // não deve esconder a ação: o próprio botão informa que a turma ainda
+  // precisa ter a pasta do Drive criada.
+  const canUpload = isTeamMember;
 
   return (
     <div className={cn("pp-card relative overflow-hidden flex flex-col min-h-[360px]", isMuted && "opacity-60")}>
