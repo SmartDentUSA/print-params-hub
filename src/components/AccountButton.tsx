@@ -1,11 +1,16 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { CircleUserRound } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 /** Widget de conta do cliente: "Olá, Bem-vindo(a) — Entre ou Cadastre-se" */
 export function AccountButton() {
   const [nome, setNome] = useState<string | null>(null);
+  const location = useLocation();
+  const next = `${location.pathname}${location.search}`;
+  const loginHref = nome
+    ? "/entrar"
+    : `/entrar?next=${encodeURIComponent(next)}`;
 
   useEffect(() => {
     let alive = true;
@@ -23,7 +28,7 @@ export function AccountButton() {
 
   return (
     <Link
-      to="/entrar"
+      to={loginHref}
       className="flex items-center gap-2 rounded-full px-2 py-1 transition-colors hover:bg-muted"
       aria-label="Entrar ou cadastrar-se"
     >
