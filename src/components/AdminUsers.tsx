@@ -12,6 +12,8 @@ import { Users, UserPlus, Trash2, Edit, Shield, User, Truck } from "lucide-react
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useActiveTeamMembers } from "@/hooks/useActiveTeamMembers";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { AdminClientAccessTab } from "@/components/AdminClientAccessTab";
 
 interface UserData {
   id: string;
@@ -176,6 +178,15 @@ export function AdminUsers() {
 
   return (
     <div className="space-y-6">
+      <Tabs defaultValue="usuarios" className="space-y-6">
+        <TabsList>
+          <TabsTrigger value="usuarios">Usuários do sistema</TabsTrigger>
+          <TabsTrigger value="acessos">Acessos enviados (clientes)</TabsTrigger>
+        </TabsList>
+        <TabsContent value="acessos">
+          <AdminClientAccessTab />
+        </TabsContent>
+        <TabsContent value="usuarios">
       <Card className="bg-gradient-card border-border shadow-medium">
         <CardHeader>
           <div className="flex items-center justify-between">
@@ -462,6 +473,8 @@ export function AdminUsers() {
           </div>
         </CardContent>
       </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
