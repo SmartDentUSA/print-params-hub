@@ -7,6 +7,19 @@ import { formatDatePtBr, formatWeekday } from "@/lib/courseUtils";
 import { formatTurmaNumber } from "@/lib/turmaNumber";
 import { cn } from "@/lib/utils";
 import type { TurmaComVagas } from "@/types/courses";
+import { UploadMidiasDriveButton } from "@/components/smartops/UploadMidiasDriveButton";
+
+/** Sessão autenticada: o upload de mídias exige JWT de usuário. */
+function useAuthedSession() {
+  const [authed, setAuthed] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    supabase.auth.getSession().then(({ data }) => { if (alive) setAuthed(!!data.session); });
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => setAuthed(!!s));
+    return () => { alive = false; sub.subscription.unsubscribe(); };
+  }, []);
+  return authed;
+}
 
 type AgendaVariant = "presencial" | "online";
 
