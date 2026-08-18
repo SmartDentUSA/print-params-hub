@@ -98,13 +98,18 @@ export function PushAppTab() {
   }, [produtoInteresse, cidade, uf, stageName, pipeline, owner, origem, especialidade, clienteFilter, temScanner, temPrinter, platform, recencia, ltvMin, scoreMin, onlineOnly]);
 
   const loadOptions = useCallback(async () => {
-    const [subsRes, onlineRes, leadsRes, segRes] = await Promise.all([
+    const [subsRes, onlineRes, sessionsRes, leadsRes, segRes] = await Promise.all([
       supabase.from("push_subscriptions").select("id", { count: "exact", head: true }).eq("enabled", true),
       supabase
         .from("push_subscriptions")
         .select("id", { count: "exact", head: true })
         .eq("enabled", true)
         .gte("last_seen_at", new Date(Date.now() - 30 * 60 * 1000).toISOString()),
+      supabase
+        .from("client_access_invites")
+        .select("lead_id, destino")
+        .gte("last_seen_at", new Date(Date.now() - 30 * 60 * 1000).toISOString())
+        .limit(1000),
       supabase
         .from("lia_attendances")
         .select("uf, piperun_stage_name, piperun_pipeline_name, proprietario_lead_crm, origem_primeiro_contato, especialidade")
@@ -113,7 +118,11 @@ export function PushAppTab() {
       supabase.from("campaign_segments").select("id, name, filters").order("name").limit(100),
     ]);
     setTotalSubs(subsRes.count ?? 0);
-    setOnlineNow(onlineRes.count ?? 0);
+    const sessionRows = (sessionsRes.data ?? []) as Array<{ lead_id: string | null; destino: string | null }>;
+    const sessionsOnline = new Set(
+      sessionRows.map((r) => r.lead_id ?? String(r.destino ?? "").replace(/\D/g, "").slice(-10)).filter(Boolean),
+    ).size;
+    setOnlineNow(Math.max(onlineRes.count ?? 0, sessionsOnline));
     setSegments((segRes.data ?? []) as Array<{ id: string; name: string; filters: Record<string, string> }>);
     const uniq = (arr: (string | null)[]) => [...new Set(arr.filter(Boolean) as string[])].sort((a, b) => a.localeCompare(b, "pt-BR"));
     const rows = (leadsRes.data ?? []) as Array<Record<string, string | null>>;
