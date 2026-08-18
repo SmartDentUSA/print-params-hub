@@ -140,6 +140,19 @@ Deno.serve(async (req) => {
       }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
+    if (action === "raw_get" && body.path) {
+      const result = await apiFetchLI("GET", body.path, apiKey, appKey || null);
+      return new Response(JSON.stringify({
+        success: result.success,
+        strategy_used: result.strategy,
+        status: result.status,
+        data: result.data,
+      }), {
+        status: result.success ? 200 : 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     if (action === "list") {
       const result = await listWebhooks(apiKey, appKey || null);
       return new Response(JSON.stringify({
