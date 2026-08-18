@@ -9,16 +9,21 @@ import { cn } from "@/lib/utils";
 import type { TurmaComVagas } from "@/types/courses";
 import { UploadMidiasDriveButton } from "@/components/smartops/UploadMidiasDriveButton";
 
-/** Sessão autenticada: o upload de mídias exige JWT de usuário. */
-function useAuthedSession() {
-  const [authed, setAuthed] = useState(false);
+/** Sessão autenticada + membro da equipe: o upload de mídias é exclusivo de Team Members. */
+function useTeamMemberSession() {
+  const [isTeam, setIsTeam] = useState(false);
   useEffect(() => {
     let alive = true;
-    supabase.auth.getSession().then(({ data }) => { if (alive) setAuthed(!!data.session); });
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => setAuthed(!!s));
+    const check = async (hasSession: boolean) => {
+      if (!hasSession) { if (alive) setIsTeam(false); return; }
+      const { data, error } = await (supabase as any).rpc("fn_is_team_member");
+      if (alive) setIsTeam(!error && data === true);
+    };
+    supabase.auth.getSession().then(({ data }) => check(!!data.session));
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => { check(!!s); });
     return () => { alive = false; sub.subscription.unsubscribe(); };
   }, []);
-  return authed;
+  return isTeam;
 }
 
 type AgendaVariant = "presencial" | "online";
@@ -338,24 +343,18 @@ export default function AgendaPublica({ variant = "presencial" }: AgendaPublicaP
       .sort((a, b) => (a.turmas[0]?.start_date || "").localeCompare(b.turmas[0]?.start_date || ""));
   }, [turmas, variant]);
 
-  // Pastas do Drive (só para equipe autenticada): habilita o upload de mídias direto do celular.
-  const authed = useAuthedSession();
+  // Pastas do Drive (só para Team Members): habilita o upload de mídias direto do celular.
+  const isTeamMember = useTeamMemberSession();
   const { data: driveFolders = {} } = useQuery({
     queryKey: ["public_agenda_drive_folders", variant],
-    enabled: authed,
+    enabled: isTeamMember,
     staleTime: 60_000,
     queryFn: async (): Promise<Record<string, { id: string | null; url: string | null }>> => {
-      const { data, error } = await (supabase as any)
-        .from("smartops_course_turmas")
-        .select("id, drive_folder_id, drive_folder_url, factory_drive_folder_id, factory_drive_folder_url")
-        .eq("active", true);
+      const { data, error } = await (supabase as any).rpc("fn_agenda_drive_folders");
       if (error) throw error;
       const map: Record<string, { id: string | null; url: string | null }> = {};
       for (const r of (data ?? []) as any[]) {
-        map[r.id] = {
-          id: r.drive_folder_id ?? r.factory_drive_folder_id ?? null,
-          url: r.drive_folder_url ?? r.factory_drive_folder_url ?? null,
-        };
+        map[r.turma_id] = { id: r.folder_id ?? null, url: r.folder_url ?? null };
       }
       return map;
     },
@@ -471,8 +470,8 @@ function PublicTurmaCard({ turma, status, driveFolderId = null, driveFolderUrl =
   const endTime = hhmm(turma.end_time);
   const endDateValue = turma.end_date ?? turma.start_date;
 
-  const authed = useAuthedSession();
-  const canUpload = authed && !!driveFolderId;
+  const isTeamMember = useTeamMemberSession();
+  const canUpload = isTeamMember && !!driveFolderId;
 
   return (
     <div className={cn("pp-card relative overflow-hidden flex flex-col min-h-[360px]", isMuted && "opacity-60")}>
