@@ -3,6 +3,27 @@ import { supabase } from "@/integrations/supabase/client";
 import { useClientPresence } from "@/hooks/useClientPresence";
 
 const PING_MS = 60_000;
+const SESSION_KEY = "sd_page_session";
+
+function connectionId(): string {
+  try {
+    let sid = sessionStorage.getItem(SESSION_KEY);
+    if (!sid) {
+      sid = crypto.randomUUID();
+      sessionStorage.setItem(SESSION_KEY, sid);
+    }
+    return sid;
+  } catch {
+    return "no-storage";
+  }
+}
+
+function deviceType(): string {
+  const w = window.innerWidth;
+  if (w < 768) return "mobile";
+  if (w < 1024) return "tablet";
+  return "desktop";
+}
 
 /**
  * Mantém o cliente logado marcado como ONLINE em qualquer página do sistema:
@@ -33,7 +54,14 @@ export function useSessionPresence() {
     const ping = () => {
       if (document.visibilityState === "hidden") return;
       supabase.functions.invoke("client-presence-ping", {
-        body: { phone: /\d/.test(identity) && !identity.includes("@") ? identity : undefined, email },
+        body: {
+          phone: /\d/.test(identity) && !identity.includes("@") ? identity : undefined,
+          email,
+          session_id: connectionId(),
+          page_path: window.location.pathname + window.location.search,
+          page_title: document.title,
+          device_type: deviceType(),
+        },
       }).catch(() => undefined);
     };
     ping();

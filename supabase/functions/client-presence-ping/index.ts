@@ -13,7 +13,8 @@ const json = (b: unknown, status = 200) =>
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   try {
-    const { phone, email } = await req.json().catch(() => ({}));
+    const { phone, email, session_id, page_path, page_title, device_type, nome } =
+      await req.json().catch(() => ({}));
     const digits = String(phone || "").replace(/\D+/g, "");
     if (!digits && !email) return json({ ok: false, error: "identidade ausente" }, 400);
 
@@ -38,6 +39,27 @@ Deno.serve(async (req) => {
     const leadId = (rows?.[0] as { lead_id?: string | null } | undefined)?.lead_id ?? null;
     if (leadId) {
       await admin.from("push_subscriptions").update({ last_seen_at: nowIso }).eq("lead_id", leadId);
+    }
+
+    // Conexão (aba/dispositivo) do cliente: permite contar quantas conexões
+    // simultâneas o mesmo usuário mantém abertas.
+    if (session_id) {
+      await admin.from("client_online_sessions").upsert(
+        {
+          session_id: String(session_id),
+          identity_key: key,
+          lead_id: leadId,
+          nome: nome ? String(nome) : null,
+          email: email ? String(email).toLowerCase() : null,
+          phone: digits || null,
+          page_path: page_path ? String(page_path).slice(0, 500) : null,
+          page_title: page_title ? String(page_title).slice(0, 300) : null,
+          device_type: device_type ? String(device_type) : null,
+          user_agent: req.headers.get("user-agent")?.slice(0, 300) ?? null,
+          last_seen_at: nowIso,
+        },
+        { onConflict: "session_id" },
+      );
     }
 
     return json({ ok: true, updated: !!rows?.[0] });

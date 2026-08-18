@@ -85,6 +85,39 @@ export async function trackContentEvent(params: {
 }
 
 /**
+ * Registra um clique do lead identificado (botão, link, player, download).
+ * Vai para `lead_page_views` e aparece na timeline unificada do lead.
+ */
+export async function trackClickEvent(params: {
+  label: string;
+  target?: string | null;
+  extra?: Record<string, unknown>;
+}): Promise<void> {
+  const leadId = getKnownLeadId();
+  if (!leadId) return; // só rastreamos cliques de usuário logado/identificado
+  try {
+    await supabase.from("lead_page_views" as any).insert({
+      session_id: getOrCreateSessionId(),
+      lead_id: leadId,
+      page_path: window.location.pathname + window.location.search,
+      page_title: document.title,
+      page_type: "click",
+      referrer: window.location.href,
+      device_type: getDeviceType(),
+      browser: getBrowser(),
+      extra_data: {
+        action: "click",
+        content_type: "click",
+        content_title: `Clique: ${params.label}`.slice(0, 200),
+        click_label: params.label.slice(0, 200),
+        click_target: params.target ?? null,
+        ...(params.extra ?? {}),
+      },
+    } as any);
+  } catch { /* noop */ }
+}
+
+/**
  * Marca o lead identificado e vincula todas as visitas anônimas
  * da sessão atual a ele (fonte da verdade da timeline).
  */
@@ -173,6 +206,43 @@ export function usePageTracking() {
       void resolveAuthenticatedLeadId();
     });
     return () => sub.subscription.unsubscribe();
+  }, []);
+
+  // Cliques do usuário identificado (links, botões, players, downloads).
+  useEffect(() => {
+    let lastKey = "";
+    let lastAt = 0;
+
+    const onClick = (ev: MouseEvent) => {
+      const el = (ev.target as HTMLElement | null)?.closest(
+        "a, button, [role='button'], video, audio, [data-track-label]",
+      ) as HTMLElement | null;
+      if (!el) return;
+
+      const label =
+        el.getAttribute("data-track-label") ||
+        el.getAttribute("aria-label") ||
+        (el.textContent || "").replace(/\s+/g, " ").trim() ||
+        el.getAttribute("title") ||
+        el.tagName.toLowerCase();
+      if (!label) return;
+
+      const href = (el as HTMLAnchorElement).href || el.getAttribute("data-track-target") || null;
+      const key = `${label}|${href ?? ""}|${window.location.pathname}`;
+      const now = Date.now();
+      if (key === lastKey && now - lastAt < 1500) return;
+      lastKey = key;
+      lastAt = now;
+
+      void trackClickEvent({
+        label: label.slice(0, 120),
+        target: href,
+        extra: { element: el.tagName.toLowerCase() },
+      });
+    };
+
+    document.addEventListener("click", onClick, { capture: true, passive: true });
+    return () => document.removeEventListener("click", onClick, { capture: true } as EventListenerOptions);
   }, []);
 
   useEffect(() => {
