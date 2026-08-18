@@ -569,6 +569,21 @@ function PublicTurmaCard({ turma, status }: { turma: TurmaComVagas; status: Coun
               </div>
             );
           })()}
+
+          {canUpload && (
+            <div className="mt-3 flex justify-center">
+              <UploadMidiasDriveButton
+                turmaId={turma.id}
+                turmaNumber={turma.turma_number ?? null}
+                turmaLabel={turma.label}
+                courseTitle={turma.course_title}
+                startDate={turma.start_date}
+                endDate={turma.end_date}
+                folderId={driveFolderId}
+                folderUrl={driveFolderUrl}
+              />
+            </div>
+          )}
         </>
       ) : (
         <>
