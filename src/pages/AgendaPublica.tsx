@@ -8,6 +8,7 @@ import { formatTurmaNumber } from "@/lib/turmaNumber";
 import { cn } from "@/lib/utils";
 import type { TurmaComVagas } from "@/types/courses";
 import { UploadMidiasDriveButton } from "@/components/smartops/UploadMidiasDriveButton";
+import { AccountButton } from "@/components/AccountButton";
 
 /** Sessão autenticada + membro da equipe: o upload de mídias é exclusivo de Team Members. */
 function useTeamMemberSession() {
@@ -369,6 +370,17 @@ export default function AgendaPublica({ variant = "presencial" }: AgendaPublicaP
         <link rel="canonical" href={config.canonical} />
       </Helmet>
       <div className="max-w-6xl mx-auto px-4 py-8">
+        <div className="flex items-center justify-end gap-2 mb-2">
+          <AccountButton />
+          {!isTeamMember && (
+            <a
+              href="/smartops"
+              className="text-[11px] text-muted-foreground hover:text-primary underline underline-offset-2"
+            >
+              Acesso equipe
+            </a>
+          )}
+        </div>
         <header className="pp-header mb-8 text-center">
           <h1>{config.title}</h1>
           <p>{config.subtitle}</p>
