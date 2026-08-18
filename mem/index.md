@@ -27,3 +27,4 @@
 - [Evolution ACK MessageUpdate](mem://integration/evolution-ack-message-update) — ACK real vem em MessageUpdate[].status; ler record.status gera falso PENDING/"sessão quebrada"
 - [Seller Briefing Single Trigger](mem://architecture/seller-briefing-single-trigger) — Briefing usa só trg_seller_briefing + claim atômico em message_logs; triggers paralelos causavam mensagem repetida
 - [Client Portal Content Tracking](mem://architecture/client-portal-content-tracking) — Cliente logado: lead_id do user_metadata + conteúdo visto na Base de Conhecimento na timeline
+- [Depoimentos automáticos](mem://features/testimonial-auto-pipeline) — Upload na pasta Depoimentos → transcrição, identificação pela fala e artigo publicado com ficha real
