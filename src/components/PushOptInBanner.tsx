@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Bell, BellOff, Share2, X } from "lucide-react";
+import { Bell, Share2, X } from "lucide-react";
 import { usePushSubscription, isIos, isIosStandalone } from "@/hooks/usePushSubscription";
 
 /** Convite discreto para o cliente autorizar notificações do app. */
@@ -44,5 +44,3 @@ export function PushOptInBanner() {
     </Card>
   );
 }
-
-export { BellOff };
