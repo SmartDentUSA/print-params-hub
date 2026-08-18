@@ -33,6 +33,10 @@ export interface TrainingTestimonial {
   video_hls: string | null;
   thumbnail_url: string | null;
   panda_last_error: string | null;
+  auto_process: boolean | null;
+  auto_attempts: number | null;
+  auto_next_attempt_at: string | null;
+  auto_last_error: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -146,6 +150,9 @@ export function useTrainingTestimonials(turmaId?: string | null, enabled = true)
       aGerar: by(["transcribed"]),
       emRevisao: by(["pending_review", "validation_failed", "failed"]),
       publicados: by(["published", "indexed", "rag_available"]),
+      naFila: items.filter(
+        (i) => i.auto_process !== false && ["uploaded", "transcribed"].includes(i.status),
+      ).length,
     };
   }, [items]);
 
