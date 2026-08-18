@@ -98,7 +98,7 @@ export function PushAppTab() {
   }, [produtoInteresse, cidade, uf, stageName, pipeline, owner, origem, especialidade, clienteFilter, temScanner, temPrinter, platform, recencia, ltvMin, scoreMin, onlineOnly]);
 
   const loadOptions = useCallback(async () => {
-    const [subsRes, onlineRes, sessionsRes, leadsRes, segRes] = await Promise.all([
+    const [subsRes, onlineRes, sessionsRes, leadsRes, segRes, liveRes] = await Promise.all([
       supabase.from("push_subscriptions").select("id", { count: "exact", head: true }).eq("enabled", true),
       supabase
         .from("push_subscriptions")
@@ -117,6 +117,7 @@ export function PushAppTab() {
         .is("merged_into", null)
         .limit(1000),
       supabase.from("campaign_segments").select("id, name, filters").order("name").limit(100),
+      supabase.rpc("fn_online_clients" as never, { p_window_minutes: 5 } as never),
     ]);
     setTotalSubs(subsRes.count ?? 0);
     // Contagem por PESSOA (não por dispositivo): mesmo usuário em 2 computadores = 1 online.
@@ -132,6 +133,8 @@ export function PushAppTab() {
       const key = identity(r.lead_id, r.destino);
       if (key) onlinePeople.add(key);
     });
+    const liveRows = (liveRes.data ?? []) as Array<{ identity_key: string; lead_id: string | null }>;
+    liveRows.forEach((r) => onlinePeople.add(r.lead_id || `id:${r.identity_key}`));
     setOnlineNow(onlinePeople.size);
     setSegments((segRes.data ?? []) as Array<{ id: string; name: string; filters: Record<string, string> }>);
     const uniq = (arr: (string | null)[]) => [...new Set(arr.filter(Boolean) as string[])].sort((a, b) => a.localeCompare(b, "pt-BR"));
