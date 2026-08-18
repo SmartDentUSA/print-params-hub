@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Volume2 } from "lucide-react";
+import { trackContentEvent } from "@/hooks/usePageTracking";
 
 function formatAudioTime(sec: number): string {
   if (!isFinite(sec) || sec < 0) return "0:00";
@@ -63,6 +64,14 @@ export function KnowledgeAudioPlayer({ url, label, className }: KnowledgeAudioPl
       a.play()
         .then(() => {
           setPlaying(true);
+          if (!started) {
+            void trackContentEvent({
+              action: "audio_play",
+              contentType: "audio",
+              title: label || "Áudio explicativo",
+              extra: { audio_url: url },
+            });
+          }
           setStarted(true);
         })
         .catch(() => setPlaying(false));
