@@ -14,8 +14,10 @@ export function PushOptInGate() {
   const [logged, setLogged] = useState(false);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => setLogged(!!data.session?.user));
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => setLogged(!!session?.user));
+    const isCliente = (user?: { user_metadata?: Record<string, unknown> } | null) =>
+      !!user && (user.user_metadata as { tipo?: string } | undefined)?.tipo === "cliente";
+    supabase.auth.getSession().then(({ data }) => setLogged(isCliente(data.session?.user)));
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => setLogged(isCliente(session?.user)));
     return () => sub.subscription.unsubscribe();
   }, []);
 
