@@ -261,7 +261,8 @@ export function PushAppTab() {
             <div>
               <CardTitle className="flex items-center gap-2"><Users className="w-5 h-5" /> Segmentação de usuários</CardTitle>
               <CardDescription>
-                {totalSubs ?? 0} usuários com push ativo · {onlineNow ?? 0} online agora
+                {totalSubs ?? 0} usuários com push ativo · {onlineNow ?? 0} online agora (sessões)
+                {(totalSubs ?? 0) === 0 && " · nenhum dispositivo aceitou notificações ainda"}
               </CardDescription>
             </div>
             <div className="flex items-center gap-2">
@@ -357,7 +358,7 @@ export function PushAppTab() {
           <div className="flex items-center justify-between gap-3 rounded-md border border-border px-3 py-2 md:col-span-2">
             <div>
               <Label className="text-xs flex items-center gap-1"><Radio className="w-3.5 h-3.5" /> Somente usuários online agora</Label>
-              <p className="text-[11px] text-muted-foreground">Ativos nos últimos 5 minutos ({onlineNow ?? 0})</p>
+              <p className="text-[11px] text-muted-foreground">Ativos nos últimos 30 minutos ({onlineNow ?? 0})</p>
             </div>
             <Switch checked={onlineOnly} onCheckedChange={setOnlineOnly} />
           </div>
