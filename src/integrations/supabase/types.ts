@@ -10041,6 +10041,30 @@ export type Database = {
         }
         Relationships: []
       }
+      li_reconciliation_state: {
+        Row: {
+          id: string
+          last_data_modificacao: string | null
+          last_run_at: string | null
+          last_run_stats: Json | null
+          updated_at: string | null
+        }
+        Insert: {
+          id?: string
+          last_data_modificacao?: string | null
+          last_run_at?: string | null
+          last_run_stats?: Json | null
+          updated_at?: string | null
+        }
+        Update: {
+          id?: string
+          last_data_modificacao?: string | null
+          last_run_at?: string | null
+          last_run_stats?: Json | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       lia_assign_note_dedup: {
         Row: {
           expires_at: string
