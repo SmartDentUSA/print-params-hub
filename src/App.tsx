@@ -83,7 +83,10 @@ const App = () => (
       <Route path="/:brandSlug" element={<RootSlugGate />} />
       <Route path="/:brandSlug/:modelSlug" element={<Index />} />
       <Route path="/:brandSlug/:modelSlug/:resinSlug" element={<Index />} />
-      <Route path="/admin" element={<AdminViewSecure />} />
+      <Route path="/smartops" element={<AdminViewSecure />} />
+      <Route path="/admin" element={<Navigate to="/smartops" replace />} />
+      <Route path="/entrar" element={<ClientLogin />} />
+      <Route path="/entrar/:token" element={<ClientLogin />} />
       <Route path="/painel-comercial" element={<PainelComercial />} />
       <Route path="/admin/form-flow/:formId" element={<SmartOpsFormFlowStandalone />} />
       <Route path="/smartops/wa-flow-visualizer" element={<WaFlowVisualizerPage />} />
