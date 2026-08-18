@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Smartphone, CheckCircle2, Loader2, MessageSquare } from "lucide-react";
+import { Smartphone, CheckCircle2, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -23,7 +23,6 @@ export default function ClientLogin() {
 
   const [phone, setPhone] = useState("");
   const [sending, setSending] = useState(false);
-  const [sent, setSent] = useState<string | null>(null);
 
   const [loadingToken, setLoadingToken] = useState(Boolean(token));
   const [invite, setInvite] = useState<{ nome: string | null; phone_masked: string } | null>(null);
@@ -42,17 +41,26 @@ export default function ClientLogin() {
     })();
   }, [token]);
 
-  const requestLink = async (e: React.FormEvent) => {
+  const entrar = async (e: React.FormEvent) => {
     e.preventDefault();
     setSending(true);
     try {
       const { data, error } = await supabase.functions.invoke("client-access-login", {
-        body: { action: "request", phone },
+        body: { action: "direct", phone },
       });
-      if (error || !data?.ok) throw new Error(data?.error || "Não foi possível enviar o link.");
-      setSent(data.phone_masked as string);
+      if (error || !data?.ok) {
+        throw new Error(data?.error || "Não encontramos este celular na nossa base de clientes.");
+      }
+      const { error: eSess } = await supabase.auth.verifyOtp({
+        type: "email",
+        token_hash: data.token_hash as string,
+      });
+      if (eSess) throw eSess;
+      const primeiro = String(data.nome ?? "").trim().split(/\s+/)[0];
+      toast({ title: `Bem-vindo(a)${primeiro ? `, ${primeiro}` : ""}!`, description: "Acesso liberado." });
+      navigate("/base-conhecimento?tab=parametros", { replace: true });
     } catch (err) {
-      toast({ title: "Erro", description: (err as Error).message, variant: "destructive" });
+      toast({ title: "Acesso não liberado", description: (err as Error).message, variant: "destructive" });
     } finally {
       setSending(false);
     }
@@ -94,7 +102,7 @@ export default function ClientLogin() {
           <CardDescription>
             {token
               ? "Confirme que este número é seu para acessar sua área."
-              : "Sem senha: enviamos um link exclusivo por SMS para o seu celular."}
+              : "Sem senha: informe o celular cadastrado e entre direto."}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -127,19 +135,8 @@ export default function ClientLogin() {
                 </Button>
               </div>
             )
-          ) : sent ? (
-            <div className="space-y-4 text-center">
-              <MessageSquare className="w-8 h-8 mx-auto text-primary" />
-              <p className="text-sm text-muted-foreground">
-                Enviamos um link de acesso por SMS para <strong className="text-foreground">{sent}</strong>.
-                Abra a mensagem e toque no link para entrar.
-              </p>
-              <Button variant="outline" className="w-full" onClick={() => setSent(null)}>
-                Usar outro número
-              </Button>
-            </div>
           ) : (
-            <form onSubmit={requestLink} className="space-y-4">
+            <form onSubmit={entrar} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="client-phone">Celular com DDD</Label>
                 <Input
@@ -153,10 +150,10 @@ export default function ClientLogin() {
                 />
               </div>
               <Button type="submit" className="w-full" disabled={sending || phone.replace(/\D+/g, "").length < 10}>
-                {sending ? (<><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Enviando...</>) : "Receber link por SMS"}
+                {sending ? (<><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Entrando...</>) : "Entrar"}
               </Button>
               <p className="text-xs text-muted-foreground text-center">
-                Ainda não é cliente? O mesmo link serve para criar seu acesso.
+                Use o celular cadastrado na Smart Dent.
               </p>
             </form>
           )}

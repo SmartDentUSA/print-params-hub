@@ -62,8 +62,8 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const action = String(body?.action || "request");
 
-    // ---------- 1. Solicitar link ----------
-    if (action === "request") {
+    // ---------- 1. Login direto pelo celular (base de clientes) ----------
+    if (action === "request" || action === "direct") {
       const phone = normalizePhone(body?.phone);
       if (phone.length < 12) return json({ ok: false, error: "Informe um celular válido com DDD." }, 400);
 
@@ -76,61 +76,60 @@ Deno.serve(async (req) => {
       let lead: { id: string; nome: string | null } | null = null;
       for (const v of variants) {
         const digits = v.replace(/\D+/g, "").slice(-10);
-        const { data } = await supabase
+        const { data, error: eSel } = await supabase
           .from("lia_attendances")
-          .select("id, nome, telefone")
+          .select("id, nome, telefone_normalized, telefone_raw")
           .is("merged_into", null)
-          .ilike("telefone", `%${digits}%`)
+          .or(`telefone_normalized.ilike.%${digits}%,telefone_raw.ilike.%${digits}%`)
           .limit(1);
+        if (eSel) await log("error", "lead_lookup_failed", { message: eSel.message });
         if (data?.[0]) { lead = { id: data[0].id, nome: data[0].nome }; break; }
       }
 
-      const token = newToken();
-      const destination = `${PUBLIC_BASE}/entrar/${token}`;
-      let link = destination;
-      for (let i = 0; i < 5; i++) {
-        const code = randomCode(6);
-        const { error } = await supabase.from("short_links").insert({
-          code, destination_url: destination, lead_id: lead?.id ?? null, produto: "acesso_cliente",
-        });
-        if (!error) { link = `${SHORT_BASE}/${code}`; break; }
+      // Sem cadastro na base de clientes → não libera acesso.
+      if (!lead) {
+        return json({ ok: false, error: "Não encontramos este celular na nossa base de clientes." }, 404);
       }
 
-      const { error: eIns } = await supabase.from("client_access_invites").insert({
-        lead_id: lead?.id ?? null,
-        nome: lead?.nome ?? null,
+      const email = technicalEmail(phone);
+      const { data: created, error: eCreate } = await supabase.auth.admin.createUser({
+        email,
+        email_confirm: true,
+        user_metadata: { nome: lead.nome, phone, lead_id: lead.id, tipo: "cliente" },
+      });
+      if (eCreate && !/already/i.test(eCreate.message)) throw eCreate;
+      let userId = created?.user?.id ?? null;
+      if (!userId) {
+        const { data: list } = await supabase.auth.admin.listUsers({ page: 1, perPage: 1000 });
+        userId = list?.users?.find((u) => u.email === email)?.id ?? null;
+      }
+
+      const { data: linkData, error: eLink } = await supabase.auth.admin.generateLink({ type: "magiclink", email });
+      if (eLink) throw eLink;
+      const hashed = linkData?.properties?.hashed_token;
+      if (!hashed) throw new Error("Falha ao gerar sessão.");
+
+      const nowIso = new Date().toISOString();
+      await supabase.from("client_access_invites").insert({
+        lead_id: lead.id,
+        nome: lead.nome,
         destino: phone,
-        canal: "sms",
-        token,
-        status: "enviado",
+        canal: "direto",
+        token: newToken(),
+        status: "confirmado",
+        confirmed_at: nowIso,
+        first_login_at: nowIso,
+        last_seen_at: nowIso,
+        user_id: userId,
       });
-      if (eIns) throw eIns;
 
-      const smsToken = Deno.env.get("DISPARO_PRO_TOKEN");
-      if (!smsToken) return json({ ok: false, error: "SMS não configurado." }, 500);
-
-      const nome = firstName(lead?.nome);
-      const msg = `${nome ? `Oie ${nome}! ` : ""}Seu acesso Smart Dent: ${link} (valido por ${TOKEN_TTL_MIN} min)`;
-      const res = await fetch(DISPARO_PRO_URL, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${smsToken}`, "Content-Type": "application/json" },
-        body: JSON.stringify([{
-          numero: phone,
-          servico: DISPARO_PRO_SERVICO,
-          mensagem: msg,
-          codificacao: "0",
-          nome_campanha: "Acesso Cliente",
-        }]),
-        signal: AbortSignal.timeout(45_000),
+      return json({
+        ok: true,
+        email,
+        token_hash: hashed,
+        nome: lead.nome,
+        phone_masked: maskPhone(phone),
       });
-      const raw = await res.text();
-      const accepted = res.ok && /ACCEPTED|"status"\s*:\s*"?(0|200|ok)/i.test(raw);
-      if (!accepted) {
-        await log("error", "sms_send_failed", { phone: maskPhone(phone), status: res.status, raw: raw.slice(0, 500) });
-        return json({ ok: false, error: "Não foi possível enviar o SMS agora." }, 502);
-      }
-      await log("info", "sms_sent", { phone: maskPhone(phone), raw: raw.slice(0, 300) });
-      return json({ ok: true, phone_masked: maskPhone(phone) });
     }
 
     // ---------- 2. Ler token ----------
