@@ -8,6 +8,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { KeyRound, RefreshCw, MessageCircle, Mail, Smartphone, Circle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { usePresenceWatcher } from "@/hooks/useClientPresence";
 
 interface InviteRow {
   destino: string;
@@ -45,6 +46,9 @@ export function AdminClientAccessTab() {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<"todos" | "confirmados" | "pendentes" | "online">("todos");
   const { toast } = useToast();
+  const { isOnline } = usePresenceWatcher();
+
+  const liveOnline = (r: InviteRow) => isOnline(r.destino) || !!r.online;
 
   const load = async () => {
     setLoading(true);
@@ -67,13 +71,13 @@ export function AdminClientAccessTab() {
     if (term && !`${r.nome ?? ""} ${r.destino ?? ""}`.toLowerCase().includes(term)) return false;
     if (filter === "confirmados") return !!r.confirmed_at;
     if (filter === "pendentes") return !r.confirmed_at;
-    if (filter === "online") return !!r.online;
+    if (filter === "online") return liveOnline(r);
     return true;
   });
 
   const total = rows.length;
   const confirmados = rows.filter((r) => r.confirmed_at).length;
-  const onlineCount = rows.filter((r) => r.online).length;
+  const onlineCount = rows.filter(liveOnline).length;
 
   return (
     <Card className="bg-gradient-card border-border shadow-medium">
@@ -85,7 +89,7 @@ export function AdminClientAccessTab() {
               Acessos enviados aos clientes
             </CardTitle>
             <CardDescription>
-              {total} envios · {confirmados} confirmados · {onlineCount} online agora
+              {total} envios · {confirmados} confirmados · {onlineCount} online agora (tempo real)
             </CardDescription>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -170,9 +174,9 @@ export function AdminClientAccessTab() {
                     <TableCell>
                       <span className="flex items-center gap-1 text-xs">
                         <Circle
-                          className={`w-2 h-2 ${r.online ? "fill-primary text-primary" : "fill-muted-foreground text-muted-foreground"}`}
+                          className={`w-2 h-2 ${liveOnline(r) ? "fill-primary text-primary animate-pulse" : "fill-muted-foreground text-muted-foreground"}`}
                         />
-                        {r.online ? "Online" : "Offline"}
+                        {liveOnline(r) ? "Online" : "Offline"}
                       </span>
                     </TableCell>
                   </TableRow>
