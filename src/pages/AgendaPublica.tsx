@@ -8,6 +8,7 @@ import { formatTurmaNumber } from "@/lib/turmaNumber";
 import { cn } from "@/lib/utils";
 import type { TurmaComVagas } from "@/types/courses";
 import { UploadMidiasDriveButton } from "@/components/smartops/UploadMidiasDriveButton";
+import { AccountButton } from "@/components/AccountButton";
 
 /** Sessão autenticada + membro da equipe: o upload de mídias é exclusivo de Team Members. */
 function useTeamMemberSession() {
