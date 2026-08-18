@@ -76,12 +76,13 @@ Deno.serve(async (req) => {
       let lead: { id: string; nome: string | null } | null = null;
       for (const v of variants) {
         const digits = v.replace(/\D+/g, "").slice(-10);
-        const { data } = await supabase
+        const { data, error: eSel } = await supabase
           .from("lia_attendances")
-          .select("id, nome, telefone")
+          .select("id, nome, telefone_normalized, telefone_raw")
           .is("merged_into", null)
-          .ilike("telefone", `%${digits}%`)
+          .or(`telefone_normalized.ilike.%${digits}%,telefone_raw.ilike.%${digits}%`)
           .limit(1);
+        if (eSel) await log("error", "lead_lookup_failed", { message: eSel.message });
         if (data?.[0]) { lead = { id: data[0].id, nome: data[0].nome }; break; }
       }
 
