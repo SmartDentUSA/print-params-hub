@@ -1,6 +1,7 @@
 // push-subscribe — registra / remove assinaturas de Web Push do cliente logado.
 // Ações: public-key (sem auth), subscribe, unsubscribe, ping.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import webpush from "npm:web-push@3.6.7";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
