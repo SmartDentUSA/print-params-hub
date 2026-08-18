@@ -7,7 +7,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { BellRing, RefreshCw, Send, Clock, Users } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { DatePickerInput } from "@/components/smartops/DatePickerInput";
+import { BellRing, RefreshCw, Send, Clock, Users, Bookmark, MousePointerClick, Radio } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -29,6 +31,7 @@ type Options = { ufs: string[]; stages: string[]; pipelines: string[]; owners: s
 
 const ALL = "all";
 const clean = (v: string) => (v && v !== ALL ? v : undefined);
+const HOURS = Array.from({ length: 18 }, (_, i) => String(i + 6).padStart(2, "0")); // 06h–23h
 
 export function PushAppTab() {
   // Segmentação
@@ -47,6 +50,11 @@ export function PushAppTab() {
   const [recencia, setRecencia] = useState(ALL);
   const [ltvMin, setLtvMin] = useState("");
   const [scoreMin, setScoreMin] = useState("");
+  const [onlineOnly, setOnlineOnly] = useState(false);
+
+  // Segmentações salvas
+  const [segments, setSegments] = useState<Array<{ id: string; name: string; filters: Record<string, string> }>>([]);
+  const [segmentName, setSegmentName] = useState("");
 
   const [options, setOptions] = useState<Options>({ ufs: [], stages: [], pipelines: [], owners: [], origens: [], especialidades: [] });
   const [audience, setAudience] = useState<number | null>(null);
@@ -59,11 +67,13 @@ export function PushAppTab() {
   const [imageUrl, setImageUrl] = useState("");
   const [targetUrl, setTargetUrl] = useState("");
 
-  // Envio
-  const [scheduleAt, setScheduleAt] = useState("");
+  // Envio (data + hora únicas da campanha)
+  const [sendDate, setSendDate] = useState("");
+  const [sendHour, setSendHour] = useState("09");
   const [sending, setSending] = useState(false);
   const [campaigns, setCampaigns] = useState<PushCampaign[]>([]);
   const [totalSubs, setTotalSubs] = useState<number | null>(null);
+  const [onlineNow, setOnlineNow] = useState<number | null>(null);
 
   const filters = useMemo(() => {
     const f: Record<string, string> = {};
@@ -83,19 +93,28 @@ export function PushAppTab() {
     put("recencia_dias", clean(recencia));
     put("ltv_min", ltvMin.trim() || undefined);
     put("score_min", scoreMin.trim() || undefined);
+    if (onlineOnly) f.online_only = "true";
     return f;
-  }, [produtoInteresse, cidade, uf, stageName, pipeline, owner, origem, especialidade, clienteFilter, temScanner, temPrinter, platform, recencia, ltvMin, scoreMin]);
+  }, [produtoInteresse, cidade, uf, stageName, pipeline, owner, origem, especialidade, clienteFilter, temScanner, temPrinter, platform, recencia, ltvMin, scoreMin, onlineOnly]);
 
   const loadOptions = useCallback(async () => {
-    const [subsRes, leadsRes] = await Promise.all([
+    const [subsRes, onlineRes, leadsRes, segRes] = await Promise.all([
       supabase.from("push_subscriptions").select("id", { count: "exact", head: true }).eq("enabled", true),
+      supabase
+        .from("push_subscriptions")
+        .select("id", { count: "exact", head: true })
+        .eq("enabled", true)
+        .gte("last_seen_at", new Date(Date.now() - 5 * 60 * 1000).toISOString()),
       supabase
         .from("lia_attendances")
         .select("uf, piperun_stage_name, piperun_pipeline_name, proprietario_lead_crm, origem_primeiro_contato, especialidade")
         .is("merged_into", null)
         .limit(1000),
+      supabase.from("campaign_segments").select("id, name, filters").order("name").limit(100),
     ]);
     setTotalSubs(subsRes.count ?? 0);
+    setOnlineNow(onlineRes.count ?? 0);
+    setSegments((segRes.data ?? []) as Array<{ id: string; name: string; filters: Record<string, string> }>);
     const uniq = (arr: (string | null)[]) => [...new Set(arr.filter(Boolean) as string[])].sort((a, b) => a.localeCompare(b, "pt-BR"));
     const rows = (leadsRes.data ?? []) as Array<Record<string, string | null>>;
     setOptions({
@@ -128,6 +147,51 @@ export function PushAppTab() {
   useEffect(() => { loadOptions(); loadCampaigns(); }, [loadOptions, loadCampaigns]);
   useEffect(() => { countAudience(); }, [countAudience]);
 
+  const totals = useMemo(() => campaigns.reduce(
+    (acc, c) => ({
+      disparos: acc.disparos + (c.total_audience ?? 0),
+      enviados: acc.enviados + (c.sent_count ?? 0),
+      falhas: acc.falhas + (c.failed_count ?? 0),
+      cliques: acc.cliques + (c.clicked_count ?? 0),
+    }),
+    { disparos: 0, enviados: 0, falhas: 0, cliques: 0 },
+  ), [campaigns]);
+
+  const saveSegment = async () => {
+    const name = segmentName.trim();
+    if (!name) { toast.error("Dê um nome para a segmentação."); return; }
+    const { error } = await supabase.from("campaign_segments").insert({
+      name, filters, lead_count: audience ?? 0, last_refreshed_at: new Date().toISOString(),
+    });
+    if (error) { toast.error(`Erro ao salvar: ${error.message}`); return; }
+    toast.success("Segmentação salva.");
+    setSegmentName("");
+    loadOptions();
+  };
+
+  const applySegment = (id: string) => {
+    const seg = segments.find((s) => s.id === id);
+    if (!seg) return;
+    const f = seg.filters ?? {};
+    setProdutoInteresse(f.produto_interesse ?? "");
+    setCidade(f.cidade ?? "");
+    setUf(f.uf ?? ALL);
+    setStageName(f.piperun_stage_name ?? ALL);
+    setPipeline(f.piperun_pipeline_name ?? ALL);
+    setOwner(f.proprietario_lead_crm ?? ALL);
+    setOrigem(f.origem_primeiro_contato ?? ALL);
+    setEspecialidade(f.especialidade ?? ALL);
+    setClienteFilter(f.cliente_filter ?? ALL);
+    setTemScanner(f.tem_scanner ?? ALL);
+    setTemPrinter(f.tem_printer ?? ALL);
+    setPlatform(f.platform ?? ALL);
+    setRecencia(f.recencia_dias ?? ALL);
+    setLtvMin(f.ltv_min ?? "");
+    setScoreMin(f.score_min ?? "");
+    setOnlineOnly(!!f.online_only);
+    toast.success(`Segmentação "${seg.name}" aplicada.`);
+  };
+
   const preview = (tpl: string) =>
     tpl
       .replace(/\{\{\s*primeiro_nome\s*\}\}/gi, "Danilo")
@@ -137,10 +201,13 @@ export function PushAppTab() {
 
   const submit = async (mode: "now" | "schedule") => {
     if (!title.trim() || !message.trim()) { toast.error("Preencha o título e a mensagem."); return; }
+    let scheduleIso: string | null = null;
     if (mode === "schedule") {
-      if (!scheduleAt) { toast.error("Escolha a data e hora do envio."); return; }
-      const hour = new Date(scheduleAt).getHours();
-      if (hour < 6 || hour >= 23) { toast.error("Programe entre 06:00 e 23:00."); return; }
+      if (!sendDate) { toast.error("Escolha a data do envio."); return; }
+      const local = new Date(`${sendDate}T${sendHour}:00:00`);
+      if (Number.isNaN(local.getTime())) { toast.error("Data inválida."); return; }
+      if (local.getTime() < Date.now()) { toast.error("Escolha uma data e hora futuras."); return; }
+      scheduleIso = local.toISOString();
     }
     setSending(true);
     const { data, error } = await supabase.functions.invoke("push-campaign-send", {
@@ -151,7 +218,7 @@ export function PushAppTab() {
         image_url: imageUrl.trim() || null,
         target_url: targetUrl.trim() || null,
         filters,
-        schedule_at: mode === "schedule" ? new Date(scheduleAt).toISOString() : null,
+        schedule_at: scheduleIso,
       },
     });
     setSending(false);
@@ -159,7 +226,7 @@ export function PushAppTab() {
     if (error || !res?.ok) { toast.error(res?.error || error?.message || "Falha ao enviar."); return; }
     if (res.status === "agendada") toast.success(`Campanha programada para ${res.audience ?? 0} usuários.`);
     else toast.success(`Push enviado para ${res.sent ?? 0} de ${res.audience ?? 0} usuários.`);
-    setTitle(""); setMessage(""); setScheduleAt("");
+    setTitle(""); setMessage(""); setSendDate("");
     loadCampaigns();
   };
 
@@ -185,7 +252,7 @@ export function PushAppTab() {
             <div>
               <CardTitle className="flex items-center gap-2"><Users className="w-5 h-5" /> Segmentação de usuários</CardTitle>
               <CardDescription>
-                {totalSubs ?? 0} usuários com push ativo no total · notificações só chegam a quem autorizou no app
+                {totalSubs ?? 0} usuários com push ativo · {onlineNow ?? 0} online agora
               </CardDescription>
             </div>
             <div className="flex items-center gap-2">
@@ -277,6 +344,30 @@ export function PushAppTab() {
           <div className="space-y-1">
             <Label className="text-xs">Score mínimo</Label>
             <Input value={scoreMin} onChange={(e) => setScoreMin(e.target.value.replace(/[^\d.]/g, ""))} placeholder="0" />
+          </div>
+          <div className="flex items-center justify-between gap-3 rounded-md border border-border px-3 py-2 md:col-span-2">
+            <div>
+              <Label className="text-xs flex items-center gap-1"><Radio className="w-3.5 h-3.5" /> Somente usuários online agora</Label>
+              <p className="text-[11px] text-muted-foreground">Ativos nos últimos 5 minutos ({onlineNow ?? 0})</p>
+            </div>
+            <Switch checked={onlineOnly} onCheckedChange={setOnlineOnly} />
+          </div>
+          <div className="space-y-1 md:col-span-2 lg:col-span-2">
+            <Label className="text-xs">Segmentações salvas</Label>
+            <div className="flex flex-wrap gap-2">
+              <Select onValueChange={applySegment}>
+                <SelectTrigger className="w-52"><SelectValue placeholder="Carregar segmentação" /></SelectTrigger>
+                <SelectContent>
+                  {segments.length === 0
+                    ? <SelectItem value="none" disabled>Nenhuma salva</SelectItem>
+                    : segments.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <Input value={segmentName} onChange={(e) => setSegmentName(e.target.value)} placeholder="Nome da segmentação" className="w-52" />
+              <Button variant="outline" onClick={saveSegment}>
+                <Bookmark className="w-4 h-4 mr-2" /> Salvar segmentação
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>
