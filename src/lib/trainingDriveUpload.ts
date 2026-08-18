@@ -16,6 +16,27 @@ export interface PreparePayload {
   exception_reason?: string | null;
 }
 
+const MIME_BY_EXTENSION: Record<string, string> = {
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  png: "image/png",
+  webp: "image/webp",
+  heic: "image/heic",
+  heif: "image/heif",
+  mp4: "video/mp4",
+  mov: "video/quicktime",
+  webm: "video/webm",
+  m4v: "video/x-m4v",
+};
+
+/** Mobile pickers sometimes return an empty or generic MIME type. */
+export function resolvedMimeType(file: File): string {
+  const reported = String(file.type || "").toLowerCase();
+  if (reported && reported !== "application/octet-stream") return reported;
+  const extension = file.name.split(".").pop()?.toLowerCase() || "";
+  return MIME_BY_EXTENSION[extension] || reported;
+}
+
 export interface PrepareResult {
   upload_id: string;
   generated_filename: string;
@@ -64,20 +85,45 @@ export async function sendChunk(
   start: number,
   signal?: AbortSignal,
 ): Promise<ChunkResponse> {
-  const resp = await fetch(`${FN_URL}?action=chunk`, {
-    method: "POST",
-    headers: {
-      ...(await authHeaders()),
-      "Content-Type": "application/octet-stream",
-      "x-upload-id": uploadId,
-      "x-chunk-start": String(start),
-    },
-    body: chunk,
-    signal,
-  });
-  const json = await resp.json().catch(() => ({}));
-  if (!resp.ok) throw new Error(json?.error || `Falha no envio do bloco (${resp.status})`);
-  return json as ChunkResponse;
+  const retryableStatuses = new Set([408, 429, 500, 502, 503, 504]);
+  let lastMessage = "Falha temporária no envio";
+
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    if (signal?.aborted) throw new Error("Upload cancelado");
+    try {
+      const resp = await fetch(`${FN_URL}?action=chunk`, {
+        method: "POST",
+        headers: {
+          ...(await authHeaders()),
+          "Content-Type": "application/octet-stream",
+          "x-upload-id": uploadId,
+          "x-chunk-start": String(start),
+        },
+        body: chunk,
+        signal,
+      });
+      const json = await resp.json().catch(() => ({}));
+      if (resp.ok) return json as ChunkResponse;
+      lastMessage = json?.error || `Falha no envio do bloco (${resp.status})`;
+      if (!retryableStatuses.has(resp.status) || attempt === 3) throw new Error(lastMessage);
+    } catch (error) {
+      if (signal?.aborted) throw new Error("Upload cancelado");
+      lastMessage = error instanceof Error ? error.message : String(error);
+      if (attempt === 3 || (!lastMessage.includes("fetch") && !lastMessage.includes("503") && !lastMessage.includes("502") && !lastMessage.includes("504"))) {
+        throw error;
+      }
+    }
+
+    await new Promise<void>((resolve, reject) => {
+      const timeout = window.setTimeout(resolve, 1000 * 2 ** attempt);
+      signal?.addEventListener("abort", () => {
+        window.clearTimeout(timeout);
+        reject(new Error("Upload cancelado"));
+      }, { once: true });
+    });
+  }
+
+  throw new Error(lastMessage);
 }
 
 export async function cancelUpload(uploadId: string): Promise<void> {
@@ -92,21 +138,33 @@ export async function cancelUpload(uploadId: string): Promise<void> {
 export function readDimensions(file: File): Promise<{ width: number | null; height: number | null }> {
   return new Promise((resolve) => {
     const url = URL.createObjectURL(file);
+    let settled = false;
+    let timeoutId: number | undefined;
     const done = (w: number | null, h: number | null) => {
+      if (settled) return;
+      settled = true;
+      if (timeoutId !== undefined) window.clearTimeout(timeoutId);
       URL.revokeObjectURL(url);
       resolve({ width: w, height: h });
     };
-    if (file.type.startsWith("image/")) {
+    // iOS/Android may never emit loadedmetadata for a local high-resolution
+    // video. Dimensions are optional, so never block the actual upload.
+    timeoutId = window.setTimeout(() => done(null, null), 5000);
+    const mimeType = resolvedMimeType(file);
+    if (mimeType.startsWith("image/")) {
       const img = new Image();
       img.onload = () => done(img.naturalWidth, img.naturalHeight);
       img.onerror = () => done(null, null);
       img.src = url;
-    } else if (file.type.startsWith("video/")) {
+    } else if (mimeType.startsWith("video/")) {
       const v = document.createElement("video");
       v.preload = "metadata";
+      v.muted = true;
+      v.playsInline = true;
       v.onloadedmetadata = () => done(v.videoWidth || null, v.videoHeight || null);
       v.onerror = () => done(null, null);
       v.src = url;
+      v.load();
     } else {
       done(null, null);
     }
@@ -124,7 +182,9 @@ export async function runUpload(
   onProgress: UploadProgress,
   signal?: AbortSignal,
 ): Promise<{ drive_file_id?: string; drive_web_view_link?: string }> {
-  const chunkSize = prepared.chunk_size || 8 * 1024 * 1024;
+  // Smaller requests are more resilient on mobile connections while staying
+  // aligned to Google Drive's required 256 KiB chunk multiple.
+  const chunkSize = Math.min(prepared.chunk_size || 4 * 1024 * 1024, 4 * 1024 * 1024);
   let offset = 0;
   while (offset < file.size) {
     if (signal?.aborted) throw new Error("Upload cancelado");

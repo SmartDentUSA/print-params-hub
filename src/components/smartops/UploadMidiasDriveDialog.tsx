@@ -19,7 +19,7 @@ import {
 import { useTurmaParticipants, isBlockedStatus, type TurmaParticipant } from "@/hooks/useTurmaParticipants";
 import { useTurmaDriveMedia } from "@/hooks/useTurmaDriveMedia";
 import { useTurmaDriveInventory, upperKebabName } from "@/hooks/useTurmaDriveInventory";
-import { prepareUpload, runUpload, readDimensions, cancelUpload } from "@/lib/trainingDriveUpload";
+import { prepareUpload, runUpload, readDimensions, cancelUpload, resolvedMimeType } from "@/lib/trainingDriveUpload";
 
 type DestSpec = {
   key: string;
@@ -180,6 +180,7 @@ export function UploadMidiasDriveDialog({
   const [dayByDest, setDayByDest] = useState<Record<string, string>>({});
   const [days, setDays] = useState<{ day_number: number; date: string }[]>([]);
   const [exceptionReason, setExceptionReason] = useState("");
+  const processingIds = useRef(new Set<string>());
 
   const { data: participants = [] } = useTurmaParticipants(turmaId, open);
   const { data: media = [], refetch: refetchMedia } = useTurmaDriveMedia(turmaId, open);
@@ -313,13 +314,17 @@ export function UploadMidiasDriveDialog({
       sent: 0,
     }));
     setQueue((q) => [...q, ...items]);
-    items.forEach((it) => void startItem(it.id, items));
+    toast({
+      title: `${items.length} arquivo${items.length === 1 ? " selecionado" : "s selecionados"}`,
+      description: "O envio continuará pela fila abaixo. Mantenha esta tela aberta.",
+    });
   };
 
-  const startItem = async (itemId: string, seed?: QueueItem[]) => {
-    const snapshot = seed ? [...queue, ...seed] : queue;
-    const base = snapshot.find((q) => q.id === itemId);
-    if (!base) return;
+  const startItem = async (itemId: string) => {
+    if (processingIds.current.has(itemId)) return;
+    const base = queue.find((q) => q.id === itemId);
+    if (!base || (base.status !== "waiting" && base.status !== "error" && base.status !== "canceled")) return;
+    processingIds.current.add(itemId);
     const controller = new AbortController();
     setQueue((q) => q.map((x) => (x.id === itemId ? { ...x, status: "uploading", sent: 0, error: undefined, controller } : x)));
     try {
@@ -328,7 +333,7 @@ export function UploadMidiasDriveDialog({
         turma_id: turmaId,
         destination_key: base.destinationKey,
         original_filename: base.file.name,
-        mime_type: base.file.type,
+        mime_type: resolvedMimeType(base.file),
         size_bytes: base.file.size,
         width: dims.width,
         height: dims.height,
@@ -349,8 +354,18 @@ export function UploadMidiasDriveDialog({
       const msg = err?.message || String(err);
       setQueue((q) => q.map((x) => (x.id === itemId ? { ...x, status: msg.includes("cancelado") ? "canceled" : "error", error: msg } : x)));
       if (!msg.includes("cancelado")) toast({ title: "Falha no upload", description: msg, variant: "destructive" });
+    } finally {
+      processingIds.current.delete(itemId);
     }
   };
+
+  // Keep mobile uploads predictable: process one large media file at a time.
+  // Parallel video uploads are easily suspended by iOS/Android browsers.
+  useEffect(() => {
+    if (!open || uploading) return;
+    const next = queue.find((item) => item.status === "waiting");
+    if (next) void startItem(next.id);
+  }, [open, queue, uploading]);
 
   const cancelItem = async (item: QueueItem) => {
     item.controller?.abort();
