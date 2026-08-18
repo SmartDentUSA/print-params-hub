@@ -249,6 +249,54 @@ export function PushAppTab() {
     loadCampaigns();
   };
 
+  // Diagnóstico: prova se este dispositivo consegue exibir notificações e se o provedor aceita o push.
+  const [testing, setTesting] = useState(false);
+  const testThisDevice = async () => {
+    setTesting(true);
+    try {
+      if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
+        toast.error("Este navegador não suporta notificações push.");
+        return;
+      }
+      if (Notification.permission !== "granted") {
+        const perm = await Notification.requestPermission();
+        if (perm !== "granted") {
+          toast.error("Permissão de notificações não concedida neste navegador.");
+          return;
+        }
+      }
+      const reg = (await navigator.serviceWorker.getRegistration("/push-sw.js"))
+        ?? (await navigator.serviceWorker.register("/push-sw.js"));
+      await navigator.serviceWorker.ready;
+
+      // 1) Notificação local — valida permissão e exibição no sistema operacional.
+      await reg.showNotification("Smart Dent — teste local", {
+        body: "Notificação local exibida com sucesso.",
+        icon: "/favicon-192x192.png",
+      });
+
+      // 2) Push real pelo servidor — valida VAPID + provedor (FCM/APNs).
+      const sub = await reg.pushManager.getSubscription();
+      if (!sub) {
+        toast.error("Este dispositivo ainda não tem assinatura de push. Ative as notificações no portal do cliente.");
+        return;
+      }
+      const { data, error } = await supabase.functions.invoke("push-subscribe", {
+        body: { action: "test", endpoint: sub.endpoint },
+      });
+      const res = data as { ok?: boolean; error?: string; provider_status?: number } | null;
+      if (error || !res?.ok) {
+        toast.error(`Push do servidor falhou: ${res?.error || error?.message || "erro desconhecido"}`);
+        return;
+      }
+      toast.success(`Push real enviado (status ${res.provider_status ?? 201}). Se a notificação local apareceu e esta não, verifique as notificações do navegador no sistema.`);
+    } catch (e) {
+      toast.error((e as Error)?.message ?? "Falha no teste de push.");
+    } finally {
+      setTesting(false);
+    }
+  };
+
   const selectField = (label: string, value: string, setValue: (v: string) => void, items: string[], allLabel = "Todos") => (
     <div className="space-y-1">
       <Label className="text-xs">{label}</Label>
@@ -279,6 +327,9 @@ export function PushAppTab() {
               <Badge variant="secondary" className="text-base px-3 py-1">
                 {counting ? "..." : `${audience ?? 0} usuários`}
               </Badge>
+              <Button variant="outline" size="sm" onClick={testThisDevice} disabled={testing}>
+                <BellRing className={`w-4 h-4 mr-1 ${testing ? "animate-pulse" : ""}`} /> Testar neste dispositivo
+              </Button>
               <Button variant="outline" size="sm" onClick={() => { countAudience(); loadOptions(); }} disabled={counting}>
                 <RefreshCw className={`w-4 h-4 ${counting ? "animate-spin" : ""}`} />
               </Button>
