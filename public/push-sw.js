@@ -14,7 +14,23 @@ self.addEventListener("push", (event) => {
     tag: data.tag || undefined,
     data: { url: data.url || "/" },
   };
-  event.waitUntil(self.registration.showNotification(title, options));
+  event.waitUntil(
+    (async () => {
+      const clientsList = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+      await Promise.allSettled(clientsList.map((client) => client.postMessage({
+        type: "SMARTDENT_PUSH_RECEIVED",
+        payload: {
+          title,
+          body: options.body,
+          image: options.image,
+          icon: options.icon,
+          url: options.data.url,
+          tag: options.tag,
+        },
+      })));
+      await self.registration.showNotification(title, options);
+    })(),
+  );
 });
 
 self.addEventListener("notificationclick", (event) => {
@@ -24,7 +40,11 @@ self.addEventListener("notificationclick", (event) => {
     (async () => {
       const clientsList = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
       const existing = clientsList.find((c) => "focus" in c);
-      if (existing) { await existing.focus(); }
+      if (existing) {
+        await existing.focus();
+        existing.postMessage({ type: "SMARTDENT_PUSH_OPEN", url });
+        return;
+      }
       await self.clients.openWindow(url);
     })(),
   );

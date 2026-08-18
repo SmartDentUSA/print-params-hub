@@ -18,6 +18,20 @@ function detectPlatform(ua: string): string {
   return "desktop";
 }
 
+function firstName(name?: string | null): string {
+  return (name ?? "").trim().split(/\s+/)[0] ?? "";
+}
+
+function renderTemplate(template: string, lead: { nome?: string | null; cidade?: string | null; produto_interesse?: string | null }): string {
+  return template
+    .replace(/\{\{\s*primeiro_nome\s*\}\}/gi, firstName(lead.nome))
+    .replace(/\{\{\s*nome\s*\}\}/gi, lead.nome ?? "")
+    .replace(/\{\{\s*cidade\s*\}\}/gi, lead.cidade ?? "")
+    .replace(/\{\{\s*produto_interesse\s*\}\}/gi, lead.produto_interesse ?? "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
@@ -44,6 +58,51 @@ Deno.serve(async (req) => {
     if (eUser || !user) return json({ ok: false, error: "Sessão inválida." }, 401);
 
     const leadId = (user.user_metadata as Record<string, unknown> | null)?.lead_id as string | undefined;
+
+    // Caixa de entrada do portal: permite exibir o push dentro do app mesmo quando o SO
+    // bloqueia a notificação nativa. Retorna apenas envios das assinaturas do usuário logado.
+    if (action === "inbox") {
+      const { data: subscriptions } = await admin.from("push_subscriptions")
+        .select("id, lead_id")
+        .eq("user_id", user.id);
+      const subscriptionIds = (subscriptions ?? []).map((item) => item.id);
+      if (subscriptionIds.length === 0) return json({ ok: true, notification: null });
+
+      const { data: delivery } = await admin.from("push_send_log")
+        .select("campaign_id, lead_id, sent_at")
+        .in("subscription_id", subscriptionIds)
+        .eq("status", "enviado")
+        .order("sent_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (!delivery) return json({ ok: true, notification: null });
+
+      const [{ data: campaign }, { data: lead }] = await Promise.all([
+        admin.from("push_campaigns")
+          .select("id, title, body, image_url, target_url")
+          .eq("id", delivery.campaign_id)
+          .maybeSingle(),
+        admin.from("lia_attendances")
+          .select("nome, cidade, produto_interesse")
+          .eq("id", delivery.lead_id ?? leadId ?? "00000000-0000-0000-0000-000000000000")
+          .is("merged_into", null)
+          .maybeSingle(),
+      ]);
+      if (!campaign) return json({ ok: true, notification: null });
+
+      const personalization = lead ?? { nome: null, cidade: null, produto_interesse: null };
+      return json({
+        ok: true,
+        notification: {
+          id: `${campaign.id}:${delivery.sent_at}`,
+          title: renderTemplate(campaign.title, personalization),
+          body: renderTemplate(campaign.body, personalization),
+          image: campaign.image_url,
+          url: campaign.target_url || "/",
+          sent_at: delivery.sent_at,
+        },
+      });
+    }
 
     if (action === "unsubscribe") {
       const endpoint = String(body?.endpoint || "");
