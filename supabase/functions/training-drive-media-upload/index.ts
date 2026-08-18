@@ -29,7 +29,9 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 
-const CHUNK_SIZE = 8 * 1024 * 1024; // múltiplo de 256KB
+// 4 MiB reduces gateway timeouts on mobile uploads and remains a valid Drive
+// resumable chunk size (multiple of 256 KiB).
+const CHUNK_SIZE = 4 * 1024 * 1024;
 const MAX_SIZE = 5 * 1024 * 1024 * 1024;
 
 function json(body: unknown, status = 200) {
@@ -151,7 +153,10 @@ serve(async (req) => {
         await db.from("training_drive_media").update({ status: "uploading", bytes_uploaded: res.received }).eq("id", uploadId);
         return json({ done: false, received: res.received });
       } catch (e: any) {
-        await db.from("training_drive_media").update({ status: "failed", error_message: String(e?.message || e).slice(0, 500) }).eq("id", uploadId);
+        // Keep the resumable session retryable. The browser can resend this
+        // same offset after transient gateway/Drive failures without creating
+        // another file or losing the already confirmed bytes.
+        await db.from("training_drive_media").update({ status: "uploading", error_message: String(e?.message || e).slice(0, 500) }).eq("id", uploadId);
         return json({ error: e?.message || String(e) }, 502);
       }
     }

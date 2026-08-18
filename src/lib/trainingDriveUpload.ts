@@ -85,20 +85,45 @@ export async function sendChunk(
   start: number,
   signal?: AbortSignal,
 ): Promise<ChunkResponse> {
-  const resp = await fetch(`${FN_URL}?action=chunk`, {
-    method: "POST",
-    headers: {
-      ...(await authHeaders()),
-      "Content-Type": "application/octet-stream",
-      "x-upload-id": uploadId,
-      "x-chunk-start": String(start),
-    },
-    body: chunk,
-    signal,
-  });
-  const json = await resp.json().catch(() => ({}));
-  if (!resp.ok) throw new Error(json?.error || `Falha no envio do bloco (${resp.status})`);
-  return json as ChunkResponse;
+  const retryableStatuses = new Set([408, 429, 500, 502, 503, 504]);
+  let lastMessage = "Falha temporária no envio";
+
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    if (signal?.aborted) throw new Error("Upload cancelado");
+    try {
+      const resp = await fetch(`${FN_URL}?action=chunk`, {
+        method: "POST",
+        headers: {
+          ...(await authHeaders()),
+          "Content-Type": "application/octet-stream",
+          "x-upload-id": uploadId,
+          "x-chunk-start": String(start),
+        },
+        body: chunk,
+        signal,
+      });
+      const json = await resp.json().catch(() => ({}));
+      if (resp.ok) return json as ChunkResponse;
+      lastMessage = json?.error || `Falha no envio do bloco (${resp.status})`;
+      if (!retryableStatuses.has(resp.status) || attempt === 3) throw new Error(lastMessage);
+    } catch (error) {
+      if (signal?.aborted) throw new Error("Upload cancelado");
+      lastMessage = error instanceof Error ? error.message : String(error);
+      if (attempt === 3 || (!lastMessage.includes("fetch") && !lastMessage.includes("503") && !lastMessage.includes("502") && !lastMessage.includes("504"))) {
+        throw error;
+      }
+    }
+
+    await new Promise<void>((resolve, reject) => {
+      const timeout = window.setTimeout(resolve, 1000 * 2 ** attempt);
+      signal?.addEventListener("abort", () => {
+        window.clearTimeout(timeout);
+        reject(new Error("Upload cancelado"));
+      }, { once: true });
+    });
+  }
+
+  throw new Error(lastMessage);
 }
 
 export async function cancelUpload(uploadId: string): Promise<void> {
