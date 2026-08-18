@@ -9,6 +9,7 @@ import { KeyRound, RefreshCw, MessageCircle, Mail, Smartphone, Circle } from "lu
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { usePresenceWatcher } from "@/hooks/useClientPresence";
+import { useOnlineClients, onlineIdentityKey } from "@/hooks/useOnlineClients";
 
 interface InviteRow {
   destino: string;
@@ -47,8 +48,13 @@ export function AdminClientAccessTab() {
   const [filter, setFilter] = useState<"todos" | "confirmados" | "pendentes" | "online">("todos");
   const { toast } = useToast();
   const { isOnline } = usePresenceWatcher();
+  const { data: online } = useOnlineClients(5);
 
-  const liveOnline = (r: InviteRow) => isOnline(r.destino) || !!r.online;
+  const connectionsOf = (r: InviteRow) => {
+    const key = onlineIdentityKey(r.destino);
+    return (key && online?.byIdentity.get(key)?.connections) || 0;
+  };
+  const liveOnline = (r: InviteRow) => connectionsOf(r) > 0 || isOnline(r.destino) || !!r.online;
 
   const load = async () => {
     setLoading(true);
@@ -87,7 +93,8 @@ export function AdminClientAccessTab() {
 
   const total = latestByDestino.length;
   const confirmados = latestByDestino.filter((r) => r.confirmed_at).length;
-  const onlineCount = latestByDestino.filter(liveOnline).length;
+  const onlineCount = online?.totalUsers ?? latestByDestino.filter(liveOnline).length;
+  const connectionsCount = online?.totalConnections ?? 0;
 
   return (
     <Card className="bg-gradient-card border-border shadow-medium">
@@ -99,7 +106,8 @@ export function AdminClientAccessTab() {
               Acessos enviados aos clientes
             </CardTitle>
             <CardDescription>
-              {total} envios · {confirmados} confirmados · {onlineCount} online agora (tempo real)
+              {total} envios · {confirmados} confirmados · {onlineCount} usuário(s) online agora ·{" "}
+              {connectionsCount} conexão(ões) ativa(s)
             </CardDescription>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -139,18 +147,19 @@ export function AdminClientAccessTab() {
                 <TableHead>Confirmou</TableHead>
                 <TableHead>Última atividade</TableHead>
                 <TableHead>Online</TableHead>
+                <TableHead>Conexões</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
+                  <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
                     Carregando...
                   </TableCell>
                 </TableRow>
               ) : filtered.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
+                  <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
                     Nenhum acesso enviado ainda.
                   </TableCell>
                 </TableRow>
@@ -188,6 +197,15 @@ export function AdminClientAccessTab() {
                         />
                         {liveOnline(r) ? "Online" : "Offline"}
                       </span>
+                    </TableCell>
+                    <TableCell>
+                      {connectionsOf(r) > 0 ? (
+                        <Badge variant="outline" className="font-mono text-[11px]">
+                          {connectionsOf(r)} conexão(ões)
+                        </Badge>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">—</span>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))
