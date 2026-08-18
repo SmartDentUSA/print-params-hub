@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, GraduationCap, Loader2, Pencil, Plus, Save, Trash2 } from "lucide-react";
 import ProfessionalCourseForm from "@/components/smartops/courses/ProfessionalCourseForm";
+import { useClientPresence } from "@/hooks/useClientPresence";
 import {
   COURSE_MODALITIES,
   COURSE_STATUS,
@@ -76,6 +77,11 @@ export default function ProfessionalCoursePortal() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  useClientPresence(
+    profile?.email || [profile?.prof_wa_ddi, profile?.prof_wa_number].filter(Boolean).join("") || null,
+    { nome: profile?.nome ?? null, contexto: "portal-cursos" },
+  );
 
   const patch = (p: Partial<ProfessionalCourseDraft>) => setDraft((d) => (d ? { ...d, ...p } : d));
 
