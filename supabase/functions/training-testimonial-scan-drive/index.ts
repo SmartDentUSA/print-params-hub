@@ -35,6 +35,13 @@ serve(async (req) => {
     const dryRun = body?.dry_run === true;
     const db = serviceClient();
 
+    // Diagnóstico: lista o conteúdo bruto de uma pasta do Drive.
+    if (body?.list_folder_id) {
+      const t = await getDriveAccessToken();
+      const items = await driveListFiles(t, String(body.list_folder_id));
+      return jsonResponse({ success: true, folder_id: body.list_folder_id, items });
+    }
+
     let query = db
       .from("smartops_course_turmas")
       .select("id, turma_number, course_id, drive_subfolders, start_date, end_date");
