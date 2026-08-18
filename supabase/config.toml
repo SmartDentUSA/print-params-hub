@@ -569,3 +569,6 @@ verify_jwt = false
 
 [functions.smart-ops-evogo-qr]
 verify_jwt = false
+
+[functions.client-access-login]
+verify_jwt = false
