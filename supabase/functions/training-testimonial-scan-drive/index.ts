@@ -13,7 +13,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { getDriveAccessToken, driveListFiles } from "../_shared/drive.ts";
 import {
-  authorizeTestimonialCall, corsHeadersTestimonial, jsonResponse, serviceClient,
+  authorizeTestimonialCall, corsHeadersTestimonial, jsonResponse, safeEqualSecret, serviceClient,
 } from "../_shared/testimonial-pipeline.ts";
 
 const VIDEO_MIME = /^video\//i;
@@ -21,8 +21,14 @@ const VIDEO_MIME = /^video\//i;
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeadersTestimonial });
 
-  const auth = await authorizeTestimonialCall(req);
-  if (!auth.ok) return jsonResponse({ error: auth.error }, auth.status);
+  // Chave dedicada do cron/operação interna, ou as credenciais normais do pipeline.
+  const cronKey = (Deno.env.get("TESTIMONIAL_CRON_KEY") || "").trim();
+  const headerCron = (req.headers.get("x-cron-key") || "").trim();
+  const isCron = Boolean(cronKey && headerCron && safeEqualSecret(headerCron, cronKey));
+  if (!isCron) {
+    const auth = await authorizeTestimonialCall(req);
+    if (!auth.ok) return jsonResponse({ error: auth.error }, auth.status);
+  }
 
   try {
     const body = await req.json().catch(() => ({} as any));
