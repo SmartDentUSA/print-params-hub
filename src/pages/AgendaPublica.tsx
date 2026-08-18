@@ -314,6 +314,9 @@ export default function AgendaPublica({ variant = "presencial" }: AgendaPublicaP
 
   const turmas = useMemo(() => {
     const nowMs = Date.now();
+    // Mantém o curso visível por 12h após o término, para o time de marketing
+    // finalizar o envio de fotos e vídeos.
+    const GRACE_MS = 12 * 60 * 60 * 1000;
     const allowed = new Set(publicCourseIds);
     return allTurmas
       .filter((t) => allowed.has(t.course_id))
@@ -322,7 +325,7 @@ export default function AgendaPublica({ variant = "presencial" }: AgendaPublicaP
         if (!endDate) return true;
         const endTime = (t.end_time || "23:59").substring(0, 5);
         const endMs = new Date(`${endDate}T${endTime}:00`).getTime();
-        return Number.isFinite(endMs) ? endMs > nowMs : true;
+        return Number.isFinite(endMs) ? endMs + GRACE_MS > nowMs : true;
       })
       .sort((a, b) => (a.start_date || "").localeCompare(b.start_date || ""));
   }, [allTurmas, publicCourseIds]);
