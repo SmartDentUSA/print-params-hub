@@ -115,18 +115,41 @@ Deno.serve(async (req) => {
       if (!hashed) throw new Error("Falha ao gerar sessão.");
 
       const nowIso = new Date().toISOString();
-      await supabase.from("client_access_invites").insert({
-        lead_id: lead.id,
-        nome: lead.nome,
-        destino: phone,
-        canal: "direto",
-        token: newToken(),
-        status: "confirmado",
-        confirmed_at: nowIso,
-        first_login_at: nowIso,
-        last_seen_at: nowIso,
-        user_id: userId,
-      });
+      // 1 registro por cliente: atualiza o existente em vez de duplicar a cada login
+      const { data: existing } = await supabase
+        .from("client_access_invites")
+        .select("id, first_login_at")
+        .eq("lead_id", lead.id)
+        .order("created_at", { ascending: false })
+        .limit(1);
+      if (existing?.[0]?.id) {
+        await supabase
+          .from("client_access_invites")
+          .update({
+            nome: lead.nome,
+            destino: phone,
+            canal: "direto",
+            status: "confirmado",
+            confirmed_at: nowIso,
+            first_login_at: existing[0].first_login_at ?? nowIso,
+            last_seen_at: nowIso,
+            user_id: userId,
+          })
+          .eq("id", existing[0].id);
+      } else {
+        await supabase.from("client_access_invites").insert({
+          lead_id: lead.id,
+          nome: lead.nome,
+          destino: phone,
+          canal: "direto",
+          token: newToken(),
+          status: "confirmado",
+          confirmed_at: nowIso,
+          first_login_at: nowIso,
+          last_seen_at: nowIso,
+          user_id: userId,
+        });
+      }
 
       // Timeline do lead: login do cliente no portal
       try {
