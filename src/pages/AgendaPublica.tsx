@@ -618,20 +618,6 @@ function PublicTurmaCard({ turma, status, driveFolderId = null, driveFolderUrl =
             );
           })()}
 
-          {canUpload && (
-            <div className="mt-3 flex justify-center">
-              <UploadMidiasDriveButton
-                turmaId={turma.id}
-                turmaNumber={turma.turma_number ?? null}
-                turmaLabel={turma.label}
-                courseTitle={turma.course_title}
-                startDate={turma.start_date}
-                endDate={turma.end_date}
-                folderId={driveFolderId}
-                folderUrl={driveFolderUrl}
-              />
-            </div>
-          )}
         </>
       ) : (
         <>
@@ -669,6 +655,20 @@ function PublicTurmaCard({ turma, status, driveFolderId = null, driveFolderUrl =
             </div>
           )}
         </>
+      )}
+      {canUpload && (
+        <div className="mt-3 pt-3 border-t flex justify-center">
+          <UploadMidiasDriveButton
+            turmaId={turma.id}
+            turmaNumber={turma.turma_number ?? null}
+            turmaLabel={turma.label}
+            courseTitle={turma.course_title}
+            startDate={turma.start_date}
+            endDate={turma.end_date}
+            folderId={driveFolderId}
+            folderUrl={driveFolderUrl}
+          />
+        </div>
       )}
       </div>
     </div>
