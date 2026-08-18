@@ -17731,13 +17731,18 @@ export type Database = {
           clicked_count: number
           created_at: string
           created_by: string | null
+          date_end: string | null
+          date_start: string | null
           error_details: string | null
           failed_count: number
           filters: Json
           icon_url: string | null
           id: string
           image_url: string | null
+          last_run_date: string | null
           schedule_at: string | null
+          segment_name: string | null
+          send_hour: number | null
           sent_count: number
           status: string
           target_url: string | null
@@ -17750,13 +17755,18 @@ export type Database = {
           clicked_count?: number
           created_at?: string
           created_by?: string | null
+          date_end?: string | null
+          date_start?: string | null
           error_details?: string | null
           failed_count?: number
           filters?: Json
           icon_url?: string | null
           id?: string
           image_url?: string | null
+          last_run_date?: string | null
           schedule_at?: string | null
+          segment_name?: string | null
+          send_hour?: number | null
           sent_count?: number
           status?: string
           target_url?: string | null
@@ -17769,13 +17779,18 @@ export type Database = {
           clicked_count?: number
           created_at?: string
           created_by?: string | null
+          date_end?: string | null
+          date_start?: string | null
           error_details?: string | null
           failed_count?: number
           filters?: Json
           icon_url?: string | null
           id?: string
           image_url?: string | null
+          last_run_date?: string | null
           schedule_at?: string | null
+          segment_name?: string | null
+          send_hour?: number | null
           sent_count?: number
           status?: string
           target_url?: string | null
