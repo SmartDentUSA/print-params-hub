@@ -25,7 +25,7 @@ Deno.serve(async (req) => {
 
     const { data: rows } = await admin
       .from("client_access_invites")
-      .select("id")
+      .select("id, lead_id")
       .ilike("destino", `%${key}%`)
       .order("sent_at", { ascending: false })
       .limit(1);
@@ -35,13 +35,9 @@ Deno.serve(async (req) => {
     }
 
     // Também mantém as assinaturas de push vivas (segmentação "online agora")
-    if (digits) {
-      await admin
-        .from("push_subscriptions")
-        .update({ last_seen_at: nowIso })
-        .eq("enabled", true)
-        .ilike("user_agent", "%")
-        .eq("lead_id", (rows?.[0] as { lead_id?: string } | undefined)?.lead_id ?? "00000000-0000-0000-0000-000000000000");
+    const leadId = (rows?.[0] as { lead_id?: string | null } | undefined)?.lead_id ?? null;
+    if (leadId) {
+      await admin.from("push_subscriptions").update({ last_seen_at: nowIso }).eq("lead_id", leadId);
     }
 
     return json({ ok: true, updated: !!rows?.[0] });
