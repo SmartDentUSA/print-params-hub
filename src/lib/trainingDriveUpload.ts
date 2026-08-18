@@ -114,7 +114,7 @@ export function readDimensions(file: File): Promise<{ width: number | null; heig
   return new Promise((resolve) => {
     const url = URL.createObjectURL(file);
     let settled = false;
-    let timeoutId: ReturnType<typeof window.setTimeout> | undefined;
+    let timeoutId: number | undefined;
     const done = (w: number | null, h: number | null) => {
       if (settled) return;
       settled = true;
