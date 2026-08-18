@@ -3216,6 +3216,54 @@ export type Database = {
         }
         Relationships: []
       }
+      client_online_sessions: {
+        Row: {
+          device_type: string | null
+          email: string | null
+          first_seen_at: string
+          id: string
+          identity_key: string
+          last_seen_at: string
+          lead_id: string | null
+          nome: string | null
+          page_path: string | null
+          page_title: string | null
+          phone: string | null
+          session_id: string
+          user_agent: string | null
+        }
+        Insert: {
+          device_type?: string | null
+          email?: string | null
+          first_seen_at?: string
+          id?: string
+          identity_key: string
+          last_seen_at?: string
+          lead_id?: string | null
+          nome?: string | null
+          page_path?: string | null
+          page_title?: string | null
+          phone?: string | null
+          session_id: string
+          user_agent?: string | null
+        }
+        Update: {
+          device_type?: string | null
+          email?: string | null
+          first_seen_at?: string
+          id?: string
+          identity_key?: string
+          last_seen_at?: string
+          lead_id?: string | null
+          nome?: string | null
+          page_path?: string | null
+          page_title?: string | null
+          phone?: string | null
+          session_id?: string
+          user_agent?: string | null
+        }
+        Relationships: []
+      }
       cognitive_lead_locks: {
         Row: {
           lead_id: string
@@ -33393,6 +33441,20 @@ export type Database = {
         }[]
       }
       fn_omie_score_label: { Args: { score: number }; Returns: string }
+      fn_online_clients: {
+        Args: { p_window_minutes?: number }
+        Returns: {
+          connections: number
+          devices: string[]
+          email: string
+          identity_key: string
+          last_seen_at: string
+          lead_id: string
+          nome: string
+          page_path: string
+          phone: string
+        }[]
+      }
       fn_owner_purchase_history: { Args: { _lead_id: string }; Returns: Json }
       fn_painel_stage_canon: { Args: { p_stage: string }; Returns: string }
       fn_pause_reactivation_manual: {
