@@ -23,6 +23,14 @@ import heroPrinterImg from '@/assets/kb-hero-printer.jpg';
 import { CATALOG_SIDEBAR_FILTERS, rowMatchesCatalogFilter } from '@/components/knowledge/catalogSidebarFilters';
 import { PRODUCT_CATALOG_ENTITY_TYPES } from '@/lib/catalogEntityTypes';
 import { KB_HERO_SETTING_KEY, KB_CATALOG_PINS_KEY, KB_NAV_SHOW_OVERVIEW_KEY, KB_SIDEBAR_CTA_KEY } from '@/components/AdminKbHubEditor';
+import { trackContentEvent } from '@/hooks/usePageTracking';
+
+/** Detecta o tipo de conteúdo aberto para registrar na timeline do lead. */
+function kbContentType(data: any): string {
+  if (data?.video_url || data?.youtube_url || data?.panda_video_id) return 'video';
+  if (data?.ebook_url || data?.pdf_url) return 'ebook';
+  return 'artigo';
+}
 
 interface KnowledgeBaseProps { lang?: 'pt' | 'en' | 'es'; forcedTab?: KbTab }
 
@@ -199,13 +207,28 @@ export default function KnowledgeBase({ lang = 'pt', forcedTab }: KnowledgeBaseP
       if (data) {
         setDialogContent(data);
         setDialogOpen(true);
+        void trackContentEvent({
+          action: 'open',
+          contentType: kbContentType(data),
+          title: (data as any)?.title ?? null,
+          slug: contentSlug,
+        });
       }
     })();
   }, [contentSlug]);
 
   const openArticle = async (slug: string) => {
     const data = await fetchContentBySlug(slug);
-    if (data) { setDialogContent(data); setDialogOpen(true); }
+    if (data) {
+      setDialogContent(data);
+      setDialogOpen(true);
+      void trackContentEvent({
+        action: 'open',
+        contentType: kbContentType(data),
+        title: (data as any)?.title ?? null,
+        slug,
+      });
+    }
   };
 
   const closeDialog = () => {
