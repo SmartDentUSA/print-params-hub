@@ -438,7 +438,12 @@ const STATUS_PILL: Record<Variant, string> = {
   muted: "bg-muted text-muted-foreground",
 };
 
-function PublicTurmaCard({ turma, status }: { turma: TurmaComVagas; status: CountdownResult }) {
+function PublicTurmaCard({ turma, status, driveFolderId = null, driveFolderUrl = null }: {
+  turma: TurmaComVagas;
+  status: CountdownResult;
+  driveFolderId?: string | null;
+  driveFolderUrl?: string | null;
+}) {
   const pct = turma.slots > 0 ? Math.round((turma.enrolled_count / turma.slots) * 100) : 0;
   const lotado = (turma.vagas_disponiveis ?? Math.max(turma.slots - turma.enrolled_count, 0)) === 0;
   const isMuted = status?.variant === "muted";
@@ -467,8 +472,6 @@ function PublicTurmaCard({ turma, status }: { turma: TurmaComVagas; status: Coun
   const endDateValue = turma.end_date ?? turma.start_date;
 
   const authed = useAuthedSession();
-  const driveFolderId = ((turma as any).drive_folder_id ?? (turma as any).factory_drive_folder_id ?? null) as string | null;
-  const driveFolderUrl = ((turma as any).drive_folder_url ?? (turma as any).factory_drive_folder_url ?? null) as string | null;
   const canUpload = authed && !!driveFolderId;
 
   return (
