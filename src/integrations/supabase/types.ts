@@ -32944,6 +32944,14 @@ export type Database = {
         Args: { p_email: string; p_exclude_id?: string }
         Returns: string
       }
+      fn_agenda_drive_folders: {
+        Args: never
+        Returns: {
+          folder_id: string
+          folder_url: string
+          turma_id: string
+        }[]
+      }
       fn_atualizar_parcelas_vencidas: { Args: never; Returns: undefined }
       fn_auto_update_enrollment_status: { Args: never; Returns: undefined }
       fn_automation_run_stats: {
@@ -33271,6 +33279,7 @@ export type Database = {
         Args: { p_name: string }
         Returns: boolean
       }
+      fn_is_team_member: { Args: never; Returns: boolean }
       fn_itens_propostas_ganhas_mes: {
         Args: { p_ano?: number; p_mes?: number }
         Returns: {
