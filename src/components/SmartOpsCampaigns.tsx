@@ -5,6 +5,7 @@ import { CampaignLinkPicker } from "@/components/smartops/CampaignLinkPicker";
 import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import ZernioAdsTab from "@/components/campaigns/ZernioAdsTab";
+import { PushAppTab } from "@/components/campaigns/PushAppTab";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -2792,6 +2793,7 @@ export function SmartOpsCampaigns() {
           <TabsTrigger value="grupos-wa">Grupos WA</TabsTrigger>
           <TabsTrigger value="formularios-meta">Origens</TabsTrigger>
           <TabsTrigger value="anuncios">Anúncios</TabsTrigger>
+          <TabsTrigger value="pushapp">PushApp</TabsTrigger>
         </TabsList>
 
         <TabsContent value="biblioteca">
@@ -2819,6 +2821,9 @@ export function SmartOpsCampaigns() {
         </TabsContent>
         <TabsContent value="anuncios">
           <ZernioAdsTab />
+        </TabsContent>
+        <TabsContent value="pushapp">
+          <PushAppTab />
         </TabsContent>
       </Tabs>
     </div>

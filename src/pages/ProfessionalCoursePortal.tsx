@@ -10,6 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, GraduationCap, Loader2, Pencil, Plus, Save, Trash2 } from "lucide-react";
 import ProfessionalCourseForm from "@/components/smartops/courses/ProfessionalCourseForm";
 import { useClientPresence } from "@/hooks/useClientPresence";
+import { PushOptInBanner } from "@/components/PushOptInBanner";
 import {
   COURSE_MODALITIES,
   COURSE_STATUS,
@@ -158,6 +159,8 @@ export default function ProfessionalCoursePortal() {
             <p className="text-sm text-muted-foreground">{profile.nome ?? profile.email}</p>
           </div>
         </header>
+
+        <PushOptInBanner />
 
         <Card>
           <CardHeader className="flex-row items-center justify-between space-y-0">

@@ -572,3 +572,15 @@ verify_jwt = false
 
 [functions.client-access-login]
 verify_jwt = false
+
+[functions.push-subscribe]
+verify_jwt = false
+
+[functions.push-campaign-send]
+verify_jwt = false
+
+[functions.push-campaign-cron]
+verify_jwt = false
+
+[functions.push-click]
+verify_jwt = false

@@ -17725,6 +17725,152 @@ export type Database = {
           },
         ]
       }
+      push_campaigns: {
+        Row: {
+          body: string
+          clicked_count: number
+          created_at: string
+          created_by: string | null
+          error_details: string | null
+          failed_count: number
+          filters: Json
+          icon_url: string | null
+          id: string
+          image_url: string | null
+          schedule_at: string | null
+          sent_count: number
+          status: string
+          target_url: string | null
+          title: string
+          total_audience: number
+          updated_at: string
+        }
+        Insert: {
+          body: string
+          clicked_count?: number
+          created_at?: string
+          created_by?: string | null
+          error_details?: string | null
+          failed_count?: number
+          filters?: Json
+          icon_url?: string | null
+          id?: string
+          image_url?: string | null
+          schedule_at?: string | null
+          sent_count?: number
+          status?: string
+          target_url?: string | null
+          title: string
+          total_audience?: number
+          updated_at?: string
+        }
+        Update: {
+          body?: string
+          clicked_count?: number
+          created_at?: string
+          created_by?: string | null
+          error_details?: string | null
+          failed_count?: number
+          filters?: Json
+          icon_url?: string | null
+          id?: string
+          image_url?: string | null
+          schedule_at?: string | null
+          sent_count?: number
+          status?: string
+          target_url?: string | null
+          title?: string
+          total_audience?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      push_send_log: {
+        Row: {
+          campaign_id: string | null
+          clicked_at: string | null
+          dedupe_hash: string | null
+          error: string | null
+          id: string
+          lead_id: string | null
+          sent_at: string
+          status: string
+          subscription_id: string | null
+        }
+        Insert: {
+          campaign_id?: string | null
+          clicked_at?: string | null
+          dedupe_hash?: string | null
+          error?: string | null
+          id?: string
+          lead_id?: string | null
+          sent_at?: string
+          status?: string
+          subscription_id?: string | null
+        }
+        Update: {
+          campaign_id?: string | null
+          clicked_at?: string | null
+          dedupe_hash?: string | null
+          error?: string | null
+          id?: string
+          lead_id?: string | null
+          sent_at?: string
+          status?: string
+          subscription_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "push_send_log_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "push_campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      push_subscriptions: {
+        Row: {
+          auth: string
+          created_at: string
+          enabled: boolean
+          endpoint: string
+          id: string
+          last_seen_at: string
+          lead_id: string | null
+          p256dh: string
+          platform: string | null
+          user_agent: string | null
+          user_id: string | null
+        }
+        Insert: {
+          auth: string
+          created_at?: string
+          enabled?: boolean
+          endpoint: string
+          id?: string
+          last_seen_at?: string
+          lead_id?: string | null
+          p256dh: string
+          platform?: string | null
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          auth?: string
+          created_at?: string
+          enabled?: boolean
+          endpoint?: string
+          id?: string
+          last_seen_at?: string
+          lead_id?: string | null
+          p256dh?: string
+          platform?: string | null
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       rayshape_manual_owners: {
         Row: {
           created_at: string
@@ -32881,6 +33027,7 @@ export type Database = {
         Args: { p_lead_id: string }
         Returns: undefined
       }
+      fn_count_push_audience: { Args: { p_filters?: Json }; Returns: number }
       fn_deal_closed_mes: { Args: { closed_at: string }; Returns: string }
       fn_deduplicate_proposal_csv: {
         Args: { p_csv_rows: Json }
@@ -33233,6 +33380,19 @@ export type Database = {
           status_recompra: string
           telefone: string
           uf: string
+        }[]
+      }
+      fn_push_audience: {
+        Args: { p_filters?: Json }
+        Returns: {
+          auth: string
+          cidade: string
+          endpoint: string
+          lead_id: string
+          nome: string
+          p256dh: string
+          produto_interesse: string
+          subscription_id: string
         }[]
       }
       fn_query_bi_view: {
