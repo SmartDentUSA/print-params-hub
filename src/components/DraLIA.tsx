@@ -7,7 +7,8 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import PrinterParamsFlow from './PrinterParamsFlow';
 import ProductsFlow from './ProductsFlow';
 import CommercialFlow, { type CommercialStep } from './CommercialFlow';
-import { MessageCircle, X, Send, ThumbsUp, ThumbsDown, Loader2, ImagePlus } from 'lucide-react';
+import { MessageCircle, X, Send, ThumbsUp, ThumbsDown, Loader2, ImagePlus, BellRing, ExternalLink } from 'lucide-react';
+import { Button } from './ui/button';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 
@@ -30,6 +31,14 @@ interface Message {
 
 interface DraLIAProps {
   embedded?: boolean;
+}
+
+interface InAppPush {
+  title: string;
+  body: string;
+  url: string;
+  image?: string;
+  tag?: string;
 }
 
 const localeMap: Record<string, string> = {
@@ -248,10 +257,35 @@ export default function DraLIA({ embedded = false }: DraLIAProps) {
   ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [inAppPush, setInAppPush] = useState<InAppPush | null>(null);
   const [feedbackState, setFeedbackState] = useState<Record<string, 'positive' | 'negative' | 'comment'>>({});
   const [feedbackComments, setFeedbackComments] = useState<Record<string, string>>({});
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    if (embedded || !("serviceWorker" in navigator)) return;
+
+    const handlePushMessage = (event: MessageEvent) => {
+      if (event.data?.type === "SMARTDENT_PUSH_OPEN" && typeof event.data.url === "string") {
+        window.location.assign(event.data.url);
+        return;
+      }
+      if (event.data?.type !== "SMARTDENT_PUSH_RECEIVED") return;
+      const payload = event.data.payload as Partial<InAppPush> | undefined;
+      if (!payload?.title) return;
+      setInAppPush({
+        title: payload.title,
+        body: payload.body ?? "",
+        url: payload.url || "/",
+        image: payload.image,
+        tag: payload.tag,
+      });
+    };
+
+    navigator.serviceWorker.addEventListener("message", handlePushMessage);
+    return () => navigator.serviceWorker.removeEventListener("message", handlePushMessage);
+  }, [embedded]);
   const generateSessionId = () => {
     const id = crypto.randomUUID();
     sessionStorage.setItem('dra_lia_session', id);
@@ -1406,6 +1440,44 @@ export default function DraLIA({ embedded = false }: DraLIAProps) {
 
   return (
     <>
+      {inAppPush && (
+        <aside
+          aria-live="polite"
+          aria-label="Nova notificação Smart Dent"
+          className={`fixed right-4 z-[60] w-[calc(100vw-2rem)] max-w-sm overflow-hidden rounded-md border border-border bg-card text-card-foreground shadow-large animate-in slide-in-from-bottom-4 duration-300 sm:right-6 ${isOpen ? 'bottom-[min(45rem,calc(100vh-1rem))]' : 'bottom-24'}`}
+        >
+          {inAppPush.image && (
+            <img src={inAppPush.image} alt="" className="h-28 w-full object-cover" />
+          )}
+          <div className="p-4">
+            <div className="flex items-start gap-3">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground">
+                <BellRing className="h-4 w-4" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="pr-6 text-sm font-semibold leading-5">{inAppPush.title}</p>
+                {inAppPush.body && <p className="mt-1 text-sm leading-5 text-muted-foreground">{inAppPush.body}</p>}
+              </div>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="-mr-2 -mt-2 h-8 w-8 shrink-0"
+                aria-label="Fechar notificação"
+                onClick={() => setInAppPush(null)}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+            <Button asChild size="sm" className="mt-3 w-full">
+              <a href={inAppPush.url} target="_blank" rel="noopener noreferrer" onClick={() => setInAppPush(null)}>
+                Abrir link <ExternalLink className="h-4 w-4" />
+              </a>
+            </Button>
+          </div>
+        </aside>
+      )}
+
       {/* Floating button */}
       {!isOpen && (
         <button
