@@ -85,6 +85,39 @@ export async function trackContentEvent(params: {
 }
 
 /**
+ * Registra um clique do lead identificado (botão, link, player, download).
+ * Vai para `lead_page_views` e aparece na timeline unificada do lead.
+ */
+export async function trackClickEvent(params: {
+  label: string;
+  target?: string | null;
+  extra?: Record<string, unknown>;
+}): Promise<void> {
+  const leadId = getKnownLeadId();
+  if (!leadId) return; // só rastreamos cliques de usuário logado/identificado
+  try {
+    await supabase.from("lead_page_views" as any).insert({
+      session_id: getOrCreateSessionId(),
+      lead_id: leadId,
+      page_path: window.location.pathname + window.location.search,
+      page_title: document.title,
+      page_type: "click",
+      referrer: window.location.href,
+      device_type: getDeviceType(),
+      browser: getBrowser(),
+      extra_data: {
+        action: "click",
+        content_type: "click",
+        content_title: `Clique: ${params.label}`.slice(0, 200),
+        click_label: params.label.slice(0, 200),
+        click_target: params.target ?? null,
+        ...(params.extra ?? {}),
+      },
+    } as any);
+  } catch { /* noop */ }
+}
+
+/**
  * Marca o lead identificado e vincula todas as visitas anônimas
  * da sessão atual a ele (fonte da verdade da timeline).
  */
