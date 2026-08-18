@@ -1,5 +1,6 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { trackContentEvent } from '@/hooks/usePageTracking';
 
 export type ResinDocKind = 'FDS' | 'IFU' | 'GUIA' | 'PERFIL' | 'CERT' | 'LAUDO' | 'APRES' | 'MSDS' | 'DOC';
 export interface ResinDocItem { name: string; url: string; kind: ResinDocKind; }
@@ -25,7 +26,15 @@ interface Props {
 
 export default function KbResinDocsDialog({ open, onClose, resinName, docs }: Props) {
   const { t } = useLanguage();
-  const open_ = (u: string) => window.open(u, '_blank', 'noopener,noreferrer');
+  const open_ = (u: string, name?: string, kind?: string) => {
+    void trackContentEvent({
+      action: 'document_open',
+      contentType: 'documento',
+      title: name ? `${name}${resinName ? ` — ${resinName}` : ''}` : resinName,
+      extra: { document_url: u, document_kind: kind ?? null, resina: resinName },
+    });
+    window.open(u, '_blank', 'noopener,noreferrer');
+  };
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
       <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
