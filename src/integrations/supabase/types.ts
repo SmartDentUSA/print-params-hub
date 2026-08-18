@@ -3168,6 +3168,54 @@ export type Database = {
           },
         ]
       }
+      client_access_invites: {
+        Row: {
+          canal: string
+          confirmed_at: string | null
+          created_at: string
+          destino: string
+          first_login_at: string | null
+          id: string
+          last_seen_at: string | null
+          lead_id: string | null
+          nome: string | null
+          sent_at: string
+          status: string
+          token: string | null
+          user_id: string | null
+        }
+        Insert: {
+          canal: string
+          confirmed_at?: string | null
+          created_at?: string
+          destino: string
+          first_login_at?: string | null
+          id?: string
+          last_seen_at?: string | null
+          lead_id?: string | null
+          nome?: string | null
+          sent_at?: string
+          status?: string
+          token?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          canal?: string
+          confirmed_at?: string | null
+          created_at?: string
+          destino?: string
+          first_login_at?: string | null
+          id?: string
+          last_seen_at?: string | null
+          lead_id?: string | null
+          nome?: string | null
+          sent_at?: string
+          status?: string
+          token?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       cognitive_lead_locks: {
         Row: {
           lead_id: string
@@ -32815,6 +32863,20 @@ export type Database = {
         Returns: string
       }
       fn_classify_nf_direcao: { Args: { p_nf_id: string }; Returns: string }
+      fn_client_access_invites: {
+        Args: never
+        Returns: {
+          canal: string
+          confirmed_at: string
+          destino: string
+          last_seen_at: string
+          lead_id: string
+          nome: string
+          online: boolean
+          sent_at: string
+          status: string
+        }[]
+      }
       fn_close_reactivation_on_deal_won: {
         Args: { p_lead_id: string }
         Returns: undefined
