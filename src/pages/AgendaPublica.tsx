@@ -338,6 +338,29 @@ export default function AgendaPublica({ variant = "presencial" }: AgendaPublicaP
       .sort((a, b) => (a.turmas[0]?.start_date || "").localeCompare(b.turmas[0]?.start_date || ""));
   }, [turmas, variant]);
 
+  // Pastas do Drive (só para equipe autenticada): habilita o upload de mídias direto do celular.
+  const authed = useAuthedSession();
+  const { data: driveFolders = {} } = useQuery({
+    queryKey: ["public_agenda_drive_folders", variant],
+    enabled: authed,
+    staleTime: 60_000,
+    queryFn: async (): Promise<Record<string, { id: string | null; url: string | null }>> => {
+      const { data, error } = await (supabase as any)
+        .from("smartops_course_turmas")
+        .select("id, drive_folder_id, drive_folder_url, factory_drive_folder_id, factory_drive_folder_url")
+        .eq("active", true);
+      if (error) throw error;
+      const map: Record<string, { id: string | null; url: string | null }> = {};
+      for (const r of (data ?? []) as any[]) {
+        map[r.id] = {
+          id: r.drive_folder_id ?? r.factory_drive_folder_id ?? null,
+          url: r.drive_folder_url ?? r.factory_drive_folder_url ?? null,
+        };
+      }
+      return map;
+    },
+  });
+
   return (
     <div className="pp-root min-h-screen">
       <style>{publicPageStyles}</style>
@@ -387,6 +410,8 @@ export default function AgendaPublica({ variant = "presencial" }: AgendaPublicaP
               <PublicTurmaCard
                 key={t.id}
                 turma={t}
+                driveFolderId={driveFolders[t.id]?.id ?? null}
+                driveFolderUrl={driveFolders[t.id]?.url ?? null}
                 status={getCountdown(t.start_date, t.start_time, t.end_date, t.end_time, t.modality)}
               />
             ))}
@@ -413,7 +438,12 @@ const STATUS_PILL: Record<Variant, string> = {
   muted: "bg-muted text-muted-foreground",
 };
 
-function PublicTurmaCard({ turma, status }: { turma: TurmaComVagas; status: CountdownResult }) {
+function PublicTurmaCard({ turma, status, driveFolderId = null, driveFolderUrl = null }: {
+  turma: TurmaComVagas;
+  status: CountdownResult;
+  driveFolderId?: string | null;
+  driveFolderUrl?: string | null;
+}) {
   const pct = turma.slots > 0 ? Math.round((turma.enrolled_count / turma.slots) * 100) : 0;
   const lotado = (turma.vagas_disponiveis ?? Math.max(turma.slots - turma.enrolled_count, 0)) === 0;
   const isMuted = status?.variant === "muted";
@@ -442,8 +472,6 @@ function PublicTurmaCard({ turma, status }: { turma: TurmaComVagas; status: Coun
   const endDateValue = turma.end_date ?? turma.start_date;
 
   const authed = useAuthedSession();
-  const driveFolderId = ((turma as any).drive_folder_id ?? (turma as any).factory_drive_folder_id ?? null) as string | null;
-  const driveFolderUrl = ((turma as any).drive_folder_url ?? (turma as any).factory_drive_folder_url ?? null) as string | null;
   const canUpload = authed && !!driveFolderId;
 
   return (
