@@ -1,8 +1,12 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
 import { UploadCloud } from "lucide-react";
 import { UploadMidiasDriveDialog } from "@/components/smartops/UploadMidiasDriveDialog";
+import { useTurmaDriveInventory } from "@/hooks/useTurmaDriveInventory";
+import { TURMA_MEDIA_TARGET, isGoalReached } from "@/lib/trainingMediaTargets";
+import { cn } from "@/lib/utils";
 
 interface Props {
   turmaId: string;
@@ -20,6 +24,13 @@ export function UploadMidiasDriveButton({
 }: Props) {
   const [open, setOpen] = useState(false);
   const disabled = !folderId;
+  const { data: inventory } = useTurmaDriveInventory(turmaId, !!folderId);
+
+  const sent = useMemo(
+    () => Object.values(inventory?.counts || {}).reduce((sum, n) => sum + (Number(n) || 0), 0),
+    [inventory],
+  );
+  const complete = isGoalReached(sent, TURMA_MEDIA_TARGET);
 
   return (
     <>
@@ -36,11 +47,31 @@ export function UploadMidiasDriveButton({
               >
                 <UploadCloud className="h-3.5 w-3.5" />
                 Upload de Mídias
+                {!disabled && inventory && (
+                  <>
+                    <span
+                      className={cn(
+                        "ml-1 h-2 w-2 rounded-full",
+                        complete ? "bg-emerald-500" : sent > 0 ? "bg-amber-500" : "bg-muted-foreground/30",
+                      )}
+                    />
+                    <Badge
+                      variant="outline"
+                      className={cn("ml-0.5 h-4 px-1 font-mono text-[10px]", complete && "border-emerald-500/50 text-emerald-600")}
+                    >
+                      {sent}/{TURMA_MEDIA_TARGET}
+                    </Badge>
+                  </>
+                )}
               </Button>
             </span>
           </TooltipTrigger>
           <TooltipContent>
-            {disabled ? "Crie a pasta do Drive primeiro." : "Enviar fotos e vídeos para as pastas do Drive"}
+            {disabled
+              ? "Crie a pasta do Drive primeiro."
+              : complete
+                ? `Meta de mídias atingida (${sent} arquivos no Drive)`
+                : `${sent} de ${TURMA_MEDIA_TARGET} mídias enviadas — enviar fotos e vídeos`}
           </TooltipContent>
         </Tooltip>
       </TooltipProvider>
