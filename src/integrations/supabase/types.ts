@@ -33467,6 +33467,7 @@ export type Database = {
           product_name: string
         }[]
       }
+      fn_lower_connectors: { Args: { txt: string }; Returns: string }
       fn_map_lead_source: {
         Args: {
           p_formulario_source?: string
