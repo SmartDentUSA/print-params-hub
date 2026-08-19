@@ -231,7 +231,15 @@ serve(async (req) => {
     ], { json: true });
     const article = parseJsonBlock<any>(articleRaw);
 
-    const slug = await ensureUniqueSlug(db, article.slug || article.title, t.knowledge_content_id);
+    // O vínculo selecionado no upload é a fonte canônica da identidade. A IA
+    // não pode trocar o participante pelo nome eventualmente falado no vídeo.
+    const participantName = String(ficha.nome || "").trim();
+    const generatedTitle = String(article.title || "").trim();
+    const title = participantName && !generatedTitle.toLocaleLowerCase("pt-BR").includes(participantName.toLocaleLowerCase("pt-BR"))
+      ? `${participantName}: experiência no treinamento ${ficha.curso || "Smart Dent"}`
+      : generatedTitle;
+
+    const slug = await ensureUniqueSlug(db, article.slug || title, t.knowledge_content_id);
 
     // Corpo final = ficha real + artigo gerado + transcrição completa + JSON-LD.
     const publicUrlPath = `/base-conhecimento/e/${slug}`;
@@ -239,11 +247,11 @@ serve(async (req) => {
       buildParticipantCard(ficha),
       String(article.body_html || ""),
       buildTranscriptSection(transcript),
-      buildJsonLd(ficha, { title: String(article.title || ""), url: publicUrlPath, transcript }),
+      buildJsonLd(ficha, { title, url: publicUrlPath, transcript }),
     ].filter(Boolean).join("\n");
 
     const errors = validateTestimonialArticle({
-      title: String(article.title || ""),
+      title,
       slug,
       meta_description: String(article.meta_description || ""),
       excerpt: String(article.excerpt || ""),
@@ -259,7 +267,7 @@ serve(async (req) => {
     const shouldPublish = publish === true && errors.length === 0;
     const payload = {
       category_id: CATEGORY_E_ID,
-      title: String(article.title || "").slice(0, 200),
+      title: title.slice(0, 200),
       slug,
       excerpt: String(article.excerpt || "").slice(0, 500),
       content_html: finalHtml,
