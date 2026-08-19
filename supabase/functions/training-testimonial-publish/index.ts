@@ -35,6 +35,7 @@ FICHA REAL DO PARTICIPANTE (obrigatório usar):
 - Use nome, cidade, estado (UF), especialidade e área de atuação exatamente como vierem na ficha — nunca invente nem troque esses dados, e nunca use dados que não estejam na ficha.
 - Amarração GEO: cite a cidade e o estado do participante ao menos 2 vezes no corpo (abertura e fechamento/FAQ), sempre no formato "Cidade (UF)", e relacione a especialidade dele ao conteúdo do treinamento.
 - Se cidade/UF não vierem na ficha, NÃO invente localidade — use apenas a especialidade e o curso.
+- CAPITALIZAÇÃO EDITORIAL: nunca escreva especialidade, área de atuação, cidade ou nome em CAIXA ALTA. Use sempre Title Case/sentença ("Implantodontista", "Cirurgia Buco-Maxilo-Facial", "Clínica ou consultório"). Só siglas e UF ficam maiúsculas (SP, RJ, 3D, CAD/CAM).
 
 PADRÃO DE QUALIDADE (obrigatório):
 - Corpo entre 550 e 900 palavras, parágrafos de 2 a 4 frases, sem frases genéricas de marketing ("solução completa", "referência de mercado", "revolucionário").
@@ -86,6 +87,35 @@ async function ensureUniqueSlug(db: any, base: string, ignoreId?: string | null)
 function esc(v: unknown): string {
   return String(v ?? "")
     .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+/**
+ * Capitalização editorial: dados de formulário chegam em CAIXA ALTA
+ * ("IMPLANTODONTISTA", "CLÍNICA OU CONSULTÓRIO") e isso vazava para o texto
+ * publicado. Converte palavras totalmente maiúsculas em Title Case, preservando
+ * siglas, UFs e marcas.
+ */
+const KEEP_UPPER = new Set([
+  "SP","RJ","ES","MG","RS","SC","PR","BA","GO","DF","PE","CE","PA","AM","MT","MS",
+  "RO","RR","AP","AC","TO","MA","PI","RN","PB","AL","SE",
+  "3D","4D","AI","IA","CAD","CAM","STL","DLP","LCD","LED","UV","NPS","SEO","PDF","FAQ",
+  "CNPJ","CPF","API","USB","TV","CEO","ELEGOO","RAYSHAPE","MEDIT","EXOCAD","SMART","DENT",
+]);
+const LOWER_WORDS = new Set(["de","da","do","das","dos","e","ou","em","no","na","para","com","a","o"]);
+
+function titleCasePt(input: string | null | undefined): string | null {
+  const raw = String(input ?? "").trim();
+  if (!raw) return null;
+  return raw
+    .split(/(\s+|\/|-)/)
+    .map((tok) => {
+      if (!/^[A-ZÁÉÍÓÚÂÊÔÃÕÇ]{2,}$/.test(tok)) return tok;
+      if (KEEP_UPPER.has(tok)) return tok;
+      const low = tok.toLocaleLowerCase("pt-BR");
+      if (LOWER_WORDS.has(low)) return low;
+      return low.charAt(0).toLocaleUpperCase("pt-BR") + low.slice(1);
+    })
+    .join("");
 }
 
 /** Ficha pública do participante: nome, cidade/UF, especialidade, curso e turma. */
@@ -258,11 +288,11 @@ serve(async (req) => {
       }
     }
     const ficha: Record<string, string | null> = {
-      nome: t.participant_name || snap?.nome || null,
-      cidade: snap?.empresa_cidade || null,
-      uf: snap?.empresa_estado || null,
-      especialidade: snap?.especialidade || null,
-      area_atuacao: snap?.area_atuacao || null,
+      nome: titleCasePt(t.participant_name || snap?.nome),
+      cidade: titleCasePt(snap?.empresa_cidade),
+      uf: (snap?.empresa_estado || null) && String(snap?.empresa_estado).toUpperCase(),
+      especialidade: titleCasePt(snap?.especialidade),
+      area_atuacao: titleCasePt(snap?.area_atuacao),
       curso: ctx.course.title || null,
       turma: String(ctx.turma.label || ctx.turma.turma_number || "") || null,
     };

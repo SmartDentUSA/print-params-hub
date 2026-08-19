@@ -33467,6 +33467,7 @@ export type Database = {
           product_name: string
         }[]
       }
+      fn_lower_connectors: { Args: { txt: string }; Returns: string }
       fn_map_lead_source: {
         Args: {
           p_formulario_source?: string
@@ -33939,6 +33940,7 @@ export type Database = {
           lead_id: string
         }[]
       }
+      fn_smart_titlecase: { Args: { txt: string }; Returns: string }
       fn_smartops_parse_timestamp: {
         Args: { p_value: string }
         Returns: string
