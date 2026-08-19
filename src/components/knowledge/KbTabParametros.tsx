@@ -260,7 +260,7 @@ function ResinCard({ p, index, t, onOpenSheet }: { p: ParamRow; index: number; t
       <div className="kb-rcard-top">
         {r?.image_url ? (
           <img
-            src={getStorageImageUrl(r.image_url, { width: 200, quality: 65, resize: 'cover' })}
+            src={getStorageImageUrl(r.image_url, { width: 200, height: 200, quality: 70, resize: 'contain' })}
             alt={p.resin_name}
             className="kb-rcard-img"
             loading="lazy"
