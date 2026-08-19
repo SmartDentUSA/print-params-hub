@@ -26,6 +26,10 @@ import { buildAccessUrls } from "../_shared/training-media-access.ts";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const CTA = "Quer saber mais sobre este treinamento? Link na Bio";
 
+/** Parceiros fixos marcados em TODO depoimento (Story do IG + TikTok). */
+const PARTNER_HANDLES = ["rayshape3d", "blz_dental"];
+const PARTNER_LINE = `Parceria: ${PARTNER_HANDLES.map((h) => `@${h}`).join(" ")}`;
+
 /** Palavra-chave de comentário para o fluxo comment-to-DM (ex.: "EDGE", "RAYSHAPE"). */
 function commentKeyword(courseTitle?: string | null): string {
   const words = String(courseTitle || "")
