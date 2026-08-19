@@ -35,6 +35,7 @@ FICHA REAL DO PARTICIPANTE (obrigatório usar):
 - Use nome, cidade, estado (UF), especialidade e área de atuação exatamente como vierem na ficha — nunca invente nem troque esses dados, e nunca use dados que não estejam na ficha.
 - Amarração GEO: cite a cidade e o estado do participante ao menos 2 vezes no corpo (abertura e fechamento/FAQ), sempre no formato "Cidade (UF)", e relacione a especialidade dele ao conteúdo do treinamento.
 - Se cidade/UF não vierem na ficha, NÃO invente localidade — use apenas a especialidade e o curso.
+- CAPITALIZAÇÃO EDITORIAL: nunca escreva especialidade, área de atuação, cidade ou nome em CAIXA ALTA. Use sempre Title Case/sentença ("Implantodontista", "Cirurgia Buco-Maxilo-Facial", "Clínica ou consultório"). Só siglas e UF ficam maiúsculas (SP, RJ, 3D, CAD/CAM).
 
 PADRÃO DE QUALIDADE (obrigatório):
 - Corpo entre 550 e 900 palavras, parágrafos de 2 a 4 frases, sem frases genéricas de marketing ("solução completa", "referência de mercado", "revolucionário").
