@@ -174,7 +174,7 @@ export default function KbTabParametros() {
                 >
                   {m.image_url ? (
                     <img
-                      src={getStorageImageUrl(m.image_url, { width: 120, height: 120, quality: 60, resize: 'cover' })}
+                      src={getStorageImageUrl(m.image_url, { width: 120, height: 120, quality: 65, resize: 'contain' })}
                       alt={m.name}
                       className="kb-model-thumb"
                       loading="lazy"
