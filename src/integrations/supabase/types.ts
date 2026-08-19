@@ -33939,6 +33939,7 @@ export type Database = {
           lead_id: string
         }[]
       }
+      fn_smart_titlecase: { Args: { txt: string }; Returns: string }
       fn_smartops_parse_timestamp: {
         Args: { p_value: string }
         Returns: string
