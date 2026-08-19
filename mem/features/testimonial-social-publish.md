@@ -10,5 +10,7 @@ type: feature
 - `Equipamentos citados` é o parque do participante — nunca atribuir ao treinamento na copy. Só produtos do curso ou citados na transcrição.
 - @ do Instagram: lido de `smartops_course_enrollments.instagram` / `smartops_enrollment_companions.instagram`. Só é marcado se o nome do dono do cadastro casar com o participante do depoimento (inscrição costuma ser do titular) — nunca usa o @ do lead como fallback.
 - Publica via `social_scheduled_posts` (status `scheduled`, `publish_now=true`, channels `instagram/stories` + `tiktok/video`), consumido pelo `social-publish-worker`. Mídia = URL assinada temporária do `training-media-proxy` (TTL 1h), `type: 'video'` explícito.
+- **Zernio ignora `postType` no corpo**: o formato real vai em `platforms[].platformSpecificData.contentType` (`'story'`). Sem isso, vídeo único no Instagram sai como **Reels**. O `social-publish-worker` monta esse campo em `buildPlatformSpecificData` — não remover.
+- Parceiros fixos marcados em TODO depoimento: `@rayshape3d` e `@blz_dental` — via `platformSpecificData.userTags` no Story e linha "Parceria: @rayshape3d @blz_dental" nas captions (IG/TikTok). `collaborators` do Zernio não funciona em Stories.
 - Controle em `training_testimonials`: `social_story_status/_post_id/_error/_published_at/_attempts/_snapshot`.
 - Ficha do acompanhante lê `smartops_enrollment_companions` (a tabela `smartops_course_companions` não existe).

@@ -50,6 +50,25 @@ function toZernioPostType(format?: string | null): string {
   return 'feed';
 }
 
+// Zernio NÃO entende `postType` no corpo: o formato real vai em
+// platforms[].platformSpecificData.contentType (ex.: 'story'). Sem isso, vídeo
+// único no Instagram é publicado como Reels. Não remover.
+function buildPlatformSpecificData(platform: string, postType: string, ch: any): Record<string, unknown> | null {
+  const psd: Record<string, unknown> = {
+    ...(ch?.platformSpecificData && typeof ch.platformSpecificData === 'object' ? ch.platformSpecificData : {}),
+  };
+  if (postType === 'story' && (platform === 'instagram' || platform === 'facebook')) {
+    psd.contentType = 'story';
+  }
+  // userTags marca @ nas mídias (funciona em Story/Reels por username).
+  if (Array.isArray(ch?.userTags) && ch.userTags.length > 0) psd.userTags = ch.userTags;
+  // collaborators só vale para feed/reels — Stories não aceitam.
+  if (Array.isArray(ch?.collaborators) && ch.collaborators.length > 0 && postType !== 'story') {
+    psd.collaborators = ch.collaborators.slice(0, 3);
+  }
+  return Object.keys(psd).length > 0 ? psd : null;
+}
+
 function inferMediaType(url: string): 'image' | 'video' {
   const ext = (url.split('?')[0].split('.').pop() || '').toLowerCase();
   return ['mp4', 'mov', 'webm', 'avi', 'm4v'].includes(ext) ? 'video' : 'image';
@@ -151,7 +170,7 @@ serve(async (req) => {
           ? post.per_channel_media
           : {};
 
-      const platforms: Array<{ platform: string; accountId: string; postType: string }> = [];
+      const platforms: Array<{ platform: string; accountId: string; postType: string; platformSpecificData?: Record<string, unknown> }> = [];
       const skipped: any[] = [];
       const seenKeys = new Set<string>();
       const dedupedOut: any[] = [];
@@ -164,13 +183,14 @@ serve(async (req) => {
           continue;
         }
         const postType = toZernioPostType(ch.format);
+        const psd = buildPlatformSpecificData(platform, postType, ch);
         const key = `${platform}::${accountId}::${postType}`;
         if (seenKeys.has(key)) {
           dedupedOut.push({ channel: ch, reason: 'duplicate_platform_format_account' });
           continue;
         }
         seenKeys.add(key);
-        platforms.push({ platform, accountId, postType });
+        platforms.push({ platform, accountId, postType, ...(psd ? { platformSpecificData: psd } : {}) });
       }
       if (dedupedOut.length > 0) {
         console.log(JSON.stringify({ event: 'channel_dedup', post_id: post.id, deduped: dedupedOut }));

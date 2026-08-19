@@ -26,6 +26,10 @@ import { buildAccessUrls } from "../_shared/training-media-access.ts";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const CTA = "Quer saber mais sobre este treinamento? Link na Bio";
 
+/** Parceiros fixos marcados em TODO depoimento (Story do IG + TikTok). */
+const PARTNER_HANDLES = ["rayshape3d", "blz_dental"];
+const PARTNER_LINE = `Parceria: ${PARTNER_HANDLES.map((h) => `@${h}`).join(" ")}`;
+
 /** Palavra-chave de comentário para o fluxo comment-to-DM (ex.: "EDGE", "RAYSHAPE"). */
 function commentKeyword(courseTitle?: string | null): string {
   const words = String(courseTitle || "")
@@ -223,8 +227,10 @@ serve(async (req) => {
 
     const ctaBlock = `Quer conhecer as próximas turmas do ${ficha.curso || "treinamento"}?\nSaiba mais no link na Bio ou comente "${keyword}" e receba todas as informações.`;
     const ensureCta = (s: string) => (s.toLowerCase().includes("link na bio") ? s : `${s.trim()}\n\n${ctaBlock}`);
-    const storyCaption = ensureCta(String(copy.story_caption || "").trim());
-    const tiktokCaption = ensureCta(String(copy.tiktok_caption || storyCaption).trim());
+    const withPartners = (s: string) =>
+      PARTNER_HANDLES.every((h) => s.toLowerCase().includes(`@${h}`)) ? s : `${s.trim()}\n\n${PARTNER_LINE}`;
+    const storyCaption = withPartners(ensureCta(String(copy.story_caption || "").trim()));
+    const tiktokCaption = withPartners(ensureCta(String(copy.tiktok_caption || copy.story_caption || "").trim()));
     if (!storyCaption) throw new Error("IA não retornou copy utilizável");
     const hashtags = (Array.isArray(copy.hashtags) ? copy.hashtags : [])
       .map((h) => String(h).replace(/^#/, "").replace(/\s+/g, "").trim())
@@ -257,7 +263,16 @@ serve(async (req) => {
         media_items: mediaItems,
         per_channel_media: { instagram: mediaItems, tiktok: mediaItems },
         channels: [
-          { platform: "instagram", format: "stories" },
+          {
+            platform: "instagram",
+            format: "stories",
+            // contentType='story' é aplicado pelo worker; userTags marca os
+            // parceiros fixos (e o participante, quando validado) no Story.
+            userTags: [
+              ...PARTNER_HANDLES.map((username) => ({ username })),
+              ...(ficha.handle ? [{ username: String(ficha.handle).replace(/^@/, "") }] : []),
+            ],
+          },
           { platform: "tiktok", format: "video" },
         ],
         product_name: ficha.curso,
