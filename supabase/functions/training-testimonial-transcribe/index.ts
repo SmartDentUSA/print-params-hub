@@ -75,6 +75,98 @@ async function loadTurmaCandidates(db: any, turmaId: string): Promise<Participan
   return out;
 }
 
+/** Limite de corpo do gateway de STT (~26 MB). Acima disso vamos pelo Gemini Files API. */
+const GATEWAY_STT_MAX_BYTES = 24 * 1024 * 1024;
+
+/**
+ * Fallback para vídeos grandes: sobe o arquivo no Gemini Files API (resumable,
+ * suporta centenas de MB) e pede a transcrição literal do áudio.
+ */
+const GEMINI_STT_MODEL = "gemini-flash-latest";
+
+async function transcribeViaGemini(
+  body: Uint8Array | ReadableStream<Uint8Array>,
+  byteLength: number,
+  mime: string,
+  filename: string,
+): Promise<string> {
+  const key = Deno.env.get("GOOGLE_AI_KEY");
+  if (!key) throw new Error("GOOGLE_AI_KEY ausente para transcrição de vídeo grande");
+  const base = "https://generativelanguage.googleapis.com";
+
+  // 1) inicia upload resumable
+  const start = await fetch(`${base}/upload/v1beta/files?key=${key}`, {
+    method: "POST",
+    headers: {
+      "X-Goog-Upload-Protocol": "resumable",
+      "X-Goog-Upload-Command": "start",
+      "X-Goog-Upload-Header-Content-Length": String(byteLength),
+      "X-Goog-Upload-Header-Content-Type": mime,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ file: { display_name: filename } }),
+  });
+  if (!start.ok) throw new Error(`Gemini upload start ${start.status}: ${(await start.text()).slice(0, 300)}`);
+  const uploadUrl = start.headers.get("x-goog-upload-url");
+  if (!uploadUrl) throw new Error("Gemini upload sem x-goog-upload-url");
+
+  // 2) envia os bytes e finaliza
+  const up = await fetch(uploadUrl, {
+    method: "POST",
+    headers: {
+      "Content-Length": String(byteLength),
+      "X-Goog-Upload-Offset": "0",
+      "X-Goog-Upload-Command": "upload, finalize",
+    },
+    body,
+  });
+  if (!up.ok) throw new Error(`Gemini upload ${up.status}: ${(await up.text()).slice(0, 300)}`);
+  const upJson = await up.json().catch(() => null as any);
+  let fileName: string = upJson?.file?.name || "";
+  let fileUri: string = upJson?.file?.uri || "";
+  let state: string = upJson?.file?.state || "PROCESSING";
+  if (!fileName || !fileUri) throw new Error("Gemini upload sem file.uri");
+
+  // 3) aguarda ficar ACTIVE
+  for (let i = 0; i < 40 && state !== "ACTIVE"; i++) {
+    if (state === "FAILED") throw new Error("Gemini falhou ao processar o vídeo");
+    await new Promise((r) => setTimeout(r, 3000));
+    const st = await fetch(`${base}/v1beta/${fileName}?key=${key}`);
+    const stJson = await st.json().catch(() => null as any);
+    state = stJson?.state || state;
+    fileUri = stJson?.uri || fileUri;
+  }
+  if (state !== "ACTIVE") throw new Error("Gemini não concluiu o processamento do vídeo no tempo esperado");
+
+  // 4) transcrição literal
+  const gen = await fetch(`${base}/v1beta/models/${GEMINI_STT_MODEL}:generateContent?key=${key}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      contents: [{
+        role: "user",
+        parts: [
+          { fileData: { mimeType: mime, fileUri } },
+          {
+            text: "Transcreva LITERALMENTE, em português do Brasil, tudo que é falado neste vídeo. "
+              + "Não resuma, não comente, não adicione rótulos de falante nem timestamps. "
+              + "Responda apenas com o texto transcrito.",
+          },
+        ],
+      }],
+      generationConfig: { temperature: 0 },
+    }),
+  });
+  if (!gen.ok) throw new Error(`Gemini transcrição ${gen.status}: ${(await gen.text()).slice(0, 300)}`);
+  const genJson = await gen.json().catch(() => null as any);
+  const out = String(genJson?.candidates?.[0]?.content?.parts?.map((p: any) => p?.text || "").join("") || "").trim();
+  if (!out) throw new Error("Transcrição vazia (Gemini)");
+
+  // limpeza best-effort do arquivo temporário
+  fetch(`${base}/v1beta/${fileName}?key=${key}`, { method: "DELETE" }).catch(() => {});
+  return out;
+}
+
 async function transcribeBytes(bytes: Uint8Array, filename: string): Promise<string> {
   const key = Deno.env.get("LOVABLE_API_KEY");
   if (!key) throw new Error("LOVABLE_API_KEY ausente");
@@ -226,18 +318,37 @@ serve(async (req) => {
       return jsonResponse({ error: msg, testimonial_id: row.id }, 413);
     }
 
-    const bytes = await driveDownloadFile(token, fileId);
-    if (bytes.byteLength > MAX_AUDIO_BYTES) {
-      const msg = `Arquivo baixado tem ${(bytes.byteLength / 1024 / 1024).toFixed(1)} MB e excede o limite de 500 MB da transcrição.`;
-      await failTestimonial(db, row.id, "transcription", msg);
-      return jsonResponse({ error: msg, testimonial_id: row.id }, 413);
-    }
-
-    const hash = await sha256Hex(bytes);
     const filename = `depoimento_${row.id}.${extensionForMime(mime, meta?.name)}`;
 
     // ── Transcrição literal ───────────────────────────────────────────────
-    const raw = await transcribeBytes(bytes, filename);
+    let raw: string;
+    let hash: string | null = null;
+    let processedBytes = declaredSize;
+
+    if (declaredSize && declaredSize > GATEWAY_STT_MAX_BYTES) {
+      // Vídeo grande: faz streaming Drive → Gemini, sem carregar tudo na memória
+      // (bufferizar 60 MB+ estoura o limite de recursos do worker).
+      const dl = await fetch(
+        `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&supportsAllDrives=true`,
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+      if (!dl.ok || !dl.body) {
+        throw new Error(`Download do Drive falhou (${dl.status})`);
+      }
+      raw = await transcribeViaGemini(dl.body, declaredSize, mime, filename);
+    } else {
+      const bytes = await driveDownloadFile(token, fileId);
+      processedBytes = bytes.byteLength;
+      hash = await sha256Hex(bytes);
+      try {
+        raw = await transcribeBytes(bytes, filename);
+      } catch (e) {
+        const m = String((e as Error).message || "");
+        if (/\b413\b|too large|entity_too_large/i.test(m)) {
+          raw = await transcribeViaGemini(bytes, bytes.byteLength, mime, filename);
+        } else throw e;
+      }
+    }
 
     // ── Identificação pela fala (quando ninguém foi vinculado no upload) ──
     let resolvedEnrollmentId = enrollmentId;
