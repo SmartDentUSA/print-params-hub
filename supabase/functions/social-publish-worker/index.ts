@@ -170,7 +170,7 @@ serve(async (req) => {
           ? post.per_channel_media
           : {};
 
-      const platforms: Array<{ platform: string; accountId: string; postType: string }> = [];
+      const platforms: Array<{ platform: string; accountId: string; postType: string; platformSpecificData?: Record<string, unknown> }> = [];
       const skipped: any[] = [];
       const seenKeys = new Set<string>();
       const dedupedOut: any[] = [];
@@ -183,13 +183,14 @@ serve(async (req) => {
           continue;
         }
         const postType = toZernioPostType(ch.format);
+        const psd = buildPlatformSpecificData(platform, postType, ch);
         const key = `${platform}::${accountId}::${postType}`;
         if (seenKeys.has(key)) {
           dedupedOut.push({ channel: ch, reason: 'duplicate_platform_format_account' });
           continue;
         }
         seenKeys.add(key);
-        platforms.push({ platform, accountId, postType });
+        platforms.push({ platform, accountId, postType, ...(psd ? { platformSpecificData: psd } : {}) });
       }
       if (dedupedOut.length > 0) {
         console.log(JSON.stringify({ event: 'channel_dedup', post_id: post.id, deduped: dedupedOut }));
