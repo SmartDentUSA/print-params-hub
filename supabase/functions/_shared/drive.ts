@@ -145,6 +145,19 @@ export async function driveDownloadFile(_token: string, fileId: string): Promise
   return new Uint8Array(await resp.arrayBuffer());
 }
 
+/** Download em streaming (não bufferiza) — usado para vídeos grandes. */
+export async function driveDownloadStream(
+  _token: string,
+  fileId: string,
+): Promise<ReadableStream<Uint8Array>> {
+  const resp = await fetch(
+    `${GATEWAY_BASE}${DRIVE_PATH}/files/${fileId}?alt=media&supportsAllDrives=true`,
+    { headers: gwHeaders() },
+  );
+  if (!resp.ok || !resp.body) throw new Error(`Drive download ${resp.status}`);
+  return resp.body;
+}
+
 /** Manda o arquivo para a lixeira do Drive (mais seguro que delete definitivo). */
 export async function driveTrashFile(token: string, fileId: string): Promise<void> {
   await driveFetch(token, `/files/${fileId}?supportsAllDrives=true&fields=id,trashed`, {
