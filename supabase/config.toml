@@ -529,6 +529,9 @@ verify_jwt = false
 [functions.training-testimonial-scan-drive]
 verify_jwt = false
 
+[functions.training-testimonial-social-publish]
+verify_jwt = false
+
 
 
 [functions.crm-xlsx-timeline-ingest]
