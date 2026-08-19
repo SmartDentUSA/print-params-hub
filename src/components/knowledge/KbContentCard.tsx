@@ -24,6 +24,8 @@ interface Props {
   index: number;
   buttonLabel: string;
   onClick: () => void;
+  /** "portrait" usa proporção vertical de vídeo (9:16), ex.: depoimentos */
+  thumbAspect?: 'video' | 'portrait';
 }
 
 function formatDuration(sec: number): string {
@@ -50,8 +52,11 @@ function formatViews(n: number | null | undefined): string {
   return `${v}`;
 }
 
-export default function KbContentCard({ data, index, buttonLabel, onClick }: Props) {
+export default function KbContentCard({ data, index, buttonLabel, onClick, thumbAspect = 'video' }: Props) {
   const cat = getCategoryColor(data.categoryLetter);
+  const portrait = thumbAspect === 'portrait';
+  const thumbW = portrait ? 405 : 480;
+  const thumbH = portrait ? 720 : 270;
   const { t } = useLanguage();
   const translatedCat = (() => {
     if (!data.categoryTk) return data.categoryName;
@@ -104,16 +109,16 @@ export default function KbContentCard({ data, index, buttonLabel, onClick }: Pro
 
   return (
     <article className="kb-card" style={{ animationDelay: `${index * 22}ms` }}>
-      <div className="kb-cthumb-wrap" onClick={onClick} role="button" tabIndex={0}>
+      <div className={`kb-cthumb-wrap${portrait ? ' kb-cthumb-portrait' : ''}`} onClick={onClick} role="button" tabIndex={0}>
         {data.imageUrl ? (
           <img
             className="kb-cthumb"
-            src={getStorageImageUrl(data.imageUrl, { width: 480, height: 270, quality: 65, resize: "cover" })}
+            src={getStorageImageUrl(data.imageUrl, { width: thumbW, height: thumbH, quality: 65, resize: "cover" })}
             alt={data.title}
             loading="lazy"
             decoding="async"
-            width={480}
-            height={270}
+            width={thumbW}
+            height={thumbH}
           />
         ) : (
           <div className="kb-cthumb kb-cthumb-fallback" style={{ background: cat.gradient }}>
