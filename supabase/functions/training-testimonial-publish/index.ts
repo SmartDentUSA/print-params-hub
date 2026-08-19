@@ -287,11 +287,11 @@ serve(async (req) => {
       }
     }
     const ficha: Record<string, string | null> = {
-      nome: t.participant_name || snap?.nome || null,
-      cidade: snap?.empresa_cidade || null,
-      uf: snap?.empresa_estado || null,
-      especialidade: snap?.especialidade || null,
-      area_atuacao: snap?.area_atuacao || null,
+      nome: titleCasePt(t.participant_name || snap?.nome),
+      cidade: titleCasePt(snap?.empresa_cidade),
+      uf: (snap?.empresa_estado || null) && String(snap?.empresa_estado).toUpperCase(),
+      especialidade: titleCasePt(snap?.especialidade),
+      area_atuacao: titleCasePt(snap?.area_atuacao),
       curso: ctx.course.title || null,
       turma: String(ctx.turma.label || ctx.turma.turma_number || "") || null,
     };
