@@ -1,4 +1,4 @@
-import { AlertTriangle, CheckCircle2, Clock, ExternalLink, FileText, Loader2, Mic, RefreshCw, Sparkles, Video } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Clock, ExternalLink, Loader2, RefreshCw, Video } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -12,14 +12,12 @@ function statusVariant(status: string): "default" | "secondary" | "outline" | "d
 }
 
 export function TestimonialPipelinePanel({ turmaId, open }: { turmaId: string; open: boolean }) {
-  const { items, loading, busyId, reload, transcribe, generate, uploadToPanda, summary } =
+  const { items, loading, busyId, reload, uploadToPanda, summary } =
     useTrainingTestimonials(turmaId, open);
 
   const card = (t: TrainingTestimonial) => {
     const busy = busyId === t.id;
     const transcript = t.transcript_revised || t.transcript_raw;
-    const canTranscribe = !transcript || ["failed", "uploaded"].includes(t.status);
-    const canGenerate = Boolean(transcript) && (t.enrollment_id || t.companion_id);
     const errs = t.validation_errors || [];
     return (
       <div key={t.id} className="rounded-lg border p-3 space-y-2">
@@ -74,16 +72,6 @@ export function TestimonialPipelinePanel({ turmaId, open }: { turmaId: string; o
         )}
 
         <div className="flex flex-wrap gap-1.5">
-          <Button size="sm" variant="outline" className="h-7 text-[11px]" disabled={busy || !canTranscribe} onClick={() => transcribe(t)}>
-            {busy ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <Mic className="mr-1 h-3 w-3" />}
-            Transcrever
-          </Button>
-          <Button size="sm" variant="outline" className="h-7 text-[11px]" disabled={busy || !canGenerate} onClick={() => generate(t, false)}>
-            <FileText className="mr-1 h-3 w-3" /> Rascunho
-          </Button>
-          <Button size="sm" className="h-7 text-[11px]" disabled={busy || !canGenerate} onClick={() => generate(t, true)}>
-            <Sparkles className="mr-1 h-3 w-3" /> Publicar
-          </Button>
           <Button
             size="sm"
             variant="outline"
