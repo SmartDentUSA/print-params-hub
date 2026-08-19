@@ -280,6 +280,8 @@ serve(async (req) => {
       active: shouldPublish,
       created_by: "training-testimonial",
       order_index: 0,
+      // O card da aba Vídeos prioriza og_image_url; sem ele o card fica sem capa.
+      ...(t.thumbnail_url ? { og_image_url: t.thumbnail_url } : {}),
       draft_metadata: {
         testimonial_id: t.id,
         turma_id: t.turma_id,
@@ -315,6 +317,8 @@ serve(async (req) => {
         embed_url: t.video_embed_url,
         video_type: t.video_provider || "youtube",
         pandavideo_id: t.video_provider === "pandavideo" ? t.video_provider_id : null,
+        thumbnail_url: t.thumbnail_url || null,
+        video_duration_seconds: t.duration_seconds || null,
         description: payload.excerpt,
         video_transcript: transcript,
         order_index: 0,
