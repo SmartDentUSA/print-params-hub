@@ -249,7 +249,7 @@ serve(async (req) => {
       });
     }
 
-    // ── Publicação (Story do Instagram + TikTok) ──────────────────────────
+    // ── Publicação (Story + Reels do Instagram + TikTok) ──────────────────
     const nowIso = new Date().toISOString();
     const { data: post, error: insErr } = await db
       .from("social_scheduled_posts")
@@ -257,8 +257,11 @@ serve(async (req) => {
         status: "scheduled",
         publish_now: true,
         scheduled_at: nowIso,
-        post_type: "story",
-        caption: storyCaption,
+        post_type: "reels",
+        // Caption completa: é o que aparece no Reels e no TikTok. O Story do
+        // Instagram não exibe legenda de texto, então usar a copy longa aqui
+        // não prejudica o Story.
+        caption: tiktokCaption,
         hashtags,
         media_items: mediaItems,
         per_channel_media: { instagram: mediaItems, tiktok: mediaItems },
@@ -268,6 +271,16 @@ serve(async (req) => {
             format: "stories",
             // contentType='story' é aplicado pelo worker; userTags marca os
             // parceiros fixos (e o participante, quando validado) no Story.
+            userTags: [
+              ...PARTNER_HANDLES.map((username) => ({ username })),
+              ...(ficha.handle ? [{ username: String(ficha.handle).replace(/^@/, "") }] : []),
+            ],
+          },
+          {
+            // Reels: mesma mídia, copy completa. Aqui `collaborators` é aceito
+            // pelo Instagram (Stories não aceitam), então marcamos os parceiros.
+            platform: "instagram",
+            format: "reels",
             userTags: [
               ...PARTNER_HANDLES.map((username) => ({ username })),
               ...(ficha.handle ? [{ username: String(ficha.handle).replace(/^@/, "") }] : []),
