@@ -88,6 +88,35 @@ function esc(v: unknown): string {
     .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 
+/**
+ * Capitalização editorial: dados de formulário chegam em CAIXA ALTA
+ * ("IMPLANTODONTISTA", "CLÍNICA OU CONSULTÓRIO") e isso vazava para o texto
+ * publicado. Converte palavras totalmente maiúsculas em Title Case, preservando
+ * siglas, UFs e marcas.
+ */
+const KEEP_UPPER = new Set([
+  "SP","RJ","ES","MG","RS","SC","PR","BA","GO","DF","PE","CE","PA","AM","MT","MS",
+  "RO","RR","AP","AC","TO","MA","PI","RN","PB","AL","SE",
+  "3D","4D","AI","IA","CAD","CAM","STL","DLP","LCD","LED","UV","NPS","SEO","PDF","FAQ",
+  "CNPJ","CPF","API","USB","TV","CEO","ELEGOO","RAYSHAPE","MEDIT","EXOCAD","SMART","DENT",
+]);
+const LOWER_WORDS = new Set(["de","da","do","das","dos","e","ou","em","no","na","para","com","a","o"]);
+
+function titleCasePt(input: string | null | undefined): string | null {
+  const raw = String(input ?? "").trim();
+  if (!raw) return null;
+  return raw
+    .split(/(\s+|\/|-)/)
+    .map((tok) => {
+      if (!/^[A-ZÁÉÍÓÚÂÊÔÃÕÇ]{2,}$/.test(tok)) return tok;
+      if (KEEP_UPPER.has(tok)) return tok;
+      const low = tok.toLocaleLowerCase("pt-BR");
+      if (LOWER_WORDS.has(low)) return low;
+      return low.charAt(0).toLocaleUpperCase("pt-BR") + low.slice(1);
+    })
+    .join("");
+}
+
 /** Ficha pública do participante: nome, cidade/UF, especialidade, curso e turma. */
 function buildParticipantCard(f: Record<string, string | null>): string {
   const rows = [
