@@ -12,7 +12,7 @@
  *  - nunca publica nada: só transcreve, analisa e registra.
  */
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { driveDownloadFile, driveGetFileMeta, getDriveAccessToken } from "../_shared/drive.ts";
+import { driveDownloadFile, driveDownloadStream, driveGetFileMeta, getDriveAccessToken } from "../_shared/drive.ts";
 import {
   authorizeTestimonialCall, chat, corsHeadersTestimonial, extensionForMime, failTestimonial,
   GATEWAY, jsonResponse, logEvent, matchParticipantByName, MAX_AUDIO_BYTES, parseJsonBlock,
@@ -328,14 +328,8 @@ serve(async (req) => {
     if (declaredSize && declaredSize > GATEWAY_STT_MAX_BYTES) {
       // Vídeo grande: faz streaming Drive → Gemini, sem carregar tudo na memória
       // (bufferizar 60 MB+ estoura o limite de recursos do worker).
-      const dl = await fetch(
-        `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&supportsAllDrives=true`,
-        { headers: { Authorization: `Bearer ${token}` } },
-      );
-      if (!dl.ok || !dl.body) {
-        throw new Error(`Download do Drive falhou (${dl.status})`);
-      }
-      raw = await transcribeViaGemini(dl.body, declaredSize, mime, filename);
+      const stream = await driveDownloadStream(token, fileId);
+      raw = await transcribeViaGemini(stream, declaredSize, mime, filename);
     } else {
       const bytes = await driveDownloadFile(token, fileId);
       processedBytes = bytes.byteLength;
