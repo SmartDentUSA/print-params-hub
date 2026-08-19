@@ -271,6 +271,7 @@ serve(async (req) => {
       faqs: Array.isArray(article.faqs) ? article.faqs : [],
       active: shouldPublish,
       created_by: "training-testimonial",
+      order_index: 0,
       draft_metadata: {
         testimonial_id: t.id,
         turma_id: t.turma_id,
