@@ -26169,6 +26169,12 @@ export type Database = {
           review_notes: string | null
           sitemap_pinged_at: string | null
           social_kit_run_id: string | null
+          social_story_attempts: number
+          social_story_error: string | null
+          social_story_post_id: string | null
+          social_story_published_at: string | null
+          social_story_snapshot: Json | null
+          social_story_status: string | null
           status: string
           thumbnail_url: string | null
           transcribed_at: string | null
@@ -26237,6 +26243,12 @@ export type Database = {
           review_notes?: string | null
           sitemap_pinged_at?: string | null
           social_kit_run_id?: string | null
+          social_story_attempts?: number
+          social_story_error?: string | null
+          social_story_post_id?: string | null
+          social_story_published_at?: string | null
+          social_story_snapshot?: Json | null
+          social_story_status?: string | null
           status?: string
           thumbnail_url?: string | null
           transcribed_at?: string | null
@@ -26305,6 +26317,12 @@ export type Database = {
           review_notes?: string | null
           sitemap_pinged_at?: string | null
           social_kit_run_id?: string | null
+          social_story_attempts?: number
+          social_story_error?: string | null
+          social_story_post_id?: string | null
+          social_story_published_at?: string | null
+          social_story_snapshot?: Json | null
+          social_story_status?: string | null
           status?: string
           thumbnail_url?: string | null
           transcribed_at?: string | null
@@ -33158,6 +33176,12 @@ export type Database = {
           review_notes: string | null
           sitemap_pinged_at: string | null
           social_kit_run_id: string | null
+          social_story_attempts: number
+          social_story_error: string | null
+          social_story_post_id: string | null
+          social_story_published_at: string | null
+          social_story_snapshot: Json | null
+          social_story_status: string | null
           status: string
           thumbnail_url: string | null
           transcribed_at: string | null
