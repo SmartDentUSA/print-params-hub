@@ -416,7 +416,7 @@ serve(async (req) => {
 
     await setStatus(db, row.id, "transcribed", {
       video_sha256: hash,
-      video_size_bytes: bytes.byteLength,
+      video_size_bytes: processedBytes || null,
       mime_type: mime,
       duration_seconds: durationSeconds,
       language: revision?.language || "pt-BR",
@@ -424,7 +424,7 @@ serve(async (req) => {
       transcript_revised: String(revision?.transcript_revised || "").trim() || raw,
       transcription_confidence: Number(revision?.confidence ?? 0) || null,
       low_confidence_segments: Array.isArray(revision?.low_confidence) ? revision.low_confidence : [],
-      transcription_model: STT_MODEL,
+      transcription_model: hash ? STT_MODEL : GEMINI_STT_MODEL,
       transcribed_at: new Date().toISOString(),
       analysis: revision?.analysis ?? null,
       version: (row.version || 1) + (row.transcript_raw ? 1 : 0),
