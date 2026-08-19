@@ -28,3 +28,4 @@
 - [Seller Briefing Single Trigger](mem://architecture/seller-briefing-single-trigger) — Briefing usa só trg_seller_briefing + claim atômico em message_logs; triggers paralelos causavam mensagem repetida
 - [Client Portal Content Tracking](mem://architecture/client-portal-content-tracking) — Cliente logado: lead_id do user_metadata + conteúdo visto na Base de Conhecimento na timeline
 - [Depoimentos automáticos](mem://features/testimonial-auto-pipeline) — Upload na pasta Depoimentos → transcrição, identificação pela fala e artigo publicado com ficha real
+- [Depoimentos → Story IG + TikTok](mem://features/testimonial-social-publish) — Cron publica o depoimento no Story do Instagram e no TikTok com copy IA, ficha real, @ validado e CTA Link na Bio
