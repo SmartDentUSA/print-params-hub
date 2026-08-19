@@ -1,0 +1,1 @@
+GRANT EXECUTE ON FUNCTION public.fn_search_testimonial_client(text) TO postgres, anon;
