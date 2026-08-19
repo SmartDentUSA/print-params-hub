@@ -332,6 +332,10 @@ serve(async (req) => {
       keywords: [
         ...(Array.isArray(article.keywords) ? article.keywords.slice(0, 12) : []),
         ficha.especialidade, ficha.cidade, ficha.uf,
+        // Combos GEO garantidos, mesmo se a IA esquecer.
+        ficha.cidade && ficha.uf ? `odontologia digital ${ficha.cidade} ${ficha.uf}` : null,
+        ficha.especialidade && ficha.cidade ? `${ficha.especialidade} ${ficha.cidade}` : null,
+        ficha.curso && ficha.uf ? `${ficha.curso} ${ficha.uf}` : null,
       ].filter(Boolean) as string[],
       faqs: Array.isArray(article.faqs) ? article.faqs : [],
       active: shouldPublish,
