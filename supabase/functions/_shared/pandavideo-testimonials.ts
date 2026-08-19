@@ -75,7 +75,8 @@ function b64(value: string): string {
 }
 
 export interface PandaUploadInput {
-  bytes: Uint8Array;
+  body: Uint8Array | ReadableStream<Uint8Array>;
+  sizeBytes: number;
   filename: string;
   title: string;
   description: string;
@@ -100,11 +101,11 @@ export async function uploadTestimonialVideo(input: PandaUploadInput): Promise<v
     method: "POST",
     headers: {
       "Tus-Resumable": "1.0.0",
-      "Upload-Length": String(input.bytes.byteLength),
+      "Upload-Length": String(input.sizeBytes),
       "Content-Type": "application/offset+octet-stream",
       "Upload-Metadata": metadata,
     },
-    body: input.bytes,
+    body: input.body,
   });
   const text = await res.text();
   if (!res.ok) throw new Error(`Upload Panda ${res.status}: ${text.slice(0, 400)}`);
