@@ -26,6 +26,15 @@ import { buildAccessUrls } from "../_shared/training-media-access.ts";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const CTA = "Quer saber mais sobre este treinamento? Link na Bio";
 
+/** Palavra-chave de comentário para o fluxo comment-to-DM (ex.: "EDGE", "RAYSHAPE"). */
+function commentKeyword(courseTitle?: string | null): string {
+  const words = String(courseTitle || "")
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^A-Za-z0-9\s]/g, " ")
+    .split(/\s+/).filter((w) => w.length >= 4 && !/^(curso|treinamento|para|com|print|mini)$/i.test(w));
+  return (words[0] || "TREINAMENTO").toUpperCase().slice(0, 12);
+}
+
 function titleCasePt(input?: string | null): string | null {
   const s = String(input || "").trim();
   if (!s) return null;
@@ -156,15 +165,20 @@ serve(async (req) => {
     };
 
     // ── Copy (IA) ────────────────────────────────────────────────────────
+    const keyword = commentKeyword(ficha.curso);
+    const dias = ctx.course.duration_days;
+    const diasTxt = dias ? `${dias} ${dias === 1 ? "dia" : "dias"}` : null;
     const prompt = [
-      `Você é social media da Smart Dent (CAD/CAM e impressão 3D odontológica).`,
-      `Gere a copy de um DEPOIMENTO em vídeo vertical de participante de treinamento.`,
+      `Você é social media sênior da Smart Dent (CAD/CAM e impressão 3D odontológica).`,
+      `Escreva a copy de um DEPOIMENTO em vídeo vertical, com voz HUMANA — como um post real de Instagram,`,
+      `não como texto de IA. Nada de "solução inovadora", "alta qualidade", "revolucionar" ou tom institucional.`,
       ``,
       `FICHA PÚBLICA (use exatamente estes dados, não invente):`,
       `- Nome: ${ficha.nome}`,
       `- Especialidade/área: ${ficha.especialidade || "não informado"}`,
       `- Cidade/UF: ${ficha.cidade ? `${ficha.cidade}${ficha.uf ? ` (${ficha.uf})` : ""}` : "não informado"}`,
       `- Curso: ${ficha.curso || "não informado"} | Turma: ${ficha.turma || "não informado"}`,
+      `- Duração do treinamento: ${diasTxt || "não informado"}`,
       `- @ do Instagram do participante: ${ficha.handle || "não cadastrado"}`,
       `- Produtos relacionados ao curso: ${ctx.course.related_product_names.join(", ") || "não informado"}`,
       `- Equipamentos citados: ${ctx.equipment.slice(0, 6).join(", ") || "não informado"}`,
@@ -172,18 +186,30 @@ serve(async (req) => {
       `TRANSCRIÇÃO DO DEPOIMENTO:`,
       transcript,
       ``,
-      `REGRAS:`,
-      `- Só afirme o que está na transcrição ou na ficha.`,
-      `- Cite nome, cidade (UF) e especialidade do participante.`,
-      `- Se houver @, mencione-o (@handle) na copy do Story e do TikTok.`,
-      `- Cite no máximo 2 produtos/equipamentos relacionados ao treinamento, sem preço.`,
-      `- Proibido: preço, valores, promessa de resultado clínico, dado privado (clínica, CNPJ, telefone).`,
-      `- CTA final obrigatório em ambas: "${CTA}".`,
-      `- Story: até 220 caracteres, 2 a 3 linhas curtas, tom direto.`,
-      `- TikTok: até 500 caracteres, primeira linha com gancho.`,
+      `ESTRUTURA OBRIGATÓRIA da copy principal (siga esta ordem, com linhas em branco entre os blocos):`,
+      `1) Gancho curto com 1 emoji, no estilo: "🦷 Não basta ter tecnologia. É preciso saber usá-la."`,
+      `   (crie um gancho novo, coerente com o que a pessoa realmente falou)`,
+      `2) "Depois de ${diasTxt ? `${diasTxt} intensos` : "dias intensos"} de treinamento no ${ficha.curso || "treinamento"}, ${ficha.nome}, ${ficha.especialidade ? ficha.especialidade.toLowerCase() : "profissional"} de ${ficha.cidade || "sua cidade"}${ficha.uf ? ` (${ficha.uf})` : ""}, encerrou a experiência na Smart Dent com uma percepção clara:"`,
+      `   (escreva a duração exatamente como "${diasTxt || "dias"}", nunca "dia(s)")`,
+      `3) 💬 Uma FRASE DE IMPACTO entre aspas, EXTRAÍDA LITERALMENTE da transcrição (pode aparar palavras repetidas/vícios de fala, mas não reescrever o sentido).`,
+      `4) Um parágrafo curto sobre conhecimento e suporte pós-venda — a tecnologia fazendo sentido na rotina do profissional.`,
+      `5) Uma linha com 3 a 4 temas práticos citados na transcrição (ex.: "Impressão 3D, caracterização e muito aprendizado na prática"), terminando com 1 emoji.`,
+      `   Nesta linha use SÓ temas/etapas do treinamento — nunca marcas de equipamento de outros fabricantes.`,
+      `6) "▶️ Dê o play e confira o depoimento do ${ficha.nome.split(" ")[0]}."`,
+      `7) CTA: "Quer conhecer as próximas turmas do ${ficha.curso || "treinamento"}?" + nova linha + \`Saiba mais no link na Bio ou comente "${keyword}" e receba todas as informações.\``,
       ``,
-      `Responda SOMENTE JSON: {"story_caption":"...","tiktok_caption":"...","hashtags":["..."]}`,
-      `hashtags: 5 a 8, sem "#", em minúsculas, relevantes (odontologia, cadcam, impressao3d, o curso, a especialidade).`,
+      `REGRAS:`,
+      `- Só afirme o que está na transcrição ou na ficha. Zero invenção.`,
+      `- Frases curtas, ritmo de fala, no máximo 4 emojis no total.`,
+      `- Se houver @, mencione-o (${ficha.handle || "@handle"}) na copy.`,
+      `- Cite no máximo 2 produtos/equipamentos, e apenas se pertencerem ao curso (lista "Produtos relacionados") ou aparecerem na transcrição. A lista "Equipamentos citados" é o parque do participante — não atribua ao treinamento.`,
+      `- Proibido: preço, valores, promessa de resultado clínico, dado privado (clínica, CNPJ, telefone).`,
+      `- tiktok_caption: copy completa com a estrutura acima (até 1500 caracteres).`,
+      `- story_caption: versão enxuta para Story (até 260 caracteres) — gancho + frase de impacto curta + "▶️ Dê o play" + o mesmo CTA (link na Bio / comente "${keyword}").`,
+      ``,
+      `Responda SOMENTE JSON: {"story_caption":"...","tiktok_caption":"...","quote":"...","hashtags":["..."]}`,
+      `quote: a frase literal usada no bloco 3, sem aspas.`,
+      `hashtags: 8 a 10, sem "#", em CamelCase ou minúsculas, relevantes (SmartDent, o curso, o equipamento, odontologia digital, impressão 3D, a especialidade).`,
     ].join("\n");
 
     const raw = await chat(
@@ -193,16 +219,17 @@ serve(async (req) => {
       ],
       { json: true },
     );
-    const copy = parseJsonBlock<{ story_caption?: string; tiktok_caption?: string; hashtags?: string[] }>(raw);
+    const copy = parseJsonBlock<{ story_caption?: string; tiktok_caption?: string; quote?: string; hashtags?: string[] }>(raw);
 
-    const ensureCta = (s: string) => (s.toLowerCase().includes("link na bio") ? s : `${s.trim()}\n\n${CTA} 👆`);
+    const ctaBlock = `Quer conhecer as próximas turmas do ${ficha.curso || "treinamento"}?\nSaiba mais no link na Bio ou comente "${keyword}" e receba todas as informações.`;
+    const ensureCta = (s: string) => (s.toLowerCase().includes("link na bio") ? s : `${s.trim()}\n\n${ctaBlock}`);
     const storyCaption = ensureCta(String(copy.story_caption || "").trim());
     const tiktokCaption = ensureCta(String(copy.tiktok_caption || storyCaption).trim());
     if (!storyCaption) throw new Error("IA não retornou copy utilizável");
     const hashtags = (Array.isArray(copy.hashtags) ? copy.hashtags : [])
-      .map((h) => String(h).replace(/^#/, "").trim().toLowerCase())
+      .map((h) => String(h).replace(/^#/, "").replace(/\s+/g, "").trim())
       .filter(Boolean)
-      .slice(0, 8);
+      .slice(0, 10);
 
     // ── Mídia: URL temporária somente-leitura do vídeo original no Drive ──
     const urls = await buildAccessUrls(SUPABASE_URL, String(t.turma_id), String(t.drive_file_id), "video");
@@ -251,6 +278,8 @@ serve(async (req) => {
         story_caption: storyCaption,
         tiktok_caption: tiktokCaption,
         hashtags,
+        quote: copy.quote ? String(copy.quote).trim() : null,
+        comment_keyword: keyword,
         media_expires_at: urls.expires_at,
       },
     }).eq("id", t.id);
