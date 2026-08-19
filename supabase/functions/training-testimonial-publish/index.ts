@@ -207,13 +207,55 @@ serve(async (req) => {
 
     // ── Ficha real do participante (dados públicos apenas) ────────────────
     let snap: any = t.participant_snapshot || null;
+    let leadId: string | null = null;
     if (t.enrollment_id) {
       const { data: enr } = await db
         .from("smartops_course_enrollments")
-        .select("id, nome, especialidade, area_atuacao, empresa_cidade, empresa_estado")
+        // ATENÇÃO: a tabela não tem coluna `nome` (é `person_name`). Pedir `nome`
+        // fazia o select falhar e a ficha ficava vazia (sem cidade/UF/especialidade).
+        .select("id, person_name, especialidade, area_atuacao, empresa_cidade, empresa_estado, lead_id")
         .eq("id", t.enrollment_id)
         .maybeSingle();
-      if (enr) snap = { ...(snap || {}), ...enr };
+      if (enr) {
+        snap = { ...(snap || {}), ...enr, nome: enr.person_name || snap?.nome || null };
+        leadId = enr.lead_id || null;
+      }
+    }
+    // Acompanhante: identidade e ficha próprias (a inscrição é do titular).
+    if (t.companion_id) {
+      const { data: comp } = await db
+        .from("smartops_course_companions")
+        .select("id, name, especialidade, area_atuacao, lead_id")
+        .eq("id", t.companion_id)
+        .maybeSingle();
+      if (comp) {
+        snap = {
+          ...(snap || {}),
+          nome: comp.name || snap?.nome || null,
+          especialidade: comp.especialidade || snap?.especialidade || null,
+          area_atuacao: comp.area_atuacao || snap?.area_atuacao || null,
+        };
+        leadId = comp.lead_id || leadId;
+      }
+    }
+    // Enriquecimento pela base de leads (CDP): cidade/UF e especialidade reais.
+    if (leadId) {
+      const { data: lead } = await db
+        .from("lia_attendances")
+        .select("nome, cidade, uf, empresa_cidade, empresa_uf, especialidade, area_atuacao")
+        .eq("id", leadId)
+        .is("merged_into", null)
+        .maybeSingle();
+      if (lead) {
+        snap = {
+          ...(snap || {}),
+          nome: snap?.nome || lead.nome || null,
+          empresa_cidade: snap?.empresa_cidade || lead.cidade || lead.empresa_cidade || null,
+          empresa_estado: snap?.empresa_estado || lead.uf || lead.empresa_uf || null,
+          especialidade: snap?.especialidade || lead.especialidade || null,
+          area_atuacao: snap?.area_atuacao || lead.area_atuacao || null,
+        };
+      }
     }
     const ficha: Record<string, string | null> = {
       nome: t.participant_name || snap?.nome || null,
