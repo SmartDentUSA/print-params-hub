@@ -33964,6 +33964,7 @@ export type Database = {
           lead_id: string
         }[]
       }
+      fn_search_testimonial_client: { Args: { p_query: string }; Returns: Json }
       fn_smart_titlecase: { Args: { txt: string }; Returns: string }
       fn_smartops_parse_timestamp: {
         Args: { p_value: string }
