@@ -104,6 +104,14 @@ serve(async (req) => {
 
         const finalStatus = String(pub.json?.status || "");
         const done = ["published", "rag_available"].includes(finalStatus);
+
+        // 4) Story do Instagram + TikTok (só depois de publicado; idempotente)
+        if (done && !t.social_story_post_id) {
+          const social = await callStep("training-testimonial-social-publish", { testimonial_id: t.id });
+          item.social_status = social.status;
+          item.social_result = social.json?.status || social.text.slice(0, 120);
+        }
+
         await db.from("training_testimonials").update({
           auto_process: !done && finalStatus !== "pending_review" && finalStatus !== "validation_failed",
           auto_last_error: null,
