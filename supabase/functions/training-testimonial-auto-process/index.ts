@@ -4,7 +4,8 @@
  * Fila automática dos depoimentos de treinamento (chamada por pg_cron).
  * Para cada item reservado atomicamente:
  *   1. transcreve (identificando o participante pela fala quando necessário);
- *   2. gera e publica o artigo da Categoria E com a ficha real do participante.
+ *   2. envia o vídeo para a pasta oficial de Depoimentos no Panda Video;
+ *   3. gera e publica o artigo da Categoria E com a ficha real do participante.
  *
  * Guardas obrigatórias:
  *  - lote pequeno (máx. 3 por execução) e claim atômico via RPC (single-flight);
@@ -88,7 +89,15 @@ serve(async (req) => {
           if (!step.ok) throw new Error(step.json?.error || step.text);
         }
 
-        // 2) Geração + publicação direta
+        // 2) Panda Video. A aba pública de vídeos usa knowledge_videos!inner,
+        // portanto o artigo só fica visível quando há um vídeo vinculado.
+        if (!t.video_embed_url && !t.pandavideo_id) {
+          const panda = await callStep("training-testimonial-panda-upload", { testimonial_id: t.id });
+          item.panda_status = panda.status;
+          if (!panda.ok) throw new Error(panda.json?.error || panda.text);
+        }
+
+        // 3) Geração + publicação direta (agora já vincula knowledge_videos)
         const pub = await callStep("training-testimonial-publish", { testimonial_id: t.id, publish: true });
         item.publish_status = pub.status;
         if (!pub.ok) throw new Error(pub.json?.error || pub.text);
