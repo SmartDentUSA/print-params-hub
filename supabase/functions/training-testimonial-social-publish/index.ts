@@ -59,6 +59,7 @@ serve(async (req) => {
     const body = await req.json().catch(() => ({} as any));
     testimonialId = body?.testimonial_id ? String(body.testimonial_id) : null;
     const force = body?.force === true;
+    const dryRun = body?.dry_run === true;
     if (!testimonialId) return jsonResponse({ error: "testimonial_id obrigatório" }, 400);
 
     const { data: t, error } = await db
@@ -187,6 +188,14 @@ serve(async (req) => {
     // ── Mídia: URL temporária somente-leitura do vídeo original no Drive ──
     const urls = await buildAccessUrls(SUPABASE_URL, String(t.turma_id), String(t.drive_file_id), "video");
     const mediaItems = [{ url: urls.original_url, type: "video" }];
+
+    if (dryRun) {
+      return jsonResponse({
+        status: "dry_run", testimonial_id: t.id, ficha,
+        story_caption: storyCaption, tiktok_caption: tiktokCaption, hashtags,
+        media_expires_at: urls.expires_at,
+      });
+    }
 
     // ── Publicação (Story do Instagram + TikTok) ──────────────────────────
     const nowIso = new Date().toISOString();
