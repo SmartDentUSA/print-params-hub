@@ -75,6 +75,25 @@ serve(async (req) => {
       const item: Record<string, unknown> = { testimonial_id: t.id, attempt };
 
       try {
+        // Já publicado na Base de Conhecimento e faltando apenas as redes:
+        // roda só a etapa social (não regerar/republicar o artigo).
+        const socialOnly = ["rag_available", "published"].includes(String(t.status)) && !t.social_story_post_id;
+        if (socialOnly) {
+          const social = await callStep("training-testimonial-social-publish", { testimonial_id: t.id });
+          item.social_status = social.status;
+          item.social_result = social.json?.status || social.text.slice(0, 120);
+          if (!social.ok) throw new Error(social.json?.error || social.text);
+          await db.from("training_testimonials").update({
+            auto_process: false,
+            auto_last_error: null,
+            auto_locked_at: null,
+            auto_next_attempt_at: null,
+          }).eq("id", t.id);
+          item.result = "social_published";
+          results.push(item);
+          continue;
+        }
+
         // 1) Transcrição (pula se já transcrito)
         const needsTranscript = !t.transcript_raw && !t.transcript_revised;
         if (needsTranscript) {
