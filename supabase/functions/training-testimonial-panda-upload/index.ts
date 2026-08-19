@@ -14,7 +14,7 @@
  * Body: { testimonial_id } | { drive_file_id }  (+ force_reupload?: boolean)
  */
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { driveDownloadFile, driveGetFileMeta, getDriveAccessToken } from "../_shared/drive.ts";
+import { driveDownloadStream, driveGetFileMeta, getDriveAccessToken } from "../_shared/drive.ts";
 import {
   authorizeTestimonialCall, corsHeadersTestimonial, failTestimonial, jsonResponse,
   logEvent, serviceClient, setStatus,
@@ -116,13 +116,16 @@ serve(async (req) => {
     // ── 4. Bytes do Drive ────────────────────────────────────────────────
     const driveToken = await getDriveAccessToken();
     const meta = await driveGetFileMeta(driveToken, t.drive_file_id);
-    const bytes = await driveDownloadFile(driveToken, t.drive_file_id);
-    if (!bytes.byteLength) throw new Error("Arquivo do Drive vazio — upload abortado");
+    const sizeBytes = Number(meta?.size || t.video_size_bytes || 0);
+    if (!Number.isFinite(sizeBytes) || sizeBytes <= 0) throw new Error("Tamanho do arquivo no Drive inválido — upload abortado");
+    // Streaming evita estourar a memória da Edge Function em vídeos grandes.
+    const stream = await driveDownloadStream(driveToken, t.drive_file_id);
 
     // ── 5. Upload com folder_id explícito ────────────────────────────────
     const videoId = crypto.randomUUID();
     await uploadTestimonialVideo({
-      bytes,
+      body: stream,
+      sizeBytes,
       filename: meta?.name || t.generated_filename || `${videoId}.mp4`,
       title,
       description,
