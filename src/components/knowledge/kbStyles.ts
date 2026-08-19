@@ -166,6 +166,8 @@ export const kbStyles = `
 }
 .kb-cthumb-wrap { position: relative; cursor: pointer; }
 .kb-cthumb { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; display: block; }
+.kb-cthumb-portrait .kb-cthumb { aspect-ratio: 9 / 16; }
+.kb-grid.kb-list .kb-cthumb-portrait .kb-cthumb { aspect-ratio: 9 / 16; height: auto; }
 .kb-cthumb-fallback {
   display: flex; align-items: center; justify-content: center;
   font-size: 32px; color: #FFFFFF;
