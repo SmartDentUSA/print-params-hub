@@ -166,7 +166,14 @@ export default function KbTabVideos({ onOpen, letterFilter }: Props) {
           <KbEmptyState icon="🎬" />
         ) : (
           cards.map((c, i) => (
-            <KbContentCard key={c.id} data={c} index={i} buttonLabel={t('kb.videos.watch')} onClick={() => onOpen(filtered[i].slug)} />
+            <KbContentCard
+              key={c.id}
+              data={c}
+              index={i}
+              buttonLabel={t('kb.videos.watch')}
+              thumbAspect={chip === 'ff524477-c553-4518-868e-8435e16a5c57' ? 'portrait' : 'video'}
+              onClick={() => onOpen(filtered[i].slug)}
+            />
           ))
         )}
       </div>
