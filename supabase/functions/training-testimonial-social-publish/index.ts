@@ -167,6 +167,7 @@ serve(async (req) => {
     // ── Copy (IA) ────────────────────────────────────────────────────────
     const keyword = commentKeyword(ficha.curso);
     const dias = ctx.course.duration_days;
+    const diasTxt = dias ? `${dias} ${dias === 1 ? "dia" : "dias"}` : null;
     const prompt = [
       `Você é social media sênior da Smart Dent (CAD/CAM e impressão 3D odontológica).`,
       `Escreva a copy de um DEPOIMENTO em vídeo vertical, com voz HUMANA — como um post real de Instagram,`,
@@ -177,7 +178,7 @@ serve(async (req) => {
       `- Especialidade/área: ${ficha.especialidade || "não informado"}`,
       `- Cidade/UF: ${ficha.cidade ? `${ficha.cidade}${ficha.uf ? ` (${ficha.uf})` : ""}` : "não informado"}`,
       `- Curso: ${ficha.curso || "não informado"} | Turma: ${ficha.turma || "não informado"}`,
-      `- Duração do treinamento: ${dias ? `${dias} dia(s)` : "não informado"}`,
+      `- Duração do treinamento: ${diasTxt || "não informado"}`,
       `- @ do Instagram do participante: ${ficha.handle || "não cadastrado"}`,
       `- Produtos relacionados ao curso: ${ctx.course.related_product_names.join(", ") || "não informado"}`,
       `- Equipamentos citados: ${ctx.equipment.slice(0, 6).join(", ") || "não informado"}`,
@@ -188,10 +189,12 @@ serve(async (req) => {
       `ESTRUTURA OBRIGATÓRIA da copy principal (siga esta ordem, com linhas em branco entre os blocos):`,
       `1) Gancho curto com 1 emoji, no estilo: "🦷 Não basta ter tecnologia. É preciso saber usá-la."`,
       `   (crie um gancho novo, coerente com o que a pessoa realmente falou)`,
-      `2) "Depois de ${dias ? `${dias} dia(s)` : "dias"} intensos de treinamento no ${ficha.curso || "treinamento"}, ${ficha.nome}, ${ficha.especialidade ? ficha.especialidade.toLowerCase() : "profissional"} de ${ficha.cidade || "sua cidade"}${ficha.uf ? ` (${ficha.uf})` : ""}, encerrou a experiência na Smart Dent com uma percepção clara:"`,
+      `2) "Depois de ${diasTxt ? `${diasTxt} intensos` : "dias intensos"} de treinamento no ${ficha.curso || "treinamento"}, ${ficha.nome}, ${ficha.especialidade ? ficha.especialidade.toLowerCase() : "profissional"} de ${ficha.cidade || "sua cidade"}${ficha.uf ? ` (${ficha.uf})` : ""}, encerrou a experiência na Smart Dent com uma percepção clara:"`,
+      `   (escreva a duração exatamente como "${diasTxt || "dias"}", nunca "dia(s)")`,
       `3) 💬 Uma FRASE DE IMPACTO entre aspas, EXTRAÍDA LITERALMENTE da transcrição (pode aparar palavras repetidas/vícios de fala, mas não reescrever o sentido).`,
       `4) Um parágrafo curto sobre conhecimento e suporte pós-venda — a tecnologia fazendo sentido na rotina do profissional.`,
-      `5) Uma linha com 3 a 4 temas práticos do treinamento separados por vírgula, terminando com 1 emoji.`,
+      `5) Uma linha com 3 a 4 temas práticos citados na transcrição (ex.: "Impressão 3D, caracterização e muito aprendizado na prática"), terminando com 1 emoji.`,
+      `   Nesta linha use SÓ temas/etapas do treinamento — nunca marcas de equipamento de outros fabricantes.`,
       `6) "▶️ Dê o play e confira o depoimento do ${ficha.nome.split(" ")[0]}."`,
       `7) CTA: "Quer conhecer as próximas turmas do ${ficha.curso || "treinamento"}?" + nova linha + \`Saiba mais no link na Bio ou comente "${keyword}" e receba todas as informações.\``,
       ``,
@@ -199,7 +202,7 @@ serve(async (req) => {
       `- Só afirme o que está na transcrição ou na ficha. Zero invenção.`,
       `- Frases curtas, ritmo de fala, no máximo 4 emojis no total.`,
       `- Se houver @, mencione-o (${ficha.handle || "@handle"}) na copy.`,
-      `- Cite no máximo 2 produtos/equipamentos do treinamento, sem preço.`,
+      `- Cite no máximo 2 produtos/equipamentos, e apenas se pertencerem ao curso (lista "Produtos relacionados") ou aparecerem na transcrição. A lista "Equipamentos citados" é o parque do participante — não atribua ao treinamento.`,
       `- Proibido: preço, valores, promessa de resultado clínico, dado privado (clínica, CNPJ, telefone).`,
       `- tiktok_caption: copy completa com a estrutura acima (até 1500 caracteres).`,
       `- story_caption: versão enxuta para Story (até 260 caracteres) — gancho + frase de impacto curta + "▶️ Dê o play" + o mesmo CTA (link na Bio / comente "${keyword}").`,
