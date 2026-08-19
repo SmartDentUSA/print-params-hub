@@ -269,6 +269,9 @@ serve(async (req) => {
           {
             platform: "instagram",
             format: "stories",
+            // Texto próprio do Story: se fosse idêntico ao Reels, o Zernio
+            // recusaria uma das duas com 409 (conteúdo duplicado em 24h).
+            caption: storyCaption,
             // contentType='story' é aplicado pelo worker; userTags marca os
             // parceiros fixos (e o participante, quando validado) no Story.
             userTags: [
