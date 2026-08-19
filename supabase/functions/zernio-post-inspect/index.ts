@@ -12,10 +12,19 @@ serve(async (req) => {
   const apiKey = Deno.env.get('ZERNIO_API_KEY');
   if (!apiKey) return Response.json({ error: 'ZERNIO_API_KEY ausente' }, { status: 500, headers: corsHeaders });
 
-  let body: { post_id?: string; probe_post_type?: string; account_id?: string } = {};
+  let body: { post_id?: string; probe_post_type?: string; account_id?: string; raw_payload?: unknown } = {};
   try { body = await req.json(); } catch { /* noop */ }
 
   const out: Record<string, unknown> = {};
+
+  if (body.raw_payload) {
+    const res = await fetch(`${ZERNIO_BASE}/posts`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(body.raw_payload),
+    });
+    out.raw = { status: res.status, body: (await res.text()).slice(0, 4000) };
+  }
 
   if (body.post_id) {
     const res = await fetch(`${ZERNIO_BASE}/posts/${body.post_id}`, {
