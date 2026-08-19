@@ -201,7 +201,9 @@ export function extensionForMime(mime: string, fallbackName?: string): string {
 /** Frases proibidas: promessa clínica, dado numérico e preço inventados. */
 const FORBIDDEN_PATTERNS: Array<{ re: RegExp; msg: string }> = [
   { re: /\bR\$\s?\d/i, msg: "Conteúdo não pode conter preços" },
-  { re: /\b(garantimos?|garantia de resultado|cura|curar|100%\s*de\s*sucesso)\b/i, msg: "Promessa clínica ou garantia de resultado não permitida" },
+  // "cura" e "pós-cura" são termos técnicos legítimos no fluxo de impressão
+  // de resinas. Bloqueie somente promessas clínicas explícitas.
+  { re: /\b(garantimos?|garantia de resultado|cura garantida|curar (?:a |uma )?(?:doença|condição|paciente)|100%\s*de\s*sucesso)\b/i, msg: "Promessa clínica ou garantia de resultado não permitida" },
   { re: /\b(melhor do mercado|imbatível|único no mundo)\b/i, msg: "Superlativo não comprovável não permitido" },
 ];
 
