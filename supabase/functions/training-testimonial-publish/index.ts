@@ -379,7 +379,11 @@ serve(async (req) => {
         video_type: t.video_provider || "youtube",
         pandavideo_id: t.video_provider === "pandavideo" ? t.video_provider_id : null,
         thumbnail_url: t.thumbnail_url || null,
-        video_duration_seconds: t.duration_seconds || null,
+        // A transcrição/Panda pode devolver duração fracionária (ex.: 39.333),
+        // enquanto knowledge_videos armazena segundos inteiros.
+        video_duration_seconds: Number.isFinite(Number(t.duration_seconds))
+          ? Math.max(0, Math.round(Number(t.duration_seconds)))
+          : null,
         description: payload.excerpt,
         video_transcript: transcript,
         order_index: 0,
