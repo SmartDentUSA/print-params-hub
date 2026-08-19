@@ -219,12 +219,11 @@ serve(async (req) => {
         },
       ).trimEnd();
 
-      const content = [
-        cleanedCaption,
-        hashtagsArr.length > 0
-          ? hashtagsArr.map((h: string) => (h.startsWith('#') ? h : `#${h}`)).join(' ')
-          : '',
-      ].filter(Boolean).join('\n\n');
+      const tagLine = hashtagsArr.length > 0
+        ? hashtagsArr.map((h: string) => (h.startsWith('#') ? h : `#${h}`)).join(' ')
+        : '';
+      const buildContent = (caption: string) => [caption, tagLine].filter(Boolean).join('\n\n');
+      const content = buildContent(cleanedCaption);
 
       const mapMedia = (items: any[]) =>
         items
@@ -240,12 +239,28 @@ serve(async (req) => {
       // Plataformas SEM override e com mesmo postType podem ir em bulk; postTypes
       // diferentes NUNCA compartilham grupo — Zernio precisa saber o formato de
       // cada perfil (ex.: Instagram Feed vs Instagram Reels vs Instagram Stories).
-      const groups: Array<{ platforms: any[]; media: any[]; label: string }> = [];
+      // Caption override por canal: o Zernio rejeita com 409 duas publicações de
+      // conteúdo IDÊNTICO na mesma conta em 24h. Story e Reels do mesmo perfil
+      // precisam, portanto, de textos distintos. `ch.caption` permite isso.
+      const captionByKey = new Map<string, string>();
+      for (const ch of channels) {
+        const platform = toZernioPlatform(ch.platform ?? ch.channel ?? ch.type ?? ch);
+        const override = typeof ch?.caption === 'string' ? ch.caption.trim() : '';
+        if (platform && override) captionByKey.set(`${platform}::${toZernioPostType(ch.format)}`, override);
+      }
+
+      const groups: Array<{ platforms: any[]; media: any[]; label: string; content: string }> = [];
       const bulkBuckets = new Map<string, any[]>();
       for (const p of platforms) {
         const override = perChannelMedia[p.platform];
-        if (Array.isArray(override) && override.length > 0) {
-          groups.push({ platforms: [p], media: mapMedia(override), label: `${p.platform}:${p.postType}` });
+        const capOverride = captionByKey.get(`${p.platform}::${p.postType}`);
+        if ((Array.isArray(override) && override.length > 0) || capOverride) {
+          groups.push({
+            platforms: [p],
+            media: Array.isArray(override) && override.length > 0 ? mapMedia(override) : defaultMedia,
+            label: `${p.platform}:${p.postType}`,
+            content: capOverride ? buildContent(capOverride) : content,
+          });
         } else {
           const bucket = bulkBuckets.get(p.postType) ?? [];
           bucket.push(p);
@@ -253,7 +268,7 @@ serve(async (req) => {
         }
       }
       for (const [postType, bucket] of bulkBuckets) {
-        groups.unshift({ platforms: bucket, media: defaultMedia, label: `bulk:${postType}` });
+        groups.unshift({ platforms: bucket, media: defaultMedia, label: `bulk:${postType}`, content });
       }
 
       const idsMap: Record<string, string> = {};
@@ -261,7 +276,7 @@ serve(async (req) => {
 
       for (const g of groups) {
         const payload: any = {
-          content,
+          content: g.content,
           publishNow: true,
           timezone: post.timezone ?? 'America/Sao_Paulo',
           platforms: g.platforms,
