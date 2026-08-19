@@ -20,6 +20,7 @@ import {
   parseJsonBlock, safeEqualSecret, serviceClient,
 } from "../_shared/testimonial-pipeline.ts";
 import { loadTrainingContext, normalizeInstagram } from "../_shared/training-context.ts";
+import { normalizeForMatch } from "../_shared/testimonial-pipeline.ts";
 import { buildAccessUrls } from "../_shared/training-media-access.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -92,6 +93,9 @@ serve(async (req) => {
     // ── Ficha pública + @ do participante ────────────────────────────────
     const snap: any = t.participant_snapshot || {};
     let handle: string | null = null;
+    // O @ só é usado se pertencer comprovadamente ao participante do depoimento —
+    // a inscrição pode ser do titular e o depoimento de outra pessoa da clínica.
+    let handleOwner: string | null = null;
     if (t.enrollment_id) {
       const { data: enr } = await db
         .from("smartops_course_enrollments")
@@ -99,17 +103,15 @@ serve(async (req) => {
         .eq("id", t.enrollment_id)
         .maybeSingle();
       if (enr) {
-        handle = normalizeInstagram(enr.instagram) || handle;
+        if (normalizeInstagram(enr.instagram)) {
+          handle = normalizeInstagram(enr.instagram);
+          handleOwner = enr.person_name || null;
+        }
         snap.nome = snap.nome || enr.person_name;
         snap.especialidade = snap.especialidade || enr.especialidade;
         snap.area_atuacao = snap.area_atuacao || enr.area_atuacao;
         snap.empresa_cidade = snap.empresa_cidade || enr.empresa_cidade;
         snap.empresa_estado = snap.empresa_estado || enr.empresa_estado;
-        if (!handle && enr.lead_id) {
-          const { data: lead } = await db
-            .from("lia_attendances").select("instagram").eq("id", enr.lead_id).is("merged_into", null).maybeSingle();
-          handle = normalizeInstagram(lead?.instagram) || handle;
-        }
       }
     }
     if (t.companion_id) {
@@ -119,10 +121,27 @@ serve(async (req) => {
         .eq("id", t.companion_id)
         .maybeSingle();
       if (comp) {
-        handle = normalizeInstagram(comp.instagram) || handle;
+        if (normalizeInstagram(comp.instagram)) {
+          handle = normalizeInstagram(comp.instagram);
+          handleOwner = comp.name || null;
+        }
         snap.nome = comp.name || snap.nome;
         snap.especialidade = comp.especialidade || snap.especialidade;
         snap.area_atuacao = comp.area_atuacao || snap.area_atuacao;
+      }
+    }
+
+    const participantName = String(t.participant_name || snap.nome || "");
+    if (handle) {
+      const a = normalizeForMatch(participantName).split(" ").filter(Boolean);
+      const b = normalizeForMatch(handleOwner || "").split(" ").filter(Boolean);
+      const sameOwner = a.length > 0 && b.length > 0 && a[0] === b[0] && (
+        a.length === 1 || b.length === 1 || a[a.length - 1] === b[b.length - 1]
+      );
+      if (!sameOwner) {
+        await logEvent(db, t.id, "social_publish", "warning",
+          "@ do Instagram descartado: cadastro é de outra pessoa", { handle_owner: handleOwner, participant: participantName }, actor);
+        handle = null;
       }
     }
 
