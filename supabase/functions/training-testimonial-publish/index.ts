@@ -271,6 +271,7 @@ serve(async (req) => {
       faqs: Array.isArray(article.faqs) ? article.faqs : [],
       active: shouldPublish,
       created_by: "training-testimonial",
+      order_index: 0,
       draft_metadata: {
         testimonial_id: t.id,
         turma_id: t.turma_id,
@@ -284,7 +285,8 @@ serve(async (req) => {
 
     let contentId = t.knowledge_content_id as string | null;
     if (contentId) {
-      const { error } = await db.from("knowledge_contents").update(payload).eq("id", contentId);
+      const { order_index: _ignored, ...updatePayload } = payload as Record<string, unknown>;
+      const { error } = await db.from("knowledge_contents").update(updatePayload).eq("id", contentId);
       if (error) throw new Error(`Falha ao atualizar artigo: ${error.message}`);
     } else {
       const { data, error } = await db.from("knowledge_contents").insert(payload).select("id").single();
