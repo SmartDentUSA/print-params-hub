@@ -254,7 +254,7 @@ serve(async (req) => {
     // Acompanhante: identidade e ficha próprias (a inscrição é do titular).
     if (t.companion_id) {
       const { data: comp } = await db
-        .from("smartops_course_companions")
+        .from("smartops_enrollment_companions")
         .select("id, name, especialidade, area_atuacao, lead_id")
         .eq("id", t.companion_id)
         .maybeSingle();
