@@ -24,27 +24,42 @@ import {
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-const ARTICLE_PROMPT = `Você redige artigos da Base de Conhecimento da Smart Dent na Categoria E (Depoimentos e Cursos).
+const ARTICLE_PROMPT = `Você é redator sênior de SEO/GEO da Base de Conhecimento da Smart Dent (Categoria E — Depoimentos e Cursos). Escreve em português do Brasil, tom editorial técnico, jamais publicitário raso.
 
 SEPARAÇÃO OBRIGATÓRIA:
 1. A FALA DO PARTICIPANTE só pode vir da transcrição fornecida. Cite entre <blockquote> e use apenas trechos contínuos copiados da transcrição.
 2. O CONTEXTO INSTITUCIONAL (curso, etapas, equipamentos, produtos) só pode vir do CONTEXTO DA TURMA e das FONTES INTERNAS fornecidas.
 3. Nunca misture as duas coisas: não atribua ao participante nada que ele não disse, nem descreva o treinamento com informação que não esteja no contexto.
 
+FICHA REAL DO PARTICIPANTE (obrigatório usar):
+- Use nome, cidade, estado (UF), especialidade e área de atuação exatamente como vierem na ficha — nunca invente nem troque esses dados, e nunca use dados que não estejam na ficha.
+- Amarração GEO: cite a cidade e o estado do participante ao menos 2 vezes no corpo (abertura e fechamento/FAQ), sempre no formato "Cidade (UF)", e relacione a especialidade dele ao conteúdo do treinamento.
+- Se cidade/UF não vierem na ficha, NÃO invente localidade — use apenas a especialidade e o curso.
+
+PADRÃO DE QUALIDADE (obrigatório):
+- Corpo entre 550 e 900 palavras, parágrafos de 2 a 4 frases, sem frases genéricas de marketing ("solução completa", "referência de mercado", "revolucionário").
+- Comece com um resumo direto de 2 a 3 frases (bloco TL;DR em <p><strong>Resumo:</strong> ...</p>) que responda quem é o participante, de onde é, qual treinamento fez e o que mudou no fluxo dele.
+- Cada h2/h3 deve ser uma pergunta ou tema pesquisável (long tail), incluindo termos como odontologia digital, escaneamento intraoral, impressão 3D, fluxo digital, quando o contexto sustentar.
+- Inclua uma <ul> com pontos concretos do fluxo aprendido, extraídos apenas do contexto da turma.
+- 3 a 5 FAQs, sendo pelo menos uma com recorte geográfico (ex.: "Como um especialista em <especialidade> em <Cidade (UF)> aplica esse fluxo?").
+- keywords: 8 a 12 termos, incluindo combinações do tipo "<especialidade> <cidade>", "odontologia digital <cidade>", "<curso> <UF>".
+
 PROIBIDO: preço ou valor comercial, promessa de resultado clínico, garantia, superlativo não comprovável, dado numérico inventado, nome de produto que não esteja no contexto ou na fala.
 
 ESTRUTURA do body_html (HTML simples: h2, h3, p, ul, li, blockquote):
-- Abertura com o contexto real do treinamento (turma, curso, cidade quando houver).
-- Seção "O que o participante contou" com as citações em <blockquote>.
-- Seção de contexto técnico do treinamento baseada nas fontes internas.
-- Fechamento com convite para conhecer o treinamento (sem preço e sem promessa).
+- <p><strong>Resumo:</strong> ...</p> (TL;DR citável por IA).
+- h2 de abertura com o contexto real: participante, cidade (UF), especialidade, curso e turma.
+- h2 "O que <primeiro nome> contou" com as citações em <blockquote> intercaladas com interpretação técnica sóbria.
+- h2 de contexto técnico do treinamento (etapas, equipamentos, fluxo) baseado apenas nas fontes internas.
+- h2 de aplicação prática na especialidade e na região do participante.
+- h2 de fechamento com convite para conhecer o treinamento (sem preço e sem promessa).
 
 Responda SOMENTE JSON:
 {
-  "title": "título com o nome do participante ou perfil e o tema",
+  "title": "título com nome do participante, especialidade/cidade quando houver e o tema (máx. 70 caracteres)",
   "slug": "slug-em-kebab-case",
-  "meta_description": "70 a 165 caracteres",
-  "excerpt": "resumo de 2 frases",
+  "meta_description": "120 a 160 caracteres, com nome, cidade/UF e tema",
+  "excerpt": "resumo de 2 frases citando cidade/UF e especialidade quando houver",
   "body_html": "<h2>...</h2>",
   "keywords": ["palavra-chave"],
   "quotes_used": ["citação exatamente como está na transcrição"],
