@@ -1,0 +1,1 @@
+UPDATE public.training_testimonials SET status='transcribed', auto_attempts=0, auto_last_error=NULL WHERE status='failed' AND auto_last_error ILIKE '%order_index%';
