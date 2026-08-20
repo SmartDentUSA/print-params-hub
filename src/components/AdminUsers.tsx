@@ -45,7 +45,35 @@ export function AdminUsers() {
   const [isCreating, setIsCreating] = useState(false);
   const [createdCredentials, setCreatedCredentials] = useState<{email: string, password: string} | null>(null);
   const { toast } = useToast();
-  const { data: teamMembers = [], isLoading: loadingMembers } = useActiveTeamMembers();
+  const { data: teamMembers = [], isLoading: loadingMembers, refetch: refetchMembers } = useActiveTeamMembers();
+  const [creatingFor, setCreatingFor] = useState<string | null>(null);
+
+  const pendingMembers = teamMembers.filter(
+    (m) => !!m.email && !users.some((u) => (u.email ?? '').toLowerCase() === (m.email as string).toLowerCase()),
+  );
+
+  const createAccessFor = async (email: string) => {
+    try {
+      setCreatingFor(email);
+      const password = `Sd${Math.random().toString(36).slice(2, 10)}${Math.floor(Math.random() * 90 + 10)}!`;
+      const { data, error } = await supabase.functions.invoke('create-user', {
+        body: { email, password, role: 'user' },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      setCreatedCredentials({ email, password });
+      setIsAddModalOpen(true);
+      await loadUsers();
+    } catch (error: any) {
+      toast({
+        title: 'Erro ao criar acesso',
+        description: error?.message || 'Não foi possível criar o acesso.',
+        variant: 'destructive',
+      });
+    } finally {
+      setCreatingFor(null);
+    }
+  };
 
   useEffect(() => {
     loadUsers();
