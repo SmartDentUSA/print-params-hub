@@ -171,10 +171,19 @@ export default function AdminViewSecure() {
         const { data: { session } } = await Promise.race([sessionPromise, timeoutPromise]) as any;
         if (session?.user) {
           setUser(session.user);
-          const { data: roleRows } = await supabase
+          let { data: roleRows } = await supabase
             .from('user_roles')
             .select('role')
             .eq('user_id', session.user.id);
+          if (!roleRows || roleRows.length === 0) {
+            // retry uma vez: token pode ainda não estar propagado no primeiro fetch
+            await new Promise((r) => setTimeout(r, 600));
+            const retry = await supabase
+              .from('user_roles')
+              .select('role')
+              .eq('user_id', session.user.id);
+            roleRows = retry.data;
+          }
           const roles = (roleRows ?? []).map((r: any) => r.role as string);
           const effective = pickEffectiveRole(roles);
           if (effective) {
