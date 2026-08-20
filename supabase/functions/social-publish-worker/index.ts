@@ -83,13 +83,15 @@ function extractZernioError(groupErrors: any[]): string {
       (typeof r?.message === 'string' && r.message) ||
       (typeof r === 'string' && r) ||
       JSON.stringify(r ?? ge);
-    let pretty = raw;
+    let pretty = String(raw).slice(0, 900);
     // Pattern: "Aspect ratio 0.67:1 is outside Instagram's allowed range..."
-    const aspectMatch = /Aspect ratio[^\.]*\./i.exec(raw);
+    // NÃO cortar no primeiro "." — isso escondia a proporção real ("0.").
+    const aspectMatch = /Aspect ratio\s*[\d.]+\s*(?::\s*[\d.]+)?/i.exec(String(raw));
     if (aspectMatch) {
-      pretty = `${aspectMatch[0]} → A imagem é vertical demais para o Feed. Use Stories/Reels ou recorte para 4:5.`;
+      pretty = `${pretty} | proporção detectada: ${aspectMatch[0]}`;
     }
     msgs.push(`[${ge.group}] ${pretty}`);
+
   }
   return msgs.join(' | ');
 }
