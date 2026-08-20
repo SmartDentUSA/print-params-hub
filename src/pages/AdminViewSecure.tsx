@@ -200,18 +200,20 @@ export default function AdminViewSecure() {
           setUser(session.user);
           setTimeout(async () => {
             try {
-              const { data: roleData } = await supabase
+              const { data: roleRows } = await supabase
                 .from('user_roles')
                 .select('role')
-                .eq('user_id', session.user.id)
-                .single();
-              if (roleData) {
-                setUserRole(roleData.role as any);
-                setIsAdmin(roleData.role === 'admin');
-                setIsAuthor(roleData.role === 'author');
-                setIsDistribuidor((roleData.role as any) === 'distribuidor');
+                .eq('user_id', session.user.id);
+              const roles = (roleRows ?? []).map((r: any) => r.role as string);
+              const effective = pickEffectiveRole(roles);
+              if (effective) {
+                setUserRole(effective as any);
+                setIsAdmin(roles.includes('admin'));
+                setIsAuthor(roles.includes('author'));
+                setIsDistribuidor(roles.includes('distribuidor'));
               }
             } catch (error) {}
+
           }, 100);
         }
       }
