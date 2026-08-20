@@ -45,7 +45,35 @@ export function AdminUsers() {
   const [isCreating, setIsCreating] = useState(false);
   const [createdCredentials, setCreatedCredentials] = useState<{email: string, password: string} | null>(null);
   const { toast } = useToast();
-  const { data: teamMembers = [], isLoading: loadingMembers } = useActiveTeamMembers();
+  const { data: teamMembers = [], isLoading: loadingMembers, refetch: refetchMembers } = useActiveTeamMembers();
+  const [creatingFor, setCreatingFor] = useState<string | null>(null);
+
+  const pendingMembers = teamMembers.filter(
+    (m) => !!m.email && !users.some((u) => (u.email ?? '').toLowerCase() === (m.email as string).toLowerCase()),
+  );
+
+  const createAccessFor = async (email: string) => {
+    try {
+      setCreatingFor(email);
+      const password = `Sd${Math.random().toString(36).slice(2, 10)}${Math.floor(Math.random() * 90 + 10)}!`;
+      const { data, error } = await supabase.functions.invoke('create-user', {
+        body: { email, password, role: 'user' },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      setCreatedCredentials({ email, password });
+      setIsAddModalOpen(true);
+      await loadUsers();
+    } catch (error: any) {
+      toast({
+        title: 'Erro ao criar acesso',
+        description: error?.message || 'Não foi possível criar o acesso.',
+        variant: 'destructive',
+      });
+    } finally {
+      setCreatingFor(null);
+    }
+  };
 
   useEffect(() => {
     loadUsers();
@@ -337,6 +365,56 @@ export function AdminUsers() {
           </div>
         </CardHeader>
         <CardContent>
+          <div className="mb-4 flex items-center justify-between gap-2">
+            <p className="text-xs text-muted-foreground">
+              A lista abaixo mostra contas de login. Um team member novo só aparece aqui depois de ter acesso criado.
+            </p>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                loadUsers();
+                refetchMembers();
+              }}
+            >
+              Atualizar
+            </Button>
+          </div>
+
+          {pendingMembers.length > 0 && (
+            <div className="mb-6 rounded-lg border border-border bg-muted/40 p-4">
+              <div className="mb-3 flex items-center gap-2">
+                <UserPlus className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm font-semibold">
+                  Team members sem login ({pendingMembers.length})
+                </span>
+              </div>
+              <div className="space-y-2">
+                {pendingMembers.map((m) => (
+                  <div
+                    key={m.id}
+                    className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border bg-background px-3 py-2"
+                  >
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium">{m.nome_completo}</p>
+                      <p className="truncate text-xs text-muted-foreground">
+                        {m.email}
+                        {m.role ? ` — ${m.role}` : ''}
+                      </p>
+                    </div>
+                    <Button
+                      size="sm"
+                      onClick={() => createAccessFor(m.email as string)}
+                      disabled={creatingFor === m.email}
+                    >
+                      {creatingFor === m.email ? 'Criando...' : 'Criar acesso'}
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
