@@ -81,6 +81,9 @@ verify_jwt = false
 [functions.reformat-article-html]
 verify_jwt = false
 
+[functions.knowledge-content-modernize]
+verify_jwt = false
+
 [functions.migrate-catalog-images]
 verify_jwt = false
 

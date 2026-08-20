@@ -241,7 +241,7 @@ export function AdminArticleReformatter() {
     </Badge>
   );
 
-  const runBatch = async () => {
+  const runBatch = async (mode: 'format' | 'modernize' = 'format') => {
     if (batchRunning) return;
     const targets = filteredArticles;
     if (targets.length === 0) {
@@ -249,7 +249,9 @@ export function AdminArticleReformatter() {
       return;
     }
     if (!confirm(
-      `Vai reformatar ${targets.length} artigos${batchForce ? ' (forçando re-reformatação)' : ''}.\n\n` +
+      (mode === 'modernize'
+        ? `Vai REESCREVER ${targets.length} artigos no prompt novo (corpo + FAQs SEO/AEO + formatação padrão). Ficha, transcrição, título e URL são preservados. Conteúdo do pipeline novo é pulado automaticamente.\n\n`
+        : `Vai reformatar ${targets.length} artigos (formatação padrão + FAQs SEO/AEO)${batchForce ? ' (forçando reprocessamento)' : ''}.\n\n`) +
       `O lote roda em segundo plano — você pode navegar para outras páginas do admin, o progresso continua no widget flutuante.\n\nContinuar?`,
     )) return;
 
@@ -262,6 +264,7 @@ export function AdminArticleReformatter() {
       targets.map((a) => ({ id: a.id, title: a.title })),
       batchForce,
       () => { void fetchArticles(); },
+      mode,
     );
   };
 
@@ -372,10 +375,12 @@ export function AdminArticleReformatter() {
       <Card className="border-primary/30 bg-primary/5">
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-base">
-            <Zap className="w-4 h-4" /> Reformatar em Lote
+            <Zap className="w-4 h-4" /> Reformatar / Modernizar em Lote
           </CardTitle>
           <CardDescription>
-            Aplica a reformatação IA em todos os {filteredArticles.length} artigos do filtro atual (sequencial, 1 por vez).
+            Aplica em todos os {filteredArticles.length} artigos do filtro atual (sequencial, 1 por vez).
+            <strong> Reformatar</strong>: formatação padrão + FAQs otimizadas para Google e para IAs (ChatGPT, Claude, Perplexity).
+            <strong> Modernizar</strong>: reescreve o corpo no prompt editorial novo preservando ficha, transcrição, título e URL.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -385,10 +390,16 @@ export function AdminArticleReformatter() {
               <Label htmlFor="batch-force" className="text-sm">Forçar re-reformatação (ignora artigos já processados)</Label>
             </div>
             {!batchRunning ? (
-              <Button onClick={runBatch} size="sm" disabled={filteredArticles.length === 0}>
-                <Zap className="w-4 h-4 mr-2" />
-                Reformatar {filteredArticles.length} artigos
-              </Button>
+              <>
+                <Button onClick={() => void runBatch('format')} size="sm" disabled={filteredArticles.length === 0}>
+                  <Zap className="w-4 h-4 mr-2" />
+                  Reformatar {filteredArticles.length} artigos
+                </Button>
+                <Button onClick={() => void runBatch('modernize')} size="sm" variant="secondary" disabled={filteredArticles.length === 0}>
+                  <RefreshCw className="w-4 h-4 mr-2" />
+                  Modernizar (prompt novo) {filteredArticles.length}
+                </Button>
+              </>
             ) : (
               <Button onClick={cancelBatch} size="sm" variant="destructive">
                 <StopCircle className="w-4 h-4 mr-2" />

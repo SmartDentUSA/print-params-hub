@@ -461,6 +461,16 @@ serve(async (req) => {
           headers: { Authorization: `Bearer ${SERVICE_KEY}`, apikey: SERVICE_KEY },
         });
       } catch { /* sitemap não bloqueia publicação */ }
+
+      // Padrão único de formatação + FAQs AEO (fire-and-forget). Todo conteúdo
+      // novo nasce no mesmo molde do botão manual do Admin.
+      try {
+        fetch(`${SUPABASE_URL}/functions/v1/reformat-article-html`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${SERVICE_KEY}`, apikey: SERVICE_KEY },
+          body: JSON.stringify({ contentId, force: true, withFaqs: true }),
+        }).catch(() => {});
+      } catch { /* formatação não bloqueia publicação */ }
     }
 
     // ── Kit social pendente de aprovação (nunca publica sozinho) ──────────
