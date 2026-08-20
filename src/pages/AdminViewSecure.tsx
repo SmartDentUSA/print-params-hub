@@ -58,6 +58,14 @@ const SmartOpsStripePayments = lazy(() => import("@/components/SmartOpsStripePay
 const SmartOpsReactivationHub = lazy(() => import("@/components/SmartOpsReactivationHub").then(m => ({ default: m.SmartOpsReactivationHub })));
 const CoursesPage = lazy(() => import("@/components/smartops/CoursesPage"));
 
+// Um usuário pode ter múltiplos papéis (ex.: "user" + "distribuidor").
+// Escolhe o papel de maior privilégio para definir a navegação inicial.
+const ROLE_PRIORITY = ['admin', 'author', 'distribuidor', 'user'] as const;
+function pickEffectiveRole(roles: string[]): string | null {
+  for (const r of ROLE_PRIORITY) if (roles.includes(r)) return r;
+  return roles[0] ?? null;
+}
+
 export default function AdminViewSecure() {
   const [user, setUser] = useState<User | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -163,19 +171,21 @@ export default function AdminViewSecure() {
         const { data: { session } } = await Promise.race([sessionPromise, timeoutPromise]) as any;
         if (session?.user) {
           setUser(session.user);
-          const { data: roleData } = await supabase
+          const { data: roleRows } = await supabase
             .from('user_roles')
             .select('role')
-            .eq('user_id', session.user.id)
-            .single();
-          if (roleData) {
-            setUserRole(roleData.role as any);
-            setIsAdmin(roleData.role === 'admin');
-            setIsAuthor(roleData.role === 'author');
-            setIsDistribuidor((roleData.role as any) === 'distribuidor');
-            if (roleData.role === 'author') setActiveSection('knowledge');
-            if ((roleData.role as any) === 'distribuidor') setActiveSection('so-distribuicao');
+            .eq('user_id', session.user.id);
+          const roles = (roleRows ?? []).map((r: any) => r.role as string);
+          const effective = pickEffectiveRole(roles);
+          if (effective) {
+            setUserRole(effective as any);
+            setIsAdmin(roles.includes('admin'));
+            setIsAuthor(roles.includes('author'));
+            setIsDistribuidor(roles.includes('distribuidor'));
+            if (effective === 'author') setActiveSection('knowledge');
+            if (effective === 'distribuidor') setActiveSection('so-distribuicao');
           }
+
         }
       } catch (error) {
         setConnectionError(true);
@@ -198,18 +208,20 @@ export default function AdminViewSecure() {
           setUser(session.user);
           setTimeout(async () => {
             try {
-              const { data: roleData } = await supabase
+              const { data: roleRows } = await supabase
                 .from('user_roles')
                 .select('role')
-                .eq('user_id', session.user.id)
-                .single();
-              if (roleData) {
-                setUserRole(roleData.role as any);
-                setIsAdmin(roleData.role === 'admin');
-                setIsAuthor(roleData.role === 'author');
-                setIsDistribuidor((roleData.role as any) === 'distribuidor');
+                .eq('user_id', session.user.id);
+              const roles = (roleRows ?? []).map((r: any) => r.role as string);
+              const effective = pickEffectiveRole(roles);
+              if (effective) {
+                setUserRole(effective as any);
+                setIsAdmin(roles.includes('admin'));
+                setIsAuthor(roles.includes('author'));
+                setIsDistribuidor(roles.includes('distribuidor'));
               }
             } catch (error) {}
+
           }, 100);
         }
       }
