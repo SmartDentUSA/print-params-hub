@@ -7103,6 +7103,7 @@ export type Database = {
           content_html_reformatted_at: string | null
           content_image_alt: string | null
           content_image_url: string | null
+          content_modernized_at: string | null
           created_at: string | null
           created_by: string
           draft_metadata: Json | null
@@ -7110,6 +7111,7 @@ export type Database = {
           excerpt_en: string | null
           excerpt_es: string | null
           faqs: Json | null
+          faqs_aeo_at: string | null
           faqs_en: Json | null
           faqs_es: Json | null
           file_name: string | null
@@ -7169,6 +7171,7 @@ export type Database = {
           content_html_reformatted_at?: string | null
           content_image_alt?: string | null
           content_image_url?: string | null
+          content_modernized_at?: string | null
           created_at?: string | null
           created_by?: string
           draft_metadata?: Json | null
@@ -7176,6 +7179,7 @@ export type Database = {
           excerpt_en?: string | null
           excerpt_es?: string | null
           faqs?: Json | null
+          faqs_aeo_at?: string | null
           faqs_en?: Json | null
           faqs_es?: Json | null
           file_name?: string | null
@@ -7235,6 +7239,7 @@ export type Database = {
           content_html_reformatted_at?: string | null
           content_image_alt?: string | null
           content_image_url?: string | null
+          content_modernized_at?: string | null
           created_at?: string | null
           created_by?: string
           draft_metadata?: Json | null
@@ -7242,6 +7247,7 @@ export type Database = {
           excerpt_en?: string | null
           excerpt_es?: string | null
           faqs?: Json | null
+          faqs_aeo_at?: string | null
           faqs_en?: Json | null
           faqs_es?: Json | null
           file_name?: string | null

@@ -6,9 +6,17 @@ export interface BatchTarget {
   title: string;
 }
 
+/**
+ * 'format'    → reformat-article-html (formatação padrão + FAQs AEO)
+ * 'modernize' → knowledge-content-modernize (reescreve o corpo no prompt novo,
+ *               preserva ficha/transcrição/JSON-LD, refaz FAQs e formata)
+ */
+export type BatchMode = 'format' | 'modernize';
+
 export interface BatchState {
   running: boolean;
   force: boolean;
+  mode: BatchMode;
   done: number;
   total: number;
   ok: number;
@@ -24,6 +32,7 @@ export interface BatchState {
 const initial: BatchState = {
   running: false,
   force: false,
+  mode: 'format',
   done: 0,
   total: 0,
   ok: 0,
@@ -84,13 +93,14 @@ export const reformatBatch = {
       emit();
     }
   },
-  async start(targets: BatchTarget[], force: boolean, onDone?: () => void) {
+  async start(targets: BatchTarget[], force: boolean, onDone?: () => void, mode: BatchMode = 'format') {
     if (state.running) return;
     cancelFlag = false;
     state = {
       ...initial,
       running: true,
       force,
+      mode,
       total: targets.length,
       startedAt: Date.now(),
     };
@@ -108,17 +118,21 @@ export const reformatBatch = {
       const a = targets[i];
       set({ currentTitle: a.title });
       try {
-        const { data, error } = await supabase.functions.invoke('reformat-article-html', {
-          body: { contentId: a.id, previewOnly: false, force },
-        });
+        const { data, error } = mode === 'modernize'
+          ? await supabase.functions.invoke('knowledge-content-modernize', {
+              body: { contentId: a.id, force, skipNew: true },
+            })
+          : await supabase.functions.invoke('reformat-article-html', {
+              body: { contentId: a.id, previewOnly: false, force, withFaqs: true },
+            });
         if (error) throw error;
         if (!data?.success) throw new Error(data?.error || 'unknown');
         if (data.skipped) {
           skipped++;
-          pushLog(`⏭️  ${a.title} (já reformatado)`);
+          pushLog(`⏭️  ${a.title} (${data.reason || 'já processado'})`);
         } else {
           ok++;
-          pushLog(`✅ ${a.title}`);
+          pushLog(`✅ ${a.title}${data.faqs ? ` — ${data.faqs} FAQs` : ''}`);
         }
       } catch (e: any) {
         err++;
