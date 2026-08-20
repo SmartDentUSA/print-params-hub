@@ -58,6 +58,14 @@ const SmartOpsStripePayments = lazy(() => import("@/components/SmartOpsStripePay
 const SmartOpsReactivationHub = lazy(() => import("@/components/SmartOpsReactivationHub").then(m => ({ default: m.SmartOpsReactivationHub })));
 const CoursesPage = lazy(() => import("@/components/smartops/CoursesPage"));
 
+// Um usuário pode ter múltiplos papéis (ex.: "user" + "distribuidor").
+// Escolhe o papel de maior privilégio para definir a navegação inicial.
+const ROLE_PRIORITY = ['admin', 'author', 'distribuidor', 'user'] as const;
+function pickEffectiveRole(roles: string[]): string | null {
+  for (const r of ROLE_PRIORITY) if (roles.includes(r)) return r;
+  return roles[0] ?? null;
+}
+
 export default function AdminViewSecure() {
   const [user, setUser] = useState<User | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
