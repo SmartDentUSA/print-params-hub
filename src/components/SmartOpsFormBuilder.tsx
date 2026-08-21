@@ -206,6 +206,10 @@ export function SmartOpsFormBuilder() {
   const [metaSeoTitle, setMetaSeoTitle] = useState("");
   const [metaSeoDescription, setMetaSeoDescription] = useState("");
   const [metaSeoKeywords, setMetaSeoKeywords] = useState("");
+  const [metaIgTriggerEnabled, setMetaIgTriggerEnabled] = useState(false);
+  const [metaIgTriggerKeyword, setMetaIgTriggerKeyword] = useState("");
+  const [metaIgTriggerCta, setMetaIgTriggerCta] = useState("");
+  const [metaIgTriggerDm, setMetaIgTriggerDm] = useState("");
   const [metaCampaignIdentifier, setMetaCampaignIdentifier] = useState("");
   const [metaProductCatalogId, setMetaProductCatalogId] = useState("");
   const [metaWorkflowStageTarget, setMetaWorkflowStageTarget] = useState("");
