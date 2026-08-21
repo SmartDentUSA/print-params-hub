@@ -84,17 +84,50 @@ export function SocialFlowsList() {
     onError: (e: any) => toast.error(e.message ?? 'Erro ao excluir'),
   });
 
+  const syncForms = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.functions.invoke('zernio-dm-flows-sync', { body: { activate: true } });
+      if (error) throw error;
+      if ((data as any)?.error) throw new Error((data as any).error);
+      return data as any;
+    },
+    onSuccess: (data) => {
+      qc.invalidateQueries({ queryKey: ['social-flows'] });
+      const fails = (data?.failed ?? []).length;
+      toast.success(`${data?.created_or_updated ?? 0} flows sincronizados${fails ? ` · ${fails} com erro` : ''}`);
+    },
+    onError: (e: any) => toast.error(e.message ?? 'Erro ao sincronizar'),
+  });
+
   return (
     <div className="container mx-auto p-6 max-w-6xl space-y-6">
-      <header className="flex items-center justify-between">
+      <header className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2"><WorkflowIcon className="w-6 h-6" /> Flows IG DM</h1>
-          <p className="text-sm text-muted-foreground">Automações de Instagram Direct & comentários via Zernio</p>
+          <p className="text-sm text-muted-foreground">Automações de Instagram Direct &amp; comentários via Zernio</p>
         </div>
-        <Link to="/social/flows/novo">
-          <Button><Plus className="w-4 h-4 mr-1" /> Novo Flow</Button>
-        </Link>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" disabled={syncForms.isPending} onClick={() => syncForms.mutate()}>
+            <RefreshCw className={`w-4 h-4 mr-1 ${syncForms.isPending ? 'animate-spin' : ''}`} />
+            Sincronizar formulários
+          </Button>
+          <Link to="/social/flows/novo">
+            <Button><Plus className="w-4 h-4 mr-1" /> Novo Flow</Button>
+          </Link>
+        </div>
       </header>
+
+      <Card className="bg-muted/40">
+        <CardContent className="py-4 text-sm text-muted-foreground space-y-1">
+          <p className="font-medium text-foreground">Como funciona a DM automática por palavra-gatilho</p>
+          <p>
+            Cada formulário com palavra-gatilho gera um flow: quando alguém comenta ou manda DM com a palavra,
+            o Zernio dispara a DM com o link encurtado (landing page publicada, senão o formulário).
+          </p>
+          <p>A mesma palavra aparece no Social Publisher ao selecionar o produto vinculado e entra obrigatoriamente no CTA da copy.</p>
+        </CardContent>
+      </Card>
+
 
       {isLoading ? (
         <div className="grid gap-3">{[0,1,2].map(i => <Skeleton key={i} className="h-24" />)}</div>
