@@ -502,6 +502,10 @@ export function SmartOpsFormBuilder() {
     setMetaSeoTitle((form as any).seo_title || "");
     setMetaSeoDescription((form as any).seo_description || "");
     setMetaSeoKeywords((form as any).seo_keywords || "");
+    setMetaIgTriggerEnabled(!!(form as any).ig_trigger_enabled);
+    setMetaIgTriggerKeyword((form as any).ig_trigger_keyword || "");
+    setMetaIgTriggerCta((form as any).ig_trigger_cta || "");
+    setMetaIgTriggerDm((form as any).ig_trigger_dm_message || "");
     setMetaCampaignIdentifier(form.campaign_identifier || "");
     setMetaProductCatalogId(form.product_catalog_id || "");
     setMetaWorkflowStageTarget(form.workflow_stage_target || "");
