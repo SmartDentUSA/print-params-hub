@@ -602,3 +602,6 @@ verify_jwt = false
 
 [functions.client-presence-ping]
 verify_jwt = false
+
+[functions.landing-page-batch-rag]
+verify_jwt = false
