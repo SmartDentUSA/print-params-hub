@@ -14,7 +14,7 @@ const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
 // Nunca tocar: landing page curada manualmente.
 const PROTECTED_SLUGS = ["exocad_dentalcad_rms"];
-const PROTECTED_RE = /exocad|dentalcad|ultimate\s*lab\s*bundle/i;
+const PROTECTED_RE = /exocad[^|]*rms|dentalcad[^|]*rms|ultimate\s*lab\s*bundle/i;
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
