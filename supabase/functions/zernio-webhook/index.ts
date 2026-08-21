@@ -106,7 +106,14 @@ serve(async (req) => {
     channel,
     flow_id: flow.id,
     current_node_id: initialNode.id,
-    state: { trigger_text: text, post_id: postId, event },
+    state: {
+      trigger_text: text,
+      post_id: postId,
+      event,
+      ig_username: igUsername,
+      nome: data?.from?.name ?? data?.user?.full_name ?? igUsername ?? '',
+      first_name: String(data?.from?.name ?? data?.user?.full_name ?? igUsername ?? '').trim().split(/\s+/)[0] ?? '',
+    },
     status: 'active',
     expires_at: new Date(Date.now() + 24 * 3600_000).toISOString(),
   }).select('id').single();
