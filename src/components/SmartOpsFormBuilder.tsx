@@ -900,6 +900,49 @@ export function SmartOpsFormBuilder() {
                 </div>
               </div>
 
+              {/* Trigger Instagram */}
+              <div className="border-t pt-3 space-y-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                    Trigger Instagram (comentário → DM)
+                  </p>
+                  <Switch checked={metaIgTriggerEnabled} onCheckedChange={setMetaIgTriggerEnabled} />
+                </div>
+                <div>
+                  <label className="text-xs font-medium">Palavra do comentário (trigger)</label>
+                  <Input
+                    value={metaIgTriggerKeyword}
+                    onChange={(e) => setMetaIgTriggerKeyword(e.target.value.toUpperCase())}
+                    placeholder="ex: EDGE"
+                  />
+                  <p className="text-[11px] text-muted-foreground mt-1">
+                    Única por formulário ativo. Usada para identificar o comentário e disparar a DM.
+                  </p>
+                </div>
+                <div>
+                  <label className="text-xs font-medium">Chamada para ação (post/legenda)</label>
+                  <Input
+                    value={metaIgTriggerCta}
+                    onChange={(e) => setMetaIgTriggerCta(e.target.value)}
+                    placeholder={`Comente ${metaIgTriggerKeyword || "EDGE"} para receber as informações`}
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-medium">Mensagem da DM</label>
+                  <Textarea
+                    value={metaIgTriggerDm}
+                    rows={3}
+                    onChange={(e) => setMetaIgTriggerDm(e.target.value)}
+                    placeholder="Oi! Aqui está o link com todas as informações: {{link}}"
+                  />
+                  <p className="text-[11px] text-muted-foreground mt-1">
+                    Use <code>{"{{link}}"}</code> para inserir o link do formulário/landing page.
+                  </p>
+                </div>
+              </div>
+
+              </div>
+
               <div className="border-t pt-3 space-y-3">
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Modo de exibição</p>
                 <div>
