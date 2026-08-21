@@ -235,7 +235,42 @@ function buildExportBlock(enr: any): string {
   return parts.join("\n");
 }
 
-function buildPrompt(body: ReqBody, productCtx: any[], ragCtx: any[], exportEnr: any, extraCtx: any[]): string {
+/**
+ * Trigger Instagram do formulário vinculado ao produto:
+ * "Comente PALAVRA para receber informações" → precisa entrar na copy.
+ */
+async function fetchIgTrigger(name?: string, slug?: string) {
+  if (!name && !slug) return null;
+  try {
+    let catQ = supabase.from("system_a_catalog").select("id, name, slug").limit(3);
+    if (slug) catQ = catQ.eq("slug", slug);
+    else catQ = catQ.ilike("name", `%${String(name).replace(/[%_]/g, "")}%`);
+    const { data: cats } = await catQ;
+    const ids = (cats || []).map((c: any) => c.id).filter(Boolean);
+    if (!ids.length) return null;
+    const { data: forms } = await supabase
+      .from("smartops_forms")
+      .select("name, slug, ig_trigger_keyword, ig_trigger_cta, ig_trigger_dm_message, product_catalog_id, is_active")
+      .eq("ig_trigger_enabled", true)
+      .not("ig_trigger_keyword", "is", null)
+      .in("product_catalog_id", ids)
+      .order("is_active", { ascending: false })
+      .limit(1);
+    const f: any = (forms || [])[0];
+    if (!f?.ig_trigger_keyword) return null;
+    return {
+      keyword: String(f.ig_trigger_keyword).toUpperCase(),
+      cta: String(f.ig_trigger_cta || "").trim() || `Comente ${String(f.ig_trigger_keyword).toUpperCase()} para receber informações`,
+      form_name: f.name || null,
+    };
+  } catch (e) {
+    console.warn("[caption] ig trigger err", (e as Error).message);
+    return null;
+  }
+}
+
+function buildPrompt(body: ReqBody, productCtx: any[], ragCtx: any[], exportEnr: any, extraCtx: any[], igTrigger: any = null): string {
+
   const tone = body.tone || "Profissional";
   const lang = body.language || "pt-BR";
   const product = body.product_name || body.product_slug || "(produto não especificado)";
