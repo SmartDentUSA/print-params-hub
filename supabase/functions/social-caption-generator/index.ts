@@ -434,7 +434,8 @@ Deno.serve(async (req) => {
       }
     }
 
-    const prompt = buildPrompt(body, productCtx, ragCtx, exportEnr, extraCtx);
+    const igTrigger = await fetchIgTrigger(body.product_name, body.product_slug);
+    const prompt = buildPrompt(body, productCtx, ragCtx, exportEnr, extraCtx, igTrigger);
     const result = await callLLM(prompt);
 
     return new Response(
@@ -448,6 +449,8 @@ Deno.serve(async (req) => {
           rag_hits: ragCtx.length,
           export_hits: exportEnr ? 1 : 0,
           export_matched_slug: exportMatchedSlug,
+          ig_trigger_keyword: igTrigger?.keyword ?? null,
+          ig_trigger_cta: igTrigger?.cta ?? null,
           model: result._model,
         },
       }),
