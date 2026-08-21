@@ -107,12 +107,12 @@ export function LandingPageBuilderModal({ open, onOpenChange, form }: Props) {
         .maybeSingle(),
       supabase
         .from("smartops_forms" as any)
-        .select("ln")
+        .select("product_catalog_id")
         .eq("id", form.id)
         .maybeSingle(),
     ])
       .then(async ([{ data }, formRow]) => {
-        const productId = (formRow.data as any)?.ln as string | undefined;
+        const productId = (formRow.data as any)?.product_catalog_id as string | undefined;
         if (productId) {
           const { data: prod } = await supabase
             .from("system_a_catalog" as any)
@@ -122,6 +122,7 @@ export function LandingPageBuilderModal({ open, onOpenChange, form }: Props) {
           if (prod) setProductLink({ id: (prod as any).id, name: (prod as any).name });
           else setProductLink({ id: productId, name: "Produto vinculado" });
         }
+
         if (data) {
           const row = data as unknown as LP;
           const rowContent = ensureContent(row.content);
@@ -222,18 +223,32 @@ export function LandingPageBuilderModal({ open, onOpenChange, form }: Props) {
         nextContent.hero = { ...nextContent.hero, audio: prevAudio };
       }
 
+      // Modo RAG: usa a imagem oficial do catálogo como hero quando não houver uma.
+      let nextHero = heroImage;
+      if (mode === "rag" && !nextHero && productLink?.id) {
+        const { data: prod } = await supabase
+          .from("system_a_catalog" as any)
+          .select("image_url")
+          .eq("id", productLink.id)
+          .maybeSingle();
+        nextHero = ((prod as any)?.image_url as string) || "";
+      }
+
       const saved = await persist({
         mode,
         input_prompt: mode === "rag" ? `[RAG:${productLink?.id ?? ""}]` : input,
         content: nextContent,
+        hero_image_url: nextHero || null,
         status: lp?.status ?? "draft",
       } as any);
       if (saved) {
         setLp(saved);
         setContent(nextContent);
+        setHeroImage(nextHero);
         setTab("edit");
         toast.success("Landing page gerada");
       }
+
     } catch (e: any) {
       const msg = e?.message || "Falha ao gerar";
       if (msg.includes("rate_limited")) toast.error("Muitas requisições — aguarde alguns segundos");
