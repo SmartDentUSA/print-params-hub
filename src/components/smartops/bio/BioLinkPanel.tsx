@@ -327,49 +327,83 @@ export function BioLinkPanel() {
               </div>
 
               <div className="space-y-2">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-wrap items-center justify-between gap-2">
                   <Label>Cards selecionados ({editor.items.length})</Label>
-                  <Popover open={pickerOpen} onOpenChange={setPickerOpen}>
-                    <PopoverTrigger asChild>
-                      <Button variant="outline" size="sm">
-                        Selecionar formulários / landing pages
-                        <ChevronsUpDown className="ml-2 h-3.5 w-3.5" />
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent align="end" className="w-96 p-2">
-                      <Input
-                        placeholder="Buscar..."
-                        value={pickerSearch}
-                        onChange={(e) => setPickerSearch(e.target.value)}
-                        className="mb-2"
-                      />
-                      <div className="max-h-72 space-y-1 overflow-y-auto">
-                        {filteredSources.length === 0 && (
-                          <p className="p-2 text-xs text-muted-foreground">Nada encontrado.</p>
-                        )}
-                        {filteredSources.map((s) => {
-                          const checked = !!editor.items.find((i) => i.id === s.key);
-                          return (
-                            <button
-                              type="button"
-                              key={s.key}
-                              onClick={() => toggleSource(s.key)}
-                              className="flex w-full items-start gap-2 rounded-md p-2 text-left hover:bg-accent"
-                            >
-                              <Checkbox checked={checked} className="mt-0.5" />
-                              <span className="min-w-0 flex-1">
-                                <span className="block truncate text-sm">{s.label}</span>
-                                <span className="block truncate text-xs text-muted-foreground">
-                                  {s.kind === "landing_page" ? "Landing page" : "Formulário"} · {s.url}
-                                </span>
-                              </span>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </PopoverContent>
-                  </Popover>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Button variant="outline" size="sm" onClick={() => sortItems("kind")}>
+                      Agrupar por tipo
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={() => sortItems("label")}>
+                      Ordenar A-Z
+                    </Button>
+                    <Button
+                      type="button"
+                      variant={pickerOpen ? "secondary" : "default"}
+                      size="sm"
+                      onClick={() => setPickerOpen((v) => !v)}
+                    >
+                      <Plus className="mr-1.5 h-3.5 w-3.5" />
+                      Adicionar cards
+                      <ChevronsUpDown className="ml-2 h-3.5 w-3.5" />
+                    </Button>
+                  </div>
                 </div>
+
+                {pickerOpen && (
+                  <div className="rounded-lg border border-border p-2">
+                    <div className="mb-2 flex flex-wrap gap-2">
+                      {([
+                        { k: "all", l: "Todos" },
+                        { k: "form", l: "Somente formulários" },
+                        { k: "landing_page", l: "Somente landing pages" },
+                      ] as const).map(({ k, l }) => (
+                        <Button
+                          key={k}
+                          type="button"
+                          size="sm"
+                          variant={pickerKind === k ? "default" : "outline"}
+                          onClick={() => setPickerKind(k)}
+                        >
+                          {l}
+                        </Button>
+                      ))}
+                    </div>
+                    <Input
+                      placeholder="Buscar..."
+                      value={pickerSearch}
+                      onChange={(e) => setPickerSearch(e.target.value)}
+                      className="mb-2"
+                    />
+                    <div className="max-h-72 space-y-1 overflow-y-auto">
+                      {filteredSources.length === 0 && (
+                        <p className="p-2 text-xs text-muted-foreground">
+                          Nada encontrado. Ative "Link da Bio" no formulário/landing page e garanta que
+                          exista link encurtado.
+                        </p>
+                      )}
+                      {filteredSources.map((s) => {
+                        const checked = !!editor.items.find((i) => i.id === s.key);
+                        return (
+                          <button
+                            type="button"
+                            key={s.key}
+                            onClick={() => toggleSource(s.key)}
+                            className="flex w-full items-start gap-2 rounded-md p-2 text-left hover:bg-accent"
+                          >
+                            <Checkbox checked={checked} className="mt-0.5" />
+                            <span className="min-w-0 flex-1">
+                              <span className="block truncate text-sm">{s.label}</span>
+                              <span className="block truncate text-xs text-muted-foreground">
+                                {s.kind === "landing_page" ? "Landing page" : "Formulário"} · {s.url}
+                              </span>
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
 
                 {editor.items.length === 0 ? (
                   <p className="rounded-lg border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
