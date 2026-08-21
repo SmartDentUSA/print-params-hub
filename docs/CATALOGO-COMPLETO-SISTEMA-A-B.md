@@ -1,223 +1,220 @@
-# Catálogo Completo — Sistema A + Sistema B (Enriquecido via Google Drive + Tabelas Estruturadas)
+# Catálogo Completo — Sistema A + Sistema B (SmartDent)
 
-Total de produtos: **156**
-
-Cada ficha combina: metadados comerciais (Sistema B `system_a_catalog`: preço, imagem, link de venda)
-+ perfil técnico enriquecido (síntese de Google Drive + Sistema A `products_repository` + Sistema B)
-+ dados complementares das tabelas estruturadas `resins`/`resin_presentations`/`resin_documents`/`products_catalog`
-(rendimento por frasco, laudos técnicos com link direto ao PDF, tabelas comparativas com concorrentes),
-já gravado em `catalog_documents` (categoria `perfil_produto_enriquecido`).
-
-Convenção: ⚠️ marca divergência entre fontes ainda não resolvida; "Não encontrado nas fontes disponíveis"
-marca lacuna de dados — ambas exigem confirmação (ver `docs/LISTA-INFORMACOES-PENDENTES-RAG.md`).
-
----
+Documento gerado a partir de 158 produtos ativos do catálogo comercial (Sistema A `system_a_catalog`), enriquecidos com dados estruturados do Sistema B (`resins`, `resin_presentations`, `resin_documents`, `products_catalog`) e pesquisa via Google Drive (fonte da verdade de produto, público-alvo, características técnicas, tabelas comparativas, links de imagem).
 
 ## Índice
 
+### 1. SCAN
+**1.1 SCANNER INTRAORAL**
+- [Chair Side Print 4.0 - Combo Scanner intraoral BLZ INO200](#chair-side-print-40-combo-scanner-intraoral-blz-ino200)
+- [Scanner Intraoral BLZ INO200](#scanner-intraoral-blz-ino200)
+- [Scanner Intraoral BLZ Leap 500](#scanner-intraoral-blz-leap-500)
+- [Scanner Intraoral MEDIT i600](#scanner-intraoral-medit-i600)
+- [Scanner Intraoral MEDIT i700](#scanner-intraoral-medit-i700)
+- [Scanner Intraoral MEDIT i700 Wireless](#scanner-intraoral-medit-i700-wireless)
+- [Scanner Intraoral MEDIT i900](#scanner-intraoral-medit-i900)
 
-**1. SCAN**
-- *1.1 SCANNER INTRAORAL*
-  - [Chair Side Print 4.0 - Combo Scanner intraoral BLZ INO200](#chair-side-print-40--combo-scanner-intraoral-blz-ino200)
-  - [Scanner Intraoral BLZ INO200](#scanner-intraoral-blz-ino200)
-  - [Scanner Intraoral BLZ Leap 500](#scanner-intraoral-blz-leap-500)
-  - [Scanner Intraoral MEDIT i600](#scanner-intraoral-medit-i600)
-  - [Scanner Intraoral MEDIT i700](#scanner-intraoral-medit-i700)
-  - [Scanner Intraoral MEDIT i700 Wireless](#scanner-intraoral-medit-i700-wireless)
-  - [Scanner Intraoral MEDIT i900](#scanner-intraoral-medit-i900)
-- *1.2 SCANNER BANCADA*
-  - [Scanner de Bancada BLZ LS100](#scanner-de-bancada-blz-ls100)
-  - [Scanner de Bancada Medit T310](#scanner-de-bancada-medit-t310)
-- *1.3 ACESSÓRIOS*
-  - [Dispositivo BLZ Dental DMC](#dispositivo-blz-dental-dmc)
-  - [ioConnect TruAbutment](#ioconnect-truabutment)
+**1.2 SCANNER BANCADA**
+- [Scanner de Bancada BLZ LS100](#scanner-de-bancada-blz-ls100)
+- [Scanner de Bancada Medit T310](#scanner-de-bancada-medit-t310)
 
-**2. CAD**
-- *2.1 SOFTWARE*
-  - [Assinatura mensal DentalCAD Ultimate Lab Bundle - RMS](#assinatura-mensal-dentalcad-ultimate-lab-bundle--rms)
-  - [Ativação DentalCAD Ultimate Lab Bundle - RMS](#ativação-dentalcad-ultimate-lab-bundle--rms)
-  - [Crédito Exocad DentalCAD I.A.](#crédito-exocad-dentalcad-ia)
-  - [DentalCAD - Software CAD da exocad](#dentalcad--software-cad-da-exocad)
-  - [exoplan - Software para planejamento de cirurgias guiadas](#exoplan--software-para-planejamento-de-cirurgias-guiadas)
-- *2.2 Serviço*
-  - [Serviço de Terceirização de Projetos CAD](#serviço-de-terceirização-de-projetos-cad)
+**1.3 ACESSÓRIOS**
+- [Dispositivo BLZ Dental DMC](#dispositivo-blz-dental-dmc)
+- [ioConnect TruAbutment](#ioconnect-truabutment)
 
-**3. IMPRESSÃO 3D**
-- *3.1 RESINAS 3D - BIOCOMPATÍVEIS*
-  - [Resina 3D Smart Print Bio Bite Splint +Flex](#resina-3d-smart-print-bio-bite-splint-flex)
-  - [Resina 3D Smart Print Bio Bite Splint Clear](#resina-3d-smart-print-bio-bite-splint-clear)
-  - [Resina 3D Smart Print Bio Denture](#resina-3d-smart-print-bio-denture)
-  - [Resina 3D Smart Print Bio Denture Translúcida](#resina-3d-smart-print-bio-denture-translúcida)
-  - [Resina 3D Smart Print Bio Direct Aligner](#resina-3d-smart-print-bio-direct-aligner)
-  - [Resina 3D Smart Print Bio GOWhite](#resina-3d-smart-print-bio-gowhite)
-  - [Resina 3D Smart Print Bio Hybrid A2](#resina-3d-smart-print-bio-hybrid-a2)
-  - [Resina 3D Smart Print Bio Temp B1](#resina-3d-smart-print-bio-temp-b1)
-  - [Resina 3D Smart Print Bio Vitality](#resina-3d-smart-print-bio-vitality)
-  - [Resina 3D Smart Print Try-In Calcinável](#resina-3d-smart-print-tryin-calcinável)
-  - [Resina Smart 3D Print Bio Clear Guide](#resina-smart-3d-print-bio-clear-guide)
-  - [Smart Print Bio Direct Aligner](#smart-print-bio-direct-aligner)
-  - [Smart Print Bio GOWhite](#smart-print-bio-gowhite)
-- *3.2 RESINAS 3D - USO GERAL*
-  - [Resina 3D MiiCraft BV012](#resina-3d-miicraft-bv012)
-  - [Resina 3D Smart Print GOClear](#resina-3d-smart-print-goclear)
-  - [Resina 3D Smart Print Gengiva](#resina-3d-smart-print-gengiva)
-  - [Resina 3D Smart Print L'Aqua](#resina-3d-smart-print-laqua)
-  - [Resina 3D Smart Print Model Plus](#resina-3d-smart-print-model-plus)
-  - [Resina 3D Smart Print Modelo Ocre](#resina-3d-smart-print-modelo-ocre)
-  - [Resina 3D Smart Print Modelo Precision](#resina-3d-smart-print-modelo-precision)
-  - [Resina 3D Smart Print Modelo Universal (Salmão)](#resina-3d-smart-print-modelo-universal-salmão)
-- *3.3 SOFTWARE*
-  - [SmartSlicer I.A.](#smartslicer-ia)
-- *3.4 IMPRESSORA 3D - ODONTOLÓGICA*
-  - [Asiga MAX 2 — Impressora 3D DLP Profissional](#asiga-max-2--impressora-3d-dlp-profissional)
-  - [Asiga Ultra – Impressora 3D DLP Profissional](#asiga-ultra--impressora-3d-dlp-profissional)
-  - [Impressora 3D Rayshape Edge Mini](#impressora-3d-rayshape-edge-mini)
-  - [Miicraft Alpha — Impressora 3D DLP Profissional](#miicraft-alpha--impressora-3d-dlp-profissional)
-- *3.5 IMPRESSORA 3D - DESKTOP*
-  - [Impressora 3D Elegoo Mars 5 Ultra](#impressora-3d-elegoo-mars-5-ultra)
+### 2. CAD
+**2.1 SOFTWARE**
+- [Assinatura mensal DentalCAD Ultimate Lab Bundle - RMS](#assinatura-mensal-dentalcad-ultimate-lab-bundle-rms)
+- [Ativação DentalCAD Ultimate Lab Bundle - RMS](#ativação-dentalcad-ultimate-lab-bundle-rms)
+- [Crédito Exocad DentalCAD I.A.](#crédito-exocad-dentalcad-ia)
+- [DentalCAD - Software CAD da exocad](#dentalcad-software-cad-da-exocad)
+- [exoplan - Software para planejamento de cirurgias guiadas](#exoplan-software-para-planejamento-de-cirurgias-guiadas)
 
-**4. PÓS-IMPRESSÃO**
-- *4.1 EQUIPAMENTOS*
-  - [Asiga Cure — Pós-Cura](#asiga-cure--póscura)
-  - [Cuba Ultrassônica](#cuba-ultrassônica)
-  - [Elegoo Wash & Cure Mercury 2-in-1 V2.0](#elegoo-wash--cure-mercury-2in1-v20)
-  - [Equipamento UV ShapeCure D](#equipamento-uv-shapecure-d)
-  - [Magna Box EDG - Pós Cura (390 a 440 nm)](#magna-box-edg--pós-cura-390-a-440-nm)
-  - [Misturador de Resinas Smart Dent](#misturador-de-resinas-smart-dent)
-  - [Pionext UV-02 - Pós Cura UV (365/385/405 nm) ](#pionext-uv02--pós-cura-uv-365385405-nm)
-- *4.2 LIMPEZA/ACABAMENTO*
-  - [GlazeON - Splint](#glazeon--splint)
-  - [NanoClean](#nanoclean)
-  - [NanoClean PoD™](#nanoclean-pod)
+**2.2 Serviço**
+- [Serviço de Terceirização de Projetos CAD](#serviço-de-terceirização-de-projetos-cad)
 
-**5. CARACTERIZAÇÃO**
-- *5.1 CARACTERIZAÇÃO SMARTMAKE*
-  - [Kit Completo SmartMake](#kit-completo-smartmake)
-  - [Kit SmartMake Biotech Edition](#kit-smartmake-biotech-edition)
-  - [Kit SmartMake Introdutório](#kit-smartmake-introdutório)
-  - [SmartMake Base (Clear)](#smartmake-base-clear)
-  - [SmartMake Efeito Mamelon](#smartmake-efeito-mamelon)
-  - [SmartMake Godê](#smartmake-godê)
-  - [SmartMake Intensivo Brown](#smartmake-intensivo-brown)
-  - [SmartMake Intensivo Mahogany](#smartmake-intensivo-mahogany)
-  - [SmartMake Intensivo Ocre](#smartmake-intensivo-ocre)
-  - [SmartMake SHADE A](#smartmake-shade-a)
-  - [SmartMake SHADE B](#smartmake-shade-b)
-  - [SmartMake SHADE C](#smartmake-shade-c)
-  - [SmartMake SHADE D](#smartmake-shade-d)
-  - [SmartMake Seal Glaze](#smartmake-seal-glaze)
-  - [SmartMake SmartWash](#smartmake-smartwash)
-  - [SmartMake Stain Black](#smartmake-stain-black)
-  - [SmartMake Stain Blue](#smartmake-stain-blue)
-  - [SmartMake Stain Red](#smartmake-stain-red)
-  - [SmartMake Stain Violet](#smartmake-stain-violet)
-  - [SmartMake Stain White](#smartmake-stain-white)
-  - [SmartMake kit básico](#smartmake-kit-básico)
-- *5.2 CARACTERIZAÇÃO SMARTGUM*
-  - [Kit Completo SmartGum](#kit-completo-smartgum)
-  - [SmartGum Black](#smartgum-black)
-  - [SmartGum Cream](#smartgum-cream)
-  - [SmartGum Intense Red](#smartgum-intense-red)
-  - [SmartGum Orange](#smartgum-orange)
-  - [SmartGum Pink](#smartgum-pink)
-  - [SmartGum Ruby](#smartgum-ruby)
-  - [SmartGum Smart Base Clear](#smartgum-smart-base-clear)
-  - [SmartGum Smart Base White](#smartgum-smart-base-white)
+### 3. IMPRESSÃO 3D
+**3.1 RESINAS 3D - BIOCOMPATÍVEIS**
+- [Resina 3D Smart Print Bio Bite Splint +Flex](#resina-3d-smart-print-bio-bite-splint-flex)
+- [Resina 3D Smart Print Bio Bite Splint Clear](#resina-3d-smart-print-bio-bite-splint-clear)
+- [Resina 3D Smart Print Bio Denture](#resina-3d-smart-print-bio-denture)
+- [Resina 3D Smart Print Bio Denture Translúcida](#resina-3d-smart-print-bio-denture-translúcida)
+- [Resina 3D Smart Print Bio Direct Aligner](#resina-3d-smart-print-bio-direct-aligner)
+- [Resina 3D Smart Print Bio GOWhite](#resina-3d-smart-print-bio-gowhite)
+- [Resina 3D Smart Print Bio Hybrid A2](#resina-3d-smart-print-bio-hybrid-a2)
+- [Resina 3D Smart Print Bio Temp B1](#resina-3d-smart-print-bio-temp-b1)
+- [Resina 3D Smart Print Bio Vitality](#resina-3d-smart-print-bio-vitality)
+- [Resina 3D Smart Print Try-In Calcinável](#resina-3d-smart-print-try-in-calcinável)
+- [Resina Smart 3D Print Bio Clear Guide](#resina-smart-3d-print-bio-clear-guide)
+- [Smart Print Bio Direct Aligner](#smart-print-bio-direct-aligner)
+- [Smart Print Bio GOWhite](#smart-print-bio-gowhite)
 
-**6. Cursos**
-- *6.1 Presencial*
-  - [Imersão 3 Dias Chairside Print](#imersão-3-dias-chairside-print)
-- *6.2 Online*
-  - [Curso ON-Line](#curso-online)
+**3.2 RESINAS 3D - USO GERAL**
+- [Resina 3D MiiCraft BV012](#resina-3d-miicraft-bv012)
+- [Resina 3D Smart Print GOClear](#resina-3d-smart-print-goclear)
+- [Resina 3D Smart Print Gengiva](#resina-3d-smart-print-gengiva)
+- [Resina 3D Smart Print L'Aqua](#resina-3d-smart-print-laqua)
+- [Resina 3D Smart Print Model Plus](#resina-3d-smart-print-model-plus)
+- [Resina 3D Smart Print Modelo Ocre](#resina-3d-smart-print-modelo-ocre)
+- [Resina 3D Smart Print Modelo Precision](#resina-3d-smart-print-modelo-precision)
+- [Resina 3D Smart Print Modelo Universal (Salmão)](#resina-3d-smart-print-modelo-universal-salmão)
 
-**6. DENTÍSTICA, ESTÉTICA E ORTODONTIA**
-- *6.2 CIMENTOS*
-  - [Cimento UNIKK Veneer A1](#cimento-unikk-veneer-a1)
-  - [Cimento UNIKK Veneer A2](#cimento-unikk-veneer-a2)
-  - [Cimento UNIKK Veneer A3.5](#cimento-unikk-veneer-a35)
-  - [Cimento UNIKK Veneer B1](#cimento-unikk-veneer-b1)
-  - [Cimento UNIKK Veneer BL2](#cimento-unikk-veneer-bl2)
-  - [Cimento UNIKK Veneer LV](#cimento-unikk-veneer-lv)
-  - [Cimento UNIKK Veneer TRS (Transparente)](#cimento-unikk-veneer-trs-transparente)
-  - [Cimento UNIKK Veneer Try-in A1](#cimento-unikk-veneer-tryin-a1)
-  - [Cimento UNIKK Veneer Try-in A2](#cimento-unikk-veneer-tryin-a2)
-  - [Cimento UNIKK Veneer Try-in A3.5](#cimento-unikk-veneer-tryin-a35)
-  - [Cimento UNIKK Veneer Try-in B1](#cimento-unikk-veneer-tryin-b1)
-  - [Cimento UNIKK Veneer Try-in BL2](#cimento-unikk-veneer-tryin-bl2)
-  - [Cimento UNIKK Veneer Try-in TRS (Transparente)](#cimento-unikk-veneer-tryin-trs-transparente)
-  - [Kit Cimento Unikk Veneer](#kit-cimento-unikk-veneer)
-- *6.3 RESINAS COMPOSTAS*
-  - [ATOS Body Resina Composta Direta - BA1](#atos-body-resina-composta-direta--ba1)
-  - [ATOS Body Resina Composta Direta - BA2](#atos-body-resina-composta-direta--ba2)
-  - [ATOS Body Resina Composta Direta - BA3](#atos-body-resina-composta-direta--ba3)
-  - [ATOS Body Resina Composta Direta - BA3.5](#atos-body-resina-composta-direta--ba35)
-  - [ATOS Body Resina Composta Direta - BA4](#atos-body-resina-composta-direta--ba4)
-  - [ATOS Body Resina Composta Direta - BB1](#atos-body-resina-composta-direta--bb1)
-  - [ATOS Body Resina Composta Direta - BB2](#atos-body-resina-composta-direta--bb2)
-  - [ATOS Body Resina Composta Direta - BC1](#atos-body-resina-composta-direta--bc1)
-  - [ATOS Body Resina Composta Direta - BC2](#atos-body-resina-composta-direta--bc2)
-  - [ATOS Body Resina Composta Direta - WB](#atos-body-resina-composta-direta--wb)
-  - [ATOS Body Resina Composta Direta - XWB](#atos-body-resina-composta-direta--xwb)
-  - [ATOS Smart Ortho](#atos-smart-ortho)
-  - [Atos Resina Composta Direta - DA1](#atos-resina-composta-direta--da1)
-  - [Atos Resina Composta Direta - DA2](#atos-resina-composta-direta--da2)
-  - [Atos Resina Composta Direta - DA3](#atos-resina-composta-direta--da3)
-  - [Atos Resina Composta Direta - DA3.5](#atos-resina-composta-direta--da35)
-  - [Atos Resina Composta Direta - DA4](#atos-resina-composta-direta--da4)
-  - [Atos Resina Composta Direta - DB1](#atos-resina-composta-direta--db1)
-  - [Atos Resina Composta Direta - DB2](#atos-resina-composta-direta--db2)
-  - [Atos Resina Composta Direta - EA1](#atos-resina-composta-direta--ea1)
-  - [Atos Resina Composta Direta - EA2](#atos-resina-composta-direta--ea2)
-  - [Atos Resina Composta Direta - EA3](#atos-resina-composta-direta--ea3)
-  - [Atos Resina Composta Direta - EA4](#atos-resina-composta-direta--ea4)
-  - [Atos Resina Composta Direta - EB1](#atos-resina-composta-direta--eb1)
-  - [Atos Resina Composta Direta - EB2](#atos-resina-composta-direta--eb2)
-  - [Atos Resina Composta Direta - Efeito Clear](#atos-resina-composta-direta--efeito-clear)
-  - [Atos Resina Composta Direta - Efeito Opaco](#atos-resina-composta-direta--efeito-opaco)
-  - [Atos Resina Composta Direta - Efeito Opalescente](#atos-resina-composta-direta--efeito-opalescente)
-  - [Atos Resina Composta Direta - WD](#atos-resina-composta-direta--wd)
-  - [Atos Resina Composta Direta - WE](#atos-resina-composta-direta--we)
-  - [Atos Resina Composta Direta - XWD](#atos-resina-composta-direta--xwd)
-  - [Atos Resina Composta Direta - XWE](#atos-resina-composta-direta--xwe)
-  - [Atos Unichroma](#atos-unichroma)
-  - [Kit Resina Atos Academic - 06 cores](#kit-resina-atos-academic--06-cores)
-  - [Kit Resina Atos Academic - 10 cores](#kit-resina-atos-academic--10-cores)
-  - [Resina Atos Academic - Amarelo](#resina-atos-academic--amarelo)
-  - [Resina Atos Academic - Azul Claro](#resina-atos-academic--azul-claro)
-  - [Resina Atos Academic - Azul Escuro](#resina-atos-academic--azul-escuro)
-  - [Resina Atos Academic - Branco](#resina-atos-academic--branco)
-  - [Resina Atos Academic - Cinza](#resina-atos-academic--cinza)
-  - [Resina Atos Academic - Incolor](#resina-atos-academic--incolor)
-  - [Resina Atos Academic - Laranja](#resina-atos-academic--laranja)
-  - [Resina Atos Academic - Rosa](#resina-atos-academic--rosa)
-  - [Resina Atos Academic - Verde](#resina-atos-academic--verde)
-  - [Resina Atos Academic - Vermelho](#resina-atos-academic--vermelho)
+**3.3 SOFTWARE**
+- [SmartSlicer I.A.](#smartslicer-ia)
 
-**7. Fresagem**
-- *7.2 Insumos*
-  - [ATOS Block HT A1](#atos-block-ht-a1)
-  - [ATOS Block HT A2](#atos-block-ht-a2)
-  - [ATOS Block HT A3](#atos-block-ht-a3)
-  - [ATOS Block HT B1](#atos-block-ht-b1)
-  - [ATOS Block LT A1](#atos-block-lt-a1)
-  - [ATOS Block LT A2](#atos-block-lt-a2)
-  - [ATOS Block LT A3](#atos-block-lt-a3)
-  - [ATOS Block LT A3.5](#atos-block-lt-a35)
-  - [ATOS Block LT B1](#atos-block-lt-b1)
-  - [ATOS Block LT Bleach](#atos-block-lt-bleach)
-  - [ATOS Block LT C2](#atos-block-lt-c2)
+**3.4 IMPRESSORA 3D - ODONTOLÓGICA**
+- [Asiga MAX 2 — Impressora 3D DLP Profissional](#asiga-max-2-impressora-3d-dlp-profissional)
+- [Asiga Ultra – Impressora 3D DLP Profissional](#asiga-ultra-impressora-3d-dlp-profissional)
+- [Impressora 3D Rayshape Edge Mini](#impressora-3d-rayshape-edge-mini)
+- [Miicraft Alpha — Impressora 3D DLP Profissional](#miicraft-alpha-impressora-3d-dlp-profissional)
+
+**3.5 IMPRESSORA 3D - DESKTOP**
+- [Impressora 3D Elegoo Mars 5 Ultra](#impressora-3d-elegoo-mars-5-ultra)
+
+### 4. PÓS-IMPRESSÃO
+**4.1 EQUIPAMENTOS**
+- [Asiga Cure — Pós-Cura](#asiga-cure-pós-cura)
+- [Cuba Ultrassônica](#cuba-ultrassônica)
+- [Elegoo Wash & Cure Mercury 2-in-1 V2.0](#elegoo-wash-cure-mercury-2-in-1-v20)
+- [Equipamento UV ShapeCure D](#equipamento-uv-shapecure-d)
+- [Magna Box EDG - Pós Cura (390 a 440 nm)](#magna-box-edg-pós-cura-390-a-440-nm)
+- [Misturador de Resinas Smart Dent](#misturador-de-resinas-smart-dent)
+- [Pionext UV-02 - Pós Cura UV (365/385/405 nm) ](#pionext-uv-02-pós-cura-uv-365385405-nm)
+
+**4.2 LIMPEZA/ACABAMENTO**
+- [GlazeON - Splint](#glazeon-splint)
+- [NanoClean](#nanoclean)
+- [NanoClean PoD™](#nanoclean-pod)
+
+### 5. CARACTERIZAÇÃO
+**5.1 CARACTERIZAÇÃO SMARTMAKE**
+- [Kit Completo SmartMake](#kit-completo-smartmake)
+- [Kit SmartMake Biotech Edition](#kit-smartmake-biotech-edition)
+- [Kit SmartMake Introdutório](#kit-smartmake-introdutório)
+- [SmartMake Base (Clear)](#smartmake-base-clear)
+- [SmartMake Efeito Mamelon](#smartmake-efeito-mamelon)
+- [SmartMake Godê](#smartmake-godê)
+- [SmartMake Intensivo Brown](#smartmake-intensivo-brown)
+- [SmartMake Intensivo Mahogany](#smartmake-intensivo-mahogany)
+- [SmartMake Intensivo Ocre](#smartmake-intensivo-ocre)
+- [SmartMake SHADE A](#smartmake-shade-a)
+- [SmartMake SHADE B](#smartmake-shade-b)
+- [SmartMake SHADE C](#smartmake-shade-c)
+- [SmartMake SHADE D](#smartmake-shade-d)
+- [SmartMake Seal Glaze](#smartmake-seal-glaze)
+- [SmartMake SmartWash](#smartmake-smartwash)
+- [SmartMake Stain Black](#smartmake-stain-black)
+- [SmartMake Stain Blue](#smartmake-stain-blue)
+- [SmartMake Stain Red](#smartmake-stain-red)
+- [SmartMake Stain Violet](#smartmake-stain-violet)
+- [SmartMake Stain White](#smartmake-stain-white)
+- [SmartMake kit básico](#smartmake-kit-básico)
+
+**5.2 CARACTERIZAÇÃO SMARTGUM**
+- [Kit Completo SmartGum](#kit-completo-smartgum)
+- [SmartGum Black](#smartgum-black)
+- [SmartGum Cream](#smartgum-cream)
+- [SmartGum Intense Red](#smartgum-intense-red)
+- [SmartGum Orange](#smartgum-orange)
+- [SmartGum Pink](#smartgum-pink)
+- [SmartGum Ruby](#smartgum-ruby)
+- [SmartGum Smart Base Clear](#smartgum-smart-base-clear)
+- [SmartGum Smart Base White](#smartgum-smart-base-white)
+
+### 6. Cursos
+**6.1 Presencial**
+- [Imersão 3 Dias Chairside Print](#imersão-3-dias-chairside-print)
+
+**6.2 Online**
+- [Curso ON-Line](#curso-on-line)
+
+### 6. DENTÍSTICA, ESTÉTICA E ORTODONTIA
+**6.2 CIMENTOS**
+- [Cimento UNIKK Veneer A1](#cimento-unikk-veneer-a1)
+- [Cimento UNIKK Veneer A2](#cimento-unikk-veneer-a2)
+- [Cimento UNIKK Veneer A3.5](#cimento-unikk-veneer-a35)
+- [Cimento UNIKK Veneer B1](#cimento-unikk-veneer-b1)
+- [Cimento UNIKK Veneer BL2](#cimento-unikk-veneer-bl2)
+- [Cimento UNIKK Veneer LV](#cimento-unikk-veneer-lv)
+- [Cimento UNIKK Veneer TRS (Transparente)](#cimento-unikk-veneer-trs-transparente)
+- [Cimento UNIKK Veneer Try-in A1](#cimento-unikk-veneer-try-in-a1)
+- [Cimento UNIKK Veneer Try-in A2](#cimento-unikk-veneer-try-in-a2)
+- [Cimento UNIKK Veneer Try-in A3.5](#cimento-unikk-veneer-try-in-a35)
+- [Cimento UNIKK Veneer Try-in B1](#cimento-unikk-veneer-try-in-b1)
+- [Cimento UNIKK Veneer Try-in BL2](#cimento-unikk-veneer-try-in-bl2)
+- [Cimento UNIKK Veneer Try-in TRS (Transparente)](#cimento-unikk-veneer-try-in-trs-transparente)
+- [Kit Cimento Unikk Veneer](#kit-cimento-unikk-veneer)
+
+**6.3 RESINAS COMPOSTAS**
+- [ATOS Body Resina Composta Direta - BA1](#atos-body-resina-composta-direta-ba1)
+- [ATOS Body Resina Composta Direta - BA2](#atos-body-resina-composta-direta-ba2)
+- [ATOS Body Resina Composta Direta - BA3](#atos-body-resina-composta-direta-ba3)
+- [ATOS Body Resina Composta Direta - BA3.5](#atos-body-resina-composta-direta-ba35)
+- [ATOS Body Resina Composta Direta - BA4](#atos-body-resina-composta-direta-ba4)
+- [ATOS Body Resina Composta Direta - BB1](#atos-body-resina-composta-direta-bb1)
+- [ATOS Body Resina Composta Direta - BB2](#atos-body-resina-composta-direta-bb2)
+- [ATOS Body Resina Composta Direta - BC1](#atos-body-resina-composta-direta-bc1)
+- [ATOS Body Resina Composta Direta - BC2](#atos-body-resina-composta-direta-bc2)
+- [ATOS Body Resina Composta Direta - WB](#atos-body-resina-composta-direta-wb)
+- [ATOS Body Resina Composta Direta - XWB](#atos-body-resina-composta-direta-xwb)
+- [ATOS Smart Ortho](#atos-smart-ortho)
+- [Atos Resina Composta Direta - DA1](#atos-resina-composta-direta-da1)
+- [Atos Resina Composta Direta - DA2](#atos-resina-composta-direta-da2)
+- [Atos Resina Composta Direta - DA3](#atos-resina-composta-direta-da3)
+- [Atos Resina Composta Direta - DA3.5](#atos-resina-composta-direta-da35)
+- [Atos Resina Composta Direta - DA4](#atos-resina-composta-direta-da4)
+- [Atos Resina Composta Direta - DB1](#atos-resina-composta-direta-db1)
+- [Atos Resina Composta Direta - DB2](#atos-resina-composta-direta-db2)
+- [Atos Resina Composta Direta - EA1](#atos-resina-composta-direta-ea1)
+- [Atos Resina Composta Direta - EA2](#atos-resina-composta-direta-ea2)
+- [Atos Resina Composta Direta - EA3](#atos-resina-composta-direta-ea3)
+- [Atos Resina Composta Direta - EA4](#atos-resina-composta-direta-ea4)
+- [Atos Resina Composta Direta - EB1](#atos-resina-composta-direta-eb1)
+- [Atos Resina Composta Direta - EB2](#atos-resina-composta-direta-eb2)
+- [Atos Resina Composta Direta - Efeito Clear](#atos-resina-composta-direta-efeito-clear)
+- [Atos Resina Composta Direta - Efeito Opaco](#atos-resina-composta-direta-efeito-opaco)
+- [Atos Resina Composta Direta - Efeito Opalescente](#atos-resina-composta-direta-efeito-opalescente)
+- [Atos Resina Composta Direta - WD](#atos-resina-composta-direta-wd)
+- [Atos Resina Composta Direta - WE](#atos-resina-composta-direta-we)
+- [Atos Resina Composta Direta - XWD](#atos-resina-composta-direta-xwd)
+- [Atos Resina Composta Direta - XWE](#atos-resina-composta-direta-xwe)
+- [Atos Unichroma](#atos-unichroma)
+- [Kit Resina Atos Academic - 06 cores](#kit-resina-atos-academic-06-cores)
+- [Kit Resina Atos Academic - 10 cores](#kit-resina-atos-academic-10-cores)
+- [Resina Atos Academic - Amarelo](#resina-atos-academic-amarelo)
+- [Resina Atos Academic - Azul Claro](#resina-atos-academic-azul-claro)
+- [Resina Atos Academic - Azul Escuro](#resina-atos-academic-azul-escuro)
+- [Resina Atos Academic - Branco](#resina-atos-academic-branco)
+- [Resina Atos Academic - Cinza](#resina-atos-academic-cinza)
+- [Resina Atos Academic - Incolor](#resina-atos-academic-incolor)
+- [Resina Atos Academic - Laranja](#resina-atos-academic-laranja)
+- [Resina Atos Academic - Rosa](#resina-atos-academic-rosa)
+- [Resina Atos Academic - Verde](#resina-atos-academic-verde)
+- [Resina Atos Academic - Vermelho](#resina-atos-academic-vermelho)
+
+### 7. Fresagem
+**7.2 Insumos**
+- [ATOS Block HT A1](#atos-block-ht-a1)
+- [ATOS Block HT A2](#atos-block-ht-a2)
+- [ATOS Block HT A3](#atos-block-ht-a3)
+- [ATOS Block HT B1](#atos-block-ht-b1)
+- [ATOS Block LT A1](#atos-block-lt-a1)
+- [ATOS Block LT A2](#atos-block-lt-a2)
+- [ATOS Block LT A3](#atos-block-lt-a3)
+- [ATOS Block LT A3.5](#atos-block-lt-a35)
+- [ATOS Block LT B1](#atos-block-lt-b1)
+- [ATOS Block LT Bleach](#atos-block-lt-bleach)
+- [ATOS Block LT C2](#atos-block-lt-c2)
+
+### SOLUÇÔES
+**ZZ. Sem subcategoria**
+- [Chair Side Print 4.0 - BLZ INO100 Plus](#chair-side-print-40-blz-ino100-plus)
+- [Chair Side Print BLZ INO200 - High-End](#chair-side-print-blz-ino200-high-end)
 
 ---
 
-
-# 1. SCAN
-
-
-## 1.1 SCANNER INTRAORAL
-
 ### Chair Side Print 4.0 - Combo Scanner intraoral BLZ INO200
-
-**Preço:** consultivo / não informado · **Imagem:** não cadastrada no Sistema B · **Link de venda:** não cadastrado / inconsistente no Sistema B · **ID (Sistema B):** `897e0d2b-c264-4a5e-953e-1e262eb6dadd`
+**Preço:** sob consulta · **Link de venda:** 396844859 · **ID (Sistema B):** `897e0d2b-c264-4a5e-953e-1e262eb6dadd`
 
 DESCRIÇÃO
 "O Chair Side Print 4.0 - Combo Scanner intraoral BLZ INO200 é a solução definitiva para a odontologia digital, oferecendo fluxo de trabalho completo e integrado. Este combo inclui o scanner intraoral BLZ INO200, coração de um sistema robusto e otimizado." Sales pitch: "porta de entrada mais eficiente para a odontologia digital, unindo precisão de escaneamento a um ecossistema completo de finalização estética e clínica." NOTA: este registro está com approved=false e active=false no system_a_catalog atualmente.
@@ -254,8 +251,7 @@ FONTES: system_a_catalog; products_repository (registro 00dd0309-e904-425f-989b-
 ---
 
 ### Scanner Intraoral BLZ INO200
-
-**Preço:** consultivo / não informado · **Imagem:** https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/53703608-9abf-4e53-968b-94274074dc55-1768352756996.webp · **Link de venda:** https://loja.smartdent.com.br/scanner-intraoral-blz-ino200 · **ID (Sistema B):** `bf98b42f-ad19-4776-b595-538c6d7cefdd`
+**Preço:** sob consulta · **Imagem:** https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/53703608-9abf-4e53-968b-94274074dc55-1768352756996.webp · **Link de venda:** https://loja.smartdent.com.br/scanner-intraoral-blz-ino200 · **ID (Sistema B):** `bf98b42f-ad19-4776-b595-538c6d7cefdd`
 
 ![Scanner Intraoral BLZ INO200](https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/53703608-9abf-4e53-968b-94274074dc55-1768352756996.webp)
 
@@ -293,11 +289,16 @@ DIVERGÊNCIAS ENTRE FONTES
 DADOS COMPLEMENTARES — CONFIRMAÇÃO SISTEMA B (products_catalog.technical_specifications)
 O campo estruturado technical_specifications do Sistema B confirma peso = 165 g (mesmo valor da tabela de especificações e do comparativo técnico usados na síntese original) — resolve a divergência ⚠️ apontada anteriormente (~270g era o valor incorreto, presente apenas em texto corrido do documento fonte). Demais specs estruturados coincidem: velocidade <40s/arcada, Deep Scan 25mm, dimensões 264×37×46mm, full color, LED RGB, precisão 10,9μm±0,98, 40 FPS, Windows 64-bit.
 
+BENEFÍCIOS E APLICAÇÃO — COPY APROVADO SISTEMA B (products_catalog, texto curto de e-commerce; complementa a seção DIFERENCIAIS/APLICAÇÕES acima, não substitui)
+Bullets de benefício (copy oficial da loja):
+- Escaneamento intraoral preciso
+- Integração com fluxo digital
+- Eliminação de moldagem física
+
 ---
 
 ### Scanner Intraoral BLZ Leap 500
-
-**Preço:** consultivo / não informado · **Imagem:** não cadastrada no Sistema B · **Link de venda:** não cadastrado / inconsistente no Sistema B · **ID (Sistema B):** `e15eb503-997d-4a09-afe4-2cf730b76994`
+**Preço:** sob consulta · **ID (Sistema B):** `e15eb503-997d-4a09-afe4-2cf730b76994`
 
 DESCRIÇÃO
 Não há descrição estruturada dedicada nas fontes. O sales_pitch do system_a_catalog registra: "O BLZ Leap 500 é a porta de entrada definitiva para o fluxo digital, unindo alta performance de escaneamento com a precisão necessária para restaurações estéticas e ortodontia de excelência." Em documentos sobre o ecossistema BLZ DMC/INO200, o produto aparece nomeado "Leap 500 Wireless", citado como um dos scanners BLZ que "oferecem profundidade de campo cirúrgico de até 25 mm e pontas finas para áreas interproximais complexas" — junto ao BLZ INO200.
@@ -325,8 +326,7 @@ FONTES: system_a_catalog; Google Drive docs 1YmheSfFFFn-jnqptNIqRTGbFiEujKdRI56n
 ---
 
 ### Scanner Intraoral MEDIT i600
-
-**Preço:** consultivo / não informado · **Imagem:** https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/catalog-images/products/scanner-intraoral-medit-i600-2.png · **Link de venda:** https://loja.smartdent.com.br/scanner-intraoral-medit-i600 · **ID (Sistema B):** `21747bde-a25b-4490-bd16-f4df823947f7`
+**Preço:** sob consulta · **Imagem:** https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/catalog-images/products/scanner-intraoral-medit-i600-2.png · **Link de venda:** https://loja.smartdent.com.br/scanner-intraoral-medit-i600 · **ID (Sistema B):** `21747bde-a25b-4490-bd16-f4df823947f7`
 
 ![Scanner Intraoral MEDIT i600](https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/catalog-images/products/scanner-intraoral-medit-i600-2.png)
 
@@ -391,11 +391,16 @@ DIVERGÊNCIAS ENTRE FONTES
 3. RAM recomendada: documento individual do Drive recomenda "32 GB"; banco Sistema A recomenda faixa "16–32 GB RAM".
 ===FIM===
 
+BENEFÍCIOS E APLICAÇÃO — COPY APROVADO SISTEMA B (products_catalog, texto curto de e-commerce; complementa a seção DIFERENCIAIS/APLICAÇÕES acima, não substitui)
+Bullets de benefício (copy oficial da loja):
+- Alta precisão intraoral
+- Velocidade de escaneamento
+- Integração Medit Link
+
 ---
 
 ### Scanner Intraoral MEDIT i700
-
-**Preço:** consultivo / não informado · **Imagem:** https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/12da64a4-1a41-4a15-b99b-711fdd9ff63a-1764283865488.webp · **Link de venda:** https://loja.smartdent.com.br/scanner-intraoral-medit-i700 · **ID (Sistema B):** `be45b36e-5627-40f7-b65b-0b5d7c58081a`
+**Preço:** sob consulta · **Imagem:** https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/12da64a4-1a41-4a15-b99b-711fdd9ff63a-1764283865488.webp · **Link de venda:** https://loja.smartdent.com.br/scanner-intraoral-medit-i700 · **ID (Sistema B):** `be45b36e-5627-40f7-b65b-0b5d7c58081a`
 
 ![Scanner Intraoral MEDIT i700](https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/12da64a4-1a41-4a15-b99b-711fdd9ff63a-1764283865488.webp)
 
@@ -460,11 +465,16 @@ DIVERGÊNCIAS ENTRE FONTES
 3. RAM recomendada: doc individual/banco Sistema A citam "16–32 GB"; a brochura oficial Medit especifica "32 GB" como requisito de sistema recomendado (sem faixa), com detalhamento adicional de CPU/GPU não presente nas demais fontes.
 ===FIM===
 
+BENEFÍCIOS E APLICAÇÃO — COPY APROVADO SISTEMA B (products_catalog, texto curto de e-commerce; complementa a seção DIFERENCIAIS/APLICAÇÕES acima, não substitui)
+Bullets de benefício (copy oficial da loja):
+- Alta performance com fio
+- Precisão clínica comprovada
+- Compatível com principais softwares CAD
+
 ---
 
 ### Scanner Intraoral MEDIT i700 Wireless
-
-**Preço:** consultivo / não informado · **Imagem:** https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/197e7962-92af-438e-bd4a-bbcb65b06d4d-1764283865989.webp · **Link de venda:** https://loja.smartdent.com.br/thbubqhji-scanner-intraoral-medit-i700 · **ID (Sistema B):** `95da8e78-68fc-4597-9291-f259a25cd767`
+**Preço:** sob consulta · **Imagem:** https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/197e7962-92af-438e-bd4a-bbcb65b06d4d-1764283865989.webp · **Link de venda:** https://loja.smartdent.com.br/thbubqhji-scanner-intraoral-medit-i700 · **ID (Sistema B):** `95da8e78-68fc-4597-9291-f259a25cd767`
 
 ![Scanner Intraoral MEDIT i700 Wireless](https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/197e7962-92af-438e-bd4a-bbcb65b06d4d-1764283865989.webp)
 
@@ -529,11 +539,16 @@ DIVERGÊNCIAS ENTRE FONTES
 3. Público-alvo: o banco Sistema A inclui "radiologias odontológicas", item não confirmado em nenhuma outra fonte para este produto.
 ===FIM===
 
+BENEFÍCIOS E APLICAÇÃO — COPY APROVADO SISTEMA B (products_catalog, texto curto de e-commerce; complementa a seção DIFERENCIAIS/APLICAÇÕES acima, não substitui)
+Bullets de benefício (copy oficial da loja):
+- Liberdade de movimento sem fio
+- Alta precisão
+- Compatível com Medit Link
+
 ---
 
 ### Scanner Intraoral MEDIT i900
-
-**Preço:** consultivo / não informado · **Imagem:** https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/d163df9d-cfbe-4ae6-9913-a8329a65935b-1771260726193.webp · **Link de venda:** https://loja.smartdent.com.br/scanner-intraoral-medit-i900 · **ID (Sistema B):** `9341f49e-44c7-45e4-ace1-2956c800167f`
+**Preço:** sob consulta · **Imagem:** https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/d163df9d-cfbe-4ae6-9913-a8329a65935b-1771260726193.webp · **Link de venda:** https://loja.smartdent.com.br/scanner-intraoral-medit-i900 · **ID (Sistema B):** `9341f49e-44c7-45e4-ace1-2956c800167f`
 
 ![Scanner Intraoral MEDIT i900](https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/d163df9d-cfbe-4ae6-9913-a8329a65935b-1771260726193.webp)
 
@@ -602,14 +617,16 @@ Este produto apresenta o maior número de divergências entre fontes:
 Observação: as tabelas "matriz técnica" (seções 1 a 5 do documento comparativo do Drive) parecem compor um material comparativo elaborado pela própria SmartDent para posicionar o concorrente interno BLZ Ino200, e contêm, para os modelos Medit, números que divergem sistematicamente das fichas técnicas oficiais/individuais da Medit e dos bancos de dados internos — especialmente no caso do i900. Recomenda-se tratar esses números com cautela ao alimentar o chatbot de vendas.
 ===FIM===
 
+BENEFÍCIOS E APLICAÇÃO — COPY APROVADO SISTEMA B (products_catalog, texto curto de e-commerce; complementa a seção DIFERENCIAIS/APLICAÇÕES acima, não substitui)
+Bullets de benefício (copy oficial da loja):
+- Topo de linha Medit
+- Máxima precisão e velocidade
+- Escaneamento de implantes avançado
+
 ---
 
-
-## 1.2 SCANNER BANCADA
-
 ### Scanner de Bancada BLZ LS100
-
-**Preço:** consultivo / não informado · **Imagem:** https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/51a85205-7305-4a18-9f8f-8b186cc0b947-1771260724728.webp · **Link de venda:** https://loja.smartdent.com.br/scanner-de-bancada-blz-ls100 · **ID (Sistema B):** `7b587299-01db-4399-a3f3-3061d6e8f056`
+**Preço:** sob consulta · **Imagem:** https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/51a85205-7305-4a18-9f8f-8b186cc0b947-1771260724728.webp · **Link de venda:** https://loja.smartdent.com.br/scanner-de-bancada-blz-ls100 · **ID (Sistema B):** `7b587299-01db-4399-a3f3-3061d6e8f056`
 
 ![Scanner de Bancada BLZ LS100](https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/51a85205-7305-4a18-9f8f-8b186cc0b947-1771260724728.webp)
 
@@ -650,11 +667,16 @@ Nenhuma contradição técnica relevante. O system_a_catalog.technical_specs est
 
 FONTES: Google Drive doc "BLZ LS100: O Scanner de Bancada Ultrarrápido para Laboratórios Dentários" (1LaVLE_D8-GzZBJyEFaoP78wMK16Zg97z15ppDTXLMwM); products_repository (Sistema A); system_a_catalog (Sistema B).
 
+BENEFÍCIOS E APLICAÇÃO — COPY APROVADO SISTEMA B (products_catalog, texto curto de e-commerce; complementa a seção DIFERENCIAIS/APLICAÇÕES acima, não substitui)
+Bullets de benefício (copy oficial da loja):
+- Escaneamento de modelos e preparos
+- Integração com softwares CAD
+- Precisão para próteses
+
 ---
 
 ### Scanner de Bancada Medit T310
-
-**Preço:** consultivo / não informado · **Imagem:** https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/075c1131-1e89-40a4-b816-119aa2db0589-1764283871447.webp · **Link de venda:** https://loja.smartdent.com.br/scanner-3d-medit-t310 · **ID (Sistema B):** `db3a043c-3ff4-43ea-a344-4f529ecfff7d`
+**Preço:** sob consulta · **Imagem:** https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/075c1131-1e89-40a4-b816-119aa2db0589-1764283871447.webp · **Link de venda:** https://loja.smartdent.com.br/scanner-3d-medit-t310 · **ID (Sistema B):** `db3a043c-3ff4-43ea-a344-4f529ecfff7d`
 
 ![Scanner de Bancada Medit T310](https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/075c1131-1e89-40a4-b816-119aa2db0589-1764283871447.webp)
 
@@ -701,14 +723,16 @@ Os campos `benefits` e `features` do registro em products_repository (Sistema A)
 
 FONTES: Google Drive docs "Scanner de Bancada 3D MEDIT T310" (1k71PJK8SKnOtE_6xye2amv-ra7fsMED_R__4KDrit5o) e "Smart_Dent_Medit_T310.pdf" (13zXuRIOnvfxAg123R5AlLxEJ5g0BxHoI); products_repository (Sistema A); system_a_catalog (Sistema B).
 
+BENEFÍCIOS E APLICAÇÃO — COPY APROVADO SISTEMA B (products_catalog, texto curto de e-commerce; complementa a seção DIFERENCIAIS/APLICAÇÕES acima, não substitui)
+Bullets de benefício (copy oficial da loja):
+- Alta precisão para laboratório
+- Compatível com softwares CAD/CAM
+- Escaneamento rápido
+
 ---
 
-
-## 1.3 ACESSÓRIOS
-
 ### Dispositivo BLZ Dental DMC
-
-**Preço:** consultivo / não informado · **Imagem:** não cadastrada no Sistema B · **Link de venda:** não cadastrado / inconsistente no Sistema B · **ID (Sistema B):** `37b9278d-719a-4261-a6cd-8e8c3891e4c1`
+**Preço:** sob consulta · **ID (Sistema B):** `37b9278d-719a-4261-a6cd-8e8c3891e4c1`
 
 DESCRIÇÃO
 Confirmado: "Dispositivo BLZ Dental DMC" é o hardware físico (kit de scanbodies) associado ao módulo de software "BLZ DMC Edentulous" do scanner BLZ INO200 — NÃO é, ele próprio, um scanner. Regra explícita (system_a_catalog/clinical_brain): "Não afirmar que o Dispositivo BLZ Dental DMC possui funções de scanner intraoral, pois ele é classificado como acessório." Sales pitch: "o acessório indispensável para máxima performance com seu scanner INO 200." Descrição funcional (Drive): "solução digital avançada da BLZ Dental para reabilitações totais sobre implantes em pacientes edêntulos. Resolve o maior gargalo dos scanners intraorais: o erro acumulativo gerado pela varredura de grandes áreas de mucosa lisa sem pontos geométricos de referência." Também chamado "Kit DMC" e "DMC Edentulous Digital Scan" (Digital Matrix Component).
@@ -744,8 +768,7 @@ FONTES: system_a_catalog; Google Drive docs 1ySaoY94aCgFXWCiH5wnsS4qvZp83xB6TSkn
 ---
 
 ### ioConnect TruAbutment
-
-**Preço:** consultivo / não informado · **Imagem:** https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/b083907c-f6fc-4d9c-a04d-1a0ace958be3-1764283868570.webp · **Link de venda:** https://loja.smartdent.com.br/ioconnect-truabutment · **ID (Sistema B):** `bea3eb9f-5535-4040-baf7-4a3ce7bc3288`
+**Preço:** sob consulta · **Imagem:** https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/b083907c-f6fc-4d9c-a04d-1a0ace958be3-1764283868570.webp · **Link de venda:** https://loja.smartdent.com.br/ioconnect-truabutment · **ID (Sistema B):** `bea3eb9f-5535-4040-baf7-4a3ce7bc3288`
 
 ![ioConnect TruAbutment](https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/b083907c-f6fc-4d9c-a04d-1a0ace958be3-1764283868570.webp)
 
@@ -780,17 +803,16 @@ Nenhuma divergência factual identificada — descrição, números de erro line
 
 FONTES: system_a_catalog; products_repository (registro b083907c-f6fc-4d9c-a04d-1a0ace958be3); Google Drive doc 1rnN-O_9CjuduhqA0c5Gt62f64xYRIZDaO7I9pRh_I3w.
 
+BENEFÍCIOS E APLICAÇÃO — COPY APROVADO SISTEMA B (products_catalog, texto curto de e-commerce; complementa a seção DIFERENCIAIS/APLICAÇÕES acima, não substitui)
+Bullets de benefício (copy oficial da loja):
+- Abutment digital para fluxo CAD/CAM
+- Precisão de encaixe
+- Compatível com implantes
+
 ---
 
-
-# 2. CAD
-
-
-## 2.1 SOFTWARE
-
 ### Assinatura mensal DentalCAD Ultimate Lab Bundle - RMS
-
-**Preço:** BRL -0.01 · **Imagem:** https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/catalog-images/products/mensalidade-dentalcad-ultimate-lab-bundle-rms-1783996448236.png · **Link de venda:** não cadastrado / inconsistente no Sistema B · **ID (Sistema B):** `5dcc685e-8704-4a17-9769-12228408a894`
+**Preço:** BRL -0.01 · **Imagem:** https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/catalog-images/products/mensalidade-dentalcad-ultimate-lab-bundle-rms-1783996448236.png · **ID (Sistema B):** `5dcc685e-8704-4a17-9769-12228408a894`
 
 ![Assinatura mensal DentalCAD Ultimate Lab Bundle - RMS](https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/catalog-images/products/mensalidade-dentalcad-ultimate-lab-bundle-rms-1783996448236.png)
 
@@ -823,8 +845,7 @@ FONTES: system_a_catalog; Google Drive docs 10AIZ1rinR3_ub8uhmp-q9TId23UDdNHFeWu
 ---
 
 ### Ativação DentalCAD Ultimate Lab Bundle - RMS
-
-**Preço:** consultivo / não informado · **Imagem:** não cadastrada no Sistema B · **Link de venda:** https://loja.smartdent.com.br/ativacao-dentalcad-ultimate-lab-bundle-rms · **ID (Sistema B):** `1821453d-fcdf-46b4-968a-63ae16119dab`
+**Preço:** sob consulta · **Link de venda:** https://loja.smartdent.com.br/ativacao-dentalcad-ultimate-lab-bundle-rms · **ID (Sistema B):** `1821453d-fcdf-46b4-968a-63ae16119dab`
 
 DESCRIÇÃO
 Porta de entrada para a licença oficial exocad DentalCAD Ultimate Lab Bundle no Brasil, modelo RMS. Corresponde ao pagamento único de "Ativação e Implantação Inicial", que já inclui o primeiro mês de uso. Alternativa à licença perpétua (~R$120.000 à vista) ou Flex anual (~R$42.000/ano). Vinculada ao mercado brasileiro, usuário final e conta my.exocad; inclui implantação e suporte local Smart Dent/MMTech. Código interno exocad: 402002410.
@@ -857,8 +878,7 @@ FONTES: products_repository; system_a_catalog; Google Drive docs 10AIZ1rinR3_ub8
 ---
 
 ### Crédito Exocad DentalCAD I.A.
-
-**Preço:** consultivo / não informado · **Imagem:** não cadastrada no Sistema B · **Link de venda:** não cadastrado / inconsistente no Sistema B · **ID (Sistema B):** `e8e3fe35-8ee9-43b5-be55-ddef6493b554`
+**Preço:** sob consulta · **ID (Sistema B):** `e8e3fe35-8ee9-43b5-be55-ddef6493b554`
 
 DESCRIÇÃO
 Crédito de uso do módulo de IA do exocad DentalCAD (AI Design/AI Crown Design/Smile Creator com IA), consumido conforme uso. description praticamente vazio em ambas as bases — sem texto comercial dedicado.
@@ -884,8 +904,7 @@ FONTES: products_repository; system_a_catalog; Google Drive docs 1eYBMSB7Jh1Sj2t
 ---
 
 ### DentalCAD - Software CAD da exocad
-
-**Preço:** consultivo / não informado · **Imagem:** não cadastrada no Sistema B · **Link de venda:** https://loja.smartdent.com.br/exocad-software-cad · **ID (Sistema B):** `9d9eb25c-841f-4577-a96a-37ca47d501d4`
+**Preço:** sob consulta · **Link de venda:** https://loja.smartdent.com.br/exocad-software-cad · **ID (Sistema B):** `9d9eb25c-841f-4577-a96a-37ca47d501d4`
 
 DESCRIÇÃO
 "O mais conhecido e utilizado software CAD para a área dental do mundo devido à sua flexibilidade e facilidade de uso." Versão mais recente para funções delicadas com maior precisão. Política: "não exige pagamento de licenças anuais para continuar usando o programa" — 12 meses de atualizações gratuitas inclusas; após esse período, atualização é opcional (taxa anual) ou o cliente segue usando a versão instalada sem custo adicional. Loja: https://loja.smartdent.com.br/exocad-software-cad (SKU XLNTYXZEL).
@@ -918,8 +937,7 @@ FONTES: products_repository; system_a_catalog; Google Drive docs 1_DOwC8LVQGMtC0
 ---
 
 ### exoplan - Software para planejamento de cirurgias guiadas
-
-**Preço:** consultivo / não informado · **Imagem:** https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/9ca9fd62-7282-409f-b633-d9f25ea2cb5d-1770349119603.webp · **Link de venda:** https://loja.smartdent.com.br/exocad-exoplan · **ID (Sistema B):** `39d67208-c030-428d-94db-a49f892c059b`
+**Preço:** sob consulta · **Imagem:** https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/9ca9fd62-7282-409f-b633-d9f25ea2cb5d-1770349119603.webp · **Link de venda:** https://loja.smartdent.com.br/exocad-exoplan · **ID (Sistema B):** `39d67208-c030-428d-94db-a49f892c059b`
 
 ![exoplan - Software para planejamento de cirurgias guiadas](https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/9ca9fd62-7282-409f-b633-d9f25ea2cb5d-1770349119603.webp)
 
@@ -949,14 +967,16 @@ DIVERGÊNCIAS ENTRE FONTES
 
 FONTES: products_repository; system_a_catalog; Google Drive docs 1HyhI5tqxqK5y4YIpNQk1z0SIwdKFJhzx, 1eQHFWoWBwYgWIFaGnaW-R4bJBaCBK88t, 1GKq25zEgoZrNMpftpLMIzfqNiYs8UmQU, 14tMPuizFc3zhxCyfLOXfxpD0pl_CJ-0jl0kx46uSDvA, 1Peg98Bcy-XxmuEoa2GQU0N-Ai2BCbnVj, 1cDIgn6vf-XbkZZj1PSsX9wTWlMyZ7JFw.
 
+BENEFÍCIOS E APLICAÇÃO — COPY APROVADO SISTEMA B (products_catalog, texto curto de e-commerce; complementa a seção DIFERENCIAIS/APLICAÇÕES acima, não substitui)
+Bullets de benefício (copy oficial da loja):
+- Planejamento de cirurgias guiadas
+- Integração com fluxo digital
+- Precisão no posicionamento de implantes
+
 ---
 
-
-## 2.2 Serviço
-
 ### Serviço de Terceirização de Projetos CAD
-
-**Preço:** consultivo / não informado · **Imagem:** não cadastrada no Sistema B · **Link de venda:** não cadastrado / inconsistente no Sistema B · **ID (Sistema B):** `4c2a9671-7fb0-4a90-84ae-15bf6904973f`
+**Preço:** sob consulta · **ID (Sistema B):** `4c2a9671-7fb0-4a90-84ae-15bf6904973f`
 
 DESCRIÇÃO
 Não encontrado nas fontes disponíveis. Registro em system_a_catalog tem description=null e extra_data={} (vazio). Sem registro correspondente em products_repository. Único documento do Drive que menciona o nome ("Mapeamento portfólio Smart Dent - Fluxo Digital - 7 Etapas") apenas lista "Terceirização de projetos CAD" dentro da subcategoria "2.2 Serviço" da etapa "2. CAD", sem descrição, preço, escopo ou condições.
@@ -980,15 +1000,8 @@ FONTES: system_a_catalog; Google Drive doc 14tMPuizFc3zhxCyfLOXfxpD0pl_CJ-0jl0kx
 
 ---
 
-
-# 3. IMPRESSÃO 3D
-
-
-## 3.1 RESINAS 3D - BIOCOMPATÍVEIS
-
 ### Resina 3D Smart Print Bio Bite Splint +Flex
-
-**Preço:** BRL 1925 · **Imagem:** https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/catalog-images/products/resina-3d-smart-print-bio-bite-splint-flex-duravel-1784780601017.png · **Link de venda:** não cadastrado / inconsistente no Sistema B · **ID (Sistema B):** `10f52620-8138-4ce9-a5c7-1cb79e59d917`
+**Preço:** BRL 1925 · **Imagem:** https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/catalog-images/products/resina-3d-smart-print-bio-bite-splint-flex-duravel-1784780601017.png · **ID (Sistema B):** `10f52620-8138-4ce9-a5c7-1cb79e59d917`
 
 ![Resina 3D Smart Print Bio Bite Splint +Flex](https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/catalog-images/products/resina-3d-smart-print-bio-bite-splint-flex-duravel-1784780601017.png)
 
@@ -1040,7 +1053,6 @@ DOCUMENTAÇÃO REGULATÓRIA E LAUDOS TÉCNICOS (arquivos PDF reais no Storage Si
 ---
 
 ### Resina 3D Smart Print Bio Bite Splint Clear
-
 **Preço:** BRL 1711.12 · **Imagem:** https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/catalog-images/products/bite-splint-clear-1784780613574.png · **Link de venda:** https://loja.smartdent.com.br/bite-splint-clear · **ID (Sistema B):** `c16ffa34-2dda-4ea1-aaee-265a22757f1a`
 
 ![Resina 3D Smart Print Bio Bite Splint Clear](https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/catalog-images/products/bite-splint-clear-1784780613574.png)
@@ -1092,7 +1104,6 @@ DOCUMENTAÇÃO REGULATÓRIA E LAUDOS TÉCNICOS (arquivos PDF reais no Storage Si
 ---
 
 ### Resina 3D Smart Print Bio Denture
-
 **Preço:** BRL 2811.12 · **Imagem:** https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/catalog-images/products/resina-3d-smart-print-bio-denture-1784781240445.png · **Link de venda:** https://loja.smartdent.com.br/resina-3d-smart-print-bio-denture · **ID (Sistema B):** `6d491d65-b464-443e-9d7a-49f302a45e83`
 
 ![Resina 3D Smart Print Bio Denture](https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/catalog-images/products/resina-3d-smart-print-bio-denture-1784781240445.png)
@@ -1135,10 +1146,16 @@ DOCUMENTAÇÃO REGULATÓRIA E LAUDOS TÉCNICOS (arquivos PDF reais no Storage Si
 - "IFU" (categoria: instrucoes) — https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/resin-documents/resina-3d-smart-print-bio-denture-1762430363130.pdf
 - "FDS" (categoria: instrucoes) — https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/resin-documents/resina-3d-smart-print-bio-denture-1776026241800.pdf
 
+BENEFÍCIOS E APLICAÇÃO — COPY APROVADO SISTEMA B (products_catalog, texto curto de e-commerce; complementa a seção DIFERENCIAIS/APLICAÇÕES acima, não substitui)
+Bullets de benefício (copy oficial da loja):
+- Biocompatível para próteses totais
+- Alta resistência ao impacto
+- Precisão dimensional para oclusão
+Aplicação resumida (copy oficial da loja): Base de próteses totais e parciais removíveis
+
 ---
 
 ### Resina 3D Smart Print Bio Denture Translúcida
-
 **Preço:** BRL 2811.12 · **Imagem:** https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/catalog-images/products/resina-smart-print-bio-denture-translucida-1784780949732.png · **Link de venda:** https://loja.smartdent.com.br/resina-smart-print-bio-denture-translucida · **ID (Sistema B):** `57bf6023-b2d0-4160-9fa6-3f6da55f8e29`
 
 ![Resina 3D Smart Print Bio Denture Translúcida](https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/catalog-images/products/resina-smart-print-bio-denture-translucida-1784780949732.png)
@@ -1180,8 +1197,7 @@ DOCUMENTAÇÃO REGULATÓRIA E LAUDOS TÉCNICOS (arquivos PDF reais no Storage Si
 ---
 
 ### Resina 3D Smart Print Bio Direct Aligner
-
-**Preço:** consultivo / não informado · **Imagem:** não cadastrada no Sistema B · **Link de venda:** não cadastrado / inconsistente no Sistema B · **ID (Sistema B):** `5b227517-e7bf-47c5-bbe5-508944aff47e`
+**Preço:** sob consulta · **ID (Sistema B):** `5b227517-e7bf-47c5-bbe5-508944aff47e`
 
 DESCRIÇÃO
 Não encontrado nas fontes disponíveis. O registro no Sistema B para este ID está praticamente vazio (category: "Resinas"; technical_specs: {}; extra_data: {}; sem description, sem clinical_indications, sem certificações).
@@ -1205,8 +1221,7 @@ Não há nome de arquivo/documento no Drive contendo exatamente "Direct Aligner"
 ---
 
 ### Resina 3D Smart Print Bio GOWhite
-
-**Preço:** consultivo / não informado · **Imagem:** não cadastrada no Sistema B · **Link de venda:** não cadastrado / inconsistente no Sistema B · **ID (Sistema B):** `2aa58081-d123-42b9-bbd4-2ea7be2f69b1`
+**Preço:** sob consulta · **ID (Sistema B):** `2aa58081-d123-42b9-bbd4-2ea7be2f69b1`
 
 DESCRIÇÃO
 Resina biocompatível para impressão 3D DIRETA de placas de clareamento dental (whitening trays), eliminando a etapa de termoformagem/plastificação a vácuo do fluxo convencional. O registro no Sistema B (system_a_catalog) para este ID específico está vazio (sem description, technical_specs ou extra_data), mas os documentos de Drive descrevem claramente o produto e seu fluxo de uso.
@@ -1234,8 +1249,7 @@ O registro em system_a_catalog (Sistema B) para este ID está vazio — todo o c
 ---
 
 ### Resina 3D Smart Print Bio Hybrid A2
-
-**Preço:** consultivo / não informado · **Imagem:** não cadastrada no Sistema B · **Link de venda:** não cadastrado / inconsistente no Sistema B · **ID (Sistema B):** `9f6a070c-faf8-4fc0-8358-d04766193e95`
+**Preço:** sob consulta · **ID (Sistema B):** `9f6a070c-faf8-4fc0-8358-d04766193e95`
 
 DESCRIÇÃO
 Resina acrílica odontológica biocompatível, fotopolimerizável (395-405 nm), da linha "Smart Print Bio Hybrid", na cor/sombra A2, indicada para impressão de coroas, pontes (até 3 elementos) e outros provisórios. Faz parte de uma família maior de sombras Hybrid (A1, A2, A3, BL1, BL2, BL3, B1, B2, B3) descrita em conjunto pelo fabricante.
@@ -1268,8 +1282,7 @@ DOCUMENTAÇÃO REGULATÓRIA E LAUDOS TÉCNICOS (arquivos PDF reais no Storage Si
 ---
 
 ### Resina 3D Smart Print Bio Temp B1
-
-**Preço:** BRL 733.34 · **Imagem:** https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/catalog-images/products/resina-smart-print-temp-1784780742766.png · **Link de venda:** não cadastrado / inconsistente no Sistema B · **ID (Sistema B):** `96ca1d7d-9bfe-4409-a7d9-b7111658bb06`
+**Preço:** BRL 733.34 · **Imagem:** https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/catalog-images/products/resina-smart-print-temp-1784780742766.png · **ID (Sistema B):** `96ca1d7d-9bfe-4409-a7d9-b7111658bb06`
 
 ![Resina 3D Smart Print Bio Temp B1](https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/catalog-images/products/resina-smart-print-temp-1784780742766.png)
 
@@ -1313,8 +1326,7 @@ DOCUMENTAÇÃO REGULATÓRIA E LAUDOS TÉCNICOS (arquivos PDF reais no Storage Si
 ---
 
 ### Resina 3D Smart Print Bio Vitality
-
-**Preço:** BRL 1859 · **Imagem:** https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/catalog-images/products/resina-3d-smart-print-bio-vitality-longa-duracao-1784782470169.png · **Link de venda:** não cadastrado / inconsistente no Sistema B · **ID (Sistema B):** `fc3b3928-ac28-46c5-a7f0-6ede5ff7230c`
+**Preço:** BRL 1859 · **Imagem:** https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/catalog-images/products/resina-3d-smart-print-bio-vitality-longa-duracao-1784782470169.png · **ID (Sistema B):** `fc3b3928-ac28-46c5-a7f0-6ede5ff7230c`
 
 ![Resina 3D Smart Print Bio Vitality](https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/catalog-images/products/resina-3d-smart-print-bio-vitality-longa-duracao-1784782470169.png)
 
@@ -1378,8 +1390,7 @@ DOCUMENTAÇÃO REGULATÓRIA E LAUDOS TÉCNICOS (arquivos PDF reais no Storage Si
 ---
 
 ### Resina 3D Smart Print Try-In Calcinável
-
-**Preço:** BRL 1466.66 · **Imagem:** https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/catalog-images/products/resina-smart-print-try-in-calcinavel-1784780755305.png · **Link de venda:** não cadastrado / inconsistente no Sistema B · **ID (Sistema B):** `7f3ad49e-85ce-4fd9-be19-d298a48b8b3a`
+**Preço:** BRL 1466.66 · **Imagem:** https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/catalog-images/products/resina-smart-print-try-in-calcinavel-1784780755305.png · **ID (Sistema B):** `7f3ad49e-85ce-4fd9-be19-d298a48b8b3a`
 
 ![Resina 3D Smart Print Try-In Calcinável](https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/catalog-images/products/resina-smart-print-try-in-calcinavel-1784780755305.png)
 
@@ -1419,7 +1430,6 @@ DOCUMENTAÇÃO REGULATÓRIA E LAUDOS TÉCNICOS (arquivos PDF reais no Storage Si
 ---
 
 ### Resina Smart 3D Print Bio Clear Guide
-
 **Preço:** BRL 1711.12 · **Imagem:** https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/catalog-images/products/resina-smart-print-clear-guide--1784781818097.png · **Link de venda:** https://loja.smartdent.com.br/resina-smart-print-clear-guide- · **ID (Sistema B):** `6cd6d356-49b5-4816-bb3d-768f4f2d4321`
 
 ![Resina Smart 3D Print Bio Clear Guide](https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/catalog-images/products/resina-smart-print-clear-guide--1784781818097.png)
@@ -1461,11 +1471,17 @@ DOCUMENTAÇÃO REGULATÓRIA E LAUDOS TÉCNICOS (arquivos PDF reais no Storage Si
 - "Relatório Citotoxicidade" (categoria: RESINAS 3D) — https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/resin-documents/resin-1762198624130.pdf
 - "IFU" (categoria: instrucoes) — https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/resin-documents/resina-smart-print-clear-guide-1762430291114.pdf
 
+BENEFÍCIOS E APLICAÇÃO — COPY APROVADO SISTEMA B (products_catalog, texto curto de e-commerce; complementa a seção DIFERENCIAIS/APLICAÇÕES acima, não substitui)
+Bullets de benefício (copy oficial da loja):
+- Alta resistência para guias cirúrgicas
+- Precisão de perfuração
+- Biocompatível para uso intraoperatório
+Aplicação resumida (copy oficial da loja): Guias cirúrgicas para implantes
+
 ---
 
 ### Smart Print Bio Direct Aligner
-
-**Preço:** consultivo / não informado · **Imagem:** não cadastrada no Sistema B · **Link de venda:** não cadastrado / inconsistente no Sistema B · **ID (Sistema B):** `24754778-2afb-4796-9189-72e54f4f5688`
+**Preço:** sob consulta · **ID (Sistema B):** `24754778-2afb-4796-9189-72e54f4f5688`
 
 DESCRIÇÃO
 Não encontrado nas fontes disponíveis como descrição factual. O único texto existente é um "sales_pitch" gerado por IA (clinical_brain, datado de 2026-07-17) no Sistema B: "Elimine a etapa de termoformagem e imprima alinhadores ortodônticos finais com alta memória elástica e biocompatibilidade diretamente da sua impressora 3D." Este texto é conteúdo de marketing gerado automaticamente, não uma ficha técnica validada, e deve ser tratado com cautela.
@@ -1489,8 +1505,7 @@ Este ID (categoria "product") e o ID 5b227517-e7bf-47c5-bbe5-508944aff47e ("Resi
 ---
 
 ### Smart Print Bio GOWhite
-
-**Preço:** consultivo / não informado · **Imagem:** não cadastrada no Sistema B · **Link de venda:** não cadastrado / inconsistente no Sistema B · **ID (Sistema B):** `37515991-991b-40fc-a4a2-c68ded3622cb`
+**Preço:** sob consulta · **ID (Sistema B):** `37515991-991b-40fc-a4a2-c68ded3622cb`
 
 DESCRIÇÃO
 O registro deste ID no Sistema B não tem "description" preenchida; o único texto existente é um "sales_pitch" gerado por IA (clinical_brain, 2026-07-17): "A Smart Print Bio GOWhite une a precisão da impressão 3D de alta performance com a estética superior necessária para provisórios e modelos odontológicos de excelência." Este texto contradiz diretamente os documentos de Drive sobre GOWhite, que descrevem o produto como uma resina para impressão DIRETA de placas de clareamento dental (whitening trays) — ver seção de divergências.
@@ -1515,12 +1530,8 @@ DIVERGÊNCIAS ENTRE FONTES
 
 ---
 
-
-## 3.2 RESINAS 3D - USO GERAL
-
 ### Resina 3D MiiCraft BV012
-
-**Preço:** consultivo / não informado · **Imagem:** não cadastrada no Sistema B · **Link de venda:** não cadastrado / inconsistente no Sistema B · **ID (Sistema B):** `7e350987-9398-413b-8785-98802d2521d6`
+**Preço:** sob consulta · **ID (Sistema B):** `7e350987-9398-413b-8785-98802d2521d6`
 
 DESCRIÇÃO
 Sem descrição comercial formal nas fontes. system_a_catalog: description/technical_specs/clinical_indications/certifications todos vazios. Sem registro em products_repository. Pelo contexto de planilhas internas (parâmetros de impressão/ROI): resina calcinável (burn-out) marca MiiCraft, para elementos calcináveis/protocolos, compatível com impressoras MiiCraft (Alpha, 100 Ultra, 125 Ultra).
@@ -1534,8 +1545,7 @@ FONTES: Drive docs 124-Hf5Bau4hpGSKsE1N6n6UcUXL7oi8L (Parâmetros de Resina), 1B
 ---
 
 ### Resina 3D Smart Print GOClear
-
-**Preço:** consultivo / não informado · **Imagem:** não cadastrada no Sistema B · **Link de venda:** não cadastrado / inconsistente no Sistema B · **ID (Sistema B):** `56f715ec-87d1-4401-9e70-ca39c40b02e7`
+**Preço:** sob consulta · **ID (Sistema B):** `56f715ec-87d1-4401-9e70-ca39c40b02e7`
 
 DESCRIÇÃO
 Sem description formal em system_a_catalog (nulo). Documentos regulatórios ANVISA mostram que "Smart Print Bio GoClear" é comercializado como novo modelo dentro da família regulatória "SMART PRINT BIO" (junto com Bite Splint Clear e Bite Splint Flex), usado como placa miorrelaxante/bite splint transparente — ver divergência crítica de categorização abaixo.
@@ -1550,8 +1560,7 @@ FONTES: Drive docs 18mDBeJrSdnrdiYtNfVe5Uc1JZDXDJ564 (Composição), 1dkmh1d0SGM
 ---
 
 ### Resina 3D Smart Print Gengiva
-
-**Preço:** BRL 488.88 · **Imagem:** https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/catalog-images/products/resina-smart-print-gengiva-1784782816754.png · **Link de venda:** não cadastrado / inconsistente no Sistema B · **ID (Sistema B):** `1b539763-6ebe-42b5-b7da-9ad7212c33a8`
+**Preço:** BRL 488.88 · **Imagem:** https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/catalog-images/products/resina-smart-print-gengiva-1784782816754.png · **ID (Sistema B):** `1b539763-6ebe-42b5-b7da-9ad7212c33a8`
 
 ![Resina 3D Smart Print Gengiva](https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/catalog-images/products/resina-smart-print-gengiva-1784782816754.png)
 
@@ -1574,7 +1583,6 @@ DOCUMENTAÇÃO REGULATÓRIA E LAUDOS TÉCNICOS (arquivos PDF reais no Storage Si
 ---
 
 ### Resina 3D Smart Print L'Aqua
-
 **Preço:** BRL 916.66 · **Imagem:** https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/catalog-images/products/resina-smart-print-modelo-laqua-1784781553651.png · **Link de venda:** https://loja.smartdent.com.br/resina-smart-print-modelo-laqua · **ID (Sistema B):** `84bce10e-f09e-4646-8fab-483f7419ecca`
 
 ![Resina 3D Smart Print L'Aqua](https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/catalog-images/products/resina-smart-print-modelo-laqua-1784781553651.png)
@@ -1600,10 +1608,15 @@ DOCUMENTAÇÃO REGULATÓRIA E LAUDOS TÉCNICOS (arquivos PDF reais no Storage Si
 - "FDS" (categoria: instrucoes) — https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/resin-documents/resina-smart-print-modelo-laqua-1762342724111.pdf
 - "IFU" (categoria: instrucoes) — https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/resin-documents/resina-smart-print-modelo-laqua-1762434846672.pdf
 
+BENEFÍCIOS E APLICAÇÃO — COPY APROVADO SISTEMA B (products_catalog, texto curto de e-commerce; complementa a seção DIFERENCIAIS/APLICAÇÕES acima, não substitui)
+Bullets de benefício (copy oficial da loja):
+- Cor diferenciada para modelos premium
+- Efeito translúcido elegante
+- Alta precisão
+
 ---
 
 ### Resina 3D Smart Print Model Plus
-
 **Preço:** BRL 399 · **Imagem:** https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/catalog-images/products/resina-3d-smart-print-model-plus-1784781670990.png · **Link de venda:** https://loja.smartdent.com.br/resina-3d-smart-print-model-plus · **ID (Sistema B):** `37f8fc8e-d9c6-4c04-84d6-0b0e2dd78529`
 
 ![Resina 3D Smart Print Model Plus](https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/catalog-images/products/resina-3d-smart-print-model-plus-1784781670990.png)
@@ -1633,8 +1646,7 @@ DOCUMENTAÇÃO REGULATÓRIA E LAUDOS TÉCNICOS (arquivos PDF reais no Storage Si
 ---
 
 ### Resina 3D Smart Print Modelo Ocre
-
-**Preço:** BRL 977.78 · **Imagem:** https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/catalog-images/products/resina-smart-print-modelo-ocre-1784780696483.png · **Link de venda:** não cadastrado / inconsistente no Sistema B · **ID (Sistema B):** `669f25c6-3c7b-41a6-93ce-7d7bda0d65f5`
+**Preço:** BRL 977.78 · **Imagem:** https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/catalog-images/products/resina-smart-print-modelo-ocre-1784780696483.png · **ID (Sistema B):** `669f25c6-3c7b-41a6-93ce-7d7bda0d65f5`
 
 ![Resina 3D Smart Print Modelo Ocre](https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/catalog-images/products/resina-smart-print-modelo-ocre-1784780696483.png)
 
@@ -1683,8 +1695,7 @@ DOCUMENTAÇÃO REGULATÓRIA E LAUDOS TÉCNICOS (arquivos PDF reais no Storage Si
 ---
 
 ### Resina 3D Smart Print Modelo Precision
-
-**Preço:** BRL 916.66 · **Imagem:** https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/catalog-images/products/resina-3d-smart-print-modelo-precision-1784780847132.png · **Link de venda:** não cadastrado / inconsistente no Sistema B · **ID (Sistema B):** `822b89b5-c89e-4f81-a5f9-43d120a3883b`
+**Preço:** BRL 916.66 · **Imagem:** https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/catalog-images/products/resina-3d-smart-print-modelo-precision-1784780847132.png · **ID (Sistema B):** `822b89b5-c89e-4f81-a5f9-43d120a3883b`
 
 ![Resina 3D Smart Print Modelo Precision](https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/catalog-images/products/resina-3d-smart-print-modelo-precision-1784780847132.png)
 
@@ -1729,7 +1740,6 @@ DOCUMENTAÇÃO REGULATÓRIA E LAUDOS TÉCNICOS (arquivos PDF reais no Storage Si
 ---
 
 ### Resina 3D Smart Print Modelo Universal (Salmão)
-
 **Preço:** BRL 843.34 · **Imagem:** https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/catalog-images/products/resina-modelo-universal-1784780893772.png · **Link de venda:** https://loja.smartdent.com.br/resina-modelo-universal · **ID (Sistema B):** `d82a23e0-049d-411f-99e3-bf47f8437841`
 
 ![Resina 3D Smart Print Modelo Universal (Salmão)](https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/catalog-images/products/resina-modelo-universal-1784780893772.png)
@@ -1772,14 +1782,17 @@ DOCUMENTAÇÃO REGULATÓRIA E LAUDOS TÉCNICOS (arquivos PDF reais no Storage Si
 - "FDS" (categoria: instrucoes) — https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/resin-documents/resina-modelo-universal-1762349498965.pdf
 - "IFU" (categoria: instrucoes) — https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/resin-documents/resina-modelo-universal-1762434974202.pdf
 
+BENEFÍCIOS E APLICAÇÃO — COPY APROVADO SISTEMA B (products_catalog, texto curto de e-commerce; complementa a seção DIFERENCIAIS/APLICAÇÕES acima, não substitui)
+Bullets de benefício (copy oficial da loja):
+- Cor salmão universal padrão
+- Alta precisão dimensional
+- Custo-benefício nacional
+Aplicação resumida (copy oficial da loja): Modelos odontológicos universais cor salmão
+
 ---
 
-
-## 3.3 SOFTWARE
-
 ### SmartSlicer I.A.
-
-**Preço:** consultivo / não informado · **Imagem:** não cadastrada no Sistema B · **Link de venda:** não cadastrado / inconsistente no Sistema B · **ID (Sistema B):** `14142463-610a-4a82-a2ca-0d0db68226d0`
+**Preço:** sob consulta · **ID (Sistema B):** `14142463-610a-4a82-a2ca-0d0db68226d0`
 
 DESCRIÇÃO
 Não há `description` textual no `system_a_catalog` (campo nulo), mas há um sales_pitch estruturado (extra_data/clinical_brain): "Maximize sua produtividade com a inteligência artificial que automatiza o fatiamento e o posicionamento de suportes, garantindo precisão cirúrgica em cada impressão." Categoria: "3. IMPRESSÃO 3D" / "3.3 SOFTWARE". No documento "pRODUTOS ETAPA 7 FLUXO DIGITAL" e no mapeamento de portfólio, aparece listado como "Software Smart Slicer", o único item da subcategoria "3.2 Software" dentro da etapa "Impressão 3D". No llms.txt da empresa, "Smart Slicer" é listado na seção de "Softwares (distribuidor/revendedor autorizado)" ao lado de Exocad DentalCAD, Exocad exoplan, Medit Clinic App e BLZ Dental CAD.
@@ -1803,12 +1816,8 @@ DIVERGÊNCIAS ENTRE FONTES
 
 ---
 
-
-## 3.4 IMPRESSORA 3D - ODONTOLÓGICA
-
 ### Asiga MAX 2 — Impressora 3D DLP Profissional
-
-**Preço:** consultivo / não informado · **Imagem:** https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/catalog-images/products/asiga-max-2-impressora-3d-dlp-profissional-1.png · **Link de venda:** https://loja.smartdent.com.br/impressora-3d-asiga-max-2 · **ID (Sistema B):** `a41f5aed-3bef-4f36-b595-52a0f535defe`
+**Preço:** sob consulta · **Imagem:** https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/catalog-images/products/asiga-max-2-impressora-3d-dlp-profissional-1.png · **Link de venda:** https://loja.smartdent.com.br/impressora-3d-asiga-max-2 · **ID (Sistema B):** `a41f5aed-3bef-4f36-b595-52a0f535defe`
 
 ![Asiga MAX 2 — Impressora 3D DLP Profissional](https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/catalog-images/products/asiga-max-2-impressora-3d-dlp-profissional-1.png)
 
@@ -1837,8 +1846,7 @@ FONTES: products_repository; system_a_catalog; Google Drive PDF 1YBlGLTHT1eEVKOY
 ---
 
 ### Asiga Ultra – Impressora 3D DLP Profissional
-
-**Preço:** consultivo / não informado · **Imagem:** https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/catalog-images/products/asiga-ultra-impressora-3d-dlp-profissional-1.png · **Link de venda:** https://loja.smartdent.com.br/impressora-3d-asiga-ultra · **ID (Sistema B):** `f4c59a0c-1f5d-4a2e-a5c0-ffe4cc8c34d5`
+**Preço:** sob consulta · **Imagem:** https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/catalog-images/products/asiga-ultra-impressora-3d-dlp-profissional-1.png · **Link de venda:** https://loja.smartdent.com.br/impressora-3d-asiga-ultra · **ID (Sistema B):** `f4c59a0c-1f5d-4a2e-a5c0-ffe4cc8c34d5`
 
 ![Asiga Ultra – Impressora 3D DLP Profissional](https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/catalog-images/products/asiga-ultra-impressora-3d-dlp-profissional-1.png)
 
@@ -1865,7 +1873,6 @@ FONTES: products_repository; system_a_catalog; sheet 1xbE5_dDnLsENe8o2ARUWDBWIKQ
 ---
 
 ### Impressora 3D Rayshape Edge Mini
-
 **Preço:** BRL 35000 · **Imagem:** https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/c3f880d0-3841-4bda-8f62-757594eff6dd-1764283866699.webp · **Link de venda:** https://loja.smartdent.com.br/impressora-3d-rayshape-edge-mini · **ID (Sistema B):** `faa43292-9ceb-4441-afc5-4757e88fed3b`
 
 ![Impressora 3D Rayshape Edge Mini](https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/c3f880d0-3841-4bda-8f62-757594eff6dd-1764283866699.webp)
@@ -1893,11 +1900,17 @@ DIVERGÊNCIAS ENTRE FONTES
 
 FONTES: products_repository; system_a_catalog; Google Drive docs 1QhDD_xHn4OUuoceRwQU9qq6G1-vqCl_t, 1cR0HIKduknfrCEpFUc36liLfXzruyKMaN3TZxFrLGUU, 10tWZlpbCzR51UfUTOhLaWraEoWD6MEDumCocpy6IgTY, 1HOyiT_7VECDF0YRosWKSh9yQ6RiMGfOoIKQUMevChiE; sheet 1pJQSU0AzVaurXCUcnlB6MHH9C8r6rT0LlpkZJ0Wy6sA.
 
+BENEFÍCIOS E APLICAÇÃO — COPY APROVADO SISTEMA B (products_catalog, texto curto de e-commerce; complementa a seção DIFERENCIAIS/APLICAÇÕES acima, não substitui)
+Bullets de benefício (copy oficial da loja):
+- DLP de alta precisão para odontologia
+- Custo acessível para consultório
+- Compatível com resinas odontológicas
+- Resultado chairside em horas
+
 ---
 
 ### Miicraft Alpha — Impressora 3D DLP Profissional
-
-**Preço:** consultivo / não informado · **Imagem:** https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/e36dd770-f764-4c23-81bd-0f286cd182ab-1771260719199.webp · **Link de venda:** https://loja.smartdent.com.br/impressora-3d-miicraft-alpha · **ID (Sistema B):** `3aea30e6-a39e-4d4a-949c-ba747f3abc54`
+**Preço:** sob consulta · **Imagem:** https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/e36dd770-f764-4c23-81bd-0f286cd182ab-1771260719199.webp · **Link de venda:** https://loja.smartdent.com.br/impressora-3d-miicraft-alpha · **ID (Sistema B):** `3aea30e6-a39e-4d4a-949c-ba747f3abc54`
 
 ![Miicraft Alpha — Impressora 3D DLP Profissional](https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/e36dd770-f764-4c23-81bd-0f286cd182ab-1771260719199.webp)
 
@@ -1924,14 +1937,15 @@ DIVERGÊNCIAS ENTRE FONTES — CRÍTICO
 
 FONTES: products_repository; system_a_catalog; Google Drive docs 1FdDyk4A3WXlxNoGVStPY0Eoq0atgjYGv, 1M7G66f2icvpMrricNfP6yQgEM_JZuIuS, 1HOyiT_7VECDF0YRosWKSh9yQ6RiMGfOoIKQUMevChiE; sheet 1pJQSU0AzVaurXCUcnlB6MHH9C8r6rT0LlpkZJ0Wy6sA.
 
+BENEFÍCIOS E APLICAÇÃO — COPY APROVADO SISTEMA B (products_catalog, texto curto de e-commerce; complementa a seção DIFERENCIAIS/APLICAÇÕES acima, não substitui)
+Bullets de benefício (copy oficial da loja):
+- Alta precisão DLP profissional
+- Compatível com resinas odontológicas
+
 ---
 
-
-## 3.5 IMPRESSORA 3D - DESKTOP
-
 ### Impressora 3D Elegoo Mars 5 Ultra
-
-**Preço:** consultivo / não informado · **Imagem:** https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/37651e02-b6f1-43e4-a958-5ed1f42c43a9-1768352754294.webp · **Link de venda:** https://loja.smartdent.com.br/impressora-3d-elegoo-mars-5-ultra · **ID (Sistema B):** `e3e1e4cd-10c7-48b0-aee4-4cf4fd4d96f7`
+**Preço:** sob consulta · **Imagem:** https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/37651e02-b6f1-43e4-a958-5ed1f42c43a9-1768352754294.webp · **Link de venda:** https://loja.smartdent.com.br/impressora-3d-elegoo-mars-5-ultra · **ID (Sistema B):** `e3e1e4cd-10c7-48b0-aee4-4cf4fd4d96f7`
 
 ![Impressora 3D Elegoo Mars 5 Ultra](https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/37651e02-b6f1-43e4-a958-5ed1f42c43a9-1768352754294.webp)
 
@@ -1957,17 +1971,16 @@ DIVERGÊNCIAS ENTRE FONTES
 
 FONTES: products_repository; system_a_catalog; Google Drive doc 1K5XFSearMiZli1wOms7Rqz3VCZOJzyzKvI92PQt4Jzg; sheets 1hNXm9sQbD6pnWainFv_wHb7LXYIY97eT3LDNsOhjKK4, 1pJQSU0AzVaurXCUcnlB6MHH9C8r6rT0LlpkZJ0Wy6sA; doc 1HOyiT_7VECDF0YRosWKSh9yQ6RiMGfOoIKQUMevChiE.
 
+BENEFÍCIOS E APLICAÇÃO — COPY APROVADO SISTEMA B (products_catalog, texto curto de e-commerce; complementa a seção DIFERENCIAIS/APLICAÇÕES acima, não substitui)
+Bullets de benefício (copy oficial da loja):
+- Impressão 3D dental de alta resolução
+- Compatível com resinas odontológicas
+- Custo acessível
+
 ---
 
-
-# 4. PÓS-IMPRESSÃO
-
-
-## 4.1 EQUIPAMENTOS
-
 ### Asiga Cure — Pós-Cura
-
-**Preço:** consultivo / não informado · **Imagem:** https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/18206007-3dbb-4f06-9f6c-8f2d49503152-1764283862887.webp · **Link de venda:** https://loja.smartdent.com.br/pos-cura-asiga-cure · **ID (Sistema B):** `2b161aa3-b45b-46ad-b73e-79815bf4e89a`
+**Preço:** sob consulta · **Imagem:** https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/18206007-3dbb-4f06-9f6c-8f2d49503152-1764283862887.webp · **Link de venda:** https://loja.smartdent.com.br/pos-cura-asiga-cure · **ID (Sistema B):** `2b161aa3-b45b-46ad-b73e-79815bf4e89a`
 
 ![Asiga Cure — Pós-Cura](https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/18206007-3dbb-4f06-9f6c-8f2d49503152-1764283862887.webp)
 
@@ -1991,11 +2004,18 @@ Nenhuma divergência relevante. Nenhum datasheet/manual dedicado localizado no D
 
 FONTES: products_repository; system_a_catalog; sheet 1xbE5_dDnLsENe8o2ARUWDBWIKQwsZz-GXPj4JzX7c3o; sheet 1pJQSU0AzVaurXCUcnlB6MHH9C8r6rT0LlpkZJ0Wy6sA.
 
+BENEFÍCIOS E APLICAÇÃO — COPY APROVADO SISTEMA B (products_catalog, texto curto de e-commerce; complementa a seção DIFERENCIAIS/APLICAÇÕES acima, não substitui)
+Bullets de benefício (copy oficial da loja):
+- Garante a biocompatibilidade e estabilidade mecânica exigida para próteses
+- Assegura a precisão dimensional crítica para encaixes perfeitos
+- Maximiza a produtividade do consultório/laboratório com ciclos automáticos
+- Proporciona um acabamento superficial superior em resinas odontológicas
+- Estende a vida útil das peças odontológicas impressas
+
 ---
 
 ### Cuba Ultrassônica
-
-**Preço:** consultivo / não informado · **Imagem:** não cadastrada no Sistema B · **Link de venda:** https://loja.smartdent.com.br/cuba-ultrassonica · **ID (Sistema B):** `c4d2d9c9-dfac-4b29-b248-3a15f38a7298`
+**Preço:** sob consulta · **Link de venda:** https://loja.smartdent.com.br/cuba-ultrassonica · **ID (Sistema B):** `c4d2d9c9-dfac-4b29-b248-3a15f38a7298`
 
 DESCRIÇÃO
 Cuba Ultrassônica modelo CD-4862, 6L, para limpeza de modelos e elementos impressos em fluxo 3D odontológico. Aquecimento por placas cerâmicas, painel touch, dreno com válvula, 2 transdutores ultrassônicos industriais.
@@ -2020,8 +2040,7 @@ FONTES: products_repository; system_a_catalog; sheet 1pJQSU0AzVaurXCUcnlB6MHH9C8
 ---
 
 ### Elegoo Wash & Cure Mercury 2-in-1 V2.0
-
-**Preço:** consultivo / não informado · **Imagem:** não cadastrada no Sistema B · **Link de venda:** https://loja.smartdent.com.br/elegoo-mercury-2.0-wash-and-cure · **ID (Sistema B):** `feb4289e-34ac-4344-99c8-1e5f58ec19ee`
+**Preço:** sob consulta · **Link de venda:** https://loja.smartdent.com.br/elegoo-mercury-2.0-wash-and-cure · **ID (Sistema B):** `feb4289e-34ac-4344-99c8-1e5f58ec19ee`
 
 DESCRIÇÃO
 Estação compacta 2-em-1 (lavagem + cura) de impressões 3D em resina. Para laboratórios odontológicos, estúdios de joias e makers, com pós-processamento eficiente preservando detalhes finos.
@@ -2045,11 +2064,16 @@ DIVERGÊNCIAS ENTRE FONTES
 
 FONTES: sheet 1pJQSU0AzVaurXCUcnlB6MHH9C8r6rT0LlpkZJ0Wy6sA; docs 1ALdNLKPAU1b2VJtoR2nDcnDJxbQESq0ZFuZx46-dV1E, 1iVbXiYwyNV2KJxbjkKu5vsLiL5WWQPbP; products_repository; system_a_catalog.
 
+BENEFÍCIOS E APLICAÇÃO — COPY APROVADO SISTEMA B (products_catalog, texto curto de e-commerce; complementa a seção DIFERENCIAIS/APLICAÇÕES acima, não substitui)
+Bullets de benefício (copy oficial da loja):
+- Lavagem e cura em um único equipamento
+- Compatível com todas as resinas fotopoliméricas
+- Alta eficiência de pós-cura
+
 ---
 
 ### Equipamento UV ShapeCure D
-
-**Preço:** consultivo / não informado · **Imagem:** não cadastrada no Sistema B · **Link de venda:** https://loja.smartdent.com.br/shapecure · **ID (Sistema B):** `57b40c09-f9a2-4f01-a2da-a9fde8dfe1bd`
+**Preço:** sob consulta · **Link de venda:** https://loja.smartdent.com.br/shapecure · **ID (Sistema B):** `57b40c09-f9a2-4f01-a2da-a9fde8dfe1bd`
 
 DESCRIÇÃO
 Câmara de pós-polimerização UV de alto desempenho (também vendida como "RayShape ShapeCure D", Código 8210), do ecossistema RayShape. Cura final de peças em resina, eliminando monômeros residuais, otimizando propriedades mecânicas, biocompatibilidade e estabilidade dimensional para uso intraoral seguro. Módulos de luz 405nm em array surround 360° com reflexão interna, cura de um clique, sinal sonoro de conclusão.
@@ -2075,8 +2099,7 @@ FONTES: Google Drive docs 1WOuzlDDXb6UbyLmnsKyC5vjYNup8s9WnWUjDFBkc4uM, 1ppwAhJW
 ---
 
 ### Magna Box EDG - Pós Cura (390 a 440 nm)
-
-**Preço:** consultivo / não informado · **Imagem:** https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/53626651-a91c-4b82-a058-c21e2d70820d-1770349160836.webp · **Link de venda:** https://loja.smartdent.com.br/magnabox-fotopolimerizador-pos-cura · **ID (Sistema B):** `41fe0b8e-4a00-4e96-8457-9c1dace13391`
+**Preço:** sob consulta · **Imagem:** https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/53626651-a91c-4b82-a058-c21e2d70820d-1770349160836.webp · **Link de venda:** https://loja.smartdent.com.br/magnabox-fotopolimerizador-pos-cura · **ID (Sistema B):** `41fe0b8e-4a00-4e96-8457-9c1dace13391`
 
 ![Magna Box EDG - Pós Cura (390 a 440 nm)](https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/53626651-a91c-4b82-a058-c21e2d70820d-1770349160836.webp)
 
@@ -2102,10 +2125,14 @@ DIVERGÊNCIAS ENTRE FONTES
 
 FONTES: Google Drive doc 1KjptrIyxO2w-vzisGKwOajR_VKfZ1M9R (Magnabox.pdf); sheet 1pJQSU0AzVaurXCUcnlB6MHH9C8r6rT0LlpkZJ0Wy6sA; products_repository; system_a_catalog.
 
+BENEFÍCIOS E APLICAÇÃO — COPY APROVADO SISTEMA B (products_catalog, texto curto de e-commerce; complementa a seção DIFERENCIAIS/APLICAÇÕES acima, não substitui)
+Bullets de benefício (copy oficial da loja):
+- Pós-cura 390-440nm otimizada
+- Alta potência uniforme
+
 ---
 
 ### Misturador de Resinas Smart Dent
-
 **Preço:** BRL 2500.00 · **Imagem:** https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/22bba22d-314d-4148-8d3b-b5dfb5500d66-1768352755709.webp · **Link de venda:** https://loja.smartdent.com.br/misturador-de-resinas-smart-dent · **ID (Sistema B):** `a612ebdc-cfa0-4bca-a0c4-f59f242294be`
 
 ![Misturador de Resinas Smart Dent](https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/22bba22d-314d-4148-8d3b-b5dfb5500d66-1768352755709.webp)
@@ -2145,10 +2172,15 @@ DIVERGÊNCIAS ENTRE FONTES
 2) A faixa de velocidade aparece como "10-70 rpm" na maioria das fontes, mas o documento PIONEXT DJ89 - Q2.pdf (que lista o item como componente de um pacote de venda, não como ficha técnica dedicada) registra "0-70 rpm" — divergência pequena no limite inferior.
 ===FIM===
 
+BENEFÍCIOS E APLICAÇÃO — COPY APROVADO SISTEMA B (products_catalog, texto curto de e-commerce; complementa a seção DIFERENCIAIS/APLICAÇÕES acima, não substitui)
+Bullets de benefício (copy oficial da loja):
+- Homogeneização de resinas 3D
+- Evita sedimentação das cargas inorgânicas
+- Melhora consistência de impressão
+
 ---
 
 ### Pionext UV-02 - Pós Cura UV (365/385/405 nm) 
-
 **Preço:** BRL 7890.00 · **Imagem:** https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/5c9ccdb7-3ca1-40d8-afee-171ae2e0d569-1764283864569.webp · **Link de venda:** https://loja.smartdent.com.br/pos-cura-pionext-uv-02 · **ID (Sistema B):** `29e791bf-ce04-432a-b633-eb360a59e643`
 
 ![Pionext UV-02 - Pós Cura UV (365/385/405 nm) ](https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/5c9ccdb7-3ca1-40d8-afee-171ae2e0d569-1764283864569.webp)
@@ -2178,13 +2210,15 @@ DIVERGÊNCIAS ENTRE FONTES
 2) O system_a_catalog registra nas regras de anti-alucinação que o equipamento "Não afirma realizar lavagem ou limpeza, apenas pós-cura UV" e lista como produtos proibidos de menção conjunta "Anycubic Wash & Cure, Elegoo Mercury, Phrozen Cure Luna" — nenhuma fonte de conteúdo contradiz essa regra, mas ela deve ser respeitada ao gerar textos de venda para não confundir o Pionext UV-02 com equipamentos concorrentes de marca similar (ex.: "Pionext W2"/"Pionext DJ89", que são produtos distintos — uma impressora 3D — encontrados em documento de venda separado no Drive, sem relação com o equipamento de pós-cura em si).
 ===FIM===
 
+BENEFÍCIOS E APLICAÇÃO — COPY APROVADO SISTEMA B (products_catalog, texto curto de e-commerce; complementa a seção DIFERENCIAIS/APLICAÇÕES acima, não substitui)
+Bullets de benefício (copy oficial da loja):
+- Pós-cura 365/385/405 nm — 3 comprimentos de onda
+- Cura uniforme de todas as resinas
+- Alta potência
+
 ---
 
-
-## 4.2 LIMPEZA/ACABAMENTO
-
 ### GlazeON - Splint
-
 **Preço:** BRL 306.00 · **Imagem:** https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/3848beb6-b671-43c4-9799-d8e482d197f4-1764283867703.webp · **Link de venda:** https://app.lojaintegrada.com.br/painel/catalogo/produto/356341240/editar · **ID (Sistema B):** `0e1e3597-0d7a-4570-94b8-ba3d7e62d6a8`
 
 ![GlazeON - Splint](https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/3848beb6-b671-43c4-9799-d8e482d197f4-1764283867703.webp)
@@ -2222,10 +2256,17 @@ DIVERGÊNCIAS ENTRE FONTES
 2) Unidade do ganho de resistência flexural: o campo technical_specifications do products_repository registra "Aumento da Resistência Flexural (GLAZE): 10,5 MPa" (valor absoluto em MPa), mas o texto de sales_pitch, no mesmo registro do products_repository, descreve o mesmo dado como "um ganho de 10,5% na Resistência Flexural (MPa)" (valor percentual). Não é possível determinar, a partir das fontes disponíveis, se o ganho real é de 10,5 MPa absolutos ou 10,5% relativos — inconsistência interna da própria fonte que deve ser esclarecida antes de uso comercial.
 ===FIM===
 
+BENEFÍCIOS E APLICAÇÃO — COPY APROVADO SISTEMA B (products_catalog, texto curto de e-commerce; complementa a seção DIFERENCIAIS/APLICAÇÕES acima, não substitui)
+Bullets de benefício (copy oficial da loja):
+- Reforça resistência de placas miorrelaxantes impressas
+- Preserva propriedades físicas
+- Acabamento estético e brilho
+- Reforço estrutural
+Aplicação resumida (copy oficial da loja): Glaze para placas miorrelaxantes impressas em 3D
+
 ---
 
 ### NanoClean
-
 **Preço:** BRL 253.00 · **Imagem:** https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/catalog-images/products/nanoclean-2.png · **Link de venda:** https://loja.smartdent.com.br/nanoclean · **ID (Sistema B):** `6d50a266-4b7e-4f87-b38d-4f8d7d704c44`
 
 ![NanoClean](https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/catalog-images/products/nanoclean-2.png)
@@ -2258,11 +2299,18 @@ DIVERGÊNCIAS ENTRE FONTES
 O documento "NanoClean - Guia" (PDF) descreve um protocolo de pré-lavagem em duas imersões de ~3 segundos cada (totalizando poucos segundos de agitação ativa dentro de um processo de ~30 segundos), enquanto o documento "NanoClean (Caneta)" e o products_repository descrevem de forma mais genérica "lavagem rápida em IPA (30 segundos)" como etapa única — não há contradição de fundo, apenas nível de detalhe diferente entre a peça de marketing/FAQ e o guia operacional passo a passo. Não foram encontradas divergências de conteúdo entre products_repository e system_a_catalog para este produto.
 ===FIM===
 
+BENEFÍCIOS E APLICAÇÃO — COPY APROVADO SISTEMA B (products_catalog, texto curto de e-commerce; complementa a seção DIFERENCIAIS/APLICAÇÕES acima, não substitui)
+Bullets de benefício (copy oficial da loja):
+- Elimina chalk effect residual
+- Dispensa jateamento abrasivo
+- Melhora adesão de maquiagem (primer)
+- Preserva detalhes anatômicos
+Aplicação resumida (copy oficial da loja): Limpeza manual pós-IPA de peças impressas em 3D. Primer para maquiagem.
+
 ---
 
 ### NanoClean PoD™
-
-**Preço:** BRL 399 · **Imagem:** https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/catalog-images/products/nanoclean-pod-limpeza-resina-3d-odontologica-sem-alcool-1784902807481.png · **Link de venda:** não cadastrado / inconsistente no Sistema B · **ID (Sistema B):** `19bc59de-a1f0-4994-b5ab-4c1a2464b7e0`
+**Preço:** BRL 399 · **Imagem:** https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/catalog-images/products/nanoclean-pod-limpeza-resina-3d-odontologica-sem-alcool-1784902807481.png · **ID (Sistema B):** `19bc59de-a1f0-4994-b5ab-4c1a2464b7e0`
 
 ![NanoClean PoD™](https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/catalog-images/products/nanoclean-pod-limpeza-resina-3d-odontologica-sem-alcool-1784902807481.png)
 
@@ -2305,16 +2353,19 @@ Comparação NanoClean PoD™ vs IPA Tradicional:
 | Capacidade | 35 elementos/ciclo | 1-4 peças |
 | Tempo | 60 segundos | 1-3 minutos |
 
+BENEFÍCIOS E APLICAÇÃO — COPY APROVADO SISTEMA B (products_catalog, texto curto de e-commerce; complementa a seção DIFERENCIAIS/APLICAÇÕES acima, não substitui)
+Bullets de benefício (copy oficial da loja):
+- Elimina 100% do chalk effect
+- Substitui integralmente o IPA
+- Não inflamável — segurança no laboratório
+- 60 segundos por ciclo com até 35 elementos
+- Preserva propriedades mecânicas da resina
+- ISO 10993 e ISO 20795
+Aplicação resumida (copy oficial da loja): Limpeza pós-impressão 3D de resinas odontológicas de alta carga inorgânica. Substitui IPA.
+
 ---
 
-
-# 5. CARACTERIZAÇÃO
-
-
-## 5.1 CARACTERIZAÇÃO SMARTMAKE
-
 ### Kit Completo SmartMake
-
 **Preço:** BRL 2434.00 · **Imagem:** https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/724733b7-be1c-4512-bc31-70e7d034500f-1764283866851.webp · **Link de venda:** https://loja.smartdent.com.br/kit-completo-smart-make · **ID (Sistema B):** `5fcb0cb6-20cd-43ab-902d-f806ca7dfb84`
 
 ![Kit Completo SmartMake](https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/724733b7-be1c-4512-bc31-70e7d034500f-1764283866851.webp)
@@ -2334,11 +2385,18 @@ Comparação SmartMake vs Concorrentes:
 | Glaze | Smart Seal Glaze Opalescente (não amarela) | Necessita glaze separado |
 | Tempo de uso clínica | 5 anos | 4 anos |
 
+BENEFÍCIOS E APLICAÇÃO — COPY APROVADO SISTEMA B (products_catalog, texto curto de e-commerce; complementa a seção DIFERENCIAIS/APLICAÇÕES acima, não substitui)
+Bullets de benefício (copy oficial da loja):
+- Único glaze opalescente que não amarela
+- Reduz tempo clínico de caracterização
+- Compatible com todas as resinas 3D
+- Gama completa shades, stains e intensivos
+Aplicação resumida (copy oficial da loja): Caracterização estética de restaurações impressas em 3D ou fresadas (PMMA)
+
 ---
 
 ### Kit SmartMake Biotech Edition
-
-**Preço:** consultivo / não informado · **Imagem:** não cadastrada no Sistema B · **Link de venda:** não cadastrado / inconsistente no Sistema B · **ID (Sistema B):** `045fbcca-c2dc-4675-ac89-2ae89052660a`
+**Preço:** sob consulta · **ID (Sistema B):** `045fbcca-c2dc-4675-ac89-2ae89052660a`
 
 DESCRIÇÃO: Faz parte da linha SmartMake® (tecnologia nano-híbrida ANP®) de caracterização estética odontológica fotopolimerizável. O Kit SmartMake Biotech Edition é uma edição ampliada/combinada da linha, identificada no material comercial como "ALL COLORS SMARTMAKE": ao contrário do Kit Completo (que cobre apenas os produtos SmartMake), a Biotech Edition combina o essencial do sistema SmartMake com itens da linha irmã SmartGum (caracterização gengival), entregando um kit "tudo em um" de caracterização de dente + gengiva.
 ESPECIFICAÇÕES TÉCNICAS: Conteúdo listado no material oficial: Shade SH-A, Shade SH-B, Stain Violet, Stain Blue, Efeito Mamelon, Intensivo Mahogany, Intensivo Ocre, Intensivo Brown, SmartBase, SmartSeal Glaze, e da linha SmartGum: Ruby, Pink, Intense Red. GTIN do kit: 0756014744927. Fabricante MMTECH Projetos Tecnológicos Imp. e Exp. Ltda, Rua Dr. Procópio de Toledo Malta 62, Morada dos Deuses, São Carlos/SP, CEP 13.562-291, CNPJ 10.736.894/0001-36, Resp. Técnico Dr. Ricardo Casale (CRO-SP 78005), ANVISA 81835969001.
@@ -2351,8 +2409,7 @@ DIVERGÊNCIAS ENTRE FONTES: Este produto está com registro vazio (sem descripti
 ---
 
 ### Kit SmartMake Introdutório
-
-**Preço:** consultivo / não informado · **Imagem:** não cadastrada no Sistema B · **Link de venda:** não cadastrado / inconsistente no Sistema B · **ID (Sistema B):** `e95401bb-3ed3-47f6-b41f-88af7c937e59`
+**Preço:** sob consulta · **ID (Sistema B):** `e95401bb-3ed3-47f6-b41f-88af7c937e59`
 
 DESCRIÇÃO: Faz parte da linha SmartMake® (tecnologia nano-híbrida ANP®, criada pelo Prof. Sergio Silva) de caracterização estética odontológica fotopolimerizável. O Kit SmartMake Introdutório é a versão de entrada/menor formato da linha, um SKU comercial ativo e faturado regularmente (nota fiscal registrada em 19/03/2025, valor de R$ 667,00, NCM 90212900). A imagem de referência do produto mostra frascos de SmartSeal Glaze 15ml e componentes rotulados como "SH.A" e "SM BLUE"/"SM RED", sugerindo uma seleção reduzida de shades/stains frente ao Kit Completo, mas a lista exata de itens inclusos não foi encontrada nas fontes disponíveis.
 ESPECIFICAÇÕES TÉCNICAS: GTIN 0756014745238 (fonte: planilha de GTINs do Drive). NCM 90212900 (nota fiscal). Preço de venda observado em nota fiscal: R$ 667,00 (unidade). Demais especificações técnicas (peso, dimensões, composição detalhada) — não encontrado nas fontes disponíveis.
@@ -2365,7 +2422,6 @@ DIVERGÊNCIAS ENTRE FONTES: system_a_catalog só registra manufacturer="Smart De
 ---
 
 ### SmartMake Base (Clear)
-
 **Preço:** BRL 184.00 · **Imagem:** https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/d6c2d3e9-7b89-4085-aacb-13c50523bf63-1780426963947.webp · **Link de venda:** https://loja.smartdent.com.br/smart-make-clearbase · **ID (Sistema B):** `e88407ae-bc91-4bda-b602-fdb3b6873a1c`
 
 ![SmartMake Base (Clear)](https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/d6c2d3e9-7b89-4085-aacb-13c50523bf63-1780426963947.webp)
@@ -2378,10 +2434,14 @@ APLICAÇÕES: Criação de relevo anatômico e volume; controle de espessura óp
 DIVERGÊNCIAS ENTRE FONTES: O protocolo técnico do Drive chama o produto de "SMARTBASE (CLEAR)" enquanto o catálogo comercial usa "SmartMake Base (Clear)" — mesmo produto, nomenclatura distinta entre material técnico e material comercial.
 ===FIM===
 
+BENEFÍCIOS E APLICAÇÃO — COPY APROVADO SISTEMA B (products_catalog, texto curto de e-commerce; complementa a seção DIFERENCIAIS/APLICAÇÕES acima, não substitui)
+Bullets de benefício (copy oficial da loja):
+- Massa densa para alto relevo
+- Controla profundidade óptica SmartMake
+
 ---
 
 ### SmartMake Efeito Mamelon
-
 **Preço:** BRL 159.00 · **Imagem:** https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/9b5b180b-6de6-42d8-928d-f1e3e35daba2-1764283865337.webp · **Link de venda:** https://loja.smartdent.com.br/smartmake-efeito-mamelon · **ID (Sistema B):** `933b0a63-ba22-44c6-823a-60e68f90c1c8`
 
 ![SmartMake Efeito Mamelon](https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/9b5b180b-6de6-42d8-928d-f1e3e35daba2-1764283865337.webp)
@@ -2394,10 +2454,15 @@ APLICAÇÕES: Dentes anteriores, bordas incisais internas, facetas impressas em 
 DIVERGÊNCIAS ENTRE FONTES: GTIN divergente entre system_a_catalog (756014745023) e a planilha de GTINs do Google Drive (0756014745030, que na planilha aparece associado a "SM EFEITO MAMELON" logo após "RESINA SMART PRINT VITALITY A3 250G — 0756014745023"), sugerindo possível troca de código entre esses dois produtos numa das fontes; não foi possível determinar qual está correto a partir das fontes disponíveis.
 ===FIM===
 
+BENEFÍCIOS E APLICAÇÃO — COPY APROVADO SISTEMA B (products_catalog, texto curto de e-commerce; complementa a seção DIFERENCIAIS/APLICAÇÕES acima, não substitui)
+Bullets de benefício (copy oficial da loja):
+- Reproduz mamelon dentário
+- Alta naturalidade estética
+- Caracterização especializada
+
 ---
 
 ### SmartMake Godê
-
 **Preço:** BRL 448.00 · **Imagem:** https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/706c584b-3a23-4702-8296-6e474acdc228-1780426964869.webp · **Link de venda:** https://loja.smartdent.com.br/smartmake-gode · **ID (Sistema B):** `8320f934-79b8-4fcd-a42d-1af0b8ec1855`
 
 ![SmartMake Godê](https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/706c584b-3a23-4702-8296-6e474acdc228-1780426964869.webp)
@@ -2410,10 +2475,14 @@ APLICAÇÕES: Mistura, diluição e controle cromático de materiais SmartMake; 
 DIVERGÊNCIAS ENTRE FONTES: Nenhuma divergência relevante identificada entre products_repository, system_a_catalog e o protocolo técnico — as três fontes descrevem o mesmo acessório de forma consistente.
 ===FIM===
 
+BENEFÍCIOS E APLICAÇÃO — COPY APROVADO SISTEMA B (products_catalog, texto curto de e-commerce; complementa a seção DIFERENCIAIS/APLICAÇÕES acima, não substitui)
+Bullets de benefício (copy oficial da loja):
+- Facilita mistura de shades e stains
+- Higiene e praticidade no laboratório
+
 ---
 
 ### SmartMake Intensivo Brown
-
 **Preço:** BRL 196.00 · **Imagem:** https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/2e065e89-a8aa-4683-b4a6-c35d583ece94-1780426965049.webp · **Link de venda:** https://loja.smartdent.com.br/smartmake-intensivo-brown · **ID (Sistema B):** `30bc3c40-b295-4c8c-9592-32860dcd5743`
 
 ![SmartMake Intensivo Brown](https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/2e065e89-a8aa-4683-b4a6-c35d583ece94-1780426965049.webp)
@@ -2426,10 +2495,14 @@ APLICAÇÕES: Caracterização e saturação de cor dental; aumento de densidade
 DIVERGÊNCIAS ENTRE FONTES: Nenhuma divergência relevante — as três fontes (Sistema A, Sistema B, protocolo técnico) descrevem o produto de forma consistente.
 ===FIM===
 
+BENEFÍCIOS E APLICAÇÃO — COPY APROVADO SISTEMA B (products_catalog, texto curto de e-commerce; complementa a seção DIFERENCIAIS/APLICAÇÕES acima, não substitui)
+Bullets de benefício (copy oficial da loja):
+- Tom marrom para caracterização especializada
+- Profundidade e naturalidade
+
 ---
 
 ### SmartMake Intensivo Mahogany
-
 **Preço:** BRL 196.00 · **Imagem:** https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/138ae0f9-4fde-484e-9697-fb4a26e57a27-1764283865784.webp · **Link de venda:** https://loja.smartdent.com.br/smartmake-intensivo-mahogany · **ID (Sistema B):** `42d45eb9-d199-4a38-8424-fd598fb6a4d1`
 
 ![SmartMake Intensivo Mahogany](https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/138ae0f9-4fde-484e-9697-fb4a26e57a27-1764283865784.webp)
@@ -2442,10 +2515,14 @@ APLICAÇÕES: Aumento de croma e calor visual em restaurações; reforço cervic
 DIVERGÊNCIAS ENTRE FONTES: O protocolo técnico (SMARTMAKE 3.0.pdf) usa o rótulo "SM - I MAHOGANY" tanto para o intensivo cromático quanto, num trecho separado, para descrever a massa densa resultante da mistura de SmartBase com Stains — isso pode ser um artefato de OCR/formatação do PDF ou uma nomenclatura antiga reaproveitada; o registro comercial em system_a_catalog/products_repository trata "Intensivo Mahogany" exclusivamente como intensificador cromático puro.
 ===FIM===
 
+BENEFÍCIOS E APLICAÇÃO — COPY APROVADO SISTEMA B (products_catalog, texto curto de e-commerce; complementa a seção DIFERENCIAIS/APLICAÇÕES acima, não substitui)
+Bullets de benefício (copy oficial da loja):
+- Tom mogno para caracterização especializada
+- Dentes envelhecidos e tetraciclina
+
 ---
 
 ### SmartMake Intensivo Ocre
-
 **Preço:** BRL 196.00 · **Imagem:** https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/7f6e7988-23db-4492-a35d-fc48bc2ca94c-1768352755379.webp · **Link de venda:** https://loja.smartdent.com.br/smartmake-intensivo-ocre · **ID (Sistema B):** `db583637-8be5-47d3-972d-a4c9991d6ae5`
 
 ![SmartMake Intensivo Ocre](https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/7f6e7988-23db-4492-a35d-fc48bc2ca94c-1768352755379.webp)
@@ -2458,10 +2535,14 @@ APLICAÇÕES: Caracterização de regiões oclusais e cervicais; aumento de calo
 DIVERGÊNCIAS ENTRE FONTES: Nenhuma divergência relevante identificada entre as fontes consultadas.
 ===FIM===
 
+BENEFÍCIOS E APLICAÇÃO — COPY APROVADO SISTEMA B (products_catalog, texto curto de e-commerce; complementa a seção DIFERENCIAIS/APLICAÇÕES acima, não substitui)
+Bullets de benefício (copy oficial da loja):
+- Tom ocre para dentina envelhecida
+- Natural em dentes com croma alto
+
 ---
 
 ### SmartMake SHADE A
-
 **Preço:** BRL 163.00 · **Imagem:** https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/d25685f2-2ffa-484d-aee4-e0cab0d837e8-1780426965445.webp · **Link de venda:** https://loja.smartdent.com.br/smartmake-shade-a · **ID (Sistema B):** `b94f167d-d72f-4380-96ea-1a7c55055af8`
 
 ![SmartMake SHADE A](https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/d25685f2-2ffa-484d-aee4-e0cab0d837e8-1780426965445.webp)
@@ -2474,10 +2555,14 @@ APLICAÇÕES: Cromatização de dentina em restaurações; ajuste de cor base na
 DIVERGÊNCIAS ENTRE FONTES: Nenhuma divergência relevante — as três fontes são consistentes quanto a função, escala de cor e regra de nunca aplicar puro.
 ===FIM===
 
+BENEFÍCIOS E APLICAÇÃO — COPY APROVADO SISTEMA B (products_catalog, texto curto de e-commerce; complementa a seção DIFERENCIAIS/APLICAÇÕES acima, não substitui)
+Bullets de benefício (copy oficial da loja):
+- Shade A para dentes na escala A
+- Base de caracterização SmartMake
+
 ---
 
 ### SmartMake SHADE B
-
 **Preço:** BRL 163.00 · **Imagem:** https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/377b5ec8-314e-48df-8e8d-86e9ad499740-1780426964402.webp · **Link de venda:** https://loja.smartdent.com.br/smartmake-shade-b · **ID (Sistema B):** `078c0cf5-d1c4-47d9-89de-51807680803f`
 
 ![SmartMake SHADE B](https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/377b5ec8-314e-48df-8e8d-86e9ad499740-1780426964402.webp)
@@ -2490,10 +2575,14 @@ APLICAÇÕES: Cromatização base do elemento dentário com alto valor luminoso;
 DIVERGÊNCIAS ENTRE FONTES: Nenhuma divergência relevante — apenas reforço cruzado: um relatório de vendas do Drive confirma comercialização real do item como "SMARTMAKE SHADE SH-B".
 ===FIM===
 
+BENEFÍCIOS E APLICAÇÃO — COPY APROVADO SISTEMA B (products_catalog, texto curto de e-commerce; complementa a seção DIFERENCIAIS/APLICAÇÕES acima, não substitui)
+Bullets de benefício (copy oficial da loja):
+- Shade B para dentes na escala B
+- Base de caracterização SmartMake
+
 ---
 
 ### SmartMake SHADE C
-
 **Preço:** BRL 163.00 · **Imagem:** https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/b7fe87b8-ba83-4779-b9d2-b3a319399cf1-1764283865177.webp · **Link de venda:** https://loja.smartdent.com.br/smartmake-shade-c · **ID (Sistema B):** `8cf3466e-ae44-466e-a473-a861bfb70ca7`
 
 ![SmartMake SHADE C](https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/b7fe87b8-ba83-4779-b9d2-b3a319399cf1-1764283865177.webp)
@@ -2506,10 +2595,14 @@ APLICAÇÕES: Cromatização base de elementos com menor valor luminoso e maior 
 DIVERGÊNCIAS ENTRE FONTES: Nenhuma divergência relevante identificada.
 ===FIM===
 
+BENEFÍCIOS E APLICAÇÃO — COPY APROVADO SISTEMA B (products_catalog, texto curto de e-commerce; complementa a seção DIFERENCIAIS/APLICAÇÕES acima, não substitui)
+Bullets de benefício (copy oficial da loja):
+- Shade C para dentes na escala C
+- Caracterização SmartMake
+
 ---
 
 ### SmartMake SHADE D
-
 **Preço:** BRL 163.00 · **Imagem:** https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/catalog-images/products/smartmake-shade-d-2.png · **Link de venda:** https://loja.smartdent.com.br/smartmake-shade-d · **ID (Sistema B):** `3146d946-91d4-4d43-8e5b-3500a8a9d724`
 
 ![SmartMake SHADE D](https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/catalog-images/products/smartmake-shade-d-2.png)
@@ -2522,10 +2615,14 @@ APLICAÇÕES: Cromatização base de elementos com baixo valor/alta saturação;
 DIVERGÊNCIAS ENTRE FONTES: Nenhuma divergência relevante identificada.
 ===FIM===
 
+BENEFÍCIOS E APLICAÇÃO — COPY APROVADO SISTEMA B (products_catalog, texto curto de e-commerce; complementa a seção DIFERENCIAIS/APLICAÇÕES acima, não substitui)
+Bullets de benefício (copy oficial da loja):
+- Shade D para dentes escurecidos
+- Máxima saturação de cor SmartMake
+
 ---
 
 ### SmartMake Seal Glaze
-
 **Preço:** BRL 306.00 · **Imagem:** https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/ab9737f5-eb1f-453c-aedb-67800b257260-1768352756576.webp · **Link de venda:** https://loja.smartdent.com.br/smart-seal-glaze · **ID (Sistema B):** `447e3b1a-45d6-4a60-8941-2ad181da483d`
 
 ![SmartMake Seal Glaze](https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/ab9737f5-eb1f-453c-aedb-67800b257260-1768352756576.webp)
@@ -2538,10 +2635,15 @@ APLICAÇÕES: Diluição de Shades/Stains/Intensivos; selamento e acabamento fin
 DIVERGÊNCIAS ENTRE FONTES: Há divergência de tempo de cura entre fontes: o protocolo técnico histórico (SMARTMAKE 3.0.pdf) recomenda cura em cabine UV de 36W por 1 minuto por fase e alerta contra luzes acima de 36W; já as technical_specifications atuais de products_repository especificam 1 min (LED) / 2 min (UV) por fase e cura final de 5–10 min dependendo da potência da luz UV (podendo ultrapassar 36W) — os protocolos de cura não são idênticos entre o material técnico antigo e a ficha comercial atual.
 ===FIM===
 
+BENEFÍCIOS E APLICAÇÃO — COPY APROVADO SISTEMA B (products_catalog, texto curto de e-commerce; complementa a seção DIFERENCIAIS/APLICAÇÕES acima, não substitui)
+Bullets de benefício (copy oficial da loja):
+- Não amarela
+- Efeito opalescente natural
+- Selamento e brilho final
+
 ---
 
 ### SmartMake SmartWash
-
 **Preço:** BRL 66.00 · **Imagem:** https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/70d25cea-241f-4594-9c8e-b7594f87f481-1780426965208.webp · **Link de venda:** https://loja.smartdent.com.br/smartmake-smartwash · **ID (Sistema B):** `ffa5ca72-07e4-4b58-9204-bfec151e3c0c`
 
 ![SmartMake SmartWash](https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/70d25cea-241f-4594-9c8e-b7594f87f481-1780426965208.webp)
@@ -2554,10 +2656,15 @@ APLICAÇÕES: Limpeza de pincéis, godês e utensílios para remoção de resíd
 DIVERGÊNCIAS ENTRE FONTES: Nenhuma divergência relevante identificada.
 ===FIM===
 
+BENEFÍCIOS E APLICAÇÃO — COPY APROVADO SISTEMA B (products_catalog, texto curto de e-commerce; complementa a seção DIFERENCIAIS/APLICAÇÕES acima, não substitui)
+Bullets de benefício (copy oficial da loja):
+- Limpeza de pincéis SmartMake
+- Preserva as ferramentas
+- Evita contaminação entre cores
+
 ---
 
 ### SmartMake Stain Black
-
 **Preço:** BRL 159.00 · **Imagem:** https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/catalog-images/products/smartmake-stain-black-2.png · **Link de venda:** https://loja.smartdent.com.br/smartmake-stain-black · **ID (Sistema B):** `398bf12a-227b-4600-acca-16f1f0232080`
 
 ![SmartMake Stain Black](https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/catalog-images/products/smartmake-stain-black-2.png)
@@ -2570,10 +2677,15 @@ APLICAÇÕES: Criação de profundidade óptica, zonas de sombra controlada e de
 DIVERGÊNCIAS ENTRE FONTES: O anti_hallucination_rules de system_a_catalog não menciona a restrição "não usar com Violet" citada no protocolo técnico antigo (SMARTMAKE 3.0.pdf) — recomenda-se preservar esse alerta técnico ao gerar conteúdo de vendas, mesmo não estando na ficha comercial atual.
 ===FIM===
 
+BENEFÍCIOS E APLICAÇÃO — COPY APROVADO SISTEMA B (products_catalog, texto curto de e-commerce; complementa a seção DIFERENCIAIS/APLICAÇÕES acima, não substitui)
+Bullets de benefício (copy oficial da loja):
+- Stain preto para fissuras e ranhuras
+- Alta profundidade de cor
+- Realismo de detalhe
+
 ---
 
 ### SmartMake Stain Blue
-
 **Preço:** BRL 159.00 · **Imagem:** https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/catalog-images/products/smartmake-stain-blue-2.png · **Link de venda:** https://loja.smartdent.com.br/smartmake-stain-blue · **ID (Sistema B):** `a6e4aeb4-42c9-41ba-a8cc-0465a05773df`
 
 ![SmartMake Stain Blue](https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/catalog-images/products/smartmake-stain-blue-2.png)
@@ -2586,11 +2698,15 @@ APLICAÇÕES: Bordas incisais; áreas de esmalte espesso; pontos de transição 
 DIVERGÊNCIAS ENTRE FONTES: O flyer comercial de 2020 (Smart_Dent_SmartMake.pdf) descreve os "stains especiais" originais da linha como RED, BLUE, WHITE e BLACK (sem Violet), enquanto o protocolo técnico de 2022 (SMARTMAKE 3.0.pdf) e o catálogo atual descrevem BLUE, VIOLET, WHITE e BLACK (sem Red como padrão) — indício de uma mudança de composição da linha ao longo do tempo (ver também bloco de Stain Red e Stain Violet).
 ===FIM===
 
+BENEFÍCIOS E APLICAÇÃO — COPY APROVADO SISTEMA B (products_catalog, texto curto de e-commerce; complementa a seção DIFERENCIAIS/APLICAÇÕES acima, não substitui)
+Bullets de benefício (copy oficial da loja):
+- Efeito azul para fluorescência artificial
+- Detalhe de borda incisal
+
 ---
 
 ### SmartMake Stain Red
-
-**Preço:** consultivo / não informado · **Imagem:** não cadastrada no Sistema B · **Link de venda:** não cadastrado / inconsistente no Sistema B · **ID (Sistema B):** `fd661cc0-b2f5-4a32-8247-3a97bf4d0d01`
+**Preço:** sob consulta · **ID (Sistema B):** `fd661cc0-b2f5-4a32-8247-3a97bf4d0d01`
 
 DESCRIÇÃO: Integra a linha SmartMake® (tecnologia nano-híbrida ANP®). O SmartMake Stain Red não é um lançamento recente — ao contrário, é um dos quatro stains especiais originais da linha, citados já no flyer comercial de 2020 ("Os exclusivos Stains especiais RED, BLUE, WHITE e BLACK criam o conceito de esmalte natural e opalescente, com efeitos de profundidade e incisais naturais OV..."). No entanto, o protocolo técnico mais recente disponível (SMARTMAKE 3.0.pdf, 2022) já não cita mais o Stain Red entre os stains detalhados (lista Blue, Violet, White, Black, Mamelon), e o registro atual em system_a_catalog está com distribute_enabled=false — ou seja, hoje o item existe formalmente no catálogo/GTIN mas não está confirmado como distribuído ativamente. Não foi encontrada, nas fontes disponíveis, uma descrição funcional/técnica detalhada e atual (o que o Stain Red faz especificamente, como aplicar) equivalente à dos demais Stains.
 ESPECIFICAÇÕES TÉCNICAS: GTIN/EAN 756014745337 (consistente entre system_a_catalog e a planilha de GTINs do Drive, que lista "SM STAIN RED — 0756014745337"); demais especificações técnicas (peso, dimensões, saturação, valor óptico) — não encontrado nas fontes disponíveis para este item específico (o registro agregado "CARACTERIZAÇÃO - SMARTMAKE" em system_a_catalog não lista peso/dimensão do Stain Red, diferentemente dos demais Stains).
@@ -2603,7 +2719,6 @@ DIVERGÊNCIAS ENTRE FONTES: Divergência relevante identificada — o Stain Red 
 ---
 
 ### SmartMake Stain Violet
-
 **Preço:** BRL 159.00 · **Imagem:** https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/e2d38d59-aedb-42e3-81e2-df161eb8b3f1-1780426965725.webp · **Link de venda:** https://loja.smartdent.com.br/smartmake-stain-violet · **ID (Sistema B):** `3d4d114a-9944-4dae-b1e7-1061469f7031`
 
 ![SmartMake Stain Violet](https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/e2d38d59-aedb-42e3-81e2-df161eb8b3f1-1780426965725.webp)
@@ -2616,10 +2731,14 @@ APLICAÇÕES: Recriar bordas incisais; efeitos em alto relevo; criação de prof
 DIVERGÊNCIAS ENTRE FONTES: (1) GTIN divergente entre system_a_catalog (756014745030) e a planilha de GTINs do Drive (0756014745047) — a mesma planilha lista 0756014745030 para "SM EFEITO MAMELON" (ver bloco de Efeito Mamelon), sugerindo possível cruzamento de códigos entre esses dois itens numa das fontes. (2) O flyer comercial de 2020 não lista Violet entre os 4 stains "especiais" da época (que eram Red/Blue/White/Black) — Violet aparenta ter sido incorporado à linha central em versão posterior (protocolo de 2022 em diante).
 ===FIM===
 
+BENEFÍCIOS E APLICAÇÃO — COPY APROVADO SISTEMA B (products_catalog, texto curto de e-commerce; complementa a seção DIFERENCIAIS/APLICAÇÕES acima, não substitui)
+Bullets de benefício (copy oficial da loja):
+- Tom violeta para efeitos ópticos especiais
+- Borda incisal em dentes jovens
+
 ---
 
 ### SmartMake Stain White
-
 **Preço:** BRL 159.00 · **Imagem:** https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/catalog-images/products/smartmake-stain-white-2.png · **Link de venda:** https://loja.smartdent.com.br/smartmake-stain-white · **ID (Sistema B):** `d6fecf02-a741-4aad-8812-fe2b6cb5ec4a`
 
 ![SmartMake Stain White](https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/catalog-images/products/smartmake-stain-white-2.png)
@@ -2632,10 +2751,15 @@ APLICAÇÕES: Criação de halos incisais naturais; reprodução de vertentes e 
 DIVERGÊNCIAS ENTRE FONTES: Nenhuma divergência relevante — descrição consistente entre o flyer de 2020, o protocolo técnico de 2022 e as fichas comerciais atuais.
 ===FIM===
 
+BENEFÍCIOS E APLICAÇÃO — COPY APROVADO SISTEMA B (products_catalog, texto curto de e-commerce; complementa a seção DIFERENCIAIS/APLICAÇÕES acima, não substitui)
+Bullets de benefício (copy oficial da loja):
+- Branco para efeitos de hipocalcificação
+- Manchas brancas naturais
+- Realismo dental
+
 ---
 
 ### SmartMake kit básico
-
 **Preço:** BRL 1022.40 · **Imagem:** https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/51e781af-700f-4f70-8cfe-5bd9d4332e44-1764283868813.webp · **Link de venda:** https://loja.smartdent.com.br/smartmake-kit-basico · **ID (Sistema B):** `5abac4da-83fa-44fd-8bca-98bbc2633133`
 
 ![SmartMake kit básico](https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/51e781af-700f-4f70-8cfe-5bd9d4332e44-1764283868813.webp)
@@ -2648,13 +2772,15 @@ APLICAÇÕES: Não encontrado nas fontes disponíveis um texto de "applications"
 DIVERGÊNCIAS ENTRE FONTES: Nenhuma — a composição do kit é idêntica, palavra por palavra, em products_repository e system_a_catalog.
 ===FIM===
 
+BENEFÍCIOS E APLICAÇÃO — COPY APROVADO SISTEMA B (products_catalog, texto curto de e-commerce; complementa a seção DIFERENCIAIS/APLICAÇÕES acima, não substitui)
+Bullets de benefício (copy oficial da loja):
+- Kit entrada SmartMake
+- Componentes essenciais para caracterização
+- Custo menor para iniciantes
+
 ---
 
-
-## 5.2 CARACTERIZAÇÃO SMARTGUM
-
 ### Kit Completo SmartGum
-
 **Preço:** BRL 2530.00 · **Imagem:** https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/53c6720e-873c-447b-bf04-df9cd67f9a85-1764283868432.webp · **Link de venda:** https://loja.smartdent.com.br/smartgum-kit-completo · **ID (Sistema B):** `ca5fe32d-73cf-467b-9971-90ff60b1d6f9`
 
 ![Kit Completo SmartGum](https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/53c6720e-873c-447b-bf04-df9cd67f9a85-1764283868432.webp)
@@ -2668,10 +2794,17 @@ APLICAÇÕES: criação protética de regiões gengivais naturais; próteses tot
 DIVERGÊNCIAS: doc "SmartGum" descreve 8 géis, mas lista de conteúdo físico do kit menciona itens adicionais (Seal Glaze, 2 Clear Dense, SmartWash) e quantidades desiguais (3 Base White vs. 1 das demais) — não confirmado se "Clear Dense" é sinônimo de Smart Base Clear ou item distinto. Existe produto homônimo mas diferente "Smart Print Gum" (resina para IMPRESSÃO 3D de gengiva, não este kit de aplicação manual) — não confundir.
 FONTES: Drive docs "SmartGum" (1-L1-R-EgfCshQQLxs0uuokr8d3B90x8QwyUk87kTaYg), "KIT SmartGUM" (1TINcXHuOi3LWG8bgFF8dIZBMpgWp1XJWXvoEu-A-d2Y), "SmartGum V2502" (1x5pQ1_fcwvgaPRvWptgrT6__IZaDE98F), "SmartGum Guia PT-BR" (1FpoC231ayvPyWOFJnGFQ6KnpdG6DeMKS), "FDS Smart Gum" (1PGpMVVL9V4VMaEonFaBXW13LAlr1A6s5); products_repository; system_a_catalog.
 
+BENEFÍCIOS E APLICAÇÃO — COPY APROVADO SISTEMA B (products_catalog, texto curto de e-commerce; complementa a seção DIFERENCIAIS/APLICAÇÕES acima, não substitui)
+Bullets de benefício (copy oficial da loja):
+- Reprodução de vascularização, melanina e variação tonal
+- Sistema de cores completo para qualquer etnia
+- Aplicação em camadas para máxima naturalidade
+- Compatível com próteses totais e PPRs
+Aplicação resumida (copy oficial da loja): Caracterização gengival em próteses totais, PPRs e próteses sobre implantes
+
 ---
 
 ### SmartGum Black
-
 **Preço:** BRL 185.00 · **Imagem:** https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/a17e69ac-5b9d-4046-82e9-3f4024a464bf-1764283867382.webp · **Link de venda:** https://loja.smartdent.com.br/smartgum-black · **ID (Sistema B):** `d0028a02-3978-495e-80e0-1b3f2c6d73ad`
 
 ![SmartGum Black](https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/a17e69ac-5b9d-4046-82e9-3f4024a464bf-1764283867382.webp)
@@ -2685,10 +2818,15 @@ APLICAÇÕES: caracterização gengival em reabilitações protéticas; prótese
 DIVERGÊNCIAS: sem ficha de e-commerce dedicada (tabela técnica completa de saturação/valor óptico) — dados vêm dos docs gerais "SmartGum" e "Guia".
 FONTES: Drive docs 1-L1-R-EgfCshQQLxs0uuokr8d3B90x8QwyUk87kTaYg, 1FpoC231ayvPyWOFJnGFQ6KnpdG6DeMKS, 1x5pQ1_fcwvgaPRvWptgrT6__IZaDE98F; products_repository; system_a_catalog.
 
+BENEFÍCIOS E APLICAÇÃO — COPY APROVADO SISTEMA B (products_catalog, texto curto de e-commerce; complementa a seção DIFERENCIAIS/APLICAÇÕES acima, não substitui)
+Bullets de benefício (copy oficial da loja):
+- Recria tecido gengival de tom escuro
+- Melanina e pigmentação intensa
+- Nanoestratificação em gel
+
 ---
 
 ### SmartGum Cream
-
 **Preço:** BRL 185.00 · **Imagem:** https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/ac2dadac-e753-426f-8181-d9ab18e12ecb-1771260726007.webp · **Link de venda:** https://loja.smartdent.com.br/smartgum-cream · **ID (Sistema B):** `b7ad87a3-4181-4a83-9eb7-50287bf17ddc`
 
 ![SmartGum Cream](https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/ac2dadac-e753-426f-8181-d9ab18e12ecb-1771260726007.webp)
@@ -2702,10 +2840,15 @@ APLICAÇÕES: reabilitações implanto-suportadas para biotipos claros; prótese
 DIVERGÊNCIAS: nenhuma relevante entre fontes.
 FONTES: Drive docs 1N3-M8TosBl-5bj6vkNg-K5X23Fy-1Urngb6AZthsxg8, 1-L1-R-EgfCshQQLxs0uuokr8d3B90x8QwyUk87kTaYg; products_repository; system_a_catalog.
 
+BENEFÍCIOS E APLICAÇÃO — COPY APROVADO SISTEMA B (products_catalog, texto curto de e-commerce; complementa a seção DIFERENCIAIS/APLICAÇÕES acima, não substitui)
+Bullets de benefício (copy oficial da loja):
+- Reproduz áreas de exposição radicular
+- Naturalidade em recessões gengivais
+- Nanoestratificação em gel
+
 ---
 
 ### SmartGum Intense Red
-
 **Preço:** BRL 185.00 · **Imagem:** https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/1c675da4-5799-4018-9267-465c7a2ff6d9-1764283867013.webp · **Link de venda:** https://loja.smartdent.com.br/smartgum-intense-red · **ID (Sistema B):** `671096aa-fd40-41a4-8b0d-37c9e10c923d`
 
 ![SmartGum Intense Red](https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/1c675da4-5799-4018-9267-465c7a2ff6d9-1764283867013.webp)
@@ -2719,10 +2862,15 @@ APLICAÇÕES: criação de todos os tons de rosa em reabilitações protéticas.
 DIVERGÊNCIAS: sem ficha de e-commerce dedicada. Tempo de pré-polimerização "30s/fase" citado no Guia (mais antigo) não aparece nas fichas técnicas mais recentes de Pink/Cream/Orange/Ruby.
 FONTES: Drive docs 1-L1-R-EgfCshQQLxs0uuokr8d3B90x8QwyUk87kTaYg, 1FpoC231ayvPyWOFJnGFQ6KnpdG6DeMKS; products_repository; system_a_catalog.
 
+BENEFÍCIOS E APLICAÇÃO — COPY APROVADO SISTEMA B (products_catalog, texto curto de e-commerce; complementa a seção DIFERENCIAIS/APLICAÇÕES acima, não substitui)
+Bullets de benefício (copy oficial da loja):
+- Cor principal do sistema SmartGum
+- Reproduz gengiva saudável intensa
+- Base para estratificação
+
 ---
 
 ### SmartGum Orange
-
 **Preço:** BRL 185.00 · **Imagem:** https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/42820c86-3387-458b-9ce6-504b1ed51b06-1764283867842.webp · **Link de venda:** https://loja.smartdent.com.br/smartgum-orange · **ID (Sistema B):** `06efe1f2-6fce-4d84-b5ea-0c23c9355706`
 
 ![SmartGum Orange](https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/42820c86-3387-458b-9ce6-504b1ed51b06-1764283867842.webp)
@@ -2736,10 +2884,15 @@ APLICAÇÕES: reabilitações implanto-suportadas com foco estético; próteses 
 DIVERGÊNCIAS: doc "SmartGum" geral descreve uso "abaixo da cor principal" para "menor irrigação"; ficha dedicada enfatiza simulação de melanina/biotipos pigmentados — descrições compatíveis, ênfase diferente.
 FONTES: Drive docs 1IFeMvzHKmE3ALK4HVah74J64xldWbuO_Wb3moMe2z9s, 1-L1-R-EgfCshQQLxs0uuokr8d3B90x8QwyUk87kTaYg; products_repository; system_a_catalog.
 
+BENEFÍCIOS E APLICAÇÃO — COPY APROVADO SISTEMA B (products_catalog, texto curto de e-commerce; complementa a seção DIFERENCIAIS/APLICAÇÕES acima, não substitui)
+Bullets de benefício (copy oficial da loja):
+- Reproduz áreas de menor irrigação
+- Gengiva inserida natural
+- Profundidade de cor realista
+
 ---
 
 ### SmartGum Pink
-
 **Preço:** BRL 185.00 · **Imagem:** https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/a2924095-bd92-48e4-a920-ae88e06641df-1780426964155.webp · **Link de venda:** https://loja.smartdent.com.br/smartgum-pink · **ID (Sistema B):** `dc481921-aa1b-4e5a-8575-2f7c087dc9a8`
 
 ![SmartGum Pink](https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/a2924095-bd92-48e4-a920-ae88e06641df-1780426964155.webp)
@@ -2753,10 +2906,15 @@ APLICAÇÕES: base de cor para reabilitações implanto-suportadas e próteses t
 DIVERGÊNCIAS: doc geral descreve uso puro em pequenas regiões; ficha dedicada descreve exclusivamente como base misturada — usos coexistem, ficha dedicada mais restritiva. Rodapé da tabela técnica identifica o sistema ora "SmartGum®" ora "SMARTMAKE®" no mesmo documento, sugerindo que SmartGum é tratado internamente como subconjunto do sistema SmartMake.
 FONTES: Drive docs 1O6Tsyf0Ju1XSAtYY74EaAnWv7mm9SYlgiYBB43QFS2A, 1-L1-R-EgfCshQQLxs0uuokr8d3B90x8QwyUk87kTaYg; products_repository; system_a_catalog.
 
+BENEFÍCIOS E APLICAÇÃO — COPY APROVADO SISTEMA B (products_catalog, texto curto de e-commerce; complementa a seção DIFERENCIAIS/APLICAÇÕES acima, não substitui)
+Bullets de benefício (copy oficial da loja):
+- Reproduz freios e sulco marginal
+- Textura rugosa natural
+- Complementa SG RED INTENSE
+
 ---
 
 ### SmartGum Ruby
-
 **Preço:** BRL 185.00 · **Imagem:** https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/2253b849-6ecb-45d6-89e1-a4b06f9a1b30-1770349139861.webp · **Link de venda:** https://loja.smartdent.com.br/smartgum-ruby · **ID (Sistema B):** `c5122dec-3ab5-407c-98f5-70a41e8122cb`
 
 ![SmartGum Ruby](https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/2253b849-6ecb-45d6-89e1-a4b06f9a1b30-1770349139861.webp)
@@ -2770,10 +2928,15 @@ APLICAÇÕES: reabilitações implanto-suportadas; próteses totais/parciais (RG
 DIVERGÊNCIAS: nenhuma relevante entre fontes.
 FONTES: Drive docs 1byhJks525L1PvZm1xxUWEZU0t_8XsZxmAvBLcgeIb8M, 1-L1-R-EgfCshQQLxs0uuokr8d3B90x8QwyUk87kTaYg; products_repository; system_a_catalog.
 
+BENEFÍCIOS E APLICAÇÃO — COPY APROVADO SISTEMA B (products_catalog, texto curto de e-commerce; complementa a seção DIFERENCIAIS/APLICAÇÕES acima, não substitui)
+Bullets de benefício (copy oficial da loja):
+- Reproduz melanina gengival
+- Natural para pacientes com maior pigmentação
+- Essencial para resultados étnicos fiéis
+
 ---
 
 ### SmartGum Smart Base Clear
-
 **Preço:** BRL 149.00 · **Imagem:** https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/d0a7f32f-4267-497c-8b90-045cf3826530-1764283868276.webp · **Link de venda:** https://loja.smartdent.com.br/smartgum-base-clear · **ID (Sistema B):** `97b485ec-7b8d-4e6e-862d-edb60379d6ec`
 
 ![SmartGum Smart Base Clear](https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/d0a7f32f-4267-497c-8b90-045cf3826530-1764283868276.webp)
@@ -2787,10 +2950,14 @@ APLICAÇÕES: massas flow translúcidas na nanoestratificação gengival; selado
 DIVERGÊNCIAS: existe documento separado "SMARTMAKE BASE (CLEAR)" descrevendo produto de mesmo nome genérico mas no sistema SmartMake (caracterização de DENTES, não gengiva) — não confirmado se é o mesmo material físico ou produto distinto; este perfil trata só do uso SmartGum (gengival). "KIT SmartGUM" lista "Smart Base Clear Base" separado de "2 Clear Dense" — relação não esclarecida. products_repository/system_a_catalog têm benefícios/features/specs vazios para este item.
 FONTES: Drive docs 1-L1-R-EgfCshQQLxs0uuokr8d3B90x8QwyUk87kTaYg, 1TINcXHuOi3LWG8bgFF8dIZBMpgWp1XJWXvoEu-A-d2Y, 1FpoC231ayvPyWOFJnGFQ6KnpdG6DeMKS; products_repository; system_a_catalog.
 
+BENEFÍCIOS E APLICAÇÃO — COPY APROVADO SISTEMA B (products_catalog, texto curto de e-commerce; complementa a seção DIFERENCIAIS/APLICAÇÕES acima, não substitui)
+Bullets de benefício (copy oficial da loja):
+- Controla translucidez sem interferir na cor
+- Base para estratificação SmartGum
+
 ---
 
 ### SmartGum Smart Base White
-
 **Preço:** BRL 149.00 · **Imagem:** https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/f7b08d4b-2cb8-4b2c-9ace-1fa01f2e7152-1780426964714.webp · **Link de venda:** https://loja.smartdent.com.br/smartgum-base-white · **ID (Sistema B):** `f5b3110a-cfd9-4d78-8873-d05807449140`
 
 ![SmartGum Smart Base White](https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/f7b08d4b-2cb8-4b2c-9ace-1fa01f2e7152-1780426964714.webp)
@@ -2804,17 +2971,15 @@ APLICAÇÕES: recriação do tom gengival de escalas comerciais (misturada a Pin
 DIVERGÊNCIAS: sem ficha de e-commerce dedicada com tabela técnica completa. products_repository/system_a_catalog com benefícios/features/specs vazios — descrição curta idêntica em template à da Smart Base Clear, mudando só o nome. Não explicado por que o Kit Completo inclui 3 unidades de Base White contra 1 das demais cores/bases.
 FONTES: Drive docs 1-L1-R-EgfCshQQLxs0uuokr8d3B90x8QwyUk87kTaYg, 1TINcXHuOi3LWG8bgFF8dIZBMpgWp1XJWXvoEu-A-d2Y, 1FpoC231ayvPyWOFJnGFQ6KnpdG6DeMKS; products_repository; system_a_catalog.
 
+BENEFÍCIOS E APLICAÇÃO — COPY APROVADO SISTEMA B (products_catalog, texto curto de e-commerce; complementa a seção DIFERENCIAIS/APLICAÇÕES acima, não substitui)
+Bullets de benefício (copy oficial da loja):
+- Controla valor e bloqueia fundo
+- Adaptável a qualquer escala gengival
+
 ---
 
-
-# 6. Cursos
-
-
-## 6.1 Presencial
-
 ### Imersão 3 Dias Chairside Print
-
-**Preço:** consultivo / não informado · **Imagem:** não cadastrada no Sistema B · **Link de venda:** não cadastrado / inconsistente no Sistema B · **ID (Sistema B):** `30175fa8-a88f-4805-80bc-4a8fc9d158f4`
+**Preço:** sob consulta · **ID (Sistema B):** `30175fa8-a88f-4805-80bc-4a8fc9d158f4`
 
 DESCRIÇÃO
 Treinamento presencial "Chairside Print — Odontologia Digital" (metodologia Scan→CAD→Print→Make), na sede Smart Dent em São Carlos/SP. Cronograma turma 159: Dia 1 "Técnicas de Escaneamento", Dia 2 "Técnicas de Planejamento", Dia 3 "Técnicas de Impressão", 08:30-17:30/dia. Doc comercial "Smart Dent CHAIRSIDE — SMART A.I. PRO" descreve divisão temática alternativa: Dia 1 Scan, Dia 2 CAD&Print, Dia 3 Make/Finalização (ver divergência). products_repository: description/sales_pitch/benefits/features/faq/technical_specifications vazios.
@@ -2842,12 +3007,8 @@ FONTES: Google Drive docs 1AjeJ2ZDz0qLYKh6OC3_SpRqsx3OqSxg0, 11XTbLkabG54AMu6wle
 
 ---
 
-
-## 6.2 Online
-
 ### Curso ON-Line
-
-**Preço:** consultivo / não informado · **Imagem:** não cadastrada no Sistema B · **Link de venda:** não cadastrado / inconsistente no Sistema B · **ID (Sistema B):** `29a903e3-c3a2-4974-a072-87d24d04ae96`
+**Preço:** sob consulta · **ID (Sistema B):** `29a903e3-c3a2-4974-a072-87d24d04ae96`
 
 DESCRIÇÃO
 Registro em system_a_catalog: categoria "6. Cursos > 6.2 Online", slug "curso-teste", CTA "Loja" aponta para /curso-teste — nome e slug sugerem produto de teste/placeholder, não página publicada e finalizada. sales_pitch (clinical_brain, IA): "Domine a aplicação prática de perfis técnicos com Inteligência Artificial e eleve a precisão do seu fluxo digital ao nível máximo da odontologia moderna." Sem ementa, grade de aulas ou módulos detalhados em nenhuma fonte. products_repository: sem conteúdo (confirmado — consistente com tentativa anterior).
@@ -2868,15 +3029,8 @@ FONTES: system_a_catalog; products_repository (busca negativa); Google Drive doc
 
 ---
 
-
-# 6. DENTÍSTICA, ESTÉTICA E ORTODONTIA
-
-
-## 6.2 CIMENTOS
-
 ### Cimento UNIKK Veneer A1
-
-**Preço:** consultivo / não informado · **Imagem:** https://cdn.awsli.com.br/800x800/1342/1342245/produto/351953875/cimento-unikk-veneer-a1-gbip5w03hz.png · **Link de venda:** https://loja.smartdent.com.br/unikk-veneer-a1 · **ID (Sistema B):** `6c7c07a5-daa0-49b9-b663-9969ef7a8b2c`
+**Preço:** sob consulta · **Imagem:** https://cdn.awsli.com.br/800x800/1342/1342245/produto/351953875/cimento-unikk-veneer-a1-gbip5w03hz.png · **Link de venda:** https://loja.smartdent.com.br/unikk-veneer-a1 · **ID (Sistema B):** `6c7c07a5-daa0-49b9-b663-9969ef7a8b2c`
 
 ![Cimento UNIKK Veneer A1](https://cdn.awsli.com.br/800x800/1342/1342245/produto/351953875/cimento-unikk-veneer-a1-gbip5w03hz.png)
 
@@ -2910,11 +3064,19 @@ DIVERGÊNCIAS ENTRE FONTES
 Um dos documentos do Drive (id 1uDFxSj8tdxAUIPvGvURirB15QW0x0dWOhm1T_od6ero, relativo ao Try-in, e também o doc "UNIKK Veneer A1" id 1y5KGXw7K9QE...) inicia afirmando que "o UNIKK Veneer é... desenvolvido pela FGM" — isso é um ERRO/contaminação de fonte: FGM é uma fabricante concorrente real; todas as demais fontes (bula oficial ANVISA, PDF mestre, system_a_catalog, products_repository) confirmam que o fabricante é a Smart Dent/MMTech. Não usar a atribuição "FGM" no perfil final.
 ===FIM===
 
+BENEFÍCIOS E APLICAÇÃO — COPY APROVADO SISTEMA B (products_catalog, texto curto de e-commerce; complementa a seção DIFERENCIAIS/APLICAÇÕES acima, não substitui)
+Bullets de benefício (copy oficial da loja):
+- Aplicação fácil e precisa para assentamento perfeito
+- Remoção simples do excesso, otimizando o tempo
+- Resultados estéticos naturais com comportamento óptico ideal
+- Reologia excelente para assentamento passivo
+- Reduz estresse do profissional com manuseio previsível
+Aplicação resumida (copy oficial da loja): Cimentação estética de laminados cerâmicos de baixa espessura
+
 ---
 
 ### Cimento UNIKK Veneer A2
-
-**Preço:** consultivo / não informado · **Imagem:** https://cdn.awsli.com.br/800x800/1342/1342245/produto/351954409/cimento-unikk-veneer-a2-bzmzweij7n.png · **Link de venda:** https://loja.smartdent.com.br/atos-unikk-veneer-a1 · **ID (Sistema B):** `8edd1594-7c13-4480-afc0-8f021c255332`
+**Preço:** sob consulta · **Imagem:** https://cdn.awsli.com.br/800x800/1342/1342245/produto/351954409/cimento-unikk-veneer-a2-bzmzweij7n.png · **Link de venda:** https://loja.smartdent.com.br/atos-unikk-veneer-a1 · **ID (Sistema B):** `8edd1594-7c13-4480-afc0-8f021c255332`
 
 ![Cimento UNIKK Veneer A2](https://cdn.awsli.com.br/800x800/1342/1342245/produto/351954409/cimento-unikk-veneer-a2-bzmzweij7n.png)
 
@@ -2945,11 +3107,19 @@ DIVERGÊNCIAS ENTRE FONTES
 O documento Drive "UNIKK Veneer A2" (id 1L_gj5sA4vLf0l1jkOH3VWd3Wh7IougEmRgRBzZ0bUDY) traz corretamente "desenvolvido pela Smart Dent" — mas um documento irmão do mesmo diretório (Try-in A2, id 14iv0KWwTlrngLpxa1h5dtGiLEmFCCO8zaA4enrBIeWQ) começa atribuindo o sistema à "FGM", erro de fonte já identificado na linha inteira (ver nota no bloco A1); não deve ser usado. Adicionalmente, o SKU 1998 no system_a_catalog aponta para uma URL de loja que contém "a1" em vez de "a2" — possível erro de cadastro/URL, não confirmado nas demais fontes.
 ===FIM===
 
+BENEFÍCIOS E APLICAÇÃO — COPY APROVADO SISTEMA B (products_catalog, texto curto de e-commerce; complementa a seção DIFERENCIAIS/APLICAÇÕES acima, não substitui)
+Bullets de benefício (copy oficial da loja):
+- Aplicação e remoção de excessos simplificadas
+- Resultados estéticos naturais com fluorescência ajustada
+- Reologia excelente para assentamento passivo
+- Cor A2 versátil para diversas tonalidades dentárias
+- Minimiza estresse do dentista com manuseio previsível
+Aplicação resumida (copy oficial da loja): Cimentação de laminados cerâmicos em dentes com coloração levemente mais quente
+
 ---
 
 ### Cimento UNIKK Veneer A3.5
-
-**Preço:** consultivo / não informado · **Imagem:** https://cdn.awsli.com.br/800x800/1342/1342245/produto/351954622/cimento-unikk-veneer-a3-5-i9qwibbo4y.png · **Link de venda:** https://loja.smartdent.com.br/atos-unikk-veneer-a3.5 · **ID (Sistema B):** `6bad0a5f-00f3-4878-a361-58da8ebd9120`
+**Preço:** sob consulta · **Imagem:** https://cdn.awsli.com.br/800x800/1342/1342245/produto/351954622/cimento-unikk-veneer-a3-5-i9qwibbo4y.png · **Link de venda:** https://loja.smartdent.com.br/atos-unikk-veneer-a3.5 · **ID (Sistema B):** `6bad0a5f-00f3-4878-a361-58da8ebd9120`
 
 ![Cimento UNIKK Veneer A3.5](https://cdn.awsli.com.br/800x800/1342/1342245/produto/351954622/cimento-unikk-veneer-a3-5-i9qwibbo4y.png)
 
@@ -2978,11 +3148,19 @@ DIVERGÊNCIAS ENTRE FONTES
 O documento Drive de origem para esta cor está titulado "UNIKK Veneer A3" (não "A3.5") — divergência de nomenclatura no título do arquivo, embora o conteúdo do documento trate integralmente da cor A3.5 (confirmado por todas as especificações internas). O mesmo documento também inicia com a atribuição incorreta ao fabricante "FGM" antes de se corrigir para "Smart Dent" — erro de fonte já identificado, não usar a menção à FGM.
 ===FIM===
 
+BENEFÍCIOS E APLICAÇÃO — COPY APROVADO SISTEMA B (products_catalog, texto curto de e-commerce; complementa a seção DIFERENCIAIS/APLICAÇÕES acima, não substitui)
+Bullets de benefício (copy oficial da loja):
+- Aplicação fácil com baixa viscosidade
+- Remoção de excessos sem complicações
+- Resultados estéticos naturais
+- Cor A3.5 para substratos mais escuros
+- Fluorescência ativa em UV e LED
+Aplicação resumida (copy oficial da loja): Cimentação estética de laminados em dentes com maior saturação dentinária ou escurecimento
+
 ---
 
 ### Cimento UNIKK Veneer B1
-
-**Preço:** consultivo / não informado · **Imagem:** https://cdn.awsli.com.br/800x800/1342/1342245/produto/351955002/cimento-unikk-veneer-b1-dmns2n4c6j.png · **Link de venda:** https://loja.smartdent.com.br/atos-unikk-veneer-b1 · **ID (Sistema B):** `b1e85698-4c7a-4bf3-9293-9ea9fdee28cc`
+**Preço:** sob consulta · **Imagem:** https://cdn.awsli.com.br/800x800/1342/1342245/produto/351955002/cimento-unikk-veneer-b1-dmns2n4c6j.png · **Link de venda:** https://loja.smartdent.com.br/atos-unikk-veneer-b1 · **ID (Sistema B):** `b1e85698-4c7a-4bf3-9293-9ea9fdee28cc`
 
 ![Cimento UNIKK Veneer B1](https://cdn.awsli.com.br/800x800/1342/1342245/produto/351955002/cimento-unikk-veneer-b1-dmns2n4c6j.png)
 
@@ -3011,11 +3189,19 @@ DIVERGÊNCIAS ENTRE FONTES
 O documento Drive "UNIKK Veneer B1" inicia com atribuição incorreta ao fabricante "FGM" (erro de fonte já identificado na linha, não usar); a seção subsequente do mesmo documento corrige corretamente para "Smart Dent". Sem outras divergências relevantes entre products_repository, system_a_catalog e catalog_documents para este produto.
 ===FIM===
 
+BENEFÍCIOS E APLICAÇÃO — COPY APROVADO SISTEMA B (products_catalog, texto curto de e-commerce; complementa a seção DIFERENCIAIS/APLICAÇÕES acima, não substitui)
+Bullets de benefício (copy oficial da loja):
+- Sorriso naturalmente branco e harmonioso
+- Previsibilidade cromática total
+- Longevidade e estabilidade da cor
+- Assentamento perfeito de peças delicadas
+- Estética impecável e natural
+Aplicação resumida (copy oficial da loja): Cimentação estética de facetas e laminados para dentes com coloração clara jovem
+
 ---
 
 ### Cimento UNIKK Veneer BL2
-
-**Preço:** consultivo / não informado · **Imagem:** https://cdn.awsli.com.br/800x800/1342/1342245/produto/351955229/cimento-unikk-veneer-bl2-tsqmuaaecz.png · **Link de venda:** https://loja.smartdent.com.br/atos-unikk-veneer-bl2 · **ID (Sistema B):** `1c047902-db9b-4685-a9c4-4a48559abd84`
+**Preço:** sob consulta · **Imagem:** https://cdn.awsli.com.br/800x800/1342/1342245/produto/351955229/cimento-unikk-veneer-bl2-tsqmuaaecz.png · **Link de venda:** https://loja.smartdent.com.br/atos-unikk-veneer-bl2 · **ID (Sistema B):** `1c047902-db9b-4685-a9c4-4a48559abd84`
 
 ![Cimento UNIKK Veneer BL2](https://cdn.awsli.com.br/800x800/1342/1342245/produto/351955229/cimento-unikk-veneer-bl2-tsqmuaaecz.png)
 
@@ -3044,11 +3230,19 @@ DIVERGÊNCIAS ENTRE FONTES
 Nenhuma divergência material entre as fontes quanto às especificações técnicas da cor BL2. O documento Drive correspondente não apresenta o erro de atribuição "FGM" visto em outros documentos da série — está corretamente atribuído à Smart Dent desde o início.
 ===FIM===
 
+BENEFÍCIOS E APLICAÇÃO — COPY APROVADO SISTEMA B (products_catalog, texto curto de e-commerce; complementa a seção DIFERENCIAIS/APLICAÇÕES acima, não substitui)
+Bullets de benefício (copy oficial da loja):
+- Alta luminosidade para dentes clareados
+- Sem efeito azulado artificial
+- Fluorescência ativa em UV e LED
+- Assentamento passivo da restauração
+- Previsibilidade cromática com Try-in
+Aplicação resumida (copy oficial da loja): Cimentação de laminados em dentes clareados ou com alto valor luminoso
+
 ---
 
 ### Cimento UNIKK Veneer LV
-
-**Preço:** consultivo / não informado · **Imagem:** não cadastrada no Sistema B · **Link de venda:** não cadastrado / inconsistente no Sistema B · **ID (Sistema B):** `d0951766-ac54-4f04-b1f8-b68706981584`
+**Preço:** sob consulta · **ID (Sistema B):** `d0951766-ac54-4f04-b1f8-b68706981584`
 
 DESCRIÇÃO
 Cimento resinoso odontológico fotoativado da linha UNIKK Veneer, variante LV (Low Viscosity — baixa viscosidade), desenvolvido pela Smart Dent para cimentação de peças de espessura maior que a linha LC padrão (onlays, inlays, overlays e facetas posteriores, até 2 mm). Não encontrado nas fontes disponíveis: descrição comercial curta específica em products_repository ou catalog_documents — este produto é NOVO e não possui registro em products_repository (Sistema A) nem em catalog_documents; os dados abaixo vêm do PDF técnico mestre da linha, da bula regulatória e do documento de KIT.
@@ -3078,8 +3272,7 @@ Este é o produto mais frágil em termos de fontes: (1) não há registro em pro
 ---
 
 ### Cimento UNIKK Veneer TRS (Transparente)
-
-**Preço:** consultivo / não informado · **Imagem:** https://cdn.awsli.com.br/800x800/1342/1342245/produto/351955509/cimento-unikk-veneer-trs-iu63kqmv4o.png · **Link de venda:** https://loja.smartdent.com.br/atos-unikk-veneer-trs · **ID (Sistema B):** `7d048821-c130-4055-b564-79c4143debce`
+**Preço:** sob consulta · **Imagem:** https://cdn.awsli.com.br/800x800/1342/1342245/produto/351955509/cimento-unikk-veneer-trs-iu63kqmv4o.png · **Link de venda:** https://loja.smartdent.com.br/atos-unikk-veneer-trs · **ID (Sistema B):** `7d048821-c130-4055-b564-79c4143debce`
 
 ![Cimento UNIKK Veneer TRS (Transparente)](https://cdn.awsli.com.br/800x800/1342/1342245/produto/351955509/cimento-unikk-veneer-trs-iu63kqmv4o.png)
 
@@ -3107,11 +3300,18 @@ DIVERGÊNCIAS ENTRE FONTES
 O documento Drive dedicado ao TRS também inicia com a atribuição incorreta ao fabricante "FGM" antes de se corrigir para "Smart Dent" (mesmo erro de fonte já identificado na linha — não usar). Sem outras divergências relevantes de especificação técnica entre as fontes.
 ===FIM===
 
+BENEFÍCIOS E APLICAÇÃO — COPY APROVADO SISTEMA B (products_catalog, texto curto de e-commerce; complementa a seção DIFERENCIAIS/APLICAÇÕES acima, não substitui)
+Bullets de benefício (copy oficial da loja):
+- Zero interferência cromática
+- Alta fluorescência natural
+- Espessura de filme extremamente baixa
+- Ideal para lentes < 0,5mm
+Aplicação resumida (copy oficial da loja): Cimentação de facetas ultrafinas em substratos claros
+
 ---
 
 ### Cimento UNIKK Veneer Try-in A1
-
-**Preço:** consultivo / não informado · **Imagem:** https://cdn.awsli.com.br/800x800/1342/1342245/produto/351957987/cimento-unikk-veneer-try-in-a1-5az8ar033s.png · **Link de venda:** https://loja.smartdent.com.br/atos-unikk-veneer-try-in-a1 · **ID (Sistema B):** `7708a3f4-9f33-472b-996b-825e5a501714`
+**Preço:** sob consulta · **Imagem:** https://cdn.awsli.com.br/800x800/1342/1342245/produto/351957987/cimento-unikk-veneer-try-in-a1-5az8ar033s.png · **Link de venda:** https://loja.smartdent.com.br/atos-unikk-veneer-try-in-a1 · **ID (Sistema B):** `7708a3f4-9f33-472b-996b-825e5a501714`
 
 ![Cimento UNIKK Veneer Try-in A1](https://cdn.awsli.com.br/800x800/1342/1342245/produto/351957987/cimento-unikk-veneer-try-in-a1-5az8ar033s.png)
 
@@ -3140,11 +3340,18 @@ DIVERGÊNCIAS ENTRE FONTES
 Divergência relevante identificada no products_repository (Sistema A, id d8edfc49...): o campo "APPLICATIONS" desse registro está incorretamente preenchido com texto que descreve a cor A3.5 ("Simulação Cromática Reproduz a cor A3.5 – Alto croma e saturação, matiz amarelado-marrom... Indicação Clínica Principal: Casos com maior saturação dentinária ou escurecimento do substrato"), claramente copiado por engano do produto Try-in A3.5. O campo DESCRIÇÃO do mesmo registro está correto e fala de A1. Este campo "applications" NÃO deve ser usado como fonte de verdade para o Try-in A1 — usar apenas a descrição/especificações consistentes com a cor A1. Adicionalmente, o documento Drive de origem também apresenta a atribuição incorreta ao fabricante "FGM" (erro já identificado na linha).
 ===FIM===
 
+BENEFÍCIOS E APLICAÇÃO — COPY APROVADO SISTEMA B (products_catalog, texto curto de e-commerce; complementa a seção DIFERENCIAIS/APLICAÇÕES acima, não substitui)
+Bullets de benefício (copy oficial da loja):
+- Simulação cromática A1 com ΔE < 1
+- Fácil remoção com água
+- Permite teste sem comprometer a peça
+- Previsibilidade estética antes da cimentação
+Aplicação resumida (copy oficial da loja): Simulação cromática A1 antes da cimentação definitiva
+
 ---
 
 ### Cimento UNIKK Veneer Try-in A2
-
-**Preço:** consultivo / não informado · **Imagem:** https://cdn.awsli.com.br/800x800/1342/1342245/produto/351957851/cimento-unikk-veneer-try-in-a2-wb41wiv953.png · **Link de venda:** https://loja.smartdent.com.br/atos-unikk-veneer-try-in-a2 · **ID (Sistema B):** `9dc71a3b-e17a-45d4-83db-901a705c33b8`
+**Preço:** sob consulta · **Imagem:** https://cdn.awsli.com.br/800x800/1342/1342245/produto/351957851/cimento-unikk-veneer-try-in-a2-wb41wiv953.png · **Link de venda:** https://loja.smartdent.com.br/atos-unikk-veneer-try-in-a2 · **ID (Sistema B):** `9dc71a3b-e17a-45d4-83db-901a705c33b8`
 
 ![Cimento UNIKK Veneer Try-in A2](https://cdn.awsli.com.br/800x800/1342/1342245/produto/351957851/cimento-unikk-veneer-try-in-a2-wb41wiv953.png)
 
@@ -3171,11 +3378,16 @@ DIVERGÊNCIAS ENTRE FONTES
 O documento Drive correspondente contém DOIS textos concatenados no mesmo arquivo: um trecho inicial atribuindo incorretamente o sistema à "FGM" (erro de fonte já identificado, não usar) e um segundo trecho, mais estruturado, corretamente atribuído à "Smart Dent" — os dados técnicos (ΔE < 1, cor A2, apresentação) coincidem entre products_repository, system_a_catalog e a seção correta do documento Drive, sem divergência de conteúdo técnico.
 ===FIM===
 
+BENEFÍCIOS E APLICAÇÃO — COPY APROVADO SISTEMA B (products_catalog, texto curto de e-commerce; complementa a seção DIFERENCIAIS/APLICAÇÕES acima, não substitui)
+Bullets de benefício (copy oficial da loja):
+- Simulação cromática A2 com ΔE < 1
+- Removível com água
+- Harmonização para dentes levemente mais quentes
+
 ---
 
 ### Cimento UNIKK Veneer Try-in A3.5
-
-**Preço:** consultivo / não informado · **Imagem:** https://cdn.awsli.com.br/800x800/1342/1342245/produto/351957746/cimento-unikk-veneer-try-in-a3-5-mk6rbard86.png · **Link de venda:** https://loja.smartdent.com.br/atos-unikk-veneer-try-in-a3.5 · **ID (Sistema B):** `1c3faea8-6554-4421-82eb-17ad45243f47`
+**Preço:** sob consulta · **Imagem:** https://cdn.awsli.com.br/800x800/1342/1342245/produto/351957746/cimento-unikk-veneer-try-in-a3-5-mk6rbard86.png · **Link de venda:** https://loja.smartdent.com.br/atos-unikk-veneer-try-in-a3.5 · **ID (Sistema B):** `1c3faea8-6554-4421-82eb-17ad45243f47`
 
 ![Cimento UNIKK Veneer Try-in A3.5](https://cdn.awsli.com.br/800x800/1342/1342245/produto/351957746/cimento-unikk-veneer-try-in-a3-5-mk6rbard86.png)
 
@@ -3201,11 +3413,17 @@ DIVERGÊNCIAS ENTRE FONTES
 O documento Drive de origem também está titulado com a variação "Try-in A3" (sem o ".5") no início, embora o corpo do texto e a tabela de especificações tratem consistentemente da cor A3.5 — mesma divergência de nomenclatura do título já observada no cimento definitivo A3.5. O mesmo documento inicia com a atribuição incorreta ao fabricante "FGM" (erro de fonte já identificado na linha, não usar).
 ===FIM===
 
+BENEFÍCIOS E APLICAÇÃO — COPY APROVADO SISTEMA B (products_catalog, texto curto de e-commerce; complementa a seção DIFERENCIAIS/APLICAÇÕES acima, não substitui)
+Bullets de benefício (copy oficial da loja):
+- Simulação cromática A3.5 ΔE < 1
+- Para substratos escurecidos
+- Removível com água
+- Evita surpresas na cimentação definitiva
+
 ---
 
 ### Cimento UNIKK Veneer Try-in B1
-
-**Preço:** consultivo / não informado · **Imagem:** https://cdn.awsli.com.br/800x800/1342/1342245/produto/351957647/cimento-unikk-veneer-try-in-b1-pqjqlc2hhh.png · **Link de venda:** https://loja.smartdent.com.br/atos-unikk-veneer-try-in-b1 · **ID (Sistema B):** `36d1628a-5876-4ec0-b1a2-8e2eacc809e9`
+**Preço:** sob consulta · **Imagem:** https://cdn.awsli.com.br/800x800/1342/1342245/produto/351957647/cimento-unikk-veneer-try-in-b1-pqjqlc2hhh.png · **Link de venda:** https://loja.smartdent.com.br/atos-unikk-veneer-try-in-b1 · **ID (Sistema B):** `36d1628a-5876-4ec0-b1a2-8e2eacc809e9`
 
 ![Cimento UNIKK Veneer Try-in B1](https://cdn.awsli.com.br/800x800/1342/1342245/produto/351957647/cimento-unikk-veneer-try-in-b1-pqjqlc2hhh.png)
 
@@ -3231,11 +3449,16 @@ DIVERGÊNCIAS ENTRE FONTES
 Não foi localizado, no Drive, um documento individual dedicado exclusivamente ao "Try-in B1" — as informações de Try-in B1 constam embutidas dentro do documento "UNIKK Veneer B1" (cimento definitivo). Esse mesmo documento inicia com a atribuição incorreta ao fabricante "FGM" (erro de fonte já identificado na linha, não usar). Sem divergências de conteúdo técnico entre as demais fontes.
 ===FIM===
 
+BENEFÍCIOS E APLICAÇÃO — COPY APROVADO SISTEMA B (products_catalog, texto curto de e-commerce; complementa a seção DIFERENCIAIS/APLICAÇÕES acima, não substitui)
+Bullets de benefício (copy oficial da loja):
+- Simulação B1 com clareamento suave
+- ΔE < 1 fidelidade
+- Removível com água
+
 ---
 
 ### Cimento UNIKK Veneer Try-in BL2
-
-**Preço:** consultivo / não informado · **Imagem:** https://cdn.awsli.com.br/800x800/1342/1342245/produto/351957559/cimento-unikk-veneer-try-in-bl2-mnqx4bdr7s.png · **Link de venda:** https://loja.smartdent.com.br/atos-unikk-veneer-try-in-bl2 · **ID (Sistema B):** `3215415c-db19-43d6-873e-0ccaf1e50cb1`
+**Preço:** sob consulta · **Imagem:** https://cdn.awsli.com.br/800x800/1342/1342245/produto/351957559/cimento-unikk-veneer-try-in-bl2-mnqx4bdr7s.png · **Link de venda:** https://loja.smartdent.com.br/atos-unikk-veneer-try-in-bl2 · **ID (Sistema B):** `3215415c-db19-43d6-873e-0ccaf1e50cb1`
 
 ![Cimento UNIKK Veneer Try-in BL2](https://cdn.awsli.com.br/800x800/1342/1342245/produto/351957559/cimento-unikk-veneer-try-in-bl2-mnqx4bdr7s.png)
 
@@ -3261,11 +3484,16 @@ DIVERGÊNCIAS ENTRE FONTES
 Não foi localizado documento Drive individual dedicado exclusivamente ao "Try-in BL2" — informações constam embutidas no documento do cimento definitivo BL2. Este documento, diferentemente de outros da série, NÃO apresenta o erro de atribuição a "FGM", estando corretamente atribuído à Smart Dent desde o início. Sem outras divergências relevantes.
 ===FIM===
 
+BENEFÍCIOS E APLICAÇÃO — COPY APROVADO SISTEMA B (products_catalog, texto curto de e-commerce; complementa a seção DIFERENCIAIS/APLICAÇÕES acima, não substitui)
+Bullets de benefício (copy oficial da loja):
+- Alta luminosidade Bleach sem azulado
+- ΔE < 1 fidelidade
+- Para dentes clareados
+
 ---
 
 ### Cimento UNIKK Veneer Try-in TRS (Transparente)
-
-**Preço:** consultivo / não informado · **Imagem:** https://cdn.awsli.com.br/800x800/1342/1342245/produto/351956779/cimento-unikk-veneer-try-in-trs-dgnetac646.png · **Link de venda:** https://loja.smartdent.com.br/atos-unikk-veneer-try-in-trs · **ID (Sistema B):** `9b1126af-169b-47b8-a447-5293bbe25350`
+**Preço:** sob consulta · **Imagem:** https://cdn.awsli.com.br/800x800/1342/1342245/produto/351956779/cimento-unikk-veneer-try-in-trs-dgnetac646.png · **Link de venda:** https://loja.smartdent.com.br/atos-unikk-veneer-try-in-trs · **ID (Sistema B):** `9b1126af-169b-47b8-a447-5293bbe25350`
 
 ![Cimento UNIKK Veneer Try-in TRS (Transparente)](https://cdn.awsli.com.br/800x800/1342/1342245/produto/351956779/cimento-unikk-veneer-try-in-trs-dgnetac646.png)
 
@@ -3291,11 +3519,16 @@ DIVERGÊNCIAS ENTRE FONTES
 Não foi localizado documento Drive individual dedicado exclusivamente ao "Try-in TRS" — informações constam embutidas no documento do cimento definitivo TRS, que inicia com a atribuição incorreta ao fabricante "FGM" (erro de fonte já identificado na linha, não usar). Sem outras divergências de especificação técnica entre as fontes.
 ===FIM===
 
+BENEFÍCIOS E APLICAÇÃO — COPY APROVADO SISTEMA B (products_catalog, texto curto de e-commerce; complementa a seção DIFERENCIAIS/APLICAÇÕES acima, não substitui)
+Bullets de benefício (copy oficial da loja):
+- Zero interferência cromática
+- ΔE < 1 com cimento TRS definitivo
+- Removível com água
+
 ---
 
 ### Kit Cimento Unikk Veneer
-
-**Preço:** consultivo / não informado · **Imagem:** https://cdn.awsli.com.br/800x800/1342/1342245/produto/352156830/fotos-png-sem-fundo-ecommerce-loja-integrada--2--v5v6bwbvkv.png · **Link de venda:** https://loja.smartdent.com.br/kit-atos-unikk-veneer · **ID (Sistema B):** `733c2079-e8f2-4e1b-aefa-84ff7f9d4377`
+**Preço:** sob consulta · **Imagem:** https://cdn.awsli.com.br/800x800/1342/1342245/produto/352156830/fotos-png-sem-fundo-ecommerce-loja-integrada--2--v5v6bwbvkv.png · **Link de venda:** https://loja.smartdent.com.br/kit-atos-unikk-veneer · **ID (Sistema B):** `733c2079-e8f2-4e1b-aefa-84ff7f9d4377`
 
 ![Kit Cimento Unikk Veneer](https://cdn.awsli.com.br/800x800/1342/1342245/produto/352156830/fotos-png-sem-fundo-ecommerce-loja-integrada--2--v5v6bwbvkv.png)
 
@@ -3329,14 +3562,18 @@ DIVERGÊNCIAS ENTRE FONTES
 (1) Inconsistência interna na bula regulatória oficial: o texto declara "Kit 6 seringas" mas em seguida enumera 7 cores/variantes (A1, A2, A3.5, B1, BL2, LV, Trans) — o mesmo padrão se repete no campo technical_specifications do system_a_catalog ("KIT Padrão: 6 seringas (LC e LV)" versus "Gama de Cores Disponíveis: A1, A2, A3.5, B1, BL2, LV, Trans", 7 itens). Não foi possível confirmar nas fontes disponíveis se o kit padrão comercializado contém 6 ou 7 seringas, nem qual cor eventualmente é omitida. (2) O documento de KIT do Drive expressa incerteza própria sobre a inclusão do LV ("Obs: Este é o único cimento com reologia adaptativa mencionado, mas pode estar incluso para casos de onlays/inlays"), reforçando que a composição exata do kit não é unânime nem mesmo internamente. (3) O mesmo documento afirma que os Try-in acompanham "as mesmas cores do cimento (exceto LV)" — ou seja, o kit teria Try-in apenas para as cores LC, não para o LV. (4) O products_repository (Sistema A) não preencheu os campos BENEFITS, FEATURES e TARGET_AUDIENCE para este produto (todos vazios) — dados de público-alvo e diferenciais vieram de system_a_catalog/Drive.
 ===FIM===
 
+BENEFÍCIOS E APLICAÇÃO — COPY APROVADO SISTEMA B (products_catalog, texto curto de e-commerce; complementa a seção DIFERENCIAIS/APLICAÇÕES acima, não substitui)
+Bullets de benefício (copy oficial da loja):
+- 6 cores para todas as indicações estéticas
+- Tecnologia O.L.D. evita efeito acinzentado
+- Fluorescência natural em UV e LED
+- Try-in com ΔE < 1
+Aplicação resumida (copy oficial da loja): Cimentação de facetas, lentes, inlays, onlays e overlays
+
 ---
 
-
-## 6.3 RESINAS COMPOSTAS
-
 ### ATOS Body Resina Composta Direta - BA1
-
-**Preço:** consultivo / não informado · **Imagem:** não cadastrada no Sistema B · **Link de venda:** não cadastrado / inconsistente no Sistema B · **ID (Sistema B):** `4b5230d1-e667-480f-b027-2e20e72b9feb`
+**Preço:** sob consulta · **ID (Sistema B):** `4b5230d1-e667-480f-b027-2e20e72b9feb`
 
 DESCRIÇÃO
 Resina composta fotopolimerizável nano-híbrida Smart Dent (MMTech), cor BA1, linha "ATOS Body". Registro ANVISA do produto-base "Atos" (81835969004/81835969008). Categoria: 6. Dentística, Estética e Ortodontia / 6.3 Resinas Compostas. Sem registro em products_repository (Sistema A) — só existe no Sistema B.
@@ -3364,8 +3601,7 @@ FONTES: system_a_catalog; products_repository (busca negativa); Google Drive doc
 ---
 
 ### ATOS Body Resina Composta Direta - BA2
-
-**Preço:** consultivo / não informado · **Imagem:** não cadastrada no Sistema B · **Link de venda:** não cadastrado / inconsistente no Sistema B · **ID (Sistema B):** `40625c17-34ff-4fcb-83b6-b828e6282644`
+**Preço:** sob consulta · **ID (Sistema B):** `40625c17-34ff-4fcb-83b6-b828e6282644`
 
 DESCRIÇÃO
 Cor BA2 da linha ATOS Body (resina composta fotopolimerizável nano-híbrida Smart Dent). Mesmo registro ANVISA do produto-base "Atos". GTIN BA2 4G = 0756014741285. Ver investigação completa sobre a natureza da linha "Body" no perfil de BA1 (mesma conclusão se aplica a todas as 11 cores): linha nova de cor incluída via petição RDC 40/2015, comercializada como SKU distinto, vendida em paralelo à linha clássica — não é renomeação nem duplicata.
@@ -3390,8 +3626,7 @@ FONTES: system_a_catalog; Google Drive docs 1yR9Mz4AX2Oa3OWsltaCfLpZYIr8CavJ5, 1
 ---
 
 ### ATOS Body Resina Composta Direta - BA3
-
-**Preço:** consultivo / não informado · **Imagem:** não cadastrada no Sistema B · **Link de venda:** não cadastrado / inconsistente no Sistema B · **ID (Sistema B):** `1a633de0-7088-498b-8abe-6d99f2609888`
+**Preço:** sob consulta · **ID (Sistema B):** `1a633de0-7088-498b-8abe-6d99f2609888`
 
 DESCRIÇÃO
 Cor BA3 da linha ATOS Body. Mesmo registro ANVISA do produto-base "Atos". GTIN BA3 4G = 0756014741292, 1G = 0756014741407. Ver investigação completa no perfil de BA1: linha nova de cor, não renomeação/duplicata.
@@ -3416,8 +3651,7 @@ FONTES: system_a_catalog; Google Drive docs 1yR9Mz4AX2Oa3OWsltaCfLpZYIr8CavJ5, 1
 ---
 
 ### ATOS Body Resina Composta Direta - BA3.5
-
-**Preço:** consultivo / não informado · **Imagem:** não cadastrada no Sistema B · **Link de venda:** não cadastrado / inconsistente no Sistema B · **ID (Sistema B):** `bd4bcce2-c925-4346-96f1-ed308748ef25`
+**Preço:** sob consulta · **ID (Sistema B):** `bd4bcce2-c925-4346-96f1-ed308748ef25`
 
 DESCRIÇÃO
 Cor BA3.5 da linha ATOS Body — intermediária entre A3 e A4 na escala VITA (paralela à DA3.5 da linha clássica). Mesmo registro ANVISA "Atos". GTIN 4G = 0756014741308, 1G = 0756014741414. Ver investigação completa no perfil BA1: linha nova de cor, não renomeação/duplicata.
@@ -3442,8 +3676,7 @@ FONTES: system_a_catalog; Google Drive docs 1yR9Mz4AX2Oa3OWsltaCfLpZYIr8CavJ5, 1
 ---
 
 ### ATOS Body Resina Composta Direta - BA4
-
-**Preço:** consultivo / não informado · **Imagem:** não cadastrada no Sistema B · **Link de venda:** não cadastrado / inconsistente no Sistema B · **ID (Sistema B):** `0b8a98dd-f712-4a94-8b62-c5ea87102eb7`
+**Preço:** sob consulta · **ID (Sistema B):** `0b8a98dd-f712-4a94-8b62-c5ea87102eb7`
 
 DESCRIÇÃO
 Cor BA4 (mais saturada do grupo A) da linha ATOS Body. Mesmo registro ANVISA "Atos". GTIN 4G=0756014741315, 1G=0756014741421. Investigação completa no perfil BA1: linha nova de cor, não renomeação/duplicata — petição RDC 40/2015 incluiu BA0-BA5 no mesmo produto-base, GTIN próprio, vendida em paralelo à linha clássica em 2026.
@@ -3457,8 +3690,7 @@ FONTES: system_a_catalog; Drive 1yR9Mz4AX2Oa3OWsltaCfLpZYIr8CavJ5, 1NxP_m2ZRWX5t
 ---
 
 ### ATOS Body Resina Composta Direta - BB1
-
-**Preço:** consultivo / não informado · **Imagem:** não cadastrada no Sistema B · **Link de venda:** não cadastrado / inconsistente no Sistema B · **ID (Sistema B):** `bb11c328-e6a2-4ff3-b170-9ddf7f1b6923`
+**Preço:** sob consulta · **ID (Sistema B):** `bb11c328-e6a2-4ff3-b170-9ddf7f1b6923`
 
 DESCRIÇÃO
 Cor BB1 (grupo B, escala VITA) da linha ATOS Body. Mesmo registro ANVISA "Atos". GTIN 4G=0756014741322, 1G=0756014741438. Investigação completa no perfil BA1: linha nova de cor.
@@ -3472,8 +3704,7 @@ FONTES: system_a_catalog; Drive 1yR9Mz4AX2Oa3OWsltaCfLpZYIr8CavJ5, 1NxP_m2ZRWX5t
 ---
 
 ### ATOS Body Resina Composta Direta - BB2
-
-**Preço:** consultivo / não informado · **Imagem:** não cadastrada no Sistema B · **Link de venda:** não cadastrado / inconsistente no Sistema B · **ID (Sistema B):** `d0cbe22a-5143-457e-a5a5-2c4db67c54be`
+**Preço:** sob consulta · **ID (Sistema B):** `d0cbe22a-5143-457e-a5a5-2c4db67c54be`
 
 DESCRIÇÃO
 Cor BB2 da linha ATOS Body. Mesmo registro ANVISA "Atos". GTIN 4G=0756014741339, 1G=0756014741445. Investigação completa no perfil BA1: linha nova de cor.
@@ -3487,8 +3718,7 @@ FONTES: system_a_catalog; Drive 1yR9Mz4AX2Oa3OWsltaCfLpZYIr8CavJ5, 1NxP_m2ZRWX5t
 ---
 
 ### ATOS Body Resina Composta Direta - BC1
-
-**Preço:** consultivo / não informado · **Imagem:** não cadastrada no Sistema B · **Link de venda:** não cadastrado / inconsistente no Sistema B · **ID (Sistema B):** `21455abd-1144-43b4-b14b-7de8289265c3`
+**Preço:** sob consulta · **ID (Sistema B):** `21455abd-1144-43b4-b14b-7de8289265c3`
 
 DESCRIÇÃO
 Cor BC1 da linha ATOS Body. GTIN 4G=0756014741360, 1G=0756014741476. DIFERENCIAL IMPORTANTE: o grupo cromático "C" da escala VITA (mais amarelado/acinzentado que A/B) NÃO EXISTE na linha clássica Atos (DA/DB/EA/EB cobre só A e B) — logo BC1 é necessariamente cor NOVA da linha Body, não pode ser renomeação de item pré-existente. Confirma a conclusão do perfil BA1 com evidência ainda mais forte.
@@ -3502,8 +3732,7 @@ FONTES: system_a_catalog; Drive 1yR9Mz4AX2Oa3OWsltaCfLpZYIr8CavJ5, 1NxP_m2ZRWX5t
 ---
 
 ### ATOS Body Resina Composta Direta - BC2
-
-**Preço:** consultivo / não informado · **Imagem:** não cadastrada no Sistema B · **Link de venda:** não cadastrado / inconsistente no Sistema B · **ID (Sistema B):** `cf05caba-d5ad-4feb-b5cf-57a585ebfe78`
+**Preço:** sob consulta · **ID (Sistema B):** `cf05caba-d5ad-4feb-b5cf-57a585ebfe78`
 
 DESCRIÇÃO
 Cor BC2 da linha ATOS Body. GTIN 4G=0756014741377, 1G=0756014741483. Como BC1, o grupo "C" não existe na linha clássica Atos — confirma que BC2 é cor nova, não renomeação.
@@ -3517,8 +3746,7 @@ FONTES: system_a_catalog; Drive 1yR9Mz4AX2Oa3OWsltaCfLpZYIr8CavJ5, 1NxP_m2ZRWX5t
 ---
 
 ### ATOS Body Resina Composta Direta - WB
-
-**Preço:** consultivo / não informado · **Imagem:** não cadastrada no Sistema B · **Link de venda:** não cadastrado / inconsistente no Sistema B · **ID (Sistema B):** `2d52a16f-a7cf-4a33-b4de-75d29d8a0e2f`
+**Preço:** sob consulta · **ID (Sistema B):** `2d52a16f-a7cf-4a33-b4de-75d29d8a0e2f`
 
 DESCRIÇÃO
 Cor WB (White Body) para dentes clareados, linha ATOS Body. GTIN 4G=0756014741346, 1G=0756014741452. EVIDÊNCIA DIRETA de que Body é linha real e distinta: fatura "VENDAS_GABRIELLA_ABRIL.xlsx" registra venda de "ATOS BODY... WB 4G" por R$79,90 para a cliente Ana Carolina Cardoso, que na MESMA fatura também comprou "ATOS RESINA COMP. DIRETA XWE 4G" (linha clássica) — prova de coexistência ativa das duas linhas, não sucessão. Diferente das demais cores Body, WB já constava entre as cores "já cadastradas" no Anexo I RDC Atos (não entre as "novas"), ao lado de WD/XWD — indicando registro mais antigo que BA/BB/BC/BD/BL.
@@ -3532,8 +3760,7 @@ FONTES: system_a_catalog; Drive 1yR9Mz4AX2Oa3OWsltaCfLpZYIr8CavJ5, 1NxP_m2ZRWX5t
 ---
 
 ### ATOS Body Resina Composta Direta - XWB
-
-**Preço:** consultivo / não informado · **Imagem:** não cadastrada no Sistema B · **Link de venda:** não cadastrado / inconsistente no Sistema B · **ID (Sistema B):** `f4096ada-bfa2-4902-8143-bba873c61dda`
+**Preço:** sob consulta · **ID (Sistema B):** `f4096ada-bfa2-4902-8143-bba873c61dda`
 
 DESCRIÇÃO
 Cor XWB (Extra White Body), a mais clara/maior valor da linha ATOS Body, para dentes extra-clareados. GTIN 4G=0756014741353, 1G=0756014741469. Assim como WB, XWB já constava entre as cores "já cadastradas" no Anexo I RDC Atos (não entre as novas) — categoria de cor consolidada, deliberadamente mantida como extensão do mesmo produto-base "Atos".
@@ -3547,7 +3774,6 @@ FONTES: system_a_catalog; Drive 1yR9Mz4AX2Oa3OWsltaCfLpZYIr8CavJ5, 1NxP_m2ZRWX5t
 ---
 
 ### ATOS Smart Ortho
-
 **Preço:** BRL 110.00 · **Imagem:** https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/e4d71e91-d067-4a4f-858c-8e659ee8e342-1764283863959.webp · **Link de venda:** https://loja.smartdent.com.br/atos-smart-ortho · **ID (Sistema B):** `d9abfa4e-4069-4d07-81f5-7b95ea8c52a9`
 
 ![ATOS Smart Ortho](https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/e4d71e91-d067-4a4f-858c-8e659ee8e342-1764283863959.webp)
@@ -3582,10 +3808,15 @@ DIVERGÊNCIAS ENTRE FONTES
 Nenhuma divergência numérica relevante identificada entre IFU (PT/EN/ES) e Perfil Técnico para este produto — ambos convergem em composição, tempos de cura e resultados de ensaios. Observação: o Registro ANVISA (81835969005) difere dos números observados para a linha Atos resina composta (81835969004/008) e para a Atos Unichroma (81835969006), como esperado por se tratar de produto/registro distinto.
 ===FIM===
 
+BENEFÍCIOS E APLICAÇÃO — COPY APROVADO SISTEMA B (products_catalog, texto curto de e-commerce; complementa a seção DIFERENCIAIS/APLICAÇÕES acima, não substitui)
+Bullets de benefício (copy oficial da loja):
+- Componentes ortodônticos digitais
+- Integração com fluxo digital
+- Precisão dimensional 3D
+
 ---
 
 ### Atos Resina Composta Direta - DA1
-
 **Preço:** BRL 79.90 · **Imagem:** https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/760dd503-da1f-469a-b5ef-869fd2d2a77b-1780426963478.webp · **Link de venda:** https://loja.smartdent.com.br/atos-resina-composta-direta-da1 · **ID (Sistema B):** `c0b509ac-a7ad-4e03-8c90-332b0f672c1c`
 
 ![Atos Resina Composta Direta - DA1](https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/760dd503-da1f-469a-b5ef-869fd2d2a77b-1780426963478.webp)
@@ -3616,10 +3847,18 @@ DIVERGÊNCIAS ENTRE FONTES
 O número de Registro ANVISA do produto aparece como 81835969004 no rodapé do documento IFU e como 81835969008 no rodapé do Perfil Técnico do mesmo produto — inconsistência entre as duas fontes primárias, sem confirmação de qual é o número vigente. A carga inorgânica em peso/volume também varia ligeiramente entre as fontes (79,0±2% peso / 60,0±2% volume no Perfil Técnico vs. 78–82% peso / 57–61% volume no IFU). A tabela de tempos de fotopolimerização do IFU lista "Opaque: 50s" enquanto o Perfil Técnico e a ficha comercial indicam 20s para cores de efeito/opaco — divergência não aplicável a esta tonalidade (DA1), mas presente na documentação-fonte compartilhada da linha.
 ===FIM===
 
+BENEFÍCIOS E APLICAÇÃO — COPY APROVADO SISTEMA B (products_catalog, texto curto de e-commerce; complementa a seção DIFERENCIAIS/APLICAÇÕES acima, não substitui)
+Bullets de benefício (copy oficial da loja):
+- Restaurações classes I-V com alta precisão estética
+- Alta resistência à flexão superior a concorrentes
+- Fluorescência e opalescência naturais
+- Tixotropia e esculpibilidade facilitam aplicação
+- Radiopacidade para diagnóstico preciso
+Aplicação resumida (copy oficial da loja): Restaurações diretas classes I-V, facetas diretas, colagem de fragmentos, fechamento de diastemas
+
 ---
 
 ### Atos Resina Composta Direta - DA2
-
 **Preço:** BRL 79.90 · **Imagem:** https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/8a7dfa51-6b06-43f9-bbcb-cf7a6c1bffc3-1768352755035.webp · **Link de venda:** https://loja.smartdent.com.br/atos-resina-composta-direta-da2 · **ID (Sistema B):** `93476777-8fde-4c2d-9204-aacc8bf2ed88`
 
 ![Atos Resina Composta Direta - DA2](https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/8a7dfa51-6b06-43f9-bbcb-cf7a6c1bffc3-1768352755035.webp)
@@ -3643,10 +3882,18 @@ DIVERGÊNCIAS ENTRE FONTES
 Mesma inconsistência de numeração de Registro ANVISA (81835969004 no IFU vs. 81835969008 no Perfil Técnico) e de faixa de carga inorgânica identificada na documentação compartilhada da linha Atos (ver DA1).
 ===FIM===
 
+BENEFÍCIOS E APLICAÇÃO — COPY APROVADO SISTEMA B (products_catalog, texto curto de e-commerce; complementa a seção DIFERENCIAIS/APLICAÇÕES acima, não substitui)
+Bullets de benefício (copy oficial da loja):
+- Resistência à flexão superior a todas as marcas testadas
+- Maiores valores de microdureza Knoop
+- Menor rugosidade superficial após polimento
+- Radiopacidade para diagnóstico preciso
+- Cor DA2: dentina com opacidade e croma saturado
+Aplicação resumida (copy oficial da loja): Restaurações diretas classes I-V, facetas diretas, colagem de fragmentos
+
 ---
 
 ### Atos Resina Composta Direta - DA3
-
 **Preço:** BRL 79.90 · **Imagem:** https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/catalog-images/products/atos-resina-composta-direta-da3-1.png · **Link de venda:** https://loja.smartdent.com.br/atos-resina-composta-direta-da3 · **ID (Sistema B):** `e2d973ca-0ff4-4830-be14-af6304a0d1f3`
 
 ![Atos Resina Composta Direta - DA3](https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/catalog-images/products/atos-resina-composta-direta-da3-1.png)
@@ -3670,10 +3917,18 @@ DIVERGÊNCIAS ENTRE FONTES
 Mesma inconsistência de numeração de Registro ANVISA identificada na documentação compartilhada da linha (ver DA1). A descrição do products_repository é mais sucinta que o Perfil Técnico completo (não relata todos os ensaios individualmente), mas não há dado numérico contraditório.
 ===FIM===
 
+BENEFÍCIOS E APLICAÇÃO — COPY APROVADO SISTEMA B (products_catalog, texto curto de e-commerce; complementa a seção DIFERENCIAIS/APLICAÇÕES acima, não substitui)
+Bullets de benefício (copy oficial da loja):
+- Maior opacidade para substratos escurecidos
+- Menor risco de fratura com resistência à flexão superior
+- Lisura superficial e alto brilho após polimento
+- Restaurações indistinguíveis dos dentes originais
+- Fluorescência e opalescência naturais
+Aplicação resumida (copy oficial da loja): Restaurações classes I-V, mascaramento de substratos escurecidos, facetas diretas
+
 ---
 
 ### Atos Resina Composta Direta - DA3.5
-
 **Preço:** BRL 79.90 · **Imagem:** https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/catalog-images/products/atos-resina-composta-direta-da3-5-1.png · **Link de venda:** https://loja.smartdent.com.br/atos-resina-composta-direta-da35 · **ID (Sistema B):** `bbf143d1-7493-4aa9-8c00-28ce60fc13fe`
 
 ![Atos Resina Composta Direta - DA3.5](https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/catalog-images/products/atos-resina-composta-direta-da3-5-1.png)
@@ -3697,10 +3952,18 @@ DIVERGÊNCIAS ENTRE FONTES
 Mesma inconsistência de Registro ANVISA e faixa de carga inorgânica identificada na documentação compartilhada da linha Atos (ver DA1).
 ===FIM===
 
+BENEFÍCIOS E APLICAÇÃO — COPY APROVADO SISTEMA B (products_catalog, texto curto de e-commerce; complementa a seção DIFERENCIAIS/APLICAÇÕES acima, não substitui)
+Bullets de benefício (copy oficial da loja):
+- Alta estética para mimetizar dentes naturais
+- Resistência à flexão superior a todas as marcas
+- Alto brilho e lisura superficial
+- Radiopacidade para diagnóstico preciso
+- 20 opções de cores
+Aplicação resumida (copy oficial da loja): Restaurações classes I-V, dentes com saturação dentinária alta
+
 ---
 
 ### Atos Resina Composta Direta - DA4
-
 **Preço:** BRL 79.90 · **Imagem:** https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/50e06c6a-b685-4175-b38f-6fb07e77c726-1770349013496.webp · **Link de venda:** https://loja.smartdent.com.br/atos-resina-composta-direta-da4 · **ID (Sistema B):** `1a63be4f-3aa6-47b0-b514-64b8a61d5213`
 
 ![Atos Resina Composta Direta - DA4](https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/50e06c6a-b685-4175-b38f-6fb07e77c726-1770349013496.webp)
@@ -3724,10 +3987,17 @@ DIVERGÊNCIAS ENTRE FONTES
 Mesma inconsistência de Registro ANVISA e faixa de carga inorgânica identificada na documentação compartilhada da linha Atos (ver DA1).
 ===FIM===
 
+BENEFÍCIOS E APLICAÇÃO — COPY APROVADO SISTEMA B (products_catalog, texto curto de e-commerce; complementa a seção DIFERENCIAIS/APLICAÇÕES acima, não substitui)
+Bullets de benefício (copy oficial da loja):
+- Máxima opacidade da linha Dentina para mascarar substratos escurecidos
+- Resistência à flexão superior a concorrentes
+- Fluorescência natural
+- Radiopacidade ISO 4049
+Aplicação resumida (copy oficial da loja): Restaurações classes I-V em dentes com alta saturação ou escurecimento intenso
+
 ---
 
 ### Atos Resina Composta Direta - DB1
-
 **Preço:** BRL 79.90 · **Imagem:** https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/catalog-images/products/atos-resina-composta-direta-db1-1.png · **Link de venda:** https://loja.smartdent.com.br/atos-resina-composta-direta-db1 · **ID (Sistema B):** `8718cd44-67ba-4a5a-868f-1ca5316570a8`
 
 ![Atos Resina Composta Direta - DB1](https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/catalog-images/products/atos-resina-composta-direta-db1-1.png)
@@ -3751,10 +4021,17 @@ DIVERGÊNCIAS ENTRE FONTES
 Mesma inconsistência de Registro ANVISA e faixa de carga inorgânica identificada na documentação compartilhada da linha Atos (ver DA1).
 ===FIM===
 
+BENEFÍCIOS E APLICAÇÃO — COPY APROVADO SISTEMA B (products_catalog, texto curto de e-commerce; complementa a seção DIFERENCIAIS/APLICAÇÕES acima, não substitui)
+Bullets de benefício (copy oficial da loja):
+- Alta opacidade e croma saturado na escala B
+- Resistência à flexão superior a concorrentes
+- Fluorescência natural
+- Radiopacidade ISO 4049
+Aplicação resumida (copy oficial da loja): Restaurações classes I-V em dentes com tonalidade B
+
 ---
 
 ### Atos Resina Composta Direta - DB2
-
 **Preço:** BRL 79.90 · **Imagem:** https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/catalog-images/products/atos-resina-composta-direta-db2-1.png · **Link de venda:** https://loja.smartdent.com.br/atos-resina-composta-direta-db2 · **ID (Sistema B):** `12024ff3-e7ba-47f5-9e06-4f974a77c4a5`
 
 ![Atos Resina Composta Direta - DB2](https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/catalog-images/products/atos-resina-composta-direta-db2-1.png)
@@ -3778,10 +4055,18 @@ DIVERGÊNCIAS ENTRE FONTES
 Mesma inconsistência de Registro ANVISA e faixa de carga inorgânica identificada na documentação compartilhada da linha Atos (ver DA1).
 ===FIM===
 
+BENEFÍCIOS E APLICAÇÃO — COPY APROVADO SISTEMA B (products_catalog, texto curto de e-commerce; complementa a seção DIFERENCIAIS/APLICAÇÕES acima, não substitui)
+Bullets de benefício (copy oficial da loja):
+- Restaurações com estética natural
+- Alta performance e durabilidade
+- Harmonia perfeita em dentes
+- Resistência à flexão superior a concorrentes
+- Otimização do tempo de trabalho
+Aplicação resumida (copy oficial da loja): Restaurações de dentes permanentes e decíduos, classes I-V. Facetas diretas, colagem de fragmentos, fechamento de diastemas.
+
 ---
 
 ### Atos Resina Composta Direta - EA1
-
 **Preço:** BRL 79.90 · **Imagem:** https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/c7fff86b-43de-4395-8bfa-2120fe3e51dc-1770349083431.webp · **Link de venda:** https://loja.smartdent.com.br/atos-resina-composta-direta-ea1 · **ID (Sistema B):** `8d5298b3-00d9-4278-83ee-6c2758a812f5`
 
 ![Atos Resina Composta Direta - EA1](https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/c7fff86b-43de-4395-8bfa-2120fe3e51dc-1770349083431.webp)
@@ -3805,10 +4090,18 @@ DIVERGÊNCIAS ENTRE FONTES
 Mesma inconsistência de Registro ANVISA e faixa de carga inorgânica identificada na documentação compartilhada da linha Atos (ver DA1).
 ===FIM===
 
+BENEFÍCIOS E APLICAÇÃO — COPY APROVADO SISTEMA B (products_catalog, texto curto de e-commerce; complementa a seção DIFERENCIAIS/APLICAÇÕES acima, não substitui)
+Bullets de benefício (copy oficial da loja):
+- Máximo desempenho estético e mimetismo dos dentes naturais
+- Alto brilho e lisura superficial com retenção prolongada do polimento
+- Opalescência e fluorescência reproduzindo dentes naturais
+- Diagnóstico preciso com radiopacidade ISO 4049
+- Resistência à flexão superior a todos os concorrentes
+Aplicação resumida (copy oficial da loja): Restaurações classes I-V, facetas diretas, colagem de fragmentos, fechamento de diastemas
+
 ---
 
 ### Atos Resina Composta Direta - EA2
-
 **Preço:** BRL 79.90 · **Imagem:** https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/catalog-images/products/atos-resina-composta-direta-ea2-1.png · **Link de venda:** https://loja.smartdent.com.br/atos-resina-composta-direta-ea2 · **ID (Sistema B):** `7ac7caf1-e598-42e9-8851-ed4fd6e532d7`
 
 ![Atos Resina Composta Direta - EA2](https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/catalog-images/products/atos-resina-composta-direta-ea2-1.png)
@@ -3832,10 +4125,18 @@ DIVERGÊNCIAS ENTRE FONTES
 Mesma inconsistência de Registro ANVISA e faixa de carga inorgânica identificada na documentação compartilhada da linha Atos (ver DA1).
 ===FIM===
 
+BENEFÍCIOS E APLICAÇÃO — COPY APROVADO SISTEMA B (products_catalog, texto curto de e-commerce; complementa a seção DIFERENCIAIS/APLICAÇÕES acima, não substitui)
+Bullets de benefício (copy oficial da loja):
+- Alta estética com mimetismo dos dentes naturais
+- Alto brilho e lisura superficial
+- Opalescência e fluorescência naturais
+- Resistência à flexão superior
+- Radiopacidade para diagnóstico preciso
+Aplicação resumida (copy oficial da loja): Restaurações classes I-V, facetas diretas, restaurações indiretas
+
 ---
 
 ### Atos Resina Composta Direta - EA3
-
 **Preço:** BRL 79.90 · **Imagem:** https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/catalog-images/products/atos-resina-composta-direta-ea3-1.png · **Link de venda:** https://loja.smartdent.com.br/atos-resina-composta-direta-ea3 · **ID (Sistema B):** `55d7dd55-f166-402b-91a0-0a74c185ccb9`
 
 ![Atos Resina Composta Direta - EA3](https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/catalog-images/products/atos-resina-composta-direta-ea3-1.png)
@@ -3859,10 +4160,18 @@ DIVERGÊNCIAS ENTRE FONTES
 A extração do IFU deste produto teve status "completed" (não "success") no catalog_documents, mas conteúdo idêntico ao padrão da linha — sem divergência de dado técnico. Mesma inconsistência de Registro ANVISA e faixa de carga inorgânica identificada na documentação compartilhada da linha Atos (ver DA1).
 ===FIM===
 
+BENEFÍCIOS E APLICAÇÃO — COPY APROVADO SISTEMA B (products_catalog, texto curto de e-commerce; complementa a seção DIFERENCIAIS/APLICAÇÕES acima, não substitui)
+Bullets de benefício (copy oficial da loja):
+- Alta estética com opalescência e fluorescência naturais
+- Resistência à flexão superior a todos os concorrentes
+- Alto brilho e retenção prolongada do polimento
+- Menor rugosidade superficial
+- Versatilidade para classes I a V
+Aplicação resumida (copy oficial da loja): Restaurações classes I-V, facetas diretas, restaurações anteriores estéticas
+
 ---
 
 ### Atos Resina Composta Direta - EA4
-
 **Preço:** BRL 79.90 · **Imagem:** https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/31126521-1207-46ed-b5dd-5be00f568c3b-1768352757416.webp · **Link de venda:** https://loja.smartdent.com.br/atos-resina-composta-direta-ea4 · **ID (Sistema B):** `03ea0903-fef2-4e39-b30f-4b3e3df0e53d`
 
 ![Atos Resina Composta Direta - EA4](https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/31126521-1207-46ed-b5dd-5be00f568c3b-1768352757416.webp)
@@ -3886,10 +4195,18 @@ DIVERGÊNCIAS ENTRE FONTES
 Mesma inconsistência de Registro ANVISA e faixa de carga inorgânica identificada na documentação compartilhada da linha Atos (ver DA1).
 ===FIM===
 
+BENEFÍCIOS E APLICAÇÃO — COPY APROVADO SISTEMA B (products_catalog, texto curto de e-commerce; complementa a seção DIFERENCIAIS/APLICAÇÕES acima, não substitui)
+Bullets de benefício (copy oficial da loja):
+- Alta estética com maior translucidez e opalescência
+- Reprodução da fluorescência natural
+- Resistência à flexão superior a concorrentes
+- Menor rugosidade superficial
+- Radiopacidade para diagnóstico preciso
+Aplicação resumida (copy oficial da loja): Restaurações de dentes permanentes e decíduos, classes I-V. Facetas diretas, colagem de fragmentos, indiretas.
+
 ---
 
 ### Atos Resina Composta Direta - EB1
-
 **Preço:** BRL 79.90 · **Imagem:** https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/8f9bea2f-a1f7-4fb7-baa5-246cd0042549-1770348995090.webp · **Link de venda:** https://loja.smartdent.com.br/atos-resina-composta-direta-eb1 · **ID (Sistema B):** `87fa3b6f-9f2f-43d7-816a-2bfa9f626d03`
 
 ![Atos Resina Composta Direta - EB1](https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/8f9bea2f-a1f7-4fb7-baa5-246cd0042549-1770348995090.webp)
@@ -3913,10 +4230,17 @@ DIVERGÊNCIAS ENTRE FONTES
 Mesma inconsistência de Registro ANVISA e faixa de carga inorgânica identificada na documentação compartilhada da linha Atos (ver DA1).
 ===FIM===
 
+BENEFÍCIOS E APLICAÇÃO — COPY APROVADO SISTEMA B (products_catalog, texto curto de e-commerce; complementa a seção DIFERENCIAIS/APLICAÇÕES acima, não substitui)
+Bullets de benefício (copy oficial da loja):
+- Alta translucidez para camada de esmalte
+- Opalescência que reproduz esmalte natural
+- Resistência à flexão superior
+- Radiopacidade ISO 4049
+Aplicação resumida (copy oficial da loja): Camada de esmalte em restaurações classes I-V, facetas diretas
+
 ---
 
 ### Atos Resina Composta Direta - EB2
-
 **Preço:** BRL 79.90 · **Imagem:** https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/7f6d7a09-ec1f-44ec-b39e-cd107c656747-1770348988768.webp · **Link de venda:** https://loja.smartdent.com.br/atos-resina-composta-direta-eb2 · **ID (Sistema B):** `ca77c5d8-0452-4623-b5eb-ba6cc40a367e`
 
 ![Atos Resina Composta Direta - EB2](https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/7f6d7a09-ec1f-44ec-b39e-cd107c656747-1770348988768.webp)
@@ -3940,10 +4264,16 @@ DIVERGÊNCIAS ENTRE FONTES
 Mesma inconsistência de Registro ANVISA e faixa de carga inorgânica identificada na documentação compartilhada da linha Atos (ver DA1).
 ===FIM===
 
+BENEFÍCIOS E APLICAÇÃO — COPY APROVADO SISTEMA B (products_catalog, texto curto de e-commerce; complementa a seção DIFERENCIAIS/APLICAÇÕES acima, não substitui)
+Bullets de benefício (copy oficial da loja):
+- Alta translucidez para esmalte natural
+- Opalescência e fluorescência naturais
+- Resistência à flexão superior
+Aplicação resumida (copy oficial da loja): Camada de esmalte em restaurações, facetas diretas
+
 ---
 
 ### Atos Resina Composta Direta - Efeito Clear
-
 **Preço:** BRL 64.00 · **Imagem:** https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/catalog-images/products/atos-resina-composta-direta-efeito-clear-2.png · **Link de venda:** https://loja.smartdent.com.br/atos-resina-composta-direta-efeito-clear · **ID (Sistema B):** `dbc8ea6f-ea68-4435-9845-a382a0033cf0`
 
 ![Atos Resina Composta Direta - Efeito Clear](https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/catalog-images/products/atos-resina-composta-direta-efeito-clear-2.png)
@@ -3967,10 +4297,16 @@ DIVERGÊNCIAS ENTRE FONTES
 Mesma inconsistência de Registro ANVISA e faixa de carga inorgânica identificada na documentação compartilhada da linha Atos (ver DA1). A tabela do IFU lista "Translúcida: 20s/2mm", consistente com o Perfil Técnico para esta cor.
 ===FIM===
 
+BENEFÍCIOS E APLICAÇÃO — COPY APROVADO SISTEMA B (products_catalog, texto curto de e-commerce; complementa a seção DIFERENCIAIS/APLICAÇÕES acima, não substitui)
+Bullets de benefício (copy oficial da loja):
+- Reprodução do halo de translucidez incisal
+- Alta naturalidade estética
+- Ideal para borda incisal
+Aplicação resumida (copy oficial da loja): Efeito de translucidez incisal em restaurações anteriores
+
 ---
 
 ### Atos Resina Composta Direta - Efeito Opaco
-
 **Preço:** BRL 64.00 · **Imagem:** https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/catalog-images/products/atos-resina-composta-direta-efeito-opaco-2.png · **Link de venda:** https://loja.smartdent.com.br/atos-resina-composta-direta-efeito-opaco · **ID (Sistema B):** `4cf6f950-8990-4d91-882c-220e012b819f`
 
 ![Atos Resina Composta Direta - Efeito Opaco](https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/catalog-images/products/atos-resina-composta-direta-efeito-opaco-2.png)
@@ -3994,10 +4330,16 @@ DIVERGÊNCIAS ENTRE FONTES
 Divergência relevante: o Perfil Técnico (corpo e ficha resumida) indica 20s para fotopolimerização de 2mm na cor Opaque, mas a Tabela 1 do IFU lista "Opaque: 2mm / 50s" — quase o dobro do tempo indicado no Perfil Técnico. Não foi possível confirmar qual valor está correto; recomenda-se seguir a instrução de uso (IFU) por ser o documento regulatório, mas o dado deve ser sinalizado como inconsistente entre as fontes. Mesma inconsistência de Registro ANVISA identificada na linha (ver DA1). Esta é também a extração de Perfil Técnico mais curta da linha (6.918 caracteres vs. 17-22 mil dos demais), sugerindo possível perda de conteúdo na extração do PDF original (casos clínicos/depoimentos ausentes).
 ===FIM===
 
+BENEFÍCIOS E APLICAÇÃO — COPY APROVADO SISTEMA B (products_catalog, texto curto de e-commerce; complementa a seção DIFERENCIAIS/APLICAÇÕES acima, não substitui)
+Bullets de benefício (copy oficial da loja):
+- Máxima opacidade para mascarar substratos
+- Ideal para bloqueio de núcleos metálicos
+- Alta resistência mecânica
+Aplicação resumida (copy oficial da loja): Mascaramento de substratos escurecidos, bloqueio de núcleos metálicos
+
 ---
 
 ### Atos Resina Composta Direta - Efeito Opalescente
-
 **Preço:** BRL 64.00 · **Imagem:** https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/9c8a0955-03e1-4b91-b51f-9d0237dd02fb-1770348989249.webp · **Link de venda:** https://loja.smartdent.com.br/atos-resina-composta-direta-efeito-opalescente · **ID (Sistema B):** `faf0ec09-c421-4d79-9d24-d7a695062672`
 
 ![Atos Resina Composta Direta - Efeito Opalescente](https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/9c8a0955-03e1-4b91-b51f-9d0237dd02fb-1770348989249.webp)
@@ -4021,10 +4363,16 @@ DIVERGÊNCIAS ENTRE FONTES
 O products_repository lista technical_specifications com dois blocos de dados parcialmente redundantes/duplicados (indicativo de erro de geração), mas sem contradição numérica. Mesma inconsistência de Registro ANVISA identificada na documentação compartilhada da linha (ver DA1). Confirma-se consistentemente entre IFU e Perfil Técnico que esta é a única cor NÃO radiopaca da linha.
 ===FIM===
 
+BENEFÍCIOS E APLICAÇÃO — COPY APROVADO SISTEMA B (products_catalog, texto curto de e-commerce; complementa a seção DIFERENCIAIS/APLICAÇÕES acima, não substitui)
+Bullets de benefício (copy oficial da loja):
+- Reprodução do halo opalescente incisal
+- Profundidade óptica natural
+- Ideal para dentes anteriores jovens
+Aplicação resumida (copy oficial da loja): Halo opalescente incisal em restaurações anteriores estéticas
+
 ---
 
 ### Atos Resina Composta Direta - WD
-
 **Preço:** BRL 79.90 · **Imagem:** https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/db778554-a18e-44b2-baeb-c269c1e1f9a3-1771260725373.webp · **Link de venda:** https://loja.smartdent.com.br/atos-resina-composta-direta-wd · **ID (Sistema B):** `e403613d-0807-4fe2-b192-b901c0dff1f2`
 
 ![Atos Resina Composta Direta - WD](https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/db778554-a18e-44b2-baeb-c269c1e1f9a3-1771260725373.webp)
@@ -4048,10 +4396,16 @@ DIVERGÊNCIAS ENTRE FONTES
 Mesma inconsistência de Registro ANVISA e faixa de carga inorgânica identificada na documentação compartilhada da linha Atos (ver DA1).
 ===FIM===
 
+BENEFÍCIOS E APLICAÇÃO — COPY APROVADO SISTEMA B (products_catalog, texto curto de e-commerce; complementa a seção DIFERENCIAIS/APLICAÇÕES acima, não substitui)
+Bullets de benefício (copy oficial da loja):
+- Alta luminosidade para dentes clareados
+- Naturalidade em pós-clareamento
+- Resistência à flexão superior
+Aplicação resumida (copy oficial da loja): Restaurações em dentes clareados ou com alta luminosidade
+
 ---
 
 ### Atos Resina Composta Direta - WE
-
 **Preço:** BRL 79.90 · **Imagem:** https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/catalog-images/products/atos-resina-composta-direta-we-1.png · **Link de venda:** https://loja.smartdent.com.br/atos-resina-composta-direta-we · **ID (Sistema B):** `ac771a42-252a-4abc-819c-750ad4dd0f34`
 
 ![Atos Resina Composta Direta - WE](https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/catalog-images/products/atos-resina-composta-direta-we-1.png)
@@ -4075,10 +4429,16 @@ DIVERGÊNCIAS ENTRE FONTES
 Mesma inconsistência de Registro ANVISA e faixa de carga inorgânica identificada na documentação compartilhada da linha Atos (ver DA1).
 ===FIM===
 
+BENEFÍCIOS E APLICAÇÃO — COPY APROVADO SISTEMA B (products_catalog, texto curto de e-commerce; complementa a seção DIFERENCIAIS/APLICAÇÕES acima, não substitui)
+Bullets de benefício (copy oficial da loja):
+- Esmalte de alta luminosidade para dentes clareados
+- Translucidez natural
+- Combina com WD para estratificação completa
+Aplicação resumida (copy oficial da loja): Camada de esmalte em restaurações de dentes clareados
+
 ---
 
 ### Atos Resina Composta Direta - XWD
-
 **Preço:** BRL 79.90 · **Imagem:** https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/44bca442-d98a-45fa-858c-815ef0f3160c-1770348995953.webp · **Link de venda:** https://loja.smartdent.com.br/atos-resina-composta-direta-xwd · **ID (Sistema B):** `9b9ee506-b4ff-47cf-b157-04050d055177`
 
 ![Atos Resina Composta Direta - XWD](https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/44bca442-d98a-45fa-858c-815ef0f3160c-1770348995953.webp)
@@ -4102,10 +4462,16 @@ DIVERGÊNCIAS ENTRE FONTES
 Mesma inconsistência de Registro ANVISA e faixa de carga inorgânica identificada na documentação compartilhada da linha Atos (ver DA1).
 ===FIM===
 
+BENEFÍCIOS E APLICAÇÃO — COPY APROVADO SISTEMA B (products_catalog, texto curto de e-commerce; complementa a seção DIFERENCIAIS/APLICAÇÕES acima, não substitui)
+Bullets de benefício (copy oficial da loja):
+- Máxima luminosidade dentina Bleach extremo
+- Ideal para dentes extra clareados
+- Combina com XWE para estratificação
+Aplicação resumida (copy oficial da loja): Restaurações em dentes com alto valor Bleach extremo
+
 ---
 
 ### Atos Resina Composta Direta - XWE
-
 **Preço:** BRL 79.90 · **Imagem:** https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/207318ac-e9d0-4a1d-ab08-474cc4943bd4-1770348987957.webp · **Link de venda:** https://loja.smartdent.com.br/atos-resina-composta-direta-xwe · **ID (Sistema B):** `0cb555b1-a6de-4bee-b0e2-752bdea069a4`
 
 ![Atos Resina Composta Direta - XWE](https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/207318ac-e9d0-4a1d-ab08-474cc4943bd4-1770348987957.webp)
@@ -4129,10 +4495,15 @@ DIVERGÊNCIAS ENTRE FONTES
 Mesma inconsistência de Registro ANVISA e faixa de carga inorgânica identificada na documentação compartilhada da linha Atos (ver DA1).
 ===FIM===
 
+BENEFÍCIOS E APLICAÇÃO — COPY APROVADO SISTEMA B (products_catalog, texto curto de e-commerce; complementa a seção DIFERENCIAIS/APLICAÇÕES acima, não substitui)
+Bullets de benefício (copy oficial da loja):
+- Esmalte de máxima luminosidade
+- Translucidez natural para resultado Bleach
+- Combina com XWD
+
 ---
 
 ### Atos Unichroma
-
 **Preço:** BRL 120.00 · **Imagem:** https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/catalog-images/products/atos-unichroma-2.png · **Link de venda:** https://loja.smartdent.com.br/atos-unichroma · **ID (Sistema B):** `8838dc65-709d-4ed7-baa0-155b47708f48`
 
 ![Atos Unichroma](https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/catalog-images/products/atos-unichroma-2.png)
@@ -4171,7 +4542,6 @@ Nenhuma divergência numérica relevante entre IFU (PT/EN/ES) e Perfil Técnico.
 ---
 
 ### Kit Resina Atos Academic - 06 cores
-
 **Preço:** BRL 290.00 · **Imagem:** https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/54b8daf1-f9dc-4df6-93c3-76bc4f46fc94-1770348993034.webp · **Link de venda:** https://loja.smartdent.com.br/kit-resina-atos-academic-06-cores · **ID (Sistema B):** `88dd8797-7ac4-43aa-99e0-d2a83cca4bf0`
 
 ![Kit Resina Atos Academic - 06 cores](https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/54b8daf1-f9dc-4df6-93c3-76bc4f46fc94-1770348993034.webp)
@@ -4210,11 +4580,18 @@ DIVERGÊNCIAS ENTRE FONTES
 3) Peso do conteúdo: technical_specifications indica 0,5 g por seringa, compatível com o IFU; nenhuma fonte confirma peso de 2 g para este kit especificamente (diferente do observado nas resinas avulsas — ver divergência nos produtos individuais).
 ===FIM===
 
+BENEFÍCIOS E APLICAÇÃO — COPY APROVADO SISTEMA B (products_catalog, texto curto de e-commerce; complementa a seção DIFERENCIAIS/APLICAÇÕES acima, não substitui)
+Bullets de benefício (copy oficial da loja):
+- Facilita ensino de restaurações diretas
+- Mesmas propriedades da resina ATOS clínica
+- Cores hipercromáticas para visualização da estratificação
+- Tixotropia para escultura
+Aplicação resumida (copy oficial da loja): Ensino de técnicas restauradoras diretas em manequins
+
 ---
 
 ### Kit Resina Atos Academic - 10 cores
-
-**Preço:** consultivo / não informado · **Imagem:** não cadastrada no Sistema B · **Link de venda:** não cadastrado / inconsistente no Sistema B · **ID (Sistema B):** `cc3cc413-41e0-4c2c-8842-a0ae49be8549`
+**Preço:** sob consulta · **ID (Sistema B):** `cc3cc413-41e0-4c2c-8842-a0ae49be8549`
 
 DESCRIÇÃO
 Produto cadastrado em system_a_catalog com o nome "Kit Resina Atos Academic - 10 cores" (external_id "sd-kit-atos-academic-10c", category "consumables", active=true, approved=true, mas visible_in_ui=false), porém SEM descrição, preço, presentation ou technical_specs preenchidos (todos nulos/vazios). Não foi localizado nenhum registro correspondente em products_repository (Sistema A) nem nenhum documento técnico (IFU/Características) extraído em catalog_documents vinculado a este product_id — confirmando a observação do solicitante de que este item específico (distinto do "Kit 06 cores") não havia sido encontrado em pesquisas anteriores. A única evidência no Google Drive é uma imagem de embalagem/rótulo "KIT ATOS RESINA ACADEMIC 10 CORES.png" (2 cópias, mesma imagem), cujo texto (OCR) traz apenas o material publicitário padrão da linha: "Fundamentada na mais alta tecnologia... Monômeros estruturantes... Cargas de alto desempenho... Consistência para esculpir com arte... Resina composta nano-híbrida fotopolimerizável para ensino de técnicas restauradoras dentais", sem especificar preço, peso ou conteúdo do kit.
@@ -4244,7 +4621,6 @@ DIVERGÊNCIAS ENTRE FONTES
 ---
 
 ### Resina Atos Academic - Amarelo
-
 **Preço:** BRL 54.00 · **Imagem:** https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/catalog-images/products/resina-atos-academic-amarelo-2.png · **Link de venda:** https://loja.smartdent.com.br/resina-atos-academic-amarelo · **ID (Sistema B):** `cf591f47-459c-438f-856f-dd1a5f65dd7b`
 
 ![Resina Atos Academic - Amarelo](https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/catalog-images/products/resina-atos-academic-amarelo-2.png)
@@ -4277,10 +4653,16 @@ DIVERGÊNCIAS ENTRE FONTES
 Nenhuma divergência relevante identificada entre catalog_documents, system_a_catalog e o campo technical_specifications de products_repository quanto a composição, preço (R$ 54,00) e conteúdo da seringa (0,5 g). Não há descrição HTML básica alternativa para este produto no products_repository (diferentemente de outras cores da linha, este item possui conteúdo de marketing expandido/rico, ver nota geral abaixo).
 ===FIM===
 
+BENEFÍCIOS E APLICAÇÃO — COPY APROVADO SISTEMA B (products_catalog, texto curto de e-commerce; complementa a seção DIFERENCIAIS/APLICAÇÕES acima, não substitui)
+Bullets de benefício (copy oficial da loja):
+- Facilita visualização da estratificação
+- Mesmas propriedades da ATOS clínica
+- Polimerização rápida
+Aplicação resumida (copy oficial da loja): Ensino de técnicas restauradoras em manequins
+
 ---
 
 ### Resina Atos Academic - Azul Claro
-
 **Preço:** BRL 54.00 · **Imagem:** https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/87b0ebfa-34b0-4ff3-9088-e4b766b8c4c5-1770348989517.webp · **Link de venda:** https://loja.smartdent.com.br/resina-atos-academic-azul-claro · **ID (Sistema B):** `b5ccfd4f-9437-4fbb-a955-80e762b15fa5`
 
 ![Resina Atos Academic - Azul Claro](https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/87b0ebfa-34b0-4ff3-9088-e4b766b8c4c5-1770348989517.webp)
@@ -4313,10 +4695,15 @@ DIVERGÊNCIAS ENTRE FONTES
 Nenhuma divergência relevante entre as fontes quanto a preço, composição e conteúdo por seringa (0,5 g, consistente em IFU e technical_specifications).
 ===FIM===
 
+BENEFÍCIOS E APLICAÇÃO — COPY APROVADO SISTEMA B (products_catalog, texto curto de e-commerce; complementa a seção DIFERENCIAIS/APLICAÇÕES acima, não substitui)
+Bullets de benefício (copy oficial da loja):
+- Cor azul claro para visualização de camadas
+- Mesmas propriedades da ATOS clínica
+Aplicação resumida (copy oficial da loja): Ensino de técnicas restauradoras em manequins
+
 ---
 
 ### Resina Atos Academic - Azul Escuro
-
 **Preço:** BRL 54.00 · **Imagem:** https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/9f2caba0-c688-4432-a3e9-455974ff4aac-1771260719931.webp · **Link de venda:** https://loja.smartdent.com.br/resina-atos-academic-azul-escuro · **ID (Sistema B):** `bbeaf483-06eb-4cb7-8f21-63fc7bebafc8`
 
 ![Resina Atos Academic - Azul Escuro](https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/9f2caba0-c688-4432-a3e9-455974ff4aac-1771260719931.webp)
@@ -4350,10 +4737,15 @@ DIVERGÊNCIAS ENTRE FONTES
 Nenhuma divergência relevante — neste produto específico, ao contrário de outras cores da linha, tanto a descrição textual quanto o technical_specifications do products_repository concordam em "0,5g (1 Seringa)", alinhado ao IFU.
 ===FIM===
 
+BENEFÍCIOS E APLICAÇÃO — COPY APROVADO SISTEMA B (products_catalog, texto curto de e-commerce; complementa a seção DIFERENCIAIS/APLICAÇÕES acima, não substitui)
+Bullets de benefício (copy oficial da loja):
+- Cor azul escuro para diferenciação de camadas
+- Mesmas propriedades da ATOS clínica
+Aplicação resumida (copy oficial da loja): Ensino de técnicas restauradoras em manequins
+
 ---
 
 ### Resina Atos Academic - Branco
-
 **Preço:** BRL 54.00 · **Imagem:** https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/8781d0a0-3d1a-461a-a3b7-7c6b7dddf2e0-1770348994669.webp · **Link de venda:** https://loja.smartdent.com.br/resina-atos-academic-branco · **ID (Sistema B):** `34f560ae-e0f4-4c89-8fbc-b50982cd6a43`
 
 ![Resina Atos Academic - Branco](https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/8781d0a0-3d1a-461a-a3b7-7c6b7dddf2e0-1770348994669.webp)
@@ -4384,10 +4776,14 @@ DIVERGÊNCIAS ENTRE FONTES
 2) Este produto não recebeu o mesmo nível de enriquecimento de conteúdo (keywords, benefits, features, sales_pitch, faq) presente em outras cores da linha (ex.: Cinza, Amarelo, Azul Claro, Azul Escuro) — a descrição permanece no formato básico original.
 ===FIM===
 
+BENEFÍCIOS E APLICAÇÃO — COPY APROVADO SISTEMA B (products_catalog, texto curto de e-commerce; complementa a seção DIFERENCIAIS/APLICAÇÕES acima, não substitui)
+Bullets de benefício (copy oficial da loja):
+- Cor branca para efeitos de valor alto
+- Útil para efeito de esmalte intenso
+
 ---
 
 ### Resina Atos Academic - Cinza
-
 **Preço:** BRL 54.00 · **Imagem:** https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/d5ec63ee-b46e-47c0-a878-e83d135de7c1-1771260723699.webp · **Link de venda:** https://loja.smartdent.com.br/resina-atos-academic-cinza · **ID (Sistema B):** `b175890f-e22c-41e2-9676-19622498415b`
 
 ![Resina Atos Academic - Cinza](https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/d5ec63ee-b46e-47c0-a878-e83d135de7c1-1771260723699.webp)
@@ -4420,10 +4816,14 @@ DIVERGÊNCIAS ENTRE FONTES
 Nenhuma divergência relevante — descrição, sales_pitch, FAQ e technical_specifications do products_repository convergem entre si e com o IFU quanto a composição, preço e conteúdo por seringa (0,5 g).
 ===FIM===
 
+BENEFÍCIOS E APLICAÇÃO — COPY APROVADO SISTEMA B (products_catalog, texto curto de e-commerce; complementa a seção DIFERENCIAIS/APLICAÇÕES acima, não substitui)
+Bullets de benefício (copy oficial da loja):
+- Cor cinza para visualização de transição
+- Facilita ensino de estratificação
+
 ---
 
 ### Resina Atos Academic - Incolor
-
 **Preço:** BRL 54.00 · **Imagem:** https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/3bbea827-b114-4327-8f6d-f1b770c954d4-1771260720961.webp · **Link de venda:** https://loja.smartdent.com.br/resina-atos-academic-incolor · **ID (Sistema B):** `aaa2f77e-bbce-45cb-b051-51184a91e452`
 
 ![Resina Atos Academic - Incolor](https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/3bbea827-b114-4327-8f6d-f1b770c954d4-1771260720961.webp)
@@ -4454,10 +4854,14 @@ DIVERGÊNCIAS ENTRE FONTES
 2) Este produto não recebeu o mesmo enriquecimento de conteúdo (sales_pitch, faq, keywords) presente em outras cores da linha.
 ===FIM===
 
+BENEFÍCIOS E APLICAÇÃO — COPY APROVADO SISTEMA B (products_catalog, texto curto de e-commerce; complementa a seção DIFERENCIAIS/APLICAÇÕES acima, não substitui)
+Bullets de benefício (copy oficial da loja):
+- Incolor para visualização de estrutura base
+- Útil para teste de anatomia
+
 ---
 
 ### Resina Atos Academic - Laranja
-
 **Preço:** BRL 54.00 · **Imagem:** https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/7f7edb9c-f4e1-4513-856e-ef8703f24fb3-1771260721807.webp · **Link de venda:** https://loja.smartdent.com.br/resina-atos-academic-laranja · **ID (Sistema B):** `4d286039-99f1-4862-947c-e285b6f9921a`
 
 ![Resina Atos Academic - Laranja](https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/7f7edb9c-f4e1-4513-856e-ef8703f24fb3-1771260721807.webp)
@@ -4488,10 +4892,14 @@ DIVERGÊNCIAS ENTRE FONTES
 2) Produto sem enriquecimento de conteúdo (sales_pitch/faq/keywords), diferentemente de outras cores da linha.
 ===FIM===
 
+BENEFÍCIOS E APLICAÇÃO — COPY APROVADO SISTEMA B (products_catalog, texto curto de e-commerce; complementa a seção DIFERENCIAIS/APLICAÇÕES acima, não substitui)
+Bullets de benefício (copy oficial da loja):
+- Cor laranja para camadas intermediárias
+- Ensino de estratificação complexa
+
 ---
 
 ### Resina Atos Academic - Rosa
-
 **Preço:** BRL 54.00 · **Imagem:** https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/547cc6ef-2763-496a-8313-943b700d3fdf-1771260724503.webp · **Link de venda:** https://loja.smartdent.com.br/resina-atos-academic-rosa · **ID (Sistema B):** `f72abbe9-fda4-48d2-8a2b-68ec7c35c1a5`
 
 ![Resina Atos Academic - Rosa](https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/547cc6ef-2763-496a-8313-943b700d3fdf-1771260724503.webp)
@@ -4521,10 +4929,13 @@ DIVERGÊNCIAS ENTRE FONTES
 Conteúdo por seringa: tanto a descrição do system_a_catalog quanto a do products_repository indicam "1 Seringa Rosa 2g", divergindo do IFU (0,5 g por seringa refil) e do technical_specifications padrão (0,5g/1 seringa) presente nas cores com conteúdo enriquecido da mesma tabela products_repository — sugerindo que "2g" pode ser um erro de digitação/herança de template propagado tanto no Sistema A quanto no Sistema B para esta cor.
 ===FIM===
 
+BENEFÍCIOS E APLICAÇÃO — COPY APROVADO SISTEMA B (products_catalog, texto curto de e-commerce; complementa a seção DIFERENCIAIS/APLICAÇÕES acima, não substitui)
+Bullets de benefício (copy oficial da loja):
+- Cor rosa para efeitos gengivais didáticos
+
 ---
 
 ### Resina Atos Academic - Verde
-
 **Preço:** BRL 54.00 · **Imagem:** https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/dc93548b-cb6e-42a0-ba56-602858c8027e-1770348991154.webp · **Link de venda:** https://loja.smartdent.com.br/resina-atos-academic-verde · **ID (Sistema B):** `f0456e9c-1a74-4fe7-be0d-5787bcc00e70`
 
 ![Resina Atos Academic - Verde](https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/dc93548b-cb6e-42a0-ba56-602858c8027e-1770348991154.webp)
@@ -4555,10 +4966,13 @@ DIVERGÊNCIAS ENTRE FONTES
 2) Produto sem enriquecimento de conteúdo (sales_pitch/faq/keywords), diferentemente de outras cores da linha.
 ===FIM===
 
+BENEFÍCIOS E APLICAÇÃO — COPY APROVADO SISTEMA B (products_catalog, texto curto de e-commerce; complementa a seção DIFERENCIAIS/APLICAÇÕES acima, não substitui)
+Bullets de benefício (copy oficial da loja):
+- Cor verde para diferenciação máxima de camadas
+
 ---
 
 ### Resina Atos Academic - Vermelho
-
 **Preço:** BRL 54.00 · **Imagem:** https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/03495012-fdd9-46c3-9dc9-2479c9ef2fc2-1764283870126.webp · **Link de venda:** https://loja.smartdent.com.br/resina-atos-academic-vermelho · **ID (Sistema B):** `1aaeb826-892d-4aa5-82f2-2260ab9a0ab2`
 
 ![Resina Atos Academic - Vermelho](https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/03495012-fdd9-46c3-9dc9-2479c9ef2fc2-1764283870126.webp)
@@ -4589,17 +5003,15 @@ DIVERGÊNCIAS ENTRE FONTES
 2) Produto sem enriquecimento de conteúdo (sales_pitch/faq/keywords), diferentemente de outras cores da linha.
 ===FIM===
 
+BENEFÍCIOS E APLICAÇÃO — COPY APROVADO SISTEMA B (products_catalog, texto curto de e-commerce; complementa a seção DIFERENCIAIS/APLICAÇÕES acima, não substitui)
+Bullets de benefício (copy oficial da loja):
+- Cor vermelho para máximo contraste visual
+- Facilita aprendizado de anatomia dental
+
 ---
 
-
-# 7. Fresagem
-
-
-## 7.2 Insumos
-
 ### ATOS Block HT A1
-
-**Preço:** consultivo / não informado · **Imagem:** https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/dd2e4a0f-2065-4361-8950-48e03194d67a-1768352752964.webp · **Link de venda:** não cadastrado / inconsistente no Sistema B · **ID (Sistema B):** `4f77996c-8d70-480c-bb60-86c5e8d1d7d3`
+**Preço:** sob consulta · **Imagem:** https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/dd2e4a0f-2065-4361-8950-48e03194d67a-1768352752964.webp · **ID (Sistema B):** `4f77996c-8d70-480c-bb60-86c5e8d1d7d3`
 
 ![ATOS Block HT A1](https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/dd2e4a0f-2065-4361-8950-48e03194d67a-1768352752964.webp)
 
@@ -4635,8 +5047,7 @@ A descrição do produto genérico em products_repository cita como exemplo "11 
 ---
 
 ### ATOS Block HT A2
-
-**Preço:** consultivo / não informado · **Imagem:** https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/dd2e4a0f-2065-4361-8950-48e03194d67a-1768352752964.webp · **Link de venda:** não cadastrado / inconsistente no Sistema B · **ID (Sistema B):** `73300249-17c7-4499-9a45-b48bb810d40a`
+**Preço:** sob consulta · **Imagem:** https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/dd2e4a0f-2065-4361-8950-48e03194d67a-1768352752964.webp · **ID (Sistema B):** `73300249-17c7-4499-9a45-b48bb810d40a`
 
 ![ATOS Block HT A2](https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/dd2e4a0f-2065-4361-8950-48e03194d67a-1768352752964.webp)
 
@@ -4671,8 +5082,7 @@ Nenhuma divergência de conteúdo técnico identificada. A descrição comercial
 ---
 
 ### ATOS Block HT A3
-
-**Preço:** consultivo / não informado · **Imagem:** https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/dd2e4a0f-2065-4361-8950-48e03194d67a-1768352752964.webp · **Link de venda:** não cadastrado / inconsistente no Sistema B · **ID (Sistema B):** `ba045ac2-f5d2-4f96-bc35-27eec38269b3`
+**Preço:** sob consulta · **Imagem:** https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/dd2e4a0f-2065-4361-8950-48e03194d67a-1768352752964.webp · **ID (Sistema B):** `ba045ac2-f5d2-4f96-bc35-27eec38269b3`
 
 ![ATOS Block HT A3](https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/dd2e4a0f-2065-4361-8950-48e03194d67a-1768352752964.webp)
 
@@ -4707,8 +5117,7 @@ Nenhuma divergência técnica relevante encontrada.
 ---
 
 ### ATOS Block HT B1
-
-**Preço:** consultivo / não informado · **Imagem:** https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/dd2e4a0f-2065-4361-8950-48e03194d67a-1768352752964.webp · **Link de venda:** não cadastrado / inconsistente no Sistema B · **ID (Sistema B):** `c8c8cdcf-4cc5-43b0-8399-ac246496eebb`
+**Preço:** sob consulta · **Imagem:** https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/dd2e4a0f-2065-4361-8950-48e03194d67a-1768352752964.webp · **ID (Sistema B):** `c8c8cdcf-4cc5-43b0-8399-ac246496eebb`
 
 ![ATOS Block HT B1](https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/dd2e4a0f-2065-4361-8950-48e03194d67a-1768352752964.webp)
 
@@ -4743,8 +5152,7 @@ Nenhuma divergência técnica relevante encontrada.
 ---
 
 ### ATOS Block LT A1
-
-**Preço:** consultivo / não informado · **Imagem:** https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/dd2e4a0f-2065-4361-8950-48e03194d67a-1768352752964.webp · **Link de venda:** não cadastrado / inconsistente no Sistema B · **ID (Sistema B):** `9c8c1756-2105-4cd4-8a3e-4c45c57002f8`
+**Preço:** sob consulta · **Imagem:** https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/dd2e4a0f-2065-4361-8950-48e03194d67a-1768352752964.webp · **ID (Sistema B):** `9c8c1756-2105-4cd4-8a3e-4c45c57002f8`
 
 ![ATOS Block LT A1](https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/dd2e4a0f-2065-4361-8950-48e03194d67a-1768352752964.webp)
 
@@ -4779,8 +5187,7 @@ Nenhuma divergência técnica relevante encontrada.
 ---
 
 ### ATOS Block LT A2
-
-**Preço:** consultivo / não informado · **Imagem:** https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/dd2e4a0f-2065-4361-8950-48e03194d67a-1768352752964.webp · **Link de venda:** não cadastrado / inconsistente no Sistema B · **ID (Sistema B):** `aeed407c-cb88-4ed5-b67c-223ad2817e5a`
+**Preço:** sob consulta · **Imagem:** https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/dd2e4a0f-2065-4361-8950-48e03194d67a-1768352752964.webp · **ID (Sistema B):** `aeed407c-cb88-4ed5-b67c-223ad2817e5a`
 
 ![ATOS Block LT A2](https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/dd2e4a0f-2065-4361-8950-48e03194d67a-1768352752964.webp)
 
@@ -4815,8 +5222,7 @@ Nenhuma divergência técnica relevante encontrada.
 ---
 
 ### ATOS Block LT A3
-
-**Preço:** consultivo / não informado · **Imagem:** https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/dd2e4a0f-2065-4361-8950-48e03194d67a-1768352752964.webp · **Link de venda:** não cadastrado / inconsistente no Sistema B · **ID (Sistema B):** `2e697771-244d-4191-bade-abc0a5a87bde`
+**Preço:** sob consulta · **Imagem:** https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/dd2e4a0f-2065-4361-8950-48e03194d67a-1768352752964.webp · **ID (Sistema B):** `2e697771-244d-4191-bade-abc0a5a87bde`
 
 ![ATOS Block LT A3](https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/dd2e4a0f-2065-4361-8950-48e03194d67a-1768352752964.webp)
 
@@ -4851,8 +5257,7 @@ Nenhuma divergência técnica relevante encontrada.
 ---
 
 ### ATOS Block LT A3.5
-
-**Preço:** consultivo / não informado · **Imagem:** https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/dd2e4a0f-2065-4361-8950-48e03194d67a-1768352752964.webp · **Link de venda:** não cadastrado / inconsistente no Sistema B · **ID (Sistema B):** `e832e81c-0a84-4378-bb5a-529c244f1e9c`
+**Preço:** sob consulta · **Imagem:** https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/dd2e4a0f-2065-4361-8950-48e03194d67a-1768352752964.webp · **ID (Sistema B):** `e832e81c-0a84-4378-bb5a-529c244f1e9c`
 
 ![ATOS Block LT A3.5](https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/dd2e4a0f-2065-4361-8950-48e03194d67a-1768352752964.webp)
 
@@ -4887,8 +5292,7 @@ Nenhuma divergência técnica relevante encontrada.
 ---
 
 ### ATOS Block LT B1
-
-**Preço:** consultivo / não informado · **Imagem:** https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/dd2e4a0f-2065-4361-8950-48e03194d67a-1768352752964.webp · **Link de venda:** não cadastrado / inconsistente no Sistema B · **ID (Sistema B):** `db8ac633-dae9-410e-8193-d96e06939bcb`
+**Preço:** sob consulta · **Imagem:** https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/dd2e4a0f-2065-4361-8950-48e03194d67a-1768352752964.webp · **ID (Sistema B):** `db8ac633-dae9-410e-8193-d96e06939bcb`
 
 ![ATOS Block LT B1](https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/dd2e4a0f-2065-4361-8950-48e03194d67a-1768352752964.webp)
 
@@ -4923,8 +5327,7 @@ Nenhuma divergência técnica relevante encontrada.
 ---
 
 ### ATOS Block LT Bleach
-
-**Preço:** consultivo / não informado · **Imagem:** https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/dd2e4a0f-2065-4361-8950-48e03194d67a-1768352752964.webp · **Link de venda:** não cadastrado / inconsistente no Sistema B · **ID (Sistema B):** `d6e45b3d-2461-46dd-82d7-4d4f172dee94`
+**Preço:** sob consulta · **Imagem:** https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/dd2e4a0f-2065-4361-8950-48e03194d67a-1768352752964.webp · **ID (Sistema B):** `d6e45b3d-2461-46dd-82d7-4d4f172dee94`
 
 ![ATOS Block LT Bleach](https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/dd2e4a0f-2065-4361-8950-48e03194d67a-1768352752964.webp)
 
@@ -4960,8 +5363,7 @@ Nenhuma divergência técnica relevante encontrada.
 ---
 
 ### ATOS Block LT C2
-
-**Preço:** consultivo / não informado · **Imagem:** https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/dd2e4a0f-2065-4361-8950-48e03194d67a-1768352752964.webp · **Link de venda:** não cadastrado / inconsistente no Sistema B · **ID (Sistema B):** `a7e4668d-3734-40ad-ac91-2a0bcf4877cb`
+**Preço:** sob consulta · **Imagem:** https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/dd2e4a0f-2065-4361-8950-48e03194d67a-1768352752964.webp · **ID (Sistema B):** `a7e4668d-3734-40ad-ac91-2a0bcf4877cb`
 
 ![ATOS Block LT C2](https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/dd2e4a0f-2065-4361-8950-48e03194d67a-1768352752964.webp)
 
@@ -4992,5 +5394,43 @@ Sem preço/URL individuais (system_a_catalog: null; consolidated_from = "ATOS Bl
 DIVERGÊNCIAS ENTRE FONTES
 Nenhuma divergência técnica relevante encontrada.
 ===FIM===
+
+---
+
+### Chair Side Print 4.0 - BLZ INO100 Plus
+**Preço:** sob consulta · **ID (Sistema B):** `38e09b6d-eacd-43a4-9faa-13c7263dfba4`
+
+DESCRIÇÃO
+"Chair Side Print 4.0 - BLZ INO100 Plus" é um kit combo de fluxo digital chairside da SmartDent, ativo e aprovado no catálogo Sistema A (não capturado na pesquisa original via Drive — produto identificado posteriormente em levantamento da tabela products_catalog do Sistema B).
+
+ESPECIFICAÇÕES TÉCNICAS (fonte: products_catalog, Sistema B)
+Composição do Kit: Scanner BLZ INO100 Plus + Notebook Avell Ion A5 + Impressora 3D Elegoo Mars 5 Ultra + ELEGOO Mercury Plus 2.0 (lavagem e cura).
+- Scanner Intraoral: BLZ INO100 Plus — alta precisão para captação clínica.
+- Notebook: Avell Ion A5 — CPU Ryzen 7 8745HS, 32GB RAM, GPU RTX 4050.
+- Impressora 3D: Elegoo Mars 5 Ultra — alta performance para impressão chairside.
+- Pós-processamento: ELEGOO Mercury Plus 2.0 — lavagem e cura integradas em um único equipamento.
+- Softwares: todos pré-instalados e configurados no notebook fornecido.
+
+OBSERVAÇÃO
+Este perfil foi gerado a partir de dados estruturados do Sistema B (products_catalog), sem pesquisa complementar via Google Drive. Recomenda-se validar com o time comercial se há material adicional (ficha técnica, imagens, condições comerciais) antes de uso extensivo em vendas.
+
+---
+
+### Chair Side Print BLZ INO200 - High-End
+**Preço:** sob consulta · **ID (Sistema B):** `b47ad620-d5a3-4b35-b38b-85f95866014c`
+
+DESCRIÇÃO
+"Chair Side Print BLZ INO200 - High-End" é um kit combo de fluxo digital chairside topo de linha da SmartDent, ativo e aprovado no catálogo Sistema A (não capturado na pesquisa original via Drive — produto identificado posteriormente em levantamento da tabela products_catalog do Sistema B).
+
+Existe também no banco um registro legado "Chair Side Print 4.0 - Combo Scanner intraoral BLZ INO200" (id 897e0d2b-c264-4a5e-953e-1e262eb6dadd), porém esse registro está INATIVO/NÃO APROVADO no system_a_catalog e usa impressora Elegoo Mars 5 Ultra — configuração DIFERENTE deste kit High-End, que usa impressora RayShape Edge Mini. Não confundir os dois produtos.
+
+ESPECIFICAÇÕES TÉCNICAS (fonte: products_catalog, Sistema B)
+- Scanner Intraoral: BLZ INO200 — captação de dados de altíssima precisão.
+- Notebook: Avell Ion A50 — GPU dedicada, 32GB RAM, workstation completo.
+- Impressora 3D: RayShape Edge Mini — automação por IA e aquecimento ativo.
+- Composição: kit High-End completo para fluxo digital chairside.
+
+OBSERVAÇÃO
+Este perfil foi gerado a partir de dados estruturados do Sistema B (products_catalog), sem pesquisa complementar via Google Drive. Recomenda-se validar com o time comercial se há material adicional (ficha técnica, imagens, condições comerciais) antes de uso extensivo em vendas.
 
 ---
