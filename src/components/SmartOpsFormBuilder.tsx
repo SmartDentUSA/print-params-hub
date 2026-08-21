@@ -941,7 +941,6 @@ export function SmartOpsFormBuilder() {
                 </div>
               </div>
 
-              </div>
 
               <div className="border-t pt-3 space-y-3">
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Modo de exibição</p>
