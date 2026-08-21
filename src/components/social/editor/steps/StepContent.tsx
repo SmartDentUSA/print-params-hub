@@ -476,7 +476,13 @@ export function StepContent({
                 {value.product_category ? ` · ${value.product_category}` : ''}
               </p>
             )}
+            {igTrigger && (
+              <p className="text-[11px] text-primary mt-1">
+                Trigger Instagram: <b>{igTrigger.keyword}</b> — “{igTrigger.cta}” será incluído na copy gerada.
+              </p>
+            )}
           </div>
+
 
           {hasProduct && (
             <div className="rounded-md border bg-background/60 p-3 space-y-2">
