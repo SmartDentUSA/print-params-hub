@@ -196,6 +196,45 @@ export function StepContent({
   const knowledge = useProductKnowledgeCopies(value.product_slug || undefined, value.product_name || undefined);
   const readyCopies: ReadyCopy[] = knowledge.data?.ready_copies ?? [];
 
+  // Trigger Instagram do formulário vinculado ao produto selecionado
+  const [igTrigger, setIgTrigger] = useState<{ keyword: string; cta: string } | null>(null);
+  useEffect(() => {
+    const catalogId = (value.product_ref || '').startsWith('product:')
+      ? (value.product_ref as string).slice('product:'.length)
+      : null;
+    if (!catalogId) {
+      setIgTrigger(null);
+      return;
+    }
+    let mounted = true;
+    (async () => {
+      const { data } = await supabase
+        .from('smartops_forms')
+        .select('ig_trigger_keyword, ig_trigger_cta, is_active')
+        .eq('ig_trigger_enabled', true)
+        .eq('product_catalog_id', catalogId)
+        .not('ig_trigger_keyword', 'is', null)
+        .order('is_active', { ascending: false })
+        .limit(1);
+      if (!mounted) return;
+      const f: any = (data ?? [])[0];
+      setIgTrigger(
+        f?.ig_trigger_keyword
+          ? {
+              keyword: String(f.ig_trigger_keyword).toUpperCase(),
+              cta:
+                String(f.ig_trigger_cta || '').trim() ||
+                `Comente ${String(f.ig_trigger_keyword).toUpperCase()} para receber informações`,
+            }
+          : null,
+      );
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, [value.product_ref]);
+
+
   const onProductChange = (val: string) => {
     if (!val || val === 'none') {
       onChange({ product_ref: '', product_name: '', product_slug: '', product_category: '' });
@@ -476,7 +515,13 @@ export function StepContent({
                 {value.product_category ? ` · ${value.product_category}` : ''}
               </p>
             )}
+            {igTrigger && (
+              <p className="text-[11px] text-primary mt-1">
+                Trigger Instagram: <b>{igTrigger.keyword}</b> — “{igTrigger.cta}” será incluído na copy gerada.
+              </p>
+            )}
           </div>
+
 
           {hasProduct && (
             <div className="rounded-md border bg-background/60 p-3 space-y-2">
