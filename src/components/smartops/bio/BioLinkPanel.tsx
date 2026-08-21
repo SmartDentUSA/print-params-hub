@@ -153,6 +153,16 @@ export function BioLinkPanel() {
     setEditor({ ...editor, items: next });
   };
 
+  const sortItems = (mode: "kind" | "label") => {
+    if (!editor) return;
+    const next = [...editor.items].sort((a, b) => {
+      if (mode === "kind" && a.kind !== b.kind) return a.kind === "form" ? -1 : 1;
+      return (a.label ?? "").localeCompare(b.label ?? "", "pt-BR");
+    });
+    setEditor({ ...editor, items: next });
+  };
+
+
   const handleSave = async () => {
     if (!editor) return;
     const slug = slugify(editor.slug || editor.title);
