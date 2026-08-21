@@ -223,18 +223,32 @@ export function LandingPageBuilderModal({ open, onOpenChange, form }: Props) {
         nextContent.hero = { ...nextContent.hero, audio: prevAudio };
       }
 
+      // Modo RAG: usa a imagem oficial do catálogo como hero quando não houver uma.
+      let nextHero = heroImage;
+      if (mode === "rag" && !nextHero && productLink?.id) {
+        const { data: prod } = await supabase
+          .from("system_a_catalog" as any)
+          .select("image_url")
+          .eq("id", productLink.id)
+          .maybeSingle();
+        nextHero = ((prod as any)?.image_url as string) || "";
+      }
+
       const saved = await persist({
         mode,
         input_prompt: mode === "rag" ? `[RAG:${productLink?.id ?? ""}]` : input,
         content: nextContent,
+        hero_image_url: nextHero || null,
         status: lp?.status ?? "draft",
       } as any);
       if (saved) {
         setLp(saved);
         setContent(nextContent);
+        setHeroImage(nextHero);
         setTab("edit");
         toast.success("Landing page gerada");
       }
+
     } catch (e: any) {
       const msg = e?.message || "Falha ao gerar";
       if (msg.includes("rate_limited")) toast.error("Muitas requisições — aguarde alguns segundos");
