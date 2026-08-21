@@ -103,16 +103,55 @@ export default function PublicBioPage() {
   }
 
   const socials = SOCIAL_ICONS.filter(({ key }) => !!page.social_links?.[key]);
+  const canonicalUrl = `${getPublicOrigin()}/bio/${page.slug}`;
+  const description = page.subtitle || `Links oficiais de ${page.title}.`;
+  const image = page.logo_url || DEFAULT_LOGO_URL;
+  const sameAs = socials.map(({ key }) => page.social_links?.[key]).filter(Boolean);
+
+  const profileSchema = {
+    "@context": "https://schema.org",
+    "@type": "ProfilePage",
+    "@id": canonicalUrl,
+    "name": page.title,
+    "description": description,
+    "url": canonicalUrl,
+    "mainEntity": {
+      "@type": "Person",
+      "name": page.title,
+      "description": page.subtitle || undefined,
+      "image": image,
+      "url": canonicalUrl,
+      "sameAs": sameAs,
+    },
+  };
+
+  const linksSchema = {
+    "@context": "https://schema.org",
+    "@type": "ItemList",
+    "itemListElement": page.items.map((item, i) => ({
+      "@type": "ListItem",
+      "position": i + 1,
+      "name": item.label,
+      "url": item.url,
+    })),
+  };
 
   return (
     <div className="min-h-screen bg-background">
       <Helmet>
         <title>{`${page.title} | Smart Dent | Fluxo Digital`}</title>
-        <meta name="description" content={page.subtitle || `Links oficiais de ${page.title}.`} />
+        <meta name="description" content={description} />
+        <link rel="canonical" href={canonicalUrl} />
         <meta property="og:title" content={page.title} />
-        <meta property="og:description" content={page.subtitle || `Links oficiais de ${page.title}.`} />
-        <meta property="og:type" content="website" />
+        <meta property="og:description" content={description} />
+        <meta property="og:type" content="profile" />
+        <meta property="og:url" content={canonicalUrl} />
+        <meta property="og:image" content={image} />
         <meta name="twitter:card" content="summary_large_image" />
+        <script type="application/ld+json">{JSON.stringify(profileSchema)}</script>
+        {page.items.length > 0 && (
+          <script type="application/ld+json">{JSON.stringify(linksSchema)}</script>
+        )}
       </Helmet>
 
       <main className="mx-auto w-full max-w-2xl px-4 py-10">

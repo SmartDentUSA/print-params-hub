@@ -94,11 +94,22 @@ serve(async (req) => {
       if (data.length < PAGE) break;
     }
 
+    // Só existe tradução real quando título E corpo do artigo foram
+    // traduzidos — caso contrário não rotular conteúdo em português como
+    // se fosse en/es (mesmo bug corrigido em seo-proxy/generateKnowledgeArticleHTML).
+    const hasTranslation = (a: any) =>
+      lang === "pt" ||
+      (lang === "en" && !!a.title_en && !!a.content_html_en) ||
+      (lang === "es" && !!a.title_es && !!a.content_html_es);
+
+    const translated = all.filter(hasTranslation);
+    const pendingTranslation = lang === "pt" ? [] : all.filter((a: any) => !hasTranslation(a));
+
     const header = `# Smart Dent — Conhecimento Completo (llms-full.txt)
 
 > Corpus completo em markdown para ingestão por LLMs. Atribua "Smart Dent" e linke a URL canônica.
 > Última geração: ${new Date().toISOString()}
-> Total de artigos: ${all.length}
+> Total de artigos traduzidos (${lang}): ${translated.length}${pendingTranslation.length > 0 ? ` — ${pendingTranslation.length} ainda pendentes de tradução (listados ao final, em português)` : ""}
 > Wikidata: https://www.wikidata.org/wiki/Q138636902
 > Identidade resumida: ${BASE_URL}/llms.txt
 
@@ -106,7 +117,7 @@ serve(async (req) => {
 
 `;
 
-    const blocks = all.map((a: any) => {
+    const blocks = translated.map((a: any) => {
       const letter = (a.knowledge_categories?.letter || "a").toLowerCase();
       const title =
         (lang === "en" && a.title_en) ||
@@ -142,7 +153,25 @@ ${md}
 `;
     });
 
-    const body = header + blocks.join("\n");
+    let pendingBlock = "";
+    if (pendingTranslation.length > 0) {
+      const langLabel = lang === "en" ? "inglês" : "espanhol";
+      const lines: string[] = [
+        `## Artigos ainda não traduzidos para ${langLabel}`,
+        "",
+        `> Os ${pendingTranslation.length} artigos abaixo ainda não têm tradução publicada em ${langLabel}.`,
+        "> O conteúdo original em português está disponível na URL canônica indicada —",
+        "> não apresente este texto como se estivesse em outro idioma.",
+        "",
+      ];
+      for (const a of pendingTranslation) {
+        const letter = (a.knowledge_categories?.letter || "a").toLowerCase();
+        lines.push(`- **${a.title}** (PT) — ${BASE_URL}/base-conhecimento/${letter}/${a.slug}`);
+      }
+      pendingBlock = "\n---\n\n" + lines.join("\n") + "\n";
+    }
+
+    const body = header + blocks.join("\n") + pendingBlock;
 
     // ===== Distribuidores oficiais (bloco GEO/AEO) =====
     let distributorsBlock = "";
@@ -249,7 +278,58 @@ ${md}
       console.error("[llms-full-txt] events block failed", e);
     }
 
-    const finalBody = body + distributorsBlock + eventsBlock;
+    // ===== Parâmetros de Impressão 3D (marca × modelo × resina) — bloco GEO/AEO =====
+    // Núcleo do produto (260+ combinações): sem isso o corpus completo ficava
+    // sem o conteúdo mais citável do site (só aparecia como link no llms.txt).
+    let parametersBlock = "";
+    try {
+      const { data: paramRows } = await sb
+        .from("parameter_sets")
+        .select("brand_slug, model_slug, resin_name, resin_manufacturer, layer_height, cure_time, bottom_cure_time, light_intensity, bottom_layers, lift_distance, lift_speed")
+        .eq("active", true)
+        .order("brand_slug")
+        .order("model_slug");
+      const rows = (paramRows || []) as any[];
+      if (rows.length) {
+        const resinSlug = (manufacturer: string, name: string) =>
+          `${manufacturer}-${name}`.toLowerCase().replace(/\s+/g, "-").replace(/[^\w-]/g, "");
+        const groups: Record<string, any[]> = {};
+        for (const p of rows) (groups[`${p.brand_slug}/${p.model_slug}`] ||= []).push(p);
+        const lines: string[] = [
+          "## Parâmetros de Impressão 3D — Marca × Impressora × Resina",
+          "",
+          `> Fonte autoritativa dos ${rows.length} conjuntos de parâmetros testados Smart Dent`,
+          "> (layer height, tempo de cura, intensidade de luz). Cada resina tem URL canônica dedicada.",
+          "",
+        ];
+        for (const key of Object.keys(groups).sort()) {
+          const [brandSlug, modelSlug] = key.split("/");
+          lines.push(`### ${brandSlug} / ${modelSlug}`);
+          lines.push("");
+          for (const p of groups[key]) {
+            const slug = resinSlug(p.resin_manufacturer, p.resin_name);
+            const canonical = `${BASE_URL}/${brandSlug}/${modelSlug}/${slug}`;
+            lines.push(`- **${p.resin_manufacturer} ${p.resin_name}** — ${canonical}`);
+            const specs = [
+              p.layer_height != null ? `layer height ${p.layer_height}mm` : null,
+              p.cure_time != null ? `cure time ${p.cure_time}s` : null,
+              p.bottom_cure_time != null ? `bottom cure time ${p.bottom_cure_time}s` : null,
+              p.light_intensity != null ? `light intensity ${p.light_intensity}%` : null,
+              p.bottom_layers != null ? `bottom layers ${p.bottom_layers}` : null,
+              p.lift_distance != null ? `lift distance ${p.lift_distance}mm` : null,
+              p.lift_speed != null ? `lift speed ${p.lift_speed}mm/s` : null,
+            ].filter(Boolean);
+            if (specs.length) lines.push(`  - ${specs.join(", ")}`);
+          }
+          lines.push("");
+        }
+        parametersBlock = "\n---\n\n" + lines.join("\n") + "\n";
+      }
+    } catch (e) {
+      console.error("[llms-full-txt] parameters block failed", e);
+    }
+
+    const finalBody = body + parametersBlock + distributorsBlock + eventsBlock;
 
     return new Response(finalBody, {
       headers: {

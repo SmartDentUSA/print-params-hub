@@ -21,10 +21,30 @@ interface CategoryData {
   extra_data: any;
 }
 
+interface CategoryProduct {
+  id: string;
+  name: string;
+  slug: string | null;
+  image_url: string | null;
+}
+
+const extractProductSlug = (raw: string | null): string | null => {
+  if (!raw) return null;
+  if (raw.includes('http')) {
+    try {
+      return new URL(raw).pathname.split('/').pop() || raw;
+    } catch {
+      return raw;
+    }
+  }
+  return raw;
+};
+
 const CategoryPage = () => {
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
   const [category, setCategory] = useState<CategoryData | null>(null);
+  const [products, setProducts] = useState<CategoryProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const { data: companyData } = useCompanyData();
   const { t, language } = useLanguage();
@@ -63,6 +83,32 @@ const CategoryPage = () => {
     fetchCategory();
   }, [slug, navigate, t]);
 
+  useEffect(() => {
+    const productCategory = category?.extra_data?.category || category?.name;
+    if (!productCategory) return;
+
+    const fetchProducts = async () => {
+      const { data, error } = await supabase
+        .from("system_a_catalog")
+        .select("id, name, slug, image_url")
+        .eq("category", "product")
+        .eq("active", true)
+        .eq("approved", true)
+        .eq("visible_in_ui", true)
+        .eq("product_category", productCategory)
+        .order("name")
+        .limit(50);
+
+      if (error) {
+        console.error("Error fetching category products:", error);
+        return;
+      }
+      setProducts(data || []);
+    };
+
+    fetchProducts();
+  }, [category]);
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -93,6 +139,30 @@ const CategoryPage = () => {
     ]
   };
 
+  const collectionPageSchema = {
+    "@context": "https://schema.org",
+    "@type": "CollectionPage",
+    "name": seoTitle,
+    "description": metaDescription,
+    "url": canonicalUrl,
+    "isPartOf": { "@type": "WebSite", "name": "Smart Dent", "url": baseUrl },
+  };
+
+  // ItemList só é emitido quando há produtos reais listados na página —
+  // schema.org e as diretrizes do Google esperam que refita o que é visível.
+  const itemListSchema = products.length > 0 ? {
+    "@context": "https://schema.org",
+    "@type": "ItemList",
+    "name": category.name,
+    "numberOfItems": products.length,
+    "itemListElement": products.map((p, i) => ({
+      "@type": "ListItem",
+      "position": i + 1,
+      "name": p.name,
+      "url": `${baseUrl}/produtos/${extractProductSlug(p.slug)}`,
+    })),
+  } : null;
+
   return (
     <>
       <Helmet>
@@ -116,6 +186,10 @@ const CategoryPage = () => {
         <meta name="twitter:description" content={metaDescription} />
         <meta name="twitter:image" content={ogImage} />
         <script type="application/ld+json">{JSON.stringify(breadcrumbSchema)}</script>
+        <script type="application/ld+json">{JSON.stringify(collectionPageSchema)}</script>
+        {itemListSchema && (
+          <script type="application/ld+json">{JSON.stringify(itemListSchema)}</script>
+        )}
       </Helmet>
 
       <div className="min-h-screen bg-background">
@@ -162,6 +236,29 @@ const CategoryPage = () => {
               <CardContent className="pt-6">
                 <h2 className="font-semibold mb-2">{t('category.target_audience')}</h2>
                 <p>{extraData.target_audience}</p>
+              </CardContent>
+            </Card>
+          )}
+
+          {products.length > 0 && (
+            <Card className="mt-4">
+              <CardContent className="pt-6">
+                <h2 className="font-semibold mb-4">{category.name}</h2>
+                <ul className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {products.map((p) => (
+                    <li key={p.id}>
+                      <a
+                        href={`/produtos/${extractProductSlug(p.slug)}`}
+                        className="flex items-center gap-3 rounded-md border p-3 hover:bg-accent transition-colors"
+                      >
+                        {p.image_url && (
+                          <img src={p.image_url} alt={p.name} className="h-10 w-10 rounded object-cover" loading="lazy" />
+                        )}
+                        <span>{p.name}</span>
+                      </a>
+                    </li>
+                  ))}
+                </ul>
               </CardContent>
             </Card>
           )}

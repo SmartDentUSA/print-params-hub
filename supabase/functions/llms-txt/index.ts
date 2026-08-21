@@ -1,22 +1,9 @@
 // ═══════════════════════════════════════════════════════════
 // 📄 /llms.txt — Smart Dent v2.3 (Junho 2026)
-// Conteúdo estático centralizado em _shared/llms-identity.ts
+// Conteúdo e handler centralizados em _shared/llms-identity.ts
+// (compartilhado com seo-llms-txt — mesma rota, dois caminhos de deploy)
 // ═══════════════════════════════════════════════════════════
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { IDENTITY_V23 } from "../_shared/llms-identity.ts";
+import { llmsTxtHandler } from "../_shared/llms-identity.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
-
-serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
-  return new Response(IDENTITY_V23, {
-    headers: {
-      ...corsHeaders,
-      "Content-Type": "text/plain; charset=utf-8",
-      "Cache-Control": "public, max-age=86400",
-    },
-  });
-});
+serve(llmsTxtHandler);

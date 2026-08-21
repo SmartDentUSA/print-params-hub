@@ -306,6 +306,126 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Páginas institucionais estáticas
+    sitemap += `
+  <!-- Sobre -->
+  <url>
+    <loc>${baseUrl}/sobre</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+    <lastmod>${now}</lastmod>
+  </url>
+  <!-- Central de Recursos -->
+  <url>
+    <loc>${baseUrl}/support-resources</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.6</priority>
+    <lastmod>${now}</lastmod>
+  </url>
+  <!-- Calculadora de ROI -->
+  <url>
+    <loc>${baseUrl}/base-conhecimento/calculadora-roi</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+    <lastmod>${now}</lastmod>
+  </url>
+  <url>
+    <loc>${baseUrl}/en/knowledge-base/roi-calculator</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+    <lastmod>${now}</lastmod>
+  </url>
+  <url>
+    <loc>${baseUrl}/es/base-conocimiento/calculadora-roi</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+    <lastmod>${now}</lastmod>
+  </url>
+`;
+
+    // 🆕 Distribuidores (lista + fichas por país/detalhe)
+    // Mapa mínimo nome→slug de país; precisa ficar em sincronia com
+    // COUNTRY_REGISTRY em supabase/functions/seo-proxy/index.ts.
+    const COUNTRY_NAME_TO_SLUG: Record<string, string> = {
+      'brasil': 'brasil', 'brazil': 'brasil',
+      'chile': 'chile',
+      'colombia': 'colombia', 'colômbia': 'colombia',
+      'costa rica': 'costa-rica',
+      'republica dominicana': 'republica-dominicana', 'república dominicana': 'republica-dominicana',
+      'estados unidos': 'estados-unidos', 'eua': 'estados-unidos', 'usa': 'estados-unidos', 'united states': 'estados-unidos',
+      'uruguai': 'uruguai', 'uruguay': 'uruguai',
+      'venezuela': 'venezuela',
+    };
+    const slugifyDistributor = (s: string) => (s || '')
+      .toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '').replace(/--+/g, '-').replace(/^-|-$/g, '');
+
+    const { data: distributors } = await supabase
+      .from('distributors')
+      .select('slug, nome_fantasia, razao_social, pais, updated_at')
+      .eq('active', true);
+
+    if (distributors && distributors.length > 0) {
+      sitemap += `
+  <!-- Distribuidores: hub -->
+  <url>
+    <loc>${baseUrl}/distribuidores</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+    <lastmod>${now}</lastmod>
+  </url>
+`;
+      const countrySlugsSeen = new Set<string>();
+      for (const d of distributors as any[]) {
+        const countrySlug = COUNTRY_NAME_TO_SLUG[(d.pais || '').toLowerCase().trim()] || slugifyDistributor(d.pais || 'outros');
+        countrySlugsSeen.add(countrySlug);
+        const distSlug = d.slug || slugifyDistributor(d.nome_fantasia || d.razao_social || '');
+        if (!distSlug) continue;
+        const lastmod = d.updated_at ? new Date(d.updated_at).toISOString().split('T')[0] : now;
+        sitemap += `
+  <!-- Distribuidor: ${d.nome_fantasia || d.razao_social} -->
+  <url>
+    <loc>${baseUrl}/distribuidores/${countrySlug}/${distSlug}</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+    <lastmod>${lastmod}</lastmod>
+  </url>
+`;
+      }
+      for (const countrySlug of countrySlugsSeen) {
+        sitemap += `
+  <!-- Distribuidores: ${countrySlug} -->
+  <url>
+    <loc>${baseUrl}/distribuidores/${countrySlug}</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.65</priority>
+    <lastmod>${now}</lastmod>
+  </url>
+`;
+      }
+    }
+
+    // 🆕 Páginas de bio (links públicos)
+    const { data: bioPages } = await supabase
+      .from('smartops_bio_pages')
+      .select('slug, updated_at')
+      .eq('active', true);
+
+    if (bioPages && bioPages.length > 0) {
+      for (const page of bioPages as any[]) {
+        const lastmod = page.updated_at ? new Date(page.updated_at).toISOString().split('T')[0] : now;
+        sitemap += `
+  <!-- Bio: ${page.slug} -->
+  <url>
+    <loc>${baseUrl}/bio/${page.slug}</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+    <lastmod>${lastmod}</lastmod>
+  </url>
+`;
+      }
+    }
+
     sitemap += `
 </urlset>`;
 

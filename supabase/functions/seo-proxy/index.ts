@@ -400,9 +400,18 @@ function buildKnowledgeGraphJsonLd(knowledgeCtx: KnowledgeContext): string {
   return `<script type="application/ld+json">${safeLd({ "@context": "https://schema.org", "@graph": nodes })}</script>`;
 }
 
-function buildAIHeadTags(opts: { context: string; title: string; description: string; image?: string; author?: string; date?: string; canonicalUrl?: string }): string {
+function buildAIHeadTags(opts: { context: string; title: string; description: string; image?: string; author?: string; date?: string; canonicalUrl?: string; allowTraining?: boolean }): string {
+  // Conteúdo editorial (KB, hubs, distribuidores, eventos) quer citação por IA
+  // regenerativa: allow-training. Páginas de parâmetro (marca/modelo/resina)
+  // protegem a base proprietária de 260+ combinações: no-training — precisa
+  // bater com o mesmo valor declarado em SEOHead.tsx para o mesmo tipo de
+  // página no client-side, senão bots sem JS e navegadores veem políticas
+  // contraditórias para a mesma URL.
+  const policy = opts.allowTraining === false
+    ? 'allow-indexing:yes, allow-training:no'
+    : 'allow-citation, allow-training, require-attribution';
   return `
-  <meta name="ai-content-policy" content="allow-citation, allow-training, require-attribution" />
+  <meta name="ai-content-policy" content="${policy}" />
   <meta name="AI-context" content="${escapeHtml(opts.context)}" />
   <meta name="twitter:card" content="${opts.image ? 'summary_large_image' : 'summary'}" />
   <meta name="twitter:site" content="@smartdent" />
@@ -856,18 +865,18 @@ function buildAuthorSchema(author: any, baseUrl: string) {
 }
 
 // MedicalWebPage Schema para conteúdo de saúde
-function buildMedicalWebPageSchema(content: any, author: any, baseUrl: string, canonicalUrl: string) {
+function buildMedicalWebPageSchema(content: any, author: any, baseUrl: string, canonicalUrl: string, inLanguage = 'pt-BR', title?: string, description?: string) {
   return {
     "@type": "MedicalWebPage",
     "@id": canonicalUrl,
-    "name": content.title,
-    "headline": content.title,
-    "description": content.excerpt || content.meta_description,
+    "name": title || content.title,
+    "headline": title || content.title,
+    "description": description || content.excerpt || content.meta_description,
     "datePublished": content.created_at,
     "dateModified": content.updated_at,
     "image": content.og_image_url || content.content_image_url,
     "url": canonicalUrl,
-    "inLanguage": "pt-BR",
+    "inLanguage": inLanguage,
     "specialty": {
       "@type": "MedicalSpecialty",
       "name": "Odontologia"
@@ -897,19 +906,19 @@ function buildMedicalWebPageSchema(content: any, author: any, baseUrl: string, c
 }
 
 // ScholarlyArticle Schema para laudos e documentos técnicos
-function buildScholarlyArticleSchema(content: any, author: any, baseUrl: string, canonicalUrl: string) {
+function buildScholarlyArticleSchema(content: any, author: any, baseUrl: string, canonicalUrl: string, inLanguage = 'pt-BR', title?: string, description?: string) {
   return {
     "@type": "ScholarlyArticle",
     "@id": canonicalUrl,
-    "headline": content.title,
-    "name": content.title,
-    "abstract": content.excerpt || content.meta_description,
-    "description": content.excerpt || content.meta_description,
+    "headline": title || content.title,
+    "name": title || content.title,
+    "abstract": description || content.excerpt || content.meta_description,
+    "description": description || content.excerpt || content.meta_description,
     "datePublished": content.created_at,
     "dateModified": content.updated_at,
     "image": content.og_image_url || content.content_image_url,
     "url": canonicalUrl,
-    "inLanguage": "pt-BR",
+    "inLanguage": inLanguage,
     "author": buildAuthorSchema(author, baseUrl),
     "publisher": { "@id": `${baseUrl}/#organization` },
     "isAccessibleForFree": true,
@@ -1158,7 +1167,7 @@ async function generateBrandHTML(brandSlug: string, supabase: any): Promise<stri
   <meta property="og:description" content="Configurações para ${modelsCount} modelos ${escapeHtml(brand.name)}" />
   <meta property="og:image" content="${brand.logo_url || `${baseUrl}/og-fluxo-digital.jpg`}" />
   <meta property="og:type" content="website" />
-  ${buildAIHeadTags({ context: contextText, title, description, image: brand.logo_url || `${baseUrl}/og-fluxo-digital.jpg`, canonicalUrl: `${baseUrl}/${brandSlug}` })}
+  ${buildAIHeadTags({ context: contextText, title, description, image: brand.logo_url || `${baseUrl}/og-fluxo-digital.jpg`, canonicalUrl: `${baseUrl}/${brandSlug}`, allowTraining: false })}
   <script type="application/ld+json">
   ${safeLd({
     "@context": "https://schema.org",
@@ -1242,7 +1251,7 @@ async function generateModelHTML(brandSlug: string, modelSlug: string, supabase:
   <meta property="og:description" content="${resinsCount} resinas disponíveis para ${escapeHtml(model.name)}" />
   <meta property="og:image" content="${ogImage}" />
   <meta property="og:type" content="product" />
-  ${buildAIHeadTags({ context: contextText, title, description, image: ogImage, canonicalUrl: `${baseUrl}/${brandSlug}/${modelSlug}` })}
+  ${buildAIHeadTags({ context: contextText, title, description, image: ogImage, canonicalUrl: `${baseUrl}/${brandSlug}/${modelSlug}`, allowTraining: false })}
   <script type="application/ld+json">
   ${safeLd({
     "@context": "https://schema.org",
@@ -1350,7 +1359,7 @@ async function generateResinHTML(brandSlug: string, modelSlug: string, resinSlug
   <meta property="og:description" content="${metaDescription}" />
   <meta property="og:image" content="${ogImage}" />
   <meta property="og:type" content="product" />
-  ${buildAIHeadTags({ context: contextText, title: seoTitle, description: metaDescription, image: ogImage, canonicalUrl })}
+  ${buildAIHeadTags({ context: contextText, title: seoTitle, description: metaDescription, image: ogImage, canonicalUrl, allowTraining: false })}
   <script type="application/ld+json">
   ${safeLd({
     "@context": "https://schema.org",
@@ -1738,7 +1747,7 @@ async function generateKnowledgeCategoryHTML(letter: string, supabase: any): Pro
 </html>`;
 }
 
-async function generateKnowledgeArticleHTML(letter: string, slug: string, supabase: any): Promise<string> {
+async function generateKnowledgeArticleHTML(letter: string, slug: string, supabase: any, lang: 'pt' | 'en' | 'es' = 'pt'): Promise<string> {
   const { data: content, error } = await supabase
     .from('knowledge_contents')
     .select('*, knowledge_categories(*), authors(*)')
@@ -1796,10 +1805,56 @@ async function generateKnowledgeArticleHTML(letter: string, slug: string, supaba
     }
   }
 
-  const desc = content.meta_description || content.excerpt || 
-    (content.content_html?.replace(/<[^>]*>/g, '').substring(0, 160) + '...');
+  // Idioma efetivamente disponível para este artigo. Se a tradução solicitada
+  // não existir (title_en/es + content_html_en/es), servir e rotular como PT
+  // — nunca marcar conteúdo em português como se fosse en-US/es-ES.
+  const hasTranslation = lang === 'pt'
+    || (lang === 'en' && !!content.title_en && !!content.content_html_en)
+    || (lang === 'es' && !!content.title_es && !!content.content_html_es);
+  const effectiveLang: 'pt' | 'en' | 'es' = hasTranslation ? lang : 'pt';
+
+  const localizedTitle = effectiveLang === 'en' ? (content.title_en || content.title)
+    : effectiveLang === 'es' ? (content.title_es || content.title)
+    : content.title;
+  const localizedExcerpt = effectiveLang === 'en' ? (content.excerpt_en || content.excerpt)
+    : effectiveLang === 'es' ? (content.excerpt_es || content.excerpt)
+    : content.excerpt;
+  const localizedContentHtml = effectiveLang === 'en' ? (content.content_html_en || content.content_html)
+    : effectiveLang === 'es' ? (content.content_html_es || content.content_html)
+    : content.content_html;
+  const localizedFaqs = effectiveLang === 'en' ? (content.faqs_en || content.faqs)
+    : effectiveLang === 'es' ? (content.faqs_es || content.faqs)
+    : content.faqs;
+  const localizedAiContext = effectiveLang === 'en' ? content.ai_context_en
+    : effectiveLang === 'es' ? content.ai_context_es
+    : content.ai_context;
+
+  const htmlLangAttr = effectiveLang === 'en' ? 'en-US' : effectiveLang === 'es' ? 'es-ES' : 'pt-BR';
+  const ogLocale = effectiveLang === 'en' ? 'en_US' : effectiveLang === 'es' ? 'es_ES' : 'pt_BR';
+
+  const desc = content.meta_description || localizedExcerpt ||
+    (localizedContentHtml?.replace(/<[^>]*>/g, '').substring(0, 160) + '...');
 
   const baseUrl = 'https://parametros.smartdent.com.br';
+  const ptCanonicalUrl = `${baseUrl}/base-conhecimento/${letter}/${slug}`;
+  const enCanonicalUrl = `${baseUrl}/en/knowledge-base/${letter}/${slug}`;
+  const esCanonicalUrl = `${baseUrl}/es/base-conocimiento/${letter}/${slug}`;
+  const requestedCanonicalUrl = lang === 'en' ? enCanonicalUrl : lang === 'es' ? esCanonicalUrl : ptCanonicalUrl;
+  // Auto-referencial quando a tradução existe; caso contrário aponta para o
+  // PT (idioma realmente servido) para não indexar a URL localizada como
+  // conteúdo duplicado em outro idioma.
+  const canonicalUrl = hasTranslation ? requestedCanonicalUrl : ptCanonicalUrl;
+  const requestedPath = lang === 'en' ? `/en/knowledge-base/${letter}/${slug}`
+    : lang === 'es' ? `/es/base-conocimiento/${letter}/${slug}`
+    : `/base-conhecimento/${letter}/${slug}`;
+  const hubBaseUrl = effectiveLang === 'en' ? `${baseUrl}/en/knowledge-base`
+    : effectiveLang === 'es' ? `${baseUrl}/es/base-conocimiento`
+    : `${baseUrl}/base-conhecimento`;
+  const breadcrumbLabels = effectiveLang === 'en'
+    ? { home: 'Home', hub: 'Knowledge Base', howToPrefix: 'How to use' }
+    : effectiveLang === 'es'
+    ? { home: 'Inicio', hub: 'Base de Conocimiento', howToPrefix: 'Cómo usar' }
+    : { home: 'Início', hub: 'Base de Conhecimento', howToPrefix: 'Como usar' };
 
   // og:image com fallback + URL absoluta (WhatsApp/Facebook não baixam paths relativos
   // nem aceitam content="" — sem isso o card de preview do link fica sem hero).
@@ -1838,8 +1893,8 @@ async function generateKnowledgeArticleHTML(letter: string, slug: string, supaba
     
     return {
       "@type": "VideoObject",
-      "name": video.title || `${content.title} - Vídeo ${idx + 1}`,
-      "description": content.meta_description || content.excerpt,
+      "name": video.title || `${localizedTitle} - Vídeo ${idx + 1}`,
+      "description": content.meta_description || localizedExcerpt,
       "thumbnailUrl": thumbnailUrl,
       "uploadDate": content.created_at,
       "contentUrl": contentUrl,
@@ -1851,9 +1906,9 @@ async function generateKnowledgeArticleHTML(letter: string, slug: string, supaba
   }).filter(Boolean);
 
   // Gerar FAQPage schema se houver FAQs
-  const faqSchema = (content.faqs && Array.isArray(content.faqs) && content.faqs.length > 0) ? {
+  const faqSchema = (localizedFaqs && Array.isArray(localizedFaqs) && localizedFaqs.length > 0) ? {
     "@type": "FAQPage",
-    "mainEntity": content.faqs.map((faq: any) => ({
+    "mainEntity": localizedFaqs.map((faq: any) => ({
       "@type": "Question",
       "name": faq.question,
       "acceptedAnswer": {
@@ -1864,34 +1919,35 @@ async function generateKnowledgeArticleHTML(letter: string, slug: string, supaba
   } : null;
 
   return `<!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="${htmlLangAttr}">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>${escapeHtml(content.title)} | Base de Conhecimento Smart Dent</title>
+  <title>${escapeHtml(localizedTitle)} | Base de Conhecimento Smart Dent</title>
   <meta name="description" content="${escapeHtml(desc)}" />
   ${FAVICON_TAGS}
-  <link rel="canonical" href="${baseUrl}/base-conhecimento/${letter}/${slug}" />
-  <link rel="alternate" hreflang="pt-BR" href="${baseUrl}/base-conhecimento/${letter}/${slug}" />
-  <link rel="alternate" hreflang="en-US" href="${baseUrl}/en/knowledge-base/${letter}/${slug}" />
-  <link rel="alternate" hreflang="es-ES" href="${baseUrl}/es/base-conocimiento/${letter}/${slug}" />
-  <link rel="alternate" hreflang="x-default" href="${baseUrl}/base-conhecimento/${letter}/${slug}" />
+  <link rel="canonical" href="${canonicalUrl}" />
+  <link rel="alternate" hreflang="pt-BR" href="${ptCanonicalUrl}" />
+  <link rel="alternate" hreflang="en-US" href="${enCanonicalUrl}" />
+  <link rel="alternate" hreflang="es-ES" href="${esCanonicalUrl}" />
+  <link rel="alternate" hreflang="x-default" href="${ptCanonicalUrl}" />
   ${content.keywords ? `<meta name="keywords" content="${escapeHtml(content.keywords.join(', '))}" />` : ''}
   ${buildAICrawlerPolicy()}
-  ${buildEntityReferenceMetas(knowledgeCtx, { type: 'article', name: content.title })}
-  
+  ${buildEntityReferenceMetas(knowledgeCtx, { type: 'article', name: localizedTitle })}
+
   <!-- FASE 3: AI-Context Meta Tag (Experimental para IA Regenerativa) -->
-  <meta name="AI-context" content="Conteúdo técnico-científico sobre ${escapeHtml(content.knowledge_categories?.name || 'odontologia')}. Público-alvo: cirurgiões-dentistas e técnicos em prótese dentária. Nível: Expert. Tipo: Artigo técnico." />
-  
+  <meta name="AI-context" content="${escapeHtml(localizedAiContext || `Conteúdo técnico-científico sobre ${content.knowledge_categories?.name || 'odontologia'}. Público-alvo: cirurgiões-dentistas e técnicos em prótese dentária. Nível: Expert. Tipo: Artigo técnico.`)}" />
+
   <!-- FASE 3: Open Graph Otimizado para IA -->
-  <meta property="og:title" content="${escapeHtml(content.title)}" />
-  <meta property="og:description" content="${escapeHtml(content.excerpt || desc)}" />
+  <meta property="og:title" content="${escapeHtml(localizedTitle)}" />
+  <meta property="og:description" content="${escapeHtml(localizedExcerpt || desc)}" />
   <meta property="og:type" content="article" />
+  <meta property="og:locale" content="${ogLocale}" />
   <meta property="og:image" content="${ogImage}" />
   <meta property="og:image:secure_url" content="${ogImage}" />
   <meta property="og:image:width" content="1200" />
   <meta property="og:image:height" content="630" />
-  <meta property="og:image:alt" content="${escapeHtml(content.content_image_alt || content.title)}" />
+  <meta property="og:image:alt" content="${escapeHtml(content.content_image_alt || localizedTitle)}" />
   <meta property="article:section" content="${escapeHtml(content.knowledge_categories?.name || 'Conhecimento')}" />
   <meta property="article:published_time" content="${content.created_at}" />
   <meta property="article:modified_time" content="${content.updated_at}" />
@@ -1924,16 +1980,15 @@ async function generateKnowledgeArticleHTML(letter: string, slug: string, supaba
   })()}
   <meta name="twitter:site" content="@smartdent" />
   <meta name="twitter:creator" content="${content.authors?.twitter_url ? '@' + content.authors.twitter_url.split('/').pop() : '@smartdent'}" />
-  <meta name="twitter:title" content="${escapeHtml(content.title)}" />
-  <meta name="twitter:description" content="${escapeHtml(content.excerpt || desc)}" />
+  <meta name="twitter:title" content="${escapeHtml(localizedTitle)}" />
+  <meta name="twitter:description" content="${escapeHtml(localizedExcerpt || desc)}" />
   <meta name="twitter:image" content="${ogImage}" />
-  <meta name="twitter:image:alt" content="${escapeHtml(content.content_image_alt || content.title)}" />
-  
+  <meta name="twitter:image:alt" content="${escapeHtml(content.content_image_alt || localizedTitle)}" />
+
   <!-- Structured Data: @graph com Detecção Dinâmica de Tipo (MedicalWebPage/ScholarlyArticle/TechArticle) -->
   <script type="application/ld+json">
   ${(() => {
     const contentType = detectContentType(content);
-    const canonicalUrl = `${baseUrl}/base-conhecimento/${letter}/${slug}`;
     const authorSchema = buildAuthorSchema(content.authors, baseUrl);
     const publisherSchema = buildPublisherSchema(baseUrl, companyReviews);
     
@@ -1941,24 +1996,24 @@ async function generateKnowledgeArticleHTML(letter: string, slug: string, supaba
     let mainArticleSchema: any;
     
     if (contentType === 'MedicalWebPage') {
-      mainArticleSchema = buildMedicalWebPageSchema(content, content.authors, baseUrl, canonicalUrl);
+      mainArticleSchema = buildMedicalWebPageSchema(content, content.authors, baseUrl, canonicalUrl, htmlLangAttr, localizedTitle, localizedExcerpt);
     } else if (contentType === 'ScholarlyArticle') {
-      mainArticleSchema = buildScholarlyArticleSchema(content, content.authors, baseUrl, canonicalUrl);
+      mainArticleSchema = buildScholarlyArticleSchema(content, content.authors, baseUrl, canonicalUrl, htmlLangAttr, localizedTitle, localizedExcerpt);
     } else {
       // TechArticle (padrão)
       mainArticleSchema = {
         "@type": "TechArticle",
         "@id": canonicalUrl,
-        "headline": escapeHtml(content.title),
-        "name": escapeHtml(content.title),
-        "description": escapeHtml(content.excerpt || desc),
+        "headline": escapeHtml(localizedTitle),
+        "name": escapeHtml(localizedTitle),
+        "description": escapeHtml(localizedExcerpt || desc),
         "image": ogImage,
         "datePublished": content.created_at,
         "dateModified": content.updated_at,
         "url": canonicalUrl,
-        "inLanguage": "pt-BR",
+        "inLanguage": htmlLangAttr,
         "keywords": content.keywords?.join(', ') || undefined,
-        "articleBody": content.content_html?.replace(/<[^>]*>/g, '').substring(0, 5000),
+        "articleBody": localizedContentHtml?.replace(/<[^>]*>/g, '').substring(0, 5000),
         "proficiencyLevel": "Expert",
         "dependencies": recommendedResins.length > 0 ? recommendedResins.map((r: any) => r.name).join(', ') : undefined,
         "author": { "@id": authorSchema["@id"] },
@@ -1982,10 +2037,10 @@ async function generateKnowledgeArticleHTML(letter: string, slug: string, supaba
       {
         "@type": "BreadcrumbList",
         "itemListElement": [
-          { "@type": "ListItem", "position": 1, "name": "Início", "item": baseUrl },
-          { "@type": "ListItem", "position": 2, "name": "Base de Conhecimento", "item": `${baseUrl}/base-conhecimento` },
-          { "@type": "ListItem", "position": 3, "name": escapeHtml(content.knowledge_categories?.name || letter.toUpperCase()), "item": `${baseUrl}/base-conhecimento/${letter.toLowerCase()}` },
-          { "@type": "ListItem", "position": 4, "name": escapeHtml(content.title), "item": canonicalUrl }
+          { "@type": "ListItem", "position": 1, "name": breadcrumbLabels.home, "item": baseUrl },
+          { "@type": "ListItem", "position": 2, "name": breadcrumbLabels.hub, "item": hubBaseUrl },
+          { "@type": "ListItem", "position": 3, "name": escapeHtml(content.knowledge_categories?.name || letter.toUpperCase()), "item": `${hubBaseUrl}/${letter.toLowerCase()}` },
+          { "@type": "ListItem", "position": 4, "name": escapeHtml(localizedTitle), "item": canonicalUrl }
         ]
       },
       // Videos
@@ -1994,12 +2049,12 @@ async function generateKnowledgeArticleHTML(letter: string, slug: string, supaba
       ...(faqSchema ? [faqSchema] : []),
       // HowTo Schema - Universal Extractor
       ...(() => {
-        const howToSteps = extractHowToStepsFromHTML(content.content_html || '');
+        const howToSteps = extractHowToStepsFromHTML(localizedContentHtml || '');
         if (howToSteps.length >= 3) {
           return [{
             "@type": "HowTo",
-            "name": `Como usar: ${escapeHtml(content.title)}`,
-            "description": escapeHtml(content.excerpt || desc),
+            "name": `${breadcrumbLabels.howToPrefix}: ${escapeHtml(localizedTitle)}`,
+            "description": escapeHtml(localizedExcerpt || desc),
             "totalTime": "PT15M",
             "step": howToSteps.map((step, idx) => ({
               "@type": "HowToStep",
@@ -2015,8 +2070,8 @@ async function generateKnowledgeArticleHTML(letter: string, slug: string, supaba
       // LearningResource Schema para IA Regenerativa
       {
         "@type": "LearningResource",
-        "name": escapeHtml(content.title),
-        "description": escapeHtml(content.excerpt || desc),
+        "name": escapeHtml(localizedTitle),
+        "description": escapeHtml(localizedExcerpt || desc),
         "abstract": escapeHtml(desc),
         "learningResourceType": "Article",
         "educationalLevel": "Expert",
@@ -2027,7 +2082,7 @@ async function generateKnowledgeArticleHTML(letter: string, slug: string, supaba
           "educationalRole": "Professional",
           "audienceType": "Cirurgiões-dentistas, técnicos em prótese dentária"
         },
-        "inLanguage": "pt-BR",
+        "inLanguage": htmlLangAttr,
         "isAccessibleForFree": true,
         "author": { "@id": authorSchema["@id"] },
         "publisher": { "@id": `${baseUrl}/#organization` },
@@ -2065,34 +2120,34 @@ async function generateKnowledgeArticleHTML(letter: string, slug: string, supaba
   <meta name="ICBM" content="-22.0154, -47.8911" />
   <meta name="publisher" content="Smart Dent" />
   <meta name="ai-content-policy" content="allow-citation, allow-training, require-attribution" />
-  <meta name="citation_title" content="${escapeHtml(content.title)}" />
+  <meta name="citation_title" content="${escapeHtml(localizedTitle)}" />
   ${content.authors?.name ? `<meta name="citation_author" content="${escapeHtml(content.authors.name)}" />` : ''}
   <meta name="citation_date" content="${content.created_at?.split('T')[0] || ''}" />
   <meta name="citation_publisher" content="Smart Dent" />
-  <link rel="cite-as" href="${baseUrl}/base-conhecimento/${letter}/${slug}" />
+  <link rel="cite-as" href="${canonicalUrl}" />
   ${buildGTMHead()}
 </head>
 <body>
   ${buildGTMBody()}
   ${buildStandardHeaderWithNav(knowledgeCtx)}
   <article role="main" id="main-content">
-    <h1>${escapeHtml(content.title)}</h1>
+    <h1>${escapeHtml(localizedTitle)}</h1>
     <section data-section="summary" class="llm-knowledge-layer" aria-label="Resumo para IA">
       <div class="ai-citation-box" itemProp="abstract">
-        <p class="article-summary">${escapeHtml(content.excerpt)}</p>
+        <p class="article-summary">${escapeHtml(localizedExcerpt)}</p>
       </div>
     </section>
     ${content.content_image_url ? `
-    <img 
-      src="${content.content_image_url}" 
-      alt="${escapeHtml(content.content_image_alt || content.title)}"
+    <img
+      src="${content.content_image_url}"
+      alt="${escapeHtml(content.content_image_alt || localizedTitle)}"
       style="width: 100%; max-width: 1200px; height: auto; border-radius: 12px; margin: 1.5rem 0; box-shadow: 0 4px 12px rgba(0,0,0,0.1); display: block;"
       loading="eager"
       fetchpriority="high"
       decoding="async"
     />` : ''}
-    <p class="article-excerpt" data-section="definition">${escapeHtml(content.excerpt)}</p>
-    
+    <p class="article-excerpt" data-section="definition">${escapeHtml(localizedExcerpt)}</p>
+
     ${content.file_url ? `
     <div style="background:#fff3cd;border:1px solid #ffc107;padding:1rem;margin:1rem 0;border-radius:4px">
       <strong>📥 Material Complementar:</strong>
@@ -2129,8 +2184,8 @@ async function generateKnowledgeArticleHTML(letter: string, slug: string, supaba
       });
     </script>
     
-    ${content.content_html || ''}
-    
+    ${localizedContentHtml || ''}
+
     ${(videos || []).filter((v: any) => v.embed_url || v.url).length > 0 ? `
     <section data-section="videos" aria-label="Vídeos do artigo" style="margin:2rem 0">
       <h2>Vídeos relacionados</h2>
@@ -2138,7 +2193,7 @@ async function generateKnowledgeArticleHTML(letter: string, slug: string, supaba
         const src = (v.url || '').includes('youtube.com/watch?v=')
           ? (v.url as string).replace('watch?v=', 'embed/')
           : (v.embed_url || v.url);
-        const title = escapeHtml(v.title || `${content.title} - Vídeo ${idx + 1}`);
+        const title = escapeHtml(v.title || `${localizedTitle} - Vídeo ${idx + 1}`);
         const poster = v.thumbnail_url ? `<img src="${escapeHtml(v.thumbnail_url)}" alt="${title}" loading="lazy" decoding="async" width="640" height="360" style="width:100%;max-width:640px;height:auto;border-radius:8px" />` : '';
         return `<figure style="margin:1rem 0">
           <div style="position:relative;width:100%;max-width:960px;aspect-ratio:16/9">
@@ -2175,10 +2230,10 @@ async function generateKnowledgeArticleHTML(letter: string, slug: string, supaba
     </section>
     ` : ''}
     
-    ${content.faqs && Array.isArray(content.faqs) && content.faqs.length > 0 ? `
+    ${localizedFaqs && Array.isArray(localizedFaqs) && localizedFaqs.length > 0 ? `
     <section data-section="faq">
       <h2>Perguntas Frequentes</h2>
-      ${content.faqs.map((faq: any) => `
+      ${localizedFaqs.map((faq: any) => `
       <div>
         <h3>${escapeHtml(faq.question)}</h3>
         <p>${escapeHtml(faq.answer)}</p>
@@ -2218,13 +2273,13 @@ async function generateKnowledgeArticleHTML(letter: string, slug: string, supaba
     </aside>
     ` : ''}
     ${buildCitationBlocks(knowledgeCtx)}
-    ${buildLLMKnowledgeLayer(content.title, content.knowledge_categories?.name || 'Artigo Técnico', knowledgeCtx)}
+    ${buildLLMKnowledgeLayer(localizedTitle, content.knowledge_categories?.name || 'Artigo Técnico', knowledgeCtx)}
     ${buildEntityIndexSection(knowledgeCtx)}
-    ${buildEntityIndexJsonLd(`${content.title} ${content.excerpt || ''} ${content.content_html?.replace(/<[^>]*>/g, '').substring(0, 500) || ''}`, knowledgeCtx)}
+    ${buildEntityIndexJsonLd(`${localizedTitle} ${localizedExcerpt || ''} ${localizedContentHtml?.replace(/<[^>]*>/g, '').substring(0, 500) || ''}`, knowledgeCtx)}
   </article>
   ${buildKnowledgeGraphJsonLd(knowledgeCtx)}
   ${buildStandardFooter()}
-  ${buildBotRedirectScript(`/base-conhecimento/${letter}/${slug}`)}
+  ${buildBotRedirectScript(requestedPath)}
 </body>
 </html>`;
 }
@@ -3040,6 +3095,520 @@ async function generateArticlesHubHTML(supabase: any): Promise<string> {
 </html>`;
 }
 
+// ===== /sobre — About Page (Organization + AboutPage) =====
+async function generateAboutHTML(supabase: any): Promise<string> {
+  const baseUrl = 'https://parametros.smartdent.com.br';
+  const canonical = `${baseUrl}/sobre`;
+
+  const { data: company } = await supabase
+    .from('system_a_catalog')
+    .select('name, description, image_url, extra_data')
+    .eq('category', 'company_info')
+    .eq('active', true)
+    .maybeSingle();
+
+  const extra = company?.extra_data || {};
+  const social = extra.social_media || {};
+  const corporate = extra.corporate || {};
+  const companyName = company?.name || 'Smart Dent';
+  const description = company?.description ||
+    'Smart Dent é fabricante brasileira especialista em impressão 3D odontológica, resinas dentais e fluxo digital.';
+  const ogImage = company?.image_url || `${baseUrl}/og-fluxo-digital.jpg`;
+  const title = `Sobre Nós - ${companyName} | Impressão 3D Odontológica`;
+  const metaDescription = description.slice(0, 155);
+  const sameAs = [social.instagram, social.youtube, social.facebook, social.linkedin, social.twitter, social.tiktok].filter(Boolean);
+
+  const organizationSchema: any = {
+    "@type": "Organization",
+    "@id": `${baseUrl}/#organization`,
+    "name": companyName,
+    "url": baseUrl,
+    "logo": ogImage,
+    "description": description,
+    "sameAs": sameAs,
+    "knowsAbout": ["Impressão 3D Odontológica", "Resinas Dentais 3D", "Parâmetros de Impressão", "Odontologia Digital"],
+  };
+  if (corporate.founded_year) organizationSchema.foundingDate = String(corporate.founded_year);
+
+  const contextText = `${companyName} — ${description}`.slice(0, 300);
+
+  return `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>${escapeHtml(title)}</title>
+  <meta name="description" content="${escapeHtml(metaDescription)}">
+  <link rel="canonical" href="${canonical}" />
+  ${buildHreflang({ pt: canonical })}
+  <meta property="og:title" content="${escapeHtml(title)}" />
+  <meta property="og:description" content="${escapeHtml(metaDescription)}" />
+  <meta property="og:url" content="${canonical}" />
+  <meta property="og:type" content="website" />
+  <meta property="og:image" content="${ogImage}" />
+  ${buildAIHeadTags({ context: contextText, title, description: metaDescription, image: ogImage, canonicalUrl: canonical })}
+  <script type="application/ld+json">${safeLd({
+    "@context": "https://schema.org",
+    "@graph": [
+      organizationSchema,
+      { "@type": "BreadcrumbList", "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "Início", "item": baseUrl },
+        { "@type": "ListItem", "position": 2, "name": "Sobre Nós", "item": canonical },
+      ]},
+      { "@type": "AboutPage", "name": title, "description": metaDescription, "url": canonical, "mainEntity": { "@id": `${baseUrl}/#organization` } },
+    ],
+  })}</script>
+</head>
+<body style="font-family:system-ui,-apple-system,sans-serif;max-width:900px;margin:0 auto;padding:1.5rem;color:#1e293b">
+  <header style="margin-bottom:1.5rem">
+    <nav style="font-size:.85rem;color:#64748b;margin-bottom:.5rem">
+      <a href="${baseUrl}/" style="color:#2563eb;text-decoration:none">Smart Dent</a> &rsaquo; Sobre Nós
+    </nav>
+    <h1 style="font-size:1.75rem;margin:0;color:#0f172a">${escapeHtml(companyName)}</h1>
+  </header>
+  <main id="main-content">
+    <section data-section="summary" class="llm-knowledge-layer" aria-label="Resumo para IA">
+      <div class="ai-citation-box" itemProp="abstract"><p>${escapeHtml(contextText)}</p></div>
+    </section>
+    <p data-section="definition" style="color:#334155;line-height:1.6">${escapeHtml(description)}</p>
+    ${sameAs.length > 0 ? `
+    <nav aria-label="Redes sociais Smart Dent" style="margin-top:1.5rem">
+      <h2 style="font-size:1.05rem">Redes oficiais</h2>
+      <ul style="list-style:none;padding:0;display:flex;flex-wrap:wrap;gap:.75rem">
+        ${sameAs.map((u: string) => `<li><a href="${escapeHtml(u)}" target="_blank" rel="noopener nofollow" style="color:#2563eb">${escapeHtml(u)}</a></li>`).join('')}
+      </ul>
+    </nav>` : ''}
+  </main>
+  ${buildStandardFooter()}
+  ${buildBotRedirectScript('/sobre')}
+</body>
+</html>`;
+}
+
+// ===== /support-resources — Central de documentos, manuais e downloads =====
+async function generateSupportResourcesHTML(supabase: any): Promise<string> {
+  const baseUrl = 'https://parametros.smartdent.com.br';
+  const canonical = `${baseUrl}/support-resources`;
+  const title = 'Central de Recursos e Suporte | Smart Dent';
+  const description = 'Manuais, fichas técnicas, laudos e materiais de suporte para resinas 3D e equipamentos Smart Dent.';
+
+  const [resinsRes, catalogRes] = await Promise.all([
+    supabase.from('resins').select('id, name, slug, image_url, description').eq('active', true).order('name'),
+    supabase.from('system_a_catalog')
+      .select('id, name, image_url, description, product_category')
+      .eq('active', true).eq('approved', true).eq('visible_in_ui', true)
+      .neq('product_category', 'RESINAS 3D').not('product_category', 'is', null)
+      .order('name'),
+  ]);
+  const resins = resinsRes.data || [];
+  const catalog = catalogRes.data || [];
+
+  const [resinDocsRes, catalogDocsRes] = await Promise.all([
+    resins.length ? supabase.from('resin_documents').select('resin_id, document_name, document_type, file_url').eq('active', true).in('resin_id', resins.map((r: any) => r.id)) : Promise.resolve({ data: [] }),
+    catalog.length ? supabase.from('catalog_documents').select('product_id, document_name, document_type, file_url').eq('active', true).in('product_id', catalog.map((p: any) => p.id)) : Promise.resolve({ data: [] }),
+  ]);
+  const resinDocsByResin = new Map<string, any[]>();
+  (resinDocsRes.data || []).forEach((d: any) => resinDocsByResin.set(d.resin_id, [...(resinDocsByResin.get(d.resin_id) || []), d]));
+  const catalogDocsByProduct = new Map<string, any[]>();
+  (catalogDocsRes.data || []).forEach((d: any) => catalogDocsByProduct.set(d.product_id, [...(catalogDocsByProduct.get(d.product_id) || []), d]));
+
+  const renderItem = (name: string, slug: string | null, imageUrl: string | null, desc: string | null, docs: any[]) => `
+    <article style="border:1px solid #e2e8f0;border-radius:10px;padding:1rem;background:#fff">
+      <h3 style="margin:0 0 .35rem;font-size:1rem;color:#0f172a">${escapeHtml(name)}</h3>
+      ${desc ? `<p style="margin:.15rem 0;color:#475569;font-size:.85rem">${escapeHtml(desc.slice(0, 160))}</p>` : ''}
+      ${docs.length > 0 ? `<ul style="margin:.5rem 0 0;padding-left:1.1rem;font-size:.85rem">
+        ${docs.map((d) => `<li><a href="${escapeHtml(d.file_url)}" download rel="nofollow" style="color:#2563eb">${escapeHtml(d.document_name || d.document_type || 'Baixar arquivo')}</a></li>`).join('')}
+      </ul>` : `<p style="margin:.5rem 0 0;color:#94a3b8;font-size:.8rem">Sem documentos publicados.</p>`}
+    </article>`;
+
+  const resinCards = resins.map((r: any) => renderItem(r.name, r.slug, r.image_url, r.description, resinDocsByResin.get(r.id) || [])).join('');
+  const catalogCards = catalog.map((p: any) => renderItem(p.name, null, p.image_url, p.description, catalogDocsByProduct.get(p.id) || [])).join('');
+
+  const allDocs = [...(resinDocsRes.data || []), ...(catalogDocsRes.data || [])];
+  const contextText = `Central de suporte Smart Dent: manuais, fichas técnicas e laudos para ${resins.length} resinas 3D e ${catalog.length} equipamentos/produtos, totalizando ${allDocs.length} documentos publicados.`;
+
+  return `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>${escapeHtml(title)}</title>
+  <meta name="description" content="${escapeHtml(description)}">
+  <link rel="canonical" href="${canonical}" />
+  ${buildHreflang({ pt: canonical })}
+  <meta property="og:title" content="${escapeHtml(title)}" />
+  <meta property="og:description" content="${escapeHtml(description)}" />
+  <meta property="og:url" content="${canonical}" />
+  <meta property="og:type" content="website" />
+  ${buildAIHeadTags({ context: contextText, title, description, image: `${baseUrl}/og-fluxo-digital.jpg`, canonicalUrl: canonical })}
+  <script type="application/ld+json">${safeLd({
+    "@context": "https://schema.org",
+    "@graph": [
+      { "@type": "CollectionPage", "name": title, "description": description, "url": canonical },
+      { "@type": "BreadcrumbList", "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "Início", "item": baseUrl },
+        { "@type": "ListItem", "position": 2, "name": "Central de Recursos", "item": canonical },
+      ]},
+    ],
+  })}</script>
+</head>
+<body style="font-family:system-ui,-apple-system,sans-serif;max-width:1100px;margin:0 auto;padding:1.5rem;color:#1e293b">
+  <header style="margin-bottom:1.5rem">
+    <nav style="font-size:.85rem;color:#64748b;margin-bottom:.5rem">
+      <a href="${baseUrl}/" style="color:#2563eb;text-decoration:none">Smart Dent</a> &rsaquo; Central de Recursos
+    </nav>
+    <h1 style="font-size:1.75rem;margin:0;color:#0f172a">${escapeHtml(title)}</h1>
+    <p style="color:#475569;max-width:780px;margin-top:.5rem">${escapeHtml(description)}</p>
+  </header>
+  <main id="main-content">
+    <section data-section="summary" class="llm-knowledge-layer" aria-label="Resumo para IA">
+      <div class="ai-citation-box" itemProp="abstract"><p>${escapeHtml(contextText)}</p></div>
+    </section>
+    <h2 style="font-size:1.15rem;margin:1.5rem 0 .75rem">Resinas 3D</h2>
+    <section style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:1rem">${resinCards || '<p>Em atualização.</p>'}</section>
+    <h2 style="font-size:1.15rem;margin:2rem 0 .75rem">Equipamentos e Produtos</h2>
+    <section style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:1rem">${catalogCards || '<p>Em atualização.</p>'}</section>
+  </main>
+  ${buildStandardFooter()}
+  ${buildBotRedirectScript('/support-resources')}
+</body>
+</html>`;
+}
+
+// ===== /bio/:slug — Página de links (autor / campanha) =====
+async function generateBioHTML(slug: string, supabase: any): Promise<string> {
+  const baseUrl = 'https://parametros.smartdent.com.br';
+  const canonical = `${baseUrl}/bio/${slug}`;
+
+  const { data: page, error } = await supabase
+    .from('smartops_bio_pages')
+    .select('slug, title, subtitle, logo_url, social_links, items, active')
+    .eq('slug', slug)
+    .eq('active', true)
+    .maybeSingle();
+
+  if (error) {
+    console.error('[seo-proxy] bio fetch error', slug, error.message);
+    return '';
+  }
+  if (!page) return '';
+
+  const items = Array.isArray(page.items) ? page.items : [];
+  const social = page.social_links || {};
+  const sameAs = [social.instagram, social.youtube, social.facebook, social.linkedin, social.website].filter(Boolean);
+  const title = `${escapeHtml(page.title)} | Smart Dent | Fluxo Digital`;
+  const description = page.subtitle || `Links oficiais de ${page.title}.`;
+  const ogImage = page.logo_url || `${baseUrl}/favicon-512x512.png`;
+  const contextText = `Página de links de ${page.title}: ${items.map((i: any) => i.label).filter(Boolean).join(', ') || 'sem links publicados'}.`;
+
+  const personSchema = {
+    "@type": "ProfilePage",
+    "@id": canonical,
+    "name": page.title,
+    "description": description,
+    "url": canonical,
+    "mainEntity": {
+      "@type": "Person",
+      "name": page.title,
+      "description": page.subtitle || undefined,
+      "image": ogImage,
+      "url": canonical,
+      "sameAs": sameAs,
+    },
+  };
+
+  const linksSchema = {
+    "@type": "ItemList",
+    "itemListElement": items.map((item: any, i: number) => ({
+      "@type": "ListItem",
+      "position": i + 1,
+      "name": item.label,
+      "url": item.url,
+    })),
+  };
+
+  return `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>${title}</title>
+  <meta name="description" content="${escapeHtml(description)}">
+  <link rel="canonical" href="${canonical}" />
+  <meta property="og:title" content="${escapeHtml(page.title)}" />
+  <meta property="og:description" content="${escapeHtml(description)}" />
+  <meta property="og:url" content="${canonical}" />
+  <meta property="og:type" content="profile" />
+  <meta property="og:image" content="${ogImage}" />
+  ${buildAIHeadTags({ context: contextText, title: page.title, description, image: ogImage, canonicalUrl: canonical })}
+  <script type="application/ld+json">${safeLd({ "@context": "https://schema.org", "@graph": [personSchema, linksSchema] })}</script>
+</head>
+<body style="font-family:system-ui,-apple-system,sans-serif;max-width:640px;margin:0 auto;padding:1.5rem;color:#1e293b;text-align:center">
+  <main id="main-content">
+    ${ogImage ? `<img src="${escapeHtml(ogImage)}" alt="Logo ${escapeHtml(page.title)}" width="80" height="80" style="border-radius:16px" />` : ''}
+    <h1 style="font-size:1.5rem;margin:.75rem 0 .25rem">${escapeHtml(page.title)}</h1>
+    ${page.subtitle ? `<p style="color:#475569">${escapeHtml(page.subtitle)}</p>` : ''}
+    <section aria-label="Links" style="display:flex;flex-direction:column;gap:.6rem;margin-top:1.5rem;text-align:left">
+      ${items.map((item: any) => `
+      <a href="${escapeHtml(item.url)}" rel="${String(item.url || '').startsWith('http') ? 'noopener' : ''}" style="display:block;border:1px solid #e2e8f0;border-radius:12px;padding:.85rem 1rem;text-decoration:none;color:#0f172a">
+        <strong>${escapeHtml(item.label)}</strong>
+        ${item.description ? `<div style="color:#64748b;font-size:.85rem;margin-top:.15rem">${escapeHtml(item.description)}</div>` : ''}
+      </a>`).join('') || '<p style="color:#94a3b8">Nenhum link publicado ainda.</p>'}
+    </section>
+  </main>
+  ${buildStandardFooter()}
+  ${buildBotRedirectScript(`/bio/${slug}`)}
+</body>
+</html>`;
+}
+
+// ===== /lp/:slug — Landing page de formulário SmartOps =====
+async function generateLandingPageHTML(slug: string, supabase: any): Promise<string> {
+  const baseUrl = 'https://parametros.smartdent.com.br';
+  const canonical = `${baseUrl}/lp/${slug}`;
+
+  const { data: rows, error } = await supabase
+    .from('smartops_form_landing_pages')
+    .select('id, content, hero_image_url, status, smartops_forms:form_id(id,name,slug,title,subtitle,description)')
+    .eq('status', 'published');
+
+  if (error) {
+    console.error('[seo-proxy] landing page fetch error', slug, error.message);
+    return '';
+  }
+  const lp = (rows || []).find((r: any) => r.smartops_forms?.slug === slug);
+  if (!lp || !lp.content?.hero) return '';
+
+  const form = lp.smartops_forms;
+  const hero = lp.content.hero || {};
+  const title = `${escapeHtml(hero.headline || form.title || form.name)} | Smart Dent`;
+  const description = (hero.sub || form.description || form.subtitle || `${form.name} — Smart Dent | Fluxo Digital.`).slice(0, 300);
+  const ogImage = lp.hero_image_url || `${baseUrl}/og-fluxo-digital.jpg`;
+  const contextText = `Landing page comercial Smart Dent: ${hero.headline || form.title || form.name}. ${description}`.slice(0, 400);
+
+  return `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>${title}</title>
+  <meta name="description" content="${escapeHtml(description)}">
+  <link rel="canonical" href="${canonical}" />
+  <meta property="og:title" content="${escapeHtml(hero.headline || form.title || form.name)}" />
+  <meta property="og:description" content="${escapeHtml(description)}" />
+  <meta property="og:url" content="${canonical}" />
+  <meta property="og:type" content="website" />
+  <meta property="og:image" content="${ogImage}" />
+  ${buildAIHeadTags({ context: contextText, title, description, image: ogImage, canonicalUrl: canonical })}
+  <script type="application/ld+json">${safeLd({
+    "@context": "https://schema.org",
+    "@graph": [
+      { "@type": "WebPage", "name": hero.headline || form.title || form.name, "description": description, "url": canonical },
+      { "@type": "BreadcrumbList", "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "Início", "item": baseUrl },
+        { "@type": "ListItem", "position": 2, "name": hero.headline || form.title || form.name, "item": canonical },
+      ]},
+    ],
+  })}</script>
+</head>
+<body style="font-family:system-ui,-apple-system,sans-serif;max-width:800px;margin:0 auto;padding:1.5rem;color:#1e293b">
+  <main id="main-content">
+    <h1 style="font-size:1.75rem">${escapeHtml(hero.headline || form.title || form.name)}</h1>
+    ${hero.sub ? `<p style="color:#475569;font-size:1.05rem">${escapeHtml(hero.sub)}</p>` : ''}
+    ${ogImage ? `<img src="${escapeHtml(ogImage)}" alt="${escapeHtml(hero.headline || form.title || form.name)}" style="width:100%;max-width:700px;border-radius:12px;margin:1rem 0" loading="eager" />` : ''}
+    ${Array.isArray(hero.bullets) && hero.bullets.length > 0 ? `<ul>${hero.bullets.map((b: string) => `<li>${escapeHtml(b)}</li>`).join('')}</ul>` : ''}
+    <p><a href="${baseUrl}/f/${escapeHtml(form.slug)}" style="display:inline-block;margin-top:1rem;padding:.75rem 1.5rem;background:#2563eb;color:#fff;border-radius:8px;text-decoration:none;font-weight:600">${escapeHtml(hero.primaryCta || 'Saiba mais')}</a></p>
+  </main>
+  ${buildStandardFooter()}
+  ${buildBotRedirectScript(`/lp/${slug}`)}
+</body>
+</html>`;
+}
+
+// ===== /agenda e /agenda/online — Calendário público de turmas =====
+const AGENDA_VARIANT_CONFIG: Record<string, { title: string; subtitle: string; description: string; modalities: string[]; categories: string[] }> = {
+  presencial: {
+    title: 'Próximos Treinamentos Presenciais',
+    subtitle: 'Confira nossos treinamentos e imersões presenciais com vagas abertas.',
+    description: 'Agenda de treinamentos e imersões presenciais Smart Dent com vagas abertas.',
+    modalities: ['presencial'],
+    categories: ['treinamento', 'imersao'],
+  },
+  online: {
+    title: 'Próximos Cursos Online',
+    subtitle: 'Workshops e webinars ao vivo da Smart Dent com inscrições abertas.',
+    description: 'Agenda de workshops e webinars online Smart Dent com vagas abertas.',
+    modalities: ['online_ao_vivo', 'online'],
+    categories: ['workshop', 'webinar'],
+  },
+};
+
+async function generateAgendaHTML(variant: 'presencial' | 'online', supabase: any): Promise<string> {
+  const baseUrl = 'https://parametros.smartdent.com.br';
+  const config = AGENDA_VARIANT_CONFIG[variant];
+  const canonical = variant === 'online' ? `${baseUrl}/agenda/online` : `${baseUrl}/agenda`;
+
+  const { data: courseRows } = await supabase
+    .from('smartops_courses')
+    .select('id, modality, category')
+    .eq('active', true)
+    .in('modality', config.modalities)
+    .in('category', config.categories);
+  const allowedCourseIds = new Set((courseRows || []).map((c: any) => c.id));
+
+  const { data: turmaRows } = await supabase
+    .from('v_turmas_com_vagas')
+    .select('*')
+    .eq('active', true)
+    .in('modality', config.modalities)
+    .order('start_date');
+
+  const nowMs = Date.now();
+  const GRACE_MS = 12 * 60 * 60 * 1000;
+  const turmas = (turmaRows || [])
+    .filter((t: any) => allowedCourseIds.has(t.course_id))
+    .filter((t: any) => {
+      const endDate = t.end_date || t.start_date;
+      if (!endDate) return true;
+      const endTime = (t.end_time || '23:59').substring(0, 5);
+      const endMs = new Date(`${endDate}T${endTime}:00`).getTime();
+      return Number.isFinite(endMs) ? endMs + GRACE_MS > nowMs : true;
+    });
+
+  const fmt = (d?: string | null) => {
+    if (!d) return '';
+    try { return new Date(d + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' }); }
+    catch { return d; }
+  };
+
+  const eventSchemas = turmas.map((t: any) => ({
+    "@type": "Event",
+    "name": t.course_title || t.title || config.title,
+    "startDate": t.start_date,
+    "endDate": t.end_date || t.start_date,
+    "eventStatus": "https://schema.org/EventScheduled",
+    "eventAttendanceMode": variant === 'online' ? "https://schema.org/OnlineEventAttendanceMode" : "https://schema.org/OfflineEventAttendanceMode",
+    "location": variant === 'online'
+      ? { "@type": "VirtualLocation", "url": t.meeting_link || canonical }
+      : { "@type": "Place", "name": t.location || 'Smart Dent' },
+    "organizer": { "@type": "Organization", "name": "Smart Dent", "url": baseUrl },
+  }));
+
+  const cards = turmas.map((t: any) => `
+    <article style="border:1px solid #e2e8f0;border-radius:10px;padding:1.1rem;background:#fff">
+      <h2 style="margin:0 0 .35rem;font-size:1.1rem;color:#0f172a">${escapeHtml(t.course_title || t.title || '')}</h2>
+      ${t.start_date ? `<p style="margin:.15rem 0;color:#475569;font-size:.9rem"><strong>Quando:</strong> ${fmt(t.start_date)}${t.end_date && t.end_date !== t.start_date ? ` &mdash; ${fmt(t.end_date)}` : ''}</p>` : ''}
+      ${t.location ? `<p style="margin:.15rem 0;color:#475569;font-size:.85rem"><strong>Onde:</strong> ${escapeHtml(t.location)}</p>` : ''}
+      ${t.instructor_name ? `<p style="margin:.15rem 0;color:#334155;font-size:.85rem"><strong>Instrutor:</strong> ${escapeHtml(t.instructor_name)}</p>` : ''}
+      <p style="margin:.15rem 0;color:#16a34a;font-size:.85rem">${Number(t.vagas_disponiveis) > 0 ? `${t.vagas_disponiveis} vagas disponíveis` : 'Inscrições encerradas'}</p>
+    </article>`).join('');
+
+  const contextText = `${config.description} ${turmas.length} turma(s) com inscrições abertas ou em breve.`;
+
+  return `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>${escapeHtml(config.title)} | Smart Dent</title>
+  <meta name="description" content="${escapeHtml(config.description)}">
+  <link rel="canonical" href="${canonical}" />
+  <meta property="og:title" content="${escapeHtml(config.title)}" />
+  <meta property="og:description" content="${escapeHtml(config.description)}" />
+  <meta property="og:url" content="${canonical}" />
+  <meta property="og:type" content="website" />
+  ${buildAIHeadTags({ context: contextText, title: config.title, description: config.description, image: `${baseUrl}/og-fluxo-digital.jpg`, canonicalUrl: canonical })}
+  <script type="application/ld+json">${safeLd({
+    "@context": "https://schema.org",
+    "@graph": [
+      { "@type": "ItemList", "name": config.title, "itemListElement": eventSchemas.map((e: any, i: number) => ({ "@type": "ListItem", "position": i + 1, "item": e })) },
+      { "@type": "BreadcrumbList", "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "Início", "item": baseUrl },
+        { "@type": "ListItem", "position": 2, "name": config.title, "item": canonical },
+      ]},
+    ],
+  })}</script>
+</head>
+<body style="font-family:system-ui,-apple-system,sans-serif;max-width:900px;margin:0 auto;padding:1.5rem;color:#1e293b">
+  <header style="margin-bottom:1.5rem">
+    <nav style="font-size:.85rem;color:#64748b;margin-bottom:.5rem">
+      <a href="${baseUrl}/" style="color:#2563eb;text-decoration:none">Smart Dent</a> &rsaquo; Agenda
+    </nav>
+    <h1 style="font-size:1.75rem;margin:0;color:#0f172a">${escapeHtml(config.title)}</h1>
+    <p style="color:#475569;max-width:780px;margin-top:.5rem">${escapeHtml(config.subtitle)}</p>
+  </header>
+  <main id="main-content">${cards || '<p>Agenda em atualização.</p>'}</main>
+  ${buildStandardFooter()}
+  ${buildBotRedirectScript(canonical.replace(baseUrl, ''))}
+</body>
+</html>`;
+}
+
+// ===== Calculadora de ROI — PT/EN/ES (dedicated branch; não é categoria da KB) =====
+const ROI_I18N: Record<'pt' | 'en' | 'es', { title: string; description: string; path: string }> = {
+  pt: { title: 'Calculadora de ROI Odontológico 3D | Smart Dent', description: 'Calcule o retorno do investimento em fluxo digital odontológico: compare tempo, custo e produtividade entre processo manual e Smart.', path: '/base-conhecimento/calculadora-roi' },
+  en: { title: 'Dental 3D ROI Calculator | Smart Dent', description: 'Calculate the return on investment of digital dental workflow: compare time, cost and productivity between manual and Smart processes.', path: '/en/knowledge-base/roi-calculator' },
+  es: { title: 'Calculadora de ROI Odontológico 3D | Smart Dent', description: 'Calcule el retorno de la inversión en flujo digital odontológico: compare tiempo, costo y productividad entre el proceso manual y Smart.', path: '/es/base-conocimiento/calculadora-roi' },
+};
+
+async function generateROICalculatorHTML(lang: 'pt' | 'en' | 'es', supabase: any): Promise<string> {
+  const baseUrl = 'https://parametros.smartdent.com.br';
+  const i18n = ROI_I18N[lang];
+  const canonical = `${baseUrl}${i18n.path}`;
+  const ptCanonical = `${baseUrl}${ROI_I18N.pt.path}`;
+  const enCanonical = `${baseUrl}${ROI_I18N.en.path}`;
+  const esCanonical = `${baseUrl}${ROI_I18N.es.path}`;
+
+  const { data: cards } = await supabase
+    .from('roi_cards')
+    .select('id, name')
+    .eq('status', 'publicado')
+    .eq('active', true)
+    .order('name');
+
+  const contextText = `${i18n.description} ${(cards || []).length} simulador(es) de equipamento disponíveis.`;
+
+  return `<!DOCTYPE html>
+<html lang="${lang === 'en' ? 'en-US' : lang === 'es' ? 'es-ES' : 'pt-BR'}">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>${escapeHtml(i18n.title)}</title>
+  <meta name="description" content="${escapeHtml(i18n.description)}">
+  <link rel="canonical" href="${canonical}" />
+  <link rel="alternate" hreflang="pt-BR" href="${ptCanonical}" />
+  <link rel="alternate" hreflang="en-US" href="${enCanonical}" />
+  <link rel="alternate" hreflang="es-ES" href="${esCanonical}" />
+  <link rel="alternate" hreflang="x-default" href="${ptCanonical}" />
+  <meta property="og:title" content="${escapeHtml(i18n.title)}" />
+  <meta property="og:description" content="${escapeHtml(i18n.description)}" />
+  <meta property="og:url" content="${canonical}" />
+  <meta property="og:type" content="website" />
+  ${buildAIHeadTags({ context: contextText, title: i18n.title, description: i18n.description, image: `${baseUrl}/og-fluxo-digital.jpg`, canonicalUrl: canonical })}
+  <script type="application/ld+json">${safeLd({
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "Calculadora de ROI Smart Dent",
+    "applicationCategory": "BusinessApplication",
+    "operatingSystem": "Web",
+    "url": canonical,
+    "description": i18n.description,
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "BRL" },
+    "publisher": { "@type": "Organization", "name": "Smart Dent", "url": baseUrl },
+  })}</script>
+</head>
+<body style="font-family:system-ui,-apple-system,sans-serif;max-width:800px;margin:0 auto;padding:1.5rem;color:#1e293b">
+  <main id="main-content">
+    <h1 style="font-size:1.75rem">${escapeHtml(i18n.title)}</h1>
+    <p style="color:#475569;font-size:1.05rem">${escapeHtml(i18n.description)}</p>
+    ${(cards || []).length > 0 ? `<ul>${(cards || []).map((c: any) => `<li>${escapeHtml(c.name)}</li>`).join('')}</ul>` : ''}
+  </main>
+  ${buildStandardFooter()}
+  ${buildBotRedirectScript(i18n.path)}
+</body>
+</html>`;
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -3102,6 +3671,18 @@ Deno.serve(async (req) => {
       html = await generateDistribuidorDetailHTML(segments[1], segments[2], supabase);
     } else if (segments[0] === 'eventos' && segments.length === 1) {
       html = await generateEventosHTML(supabase);
+    } else if (segments[0] === 'sobre' && segments.length === 1) {
+      html = await generateAboutHTML(supabase);
+    } else if (segments[0] === 'support-resources' && segments.length === 1) {
+      html = await generateSupportResourcesHTML(supabase);
+    } else if (segments[0] === 'bio' && segments.length === 2) {
+      html = await generateBioHTML(segments[1], supabase);
+    } else if (segments[0] === 'lp' && segments.length === 2) {
+      html = await generateLandingPageHTML(segments[1], supabase);
+    } else if (segments[0] === 'agenda' && segments.length === 1) {
+      html = await generateAgendaHTML('presencial', supabase);
+    } else if (segments[0] === 'agenda' && segments[1] === 'online' && segments.length === 2) {
+      html = await generateAgendaHTML('online', supabase);
     } else if (segments[0] === 'base-conhecimento') {
       // PT: /base-conhecimento/...
       if (segments.length === 1) {
@@ -3113,6 +3694,9 @@ Deno.serve(async (req) => {
         } else {
           html = await generateKnowledgeHubHTML(supabase);
         }
+      } else if ((segments.length === 2 || segments.length === 3) && segments[1].toLowerCase() === 'calculadora-roi') {
+        // Calculadora de ROI — não é uma categoria/letra da KB.
+        html = await generateROICalculatorHTML('pt', supabase);
       } else if (segments.length === 2) {
         // Alias limpo: /base-conhecimento/artigos → hub agregador.
         if (segments[1].toLowerCase() === 'artigos') {
@@ -3121,25 +3705,29 @@ Deno.serve(async (req) => {
           html = await generateKnowledgeCategoryHTML(segments[1], supabase);
         }
       } else if (segments.length === 3) {
-        html = await generateKnowledgeArticleHTML(segments[1], segments[2], supabase);
+        html = await generateKnowledgeArticleHTML(segments[1], segments[2], supabase, 'pt');
       }
     } else if (segments[0] === 'en' && segments[1] === 'knowledge-base') {
       // EN: /en/knowledge-base/...
-      if (segments.length === 2) {
+      if ((segments.length === 3 || segments.length === 4) && segments[2].toLowerCase() === 'roi-calculator') {
+        html = await generateROICalculatorHTML('en', supabase);
+      } else if (segments.length === 2) {
         html = await generateKnowledgeHubHTML(supabase);
       } else if (segments.length === 3) {
         html = await generateKnowledgeCategoryHTML(segments[2], supabase);
       } else if (segments.length === 4) {
-        html = await generateKnowledgeArticleHTML(segments[2], segments[3], supabase);
+        html = await generateKnowledgeArticleHTML(segments[2], segments[3], supabase, 'en');
       }
     } else if (segments[0] === 'es' && segments[1] === 'base-conocimiento') {
       // ES: /es/base-conocimiento/...
-      if (segments.length === 2) {
+      if ((segments.length === 3 || segments.length === 4) && segments[2].toLowerCase() === 'calculadora-roi') {
+        html = await generateROICalculatorHTML('es', supabase);
+      } else if (segments.length === 2) {
         html = await generateKnowledgeHubHTML(supabase);
       } else if (segments.length === 3) {
         html = await generateKnowledgeCategoryHTML(segments[2], supabase);
       } else if (segments.length === 4) {
-        html = await generateKnowledgeArticleHTML(segments[2], segments[3], supabase);
+        html = await generateKnowledgeArticleHTML(segments[2], segments[3], supabase, 'es');
       }
     } else if (segments[0] === 'conhecimento') {
       // Legacy: /conhecimento/... (mantido para retrocompatibilidade)
@@ -3148,7 +3736,7 @@ Deno.serve(async (req) => {
       } else if (segments.length === 2) {
         html = await generateKnowledgeCategoryHTML(segments[1], supabase);
       } else if (segments.length === 3) {
-        html = await generateKnowledgeArticleHTML(segments[1], segments[2], supabase);
+        html = await generateKnowledgeArticleHTML(segments[1], segments[2], supabase, 'pt');
       }
     } else if (segments.length === 0) {
       html = await generateHomepageHTML(supabase);

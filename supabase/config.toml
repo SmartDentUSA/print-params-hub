@@ -165,6 +165,9 @@ verify_jwt = false
 [functions.translate-content]
 verify_jwt = false
 
+[functions.backfill-kb-translations]
+verify_jwt = false
+
 [functions.translate-card-row]
 verify_jwt = false
 

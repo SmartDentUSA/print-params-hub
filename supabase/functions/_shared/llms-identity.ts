@@ -453,3 +453,22 @@ Place ID: ChIJMyaY_dV2uJQRqFsI2PkfL8g
 # Fim — Smart Dent llms.txt v2.3 — Junho 2026
 # Correções: contato@smartdent.com.br
 `;
+
+// Handler compartilhado por supabase/functions/llms-txt e seo-llms-txt —
+// as duas rotas servem o mesmo conteúdo estático; centralizar aqui evita
+// que um dos dois wrappers fique dessincronizado (headers/CORS/cache).
+const LLMS_TXT_CORS_HEADERS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
+
+export function llmsTxtHandler(req: Request): Response {
+  if (req.method === "OPTIONS") return new Response(null, { headers: LLMS_TXT_CORS_HEADERS });
+  return new Response(IDENTITY_V23, {
+    headers: {
+      ...LLMS_TXT_CORS_HEADERS,
+      "Content-Type": "text/plain; charset=utf-8",
+      "Cache-Control": "public, max-age=86400",
+    },
+  });
+}
