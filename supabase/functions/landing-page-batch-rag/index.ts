@@ -25,15 +25,16 @@ Deno.serve(async (req) => {
     const force = body?.force === true;          // regenera mesmo se já tem conteúdo
     const onlySlug: string | null = body?.slug ?? null;
     const publish = body?.publish !== false;     // por padrão publica
+    const includeInactive = body?.include_inactive === true; // inclui formulários desativados
 
     const admin = createClient(SUPABASE_URL, SERVICE_ROLE);
 
     let q = admin
       .from("smartops_forms")
       .select("id,name,slug,product_catalog_id,active")
-      .eq("active", true)
       .not("product_catalog_id", "is", null)
       .order("name");
+    if (!includeInactive) q = q.eq("active", true);
     if (onlySlug) q = q.eq("slug", onlySlug);
     const { data: forms, error: formsErr } = await q;
     if (formsErr) throw formsErr;
