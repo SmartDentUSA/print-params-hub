@@ -107,12 +107,12 @@ export function LandingPageBuilderModal({ open, onOpenChange, form }: Props) {
         .maybeSingle(),
       supabase
         .from("smartops_forms" as any)
-        .select("ln")
+        .select("product_catalog_id")
         .eq("id", form.id)
         .maybeSingle(),
     ])
       .then(async ([{ data }, formRow]) => {
-        const productId = (formRow.data as any)?.ln as string | undefined;
+        const productId = (formRow.data as any)?.product_catalog_id as string | undefined;
         if (productId) {
           const { data: prod } = await supabase
             .from("system_a_catalog" as any)
@@ -122,6 +122,7 @@ export function LandingPageBuilderModal({ open, onOpenChange, form }: Props) {
           if (prod) setProductLink({ id: (prod as any).id, name: (prod as any).name });
           else setProductLink({ id: productId, name: "Produto vinculado" });
         }
+
         if (data) {
           const row = data as unknown as LP;
           const rowContent = ensureContent(row.content);
