@@ -1,0 +1,2 @@
+ALTER TABLE public.smartops_form_landing_pages DROP CONSTRAINT IF EXISTS smartops_form_landing_pages_mode_check;
+ALTER TABLE public.smartops_form_landing_pages ADD CONSTRAINT smartops_form_landing_pages_mode_check CHECK (mode = ANY (ARRAY['ai'::text,'briefing'::text,'playbook'::text,'rag'::text]));
