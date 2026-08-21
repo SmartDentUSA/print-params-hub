@@ -309,9 +309,11 @@ REGRAS OBRIGATÓRIAS:
 - Caption: máximo ${MAX_CAPTION} caracteres. Use 1 gancho + benefícios + CTA.
 - Hashtags: 8 a ${MAX_HASHTAGS} relevantes, sem o símbolo #, lowercase, sem espaços.
 - Primeiro comentário: até ${MAX_COMMENT} chars, complementar (mais hashtags niche, link, CTA).
+${igTrigger ? `- CTA OBRIGATÓRIO no final da caption, com a palavra-gatilho em MAIÚSCULAS e entre aspas: ${igTrigger.cta} (palavra: "${igTrigger.keyword}"). Repita o convite também no primeiro comentário.` : ""}
 
 CONTEXTO DO PRODUTO (catálogo Smart Dent):
 ${productBlock}
+
 
 PRODUTOS COMPLEMENTARES (para enriquecer o post):
 ${extraBlock}
