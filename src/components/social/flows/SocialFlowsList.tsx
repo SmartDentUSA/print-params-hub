@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Workflow as WorkflowIcon, Activity, CheckCircle2, Pencil, Copy, Trash2, Eye } from 'lucide-react';
+import { Plus, Workflow as WorkflowIcon, Activity, CheckCircle2, Pencil, Copy, Trash2, Eye, RefreshCw, Hash, LinkIcon, MessageSquare } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
