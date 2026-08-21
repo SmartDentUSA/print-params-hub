@@ -605,3 +605,6 @@ verify_jwt = false
 
 [functions.landing-page-batch-rag]
 verify_jwt = false
+
+[functions.zernio-dm-flows-sync]
+verify_jwt = false
