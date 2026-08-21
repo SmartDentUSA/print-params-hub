@@ -21743,6 +21743,10 @@ export type Database = {
           hero_image_alt: string | null
           hero_image_url: string | null
           id: string
+          ig_trigger_cta: string | null
+          ig_trigger_dm_message: string | null
+          ig_trigger_enabled: boolean
+          ig_trigger_keyword: string | null
           label_color: string | null
           layout_variant: string | null
           media_type: string | null
@@ -21805,6 +21809,10 @@ export type Database = {
           hero_image_alt?: string | null
           hero_image_url?: string | null
           id?: string
+          ig_trigger_cta?: string | null
+          ig_trigger_dm_message?: string | null
+          ig_trigger_enabled?: boolean
+          ig_trigger_keyword?: string | null
           label_color?: string | null
           layout_variant?: string | null
           media_type?: string | null
@@ -21867,6 +21875,10 @@ export type Database = {
           hero_image_alt?: string | null
           hero_image_url?: string | null
           id?: string
+          ig_trigger_cta?: string | null
+          ig_trigger_dm_message?: string | null
+          ig_trigger_enabled?: boolean
+          ig_trigger_keyword?: string | null
           label_color?: string | null
           layout_variant?: string | null
           media_type?: string | null

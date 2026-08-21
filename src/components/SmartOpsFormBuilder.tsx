@@ -206,6 +206,10 @@ export function SmartOpsFormBuilder() {
   const [metaSeoTitle, setMetaSeoTitle] = useState("");
   const [metaSeoDescription, setMetaSeoDescription] = useState("");
   const [metaSeoKeywords, setMetaSeoKeywords] = useState("");
+  const [metaIgTriggerEnabled, setMetaIgTriggerEnabled] = useState(false);
+  const [metaIgTriggerKeyword, setMetaIgTriggerKeyword] = useState("");
+  const [metaIgTriggerCta, setMetaIgTriggerCta] = useState("");
+  const [metaIgTriggerDm, setMetaIgTriggerDm] = useState("");
   const [metaCampaignIdentifier, setMetaCampaignIdentifier] = useState("");
   const [metaProductCatalogId, setMetaProductCatalogId] = useState("");
   const [metaWorkflowStageTarget, setMetaWorkflowStageTarget] = useState("");
@@ -498,6 +502,10 @@ export function SmartOpsFormBuilder() {
     setMetaSeoTitle((form as any).seo_title || "");
     setMetaSeoDescription((form as any).seo_description || "");
     setMetaSeoKeywords((form as any).seo_keywords || "");
+    setMetaIgTriggerEnabled(!!(form as any).ig_trigger_enabled);
+    setMetaIgTriggerKeyword((form as any).ig_trigger_keyword || "");
+    setMetaIgTriggerCta((form as any).ig_trigger_cta || "");
+    setMetaIgTriggerDm((form as any).ig_trigger_dm_message || "");
     setMetaCampaignIdentifier(form.campaign_identifier || "");
     setMetaProductCatalogId(form.product_catalog_id || "");
     setMetaWorkflowStageTarget(form.workflow_stage_target || "");
@@ -554,6 +562,10 @@ export function SmartOpsFormBuilder() {
         seo_title: metaSeoTitle.trim() || null,
         seo_description: metaSeoDescription.trim() || null,
         seo_keywords: metaSeoKeywords.trim() || null,
+        ig_trigger_enabled: metaIgTriggerEnabled,
+        ig_trigger_keyword: metaIgTriggerKeyword.trim().toUpperCase() || null,
+        ig_trigger_cta: metaIgTriggerCta.trim() || null,
+        ig_trigger_dm_message: metaIgTriggerDm.trim() || null,
         campaign_identifier: metaCampaignIdentifier || null,
         product_catalog_id: metaProductCatalogId || null,
         workflow_stage_target: metaWorkflowStageTarget || null,
@@ -887,6 +899,48 @@ export function SmartOpsFormBuilder() {
                   />
                 </div>
               </div>
+
+              {/* Trigger Instagram */}
+              <div className="border-t pt-3 space-y-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                    Trigger Instagram (comentário → DM)
+                  </p>
+                  <Switch checked={metaIgTriggerEnabled} onCheckedChange={setMetaIgTriggerEnabled} />
+                </div>
+                <div>
+                  <label className="text-xs font-medium">Palavra do comentário (trigger)</label>
+                  <Input
+                    value={metaIgTriggerKeyword}
+                    onChange={(e) => setMetaIgTriggerKeyword(e.target.value.toUpperCase())}
+                    placeholder="ex: EDGE"
+                  />
+                  <p className="text-[11px] text-muted-foreground mt-1">
+                    Única por formulário ativo. Usada para identificar o comentário e disparar a DM.
+                  </p>
+                </div>
+                <div>
+                  <label className="text-xs font-medium">Chamada para ação (post/legenda)</label>
+                  <Input
+                    value={metaIgTriggerCta}
+                    onChange={(e) => setMetaIgTriggerCta(e.target.value)}
+                    placeholder={`Comente ${metaIgTriggerKeyword || "EDGE"} para receber as informações`}
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-medium">Mensagem da DM</label>
+                  <Textarea
+                    value={metaIgTriggerDm}
+                    rows={3}
+                    onChange={(e) => setMetaIgTriggerDm(e.target.value)}
+                    placeholder="Oi! Aqui está o link com todas as informações: {{link}}"
+                  />
+                  <p className="text-[11px] text-muted-foreground mt-1">
+                    Use <code>{"{{link}}"}</code> para inserir o link do formulário/landing page.
+                  </p>
+                </div>
+              </div>
+
 
               <div className="border-t pt-3 space-y-3">
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Modo de exibição</p>
