@@ -1,9 +1,11 @@
-# Catálogo Completo — Sistema A + Sistema B (Enriquecido via Google Drive)
+# Catálogo Completo — Sistema A + Sistema B (Enriquecido via Google Drive + Tabelas Estruturadas)
 
 Total de produtos: **156**
 
 Cada ficha combina: metadados comerciais (Sistema B `system_a_catalog`: preço, imagem, link de venda)
-+ perfil técnico enriquecido (síntese de Google Drive + Sistema A `products_repository` + Sistema B),
++ perfil técnico enriquecido (síntese de Google Drive + Sistema A `products_repository` + Sistema B)
++ dados complementares das tabelas estruturadas `resins`/`resin_presentations`/`resin_documents`/`products_catalog`
+(rendimento por frasco, laudos técnicos com link direto ao PDF, tabelas comparativas com concorrentes),
 já gravado em `catalog_documents` (categoria `perfil_produto_enriquecido`).
 
 Convenção: ⚠️ marca divergência entre fontes ainda não resolvida; "Não encontrado nas fontes disponíveis"
@@ -287,6 +289,9 @@ Fluxo clínico integrado: escaneamento intraoral → processamento inteligente d
 DIVERGÊNCIAS ENTRE FONTES
 (1) Posicionamento comercial contraditório entre os dois documentos-fonte do Drive: "entry-level/custo-benefício" vs. "competidor de elite" — decisão pendente, evidência técnica favorece "elite". (2) Peso do equipamento: 165g (tabela de specs e comparativo técnico) vs. "~270g" citado em duas seções de texto corrido do mesmo documento — usar 165g e sinalizar correção na fonte. (3) Dimensões das ponteiras Standard/M e Mini/S divergem entre a tabela de especificações e a seção descritiva do mesmo documento; ponteira 90° não consta na tabela. Confirmar com o fabricante antes de publicar. (4) Valor do cabo de conexão: fontes do Drive convergem em R$ 260,00; um material comercial anterior citou faixa "R$ 200,00 a R$ 260,00", mas R$ 200 não foi localizado em nenhuma fonte. Compilado a partir de: Google Drive doc 17gtJwE63ZJGTn_wSmw1aYXiEhvavKVuFIwUGIiviDSg (visão geral e specs), doc 1ALt1NatyY2XJZu0OlM7B7ODP1TfyNde1PJiOmaNnrN8 (comparativo técnico e testes de estresse), doc 1YmheSfFFFn-jnqptNIqRTGbFiEujKdRI56nLjUCXGAQ (workflow All-on-X), doc 1f2QNI1VYMpRginWHLJjjcD50I3zvB44tPwtQAX4eldI (relatório de validação oclusal), doc 1axuVpPypej17naRg2v46hMd-5zzb7QKxC0Xkg1aUVhE (tabela comparativa de scanners intraorais).
 ===FIM===
+
+DADOS COMPLEMENTARES — CONFIRMAÇÃO SISTEMA B (products_catalog.technical_specifications)
+O campo estruturado technical_specifications do Sistema B confirma peso = 165 g (mesmo valor da tabela de especificações e do comparativo técnico usados na síntese original) — resolve a divergência ⚠️ apontada anteriormente (~270g era o valor incorreto, presente apenas em texto corrido do documento fonte). Demais specs estruturados coincidem: velocidade <40s/arcada, Deep Scan 25mm, dimensões 264×37×46mm, full color, LED RGB, precisão 10,9μm±0,98, 40 FPS, Windows 64-bit.
 
 ---
 
@@ -1023,6 +1028,15 @@ DIVERGÊNCIAS ENTRE FONTES
 - Alguns FAQs do Sistema B mencionam "resistência flexural superior a 50 MPa", enquanto a ficha técnica principal e o Sistema A citam "> 67 MPa" — pequena inconsistência interna do próprio catálogo IA.
 ===FIM===
 
+DADOS COMPLEMENTARES — TABELAS ESTRUTURADAS SISTEMA B (fonte: tabelas `resins`/`resin_presentations`/`resin_documents`, não capturadas na síntese inicial via Drive)
+RENDIMENTO POR FRASCO (por tipo de peça impressa):
+- Frasco 250g, uso "Placas miorrelaxantes": 15g por peça → 16 peças por frasco
+- Frasco 500g, uso "Placas miorrelaxantes": 15g por peça → 33 peças por frasco
+- Frasco 1000g, uso "Placas miorrelaxantes": 15g por peça → 66 peças por frasco
+DOCUMENTAÇÃO REGULATÓRIA E LAUDOS TÉCNICOS (arquivos PDF reais no Storage Sistema B):
+- "IFU" (categoria: instrucoes) — https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/resin-documents/resina-3d-smart-print-bio-bite-splint-flex-1762439556942.pdf
+- "FDS" (categoria: sem categoria) — https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/resin-documents/resina-3d-smart-print-bio-bite-splint-flex-1780343213276.pdf
+
 ---
 
 ### Resina 3D Smart Print Bio Bite Splint Clear
@@ -1057,6 +1071,23 @@ Confecção de placas miorrelaxantes e placas de bruxismo.
 DIVERGÊNCIAS ENTRE FONTES
 Não encontrada divergência relevante entre Sistema A e Sistema B para este item; não foi localizado documento específico no Drive fora dos que já alimentam o Sistema A (FDS/IFU).
 ===FIM===
+
+DADOS COMPLEMENTARES — TABELAS ESTRUTURADAS SISTEMA B (fonte: tabelas `resins`/`resin_presentations`/`resin_documents`, não capturadas na síntese inicial via Drive)
+RENDIMENTO POR FRASCO (por tipo de peça impressa):
+- Frasco 250g, uso "Placas miorrelaxantes": 15g por peça → 16 peças por frasco
+- Frasco 500g, uso "Placas miorrelaxantes": 15g por peça → 33 peças por frasco
+- Frasco 1000g, uso "Placas miorrelaxantes": 15g por peça → 66 peças por frasco
+DOCUMENTAÇÃO REGULATÓRIA E LAUDOS TÉCNICOS (arquivos PDF reais no Storage Sistema B):
+- "FDS" (categoria: instrucoes; laboratório: Smart Dent; norma: FDS/SDS) — https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/resin-documents/bite-splint-clear-1762350318899.pdf
+- "IFU" (categoria: instrucoes; laboratório: Smart Dent; norma: IFU) — https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/resin-documents/bite-splint-clear-1762430162143.pdf
+- "Testes mecânicos_Bite Splinto Clear" (categoria: propriedades-fisicas; laboratório: Afinko (INMETRO ISO/IEC 17025); norma: ABNT NBR ISO 4049:2017) — https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/resin-documents/bite-splint-clear-1764272231030.pdf
+- "Sorção e solubilidade_Bite Splint Clear" (categoria: propriedades-fisicas; laboratório: Afinko (INMETRO ISO/IEC 17025); norma: ISO 4049:2019) — https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/resin-documents/bite-splint-clear-1764272259589.pdf
+- "Monomeros residuais _Bite Splint Clear" (categoria: biocompatibilidade; laboratório: Medlab; norma: ISO 10993-5:2009) — https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/resin-documents/bite-splint-clear-1764272341054.pdf
+- "Toxicidade Sistêmica Subcrônica_Bite Splint Clear" (categoria: biocompatibilidade; laboratório: Medlab; norma: ISO 10993-11:2017) — https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/resin-documents/bite-splint-clear-1764272478050.pdf
+- "Study of Maximized Skin Sensitization _Bite Splint Clear" (categoria: biocompatibilidade; laboratório: Medlab; norma: ISO 10993-10:2021) — https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/resin-documents/bite-splint-clear-1764272555169.pdf
+- "Study of Intracutaneous Reactivity_BiteSplint Clear" (categoria: biocompatibilidade; laboratório: Medlab; norma: ISO 10993-23:2021) — https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/resin-documents/bite-splint-clear-1764272697824.pdf
+- "Study of Acute Systemic Toxicity_Bite Splint Clear" (categoria: biocompatibilidade; laboratório: Medlab; norma: ISO 10993-11:2017) — https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/resin-documents/bite-splint-clear-1764272706142.pdf
+- "Study of in vivo Pyrogen_Bite Splint Clear" (categoria: biocompatibilidade; laboratório: Medlab; norma: USP NF Online Chap.151 (2017)) — https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/resin-documents/bite-splint-clear-1764272965118.pdf
 
 ---
 
@@ -1096,6 +1127,14 @@ DIVERGÊNCIAS ENTRE FONTES
 Não encontrada divergência relevante entre as fontes consultadas para este item.
 ===FIM===
 
+DADOS COMPLEMENTARES — TABELAS ESTRUTURADAS SISTEMA B (fonte: tabelas `resins`/`resin_presentations`/`resin_documents`, não capturadas na síntese inicial via Drive)
+RENDIMENTO POR FRASCO (por tipo de peça impressa):
+- Frasco 250g, uso "Base prótese total": 20g por peça → 12 peças por frasco
+- Frasco 1000g, uso "Base prótese total": 20g por peça → 50 peças por frasco
+DOCUMENTAÇÃO REGULATÓRIA E LAUDOS TÉCNICOS (arquivos PDF reais no Storage Sistema B):
+- "IFU" (categoria: instrucoes) — https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/resin-documents/resina-3d-smart-print-bio-denture-1762430363130.pdf
+- "FDS" (categoria: instrucoes) — https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/resin-documents/resina-3d-smart-print-bio-denture-1776026241800.pdf
+
 ---
 
 ### Resina 3D Smart Print Bio Denture Translúcida
@@ -1129,6 +1168,14 @@ Base de prótese total e prótese parcial removível.
 DIVERGÊNCIAS ENTRE FONTES
 O Sistema B lista as mesmas especificações mecânicas de "Tensão na Ruptura/Módulo de Elasticidade" da variante rosa opaca (Bio Denture) para esta variante translúcida, enquanto a descrição textual do Sistema A traz um segundo conjunto de números (Dureza >80 Shore D, Resistência Flexural >100 MPa, Módulo Flexural ≥2.200 MPa, Sorção <32µg/mm³, Solubilidade <1,6µg/mm³) — não fica claro se são o mesmo material com duas medições diferentes ou se os dados foram herdados incorretamente de outro produto durante o cadastro.
 ===FIM===
+
+DADOS COMPLEMENTARES — TABELAS ESTRUTURADAS SISTEMA B (fonte: tabelas `resins`/`resin_presentations`/`resin_documents`, não capturadas na síntese inicial via Drive)
+RENDIMENTO POR FRASCO (por tipo de peça impressa):
+- Frasco 250g, uso "Base prótese total": 20g por peça → 12 peças por frasco
+- Frasco 1000g, uso "Base prótese total": 20g por peça → 50 peças por frasco
+DOCUMENTAÇÃO REGULATÓRIA E LAUDOS TÉCNICOS (arquivos PDF reais no Storage Sistema B):
+- "IFU Denture" (categoria: instrucoes) — https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/resin-documents/resina-smart-print-bio-denture-translucida-1776345168430.pdf
+- "FDS Denture" (categoria: instrucoes) — https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/resin-documents/resina-smart-print-bio-denture-translucida-1776345172713.pdf
 
 ---
 
@@ -1214,6 +1261,10 @@ DIVERGÊNCIAS ENTRE FONTES
 O Sistema B classifica este item como category "consumables" (não "resin"), enquanto produtos irmãos da mesma linha (Vitality, Bite Splint, Denture etc.) estão como "resin" ou "product". Não há explicação nas fontes para essa diferença de categorização. Nenhuma ficha técnica (FDS/SDS) específica para "Hybrid A2" foi localizada no Drive — as especificações mecânicas detalhadas (viscosidade, dureza, resistência flexural) não puderam ser confirmadas para esta variante isoladamente, apenas o texto genérico da linha Hybrid.
 ===FIM===
 
+DADOS COMPLEMENTARES — TABELAS ESTRUTURADAS SISTEMA B (fonte: tabelas `resins`/`resin_presentations`/`resin_documents`, não capturadas na síntese inicial via Drive)
+DOCUMENTAÇÃO REGULATÓRIA E LAUDOS TÉCNICOS (arquivos PDF reais no Storage Sistema B):
+- "IFU - Smart Print Bio" (categoria: instrucoes) — https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/resin-documents/resina-smart-print-hybrid-1762430406545.pdf
+
 ---
 
 ### Resina 3D Smart Print Bio Temp B1
@@ -1249,6 +1300,15 @@ Coroas provisórias, pontes de até 3 elementos, provisórios imediatos, mockup.
 DIVERGÊNCIAS ENTRE FONTES
 O registro ANVISA 81835969003 do Sistema B para este produto é o mesmo número usado para a Resina Bio Vitality (produto diferente, definitivo). Já o documento geral de Instrução de Uso da linha "Smart Print Bio" cita um número diferente (81835960001) como registro único cobrindo toda a linha, incluindo o Temp B1. Não é possível confirmar qual registro está correto/atualizado sem consulta direta à ANVISA.
 ===FIM===
+
+DADOS COMPLEMENTARES — TABELAS ESTRUTURADAS SISTEMA B (fonte: tabelas `resins`/`resin_presentations`/`resin_documents`, não capturadas na síntese inicial via Drive)
+RENDIMENTO POR FRASCO (por tipo de peça impressa):
+- Frasco 250g, uso "Elemento unitário": 2g por peça → 125 peças por frasco
+- Frasco 500g, uso "Elemento unitário": 2g por peça → 250 peças por frasco
+- Frasco 1000g, uso "Elemento unitário": 2g por peça → 500 peças por frasco
+DOCUMENTAÇÃO REGULATÓRIA E LAUDOS TÉCNICOS (arquivos PDF reais no Storage Sistema B):
+- "IFU" (categoria: instrucoes) — https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/resin-documents/resina-smart-print-temp-1762430450740.pdf
+- "FDS" (categoria: instrucoes) — https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/resin-documents/resina-smart-print-temp-1776026402753.pdf
 
 ---
 
@@ -1295,6 +1355,26 @@ DIVERGÊNCIAS ENTRE FONTES
 - Resistência Flexural aparece como 147 MPa nas especificações técnicas, mas o comparativo de concorrentes na mesma fonte (Sistema A) lista "Smart Print Bio Vitality... 147 MPa" — consistente entre si, mas o texto de marketing do Drive ("Smart Print Bio Vitality - SDR") não cita esse valor numérico, apenas qualifica genericamente.
 ===FIM===
 
+DADOS COMPLEMENTARES — TABELAS ESTRUTURADAS SISTEMA B (fonte: tabelas `resins`/`resin_presentations`/`resin_documents`, não capturadas na síntese inicial via Drive)
+RENDIMENTO POR FRASCO (por tipo de peça impressa):
+- Frasco 250g, uso "Coroas sobre dente": 2.4g por peça → 104 peças por frasco; preço do frasco R$ 1850.00; custo por peça R$ 17.76
+- Frasco 250g, uso "Facetas": 2g por peça → 125 peças por frasco; preço do frasco R$ 1850.00; custo por peça R$ 14.8
+- Frasco 250g, uso "Protocolos": 12g por peça → 20 peças por frasco; preço do frasco R$ 1850.00; custo por peça R$ 88.8
+DOCUMENTAÇÃO REGULATÓRIA E LAUDOS TÉCNICOS (arquivos PDF reais no Storage Sistema B):
+- "Avaliação da Atividade Mutagênica" (categoria: biocompatibilidade; laboratório: Groupe ICARE; norma: ISO 10993-3:2014 / OECD 471) — https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/resin-documents/resina-smart-print-bio-vitality-1762257560625.pdf
+- "Avaliação de Efeitos Genotóxicos" (categoria: biocompatibilidade; laboratório: Groupe ICARE; norma: ISO 10993-3:2014 / OECD 487) — https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/resin-documents/resina-smart-print-bio-vitality-1762261618111.pdf
+- "Avaliação Módulo e Resistência a flexão" (categoria: propriedades-fisicas; laboratório: Afinko (INMETRO ISO/IEC 17025); norma: ABNT NBR ISO 4049:2017 / ISO 10477:2004) — https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/resin-documents/resina-smart-print-bio-vitality-1762262447628.pdf
+- "Avaliação Sorção e Solubilidade" (categoria: propriedades-fisicas; laboratório: Afinko (INMETRO ISO/IEC 17025); norma: ISO 4049:2019) — https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/resin-documents/resina-smart-print-bio-vitality-1762262721081.pdf
+- "Avaliação Estabilidade de Cor" (categoria: propriedades-fisicas; laboratório: Afinko (INMETRO ISO/IEC 17025); norma: ISO 7491:2000) — https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/resin-documents/resina-smart-print-bio-vitality-1762262817656.pdf
+- "Avaliação Tonalidade" (categoria: propriedades-fisicas; laboratório: Afinko (INMETRO ISO/IEC 17025); norma: ISO 7491:2000) — https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/resin-documents/resina-smart-print-bio-vitality-1762262926483.pdf
+- "Estudo de Toxicidade Sistêmica Aguda" (categoria: biocompatibilidade; laboratório: Medlab; norma: ISO 10993-11:2017) — https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/resin-documents/resina-smart-print-bio-vitality-1762263067030.pdf
+- "Estudo in vivo de Pirogênio" (categoria: biocompatibilidade; laboratório: Medlab; norma: USP NF Online Chap.151 (2017)) — https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/resin-documents/resina-smart-print-bio-vitality-1762263138904.pdf
+- "Estudo de Reatividade Intracutânea" (categoria: biocompatibilidade; laboratório: Medlab; norma: ISO 10993-23:2021) — https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/resin-documents/resina-smart-print-bio-vitality-1762263223775.pdf
+- "Estudo de Sensibilização Cutânea Maximizada" (categoria: biocompatibilidade; laboratório: Medlab; norma: ISO 10993-10:2021) — https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/resin-documents/resina-smart-print-bio-vitality-1762263290422.pdf
+- "IFU" (categoria: instrucoes; laboratório: Smart Dent; norma: IFU) — https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/resin-documents/resina-smart-print-bio-vitality-1762360041499.pdf
+- "FDS" (categoria: instrucoes; laboratório: Smart Dent; norma: FDS/SDS) — https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/resin-documents/resina-smart-print-bio-vitality-1762366280120.pdf
+- "FDA Vitality" (categoria: sem categoria) — https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/resin-documents/resina-3d-smart-print-bio-vitality-longa-duracao-1780978304065.pdf
+
 ---
 
 ### Resina 3D Smart Print Try-In Calcinável
@@ -1327,6 +1407,14 @@ Fabricação de padrões calcináveis para fundição de infraestruturas metáli
 DIVERGÊNCIAS ENTRE FONTES
 Pequena divergência de dureza Shore D entre o material promocional de Instagram (">80") e o dado técnico estruturado do catálogo (79,3) — diferença marginal, provavelmente arredondamento comercial. Densidade também aparece ora como faixa (1,1–1,3 g/cm³), ora como valor pontual (1,2050 g/cm³).
 ===FIM===
+
+DADOS COMPLEMENTARES — TABELAS ESTRUTURADAS SISTEMA B (fonte: tabelas `resins`/`resin_presentations`/`resin_documents`, não capturadas na síntese inicial via Drive)
+RENDIMENTO POR FRASCO (por tipo de peça impressa):
+- Frasco 1000g, uso "Elemento unitário": 2g por peça → 500 peças por frasco
+- Frasco 1000g, uso "Base dentadura": 20g por peça → 50 peças por frasco
+- Frasco 1000g, uso "Protocolo": 17g por peça → 58 peças por frasco
+DOCUMENTAÇÃO REGULATÓRIA E LAUDOS TÉCNICOS (arquivos PDF reais no Storage Sistema B):
+- "FDS" (categoria: instrucoes) — https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/resin-documents/resina-smart-print-try-in-calcinavel-1762349842887.pdf
 
 ---
 
@@ -1362,6 +1450,16 @@ Guias cirúrgicos para implantes, guias de protocolo, guias periodontais, cirurg
 DIVERGÊNCIAS ENTRE FONTES
 Não encontrada divergência relevante — os valores mecânicos estruturados (Sistema A e B) e os valores de viscosidade/sorção do material promocional são complementares, sem contradição direta.
 ===FIM===
+
+DADOS COMPLEMENTARES — TABELAS ESTRUTURADAS SISTEMA B (fonte: tabelas `resins`/`resin_presentations`/`resin_documents`, não capturadas na síntese inicial via Drive)
+RENDIMENTO POR FRASCO (por tipo de peça impressa):
+- Frasco 250g, uso "Guia parcial": 13g por peça → 19 peças por frasco
+- Frasco 500g, uso "Guia parcial": 13g por peça → 38 peças por frasco
+- Frasco 1000g, uso "Guia parcial": 13g por peça → 76 peças por frasco
+DOCUMENTAÇÃO REGULATÓRIA E LAUDOS TÉCNICOS (arquivos PDF reais no Storage Sistema B):
+- "FDS" (categoria: instrucoes) — https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/resin-documents/resin-1762194125163.pdf
+- "Relatório Citotoxicidade" (categoria: RESINAS 3D) — https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/resin-documents/resin-1762198624130.pdf
+- "IFU" (categoria: instrucoes) — https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/resin-documents/resina-smart-print-clear-guide-1762430291114.pdf
 
 ---
 
@@ -1466,6 +1564,13 @@ APLICAÇÕES: modelos de prótese/implantes com simulação de tecidos moles; mo
 DIVERGÊNCIAS: vídeo de divulgação anuncia "Dureza Shore D >75", mas technical_specifications registra "Shore A >75" — Shore A é a escala correta para materiais elastoméricos/flexíveis como este; a menção a "Shore D" é provável erro do material de marketing.
 FONTES: Drive docs 1soCFHd7Fk_9gf-3xh3zrvPJXZVzMkHHI (FDS), 1BGYYHMgeKE1FYBfnM7hawHrG5AQyzlEBZWvXgBSXx2w, 1b6pGeKVH8oQlAF8AYshECnN8gYWVIV5V3h0V7qTUSsc; system_a_catalog.
 
+DADOS COMPLEMENTARES — TABELAS ESTRUTURADAS SISTEMA B (fonte: tabelas `resins`/`resin_presentations`/`resin_documents`, não capturadas na síntese inicial via Drive)
+RENDIMENTO POR FRASCO (por tipo de peça impressa):
+- Frasco 250g, uso "Simulação gengiva": 8g por peça → 31 peças por frasco
+DOCUMENTAÇÃO REGULATÓRIA E LAUDOS TÉCNICOS (arquivos PDF reais no Storage Sistema B):
+- "IFU" (categoria: instrucoes) — https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/resin-documents/resina-smart-print-gengiva-1776026576852.pdf
+- "FDS" (categoria: instrucoes) — https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/resin-documents/resina-smart-print-gengiva-1776026630561.pdf
+
 ---
 
 ### Resina 3D Smart Print L'Aqua
@@ -1482,6 +1587,18 @@ PÚBLICO-ALVO: laboratórios/clínicas que buscam reduzir custo/uso de solventes
 APLICAÇÕES: modelos de trabalho, universais, troquéis, ortodônticos, setups de alinhadores, biomodelos TC.
 DIVERGÊNCIAS: nenhuma factual relevante — dados de GTIN/ANVISA/specs consistentes entre fontes. Regra anti-hallucination interna proíbe afirmar uso em restaurações definitivas/intraoral (é exclusivamente para modelos de trabalho).
 FONTES: Drive docs 15BK64Dhur6lN7Fv2y55TjRhvftlHUwzv (FDS), 1b6pGeKVH8oQlAF8AYshECnN8gYWVIV5V3h0V7qTUSsc, 1yR9Mz4AX2Oa3OWsltaCfLpZYIr8CavJ5, 124-Hf5Bau4hpGSKsE1N6n6UcUXL7oi8L; system_a_catalog.
+
+DADOS COMPLEMENTARES — TABELAS ESTRUTURADAS SISTEMA B (fonte: tabelas `resins`/`resin_presentations`/`resin_documents`, não capturadas na síntese inicial via Drive)
+RENDIMENTO POR FRASCO (por tipo de peça impressa):
+- Frasco 1000g, uso "Modelos Protéticos (Arco)": 21g por peça → 47 peças por frasco
+- Frasco 1000g, uso "Par Zocalados": 30g por peça → 33 peças por frasco
+- Frasco 1000g, uso "Modelos Alinhadores": 13g por peça → 76 peças por frasco
+- Frasco 1000g, uso "Modelos Mockup": 15g por peça → 66 peças por frasco
+- Frasco 1000g, uso "Modelos Clareamento": 13g por peça → 76 peças por frasco
+- Frasco 1000g, uso "Biomodelos- Tc (Quadrante)": 25g por peça → 40 peças por frasco
+DOCUMENTAÇÃO REGULATÓRIA E LAUDOS TÉCNICOS (arquivos PDF reais no Storage Sistema B):
+- "FDS" (categoria: instrucoes) — https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/resin-documents/resina-smart-print-modelo-laqua-1762342724111.pdf
+- "IFU" (categoria: instrucoes) — https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/resin-documents/resina-smart-print-modelo-laqua-1762434846672.pdf
 
 ---
 
@@ -1500,6 +1617,18 @@ APLICAÇÕES: modelos protéticos de alta precisão; biomodelos (TC); modelos or
 DIVERGÊNCIAS ENTRE FONTES — CRÍTICA
 O registro contém bloco de conteúdo de blog gerado por IA (extra_data.content.blog) com dados INCOMPATÍVEIS com a fonte de verdade da empresa: (1) atribui a empresa fictícia "Smart Dent Solutions" com "8 anos" — a Smart Dent/MMTech foi fundada em 2009 (16+ anos), nome correto é só "Smart Dent"; (2) endereço fictício "Rua Exemplo, 123" e telefone genérico, que contradizem o endereço real (Rua Dr. Procópio Toledo Malta, 62, São Carlos/SP); (3) specs inventadas ("viscosidade 850 mPa·s", "exposição 8-12s", "camada 50-100 microns") não aparecem em nenhuma outra fonte e contradizem o padrão da linha (0,3-0,5 Pa·s). NÃO usar esse bloco de blog — manter apenas os campos estruturados (Shore D, densidade, GTIN, applications, sales_pitch do clinical_brain).
 FONTES: system_a_catalog; sheet 1yR9Mz4AX2Oa3OWsltaCfLpZYIr8CavJ5; doc 1aqrzcEDjE2deNV-FOw6KF1ua36XdtV-dhGk8vay_OuU (llms.txt).
+
+DADOS COMPLEMENTARES — TABELAS ESTRUTURADAS SISTEMA B (fonte: tabelas `resins`/`resin_presentations`/`resin_documents`, não capturadas na síntese inicial via Drive)
+RENDIMENTO POR FRASCO (por tipo de peça impressa):
+- Frasco 1000g, uso "Modelos Protéticos (Arco)": 21g por peça → 47 peças por frasco
+- Frasco 1000g, uso "Par  Zocalados": 30g por peça → 33 peças por frasco
+- Frasco 1000g, uso "Modelos Alinhadores": 13g por peça → 76 peças por frasco
+- Frasco 1000g, uso "Modelos Mockup": 15g por peça → 66 peças por frasco
+- Frasco 1000g, uso "Modelos Clareamento": 22g por peça → 45 peças por frasco
+- Frasco 1000g, uso "Biomodelos- Tc (Quadrante)": 25g por peça → 40 peças por frasco
+DOCUMENTAÇÃO REGULATÓRIA E LAUDOS TÉCNICOS (arquivos PDF reais no Storage Sistema B):
+- "FDS" (categoria: instrucoes) — https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/resin-documents/resina-3d-smart-print-model-plus-1762364298131.pdf
+- "IFU" (categoria: instrucoes) — https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/resin-documents/resina-3d-smart-print-model-plus-1762365335150.pdf
 
 ---
 
@@ -1539,6 +1668,18 @@ DIVERGÊNCIAS ENTRE FONTES
 Pequena divergência numérica: a descrição comercial declara "Dureza Shore D: &gt; 80" como especificação de referência da linha, enquanto o campo de medição real (`technical_specifications`) registra 77,9 — abaixo do limiar declarado de "&gt;80". Pode refletir variação normal de lote/medição, mas deve ser sinalizado para não gerar uma promessa de dureza que a medição real não sustenta.
 ===FIM===
 
+DADOS COMPLEMENTARES — TABELAS ESTRUTURADAS SISTEMA B (fonte: tabelas `resins`/`resin_presentations`/`resin_documents`, não capturadas na síntese inicial via Drive)
+RENDIMENTO POR FRASCO (por tipo de peça impressa):
+- Frasco 1000g, uso "Modelos Protéticos (Arco)": 21g por peça → 47 peças por frasco
+- Frasco 1000g, uso "Par Zocalados": 30g por peça → 33 peças por frasco
+- Frasco 1000g, uso "Modelos Alinhadores": 13g por peça → 76 peças por frasco
+- Frasco 1000g, uso "Modelos Mockup": 15g por peça → 66 peças por frasco
+- Frasco 1000g, uso "Modelos Clareamento": 13g por peça → 76 peças por frasco
+- Frasco 1000g, uso "Biomodelos- Tc (Quadrante)": 25g por peça → 40 peças por frasco
+DOCUMENTAÇÃO REGULATÓRIA E LAUDOS TÉCNICOS (arquivos PDF reais no Storage Sistema B):
+- "FDS" (categoria: instrucoes) — https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/resin-documents/resina-smart-print-modelo-ocre-1762343310463.pdf
+- "IFU" (categoria: instrucoes) — https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/resin-documents/resina-smart-print-modelo-ocre-1762434942167.pdf
+
 ---
 
 ### Resina 3D Smart Print Modelo Precision
@@ -1573,6 +1714,18 @@ DIVERGÊNCIAS ENTRE FONTES
 Nenhuma contradição factual relevante identificada entre FDS, system_a_catalog e planilha regulatória; os dados de dureza (Shore D 84,9), viscosidade e composição são coerentes entre si. Regra anti-hallucination interna (clinical_brain) explicitamente veda atribuir a este produto a propriedade de "esmalte universal/unicromático" (que pertence à resina Atos Unichroma, fora do escopo desta lista) — útil como salvaguarda para o chatbot de vendas.
 ===FIM===
 
+DADOS COMPLEMENTARES — TABELAS ESTRUTURADAS SISTEMA B (fonte: tabelas `resins`/`resin_presentations`/`resin_documents`, não capturadas na síntese inicial via Drive)
+RENDIMENTO POR FRASCO (por tipo de peça impressa):
+- Frasco 1000g, uso "Modelos Protéticos (Arco)": 21g por peça → 47 peças por frasco
+- Frasco 1000g, uso "Par Zocalados": 30g por peça → 33 peças por frasco
+- Frasco 1000g, uso "Modelos Alinhadores": 13g por peça → 76 peças por frasco
+- Frasco 1000g, uso "Modelos Mockup": 15g por peça → 66 peças por frasco
+- Frasco 1000g, uso "Modelos Clareamento": 13g por peça → 76 peças por frasco
+- Frasco 1000g, uso "Biomodelos- Tc (Quadrante)": 25g por peça → 40 peças por frasco
+DOCUMENTAÇÃO REGULATÓRIA E LAUDOS TÉCNICOS (arquivos PDF reais no Storage Sistema B):
+- "FDS" (categoria: instrucoes) — https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/resin-documents/resina-3d-smart-print-modelo-precision-1762349123464.pdf
+- "IFU" (categoria: instrucoes) — https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/resin-documents/resina-3d-smart-print-modelo-precision-1776027190023.pdf
+
 ---
 
 ### Resina 3D Smart Print Modelo Universal (Salmão)
@@ -1606,6 +1759,18 @@ Modelos universais, troquéis, modelos ortodônticos, biomodelos TC.
 DIVERGÊNCIAS ENTRE FONTES
 Inconsistência de link identificada na planilha "SmartDent_Regulatorio_v3": a linha "Smart Print Ocher Model 500G" (GTIN 0756014745641, mesmo registro ANVISA 81835960006/Wikidata Q139540875 do Modelo Ocre) aponta o campo "Link da Loja" para a URL do produto L'Aqua ("resina-smart-print-modelo-laqua"), em vez de apontar para a página do Modelo Ocre — aparente erro de cadastro na planilha-fonte que não deve ser propagado para a base RAG. Fora esse ponto, os dados de composição, ANVISA e GTIN dos rótulos/FDS são consistentes com `system_a_catalog`.
 ===FIM===
+
+DADOS COMPLEMENTARES — TABELAS ESTRUTURADAS SISTEMA B (fonte: tabelas `resins`/`resin_presentations`/`resin_documents`, não capturadas na síntese inicial via Drive)
+RENDIMENTO POR FRASCO (por tipo de peça impressa):
+- Frasco 1000g, uso "Modelos Protéticos (Arco)": 21g por peça → 47 peças por frasco
+- Frasco 1000g, uso "Par Zocalados": 30g por peça → 33 peças por frasco
+- Frasco 1000g, uso "Modelos Alinhadores": 13g por peça → 76 peças por frasco
+- Frasco 1000g, uso "Modelos Mockup": 15g por peça → 66 peças por frasco
+- Frasco 1000g, uso "Modelos Clareamento": 13g por peça → 76 peças por frasco
+- Frasco 1000g, uso "Biomodelos- Tc (Quadrante)": 25g por peça → 40 peças por frasco
+DOCUMENTAÇÃO REGULATÓRIA E LAUDOS TÉCNICOS (arquivos PDF reais no Storage Sistema B):
+- "FDS" (categoria: instrucoes) — https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/resin-documents/resina-modelo-universal-1762349498965.pdf
+- "IFU" (categoria: instrucoes) — https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/resin-documents/resina-modelo-universal-1762434974202.pdf
 
 ---
 
@@ -2131,6 +2296,15 @@ DIVERGÊNCIAS ENTRE FONTES
 Não foram encontradas divergências relevantes de conteúdo entre as múltiplas fontes do Drive e as duas bases de dados (products_repository e system_a_catalog); os documentos do Drive aparentam ser a origem direta dos campos estruturados cadastrados nas bases (alto grau de correspondência textual). Observação: o documento "O NanoClean PoD™" restringe a indicação de uso "exclusivamente para materiais Smart Dent", enquanto a descrição do system_a_catalog/products_repository generaliza para "resinas de alta carga inorgânica" sem essa restrição de marca — recomenda-se manter a ressalva de exclusividade a materiais Smart Dent ao gerar conteúdo comercial, conforme a regra anti-alucinação já registrada no extra_data do system_a_catalog ("Não garantir compatibilidade com resinas de outras marcas sem validação prévia da SmartDent").
 ===FIM===
 
+DADOS COMPLEMENTARES — TABELA COMPARATIVA SISTEMA B (products_catalog.competitor_comparison, não capturada na síntese inicial)
+Comparação NanoClean PoD™ vs IPA Tradicional:
+| Característica | NanoClean PoD™ | IPA Tradicional |
+|---|---|---|
+| Chalk Effect | Eliminado 100% | Alto risco |
+| Inflamabilidade | Não inflamável | Altamente inflamável |
+| Capacidade | 35 elementos/ciclo | 1-4 peças |
+| Tempo | 60 segundos | 1-3 minutos |
+
 ---
 
 
@@ -2152,6 +2326,13 @@ PÚBLICO-ALVO: Cirurgiões-dentistas, protéticos/técnicos em prótese dentári
 APLICAÇÕES: Caracterização estética de restaurações e provisórios impressos em 3D ou fresados/PMMA; ajuste fino de cor; criação de alto relevo com SmartBase; base para uso combinado (vendido separadamente) com a linha SmartGum para caracterização gengival.
 DIVERGÊNCIAS ENTRE FONTES: O anti_hallucination_rules do próprio catálogo instrui explicitamente a não atribuir o guia do SmartMake ao Dr. Weber Ricci — o especialista responsável é o Prof. Sergio Silva; a documentação técnica histórica (SMARTMAKE 3.0.pdf) descreve "SM Mamelon" e "SM Red/Ocre" como stains adicionais do protocolo original, enquanto o Kit Completo comercial atual documentado no catálogo relaciona apenas Blue/Violet/White/Black — Efeito Mamelon, Godê e SmartWash são vendidos como itens avulsos da linha, não confirmados como parte física padrão da caixa do Kit Completo nas fontes revisadas.
 ===FIM===
+
+DADOS COMPLEMENTARES — TABELA COMPARATIVA SISTEMA B (products_catalog.competitor_comparison, não capturada na síntese inicial)
+Comparação SmartMake vs Concorrentes:
+| Característica | SmartMake | Cosmos Creation |
+|---|---|---|
+| Glaze | Smart Seal Glaze Opalescente (não amarela) | Necessita glaze separado |
+| Tempo de uso clínica | 5 anos | 4 anos |
 
 ---
 
