@@ -105,12 +105,16 @@ export function BioLinkPanel() {
   const [editor, setEditor] = useState<EditorState | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [pickerSearch, setPickerSearch] = useState("");
+  const [pickerKind, setPickerKind] = useState<"all" | "form" | "landing_page">("all");
 
   const filteredSources = useMemo(() => {
     const q = pickerSearch.trim().toLowerCase();
-    if (!q) return sources ?? [];
-    return (sources ?? []).filter((s) => `${s.label} ${s.slug}`.toLowerCase().includes(q));
-  }, [sources, pickerSearch]);
+    return (sources ?? [])
+      .filter((s) => (pickerKind === "all" ? true : s.kind === pickerKind))
+      .filter((s) => (!q ? true : `${s.label} ${s.slug}`.toLowerCase().includes(q)))
+      .sort((a, b) => a.label.localeCompare(b.label, "pt-BR"));
+  }, [sources, pickerSearch, pickerKind]);
+
 
   const publicUrl = (slug: string) => `${getPublicOrigin()}/bio/${slug}`;
 
