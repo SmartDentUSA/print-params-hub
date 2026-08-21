@@ -152,6 +152,39 @@ export function SocialFlowsList() {
                     <span className="flex items-center gap-1"><CheckCircle2 className="w-3 h-3" /> {f.total_completed ?? 0}</span>
                     <span>{f.total_leads_converted ?? 0} leads</span>
                   </div>
+                  {(() => {
+                    const cfg = (f.zernio_automation_config ?? {}) as any;
+                    const kw = (cfg.keywords ?? [])[0];
+                    if (!kw && !cfg.short_link) return null;
+                    return (
+                      <div className="mt-2 space-y-1">
+                        <div className="flex flex-wrap items-center gap-2 text-xs">
+                          {kw && (
+                            <Badge className="gap-1"><Hash className="w-3 h-3" />{kw}</Badge>
+                          )}
+                          {cfg.short_link && (
+                            <a
+                              href={cfg.short_link}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="inline-flex items-center gap-1 text-primary hover:underline"
+                            >
+                              <LinkIcon className="w-3 h-3" />{cfg.short_link.replace(/^https?:\/\//, '')}
+                            </a>
+                          )}
+                          {cfg.short_link_target && (
+                            <Badge variant="secondary">{cfg.short_link_target === 'landing_page' ? 'Landing page' : 'Formulário'}</Badge>
+                          )}
+                        </div>
+                        {cfg.dm_message && (
+                          <p className="text-xs text-muted-foreground flex items-start gap-1">
+                            <MessageSquare className="w-3 h-3 mt-0.5 shrink-0" />
+                            <span className="line-clamp-2 whitespace-pre-wrap">{cfg.dm_message}</span>
+                          </p>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
                   <Tooltip>
