@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 import type { TurmaComVagas } from "@/types/courses";
 import { UploadMidiasDriveButton } from "@/components/smartops/UploadMidiasDriveButton";
 import { DepoimentoUploadAccordion } from "@/components/agenda/DepoimentoUploadAccordion";
+import { PastTrainingsUploadAccordion } from "@/components/agenda/PastTrainingsUploadAccordion";
 import { AccountButton } from "@/components/AccountButton";
 
 /** Sessão autenticada + membro da equipe: o upload de mídias é exclusivo de Team Members. */
@@ -409,6 +410,8 @@ export default function AgendaPublica({ variant = "presencial" }: AgendaPublicaP
             </button>
           </div>
         </header>
+
+        {isTeamMember && <PastTrainingsUploadAccordion modalities={config.modalities} />}
 
         {isTeamMember && variant === "presencial" && <DepoimentoUploadAccordion />}
 
