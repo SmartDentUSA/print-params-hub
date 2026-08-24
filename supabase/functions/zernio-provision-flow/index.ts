@@ -14,8 +14,76 @@ Deno.serve(async (req) => {
   );
 
   try {
-    const { flow_id } = await req.json();
-    if (!flow_id) throw new Error("flow_id required");
+    let body: any = {};
+    try { body = await req.json(); } catch { /* ignore */ }
+    const { flow_id } = body;
+    const batch: boolean = body?.batch === true || !flow_id;
+    const limit: number = Number(body?.limit ?? 60);
+
+    const zernioKey = Deno.env.get("ZERNIO_API_KEY");
+    if (!zernioKey) throw new Error("ZERNIO_API_KEY not configured");
+
+    // ---- modo lote: provisiona todos os flows IG ativos sem automation na Zernio
+    if (batch) {
+      const { data: pending, error: pErr } = await supabase
+        .from("social_flows")
+        .select("id, name, zernio_automation_config")
+        .eq("channel", "instagram")
+        .eq("is_active", true)
+        .is("zernio_automation_id", null)
+        .limit(limit);
+      if (pErr) throw pErr;
+
+      const results: any[] = [];
+      for (const f of pending ?? []) {
+        const c: any = f.zernio_automation_config ?? {};
+        if (!Array.isArray(c.keywords) || c.keywords.length === 0) {
+          results.push({ flow_id: f.id, name: f.name, ok: false, error: "sem_keywords" });
+          continue;
+        }
+        const p = {
+          profileId: "6a1e1a2368fd70c014724ef0",
+          accountId: "6a1e1b992b2567671a925559",
+          name: f.name,
+          keywords: c.keywords,
+          matchMode: "contains",
+          dmMessage: c.dm_message ?? "",
+          commentReply: c.comment_reply ?? "",
+          linkTracking: false,
+        };
+        try {
+          const r = await fetch("https://zernio.com/api/v1/comment-automations", {
+            method: "POST",
+            headers: { Authorization: `Bearer ${zernioKey}`, "Content-Type": "application/json" },
+            body: JSON.stringify(p),
+            signal: AbortSignal.timeout(20_000),
+          });
+          const t = await r.text();
+          let d: any = {};
+          try { d = JSON.parse(t); } catch { d = { raw: t }; }
+          const id = d?.automation?.id ?? d?.id ?? null;
+          if (!r.ok || !id) {
+            results.push({ flow_id: f.id, name: f.name, ok: false, status: r.status, response: d });
+            continue;
+          }
+          await supabase.from("social_flows")
+            .update({ zernio_automation_id: id, updated_at: new Date().toISOString() })
+            .eq("id", f.id);
+          results.push({ flow_id: f.id, name: f.name, ok: true, zernio_automation_id: id, keywords: c.keywords });
+        } catch (e) {
+          results.push({ flow_id: f.id, name: f.name, ok: false, error: String((e as Error)?.message ?? e) });
+        }
+      }
+
+      return new Response(JSON.stringify({
+        ok: true,
+        mode: "batch",
+        pending: pending?.length ?? 0,
+        provisioned: results.filter((r) => r.ok).length,
+        failed: results.filter((r) => !r.ok),
+        results,
+      }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
 
     const { data: flow, error } = await supabase
       .from("social_flows")
@@ -31,8 +99,7 @@ Deno.serve(async (req) => {
     }
 
     const cfg: any = flow.zernio_automation_config ?? {};
-    const zernioKey = Deno.env.get("ZERNIO_API_KEY");
-    if (!zernioKey) throw new Error("ZERNIO_API_KEY not configured");
+
 
     const payload = {
       profileId: "6a1e1a2368fd70c014724ef0",
