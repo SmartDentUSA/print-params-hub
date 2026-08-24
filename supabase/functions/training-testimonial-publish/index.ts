@@ -471,18 +471,6 @@ serve(async (req) => {
           body: JSON.stringify({ contentId, force: true, withFaqs: true }),
         }).catch(() => {});
       } catch { /* formatação não bloqueia publicação */ }
-
-      // Cópia do conteúdo publicado na pasta do Drive da turma (fire-and-forget).
-      // Roda depois da formatação para gravar o HTML final.
-      try {
-        setTimeout(() => {
-          fetch(`${SUPABASE_URL}/functions/v1/training-testimonial-drive-doc`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json", Authorization: `Bearer ${SERVICE_KEY}`, apikey: SERVICE_KEY },
-            body: JSON.stringify({ testimonial_id: t.id }),
-          }).catch(() => {});
-        }, 20_000);
-      } catch { /* cópia no Drive não bloqueia publicação */ }
     }
 
     // ── Kit social pendente de aprovação (nunca publica sozinho) ──────────
