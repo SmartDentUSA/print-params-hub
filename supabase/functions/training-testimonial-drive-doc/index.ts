@@ -285,11 +285,13 @@ serve(async (req) => {
         ) || `depoimento-${t.id}`;
         const fileName = `${baseName}.html`;
 
+        const ficha = await loadFicha(db, t, turma);
+
         const fileId = await driveUploadFile({
           token,
           folderId,
           name: fileName,
-          content: buildDocument(content, publicUrl),
+          content: buildDocument(content, publicUrl, ficha),
           mimeType: "text/html",
           existingFileId: null,
           overwriteByName: true,
