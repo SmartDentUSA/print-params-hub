@@ -208,12 +208,20 @@ serve(async (req) => {
       `- Se houver @, mencione-o (${ficha.handle || "@handle"}) na copy.`,
       `- Cite no máximo 2 produtos/equipamentos, e apenas se pertencerem ao curso (lista "Produtos relacionados") ou aparecerem na transcrição. A lista "Equipamentos citados" é o parque do participante — não atribua ao treinamento.`,
       `- Proibido: preço, valores, promessa de resultado clínico, dado privado (clínica, CNPJ, telefone).`,
-      `- tiktok_caption: copy completa com a estrutura acima (até 1500 caracteres).`,
+      `- reels_caption: copy completa com a estrutura acima (até 1500 caracteres), para o Reels do Instagram.`,
       `- story_caption: versão enxuta para Story (até 260 caracteres) — gancho + frase de impacto curta + "▶️ Dê o play" + o mesmo CTA (link na Bio / comente "${keyword}").`,
+      `- tiktok_caption: copy NATIVA de TikTok, DIFERENTE da do Reels (nunca o mesmo texto), até 1200 caracteres:`,
+      `    • 1ª linha: gancho curtíssimo (até 60 caracteres) que prende nos 2 primeiros segundos;`,
+      `    • 2ª linha: quem é a pessoa — nome, especialidade e cidade/UF, em tom de conversa;`,
+      `    • 3ª linha: 💬 a MESMA frase literal da transcrição usada no bloco 3;`,
+      `    • 4ª linha: 1 aprendizado prático concreto do treinamento;`,
+      `    • última linha: CTA "Link na Bio" + \`comente "${keyword}"\`;`,
+      `    • sem parágrafos longos, no máximo 3 emojis, sem tom institucional.`,
       ``,
-      `Responda SOMENTE JSON: {"story_caption":"...","tiktok_caption":"...","quote":"...","hashtags":["..."]}`,
+      `Responda SOMENTE JSON: {"story_caption":"...","reels_caption":"...","tiktok_caption":"...","quote":"...","hashtags":["..."]}`,
       `quote: a frase literal usada no bloco 3, sem aspas.`,
       `hashtags: 8 a 10, sem "#", em CamelCase ou minúsculas, relevantes (SmartDent, o curso, o equipamento, odontologia digital, impressão 3D, a especialidade).`,
+
     ].join("\n");
 
     const raw = await chat(
