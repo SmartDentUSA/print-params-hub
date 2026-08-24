@@ -248,8 +248,8 @@ serve(async (req) => {
   try {
     const body = await req.json().catch(() => ({} as any));
     const select =
-      "id, turma_id, drive_folder_id, participant_name, knowledge_content_id, knowledge_slug, status, " +
-      "smartops_course_turmas!inner(id, turma_number, label, drive_folder_id, drive_subfolders)";
+      "id, turma_id, drive_folder_id, participant_name, enrollment_id, companion_id, knowledge_content_id, knowledge_slug, status, " +
+      "smartops_course_turmas!inner(id, turma_number, label, start_date, launch_date, drive_folder_id, drive_subfolders)";
 
     let query = db.from("training_testimonials").select(select).not("knowledge_content_id", "is", null);
     if (body?.testimonial_id) query = query.eq("id", String(body.testimonial_id));
