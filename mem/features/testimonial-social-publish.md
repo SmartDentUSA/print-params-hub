@@ -17,3 +17,4 @@ type: feature
 - Parceiros fixos marcados em TODO depoimento: `@rayshape3d` e `@blz_dental` — via `platformSpecificData.userTags` no Story e linha "Parceria: @rayshape3d @blz_dental" nas captions (IG/TikTok). `collaborators` do Zernio não funciona em Stories.
 - Controle em `training_testimonials`: `social_story_status/_post_id/_error/_published_at/_attempts/_snapshot`.
 - Ficha do acompanhante lê `smartops_enrollment_companions` (a tabela `smartops_course_companions` não existe).
+- Captions separadas por canal: `story_caption` (Story, ≤260), `reels_caption` (Reels + descrição do YouTube) e `tiktok_caption` **nativa de TikTok** (gancho ≤60 chars → quem é a pessoa → frase literal → aprendizado prático → CTA Link na Bio/comente). A do TikTok nunca pode ser igual à do Reels (Zernio recusa duplicado 24h) — há fallback determinístico se a IA repetir. `caption` do post = Reels; TikTok vai em `channels[].caption`.

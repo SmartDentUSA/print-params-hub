@@ -208,12 +208,20 @@ serve(async (req) => {
       `- Se houver @, mencione-o (${ficha.handle || "@handle"}) na copy.`,
       `- Cite no máximo 2 produtos/equipamentos, e apenas se pertencerem ao curso (lista "Produtos relacionados") ou aparecerem na transcrição. A lista "Equipamentos citados" é o parque do participante — não atribua ao treinamento.`,
       `- Proibido: preço, valores, promessa de resultado clínico, dado privado (clínica, CNPJ, telefone).`,
-      `- tiktok_caption: copy completa com a estrutura acima (até 1500 caracteres).`,
+      `- reels_caption: copy completa com a estrutura acima (até 1500 caracteres), para o Reels do Instagram.`,
       `- story_caption: versão enxuta para Story (até 260 caracteres) — gancho + frase de impacto curta + "▶️ Dê o play" + o mesmo CTA (link na Bio / comente "${keyword}").`,
+      `- tiktok_caption: copy NATIVA de TikTok, DIFERENTE da do Reels (nunca o mesmo texto), até 1200 caracteres:`,
+      `    • 1ª linha: gancho curtíssimo (até 60 caracteres) que prende nos 2 primeiros segundos;`,
+      `    • 2ª linha: quem é a pessoa — nome, especialidade e cidade/UF, em tom de conversa;`,
+      `    • 3ª linha: 💬 a MESMA frase literal da transcrição usada no bloco 3;`,
+      `    • 4ª linha: 1 aprendizado prático concreto do treinamento;`,
+      `    • última linha: CTA "Link na Bio" + \`comente "${keyword}"\`;`,
+      `    • sem parágrafos longos, no máximo 3 emojis, sem tom institucional.`,
       ``,
-      `Responda SOMENTE JSON: {"story_caption":"...","tiktok_caption":"...","quote":"...","hashtags":["..."]}`,
+      `Responda SOMENTE JSON: {"story_caption":"...","reels_caption":"...","tiktok_caption":"...","quote":"...","hashtags":["..."]}`,
       `quote: a frase literal usada no bloco 3, sem aspas.`,
       `hashtags: 8 a 10, sem "#", em CamelCase ou minúsculas, relevantes (SmartDent, o curso, o equipamento, odontologia digital, impressão 3D, a especialidade).`,
+
     ].join("\n");
 
     const raw = await chat(
@@ -223,15 +231,30 @@ serve(async (req) => {
       ],
       { json: true },
     );
-    const copy = parseJsonBlock<{ story_caption?: string; tiktok_caption?: string; quote?: string; hashtags?: string[] }>(raw);
+    const copy = parseJsonBlock<{ story_caption?: string; reels_caption?: string; tiktok_caption?: string; quote?: string; hashtags?: string[] }>(raw);
 
     const ctaBlock = `Quer conhecer as próximas turmas do ${ficha.curso || "treinamento"}?\nSaiba mais no link na Bio ou comente "${keyword}" e receba todas as informações.`;
     const ensureCta = (s: string) => (s.toLowerCase().includes("link na bio") ? s : `${s.trim()}\n\n${ctaBlock}`);
     const withPartners = (s: string) =>
       PARTNER_HANDLES.every((h) => s.toLowerCase().includes(`@${h}`)) ? s : `${s.trim()}\n\n${PARTNER_LINE}`;
     const storyCaption = withPartners(ensureCta(String(copy.story_caption || "").trim()));
-    const tiktokCaption = withPartners(ensureCta(String(copy.tiktok_caption || copy.story_caption || "").trim()));
+    // Reels: copy longa. TikTok: copy nativa própria — nunca igual à do Reels,
+    // senão o Zernio recusa como conteúdo duplicado em 24h (409).
+    const reelsCaption = withPartners(ensureCta(
+      String(copy.reels_caption || copy.tiktok_caption || copy.story_caption || "").trim(),
+    ));
+    const rawTiktok = String(copy.tiktok_caption || "").trim();
+    const tiktokCaption = withPartners(ensureCta(
+      rawTiktok && normalizeForMatch(rawTiktok) !== normalizeForMatch(String(copy.reels_caption || ""))
+        ? rawTiktok
+        : [
+            `💬 "${String(copy.quote || "").trim()}"`,
+            `${ficha.nome}${ficha.especialidade ? `, ${ficha.especialidade.toLowerCase()}` : ""}${ficha.cidade ? ` de ${ficha.cidade}${ficha.uf ? ` (${ficha.uf})` : ""}` : ""}, no ${ficha.curso || "treinamento"} da Smart Dent.`,
+            `▶️ Dê o play e confira o depoimento.`,
+          ].filter(Boolean).join("\n\n"),
+    ));
     if (!storyCaption) throw new Error("IA não retornou copy utilizável");
+
     const hashtags = (Array.isArray(copy.hashtags) ? copy.hashtags : [])
       .map((h) => String(h).replace(/^#/, "").replace(/\s+/g, "").trim())
       .filter(Boolean)
@@ -244,7 +267,7 @@ serve(async (req) => {
     if (dryRun) {
       return jsonResponse({
         status: "dry_run", testimonial_id: t.id, ficha,
-        story_caption: storyCaption, tiktok_caption: tiktokCaption, hashtags,
+        story_caption: storyCaption, reels_caption: reelsCaption, tiktok_caption: tiktokCaption, hashtags,
         media_expires_at: urls.expires_at,
       });
     }
@@ -253,7 +276,7 @@ serve(async (req) => {
     const nowIso = new Date().toISOString();
     // YouTube exige título próprio (máx. 100 caracteres) e descrição separada.
     const ytTitle = `Depoimento: ${ficha.nome}${ficha.curso ? ` — ${ficha.curso}` : ""} | Smart Dent`.slice(0, 100);
-    const ytCaption = `${tiktokCaption}`.trim();
+    const ytCaption = `${reelsCaption}`.trim();
     const { data: post, error: insErr } = await db
       .from("social_scheduled_posts")
       .insert({
@@ -261,10 +284,9 @@ serve(async (req) => {
         publish_now: true,
         scheduled_at: nowIso,
         post_type: "reels",
-        // Caption completa: é o que aparece no Reels e no TikTok. O Story do
-        // Instagram não exibe legenda de texto, então usar a copy longa aqui
-        // não prejudica o Story.
-        caption: tiktokCaption,
+        // Caption padrão = copy do Reels. Story e TikTok trazem caption própria
+        // no respectivo canal (o Story não exibe texto; o TikTok usa copy nativa).
+        caption: reelsCaption,
         hashtags,
         media_items: mediaItems,
         per_channel_media: { instagram: mediaItems, tiktok: mediaItems, youtube: mediaItems },
@@ -292,7 +314,8 @@ serve(async (req) => {
               ...(ficha.handle ? [{ username: String(ficha.handle).replace(/^@/, "") }] : []),
             ],
           },
-          { platform: "tiktok", format: "video" },
+          // TikTok: copy nativa própria (gancho curto + frase literal + CTA).
+          { platform: "tiktok", format: "video", caption: tiktokCaption },
           {
             // YouTube Shorts: vídeo vertical do depoimento, título obrigatório
             // em platformSpecificData (o Zernio usa `content` como descrição).
@@ -320,6 +343,7 @@ serve(async (req) => {
       social_story_snapshot: {
         ficha,
         story_caption: storyCaption,
+        reels_caption: reelsCaption,
         tiktok_caption: tiktokCaption,
         hashtags,
         quote: copy.quote ? String(copy.quote).trim() : null,
