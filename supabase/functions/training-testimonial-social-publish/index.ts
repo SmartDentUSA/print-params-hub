@@ -329,7 +329,7 @@ serve(async (req) => {
     }).eq("id", t.id);
 
     await logEvent(db, t.id, "social_publish", "success",
-      "Story do Instagram + TikTok enfileirados", { post_id: post.id, handle: ficha.handle }, actor);
+      "Story + Reels do Instagram + TikTok + YouTube Shorts enfileirados", { post_id: post.id, handle: ficha.handle }, actor);
 
     // Dispara o worker imediatamente (não bloqueia a resposta em caso de erro).
     try {
