@@ -410,6 +410,8 @@ export default function AgendaPublica({ variant = "presencial" }: AgendaPublicaP
           </div>
         </header>
 
+        {isTeamMember && <PastTrainingsUploadAccordion modalities={config.modalities} />}
+
         {isTeamMember && variant === "presencial" && <DepoimentoUploadAccordion />}
 
         {isLoading ? (
