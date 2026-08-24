@@ -26147,6 +26147,9 @@ export type Database = {
       training_testimonials: {
         Row: {
           analysis: Json | null
+          article_drive_file_id: string | null
+          article_drive_synced_at: string | null
+          article_drive_web_view_link: string | null
           auto_attempts: number
           auto_last_error: string | null
           auto_locked_at: string | null
@@ -26221,6 +26224,9 @@ export type Database = {
         }
         Insert: {
           analysis?: Json | null
+          article_drive_file_id?: string | null
+          article_drive_synced_at?: string | null
+          article_drive_web_view_link?: string | null
           auto_attempts?: number
           auto_last_error?: string | null
           auto_locked_at?: string | null
@@ -26295,6 +26301,9 @@ export type Database = {
         }
         Update: {
           analysis?: Json | null
+          article_drive_file_id?: string | null
+          article_drive_synced_at?: string | null
+          article_drive_web_view_link?: string | null
           auto_attempts?: number
           auto_last_error?: string | null
           auto_locked_at?: string | null
@@ -33154,6 +33163,9 @@ export type Database = {
         Args: { _limit?: number }
         Returns: {
           analysis: Json | null
+          article_drive_file_id: string | null
+          article_drive_synced_at: string | null
+          article_drive_web_view_link: string | null
           auto_attempts: number
           auto_last_error: string | null
           auto_locked_at: string | null
