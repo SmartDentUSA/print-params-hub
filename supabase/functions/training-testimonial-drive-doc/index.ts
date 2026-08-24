@@ -171,7 +171,7 @@ async function loadFicha(db: any, t: any, turma: any): Promise<string> {
     let deals: any[] = [];
     if (enrollment?.lead_id) {
       const { data } = await db.from("deals")
-        .select("pipeline_name, stage_name, status, value, owner_name, deal_title, items_text, piperun_created_at, closed_at")
+        .select("pipeline_name, stage_name, status, value, owner_name, deal_title, items_text, is_deleted, piperun_created_at, closed_at")
         .eq("lead_id", enrollment.lead_id)
         .order("piperun_created_at", { ascending: true })
         .limit(200);
