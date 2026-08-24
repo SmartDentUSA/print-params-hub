@@ -124,7 +124,14 @@ serve(async (req) => {
         const finalStatus = String(pub.json?.status || "");
         const done = ["published", "rag_available"].includes(finalStatus);
 
-        // 4) Story do Instagram + TikTok (só depois de publicado; idempotente)
+        // 4) Cópia do conteúdo publicado na pasta do Drive da turma (idempotente).
+        if (done) {
+          const doc = await callStep("training-testimonial-drive-doc", { testimonial_id: t.id });
+          item.drive_doc_status = doc.status;
+          item.drive_doc_result = doc.json?.items?.[0]?.result || doc.text.slice(0, 120);
+        }
+
+        // 5) Story do Instagram + TikTok (só depois de publicado; idempotente)
         if (done && !t.social_story_post_id) {
           const social = await callStep("training-testimonial-social-publish", { testimonial_id: t.id });
           item.social_status = social.status;
