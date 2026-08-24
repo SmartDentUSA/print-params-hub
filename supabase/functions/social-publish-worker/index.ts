@@ -60,8 +60,11 @@ function buildPlatformSpecificData(platform: string, postType: string, ch: any):
   if (postType === 'story' && (platform === 'instagram' || platform === 'facebook')) {
     psd.contentType = 'story';
   }
+  // Título por canal (obrigatório no YouTube/Shorts, opcional em Pinterest/Reddit).
+  if (typeof ch?.title === 'string' && ch.title.trim() && !psd.title) psd.title = ch.title.trim().slice(0, 100);
   // userTags marca @ nas mídias (funciona em Story/Reels por username).
   if (Array.isArray(ch?.userTags) && ch.userTags.length > 0) psd.userTags = ch.userTags;
+
   // collaborators só vale para feed/reels — Stories não aceitam.
   if (Array.isArray(ch?.collaborators) && ch.collaborators.length > 0 && postType !== 'story') {
     psd.collaborators = ch.collaborators.slice(0, 3);

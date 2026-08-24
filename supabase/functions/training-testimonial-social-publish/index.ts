@@ -249,8 +249,11 @@ serve(async (req) => {
       });
     }
 
-    // ── Publicação (Story + Reels do Instagram + TikTok) ──────────────────
+    // ── Publicação (Story + Reels do Instagram + TikTok + YouTube Shorts) ──
     const nowIso = new Date().toISOString();
+    // YouTube exige título próprio (máx. 100 caracteres) e descrição separada.
+    const ytTitle = `Depoimento: ${ficha.nome}${ficha.curso ? ` — ${ficha.curso}` : ""} | Smart Dent`.slice(0, 100);
+    const ytCaption = `${tiktokCaption}`.trim();
     const { data: post, error: insErr } = await db
       .from("social_scheduled_posts")
       .insert({
@@ -264,7 +267,7 @@ serve(async (req) => {
         caption: tiktokCaption,
         hashtags,
         media_items: mediaItems,
-        per_channel_media: { instagram: mediaItems, tiktok: mediaItems },
+        per_channel_media: { instagram: mediaItems, tiktok: mediaItems, youtube: mediaItems },
         channels: [
           {
             platform: "instagram",
@@ -290,7 +293,17 @@ serve(async (req) => {
             ],
           },
           { platform: "tiktok", format: "video" },
+          {
+            // YouTube Shorts: vídeo vertical do depoimento, título obrigatório
+            // em platformSpecificData (o Zernio usa `content` como descrição).
+            platform: "youtube",
+            format: "Shorts",
+            title: ytTitle,
+            caption: ytCaption,
+            platformSpecificData: { title: ytTitle, privacyStatus: "public", madeForKids: false },
+          },
         ],
+
         product_name: ficha.curso,
         created_by: "training-testimonial-social-publish",
       })
@@ -316,7 +329,7 @@ serve(async (req) => {
     }).eq("id", t.id);
 
     await logEvent(db, t.id, "social_publish", "success",
-      "Story do Instagram + TikTok enfileirados", { post_id: post.id, handle: ficha.handle }, actor);
+      "Story + Reels do Instagram + TikTok + YouTube Shorts enfileirados", { post_id: post.id, handle: ficha.handle }, actor);
 
     // Dispara o worker imediatamente (não bloqueia a resposta em caso de erro).
     try {
