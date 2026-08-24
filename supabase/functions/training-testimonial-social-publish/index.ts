@@ -267,7 +267,7 @@ serve(async (req) => {
     if (dryRun) {
       return jsonResponse({
         status: "dry_run", testimonial_id: t.id, ficha,
-        story_caption: storyCaption, tiktok_caption: tiktokCaption, hashtags,
+        story_caption: storyCaption, reels_caption: reelsCaption, tiktok_caption: tiktokCaption, hashtags,
         media_expires_at: urls.expires_at,
       });
     }
@@ -276,7 +276,7 @@ serve(async (req) => {
     const nowIso = new Date().toISOString();
     // YouTube exige título próprio (máx. 100 caracteres) e descrição separada.
     const ytTitle = `Depoimento: ${ficha.nome}${ficha.curso ? ` — ${ficha.curso}` : ""} | Smart Dent`.slice(0, 100);
-    const ytCaption = `${tiktokCaption}`.trim();
+    const ytCaption = `${reelsCaption}`.trim();
     const { data: post, error: insErr } = await db
       .from("social_scheduled_posts")
       .insert({
@@ -284,10 +284,9 @@ serve(async (req) => {
         publish_now: true,
         scheduled_at: nowIso,
         post_type: "reels",
-        // Caption completa: é o que aparece no Reels e no TikTok. O Story do
-        // Instagram não exibe legenda de texto, então usar a copy longa aqui
-        // não prejudica o Story.
-        caption: tiktokCaption,
+        // Caption padrão = copy do Reels. Story e TikTok trazem caption própria
+        // no respectivo canal (o Story não exibe texto; o TikTok usa copy nativa).
+        caption: reelsCaption,
         hashtags,
         media_items: mediaItems,
         per_channel_media: { instagram: mediaItems, tiktok: mediaItems, youtube: mediaItems },
@@ -315,7 +314,8 @@ serve(async (req) => {
               ...(ficha.handle ? [{ username: String(ficha.handle).replace(/^@/, "") }] : []),
             ],
           },
-          { platform: "tiktok", format: "video" },
+          // TikTok: copy nativa própria (gancho curto + frase literal + CTA).
+          { platform: "tiktok", format: "video", caption: tiktokCaption },
           {
             // YouTube Shorts: vídeo vertical do depoimento, título obrigatório
             // em platformSpecificData (o Zernio usa `content` como descrição).
@@ -343,6 +343,7 @@ serve(async (req) => {
       social_story_snapshot: {
         ficha,
         story_caption: storyCaption,
+        reels_caption: reelsCaption,
         tiktok_caption: tiktokCaption,
         hashtags,
         quote: copy.quote ? String(copy.quote).trim() : null,
