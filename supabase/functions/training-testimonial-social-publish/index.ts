@@ -231,15 +231,30 @@ serve(async (req) => {
       ],
       { json: true },
     );
-    const copy = parseJsonBlock<{ story_caption?: string; tiktok_caption?: string; quote?: string; hashtags?: string[] }>(raw);
+    const copy = parseJsonBlock<{ story_caption?: string; reels_caption?: string; tiktok_caption?: string; quote?: string; hashtags?: string[] }>(raw);
 
     const ctaBlock = `Quer conhecer as próximas turmas do ${ficha.curso || "treinamento"}?\nSaiba mais no link na Bio ou comente "${keyword}" e receba todas as informações.`;
     const ensureCta = (s: string) => (s.toLowerCase().includes("link na bio") ? s : `${s.trim()}\n\n${ctaBlock}`);
     const withPartners = (s: string) =>
       PARTNER_HANDLES.every((h) => s.toLowerCase().includes(`@${h}`)) ? s : `${s.trim()}\n\n${PARTNER_LINE}`;
     const storyCaption = withPartners(ensureCta(String(copy.story_caption || "").trim()));
-    const tiktokCaption = withPartners(ensureCta(String(copy.tiktok_caption || copy.story_caption || "").trim()));
+    // Reels: copy longa. TikTok: copy nativa própria — nunca igual à do Reels,
+    // senão o Zernio recusa como conteúdo duplicado em 24h (409).
+    const reelsCaption = withPartners(ensureCta(
+      String(copy.reels_caption || copy.tiktok_caption || copy.story_caption || "").trim(),
+    ));
+    const rawTiktok = String(copy.tiktok_caption || "").trim();
+    const tiktokCaption = withPartners(ensureCta(
+      rawTiktok && normalizeForMatch(rawTiktok) !== normalizeForMatch(String(copy.reels_caption || ""))
+        ? rawTiktok
+        : [
+            `💬 "${String(copy.quote || "").trim()}"`,
+            `${ficha.nome}${ficha.especialidade ? `, ${ficha.especialidade.toLowerCase()}` : ""}${ficha.cidade ? ` de ${ficha.cidade}${ficha.uf ? ` (${ficha.uf})` : ""}` : ""}, no ${ficha.curso || "treinamento"} da Smart Dent.`,
+            `▶️ Dê o play e confira o depoimento.`,
+          ].filter(Boolean).join("\n\n"),
+    ));
     if (!storyCaption) throw new Error("IA não retornou copy utilizável");
+
     const hashtags = (Array.isArray(copy.hashtags) ? copy.hashtags : [])
       .map((h) => String(h).replace(/^#/, "").replace(/\s+/g, "").trim())
       .filter(Boolean)
