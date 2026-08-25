@@ -99,6 +99,23 @@ export function SocialFlowsList() {
     onError: (e: any) => toast.error(e.message ?? 'Erro ao sincronizar'),
   });
 
+  const resyncZernio = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.functions.invoke('zernio-provision-flow', {
+        body: { batch: true, resync: true, limit: 60 },
+      });
+      if (error) throw error;
+      if ((data as any)?.error) throw new Error((data as any).error);
+      return data as any;
+    },
+    onSuccess: (data) => {
+      qc.invalidateQueries({ queryKey: ['social-flows'] });
+      const fails = (data?.failed ?? []).length;
+      toast.success(`${data?.provisioned ?? 0} automações atualizadas na Zernio${fails ? ` · ${fails} sem palavra-gatilho` : ''}`);
+    },
+    onError: (e: any) => toast.error(e.message ?? 'Erro ao provisionar na Zernio'),
+  });
+
   return (
     <div className="container mx-auto p-6 max-w-6xl space-y-6">
       <header className="flex flex-wrap items-center justify-between gap-3">
