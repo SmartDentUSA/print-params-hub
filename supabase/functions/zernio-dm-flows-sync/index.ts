@@ -101,7 +101,9 @@ Deno.serve(async (req) => {
       const keyword = String(f.ig_trigger_keyword ?? '').trim().toUpperCase();
       if (!keyword) continue;
 
-      const target: 'landing_page' | 'form' = publishedLp.has(f.id) ? 'landing_page' : 'form';
+      // Por enquanto só o exocad DentalCad RMS aponta para a landing page; os demais vão para o formulário.
+      const target: 'landing_page' | 'form' =
+        LANDING_PAGE_SLUGS.has(String(f.slug)) && publishedLp.has(f.id) ? 'landing_page' : 'form';
       let code = shortByKey.get(`${target}:${f.slug}`) ?? shortByKey.get(`form:${f.slug}`) ?? null;
       if (!code && !dryRun) {
         const { data: newCode, error: slErr } = await supabase.rpc('generate_short_link', {
