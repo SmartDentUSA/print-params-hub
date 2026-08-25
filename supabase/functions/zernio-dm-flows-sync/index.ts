@@ -122,10 +122,13 @@ Deno.serve(async (req) => {
       const link = `${SHORT_BASE}/${code}`;
       const catalog = f.product_catalog_id ? catalogById.get(f.product_catalog_id) : null;
       const produto = catalog?.name || f.title || String(f.name ?? '').replace(/^#\s*-\s*(FORMS|Formulário)\s*-\s*/i, '').trim();
-      const message = String(f.ig_trigger_dm_message ?? '').trim() || dmMessage(produto, link);
-      const commentReply = f.ig_trigger_cta
-        ? String(f.ig_trigger_cta)
-        : `Enviei as informações do ${produto} no seu direct! 📩`;
+      const custom = String(f.ig_trigger_dm_message ?? '').trim().replace(/\{\{\s*[\w.]+\s*\}\}/g, '').trim();
+      const generated = dmMessages(produto, link);
+      const message = custom || generated[0];
+      const messageVariations = custom ? generated.slice(0, 2) : generated.slice(1);
+      const replies = commentReplies();
+      const commentReply = replies[0];
+      const commentReplyVariations = replies.slice(1);
 
       const nodes = [
         {
