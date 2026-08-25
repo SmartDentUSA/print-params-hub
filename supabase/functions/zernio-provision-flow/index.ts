@@ -11,7 +11,11 @@ const ZERNIO_BASE = "https://zernio.com/api/v1/comment-automations";
 
 // A Zernio envia o texto literal: nenhum {{placeholder}} é interpolado.
 function stripPlaceholders(s: string): string {
-  return String(s ?? "").replace(/\{\{\s*[\w.]+\s*\}\}/g, "").replace(/\s{2,}/g, " ").replace(/ ,/g, ",").trim();
+  return String(s ?? "")
+    .replace(/\{\{\s*[\w.]+\s*\}\}/g, "")
+    .replace(/[ \t]{2,}/g, " ")
+    .replace(/ ,/g, ",")
+    .trim();
 }
 
 function buildPayload(flow: any) {
