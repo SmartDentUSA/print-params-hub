@@ -10,12 +10,40 @@ const corsHeaders = {
 
 const SHORT_BASE = 'https://s.smartdent.com.br';
 
-function dmMessage(produto: string, link: string) {
+// Único produto que já tem landing page pronta; os demais usam o link curto do formulário.
+const LANDING_PAGE_SLUGS = new Set(['exocad_dentalcad_rms']);
+
+// A Zernio não faz template de variáveis na DM: qualquer {{...}} chega literal ao usuário.
+// Por isso as mensagens são escritas sem placeholders.
+function dmMessages(produto: string, link: string): string[] {
   return [
-    'Olá {{first_name}}, que bom que se interessou pelo ' + produto + '!',
-    'Abaixo segue o link onde você terá todas as informações. Qualquer dúvida, estamos à disposição.',
-    'Link: ' + link,
-  ].join('\n\n');
+    [
+      `Olá! Que bom que você se interessou pelo ${produto}!`,
+      'Abaixo segue o link onde você terá todas as informações. Qualquer dúvida, estamos à disposição.',
+      `Link: ${link}`,
+    ].join('\n\n'),
+    [
+      `Oi! Vi seu comentário sobre o ${produto} 😊`,
+      'Separei tudo pra você neste link — informações completas, e se precisar de ajuda me chama por aqui.',
+      `Link: ${link}`,
+    ].join('\n\n'),
+    [
+      `Olá! Aqui estão as informações do ${produto} que você pediu.`,
+      'Dá uma olhada no link abaixo e qualquer dúvida responde essa mensagem que a gente te ajuda.',
+      `Link: ${link}`,
+    ].join('\n\n'),
+  ];
+}
+
+// Respostas públicas ao comentário: nunca pedir a palavra-gatilho de novo
+// (o usuário já escreveu). Sempre confirmar que a DM foi enviada.
+function commentReplies(): string[] {
+  return [
+    'Acabei de mandar as informações na sua DM! 📩',
+    'Prontinho, já te enviei tudo no direct 📲',
+    'Enviei agora as informações no seu direct — confere lá! 👀',
+    'Respondi no direct com todos os detalhes 💬',
+  ];
 }
 
 Deno.serve(async (req) => {
