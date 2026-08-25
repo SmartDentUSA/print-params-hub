@@ -164,7 +164,9 @@ Deno.serve(async (req) => {
         zernio_automation_config: {
           keywords: [keyword],
           dm_message: message,
+          dm_message_variations: messageVariations,
           comment_reply: commentReply,
+          comment_reply_variations: commentReplyVariations,
           short_link: link,
           short_link_target: target,
           form_slug: f.slug,
