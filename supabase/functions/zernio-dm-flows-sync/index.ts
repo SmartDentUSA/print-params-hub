@@ -10,12 +10,40 @@ const corsHeaders = {
 
 const SHORT_BASE = 'https://s.smartdent.com.br';
 
-function dmMessage(produto: string, link: string) {
+// Único produto que já tem landing page pronta; os demais usam o link curto do formulário.
+const LANDING_PAGE_SLUGS = new Set(['exocad_dentalcad_rms']);
+
+// A Zernio não faz template de variáveis na DM: qualquer {{...}} chega literal ao usuário.
+// Por isso as mensagens são escritas sem placeholders.
+function dmMessages(produto: string, link: string): string[] {
   return [
-    'Olá {{first_name}}, que bom que se interessou pelo ' + produto + '!',
-    'Abaixo segue o link onde você terá todas as informações. Qualquer dúvida, estamos à disposição.',
-    'Link: ' + link,
-  ].join('\n\n');
+    [
+      `Olá! Que bom que você se interessou pelo ${produto}!`,
+      'Abaixo segue o link onde você terá todas as informações. Qualquer dúvida, estamos à disposição.',
+      `Link: ${link}`,
+    ].join('\n\n'),
+    [
+      `Oi! Vi seu comentário sobre o ${produto} 😊`,
+      'Separei tudo pra você neste link — informações completas, e se precisar de ajuda me chama por aqui.',
+      `Link: ${link}`,
+    ].join('\n\n'),
+    [
+      `Olá! Aqui estão as informações do ${produto} que você pediu.`,
+      'Dá uma olhada no link abaixo e qualquer dúvida responde essa mensagem que a gente te ajuda.',
+      `Link: ${link}`,
+    ].join('\n\n'),
+  ];
+}
+
+// Respostas públicas ao comentário: nunca pedir a palavra-gatilho de novo
+// (o usuário já escreveu). Sempre confirmar que a DM foi enviada.
+function commentReplies(): string[] {
+  return [
+    'Acabei de mandar as informações na sua DM! 📩',
+    'Prontinho, já te enviei tudo no direct 📲',
+    'Enviei agora as informações no seu direct — confere lá! 👀',
+    'Respondi no direct com todos os detalhes 💬',
+  ];
 }
 
 Deno.serve(async (req) => {
@@ -73,7 +101,9 @@ Deno.serve(async (req) => {
       const keyword = String(f.ig_trigger_keyword ?? '').trim().toUpperCase();
       if (!keyword) continue;
 
-      const target: 'landing_page' | 'form' = publishedLp.has(f.id) ? 'landing_page' : 'form';
+      // Por enquanto só o exocad DentalCad RMS aponta para a landing page; os demais vão para o formulário.
+      const target: 'landing_page' | 'form' =
+        LANDING_PAGE_SLUGS.has(String(f.slug)) && publishedLp.has(f.id) ? 'landing_page' : 'form';
       let code = shortByKey.get(`${target}:${f.slug}`) ?? shortByKey.get(`form:${f.slug}`) ?? null;
       if (!code && !dryRun) {
         const { data: newCode, error: slErr } = await supabase.rpc('generate_short_link', {
@@ -92,10 +122,13 @@ Deno.serve(async (req) => {
       const link = `${SHORT_BASE}/${code}`;
       const catalog = f.product_catalog_id ? catalogById.get(f.product_catalog_id) : null;
       const produto = catalog?.name || f.title || String(f.name ?? '').replace(/^#\s*-\s*(FORMS|Formulário)\s*-\s*/i, '').trim();
-      const message = String(f.ig_trigger_dm_message ?? '').trim() || dmMessage(produto, link);
-      const commentReply = f.ig_trigger_cta
-        ? String(f.ig_trigger_cta)
-        : `Enviei as informações do ${produto} no seu direct! 📩`;
+      const custom = String(f.ig_trigger_dm_message ?? '').trim().replace(/\{\{\s*[\w.]+\s*\}\}/g, '').trim();
+      const generated = dmMessages(produto, link);
+      const message = custom || generated[0];
+      const messageVariations = custom ? generated.slice(0, 2) : generated.slice(1);
+      const replies = commentReplies();
+      const commentReply = replies[0];
+      const commentReplyVariations = replies.slice(1);
 
       const nodes = [
         {
@@ -131,7 +164,9 @@ Deno.serve(async (req) => {
         zernio_automation_config: {
           keywords: [keyword],
           dm_message: message,
+          dm_message_variations: messageVariations,
           comment_reply: commentReply,
+          comment_reply_variations: commentReplyVariations,
           short_link: link,
           short_link_target: target,
           form_slug: f.slug,
