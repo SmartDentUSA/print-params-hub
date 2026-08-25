@@ -128,6 +128,10 @@ export function SocialFlowsList() {
             <RefreshCw className={`w-4 h-4 mr-1 ${syncForms.isPending ? 'animate-spin' : ''}`} />
             Sincronizar formulários
           </Button>
+          <Button variant="outline" disabled={resyncZernio.isPending} onClick={() => resyncZernio.mutate()}>
+            <RefreshCw className={`w-4 h-4 mr-1 ${resyncZernio.isPending ? 'animate-spin' : ''}`} />
+            Enviar para Zernio
+          </Button>
           <Link to="/social/flows/novo">
             <Button><Plus className="w-4 h-4 mr-1" /> Novo Flow</Button>
           </Link>
