@@ -110,6 +110,8 @@ export default function CoursesPage() {
   const [coursesFor, setCoursesFor] = useState<Professional | null>(null);
   const [coursesStartNew, setCoursesStartNew] = useState(false);
   const [shareFor, setShareFor] = useState<Professional | null>(null);
+  const [summaries, setSummaries] = useState<Record<string, PurchaseSummary>>({});
+
 
   const load = useCallback(async () => {
     setLoading(true);
