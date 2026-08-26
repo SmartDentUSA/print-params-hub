@@ -390,6 +390,43 @@ export default function CoursesPage() {
                   </div>
                 </div>
 
+                {(() => {
+                  const s = summaries[p.id] ?? EMPTY_SUMMARY;
+                  return (
+                    <div className="space-y-1 text-xs border-t pt-2">
+                      <div className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium">
+                        Informações comerciais
+                      </div>
+                      <div className="flex justify-between gap-2">
+                        <span className="text-muted-foreground shrink-0">Última compra:</span>
+                        <span className="font-medium text-right truncate">
+                          {s.purchaseCount > 0 ? fmtDate(s.lastPurchaseDate) : "Sem compras"}
+                        </span>
+                      </div>
+                      {s.purchaseCount > 0 && s.lastPurchaseName && (
+                        <div className="text-[11px] text-muted-foreground truncate" title={s.lastPurchaseName}>
+                          {s.lastPurchaseName}
+                        </div>
+                      )}
+                      <div className="flex justify-between gap-2">
+                        <span className="text-muted-foreground shrink-0">Vendedor:</span>
+                        <span className="font-medium text-right truncate">{s.lastPurchaseVendor || "—"}</span>
+                      </div>
+                      <div className="flex justify-between gap-2">
+                        <span className="text-muted-foreground shrink-0">Total investido:</span>
+                        <span className="font-semibold text-right text-green-600">{fmtBRL(s.totalInvested)}</span>
+                      </div>
+                      <div className="flex justify-between gap-2">
+                        <span className="text-muted-foreground shrink-0">Nº de compras:</span>
+                        <span className="font-medium text-right">
+                          {s.purchaseCount} {s.purchaseCount === 1 ? "compra" : "compras"}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })()}
+
+
                 <div className="grid grid-cols-2 gap-2 pt-2">
                   <Button size="sm" variant="outline" onClick={() => openEdit(p.email)}>
                     <Pencil className="w-3.5 h-3.5 mr-1.5" /> Editar perfil
