@@ -97,6 +97,48 @@ Deno.serve(async (req) => {
         .then(() => {}, (e) => console.warn("[nps-activity]", e));
     }
 
+    // Marca a matrícula como respondida (evita reenvio de cobrança de NPS).
+    await supabase
+      .from("smartops_course_enrollments")
+      .update({ nps_status: "respondido" })
+      .eq("id", enr.id)
+      .then(() => {}, (e) => console.warn("[nps-status]", e));
+
+    // Espelha a nota de NPS no deal do PipeRun (best-effort).
+    try {
+      const apiToken = Deno.env.get("PIPERUN_API_KEY");
+      if (apiToken && enr.lead_id) {
+        const { data: lead } = await supabase
+          .from("lia_attendances")
+          .select("piperun_id")
+          .eq("id", enr.lead_id)
+          .maybeSingle();
+        const dealId = Number(lead?.piperun_id);
+        if (dealId && Number.isFinite(dealId)) {
+          const surveyType = body.survey_type ?? "pos_treinamento";
+          const label =
+            surveyType === "demonstracao_ao_vivo"
+              ? "NPS Demonstrações ao Vivo"
+              : "NPS pós-treinamento";
+          const nps10 = body.score_recomendacao * 2;
+          const classificacao = nps10 >= 9 ? "Promotor" : nps10 >= 7 ? "Neutro" : "Detrator";
+          const note = [
+            `<b>⭐ ${label}</b>`,
+            `NPS: <b>${nps10}/10</b> (${classificacao})`,
+            `Satisfação geral: ${body.score_satisfacao}/5`,
+            `Treinamentos/conteúdos: ${body.score_treinamentos}/5`,
+            `Recomendação: ${body.score_recomendacao}/5`,
+            body.comment ? `Comentário: ${body.comment}` : null,
+          ].filter(Boolean).join("<br>");
+          const res = await addDealNote(apiToken, dealId, note);
+          if (!res.success) console.warn("[nps-piperun-note]", JSON.stringify(res.data).slice(0, 300));
+        }
+      }
+    } catch (e) {
+      console.warn("[nps-piperun-note]", String(e));
+    }
+
+
     return new Response(JSON.stringify({ ok: true }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
