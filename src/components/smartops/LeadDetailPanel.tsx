@@ -1357,7 +1357,16 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
         <div>
           <div className="lead-name">{ld.nome}</div>
           <div className={`buyer-type ${tipoCls}`}>{tipoTxt}</div>
-          {(ld.area_atuacao || ld.especialidade) && (
+          {isKolLead && (
+            <span
+              className="ctx-badge"
+              title={kolTitle}
+              style={{ background: "rgba(234,179,8,0.18)", color: "#eab308", fontWeight: 800, fontSize: "0.72rem", marginLeft: 6 }}
+            >
+              ⭐ KOL
+            </span>
+          )}
+
             <div style={{ display: "flex", flexWrap: "wrap", gap: 6, margin: "6px 0" }}>
               {ld.area_atuacao && (
                 <span
