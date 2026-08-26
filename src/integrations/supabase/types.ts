@@ -10593,6 +10593,9 @@ export type Database = {
           prof_course_wa_number: string | null
           prof_cro: string | null
           prof_fapesp_id: string | null
+          prof_kol_commissions: Json
+          prof_kol_coupon: string | null
+          prof_kol_form_ids: Json
           prof_lattes: string | null
           prof_marketing_consent: boolean | null
           prof_marketing_consent_at: string | null
@@ -11210,6 +11213,9 @@ export type Database = {
           prof_course_wa_number?: string | null
           prof_cro?: string | null
           prof_fapesp_id?: string | null
+          prof_kol_commissions?: Json
+          prof_kol_coupon?: string | null
+          prof_kol_form_ids?: Json
           prof_lattes?: string | null
           prof_marketing_consent?: boolean | null
           prof_marketing_consent_at?: string | null
@@ -11827,6 +11833,9 @@ export type Database = {
           prof_course_wa_number?: string | null
           prof_cro?: string | null
           prof_fapesp_id?: string | null
+          prof_kol_commissions?: Json
+          prof_kol_coupon?: string | null
+          prof_kol_form_ids?: Json
           prof_lattes?: string | null
           prof_marketing_consent?: boolean | null
           prof_marketing_consent_at?: string | null
@@ -34568,6 +34577,9 @@ export type Database = {
           prof_course_wa_number: string | null
           prof_cro: string | null
           prof_fapesp_id: string | null
+          prof_kol_commissions: Json
+          prof_kol_coupon: string | null
+          prof_kol_form_ids: Json
           prof_lattes: string | null
           prof_marketing_consent: boolean | null
           prof_marketing_consent_at: string | null
