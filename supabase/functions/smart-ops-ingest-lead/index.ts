@@ -1949,10 +1949,52 @@ Deno.serve(async (req) => {
         fields_updated: fieldsUpdated.slice(0, 20),
         produto_interesse: produtoInteresse || null,
         pql_detected: detectedStage === "PQL_recompra",
+        responses: normalizedFormResponses,
       },
       source_channel: source,
       event_timestamp: new Date().toISOString(),
     });
+
+    // ─── Timeline: uma entrada por resposta do formulário ───
+    // Garante que TODOS os campos respondidos apareçam na timeline do lead,
+    // não só o evento agregado de submissão.
+    if (normalizedFormResponses.length > 0) {
+      try {
+        const { data: priorAnswers } = await supabase
+          .from("lead_activity_log")
+          .select("id")
+          .eq("lead_id", leadId)
+          .eq("event_type", "form_response")
+          .eq("entity_id", String(entityIdForLog))
+          .gte("event_timestamp", new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString())
+          .limit(1)
+          .maybeSingle();
+
+        if (!priorAnswers) {
+          const nowIso = new Date().toISOString();
+          await supabase.from("lead_activity_log").insert(
+            normalizedFormResponses.map((r) => ({
+              lead_id: leadId,
+              event_type: "form_response",
+              entity_type: "form_field",
+              entity_id: String(entityIdForLog),
+              entity_name: r.label,
+              source_channel: source,
+              event_timestamp: nowIso,
+              event_data: {
+                form_name: formName,
+                label: r.label,
+                value: r.value,
+                description: `${r.label}: ${r.value}`,
+              },
+            })),
+          );
+        }
+      } catch (e) {
+        console.warn("[ingest-lead] form_response timeline error:", e);
+      }
+    }
+
 
     return new Response(JSON.stringify({
       success: true,
