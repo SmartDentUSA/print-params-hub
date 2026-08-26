@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { DatePickerInput } from "@/components/smartops/DatePickerInput";
 import { Plus, Trash2, Ticket } from "lucide-react";
 import { PRODUCT_CATALOG_ENTITY_TYPES } from "@/lib/catalogEntityTypes";
+import ProfessionalKolPerformance from "./ProfessionalKolPerformance";
 
 export interface KolFormRef {
   id: string;
@@ -92,6 +93,7 @@ export default function ProfessionalKolCommercial({
   const removeRule = (i: number) => onCommissionsChange(commissions.filter((_, idx) => idx !== i));
 
   return (
+    <div className="space-y-6">
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
@@ -219,5 +221,8 @@ export default function ProfessionalKolCommercial({
         </div>
       </CardContent>
     </Card>
+
+    <ProfessionalKolPerformance formIds={formIds} coupon={coupon} />
+    </div>
   );
 }
