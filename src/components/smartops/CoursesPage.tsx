@@ -11,6 +11,18 @@ import ProfessionalCoursesModal from "./courses/ProfessionalCoursesModal";
 import ShareCoursePortalDialog from "./courses/ShareCoursePortalDialog";
 import { getCourseStatusBadge } from "@/lib/courseStatusBadge";
 import { cn } from "@/lib/utils";
+import { fetchPurchaseSummaries, EMPTY_SUMMARY, type PurchaseSummary } from "@/hooks/useProfessionalPurchaseSummary";
+
+function fmtBRL(v: number): string {
+  return v.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
+}
+
+function fmtDate(iso: string | null): string {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  return isNaN(d.getTime()) ? "—" : d.toLocaleDateString("pt-BR");
+}
+
 
 function formatClienteDesde(iso: string | null): string {
   if (!iso) return "—";
@@ -110,6 +122,8 @@ export default function CoursesPage() {
   const [coursesFor, setCoursesFor] = useState<Professional | null>(null);
   const [coursesStartNew, setCoursesStartNew] = useState(false);
   const [shareFor, setShareFor] = useState<Professional | null>(null);
+  const [summaries, setSummaries] = useState<Record<string, PurchaseSummary>>({});
+
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -156,13 +170,25 @@ export default function CoursesPage() {
       }
 
       if (leadIds.length > 0) {
+        // Resumo financeiro real (CRM ganho / ERP Omie / e-commerce)
+        fetchPurchaseSummaries(leadIds)
+          .then(setSummaries)
+          .catch(() => setSummaries({}));
+
         const { data: wonDeals } = await supabase
           .from("deals")
-          .select("id, lead_id")
+          .select("id, lead_id, piperun_deal_id")
           .in("lead_id", leadIds)
           .eq("status", "ganha");
-        const dealIds = (wonDeals ?? []).map((d: any) => d.id);
-        const dealToLead = new Map<string, string>((wonDeals ?? []).map((d: any) => [d.id, d.lead_id]));
+        // deal_items.deal_id guarda o piperun_deal_id (texto), não o UUID de deals.id
+        const dealIds = (wonDeals ?? [])
+          .map((d: any) => (d.piperun_deal_id != null ? String(d.piperun_deal_id) : null))
+          .filter((v: string | null): v is string => !!v);
+        const dealToLead = new Map<string, string>(
+          (wonDeals ?? [])
+            .filter((d: any) => d.piperun_deal_id != null)
+            .map((d: any) => [String(d.piperun_deal_id), d.lead_id])
+        );
 
         const map: Record<string, { scanner?: string; impressora?: string }> = {};
         if (dealIds.length > 0) {
@@ -172,7 +198,7 @@ export default function CoursesPage() {
             .in("deal_id", dealIds)
             .order("synced_at", { ascending: false });
           for (const it of (items ?? []) as any[]) {
-            const leadId = dealToLead.get(it.deal_id);
+            const leadId = dealToLead.get(String(it.deal_id));
             if (!leadId) continue;
             const det = detectEquip(it.product_name || "");
             if (!map[leadId]) map[leadId] = {};
@@ -183,7 +209,9 @@ export default function CoursesPage() {
         setWonEquip(map);
       } else {
         setWonEquip({});
+        setSummaries({});
       }
+
     } catch (e: any) {
       toast({ title: "Erro ao carregar profissionais", description: e.message, variant: "destructive" });
     } finally {
@@ -361,6 +389,43 @@ export default function CoursesPage() {
                     <span className="font-medium truncate text-right">{wonEquip[p.id]?.impressora || "—"}</span>
                   </div>
                 </div>
+
+                {(() => {
+                  const s = summaries[p.id] ?? EMPTY_SUMMARY;
+                  return (
+                    <div className="space-y-1 text-xs border-t pt-2">
+                      <div className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium">
+                        Informações comerciais
+                      </div>
+                      <div className="flex justify-between gap-2">
+                        <span className="text-muted-foreground shrink-0">Última compra:</span>
+                        <span className="font-medium text-right truncate">
+                          {s.purchaseCount > 0 ? fmtDate(s.lastPurchaseDate) : "Sem compras"}
+                        </span>
+                      </div>
+                      {s.purchaseCount > 0 && s.lastPurchaseName && (
+                        <div className="text-[11px] text-muted-foreground truncate" title={s.lastPurchaseName}>
+                          {s.lastPurchaseName}
+                        </div>
+                      )}
+                      <div className="flex justify-between gap-2">
+                        <span className="text-muted-foreground shrink-0">Vendedor:</span>
+                        <span className="font-medium text-right truncate">{s.lastPurchaseVendor || "—"}</span>
+                      </div>
+                      <div className="flex justify-between gap-2">
+                        <span className="text-muted-foreground shrink-0">Total investido:</span>
+                        <span className="font-semibold text-right text-green-600">{fmtBRL(s.totalInvested)}</span>
+                      </div>
+                      <div className="flex justify-between gap-2">
+                        <span className="text-muted-foreground shrink-0">Nº de compras:</span>
+                        <span className="font-medium text-right">
+                          {s.purchaseCount} {s.purchaseCount === 1 ? "compra" : "compras"}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })()}
+
 
                 <div className="grid grid-cols-2 gap-2 pt-2">
                   <Button size="sm" variant="outline" onClick={() => openEdit(p.email)}>

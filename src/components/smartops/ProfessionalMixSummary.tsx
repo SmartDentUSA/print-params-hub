@@ -8,6 +8,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Loader2, Pencil, Star, Trophy, Save, X } from "lucide-react";
 import { toast } from "sonner";
 import { isValidEquipmentLabel } from "@/utils/equipmentLabel";
+import { useProfessionalPurchaseSummary } from "@/hooks/useProfessionalPurchaseSummary";
+
 
 // ---------- Classificação de categorias ----------
 // Ordem importa: primeiras regras vencem.
@@ -228,6 +230,8 @@ export default function ProfessionalMixSummary({ leadId, disabled, cadValue, onC
   const [edits, setEdits] = useState<Partial<Record<EquipCat, { name: string; serial: string }>>>({});
   const [serials, setSerials] = useState<Partial<Record<EquipCat, string>>>({});
   const [refreshKey, setRefreshKey] = useState(0);
+  const { summary: fin } = useProfessionalPurchaseSummary(leadId, refreshKey);
+
 
   useEffect(() => {
     (async () => {
@@ -616,26 +620,33 @@ export default function ProfessionalMixSummary({ leadId, disabled, cadValue, onC
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-6">
-        {/* Header stats */}
+        {/* Header stats — valores REAIS (CRM ganho / ERP Omie / e-commerce) */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
           <div className="rounded border p-3 bg-muted/30">
             <div className="text-xs text-muted-foreground">Última compra</div>
-            <div className="font-semibold">{formatDate(agg.lastPurchase?.date)}</div>
-            <div className="text-xs truncate" title={agg.lastPurchase?.name}>{agg.lastPurchase?.name}</div>
+            <div className="font-semibold">{fin.purchaseCount > 0 ? formatDate(fin.lastPurchaseDate) : "—"}</div>
+            <div className="text-xs truncate" title={fin.lastPurchaseName ?? ""}>
+              {fin.purchaseCount > 0 ? (fin.lastPurchaseName ?? "—") : "Sem compras registradas"}
+            </div>
           </div>
           <div className="rounded border p-3 bg-muted/30">
             <div className="text-xs text-muted-foreground">Vendedor da última compra</div>
-            <div className="font-semibold truncate">{agg.lastPurchase?.vendor || "—"}</div>
+            <div className="font-semibold truncate">{fin.lastPurchaseVendor || "—"}</div>
           </div>
           <div className="rounded border p-3 bg-muted/30">
             <div className="text-xs text-muted-foreground">Total investido</div>
-            <div className="font-semibold">R$ {agg.total.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</div>
+            <div className="font-semibold">R$ {fin.totalInvested.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</div>
+            <div className="text-[11px] text-muted-foreground">
+              CRM R$ {fin.crmWonTotal.toLocaleString("pt-BR", { maximumFractionDigits: 0 })} · ERP R$ {fin.omieTotal.toLocaleString("pt-BR", { maximumFractionDigits: 0 })} · E-com R$ {fin.ecomTotal.toLocaleString("pt-BR", { maximumFractionDigits: 0 })}
+            </div>
           </div>
           <div className="rounded border p-3 bg-muted/30">
             <div className="text-xs text-muted-foreground">Nº de compras</div>
-            <div className="font-semibold">{items.length} itens</div>
+            <div className="font-semibold">{fin.purchaseCount} {fin.purchaseCount === 1 ? "compra" : "compras"}</div>
+            <div className="text-[11px] text-muted-foreground">{items.length} itens no portfólio</div>
           </div>
         </div>
+
 
         {/* 2. Equipamentos e software (tabela normativa) */}
         <div>
