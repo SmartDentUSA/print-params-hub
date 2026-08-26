@@ -97,7 +97,7 @@ function detectProductFromFormName(formName: string | null): string | null {
   if (upper.includes("EBOOK") || upper.includes("PLACA")) return "Ebook/Placa";
   // exocad: usar o nome canônico do catálogo (system_a_catalog) em vez do rótulo
   // genérico "exocad", que chegava errado no card do Deal no PipeRun.
-  if (upper.includes("EXOPLAN")) return "Exoplan - Software de planejamento da exocad";
+  if (upper.includes("EXOPLAN")) return "Exoplan";
   if (upper.includes("EXOCAD") || upper.includes("DENTALCAD")) return "DentalCAD - Software CAD da exocad";
   if (upper.includes("MEDIT")) return "Medit";
   if (upper.includes("MIICRAFT") || upper.includes("MII CRAFT")) return "MiiCraft";
