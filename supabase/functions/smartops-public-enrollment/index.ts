@@ -153,8 +153,14 @@ Deno.serve(async (req) => {
         email,
         telefone: phone,
         origem_primeiro_contato: formName,
-        // Course's first related product overrides any inference
-        produto_interesse_auto: productNames[0] ?? null,
+        // "Produtos do portfólio relacionados" (editor do curso) é a fonte de
+        // verdade do produto de interesse — sobrepõe qualquer inferência.
+        ...(productNames.length > 0
+          ? {
+              produto_interesse: productNames.join(", "),
+              produto_interesse_auto: productNames[0],
+            }
+          : {}),
         // Pass DB column answers (area_atuacao, especialidade, tem_scanner, etc.)
         ...(q.db_columns ?? {}),
         // Dados confirmados pelo cliente têm prioridade sobre inferências
