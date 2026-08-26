@@ -221,5 +221,8 @@ export default function ProfessionalKolCommercial({
         </div>
       </CardContent>
     </Card>
+
+    <ProfessionalKolPerformance formIds={formIds} coupon={coupon} />
+    </div>
   );
 }
