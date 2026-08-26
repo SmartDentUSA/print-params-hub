@@ -425,7 +425,12 @@ export default function AgendaPublica({ variant = "presencial" }: AgendaPublicaP
         ) : variant === "online" ? (
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
             {onlineCourseGroups.map((g) => (
-              <PublicOnlineCourseCard key={g.course_id} sessions={g.turmas} />
+              <PublicOnlineCourseCard
+                key={g.course_id}
+                sessions={g.turmas}
+                canUpload={isTeamMember}
+                driveFolders={driveFolders}
+              />
             ))}
           </div>
         ) : (
@@ -691,7 +696,15 @@ function DateBlock({ label, date, time }: { label: string; date?: string | null;
   return DateBlockImpl({ label, date, time });
 }
 
-function PublicOnlineCourseCard({ sessions }: { sessions: TurmaComVagas[] }) {
+function PublicOnlineCourseCard({
+  sessions,
+  canUpload = false,
+  driveFolders = {},
+}: {
+  sessions: TurmaComVagas[];
+  canUpload?: boolean;
+  driveFolders?: Record<string, { id: string | null; url: string | null }>;
+}) {
   const getCountdown = useCountdown();
   if (sessions.length === 0) return null;
   const first = sessions[0];
@@ -792,6 +805,29 @@ function PublicOnlineCourseCard({ sessions }: { sessions: TurmaComVagas[] }) {
             );
           })}
         </div>
+
+        {canUpload && (
+          <div className="mb-4 rounded-lg border border-dashed bg-muted/20 p-3">
+            <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+              Upload de mídias · equipe Smart Dent
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {sessions.map((s) => (
+                <UploadMidiasDriveButton
+                  key={s.id}
+                  turmaId={s.id}
+                  turmaNumber={s.turma_number}
+                  turmaLabel={s.label ?? undefined}
+                  courseTitle={s.course_title ?? undefined}
+                  startDate={s.start_date}
+                  endDate={s.end_date}
+                  folderId={driveFolders[s.id]?.id ?? null}
+                  folderUrl={driveFolders[s.id]?.url ?? null}
+                />
+              ))}
+            </div>
+          </div>
+        )}
 
         <div className="mt-auto flex items-end justify-between gap-3 pt-3 border-t">
           <div className="flex flex-col gap-1.5 min-w-0">
