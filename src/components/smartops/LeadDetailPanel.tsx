@@ -1366,8 +1366,9 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
               ⭐ KOL
             </span>
           )}
-
+          {(ld.area_atuacao || ld.especialidade) && (
             <div style={{ display: "flex", flexWrap: "wrap", gap: 6, margin: "6px 0" }}>
+
               {ld.area_atuacao && (
                 <span
                   className="ctx-badge"
