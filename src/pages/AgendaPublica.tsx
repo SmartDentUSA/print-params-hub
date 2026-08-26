@@ -696,7 +696,15 @@ function DateBlock({ label, date, time }: { label: string; date?: string | null;
   return DateBlockImpl({ label, date, time });
 }
 
-function PublicOnlineCourseCard({ sessions }: { sessions: TurmaComVagas[] }) {
+function PublicOnlineCourseCard({
+  sessions,
+  canUpload = false,
+  driveFolders = {},
+}: {
+  sessions: TurmaComVagas[];
+  canUpload?: boolean;
+  driveFolders?: Record<string, { id: string | null; url: string | null }>;
+}) {
   const getCountdown = useCountdown();
   if (sessions.length === 0) return null;
   const first = sessions[0];
