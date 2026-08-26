@@ -1,20 +1,22 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { BarChart3, Loader2, Ticket } from "lucide-react";
-import { useKolPerformance } from "@/hooks/useKolPerformance";
+import { useKolPerformance, type KolCouponRule } from "@/hooks/useKolPerformance";
 
 const money = (v: number) =>
   new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(v || 0);
 
+const br = (d?: string | null) => (d ? d.split("-").reverse().join("/") : "—");
+
 interface Props {
   formIds: { id: string; name: string }[];
-  coupon: string;
+  coupons: KolCouponRule[];
 }
 
 /** Performance do KOL: formulários de indicação (leads, conversão, receita) e cupons ativos. */
-export default function ProfessionalKolPerformance({ formIds, coupon }: Props) {
-  const perf = useKolPerformance(formIds, coupon);
-  const code = (coupon || "").trim().toUpperCase();
+export default function ProfessionalKolPerformance({ formIds, coupons }: Props) {
+  const perf = useKolPerformance(formIds, coupons);
+  const hasCoupons = (coupons ?? []).some((c) => (c.code || "").trim());
 
   return (
     <Card>
