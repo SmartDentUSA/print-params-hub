@@ -192,6 +192,7 @@ Deno.serve(async (req) => {
             telefone: phone,
             origem_primeiro_contato: formName,
             form_name: formName,
+            produto_interesse: productNames.length > 0 ? productNames.join(", ") : null,
             produto_interesse_auto: productNames[0] ?? null,
           })
           .select("id")
