@@ -104,6 +104,16 @@ export function KanbanLeadCard({ lead, showDaysStagnant = false, onDragStart, on
   const displayName = resolveLeadDisplayName(lead as unknown as Record<string, unknown>);
   const displayEmail = cleanLeadEmail(lead.email);
   const displayPhone = cleanLeadPhone(lead.telefone_normalized);
+  const kolCoupon = (lead as any).prof_kol_coupon as string | null | undefined;
+  const kolForms = Array.isArray((lead as any).prof_kol_form_ids) ? ((lead as any).prof_kol_form_ids as any[]) : [];
+  const kolRules = Array.isArray((lead as any).prof_kol_commissions) ? ((lead as any).prof_kol_commissions as any[]) : [];
+  const isKol = Boolean(kolCoupon || kolForms.length > 0 || kolRules.length > 0);
+  const kolTitle = [
+    kolCoupon ? `Cupom ${kolCoupon}` : null,
+    kolForms.length ? `${kolForms.length} formulário(s) de indicação` : null,
+    kolRules.length ? `${kolRules.length} regra(s) de comissionamento` : null,
+  ].filter(Boolean).join(" · ") || "KOL cadastrado";
+
 
   return (
     <Card
@@ -120,7 +130,11 @@ export function KanbanLeadCard({ lead, showDaysStagnant = false, onDragStart, on
             <span className="font-medium text-[11px] truncate" title={displayName}>{displayName}</span>
           )}
           <div className="flex items-center gap-0.5 shrink-0">
+            {isKol && (
+              <Badge className="text-[9px] px-1 py-0 font-bold bg-yellow-100 text-yellow-800 border-yellow-300" title={kolTitle}>⭐ KOL</Badge>
+            )}
             {lead.lead_status === "sem_contato" && isStale && (
+
               <Badge variant="destructive" className="text-[9px] px-1 py-0">⏰</Badge>
             )}
             {showDaysStagnant && (

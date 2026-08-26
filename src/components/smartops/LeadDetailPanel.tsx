@@ -526,6 +526,18 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
   const tm = Math.round(axes.technical_maturity?.value || 0);
   const pp = Math.round(axes.purchase_power?.value || 0);
 
+  // KOL (Key Opinion Leader) — cadastro comercial na ficha do profissional
+  const kolCoupon = (ld as any).prof_kol_coupon as string | null | undefined;
+  const kolForms = Array.isArray((ld as any).prof_kol_form_ids) ? ((ld as any).prof_kol_form_ids as any[]) : [];
+  const kolRules = Array.isArray((ld as any).prof_kol_commissions) ? ((ld as any).prof_kol_commissions as any[]) : [];
+  const isKolLead = Boolean(kolCoupon || kolForms.length > 0 || kolRules.length > 0);
+  const kolTitle = [
+    kolCoupon ? `Cupom ${kolCoupon}` : null,
+    kolForms.length ? `${kolForms.length} formulário(s) de indicação` : null,
+    kolRules.length ? `${kolRules.length} regra(s) de comissionamento` : null,
+  ].filter(Boolean).join(" · ") || "KOL cadastrado";
+
+
   // Timeline
   const buildTimeline = (): TLEvent[] => {
     const events: TLEvent[] = [];
@@ -609,6 +621,31 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
         });
         return;
       }
+
+      // Cadastro / atualização de KOL
+      if ((ev.event_type || "") === "kol_profile_update") {
+        const d: Record<string, string> = {};
+        if (evData.cupom_loja_integrada) d["Cupom Loja Integrada"] = String(evData.cupom_loja_integrada);
+        if (Array.isArray(evData.formularios_indicacao) && evData.formularios_indicacao.length > 0)
+          d["Formulários de indicação"] = evData.formularios_indicacao.join(", ");
+        if (Array.isArray(evData.regras_comissionamento) && evData.regras_comissionamento.length > 0)
+          d["Comissionamento"] = evData.regras_comissionamento
+            .map((r: any) => `${r.produto || "Produto"} — ${r.percentual ?? "?"}%${r.ativacao ? ` (a partir de ${new Date(r.ativacao).toLocaleDateString("pt-BR")})` : ""}`)
+            .join(" · ");
+        if (evData.cro) d["CRO"] = String(evData.cro);
+        if (evData.plataforma_cursos) d["Plataforma de cursos"] = String(evData.plataforma_cursos);
+        if (evData.instagram) d["Instagram"] = String(evData.instagram);
+        events.push({
+          date: ev.event_timestamp || ev.created_at,
+          dotCls: "tl-dot-lead",
+          title: `⭐ KOL — ficha ${evData.is_kol ? "comercial atualizada" : "atualizada"}`,
+          desc: ev.entity_name || "",
+          tags: ["KOL"],
+          detail: d,
+        });
+        return;
+      }
+
 
       const ecommerceDetail: Record<string, string> = {};
       if (isEcommerce) {
@@ -1332,8 +1369,18 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
         <div>
           <div className="lead-name">{ld.nome}</div>
           <div className={`buyer-type ${tipoCls}`}>{tipoTxt}</div>
+          {isKolLead && (
+            <span
+              className="ctx-badge"
+              title={kolTitle}
+              style={{ background: "rgba(234,179,8,0.18)", color: "#eab308", fontWeight: 800, fontSize: "0.72rem", marginLeft: 6 }}
+            >
+              ⭐ KOL
+            </span>
+          )}
           {(ld.area_atuacao || ld.especialidade) && (
             <div style={{ display: "flex", flexWrap: "wrap", gap: 6, margin: "6px 0" }}>
+
               {ld.area_atuacao && (
                 <span
                   className="ctx-badge"
