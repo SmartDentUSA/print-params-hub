@@ -104,6 +104,16 @@ export function KanbanLeadCard({ lead, showDaysStagnant = false, onDragStart, on
   const displayName = resolveLeadDisplayName(lead as unknown as Record<string, unknown>);
   const displayEmail = cleanLeadEmail(lead.email);
   const displayPhone = cleanLeadPhone(lead.telefone_normalized);
+  const kolCoupon = (lead as any).prof_kol_coupon as string | null | undefined;
+  const kolForms = Array.isArray((lead as any).prof_kol_form_ids) ? ((lead as any).prof_kol_form_ids as any[]) : [];
+  const kolRules = Array.isArray((lead as any).prof_kol_commissions) ? ((lead as any).prof_kol_commissions as any[]) : [];
+  const isKol = Boolean(kolCoupon || kolForms.length > 0 || kolRules.length > 0);
+  const kolTitle = [
+    kolCoupon ? `Cupom ${kolCoupon}` : null,
+    kolForms.length ? `${kolForms.length} formulário(s) de indicação` : null,
+    kolRules.length ? `${kolRules.length} regra(s) de comissionamento` : null,
+  ].filter(Boolean).join(" · ") || "KOL cadastrado";
+
 
   return (
     <Card
