@@ -484,8 +484,11 @@ export function SmartOpsFormBuilder() {
       await supabase.from("smartops_form_fields" as any).insert(newFields as any);
     }
 
-    toast.success("Formulário duplicado!");
-    fetchForms();
+    // A cópia nasce inativa: limpar busca/filtro para ela não ficar escondida na lista.
+    setSearchQuery("");
+    setActiveFilter("all");
+    toast.success("Formulário duplicado! A cópia está inativa — ative quando estiver pronta.");
+    await fetchForms();
   };
 
   const openEditMeta = (form: SmartOpsForm) => {
