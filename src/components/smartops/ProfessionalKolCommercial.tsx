@@ -93,6 +93,7 @@ export default function ProfessionalKolCommercial({
   const removeRule = (i: number) => onCommissionsChange(commissions.filter((_, idx) => idx !== i));
 
   return (
+    <div className="space-y-6">
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
