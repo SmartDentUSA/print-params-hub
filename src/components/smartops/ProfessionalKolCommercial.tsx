@@ -59,9 +59,10 @@ export default function ProfessionalKolCommercial({
           .limit(500),
         (supabase as any)
           .from("system_a_catalog")
-          .select("id, name, entity_type")
-          .in("entity_type", PRODUCT_CATALOG_ENTITY_TYPES as unknown as string[])
+          .select("id, name, category")
+          .in("category", PRODUCT_CATALOG_ENTITY_TYPES as unknown as string[])
           .eq("active", true)
+          .eq("approved", true)
           .order("name", { ascending: true })
           .limit(1000),
       ]);
