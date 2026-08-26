@@ -4156,8 +4156,18 @@ Deno.serve(async (req) => {
             dealFields.push({ id: CF_DEAL.area_atuacao, valor: leadAreaAtuacao });
           if (leadEspecialidade)
             dealFields.push({ id: CF_DEAL.especialidade, valor: leadEspecialidade });
-          if ((lead as Record<string, unknown>).produto_interesse)
-            dealFields.push({ id: CF_DEAL.produto_interesse, valor: String((lead as Record<string, unknown>).produto_interesse) });
+          // PARIDADE NOTA↔DEAL: a nota imprime
+          // `produto_interesse || produto_interesse_auto` — o Deal usa a mesma
+          // cascata, e o campo "Produto de interesse (auto)" recebe o valor
+          // inferido quando existir.
+          const leadProdutoAuto = String((lead as Record<string, unknown>).produto_interesse_auto || "").trim();
+          const leadProduto =
+            String((lead as Record<string, unknown>).produto_interesse || "").trim() || leadProdutoAuto;
+          if (leadProduto)
+            dealFields.push({ id: CF_DEAL.produto_interesse, valor: leadProduto });
+          if (leadProdutoAuto)
+            dealFields.push({ id: CF_DEAL.produto_auto, valor: leadProdutoAuto });
+
           if (leadTemImpressora)
             dealFields.push({
               id: CF_DEAL.tem_impressora,
