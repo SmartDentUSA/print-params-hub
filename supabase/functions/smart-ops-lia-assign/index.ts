@@ -996,8 +996,30 @@ async function createNewDeal(
 // ── Origin cache: form_name → origin_id ──
 const originCache = new Map<string, number>();
 
+/**
+ * Origem canônica do lead para gravar no Deal — mesma cascata usada pela nota
+ * `seller-summary` ("Origem PipeRun"), garantindo que card e nota nunca
+ * divirjam. Valores técnicos internos (dra-lia, piperun, piperun_webhook,
+ * cadastro/staging) são ignorados em favor do próximo nível da cascata.
+ */
+export function dealOriginName(lead: Record<string, unknown>): string | null {
+  const technical = /^(dra[-_ ]?lia|piperun(_webhook)?|smartops|api|import|staging|\[cadastro\])/i;
+  const candidates = [
+    lead.piperun_origin_name,
+    lead.origem_primeiro_contato,
+    lead.origem_campanha,
+    lead.form_name,
+  ];
+  for (const c of candidates) {
+    const v = String(c ?? "").trim();
+    if (v && !technical.test(v)) return v;
+  }
+  return (String(lead.form_name ?? "").trim() || null);
+}
+
 async function resolveOriginId(apiToken: string, formName: string | null): Promise<number> {
   if (!formName) return ORIGINS.DRA_LIA.id;
+
   
   const cacheKey = formName.trim();
   if (originCache.has(cacheKey)) return originCache.get(cacheKey)!;
