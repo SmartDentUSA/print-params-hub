@@ -1,5 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { z } from "https://esm.sh/zod@3.23.8";
+import { addDealNote } from "../_shared/piperun-field-map.ts";
+
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
