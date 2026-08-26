@@ -43,16 +43,21 @@ const empty: KolPerformance = {
  * - receita = soma dos negócios ganhos desses leads
  * - cupons: vendas e receita da Loja Integrada com o cupom do KOL
  */
-export function useKolPerformance(formIds: { id: string; name: string }[], coupon: string) {
+export function useKolPerformance(formIds: { id: string; name: string }[], coupons: KolCouponRule[]) {
   const [data, setData] = useState<KolPerformance>(empty);
   const [loading, setLoading] = useState(false);
 
   const ids = formIds.map((f) => f.id).filter(Boolean);
-  const key = `${ids.slice().sort().join(",")}|${(coupon || "").trim().toUpperCase()}`;
+  const rules = (coupons ?? [])
+    .map((c) => ({ ...c, code: (c.code || "").trim().toUpperCase() }))
+    .filter((c) => c.code);
+  const key = `${ids.slice().sort().join(",")}|${rules
+    .map((c) => `${c.code}:${c.active_from ?? ""}:${c.active_to ?? ""}`)
+    .sort()
+    .join(",")}`;
 
   const load = useCallback(async () => {
-    const code = (coupon || "").trim().toUpperCase();
-    if (ids.length === 0 && !code) {
+    if (ids.length === 0 && rules.length === 0) {
       setData(empty);
       return;
     }
