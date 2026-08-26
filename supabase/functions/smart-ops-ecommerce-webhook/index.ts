@@ -5,6 +5,11 @@ import {
   ECOMMERCE_TAGS,
   JOURNEY_TAGS,
 } from "../_shared/sellflux-field-map.ts";
+import {
+  getLiCatalogIndex,
+  persistLiOrder,
+  PAID_SITUACAO_CODIGOS,
+} from "../_shared/li-order-persist.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -283,13 +288,9 @@ async function fetchClienteFromLI(
   }
 }
 
-// Situação codes considered as "paid/delivered"
-const PAID_SITUACAO_CODIGOS = new Set([
-  "pago", "pagamento_confirmado", "pagamento_aprovado",
-  "em_producao", "pronto_envio", "enviado", "entregue",
-  "pedido_pago", "pedido_enviado", "pedido_entregue",
-  "pedido_em_producao", "pedido_em_separacao", "pronto_para_envio",
-]);
+// Situação codes considered as "paid/delivered".
+// Definição única em _shared/li-order-persist.ts — o sync de clientes usa a
+// mesma lista, para que os dois caminhos calculem o mesmo LTV.
 
 /**
  * Fetch order history for a client from Loja Integrada API
@@ -696,11 +697,14 @@ Deno.serve(async (req) => {
     if (numeroPedido) {
       try {
         const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+        // O preview termina em "pedido=<numero>", então ancoramos no fim.
+        // Um curinga à direita casaria pedido=1234 ao procurar pedido=123 e
+        // descartaria um pedido legítimo como se fosse duplicata.
         const { data: dupeCheck } = await supabase
           .from("message_logs")
           .select("id")
           .eq("tipo", `ecommerce_${eventType}`)
-          .ilike("mensagem_preview", `%pedido=${numeroPedido}%`)
+          .ilike("mensagem_preview", `%pedido=${numeroPedido}`)
           .gte("created_at", thirtyDaysAgo)
           .limit(1);
         if (dupeCheck && dupeCheck.length > 0) {
@@ -918,6 +922,25 @@ Deno.serve(async (req) => {
       status: "recebido",
     });
 
+    // ─── Persistir o pedido normalizado (loja_integrada_orders/_order_items) ───
+    // É o que alimenta v_sku_mapping_inbox pelo lado do e-commerce. Nunca deve
+    // interromper a ingestão do lead: erro aqui é registrado e o fluxo segue.
+    let persistencia: Awaited<ReturnType<typeof persistLiOrder>> | null = null;
+    try {
+      const catalogIndex = await getLiCatalogIndex(supabase);
+      persistencia = await persistLiOrder(supabase, {
+        order,
+        rawPayload: liRawPayload,
+        leadId,
+        catalogIndex,
+      });
+      console.log(
+        `[ecommerce-webhook] pedido normalizado: pedido=${persistencia.pedido_id} itens=${persistencia.itens} resolvidos=${persistencia.resolvidos}`,
+      );
+    } catch (e) {
+      console.error("[ecommerce-webhook] falha ao normalizar pedido:", e);
+    }
+
     // ─── Record timeline event in lead_activity_log (append-only, with dedup) ───
     const orderDate = liPedidoData || new Date().toISOString();
     const activityEntityId = numeroPedido ? String(numeroPedido) : null;
@@ -1068,6 +1091,8 @@ Deno.serve(async (req) => {
         situacao_id: situacaoId,
         pedido: numeroPedido,
         tags_added: tagsToAdd,
+        itens_normalizados: persistencia?.itens ?? 0,
+        itens_resolvidos: persistencia?.resolvidos ?? 0,
       }),
       {
         status: 200,

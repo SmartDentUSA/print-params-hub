@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { isPedidoPago, mergeHistoricoPedidos } from "../_shared/li-order-persist.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -113,14 +114,13 @@ Deno.serve(async (req) => {
       console.log(`[sync-li-clients] Pedidos API: ${pedidosRaw.length}, reais do cliente ${clienteId}: ${pedidosReais.length}`);
 
       if (pedidosReais.length === 0) {
-        // Zero out ghost data — no real orders for this client
+        // Nada a acrescentar. Antes zerávamos o histórico aqui, o que apagava
+        // os pedidos que o webhook já havia gravado sempre que esta busca
+        // voltava vazia (a API da loja ignora o filtro cliente_id e o recorte
+        // é feito no cliente). Agora apenas registramos a passagem.
         await supabase
           .from('lia_attendances')
-          .update({
-            lojaintegrada_historico_pedidos: [],
-            lojaintegrada_total_pedidos_pagos: 0,
-            lojaintegrada_updated_at: new Date().toISOString(),
-          })
+          .update({ lojaintegrada_updated_at: new Date().toISOString() })
           .eq('id', leadId);
         return { orders_found: pedidosRaw.length, real_orders: 0 };
       }
@@ -151,18 +151,39 @@ Deno.serve(async (req) => {
         };
       });
 
-      const approvedOrders = newOrders.filter((o: any) => o.situacao_aprovado && !o.situacao_cancelado);
-      const ltvTotal = approvedOrders.reduce((sum: number, o: any) => sum + parseFloat(o.valor_total || '0'), 0);
-      const lastOrder = newOrders
+      // Mesma regra de "pago" do webhook (lista de códigos compartilhada),
+      // no lugar das flags aprovado/cancelado que divergiam do outro caminho.
+      const approvedOrders = newOrders.filter((o: any) =>
+        isPedidoPago({ codigo: o.situacao_codigo, cancelado: o.situacao_cancelado })
+      );
+      const ltvLoja = approvedOrders.reduce(
+        (sum: number, o: any) => sum + (parseFloat(o.valor_total || '0') || 0), 0,
+      );
+
+      // Append-only: preserva os pedidos que o webhook já registrou.
+      const { data: leadAtual } = await supabase
+        .from('lia_attendances')
+        .select('lojaintegrada_historico_pedidos')
+        .eq('id', leadId)
+        .maybeSingle();
+      const historico = mergeHistoricoPedidos(
+        leadAtual?.lojaintegrada_historico_pedidos,
+        newOrders,
+      );
+
+      const lastOrder = [...newOrders]
         .sort((a: any, b: any) => (a.data_criacao || '').localeCompare(b.data_criacao || ''))
         .pop();
 
       await supabase
         .from('lia_attendances')
         .update({
-          lojaintegrada_historico_pedidos: newOrders,
+          lojaintegrada_historico_pedidos: historico,
           lojaintegrada_total_pedidos_pagos: approvedOrders.length,
-          ltv_total: ltvTotal,
+          // LTV da loja vai na coluna da loja. `ltv_total` é um campo
+          // consolidado de várias origens e não pertence a esta integração —
+          // escrevê-lo aqui sobrescrevia o valor das outras fontes.
+          lojaintegrada_ltv: ltvLoja,
           lojaintegrada_ultimo_pedido_data: lastOrder?.data_criacao || null,
           lojaintegrada_ultimo_pedido_valor: lastOrder ? parseFloat(lastOrder.valor_total || '0') : null,
           lojaintegrada_ultimo_pedido_numero: lastOrder?.numero || null,

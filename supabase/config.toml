@@ -9,6 +9,11 @@ verify_jwt = false
 [functions.smart-ops-li-import-runner]
 verify_jwt = false
 
+# Backfill/resolução de itens da Loja Integrada. Protegida por
+# x-import-secret dentro da própria função, como o import-runner.
+[functions.smart-ops-li-backfill-items]
+verify_jwt = false
+
 [functions.smart-ops-gmail-bounce-scan]
 verify_jwt = false
 

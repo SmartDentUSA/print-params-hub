@@ -53,8 +53,14 @@ Deno.serve(async (req) => {
   let processed = 0;
   let errors = 0;
   let stoppedReason = "unknown";
-  let lastItemDate: Date | null = null;
   let offset = 0;
+
+  // A API devolve em ordem decrescente de data_modificacao: o primeiro item é
+  // o mais recente. Avançar o checkpoint para uma data mais nova descarta tudo
+  // que for mais antigo, então só podemos avançar quando a varredura desceu
+  // até o checkpoint anterior sem nenhuma falha.
+  let newestSeen: Date | null = null;
+  const falhas: string[] = [];
 
   outer:
   while (true) {
@@ -76,19 +82,24 @@ Deno.serve(async (req) => {
 
       if (!modDate || modDate <= checkpoint) { stoppedReason = "reached_checkpoint"; break outer; }
 
+      if (!newestSeen || modDate > newestSeen) newestSeen = modDate;
+
       try {
         const r = await fetch(webhookUrl, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ data: pedido, origin: "reconciliation_poll" }),
         });
-        if (!r.ok) errors++;
-      } catch {
+        if (!r.ok) {
+          errors++;
+          falhas.push(`${pedido.numero ?? pedido.id}:http_${r.status}`);
+        }
+      } catch (e) {
         errors++;
+        falhas.push(`${pedido.numero ?? pedido.id}:${e instanceof Error ? e.name : "erro"}`);
       }
 
       processed++;
-      lastItemDate = modDate;
       await new Promise((r) => setTimeout(r, PACING_MS));
 
       if (processed >= ITEM_BUDGET_PER_RUN) { stoppedReason = "item_budget"; break outer; }
@@ -99,19 +110,51 @@ Deno.serve(async (req) => {
     if (!json?.meta?.next) { stoppedReason = "no_more_pages"; break; }
   }
 
-  // Só avança checkpoint se de fato processamos algo contíguo desde o topo
-  const newCheckpoint = lastItemDate ? lastItemDate.toISOString() : state?.last_data_modificacao || null;
+  // O checkpoint só avança quando a varredura foi completa E limpa.
+  //
+  // Truncada por budget: os pedidos abaixo do ponto de corte ainda não foram
+  // vistos; avançar aqui os deixaria para sempre atrás do cursor.
+  // Com falha de repost: o pedido que falhou precisa continuar acima do
+  // checkpoint para ser retentado na próxima execução.
+  //
+  // Em ambos os casos mantemos o cursor parado e reprocessamos na próxima
+  // rodada — a ingestão é idempotente (dedupe no webhook, itens substituídos
+  // por pedido), então repetir é barato e perder não é.
+  const varreduraCompleta = ["reached_checkpoint", "no_more_data", "no_more_pages"].includes(stoppedReason);
+  const podeAvancar = varreduraCompleta && errors === 0 && newestSeen !== null;
+  const newCheckpoint = podeAvancar
+    ? newestSeen!.toISOString()
+    : state?.last_data_modificacao || null;
+
+  const rodadasBloqueadas = podeAvancar
+    ? 0
+    : Number(state?.last_run_stats?.blocked_runs ?? 0) + 1;
+
+  if (!podeAvancar && processed > 0) {
+    console.warn(
+      `[li-reconciler] checkpoint mantido em ${newCheckpoint} — motivo=${stoppedReason} erros=${errors} rodadas_bloqueadas=${rodadasBloqueadas}`,
+    );
+  }
 
   await supabase.from("li_reconciliation_state").update({
     last_data_modificacao: newCheckpoint,
     last_run_at: new Date().toISOString(),
-    last_run_stats: { processed, errors, stopped_reason: stoppedReason },
+    last_run_stats: {
+      processed,
+      errors,
+      stopped_reason: stoppedReason,
+      checkpoint_advanced: podeAvancar,
+      blocked_runs: rodadasBloqueadas,
+      failed_orders: falhas.slice(0, 20),
+    },
     updated_at: new Date().toISOString(),
   }).eq("id", "pedidos");
 
   return new Response(JSON.stringify({
     success: errors === 0,
     processed, errors, stopped_reason: stoppedReason,
+    checkpoint_advanced: podeAvancar,
+    blocked_runs: rodadasBloqueadas,
     new_checkpoint: newCheckpoint,
   }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
 });
