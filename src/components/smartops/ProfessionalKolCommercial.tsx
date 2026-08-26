@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { DatePickerInput } from "@/components/smartops/DatePickerInput";
 import { Plus, Trash2, Ticket } from "lucide-react";
 import { PRODUCT_CATALOG_ENTITY_TYPES } from "@/lib/catalogEntityTypes";
+import ProfessionalKolPerformance from "./ProfessionalKolPerformance";
 
 export interface KolFormRef {
   id: string;
