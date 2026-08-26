@@ -928,7 +928,11 @@ async function createNewDeal(
   supabase: ReturnType<typeof createClient>,
   formResponses?: Array<{ label?: string; value?: unknown }>
 ): Promise<string | null> {
-  const formOriginId = await resolveOriginId(apiToken, lead.form_name as string | null);
+  // PARIDADE NOTA↔DEAL: a Origem do Deal deve ser exatamente o mesmo valor que
+  // a nota "Resumo do Lead" imprime em "Origem PipeRun" (piperun_origin_name),
+  // caindo para origem_primeiro_contato / origem_campanha / form_name.
+  const formOriginId = await resolveOriginId(apiToken, dealOriginName(lead));
+
 
   const dealPayload: Record<string, unknown> = {
     title: cleanPersonName(lead.nome as string) || email,
@@ -992,8 +996,30 @@ async function createNewDeal(
 // ── Origin cache: form_name → origin_id ──
 const originCache = new Map<string, number>();
 
+/**
+ * Origem canônica do lead para gravar no Deal — mesma cascata usada pela nota
+ * `seller-summary` ("Origem PipeRun"), garantindo que card e nota nunca
+ * divirjam. Valores técnicos internos (dra-lia, piperun, piperun_webhook,
+ * cadastro/staging) são ignorados em favor do próximo nível da cascata.
+ */
+export function dealOriginName(lead: Record<string, unknown>): string | null {
+  const technical = /^(dra[-_ ]?lia|piperun(_webhook)?|smartops|api|import|staging|\[cadastro\])/i;
+  const candidates = [
+    lead.piperun_origin_name,
+    lead.origem_primeiro_contato,
+    lead.origem_campanha,
+    lead.form_name,
+  ];
+  for (const c of candidates) {
+    const v = String(c ?? "").trim();
+    if (v && !technical.test(v)) return v;
+  }
+  return (String(lead.form_name ?? "").trim() || null);
+}
+
 async function resolveOriginId(apiToken: string, formName: string | null): Promise<number> {
   if (!formName) return ORIGINS.DRA_LIA.id;
+
   
   const cacheKey = formName.trim();
   if (originCache.has(cacheKey)) return originCache.get(cacheKey)!;
@@ -4091,8 +4117,21 @@ Deno.serve(async (req) => {
           personFields.push({ id: CF_PESSOA.mapeamento_scanner, valor: leadModeloScanner });
         if (leadModeloImpressora && !["não tem", "sem impressora"].includes(leadModeloImpressora.toLowerCase()))
           personFields.push({ id: CF_PESSOA.mapeamento_impressora, valor: leadModeloImpressora });
-        if (formName)
-          personFields.push({ id: CF_PESSOA.origem_lead, valor: `Meta Lead Ads — ${formName}` });
+        // Origem da PESSOA: mesmo texto da nota. Só prefixa "Meta Lead Ads —"
+        // quando o lead realmente veio de um formulário Meta.
+        {
+          const personOriginLabel = dealOriginName(lead as Record<string, unknown>);
+          const isMetaForm = Boolean(
+            (lead as Record<string, unknown>).meta_form_id ||
+            /^form_\d+$/i.test(String((lead as Record<string, unknown>).utm_campaign || "")),
+          );
+          if (personOriginLabel)
+            personFields.push({
+              id: CF_PESSOA.origem_lead,
+              valor: isMetaForm ? `Meta Lead Ads — ${personOriginLabel}` : personOriginLabel,
+            });
+        }
+
 
         if (personId && (personFields.length > 0 || cfEmail || phoneDigits)) {
           const personPayload: Record<string, unknown> = {};
@@ -4117,8 +4156,18 @@ Deno.serve(async (req) => {
             dealFields.push({ id: CF_DEAL.area_atuacao, valor: leadAreaAtuacao });
           if (leadEspecialidade)
             dealFields.push({ id: CF_DEAL.especialidade, valor: leadEspecialidade });
-          if ((lead as Record<string, unknown>).produto_interesse)
-            dealFields.push({ id: CF_DEAL.produto_interesse, valor: String((lead as Record<string, unknown>).produto_interesse) });
+          // PARIDADE NOTA↔DEAL: a nota imprime
+          // `produto_interesse || produto_interesse_auto` — o Deal usa a mesma
+          // cascata, e o campo "Produto de interesse (auto)" recebe o valor
+          // inferido quando existir.
+          const leadProdutoAuto = String((lead as Record<string, unknown>).produto_interesse_auto || "").trim();
+          const leadProduto =
+            String((lead as Record<string, unknown>).produto_interesse || "").trim() || leadProdutoAuto;
+          if (leadProduto)
+            dealFields.push({ id: CF_DEAL.produto_interesse, valor: leadProduto });
+          if (leadProdutoAuto)
+            dealFields.push({ id: CF_DEAL.produto_auto, valor: leadProdutoAuto });
+
           if (leadTemImpressora)
             dealFields.push({
               id: CF_DEAL.tem_impressora,
