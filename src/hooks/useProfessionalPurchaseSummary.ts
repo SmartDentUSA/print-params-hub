@@ -140,6 +140,29 @@ export async function fetchPurchaseSummaries(leadIds: string[]): Promise<Record<
     }
   }
 
+  // 4) Negócios em aberto no CRM (contexto comercial — não são compras)
+  const { data: openDeals } = await supabase
+    .from("deals")
+    .select("lead_id, product, value, piperun_created_at, created_at, owner_name, pipeline_name, status, is_deleted")
+    .in("lead_id", leadIds)
+    .neq("status", "ganha");
+  for (const d of (openDeals ?? []) as any[]) {
+    if (d.is_deleted) continue;
+    if (String(d.status || "").toLowerCase() === "perdida") continue;
+    const s = out[d.lead_id];
+    if (!s) continue;
+    s.openCount += 1;
+    s.openValue += Number(d.value) || 0;
+    const dt: string | null = d.piperun_created_at ?? d.created_at ?? null;
+    if (!s.openDate || (dt && dt > s.openDate)) {
+      s.openDate = dt;
+      s.openProduct = d.product ?? null;
+      s.openVendor = d.owner_name ?? null;
+      s.openPipeline = d.pipeline_name ?? null;
+    }
+  }
+
+
   for (const id of leadIds) {
     const s = out[id];
     s.totalInvested = Math.max(s.crmWonTotal, s.omieTotal) + s.ecomTotal;
