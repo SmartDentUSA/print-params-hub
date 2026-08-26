@@ -569,35 +569,35 @@ export default function PublicFormPage() {
       const leadId = ingestData?.lead_id;
       // Vincula a navegação anônima desta sessão ao lead identificado
       if (leadId) void linkLeadToPageSession(leadId);
-      if (form.form_purpose === "sdr_captacao" && leadId) {
-        const mappingFields = activeFields.filter((f) => f.workflow_cell_target);
-        if (mappingFields.length > 0) {
-          const responses = mappingFields
-            .map((f) => {
-              const raw = values[f.id];
-              if (raw === undefined || raw === null || raw === "") return null;
-              const value = Array.isArray(raw) ? raw.join(", ") : String(raw);
-              return {
-                form_id: form.id,
-                field_id: f.id,
-                lead_id: leadId,
-                value,
-                workflow_cell_target: f.workflow_cell_target,
-                field_label: f.label,
-              };
-            })
-            .filter(Boolean);
+      // Grava TODAS as respostas dos campos (qualquer tipo de formulário),
+      // não só os campos com célula de workflow em formulários de captação.
+      if (leadId) {
+        const responses = activeFields
+          .map((f) => {
+            const raw = values[f.id];
+            if (raw === undefined || raw === null || raw === "") return null;
+            const value = Array.isArray(raw) ? raw.join(", ") : String(raw);
+            return {
+              form_id: form.id,
+              field_id: f.id,
+              lead_id: leadId,
+              value,
+              workflow_cell_target: f.workflow_cell_target ?? null,
+              field_label: f.label,
+            };
+          })
+          .filter(Boolean);
 
-          if (responses.length > 0) {
-            supabase
-              .from("smartops_form_field_responses" as any)
-              .insert(responses as any)
-              .then(({ error: respError }: { error: any }) => {
-                if (respError) console.error("[PublicFormPage] Erro ao gravar field responses:", respError);
-              });
-          }
+        if (responses.length > 0) {
+          supabase
+            .from("smartops_form_field_responses" as any)
+            .insert(responses as any)
+            .then(({ error: respError }: { error: any }) => {
+              if (respError) console.error("[PublicFormPage] Erro ao gravar field responses:", respError);
+            });
         }
       }
+
 
       // Enviar respostas como nota no deal do PipeRun (fire-and-forget)
       if (leadId) {
