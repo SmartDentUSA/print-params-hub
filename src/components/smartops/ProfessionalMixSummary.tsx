@@ -228,6 +228,8 @@ export default function ProfessionalMixSummary({ leadId, disabled, cadValue, onC
   const [edits, setEdits] = useState<Partial<Record<EquipCat, { name: string; serial: string }>>>({});
   const [serials, setSerials] = useState<Partial<Record<EquipCat, string>>>({});
   const [refreshKey, setRefreshKey] = useState(0);
+  const { summary: fin } = useProfessionalPurchaseSummary(leadId, refreshKey);
+
 
   useEffect(() => {
     (async () => {
