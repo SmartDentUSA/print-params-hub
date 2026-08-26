@@ -526,6 +526,18 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
   const tm = Math.round(axes.technical_maturity?.value || 0);
   const pp = Math.round(axes.purchase_power?.value || 0);
 
+  // KOL (Key Opinion Leader) — cadastro comercial na ficha do profissional
+  const kolCoupon = (ld as any).prof_kol_coupon as string | null | undefined;
+  const kolForms = Array.isArray((ld as any).prof_kol_form_ids) ? ((ld as any).prof_kol_form_ids as any[]) : [];
+  const kolRules = Array.isArray((ld as any).prof_kol_commissions) ? ((ld as any).prof_kol_commissions as any[]) : [];
+  const isKolLead = Boolean(kolCoupon || kolForms.length > 0 || kolRules.length > 0);
+  const kolTitle = [
+    kolCoupon ? `Cupom ${kolCoupon}` : null,
+    kolForms.length ? `${kolForms.length} formulário(s) de indicação` : null,
+    kolRules.length ? `${kolRules.length} regra(s) de comissionamento` : null,
+  ].filter(Boolean).join(" · ") || "KOL cadastrado";
+
+
   // Timeline
   const buildTimeline = (): TLEvent[] => {
     const events: TLEvent[] = [];
