@@ -1898,6 +1898,18 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Respostas normalizadas do formulário (todos os campos respondidos)
+    const normalizedFormResponses: Array<{ label: string; value: string }> =
+      Array.isArray(payload.form_responses)
+        ? payload.form_responses
+            .map((r: any) => ({
+              label: String(r?.label ?? r?.name ?? r?.field ?? "").trim(),
+              value: String(r?.value ?? r?.answer ?? "").trim(),
+            }))
+            .filter((r: { label: string; value: string }) => r.label && r.value)
+            .slice(0, 60)
+        : [];
+
     // ─── Timeline: log lead ingestion event ───
     const sourceLabel = source === "meta_lead_ads" ? "Entrada via Meta Ads"
       : source === "sellflux_webhook" || (payload.utm_source || "").includes("sellflux") ? "Entrada via SellFlux"
