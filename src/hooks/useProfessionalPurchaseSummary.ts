@@ -20,6 +20,13 @@ export type PurchaseSummary = {
   lastPurchaseName: string | null;
   lastPurchaseVendor: string | null;
   firstPurchaseDate: string | null;
+  /** Negócios abertos no CRM (não ganhos) — evita mostrar "sem compras" sem contexto */
+  openCount: number;
+  openValue: number;
+  openProduct: string | null;
+  openDate: string | null;
+  openVendor: string | null;
+  openPipeline: string | null;
 };
 
 export const EMPTY_SUMMARY: PurchaseSummary = {
@@ -32,7 +39,14 @@ export const EMPTY_SUMMARY: PurchaseSummary = {
   lastPurchaseName: null,
   lastPurchaseVendor: null,
   firstPurchaseDate: null,
+  openCount: 0,
+  openValue: 0,
+  openProduct: null,
+  openDate: null,
+  openVendor: null,
+  openPipeline: null,
 };
+
 
 const CANCELLED = ["cancelado", "cancelled", "estornado", "reprovado"];
 
@@ -125,6 +139,29 @@ export async function fetchPurchaseSummaries(leadIds: string[]): Promise<Record<
       if (!s.lastPurchaseName) s.lastPurchaseName = "Faturamento ERP (Omie)";
     }
   }
+
+  // 4) Negócios em aberto no CRM (contexto comercial — não são compras)
+  const { data: openDeals } = await supabase
+    .from("deals")
+    .select("lead_id, product, value, piperun_created_at, created_at, owner_name, pipeline_name, status, is_deleted")
+    .in("lead_id", leadIds)
+    .neq("status", "ganha");
+  for (const d of (openDeals ?? []) as any[]) {
+    if (d.is_deleted) continue;
+    if (String(d.status || "").toLowerCase() === "perdida") continue;
+    const s = out[d.lead_id];
+    if (!s) continue;
+    s.openCount += 1;
+    s.openValue += Number(d.value) || 0;
+    const dt: string | null = d.piperun_created_at ?? d.created_at ?? null;
+    if (!s.openDate || (dt && dt > s.openDate)) {
+      s.openDate = dt;
+      s.openProduct = d.product ?? null;
+      s.openVendor = d.owner_name ?? null;
+      s.openPipeline = d.pipeline_name ?? null;
+    }
+  }
+
 
   for (const id of leadIds) {
     const s = out[id];

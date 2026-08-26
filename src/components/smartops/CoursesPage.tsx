@@ -12,6 +12,7 @@ import ShareCoursePortalDialog from "./courses/ShareCoursePortalDialog";
 import { getCourseStatusBadge } from "@/lib/courseStatusBadge";
 import { cn } from "@/lib/utils";
 import { fetchPurchaseSummaries, EMPTY_SUMMARY, type PurchaseSummary } from "@/hooks/useProfessionalPurchaseSummary";
+import ProfessionalKolCardStats from "./ProfessionalKolCardStats";
 
 function fmtBRL(v: number): string {
   return v.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
@@ -63,12 +64,16 @@ type Professional = {
   equip_scanner: string | null;
   equip_scanner_bancada: string | null;
   equip_impressora: string | null;
+  equip_cad: string | null;
   prof_rating_quality: number | null;
   prof_rating_price: number | null;
   prof_rating_value: number | null;
   prof_wa_ddi?: string | null;
   prof_wa_number?: string | null;
+  prof_kol_form_ids?: { id: string; name: string }[] | null;
+  prof_kol_coupons?: { code: string; active_from?: string | null; active_to?: string | null }[] | null;
 };
+
 
 type CourseStats = { total: number; ativos: number; realizados: number; views: number; interested: number };
 
@@ -130,7 +135,7 @@ export default function CoursesPage() {
     try {
       const { data, error } = await supabase
         .from("lia_attendances")
-        .select("id, nome, email, area_atuacao, especialidade, prof_photo_url, prof_cro, prof_course_platform, prof_updated_at, created_at, equip_scanner, equip_scanner_bancada, equip_impressora, prof_rating_quality, prof_rating_price, prof_rating_value, prof_wa_ddi, prof_wa_number")
+        .select("id, nome, email, area_atuacao, especialidade, prof_photo_url, prof_cro, prof_course_platform, prof_updated_at, created_at, equip_scanner, equip_scanner_bancada, equip_impressora, equip_cad, prof_rating_quality, prof_rating_price, prof_rating_value, prof_wa_ddi, prof_wa_number, prof_kol_form_ids, prof_kol_coupons")
         .not("prof_updated_at", "is", null)
         .is("merged_into", null)
         .order("prof_updated_at", { ascending: false })
@@ -388,10 +393,17 @@ export default function CoursesPage() {
                     <span className="text-muted-foreground shrink-0">Impressora 3D:</span>
                     <span className="font-medium truncate text-right">{wonEquip[p.id]?.impressora || "—"}</span>
                   </div>
+                  <div className="flex justify-between gap-2">
+                    <span className="text-muted-foreground shrink-0">CAD / Software:</span>
+                    <span className="font-medium truncate text-right" title={p.equip_cad ?? ""}>
+                      {p.equip_cad || "—"}
+                    </span>
+                  </div>
                 </div>
 
                 {(() => {
                   const s = summaries[p.id] ?? EMPTY_SUMMARY;
+                  const hasPurchase = s.purchaseCount > 0;
                   return (
                     <div className="space-y-1 text-xs border-t pt-2">
                       <div className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium">
@@ -400,17 +412,19 @@ export default function CoursesPage() {
                       <div className="flex justify-between gap-2">
                         <span className="text-muted-foreground shrink-0">Última compra:</span>
                         <span className="font-medium text-right truncate">
-                          {s.purchaseCount > 0 ? fmtDate(s.lastPurchaseDate) : "Sem compras"}
+                          {hasPurchase ? fmtDate(s.lastPurchaseDate) : "Sem compras"}
                         </span>
                       </div>
-                      {s.purchaseCount > 0 && s.lastPurchaseName && (
+                      {hasPurchase && s.lastPurchaseName && (
                         <div className="text-[11px] text-muted-foreground truncate" title={s.lastPurchaseName}>
                           {s.lastPurchaseName}
                         </div>
                       )}
                       <div className="flex justify-between gap-2">
                         <span className="text-muted-foreground shrink-0">Vendedor:</span>
-                        <span className="font-medium text-right truncate">{s.lastPurchaseVendor || "—"}</span>
+                        <span className="font-medium text-right truncate">
+                          {(hasPurchase ? s.lastPurchaseVendor : s.openVendor) || "—"}
+                        </span>
                       </div>
                       <div className="flex justify-between gap-2">
                         <span className="text-muted-foreground shrink-0">Total investido:</span>
@@ -422,9 +436,33 @@ export default function CoursesPage() {
                           {s.purchaseCount} {s.purchaseCount === 1 ? "compra" : "compras"}
                         </span>
                       </div>
+                      {s.openCount > 0 && (
+                        <>
+                          <div className="flex justify-between gap-2">
+                            <span className="text-muted-foreground shrink-0">Em negociação:</span>
+                            <span className="font-medium text-right">
+                              {s.openCount} {s.openCount === 1 ? "negócio" : "negócios"}
+                              {s.openValue > 0 ? ` · ${fmtBRL(s.openValue)}` : ""}
+                            </span>
+                          </div>
+                          {s.openProduct && (
+                            <div className="text-[11px] text-muted-foreground truncate" title={s.openProduct}>
+                              {s.openProduct}
+                              {s.openDate ? ` — ${fmtDate(s.openDate)}` : ""}
+                              {s.openPipeline ? ` · ${s.openPipeline}` : ""}
+                            </div>
+                          )}
+                        </>
+                      )}
                     </div>
                   );
                 })()}
+
+                <ProfessionalKolCardStats
+                  formIds={(p.prof_kol_form_ids ?? []) as { id: string; name: string }[]}
+                  coupons={(p.prof_kol_coupons ?? []) as any}
+                />
+
 
 
                 <div className="grid grid-cols-2 gap-2 pt-2">
