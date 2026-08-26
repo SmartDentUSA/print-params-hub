@@ -47,8 +47,8 @@ export default function ProfessionalKolCommercial({
   disabled,
   formIds,
   onFormIdsChange,
-  coupon,
-  onCouponChange,
+  coupons,
+  onCouponsChange,
   commissions,
   onCommissionsChange,
 }: Props) {
