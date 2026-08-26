@@ -12535,45 +12535,77 @@ export type Database = {
       }
       loja_integrada_order_items: {
         Row: {
+          catalog_product_id: string | null
+          catalog_variation_id: string | null
           created_at: string | null
           id: string
+          match_confidence: number | null
+          matched_by: string | null
+          nome_canonico: string | null
           nome_produto: string | null
           order_id: string
           pedido_id: string
           produto_id: string | null
           quantidade: number | null
           sku: string | null
+          sku_interno: string | null
           url_imagem: string | null
           valor_total: number | null
           valor_unitario: number | null
         }
         Insert: {
+          catalog_product_id?: string | null
+          catalog_variation_id?: string | null
           created_at?: string | null
           id?: string
+          match_confidence?: number | null
+          matched_by?: string | null
+          nome_canonico?: string | null
           nome_produto?: string | null
           order_id: string
           pedido_id: string
           produto_id?: string | null
           quantidade?: number | null
           sku?: string | null
+          sku_interno?: string | null
           url_imagem?: string | null
           valor_total?: number | null
           valor_unitario?: number | null
         }
         Update: {
+          catalog_product_id?: string | null
+          catalog_variation_id?: string | null
           created_at?: string | null
           id?: string
+          match_confidence?: number | null
+          matched_by?: string | null
+          nome_canonico?: string | null
           nome_produto?: string | null
           order_id?: string
           pedido_id?: string
           produto_id?: string | null
           quantidade?: number | null
           sku?: string | null
+          sku_interno?: string | null
           url_imagem?: string | null
           valor_total?: number | null
           valor_unitario?: number | null
         }
         Relationships: [
+          {
+            foreignKeyName: "li_order_items_product_fk"
+            columns: ["catalog_product_id"]
+            isOneToOne: false
+            referencedRelation: "system_a_catalog"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "li_order_items_variation_fk"
+            columns: ["catalog_variation_id"]
+            isOneToOne: false
+            referencedRelation: "catalog_product_variations"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "loja_integrada_order_items_order_id_fkey"
             columns: ["order_id"]
@@ -29901,6 +29933,18 @@ export type Database = {
         }
         Relationships: []
       }
+      v_li_sku_pendentes: {
+        Row: {
+          gmv_sem_atribuicao: number | null
+          name_key: string | null
+          nome_produto: string | null
+          ocorrencias: number | null
+          pedido_exemplo: string | null
+          sku_exemplo: string | null
+          skus_distintos: number | null
+        }
+        Relationships: []
+      }
       v_meta_lead_ingestion_health: {
         Row: {
           com_leadgen_id: number | null
@@ -33527,6 +33571,20 @@ export type Database = {
           source_channel: string
           title: string
           value_numeric: number
+        }[]
+      }
+      fn_li_backfill_order_items: {
+        Args: never
+        Returns: {
+          itens_inseridos: number
+          pedidos_processados: number
+        }[]
+      }
+      fn_li_resolve_order_items: {
+        Args: { p_apenas_pendentes?: boolean }
+        Returns: {
+          pendentes: number
+          resolvidos: number
         }[]
       }
       fn_link_page_views_to_lead: {
