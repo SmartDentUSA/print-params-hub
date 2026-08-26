@@ -13,7 +13,7 @@ import { AREA_ATUACAO_OPTIONS, ESPECIALIDADE_OPTIONS } from "@/lib/dentalTaxonom
 import { Loader2, Search, Save, Upload, Pencil, Lock } from "lucide-react";
 import ProfessionalMixSummary from "./ProfessionalMixSummary";
 import ProfessionalQualifications from "./ProfessionalQualifications";
-import ProfessionalKolCommercial, { type KolFormRef, type KolCommissionRule } from "./ProfessionalKolCommercial";
+import ProfessionalKolCommercial, { type KolFormRef, type KolCommissionRule, type KolCoupon } from "./ProfessionalKolCommercial";
 import type { QualificationEntry, UniversityRoleEntry } from "@/lib/mecInstitutions";
 
 type LeadRow = Record<string, any>;
@@ -76,7 +76,7 @@ const emptyForm = {
   prof_university_roles: [] as UniversityRoleEntry[],
   // KOL — indicações e comissionamento
   prof_kol_form_ids: [] as KolFormRef[],
-  prof_kol_coupon: "",
+  prof_kol_coupons: [] as KolCoupon[],
   prof_kol_commissions: [] as KolCommissionRule[],
 };
 
@@ -108,7 +108,7 @@ export default function CoursesProfessionalProfile({ initialEmail, startEditing 
       const { data, error } = await supabase
         .from("lia_attendances")
         .select(
-          "id, nome, email, area_atuacao, especialidade, pessoa_nascimento, prof_cro, prof_photo_url, prof_mini_cv, prof_course_platform, prof_wa_ddi, prof_wa_number, prof_course_wa_ddi, prof_course_wa_number, prof_cep, prof_country, prof_state, prof_city, prof_neighborhood, prof_street, prof_number, prof_complement, instagram, prof_tiktok, prof_youtube, pessoa_linkedin, prof_lattes, prof_orcid, prof_fapesp_id, prof_site, prof_marketing_consent, produto_interesse, equip_scanner, equip_scanner_bancada, equip_notebook, equip_cad, equip_impressora, equip_pos_impressao, equip_fresadora, prof_rating_quality, prof_rating_price, prof_rating_value, prof_qualifications, prof_university_roles, prof_kol_form_ids, prof_kol_coupon, prof_kol_commissions"
+          "id, nome, email, area_atuacao, especialidade, pessoa_nascimento, prof_cro, prof_photo_url, prof_mini_cv, prof_course_platform, prof_wa_ddi, prof_wa_number, prof_course_wa_ddi, prof_course_wa_number, prof_cep, prof_country, prof_state, prof_city, prof_neighborhood, prof_street, prof_number, prof_complement, instagram, prof_tiktok, prof_youtube, pessoa_linkedin, prof_lattes, prof_orcid, prof_fapesp_id, prof_site, prof_marketing_consent, produto_interesse, equip_scanner, equip_scanner_bancada, equip_notebook, equip_cad, equip_impressora, equip_pos_impressao, equip_fresadora, prof_rating_quality, prof_rating_price, prof_rating_value, prof_qualifications, prof_university_roles, prof_kol_form_ids, prof_kol_coupon, prof_kol_coupons, prof_kol_commissions"
         )
         .ilike("email", email)
         .is("merged_into", null)
@@ -143,6 +143,12 @@ export default function CoursesProfessionalProfile({ initialEmail, startEditing 
       }
       if (!Array.isArray(merged.prof_kol_form_ids)) merged.prof_kol_form_ids = [];
       if (!Array.isArray(merged.prof_kol_commissions)) merged.prof_kol_commissions = [];
+      if (!Array.isArray(merged.prof_kol_coupons)) merged.prof_kol_coupons = [];
+      // migra cupom único legado para a lista de cupons
+      if (merged.prof_kol_coupons.length === 0 && (data as any).prof_kol_coupon) {
+        merged.prof_kol_coupons = [{ code: String((data as any).prof_kol_coupon).toUpperCase(), active_from: null, active_to: null }];
+      }
+      delete (merged as any).prof_kol_coupon;
       merged.email = data.email ?? email;
       setForm(merged);
       setLocked(!startEditing);
@@ -213,7 +219,7 @@ export default function CoursesProfessionalProfile({ initialEmail, startEditing 
         ...form,
         pessoa_nascimento: form.pessoa_nascimento || null,
         prof_marketing_consent_at: form.prof_marketing_consent ? new Date().toISOString() : null,
-        prof_kol_coupon: form.prof_kol_coupon || null,
+        prof_kol_coupons: (form.prof_kol_coupons || []).filter((c: KolCoupon) => (c.code || "").trim()),
         prof_updated_at: new Date().toISOString(),
       };
 
@@ -238,7 +244,8 @@ export default function CoursesProfessionalProfile({ initialEmail, startEditing 
       if (savedId) {
         const forms = (form.prof_kol_form_ids || []) as KolFormRef[];
         const rules = (form.prof_kol_commissions || []) as KolCommissionRule[];
-        const isKol = Boolean(form.prof_kol_coupon || forms.length > 0 || rules.length > 0);
+        const cupons = ((form.prof_kol_coupons || []) as KolCoupon[]).filter((c) => (c.code || "").trim());
+        const isKol = Boolean(cupons.length > 0 || forms.length > 0 || rules.length > 0);
         try {
           await (supabase as any).from("lead_activity_log").insert({
             lead_id: savedId,
@@ -249,7 +256,7 @@ export default function CoursesProfessionalProfile({ initialEmail, startEditing 
             entity_name: form.nome || form.email || "KOL",
             event_data: {
               is_kol: isKol,
-              cupom_loja_integrada: form.prof_kol_coupon || null,
+              cupons_loja_integrada: cupons.map((c) => ({ cupom: c.code, inicio: c.active_from, fim: c.active_to })),
               formularios_indicacao: forms.map((f) => f.name).filter(Boolean),
               regras_comissionamento: rules
                 .filter((r) => r.product_name || r.percent != null)
@@ -505,8 +512,8 @@ export default function CoursesProfessionalProfile({ initialEmail, startEditing 
         disabled={disabled}
         formIds={form.prof_kol_form_ids}
         onFormIdsChange={(v) => setField("prof_kol_form_ids", v)}
-        coupon={form.prof_kol_coupon}
-        onCouponChange={(v) => setField("prof_kol_coupon", v)}
+        coupons={form.prof_kol_coupons}
+        onCouponsChange={(v) => setField("prof_kol_coupons", v)}
         commissions={form.prof_kol_commissions}
         onCommissionsChange={(v) => setField("prof_kol_commissions", v)}
       />
