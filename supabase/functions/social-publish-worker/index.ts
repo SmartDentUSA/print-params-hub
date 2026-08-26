@@ -279,7 +279,10 @@ serve(async (req) => {
       const idsMap: Record<string, string> = {};
       const groupErrors: any[] = [];
 
-      for (const g of groups) {
+      // Envio resiliente: uma rede que recusa NUNCA interrompe as outras.
+      // Se um grupo em bulk falhar, reenviamos plataforma por plataforma para
+      // que apenas o canal problemático seja ignorado.
+      const sendGroup = async (g: { platforms: any[]; media: any[]; label: string; content: string }) => {
         const payload: any = {
           content: g.content,
           publishNow: true,
@@ -289,23 +292,46 @@ serve(async (req) => {
         if (g.media.length > 0) payload.mediaItems = g.media;
         if (post.first_comment) payload.firstComment = post.first_comment;
 
-        const res = await fetch(`${ZERNIO_BASE}/posts`, {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${apiKey}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(payload),
-        });
-        const data = await res.json().catch(() => ({}));
+        try {
+          const res = await fetch(`${ZERNIO_BASE}/posts`, {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${apiKey}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(payload),
+          });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) return { ok: false as const, status: res.status, response: data };
+          const zernioId = data?.post?._id ?? data?.post?.id ?? data?._id ?? null;
+          for (const p of g.platforms) idsMap[p.platform] = zernioId;
+          return { ok: true as const };
+        } catch (e: any) {
+          return { ok: false as const, status: 0, response: { error: String(e?.message ?? e) } };
+        }
+      };
 
-        if (!res.ok) {
-          groupErrors.push({ group: g.label, status: res.status, response: data });
+      for (const g of groups) {
+        const r = await sendGroup(g);
+        if (r.ok) continue;
+
+        if (g.platforms.length > 1) {
+          // Retry individual: preserva os canais que aceitam o conteúdo.
+          for (const p of g.platforms) {
+            const single = { ...g, platforms: [p], label: `${p.platform}:${p.postType}` };
+            const rs = await sendGroup(single);
+            if (!rs.ok) {
+              groupErrors.push({ group: single.label, status: rs.status, response: rs.response });
+              console.log(JSON.stringify({ event: 'publish.channel_skipped', post_id: post.id, group: single.label, status: rs.status }));
+            }
+          }
           continue;
         }
-        const zernioId = data?.post?._id ?? data?.post?.id ?? data?._id ?? null;
-        for (const p of g.platforms) idsMap[p.platform] = zernioId;
+
+        groupErrors.push({ group: g.label, status: r.status, response: r.response });
+        console.log(JSON.stringify({ event: 'publish.channel_skipped', post_id: post.id, group: g.label, status: r.status }));
       }
+
 
       if (Object.keys(idsMap).length === 0) {
         throw new Error(`Zernio rejeitou a publicação: ${extractZernioError(groupErrors)}`);
