@@ -148,9 +148,10 @@ export function useKolPerformance(formIds: { id: string; name: string }[], coupo
       for (const rule of rules) {
         let q = (supabase as any)
           .from("loja_integrada_orders")
-          .select("valor_total, cupom_codigo, data_pedido")
-          .ilike("cupom_codigo", rule.code)
+          .select("valor_total, cupom_codigo, cupom_json, data_pedido")
           .limit(5000);
+        // cupom pode vir na coluna normalizada ou no payload do cupom
+        q = q.or(`cupom_codigo.ilike.${rule.code},cupom_json->>codigo.ilike.${rule.code}`);
         if (rule.active_from) q = q.gte("data_pedido", rule.active_from);
         if (rule.active_to) q = q.lte("data_pedido", `${rule.active_to}T23:59:59`);
         const { data: orders } = await q;
@@ -163,6 +164,7 @@ export function useKolPerformance(formIds: { id: string; name: string }[], coupo
           receita: rows.reduce((s, o) => s + Number(o.valor_total ?? 0), 0),
         });
       }
+
       const coupons = couponsPerf;
 
       setData({
