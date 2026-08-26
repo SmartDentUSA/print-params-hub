@@ -227,7 +227,10 @@ BEGIN
   RETURN QUERY SELECT v_pedidos, v_itens;
 END $$;
 
-REVOKE ALL ON FUNCTION public.fn_li_backfill_order_items() FROM PUBLIC;
+-- As default privileges do projeto concedem EXECUTE a anon/authenticated em
+-- funções novas, e REVOKE ... FROM PUBLIC não remove grants explícitos de
+-- role. Esta função é SECURITY DEFINER e escreve dados: só service_role.
+REVOKE ALL ON FUNCTION public.fn_li_backfill_order_items() FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.fn_li_backfill_order_items() TO service_role;
 
 -- ─── 4. Resolução em lote dos itens já gravados ─────────────────────────────
@@ -331,13 +334,19 @@ BEGIN
   RETURN QUERY SELECT v_resolvidos, v_pendentes;
 END $$;
 
-REVOKE ALL ON FUNCTION public.fn_li_resolve_order_items(boolean) FROM PUBLIC;
+-- Mesmo motivo da função acima: SECURITY DEFINER que escreve, só service_role.
+REVOKE ALL ON FUNCTION public.fn_li_resolve_order_items(boolean) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.fn_li_resolve_order_items(boolean) TO service_role;
 
 -- ─── 5. Visibilidade da fila pendente do e-commerce ─────────────────────────
 -- Hoje o admin só enxerga pendências dentro da aba de mapeamento, sobre as
 -- primeiras 2.000 linhas carregadas. Esta view dá o total real, por produto,
 -- ordenado pelo GMV que está sem atribuição.
+--
+-- Fica como security definer (padrão), igual à v_sku_mapping_inbox ao lado:
+-- a RLS de loja_integrada_order_items libera apenas service_role, então com
+-- security_invoker o admin veria zero linhas e a view não serviria para nada.
+-- Expõe só agregados (nome do produto, contagem e GMV), sem dado de cliente.
 
 CREATE OR REPLACE VIEW public.v_li_sku_pendentes AS
 SELECT
