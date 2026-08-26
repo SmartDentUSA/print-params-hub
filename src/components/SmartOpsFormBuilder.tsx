@@ -954,11 +954,18 @@ export function SmartOpsFormBuilder() {
                     <SelectContent>
                       <SelectItem value="list">Lista única (todas as perguntas)</SelectItem>
                       <SelectItem value="step">Passo a passo (1 pergunta por vez)</SelectItem>
-                      <SelectItem value="first_three">Somente as 3 primeiras perguntas</SelectItem>
+                      <SelectItem value="first_three">3 primeiras + demais em etapas</SelectItem>
                     </SelectContent>
                   </Select>
+                  {metaDisplayMode === "first_three" && (
+                    <p className="text-[11px] text-muted-foreground mt-1.5">
+                      Mostra 3 perguntas na primeira tela e depois segue em blocos de 2 até
+                      responder todas — igual ao fluxo de agendamento de treinamentos.
+                    </p>
+                  )}
                 </div>
-                {metaDisplayMode === "step" && (
+
+                {(metaDisplayMode === "step" || metaDisplayMode === "first_three") && (
                   <div className="flex items-center justify-between">
                     <label className="text-xs font-medium">Mostrar barra de progresso</label>
                     <Switch checked={metaShowProgress} onCheckedChange={setMetaShowProgress} />
