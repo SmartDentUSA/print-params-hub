@@ -79,10 +79,15 @@ export function PastTrainingsUploadAccordion({ modalities }: { modalities: strin
     <Accordion type="single" collapsible className="mb-6 rounded-xl border bg-card">
       <AccordionItem value="past-uploads" className="border-0">
         <AccordionTrigger className="px-4 py-3 hover:no-underline">
-          <span className="flex items-center gap-2 text-sm font-semibold">
-            <History className="h-4 w-4 text-muted-foreground" />
-            Upload de mídias — treinamentos realizados
-            {!!past.length && <Badge variant="secondary">{past.length}</Badge>}
+          <span className="flex flex-col items-start gap-0.5 text-left">
+            <span className="flex items-center gap-2 text-sm font-semibold">
+              <History className="h-4 w-4 text-muted-foreground" />
+              Upload de mídias — treinamentos realizados
+              {!!past.length && <Badge variant="secondary">{past.length}</Badge>}
+            </span>
+            <span className="pl-6 text-[11px] font-normal text-muted-foreground">
+              Visível apenas para team members logados (inclui login por celular)
+            </span>
           </span>
         </AccordionTrigger>
         <AccordionContent className="px-4 pb-4">
