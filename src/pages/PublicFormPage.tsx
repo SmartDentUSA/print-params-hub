@@ -955,6 +955,28 @@ export default function PublicFormPage() {
                 />
               </div>
             )}
+            {/* Modo "3 primeiras perguntas": mesmo feedback visual do fluxo de
+                agendamento de treinamentos — barra de progresso + contador,
+                deixando claro que as demais perguntas continuam vindo. */}
+            {isFirstThreeMode && totalSteps > 0 && form.show_progress !== false && (
+              <div className="space-y-1.5">
+                <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
+                  <div
+                    className="h-full transition-all duration-300"
+                    style={{
+                      width: `${(Math.min(qualificationBatchEnd, totalSteps) / totalSteps) * 100}%`,
+                      backgroundColor: 'var(--brand)',
+                    }}
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {visibleFields.length > 1
+                    ? `Perguntas ${qualificationBatchStart + 1}–${Math.min(qualificationBatchEnd, totalSteps)} de ${totalSteps}`
+                    : `Pergunta ${qualificationBatchStart + 1} de ${totalSteps}`}
+                </p>
+              </div>
+            )}
+
             {visibleFields.map((field) => (
               <div key={field.id} className="space-y-1.5">
                 <Label style={isEmbed ? { color: "#0f172a", opacity: 1 } : undefined}>
