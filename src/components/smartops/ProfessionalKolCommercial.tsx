@@ -148,15 +148,55 @@ export default function ProfessionalKolCommercial({
           </div>
         </div>
 
-        {/* 2. Cupom Loja Integrada */}
-        <div className="max-w-xs">
-          <Label>Cupom Loja Integrada</Label>
-          <Input
-            value={coupon}
-            onChange={(e) => onCouponChange(e.target.value.toUpperCase())}
-            disabled={disabled}
-            placeholder="EX: DRJOAO10"
-          />
+        {/* 2. Cupons Loja Integrada */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <Label>Cupons Loja Integrada</Label>
+            <Button type="button" size="sm" variant="outline" onClick={addCoupon} disabled={disabled}>
+              <Plus className="w-4 h-4 mr-1" /> Adicionar cupom
+            </Button>
+          </div>
+          {coupons.length === 0 ? (
+            <p className="text-xs text-muted-foreground">Nenhum cupom cadastrado.</p>
+          ) : (
+            <div className="space-y-2">
+              {coupons.map((c, i) => (
+                <div key={i} className="grid grid-cols-1 md:grid-cols-[1fr_180px_180px_40px] gap-2 items-end rounded-md border p-2">
+                  <div>
+                    <Label className="text-xs">Cupom</Label>
+                    <Input
+                      value={c.code}
+                      onChange={(e) => patchCoupon(i, { code: e.target.value.toUpperCase() })}
+                      disabled={disabled}
+                      placeholder="EX: DRJOAO10"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Data de ativação</Label>
+                    <DatePickerInput
+                      value={c.active_from ?? undefined}
+                      onChange={(v) => patchCoupon(i, { active_from: v })}
+                      disabled={disabled}
+                      className="w-full"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Data de fim</Label>
+                    <DatePickerInput
+                      value={c.active_to ?? undefined}
+                      onChange={(v) => patchCoupon(i, { active_to: v })}
+                      disabled={disabled}
+                      className="w-full"
+                      placeholder="Sem fim"
+                    />
+                  </div>
+                  <Button type="button" size="icon" variant="ghost" onClick={() => removeCoupon(i)} disabled={disabled}>
+                    <Trash2 className="w-4 h-4 text-destructive" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* 3. Regras de comissionamento */}
