@@ -4117,8 +4117,21 @@ Deno.serve(async (req) => {
           personFields.push({ id: CF_PESSOA.mapeamento_scanner, valor: leadModeloScanner });
         if (leadModeloImpressora && !["não tem", "sem impressora"].includes(leadModeloImpressora.toLowerCase()))
           personFields.push({ id: CF_PESSOA.mapeamento_impressora, valor: leadModeloImpressora });
-        if (formName)
-          personFields.push({ id: CF_PESSOA.origem_lead, valor: `Meta Lead Ads — ${formName}` });
+        // Origem da PESSOA: mesmo texto da nota. Só prefixa "Meta Lead Ads —"
+        // quando o lead realmente veio de um formulário Meta.
+        {
+          const personOriginLabel = dealOriginName(lead as Record<string, unknown>);
+          const isMetaForm = Boolean(
+            (lead as Record<string, unknown>).meta_form_id ||
+            /^form_\d+$/i.test(String((lead as Record<string, unknown>).utm_campaign || "")),
+          );
+          if (personOriginLabel)
+            personFields.push({
+              id: CF_PESSOA.origem_lead,
+              valor: isMetaForm ? `Meta Lead Ads — ${personOriginLabel}` : personOriginLabel,
+            });
+        }
+
 
         if (personId && (personFields.length > 0 || cfEmail || phoneDigits)) {
           const personPayload: Record<string, unknown> = {};
