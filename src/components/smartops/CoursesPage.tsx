@@ -156,13 +156,25 @@ export default function CoursesPage() {
       }
 
       if (leadIds.length > 0) {
+        // Resumo financeiro real (CRM ganho / ERP Omie / e-commerce)
+        fetchPurchaseSummaries(leadIds)
+          .then(setSummaries)
+          .catch(() => setSummaries({}));
+
         const { data: wonDeals } = await supabase
           .from("deals")
-          .select("id, lead_id")
+          .select("id, lead_id, piperun_deal_id")
           .in("lead_id", leadIds)
           .eq("status", "ganha");
-        const dealIds = (wonDeals ?? []).map((d: any) => d.id);
-        const dealToLead = new Map<string, string>((wonDeals ?? []).map((d: any) => [d.id, d.lead_id]));
+        // deal_items.deal_id guarda o piperun_deal_id (texto), não o UUID de deals.id
+        const dealIds = (wonDeals ?? [])
+          .map((d: any) => (d.piperun_deal_id != null ? String(d.piperun_deal_id) : null))
+          .filter((v: string | null): v is string => !!v);
+        const dealToLead = new Map<string, string>(
+          (wonDeals ?? [])
+            .filter((d: any) => d.piperun_deal_id != null)
+            .map((d: any) => [String(d.piperun_deal_id), d.lead_id])
+        );
 
         const map: Record<string, { scanner?: string; impressora?: string }> = {};
         if (dealIds.length > 0) {
@@ -172,7 +184,7 @@ export default function CoursesPage() {
             .in("deal_id", dealIds)
             .order("synced_at", { ascending: false });
           for (const it of (items ?? []) as any[]) {
-            const leadId = dealToLead.get(it.deal_id);
+            const leadId = dealToLead.get(String(it.deal_id));
             if (!leadId) continue;
             const det = detectEquip(it.product_name || "");
             if (!map[leadId]) map[leadId] = {};
@@ -183,7 +195,9 @@ export default function CoursesPage() {
         setWonEquip(map);
       } else {
         setWonEquip({});
+        setSummaries({});
       }
+
     } catch (e: any) {
       toast({ title: "Erro ao carregar profissionais", description: e.message, variant: "destructive" });
     } finally {
