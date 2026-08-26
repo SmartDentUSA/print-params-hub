@@ -8,6 +8,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Loader2, Pencil, Star, Trophy, Save, X } from "lucide-react";
 import { toast } from "sonner";
 import { isValidEquipmentLabel } from "@/utils/equipmentLabel";
+import { useProfessionalPurchaseSummary } from "@/hooks/useProfessionalPurchaseSummary";
+
 
 // ---------- Classificação de categorias ----------
 // Ordem importa: primeiras regras vencem.
