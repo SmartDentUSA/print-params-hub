@@ -94,22 +94,22 @@ export function useKolPerformance(formIds: { id: string; name: string }[], coupo
         const allNames = Array.from(nameById.values()).flat();
 
         if (allNames.length > 0) {
-          const { data: leadRows } = await (supabase as any)
-            .from("lia_attendances")
-            .select("id, form_name")
-            .is("merged_into", null)
-            .in("form_name", allNames)
-            .limit(20000);
+          // 3) Fonte definitiva: RPC que casa form_name OU a chave do formulário dentro de form_data
+          //    (o lead pode ter respondido outros formulários depois, ou ter sido unificado).
+          const { data: rpcRows } = await (supabase as any).rpc("fn_kol_form_leads", {
+            _names: allNames,
+          });
 
-          for (const l of (leadRows ?? []) as any[]) {
+          for (const r of (rpcRows ?? []) as any[]) {
             for (const [formId, names] of nameById.entries()) {
-              if (names.includes(l.form_name)) {
+              if (names.includes(r.form_key)) {
                 leadsByForm[formId] ??= new Set<string>();
-                leadsByForm[formId].add(l.id);
+                leadsByForm[formId].add(r.lead_id);
               }
             }
           }
         }
+
 
         const allLeads = Array.from(new Set(Object.values(leadsByForm).flatMap((s) => Array.from(s))));
 
