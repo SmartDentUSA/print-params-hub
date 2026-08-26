@@ -610,6 +610,31 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
         return;
       }
 
+      // Cadastro / atualização de KOL
+      if ((ev.event_type || "") === "kol_profile_update") {
+        const d: Record<string, string> = {};
+        if (evData.cupom_loja_integrada) d["Cupom Loja Integrada"] = String(evData.cupom_loja_integrada);
+        if (Array.isArray(evData.formularios_indicacao) && evData.formularios_indicacao.length > 0)
+          d["Formulários de indicação"] = evData.formularios_indicacao.join(", ");
+        if (Array.isArray(evData.regras_comissionamento) && evData.regras_comissionamento.length > 0)
+          d["Comissionamento"] = evData.regras_comissionamento
+            .map((r: any) => `${r.produto || "Produto"} — ${r.percentual ?? "?"}%${r.ativacao ? ` (a partir de ${new Date(r.ativacao).toLocaleDateString("pt-BR")})` : ""}`)
+            .join(" · ");
+        if (evData.cro) d["CRO"] = String(evData.cro);
+        if (evData.plataforma_cursos) d["Plataforma de cursos"] = String(evData.plataforma_cursos);
+        if (evData.instagram) d["Instagram"] = String(evData.instagram);
+        events.push({
+          date: ev.event_timestamp || ev.created_at,
+          dotCls: "tl-dot-lead",
+          title: `⭐ KOL — ficha ${evData.is_kol ? "comercial atualizada" : "atualizada"}`,
+          desc: ev.entity_name || "",
+          tags: ["KOL"],
+          detail: d,
+        });
+        return;
+      }
+
+
       const ecommerceDetail: Record<string, string> = {};
       if (isEcommerce) {
         if (evData.valor) ecommerceDetail["Valor"] = formatBRLFull(evData.valor);
