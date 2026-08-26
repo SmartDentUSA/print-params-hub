@@ -11,6 +11,18 @@ import ProfessionalCoursesModal from "./courses/ProfessionalCoursesModal";
 import ShareCoursePortalDialog from "./courses/ShareCoursePortalDialog";
 import { getCourseStatusBadge } from "@/lib/courseStatusBadge";
 import { cn } from "@/lib/utils";
+import { fetchPurchaseSummaries, EMPTY_SUMMARY, type PurchaseSummary } from "@/hooks/useProfessionalPurchaseSummary";
+
+function fmtBRL(v: number): string {
+  return v.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
+}
+
+function fmtDate(iso: string | null): string {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  return isNaN(d.getTime()) ? "—" : d.toLocaleDateString("pt-BR");
+}
+
 
 function formatClienteDesde(iso: string | null): string {
   if (!iso) return "—";
