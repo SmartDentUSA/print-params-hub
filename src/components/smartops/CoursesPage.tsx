@@ -12,6 +12,7 @@ import ShareCoursePortalDialog from "./courses/ShareCoursePortalDialog";
 import { getCourseStatusBadge } from "@/lib/courseStatusBadge";
 import { cn } from "@/lib/utils";
 import { fetchPurchaseSummaries, EMPTY_SUMMARY, type PurchaseSummary } from "@/hooks/useProfessionalPurchaseSummary";
+import ProfessionalKolCardStats from "./ProfessionalKolCardStats";
 
 function fmtBRL(v: number): string {
   return v.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
@@ -63,12 +64,16 @@ type Professional = {
   equip_scanner: string | null;
   equip_scanner_bancada: string | null;
   equip_impressora: string | null;
+  equip_cad: string | null;
   prof_rating_quality: number | null;
   prof_rating_price: number | null;
   prof_rating_value: number | null;
   prof_wa_ddi?: string | null;
   prof_wa_number?: string | null;
+  prof_kol_form_ids?: { id: string; name: string }[] | null;
+  prof_kol_coupons?: { code: string; active_from?: string | null; active_to?: string | null }[] | null;
 };
+
 
 type CourseStats = { total: number; ativos: number; realizados: number; views: number; interested: number };
 
@@ -130,7 +135,7 @@ export default function CoursesPage() {
     try {
       const { data, error } = await supabase
         .from("lia_attendances")
-        .select("id, nome, email, area_atuacao, especialidade, prof_photo_url, prof_cro, prof_course_platform, prof_updated_at, created_at, equip_scanner, equip_scanner_bancada, equip_impressora, prof_rating_quality, prof_rating_price, prof_rating_value, prof_wa_ddi, prof_wa_number")
+        .select("id, nome, email, area_atuacao, especialidade, prof_photo_url, prof_cro, prof_course_platform, prof_updated_at, created_at, equip_scanner, equip_scanner_bancada, equip_impressora, equip_cad, prof_rating_quality, prof_rating_price, prof_rating_value, prof_wa_ddi, prof_wa_number, prof_kol_form_ids, prof_kol_coupons")
         .not("prof_updated_at", "is", null)
         .is("merged_into", null)
         .order("prof_updated_at", { ascending: false })
