@@ -806,6 +806,29 @@ function PublicOnlineCourseCard({
           })}
         </div>
 
+        {canUpload && (
+          <div className="mb-4 rounded-lg border border-dashed bg-muted/20 p-3">
+            <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+              Upload de mídias · equipe Smart Dent
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {sessions.map((s) => (
+                <UploadMidiasDriveButton
+                  key={s.id}
+                  turmaId={s.id}
+                  turmaNumber={s.turma_number}
+                  turmaLabel={s.label ?? undefined}
+                  courseTitle={s.course_title ?? undefined}
+                  startDate={s.start_date}
+                  endDate={s.end_date}
+                  folderId={driveFolders[s.id]?.id ?? null}
+                  folderUrl={driveFolders[s.id]?.url ?? null}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+
         <div className="mt-auto flex items-end justify-between gap-3 pt-3 border-t">
           <div className="flex flex-col gap-1.5 min-w-0">
             {products && products.length > 0 && (
