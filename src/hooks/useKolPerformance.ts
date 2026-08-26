@@ -64,9 +64,10 @@ export function useKolPerformance(formIds: { id: string; name: string }[], coupo
     setLoading(true);
     try {
       const forms: KolFormPerformance[] = [];
-      let leadsByForm: Record<string, Set<string>> = {};
+      const leadsByForm: Record<string, Set<string>> = {};
 
       if (ids.length > 0) {
+        // 1) Respostas de campos personalizados (só existem quando o formulário tem perguntas extras)
         const { data: resp } = await (supabase as any)
           .from("smartops_form_field_responses")
           .select("lead_id, form_id")
@@ -77,6 +78,37 @@ export function useKolPerformance(formIds: { id: string; name: string }[], coupo
         for (const r of (resp ?? []) as any[]) {
           leadsByForm[r.form_id] ??= new Set<string>();
           leadsByForm[r.form_id].add(r.lead_id);
+        }
+
+        // 2) Fonte principal: leads gravados com o nome do formulário (form_name em lia_attendances).
+        //    Formulários sem perguntas extras não geram respostas de campo, então esta é a contagem real.
+        const { data: formRows } = await (supabase as any)
+          .from("smartops_forms")
+          .select("id, name, slug")
+          .in("id", ids);
+
+        const nameById = new Map<string, string[]>();
+        for (const f of (formRows ?? []) as any[]) {
+          nameById.set(f.id, [f.name, f.slug].filter(Boolean));
+        }
+        const allNames = Array.from(nameById.values()).flat();
+
+        if (allNames.length > 0) {
+          const { data: leadRows } = await (supabase as any)
+            .from("lia_attendances")
+            .select("id, form_name")
+            .is("merged_into", null)
+            .in("form_name", allNames)
+            .limit(20000);
+
+          for (const l of (leadRows ?? []) as any[]) {
+            for (const [formId, names] of nameById.entries()) {
+              if (names.includes(l.form_name)) {
+                leadsByForm[formId] ??= new Set<string>();
+                leadsByForm[formId].add(l.id);
+              }
+            }
+          }
         }
 
         const allLeads = Array.from(new Set(Object.values(leadsByForm).flatMap((s) => Array.from(s))));
@@ -111,13 +143,15 @@ export function useKolPerformance(formIds: { id: string; name: string }[], coupo
         }
       }
 
+
       const couponsPerf: KolCouponPerformance[] = [];
       for (const rule of rules) {
         let q = (supabase as any)
           .from("loja_integrada_orders")
-          .select("valor_total, cupom_codigo, data_pedido")
-          .ilike("cupom_codigo", rule.code)
+          .select("valor_total, cupom_codigo, cupom_json, data_pedido")
           .limit(5000);
+        // cupom pode vir na coluna normalizada ou no payload do cupom
+        q = q.or(`cupom_codigo.ilike.${rule.code},cupom_json->>codigo.ilike.${rule.code}`);
         if (rule.active_from) q = q.gte("data_pedido", rule.active_from);
         if (rule.active_to) q = q.lte("data_pedido", `${rule.active_to}T23:59:59`);
         const { data: orders } = await q;
@@ -130,6 +164,7 @@ export function useKolPerformance(formIds: { id: string; name: string }[], coupo
           receita: rows.reduce((s, o) => s + Number(o.valor_total ?? 0), 0),
         });
       }
+
       const coupons = couponsPerf;
 
       setData({
