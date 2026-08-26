@@ -527,7 +527,8 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
   const pp = Math.round(axes.purchase_power?.value || 0);
 
   // KOL (Key Opinion Leader) — cadastro comercial na ficha do profissional
-  const kolCoupon = (ld as any).prof_kol_coupon as string | null | undefined;
+  const kolCouponList = Array.isArray((ld as any).prof_kol_coupons) ? ((ld as any).prof_kol_coupons as any[]) : [];
+  const kolCoupon = (kolCouponList.find((c) => c?.code)?.code as string | undefined) ?? ((ld as any).prof_kol_coupon as string | null | undefined);
   const kolForms = Array.isArray((ld as any).prof_kol_form_ids) ? ((ld as any).prof_kol_form_ids as any[]) : [];
   const kolRules = Array.isArray((ld as any).prof_kol_commissions) ? ((ld as any).prof_kol_commissions as any[]) : [];
   const isKolLead = Boolean(kolCoupon || kolForms.length > 0 || kolRules.length > 0);

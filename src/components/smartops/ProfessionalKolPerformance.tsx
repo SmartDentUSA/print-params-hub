@@ -1,20 +1,22 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { BarChart3, Loader2, Ticket } from "lucide-react";
-import { useKolPerformance } from "@/hooks/useKolPerformance";
+import { useKolPerformance, type KolCouponRule } from "@/hooks/useKolPerformance";
 
 const money = (v: number) =>
   new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(v || 0);
 
+const br = (d?: string | null) => (d ? d.split("-").reverse().join("/") : "—");
+
 interface Props {
   formIds: { id: string; name: string }[];
-  coupon: string;
+  coupons: KolCouponRule[];
 }
 
 /** Performance do KOL: formulários de indicação (leads, conversão, receita) e cupons ativos. */
-export default function ProfessionalKolPerformance({ formIds, coupon }: Props) {
-  const perf = useKolPerformance(formIds, coupon);
-  const code = (coupon || "").trim().toUpperCase();
+export default function ProfessionalKolPerformance({ formIds, coupons }: Props) {
+  const perf = useKolPerformance(formIds, coupons);
+  const hasCoupons = (coupons ?? []).some((c) => (c.code || "").trim());
 
   return (
     <Card>
@@ -90,7 +92,7 @@ export default function ProfessionalKolPerformance({ formIds, coupon }: Props) {
             <Ticket className="w-3.5 h-3.5" /> Cupons ativos do KOL
           </span>
 
-          {!code ? (
+          {!hasCoupons ? (
             <p className="text-xs text-muted-foreground">Nenhum cupom da Loja Integrada cadastrado.</p>
           ) : (
             <div className="overflow-x-auto rounded-md border">
@@ -98,19 +100,32 @@ export default function ProfessionalKolPerformance({ formIds, coupon }: Props) {
                 <thead className="bg-muted/40 text-[11px] uppercase tracking-wide text-muted-foreground">
                   <tr>
                     <th className="px-2 py-2 text-left">Cupom</th>
+                    <th className="px-2 py-2 text-left">Vigência</th>
                     <th className="px-2 py-2 text-right">Vendas geradas</th>
                     <th className="px-2 py-2 text-right">Receita gerada</th>
                   </tr>
                 </thead>
                 <tbody>
                   {perf.coupons.map((c) => (
-                    <tr key={c.cupom} className="border-t">
+                    <tr key={`${c.cupom}-${c.active_from ?? ""}-${c.active_to ?? ""}`} className="border-t">
                       <td className="px-2 py-2 font-medium">{c.cupom}</td>
+                      <td className="px-2 py-2 text-xs text-muted-foreground">
+                        {br(c.active_from)} → {br(c.active_to)}
+                      </td>
                       <td className="px-2 py-2 text-right font-medium">{c.vendas}</td>
                       <td className="px-2 py-2 text-right font-medium">{money(c.receita)}</td>
                     </tr>
                   ))}
                 </tbody>
+                {perf.coupons.length > 1 && (
+                  <tfoot className="border-t bg-muted/30 text-sm font-semibold">
+                    <tr>
+                      <td className="px-2 py-2" colSpan={2}>Total</td>
+                      <td className="px-2 py-2 text-right">{perf.totals.vendasCupons}</td>
+                      <td className="px-2 py-2 text-right">{money(perf.totals.receitaCupons)}</td>
+                    </tr>
+                  </tfoot>
+                )}
               </table>
             </div>
           )}

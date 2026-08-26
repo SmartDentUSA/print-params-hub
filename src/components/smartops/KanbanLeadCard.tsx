@@ -104,7 +104,8 @@ export function KanbanLeadCard({ lead, showDaysStagnant = false, onDragStart, on
   const displayName = resolveLeadDisplayName(lead as unknown as Record<string, unknown>);
   const displayEmail = cleanLeadEmail(lead.email);
   const displayPhone = cleanLeadPhone(lead.telefone_normalized);
-  const kolCoupon = (lead as any).prof_kol_coupon as string | null | undefined;
+  const kolCouponList = Array.isArray((lead as any).prof_kol_coupons) ? ((lead as any).prof_kol_coupons as any[]) : [];
+  const kolCoupon = (kolCouponList.find((c) => c?.code)?.code as string | undefined) ?? ((lead as any).prof_kol_coupon as string | null | undefined);
   const kolForms = Array.isArray((lead as any).prof_kol_form_ids) ? ((lead as any).prof_kol_form_ids as any[]) : [];
   const kolRules = Array.isArray((lead as any).prof_kol_commissions) ? ((lead as any).prof_kol_commissions as any[]) : [];
   const isKol = Boolean(kolCoupon || kolForms.length > 0 || kolRules.length > 0);

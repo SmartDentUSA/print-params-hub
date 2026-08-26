@@ -14,6 +14,14 @@ export interface KolCouponPerformance {
   cupom: string;
   vendas: number;
   receita: number;
+  active_from?: string | null;
+  active_to?: string | null;
+}
+
+export interface KolCouponRule {
+  code: string;
+  active_from?: string | null;
+  active_to?: string | null;
 }
 
 export interface KolPerformance {
@@ -35,16 +43,21 @@ const empty: KolPerformance = {
  * - receita = soma dos negócios ganhos desses leads
  * - cupons: vendas e receita da Loja Integrada com o cupom do KOL
  */
-export function useKolPerformance(formIds: { id: string; name: string }[], coupon: string) {
+export function useKolPerformance(formIds: { id: string; name: string }[], coupons: KolCouponRule[]) {
   const [data, setData] = useState<KolPerformance>(empty);
   const [loading, setLoading] = useState(false);
 
   const ids = formIds.map((f) => f.id).filter(Boolean);
-  const key = `${ids.slice().sort().join(",")}|${(coupon || "").trim().toUpperCase()}`;
+  const rules = (coupons ?? [])
+    .map((c) => ({ ...c, code: (c.code || "").trim().toUpperCase() }))
+    .filter((c) => c.code);
+  const key = `${ids.slice().sort().join(",")}|${rules
+    .map((c) => `${c.code}:${c.active_from ?? ""}:${c.active_to ?? ""}`)
+    .sort()
+    .join(",")}`;
 
   const load = useCallback(async () => {
-    const code = (coupon || "").trim().toUpperCase();
-    if (ids.length === 0 && !code) {
+    if (ids.length === 0 && rules.length === 0) {
       setData(empty);
       return;
     }
@@ -98,20 +111,26 @@ export function useKolPerformance(formIds: { id: string; name: string }[], coupo
         }
       }
 
-      const coupons: KolCouponPerformance[] = [];
-      if (code) {
-        const { data: orders } = await (supabase as any)
+      const couponsPerf: KolCouponPerformance[] = [];
+      for (const rule of rules) {
+        let q = (supabase as any)
           .from("loja_integrada_orders")
-          .select("valor_total, cupom_codigo")
-          .ilike("cupom_codigo", code)
+          .select("valor_total, cupom_codigo, data_pedido")
+          .ilike("cupom_codigo", rule.code)
           .limit(5000);
+        if (rule.active_from) q = q.gte("data_pedido", rule.active_from);
+        if (rule.active_to) q = q.lte("data_pedido", `${rule.active_to}T23:59:59`);
+        const { data: orders } = await q;
         const rows = (orders ?? []) as any[];
-        coupons.push({
-          cupom: code,
+        couponsPerf.push({
+          cupom: rule.code,
+          active_from: rule.active_from ?? null,
+          active_to: rule.active_to ?? null,
           vendas: rows.length,
           receita: rows.reduce((s, o) => s + Number(o.valor_total ?? 0), 0),
         });
       }
+      const coupons = couponsPerf;
 
       setData({
         forms,
