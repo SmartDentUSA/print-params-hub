@@ -630,8 +630,12 @@ export default function ProfessionalMixSummary({ leadId, disabled, cadValue, onC
             </div>
           </div>
           <div className="rounded border p-3 bg-muted/30">
-            <div className="text-xs text-muted-foreground">Vendedor da última compra</div>
-            <div className="font-semibold truncate">{fin.lastPurchaseVendor || "—"}</div>
+            <div className="text-xs text-muted-foreground">
+              {fin.purchaseCount > 0 ? "Vendedor da última compra" : "Vendedor responsável"}
+            </div>
+            <div className="font-semibold truncate">
+              {(fin.purchaseCount > 0 ? fin.lastPurchaseVendor : fin.openVendor) || "—"}
+            </div>
           </div>
           <div className="rounded border p-3 bg-muted/30">
             <div className="text-xs text-muted-foreground">Total investido</div>
@@ -646,6 +650,28 @@ export default function ProfessionalMixSummary({ leadId, disabled, cadValue, onC
             <div className="text-[11px] text-muted-foreground">{items.length} itens no portfólio</div>
           </div>
         </div>
+
+        {fin.openCount > 0 && (
+          <div className="rounded border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900 dark:bg-amber-950/30 dark:text-amber-200">
+            <span className="font-semibold">
+              {fin.openCount} {fin.openCount === 1 ? "negócio em aberto" : "negócios em aberto"} no CRM
+              {fin.openValue > 0 ? ` · R$ ${fin.openValue.toLocaleString("pt-BR", { maximumFractionDigits: 0 })}` : ""}
+            </span>
+            {fin.openProduct && (
+              <span>
+                {" — "}
+                {fin.openProduct}
+                {fin.openDate ? ` (${formatDate(fin.openDate)})` : ""}
+                {fin.openPipeline ? ` · ${fin.openPipeline}` : ""}
+              </span>
+            )}
+            <div className="mt-1 text-[11px]">
+              Itens sem valor no portfólio vêm da qualificação/negociação — só entram em “Total investido” quando o negócio é
+              marcado como ganho no CRM ou faturado no Omie.
+            </div>
+          </div>
+        )}
+
 
 
         {/* 2. Equipamentos e software (tabela normativa) */}
