@@ -217,7 +217,7 @@ export default function CoursesPage() {
           <GraduationCap className="w-6 h-6 text-primary" />
           <div>
             <h2 className="text-2xl font-semibold">Cursos</h2>
-            <p className="text-sm text-muted-foreground">Profissionais cadastrados e seus cursos</p>
+            <p className="text-sm text-muted-foreground">KOLs cadastrados e cursos</p>
           </div>
         </div>
         <Button onClick={openNew}>
