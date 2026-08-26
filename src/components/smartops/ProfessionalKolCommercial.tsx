@@ -23,12 +23,18 @@ export interface KolCommissionRule {
   active_from: string | null;
 }
 
+export interface KolCoupon {
+  code: string;
+  active_from: string | null;
+  active_to: string | null;
+}
+
 interface Props {
   disabled?: boolean;
   formIds: KolFormRef[];
   onFormIdsChange: (v: KolFormRef[]) => void;
-  coupon: string;
-  onCouponChange: (v: string) => void;
+  coupons: KolCoupon[];
+  onCouponsChange: (v: KolCoupon[]) => void;
   commissions: KolCommissionRule[];
   onCommissionsChange: (v: KolCommissionRule[]) => void;
 }
