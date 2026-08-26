@@ -928,7 +928,11 @@ async function createNewDeal(
   supabase: ReturnType<typeof createClient>,
   formResponses?: Array<{ label?: string; value?: unknown }>
 ): Promise<string | null> {
-  const formOriginId = await resolveOriginId(apiToken, lead.form_name as string | null);
+  // PARIDADE NOTA↔DEAL: a Origem do Deal deve ser exatamente o mesmo valor que
+  // a nota "Resumo do Lead" imprime em "Origem PipeRun" (piperun_origin_name),
+  // caindo para origem_primeiro_contato / origem_campanha / form_name.
+  const formOriginId = await resolveOriginId(apiToken, dealOriginName(lead));
+
 
   const dealPayload: Record<string, unknown> = {
     title: cleanPersonName(lead.nome as string) || email,
