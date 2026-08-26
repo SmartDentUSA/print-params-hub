@@ -965,7 +965,7 @@ export function SmartOpsFormBuilder() {
                   )}
                 </div>
 
-                {metaDisplayMode === "step" && (
+                {(metaDisplayMode === "step" || metaDisplayMode === "first_three") && (
                   <div className="flex items-center justify-between">
                     <label className="text-xs font-medium">Mostrar barra de progresso</label>
                     <Switch checked={metaShowProgress} onCheckedChange={setMetaShowProgress} />
