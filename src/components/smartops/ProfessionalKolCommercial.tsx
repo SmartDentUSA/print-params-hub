@@ -98,6 +98,11 @@ export default function ProfessionalKolCommercial({
 
   const removeRule = (i: number) => onCommissionsChange(commissions.filter((_, idx) => idx !== i));
 
+  const addCoupon = () => onCouponsChange([...coupons, { code: "", active_from: null, active_to: null }]);
+  const patchCoupon = (i: number, p: Partial<KolCoupon>) =>
+    onCouponsChange(coupons.map((c, idx) => (idx === i ? { ...c, ...p } : c)));
+  const removeCoupon = (i: number) => onCouponsChange(coupons.filter((_, idx) => idx !== i));
+
   return (
     <div className="space-y-6">
     <Card>
