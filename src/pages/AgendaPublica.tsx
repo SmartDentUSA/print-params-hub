@@ -425,7 +425,12 @@ export default function AgendaPublica({ variant = "presencial" }: AgendaPublicaP
         ) : variant === "online" ? (
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
             {onlineCourseGroups.map((g) => (
-              <PublicOnlineCourseCard key={g.course_id} sessions={g.turmas} />
+              <PublicOnlineCourseCard
+                key={g.course_id}
+                sessions={g.turmas}
+                canUpload={isTeamMember}
+                driveFolders={driveFolders}
+              />
             ))}
           </div>
         ) : (
