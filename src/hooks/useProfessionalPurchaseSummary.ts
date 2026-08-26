@@ -20,6 +20,13 @@ export type PurchaseSummary = {
   lastPurchaseName: string | null;
   lastPurchaseVendor: string | null;
   firstPurchaseDate: string | null;
+  /** Negócios abertos no CRM (não ganhos) — evita mostrar "sem compras" sem contexto */
+  openCount: number;
+  openValue: number;
+  openProduct: string | null;
+  openDate: string | null;
+  openVendor: string | null;
+  openPipeline: string | null;
 };
 
 export const EMPTY_SUMMARY: PurchaseSummary = {
@@ -32,7 +39,14 @@ export const EMPTY_SUMMARY: PurchaseSummary = {
   lastPurchaseName: null,
   lastPurchaseVendor: null,
   firstPurchaseDate: null,
+  openCount: 0,
+  openValue: 0,
+  openProduct: null,
+  openDate: null,
+  openVendor: null,
+  openPipeline: null,
 };
+
 
 const CANCELLED = ["cancelado", "cancelled", "estornado", "reprovado"];
 
