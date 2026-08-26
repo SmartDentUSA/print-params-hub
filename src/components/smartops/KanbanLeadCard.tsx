@@ -130,7 +130,11 @@ export function KanbanLeadCard({ lead, showDaysStagnant = false, onDragStart, on
             <span className="font-medium text-[11px] truncate" title={displayName}>{displayName}</span>
           )}
           <div className="flex items-center gap-0.5 shrink-0">
+            {isKol && (
+              <Badge className="text-[9px] px-1 py-0 font-bold bg-yellow-100 text-yellow-800 border-yellow-300" title={kolTitle}>⭐ KOL</Badge>
+            )}
             {lead.lead_status === "sem_contato" && isStale && (
+
               <Badge variant="destructive" className="text-[9px] px-1 py-0">⏰</Badge>
             )}
             {showDaysStagnant && (
