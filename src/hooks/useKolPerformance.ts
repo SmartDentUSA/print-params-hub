@@ -14,6 +14,14 @@ export interface KolCouponPerformance {
   cupom: string;
   vendas: number;
   receita: number;
+  active_from?: string | null;
+  active_to?: string | null;
+}
+
+export interface KolCouponRule {
+  code: string;
+  active_from?: string | null;
+  active_to?: string | null;
 }
 
 export interface KolPerformance {
