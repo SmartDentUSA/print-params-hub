@@ -92,7 +92,7 @@ export default function ProfessionalKolPerformance({ formIds, coupons }: Props) 
             <Ticket className="w-3.5 h-3.5" /> Cupons ativos do KOL
           </span>
 
-          {!code ? (
+          {!hasCoupons ? (
             <p className="text-xs text-muted-foreground">Nenhum cupom da Loja Integrada cadastrado.</p>
           ) : (
             <div className="overflow-x-auto rounded-md border">
@@ -100,19 +100,32 @@ export default function ProfessionalKolPerformance({ formIds, coupons }: Props) 
                 <thead className="bg-muted/40 text-[11px] uppercase tracking-wide text-muted-foreground">
                   <tr>
                     <th className="px-2 py-2 text-left">Cupom</th>
+                    <th className="px-2 py-2 text-left">Vigência</th>
                     <th className="px-2 py-2 text-right">Vendas geradas</th>
                     <th className="px-2 py-2 text-right">Receita gerada</th>
                   </tr>
                 </thead>
                 <tbody>
                   {perf.coupons.map((c) => (
-                    <tr key={c.cupom} className="border-t">
+                    <tr key={`${c.cupom}-${c.active_from ?? ""}-${c.active_to ?? ""}`} className="border-t">
                       <td className="px-2 py-2 font-medium">{c.cupom}</td>
+                      <td className="px-2 py-2 text-xs text-muted-foreground">
+                        {br(c.active_from)} → {br(c.active_to)}
+                      </td>
                       <td className="px-2 py-2 text-right font-medium">{c.vendas}</td>
                       <td className="px-2 py-2 text-right font-medium">{money(c.receita)}</td>
                     </tr>
                   ))}
                 </tbody>
+                {perf.coupons.length > 1 && (
+                  <tfoot className="border-t bg-muted/30 text-sm font-semibold">
+                    <tr>
+                      <td className="px-2 py-2" colSpan={2}>Total</td>
+                      <td className="px-2 py-2 text-right">{perf.totals.vendasCupons}</td>
+                      <td className="px-2 py-2 text-right">{money(perf.totals.receitaCupons)}</td>
+                    </tr>
+                  </tfoot>
+                )}
               </table>
             </div>
           )}
