@@ -95,7 +95,10 @@ function detectProductFromFormName(formName: string | null): string | null {
   if (upper.includes("EDGEMINI") || upper.includes("EDGE MINI")) return "EdgeMini";
   if (upper.includes("IOCONNECT") || upper.includes("IO CONNECT")) return "IoConnect";
   if (upper.includes("EBOOK") || upper.includes("PLACA")) return "Ebook/Placa";
-  if (upper.includes("EXOCAD")) return "exocad";
+  // exocad: usar o nome canônico do catálogo (system_a_catalog) em vez do rótulo
+  // genérico "exocad", que chegava errado no card do Deal no PipeRun.
+  if (upper.includes("EXOPLAN")) return "Exoplan";
+  if (upper.includes("EXOCAD") || upper.includes("DENTALCAD")) return "DentalCAD - Software CAD da exocad";
   if (upper.includes("MEDIT")) return "Medit";
   if (upper.includes("MIICRAFT") || upper.includes("MII CRAFT")) return "MiiCraft";
   // "Impresoras - Smart Dent" (form Meta Ads em espanhol) → RayShape Edge mini
