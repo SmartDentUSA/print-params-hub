@@ -217,6 +217,7 @@ export default function CoursesProfessionalProfile({ initialEmail, startEditing 
         prof_updated_at: new Date().toISOString(),
       };
 
+      let savedId = leadId;
       if (leadId) {
         const { error } = await supabase.from("lia_attendances").update(payload).eq("id", leadId);
         if (error) throw error;
@@ -228,9 +229,45 @@ export default function CoursesProfessionalProfile({ initialEmail, startEditing 
           .select("id")
           .single();
         if (error) throw error;
+        savedId = data.id;
         setLeadId(data.id);
         onSaved?.(data.id);
       }
+
+      // Timeline do lead: registra o cadastro/atualização do KOL
+      if (savedId) {
+        const forms = (form.prof_kol_form_ids || []) as KolFormRef[];
+        const rules = (form.prof_kol_commissions || []) as KolCommissionRule[];
+        const isKol = Boolean(form.prof_kol_coupon || forms.length > 0 || rules.length > 0);
+        try {
+          await (supabase as any).from("lead_activity_log").insert({
+            lead_id: savedId,
+            event_type: "kol_profile_update",
+            event_timestamp: new Date().toISOString(),
+            source_channel: "smartops",
+            entity_type: "kol_profile",
+            entity_name: form.nome || form.email || "KOL",
+            event_data: {
+              is_kol: isKol,
+              cupom_loja_integrada: form.prof_kol_coupon || null,
+              formularios_indicacao: forms.map((f) => f.name).filter(Boolean),
+              regras_comissionamento: rules
+                .filter((r) => r.product_name || r.percent != null)
+                .map((r) => ({
+                  produto: r.product_name || null,
+                  percentual: r.percent,
+                  ativacao: r.active_from,
+                })),
+              cro: form.prof_cro || null,
+              plataforma_cursos: form.prof_course_platform || null,
+              instagram: form.instagram || null,
+            },
+          });
+        } catch {
+          /* timeline é best-effort */
+        }
+      }
+
       setLocked(true);
       toast({ title: "Ficha salva com sucesso" });
     } catch (e: any) {
