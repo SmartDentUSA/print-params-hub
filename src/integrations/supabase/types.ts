@@ -33496,6 +33496,13 @@ export type Database = {
           ticket_medio: number
         }[]
       }
+      fn_kol_form_leads: {
+        Args: { _names: string[] }
+        Returns: {
+          form_key: string
+          lead_id: string
+        }[]
+      }
       fn_lal_dedupe_hash: {
         Args: {
           _entity_id: string
