@@ -355,6 +355,8 @@ Deno.serve(async (req) => {
           .insert({
             course_id: course.id,
             turma_id: turmaId,
+            turma_snapshot: turmaSnapshot,
+            wa_reminder_scheduled_for: waReminderScheduledFor,
             lead_id: leadId,
             person_name: body.nome,
             status: "agendado",
