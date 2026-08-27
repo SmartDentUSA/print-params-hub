@@ -20,7 +20,6 @@ import {
   STATUS_PILL,
   LiveBadge,
   PublicOnlineCourseCard,
-  type StatusVariant as Variant,
   type CountdownResult,
 } from "@/components/agenda/onlineLiveShared";
 
