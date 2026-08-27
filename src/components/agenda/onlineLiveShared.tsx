@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
-import { User } from "lucide-react";
+import { User, Share2, Check } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { formatTurmaNumber } from "@/lib/turmaNumber";
 import { cn } from "@/lib/utils";
+import { getPublicOrigin } from "@/utils/publicOrigin";
 import type { TurmaComVagas } from "@/types/courses";
 import { UploadMidiasDriveButton } from "@/components/smartops/UploadMidiasDriveButton";
 
@@ -207,6 +208,7 @@ export function PublicOnlineCourseCard({
   driveFolders?: Record<string, { id: string | null; url: string | null }>;
 }) {
   const getCountdown = useCountdown();
+  const [shared, setShared] = useState(false);
   if (sessions.length === 0 && !course) return null;
   // Metadados vêm da turma quando existe; senão, do próprio curso.
   const first = (sessions[0] ?? {
@@ -224,6 +226,25 @@ export function PublicOnlineCourseCard({
   const externalUrl = (meta.signup_form_url ?? (course as any)?.signup_form_url) as string | undefined;
   const href = publicEnabled && slug ? `/inscricao/${slug}` : externalUrl;
   const isInternal = href?.startsWith("/");
+
+  const shareUrl = href ? (isInternal ? `${getPublicOrigin()}${href}` : href) : getPublicOrigin();
+  const handleShare = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    const title = first.course_title || "Live Smart Dent";
+    const text = description || `Inscreva-se em ${title}`;
+    try {
+      if (navigator.share && isInternal) {
+        await navigator.share({ title, text, url: shareUrl });
+      } else if (navigator.clipboard) {
+        await navigator.clipboard.writeText(shareUrl);
+        setShared(true);
+        setTimeout(() => setShared(false), 2000);
+      }
+    } catch {
+      // usuário cancelou ou share não disponível
+    }
+  };
 
   // Próxima sessão (mais perto de hoje) para o cronômetro destacado.
   const today = new Date().toISOString().slice(0, 10);
@@ -261,11 +282,32 @@ export function PublicOnlineCourseCard({
         <div className="relative w-full aspect-[16/9] bg-muted overflow-hidden">
           <img src={coverUrl} alt={first.course_title || "Curso"} className="w-full h-full object-cover" loading="lazy" />
           <LiveBadge modality={first.modality} className="absolute top-2 left-2" />
+          <button
+            type="button"
+            onClick={handleShare}
+            className="absolute top-2 right-2 inline-flex items-center justify-center w-8 h-8 rounded-full bg-white/90 text-foreground shadow-sm hover:bg-white hover:scale-105 transition"
+            aria-label="Compartilhar"
+            title="Compartilhar"
+          >
+            {shared ? <Check className="w-4 h-4 text-emerald-600" /> : <Share2 className="w-4 h-4" />}
+          </button>
         </div>
       )}
       <div className="p-5 flex flex-col flex-1">
         <div className="mb-3 flex items-center gap-2 flex-wrap">
           {!coverUrl && <LiveBadge modality={first.modality} />}
+          {!coverUrl && (
+            <button
+              type="button"
+              onClick={handleShare}
+              className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-background border text-[11px] font-medium text-foreground hover:bg-accent transition"
+              aria-label="Compartilhar"
+              title="Compartilhar"
+            >
+              {shared ? <Check className="w-3 h-3 text-emerald-600" /> : <Share2 className="w-3 h-3" />}
+              {shared ? "Link copiado" : "Compartilhar"}
+            </button>
+          )}
           {upcoming && upcomingStatus && showLiveTimer && (
             <span className={cn("inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-mono font-semibold tabular-nums", STATUS_PILL[upcomingStatus.variant])}>
               <span className={cn("w-1.5 h-1.5 rounded-full animate-pulse", STATUS_DOT[upcomingStatus.variant])} />
