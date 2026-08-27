@@ -473,7 +473,8 @@ Deno.serve(async (req) => {
     // 7d. Confirmação por WhatsApp com o link da Live DA SESSÃO escolhida.
     // Quando a turma tem `live_url` (Online ao Vivo → Live de produtos), o link
     // do YouTube substitui a linha do grupo de WhatsApp.
-    if (!reusedEnrollment) {
+    const autoConfirm = await getWaAutomationSetting(supabase, "course_enrollment_confirmation");
+    if (!reusedEnrollment && autoConfirm.ativo) {
       try {
         const fmtDate = (d?: string) => (d ? String(d).split("-").reverse().join("/") : "");
         const hm = (s?: string) => (s ?? "").substring(0, 5);
