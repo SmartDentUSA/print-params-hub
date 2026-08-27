@@ -296,6 +296,18 @@ export function PublicOnlineCourseCard({
       <div className="p-5 flex flex-col flex-1">
         <div className="mb-3 flex items-center gap-2 flex-wrap">
           {!coverUrl && <LiveBadge modality={first.modality} />}
+          {!coverUrl && (
+            <button
+              type="button"
+              onClick={handleShare}
+              className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-background border text-[11px] font-medium text-foreground hover:bg-accent transition"
+              aria-label="Compartilhar"
+              title="Compartilhar"
+            >
+              {shared ? <Check className="w-3 h-3 text-emerald-600" /> : <Share2 className="w-3 h-3" />}
+              {shared ? "Link copiado" : "Compartilhar"}
+            </button>
+          )}
           {upcoming && upcomingStatus && showLiveTimer && (
             <span className={cn("inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-mono font-semibold tabular-nums", STATUS_PILL[upcomingStatus.variant])}>
               <span className={cn("w-1.5 h-1.5 rounded-full animate-pulse", STATUS_DOT[upcomingStatus.variant])} />
