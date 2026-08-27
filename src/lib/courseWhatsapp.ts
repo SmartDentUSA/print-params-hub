@@ -134,7 +134,7 @@ export function buildTemplateVars(
     duracao: formatDuration(course),
     data_inicio: first?.date || '', data_fim: last?.date || '',
     horario_inicio: t(first?.start_time),
-    grupo_whatsapp: turma.whatsapp_group_link || course.whatsapp_group_link || '',
+    grupo_whatsapp: (turma as any).live_url ? '' : (turma.whatsapp_group_link || course.whatsapp_group_link || ''),
     link_reuniao: (turma as any).live_url || (course as any).meeting_link || '',
     cs_nome: csName,
   };
