@@ -83,6 +83,7 @@ export const COURSE_CATEGORIES = [
   { value: "implantodontia", label: "Implantodontia" },
   { value: "estetica", label: "Estética / facetas" },
   { value: "gestao", label: "Gestão de clínica" },
+  { value: "live_produtos", label: "Live de produtos" },
   { value: "outros", label: "Outros" },
 ];
 
