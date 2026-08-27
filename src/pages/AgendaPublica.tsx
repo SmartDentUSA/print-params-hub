@@ -450,6 +450,37 @@ export default function AgendaPublica({ variant = "presencial" }: AgendaPublicaP
           </div>
         </header>
 
+        {variant === "online" && availableProducts.length > 0 && (
+          <div className="mb-6 flex flex-wrap items-center gap-2">
+            <div className="relative">
+              <Filter className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+              <select
+                value={selectedProduct}
+                onChange={(e) => setSelectedProduct(e.target.value)}
+                className="appearance-none h-9 pl-8 pr-8 rounded-full border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 min-w-[180px]"
+              >
+                <option value="">Todos os produtos</option>
+                {availableProducts.map((p) => (
+                  <option key={p} value={p}>
+                    {p}
+                  </option>
+                ))}
+              </select>
+              <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground text-xs">▼</span>
+            </div>
+            {selectedProduct && (
+              <button
+                type="button"
+                onClick={() => setSelectedProduct("")}
+                className="inline-flex items-center gap-1 h-9 px-3 rounded-full border bg-background text-xs font-medium hover:bg-accent transition-colors"
+              >
+                <X className="w-3 h-3" />
+                Limpar: {selectedProduct}
+              </button>
+            )}
+          </div>
+        )}
+
         {isTeamMember && variant === "presencial" && <DepoimentoUploadAccordion />}
 
         {isTeamMember && <PastTrainingsUploadAccordion modalities={config.modalities} />}
