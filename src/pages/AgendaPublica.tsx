@@ -908,15 +908,8 @@ function PublicOnlineCourseCard({
           </p>
         )}
 
-        {first.instructor_name && (
-          <span className="flex items-center gap-1.5 text-sm font-medium text-foreground truncate mb-2">
-            <User className="w-4 h-4 shrink-0 text-muted-foreground" />
-            {first.instructor_name}
-          </span>
-        )}
-
         {products && products.length > 0 && (
-          <div className="flex flex-wrap gap-1 mb-3">
+          <div className="flex flex-wrap gap-1 mb-2">
             {products.slice(0, 4).map((name) => (
               <span key={name} className="inline-flex items-center px-2 py-0.5 rounded-md text-[10.5px] font-medium bg-sky-50 text-sky-700 dark:bg-sky-950/40 dark:text-sky-300 border border-sky-200/60 dark:border-sky-800/60" title={name}>
                 {name}
@@ -926,6 +919,13 @@ function PublicOnlineCourseCard({
               <span className="text-[10.5px] text-muted-foreground self-center">+{products.length - 4}</span>
             )}
           </div>
+        )}
+
+        {first.instructor_name && (
+          <span className="flex items-center gap-1.5 text-sm font-medium text-foreground truncate mb-3">
+            <User className="w-4 h-4 shrink-0 text-muted-foreground" />
+            {first.instructor_name}
+          </span>
         )}
 
         <div className="rounded-lg border bg-muted/30 divide-y divide-border/70 mb-4">
