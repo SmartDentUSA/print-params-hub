@@ -148,8 +148,10 @@ Deno.serve(async (req) => {
       console.warn("[live-demo-activity] falhou:", created.error);
       await supabase.from("system_health_logs").insert({
         error_type: "live_activity_create_failed",
-        error_message: created.error ?? "unknown",
-        context: { lead_id: body.lead_id, deal_id: dealId, schedule },
+        function_name: "smartops-live-demo-activity",
+        severity: "warning",
+        lead_id: body.lead_id,
+        details: { error: created.error ?? "unknown", deal_id: dealId, schedule },
       }).then(() => {}, () => {});
       return json({ ok: false, error: created.error }, 200);
     }
