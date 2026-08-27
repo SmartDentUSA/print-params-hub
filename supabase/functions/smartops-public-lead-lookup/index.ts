@@ -35,10 +35,11 @@ function maskEmail(v?: string | null): string | null {
 }
 
 function maskPhone(v?: string | null): string | null {
-  const d = (v || "").replace(/\D/g, "");
+  const d = normalizePhone(v || "");
   if (d.length < 8) return null;
   return `(${d.slice(0, 2)}) ****-${d.slice(-4)}`;
 }
+
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -59,15 +60,22 @@ Deno.serve(async (req) => {
     const email = parsed.data.email.toLowerCase().trim();
     const phone = normalizePhone(parsed.data.telefone);
 
-    const { data: leads } = await supabase
+    // `telefone_normalized` é gravado em formatos diferentes (`+5511...` na
+    // maioria dos registros, dígitos puros em alguns). Casamos por sufixo.
+    const { data: leads, error: eLeads } = await supabase
       .from("lia_attendances")
       .select(
-        "id, nome, email, telefone_raw, telefone_normalized, area_atuacao, especialidade, cidade, empresa_nome, piperun_id, omie_cliente_id, real_status",
+        "id, nome, email, telefone_raw, telefone_normalized, area_atuacao, especialidade, cidade, empresa_nome, piperun_id, omie_codigo_cliente, real_status",
       )
-      .or(`email.eq.${email},telefone_normalized.eq.${phone}`)
+      .or(
+        `email.eq.${email},telefone_normalized.like.*${phone},telefone_raw.like.*${phone}`,
+      )
       .is("merged_into", null)
       .order("updated_at", { ascending: false })
       .limit(1);
+    if (eLeads) console.error("[public-lead-lookup] lead query", eLeads);
+
+
 
     const lead = leads?.[0];
     if (!lead) {
@@ -99,7 +107,7 @@ Deno.serve(async (req) => {
       if ((csDeals?.length ?? 0) > 0) clientReason = "funil_cs";
     }
 
-    if (!clientReason && lead.omie_cliente_id) clientReason = "erp_omie";
+    if (!clientReason && lead.omie_codigo_cliente) clientReason = "erp_omie";
 
     const isClient = clientReason !== null;
 

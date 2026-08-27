@@ -119,14 +119,21 @@ Deno.serve(async (req) => {
     // 3. Find existing lead by email or phone (canonical only)
     let leadId: string | null = null;
     let isExistingClient = false;
+    // `true` quando o ingest já gravou os eventos `form_response` na timeline.
+    let ingestLogged = false;
+
     {
-      const orFilter = `email.eq.${email},telefone.eq.${phone}`;
-      const { data: leads } = await supabase
+      // `telefone_normalized` varia entre `+5511...` e dígitos puros → sufixo.
+      const orFilter = `email.eq.${email},telefone_normalized.like.*${phone},telefone_raw.like.*${phone}`;
+
+      const { data: leads, error: eLeads } = await supabase
         .from("lia_attendances")
-        .select("id, piperun_id, omie_cliente_id")
+        .select("id, piperun_id, omie_codigo_cliente")
         .or(orFilter)
         .is("merged_into", null)
+        .order("updated_at", { ascending: false })
         .limit(1);
+      if (eLeads) console.error("[public-enrollment] lead lookup", eLeads);
       if (leads && leads.length > 0) {
         leadId = leads[0].id;
         // Cliente de verdade = proposta GANHA no CRM, negócio em funil de CS,
@@ -146,10 +153,12 @@ Deno.serve(async (req) => {
             .eq("lead_id", leadId)
             .in("pipeline_name", ["CS Onboarding", "Ganhos Aleatórios (CS)"])
             .limit(1);
-          isExistingClient = (csDeals?.length ?? 0) > 0 || Boolean(leads[0].omie_cliente_id);
+          isExistingClient =
+            (csDeals?.length ?? 0) > 0 || Boolean(leads[0].omie_codigo_cliente);
         }
       }
     }
+
 
     // Origin label for the Deal in PipeRun: prefix `#` keeps it filterable
     // alongside the other form-based origins (e.g. `# - FORMS - ...`).
@@ -196,10 +205,14 @@ Deno.serve(async (req) => {
           body: ingestPayload,
         });
         const ingestedId = (ingestRes as any)?.lead_id ?? (ingestRes as any)?.id ?? null;
-        if (ingestedId) leadId = ingestedId;
+        if (ingestedId) {
+          leadId = ingestedId;
+          ingestLogged = (q.form_responses?.length ?? 0) > 0;
+        }
       } catch (e) {
         console.warn("[ingest-lead]", e);
       }
+
       // Fallback: direct insert if ingest didn't yield a lead
       if (!leadId) {
         const { data: inserted } = await supabase
@@ -293,23 +306,9 @@ Deno.serve(async (req) => {
         .catch((err) => console.warn("[deal-form-note]", err));
     }
 
-    // 5. Conversion history
-    await supabase.from("lead_conversion_history").insert({
-      lead_id: leadId,
-      conversion_type: "inscricao_curso",
-      conversion_date: new Date().toISOString(),
-      details: {
-        label: `# - Inscrição [${course.title}]`,
-        course_id: course.id,
-        course_title: course.title,
-        turma_id: turmaId,
-        produtos: productNames,
-        source: "public_enrollment_form",
-      },
-    }).then(() => {}, (e) => console.warn("[conversion]", e));
-
     // 6. Create enrollment (idempotent: reuse active enrollment for same lead+turma)
     let enrollment: { id: string } | null = null;
+    let reusedEnrollment = false;
     {
       const { data: existing } = await supabase
         .from("smartops_course_enrollments")
@@ -319,7 +318,9 @@ Deno.serve(async (req) => {
         .not("status", "in", "(cancelado,nao_compareceu)")
         .maybeSingle();
       if (existing) {
+        reusedEnrollment = true;
         enrollment = existing as { id: string };
+
       } else {
         const { data: inserted, error: eEnroll } = await supabase
           .from("smartops_course_enrollments")
@@ -366,11 +367,29 @@ Deno.serve(async (req) => {
     }
     if (!enrollment) throw new Error("enrollment_creation_failed");
 
+    // 5. Histórico de conversão — só na primeira inscrição desta turma.
+    if (!reusedEnrollment) {
+      await supabase.from("lead_conversion_history").insert({
+        lead_id: leadId,
+        conversion_type: "inscricao_curso",
+        conversion_date: new Date().toISOString(),
+        details: {
+          label: `# - Inscrição [${course.title}]`,
+          course_id: course.id,
+          course_title: course.title,
+          turma_id: turmaId,
+          produtos: productNames,
+          source: "public_enrollment_form",
+        },
+      }).then(() => {}, (e) => console.warn("[conversion]", e));
+    }
+
     // 7. Activity log
     const qaLines = (body.qualification?.form_responses ?? []).map(
       (r) => `${r.label}: ${r.value}`,
     );
-    await supabase.from("lead_activity_log").insert({
+    if (!reusedEnrollment) await supabase.from("lead_activity_log").insert({
+
       lead_id: leadId,
       event_type: "inscricao_curso_publica",
       entity_type: "course_enrollment",
@@ -401,21 +420,25 @@ Deno.serve(async (req) => {
     // 7c. Atividade "Live agendada" no deal do PipeRun (Planejada, 60 min,
     // lembrete 5 min antes, responsável = dono atual do lead). Roda depois do
     // ingest → lia-assign (Regra de Ouro) e nunca move/fecha deals.
-    supabase.functions
-      .invoke("smartops-live-demo-activity", {
-        body: {
-          lead_id: leadId,
-          turma_id: turmaId,
-          enrollment_id: enrollment.id,
-          course_title: course.title,
-        },
-      })
-      .catch((err) => console.warn("[live-demo-activity]", err));
+    if (!reusedEnrollment) {
+      supabase.functions
+        .invoke("smartops-live-demo-activity", {
+          body: {
+            lead_id: leadId,
+            turma_id: turmaId,
+            enrollment_id: enrollment.id,
+            course_title: course.title,
+          },
+        })
+        .catch((err) => console.warn("[live-demo-activity]", err));
+    }
+
+    // 7b. Cada resposta como evento próprio da timeline — só quando o ingest
+    // NÃO registrou (ele já cria um `form_response` por resposta). Evita
+    // duplicar o questionário no card do lead.
+    if ((body.qualification?.form_responses?.length ?? 0) > 0 && !ingestLogged && !reusedEnrollment) {
 
 
-    // 7b. Each qualification answer as its own timeline entry, so the lead
-    // card shows the full questionnaire (same shape as form ingest events).
-    if ((body.qualification?.form_responses?.length ?? 0) > 0) {
       const answerRows = body.qualification!.form_responses!.map((r) => ({
         lead_id: leadId!,
         event_type: "form_response",

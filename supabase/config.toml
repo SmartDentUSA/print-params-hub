@@ -614,3 +614,12 @@ verify_jwt = false
 
 [functions.smartops-live-demo-activity]
 verify_jwt = false
+
+[functions.smartops-public-enrollment]
+verify_jwt = false
+
+[functions.smartops-public-lead-lookup]
+verify_jwt = false
+
+[functions.smartops-public-nps]
+verify_jwt = false
