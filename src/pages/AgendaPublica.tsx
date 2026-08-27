@@ -784,6 +784,15 @@ function PublicOnlineCourseCard({
   );
   const showLiveTimer = upcomingStatus && (upcomingStatus.variant === "green" || upcomingStatus.variant === "amber");
 
+  // Sessões futuras/ao vivo primeiro (crescente); realizadas depois (mais recentes antes).
+  const orderedSessions = [...sessions].sort((a, b) => {
+    const aPast = (a.end_date || a.start_date || "") < today;
+    const bPast = (b.end_date || b.start_date || "") < today;
+    if (aPast !== bPast) return aPast ? 1 : -1;
+    const cmp = (a.start_date || "").localeCompare(b.start_date || "");
+    return aPast ? -cmp : cmp;
+  });
+
   const hhmm = (t?: string | null) => (t ? t.substring(0, 5) : "");
   const fmtShort = (iso?: string | null) =>
     iso ? new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short" }).format(new Date(`${iso}T12:00:00`)) : "—";
