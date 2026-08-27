@@ -904,7 +904,6 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
         description: [err?.message, err?.details, err?.hint].filter(Boolean).join(" · ") || "Erro desconhecido",
         variant: "destructive",
       });
-    }
     } finally {
       setSaving(false);
     }
