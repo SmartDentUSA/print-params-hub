@@ -819,9 +819,35 @@ function PublicOnlineCourseCard({
           </span>
         </div>
 
-        <h3 className="font-semibold text-foreground leading-snug mb-3 line-clamp-2">
+        <h3 className="font-semibold text-foreground leading-snug mb-2 line-clamp-2">
           {first.course_title || "Sem curso"}
         </h3>
+
+        {description && (
+          <p className="text-xs leading-relaxed text-muted-foreground mb-3 line-clamp-4 whitespace-pre-line">
+            {description}
+          </p>
+        )}
+
+        {first.instructor_name && (
+          <span className="flex items-center gap-1.5 text-sm font-medium text-foreground truncate mb-2">
+            <User className="w-4 h-4 shrink-0 text-muted-foreground" />
+            {first.instructor_name}
+          </span>
+        )}
+
+        {products && products.length > 0 && (
+          <div className="flex flex-wrap gap-1 mb-3">
+            {products.slice(0, 4).map((name) => (
+              <span key={name} className="inline-flex items-center px-2 py-0.5 rounded-md text-[10.5px] font-medium bg-sky-50 text-sky-700 dark:bg-sky-950/40 dark:text-sky-300 border border-sky-200/60 dark:border-sky-800/60" title={name}>
+                {name}
+              </span>
+            ))}
+            {products.length > 4 && (
+              <span className="text-[10.5px] text-muted-foreground self-center">+{products.length - 4}</span>
+            )}
+          </div>
+        )}
 
         <div className="rounded-lg border bg-muted/30 divide-y divide-border/70 mb-4">
           <div className="grid grid-cols-[auto_auto_1fr_1fr_auto_auto] gap-3 px-3 py-1.5 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold bg-muted/50">
@@ -830,15 +856,13 @@ function PublicOnlineCourseCard({
             <span>Início</span>
             <span>Fim</span>
             <span>Duração</span>
-            <span className="text-right">Contagem</span>
+            <span className="text-right">Status</span>
           </div>
-          {sessions.map((s) => {
+          {orderedSessions.map((s) => {
             const start = hhmm(s.start_time);
             const end = hhmm(s.end_time);
             const tag = formatTurmaNumber(s.turma_number, s.modality);
             const dur = computeDur(start, end);
-            const sStatus = getCountdown(s.start_date, s.start_time, s.end_date, s.end_time, s.modality);
-            const showTimer = sStatus && (sStatus.variant === "green" || sStatus.variant === "amber");
             return (
               <div key={s.id} className="grid grid-cols-[auto_auto_1fr_1fr_auto_auto] items-center gap-3 px-3 py-2 text-xs">
                 <span className="inline-flex items-center px-1.5 py-0 rounded text-[10px] font-semibold bg-primary/10 text-primary border border-primary/20">
@@ -848,22 +872,17 @@ function PublicOnlineCourseCard({
                 <span className="text-muted-foreground tabular-nums">{start || "—"}</span>
                 <span className="text-muted-foreground tabular-nums">{end || "—"}</span>
                 <span className="text-muted-foreground tabular-nums">{dur || "—"}</span>
-                {sStatus ? (
-                  <span className={cn("justify-self-end inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono font-semibold tabular-nums", STATUS_PILL[sStatus.variant])}>
-                    <span className={cn("w-1.5 h-1.5 rounded-full", showTimer && "animate-pulse", STATUS_DOT[sStatus.variant])} />
-                    {showTimer ? (
-                      <LiveCountdownInline startDate={s.start_date} startTime={s.start_time} fallback={sStatus.label} />
-                    ) : (
-                      sStatus.label
-                    )}
-                  </span>
-                ) : (
-                  <span className="justify-self-end text-muted-foreground">—</span>
-                )}
+                <SessionStatus
+                  startDate={s.start_date}
+                  startTime={s.start_time}
+                  endDate={s.end_date}
+                  endTime={s.end_time}
+                />
               </div>
             );
           })}
         </div>
+
 
         {canUpload && (
           <div className="mb-4 rounded-lg border border-dashed bg-muted/20 p-3">
