@@ -398,6 +398,21 @@ Deno.serve(async (req) => {
       },
     }).then(() => {}, (e) => console.warn("[activity]", e));
 
+    // 7c. Atividade "Live agendada" no deal do PipeRun (Planejada, 60 min,
+    // lembrete 5 min antes, responsável = dono atual do lead). Roda depois do
+    // ingest → lia-assign (Regra de Ouro) e nunca move/fecha deals.
+    supabase.functions
+      .invoke("smartops-live-demo-activity", {
+        body: {
+          lead_id: leadId,
+          turma_id: turmaId,
+          enrollment_id: enrollment.id,
+          course_title: course.title,
+        },
+      })
+      .catch((err) => console.warn("[live-demo-activity]", err));
+
+
     // 7b. Each qualification answer as its own timeline entry, so the lead
     // card shows the full questionnaire (same shape as form ingest events).
     if ((body.qualification?.form_responses?.length ?? 0) > 0) {
