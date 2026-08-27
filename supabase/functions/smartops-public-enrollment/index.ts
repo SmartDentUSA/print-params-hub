@@ -505,7 +505,7 @@ Deno.serve(async (req) => {
           ? (course.location || "Local a confirmar")
           : "Online";
 
-        const tpl = (course.whatsapp_message_template as string | null) || [
+        const tpl = (course.whatsapp_message_template as string | null) || autoConfirm.message_template || [
           "Olá, {{nome}}! 👋",
           "",
           "Sua inscrição foi confirmada. Aqui estão os detalhes:",
