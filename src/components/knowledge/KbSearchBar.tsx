@@ -18,7 +18,7 @@ export default function KbSearchBar({ placeholder, value, onDebouncedChange, del
   }, [local]);
 
   return (
-    <div className="relative w-full min-w-[220px] max-w-md">
+    <div className="relative w-full min-w-[220px] max-w-md mb-5">
       <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
       <input
         type="text"
