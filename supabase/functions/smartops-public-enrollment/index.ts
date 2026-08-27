@@ -543,6 +543,7 @@ Deno.serve(async (req) => {
 
         let waTeamMemberId: string | null = null;
         const instanceName = (course.wa_instance_name as string | null)
+          || autoConfirm.wa_instance_name
           || Deno.env.get("CS_EVOLUTION_INSTANCE")
           || "cs_principal";
         const { data: csRow } = await supabase
