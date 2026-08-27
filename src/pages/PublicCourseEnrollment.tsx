@@ -191,8 +191,20 @@ export default function PublicCourseEnrollment() {
     }
   }
 
-  // Cliente existente: busca o cadastro para ele confirmar os dados antes do NPS.
-  async function startClientConfirmation() {
+  // Passo 1 → busca imediata no banco. Só quem tem cadastro de CLIENTE
+  // confirmado (proposta ganha / funil CS / ERP) segue para confirmação de
+  // dados + NPS. Os demais vão direto para a qualificação de lead novo.
+  async function lookupAndRoute() {
+    const parsed = formSchema.safeParse(form);
+    if (!parsed.success) {
+      const errs: Record<string, string> = {};
+      for (const [k, v] of Object.entries(parsed.error.flatten().fieldErrors)) {
+        if (v && v[0]) errs[k] = v[0];
+      }
+      setErrors(errs);
+      return;
+    }
+    setErrors({});
     setLookingUp(true);
     try {
       const { data } = await supabase.functions.invoke("smartops-public-lead-lookup", {
@@ -200,16 +212,19 @@ export default function PublicCourseEnrollment() {
       });
       const res = (data as LeadLookup) ?? { found: false };
       setLookup(res);
-      setConfirmData({
-        area_atuacao: canonicalize(AREA_ATUACAO_OPTIONS, res.area_atuacao),
-        especialidade: canonicalize(ESPECIALIDADE_OPTIONS, res.especialidade),
-        cidade: res.cidade ?? "",
-      });
-      setPhase("confirm_data");
+      if (res.found && res.is_client !== false) {
+        setConfirmData({
+          area_atuacao: canonicalize(AREA_ATUACAO_OPTIONS, res.area_atuacao),
+          especialidade: canonicalize(ESPECIALIDADE_OPTIONS, res.especialidade),
+          cidade: res.cidade ?? "",
+        });
+        setPhase("confirm_data");
+      } else {
+        setPhase("qualify");
+      }
     } catch {
-      // Sem cadastro localizado seguimos pedindo os dados em branco
-      setLookup({ found: false });
-      setPhase("confirm_data");
+      setLookup({ found: false, is_client: false });
+      setPhase("qualify");
     } finally {
       setLookingUp(false);
     }
