@@ -893,7 +893,18 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
       toast({ title: isEdit ? "Curso atualizado!" : "Curso criado!" });
       onClose();
     } catch (err: any) {
-      toast({ title: "Erro ao salvar", description: err.message, variant: "destructive" });
+      console.error("[course-save] error", {
+        message: err?.message,
+        details: err?.details,
+        hint: err?.hint,
+        code: err?.code,
+      });
+      toast({
+        title: "Erro ao salvar",
+        description: [err?.message, err?.details, err?.hint].filter(Boolean).join(" · ") || "Erro desconhecido",
+        variant: "destructive",
+      });
+    }
     } finally {
       setSaving(false);
     }
