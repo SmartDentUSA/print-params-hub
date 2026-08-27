@@ -182,10 +182,17 @@ export default function PublicCourseEnrollment() {
       const res = data as { ok: boolean; enrollment_id: string; show_nps: boolean };
       setEnrollmentId(res.enrollment_id);
       setShowNps(res.show_nps);
-      // Non-clients went through the qualification form already, skip NPS.
-      const goNps = isClient === true && res.show_nps;
-      setPhase(goNps ? "nps" : "done");
-      toast({ title: "Inscrição confirmada!", description: "Em breve você receberá os detalhes no WhatsApp." });
+      // Quem decide o NPS é o servidor: só cliente confirmado no banco e que
+      // NÃO respondeu nos últimos 30 dias. Nesse caso o NPS é OBRIGATÓRIO
+      // para concluir o agendamento.
+      setPhase(res.show_nps ? "nps" : "done");
+      toast({
+        title: res.show_nps ? "Falta só a avaliação" : "Inscrição confirmada!",
+        description: res.show_nps
+          ? "Responda as 3 perguntas para concluir seu agendamento."
+          : "Em breve você receberá os detalhes no WhatsApp.",
+      });
+
     } catch (err: any) {
       toast({ title: "Erro", description: err.message ?? "Falha ao inscrever.", variant: "destructive" });
     } finally {
