@@ -10,6 +10,7 @@ const ONLINE_MODALITIES = ['online_ao_vivo', 'online'];
 const ONLINE_CATEGORIES = ['workshop', 'webinar', 'live_produtos'];
 
 export default function KbTabLives() {
+  const [selectedProduct, setSelectedProduct] = useState('');
   const { data: publicCourses = [] } = useQuery({
     queryKey: ['kb_lives_courses'],
     refetchInterval: 30_000,
