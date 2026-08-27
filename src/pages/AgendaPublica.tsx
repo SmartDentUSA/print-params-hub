@@ -277,7 +277,7 @@ export default function AgendaPublica({ variant = "presencial" }: AgendaPublicaP
   }, [queryClient]);
 
   // Cursos elegíveis filtrados por modalidade + categoria desta variante.
-  const { data: publicCourseIds = [] } = useQuery({
+  const { data: publicCourses = [] } = useQuery({
     queryKey: ["public_agenda_courses", variant],
     refetchInterval: 10_000,
     refetchIntervalInBackground: true,
@@ -286,14 +286,21 @@ export default function AgendaPublica({ variant = "presencial" }: AgendaPublicaP
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .from("smartops_courses")
-        .select("id, modality, category")
+        .select("id, modality, category, description")
         .eq("active", true)
         .in("modality", config.modalities)
         .in("category", config.categories);
       if (error) throw error;
-      return ((data ?? []) as any[]).map((c) => c.id as string);
+      return (data ?? []) as { id: string; description?: string | null }[];
     },
   });
+  const publicCourseIds = useMemo(() => publicCourses.map((c) => c.id), [publicCourses]);
+  const courseDescriptions = useMemo(() => {
+    const m: Record<string, string> = {};
+    for (const c of publicCourses) if (c.description) m[c.id] = c.description;
+    return m;
+  }, [publicCourses]);
+
 
   // Turmas (mesma fonte do admin: v_turmas_com_vagas)
   const { data: allTurmas = [], isLoading, isFetching, dataUpdatedAt } = useQuery({
