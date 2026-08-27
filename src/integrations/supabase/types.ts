@@ -18008,6 +18008,649 @@ export type Database = {
         }
         Relationships: []
       }
+      rag_v3_chunks: {
+        Row: {
+          active: boolean
+          authority_level: number
+          chunk_index: number
+          chunk_text: string
+          created_at: string
+          embedding: string | null
+          embedding_model: string | null
+          entity_ids: string[]
+          id: string
+          language: string
+          lexical_vector: unknown
+          metadata: Json
+          source_id: string
+          updated_at: string
+          validation_status: string
+        }
+        Insert: {
+          active?: boolean
+          authority_level: number
+          chunk_index?: number
+          chunk_text: string
+          created_at?: string
+          embedding?: string | null
+          embedding_model?: string | null
+          entity_ids?: string[]
+          id?: string
+          language?: string
+          lexical_vector?: unknown
+          metadata?: Json
+          source_id: string
+          updated_at?: string
+          validation_status: string
+        }
+        Update: {
+          active?: boolean
+          authority_level?: number
+          chunk_index?: number
+          chunk_text?: string
+          created_at?: string
+          embedding?: string | null
+          embedding_model?: string | null
+          entity_ids?: string[]
+          id?: string
+          language?: string
+          lexical_vector?: unknown
+          metadata?: Json
+          source_id?: string
+          updated_at?: string
+          validation_status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rag_v3_chunks_source_id_fkey"
+            columns: ["source_id"]
+            isOneToOne: false
+            referencedRelation: "rag_v3_sources"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rag_v3_claims: {
+        Row: {
+          active: boolean
+          claim_type: string
+          conditions: Json
+          confidence: number | null
+          country_scope: string[]
+          created_at: string
+          effective_from: string | null
+          effective_to: string | null
+          evidence_level: string | null
+          id: string
+          numeric_value: number | null
+          object_entity_id: string | null
+          object_text: string | null
+          predicate: string
+          source_excerpt: string | null
+          source_id: string
+          subject_entity_id: string | null
+          unit: string | null
+          updated_at: string
+          validated_at: string | null
+          validated_by: string | null
+          validation_status: string
+        }
+        Insert: {
+          active?: boolean
+          claim_type?: string
+          conditions?: Json
+          confidence?: number | null
+          country_scope?: string[]
+          created_at?: string
+          effective_from?: string | null
+          effective_to?: string | null
+          evidence_level?: string | null
+          id?: string
+          numeric_value?: number | null
+          object_entity_id?: string | null
+          object_text?: string | null
+          predicate: string
+          source_excerpt?: string | null
+          source_id: string
+          subject_entity_id?: string | null
+          unit?: string | null
+          updated_at?: string
+          validated_at?: string | null
+          validated_by?: string | null
+          validation_status?: string
+        }
+        Update: {
+          active?: boolean
+          claim_type?: string
+          conditions?: Json
+          confidence?: number | null
+          country_scope?: string[]
+          created_at?: string
+          effective_from?: string | null
+          effective_to?: string | null
+          evidence_level?: string | null
+          id?: string
+          numeric_value?: number | null
+          object_entity_id?: string | null
+          object_text?: string | null
+          predicate?: string
+          source_excerpt?: string | null
+          source_id?: string
+          subject_entity_id?: string | null
+          unit?: string | null
+          updated_at?: string
+          validated_at?: string | null
+          validated_by?: string | null
+          validation_status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rag_v3_claims_object_entity_id_fkey"
+            columns: ["object_entity_id"]
+            isOneToOne: false
+            referencedRelation: "rag_v3_entities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rag_v3_claims_source_id_fkey"
+            columns: ["source_id"]
+            isOneToOne: false
+            referencedRelation: "rag_v3_sources"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rag_v3_claims_subject_entity_id_fkey"
+            columns: ["subject_entity_id"]
+            isOneToOne: false
+            referencedRelation: "rag_v3_entities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rag_v3_conflicts: {
+        Row: {
+          claim_a_id: string | null
+          claim_b_id: string | null
+          conflict_key: string
+          created_at: string
+          entity_id: string | null
+          id: string
+          resolution_note: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          severity: string
+          source_a_id: string | null
+          source_b_id: string | null
+          status: string
+        }
+        Insert: {
+          claim_a_id?: string | null
+          claim_b_id?: string | null
+          conflict_key: string
+          created_at?: string
+          entity_id?: string | null
+          id?: string
+          resolution_note?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          severity?: string
+          source_a_id?: string | null
+          source_b_id?: string | null
+          status?: string
+        }
+        Update: {
+          claim_a_id?: string | null
+          claim_b_id?: string | null
+          conflict_key?: string
+          created_at?: string
+          entity_id?: string | null
+          id?: string
+          resolution_note?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          severity?: string
+          source_a_id?: string | null
+          source_b_id?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rag_v3_conflicts_claim_a_id_fkey"
+            columns: ["claim_a_id"]
+            isOneToOne: false
+            referencedRelation: "rag_v3_claims"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rag_v3_conflicts_claim_b_id_fkey"
+            columns: ["claim_b_id"]
+            isOneToOne: false
+            referencedRelation: "rag_v3_claims"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rag_v3_conflicts_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "rag_v3_entities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rag_v3_conflicts_source_a_id_fkey"
+            columns: ["source_a_id"]
+            isOneToOne: false
+            referencedRelation: "rag_v3_sources"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rag_v3_conflicts_source_b_id_fkey"
+            columns: ["source_b_id"]
+            isOneToOne: false
+            referencedRelation: "rag_v3_sources"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rag_v3_entities: {
+        Row: {
+          active: boolean
+          canonical_name: string
+          created_at: string
+          entity_type: string
+          id: string
+          metadata: Json
+          parent_entity_id: string | null
+          slug: string | null
+          source_record_id: string | null
+          source_system: string | null
+          status: string
+          system_a_id: string | null
+          system_b_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          canonical_name: string
+          created_at?: string
+          entity_type: string
+          id?: string
+          metadata?: Json
+          parent_entity_id?: string | null
+          slug?: string | null
+          source_record_id?: string | null
+          source_system?: string | null
+          status?: string
+          system_a_id?: string | null
+          system_b_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          canonical_name?: string
+          created_at?: string
+          entity_type?: string
+          id?: string
+          metadata?: Json
+          parent_entity_id?: string | null
+          slug?: string | null
+          source_record_id?: string | null
+          source_system?: string | null
+          status?: string
+          system_a_id?: string | null
+          system_b_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rag_v3_entities_parent_entity_id_fkey"
+            columns: ["parent_entity_id"]
+            isOneToOne: false
+            referencedRelation: "rag_v3_entities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rag_v3_entity_aliases: {
+        Row: {
+          alias: string
+          alias_type: string
+          created_at: string
+          entity_id: string
+          id: string
+          language: string
+        }
+        Insert: {
+          alias: string
+          alias_type?: string
+          created_at?: string
+          entity_id: string
+          id?: string
+          language?: string
+        }
+        Update: {
+          alias?: string
+          alias_type?: string
+          created_at?: string
+          entity_id?: string
+          id?: string
+          language?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rag_v3_entity_aliases_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "rag_v3_entities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rag_v3_evaluation_cases: {
+        Row: {
+          category: string
+          created_at: string
+          expected_answer: string | null
+          expected_entity_ids: string[]
+          expected_source_types: string[]
+          id: string
+          language: string
+          last_passed: boolean | null
+          last_result: Json | null
+          last_run_at: string | null
+          must_include: string[]
+          must_not_include: string[]
+          question: string
+          status: string
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          expected_answer?: string | null
+          expected_entity_ids?: string[]
+          expected_source_types?: string[]
+          id?: string
+          language?: string
+          last_passed?: boolean | null
+          last_result?: Json | null
+          last_run_at?: string | null
+          must_include?: string[]
+          must_not_include?: string[]
+          question: string
+          status?: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          expected_answer?: string | null
+          expected_entity_ids?: string[]
+          expected_source_types?: string[]
+          id?: string
+          language?: string
+          last_passed?: boolean | null
+          last_result?: Json | null
+          last_run_at?: string | null
+          must_include?: string[]
+          must_not_include?: string[]
+          question?: string
+          status?: string
+        }
+        Relationships: []
+      }
+      rag_v3_relations: {
+        Row: {
+          active: boolean
+          created_at: string
+          id: string
+          metadata: Json
+          object_entity_id: string | null
+          object_text: string | null
+          relation_type: string
+          source_id: string | null
+          subject_entity_id: string
+          validation_status: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          metadata?: Json
+          object_entity_id?: string | null
+          object_text?: string | null
+          relation_type: string
+          source_id?: string | null
+          subject_entity_id: string
+          validation_status?: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          metadata?: Json
+          object_entity_id?: string | null
+          object_text?: string | null
+          relation_type?: string
+          source_id?: string | null
+          subject_entity_id?: string
+          validation_status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rag_v3_relations_object_entity_id_fkey"
+            columns: ["object_entity_id"]
+            isOneToOne: false
+            referencedRelation: "rag_v3_entities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rag_v3_relations_source_id_fkey"
+            columns: ["source_id"]
+            isOneToOne: false
+            referencedRelation: "rag_v3_sources"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rag_v3_relations_subject_entity_id_fkey"
+            columns: ["subject_entity_id"]
+            isOneToOne: false
+            referencedRelation: "rag_v3_entities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rag_v3_rules: {
+        Row: {
+          active: boolean
+          created_at: string
+          entity_id: string | null
+          id: string
+          priority: number
+          rule_code: string
+          rule_text: string
+          rule_type: string
+          scope_type: string
+          source_id: string | null
+          updated_at: string
+          validation_status: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          entity_id?: string | null
+          id?: string
+          priority?: number
+          rule_code: string
+          rule_text: string
+          rule_type: string
+          scope_type?: string
+          source_id?: string | null
+          updated_at?: string
+          validation_status?: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          entity_id?: string | null
+          id?: string
+          priority?: number
+          rule_code?: string
+          rule_text?: string
+          rule_type?: string
+          scope_type?: string
+          source_id?: string | null
+          updated_at?: string
+          validation_status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rag_v3_rules_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "rag_v3_entities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rag_v3_rules_source_id_fkey"
+            columns: ["source_id"]
+            isOneToOne: false
+            referencedRelation: "rag_v3_sources"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rag_v3_source_entities: {
+        Row: {
+          entity_id: string
+          relation_scope: string
+          source_id: string
+        }
+        Insert: {
+          entity_id: string
+          relation_scope?: string
+          source_id: string
+        }
+        Update: {
+          entity_id?: string
+          relation_scope?: string
+          source_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rag_v3_source_entities_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "rag_v3_entities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rag_v3_source_entities_source_id_fkey"
+            columns: ["source_id"]
+            isOneToOne: false
+            referencedRelation: "rag_v3_sources"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rag_v3_sources: {
+        Row: {
+          active: boolean
+          authority_level: number
+          content_hash: string | null
+          created_at: string
+          do_not_recommend: boolean
+          effective_from: string | null
+          effective_to: string | null
+          file_url: string | null
+          id: string
+          is_clinical: boolean
+          is_historical: boolean
+          is_marketing: boolean
+          is_official: boolean
+          is_regulatory: boolean
+          language: string
+          metadata: Json
+          raw_text: string | null
+          source_record_id: string | null
+          source_system: string | null
+          source_type: string
+          supersedes_source_id: string | null
+          title: string
+          updated_at: string
+          url: string | null
+          validated_at: string | null
+          validated_by: string | null
+          validation_status: string
+          version: string | null
+        }
+        Insert: {
+          active?: boolean
+          authority_level: number
+          content_hash?: string | null
+          created_at?: string
+          do_not_recommend?: boolean
+          effective_from?: string | null
+          effective_to?: string | null
+          file_url?: string | null
+          id?: string
+          is_clinical?: boolean
+          is_historical?: boolean
+          is_marketing?: boolean
+          is_official?: boolean
+          is_regulatory?: boolean
+          language?: string
+          metadata?: Json
+          raw_text?: string | null
+          source_record_id?: string | null
+          source_system?: string | null
+          source_type: string
+          supersedes_source_id?: string | null
+          title: string
+          updated_at?: string
+          url?: string | null
+          validated_at?: string | null
+          validated_by?: string | null
+          validation_status?: string
+          version?: string | null
+        }
+        Update: {
+          active?: boolean
+          authority_level?: number
+          content_hash?: string | null
+          created_at?: string
+          do_not_recommend?: boolean
+          effective_from?: string | null
+          effective_to?: string | null
+          file_url?: string | null
+          id?: string
+          is_clinical?: boolean
+          is_historical?: boolean
+          is_marketing?: boolean
+          is_official?: boolean
+          is_regulatory?: boolean
+          language?: string
+          metadata?: Json
+          raw_text?: string | null
+          source_record_id?: string | null
+          source_system?: string | null
+          source_type?: string
+          supersedes_source_id?: string | null
+          title?: string
+          updated_at?: string
+          url?: string | null
+          validated_at?: string | null
+          validated_by?: string | null
+          validation_status?: string
+          version?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rag_v3_sources_supersedes_source_id_fkey"
+            columns: ["supersedes_source_id"]
+            isOneToOne: false
+            referencedRelation: "rag_v3_sources"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       rayshape_manual_owners: {
         Row: {
           created_at: string
