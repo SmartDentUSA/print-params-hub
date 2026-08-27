@@ -53,6 +53,7 @@ interface LocalTurma {
   slots: number;
   sellflux_tag: string;
   whatsapp_group_link: string;
+  live_url: string;
   sort_order: number;
   enrolled_count: number;
   days: LocalDay[];
@@ -314,6 +315,7 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
 
   const isOnline = modality === 'online' || modality === 'online_ao_vivo' || modality === 'acesso_remoto';
   const isOnlineAoVivo = modality === 'online_ao_vivo';
+  const isLiveProdutos = isOnlineAoVivo && category === 'live_produtos';
 
   // Turmas
   const [turmas, setTurmas] = useState<LocalTurma[]>([]);
@@ -443,6 +445,7 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
           slots: t.slots,
           sellflux_tag: t.sellflux_tag || "",
           whatsapp_group_link: t.whatsapp_group_link || "",
+          live_url: t.live_url || "",
           sort_order: t.sort_order,
           enrolled_count: t.enrolled_count,
           days: (() => {
@@ -482,6 +485,7 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
         slots: 20,
         sellflux_tag: buildCourseTag(title),
         whatsapp_group_link: "",
+        live_url: "",
         sort_order: idx,
         enrolled_count: 0,
         days: [{ day_number: 1, date: "", start_time: defaultStart, end_time: defaultEnd, topic: "" }],
@@ -672,8 +676,8 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
       data_inicio: days[0]?.date || "",
       data_fim: days[days.length - 1]?.date || "",
       horario_inicio: days[0]?.start_time || "09:00",
-      grupo_whatsapp: firstTurma?.whatsapp_group_link || whatsappGroupLink || "",
-      link_reuniao: meetingLink || "",
+      grupo_whatsapp: isLiveProdutos ? "" : (firstTurma?.whatsapp_group_link || whatsappGroupLink || ""),
+      link_reuniao: (isLiveProdutos ? firstTurma?.live_url : "") || meetingLink || "",
       cs_nome: "CS",
     });
   })();
@@ -820,6 +824,7 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
               slots: turma.slots,
               sellflux_tag: turma.sellflux_tag || null,
               whatsapp_group_link: turma.whatsapp_group_link || null,
+              live_url: turma.live_url || null,
               sort_order: turma.sort_order,
             })
             .eq("id", turma.id);
@@ -862,6 +867,7 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
               slots: turma.slots,
               sellflux_tag: turma.sellflux_tag || null,
               whatsapp_group_link: turma.whatsapp_group_link || null,
+              live_url: turma.live_url || null,
               sort_order: turma.sort_order,
             })
             .select("id")
@@ -1168,7 +1174,11 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
                       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                         <div><Label className="text-xs">Label</Label><Input value={turma.label} onChange={(e) => updateTurma(tIdx, "label", e.target.value)} /></div>
                         <div><Label className="text-xs">Vagas</Label><Input type="number" min={1} value={turma.slots} onChange={(e) => updateTurma(tIdx, "slots", Number(e.target.value) || 20)} /></div>
-                        <div><Label className="text-xs">Grupo WA</Label><Input value={turma.whatsapp_group_link} onChange={(e) => updateTurma(tIdx, "whatsapp_group_link", e.target.value)} placeholder="https://chat.whatsapp.com/..." /></div>
+                        {isLiveProdutos ? (
+                          <div><Label className="text-xs">Link da Live (YouTube)</Label><Input value={turma.live_url} onChange={(e) => updateTurma(tIdx, "live_url", e.target.value)} placeholder="https://www.youtube.com/watch?v=..." /></div>
+                        ) : (
+                          <div><Label className="text-xs">Grupo WA</Label><Input value={turma.whatsapp_group_link} onChange={(e) => updateTurma(tIdx, "whatsapp_group_link", e.target.value)} placeholder="https://chat.whatsapp.com/..." /></div>
+                        )}
                         <div><Label className="text-xs">TAG SellFlux</Label><Input value={turma.sellflux_tag} onChange={(e) => updateTurma(tIdx, "sellflux_tag", e.target.value)} placeholder={buildCourseTag(title, turma.days[0]?.date)} /></div>
                       </div>
 

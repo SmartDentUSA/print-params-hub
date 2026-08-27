@@ -33,6 +33,7 @@ export interface Turma {
   enrolled_count: number;
   sellflux_tag?: string;
   whatsapp_group_link?: string;
+  live_url?: string | null;
   active: boolean;
   sort_order?: number;
   days?: TurmaDay[];
