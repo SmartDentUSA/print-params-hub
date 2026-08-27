@@ -125,7 +125,7 @@ Deno.serve(async (req) => {
       .eq("id", turmaId)
       .maybeSingle();
     const { data: turmaDays } = await supabase
-      .from("smartops_course_turma_days")
+      .from("smartops_turma_days")
       .select("day_number, date, start_time, end_time, topic")
       .eq("turma_id", turmaId)
       .order("day_number", { ascending: true });
