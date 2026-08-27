@@ -469,6 +469,106 @@ Deno.serve(async (req) => {
         .catch((err) => console.warn("[live-demo-activity]", err));
     }
 
+    // 7d. Confirmação por WhatsApp com o link da Live DA SESSÃO escolhida.
+    // Quando a turma tem `live_url` (Online ao Vivo → Live de produtos), o link
+    // do YouTube substitui a linha do grupo de WhatsApp.
+    if (!reusedEnrollment) {
+      try {
+        const fmtDate = (d?: string) => (d ? String(d).split("-").reverse().join("/") : "");
+        const hm = (s?: string) => (s ?? "").substring(0, 5);
+        const days: any[] = turmaSnapshot.days ?? [];
+        const d0: any = days[0] ?? {};
+        const dLast: any = days[days.length - 1] ?? d0;
+        const cronograma = days.length
+          ? (days.length === 1
+              ? `📅 *Data:* ${fmtDate(d0.date)}\n⏰ *Horário:* ${hm(d0.start_time)} às ${hm(d0.end_time)}`
+              : days
+                  .map((d, i) => `📅 *${d.topic || `Dia ${i + 1}`}*\n    ${fmtDate(d.date)} | ${hm(d.start_time)}–${hm(d.end_time)}`)
+                  .join("\n\n"))
+          : "";
+        const liveUrl = turmaSnapshot.live_url || course.meeting_link || "";
+        const isYouTube = /youtu\.?be|youtube\.com/i.test(String(liveUrl));
+        const linkLine = liveUrl
+          ? (isYouTube
+              ? `📺 *Link da Live no YouTube:*\n👉 ${liveUrl}`
+              : `💻 *Link da reunião (aula online):*\n👉 ${liveUrl}`)
+          : "";
+        const grupo = liveUrl
+          ? ""
+          : (turmaSnapshot.whatsapp_group_link || course.whatsapp_group_link || "");
+        const grupoLine = grupo
+          ? `📱 *Entre no grupo de WhatsApp do seu treinamento:*\n👉 ${grupo}`
+          : "";
+        const local = course.modality === "presencial"
+          ? (course.location || "Local a confirmar")
+          : "Online";
+
+        const tpl = (course.whatsapp_message_template as string | null) || [
+          "Olá, {{nome}}! 👋",
+          "",
+          "Sua inscrição foi confirmada. Aqui estão os detalhes:",
+          "",
+          "📚 *{{curso}}*",
+          "🏷 Turma: *{{turma_label}}*",
+          "👨‍🏫 Instrutor: {{instrutor}}",
+          "📍 {{local}}",
+          "",
+          "{{cronograma}}",
+          "",
+          "{{link_reuniao}}",
+          "",
+          "{{grupo_whatsapp}}",
+          "",
+          "_Equipe Smart Dent_ 🦷",
+        ].join("\n");
+
+        const message = tpl
+          .replace(/\{\{nome\}\}/g, String(body.nome).split(" ")[0])
+          .replace(/\{\{curso\}\}/g, course.title ?? "")
+          .replace(/\{\{turma_label\}\}/g, turmaSnapshot.label ?? "")
+          .replace(/\{\{instrutor\}\}/g, course.instructor_name ?? "")
+          .replace(/\{\{local\}\}/g, local)
+          .replace(/\{\{cronograma\}\}/g, cronograma)
+          .replace(/\{\{duracao\}\}/g, days.length ? `${days.length} dia(s)` : "")
+          .replace(/\{\{data_inicio\}\}/g, fmtDate(d0.date))
+          .replace(/\{\{data_fim\}\}/g, fmtDate(dLast.date))
+          .replace(/\{\{horario_inicio\}\}/g, hm(d0.start_time))
+          .replace(/\{\{link_reuniao\}\}/g, linkLine)
+          .replace(/\{\{grupo_whatsapp\}\}/g, grupoLine)
+          .replace(/\{\{cs_nome\}\}/g, "")
+          .replace(/\n{3,}/g, "\n\n")
+          .trim();
+
+        let waTeamMemberId: string | null = null;
+        const instanceName = (course.wa_instance_name as string | null)
+          || Deno.env.get("CS_EVOLUTION_INSTANCE")
+          || "cs_principal";
+        const { data: csRow } = await supabase
+          .from("team_members")
+          .select("id")
+          .eq("evolution_instance_name", instanceName)
+          .maybeSingle();
+        waTeamMemberId = csRow?.id ?? null;
+
+        const { data: waRes, error: waErr } = await supabase.functions.invoke("smart-ops-wa-send", {
+          body: {
+            to: phone,
+            message,
+            lead_id: leadId,
+            team_member_id: waTeamMemberId,
+            source: "public_enrollment_confirmation",
+            metadata: { enrollment_id: enrollment.id, course_id: course.id, turma_id: turmaId },
+          },
+        });
+        if (waErr || (waRes as any)?.success === false) {
+          console.warn("[wa-confirmation]", JSON.stringify(waErr ?? waRes));
+        }
+      } catch (e) {
+        console.warn("[wa-confirmation]", String((e as Error)?.message ?? e));
+      }
+    }
+
+
     // 7b. Cada resposta como evento próprio da timeline — só quando o ingest
     // NÃO registrou (ele já cria um `form_response` por resposta). Evita
     // duplicar o questionário no card do lead.
