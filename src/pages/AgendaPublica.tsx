@@ -354,7 +354,7 @@ export default function AgendaPublica({ variant = "presencial" }: AgendaPublicaP
       map.set(t.course_id, arr);
     }
     const today = new Date().toISOString().slice(0, 10);
-    return publicCourses
+    const groups = publicCourses
       .map((c) => ({
         course_id: c.id as string,
         course: c,
@@ -367,7 +367,25 @@ export default function AgendaPublica({ variant = "presencial" }: AgendaPublicaP
           list.map((t) => t.start_date || "").filter((d) => d >= today).sort()[0] || "9999";
         return nextOf(a.turmas).localeCompare(nextOf(b.turmas));
       });
-  }, [turmas, variant, publicCourses]);
+    if (!selectedProduct) return groups;
+    return groups.filter((g) => {
+      const names =
+        ((g.course as any)?.related_product_names as string[] | undefined) ||
+        (g.turmas[0] as any)?.related_product_names ||
+        [];
+      return names.includes(selectedProduct);
+    });
+  }, [turmas, variant, publicCourses, selectedProduct]);
+
+  const availableProducts = useMemo(() => {
+    if (variant !== "online") return [];
+    const set = new Set<string>();
+    for (const c of publicCourses) {
+      const names = ((c as any)?.related_product_names as string[] | undefined) || [];
+      for (const n of names) if (n?.trim()) set.add(n.trim());
+    }
+    return Array.from(set).sort((a, b) => a.localeCompare(b, "pt-BR"));
+  }, [publicCourses, variant]);
 
 
   // Pastas do Drive (só para Team Members): habilita o upload de mídias direto do celular.
