@@ -33,6 +33,8 @@ type LeadLookup = {
   email_masked?: string | null;
   telefone_masked?: string | null;
   is_client?: boolean;
+  lead_exists?: boolean;
+  client_reason?: string | null;
 };
 
 type Course = {
@@ -105,7 +107,7 @@ export default function PublicCourseEnrollment() {
 
   // After submit
   const [phase, setPhase] = useState<
-    "form" | "ask_client" | "confirm_data" | "qualify" | "nps" | "done"
+    "form" | "confirm_data" | "qualify" | "nps" | "done"
   >("form");
   const [enrollmentId, setEnrollmentId] = useState<string | null>(null);
   const [showNps, setShowNps] = useState(false);
