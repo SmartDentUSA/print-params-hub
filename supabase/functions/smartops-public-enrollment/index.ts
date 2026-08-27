@@ -77,7 +77,7 @@ Deno.serve(async (req) => {
     // 1. Load course
     const { data: course, error: eCourse } = await supabase
       .from("smartops_courses")
-      .select("id, slug, title, modality, public_enrollment_enabled, active, related_product_ids, related_product_names, stage_after_enroll, pipeline_id_kanban")
+      .select("id, slug, title, modality, public_enrollment_enabled, active, related_product_ids, related_product_names, stage_after_enroll, pipeline_id_kanban, instructor_name, location, meeting_link, whatsapp_group_link, whatsapp_message_template, wa_instance_name")
       .eq("slug", body.course_slug)
       .maybeSingle();
     if (eCourse) throw eCourse;
