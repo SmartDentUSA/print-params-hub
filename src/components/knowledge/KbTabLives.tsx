@@ -55,7 +55,7 @@ export default function KbTabLives() {
       map.set(t.course_id, arr);
     }
     const today = new Date().toISOString().slice(0, 10);
-    return publicCourses
+    const all = publicCourses
       .map((c) => ({
         course_id: c.id as string,
         course: c,
@@ -68,11 +68,58 @@ export default function KbTabLives() {
           list.map((t) => t.start_date || '').filter((d) => d >= today).sort()[0] || '9999';
         return nextOf(a.turmas).localeCompare(nextOf(b.turmas));
       });
-  }, [publicCourses, allTurmas]);
+    if (!selectedProduct) return all;
+    return all.filter((g) => {
+      const names =
+        ((g.course as any)?.related_product_names as string[] | undefined) ||
+        (g.turmas[0] as any)?.related_product_names ||
+        [];
+      return names.includes(selectedProduct);
+    });
+  }, [publicCourses, allTurmas, selectedProduct]);
+
+  const availableProducts = useMemo(() => {
+    const set = new Set<string>();
+    for (const c of publicCourses) {
+      const names = ((c as any)?.related_product_names as string[] | undefined) || [];
+      for (const n of names) if (n?.trim()) set.add(n.trim());
+    }
+    return Array.from(set).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+  }, [publicCourses]);
 
   return (
     <div className="pp-root" style={{ background: 'transparent' }}>
       <style>{publicPageStyles}</style>
+      {availableProducts.length > 0 && (
+        <div className="mb-6 flex flex-wrap items-center gap-2">
+          <div className="relative">
+            <Filter className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+            <select
+              value={selectedProduct}
+              onChange={(e) => setSelectedProduct(e.target.value)}
+              className="appearance-none h-9 pl-8 pr-8 rounded-full border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 min-w-[180px]"
+            >
+              <option value="">Todos os produtos</option>
+              {availableProducts.map((p) => (
+                <option key={p} value={p}>
+                  {p}
+                </option>
+              ))}
+            </select>
+            <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground text-xs">▼</span>
+          </div>
+          {selectedProduct && (
+            <button
+              type="button"
+              onClick={() => setSelectedProduct('')}
+              className="inline-flex items-center gap-1 h-9 px-3 rounded-full border bg-background text-xs font-medium hover:bg-accent transition-colors"
+            >
+              <X className="w-3 h-3" />
+              Limpar: {selectedProduct}
+            </button>
+          )}
+        </div>
+      )}
       {isLoading ? (
         <div className="pp-empty">Carregando...</div>
       ) : groups.length === 0 ? (
