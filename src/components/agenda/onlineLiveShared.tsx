@@ -208,6 +208,7 @@ export function PublicOnlineCourseCard({
   driveFolders?: Record<string, { id: string | null; url: string | null }>;
 }) {
   const getCountdown = useCountdown();
+  const [shared, setShared] = useState(false);
   if (sessions.length === 0 && !course) return null;
   // Metadados vêm da turma quando existe; senão, do próprio curso.
   const first = (sessions[0] ?? {
@@ -225,6 +226,25 @@ export function PublicOnlineCourseCard({
   const externalUrl = (meta.signup_form_url ?? (course as any)?.signup_form_url) as string | undefined;
   const href = publicEnabled && slug ? `/inscricao/${slug}` : externalUrl;
   const isInternal = href?.startsWith("/");
+
+  const shareUrl = href ? (isInternal ? `${getPublicOrigin()}${href}` : href) : getPublicOrigin();
+  const handleShare = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    const title = first.course_title || "Live Smart Dent";
+    const text = description || `Inscreva-se em ${title}`;
+    try {
+      if (navigator.share && isInternal) {
+        await navigator.share({ title, text, url: shareUrl });
+      } else if (navigator.clipboard) {
+        await navigator.clipboard.writeText(shareUrl);
+        setShared(true);
+        setTimeout(() => setShared(false), 2000);
+      }
+    } catch {
+      // usuário cancelou ou share não disponível
+    }
+  };
 
   // Próxima sessão (mais perto de hoje) para o cronômetro destacado.
   const today = new Date().toISOString().slice(0, 10);
