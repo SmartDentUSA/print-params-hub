@@ -156,7 +156,7 @@ Deno.serve(async (req) => {
         const snap: any = (e as any).turma_snapshot ?? {};
         const days: any[] = Array.isArray(snap.days) ? snap.days : [];
         const d0 = days[0] ?? {};
-        const tpl = (course.reminder_message_template as string | null) || DEFAULT_REMINDER_TEMPLATE;
+        const tpl = (course.reminder_message_template as string | null) || auto.message_template || DEFAULT_REMINDER_TEMPLATE;
         const message = interpolate(tpl, {
           nome: (e as any).person_name ?? "",
           curso: course.title ?? "",
