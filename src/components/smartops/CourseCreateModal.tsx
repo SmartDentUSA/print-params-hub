@@ -445,16 +445,24 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
           whatsapp_group_link: t.whatsapp_group_link || "",
           sort_order: t.sort_order,
           enrolled_count: t.enrolled_count,
-          days: (t.days ?? [])
-            .sort((a: TurmaDay, b: TurmaDay) => a.day_number - b.day_number)
-            .map((d: any) => ({
-              id: d.id,
-              day_number: d.day_number,
-              date: d.date,
-              start_time: d.start_time?.substring(0, 5) || "",
-              end_time: d.end_time?.substring(0, 5) || "",
-              topic: d.topic || "",
-            })),
+          days: (() => {
+            const mapped = (t.days ?? [])
+              .sort((a: TurmaDay, b: TurmaDay) => a.day_number - b.day_number)
+              .map((d: any) => ({
+                id: d.id,
+                day_number: d.day_number,
+                date: d.date,
+                start_time: d.start_time?.substring(0, 5) || "",
+                end_time: d.end_time?.substring(0, 5) || "",
+                topic: d.topic || "",
+              }));
+            // Turmas antigas sem dias cadastrados: semeia uma linha em branco
+            // para o campo de data/horário aparecer no editor.
+            if (mapped.length === 0) {
+              return [{ day_number: 1, date: "", start_time: "09:00", end_time: "10:00", topic: "" }];
+            }
+            return mapped;
+          })(),
         }))
       );
     } finally {
@@ -819,6 +827,7 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
 
           // UPDATE/INSERT days
           for (const day of turma.days) {
+            if (!day.date) continue; // linha em branco semeada pelo editor — não gravar
             if (day.id) {
               await (supabase as any)
                 .from("smartops_turma_days")
@@ -861,8 +870,9 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
           turmaId = newTurma.id;
 
           // PASSO 3: INSERT days (batch)
-          if (turma.days.length > 0) {
-            const daysPayload = turma.days.map((d) => ({
+          const validDays = turma.days.filter((d) => d.date);
+          if (validDays.length > 0) {
+            const daysPayload = validDays.map((d) => ({
               turma_id: turmaId,
               day_number: d.day_number,
               date: d.date,
