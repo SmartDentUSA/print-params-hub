@@ -87,6 +87,7 @@ const CATEGORIES = [
   { value: "webinar", label: "Webinar" },
   { value: "avaliacao_pre_instalacao", label: "Avaliação pré-instalação" },
   { value: "ativacao_software", label: "Ativação de Software" },
+  { value: "live_produtos", label: "Live de produtos" },
 ] as const;
 
 // ─── Recurrence preview ───
