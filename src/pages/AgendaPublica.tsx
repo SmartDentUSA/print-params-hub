@@ -325,13 +325,13 @@ export default function AgendaPublica({ variant = "presencial" }: AgendaPublicaP
     const nowMs = Date.now();
     // Presencial: mantém o curso visível por 12h após o término, para o time de
     // marketing finalizar o envio de fotos e vídeos.
-    // Online: sessões já realizadas continuam visíveis no card (30 dias) com o
-    // status "Realizado".
-    const GRACE_MS = (variant === "online" ? 30 * 24 : 12) * 60 * 60 * 1000;
+    const GRACE_MS = 12 * 60 * 60 * 1000;
     const allowed = new Set(publicCourseIds);
     return allTurmas
       .filter((t) => allowed.has(t.course_id))
       .filter((t) => {
+        // Online: sessões já realizadas continuam visíveis no card, com status "Realizado".
+        if (variant === "online") return true;
         const endDate = t.end_date || t.start_date;
         if (!endDate) return true;
         const endTime = (t.end_time || "23:59").substring(0, 5);
@@ -342,7 +342,8 @@ export default function AgendaPublica({ variant = "presencial" }: AgendaPublicaP
   }, [allTurmas, publicCourseIds, variant]);
 
 
-  // Para Online ao Vivo / Online: 1 card por curso, com todas as turmas dentro.
+  // Para Online ao Vivo / Online: 1 card por curso ativo (mesmo sem turmas agendadas),
+  // com todas as sessões dentro.
   const onlineCourseGroups = useMemo(() => {
     if (variant !== "online") return [];
     const map = new Map<string, TurmaComVagas[]>();
@@ -351,13 +352,22 @@ export default function AgendaPublica({ variant = "presencial" }: AgendaPublicaP
       arr.push(t);
       map.set(t.course_id, arr);
     }
-    return Array.from(map.entries())
-      .map(([course_id, list]) => ({
-        course_id,
-        turmas: list.sort((a, b) => (a.start_date || "").localeCompare(b.start_date || "")),
+    const today = new Date().toISOString().slice(0, 10);
+    return publicCourses
+      .map((c) => ({
+        course_id: c.id as string,
+        course: c,
+        turmas: (map.get(c.id as string) || []).sort(
+          (a, b) => (a.start_date || "").localeCompare(b.start_date || ""),
+        ),
       }))
-      .sort((a, b) => (a.turmas[0]?.start_date || "").localeCompare(b.turmas[0]?.start_date || ""));
-  }, [turmas, variant]);
+      .sort((a, b) => {
+        const nextOf = (list: TurmaComVagas[]) =>
+          list.map((t) => t.start_date || "").filter((d) => d >= today).sort()[0] || "9999";
+        return nextOf(a.turmas).localeCompare(nextOf(b.turmas));
+      });
+  }, [turmas, variant, publicCourses]);
+
 
   // Pastas do Drive (só para Team Members): habilita o upload de mídias direto do celular.
   const isTeamMember = useTeamMemberSession();
