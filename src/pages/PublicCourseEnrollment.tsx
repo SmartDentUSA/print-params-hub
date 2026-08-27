@@ -344,43 +344,21 @@ export default function PublicCourseEnrollment() {
 
                 <Button
                   className="w-full"
-                  disabled={submitting}
-                  onClick={() => {
-                    const parsed = formSchema.safeParse(form);
-                    if (!parsed.success) {
-                      const errs: Record<string, string> = {};
-                      for (const [k, v] of Object.entries(parsed.error.flatten().fieldErrors)) {
-                        if (v && v[0]) errs[k] = v[0];
-                      }
-                      setErrors(errs);
-                      return;
-                    }
-                    setErrors({});
-                    setPhase("ask_client");
-                  }}
+                  disabled={submitting || lookingUp}
+                  onClick={lookupAndRoute}
                 >
-                  Continuar
+                  {lookingUp ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                      Verificando seu cadastro...
+                    </>
+                  ) : (
+                    "Continuar"
+                  )}
                 </Button>
               </>
             )}
 
-            {phase === "ask_client" && (
-              <div className="space-y-4">
-                <p className="font-medium">Você já é cliente Smart Dent?</p>
-                <div className="grid grid-cols-2 gap-3">
-                  <Button
-                    variant="outline"
-                    disabled={submitting || lookingUp}
-                    onClick={startClientConfirmation}
-                  >
-                    {lookingUp ? <Loader2 className="w-4 h-4 animate-spin" /> : "Sim, já sou cliente"}
-                  </Button>
-                  <Button disabled={submitting} onClick={() => setPhase("qualify")}>
-                    {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Ainda não"}
-                  </Button>
-                </div>
-              </div>
-            )}
 
             {phase === "confirm_data" && (
               <div className="space-y-4">
