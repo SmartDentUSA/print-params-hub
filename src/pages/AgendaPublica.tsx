@@ -707,6 +707,52 @@ function DateBlock({ label, date, time }: { label: string; date?: string | null;
   return DateBlockImpl({ label, date, time });
 }
 
+/** Status da sessão online: contagem regressiva → AO VIVO (piscando) → Realizado. */
+function SessionStatus({ startDate, startTime, endDate, endTime }: {
+  startDate?: string | null; startTime?: string | null;
+  endDate?: string | null; endTime?: string | null;
+}) {
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, []);
+  if (!startDate) return <span className="justify-self-end text-muted-foreground">—</span>;
+  const sTime = (startTime || "09:00").substring(0, 5);
+  const eTime = (endTime || "18:00").substring(0, 5);
+  const startMs = new Date(`${startDate}T${sTime}:00`).getTime();
+  const endMs = new Date(`${endDate || startDate}T${eTime}:00`).getTime();
+
+  if (now >= endMs) {
+    return (
+      <span className="justify-self-end inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-muted text-muted-foreground">
+        <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/50" />
+        Realizado
+      </span>
+    );
+  }
+  if (now >= startMs) {
+    return (
+      <span className="justify-self-end inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide bg-rose-50 text-rose-700 dark:bg-rose-950/50 dark:text-rose-300 animate-pulse">
+        <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
+        Ao vivo
+      </span>
+    );
+  }
+  const diff = startMs - now;
+  const d = Math.floor(diff / 86_400_000);
+  const h = Math.floor((diff % 86_400_000) / 3_600_000);
+  const m = Math.floor((diff % 3_600_000) / 60_000);
+  const s = Math.floor((diff % 60_000) / 1_000);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return (
+    <span className="justify-self-end inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono font-semibold tabular-nums bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300">
+      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+      {d > 0 ? `${d}d ` : ""}{pad(h)}:{pad(m)}:{pad(s)}
+    </span>
+  );
+}
+
 function PublicOnlineCourseCard({
   sessions,
   description,
