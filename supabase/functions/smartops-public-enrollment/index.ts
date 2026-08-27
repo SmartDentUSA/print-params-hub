@@ -116,6 +116,34 @@ Deno.serve(async (req) => {
       });
     }
 
+    // 2b. Snapshot da turma escolhida (datas + link da Live daquela sessão).
+    // Sem isso o cron de lembrete não encontra a inscrição e a mensagem
+    // de confirmação sai sem data/horário/link.
+    const { data: turmaRow } = await supabase
+      .from("smartops_course_turmas")
+      .select("id, label, turma_number, slots, whatsapp_group_link, live_url, sellflux_tag")
+      .eq("id", turmaId)
+      .maybeSingle();
+    const { data: turmaDays } = await supabase
+      .from("smartops_course_turma_days")
+      .select("day_number, date, start_time, end_time, topic")
+      .eq("turma_id", turmaId)
+      .order("day_number", { ascending: true });
+    const turmaSnapshot: any = { ...(turmaRow ?? { id: turmaId }), days: turmaDays ?? [] };
+
+    const isOnlineCourse = course.modality === "online_ao_vivo" || course.modality === "online";
+    let waReminderScheduledFor: string | null = null;
+    {
+      const d0: any = (turmaDays ?? [])[0];
+      if (isOnlineCourse && d0?.date && d0?.start_time) {
+        // America/Sao_Paulo = UTC-3 (sem DST)
+        const startSp = new Date(`${d0.date}T${d0.start_time}-03:00`);
+        if (!isNaN(startSp.getTime())) {
+          waReminderScheduledFor = new Date(startSp.getTime() - 60 * 60 * 1000).toISOString();
+        }
+      }
+    }
+
     // 3. Find existing lead by email or phone (canonical only)
     let leadId: string | null = null;
     let isExistingClient = false;
