@@ -325,7 +325,7 @@ function CatalogoTab() {
           whatsapp_group_link, signup_form_url, public_enrollment_enabled,
           related_product_ids, related_product_names,
           turmas:smartops_course_turmas (
-            id, label, turma_number, slots, enrolled_count, active,
+            id, label, turma_number, slots, enrolled_count, active, live_url,
             recurrence_parent_id, recurrence_index, sort_order,
             factory_status, factory_processed_at,
             factory_drive_folder_id, factory_drive_folder_url,
