@@ -286,18 +286,18 @@ export default function AgendaPublica({ variant = "presencial" }: AgendaPublicaP
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .from("smartops_courses")
-        .select("id, modality, category, description")
+        .select("*")
         .eq("active", true)
         .in("modality", config.modalities)
         .in("category", config.categories);
       if (error) throw error;
-      return (data ?? []) as { id: string; description?: string | null }[];
+      return (data ?? []) as any[];
     },
   });
-  const publicCourseIds = useMemo(() => publicCourses.map((c) => c.id), [publicCourses]);
+  const publicCourseIds = useMemo(() => publicCourses.map((c) => c.id as string), [publicCourses]);
   const courseDescriptions = useMemo(() => {
     const m: Record<string, string> = {};
-    for (const c of publicCourses) if (c.description) m[c.id] = c.description;
+    for (const c of publicCourses) if (c.description) m[c.id] = c.description as string;
     return m;
   }, [publicCourses]);
 
@@ -325,13 +325,13 @@ export default function AgendaPublica({ variant = "presencial" }: AgendaPublicaP
     const nowMs = Date.now();
     // Presencial: mantém o curso visível por 12h após o término, para o time de
     // marketing finalizar o envio de fotos e vídeos.
-    // Online: sessões já realizadas continuam visíveis no card (30 dias) com o
-    // status "Realizado".
-    const GRACE_MS = (variant === "online" ? 30 * 24 : 12) * 60 * 60 * 1000;
+    const GRACE_MS = 12 * 60 * 60 * 1000;
     const allowed = new Set(publicCourseIds);
     return allTurmas
       .filter((t) => allowed.has(t.course_id))
       .filter((t) => {
+        // Online: sessões já realizadas continuam visíveis no card, com status "Realizado".
+        if (variant === "online") return true;
         const endDate = t.end_date || t.start_date;
         if (!endDate) return true;
         const endTime = (t.end_time || "23:59").substring(0, 5);
@@ -342,7 +342,8 @@ export default function AgendaPublica({ variant = "presencial" }: AgendaPublicaP
   }, [allTurmas, publicCourseIds, variant]);
 
 
-  // Para Online ao Vivo / Online: 1 card por curso, com todas as turmas dentro.
+  // Para Online ao Vivo / Online: 1 card por curso ativo (mesmo sem turmas agendadas),
+  // com todas as sessões dentro.
   const onlineCourseGroups = useMemo(() => {
     if (variant !== "online") return [];
     const map = new Map<string, TurmaComVagas[]>();
@@ -351,13 +352,22 @@ export default function AgendaPublica({ variant = "presencial" }: AgendaPublicaP
       arr.push(t);
       map.set(t.course_id, arr);
     }
-    return Array.from(map.entries())
-      .map(([course_id, list]) => ({
-        course_id,
-        turmas: list.sort((a, b) => (a.start_date || "").localeCompare(b.start_date || "")),
+    const today = new Date().toISOString().slice(0, 10);
+    return publicCourses
+      .map((c) => ({
+        course_id: c.id as string,
+        course: c,
+        turmas: (map.get(c.id as string) || []).sort(
+          (a, b) => (a.start_date || "").localeCompare(b.start_date || ""),
+        ),
       }))
-      .sort((a, b) => (a.turmas[0]?.start_date || "").localeCompare(b.turmas[0]?.start_date || ""));
-  }, [turmas, variant]);
+      .sort((a, b) => {
+        const nextOf = (list: TurmaComVagas[]) =>
+          list.map((t) => t.start_date || "").filter((d) => d >= today).sort()[0] || "9999";
+        return nextOf(a.turmas).localeCompare(nextOf(b.turmas));
+      });
+  }, [turmas, variant, publicCourses]);
+
 
   // Pastas do Drive (só para Team Members): habilita o upload de mídias direto do celular.
   const isTeamMember = useTeamMemberSession();
@@ -427,7 +437,7 @@ export default function AgendaPublica({ variant = "presencial" }: AgendaPublicaP
 
         {isLoading ? (
           <div className="pp-empty">Carregando...</div>
-        ) : turmas.length === 0 ? (
+        ) : (variant === "online" ? onlineCourseGroups.length === 0 : turmas.length === 0) ? (
           <div className="pp-empty">
             <CalendarDays className="w-12 h-12 mx-auto mb-3 opacity-50" />
             <p>{config.emptyLabel}</p>
@@ -438,6 +448,7 @@ export default function AgendaPublica({ variant = "presencial" }: AgendaPublicaP
               <PublicOnlineCourseCard
                 key={g.course_id}
                 sessions={g.turmas}
+                course={g.course}
                 description={courseDescriptions[g.course_id]}
                 canUpload={isTeamMember}
                 driveFolders={driveFolders}
@@ -755,34 +766,43 @@ function SessionStatus({ startDate, startTime, endDate, endTime }: {
 
 function PublicOnlineCourseCard({
   sessions,
+  course,
   description,
   canUpload = false,
   driveFolders = {},
 }: {
   sessions: TurmaComVagas[];
+  course?: any;
   description?: string;
   canUpload?: boolean;
   driveFolders?: Record<string, { id: string | null; url: string | null }>;
 }) {
   const getCountdown = useCountdown();
-  if (sessions.length === 0) return null;
-  const first = sessions[0];
-  const coverUrl = (first as any).cover_image_url as string | undefined;
-  const products = (first as any).related_product_names as string[] | undefined;
-  const slug = (first as any).course_slug as string | undefined;
-  const publicEnabled = Boolean((first as any).public_enrollment_enabled);
-  const externalUrl = (first as any).signup_form_url as string | undefined;
+  if (sessions.length === 0 && !course) return null;
+  // Metadados vêm da turma quando existe; senão, do próprio curso.
+  const first = (sessions[0] ?? {
+    id: (course as any)?.id,
+    course_id: (course as any)?.id,
+    course_title: (course as any)?.title,
+    modality: (course as any)?.modality,
+    instructor_name: (course as any)?.instructor_name,
+  }) as TurmaComVagas;
+  const meta = (sessions[0] ?? course ?? {}) as any;
+  const coverUrl = (meta.cover_image_url ?? (course as any)?.cover_image_url) as string | undefined;
+  const products = (meta.related_product_names ?? (course as any)?.related_product_names) as string[] | undefined;
+  const slug = (meta.course_slug ?? (course as any)?.slug) as string | undefined;
+  const publicEnabled = Boolean(meta.public_enrollment_enabled ?? (course as any)?.public_enrollment_enabled);
+  const externalUrl = (meta.signup_form_url ?? (course as any)?.signup_form_url) as string | undefined;
   const href = publicEnabled && slug ? `/inscricao/${slug}` : externalUrl;
   const isInternal = href?.startsWith("/");
 
   // Próxima sessão (mais perto de hoje) para o cronômetro destacado.
   const today = new Date().toISOString().slice(0, 10);
-  const upcoming = sessions.find((s) => (s.start_date || "") >= today) || first;
-  const upcomingStatus = getCountdown(
-    upcoming.start_date, upcoming.start_time,
-    upcoming.end_date, upcoming.end_time, upcoming.modality,
-  );
-  const showLiveTimer = upcomingStatus && (upcomingStatus.variant === "green" || upcomingStatus.variant === "amber");
+  const upcoming = sessions.find((s) => (s.start_date || "") >= today) || sessions[0];
+  const upcomingStatus = upcoming
+    ? getCountdown(upcoming.start_date, upcoming.start_time, upcoming.end_date, upcoming.end_time, upcoming.modality)
+    : null;
+  const showLiveTimer = !!upcoming && !!upcomingStatus && (upcomingStatus.variant === "green" || upcomingStatus.variant === "amber");
 
   // Sessões futuras/ao vivo primeiro (crescente); realizadas depois (mais recentes antes).
   const orderedSessions = [...sessions].sort((a, b) => {
@@ -817,14 +837,14 @@ function PublicOnlineCourseCard({
       <div className="p-5 flex flex-col flex-1">
         <div className="mb-3 flex items-center gap-2 flex-wrap">
           {!coverUrl && <LiveBadge modality={first.modality} />}
-          {showLiveTimer && (
+          {upcoming && upcomingStatus && showLiveTimer && (
             <span className={cn("inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-mono font-semibold tabular-nums", STATUS_PILL[upcomingStatus.variant])}>
               <span className={cn("w-1.5 h-1.5 rounded-full animate-pulse", STATUS_DOT[upcomingStatus.variant])} />
               <LiveCountdownInline startDate={upcoming.start_date} startTime={upcoming.start_time} fallback={upcomingStatus.label} />
             </span>
           )}
           <span className="inline-flex items-center px-1.5 py-0 rounded text-[10px] font-semibold bg-primary/10 text-primary border border-primary/20">
-            {sessions.length} {sessions.length === 1 ? "sessão" : "sessões"}
+            {sessions.length === 0 ? "Datas em breve" : `${sessions.length} ${sessions.length === 1 ? "sessão" : "sessões"}`}
           </span>
         </div>
 
@@ -890,6 +910,11 @@ function PublicOnlineCourseCard({
               </div>
             );
           })}
+          {orderedSessions.length === 0 && (
+            <div className="px-3 py-3 text-xs text-muted-foreground text-center">
+              Novas datas em breve — inscreva-se para ser avisado.
+            </div>
+          )}
         </div>
 
 
