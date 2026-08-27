@@ -916,28 +916,9 @@ function PublicOnlineCourseCard({
           </div>
         )}
 
-        <div className="mt-auto flex items-end justify-between gap-3 pt-3 border-t">
-          <div className="flex flex-col gap-1.5 min-w-0">
-            {products && products.length > 0 && (
-              <div className="flex flex-wrap gap-1">
-                {products.slice(0, 4).map((name) => (
-                  <span key={name} className="inline-flex items-center px-2 py-0.5 rounded-md text-[10.5px] font-medium bg-sky-50 text-sky-700 dark:bg-sky-950/40 dark:text-sky-300 border border-sky-200/60 dark:border-sky-800/60" title={name}>
-                    {name}
-                  </span>
-                ))}
-                {products.length > 4 && (
-                  <span className="text-[10.5px] text-muted-foreground self-center">+{products.length - 4}</span>
-                )}
-              </div>
-            )}
-            {first.instructor_name && (
-              <span className="flex items-center gap-1.5 text-sm font-medium text-foreground truncate">
-                <User className="w-4 h-4 shrink-0 text-muted-foreground" />
-                {first.instructor_name}
-              </span>
-            )}
-          </div>
-        </div>
+        <div className="mt-auto" />
+
+
 
         {href && (
           <div className="mt-4 flex justify-center">
