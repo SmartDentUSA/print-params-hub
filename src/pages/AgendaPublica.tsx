@@ -776,24 +776,31 @@ function PublicOnlineCourseCard({
   driveFolders?: Record<string, { id: string | null; url: string | null }>;
 }) {
   const getCountdown = useCountdown();
-  if (sessions.length === 0) return null;
-  const first = sessions[0];
-  const coverUrl = (first as any).cover_image_url as string | undefined;
-  const products = (first as any).related_product_names as string[] | undefined;
-  const slug = (first as any).course_slug as string | undefined;
-  const publicEnabled = Boolean((first as any).public_enrollment_enabled);
-  const externalUrl = (first as any).signup_form_url as string | undefined;
+  if (sessions.length === 0 && !course) return null;
+  // Metadados vêm da turma quando existe; senão, do próprio curso.
+  const first = (sessions[0] ?? {
+    id: (course as any)?.id,
+    course_id: (course as any)?.id,
+    course_title: (course as any)?.title,
+    modality: (course as any)?.modality,
+    instructor_name: (course as any)?.instructor_name,
+  }) as TurmaComVagas;
+  const meta = (sessions[0] ?? course ?? {}) as any;
+  const coverUrl = (meta.cover_image_url ?? (course as any)?.cover_image_url) as string | undefined;
+  const products = (meta.related_product_names ?? (course as any)?.related_product_names) as string[] | undefined;
+  const slug = (meta.course_slug ?? (course as any)?.slug) as string | undefined;
+  const publicEnabled = Boolean(meta.public_enrollment_enabled ?? (course as any)?.public_enrollment_enabled);
+  const externalUrl = (meta.signup_form_url ?? (course as any)?.signup_form_url) as string | undefined;
   const href = publicEnabled && slug ? `/inscricao/${slug}` : externalUrl;
   const isInternal = href?.startsWith("/");
 
   // Próxima sessão (mais perto de hoje) para o cronômetro destacado.
   const today = new Date().toISOString().slice(0, 10);
-  const upcoming = sessions.find((s) => (s.start_date || "") >= today) || first;
-  const upcomingStatus = getCountdown(
-    upcoming.start_date, upcoming.start_time,
-    upcoming.end_date, upcoming.end_time, upcoming.modality,
-  );
-  const showLiveTimer = upcomingStatus && (upcomingStatus.variant === "green" || upcomingStatus.variant === "amber");
+  const upcoming = sessions.find((s) => (s.start_date || "") >= today) || sessions[0];
+  const upcomingStatus = upcoming
+    ? getCountdown(upcoming.start_date, upcoming.start_time, upcoming.end_date, upcoming.end_time, upcoming.modality)
+    : null;
+  const showLiveTimer = !!upcoming && !!upcomingStatus && (upcomingStatus.variant === "green" || upcomingStatus.variant === "amber");
 
   // Sessões futuras/ao vivo primeiro (crescente); realizadas depois (mais recentes antes).
   const orderedSessions = [...sessions].sort((a, b) => {
