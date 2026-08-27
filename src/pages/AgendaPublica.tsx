@@ -190,6 +190,7 @@ export default function AgendaPublica({ variant = "presencial" }: AgendaPublicaP
   const config = VARIANT_CONFIG[variant];
   const queryClient = useQueryClient();
   const getCountdown = useCountdown();
+  const [selectedProduct, setSelectedProduct] = useState<string>("");
 
   // Notify parent (when iframed) of content height so the host can auto-resize.
   useEffect(() => {
