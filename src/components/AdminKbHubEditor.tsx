@@ -15,7 +15,7 @@ import { Switch } from '@/components/ui/switch';
 
 type HeroKey =
   | 'overview' | 'parametros' | 'catalogo' | 'videos'
-  | 'artigos' | 'ebooks' | 'eventos' | 'distribuidores';
+  | 'artigos' | 'ebooks' | 'eventos' | 'distribuidores' | 'lives';
 
 interface HeroOverride { title?: string; subtitle?: string; image_url?: string }
 
@@ -27,6 +27,7 @@ const HERO_TABS: { key: HeroKey; label: string; defaults: { title: string; subti
   { key: 'artigos',        label: 'Artigos',        defaults: { title: 'Artigos',       subtitle: 'Artigos técnicos, casos clínicos e guias práticos.' } },
   { key: 'ebooks',         label: 'Ebooks',         defaults: { title: 'Ebooks',        subtitle: 'Materiais aprofundados para download.' } },
   { key: 'eventos',        label: 'Eventos',        defaults: { title: 'Eventos',       subtitle: 'Cursos, feiras e treinamentos.' } },
+  { key: 'lives',          label: 'Lives',          defaults: { title: 'Lives & Cursos Online', subtitle: 'Workshops, webinars e lives de produtos ao vivo da Smart Dent.' } },
   { key: 'distribuidores', label: 'Revendas',       defaults: { title: 'Revendas',      subtitle: 'Rede oficial de revendas Smart Dent.' } },
 ];
 

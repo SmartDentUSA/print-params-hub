@@ -245,7 +245,8 @@
       "artigos": "Artículos",
       "ebooks": "Ebooks",
       "distribuidores": "Revendedores",
-      "eventos": "Eventos"
+      "eventos": "Eventos",
+      "lives": "Lives"
     },
     "parametros": {
       "title": "Parámetros de Impresión 3D",
@@ -382,14 +383,42 @@
       "open_menu": "Abrir menú"
     },
     "hero": {
-      "overview":       { "title": "Base de Conocimiento", "subtitle": "Todo lo que necesitas para operar la odontología digital." },
-      "parametros":     { "title": "Parámetros",           "subtitle": "Parámetros de impresión probados por impresora y resina." },
-      "catalogo":       { "title": "Catálogo",             "subtitle": "Resinas, impresoras, escáneres y consumibles Smart Dent." },
-      "videos":         { "title": "Videos",               "subtitle": "Videos tutoriales, casos clínicos y testimonios." },
-      "artigos":        { "title": "Artículos",            "subtitle": "Artículos técnicos, casos clínicos y guías prácticas." },
-      "ebooks":         { "title": "Ebooks",               "subtitle": "Materiales en profundidad para descargar." },
-      "eventos":        { "title": "Eventos",              "subtitle": "Cursos, ferias y capacitaciones." },
-      "distribuidores": { "title": "Distribuidores",       "subtitle": "Red oficial de distribuidores Smart Dent." }
+      "overview": {
+        "title": "Base de Conocimiento",
+        "subtitle": "Todo lo que necesitas para operar la odontología digital."
+      },
+      "parametros": {
+        "title": "Parámetros",
+        "subtitle": "Parámetros de impresión probados por impresora y resina."
+      },
+      "catalogo": {
+        "title": "Catálogo",
+        "subtitle": "Resinas, impresoras, escáneres y consumibles Smart Dent."
+      },
+      "videos": {
+        "title": "Videos",
+        "subtitle": "Videos tutoriales, casos clínicos y testimonios."
+      },
+      "artigos": {
+        "title": "Artículos",
+        "subtitle": "Artículos técnicos, casos clínicos y guías prácticas."
+      },
+      "ebooks": {
+        "title": "Ebooks",
+        "subtitle": "Materiales en profundidad para descargar."
+      },
+      "eventos": {
+        "title": "Eventos",
+        "subtitle": "Cursos, ferias y capacitaciones."
+      },
+      "distribuidores": {
+        "title": "Distribuidores",
+        "subtitle": "Red oficial de distribuidores Smart Dent."
+      },
+      "lives": {
+        "title": "Lives y Cursos Online",
+        "subtitle": "Workshops, webinars y lives de productos en vivo de Smart Dent, con inscripciones abiertas."
+      }
     },
     "nav": {
       "overview": "Vista general",
@@ -399,7 +428,8 @@
       "ebooks": "Ebooks",
       "eventos": "Eventos",
       "distribuidores": "Distribuidores",
-      "parametros": "Parámetros"
+      "parametros": "Parámetros",
+      "lives": "Lives"
     },
     "sidebar_cta": {
       "title": "Soluciones de odontología digital",
