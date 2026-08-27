@@ -10,6 +10,7 @@ import {
   persistLiOrder,
   PAID_SITUACAO_CODIGOS,
 } from "../_shared/li-order-persist.ts";
+import { resolveLiEventDate, resolveLiCartDates } from "../_shared/li-event-date.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -942,7 +943,17 @@ Deno.serve(async (req) => {
     }
 
     // ─── Record timeline event in lead_activity_log (append-only, with dedup) ───
-    const orderDate = liPedidoData || new Date().toISOString();
+    // A data do evento é a do fato, não a da criação do pedido nem a de hoje:
+    // envio usa a data do envio, pagamento a da aprovação, e mudanças de
+    // situação usam data_modificacao. Antes tudo era carimbado com
+    // data_criacao, colapsando a jornada inteira num único instante.
+    const eventDate = resolveLiEventDate(order, eventType);
+    const orderDate = eventDate.iso;
+    if (!eventDate.confiavel) {
+      console.warn(
+        `[ecommerce-webhook] pedido=${numeroPedido} event=${eventType} sem data no payload — usando relógio do servidor`,
+      );
+    }
     const activityEntityId = numeroPedido ? String(numeroPedido) : null;
     // Insert directly — DB unique partial index handles dedup (no more race conditions)
     const { error: actInsertErr } = await supabase.from("lead_activity_log").insert({
@@ -962,6 +973,8 @@ Deno.serve(async (req) => {
         produtos: productNames,
         tags_added: tagsToAdd,
         fonte: "loja_integrada",
+        // De onde saiu o event_timestamp, para auditar a qualidade da data.
+        data_fonte: eventDate.fonte,
         tracking: liTrackingCode,
         parcelas: liParcelas,
         bandeira: liBandeiraCartao,
@@ -1049,6 +1062,7 @@ Deno.serve(async (req) => {
     }
 
     // ─── Populate lead_cart_history for unpaid orders ───
+    const cartDates = resolveLiCartDates(order, eventType);
     const cartStatuses = ["order_created", "boleto_generated", "boleto_expired"];
     if (cartStatuses.includes(eventType) && numeroPedido && items.length > 0) {
       const cartItems = items.map((item) => ({
@@ -1062,9 +1076,10 @@ Deno.serve(async (req) => {
         cart_id: String(numeroPedido),
         items: cartItems,
         total_value: valorTotal || 0,
-        created_at: liPedidoData || new Date().toISOString(),
+        created_at: cartDates.criadoEm,
         status: eventType === "boleto_expired" ? "abandoned" : "active",
-        abandoned_at: eventType === "boleto_expired" ? (liPedidoData || new Date().toISOString()) : null,
+        // O abandono é a data em que a situação mudou, não a da criação.
+        abandoned_at: cartDates.abandonadoEm,
         abandoned_reason: eventType === "boleto_expired" ? "boleto_vencido" : null,
       }, { onConflict: "cart_id" }).then(({ error: cartErr }) => {
         if (cartErr) console.warn("[ecommerce-webhook] cart_history upsert error:", cartErr.message);

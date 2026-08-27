@@ -14,6 +14,11 @@ verify_jwt = false
 [functions.smart-ops-li-backfill-items]
 verify_jwt = false
 
+# Correção das datas de eventos da Loja Integrada na timeline do lead.
+# Protegida por x-import-secret dentro da própria função.
+[functions.smart-ops-li-fix-timeline-dates]
+verify_jwt = false
+
 [functions.smart-ops-gmail-bounce-scan]
 verify_jwt = false
 
