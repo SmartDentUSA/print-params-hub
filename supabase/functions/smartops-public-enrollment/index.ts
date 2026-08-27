@@ -369,7 +369,8 @@ Deno.serve(async (req) => {
 
     // 5. Histórico de conversão — só na primeira inscrição desta turma.
     if (!reusedEnrollment) {
-      await supabase.from("lead_conversion_history").insert({
+      // supabase-js resolve com `{ error }` em vez de rejeitar — logar o erro.
+      const { error: convErr } = await supabase.from("lead_conversion_history").insert({
         lead_id: leadId,
         conversion_type: "inscricao_curso",
         conversion_date: new Date().toISOString(),
@@ -381,8 +382,10 @@ Deno.serve(async (req) => {
           produtos: productNames,
           source: "public_enrollment_form",
         },
-      }).then(() => {}, (e) => console.warn("[conversion]", e));
+      });
+      if (convErr) console.error("[conversion]", JSON.stringify(convErr));
     }
+
 
     // 7. Activity log
     const qaLines = (body.qualification?.form_responses ?? []).map(
