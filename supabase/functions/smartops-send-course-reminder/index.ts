@@ -62,6 +62,14 @@ Deno.serve(async (req) => {
   const failed: Array<{ id: string; error: string }> = [];
 
   try {
+    // Configuração editável na UI (Automações → "Automações sem UI").
+    const auto = await getWaAutomationSetting(supabase, "course_reminder_1h");
+    if (!auto.ativo) {
+      return new Response(JSON.stringify({ ok: true, skipped: "automacao_desligada", sent: [], failed: [] }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     // Janela: agora .. agora+5min (cron roda a cada 5min)
     const now = new Date();
     const horizon = new Date(now.getTime() + 5 * 60 * 1000);
