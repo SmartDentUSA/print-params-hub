@@ -218,7 +218,7 @@ export default function KbTabDistribuidores({ country: externalCountry }: KbTabD
         <KbChips options={countryChips} active={country} onChange={setCountryLocal} />
       )}
       {!loading && <KbResultCount count={filtered.length} noun="distributor" />}
-      <div className="kb-dgrid" style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
+      <div className="kb-dgrid cols-3">
         {loading ? (
           <div className="kb-skeleton-grid">
             {Array.from({ length: 6 }).map((_, i) => (

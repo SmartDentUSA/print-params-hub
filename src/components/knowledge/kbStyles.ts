@@ -148,7 +148,11 @@ export const kbStyles = `
   display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px;
 }
 .kb-dgrid .kb-empty { grid-column: 1 / -1; }
-@media (max-width: 768px)  { .kb-dgrid { grid-template-columns: 1fr; } }
+.kb-dgrid.cols-3 { grid-template-columns: repeat(3, 1fr); }
+.kb-dgrid.cols-4 { grid-template-columns: repeat(4, 1fr); }
+@media (max-width: 1100px) { .kb-dgrid.cols-4 { grid-template-columns: repeat(3, 1fr); } .kb-dgrid.cols-3 { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 900px)  { .kb-dgrid.cols-4 { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 768px)  { .kb-dgrid { grid-template-columns: 1fr !important; } }
 
 /* Card */
 .kb-card {
