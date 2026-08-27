@@ -754,7 +754,10 @@ async function postRichSellerNote(
   lead: Record<string, unknown>,
   supabase: ReturnType<typeof createClient>,
   formResponses?: Array<{ label?: string; value?: unknown }>,
-  opts: { headerPrefix?: string } = {},
+  opts: {
+    headerPrefix?: string;
+    dealContext?: { pipelineName?: string | null; stageName?: string | null; ownerName?: string | null };
+  } = {},
 ): Promise<void> {
   const leadId = lead.id as string | undefined;
   let html = "";
@@ -768,8 +771,49 @@ async function postRichSellerNote(
         value: String((r as Record<string, unknown>).value ?? ""),
       }));
 
-    const built = await buildSellerDealSummaryHTML(supabase, lead, {
-      highlightFormName: lead.form_name as string | undefined,
+    // ── Snapshot fresco + hidratação do deal recém-criado ─────────────────
+    // O objeto `lead` em memória foi lido ANTES da criação do deal, então a
+    // seção CRM da nota saía com "Total de deals: 0 / Vendedor — / Etapa —".
+    // Relê a linha e injeta o deal atual no histórico quando o sync ainda não
+    // rodou, para a nota nunca contradizer o próprio deal onde é publicada.
+    const noteLead: Record<string, unknown> = { ...lead };
+    if (leadId) {
+      try {
+        const { data: fresh } = await supabase
+          .from("lia_attendances")
+          .select("*")
+          .eq("id", leadId)
+          .maybeSingle();
+        if (fresh) {
+          for (const [k, v] of Object.entries(fresh as Record<string, unknown>)) {
+            if (v !== null && v !== undefined && v !== "") noteLead[k] = v;
+          }
+        }
+      } catch (e) {
+        console.warn("[lia-assign] fresh lead re-fetch failed for seller note:", e);
+      }
+    }
+    const history = Array.isArray(noteLead.piperun_deals_history)
+      ? [...(noteLead.piperun_deals_history as Array<Record<string, unknown>>)]
+      : [];
+    const ctx = opts.dealContext || {};
+    if (!history.some((d) => String(d?.deal_id ?? d?.id ?? "") === String(dealId))) {
+      history.push({
+        deal_id: dealId,
+        pipeline_name: ctx.pipelineName ?? noteLead.piperun_pipeline_name ?? null,
+        stage_name: ctx.stageName ?? noteLead.piperun_stage_name ?? null,
+        status: "aberta",
+        created_at: new Date().toISOString(),
+      });
+    }
+    noteLead.piperun_deals_history = history;
+    if (!noteLead.proprietario_lead_crm && ctx.ownerName) noteLead.proprietario_lead_crm = ctx.ownerName;
+    if (!noteLead.status_atual_lead_crm && (ctx.stageName ?? noteLead.piperun_stage_name)) {
+      noteLead.status_atual_lead_crm = ctx.stageName ?? noteLead.piperun_stage_name;
+    }
+
+    const built = await buildSellerDealSummaryHTML(supabase, noteLead, {
+      highlightFormName: noteLead.form_name as string | undefined,
       highlightFormResponses: highlightFormResponses.length ? highlightFormResponses : undefined,
       dealId,
     });
@@ -983,7 +1027,9 @@ async function createNewDeal(
       // Add structured HTML note for PipeRun
       // Gate: briefing somente para criação em Funil Comercial (VENDAS) / Sem contato.
       if (pipelineId === PIPELINES.VENDAS && stageId === STAGES_VENDAS.SEM_CONTATO) {
-        await postRichSellerNote(apiToken, Number(dealId), lead, supabase, formResponses);
+        await postRichSellerNote(apiToken, Number(dealId), lead, supabase, formResponses, {
+          dealContext: { pipelineName: "Funil de vendas", stageName: "Sem contato" },
+        });
       } else {
         console.log(`[lia-assign] Skip seller briefing on createNewDeal — pipeline=${pipelineId} stage=${stageId} (only VENDAS/SEM_CONTATO posts briefing)`);
       }
