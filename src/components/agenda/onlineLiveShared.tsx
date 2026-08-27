@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
-import { User } from "lucide-react";
+import { User, Share2, Check } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { formatTurmaNumber } from "@/lib/turmaNumber";
 import { cn } from "@/lib/utils";
+import { getPublicOrigin } from "@/utils/publicOrigin";
 import type { TurmaComVagas } from "@/types/courses";
 import { UploadMidiasDriveButton } from "@/components/smartops/UploadMidiasDriveButton";
 
