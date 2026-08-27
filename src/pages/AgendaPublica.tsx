@@ -438,6 +438,7 @@ export default function AgendaPublica({ variant = "presencial" }: AgendaPublicaP
               <PublicOnlineCourseCard
                 key={g.course_id}
                 sessions={g.turmas}
+                description={courseDescriptions[g.course_id]}
                 canUpload={isTeamMember}
                 driveFolders={driveFolders}
               />
