@@ -64,37 +64,6 @@ const MODALITY_LABEL: Record<string, string> = {
   gravado: "Gravado",
 };
 
-type Variant = "green" | "amber" | "red" | "blue" | "muted";
-type CountdownResult = { label: string; variant: Variant } | null;
-
-function useCountdown(tickMs = 60_000) {
-  const [now, setNow] = useState(Date.now());
-  useEffect(() => {
-    const t = setInterval(() => setNow(Date.now()), tickMs);
-    return () => clearInterval(t);
-  }, [tickMs]);
-  return (startDate?: string, startTime?: string, endDate?: string, endTime?: string, modality?: string): CountdownResult => {
-    if (!startDate) return null;
-    const sTime = startTime?.substring(0, 5) ?? "09:00";
-    const eDate = endDate ?? startDate;
-    const eTime = endTime?.substring(0, 5) ?? "18:00";
-    const startMs = new Date(`${startDate}T${sTime}:00`).getTime();
-    const endMs = new Date(`${eDate}T${eTime}:00`).getTime();
-    const diffStart = startMs - now;
-    const daysUntil = Math.ceil(diffStart / 86400000);
-    if (now >= endMs) return { label: "Curso realizado", variant: "muted" };
-    if (now >= startMs) return { label: "Acontecendo agora", variant: "blue" };
-    if (modality === "presencial") {
-      if (daysUntil <= 3) return { label: "Inscrições encerradas", variant: "red" };
-      if (daysUntil <= 7) return { label: `Faltam ${daysUntil} dias para encerrar inscrições`, variant: "amber" };
-      return { label: "Inscrições abertas", variant: "green" };
-    }
-    const d = Math.floor(diffStart / 86400000);
-    const h = Math.floor((diffStart % 86400000) / 3600000);
-    const m = Math.floor((diffStart % 3600000) / 60000);
-    return { label: `${d}d ${h}h ${m}m`, variant: "green" };
-  };
-}
 
 /** Timer ao vivo (ticka a cada 1s) exibido junto ao status para criar urgência. */
 function LiveCountdown({ startDate, startTime }: { startDate?: string; startTime?: string }) {
