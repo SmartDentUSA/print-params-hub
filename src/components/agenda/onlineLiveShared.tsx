@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { User, Share2, Check } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { formatTurmaNumber } from "@/lib/turmaNumber";
 import { cn } from "@/lib/utils";
 import { getPublicOrigin } from "@/utils/publicOrigin";
 import type { TurmaComVagas } from "@/types/courses";
@@ -350,8 +349,7 @@ export function PublicOnlineCourseCard({
         )}
 
         <div className="rounded-lg border bg-muted/30 divide-y divide-border/70 mb-4">
-          <div className="grid grid-cols-[auto_auto_1fr_1fr_auto_auto] gap-3 px-3 py-1.5 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold bg-muted/50">
-            <span>Turma</span>
+          <div className="grid grid-cols-[auto_1fr_1fr_auto_auto] gap-3 px-3 py-1.5 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold bg-muted/50">
             <span>Dia</span>
             <span>Início</span>
             <span>Fim</span>
@@ -361,13 +359,9 @@ export function PublicOnlineCourseCard({
           {orderedSessions.map((s) => {
             const start = hhmm(s.start_time);
             const end = hhmm(s.end_time);
-            const tag = formatTurmaNumber(s.turma_number, s.modality);
             const dur = computeDur(start, end);
             return (
-              <div key={s.id} className="grid grid-cols-[auto_auto_1fr_1fr_auto_auto] items-center gap-3 px-3 py-2 text-xs">
-                <span className="inline-flex items-center px-1.5 py-0 rounded text-[10px] font-semibold bg-primary/10 text-primary border border-primary/20">
-                  {tag ? `#${tag}` : "—"}
-                </span>
+              <div key={s.id} className="grid grid-cols-[auto_1fr_1fr_auto_auto] items-center gap-3 px-3 py-2 text-xs">
                 <span className="font-semibold tabular-nums text-foreground">{fmtShort(s.start_date)}</span>
                 <span className="text-muted-foreground tabular-nums">{start || "—"}</span>
                 <span className="text-muted-foreground tabular-nums">{end || "—"}</span>
