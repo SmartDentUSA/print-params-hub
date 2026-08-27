@@ -29106,6 +29106,25 @@ export type Database = {
           },
         ]
       }
+      rag_v3_source_quality: {
+        Row: {
+          avg_authority: number | null
+          blocked: number | null
+          generated: number | null
+          reviewed_or_validated: number | null
+          source_type: string | null
+          sources: number | null
+        }
+        Relationships: []
+      }
+      rag_v3_stats: {
+        Row: {
+          active: number | null
+          metric: string | null
+          total: number | null
+        }
+        Relationships: []
+      }
       system_integration_status: {
         Row: {
           category: string | null
@@ -35718,6 +35737,60 @@ export type Database = {
           whatsapp: string
           won_deals: number
         }[]
+      }
+      rag_v3_exact_search: {
+        Args: {
+          filter_language?: string
+          match_count?: number
+          min_authority?: number
+          query_text: string
+        }
+        Returns: {
+          authority_level: number
+          chunk_id: string
+          chunk_text: string
+          metadata: Json
+          rank: number
+          source_id: string
+          source_type: string
+          title: string
+          validation_status: string
+        }[]
+      }
+      rag_v3_hybrid_search: {
+        Args: {
+          filter_language?: string
+          filter_source_types?: string[]
+          match_count?: number
+          min_authority?: number
+          query_embedding: string
+          query_embedding_model: string
+          query_text: string
+        }
+        Returns: {
+          authority_level: number
+          chunk_id: string
+          chunk_text: string
+          hybrid_score: number
+          lexical_rank: number
+          metadata: Json
+          semantic_rank: number
+          similarity: number
+          source_id: string
+          source_type: string
+          title: string
+          validation_status: string
+        }[]
+      }
+      rag_v3_retrieval_context: {
+        Args: {
+          filter_language?: string
+          match_count?: number
+          query_embedding?: string
+          query_embedding_model?: string
+          query_text: string
+        }
+        Returns: Json
       }
       refresh_copilot_brain: { Args: { p_force?: boolean }; Returns: Json }
       refresh_vw_vendas_ganhas: { Args: never; Returns: undefined }
