@@ -837,14 +837,14 @@ function PublicOnlineCourseCard({
       <div className="p-5 flex flex-col flex-1">
         <div className="mb-3 flex items-center gap-2 flex-wrap">
           {!coverUrl && <LiveBadge modality={first.modality} />}
-          {showLiveTimer && (
+          {upcoming && upcomingStatus && showLiveTimer && (
             <span className={cn("inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-mono font-semibold tabular-nums", STATUS_PILL[upcomingStatus.variant])}>
               <span className={cn("w-1.5 h-1.5 rounded-full animate-pulse", STATUS_DOT[upcomingStatus.variant])} />
               <LiveCountdownInline startDate={upcoming.start_date} startTime={upcoming.start_time} fallback={upcomingStatus.label} />
             </span>
           )}
           <span className="inline-flex items-center px-1.5 py-0 rounded text-[10px] font-semibold bg-primary/10 text-primary border border-primary/20">
-            {sessions.length} {sessions.length === 1 ? "sessão" : "sessões"}
+            {sessions.length === 0 ? "Datas em breve" : `${sessions.length} ${sessions.length === 1 ? "sessão" : "sessões"}`}
           </span>
         </div>
 
