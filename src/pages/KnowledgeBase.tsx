@@ -388,6 +388,7 @@ export default function KnowledgeBase({ lang = 'pt', forcedTab }: KnowledgeBaseP
               )}
               {tab === 'distribuidores' && <KbTabDistribuidores country={activeCountry} />}
               {tab === 'eventos' && <KbTabEventos />}
+              {tab === 'lives' && <KbTabLives />}
             </>
           )}
         </KbShellLayout>
@@ -416,6 +417,7 @@ export default function KnowledgeBase({ lang = 'pt', forcedTab }: KnowledgeBaseP
         {tab === 'catalogo' && <KbTabCatalogo />}
         {tab === 'distribuidores' && <KbTabDistribuidores />}
         {tab === 'eventos' && <KbTabEventos />}
+        {tab === 'lives' && <KbTabLives />}
       </main>
 
       <Dialog open={dialogOpen} onOpenChange={(o) => { if (!o) closeDialog(); }}>
