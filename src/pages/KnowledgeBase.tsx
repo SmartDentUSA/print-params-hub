@@ -15,6 +15,7 @@ import KbTabEbooks from '@/components/knowledge/KbTabEbooks';
 import KbTabCatalogo from '@/components/knowledge/KbTabCatalogo';
 import KbTabDistribuidores from '@/components/knowledge/KbTabDistribuidores';
 import KbTabEventos from '@/components/knowledge/KbTabEventos';
+import KbTabLives from '@/components/knowledge/KbTabLives';
 import { kbStyles } from '@/components/knowledge/kbStyles';
 import KbShellLayout, { type KbShellNavKey } from '@/components/knowledge/shell/KbShellLayout';
 import { kbShellStyles } from '@/components/knowledge/shell/kbShellStyles';
@@ -43,7 +44,7 @@ const LETTER_TO_TAB: Record<string, KbTab> = {
 function getInitialTab(letter?: string, forcedTab?: KbTab): KbTab {
   if (forcedTab) return forcedTab;
   const fromUrl = new URLSearchParams(window.location.search).get('tab') as KbTab | null;
-  if (fromUrl && ['parametros','catalogo','videos','artigos','ebooks','distribuidores','eventos'].includes(fromUrl)) return fromUrl;
+  if (fromUrl && ['parametros','catalogo','videos','artigos','ebooks','distribuidores','eventos','lives'].includes(fromUrl)) return fromUrl;
   if (letter && LETTER_TO_TAB[letter.toLowerCase()]) return LETTER_TO_TAB[letter.toLowerCase()];
   return 'parametros';
 }
@@ -88,7 +89,7 @@ export default function KnowledgeBase({ lang = 'pt', forcedTab }: KnowledgeBaseP
   const [sidebarCta, setSidebarCta] = useState<{ enabled?: boolean; title?: string; subtitle?: string; cta_label?: string; cta_url?: string }>({});
   useEffect(() => {
     (async () => {
-      const heroKeys = ['overview','parametros','catalogo','videos','artigos','ebooks','eventos','distribuidores'] as const;
+      const heroKeys = ['overview','parametros','catalogo','videos','artigos','ebooks','eventos','distribuidores','lives'] as const;
       const { data: heroRows } = await supabase
         .from('site_settings')
         .select('key, value')
