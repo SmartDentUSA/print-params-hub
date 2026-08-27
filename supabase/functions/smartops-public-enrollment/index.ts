@@ -422,7 +422,9 @@ Deno.serve(async (req) => {
         .then(() => {}, (e) => console.warn("[activity-answers]", e));
     }
 
-    let showNps = isExistingClient || Boolean(body.is_client_smartdent);
+    // NPS só para cliente CONFIRMADO no banco (proposta ganha / funil CS / ERP).
+    // Dizer "sou cliente" no formulário não libera o NPS.
+    let showNps = isExistingClient;
 
     // NPS de demonstrações é obrigatório apenas 1x a cada 30 dias por lead/email.
     if (showNps) {
