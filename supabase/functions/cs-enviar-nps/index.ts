@@ -78,6 +78,14 @@ Deno.serve(async (req) => {
   };
 
   try {
+    // Configuração editável na UI (Automações → "Automações sem UI").
+    const auto = await getWaAutomationSetting(supabase, "course_nps_whatsapp");
+    if (!auto.ativo) {
+      return new Response(JSON.stringify({ ok: true, skipped: "automacao_desligada", elegiveis: 0, enviados: 0 }), {
+        status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     // Body opcional: { backfill_days: N } reenvia para todas as turmas encerradas
     // nos últimos N dias cujos participantes nunca receberam a pesquisa.
     let backfillDays = 0;
@@ -89,6 +97,7 @@ Deno.serve(async (req) => {
       const l = Number(body?.limit);
       if (Number.isFinite(l) && l > 0) maxEnvios = Math.min(Math.floor(l), 200);
     } catch { /* sem body = modo cron diário */ }
+
 
     const yesterday = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);
     const q = supabase.from("smartops_course_turmas").select("id, label, end_date");
