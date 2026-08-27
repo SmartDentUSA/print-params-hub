@@ -827,6 +827,7 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
 
           // UPDATE/INSERT days
           for (const day of turma.days) {
+            if (!day.date) continue; // linha em branco semeada pelo editor — não gravar
             if (day.id) {
               await (supabase as any)
                 .from("smartops_turma_days")
@@ -869,8 +870,9 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
           turmaId = newTurma.id;
 
           // PASSO 3: INSERT days (batch)
-          if (turma.days.length > 0) {
-            const daysPayload = turma.days.map((d) => ({
+          const validDays = turma.days.filter((d) => d.date);
+          if (validDays.length > 0) {
+            const daysPayload = validDays.map((d) => ({
               turma_id: turmaId,
               day_number: d.day_number,
               date: d.date,
