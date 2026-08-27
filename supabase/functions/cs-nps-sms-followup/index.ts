@@ -2,6 +2,7 @@
 // Cron diário 08:00 (America/Sao_Paulo) + modo manual "Enviar agora".
 // Envia o MESMO link exclusivo do participante (nps_token) enviado antes no WhatsApp.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { getWaAutomationSetting } from "../_shared/wa-automation-settings.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
