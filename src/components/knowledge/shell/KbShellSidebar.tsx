@@ -1,4 +1,4 @@
-import { LayoutGrid, PlaySquare, FileText, BookOpen, Calendar, Store, Sliders, Home, Layers } from 'lucide-react';
+import { LayoutGrid, PlaySquare, FileText, BookOpen, Calendar, Store, Sliders, Home, Layers, Radio } from 'lucide-react';
 import type { KbTab } from '../KbTabSwitcher';
 import { useLanguage } from '@/contexts/LanguageContext';
 
