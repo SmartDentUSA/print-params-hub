@@ -323,9 +323,11 @@ export default function AgendaPublica({ variant = "presencial" }: AgendaPublicaP
 
   const turmas = useMemo(() => {
     const nowMs = Date.now();
-    // Mantém o curso visível por 12h após o término, para o time de marketing
-    // finalizar o envio de fotos e vídeos.
-    const GRACE_MS = 12 * 60 * 60 * 1000;
+    // Presencial: mantém o curso visível por 12h após o término, para o time de
+    // marketing finalizar o envio de fotos e vídeos.
+    // Online: sessões já realizadas continuam visíveis no card (30 dias) com o
+    // status "Realizado".
+    const GRACE_MS = (variant === "online" ? 30 * 24 : 12) * 60 * 60 * 1000;
     const allowed = new Set(publicCourseIds);
     return allTurmas
       .filter((t) => allowed.has(t.course_id))
@@ -337,7 +339,8 @@ export default function AgendaPublica({ variant = "presencial" }: AgendaPublicaP
         return Number.isFinite(endMs) ? endMs + GRACE_MS > nowMs : true;
       })
       .sort((a, b) => (a.start_date || "").localeCompare(b.start_date || ""));
-  }, [allTurmas, publicCourseIds]);
+  }, [allTurmas, publicCourseIds, variant]);
+
 
   // Para Online ao Vivo / Online: 1 card por curso, com todas as turmas dentro.
   const onlineCourseGroups = useMemo(() => {
