@@ -282,6 +282,15 @@ export function PublicOnlineCourseCard({
         <div className="relative w-full aspect-[16/9] bg-muted overflow-hidden">
           <img src={coverUrl} alt={first.course_title || "Curso"} className="w-full h-full object-cover" loading="lazy" />
           <LiveBadge modality={first.modality} className="absolute top-2 left-2" />
+          <button
+            type="button"
+            onClick={handleShare}
+            className="absolute top-2 right-2 inline-flex items-center justify-center w-8 h-8 rounded-full bg-white/90 text-foreground shadow-sm hover:bg-white hover:scale-105 transition"
+            aria-label="Compartilhar"
+            title="Compartilhar"
+          >
+            {shared ? <Check className="w-4 h-4 text-emerald-600" /> : <Share2 className="w-4 h-4" />}
+          </button>
         </div>
       )}
       <div className="p-5 flex flex-col flex-1">
