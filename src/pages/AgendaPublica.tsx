@@ -451,21 +451,6 @@ export default function AgendaPublica({ variant = "presencial" }: AgendaPublicaP
   );
 }
 
-const STATUS_DOT: Record<Variant, string> = {
-  green: "bg-emerald-500",
-  amber: "bg-amber-500",
-  red: "bg-rose-500",
-  blue: "bg-sky-500",
-  muted: "bg-muted-foreground/50",
-};
-
-const STATUS_PILL: Record<Variant, string> = {
-  green: "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300",
-  amber: "bg-amber-50 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300",
-  red: "bg-rose-50 text-rose-700 dark:bg-rose-950/50 dark:text-rose-300",
-  blue: "bg-sky-50 text-sky-700 dark:bg-sky-950/50 dark:text-sky-300",
-  muted: "bg-muted text-muted-foreground",
-};
 
 function PublicTurmaCard({ turma, status, driveFolderId = null, driveFolderUrl = null }: {
   turma: TurmaComVagas;
