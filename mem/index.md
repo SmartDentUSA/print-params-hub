@@ -32,3 +32,4 @@
 - [Flows IG DM por gatilho](mem://features/ig-dm-trigger-flows) — zernio-dm-flows-sync gera 1 flow por formulário com palavra-gatilho e DM com link encurtado
 - [Provisionamento Zernio](mem://integration/zernio-social-flow-provisioning) — flow só dispara DM com zernio_automation_id; zernio-provision-flow tem modo batch
 
+- [Live Demo PipeRun Activity](mem://features/live-demo-piperun-activity) — Inscrição em live cria atividade "Live agendada" (Planejada, 60min, lembrete 5min) no deal atual

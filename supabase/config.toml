@@ -611,3 +611,6 @@ verify_jwt = false
 
 [functions.zernio-dm-flows-sync]
 verify_jwt = false
+
+[functions.smartops-live-demo-activity]
+verify_jwt = false
