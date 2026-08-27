@@ -437,7 +437,7 @@ export default function AgendaPublica({ variant = "presencial" }: AgendaPublicaP
 
         {isLoading ? (
           <div className="pp-empty">Carregando...</div>
-        ) : turmas.length === 0 ? (
+        ) : (variant === "online" ? onlineCourseGroups.length === 0 : turmas.length === 0) ? (
           <div className="pp-empty">
             <CalendarDays className="w-12 h-12 mx-auto mb-3 opacity-50" />
             <p>{config.emptyLabel}</p>
@@ -448,6 +448,7 @@ export default function AgendaPublica({ variant = "presencial" }: AgendaPublicaP
               <PublicOnlineCourseCard
                 key={g.course_id}
                 sessions={g.turmas}
+                course={g.course}
                 description={courseDescriptions[g.course_id]}
                 canUpload={isTeamMember}
                 driveFolders={driveFolders}
