@@ -438,6 +438,12 @@ export default function PublicCourseEnrollment() {
 
             {phase === "qualify" && (
               <div className="space-y-4">
+                {lookup && !lookup.found && (
+                  <div className="rounded-lg border border-border bg-muted/40 p-3 text-sm text-muted-foreground">
+                    Não encontramos seu cadastro de cliente com estes contatos. Sem problema —
+                    responda as perguntas abaixo para garantirmos sua vaga.
+                  </div>
+                )}
                 <div>
                   <p className="font-medium">Antes de confirmar sua vaga</p>
                   <p className="text-sm text-muted-foreground">
