@@ -11,6 +11,7 @@ const NAV: { key: NavKey; icon: React.ReactNode }[] = [
   { key: 'artigos',        icon: <FileText /> },
   { key: 'ebooks',         icon: <BookOpen /> },
   { key: 'eventos',        icon: <Calendar /> },
+  { key: 'lives',          icon: <Radio /> },
   { key: 'distribuidores', icon: <Store /> },
   { key: 'parametros',     icon: <Sliders /> },
 ];
