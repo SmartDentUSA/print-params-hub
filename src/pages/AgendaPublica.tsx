@@ -11,23 +11,18 @@ import { UploadMidiasDriveButton } from "@/components/smartops/UploadMidiasDrive
 import { DepoimentoUploadAccordion } from "@/components/agenda/DepoimentoUploadAccordion";
 import { PastTrainingsUploadAccordion } from "@/components/agenda/PastTrainingsUploadAccordion";
 import { AccountButton } from "@/components/AccountButton";
-
-/** Sessão autenticada + membro da equipe: o upload de mídias é exclusivo de Team Members. */
-function useTeamMemberSession() {
-  const [isTeam, setIsTeam] = useState(false);
-  useEffect(() => {
-    let alive = true;
-    const check = async (hasSession: boolean) => {
-      if (!hasSession) { if (alive) setIsTeam(false); return; }
-      const { data, error } = await (supabase as any).rpc("fn_is_team_member");
-      if (alive) setIsTeam(!error && data === true);
-    };
-    supabase.auth.getSession().then(({ data }) => check(!!data.session));
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => { check(!!s); });
-    return () => { alive = false; sub.subscription.unsubscribe(); };
-  }, []);
-  return isTeam;
-}
+import {
+  useTeamMemberSession,
+  publicPageStyles,
+  useCountdown,
+  LiveCountdownInline,
+  STATUS_DOT,
+  STATUS_PILL,
+  LiveBadge,
+  PublicOnlineCourseCard,
+  type StatusVariant as Variant,
+  type CountdownResult,
+} from "@/components/agenda/onlineLiveShared";
 
 type AgendaVariant = "presencial" | "online";
 
