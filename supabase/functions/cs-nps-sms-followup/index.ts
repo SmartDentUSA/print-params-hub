@@ -102,6 +102,16 @@ Deno.serve(async (req) => {
       force = Boolean(body?.force) || ids.length > 0;
     } catch { /* cron */ }
 
+    // Configuração editável na UI (Automações → "Automações sem UI").
+    // Envio manual ("Enviar agora") ignora o desligamento global.
+    const auto = await getWaAutomationSetting(supabase, "course_nps_sms_followup");
+    if (!auto.ativo && !force) {
+      return new Response(JSON.stringify({ ok: true, skipped: "automacao_desligada", elegiveis: 0, enviados: 0 }), {
+        status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+
     // Candidatos: NPS já enviado (WhatsApp) e sem resposta
     let q = supabase
       .from("smartops_course_enrollments")
