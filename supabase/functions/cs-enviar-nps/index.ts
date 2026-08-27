@@ -2,6 +2,7 @@
 // Envia o link de NPS (token opaco) por WhatsApp via instância CS (cs_principal).
 // Idempotente: nps_sent_at só é gravado após envio confirmado.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { getWaAutomationSetting } from "../_shared/wa-automation-settings.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
