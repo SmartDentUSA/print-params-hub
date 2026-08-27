@@ -21442,6 +21442,7 @@ export type Database = {
           id: string
           label: string
           launch_date: string | null
+          live_url: string | null
           location: string | null
           modality: string | null
           recurrence_index: number | null
@@ -21474,6 +21475,7 @@ export type Database = {
           id?: string
           label: string
           launch_date?: string | null
+          live_url?: string | null
           location?: string | null
           modality?: string | null
           recurrence_index?: number | null
@@ -21506,6 +21508,7 @@ export type Database = {
           id?: string
           label?: string
           launch_date?: string | null
+          live_url?: string | null
           location?: string | null
           modality?: string | null
           recurrence_index?: number | null

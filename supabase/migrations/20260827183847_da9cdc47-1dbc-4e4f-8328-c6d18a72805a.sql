@@ -1,0 +1,1 @@
+ALTER TABLE public.smartops_course_turmas ADD COLUMN IF NOT EXISTS live_url text;

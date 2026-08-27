@@ -27,8 +27,11 @@ function interpolate(tpl: string, v: Record<string, string>) {
   const grupoLine = v.grupo_whatsapp
     ? `📱 *Entre no grupo de WhatsApp do seu treinamento:*\n👉 ${v.grupo_whatsapp}`
     : "";
+  const isYouTube = /youtu\.?be|youtube\.com/i.test(v.link_reuniao ?? "");
   const reuniaoLine = v.link_reuniao
-    ? `💻 *Link da reunião (aula online):*\n👉 ${v.link_reuniao}`
+    ? (isYouTube
+        ? `📺 *Link da Live no YouTube:*\n👉 ${v.link_reuniao}`
+        : `💻 *Link da reunião (aula online):*\n👉 ${v.link_reuniao}`)
     : "";
   return tpl
     .replace(/\{\{nome\}\}/g, v.nome ?? "")
@@ -150,8 +153,8 @@ Deno.serve(async (req) => {
           turma_label: snap.label ?? "",
           horario_inicio: (d0.start_time ?? "").substring(0, 5),
           data_inicio: d0.date ?? "",
-          grupo_whatsapp: snap.whatsapp_group_link || course.whatsapp_group_link || "",
-          link_reuniao: course.meeting_link || snap.meeting_link || "",
+          grupo_whatsapp: snap.live_url ? "" : (snap.whatsapp_group_link || course.whatsapp_group_link || ""),
+          link_reuniao: snap.live_url || course.meeting_link || snap.meeting_link || "",
           cs_nome: cs.nome_completo ?? "",
         });
 

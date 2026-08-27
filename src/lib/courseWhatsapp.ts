@@ -67,7 +67,7 @@ export const TEMPLATE_VARIABLES = [
   { key: '{{data_fim}}',       desc: 'DD/MM/AAAA' },
   { key: '{{horario_inicio}}', desc: 'HH:MM do 1º dia' },
   { key: '{{grupo_whatsapp}}', desc: 'CTA + link do grupo WhatsApp' },
-  { key: '{{link_reuniao}}',   desc: 'CTA + link da reunião (Zoom/Meet) — cursos online' },
+  { key: '{{link_reuniao}}',   desc: 'CTA + link da reunião/Live no YouTube — cursos online' },
   { key: '{{cs_nome}}',        desc: 'Nome do CS' },
 ] as const;
 
@@ -96,8 +96,11 @@ export function interpolateTemplate(template: string, vars: {
   const grupoLine = vars.grupo_whatsapp
     ? `📱 *Entre no grupo de WhatsApp do seu treinamento:*\n👉 ${vars.grupo_whatsapp}`
     : '';
+  const isYouTube = /youtu\.?be|youtube\.com/i.test(vars.link_reuniao ?? '');
   const reuniaoLine = vars.link_reuniao
-    ? `💻 *Link da reunião (aula online):*\n👉 ${vars.link_reuniao}`
+    ? (isYouTube
+        ? `📺 *Link da Live no YouTube:*\n👉 ${vars.link_reuniao}`
+        : `💻 *Link da reunião (aula online):*\n👉 ${vars.link_reuniao}`)
     : '';
   const fmt = (d: string) => d ? d.split('-').reverse().join('/') : '';
   return template
@@ -131,8 +134,8 @@ export function buildTemplateVars(
     duracao: formatDuration(course),
     data_inicio: first?.date || '', data_fim: last?.date || '',
     horario_inicio: t(first?.start_time),
-    grupo_whatsapp: turma.whatsapp_group_link || course.whatsapp_group_link || '',
-    link_reuniao: (course as any).meeting_link || '',
+    grupo_whatsapp: (turma as any).live_url ? '' : (turma.whatsapp_group_link || course.whatsapp_group_link || ''),
+    link_reuniao: (turma as any).live_url || (course as any).meeting_link || '',
     cs_nome: csName,
   };
 }
