@@ -286,18 +286,18 @@ export default function AgendaPublica({ variant = "presencial" }: AgendaPublicaP
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .from("smartops_courses")
-        .select("id, modality, category, description")
+        .select("*")
         .eq("active", true)
         .in("modality", config.modalities)
         .in("category", config.categories);
       if (error) throw error;
-      return (data ?? []) as { id: string; description?: string | null }[];
+      return (data ?? []) as any[];
     },
   });
-  const publicCourseIds = useMemo(() => publicCourses.map((c) => c.id), [publicCourses]);
+  const publicCourseIds = useMemo(() => publicCourses.map((c) => c.id as string), [publicCourses]);
   const courseDescriptions = useMemo(() => {
     const m: Record<string, string> = {};
-    for (const c of publicCourses) if (c.description) m[c.id] = c.description;
+    for (const c of publicCourses) if (c.description) m[c.id] = c.description as string;
     return m;
   }, [publicCourses]);
 
