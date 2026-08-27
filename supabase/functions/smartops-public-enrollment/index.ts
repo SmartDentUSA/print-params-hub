@@ -372,16 +372,19 @@ Deno.serve(async (req) => {
       // supabase-js resolve com `{ error }` em vez de rejeitar — logar o erro.
       const { error: convErr } = await supabase.from("lead_conversion_history").insert({
         lead_id: leadId,
-        conversion_type: "inscricao_curso",
+        // `conversion_type` tem CHECK fechado; inscrição = 'formulario'.
+        conversion_type: "formulario",
         conversion_date: new Date().toISOString(),
         details: {
           label: `# - Inscrição [${course.title}]`,
+          subtype: "inscricao_curso",
           course_id: course.id,
           course_title: course.title,
           turma_id: turmaId,
           produtos: productNames,
           source: "public_enrollment_form",
         },
+
       });
       if (convErr) console.error("[conversion]", JSON.stringify(convErr));
     }
