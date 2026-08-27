@@ -194,7 +194,7 @@ Deno.serve(async (req) => {
         const fullLink = `${NPS_BASE_URL}/nps/${token}`;
         const link = await shortenNpsLink(supabase, fullLink, enr.lead_id ?? null);
         const nome = firstName(enr.person_name ?? lead?.nome);
-        let text = String(course.nps_sms_template || DEFAULT_NPS_SMS)
+        let text = String(course.nps_sms_template || auto.message_template || DEFAULT_NPS_SMS)
           .replace(/\{\{nome\}\}/g, nome)
           .replace(/\{\{curso\}\}/g, course.title ?? "")
           .replace(/\{\{link_nps\}\}/g, link)
