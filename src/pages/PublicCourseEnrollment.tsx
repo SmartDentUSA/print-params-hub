@@ -541,8 +541,11 @@ function NpsForm({
     <div className="space-y-5 pt-2">
       <div className="text-center">
         <h3 className="text-lg font-semibold">NPS — Demonstrações ao Vivo</h3>
-        <p className="text-sm text-muted-foreground">Gostaríamos da sua opinião sincera.</p>
+        <p className="text-sm text-muted-foreground">
+          Etapa obrigatória para concluir seu agendamento (pedimos isso 1x a cada 30 dias).
+        </p>
       </div>
+
       <NpsQuestion label="Até o momento qual o nível de satisfação com a Smart Dent?" value={satisf} onChange={setSatisf} />
       <NpsQuestion label="Como você classifica a qualidade das demonstrações e conteúdos ao vivo da Smart Dent?" value={train} onChange={setTrain} />
       <NpsQuestion label="Qual a probabilidade de você recomendar a Smart Dent para um colega?" value={rec} onChange={setRec} />
