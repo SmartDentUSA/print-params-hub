@@ -910,6 +910,11 @@ function PublicOnlineCourseCard({
               </div>
             );
           })}
+          {orderedSessions.length === 0 && (
+            <div className="px-3 py-3 text-xs text-muted-foreground text-center">
+              Novas datas em breve — inscreva-se para ser avisado.
+            </div>
+          )}
         </div>
 
 
