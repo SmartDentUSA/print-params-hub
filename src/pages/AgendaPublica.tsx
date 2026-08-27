@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Helmet } from "react-helmet-async";
 import { supabase } from "@/integrations/supabase/client";
-import { CalendarDays, MapPin, User, Users, RefreshCw, Share2, Clock, Timer, Radio } from "lucide-react";
+import { CalendarDays, MapPin, User, Users, RefreshCw, Share2, Clock, Timer, Radio, Filter, X } from "lucide-react";
 import { formatDatePtBr, formatWeekday } from "@/lib/courseUtils";
 import { formatTurmaNumber } from "@/lib/turmaNumber";
 import { cn } from "@/lib/utils";
@@ -190,6 +190,7 @@ export default function AgendaPublica({ variant = "presencial" }: AgendaPublicaP
   const config = VARIANT_CONFIG[variant];
   const queryClient = useQueryClient();
   const getCountdown = useCountdown();
+  const [selectedProduct, setSelectedProduct] = useState<string>("");
 
   // Notify parent (when iframed) of content height so the host can auto-resize.
   useEffect(() => {
@@ -353,7 +354,7 @@ export default function AgendaPublica({ variant = "presencial" }: AgendaPublicaP
       map.set(t.course_id, arr);
     }
     const today = new Date().toISOString().slice(0, 10);
-    return publicCourses
+    const groups = publicCourses
       .map((c) => ({
         course_id: c.id as string,
         course: c,
@@ -366,7 +367,25 @@ export default function AgendaPublica({ variant = "presencial" }: AgendaPublicaP
           list.map((t) => t.start_date || "").filter((d) => d >= today).sort()[0] || "9999";
         return nextOf(a.turmas).localeCompare(nextOf(b.turmas));
       });
-  }, [turmas, variant, publicCourses]);
+    if (!selectedProduct) return groups;
+    return groups.filter((g) => {
+      const names =
+        ((g.course as any)?.related_product_names as string[] | undefined) ||
+        (g.turmas[0] as any)?.related_product_names ||
+        [];
+      return names.includes(selectedProduct);
+    });
+  }, [turmas, variant, publicCourses, selectedProduct]);
+
+  const availableProducts = useMemo(() => {
+    if (variant !== "online") return [];
+    const set = new Set<string>();
+    for (const c of publicCourses) {
+      const names = ((c as any)?.related_product_names as string[] | undefined) || [];
+      for (const n of names) if (n?.trim()) set.add(n.trim());
+    }
+    return Array.from(set).sort((a, b) => a.localeCompare(b, "pt-BR"));
+  }, [publicCourses, variant]);
 
 
   // Pastas do Drive (só para Team Members): habilita o upload de mídias direto do celular.
@@ -430,6 +449,37 @@ export default function AgendaPublica({ variant = "presencial" }: AgendaPublicaP
             </button>
           </div>
         </header>
+
+        {variant === "online" && availableProducts.length > 0 && (
+          <div className="mb-6 flex flex-wrap items-center gap-2">
+            <div className="relative">
+              <Filter className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+              <select
+                value={selectedProduct}
+                onChange={(e) => setSelectedProduct(e.target.value)}
+                className="appearance-none h-9 pl-8 pr-8 rounded-full border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 min-w-[180px]"
+              >
+                <option value="">Todos os produtos</option>
+                {availableProducts.map((p) => (
+                  <option key={p} value={p}>
+                    {p}
+                  </option>
+                ))}
+              </select>
+              <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground text-xs">▼</span>
+            </div>
+            {selectedProduct && (
+              <button
+                type="button"
+                onClick={() => setSelectedProduct("")}
+                className="inline-flex items-center gap-1 h-9 px-3 rounded-full border bg-background text-xs font-medium hover:bg-accent transition-colors"
+              >
+                <X className="w-3 h-3" />
+                Limpar: {selectedProduct}
+              </button>
+            )}
+          </div>
+        )}
 
         {isTeamMember && variant === "presencial" && <DepoimentoUploadAccordion />}
 
@@ -858,15 +908,8 @@ function PublicOnlineCourseCard({
           </p>
         )}
 
-        {first.instructor_name && (
-          <span className="flex items-center gap-1.5 text-sm font-medium text-foreground truncate mb-2">
-            <User className="w-4 h-4 shrink-0 text-muted-foreground" />
-            {first.instructor_name}
-          </span>
-        )}
-
         {products && products.length > 0 && (
-          <div className="flex flex-wrap gap-1 mb-3">
+          <div className="flex flex-wrap gap-1 mb-2">
             {products.slice(0, 4).map((name) => (
               <span key={name} className="inline-flex items-center px-2 py-0.5 rounded-md text-[10.5px] font-medium bg-sky-50 text-sky-700 dark:bg-sky-950/40 dark:text-sky-300 border border-sky-200/60 dark:border-sky-800/60" title={name}>
                 {name}
@@ -876,6 +919,13 @@ function PublicOnlineCourseCard({
               <span className="text-[10.5px] text-muted-foreground self-center">+{products.length - 4}</span>
             )}
           </div>
+        )}
+
+        {first.instructor_name && (
+          <span className="flex items-center gap-1.5 text-sm font-medium text-foreground truncate mb-3">
+            <User className="w-4 h-4 shrink-0 text-muted-foreground" />
+            {first.instructor_name}
+          </span>
         )}
 
         <div className="rounded-lg border bg-muted/30 divide-y divide-border/70 mb-4">
