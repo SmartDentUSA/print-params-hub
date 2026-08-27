@@ -96,7 +96,7 @@ export function useCountdown(tickMs = 60_000) {
 export function LiveCountdownInline({ startDate, startTime, fallback }: { startDate?: string; startTime?: string; fallback: string }) {
   const [now, setNow] = useState(Date.now());
   useEffect(() => {
-    const t = setInterval(() => setNow(Date.now(), 1000);
+    const t = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(t);
   }, []);
   if (!startDate) return <>{fallback}</>;
