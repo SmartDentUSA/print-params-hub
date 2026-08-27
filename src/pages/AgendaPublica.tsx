@@ -709,10 +709,12 @@ function DateBlock({ label, date, time }: { label: string; date?: string | null;
 
 function PublicOnlineCourseCard({
   sessions,
+  description,
   canUpload = false,
   driveFolders = {},
 }: {
   sessions: TurmaComVagas[];
+  description?: string;
   canUpload?: boolean;
   driveFolders?: Record<string, { id: string | null; url: string | null }>;
 }) {
