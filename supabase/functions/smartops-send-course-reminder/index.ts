@@ -110,6 +110,7 @@ Deno.serve(async (req) => {
 
         // Instância configurada no card do curso; fallback: celular do CS (cs_principal).
         const CS_INSTANCE = (course.wa_instance_name as string | null)
+          || auto.wa_instance_name
           || Deno.env.get("CS_EVOLUTION_INSTANCE") || "cs_principal";
         let { data: cs } = await supabase
           .from("team_members")
