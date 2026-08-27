@@ -33,6 +33,8 @@ type LeadLookup = {
   email_masked?: string | null;
   telefone_masked?: string | null;
   is_client?: boolean;
+  lead_exists?: boolean;
+  client_reason?: string | null;
 };
 
 type Course = {
@@ -105,7 +107,7 @@ export default function PublicCourseEnrollment() {
 
   // After submit
   const [phase, setPhase] = useState<
-    "form" | "ask_client" | "confirm_data" | "qualify" | "nps" | "done"
+    "form" | "confirm_data" | "qualify" | "nps" | "done"
   >("form");
   const [enrollmentId, setEnrollmentId] = useState<string | null>(null);
   const [showNps, setShowNps] = useState(false);
@@ -191,8 +193,20 @@ export default function PublicCourseEnrollment() {
     }
   }
 
-  // Cliente existente: busca o cadastro para ele confirmar os dados antes do NPS.
-  async function startClientConfirmation() {
+  // Passo 1 → busca imediata no banco. Só quem tem cadastro de CLIENTE
+  // confirmado (proposta ganha / funil CS / ERP) segue para confirmação de
+  // dados + NPS. Os demais vão direto para a qualificação de lead novo.
+  async function lookupAndRoute() {
+    const parsed = formSchema.safeParse(form);
+    if (!parsed.success) {
+      const errs: Record<string, string> = {};
+      for (const [k, v] of Object.entries(parsed.error.flatten().fieldErrors)) {
+        if (v && v[0]) errs[k] = v[0];
+      }
+      setErrors(errs);
+      return;
+    }
+    setErrors({});
     setLookingUp(true);
     try {
       const { data } = await supabase.functions.invoke("smartops-public-lead-lookup", {
@@ -200,16 +214,19 @@ export default function PublicCourseEnrollment() {
       });
       const res = (data as LeadLookup) ?? { found: false };
       setLookup(res);
-      setConfirmData({
-        area_atuacao: canonicalize(AREA_ATUACAO_OPTIONS, res.area_atuacao),
-        especialidade: canonicalize(ESPECIALIDADE_OPTIONS, res.especialidade),
-        cidade: res.cidade ?? "",
-      });
-      setPhase("confirm_data");
+      if (res.found && res.is_client !== false) {
+        setConfirmData({
+          area_atuacao: canonicalize(AREA_ATUACAO_OPTIONS, res.area_atuacao),
+          especialidade: canonicalize(ESPECIALIDADE_OPTIONS, res.especialidade),
+          cidade: res.cidade ?? "",
+        });
+        setPhase("confirm_data");
+      } else {
+        setPhase("qualify");
+      }
     } catch {
-      // Sem cadastro localizado seguimos pedindo os dados em branco
-      setLookup({ found: false });
-      setPhase("confirm_data");
+      setLookup({ found: false, is_client: false });
+      setPhase("qualify");
     } finally {
       setLookingUp(false);
     }
@@ -329,43 +346,21 @@ export default function PublicCourseEnrollment() {
 
                 <Button
                   className="w-full"
-                  disabled={submitting}
-                  onClick={() => {
-                    const parsed = formSchema.safeParse(form);
-                    if (!parsed.success) {
-                      const errs: Record<string, string> = {};
-                      for (const [k, v] of Object.entries(parsed.error.flatten().fieldErrors)) {
-                        if (v && v[0]) errs[k] = v[0];
-                      }
-                      setErrors(errs);
-                      return;
-                    }
-                    setErrors({});
-                    setPhase("ask_client");
-                  }}
+                  disabled={submitting || lookingUp}
+                  onClick={lookupAndRoute}
                 >
-                  Continuar
+                  {lookingUp ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                      Verificando seu cadastro...
+                    </>
+                  ) : (
+                    "Continuar"
+                  )}
                 </Button>
               </>
             )}
 
-            {phase === "ask_client" && (
-              <div className="space-y-4">
-                <p className="font-medium">Você já é cliente Smart Dent?</p>
-                <div className="grid grid-cols-2 gap-3">
-                  <Button
-                    variant="outline"
-                    disabled={submitting || lookingUp}
-                    onClick={startClientConfirmation}
-                  >
-                    {lookingUp ? <Loader2 className="w-4 h-4 animate-spin" /> : "Sim, já sou cliente"}
-                  </Button>
-                  <Button disabled={submitting} onClick={() => setPhase("qualify")}>
-                    {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Ainda não"}
-                  </Button>
-                </div>
-              </div>
-            )}
 
             {phase === "confirm_data" && (
               <div className="space-y-4">
@@ -445,6 +440,12 @@ export default function PublicCourseEnrollment() {
 
             {phase === "qualify" && (
               <div className="space-y-4">
+                {lookup && !lookup.found && (
+                  <div className="rounded-lg border border-border bg-muted/40 p-3 text-sm text-muted-foreground">
+                    Não encontramos seu cadastro de cliente com estes contatos. Sem problema —
+                    responda as perguntas abaixo para garantirmos sua vaga.
+                  </div>
+                )}
                 <div>
                   <p className="font-medium">Antes de confirmar sua vaga</p>
                   <p className="text-sm text-muted-foreground">

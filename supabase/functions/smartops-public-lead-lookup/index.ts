@@ -15,6 +15,9 @@ const BodySchema = z.object({
   telefone: z.string().trim().min(10).max(20),
 });
 
+// Pipelines de Customer Success: quem está aqui já é cliente ativo.
+const CS_PIPELINES = ["CS Onboarding", "Ganhos Aleatórios (CS)"];
+
 function normalizePhone(raw: string): string {
   const digits = (raw || "").replace(/\D/g, "");
   if ((digits.length === 13 || digits.length === 12) && digits.startsWith("55")) {
@@ -59,7 +62,7 @@ Deno.serve(async (req) => {
     const { data: leads } = await supabase
       .from("lia_attendances")
       .select(
-        "id, nome, email, telefone_raw, telefone_normalized, area_atuacao, especialidade, cidade, empresa_nome, piperun_id, real_status",
+        "id, nome, email, telefone_raw, telefone_normalized, area_atuacao, especialidade, cidade, empresa_nome, piperun_id, omie_cliente_id, real_status",
       )
       .or(`email.eq.${email},telefone_normalized.eq.${phone}`)
       .is("merged_into", null)
@@ -68,15 +71,46 @@ Deno.serve(async (req) => {
 
     const lead = leads?.[0];
     if (!lead) {
-      return new Response(JSON.stringify({ found: false }), {
+      return new Response(JSON.stringify({ found: false, is_client: false }), {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
+    // Cliente = tem proposta GANHA no CRM ou negócio em pipeline de CS.
+    // Ter `piperun_id` apenas significa que o lead existe no CRM — não é cliente.
+    let clientReason: "proposta_ganha" | "funil_cs" | "erp_omie" | null = null;
+
+    const { data: wonDeals } = await supabase
+      .from("deals")
+      .select("id, status, pipeline_name")
+      .eq("lead_id", lead.id)
+      .eq("status", "ganha")
+      .limit(1);
+    if ((wonDeals?.length ?? 0) > 0) clientReason = "proposta_ganha";
+
+    if (!clientReason) {
+      const { data: csDeals } = await supabase
+        .from("deals")
+        .select("id, pipeline_name")
+        .eq("lead_id", lead.id)
+        .in("pipeline_name", CS_PIPELINES)
+        .limit(1);
+      if ((csDeals?.length ?? 0) > 0) clientReason = "funil_cs";
+    }
+
+    if (!clientReason && lead.omie_cliente_id) clientReason = "erp_omie";
+
+    const isClient = clientReason !== null;
+
     return new Response(
       JSON.stringify({
-        found: true,
+        // `found` reflete cadastro de CLIENTE confirmado: é o que libera o
+        // fluxo de confirmação de dados + NPS.
+        found: isClient,
+        lead_exists: true,
+        is_client: isClient,
+        client_reason: clientReason,
         nome: lead.nome ?? null,
         area_atuacao: lead.area_atuacao ?? null,
         especialidade: lead.especialidade ?? null,
@@ -84,7 +118,6 @@ Deno.serve(async (req) => {
         empresa: lead.empresa_nome ?? null,
         email_masked: maskEmail(lead.email),
         telefone_masked: maskPhone(lead.telefone_normalized || lead.telefone_raw),
-        is_client: Boolean(lead.piperun_id) || /cliente/i.test(String(lead.real_status || "")),
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );

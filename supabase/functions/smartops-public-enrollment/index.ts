@@ -129,7 +129,25 @@ Deno.serve(async (req) => {
         .limit(1);
       if (leads && leads.length > 0) {
         leadId = leads[0].id;
-        isExistingClient = Boolean(leads[0].piperun_id || leads[0].omie_cliente_id);
+        // Cliente de verdade = proposta GANHA no CRM, negócio em funil de CS,
+        // ou cliente no ERP. Existir no CRM (`piperun_id`) NÃO é cliente.
+        const { data: wonDeals } = await supabase
+          .from("deals")
+          .select("id")
+          .eq("lead_id", leadId)
+          .eq("status", "ganha")
+          .limit(1);
+        if ((wonDeals?.length ?? 0) > 0) {
+          isExistingClient = true;
+        } else {
+          const { data: csDeals } = await supabase
+            .from("deals")
+            .select("id")
+            .eq("lead_id", leadId)
+            .in("pipeline_name", ["CS Onboarding", "Ganhos Aleatórios (CS)"])
+            .limit(1);
+          isExistingClient = (csDeals?.length ?? 0) > 0 || Boolean(leads[0].omie_cliente_id);
+        }
       }
     }
 
@@ -404,7 +422,9 @@ Deno.serve(async (req) => {
         .then(() => {}, (e) => console.warn("[activity-answers]", e));
     }
 
-    let showNps = isExistingClient || Boolean(body.is_client_smartdent);
+    // NPS só para cliente CONFIRMADO no banco (proposta ganha / funil CS / ERP).
+    // Dizer "sou cliente" no formulário não libera o NPS.
+    let showNps = isExistingClient;
 
     // NPS de demonstrações é obrigatório apenas 1x a cada 30 dias por lead/email.
     if (showNps) {
