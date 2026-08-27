@@ -766,11 +766,13 @@ function SessionStatus({ startDate, startTime, endDate, endTime }: {
 
 function PublicOnlineCourseCard({
   sessions,
+  course,
   description,
   canUpload = false,
   driveFolders = {},
 }: {
   sessions: TurmaComVagas[];
+  course?: any;
   description?: string;
   canUpload?: boolean;
   driveFolders?: Record<string, { id: string | null; url: string | null }>;
