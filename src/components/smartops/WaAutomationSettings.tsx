@@ -30,6 +30,14 @@ const DEFAULT_HINT: Record<string, string> = {
   lia_escalation: "Aviso de escalação da LIA com o resumo do lead e o motivo do handoff.",
   sentinela_daily_report: "Resumo Sentinela 24h: volume de mensagens, sentimento, sinais de compra e tópicos.",
   training_factory_publish: "Aviso de publicação dos assets da turma (canais e status).",
+  course_enrollment_confirmation:
+    "Confirmação com curso, turma, instrutor, local, cronograma e link da live/grupo. O modelo do curso (editor de cursos) tem prioridade sobre este.",
+  course_reminder_1h:
+    "Lembrete 1h antes com curso, horário e link da live/grupo. O modelo do curso tem prioridade sobre este.",
+  course_nps_whatsapp:
+    "Convite de NPS com link exclusivo do participante. O modelo do curso tem prioridade sobre este.",
+  course_nps_sms_followup:
+    "SMS curto (até 160 caracteres) com link encurtado do NPS. O modelo do curso tem prioridade sobre este.",
 };
 
 const cleanVar = (v: string) => v.replace(/[{}]/g, "").trim();

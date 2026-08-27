@@ -2,6 +2,7 @@
 // Cron diário 08:00 (America/Sao_Paulo) + modo manual "Enviar agora".
 // Envia o MESMO link exclusivo do participante (nps_token) enviado antes no WhatsApp.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { getWaAutomationSetting } from "../_shared/wa-automation-settings.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -101,6 +102,16 @@ Deno.serve(async (req) => {
       force = Boolean(body?.force) || ids.length > 0;
     } catch { /* cron */ }
 
+    // Configuração editável na UI (Automações → "Automações sem UI").
+    // Envio manual ("Enviar agora") ignora o desligamento global.
+    const auto = await getWaAutomationSetting(supabase, "course_nps_sms_followup");
+    if (!auto.ativo && !force) {
+      return new Response(JSON.stringify({ ok: true, skipped: "automacao_desligada", elegiveis: 0, enviados: 0 }), {
+        status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+
     // Candidatos: NPS já enviado (WhatsApp) e sem resposta
     let q = supabase
       .from("smartops_course_enrollments")
@@ -183,7 +194,7 @@ Deno.serve(async (req) => {
         const fullLink = `${NPS_BASE_URL}/nps/${token}`;
         const link = await shortenNpsLink(supabase, fullLink, enr.lead_id ?? null);
         const nome = firstName(enr.person_name ?? lead?.nome);
-        let text = String(course.nps_sms_template || DEFAULT_NPS_SMS)
+        let text = String(course.nps_sms_template || auto.message_template || DEFAULT_NPS_SMS)
           .replace(/\{\{nome\}\}/g, nome)
           .replace(/\{\{curso\}\}/g, course.title ?? "")
           .replace(/\{\{link_nps\}\}/g, link)

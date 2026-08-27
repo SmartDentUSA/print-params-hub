@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
+import { getWaAutomationSetting } from "../_shared/wa-automation-settings.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -61,6 +62,14 @@ Deno.serve(async (req) => {
   const failed: Array<{ id: string; error: string }> = [];
 
   try {
+    // Configuração editável na UI (Automações → "Automações sem UI").
+    const auto = await getWaAutomationSetting(supabase, "course_reminder_1h");
+    if (!auto.ativo) {
+      return new Response(JSON.stringify({ ok: true, skipped: "automacao_desligada", sent: [], failed: [] }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     // Janela: agora .. agora+5min (cron roda a cada 5min)
     const now = new Date();
     const horizon = new Date(now.getTime() + 5 * 60 * 1000);
@@ -101,6 +110,7 @@ Deno.serve(async (req) => {
 
         // Instância configurada no card do curso; fallback: celular do CS (cs_principal).
         const CS_INSTANCE = (course.wa_instance_name as string | null)
+          || auto.wa_instance_name
           || Deno.env.get("CS_EVOLUTION_INSTANCE") || "cs_principal";
         let { data: cs } = await supabase
           .from("team_members")
@@ -146,7 +156,7 @@ Deno.serve(async (req) => {
         const snap: any = (e as any).turma_snapshot ?? {};
         const days: any[] = Array.isArray(snap.days) ? snap.days : [];
         const d0 = days[0] ?? {};
-        const tpl = (course.reminder_message_template as string | null) || DEFAULT_REMINDER_TEMPLATE;
+        const tpl = (course.reminder_message_template as string | null) || auto.message_template || DEFAULT_REMINDER_TEMPLATE;
         const message = interpolate(tpl, {
           nome: (e as any).person_name ?? "",
           curso: course.title ?? "",

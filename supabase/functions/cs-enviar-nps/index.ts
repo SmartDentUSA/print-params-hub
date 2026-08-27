@@ -2,6 +2,7 @@
 // Envia o link de NPS (token opaco) por WhatsApp via instância CS (cs_principal).
 // Idempotente: nps_sent_at só é gravado após envio confirmado.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { getWaAutomationSetting } from "../_shared/wa-automation-settings.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -77,6 +78,14 @@ Deno.serve(async (req) => {
   };
 
   try {
+    // Configuração editável na UI (Automações → "Automações sem UI").
+    const auto = await getWaAutomationSetting(supabase, "course_nps_whatsapp");
+    if (!auto.ativo) {
+      return new Response(JSON.stringify({ ok: true, skipped: "automacao_desligada", elegiveis: 0, enviados: 0 }), {
+        status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     // Body opcional: { backfill_days: N } reenvia para todas as turmas encerradas
     // nos últimos N dias cujos participantes nunca receberam a pesquisa.
     let backfillDays = 0;
@@ -88,6 +97,7 @@ Deno.serve(async (req) => {
       const l = Number(body?.limit);
       if (Number.isFinite(l) && l > 0) maxEnvios = Math.min(Math.floor(l), 200);
     } catch { /* sem body = modo cron diário */ }
+
 
     const yesterday = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);
     const q = supabase.from("smartops_course_turmas").select("id, label, end_date");
@@ -147,7 +157,9 @@ Deno.serve(async (req) => {
           .eq("id", enr.course_id)
           .maybeSingle();
 
-        const creds = await resolveInstance((courseRow?.wa_instance_name as string | null) || CS_INSTANCE);
+        const creds = await resolveInstance(
+          (courseRow?.wa_instance_name as string | null) || auto.wa_instance_name || CS_INSTANCE,
+        );
         if (!creds) {
           falhas.push({ enrollment_id: enr.id, motivo: "instancia_indisponivel" });
           continue;
@@ -157,7 +169,7 @@ Deno.serve(async (req) => {
         const nome = firstName(enr.person_name ?? lead?.nome);
         const turma = (turmas ?? []).find((t: any) => t.id === enr.turma_id);
         const link = `${NPS_BASE_URL}/nps/${token}`;
-        const tpl = (courseRow?.nps_message_template as string | null) ||
+        const tpl = (courseRow?.nps_message_template as string | null) || auto.message_template ||
           `Oie${nome ? " {{nome}}" : ""} espero qu esteja bem!\n\n` +
           `Sua opinião é muito importante para continuarmos evoluindo, são só 3 perguntas rápidas e resposta anônima pois queremos sua sinceridade (menos de 1 minuto):\n\n` +
           `{{link_nps}}`;

@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { z } from "https://esm.sh/zod@3.23.8";
+import { getWaAutomationSetting } from "../_shared/wa-automation-settings.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -472,7 +473,8 @@ Deno.serve(async (req) => {
     // 7d. Confirmação por WhatsApp com o link da Live DA SESSÃO escolhida.
     // Quando a turma tem `live_url` (Online ao Vivo → Live de produtos), o link
     // do YouTube substitui a linha do grupo de WhatsApp.
-    if (!reusedEnrollment) {
+    const autoConfirm = await getWaAutomationSetting(supabase, "course_enrollment_confirmation");
+    if (!reusedEnrollment && autoConfirm.ativo) {
       try {
         const fmtDate = (d?: string) => (d ? String(d).split("-").reverse().join("/") : "");
         const hm = (s?: string) => (s ?? "").substring(0, 5);
@@ -503,7 +505,7 @@ Deno.serve(async (req) => {
           ? (course.location || "Local a confirmar")
           : "Online";
 
-        const tpl = (course.whatsapp_message_template as string | null) || [
+        const tpl = (course.whatsapp_message_template as string | null) || autoConfirm.message_template || [
           "Olá, {{nome}}! 👋",
           "",
           "Sua inscrição foi confirmada. Aqui estão os detalhes:",
@@ -541,6 +543,7 @@ Deno.serve(async (req) => {
 
         let waTeamMemberId: string | null = null;
         const instanceName = (course.wa_instance_name as string | null)
+          || autoConfirm.wa_instance_name
           || Deno.env.get("CS_EVOLUTION_INSTANCE")
           || "cs_principal";
         const { data: csRow } = await supabase
