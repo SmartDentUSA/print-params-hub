@@ -157,7 +157,9 @@ Deno.serve(async (req) => {
           .eq("id", enr.course_id)
           .maybeSingle();
 
-        const creds = await resolveInstance((courseRow?.wa_instance_name as string | null) || CS_INSTANCE);
+        const creds = await resolveInstance(
+          (courseRow?.wa_instance_name as string | null) || auto.wa_instance_name || CS_INSTANCE,
+        );
         if (!creds) {
           falhas.push({ enrollment_id: enr.id, motivo: "instancia_indisponivel" });
           continue;
@@ -167,7 +169,7 @@ Deno.serve(async (req) => {
         const nome = firstName(enr.person_name ?? lead?.nome);
         const turma = (turmas ?? []).find((t: any) => t.id === enr.turma_id);
         const link = `${NPS_BASE_URL}/nps/${token}`;
-        const tpl = (courseRow?.nps_message_template as string | null) ||
+        const tpl = (courseRow?.nps_message_template as string | null) || auto.message_template ||
           `Oie${nome ? " {{nome}}" : ""} espero qu esteja bem!\n\n` +
           `Sua opinião é muito importante para continuarmos evoluindo, são só 3 perguntas rápidas e resposta anônima pois queremos sua sinceridade (menos de 1 minuto):\n\n` +
           `{{link_nps}}`;
