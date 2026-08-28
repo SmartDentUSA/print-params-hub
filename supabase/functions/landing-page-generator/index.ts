@@ -495,6 +495,8 @@ Deno.serve(async (req) => {
 
     if (isExocadContext(input, form?.title, form?.subtitle, form?.name)) {
       content = enforceCanonicalContent(content);
+    } else {
+      content = applyNonExocadPolicy(content, ragSpecs, ragCompare);
     }
 
     return new Response(JSON.stringify({ content }), {
