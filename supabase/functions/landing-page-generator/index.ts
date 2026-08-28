@@ -379,6 +379,8 @@ Deno.serve(async (req) => {
           primary_keywords: (sysA as any).keywords ?? [],
         },
       };
+      ragSpecs = Array.isArray((merged as any).technical_specs) ? (merged as any).technical_specs : [];
+      ragCompare = Array.isArray((merged as any).competitor_comparison) ? (merged as any).competitor_comparison : [];
       input = JSON.stringify(merged);
     }
 
