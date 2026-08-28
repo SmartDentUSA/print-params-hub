@@ -244,15 +244,23 @@ export function FormMetricsRow({
         <Button variant="ghost" size="icon" onClick={onEditFields} title="Editar campos" className="h-7 w-7">
           <Pencil className="w-3.5 h-3.5" />
         </Button>
-        <Button variant="ghost" size="icon" onClick={onDuplicate} title="Duplicar" className="h-7 w-7">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={onDuplicate}
+          title="Duplicar formulário (cria uma cópia inativa)"
+          className="h-7 px-2 gap-1 text-[11px]"
+        >
           <CopyPlus className="w-3.5 h-3.5" />
+          Duplicar
         </Button>
-        <Button variant="ghost" size="icon" onClick={onCopyLink} title="Copiar link" className="h-7 w-7">
+        <Button variant="ghost" size="icon" onClick={onCopyLink} title="Copiar link público" className="h-7 w-7">
           <ExternalLink className="w-3.5 h-3.5" />
         </Button>
-        <Button variant="ghost" size="icon" onClick={onCopyEmbed} title="Copiar embed" className="h-7 w-7">
+        <Button variant="ghost" size="icon" onClick={onCopyEmbed} title="Copiar código embed" className="h-7 w-7">
           <Copy className="w-3.5 h-3.5" />
         </Button>
+
         <Button variant="ghost" size="icon" onClick={onDelete} title="Excluir" className="h-7 w-7">
           <Trash2 className="w-3.5 h-3.5 text-destructive" />
         </Button>
