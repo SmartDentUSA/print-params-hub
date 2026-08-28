@@ -77,8 +77,9 @@ export function canonFromCatalogRow(
   // Resinas compostas diretas (6.3) NÃO são resinas 3D — pertencem a Dentística.
   const isDirectComposite = /^6\.3\b/.test(sub.trim()) || /RESINAS?\s+COMPOSTAS?/.test(sub);
   if (/RESINA/.test(sub) && !isDirectComposite) return 'RESINAS 3D';
-
+  if (/SOFTWARE/.test(sub)) return 'SOFTWARES';
   return normCat(category);
+
 }
 
 // Scope autorizado por revenda:
