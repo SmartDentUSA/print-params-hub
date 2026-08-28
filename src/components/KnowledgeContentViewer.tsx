@@ -361,15 +361,27 @@ export function KnowledgeContentViewer({ content }: KnowledgeContentViewerProps)
         : language === 'en' && content.content_html_en 
         ? content.content_html_en 
         : content.content_html,
-    faqs: 
+    faqs:
       translatedContent?.faqs
         ? translatedContent.faqs
-        : language === 'es' && content.faqs_es 
-        ? content.faqs_es 
-        : language === 'en' && content.faqs_en 
-        ? content.faqs_en 
+        : language === 'es' && content.faqs_es
+        ? content.faqs_es
+        : language === 'en' && content.faqs_en
+        ? content.faqs_en
         : content.faqs
   };
+
+  // Imagem de topo por idioma. `og_image_url` e `content_image_url` são campos
+  // únicos, sem variante de idioma — antes disso, a capa em português aparecia
+  // também nas páginas em espanhol e inglês. As colunas canva_image_es/_en já
+  // existiam no banco e não eram lidas em lugar nenhum; agora são a fonte
+  // preferencial, com o campo único como fallback.
+  const heroImageUrl =
+    (language === 'es' && content.canva_image_es) ||
+    (language === 'en' && content.canva_image_en) ||
+    content.content_image_url ||
+    content.og_image_url ||
+    null;
 
   // Dynamic base path based on current language
   const basePath = language === 'en' 
@@ -465,11 +477,11 @@ ${processedHTML}
       )}
       
       {/* Hero Section with Category and Title */}
-      {(content.content_image_url || content.og_image_url) && (
+      {(heroImageUrl) && (
         <header className="hero mb-6">
           <div className="hero-image">
-            <img 
-              src={content.content_image_url || content.og_image_url} 
+            <img
+              src={heroImageUrl}
               alt={content.content_image_alt || content.title}
               loading="eager"
               fetchPriority="high"

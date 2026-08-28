@@ -15,7 +15,8 @@ import KbListControls, { KbSortKey, KbViewMode } from './KbListControls';
 interface Row {
   id: string; title: string; title_en: string | null; title_es: string | null;
   slug: string; excerpt: string | null; excerpt_en: string | null; excerpt_es: string | null;
-  og_image_url: string | null; created_at: string; category_id: string; view_count: number | null;
+  og_image_url: string | null; canva_image_es: string | null; canva_image_en: string | null;
+  created_at: string; category_id: string; view_count: number | null;
   knowledge_categories: { id?: string; letter: string; name: string } | null;
 }
 
@@ -36,7 +37,7 @@ export default function KbTabEbooks({ onOpen }: Props) {
       const term = q.trim();
       let query = supabase
         .from('knowledge_contents')
-        .select('id, title, title_en, title_es, slug, excerpt, excerpt_en, excerpt_es, og_image_url, created_at, category_id, view_count, knowledge_categories!inner(id,letter,name)')
+        .select('id, title, title_en, title_es, slug, excerpt, excerpt_en, excerpt_es, og_image_url, canva_image_es, canva_image_en, created_at, category_id, view_count, knowledge_categories!inner(id,letter,name)')
         .eq('active', true)
         .eq('is_ebook', true)
         .order('created_at', { ascending: false })
@@ -71,7 +72,9 @@ export default function KbTabEbooks({ onOpen }: Props) {
     id: r.id,
     title: (language === 'en' && r.title_en) || (language === 'es' && r.title_es) || r.title,
     excerpt: (language === 'en' && r.excerpt_en) || (language === 'es' && r.excerpt_es) || r.excerpt,
-    imageUrl: r.og_image_url,
+    // og_image_url não tem variante de idioma; canva_image_es/_en carregam a
+    // capa traduzida quando existe.
+    imageUrl: (language === 'en' && r.canva_image_en) || (language === 'es' && r.canva_image_es) || r.og_image_url,
     createdAt: r.created_at,
     categoryLetter: r.knowledge_categories?.letter || null,
     categoryName: r.knowledge_categories?.name || null,
