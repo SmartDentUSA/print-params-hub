@@ -125,6 +125,71 @@ function enforceCanonicalContent(content: any): any {
   return content;
 }
 
+// Seções exclusivas da LP do exocad DentalCAD RMS. Em qualquer outra landing page
+// elas ficam desabilitadas (o conteúdo é preservado, apenas não renderiza).
+const EXOCAD_ONLY_SECTIONS = ["positioning", "conditions", "regionalRules", "implementation"] as const;
+
+function buildComparisonFromRag(
+  specs: Array<{ label?: string; value?: string }>,
+  compare: unknown[],
+): Record<string, unknown> | null {
+  // 1) Comparativo real com concorrentes, quando o RAG traz linhas tabuladas.
+  const cmpRows = (compare ?? [])
+    .map((row) => {
+      if (Array.isArray(row)) return row.map((c) => String(c ?? "").trim());
+      if (row && typeof row === "object") return Object.values(row as Record<string, unknown>).map((c) => String(c ?? "").trim());
+      return null;
+    })
+    .filter((r): r is string[] => !!r && r.length >= 2 && r.some((c) => c.length > 0));
+
+  if (cmpRows.length) {
+    const width = Math.max(...cmpRows.map((r) => r.length));
+    const header = compare[0] && typeof compare[0] === "object" && !Array.isArray(compare[0])
+      ? Object.keys(compare[0] as Record<string, unknown>).map((k) => k.replace(/_/g, " "))
+      : ["Recurso", ...Array.from({ length: width - 1 }, (_, i) => `Opção ${i + 1}`)];
+    return {
+      title: "Tabela comparativa",
+      subtitle: "Comparativo técnico oficial do produto.",
+      columns: header.slice(0, width),
+      rows: cmpRows.map((cells) => ({
+        cells: Array.from({ length: width }, (_, i) => cells[i] ?? "—"),
+      })),
+    };
+  }
+
+  // 2) Fallback: especificações técnicas do catálogo.
+  const specRows = (specs ?? [])
+    .map((s) => ({ label: String(s?.label ?? "").trim(), value: String(s?.value ?? "").trim() }))
+    .filter((s) => s.label && s.value);
+  if (!specRows.length) return null;
+
+  return {
+    title: "Tabela comparativa",
+    subtitle: "Especificações técnicas oficiais do produto.",
+    columns: ["Especificação", "Valor"],
+    rows: specRows.map((s) => ({ cells: [s.label, s.value] })),
+  };
+}
+
+function applyNonExocadPolicy(
+  content: any,
+  specs: Array<{ label?: string; value?: string }>,
+  compare: unknown[],
+): any {
+  if (!content || typeof content !== "object") return content;
+  const enabled = { ...(content.sectionsEnabled ?? {}) };
+  for (const key of EXOCAD_ONLY_SECTIONS) enabled[key] = false;
+
+  const comparison = buildComparisonFromRag(specs, compare);
+  if (comparison) {
+    content.comparison = comparison;
+    enabled.comparison = true;
+  }
+
+  content.sectionsEnabled = enabled;
+  return content;
+}
+
 const CONTENT_SCHEMA_DOC = `Retorne APENAS JSON válido no schema abaixo. Nada de HTML, CSS, markdown, comentários, texto fora do JSON.
 
 {
@@ -290,6 +355,9 @@ Deno.serve(async (req) => {
     const body = await req.json();
     const { form_id, mode } = body ?? {};
     let { input } = body ?? {};
+    // RAG do produto: usados para montar a "Tabela comparativa" pós-geração.
+    let ragSpecs: Array<{ label?: string; value?: string }> = [];
+    let ragCompare: unknown[] = [];
     if (
       !form_id ||
       (mode !== "ai" && mode !== "briefing" && mode !== "playbook" && mode !== "rag")
@@ -376,6 +444,8 @@ Deno.serve(async (req) => {
           primary_keywords: (sysA as any).keywords ?? [],
         },
       };
+      ragSpecs = Array.isArray((merged as any).technical_specs) ? (merged as any).technical_specs : [];
+      ragCompare = Array.isArray((merged as any).competitor_comparison) ? (merged as any).competitor_comparison : [];
       input = JSON.stringify(merged);
     }
 
@@ -490,6 +560,8 @@ Deno.serve(async (req) => {
 
     if (isExocadContext(input, form?.title, form?.subtitle, form?.name)) {
       content = enforceCanonicalContent(content);
+    } else {
+      content = applyNonExocadPolicy(content, ragSpecs, ragCompare);
     }
 
     return new Response(JSON.stringify({ content }), {
