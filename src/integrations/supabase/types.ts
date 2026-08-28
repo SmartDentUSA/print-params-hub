@@ -34009,6 +34009,10 @@ export type Database = {
         Args: { p_campaign_id: string; p_group_id: string }
         Returns: Json
       }
+      fn_duplicate_smartops_form: {
+        Args: { p_form_id: string }
+        Returns: string
+      }
       fn_email_campaign_metrics: {
         Args: { p_campaign_id: string }
         Returns: Json
