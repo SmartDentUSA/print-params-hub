@@ -134,9 +134,16 @@ export default function PublicCourseEnrollment() {
         .eq("course_id", c.id)
         .eq("active", true)
         .order("sort_order", { ascending: true });
-      const tlist = (ts ?? []) as Turma[];
+      const todayStr = new Date().toISOString().slice(0, 10);
+      const tlist = ((ts ?? []) as Turma[])
+        .filter((t) => {
+          const ref = (t.end_date || t.start_date) as string | undefined;
+          return !ref || ref >= todayStr;
+        })
+        .sort((a, b) => (a.start_date || "9999").localeCompare(b.start_date || "9999"));
       setTurmas(tlist);
       if (tlist.length > 0) setSelectedTurma(tlist[0].id);
+
       if (tlist.length > 0) {
         const { data: td } = await (supabase as any)
           .from("smartops_turma_days")
