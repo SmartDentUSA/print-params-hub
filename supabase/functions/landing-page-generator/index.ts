@@ -290,6 +290,9 @@ Deno.serve(async (req) => {
     const body = await req.json();
     const { form_id, mode } = body ?? {};
     let { input } = body ?? {};
+    // RAG do produto: usados para montar a "Tabela comparativa" pós-geração.
+    let ragSpecs: Array<{ label?: string; value?: string }> = [];
+    let ragCompare: unknown[] = [];
     if (
       !form_id ||
       (mode !== "ai" && mode !== "briefing" && mode !== "playbook" && mode !== "rag")
