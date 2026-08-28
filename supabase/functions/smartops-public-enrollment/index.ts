@@ -363,6 +363,11 @@ Deno.serve(async (req) => {
             status: "agendado",
             enrolled_at: new Date().toISOString(),
             source: "public",
+            // Esta função envia a própria confirmação (com data/horário/link da
+            // Live). Marcar wa_sent_at no insert impede que o trigger
+            // fn_notify_treinamento_agendado → cs-treinamento-agendado envie uma
+            // segunda mensagem (template genérico) para o mesmo lead.
+            wa_sent_at: new Date().toISOString(),
             is_client_smartdent: isExistingClient || Boolean(body.is_client_smartdent),
             public_form_payload: {
               nome: body.nome,
