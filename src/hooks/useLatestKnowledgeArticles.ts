@@ -55,7 +55,8 @@ export const useLatestKnowledgeArticles = (limit: number = 12): UseLatestKnowled
             created_at,
             knowledge_categories(name, letter)
           `)
-          .eq('active', true);
+          .eq('active', true)
+          .not('is_ebook', 'is', true);
 
         if (articlesError) throw articlesError;
 
