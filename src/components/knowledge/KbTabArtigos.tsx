@@ -55,6 +55,8 @@ export default function KbTabArtigos({ onOpen, letterFilter }: Props) {
         .from('knowledge_contents')
         .select('id, title, title_en, title_es, slug, excerpt, excerpt_en, excerpt_es, og_image_url, created_at, updated_at, category_id, view_count, knowledge_categories!inner(id,letter,name)')
         .eq('active', true)
+        // Ebooks têm aba própria: nunca aparecem em Artigos/categorias
+        .not('is_ebook', 'is', true)
         .order('created_at', { ascending: false });
       // When the user is searching, ignore the active chip and scan the whole base.
       // Chip selection has priority over letter route filter: when the user
