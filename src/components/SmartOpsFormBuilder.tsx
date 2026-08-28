@@ -447,49 +447,29 @@ export function SmartOpsFormBuilder() {
   };
 
   const handleDuplicate = async (form: SmartOpsForm) => {
-    const newSlug = `${form.slug}-copia-${Date.now()}`;
-    const { data: newForm, error: formError } = await supabase
-      .from("smartops_forms" as any)
-      .insert({
-        name: `${form.name} (cópia)`,
-        slug: newSlug,
-        form_purpose: form.form_purpose,
-        title: (form as any).title || null,
-        subtitle: (form as any).subtitle || null,
-        description: form.description || null,
-        theme_color: form.theme_color || null,
-        success_message: form.success_message || null,
-        success_redirect_url: (form as any).success_redirect_url || null,
-        active: false,
-      } as any)
-      .select("id")
-      .single();
+    // Duplicação atômica no banco (form + campos), com checagem de permissão server-side.
+    const { data: newId, error } = await (supabase as any).rpc("fn_duplicate_smartops_form", {
+      p_form_id: form.id,
+    });
 
-    if (formError || !newForm) {
-      toast.error(`Erro: ${formError?.message}`);
+    if (error || !newId) {
+      console.error("[handleDuplicate]", error);
+      const msg = error?.message || "";
+      toast.error(
+        msg.includes("sem_permissao")
+          ? "Sem permissão para duplicar formulários."
+          : `Falha ao duplicar: ${msg || "erro desconhecido"}`,
+      );
       return;
-    }
-
-    const { data: fields } = await supabase
-      .from("smartops_form_fields" as any)
-      .select("*")
-      .eq("form_id", form.id)
-      .order("order_index");
-
-    if (fields && (fields as any[]).length > 0) {
-      const newFields = (fields as any[]).map(({ id, form_id, created_at, ...rest }: any) => ({
-        ...rest,
-        form_id: (newForm as any).id,
-      }));
-      await supabase.from("smartops_form_fields" as any).insert(newFields as any);
     }
 
     // A cópia nasce inativa: limpar busca/filtro para ela não ficar escondida na lista.
     setSearchQuery("");
     setActiveFilter("all");
-    toast.success("Formulário duplicado! A cópia está inativa — ative quando estiver pronta.");
     await fetchForms();
+    toast.success("Formulário duplicado! A cópia está inativa — ative quando estiver pronta.");
   };
+
 
   const openEditMeta = (form: SmartOpsForm) => {
     setMetaName(form.name);
