@@ -2069,7 +2069,7 @@ Receba o texto bruto abaixo e:
                   <div className="flex-1">
                     <Label htmlFor="is-ebook-toggle" className="cursor-pointer">Marcar como Ebook</Label>
                     <p className="text-xs text-muted-foreground mt-1">
-                      Se ativo, o artigo também aparece na aba <strong>Ebooks</strong> da Base de Conhecimento, mantendo sua categoria original.
+                      Se ativo, o conteúdo aparece <strong>somente</strong> na aba <strong>Ebooks</strong> — deixa de ser listado em Artigos, Vídeos e nas categorias.
                     </p>
                   </div>
                 </div>
