@@ -254,22 +254,26 @@ export function PublicOnlineCourseCard({
     }
   };
 
-  // Próxima sessão (mais perto de hoje) para o cronômetro destacado.
+  // Ordenação canônica (crescente por data/hora) — mesma da tela de edição do curso.
   const today = new Date().toISOString().slice(0, 10);
-  const upcoming = sessions.find((s) => (s.start_date || "") >= today) || sessions[0];
+  const byDateAsc = (a: TurmaComVagas, b: TurmaComVagas) =>
+    `${a.start_date || ""}T${(a.start_time || "").substring(0, 5)}`.localeCompare(
+      `${b.start_date || ""}T${(b.start_time || "").substring(0, 5)}`,
+    );
+  const allSorted = [...sessions].sort(byDateAsc);
+  const pastSessions = allSorted.filter((s) => (s.end_date || s.start_date || "") < today);
+  const nextSessions = allSorted.filter((s) => (s.end_date || s.start_date || "") >= today);
+
+  // Próxima sessão (mais perto de hoje) para o cronômetro destacado.
+  const upcoming = nextSessions[0] || allSorted[allSorted.length - 1];
   const upcomingStatus = upcoming
     ? getCountdown(upcoming.start_date, upcoming.start_time, upcoming.end_date, upcoming.end_time, upcoming.modality)
     : null;
   const showLiveTimer = !!upcoming && !!upcomingStatus && (upcomingStatus.variant === "green" || upcomingStatus.variant === "amber");
 
-  // Sessões futuras/ao vivo primeiro (crescente); realizadas depois (mais recentes antes).
-  const orderedSessions = [...sessions].sort((a, b) => {
-    const aPast = (a.end_date || a.start_date || "") < today;
-    const bPast = (b.end_date || b.start_date || "") < today;
-    if (aPast !== bPast) return aPast ? 1 : -1;
-    const cmp = (a.start_date || "").localeCompare(b.start_date || "");
-    return aPast ? -cmp : cmp;
-  });
+  // Card público mostra apenas as sessões vigentes, em ordem cronológica.
+  const orderedSessions = nextSessions;
+
 
   const hhmm = (t?: string | null) => (t ? t.substring(0, 5) : "");
   const fmtShort = (iso?: string | null) =>
@@ -323,7 +327,7 @@ export function PublicOnlineCourseCard({
             </span>
           )}
           <span className="inline-flex items-center px-1.5 py-0 rounded text-[10px] font-semibold bg-primary/10 text-primary border border-primary/20">
-            {sessions.length === 0 ? "Datas em breve" : `${sessions.length} ${sessions.length === 1 ? "sessão" : "sessões"}`}
+            {nextSessions.length === 0 ? "Datas em breve" : `${nextSessions.length} ${nextSessions.length === 1 ? "sessão" : "sessões"}`}
           </span>
         </div>
 
@@ -389,7 +393,23 @@ export function PublicOnlineCourseCard({
               Novas datas em breve — inscreva-se para ser avisado.
             </div>
           )}
+          {pastSessions.length > 0 && (
+            <details className="px-3 py-2">
+              <summary className="cursor-pointer text-[11px] font-medium text-muted-foreground hover:text-foreground">
+                {pastSessions.length} {pastSessions.length === 1 ? "sessão realizada" : "sessões realizadas"}
+              </summary>
+              <div className="mt-1.5 space-y-1">
+                {[...pastSessions].reverse().map((s) => (
+                  <div key={s.id} className="flex items-center justify-between text-[11px] text-muted-foreground">
+                    <span className="tabular-nums">{fmtShort(s.start_date)} · {hhmm(s.start_time) || "—"}</span>
+                    <span>Realizado</span>
+                  </div>
+                ))}
+              </div>
+            </details>
+          )}
         </div>
+
 
 
         {canUpload && (
