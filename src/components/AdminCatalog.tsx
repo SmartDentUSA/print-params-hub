@@ -89,6 +89,22 @@ export function AdminCatalog() {
       });
     }
 
+    // Filtro de tipo de curso (categorias "CURSOS - ...", "Curso ON-Line", etc.)
+    if (selectedCourseType !== 'all') {
+      filtered = filtered.filter(p => {
+        const hay = `${p.product_category || ''} ${p.category || ''} ${p.name || ''}`.toLowerCase();
+        const isCourse = hay.includes('curso') || hay.includes('treinamento') || hay.includes('workshop') || hay.includes('imers');
+        if (selectedCourseType === 'no_courses') return !isCourse;
+        if (!isCourse) return false;
+        if (selectedCourseType === 'only_courses') return true;
+        if (selectedCourseType === 'presencial') return hay.includes('presenc');
+        if (selectedCourseType === 'online') return hay.includes('online') || hay.includes('on-line') || hay.includes('ao vivo');
+        if (selectedCourseType === 'gratuito') return hay.includes('gratuit');
+        return true;
+      });
+    }
+
+
     // Filtro de status
     if (selectedStatus !== 'all') {
       if (selectedStatus === 'active') {
