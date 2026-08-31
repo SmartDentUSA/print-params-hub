@@ -134,11 +134,21 @@ export function SearchableProductSelect({
     );
   };
 
-  const noResults =
-    filteredResins.length === 0 &&
-    filteredProducts.length === 0 &&
-    filteredEvents.length === 0 &&
-    filteredDistributors.length === 0;
+  const TABS: { key: typeof tab; label: string; count: number }[] = [
+    { key: 'all', label: 'Todos', count: filteredProducts.length + filteredResins.length + filteredEvents.length + filteredDistributors.length },
+    { key: 'product', label: 'Produtos', count: filteredProducts.length },
+    { key: 'resin', label: 'Resinas', count: filteredResins.length },
+    { key: 'event', label: 'Eventos', count: filteredEvents.length },
+    { key: 'distributor', label: 'Distribuidores', count: filteredDistributors.length },
+  ];
+
+  const show = (k: 'product' | 'resin' | 'event' | 'distributor') => tab === 'all' || tab === k;
+
+  const visibleCount =
+    (show('product') ? filteredProducts.length : 0) +
+    (show('resin') ? filteredResins.length : 0) +
+    (show('event') ? filteredEvents.length : 0) +
+    (show('distributor') ? filteredDistributors.length : 0);
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -156,14 +166,14 @@ export function SearchableProductSelect({
         </Button>
       </PopoverTrigger>
       <PopoverContent
-        className="w-[280px] p-0"
+        className="w-[300px] p-0"
         align="start"
         onOpenAutoFocus={(e) => {
           e.preventDefault();
           requestAnimationFrame(() => inputRef.current?.focus());
         }}
       >
-        <div className="p-2 border-b">
+        <div className="p-2 border-b space-y-2">
           <div className="relative">
             <Search className="absolute left-2 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
             <Input
@@ -180,6 +190,23 @@ export function SearchableProductSelect({
                 onClick={() => setSearch('')}
               />
             )}
+          </div>
+          <div className="flex flex-wrap gap-1">
+            {TABS.map((tb) => (
+              <button
+                key={tb.key}
+                type="button"
+                onClick={() => setTab(tb.key)}
+                className={cn(
+                  'rounded-full border px-2 py-0.5 text-[10px] font-medium transition-colors',
+                  tab === tb.key
+                    ? 'bg-primary text-primary-foreground border-primary'
+                    : 'bg-background text-muted-foreground hover:bg-accent',
+                )}
+              >
+                {tb.label} {tb.count}
+              </button>
+            ))}
           </div>
         </div>
         <div
@@ -200,35 +227,40 @@ export function SearchableProductSelect({
               <span className="text-muted-foreground">Nenhum</span>
             </button>
 
-            {renderGroup(
-              'Resinas',
+            {show('resin') && renderGroup(
+              '🧪 Resinas',
               filteredResins as any,
               'resin',
               (r: any) => `${r.manufacturer} - ${r.name}`,
             )}
 
-            {renderGroup('Produtos', filteredProducts, 'product', (p) => p.name)}
+            {show('product') && renderGroup('🛒 Produtos', filteredProducts, 'product', (p) => p.name)}
 
-            {renderGroup(
-              'Eventos',
+            {show('event') && renderGroup(
+              '📅 Eventos',
               filteredEvents,
               'event',
               (e) => (e.subtitle ? `${e.name} · ${e.subtitle}` : e.name),
             )}
 
-            {renderGroup(
-              'Distribuidores',
+            {show('distributor') && renderGroup(
+              '🤝 Distribuidores',
               filteredDistributors,
               'distributor',
               (d) => (d.subtitle ? `${d.name} · ${d.subtitle}` : d.name),
             )}
 
-            {noResults && (
+            {visibleCount === 0 && (
               <div className="text-center py-4 text-xs text-muted-foreground">
                 Nenhum resultado encontrado
               </div>
             )}
           </div>
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+
         </div>
       </PopoverContent>
     </Popover>
