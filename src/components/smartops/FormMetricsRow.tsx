@@ -11,6 +11,7 @@ import {
   Layout,
   Link2,
   Loader2,
+  Wand2,
 } from "lucide-react";
 import { toast } from "sonner";
 import type { FormMetrics, ShortLinkInfo } from "./FormMetricsCard";
@@ -30,6 +31,7 @@ interface Props {
   onEditMeta: () => void;
   onEditFields: () => void;
   onEditLandingPage: () => void;
+  onHeroStudio?: () => void;
   onDuplicate: () => void;
   onCopyLink: () => void;
   onCopyEmbed: () => void;
@@ -129,6 +131,7 @@ export function FormMetricsRow({
   onEditMeta,
   onEditFields,
   onEditLandingPage,
+  onHeroStudio,
   onDuplicate,
   onCopyLink,
   onCopyEmbed,
@@ -241,6 +244,17 @@ export function FormMetricsRow({
         <Button variant="ghost" size="icon" onClick={onEditLandingPage} title="Landing page" className="h-7 w-7">
           <Layout className="w-3.5 h-3.5" />
         </Button>
+        {onHeroStudio && (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onHeroStudio}
+            title="Gerar imagem HERO por IA (deste formulário)"
+            className="h-7 w-7"
+          >
+            <Wand2 className="w-3.5 h-3.5 text-primary" />
+          </Button>
+        )}
         <Button variant="ghost" size="icon" onClick={onEditFields} title="Editar campos" className="h-7 w-7">
           <Pencil className="w-3.5 h-3.5" />
         </Button>
