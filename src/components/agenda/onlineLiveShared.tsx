@@ -393,7 +393,23 @@ export function PublicOnlineCourseCard({
               Novas datas em breve — inscreva-se para ser avisado.
             </div>
           )}
+          {pastSessions.length > 0 && (
+            <details className="px-3 py-2">
+              <summary className="cursor-pointer text-[11px] font-medium text-muted-foreground hover:text-foreground">
+                {pastSessions.length} {pastSessions.length === 1 ? "sessão realizada" : "sessões realizadas"}
+              </summary>
+              <div className="mt-1.5 space-y-1">
+                {[...pastSessions].reverse().map((s) => (
+                  <div key={s.id} className="flex items-center justify-between text-[11px] text-muted-foreground">
+                    <span className="tabular-nums">{fmtShort(s.start_date)} · {hhmm(s.start_time) || "—"}</span>
+                    <span>Realizado</span>
+                  </div>
+                ))}
+              </div>
+            </details>
+          )}
         </div>
+
 
 
         {canUpload && (
