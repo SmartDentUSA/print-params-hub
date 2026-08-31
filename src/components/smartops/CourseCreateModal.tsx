@@ -1278,6 +1278,32 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
                               <Youtube className="w-3.5 h-3.5 mr-1" />
                               {creatingLive === turma.id ? "Criando transmissão…" : "Criar live no YouTube"}
                             </Button>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="mt-2 w-full"
+                              disabled={creatingThumb === turma.id}
+                              onClick={() => createLiveThumbnail(tIdx)}
+                            >
+                              <Image className="w-3.5 h-3.5 mr-1" />
+                              {creatingThumb === turma.id ? "Gerando capa…" : "Gerar capa da live (IA)"}
+                            </Button>
+                            {turma.live_thumbnail_url && (
+                              <a
+                                href={turma.live_thumbnail_url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="mt-2 block overflow-hidden rounded-md border"
+                              >
+                                <img
+                                  src={turma.live_thumbnail_url}
+                                  alt={`Capa da live ${turma.label}`}
+                                  loading="lazy"
+                                  className="w-full aspect-video object-cover"
+                                />
+                              </a>
+                            )}
                           </div>
                         ) : (
                           <div><Label className="text-xs">Grupo WA</Label><Input value={turma.whatsapp_group_link} onChange={(e) => updateTurma(tIdx, "whatsapp_group_link", e.target.value)} placeholder="https://chat.whatsapp.com/..." /></div>
