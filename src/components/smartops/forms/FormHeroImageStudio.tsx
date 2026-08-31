@@ -93,6 +93,66 @@ export function FormHeroImageStudio() {
     setSelectedImages((s) => (s.includes(url) ? s.filter((u) => u !== url) : s.length >= 5 ? s : [...s, url]));
   };
 
+  const handleUpload = async (files: FileList | null) => {
+    if (!files?.length) return;
+    const room = 5 - selectedImages.length;
+    if (room <= 0) {
+      toast.error("Máximo de 5 imagens de referência");
+      return;
+    }
+    const list = Array.from(files).slice(0, room);
+    const dataUrls = await Promise.all(
+      list.map(
+        (f) =>
+          new Promise<string>((resolve, reject) => {
+            const r = new FileReader();
+            r.onload = () => resolve(String(r.result));
+            r.onerror = () => reject(new Error(`Falha ao ler ${f.name}`));
+            r.readAsDataURL(f);
+          }),
+      ),
+    ).catch((e) => {
+      toast.error(e.message);
+      return [] as string[];
+    });
+    if (dataUrls.length) {
+      setSelectedImages((s) => [...s, ...dataUrls].slice(0, 5));
+      setUploads((s) => [...s, ...dataUrls].slice(0, 5));
+      toast.success(`${dataUrls.length} imagem(ns) adicionada(s)`);
+    }
+  };
+
+  const fillFromRag = async () => {
+    if (!formId && !productName.trim()) {
+      toast.error("Selecione o formulário (ou informe o produto)");
+      return;
+    }
+    setRagLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("form-hero-brief", {
+        body: { form_id: formId || undefined, product_name: productName || undefined },
+      });
+      if (error) throw error;
+      const payload = data as any;
+      if (payload?.error) throw new Error(typeof payload.error === "string" ? payload.error : JSON.stringify(payload.error));
+      const b = payload.brief;
+      if (b.headline) setHeadline(b.headline);
+      if (b.subheadline) setSubheadline(b.subheadline);
+      if (b.badge_text) setBadge(b.badge_text);
+      if (b.cta_text) setCta(b.cta_text);
+      if (Array.isArray(b.bullets) && b.bullets.length) setBullets(b.bullets);
+      if (b.style_notes) setStyleNotes(b.style_notes);
+      if (payload.product_name) setProductName(payload.product_name);
+      const imgs: string[] = Array.isArray(payload.images) ? payload.images : [];
+      if (imgs.length) setSelectedImages((s) => Array.from(new Set([...imgs, ...s])).slice(0, 5));
+      toast.success("Briefing preenchido pela RAG do produto");
+    } catch (e: any) {
+      toast.error(e?.message || "Falha ao buscar dados na RAG");
+    } finally {
+      setRagLoading(false);
+    }
+  };
+
   const generate = async (apply = false) => {
     if (!headline.trim()) {
       toast.error("Informe o headline");
