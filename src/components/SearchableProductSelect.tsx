@@ -4,7 +4,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Check, ChevronsUpDown, Search, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface ProductOption {
   id: string;
@@ -45,6 +44,7 @@ export function SearchableProductSelect({
 }: SearchableProductSelectProps) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const selectedLabel = useMemo(() => {
     if (!value || value === 'none') return null;
@@ -115,6 +115,7 @@ export function SearchableProductSelect({
           const val = `${prefix}:${item.id}`;
           return (
             <button
+              type="button"
               key={item.id}
               className={cn(
                 'flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-xs hover:bg-accent cursor-pointer',
@@ -186,6 +187,7 @@ export function SearchableProductSelect({
           <div className="p-1">
             {/* Nenhum */}
             <button
+              type="button"
               className={cn(
                 'flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-xs hover:bg-accent cursor-pointer',
                 value === 'none' && 'bg-accent'
