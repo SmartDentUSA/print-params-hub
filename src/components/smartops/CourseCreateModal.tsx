@@ -435,7 +435,7 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
     if (!course) {
       // Reset for new
       setTitle(""); setModality("presencial"); setCategory("treinamento");
-      setDescription(""); setInstructorName(""); setCoverImageUrl("");
+      setDescription(""); setMarketingBriefing(""); setInstructorName(""); setCoverImageUrl("");
       setDurationDays(1); setDurationHoursPerDay(undefined);
       setLocation(""); setMeetingLink(""); setWhatsappGroupLink("");
       setSignupFormUrl("");
