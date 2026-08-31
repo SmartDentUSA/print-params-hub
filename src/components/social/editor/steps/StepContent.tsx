@@ -378,8 +378,9 @@ export function StepContent({
 
   // ─── Multi-produto (até 3 complementares = 4 no total) ───
   const extras = value.extra_products || [];
-  const MAX_EXTRAS = 3;
+  const MAX_EXTRAS = 5;
   const [extraPick, setExtraPick] = useState<string>('none');
+
 
   const addExtraProduct = (val: string) => {
     if (!val || val === 'none') return;
