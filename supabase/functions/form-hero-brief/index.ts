@@ -52,16 +52,14 @@ Deno.serve(async (req) => {
         if ((form as any).product_catalog_id) {
           const { data: prod } = await supabase
             .from("system_a_catalog")
-            .select("name, image_url, og_image_url, gallery_images")
+            .select("name, image_url, og_image_url")
             .eq("id", (form as any).product_catalog_id)
             .maybeSingle();
           if (prod) {
             if (!productLabel) productLabel = String(prod.name || "");
-            const gallery = Array.isArray((prod as any).gallery_images) ? (prod as any).gallery_images : [];
-            images = [prod.image_url, prod.og_image_url, ...gallery]
-              .map((v: any) => (typeof v === "string" ? v : v?.url))
+            images = [prod.image_url, prod.og_image_url]
               .filter((v: any) => typeof v === "string" && v.startsWith("http"))
-              .slice(0, 5);
+              .slice(0, 5) as string[];
           }
         }
       }
