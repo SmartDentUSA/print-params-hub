@@ -51,6 +51,8 @@ export function FormHeroImageStudio() {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<string | null>(null);
   const [applying, setApplying] = useState(false);
+  const [ragLoading, setRagLoading] = useState(false);
+  const [uploads, setUploads] = useState<string[]>([]);
 
   useEffect(() => {
     (async () => {
