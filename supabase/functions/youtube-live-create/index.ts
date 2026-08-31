@@ -31,8 +31,102 @@ function fmtBR(date: string, time?: string | null) {
   });
 }
 
+// ── Contexto da empresa (system_a_catalog / company_info) ──────────────
+async function loadCompany() {
+  const { data } = await admin
+    .from("system_a_catalog")
+    .select("name, description, canonical_url, extra_data")
+    .eq("category", "company_info")
+    .eq("active", true)
+    .maybeSingle();
+  const extra = (data?.extra_data ?? {}) as any;
+  return {
+    name: data?.name || "Smart Dent | Fluxo Digital",
+    description: String(data?.description || "").slice(0, 900),
+    site: data?.canonical_url || "https://parametros.smartdent.com.br",
+    corporate: extra.corporate ?? {},
+    contact: extra.contact ?? {},
+    seo: extra.seo ?? {},
+    social: extra.social_media ?? {},
+    business: extra.business ?? {},
+  };
+}
+
+// ── Dossiês de produto (RAG local + Sistema A live) ────────────────────
+async function loadProductDossiers(names: string[]) {
+  const out: Array<{ name: string; text: string; keywords: string[] }> = [];
+  for (const n of names.slice(0, 3)) {
+    try {
+      const enriched = await fetchEnrichedProductDossier(admin as any, n);
+      const d = enriched?.local ?? (await fetchProductDossier(admin as any, n));
+      if (!d) continue;
+      out.push({
+        name: d.name || n,
+        text: renderDossierForPrompt(d, "PRODUTO"),
+        keywords: [d.name, d.category, d.subcategory].filter(Boolean) as string[],
+      });
+    } catch (e) {
+      console.warn("[youtube-live-create] dossier falhou", n, (e as Error).message);
+    }
+  }
+  return out;
+}
+
+function buildTags(course: any, company: any, produtos: string[]): string[] {
+  const raw = [
+    "odontologia digital",
+    "impressão 3D odontológica",
+    "fluxo digital",
+    company.name,
+    course.category,
+    ...produtos,
+    ...(Array.isArray(company.seo?.context_keywords) ? company.seo.context_keywords : []),
+    ...(Array.isArray(company.seo?.service_offerings) ? company.seo.service_offerings : []),
+  ];
+  const seen = new Set<string>();
+  const tags: string[] = [];
+  let chars = 0;
+  for (const t of raw) {
+    const v = String(t ?? "").replace(/\s+/g, " ").trim().slice(0, 60);
+    if (!v || v.length < 3) continue;
+    const k = v.toLowerCase();
+    if (seen.has(k)) continue;
+    if (chars + v.length + 1 > 480) break; // limite de 500 caracteres da API
+    seen.add(k);
+    tags.push(v);
+    chars += v.length + 1;
+  }
+  return tags.slice(0, 25);
+}
+
 async function buildTexts(course: any, turma: any, startsAtBR: string) {
   const produtos: string[] = (course.related_product_names ?? []).filter(Boolean);
+  const company = await loadCompany();
+  const dossiers = await loadProductDossiers(produtos);
+
+  const contatoLinhas = [
+    company.site ? `Site: ${company.site}` : "",
+    company.contact?.whatsapp ? `WhatsApp: ${company.contact.whatsapp}` : "",
+    company.contact?.email ? `E-mail: ${company.contact.email}` : "",
+    company.contact?.city && company.contact?.state
+      ? `Localização: ${company.contact.city} / ${company.contact.state}${company.contact?.country ? ` — ${company.contact.country}` : ""}`
+      : "",
+    company.social?.instagram ? `Instagram: ${company.social.instagram}` : "",
+    company.social?.youtube ? `YouTube: ${company.social.youtube}` : "",
+  ].filter(Boolean);
+
+  const sobreEmpresa = [
+    `Sobre a ${company.name}`,
+    company.description || company.corporate?.mission || "",
+    company.corporate?.founded_year ? `Fundada em ${company.corporate.founded_year}.` : "",
+    Array.isArray(company.corporate?.differentiators) && company.corporate.differentiators.length
+      ? `Diferenciais: ${company.corporate.differentiators.slice(0, 5).join(" · ")}.`
+      : "",
+    Array.isArray(company.seo?.service_offerings) && company.seo.service_offerings.length
+      ? `Soluções: ${company.seo.service_offerings.slice(0, 8).join(" · ")}.`
+      : "",
+  ].filter(Boolean).join("\n");
+
   const fallbackTitle = `${course.title} — ${startsAtBR} (ao vivo)`.slice(0, 100);
   const fallbackDesc = [
     course.description || `Transmissão ao vivo Smart Dent: ${course.title}.`,
@@ -41,11 +135,17 @@ async function buildTexts(course: any, turma: any, startsAtBR: string) {
     produtos.length ? `Produtos abordados: ${produtos.join(", ")}.` : "",
     course.instructor_name ? `Apresentação: ${course.instructor_name}.` : "",
     "",
-    "Smart Dent | Fluxo Digital — odontologia digital de ponta a ponta.",
+    ...dossiers.map((d) => `▸ ${d.name}\n${d.text.replace(/^### [^\n]*\n/, "")}`),
+    "",
+    sobreEmpresa,
+    "",
+    contatoLinhas.join("\n"),
   ].filter(Boolean).join("\n");
 
+  const tags = buildTags(course, company, [...produtos, ...dossiers.flatMap((d) => d.keywords)]);
+
   const apiKey = Deno.env.get("LOVABLE_API_KEY");
-  if (!apiKey) return { title: fallbackTitle, description: fallbackDesc };
+  if (!apiKey) return { title: fallbackTitle, description: fallbackDesc.slice(0, 4900), tags };
 
   try {
     const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -59,7 +159,11 @@ async function buildTexts(course: any, turma: any, startsAtBR: string) {
             content:
               "Você escreve títulos e descrições de transmissões ao vivo no YouTube para a Smart Dent (odontologia digital, Brasil). " +
               "Português do Brasil, tom profissional e humano, sem emojis exagerados, NUNCA cite preços ou valores comerciais. " +
-              'Responda SOMENTE JSON: {"title": string (máx 95 caracteres), "description": string (máx 1200 caracteres, com data/horário e 3 a 5 bullets do que será mostrado, terminando com hashtags relevantes)}.',
+              "A descrição é lida por buscadores e por IAs (AEO/GEO): deve ser RICA e COMPLETA, usando apenas os dados fornecidos — nunca invente especificações, certificações ou números. " +
+              "Estruture a descrição assim: (1) 2 a 3 linhas de resumo com a proposta da live; (2) 'Data e horário'; (3) 'O que você vai ver' com 4 a 6 bullets; " +
+              "(4) 'Produtos e tecnologias' com nome do produto, aplicações clínicas, compatibilidades e especificações fornecidas; (5) 'Sobre a Smart Dent' com histórico, diferenciais e soluções; " +
+              "(6) 'Contato e links'; (7) hashtags relevantes. " +
+              'Responda SOMENTE JSON: {"title": string (máx 95 caracteres), "description": string (2000 a 4500 caracteres)}.',
           },
           {
             role: "user",
@@ -71,6 +175,17 @@ async function buildTexts(course: any, turma: any, startsAtBR: string) {
               produtos,
               data_horario_brasilia: startsAtBR,
               opcao: turma.label ?? null,
+              dossies_produtos: dossiers.map((d) => d.text),
+              empresa: {
+                nome: company.name,
+                descricao: company.description,
+                site: company.site,
+                corporativo: company.corporate,
+                contato: company.contact,
+                seo: company.seo,
+                redes: company.social,
+                dados_cadastrais: company.business,
+              },
             }),
           },
         ],
@@ -78,20 +193,26 @@ async function buildTexts(course: any, turma: any, startsAtBR: string) {
     });
     if (!resp.ok) {
       console.error("[youtube-live-create] AI", resp.status, await resp.text());
-      return { title: fallbackTitle, description: fallbackDesc };
+      return { title: fallbackTitle, description: fallbackDesc.slice(0, 4900), tags };
     }
     const data = await resp.json();
     const raw = data?.choices?.[0]?.message?.content ?? "";
     const parsed = JSON.parse(raw.replace(/^```json/i, "").replace(/```$/, "").trim());
+    let description = String(parsed.description || fallbackDesc);
+    if (contatoLinhas.length && !/parametros\.smartdent|smartdent\.com\.br/i.test(description)) {
+      description += `\n\n${contatoLinhas.join("\n")}`;
+    }
     return {
       title: String(parsed.title || fallbackTitle).slice(0, 100),
-      description: String(parsed.description || fallbackDesc).slice(0, 4500),
+      description: description.slice(0, 4900),
+      tags,
     };
   } catch (e) {
     console.error("[youtube-live-create] AI parse", e);
-    return { title: fallbackTitle, description: fallbackDesc };
+    return { title: fallbackTitle, description: fallbackDesc.slice(0, 4900), tags };
   }
 }
+
 
 async function yt(path: string, token: string, init?: RequestInit) {
   const resp = await fetch(`${YT}/${path}`, {
