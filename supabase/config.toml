@@ -629,3 +629,6 @@ verify_jwt = false
 
 [functions.form-hero-brief]
 verify_jwt = false
+
+[functions.youtube-live-create]
+verify_jwt = false
