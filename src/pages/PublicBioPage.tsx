@@ -5,6 +5,8 @@ import { Instagram, Youtube, Facebook, Linkedin, Globe, MessageCircle, Share2, A
 import { toast } from "sonner";
 import { useBioPage, DEFAULT_LOGO_URL, type BioItem, type BioSocialLinks } from "@/hooks/useBioPages";
 import { useEffect, useState } from "react";
+import catalogoBanner from "@/assets/catalogo-resinas-smart-dent.png.asset.json";
+
 
 
 const SOCIAL_ICONS: Array<{ key: keyof BioSocialLinks; Icon: typeof Instagram; label: string }> = [
@@ -127,7 +129,7 @@ export default function PublicBioPage() {
           <h1 className="mt-4 text-2xl font-bold text-foreground">{page.title}</h1>
           {page.subtitle && <p className="mt-1 text-sm text-muted-foreground">{page.subtitle}</p>}
 
-          <div className="mt-5 flex w-full flex-col items-stretch gap-3 px-2 sm:flex-row sm:justify-center sm:px-0">
+          <div className="mt-5 flex w-full flex-col items-stretch gap-3 px-2 sm:px-0">
             <a
               href="/base-conhecimento?tab=parametros"
               className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground shadow-sm transition-all hover:-translate-y-0.5 hover:bg-primary/90 hover:shadow-md"
@@ -139,12 +141,22 @@ export default function PublicBioPage() {
               href="https://parametros.smartdent.com.br/base-conhecimento?tab=catalogo&_cb=1788186308518&cat=resinas_3d"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-card px-5 py-3 text-sm font-semibold text-foreground shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/30 hover:bg-accent hover:shadow-md"
+              className="group flex w-full flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md"
             >
-              <ShoppingBag className="h-4 w-4" />
-              Catálogo de produtos
+              <img
+                src={catalogoBanner.url}
+                alt="Linha completa de resinas 3D Smart Dent com certificações FDA e ANSM"
+                loading="lazy"
+                decoding="async"
+                className="block h-auto w-full bg-white object-contain transition-transform duration-300 group-hover:scale-[1.02]"
+              />
+              <span className="inline-flex items-center justify-center gap-2 px-5 py-3 text-sm font-semibold text-foreground">
+                <ShoppingBag className="h-4 w-4" />
+                Catálogo de produtos
+              </span>
             </a>
           </div>
+
         </header>
 
 
