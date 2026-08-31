@@ -5,7 +5,7 @@ import { Instagram, Youtube, Facebook, Linkedin, Globe, MessageCircle, Share2, A
 import { toast } from "sonner";
 import { useBioPage, DEFAULT_LOGO_URL, type BioItem, type BioSocialLinks } from "@/hooks/useBioPages";
 import { useEffect, useState } from "react";
-import catalogoBanner from "@/assets/catalogo-resinas-smartdent.png.asset.json";
+import catalogoBanner from "@/assets/catalogo-resinas-bio.webp.asset.json";
 
 
 
