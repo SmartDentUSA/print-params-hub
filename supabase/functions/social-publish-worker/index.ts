@@ -109,6 +109,16 @@ type ZernioVerification = {
   detail: unknown;
 };
 
+function summarizeVerificationDetail(detail: unknown): string | null {
+  try {
+    const raw = JSON.stringify(detail);
+    if (!raw || raw === '{}') return null;
+    return raw.slice(0, 1800);
+  } catch {
+    return null;
+  }
+}
+
 function collectPlatformUrls(value: unknown, urls = new Set<string>()): string[] {
   if (!value || typeof value !== 'object') return [...urls];
   if (Array.isArray(value)) {
@@ -242,7 +252,10 @@ serve(async (req) => {
         const confirmed = checks.filter((c) => c.confirmed).length;
         const failures = checks.filter((c) => c.failed);
         const stillPending = checks.some((c) => c.pending);
-        const verification = checks.map(({ detail: _detail, ...safe }) => safe);
+        const verification = checks.map(({ detail, ...safe }) => ({
+          ...safe,
+          ...(safe.failed ? { error_detail: summarizeVerificationDetail(detail) } : {}),
+        }));
         const finalStatus = confirmed === checks.length
           ? 'published'
           : failures.length > 0 && !stillPending
