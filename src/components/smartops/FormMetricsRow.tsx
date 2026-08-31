@@ -244,6 +244,17 @@ export function FormMetricsRow({
         <Button variant="ghost" size="icon" onClick={onEditLandingPage} title="Landing page" className="h-7 w-7">
           <Layout className="w-3.5 h-3.5" />
         </Button>
+        {onHeroStudio && (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onHeroStudio}
+            title="Gerar imagem HERO por IA (deste formulário)"
+            className="h-7 w-7"
+          >
+            <Wand2 className="w-3.5 h-3.5 text-primary" />
+          </Button>
+        )}
         <Button variant="ghost" size="icon" onClick={onEditFields} title="Editar campos" className="h-7 w-7">
           <Pencil className="w-3.5 h-3.5" />
         </Button>
