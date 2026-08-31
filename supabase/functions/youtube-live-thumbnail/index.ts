@@ -245,6 +245,15 @@ Deno.serve(async (req) => {
     const logoUrl = await loadBrandLogo();
     const logoData = logoUrl ? await toDataUrl(logoUrl) : null;
 
+    // Alterna gênero do profissional a cada capa gerada (determinístico por turma)
+    const genderSeed = String((turma as any).id ?? "") + String((turma as any).updated_at ?? "");
+    let seedSum = 0;
+    for (const ch of genderSeed) seedSum += ch.charCodeAt(0);
+    const isFemale = seedSum % 2 === 0;
+    const professional = isFemale
+      ? "uma dentista mulher adulta (30-45 anos), cabelo preso, jaleco escuro"
+      : "um dentista homem adulto (30-45 anos), jaleco escuro";
+
     const prompt = [
       "Crie uma THUMBNAIL (capa) de transmissão ao vivo do YouTube, formato horizontal 16:9 (1280x720px), estética cinematográfica de alto impacto.",
       "",
@@ -255,12 +264,14 @@ Deno.serve(async (req) => {
           dossiers.join("\n").slice(0, 2500)
         : "",
       "",
+      `ENQUADRAMENTO DO PROFISSIONAL (OBRIGATÓRIO): ${professional}, ocupando NO MÁXIMO 30% da largura da imagem, no terço direito, plano médio (da cintura/peito para cima) — NUNCA um retrato grande em close ocupando a capa. O rosto não deve ser o elemento dominante; o texto e o produto têm prioridade visual. A expressão e a ação devem comunicar o contexto da DOR resolvida pelo texto (ex.: retrabalho/refação, tempo perdido na clínica, fluxo travado, insegurança com o resultado) — postura de alívio/domínio ao resolver esse problema, coerente com a headline.`,
       inlined.length
-        ? "CENA: fundo de estúdio escuro (quase preto) com luz volumétrica azul fria vindo da direita e um leve halo laranja; profissional da odontologia adulto, jaleco/camisa escura, expressão confiante, olhando para a câmera no terço direito. Iluminação dramática de recorte, contraste alto, fotografia real (não ilustração)."
-        : "CENA: fundo de estúdio escuro (quase preto) com luz volumétrica azul fria e halo laranja; profissional da odontologia adulto, jaleco escuro, expressão confiante olhando para a câmera no terço direito, segurando uma coroa dentária impressa em 3D entre os dedos. NÃO inclua nenhum equipamento, impressora, scanner ou embalagem na cena.",
+        ? "CENA: fundo de estúdio escuro (quase preto) com luz volumétrica azul fria vindo da direita e um leve halo laranja. Iluminação dramática de recorte, contraste alto, fotografia real (não ilustração)."
+        : "CENA: fundo de estúdio escuro (quase preto) com luz volumétrica azul fria e halo laranja; o profissional segura uma coroa dentária impressa em 3D entre os dedos. NÃO inclua nenhum equipamento, impressora, scanner ou embalagem na cena.",
       inlined.length
         ? "PRODUTO (OBRIGATÓRIO): as fotografias anexadas são o produto real. Recorte-as e componha-as na imagem EXATAMENTE como estão — mesma forma, proporções, cor, painéis, botões e marca. É PROIBIDO redesenhar, estilizar, substituir, espelhar ou inventar qualquer equipamento; apenas ajuste iluminação, sombra e reflexo para integrar à cena. Posicione sobre bancada escura no terço inferior central."
         : "PRODUTO: nenhuma foto oficial disponível — é PROIBIDO desenhar ou imaginar qualquer equipamento, impressora, scanner, frasco de resina ou embalagem. Mantenha a cena apenas com o profissional, a coroa impressa e o fundo de estúdio.",
+
 
       "",
       "TEXTO (renderize exatamente, sem erros de ortografia, tipografia sans-serif condensada muito pesada, alinhado à esquerda no terço esquerdo):",
