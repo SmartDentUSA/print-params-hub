@@ -1063,6 +1063,20 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
                 <Textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={2} />
               </div>
 
+              <div>
+                <Label>Briefing do curso (referência para a IA)</Label>
+                <Textarea
+                  value={marketingBriefing}
+                  onChange={(e) => setMarketingBriefing(e.target.value)}
+                  rows={4}
+                  placeholder="Objetivo da live, público-alvo, dor que resolve, ganho principal, palavras e frases que devem aparecer, o que evitar. A IA usa este texto para criar as frases da capa e a descrição do YouTube."
+                />
+                <p className="text-[11px] text-muted-foreground mt-1">
+                  Usado como fonte das frases da capa (thumb) e da descrição da transmissão. Sem briefing, a IA usa apenas título, descrição e RAG dos produtos.
+                </p>
+              </div>
+
+
               <div className="grid gap-3 sm:grid-cols-2">
                 <div>
                   <Label>Instrutor</Label>
