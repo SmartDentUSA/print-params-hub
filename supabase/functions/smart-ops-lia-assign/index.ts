@@ -972,10 +972,12 @@ async function createNewDeal(
   supabase: ReturnType<typeof createClient>,
   formResponses?: Array<{ label?: string; value?: unknown }>
 ): Promise<string | null> {
-  // PARIDADE NOTA↔DEAL: a Origem do Deal deve ser exatamente o mesmo valor que
-  // a nota "Resumo do Lead" imprime em "Origem PipeRun" (piperun_origin_name),
-  // caindo para origem_primeiro_contato / origem_campanha / form_name.
-  const formOriginId = await resolveOriginId(apiToken, dealOriginName(lead));
+  // CONVERSÃO ATUAL: um Deal NOVO representa a conversão que acabou de
+  // acontecer. A origem tem de sair do formulário/campanha DESTA submissão —
+  // nunca do `piperun_origin_name` herdado do deal anterior (era isso que
+  // fazia o deal novo nascer com a conversão do deal antigo).
+  const formOriginId = await resolveOriginId(apiToken, dealConversionName(lead));
+
 
 
   const dealPayload: Record<string, unknown> = {
@@ -1061,6 +1063,27 @@ export function dealOriginName(lead: Record<string, unknown>): string | null {
     if (v && !technical.test(v)) return v;
   }
   return (String(lead.form_name ?? "").trim() || null);
+}
+
+/**
+ * Conversão ATUAL do lead (usada apenas na criação de um Deal NOVO).
+ * Prioriza o formulário/campanha desta submissão; só cai para a origem
+ * histórica (`piperun_origin_name` / `origem_primeiro_contato`) quando não
+ * existe conversão nova. Person origin continua congelada (dealOriginName).
+ */
+export function dealConversionName(lead: Record<string, unknown>): string | null {
+  const technical = /^(dra[-_ ]?lia|piperun(_webhook)?|smartops|api|import|staging|\[cadastro\])/i;
+  const candidates = [
+    lead.form_name,
+    lead.origem_campanha,
+    lead.piperun_origin_name,
+    lead.origem_primeiro_contato,
+  ];
+  for (const c of candidates) {
+    const v = String(c ?? "").trim();
+    if (v && !technical.test(v)) return v;
+  }
+  return dealOriginName(lead);
 }
 
 async function resolveOriginId(apiToken: string, formName: string | null): Promise<number> {
@@ -4305,7 +4328,9 @@ Deno.serve(async (req) => {
         "piperun_created_at", "piperun_pipeline_id", "piperun_pipeline_name",
         "piperun_stage_id", "piperun_stage_name", "piperun_status",
         "piperun_origin_id", "piperun_origin_name", "piperun_title",
-        "especialidade", "produto_interesse", "tem_scanner", "tem_impressora",
+        // NÃO enriquecer `produto_interesse` a partir do deal antigo: o valor
+        // herdado vazava para o Deal novo como "produto de interesse" atual.
+        "especialidade", "tem_scanner", "tem_impressora",
         "pais_origem", "id_cliente_smart", "informacao_desejada",
         "codigo_contrato", "data_treinamento", "telefone_raw",
         "area_atuacao", "cidade", "uf",
