@@ -9,6 +9,8 @@ import {
 import { renderLiveDossierForPrompt } from "../_shared/system-a-live.ts";
 import { renderStrategyForPrompt } from "../_shared/smartdent-strategy.ts";
 import { renderHooksForPrompt } from "../_shared/smartdent-hooks.ts";
+import { sanitizeShopUrl } from "../_shared/shop-url.ts";
+
 
 
 const json = (body: unknown, status = 200) =>
@@ -82,6 +84,58 @@ async function loadProductDossiers(names: string[]) {
   return out;
 }
 
+const PUBLIC_ORIGIN = "https://parametros.smartdent.com.br";
+
+/**
+ * Links oficiais dos produtos selecionados na live:
+ * 1) página do produto (system_a_catalog.cta_1_url / canonical_url)
+ * 2) landing page do formulário do produto (/f/{slug})
+ * Nunca inventar URL: só entram links existentes no banco.
+ */
+async function loadProductLinks(names: string[]) {
+  const out: Array<{ name: string; product_url: string | null; form_urls: string[] }> = [];
+  for (const n of names.slice(0, 6)) {
+    const { data: row } = await admin
+      .from("system_a_catalog")
+      .select("id, name, slug, cta_1_url, canonical_url")
+      .eq("active", true)
+      .ilike("name", `%${n}%`)
+      .limit(1)
+      .maybeSingle();
+
+    const productUrl =
+      sanitizeShopUrl((row as any)?.cta_1_url) ??
+      sanitizeShopUrl((row as any)?.canonical_url) ??
+      null;
+
+    const formUrls: string[] = [];
+    const catalogId = (row as any)?.id ?? null;
+    let q = admin.from("smartops_forms").select("name, slug, product_catalog_id, active").limit(3);
+    q = catalogId ? q.eq("product_catalog_id", catalogId) : q.ilike("name", `%${n}%`);
+    const { data: forms } = await q;
+    for (const f of forms ?? []) {
+      const slug = String((f as any)?.slug ?? "").trim();
+      if (slug && (f as any)?.active !== false) formUrls.push(`${PUBLIC_ORIGIN}/f/${slug}`);
+    }
+
+    if (productUrl || formUrls.length) {
+      out.push({ name: (row as any)?.name || n, product_url: productUrl, form_urls: formUrls });
+    }
+  }
+  return out;
+}
+
+function renderProductLinks(links: Awaited<ReturnType<typeof loadProductLinks>>): string {
+  if (!links.length) return "";
+  const lines = ["Equipamentos e insumos citados nesta live"];
+  for (const l of links) {
+    if (l.product_url) lines.push(`${l.name}: ${l.product_url}`);
+    for (const u of l.form_urls) lines.push(`${l.name} — informações e condições: ${u}`);
+  }
+  return lines.join("\n");
+}
+
+
 
 function buildTags(course: any, company: any, produtos: string[]): string[] {
   const raw = [
@@ -138,6 +192,9 @@ async function buildTexts(course: any, turma: any, startsAtBR: string) {
       : "",
   ].filter(Boolean).join("\n");
 
+  const productLinks = await loadProductLinks(produtos);
+  const linksBlock = renderProductLinks(productLinks);
+
   const fallbackTitle = `${course.title} — ${startsAtBR} (ao vivo)`.slice(0, 100);
   const fallbackDesc = [
     course.description || `Transmissão ao vivo Smart Dent: ${course.title}.`,
@@ -148,12 +205,15 @@ async function buildTexts(course: any, turma: any, startsAtBR: string) {
     "",
     ...dossiers.map((d) => `▸ ${d.name}\n${d.text.replace(/^### [^\n]*\n/, "")}`),
     "",
+    linksBlock,
+    "",
     sobreEmpresa,
     "",
     contatoLinhas.join("\n"),
   ].filter(Boolean).join("\n");
 
   const tags = buildTags(course, company, [...produtos, ...dossiers.flatMap((d) => d.keywords)]);
+
 
   const apiKey = Deno.env.get("LOVABLE_API_KEY");
   if (!apiKey) return { title: fallbackTitle, description: fallbackDesc.slice(0, 4900), tags };
@@ -173,7 +233,7 @@ async function buildTexts(course: any, turma: any, startsAtBR: string) {
               "A descrição é lida por buscadores e por IAs (AEO/GEO): deve ser RICA e COMPLETA, usando apenas os dados fornecidos — nunca invente especificações, certificações ou números. " +
               "Estruture a descrição assim: (1) 2 a 3 linhas de resumo com a proposta da live; (2) 'Data e horário'; (3) 'O que você vai ver' com 4 a 6 bullets; " +
               "(4) 'Produtos e tecnologias' com nome do produto, aplicações clínicas, compatibilidades e especificações fornecidas; (5) 'Sobre a Smart Dent' com histórico, diferenciais e soluções; " +
-              "(6) 'Contato e links'; (7) hashtags relevantes. " +
+              "(6) 'Equipamentos e insumos citados nesta live' listando cada item de links_produtos com a URL exata do produto e a URL do formulário/landing page (copie as URLs literalmente, nunca invente ou encurte); (7) 'Contato e links'; (8) hashtags relevantes. " +
               "O resumo e os bullets devem partir da dor real de fluxo digital e da complexidade retirada, conforme as premissas estratégicas abaixo.\n\n" +
               renderStrategyForPrompt() + "\n\n" + renderHooksForPrompt() + "\n\n" +
               'Responda SOMENTE JSON: {"title": string (máx 95 caracteres), "description": string (2000 a 4500 caracteres)}.',
@@ -190,6 +250,8 @@ async function buildTexts(course: any, turma: any, startsAtBR: string) {
               data_horario_brasilia: startsAtBR,
               opcao: turma.label ?? null,
               dossies_produtos: dossiers.map((d) => d.text),
+              links_produtos: productLinks,
+
               empresa: {
                 nome: company.name,
                 descricao: company.description,
@@ -213,9 +275,14 @@ async function buildTexts(course: any, turma: any, startsAtBR: string) {
     const raw = data?.choices?.[0]?.message?.content ?? "";
     const parsed = JSON.parse(raw.replace(/^```json/i, "").replace(/```$/, "").trim());
     let description = String(parsed.description || fallbackDesc);
+    // Links oficiais dos produtos/formulários: sempre presentes, um por URL
+    const missing = productLinks.flatMap((l) => [l.product_url, ...l.form_urls])
+      .filter((u): u is string => !!u && !description.includes(u));
+    if (missing.length && linksBlock) description += `\n\n${linksBlock}`;
     if (contatoLinhas.length && !/parametros\.smartdent|smartdent\.com\.br/i.test(description)) {
       description += `\n\n${contatoLinhas.join("\n")}`;
     }
+
     return {
       title: String(parsed.title || fallbackTitle).slice(0, 100),
       description: description.slice(0, 4900),
