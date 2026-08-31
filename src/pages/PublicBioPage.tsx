@@ -126,13 +126,7 @@ export default function PublicBioPage() {
           {page.subtitle && <p className="mt-1 text-sm text-muted-foreground">{page.subtitle}</p>}
         </header>
 
-        <section
-          className={
-            page.items.length === 1
-              ? "mt-8 flex justify-center"
-              : "mt-8 grid grid-cols-2 items-start justify-items-center gap-3 sm:gap-4"
-          }
-        >
+        <section className="mt-8 flex w-full flex-col items-center gap-3">
           {page.items.map((item) => (
             <BioCard key={item.id} item={item} />
           ))}
