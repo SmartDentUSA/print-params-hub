@@ -487,6 +487,7 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
           sellflux_tag: t.sellflux_tag || "",
           whatsapp_group_link: t.whatsapp_group_link || "",
           live_url: t.live_url || "",
+          live_thumbnail_url: t.live_thumbnail_url || "",
           sort_order: t.sort_order,
           enrolled_count: t.enrolled_count,
           days: (() => {
