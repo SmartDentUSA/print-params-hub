@@ -99,6 +99,68 @@ function extractZernioError(groupErrors: any[]): string {
   return msgs.join(' | ');
 }
 
+type ZernioVerification = {
+  id: string;
+  status: string;
+  confirmed: boolean;
+  pending: boolean;
+  failed: boolean;
+  urls: string[];
+  detail: unknown;
+};
+
+function collectPlatformUrls(value: unknown, urls = new Set<string>()): string[] {
+  if (!value || typeof value !== 'object') return [...urls];
+  if (Array.isArray(value)) {
+    for (const item of value) collectPlatformUrls(item, urls);
+    return [...urls];
+  }
+  for (const [key, child] of Object.entries(value as Record<string, unknown>)) {
+    if (/platformPostUrl|permalink|postUrl/i.test(key) && typeof child === 'string' && /^https?:\/\//i.test(child)) {
+      urls.add(child);
+    } else {
+      collectPlatformUrls(child, urls);
+    }
+  }
+  return [...urls];
+}
+
+function collectStatuses(value: unknown, statuses: string[] = []): string[] {
+  if (!value || typeof value !== 'object') return statuses;
+  if (Array.isArray(value)) {
+    for (const item of value) collectStatuses(item, statuses);
+    return statuses;
+  }
+  for (const [key, child] of Object.entries(value as Record<string, unknown>)) {
+    if (/^status$/i.test(key) && typeof child === 'string') statuses.push(child.toLowerCase());
+    else collectStatuses(child, statuses);
+  }
+  return statuses;
+}
+
+async function verifyZernioPost(apiKey: string, id: string): Promise<ZernioVerification> {
+  const res = await fetch(`${ZERNIO_BASE}/posts/${encodeURIComponent(id)}`, {
+    headers: { Authorization: `Bearer ${apiKey}` },
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    return { id, status: `http_${res.status}`, confirmed: false, pending: res.status >= 500, failed: res.status < 500, urls: [], detail: data };
+  }
+  const urls = collectPlatformUrls(data);
+  const statuses = collectStatuses(data);
+  const failed = statuses.some((s) => ['failed', 'error', 'rejected'].includes(s));
+  const pending = !failed && urls.length === 0 && statuses.some((s) => ['pending', 'scheduled', 'publishing', 'processing', 'queued'].includes(s));
+  return {
+    id,
+    status: statuses.join(',') || (urls.length > 0 ? 'published' : 'unknown'),
+    confirmed: urls.length > 0 && !failed,
+    pending: pending || (!failed && urls.length === 0),
+    failed,
+    urls,
+    detail: data,
+  };
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
@@ -168,6 +230,43 @@ serve(async (req) => {
 
   for (const post of claimed || []) {
     try {
+      // Um ID retornado pelo POST da Zernio significa apenas "aceito". Em
+      // execuções seguintes, confirme a publicação nativa e a URL pública antes
+      // de marcar o lote/depoimento como publicado. Isso também evita reenviar e
+      // duplicar posts enquanto a rede social ainda está processando.
+      const existingIds = post.zernio_post_ids && typeof post.zernio_post_ids === 'object'
+        ? [...new Set(Object.values(post.zernio_post_ids).filter((v): v is string => typeof v === 'string' && v.length > 0))]
+        : [];
+      if (existingIds.length > 0) {
+        const checks = await Promise.all(existingIds.map((id) => verifyZernioPost(apiKey, id)));
+        const confirmed = checks.filter((c) => c.confirmed).length;
+        const failures = checks.filter((c) => c.failed);
+        const stillPending = checks.some((c) => c.pending);
+        const verification = checks.map(({ detail: _detail, ...safe }) => safe);
+        const finalStatus = confirmed === checks.length
+          ? 'published'
+          : failures.length > 0 && !stillPending
+            ? (confirmed > 0 ? 'partial' : 'failed')
+            : 'publishing';
+
+        await supabase.from('social_scheduled_posts').update({
+          status: finalStatus,
+          published_at: finalStatus === 'published' ? (post.published_at ?? new Date().toISOString()) : null,
+          publish_errors: finalStatus === 'published' ? null : [{ type: 'zernio_verification', checks: verification }],
+          updated_at: new Date().toISOString(),
+        }).eq('id', post.id);
+
+        await supabase.from('training_testimonials').update({
+          social_story_status: finalStatus,
+          social_story_error: finalStatus === 'published' ? null : `Confirmação Zernio: ${confirmed}/${checks.length} publicações com URL pública`,
+          social_story_published_at: finalStatus === 'published' ? new Date().toISOString() : null,
+        }).eq('social_story_post_id', post.id);
+
+        console.log(JSON.stringify({ event: 'publish.verified', post_id: post.id, status: finalStatus, confirmed, total: checks.length }));
+        results.push({ id: post.id, status: finalStatus, confirmed, total: checks.length });
+        continue;
+      }
+
       const channels: any[] = Array.isArray(post.channels) ? post.channels : [];
       const mediaItems: any[] = Array.isArray(post.media_items) ? post.media_items : [];
       const perChannelMedia: Record<string, any[]> =
@@ -350,10 +449,10 @@ serve(async (req) => {
       await supabase
         .from('social_scheduled_posts')
         .update({
-          status: groupErrors.length > 0 ? 'partial' : 'published',
-          published_at: new Date().toISOString(),
+          status: 'publishing',
+          published_at: null,
           zernio_post_ids: idsMap,
-          publish_errors: [...skipped, ...groupErrors].length > 0 ? [...skipped, ...groupErrors] : null,
+          publish_errors: [...skipped, ...groupErrors, { type: 'awaiting_zernio_confirmation' }],
           updated_at: new Date().toISOString(),
         })
         .eq('id', post.id);
@@ -363,14 +462,14 @@ serve(async (req) => {
       await supabase
         .from('training_testimonials')
         .update({
-          social_story_status: groupErrors.length > 0 ? 'partial' : 'published',
-          social_story_error: groupErrors.length > 0 ? extractZernioError(groupErrors).slice(0, 1000) : null,
-          social_story_published_at: new Date().toISOString(),
+          social_story_status: 'publishing',
+          social_story_error: 'Aguardando confirmação e URL pública de cada rede social',
+          social_story_published_at: null,
         })
         .eq('social_story_post_id', post.id);
 
-      console.log(JSON.stringify({ event: 'publish.ok', post_id: post.id, platforms: Object.keys(idsMap), errors: groupErrors.length }));
-      results.push({ id: post.id, status: 'published', errors: groupErrors.length });
+      console.log(JSON.stringify({ event: 'publish.accepted', post_id: post.id, platforms: Object.keys(idsMap), errors: groupErrors.length }));
+      results.push({ id: post.id, status: 'publishing', errors: groupErrors.length });
     } catch (err: any) {
       console.error(JSON.stringify({ event: 'publish.fail', post_id: post.id, error: String(err?.message ?? err) }));
       await supabase
