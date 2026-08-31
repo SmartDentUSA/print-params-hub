@@ -178,7 +178,34 @@ async function loadBrandLogo(): Promise<string | null> {
   return null;
 }
 
-async function buildCopy(course: any, dossiers: string[], override: { headline?: string; highlight?: string; badge?: string }) {
+/** Frases já usadas em capas de outras sessões do mesmo curso (evita repetição). */
+async function loadUsedCopy(courseId: string, turmaId: string) {
+  const used: string[] = [];
+  try {
+    const { data } = await admin
+      .from("smartops_course_turmas")
+      .select("id, live_thumbnail_copy")
+      .eq("course_id", courseId)
+      .not("live_thumbnail_copy", "is", null)
+      .limit(40);
+    for (const t of data ?? []) {
+      if ((t as any).id === turmaId) continue;
+      const c = (t as any).live_thumbnail_copy ?? {};
+      if (c.headline) used.push(String(c.headline));
+      if (c.highlight) used.push(String(c.highlight));
+    }
+  } catch (e) {
+    console.warn("[youtube-live-thumbnail] used copy lookup", (e as Error).message);
+  }
+  return Array.from(new Set(used)).slice(0, 30);
+}
+
+async function buildCopy(
+  course: any,
+  dossiers: string[],
+  override: { headline?: string; highlight?: string; badge?: string },
+  usedCopy: string[],
+) {
   const fallback = {
     headline: override.headline || String(course.title || "AO VIVO").toUpperCase().slice(0, 60),
     highlight: override.highlight || "SEM ADAPTAÇÕES",
@@ -197,25 +224,30 @@ async function buildCopy(course: any, dossiers: string[], override: { headline?:
             role: "system",
             content:
               "Você cria copy de THUMBNAIL de live no YouTube para a Smart Dent (odontologia digital, impressão 3D). " +
+              "FONTE PRINCIPAL: o BRIEFING DO CURSO enviado pelo usuário — ele define o objetivo da live, o público e o ângulo comercial. " +
+              "Se houver briefing, a headline e o highlight DEVEM nascer dele (mesmas ideias, mesmas palavras-chave); é PROIBIDO inventar promessa que não esteja no briefing ou nos dossiês. " +
               "DIREÇÃO OBRIGATÓRIA DA COPY: escreva de forma INDUTIVA E AFIRMATIVA, dirigida a QUEM BUSCA TECNOLOGIA — convide, mostre o caminho e o ganho. " +
               "É PROIBIDO escrever no sentido inverso: sem acusação, sem culpa, sem pergunta de fracasso, sem frases começando por NÃO/PARE/CHEGA/VOCÊ ESTÁ ERRANDO/SEU PROBLEMA, sem tom de derrota. " +
               "Fale a partir do mote comercial da Tecnologia Invisível: a complexidade fica no sistema, o profissional avança — clínica: menos operação, mais odontologia; laboratório: menos variabilidade, mais produção previsível. " +
-              "A dor pode ser referenciada apenas como PONTO DE PARTIDA implícito, mas o texto final é sempre o GANHO e o convite (ex.: 'FLUXO DIGITAL QUE FUNCIONA', 'ENTREGA NO MESMO DIA', 'PRODUÇÃO PREVISÍVEL'). " +
               "NUNCA use linguagem de especificação técnica (nivelamento automático, micras, resolução, velocidade, potência): fale de fluxo, previsibilidade, delegação, tempo clínico e entrega. " +
-              "Use APENAS os dossiês de produto fornecidos (RAG) e siga as premissas estratégicas abaixo (use os ganchos apenas como referência de TOM, sempre reescritos na direção indutiva). " +
+              "É PROIBIDO citar NOME DE PRODUTO, MODELO ou MARCA de equipamento/insumo na headline e no highlight — a copy fala de benefício, não de catálogo. " +
+              "ORIGINALIDADE (OBRIGATÓRIA): as frases NÃO podem repetir nem parafrasear nenhuma das frases já usadas em outras datas deste mesmo curso (lista 'frases_ja_usadas'). Traga um ângulo novo do briefing. " +
+              "Use os dossiês de produto (RAG) apenas como contexto factual e siga as premissas estratégicas abaixo (ganchos só como referência de TOM). " +
               "NUNCA cite preços. Sem emojis. Texto em CAIXA ALTA, curto e legível em miniatura.\n\n" +
               renderStrategyForPrompt() + "\n\n" + renderHooksForPrompt() + "\n\n" +
-              'Responda SOMENTE JSON: {"headline": string (até 42 caracteres, 2 a 5 palavras, afirmação indutiva de ganho para quem busca tecnologia), "highlight": string (até 24 caracteres, o ganho/promessa afirmativa), "badge": string (até 12 caracteres, ex: AO VIVO), "scene": string (até 180 caracteres, em português: o AMBIENTE REAL e a AÇÃO concreta do profissional coerentes com as APLICAÇÕES do produto conforme os dossiês — ex.: consultório com cadeira odontológica ao fundo conferindo uma coroa recém-impressa; laboratório de fluxo digital acompanhando a fresagem. Nunca cite equipamento que não esteja nos dossiês)}',
+              'Responda SOMENTE JSON: {"headline": string (até 42 caracteres, 2 a 5 palavras, afirmação indutiva de ganho, sem nome de produto), "highlight": string (até 24 caracteres, o ganho/promessa afirmativa, sem nome de produto), "badge": string (até 12 caracteres, ex: AO VIVO), "scene": string (até 180 caracteres, em português: o AMBIENTE REAL e a AÇÃO concreta do profissional coerentes com o briefing e com as APLICAÇÕES do produto conforme os dossiês — ex.: consultório com cadeira odontológica ao fundo conferindo uma coroa recém-impressa. Nunca cite equipamento que não esteja nos dossiês)}',
 
           },
           {
             role: "user",
             content: JSON.stringify({
               curso: course.title,
+              briefing_do_curso: course.marketing_briefing ?? null,
               descricao: course.description ?? null,
               categoria: course.category ?? null,
               produtos: course.related_product_names ?? [],
               dossies_rag: dossiers,
+              frases_ja_usadas: usedCopy,
             }),
           },
 
