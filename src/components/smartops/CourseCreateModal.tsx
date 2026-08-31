@@ -54,6 +54,7 @@ interface LocalTurma {
   sellflux_tag: string;
   whatsapp_group_link: string;
   live_url: string;
+  live_thumbnail_url: string;
   sort_order: number;
   enrolled_count: number;
   days: LocalDay[];
