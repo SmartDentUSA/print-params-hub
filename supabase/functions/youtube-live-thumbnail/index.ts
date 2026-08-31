@@ -368,9 +368,7 @@ Deno.serve(async (req) => {
       `- Badge pequeno com fundo laranja (#F26722) e texto branco: "${copy.badge}"`,
       `- Headline gigante em branco, quebrado em 2 ou 3 linhas: "${copy.headline}"`,
       `- Linha de destaque em laranja (#F26722), logo abaixo do headline: "${copy.highlight}"`,
-      productLine
-        ? `- Linha fina em branco, caixa alta, menor, com os produtos da live (renderize esta linha COMPLETA, sem cortar palavras): "${productLine}"`
-        : "",
+      "PROIBIDO ESCREVER NOME DE PRODUTO: não renderize nomes, modelos, marcas, códigos ou linha de produtos na capa. Os produtos aparecem APENAS como fotografia, sem legenda, sem etiqueta e sem texto sobre eles.",
 
 
       "",
