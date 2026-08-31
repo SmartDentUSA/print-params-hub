@@ -1260,6 +1260,7 @@ export function AdminSettings() {
                 <div className="grid md:grid-cols-2 gap-4">
                   <DataExport />
                   <DataImport />
+                  <AdminAudienceExport />
                 </div>
 
                 {/* Maintenance Card */}
