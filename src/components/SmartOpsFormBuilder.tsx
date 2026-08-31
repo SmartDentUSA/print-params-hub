@@ -247,6 +247,24 @@ export function SmartOpsFormBuilder() {
   const [metaTrackingMeta, setMetaTrackingMeta] = useState("");
   const [metaTrackingTiktok, setMetaTrackingTiktok] = useState("");
   const [metaTrackingExtra, setMetaTrackingExtra] = useState("");
+  // Vendedor fixo (quando vazio → distribuição normal)
+  const [metaForcedSeller, setMetaForcedSeller] = useState<string>("");
+  const [activeSellers, setActiveSellers] = useState<{ id: string; nome_completo: string }[]>([]);
+
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase
+        .from("team_members" as any)
+        .select("id, nome_completo, piperun_owner_id, ativo, role")
+        .eq("ativo", true)
+        .order("nome_completo");
+      const rows = ((data as any[]) || []).filter(
+        (m) => Number(m.piperun_owner_id) > 0 && String(m.role || "").toLowerCase() === "vendedor",
+      );
+      setActiveSellers(rows.map((m) => ({ id: m.id, nome_completo: m.nome_completo })));
+    })();
+  }, []);
+
 
   const PRODUCTION_BASE = "https://parametros.smartdent.com.br";
 
@@ -532,6 +550,8 @@ export function SmartOpsFormBuilder() {
     setMetaTrackingMeta(f.tracking_meta_pixel_id ?? "167413567155597");
     setMetaTrackingTiktok(f.tracking_tiktok_pixel_id ?? "D05CI83C77UE5QUU9FR0");
     setMetaTrackingExtra(f.tracking_extra_head ?? "");
+    setMetaForcedSeller(f.forced_seller_team_member_id || "");
+
     setEditingMeta(form);
   };
 
@@ -585,6 +605,8 @@ export function SmartOpsFormBuilder() {
         tracking_meta_pixel_id: metaTrackingMeta.trim() || null,
         tracking_tiktok_pixel_id: metaTrackingTiktok.trim() || null,
         tracking_extra_head: metaTrackingExtra.trim() || null,
+        forced_seller_team_member_id: metaForcedSeller || null,
+
       } as any)
       .eq("id", editingMeta.id);
     if (error) { toast.error(error.message); return; }
@@ -887,6 +909,26 @@ export function SmartOpsFormBuilder() {
                 )}
 
                 <div>
+                  <label className="text-xs font-medium">Vendedor responsável (opcional)</label>
+                  <Select
+                    value={metaForcedSeller || "__none__"}
+                    onValueChange={(v) => setMetaForcedSeller(v === "__none__" ? "" : v)}
+                  >
+                    <SelectTrigger><SelectValue placeholder="Distribuição normal" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">Distribuição normal (round robin)</SelectItem>
+                      {activeSellers.map((s) => (
+                        <SelectItem key={s.id} value={s.id}>{s.nome_completo}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-[11px] text-muted-foreground mt-1">
+                    Quando selecionado, todo lead deste formulário entra no deal com este vendedor. Vazio = rota de distribuição normal.
+                  </p>
+                </div>
+
+                <div>
+
                   <label className="text-xs font-medium">Identificador de campanha</label>
                   <Input value={metaCampaignIdentifier} onChange={(e) => setMetaCampaignIdentifier(e.target.value)} placeholder="ex: feira-cbo-2026" />
                 </div>

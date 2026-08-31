@@ -22431,6 +22431,7 @@ export type Database = {
           extra_sections: Json | null
           font_body: string | null
           font_heading: string | null
+          forced_seller_team_member_id: string | null
           form_purpose: string
           heading_color: string | null
           hero_image_alt: string | null
@@ -22497,6 +22498,7 @@ export type Database = {
           extra_sections?: Json | null
           font_body?: string | null
           font_heading?: string | null
+          forced_seller_team_member_id?: string | null
           form_purpose?: string
           heading_color?: string | null
           hero_image_alt?: string | null
@@ -22563,6 +22565,7 @@ export type Database = {
           extra_sections?: Json | null
           font_body?: string | null
           font_heading?: string | null
+          forced_seller_team_member_id?: string | null
           form_purpose?: string
           heading_color?: string | null
           hero_image_alt?: string | null
@@ -22603,6 +22606,13 @@ export type Database = {
           workflow_stage_target?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "smartops_forms_forced_seller_team_member_id_fkey"
+            columns: ["forced_seller_team_member_id"]
+            isOneToOne: false
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "smartops_forms_product_catalog_id_fkey"
             columns: ["product_catalog_id"]
