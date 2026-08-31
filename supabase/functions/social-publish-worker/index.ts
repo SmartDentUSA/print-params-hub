@@ -304,7 +304,17 @@ serve(async (req) => {
           const data = await res.json().catch(() => ({}));
           if (!res.ok) return { ok: false as const, status: res.status, response: data };
           const zernioId = data?.post?._id ?? data?.post?.id ?? data?._id ?? null;
-          for (const p of g.platforms) idsMap[p.platform] = zernioId;
+          // Chave por plataforma+formato: um mesmo perfil pode ter Story e Reels
+          // no mesmo lote e a chave só-plataforma sobrescrevia o id do primeiro.
+          for (const p of g.platforms) {
+            const flat = p.platform as string;
+            const scoped = `${flat}:${p.postType}`;
+            if (idsMap[flat] && idsMap[flat] !== zernioId) {
+              idsMap[scoped] = zernioId;
+            } else {
+              idsMap[flat] = zernioId;
+            }
+          }
           return { ok: true as const };
         } catch (e: any) {
           return { ok: false as const, status: 0, response: { error: String(e?.message ?? e) } };
@@ -348,10 +358,28 @@ serve(async (req) => {
         })
         .eq('id', post.id);
 
+      // Fecha o ciclo do pipeline de depoimentos: sem isso o depoimento ficava
+      // eternamente em social_story_status = 'queued' mesmo já publicado.
+      await supabase
+        .from('training_testimonials')
+        .update({
+          social_story_status: groupErrors.length > 0 ? 'partial' : 'published',
+          social_story_error: groupErrors.length > 0 ? extractZernioError(groupErrors).slice(0, 1000) : null,
+          social_story_published_at: new Date().toISOString(),
+        })
+        .eq('social_story_post_id', post.id);
+
       console.log(JSON.stringify({ event: 'publish.ok', post_id: post.id, platforms: Object.keys(idsMap), errors: groupErrors.length }));
       results.push({ id: post.id, status: 'published', errors: groupErrors.length });
     } catch (err: any) {
       console.error(JSON.stringify({ event: 'publish.fail', post_id: post.id, error: String(err?.message ?? err) }));
+      await supabase
+        .from('training_testimonials')
+        .update({
+          social_story_status: 'failed',
+          social_story_error: String(err?.message ?? err).slice(0, 1000),
+        })
+        .eq('social_story_post_id', post.id);
       await supabase
         .from('social_scheduled_posts')
         .update({
