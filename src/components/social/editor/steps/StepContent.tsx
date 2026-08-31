@@ -163,11 +163,13 @@ export function StepContent({
   // Catálogo (Sistema A) + Resinas para o dropdown de produto
   const [products, setProducts] = useState<Array<{ id: string; name: string; category?: string; slug?: string }>>([]);
   const [resins, setResins] = useState<Array<{ id: string; name: string; manufacturer: string; slug?: string; type?: string }>>([]);
+  const [events, setEvents] = useState<Array<{ id: string; name: string; subtitle?: string; slug?: string }>>([]);
+  const [distributors, setDistributors] = useState<Array<{ id: string; name: string; subtitle?: string; slug?: string }>>([]);
 
   useEffect(() => {
     let mounted = true;
     (async () => {
-      const [{ data: cat }, { data: res }] = await Promise.all([
+      const [{ data: cat }, { data: res }, { data: courses }, { data: dists }] = await Promise.all([
         supabase
           .from('system_a_catalog')
           .select('id,name,category,slug')
@@ -180,10 +182,38 @@ export function StepContent({
           .eq('active', true)
           .order('name', { ascending: true })
           .limit(500),
+        supabase
+          .from('smartops_courses')
+          .select('id,title,slug,category,modality')
+          .eq('active', true)
+          .order('title', { ascending: true })
+          .limit(300),
+        supabase
+          .from('distributors')
+          .select('id,nome_fantasia,razao_social,slug,pais,estado')
+          .eq('active', true)
+          .order('nome_fantasia', { ascending: true })
+          .limit(300),
       ]);
       if (!mounted) return;
       setProducts((cat ?? []) as any);
       setResins((res ?? []) as any);
+      setEvents(
+        ((courses ?? []) as any[]).map((c) => ({
+          id: String(c.id),
+          name: c.title || 'Evento',
+          subtitle: [c.modality, c.category].filter(Boolean).join(' · ') || undefined,
+          slug: c.slug || undefined,
+        })),
+      );
+      setDistributors(
+        ((dists ?? []) as any[]).map((d) => ({
+          id: String(d.id),
+          name: d.nome_fantasia || d.razao_social || 'Distribuidor',
+          subtitle: [d.estado, d.pais].filter(Boolean).join(' · ') || undefined,
+          slug: d.slug || undefined,
+        })),
+      );
     })();
     return () => {
       mounted = false;
@@ -259,6 +289,26 @@ export function StepContent({
         product_name: `${r.manufacturer} ${r.name}`.trim(),
         product_slug: r.slug || '',
         product_category: r.type ? `Resina ${r.type}` : 'Resina',
+      });
+    } else if (val.startsWith('event:')) {
+      const id = val.slice('event:'.length);
+      const e = events.find((x) => x.id === id);
+      if (!e) return;
+      onChange({
+        product_ref: val,
+        product_name: e.name,
+        product_slug: e.slug || '',
+        product_category: e.subtitle || 'Evento',
+      });
+    } else if (val.startsWith('distributor:')) {
+      const id = val.slice('distributor:'.length);
+      const d = distributors.find((x) => x.id === id);
+      if (!d) return;
+      onChange({
+        product_ref: val,
+        product_name: d.name,
+        product_slug: d.slug || '',
+        product_category: 'Distribuidor',
       });
     }
   };
@@ -346,6 +396,14 @@ export function StepContent({
       const id = val.slice('product:'.length);
       const p = products.find((x) => x.id === id);
       if (p) entry = { ref: val, name: p.name, slug: p.slug || '', category: p.category || '' };
+    } else if (val.startsWith('event:')) {
+      const id = val.slice('event:'.length);
+      const e = events.find((x) => x.id === id);
+      if (e) entry = { ref: val, name: e.name, slug: e.slug || '', category: e.subtitle || 'Evento' };
+    } else if (val.startsWith('distributor:')) {
+      const id = val.slice('distributor:'.length);
+      const d = distributors.find((x) => x.id === id);
+      if (d) entry = { ref: val, name: d.name, slug: d.slug || '', category: 'Distribuidor' };
     } else if (val.startsWith('resin:')) {
       const id = val.slice('resin:'.length);
       const r = resins.find((x) => x.id === id);
@@ -508,6 +566,8 @@ export function StepContent({
               onValueChange={onProductChange}
               products={products}
               resins={resins as any}
+              events={events}
+              distributors={distributors}
             />
             {value.product_name && (
               <p className="text-[11px] text-muted-foreground mt-1">
@@ -552,6 +612,8 @@ export function StepContent({
                   onValueChange={addExtraProduct}
                   products={products}
                   resins={resins as any}
+                  events={events}
+                  distributors={distributors}
                 />
               )}
               {extras.length >= MAX_EXTRAS && (
