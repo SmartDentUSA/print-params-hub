@@ -17,7 +17,6 @@ interface FormRow {
   id: string;
   name: string;
   slug: string;
-  title: string | null;
   subtitle: string | null;
   badge_text: string | null;
   cta_text: string | null;
@@ -57,7 +56,7 @@ export function FormHeroImageStudio() {
     (async () => {
       const { data } = await (supabase as any)
         .from("smartops_forms")
-        .select("id, name, slug, title, subtitle, badge_text, cta_text, hero_image_url, product_catalog_id")
+        .select("id, name, slug, subtitle, badge_text, cta_text, hero_image_url, product_catalog_id")
         .order("name");
       setForms((data ?? []) as FormRow[]);
       const { data: cat } = await (supabase as any)
@@ -74,7 +73,7 @@ export function FormHeroImageStudio() {
 
   useEffect(() => {
     if (!selectedForm) return;
-    setHeadline(selectedForm.title || selectedForm.name);
+    setHeadline(selectedForm.name);
     setSubheadline(selectedForm.subtitle || "");
     setBadge(selectedForm.badge_text || "");
     setCta(selectedForm.cta_text || "FALE COM NOSSO CONSULTOR");
