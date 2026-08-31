@@ -284,7 +284,7 @@ Deno.serve(async (req) => {
         ? "LOGOTIPO (OBRIGATÓRIO): a ÚLTIMA imagem anexada é o logotipo oficial da Smart Dent. Reproduza-o EXATAMENTE como está (forma, cor, proporção, tipografia) no canto superior esquerdo, tamanho discreto (cerca de 12% da largura), com leve brilho para destacar do fundo escuro. É PROIBIDO redesenhar, reescrever ou inventar o logotipo."
         : "MARCA: escreva apenas o texto \"SMART DENT\" em caixa alta, branco, discreto no canto superior esquerdo. Não invente símbolos nem logotipos.",
       "",
-      "REGRAS: nenhum outro texto além do especificado; sem marca d'água; sem logotipo do YouTube; sem preços; sem números inventados; nenhum equipamento além das fotos anexadas; margem de segurança nas bordas; legível em miniatura pequena.",
+      "REGRAS: nenhum outro texto além do especificado; sem marca d'água; sem logotipo do YouTube; sem preços; sem números inventados; nenhum equipamento além das fotos anexadas; margem de segurança nas bordas; legível em miniatura pequena; PROIBIDO close-up de rosto ocupando mais de 30% da capa e PROIBIDO uma pessoa cobrindo a maior parte da imagem.",
       b.style_notes,
     ].filter(Boolean).join("\n");
 
