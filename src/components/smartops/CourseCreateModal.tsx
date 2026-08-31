@@ -270,6 +270,7 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
   const [modality, setModality] = useState<string>("presencial");
   const [category, setCategory] = useState<string>("treinamento");
   const [description, setDescription] = useState("");
+  const [marketingBriefing, setMarketingBriefing] = useState("");
   const [instructorName, setInstructorName] = useState("");
   const [coverImageUrl, setCoverImageUrl] = useState("");
   const [durationDays, setDurationDays] = useState(1);
