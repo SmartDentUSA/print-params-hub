@@ -233,7 +233,7 @@ async function buildTexts(course: any, turma: any, startsAtBR: string) {
               "A descrição é lida por buscadores e por IAs (AEO/GEO): deve ser RICA e COMPLETA, usando apenas os dados fornecidos — nunca invente especificações, certificações ou números. " +
               "Estruture a descrição assim: (1) 2 a 3 linhas de resumo com a proposta da live; (2) 'Data e horário'; (3) 'O que você vai ver' com 4 a 6 bullets; " +
               "(4) 'Produtos e tecnologias' com nome do produto, aplicações clínicas, compatibilidades e especificações fornecidas; (5) 'Sobre a Smart Dent' com histórico, diferenciais e soluções; " +
-              "(6) 'Contato e links'; (7) hashtags relevantes. " +
+              "(6) 'Equipamentos e insumos citados nesta live' listando cada item de links_produtos com a URL exata do produto e a URL do formulário/landing page (copie as URLs literalmente, nunca invente ou encurte); (7) 'Contato e links'; (8) hashtags relevantes. " +
               "O resumo e os bullets devem partir da dor real de fluxo digital e da complexidade retirada, conforme as premissas estratégicas abaixo.\n\n" +
               renderStrategyForPrompt() + "\n\n" + renderHooksForPrompt() + "\n\n" +
               'Responda SOMENTE JSON: {"title": string (máx 95 caracteres), "description": string (2000 a 4500 caracteres)}.',
