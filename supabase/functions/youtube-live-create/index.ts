@@ -5,6 +5,7 @@ import {
   fetchEnrichedProductDossier,
   fetchProductDossier,
   renderDossierForPrompt,
+
 } from "../_shared/product-rag.ts";
 
 const json = (body: unknown, status = 200) =>
