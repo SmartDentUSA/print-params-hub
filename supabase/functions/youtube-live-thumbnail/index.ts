@@ -320,13 +320,8 @@ Deno.serve(async (req) => {
       ? "uma dentista mulher adulta (30-45 anos), cabelo preso, jaleco escuro"
       : "um dentista homem adulto (30-45 anos), jaleco escuro";
 
-    // Linha de produtos sem corte no meio da palavra (cabe em ~70 caracteres)
-    let productLine = "";
-    for (const p of produtos) {
-      const next = productLine ? `${productLine} + ${p.toUpperCase()}` : p.toUpperCase();
-      if (next.length > 70) break;
-      productLine = next;
-    }
+    // Nenhuma linha de produtos na capa: nomes de produto são proibidos no texto.
+
 
     const prompt = [
       "Crie uma THUMBNAIL (capa) de transmissão ao vivo do YouTube, formato horizontal 16:9 (1280x720px), estética cinematográfica de alto impacto.",
