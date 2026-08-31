@@ -33,3 +33,4 @@
 - [Provisionamento Zernio](mem://integration/zernio-social-flow-provisioning) — flow só dispara DM com zernio_automation_id; zernio-provision-flow tem modo batch
 
 - [Live Demo PipeRun Activity](mem://features/live-demo-piperun-activity) — Inscrição em live cria atividade "Live agendada" (Planejada, 60min, lembrete 5min) no deal atual
+- [Premissas Tecnologia Invisível](mem://strategy/tecnologia-invisivel-premises) — _shared/smartdent-strategy.ts injeta a tese oficial nos prompts de capa e descrição de live junto ao dossiê RAG dos produtos
