@@ -1,6 +1,11 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { getValidAccessToken } from "../_shared/google-oauth.ts";
+import {
+  fetchEnrichedProductDossier,
+  fetchProductDossier,
+  renderDossierForPrompt,
+} from "../_shared/product-rag.ts";
 
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
