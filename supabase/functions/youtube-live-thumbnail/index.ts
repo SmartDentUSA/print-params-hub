@@ -10,6 +10,9 @@ import {
   fetchProductDossier,
   renderDossierForPrompt,
 } from "../_shared/product-rag.ts";
+import { renderLiveDossierForPrompt } from "../_shared/system-a-live.ts";
+import { renderStrategyForPrompt } from "../_shared/smartdent-strategy.ts";
+
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
