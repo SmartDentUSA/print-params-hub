@@ -60,10 +60,11 @@ export function FormHeroImageStudio({
 
   useEffect(() => {
     (async () => {
-      const { data } = await (supabase as any)
+      let q = (supabase as any)
         .from("smartops_forms")
-        .select("id, name, slug, subtitle, badge_text, cta_text, hero_image_url, product_catalog_id")
-        .order("name");
+        .select("id, name, slug, subtitle, badge_text, cta_text, hero_image_url, product_catalog_id");
+      if (fixedFormId) q = q.eq("id", fixedFormId);
+      const { data } = await q.order("name");
       setForms((data ?? []) as FormRow[]);
       const { data: cat } = await (supabase as any)
         .from("system_a_catalog")
@@ -73,7 +74,12 @@ export function FormHeroImageStudio({
         .limit(600);
       setCatalog((cat ?? []) as CatalogRow[]);
     })();
-  }, []);
+  }, [fixedFormId]);
+
+  useEffect(() => {
+    if (fixedFormId) setFormId(fixedFormId);
+  }, [fixedFormId]);
+
 
   const selectedForm = useMemo(() => forms.find((f) => f.id === formId), [forms, formId]);
 
