@@ -65,9 +65,10 @@ async function loadProductDossiers(names: string[]) {
       const enriched = await fetchEnrichedProductDossier(admin as any, n);
       const d = enriched?.local ?? (await fetchProductDossier(admin as any, n));
       if (!d) continue;
+      const liveText = renderLiveDossierForPrompt(enriched?.live ?? null);
       out.push({
         name: d.name || n,
-        text: renderDossierForPrompt(d, "PRODUTO"),
+        text: [renderDossierForPrompt(d, "PRODUTO"), liveText].filter(Boolean).join("\n"),
         keywords: [d.name, d.category, d.subcategory].filter(Boolean) as string[],
       });
     } catch (e) {
@@ -76,6 +77,7 @@ async function loadProductDossiers(names: string[]) {
   }
   return out;
 }
+
 
 function buildTags(course: any, company: any, produtos: string[]): string[] {
   const raw = [
