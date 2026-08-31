@@ -104,7 +104,9 @@ async function buildCopy(course: any, dossiers: string[], override: { headline?:
             content:
               "Você cria copy de THUMBNAIL de live no YouTube para a Smart Dent (odontologia digital, impressão 3D). " +
               "O gancho deve atacar a DOR real que o produto resolve e prometer o GANHO, em português do Brasil, tom direto e curioso, sem clickbait falso. " +
-              "NUNCA cite preços. Sem emojis. Texto em CAIXA ALTA, curto e legível em miniatura. " +
+              "Use APENAS os dossiês de produto fornecidos (RAG) e siga as premissas estratégicas abaixo. " +
+              "NUNCA cite preços. Sem emojis. Texto em CAIXA ALTA, curto e legível em miniatura.\n\n" +
+              renderStrategyForPrompt() + "\n\n" +
               'Responda SOMENTE JSON: {"headline": string (até 42 caracteres, 2 a 5 palavras de impacto), "highlight": string (até 24 caracteres, o ganho/promessa), "badge": string (até 12 caracteres, ex: AO VIVO)}',
           },
           {
@@ -112,10 +114,12 @@ async function buildCopy(course: any, dossiers: string[], override: { headline?:
             content: JSON.stringify({
               curso: course.title,
               descricao: course.description ?? null,
+              categoria: course.category ?? null,
               produtos: course.related_product_names ?? [],
-              dossies: dossiers,
+              dossies_rag: dossiers,
             }),
           },
+
         ],
       }),
     });
