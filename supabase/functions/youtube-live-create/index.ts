@@ -9,6 +9,8 @@ import {
 import { renderLiveDossierForPrompt } from "../_shared/system-a-live.ts";
 import { renderStrategyForPrompt } from "../_shared/smartdent-strategy.ts";
 import { renderHooksForPrompt } from "../_shared/smartdent-hooks.ts";
+import { sanitizeShopUrl } from "../_shared/shop-url.ts";
+
 
 
 const json = (body: unknown, status = 200) =>
