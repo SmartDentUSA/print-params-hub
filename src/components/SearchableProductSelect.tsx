@@ -225,7 +225,7 @@ export function SearchableProductSelect({
               </div>
             )}
           </div>
-        </ScrollArea>
+        </div>
       </PopoverContent>
     </Popover>
   );
