@@ -44,6 +44,7 @@ export function SearchableProductSelect({
 }: SearchableProductSelectProps) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
+  const [tab, setTab] = useState<'all' | 'product' | 'resin' | 'event' | 'distributor'>('all');
   const inputRef = useRef<HTMLInputElement>(null);
 
   const selectedLabel = useMemo(() => {
@@ -98,6 +99,7 @@ export function SearchableProductSelect({
     setOpen(false);
     setSearch('');
   };
+
 
   const renderGroup = (
     label: string,
