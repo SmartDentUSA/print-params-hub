@@ -6,6 +6,9 @@ import {
   fetchProductDossier,
   renderDossierForPrompt,
 } from "../_shared/product-rag.ts";
+import { renderLiveDossierForPrompt } from "../_shared/system-a-live.ts";
+import { renderStrategyForPrompt } from "../_shared/smartdent-strategy.ts";
+
 
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
@@ -65,9 +68,10 @@ async function loadProductDossiers(names: string[]) {
       const enriched = await fetchEnrichedProductDossier(admin as any, n);
       const d = enriched?.local ?? (await fetchProductDossier(admin as any, n));
       if (!d) continue;
+      const liveText = renderLiveDossierForPrompt(enriched?.live ?? null);
       out.push({
         name: d.name || n,
-        text: renderDossierForPrompt(d, "PRODUTO"),
+        text: [renderDossierForPrompt(d, "PRODUTO"), liveText].filter(Boolean).join("\n"),
         keywords: [d.name, d.category, d.subcategory].filter(Boolean) as string[],
       });
     } catch (e) {
@@ -76,6 +80,7 @@ async function loadProductDossiers(names: string[]) {
   }
   return out;
 }
+
 
 function buildTags(course: any, company: any, produtos: string[]): string[] {
   const raw = [
@@ -168,7 +173,10 @@ async function buildTexts(course: any, turma: any, startsAtBR: string) {
               "Estruture a descrição assim: (1) 2 a 3 linhas de resumo com a proposta da live; (2) 'Data e horário'; (3) 'O que você vai ver' com 4 a 6 bullets; " +
               "(4) 'Produtos e tecnologias' com nome do produto, aplicações clínicas, compatibilidades e especificações fornecidas; (5) 'Sobre a Smart Dent' com histórico, diferenciais e soluções; " +
               "(6) 'Contato e links'; (7) hashtags relevantes. " +
+              "O resumo e os bullets devem partir da dor real de fluxo digital e da complexidade retirada, conforme as premissas estratégicas abaixo.\n\n" +
+              renderStrategyForPrompt() + "\n\n" +
               'Responda SOMENTE JSON: {"title": string (máx 95 caracteres), "description": string (2000 a 4500 caracteres)}.',
+
           },
           {
             role: "user",

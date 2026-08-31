@@ -10,6 +10,9 @@ import {
   fetchProductDossier,
   renderDossierForPrompt,
 } from "../_shared/product-rag.ts";
+import { renderLiveDossierForPrompt } from "../_shared/system-a-live.ts";
+import { renderStrategyForPrompt } from "../_shared/smartdent-strategy.ts";
+
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -61,7 +64,11 @@ async function loadProductContext(names: string[]) {
       const enriched = await fetchEnrichedProductDossier(admin as any, n);
       const d = enriched?.local ?? (await fetchProductDossier(admin as any, n));
       if (d) dossiers.push(renderDossierForPrompt(d, "PRODUTO"));
+      // Sistema A live: aplicações clínicas, workflow, regras anti-alucinação
+      const liveText = renderLiveDossierForPrompt(enriched?.live ?? null);
+      if (liveText) dossiers.push(liveText);
     } catch (_) { /* soft-fail */ }
+
     const { data: row } = await admin
       .from("system_a_catalog")
       .select("image_url, image_urls")
@@ -97,7 +104,9 @@ async function buildCopy(course: any, dossiers: string[], override: { headline?:
             content:
               "Você cria copy de THUMBNAIL de live no YouTube para a Smart Dent (odontologia digital, impressão 3D). " +
               "O gancho deve atacar a DOR real que o produto resolve e prometer o GANHO, em português do Brasil, tom direto e curioso, sem clickbait falso. " +
-              "NUNCA cite preços. Sem emojis. Texto em CAIXA ALTA, curto e legível em miniatura. " +
+              "Use APENAS os dossiês de produto fornecidos (RAG) e siga as premissas estratégicas abaixo. " +
+              "NUNCA cite preços. Sem emojis. Texto em CAIXA ALTA, curto e legível em miniatura.\n\n" +
+              renderStrategyForPrompt() + "\n\n" +
               'Responda SOMENTE JSON: {"headline": string (até 42 caracteres, 2 a 5 palavras de impacto), "highlight": string (até 24 caracteres, o ganho/promessa), "badge": string (até 12 caracteres, ex: AO VIVO)}',
           },
           {
@@ -105,10 +114,12 @@ async function buildCopy(course: any, dossiers: string[], override: { headline?:
             content: JSON.stringify({
               curso: course.title,
               descricao: course.description ?? null,
+              categoria: course.category ?? null,
               produtos: course.related_product_names ?? [],
-              dossies: dossiers,
+              dossies_rag: dossiers,
             }),
           },
+
         ],
       }),
     });
@@ -167,6 +178,13 @@ Deno.serve(async (req) => {
     const prompt = [
       "Crie uma THUMBNAIL (capa) de transmissão ao vivo do YouTube, formato horizontal 16:9 (1280x720px), estética cinematográfica de alto impacto.",
       "",
+      renderStrategyForPrompt(true),
+      "",
+      dossiers.length
+        ? "CONTEXTO DO PRODUTO (use somente estes dados; não invente equipamentos, peças ou resultados):\n" +
+          dossiers.join("\n").slice(0, 2500)
+        : "",
+      "",
       "CENA: fundo de estúdio escuro (quase preto) com luz volumétrica azul fria vindo da direita e um leve halo laranja; profissional da odontologia adulto, barba curta, jaleco/camisa escura, expressão confiante segurando entre os dedos uma coroa dentária impressa em 3D à direita do quadro, olhando para a câmera. Iluminação dramática de recorte, contraste alto, textura de pele realista (fotografia real, não ilustração).",
       images.length
         ? "PRODUTOS: use as fotografias anexadas exatamente como estão (mesma forma, cor e proporção — não redesenhe nem invente equipamentos), posicionadas sobre uma bancada escura no terço inferior central, com reflexo suave."
@@ -181,6 +199,7 @@ Deno.serve(async (req) => {
       "REGRAS: nenhum outro texto além do especificado; sem marca d'água; sem logotipo do YouTube; sem preços; sem números inventados; margem de segurança nas bordas; legível em miniatura pequena.",
       b.style_notes,
     ].filter(Boolean).join("\n");
+
 
     const content: any[] = [{ type: "text", text: prompt }];
     for (const d of inlined) content.push({ type: "image_url", image_url: { url: d } });
