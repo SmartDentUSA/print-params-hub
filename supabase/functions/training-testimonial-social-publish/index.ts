@@ -291,7 +291,6 @@ serve(async (req) => {
         // parceiros fixos (e o participante, quando validado) no Story.
         userTags: [
           ...PARTNER_HANDLES.map((username) => ({ username })),
-          ...(ficha.handle ? [{ username: String(ficha.handle).replace(/^@/, "") }] : []),
         ],
       },
       {
@@ -301,7 +300,6 @@ serve(async (req) => {
         format: "reels",
         userTags: [
           ...PARTNER_HANDLES.map((username) => ({ username })),
-          ...(ficha.handle ? [{ username: String(ficha.handle).replace(/^@/, "") }] : []),
         ],
       },
       // TikTok: copy nativa própria (gancho curto + frase literal + CTA).
