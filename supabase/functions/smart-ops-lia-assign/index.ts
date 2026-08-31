@@ -1065,6 +1065,27 @@ export function dealOriginName(lead: Record<string, unknown>): string | null {
   return (String(lead.form_name ?? "").trim() || null);
 }
 
+/**
+ * Conversão ATUAL do lead (usada apenas na criação de um Deal NOVO).
+ * Prioriza o formulário/campanha desta submissão; só cai para a origem
+ * histórica (`piperun_origin_name` / `origem_primeiro_contato`) quando não
+ * existe conversão nova. Person origin continua congelada (dealOriginName).
+ */
+export function dealConversionName(lead: Record<string, unknown>): string | null {
+  const technical = /^(dra[-_ ]?lia|piperun(_webhook)?|smartops|api|import|staging|\[cadastro\])/i;
+  const candidates = [
+    lead.form_name,
+    lead.origem_campanha,
+    lead.piperun_origin_name,
+    lead.origem_primeiro_contato,
+  ];
+  for (const c of candidates) {
+    const v = String(c ?? "").trim();
+    if (v && !technical.test(v)) return v;
+  }
+  return dealOriginName(lead);
+}
+
 async function resolveOriginId(apiToken: string, formName: string | null): Promise<number> {
   if (!formName) return ORIGINS.DRA_LIA.id;
 
