@@ -178,6 +178,13 @@ Deno.serve(async (req) => {
     const prompt = [
       "Crie uma THUMBNAIL (capa) de transmissão ao vivo do YouTube, formato horizontal 16:9 (1280x720px), estética cinematográfica de alto impacto.",
       "",
+      renderStrategyForPrompt(true),
+      "",
+      dossiers.length
+        ? "CONTEXTO DO PRODUTO (use somente estes dados; não invente equipamentos, peças ou resultados):\n" +
+          dossiers.join("\n").slice(0, 2500)
+        : "",
+      "",
       "CENA: fundo de estúdio escuro (quase preto) com luz volumétrica azul fria vindo da direita e um leve halo laranja; profissional da odontologia adulto, barba curta, jaleco/camisa escura, expressão confiante segurando entre os dedos uma coroa dentária impressa em 3D à direita do quadro, olhando para a câmera. Iluminação dramática de recorte, contraste alto, textura de pele realista (fotografia real, não ilustração).",
       images.length
         ? "PRODUTOS: use as fotografias anexadas exatamente como estão (mesma forma, cor e proporção — não redesenhe nem invente equipamentos), posicionadas sobre uma bancada escura no terço inferior central, com reflexo suave."
@@ -192,6 +199,7 @@ Deno.serve(async (req) => {
       "REGRAS: nenhum outro texto além do especificado; sem marca d'água; sem logotipo do YouTube; sem preços; sem números inventados; margem de segurança nas bordas; legível em miniatura pequena.",
       b.style_notes,
     ].filter(Boolean).join("\n");
+
 
     const content: any[] = [{ type: "text", text: prompt }];
     for (const d of inlined) content.push({ type: "image_url", image_url: { url: d } });
