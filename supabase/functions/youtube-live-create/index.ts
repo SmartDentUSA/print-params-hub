@@ -190,6 +190,9 @@ async function buildTexts(course: any, turma: any, startsAtBR: string) {
       : "",
   ].filter(Boolean).join("\n");
 
+  const productLinks = await loadProductLinks(produtos);
+  const linksBlock = renderProductLinks(productLinks);
+
   const fallbackTitle = `${course.title} — ${startsAtBR} (ao vivo)`.slice(0, 100);
   const fallbackDesc = [
     course.description || `Transmissão ao vivo Smart Dent: ${course.title}.`,
@@ -200,12 +203,15 @@ async function buildTexts(course: any, turma: any, startsAtBR: string) {
     "",
     ...dossiers.map((d) => `▸ ${d.name}\n${d.text.replace(/^### [^\n]*\n/, "")}`),
     "",
+    linksBlock,
+    "",
     sobreEmpresa,
     "",
     contatoLinhas.join("\n"),
   ].filter(Boolean).join("\n");
 
   const tags = buildTags(course, company, [...produtos, ...dossiers.flatMap((d) => d.keywords)]);
+
 
   const apiKey = Deno.env.get("LOVABLE_API_KEY");
   if (!apiKey) return { title: fallbackTitle, description: fallbackDesc.slice(0, 4900), tags };
