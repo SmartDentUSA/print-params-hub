@@ -49,8 +49,8 @@ const VARIANT_CONFIG: Record<AgendaVariant, {
     subtitle: "Workshops e webinars ao vivo da Smart Dent com inscrições abertas.",
     canonical: "https://parametros.smartdent.com.br/agenda/online",
     metaDescription: "Agenda de workshops e webinars online Smart Dent com vagas abertas.",
-    modalities: ["online_ao_vivo", "online"],
-    categories: ["workshop", "webinar"],
+    modalities: ONLINE_LIVE_MODALITIES,
+    categories: ONLINE_LIVE_CATEGORIES,
     emptyLabel: "Nenhum curso online disponível no momento.",
   },
 };
