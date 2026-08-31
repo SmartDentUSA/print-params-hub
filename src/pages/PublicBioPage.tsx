@@ -1,10 +1,11 @@
 import { useParams } from "react-router-dom";
 import { getPublicOrigin } from "@/utils/publicOrigin";
 import { Helmet } from "react-helmet-async";
-import { Instagram, Youtube, Facebook, Linkedin, Globe, MessageCircle, Share2, ArrowRight, Loader2 } from "lucide-react";
+import { Instagram, Youtube, Facebook, Linkedin, Globe, MessageCircle, Share2, ArrowRight, Loader2, SlidersHorizontal, ShoppingBag } from "lucide-react";
 import { toast } from "sonner";
 import { useBioPage, DEFAULT_LOGO_URL, type BioItem, type BioSocialLinks } from "@/hooks/useBioPages";
 import { useEffect, useState } from "react";
+
 
 const SOCIAL_ICONS: Array<{ key: keyof BioSocialLinks; Icon: typeof Instagram; label: string }> = [
   { key: "instagram", Icon: Instagram, label: "Instagram" },
