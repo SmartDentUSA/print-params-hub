@@ -20,7 +20,7 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   CalendarDays, Users, Plus, Search, Download, Send, Edit2, CheckCircle,
   XCircle, AlertTriangle, Minus, Image, ToggleLeft, ToggleRight, Pencil, Trash2,
-  ChevronDown, ChevronUp, Repeat, Clock, Star, UserPlus, Award, Loader2, X,
+  ChevronDown, ChevronUp, Repeat, Clock, Star, UserPlus, Award, Loader2, X, Copy,
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import type { EquipKey, EquipmentData } from "@/types/courses";
@@ -299,6 +299,105 @@ function RecurrenceSummary({ course }: { course: SmartopsCourse }) {
 }
 
 // ─── Aba Catálogo ───
+const COURSE_CATEGORY_LABEL: Record<string, string> = {
+  treinamento: "Treinamento",
+  imersao: "Imersão",
+  workshop: "Workshop",
+  webinar: "Webinar",
+  avaliacao_pre_instalacao: "Avaliação pré-instalação",
+  ativacao_software: "Ativação de Software",
+  live_produtos: "Live de produtos",
+};
+const courseCategoryLabel = (c: SmartopsCourse) =>
+  COURSE_CATEGORY_LABEL[c.category || ""] || c.category || "Outros";
+
+const COURSE_MODALITY_LABEL: Record<string, string> = {
+  presencial: "Presencial",
+  online_ao_vivo: "Online ao Vivo",
+  online: "Online",
+  hibrido: "Híbrido",
+  gravado: "Gravado",
+  acesso_remoto: "Acesso Remoto",
+};
+
+function CourseListRow({ course, onEdit, onTogglePublic, onToggleActive, onClone, onDelete }: {
+  course: SmartopsCourse;
+  onEdit: () => void;
+  onTogglePublic: () => void;
+  onToggleActive: () => void;
+  onClone: () => void;
+  onDelete: () => void;
+}) {
+  const turmas = (course.turmas ?? []) as any[];
+  const totalSlots = turmas.reduce((s, t) => s + (t.slots || 0), 0);
+  const totalEnrolled = turmas.reduce((s, t) => s + (t.enrolled_count || 0), 0);
+  const occMedia = totalSlots > 0 ? Math.round((totalEnrolled / totalSlots) * 100) : 0;
+
+  const status = !course.active ? "inativo" : !course.public_visible ? "privado" : "ativo";
+  const statusCls =
+    status === "ativo" ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300"
+    : status === "privado" ? "bg-muted text-muted-foreground"
+    : "bg-amber-50 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300";
+  const statusLabel = status === "ativo" ? "Ativo" : status === "privado" ? "Privado" : "Inativo";
+
+  const pctColor =
+    occMedia >= 100 ? "text-rose-600 dark:text-rose-400"
+    : occMedia >= 60 ? "text-emerald-600 dark:text-emerald-400"
+    : occMedia >= 30 ? "text-amber-600 dark:text-amber-400"
+    : "text-muted-foreground";
+
+  return (
+    <div
+      className="group flex items-center gap-3 px-3 py-2.5 hover:bg-accent/40 cursor-pointer transition-colors"
+      onClick={onEdit}
+    >
+      {course.cover_image_url ? (
+        <img src={course.cover_image_url} alt={course.title} className="w-14 h-9 rounded object-cover bg-muted shrink-0" />
+      ) : (
+        <div className="w-14 h-9 rounded bg-muted shrink-0 flex items-center justify-center">
+          <Image className="w-4 h-4 text-muted-foreground/50" />
+        </div>
+      )}
+
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2">
+          <span className="font-medium text-sm truncate">{course.title}</span>
+          {course.recurrence_enabled && (
+            <span title="Recorrente"><Repeat className="w-3 h-3 text-muted-foreground shrink-0" /></span>
+          )}
+        </div>
+        <div className="text-xs text-muted-foreground truncate">
+          {COURSE_MODALITY_LABEL[course.modality] || course.modality}
+          {course.duration_days ? ` · ${course.duration_days} ${course.duration_days === 1 ? "dia" : "dias"}` : ""}
+          {course.instructor_name ? ` · ${course.instructor_name}` : ""}
+        </div>
+      </div>
+
+      <span className={`hidden sm:inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium shrink-0 ${statusCls}`}>
+        {statusLabel}
+      </span>
+
+      <div className="hidden md:flex items-center gap-4 text-xs text-muted-foreground shrink-0 tabular-nums">
+        <span>{turmas.length} turma{turmas.length !== 1 ? "s" : ""}</span>
+        <span>{totalEnrolled} inscrito{totalEnrolled !== 1 ? "s" : ""}</span>
+        <span className={pctColor}>{occMedia}%</span>
+      </div>
+
+      <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
+        <Button variant="ghost" size="icon" className="h-7 w-7" title="Clonar curso" onClick={onClone}>
+          <Copy className="w-3.5 h-3.5" />
+        </Button>
+        <Button variant="ghost" size="icon" className="h-7 w-7" title={course.active ? "Marcar como inativo" : "Ativar curso"} onClick={onToggleActive}>
+          {course.active ? <ToggleRight className="w-4 h-4 text-emerald-600" /> : <ToggleLeft className="w-4 h-4 text-muted-foreground" />}
+        </Button>
+        <Button variant="ghost" size="icon" className="h-7 w-7" title="Excluir curso" onClick={onDelete} disabled={totalEnrolled > 0}>
+          <Trash2 className="w-3.5 h-3.5 text-destructive" />
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 function CatalogoTab() {
   const [showCreate, setShowCreate] = useState(false);
   const [editCourse, setEditCourse] = useState<SmartopsCourse | null>(null);
@@ -496,19 +595,45 @@ function CatalogoTab() {
           </Button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {filtered.map((c) => (
-            <CourseCard
-              key={c.id}
-              course={c}
-              onEdit={() => setEditCourse(c)}
-              onToggleActive={() => toggleField(c.id, "active", !c.active)}
-              onTogglePublic={() => toggleField(c.id, "public_visible", !c.public_visible)}
-              onClone={() => cloneCourse(c)}
-              onDelete={() => deleteCourse(c)}
-            />
-          ))}
-        </div>
+        <Accordion
+          type="multiple"
+          defaultValue={Array.from(new Set(filtered.map(courseCategoryLabel)))}
+          className="space-y-3"
+        >
+          {Object.entries(
+            filtered.reduce<Record<string, SmartopsCourse[]>>((acc, c) => {
+              const k = courseCategoryLabel(c);
+              (acc[k] ||= []).push(c);
+              return acc;
+            }, {})
+          )
+            .sort(([a], [b]) => a.localeCompare(b, "pt-BR"))
+            .map(([category, list]) => (
+              <AccordionItem key={category} value={category} className="border rounded-xl bg-card overflow-hidden">
+                <AccordionTrigger className="px-4 py-3 hover:no-underline">
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold text-sm">{category}</span>
+                    <Badge variant="secondary" className="text-xs">{list.length}</Badge>
+                  </div>
+                </AccordionTrigger>
+                <AccordionContent className="pb-0">
+                  <div className="divide-y border-t">
+                    {list.map((c) => (
+                      <CourseListRow
+                        key={c.id}
+                        course={c}
+                        onEdit={() => setEditCourse(c)}
+                        onToggleActive={() => toggleField(c.id, "active", !c.active)}
+                        onTogglePublic={() => toggleField(c.id, "public_visible", !c.public_visible)}
+                        onClone={() => cloneCourse(c)}
+                        onDelete={() => deleteCourse(c)}
+                      />
+                    ))}
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+            ))}
+        </Accordion>
       )}
 
       {(showCreate || editCourse) && (
