@@ -74,6 +74,9 @@ serve(async (req) => {
     testimonialId = body?.testimonial_id ? String(body.testimonial_id) : null;
     const force = body?.force === true;
     const dryRun = body?.dry_run === true;
+    const requestedPlatforms = Array.isArray(body?.platforms)
+      ? new Set(body.platforms.map((p: unknown) => String(p).toLowerCase()))
+      : null;
     if (!testimonialId) return jsonResponse({ error: "testimonial_id obrigatório" }, 400);
 
     const { data: t, error } = await db
@@ -277,6 +280,51 @@ serve(async (req) => {
     // YouTube exige título próprio (máx. 100 caracteres) e descrição separada.
     const ytTitle = `Depoimento: ${ficha.nome}${ficha.curso ? ` — ${ficha.curso}` : ""} | Smart Dent`.slice(0, 100);
     const ytCaption = `${reelsCaption}`.trim();
+    const allChannels = [
+      {
+        platform: "instagram",
+        format: "stories",
+        // Texto próprio do Story: se fosse idêntico ao Reels, o Zernio
+        // recusaria uma das duas com 409 (conteúdo duplicado em 24h).
+        caption: storyCaption,
+        // contentType='story' é aplicado pelo worker; userTags marca os
+        // parceiros fixos (e o participante, quando validado) no Story.
+        userTags: [
+          ...PARTNER_HANDLES.map((username) => ({ username })),
+          ...(ficha.handle ? [{ username: String(ficha.handle).replace(/^@/, "") }] : []),
+        ],
+      },
+      {
+        // Reels: mesma mídia, copy completa. Aqui `collaborators` é aceito
+        // pelo Instagram (Stories não aceitam), então marcamos os parceiros.
+        platform: "instagram",
+        format: "reels",
+        userTags: [
+          ...PARTNER_HANDLES.map((username) => ({ username })),
+          ...(ficha.handle ? [{ username: String(ficha.handle).replace(/^@/, "") }] : []),
+        ],
+      },
+      // TikTok: copy nativa própria (gancho curto + frase literal + CTA).
+      { platform: "tiktok", format: "video", caption: tiktokCaption },
+      {
+        // YouTube Shorts: vídeo vertical do depoimento, título obrigatório
+        // em platformSpecificData (o Zernio usa `content` como descrição).
+        platform: "youtube",
+        format: "Shorts",
+        title: ytTitle,
+        caption: ytCaption,
+        platformSpecificData: { title: ytTitle, privacyStatus: "public", madeForKids: false },
+      },
+    ];
+    const selectedChannels = requestedPlatforms
+      ? allChannels.filter((channel) => requestedPlatforms.has(channel.platform))
+      : allChannels;
+    if (selectedChannels.length === 0) {
+      return jsonResponse({ error: "Nenhuma plataforma válida solicitada" }, 400);
+    }
+
+    const selectedPlatforms = [...new Set(selectedChannels.map((channel) => channel.platform))];
+    const selectedMedia = Object.fromEntries(selectedPlatforms.map((platform) => [platform, mediaItems]));
     const { data: post, error: insErr } = await db
       .from("social_scheduled_posts")
       .insert({
@@ -289,43 +337,8 @@ serve(async (req) => {
         caption: reelsCaption,
         hashtags,
         media_items: mediaItems,
-        per_channel_media: { instagram: mediaItems, tiktok: mediaItems, youtube: mediaItems },
-        channels: [
-          {
-            platform: "instagram",
-            format: "stories",
-            // Texto próprio do Story: se fosse idêntico ao Reels, o Zernio
-            // recusaria uma das duas com 409 (conteúdo duplicado em 24h).
-            caption: storyCaption,
-            // contentType='story' é aplicado pelo worker; userTags marca os
-            // parceiros fixos (e o participante, quando validado) no Story.
-            userTags: [
-              ...PARTNER_HANDLES.map((username) => ({ username })),
-              ...(ficha.handle ? [{ username: String(ficha.handle).replace(/^@/, "") }] : []),
-            ],
-          },
-          {
-            // Reels: mesma mídia, copy completa. Aqui `collaborators` é aceito
-            // pelo Instagram (Stories não aceitam), então marcamos os parceiros.
-            platform: "instagram",
-            format: "reels",
-            userTags: [
-              ...PARTNER_HANDLES.map((username) => ({ username })),
-              ...(ficha.handle ? [{ username: String(ficha.handle).replace(/^@/, "") }] : []),
-            ],
-          },
-          // TikTok: copy nativa própria (gancho curto + frase literal + CTA).
-          { platform: "tiktok", format: "video", caption: tiktokCaption },
-          {
-            // YouTube Shorts: vídeo vertical do depoimento, título obrigatório
-            // em platformSpecificData (o Zernio usa `content` como descrição).
-            platform: "youtube",
-            format: "Shorts",
-            title: ytTitle,
-            caption: ytCaption,
-            platformSpecificData: { title: ytTitle, privacyStatus: "public", madeForKids: false },
-          },
-        ],
+        per_channel_media: selectedMedia,
+        channels: selectedChannels,
 
         product_name: ficha.curso,
         created_by: "training-testimonial-social-publish",
@@ -353,7 +366,7 @@ serve(async (req) => {
     }).eq("id", t.id);
 
     await logEvent(db, t.id, "social_publish", "success",
-      "Story + Reels do Instagram + TikTok + YouTube Shorts enfileirados", { post_id: post.id, handle: ficha.handle }, actor);
+      `${selectedPlatforms.join(", ")} enfileirado(s)`, { post_id: post.id, handle: ficha.handle, platforms: selectedPlatforms }, actor);
 
     // Dispara o worker imediatamente (não bloqueia a resposta em caso de erro).
     try {
