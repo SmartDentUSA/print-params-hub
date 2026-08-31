@@ -248,6 +248,8 @@ async function buildTexts(course: any, turma: any, startsAtBR: string) {
               data_horario_brasilia: startsAtBR,
               opcao: turma.label ?? null,
               dossies_produtos: dossiers.map((d) => d.text),
+              links_produtos: productLinks,
+
               empresa: {
                 nome: company.name,
                 descricao: company.description,
