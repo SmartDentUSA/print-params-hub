@@ -8,6 +8,7 @@ import {
 } from "../_shared/product-rag.ts";
 import { renderLiveDossierForPrompt } from "../_shared/system-a-live.ts";
 import { renderStrategyForPrompt } from "../_shared/smartdent-strategy.ts";
+import { renderHooksForPrompt } from "../_shared/smartdent-hooks.ts";
 
 
 const json = (body: unknown, status = 200) =>
@@ -174,7 +175,7 @@ async function buildTexts(course: any, turma: any, startsAtBR: string) {
               "(4) 'Produtos e tecnologias' com nome do produto, aplicações clínicas, compatibilidades e especificações fornecidas; (5) 'Sobre a Smart Dent' com histórico, diferenciais e soluções; " +
               "(6) 'Contato e links'; (7) hashtags relevantes. " +
               "O resumo e os bullets devem partir da dor real de fluxo digital e da complexidade retirada, conforme as premissas estratégicas abaixo.\n\n" +
-              renderStrategyForPrompt() + "\n\n" +
+              renderStrategyForPrompt() + "\n\n" + renderHooksForPrompt() + "\n\n" +
               'Responda SOMENTE JSON: {"title": string (máx 95 caracteres), "description": string (2000 a 4500 caracteres)}.',
 
           },

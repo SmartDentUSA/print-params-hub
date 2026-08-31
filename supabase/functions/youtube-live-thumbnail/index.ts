@@ -12,6 +12,7 @@ import {
 } from "../_shared/product-rag.ts";
 import { renderLiveDossierForPrompt } from "../_shared/system-a-live.ts";
 import { renderStrategyForPrompt } from "../_shared/smartdent-strategy.ts";
+import { renderHooksForPrompt } from "../_shared/smartdent-hooks.ts";
 
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -126,6 +127,29 @@ async function loadProductContext(names: string[]) {
   return { dossiers, images, sources };
 }
 
+/** Logo oficial da Smart Dent (company_info do catálogo Sistema A). */
+async function loadBrandLogo(): Promise<string | null> {
+  try {
+    const { data } = await admin
+      .from("system_a_catalog")
+      .select("image_url, og_image_url, extra_data")
+      .eq("category", "company_info")
+      .eq("active", true)
+      .limit(1)
+      .maybeSingle();
+    const extra = (data as any)?.extra_data ?? {};
+    const variants = extra?.media?.logo_variants ?? {};
+    const candidates = [
+      variants?.png_transparent, variants?.transparent, variants?.primary, variants?.default,
+      (data as any)?.image_url, (data as any)?.og_image_url,
+    ];
+    for (const c of candidates) if (typeof c === "string" && c.startsWith("http")) return c;
+  } catch (e) {
+    console.warn("[youtube-live-thumbnail] logo lookup", (e as Error).message);
+  }
+  return null;
+}
+
 async function buildCopy(course: any, dossiers: string[], override: { headline?: string; highlight?: string; badge?: string }) {
   const fallback = {
     headline: override.headline || String(course.title || "AO VIVO").toUpperCase().slice(0, 60),
@@ -145,10 +169,11 @@ async function buildCopy(course: any, dossiers: string[], override: { headline?:
             role: "system",
             content:
               "Você cria copy de THUMBNAIL de live no YouTube para a Smart Dent (odontologia digital, impressão 3D). " +
-              "O gancho deve atacar a DOR real que o produto resolve e prometer o GANHO, em português do Brasil, tom direto e curioso, sem clickbait falso. " +
+              "O gancho deve atacar a DOR REAL DO DIA A DIA que o produto resolve e prometer o GANHO sistêmico, em português do Brasil, tom direto e provocativo, sem clickbait falso. " +
+              "NUNCA use linguagem de especificação técnica (nivelamento automático, micras, resolução, velocidade, potência): fale de fluxo, retrabalho, dependência do operador, previsibilidade, tempo clínico e entrega. " +
               "Use APENAS os dossiês de produto fornecidos (RAG) e siga as premissas estratégicas abaixo. " +
               "NUNCA cite preços. Sem emojis. Texto em CAIXA ALTA, curto e legível em miniatura.\n\n" +
-              renderStrategyForPrompt() + "\n\n" +
+              renderStrategyForPrompt() + "\n\n" + renderHooksForPrompt() + "\n\n" +
               'Responda SOMENTE JSON: {"headline": string (até 42 caracteres, 2 a 5 palavras de impacto), "highlight": string (até 24 caracteres, o ganho/promessa), "badge": string (até 12 caracteres, ex: AO VIVO)}',
           },
           {
@@ -216,6 +241,9 @@ Deno.serve(async (req) => {
       const d = await toDataUrl(u);
       if (d) inlined.push(d);
     }
+    // Logo oficial anexado por último (referência de marca, obrigatório na capa)
+    const logoUrl = await loadBrandLogo();
+    const logoData = logoUrl ? await toDataUrl(logoUrl) : null;
 
     const prompt = [
       "Crie uma THUMBNAIL (capa) de transmissão ao vivo do YouTube, formato horizontal 16:9 (1280x720px), estética cinematográfica de alto impacto.",
@@ -241,6 +269,10 @@ Deno.serve(async (req) => {
       `- Linha de destaque em laranja (#F26722), logo abaixo do headline: "${copy.highlight}"`,
       produtos.length ? `- Linha fina em branco, caixa alta, menor: "${produtos[0].toUpperCase().slice(0, 40)}"` : "",
       "",
+      logoData
+        ? "LOGOTIPO (OBRIGATÓRIO): a ÚLTIMA imagem anexada é o logotipo oficial da Smart Dent. Reproduza-o EXATAMENTE como está (forma, cor, proporção, tipografia) no canto superior esquerdo, tamanho discreto (cerca de 12% da largura), com leve brilho para destacar do fundo escuro. É PROIBIDO redesenhar, reescrever ou inventar o logotipo."
+        : "MARCA: escreva apenas o texto \"SMART DENT\" em caixa alta, branco, discreto no canto superior esquerdo. Não invente símbolos nem logotipos.",
+      "",
       "REGRAS: nenhum outro texto além do especificado; sem marca d'água; sem logotipo do YouTube; sem preços; sem números inventados; nenhum equipamento além das fotos anexadas; margem de segurança nas bordas; legível em miniatura pequena.",
       b.style_notes,
     ].filter(Boolean).join("\n");
@@ -248,6 +280,7 @@ Deno.serve(async (req) => {
 
     const content: any[] = [{ type: "text", text: prompt }];
     for (const d of inlined) content.push({ type: "image_url", image_url: { url: d } });
+    if (logoData) content.push({ type: "image_url", image_url: { url: logoData } });
 
     const resp = await fetch("https://ai.gateway.lovable.dev/v1/images/generations", {
       method: "POST",
@@ -313,6 +346,7 @@ Deno.serve(async (req) => {
       path,
       copy,
       references_used: inlined.length,
+      logo_used: !!logoData,
       reference_sources: sources.slice(0, inlined.length),
       video_id: videoId,
       applied_to_youtube: appliedToYoutube,
