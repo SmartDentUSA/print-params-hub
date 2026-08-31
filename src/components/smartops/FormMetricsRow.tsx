@@ -131,6 +131,7 @@ export function FormMetricsRow({
   onEditMeta,
   onEditFields,
   onEditLandingPage,
+  onHeroStudio,
   onDuplicate,
   onCopyLink,
   onCopyEmbed,
