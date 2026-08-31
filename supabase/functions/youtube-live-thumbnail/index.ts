@@ -197,12 +197,16 @@ async function buildCopy(course: any, dossiers: string[], override: { headline?:
             role: "system",
             content:
               "Você cria copy de THUMBNAIL de live no YouTube para a Smart Dent (odontologia digital, impressão 3D). " +
-              "O gancho deve atacar a DOR REAL DO DIA A DIA que o produto resolve e prometer o GANHO sistêmico, em português do Brasil, tom direto e provocativo, sem clickbait falso. " +
-              "NUNCA use linguagem de especificação técnica (nivelamento automático, micras, resolução, velocidade, potência): fale de fluxo, retrabalho, dependência do operador, previsibilidade, tempo clínico e entrega. " +
-              "Use APENAS os dossiês de produto fornecidos (RAG) e siga as premissas estratégicas abaixo. " +
+              "DIREÇÃO OBRIGATÓRIA DA COPY: escreva de forma INDUTIVA E AFIRMATIVA, dirigida a QUEM BUSCA TECNOLOGIA — convide, mostre o caminho e o ganho. " +
+              "É PROIBIDO escrever no sentido inverso: sem acusação, sem culpa, sem pergunta de fracasso, sem frases começando por NÃO/PARE/CHEGA/VOCÊ ESTÁ ERRANDO/SEU PROBLEMA, sem tom de derrota. " +
+              "Fale a partir do mote comercial da Tecnologia Invisível: a complexidade fica no sistema, o profissional avança — clínica: menos operação, mais odontologia; laboratório: menos variabilidade, mais produção previsível. " +
+              "A dor pode ser referenciada apenas como PONTO DE PARTIDA implícito, mas o texto final é sempre o GANHO e o convite (ex.: 'FLUXO DIGITAL QUE FUNCIONA', 'ENTREGA NO MESMO DIA', 'PRODUÇÃO PREVISÍVEL'). " +
+              "NUNCA use linguagem de especificação técnica (nivelamento automático, micras, resolução, velocidade, potência): fale de fluxo, previsibilidade, delegação, tempo clínico e entrega. " +
+              "Use APENAS os dossiês de produto fornecidos (RAG) e siga as premissas estratégicas abaixo (use os ganchos apenas como referência de TOM, sempre reescritos na direção indutiva). " +
               "NUNCA cite preços. Sem emojis. Texto em CAIXA ALTA, curto e legível em miniatura.\n\n" +
               renderStrategyForPrompt() + "\n\n" + renderHooksForPrompt() + "\n\n" +
-              'Responda SOMENTE JSON: {"headline": string (até 42 caracteres, 2 a 5 palavras de impacto), "highlight": string (até 24 caracteres, o ganho/promessa), "badge": string (até 12 caracteres, ex: AO VIVO), "scene": string (até 180 caracteres, em português: o AMBIENTE REAL e a AÇÃO concreta do profissional coerentes com as APLICAÇÕES do produto conforme os dossiês — ex.: consultório com cadeira odontológica ao fundo conferindo uma coroa recém-impressa; laboratório de fluxo digital acompanhando a fresagem. Nunca cite equipamento que não esteja nos dossiês)}',
+              'Responda SOMENTE JSON: {"headline": string (até 42 caracteres, 2 a 5 palavras, afirmação indutiva de ganho para quem busca tecnologia), "highlight": string (até 24 caracteres, o ganho/promessa afirmativa), "badge": string (até 12 caracteres, ex: AO VIVO), "scene": string (até 180 caracteres, em português: o AMBIENTE REAL e a AÇÃO concreta do profissional coerentes com as APLICAÇÕES do produto conforme os dossiês — ex.: consultório com cadeira odontológica ao fundo conferindo uma coroa recém-impressa; laboratório de fluxo digital acompanhando a fresagem. Nunca cite equipamento que não esteja nos dossiês)}',
+
           },
           {
             role: "user",
@@ -315,9 +319,12 @@ Deno.serve(async (req) => {
               .slice(0, inlined.length)
               .map((s, i) => `imagem ${i + 1} = ${produtos[i] ?? s}`)
               .join(" · ")}.`,
-            "CONTRATO DE FIDELIDADE (INVIOLÁVEL): trate cada imagem anexada como recorte fotográfico imutável. É PROIBIDO redesenhar, estilizar, substituir por outro modelo, trocar cores, alterar painéis, botões, textos, marcas, formato ou proporção de qualquer produto. É PROIBIDO alterar a PROPORÇÃO DE TAMANHO entre eles: preserve a escala relativa real e coerente das fotos (equipamento grande permanece grande, frasco de resina permanece pequeno).",
-            "ORDEM (INVIOLÁVEL): disponha os produtos da ESQUERDA para a DIREITA na MESMA ORDEM em que foram anexados, alinhados sobre uma bancada escura no terço inferior central, sem sobrepor o rosto nem o texto. Não reordene, não espelhe, não duplique, não remova nenhum produto.",
+            "CONTRATO DE FIDELIDADE (INVIOLÁVEL): trate cada imagem anexada como recorte fotográfico imutável. É PROIBIDO redesenhar, estilizar, substituir por outro modelo, trocar cores, alterar painéis, botões, textos, marcas ou formato de qualquer produto.",
+            "PROPORÇÃO FÍSICA REAL (INVIOLÁVEL): dimensione cada produto pelo TAMANHO REAL do objeto no mundo físico, não pelo tamanho do arquivo de imagem. Impressora 3D e equipamento de pós-cura são os MAIORES (altura de referência 100%); scanner intraoral é pequeno (cerca de 25% da altura da impressora); frasco de resina é menor ainda (cerca de 20%). É PROIBIDO igualar as alturas, PROIBIDO esticar, achatar ou uniformizar os produtos numa fileira de mesmo tamanho.",
+            "COMPOSIÇÃO EM PROFUNDIDADE: o equipamento maior fica ao fundo/centro-direita apoiado na bancada; os itens pequenos (scanner, frascos de resina) ficam à FRENTE, mais próximos da câmera, no canto inferior, sem cobrir o texto nem o rosto. Todos apoiados na MESMA superfície, com uma única linha de horizonte e perspectiva coerente — nada flutuando.",
+            "ORDEM (INVIOLÁVEL): mantenha a leitura da ESQUERDA para a DIREITA na MESMA ORDEM em que os produtos foram anexados. Não reordene, não espelhe, não duplique, não remova nenhum produto.",
             "Ajuste APENAS iluminação, sombra de contato e reflexo sutil para integrar cada recorte à cena.",
+
           ].join("\n")
         : "PRODUTO: nenhuma foto oficial disponível — é PROIBIDO desenhar ou imaginar qualquer equipamento, impressora, scanner, frasco de resina ou embalagem. Mantenha a cena apenas com o profissional, a coroa impressa e o fundo de estúdio.",
       missing.length
