@@ -1083,7 +1083,7 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
               <div className="grid gap-3 sm:grid-cols-2">
                 <div>
                   <Label>Instrutor</Label>
-                  <Input value={instructorName} onChange={(e) => setInstructorName(e.target.value)} />
+                  <InstructorSelect value={instructorName} onChange={setInstructorName} />
                 </div>
                 <div>
                   <Label>Imagem de capa</Label>
