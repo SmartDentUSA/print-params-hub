@@ -909,6 +909,26 @@ export function SmartOpsFormBuilder() {
                 )}
 
                 <div>
+                  <label className="text-xs font-medium">Vendedor responsável (opcional)</label>
+                  <Select
+                    value={metaForcedSeller || "__none__"}
+                    onValueChange={(v) => setMetaForcedSeller(v === "__none__" ? "" : v)}
+                  >
+                    <SelectTrigger><SelectValue placeholder="Distribuição normal" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">Distribuição normal (round robin)</SelectItem>
+                      {activeSellers.map((s) => (
+                        <SelectItem key={s.id} value={s.id}>{s.nome_completo}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-[11px] text-muted-foreground mt-1">
+                    Quando selecionado, todo lead deste formulário entra no deal com este vendedor. Vazio = rota de distribuição normal.
+                  </p>
+                </div>
+
+                <div>
+
                   <label className="text-xs font-medium">Identificador de campanha</label>
                   <Input value={metaCampaignIdentifier} onChange={(e) => setMetaCampaignIdentifier(e.target.value)} placeholder="ex: feira-cbo-2026" />
                 </div>
