@@ -287,6 +287,34 @@ Deno.serve(async (req) => {
       .maybeSingle();
     if (!turma) return json({ error: "Sessão não encontrada. Salve o curso antes de gerar a capa." }, 404);
 
+    // Modo "apenas aplicar": usa uma capa já existente (upload manual) sem gerar por IA
+    if (b.image_url) {
+      const videoIdOnly = videoIdFromUrl((turma as any).live_url);
+      if (!videoIdOnly) {
+        return json({ error: "Esta sessão ainda não tem live no YouTube. Gere a transmissão primeiro." }, 400);
+      }
+      try {
+        const token = await getValidAccessToken();
+        const imgRes = await fetch(b.image_url);
+        if (!imgRes.ok) throw new Error(`download capa → ${imgRes.status}`);
+        const contentType = imgRes.headers.get("content-type") || "image/png";
+        const bytes = new Uint8Array(await imgRes.arrayBuffer());
+        const up = await fetch(
+          `https://www.googleapis.com/upload/youtube/v3/thumbnails/set?videoId=${videoIdOnly}&uploadType=media`,
+          { method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": contentType }, body: bytes },
+        );
+        if (!up.ok) throw new Error(`thumbnails.set → ${up.status} ${(await up.text()).slice(0, 300)}`);
+      } catch (e) {
+        const msg = (e as Error).message;
+        console.error("[youtube-live-thumbnail] apply-only", msg);
+        return json({
+          error: msg,
+          needs_google_auth: /invalid_grant|insufficient|401|403|OAuth|expirado/i.test(msg),
+        }, 500);
+      }
+      return json({ ok: true, url: b.image_url, video_id: videoIdOnly, applied_to_youtube: true });
+    }
+
     const { data: course } = await admin
       .from("smartops_courses")
       .select("id, title, description, category, instructor_name, related_product_names, marketing_briefing")
