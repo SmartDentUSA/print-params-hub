@@ -463,6 +463,7 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
     setModality(course.modality);
     setCategory(course.category || "treinamento");
     setDescription(course.description || "");
+    setMarketingBriefing((course as any).marketing_briefing || "");
     setInstructorName(course.instructor_name || "");
     setCoverImageUrl(course.cover_image_url || "");
     setDurationDays(course.duration_days);
