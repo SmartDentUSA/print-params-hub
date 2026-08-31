@@ -254,22 +254,26 @@ export function PublicOnlineCourseCard({
     }
   };
 
-  // Próxima sessão (mais perto de hoje) para o cronômetro destacado.
+  // Ordenação canônica (crescente por data/hora) — mesma da tela de edição do curso.
   const today = new Date().toISOString().slice(0, 10);
-  const upcoming = sessions.find((s) => (s.start_date || "") >= today) || sessions[0];
+  const byDateAsc = (a: TurmaComVagas, b: TurmaComVagas) =>
+    `${a.start_date || ""}T${(a.start_time || "").substring(0, 5)}`.localeCompare(
+      `${b.start_date || ""}T${(b.start_time || "").substring(0, 5)}`,
+    );
+  const allSorted = [...sessions].sort(byDateAsc);
+  const pastSessions = allSorted.filter((s) => (s.end_date || s.start_date || "") < today);
+  const nextSessions = allSorted.filter((s) => (s.end_date || s.start_date || "") >= today);
+
+  // Próxima sessão (mais perto de hoje) para o cronômetro destacado.
+  const upcoming = nextSessions[0] || allSorted[allSorted.length - 1];
   const upcomingStatus = upcoming
     ? getCountdown(upcoming.start_date, upcoming.start_time, upcoming.end_date, upcoming.end_time, upcoming.modality)
     : null;
   const showLiveTimer = !!upcoming && !!upcomingStatus && (upcomingStatus.variant === "green" || upcomingStatus.variant === "amber");
 
-  // Sessões futuras/ao vivo primeiro (crescente); realizadas depois (mais recentes antes).
-  const orderedSessions = [...sessions].sort((a, b) => {
-    const aPast = (a.end_date || a.start_date || "") < today;
-    const bPast = (b.end_date || b.start_date || "") < today;
-    if (aPast !== bPast) return aPast ? 1 : -1;
-    const cmp = (a.start_date || "").localeCompare(b.start_date || "");
-    return aPast ? -cmp : cmp;
-  });
+  // Card público mostra apenas as sessões vigentes, em ordem cronológica.
+  const orderedSessions = nextSessions;
+
 
   const hhmm = (t?: string | null) => (t ? t.substring(0, 5) : "");
   const fmtShort = (iso?: string | null) =>
