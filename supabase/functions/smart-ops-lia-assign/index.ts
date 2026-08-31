@@ -3120,8 +3120,49 @@ Deno.serve(async (req) => {
       );
     }
 
+    // ── 2.0 Vendedor FIXO por formulário (smartops_forms.forced_seller_team_member_id) ──
+    // Se o formulário de origem tem vendedor selecionado, ele sempre entra no deal.
+    // Quando não há seleção, segue a rota de distribuição normal (round robin).
+    let forcedSeller: { id: string; nome_completo: string; piperun_owner_id: number } | null = null;
+    const leadFormName = (lead as Record<string, unknown>).form_name as string | null | undefined;
+    if (leadFormName) {
+      try {
+        const { data: formRow } = await supabase
+          .from("smartops_forms")
+          .select("forced_seller_team_member_id")
+          .eq("name", leadFormName)
+          .not("forced_seller_team_member_id", "is", null)
+          .maybeSingle();
+        if (formRow?.forced_seller_team_member_id) {
+          const { data: fs } = await supabase
+            .from("team_members")
+            .select("id, nome_completo, piperun_owner_id, ativo")
+            .eq("id", formRow.forced_seller_team_member_id)
+            .maybeSingle();
+          if (fs?.ativo && Number(fs.piperun_owner_id) > 0) {
+            forcedSeller = {
+              id: fs.id as string,
+              nome_completo: fs.nome_completo as string,
+              piperun_owner_id: Number(fs.piperun_owner_id),
+            };
+          }
+        }
+      } catch (e) {
+        console.warn("[lia-assign] forced seller lookup failed:", String(e));
+      }
+    }
+
+    if (forcedSeller) {
+      assignedOwnerId = forcedSeller.piperun_owner_id;
+      assignedTeamMemberId = forcedSeller.id;
+      assignedOwnerName = forcedSeller.nome_completo;
+      console.log(
+        `[lia-assign] FORCED_SELLER form="${leadFormName}" → ${assignedOwnerName} (${assignedOwnerId})`,
+      );
+    }
     // Check if current owner exists and is active in team_members
-    if (lead.proprietario_lead_crm && !isBlockedSeller({ ownerName: lead.proprietario_lead_crm as string })) {
+    else if (lead.proprietario_lead_crm && !isBlockedSeller({ ownerName: lead.proprietario_lead_crm as string })) {
+
       const { data: currentOwner } = await supabase
         .from("team_members")
         .select("id, nome_completo, piperun_owner_id, ativo, evolution_instance_name")
