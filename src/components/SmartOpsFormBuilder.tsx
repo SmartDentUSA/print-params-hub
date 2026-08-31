@@ -15,6 +15,8 @@ import { FormMetricsCard, type FormMetrics } from "./smartops/FormMetricsCard";
 import type { ShortLinkInfo } from "./smartops/FormMetricsCard";
 import { FormMetricsRow } from "./smartops/FormMetricsRow";
 import { LandingPageBuilderModal } from "./smartops/LandingPageBuilderModal";
+import { FormHeroImageStudio } from "./smartops/forms/FormHeroImageStudio";
+
 import {
   Select,
   SelectContent,
