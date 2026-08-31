@@ -632,3 +632,6 @@ verify_jwt = false
 
 [functions.youtube-live-create]
 verify_jwt = false
+
+[functions.youtube-live-thumbnail]
+verify_jwt = false

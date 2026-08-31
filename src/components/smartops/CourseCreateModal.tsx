@@ -54,6 +54,7 @@ interface LocalTurma {
   sellflux_tag: string;
   whatsapp_group_link: string;
   live_url: string;
+  live_thumbnail_url: string;
   sort_order: number;
   enrolled_count: number;
   days: LocalDay[];
@@ -321,6 +322,50 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
   const [turmas, setTurmas] = useState<LocalTurma[]>([]);
   const [turmasLoading, setTurmasLoading] = useState(false);
   const [creatingLive, setCreatingLive] = useState<string | null>(null);
+  const [creatingThumb, setCreatingThumb] = useState<string | null>(null);
+
+  // Gera a capa (thumbnail) da live com gancho de dor/ganho do produto e aplica no YouTube
+  const createLiveThumbnail = async (tIdx: number) => {
+    const turma = turmas[tIdx];
+    if (!turma?.id) {
+      toast({
+        title: "Salve o curso primeiro",
+        description: "A capa é gerada a partir da sessão já salva (produto, data e horário).",
+        variant: "destructive",
+      });
+      return;
+    }
+    setCreatingThumb(turma.id);
+    try {
+      const { data, error } = await supabase.functions.invoke("youtube-live-thumbnail", {
+        body: { turma_id: turma.id, apply_to_youtube: true },
+      });
+      if (error) throw error;
+      if ((data as any)?.error) throw new Error(String((data as any).error));
+      updateTurma(tIdx, "live_thumbnail_url", (data as any).url);
+      const applied = (data as any).applied_to_youtube;
+      toast({
+        title: "Capa gerada",
+        description: applied
+          ? "Capa aplicada na transmissão do YouTube."
+          : (data as any).video_id
+            ? "Capa criada, mas não foi aplicada no YouTube. Reconecte a conta Google em Social → Avaliações."
+            : "Capa criada. Crie a live no YouTube para aplicá-la automaticamente.",
+      });
+    } catch (e: any) {
+      const msg = String(e?.message ?? e);
+      toast({
+        title: "Não foi possível gerar a capa",
+        description: /invalid_grant|OAuth|expirado|insufficient/i.test(msg)
+          ? "A autorização Google expirou. Reconecte a conta em Social → Avaliações com acesso ao YouTube."
+          : msg,
+        variant: "destructive",
+      });
+    } finally {
+      setCreatingThumb(null);
+    }
+  };
+
 
   // Cria a transmissão programada no YouTube a partir da sessão salva
   const createYoutubeLive = async (tIdx: number) => {
@@ -486,6 +531,7 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
           sellflux_tag: t.sellflux_tag || "",
           whatsapp_group_link: t.whatsapp_group_link || "",
           live_url: t.live_url || "",
+          live_thumbnail_url: t.live_thumbnail_url || "",
           sort_order: t.sort_order,
           enrolled_count: t.enrolled_count,
           days: (() => {
@@ -526,6 +572,7 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
         sellflux_tag: buildCourseTag(title),
         whatsapp_group_link: "",
         live_url: "",
+        live_thumbnail_url: "",
         sort_order: idx,
         enrolled_count: 0,
         days: [{ day_number: 1, date: "", start_time: defaultStart, end_time: defaultEnd, topic: "" }],
@@ -865,6 +912,7 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
               sellflux_tag: turma.sellflux_tag || null,
               whatsapp_group_link: turma.whatsapp_group_link || null,
               live_url: turma.live_url || null,
+              live_thumbnail_url: turma.live_thumbnail_url || null,
               sort_order: turma.sort_order,
             })
             .eq("id", turma.id);
@@ -908,6 +956,7 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
               sellflux_tag: turma.sellflux_tag || null,
               whatsapp_group_link: turma.whatsapp_group_link || null,
               live_url: turma.live_url || null,
+              live_thumbnail_url: turma.live_thumbnail_url || null,
               sort_order: turma.sort_order,
             })
             .select("id")
@@ -1229,6 +1278,32 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
                               <Youtube className="w-3.5 h-3.5 mr-1" />
                               {creatingLive === turma.id ? "Criando transmissão…" : "Criar live no YouTube"}
                             </Button>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="mt-2 w-full"
+                              disabled={creatingThumb === turma.id}
+                              onClick={() => createLiveThumbnail(tIdx)}
+                            >
+                              <Image className="w-3.5 h-3.5 mr-1" />
+                              {creatingThumb === turma.id ? "Gerando capa…" : "Gerar capa da live (IA)"}
+                            </Button>
+                            {turma.live_thumbnail_url && (
+                              <a
+                                href={turma.live_thumbnail_url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="mt-2 block overflow-hidden rounded-md border"
+                              >
+                                <img
+                                  src={turma.live_thumbnail_url}
+                                  alt={`Capa da live ${turma.label}`}
+                                  loading="lazy"
+                                  className="w-full aspect-video object-cover"
+                                />
+                              </a>
+                            )}
                           </div>
                         ) : (
                           <div><Label className="text-xs">Grupo WA</Label><Input value={turma.whatsapp_group_link} onChange={(e) => updateTurma(tIdx, "whatsapp_group_link", e.target.value)} placeholder="https://chat.whatsapp.com/..." /></div>

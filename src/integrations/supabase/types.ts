@@ -21442,6 +21442,7 @@ export type Database = {
           id: string
           label: string
           launch_date: string | null
+          live_thumbnail_url: string | null
           live_url: string | null
           location: string | null
           modality: string | null
@@ -21475,6 +21476,7 @@ export type Database = {
           id?: string
           label: string
           launch_date?: string | null
+          live_thumbnail_url?: string | null
           live_url?: string | null
           location?: string | null
           modality?: string | null
@@ -21508,6 +21510,7 @@ export type Database = {
           id?: string
           label?: string
           launch_date?: string | null
+          live_thumbnail_url?: string | null
           live_url?: string | null
           location?: string | null
           modality?: string | null
