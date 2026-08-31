@@ -20,6 +20,7 @@ import { Plus, X, CalendarDays, Image, Repeat, Youtube } from "lucide-react";
 import { DatePickerInput } from "./DatePickerInput";
 import { CourseProductPicker } from "./CourseProductPicker";
 import CoverImageUpload from "./CoverImageUpload";
+import LiveThumbnailUpload from "./LiveThumbnailUpload";
 import { slugify, buildCourseTag, MODALITY_CONFIG } from "@/lib/courseUtils";
 import {
   TEMPLATE_VARIABLES, DEFAULT_ENROLLMENT_TEMPLATE,
@@ -1289,6 +1290,10 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
                               <Image className="w-3.5 h-3.5 mr-1" />
                               {creatingThumb === turma.id ? "Gerando capa…" : "Gerar capa da live (IA)"}
                             </Button>
+                            <LiveThumbnailUpload
+                              value={turma.live_thumbnail_url}
+                              onChange={(url) => updateTurma(tIdx, "live_thumbnail_url", url)}
+                            />
                             {turma.live_thumbnail_url && (
                               <a
                                 href={turma.live_thumbnail_url}
