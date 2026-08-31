@@ -206,6 +206,7 @@ export function SmartOpsFormBuilder() {
   const [metaHeroImageUrl, setMetaHeroImageUrl] = useState("");
   const [metaHeroImageAlt, setMetaHeroImageAlt] = useState("");
   const [showHeroStudio, setShowHeroStudio] = useState(false);
+  const [heroStudioForm, setHeroStudioForm] = useState<SmartOpsForm | null>(null);
 
   const [metaSeoTitle, setMetaSeoTitle] = useState("");
   const [metaSeoDescription, setMetaSeoDescription] = useState("");
@@ -785,6 +786,20 @@ export function SmartOpsFormBuilder() {
             </DialogContent>
           </Dialog>
         </div>
+
+        <Dialog open={!!heroStudioForm} onOpenChange={(o) => !o && setHeroStudioForm(null)}>
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Hero por IA — {heroStudioForm?.name}</DialogTitle>
+            </DialogHeader>
+            {heroStudioForm && (
+              <FormHeroImageStudio
+                formId={heroStudioForm.id}
+                onApplied={() => fetchForms()}
+              />
+            )}
+          </DialogContent>
+        </Dialog>
 
         <Dialog open={!!editingMeta} onOpenChange={(o) => !o && setEditingMeta(null)}>
           <DialogContent className="max-h-[90vh] overflow-y-auto">
@@ -1454,6 +1469,7 @@ export function SmartOpsFormBuilder() {
                       onEditMeta={() => openEditMeta(form)}
                       onEditFields={() => setEditingForm(form)}
                       onEditLandingPage={() => setLandingPageForm(form)}
+                      onHeroStudio={() => setHeroStudioForm(form)}
                       onDuplicate={() => handleDuplicate(form)}
                       onCopyLink={() => copyLink(form.slug)}
                       onCopyEmbed={() => copyEmbed(form.slug, form.name)}
