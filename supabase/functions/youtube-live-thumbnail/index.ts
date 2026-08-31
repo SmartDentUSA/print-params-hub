@@ -241,7 +241,7 @@ Deno.serve(async (req) => {
       `- Linha de destaque em laranja (#F26722), logo abaixo do headline: "${copy.highlight}"`,
       produtos.length ? `- Linha fina em branco, caixa alta, menor: "${produtos[0].toUpperCase().slice(0, 40)}"` : "",
       "",
-      "REGRAS: nenhum outro texto além do especificado; sem marca d'água; sem logotipo do YouTube; sem preços; sem números inventados; margem de segurança nas bordas; legível em miniatura pequena.",
+      "REGRAS: nenhum outro texto além do especificado; sem marca d'água; sem logotipo do YouTube; sem preços; sem números inventados; nenhum equipamento além das fotos anexadas; margem de segurança nas bordas; legível em miniatura pequena.",
       b.style_notes,
     ].filter(Boolean).join("\n");
 
@@ -313,6 +313,7 @@ Deno.serve(async (req) => {
       path,
       copy,
       references_used: inlined.length,
+      reference_sources: sources.slice(0, inlined.length),
       video_id: videoId,
       applied_to_youtube: appliedToYoutube,
       youtube_error: youtubeError,
