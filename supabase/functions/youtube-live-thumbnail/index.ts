@@ -204,7 +204,7 @@ Deno.serve(async (req) => {
     if (!course) return json({ error: "Curso não encontrado" }, 404);
 
     const produtos: string[] = ((course as any).related_product_names ?? []).filter(Boolean);
-    const { dossiers, images } = await loadProductContext(produtos);
+    const { dossiers, images, sources } = await loadProductContext(produtos);
     const copy = await buildCopy(course, dossiers, {
       headline: b.headline,
       highlight: b.highlight,
@@ -227,10 +227,13 @@ Deno.serve(async (req) => {
           dossiers.join("\n").slice(0, 2500)
         : "",
       "",
-      "CENA: fundo de estúdio escuro (quase preto) com luz volumétrica azul fria vindo da direita e um leve halo laranja; profissional da odontologia adulto, barba curta, jaleco/camisa escura, expressão confiante segurando entre os dedos uma coroa dentária impressa em 3D à direita do quadro, olhando para a câmera. Iluminação dramática de recorte, contraste alto, textura de pele realista (fotografia real, não ilustração).",
-      images.length
-        ? "PRODUTOS: use as fotografias anexadas exatamente como estão (mesma forma, cor e proporção — não redesenhe nem invente equipamentos), posicionadas sobre uma bancada escura no terço inferior central, com reflexo suave."
-        : "PRODUTOS: uma impressora 3D odontológica e uma câmara de pós-cura sobre bancada escura no terço inferior central.",
+      inlined.length
+        ? "CENA: fundo de estúdio escuro (quase preto) com luz volumétrica azul fria vindo da direita e um leve halo laranja; profissional da odontologia adulto, jaleco/camisa escura, expressão confiante, olhando para a câmera no terço direito. Iluminação dramática de recorte, contraste alto, fotografia real (não ilustração)."
+        : "CENA: fundo de estúdio escuro (quase preto) com luz volumétrica azul fria e halo laranja; profissional da odontologia adulto, jaleco escuro, expressão confiante olhando para a câmera no terço direito, segurando uma coroa dentária impressa em 3D entre os dedos. NÃO inclua nenhum equipamento, impressora, scanner ou embalagem na cena.",
+      inlined.length
+        ? "PRODUTO (OBRIGATÓRIO): as fotografias anexadas são o produto real. Recorte-as e componha-as na imagem EXATAMENTE como estão — mesma forma, proporções, cor, painéis, botões e marca. É PROIBIDO redesenhar, estilizar, substituir, espelhar ou inventar qualquer equipamento; apenas ajuste iluminação, sombra e reflexo para integrar à cena. Posicione sobre bancada escura no terço inferior central."
+        : "PRODUTO: nenhuma foto oficial disponível — é PROIBIDO desenhar ou imaginar qualquer equipamento, impressora, scanner, frasco de resina ou embalagem. Mantenha a cena apenas com o profissional, a coroa impressa e o fundo de estúdio.",
+
       "",
       "TEXTO (renderize exatamente, sem erros de ortografia, tipografia sans-serif condensada muito pesada, alinhado à esquerda no terço esquerdo):",
       `- Badge pequeno com fundo laranja (#F26722) e texto branco: "${copy.badge}"`,
