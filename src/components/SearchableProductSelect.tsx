@@ -260,9 +260,4 @@ export function SearchableProductSelect({
       </PopoverContent>
     </Popover>
   );
-
-        </div>
-      </PopoverContent>
-    </Popover>
-  );
 }
