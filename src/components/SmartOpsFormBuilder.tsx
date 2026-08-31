@@ -486,6 +486,8 @@ export function SmartOpsFormBuilder() {
     setMetaRedirect(form.success_redirect_url || "");
     setMetaHeroImageUrl(form.hero_image_url || "");
     setMetaHeroImageAlt(form.hero_image_alt || "");
+    setShowHeroStudio(false);
+
     setMetaSeoTitle((form as any).seo_title || "");
     setMetaSeoDescription((form as any).seo_description || "");
     setMetaSeoKeywords((form as any).seo_keywords || "");
