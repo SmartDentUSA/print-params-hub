@@ -183,8 +183,8 @@ async function buildCopy(course: any, dossiers: string[], override: { headline?:
     headline: override.headline || String(course.title || "AO VIVO").toUpperCase().slice(0, 60),
     highlight: override.highlight || "SEM ADAPTAÇÕES",
     badge: override.badge || "AO VIVO",
+    scene: "",
   };
-  if (override.headline && override.highlight) return fallback;
   if (!LOVABLE_API_KEY) return fallback;
   try {
     const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -202,7 +202,7 @@ async function buildCopy(course: any, dossiers: string[], override: { headline?:
               "Use APENAS os dossiês de produto fornecidos (RAG) e siga as premissas estratégicas abaixo. " +
               "NUNCA cite preços. Sem emojis. Texto em CAIXA ALTA, curto e legível em miniatura.\n\n" +
               renderStrategyForPrompt() + "\n\n" + renderHooksForPrompt() + "\n\n" +
-              'Responda SOMENTE JSON: {"headline": string (até 42 caracteres, 2 a 5 palavras de impacto), "highlight": string (até 24 caracteres, o ganho/promessa), "badge": string (até 12 caracteres, ex: AO VIVO)}',
+              'Responda SOMENTE JSON: {"headline": string (até 42 caracteres, 2 a 5 palavras de impacto), "highlight": string (até 24 caracteres, o ganho/promessa), "badge": string (até 12 caracteres, ex: AO VIVO), "scene": string (até 180 caracteres, em português: o AMBIENTE REAL e a AÇÃO concreta do profissional coerentes com as APLICAÇÕES do produto conforme os dossiês — ex.: consultório com cadeira odontológica ao fundo conferindo uma coroa recém-impressa; laboratório de fluxo digital acompanhando a fresagem. Nunca cite equipamento que não esteja nos dossiês)}',
           },
           {
             role: "user",
@@ -226,11 +226,13 @@ async function buildCopy(course: any, dossiers: string[], override: { headline?:
       headline: override.headline || String(p.headline || fallback.headline).toUpperCase().slice(0, 60),
       highlight: override.highlight || String(p.highlight || fallback.highlight).toUpperCase().slice(0, 40),
       badge: override.badge || String(p.badge || "AO VIVO").toUpperCase().slice(0, 16),
+      scene: String(p.scene || "").slice(0, 220),
     };
   } catch {
     return fallback;
   }
 }
+
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -282,6 +284,14 @@ Deno.serve(async (req) => {
       ? "uma dentista mulher adulta (30-45 anos), cabelo preso, jaleco escuro"
       : "um dentista homem adulto (30-45 anos), jaleco escuro";
 
+    // Linha de produtos sem corte no meio da palavra (cabe em ~70 caracteres)
+    let productLine = "";
+    for (const p of produtos) {
+      const next = productLine ? `${productLine} + ${p.toUpperCase()}` : p.toUpperCase();
+      if (next.length > 70) break;
+      productLine = next;
+    }
+
     const prompt = [
       "Crie uma THUMBNAIL (capa) de transmissão ao vivo do YouTube, formato horizontal 16:9 (1280x720px), estética cinematográfica de alto impacto.",
       "",
@@ -292,27 +302,37 @@ Deno.serve(async (req) => {
           dossiers.join("\n").slice(0, 2500)
         : "",
       "",
-      `ENQUADRAMENTO DO PROFISSIONAL (OBRIGATÓRIO): ${professional}, ocupando NO MÁXIMO 30% da largura da imagem, no terço direito, plano médio (da cintura/peito para cima) — NUNCA um retrato grande em close ocupando a capa. O rosto não deve ser o elemento dominante; o texto e o produto têm prioridade visual. A expressão e a ação devem comunicar o contexto da DOR resolvida pelo texto (ex.: retrabalho/refação, tempo perdido na clínica, fluxo travado, insegurança com o resultado) — postura de alívio/domínio ao resolver esse problema, coerente com a headline.`,
+      `ENQUADRAMENTO DO PROFISSIONAL (OBRIGATÓRIO): ${professional}, ocupando NO MÁXIMO 30% da largura da imagem, no terço direito, plano médio (da cintura/peito para cima) — NUNCA um retrato grande em close ocupando a capa. O rosto não deve ser o elemento dominante; o texto e os produtos têm prioridade visual.`,
+      copy.scene
+        ? `CONTEXTO DA CENA (OBRIGATÓRIO, vindo da RAG do produto — o profissional deve estar claramente NESTE contexto, executando esta ação real, nunca posando de forma genérica): ${copy.scene}`
+        : "CONTEXTO DA CENA (OBRIGATÓRIO): ambiente clínico/laboratorial real de fluxo digital odontológico; o profissional executa uma ação concreta coerente com os produtos anexados (conferir uma peça recém-impressa, operar o fluxo), nunca posando de forma genérica.",
       inlined.length
-        ? "CENA: fundo de estúdio escuro (quase preto) com luz volumétrica azul fria vindo da direita e um leve halo laranja. Iluminação dramática de recorte, contraste alto, fotografia real (não ilustração)."
-        : "CENA: fundo de estúdio escuro (quase preto) com luz volumétrica azul fria e halo laranja; o profissional segura uma coroa dentária impressa em 3D entre os dedos. NÃO inclua nenhum equipamento, impressora, scanner ou embalagem na cena.",
+        ? "AMBIENTE: fundo de estúdio escuro (quase preto) com luz volumétrica azul fria vindo da direita e um leve halo laranja. Iluminação dramática de recorte, contraste alto, fotografia real (não ilustração)."
+        : "AMBIENTE: fundo de estúdio escuro (quase preto) com luz volumétrica azul fria e halo laranja; o profissional segura uma coroa dentária impressa em 3D entre os dedos. NÃO inclua nenhum equipamento, impressora, scanner ou embalagem na cena.",
       inlined.length
-        ? `PRODUTOS (OBRIGATÓRIO): foram anexadas ${inlined.length} fotografia(s) oficial(is), nesta ordem — ${sources
-            .slice(0, inlined.length)
-            .map((s, i) => `${i + 1}) ${produtos[i] ?? s}`)
-            .join(" · ")}. Componha TODAS elas na cena, recortadas EXATAMENTE como estão (mesma forma, proporções, cor, painéis, botões e marca), agrupadas sobre bancada escura no terço inferior central, o equipamento maior ao centro e os frascos/resinas à frente. É PROIBIDO redesenhar, estilizar, substituir, espelhar, duplicar ou inventar qualquer equipamento; apenas ajuste iluminação, sombra e reflexo para integrar à cena.`
+        ? [
+            `PRODUTOS — FOTOGRAFIAS OFICIAIS DO CATÁLOGO (RAG). Foram anexadas ${inlined.length} imagem(ns), nesta ordem exata: ${sources
+              .slice(0, inlined.length)
+              .map((s, i) => `imagem ${i + 1} = ${produtos[i] ?? s}`)
+              .join(" · ")}.`,
+            "CONTRATO DE FIDELIDADE (INVIOLÁVEL): trate cada imagem anexada como recorte fotográfico imutável. É PROIBIDO redesenhar, estilizar, substituir por outro modelo, trocar cores, alterar painéis, botões, textos, marcas, formato ou proporção de qualquer produto. É PROIBIDO alterar a PROPORÇÃO DE TAMANHO entre eles: preserve a escala relativa real e coerente das fotos (equipamento grande permanece grande, frasco de resina permanece pequeno).",
+            "ORDEM (INVIOLÁVEL): disponha os produtos da ESQUERDA para a DIREITA na MESMA ORDEM em que foram anexados, alinhados sobre uma bancada escura no terço inferior central, sem sobrepor o rosto nem o texto. Não reordene, não espelhe, não duplique, não remova nenhum produto.",
+            "Ajuste APENAS iluminação, sombra de contato e reflexo sutil para integrar cada recorte à cena.",
+          ].join("\n")
         : "PRODUTO: nenhuma foto oficial disponível — é PROIBIDO desenhar ou imaginar qualquer equipamento, impressora, scanner, frasco de resina ou embalagem. Mantenha a cena apenas com o profissional, a coroa impressa e o fundo de estúdio.",
       missing.length
         ? `PRODUTOS SEM FOTO OFICIAL (${missing.join(", ")}): NÃO os represente visualmente — nunca invente a aparência destes itens.`
         : "",
+
       "",
       "TEXTO (renderize exatamente, sem erros de ortografia, tipografia sans-serif condensada muito pesada, alinhado à esquerda no terço esquerdo):",
       `- Badge pequeno com fundo laranja (#F26722) e texto branco: "${copy.badge}"`,
       `- Headline gigante em branco, quebrado em 2 ou 3 linhas: "${copy.headline}"`,
       `- Linha de destaque em laranja (#F26722), logo abaixo do headline: "${copy.highlight}"`,
-      produtos.length
-        ? `- Linha fina em branco, caixa alta, menor, com os produtos da live: "${produtos.slice(0, 3).join(" + ").toUpperCase().slice(0, 70)}"`
+      productLine
+        ? `- Linha fina em branco, caixa alta, menor, com os produtos da live (renderize esta linha COMPLETA, sem cortar palavras): "${productLine}"`
         : "",
+
 
       "",
       logoData
