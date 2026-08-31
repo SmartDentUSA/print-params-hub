@@ -243,6 +243,7 @@ async function buildTexts(course: any, turma: any, startsAtBR: string) {
             role: "user",
             content: JSON.stringify({
               curso: course.title,
+              briefing_do_curso: (course as any).marketing_briefing ?? null,
               descricao: course.description ?? null,
               categoria: course.category ?? null,
               apresentador: course.instructor_name ?? null,
@@ -331,7 +332,7 @@ Deno.serve(async (req) => {
 
     const { data: course, error: cErr } = await admin
       .from("smartops_courses")
-      .select("id, title, description, category, modality, instructor_name, related_product_names")
+      .select("id, title, description, category, modality, instructor_name, related_product_names, marketing_briefing")
       .eq("id", turma.course_id)
       .maybeSingle();
     if (cErr) throw cErr;

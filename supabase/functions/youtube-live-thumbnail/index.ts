@@ -178,7 +178,34 @@ async function loadBrandLogo(): Promise<string | null> {
   return null;
 }
 
-async function buildCopy(course: any, dossiers: string[], override: { headline?: string; highlight?: string; badge?: string }) {
+/** Frases já usadas em capas de outras sessões do mesmo curso (evita repetição). */
+async function loadUsedCopy(courseId: string, turmaId: string) {
+  const used: string[] = [];
+  try {
+    const { data } = await admin
+      .from("smartops_course_turmas")
+      .select("id, live_thumbnail_copy")
+      .eq("course_id", courseId)
+      .not("live_thumbnail_copy", "is", null)
+      .limit(40);
+    for (const t of data ?? []) {
+      if ((t as any).id === turmaId) continue;
+      const c = (t as any).live_thumbnail_copy ?? {};
+      if (c.headline) used.push(String(c.headline));
+      if (c.highlight) used.push(String(c.highlight));
+    }
+  } catch (e) {
+    console.warn("[youtube-live-thumbnail] used copy lookup", (e as Error).message);
+  }
+  return Array.from(new Set(used)).slice(0, 30);
+}
+
+async function buildCopy(
+  course: any,
+  dossiers: string[],
+  override: { headline?: string; highlight?: string; badge?: string },
+  usedCopy: string[],
+) {
   const fallback = {
     headline: override.headline || String(course.title || "AO VIVO").toUpperCase().slice(0, 60),
     highlight: override.highlight || "SEM ADAPTAÇÕES",
@@ -197,25 +224,30 @@ async function buildCopy(course: any, dossiers: string[], override: { headline?:
             role: "system",
             content:
               "Você cria copy de THUMBNAIL de live no YouTube para a Smart Dent (odontologia digital, impressão 3D). " +
+              "FONTE PRINCIPAL: o BRIEFING DO CURSO enviado pelo usuário — ele define o objetivo da live, o público e o ângulo comercial. " +
+              "Se houver briefing, a headline e o highlight DEVEM nascer dele (mesmas ideias, mesmas palavras-chave); é PROIBIDO inventar promessa que não esteja no briefing ou nos dossiês. " +
               "DIREÇÃO OBRIGATÓRIA DA COPY: escreva de forma INDUTIVA E AFIRMATIVA, dirigida a QUEM BUSCA TECNOLOGIA — convide, mostre o caminho e o ganho. " +
               "É PROIBIDO escrever no sentido inverso: sem acusação, sem culpa, sem pergunta de fracasso, sem frases começando por NÃO/PARE/CHEGA/VOCÊ ESTÁ ERRANDO/SEU PROBLEMA, sem tom de derrota. " +
               "Fale a partir do mote comercial da Tecnologia Invisível: a complexidade fica no sistema, o profissional avança — clínica: menos operação, mais odontologia; laboratório: menos variabilidade, mais produção previsível. " +
-              "A dor pode ser referenciada apenas como PONTO DE PARTIDA implícito, mas o texto final é sempre o GANHO e o convite (ex.: 'FLUXO DIGITAL QUE FUNCIONA', 'ENTREGA NO MESMO DIA', 'PRODUÇÃO PREVISÍVEL'). " +
               "NUNCA use linguagem de especificação técnica (nivelamento automático, micras, resolução, velocidade, potência): fale de fluxo, previsibilidade, delegação, tempo clínico e entrega. " +
-              "Use APENAS os dossiês de produto fornecidos (RAG) e siga as premissas estratégicas abaixo (use os ganchos apenas como referência de TOM, sempre reescritos na direção indutiva). " +
+              "É PROIBIDO citar NOME DE PRODUTO, MODELO ou MARCA de equipamento/insumo na headline e no highlight — a copy fala de benefício, não de catálogo. " +
+              "ORIGINALIDADE (OBRIGATÓRIA): as frases NÃO podem repetir nem parafrasear nenhuma das frases já usadas em outras datas deste mesmo curso (lista 'frases_ja_usadas'). Traga um ângulo novo do briefing. " +
+              "Use os dossiês de produto (RAG) apenas como contexto factual e siga as premissas estratégicas abaixo (ganchos só como referência de TOM). " +
               "NUNCA cite preços. Sem emojis. Texto em CAIXA ALTA, curto e legível em miniatura.\n\n" +
               renderStrategyForPrompt() + "\n\n" + renderHooksForPrompt() + "\n\n" +
-              'Responda SOMENTE JSON: {"headline": string (até 42 caracteres, 2 a 5 palavras, afirmação indutiva de ganho para quem busca tecnologia), "highlight": string (até 24 caracteres, o ganho/promessa afirmativa), "badge": string (até 12 caracteres, ex: AO VIVO), "scene": string (até 180 caracteres, em português: o AMBIENTE REAL e a AÇÃO concreta do profissional coerentes com as APLICAÇÕES do produto conforme os dossiês — ex.: consultório com cadeira odontológica ao fundo conferindo uma coroa recém-impressa; laboratório de fluxo digital acompanhando a fresagem. Nunca cite equipamento que não esteja nos dossiês)}',
+              'Responda SOMENTE JSON: {"headline": string (até 42 caracteres, 2 a 5 palavras, afirmação indutiva de ganho, sem nome de produto), "highlight": string (até 24 caracteres, o ganho/promessa afirmativa, sem nome de produto), "badge": string (até 12 caracteres, ex: AO VIVO), "scene": string (até 180 caracteres, em português: o AMBIENTE REAL e a AÇÃO concreta do profissional coerentes com o briefing e com as APLICAÇÕES do produto conforme os dossiês — ex.: consultório com cadeira odontológica ao fundo conferindo uma coroa recém-impressa. Nunca cite equipamento que não esteja nos dossiês)}',
 
           },
           {
             role: "user",
             content: JSON.stringify({
               curso: course.title,
+              briefing_do_curso: course.marketing_briefing ?? null,
               descricao: course.description ?? null,
               categoria: course.category ?? null,
               produtos: course.related_product_names ?? [],
               dossies_rag: dossiers,
+              frases_ja_usadas: usedCopy,
             }),
           },
 
@@ -257,18 +289,19 @@ Deno.serve(async (req) => {
 
     const { data: course } = await admin
       .from("smartops_courses")
-      .select("id, title, description, category, instructor_name, related_product_names")
+      .select("id, title, description, category, instructor_name, related_product_names, marketing_briefing")
       .eq("id", (turma as any).course_id)
       .maybeSingle();
     if (!course) return json({ error: "Curso não encontrado" }, 404);
 
     const produtos: string[] = ((course as any).related_product_names ?? []).filter(Boolean);
     const { dossiers, images, sources, missing } = await loadProductContext(produtos);
+    const usedCopy = await loadUsedCopy(String((course as any).id), b.turma_id);
     const copy = await buildCopy(course, dossiers, {
       headline: b.headline,
       highlight: b.highlight,
       badge: b.badge_text,
-    });
+    }, usedCopy);
 
     const inlined: string[] = [];
     for (const u of images) {
@@ -288,13 +321,8 @@ Deno.serve(async (req) => {
       ? "uma dentista mulher adulta (30-45 anos), cabelo preso, jaleco escuro"
       : "um dentista homem adulto (30-45 anos), jaleco escuro";
 
-    // Linha de produtos sem corte no meio da palavra (cabe em ~70 caracteres)
-    let productLine = "";
-    for (const p of produtos) {
-      const next = productLine ? `${productLine} + ${p.toUpperCase()}` : p.toUpperCase();
-      if (next.length > 70) break;
-      productLine = next;
-    }
+    // Nenhuma linha de produtos na capa: nomes de produto são proibidos no texto.
+
 
     const prompt = [
       "Crie uma THUMBNAIL (capa) de transmissão ao vivo do YouTube, formato horizontal 16:9 (1280x720px), estética cinematográfica de alto impacto.",
@@ -336,9 +364,7 @@ Deno.serve(async (req) => {
       `- Badge pequeno com fundo laranja (#F26722) e texto branco: "${copy.badge}"`,
       `- Headline gigante em branco, quebrado em 2 ou 3 linhas: "${copy.headline}"`,
       `- Linha de destaque em laranja (#F26722), logo abaixo do headline: "${copy.highlight}"`,
-      productLine
-        ? `- Linha fina em branco, caixa alta, menor, com os produtos da live (renderize esta linha COMPLETA, sem cortar palavras): "${productLine}"`
-        : "",
+      "PROIBIDO ESCREVER NOME DE PRODUTO: não renderize nomes, modelos, marcas, códigos ou linha de produtos na capa. Os produtos aparecem APENAS como fotografia, sem legenda, sem etiqueta e sem texto sobre eles.",
 
 
       "",
@@ -390,7 +416,7 @@ Deno.serve(async (req) => {
 
     await admin
       .from("smartops_course_turmas")
-      .update({ live_thumbnail_url: url })
+      .update({ live_thumbnail_url: url, live_thumbnail_copy: copy })
       .eq("id", b.turma_id);
 
     // Aplica a capa no vídeo do YouTube (thumbnails.set)

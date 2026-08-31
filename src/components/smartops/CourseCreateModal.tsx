@@ -270,6 +270,7 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
   const [modality, setModality] = useState<string>("presencial");
   const [category, setCategory] = useState<string>("treinamento");
   const [description, setDescription] = useState("");
+  const [marketingBriefing, setMarketingBriefing] = useState("");
   const [instructorName, setInstructorName] = useState("");
   const [coverImageUrl, setCoverImageUrl] = useState("");
   const [durationDays, setDurationDays] = useState(1);
@@ -434,7 +435,7 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
     if (!course) {
       // Reset for new
       setTitle(""); setModality("presencial"); setCategory("treinamento");
-      setDescription(""); setInstructorName(""); setCoverImageUrl("");
+      setDescription(""); setMarketingBriefing(""); setInstructorName(""); setCoverImageUrl("");
       setDurationDays(1); setDurationHoursPerDay(undefined);
       setLocation(""); setMeetingLink(""); setWhatsappGroupLink("");
       setSignupFormUrl("");
@@ -462,6 +463,7 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
     setModality(course.modality);
     setCategory(course.category || "treinamento");
     setDescription(course.description || "");
+    setMarketingBriefing((course as any).marketing_briefing || "");
     setInstructorName(course.instructor_name || "");
     setCoverImageUrl(course.cover_image_url || "");
     setDurationDays(course.duration_days);
@@ -810,6 +812,7 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
         title: title.trim(),
         ...(isEdit ? {} : { slug: slugify(title.trim()) }),
         description: description || null,
+        marketing_briefing: marketingBriefing || null,
         modality,
         category,
         instructor_name: instructorName || null,
@@ -1062,6 +1065,20 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
                 <Label>Descrição</Label>
                 <Textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={2} />
               </div>
+
+              <div>
+                <Label>Briefing do curso (referência para a IA)</Label>
+                <Textarea
+                  value={marketingBriefing}
+                  onChange={(e) => setMarketingBriefing(e.target.value)}
+                  rows={4}
+                  placeholder="Objetivo da live, público-alvo, dor que resolve, ganho principal, palavras e frases que devem aparecer, o que evitar. A IA usa este texto para criar as frases da capa e a descrição do YouTube."
+                />
+                <p className="text-[11px] text-muted-foreground mt-1">
+                  Usado como fonte das frases da capa (thumb) e da descrição da transmissão. Sem briefing, a IA usa apenas título, descrição e RAG dos produtos.
+                </p>
+              </div>
+
 
               <div className="grid gap-3 sm:grid-cols-2">
                 <div>

@@ -21442,6 +21442,7 @@ export type Database = {
           id: string
           label: string
           launch_date: string | null
+          live_thumbnail_copy: Json | null
           live_thumbnail_url: string | null
           live_url: string | null
           location: string | null
@@ -21476,6 +21477,7 @@ export type Database = {
           id?: string
           label: string
           launch_date?: string | null
+          live_thumbnail_copy?: Json | null
           live_thumbnail_url?: string | null
           live_url?: string | null
           location?: string | null
@@ -21510,6 +21512,7 @@ export type Database = {
           id?: string
           label?: string
           launch_date?: string | null
+          live_thumbnail_copy?: Json | null
           live_thumbnail_url?: string | null
           live_url?: string | null
           location?: string | null
@@ -21562,6 +21565,7 @@ export type Database = {
           id: string
           instructor_name: string | null
           location: string | null
+          marketing_briefing: string | null
           max_capacity: number | null
           meeting_link: string | null
           modality: string
@@ -21607,6 +21611,7 @@ export type Database = {
           id?: string
           instructor_name?: string | null
           location?: string | null
+          marketing_briefing?: string | null
           max_capacity?: number | null
           meeting_link?: string | null
           modality: string
@@ -21652,6 +21657,7 @@ export type Database = {
           id?: string
           instructor_name?: string | null
           location?: string | null
+          marketing_briefing?: string | null
           max_capacity?: number | null
           meeting_link?: string | null
           modality?: string
