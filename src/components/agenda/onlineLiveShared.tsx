@@ -261,7 +261,7 @@ export function PublicOnlineCourseCard({
       `${b.start_date || ""}T${(b.start_time || "").substring(0, 5)}`,
     );
   const allSorted = [...sessions].sort(byDateAsc);
-  const pastSessions = allSorted.filter((s) => (s.end_date || s.start_date || "") < today);
+  // Sessões já realizadas não aparecem no card público.
   const nextSessions = allSorted.filter((s) => (s.end_date || s.start_date || "") >= today);
 
   // Próxima sessão (mais perto de hoje) para o cronômetro destacado.
