@@ -289,18 +289,19 @@ Deno.serve(async (req) => {
 
     const { data: course } = await admin
       .from("smartops_courses")
-      .select("id, title, description, category, instructor_name, related_product_names")
+      .select("id, title, description, category, instructor_name, related_product_names, marketing_briefing")
       .eq("id", (turma as any).course_id)
       .maybeSingle();
     if (!course) return json({ error: "Curso não encontrado" }, 404);
 
     const produtos: string[] = ((course as any).related_product_names ?? []).filter(Boolean);
     const { dossiers, images, sources, missing } = await loadProductContext(produtos);
+    const usedCopy = await loadUsedCopy(String((course as any).id), b.turma_id);
     const copy = await buildCopy(course, dossiers, {
       headline: b.headline,
       highlight: b.highlight,
       badge: b.badge_text,
-    });
+    }, usedCopy);
 
     const inlined: string[] = [];
     for (const u of images) {
