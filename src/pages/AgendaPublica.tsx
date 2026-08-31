@@ -20,6 +20,8 @@ import {
   STATUS_PILL,
   LiveBadge,
   PublicOnlineCourseCard,
+  ONLINE_LIVE_MODALITIES,
+  ONLINE_LIVE_CATEGORIES,
   type CountdownResult,
 } from "@/components/agenda/onlineLiveShared";
 
