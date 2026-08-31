@@ -396,6 +396,14 @@ export function StepContent({
       const id = val.slice('product:'.length);
       const p = products.find((x) => x.id === id);
       if (p) entry = { ref: val, name: p.name, slug: p.slug || '', category: p.category || '' };
+    } else if (val.startsWith('event:')) {
+      const id = val.slice('event:'.length);
+      const e = events.find((x) => x.id === id);
+      if (e) entry = { ref: val, name: e.name, slug: e.slug || '', category: e.subtitle || 'Evento' };
+    } else if (val.startsWith('distributor:')) {
+      const id = val.slice('distributor:'.length);
+      const d = distributors.find((x) => x.id === id);
+      if (d) entry = { ref: val, name: d.name, slug: d.slug || '', category: 'Distribuidor' };
     } else if (val.startsWith('resin:')) {
       const id = val.slice('resin:'.length);
       const r = resins.find((x) => x.id === id);
