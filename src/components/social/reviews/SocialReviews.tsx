@@ -15,6 +15,7 @@ const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID as string;
 const REDIRECT_URI = `${SUPABASE_URL}/functions/v1/google-oauth-callback`;
 const SCOPES = [
   "https://www.googleapis.com/auth/business.manage",
+  "https://www.googleapis.com/auth/youtube.force-ssl",
   "openid",
   "email",
 ].join(" ");
