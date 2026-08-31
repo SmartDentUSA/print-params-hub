@@ -321,9 +321,10 @@ Deno.serve(async (req) => {
       `- Badge pequeno com fundo laranja (#F26722) e texto branco: "${copy.badge}"`,
       `- Headline gigante em branco, quebrado em 2 ou 3 linhas: "${copy.headline}"`,
       `- Linha de destaque em laranja (#F26722), logo abaixo do headline: "${copy.highlight}"`,
-      produtos.length
-        ? `- Linha fina em branco, caixa alta, menor, com os produtos da live: "${produtos.slice(0, 3).join(" + ").toUpperCase().slice(0, 70)}"`
+      productLine
+        ? `- Linha fina em branco, caixa alta, menor, com os produtos da live (renderize esta linha COMPLETA, sem cortar palavras): "${productLine}"`
         : "",
+
 
       "",
       logoData
