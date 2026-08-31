@@ -212,7 +212,10 @@ export function FormHeroImageStudio({
       .eq("id", formId);
     setApplying(false);
     if (error) toast.error(error.message);
-    else toast.success("Imagem aplicada como hero do formulário");
+    else {
+      onApplied?.(result);
+      toast.success("Imagem aplicada como hero do formulário");
+    }
   };
 
   return (
@@ -225,17 +228,20 @@ export function FormHeroImageStudio({
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="space-y-1.5">
-            <Label>Formulário</Label>
-            <Select value={formId} onValueChange={setFormId}>
-              <SelectTrigger><SelectValue placeholder="Selecione o formulário..." /></SelectTrigger>
-              <SelectContent className="max-h-72">
-                {forms.map((f) => (
-                  <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          {!fixedFormId && (
+            <div className="space-y-1.5">
+              <Label>Formulário</Label>
+              <Select value={formId} onValueChange={setFormId}>
+                <SelectTrigger><SelectValue placeholder="Selecione o formulário..." /></SelectTrigger>
+                <SelectContent className="max-h-72">
+                  {forms.map((f) => (
+                    <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
 
           <Button variant="outline" onClick={() => void fillFromRag()} disabled={ragLoading} className="w-full">
             {ragLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Sparkles className="w-4 h-4 mr-2" />}
