@@ -20,6 +20,7 @@ import { Plus, X, CalendarDays, Image, Repeat, Youtube } from "lucide-react";
 import { DatePickerInput } from "./DatePickerInput";
 import { CourseProductPicker } from "./CourseProductPicker";
 import CoverImageUpload from "./CoverImageUpload";
+import LiveThumbnailUpload from "./LiveThumbnailUpload";
 import { slugify, buildCourseTag, MODALITY_CONFIG } from "@/lib/courseUtils";
 import {
   TEMPLATE_VARIABLES, DEFAULT_ENROLLMENT_TEMPLATE,
