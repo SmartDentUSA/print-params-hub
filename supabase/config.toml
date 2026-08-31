@@ -623,3 +623,6 @@ verify_jwt = false
 
 [functions.smartops-public-nps]
 verify_jwt = false
+
+[functions.form-hero-image]
+verify_jwt = false
