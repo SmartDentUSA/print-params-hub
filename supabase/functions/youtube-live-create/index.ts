@@ -272,7 +272,7 @@ Deno.serve(async (req) => {
     const startsAtBR = fmtBR(first.date, first.start_time);
 
     const token = await getValidAccessToken();
-    const { title, description } = await buildTexts(course, turma, startsAtBR);
+    const { title, description, tags } = await buildTexts(course, turma, startsAtBR);
 
     // 1) broadcast
     const broadcast = await yt("liveBroadcasts?part=id,snippet,status,contentDetails", token, {
@@ -288,6 +288,27 @@ Deno.serve(async (req) => {
         contentDetails: { enableAutoStart: true, enableAutoStop: true, latencyPreference: "low" },
       }),
     });
+
+    // 1b) metadados do vídeo (tags/idioma/categoria) — indexação por busca e IAs
+    try {
+      await yt("videos?part=snippet", token, {
+        method: "PUT",
+        body: JSON.stringify({
+          id: broadcast.id,
+          snippet: {
+            title,
+            description,
+            tags,
+            categoryId: "27", // Education
+            defaultLanguage: "pt-BR",
+            defaultAudioLanguage: "pt-BR",
+          },
+        }),
+      });
+    } catch (e) {
+      console.error("[youtube-live-create] videos.update falhou", (e as Error).message);
+    }
+
 
     // 2) stream + bind (permite transmitir por qualquer encoder/OBS)
     let streamKey: string | null = null;
