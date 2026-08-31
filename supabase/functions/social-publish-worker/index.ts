@@ -358,6 +358,17 @@ serve(async (req) => {
         })
         .eq('id', post.id);
 
+      // Fecha o ciclo do pipeline de depoimentos: sem isso o depoimento ficava
+      // eternamente em social_story_status = 'queued' mesmo já publicado.
+      await supabase
+        .from('training_testimonials')
+        .update({
+          social_story_status: groupErrors.length > 0 ? 'partial' : 'published',
+          social_story_error: groupErrors.length > 0 ? extractZernioError(groupErrors).slice(0, 1000) : null,
+          social_story_published_at: new Date().toISOString(),
+        })
+        .eq('social_story_post_id', post.id);
+
       console.log(JSON.stringify({ event: 'publish.ok', post_id: post.id, platforms: Object.keys(idsMap), errors: groupErrors.length }));
       results.push({ id: post.id, status: 'published', errors: groupErrors.length });
     } catch (err: any) {
