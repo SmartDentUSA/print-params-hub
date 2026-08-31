@@ -163,11 +163,13 @@ export function StepContent({
   // Catálogo (Sistema A) + Resinas para o dropdown de produto
   const [products, setProducts] = useState<Array<{ id: string; name: string; category?: string; slug?: string }>>([]);
   const [resins, setResins] = useState<Array<{ id: string; name: string; manufacturer: string; slug?: string; type?: string }>>([]);
+  const [events, setEvents] = useState<Array<{ id: string; name: string; subtitle?: string; slug?: string }>>([]);
+  const [distributors, setDistributors] = useState<Array<{ id: string; name: string; subtitle?: string; slug?: string }>>([]);
 
   useEffect(() => {
     let mounted = true;
     (async () => {
-      const [{ data: cat }, { data: res }] = await Promise.all([
+      const [{ data: cat }, { data: res }, { data: courses }, { data: dists }] = await Promise.all([
         supabase
           .from('system_a_catalog')
           .select('id,name,category,slug')
@@ -180,10 +182,38 @@ export function StepContent({
           .eq('active', true)
           .order('name', { ascending: true })
           .limit(500),
+        supabase
+          .from('smartops_courses')
+          .select('id,title,slug,category,modality')
+          .eq('active', true)
+          .order('title', { ascending: true })
+          .limit(300),
+        supabase
+          .from('distributors')
+          .select('id,nome_fantasia,razao_social,slug,pais,estado')
+          .eq('active', true)
+          .order('nome_fantasia', { ascending: true })
+          .limit(300),
       ]);
       if (!mounted) return;
       setProducts((cat ?? []) as any);
       setResins((res ?? []) as any);
+      setEvents(
+        ((courses ?? []) as any[]).map((c) => ({
+          id: String(c.id),
+          name: c.title || 'Evento',
+          subtitle: [c.modality, c.category].filter(Boolean).join(' · ') || undefined,
+          slug: c.slug || undefined,
+        })),
+      );
+      setDistributors(
+        ((dists ?? []) as any[]).map((d) => ({
+          id: String(d.id),
+          name: d.nome_fantasia || d.razao_social || 'Distribuidor',
+          subtitle: [d.estado, d.pais].filter(Boolean).join(' · ') || undefined,
+          slug: d.slug || undefined,
+        })),
+      );
     })();
     return () => {
       mounted = false;
