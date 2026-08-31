@@ -34,6 +34,8 @@ const BodySchema = z.object({
   badge_text: z.string().trim().max(24).optional(),
   style_notes: z.string().trim().max(600).optional().default(""),
   apply_to_youtube: z.boolean().optional().default(true),
+  /** Quando informado, apenas aplica esta imagem no YouTube (sem gerar por IA). */
+  image_url: z.string().url().optional(),
 });
 
 function videoIdFromUrl(url?: string | null): string | null {
