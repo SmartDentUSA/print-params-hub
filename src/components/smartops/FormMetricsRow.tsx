@@ -31,6 +31,7 @@ interface Props {
   onEditMeta: () => void;
   onEditFields: () => void;
   onEditLandingPage: () => void;
+  onHeroStudio?: () => void;
   onDuplicate: () => void;
   onCopyLink: () => void;
   onCopyEmbed: () => void;
