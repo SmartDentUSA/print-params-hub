@@ -290,6 +290,26 @@ export function StepContent({
         product_slug: r.slug || '',
         product_category: r.type ? `Resina ${r.type}` : 'Resina',
       });
+    } else if (val.startsWith('event:')) {
+      const id = val.slice('event:'.length);
+      const e = events.find((x) => x.id === id);
+      if (!e) return;
+      onChange({
+        product_ref: val,
+        product_name: e.name,
+        product_slug: e.slug || '',
+        product_category: e.subtitle || 'Evento',
+      });
+    } else if (val.startsWith('distributor:')) {
+      const id = val.slice('distributor:'.length);
+      const d = distributors.find((x) => x.id === id);
+      if (!d) return;
+      onChange({
+        product_ref: val,
+        product_name: d.name,
+        product_slug: d.slug || '',
+        product_category: 'Distribuidor',
+      });
     }
   };
 
