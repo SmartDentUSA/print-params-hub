@@ -23,6 +23,7 @@ export function AdminCatalog() {
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [selectedOrigin, setSelectedOrigin] = useState<string>('all');
+  const [selectedCourseType, setSelectedCourseType] = useState<string>('all');
   const [migrating, setMigrating] = useState(false);
   const [regenDescs, setRegenDescs] = useState(false);
   const [exporting, setExporting] = useState(false);
@@ -123,7 +124,7 @@ export function AdminCatalog() {
     }
 
     setFilteredProducts(filtered);
-  }, [products, searchTerm, selectedCategory, selectedStatus, selectedOrigin]);
+  }, [products, searchTerm, selectedCategory, selectedStatus, selectedOrigin, selectedCourseType]);
 
   const loadData = async () => {
     try {
