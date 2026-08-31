@@ -378,8 +378,9 @@ export function StepContent({
 
   // ─── Multi-produto (até 3 complementares = 4 no total) ───
   const extras = value.extra_products || [];
-  const MAX_EXTRAS = 3;
+  const MAX_EXTRAS = 5;
   const [extraPick, setExtraPick] = useState<string>('none');
+
 
   const addExtraProduct = (val: string) => {
     if (!val || val === 'none') return;
@@ -586,9 +587,10 @@ export function StepContent({
           {hasProduct && (
             <div className="rounded-md border bg-background/60 p-3 space-y-2">
               <Label className="text-xs flex items-center gap-1.5">
-                <Plus className="w-3.5 h-3.5" /> Produtos complementares
-                <span className="text-[10px] text-muted-foreground">(até {MAX_EXTRAS} · a IA conduz a sinergia entre eles)</span>
+                <Plus className="w-3.5 h-3.5" /> Itens associados (contexto)
+                <span className="text-[10px] text-muted-foreground">(produtos, resinas, eventos ou distribuidores · até {MAX_EXTRAS} · a IA conduz a sinergia entre eles)</span>
               </Label>
+
               {extras.length > 0 && (
                 <div className="flex flex-wrap gap-1.5">
                   {extras.map((e) => (
