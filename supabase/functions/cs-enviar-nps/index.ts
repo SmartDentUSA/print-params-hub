@@ -99,16 +99,49 @@ Deno.serve(async (req) => {
     } catch { /* sem body = modo cron diário */ }
 
 
-    const yesterday = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);
-    const q = supabase.from("smartops_course_turmas").select("id, label, end_date");
+    // Hoje em São Paulo (UTC-3): lives terminam no mesmo dia, então o dia corrente
+    // também é elegível — mas só depois de NPS_DELAY_HOURS do fim real da sessão.
+    const NPS_DELAY_MS = 2 * 3_600_000;
+    const SP_OFFSET_MS = 3 * 3_600_000;
+    const spDay = (d: Date) => new Date(d.getTime() - SP_OFFSET_MS).toISOString().slice(0, 10);
+    const today = spDay(new Date());
+    const yesterday = spDay(new Date(Date.now() - 86_400_000));
+    const q = supabase.from("smartops_course_turmas").select("id, label, start_date, end_date");
     const { data: turmas, error: eT } = backfillDays > 0
       ? await q
-          .gte("end_date", new Date(Date.now() - backfillDays * 86_400_000).toISOString().slice(0, 10))
-          .lte("end_date", yesterday)
-      : await q.eq("end_date", yesterday);
+          .gte("end_date", spDay(new Date(Date.now() - backfillDays * 86_400_000)))
+          .lte("end_date", today)
+      : await q.gte("end_date", yesterday).lte("end_date", today);
     if (eT) throw eT;
 
-    const turmaIds = (turmas ?? []).map((t: any) => t.id);
+    // Horário de término real de cada turma (último end_time dos dias cadastrados).
+    const allTurmaIds = (turmas ?? []).map((t: any) => t.id);
+    const endTimeByTurma = new Map<string, string>();
+    if (allTurmaIds.length > 0) {
+      const { data: days } = await supabase
+        .from("smartops_turma_days")
+        .select("turma_id, end_time")
+        .in("turma_id", allTurmaIds);
+      for (const d of (days ?? []) as any[]) {
+        if (!d.end_time) continue;
+        const cur = endTimeByTurma.get(d.turma_id);
+        if (!cur || String(d.end_time) > cur) endTimeByTurma.set(d.turma_id, String(d.end_time));
+      }
+    }
+
+    const now = Date.now();
+    // Elegível somente se (fim da última sessão + 2h) já passou. Sem horário
+    // cadastrado, considera 23:59 do end_date (comportamento antigo, D+1).
+    const readyTurmas = (turmas ?? []).filter((t: any) => {
+      if (!t.end_date) return false;
+      if (t.start_date && t.start_date > today) return false; // turma futura nunca envia
+      const hhmm = (endTimeByTurma.get(t.id) ?? "23:59:00").slice(0, 8);
+      const endTs = Date.parse(`${t.end_date}T${hhmm}-03:00`);
+      if (!Number.isFinite(endTs)) return false;
+      return now >= endTs + NPS_DELAY_MS;
+    });
+
+    const turmaIds = readyTurmas.map((t: any) => t.id);
     if (turmaIds.length === 0) {
       return new Response(JSON.stringify({ ok: true, elegiveis: 0, enviados: 0 }), {
         status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
