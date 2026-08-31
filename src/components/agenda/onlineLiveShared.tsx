@@ -327,7 +327,7 @@ export function PublicOnlineCourseCard({
             </span>
           )}
           <span className="inline-flex items-center px-1.5 py-0 rounded text-[10px] font-semibold bg-primary/10 text-primary border border-primary/20">
-            {sessions.length === 0 ? "Datas em breve" : `${sessions.length} ${sessions.length === 1 ? "sessão" : "sessões"}`}
+            {nextSessions.length === 0 ? "Datas em breve" : `${nextSessions.length} ${nextSessions.length === 1 ? "sessão" : "sessões"}`}
           </span>
         </div>
 
