@@ -121,7 +121,7 @@ Deno.serve(async (req) => {
 
     const { data: turma, error: tErr } = await admin
       .from("smartops_course_turmas")
-      .select("id, label, course_id, live_url, smartops_course_days:smartops_course_turma_days(date, start_time, end_time, day_number)")
+      .select("id, label, course_id, live_url, days:smartops_turma_days(date, start_time, end_time, day_number)")
       .eq("id", turmaId)
       .maybeSingle();
     if (tErr) throw tErr;
