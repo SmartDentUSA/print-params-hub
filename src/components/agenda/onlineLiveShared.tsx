@@ -6,6 +6,15 @@ import { getPublicOrigin } from "@/utils/publicOrigin";
 import type { TurmaComVagas } from "@/types/courses";
 import { UploadMidiasDriveButton } from "@/components/smartops/UploadMidiasDriveButton";
 
+/**
+ * Fonte única da agenda de lives/cursos online.
+ * Usada por /agenda/online e pela aba "Lives" da base de conhecimento,
+ * para que as duas telas nunca fiquem divergentes.
+ */
+export const ONLINE_LIVE_MODALITIES = ["online_ao_vivo", "online"];
+export const ONLINE_LIVE_CATEGORIES = ["workshop", "webinar", "live_produtos"];
+
+
 /** Sessão autenticada + membro da equipe: o upload de mídias é exclusivo de Team Members. */
 export function useTeamMemberSession() {
   const [isTeam, setIsTeam] = useState(false);
