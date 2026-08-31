@@ -225,6 +225,11 @@ export function FormHeroImageStudio() {
             </Select>
           </div>
 
+          <Button variant="outline" onClick={() => void fillFromRag()} disabled={ragLoading} className="w-full">
+            {ragLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Sparkles className="w-4 h-4 mr-2" />}
+            Preencher por IA (busca na RAG do produto)
+          </Button>
+
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1.5">
               <Label>Badge</Label>
