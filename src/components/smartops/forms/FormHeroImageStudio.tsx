@@ -354,6 +354,29 @@ export function FormHeroImageStudio() {
                   );
                 })}
             </div>
+
+            <div className="space-y-2 pt-1 border-t">
+              <Label className="text-xs text-muted-foreground">Ou envie suas próprias imagens</Label>
+              <Input type="file" accept="image/*" multiple onChange={(e) => void handleUpload(e.target.files)} />
+              {uploads.length > 0 && (
+                <div className="grid grid-cols-4 gap-2">
+                  {uploads.map((u, i) => (
+                    <button
+                      key={i}
+                      onClick={() => {
+                        setUploads((s) => s.filter((_, j) => j !== i));
+                        setSelectedImages((s) => s.filter((v) => v !== u));
+                      }}
+                      title="Remover"
+                      className="relative aspect-square rounded-md border bg-muted overflow-hidden ring-2 ring-primary"
+                    >
+                      <img src={u} alt={`Upload ${i + 1}`} className="w-full h-full object-contain" />
+                      <span className="absolute top-1 right-1 bg-destructive text-destructive-foreground rounded-full px-1 text-xs">×</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           </CardContent>
         </Card>
 
