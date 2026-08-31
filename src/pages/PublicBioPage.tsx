@@ -136,7 +136,9 @@ export default function PublicBioPage() {
               Parametrize sua impressora
             </a>
             <a
-              href="/support-resources"
+              href="https://parametros.smartdent.com.br/base-conhecimento?tab=catalogo&_cb=1788186308518&cat=resinas_3d"
+              target="_blank"
+              rel="noopener noreferrer"
               className="inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-card px-5 py-3 text-sm font-semibold text-foreground shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/30 hover:bg-accent hover:shadow-md"
             >
               <ShoppingBag className="h-4 w-4" />
