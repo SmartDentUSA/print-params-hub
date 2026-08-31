@@ -28,8 +28,9 @@ function BioCard({ item }: { item: BioItem }) {
       href={item.url}
       target={item.url.startsWith("http") ? "_blank" : undefined}
       rel="noopener noreferrer"
-      className="group flex h-fit w-full max-w-xs flex-col self-start overflow-hidden rounded-2xl border border-border bg-card shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-lg"
+      className="group flex h-fit w-full flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-lg"
     >
+
       <div
         className="relative w-full overflow-hidden bg-muted"
         style={imageAspectRatio ? { aspectRatio: imageAspectRatio } : undefined}
