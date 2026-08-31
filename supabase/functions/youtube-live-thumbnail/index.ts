@@ -56,9 +56,24 @@ async function toDataUrl(url: string): Promise<string | null> {
   }
 }
 
+/**
+ * Imagens reais do produto (nunca inventar equipamento):
+ * 1) system_a_catalog.image_url / og_image_url
+ * 2) resins.image_background_removed_url / image_urls (resinas)
+ * 3) hero_image_url dos formulários vinculados ao produto (product_catalog_id)
+ */
 async function loadProductContext(names: string[]) {
   const dossiers: string[] = [];
   const images: string[] = [];
+  const sources: string[] = [];
+
+  const push = (u: unknown, src: string) => {
+    if (typeof u !== "string" || !u.startsWith("http")) return;
+    if (images.includes(u) || images.length >= 3) return;
+    images.push(u);
+    sources.push(src);
+  };
+
   for (const n of names.slice(0, 3)) {
     try {
       const enriched = await fetchEnrichedProductDossier(admin as any, n);
@@ -69,19 +84,46 @@ async function loadProductContext(names: string[]) {
       if (liveText) dossiers.push(liveText);
     } catch (_) { /* soft-fail */ }
 
-    const { data: row } = await admin
+    // 1) catálogo Sistema A
+    const { data: row, error: catErr } = await admin
       .from("system_a_catalog")
-      .select("image_url, image_urls")
+      .select("id, name, image_url, og_image_url")
       .eq("active", true)
       .ilike("name", `%${n}%`)
       .limit(1)
       .maybeSingle();
-    const list = Array.isArray((row as any)?.image_urls) ? (row as any).image_urls : [];
-    for (const u of [...list, (row as any)?.image_url]) {
-      if (typeof u === "string" && u.startsWith("http") && images.length < 3) images.push(u);
+    if (catErr) console.warn("[youtube-live-thumbnail] catalog image lookup", catErr.message);
+    push((row as any)?.image_url, `catalog:${(row as any)?.name ?? n}`);
+    push((row as any)?.og_image_url, `catalog_og:${(row as any)?.name ?? n}`);
+
+    // 2) resinas (imagens com fundo removido têm prioridade visual)
+    if (images.length < 3) {
+      const { data: resin } = await admin
+        .from("resins")
+        .select("name, image_background_removed_url, image_urls, image_url")
+        .ilike("name", `%${n}%`)
+        .limit(1)
+        .maybeSingle();
+      push((resin as any)?.image_background_removed_url, `resin_nobg:${n}`);
+      const list = Array.isArray((resin as any)?.image_urls) ? (resin as any).image_urls : [];
+      for (const u of list) push(u, `resin:${n}`);
+      push((resin as any)?.image_url, `resin:${n}`);
+    }
+
+    // 3) hero das landing pages dos formulários do produto
+    if (images.length < 3) {
+      const catalogId = (row as any)?.id ?? null;
+      let q = admin
+        .from("smartops_forms")
+        .select("name, hero_image_url, product_catalog_id")
+        .not("hero_image_url", "is", null)
+        .limit(3);
+      q = catalogId ? q.eq("product_catalog_id", catalogId) : q.ilike("name", `%${n}%`);
+      const { data: forms } = await q;
+      for (const f of forms ?? []) push((f as any)?.hero_image_url, `form:${(f as any)?.name ?? n}`);
     }
   }
-  return { dossiers, images };
+  return { dossiers, images, sources };
 }
 
 async function buildCopy(course: any, dossiers: string[], override: { headline?: string; highlight?: string; badge?: string }) {
