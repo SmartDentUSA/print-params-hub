@@ -15,6 +15,7 @@ import { useData } from "@/contexts/DataContext";
 import { AdminModal } from "@/components/AdminModal";
 import { supabase } from "@/integrations/supabase/client";
 import { DataExport } from "@/components/DataExport";
+import { AdminAudienceExport } from "@/components/AdminAudienceExport";
 import { DataImport } from "@/components/DataImport";
 import { useAdminMaintenance, MaintenanceStats } from "@/hooks/useAdminMaintenance";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -1260,6 +1261,7 @@ export function AdminSettings() {
                 <div className="grid md:grid-cols-2 gap-4">
                   <DataExport />
                   <DataImport />
+                  <AdminAudienceExport />
                 </div>
 
                 {/* Maintenance Card */}
