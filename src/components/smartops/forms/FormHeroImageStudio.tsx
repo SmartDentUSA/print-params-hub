@@ -34,9 +34,13 @@ interface CatalogRow {
 
 const DEFAULT_BULLETS = ["Mais margem", "Menos custo", "Planejamento incluso", "Responsabilidade técnica total"];
 
-export function FormHeroImageStudio() {
+export function FormHeroImageStudio({
+  formId: fixedFormId,
+  onApplied,
+}: { formId?: string; onApplied?: (url: string) => void } = {}) {
   const [forms, setForms] = useState<FormRow[]>([]);
-  const [formId, setFormId] = useState<string>("");
+  const [formId, setFormId] = useState<string>(fixedFormId ?? "");
+
   const [catalog, setCatalog] = useState<CatalogRow[]>([]);
   const [selectedImages, setSelectedImages] = useState<string[]>([]);
   const [productName, setProductName] = useState("");
@@ -56,10 +60,11 @@ export function FormHeroImageStudio() {
 
   useEffect(() => {
     (async () => {
-      const { data } = await (supabase as any)
+      let q = (supabase as any)
         .from("smartops_forms")
-        .select("id, name, slug, subtitle, badge_text, cta_text, hero_image_url, product_catalog_id")
-        .order("name");
+        .select("id, name, slug, subtitle, badge_text, cta_text, hero_image_url, product_catalog_id");
+      if (fixedFormId) q = q.eq("id", fixedFormId);
+      const { data } = await q.order("name");
       setForms((data ?? []) as FormRow[]);
       const { data: cat } = await (supabase as any)
         .from("system_a_catalog")
@@ -69,7 +74,12 @@ export function FormHeroImageStudio() {
         .limit(600);
       setCatalog((cat ?? []) as CatalogRow[]);
     })();
-  }, []);
+  }, [fixedFormId]);
+
+  useEffect(() => {
+    if (fixedFormId) setFormId(fixedFormId);
+  }, [fixedFormId]);
+
 
   const selectedForm = useMemo(() => forms.find((f) => f.id === formId), [forms, formId]);
 
@@ -182,7 +192,9 @@ export function FormHeroImageStudio() {
       if (error) throw error;
       if ((data as any)?.error) throw new Error(JSON.stringify((data as any).error));
       setResult((data as any).url);
+      if (apply && (data as any).url) onApplied?.((data as any).url);
       toast.success(apply ? "Hero gerado e aplicado ao formulário" : "Hero gerado");
+
     } catch (e: any) {
       toast.error(e?.message || "Falha ao gerar imagem");
     } finally {
@@ -200,7 +212,10 @@ export function FormHeroImageStudio() {
       .eq("id", formId);
     setApplying(false);
     if (error) toast.error(error.message);
-    else toast.success("Imagem aplicada como hero do formulário");
+    else {
+      onApplied?.(result);
+      toast.success("Imagem aplicada como hero do formulário");
+    }
   };
 
   return (
@@ -213,17 +228,20 @@ export function FormHeroImageStudio() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="space-y-1.5">
-            <Label>Formulário</Label>
-            <Select value={formId} onValueChange={setFormId}>
-              <SelectTrigger><SelectValue placeholder="Selecione o formulário..." /></SelectTrigger>
-              <SelectContent className="max-h-72">
-                {forms.map((f) => (
-                  <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          {!fixedFormId && (
+            <div className="space-y-1.5">
+              <Label>Formulário</Label>
+              <Select value={formId} onValueChange={setFormId}>
+                <SelectTrigger><SelectValue placeholder="Selecione o formulário..." /></SelectTrigger>
+                <SelectContent className="max-h-72">
+                  {forms.map((f) => (
+                    <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
 
           <Button variant="outline" onClick={() => void fillFromRag()} disabled={ragLoading} className="w-full">
             {ragLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Sparkles className="w-4 h-4 mr-2" />}
