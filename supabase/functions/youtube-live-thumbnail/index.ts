@@ -197,12 +197,16 @@ async function buildCopy(course: any, dossiers: string[], override: { headline?:
             role: "system",
             content:
               "Você cria copy de THUMBNAIL de live no YouTube para a Smart Dent (odontologia digital, impressão 3D). " +
-              "O gancho deve atacar a DOR REAL DO DIA A DIA que o produto resolve e prometer o GANHO sistêmico, em português do Brasil, tom direto e provocativo, sem clickbait falso. " +
-              "NUNCA use linguagem de especificação técnica (nivelamento automático, micras, resolução, velocidade, potência): fale de fluxo, retrabalho, dependência do operador, previsibilidade, tempo clínico e entrega. " +
-              "Use APENAS os dossiês de produto fornecidos (RAG) e siga as premissas estratégicas abaixo. " +
+              "DIREÇÃO OBRIGATÓRIA DA COPY: escreva de forma INDUTIVA E AFIRMATIVA, dirigida a QUEM BUSCA TECNOLOGIA — convide, mostre o caminho e o ganho. " +
+              "É PROIBIDO escrever no sentido inverso: sem acusação, sem culpa, sem pergunta de fracasso, sem frases começando por NÃO/PARE/CHEGA/VOCÊ ESTÁ ERRANDO/SEU PROBLEMA, sem tom de derrota. " +
+              "Fale a partir do mote comercial da Tecnologia Invisível: a complexidade fica no sistema, o profissional avança — clínica: menos operação, mais odontologia; laboratório: menos variabilidade, mais produção previsível. " +
+              "A dor pode ser referenciada apenas como PONTO DE PARTIDA implícito, mas o texto final é sempre o GANHO e o convite (ex.: 'FLUXO DIGITAL QUE FUNCIONA', 'ENTREGA NO MESMO DIA', 'PRODUÇÃO PREVISÍVEL'). " +
+              "NUNCA use linguagem de especificação técnica (nivelamento automático, micras, resolução, velocidade, potência): fale de fluxo, previsibilidade, delegação, tempo clínico e entrega. " +
+              "Use APENAS os dossiês de produto fornecidos (RAG) e siga as premissas estratégicas abaixo (use os ganchos apenas como referência de TOM, sempre reescritos na direção indutiva). " +
               "NUNCA cite preços. Sem emojis. Texto em CAIXA ALTA, curto e legível em miniatura.\n\n" +
               renderStrategyForPrompt() + "\n\n" + renderHooksForPrompt() + "\n\n" +
-              'Responda SOMENTE JSON: {"headline": string (até 42 caracteres, 2 a 5 palavras de impacto), "highlight": string (até 24 caracteres, o ganho/promessa), "badge": string (até 12 caracteres, ex: AO VIVO), "scene": string (até 180 caracteres, em português: o AMBIENTE REAL e a AÇÃO concreta do profissional coerentes com as APLICAÇÕES do produto conforme os dossiês — ex.: consultório com cadeira odontológica ao fundo conferindo uma coroa recém-impressa; laboratório de fluxo digital acompanhando a fresagem. Nunca cite equipamento que não esteja nos dossiês)}',
+              'Responda SOMENTE JSON: {"headline": string (até 42 caracteres, 2 a 5 palavras, afirmação indutiva de ganho para quem busca tecnologia), "highlight": string (até 24 caracteres, o ganho/promessa afirmativa), "badge": string (até 12 caracteres, ex: AO VIVO), "scene": string (até 180 caracteres, em português: o AMBIENTE REAL e a AÇÃO concreta do profissional coerentes com as APLICAÇÕES do produto conforme os dossiês — ex.: consultório com cadeira odontológica ao fundo conferindo uma coroa recém-impressa; laboratório de fluxo digital acompanhando a fresagem. Nunca cite equipamento que não esteja nos dossiês)}',
+
           },
           {
             role: "user",
