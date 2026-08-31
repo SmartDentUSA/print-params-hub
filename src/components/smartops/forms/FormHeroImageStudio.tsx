@@ -34,9 +34,13 @@ interface CatalogRow {
 
 const DEFAULT_BULLETS = ["Mais margem", "Menos custo", "Planejamento incluso", "Responsabilidade técnica total"];
 
-export function FormHeroImageStudio() {
+export function FormHeroImageStudio({
+  formId: fixedFormId,
+  onApplied,
+}: { formId?: string; onApplied?: (url: string) => void } = {}) {
   const [forms, setForms] = useState<FormRow[]>([]);
-  const [formId, setFormId] = useState<string>("");
+  const [formId, setFormId] = useState<string>(fixedFormId ?? "");
+
   const [catalog, setCatalog] = useState<CatalogRow[]>([]);
   const [selectedImages, setSelectedImages] = useState<string[]>([]);
   const [productName, setProductName] = useState("");
