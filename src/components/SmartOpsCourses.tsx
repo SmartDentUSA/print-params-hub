@@ -603,19 +603,45 @@ function CatalogoTab() {
           </Button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {filtered.map((c) => (
-            <CourseCard
-              key={c.id}
-              course={c}
-              onEdit={() => setEditCourse(c)}
-              onToggleActive={() => toggleField(c.id, "active", !c.active)}
-              onTogglePublic={() => toggleField(c.id, "public_visible", !c.public_visible)}
-              onClone={() => cloneCourse(c)}
-              onDelete={() => deleteCourse(c)}
-            />
-          ))}
-        </div>
+        <Accordion
+          type="multiple"
+          defaultValue={Array.from(new Set(filtered.map(courseCategoryLabel)))}
+          className="space-y-3"
+        >
+          {Object.entries(
+            filtered.reduce<Record<string, SmartopsCourse[]>>((acc, c) => {
+              const k = courseCategoryLabel(c);
+              (acc[k] ||= []).push(c);
+              return acc;
+            }, {})
+          )
+            .sort(([a], [b]) => a.localeCompare(b, "pt-BR"))
+            .map(([category, list]) => (
+              <AccordionItem key={category} value={category} className="border rounded-xl bg-card overflow-hidden">
+                <AccordionTrigger className="px-4 py-3 hover:no-underline">
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold text-sm">{category}</span>
+                    <Badge variant="secondary" className="text-xs">{list.length}</Badge>
+                  </div>
+                </AccordionTrigger>
+                <AccordionContent className="pb-0">
+                  <div className="divide-y border-t">
+                    {list.map((c) => (
+                      <CourseListRow
+                        key={c.id}
+                        course={c}
+                        onEdit={() => setEditCourse(c)}
+                        onToggleActive={() => toggleField(c.id, "active", !c.active)}
+                        onTogglePublic={() => toggleField(c.id, "public_visible", !c.public_visible)}
+                        onClone={() => cloneCourse(c)}
+                        onDelete={() => deleteCourse(c)}
+                      />
+                    ))}
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+            ))}
+        </Accordion>
       )}
 
       {(showCreate || editCourse) && (
