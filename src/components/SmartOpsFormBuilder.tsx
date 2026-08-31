@@ -841,6 +841,30 @@ export function SmartOpsFormBuilder() {
                   <label className="text-xs font-medium">ALT da imagem HERO</label>
                   <Input value={metaHeroImageAlt} onChange={(e) => setMetaHeroImageAlt(e.target.value)} placeholder="Descrição da imagem" />
                 </div>
+                {editingMeta && (
+                  <div className="rounded-md border p-3 space-y-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        Hero por IA — deste formulário
+                      </p>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant={showHeroStudio ? "secondary" : "outline"}
+                        onClick={() => setShowHeroStudio((v) => !v)}
+                      >
+                        {showHeroStudio ? "Fechar gerador" : "Gerar imagem HERO por IA"}
+                      </Button>
+                    </div>
+                    {showHeroStudio && (
+                      <FormHeroImageStudio
+                        formId={editingMeta.id}
+                        onApplied={(url) => setMetaHeroImageUrl(url)}
+                      />
+                    )}
+                  </div>
+                )}
+
                 <div>
                   <label className="text-xs font-medium">Identificador de campanha</label>
                   <Input value={metaCampaignIdentifier} onChange={(e) => setMetaCampaignIdentifier(e.target.value)} placeholder="ex: feira-cbo-2026" />
