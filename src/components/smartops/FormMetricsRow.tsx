@@ -11,6 +11,7 @@ import {
   Layout,
   Link2,
   Loader2,
+  Wand2,
 } from "lucide-react";
 import { toast } from "sonner";
 import type { FormMetrics, ShortLinkInfo } from "./FormMetricsCard";
