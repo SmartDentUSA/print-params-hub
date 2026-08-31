@@ -416,7 +416,7 @@ Deno.serve(async (req) => {
 
     await admin
       .from("smartops_course_turmas")
-      .update({ live_thumbnail_url: url })
+      .update({ live_thumbnail_url: url, live_thumbnail_copy: copy })
       .eq("id", b.turma_id);
 
     // Aplica a capa no vídeo do YouTube (thumbnails.set)
