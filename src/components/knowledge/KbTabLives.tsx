@@ -54,20 +54,56 @@ export default function KbTabLives() {
       arr.push(t);
       map.set(t.course_id, arr);
     }
+
     const today = new Date().toISOString().slice(0, 10);
+    const dateOf = (t: TurmaComVagas) => t.start_date || '';
+    const hasDate = (d: string) => d.length === 10;
+
     const all = publicCourses
-      .map((c) => ({
-        course_id: c.id as string,
-        course: c,
-        turmas: (map.get(c.id as string) || []).sort(
-          (a, b) => (a.start_date || '').localeCompare(b.start_date || ''),
-        ),
-      }))
+      .map((c) => {
+        const turmas = (map.get(c.id as string) || []).slice().sort((a, b) => {
+          const da = dateOf(a);
+          const db = dateOf(b);
+          if (!hasDate(da) && !hasDate(db)) return 0;
+          if (!hasDate(da)) return 1;
+          if (!hasDate(db)) return -1;
+          return da.localeCompare(db);
+        });
+        return { course_id: c.id as string, course: c, turmas };
+      })
       .sort((a, b) => {
-        const nextOf = (list: TurmaComVagas[]) =>
-          list.map((t) => t.start_date || '').filter((d) => d >= today).sort()[0] || '9999';
-        return nextOf(a.turmas).localeCompare(nextOf(b.turmas));
+        const nextFuture = (list: TurmaComVagas[]) => {
+          const future = list
+            .map(dateOf)
+            .filter((d) => hasDate(d) && d >= today)
+            .sort((x, y) => x.localeCompare(y))[0];
+          return future || null;
+        };
+        const latestPast = (list: TurmaComVagas[]) => {
+          const past = list
+            .map(dateOf)
+            .filter((d) => hasDate(d) && d < today)
+            .sort((x, y) => y.localeCompare(x))[0];
+          return past || null;
+        };
+
+        const fa = nextFuture(a.turmas);
+        const fb = nextFuture(b.turmas);
+
+        // Cursos com data futura vêm primeiro, ordenados pela data mais próxima.
+        if (fa && fb) return fa.localeCompare(fb);
+        if (fa && !fb) return -1;
+        if (!fa && fb) return 1;
+
+        // Sem data futura: ordenar pela data passada mais recente (descendente).
+        const pa = latestPast(a.turmas);
+        const pb = latestPast(b.turmas);
+        if (pa && pb) return pb.localeCompare(pa);
+        if (pa && !pb) return -1;
+        if (!pa && pb) return 1;
+        return 0;
       });
+
     if (!selectedProduct) return all;
     return all.filter((g) => {
       const names =
