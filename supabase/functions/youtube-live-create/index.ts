@@ -332,7 +332,7 @@ Deno.serve(async (req) => {
 
     const { data: course, error: cErr } = await admin
       .from("smartops_courses")
-      .select("id, title, description, category, modality, instructor_name, related_product_names")
+      .select("id, title, description, category, modality, instructor_name, related_product_names, marketing_briefing")
       .eq("id", turma.course_id)
       .maybeSingle();
     if (cErr) throw cErr;
