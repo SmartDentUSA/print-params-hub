@@ -152,14 +152,23 @@ export function SearchableProductSelect({
           <ChevronsUpDown className="ml-1 h-3 w-3 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[280px] p-0" align="start">
+      <PopoverContent
+        className="w-[280px] p-0"
+        align="start"
+        onOpenAutoFocus={(e) => {
+          e.preventDefault();
+          requestAnimationFrame(() => inputRef.current?.focus());
+        }}
+      >
         <div className="p-2 border-b">
           <div className="relative">
             <Search className="absolute left-2 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
             <Input
+              ref={inputRef}
               placeholder="Buscar produto, evento..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
+              onKeyDown={(e) => e.stopPropagation()}
               className="h-8 pl-7 text-xs"
             />
             {search && (
@@ -170,7 +179,10 @@ export function SearchableProductSelect({
             )}
           </div>
         </div>
-        <ScrollArea className="max-h-[300px]">
+        <div
+          className="h-[300px] overflow-y-auto overscroll-contain"
+          onWheel={(e) => e.stopPropagation()}
+        >
           <div className="p-1">
             {/* Nenhum */}
             <button
