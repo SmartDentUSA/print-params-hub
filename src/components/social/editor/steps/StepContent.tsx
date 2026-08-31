@@ -558,6 +558,8 @@ export function StepContent({
               onValueChange={onProductChange}
               products={products}
               resins={resins as any}
+              events={events}
+              distributors={distributors}
             />
             {value.product_name && (
               <p className="text-[11px] text-muted-foreground mt-1">
@@ -602,6 +604,8 @@ export function StepContent({
                   onValueChange={addExtraProduct}
                   products={products}
                   resins={resins as any}
+                  events={events}
+                  distributors={distributors}
                 />
               )}
               {extras.length >= MAX_EXTRAS && (
