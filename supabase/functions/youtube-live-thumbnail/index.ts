@@ -64,7 +64,11 @@ async function loadProductContext(names: string[]) {
       const enriched = await fetchEnrichedProductDossier(admin as any, n);
       const d = enriched?.local ?? (await fetchProductDossier(admin as any, n));
       if (d) dossiers.push(renderDossierForPrompt(d, "PRODUTO"));
+      // Sistema A live: aplicações clínicas, workflow, regras anti-alucinação
+      const liveText = renderLiveDossierForPrompt(enriched?.live ?? null);
+      if (liveText) dossiers.push(liveText);
     } catch (_) { /* soft-fail */ }
+
     const { data: row } = await admin
       .from("system_a_catalog")
       .select("image_url, image_urls")
