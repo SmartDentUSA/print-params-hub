@@ -394,6 +394,8 @@ Deno.serve(async (req) => {
       references_used: inlined.length,
       logo_used: !!logoData,
       reference_sources: sources.slice(0, inlined.length),
+      products_selected: produtos,
+      products_without_photo: missing,
       video_id: videoId,
       applied_to_youtube: appliedToYoutube,
       youtube_error: youtubeError,
