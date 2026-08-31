@@ -205,6 +205,8 @@ export function SmartOpsFormBuilder() {
   const [metaRedirect, setMetaRedirect] = useState("");
   const [metaHeroImageUrl, setMetaHeroImageUrl] = useState("");
   const [metaHeroImageAlt, setMetaHeroImageAlt] = useState("");
+  const [showHeroStudio, setShowHeroStudio] = useState(false);
+
   const [metaSeoTitle, setMetaSeoTitle] = useState("");
   const [metaSeoDescription, setMetaSeoDescription] = useState("");
   const [metaSeoKeywords, setMetaSeoKeywords] = useState("");
