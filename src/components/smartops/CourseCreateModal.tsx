@@ -1310,7 +1310,10 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
                             <LiveThumbnailUpload
                               value={turma.live_thumbnail_url}
                               onChange={(url) => updateTurma(tIdx, "live_thumbnail_url", url)}
+                              turmaId={turma.id ?? undefined}
+                              liveUrl={turma.live_url ?? undefined}
                             />
+
                             {turma.live_thumbnail_url && (
                               <a
                                 href={turma.live_thumbnail_url}
