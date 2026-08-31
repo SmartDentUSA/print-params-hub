@@ -320,6 +320,46 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
   // Turmas
   const [turmas, setTurmas] = useState<LocalTurma[]>([]);
   const [turmasLoading, setTurmasLoading] = useState(false);
+  const [creatingLive, setCreatingLive] = useState<string | null>(null);
+
+  // Cria a transmissão programada no YouTube a partir da sessão salva
+  const createYoutubeLive = async (tIdx: number) => {
+    const turma = turmas[tIdx];
+    if (!turma?.id) {
+      toast({
+        title: "Salve o curso primeiro",
+        description: "A transmissão é criada a partir da sessão já salva (data e horário).",
+        variant: "destructive",
+      });
+      return;
+    }
+    setCreatingLive(turma.id);
+    try {
+      const { data, error } = await supabase.functions.invoke("youtube-live-create", {
+        body: { turma_id: turma.id, privacy: "unlisted" },
+      });
+      if (error) throw error;
+      if ((data as any)?.error) throw new Error((data as any).error);
+      const watchUrl = (data as any).watch_url as string;
+      updateTurma(tIdx, "live_url", watchUrl);
+      toast({
+        title: "Live criada no YouTube",
+        description: "Link inserido na sessão. Salve o curso para disponibilizar aos inscritos.",
+      });
+    } catch (e: any) {
+      const msg = String(e?.message ?? e);
+      toast({
+        title: "Não foi possível criar a live",
+        description: /Google OAuth|401|403|insufficient/i.test(msg)
+          ? "Reconecte a conta Google (Social → Avaliações) autorizando o acesso ao YouTube."
+          : msg,
+        variant: "destructive",
+      });
+    } finally {
+      setCreatingLive(null);
+    }
+  };
+
 
   // Instâncias WhatsApp disponíveis para os envios de treinamento
   useEffect(() => {
