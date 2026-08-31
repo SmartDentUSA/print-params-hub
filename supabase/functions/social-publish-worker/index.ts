@@ -110,13 +110,24 @@ type ZernioVerification = {
 };
 
 function summarizeVerificationDetail(detail: unknown): string | null {
-  try {
-    const raw = JSON.stringify(detail);
-    if (!raw || raw === '{}') return null;
-    return raw.slice(0, 1800);
-  } catch {
-    return null;
+  const messages: string[] = [];
+  const visit = (value: unknown, path = '') => {
+    if (!value || messages.length >= 12) return;
+    if (Array.isArray(value)) {
+      value.forEach((item, index) => visit(item, `${path}[${index}]`));
+      return;
+    }
+    if (typeof value !== 'object') return;
+    for (const [key, child] of Object.entries(value as Record<string, unknown>)) {
+      const nextPath = path ? `${path}.${key}` : key;
+      if (/(error|message|reason|detail)/i.test(key) && (typeof child === 'string' || typeof child === 'number')) {
+        messages.push(`${nextPath}: ${String(child)}`);
+      }
+      visit(child, nextPath);
+    }
   }
+  visit(detail);
+  return messages.length > 0 ? messages.join(' | ').slice(0, 1800) : null;
 }
 
 function collectPlatformUrls(value: unknown, urls = new Set<string>()): string[] {
