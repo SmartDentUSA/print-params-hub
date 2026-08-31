@@ -297,16 +297,23 @@ Deno.serve(async (req) => {
         ? "CENA: fundo de estúdio escuro (quase preto) com luz volumétrica azul fria vindo da direita e um leve halo laranja. Iluminação dramática de recorte, contraste alto, fotografia real (não ilustração)."
         : "CENA: fundo de estúdio escuro (quase preto) com luz volumétrica azul fria e halo laranja; o profissional segura uma coroa dentária impressa em 3D entre os dedos. NÃO inclua nenhum equipamento, impressora, scanner ou embalagem na cena.",
       inlined.length
-        ? "PRODUTO (OBRIGATÓRIO): as fotografias anexadas são o produto real. Recorte-as e componha-as na imagem EXATAMENTE como estão — mesma forma, proporções, cor, painéis, botões e marca. É PROIBIDO redesenhar, estilizar, substituir, espelhar ou inventar qualquer equipamento; apenas ajuste iluminação, sombra e reflexo para integrar à cena. Posicione sobre bancada escura no terço inferior central."
+        ? `PRODUTOS (OBRIGATÓRIO): foram anexadas ${inlined.length} fotografia(s) oficial(is), nesta ordem — ${sources
+            .slice(0, inlined.length)
+            .map((s, i) => `${i + 1}) ${produtos[i] ?? s}`)
+            .join(" · ")}. Componha TODAS elas na cena, recortadas EXATAMENTE como estão (mesma forma, proporções, cor, painéis, botões e marca), agrupadas sobre bancada escura no terço inferior central, o equipamento maior ao centro e os frascos/resinas à frente. É PROIBIDO redesenhar, estilizar, substituir, espelhar, duplicar ou inventar qualquer equipamento; apenas ajuste iluminação, sombra e reflexo para integrar à cena.`
         : "PRODUTO: nenhuma foto oficial disponível — é PROIBIDO desenhar ou imaginar qualquer equipamento, impressora, scanner, frasco de resina ou embalagem. Mantenha a cena apenas com o profissional, a coroa impressa e o fundo de estúdio.",
-
-
+      missing.length
+        ? `PRODUTOS SEM FOTO OFICIAL (${missing.join(", ")}): NÃO os represente visualmente — nunca invente a aparência destes itens.`
+        : "",
       "",
       "TEXTO (renderize exatamente, sem erros de ortografia, tipografia sans-serif condensada muito pesada, alinhado à esquerda no terço esquerdo):",
       `- Badge pequeno com fundo laranja (#F26722) e texto branco: "${copy.badge}"`,
       `- Headline gigante em branco, quebrado em 2 ou 3 linhas: "${copy.headline}"`,
       `- Linha de destaque em laranja (#F26722), logo abaixo do headline: "${copy.highlight}"`,
-      produtos.length ? `- Linha fina em branco, caixa alta, menor: "${produtos[0].toUpperCase().slice(0, 40)}"` : "",
+      produtos.length
+        ? `- Linha fina em branco, caixa alta, menor, com os produtos da live: "${produtos.slice(0, 3).join(" + ").toUpperCase().slice(0, 70)}"`
+        : "",
+
       "",
       logoData
         ? "LOGOTIPO (OBRIGATÓRIO): a ÚLTIMA imagem anexada é o logotipo oficial da Smart Dent. Reproduza-o EXATAMENTE como está (forma, cor, proporção, tipografia) no canto superior esquerdo, tamanho discreto (cerca de 12% da largura), com leve brilho para destacar do fundo escuro. É PROIBIDO redesenhar, reescrever ou inventar o logotipo."
@@ -387,6 +394,8 @@ Deno.serve(async (req) => {
       references_used: inlined.length,
       logo_used: !!logoData,
       reference_sources: sources.slice(0, inlined.length),
+      products_selected: produtos,
+      products_without_photo: missing,
       video_id: videoId,
       applied_to_youtube: appliedToYoutube,
       youtube_error: youtubeError,
