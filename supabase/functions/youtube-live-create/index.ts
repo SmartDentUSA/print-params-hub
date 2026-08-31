@@ -243,6 +243,7 @@ async function buildTexts(course: any, turma: any, startsAtBR: string) {
             role: "user",
             content: JSON.stringify({
               curso: course.title,
+              briefing_do_curso: (course as any).marketing_briefing ?? null,
               descricao: course.description ?? null,
               categoria: course.category ?? null,
               apresentador: course.instructor_name ?? null,
