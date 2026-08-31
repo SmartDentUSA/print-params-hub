@@ -273,9 +273,14 @@ async function buildTexts(course: any, turma: any, startsAtBR: string) {
     const raw = data?.choices?.[0]?.message?.content ?? "";
     const parsed = JSON.parse(raw.replace(/^```json/i, "").replace(/```$/, "").trim());
     let description = String(parsed.description || fallbackDesc);
+    // Links oficiais dos produtos/formulários: sempre presentes, um por URL
+    const missing = productLinks.flatMap((l) => [l.product_url, ...l.form_urls])
+      .filter((u): u is string => !!u && !description.includes(u));
+    if (missing.length && linksBlock) description += `\n\n${linksBlock}`;
     if (contatoLinhas.length && !/parametros\.smartdent|smartdent\.com\.br/i.test(description)) {
       description += `\n\n${contatoLinhas.join("\n")}`;
     }
+
     return {
       title: String(parsed.title || fallbackTitle).slice(0, 100),
       description: description.slice(0, 4900),
