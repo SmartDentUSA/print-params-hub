@@ -550,6 +550,8 @@ export function SmartOpsFormBuilder() {
     setMetaTrackingMeta(f.tracking_meta_pixel_id ?? "167413567155597");
     setMetaTrackingTiktok(f.tracking_tiktok_pixel_id ?? "D05CI83C77UE5QUU9FR0");
     setMetaTrackingExtra(f.tracking_extra_head ?? "");
+    setMetaForcedSeller(f.forced_seller_team_member_id || "");
+
     setEditingMeta(form);
   };
 
