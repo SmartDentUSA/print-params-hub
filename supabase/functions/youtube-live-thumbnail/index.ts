@@ -257,7 +257,7 @@ Deno.serve(async (req) => {
     if (!course) return json({ error: "Curso não encontrado" }, 404);
 
     const produtos: string[] = ((course as any).related_product_names ?? []).filter(Boolean);
-    const { dossiers, images, sources } = await loadProductContext(produtos);
+    const { dossiers, images, sources, missing } = await loadProductContext(produtos);
     const copy = await buildCopy(course, dossiers, {
       headline: b.headline,
       highlight: b.highlight,
