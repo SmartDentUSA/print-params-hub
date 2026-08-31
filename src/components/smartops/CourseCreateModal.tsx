@@ -912,6 +912,7 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
               sellflux_tag: turma.sellflux_tag || null,
               whatsapp_group_link: turma.whatsapp_group_link || null,
               live_url: turma.live_url || null,
+              live_thumbnail_url: turma.live_thumbnail_url || null,
               sort_order: turma.sort_order,
             })
             .select("id")
