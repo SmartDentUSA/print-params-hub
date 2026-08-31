@@ -605,6 +605,8 @@ export function SmartOpsFormBuilder() {
         tracking_meta_pixel_id: metaTrackingMeta.trim() || null,
         tracking_tiktok_pixel_id: metaTrackingTiktok.trim() || null,
         tracking_extra_head: metaTrackingExtra.trim() || null,
+        forced_seller_team_member_id: metaForcedSeller || null,
+
       } as any)
       .eq("id", editingMeta.id);
     if (error) { toast.error(error.message); return; }
