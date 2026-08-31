@@ -972,10 +972,12 @@ async function createNewDeal(
   supabase: ReturnType<typeof createClient>,
   formResponses?: Array<{ label?: string; value?: unknown }>
 ): Promise<string | null> {
-  // PARIDADE NOTA↔DEAL: a Origem do Deal deve ser exatamente o mesmo valor que
-  // a nota "Resumo do Lead" imprime em "Origem PipeRun" (piperun_origin_name),
-  // caindo para origem_primeiro_contato / origem_campanha / form_name.
-  const formOriginId = await resolveOriginId(apiToken, dealOriginName(lead));
+  // CONVERSÃO ATUAL: um Deal NOVO representa a conversão que acabou de
+  // acontecer. A origem tem de sair do formulário/campanha DESTA submissão —
+  // nunca do `piperun_origin_name` herdado do deal anterior (era isso que
+  // fazia o deal novo nascer com a conversão do deal antigo).
+  const formOriginId = await resolveOriginId(apiToken, dealConversionName(lead));
+
 
 
   const dealPayload: Record<string, unknown> = {
