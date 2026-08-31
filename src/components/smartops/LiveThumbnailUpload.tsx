@@ -13,9 +13,12 @@ interface Props {
   value: string;
   onChange: (url: string) => void;
   label?: string;
+  /** Quando informados, a capa enviada é aplicada na transmissão do YouTube. */
+  turmaId?: string;
+  liveUrl?: string;
 }
 
-export default function LiveThumbnailUpload({ value, onChange, label = "Enviar capa (upload)" }: Props) {
+export default function LiveThumbnailUpload({ value, onChange, label = "Enviar capa (upload)", turmaId, liveUrl }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
 
@@ -38,7 +41,23 @@ export default function LiveThumbnailUpload({ value, onChange, label = "Enviar c
       if (error) throw error;
       const { data } = supabase.storage.from(BUCKET).getPublicUrl(path);
       onChange(data.publicUrl);
-      toast.success("Capa enviada");
+
+      if (turmaId && liveUrl) {
+        const { data: applied, error: applyErr } = await supabase.functions.invoke("youtube-live-thumbnail", {
+          body: { turma_id: turmaId, image_url: data.publicUrl },
+        });
+        if (applyErr || (applied as any)?.error) {
+          toast.warning("Capa enviada, mas não foi aplicada no YouTube. Reconecte a conta Google e tente novamente.");
+        } else {
+          toast.success("Capa enviada e aplicada na transmissão do YouTube");
+        }
+      } else {
+        toast.success(
+          turmaId
+            ? "Capa enviada. Crie a live no YouTube para aplicá-la automaticamente."
+            : "Capa enviada",
+        );
+      }
     } catch (err: any) {
       toast.error(err?.message || "Falha no upload");
     } finally {

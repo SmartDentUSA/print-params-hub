@@ -324,7 +324,7 @@ Deno.serve(async (req) => {
 
     const { data: turma, error: tErr } = await admin
       .from("smartops_course_turmas")
-      .select("id, label, course_id, live_url, days:smartops_turma_days(date, start_time, end_time, day_number)")
+      .select("id, label, course_id, live_url, live_thumbnail_url, days:smartops_turma_days(date, start_time, end_time, day_number)")
       .eq("id", turmaId)
       .maybeSingle();
     if (tErr) throw tErr;
@@ -413,6 +413,28 @@ Deno.serve(async (req) => {
       .eq("id", turmaId);
     if (upErr) throw upErr;
 
+    // 3) aplica a capa já gerada/enviada para esta sessão no vídeo do YouTube
+    let thumbnailApplied = false;
+    let thumbnailError: string | null = null;
+    const existingThumb = (turma as any).live_thumbnail_url as string | null;
+    if (existingThumb) {
+      try {
+        const imgRes = await fetch(existingThumb);
+        if (!imgRes.ok) throw new Error(`download capa → ${imgRes.status}`);
+        const contentType = imgRes.headers.get("content-type") || "image/png";
+        const bytes = new Uint8Array(await imgRes.arrayBuffer());
+        const up = await fetch(
+          `https://www.googleapis.com/upload/youtube/v3/thumbnails/set?videoId=${broadcast.id}&uploadType=media`,
+          { method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": contentType }, body: bytes },
+        );
+        if (!up.ok) throw new Error(`thumbnails.set → ${up.status} ${(await up.text()).slice(0, 300)}`);
+        thumbnailApplied = true;
+      } catch (e) {
+        thumbnailError = (e as Error).message;
+        console.error("[youtube-live-create] thumbnails.set", thumbnailError);
+      }
+    }
+
     return json({
       ok: true,
       broadcast_id: broadcast.id,
@@ -423,6 +445,8 @@ Deno.serve(async (req) => {
       description,
       tags,
       scheduled_start: startISO,
+      thumbnail_applied: thumbnailApplied,
+      thumbnail_error: thumbnailError,
     });
   } catch (e) {
     const msg = (e as Error).message ?? "internal_error";
