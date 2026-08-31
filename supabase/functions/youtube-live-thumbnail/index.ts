@@ -183,8 +183,8 @@ async function buildCopy(course: any, dossiers: string[], override: { headline?:
     headline: override.headline || String(course.title || "AO VIVO").toUpperCase().slice(0, 60),
     highlight: override.highlight || "SEM ADAPTAÇÕES",
     badge: override.badge || "AO VIVO",
+    scene: "",
   };
-  if (override.headline && override.highlight) return fallback;
   if (!LOVABLE_API_KEY) return fallback;
   try {
     const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -202,7 +202,7 @@ async function buildCopy(course: any, dossiers: string[], override: { headline?:
               "Use APENAS os dossiês de produto fornecidos (RAG) e siga as premissas estratégicas abaixo. " +
               "NUNCA cite preços. Sem emojis. Texto em CAIXA ALTA, curto e legível em miniatura.\n\n" +
               renderStrategyForPrompt() + "\n\n" + renderHooksForPrompt() + "\n\n" +
-              'Responda SOMENTE JSON: {"headline": string (até 42 caracteres, 2 a 5 palavras de impacto), "highlight": string (até 24 caracteres, o ganho/promessa), "badge": string (até 12 caracteres, ex: AO VIVO)}',
+              'Responda SOMENTE JSON: {"headline": string (até 42 caracteres, 2 a 5 palavras de impacto), "highlight": string (até 24 caracteres, o ganho/promessa), "badge": string (até 12 caracteres, ex: AO VIVO), "scene": string (até 180 caracteres, em português: o AMBIENTE REAL e a AÇÃO concreta do profissional coerentes com as APLICAÇÕES do produto conforme os dossiês — ex.: consultório com cadeira odontológica ao fundo conferindo uma coroa recém-impressa; laboratório de fluxo digital acompanhando a fresagem. Nunca cite equipamento que não esteja nos dossiês)}',
           },
           {
             role: "user",
@@ -226,11 +226,13 @@ async function buildCopy(course: any, dossiers: string[], override: { headline?:
       headline: override.headline || String(p.headline || fallback.headline).toUpperCase().slice(0, 60),
       highlight: override.highlight || String(p.highlight || fallback.highlight).toUpperCase().slice(0, 40),
       badge: override.badge || String(p.badge || "AO VIVO").toUpperCase().slice(0, 16),
+      scene: String(p.scene || "").slice(0, 220),
     };
   } catch {
     return fallback;
   }
 }
+
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
