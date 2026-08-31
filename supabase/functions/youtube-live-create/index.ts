@@ -82,6 +82,58 @@ async function loadProductDossiers(names: string[]) {
   return out;
 }
 
+const PUBLIC_ORIGIN = "https://parametros.smartdent.com.br";
+
+/**
+ * Links oficiais dos produtos selecionados na live:
+ * 1) página do produto (system_a_catalog.cta_1_url / canonical_url)
+ * 2) landing page do formulário do produto (/f/{slug})
+ * Nunca inventar URL: só entram links existentes no banco.
+ */
+async function loadProductLinks(names: string[]) {
+  const out: Array<{ name: string; product_url: string | null; form_urls: string[] }> = [];
+  for (const n of names.slice(0, 6)) {
+    const { data: row } = await admin
+      .from("system_a_catalog")
+      .select("id, name, slug, cta_1_url, canonical_url")
+      .eq("active", true)
+      .ilike("name", `%${n}%`)
+      .limit(1)
+      .maybeSingle();
+
+    const productUrl =
+      sanitizeShopUrl((row as any)?.cta_1_url) ??
+      sanitizeShopUrl((row as any)?.canonical_url) ??
+      null;
+
+    const formUrls: string[] = [];
+    const catalogId = (row as any)?.id ?? null;
+    let q = admin.from("smartops_forms").select("name, slug, product_catalog_id, active").limit(3);
+    q = catalogId ? q.eq("product_catalog_id", catalogId) : q.ilike("name", `%${n}%`);
+    const { data: forms } = await q;
+    for (const f of forms ?? []) {
+      const slug = String((f as any)?.slug ?? "").trim();
+      if (slug && (f as any)?.active !== false) formUrls.push(`${PUBLIC_ORIGIN}/f/${slug}`);
+    }
+
+    if (productUrl || formUrls.length) {
+      out.push({ name: (row as any)?.name || n, product_url: productUrl, form_urls: formUrls });
+    }
+  }
+  return out;
+}
+
+function renderProductLinks(links: Awaited<ReturnType<typeof loadProductLinks>>): string {
+  if (!links.length) return "";
+  const lines = ["Equipamentos e insumos citados nesta live"];
+  for (const l of links) {
+    if (l.product_url) lines.push(`${l.name}: ${l.product_url}`);
+    for (const u of l.form_urls) lines.push(`${l.name} — informações e condições: ${u}`);
+  }
+  return lines.join("\n");
+}
+
+
 
 function buildTags(course: any, company: any, produtos: string[]): string[] {
   const raw = [
