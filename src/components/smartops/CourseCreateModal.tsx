@@ -21,6 +21,7 @@ import { DatePickerInput } from "./DatePickerInput";
 import { CourseProductPicker } from "./CourseProductPicker";
 import CoverImageUpload from "./CoverImageUpload";
 import LiveThumbnailUpload from "./LiveThumbnailUpload";
+import InstructorSelect from "./courses/InstructorSelect";
 import { slugify, buildCourseTag, MODALITY_CONFIG } from "@/lib/courseUtils";
 import {
   TEMPLATE_VARIABLES, DEFAULT_ENROLLMENT_TEMPLATE,
@@ -1083,7 +1084,7 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
               <div className="grid gap-3 sm:grid-cols-2">
                 <div>
                   <Label>Instrutor</Label>
-                  <Input value={instructorName} onChange={(e) => setInstructorName(e.target.value)} />
+                  <InstructorSelect value={instructorName} onChange={setInstructorName} />
                 </div>
                 <div>
                   <Label>Imagem de capa</Label>
