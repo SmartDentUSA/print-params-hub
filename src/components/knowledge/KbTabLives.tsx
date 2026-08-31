@@ -3,11 +3,12 @@ import { useQuery } from '@tanstack/react-query';
 import { CalendarDays, Filter, X } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import type { TurmaComVagas } from '@/types/courses';
-import { PublicOnlineCourseCard, publicPageStyles } from '@/components/agenda/onlineLiveShared';
-
-/** Mesma config da página /agenda/online (+ categoria "Live de produtos"). */
-const ONLINE_MODALITIES = ['online_ao_vivo', 'online'];
-const ONLINE_CATEGORIES = ['workshop', 'webinar', 'live_produtos'];
+import {
+  PublicOnlineCourseCard,
+  publicPageStyles,
+  ONLINE_LIVE_MODALITIES as ONLINE_MODALITIES,
+  ONLINE_LIVE_CATEGORIES as ONLINE_CATEGORIES,
+} from '@/components/agenda/onlineLiveShared';
 
 export default function KbTabLives() {
   const [selectedProduct, setSelectedProduct] = useState('');
