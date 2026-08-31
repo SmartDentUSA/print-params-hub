@@ -430,8 +430,8 @@ export function AdminCatalog() {
             </div>
           </div>
 
-          {/* Filtro adicional: origem (produtos gerais / espelho de resinas) */}
-          <div className="mb-4 flex items-center gap-3">
+          {/* Filtros adicionais: origem e tipo de curso */}
+          <div className="mb-4 flex flex-wrap items-center gap-3">
             <label className="text-sm font-medium">Origem:</label>
             <select
               value={selectedOrigin}
@@ -442,10 +442,26 @@ export function AdminCatalog() {
               <option value="products">Produtos gerais</option>
               <option value="resins">Resinas (espelho)</option>
             </select>
+
+            <label className="text-sm font-medium">Tipo de curso:</label>
+            <select
+              value={selectedCourseType}
+              onChange={(e) => setSelectedCourseType(e.target.value)}
+              className="p-2 border border-border rounded-md bg-background text-sm"
+            >
+              <option value="all">Todos</option>
+              <option value="only_courses">Somente cursos</option>
+              <option value="presencial">Presenciais</option>
+              <option value="online">Online</option>
+              <option value="gratuito">Gratuitos</option>
+              <option value="no_courses">Sem cursos</option>
+            </select>
+
             <span className="text-xs text-muted-foreground">
               Linhas de resinas são espelho read-only de <em>Configurações do Sistema → Resinas</em>.
             </span>
           </div>
+
 
           {/* Nova tabela (layout Distribuição + variações) */}
           <AdminCatalogTable
