@@ -811,6 +811,7 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
         title: title.trim(),
         ...(isEdit ? {} : { slug: slugify(title.trim()) }),
         description: description || null,
+        marketing_briefing: marketingBriefing || null,
         modality,
         category,
         instructor_name: instructorName || null,
