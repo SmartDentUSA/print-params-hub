@@ -1,10 +1,11 @@
 import { useParams } from "react-router-dom";
 import { getPublicOrigin } from "@/utils/publicOrigin";
 import { Helmet } from "react-helmet-async";
-import { Instagram, Youtube, Facebook, Linkedin, Globe, MessageCircle, Share2, ArrowRight, Loader2 } from "lucide-react";
+import { Instagram, Youtube, Facebook, Linkedin, Globe, MessageCircle, Share2, ArrowRight, Loader2, SlidersHorizontal, ShoppingBag } from "lucide-react";
 import { toast } from "sonner";
 import { useBioPage, DEFAULT_LOGO_URL, type BioItem, type BioSocialLinks } from "@/hooks/useBioPages";
 import { useEffect, useState } from "react";
+
 
 const SOCIAL_ICONS: Array<{ key: keyof BioSocialLinks; Icon: typeof Instagram; label: string }> = [
   { key: "instagram", Icon: Instagram, label: "Instagram" },
@@ -124,7 +125,25 @@ export default function PublicBioPage() {
           />
           <h1 className="mt-4 text-2xl font-bold text-foreground">{page.title}</h1>
           {page.subtitle && <p className="mt-1 text-sm text-muted-foreground">{page.subtitle}</p>}
+
+          <div className="mt-5 flex w-full flex-col items-stretch gap-3 px-2 sm:flex-row sm:justify-center sm:px-0">
+            <a
+              href="/base-conhecimento?tab=parametros"
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground shadow-sm transition-all hover:-translate-y-0.5 hover:bg-primary/90 hover:shadow-md"
+            >
+              <SlidersHorizontal className="h-4 w-4" />
+              Parametrize sua impressora
+            </a>
+            <a
+              href="/support-resources"
+              className="inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-card px-5 py-3 text-sm font-semibold text-foreground shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/30 hover:bg-accent hover:shadow-md"
+            >
+              <ShoppingBag className="h-4 w-4" />
+              Catálogo de produtos
+            </a>
+          </div>
         </header>
+
 
         <section className="mt-8 flex w-full flex-col items-center gap-3">
           {page.items.map((item) => (
