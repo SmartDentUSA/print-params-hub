@@ -626,3 +626,6 @@ verify_jwt = false
 
 [functions.form-hero-image]
 verify_jwt = false
+
+[functions.form-hero-brief]
+verify_jwt = false
