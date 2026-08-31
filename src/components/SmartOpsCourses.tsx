@@ -20,7 +20,7 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   CalendarDays, Users, Plus, Search, Download, Send, Edit2, CheckCircle,
   XCircle, AlertTriangle, Minus, Image, ToggleLeft, ToggleRight, Pencil, Trash2,
-  ChevronDown, ChevronUp, Repeat, Clock, Star, UserPlus, Award, Loader2, X,
+  ChevronDown, ChevronUp, Repeat, Clock, Star, UserPlus, Award, Loader2, X, Copy,
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import type { EquipKey, EquipmentData } from "@/types/courses";
@@ -384,17 +384,9 @@ function CourseListRow({ course, onEdit, onTogglePublic, onToggleActive, onClone
       </div>
 
       <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onClone}>
-                <Pencil className="w-3.5 h-3.5 hidden" />
-                <svg viewBox="0 0 24 24" className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Clonar curso</TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
+        <Button variant="ghost" size="icon" className="h-7 w-7" title="Clonar curso" onClick={onClone}>
+          <Copy className="w-3.5 h-3.5" />
+        </Button>
         <Button variant="ghost" size="icon" className="h-7 w-7" title={course.active ? "Marcar como inativo" : "Ativar curso"} onClick={onToggleActive}>
           {course.active ? <ToggleRight className="w-4 h-4 text-emerald-600" /> : <ToggleLeft className="w-4 h-4 text-muted-foreground" />}
         </Button>
