@@ -247,6 +247,24 @@ export function SmartOpsFormBuilder() {
   const [metaTrackingMeta, setMetaTrackingMeta] = useState("");
   const [metaTrackingTiktok, setMetaTrackingTiktok] = useState("");
   const [metaTrackingExtra, setMetaTrackingExtra] = useState("");
+  // Vendedor fixo (quando vazio → distribuição normal)
+  const [metaForcedSeller, setMetaForcedSeller] = useState<string>("");
+  const [activeSellers, setActiveSellers] = useState<{ id: string; nome_completo: string }[]>([]);
+
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase
+        .from("team_members" as any)
+        .select("id, nome_completo, piperun_owner_id, ativo, role")
+        .eq("ativo", true)
+        .order("nome_completo");
+      const rows = ((data as any[]) || []).filter(
+        (m) => Number(m.piperun_owner_id) > 0 && String(m.role || "").toLowerCase() === "vendedor",
+      );
+      setActiveSellers(rows.map((m) => ({ id: m.id, nome_completo: m.nome_completo })));
+    })();
+  }, []);
+
 
   const PRODUCTION_BASE = "https://parametros.smartdent.com.br";
 
