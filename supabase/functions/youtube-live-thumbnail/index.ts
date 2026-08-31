@@ -56,9 +56,24 @@ async function toDataUrl(url: string): Promise<string | null> {
   }
 }
 
+/**
+ * Imagens reais do produto (nunca inventar equipamento):
+ * 1) system_a_catalog.image_url / og_image_url
+ * 2) resins.image_background_removed_url / image_urls (resinas)
+ * 3) hero_image_url dos formulários vinculados ao produto (product_catalog_id)
+ */
 async function loadProductContext(names: string[]) {
   const dossiers: string[] = [];
   const images: string[] = [];
+  const sources: string[] = [];
+
+  const push = (u: unknown, src: string) => {
+    if (typeof u !== "string" || !u.startsWith("http")) return;
+    if (images.includes(u) || images.length >= 3) return;
+    images.push(u);
+    sources.push(src);
+  };
+
   for (const n of names.slice(0, 3)) {
     try {
       const enriched = await fetchEnrichedProductDossier(admin as any, n);
@@ -69,19 +84,46 @@ async function loadProductContext(names: string[]) {
       if (liveText) dossiers.push(liveText);
     } catch (_) { /* soft-fail */ }
 
-    const { data: row } = await admin
+    // 1) catálogo Sistema A
+    const { data: row, error: catErr } = await admin
       .from("system_a_catalog")
-      .select("image_url, image_urls")
+      .select("id, name, image_url, og_image_url")
       .eq("active", true)
       .ilike("name", `%${n}%`)
       .limit(1)
       .maybeSingle();
-    const list = Array.isArray((row as any)?.image_urls) ? (row as any).image_urls : [];
-    for (const u of [...list, (row as any)?.image_url]) {
-      if (typeof u === "string" && u.startsWith("http") && images.length < 3) images.push(u);
+    if (catErr) console.warn("[youtube-live-thumbnail] catalog image lookup", catErr.message);
+    push((row as any)?.image_url, `catalog:${(row as any)?.name ?? n}`);
+    push((row as any)?.og_image_url, `catalog_og:${(row as any)?.name ?? n}`);
+
+    // 2) resinas (imagens com fundo removido têm prioridade visual)
+    if (images.length < 3) {
+      const { data: resin } = await admin
+        .from("resins")
+        .select("name, image_background_removed_url, image_urls, image_url")
+        .ilike("name", `%${n}%`)
+        .limit(1)
+        .maybeSingle();
+      push((resin as any)?.image_background_removed_url, `resin_nobg:${n}`);
+      const list = Array.isArray((resin as any)?.image_urls) ? (resin as any).image_urls : [];
+      for (const u of list) push(u, `resin:${n}`);
+      push((resin as any)?.image_url, `resin:${n}`);
+    }
+
+    // 3) hero das landing pages dos formulários do produto
+    if (images.length < 3) {
+      const catalogId = (row as any)?.id ?? null;
+      let q = admin
+        .from("smartops_forms")
+        .select("name, hero_image_url, product_catalog_id")
+        .not("hero_image_url", "is", null)
+        .limit(3);
+      q = catalogId ? q.eq("product_catalog_id", catalogId) : q.ilike("name", `%${n}%`);
+      const { data: forms } = await q;
+      for (const f of forms ?? []) push((f as any)?.hero_image_url, `form:${(f as any)?.name ?? n}`);
     }
   }
-  return { dossiers, images };
+  return { dossiers, images, sources };
 }
 
 async function buildCopy(course: any, dossiers: string[], override: { headline?: string; highlight?: string; badge?: string }) {
@@ -162,7 +204,7 @@ Deno.serve(async (req) => {
     if (!course) return json({ error: "Curso não encontrado" }, 404);
 
     const produtos: string[] = ((course as any).related_product_names ?? []).filter(Boolean);
-    const { dossiers, images } = await loadProductContext(produtos);
+    const { dossiers, images, sources } = await loadProductContext(produtos);
     const copy = await buildCopy(course, dossiers, {
       headline: b.headline,
       highlight: b.highlight,
@@ -185,10 +227,13 @@ Deno.serve(async (req) => {
           dossiers.join("\n").slice(0, 2500)
         : "",
       "",
-      "CENA: fundo de estúdio escuro (quase preto) com luz volumétrica azul fria vindo da direita e um leve halo laranja; profissional da odontologia adulto, barba curta, jaleco/camisa escura, expressão confiante segurando entre os dedos uma coroa dentária impressa em 3D à direita do quadro, olhando para a câmera. Iluminação dramática de recorte, contraste alto, textura de pele realista (fotografia real, não ilustração).",
-      images.length
-        ? "PRODUTOS: use as fotografias anexadas exatamente como estão (mesma forma, cor e proporção — não redesenhe nem invente equipamentos), posicionadas sobre uma bancada escura no terço inferior central, com reflexo suave."
-        : "PRODUTOS: uma impressora 3D odontológica e uma câmara de pós-cura sobre bancada escura no terço inferior central.",
+      inlined.length
+        ? "CENA: fundo de estúdio escuro (quase preto) com luz volumétrica azul fria vindo da direita e um leve halo laranja; profissional da odontologia adulto, jaleco/camisa escura, expressão confiante, olhando para a câmera no terço direito. Iluminação dramática de recorte, contraste alto, fotografia real (não ilustração)."
+        : "CENA: fundo de estúdio escuro (quase preto) com luz volumétrica azul fria e halo laranja; profissional da odontologia adulto, jaleco escuro, expressão confiante olhando para a câmera no terço direito, segurando uma coroa dentária impressa em 3D entre os dedos. NÃO inclua nenhum equipamento, impressora, scanner ou embalagem na cena.",
+      inlined.length
+        ? "PRODUTO (OBRIGATÓRIO): as fotografias anexadas são o produto real. Recorte-as e componha-as na imagem EXATAMENTE como estão — mesma forma, proporções, cor, painéis, botões e marca. É PROIBIDO redesenhar, estilizar, substituir, espelhar ou inventar qualquer equipamento; apenas ajuste iluminação, sombra e reflexo para integrar à cena. Posicione sobre bancada escura no terço inferior central."
+        : "PRODUTO: nenhuma foto oficial disponível — é PROIBIDO desenhar ou imaginar qualquer equipamento, impressora, scanner, frasco de resina ou embalagem. Mantenha a cena apenas com o profissional, a coroa impressa e o fundo de estúdio.",
+
       "",
       "TEXTO (renderize exatamente, sem erros de ortografia, tipografia sans-serif condensada muito pesada, alinhado à esquerda no terço esquerdo):",
       `- Badge pequeno com fundo laranja (#F26722) e texto branco: "${copy.badge}"`,
@@ -196,7 +241,7 @@ Deno.serve(async (req) => {
       `- Linha de destaque em laranja (#F26722), logo abaixo do headline: "${copy.highlight}"`,
       produtos.length ? `- Linha fina em branco, caixa alta, menor: "${produtos[0].toUpperCase().slice(0, 40)}"` : "",
       "",
-      "REGRAS: nenhum outro texto além do especificado; sem marca d'água; sem logotipo do YouTube; sem preços; sem números inventados; margem de segurança nas bordas; legível em miniatura pequena.",
+      "REGRAS: nenhum outro texto além do especificado; sem marca d'água; sem logotipo do YouTube; sem preços; sem números inventados; nenhum equipamento além das fotos anexadas; margem de segurança nas bordas; legível em miniatura pequena.",
       b.style_notes,
     ].filter(Boolean).join("\n");
 
@@ -268,6 +313,7 @@ Deno.serve(async (req) => {
       path,
       copy,
       references_used: inlined.length,
+      reference_sources: sources.slice(0, inlined.length),
       video_id: videoId,
       applied_to_youtube: appliedToYoutube,
       youtube_error: youtubeError,
