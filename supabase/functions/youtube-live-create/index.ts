@@ -344,6 +344,7 @@ Deno.serve(async (req) => {
       stream_key: streamKey,
       title,
       description,
+      tags,
       scheduled_start: startISO,
     });
   } catch (e) {
