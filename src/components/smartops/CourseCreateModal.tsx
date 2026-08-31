@@ -528,6 +528,7 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
         sellflux_tag: buildCourseTag(title),
         whatsapp_group_link: "",
         live_url: "",
+        live_thumbnail_url: "",
         sort_order: idx,
         enrolled_count: 0,
         days: [{ day_number: 1, date: "", start_time: defaultStart, end_time: defaultEnd, topic: "" }],
