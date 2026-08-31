@@ -350,7 +350,7 @@ Deno.serve(async (req) => {
   } catch (e) {
     const msg = (e as Error).message ?? "internal_error";
     console.error("[youtube-live-create]", msg);
-    const needsAuth = /No Google OAuth token|insufficient|Insufficient|401|403/.test(msg);
+    const needsAuth = /No Google OAuth token|insufficient|Insufficient|invalid_grant|refresh|expirado|401|403/i.test(msg);
     return json({ error: msg, needs_google_auth: needsAuth }, needsAuth ? 401 : 500);
   }
 });

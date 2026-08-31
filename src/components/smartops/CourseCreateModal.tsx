@@ -350,8 +350,8 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
       const msg = String(e?.message ?? e);
       toast({
         title: "Não foi possível criar a live",
-        description: /Google OAuth|401|403|insufficient/i.test(msg)
-          ? "Reconecte a conta Google (Social → Avaliações) autorizando o acesso ao YouTube."
+        description: /Google OAuth|invalid_grant|refresh|expirado|401|403|insufficient/i.test(msg)
+          ? "A autorização Google expirou/não cobre o YouTube. Reconecte a conta em Social → Avaliações, marcando o acesso ao YouTube."
           : msg,
         variant: "destructive",
       });
