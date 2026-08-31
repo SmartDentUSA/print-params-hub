@@ -192,7 +192,9 @@ export function FormHeroImageStudio({
       if (error) throw error;
       if ((data as any)?.error) throw new Error(JSON.stringify((data as any).error));
       setResult((data as any).url);
+      if (apply && (data as any).url) onApplied?.((data as any).url);
       toast.success(apply ? "Hero gerado e aplicado ao formulário" : "Hero gerado");
+
     } catch (e: any) {
       toast.error(e?.message || "Falha ao gerar imagem");
     } finally {
