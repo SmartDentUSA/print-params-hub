@@ -135,7 +135,7 @@ Deno.serve(async (req) => {
     if (cErr) throw cErr;
     if (!course) return json({ error: "Curso não encontrado" }, 404);
 
-    const days = ((turma as any).smartops_course_days ?? [])
+    const days = ((turma as any).days ?? [])
       .slice()
       .sort((a: any, b: any) => String(a.date).localeCompare(String(b.date)));
     const first = days[0];
