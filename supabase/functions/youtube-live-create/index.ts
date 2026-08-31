@@ -1,0 +1,208 @@
+import { createClient } from "npm:@supabase/supabase-js@2";
+import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
+import { getValidAccessToken } from "../_shared/google-oauth.ts";
+
+const json = (body: unknown, status = 200) =>
+  new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+
+const admin = createClient(
+  Deno.env.get("SUPABASE_URL")!,
+  Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+  { auth: { persistSession: false } },
+);
+
+const YT = "https://www.googleapis.com/youtube/v3";
+
+function toISO(date: string, time: string | null | undefined) {
+  // horários cadastrados são de São Paulo (UTC-3)
+  const t = (time || "09:00").slice(0, 5);
+  return `${date}T${t}:00-03:00`;
+}
+
+function fmtBR(date: string, time?: string | null) {
+  const d = new Date(toISO(date, time));
+  return d.toLocaleString("pt-BR", {
+    timeZone: "America/Sao_Paulo",
+    day: "2-digit", month: "2-digit", year: "numeric",
+    hour: "2-digit", minute: "2-digit",
+  });
+}
+
+async function buildTexts(course: any, turma: any, startsAtBR: string) {
+  const produtos: string[] = (course.related_product_names ?? []).filter(Boolean);
+  const fallbackTitle = `${course.title} — ${startsAtBR} (ao vivo)`.slice(0, 100);
+  const fallbackDesc = [
+    course.description || `Transmissão ao vivo Smart Dent: ${course.title}.`,
+    "",
+    `Data e horário: ${startsAtBR} (horário de Brasília).`,
+    produtos.length ? `Produtos abordados: ${produtos.join(", ")}.` : "",
+    course.instructor_name ? `Apresentação: ${course.instructor_name}.` : "",
+    "",
+    "Smart Dent | Fluxo Digital — odontologia digital de ponta a ponta.",
+  ].filter(Boolean).join("\n");
+
+  const apiKey = Deno.env.get("LOVABLE_API_KEY");
+  if (!apiKey) return { title: fallbackTitle, description: fallbackDesc };
+
+  try {
+    const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "google/gemini-3.6-flash",
+        messages: [
+          {
+            role: "system",
+            content:
+              "Você escreve títulos e descrições de transmissões ao vivo no YouTube para a Smart Dent (odontologia digital, Brasil). " +
+              "Português do Brasil, tom profissional e humano, sem emojis exagerados, NUNCA cite preços ou valores comerciais. " +
+              'Responda SOMENTE JSON: {"title": string (máx 95 caracteres), "description": string (máx 1200 caracteres, com data/horário e 3 a 5 bullets do que será mostrado, terminando com hashtags relevantes)}.',
+          },
+          {
+            role: "user",
+            content: JSON.stringify({
+              curso: course.title,
+              descricao: course.description ?? null,
+              categoria: course.category ?? null,
+              apresentador: course.instructor_name ?? null,
+              produtos,
+              data_horario_brasilia: startsAtBR,
+              opcao: turma.label ?? null,
+            }),
+          },
+        ],
+      }),
+    });
+    if (!resp.ok) {
+      console.error("[youtube-live-create] AI", resp.status, await resp.text());
+      return { title: fallbackTitle, description: fallbackDesc };
+    }
+    const data = await resp.json();
+    const raw = data?.choices?.[0]?.message?.content ?? "";
+    const parsed = JSON.parse(raw.replace(/^```json/i, "").replace(/```$/, "").trim());
+    return {
+      title: String(parsed.title || fallbackTitle).slice(0, 100),
+      description: String(parsed.description || fallbackDesc).slice(0, 4500),
+    };
+  } catch (e) {
+    console.error("[youtube-live-create] AI parse", e);
+    return { title: fallbackTitle, description: fallbackDesc };
+  }
+}
+
+async function yt(path: string, token: string, init?: RequestInit) {
+  const resp = await fetch(`${YT}/${path}`, {
+    ...init,
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+      ...(init?.headers ?? {}),
+    },
+  });
+  const text = await resp.text();
+  if (!resp.ok) throw new Error(`YouTube ${path} → ${resp.status} ${text}`);
+  return text ? JSON.parse(text) : {};
+}
+
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+  if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
+
+  try {
+    const body = await req.json().catch(() => ({}));
+    const turmaId = String(body?.turma_id ?? "");
+    const privacy = ["public", "unlisted", "private"].includes(String(body?.privacy))
+      ? String(body.privacy)
+      : "unlisted";
+    if (!turmaId) return json({ error: "turma_id é obrigatório" }, 400);
+
+    const { data: turma, error: tErr } = await admin
+      .from("smartops_course_turmas")
+      .select("id, label, course_id, live_url, days:smartops_turma_days(date, start_time, end_time, day_number)")
+      .eq("id", turmaId)
+      .maybeSingle();
+    if (tErr) throw tErr;
+    if (!turma) return json({ error: "Turma não encontrada. Salve o curso antes de gerar a live." }, 404);
+
+    const { data: course, error: cErr } = await admin
+      .from("smartops_courses")
+      .select("id, title, description, category, modality, instructor_name, related_product_names")
+      .eq("id", turma.course_id)
+      .maybeSingle();
+    if (cErr) throw cErr;
+    if (!course) return json({ error: "Curso não encontrado" }, 404);
+
+    const days = ((turma as any).days ?? [])
+      .slice()
+      .sort((a: any, b: any) => String(a.date).localeCompare(String(b.date)));
+    const first = days[0];
+    if (!first?.date) return json({ error: "Defina a data e o horário da sessão antes de criar a live." }, 400);
+
+    const startISO = toISO(first.date, first.start_time);
+    const endISO = toISO(first.date, first.end_time);
+    const startsAtBR = fmtBR(first.date, first.start_time);
+
+    const token = await getValidAccessToken();
+    const { title, description } = await buildTexts(course, turma, startsAtBR);
+
+    // 1) broadcast
+    const broadcast = await yt("liveBroadcasts?part=id,snippet,status,contentDetails", token, {
+      method: "POST",
+      body: JSON.stringify({
+        snippet: {
+          title,
+          description,
+          scheduledStartTime: new Date(startISO).toISOString(),
+          scheduledEndTime: first.end_time ? new Date(endISO).toISOString() : undefined,
+        },
+        status: { privacyStatus: privacy, selfDeclaredMadeForKids: false },
+        contentDetails: { enableAutoStart: true, enableAutoStop: true, latencyPreference: "low" },
+      }),
+    });
+
+    // 2) stream + bind (permite transmitir por qualquer encoder/OBS)
+    let streamKey: string | null = null;
+    try {
+      const stream = await yt("liveStreams?part=id,snippet,cdn", token, {
+        method: "POST",
+        body: JSON.stringify({
+          snippet: { title: `${title} — stream`.slice(0, 128) },
+          cdn: { frameRate: "variable", ingestionType: "rtmp", resolution: "variable" },
+        }),
+      });
+      await yt(`liveBroadcasts/bind?part=id,contentDetails&id=${broadcast.id}&streamId=${stream.id}`, token, {
+        method: "POST",
+      });
+      streamKey = stream?.cdn?.ingestionInfo?.streamName ?? null;
+    } catch (e) {
+      console.error("[youtube-live-create] bind falhou (broadcast criado)", e);
+    }
+
+    const watchUrl = `https://www.youtube.com/watch?v=${broadcast.id}`;
+
+    const { error: upErr } = await admin
+      .from("smartops_course_turmas")
+      .update({ live_url: watchUrl })
+      .eq("id", turmaId);
+    if (upErr) throw upErr;
+
+    return json({
+      ok: true,
+      broadcast_id: broadcast.id,
+      watch_url: watchUrl,
+      studio_url: `https://studio.youtube.com/video/${broadcast.id}/livestreaming`,
+      stream_key: streamKey,
+      title,
+      description,
+      scheduled_start: startISO,
+    });
+  } catch (e) {
+    const msg = (e as Error).message ?? "internal_error";
+    console.error("[youtube-live-create]", msg);
+    const needsAuth = /No Google OAuth token|insufficient|Insufficient|401|403/.test(msg);
+    return json({ error: msg, needs_google_auth: needsAuth }, needsAuth ? 401 : 500);
+  }
+});
