@@ -1289,6 +1289,10 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
                               <Image className="w-3.5 h-3.5 mr-1" />
                               {creatingThumb === turma.id ? "Gerando capa…" : "Gerar capa da live (IA)"}
                             </Button>
+                            <LiveThumbnailUpload
+                              value={turma.live_thumbnail_url}
+                              onChange={(url) => updateTurma(tIdx, "live_thumbnail_url", url)}
+                            />
                             {turma.live_thumbnail_url && (
                               <a
                                 href={turma.live_thumbnail_url}
