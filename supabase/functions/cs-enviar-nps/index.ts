@@ -203,8 +203,8 @@ Deno.serve(async (req) => {
         const turma = (turmas ?? []).find((t: any) => t.id === enr.turma_id);
         const link = `${NPS_BASE_URL}/nps/${token}`;
         const tpl = (courseRow?.nps_message_template as string | null) || auto.message_template ||
-          `Oie${nome ? " {{nome}}" : ""} espero qu esteja bem!\n\n` +
-          `Sua opinião é muito importante para continuarmos evoluindo, são só 3 perguntas rápidas e resposta anônima pois queremos sua sinceridade (menos de 1 minuto):\n\n` +
+          `Oie${nome ? " {{nome}}" : ""}, espero que esteja bem!\n\n` +
+          `Sua opinião é muito importante para continuarmos evoluindo. São só 3 perguntas rápidas e a resposta é anônima, porque queremos sua sinceridade (leva menos de 1 minuto):\n\n` +
           `{{link_nps}}`;
         let text = tpl
           .replace(/\{\{nome\}\}/g, nome)
