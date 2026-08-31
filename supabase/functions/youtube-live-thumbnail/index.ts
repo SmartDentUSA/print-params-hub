@@ -319,9 +319,12 @@ Deno.serve(async (req) => {
               .slice(0, inlined.length)
               .map((s, i) => `imagem ${i + 1} = ${produtos[i] ?? s}`)
               .join(" · ")}.`,
-            "CONTRATO DE FIDELIDADE (INVIOLÁVEL): trate cada imagem anexada como recorte fotográfico imutável. É PROIBIDO redesenhar, estilizar, substituir por outro modelo, trocar cores, alterar painéis, botões, textos, marcas, formato ou proporção de qualquer produto. É PROIBIDO alterar a PROPORÇÃO DE TAMANHO entre eles: preserve a escala relativa real e coerente das fotos (equipamento grande permanece grande, frasco de resina permanece pequeno).",
-            "ORDEM (INVIOLÁVEL): disponha os produtos da ESQUERDA para a DIREITA na MESMA ORDEM em que foram anexados, alinhados sobre uma bancada escura no terço inferior central, sem sobrepor o rosto nem o texto. Não reordene, não espelhe, não duplique, não remova nenhum produto.",
+            "CONTRATO DE FIDELIDADE (INVIOLÁVEL): trate cada imagem anexada como recorte fotográfico imutável. É PROIBIDO redesenhar, estilizar, substituir por outro modelo, trocar cores, alterar painéis, botões, textos, marcas ou formato de qualquer produto.",
+            "PROPORÇÃO FÍSICA REAL (INVIOLÁVEL): dimensione cada produto pelo TAMANHO REAL do objeto no mundo físico, não pelo tamanho do arquivo de imagem. Impressora 3D e equipamento de pós-cura são os MAIORES (altura de referência 100%); scanner intraoral é pequeno (cerca de 25% da altura da impressora); frasco de resina é menor ainda (cerca de 20%). É PROIBIDO igualar as alturas, PROIBIDO esticar, achatar ou uniformizar os produtos numa fileira de mesmo tamanho.",
+            "COMPOSIÇÃO EM PROFUNDIDADE: o equipamento maior fica ao fundo/centro-direita apoiado na bancada; os itens pequenos (scanner, frascos de resina) ficam à FRENTE, mais próximos da câmera, no canto inferior, sem cobrir o texto nem o rosto. Todos apoiados na MESMA superfície, com uma única linha de horizonte e perspectiva coerente — nada flutuando.",
+            "ORDEM (INVIOLÁVEL): mantenha a leitura da ESQUERDA para a DIREITA na MESMA ORDEM em que os produtos foram anexados. Não reordene, não espelhe, não duplique, não remova nenhum produto.",
             "Ajuste APENAS iluminação, sombra de contato e reflexo sutil para integrar cada recorte à cena.",
+
           ].join("\n")
         : "PRODUTO: nenhuma foto oficial disponível — é PROIBIDO desenhar ou imaginar qualquer equipamento, impressora, scanner, frasco de resina ou embalagem. Mantenha a cena apenas com o profissional, a coroa impressa e o fundo de estúdio.",
       missing.length
