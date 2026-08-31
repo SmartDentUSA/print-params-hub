@@ -4328,7 +4328,9 @@ Deno.serve(async (req) => {
         "piperun_created_at", "piperun_pipeline_id", "piperun_pipeline_name",
         "piperun_stage_id", "piperun_stage_name", "piperun_status",
         "piperun_origin_id", "piperun_origin_name", "piperun_title",
-        "especialidade", "produto_interesse", "tem_scanner", "tem_impressora",
+        // NÃO enriquecer `produto_interesse` a partir do deal antigo: o valor
+        // herdado vazava para o Deal novo como "produto de interesse" atual.
+        "especialidade", "tem_scanner", "tem_impressora",
         "pais_origem", "id_cliente_smart", "informacao_desejada",
         "codigo_contrato", "data_treinamento", "telefone_raw",
         "area_atuacao", "cidade", "uf",
