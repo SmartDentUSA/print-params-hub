@@ -215,10 +215,31 @@ Deno.serve(async (req) => {
           .trim();
         if (!text.includes(link)) text = `${text}\n\n${link}`;
 
+        // Números BR de DDD >= 31 costumam estar registrados no WhatsApp SEM o 9º dígito.
+        // Enviar o número "cheio" faz a Evolution responder exists:false, então
+        // resolvemos o JID real antes do envio.
+        let jid = `${phone}@s.whatsapp.net`;
+        try {
+          const chk = await fetch(`${baseUrl}/chat/whatsappNumbers/${encodeURIComponent(instance)}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", apikey },
+            body: JSON.stringify({ numbers: [phone] }),
+            signal: AbortSignal.timeout(20_000),
+          });
+          const arr = await chk.json().catch(() => null);
+          const hit = Array.isArray(arr) ? arr.find((r: any) => r?.exists && r?.jid) : null;
+          if (hit?.jid) jid = String(hit.jid);
+          else if (Array.isArray(arr) && arr.length > 0 && arr.every((r: any) => r?.exists === false)) {
+            falhas.push({ enrollment_id: enr.id, motivo: "numero_sem_whatsapp", telefone: phone });
+            await log("warning", "numero_sem_whatsapp", { enrollment_id: enr.id, lead_id: enr.lead_id, telefone: phone });
+            continue;
+          }
+        } catch { /* segue com o JID padrão */ }
+
         const res = await fetch(`${baseUrl}/message/sendText/${encodeURIComponent(instance)}`, {
           method: "POST",
           headers: { "Content-Type": "application/json", apikey },
-          body: JSON.stringify({ number: `${phone}@s.whatsapp.net`, text }),
+          body: JSON.stringify({ number: jid, text }),
           signal: AbortSignal.timeout(60_000),
         });
         if (!res.ok) {
