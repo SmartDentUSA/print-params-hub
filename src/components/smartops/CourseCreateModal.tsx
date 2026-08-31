@@ -1215,7 +1215,21 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
                         <div><Label className="text-xs">Label</Label><Input value={turma.label} onChange={(e) => updateTurma(tIdx, "label", e.target.value)} /></div>
                         <div><Label className="text-xs">Vagas</Label><Input type="number" min={1} value={turma.slots} onChange={(e) => updateTurma(tIdx, "slots", Number(e.target.value) || 20)} /></div>
                         {isLiveProdutos ? (
-                          <div><Label className="text-xs">Link da Live (YouTube)</Label><Input value={turma.live_url} onChange={(e) => updateTurma(tIdx, "live_url", e.target.value)} placeholder="https://www.youtube.com/watch?v=..." /></div>
+                          <div>
+                            <Label className="text-xs">Link da Live (YouTube)</Label>
+                            <Input value={turma.live_url} onChange={(e) => updateTurma(tIdx, "live_url", e.target.value)} placeholder="https://www.youtube.com/watch?v=..." />
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="mt-2 w-full"
+                              disabled={creatingLive === turma.id}
+                              onClick={() => createYoutubeLive(tIdx)}
+                            >
+                              <Youtube className="w-3.5 h-3.5 mr-1" />
+                              {creatingLive === turma.id ? "Criando transmissão…" : "Criar live no YouTube"}
+                            </Button>
+                          </div>
                         ) : (
                           <div><Label className="text-xs">Grupo WA</Label><Input value={turma.whatsapp_group_link} onChange={(e) => updateTurma(tIdx, "whatsapp_group_link", e.target.value)} placeholder="https://chat.whatsapp.com/..." /></div>
                         )}
