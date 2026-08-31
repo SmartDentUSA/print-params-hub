@@ -5,8 +5,10 @@ import {
   fetchEnrichedProductDossier,
   fetchProductDossier,
   renderDossierForPrompt,
-
 } from "../_shared/product-rag.ts";
+import { renderLiveDossierForPrompt } from "../_shared/system-a-live.ts";
+import { renderStrategyForPrompt } from "../_shared/smartdent-strategy.ts";
+
 
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
