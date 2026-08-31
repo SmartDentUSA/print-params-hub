@@ -58,32 +58,47 @@ async function toDataUrl(url: string): Promise<string | null> {
 }
 
 /**
- * Imagens reais do produto (nunca inventar equipamento):
+ * Imagens reais dos produtos SELECIONADOS no editor de curso
+ * ("Produtos do portfólio relacionados"). Regra: UMA imagem por produto,
+ * para que todos os produtos escolhidos apareçam na capa — antes o loop
+ * consumia as 3 vagas com image_url + og_image_url do primeiro produto.
+ * Prioridade por produto:
  * 1) system_a_catalog.image_url / og_image_url
- * 2) resins.image_background_removed_url / image_urls (resinas)
- * 3) hero_image_url dos formulários vinculados ao produto (product_catalog_id)
+ * 2) resins.image_background_removed_url / image_urls / image_url
+ * 3) hero_image_url do formulário vinculado ao produto (product_catalog_id)
  */
+const MAX_PRODUCT_IMAGES = 6;
+const MAX_PRODUCT_DOSSIERS = 4;
+
 async function loadProductContext(names: string[]) {
   const dossiers: string[] = [];
   const images: string[] = [];
   const sources: string[] = [];
+  const missing: string[] = [];
 
-  const push = (u: unknown, src: string) => {
-    if (typeof u !== "string" || !u.startsWith("http")) return;
-    if (images.includes(u) || images.length >= 3) return;
-    images.push(u);
-    sources.push(src);
-  };
+  const selected = names.slice(0, MAX_PRODUCT_IMAGES);
 
-  for (const n of names.slice(0, 3)) {
-    try {
-      const enriched = await fetchEnrichedProductDossier(admin as any, n);
-      const d = enriched?.local ?? (await fetchProductDossier(admin as any, n));
-      if (d) dossiers.push(renderDossierForPrompt(d, "PRODUTO"));
-      // Sistema A live: aplicações clínicas, workflow, regras anti-alucinação
-      const liveText = renderLiveDossierForPrompt(enriched?.live ?? null);
-      if (liveText) dossiers.push(liveText);
-    } catch (_) { /* soft-fail */ }
+  for (let i = 0; i < selected.length; i++) {
+    const n = selected[i];
+
+    if (i < MAX_PRODUCT_DOSSIERS) {
+      try {
+        const enriched = await fetchEnrichedProductDossier(admin as any, n);
+        const d = enriched?.local ?? (await fetchProductDossier(admin as any, n));
+        if (d) dossiers.push(renderDossierForPrompt(d, `PRODUTO ${i + 1}: ${n}`));
+        const liveText = renderLiveDossierForPrompt(enriched?.live ?? null);
+        if (liveText) dossiers.push(liveText);
+      } catch (_) { /* soft-fail */ }
+    }
+
+    // uma única imagem por produto selecionado
+    let picked: { url: string; src: string } | null = null;
+    const take = (u: unknown, src: string) => {
+      if (picked) return;
+      if (typeof u !== "string" || !u.startsWith("http")) return;
+      if (images.includes(u)) return;
+      picked = { url: u, src };
+    };
 
     // 1) catálogo Sistema A
     const { data: row, error: catErr } = await admin
@@ -94,25 +109,25 @@ async function loadProductContext(names: string[]) {
       .limit(1)
       .maybeSingle();
     if (catErr) console.warn("[youtube-live-thumbnail] catalog image lookup", catErr.message);
-    push((row as any)?.image_url, `catalog:${(row as any)?.name ?? n}`);
-    push((row as any)?.og_image_url, `catalog_og:${(row as any)?.name ?? n}`);
+    take((row as any)?.image_url, `catalog:${(row as any)?.name ?? n}`);
+    take((row as any)?.og_image_url, `catalog_og:${(row as any)?.name ?? n}`);
 
-    // 2) resinas (imagens com fundo removido têm prioridade visual)
-    if (images.length < 3) {
+    // 2) resinas (fundo removido tem prioridade visual)
+    if (!picked) {
       const { data: resin } = await admin
         .from("resins")
         .select("name, image_background_removed_url, image_urls, image_url")
         .ilike("name", `%${n}%`)
         .limit(1)
         .maybeSingle();
-      push((resin as any)?.image_background_removed_url, `resin_nobg:${n}`);
+      take((resin as any)?.image_background_removed_url, `resin_nobg:${n}`);
       const list = Array.isArray((resin as any)?.image_urls) ? (resin as any).image_urls : [];
-      for (const u of list) push(u, `resin:${n}`);
-      push((resin as any)?.image_url, `resin:${n}`);
+      for (const u of list) take(u, `resin:${n}`);
+      take((resin as any)?.image_url, `resin:${n}`);
     }
 
-    // 3) hero das landing pages dos formulários do produto
-    if (images.length < 3) {
+    // 3) hero da landing page do formulário do produto
+    if (!picked) {
       const catalogId = (row as any)?.id ?? null;
       let q = admin
         .from("smartops_forms")
@@ -121,11 +136,24 @@ async function loadProductContext(names: string[]) {
         .limit(3);
       q = catalogId ? q.eq("product_catalog_id", catalogId) : q.ilike("name", `%${n}%`);
       const { data: forms } = await q;
-      for (const f of forms ?? []) push((f as any)?.hero_image_url, `form:${(f as any)?.name ?? n}`);
+      for (const f of forms ?? []) take((f as any)?.hero_image_url, `form:${(f as any)?.name ?? n}`);
+    }
+
+    if (picked) {
+      images.push((picked as { url: string; src: string }).url);
+      sources.push((picked as { url: string; src: string }).src);
+    } else {
+      missing.push(n);
     }
   }
-  return { dossiers, images, sources };
+
+  console.log(
+    "[youtube-live-thumbnail] produtos selecionados:",
+    JSON.stringify({ selected, resolved: sources, missing }),
+  );
+  return { dossiers, images, sources, missing };
 }
+
 
 /** Logo oficial da Smart Dent (company_info do catálogo Sistema A). */
 async function loadBrandLogo(): Promise<string | null> {
@@ -229,7 +257,7 @@ Deno.serve(async (req) => {
     if (!course) return json({ error: "Curso não encontrado" }, 404);
 
     const produtos: string[] = ((course as any).related_product_names ?? []).filter(Boolean);
-    const { dossiers, images, sources } = await loadProductContext(produtos);
+    const { dossiers, images, sources, missing } = await loadProductContext(produtos);
     const copy = await buildCopy(course, dossiers, {
       headline: b.headline,
       highlight: b.highlight,
