@@ -95,7 +95,16 @@ Deno.serve(async (req) => {
       lead_id = null,
       source = "manual_inbox",
       metadata = null,
+      media_url = null,
+      media_type = "image",
     } = body ?? {};
+
+    // Mídia opcional: quando informada, a mensagem sai como imagem/vídeo com legenda.
+    const mediaUrl = typeof media_url === "string" && /^https?:\/\//.test(media_url)
+      ? media_url
+      : (typeof (metadata as any)?.media === "string" && /^https?:\/\//.test((metadata as any).media)
+        ? (metadata as any).media
+        : null);
 
     const target = normalizePhone(String(phone ?? to ?? ""));
     if (!target) return json({ success: false, error: "phone_invalid" }, 400);
@@ -214,12 +223,23 @@ Deno.serve(async (req) => {
 
     await warmupContact(instance, apikey, target);
 
-    const url = `${EVO_BASE}/message/sendText/${encodeURIComponent(instance)}`;
+    const url = mediaUrl
+      ? `${EVO_BASE}/message/sendMedia/${encodeURIComponent(instance)}`
+      : `${EVO_BASE}/message/sendText/${encodeURIComponent(instance)}`;
 
     const res = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json", apikey },
-      body: JSON.stringify({ number: target, text: String(message) }),
+      body: JSON.stringify(
+        mediaUrl
+          ? {
+              number: target,
+              mediatype: media_type === "video" ? "video" : "image",
+              media: mediaUrl,
+              caption: String(message),
+            }
+          : { number: target, text: String(message) },
+      ),
     });
     const text = await res.text();
 
