@@ -12473,6 +12473,95 @@ export type Database = {
           },
         ]
       }
+      live_group_automations: {
+        Row: {
+          course_ids: string[]
+          created_at: string
+          enabled: boolean
+          group_ids: string[]
+          id: string
+          live_enabled: boolean
+          live_minutes_before: number
+          live_template: string | null
+          name: string
+          promo_days_before: number
+          promo_enabled: boolean
+          promo_template: string | null
+          promo_time: string
+          updated_at: string
+        }
+        Insert: {
+          course_ids?: string[]
+          created_at?: string
+          enabled?: boolean
+          group_ids?: string[]
+          id?: string
+          live_enabled?: boolean
+          live_minutes_before?: number
+          live_template?: string | null
+          name?: string
+          promo_days_before?: number
+          promo_enabled?: boolean
+          promo_template?: string | null
+          promo_time?: string
+          updated_at?: string
+        }
+        Update: {
+          course_ids?: string[]
+          created_at?: string
+          enabled?: boolean
+          group_ids?: string[]
+          id?: string
+          live_enabled?: boolean
+          live_minutes_before?: number
+          live_template?: string | null
+          name?: string
+          promo_days_before?: number
+          promo_enabled?: boolean
+          promo_template?: string | null
+          promo_time?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      live_group_blast_log: {
+        Row: {
+          automation_id: string
+          campaign_id: string | null
+          groups_count: number
+          id: string
+          kind: string
+          sent_at: string
+          turma_id: string
+        }
+        Insert: {
+          automation_id: string
+          campaign_id?: string | null
+          groups_count?: number
+          id?: string
+          kind: string
+          sent_at?: string
+          turma_id: string
+        }
+        Update: {
+          automation_id?: string
+          campaign_id?: string | null
+          groups_count?: number
+          id?: string
+          kind?: string
+          sent_at?: string
+          turma_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "live_group_blast_log_automation_id_fkey"
+            columns: ["automation_id"]
+            isOneToOne: false
+            referencedRelation: "live_group_automations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       loja_integrada_clientes_import: {
         Row: {
           ativo: string | null
