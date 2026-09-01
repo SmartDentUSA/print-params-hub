@@ -422,10 +422,21 @@ async function callLLM(prompt: string): Promise<{ caption: string; hashtags: str
     const m = String(raw).match(/\{[\s\S]*\}/);
     parsed = m ? JSON.parse(m[0]) : {};
   }
+  const split = splitCaptionHashtags(
+    String(parsed.caption || "").slice(0, MAX_CAPTION),
+    sanitizeHashtags(parsed.hashtags),
+  );
+  const usedTags = new Set(split.hashtags);
+  const firstComment = String(parsed.first_comment || "")
+    // tira do 1º comentário as hashtags que já estão no bloco principal (evita duplicidade)
+    .replace(/#([\p{L}\p{N}_]{2,60})/gu, (m, tag) => (usedTags.has(String(tag).toLowerCase()) ? "" : m))
+    .replace(/[ \t]{2,}/g, " ")
+    .trim()
+    .slice(0, MAX_COMMENT);
   const out = {
-    caption: String(parsed.caption || "").slice(0, MAX_CAPTION),
-    hashtags: sanitizeHashtags(parsed.hashtags),
-    first_comment: String(parsed.first_comment || "").slice(0, MAX_COMMENT),
+    caption: split.caption,
+    hashtags: split.hashtags,
+    first_comment: firstComment,
     _model: `${r.provider_used}/${r.model_used}`,
   };
   if (!out.caption) {
