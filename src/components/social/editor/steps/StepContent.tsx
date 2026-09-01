@@ -131,6 +131,28 @@ function flagFor(pais?: unknown): string {
   return COUNTRY_FLAGS[k] || '🇧🇷';
 }
 
+/** Conhecimento de marca específico das imersões Chairside (Print / A.I. Pro) */
+const CHAIRSIDE_KNOWLEDGE = [
+  'CONHECIMENTO DE MARCA — IMERSÃO CHAIRSIDE (Print / A.I. Pro). Aplique obrigatoriamente:',
+  '• Tese central: "A inteligência artificial faz o trabalho pesado, mas é você quem decide." Tecnologia = viabilização clínica, nunca protagonista.',
+  '• Delegação: sempre deixar claro que a EQUIPE domina a execução operacional — combate o medo do dentista de virar operador de máquina. Fechar os tópicos com a ideia de "liberdade para voltar a ser dentista".',
+  '• Gancho (2 primeiras linhas): conecte a frase de efeito a uma DOR REAL da rotina (retrabalho, moldagem, dependência de laboratório, agenda travada, paciente voltando outro dia) — é o que aparece antes do "...mais".',
+  '• Entrega final: fale da PEÇA PRONTA (coroa adaptada, placa com acabamento imediato, provisório entregue na mesma sessão), não apenas "impressão 3D".',
+  '• Prova social qualificada: participantes com cidade/estado (bloco final), sem citar nomes no corpo.',
+  '• Sem ruído: nenhum valor monetário, nenhuma promessa exagerada, nenhuma especificação técnica.',
+  '• CTA direta para a PRÓXIMA TURMA: convite por direct/lista de espera + palavra-chave nos comentários (ex.: "Envie uma mensagem para entrar na lista da próxima turma" ou "Digite DIGITAL nos comentários"), além do link na bio.',
+].join('\n');
+
+function isChairsideTraining(...titles: Array<unknown>): boolean {
+  const t = titles
+    .map((x) => String(x ?? ''))
+    .join(' ')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+  return /chair\s*side|chairside/.test(t);
+}
+
 /** Uma linha por inscrito: 🇧🇷 Nome @ig + Acompanhante @ig — Cidade/UF */
 function buildParticipantLines(parts: any[]): string[] {
   const principais = parts.filter((p) => p.tipo !== 'acompanhante');
@@ -781,7 +803,9 @@ export function StepContent({
       );
       return [
         `CONTEXTO — TURMA ESPECÍFICA${m.turma_number != null ? ` Nº ${m.turma_number}` : ''} do treinamento "${m.course_title || t.name}".`,
+        isChairsideTraining(m.course_title, t.name) ? CHAIRSIDE_KNOWLEDGE : '',
         m.modality ? `Modalidade: ${m.modality}.` : '',
+
         m.start_date
           ? `📅 Data: ${fmtDate(m.start_date)}${m.end_date && m.end_date !== m.start_date ? ` a ${fmtDate(m.end_date)}` : ''}${fmtTime(m.recurrence_time_start) ? ` · 🕒 ${fmtTime(m.recurrence_time_start)}` : ''}.`
           : '',
@@ -851,7 +875,9 @@ ${m.location ? `📍 Local: ${m.location}` : '📍 Local: (omitir se não houver
         (m.duration_days && m.duration_hours_per_day ? m.duration_days * m.duration_hours_per_day : null);
       const parts = [
         `CONTEXTO — ${tipo}: "${t.name}".`,
+        isChairsideTraining(t.name, m.description) ? CHAIRSIDE_KNOWLEDGE : '',
         m.modality ? `Modalidade: ${m.modality}.` : '',
+
         m.location ? `Local: ${m.location}.` : '',
         m.description ? `Sobre: ${String(m.description).slice(0, 500)}` : '',
         m.briefing ? `Briefing de marketing: ${String(m.briefing).slice(0, 500)}` : '',
