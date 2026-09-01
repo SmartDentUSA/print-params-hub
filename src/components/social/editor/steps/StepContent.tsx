@@ -789,6 +789,9 @@ export function StepContent({
         durationHours ? `⏱️ Duração: ${Number(durationHours).toFixed(0)}h.` : '',
         m.course_description ? `Sobre o treinamento: ${String(m.course_description).slice(0, 500)}` : '',
         m.course_briefing ? `Briefing de marketing: ${String(m.course_briefing).slice(0, 500)}` : '',
+        comprados.length
+          ? `🛒 Itens adquiridos pelos participantes (propostas ganhas): ${comprados.slice(0, 15).join(', ')}. Use estes itens como o fluxo digital real que eles implantaram, citando BENEFÍCIOS/aplicação clínica — sem preços e sem especificações técnicas.`
+          : '',
         equipamentos.length
           ? `🖨️ Equipamentos/produtos utilizados na turma: ${equipamentos.slice(0, 12).join(', ')}. RESUMA esses equipamentos no contexto do que foi praticado (fluxo digital), sem especificações técnicas.`
           : '',
