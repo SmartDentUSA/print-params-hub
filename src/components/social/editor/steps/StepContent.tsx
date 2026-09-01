@@ -464,6 +464,10 @@ export function StepContent({
       const id = val.slice('event:'.length);
       const e = events.find((x) => x.id === id);
       if (e) entry = { ref: val, name: e.name, slug: e.slug || '', category: e.subtitle || 'Evento' };
+    } else if (val.startsWith('training:')) {
+      const id = val.slice('training:'.length);
+      const t = trainings.find((x) => x.id === id);
+      if (t) entry = { ref: val, name: t.name, slug: t.slug || '', category: t.subtitle || 'Treinamento' };
     } else if (val.startsWith('distributor:')) {
       const id = val.slice('distributor:'.length);
       const d = distributors.find((x) => x.id === id);
