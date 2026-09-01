@@ -238,16 +238,34 @@ export function PublicOnlineCourseCard({
   const shareUrl = href ? (isInternal ? `${getPublicOrigin()}${href}` : href) : getPublicOrigin();
 
   const shortenUrl = async (url: string) => {
-    try {
-      const { data, error } = await (supabase as any).functions.invoke("short-link-create", {
-        body: { destination_url: url },
-      });
-      if (error) throw error;
-      return (data?.url as string) || url;
-    } catch {
-      return url;
+    const cached = shortLinkCache.get(url);
+    if (cached) return cached;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        const res = await fetch(`${SHORT_LINK_ENDPOINT}`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            apikey: SUPABASE_ANON_KEY,
+            Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+          },
+          body: JSON.stringify({ destination_url: url }),
+        });
+        const json = await res.json().catch(() => null);
+        const short = json?.url as string | undefined;
+        if (res.ok && short) {
+          shortLinkCache.set(url, short);
+          return short;
+        }
+        console.warn("[share] short-link falhou", res.status, json);
+      } catch (err) {
+        console.warn("[share] short-link erro", err);
+      }
+      await new Promise((r) => setTimeout(r, 400 * (attempt + 1)));
     }
+    return url;
   };
+
 
   const handleShare = async (e: React.MouseEvent) => {
     e.stopPropagation();
