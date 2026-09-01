@@ -300,7 +300,18 @@ function buildPrompt(body: ReqBody, productCtx: any[], ragCtx: any[], exportEnr:
         .join("\n")
     : "(nenhum produto complementar)";
 
+  const facts = (body.hard_facts || []).map((f) => String(f || "").trim()).filter(Boolean);
+  const factsBlock = facts.length
+    ? facts.map((f) => `- ${f}`).join("\n")
+    : "(nenhum)";
+
   return `Você é o copywriter da marca **Smart Dent | Fluxo Digital** (impressão 3D e fluxo digital odontológico).
+
+BRIEFING OBRIGATÓRIO (PRIORIDADE MÁXIMA — acima de qualquer outra regra deste prompt; siga a estrutura, o tempo verbal e os CTAs pedidos aqui):
+${body.instructions?.trim() || "(nenhum)"}
+
+FATOS QUE DEVEM APARECER LITERALMENTE NA CAPTION (copie cada linha, com o emoji, sem alterar números, nomes ou datas; não invente nada que não esteja aqui):
+${factsBlock}
 
 Gere um post para redes sociais sobre: **${product}**${extras.length ? ` em conjunto com: **${extraNames}**` : ""}.
 ${extras.length ? "Conduza a narrativa apresentando o produto principal e complementando com os demais (sinergia, fluxo integrado, vantagens combinadas)." : ""}
@@ -312,6 +323,7 @@ REGRAS OBRIGATÓRIAS:
 - NÃO mencione preços, valores em R$, descontos, parcelamento ou condições comerciais.
 - NÃO faça promessas regulatórias/clínicas absolutas.
 - Caption: máximo ${MAX_CAPTION} caracteres. Use 1 gancho + benefícios + CTA.
+- Cada produto citado deve ser conectado à aplicação clínica/laboratorial concreta das áreas de atuação e especialidades informadas no briefing, usando os dados de catálogo/RAG abaixo.
 - Hashtags: 8 a ${MAX_HASHTAGS} relevantes, sem o símbolo #, lowercase, sem espaços.
 - Primeiro comentário: até ${MAX_COMMENT} chars, complementar (mais hashtags niche, link, CTA).
 ${igTrigger ? `- CTA OBRIGATÓRIO no final da caption, com a palavra-gatilho em MAIÚSCULAS e entre aspas: ${igTrigger.cta} (palavra: "${igTrigger.keyword}"). Repita o convite também no primeiro comentário.` : ""}
@@ -329,12 +341,10 @@ ${exportBlock}
 CONTEXTO ADICIONAL (base de conhecimento):
 ${ragBlock}
 
-INSTRUÇÕES DO USUÁRIO:
-${body.instructions?.trim() || "(nenhuma)"}
-
 Responda APENAS com um JSON válido, sem markdown, no formato:
 {"caption":"...","hashtags":["...","..."],"first_comment":"..."}`;
 }
+
 
 async function callLLM(prompt: string): Promise<{ caption: string; hashtags: string[]; first_comment: string; _model: string }> {
   const r = await aiComplete({
