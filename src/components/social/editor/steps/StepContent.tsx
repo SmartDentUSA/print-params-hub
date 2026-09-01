@@ -95,6 +95,23 @@ const PLATFORM_TONE_PROMPTS: Record<string, Record<string, string>> = {
 const ALL_PRESETS_FLAT = Object.values(PLATFORM_TONE_PROMPTS).flatMap((m) => Object.values(m));
 const TONES = ['Profissional', 'Educativo', 'Direto', 'Inspirador'] as const;
 
+/** Normaliza @handle do Instagram vindo das fichas (aceita URL, com/sem @). */
+function normalizeIgHandle(raw: unknown): string | null {
+  const s = String(raw ?? '').trim();
+  if (!s) return null;
+  const cleaned = s
+    .replace(/^https?:\/\/(www\.)?instagram\.com\//i, '')
+    .replace(/\?.*$/, '')
+    .replace(/\/.*$/, '')
+    .replace(/^@+/, '')
+    .replace(/\s+/g, '')
+    .toLowerCase();
+  if (!cleaned || !/^[a-z0-9._]{2,30}$/.test(cleaned)) return null;
+  return `@${cleaned}`;
+}
+
+
+
 export function StepContent({
   value,
   onChange,
@@ -686,7 +703,14 @@ export function StepContent({
       const principais = parts.filter((p) => p.tipo !== 'acompanhante');
       const acompanhantes = parts.filter((p) => p.tipo === 'acompanhante');
       const nomes = parts.map((p) => String(p.person_name || '').trim()).filter(Boolean);
-      const igs = parts.map((p) => String(p.instagram || '').trim()).filter(Boolean);
+      const igs = Array.from(new Set(parts.map((p) => normalizeIgHandle(p.instagram)).filter(Boolean))) as string[];
+      const nomesComIg = parts
+        .map((p) => {
+          const n = String(p.person_name || '').trim();
+          const ig = normalizeIgHandle(p.instagram);
+          return n && ig ? `${n} ${ig}` : '';
+        })
+        .filter(Boolean);
       const nomeCidade = parts
         .map((p) => {
           const n = String(p.person_name || '').trim();
@@ -730,6 +754,9 @@ export function StepContent({
           ? `Acompanhantes: ${acompanhantes.map((p) => String(p.person_name || '').trim()).filter(Boolean).join(', ')}.`
           : '',
         igs.length ? `Perfis para marcar na legenda: ${igs.slice(0, 30).join(' ')}.` : '',
+        nomesComIg.length
+          ? `OBRIGATÓRIO marcar o @instagram de cada participante que possui perfil preenchido, junto ao nome: ${nomesComIg.slice(0, 30).join(', ')}. Não invente @perfis para quem não tem.`
+          : '',
         areas.length ? `Áreas de atuação dos participantes: ${areas.join(', ')}.` : '',
         especialidades.length ? `Especialidades dos participantes: ${especialidades.join(', ')}.` : '',
         cidades.length
@@ -904,8 +931,10 @@ export function StepContent({
         }
         if (m.location) facts.push(`📍 Local: ${m.location}`);
         const parts = (turmaParticipants[id] || []) as any[];
-        const igs = parts.map((p: any) => String(p.instagram || '').trim()).filter(Boolean);
-        if (igs.length) facts.push(`📲 Participantes: ${igs.slice(0, 20).join(' ')}`);
+        const igs = Array.from(
+          new Set(parts.map((p: any) => normalizeIgHandle(p.instagram)).filter(Boolean)),
+        ) as string[];
+        if (igs.length) facts.push(`📲 Marcar participantes: ${igs.slice(0, 30).join(' ')}`);
         const cidades = Array.from(
           new Set(
             parts
