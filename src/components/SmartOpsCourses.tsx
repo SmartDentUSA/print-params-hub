@@ -627,7 +627,7 @@ function CatalogoTab() {
           { value: "title", label: "Nome A–Z" },
           { value: "turmas", label: "Mais turmas" },
         ]}
-        searchPlaceholder="Buscar cursos…"
+        searchPlaceholder="Buscar por curso, instrutor ou nº da turma…"
         ctaLabel="+ Novo Curso"
         onCtaClick={() => setShowCreate(true)}
       />
