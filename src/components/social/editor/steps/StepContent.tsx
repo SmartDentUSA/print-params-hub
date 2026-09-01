@@ -445,14 +445,18 @@ export function StepContent({
       const m = d.meta || {};
       const local = [m.cidade, m.estado, m.pais].filter(Boolean).join(' / ');
       const linhas = Array.isArray(m.linhas) && m.linhas.length ? m.linhas.join(', ') : '';
+      const autorizacao = fmtAuthorizedScope(m.authorized_scope);
       return [
-        `CONTEXTO — NOVO DISTRIBUIDOR: anuncie que a empresa "${d.name}"${m.pais ? ` (${m.pais})` : ''} passou a ser distribuidora oficial do portfólio Smart Dent | Fluxo Digital.`,
+        `CONTEXTO — NOVO DISTRIBUIDOR OFICIAL: anuncie que a empresa "${d.name}"${m.pais ? ` (${m.pais})` : ''} passou a ser distribuidora autorizada do portfólio Smart Dent | Fluxo Digital.`,
         local ? `Localização: ${local}.` : '',
+        autorizacao
+          ? `Autorização Comercial: ${autorizacao}. Use essas categorias/subcategorias para destacar o que essa revenda está inovando ao trazer para o ${m.pais || 'seu país'}.`
+          : '',
         linhas ? `Linhas representadas: ${linhas}.` : '',
         m.canal ? `Canal de venda: ${m.canal}.` : '',
         m.instagram ? `Instagram do distribuidor: ${m.instagram} (mencione o perfil).` : '',
         m.notes ? `Notas da base: ${String(m.notes).slice(0, 400)}` : '',
-        'Tom: boas-vindas institucional + benefício para o profissional da região (suporte local, treinamento e acesso ao portfólio). CTA: "saiba mais" e "link na bio".',
+        'Tom: boas-vindas institucional + inovação local (como o portfólio Smart Dent amplia a oferta odontológica digital na região). CTA: "saiba mais" e "link na bio".',
       ]
         .filter(Boolean)
         .join(' ');
