@@ -914,8 +914,10 @@ export function StepContent({
         }
         if (m.location) facts.push(`📍 Local: ${m.location}`);
         const parts = (turmaParticipants[id] || []) as any[];
-        const igs = parts.map((p: any) => String(p.instagram || '').trim()).filter(Boolean);
-        if (igs.length) facts.push(`📲 Participantes: ${igs.slice(0, 20).join(' ')}`);
+        const igs = Array.from(
+          new Set(parts.map((p: any) => normalizeIgHandle(p.instagram)).filter(Boolean)),
+        ) as string[];
+        if (igs.length) facts.push(`📲 Marcar participantes: ${igs.slice(0, 30).join(' ')}`);
         const cidades = Array.from(
           new Set(
             parts
