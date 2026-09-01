@@ -4,6 +4,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Plus, X, Trash2 } from "lucide-react";
 import CoverImageUpload from "@/components/smartops/CoverImageUpload";
+import PersonPicker from "@/components/smartops/PersonPicker";
 
 export type EventSpeakerSession = { date?: string; start_time?: string; end_time?: string };
 export type EventSpeaker = {
@@ -88,7 +89,19 @@ export default function EventSpeakersFields({
         {list.map((sp, i) => (
           <div key={i} className="border rounded-md p-3 space-y-3 bg-muted/30">
             <div className="flex items-start justify-between gap-2">
-              <Badge variant="secondary">Palestrante {i + 1}</Badge>
+              <div className="flex items-center gap-2 flex-wrap">
+                <Badge variant="secondary">Palestrante {i + 1}</Badge>
+                <PersonPicker
+                  label="Usar cadastro existente"
+                  onSelect={(person) =>
+                    patchSpeaker(i, {
+                      name: person.name,
+                      instagram: person.instagram || sp.instagram || "",
+                      photo_url: person.photo_url || sp.photo_url || "",
+                    })
+                  }
+                />
+              </div>
               <Button
                 type="button"
                 size="icon"

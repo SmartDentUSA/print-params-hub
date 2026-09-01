@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { AREA_ATUACAO_OPTIONS, ESPECIALIDADE_OPTIONS } from "@/lib/dentalTaxonomy";
 import { Loader2, Search, Save, Upload, Pencil, Lock } from "lucide-react";
+import PersonPicker from "./PersonPicker";
 import ProfessionalMixSummary from "./ProfessionalMixSummary";
 import ProfessionalQualifications from "./ProfessionalQualifications";
 import ProfessionalKolCommercial, { type KolFormRef, type KolCommissionRule, type KolCoupon } from "./ProfessionalKolCommercial";
@@ -309,6 +310,30 @@ export default function CoursesProfessionalProfile({ initialEmail, startEditing 
               {searching ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4 mr-2" />}
               Buscar
             </Button>
+          </div>
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <PersonPicker
+              label="Usar cadastro existente (autores, team, KOLs)"
+              onSelect={(person) => {
+                if (person.email) {
+                  setSearchEmail(person.email);
+                  setTimeout(() => void loadByEmail(), 0);
+                }
+                setLocked(false);
+                setForm((f) => ({
+                  ...f,
+                  nome: person.name || f.nome,
+                  email: person.email || f.email,
+                  especialidade: person.specialty || f.especialidade,
+                  prof_photo_url: person.photo_url || f.prof_photo_url,
+                  prof_mini_cv: person.mini_bio || f.prof_mini_cv,
+                  instagram: person.instagram || f.instagram,
+                }));
+              }}
+            />
+            <span className="text-[11px] text-muted-foreground">
+              Puxa nome, foto, especialidade, mini bio e @Instagram já cadastrados.
+            </span>
           </div>
           {leadId && (
             <div className="flex items-center gap-2 mt-3">

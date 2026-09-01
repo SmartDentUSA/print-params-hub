@@ -8,6 +8,12 @@ export interface InstructorOption {
   name: string;
   source: InstructorSource;
   detail?: string | null;
+  /** Dados extras para pré-preencher fichas (palestrantes, profissionais) */
+  email?: string | null;
+  instagram?: string | null;
+  photo_url?: string | null;
+  specialty?: string | null;
+  mini_bio?: string | null;
 }
 
 const SOURCE_LABEL: Record<InstructorSource, string> = {
@@ -19,8 +25,20 @@ const SOURCE_LABEL: Record<InstructorSource, string> = {
 
 export const INSTRUCTOR_SOURCE_LABEL = SOURCE_LABEL;
 
+function handleFromUrl(v?: string | null): string {
+  const raw = String(v || "").trim();
+  if (!raw) return "";
+  const cleaned = raw
+    .replace(/^https?:\/\/(www\.)?instagram\.com\//i, "")
+    .replace(/\?.*$/, "")
+    .replace(/\/+$/, "")
+    .replace(/^@+/, "")
+    .replace(/\s+/g, "");
+  return cleaned ? `@${cleaned}` : "";
+}
+
 /**
- * Lista unificada de possíveis instrutores: Team Members ativos, KOLs,
+ * Lista unificada de possíveis instrutores/palestrantes: Team Members ativos, KOLs,
  * profissionais cadastrados (portal de cursos) e autores ativos.
  */
 export function useInstructorOptions() {
@@ -31,17 +49,23 @@ export function useInstructorOptions() {
       const [team, profs, authors] = await Promise.all([
         supabase
           .from("team_members")
-          .select("id, nome_completo, role")
+          .select("id, nome_completo, role, email")
           .eq("ativo", true)
           .order("nome_completo"),
         (supabase as any)
           .from("lia_attendances")
-          .select("id, nome, especialidade, prof_cro, prof_kol_form_ids, prof_kol_coupons")
+          .select(
+            "id, nome, email, especialidade, prof_cro, prof_photo_url, prof_mini_cv, instagram, prof_kol_form_ids, prof_kol_coupons",
+          )
           .not("prof_updated_at", "is", null)
           .is("merged_into", null)
           .order("prof_updated_at", { ascending: false })
           .limit(300),
-        supabase.from("authors").select("id, name, title").eq("active", true).order("name"),
+        supabase
+          .from("authors")
+          .select("id, name, academic_title, specialty, photo_url, instagram_url, mini_bio")
+          .eq("active", true)
+          .order("name"),
       ]);
 
       const out: InstructorOption[] = [];
@@ -56,7 +80,7 @@ export function useInstructorOptions() {
       };
 
       for (const t of (team.data ?? []) as any[]) {
-        push({ id: `team:${t.id}`, name: t.nome_completo, source: "team", detail: t.role });
+        push({ id: `team:${t.id}`, name: t.nome_completo, source: "team", detail: t.role, email: t.email ?? null });
       }
       for (const p of (profs.data ?? []) as any[]) {
         const isKol =
@@ -67,10 +91,24 @@ export function useInstructorOptions() {
           name: p.nome,
           source: isKol ? "kol" : "professional",
           detail: p.especialidade || (p.prof_cro ? `CRO ${p.prof_cro}` : null),
+          email: p.email ?? null,
+          instagram: handleFromUrl(p.instagram) || null,
+          photo_url: p.prof_photo_url ?? null,
+          specialty: p.especialidade ?? null,
+          mini_bio: p.prof_mini_cv ?? null,
         });
       }
       for (const a of (authors.data ?? []) as any[]) {
-        push({ id: `author:${a.id}`, name: a.name, source: "author", detail: a.title ?? null });
+        push({
+          id: `author:${a.id}`,
+          name: a.name,
+          source: "author",
+          detail: a.academic_title || a.specialty || null,
+          instagram: handleFromUrl(a.instagram_url) || null,
+          photo_url: a.photo_url ?? null,
+          specialty: a.specialty ?? null,
+          mini_bio: a.mini_bio ?? null,
+        });
       }
 
       return out;
