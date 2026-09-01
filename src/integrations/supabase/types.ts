@@ -21927,6 +21927,9 @@ export type Database = {
           ai_image_prompt_en: string | null
           ai_image_prompt_es: string | null
           ai_image_prompt_pt: string | null
+          audience_areas: string[]
+          audience_notes: string | null
+          audience_specialties: string[]
           canva_image_en: string | null
           canva_image_es: string | null
           canva_image_pt: string | null
@@ -21971,6 +21974,9 @@ export type Database = {
           ai_image_prompt_en?: string | null
           ai_image_prompt_es?: string | null
           ai_image_prompt_pt?: string | null
+          audience_areas?: string[]
+          audience_notes?: string | null
+          audience_specialties?: string[]
           canva_image_en?: string | null
           canva_image_es?: string | null
           canva_image_pt?: string | null
@@ -22015,6 +22021,9 @@ export type Database = {
           ai_image_prompt_en?: string | null
           ai_image_prompt_es?: string | null
           ai_image_prompt_pt?: string | null
+          audience_areas?: string[]
+          audience_notes?: string | null
+          audience_specialties?: string[]
           canva_image_en?: string | null
           canva_image_es?: string | null
           canva_image_pt?: string | null
