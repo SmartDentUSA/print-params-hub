@@ -267,6 +267,9 @@ export function StepContent({
             audience_areas: e.audience_areas,
             audience_specialties: e.audience_specialties,
             audience_notes: e.audience_notes,
+            speakers: e.speakers,
+            partner_brands: e.partner_brands,
+            instagram_handle: e.instagram_handle,
           },
         })),
       );
