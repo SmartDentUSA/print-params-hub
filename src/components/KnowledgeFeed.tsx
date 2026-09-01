@@ -130,7 +130,7 @@ export const KnowledgeFeed = () => {
         className="w-full"
       >
         <CarouselContent className="-ml-1 md:-ml-4">
-          {articles.map((article) => {
+          {articles.map((article, idx) => {
             const imageUrl = article.og_image_url || article.content_image_url || '/placeholder.svg';
             const imageAlt = article.content_image_alt || article.title;
             const categoryLetter = article.knowledge_categories?.letter || 'A';
