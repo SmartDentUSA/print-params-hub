@@ -452,7 +452,7 @@ function CatalogoTab() {
         .select(`
           id, title, slug, modality, category, instructor_name,
           cover_image_url, max_capacity, duration_days, duration_hours_per_day,
-          location, meeting_link, active, public_visible, description,
+          location, meeting_link, active, public_visible, description, marketing_briefing,
           certificate_body_template, whatsapp_message_template,
           pipeline_id_kanban, stage_after_enroll,
           recurrence_enabled, recurrence_type, recurrence_interval,
