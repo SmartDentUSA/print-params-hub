@@ -24,6 +24,7 @@ type Automation = {
   live_enabled: boolean;
   live_minutes_before: number;
   live_template: string | null;
+  instance_names: string[] | null;
 };
 
 type GroupRow = { id: string; group_jid: string; name: string; member_count: number | null; instance_name: string };
