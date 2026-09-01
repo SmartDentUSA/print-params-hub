@@ -238,7 +238,21 @@ export function StepContent({
           return {
             id: String(c.id),
             name: c.title || 'Treinamento',
-            subtitle: [c.modality, c.category].filter(Boolean).join(' · ') || undefined,
+            subtitle:
+              [
+                future[0]?.turma_number != null
+                  ? `Turma ${future[0].turma_number}`
+                  : past[past.length - 1]?.turma_number != null
+                    ? `Última: Turma ${past[past.length - 1].turma_number}`
+                    : '',
+                (future[0]?.start_date || past[past.length - 1]?.start_date)
+                  ? new Date(future[0]?.start_date || past[past.length - 1]?.start_date).toLocaleDateString('pt-BR')
+                  : '',
+                c.modality,
+                c.category,
+              ]
+                .filter(Boolean)
+                .join(' · ') || undefined,
             slug: c.slug || undefined,
             meta: {
               modality: c.modality,
