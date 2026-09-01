@@ -162,19 +162,23 @@ serve(async (req) => {
       const dayRef = new Date(`${dateIso}T12:00:00Z`);
       const startUtc = spDateTimeToUtc(dayRef, sh, sm).getTime();
 
-      const inscricao = course.slug
-        ? await shorten(sb, `${PUBLIC_ORIGIN}/inscricao/${course.slug}`, `live-${course.slug}`)
-        : (t.live_url ?? '');
+      // O link divulgado é sempre o do YouTube da live (encurtado); inscrição só como fallback.
+      const rawLive = t.live_url ? String(t.live_url) : '';
+      const liveShort = rawLive
+        ? await shorten(sb, rawLive, `live-${course.slug ?? t.id}`)
+        : (course.slug ? await shorten(sb, `${PUBLIC_ORIGIN}/inscricao/${course.slug}`, `live-${course.slug}`) : '');
+      const inscricao = liveShort;
       const ctx: Record<string, string> = {
         titulo: String(course.title ?? t.label ?? 'Live Smart Dent'),
         turma: t.turma_number ? `#${t.turma_number}` : '',
         data: fmtDate(dateIso),
         hora: startTime,
         instrutor: String(course.instructor_name ?? 'Smart Dent'),
-        live_url: String(t.live_url ?? ''),
+        live_url: liveShort || rawLive,
         inscricao,
       };
-      const media = t.live_thumbnail_url || course.cover_image_url || null;
+      // Thumb da própria live: manual > thumb oficial do YouTube > capa do curso.
+      const media = t.live_thumbnail_url || youtubeThumb(rawLive) || course.cover_image_url || null;
 
       const jobs: { kind: 'promo' | 'live'; due: number; windowMs: number; text: string }[] = [];
 
