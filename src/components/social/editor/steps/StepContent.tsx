@@ -225,7 +225,7 @@ export function StepContent({
   const [trainings, setTrainings] = useState<Array<{ id: string; name: string; subtitle?: string; slug?: string; meta?: any }>>([]); // treinamentos (smartops_courses)
   const [turmas, setTurmas] = useState<Array<{ id: string; name: string; subtitle?: string; slug?: string; meta?: any }>>([]); // turmas (busca por número)
   const [turmaParticipants, setTurmaParticipants] = useState<Record<string, any[]>>({});
-  const [turmaExtras, setTurmaExtras] = useState<Record<string, { days: any[]; equipment: string[] }>>({});
+  const [turmaExtras, setTurmaExtras] = useState<Record<string, { days: any[]; equipment: string[]; purchased?: string[] }>>({});
   const [distributors, setDistributors] = useState<Array<{ id: string; name: string; subtitle?: string; slug?: string; meta?: any }>>([]);
 
 
@@ -484,7 +484,7 @@ export function StepContent({
       const { data } = await supabase
         .from('smartops_course_enrollments')
         .select(
-          'id,turma_id,person_name,instagram,status,area_atuacao,especialidade,empresa_cidade,empresa_estado,empresa_pais,equipment_data',
+          'id,turma_id,person_name,instagram,status,area_atuacao,especialidade,empresa_cidade,empresa_estado,empresa_pais,equipment_data,proposal_items_snapshot',
         )
         .in('turma_id', missing)
         .order('person_name', { ascending: true });
@@ -535,18 +535,35 @@ export function StepContent({
         });
       }
 
-      // Equipamentos citados nos enrollments (equipment_data → item_nome)
+      // Equipamentos/itens adquiridos: equipment_data (item_nome) + proposal_items_snapshot (nome)
+      const IGNORE_ITEM = /(treinamento|frete|instala|garantia|desconto|servi[çc]o de|suporte)/i;
       const equipByTurma: Record<string, string[]> = {};
-      for (const id of missing) equipByTurma[id] = [];
+      const purchasedByTurma: Record<string, string[]> = {};
+      for (const id of missing) {
+        equipByTurma[id] = [];
+        purchasedByTurma[id] = [];
+      }
+      const pushUniq = (arr: string[], nome: string) => {
+        if (!nome || nome.length > 90) return;
+        if (!arr.some((x) => x.toLowerCase() === nome.toLowerCase())) arr.push(nome);
+      };
       for (const row of valid) {
         const tid = String(row.turma_id);
         const ed = row.equipment_data || {};
         for (const entry of Object.values(ed) as any[]) {
           const nome = String(entry?.item_nome || '').trim();
-          if (!nome || nome.length > 80) continue;
-          if (!equipByTurma[tid].some((x) => x.toLowerCase() === nome.toLowerCase())) equipByTurma[tid].push(nome);
+          if (nome.length > 80) continue;
+          pushUniq(equipByTurma[tid], nome);
+        }
+        const snap = Array.isArray(row.proposal_items_snapshot) ? row.proposal_items_snapshot : [];
+        for (const it of snap as any[]) {
+          const nome = String(it?.nome || it?.item_nome || '').replace(/\s+/g, ' ').trim();
+          if (!nome || IGNORE_ITEM.test(nome)) continue;
+          pushUniq(purchasedByTurma[tid], nome);
+          pushUniq(equipByTurma[tid], nome);
         }
       }
+
 
       const daysByTurma: Record<string, any[]> = {};
       for (const id of missing) daysByTurma[id] = [];
@@ -555,7 +572,12 @@ export function StepContent({
       setTurmaParticipants((prev) => ({ ...prev, ...byTurma }));
       setTurmaExtras((prev) => {
         const next = { ...prev };
-        for (const id of missing) next[id] = { days: daysByTurma[id] || [], equipment: equipByTurma[id] || [] };
+        for (const id of missing)
+          next[id] = {
+            days: daysByTurma[id] || [],
+            equipment: equipByTurma[id] || [],
+            purchased: purchasedByTurma[id] || [],
+          };
         return next;
       });
     })();
@@ -753,6 +775,7 @@ export function StepContent({
           return [dia, data, hora, topico].filter(Boolean).join(' ');
         })
         .filter(Boolean);
+      const comprados = Array.from(new Set((extras.purchased || []).filter(Boolean)));
       const equipamentos = Array.from(
         new Set([...(Array.isArray(m.related) ? m.related : []), ...(extras.equipment || [])].filter(Boolean)),
       );
@@ -766,6 +789,9 @@ export function StepContent({
         durationHours ? `⏱️ Duração: ${Number(durationHours).toFixed(0)}h.` : '',
         m.course_description ? `Sobre o treinamento: ${String(m.course_description).slice(0, 500)}` : '',
         m.course_briefing ? `Briefing de marketing: ${String(m.course_briefing).slice(0, 500)}` : '',
+        comprados.length
+          ? `🛒 Itens adquiridos pelos participantes (propostas ganhas): ${comprados.slice(0, 15).join(', ')}. Use estes itens como o fluxo digital real que eles implantaram, citando BENEFÍCIOS/aplicação clínica — sem preços e sem especificações técnicas.`
+          : '',
         equipamentos.length
           ? `🖨️ Equipamentos/produtos utilizados na turma: ${equipamentos.slice(0, 12).join(', ')}. RESUMA esses equipamentos no contexto do que foi praticado (fluxo digital), sem especificações técnicas.`
           : '',
