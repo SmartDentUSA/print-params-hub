@@ -95,7 +95,16 @@ Deno.serve(async (req) => {
       lead_id = null,
       source = "manual_inbox",
       metadata = null,
+      media_url = null,
+      media_type = "image",
     } = body ?? {};
+
+    // Mídia opcional: quando informada, a mensagem sai como imagem/vídeo com legenda.
+    const mediaUrl = typeof media_url === "string" && /^https?:\/\//.test(media_url)
+      ? media_url
+      : (typeof (metadata as any)?.media === "string" && /^https?:\/\//.test((metadata as any).media)
+        ? (metadata as any).media
+        : null);
 
     const target = normalizePhone(String(phone ?? to ?? ""));
     if (!target) return json({ success: false, error: "phone_invalid" }, 400);
