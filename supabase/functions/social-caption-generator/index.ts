@@ -159,10 +159,9 @@ function platformGuidance(platform: string): string {
         "• Frase curta de transformação ou prova social.",
         "• CTA destacado em linha própria (ex.: '👉 Saiba mais no link da bio' ou '💬 Comenta AQUI que te envio').",
         "• Separador visual: linha exata '━━━━━━━━━━━━━━━'.",
-        "• Depois do separador, linha em branco e o bloco de hashtags (todas juntas, prefixadas com #, separadas por espaço).",
         "• Use 6 a 12 emojis no TOTAL, contextuais (não decorativos genéricos).",
         "• Permitido (opcional, no MÁXIMO 2 ocorrências) destacar 1-2 palavras-chave com unicode estilizado tipo '𝗻𝗲𝗴𝗿𝗶𝘁𝗼' (Mathematical Sans-Serif Bold) ou '𝘪𝘵á𝘭𝘪𝘤𝘰' (Mathematical Sans-Serif Italic). NUNCA use markdown (**, __, ##) — Instagram renderiza literal.",
-        "• NÃO use # nas hashtags do array JSON 'hashtags' (apenas a palavra). MAS dentro da caption pode colocar 1 hashtag-âncora opcional após o CTA.",
+        "• PROIBIDO escrever hashtags (#) dentro da caption — nem no fim, nem depois do separador. As hashtags vão APENAS no array JSON 'hashtags', sem o símbolo #. Marcações de perfil com @ continuam permitidas.",
       ].join("\n");
     case "tiktok":
       return [
