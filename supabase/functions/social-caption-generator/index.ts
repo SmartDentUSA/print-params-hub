@@ -28,7 +28,12 @@ interface ReqBody {
   language?: string;
   external_enrichment?: any;
   extra_products?: Array<{ name?: string; slug?: string; category?: string }>;
+  /** "benefits" = proibido listar especificações técnicas; só benefício para o público */
+  focus_mode?: "benefits" | "specs";
+  /** Whitelist: únicos produtos que podem ser citados na caption */
+  allowed_products?: string[];
 }
+
 
 
 function sanitizeHashtags(arr: unknown): string[] {
@@ -338,13 +343,27 @@ function buildPrompt(body: ReqBody, productCtx: any[], ragCtx: any[], exportEnr:
     ? facts.map((f) => `- ${f}`).join("\n")
     : "(nenhum)";
 
+  const allowed = (body.allowed_products || []).map((p) => String(p || "").trim()).filter(Boolean);
+  const allowedBlock = allowed.length
+    ? `\nPRODUTOS PERMITIDOS (LISTA FECHADA — cite SOMENTE estes; é PROIBIDO nomear qualquer outro produto, modelo, impressora, scanner, resina ou software, mesmo que apareça nos blocos de catálogo/RAG abaixo. Os blocos de contexto servem apenas para você entender o produto permitido, nunca para adicionar novos itens):\n${allowed.map((p) => `- ${p}`).join("\n")}\n`
+    : "";
+
+  const focusBlock =
+    body.focus_mode === "benefits"
+      ? `\nFOCO OBRIGATÓRIO — BENEFÍCIO, NÃO ESPECIFICAÇÃO:
+- É PROIBIDO listar especificações técnicas (resolução, mícrons, µm, dpi, velocidade mm/h, dimensões, volume de construção, potência, wavelength, número de câmeras, FPS, precisão em mm, tempo de escaneamento, comprimento de onda, tabelas de dados).
+- Fale exclusivamente do que o produto RESOLVE para o público informado: ganho clínico/laboratorial, previsibilidade, conforto do paciente, tempo de cadeira, produtividade, entrega no mesmo dia, redução de retrabalho.
+- Traduza qualquer dado técnico do contexto em benefício prático para as áreas de atuação e especialidades citadas no briefing.\n`
+      : "";
+
   return `Você é o copywriter da marca **Smart Dent | Fluxo Digital** (impressão 3D e fluxo digital odontológico).
 
 BRIEFING OBRIGATÓRIO (PRIORIDADE MÁXIMA — acima de qualquer outra regra deste prompt; siga a estrutura, o tempo verbal e os CTAs pedidos aqui):
 ${body.instructions?.trim() || "(nenhum)"}
-
+${allowedBlock}${focusBlock}
 FATOS QUE DEVEM APARECER LITERALMENTE NA CAPTION (copie cada linha, com o emoji, sem alterar números, nomes ou datas; não invente nada que não esteja aqui):
 ${factsBlock}
+
 
 Gere um post para redes sociais sobre: **${product}**${extras.length ? ` em conjunto com: **${extraNames}**` : ""}.
 ${extras.length ? "Conduza a narrativa apresentando o produto principal e complementando com os demais (sinergia, fluxo integrado, vantagens combinadas)." : ""}
