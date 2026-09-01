@@ -790,23 +790,14 @@ export function StepContent({
           ? `🗓️ Etapas/cronograma da turma: ${etapas.slice(0, 10).join(' | ')}. RESUMA as etapas em 1 frase, sem listar hora por hora.`
           : '',
         parts.length
-          ? `👥 Participantes (${principais.length} inscritos + ${acompanhantes.length} acompanhantes = ${parts.length} pessoas): ${nomeCidade.slice(0, 40).join(', ')}.`
-          : '',
-        acompanhantes.length
-          ? `Acompanhantes: ${acompanhantes.map((p) => String(p.person_name || '').trim()).filter(Boolean).join(', ')}.`
-          : '',
-        igs.length ? `Perfis para marcar na legenda: ${igs.slice(0, 30).join(' ')}.` : '',
-        nomesComIg.length
-          ? `OBRIGATÓRIO marcar o @instagram de cada participante que possui perfil preenchido, junto ao nome: ${nomesComIg.slice(0, 30).join(', ')}. Não invente @perfis para quem não tem.`
+          ? `👥 LISTA DE PARTICIPANTES (${principais.length} inscritos + ${acompanhantes.length} acompanhantes). COPIE ESTE BLOCO NO FINAL DA LEGENDA, UMA LINHA POR INSCRITO, EXATAMENTE COMO ESTÁ (não junte em parágrafo, não altere nomes, @perfis ou cidades):\n${participantesLinhas.join('\n')}`
           : '',
         areas.length ? `Áreas de atuação dos participantes: ${areas.join(', ')}.` : '',
         especialidades.length ? `Especialidades dos participantes: ${especialidades.join(', ')}.` : '',
-        cidades.length
-          ? `OBRIGATÓRIO citar na legenda as cidades/estados de origem: ${cidades.slice(0, 15).join(', ')}.`
-          : '',
         parts.length
-          ? 'OBRIGATÓRIO: conecte o conteúdo do treinamento às áreas de atuação e especialidades reais dessa turma, citando aplicação clínica/laboratorial concreta (sem preços). Cite os nomes com a cidade/estado de origem. Não invente nomes, @perfis, cidades ou especialidades que não estejam nesta lista.'
+          ? 'REGRAS DE FORMATO (obrigatórias): legenda CURTA — no máximo 6 linhas de texto corrido antes da lista de participantes. NÃO cite nomes, @perfis nem cidades no corpo do texto: eles aparecem SOMENTE na lista. NÃO repita a linha de cidades de origem. Não invente nomes, @perfis, cidades ou especialidades.'
           : '',
+
         isPast
           ? 'Escreva no PASSADO (retrospectiva/prova social da turma que aconteceu, agradecendo os participantes) e convide para a próxima turma.'
           : 'Escreva no FUTURO, gerando desejo de participar desta turma.',
