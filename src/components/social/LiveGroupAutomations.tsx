@@ -62,6 +62,7 @@ export function LiveGroupAutomations() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
   const [testing, setTesting] = useState<string | null>(null);
+  const [testPhone, setTestPhone] = useState('5519992612348');
 
   const load = useCallback(async () => {
     const today = new Date().toISOString().slice(0, 10);
@@ -231,12 +232,49 @@ export function LiveGroupAutomations() {
           </CardHeader>
 
           <CardContent className="space-y-6">
+            {/* Instâncias de envio */}
+            <div className="space-y-2">
+              <Label>Instâncias de envio ({a.instance_names?.length ? `${a.instance_names.length} selecionadas` : 'todas'})</Label>
+              <div className="flex flex-wrap gap-2">
+                {instanceOptions.length === 0 && (
+                  <span className="text-sm text-muted-foreground">Nenhuma instância com grupos configurados.</span>
+                )}
+                {instanceOptions.map(([name, count]) => {
+                  const sel = (a.instance_names ?? []).includes(name);
+                  return (
+                    <button
+                      key={name}
+                      type="button"
+                      onClick={() =>
+                        patch(a.id, {
+                          instance_names: sel
+                            ? (a.instance_names ?? []).filter((x) => x !== name)
+                            : [...(a.instance_names ?? []), name],
+                        })
+                      }
+                      className={`px-3 py-1.5 rounded-full border text-xs flex items-center gap-2 transition-colors ${
+                        sel ? 'bg-primary text-primary-foreground border-primary' : 'hover:bg-muted'
+                      }`}
+                    >
+                      {name}
+                      <span className="tabular-nums opacity-70">{count}</span>
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Sem seleção, envia por todas as instâncias dos grupos escolhidos.
+              </p>
+            </div>
+
             {/* Grupos */}
             <div className="space-y-2">
               <Label className="flex items-center gap-2"><Users2 className="w-4 h-4" /> Grupos selecionados ({a.group_ids?.length ?? 0})</Label>
               <div className="max-h-56 overflow-auto rounded-md border divide-y">
                 {groups.length === 0 && <div className="p-3 text-sm text-muted-foreground">Nenhum grupo disponível — adicione grupos na aba Instâncias.</div>}
-                {groups.map((g) => {
+                {groups
+                  .filter((g) => !(a.instance_names ?? []).length || (a.instance_names ?? []).includes(g.instance_name))
+                  .map((g) => {
                   const checked = (a.group_ids ?? []).includes(g.id);
                   return (
                     <label key={g.id} className="flex items-center gap-3 p-2 text-sm cursor-pointer hover:bg-muted/50">
@@ -327,7 +365,15 @@ export function LiveGroupAutomations() {
 
             {/* Próximas lives */}
             <div className="space-y-2">
-              <Label>Próximas lives</Label>
+              <div className="flex items-end justify-between gap-3 flex-wrap">
+                <Label>Próximas lives</Label>
+                <div className="flex items-end gap-2">
+                  <div className="space-y-1">
+                    <Label className="text-xs">Telefone de teste</Label>
+                    <Input className="h-8 w-44" value={testPhone} onChange={(e) => setTestPhone(e.target.value)} placeholder="5519999999999" />
+                  </div>
+                </div>
+              </div>
               <div className="rounded-md border divide-y">
                 {upcoming.length === 0 && <div className="p-3 text-sm text-muted-foreground">Nenhuma live futura agendada.</div>}
                 {upcoming
@@ -360,6 +406,8 @@ export function LiveGroupAutomations() {
                         )}
                         <Button size="sm" variant="ghost" disabled={testing === a.id}
                           onClick={() => preview(a, t.id, 'promo')}>Prévia</Button>
+                        <Button size="sm" variant="ghost" disabled={testing === t.id + 'test'}
+                          onClick={() => sendTest(t.id)}>Testar no telefone</Button>
                         <Button size="sm" variant="outline" disabled={testing === t.id + 'promo' || !!promo}
                           onClick={() => dispatchNow(t.id, 'promo')}>
                           <Send className="w-3.5 h-3.5 mr-1" /> Propaganda
