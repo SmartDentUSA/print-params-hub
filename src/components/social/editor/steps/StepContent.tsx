@@ -484,7 +484,7 @@ export function StepContent({
       const { data } = await supabase
         .from('smartops_course_enrollments')
         .select(
-          'id,turma_id,person_name,instagram,status,area_atuacao,especialidade,empresa_cidade,empresa_estado,empresa_pais,equipment_data',
+          'id,turma_id,person_name,instagram,status,area_atuacao,especialidade,empresa_cidade,empresa_estado,empresa_pais,equipment_data,proposal_items_snapshot',
         )
         .in('turma_id', missing)
         .order('person_name', { ascending: true });
