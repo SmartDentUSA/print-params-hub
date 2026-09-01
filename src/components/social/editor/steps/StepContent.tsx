@@ -186,7 +186,9 @@ export function StepContent({
             .limit(500),
           supabase
             .from('smartops_courses')
-            .select('id,title,slug,category,modality,location,description,marketing_briefing,related_product_names')
+            .select(
+              'id,title,slug,category,modality,location,description,marketing_briefing,related_product_names,duration_days,duration_hours_per_day,recurrence_time_start,recurrence_time_end,recurrence_duration_h',
+            )
             .eq('active', true)
             .order('title', { ascending: true })
             .limit(300),
