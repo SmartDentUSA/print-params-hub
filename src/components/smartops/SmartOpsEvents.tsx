@@ -167,6 +167,9 @@ export function SmartOpsEvents() {
         audience_areas: editing.audience_areas ?? [],
         audience_specialties: editing.audience_specialties ?? [],
         audience_notes: editing.audience_notes || null,
+        speakers: (editing.speakers ?? []).filter((s) => (s?.name || "").trim() || (s?.theme || "").trim()),
+        partner_brands: (editing.partner_brands ?? []).filter((b) => (b?.name || "").trim() || (b?.instagram || "").trim()),
+        instagram_handle: editing.instagram_handle || null,
       };
       if (editing.id) {
         const { error } = await supabase.from("smartops_events").update(payload).eq("id", editing.id);
