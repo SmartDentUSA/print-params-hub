@@ -640,3 +640,6 @@ verify_jwt = false
 
 [functions.youtube-live-thumbnail]
 verify_jwt = false
+
+[functions.live-group-blast-cron]
+verify_jwt = false

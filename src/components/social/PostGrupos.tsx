@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { PostGruposInstanceCard } from './PostGruposInstanceCard';
 import { PostGruposHistory } from './PostGruposHistory';
+import { LiveGroupAutomations } from './LiveGroupAutomations';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Send, Users2, Layers } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
@@ -94,6 +95,7 @@ export function PostGrupos() {
       <Tabs defaultValue="instancias" className="space-y-4">
         <TabsList>
           <TabsTrigger value="instancias">Instâncias</TabsTrigger>
+          <TabsTrigger value="lives">Automação de Lives</TabsTrigger>
           <TabsTrigger value="historico">Histórico de disparos</TabsTrigger>
         </TabsList>
 
@@ -148,9 +150,14 @@ export function PostGrupos() {
           )}
         </TabsContent>
 
+        <TabsContent value="lives">
+          <LiveGroupAutomations />
+        </TabsContent>
+
         <TabsContent value="historico">
           <PostGruposHistory />
         </TabsContent>
+
       </Tabs>
     </div>
   );
