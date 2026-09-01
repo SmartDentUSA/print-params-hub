@@ -922,7 +922,12 @@ export function StepContent({
       const id = val.slice('event:'.length);
       const e = events.find((x) => x.id === id);
       if (e) entry = { ref: val, name: e.name, slug: e.slug || '', category: e.subtitle || 'Evento' };
+    } else if (val.startsWith('turma:')) {
+      const id = val.slice('turma:'.length);
+      const t = turmas.find((x) => x.id === id);
+      if (t) entry = { ref: val, name: t.name, slug: t.slug || '', category: 'Turma' };
     } else if (val.startsWith('training:')) {
+
       const id = val.slice('training:'.length);
       const t = trainings.find((x) => x.id === id);
       if (t) entry = { ref: val, name: t.name, slug: t.slug || '', category: t.subtitle || 'Treinamento' };
