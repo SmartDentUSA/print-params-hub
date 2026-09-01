@@ -20,11 +20,16 @@ interface ReqBody {
   product_slug?: string;
   platform?: string;
   instructions?: string;
+  /** Linhas de fatos (data, local, estande...) que DEVEM aparecer literalmente na caption */
+  hard_facts?: string[];
+  /** Consulta enxuta para o RAG (evita diluir a busca com o briefing inteiro) */
+  rag_query?: string;
   tone?: string;
   language?: string;
   external_enrichment?: any;
   extra_products?: Array<{ name?: string; slug?: string; category?: string }>;
 }
+
 
 function sanitizeHashtags(arr: unknown): string[] {
   if (!Array.isArray(arr)) return [];
