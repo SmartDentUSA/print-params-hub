@@ -686,7 +686,14 @@ export function StepContent({
       const principais = parts.filter((p) => p.tipo !== 'acompanhante');
       const acompanhantes = parts.filter((p) => p.tipo === 'acompanhante');
       const nomes = parts.map((p) => String(p.person_name || '').trim()).filter(Boolean);
-      const igs = parts.map((p) => String(p.instagram || '').trim()).filter(Boolean);
+      const igs = Array.from(new Set(parts.map((p) => normalizeIgHandle(p.instagram)).filter(Boolean))) as string[];
+      const nomesComIg = parts
+        .map((p) => {
+          const n = String(p.person_name || '').trim();
+          const ig = normalizeIgHandle(p.instagram);
+          return n && ig ? `${n} ${ig}` : '';
+        })
+        .filter(Boolean);
       const nomeCidade = parts
         .map((p) => {
           const n = String(p.person_name || '').trim();
