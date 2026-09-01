@@ -80,6 +80,9 @@ function emptyForm(): Partial<EventRow> {
     audience_areas: [],
     audience_specialties: [],
     audience_notes: "",
+    speakers: [],
+    partner_brands: [],
+    instagram_handle: "",
   };
 }
 
