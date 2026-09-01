@@ -257,6 +257,46 @@ export function StepContent({
           };
         }),
       );
+      const courseById = new Map(((courses ?? []) as any[]).map((c) => [String(c.id), c]));
+      setTurmas(
+        ((turmas ?? []) as any[]).map((t) => {
+          const c: any = courseById.get(String(t.course_id)) || {};
+          const num = t.turma_number != null ? `Turma ${t.turma_number}` : t.label || 'Turma';
+          return {
+            id: String(t.id),
+            name: `${num} — ${c.title || 'Treinamento'}`,
+            subtitle:
+              [
+                t.start_date ? new Date(t.start_date).toLocaleDateString('pt-BR') : '',
+                t.location || c.location,
+                t.modality || c.modality,
+              ]
+                .filter(Boolean)
+                .join(' · ') || undefined,
+            slug: c.slug || undefined,
+            meta: {
+              turma_number: t.turma_number,
+              label: t.label,
+              start_date: t.start_date,
+              end_date: t.end_date,
+              modality: t.modality || c.modality,
+              location: t.location || c.location,
+              live_url: t.live_url,
+              course_title: c.title,
+              course_category: c.category,
+              course_description: c.description,
+              course_briefing: c.marketing_briefing,
+              related: c.related_product_names,
+              duration_days: c.duration_days,
+              duration_hours_per_day: c.duration_hours_per_day,
+              recurrence_time_start: c.recurrence_time_start,
+              recurrence_time_end: c.recurrence_time_end,
+              recurrence_duration_h: c.recurrence_duration_h,
+            },
+          };
+        }),
+      );
+
       setEvents(
         ((congresses ?? []) as any[]).map((e) => ({
           id: String(e.id),
