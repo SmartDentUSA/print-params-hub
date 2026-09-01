@@ -782,7 +782,23 @@ export function StepContent({
         if (brands.length) facts.push(`🤝 Parceiras: ${brands.join(' ')}`);
         if (m.website_url) facts.push(`🔗 Site: ${m.website_url}`);
       }
+      if (ref.startsWith('turma:')) {
+        const id = ref.slice('turma:'.length);
+        const t = turmas.find((x) => x.id === id);
+        const m = t?.meta || {};
+        if (m.turma_number != null) facts.push(`🎓 Turma ${m.turma_number} — ${m.course_title || ''}`.trim());
+        if (m.start_date) {
+          const timeStr = fmtTime(m.recurrence_time_start);
+          facts.push(
+            `📅 Data: ${fmtDate(m.start_date)}${m.end_date && m.end_date !== m.start_date ? ` a ${fmtDate(m.end_date)}` : ''}${timeStr ? ` · 🕒 ${timeStr}` : ''}`,
+          );
+        }
+        if (m.location) facts.push(`📍 Local: ${m.location}`);
+        const igs = (turmaParticipants[id] || []).map((p: any) => String(p.instagram || '').trim()).filter(Boolean);
+        if (igs.length) facts.push(`📲 Participantes: ${igs.slice(0, 20).join(' ')}`);
+      }
       if (ref.startsWith('training:')) {
+
         const t = trainings.find((x) => x.id === ref.slice('training:'.length));
         const m = t?.meta || {};
         const next = m.next;
