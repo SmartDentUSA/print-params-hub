@@ -163,62 +163,101 @@ export function StepContent({
   // Catálogo (Sistema A) + Resinas para o dropdown de produto
   const [products, setProducts] = useState<Array<{ id: string; name: string; category?: string; slug?: string }>>([]);
   const [resins, setResins] = useState<Array<{ id: string; name: string; manufacturer: string; slug?: string; type?: string }>>([]);
-  const [events, setEvents] = useState<Array<{ id: string; name: string; subtitle?: string; slug?: string }>>([]); // congressos (smartops_events)
-  const [trainings, setTrainings] = useState<Array<{ id: string; name: string; subtitle?: string; slug?: string }>>([]); // treinamentos (smartops_courses)
-  const [distributors, setDistributors] = useState<Array<{ id: string; name: string; subtitle?: string; slug?: string }>>([]);
+  const [events, setEvents] = useState<Array<{ id: string; name: string; subtitle?: string; slug?: string; meta?: any }>>([]); // congressos (smartops_events)
+  const [trainings, setTrainings] = useState<Array<{ id: string; name: string; subtitle?: string; slug?: string; meta?: any }>>([]); // treinamentos (smartops_courses)
+  const [distributors, setDistributors] = useState<Array<{ id: string; name: string; subtitle?: string; slug?: string; meta?: any }>>([]);
 
   useEffect(() => {
     let mounted = true;
     (async () => {
-      const [{ data: cat }, { data: res }, { data: courses }, { data: dists }, { data: congresses }] = await Promise.all([
-        supabase
-          .from('system_a_catalog')
-          .select('id,name,category,slug')
-          .eq('active', true)
-          .order('name', { ascending: true })
-          .limit(500),
-        supabase
-          .from('resins')
-          .select('id,name,manufacturer,slug,type')
-          .eq('active', true)
-          .order('name', { ascending: true })
-          .limit(500),
-        supabase
-          .from('smartops_courses')
-          .select('id,title,slug,category,modality')
-          .eq('active', true)
-          .order('title', { ascending: true })
-          .limit(300),
-        supabase
-          .from('distributors')
-          .select('id,nome_fantasia,razao_social,slug,pais,estado')
-          .eq('active', true)
-          .order('nome_fantasia', { ascending: true })
-          .limit(300),
-        supabase
-          .from('smartops_events')
-          .select('id,name,country,location,start_date')
-          .eq('is_active', true)
-          .order('start_date', { ascending: true, nullsFirst: false })
-          .limit(300),
-      ]);
+      const [{ data: cat }, { data: res }, { data: courses }, { data: dists }, { data: congresses }, { data: turmas }] =
+        await Promise.all([
+          supabase
+            .from('system_a_catalog')
+            .select('id,name,category,slug')
+            .eq('active', true)
+            .order('name', { ascending: true })
+            .limit(500),
+          supabase
+            .from('resins')
+            .select('id,name,manufacturer,slug,type')
+            .eq('active', true)
+            .order('name', { ascending: true })
+            .limit(500),
+          supabase
+            .from('smartops_courses')
+            .select('id,title,slug,category,modality,location,description,marketing_briefing,related_product_names')
+            .eq('active', true)
+            .order('title', { ascending: true })
+            .limit(300),
+          supabase
+            .from('distributors')
+            .select(
+              'id,nome_fantasia,razao_social,slug,pais,estado,cidade,linhas_representadas,canal_venda,instagram,notes',
+            )
+            .eq('active', true)
+            .order('nome_fantasia', { ascending: true })
+            .limit(300),
+          supabase
+            .from('smartops_events')
+            .select('id,name,country,location,start_date,end_date,about_event_pt,company_stand,slug')
+            .eq('is_active', true)
+            .order('start_date', { ascending: true, nullsFirst: false })
+            .limit(300),
+          supabase
+            .from('smartops_course_turmas')
+            .select('course_id,start_date,end_date,modality,label,live_url,location')
+            .eq('active', true)
+            .order('start_date', { ascending: true, nullsFirst: false })
+            .limit(1000),
+        ]);
       if (!mounted) return;
+      const turmasByCourse = new Map<string, any[]>();
+      for (const t of (turmas ?? []) as any[]) {
+        const arr = turmasByCourse.get(String(t.course_id)) || [];
+        arr.push(t);
+        turmasByCourse.set(String(t.course_id), arr);
+      }
       setProducts((cat ?? []) as any);
       setResins((res ?? []) as any);
       setTrainings(
-        ((courses ?? []) as any[]).map((c) => ({
-          id: String(c.id),
-          name: c.title || 'Treinamento',
-          subtitle: [c.modality, c.category].filter(Boolean).join(' · ') || undefined,
-          slug: c.slug || undefined,
-        })),
+        ((courses ?? []) as any[]).map((c) => {
+          const list = turmasByCourse.get(String(c.id)) || [];
+          const now = Date.now();
+          const future = list.filter((t) => t.start_date && new Date(t.start_date).getTime() >= now);
+          const past = list.filter((t) => t.start_date && new Date(t.start_date).getTime() < now);
+          return {
+            id: String(c.id),
+            name: c.title || 'Treinamento',
+            subtitle: [c.modality, c.category].filter(Boolean).join(' · ') || undefined,
+            slug: c.slug || undefined,
+            meta: {
+              modality: c.modality,
+              category: c.category,
+              location: c.location,
+              description: c.description,
+              briefing: c.marketing_briefing,
+              related: c.related_product_names,
+              next: future[0] || null,
+              last: past[past.length - 1] || null,
+            },
+          };
+        }),
       );
       setEvents(
         ((congresses ?? []) as any[]).map((e) => ({
           id: String(e.id),
           name: e.name || 'Evento',
           subtitle: [e.location, e.country].filter(Boolean).join(' · ') || undefined,
-          slug: undefined,
+          slug: e.slug || undefined,
+          meta: {
+            country: e.country,
+            location: e.location,
+            start_date: e.start_date,
+            end_date: e.end_date,
+            about: e.about_event_pt,
+            stand: e.company_stand,
+          },
         })),
       );
       setDistributors(
@@ -227,6 +266,15 @@ export function StepContent({
           name: d.nome_fantasia || d.razao_social || 'Distribuidor',
           subtitle: [d.estado, d.pais].filter(Boolean).join(' · ') || undefined,
           slug: d.slug || undefined,
+          meta: {
+            pais: d.pais,
+            estado: d.estado,
+            cidade: d.cidade,
+            linhas: d.linhas_representadas,
+            canal: d.canal_venda,
+            instagram: d.instagram,
+            notes: d.notes,
+          },
         })),
       );
     })();
@@ -315,6 +363,16 @@ export function StepContent({
         product_slug: e.slug || '',
         product_category: e.subtitle || 'Evento',
       });
+    } else if (val.startsWith('training:')) {
+      const id = val.slice('training:'.length);
+      const t = trainings.find((x) => x.id === id);
+      if (!t) return;
+      onChange({
+        product_ref: val,
+        product_name: t.name,
+        product_slug: t.slug || '',
+        product_category: t.subtitle || 'Treinamento',
+      });
     } else if (val.startsWith('distributor:')) {
       const id = val.slice('distributor:'.length);
       const d = distributors.find((x) => x.id === id);
@@ -349,13 +407,105 @@ export function StepContent({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [produtoSlug, products, resins, value.product_ref]);
 
+  // ─── Briefing de contexto por tipo de item selecionado ───
+  const fmtDate = (d?: string | null) =>
+    d ? new Date(d).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' }) : '';
+
+  const briefForRef = (ref: string): string | null => {
+    if (ref.startsWith('distributor:')) {
+      const d = distributors.find((x) => x.id === ref.slice('distributor:'.length));
+      if (!d) return null;
+      const m = d.meta || {};
+      const local = [m.cidade, m.estado, m.pais].filter(Boolean).join(' / ');
+      const linhas = Array.isArray(m.linhas) && m.linhas.length ? m.linhas.join(', ') : '';
+      return [
+        `CONTEXTO — NOVO DISTRIBUIDOR: anuncie que a empresa "${d.name}"${m.pais ? ` (${m.pais})` : ''} passou a ser distribuidora oficial do portfólio Smart Dent | Fluxo Digital.`,
+        local ? `Localização: ${local}.` : '',
+        linhas ? `Linhas representadas: ${linhas}.` : '',
+        m.canal ? `Canal de venda: ${m.canal}.` : '',
+        m.instagram ? `Instagram do distribuidor: ${m.instagram} (mencione o perfil).` : '',
+        m.notes ? `Notas da base: ${String(m.notes).slice(0, 400)}` : '',
+        'Tom: boas-vindas institucional + benefício para o profissional da região (suporte local, treinamento e acesso ao portfólio). CTA: "saiba mais" e "link na bio".',
+      ]
+        .filter(Boolean)
+        .join(' ');
+    }
+    if (ref.startsWith('training:')) {
+      const t = trainings.find((x) => x.id === ref.slice('training:'.length));
+      if (!t) return null;
+      const m = t.meta || {};
+      const mod = String(m.modality || '').toLowerCase();
+      const cat = String(m.category || '').toLowerCase();
+      const isLive = mod.includes('online') || mod.includes('live') || cat.includes('live');
+      const isImersao = mod.includes('presencial') || cat.includes('imers');
+      const next = m.next;
+      const last = m.last;
+      const tipo = isLive
+        ? 'LIVE / transmissão online'
+        : isImersao
+          ? 'IMERSÃO PRESENCIAL (mão na massa)'
+          : 'TREINAMENTO DIGITAL';
+      const parts = [
+        `CONTEXTO — ${tipo}: "${t.name}".`,
+        m.modality ? `Modalidade: ${m.modality}.` : '',
+        m.location ? `Local: ${m.location}.` : '',
+        m.description ? `Sobre: ${String(m.description).slice(0, 500)}` : '',
+        m.briefing ? `Briefing de marketing: ${String(m.briefing).slice(0, 500)}` : '',
+        Array.isArray(m.related) && m.related.length ? `Equipamentos/produtos envolvidos: ${m.related.join(', ')}.` : '',
+      ];
+      if (next?.start_date) {
+        parts.push(
+          `Próxima data: ${fmtDate(next.start_date)}${next.location ? ` — ${next.location}` : ''}. Escreva no FUTURO, gerando desejo de participar/assistir${isLive ? ' a live ao vivo' : ''}.`,
+        );
+        if (isLive) parts.push('Reforce que é ao vivo, gratuito e com demonstração prática; convide a ativar o lembrete.');
+      } else if (last?.start_date) {
+        parts.push(
+          `Última edição: ${fmtDate(last.start_date)}${last.location ? ` — ${last.location}` : ''}. Escreva no PASSADO (recapitulação/prova social do que aconteceu) e convide para a próxima turma.`,
+        );
+      }
+      parts.push(
+        isLive
+          ? 'CTA: "assista pelo link na bio" + "saiba mais".'
+          : 'CTA: "garanta sua vaga pelo link na bio" + "saiba mais".',
+      );
+      return parts.filter(Boolean).join(' ');
+    }
+    if (ref.startsWith('event:')) {
+      const e = events.find((x) => x.id === ref.slice('event:'.length));
+      if (!e) return null;
+      const m = e.meta || {};
+      const start = m.start_date ? new Date(m.start_date).getTime() : null;
+      const isPast = start !== null && start < Date.now();
+      return [
+        `CONTEXTO — CONGRESSO/EVENTO: "${e.name}".`,
+        [m.location, m.country].filter(Boolean).join(' · ') ? `Local: ${[m.location, m.country].filter(Boolean).join(' · ')}.` : '',
+        m.start_date ? `Data: ${fmtDate(m.start_date)}${m.end_date ? ` a ${fmtDate(m.end_date)}` : ''}.` : '',
+        m.stand ? `Estande Smart Dent: ${m.stand}.` : '',
+        m.about ? `Sobre o evento: ${String(m.about).slice(0, 500)}` : '',
+        isPast
+          ? 'Escreva no PASSADO (retrospectiva, agradecimento a quem visitou o estande).'
+          : 'Escreva no FUTURO, convidando a visitar o estande Smart Dent.',
+        'CTA: "saiba mais" + "link na bio".',
+      ]
+        .filter(Boolean)
+        .join(' ');
+    }
+    return null;
+  };
+
+  const buildContextBrief = (): string => {
+    const refs = [value.product_ref, ...(value.extra_products || []).map((e) => e.ref)].filter(Boolean) as string[];
+    return refs.map(briefForRef).filter(Boolean).join('\n');
+  };
+
   const handleGenerate = async () => {
     try {
+      const contextBrief = buildContextBrief();
       const res = await generate.mutateAsync({
         product_name: value.product_name || undefined,
         product_slug: value.product_slug || undefined,
         platform,
-        instructions: aiInstructions || undefined,
+        instructions: [contextBrief, aiInstructions].filter(Boolean).join('\n\n') || undefined,
         tone: aiTone,
         language: 'pt-BR',
         external_enrichment: knowledge.data?.enrichment || undefined,
@@ -416,6 +566,10 @@ export function StepContent({
       const id = val.slice('event:'.length);
       const e = events.find((x) => x.id === id);
       if (e) entry = { ref: val, name: e.name, slug: e.slug || '', category: e.subtitle || 'Evento' };
+    } else if (val.startsWith('training:')) {
+      const id = val.slice('training:'.length);
+      const t = trainings.find((x) => x.id === id);
+      if (t) entry = { ref: val, name: t.name, slug: t.slug || '', category: t.subtitle || 'Treinamento' };
     } else if (val.startsWith('distributor:')) {
       const id = val.slice('distributor:'.length);
       const d = distributors.find((x) => x.id === id);
@@ -583,6 +737,7 @@ export function StepContent({
               products={products}
               resins={resins as any}
               events={events}
+              trainings={trainings}
               distributors={distributors}
             />
             {value.product_name && (
@@ -630,6 +785,7 @@ export function StepContent({
                   products={products}
                   resins={resins as any}
                   events={events}
+                  trainings={trainings}
                   distributors={distributors}
                 />
               )}
