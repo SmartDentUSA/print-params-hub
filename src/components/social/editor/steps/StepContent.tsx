@@ -803,7 +803,9 @@ export function StepContent({
       );
       return [
         `CONTEXTO — TURMA ESPECÍFICA${m.turma_number != null ? ` Nº ${m.turma_number}` : ''} do treinamento "${m.course_title || t.name}".`,
+        isChairsideTraining(m.course_title, t.name) ? CHAIRSIDE_KNOWLEDGE : '',
         m.modality ? `Modalidade: ${m.modality}.` : '',
+
         m.start_date
           ? `📅 Data: ${fmtDate(m.start_date)}${m.end_date && m.end_date !== m.start_date ? ` a ${fmtDate(m.end_date)}` : ''}${fmtTime(m.recurrence_time_start) ? ` · 🕒 ${fmtTime(m.recurrence_time_start)}` : ''}.`
           : '',
