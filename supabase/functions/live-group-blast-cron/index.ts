@@ -34,6 +34,7 @@ type Automation = {
   name: string;
   enabled: boolean;
   group_ids: string[];
+  instance_names: string[] | null;
   course_ids: string[];
   promo_enabled: boolean;
   promo_days_before: number;
