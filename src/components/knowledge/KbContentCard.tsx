@@ -4,6 +4,7 @@ import { Share2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { getStorageImageUrl } from '@/utils/storageImage';
+import { shortenUrl } from '@/utils/shortLink';
 
 export interface KbContentCardData {
   id: string;
