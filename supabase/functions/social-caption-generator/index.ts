@@ -425,7 +425,19 @@ Deno.serve(async (req) => {
         console.warn("[caption] extra product ctx err", (e as Error).message);
       }
     }
-    const ragQuery = [body.product_name, body.product_slug, body.instructions].filter(Boolean).join(" ").trim();
+    const ragQuery = (
+      body.rag_query?.trim() ||
+      [
+        body.product_name,
+        body.product_slug,
+        ...(body.extra_products || []).map((p) => p?.name || p?.slug || ""),
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .trim() ||
+      String(body.instructions || "").slice(0, 300)
+    ).trim();
+
     const ragCtx = await fetchKnowledgeRag(ragQuery);
 
     let exportEnr: any = body.external_enrichment || null;
