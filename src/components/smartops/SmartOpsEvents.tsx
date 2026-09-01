@@ -46,6 +46,9 @@ type EventRow = {
   audience_areas: string[] | null;
   audience_specialties: string[] | null;
   audience_notes: string | null;
+  speakers: EventSpeaker[] | null;
+  partner_brands: EventPartnerBrand[] | null;
+  instagram_handle: string | null;
 };
 
 const ALL_COUNTRIES = Country.getAllCountries();
