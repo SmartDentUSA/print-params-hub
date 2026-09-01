@@ -202,7 +202,7 @@ export function StepContent({
             .limit(300),
           supabase
             .from('smartops_events')
-            .select('id,name,country,location,start_date,end_date,about_event_pt,company_stand,slug')
+            .select('id,name,country,location,start_date,end_date,about_event_pt,company_stand,slug,audience_areas,audience_specialties,audience_notes')
             .eq('is_active', true)
             .order('start_date', { ascending: true, nullsFirst: false })
             .limit(300),
@@ -264,6 +264,9 @@ export function StepContent({
             end_date: e.end_date,
             about: e.about_event_pt,
             stand: e.company_stand,
+            audience_areas: e.audience_areas,
+            audience_specialties: e.audience_specialties,
+            audience_notes: e.audience_notes,
           },
         })),
       );
@@ -528,6 +531,17 @@ export function StepContent({
           : '',
         m.stand ? `🏢 Estande Smart Dent: ${m.stand}.` : '',
         m.about ? `Sobre o evento: ${String(m.about).slice(0, 500)}` : '',
+        Array.isArray(m.audience_areas) && m.audience_areas.length
+          ? `👥 Áreas de atuação do público presente: ${m.audience_areas.join(', ')}.`
+          : '',
+        Array.isArray(m.audience_specialties) && m.audience_specialties.length
+          ? `🦷 Especialidades do público presente: ${m.audience_specialties.join(', ')}.`
+          : '',
+        m.audience_notes ? `Observações sobre o público: ${String(m.audience_notes).slice(0, 300)}` : '',
+        (Array.isArray(m.audience_areas) && m.audience_areas.length) ||
+        (Array.isArray(m.audience_specialties) && m.audience_specialties.length)
+          ? 'OBRIGATÓRIO: conecte cada produto selecionado às áreas de atuação e especialidades do público presente, citando a aplicação clínica/laboratorial concreta para esse público (sem preços).'
+          : '',
         isPast
           ? 'Escreva no PASSADO (retrospectiva, agradecimento a quem visitou o estande).'
           : 'Escreva no FUTURO, convidando a visitar o estande Smart Dent.',

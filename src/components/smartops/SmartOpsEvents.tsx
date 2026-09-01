@@ -16,6 +16,7 @@ import { Country } from "country-state-city";
 import { cn } from "@/lib/utils";
 import CoverImageUpload from "@/components/smartops/CoverImageUpload";
 import { EventWebResearchButton, EventReferenceUploads, EventAboutByLanguage, EventCoverByLanguage } from "@/components/smartops/events/EventAIPanels";
+import EventAudienceFields from "@/components/smartops/events/EventAudienceFields";
 
 type EventRow = {
   id: string;
@@ -41,6 +42,9 @@ type EventRow = {
   ai_image_prompt_pt: string | null;
   ai_image_prompt_en: string | null;
   ai_image_prompt_es: string | null;
+  audience_areas: string[] | null;
+  audience_specialties: string[] | null;
+  audience_notes: string | null;
 };
 
 const ALL_COUNTRIES = Country.getAllCountries();
@@ -69,6 +73,9 @@ function emptyForm(): Partial<EventRow> {
     ai_image_prompt_pt: "",
     ai_image_prompt_en: "",
     ai_image_prompt_es: "",
+    audience_areas: [],
+    audience_specialties: [],
+    audience_notes: "",
   };
 }
 
@@ -150,6 +157,9 @@ export function SmartOpsEvents() {
         ai_image_prompt_pt: editing.ai_image_prompt_pt || null,
         ai_image_prompt_en: editing.ai_image_prompt_en || null,
         ai_image_prompt_es: editing.ai_image_prompt_es || null,
+        audience_areas: editing.audience_areas ?? [],
+        audience_specialties: editing.audience_specialties ?? [],
+        audience_notes: editing.audience_notes || null,
       };
       if (editing.id) {
         const { error } = await supabase.from("smartops_events").update(payload).eq("id", editing.id);
@@ -347,6 +357,13 @@ export function SmartOpsEvents() {
                   </div>
                 </div>
               </div>
+
+              <EventAudienceFields
+                areas={(editing.audience_areas as string[]) || []}
+                specialties={(editing.audience_specialties as string[]) || []}
+                notes={editing.audience_notes}
+                onChange={(patch) => setEditing({ ...editing, ...patch } as any)}
+              />
 
               <div className="space-y-2 border rounded-md p-3">
                 <Label className="text-sm font-semibold">Sobre o evento (por idioma)</Label>
