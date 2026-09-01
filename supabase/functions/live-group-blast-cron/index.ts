@@ -82,6 +82,10 @@ serve(async (req) => {
   const dryRun = body?.dry_run === true;
   const forceTurmaId: string | null = typeof body?.turma_id === 'string' ? body.turma_id : null;
   const forceKind: 'promo' | 'live' | null = body?.kind === 'promo' || body?.kind === 'live' ? body.kind : null;
+  // Envio de teste: manda as mensagens para um telefone (não para grupos, não grava log/dedupe)
+  const testPhone: string | null = typeof body?.test_phone === 'string' && body.test_phone.replace(/\D/g, '').length >= 10
+    ? body.test_phone.replace(/\D/g, '')
+    : null;
 
   const { data: autos } = await sb.from('live_group_automations').select('*');
   const automations = ((autos ?? []) as Automation[]).filter((a) => a.enabled || forceTurmaId);
