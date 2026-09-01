@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { useBioPage, DEFAULT_LOGO_URL, type BioItem, type BioSocialLinks } from "@/hooks/useBioPages";
 import { useEffect, useState } from "react";
 import catalogoBanner from "@/assets/catalogo-produtos-banner.webp";
+import parametrizeBanner from "@/assets/parametrize-printer-banner.webp";
 
 
 
@@ -132,10 +133,19 @@ export default function PublicBioPage() {
           <div className="mt-5 flex w-full flex-col items-stretch gap-3 px-2 sm:px-0">
             <a
               href="/base-conhecimento?tab=parametros"
-              className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground shadow-sm transition-all hover:-translate-y-0.5 hover:bg-primary/90 hover:shadow-md"
+              className="group flex w-full flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md"
             >
-              <SlidersHorizontal className="h-4 w-4" />
-              Parametrize sua impressora
+              <img
+                src={parametrizeBanner}
+                alt="Parametrize sua impressora 3D Smart Dent com resinas e configurações otimizadas"
+                loading="lazy"
+                decoding="async"
+                className="block h-auto w-full bg-white object-contain transition-transform duration-300 group-hover:scale-[1.02]"
+              />
+              <span className="inline-flex items-center justify-center gap-2 px-5 py-3 text-sm font-semibold text-foreground">
+                <SlidersHorizontal className="h-4 w-4" />
+                Parametrize sua impressora
+              </span>
             </a>
             <a
               href="https://parametros.smartdent.com.br/base-conhecimento?tab=catalogo&_cb=1788186308518&cat=resinas_3d"
