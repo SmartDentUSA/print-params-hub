@@ -128,13 +128,20 @@ export default function KbContentCard({ data, index, buttonLabel, onClick, thumb
         {data.imageUrl ? (
           <img
             className="kb-cthumb"
-            src={getStorageImageUrl(data.imageUrl, { width: thumbW, height: thumbH, quality: 65, resize: "cover" })}
+            src={getStorageImageUrl(data.imageUrl, { width: thumbW, height: thumbH, quality: 60, resize: "cover" })}
+            srcSet={[
+              `${getStorageImageUrl(data.imageUrl, { width: Math.round(thumbW * 0.6), height: Math.round(thumbH * 0.6), quality: 55, resize: "cover" })} ${Math.round(thumbW * 0.6)}w`,
+              `${getStorageImageUrl(data.imageUrl, { width: thumbW, height: thumbH, quality: 60, resize: "cover" })} ${thumbW}w`,
+            ].join(', ')}
+            sizes="(max-width: 640px) 92vw, (max-width: 1024px) 45vw, 300px"
             alt={data.title}
-            loading="lazy"
+            loading={index < 4 ? 'eager' : 'lazy'}
+            fetchPriority={index < 2 ? 'high' : 'auto'}
             decoding="async"
             width={thumbW}
             height={thumbH}
           />
+
         ) : (
           <div className="kb-cthumb kb-cthumb-fallback" style={{ background: cat.gradient }}>
             <span>{cat.emoji}</span>
