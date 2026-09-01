@@ -950,21 +950,11 @@ export function StepContent({
         }
         if (m.location) facts.push(`📍 Local: ${m.location}`);
         const parts = (turmaParticipants[id] || []) as any[];
-        const igs = Array.from(
-          new Set(parts.map((p: any) => normalizeIgHandle(p.instagram)).filter(Boolean)),
-        ) as string[];
-        if (igs.length) facts.push(`📲 Marcar participantes: ${igs.slice(0, 30).join(' ')}`);
-        const cidades = Array.from(
-          new Set(
-            parts
-              .map((p) => [p.empresa_cidade, p.empresa_estado].filter(Boolean).join('/'))
-              .filter(Boolean),
-          ),
-        );
-        if (cidades.length) facts.push(`🏙️ Origem dos participantes: ${cidades.slice(0, 12).join(', ')}`);
-        const eq = (turmaExtras[id]?.equipment || []).concat(Array.isArray(m.related) ? m.related : []);
-        const eqU = Array.from(new Set(eq.filter(Boolean)));
-        if (eqU.length) facts.push(`🖨️ Equipamentos: ${eqU.slice(0, 8).join(', ')}`);
+        const linhas = buildParticipantLines(parts);
+        if (linhas.length) {
+          facts.push(`👥 Participantes (uma linha por inscrito, copiar igual):\n${linhas.join('\n')}`);
+        }
+
       }
       if (ref.startsWith('training:')) {
 
