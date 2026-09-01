@@ -21,7 +21,7 @@ const DEFAULT_PROMO = `🔴 *AMANHÃ TEM LIVE* — {{titulo}}
 🎥 Transmissão ao vivo no YouTube
 🎓 Com {{instrutor}}
 
-👉 Garanta sua vaga: {{inscricao}}`;
+👉 Assista ao vivo: {{live_url}}`;
 
 const DEFAULT_LIVE = `🔴 *ESTAMOS AO VIVO EM 5 MINUTOS!*
 
@@ -55,6 +55,18 @@ function fmtTime(t: string | null): string {
 }
 function render(tpl: string, ctx: Record<string, string>): string {
   return tpl.replace(/\{\{\s*([\w.]+)\s*\}\}/g, (_, k) => ctx[k] ?? '');
+}
+
+/** ID do vídeo/live do YouTube a partir de qualquer formato de URL. */
+function youtubeId(url: string | null | undefined): string | null {
+  if (!url) return null;
+  const m = String(url).match(/(?:live\/|shorts\/|v=|embed\/|youtu\.be\/)([\w-]{6,})/);
+  return m ? m[1] : null;
+}
+/** Thumb oficial da live no YouTube (maxres, com fallback hq). */
+function youtubeThumb(url: string | null | undefined): string | null {
+  const id = youtubeId(url);
+  return id ? `https://img.youtube.com/vi/${id}/maxresdefault.jpg` : null;
 }
 
 async function shorten(sb: any, url: string, produto: string): Promise<string> {
@@ -150,19 +162,23 @@ serve(async (req) => {
       const dayRef = new Date(`${dateIso}T12:00:00Z`);
       const startUtc = spDateTimeToUtc(dayRef, sh, sm).getTime();
 
-      const inscricao = course.slug
-        ? await shorten(sb, `${PUBLIC_ORIGIN}/inscricao/${course.slug}`, `live-${course.slug}`)
-        : (t.live_url ?? '');
+      // O link divulgado é sempre o do YouTube da live (encurtado); inscrição só como fallback.
+      const rawLive = t.live_url ? String(t.live_url) : '';
+      const liveShort = rawLive
+        ? await shorten(sb, rawLive, `live-${course.slug ?? t.id}`)
+        : (course.slug ? await shorten(sb, `${PUBLIC_ORIGIN}/inscricao/${course.slug}`, `live-${course.slug}`) : '');
+      const inscricao = liveShort;
       const ctx: Record<string, string> = {
         titulo: String(course.title ?? t.label ?? 'Live Smart Dent'),
         turma: t.turma_number ? `#${t.turma_number}` : '',
         data: fmtDate(dateIso),
         hora: startTime,
         instrutor: String(course.instructor_name ?? 'Smart Dent'),
-        live_url: String(t.live_url ?? ''),
+        live_url: liveShort || rawLive,
         inscricao,
       };
-      const media = t.live_thumbnail_url || course.cover_image_url || null;
+      // Thumb da própria live: manual > thumb oficial do YouTube > capa do curso.
+      const media = t.live_thumbnail_url || youtubeThumb(rawLive) || course.cover_image_url || null;
 
       const jobs: { kind: 'promo' | 'live'; due: number; windowMs: number; text: string }[] = [];
 
