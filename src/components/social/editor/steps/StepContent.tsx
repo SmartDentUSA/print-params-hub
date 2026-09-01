@@ -186,7 +186,9 @@ export function StepContent({
             .limit(500),
           supabase
             .from('smartops_courses')
-            .select('id,title,slug,category,modality,location,description,marketing_briefing,related_product_names')
+            .select(
+              'id,title,slug,category,modality,location,description,marketing_briefing,related_product_names,duration_days,duration_hours_per_day,recurrence_time_start,recurrence_time_end,recurrence_duration_h',
+            )
             .eq('active', true)
             .order('title', { ascending: true })
             .limit(300),
@@ -238,6 +240,11 @@ export function StepContent({
               description: c.description,
               briefing: c.marketing_briefing,
               related: c.related_product_names,
+              duration_days: c.duration_days,
+              duration_hours_per_day: c.duration_hours_per_day,
+              recurrence_time_start: c.recurrence_time_start,
+              recurrence_time_end: c.recurrence_time_end,
+              recurrence_duration_h: c.recurrence_duration_h,
               next: future[0] || null,
               last: past[past.length - 1] || null,
             },
@@ -410,6 +417,11 @@ export function StepContent({
   // ─── Briefing de contexto por tipo de item selecionado ───
   const fmtDate = (d?: string | null) =>
     d ? new Date(d).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' }) : '';
+  const fmtTime = (t?: string | null) => {
+    if (!t) return '';
+    const [h, m] = t.split(':');
+    return `${h?.padStart(2, '0') ?? '00'}:${m?.padStart(2, '0') ?? '00'}`;
+  };
 
   const briefForRef = (ref: string): string | null => {
     if (ref.startsWith('distributor:')) {
@@ -445,6 +457,9 @@ export function StepContent({
         : isImersao
           ? 'IMERSÃO PRESENCIAL (mão na massa)'
           : 'TREINAMENTO DIGITAL';
+      const durationHours =
+        m.recurrence_duration_h ??
+        (m.duration_days && m.duration_hours_per_day ? m.duration_days * m.duration_hours_per_day : null);
       const parts = [
         `CONTEXTO — ${tipo}: "${t.name}".`,
         m.modality ? `Modalidade: ${m.modality}.` : '',
@@ -454,20 +469,29 @@ export function StepContent({
         Array.isArray(m.related) && m.related.length ? `Equipamentos/produtos envolvidos: ${m.related.join(', ')}.` : '',
       ];
       if (next?.start_date) {
+        const timeStr = fmtTime(m.recurrence_time_start);
+        const dateLine = `📅 Data: ${fmtDate(next.start_date)}${timeStr ? ` às 🕒 ${timeStr}` : ''}${next.location ? ` — 📍 ${next.location}` : ''}`;
+        const durationLine = durationHours ? `⏱️ Duração: ${Number(durationHours).toFixed(0)}h.` : '';
         parts.push(
-          `Próxima data: ${fmtDate(next.start_date)}${next.location ? ` — ${next.location}` : ''}. Escreva no FUTURO, gerando desejo de participar/assistir${isLive ? ' a live ao vivo' : ''}.`,
+          `${dateLine}.${durationLine ? ` ${durationLine}` : ''} Escreva no FUTURO, gerando desejo de participar/assistir${isLive ? ' a live ao vivo' : ''}.`,
         );
-        if (isLive) parts.push('Reforce que é ao vivo, gratuito e com demonstração prática; convide a ativar o lembrete.');
+        if (isLive) {
+          parts.push(
+            'Reforce que é ao vivo, gratuito e com demonstração prática; convide a ativar o lembrete. CTA obrigatório: "Digite LIVE e receba todas as informações" + "link na bio" + "saiba mais".',
+          );
+        }
       } else if (last?.start_date) {
         parts.push(
           `Última edição: ${fmtDate(last.start_date)}${last.location ? ` — ${last.location}` : ''}. Escreva no PASSADO (recapitulação/prova social do que aconteceu) e convide para a próxima turma.`,
         );
       }
-      parts.push(
-        isLive
-          ? 'CTA: "assista pelo link na bio" + "saiba mais".'
-          : 'CTA: "garanta sua vaga pelo link na bio" + "saiba mais".',
-      );
+      if (!isLive) {
+        parts.push(
+          isImersao
+            ? 'CTA: "garanta sua vaga pelo link na bio" + "saiba mais".'
+            : 'CTA: "inscreva-se pelo link na bio" + "saiba mais".',
+        );
+      }
       return parts.filter(Boolean).join(' ');
     }
     if (ref.startsWith('event:')) {
@@ -478,14 +502,17 @@ export function StepContent({
       const isPast = start !== null && start < Date.now();
       return [
         `CONTEXTO — CONGRESSO/EVENTO: "${e.name}".`,
-        [m.location, m.country].filter(Boolean).join(' · ') ? `Local: ${[m.location, m.country].filter(Boolean).join(' · ')}.` : '',
-        m.start_date ? `Data: ${fmtDate(m.start_date)}${m.end_date ? ` a ${fmtDate(m.end_date)}` : ''}.` : '',
-        m.stand ? `Estande Smart Dent: ${m.stand}.` : '',
+        m.country ? `🌍 País: ${m.country}.` : '',
+        m.location ? `📍 Local: ${m.location}.` : '',
+        m.start_date
+          ? `📅 Data: ${fmtDate(m.start_date)}${m.end_date ? ` a ${fmtDate(m.end_date)}` : ''}.`
+          : '',
+        m.stand ? `🏢 Estande Smart Dent: ${m.stand}.` : '',
         m.about ? `Sobre o evento: ${String(m.about).slice(0, 500)}` : '',
         isPast
           ? 'Escreva no PASSADO (retrospectiva, agradecimento a quem visitou o estande).'
           : 'Escreva no FUTURO, convidando a visitar o estande Smart Dent.',
-        'CTA: "saiba mais" + "link na bio".',
+        'CTA obrigatório: "Digite CONGRESSO e receba condições especiais, descontos mesmo não participando presencialmente" + "saiba mais" + "link na bio".',
       ]
         .filter(Boolean)
         .join(' ');
