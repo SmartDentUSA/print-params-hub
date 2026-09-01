@@ -130,7 +130,7 @@ export const KnowledgeFeed = () => {
         className="w-full"
       >
         <CarouselContent className="-ml-1 md:-ml-4">
-          {articles.map((article) => {
+          {articles.map((article, idx) => {
             const imageUrl = article.og_image_url || article.content_image_url || '/placeholder.svg';
             const imageAlt = article.content_image_alt || article.title;
             const categoryLetter = article.knowledge_categories?.letter || 'A';
@@ -149,14 +149,18 @@ export const KnowledgeFeed = () => {
                 >
                   <div className="aspect-video overflow-hidden bg-muted">
                     <img
-                      src={getStorageImageUrl(imageUrl, { width: 480, height: 270, quality: 65, resize: 'cover' })}
+                      src={getStorageImageUrl(imageUrl, { width: 480, height: 270, quality: 60, resize: 'cover' })}
+                      srcSet={`${getStorageImageUrl(imageUrl, { width: 288, height: 162, quality: 55, resize: 'cover' })} 288w, ${getStorageImageUrl(imageUrl, { width: 480, height: 270, quality: 60, resize: 'cover' })} 480w`}
+                      sizes="(max-width: 640px) 92vw, (max-width: 1024px) 33vw, 240px"
                       alt={imageAlt}
                       className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
-                      loading="lazy"
+                      loading={idx < 3 ? 'eager' : 'lazy'}
+                      fetchPriority={idx < 2 ? 'high' : 'auto'}
                       decoding="async"
                       width={480}
                       height={270}
                     />
+
                   </div>
                   
                   <div className="p-6 sm:p-4 space-y-4">
