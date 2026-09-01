@@ -646,6 +646,7 @@ export function StepContent({
         if (m.instagram_handle) facts.push(`📲 Evento: ${m.instagram_handle}`);
         const brands = brandMentions(m.partner_brands);
         if (brands.length) facts.push(`🤝 Parceiras: ${brands.join(' ')}`);
+        if (m.website_url) facts.push(`🔗 Site: ${m.website_url}`);
       }
       if (ref.startsWith('training:')) {
         const t = trainings.find((x) => x.id === ref.slice('training:'.length));
