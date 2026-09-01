@@ -457,6 +457,9 @@ export function StepContent({
         : isImersao
           ? 'IMERSÃO PRESENCIAL (mão na massa)'
           : 'TREINAMENTO DIGITAL';
+      const durationHours =
+        m.recurrence_duration_h ??
+        (m.duration_days && m.duration_hours_per_day ? m.duration_days * m.duration_hours_per_day : null);
       const parts = [
         `CONTEXTO — ${tipo}: "${t.name}".`,
         m.modality ? `Modalidade: ${m.modality}.` : '',
@@ -466,20 +469,29 @@ export function StepContent({
         Array.isArray(m.related) && m.related.length ? `Equipamentos/produtos envolvidos: ${m.related.join(', ')}.` : '',
       ];
       if (next?.start_date) {
+        const timeStr = fmtTime(m.recurrence_time_start);
+        const dateLine = `📅 Data: ${fmtDate(next.start_date)}${timeStr ? ` às 🕒 ${timeStr}` : ''}${next.location ? ` — 📍 ${next.location}` : ''}`;
+        const durationLine = durationHours ? `⏱️ Duração: ${Number(durationHours).toFixed(0)}h.` : '';
         parts.push(
-          `Próxima data: ${fmtDate(next.start_date)}${next.location ? ` — ${next.location}` : ''}. Escreva no FUTURO, gerando desejo de participar/assistir${isLive ? ' a live ao vivo' : ''}.`,
+          `${dateLine}.${durationLine ? ` ${durationLine}` : ''} Escreva no FUTURO, gerando desejo de participar/assistir${isLive ? ' a live ao vivo' : ''}.`,
         );
-        if (isLive) parts.push('Reforce que é ao vivo, gratuito e com demonstração prática; convide a ativar o lembrete.');
+        if (isLive) {
+          parts.push(
+            'Reforce que é ao vivo, gratuito e com demonstração prática; convide a ativar o lembrete. CTA obrigatório: "Digite LIVE e receba todas as informações" + "link na bio" + "saiba mais".',
+          );
+        }
       } else if (last?.start_date) {
         parts.push(
           `Última edição: ${fmtDate(last.start_date)}${last.location ? ` — ${last.location}` : ''}. Escreva no PASSADO (recapitulação/prova social do que aconteceu) e convide para a próxima turma.`,
         );
       }
-      parts.push(
-        isLive
-          ? 'CTA: "assista pelo link na bio" + "saiba mais".'
-          : 'CTA: "garanta sua vaga pelo link na bio" + "saiba mais".',
-      );
+      if (!isLive) {
+        parts.push(
+          isImersao
+            ? 'CTA: "garanta sua vaga pelo link na bio" + "saiba mais".'
+            : 'CTA: "inscreva-se pelo link na bio" + "saiba mais".',
+        );
+      }
       return parts.filter(Boolean).join(' ');
     }
     if (ref.startsWith('event:')) {
