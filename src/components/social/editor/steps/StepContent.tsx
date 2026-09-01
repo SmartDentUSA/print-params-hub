@@ -535,18 +535,35 @@ export function StepContent({
         });
       }
 
-      // Equipamentos citados nos enrollments (equipment_data → item_nome)
+      // Equipamentos/itens adquiridos: equipment_data (item_nome) + proposal_items_snapshot (nome)
+      const IGNORE_ITEM = /(treinamento|frete|instala|garantia|desconto|servi[çc]o de|suporte)/i;
       const equipByTurma: Record<string, string[]> = {};
-      for (const id of missing) equipByTurma[id] = [];
+      const purchasedByTurma: Record<string, string[]> = {};
+      for (const id of missing) {
+        equipByTurma[id] = [];
+        purchasedByTurma[id] = [];
+      }
+      const pushUniq = (arr: string[], nome: string) => {
+        if (!nome || nome.length > 90) return;
+        if (!arr.some((x) => x.toLowerCase() === nome.toLowerCase())) arr.push(nome);
+      };
       for (const row of valid) {
         const tid = String(row.turma_id);
         const ed = row.equipment_data || {};
         for (const entry of Object.values(ed) as any[]) {
           const nome = String(entry?.item_nome || '').trim();
-          if (!nome || nome.length > 80) continue;
-          if (!equipByTurma[tid].some((x) => x.toLowerCase() === nome.toLowerCase())) equipByTurma[tid].push(nome);
+          if (nome.length > 80) continue;
+          pushUniq(equipByTurma[tid], nome);
+        }
+        const snap = Array.isArray(row.proposal_items_snapshot) ? row.proposal_items_snapshot : [];
+        for (const it of snap as any[]) {
+          const nome = String(it?.nome || it?.item_nome || '').replace(/\s+/g, ' ').trim();
+          if (!nome || IGNORE_ITEM.test(nome)) continue;
+          pushUniq(purchasedByTurma[tid], nome);
+          pushUniq(equipByTurma[tid], nome);
         }
       }
+
 
       const daysByTurma: Record<string, any[]> = {};
       for (const id of missing) daysByTurma[id] = [];
