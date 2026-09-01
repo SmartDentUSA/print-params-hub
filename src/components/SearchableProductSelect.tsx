@@ -30,6 +30,7 @@ interface SearchableProductSelectProps {
   resins: ResinOption[];
   events?: GenericOption[]; // congressos (smartops_events)
   trainings?: GenericOption[]; // treinamentos (smartops_courses)
+  turmas?: GenericOption[]; // turmas específicas (busca por número da turma)
   distributors?: GenericOption[];
   className?: string;
 }
@@ -41,12 +42,13 @@ export function SearchableProductSelect({
   resins,
   events = [],
   trainings = [],
+  turmas = [],
   distributors = [],
   className,
 }: SearchableProductSelectProps) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
-  const [tab, setTab] = useState<'all' | 'product' | 'resin' | 'event' | 'training' | 'distributor'>('all');
+  const [tab, setTab] = useState<'all' | 'product' | 'resin' | 'event' | 'training' | 'turma' | 'distributor'>('all');
   const inputRef = useRef<HTMLInputElement>(null);
 
   const selectedLabel = useMemo(() => {
@@ -68,12 +70,16 @@ export function SearchableProductSelect({
       const t = trainings.find(t => t.id === id);
       return t ? `🎓 ${t.name}` : 'Treinamento';
     }
+    if (kind === 'turma') {
+      const t = turmas.find(t => t.id === id);
+      return t ? `🎓 ${t.name}` : 'Turma';
+    }
     if (kind === 'distributor') {
       const d = distributors.find(d => d.id === id);
       return d ? `🤝 ${d.name}` : 'Distribuidor';
     }
     return null;
-  }, [value, products, resins, events, trainings, distributors]);
+  }, [value, products, resins, events, trainings, turmas, distributors]);
 
   const lowerSearch = search.toLowerCase();
 
@@ -99,6 +105,12 @@ export function SearchableProductSelect({
       t.name.toLowerCase().includes(lowerSearch) ||
       (t.subtitle || '').toLowerCase().includes(lowerSearch)
     ), [trainings, lowerSearch]);
+
+  const filteredTurmas = useMemo(() =>
+    turmas.filter(t =>
+      t.name.toLowerCase().includes(lowerSearch) ||
+      (t.subtitle || '').toLowerCase().includes(lowerSearch)
+    ), [turmas, lowerSearch]);
 
   const filteredDistributors = useMemo(() =>
     distributors.filter(d =>
@@ -155,22 +167,25 @@ export function SearchableProductSelect({
         filteredResins.length +
         filteredEvents.length +
         filteredTrainings.length +
+        filteredTurmas.length +
         filteredDistributors.length,
     },
     { key: 'product', label: 'Produtos', count: filteredProducts.length },
     { key: 'resin', label: 'Resinas', count: filteredResins.length },
     { key: 'event', label: 'Eventos', count: filteredEvents.length },
     { key: 'training', label: 'Treinamentos', count: filteredTrainings.length },
+    { key: 'turma', label: 'Turmas', count: filteredTurmas.length },
     { key: 'distributor', label: 'Distribuidores', count: filteredDistributors.length },
   ];
 
-  const show = (k: 'product' | 'resin' | 'event' | 'training' | 'distributor') => tab === 'all' || tab === k;
+  const show = (k: 'product' | 'resin' | 'event' | 'training' | 'turma' | 'distributor') => tab === 'all' || tab === k;
 
   const visibleCount =
     (show('product') ? filteredProducts.length : 0) +
     (show('resin') ? filteredResins.length : 0) +
     (show('event') ? filteredEvents.length : 0) +
     (show('training') ? filteredTrainings.length : 0) +
+    (show('turma') ? filteredTurmas.length : 0) +
     (show('distributor') ? filteredDistributors.length : 0);
 
   return (
@@ -201,7 +216,7 @@ export function SearchableProductSelect({
             <Search className="absolute left-2 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
             <Input
               ref={inputRef}
-              placeholder="Buscar produto, evento..."
+              placeholder="Buscar produto, evento, turma 157..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               onKeyDown={(e) => e.stopPropagation()}
@@ -270,6 +285,13 @@ export function SearchableProductSelect({
               '🎓 Treinamentos',
               filteredTrainings,
               'training',
+              (t) => (t.subtitle ? `${t.name} · ${t.subtitle}` : t.name),
+            )}
+
+            {show('turma') && renderGroup(
+              '🎓 Turmas (busque pelo número)',
+              filteredTurmas,
+              'turma',
               (t) => (t.subtitle ? `${t.name} · ${t.subtitle}` : t.name),
             )}
 
