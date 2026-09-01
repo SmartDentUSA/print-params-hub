@@ -109,6 +109,16 @@ export function LiveGroupAutomations() {
       .sort((x, y) => (x.start_date ?? '').localeCompare(y.start_date ?? ''));
   }, [turmas]);
 
+  // Instâncias disponíveis (derivadas dos grupos configurados em Post Grupos)
+  const instanceOptions = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const g of groups) {
+      if (!g.instance_name) continue;
+      m.set(g.instance_name, (m.get(g.instance_name) ?? 0) + 1);
+    }
+    return Array.from(m.entries()).sort((a, b) => b[1] - a[1]);
+  }, [groups]);
+
   const create = async () => {
     const { error } = await supabase.from('live_group_automations').insert({
       name: 'Divulgação de Lives',
