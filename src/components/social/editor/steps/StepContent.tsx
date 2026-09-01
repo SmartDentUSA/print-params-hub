@@ -851,9 +851,40 @@ export function StepContent({
   };
 
 
+  /** Eventos/treinamentos/lives/turmas: foco em benefício e lista fechada de produtos. */
+  const isAudienceContext = (): boolean => {
+    const refs = [value.product_ref, ...(value.extra_products || []).map((e) => e.ref)].filter(Boolean) as string[];
+    return refs.some((r) => /^(event|training|turma):/.test(r));
+  };
+
+  /** Somente os itens realmente selecionados podem ser citados na legenda. */
+  const buildAllowedProducts = (): string[] => {
+    const names: string[] = [];
+    if (value.product_name) names.push(value.product_name);
+    (value.extra_products || []).forEach((p) => {
+      if (p.name) names.push(p.name);
+    });
+    const refs = [value.product_ref, ...(value.extra_products || []).map((e) => e.ref)].filter(Boolean) as string[];
+    for (const ref of refs) {
+      if (ref.startsWith('turma:')) {
+        const t = turmas.find((x) => x.id === ref.slice('turma:'.length));
+        const m = t?.meta || {};
+        if (m.course_title) names.push(m.course_title);
+        if (Array.isArray(m.related)) names.push(...m.related);
+      }
+      if (ref.startsWith('training:')) {
+        const t = trainings.find((x) => x.id === ref.slice('training:'.length));
+        const m = t?.meta || {};
+        if (Array.isArray(m.related)) names.push(...m.related);
+      }
+    }
+    return Array.from(new Set(names.map((n) => String(n).trim()).filter(Boolean)));
+  };
+
   const handleGenerate = async () => {
     try {
       const contextBrief = buildContextBrief();
+      const audienceCtx = isAudienceContext();
       const res = await generate.mutateAsync({
         product_name: value.product_name || undefined,
         product_slug: value.product_slug || undefined,
@@ -861,8 +892,11 @@ export function StepContent({
         instructions: [contextBrief, aiInstructions].filter(Boolean).join('\n\n') || undefined,
         hard_facts: buildHardFacts(),
         rag_query: buildRagQuery(),
+        focus_mode: audienceCtx ? 'benefits' : undefined,
+        allowed_products: audienceCtx ? buildAllowedProducts() : undefined,
         tone: aiTone,
         language: 'pt-BR',
+
 
         external_enrichment: knowledge.data?.enrichment || undefined,
         extra_products: (value.extra_products || []).map((p) => ({
