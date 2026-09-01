@@ -14,12 +14,7 @@ import { UploadMidiasDriveButton } from "@/components/smartops/UploadMidiasDrive
 export const ONLINE_LIVE_MODALITIES = ["online_ao_vivo", "online"];
 export const ONLINE_LIVE_CATEGORIES = ["workshop", "webinar", "live_produtos"];
 
-/** Encurtador de links: chamada direta à edge function (pública) + cache por destino. */
-const SUPABASE_PROJECT_URL = "https://okeogjgqijbfkudfjadz.supabase.co";
-const SHORT_LINK_ENDPOINT = `${SUPABASE_PROJECT_URL}/functions/v1/short-link-create`;
-const SUPABASE_ANON_KEY =
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9rZW9namdxaWpiZmt1ZGZqYWR6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY4NzE5MDgsImV4cCI6MjA3MjQ0NzkwOH0.OGdtvsJNdEqAfUoDA4O9OcnD69Titu69TsXS38TaVtk";
-const shortLinkCache = new Map<string, string>();
+/** Encurtador de links compartilhado (edge function pública + cache). */
 
 
 
