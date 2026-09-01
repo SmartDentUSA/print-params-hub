@@ -739,9 +739,6 @@ export function StepContent({
         (m.duration_days && m.duration_hours_per_day ? m.duration_days * m.duration_hours_per_day : null);
       const areas = Array.from(new Set(parts.map((p) => p.area_atuacao).filter(Boolean)));
       const especialidades = Array.from(new Set(parts.map((p) => p.especialidade).filter(Boolean)));
-      const cidades = Array.from(
-        new Set(parts.map((p) => [p.empresa_cidade, p.empresa_estado].filter(Boolean).join('/')).filter(Boolean)),
-      );
       const principais = parts.filter((p) => p.tipo !== 'acompanhante');
       const acompanhantes = parts.filter((p) => p.tipo === 'acompanhante');
       const participantesLinhas = buildParticipantLines(parts);
