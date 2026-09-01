@@ -187,6 +187,32 @@ serve(async (req) => {
           continue;
         }
 
+        // Identificador único por (automação + live + tipo) — reserva atômica no banco
+        // antes do envio: se já existe, ninguém repete o disparo.
+        const dedupeKey = `${auto.id}:${t.id}:${job.kind}`;
+        const sendUid = `${job.kind}-${dateIso}-${String(t.id).replace(/-/g, '').slice(0, 8)}-${String(auto.id).replace(/-/g, '').slice(0, 4)}`;
+        const { data: claim, error: claimErr } = await sb
+          .from('live_group_blast_log')
+          .insert({
+            automation_id: auto.id,
+            turma_id: t.id,
+            kind: job.kind,
+            dedupe_key: dedupeKey,
+            send_uid: sendUid,
+            status: 'claimed',
+            scheduled_for: new Date(job.due).toISOString(),
+            groups_count: jids.length,
+          })
+          .select('id, send_uid')
+          .maybeSingle();
+
+        if (claimErr || !claim) {
+          alreadySent.add(key);
+          results.push({ automation: auto.id, turma: t.id, kind: job.kind, ok: false, duplicate: true, send_uid: sendUid, error: claimErr?.message ?? 'already_sent' });
+          continue;
+        }
+        alreadySent.add(key);
+
         const resp = await fetch(`${SUPABASE_URL}/functions/v1/wa-group-blast`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${SERVICE_ROLE_KEY}` },
@@ -195,27 +221,26 @@ serve(async (req) => {
             message_type: media ? 'image' : 'msg',
             content: media ? { media_url: media, caption: job.text } : { text: job.text },
             allow_duplicate: true,
-            campaign_name: `Live ${job.kind === 'promo' ? 'D-' + (auto.promo_days_before ?? 1) : 'AO VIVO'} | ${ctx.titulo.slice(0, 40)} | ${String(t.id).slice(0, 8)}`,
+            campaign_name: `Live ${job.kind === 'promo' ? 'D-' + (auto.promo_days_before ?? 1) : 'AO VIVO'} | ${ctx.titulo.slice(0, 40)} | ${sendUid}`,
           }),
         });
         const json = await resp.json().catch(() => ({}));
         const ok = resp.ok && json?.ok;
-        if (ok) {
-          await sb.from('live_group_blast_log').insert({
-            automation_id: auto.id,
-            turma_id: t.id,
-            kind: job.kind,
+        await sb
+          .from('live_group_blast_log')
+          .update({
+            status: ok ? 'sent' : 'failed',
             campaign_id: json?.campaign_id ?? null,
             groups_count: json?.groups ?? jids.length,
-          });
-          alreadySent.add(key);
-        } else {
-          console.warn('[live-group-blast-cron] blast fail', job.kind, t.id, resp.status, json?.error ?? json?.message);
-        }
-        results.push({ automation: auto.id, turma: t.id, kind: job.kind, ok, groups: json?.groups ?? 0, error: ok ? null : (json?.error ?? json?.message ?? null) });
+            error: ok ? null : String(json?.error ?? json?.message ?? resp.status),
+          })
+          .eq('id', claim.id);
+        if (!ok) console.warn('[live-group-blast-cron] blast fail', sendUid, resp.status, json?.error ?? json?.message);
+        results.push({ automation: auto.id, turma: t.id, kind: job.kind, ok, send_uid: sendUid, groups: json?.groups ?? 0, error: ok ? null : (json?.error ?? json?.message ?? null) });
       }
     }
   }
 
   return Response.json({ ok: true, sent: results.filter((r) => r.ok).length, results }, { headers: corsHeaders });
 });
+
