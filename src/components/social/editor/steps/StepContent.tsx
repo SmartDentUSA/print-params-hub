@@ -875,7 +875,9 @@ ${m.location ? `📍 Local: ${m.location}` : '📍 Local: (omitir se não houver
         (m.duration_days && m.duration_hours_per_day ? m.duration_days * m.duration_hours_per_day : null);
       const parts = [
         `CONTEXTO — ${tipo}: "${t.name}".`,
+        isChairsideTraining(t.name, m.description) ? CHAIRSIDE_KNOWLEDGE : '',
         m.modality ? `Modalidade: ${m.modality}.` : '',
+
         m.location ? `Local: ${m.location}.` : '',
         m.description ? `Sobre: ${String(m.description).slice(0, 500)}` : '',
         m.briefing ? `Briefing de marketing: ${String(m.briefing).slice(0, 500)}` : '',
