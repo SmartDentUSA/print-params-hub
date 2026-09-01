@@ -171,7 +171,40 @@ export function StepContent({
     let mounted = true;
     (async () => {
       const [{ data: cat }, { data: res }, { data: courses }, { data: dists }, { data: congresses }] = await Promise.all([
-...
+        supabase
+          .from('system_a_catalog')
+          .select('id,name,category,slug')
+          .eq('active', true)
+          .order('name', { ascending: true })
+          .limit(500),
+        supabase
+          .from('resins')
+          .select('id,name,manufacturer,slug,type')
+          .eq('active', true)
+          .order('name', { ascending: true })
+          .limit(500),
+        supabase
+          .from('smartops_courses')
+          .select('id,title,slug,category,modality')
+          .eq('active', true)
+          .order('title', { ascending: true })
+          .limit(300),
+        supabase
+          .from('distributors')
+          .select('id,nome_fantasia,razao_social,slug,pais,estado')
+          .eq('active', true)
+          .order('nome_fantasia', { ascending: true })
+          .limit(300),
+        supabase
+          .from('smartops_events')
+          .select('id,name,country,location,start_date')
+          .eq('is_active', true)
+          .order('start_date', { ascending: true, nullsFirst: false })
+          .limit(300),
+      ]);
+      if (!mounted) return;
+      setProducts((cat ?? []) as any);
+      setResins((res ?? []) as any);
       setTrainings(
         ((courses ?? []) as any[]).map((c) => ({
           id: String(c.id),
