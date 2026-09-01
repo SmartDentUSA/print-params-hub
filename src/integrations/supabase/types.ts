@@ -12528,28 +12528,43 @@ export type Database = {
         Row: {
           automation_id: string
           campaign_id: string | null
+          dedupe_key: string | null
+          error: string | null
           groups_count: number
           id: string
           kind: string
+          scheduled_for: string | null
+          send_uid: string | null
           sent_at: string
+          status: string
           turma_id: string
         }
         Insert: {
           automation_id: string
           campaign_id?: string | null
+          dedupe_key?: string | null
+          error?: string | null
           groups_count?: number
           id?: string
           kind: string
+          scheduled_for?: string | null
+          send_uid?: string | null
           sent_at?: string
+          status?: string
           turma_id: string
         }
         Update: {
           automation_id?: string
           campaign_id?: string | null
+          dedupe_key?: string | null
+          error?: string | null
           groups_count?: number
           id?: string
           kind?: string
+          scheduled_for?: string | null
+          send_uid?: string | null
           sent_at?: string
+          status?: string
           turma_id?: string
         }
         Relationships: [
