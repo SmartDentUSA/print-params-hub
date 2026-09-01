@@ -102,7 +102,7 @@ export default function KbContentCard({ data, index, buttonLabel, onClick, thumb
     e.stopPropagation();
     e.preventDefault();
     if (!data.shareUrl) return;
-    const url = data.shareUrl;
+    const url = await shortenUrl(data.shareUrl);
     const message = buildShareMessage(url);
     // Try native share first (mobile); falls through to clipboard on failure or unsupported
     if (typeof navigator !== 'undefined' && typeof (navigator as any).share === 'function') {
