@@ -49,6 +49,40 @@ function sanitizeHashtags(arr: unknown): string[] {
   return out;
 }
 
+/**
+ * Remove hashtags escritas no corpo da caption (o app publica o bloco de hashtags
+ * separadamente) e devolve a lista final deduplicada — caption + array da IA.
+ */
+function splitCaptionHashtags(caption: string, hashtags: string[]) {
+  const found: string[] = [];
+  let text = String(caption || "");
+
+  // Coleta e remove todas as hashtags do corpo
+  text = text.replace(/#([\p{L}\p{N}_]{2,60})/gu, (_m, tag) => {
+    found.push(String(tag));
+    return "";
+  });
+
+  // Limpa separadores/linhas que ficaram vazios após a remoção
+  text = text
+    .split("\n")
+    .filter((line, idx, arr) => {
+      const t = line.trim();
+      if (t === "" ) return true;
+      // remove separador visual órfão no fim do texto
+      if (/^[━—–\-_=]{3,}$/.test(t)) {
+        return arr.slice(idx + 1).some((l) => l.trim() !== "");
+      }
+      return true;
+    })
+    .map((l) => l.replace(/[ \t]+$/, ""))
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+
+  return { caption: text, hashtags: sanitizeHashtags([...(hashtags || []), ...found]) };
+}
+
 async function fetchProductContext(name?: string, slug?: string) {
   const ctx: any[] = [];
   const pattern = name ? `%${name.replace(/[%_]/g, "")}%` : null;
