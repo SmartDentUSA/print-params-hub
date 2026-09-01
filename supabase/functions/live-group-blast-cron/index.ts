@@ -213,6 +213,8 @@ serve(async (req) => {
             body: JSON.stringify({
               phone: testPhone,
               message: job.text,
+              media_url: media,
+              media_type: 'image',
               source: 'live_group_blast_test',
               metadata: { turma_id: t.id, kind: job.kind, automation_id: auto.id, media },
             }),
