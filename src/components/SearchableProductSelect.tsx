@@ -24,11 +24,12 @@ interface GenericOption {
 }
 
 interface SearchableProductSelectProps {
-  value: string; // "none" | "product:<id>" | "resin:<id>" | "event:<id>" | "distributor:<id>"
+  value: string; // "none" | "product:<id>" | "resin:<id>" | "event:<id>" | "training:<id>" | "distributor:<id>"
   onValueChange: (value: string) => void;
   products: ProductOption[];
   resins: ResinOption[];
-  events?: GenericOption[];
+  events?: GenericOption[]; // congressos (smartops_events)
+  trainings?: GenericOption[]; // treinamentos (smartops_courses)
   distributors?: GenericOption[];
   className?: string;
 }
@@ -39,12 +40,13 @@ export function SearchableProductSelect({
   products,
   resins,
   events = [],
+  trainings = [],
   distributors = [],
   className,
 }: SearchableProductSelectProps) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
-  const [tab, setTab] = useState<'all' | 'product' | 'resin' | 'event' | 'distributor'>('all');
+  const [tab, setTab] = useState<'all' | 'product' | 'resin' | 'event' | 'training' | 'distributor'>('all');
   const inputRef = useRef<HTMLInputElement>(null);
 
   const selectedLabel = useMemo(() => {
@@ -62,12 +64,16 @@ export function SearchableProductSelect({
       const e = events.find(e => e.id === id);
       return e ? `📅 ${e.name}` : 'Evento';
     }
+    if (kind === 'training') {
+      const t = trainings.find(t => t.id === id);
+      return t ? `🎓 ${t.name}` : 'Treinamento';
+    }
     if (kind === 'distributor') {
       const d = distributors.find(d => d.id === id);
       return d ? `🤝 ${d.name}` : 'Distribuidor';
     }
     return null;
-  }, [value, products, resins, events, distributors]);
+  }, [value, products, resins, events, trainings, distributors]);
 
   const lowerSearch = search.toLowerCase();
 
@@ -87,6 +93,12 @@ export function SearchableProductSelect({
       e.name.toLowerCase().includes(lowerSearch) ||
       (e.subtitle || '').toLowerCase().includes(lowerSearch)
     ), [events, lowerSearch]);
+
+  const filteredTrainings = useMemo(() =>
+    trainings.filter(t =>
+      t.name.toLowerCase().includes(lowerSearch) ||
+      (t.subtitle || '').toLowerCase().includes(lowerSearch)
+    ), [trainings, lowerSearch]);
 
   const filteredDistributors = useMemo(() =>
     distributors.filter(d =>
@@ -135,19 +147,30 @@ export function SearchableProductSelect({
   };
 
   const TABS: { key: typeof tab; label: string; count: number }[] = [
-    { key: 'all', label: 'Todos', count: filteredProducts.length + filteredResins.length + filteredEvents.length + filteredDistributors.length },
+    {
+      key: 'all',
+      label: 'Todos',
+      count:
+        filteredProducts.length +
+        filteredResins.length +
+        filteredEvents.length +
+        filteredTrainings.length +
+        filteredDistributors.length,
+    },
     { key: 'product', label: 'Produtos', count: filteredProducts.length },
     { key: 'resin', label: 'Resinas', count: filteredResins.length },
     { key: 'event', label: 'Eventos', count: filteredEvents.length },
+    { key: 'training', label: 'Treinamentos', count: filteredTrainings.length },
     { key: 'distributor', label: 'Distribuidores', count: filteredDistributors.length },
   ];
 
-  const show = (k: 'product' | 'resin' | 'event' | 'distributor') => tab === 'all' || tab === k;
+  const show = (k: 'product' | 'resin' | 'event' | 'training' | 'distributor') => tab === 'all' || tab === k;
 
   const visibleCount =
     (show('product') ? filteredProducts.length : 0) +
     (show('resin') ? filteredResins.length : 0) +
     (show('event') ? filteredEvents.length : 0) +
+    (show('training') ? filteredTrainings.length : 0) +
     (show('distributor') ? filteredDistributors.length : 0);
 
   return (
@@ -241,6 +264,13 @@ export function SearchableProductSelect({
               filteredEvents,
               'event',
               (e) => (e.subtitle ? `${e.name} · ${e.subtitle}` : e.name),
+            )}
+
+            {show('training') && renderGroup(
+              '🎓 Treinamentos',
+              filteredTrainings,
+              'training',
+              (t) => (t.subtitle ? `${t.name} · ${t.subtitle}` : t.name),
             )}
 
             {show('distributor') && renderGroup(
