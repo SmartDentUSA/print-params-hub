@@ -281,6 +281,7 @@ export function StepContent({
             canal: d.canal_venda,
             instagram: d.instagram,
             notes: d.notes,
+            authorized_scope: d.authorized_scope,
           },
         })),
       );
