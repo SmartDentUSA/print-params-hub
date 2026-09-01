@@ -295,11 +295,13 @@ export function LiveGroupAutomations() {
             <div className="space-y-2">
               <Label>Próximas lives</Label>
               <div className="rounded-md border divide-y">
-                {turmas.length === 0 && <div className="p-3 text-sm text-muted-foreground">Nenhuma live futura agendada.</div>}
-                {turmas
+                {upcoming.length === 0 && <div className="p-3 text-sm text-muted-foreground">Nenhuma live futura agendada.</div>}
+                {upcoming
                   .filter((t) => !a.course_ids?.length || a.course_ids.includes(t.course_id))
                   .map((t) => {
-                    const sent = logs.filter((l) => l.turma_id === t.id).map((l) => l.kind);
+                    const sends = logs.filter((l) => l.turma_id === t.id);
+                    const promo = sends.find((l) => l.kind === 'promo');
+                    const live = sends.find((l) => l.kind === 'live');
                     return (
                       <div key={t.id} className="flex items-center gap-3 p-2 text-sm flex-wrap">
                         {t.live_thumbnail_url ? (
@@ -312,15 +314,23 @@ export function LiveGroupAutomations() {
                         </span>
                         <span className="text-xs text-muted-foreground">{t.start_date}</span>
                         {t.live_url ? <Badge variant="outline">YouTube</Badge> : <Badge variant="destructive">sem live_url</Badge>}
-                        {sent.includes('promo') && <Badge variant="secondary">propaganda enviada</Badge>}
-                        {sent.includes('live') && <Badge variant="secondary">lembrete enviado</Badge>}
+                        {promo && (
+                          <Badge variant={promo.status === 'failed' ? 'destructive' : 'secondary'} title={promo.send_uid ?? ''}>
+                            propaganda {promo.status === 'failed' ? 'falhou' : 'enviada'} · {promo.send_uid ?? '—'}
+                          </Badge>
+                        )}
+                        {live && (
+                          <Badge variant={live.status === 'failed' ? 'destructive' : 'secondary'} title={live.send_uid ?? ''}>
+                            lembrete {live.status === 'failed' ? 'falhou' : 'enviado'} · {live.send_uid ?? '—'}
+                          </Badge>
+                        )}
                         <Button size="sm" variant="ghost" disabled={testing === a.id}
                           onClick={() => preview(a, t.id, 'promo')}>Prévia</Button>
-                        <Button size="sm" variant="outline" disabled={testing === t.id + 'promo'}
+                        <Button size="sm" variant="outline" disabled={testing === t.id + 'promo' || !!promo}
                           onClick={() => dispatchNow(t.id, 'promo')}>
                           <Send className="w-3.5 h-3.5 mr-1" /> Propaganda
                         </Button>
-                        <Button size="sm" variant="outline" disabled={testing === t.id + 'live'}
+                        <Button size="sm" variant="outline" disabled={testing === t.id + 'live' || !!live}
                           onClick={() => dispatchNow(t.id, 'live')}>
                           <Radio className="w-3.5 h-3.5 mr-1" /> Ao vivo
                         </Button>
@@ -328,6 +338,7 @@ export function LiveGroupAutomations() {
                     );
                   })}
               </div>
+
             </div>
           </CardContent>
         </Card>
