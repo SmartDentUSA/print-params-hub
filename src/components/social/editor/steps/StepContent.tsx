@@ -397,6 +397,38 @@ export function StepContent({
     };
   }, [value.product_ref]);
 
+  // Carrega participantes das turmas selecionadas (para contextualizar a copy)
+  const selectedTurmaIds = [value.product_ref, ...(value.extra_products || []).map((e) => e.ref)]
+    .filter((r): r is string => !!r && r.startsWith('turma:'))
+    .map((r) => r.slice('turma:'.length));
+  const turmaIdsKey = selectedTurmaIds.join(',');
+  useEffect(() => {
+    let mounted = true;
+    const ids = turmaIdsKey ? turmaIdsKey.split(',') : [];
+    const missing = ids.filter((id) => !turmaParticipants[id]);
+    if (!missing.length) return;
+    (async () => {
+      const { data } = await supabase
+        .from('smartops_course_enrollments')
+        .select('turma_id,person_name,instagram,status,area_atuacao,especialidade,empresa_cidade,empresa_estado,empresa_pais')
+        .in('turma_id', missing)
+        .order('person_name', { ascending: true });
+      if (!mounted) return;
+      const byTurma: Record<string, any[]> = {};
+      for (const id of missing) byTurma[id] = [];
+      for (const row of (data ?? []) as any[]) {
+        const st = String(row.status || '').toLowerCase();
+        if (['cancelado', 'cancelada', 'ausente', 'no_show'].includes(st)) continue;
+        (byTurma[String(row.turma_id)] ||= []).push(row);
+      }
+      setTurmaParticipants((prev) => ({ ...prev, ...byTurma }));
+    })();
+    return () => {
+      mounted = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [turmaIdsKey]);
+
 
   const onProductChange = (val: string) => {
     if (!val || val === 'none') {
