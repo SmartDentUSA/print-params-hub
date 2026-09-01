@@ -165,7 +165,10 @@ export function StepContent({
   const [resins, setResins] = useState<Array<{ id: string; name: string; manufacturer: string; slug?: string; type?: string }>>([]);
   const [events, setEvents] = useState<Array<{ id: string; name: string; subtitle?: string; slug?: string; meta?: any }>>([]); // congressos (smartops_events)
   const [trainings, setTrainings] = useState<Array<{ id: string; name: string; subtitle?: string; slug?: string; meta?: any }>>([]); // treinamentos (smartops_courses)
+  const [turmas, setTurmas] = useState<Array<{ id: string; name: string; subtitle?: string; slug?: string; meta?: any }>>([]); // turmas (busca por número)
+  const [turmaParticipants, setTurmaParticipants] = useState<Record<string, any[]>>({});
   const [distributors, setDistributors] = useState<Array<{ id: string; name: string; subtitle?: string; slug?: string; meta?: any }>>([]);
+
 
   useEffect(() => {
     let mounted = true;
@@ -210,10 +213,11 @@ export function StepContent({
             .limit(300),
           supabase
             .from('smartops_course_turmas')
-            .select('course_id,start_date,end_date,modality,label,live_url,location')
+            .select('id,course_id,turma_number,label,start_date,end_date,modality,live_url,location')
             .eq('active', true)
             .order('start_date', { ascending: true, nullsFirst: false })
             .limit(1000),
+
         ]);
       if (!mounted) return;
       const turmasByCourse = new Map<string, any[]>();
@@ -253,6 +257,46 @@ export function StepContent({
           };
         }),
       );
+      const courseById = new Map(((courses ?? []) as any[]).map((c) => [String(c.id), c]));
+      setTurmas(
+        ((turmas ?? []) as any[]).map((t) => {
+          const c: any = courseById.get(String(t.course_id)) || {};
+          const num = t.turma_number != null ? `Turma ${t.turma_number}` : t.label || 'Turma';
+          return {
+            id: String(t.id),
+            name: `${num} — ${c.title || 'Treinamento'}`,
+            subtitle:
+              [
+                t.start_date ? new Date(t.start_date).toLocaleDateString('pt-BR') : '',
+                t.location || c.location,
+                t.modality || c.modality,
+              ]
+                .filter(Boolean)
+                .join(' · ') || undefined,
+            slug: c.slug || undefined,
+            meta: {
+              turma_number: t.turma_number,
+              label: t.label,
+              start_date: t.start_date,
+              end_date: t.end_date,
+              modality: t.modality || c.modality,
+              location: t.location || c.location,
+              live_url: t.live_url,
+              course_title: c.title,
+              course_category: c.category,
+              course_description: c.description,
+              course_briefing: c.marketing_briefing,
+              related: c.related_product_names,
+              duration_days: c.duration_days,
+              duration_hours_per_day: c.duration_hours_per_day,
+              recurrence_time_start: c.recurrence_time_start,
+              recurrence_time_end: c.recurrence_time_end,
+              recurrence_duration_h: c.recurrence_duration_h,
+            },
+          };
+        }),
+      );
+
       setEvents(
         ((congresses ?? []) as any[]).map((e) => ({
           id: String(e.id),
@@ -353,6 +397,38 @@ export function StepContent({
     };
   }, [value.product_ref]);
 
+  // Carrega participantes das turmas selecionadas (para contextualizar a copy)
+  const selectedTurmaIds = [value.product_ref, ...(value.extra_products || []).map((e) => e.ref)]
+    .filter((r): r is string => !!r && r.startsWith('turma:'))
+    .map((r) => r.slice('turma:'.length));
+  const turmaIdsKey = selectedTurmaIds.join(',');
+  useEffect(() => {
+    let mounted = true;
+    const ids = turmaIdsKey ? turmaIdsKey.split(',') : [];
+    const missing = ids.filter((id) => !turmaParticipants[id]);
+    if (!missing.length) return;
+    (async () => {
+      const { data } = await supabase
+        .from('smartops_course_enrollments')
+        .select('turma_id,person_name,instagram,status,area_atuacao,especialidade,empresa_cidade,empresa_estado,empresa_pais')
+        .in('turma_id', missing)
+        .order('person_name', { ascending: true });
+      if (!mounted) return;
+      const byTurma: Record<string, any[]> = {};
+      for (const id of missing) byTurma[id] = [];
+      for (const row of (data ?? []) as any[]) {
+        const st = String(row.status || '').toLowerCase();
+        if (['cancelado', 'cancelada', 'ausente', 'no_show'].includes(st)) continue;
+        (byTurma[String(row.turma_id)] ||= []).push(row);
+      }
+      setTurmaParticipants((prev) => ({ ...prev, ...byTurma }));
+    })();
+    return () => {
+      mounted = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [turmaIdsKey]);
+
 
   const onProductChange = (val: string) => {
     if (!val || val === 'none') {
@@ -389,6 +465,16 @@ export function StepContent({
         product_slug: e.slug || '',
         product_category: e.subtitle || 'Evento',
       });
+    } else if (val.startsWith('turma:')) {
+      const id = val.slice('turma:'.length);
+      const t = turmas.find((x) => x.id === id);
+      if (!t) return;
+      onChange({
+        product_ref: val,
+        product_name: t.name,
+        product_slug: t.slug || '',
+        product_category: 'Turma',
+      });
     } else if (val.startsWith('training:')) {
       const id = val.slice('training:'.length);
       const t = trainings.find((x) => x.id === id);
@@ -399,6 +485,7 @@ export function StepContent({
         product_slug: t.slug || '',
         product_category: t.subtitle || 'Treinamento',
       });
+
     } else if (val.startsWith('distributor:')) {
       const id = val.slice('distributor:'.length);
       const d = distributors.find((x) => x.id === id);
@@ -504,7 +591,54 @@ export function StepContent({
         .filter(Boolean)
         .join(' ');
     }
+    if (ref.startsWith('turma:')) {
+      const id = ref.slice('turma:'.length);
+      const t = turmas.find((x) => x.id === id);
+      if (!t) return null;
+      const m = t.meta || {};
+      const parts = (turmaParticipants[id] || []) as any[];
+      const isPast = m.start_date ? new Date(m.start_date).getTime() < Date.now() : false;
+      const durationHours =
+        m.recurrence_duration_h ??
+        (m.duration_days && m.duration_hours_per_day ? m.duration_days * m.duration_hours_per_day : null);
+      const areas = Array.from(new Set(parts.map((p) => p.area_atuacao).filter(Boolean)));
+      const especialidades = Array.from(new Set(parts.map((p) => p.especialidade).filter(Boolean)));
+      const cidades = Array.from(
+        new Set(parts.map((p) => [p.empresa_cidade, p.empresa_estado].filter(Boolean).join('/')).filter(Boolean)),
+      );
+      const nomes = parts.map((p) => String(p.person_name || '').trim()).filter(Boolean);
+      const igs = parts.map((p) => String(p.instagram || '').trim()).filter(Boolean);
+      return [
+        `CONTEXTO — TURMA ESPECÍFICA${m.turma_number != null ? ` Nº ${m.turma_number}` : ''} do treinamento "${m.course_title || t.name}".`,
+        m.modality ? `Modalidade: ${m.modality}.` : '',
+        m.start_date
+          ? `📅 Data: ${fmtDate(m.start_date)}${m.end_date && m.end_date !== m.start_date ? ` a ${fmtDate(m.end_date)}` : ''}${fmtTime(m.recurrence_time_start) ? ` · 🕒 ${fmtTime(m.recurrence_time_start)}` : ''}.`
+          : '',
+        m.location ? `📍 Local: ${m.location}.` : '',
+        durationHours ? `⏱️ Duração: ${Number(durationHours).toFixed(0)}h.` : '',
+        m.course_description ? `Sobre o treinamento: ${String(m.course_description).slice(0, 500)}` : '',
+        m.course_briefing ? `Briefing de marketing: ${String(m.course_briefing).slice(0, 500)}` : '',
+        Array.isArray(m.related) && m.related.length
+          ? `Equipamentos/produtos usados na turma: ${m.related.join(', ')}.`
+          : '',
+        parts.length ? `👥 Participantes confirmados (${parts.length}): ${nomes.slice(0, 40).join(', ')}.` : '',
+        igs.length ? `Perfis dos participantes para marcar na legenda: ${igs.slice(0, 30).join(' ')}.` : '',
+        areas.length ? `Áreas de atuação dos participantes: ${areas.join(', ')}.` : '',
+        especialidades.length ? `Especialidades dos participantes: ${especialidades.join(', ')}.` : '',
+        cidades.length ? `Cidades/estados de origem dos participantes: ${cidades.slice(0, 15).join(', ')}.` : '',
+        parts.length
+          ? 'OBRIGATÓRIO: conecte o conteúdo do treinamento às áreas de atuação e especialidades reais dessa turma, citando aplicação clínica/laboratorial concreta (sem preços). Não invente nomes, @perfis, cidades ou especialidades que não estejam nesta lista.'
+          : '',
+        isPast
+          ? 'Escreva no PASSADO (retrospectiva/prova social da turma que aconteceu, agradecendo os participantes) e convide para a próxima turma.'
+          : 'Escreva no FUTURO, gerando desejo de participar desta turma.',
+        'CTA: "garanta sua vaga pelo link na bio" + "saiba mais". NÃO escreva hashtags dentro da legenda.',
+      ]
+        .filter(Boolean)
+        .join(' ');
+    }
     if (ref.startsWith('training:')) {
+
       const t = trainings.find((x) => x.id === ref.slice('training:'.length));
       if (!t) return null;
       const m = t.meta || {};
@@ -648,7 +782,23 @@ export function StepContent({
         if (brands.length) facts.push(`🤝 Parceiras: ${brands.join(' ')}`);
         if (m.website_url) facts.push(`🔗 Site: ${m.website_url}`);
       }
+      if (ref.startsWith('turma:')) {
+        const id = ref.slice('turma:'.length);
+        const t = turmas.find((x) => x.id === id);
+        const m = t?.meta || {};
+        if (m.turma_number != null) facts.push(`🎓 Turma ${m.turma_number} — ${m.course_title || ''}`.trim());
+        if (m.start_date) {
+          const timeStr = fmtTime(m.recurrence_time_start);
+          facts.push(
+            `📅 Data: ${fmtDate(m.start_date)}${m.end_date && m.end_date !== m.start_date ? ` a ${fmtDate(m.end_date)}` : ''}${timeStr ? ` · 🕒 ${timeStr}` : ''}`,
+          );
+        }
+        if (m.location) facts.push(`📍 Local: ${m.location}`);
+        const igs = (turmaParticipants[id] || []).map((p: any) => String(p.instagram || '').trim()).filter(Boolean);
+        if (igs.length) facts.push(`📲 Participantes: ${igs.slice(0, 20).join(' ')}`);
+      }
       if (ref.startsWith('training:')) {
+
         const t = trainings.find((x) => x.id === ref.slice('training:'.length));
         const m = t?.meta || {};
         const next = m.next;
@@ -676,12 +826,26 @@ export function StepContent({
     });
     const refs = [value.product_ref, ...(value.extra_products || []).map((e) => e.ref)].filter(Boolean) as string[];
     for (const ref of refs) {
+      if (ref.startsWith('turma:')) {
+        const id = ref.slice('turma:'.length);
+        const t = turmas.find((x) => x.id === id);
+        const m = t?.meta || {};
+        if (m.course_title) names.push(m.course_title);
+        if (Array.isArray(m.related)) names.push(...m.related.slice(0, 4));
+        const parts = (turmaParticipants[id] || []) as any[];
+        names.push(
+          ...Array.from(new Set(parts.map((p) => p.especialidade).filter(Boolean))).slice(0, 6) as string[],
+          ...Array.from(new Set(parts.map((p) => p.area_atuacao).filter(Boolean))).slice(0, 4) as string[],
+        );
+        continue;
+      }
       if (!ref.startsWith('event:')) continue;
       const e = events.find((x) => x.id === ref.slice('event:'.length));
       const m = e?.meta || {};
       if (Array.isArray(m.audience_specialties)) names.push(...m.audience_specialties.slice(0, 6));
       if (Array.isArray(m.audience_areas)) names.push(...m.audience_areas.slice(0, 4));
     }
+
     const q = names.filter(Boolean).join(' ').trim();
     return q || undefined;
   };
@@ -758,7 +922,12 @@ export function StepContent({
       const id = val.slice('event:'.length);
       const e = events.find((x) => x.id === id);
       if (e) entry = { ref: val, name: e.name, slug: e.slug || '', category: e.subtitle || 'Evento' };
+    } else if (val.startsWith('turma:')) {
+      const id = val.slice('turma:'.length);
+      const t = turmas.find((x) => x.id === id);
+      if (t) entry = { ref: val, name: t.name, slug: t.slug || '', category: 'Turma' };
     } else if (val.startsWith('training:')) {
+
       const id = val.slice('training:'.length);
       const t = trainings.find((x) => x.id === id);
       if (t) entry = { ref: val, name: t.name, slug: t.slug || '', category: t.subtitle || 'Treinamento' };
@@ -930,6 +1099,7 @@ export function StepContent({
               resins={resins as any}
               events={events}
               trainings={trainings}
+              turmas={turmas}
               distributors={distributors}
             />
             {value.product_name && (
@@ -978,6 +1148,7 @@ export function StepContent({
                   resins={resins as any}
                   events={events}
                   trainings={trainings}
+                  turmas={turmas}
                   distributors={distributors}
                 />
               )}
