@@ -482,6 +482,7 @@ export function StepContent({
         if (!tid) continue;
         const parent = parentByEnrollment.get(String(c.enrollment_id)) || {};
         (byTurma[tid] ||= []).push({
+          enrollment_id: c.enrollment_id,
           person_name: c.name,
           instagram: c.instagram,
           area_atuacao: c.area_atuacao || parent.area_atuacao,
