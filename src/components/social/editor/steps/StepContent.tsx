@@ -417,6 +417,11 @@ export function StepContent({
   // ─── Briefing de contexto por tipo de item selecionado ───
   const fmtDate = (d?: string | null) =>
     d ? new Date(d).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' }) : '';
+  const fmtTime = (t?: string | null) => {
+    if (!t) return '';
+    const [h, m] = t.split(':');
+    return `${h?.padStart(2, '0') ?? '00'}:${m?.padStart(2, '0') ?? '00'}`;
+  };
 
   const briefForRef = (ref: string): string | null => {
     if (ref.startsWith('distributor:')) {
