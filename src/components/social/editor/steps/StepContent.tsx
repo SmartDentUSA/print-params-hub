@@ -165,7 +165,10 @@ export function StepContent({
   const [resins, setResins] = useState<Array<{ id: string; name: string; manufacturer: string; slug?: string; type?: string }>>([]);
   const [events, setEvents] = useState<Array<{ id: string; name: string; subtitle?: string; slug?: string; meta?: any }>>([]); // congressos (smartops_events)
   const [trainings, setTrainings] = useState<Array<{ id: string; name: string; subtitle?: string; slug?: string; meta?: any }>>([]); // treinamentos (smartops_courses)
+  const [turmas, setTurmas] = useState<Array<{ id: string; name: string; subtitle?: string; slug?: string; meta?: any }>>([]); // turmas (busca por número)
+  const [turmaParticipants, setTurmaParticipants] = useState<Record<string, any[]>>({});
   const [distributors, setDistributors] = useState<Array<{ id: string; name: string; subtitle?: string; slug?: string; meta?: any }>>([]);
+
 
   useEffect(() => {
     let mounted = true;
