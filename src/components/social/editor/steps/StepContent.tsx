@@ -195,7 +195,7 @@ export function StepContent({
           supabase
             .from('distributors')
             .select(
-              'id,nome_fantasia,razao_social,slug,pais,estado,cidade,linhas_representadas,canal_venda,instagram,notes',
+              'id,nome_fantasia,razao_social,slug,pais,estado,cidade,linhas_representadas,canal_venda,instagram,notes,authorized_scope',
             )
             .eq('active', true)
             .order('nome_fantasia', { ascending: true })
@@ -281,6 +281,7 @@ export function StepContent({
             canal: d.canal_venda,
             instagram: d.instagram,
             notes: d.notes,
+            authorized_scope: d.authorized_scope,
           },
         })),
       );
@@ -422,6 +423,20 @@ export function StepContent({
     const [h, m] = t.split(':');
     return `${h?.padStart(2, '0') ?? '00'}:${m?.padStart(2, '0') ?? '00'}`;
   };
+  const fmtAuthorizedScope = (scope?: Record<string, any> | null): string => {
+    if (!scope || typeof scope !== 'object') return '';
+    const lines: string[] = [];
+    for (const [key, value] of Object.entries(scope)) {
+      if (Array.isArray(value) && value.length) {
+        lines.push(`${key}: ${value.join(', ')}`);
+      } else if (typeof value === 'string' && value.trim()) {
+        lines.push(`${key}: ${value.trim()}`);
+      } else if (Array.isArray(value) && !value.length) {
+        lines.push(key);
+      }
+    }
+    return lines.join(' | ');
+  };
 
   const briefForRef = (ref: string): string | null => {
     if (ref.startsWith('distributor:')) {
@@ -430,14 +445,18 @@ export function StepContent({
       const m = d.meta || {};
       const local = [m.cidade, m.estado, m.pais].filter(Boolean).join(' / ');
       const linhas = Array.isArray(m.linhas) && m.linhas.length ? m.linhas.join(', ') : '';
+      const autorizacao = fmtAuthorizedScope(m.authorized_scope);
       return [
-        `CONTEXTO — NOVO DISTRIBUIDOR: anuncie que a empresa "${d.name}"${m.pais ? ` (${m.pais})` : ''} passou a ser distribuidora oficial do portfólio Smart Dent | Fluxo Digital.`,
+        `CONTEXTO — NOVO DISTRIBUIDOR OFICIAL: anuncie que a empresa "${d.name}"${m.pais ? ` (${m.pais})` : ''} passou a ser distribuidora autorizada do portfólio Smart Dent | Fluxo Digital.`,
         local ? `Localização: ${local}.` : '',
+        autorizacao
+          ? `Autorização Comercial: ${autorizacao}. Use essas categorias/subcategorias para destacar o que essa revenda está inovando ao trazer para o ${m.pais || 'seu país'}.`
+          : '',
         linhas ? `Linhas representadas: ${linhas}.` : '',
         m.canal ? `Canal de venda: ${m.canal}.` : '',
         m.instagram ? `Instagram do distribuidor: ${m.instagram} (mencione o perfil).` : '',
         m.notes ? `Notas da base: ${String(m.notes).slice(0, 400)}` : '',
-        'Tom: boas-vindas institucional + benefício para o profissional da região (suporte local, treinamento e acesso ao portfólio). CTA: "saiba mais" e "link na bio".',
+        'Tom: boas-vindas institucional + inovação local (como o portfólio Smart Dent amplia a oferta odontológica digital na região). CTA: "saiba mais" e "link na bio".',
       ]
         .filter(Boolean)
         .join(' ');
