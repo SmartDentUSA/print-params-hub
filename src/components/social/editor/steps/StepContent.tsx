@@ -717,16 +717,26 @@ export function StepContent({
         durationHours ? `⏱️ Duração: ${Number(durationHours).toFixed(0)}h.` : '',
         m.course_description ? `Sobre o treinamento: ${String(m.course_description).slice(0, 500)}` : '',
         m.course_briefing ? `Briefing de marketing: ${String(m.course_briefing).slice(0, 500)}` : '',
-        Array.isArray(m.related) && m.related.length
-          ? `Equipamentos/produtos usados na turma: ${m.related.join(', ')}.`
+        equipamentos.length
+          ? `🖨️ Equipamentos/produtos utilizados na turma: ${equipamentos.slice(0, 12).join(', ')}. RESUMA esses equipamentos no contexto do que foi praticado (fluxo digital), sem especificações técnicas.`
           : '',
-        parts.length ? `👥 Participantes confirmados (${parts.length}): ${nomes.slice(0, 40).join(', ')}.` : '',
-        igs.length ? `Perfis dos participantes para marcar na legenda: ${igs.slice(0, 30).join(' ')}.` : '',
+        etapas.length
+          ? `🗓️ Etapas/cronograma da turma: ${etapas.slice(0, 10).join(' | ')}. RESUMA as etapas em 1 frase, sem listar hora por hora.`
+          : '',
+        parts.length
+          ? `👥 Participantes (${principais.length} inscritos + ${acompanhantes.length} acompanhantes = ${parts.length} pessoas): ${nomeCidade.slice(0, 40).join(', ')}.`
+          : '',
+        acompanhantes.length
+          ? `Acompanhantes: ${acompanhantes.map((p) => String(p.person_name || '').trim()).filter(Boolean).join(', ')}.`
+          : '',
+        igs.length ? `Perfis para marcar na legenda: ${igs.slice(0, 30).join(' ')}.` : '',
         areas.length ? `Áreas de atuação dos participantes: ${areas.join(', ')}.` : '',
         especialidades.length ? `Especialidades dos participantes: ${especialidades.join(', ')}.` : '',
-        cidades.length ? `Cidades/estados de origem dos participantes: ${cidades.slice(0, 15).join(', ')}.` : '',
+        cidades.length
+          ? `OBRIGATÓRIO citar na legenda as cidades/estados de origem: ${cidades.slice(0, 15).join(', ')}.`
+          : '',
         parts.length
-          ? 'OBRIGATÓRIO: conecte o conteúdo do treinamento às áreas de atuação e especialidades reais dessa turma, citando aplicação clínica/laboratorial concreta (sem preços). Não invente nomes, @perfis, cidades ou especialidades que não estejam nesta lista.'
+          ? 'OBRIGATÓRIO: conecte o conteúdo do treinamento às áreas de atuação e especialidades reais dessa turma, citando aplicação clínica/laboratorial concreta (sem preços). Cite os nomes com a cidade/estado de origem. Não invente nomes, @perfis, cidades ou especialidades que não estejam nesta lista.'
           : '',
         isPast
           ? 'Escreva no PASSADO (retrospectiva/prova social da turma que aconteceu, agradecendo os participantes) e convide para a próxima turma.'
