@@ -95,6 +95,23 @@ const PLATFORM_TONE_PROMPTS: Record<string, Record<string, string>> = {
 const ALL_PRESETS_FLAT = Object.values(PLATFORM_TONE_PROMPTS).flatMap((m) => Object.values(m));
 const TONES = ['Profissional', 'Educativo', 'Direto', 'Inspirador'] as const;
 
+/** Normaliza @handle do Instagram vindo das fichas (aceita URL, com/sem @). */
+function normalizeIgHandle(raw: unknown): string | null {
+  const s = String(raw ?? '').trim();
+  if (!s) return null;
+  const cleaned = s
+    .replace(/^https?:\/\/(www\.)?instagram\.com\//i, '')
+    .replace(/\?.*$/, '')
+    .replace(/\/.*$/, '')
+    .replace(/^@+/, '')
+    .replace(/\s+/g, '')
+    .toLowerCase();
+  if (!cleaned || !/^[a-z0-9._]{2,30}$/.test(cleaned)) return null;
+  return `@${cleaned}`;
+}
+
+
+
 export function StepContent({
   value,
   onChange,
