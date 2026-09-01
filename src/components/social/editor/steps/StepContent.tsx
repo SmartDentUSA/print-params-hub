@@ -465,6 +465,16 @@ export function StepContent({
         product_slug: e.slug || '',
         product_category: e.subtitle || 'Evento',
       });
+    } else if (val.startsWith('turma:')) {
+      const id = val.slice('turma:'.length);
+      const t = turmas.find((x) => x.id === id);
+      if (!t) return;
+      onChange({
+        product_ref: val,
+        product_name: t.name,
+        product_slug: t.slug || '',
+        product_category: 'Turma',
+      });
     } else if (val.startsWith('training:')) {
       const id = val.slice('training:'.length);
       const t = trainings.find((x) => x.id === id);
@@ -475,6 +485,7 @@ export function StepContent({
         product_slug: t.slug || '',
         product_category: t.subtitle || 'Treinamento',
       });
+
     } else if (val.startsWith('distributor:')) {
       const id = val.slice('distributor:'.length);
       const d = distributors.find((x) => x.id === id);
