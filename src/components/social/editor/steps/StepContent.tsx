@@ -202,7 +202,9 @@ export function StepContent({
             .limit(300),
           supabase
             .from('smartops_events')
-            .select('id,name,country,location,start_date,end_date,about_event_pt,company_stand,slug,audience_areas,audience_specialties,audience_notes,speakers,partner_brands,instagram_handle')
+            .select(
+              'id,name,country,location,start_date,end_date,about_event_pt,about_event_en,about_event_es,company_stand,slug,website_url,notes,title_en,title_es,location_en,location_es,description_en,description_es,audience_areas,audience_specialties,audience_notes,speakers,partner_brands,instagram_handle',
+            )
             .eq('is_active', true)
             .order('start_date', { ascending: true, nullsFirst: false })
             .limit(300),
@@ -270,6 +272,16 @@ export function StepContent({
             speakers: e.speakers,
             partner_brands: e.partner_brands,
             instagram_handle: e.instagram_handle,
+            website_url: e.website_url,
+            notes: e.notes,
+            about_en: e.about_event_en,
+            about_es: e.about_event_es,
+            title_en: e.title_en,
+            title_es: e.title_es,
+            location_en: e.location_en,
+            location_es: e.location_es,
+            description_en: e.description_en,
+            description_es: e.description_es,
           },
         })),
       );
@@ -558,7 +570,18 @@ export function StepContent({
           ? `📅 Data: ${fmtDate(m.start_date)}${m.end_date ? ` a ${fmtDate(m.end_date)}` : ''}.`
           : '',
         m.stand ? `🏢 Estande Smart Dent: ${m.stand}.` : '',
-        m.about ? `Sobre o evento: ${String(m.about).slice(0, 500)}` : '',
+        m.about ? `Sobre o evento: ${String(m.about).slice(0, 800)}` : '',
+        m.notes ? `Notas internas do evento (use como contexto, não copie literalmente): ${String(m.notes).slice(0, 400)}` : '',
+        m.website_url ? `🔗 Site oficial do evento: ${m.website_url} (só cite se fizer sentido; o link clicável é o da bio).` : '',
+        m.title_en || m.title_es
+          ? `Nomes do evento em outros idiomas (use o correspondente se a legenda não for em pt-BR): ${[m.title_en, m.title_es].filter(Boolean).join(' | ')}.`
+          : '',
+        m.location_en || m.location_es
+          ? `Local em outros idiomas: ${[m.location_en, m.location_es].filter(Boolean).join(' | ')}.`
+          : '',
+        m.about_en || m.about_es || m.description_en || m.description_es
+          ? `Descrições traduzidas do evento (fonte para legenda em EN/ES): ${[m.about_en, m.about_es, m.description_en, m.description_es].filter(Boolean).join(' || ').slice(0, 900)}`
+          : '',
         Array.isArray(m.audience_areas) && m.audience_areas.length
           ? `👥 Áreas de atuação do público presente: ${m.audience_areas.join(', ')}.`
           : '',
@@ -623,6 +646,7 @@ export function StepContent({
         if (m.instagram_handle) facts.push(`📲 Evento: ${m.instagram_handle}`);
         const brands = brandMentions(m.partner_brands);
         if (brands.length) facts.push(`🤝 Parceiras: ${brands.join(' ')}`);
+        if (m.website_url) facts.push(`🔗 Site: ${m.website_url}`);
       }
       if (ref.startsWith('training:')) {
         const t = trainings.find((x) => x.id === ref.slice('training:'.length));
