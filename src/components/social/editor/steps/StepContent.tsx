@@ -903,8 +903,20 @@ export function StepContent({
           );
         }
         if (m.location) facts.push(`📍 Local: ${m.location}`);
-        const igs = (turmaParticipants[id] || []).map((p: any) => String(p.instagram || '').trim()).filter(Boolean);
+        const parts = (turmaParticipants[id] || []) as any[];
+        const igs = parts.map((p: any) => String(p.instagram || '').trim()).filter(Boolean);
         if (igs.length) facts.push(`📲 Participantes: ${igs.slice(0, 20).join(' ')}`);
+        const cidades = Array.from(
+          new Set(
+            parts
+              .map((p) => [p.empresa_cidade, p.empresa_estado].filter(Boolean).join('/'))
+              .filter(Boolean),
+          ),
+        );
+        if (cidades.length) facts.push(`🏙️ Origem dos participantes: ${cidades.slice(0, 12).join(', ')}`);
+        const eq = (turmaExtras[id]?.equipment || []).concat(Array.isArray(m.related) ? m.related : []);
+        const eqU = Array.from(new Set(eq.filter(Boolean)));
+        if (eqU.length) facts.push(`🖨️ Equipamentos: ${eqU.slice(0, 8).join(', ')}`);
       }
       if (ref.startsWith('training:')) {
 
