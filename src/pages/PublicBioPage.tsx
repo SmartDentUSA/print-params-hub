@@ -5,7 +5,7 @@ import { Instagram, Youtube, Facebook, Linkedin, Globe, MessageCircle, Share2, A
 import { toast } from "sonner";
 import { useBioPage, DEFAULT_LOGO_URL, type BioItem, type BioSocialLinks } from "@/hooks/useBioPages";
 import { useEffect, useState } from "react";
-import catalogoBanner from "@/assets/catalogo-produtos-banner.png.asset.json";
+import catalogoBanner from "@/assets/catalogo-produtos-banner.webp";
 
 
 
@@ -144,7 +144,7 @@ export default function PublicBioPage() {
               className="group flex w-full flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md"
             >
               <img
-                src={catalogoBanner.url}
+                src={catalogoBanner}
                 alt="Linha completa de resinas 3D Smart Dent com certificações FDA e ANSM"
                 loading="lazy"
                 decoding="async"
