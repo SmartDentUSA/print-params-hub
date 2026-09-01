@@ -619,6 +619,10 @@ export function StepContent({
         if (m.location || m.country)
           facts.push(`📍 Local: ${[m.location, m.country].filter(Boolean).join(' — ')}`);
         if (m.stand) facts.push(`🏢 Estande Smart Dent: ${m.stand}`);
+        speakerLines(m.speakers).forEach((l) => facts.push(l));
+        if (m.instagram_handle) facts.push(`📲 Evento: ${m.instagram_handle}`);
+        const brands = brandMentions(m.partner_brands);
+        if (brands.length) facts.push(`🤝 Parceiras: ${brands.join(' ')}`);
       }
       if (ref.startsWith('training:')) {
         const t = trainings.find((x) => x.id === ref.slice('training:'.length));
