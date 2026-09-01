@@ -570,7 +570,18 @@ export function StepContent({
           ? `📅 Data: ${fmtDate(m.start_date)}${m.end_date ? ` a ${fmtDate(m.end_date)}` : ''}.`
           : '',
         m.stand ? `🏢 Estande Smart Dent: ${m.stand}.` : '',
-        m.about ? `Sobre o evento: ${String(m.about).slice(0, 500)}` : '',
+        m.about ? `Sobre o evento: ${String(m.about).slice(0, 800)}` : '',
+        m.notes ? `Notas internas do evento (use como contexto, não copie literalmente): ${String(m.notes).slice(0, 400)}` : '',
+        m.website_url ? `🔗 Site oficial do evento: ${m.website_url} (só cite se fizer sentido; o link clicável é o da bio).` : '',
+        m.title_en || m.title_es
+          ? `Nomes do evento em outros idiomas (use o correspondente se a legenda não for em pt-BR): ${[m.title_en, m.title_es].filter(Boolean).join(' | ')}.`
+          : '',
+        m.location_en || m.location_es
+          ? `Local em outros idiomas: ${[m.location_en, m.location_es].filter(Boolean).join(' | ')}.`
+          : '',
+        m.about_en || m.about_es || m.description_en || m.description_es
+          ? `Descrições traduzidas do evento (fonte para legenda em EN/ES): ${[m.about_en, m.about_es, m.description_en, m.description_es].filter(Boolean).join(' || ').slice(0, 900)}`
+          : '',
         Array.isArray(m.audience_areas) && m.audience_areas.length
           ? `👥 Áreas de atuação do público presente: ${m.audience_areas.join(', ')}.`
           : '',
