@@ -775,6 +775,7 @@ export function StepContent({
           return [dia, data, hora, topico].filter(Boolean).join(' ');
         })
         .filter(Boolean);
+      const comprados = Array.from(new Set((extras.purchased || []).filter(Boolean)));
       const equipamentos = Array.from(
         new Set([...(Array.isArray(m.related) ? m.related : []), ...(extras.equipment || [])].filter(Boolean)),
       );
