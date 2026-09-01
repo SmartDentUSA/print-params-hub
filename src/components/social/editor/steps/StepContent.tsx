@@ -826,12 +826,26 @@ export function StepContent({
     });
     const refs = [value.product_ref, ...(value.extra_products || []).map((e) => e.ref)].filter(Boolean) as string[];
     for (const ref of refs) {
+      if (ref.startsWith('turma:')) {
+        const id = ref.slice('turma:'.length);
+        const t = turmas.find((x) => x.id === id);
+        const m = t?.meta || {};
+        if (m.course_title) names.push(m.course_title);
+        if (Array.isArray(m.related)) names.push(...m.related.slice(0, 4));
+        const parts = (turmaParticipants[id] || []) as any[];
+        names.push(
+          ...Array.from(new Set(parts.map((p) => p.especialidade).filter(Boolean))).slice(0, 6) as string[],
+          ...Array.from(new Set(parts.map((p) => p.area_atuacao).filter(Boolean))).slice(0, 4) as string[],
+        );
+        continue;
+      }
       if (!ref.startsWith('event:')) continue;
       const e = events.find((x) => x.id === ref.slice('event:'.length));
       const m = e?.meta || {};
       if (Array.isArray(m.audience_specialties)) names.push(...m.audience_specialties.slice(0, 6));
       if (Array.isArray(m.audience_areas)) names.push(...m.audience_areas.slice(0, 4));
     }
+
     const q = names.filter(Boolean).join(' ').trim();
     return q || undefined;
   };
