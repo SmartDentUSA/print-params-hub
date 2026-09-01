@@ -167,6 +167,7 @@ export function StepContent({
   const [trainings, setTrainings] = useState<Array<{ id: string; name: string; subtitle?: string; slug?: string; meta?: any }>>([]); // treinamentos (smartops_courses)
   const [turmas, setTurmas] = useState<Array<{ id: string; name: string; subtitle?: string; slug?: string; meta?: any }>>([]); // turmas (busca por número)
   const [turmaParticipants, setTurmaParticipants] = useState<Record<string, any[]>>({});
+  const [turmaExtras, setTurmaExtras] = useState<Record<string, { days: any[]; equipment: string[] }>>({});
   const [distributors, setDistributors] = useState<Array<{ id: string; name: string; subtitle?: string; slug?: string; meta?: any }>>([]);
 
 
