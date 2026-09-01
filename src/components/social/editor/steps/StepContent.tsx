@@ -591,7 +591,54 @@ export function StepContent({
         .filter(Boolean)
         .join(' ');
     }
+    if (ref.startsWith('turma:')) {
+      const id = ref.slice('turma:'.length);
+      const t = turmas.find((x) => x.id === id);
+      if (!t) return null;
+      const m = t.meta || {};
+      const parts = (turmaParticipants[id] || []) as any[];
+      const isPast = m.start_date ? new Date(m.start_date).getTime() < Date.now() : false;
+      const durationHours =
+        m.recurrence_duration_h ??
+        (m.duration_days && m.duration_hours_per_day ? m.duration_days * m.duration_hours_per_day : null);
+      const areas = Array.from(new Set(parts.map((p) => p.area_atuacao).filter(Boolean)));
+      const especialidades = Array.from(new Set(parts.map((p) => p.especialidade).filter(Boolean)));
+      const cidades = Array.from(
+        new Set(parts.map((p) => [p.empresa_cidade, p.empresa_estado].filter(Boolean).join('/')).filter(Boolean)),
+      );
+      const nomes = parts.map((p) => String(p.person_name || '').trim()).filter(Boolean);
+      const igs = parts.map((p) => String(p.instagram || '').trim()).filter(Boolean);
+      return [
+        `CONTEXTO — TURMA ESPECÍFICA${m.turma_number != null ? ` Nº ${m.turma_number}` : ''} do treinamento "${m.course_title || t.name}".`,
+        m.modality ? `Modalidade: ${m.modality}.` : '',
+        m.start_date
+          ? `📅 Data: ${fmtDate(m.start_date)}${m.end_date && m.end_date !== m.start_date ? ` a ${fmtDate(m.end_date)}` : ''}${fmtTime(m.recurrence_time_start) ? ` · 🕒 ${fmtTime(m.recurrence_time_start)}` : ''}.`
+          : '',
+        m.location ? `📍 Local: ${m.location}.` : '',
+        durationHours ? `⏱️ Duração: ${Number(durationHours).toFixed(0)}h.` : '',
+        m.course_description ? `Sobre o treinamento: ${String(m.course_description).slice(0, 500)}` : '',
+        m.course_briefing ? `Briefing de marketing: ${String(m.course_briefing).slice(0, 500)}` : '',
+        Array.isArray(m.related) && m.related.length
+          ? `Equipamentos/produtos usados na turma: ${m.related.join(', ')}.`
+          : '',
+        parts.length ? `👥 Participantes confirmados (${parts.length}): ${nomes.slice(0, 40).join(', ')}.` : '',
+        igs.length ? `Perfis dos participantes para marcar na legenda: ${igs.slice(0, 30).join(' ')}.` : '',
+        areas.length ? `Áreas de atuação dos participantes: ${areas.join(', ')}.` : '',
+        especialidades.length ? `Especialidades dos participantes: ${especialidades.join(', ')}.` : '',
+        cidades.length ? `Cidades/estados de origem dos participantes: ${cidades.slice(0, 15).join(', ')}.` : '',
+        parts.length
+          ? 'OBRIGATÓRIO: conecte o conteúdo do treinamento às áreas de atuação e especialidades reais dessa turma, citando aplicação clínica/laboratorial concreta (sem preços). Não invente nomes, @perfis, cidades ou especialidades que não estejam nesta lista.'
+          : '',
+        isPast
+          ? 'Escreva no PASSADO (retrospectiva/prova social da turma que aconteceu, agradecendo os participantes) e convide para a próxima turma.'
+          : 'Escreva no FUTURO, gerando desejo de participar desta turma.',
+        'CTA: "garanta sua vaga pelo link na bio" + "saiba mais". NÃO escreva hashtags dentro da legenda.',
+      ]
+        .filter(Boolean)
+        .join(' ');
+    }
     if (ref.startsWith('training:')) {
+
       const t = trainings.find((x) => x.id === ref.slice('training:'.length));
       if (!t) return null;
       const m = t.meta || {};
