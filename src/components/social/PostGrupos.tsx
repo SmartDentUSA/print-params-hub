@@ -148,9 +148,14 @@ export function PostGrupos() {
           )}
         </TabsContent>
 
+        <TabsContent value="lives">
+          <LiveGroupAutomations />
+        </TabsContent>
+
         <TabsContent value="historico">
           <PostGruposHistory />
         </TabsContent>
+
       </Tabs>
     </div>
   );
