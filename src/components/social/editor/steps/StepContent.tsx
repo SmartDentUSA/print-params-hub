@@ -425,18 +425,80 @@ export function StepContent({
     (async () => {
       const { data } = await supabase
         .from('smartops_course_enrollments')
-        .select('turma_id,person_name,instagram,status,area_atuacao,especialidade,empresa_cidade,empresa_estado,empresa_pais')
+        .select(
+          'id,turma_id,person_name,instagram,status,area_atuacao,especialidade,empresa_cidade,empresa_estado,empresa_pais,equipment_data',
+        )
         .in('turma_id', missing)
         .order('person_name', { ascending: true });
       if (!mounted) return;
       const byTurma: Record<string, any[]> = {};
       for (const id of missing) byTurma[id] = [];
+      const valid: any[] = [];
       for (const row of (data ?? []) as any[]) {
         const st = String(row.status || '').toLowerCase();
         if (['cancelado', 'cancelada', 'ausente', 'no_show'].includes(st)) continue;
-        (byTurma[String(row.turma_id)] ||= []).push(row);
+        valid.push(row);
+        (byTurma[String(row.turma_id)] ||= []).push({ ...row, tipo: 'principal' });
       }
+
+      // Acompanhantes + etapas do cronograma
+      const enrollmentIds = valid.map((r) => r.id).filter(Boolean);
+      const [{ data: comps }, { data: days }] = await Promise.all([
+        enrollmentIds.length
+          ? supabase
+              .from('smartops_enrollment_companions')
+              .select('enrollment_id,name,instagram,area_atuacao,especialidade')
+              .in('enrollment_id', enrollmentIds)
+          : Promise.resolve({ data: [] as any[] } as any),
+        supabase
+          .from('smartops_turma_days')
+          .select('turma_id,day_number,date,start_time,end_time,topic')
+          .in('turma_id', missing)
+          .order('day_number', { ascending: true }),
+      ]);
+      if (!mounted) return;
+
+      const turmaByEnrollment = new Map(valid.map((r) => [String(r.id), String(r.turma_id)]));
+      const parentByEnrollment = new Map(valid.map((r) => [String(r.id), r]));
+      for (const c of (comps ?? []) as any[]) {
+        const tid = turmaByEnrollment.get(String(c.enrollment_id));
+        if (!tid) continue;
+        const parent = parentByEnrollment.get(String(c.enrollment_id)) || {};
+        (byTurma[tid] ||= []).push({
+          person_name: c.name,
+          instagram: c.instagram,
+          area_atuacao: c.area_atuacao || parent.area_atuacao,
+          especialidade: c.especialidade || parent.especialidade,
+          empresa_cidade: parent.empresa_cidade,
+          empresa_estado: parent.empresa_estado,
+          empresa_pais: parent.empresa_pais,
+          tipo: 'acompanhante',
+        });
+      }
+
+      // Equipamentos citados nos enrollments (equipment_data → item_nome)
+      const equipByTurma: Record<string, string[]> = {};
+      for (const id of missing) equipByTurma[id] = [];
+      for (const row of valid) {
+        const tid = String(row.turma_id);
+        const ed = row.equipment_data || {};
+        for (const entry of Object.values(ed) as any[]) {
+          const nome = String(entry?.item_nome || '').trim();
+          if (!nome || nome.length > 80) continue;
+          if (!equipByTurma[tid].some((x) => x.toLowerCase() === nome.toLowerCase())) equipByTurma[tid].push(nome);
+        }
+      }
+
+      const daysByTurma: Record<string, any[]> = {};
+      for (const id of missing) daysByTurma[id] = [];
+      for (const d of (days ?? []) as any[]) (daysByTurma[String(d.turma_id)] ||= []).push(d);
+
       setTurmaParticipants((prev) => ({ ...prev, ...byTurma }));
+      setTurmaExtras((prev) => {
+        const next = { ...prev };
+        for (const id of missing) next[id] = { days: daysByTurma[id] || [], equipment: equipByTurma[id] || [] };
+        return next;
+      });
     })();
     return () => {
       mounted = false;
