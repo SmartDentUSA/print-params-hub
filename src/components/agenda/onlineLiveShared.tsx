@@ -3,6 +3,7 @@ import { User, Share2, Check } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { getPublicOrigin } from "@/utils/publicOrigin";
+import { shortenUrl } from "@/utils/shortLink";
 import type { TurmaComVagas } from "@/types/courses";
 import { UploadMidiasDriveButton } from "@/components/smartops/UploadMidiasDriveButton";
 
