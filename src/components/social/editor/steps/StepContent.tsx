@@ -683,8 +683,30 @@ export function StepContent({
       const cidades = Array.from(
         new Set(parts.map((p) => [p.empresa_cidade, p.empresa_estado].filter(Boolean).join('/')).filter(Boolean)),
       );
+      const principais = parts.filter((p) => p.tipo !== 'acompanhante');
+      const acompanhantes = parts.filter((p) => p.tipo === 'acompanhante');
       const nomes = parts.map((p) => String(p.person_name || '').trim()).filter(Boolean);
       const igs = parts.map((p) => String(p.instagram || '').trim()).filter(Boolean);
+      const nomeCidade = parts
+        .map((p) => {
+          const n = String(p.person_name || '').trim();
+          const loc = [p.empresa_cidade, p.empresa_estado].filter(Boolean).join('/');
+          return n ? (loc ? `${n} (${loc})` : n) : '';
+        })
+        .filter(Boolean);
+      const extras = turmaExtras[id] || { days: [], equipment: [] };
+      const etapas = (extras.days || [])
+        .map((d: any) => {
+          const dia = d.day_number ? `Dia ${d.day_number}` : '';
+          const data = d.date ? fmtDate(d.date) : '';
+          const hora = [fmtTime(d.start_time), fmtTime(d.end_time)].filter(Boolean).join('–');
+          const topico = String(d.topic || '').trim();
+          return [dia, data, hora, topico].filter(Boolean).join(' ');
+        })
+        .filter(Boolean);
+      const equipamentos = Array.from(
+        new Set([...(Array.isArray(m.related) ? m.related : []), ...(extras.equipment || [])].filter(Boolean)),
+      );
       return [
         `CONTEXTO — TURMA ESPECÍFICA${m.turma_number != null ? ` Nº ${m.turma_number}` : ''} do treinamento "${m.course_title || t.name}".`,
         m.modality ? `Modalidade: ${m.modality}.` : '',
