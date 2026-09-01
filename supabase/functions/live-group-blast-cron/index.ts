@@ -88,7 +88,7 @@ serve(async (req) => {
     : null;
 
   const { data: autos } = await sb.from('live_group_automations').select('*');
-  const automations = ((autos ?? []) as Automation[]).filter((a) => a.enabled || forceTurmaId);
+  const automations = ((autos ?? []) as Automation[]).filter((a) => a.enabled || forceTurmaId || testPhone);
   if (automations.length === 0) {
     return Response.json({ ok: true, reason: 'no_active_automations', sent: 0 }, { headers: corsHeaders });
   }
