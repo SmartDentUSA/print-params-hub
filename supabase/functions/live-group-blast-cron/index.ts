@@ -61,15 +61,16 @@ async function shorten(sb: any, url: string, produto: string): Promise<string> {
     const r = await fetch(`${SUPABASE_URL}/functions/v1/short-link-create`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${SERVICE_ROLE_KEY}` },
-      body: JSON.stringify({ url, produto }),
+      body: JSON.stringify({ destination_url: url, produto }),
     });
     const j = await r.json().catch(() => ({}));
-    const short = j?.short_url ?? j?.url ?? null;
+    const short = j?.url ?? j?.short_url ?? null;
     return typeof short === 'string' && short.length > 0 ? short : url;
   } catch {
     return url;
   }
 }
+
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
