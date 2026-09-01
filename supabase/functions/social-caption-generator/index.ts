@@ -28,7 +28,12 @@ interface ReqBody {
   language?: string;
   external_enrichment?: any;
   extra_products?: Array<{ name?: string; slug?: string; category?: string }>;
+  /** "benefits" = proibido listar especificações técnicas; só benefício para o público */
+  focus_mode?: "benefits" | "specs";
+  /** Whitelist: únicos produtos que podem ser citados na caption */
+  allowed_products?: string[];
 }
+
 
 
 function sanitizeHashtags(arr: unknown): string[] {
