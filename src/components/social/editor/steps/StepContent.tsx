@@ -737,6 +737,9 @@ export function StepContent({
           ? `Acompanhantes: ${acompanhantes.map((p) => String(p.person_name || '').trim()).filter(Boolean).join(', ')}.`
           : '',
         igs.length ? `Perfis para marcar na legenda: ${igs.slice(0, 30).join(' ')}.` : '',
+        nomesComIg.length
+          ? `OBRIGATÓRIO marcar o @instagram de cada participante que possui perfil preenchido, junto ao nome: ${nomesComIg.slice(0, 30).join(', ')}. Não invente @perfis para quem não tem.`
+          : '',
         areas.length ? `Áreas de atuação dos participantes: ${areas.join(', ')}.` : '',
         especialidades.length ? `Especialidades dos participantes: ${especialidades.join(', ')}.` : '',
         cidades.length
