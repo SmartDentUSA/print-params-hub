@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { useBioPage, DEFAULT_LOGO_URL, type BioItem, type BioSocialLinks } from "@/hooks/useBioPages";
 import { useEffect, useState } from "react";
 import catalogoBanner from "@/assets/catalogo-produtos-banner.webp";
+import parametrizeBanner from "@/assets/parametrize-printer-banner.webp";
 
 
 
