@@ -7,6 +7,8 @@ export interface GenerateCaptionInput {
   platform?: string;
   instructions?: string;
   tone?: string;
+  hard_facts?: string[];
+  rag_query?: string;
   language?: string;
   external_enrichment?: any;
   extra_products?: Array<{ name: string; slug?: string; category?: string }>;
