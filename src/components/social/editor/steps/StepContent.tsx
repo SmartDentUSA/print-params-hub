@@ -485,14 +485,17 @@ export function StepContent({
       const isPast = start !== null && start < Date.now();
       return [
         `CONTEXTO — CONGRESSO/EVENTO: "${e.name}".`,
-        [m.location, m.country].filter(Boolean).join(' · ') ? `Local: ${[m.location, m.country].filter(Boolean).join(' · ')}.` : '',
-        m.start_date ? `Data: ${fmtDate(m.start_date)}${m.end_date ? ` a ${fmtDate(m.end_date)}` : ''}.` : '',
-        m.stand ? `Estande Smart Dent: ${m.stand}.` : '',
+        m.country ? `🌍 País: ${m.country}.` : '',
+        m.location ? `📍 Local: ${m.location}.` : '',
+        m.start_date
+          ? `📅 Data: ${fmtDate(m.start_date)}${m.end_date ? ` a ${fmtDate(m.end_date)}` : ''}.`
+          : '',
+        m.stand ? `🏢 Estande Smart Dent: ${m.stand}.` : '',
         m.about ? `Sobre o evento: ${String(m.about).slice(0, 500)}` : '',
         isPast
           ? 'Escreva no PASSADO (retrospectiva, agradecimento a quem visitou o estande).'
           : 'Escreva no FUTURO, convidando a visitar o estande Smart Dent.',
-        'CTA: "saiba mais" + "link na bio".',
+        'CTA obrigatório: "Digite CONGRESSO e receba condições especiais, descontos mesmo não participando presencialmente" + "saiba mais" + "link na bio".',
       ]
         .filter(Boolean)
         .join(' ');
