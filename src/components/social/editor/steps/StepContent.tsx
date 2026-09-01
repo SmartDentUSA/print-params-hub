@@ -566,6 +566,13 @@ export function StepContent({
           ? `🦷 Especialidades do público presente: ${m.audience_specialties.join(', ')}.`
           : '',
         m.audience_notes ? `Observações sobre o público: ${String(m.audience_notes).slice(0, 300)}` : '',
+        speakerLines(m.speakers).length
+          ? `Palestrantes / demonstrações no estande (cite cada um com nome, tema e horário, marcando o @instagram quando houver): ${speakerLines(m.speakers).join(' ; ')}.`
+          : '',
+        brandMentions(m.partner_brands).length
+          ? `Marcas parceiras a marcar na legenda: ${brandMentions(m.partner_brands).join(', ')}.`
+          : '',
+        m.instagram_handle ? `Perfil oficial do evento para marcar: ${m.instagram_handle}.` : '',
         (Array.isArray(m.audience_areas) && m.audience_areas.length) ||
         (Array.isArray(m.audience_specialties) && m.audience_specialties.length)
           ? 'OBRIGATÓRIO: conecte cada produto selecionado às áreas de atuação e especialidades do público presente, citando a aplicação clínica/laboratorial concreta para esse público (sem preços).'
@@ -580,11 +587,12 @@ export function StepContent({
           '2) Parágrafo com a participação da Smart Dent, datas, público do evento e tema principal.',
           '3) Convite ao estande: "📍 Visite o Estande {número} e conheça soluções que unem {benefício 1}, {benefício 2} e {benefício 3}:".',
           '4) Lista dos destaques (produtos selecionados), um emoji DIFERENTE por item (🔬 📸 💻 ✔️ 💡).',
-          '5) Parágrafo curto explicando como essas soluções melhoram resultados técnicos, clínicos ou comerciais das áreas e especialidades do público presente.',
-          '6) CTA de comentário com a palavra-chave em MAIÚSCULAS.',
-          '7) Fechamento: "💾 Salve este post para não perder nossa localização." / "📲 Compartilhe com um colega que precisa {ação} em {ano}." / "🔗 Saiba mais no link da bio."',
-          '8) De 8 a 12 hashtags realmente relacionadas à empresa, ao congresso, ao público e às tecnologias citadas.',
-          'REGRAS: não invente datas, números, local, estande, condições comerciais, produtos ou características técnicas; nada de superlativos ("o maior evento") sem dado; preserve nomes de marcas, produtos e eventos; emojis com equilíbrio; sem preços; sem barras invertidas ou marcação. Entregue somente a legenda final pronta para publicar.',
+          '5) Bloco de palestrantes/demonstrações (quando houver): "🎤 {Nome} (@ig) — {tema}" com data e horário.',
+          '6) Parágrafo curto explicando como essas soluções melhoram resultados técnicos, clínicos ou comerciais das áreas e especialidades do público presente.',
+          '7) CTA de comentário com a palavra-chave em MAIÚSCULAS.',
+          '8) Fechamento: "💾 Salve este post para não perder nossa localização." / "📲 Compartilhe com um colega que precisa {ação} em {ano}." / "🔗 Saiba mais no link da bio." + marcações dos perfis (evento, palestrantes e marcas parceiras).',
+          '9) NÃO escreva hashtags dentro da legenda: elas vão SOMENTE no campo "hashtags" (8 a 12, relacionadas à empresa, ao congresso, ao público e às tecnologias citadas).',
+          'REGRAS: não invente datas, números, local, estande, condições comerciais, produtos, palestrantes, @perfis ou características técnicas; nada de superlativos ("o maior evento") sem dado; preserve nomes de marcas, produtos e eventos; emojis com equilíbrio; sem preços; sem barras invertidas ou marcação. Entregue somente a legenda final pronta para publicar.',
         ].join(' '),
       ]
         .filter(Boolean)
