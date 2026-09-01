@@ -458,6 +458,7 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
       setCertificateBody(DEFAULT_CERTIFICATE_BODY);
       setRelatedProductIds([]);
       setRelatedProductNames([]);
+      setMarketingBriefing("");
       return;
     }
     setTitle(course.title);
