@@ -15,19 +15,21 @@ const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const PUBLIC_ORIGIN = 'https://parametros.smartdent.com.br';
 
+const INSTAGRAM_URL = 'https://instagram.com/smartdentoficial';
+
 const DEFAULT_PROMO = `🔴 *AMANHÃ TEM LIVE* — {{titulo}}
 
 📅 {{data}} às {{hora}} (horário de Brasília)
-🎥 Transmissão ao vivo no YouTube
 🎓 Com {{instrutor}}
 
-👉 Assista ao vivo: {{live_url}}`;
+👉 Assista ao vivo: {{inscricao}}`;
 
 const DEFAULT_LIVE = `🔴 *ESTAMOS AO VIVO EM 5 MINUTOS!*
 
 {{titulo}}
 
-▶️ Entre agora: {{live_url}}`;
+▶️ YouTube: {{live_url}}
+📸 Instagram: {{instagram_url}}`;
 
 type Automation = {
   id: string;
