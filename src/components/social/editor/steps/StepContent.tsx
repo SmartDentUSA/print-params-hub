@@ -572,7 +572,12 @@ export function StepContent({
       setTurmaParticipants((prev) => ({ ...prev, ...byTurma }));
       setTurmaExtras((prev) => {
         const next = { ...prev };
-        for (const id of missing) next[id] = { days: daysByTurma[id] || [], equipment: equipByTurma[id] || [] };
+        for (const id of missing)
+          next[id] = {
+            days: daysByTurma[id] || [],
+            equipment: equipByTurma[id] || [],
+            purchased: purchasedByTurma[id] || [],
+          };
         return next;
       });
     })();
