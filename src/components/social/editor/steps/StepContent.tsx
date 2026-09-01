@@ -202,7 +202,7 @@ export function StepContent({
             .limit(300),
           supabase
             .from('smartops_events')
-            .select('id,name,country,location,start_date,end_date,about_event_pt,company_stand,slug,audience_areas,audience_specialties,audience_notes')
+            .select('id,name,country,location,start_date,end_date,about_event_pt,company_stand,slug,audience_areas,audience_specialties,audience_notes,speakers,partner_brands,instagram_handle')
             .eq('is_active', true)
             .order('start_date', { ascending: true, nullsFirst: false })
             .limit(300),
