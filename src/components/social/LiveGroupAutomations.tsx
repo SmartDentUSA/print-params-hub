@@ -100,6 +100,14 @@ export function LiveGroupAutomations() {
     [courses],
   );
 
+  // Somente lives futuras (a partir de hoje), em ordem cronológica
+  const upcoming = useMemo(() => {
+    const today = new Date().toISOString().slice(0, 10);
+    return turmas
+      .filter((t) => !!t.start_date && t.start_date >= today)
+      .sort((x, y) => (x.start_date ?? '').localeCompare(y.start_date ?? ''));
+  }, [turmas]);
+
   const create = async () => {
     const { error } = await supabase.from('live_group_automations').insert({
       name: 'Divulgação de Lives',
