@@ -110,6 +110,47 @@ function normalizeIgHandle(raw: unknown): string | null {
   return `@${cleaned}`;
 }
 
+const COUNTRY_FLAGS: Record<string, string> = {
+  brasil: '🇧🇷', brazil: '🇧🇷', br: '🇧🇷',
+  portugal: '🇵🇹', pt: '🇵🇹',
+  argentina: '🇦🇷', ar: '🇦🇷',
+  chile: '🇨🇱', cl: '🇨🇱',
+  colombia: '🇨🇴', co: '🇨🇴',
+  mexico: '🇲🇽', mx: '🇲🇽',
+  paraguai: '🇵🇾', py: '🇵🇾',
+  uruguai: '🇺🇾', uy: '🇺🇾',
+  eua: '🇺🇸', usa: '🇺🇸', us: '🇺🇸',
+};
+
+function flagFor(pais?: unknown): string {
+  const k = String(pais ?? '')
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+  return COUNTRY_FLAGS[k] || '🇧🇷';
+}
+
+/** Uma linha por inscrito: 🇧🇷 Nome @ig + Acompanhante @ig — Cidade/UF */
+function buildParticipantLines(parts: any[]): string[] {
+  const principais = parts.filter((p) => p.tipo !== 'acompanhante');
+  const acomp = parts.filter((p) => p.tipo === 'acompanhante');
+  const label = (p: any) => {
+    const nome = String(p?.person_name || '').trim();
+    const ig = normalizeIgHandle(p?.instagram);
+    return [nome, ig].filter(Boolean).join(' ');
+  };
+  return principais
+    .map((p) => {
+      const base = label(p);
+      if (!base) return '';
+      const meus = acomp.filter((c) => String(c.enrollment_id || '') === String(p.id || ''));
+      const comAcomp = [base, ...meus.map(label).filter(Boolean)].join(' + ');
+      const loc = [p.empresa_cidade, p.empresa_estado].filter(Boolean).join('/');
+      return `${flagFor(p.empresa_pais)} ${comAcomp}${loc ? ` — ${loc}` : ''}`;
+    })
+    .filter(Boolean);
+}
 
 
 export function StepContent({
