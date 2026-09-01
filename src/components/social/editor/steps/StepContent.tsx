@@ -631,8 +631,11 @@ export function StepContent({
         product_slug: value.product_slug || undefined,
         platform,
         instructions: [contextBrief, aiInstructions].filter(Boolean).join('\n\n') || undefined,
+        hard_facts: buildHardFacts(),
+        rag_query: buildRagQuery(),
         tone: aiTone,
         language: 'pt-BR',
+
         external_enrichment: knowledge.data?.enrichment || undefined,
         extra_products: (value.extra_products || []).map((p) => ({
           name: p.name,
