@@ -16,6 +16,7 @@ import { Country } from "country-state-city";
 import { cn } from "@/lib/utils";
 import CoverImageUpload from "@/components/smartops/CoverImageUpload";
 import { EventWebResearchButton, EventReferenceUploads, EventAboutByLanguage, EventCoverByLanguage } from "@/components/smartops/events/EventAIPanels";
+import EventAudienceFields from "@/components/smartops/events/EventAudienceFields";
 
 type EventRow = {
   id: string;
