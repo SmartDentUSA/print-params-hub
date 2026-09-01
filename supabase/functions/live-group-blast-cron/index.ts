@@ -188,6 +188,24 @@ serve(async (req) => {
 
       for (const job of jobs) {
         if (forceKind && job.kind !== forceKind) continue;
+
+        // Teste em telefone: envia texto direto, sem grupos e sem dedupe/log
+        if (testPhone) {
+          const r = await fetch(`${SUPABASE_URL}/functions/v1/smart-ops-wa-send`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${SERVICE_ROLE_KEY}` },
+            body: JSON.stringify({
+              phone: testPhone,
+              message: job.text,
+              source: 'live_group_blast_test',
+              metadata: { turma_id: t.id, kind: job.kind, automation_id: auto.id, media },
+            }),
+          });
+          const j = await r.json().catch(() => ({}));
+          results.push({ automation: auto.id, turma: t.id, kind: job.kind, test_phone: testPhone, ok: !!j?.success, text: job.text, media, error: j?.success ? null : (j?.detail ?? j?.error ?? r.status) });
+          continue;
+        }
+
         const key = `${auto.id}|${t.id}|${job.kind}`;
         if (alreadySent.has(key)) continue;
         const forced = !!forceTurmaId;
