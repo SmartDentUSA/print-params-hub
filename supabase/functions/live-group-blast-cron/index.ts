@@ -22,7 +22,7 @@ const DEFAULT_PROMO = `🔴 *AMANHÃ TEM LIVE* — {{titulo}}
 📅 {{data}} às {{hora}} (horário de Brasília)
 🎓 Com {{instrutor}}
 
-👉 Assista ao vivo: {{inscricao}}`;
+👉 Inscreva-se para assistir ao vivo: {{inscricao}}`;
 
 const DEFAULT_LIVE = `🔴 *ESTAMOS AO VIVO EM 5 MINUTOS!*
 
