@@ -320,6 +320,24 @@ const COURSE_MODALITY_LABEL: Record<string, string> = {
   acesso_remoto: "Acesso Remoto",
 };
 
+function formatTurmaNumber(n: any, label?: string) {
+  if (n === null || n === undefined || n === "") return label || "Turma";
+  const s = String(n);
+  return `#${s.length >= 3 ? s : s.padStart(3, "0")}`;
+}
+
+function formatTurmaPeriod(start?: string, end?: string) {
+  const fmt = (d?: string) => {
+    if (!d) return "";
+    const [y, m, dd] = String(d).slice(0, 10).split("-");
+    return dd && m ? `${dd}/${m}` : "";
+  };
+  const a = fmt(start), b = fmt(end);
+  if (!a && !b) return "";
+  if (!b || a === b) return a;
+  return `${a} → ${b}`;
+}
+
 function CourseListRow({ course, onEdit, onTogglePublic, onToggleActive, onClone, onDelete }: {
   course: SmartopsCourse;
   onEdit: () => void;
