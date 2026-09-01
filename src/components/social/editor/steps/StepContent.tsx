@@ -429,6 +429,31 @@ export function StepContent({
     const [h, m] = t.split(':');
     return `${h?.padStart(2, '0') ?? '00'}:${m?.padStart(2, '0') ?? '00'}`;
   };
+  /** Linhas "🎤 Nome (@ig) — Tema · 📅 data 🕒 início às fim" dos palestrantes do evento. */
+  const speakerLines = (speakers?: any[]): string[] =>
+    (Array.isArray(speakers) ? speakers : [])
+      .map((s) => {
+        const name = String(s?.name || '').trim();
+        const theme = String(s?.theme || '').trim();
+        if (!name && !theme) return '';
+        const ig = String(s?.instagram || '').trim();
+        const slots = (Array.isArray(s?.sessions) ? s.sessions : [])
+          .map((se: any) => {
+            const d = se?.date ? fmtDate(se.date) : '';
+            const ini = fmtTime(se?.start_time);
+            const fim = fmtTime(se?.end_time);
+            const hora = ini && fim ? `${ini} às ${fim}` : ini || fim;
+            return [d ? `📅 ${d}` : '', hora ? `🕒 ${hora}` : ''].filter(Boolean).join(' ');
+          })
+          .filter(Boolean)
+          .join(' | ');
+        return `🎤 ${[name, ig ? `(${ig})` : ''].filter(Boolean).join(' ')}${theme ? ` — ${theme}` : ''}${slots ? ` · ${slots}` : ''}`;
+      })
+      .filter(Boolean);
+  const brandMentions = (brands?: any[]): string[] =>
+    (Array.isArray(brands) ? brands : [])
+      .map((b) => [String(b?.name || '').trim(), String(b?.instagram || '').trim()].filter(Boolean).join(' '))
+      .filter(Boolean);
   const fmtAuthorizedScope = (scope?: Record<string, any> | null): string => {
     if (!scope || typeof scope !== 'object') return '';
     const lines: string[] = [];
