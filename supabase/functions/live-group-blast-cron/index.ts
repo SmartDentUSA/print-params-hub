@@ -21,7 +21,7 @@ const DEFAULT_PROMO = `🔴 *AMANHÃ TEM LIVE* — {{titulo}}
 🎥 Transmissão ao vivo no YouTube
 🎓 Com {{instrutor}}
 
-👉 Garanta sua vaga: {{inscricao}}`;
+👉 Assista ao vivo: {{live_url}}`;
 
 const DEFAULT_LIVE = `🔴 *ESTAMOS AO VIVO EM 5 MINUTOS!*
 
@@ -55,6 +55,18 @@ function fmtTime(t: string | null): string {
 }
 function render(tpl: string, ctx: Record<string, string>): string {
   return tpl.replace(/\{\{\s*([\w.]+)\s*\}\}/g, (_, k) => ctx[k] ?? '');
+}
+
+/** ID do vídeo/live do YouTube a partir de qualquer formato de URL. */
+function youtubeId(url: string | null | undefined): string | null {
+  if (!url) return null;
+  const m = String(url).match(/(?:live\/|shorts\/|v=|embed\/|youtu\.be\/)([\w-]{6,})/);
+  return m ? m[1] : null;
+}
+/** Thumb oficial da live no YouTube (maxres, com fallback hq). */
+function youtubeThumb(url: string | null | undefined): string | null {
+  const id = youtubeId(url);
+  return id ? `https://img.youtube.com/vi/${id}/maxresdefault.jpg` : null;
 }
 
 async function shorten(sb: any, url: string, produto: string): Promise<string> {
