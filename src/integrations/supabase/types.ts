@@ -12480,6 +12480,7 @@ export type Database = {
           enabled: boolean
           group_ids: string[]
           id: string
+          instance_names: string[]
           live_enabled: boolean
           live_minutes_before: number
           live_template: string | null
@@ -12496,6 +12497,7 @@ export type Database = {
           enabled?: boolean
           group_ids?: string[]
           id?: string
+          instance_names?: string[]
           live_enabled?: boolean
           live_minutes_before?: number
           live_template?: string | null
@@ -12512,6 +12514,7 @@ export type Database = {
           enabled?: boolean
           group_ids?: string[]
           id?: string
+          instance_names?: string[]
           live_enabled?: boolean
           live_minutes_before?: number
           live_template?: string | null

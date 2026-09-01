@@ -34,6 +34,7 @@ type Automation = {
   name: string;
   enabled: boolean;
   group_ids: string[];
+  instance_names: string[] | null;
   course_ids: string[];
   promo_enabled: boolean;
   promo_days_before: number;
@@ -81,9 +82,13 @@ serve(async (req) => {
   const dryRun = body?.dry_run === true;
   const forceTurmaId: string | null = typeof body?.turma_id === 'string' ? body.turma_id : null;
   const forceKind: 'promo' | 'live' | null = body?.kind === 'promo' || body?.kind === 'live' ? body.kind : null;
+  // Envio de teste: manda as mensagens para um telefone (não para grupos, não grava log/dedupe)
+  const testPhone: string | null = typeof body?.test_phone === 'string' && body.test_phone.replace(/\D/g, '').length >= 10
+    ? body.test_phone.replace(/\D/g, '')
+    : null;
 
   const { data: autos } = await sb.from('live_group_automations').select('*');
-  const automations = ((autos ?? []) as Automation[]).filter((a) => a.enabled || forceTurmaId);
+  const automations = ((autos ?? []) as Automation[]).filter((a) => a.enabled || forceTurmaId || testPhone);
   if (automations.length === 0) {
     return Response.json({ ok: true, reason: 'no_active_automations', sent: 0 }, { headers: corsHeaders });
   }
@@ -118,13 +123,19 @@ serve(async (req) => {
   const results: any[] = [];
 
   for (const auto of automations) {
-    if (!auto.group_ids?.length) continue;
-    const { data: groups } = await sb
-      .from('wa_groups')
-      .select('id, group_jid, name, is_admin, enabled')
-      .in('id', auto.group_ids);
-    const jids = ((groups ?? []) as any[]).filter((g) => g.is_admin && g.enabled && g.group_jid).map((g) => g.group_jid);
-    if (jids.length === 0) { results.push({ automation: auto.id, skipped: 'no_eligible_groups' }); continue; }
+    if (!auto.group_ids?.length && !testPhone) continue;
+    const allowedInstances = (auto.instance_names ?? []).map((s) => String(s).trim()).filter(Boolean);
+    const { data: groups } = auto.group_ids?.length
+      ? await sb
+          .from('wa_groups')
+          .select('id, group_jid, name, is_admin, enabled, instance_name')
+          .in('id', auto.group_ids)
+      : { data: [] as any[] } as any;
+    const jids = ((groups ?? []) as any[])
+      .filter((g) => g.is_admin && g.enabled && g.group_jid)
+      .filter((g) => allowedInstances.length === 0 || allowedInstances.includes(g.instance_name))
+      .map((g) => g.group_jid);
+    if (jids.length === 0 && !testPhone) { results.push({ automation: auto.id, skipped: 'no_eligible_groups' }); continue; }
 
     for (const t of (turmas ?? []) as any[]) {
       const course = t.smartops_courses ?? {};
@@ -177,6 +188,24 @@ serve(async (req) => {
 
       for (const job of jobs) {
         if (forceKind && job.kind !== forceKind) continue;
+
+        // Teste em telefone: envia texto direto, sem grupos e sem dedupe/log
+        if (testPhone) {
+          const r = await fetch(`${SUPABASE_URL}/functions/v1/smart-ops-wa-send`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${SERVICE_ROLE_KEY}` },
+            body: JSON.stringify({
+              phone: testPhone,
+              message: job.text,
+              source: 'live_group_blast_test',
+              metadata: { turma_id: t.id, kind: job.kind, automation_id: auto.id, media },
+            }),
+          });
+          const j = await r.json().catch(() => ({}));
+          results.push({ automation: auto.id, turma: t.id, kind: job.kind, test_phone: testPhone, ok: !!j?.success, text: job.text, media, error: j?.success ? null : (j?.detail ?? j?.error ?? r.status) });
+          continue;
+        }
+
         const key = `${auto.id}|${t.id}|${job.kind}`;
         if (alreadySent.has(key)) continue;
         const forced = !!forceTurmaId;
