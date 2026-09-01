@@ -371,6 +371,25 @@ function CourseListRow({ course, onEdit, onTogglePublic, onToggleActive, onClone
           {course.duration_days ? ` · ${course.duration_days} ${course.duration_days === 1 ? "dia" : "dias"}` : ""}
           {course.instructor_name ? ` · ${course.instructor_name}` : ""}
         </div>
+        {turmas.length > 0 && (
+          <div className="flex flex-wrap items-center gap-1.5 mt-1">
+            {turmas.slice(0, 4).map((t: any) => (
+              <span
+                key={t.id}
+                className="inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[11px] tabular-nums text-muted-foreground bg-muted/40"
+              >
+                <span className="font-semibold text-foreground">{formatTurmaNumber(t.turma_number, t.label)}</span>
+                {formatTurmaPeriod(t.start_date, t.end_date) && (
+                  <span>{formatTurmaPeriod(t.start_date, t.end_date)}</span>
+                )}
+              </span>
+            ))}
+            {turmas.length > 4 && (
+              <span className="text-[11px] text-muted-foreground">+{turmas.length - 4}</span>
+            )}
+          </div>
+        )}
+
       </div>
 
       <span className={`hidden sm:inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium shrink-0 ${statusCls}`}>
