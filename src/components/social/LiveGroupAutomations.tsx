@@ -57,7 +57,7 @@ export function LiveGroupAutomations() {
   const [groups, setGroups] = useState<GroupRow[]>([]);
   const [courses, setCourses] = useState<CourseRow[]>([]);
   const [turmas, setTurmas] = useState<TurmaRow[]>([]);
-  const [logs, setLogs] = useState<{ turma_id: string; kind: string; sent_at: string }[]>([]);
+  const [logs, setLogs] = useState<{ turma_id: string; kind: string; sent_at: string; send_uid: string | null; status: string | null }[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
   const [testing, setTesting] = useState<string | null>(null);
