@@ -172,6 +172,21 @@ export function LiveGroupAutomations() {
     load();
   };
 
+  const sendTest = async (turmaId: string) => {
+    const phone = (testPhone ?? '').replace(/\D/g, '');
+    if (phone.length < 10) return toast.error('Informe um telefone válido com DDD.');
+    setTesting(turmaId + 'test');
+    const { data, error } = await supabase.functions.invoke('live-group-blast-cron', {
+      body: { turma_id: turmaId, test_phone: phone },
+    });
+    setTesting(null);
+    if (error) return toast.error(error.message);
+    const rs = ((data as any)?.results ?? []).filter((r: any) => r.test_phone);
+    const ok = rs.filter((r: any) => r.ok).length;
+    if (ok === 0) return toast.error('Teste não enviado', { description: rs[0]?.error ? String(rs[0].error) : 'sem mensagens elegíveis' });
+    toast.success(`${ok} mensagem(ns) de teste enviada(s) para ${phone}`);
+  };
+
   if (loading) {
     return <div className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="w-4 h-4 animate-spin" /> Carregando…</div>;
   }
