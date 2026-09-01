@@ -75,7 +75,7 @@ export function LiveGroupAutomations() {
         .gte('start_date', today)
         .order('start_date')
         .limit(30),
-      supabase.from('live_group_blast_log').select('turma_id, kind, sent_at').order('sent_at', { ascending: false }).limit(50),
+      supabase.from('live_group_blast_log').select('turma_id, kind, sent_at, send_uid, status').order('sent_at', { ascending: false }).limit(200),
     ]);
     setAutos((a.data as Automation[]) ?? []);
     const seen = new Set<string>();
