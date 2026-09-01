@@ -1099,6 +1099,7 @@ export function StepContent({
               resins={resins as any}
               events={events}
               trainings={trainings}
+              turmas={turmas}
               distributors={distributors}
             />
             {value.product_name && (
@@ -1147,6 +1148,7 @@ export function StepContent({
                   resins={resins as any}
                   events={events}
                   trainings={trainings}
+                  turmas={turmas}
                   distributors={distributors}
                 />
               )}
