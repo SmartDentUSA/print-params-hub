@@ -570,6 +570,59 @@ export function StepContent({
     return refs.map(briefForRef).filter(Boolean).join('\n');
   };
 
+  /** Linhas que a IA deve reproduzir literalmente (data, local, país, estande, horário). */
+  const buildHardFacts = (): string[] => {
+    const refs = [value.product_ref, ...(value.extra_products || []).map((e) => e.ref)].filter(Boolean) as string[];
+    const facts: string[] = [];
+    for (const ref of refs) {
+      if (ref.startsWith('event:')) {
+        const e = events.find((x) => x.id === ref.slice('event:'.length));
+        const m = e?.meta || {};
+        if (m.start_date)
+          facts.push(`📅 Data: ${fmtDate(m.start_date)}${m.end_date ? ` a ${fmtDate(m.end_date)}` : ''}`);
+        if (m.location || m.country)
+          facts.push(`📍 Local: ${[m.location, m.country].filter(Boolean).join(' — ')}`);
+        if (m.stand) facts.push(`🏢 Estande Smart Dent: ${m.stand}`);
+      }
+      if (ref.startsWith('training:')) {
+        const t = trainings.find((x) => x.id === ref.slice('training:'.length));
+        const m = t?.meta || {};
+        const next = m.next;
+        if (next?.start_date) {
+          const timeStr = fmtTime(m.recurrence_time_start);
+          facts.push(`📅 Data: ${fmtDate(next.start_date)}${timeStr ? ` · 🕒 ${timeStr}` : ''}`);
+          const loc = next.location || m.location;
+          if (loc) facts.push(`📍 Local: ${loc}`);
+          const durationHours =
+            m.recurrence_duration_h ??
+            (m.duration_days && m.duration_hours_per_day ? m.duration_days * m.duration_hours_per_day : null);
+          if (durationHours) facts.push(`⏱️ Duração: ${Number(durationHours).toFixed(0)}h`);
+        }
+      }
+    }
+    return facts;
+  };
+
+  /** Consulta enxuta para o RAG: só nomes de produtos + especialidades do público. */
+  const buildRagQuery = (): string | undefined => {
+    const names: string[] = [];
+    if (value.product_name) names.push(value.product_name);
+    (value.extra_products || []).forEach((p) => {
+      if (p.name) names.push(p.name);
+    });
+    const refs = [value.product_ref, ...(value.extra_products || []).map((e) => e.ref)].filter(Boolean) as string[];
+    for (const ref of refs) {
+      if (!ref.startsWith('event:')) continue;
+      const e = events.find((x) => x.id === ref.slice('event:'.length));
+      const m = e?.meta || {};
+      if (Array.isArray(m.audience_specialties)) names.push(...m.audience_specialties.slice(0, 6));
+      if (Array.isArray(m.audience_areas)) names.push(...m.audience_areas.slice(0, 4));
+    }
+    const q = names.filter(Boolean).join(' ').trim();
+    return q || undefined;
+  };
+
+
   const handleGenerate = async () => {
     try {
       const contextBrief = buildContextBrief();
