@@ -580,12 +580,21 @@ function CatalogoTab() {
     if (filterKey === "inativos") arr = arr.filter(c => !c.active);
     if (filterKey === "privados") arr = arr.filter(c => c.active && !c.public_visible);
     if (search.trim()) {
-      const s = search.toLowerCase();
+      const s = search.toLowerCase().trim();
+      const num = s.replace(/[^0-9]/g, "");
       arr = arr.filter(c =>
         c.title.toLowerCase().includes(s) ||
-        (c.instructor_name || "").toLowerCase().includes(s)
+        (c.instructor_name || "").toLowerCase().includes(s) ||
+        (c.turmas ?? []).some((t: any) =>
+          (t.label || "").toLowerCase().includes(s) ||
+          (num && String(t.turma_number ?? "").padStart(3, "0").includes(num.padStart(1, "0"))) ||
+          (num && String(t.turma_number ?? "") === String(Number(num))) ||
+          (t.start_date || "").includes(s) ||
+          (t.end_date || "").includes(s)
+        )
       );
     }
+
     arr.sort((a, b) => {
       if (sort === "title") return a.title.localeCompare(b.title);
       if (sort === "turmas") return ((b.turmas?.length ?? 0) - (a.turmas?.length ?? 0));
