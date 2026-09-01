@@ -110,6 +110,47 @@ function normalizeIgHandle(raw: unknown): string | null {
   return `@${cleaned}`;
 }
 
+const COUNTRY_FLAGS: Record<string, string> = {
+  brasil: '🇧🇷', brazil: '🇧🇷', br: '🇧🇷',
+  portugal: '🇵🇹', pt: '🇵🇹',
+  argentina: '🇦🇷', ar: '🇦🇷',
+  chile: '🇨🇱', cl: '🇨🇱',
+  colombia: '🇨🇴', co: '🇨🇴',
+  mexico: '🇲🇽', mx: '🇲🇽',
+  paraguai: '🇵🇾', py: '🇵🇾',
+  uruguai: '🇺🇾', uy: '🇺🇾',
+  eua: '🇺🇸', usa: '🇺🇸', us: '🇺🇸',
+};
+
+function flagFor(pais?: unknown): string {
+  const k = String(pais ?? '')
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+  return COUNTRY_FLAGS[k] || '🇧🇷';
+}
+
+/** Uma linha por inscrito: 🇧🇷 Nome @ig + Acompanhante @ig — Cidade/UF */
+function buildParticipantLines(parts: any[]): string[] {
+  const principais = parts.filter((p) => p.tipo !== 'acompanhante');
+  const acomp = parts.filter((p) => p.tipo === 'acompanhante');
+  const label = (p: any) => {
+    const nome = String(p?.person_name || '').trim();
+    const ig = normalizeIgHandle(p?.instagram);
+    return [nome, ig].filter(Boolean).join(' ');
+  };
+  return principais
+    .map((p) => {
+      const base = label(p);
+      if (!base) return '';
+      const meus = acomp.filter((c) => String(c.enrollment_id || '') === String(p.id || ''));
+      const comAcomp = [base, ...meus.map(label).filter(Boolean)].join(' + ');
+      const loc = [p.empresa_cidade, p.empresa_estado].filter(Boolean).join('/');
+      return `${flagFor(p.empresa_pais)} ${comAcomp}${loc ? ` — ${loc}` : ''}`;
+    })
+    .filter(Boolean);
+}
 
 
 export function StepContent({
@@ -482,6 +523,7 @@ export function StepContent({
         if (!tid) continue;
         const parent = parentByEnrollment.get(String(c.enrollment_id)) || {};
         (byTurma[tid] ||= []).push({
+          enrollment_id: c.enrollment_id,
           person_name: c.name,
           instagram: c.instagram,
           area_atuacao: c.area_atuacao || parent.area_atuacao,
@@ -697,27 +739,10 @@ export function StepContent({
         (m.duration_days && m.duration_hours_per_day ? m.duration_days * m.duration_hours_per_day : null);
       const areas = Array.from(new Set(parts.map((p) => p.area_atuacao).filter(Boolean)));
       const especialidades = Array.from(new Set(parts.map((p) => p.especialidade).filter(Boolean)));
-      const cidades = Array.from(
-        new Set(parts.map((p) => [p.empresa_cidade, p.empresa_estado].filter(Boolean).join('/')).filter(Boolean)),
-      );
       const principais = parts.filter((p) => p.tipo !== 'acompanhante');
       const acompanhantes = parts.filter((p) => p.tipo === 'acompanhante');
-      const nomes = parts.map((p) => String(p.person_name || '').trim()).filter(Boolean);
-      const igs = Array.from(new Set(parts.map((p) => normalizeIgHandle(p.instagram)).filter(Boolean))) as string[];
-      const nomesComIg = parts
-        .map((p) => {
-          const n = String(p.person_name || '').trim();
-          const ig = normalizeIgHandle(p.instagram);
-          return n && ig ? `${n} ${ig}` : '';
-        })
-        .filter(Boolean);
-      const nomeCidade = parts
-        .map((p) => {
-          const n = String(p.person_name || '').trim();
-          const loc = [p.empresa_cidade, p.empresa_estado].filter(Boolean).join('/');
-          return n ? (loc ? `${n} (${loc})` : n) : '';
-        })
-        .filter(Boolean);
+      const participantesLinhas = buildParticipantLines(parts);
+
       const extras = turmaExtras[id] || { days: [], equipment: [] };
       const etapas = (extras.days || [])
         .map((d: any) => {
@@ -748,23 +773,14 @@ export function StepContent({
           ? `🗓️ Etapas/cronograma da turma: ${etapas.slice(0, 10).join(' | ')}. RESUMA as etapas em 1 frase, sem listar hora por hora.`
           : '',
         parts.length
-          ? `👥 Participantes (${principais.length} inscritos + ${acompanhantes.length} acompanhantes = ${parts.length} pessoas): ${nomeCidade.slice(0, 40).join(', ')}.`
-          : '',
-        acompanhantes.length
-          ? `Acompanhantes: ${acompanhantes.map((p) => String(p.person_name || '').trim()).filter(Boolean).join(', ')}.`
-          : '',
-        igs.length ? `Perfis para marcar na legenda: ${igs.slice(0, 30).join(' ')}.` : '',
-        nomesComIg.length
-          ? `OBRIGATÓRIO marcar o @instagram de cada participante que possui perfil preenchido, junto ao nome: ${nomesComIg.slice(0, 30).join(', ')}. Não invente @perfis para quem não tem.`
+          ? `👥 LISTA DE PARTICIPANTES (${principais.length} inscritos + ${acompanhantes.length} acompanhantes). COPIE ESTE BLOCO NO FINAL DA LEGENDA, UMA LINHA POR INSCRITO, EXATAMENTE COMO ESTÁ (não junte em parágrafo, não altere nomes, @perfis ou cidades):\n${participantesLinhas.join('\n')}`
           : '',
         areas.length ? `Áreas de atuação dos participantes: ${areas.join(', ')}.` : '',
         especialidades.length ? `Especialidades dos participantes: ${especialidades.join(', ')}.` : '',
-        cidades.length
-          ? `OBRIGATÓRIO citar na legenda as cidades/estados de origem: ${cidades.slice(0, 15).join(', ')}.`
-          : '',
         parts.length
-          ? 'OBRIGATÓRIO: conecte o conteúdo do treinamento às áreas de atuação e especialidades reais dessa turma, citando aplicação clínica/laboratorial concreta (sem preços). Cite os nomes com a cidade/estado de origem. Não invente nomes, @perfis, cidades ou especialidades que não estejam nesta lista.'
+          ? 'REGRAS DE FORMATO (obrigatórias): legenda CURTA — no máximo 6 linhas de texto corrido antes da lista de participantes. NÃO cite nomes, @perfis nem cidades no corpo do texto: eles aparecem SOMENTE na lista. NÃO repita a linha de cidades de origem. Não invente nomes, @perfis, cidades ou especialidades.'
           : '',
+
         isPast
           ? 'Escreva no PASSADO (retrospectiva/prova social da turma que aconteceu, agradecendo os participantes) e convide para a próxima turma.'
           : 'Escreva no FUTURO, gerando desejo de participar desta turma.',
@@ -931,21 +947,11 @@ export function StepContent({
         }
         if (m.location) facts.push(`📍 Local: ${m.location}`);
         const parts = (turmaParticipants[id] || []) as any[];
-        const igs = Array.from(
-          new Set(parts.map((p: any) => normalizeIgHandle(p.instagram)).filter(Boolean)),
-        ) as string[];
-        if (igs.length) facts.push(`📲 Marcar participantes: ${igs.slice(0, 30).join(' ')}`);
-        const cidades = Array.from(
-          new Set(
-            parts
-              .map((p) => [p.empresa_cidade, p.empresa_estado].filter(Boolean).join('/'))
-              .filter(Boolean),
-          ),
-        );
-        if (cidades.length) facts.push(`🏙️ Origem dos participantes: ${cidades.slice(0, 12).join(', ')}`);
-        const eq = (turmaExtras[id]?.equipment || []).concat(Array.isArray(m.related) ? m.related : []);
-        const eqU = Array.from(new Set(eq.filter(Boolean)));
-        if (eqU.length) facts.push(`🖨️ Equipamentos: ${eqU.slice(0, 8).join(', ')}`);
+        const linhas = buildParticipantLines(parts);
+        if (linhas.length) {
+          facts.push(`👥 Participantes (uma linha por inscrito, copiar igual):\n${linhas.join('\n')}`);
+        }
+
       }
       if (ref.startsWith('training:')) {
 
