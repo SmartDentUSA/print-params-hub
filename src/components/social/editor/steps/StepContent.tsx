@@ -545,7 +545,19 @@ export function StepContent({
         isPast
           ? 'Escreva no PASSADO (retrospectiva, agradecimento a quem visitou o estande).'
           : 'Escreva no FUTURO, convidando a visitar o estande Smart Dent.',
-        'CTA obrigatório: "Digite CONGRESSO e receba condições especiais, descontos mesmo não participando presencialmente" + "saiba mais" + "link na bio".',
+        'CTA obrigatório: "Comente CONGRESSO e receba condições especiais, descontos mesmo não participando presencialmente".',
+        [
+          'ESTRUTURA OBRIGATÓRIA DA LEGENDA (siga na ordem, parágrafos curtos, tom profissional, convidativo, tecnológico e humano, pt-BR):',
+          '1) Abertura impactante sobre futuro/transformação: "🚀 O futuro da {área} chega a {cidade} no {evento}!".',
+          '2) Parágrafo com a participação da Smart Dent, datas, público do evento e tema principal.',
+          '3) Convite ao estande: "📍 Visite o Estande {número} e conheça soluções que unem {benefício 1}, {benefício 2} e {benefício 3}:".',
+          '4) Lista dos destaques (produtos selecionados), um emoji DIFERENTE por item (🔬 📸 💻 ✔️ 💡).',
+          '5) Parágrafo curto explicando como essas soluções melhoram resultados técnicos, clínicos ou comerciais das áreas e especialidades do público presente.',
+          '6) CTA de comentário com a palavra-chave em MAIÚSCULAS.',
+          '7) Fechamento: "💾 Salve este post para não perder nossa localização." / "📲 Compartilhe com um colega que precisa {ação} em {ano}." / "🔗 Saiba mais no link da bio."',
+          '8) De 8 a 12 hashtags realmente relacionadas à empresa, ao congresso, ao público e às tecnologias citadas.',
+          'REGRAS: não invente datas, números, local, estande, condições comerciais, produtos ou características técnicas; nada de superlativos ("o maior evento") sem dado; preserve nomes de marcas, produtos e eventos; emojis com equilíbrio; sem preços; sem barras invertidas ou marcação. Entregue somente a legenda final pronta para publicar.',
+        ].join(' '),
       ]
         .filter(Boolean)
         .join(' ');
