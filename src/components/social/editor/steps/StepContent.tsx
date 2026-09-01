@@ -423,6 +423,20 @@ export function StepContent({
     const [h, m] = t.split(':');
     return `${h?.padStart(2, '0') ?? '00'}:${m?.padStart(2, '0') ?? '00'}`;
   };
+  const fmtAuthorizedScope = (scope?: Record<string, any> | null): string => {
+    if (!scope || typeof scope !== 'object') return '';
+    const lines: string[] = [];
+    for (const [key, value] of Object.entries(scope)) {
+      if (Array.isArray(value) && value.length) {
+        lines.push(`${key}: ${value.join(', ')}`);
+      } else if (typeof value === 'string' && value.trim()) {
+        lines.push(`${key}: ${value.trim()}`);
+      } else if (Array.isArray(value) && !value.length) {
+        lines.push(key);
+      }
+    }
+    return lines.join(' | ');
+  };
 
   const briefForRef = (ref: string): string | null => {
     if (ref.startsWith('distributor:')) {
