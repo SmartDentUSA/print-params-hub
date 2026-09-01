@@ -236,23 +236,65 @@ export function PublicOnlineCourseCard({
   const isInternal = href?.startsWith("/");
 
   const shareUrl = href ? (isInternal ? `${getPublicOrigin()}${href}` : href) : getPublicOrigin();
+
+  const shortenUrl = async (url: string) => {
+    try {
+      const { data, error } = await (supabase as any).functions.invoke("short-link-create", {
+        body: { destination_url: url },
+      });
+      if (error) throw error;
+      return (data?.url as string) || url;
+    } catch {
+      return url;
+    }
+  };
+
   const handleShare = async (e: React.MouseEvent) => {
     e.stopPropagation();
     e.preventDefault();
     const title = first.course_title || "Live Smart Dent";
-    const text = description || `Inscreva-se em ${title}`;
+    const isLive = (first.modality || "").startsWith("online");
+    const link = await shortenUrl(shareUrl);
+
+    const fmtDay = (iso?: string | null) =>
+      iso ? new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "long" }).format(new Date(`${iso}T12:00:00`)) : "";
+    const dateLines = (nextSessions.length ? nextSessions : allSorted)
+      .slice(0, 6)
+      .map((s) => {
+        const day = fmtDay(s.start_date);
+        if (!day) return null;
+        const ini = (s.start_time || "").substring(0, 5);
+        const fim = (s.end_time || "").substring(0, 5);
+        const hora = ini ? ` · ${ini}${fim ? `–${fim}` : ""}` : "";
+        return `📅 ${day}${hora}`;
+      })
+      .filter(Boolean) as string[];
+
+    const desc = (description || "").trim().replace(/\s+/g, " ").slice(0, 220);
+    const parts = [
+      coverUrl || "",
+      `${isLive ? "🔴 AO VIVO" : "🎓 TREINAMENTO"} | *${title}*`,
+      desc ? `\n${desc}${desc.length >= 220 ? "…" : ""}` : "",
+      dateLines.length ? `\n${dateLines.join("\n")}` : "",
+      first.instructor_name ? `\n👨‍🏫 ${first.instructor_name}` : "",
+      `\n👉 *Inscreva-se:* ${link}`,
+      `\n_Smart Dent | Fluxo Digital_`,
+    ].filter(Boolean);
+    const message = parts.join("\n").trim();
+
     try {
-      if (navigator.share && isInternal) {
-        await navigator.share({ title, text, url: shareUrl });
-      } else if (navigator.clipboard) {
-        await navigator.clipboard.writeText(shareUrl);
-        setShared(true);
-        setTimeout(() => setShared(false), 2000);
+      if (navigator.share) {
+        await navigator.share({ title, text: message });
+      } else {
+        window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, "_blank", "noopener,noreferrer");
       }
     } catch {
-      // usuário cancelou ou share não disponível
+      window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, "_blank", "noopener,noreferrer");
     }
+    setShared(true);
+    setTimeout(() => setShared(false), 2000);
   };
+
 
   // Ordenação canônica (crescente por data/hora) — mesma da tela de edição do curso.
   const today = new Date().toISOString().slice(0, 10);
