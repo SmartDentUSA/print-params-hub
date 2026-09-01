@@ -195,7 +195,7 @@ export function StepContent({
           supabase
             .from('distributors')
             .select(
-              'id,nome_fantasia,razao_social,slug,pais,estado,cidade,linhas_representadas,canal_venda,instagram,notes',
+              'id,nome_fantasia,razao_social,slug,pais,estado,cidade,linhas_representadas,canal_venda,instagram,notes,authorized_scope',
             )
             .eq('active', true)
             .order('nome_fantasia', { ascending: true })
