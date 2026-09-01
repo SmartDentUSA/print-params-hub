@@ -163,62 +163,101 @@ export function StepContent({
   // Catálogo (Sistema A) + Resinas para o dropdown de produto
   const [products, setProducts] = useState<Array<{ id: string; name: string; category?: string; slug?: string }>>([]);
   const [resins, setResins] = useState<Array<{ id: string; name: string; manufacturer: string; slug?: string; type?: string }>>([]);
-  const [events, setEvents] = useState<Array<{ id: string; name: string; subtitle?: string; slug?: string }>>([]); // congressos (smartops_events)
-  const [trainings, setTrainings] = useState<Array<{ id: string; name: string; subtitle?: string; slug?: string }>>([]); // treinamentos (smartops_courses)
-  const [distributors, setDistributors] = useState<Array<{ id: string; name: string; subtitle?: string; slug?: string }>>([]);
+  const [events, setEvents] = useState<Array<{ id: string; name: string; subtitle?: string; slug?: string; meta?: any }>>([]); // congressos (smartops_events)
+  const [trainings, setTrainings] = useState<Array<{ id: string; name: string; subtitle?: string; slug?: string; meta?: any }>>([]); // treinamentos (smartops_courses)
+  const [distributors, setDistributors] = useState<Array<{ id: string; name: string; subtitle?: string; slug?: string; meta?: any }>>([]);
 
   useEffect(() => {
     let mounted = true;
     (async () => {
-      const [{ data: cat }, { data: res }, { data: courses }, { data: dists }, { data: congresses }] = await Promise.all([
-        supabase
-          .from('system_a_catalog')
-          .select('id,name,category,slug')
-          .eq('active', true)
-          .order('name', { ascending: true })
-          .limit(500),
-        supabase
-          .from('resins')
-          .select('id,name,manufacturer,slug,type')
-          .eq('active', true)
-          .order('name', { ascending: true })
-          .limit(500),
-        supabase
-          .from('smartops_courses')
-          .select('id,title,slug,category,modality')
-          .eq('active', true)
-          .order('title', { ascending: true })
-          .limit(300),
-        supabase
-          .from('distributors')
-          .select('id,nome_fantasia,razao_social,slug,pais,estado')
-          .eq('active', true)
-          .order('nome_fantasia', { ascending: true })
-          .limit(300),
-        supabase
-          .from('smartops_events')
-          .select('id,name,country,location,start_date')
-          .eq('is_active', true)
-          .order('start_date', { ascending: true, nullsFirst: false })
-          .limit(300),
-      ]);
+      const [{ data: cat }, { data: res }, { data: courses }, { data: dists }, { data: congresses }, { data: turmas }] =
+        await Promise.all([
+          supabase
+            .from('system_a_catalog')
+            .select('id,name,category,slug')
+            .eq('active', true)
+            .order('name', { ascending: true })
+            .limit(500),
+          supabase
+            .from('resins')
+            .select('id,name,manufacturer,slug,type')
+            .eq('active', true)
+            .order('name', { ascending: true })
+            .limit(500),
+          supabase
+            .from('smartops_courses')
+            .select('id,title,slug,category,modality,location,description,marketing_briefing,related_product_names')
+            .eq('active', true)
+            .order('title', { ascending: true })
+            .limit(300),
+          supabase
+            .from('distributors')
+            .select(
+              'id,nome_fantasia,razao_social,slug,pais,estado,cidade,linhas_representadas,canal_venda,instagram,notes',
+            )
+            .eq('active', true)
+            .order('nome_fantasia', { ascending: true })
+            .limit(300),
+          supabase
+            .from('smartops_events')
+            .select('id,name,country,location,start_date,end_date,about_event_pt,company_stand,slug')
+            .eq('is_active', true)
+            .order('start_date', { ascending: true, nullsFirst: false })
+            .limit(300),
+          supabase
+            .from('smartops_course_turmas')
+            .select('course_id,start_date,end_date,modality,label,live_url,location')
+            .eq('active', true)
+            .order('start_date', { ascending: true, nullsFirst: false })
+            .limit(1000),
+        ]);
       if (!mounted) return;
+      const turmasByCourse = new Map<string, any[]>();
+      for (const t of (turmas ?? []) as any[]) {
+        const arr = turmasByCourse.get(String(t.course_id)) || [];
+        arr.push(t);
+        turmasByCourse.set(String(t.course_id), arr);
+      }
       setProducts((cat ?? []) as any);
       setResins((res ?? []) as any);
       setTrainings(
-        ((courses ?? []) as any[]).map((c) => ({
-          id: String(c.id),
-          name: c.title || 'Treinamento',
-          subtitle: [c.modality, c.category].filter(Boolean).join(' · ') || undefined,
-          slug: c.slug || undefined,
-        })),
+        ((courses ?? []) as any[]).map((c) => {
+          const list = turmasByCourse.get(String(c.id)) || [];
+          const now = Date.now();
+          const future = list.filter((t) => t.start_date && new Date(t.start_date).getTime() >= now);
+          const past = list.filter((t) => t.start_date && new Date(t.start_date).getTime() < now);
+          return {
+            id: String(c.id),
+            name: c.title || 'Treinamento',
+            subtitle: [c.modality, c.category].filter(Boolean).join(' · ') || undefined,
+            slug: c.slug || undefined,
+            meta: {
+              modality: c.modality,
+              category: c.category,
+              location: c.location,
+              description: c.description,
+              briefing: c.marketing_briefing,
+              related: c.related_product_names,
+              next: future[0] || null,
+              last: past[past.length - 1] || null,
+            },
+          };
+        }),
       );
       setEvents(
         ((congresses ?? []) as any[]).map((e) => ({
           id: String(e.id),
           name: e.name || 'Evento',
           subtitle: [e.location, e.country].filter(Boolean).join(' · ') || undefined,
-          slug: undefined,
+          slug: e.slug || undefined,
+          meta: {
+            country: e.country,
+            location: e.location,
+            start_date: e.start_date,
+            end_date: e.end_date,
+            about: e.about_event_pt,
+            stand: e.company_stand,
+          },
         })),
       );
       setDistributors(
@@ -227,6 +266,15 @@ export function StepContent({
           name: d.nome_fantasia || d.razao_social || 'Distribuidor',
           subtitle: [d.estado, d.pais].filter(Boolean).join(' · ') || undefined,
           slug: d.slug || undefined,
+          meta: {
+            pais: d.pais,
+            estado: d.estado,
+            cidade: d.cidade,
+            linhas: d.linhas_representadas,
+            canal: d.canal_venda,
+            instagram: d.instagram,
+            notes: d.notes,
+          },
         })),
       );
     })();
