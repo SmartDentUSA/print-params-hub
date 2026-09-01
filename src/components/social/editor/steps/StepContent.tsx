@@ -803,14 +803,29 @@ export function StepContent({
           : '',
         areas.length ? `Áreas de atuação dos participantes: ${areas.join(', ')}.` : '',
         especialidades.length ? `Especialidades dos participantes: ${especialidades.join(', ')}.` : '',
+        `ESTRUTURA OBRIGATÓRIA DA LEGENDA (siga exatamente esta ordem e formatação):
+1) Linha de abertura curta e afirmativa (gancho clínico) terminando com 1 emoji. Ex.: "A inteligência artificial faz o trabalho pesado. Você assume as decisões clínicas. 🎯"
+2) 1 parágrafo curto (2 a 3 linhas) contando que ${isPast ? 'finalizamos' : 'acontece'} a Turma${m.turma_number != null ? ` ${m.turma_number}` : ''} de "${m.course_title || t.name}" e o que ela entrega na prática (padrão, velocidade e previsibilidade no consultório).
+3) 1 linha de transição. Ex.: "Foram ${m.duration_days ? `${m.duration_days} dia(s)` : 'dias'} intensos capacitando dentistas e equipes para dominarem o fluxo de ponta a ponta:"
+4) De 3 a 4 bullets começando com "✔️ " no formato "✔️ Título curto: benefício clínico em 1 frase." (use os itens adquiridos/equipamentos como base, sempre em BENEFÍCIO, nunca especificação técnica).
+5) 1 linha de parabenização aos participantes citando a Smart Dent (sem citar nomes).
+6) CTA final começando com 📲, convidando para a próxima turma via link na bio ou direct.
+7) Separador exatamente: ━━━━━━━━━━━━━━━
+8) Bloco de ficha, uma linha cada:
+🎓 Turma${m.turma_number != null ? ` ${m.turma_number}` : ''} — ${m.course_title || t.name}
+${m.start_date ? `📅 Data: ${fmtDate(m.start_date)}${m.end_date && m.end_date !== m.start_date ? ` a ${fmtDate(m.end_date)}` : ''}` : '📅 Data: (omitir se não houver)'}
+${m.location ? `📍 Local: ${m.location}` : '📍 Local: (omitir se não houver)'}
+👥 Participantes:
+(em seguida, a LISTA DE PARTICIPANTES copiada exatamente, uma linha por inscrito)`,
         parts.length
-          ? 'REGRAS DE FORMATO (obrigatórias): legenda CURTA — no máximo 6 linhas de texto corrido antes da lista de participantes. NÃO cite nomes, @perfis nem cidades no corpo do texto: eles aparecem SOMENTE na lista. NÃO repita a linha de cidades de origem. Não invente nomes, @perfis, cidades ou especialidades.'
+          ? 'REGRAS DE FORMATO (obrigatórias): não ultrapasse a estrutura acima; NÃO cite nomes, @perfis nem cidades no corpo do texto — eles aparecem SOMENTE no bloco final. Não invente nomes, @perfis, cidades ou especialidades. Não use linguagem de venda agressiva nem preços.'
           : '',
 
         isPast
           ? 'Escreva no PASSADO (retrospectiva/prova social da turma que aconteceu, agradecendo os participantes) e convide para a próxima turma.'
           : 'Escreva no FUTURO, gerando desejo de participar desta turma.',
-        'CTA: "garanta sua vaga pelo link na bio" + "saiba mais". NÃO escreva hashtags dentro da legenda.',
+        'NÃO escreva hashtags dentro da legenda.',
+
       ]
         .filter(Boolean)
         .join(' ');
