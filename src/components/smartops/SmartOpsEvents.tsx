@@ -375,6 +375,13 @@ export function SmartOpsEvents() {
                 onChange={(patch) => setEditing({ ...editing, ...patch } as any)}
               />
 
+              <EventSpeakersFields
+                speakers={(editing.speakers as EventSpeaker[]) || []}
+                partnerBrands={(editing.partner_brands as EventPartnerBrand[]) || []}
+                instagramHandle={editing.instagram_handle}
+                onChange={(patch) => setEditing((cur) => (cur ? ({ ...cur, ...patch } as any) : cur))}
+              />
+
               <div className="space-y-2 border rounded-md p-3">
                 <Label className="text-sm font-semibold">Sobre o evento (por idioma)</Label>
                 <p className="text-[11px] text-muted-foreground">Usado em Artigos — Ciência & Tecnologia. Sem preços.</p>
