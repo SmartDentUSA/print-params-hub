@@ -123,13 +123,19 @@ serve(async (req) => {
   const results: any[] = [];
 
   for (const auto of automations) {
-    if (!auto.group_ids?.length) continue;
-    const { data: groups } = await sb
-      .from('wa_groups')
-      .select('id, group_jid, name, is_admin, enabled')
-      .in('id', auto.group_ids);
-    const jids = ((groups ?? []) as any[]).filter((g) => g.is_admin && g.enabled && g.group_jid).map((g) => g.group_jid);
-    if (jids.length === 0) { results.push({ automation: auto.id, skipped: 'no_eligible_groups' }); continue; }
+    if (!auto.group_ids?.length && !testPhone) continue;
+    const allowedInstances = (auto.instance_names ?? []).map((s) => String(s).trim()).filter(Boolean);
+    const { data: groups } = auto.group_ids?.length
+      ? await sb
+          .from('wa_groups')
+          .select('id, group_jid, name, is_admin, enabled, instance_name')
+          .in('id', auto.group_ids)
+      : { data: [] as any[] } as any;
+    const jids = ((groups ?? []) as any[])
+      .filter((g) => g.is_admin && g.enabled && g.group_jid)
+      .filter((g) => allowedInstances.length === 0 || allowedInstances.includes(g.instance_name))
+      .map((g) => g.group_jid);
+    if (jids.length === 0 && !testPhone) { results.push({ automation: auto.id, skipped: 'no_eligible_groups' }); continue; }
 
     for (const t of (turmas ?? []) as any[]) {
       const course = t.smartops_courses ?? {};
