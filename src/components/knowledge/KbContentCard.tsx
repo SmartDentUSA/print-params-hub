@@ -85,24 +85,38 @@ export default function KbContentCard({ data, index, buttonLabel, onClick, thumb
     } catch { return false; }
   };
 
+  const buildShareMessage = (url: string): string => {
+    const catLabel = translatedCat || data.categoryName || null;
+    const excerpt = (data.excerpt || '').replace(/\s+/g, ' ').trim();
+    const shortExcerpt = excerpt.length > 220 ? `${excerpt.slice(0, 217).trimEnd()}...` : excerpt;
+    const lines: string[] = [];
+    lines.push(`${cat.emoji || '📌'} *${data.title}*`);
+    if (catLabel) lines.push(`_${catLabel}_`);
+    if (shortExcerpt) lines.push('', shortExcerpt);
+    lines.push('', `👉 Acesse o conteúdo completo:`, url);
+    lines.push('', 'Smart Dent | Fluxo Digital');
+    return lines.join('\n');
+  };
+
   const handleShare = async (e: React.MouseEvent) => {
     e.stopPropagation();
     e.preventDefault();
     if (!data.shareUrl) return;
     const url = data.shareUrl;
+    const message = buildShareMessage(url);
     // Try native share first (mobile); falls through to clipboard on failure or unsupported
     if (typeof navigator !== 'undefined' && typeof (navigator as any).share === 'function') {
       try {
-        await (navigator as any).share({ title: data.title, url });
+        await (navigator as any).share({ title: data.title, text: message, url });
         return;
       } catch (err: any) {
         if (err?.name === 'AbortError') return; // user cancelled
         // otherwise fall back to clipboard
       }
     }
-    const ok = await copyToClipboard(url);
-    if (ok) toast.success('Link copiado!', { description: url });
-    else toast.error('Não foi possível copiar o link');
+    const ok = await copyToClipboard(message);
+    if (ok) toast.success('Mensagem copiada!', { description: 'Texto + link prontos para colar' });
+    else toast.error('Não foi possível copiar a mensagem');
   };
 
   const viewsText = formatViews(data.viewCount);
