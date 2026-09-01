@@ -210,10 +210,11 @@ export function StepContent({
             .limit(300),
           supabase
             .from('smartops_course_turmas')
-            .select('course_id,start_date,end_date,modality,label,live_url,location')
+            .select('id,course_id,turma_number,label,start_date,end_date,modality,live_url,location')
             .eq('active', true)
             .order('start_date', { ascending: true, nullsFirst: false })
             .limit(1000),
+
         ]);
       if (!mounted) return;
       const turmasByCourse = new Map<string, any[]>();
