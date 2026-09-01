@@ -223,12 +223,23 @@ Deno.serve(async (req) => {
 
     await warmupContact(instance, apikey, target);
 
-    const url = `${EVO_BASE}/message/sendText/${encodeURIComponent(instance)}`;
+    const url = mediaUrl
+      ? `${EVO_BASE}/message/sendMedia/${encodeURIComponent(instance)}`
+      : `${EVO_BASE}/message/sendText/${encodeURIComponent(instance)}`;
 
     const res = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json", apikey },
-      body: JSON.stringify({ number: target, text: String(message) }),
+      body: JSON.stringify(
+        mediaUrl
+          ? {
+              number: target,
+              mediatype: media_type === "video" ? "video" : "image",
+              media: mediaUrl,
+              caption: String(message),
+            }
+          : { number: target, text: String(message) },
+      ),
     });
     const text = await res.text();
 
