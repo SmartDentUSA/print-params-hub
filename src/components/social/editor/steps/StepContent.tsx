@@ -202,7 +202,7 @@ export function StepContent({
             .limit(300),
           supabase
             .from('smartops_events')
-            .select('id,name,country,location,start_date,end_date,about_event_pt,company_stand,slug,audience_areas,audience_specialties,audience_notes')
+            .select('id,name,country,location,start_date,end_date,about_event_pt,company_stand,slug,audience_areas,audience_specialties,audience_notes,speakers,partner_brands,instagram_handle')
             .eq('is_active', true)
             .order('start_date', { ascending: true, nullsFirst: false })
             .limit(300),
@@ -267,6 +267,9 @@ export function StepContent({
             audience_areas: e.audience_areas,
             audience_specialties: e.audience_specialties,
             audience_notes: e.audience_notes,
+            speakers: e.speakers,
+            partner_brands: e.partner_brands,
+            instagram_handle: e.instagram_handle,
           },
         })),
       );
@@ -426,6 +429,31 @@ export function StepContent({
     const [h, m] = t.split(':');
     return `${h?.padStart(2, '0') ?? '00'}:${m?.padStart(2, '0') ?? '00'}`;
   };
+  /** Linhas "🎤 Nome (@ig) — Tema · 📅 data 🕒 início às fim" dos palestrantes do evento. */
+  const speakerLines = (speakers?: any[]): string[] =>
+    (Array.isArray(speakers) ? speakers : [])
+      .map((s) => {
+        const name = String(s?.name || '').trim();
+        const theme = String(s?.theme || '').trim();
+        if (!name && !theme) return '';
+        const ig = String(s?.instagram || '').trim();
+        const slots = (Array.isArray(s?.sessions) ? s.sessions : [])
+          .map((se: any) => {
+            const d = se?.date ? fmtDate(se.date) : '';
+            const ini = fmtTime(se?.start_time);
+            const fim = fmtTime(se?.end_time);
+            const hora = ini && fim ? `${ini} às ${fim}` : ini || fim;
+            return [d ? `📅 ${d}` : '', hora ? `🕒 ${hora}` : ''].filter(Boolean).join(' ');
+          })
+          .filter(Boolean)
+          .join(' | ');
+        return `🎤 ${[name, ig ? `(${ig})` : ''].filter(Boolean).join(' ')}${theme ? ` — ${theme}` : ''}${slots ? ` · ${slots}` : ''}`;
+      })
+      .filter(Boolean);
+  const brandMentions = (brands?: any[]): string[] =>
+    (Array.isArray(brands) ? brands : [])
+      .map((b) => [String(b?.name || '').trim(), String(b?.instagram || '').trim()].filter(Boolean).join(' '))
+      .filter(Boolean);
   const fmtAuthorizedScope = (scope?: Record<string, any> | null): string => {
     if (!scope || typeof scope !== 'object') return '';
     const lines: string[] = [];
@@ -538,6 +566,13 @@ export function StepContent({
           ? `🦷 Especialidades do público presente: ${m.audience_specialties.join(', ')}.`
           : '',
         m.audience_notes ? `Observações sobre o público: ${String(m.audience_notes).slice(0, 300)}` : '',
+        speakerLines(m.speakers).length
+          ? `Palestrantes / demonstrações no estande (cite cada um com nome, tema e horário, marcando o @instagram quando houver): ${speakerLines(m.speakers).join(' ; ')}.`
+          : '',
+        brandMentions(m.partner_brands).length
+          ? `Marcas parceiras a marcar na legenda: ${brandMentions(m.partner_brands).join(', ')}.`
+          : '',
+        m.instagram_handle ? `Perfil oficial do evento para marcar: ${m.instagram_handle}.` : '',
         (Array.isArray(m.audience_areas) && m.audience_areas.length) ||
         (Array.isArray(m.audience_specialties) && m.audience_specialties.length)
           ? 'OBRIGATÓRIO: conecte cada produto selecionado às áreas de atuação e especialidades do público presente, citando a aplicação clínica/laboratorial concreta para esse público (sem preços).'
@@ -552,11 +587,12 @@ export function StepContent({
           '2) Parágrafo com a participação da Smart Dent, datas, público do evento e tema principal.',
           '3) Convite ao estande: "📍 Visite o Estande {número} e conheça soluções que unem {benefício 1}, {benefício 2} e {benefício 3}:".',
           '4) Lista dos destaques (produtos selecionados), um emoji DIFERENTE por item (🔬 📸 💻 ✔️ 💡).',
-          '5) Parágrafo curto explicando como essas soluções melhoram resultados técnicos, clínicos ou comerciais das áreas e especialidades do público presente.',
-          '6) CTA de comentário com a palavra-chave em MAIÚSCULAS.',
-          '7) Fechamento: "💾 Salve este post para não perder nossa localização." / "📲 Compartilhe com um colega que precisa {ação} em {ano}." / "🔗 Saiba mais no link da bio."',
-          '8) De 8 a 12 hashtags realmente relacionadas à empresa, ao congresso, ao público e às tecnologias citadas.',
-          'REGRAS: não invente datas, números, local, estande, condições comerciais, produtos ou características técnicas; nada de superlativos ("o maior evento") sem dado; preserve nomes de marcas, produtos e eventos; emojis com equilíbrio; sem preços; sem barras invertidas ou marcação. Entregue somente a legenda final pronta para publicar.',
+          '5) Bloco de palestrantes/demonstrações (quando houver): "🎤 {Nome} (@ig) — {tema}" com data e horário.',
+          '6) Parágrafo curto explicando como essas soluções melhoram resultados técnicos, clínicos ou comerciais das áreas e especialidades do público presente.',
+          '7) CTA de comentário com a palavra-chave em MAIÚSCULAS.',
+          '8) Fechamento: "💾 Salve este post para não perder nossa localização." / "📲 Compartilhe com um colega que precisa {ação} em {ano}." / "🔗 Saiba mais no link da bio." + marcações dos perfis (evento, palestrantes e marcas parceiras).',
+          '9) NÃO escreva hashtags dentro da legenda: elas vão SOMENTE no campo "hashtags" (8 a 12, relacionadas à empresa, ao congresso, ao público e às tecnologias citadas).',
+          'REGRAS: não invente datas, números, local, estande, condições comerciais, produtos, palestrantes, @perfis ou características técnicas; nada de superlativos ("o maior evento") sem dado; preserve nomes de marcas, produtos e eventos; emojis com equilíbrio; sem preços; sem barras invertidas ou marcação. Entregue somente a legenda final pronta para publicar.',
         ].join(' '),
       ]
         .filter(Boolean)
@@ -583,6 +619,10 @@ export function StepContent({
         if (m.location || m.country)
           facts.push(`📍 Local: ${[m.location, m.country].filter(Boolean).join(' — ')}`);
         if (m.stand) facts.push(`🏢 Estande Smart Dent: ${m.stand}`);
+        speakerLines(m.speakers).forEach((l) => facts.push(l));
+        if (m.instagram_handle) facts.push(`📲 Evento: ${m.instagram_handle}`);
+        const brands = brandMentions(m.partner_brands);
+        if (brands.length) facts.push(`🤝 Parceiras: ${brands.join(' ')}`);
       }
       if (ref.startsWith('training:')) {
         const t = trainings.find((x) => x.id === ref.slice('training:'.length));

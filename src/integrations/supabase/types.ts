@@ -21948,6 +21948,7 @@ export type Database = {
           end_date: string | null
           event_logo_url: string | null
           id: string
+          instagram_handle: string | null
           is_active: boolean
           knowledge_content_id: string | null
           last_published_at: string | null
@@ -21956,9 +21957,11 @@ export type Database = {
           location_es: string | null
           name: string
           notes: string | null
+          partner_brands: Json
           reference_image_url: string | null
           schema_json: Json | null
           slug: string | null
+          speakers: Json
           start_date: string | null
           title_en: string | null
           title_es: string | null
@@ -21995,6 +21998,7 @@ export type Database = {
           end_date?: string | null
           event_logo_url?: string | null
           id?: string
+          instagram_handle?: string | null
           is_active?: boolean
           knowledge_content_id?: string | null
           last_published_at?: string | null
@@ -22003,9 +22007,11 @@ export type Database = {
           location_es?: string | null
           name: string
           notes?: string | null
+          partner_brands?: Json
           reference_image_url?: string | null
           schema_json?: Json | null
           slug?: string | null
+          speakers?: Json
           start_date?: string | null
           title_en?: string | null
           title_es?: string | null
@@ -22042,6 +22048,7 @@ export type Database = {
           end_date?: string | null
           event_logo_url?: string | null
           id?: string
+          instagram_handle?: string | null
           is_active?: boolean
           knowledge_content_id?: string | null
           last_published_at?: string | null
@@ -22050,9 +22057,11 @@ export type Database = {
           location_es?: string | null
           name?: string
           notes?: string | null
+          partner_brands?: Json
           reference_image_url?: string | null
           schema_json?: Json | null
           slug?: string | null
+          speakers?: Json
           start_date?: string | null
           title_en?: string | null
           title_es?: string | null

@@ -17,6 +17,7 @@ import { cn } from "@/lib/utils";
 import CoverImageUpload from "@/components/smartops/CoverImageUpload";
 import { EventWebResearchButton, EventReferenceUploads, EventAboutByLanguage, EventCoverByLanguage } from "@/components/smartops/events/EventAIPanels";
 import EventAudienceFields from "@/components/smartops/events/EventAudienceFields";
+import EventSpeakersFields, { type EventSpeaker, type EventPartnerBrand } from "@/components/smartops/events/EventSpeakersFields";
 
 type EventRow = {
   id: string;
@@ -45,6 +46,9 @@ type EventRow = {
   audience_areas: string[] | null;
   audience_specialties: string[] | null;
   audience_notes: string | null;
+  speakers: EventSpeaker[] | null;
+  partner_brands: EventPartnerBrand[] | null;
+  instagram_handle: string | null;
 };
 
 const ALL_COUNTRIES = Country.getAllCountries();
@@ -76,6 +80,9 @@ function emptyForm(): Partial<EventRow> {
     audience_areas: [],
     audience_specialties: [],
     audience_notes: "",
+    speakers: [],
+    partner_brands: [],
+    instagram_handle: "",
   };
 }
 
@@ -160,6 +167,9 @@ export function SmartOpsEvents() {
         audience_areas: editing.audience_areas ?? [],
         audience_specialties: editing.audience_specialties ?? [],
         audience_notes: editing.audience_notes || null,
+        speakers: (editing.speakers ?? []).filter((s) => (s?.name || "").trim() || (s?.theme || "").trim()),
+        partner_brands: (editing.partner_brands ?? []).filter((b) => (b?.name || "").trim() || (b?.instagram || "").trim()),
+        instagram_handle: editing.instagram_handle || null,
       };
       if (editing.id) {
         const { error } = await supabase.from("smartops_events").update(payload).eq("id", editing.id);
@@ -363,6 +373,13 @@ export function SmartOpsEvents() {
                 specialties={(editing.audience_specialties as string[]) || []}
                 notes={editing.audience_notes}
                 onChange={(patch) => setEditing({ ...editing, ...patch } as any)}
+              />
+
+              <EventSpeakersFields
+                speakers={(editing.speakers as EventSpeaker[]) || []}
+                partnerBrands={(editing.partner_brands as EventPartnerBrand[]) || []}
+                instagramHandle={editing.instagram_handle}
+                onChange={(patch) => setEditing((cur) => (cur ? ({ ...cur, ...patch } as any) : cur))}
               />
 
               <div className="space-y-2 border rounded-md p-3">
