@@ -12,7 +12,12 @@ export interface GenerateCaptionInput {
   language?: string;
   external_enrichment?: any;
   extra_products?: Array<{ name: string; slug?: string; category?: string }>;
+  /** "benefits" = proíbe especificações técnicas na legenda */
+  focus_mode?: "benefits" | "specs";
+  /** Lista fechada de produtos que a IA pode citar */
+  allowed_products?: string[];
 }
+
 
 export interface GenerateCaptionResult {
   caption: string;
