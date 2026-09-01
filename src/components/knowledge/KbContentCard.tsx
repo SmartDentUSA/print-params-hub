@@ -4,6 +4,7 @@ import { Share2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { getStorageImageUrl } from '@/utils/storageImage';
+import { shortenUrl } from '@/utils/shortLink';
 
 export interface KbContentCardData {
   id: string;
@@ -102,7 +103,7 @@ export default function KbContentCard({ data, index, buttonLabel, onClick, thumb
     e.stopPropagation();
     e.preventDefault();
     if (!data.shareUrl) return;
-    const url = data.shareUrl;
+    const url = await shortenUrl(data.shareUrl);
     const message = buildShareMessage(url);
     // Try native share first (mobile); falls through to clipboard on failure or unsupported
     if (typeof navigator !== 'undefined' && typeof (navigator as any).share === 'function') {

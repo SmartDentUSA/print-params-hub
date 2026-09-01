@@ -3,6 +3,7 @@ import { User, Share2, Check } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { getPublicOrigin } from "@/utils/publicOrigin";
+import { shortenUrl } from "@/utils/shortLink";
 import type { TurmaComVagas } from "@/types/courses";
 import { UploadMidiasDriveButton } from "@/components/smartops/UploadMidiasDriveButton";
 
@@ -14,12 +15,7 @@ import { UploadMidiasDriveButton } from "@/components/smartops/UploadMidiasDrive
 export const ONLINE_LIVE_MODALITIES = ["online_ao_vivo", "online"];
 export const ONLINE_LIVE_CATEGORIES = ["workshop", "webinar", "live_produtos"];
 
-/** Encurtador de links: chamada direta à edge function (pública) + cache por destino. */
-const SUPABASE_PROJECT_URL = "https://okeogjgqijbfkudfjadz.supabase.co";
-const SHORT_LINK_ENDPOINT = `${SUPABASE_PROJECT_URL}/functions/v1/short-link-create`;
-const SUPABASE_ANON_KEY =
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9rZW9namdxaWpiZmt1ZGZqYWR6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY4NzE5MDgsImV4cCI6MjA3MjQ0NzkwOH0.OGdtvsJNdEqAfUoDA4O9OcnD69Titu69TsXS38TaVtk";
-const shortLinkCache = new Map<string, string>();
+/** Encurtador de links compartilhado (edge function pública + cache). */
 
 
 
@@ -246,34 +242,6 @@ export function PublicOnlineCourseCard({
 
   const shareUrl = href ? (isInternal ? `${getPublicOrigin()}${href}` : href) : getPublicOrigin();
 
-  const shortenUrl = async (url: string) => {
-    const cached = shortLinkCache.get(url);
-    if (cached) return cached;
-    for (let attempt = 0; attempt < 3; attempt++) {
-      try {
-        const res = await fetch(`${SHORT_LINK_ENDPOINT}`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            apikey: SUPABASE_ANON_KEY,
-            Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-          },
-          body: JSON.stringify({ destination_url: url }),
-        });
-        const json = await res.json().catch(() => null);
-        const short = json?.url as string | undefined;
-        if (res.ok && short) {
-          shortLinkCache.set(url, short);
-          return short;
-        }
-        console.warn("[share] short-link falhou", res.status, json);
-      } catch (err) {
-        console.warn("[share] short-link erro", err);
-      }
-      await new Promise((r) => setTimeout(r, 400 * (attempt + 1)));
-    }
-    return url;
-  };
 
 
   const handleShare = async (e: React.MouseEvent) => {
