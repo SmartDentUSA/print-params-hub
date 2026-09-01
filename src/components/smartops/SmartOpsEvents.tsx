@@ -348,6 +348,13 @@ export function SmartOpsEvents() {
                 </div>
               </div>
 
+              <EventAudienceFields
+                areas={(editing.audience_areas as string[]) || []}
+                specialties={(editing.audience_specialties as string[]) || []}
+                notes={editing.audience_notes}
+                onChange={(patch) => setEditing({ ...editing, ...patch } as any)}
+              />
+
               <div className="space-y-2 border rounded-md p-3">
                 <Label className="text-sm font-semibold">Sobre o evento (por idioma)</Label>
                 <p className="text-[11px] text-muted-foreground">Usado em Artigos — Ciência & Tecnologia. Sem preços.</p>
