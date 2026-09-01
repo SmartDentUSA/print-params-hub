@@ -320,6 +320,24 @@ const COURSE_MODALITY_LABEL: Record<string, string> = {
   acesso_remoto: "Acesso Remoto",
 };
 
+function formatTurmaNumber(n: any, label?: string) {
+  if (n === null || n === undefined || n === "") return label || "Turma";
+  const s = String(n);
+  return `#${s.length >= 3 ? s : s.padStart(3, "0")}`;
+}
+
+function formatTurmaPeriod(start?: string, end?: string) {
+  const fmt = (d?: string) => {
+    if (!d) return "";
+    const [y, m, dd] = String(d).slice(0, 10).split("-");
+    return dd && m ? `${dd}/${m}` : "";
+  };
+  const a = fmt(start), b = fmt(end);
+  if (!a && !b) return "";
+  if (!b || a === b) return a;
+  return `${a} → ${b}`;
+}
+
 function CourseListRow({ course, onEdit, onTogglePublic, onToggleActive, onClone, onDelete }: {
   course: SmartopsCourse;
   onEdit: () => void;
@@ -371,6 +389,25 @@ function CourseListRow({ course, onEdit, onTogglePublic, onToggleActive, onClone
           {course.duration_days ? ` · ${course.duration_days} ${course.duration_days === 1 ? "dia" : "dias"}` : ""}
           {course.instructor_name ? ` · ${course.instructor_name}` : ""}
         </div>
+        {turmas.length > 0 && (
+          <div className="flex flex-wrap items-center gap-1.5 mt-1">
+            {turmas.slice(0, 4).map((t: any) => (
+              <span
+                key={t.id}
+                className="inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[11px] tabular-nums text-muted-foreground bg-muted/40"
+              >
+                <span className="font-semibold text-foreground">{formatTurmaNumber(t.turma_number, t.label)}</span>
+                {formatTurmaPeriod(t.start_date, t.end_date) && (
+                  <span>{formatTurmaPeriod(t.start_date, t.end_date)}</span>
+                )}
+              </span>
+            ))}
+            {turmas.length > 4 && (
+              <span className="text-[11px] text-muted-foreground">+{turmas.length - 4}</span>
+            )}
+          </div>
+        )}
+
       </div>
 
       <span className={`hidden sm:inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium shrink-0 ${statusCls}`}>
@@ -543,12 +580,21 @@ function CatalogoTab() {
     if (filterKey === "inativos") arr = arr.filter(c => !c.active);
     if (filterKey === "privados") arr = arr.filter(c => c.active && !c.public_visible);
     if (search.trim()) {
-      const s = search.toLowerCase();
+      const s = search.toLowerCase().trim();
+      const num = s.replace(/[^0-9]/g, "");
       arr = arr.filter(c =>
         c.title.toLowerCase().includes(s) ||
-        (c.instructor_name || "").toLowerCase().includes(s)
+        (c.instructor_name || "").toLowerCase().includes(s) ||
+        (c.turmas ?? []).some((t: any) =>
+          (t.label || "").toLowerCase().includes(s) ||
+          (num && String(t.turma_number ?? "").padStart(3, "0").includes(num.padStart(1, "0"))) ||
+          (num && String(t.turma_number ?? "") === String(Number(num))) ||
+          (t.start_date || "").includes(s) ||
+          (t.end_date || "").includes(s)
+        )
       );
     }
+
     arr.sort((a, b) => {
       if (sort === "title") return a.title.localeCompare(b.title);
       if (sort === "turmas") return ((b.turmas?.length ?? 0) - (a.turmas?.length ?? 0));
@@ -581,7 +627,7 @@ function CatalogoTab() {
           { value: "title", label: "Nome A–Z" },
           { value: "turmas", label: "Mais turmas" },
         ]}
-        searchPlaceholder="Buscar cursos…"
+        searchPlaceholder="Buscar por curso, instrutor ou nº da turma…"
         ctaLabel="+ Novo Curso"
         onCtaClick={() => setShowCreate(true)}
       />
