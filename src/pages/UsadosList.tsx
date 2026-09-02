@@ -173,6 +173,12 @@ export default function UsadosList() {
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-64 rounded-xl" />)}
           </div>
+        ) : fetchError ? (
+          <Card><CardContent className="flex flex-col items-center gap-3 py-12 text-center">
+            <p className="text-sm font-medium">Não foi possível carregar os anúncios.</p>
+            <p className="text-xs text-muted-foreground">Verifique sua conexão e tente novamente.</p>
+            <Button variant="outline" onClick={() => setOrder((o) => o)}>Tentar novamente</Button>
+          </CardContent></Card>
         ) : items.length === 0 ? (
           <Card><CardContent className="py-12 text-center text-sm text-muted-foreground">
             Nenhum equipamento encontrado com esses filtros.
@@ -184,38 +190,42 @@ export default function UsadosList() {
                 const img = firstImage(l.images);
                 return (
                   <Link key={l.id} to={listingUrl(l.slug || l.id)} className="group">
-                    <Card className="h-full overflow-hidden transition-shadow group-hover:shadow-lg">
-                      <div className="relative aspect-[4/3] bg-muted">
+                    <Card className="h-full overflow-hidden rounded-2xl border transition-all duration-200 group-hover:-translate-y-0.5 group-hover:border-primary/40 group-hover:shadow-lg">
+                      <div className="relative aspect-[4/3] bg-white">
                         {img ? (
                           <img src={img} alt={l.title} loading="lazy"
-                            className="h-full w-full object-cover transition-transform group-hover:scale-105" />
+                            className="h-full w-full object-contain p-2 transition-transform duration-300 group-hover:scale-[1.03]" />
                         ) : (
-                          <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
+                          <div className="flex h-full items-center justify-center bg-muted text-xs text-muted-foreground">
                             Sem foto
                           </div>
                         )}
-                        <Badge className="absolute left-2 top-2" variant="secondary">
+                        <Badge className="absolute left-2 top-2 shadow-sm" variant="secondary">
                           {categoryLabel(l.category)}
                         </Badge>
                         {l.is_cliente && (
-                          <Badge className="absolute right-2 top-2 bg-primary text-primary-foreground">
+                          <Badge className="absolute right-2 top-2 bg-primary text-primary-foreground shadow-sm">
                             Cliente Smart Dent
                           </Badge>
                         )}
                       </div>
-                      <CardContent className="space-y-2 p-4">
-                        <h2 className="line-clamp-2 text-sm font-semibold">{l.title}</h2>
+                      <CardContent className="space-y-1.5 border-t p-4">
+                        <h2 className="line-clamp-2 min-h-[2.5rem] text-sm font-semibold leading-snug group-hover:text-primary">
+                          {l.title}
+                        </h2>
                         <p className="text-lg font-bold text-primary">{formatPrice(l.price)}</p>
-                        <div className="flex items-center justify-between text-xs text-muted-foreground">
+                        <div className="flex items-center justify-between pt-1 text-xs text-muted-foreground">
                           <span className="flex items-center gap-1">
                             <MapPin className="h-3 w-3" />
                             {l.location_city || "—"}{l.location_state ? `/${l.location_state}` : ""}
                           </span>
-                          <span>{conditionLabel(l.condition)}</span>
+                          <span className="flex items-center gap-2">
+                            <span>{conditionLabel(l.condition)}</span>
+                            <span className="flex items-center gap-1">
+                              <Eye className="h-3 w-3" /> {l.view_count ?? 0}
+                            </span>
+                          </span>
                         </div>
-                        <p className="flex items-center gap-1 text-[11px] text-muted-foreground">
-                          <Eye className="h-3 w-3" /> {l.view_count ?? 0} visualizações
-                        </p>
                       </CardContent>
                     </Card>
                   </Link>
