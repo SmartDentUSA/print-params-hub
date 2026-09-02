@@ -87,6 +87,33 @@ export function whatsappLink(phone: string | null | undefined, title: string): s
   return `https://wa.me/${target}?text=${encodeURIComponent(msg)}`;
 }
 
+export interface SpecRow { label: string; value: string }
+
+/**
+ * Separa a descrição em ficha técnica ("Chave: valor") e texto corrido,
+ * para renderizar especificações numa tabela legível em vez de um bloco cru.
+ */
+export function parseDescription(description?: string | null): { specs: SpecRow[]; text: string } {
+  const lines = (description || "").split(/\r?\n/);
+  const specs: SpecRow[] = [];
+  const rest: string[] = [];
+
+  for (const raw of lines) {
+    const line = raw.trim();
+    if (!line) { rest.push(""); continue; }
+    const m = line.match(/^([^:：]{2,40})[:：]\s*(.+)$/);
+    if (m && m[2].trim().length <= 160) {
+      specs.push({ label: m[1].trim(), value: m[2].trim() });
+    } else {
+      rest.push(line);
+    }
+  }
+
+  // Só vale a pena a tabela se houver ficha técnica de verdade.
+  if (specs.length < 3) return { specs: [], text: (description || "").trim() };
+  return { specs, text: rest.join("\n").replace(/\n{3,}/g, "\n\n").trim() };
+}
+
 export interface PublicListing {
   id: string;
   slug: string | null;
