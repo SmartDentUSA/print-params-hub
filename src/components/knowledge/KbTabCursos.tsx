@@ -211,14 +211,18 @@ export default function KbTabCursos() {
   const hasFilters = !!(selectedKol || selectedTipo || selectedEsp || search);
 
   const ctaUrl = (c: ProfCourse) => {
-    if (c.registration_url) return c.registration_url;
     if (c.whatsapp_number) {
       const digits = `${c.whatsapp_ddi ?? '55'}${c.whatsapp_number}`.replace(/\D/g, '');
-      return `https://wa.me/${digits}?text=${encodeURIComponent(`Olá! Tenho interesse no curso "${c.title}".`)}`;
+      const owner = (c.producer_lead_id ? kols[c.producer_lead_id]?.nome : null) || 'Smart Dent';
+      const firstName = String(owner).trim().split(/\s+/)[0];
+      const msg = `Olá ${firstName}, vi este curso ${c.title}, na página da Smart Dent, gostaria de mais informações`;
+      return `https://wa.me/${digits}?text=${encodeURIComponent(msg)}`;
     }
+    if (c.registration_url) return c.registration_url;
     if (c.instagram) return `https://instagram.com/${igHandle(c.instagram)}`;
     return null;
   };
+
 
   if (isLoading) {
     return <div className="py-12 text-center text-muted-foreground">Carregando cursos…</div>;
