@@ -184,22 +184,8 @@ export default function KbTabCursos() {
     });
   }, [courses, kols, selectedKol, selectedTipo, selectedEsp, search]);
 
-  /** Agrupa por profissional: identificação do profissional acima, cursos abaixo */
-  const groups = useMemo(() => {
-    const map = new Map<string, { kol?: Kol; items: ProfCourse[] }>();
-    for (const c of visible) {
-      const key = c.producer_lead_id ?? '__sem_profissional__';
-      if (!map.has(key)) {
-        map.set(key, { kol: c.producer_lead_id ? kols[c.producer_lead_id] : undefined, items: [] });
-      }
-      map.get(key)!.items.push(c);
-    }
-    return Array.from(map.entries()).sort((a, b) => {
-      const an = a[1].kol?.nome ?? 'zzz';
-      const bn = b[1].kol?.nome ?? 'zzz';
-      return an.localeCompare(bn, 'pt-BR');
-    });
-  }, [visible, kols]);
+
+
 
   const hasFilters = !!(selectedKol || selectedTipo || selectedEsp || search);
 
