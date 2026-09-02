@@ -23,6 +23,7 @@ export default function UsadosList() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [done, setDone] = useState(false);
   const [fetchError, setFetchError] = useState(false);
+  const [retryNonce, setRetryNonce] = useState(0);
 
   const [term, setTerm] = useState("");
   const [category, setCategory] = useState(ALL);
