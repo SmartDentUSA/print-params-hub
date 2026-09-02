@@ -13,9 +13,10 @@ import {
 } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Flag, Loader2, MapPin, MessageCircle, Share2 } from "lucide-react";
+import { ArrowLeft, Flag, Loader2, MapPin, MessageCircle, Pencil, Share2 } from "lucide-react";
 import {
-  categoryLabel, conditionLabel, formatPrice, imageList, whatsappLink, type PublicListing,
+  categoryLabel, conditionLabel, formatPrice, imageList, parseDescription, whatsappLink,
+  type PublicListing,
 } from "@/lib/classifieds";
 
 const REPORT_REASONS = [
@@ -33,6 +34,7 @@ export default function UsadosDetail() {
   const [loading, setLoading] = useState(true);
   const [active, setActive] = useState(0);
   const [contacting, setContacting] = useState(false);
+  const [isOwner, setIsOwner] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
   const [reportReason, setReportReason] = useState("vendido");
   const [reportDetails, setReportDetails] = useState("");
@@ -50,7 +52,12 @@ export default function UsadosDetail() {
         .maybeSingle();
       setListing((data as PublicListing) ?? null);
       setLoading(false);
-      if (data?.id) await supabase.rpc("increment_listing_view" as never, { p_listing: data.id } as never);
+      if (data?.id) {
+        await supabase.rpc("increment_listing_view" as never, { p_listing: data.id } as never);
+        // Dono do anúncio: a RPC segura só devolve os anúncios do usuário autenticado.
+        const { data: mine } = await (supabase as any).rpc("fn_my_classifieds");
+        setIsOwner(Array.isArray(mine) && mine.some((m: { id: string }) => m.id === data.id));
+      }
     })();
   }, [slug]);
 
@@ -113,6 +120,7 @@ export default function UsadosDetail() {
   const images = imageList(listing.images);
   const cover = images[active];
   const local = [listing.location_city, listing.location_state].filter(Boolean).join("/");
+  const desc = parseDescription(listing.description);
 
   return (
     <div className="min-h-screen bg-background pb-24">
@@ -149,7 +157,7 @@ export default function UsadosDetail() {
 
         <div className="overflow-hidden rounded-xl border bg-muted">
           {cover ? (
-            <img src={cover} alt={listing.title} className="aspect-[4/3] w-full object-cover" />
+            <img src={cover} alt={listing.title} className="aspect-[4/3] w-full bg-white object-contain" />
           ) : (
             <div className="flex aspect-[4/3] items-center justify-center text-sm text-muted-foreground">Sem foto</div>
           )}
@@ -165,22 +173,49 @@ export default function UsadosDetail() {
           </div>
         )}
 
-        <div className="mt-4 flex flex-wrap gap-2">
+        <div className="mt-4 flex flex-wrap items-center gap-2">
           <Badge variant="secondary">{categoryLabel(listing.category)}</Badge>
           <Badge variant="outline">{conditionLabel(listing.condition)}</Badge>
           {listing.is_cliente && <Badge className="bg-primary text-primary-foreground">Cliente Smart Dent</Badge>}
+          {isOwner && (
+            <Button asChild size="sm" variant="outline" className="ml-auto">
+              <Link to={`/usados/meus-anuncios?edit=${listing.id}`}>
+                <Pencil className="mr-2 h-4 w-4" /> Editar anúncio
+              </Link>
+            </Button>
+          )}
         </div>
 
-        <h1 className="mt-3 text-xl font-bold sm:text-2xl">{listing.title}</h1>
-        <p className="mt-1 text-2xl font-bold text-primary">{formatPrice(listing.price)}</p>
+        <h1 className="mt-3 text-xl font-bold tracking-tight sm:text-2xl">{listing.title}</h1>
+        <p className="mt-1 text-3xl font-bold text-primary">{formatPrice(listing.price)}</p>
         <p className="mt-1 flex items-center gap-1 text-sm text-muted-foreground">
           <MapPin className="h-4 w-4" /> {local || "Localização não informada"}
         </p>
 
-        {listing.description && (
-          <Card className="mt-4"><CardContent className="whitespace-pre-wrap p-4 text-sm leading-relaxed">
-            {listing.description}
-          </CardContent></Card>
+        {desc.text && (
+          <Card className="mt-4">
+            <CardContent className="p-4">
+              <h2 className="mb-2 text-sm font-semibold">Sobre o equipamento</h2>
+              <p className="whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground">{desc.text}</p>
+            </CardContent>
+          </Card>
+        )}
+
+        {desc.specs.length > 0 && (
+          <Card className="mt-4">
+            <CardContent className="p-0">
+              <h2 className="border-b px-4 py-3 text-sm font-semibold">Ficha técnica</h2>
+              <dl className="divide-y sm:grid sm:grid-cols-2 sm:divide-y-0">
+                {desc.specs.map((s, i) => (
+                  <div key={s.label + i}
+                    className="flex flex-col gap-0.5 px-4 py-2.5 sm:border-b sm:odd:border-r">
+                    <dt className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{s.label}</dt>
+                    <dd className="text-sm font-medium leading-snug">{s.value}</dd>
+                  </div>
+                ))}
+              </dl>
+            </CardContent>
+          </Card>
         )}
 
         <Card className="mt-4"><CardContent className="p-4 text-sm">

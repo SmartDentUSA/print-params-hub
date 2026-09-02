@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -50,6 +50,7 @@ const emptyForm = {
 
 export default function UsadosMeusAnuncios() {
   const { toast } = useToast();
+  const [params, setParams] = useSearchParams();
   const [userId, setUserId] = useState<string | null>(null);
   const [checking, setChecking] = useState(true);
   const [listings, setListings] = useState<MyListing[]>([]);
@@ -58,6 +59,7 @@ export default function UsadosMeusAnuncios() {
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const autoEdited = useRef(false);
 
   const load = useCallback(async (_uid: string) => {
     setLoading(true);
@@ -148,6 +150,21 @@ export default function UsadosMeusAnuncios() {
     });
     setShowForm(true);
   }
+
+  // Abre direto o formulário quando vem de /usados/:slug com ?edit=<id>.
+  useEffect(() => {
+    const editId = params.get("edit");
+    if (!editId || autoEdited.current || listings.length === 0) return;
+    const target = listings.find((l) => l.id === editId);
+    if (!target) return;
+    autoEdited.current = true;
+    editListing(target);
+    params.delete("edit");
+    setParams(params, { replace: true });
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }, [listings, params, setParams]);
+
+
 
   async function markSold(l: MyListing) {
     const { error } = await (supabase as any)
