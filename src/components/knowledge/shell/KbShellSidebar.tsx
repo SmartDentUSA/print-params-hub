@@ -1,4 +1,4 @@
-import { LayoutGrid, PlaySquare, FileText, BookOpen, Calendar, Store, Sliders, Home, Layers, Radio } from 'lucide-react';
+import { LayoutGrid, PlaySquare, FileText, BookOpen, Calendar, Store, Sliders, Home, Layers, Radio, GraduationCap } from 'lucide-react';
 import type { KbTab } from '../KbTabSwitcher';
 import { useLanguage } from '@/contexts/LanguageContext';
 
@@ -10,6 +10,7 @@ const NAV: { key: NavKey; icon: React.ReactNode }[] = [
   { key: 'videos',         icon: <PlaySquare /> },
   { key: 'artigos',        icon: <FileText /> },
   { key: 'ebooks',         icon: <BookOpen /> },
+  { key: 'cursos',         icon: <GraduationCap /> },
   { key: 'eventos',        icon: <Calendar /> },
   { key: 'lives',          icon: <Radio /> },
   { key: 'distribuidores', icon: <Store /> },
