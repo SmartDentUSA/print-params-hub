@@ -17,6 +17,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import KbSearchBar from './KbSearchBar';
+import CourseRating, { RatingSummaryBadge } from './CourseRating';
 
 interface SyllabusModule {
   title?: string | null;
@@ -471,6 +472,7 @@ export default function KbTabCursos() {
                             >
                               <Info className="w-3.5 h-3.5 mr-1.5" /> Informações do curso
                             </Button>
+                            <span className="ml-3 align-middle"><RatingSummaryBadge courseId={c.id} /></span>
                           </div>
                         </div>
                       </article>
@@ -485,160 +487,234 @@ export default function KbTabCursos() {
 
 
       <Dialog open={!!detail} onOpenChange={(o) => !o && setDetail(null)}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-3xl max-h-[92vh] overflow-y-auto p-0 gap-0">
           {detailCourse && (
             <>
-              <DialogHeader>
-                <DialogTitle className="text-lg leading-snug">{detailCourse.title}</DialogTitle>
-                {detailCourse.subtitle && (
-                  <DialogDescription>{detailCourse.subtitle}</DialogDescription>
-                )}
-              </DialogHeader>
-
-              {detailCourse.cover_image_url && (
-                <div className="aspect-video w-full overflow-hidden rounded-lg bg-muted">
-                  <img
-                    src={detailCourse.cover_image_url}
-                    alt={detailCourse.title}
-                    className="w-full h-full object-cover"
-                    loading="lazy"
-                  />
+              {/* Hero */}
+              <div className="relative">
+                <div className="aspect-[16/7] w-full overflow-hidden bg-muted">
+                  {detailCourse.cover_image_url ? (
+                    <img
+                      src={detailCourse.cover_image_url}
+                      alt={detailCourse.title}
+                      className="w-full h-full object-cover"
+                      loading="lazy"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center">
+                      <GraduationCap className="w-12 h-12 text-muted-foreground/40" />
+                    </div>
+                  )}
                 </div>
-              )}
-
-              {detail?.kol && (
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full overflow-hidden bg-muted shrink-0">
-                    {detail.kol.prof_photo_url ? (
-                      <img src={detail.kol.prof_photo_url} alt={detail.kol.nome ?? ''} className="w-full h-full object-cover" />
-                    ) : (
-                      <UserCircle className="w-full h-full text-muted-foreground" />
-                    )}
+                <div className="absolute inset-0 bg-gradient-to-t from-background via-background/70 to-transparent" />
+                <div className="absolute bottom-0 left-0 right-0 p-5 sm:p-6">
+                  <div className="flex flex-wrap gap-1.5 mb-2">
+                    {detailCourse.modality && <Badge variant="secondary">{detailCourse.modality}</Badge>}
+                    {detailCourse.category && <Badge variant="outline">{detailCourse.category}</Badge>}
+                    {detailCourse.certificate && <Badge variant="outline">Com certificado</Badge>}
                   </div>
-                  <div className="min-w-0">
-                    <div className="text-sm font-medium truncate">{detail.kol.nome}</div>
-                    {igHandle(detail.kol.instagram) && (
-                      <a
-                        href={`https://instagram.com/${igHandle(detail.kol.instagram)}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-xs text-primary hover:underline inline-flex items-center gap-1"
-                      >
-                        <Instagram className="w-3 h-3" /> @{igHandle(detail.kol.instagram)}
-                      </a>
+                  <DialogHeader className="space-y-1 text-left">
+                    <DialogTitle className="text-xl sm:text-2xl font-bold leading-tight">
+                      {detailCourse.title}
+                    </DialogTitle>
+                    {detailCourse.subtitle && (
+                      <DialogDescription className="text-sm sm:text-base">
+                        {detailCourse.subtitle}
+                      </DialogDescription>
                     )}
-                  </div>
+                  </DialogHeader>
                 </div>
-              )}
-
-              <div className="flex flex-wrap gap-1.5">
-                {detailCourse.modality && <Badge variant="secondary">{detailCourse.modality}</Badge>}
-                {detailCourse.category && <Badge variant="outline">{detailCourse.category}</Badge>}
-                {detailCourse.certificate && <Badge variant="outline">Com certificado</Badge>}
               </div>
 
-              <div className="flex flex-col gap-1 text-sm text-muted-foreground">
-                {fmtDate(detailCourse.start_date) && (
-                  <span className="inline-flex items-center gap-1.5">
-                    <CalendarDays className="w-4 h-4" />
-                    {fmtDate(detailCourse.start_date)}
-                    {detailCourse.end_date && detailCourse.end_date !== detailCourse.start_date
-                      ? ` a ${fmtDate(detailCourse.end_date)}`
-                      : ''}
-                    {detailCourse.start_time ? ` às ${detailCourse.start_time}` : ''}
-                  </span>
+              <div className="p-5 sm:p-6 space-y-6">
+                {/* Professor */}
+                {detail?.kol && (
+                  <div className="flex items-center gap-3 rounded-xl border border-border bg-card p-3">
+                    <div className="w-12 h-12 rounded-full overflow-hidden bg-muted shrink-0 ring-2 ring-border">
+                      {detail.kol.prof_photo_url ? (
+                        <img
+                          src={detail.kol.prof_photo_url}
+                          alt={detail.kol.nome ?? ''}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <UserCircle className="w-full h-full text-muted-foreground" />
+                      )}
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-sm font-semibold truncate">{detail.kol.nome}</div>
+                      {detail.kol.especialidade && (
+                        <div className="text-xs text-muted-foreground uppercase tracking-wide truncate">
+                          {detail.kol.especialidade}
+                        </div>
+                      )}
+                      {igHandle(detail.kol.instagram) && (
+                        <a
+                          href={`https://instagram.com/${igHandle(detail.kol.instagram)}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs text-primary hover:underline inline-flex items-center gap-1"
+                        >
+                          <Instagram className="w-3 h-3" /> @{igHandle(detail.kol.instagram)}
+                        </a>
+                      )}
+                    </div>
+                  </div>
                 )}
-                {detailCourse.workload_hours ? (
-                  <span className="inline-flex items-center gap-1.5">
-                    <Clock className="w-4 h-4" /> {detailCourse.workload_hours}h de carga horária
-                  </span>
-                ) : null}
-                {([detailCourse.city, detailCourse.state].filter(Boolean).join(' - ') || detailCourse.online_platform) && (
-                  <span className="inline-flex items-center gap-1.5">
-                    <MapPin className="w-4 h-4" />
-                    {[detailCourse.city, detailCourse.state].filter(Boolean).join(' - ') || detailCourse.online_platform}
-                  </span>
-                )}
-              </div>
 
-              {detailCourse.description && (
-                <section>
-                  <h4 className="text-sm font-semibold mb-1">Descrição</h4>
-                  <p className="text-sm text-muted-foreground whitespace-pre-line">{detailCourse.description}</p>
-                </section>
-              )}
-
-              {detailCourse.target_audience && (
-                <section>
-                  <h4 className="text-sm font-semibold mb-1">Público-alvo</h4>
-                  <p className="text-sm text-muted-foreground whitespace-pre-line">{detailCourse.target_audience}</p>
-                </section>
-              )}
-
-              {detailCourse.prerequisites && (
-                <section>
-                  <h4 className="text-sm font-semibold mb-1">Pré-requisitos</h4>
-                  <p className="text-sm text-muted-foreground whitespace-pre-line">{detailCourse.prerequisites}</p>
-                </section>
-              )}
-
-              {detailSyllabus.length > 0 && (
-                <section>
-                  <h4 className="text-sm font-semibold mb-2">Conteúdo programático</h4>
-                  <div className="flex flex-col gap-3">
-                    {detailSyllabus.map((mod, i) => (
-                      <div key={i}>
-                        {mod?.title && <div className="text-sm font-medium">{mod.title}</div>}
-                        {Array.isArray(mod?.items) && mod.items.length > 0 && (
-                          <ul className="list-disc pl-5 text-sm text-muted-foreground">
-                            {mod.items.map((it, j) => (
-                              <li key={j}>{it}</li>
-                            ))}
-                          </ul>
-                        )}
+                {/* Fatos rápidos */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {fmtDate(detailCourse.start_date) && (
+                    <div className="rounded-xl border border-border p-3">
+                      <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-muted-foreground mb-1">
+                        <CalendarDays className="w-3.5 h-3.5" /> Data
                       </div>
-                    ))}
+                      <div className="text-sm font-medium text-foreground">
+                        {fmtDate(detailCourse.start_date)}
+                        {detailCourse.end_date && detailCourse.end_date !== detailCourse.start_date
+                          ? ` a ${fmtDate(detailCourse.end_date)}`
+                          : ''}
+                        {detailCourse.start_time ? ` · ${detailCourse.start_time}` : ''}
+                      </div>
+                    </div>
+                  )}
+                  {detailCourse.workload_hours ? (
+                    <div className="rounded-xl border border-border p-3">
+                      <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-muted-foreground mb-1">
+                        <Clock className="w-3.5 h-3.5" /> Carga horária
+                      </div>
+                      <div className="text-sm font-medium text-foreground">{detailCourse.workload_hours}h</div>
+                    </div>
+                  ) : null}
+                  {([detailCourse.city, detailCourse.state].filter(Boolean).join(' - ') ||
+                    detailCourse.online_platform) && (
+                    <div className="rounded-xl border border-border p-3">
+                      <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-muted-foreground mb-1">
+                        <MapPin className="w-3.5 h-3.5" /> Local
+                      </div>
+                      <div className="text-sm font-medium text-foreground">
+                        {[detailCourse.city, detailCourse.state].filter(Boolean).join(' - ') ||
+                          detailCourse.online_platform}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {detailCourse.description && (
+                  <section>
+                    <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">
+                      Descrição
+                    </h4>
+                    <p className="text-sm text-foreground/90 whitespace-pre-line leading-relaxed">
+                      {detailCourse.description}
+                    </p>
+                  </section>
+                )}
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                  {detailCourse.target_audience && (
+                    <section>
+                      <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">
+                        Público-alvo
+                      </h4>
+                      <p className="text-sm text-foreground/90 whitespace-pre-line leading-relaxed">
+                        {detailCourse.target_audience}
+                      </p>
+                    </section>
+                  )}
+                  {detailCourse.prerequisites && (
+                    <section>
+                      <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">
+                        Pré-requisitos
+                      </h4>
+                      <p className="text-sm text-foreground/90 whitespace-pre-line leading-relaxed">
+                        {detailCourse.prerequisites}
+                      </p>
+                    </section>
+                  )}
+                </div>
+
+                {detailSyllabus.length > 0 && (
+                  <section>
+                    <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
+                      Conteúdo programático
+                    </h4>
+                    <div className="flex flex-col gap-2">
+                      {detailSyllabus.map((mod, i) => (
+                        <div key={i} className="rounded-xl border border-border p-3">
+                          {mod?.title && (
+                            <div className="text-sm font-semibold text-foreground mb-1">
+                              <span className="text-muted-foreground mr-1.5">{String(i + 1).padStart(2, '0')}</span>
+                              {mod.title}
+                            </div>
+                          )}
+                          {Array.isArray(mod?.items) && mod.items.length > 0 && (
+                            <ul className="list-disc pl-5 text-sm text-muted-foreground space-y-0.5">
+                              {mod.items.map((it, j) => (
+                                <li key={j}>{it}</li>
+                              ))}
+                            </ul>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </section>
+                )}
+
+                {detailCourse.materials_included && (
+                  <section>
+                    <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">
+                      Material incluso
+                    </h4>
+                    <p className="text-sm text-foreground/90 whitespace-pre-line leading-relaxed">
+                      {detailCourse.materials_included}
+                    </p>
+                  </section>
+                )}
+
+                {/* Avaliações dos usuários */}
+                <CourseRating courseId={detailCourse.id} />
+              </div>
+
+              {/* Rodapé fixo com investimento + CTA */}
+              <div className="sticky bottom-0 border-t border-border bg-background/95 backdrop-blur p-4 sm:px-6 flex flex-col sm:flex-row sm:items-center gap-3">
+                {(detailPrice || detailPromo || detailCourse.installments) && (
+                  <div className="flex-1">
+                    <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                      Investimento
+                    </div>
+                    <div className="flex flex-wrap items-baseline gap-2">
+                      {detailPromo ? (
+                        <>
+                          <span className="text-xl font-bold text-foreground">{detailPromo}</span>
+                          {detailPrice && (
+                            <span className="text-sm text-muted-foreground line-through">{detailPrice}</span>
+                          )}
+                        </>
+                      ) : (
+                        detailPrice && <span className="text-xl font-bold text-foreground">{detailPrice}</span>
+                      )}
+                      {detailCourse.installments ? (
+                        <span className="text-xs text-muted-foreground">
+                          em até {detailCourse.installments}x
+                        </span>
+                      ) : null}
+                    </div>
                   </div>
-                </section>
-              )}
-
-              {detailCourse.materials_included && (
-                <section>
-                  <h4 className="text-sm font-semibold mb-1">Material incluso</h4>
-                  <p className="text-sm text-muted-foreground whitespace-pre-line">{detailCourse.materials_included}</p>
-                </section>
-              )}
-
-              {(detailPrice || detailPromo || detailCourse.installments) && (
-                <section className="rounded-lg border border-border p-3">
-                  <h4 className="text-sm font-semibold mb-1">Investimento e inscrição</h4>
-                  <div className="flex flex-wrap items-baseline gap-2 text-sm">
-                    {detailPromo ? (
-                      <>
-                        <span className="text-lg font-semibold text-foreground">{detailPromo}</span>
-                        {detailPrice && <span className="text-muted-foreground line-through">{detailPrice}</span>}
-                      </>
-                    ) : (
-                      detailPrice && <span className="text-lg font-semibold text-foreground">{detailPrice}</span>
-                    )}
-                    {detailCourse.installments ? (
-                      <span className="text-muted-foreground">em até {detailCourse.installments}x</span>
-                    ) : null}
-                  </div>
-                </section>
-              )}
-
-              {ctaUrl(detailCourse) && (
-                <Button asChild className="w-full">
-                  <a href={ctaUrl(detailCourse)!} target="_blank" rel="noopener noreferrer">
-                    Quero participar <ExternalLink className="w-4 h-4 ml-1.5" />
-                  </a>
-                </Button>
-              )}
+                )}
+                {ctaUrl(detailCourse) && (
+                  <Button asChild size="lg" className="w-full sm:w-auto">
+                    <a href={ctaUrl(detailCourse)!} target="_blank" rel="noopener noreferrer">
+                      Quero participar <ExternalLink className="w-4 h-4 ml-1.5" />
+                    </a>
+                  </Button>
+                )}
+              </div>
             </>
           )}
         </DialogContent>
       </Dialog>
+
     </div>
   );
 }
