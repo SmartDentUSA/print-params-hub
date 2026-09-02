@@ -10,6 +10,7 @@ import type { TurmaComVagas } from "@/types/courses";
 import { UploadMidiasDriveButton } from "@/components/smartops/UploadMidiasDriveButton";
 import { DepoimentoUploadAccordion } from "@/components/agenda/DepoimentoUploadAccordion";
 import { PastTrainingsUploadAccordion } from "@/components/agenda/PastTrainingsUploadAccordion";
+import { EventsUploadAccordion } from "@/components/agenda/EventsUploadAccordion";
 import { AccountButton } from "@/components/AccountButton";
 import {
   useTeamMemberSession,
@@ -393,6 +394,8 @@ export default function AgendaPublica({ variant = "presencial" }: AgendaPublicaP
         {isTeamMember && variant === "presencial" && <DepoimentoUploadAccordion />}
 
         {isTeamMember && <PastTrainingsUploadAccordion modalities={config.modalities} />}
+
+        {isTeamMember && <EventsUploadAccordion />}
 
         {isLoading ? (
           <div className="pp-empty">Carregando...</div>
