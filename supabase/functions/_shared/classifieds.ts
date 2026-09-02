@@ -66,15 +66,13 @@ export async function getAuthUser(req: Request): Promise<{ id: string; email: st
 }
 
 export async function isAdmin(db: SupabaseClient, userId: string): Promise<boolean> {
-  const { data } = await db.rpc("is_admin", { _user_id: userId }).select?.() ?? { data: null };
-  if (typeof data === "boolean") return data;
-  const { data: roles } = await db
+  const { data } = await db
     .from("user_roles")
     .select("role")
     .eq("user_id", userId)
     .eq("role", "admin")
     .maybeSingle();
-  return !!roles;
+  return !!data;
 }
 
 /**
