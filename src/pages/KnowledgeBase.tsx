@@ -390,7 +390,6 @@ export default function KnowledgeBase({ lang = 'pt', forcedTab }: KnowledgeBaseP
               {tab === 'distribuidores' && <KbTabDistribuidores country={activeCountry} />}
               {tab === 'eventos' && <KbTabEventos />}
               {tab === 'lives' && <KbTabLives />}
-        {tab === 'cursos' && <KbTabCursos />}
               {tab === 'cursos' && <KbTabCursos />}
             </>
           )}
