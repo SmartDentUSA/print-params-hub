@@ -11,6 +11,11 @@ import {
   ExternalLink,
   Instagram,
   Info,
+  Tag,
+  Users,
+  Globe,
+  Award,
+  Video,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Badge } from '@/components/ui/badge';
@@ -40,7 +45,18 @@ interface ProfCourse {
   city: string | null;
   state: string | null;
   country: string | null;
+  venue: string | null;
+  address: string | null;
   online_platform: string | null;
+  meeting_link: string | null;
+  course_platform: string | null;
+  video_url: string | null;
+  duration_days: number | null;
+  end_time: string | null;
+  max_students: number | null;
+  enrolled_count: number | null;
+  language: string | null;
+  tags: string[] | null;
   registration_url: string | null;
   whatsapp_ddi: string | null;
   whatsapp_number: string | null;
@@ -88,6 +104,27 @@ const igHandle = (v?: string | null) => {
     .replace(/^@+/, '')
     .replace(/\s+/g, '');
   return cleaned;
+};
+
+const LABELS: Record<string, string> = {
+  live_produtos: 'Live de produtos',
+  online: 'Online',
+  presencial: 'Presencial',
+  hibrido: 'Híbrido',
+  imersao: 'Imersão',
+  workshop: 'Workshop',
+  mentoria: 'Mentoria',
+  curso: 'Curso',
+  palestra: 'Palestra',
+  treinamento: 'Treinamento',
+};
+
+const label = (v?: string | null) => {
+  const raw = String(v ?? '').trim();
+  if (!raw) return '';
+  const key = raw.toLowerCase().replace(/\s+/g, '_');
+  if (LABELS[key]) return LABELS[key];
+  return raw.replace(/_/g, ' ').replace(/^\w/, (m) => m.toUpperCase());
 };
 
 const norm = (s?: string | null) =>
@@ -432,8 +469,8 @@ export default function KbTabCursos() {
 
                         <div className="flex-1 min-w-0 flex flex-col gap-2">
                           <div className="flex flex-wrap gap-1">
-                            {c.modality && <Badge variant="secondary" className="text-[11px]">{c.modality}</Badge>}
-                            {c.category && <Badge variant="outline" className="text-[11px]">{c.category}</Badge>}
+                            {c.modality && <Badge variant="secondary" className="text-[11px]">{label(c.modality)}</Badge>}
+                            {c.category && <Badge variant="outline" className="text-[11px]">{label(c.category)}</Badge>}
                             {c.featured && <Badge className="text-[11px]">Destaque</Badge>}
                           </div>
 
@@ -513,8 +550,8 @@ export default function KbTabCursos() {
                 <div className="absolute inset-0 bg-gradient-to-t from-background via-background/70 to-transparent" />
                 <div className="absolute bottom-0 left-0 right-0 p-5 sm:p-6">
                   <div className="flex flex-wrap gap-1.5 mb-2">
-                    {detailCourse.modality && <Badge variant="secondary">{detailCourse.modality}</Badge>}
-                    {detailCourse.category && <Badge variant="outline">{detailCourse.category}</Badge>}
+                    {detailCourse.modality && <Badge variant="secondary">{label(detailCourse.modality)}</Badge>}
+                    {detailCourse.category && <Badge variant="outline">{label(detailCourse.category)}</Badge>}
                     {detailCourse.certificate && <Badge variant="outline">Com certificado</Badge>}
                   </div>
                   <DialogHeader className="space-y-1 text-left">
@@ -568,6 +605,18 @@ export default function KbTabCursos() {
 
                 {/* Fatos rápidos */}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {(detailCourse.category || detailCourse.modality) && (
+                    <div className="rounded-xl border border-border p-3">
+                      <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-muted-foreground mb-1">
+                        <Tag className="w-3.5 h-3.5" /> Tipo de curso
+                      </div>
+                      <div className="text-sm font-medium text-foreground">
+                        {[label(detailCourse.category), label(detailCourse.modality)]
+                          .filter(Boolean)
+                          .join(' · ')}
+                      </div>
+                    </div>
+                  )}
                   {fmtDate(detailCourse.start_date) && (
                     <div className="rounded-xl border border-border p-3">
                       <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-muted-foreground mb-1">
@@ -582,27 +631,91 @@ export default function KbTabCursos() {
                       </div>
                     </div>
                   )}
-                  {detailCourse.workload_hours ? (
+                  {detailCourse.start_time || detailCourse.end_time ? (
+                    <div className="rounded-xl border border-border p-3">
+                      <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-muted-foreground mb-1">
+                        <Clock className="w-3.5 h-3.5" /> Horário
+                      </div>
+                      <div className="text-sm font-medium text-foreground">
+                        {[detailCourse.start_time, detailCourse.end_time].filter(Boolean).join(' às ')}
+                      </div>
+                    </div>
+                  ) : null}
+                  {detailCourse.workload_hours || detailCourse.duration_days ? (
                     <div className="rounded-xl border border-border p-3">
                       <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-muted-foreground mb-1">
                         <Clock className="w-3.5 h-3.5" /> Carga horária
                       </div>
-                      <div className="text-sm font-medium text-foreground">{detailCourse.workload_hours}h</div>
+                      <div className="text-sm font-medium text-foreground">
+                        {[
+                          detailCourse.workload_hours ? `${detailCourse.workload_hours}h` : null,
+                          detailCourse.duration_days
+                            ? `${detailCourse.duration_days} ${detailCourse.duration_days === 1 ? 'dia' : 'dias'}`
+                            : null,
+                        ]
+                          .filter(Boolean)
+                          .join(' · ')}
+                      </div>
                     </div>
                   ) : null}
-                  {([detailCourse.city, detailCourse.state].filter(Boolean).join(' - ') ||
-                    detailCourse.online_platform) && (
+                  {([detailCourse.venue, detailCourse.city, detailCourse.state].filter(Boolean).join(' - ') ||
+                    detailCourse.online_platform ||
+                    detailCourse.course_platform) && (
                     <div className="rounded-xl border border-border p-3">
                       <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-muted-foreground mb-1">
                         <MapPin className="w-3.5 h-3.5" /> Local
                       </div>
                       <div className="text-sm font-medium text-foreground">
-                        {[detailCourse.city, detailCourse.state].filter(Boolean).join(' - ') ||
-                          detailCourse.online_platform}
+                        {[detailCourse.venue, detailCourse.city, detailCourse.state].filter(Boolean).join(' - ') ||
+                          detailCourse.online_platform ||
+                          detailCourse.course_platform}
                       </div>
+                      {detailCourse.address && (
+                        <div className="text-xs text-muted-foreground mt-0.5">{detailCourse.address}</div>
+                      )}
                     </div>
                   )}
+                  {detailCourse.max_students ? (
+                    <div className="rounded-xl border border-border p-3">
+                      <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-muted-foreground mb-1">
+                        <Users className="w-3.5 h-3.5" /> Vagas
+                      </div>
+                      <div className="text-sm font-medium text-foreground">
+                        {detailCourse.max_students} no total
+                        {typeof detailCourse.enrolled_count === 'number'
+                          ? ` · ${Math.max(detailCourse.max_students - detailCourse.enrolled_count, 0)} disponíveis`
+                          : ''}
+                      </div>
+                    </div>
+                  ) : null}
+                  {detailCourse.language && (
+                    <div className="rounded-xl border border-border p-3">
+                      <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-muted-foreground mb-1">
+                        <Globe className="w-3.5 h-3.5" /> Idioma
+                      </div>
+                      <div className="text-sm font-medium text-foreground">{label(detailCourse.language)}</div>
+                    </div>
+                  )}
+                  <div className="rounded-xl border border-border p-3">
+                    <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-muted-foreground mb-1">
+                      <Award className="w-3.5 h-3.5" /> Certificado
+                    </div>
+                    <div className="text-sm font-medium text-foreground">
+                      {detailCourse.certificate ? 'Incluso' : 'Não incluso'}
+                    </div>
+                  </div>
                 </div>
+
+                {detailCourse.video_url && (
+                  <a
+                    href={detailCourse.video_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 text-sm font-medium text-primary hover:underline"
+                  >
+                    <Video className="w-4 h-4" /> Assistir vídeo de apresentação
+                  </a>
+                )}
 
                 {detailCourse.description && (
                   <section>
@@ -673,6 +786,19 @@ export default function KbTabCursos() {
                     <p className="text-sm text-foreground/90 whitespace-pre-line leading-relaxed">
                       {detailCourse.materials_included}
                     </p>
+                  </section>
+                )}
+
+                {Array.isArray(detailCourse.tags) && detailCourse.tags.length > 0 && (
+                  <section>
+                    <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">
+                      Temas
+                    </h4>
+                    <div className="flex flex-wrap gap-1.5">
+                      {detailCourse.tags.map((t) => (
+                        <Badge key={t} variant="secondary" className="text-[11px]">{t}</Badge>
+                      ))}
+                    </div>
                   </section>
                 )}
 
