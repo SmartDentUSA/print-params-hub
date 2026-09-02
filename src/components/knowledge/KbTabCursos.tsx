@@ -314,15 +314,36 @@ export default function KbTabCursos() {
         </div>
       )}
 
-      <div className="flex flex-col gap-10">
-        {groups.map(([key, group]) => {
-          const kol = group.kol;
+      <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
+        {visible.map((c) => {
+          const kol = c.producer_lead_id ? kols[c.producer_lead_id] : undefined;
           const handle = igHandle(kol?.instagram);
+          const local = [c.city, c.state].filter(Boolean).join(' - ') || c.online_platform || null;
+          const date = fmtDate(c.start_date);
           return (
-            <section key={key}>
-              {/* Identificação do profissional */}
-              <header className="flex items-center gap-4 mb-4 pb-4 border-b border-border">
-                <div className="w-16 h-16 rounded-full overflow-hidden bg-muted shrink-0 ring-2 ring-primary/10">
+            <article
+              key={c.id}
+              className="flex flex-col rounded-xl border border-border bg-card overflow-hidden shadow-sm hover:shadow-md transition-shadow"
+            >
+              <div className="aspect-video bg-muted overflow-hidden">
+                {c.cover_image_url ? (
+                  <img
+                    src={c.cover_image_url}
+                    alt={c.title}
+                    loading="lazy"
+                    decoding="async"
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center">
+                    <GraduationCap className="w-10 h-10 text-muted-foreground/50" />
+                  </div>
+                )}
+              </div>
+
+              {/* Identificação do profissional dentro do card */}
+              <div className="flex items-center gap-3 px-4 py-3 border-b border-border bg-muted/30">
+                <div className="w-11 h-11 rounded-full overflow-hidden bg-muted shrink-0 ring-2 ring-primary/10">
                   {kol?.prof_photo_url ? (
                     <img
                       src={kol.prof_photo_url}
@@ -336,108 +357,78 @@ export default function KbTabCursos() {
                   )}
                 </div>
                 <div className="min-w-0">
-                  <h3 className="text-base font-semibold text-foreground truncate">
+                  <p className="text-sm font-semibold text-foreground truncate">
                     {kol?.nome ?? 'Smart Dent'}
-                  </h3>
+                  </p>
                   {kol?.especialidade && (
-                    <p className="text-xs text-muted-foreground truncate">{kol.especialidade}</p>
+                    <p className="text-[11px] text-muted-foreground truncate">{kol.especialidade}</p>
                   )}
                   {handle && (
                     <a
                       href={`https://instagram.com/${handle}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="mt-1 inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:underline"
+                      className="inline-flex items-center gap-1 text-[11px] font-medium text-primary hover:underline"
                     >
-                      <Instagram className="w-3.5 h-3.5" /> @{handle}
+                      <Instagram className="w-3 h-3" /> @{handle}
                     </a>
                   )}
                 </div>
-                <span className="ml-auto text-xs text-muted-foreground shrink-0">
-                  {group.items.length} {group.items.length === 1 ? 'curso' : 'cursos'}
-                </span>
-              </header>
-
-              {/* Cursos do profissional */}
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-                {group.items.map((c) => {
-                  const local = [c.city, c.state].filter(Boolean).join(' - ') || c.online_platform || null;
-                  const date = fmtDate(c.start_date);
-                  return (
-                    <article
-                      key={c.id}
-                      className="flex flex-col rounded-xl border border-border bg-card overflow-hidden shadow-sm hover:shadow-md transition-shadow"
-                    >
-                      <div className="aspect-video bg-muted overflow-hidden">
-                        {c.cover_image_url ? (
-                          <img
-                            src={c.cover_image_url}
-                            alt={c.title}
-                            loading="lazy"
-                            decoding="async"
-                            className="w-full h-full object-cover"
-                          />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center">
-                            <GraduationCap className="w-10 h-10 text-muted-foreground/50" />
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="p-4 flex flex-col gap-3 flex-1">
-                        <div className="flex flex-wrap gap-1">
-                          {c.modality && <Badge variant="secondary" className="text-[11px]">{c.modality}</Badge>}
-                          {c.category && <Badge variant="outline" className="text-[11px]">{c.category}</Badge>}
-                          {c.featured && <Badge className="text-[11px]">Destaque</Badge>}
-                        </div>
-
-                        <div>
-                          <h4 className="font-semibold text-foreground leading-snug line-clamp-2">{c.title}</h4>
-                          {c.subtitle && (
-                            <p className="text-sm text-muted-foreground line-clamp-2 mt-1">{c.subtitle}</p>
-                          )}
-                        </div>
-
-                        {c.description && (
-                          <p className="text-xs text-muted-foreground line-clamp-3">{c.description}</p>
-                        )}
-
-                        <div className="flex flex-col gap-1 text-xs text-muted-foreground">
-                          {date && (
-                            <span className="inline-flex items-center gap-1.5">
-                              <CalendarDays className="w-3.5 h-3.5" />
-                              {date}{c.start_time ? ` às ${c.start_time}` : ''}
-                            </span>
-                          )}
-                          {c.workload_hours ? (
-                            <span className="inline-flex items-center gap-1.5">
-                              <Clock className="w-3.5 h-3.5" /> {c.workload_hours}h de carga horária
-                            </span>
-                          ) : null}
-                          {local && (
-                            <span className="inline-flex items-center gap-1.5">
-                              <MapPin className="w-3.5 h-3.5" /> {local}
-                            </span>
-                          )}
-                        </div>
-
-                        <div className="mt-auto pt-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="w-full"
-                            onClick={() => setDetail({ course: c, kol })}
-                          >
-                            <Info className="w-3.5 h-3.5 mr-1.5" /> Informações do curso
-                          </Button>
-                        </div>
-                      </div>
-                    </article>
-                  );
-                })}
               </div>
-            </section>
+
+              <div className="p-4 flex flex-col gap-3 flex-1">
+                <div className="flex flex-wrap gap-1">
+                  {c.modality && <Badge variant="secondary" className="text-[11px]">{c.modality}</Badge>}
+                  {c.category && <Badge variant="outline" className="text-[11px]">{c.category}</Badge>}
+                  {c.featured && <Badge className="text-[11px]">Destaque</Badge>}
+                </div>
+
+                <div>
+                  <h4 className="font-semibold text-foreground leading-snug line-clamp-2">{c.title}</h4>
+                  {c.subtitle && (
+                    <p className="text-sm text-muted-foreground line-clamp-2 mt-1">{c.subtitle}</p>
+                  )}
+                </div>
+
+                {c.description && (
+                  <p className="text-xs text-muted-foreground line-clamp-3">{c.description}</p>
+                )}
+
+                <div className="flex flex-col gap-1 text-xs text-muted-foreground">
+                  {date && (
+                    <span className="inline-flex items-center gap-1.5">
+                      <CalendarDays className="w-3.5 h-3.5" />
+                      {date}{c.start_time ? ` às ${c.start_time}` : ''}
+                    </span>
+                  )}
+                  {c.workload_hours ? (
+                    <span className="inline-flex items-center gap-1.5">
+                      <Clock className="w-3.5 h-3.5" /> {c.workload_hours}h de carga horária
+                    </span>
+                  ) : null}
+                  {local && (
+                    <span className="inline-flex items-center gap-1.5">
+                      <MapPin className="w-3.5 h-3.5" /> {local}
+                    </span>
+                  )}
+                </div>
+
+                <div className="mt-auto pt-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full"
+                    onClick={() => setDetail({ course: c, kol })}
+                  >
+                    <Info className="w-3.5 h-3.5 mr-1.5" /> Informações do curso
+                  </Button>
+                </div>
+              </div>
+            </article>
           );
+        })}
+      </div>
+
         })}
       </div>
 
