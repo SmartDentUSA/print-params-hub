@@ -661,3 +661,12 @@ verify_jwt = false
 
 [functions.classifieds-contact]
 verify_jwt = false
+
+[functions.event-create-drive-folder]
+verify_jwt = false
+
+[functions.event-drive-media-upload]
+verify_jwt = false
+
+[functions.event-media-copy]
+verify_jwt = false

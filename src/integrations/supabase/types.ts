@@ -6291,6 +6291,122 @@ export type Database = {
           },
         ]
       }
+      event_drive_media: {
+        Row: {
+          bytes_uploaded: number
+          category: string | null
+          copy_caption: string | null
+          copy_error: string | null
+          copy_generated_at: string | null
+          copy_hashtags: string[]
+          copy_status: string
+          copy_variations: Json
+          created_at: string
+          destination_key: string
+          destination_label: string | null
+          drive_file_id: string | null
+          drive_folder_id: string
+          drive_web_view_link: string | null
+          error_message: string | null
+          event_date: string | null
+          event_day: number | null
+          event_id: string
+          generated_filename: string
+          height: number | null
+          id: string
+          mime_type: string
+          orientation: string | null
+          original_filename: string
+          resumable_session_uri: string | null
+          size_bytes: number
+          speaker_name: string | null
+          status: string
+          transcript: string | null
+          updated_at: string
+          uploaded_at: string | null
+          uploaded_by: string
+          width: number | null
+        }
+        Insert: {
+          bytes_uploaded?: number
+          category?: string | null
+          copy_caption?: string | null
+          copy_error?: string | null
+          copy_generated_at?: string | null
+          copy_hashtags?: string[]
+          copy_status?: string
+          copy_variations?: Json
+          created_at?: string
+          destination_key: string
+          destination_label?: string | null
+          drive_file_id?: string | null
+          drive_folder_id: string
+          drive_web_view_link?: string | null
+          error_message?: string | null
+          event_date?: string | null
+          event_day?: number | null
+          event_id: string
+          generated_filename: string
+          height?: number | null
+          id?: string
+          mime_type: string
+          orientation?: string | null
+          original_filename: string
+          resumable_session_uri?: string | null
+          size_bytes: number
+          speaker_name?: string | null
+          status?: string
+          transcript?: string | null
+          updated_at?: string
+          uploaded_at?: string | null
+          uploaded_by: string
+          width?: number | null
+        }
+        Update: {
+          bytes_uploaded?: number
+          category?: string | null
+          copy_caption?: string | null
+          copy_error?: string | null
+          copy_generated_at?: string | null
+          copy_hashtags?: string[]
+          copy_status?: string
+          copy_variations?: Json
+          created_at?: string
+          destination_key?: string
+          destination_label?: string | null
+          drive_file_id?: string | null
+          drive_folder_id?: string
+          drive_web_view_link?: string | null
+          error_message?: string | null
+          event_date?: string | null
+          event_day?: number | null
+          event_id?: string
+          generated_filename?: string
+          height?: number | null
+          id?: string
+          mime_type?: string
+          orientation?: string | null
+          original_filename?: string
+          resumable_session_uri?: string | null
+          size_bytes?: number
+          speaker_name?: string | null
+          status?: string
+          transcript?: string | null
+          updated_at?: string
+          uploaded_at?: string | null
+          uploaded_by?: string
+          width?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_drive_media_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "smartops_events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       export_jobs: {
         Row: {
           created_at: string
@@ -22358,9 +22474,19 @@ export type Database = {
           cover_image_pt: string | null
           cover_image_url: string | null
           created_at: string
+          days_count: number | null
           description_en: string | null
           description_es: string | null
           display_order: number
+          drive_descricao_file_id: string | null
+          drive_destinations: Json
+          drive_docx_file_id: string | null
+          drive_folder_created_at: string | null
+          drive_folder_id: string | null
+          drive_folder_name: string | null
+          drive_folder_url: string | null
+          drive_json_file_id: string | null
+          drive_subfolders: Json
           end_date: string | null
           event_logo_url: string | null
           id: string
@@ -22408,9 +22534,19 @@ export type Database = {
           cover_image_pt?: string | null
           cover_image_url?: string | null
           created_at?: string
+          days_count?: number | null
           description_en?: string | null
           description_es?: string | null
           display_order?: number
+          drive_descricao_file_id?: string | null
+          drive_destinations?: Json
+          drive_docx_file_id?: string | null
+          drive_folder_created_at?: string | null
+          drive_folder_id?: string | null
+          drive_folder_name?: string | null
+          drive_folder_url?: string | null
+          drive_json_file_id?: string | null
+          drive_subfolders?: Json
           end_date?: string | null
           event_logo_url?: string | null
           id?: string
@@ -22458,9 +22594,19 @@ export type Database = {
           cover_image_pt?: string | null
           cover_image_url?: string | null
           created_at?: string
+          days_count?: number | null
           description_en?: string | null
           description_es?: string | null
           display_order?: number
+          drive_descricao_file_id?: string | null
+          drive_destinations?: Json
+          drive_docx_file_id?: string | null
+          drive_folder_created_at?: string | null
+          drive_folder_id?: string | null
+          drive_folder_name?: string | null
+          drive_folder_url?: string | null
+          drive_json_file_id?: string | null
+          drive_subfolders?: Json
           end_date?: string | null
           event_logo_url?: string | null
           id?: string
@@ -34285,6 +34431,20 @@ export type Database = {
           turma_id: string
         }[]
       }
+      fn_agenda_event_drive_folders: {
+        Args: never
+        Returns: {
+          country: string
+          destinations: Json
+          end_date: string
+          event_id: string
+          folder_id: string
+          folder_url: string
+          location: string
+          name: string
+          start_date: string
+        }[]
+      }
       fn_atualizar_parcelas_vencidas: { Args: never; Returns: undefined }
       fn_auto_update_enrollment_status: { Args: never; Returns: undefined }
       fn_automation_run_stats: {
@@ -36590,12 +36750,12 @@ export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -36619,11 +36779,11 @@ export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -36644,11 +36804,11 @@ export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -36669,11 +36829,11 @@ export type Enums<
   DefaultSchemaEnumNameOrOptions extends
     | keyof DefaultSchema["Enums"]
     | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -36686,11 +36846,11 @@ export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
+    : never) = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
