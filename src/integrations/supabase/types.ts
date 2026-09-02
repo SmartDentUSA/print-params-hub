@@ -17272,6 +17272,44 @@ export type Database = {
         }
         Relationships: []
       }
+      professional_course_ratings: {
+        Row: {
+          author_name: string | null
+          comment: string | null
+          course_id: string
+          created_at: string
+          id: string
+          rating: number
+          visitor_key: string
+        }
+        Insert: {
+          author_name?: string | null
+          comment?: string | null
+          course_id: string
+          created_at?: string
+          id?: string
+          rating: number
+          visitor_key: string
+        }
+        Update: {
+          author_name?: string | null
+          comment?: string | null
+          course_id?: string
+          created_at?: string
+          id?: string
+          rating?: number
+          visitor_key?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "professional_course_ratings_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "professional_courses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       professional_courses: {
         Row: {
           address: string | null
