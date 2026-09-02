@@ -643,3 +643,21 @@ verify_jwt = false
 
 [functions.live-group-blast-cron]
 verify_jwt = false
+
+[functions.classifieds-submit]
+verify_jwt = false
+
+[functions.classifieds-moderate]
+verify_jwt = false
+
+[functions.classifieds-dispatch-wa]
+verify_jwt = false
+
+[functions.classifieds-alerts]
+verify_jwt = false
+
+[functions.classifieds-expire]
+verify_jwt = false
+
+[functions.classifieds-contact]
+verify_jwt = false

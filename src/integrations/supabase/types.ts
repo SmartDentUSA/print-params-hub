@@ -2959,6 +2959,7 @@ export type Database = {
           expires_at: string | null
           id: string
           images: Json | null
+          is_cliente: boolean
           lead_id: string | null
           location_city: string | null
           location_state: string | null
@@ -2970,6 +2971,7 @@ export type Database = {
           published_at: string | null
           reviewed_at: string | null
           reviewed_by: string | null
+          seller_name: string | null
           slug: string | null
           sold_at: string | null
           status: string | null
@@ -2996,6 +2998,7 @@ export type Database = {
           expires_at?: string | null
           id?: string
           images?: Json | null
+          is_cliente?: boolean
           lead_id?: string | null
           location_city?: string | null
           location_state?: string | null
@@ -3007,6 +3010,7 @@ export type Database = {
           published_at?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
+          seller_name?: string | null
           slug?: string | null
           sold_at?: string | null
           status?: string | null
@@ -3033,6 +3037,7 @@ export type Database = {
           expires_at?: string | null
           id?: string
           images?: Json | null
+          is_cliente?: boolean
           lead_id?: string | null
           location_city?: string | null
           location_state?: string | null
@@ -3044,6 +3049,7 @@ export type Database = {
           published_at?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
+          seller_name?: string | null
           slug?: string | null
           sold_at?: string | null
           status?: string | null
@@ -29840,6 +29846,38 @@ export type Database = {
           title: string | null
           view_count: number | null
         }
+        Insert: {
+          category?: string | null
+          condition?: string | null
+          description?: string | null
+          id?: string | null
+          images?: Json | null
+          is_cliente?: boolean | null
+          location_city?: string | null
+          location_state?: string | null
+          price?: number | null
+          published_at?: string | null
+          seller_name?: never
+          slug?: string | null
+          title?: string | null
+          view_count?: number | null
+        }
+        Update: {
+          category?: string | null
+          condition?: string | null
+          description?: string | null
+          id?: string | null
+          images?: Json | null
+          is_cliente?: boolean | null
+          location_city?: string | null
+          location_state?: string | null
+          price?: number | null
+          published_at?: string | null
+          seller_name?: never
+          slug?: string | null
+          title?: string | null
+          view_count?: number | null
+        }
         Relationships: []
       }
       v_content_library_by_product: {
@@ -34784,6 +34822,28 @@ export type Database = {
           qtd_faturada: number
           receita_omie: number
           ticket_medio: number
+        }[]
+      }
+      fn_my_classifieds: {
+        Args: never
+        Returns: {
+          category: string
+          condition: string
+          contact_whatsapp: string
+          created_at: string
+          description: string
+          expires_at: string
+          id: string
+          images: Json
+          location_city: string
+          location_state: string
+          moderation_reason: string
+          price: number
+          slug: string
+          status: string
+          title: string
+          view_count: number
+          wa_click_count: number
         }[]
       }
       fn_normalize_printer_brand: {

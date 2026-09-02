@@ -38,6 +38,9 @@ const SmartOpsFormFlowStandalone = lazy(() => import("./pages/SmartOpsFormFlowSt
 const WaFlowVisualizerPage = lazy(() => import("./pages/WaFlowVisualizerPage"));
 const PainelComercial = lazy(() => import("./pages/PainelComercial"));
 const TurmaWelcome = lazy(() => import("./pages/TurmaWelcome"));
+const UsadosList = lazy(() => import("./pages/UsadosList"));
+const UsadosDetail = lazy(() => import("./pages/UsadosDetail"));
+const UsadosMeusAnuncios = lazy(() => import("./pages/UsadosMeusAnuncios"));
 const DraLIA = lazy(() => import("./components/DraLIA"));
 
 // Social Publisher (heavy admin sub-app)
@@ -95,6 +98,11 @@ const App = () => (
       <Route path="/painel-comercial" element={<PainelComercial />} />
       <Route path="/admin/form-flow/:formId" element={<SmartOpsFormFlowStandalone />} />
       <Route path="/smartops/wa-flow-visualizer" element={<WaFlowVisualizerPage />} />
+
+      {/* Canal de Equipamentos Usados */}
+      <Route path="/usados" element={<UsadosList />} />
+      <Route path="/usados/meus-anuncios" element={<UsadosMeusAnuncios />} />
+      <Route path="/usados/:slug" element={<UsadosDetail />} />
 
       {/* Social Publisher */}
       <Route path="/social" element={<SocialLayout />}>

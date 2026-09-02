@@ -6,7 +6,7 @@ import {
   ClipboardList, Heart, Cpu, Coins, BrainCircuit, LineChart,
   Video, ChevronDown, GraduationCap, Map, Megaphone, Printer, CreditCard
 } from "lucide-react";
-import { CalendarDays } from "lucide-react";
+import { CalendarDays, Tag } from "lucide-react";
 import { Truck } from "lucide-react";
 import { Network } from "lucide-react";
 import { BookOpen } from "lucide-react";
@@ -100,6 +100,7 @@ const sidebarGroups: SidebarGroupDef[] = [
       { id: "so-distribuicao", title: "Distribuição", icon: Truck },
       { id: "so-reativacao", title: "Reativação & Fluxos", icon: Bot },
       { id: "so-eventos", title: "Eventos", icon: CalendarDays },
+      { id: "so-usados", title: "Equipamentos Usados", icon: Tag },
       { id: "so-copilot", title: "🤖 Copilot", icon: Cpu },
       { id: "so-rayshape", title: "Rayshape", icon: Printer },
       { id: "so-stripe", title: "Stripe / Pagamentos", icon: CreditCard },
