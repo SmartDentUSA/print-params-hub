@@ -10,9 +10,9 @@ const NAV: { key: NavKey; icon: React.ReactNode }[] = [
   { key: 'videos',         icon: <PlaySquare /> },
   { key: 'artigos',        icon: <FileText /> },
   { key: 'ebooks',         icon: <BookOpen /> },
+  { key: 'lives',          icon: <Radio /> },
   { key: 'cursos',         icon: <GraduationCap /> },
   { key: 'eventos',        icon: <Calendar /> },
-  { key: 'lives',          icon: <Radio /> },
   { key: 'distribuidores', icon: <Store /> },
   { key: 'parametros',     icon: <Sliders /> },
 ];
