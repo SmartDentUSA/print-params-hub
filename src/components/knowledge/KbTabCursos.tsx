@@ -129,13 +129,31 @@ export default function KbTabCursos() {
     enabled: producerIds.length > 0,
     staleTime: 60_000,
     queryFn: async () => {
-      const { data, error } = await (supabase as any)
-        .from('lia_attendances')
-        .select('id, nome, prof_photo_url, especialidade, instagram')
-        .in('id', producerIds);
-      if (error) throw error;
+      const [{ data: rows, error: err1 }, { data: mirrors, error: err2 }] = await Promise.all([
+        (supabase as any)
+          .from('lia_attendances')
+          .select('id, nome, prof_photo_url, especialidade, instagram, prof_mini_cv')
+          .in('id', producerIds),
+        (supabase as any)
+          .from('piperun_persons_mirror')
+          .select('lia_attendance_id, cliente_desde')
+          .in('lia_attendance_id', producerIds)
+          .order('created_at', { ascending: false }),
+      ]);
+      if (err1) throw err1;
+      if (err2) throw err2;
+
+      const sinceMap: Record<string, string> = {};
+      for (const m of (mirrors ?? []) as { lia_attendance_id: string; cliente_desde: string | null }[]) {
+        if (m.cliente_desde && !sinceMap[m.lia_attendance_id]) {
+          sinceMap[m.lia_attendance_id] = m.cliente_desde;
+        }
+      }
+
       const map: Record<string, Kol> = {};
-      for (const row of (data ?? []) as Kol[]) map[row.id] = row;
+      for (const row of (rows ?? []) as Kol[]) {
+        map[row.id] = { ...row, cliente_desde: sinceMap[row.id] ?? null };
+      }
       return map;
     },
   });
