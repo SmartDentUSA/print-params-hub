@@ -73,19 +73,21 @@ export default function UsadosMeusAnuncios() {
     setLoading(false);
   }, []);
 
+  // Sessão: só conclui "deslogado" depois do evento INITIAL_SESSION/SIGNED_OUT.
+  // Evita a tela de "Entre para anunciar" piscando ao voltar para a página
+  // enquanto o token ainda está sendo restaurado do armazenamento local.
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      const uid = data.session?.user?.id ?? null;
-      setUserId(uid);
-      setChecking(false);
-      if (uid) load(uid);
+    let alive = true;
+    const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
+      if (!alive) return;
+      if (event === "INITIAL_SESSION" || event === "SIGNED_IN" || event === "TOKEN_REFRESHED" || event === "SIGNED_OUT") {
+        const uid = session?.user?.id ?? null;
+        setUserId(uid);
+        setChecking(false);
+        if (uid) load(uid);
+      }
     });
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
-      const uid = session?.user?.id ?? null;
-      setUserId(uid);
-      if (uid) load(uid);
-    });
-    return () => sub.subscription.unsubscribe();
+    return () => { alive = false; sub.subscription.unsubscribe(); };
   }, [load]);
 
   async function uploadImages(files: FileList) {
@@ -117,7 +119,11 @@ export default function UsadosMeusAnuncios() {
       body: {
         id: form.id || undefined,
         title: form.title,
-        description: form.description,
+        description: composeDescription({
+          text: form.description,
+          specsLines: form.specs,
+          fields: form.fields,
+        }),
         price: form.price ? Number(form.price.replace(/\D/g, "")) : null,
         condition: form.condition,
         category: form.category,
