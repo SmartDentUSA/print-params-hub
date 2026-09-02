@@ -34,6 +34,7 @@ export default function UsadosDetail() {
   const [loading, setLoading] = useState(true);
   const [active, setActive] = useState(0);
   const [contacting, setContacting] = useState(false);
+  const [isOwner, setIsOwner] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
   const [reportReason, setReportReason] = useState("vendido");
   const [reportDetails, setReportDetails] = useState("");
@@ -51,7 +52,12 @@ export default function UsadosDetail() {
         .maybeSingle();
       setListing((data as PublicListing) ?? null);
       setLoading(false);
-      if (data?.id) await supabase.rpc("increment_listing_view" as never, { p_listing: data.id } as never);
+      if (data?.id) {
+        await supabase.rpc("increment_listing_view" as never, { p_listing: data.id } as never);
+        // Dono do anúncio: a RPC segura só devolve os anúncios do usuário autenticado.
+        const { data: mine } = await (supabase as any).rpc("fn_my_classifieds");
+        setIsOwner(Array.isArray(mine) && mine.some((m: { id: string }) => m.id === data.id));
+      }
     })();
   }, [slug]);
 
