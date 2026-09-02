@@ -13,9 +13,10 @@ import {
 } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Flag, Loader2, MapPin, MessageCircle, Share2 } from "lucide-react";
+import { ArrowLeft, Flag, Loader2, MapPin, MessageCircle, Pencil, Share2 } from "lucide-react";
 import {
-  categoryLabel, conditionLabel, formatPrice, imageList, whatsappLink, type PublicListing,
+  categoryLabel, conditionLabel, formatPrice, imageList, parseDescription, whatsappLink,
+  type PublicListing,
 } from "@/lib/classifieds";
 
 const REPORT_REASONS = [
