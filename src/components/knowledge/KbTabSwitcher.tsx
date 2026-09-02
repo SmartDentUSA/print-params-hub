@@ -1,7 +1,7 @@
 import React from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
 
-export type KbTab = 'parametros' | 'catalogo' | 'videos' | 'artigos' | 'ebooks' | 'distribuidores' | 'eventos' | 'lives' | 'cursos';
+export type KbTab = 'parametros' | 'catalogo' | 'videos' | 'artigos' | 'ebooks' | 'distribuidores' | 'eventos' | 'classificados' | 'lives' | 'cursos';
 
 const ICONS: Record<KbTab, React.ReactNode> = {
   parametros: (
