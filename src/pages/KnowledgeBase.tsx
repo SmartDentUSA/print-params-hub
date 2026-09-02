@@ -17,6 +17,7 @@ import KbTabDistribuidores from '@/components/knowledge/KbTabDistribuidores';
 import KbTabEventos from '@/components/knowledge/KbTabEventos';
 import KbTabLives from '@/components/knowledge/KbTabLives';
 import KbTabCursos from '@/components/knowledge/KbTabCursos';
+import KbTabClassificados from '@/components/knowledge/KbTabClassificados';
 import { kbStyles } from '@/components/knowledge/kbStyles';
 import KbShellLayout, { type KbShellNavKey } from '@/components/knowledge/shell/KbShellLayout';
 import { kbShellStyles } from '@/components/knowledge/shell/kbShellStyles';
@@ -45,7 +46,7 @@ const LETTER_TO_TAB: Record<string, KbTab> = {
 function getInitialTab(letter?: string, forcedTab?: KbTab): KbTab {
   if (forcedTab) return forcedTab;
   const fromUrl = new URLSearchParams(window.location.search).get('tab') as KbTab | null;
-  if (fromUrl && ['parametros','catalogo','videos','artigos','ebooks','distribuidores','eventos','lives','cursos'].includes(fromUrl)) return fromUrl;
+  if (fromUrl && ['parametros','catalogo','videos','artigos','ebooks','distribuidores','eventos','classificados','lives','cursos'].includes(fromUrl)) return fromUrl;
   if (letter && LETTER_TO_TAB[letter.toLowerCase()]) return LETTER_TO_TAB[letter.toLowerCase()];
   return 'parametros';
 }
@@ -90,7 +91,7 @@ export default function KnowledgeBase({ lang = 'pt', forcedTab }: KnowledgeBaseP
   const [sidebarCta, setSidebarCta] = useState<{ enabled?: boolean; title?: string; subtitle?: string; cta_label?: string; cta_url?: string }>({});
   useEffect(() => {
     (async () => {
-      const heroKeys = ['overview','parametros','catalogo','videos','artigos','ebooks','cursos','eventos','distribuidores','lives'] as const;
+      const heroKeys = ['overview','parametros','catalogo','videos','artigos','ebooks','cursos','eventos','classificados','distribuidores','lives'] as const;
       const { data: heroRows } = await supabase
         .from('site_settings')
         .select('key, value')
@@ -389,6 +390,7 @@ export default function KnowledgeBase({ lang = 'pt', forcedTab }: KnowledgeBaseP
               )}
               {tab === 'distribuidores' && <KbTabDistribuidores country={activeCountry} />}
               {tab === 'eventos' && <KbTabEventos />}
+              {tab === 'classificados' && <KbTabClassificados />}
               {tab === 'lives' && <KbTabLives />}
               {tab === 'cursos' && <KbTabCursos />}
             </>
@@ -419,6 +421,7 @@ export default function KnowledgeBase({ lang = 'pt', forcedTab }: KnowledgeBaseP
         {tab === 'catalogo' && <KbTabCatalogo />}
         {tab === 'distribuidores' && <KbTabDistribuidores />}
         {tab === 'eventos' && <KbTabEventos />}
+        {tab === 'classificados' && <KbTabClassificados />}
         {tab === 'lives' && <KbTabLives />}
         {tab === 'cursos' && <KbTabCursos />}
       </main>
