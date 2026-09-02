@@ -43,8 +43,18 @@ const fmtDate = (d?: string | null) => {
   return `${day}/${m}/${y}`;
 };
 
+const norm = (s?: string | null) =>
+  (s ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim();
+
 export default function KbTabCursos() {
   const [selectedKol, setSelectedKol] = useState('');
+  const [selectedTipo, setSelectedTipo] = useState('');
+  const [selectedEsp, setSelectedEsp] = useState('');
+  const [search, setSearch] = useState('');
 
   const { data: courses = [], isLoading } = useQuery({
     queryKey: ['kb_professional_courses'],
