@@ -22,6 +22,7 @@ export default function UsadosList() {
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [done, setDone] = useState(false);
+  const [fetchError, setFetchError] = useState(false);
 
   const [term, setTerm] = useState("");
   const [category, setCategory] = useState(ALL);
@@ -34,7 +35,7 @@ export default function UsadosList() {
     [term, category, condition, uf, order],
   );
 
-  async function fetchPage(from: number) {
+  async function fetchPage(from: number): Promise<PublicListing[]> {
     let q = (supabase as any)
       .from("v_classifieds_public")
       .select("*")
@@ -49,7 +50,8 @@ export default function UsadosList() {
     else if (order === "price_desc") q = q.order("price", { ascending: false, nullsFirst: false });
     else q = q.order("published_at", { ascending: false, nullsFirst: false });
 
-    const { data } = await q;
+    const { data, error } = await q;
+    if (error) throw error;
     return (data ?? []) as PublicListing[];
   }
 
@@ -57,12 +59,18 @@ export default function UsadosList() {
     let cancelled = false;
     setLoading(true);
     setDone(false);
+    setFetchError(false);
     const t = setTimeout(async () => {
-      const rows = await fetchPage(0);
-      if (cancelled) return;
-      setItems(rows);
-      setDone(rows.length < PAGE_SIZE);
-      setLoading(false);
+      try {
+        const rows = await fetchPage(0);
+        if (cancelled) return;
+        setItems(rows);
+        setDone(rows.length < PAGE_SIZE);
+      } catch {
+        if (!cancelled) setFetchError(true);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
     }, 250);
     return () => { cancelled = true; clearTimeout(t); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -70,9 +78,13 @@ export default function UsadosList() {
 
   async function loadMore() {
     setLoadingMore(true);
-    const rows = await fetchPage(items.length);
-    setItems((prev) => [...prev, ...rows]);
-    setDone(rows.length < PAGE_SIZE);
+    try {
+      const rows = await fetchPage(items.length);
+      setItems((prev) => [...prev, ...rows]);
+      setDone(rows.length < PAGE_SIZE);
+    } catch {
+      setFetchError(true);
+    }
     setLoadingMore(false);
   }
 
