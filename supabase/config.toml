@@ -658,3 +658,6 @@ verify_jwt = false
 
 [functions.classifieds-expire]
 verify_jwt = false
+
+[functions.classifieds-contact]
+verify_jwt = false
