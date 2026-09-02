@@ -17,6 +17,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import KbSearchBar from './KbSearchBar';
+import CourseRating, { RatingSummaryBadge } from './CourseRating';
 
 interface SyllabusModule {
   title?: string | null;
@@ -471,6 +472,7 @@ export default function KbTabCursos() {
                             >
                               <Info className="w-3.5 h-3.5 mr-1.5" /> Informações do curso
                             </Button>
+                            <span className="ml-3 align-middle"><RatingSummaryBadge courseId={c.id} /></span>
                           </div>
                         </div>
                       </article>
