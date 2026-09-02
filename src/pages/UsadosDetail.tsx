@@ -120,6 +120,7 @@ export default function UsadosDetail() {
   const images = imageList(listing.images);
   const cover = images[active];
   const local = [listing.location_city, listing.location_state].filter(Boolean).join("/");
+  const desc = parseDescription(listing.description);
 
   return (
     <div className="min-h-screen bg-background pb-24">
