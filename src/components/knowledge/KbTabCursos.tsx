@@ -600,6 +600,18 @@ export default function KbTabCursos() {
 
                 {/* Fatos rápidos */}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {(detailCourse.category || detailCourse.modality) && (
+                    <div className="rounded-xl border border-border p-3">
+                      <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-muted-foreground mb-1">
+                        <Tag className="w-3.5 h-3.5" /> Tipo de curso
+                      </div>
+                      <div className="text-sm font-medium text-foreground">
+                        {[label(detailCourse.category), label(detailCourse.modality)]
+                          .filter(Boolean)
+                          .join(' · ')}
+                      </div>
+                    </div>
+                  )}
                   {fmtDate(detailCourse.start_date) && (
                     <div className="rounded-xl border border-border p-3">
                       <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-muted-foreground mb-1">
