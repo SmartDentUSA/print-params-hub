@@ -1,0 +1,1 @@
+REVOKE ALL ON FUNCTION public.fn_classified_fill_seller() FROM PUBLIC, anon, authenticated;
