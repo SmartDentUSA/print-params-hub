@@ -59,13 +59,10 @@ export default function UsadosMeusAnuncios() {
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
 
-  const load = useCallback(async (uid: string) => {
+  const load = useCallback(async (_uid: string) => {
     setLoading(true);
-    const { data } = await (supabase as any)
-      .from("classified_listings")
-      .select("id, slug, title, description, price, condition, category, location_city, location_state, images, status, moderation_reason, view_count, wa_click_count, expires_at, contact_whatsapp")
-      .eq("user_id", uid)
-      .order("created_at", { ascending: false });
+    // RPC segura: devolve somente os anúncios do usuário autenticado (com telefone).
+    const { data } = await (supabase as any).rpc("fn_my_classifieds");
     setListings((data ?? []) as MyListing[]);
     setLoading(false);
   }, []);
