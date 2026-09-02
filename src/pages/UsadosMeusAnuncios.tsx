@@ -13,7 +13,9 @@ import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, ImagePlus, Loader2, PlayCircle, PlusCircle, Trash2, X } from "lucide-react";
 import {
   CLASSIFIED_CATEGORIES, CLASSIFIED_CONDITIONS, CLASSIFIEDS_BUCKET, CLASSIFIED_STATUS_LABEL,
-  CLASSIFIED_MEDIA_ACCEPT, MAX_CLASSIFIED_IMAGES, UFS, formatPrice, imageList, isVideoUrl, listingUrl,
+  CLASSIFIED_MEDIA_ACCEPT, CLASSIFIED_SHIPPING_OPTIONS, CLASSIFIED_YES_NO, EMPTY_STRUCTURED_FIELDS,
+  MAX_CLASSIFIED_IMAGES, UFS, composeDescription, formatPrice, imageList, isVideoUrl, listingUrl,
+  splitDescription, type ClassifiedStructuredFields,
 } from "@/lib/classifieds";
 
 interface MyListing {
@@ -39,6 +41,8 @@ const emptyForm = {
   id: "" as string,
   title: "",
   description: "",
+  specs: "",
+  fields: { ...EMPTY_STRUCTURED_FIELDS } as ClassifiedStructuredFields,
   price: "",
   condition: "good",
   category: "scanner",
