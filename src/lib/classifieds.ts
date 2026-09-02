@@ -118,6 +118,112 @@ export function parseDescription(description?: string | null): { specs: SpecRow[
   return { specs, text: rest.join("\n").replace(/\n{3,}/g, "\n\n").trim() };
 }
 
+// ---------- Campos estruturados do anúncio ----------
+// Guardados como linhas "Rótulo: valor" na descrição para não exigir migração.
+// O formulário lê/escreve esses rótulos canônicos; a página de detalhe consome
+// via parseDescription.
+
+export const CLASSIFIED_FIELD_LABELS = {
+  year: "Ano de fabricação",
+  payment: "Forma de pagamento",
+  shipping: "Frete",
+  training: "Treinamento",
+  warranty: "Garantia",
+} as const;
+
+export type ClassifiedFieldKey = keyof typeof CLASSIFIED_FIELD_LABELS;
+
+export interface ClassifiedStructuredFields {
+  year: string;
+  payment: string;
+  shipping: string;
+  training: string;
+  warranty: string;
+}
+
+export const EMPTY_STRUCTURED_FIELDS: ClassifiedStructuredFields = {
+  year: "", payment: "", shipping: "", training: "", warranty: "",
+};
+
+export const CLASSIFIED_SHIPPING_OPTIONS = [
+  { value: "Por conta do comprador", label: "Por conta do comprador" },
+  { value: "Frete incluso", label: "Frete incluso" },
+  { value: "A combinar", label: "A combinar" },
+] as const;
+
+export const CLASSIFIED_YES_NO = [
+  { value: "Incluso", label: "Incluso" },
+  { value: "Não incluso", label: "Não incluso" },
+  { value: "A combinar", label: "A combinar" },
+] as const;
+
+function normLabel(s: string): string {
+  return s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
+}
+
+const LABEL_TO_KEY = new Map<string, ClassifiedFieldKey>(
+  (Object.keys(CLASSIFIED_FIELD_LABELS) as ClassifiedFieldKey[]).map((k) => [
+    normLabel(CLASSIFIED_FIELD_LABELS[k]),
+    k,
+  ]),
+);
+
+/**
+ * Lê a descrição e separa: campos estruturados (rótulos canônicos),
+ * demais linhas "Chave: valor" (especificações técnicas) e texto livre.
+ */
+export function splitDescription(description?: string | null): {
+  fields: ClassifiedStructuredFields;
+  specs: SpecRow[];
+  text: string;
+} {
+  const fields = { ...EMPTY_STRUCTURED_FIELDS };
+  const specs: SpecRow[] = [];
+  const rest: string[] = [];
+
+  for (const raw of (description || "").split(/\r?\n/)) {
+    const line = raw.trim();
+    if (!line) { rest.push(""); continue; }
+    const m = line.match(/^([^:：]{2,40})[:：]\s*(.+)$/);
+    if (m && m[2].trim().length <= 160) {
+      const key = LABEL_TO_KEY.get(normLabel(m[1]));
+      if (key) { fields[key] = m[2].trim(); continue; }
+      specs.push({ label: m[1].trim(), value: m[2].trim() });
+      continue;
+    }
+    rest.push(line);
+  }
+
+  return { fields, specs, text: rest.join("\n").replace(/\n{3,}/g, "\n\n").trim() };
+}
+
+/**
+ * Monta a descrição canônica: ficha técnica, campos estruturados e texto livre.
+ * Linhas vazias são omitidas para não poluir o anúncio.
+ */
+export function composeDescription(input: {
+  text: string;
+  specsLines: string;
+  fields: ClassifiedStructuredFields;
+}): string {
+  const blocks: string[] = [];
+  const specs = input.specsLines
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter((l) => /^[^:：]{2,40}[:：]\s*\S/.test(l));
+  if (specs.length) blocks.push(specs.join("\n"));
+
+  const fieldLines = (Object.keys(CLASSIFIED_FIELD_LABELS) as ClassifiedFieldKey[])
+    .filter((k) => input.fields[k].trim())
+    .map((k) => `${CLASSIFIED_FIELD_LABELS[k]}: ${input.fields[k].trim()}`);
+  if (fieldLines.length) blocks.push(fieldLines.join("\n"));
+
+  const text = input.text.trim();
+  if (text) blocks.push(text);
+
+  return blocks.join("\n\n");
+}
+
 export interface PublicListing {
   id: string;
   slug: string | null;
