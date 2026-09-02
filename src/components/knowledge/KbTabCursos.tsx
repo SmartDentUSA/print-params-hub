@@ -4,6 +4,7 @@ import { GraduationCap, MapPin, CalendarDays, Clock, Filter, X, UserCircle, Exte
 import { supabase } from '@/integrations/supabase/client';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import KbSearchBar from './KbSearchBar';
 
 interface ProfCourse {
   id: string;
