@@ -55,6 +55,7 @@ const DistributorsHub = lazy(() => import("@/components/smartops/distributors/Di
 const SmartOpsEvents = lazy(() => import("@/components/smartops/SmartOpsEvents").then(m => ({ default: m.SmartOpsEvents })));
 const SmartOpsRayshape = lazy(() => import("@/components/SmartOpsRayshape").then(m => ({ default: m.SmartOpsRayshape })));
 const SmartOpsStripePayments = lazy(() => import("@/components/SmartOpsStripePayments").then(m => ({ default: m.SmartOpsStripePayments })));
+const SmartOpsClassifieds = lazy(() => import("@/components/smartops/SmartOpsClassifieds"));
 const SmartOpsReactivationHub = lazy(() => import("@/components/SmartOpsReactivationHub").then(m => ({ default: m.SmartOpsReactivationHub })));
 const CoursesPage = lazy(() => import("@/components/smartops/CoursesPage"));
 
@@ -366,6 +367,7 @@ export default function AdminViewSecure() {
       case 'so-distribuicao': return <DistributorsHub key={`distribuicao-${refreshKey}`} />;
       case 'so-reativacao': return <SmartOpsReactivationHub key={`reativacao-${refreshKey}`} />;
       case 'so-eventos': return <SmartOpsEvents key={`eventos-${refreshKey}`} />;
+      case 'so-usados': return <SmartOpsClassifieds key={`usados-${refreshKey}`} />;
       default: return <AdminModels />;
     }
   };
