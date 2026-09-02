@@ -62,6 +62,8 @@ interface Kol {
   prof_photo_url: string | null;
   especialidade: string | null;
   instagram: string | null;
+  prof_mini_cv: string | null;
+  cliente_desde: string | null;
 }
 
 const fmtDate = (d?: string | null) => {
