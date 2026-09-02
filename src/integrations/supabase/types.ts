@@ -2948,6 +2948,8 @@ export type Database = {
       classified_listings: {
         Row: {
           academy_bonus_granted: boolean | null
+          auto_approval_revoked: boolean
+          auto_approved: boolean
           category: string | null
           condition: string | null
           contact_whatsapp: string | null
@@ -2960,18 +2962,31 @@ export type Database = {
           lead_id: string | null
           location_city: string | null
           location_state: string | null
+          moderated_at: string | null
+          moderated_by: string | null
+          moderation_reason: string | null
           plan: string | null
           price: number | null
           published_at: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          slug: string | null
+          sold_at: string | null
           status: string | null
           stripe_payment_id: string | null
           title: string
           type: string
+          updated_at: string
+          user_id: string | null
+          view_count: number
+          wa_click_count: number
           wa_dispatched_at: string | null
           wa_groups_reached: number | null
         }
         Insert: {
           academy_bonus_granted?: boolean | null
+          auto_approval_revoked?: boolean
+          auto_approved?: boolean
           category?: string | null
           condition?: string | null
           contact_whatsapp?: string | null
@@ -2984,18 +2999,31 @@ export type Database = {
           lead_id?: string | null
           location_city?: string | null
           location_state?: string | null
+          moderated_at?: string | null
+          moderated_by?: string | null
+          moderation_reason?: string | null
           plan?: string | null
           price?: number | null
           published_at?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          slug?: string | null
+          sold_at?: string | null
           status?: string | null
           stripe_payment_id?: string | null
           title: string
           type: string
+          updated_at?: string
+          user_id?: string | null
+          view_count?: number
+          wa_click_count?: number
           wa_dispatched_at?: string | null
           wa_groups_reached?: number | null
         }
         Update: {
           academy_bonus_granted?: boolean | null
+          auto_approval_revoked?: boolean
+          auto_approved?: boolean
           category?: string | null
           condition?: string | null
           contact_whatsapp?: string | null
@@ -3008,13 +3036,24 @@ export type Database = {
           lead_id?: string | null
           location_city?: string | null
           location_state?: string | null
+          moderated_at?: string | null
+          moderated_by?: string | null
+          moderation_reason?: string | null
           plan?: string | null
           price?: number | null
           published_at?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          slug?: string | null
+          sold_at?: string | null
           status?: string | null
           stripe_payment_id?: string | null
           title?: string
           type?: string
+          updated_at?: string
+          user_id?: string | null
+          view_count?: number
+          wa_click_count?: number
           wa_dispatched_at?: string | null
           wa_groups_reached?: number | null
         }
@@ -3161,6 +3200,232 @@ export type Database = {
           },
           {
             foreignKeyName: "classified_listings_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_vendas_ganhas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      classified_reports: {
+        Row: {
+          created_at: string
+          details: string | null
+          id: string
+          listing_id: string
+          reason: string
+          reporter_user_id: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          details?: string | null
+          id?: string
+          listing_id: string
+          reason: string
+          reporter_user_id?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          details?: string | null
+          id?: string
+          listing_id?: string
+          reason?: string
+          reporter_user_id?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "classified_reports_listing_id_fkey"
+            columns: ["listing_id"]
+            isOneToOne: false
+            referencedRelation: "classified_listings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "classified_reports_listing_id_fkey"
+            columns: ["listing_id"]
+            isOneToOne: false
+            referencedRelation: "v_classifieds_public"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      classified_saved_searches: {
+        Row: {
+          created_at: string
+          filtros: Json
+          id: string
+          last_notified_at: string | null
+          lead_id: string | null
+          notify_whatsapp: boolean
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          filtros?: Json
+          id?: string
+          last_notified_at?: string | null
+          lead_id?: string | null
+          notify_whatsapp?: boolean
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          filtros?: Json
+          id?: string
+          last_notified_at?: string | null
+          lead_id?: string | null
+          notify_whatsapp?: boolean
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "classified_saved_searches_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "lead_model_routing"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "classified_saved_searches_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "lia_attendances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "classified_saved_searches_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_bi_atividades_unnested"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "classified_saved_searches_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_academy"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "classified_saved_searches_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_cognitive"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "classified_saved_searches_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_commercial"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "classified_saved_searches_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_ecommerce"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "classified_saved_searches_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_pipeline"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "classified_saved_searches_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_stage_purchases"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "classified_saved_searches_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_leads_correto"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "classified_saved_searches_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_leads_pendentes_atribuicao"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "classified_saved_searches_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_opportunity_engine"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "classified_saved_searches_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_pipeline_atual"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "classified_saved_searches_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_reactivation_candidates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "classified_saved_searches_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_timing_alerts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "classified_saved_searches_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_workflow_portfolio"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "classified_saved_searches_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_workflow_timeline"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "classified_saved_searches_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_leads_orfaos_recentes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "classified_saved_searches_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_leads_qualidade_ruim"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "classified_saved_searches_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_lia_attendances_enriched"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "classified_saved_searches_lead_id_fkey"
             columns: ["lead_id"]
             isOneToOne: false
             referencedRelation: "vw_vendas_ganhas"
@@ -29558,6 +29823,25 @@ export type Database = {
         }
         Relationships: []
       }
+      v_classifieds_public: {
+        Row: {
+          category: string | null
+          condition: string | null
+          description: string | null
+          id: string | null
+          images: Json | null
+          is_cliente: boolean | null
+          location_city: string | null
+          location_state: string | null
+          price: number | null
+          published_at: string | null
+          seller_name: string | null
+          slug: string | null
+          title: string | null
+          view_count: number | null
+        }
+        Relationships: []
+      }
       v_content_library_by_product: {
         Row: {
           channel: string | null
@@ -34375,6 +34659,7 @@ export type Database = {
           novos: number
         }[]
       }
+      fn_is_cliente: { Args: { p_lead: string }; Returns: boolean }
       fn_is_pipeline_venda: { Args: { pipeline: string }; Returns: boolean }
       fn_is_rayshape_edge_printer: {
         Args: { p_name: string }
@@ -35726,7 +36011,12 @@ export type Database = {
         Returns: boolean
       }
       increment_faq_views: { Args: { _ids: string[] }; Returns: undefined }
+      increment_listing_view: {
+        Args: { p_listing: string }
+        Returns: undefined
+      }
       increment_lookup_hit: { Args: { lookup_id: string }; Returns: undefined }
+      increment_wa_click: { Args: { p_listing: string }; Returns: undefined }
       is_admin: { Args: { user_id: string }; Returns: boolean }
       is_author: { Args: { user_id: string }; Returns: boolean }
       list_lead_origins: {
