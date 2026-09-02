@@ -88,8 +88,7 @@ export async function resolveLeadForUser(
 
   if (email) {
     const { data } = await db.rpc("find_lead_id_by_email_ci", { p_email: email });
-    const leadId = Array.isArray(data) ? data[0]?.lead_id ?? data[0] : data;
-    if (leadId && typeof leadId === "string") return leadId;
+    if (typeof data === "string" && data) return data;
   }
 
   if (email) {
@@ -110,7 +109,8 @@ export async function resolveLeadForUser(
     .insert({
       nome: fallback.nome || email || "Anunciante Equipamento Usado",
       email: email || null,
-      telefone: fallback.telefone || null,
+      telefone_raw: fallback.telefone || null,
+      telefone_normalized: (fallback.telefone || "").replace(/\D/g, "") || null,
       origem_primeiro_contato: "Canal de Equipamentos Usados",
       source: "classifieds",
     })
