@@ -18,6 +18,7 @@ import CoverImageUpload from "@/components/smartops/CoverImageUpload";
 import { EventWebResearchButton, EventReferenceUploads, EventAboutByLanguage, EventCoverByLanguage } from "@/components/smartops/events/EventAIPanels";
 import EventAudienceFields from "@/components/smartops/events/EventAudienceFields";
 import EventSpeakersFields, { type EventSpeaker, type EventPartnerBrand } from "@/components/smartops/events/EventSpeakersFields";
+import { CriarPastaEventoDriveButton } from "@/components/smartops/CriarPastaEventoDriveButton";
 
 type EventRow = {
   id: string;
@@ -47,6 +48,8 @@ type EventRow = {
   audience_specialties: string[] | null;
   audience_notes: string | null;
   speakers: EventSpeaker[] | null;
+  days_count: number | null;
+  drive_folder_url: string | null;
   partner_brands: EventPartnerBrand[] | null;
   instagram_handle: string | null;
 };
@@ -81,6 +84,7 @@ function emptyForm(): Partial<EventRow> {
     audience_specialties: [],
     audience_notes: "",
     speakers: [],
+    days_count: 1,
     partner_brands: [],
     instagram_handle: "",
   };
@@ -170,6 +174,7 @@ export function SmartOpsEvents() {
         speakers: (editing.speakers ?? []).filter((s) => (s?.name || "").trim() || (s?.theme || "").trim()),
         partner_brands: (editing.partner_brands ?? []).filter((b) => (b?.name || "").trim() || (b?.instagram || "").trim()),
         instagram_handle: editing.instagram_handle || null,
+        days_count: Math.max(1, Math.min(10, Number(editing.days_count) || 1)),
       };
       if (editing.id) {
         const { error } = await supabase.from("smartops_events").update(payload).eq("id", editing.id);
@@ -268,6 +273,7 @@ export function SmartOpsEvents() {
                       </td>
                       <td className="py-2 pr-3 text-right">
                         <div className="flex items-center justify-end gap-1">
+                          <CriarPastaEventoDriveButton eventId={r.id} folderUrl={r.drive_folder_url} />
                           <Button size="sm" variant="ghost" onClick={() => openEdit(r)}><Pencil className="w-4 h-4" /></Button>
                           <Button size="sm" variant="ghost" onClick={() => handleDelete(r)}><Trash2 className="w-4 h-4 text-destructive" /></Button>
                         </div>
@@ -338,6 +344,36 @@ export function SmartOpsEvents() {
                   <Label>Data de fim</Label>
                   <Input type="date" value={editing.end_date || ""} onChange={(e) => setEditing({ ...editing, end_date: e.target.value })} />
                 </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label>Quantidade de dias do evento</Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    max={10}
+                    value={editing.days_count ?? 1}
+                    onChange={(e) => setEditing({ ...editing, days_count: Number(e.target.value) })}
+                  />
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Define quantas pastas "Dia X" serão criadas no Google Drive.
+                  </p>
+                </div>
+                {editing.id && (
+                  <div>
+                    <Label>Pasta do evento no Google Drive</Label>
+                    <div className="mt-1">
+                      <CriarPastaEventoDriveButton
+                        eventId={editing.id}
+                        folderUrl={editing.drive_folder_url}
+                        onCreated={(url) => setEditing((cur) => (cur ? { ...cur, drive_folder_url: url } : cur))}
+                      />
+                    </div>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Salve o evento antes: as subpastas seguem palestrantes e dias cadastrados.
+                    </p>
+                  </div>
+                )}
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
