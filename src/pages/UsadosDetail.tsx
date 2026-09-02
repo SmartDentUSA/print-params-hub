@@ -109,6 +109,16 @@ export default function UsadosDetail() {
     return <div className="mx-auto max-w-3xl space-y-4 p-4"><Skeleton className="h-72 w-full rounded-xl" /><Skeleton className="h-6 w-2/3" /><Skeleton className="h-24 w-full" /></div>;
   }
 
+  if (fetchError) {
+    return (
+      <div className="mx-auto max-w-md p-8 text-center">
+        <h1 className="text-lg font-semibold">Sem conexão</h1>
+        <p className="mt-2 text-sm text-muted-foreground">Não foi possível carregar o anúncio. Verifique sua internet.</p>
+        <Button className="mt-4" onClick={() => setRetryNonce((n) => n + 1)}>Tentar novamente</Button>
+      </div>
+    );
+  }
+
   if (!listing) {
     return (
       <div className="mx-auto max-w-md p-8 text-center">
