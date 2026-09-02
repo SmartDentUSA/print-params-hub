@@ -40,7 +40,18 @@ interface ProfCourse {
   city: string | null;
   state: string | null;
   country: string | null;
+  venue: string | null;
+  address: string | null;
   online_platform: string | null;
+  meeting_link: string | null;
+  course_platform: string | null;
+  video_url: string | null;
+  duration_days: number | null;
+  end_time: string | null;
+  max_students: number | null;
+  enrolled_count: number | null;
+  language: string | null;
+  tags: string[] | null;
   registration_url: string | null;
   whatsapp_ddi: string | null;
   whatsapp_number: string | null;
