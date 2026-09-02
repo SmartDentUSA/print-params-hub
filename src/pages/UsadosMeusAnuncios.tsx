@@ -88,7 +88,7 @@ export default function UsadosMeusAnuncios() {
     if (!userId) return;
     const remaining = MAX_CLASSIFIED_IMAGES - form.images.length;
     if (remaining <= 0) {
-      toast({ title: `Máximo de ${MAX_CLASSIFIED_IMAGES} fotos`, variant: "destructive" });
+      toast({ title: `Máximo de ${MAX_CLASSIFIED_IMAGES} arquivos`, variant: "destructive" });
       return;
     }
     setUploading(true);
