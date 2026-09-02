@@ -32,8 +32,8 @@ export default function UsadosList() {
   const [order, setOrder] = useState("recent");
 
   const filtersKey = useMemo(
-    () => [term, category, condition, uf, order].join("|"),
-    [term, category, condition, uf, order],
+    () => [term, category, condition, uf, order, retryNonce].join("|"),
+    [term, category, condition, uf, order, retryNonce],
   );
 
   async function fetchPage(from: number): Promise<PublicListing[]> {
@@ -178,7 +178,7 @@ export default function UsadosList() {
           <Card><CardContent className="flex flex-col items-center gap-3 py-12 text-center">
             <p className="text-sm font-medium">Não foi possível carregar os anúncios.</p>
             <p className="text-xs text-muted-foreground">Verifique sua conexão e tente novamente.</p>
-            <Button variant="outline" onClick={() => setOrder((o) => o)}>Tentar novamente</Button>
+            <Button variant="outline" onClick={() => setRetryNonce((n) => n + 1)}>Tentar novamente</Button>
           </CardContent></Card>
         ) : items.length === 0 ? (
           <Card><CardContent className="py-12 text-center text-sm text-muted-foreground">
