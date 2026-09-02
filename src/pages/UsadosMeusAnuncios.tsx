@@ -50,6 +50,7 @@ const emptyForm = {
 
 export default function UsadosMeusAnuncios() {
   const { toast } = useToast();
+  const [params, setParams] = useSearchParams();
   const [userId, setUserId] = useState<string | null>(null);
   const [checking, setChecking] = useState(true);
   const [listings, setListings] = useState<MyListing[]>([]);
@@ -58,6 +59,7 @@ export default function UsadosMeusAnuncios() {
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const autoEdited = useRef(false);
 
   const load = useCallback(async (_uid: string) => {
     setLoading(true);
