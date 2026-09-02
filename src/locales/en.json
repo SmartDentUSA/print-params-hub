@@ -246,6 +246,7 @@
       "ebooks": "Ebooks",
       "distribuidores": "Resellers",
       "eventos": "Events",
+      "classificados": "Classifieds",
       "lives": "Lives",
       "cursos": "Courses"
     },
@@ -423,6 +424,10 @@
       "cursos": {
         "title": "KOL Courses",
         "subtitle": "Courses taught by Smart Dent partner professionals."
+      },
+      "classificados": {
+        "title": "Classifieds",
+        "subtitle": "Used equipment listed by digital dentistry professionals."
       }
     },
     "nav": {
