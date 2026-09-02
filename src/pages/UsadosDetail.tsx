@@ -13,9 +13,9 @@ import {
 } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Flag, Loader2, MapPin, MessageCircle, Pencil, Share2 } from "lucide-react";
+import { ArrowLeft, Eye, Flag, Loader2, MapPin, MessageCircle, Pencil, PlayCircle, ShieldCheck, Share2 } from "lucide-react";
 import {
-  categoryLabel, conditionLabel, formatPrice, imageList, parseDescription, whatsappLink,
+  categoryLabel, conditionLabel, formatPrice, imageList, isVideoUrl, parseDescription, whatsappLink,
   type PublicListing,
 } from "@/lib/classifieds";
 
