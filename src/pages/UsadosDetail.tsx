@@ -34,7 +34,14 @@ export default function UsadosDetail() {
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState(false);
   const [retryNonce, setRetryNonce] = useState(0);
-...
+  const [active, setActive] = useState(0);
+  const [contacting, setContacting] = useState(false);
+  const [isOwner, setIsOwner] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
+  const [reportReason, setReportReason] = useState("vendido");
+  const [reportDetails, setReportDetails] = useState("");
+  const [reporting, setReporting] = useState(false);
+
   useEffect(() => {
     if (!slug) return;
     (async () => {
