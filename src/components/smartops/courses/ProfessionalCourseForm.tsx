@@ -14,6 +14,8 @@ import {
   type ScheduleDay,
   type SyllabusModule,
 } from "@/types/professionalCourses";
+import { EVENT_AUDIENCE_SPECIALTIES } from "@/components/smartops/events/EventAudienceFields";
+import { Badge } from "@/components/ui/badge";
 
 interface Props {
   value: ProfessionalCourseDraft;
@@ -79,9 +81,38 @@ export default function ProfessionalCourseForm({ value, onChange, onUploadCover,
               <Label>Descrição</Label>
               <Textarea rows={4} value={v.description ?? ""} onChange={(e) => onChange({ description: e.target.value })} placeholder="O que o aluno vai aprender, formato das aulas, diferenciais..." />
             </div>
-            <div>
+            <div className="md:col-span-2">
               <Label>Público-alvo</Label>
-              <Input value={v.target_audience ?? ""} onChange={(e) => onChange({ target_audience: e.target.value })} placeholder="Ex.: dentistas clínicos gerais" />
+              <p className="text-xs text-muted-foreground mb-2">Selecione as especialidades do sistema (clique para marcar/desmarcar).</p>
+              <div className="flex flex-wrap gap-1.5 mb-2">
+                {EVENT_AUDIENCE_SPECIALTIES.map((esp) => {
+                  const current = String(v.target_audience ?? "")
+                    .split(",")
+                    .map((s) => s.trim())
+                    .filter(Boolean);
+                  const active = current.some((c) => c.toLowerCase() === esp.toLowerCase());
+                  return (
+                    <Badge
+                      key={esp}
+                      variant={active ? "default" : "outline"}
+                      className="cursor-pointer text-[11px] font-normal"
+                      onClick={() => {
+                        const next = active
+                          ? current.filter((c) => c.toLowerCase() !== esp.toLowerCase())
+                          : [...current, esp];
+                        onChange({ target_audience: next.join(", ") });
+                      }}
+                    >
+                      {esp}
+                    </Badge>
+                  );
+                })}
+              </div>
+              <Input
+                value={v.target_audience ?? ""}
+                onChange={(e) => onChange({ target_audience: e.target.value })}
+                placeholder="Ex.: dentistas clínicos gerais"
+              />
             </div>
             <div>
               <Label>Pré-requisitos</Label>
