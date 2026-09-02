@@ -11,6 +11,11 @@ import {
   ExternalLink,
   Instagram,
   Info,
+  Tag,
+  Users,
+  Globe,
+  Award,
+  Video,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Badge } from '@/components/ui/badge';
@@ -781,6 +786,19 @@ export default function KbTabCursos() {
                     <p className="text-sm text-foreground/90 whitespace-pre-line leading-relaxed">
                       {detailCourse.materials_included}
                     </p>
+                  </section>
+                )}
+
+                {Array.isArray(detailCourse.tags) && detailCourse.tags.length > 0 && (
+                  <section>
+                    <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">
+                      Temas
+                    </h4>
+                    <div className="flex flex-wrap gap-1.5">
+                      {detailCourse.tags.map((t) => (
+                        <Badge key={t} variant="secondary" className="text-[11px]">{t}</Badge>
+                      ))}
+                    </div>
                   </section>
                 )}
 
