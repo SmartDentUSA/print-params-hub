@@ -300,7 +300,7 @@ export default function KbTabCursos() {
         </div>
       )}
 
-      <div className="flex flex-col gap-10">
+      <div className="flex flex-col gap-8">
         {Array.from(
           visible
             .reduce((acc, c) => {
@@ -320,10 +320,10 @@ export default function KbTabCursos() {
             const kol = producerId !== '__smartdent' ? kols[producerId] : undefined;
             const handle = igHandle(kol?.instagram);
             return (
-              <section key={producerId} className="flex flex-col gap-4">
-                {/* Identificação do profissional no topo */}
-                <div className="flex items-center gap-4 p-4 rounded-xl border border-border bg-card/60 shadow-sm">
-                  <div className="w-16 h-16 rounded-full overflow-hidden bg-muted shrink-0 ring-2 ring-primary/10">
+              <section key={producerId} className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
+                {/* Identificação do profissional no topo do card */}
+                <div className="flex items-center gap-4 p-5 bg-card">
+                  <div className="w-20 h-20 rounded-full overflow-hidden bg-muted shrink-0 ring-2 ring-primary/10">
                     {kol?.prof_photo_url ? (
                       <img
                         src={kol.prof_photo_url}
@@ -337,11 +337,11 @@ export default function KbTabCursos() {
                     )}
                   </div>
                   <div className="min-w-0">
-                    <p className="text-base font-semibold text-foreground truncate">
+                    <p className="text-lg font-semibold text-foreground truncate">
                       {kol?.nome ?? 'Smart Dent'}
                     </p>
                     {kol?.especialidade && (
-                      <p className="text-sm text-muted-foreground truncate">{kol.especialidade}</p>
+                      <p className="text-sm text-muted-foreground truncate uppercase tracking-wide">{kol.especialidade}</p>
                     )}
                     {handle && (
                       <a
@@ -356,33 +356,37 @@ export default function KbTabCursos() {
                   </div>
                 </div>
 
-                {/* Cursos do profissional */}
-                <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
-                  {list.map((c) => {
+                {/* Cursos incrementais abaixo da foto, no mesmo card */}
+                <div className="border-t border-border bg-background/50">
+                  {list.map((c, idx) => {
                     const local = [c.city, c.state].filter(Boolean).join(' - ') || c.online_platform || null;
                     const date = fmtDate(c.start_date);
                     return (
                       <article
                         key={c.id}
-                        className="flex flex-col rounded-xl border border-border bg-card overflow-hidden shadow-sm hover:shadow-md transition-shadow"
+                        className={`flex flex-col sm:flex-row gap-4 p-4 hover:bg-accent/40 transition-colors ${
+                          idx !== list.length - 1 ? 'border-b border-border' : ''
+                        }`}
                       >
-                        <div className="aspect-video bg-muted overflow-hidden">
-                          {c.cover_image_url ? (
-                            <img
-                              src={c.cover_image_url}
-                              alt={c.title}
-                              loading="lazy"
-                              decoding="async"
-                              className="w-full h-full object-cover"
-                            />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center">
-                              <GraduationCap className="w-10 h-10 text-muted-foreground/50" />
-                            </div>
-                          )}
+                        <div className="sm:w-40 shrink-0">
+                          <div className="aspect-video sm:aspect-square rounded-lg bg-muted overflow-hidden">
+                            {c.cover_image_url ? (
+                              <img
+                                src={c.cover_image_url}
+                                alt={c.title}
+                                loading="lazy"
+                                decoding="async"
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center">
+                                <GraduationCap className="w-8 h-8 text-muted-foreground/50" />
+                              </div>
+                            )}
+                          </div>
                         </div>
 
-                        <div className="p-4 flex flex-col gap-3 flex-1">
+                        <div className="flex-1 min-w-0 flex flex-col gap-2">
                           <div className="flex flex-wrap gap-1">
                             {c.modality && <Badge variant="secondary" className="text-[11px]">{c.modality}</Badge>}
                             {c.category && <Badge variant="outline" className="text-[11px]">{c.category}</Badge>}
@@ -390,17 +394,17 @@ export default function KbTabCursos() {
                           </div>
 
                           <div>
-                            <h4 className="font-semibold text-foreground leading-snug line-clamp-2">{c.title}</h4>
+                            <h4 className="font-semibold text-foreground leading-snug">{c.title}</h4>
                             {c.subtitle && (
-                              <p className="text-sm text-muted-foreground line-clamp-2 mt-1">{c.subtitle}</p>
+                              <p className="text-sm text-muted-foreground line-clamp-2 mt-0.5">{c.subtitle}</p>
                             )}
                           </div>
 
                           {c.description && (
-                            <p className="text-xs text-muted-foreground line-clamp-3">{c.description}</p>
+                            <p className="text-xs text-muted-foreground line-clamp-2">{c.description}</p>
                           )}
 
-                          <div className="flex flex-col gap-1 text-xs text-muted-foreground">
+                          <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
                             {date && (
                               <span className="inline-flex items-center gap-1.5">
                                 <CalendarDays className="w-3.5 h-3.5" />
@@ -409,7 +413,7 @@ export default function KbTabCursos() {
                             )}
                             {c.workload_hours ? (
                               <span className="inline-flex items-center gap-1.5">
-                                <Clock className="w-3.5 h-3.5" /> {c.workload_hours}h de carga horária
+                                <Clock className="w-3.5 h-3.5" /> {c.workload_hours}h
                               </span>
                             ) : null}
                             {local && (
@@ -423,7 +427,7 @@ export default function KbTabCursos() {
                             <Button
                               variant="outline"
                               size="sm"
-                              className="w-full"
+                              className="w-full sm:w-auto"
                               onClick={() => setDetail({ course: c, kol })}
                             >
                               <Info className="w-3.5 h-3.5 mr-1.5" /> Informações do curso
