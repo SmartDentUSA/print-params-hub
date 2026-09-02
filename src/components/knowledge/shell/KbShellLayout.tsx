@@ -29,10 +29,10 @@ const TOP_TABS: { key: KbTab; icon: React.ReactNode }[] = [
   { key: 'videos',         icon: <PlaySquare /> },
   { key: 'artigos',        icon: <FileText /> },
   { key: 'ebooks',         icon: <BookOpen /> },
+  { key: 'lives',          icon: <Radio /> },
   { key: 'cursos',         icon: <GraduationCap /> },
   { key: 'distribuidores', icon: <Store /> },
   { key: 'eventos',        icon: <Calendar /> },
-  { key: 'lives',          icon: <Radio /> },
 ];
 
 export default function KbShellLayout({

@@ -68,7 +68,7 @@ const ICONS: Record<KbTab, React.ReactNode> = {
   ),
 };
 
-const ORDER: KbTab[] = ['parametros', 'catalogo', 'videos', 'artigos', 'ebooks', 'cursos', 'distribuidores', 'eventos', 'lives'];
+const ORDER: KbTab[] = ['parametros', 'catalogo', 'videos', 'artigos', 'ebooks', 'lives', 'cursos', 'distribuidores', 'eventos'];
 
 interface Props {
   active: KbTab;
