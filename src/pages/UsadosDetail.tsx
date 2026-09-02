@@ -157,7 +157,7 @@ export default function UsadosDetail() {
 
         <div className="overflow-hidden rounded-xl border bg-muted">
           {cover ? (
-            <img src={cover} alt={listing.title} className="aspect-[4/3] w-full object-cover" />
+            <img src={cover} alt={listing.title} className="aspect-[4/3] w-full bg-white object-contain" />
           ) : (
             <div className="flex aspect-[4/3] items-center justify-center text-sm text-muted-foreground">Sem foto</div>
           )}
