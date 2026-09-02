@@ -62,6 +62,8 @@ interface Kol {
   prof_photo_url: string | null;
   especialidade: string | null;
   instagram: string | null;
+  prof_mini_cv: string | null;
+  cliente_desde: string | null;
 }
 
 const fmtDate = (d?: string | null) => {
@@ -127,13 +129,31 @@ export default function KbTabCursos() {
     enabled: producerIds.length > 0,
     staleTime: 60_000,
     queryFn: async () => {
-      const { data, error } = await (supabase as any)
-        .from('lia_attendances')
-        .select('id, nome, prof_photo_url, especialidade, instagram')
-        .in('id', producerIds);
-      if (error) throw error;
+      const [{ data: rows, error: err1 }, { data: mirrors, error: err2 }] = await Promise.all([
+        (supabase as any)
+          .from('lia_attendances')
+          .select('id, nome, prof_photo_url, especialidade, instagram, prof_mini_cv')
+          .in('id', producerIds),
+        (supabase as any)
+          .from('piperun_persons_mirror')
+          .select('lia_attendance_id, cliente_desde')
+          .in('lia_attendance_id', producerIds)
+          .order('created_at', { ascending: false }),
+      ]);
+      if (err1) throw err1;
+      if (err2) throw err2;
+
+      const sinceMap: Record<string, string> = {};
+      for (const m of (mirrors ?? []) as { lia_attendance_id: string; cliente_desde: string | null }[]) {
+        if (m.cliente_desde && !sinceMap[m.lia_attendance_id]) {
+          sinceMap[m.lia_attendance_id] = m.cliente_desde;
+        }
+      }
+
       const map: Record<string, Kol> = {};
-      for (const row of (data ?? []) as Kol[]) map[row.id] = row;
+      for (const row of (rows ?? []) as Kol[]) {
+        map[row.id] = { ...row, cliente_desde: sinceMap[row.id] ?? null };
+      }
       return map;
     },
   });
@@ -322,36 +342,55 @@ export default function KbTabCursos() {
             return (
               <section key={producerId} className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
                 {/* Identificação do profissional no topo do card */}
-                <div className="flex items-center gap-4 p-5 bg-card">
-                  <div className="w-20 h-20 rounded-full overflow-hidden bg-muted shrink-0 ring-2 ring-primary/10">
-                    {kol?.prof_photo_url ? (
-                      <img
-                        src={kol.prof_photo_url}
-                        alt={kol.nome ?? 'Profissional'}
-                        loading="lazy"
-                        decoding="async"
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <UserCircle className="w-full h-full text-muted-foreground/60" />
-                    )}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-5 bg-card">
+                  {/* Coluna 1: Foto + Nome */}
+                  <div className="flex items-center gap-4 min-w-0">
+                    <div className="w-20 h-20 rounded-full overflow-hidden bg-muted shrink-0 ring-2 ring-primary/10">
+                      {kol?.prof_photo_url ? (
+                        <img
+                          src={kol.prof_photo_url}
+                          alt={kol.nome ?? 'Profissional'}
+                          loading="lazy"
+                          decoding="async"
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <UserCircle className="w-full h-full text-muted-foreground/60" />
+                      )}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-lg font-semibold text-foreground truncate">
+                        {kol?.nome ?? 'Smart Dent'}
+                      </p>
+                      {handle && (
+                        <a
+                          href={`https://instagram.com/${handle}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline"
+                        >
+                          <Instagram className="w-3.5 h-3.5" /> @{handle}
+                        </a>
+                      )}
+                    </div>
                   </div>
-                  <div className="min-w-0">
-                    <p className="text-lg font-semibold text-foreground truncate">
-                      {kol?.nome ?? 'Smart Dent'}
-                    </p>
+
+                  {/* Coluna 2: Especialidade + Mini CV + Cliente desde */}
+                  <div className="flex flex-col gap-2 min-w-0">
                     {kol?.especialidade && (
-                      <p className="text-sm text-muted-foreground truncate uppercase tracking-wide">{kol.especialidade}</p>
+                      <p className="text-sm font-semibold text-foreground uppercase tracking-wide">
+                        {kol.especialidade}
+                      </p>
                     )}
-                    {handle && (
-                      <a
-                        href={`https://instagram.com/${handle}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline"
-                      >
-                        <Instagram className="w-3.5 h-3.5" /> @{handle}
-                      </a>
+                    {kol?.prof_mini_cv && (
+                      <p className="text-sm text-muted-foreground line-clamp-4">
+                        {kol.prof_mini_cv}
+                      </p>
+                    )}
+                    {kol?.cliente_desde && (
+                      <p className="text-xs text-muted-foreground">
+                        Clientes Smart Dent desde: {fmtDate(kol.cliente_desde)}
+                      </p>
                     )}
                   </div>
                 </div>
