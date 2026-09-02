@@ -288,6 +288,57 @@ export default function UsadosMeusAnuncios() {
                   onChange={(e) => setForm({ ...form, contact_whatsapp: e.target.value })}
                   placeholder="(16) 99999-9999" />
               </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label>Ano de fabricação</Label>
+                  <Input value={form.fields.year} inputMode="numeric" maxLength={4}
+                    onChange={(e) => setForm({ ...form, fields: { ...form.fields, year: e.target.value.replace(/\D/g, "") } })}
+                    placeholder="2022" />
+                </div>
+                <div className="space-y-1">
+                  <Label>Garantia</Label>
+                  <Input value={form.fields.warranty}
+                    onChange={(e) => setForm({ ...form, fields: { ...form.fields, warranty: e.target.value } })}
+                    placeholder="Ex.: 3 meses, sem garantia" />
+                </div>
+              </div>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                <div className="space-y-1">
+                  <Label>Forma de pagamento</Label>
+                  <Input value={form.fields.payment}
+                    onChange={(e) => setForm({ ...form, fields: { ...form.fields, payment: e.target.value } })}
+                    placeholder="PIX, cartão, financiamento..." />
+                </div>
+                <div className="space-y-1">
+                  <Label>Frete</Label>
+                  <Select value={form.fields.shipping || undefined}
+                    onValueChange={(v) => setForm({ ...form, fields: { ...form.fields, shipping: v } })}>
+                    <SelectTrigger><SelectValue placeholder="Selecionar" /></SelectTrigger>
+                    <SelectContent>
+                      {CLASSIFIED_SHIPPING_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label>Treinamento</Label>
+                  <Select value={form.fields.training || undefined}
+                    onValueChange={(v) => setForm({ ...form, fields: { ...form.fields, training: v } })}>
+                    <SelectTrigger><SelectValue placeholder="Selecionar" /></SelectTrigger>
+                    <SelectContent>
+                      {CLASSIFIED_YES_NO.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="space-y-1">
+                <Label>Especificações técnicas</Label>
+                <Textarea rows={4} value={form.specs}
+                  onChange={(e) => setForm({ ...form, specs: e.target.value })}
+                  placeholder={"Uma por linha, no formato Nome: valor\nMarca: PioNext\nModelo: DJ-89\nResolução: 8K"} />
+                <p className="text-[11px] text-muted-foreground">
+                  Uma por linha no formato <strong>Nome: valor</strong>. Aparecem na ficha técnica do anúncio.
+                </p>
+              </div>
               <div className="space-y-1">
                 <Label>Descrição</Label>
                 <Textarea rows={5} value={form.description}
