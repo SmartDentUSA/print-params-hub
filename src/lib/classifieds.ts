@@ -35,6 +35,14 @@ export const MAX_CLASSIFIED_IMAGES = 10;
 export const MAX_ACTIVE_FREE_LISTINGS = 5;
 export const CLASSIFIEDS_BUCKET = "catalog-images";
 
+/** Extensões aceitas no upload de mídia do anúncio (fotos + vídeos). */
+export const CLASSIFIED_MEDIA_ACCEPT = "image/*,video/mp4,video/webm,video/quicktime";
+
+/** Detecta vídeo pela extensão da URL pública salva em `images`. */
+export function isVideoUrl(url?: string | null): boolean {
+  return /\.(mp4|webm|mov|m4v|ogv)(\?|#|$)/i.test(url || "");
+}
+
 export function categoryLabel(value?: string | null): string {
   return CLASSIFIED_CATEGORIES.find((c) => c.value === value)?.label ?? "Equipamento";
 }
@@ -56,14 +64,10 @@ export function listingUrl(slugOrId: string): string {
   return `/usados/${slugOrId}`;
 }
 
+/** Capa do anúncio: primeira foto real (ignora vídeos). */
 export function firstImage(images: unknown): string | null {
-  if (!Array.isArray(images)) return null;
-  const first = images[0];
-  if (typeof first === "string") return first;
-  if (first && typeof first === "object" && "url" in (first as Record<string, unknown>)) {
-    return String((first as Record<string, unknown>).url);
-  }
-  return null;
+  const all = imageList(images);
+  return all.find((m) => !isVideoUrl(m)) ?? null;
 }
 
 export function imageList(images: unknown): string[] {
