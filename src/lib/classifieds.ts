@@ -35,6 +35,14 @@ export const MAX_CLASSIFIED_IMAGES = 10;
 export const MAX_ACTIVE_FREE_LISTINGS = 5;
 export const CLASSIFIEDS_BUCKET = "catalog-images";
 
+/** Extensões aceitas no upload de mídia do anúncio (fotos + vídeos). */
+export const CLASSIFIED_MEDIA_ACCEPT = "image/*,video/mp4,video/webm,video/quicktime";
+
+/** Detecta vídeo pela extensão da URL pública salva em `images`. */
+export function isVideoUrl(url?: string | null): boolean {
+  return /\.(mp4|webm|mov|m4v|ogv)(\?|#|$)/i.test(url || "");
+}
+
 export function categoryLabel(value?: string | null): string {
   return CLASSIFIED_CATEGORIES.find((c) => c.value === value)?.label ?? "Equipamento";
 }
