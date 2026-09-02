@@ -626,27 +626,91 @@ export default function KbTabCursos() {
                       </div>
                     </div>
                   )}
-                  {detailCourse.workload_hours ? (
+                  {detailCourse.start_time || detailCourse.end_time ? (
+                    <div className="rounded-xl border border-border p-3">
+                      <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-muted-foreground mb-1">
+                        <Clock className="w-3.5 h-3.5" /> Horário
+                      </div>
+                      <div className="text-sm font-medium text-foreground">
+                        {[detailCourse.start_time, detailCourse.end_time].filter(Boolean).join(' às ')}
+                      </div>
+                    </div>
+                  ) : null}
+                  {detailCourse.workload_hours || detailCourse.duration_days ? (
                     <div className="rounded-xl border border-border p-3">
                       <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-muted-foreground mb-1">
                         <Clock className="w-3.5 h-3.5" /> Carga horária
                       </div>
-                      <div className="text-sm font-medium text-foreground">{detailCourse.workload_hours}h</div>
+                      <div className="text-sm font-medium text-foreground">
+                        {[
+                          detailCourse.workload_hours ? `${detailCourse.workload_hours}h` : null,
+                          detailCourse.duration_days
+                            ? `${detailCourse.duration_days} ${detailCourse.duration_days === 1 ? 'dia' : 'dias'}`
+                            : null,
+                        ]
+                          .filter(Boolean)
+                          .join(' · ')}
+                      </div>
                     </div>
                   ) : null}
-                  {([detailCourse.city, detailCourse.state].filter(Boolean).join(' - ') ||
-                    detailCourse.online_platform) && (
+                  {([detailCourse.venue, detailCourse.city, detailCourse.state].filter(Boolean).join(' - ') ||
+                    detailCourse.online_platform ||
+                    detailCourse.course_platform) && (
                     <div className="rounded-xl border border-border p-3">
                       <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-muted-foreground mb-1">
                         <MapPin className="w-3.5 h-3.5" /> Local
                       </div>
                       <div className="text-sm font-medium text-foreground">
-                        {[detailCourse.city, detailCourse.state].filter(Boolean).join(' - ') ||
-                          detailCourse.online_platform}
+                        {[detailCourse.venue, detailCourse.city, detailCourse.state].filter(Boolean).join(' - ') ||
+                          detailCourse.online_platform ||
+                          detailCourse.course_platform}
                       </div>
+                      {detailCourse.address && (
+                        <div className="text-xs text-muted-foreground mt-0.5">{detailCourse.address}</div>
+                      )}
                     </div>
                   )}
+                  {detailCourse.max_students ? (
+                    <div className="rounded-xl border border-border p-3">
+                      <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-muted-foreground mb-1">
+                        <Users className="w-3.5 h-3.5" /> Vagas
+                      </div>
+                      <div className="text-sm font-medium text-foreground">
+                        {detailCourse.max_students} no total
+                        {typeof detailCourse.enrolled_count === 'number'
+                          ? ` · ${Math.max(detailCourse.max_students - detailCourse.enrolled_count, 0)} disponíveis`
+                          : ''}
+                      </div>
+                    </div>
+                  ) : null}
+                  {detailCourse.language && (
+                    <div className="rounded-xl border border-border p-3">
+                      <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-muted-foreground mb-1">
+                        <Globe className="w-3.5 h-3.5" /> Idioma
+                      </div>
+                      <div className="text-sm font-medium text-foreground">{label(detailCourse.language)}</div>
+                    </div>
+                  )}
+                  <div className="rounded-xl border border-border p-3">
+                    <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-muted-foreground mb-1">
+                      <Award className="w-3.5 h-3.5" /> Certificado
+                    </div>
+                    <div className="text-sm font-medium text-foreground">
+                      {detailCourse.certificate ? 'Incluso' : 'Não incluso'}
+                    </div>
+                  </div>
                 </div>
+
+                {detailCourse.video_url && (
+                  <a
+                    href={detailCourse.video_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 text-sm font-medium text-primary hover:underline"
+                  >
+                    <Video className="w-4 h-4" /> Assistir vídeo de apresentação
+                  </a>
+                )}
 
                 {detailCourse.description && (
                   <section>
