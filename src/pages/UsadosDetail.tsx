@@ -117,8 +117,10 @@ export default function UsadosDetail() {
     );
   }
 
-  const images = imageList(listing.images);
-  const cover = images[active];
+  const media = imageList(listing.images);
+  const images = media.filter((m) => !isVideoUrl(m));
+  const current = media[Math.min(active, Math.max(media.length - 1, 0))];
+  const cover = images[0];
   const local = [listing.location_city, listing.location_state].filter(Boolean).join("/");
   const desc = parseDescription(listing.description);
 
