@@ -259,6 +259,19 @@ export default function UsadosDetail() {
                     </span>
                   </div>
 
+                  {commercial.length > 0 && (
+                    <dl className="mt-4 space-y-2 rounded-xl border bg-muted/30 p-3">
+                      {commercial.map((c) => (
+                        <div key={c.label} className="flex items-baseline justify-between gap-3 text-sm">
+                          <dt className="shrink-0 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                            {c.label}
+                          </dt>
+                          <dd className="text-right font-medium leading-snug">{c.value}</dd>
+                        </div>
+                      ))}
+                    </dl>
+                  )}
+
                   <Button className="mt-5 hidden w-full bg-[#25D366] text-white hover:bg-[#1ebe5b] lg:flex"
                     size="lg" onClick={contact} disabled={contacting}>
                     {contacting ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <MessageCircle className="mr-2 h-5 w-5" />}
