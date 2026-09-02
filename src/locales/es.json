@@ -246,6 +246,7 @@
       "ebooks": "Ebooks",
       "distribuidores": "Revendedores",
       "eventos": "Eventos",
+      "classificados": "Clasificados",
       "lives": "Lives",
       "cursos": "Cursos"
     },
@@ -423,6 +424,10 @@
       "cursos": {
         "title": "Cursos recomendados",
         "subtitle": "Cursos seleccionados y recomendados por el equipo de Smart Dent."
+      },
+      "classificados": {
+        "title": "Clasificados",
+        "subtitle": "Equipos usados anunciados por profesionales de la odontología digital."
       }
     },
     "nav": {
