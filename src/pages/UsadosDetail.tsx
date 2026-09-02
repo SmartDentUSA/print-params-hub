@@ -15,8 +15,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, Eye, Flag, Loader2, MapPin, MessageCircle, Pencil, PlayCircle, ShieldCheck, Share2 } from "lucide-react";
 import {
-  categoryLabel, conditionLabel, formatPrice, imageList, isVideoUrl, parseDescription, whatsappLink,
-  type PublicListing,
+  CLASSIFIED_FIELD_LABELS, categoryLabel, conditionLabel, formatPrice, imageList, isVideoUrl,
+  splitDescription, whatsappLink, type ClassifiedFieldKey, type PublicListing,
 } from "@/lib/classifieds";
 
 const REPORT_REASONS = [
@@ -32,6 +32,8 @@ export default function UsadosDetail() {
   const { toast } = useToast();
   const [listing, setListing] = useState<PublicListing | null>(null);
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState(false);
+  const [retryNonce, setRetryNonce] = useState(0);
   const [active, setActive] = useState(0);
   const [contacting, setContacting] = useState(false);
   const [isOwner, setIsOwner] = useState(false);
@@ -44,12 +46,19 @@ export default function UsadosDetail() {
     if (!slug) return;
     (async () => {
       setLoading(true);
+      setFetchError(false);
       const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-/i.test(slug);
-      const { data } = await (supabase as any)
+      const { data, error } = await (supabase as any)
         .from("v_classifieds_public")
         .select("*")
         .eq(isUuid ? "id" : "slug", slug)
         .maybeSingle();
+      if (error) {
+        setFetchError(true);
+        setListing(null);
+        setLoading(false);
+        return;
+      }
       setListing((data as PublicListing) ?? null);
       setLoading(false);
       if (data?.id) {
@@ -59,7 +68,7 @@ export default function UsadosDetail() {
         setIsOwner(Array.isArray(mine) && mine.some((m: { id: string }) => m.id === data.id));
       }
     })();
-  }, [slug]);
+  }, [slug, retryNonce]);
 
   async function contact() {
     if (!listing) return;
@@ -107,6 +116,16 @@ export default function UsadosDetail() {
     return <div className="mx-auto max-w-3xl space-y-4 p-4"><Skeleton className="h-72 w-full rounded-xl" /><Skeleton className="h-6 w-2/3" /><Skeleton className="h-24 w-full" /></div>;
   }
 
+  if (fetchError) {
+    return (
+      <div className="mx-auto max-w-md p-8 text-center">
+        <h1 className="text-lg font-semibold">Sem conexão</h1>
+        <p className="mt-2 text-sm text-muted-foreground">Não foi possível carregar o anúncio. Verifique sua internet.</p>
+        <Button className="mt-4" onClick={() => setRetryNonce((n) => n + 1)}>Tentar novamente</Button>
+      </div>
+    );
+  }
+
   if (!listing) {
     return (
       <div className="mx-auto max-w-md p-8 text-center">
@@ -122,7 +141,10 @@ export default function UsadosDetail() {
   const current = media[Math.min(active, Math.max(media.length - 1, 0))];
   const cover = images[0];
   const local = [listing.location_city, listing.location_state].filter(Boolean).join("/");
-  const desc = parseDescription(listing.description);
+  const desc = splitDescription(listing.description);
+  const commercial = (Object.keys(CLASSIFIED_FIELD_LABELS) as ClassifiedFieldKey[])
+    .filter((k) => desc.fields[k])
+    .map((k) => ({ label: CLASSIFIED_FIELD_LABELS[k], value: desc.fields[k] }));
 
   return (
     <div className="min-h-screen bg-background pb-24">
@@ -255,6 +277,19 @@ export default function UsadosDetail() {
                       <Eye className="h-4 w-4" /> {listing.view_count ?? 0} visualizações
                     </span>
                   </div>
+
+                  {commercial.length > 0 && (
+                    <dl className="mt-4 space-y-2 rounded-xl border bg-muted/30 p-3">
+                      {commercial.map((c) => (
+                        <div key={c.label} className="flex items-baseline justify-between gap-3 text-sm">
+                          <dt className="shrink-0 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                            {c.label}
+                          </dt>
+                          <dd className="text-right font-medium leading-snug">{c.value}</dd>
+                        </div>
+                      ))}
+                    </dl>
+                  )}
 
                   <Button className="mt-5 hidden w-full bg-[#25D366] text-white hover:bg-[#1ebe5b] lg:flex"
                     size="lg" onClick={contact} disabled={contacting}>

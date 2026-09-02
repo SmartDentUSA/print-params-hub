@@ -13,7 +13,9 @@ import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, ImagePlus, Loader2, PlayCircle, PlusCircle, Trash2, X } from "lucide-react";
 import {
   CLASSIFIED_CATEGORIES, CLASSIFIED_CONDITIONS, CLASSIFIEDS_BUCKET, CLASSIFIED_STATUS_LABEL,
-  CLASSIFIED_MEDIA_ACCEPT, MAX_CLASSIFIED_IMAGES, UFS, formatPrice, imageList, isVideoUrl, listingUrl,
+  CLASSIFIED_MEDIA_ACCEPT, CLASSIFIED_SHIPPING_OPTIONS, CLASSIFIED_YES_NO, EMPTY_STRUCTURED_FIELDS,
+  MAX_CLASSIFIED_IMAGES, UFS, composeDescription, formatPrice, imageList, isVideoUrl, listingUrl,
+  splitDescription, type ClassifiedStructuredFields,
 } from "@/lib/classifieds";
 
 interface MyListing {
@@ -39,6 +41,8 @@ const emptyForm = {
   id: "" as string,
   title: "",
   description: "",
+  specs: "",
+  fields: { ...EMPTY_STRUCTURED_FIELDS } as ClassifiedStructuredFields,
   price: "",
   condition: "good",
   category: "scanner",
@@ -69,19 +73,21 @@ export default function UsadosMeusAnuncios() {
     setLoading(false);
   }, []);
 
+  // Sessão: só conclui "deslogado" depois do evento INITIAL_SESSION/SIGNED_OUT.
+  // Evita a tela de "Entre para anunciar" piscando ao voltar para a página
+  // enquanto o token ainda está sendo restaurado do armazenamento local.
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      const uid = data.session?.user?.id ?? null;
-      setUserId(uid);
-      setChecking(false);
-      if (uid) load(uid);
+    let alive = true;
+    const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
+      if (!alive) return;
+      if (event === "INITIAL_SESSION" || event === "SIGNED_IN" || event === "TOKEN_REFRESHED" || event === "SIGNED_OUT") {
+        const uid = session?.user?.id ?? null;
+        setUserId(uid);
+        setChecking(false);
+        if (uid) load(uid);
+      }
     });
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
-      const uid = session?.user?.id ?? null;
-      setUserId(uid);
-      if (uid) load(uid);
-    });
-    return () => sub.subscription.unsubscribe();
+    return () => { alive = false; sub.subscription.unsubscribe(); };
   }, [load]);
 
   async function uploadImages(files: FileList) {
@@ -113,7 +119,11 @@ export default function UsadosMeusAnuncios() {
       body: {
         id: form.id || undefined,
         title: form.title,
-        description: form.description,
+        description: composeDescription({
+          text: form.description,
+          specsLines: form.specs,
+          fields: form.fields,
+        }),
         price: form.price ? Number(form.price.replace(/\D/g, "")) : null,
         condition: form.condition,
         category: form.category,
@@ -136,10 +146,16 @@ export default function UsadosMeusAnuncios() {
   }
 
   function editListing(l: MyListing) {
+    // Recupera os campos estruturados (ano, pagamento, frete, treinamento,
+    // garantia) e a ficha técnica gravados como linhas na descrição, para que
+    // nada se perca ao editar.
+    const parsed = splitDescription(l.description);
     setForm({
       id: l.id,
       title: l.title,
-      description: l.description ?? "",
+      description: parsed.text,
+      specs: parsed.specs.map((s) => `${s.label}: ${s.value}`).join("\n"),
+      fields: parsed.fields,
       price: l.price != null ? String(l.price) : "",
       condition: l.condition ?? "good",
       category: l.category ?? "scanner",
@@ -271,6 +287,57 @@ export default function UsadosMeusAnuncios() {
                 <Input value={form.contact_whatsapp} inputMode="tel"
                   onChange={(e) => setForm({ ...form, contact_whatsapp: e.target.value })}
                   placeholder="(16) 99999-9999" />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label>Ano de fabricação</Label>
+                  <Input value={form.fields.year} inputMode="numeric" maxLength={4}
+                    onChange={(e) => setForm({ ...form, fields: { ...form.fields, year: e.target.value.replace(/\D/g, "") } })}
+                    placeholder="2022" />
+                </div>
+                <div className="space-y-1">
+                  <Label>Garantia</Label>
+                  <Input value={form.fields.warranty}
+                    onChange={(e) => setForm({ ...form, fields: { ...form.fields, warranty: e.target.value } })}
+                    placeholder="Ex.: 3 meses, sem garantia" />
+                </div>
+              </div>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                <div className="space-y-1">
+                  <Label>Forma de pagamento</Label>
+                  <Input value={form.fields.payment}
+                    onChange={(e) => setForm({ ...form, fields: { ...form.fields, payment: e.target.value } })}
+                    placeholder="PIX, cartão, financiamento..." />
+                </div>
+                <div className="space-y-1">
+                  <Label>Frete</Label>
+                  <Select value={form.fields.shipping || undefined}
+                    onValueChange={(v) => setForm({ ...form, fields: { ...form.fields, shipping: v } })}>
+                    <SelectTrigger><SelectValue placeholder="Selecionar" /></SelectTrigger>
+                    <SelectContent>
+                      {CLASSIFIED_SHIPPING_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label>Treinamento</Label>
+                  <Select value={form.fields.training || undefined}
+                    onValueChange={(v) => setForm({ ...form, fields: { ...form.fields, training: v } })}>
+                    <SelectTrigger><SelectValue placeholder="Selecionar" /></SelectTrigger>
+                    <SelectContent>
+                      {CLASSIFIED_YES_NO.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="space-y-1">
+                <Label>Especificações técnicas</Label>
+                <Textarea rows={4} value={form.specs}
+                  onChange={(e) => setForm({ ...form, specs: e.target.value })}
+                  placeholder={"Uma por linha, no formato Nome: valor\nMarca: PioNext\nModelo: DJ-89\nResolução: 8K"} />
+                <p className="text-[11px] text-muted-foreground">
+                  Uma por linha no formato <strong>Nome: valor</strong>. Aparecem na ficha técnica do anúncio.
+                </p>
               </div>
               <div className="space-y-1">
                 <Label>Descrição</Label>

@@ -22,6 +22,8 @@ export default function UsadosList() {
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [done, setDone] = useState(false);
+  const [fetchError, setFetchError] = useState(false);
+  const [retryNonce, setRetryNonce] = useState(0);
 
   const [term, setTerm] = useState("");
   const [category, setCategory] = useState(ALL);
@@ -30,11 +32,11 @@ export default function UsadosList() {
   const [order, setOrder] = useState("recent");
 
   const filtersKey = useMemo(
-    () => [term, category, condition, uf, order].join("|"),
-    [term, category, condition, uf, order],
+    () => [term, category, condition, uf, order, retryNonce].join("|"),
+    [term, category, condition, uf, order, retryNonce],
   );
 
-  async function fetchPage(from: number) {
+  async function fetchPage(from: number): Promise<PublicListing[]> {
     let q = (supabase as any)
       .from("v_classifieds_public")
       .select("*")
@@ -49,7 +51,8 @@ export default function UsadosList() {
     else if (order === "price_desc") q = q.order("price", { ascending: false, nullsFirst: false });
     else q = q.order("published_at", { ascending: false, nullsFirst: false });
 
-    const { data } = await q;
+    const { data, error } = await q;
+    if (error) throw error;
     return (data ?? []) as PublicListing[];
   }
 
@@ -57,12 +60,18 @@ export default function UsadosList() {
     let cancelled = false;
     setLoading(true);
     setDone(false);
+    setFetchError(false);
     const t = setTimeout(async () => {
-      const rows = await fetchPage(0);
-      if (cancelled) return;
-      setItems(rows);
-      setDone(rows.length < PAGE_SIZE);
-      setLoading(false);
+      try {
+        const rows = await fetchPage(0);
+        if (cancelled) return;
+        setItems(rows);
+        setDone(rows.length < PAGE_SIZE);
+      } catch {
+        if (!cancelled) setFetchError(true);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
     }, 250);
     return () => { cancelled = true; clearTimeout(t); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -70,9 +79,13 @@ export default function UsadosList() {
 
   async function loadMore() {
     setLoadingMore(true);
-    const rows = await fetchPage(items.length);
-    setItems((prev) => [...prev, ...rows]);
-    setDone(rows.length < PAGE_SIZE);
+    try {
+      const rows = await fetchPage(items.length);
+      setItems((prev) => [...prev, ...rows]);
+      setDone(rows.length < PAGE_SIZE);
+    } catch {
+      setFetchError(true);
+    }
     setLoadingMore(false);
   }
 
@@ -161,6 +174,12 @@ export default function UsadosList() {
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-64 rounded-xl" />)}
           </div>
+        ) : fetchError ? (
+          <Card><CardContent className="flex flex-col items-center gap-3 py-12 text-center">
+            <p className="text-sm font-medium">Não foi possível carregar os anúncios.</p>
+            <p className="text-xs text-muted-foreground">Verifique sua conexão e tente novamente.</p>
+            <Button variant="outline" onClick={() => setRetryNonce((n) => n + 1)}>Tentar novamente</Button>
+          </CardContent></Card>
         ) : items.length === 0 ? (
           <Card><CardContent className="py-12 text-center text-sm text-muted-foreground">
             Nenhum equipamento encontrado com esses filtros.
@@ -172,38 +191,42 @@ export default function UsadosList() {
                 const img = firstImage(l.images);
                 return (
                   <Link key={l.id} to={listingUrl(l.slug || l.id)} className="group">
-                    <Card className="h-full overflow-hidden transition-shadow group-hover:shadow-lg">
-                      <div className="relative aspect-[4/3] bg-muted">
+                    <Card className="h-full overflow-hidden rounded-2xl border transition-all duration-200 group-hover:-translate-y-0.5 group-hover:border-primary/40 group-hover:shadow-lg">
+                      <div className="relative aspect-[4/3] bg-white">
                         {img ? (
                           <img src={img} alt={l.title} loading="lazy"
-                            className="h-full w-full object-cover transition-transform group-hover:scale-105" />
+                            className="h-full w-full object-contain p-2 transition-transform duration-300 group-hover:scale-[1.03]" />
                         ) : (
-                          <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
+                          <div className="flex h-full items-center justify-center bg-muted text-xs text-muted-foreground">
                             Sem foto
                           </div>
                         )}
-                        <Badge className="absolute left-2 top-2" variant="secondary">
+                        <Badge className="absolute left-2 top-2 shadow-sm" variant="secondary">
                           {categoryLabel(l.category)}
                         </Badge>
                         {l.is_cliente && (
-                          <Badge className="absolute right-2 top-2 bg-primary text-primary-foreground">
+                          <Badge className="absolute right-2 top-2 bg-primary text-primary-foreground shadow-sm">
                             Cliente Smart Dent
                           </Badge>
                         )}
                       </div>
-                      <CardContent className="space-y-2 p-4">
-                        <h2 className="line-clamp-2 text-sm font-semibold">{l.title}</h2>
+                      <CardContent className="space-y-1.5 border-t p-4">
+                        <h2 className="line-clamp-2 min-h-[2.5rem] text-sm font-semibold leading-snug group-hover:text-primary">
+                          {l.title}
+                        </h2>
                         <p className="text-lg font-bold text-primary">{formatPrice(l.price)}</p>
-                        <div className="flex items-center justify-between text-xs text-muted-foreground">
+                        <div className="flex items-center justify-between pt-1 text-xs text-muted-foreground">
                           <span className="flex items-center gap-1">
                             <MapPin className="h-3 w-3" />
                             {l.location_city || "—"}{l.location_state ? `/${l.location_state}` : ""}
                           </span>
-                          <span>{conditionLabel(l.condition)}</span>
+                          <span className="flex items-center gap-2">
+                            <span>{conditionLabel(l.condition)}</span>
+                            <span className="flex items-center gap-1">
+                              <Eye className="h-3 w-3" /> {l.view_count ?? 0}
+                            </span>
+                          </span>
                         </div>
-                        <p className="flex items-center gap-1 text-[11px] text-muted-foreground">
-                          <Eye className="h-3 w-3" /> {l.view_count ?? 0} visualizações
-                        </p>
                       </CardContent>
                     </Card>
                   </Link>
