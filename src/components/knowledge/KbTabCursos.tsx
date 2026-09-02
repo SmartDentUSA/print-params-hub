@@ -4,6 +4,7 @@ import { GraduationCap, MapPin, CalendarDays, Clock, Filter, X, UserCircle, Exte
 import { supabase } from '@/integrations/supabase/client';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import KbSearchBar from './KbSearchBar';
 
 interface ProfCourse {
   id: string;
@@ -43,8 +44,18 @@ const fmtDate = (d?: string | null) => {
   return `${day}/${m}/${y}`;
 };
 
+const norm = (s?: string | null) =>
+  (s ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim();
+
 export default function KbTabCursos() {
   const [selectedKol, setSelectedKol] = useState('');
+  const [selectedTipo, setSelectedTipo] = useState('');
+  const [selectedEsp, setSelectedEsp] = useState('');
+  const [search, setSearch] = useState('');
 
   const { data: courses = [], isLoading } = useQuery({
     queryKey: ['kb_professional_courses'],
@@ -92,10 +103,44 @@ export default function KbTabCursos() {
     return Array.from(set.entries()).sort((a, b) => a[1].localeCompare(b[1], 'pt-BR'));
   }, [courses, kols]);
 
-  const visible = useMemo(
-    () => (selectedKol ? courses.filter((c) => c.producer_lead_id === selectedKol) : courses),
-    [courses, selectedKol],
-  );
+  const tipoOptions = useMemo(() => {
+    const set = new Set<string>();
+    for (const c of courses) {
+      if (c.category) set.add(c.category);
+      if (c.modality) set.add(c.modality);
+    }
+    return Array.from(set).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+  }, [courses]);
+
+  const espOptions = useMemo(() => {
+    const set = new Set<string>();
+    for (const c of courses) {
+      const k = c.producer_lead_id ? kols[c.producer_lead_id] : undefined;
+      if (k?.especialidade) set.add(k.especialidade);
+    }
+    return Array.from(set).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+  }, [courses, kols]);
+
+  const visible = useMemo(() => {
+    const q = norm(search);
+    return courses.filter((c) => {
+      if (selectedKol && c.producer_lead_id !== selectedKol) return false;
+      if (selectedTipo && norm(c.category) !== norm(selectedTipo) && norm(c.modality) !== norm(selectedTipo)) return false;
+      const k = c.producer_lead_id ? kols[c.producer_lead_id] : undefined;
+      if (selectedEsp && norm(k?.especialidade) !== norm(selectedEsp)) return false;
+      if (q) {
+        const hay = norm(
+          [c.title, c.subtitle, c.description, c.category, c.modality, c.city, c.state, k?.nome, k?.especialidade]
+            .filter(Boolean)
+            .join(' '),
+        );
+        if (!hay.includes(q)) return false;
+      }
+      return true;
+    });
+  }, [courses, kols, selectedKol, selectedTipo, selectedEsp, search]);
+
+  const hasFilters = !!(selectedKol || selectedTipo || selectedEsp || search);
 
   const ctaUrl = (c: ProfCourse) => {
     if (c.registration_url) return c.registration_url;
@@ -122,31 +167,84 @@ export default function KbTabCursos() {
 
   return (
     <div>
-      {kolOptions.length > 1 && (
-        <div className="mb-6 flex flex-wrap items-center gap-2">
+      <KbSearchBar
+        placeholder="Buscar curso, parceiro, cidade…"
+        value={search}
+        onDebouncedChange={setSearch}
+      />
+
+      <div className="mb-6 flex flex-wrap items-center gap-2">
+        {kolOptions.length > 0 && (
           <div className="relative">
             <Filter className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
             <select
               value={selectedKol}
               onChange={(e) => setSelectedKol(e.target.value)}
+              aria-label="Filtrar por parceiro"
               className="appearance-none h-9 pl-8 pr-8 rounded-full border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 min-w-[200px]"
             >
-              <option value="">Todos os professores</option>
+              <option value="">Todos os parceiros</option>
               {kolOptions.map(([id, nome]) => (
                 <option key={id} value={id}>{nome}</option>
               ))}
             </select>
             <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground text-xs">▼</span>
           </div>
-          {selectedKol && (
-            <button
-              type="button"
-              onClick={() => setSelectedKol('')}
-              className="inline-flex items-center gap-1 h-9 px-3 rounded-full border bg-background text-xs font-medium hover:bg-accent transition-colors"
+        )}
+
+        {tipoOptions.length > 0 && (
+          <div className="relative">
+            <select
+              value={selectedTipo}
+              onChange={(e) => setSelectedTipo(e.target.value)}
+              aria-label="Filtrar por tipo"
+              className="appearance-none h-9 pl-3.5 pr-8 rounded-full border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 min-w-[160px]"
             >
-              <X className="w-3 h-3" /> Limpar filtro
-            </button>
-          )}
+              <option value="">Todos os tipos</option>
+              {tipoOptions.map((t) => (
+                <option key={t} value={t}>{t}</option>
+              ))}
+            </select>
+            <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground text-xs">▼</span>
+          </div>
+        )}
+
+        {espOptions.length > 0 && (
+          <div className="relative">
+            <select
+              value={selectedEsp}
+              onChange={(e) => setSelectedEsp(e.target.value)}
+              aria-label="Filtrar por especialidade"
+              className="appearance-none h-9 pl-3.5 pr-8 rounded-full border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 min-w-[180px]"
+            >
+              <option value="">Todas as especialidades</option>
+              {espOptions.map((e) => (
+                <option key={e} value={e}>{e}</option>
+              ))}
+            </select>
+            <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground text-xs">▼</span>
+          </div>
+        )}
+
+        {hasFilters && (
+          <button
+            type="button"
+            onClick={() => { setSelectedKol(''); setSelectedTipo(''); setSelectedEsp(''); setSearch(''); }}
+            className="inline-flex items-center gap-1 h-9 px-3 rounded-full border bg-background text-xs font-medium hover:bg-accent transition-colors"
+          >
+            <X className="w-3 h-3" /> Limpar filtros
+          </button>
+        )}
+
+        <span className="text-xs text-muted-foreground ml-auto">
+          {visible.length} {visible.length === 1 ? 'curso' : 'cursos'}
+        </span>
+      </div>
+
+      {visible.length === 0 && (
+        <div className="py-16 text-center text-muted-foreground">
+          <GraduationCap className="w-12 h-12 mx-auto mb-3 opacity-50" />
+          <p>Nenhum curso encontrado com esses filtros.</p>
         </div>
       )}
 
