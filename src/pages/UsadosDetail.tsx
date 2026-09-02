@@ -15,8 +15,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, Eye, Flag, Loader2, MapPin, MessageCircle, Pencil, PlayCircle, ShieldCheck, Share2 } from "lucide-react";
 import {
-  categoryLabel, conditionLabel, formatPrice, imageList, isVideoUrl, parseDescription, whatsappLink,
-  type PublicListing,
+  CLASSIFIED_FIELD_LABELS, categoryLabel, conditionLabel, formatPrice, imageList, isVideoUrl,
+  splitDescription, whatsappLink, type ClassifiedFieldKey, type PublicListing,
 } from "@/lib/classifieds";
 
 const REPORT_REASONS = [
@@ -122,7 +122,10 @@ export default function UsadosDetail() {
   const current = media[Math.min(active, Math.max(media.length - 1, 0))];
   const cover = images[0];
   const local = [listing.location_city, listing.location_state].filter(Boolean).join("/");
-  const desc = parseDescription(listing.description);
+  const desc = splitDescription(listing.description);
+  const commercial = (Object.keys(CLASSIFIED_FIELD_LABELS) as ClassifiedFieldKey[])
+    .filter((k) => desc.fields[k])
+    .map((k) => ({ label: CLASSIFIED_FIELD_LABELS[k], value: desc.fields[k] }));
 
   return (
     <div className="min-h-screen bg-background pb-24">
