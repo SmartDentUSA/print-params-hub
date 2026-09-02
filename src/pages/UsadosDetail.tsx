@@ -32,24 +32,26 @@ export default function UsadosDetail() {
   const { toast } = useToast();
   const [listing, setListing] = useState<PublicListing | null>(null);
   const [loading, setLoading] = useState(true);
-  const [active, setActive] = useState(0);
-  const [contacting, setContacting] = useState(false);
-  const [isOwner, setIsOwner] = useState(false);
-  const [reportOpen, setReportOpen] = useState(false);
-  const [reportReason, setReportReason] = useState("vendido");
-  const [reportDetails, setReportDetails] = useState("");
-  const [reporting, setReporting] = useState(false);
-
+  const [fetchError, setFetchError] = useState(false);
+  const [retryNonce, setRetryNonce] = useState(0);
+...
   useEffect(() => {
     if (!slug) return;
     (async () => {
       setLoading(true);
+      setFetchError(false);
       const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-/i.test(slug);
-      const { data } = await (supabase as any)
+      const { data, error } = await (supabase as any)
         .from("v_classifieds_public")
         .select("*")
         .eq(isUuid ? "id" : "slug", slug)
         .maybeSingle();
+      if (error) {
+        setFetchError(true);
+        setListing(null);
+        setLoading(false);
+        return;
+      }
       setListing((data as PublicListing) ?? null);
       setLoading(false);
       if (data?.id) {
@@ -59,7 +61,7 @@ export default function UsadosDetail() {
         setIsOwner(Array.isArray(mine) && mine.some((m: { id: string }) => m.id === data.id));
       }
     })();
-  }, [slug]);
+  }, [slug, retryNonce]);
 
   async function contact() {
     if (!listing) return;
