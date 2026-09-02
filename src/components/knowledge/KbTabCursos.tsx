@@ -101,6 +101,27 @@ const igHandle = (v?: string | null) => {
   return cleaned;
 };
 
+const LABELS: Record<string, string> = {
+  live_produtos: 'Live de produtos',
+  online: 'Online',
+  presencial: 'Presencial',
+  hibrido: 'Híbrido',
+  imersao: 'Imersão',
+  workshop: 'Workshop',
+  mentoria: 'Mentoria',
+  curso: 'Curso',
+  palestra: 'Palestra',
+  treinamento: 'Treinamento',
+};
+
+const label = (v?: string | null) => {
+  const raw = String(v ?? '').trim();
+  if (!raw) return '';
+  const key = raw.toLowerCase().replace(/\s+/g, '_');
+  if (LABELS[key]) return LABELS[key];
+  return raw.replace(/_/g, ' ').replace(/^\w/, (m) => m.toUpperCase());
+};
+
 const norm = (s?: string | null) =>
   (s ?? '')
     .normalize('NFD')
