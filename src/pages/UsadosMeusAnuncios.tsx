@@ -279,25 +279,35 @@ export default function UsadosMeusAnuncios() {
                   placeholder="Tempo de uso, acessórios inclusos, motivo da venda, nota fiscal..." />
               </div>
               <div className="space-y-2">
-                <Label>Fotos (até {MAX_CLASSIFIED_IMAGES})</Label>
+                <Label>Fotos e vídeos (até {MAX_CLASSIFIED_IMAGES})</Label>
                 <div className="flex flex-wrap gap-2">
                   {form.images.map((img) => (
-                    <div key={img} className="relative h-20 w-20 overflow-hidden rounded-lg border">
-                      <img src={img} alt="Foto do equipamento" className="h-full w-full object-cover" />
+                    <div key={img} className="relative h-24 w-24 overflow-hidden rounded-xl border bg-muted">
+                      {isVideoUrl(img) ? (
+                        <>
+                          <video src={img} muted preload="metadata" className="h-full w-full bg-black object-cover" />
+                          <PlayCircle className="absolute inset-0 m-auto h-6 w-6 text-white drop-shadow" />
+                        </>
+                      ) : (
+                        <img src={img} alt="Mídia do equipamento" className="h-full w-full object-cover" />
+                      )}
                       <button type="button"
                         onClick={() => setForm({ ...form, images: form.images.filter((i) => i !== img) })}
-                        className="absolute right-0 top-0 bg-background/80 p-1">
+                        className="absolute right-1 top-1 rounded-full bg-background/90 p-1 shadow">
                         <X className="h-3 w-3" />
                       </button>
                     </div>
                   ))}
-                  <label className="flex h-20 w-20 cursor-pointer flex-col items-center justify-center gap-1 rounded-lg border border-dashed text-xs text-muted-foreground">
+                  <label className="flex h-24 w-24 cursor-pointer flex-col items-center justify-center gap-1 rounded-xl border border-dashed text-center text-[11px] text-muted-foreground transition hover:border-primary hover:text-primary">
                     {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImagePlus className="h-4 w-4" />}
-                    Adicionar
-                    <input type="file" accept="image/*" multiple className="hidden"
+                    Adicionar<br />foto ou vídeo
+                    <input type="file" accept={CLASSIFIED_MEDIA_ACCEPT} multiple className="hidden"
                       onChange={(e) => e.target.files && uploadImages(e.target.files)} />
                   </label>
                 </div>
+                <p className="text-[11px] text-muted-foreground">
+                  A primeira foto é a capa do anúncio. Vídeos (mp4/webm/mov) aparecem na galeria.
+                </p>
               </div>
               <Button className="w-full" onClick={save} disabled={saving || uploading}>
                 {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
