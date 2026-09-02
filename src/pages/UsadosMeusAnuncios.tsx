@@ -146,10 +146,16 @@ export default function UsadosMeusAnuncios() {
   }
 
   function editListing(l: MyListing) {
+    // Recupera os campos estruturados (ano, pagamento, frete, treinamento,
+    // garantia) e a ficha técnica gravados como linhas na descrição, para que
+    // nada se perca ao editar.
+    const parsed = splitDescription(l.description);
     setForm({
       id: l.id,
       title: l.title,
-      description: l.description ?? "",
+      description: parsed.text,
+      specs: parsed.specs.map((s) => `${s.label}: ${s.value}`).join("\n"),
+      fields: parsed.fields,
       price: l.price != null ? String(l.price) : "",
       condition: l.condition ?? "good",
       category: l.category ?? "scanner",
