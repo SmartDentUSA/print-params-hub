@@ -531,6 +531,56 @@ export default function KbTabCursos() {
         <DialogContent className="max-w-3xl max-h-[92vh] overflow-y-auto p-0 gap-0">
           {detailCourse && (
             <>
+              {/* Professor — acima do título */}
+              {detail?.kol && (
+                <div className="p-5 sm:p-6 pb-0">
+                  <div className="flex items-start gap-4 rounded-2xl border border-border bg-card p-4">
+                    <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full overflow-hidden bg-muted shrink-0 ring-2 ring-primary/10">
+                      {detail.kol.prof_photo_url ? (
+                        <img
+                          src={detail.kol.prof_photo_url}
+                          alt={detail.kol.nome ?? 'Profissional'}
+                          className="w-full h-full object-cover"
+                          loading="lazy"
+                        />
+                      ) : (
+                        <UserCircle className="w-full h-full text-muted-foreground/60" />
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-base sm:text-lg font-semibold text-foreground truncate">
+                        {detail.kol.nome}
+                      </div>
+                      {detail.kol.especialidade && (
+                        <div className="text-xs sm:text-sm font-semibold uppercase tracking-wide text-primary truncate">
+                          {detail.kol.especialidade}
+                        </div>
+                      )}
+                      {igHandle(detail.kol.instagram) && (
+                        <a
+                          href={`https://instagram.com/${igHandle(detail.kol.instagram)}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs text-primary hover:underline inline-flex items-center gap-1 mt-0.5"
+                        >
+                          <Instagram className="w-3 h-3" /> @{igHandle(detail.kol.instagram)}
+                        </a>
+                      )}
+                      {detail.kol.prof_mini_cv && (
+                        <p className="text-xs sm:text-sm text-muted-foreground line-clamp-3 mt-2 leading-relaxed">
+                          {detail.kol.prof_mini_cv}
+                        </p>
+                      )}
+                      {detail.kol.cliente_desde && (
+                        <p className="text-[11px] text-muted-foreground mt-1.5">
+                          Cliente Smart Dent desde {fmtDate(detail.kol.cliente_desde)}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Hero */}
               <div className="relative">
                 <div className="aspect-[16/7] w-full overflow-hidden bg-muted">
@@ -568,41 +618,6 @@ export default function KbTabCursos() {
               </div>
 
               <div className="p-5 sm:p-6 space-y-6">
-                {/* Professor */}
-                {detail?.kol && (
-                  <div className="flex items-center gap-3 rounded-xl border border-border bg-card p-3">
-                    <div className="w-12 h-12 rounded-full overflow-hidden bg-muted shrink-0 ring-2 ring-border">
-                      {detail.kol.prof_photo_url ? (
-                        <img
-                          src={detail.kol.prof_photo_url}
-                          alt={detail.kol.nome ?? ''}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <UserCircle className="w-full h-full text-muted-foreground" />
-                      )}
-                    </div>
-                    <div className="min-w-0">
-                      <div className="text-sm font-semibold truncate">{detail.kol.nome}</div>
-                      {detail.kol.especialidade && (
-                        <div className="text-xs text-muted-foreground uppercase tracking-wide truncate">
-                          {detail.kol.especialidade}
-                        </div>
-                      )}
-                      {igHandle(detail.kol.instagram) && (
-                        <a
-                          href={`https://instagram.com/${igHandle(detail.kol.instagram)}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-xs text-primary hover:underline inline-flex items-center gap-1"
-                        >
-                          <Instagram className="w-3 h-3" /> @{igHandle(detail.kol.instagram)}
-                        </a>
-                      )}
-                    </div>
-                  </div>
-                )}
-
                 {/* Fatos rápidos */}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   {(detailCourse.category || detailCourse.modality) && (
