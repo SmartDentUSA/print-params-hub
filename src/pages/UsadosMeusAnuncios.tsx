@@ -10,10 +10,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, ImagePlus, Loader2, PlusCircle, Trash2, X } from "lucide-react";
+import { ArrowLeft, ImagePlus, Loader2, PlayCircle, PlusCircle, Trash2, X } from "lucide-react";
 import {
   CLASSIFIED_CATEGORIES, CLASSIFIED_CONDITIONS, CLASSIFIEDS_BUCKET, CLASSIFIED_STATUS_LABEL,
-  MAX_CLASSIFIED_IMAGES, UFS, formatPrice, imageList, listingUrl,
+  CLASSIFIED_MEDIA_ACCEPT, MAX_CLASSIFIED_IMAGES, UFS, formatPrice, imageList, isVideoUrl, listingUrl,
 } from "@/lib/classifieds";
 
 interface MyListing {
