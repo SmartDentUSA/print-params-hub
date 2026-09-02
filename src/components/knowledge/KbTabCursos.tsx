@@ -464,8 +464,8 @@ export default function KbTabCursos() {
 
                         <div className="flex-1 min-w-0 flex flex-col gap-2">
                           <div className="flex flex-wrap gap-1">
-                            {c.modality && <Badge variant="secondary" className="text-[11px]">{c.modality}</Badge>}
-                            {c.category && <Badge variant="outline" className="text-[11px]">{c.category}</Badge>}
+                            {c.modality && <Badge variant="secondary" className="text-[11px]">{label(c.modality)}</Badge>}
+                            {c.category && <Badge variant="outline" className="text-[11px]">{label(c.category)}</Badge>}
                             {c.featured && <Badge className="text-[11px]">Destaque</Badge>}
                           </div>
 
@@ -545,8 +545,8 @@ export default function KbTabCursos() {
                 <div className="absolute inset-0 bg-gradient-to-t from-background via-background/70 to-transparent" />
                 <div className="absolute bottom-0 left-0 right-0 p-5 sm:p-6">
                   <div className="flex flex-wrap gap-1.5 mb-2">
-                    {detailCourse.modality && <Badge variant="secondary">{detailCourse.modality}</Badge>}
-                    {detailCourse.category && <Badge variant="outline">{detailCourse.category}</Badge>}
+                    {detailCourse.modality && <Badge variant="secondary">{label(detailCourse.modality)}</Badge>}
+                    {detailCourse.category && <Badge variant="outline">{label(detailCourse.category)}</Badge>}
                     {detailCourse.certificate && <Badge variant="outline">Com certificado</Badge>}
                   </div>
                   <DialogHeader className="space-y-1 text-left">
