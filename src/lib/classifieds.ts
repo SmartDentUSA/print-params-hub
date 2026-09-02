@@ -64,14 +64,10 @@ export function listingUrl(slugOrId: string): string {
   return `/usados/${slugOrId}`;
 }
 
+/** Capa do anúncio: primeira foto real (ignora vídeos). */
 export function firstImage(images: unknown): string | null {
-  if (!Array.isArray(images)) return null;
-  const first = images[0];
-  if (typeof first === "string") return first;
-  if (first && typeof first === "object" && "url" in (first as Record<string, unknown>)) {
-    return String((first as Record<string, unknown>).url);
-  }
-  return null;
+  const all = imageList(images);
+  return all.find((m) => !isVideoUrl(m)) ?? null;
 }
 
 export function imageList(images: unknown): string[] {
