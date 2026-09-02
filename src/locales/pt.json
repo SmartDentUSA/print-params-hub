@@ -246,7 +246,8 @@
       "ebooks": "Ebooks",
       "distribuidores": "Revendas",
       "eventos": "Eventos",
-      "lives": "Lives"
+      "lives": "Lives",
+      "cursos": "Cursos"
     },
     "parametros": {
       "title": "Parâmetros de Impressão 3D",
@@ -418,6 +419,10 @@
       "lives": {
         "title": "Lives & Cursos Online",
         "subtitle": "Workshops, webinars e lives de produtos ao vivo da Smart Dent, com inscrições abertas."
+      },
+      "cursos": {
+        "title": "Cursos de KOLs",
+        "subtitle": "Cursos ministrados por profissionais parceiros da Smart Dent."
       }
     },
     "nav": {
@@ -429,7 +434,8 @@
       "eventos": "Eventos",
       "distribuidores": "Revendas",
       "parametros": "Parâmetros",
-      "lives": "Lives"
+      "lives": "Lives",
+      "cursos": "Cursos"
     },
     "sidebar_cta": {
       "title": "Soluções de odontologia digital",

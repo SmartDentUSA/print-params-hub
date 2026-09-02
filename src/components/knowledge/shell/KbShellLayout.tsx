@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react';
-import { Menu, LayoutGrid, PlaySquare, FileText, BookOpen, Calendar, Store, Sliders, Radio } from 'lucide-react';
+import { Menu, LayoutGrid, PlaySquare, FileText, BookOpen, Calendar, Store, Sliders, Radio, GraduationCap } from 'lucide-react';
 import { LanguageSelector } from '@/components/LanguageSelector';
 import { AccountButton } from '@/components/AccountButton';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -29,6 +29,7 @@ const TOP_TABS: { key: KbTab; icon: React.ReactNode }[] = [
   { key: 'videos',         icon: <PlaySquare /> },
   { key: 'artigos',        icon: <FileText /> },
   { key: 'ebooks',         icon: <BookOpen /> },
+  { key: 'cursos',         icon: <GraduationCap /> },
   { key: 'distribuidores', icon: <Store /> },
   { key: 'eventos',        icon: <Calendar /> },
   { key: 'lives',          icon: <Radio /> },
