@@ -102,10 +102,44 @@ export default function KbTabCursos() {
     return Array.from(set.entries()).sort((a, b) => a[1].localeCompare(b[1], 'pt-BR'));
   }, [courses, kols]);
 
-  const visible = useMemo(
-    () => (selectedKol ? courses.filter((c) => c.producer_lead_id === selectedKol) : courses),
-    [courses, selectedKol],
-  );
+  const tipoOptions = useMemo(() => {
+    const set = new Set<string>();
+    for (const c of courses) {
+      if (c.category) set.add(c.category);
+      if (c.modality) set.add(c.modality);
+    }
+    return Array.from(set).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+  }, [courses]);
+
+  const espOptions = useMemo(() => {
+    const set = new Set<string>();
+    for (const c of courses) {
+      const k = c.producer_lead_id ? kols[c.producer_lead_id] : undefined;
+      if (k?.especialidade) set.add(k.especialidade);
+    }
+    return Array.from(set).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+  }, [courses, kols]);
+
+  const visible = useMemo(() => {
+    const q = norm(search);
+    return courses.filter((c) => {
+      if (selectedKol && c.producer_lead_id !== selectedKol) return false;
+      if (selectedTipo && norm(c.category) !== norm(selectedTipo) && norm(c.modality) !== norm(selectedTipo)) return false;
+      const k = c.producer_lead_id ? kols[c.producer_lead_id] : undefined;
+      if (selectedEsp && norm(k?.especialidade) !== norm(selectedEsp)) return false;
+      if (q) {
+        const hay = norm(
+          [c.title, c.subtitle, c.description, c.category, c.modality, c.city, c.state, k?.nome, k?.especialidade]
+            .filter(Boolean)
+            .join(' '),
+        );
+        if (!hay.includes(q)) return false;
+      }
+      return true;
+    });
+  }, [courses, kols, selectedKol, selectedTipo, selectedEsp, search]);
+
+  const hasFilters = !!(selectedKol || selectedTipo || selectedEsp || search);
 
   const ctaUrl = (c: ProfCourse) => {
     if (c.registration_url) return c.registration_url;
