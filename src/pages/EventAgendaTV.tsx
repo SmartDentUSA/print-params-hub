@@ -4,6 +4,11 @@ import QRCode from "qrcode";
 import { supabase } from "@/integrations/supabase/client";
 import { getStorageImageUrl } from "@/utils/storageImage";
 
+const SMARTDENT_LOGO_URL =
+  "https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/h7stblp3qxn_1760720051743.png";
+
+
+
 /* ------------------------------------------------------------------ */
 /* Tipos                                                              */
 /* ------------------------------------------------------------------ */
@@ -240,16 +245,24 @@ export default function EventAgendaTV() {
             </p>
           </div>
         </div>
-        <div className="text-right">
-          <div className="font-mono text-[3.4rem] font-black leading-none tabular-nums">
-            {fmtTime(now)}
-            <span className="text-[1.6rem] text-primary-foreground/50">:{String(now.getSeconds()).padStart(2, "0")}</span>
+        <div className="flex flex-col items-end gap-3">
+          <img
+            src={SMARTDENT_LOGO_URL}
+            alt="Smart Dent"
+            className="h-14 w-auto object-contain brightness-0 invert"
+          />
+          <div className="text-right">
+            <div className="font-mono text-[3.4rem] font-black leading-none tabular-nums">
+              {fmtTime(now)}
+              <span className="text-[1.6rem] text-primary-foreground/50">:{String(now.getSeconds()).padStart(2, "0")}</span>
+            </div>
+            <p className="text-[1.2rem] font-semibold uppercase tracking-widest text-primary-foreground/60">
+              {fmtDate(now)}
+            </p>
           </div>
-          <p className="text-[1.2rem] font-semibold uppercase tracking-widest text-primary-foreground/60">
-            {fmtDate(now)}
-          </p>
         </div>
       </header>
+
 
       {/* Próxima demonstração */}
       {next && (
