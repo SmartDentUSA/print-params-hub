@@ -286,21 +286,25 @@ export default function EventAgendaTV() {
 
       {/* Próxima demonstração */}
       {next && (
-        <div className="flex items-center justify-between gap-6 bg-primary/15 px-10 py-4">
-          <p className="text-[1.5rem] font-semibold text-primary-foreground/85">
-            Próxima demonstração: <span className="font-black">{next.name}</span> · {next.timeLabel || fmtTime(next.start)}
+        <div className="flex items-center justify-between gap-6 bg-primary/20 px-12 py-5">
+          <p className="text-[1.8rem] font-bold text-primary-foreground/95">
+            Próxima demonstração: <span className="font-black text-white">{next.name}</span>
+            <span className="text-primary-foreground/80"> · {next.timeLabel || fmtTime(next.start)}</span>
           </p>
-          <p className="font-mono text-[2.2rem] font-black tabular-nums text-primary">
+          <p className="font-mono text-[2.6rem] font-black tabular-nums text-emerald-400">
             começa em {countdown(next.start, now)}
           </p>
         </div>
       )}
 
       {/* Lista */}
-      <main className="flex-1 px-10 py-8">
+      <main className="flex-1 px-12 py-8">
         {visible.length === 0 ? (
-          <p className="pt-20 text-center text-[2rem] text-primary-foreground/60">
-            Nenhuma demonstração programada no momento. Visite o estande {event.company_stand || "Smart Dent"}.
+          <p className="pt-24 text-center text-[2.6rem] font-black leading-tight text-primary-foreground/80">
+            Nenhuma demonstração programada no momento.<br />
+            <span className="text-[1.8rem] font-semibold text-primary-foreground/60">
+              Visite o estande {event.company_stand || "Smart Dent"}.
+            </span>
           </p>
         ) : (
           <div className="space-y-6">
