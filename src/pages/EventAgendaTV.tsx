@@ -242,16 +242,24 @@ export default function EventAgendaTV() {
             </p>
           </div>
         </div>
-        <div className="text-right">
-          <div className="font-mono text-[3.4rem] font-black leading-none tabular-nums">
-            {fmtTime(now)}
-            <span className="text-[1.6rem] text-primary-foreground/50">:{String(now.getSeconds()).padStart(2, "0")}</span>
+        <div className="flex flex-col items-end gap-2">
+          <img
+            src={smartdentLogo.url}
+            alt="Smart Dent"
+            className="h-10 w-auto object-contain brightness-0 invert"
+          />
+          <div className="text-right">
+            <div className="font-mono text-[3.4rem] font-black leading-none tabular-nums">
+              {fmtTime(now)}
+              <span className="text-[1.6rem] text-primary-foreground/50">:{String(now.getSeconds()).padStart(2, "0")}</span>
+            </div>
+            <p className="text-[1.2rem] font-semibold uppercase tracking-widest text-primary-foreground/60">
+              {fmtDate(now)}
+            </p>
           </div>
-          <p className="text-[1.2rem] font-semibold uppercase tracking-widest text-primary-foreground/60">
-            {fmtDate(now)}
-          </p>
         </div>
       </header>
+
 
       {/* Próxima demonstração */}
       {next && (
