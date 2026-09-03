@@ -119,12 +119,12 @@ function countdown(target: Date | null, now: Date): string {
 /* QR                                                                 */
 /* ------------------------------------------------------------------ */
 
-function InstagramQR({ handle, size = 148 }: { handle: string; size?: number }) {
+function InstagramQR({ handle, size = 180 }: { handle: string; size?: number }) {
   const [src, setSrc] = useState("");
   useEffect(() => {
     const url = instaUrl(handle);
     if (!url) return setSrc("");
-    QRCode.toDataURL(url, { width: size * 2, margin: 1, color: { dark: "#0b1220", light: "#ffffff" } })
+    QRCode.toDataURL(url, { width: size * 2, margin: 2, color: { dark: "#0b1220", light: "#ffffff" } })
       .then(setSrc)
       .catch(() => setSrc(""));
   }, [handle, size]);
@@ -136,10 +136,10 @@ function InstagramQR({ handle, size = 148 }: { handle: string; size?: number }) 
         alt={`QR code do Instagram @${handle}`}
         width={size}
         height={size}
-        className="rounded-xl bg-background p-1.5"
+        className="rounded-2xl bg-background p-2"
         style={{ width: size, height: size }}
       />
-      <span className="text-[1.05rem] font-semibold tracking-wide text-primary-foreground/80">@{handle}</span>
+      <span className="text-[1.25rem] font-black tracking-wide text-primary-foreground/90">@{handle}</span>
     </div>
   );
 }
