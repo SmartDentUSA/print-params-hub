@@ -22,6 +22,8 @@ const ParameterPageExample = lazy(() => import("./pages/ParameterPageExample"));
 const ResinRedirect = lazy(() => import("./pages/ResinRedirect"));
 const AgentEmbed = lazy(() => import("./pages/AgentEmbed"));
 const AgendaPublica = lazy(() => import("./pages/AgendaPublica"));
+const EventAgendaTV = lazy(() => import("./pages/EventAgendaTV"));
+
 const PublicFormPage = lazy(() => import("./pages/PublicFormPage"));
 const PublicLandingPage = lazy(() => import("./pages/PublicLandingPage"));
 const PublicBioPage = lazy(() => import("./pages/PublicBioPage"));
