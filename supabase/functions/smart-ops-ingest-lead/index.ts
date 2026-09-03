@@ -541,7 +541,43 @@ Deno.serve(async (req) => {
       });
     }
 
+    // ── Promoção de respostas do formulário (label → chave canônica) ──
+    // As perguntas em português vivem em `form_responses[].label` e nunca eram
+    // lidas por extractField (que só varre chaves de topo). Sem isso respostas
+    // como "Você já teve contato com impressão 3D?" não chegavam ao CRM.
+    {
+      const LABEL_TO_KEY: Array<{ key: string; re: RegExp }> = [
+        { key: "tem_impressora", re: /(impress[aã]o\s*3d|impressora\s*3d|tem\s*impressora|possui\s*impressora)/i },
+        { key: "impressora_modelo", re: /(qual\s*(a\s*)?impressora|marca\s*da?\s*impressora|modelo\s*da?\s*impressora)/i },
+        { key: "tem_scanner", re: /(digitaliza|scanner\s*intra|tem\s*scanner|possui\s*scanner|moldagens)/i },
+        { key: "scanner_marca", re: /(qual\s*(o\s*)?scanner|marca\s*do?\s*scanner|modelo\s*do?\s*scanner)/i },
+        { key: "area_atuacao", re: /[aá]rea\s*de\s*atua/i },
+        { key: "especialidade", re: /especialidade/i },
+        { key: "software_cad", re: /software\s*cad/i },
+        { key: "volume_mensal_pecas", re: /(volume|quantas\s*pe[çc]as|pe[çc]as\s*por\s*m[êe]s)/i },
+        { key: "principal_aplicacao", re: /(principal\s*aplica|para\s*qual\s*aplica)/i },
+      ];
+      const responses = Array.isArray((payload as Record<string, unknown>).form_responses)
+        ? ((payload as Record<string, unknown>).form_responses as Array<Record<string, unknown>>)
+        : [];
+      for (const r of responses) {
+        const label = String(r?.label ?? "").trim();
+        const value = r?.value;
+        if (!label || value == null || typeof value === "object") continue;
+        const val = String(value).replace(/\s+/g, " ").trim();
+        if (!val) continue;
+        for (const { key, re } of LABEL_TO_KEY) {
+          if (re.test(label) && !payload[key]) {
+            payload[key] = val;
+            console.log(`[ingest-lead] label→${key} = "${val}" (pergunta: "${label}")`);
+            break;
+          }
+        }
+      }
+    }
+
     const telefoneRaw = extractField(payload, "phone_number", "phone", "mobile", "telefone", "celular", "user_phone");
+
     const telefoneNormalized = normalizePhone(telefoneRaw);
 
     const areaAtuacaoRaw = extractField(payload, "area de atuacao", "area_atuacao", "area_de_atuacao", "atuacao");
