@@ -1314,22 +1314,32 @@ export function mapAttendanceToDealCustomFields(
   if (area) {
     fields.push({ custom_field_id: DEAL_CUSTOM_FIELDS.AREA_ATUACAO, value: humanizeValue(area) });
   }
+  // Scanner / Impressora: enviar EXATAMENTE a opção escolhida no formulário,
+  // combinada com a marca/modelo selecionada quando a resposta é afirmativa.
+  const AFFIRMATIVE = /^(sim|s|possui|tenho|uso|utilizo|ja|já)\b|^sim[,.\s]/i;
+  const normTxt = (s: string) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  const combineExact = (answer: string, brand: string | null) => {
+    const a = answer.trim();
+    const b = (brand || "").trim();
+    if (!b) return a;
+    if (normTxt(a).includes(normTxt(b))) return a;
+    if (!AFFIRMATIVE.test(normTxt(a))) return a;
+    return `${a} — ${b}`;
+  };
+
   const scanner = resolve("tem_scanner");
-  if (scanner) {
-    const marcaScanner = resolve("scanner_marca");
-    const scannerValue = marcaScanner && /^sim$/i.test(scanner.trim())
-      ? `${humanizeValue(scanner)} - ${humanizeValue(marcaScanner)}`
-      : humanizeValue(scanner);
+  const marcaScanner = resolve("scanner_marca");
+  if (scanner || marcaScanner) {
+    const scannerValue = scanner ? combineExact(scanner, marcaScanner) : String(marcaScanner);
     fields.push({ custom_field_id: DEAL_CUSTOM_FIELDS.TEM_SCANNER, value: scannerValue });
   }
   const impressora = resolve("tem_impressora");
-  if (impressora) {
-    const modelo = resolve("impressora_modelo");
-    const impressoraValue = modelo && /^sim$/i.test(impressora.trim())
-      ? `${humanizeValue(impressora)} - ${humanizeValue(modelo)}`
-      : humanizeValue(impressora);
+  const modelo = resolve("impressora_modelo");
+  if (impressora || modelo) {
+    const impressoraValue = impressora ? combineExact(impressora, modelo) : String(modelo);
     fields.push({ custom_field_id: DEAL_CUSTOM_FIELDS.TEM_IMPRESSORA, value: impressoraValue });
   }
+
   const pais = resolve("pais_origem");
   if (pais) {
     fields.push({ custom_field_id: DEAL_CUSTOM_FIELDS.PAIS_ORIGEM, value: pais });
