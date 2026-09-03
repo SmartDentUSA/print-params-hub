@@ -283,9 +283,10 @@ export async function buildSellerDealSummaryHTML(
   const combineAnswer = (answer: unknown, brand: unknown): string => {
     const a = String(answer ?? "").trim();
     const b = String(brand ?? "").trim();
-    if (!a) return b;
-    if (!b) return a;
     const norm = (s: string) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    const brandOk = !!b && !/^(nao|n|nenhum|nenhuma|nao tenho|nao possuo|-|na|n\/a)$/i.test(norm(b));
+    if (!a) return brandOk ? b : "";
+    if (!brandOk) return a;
     if (norm(a).includes(norm(b))) return a;
     return `${a} — ${b}`;
   };

@@ -400,17 +400,18 @@ export function buildPersonFormCustomFields(
     return s;
   };
 
-  // Resposta EXATA do formulário + marca/modelo selecionada (quando afirmativa).
-  const AFF = /^(sim|s|possui|tenho|uso|utilizo|ja|já)\b|^sim[,.\s]/i;
+  // Resposta EXATA do formulário + marca/modelo SEMPRE que citada.
   const nrm = (s: string) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  const EMPTY_BRAND = /^(nao|n|nenhum|nenhuma|nao tenho|nao possuo|-|na|n\/a)$/i;
   const combineExact = (answer: string | null, brand: string | null): string | null => {
     const a = (answer || "").trim();
     const b = (brand || "").trim();
-    if (!a) return b ? titleCase(b) : null;
-    if (!b || nrm(a).includes(nrm(b))) return normalizeYesNo(a);
-    if (!AFF.test(nrm(a))) return normalizeYesNo(a);
+    const brandOk = !!b && !EMPTY_BRAND.test(nrm(b));
+    if (!a) return brandOk ? titleCase(b) : null;
+    if (!brandOk || nrm(a).includes(nrm(b))) return normalizeYesNo(a);
     return `${normalizeYesNo(a)} — ${titleCase(b)}`;
   };
+
 
   // ── Scanner (text) ──
   const scannerMarca = (lead.scanner_marca as string | null)
@@ -1318,17 +1319,17 @@ export function mapAttendanceToDealCustomFields(
     fields.push({ custom_field_id: DEAL_CUSTOM_FIELDS.AREA_ATUACAO, value: humanizeValue(area) });
   }
   // Scanner / Impressora: enviar EXATAMENTE a opção escolhida no formulário,
-  // combinada com a marca/modelo selecionada quando a resposta é afirmativa.
-  const AFFIRMATIVE = /^(sim|s|possui|tenho|uso|utilizo|ja|já)\b|^sim[,.\s]/i;
+  // combinada com a marca/modelo SEMPRE que ela for citada.
   const normTxt = (s: string) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  const EMPTY_BRAND_D = /^(nao|n|nenhum|nenhuma|nao tenho|nao possuo|-|na|n\/a)$/i;
   const combineExact = (answer: string, brand: string | null) => {
     const a = answer.trim();
     const b = (brand || "").trim();
-    if (!b) return a;
+    if (!b || EMPTY_BRAND_D.test(normTxt(b))) return a;
     if (normTxt(a).includes(normTxt(b))) return a;
-    if (!AFFIRMATIVE.test(normTxt(a))) return a;
     return `${a} — ${b}`;
   };
+
 
   const scanner = resolve("tem_scanner");
   const marcaScanner = resolve("scanner_marca");
