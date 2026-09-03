@@ -187,6 +187,10 @@ const App = () => (
       <Route path="/embed/treinamentos" element={<Navigate to="/agenda" replace />} />
       <Route path="/agenda" element={<AgendaPublica variant="presencial" />} />
       <Route path="/agenda/online" element={<AgendaPublica variant="online" />} />
+
+      {/* TV do congresso: agenda de demonstrações (acesso externo, sem login) */}
+      <Route path="/agenda-tv/:slug" element={<EventAgendaTV />} />
+
       
       {/* Public forms */}
       <Route path="/f/:slug" element={<PublicFormPage />} />
