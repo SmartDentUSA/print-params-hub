@@ -396,14 +396,16 @@ export default function EventAgendaTV() {
       </main>
 
       {/* Footer */}
-      <footer className="flex items-center justify-between border-t border-white/10 px-10 py-4 text-[1.15rem] font-semibold text-primary-foreground/60">
-        <span>Smart Dent | Fluxo Digital {event.instagram_handle ? `· ${event.instagram_handle}` : ""}</span>
+      <footer className="flex items-center justify-between border-t border-white/15 px-12 py-5 text-[1.35rem] font-black text-primary-foreground/80">
+        <span className="tracking-wide">
+          Smart Dent | Fluxo Digital {event.instagram_handle ? `· ${event.instagram_handle}` : ""}
+        </span>
         {pages > 1 && (
-          <span className="flex items-center gap-2">
+          <span className="flex items-center gap-3">
             {Array.from({ length: pages }).map((_, i) => (
               <span
                 key={i}
-                className={`h-2.5 w-2.5 rounded-full ${i === page % pages ? "bg-primary" : "bg-white/25"}`}
+                className={`h-3.5 w-3.5 rounded-full ${i === page % pages ? "bg-primary" : "bg-white/30"}`}
               />
             ))}
           </span>
