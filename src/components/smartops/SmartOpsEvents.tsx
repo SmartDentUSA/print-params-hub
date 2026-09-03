@@ -11,7 +11,7 @@ import { Switch } from "@/components/ui/switch";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, Check, ChevronsUpDown, ExternalLink, CalendarDays } from "lucide-react";
+import { Plus, Pencil, Trash2, Check, ChevronsUpDown, ExternalLink, CalendarDays, Monitor } from "lucide-react";
 import { Country } from "country-state-city";
 import { cn } from "@/lib/utils";
 import CoverImageUpload from "@/components/smartops/CoverImageUpload";
@@ -19,6 +19,7 @@ import { EventWebResearchButton, EventReferenceUploads, EventAboutByLanguage, Ev
 import EventAudienceFields from "@/components/smartops/events/EventAudienceFields";
 import EventSpeakersFields, { type EventSpeaker, type EventPartnerBrand } from "@/components/smartops/events/EventSpeakersFields";
 import { CriarPastaEventoDriveButton } from "@/components/smartops/CriarPastaEventoDriveButton";
+import { getPublicOrigin } from "@/utils/publicOrigin";
 
 type EventRow = {
   id: string;
@@ -273,7 +274,21 @@ export function SmartOpsEvents() {
                       </td>
                       <td className="py-2 pr-3 text-right">
                         <div className="flex items-center justify-end gap-1">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            title="Copiar link da TV (agenda de demonstrações)"
+                            onClick={() => {
+                              const url = `${getPublicOrigin()}/agenda-tv/${r.id}`;
+                              navigator.clipboard?.writeText(url);
+                              toast.success("Link da TV copiado", { description: url });
+                              window.open(url, "_blank", "noopener");
+                            }}
+                          >
+                            <Monitor className="w-4 h-4" />
+                          </Button>
                           <CriarPastaEventoDriveButton eventId={r.id} folderUrl={r.drive_folder_url} />
+
                           <Button size="sm" variant="ghost" onClick={() => openEdit(r)}><Pencil className="w-4 h-4" /></Button>
                           <Button size="sm" variant="ghost" onClick={() => handleDelete(r)}><Trash2 className="w-4 h-4 text-destructive" /></Button>
                         </div>

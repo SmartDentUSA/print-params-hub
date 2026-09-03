@@ -22,6 +22,8 @@ const ParameterPageExample = lazy(() => import("./pages/ParameterPageExample"));
 const ResinRedirect = lazy(() => import("./pages/ResinRedirect"));
 const AgentEmbed = lazy(() => import("./pages/AgentEmbed"));
 const AgendaPublica = lazy(() => import("./pages/AgendaPublica"));
+const EventAgendaTV = lazy(() => import("./pages/EventAgendaTV"));
+
 const PublicFormPage = lazy(() => import("./pages/PublicFormPage"));
 const PublicLandingPage = lazy(() => import("./pages/PublicLandingPage"));
 const PublicBioPage = lazy(() => import("./pages/PublicBioPage"));
@@ -187,6 +189,10 @@ const App = () => (
       <Route path="/embed/treinamentos" element={<Navigate to="/agenda" replace />} />
       <Route path="/agenda" element={<AgendaPublica variant="presencial" />} />
       <Route path="/agenda/online" element={<AgendaPublica variant="online" />} />
+
+      {/* TV do congresso: agenda de demonstrações (acesso externo, sem login) */}
+      <Route path="/agenda-tv/:slug" element={<EventAgendaTV />} />
+
       
       {/* Public forms */}
       <Route path="/f/:slug" element={<PublicFormPage />} />
