@@ -290,14 +290,14 @@ export default function EventAgendaTV() {
               return (
                 <article
                   key={s.key}
-                  className={`grid grid-cols-[168px_1fr_auto_auto] items-center gap-8 rounded-3xl border px-8 py-6 ${
+                  className={`flex items-center gap-8 rounded-3xl border px-8 py-6 ${
                     live
                       ? "border-primary bg-primary/20 shadow-[0_0_60px_-20px_hsl(var(--primary))]"
                       : "border-white/10 bg-white/[0.04]"
                   }`}
                 >
                   {/* Foto */}
-                  <div className="h-[168px] w-[168px] overflow-hidden rounded-2xl bg-white/10">
+                  <div className="h-[150px] w-[150px] shrink-0 overflow-hidden rounded-2xl bg-white/10">
                     {s.photo_url ? (
                       <img
                         src={getStorageImageUrl(s.photo_url, { width: 400, height: 400, resize: "cover" })}
@@ -311,37 +311,50 @@ export default function EventAgendaTV() {
                     )}
                   </div>
 
-                  {/* Nome + tema */}
-                  <div className="min-w-0">
+                  {/* QR Instagram */}
+                  <div className="shrink-0">
+                    <InstagramQR handle={s.instagram} size={130} />
+                  </div>
+
+                  {/* Nome */}
+                  <div className="w-[22%] shrink-0">
                     {live && (
                       <span className="mb-2 inline-block rounded-full bg-primary px-4 py-1 text-[1rem] font-black uppercase tracking-widest">
                         Ao vivo agora
                       </span>
                     )}
-                    <h2 className="truncate text-[2.4rem] font-black leading-tight">{s.name}</h2>
-                    {s.theme && (
-                      <p className="pt-1 line-clamp-2 text-[1.5rem] font-medium leading-snug text-primary-foreground/75">
-                        {s.theme}
-                      </p>
-                    )}
-                  </div>
-
-                  {/* Horário + contagem */}
-                  <div className="text-right">
-                    <p className="text-[1.1rem] font-semibold uppercase tracking-widest text-primary-foreground/55">
+                    <h2 className="text-[2.2rem] font-black leading-tight">{s.name}</h2>
+                    <p className="pt-1 text-[1.05rem] font-semibold uppercase tracking-widest text-primary-foreground/55">
                       {s.dateLabel}
                     </p>
-                    <p className="font-mono text-[2.6rem] font-black leading-none tabular-nums">
-                      {s.timeLabel || "a definir"}
+                  </div>
+
+                  {/* Tema */}
+                  <p className="min-w-0 flex-1 line-clamp-3 text-[1.6rem] font-medium leading-snug text-primary-foreground/80">
+                    {s.theme}
+                  </p>
+
+                  {/* Início */}
+                  <div className="shrink-0 text-center">
+                    <p className="text-[1.05rem] font-bold uppercase tracking-widest text-primary-foreground/55">
+                      Início
                     </p>
-                    <p className="pt-1 font-mono text-[1.4rem] font-bold tabular-nums text-primary">
-                      {live ? "em andamento" : cd ? `em ${cd}` : ""}
+                    <p className="pt-1 font-mono text-[2.6rem] font-black leading-none tabular-nums">
+                      {fmtTime(s.start) || "--:--"}
                     </p>
                   </div>
 
-                  {/* QR Instagram */}
-                  <InstagramQR handle={s.instagram} />
+                  {/* Começa em */}
+                  <div className="w-[190px] shrink-0 text-center">
+                    <p className="text-[1.05rem] font-bold uppercase tracking-widest text-primary-foreground/55">
+                      {live ? "Status" : "Começa em"}
+                    </p>
+                    <p className="pt-1 font-mono text-[2.6rem] font-black leading-none tabular-nums text-emerald-400">
+                      {live ? "ao vivo" : cd || "—"}
+                    </p>
+                  </div>
                 </article>
+
               );
             })}
           </div>
