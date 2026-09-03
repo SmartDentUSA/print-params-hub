@@ -278,9 +278,23 @@ export async function buildSellerDealSummaryHTML(
   }
 
   // 6. Equipamentos declarados
+  // Mostra a resposta EXATA escolhida no formulário + a marca/modelo selecionada,
+  // nunca só a marca nem só o "Sim".
+  const combineAnswer = (answer: unknown, brand: unknown): string => {
+    const a = String(answer ?? "").trim();
+    const b = String(brand ?? "").trim();
+    if (!a) return b;
+    if (!b) return a;
+    const norm = (s: string) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    if (norm(a).includes(norm(b))) return a;
+    return `${a} — ${b}`;
+  };
   const equipLines: string[] = [];
-  if (lead.tem_impressora) equipLines.push(`Impressora: ${esc(lead.impressora_modelo || lead.tem_impressora)}`);
-  if (lead.tem_scanner) equipLines.push(`Scanner: ${esc(lead.tem_scanner)}`);
+  const impressoraVal = combineAnswer(lead.tem_impressora, lead.impressora_modelo);
+  if (impressoraVal) equipLines.push(`Impressora: ${esc(impressoraVal)}`);
+  const scannerVal = combineAnswer(lead.tem_scanner, lead.scanner_marca);
+  if (scannerVal) equipLines.push(`Scanner: ${esc(scannerVal)}`);
+
   if (lead.software_cad) equipLines.push(`CAD: ${esc(lead.software_cad)}`);
   if (lead.volume_mensal_pecas) equipLines.push(`Volume mensal: ${esc(lead.volume_mensal_pecas)}`);
   if (lead.principal_aplicacao) equipLines.push(`Aplicação: ${esc(lead.principal_aplicacao)}`);

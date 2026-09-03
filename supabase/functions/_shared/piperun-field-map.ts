@@ -400,17 +400,24 @@ export function buildPersonFormCustomFields(
     return s;
   };
 
+  // Resposta EXATA do formulário + marca/modelo selecionada (quando afirmativa).
+  const AFF = /^(sim|s|possui|tenho|uso|utilizo|ja|já)\b|^sim[,.\s]/i;
+  const nrm = (s: string) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  const combineExact = (answer: string | null, brand: string | null): string | null => {
+    const a = (answer || "").trim();
+    const b = (brand || "").trim();
+    if (!a) return b ? titleCase(b) : null;
+    if (!b || nrm(a).includes(nrm(b))) return normalizeYesNo(a);
+    if (!AFF.test(nrm(a))) return normalizeYesNo(a);
+    return `${normalizeYesNo(a)} — ${titleCase(b)}`;
+  };
+
   // ── Scanner (text) ──
   const scannerMarca = (lead.scanner_marca as string | null)
     || scanFormData(fd, ["scanner_marca", "equip_scanner", "como_digitaliza", "scanner_modelo", "modelo_scanner", "marca_scanner"]);
   const temScanner = (lead.tem_scanner as string | null)
     || scanFormData(fd, ["tem_scanner", "scanner", "possui_scanner"]);
-  let scannerVal: string | null = null;
-  if (scannerMarca && String(scannerMarca).trim() !== "") {
-    scannerVal = titleCase(String(scannerMarca));
-  } else {
-    scannerVal = normalizeYesNo(temScanner);
-  }
+  const scannerVal = combineExact(temScanner, scannerMarca);
   if (scannerVal) {
     out.push({ id: PESSOA_FORM_CUSTOM_FIELDS.SCANNER_FORM, value: scannerVal });
   }
@@ -420,12 +427,8 @@ export function buildPersonFormCustomFields(
     || scanFormData(fd, ["impressora_modelo", "modelo_impressora", "marca_impressora", "equip_impressora", "printer_model"]);
   const temImpressora = (lead.tem_impressora as string | null)
     || scanFormData(fd, ["tem_impressora", "impressora", "possui_impressora"]);
-  let impressoraVal: string | null = null;
-  if (impressoraModelo && String(impressoraModelo).trim() !== "") {
-    impressoraVal = titleCase(String(impressoraModelo));
-  } else {
-    impressoraVal = normalizeYesNo(temImpressora);
-  }
+  const impressoraVal = combineExact(temImpressora, impressoraModelo);
+
   if (impressoraVal) {
     out.push({ id: PESSOA_FORM_CUSTOM_FIELDS.IMPRESSORA_FORM, value: impressoraVal });
   }
@@ -1314,22 +1317,32 @@ export function mapAttendanceToDealCustomFields(
   if (area) {
     fields.push({ custom_field_id: DEAL_CUSTOM_FIELDS.AREA_ATUACAO, value: humanizeValue(area) });
   }
+  // Scanner / Impressora: enviar EXATAMENTE a opção escolhida no formulário,
+  // combinada com a marca/modelo selecionada quando a resposta é afirmativa.
+  const AFFIRMATIVE = /^(sim|s|possui|tenho|uso|utilizo|ja|já)\b|^sim[,.\s]/i;
+  const normTxt = (s: string) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  const combineExact = (answer: string, brand: string | null) => {
+    const a = answer.trim();
+    const b = (brand || "").trim();
+    if (!b) return a;
+    if (normTxt(a).includes(normTxt(b))) return a;
+    if (!AFFIRMATIVE.test(normTxt(a))) return a;
+    return `${a} — ${b}`;
+  };
+
   const scanner = resolve("tem_scanner");
-  if (scanner) {
-    const marcaScanner = resolve("scanner_marca");
-    const scannerValue = marcaScanner && /^sim$/i.test(scanner.trim())
-      ? `${humanizeValue(scanner)} - ${humanizeValue(marcaScanner)}`
-      : humanizeValue(scanner);
+  const marcaScanner = resolve("scanner_marca");
+  if (scanner || marcaScanner) {
+    const scannerValue = scanner ? combineExact(scanner, marcaScanner) : String(marcaScanner);
     fields.push({ custom_field_id: DEAL_CUSTOM_FIELDS.TEM_SCANNER, value: scannerValue });
   }
   const impressora = resolve("tem_impressora");
-  if (impressora) {
-    const modelo = resolve("impressora_modelo");
-    const impressoraValue = modelo && /^sim$/i.test(impressora.trim())
-      ? `${humanizeValue(impressora)} - ${humanizeValue(modelo)}`
-      : humanizeValue(impressora);
+  const modelo = resolve("impressora_modelo");
+  if (impressora || modelo) {
+    const impressoraValue = impressora ? combineExact(impressora, modelo) : String(modelo);
     fields.push({ custom_field_id: DEAL_CUSTOM_FIELDS.TEM_IMPRESSORA, value: impressoraValue });
   }
+
   const pais = resolve("pais_origem");
   if (pais) {
     fields.push({ custom_field_id: DEAL_CUSTOM_FIELDS.PAIS_ORIGEM, value: pais });
