@@ -307,88 +307,88 @@ export default function EventAgendaTV() {
             </span>
           </p>
         ) : (
-          <div className="space-y-6">
+          <div className="space-y-8">
             {groups.map((g) => (
-            <section key={g.label} className="space-y-4">
-              <div className="flex items-center gap-4">
-                <h3 className="text-[1.4rem] font-black uppercase tracking-[0.2em] text-primary-foreground/70">
-                  {g.isToday ? `Hoje · ${g.label}` : g.label}
-                </h3>
-                <span className="h-px flex-1 bg-white/10" />
-              </div>
-            {g.items.map((s) => {
-              const live = s.start && s.end && now >= s.start && now <= s.end;
-              const cd = countdown(s.start, now);
-              return (
-                <article
-                  key={s.key}
-                  className={`flex items-center gap-8 rounded-3xl border px-8 py-6 ${
-                    live
-                      ? "border-primary bg-primary/20 shadow-[0_0_60px_-20px_hsl(var(--primary))]"
-                      : "border-white/10 bg-white/[0.04]"
-                  }`}
-                >
-                  {/* Foto */}
-                  <div className="h-[150px] w-[150px] shrink-0 overflow-hidden rounded-2xl bg-white/10">
-                    {s.photo_url ? (
-                      <img
-                        src={getStorageImageUrl(s.photo_url, { width: 400, height: 400, resize: "cover" })}
-                        alt={s.name}
-                        className="h-full w-full object-cover"
-                      />
-                    ) : (
-                      <div className="flex h-full w-full items-center justify-center text-[3rem] font-black text-primary-foreground/40">
-                        {s.name.slice(0, 1)}
+              <section key={g.label} className="space-y-5">
+                <div className="flex items-center gap-4">
+                  <h3 className="text-[1.6rem] font-black uppercase tracking-[0.25em] text-primary-foreground/80">
+                    {g.isToday ? `Hoje · ${g.label}` : g.label}
+                  </h3>
+                  <span className="h-px flex-1 bg-white/15" />
+                </div>
+                {g.items.map((s) => {
+                  const live = s.start && s.end && now >= s.start && now <= s.end;
+                  const cd = countdown(s.start, now);
+                  return (
+                    <article
+                      key={s.key}
+                      className={`flex items-center gap-10 rounded-[2rem] border px-10 py-8 ${
+                        live
+                          ? "border-emerald-400/60 bg-emerald-400/10 shadow-[0_0_80px_-24px_hsl(var(--primary))]"
+                          : "border-white/15 bg-white/[0.05]"
+                      }`}
+                    >
+                      {/* Foto */}
+                      <div className="h-[190px] w-[190px] shrink-0 overflow-hidden rounded-2xl bg-white/10 ring-2 ring-white/10">
+                        {s.photo_url ? (
+                          <img
+                            src={getStorageImageUrl(s.photo_url, { width: 400, height: 400, resize: "cover" })}
+                            alt={s.name}
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center text-[4rem] font-black text-primary-foreground/50">
+                            {s.name.slice(0, 1)}
+                          </div>
+                        )}
                       </div>
-                    )}
-                  </div>
 
-                  {/* QR Instagram */}
-                  <div className="shrink-0">
-                    <InstagramQR handle={s.instagram} size={130} />
-                  </div>
+                      {/* QR Instagram */}
+                      <div className="shrink-0">
+                        <InstagramQR handle={s.instagram} size={160} />
+                      </div>
 
-                  {/* Nome */}
-                  <div className="w-[22%] shrink-0">
-                    {live && (
-                      <span className="mb-2 inline-block rounded-full bg-primary px-4 py-1 text-[1rem] font-black uppercase tracking-widest">
-                        Ao vivo agora
-                      </span>
-                    )}
-                    <h2 className="text-[2.2rem] font-black leading-tight">{s.name}</h2>
-                    <p className="pt-1 text-[1.05rem] font-semibold uppercase tracking-widest text-primary-foreground/55">
-                      {s.dateLabel}
-                    </p>
-                  </div>
+                      {/* Nome + Tema */}
+                      <div className="min-w-0 flex-1">
+                        {live && (
+                          <span className="mb-3 inline-block rounded-full bg-emerald-500 px-5 py-1.5 text-[1.1rem] font-black uppercase tracking-widest text-[#0b1220]">
+                            Ao vivo agora
+                          </span>
+                        )}
+                        <h2 className="text-[2.8rem] font-black leading-tight tracking-tight text-white">
+                          {s.name}
+                        </h2>
+                        <p className="mt-2 text-[1.25rem] font-bold uppercase tracking-widest text-primary-foreground/75">
+                          {s.dateLabel}
+                        </p>
+                        <p className="mt-4 line-clamp-2 text-[1.75rem] font-semibold leading-snug text-primary-foreground/90">
+                          {s.theme}
+                        </p>
+                      </div>
 
-                  {/* Tema */}
-                  <p className="min-w-0 flex-1 line-clamp-3 text-[1.6rem] font-medium leading-snug text-primary-foreground/80">
-                    {s.theme}
-                  </p>
+                      {/* Início */}
+                      <div className="shrink-0 text-center">
+                        <p className="text-[1.25rem] font-black uppercase tracking-widest text-primary-foreground/70">
+                          Início
+                        </p>
+                        <p className="mt-2 font-mono text-[3.4rem] font-black leading-none tabular-nums text-white">
+                          {fmtTime(s.start) || "--:--"}
+                        </p>
+                      </div>
 
-                  {/* Início */}
-                  <div className="shrink-0 text-center">
-                    <p className="text-[1.05rem] font-bold uppercase tracking-widest text-primary-foreground/55">
-                      Início
-                    </p>
-                    <p className="pt-1 font-mono text-[2.6rem] font-black leading-none tabular-nums">
-                      {fmtTime(s.start) || "--:--"}
-                    </p>
-                  </div>
-
-                  {/* Começa em */}
-                  <div className="w-[190px] shrink-0 text-center">
-                    <p className="text-[1.05rem] font-bold uppercase tracking-widest text-primary-foreground/55">
-                      {live ? "Status" : "Começa em"}
-                    </p>
-                    <p className="pt-1 font-mono text-[2.6rem] font-black leading-none tabular-nums text-emerald-400">
-                      {live ? "ao vivo" : cd || "—"}
-                    </p>
-                  </div>
-                </article>
-              );
-            })}
-            </section>
+                      {/* Começa em */}
+                      <div className="w-[220px] shrink-0 text-center">
+                        <p className="text-[1.25rem] font-black uppercase tracking-widest text-primary-foreground/70">
+                          {live ? "Status" : "Começa em"}
+                        </p>
+                        <p className="mt-2 font-mono text-[3.4rem] font-black leading-none tabular-nums text-emerald-400">
+                          {live ? "ao vivo" : cd || "—"}
+                        </p>
+                      </div>
+                    </article>
+                  );
+                })}
+              </section>
             ))}
           </div>
         )}
