@@ -144,6 +144,26 @@ function InstagramQR({ handle, size = 180 }: { handle: string; size?: number }) 
   );
 }
 
+function FooterQR({ url, size = 90 }: { url: string; size?: number }) {
+  const [src, setSrc] = useState("");
+  useEffect(() => {
+    QRCode.toDataURL(url, { width: size * 2, margin: 2, color: { dark: "#0b1220", light: "#ffffff" } })
+      .then(setSrc)
+      .catch(() => setSrc(""));
+  }, [url, size]);
+  if (!src) return null;
+  return (
+    <img
+      src={src}
+      alt={`QR code ${url}`}
+      width={size}
+      height={size}
+      className="rounded-xl"
+      style={{ width: size, height: size }}
+    />
+  );
+}
+
 /* ------------------------------------------------------------------ */
 /* Página                                                             */
 /* ------------------------------------------------------------------ */
@@ -396,20 +416,40 @@ export default function EventAgendaTV() {
       </main>
 
       {/* Footer */}
-      <footer className="flex items-center justify-between border-t border-white/15 px-12 py-5 text-[1.35rem] font-black text-primary-foreground/80">
-        <span className="tracking-wide">
-          Smart Dent | Fluxo Digital {event.instagram_handle ? `· ${event.instagram_handle}` : ""}
-        </span>
-        {pages > 1 && (
-          <span className="flex items-center gap-3">
-            {Array.from({ length: pages }).map((_, i) => (
-              <span
-                key={i}
-                className={`h-3.5 w-3.5 rounded-full ${i === page % pages ? "bg-primary" : "bg-white/30"}`}
-              />
-            ))}
+      <footer className="flex items-center justify-between gap-8 border-t border-white/15 bg-[hsl(222_47%_8%)] px-12 py-5">
+        <div className="flex items-center gap-6">
+          <div className="shrink-0 rounded-2xl bg-white p-2">
+            <FooterQR url="https://parametros.smartdent.com.br/CIPRO" size={90} />
+          </div>
+          <div>
+            <p className="text-[1.8rem] font-black leading-tight text-white">
+              Perdeu alguma demonstração?
+            </p>
+            <p className="text-[1.5rem] font-bold leading-tight text-primary-foreground/90">
+              Escaneie o QR Code e receba o acesso à aula.
+            </p>
+            <p className="mt-1 text-[1.15rem] font-semibold tracking-wide text-primary-foreground/60">
+              parametros.smartdent.com.br/CIPRO
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-6">
+          <span className="text-right text-[1.25rem] font-black text-primary-foreground/70">
+            Smart Dent | Fluxo Digital
+            {event.instagram_handle ? <br /> : null}
+            {event.instagram_handle ? event.instagram_handle : ""}
           </span>
-        )}
+          {pages > 1 && (
+            <span className="flex items-center gap-3">
+              {Array.from({ length: pages }).map((_, i) => (
+                <span
+                  key={i}
+                  className={`h-3.5 w-3.5 rounded-full ${i === page % pages ? "bg-primary" : "bg-white/30"}`}
+                />
+              ))}
+            </span>
+          )}
+        </div>
       </footer>
     </div>
   );
