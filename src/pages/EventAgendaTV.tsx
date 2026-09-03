@@ -355,13 +355,13 @@ export default function EventAgendaTV() {
                             Ao vivo agora
                           </span>
                         )}
-                        <h2 className="text-[2.8rem] font-black leading-tight tracking-tight text-white">
+                        <h2 className="text-[2.9rem] font-black leading-tight tracking-tight text-white">
                           {s.name}
                         </h2>
-                        <p className="mt-2 text-[1.25rem] font-bold uppercase tracking-widest text-primary-foreground/75">
+                        <p className="mt-2 text-[1.3rem] font-black uppercase tracking-widest text-white/85">
                           {s.dateLabel}
                         </p>
-                        <p className="mt-4 line-clamp-2 text-[1.75rem] font-semibold leading-snug text-primary-foreground/90">
+                        <p className="mt-4 line-clamp-2 text-[1.9rem] font-bold leading-snug text-white">
                           {s.theme}
                         </p>
                       </div>
