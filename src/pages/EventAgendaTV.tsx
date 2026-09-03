@@ -144,6 +144,26 @@ function InstagramQR({ handle, size = 180 }: { handle: string; size?: number }) 
   );
 }
 
+function FooterQR({ url, size = 90 }: { url: string; size?: number }) {
+  const [src, setSrc] = useState("");
+  useEffect(() => {
+    QRCode.toDataURL(url, { width: size * 2, margin: 2, color: { dark: "#0b1220", light: "#ffffff" } })
+      .then(setSrc)
+      .catch(() => setSrc(""));
+  }, [url, size]);
+  if (!src) return null;
+  return (
+    <img
+      src={src}
+      alt={`QR code ${url}`}
+      width={size}
+      height={size}
+      className="rounded-xl"
+      style={{ width: size, height: size }}
+    />
+  );
+}
+
 /* ------------------------------------------------------------------ */
 /* Página                                                             */
 /* ------------------------------------------------------------------ */
