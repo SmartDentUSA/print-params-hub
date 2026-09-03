@@ -301,8 +301,16 @@ export default function EventAgendaTV() {
             Nenhuma demonstração programada no momento. Visite o estande {event.company_stand || "Smart Dent"}.
           </p>
         ) : (
-          <div className="space-y-5">
-            {visible.map((s) => {
+          <div className="space-y-6">
+            {groups.map((g) => (
+            <section key={g.label} className="space-y-4">
+              <div className="flex items-center gap-4">
+                <h3 className="text-[1.4rem] font-black uppercase tracking-[0.2em] text-primary-foreground/70">
+                  {g.isToday ? `Hoje · ${g.label}` : g.label}
+                </h3>
+                <span className="h-px flex-1 bg-white/10" />
+              </div>
+            {g.items.map((s) => {
               const live = s.start && s.end && now >= s.start && now <= s.end;
               const cd = countdown(s.start, now);
               return (
