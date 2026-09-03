@@ -245,36 +245,38 @@ export default function EventAgendaTV() {
   return (
     <div className="flex min-h-screen flex-col overflow-hidden bg-[hsl(222_47%_8%)] text-primary-foreground">
       {/* Header */}
-      <header className="flex items-center justify-between gap-8 border-b border-white/10 px-10 py-6">
-        <div className="flex items-center gap-6">
+      <header className="flex items-center justify-between gap-8 border-b border-white/15 px-12 py-7">
+        <div className="flex items-center gap-8">
           {event.event_logo_url && (
             <img
-              src={getStorageImageUrl(event.event_logo_url, { width: 220 })}
+              src={getStorageImageUrl(event.event_logo_url, { width: 260 })}
               alt={event.name}
-              className="h-16 w-auto object-contain"
+              className="h-20 w-auto object-contain"
             />
           )}
           <div>
-            <h1 className="text-[2.6rem] font-black leading-none tracking-tight">Agenda de Demonstrações</h1>
-            <p className="pt-2 text-[1.35rem] font-medium text-primary-foreground/70">
+            <h1 className="text-[3.2rem] font-black leading-none tracking-tight text-white">
+              Agenda de Demonstrações
+            </h1>
+            <p className="pt-2 text-[1.6rem] font-bold leading-tight text-primary-foreground/85">
               {event.name}
               {event.company_stand ? ` · Estande ${event.company_stand}` : ""}
               {event.location ? ` · ${event.location}` : ""}
             </p>
           </div>
         </div>
-        <div className="flex flex-col items-end gap-3">
+        <div className="flex flex-col items-end gap-4">
           <img
             src={SMARTDENT_LOGO_URL}
             alt="Smart Dent"
-            className="h-14 w-auto object-contain brightness-0 invert"
+            className="h-16 w-auto object-contain brightness-0 invert"
           />
           <div className="text-right">
-            <div className="font-mono text-[3.4rem] font-black leading-none tabular-nums">
+            <div className="font-mono text-[4rem] font-black leading-none tabular-nums text-white">
               {fmtTime(now)}
-              <span className="text-[1.6rem] text-primary-foreground/50">:{String(now.getSeconds()).padStart(2, "0")}</span>
+              <span className="text-[2rem] text-primary-foreground/60">:{String(now.getSeconds()).padStart(2, "0")}</span>
             </div>
-            <p className="text-[1.2rem] font-semibold uppercase tracking-widest text-primary-foreground/60">
+            <p className="text-[1.4rem] font-black uppercase tracking-widest text-primary-foreground/70">
               {fmtDate(now)}
             </p>
           </div>
