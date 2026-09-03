@@ -1226,6 +1226,49 @@ export function mapAttendanceToDealCustomFields(
     collect(fd);
     return out;
   })();
+
+  // ── Label-based fallback: perguntas em português dos formulários ──
+  // O `raw_fields` só promove um subconjunto fixo de campos. Perguntas como
+  // "Você já teve contato com impressão 3D?" ficam apenas em `responses[].label`
+  // e nunca chegavam ao CRM. Aqui casamos o label da pergunta por padrão.
+  const LABEL_PATTERNS: Array<{ canonical: string; re: RegExp }> = [
+    { canonical: "tem_impressora", re: /(impress[aã]o\s*3d|impressora\s*3d|tem\s*impressora|possui\s*impressora|imprime)/i },
+    { canonical: "impressora_modelo", re: /(qual\s*(a\s*)?impressora|marca\s*da?\s*impressora|modelo\s*da?\s*impressora)/i },
+    { canonical: "tem_scanner", re: /(digitaliza|scanner\s*intra|tem\s*scanner|possui\s*scanner|moldagens)/i },
+    { canonical: "scanner_marca", re: /(qual\s*(o\s*)?scanner|marca\s*do?\s*scanner|modelo\s*do?\s*scanner)/i },
+    { canonical: "area_atuacao", re: /[aá]rea\s*de\s*atua/i },
+    { canonical: "especialidade", re: /especialidade/i },
+    { canonical: "produto_interesse", re: /(produto\s*de\s*interesse|qual\s*produto|equipamento\s*de\s*interesse)/i },
+    { canonical: "pais_origem", re: /(pa[ií]s)/i },
+  ];
+  const labelHits = (() => {
+    const out: Record<string, string> = {};
+    const fd = attendance.form_data as Record<string, unknown> | null | undefined;
+    if (!fd || typeof fd !== "object") return out;
+    const consider = (label: unknown, value: unknown) => {
+      const l = String(label ?? "").trim();
+      const v = String(value ?? "").trim();
+      if (!l || !v) return;
+      for (const { canonical, re } of LABEL_PATTERNS) {
+        if (canonical in out) continue;
+        if (re.test(l)) { out[canonical] = v; return; }
+      }
+    };
+    const walk = (obj: unknown) => {
+      if (!obj || typeof obj !== "object") return;
+      if (Array.isArray(obj)) { for (const it of obj) walk(it); return; }
+      const rec = obj as Record<string, unknown>;
+      if (typeof rec.label === "string" && rec.value != null && typeof rec.value !== "object") {
+        consider(rec.label, rec.value);
+      }
+      for (const v of Object.values(rec)) {
+        if (v && typeof v === "object") walk(v);
+      }
+    };
+    walk(fd);
+    return out;
+  })();
+
   const resolve = (canonical: string): string | null => {
     const direct = attendance[canonical];
     if (direct != null && String(direct).trim() !== "") return String(direct);
@@ -1237,8 +1280,14 @@ export function mapAttendanceToDealCustomFields(
         return v;
       }
     }
+    const byLabel = labelHits[canonical];
+    if (byLabel) {
+      console.log(`[mapAttendanceToDealCustomFields] fallback label → ${canonical}=${byLabel}`);
+      return byLabel;
+    }
     return null;
   };
+
   const humanizeValue = (v: string) => {
     const t = v.trim().replace(/_/g, " ");
     if (!t) return t;

@@ -288,8 +288,110 @@ export async function buildSellerDealSummaryHTML(
     sections.push(`<b>🛠️ Equipamentos declarados</b><br>${equipLines.map(l => `• ${l}`).join("<br>")}<br>`);
   }
 
+  // 7. Respostas dos formulários (qualificação)
+  // Sem este bloco o vendedor não vê NADA do que o lead respondeu além dos
+  // poucos campos promovidos para colunas (era o bug reportado em 03/09/2026).
+  const NOISE_LABEL = /^(dedupe_key|piperun_link|utm_|gclid|fbclid|form_id|form_name|source|submitted_at|lead_id|telefone_raw|nome( completo)?|e-?mail|seu e-?mail|seu whatsapp|whatsapp|telefone)$/i;
+  const humanizeLabel = (k: string) =>
+    k.replace(/_/g, " ").replace(/^\s*(\S)/, (_m, c) => c.toUpperCase()).trim();
+  const cleanVal = (v: unknown) => String(v ?? "").replace(/\s+/g, " ").trim();
+
+  type Pair = { label: string; value: string };
+  const pushPairs = (target: Pair[], seen: Set<string>, pairs: Pair[]) => {
+    for (const p of pairs) {
+      const label = humanizeLabel(cleanVal(p.label));
+      const value = cleanVal(p.value);
+      if (!label || !value || value === "[object Object]") continue;
+      if (NOISE_LABEL.test(label)) continue;
+      const key = label.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      target.push({ label, value });
+    }
+  };
+
+  const formBlocks: string[] = [];
+
+  // 7a. Formulário que acabou de ser enviado (destaque)
+  if (opts.highlightFormResponses?.length) {
+    const pairs: Pair[] = [];
+    pushPairs(pairs, new Set<string>(), opts.highlightFormResponses);
+    if (pairs.length) {
+      formBlocks.push(
+        `&nbsp;&nbsp;◦ <b>${esc(opts.highlightFormName || lead.form_name || "Formulário")}</b> (envio mais recente)<br>` +
+        pairs.map(p => `&nbsp;&nbsp;&nbsp;&nbsp;• <b>${esc(p.label)}:</b> ${esc(p.value)}`).join("<br>"),
+      );
+    }
+  }
+
+  // 7b. Snapshots acumulados em form_data (últimos 3 formulários)
+  const fd = (lead.form_data as Record<string, unknown> | null) || null;
+  if (fd && typeof fd === "object") {
+    const snaps: Array<{ formName: string; submittedAt: string; pairs: Pair[] }> = [];
+    for (const [formName, bucket] of Object.entries(fd)) {
+      const entries = Array.isArray(bucket) ? bucket : [bucket];
+      for (const entry of entries) {
+        if (!entry || typeof entry !== "object") continue;
+        const e = entry as Record<string, unknown>;
+        const pairs: Pair[] = [];
+        const seen = new Set<string>();
+        if (Array.isArray(e.responses)) {
+          pushPairs(pairs, seen, (e.responses as Pair[]) || []);
+        }
+        const raw = e.raw_fields as Record<string, unknown> | undefined;
+        if (raw && typeof raw === "object") {
+          pushPairs(
+            pairs, seen,
+            Object.entries(raw)
+              .filter(([, v]) => v != null && typeof v !== "object")
+              .map(([k, v]) => ({ label: k, value: String(v) })),
+          );
+        }
+        if (pairs.length) {
+          snaps.push({
+            formName: formName === "_unnamed" ? "Formulário" : formName,
+            submittedAt: String(e.submitted_at || ""),
+            pairs,
+          });
+        }
+      }
+    }
+    snaps.sort((a, b) => b.submittedAt.localeCompare(a.submittedAt));
+    const highlightKey = cleanVal(opts.highlightFormName || "").toLowerCase();
+    for (const s of snaps.slice(0, 3)) {
+      // não repetir o formulário já destacado com o mesmo conteúdo
+      if (highlightKey && s.formName.toLowerCase() === highlightKey && formBlocks.length) continue;
+      formBlocks.push(
+        `&nbsp;&nbsp;◦ <b>${esc(s.formName)}</b>${s.submittedAt ? ` — ${fmtDate(s.submittedAt)}` : ""}<br>` +
+        s.pairs.map(p => `&nbsp;&nbsp;&nbsp;&nbsp;• <b>${esc(p.label)}:</b> ${esc(p.value)}`).join("<br>"),
+      );
+    }
+  }
+
+  // 7c. Respostas persistidas em smartops_form_field_responses (7x3 e afins)
+  const fieldRows = ((formsRes as any)?.data as Array<Record<string, unknown>>) || [];
+  if (fieldRows.length) {
+    const pairs: Pair[] = [];
+    pushPairs(
+      pairs, new Set<string>(),
+      fieldRows.map(r => ({ label: String(r.field_label || ""), value: String(r.value || "") })),
+    );
+    if (pairs.length) {
+      formBlocks.push(
+        `&nbsp;&nbsp;◦ <b>Outras respostas registradas</b><br>` +
+        pairs.slice(0, 20).map(p => `&nbsp;&nbsp;&nbsp;&nbsp;• <b>${esc(p.label)}:</b> ${esc(p.value)}`).join("<br>"),
+      );
+    }
+  }
+
+  sections.push(
+    formBlocks.length
+      ? `<b>📝 Respostas dos formulários</b><br>${formBlocks.join("<br>")}<br>`
+      : `<b>📝 Respostas dos formulários</b><br>• Nenhuma resposta registrada.<br>`,
+  );
 
   const html = sections.join("<br>");
+
   // Hash excludes the "Atualizado em <hoje>" line so daily re-runs with
   // identical content don't trigger a fresh PipeRun note. Without this,
   // every Meta webhook redelivery posted a new identical "Resumo do Lead".
