@@ -384,8 +384,9 @@ export default function EventAgendaTV() {
             })}
             </section>
             ))}
-
+          </div>
         )}
+
       </main>
 
       {/* Footer */}
