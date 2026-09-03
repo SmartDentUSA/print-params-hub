@@ -380,10 +380,11 @@ export default function EventAgendaTV() {
                     </p>
                   </div>
                 </article>
-
               );
             })}
-          </div>
+            </section>
+            ))}
+
         )}
       </main>
 
