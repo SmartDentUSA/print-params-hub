@@ -245,11 +245,11 @@ export default function EventAgendaTV() {
             </p>
           </div>
         </div>
-        <div className="flex flex-col items-end gap-2">
+        <div className="flex flex-col items-end gap-3">
           <img
             src={SMARTDENT_LOGO_URL}
             alt="Smart Dent"
-            className="h-10 w-auto object-contain brightness-0 invert"
+            className="h-14 w-auto object-contain brightness-0 invert"
           />
           <div className="text-right">
             <div className="font-mono text-[3.4rem] font-black leading-none tabular-nums">
