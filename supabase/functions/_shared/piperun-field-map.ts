@@ -1319,17 +1319,17 @@ export function mapAttendanceToDealCustomFields(
     fields.push({ custom_field_id: DEAL_CUSTOM_FIELDS.AREA_ATUACAO, value: humanizeValue(area) });
   }
   // Scanner / Impressora: enviar EXATAMENTE a opção escolhida no formulário,
-  // combinada com a marca/modelo selecionada quando a resposta é afirmativa.
-  const AFFIRMATIVE = /^(sim|s|possui|tenho|uso|utilizo|ja|já)\b|^sim[,.\s]/i;
+  // combinada com a marca/modelo SEMPRE que ela for citada.
   const normTxt = (s: string) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  const EMPTY_BRAND_D = /^(nao|n|nenhum|nenhuma|nao tenho|nao possuo|-|na|n\/a)$/i;
   const combineExact = (answer: string, brand: string | null) => {
     const a = answer.trim();
     const b = (brand || "").trim();
-    if (!b) return a;
+    if (!b || EMPTY_BRAND_D.test(normTxt(b))) return a;
     if (normTxt(a).includes(normTxt(b))) return a;
-    if (!AFFIRMATIVE.test(normTxt(a))) return a;
     return `${a} — ${b}`;
   };
+
 
   const scanner = resolve("tem_scanner");
   const marcaScanner = resolve("scanner_marca");
