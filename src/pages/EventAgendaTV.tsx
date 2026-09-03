@@ -3,6 +3,8 @@ import { useParams, useSearchParams } from "react-router-dom";
 import QRCode from "qrcode";
 import { supabase } from "@/integrations/supabase/client";
 import { getStorageImageUrl } from "@/utils/storageImage";
+import smartdentLogo from "@/assets/smartdent-logo-512.png.asset.json";
+
 
 /* ------------------------------------------------------------------ */
 /* Tipos                                                              */
