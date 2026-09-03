@@ -220,7 +220,7 @@ export default function EventAgendaTV() {
   }
 
   return (
-    <div className="min-h-screen overflow-hidden bg-[hsl(222_47%_8%)] text-primary-foreground">
+    <div className="flex min-h-screen flex-col overflow-hidden bg-[hsl(222_47%_8%)] text-primary-foreground">
       {/* Header */}
       <header className="flex items-center justify-between gap-8 border-b border-white/10 px-10 py-6">
         <div className="flex items-center gap-6">
@@ -264,7 +264,7 @@ export default function EventAgendaTV() {
       )}
 
       {/* Lista */}
-      <main className="px-10 py-8">
+      <main className="flex-1 px-10 py-8">
         {visible.length === 0 ? (
           <p className="pt-20 text-center text-[2rem] text-primary-foreground/60">
             Nenhuma demonstração programada no momento. Visite o estande {event.company_stand || "Smart Dent"}.
