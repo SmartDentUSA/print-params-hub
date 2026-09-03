@@ -400,17 +400,24 @@ export function buildPersonFormCustomFields(
     return s;
   };
 
+  // Resposta EXATA do formulário + marca/modelo selecionada (quando afirmativa).
+  const AFF = /^(sim|s|possui|tenho|uso|utilizo|ja|já)\b|^sim[,.\s]/i;
+  const nrm = (s: string) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  const combineExact = (answer: string | null, brand: string | null): string | null => {
+    const a = (answer || "").trim();
+    const b = (brand || "").trim();
+    if (!a) return b ? titleCase(b) : null;
+    if (!b || nrm(a).includes(nrm(b))) return normalizeYesNo(a);
+    if (!AFF.test(nrm(a))) return normalizeYesNo(a);
+    return `${normalizeYesNo(a)} — ${titleCase(b)}`;
+  };
+
   // ── Scanner (text) ──
   const scannerMarca = (lead.scanner_marca as string | null)
     || scanFormData(fd, ["scanner_marca", "equip_scanner", "como_digitaliza", "scanner_modelo", "modelo_scanner", "marca_scanner"]);
   const temScanner = (lead.tem_scanner as string | null)
     || scanFormData(fd, ["tem_scanner", "scanner", "possui_scanner"]);
-  let scannerVal: string | null = null;
-  if (scannerMarca && String(scannerMarca).trim() !== "") {
-    scannerVal = titleCase(String(scannerMarca));
-  } else {
-    scannerVal = normalizeYesNo(temScanner);
-  }
+  const scannerVal = combineExact(temScanner, scannerMarca);
   if (scannerVal) {
     out.push({ id: PESSOA_FORM_CUSTOM_FIELDS.SCANNER_FORM, value: scannerVal });
   }
@@ -420,12 +427,8 @@ export function buildPersonFormCustomFields(
     || scanFormData(fd, ["impressora_modelo", "modelo_impressora", "marca_impressora", "equip_impressora", "printer_model"]);
   const temImpressora = (lead.tem_impressora as string | null)
     || scanFormData(fd, ["tem_impressora", "impressora", "possui_impressora"]);
-  let impressoraVal: string | null = null;
-  if (impressoraModelo && String(impressoraModelo).trim() !== "") {
-    impressoraVal = titleCase(String(impressoraModelo));
-  } else {
-    impressoraVal = normalizeYesNo(temImpressora);
-  }
+  const impressoraVal = combineExact(temImpressora, impressoraModelo);
+
   if (impressoraVal) {
     out.push({ id: PESSOA_FORM_CUSTOM_FIELDS.IMPRESSORA_FORM, value: impressoraVal });
   }
