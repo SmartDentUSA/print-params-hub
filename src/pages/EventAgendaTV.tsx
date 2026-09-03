@@ -186,10 +186,14 @@ export default function EventAgendaTV() {
 
   const slots = useMemo(() => flatten((event?.speakers as Speaker[]) || []), [event]);
 
-  /* Somente demonstrações de hoje em diante (sem data vai para o fim) */
+  /* Só o que ainda não terminou: ao encerrar, a demonstração sai da tela */
   const upcoming = useMemo(() => {
-    const cut = now.getTime() - 20 * 60 * 1000; // mantém a atual por 20 min
-    const withDate = slots.filter((s) => s.start && (s.end ?? s.start).getTime() > cut);
+    const t = now.getTime();
+    const withDate = slots.filter((s) => {
+      if (!s.start) return false;
+      const end = s.end ?? new Date(s.start.getTime() + 45 * 60 * 1000);
+      return end.getTime() > t;
+    });
     const noDate = slots.filter((s) => !s.start);
     return [...withDate, ...noDate];
   }, [slots, now]);
@@ -207,6 +211,20 @@ export default function EventAgendaTV() {
 
   const visible = upcoming.slice((page % pages) * perPage, (page % pages) * perPage + perPage);
   const next = upcoming.find((s) => s.start && s.start.getTime() > now.getTime());
+
+  /* Agrupa a tela por dia: o dia corrente vai esvaziando e os próximos dias entram */
+  const groups = useMemo(() => {
+    const todayLabel = fmtDate(now);
+    const out: { label: string; isToday: boolean; items: Slot[] }[] = [];
+    visible.forEach((s) => {
+      const label = s.dateLabel || "Data a definir";
+      const last = out[out.length - 1];
+      if (last && last.label === label) last.items.push(s);
+      else out.push({ label, isToday: label === todayLabel, items: [s] });
+    });
+    return out;
+  }, [visible, now]);
+
 
   if (loading) {
     return (
@@ -283,8 +301,16 @@ export default function EventAgendaTV() {
             Nenhuma demonstração programada no momento. Visite o estande {event.company_stand || "Smart Dent"}.
           </p>
         ) : (
-          <div className="space-y-5">
-            {visible.map((s) => {
+          <div className="space-y-6">
+            {groups.map((g) => (
+            <section key={g.label} className="space-y-4">
+              <div className="flex items-center gap-4">
+                <h3 className="text-[1.4rem] font-black uppercase tracking-[0.2em] text-primary-foreground/70">
+                  {g.isToday ? `Hoje · ${g.label}` : g.label}
+                </h3>
+                <span className="h-px flex-1 bg-white/10" />
+              </div>
+            {g.items.map((s) => {
               const live = s.start && s.end && now >= s.start && now <= s.end;
               const cd = countdown(s.start, now);
               return (
@@ -354,11 +380,13 @@ export default function EventAgendaTV() {
                     </p>
                   </div>
                 </article>
-
               );
             })}
+            </section>
+            ))}
           </div>
         )}
+
       </main>
 
       {/* Footer */}
