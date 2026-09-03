@@ -400,17 +400,18 @@ export function buildPersonFormCustomFields(
     return s;
   };
 
-  // Resposta EXATA do formulário + marca/modelo selecionada (quando afirmativa).
-  const AFF = /^(sim|s|possui|tenho|uso|utilizo|ja|já)\b|^sim[,.\s]/i;
+  // Resposta EXATA do formulário + marca/modelo SEMPRE que citada.
   const nrm = (s: string) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  const EMPTY_BRAND = /^(nao|n|nenhum|nenhuma|nao tenho|nao possuo|-|na|n\/a)$/i;
   const combineExact = (answer: string | null, brand: string | null): string | null => {
     const a = (answer || "").trim();
     const b = (brand || "").trim();
-    if (!a) return b ? titleCase(b) : null;
-    if (!b || nrm(a).includes(nrm(b))) return normalizeYesNo(a);
-    if (!AFF.test(nrm(a))) return normalizeYesNo(a);
+    const brandOk = !!b && !EMPTY_BRAND.test(nrm(b));
+    if (!a) return brandOk ? titleCase(b) : null;
+    if (!brandOk || nrm(a).includes(nrm(b))) return normalizeYesNo(a);
     return `${normalizeYesNo(a)} — ${titleCase(b)}`;
   };
+
 
   // ── Scanner (text) ──
   const scannerMarca = (lead.scanner_marca as string | null)
