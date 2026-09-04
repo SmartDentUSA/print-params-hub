@@ -198,6 +198,11 @@ const App = () => (
       {/* Autoagendamento dos KOLs do congresso (link compartilhável, sem login) */}
       <Route path="/agenda-kol/:eventId" element={<EventSpeakerBooking />} />
 
+      {/* Landing page pública da agenda do congresso (QR Code / vendedores) */}
+      <Route path="/evento/:slug" element={<EventPublicAgenda />} />
+      <Route path="/CIPRO" element={<EventPublicAgenda term="CIPRO" />} />
+      <Route path="/cipro" element={<EventPublicAgenda term="CIPRO" />} />
+
 
       
       {/* Public forms */}
