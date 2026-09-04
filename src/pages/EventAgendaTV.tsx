@@ -66,12 +66,56 @@ const instaUrl = (v?: string | null) => {
   return h ? `https://instagram.com/${h}` : "";
 };
 
+/* ---- Fuso oficial de Brasília (America/Sao_Paulo) ---- */
+const SP_TZ = "America/Sao_Paulo";
+const SP_FMT = new Intl.DateTimeFormat("en-CA", {
+  timeZone: SP_TZ,
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+  second: "2-digit",
+  weekday: "short",
+  hour12: false,
+});
+
+const WD_INDEX: Record<string, number> = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+
+/** Componentes de data/hora do instante `d` já convertidos para o horário de Brasília. */
+function spParts(d: Date) {
+  const o: Record<string, string> = {};
+  for (const p of SP_FMT.formatToParts(d)) if (p.type !== "literal") o[p.type] = p.value;
+  return {
+    year: Number(o.year),
+    month: Number(o.month),
+    day: Number(o.day),
+    hour: Number(o.hour === "24" ? "0" : o.hour),
+    minute: Number(o.minute),
+    second: Number(o.second),
+    weekday: WD_INDEX[o.weekday] ?? 0,
+  };
+}
+
+/** Offset (min) entre SP e UTC no instante `d`. */
+function spOffsetMinutes(d: Date): number {
+  const p = spParts(d);
+  const asUtc = Date.UTC(p.year, p.month - 1, p.day, p.hour, p.minute, p.second);
+  return Math.round((asUtc - d.getTime()) / 60000);
+}
+
+/** Converte "YYYY-MM-DD" + "HH:MM" (hora de Brasília, como cadastrado) no instante real. */
 function toDate(date?: string, time?: string): Date | null {
   if (!date) return null;
   const t = (time || "00:00").slice(0, 5);
-  const d = new Date(`${date}T${t}:00`);
-  return isNaN(d.getTime()) ? null : d;
+  const [y, mo, da] = date.slice(0, 10).split("-").map(Number);
+  const [hh, mi] = t.split(":").map(Number);
+  if (!y || !mo || !da || Number.isNaN(hh) || Number.isNaN(mi)) return null;
+  const guess = new Date(Date.UTC(y, mo - 1, da, hh, mi, 0));
+  const real = new Date(guess.getTime() - spOffsetMinutes(guess) * 60000);
+  return isNaN(real.getTime()) ? null : real;
 }
+
 
 const WEEK_SHORT = ["DOM", "SEG", "TER", "QUA", "QUI", "SEX", "SÁB"];
 const WEEK_LONG = [
