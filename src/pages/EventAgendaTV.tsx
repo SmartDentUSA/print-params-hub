@@ -368,7 +368,7 @@ function InstagramQR({
 /* Peças de UI                                                        */
 /* ------------------------------------------------------------------ */
 
-function Avatar({ slot, size }: { slot: Slot; size: number }) {
+function Avatar({ slot, size }: { slot: { name: string; photo_url: string }; size: number }) {
   return (
     <div
       className="shrink-0 overflow-hidden rounded-full border-[3px] border-[--tv-slate]/35 bg-[--tv-sky] shadow-[0_4px_16px_rgba(11,37,69,0.12)]"
