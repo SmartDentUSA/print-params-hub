@@ -370,8 +370,13 @@ Deno.serve(async (req) => {
         const [, mi] = start.split(":").map(Number);
         if (mi !== 0) return json({ error: "Os horários são de 1 em 1 hora." }, 400);
         if (theme.length < 3) return json({ error: "Informe o tema de cada horário." }, 400);
-        slots.push({ date, start_time: start, end_time: addMinutes(start, 60), theme });
+        const dur = Number(s?.duration_minutes ?? 60);
+        if (!Number.isFinite(dur) || dur < 30 || dur > 240 || dur % 30 !== 0) {
+          return json({ error: "A duração deve ser de 30 em 30 minutos (30 a 240)." }, 400);
+        }
+        slots.push({ date, start_time: start, end_time: addMinutes(start, dur), theme });
       }
+
 
       const supportSlots: Session[] = [];
       for (const s of rawSupport) {
