@@ -624,31 +624,54 @@ export default function EventSpeakerBooking() {
         {/* Grade de horários */}
         <Card>
           <CardContent className="p-4">
-            <div className="mb-3 flex items-center gap-2 text-sm font-semibold">
+            <div className="mb-1 flex items-center gap-2 text-sm font-semibold">
               <Clock className="h-4 w-4" /> Horários de 1 em 1 hora
               {saving && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
             </div>
+            <p className="mb-3 text-[11px] text-muted-foreground">
+              A duração é escolhida no momento de agendar (de 30 em 30 minutos) e há 1 hora de intervalo
+              obrigatório entre demonstrações.
+            </p>
             <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
               {(activeDay ? SLOTS : []).map((t) => {
                 const key = `${activeDay}|${t}`;
-                const other = takenByOthers.get(key);
+                const other = blocked.get(key);
                 const own = mySlotAt(activeDay, t);
+                const cover = !own ? myCoverAt(activeDay, t) : null;
+                const gap = !own && !cover && !other && myGap(activeDay, t);
+                const dim = !!other || gap;
                 return (
                   <button
                     key={key}
-                    disabled={!!other || saving}
+                    disabled={dim || saving}
                     onClick={() => openSlot(activeDay, t)}
                     className={cn(
                       "rounded-lg border px-2 py-2 text-sm font-medium transition-colors",
-                      other && "cursor-not-allowed border-dashed bg-muted text-muted-foreground",
-                      !other && own && "border-emerald-600 bg-emerald-600 text-white",
-                      !other && !own && "bg-card hover:bg-accent",
+                      dim && "cursor-not-allowed border-dashed bg-muted text-muted-foreground",
+                      !dim && own && "border-emerald-600 bg-emerald-600 text-white",
+                      !dim && cover && "border-emerald-600 bg-emerald-600/70 text-white",
+                      !dim && !own && !cover && "bg-card hover:bg-accent",
                     )}
-                    title={other ? `Reservado por ${other.name}` : own?.theme || undefined}
+                    title={
+                      other
+                        ? other.reason === "busy"
+                          ? `Reservado por ${other.name}`
+                          : `Intervalo após ${other.name}`
+                        : gap
+                          ? "Intervalo obrigatório de 1 hora"
+                          : (own || cover)?.theme || undefined
+                    }
                   >
                     <div className="tabular-nums">{t}</div>
-                    {other && <div className="truncate text-[10px] opacity-80">{other.name}</div>}
-                    {!other && own?.theme && <div className="truncate text-[10px] opacity-90">{own.theme}</div>}
+                    {other?.reason === "busy" && <div className="truncate text-[10px] opacity-80">{other.name}</div>}
+                    {other?.reason === "gap" && <div className="truncate text-[10px] opacity-80">intervalo</div>}
+                    {gap && <div className="truncate text-[10px] opacity-80">intervalo</div>}
+                    {!dim && own && (
+                      <div className="truncate text-[10px] opacity-90">
+                        {durationLabel(durationOf(own))}{own.theme ? ` • ${own.theme}` : ""}
+                      </div>
+                    )}
+                    {!dim && cover && <div className="truncate text-[10px] opacity-90">em andamento</div>}
                   </button>
                 );
               })}
@@ -656,8 +679,9 @@ export default function EventSpeakerBooking() {
             <div className="mt-3 flex flex-wrap gap-3 text-[11px] text-muted-foreground">
               <span className="inline-flex items-center gap-1"><span className="h-3 w-3 rounded border bg-card" /> Livre</span>
               <span className="inline-flex items-center gap-1"><span className="h-3 w-3 rounded bg-emerald-600" /> Seu horário</span>
-              <span className="inline-flex items-center gap-1"><span className="h-3 w-3 rounded border border-dashed bg-muted" /> Ocupado</span>
+              <span className="inline-flex items-center gap-1"><span className="h-3 w-3 rounded border border-dashed bg-muted" /> Ocupado / intervalo</span>
             </div>
+
           </CardContent>
         </Card>
 
