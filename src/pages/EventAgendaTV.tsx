@@ -594,9 +594,9 @@ export default function EventAgendaTV() {
         </div>
 
         {/* ------------------------------ Próximas ------------------------------ */}
-        <main className="relative z-10 min-h-0 flex-1 overflow-hidden px-12 pt-4">
+        <main className="relative z-10 min-h-0 flex-1 overflow-hidden px-12 pt-3">
           <div
-            className="flex h-full min-h-0 flex-col gap-4 pb-2 transition-opacity duration-500"
+            className="flex h-full min-h-0 flex-col gap-3 pb-2 transition-opacity duration-500"
             style={{ opacity: fadeIn ? 1 : 0 }}
           >
             {groups.length === 0 ? (
@@ -605,9 +605,9 @@ export default function EventAgendaTV() {
               </p>
             ) : (
               groups.map((g) => (
-                <section key={g.label} className="flex min-h-0 flex-1 flex-col gap-3">
+                <section key={g.label} className="flex min-h-0 flex-col gap-2">
                   <div className="flex items-center gap-4">
-                    <h3 className="text-[25px] font-extrabold uppercase tracking-[0.22em] text-[--tv-blue]">
+                    <h3 className="text-[22px] font-extrabold uppercase tracking-[0.22em] text-[--tv-blue]">
                       {g.label}
                     </h3>
                     <span className="h-px flex-1 bg-[--tv-line]" />
@@ -617,37 +617,37 @@ export default function EventAgendaTV() {
                     return (
                       <article
                         key={s.key}
-                        className="tv-card flex min-h-[176px] flex-1 items-center gap-7 rounded-[18px] px-8"
+                        className="tv-card flex min-h-[116px] items-center gap-5 rounded-[16px] px-6 py-3"
                       >
-                        <Avatar slot={s} size={120} />
-                        <InstagramQR handle={s.instagram} size={110} caption={false} />
+                        <Avatar slot={s} size={92} />
+                        <InstagramQR handle={s.instagram} size={82} caption={false} />
 
-                        <div className="w-[300px] shrink-0">
-                          <p className="line-clamp-2 text-[34px] font-extrabold leading-[1.06] tracking-[-0.02em] text-[--tv-navy]">
+                        <div className="w-[260px] shrink-0">
+                          <p className="line-clamp-2 text-[28px] font-extrabold leading-[1.05] tracking-[-0.02em] text-[--tv-navy]">
                             {s.name}
                           </p>
                           {s.instagram && (
-                            <p className="text-[22px] font-semibold leading-tight text-[--tv-slate]">
+                            <p className="text-[18px] font-semibold leading-tight text-[--tv-slate]">
                               @{s.instagram}
                             </p>
                           )}
                         </div>
 
-                        <div className="min-w-0 flex-1 self-stretch border-l border-[--tv-line] pl-7 flex flex-col justify-center">
-                          <h4 className="line-clamp-2 text-[clamp(36px,2.2vw,44px)] font-extrabold uppercase leading-[1.06] tracking-[-0.02em] text-[--tv-navy]">
+                        <div className="min-w-0 flex-1 self-stretch border-l border-[--tv-line] pl-6 flex flex-col justify-center">
+                          <h4 className="line-clamp-2 text-[clamp(28px,1.8vw,36px)] font-extrabold uppercase leading-[1.05] tracking-[-0.02em] text-[--tv-navy]">
                             {s.theme || "Demonstração Smart Dent"}
                           </h4>
                         </div>
 
-                        <div className="w-[260px] shrink-0 self-stretch border-l border-[--tv-line] pl-7 text-right flex flex-col justify-center">
-                          <p className="text-[52px] font-extrabold leading-none tabular-nums tracking-[-0.02em] text-[--tv-navy]">
+                        <div className="w-[220px] shrink-0 self-stretch border-l border-[--tv-line] pl-6 text-right flex flex-col justify-center">
+                          <p className="text-[42px] font-extrabold leading-none tabular-nums tracking-[-0.02em] text-[--tv-navy]">
                             {fmtTime(s.start) || "--:--"}
                           </p>
-                          <div className="mt-2.5 flex justify-end">
+                          <div className="mt-1.5 flex justify-end">
                             <StatusPill kind={kind} />
                           </div>
                           {kind !== "live" && kind !== "done" && (
-                            <p className="mt-2 whitespace-nowrap text-[24px] font-extrabold tabular-nums text-[--tv-orange]">
+                            <p className="mt-1 whitespace-nowrap text-[20px] font-extrabold tabular-nums text-[--tv-orange]">
                               em {countdownLabel(s.start, now) || "00h 00min"}
                             </p>
                           )}
