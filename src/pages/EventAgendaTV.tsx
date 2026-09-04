@@ -142,23 +142,32 @@ const MONTH_SHORT = [
   "DEZ",
 ];
 
-const dayKeyOf = (d: Date | null) =>
-  d
-    ? `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
-    : "";
+const dayKeyOf = (d: Date | null) => {
+  if (!d) return "";
+  const p = spParts(d);
+  return `${p.year}-${String(p.month).padStart(2, "0")}-${String(p.day).padStart(2, "0")}`;
+};
 
-/** "QUINTA • 17 SET" */
-const fmtDayLabel = (d: Date | null) =>
-  d
-    ? `${WEEK_LONG[d.getDay()].replace("-feira", "").toUpperCase()} • ${String(d.getDate()).padStart(2, "0")} ${MONTH_SHORT[d.getMonth()]}`
-    : "";
+/** "QUINTA • 17 SET" (horário de Brasília) */
+const fmtDayLabel = (d: Date | null) => {
+  if (!d) return "";
+  const p = spParts(d);
+  return `${WEEK_LONG[p.weekday].replace("-feira", "").toUpperCase()} • ${String(p.day).padStart(2, "0")} ${MONTH_SHORT[p.month - 1]}`;
+};
 
-/** "QUI, 04/09" */
-const fmtHeaderDate = (d: Date) =>
-  `${WEEK_SHORT[d.getDay()]}, ${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
+/** "QUI, 04/09/2026" (horário de Brasília) */
+const fmtHeaderDate = (d: Date) => {
+  const p = spParts(d);
+  return `${WEEK_SHORT[p.weekday]}, ${String(p.day).padStart(2, "0")}/${String(p.month).padStart(2, "0")}/${p.year}`;
+};
 
-const fmtTime = (d: Date | null) =>
-  d ? `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}` : "";
+/** "11:56" (horário de Brasília, 24h) */
+const fmtTime = (d: Date | null) => {
+  if (!d) return "";
+  const p = spParts(d);
+  return `${String(p.hour).padStart(2, "0")}:${String(p.minute).padStart(2, "0")}`;
+};
+
 
 function flatten(speakers: Speaker[]): Slot[] {
   const out: Slot[] = [];
