@@ -21,7 +21,9 @@ type Speaker = {
   instagram?: string;
   photo_url?: string;
   sessions?: Session[];
+  support_sessions?: Session[];
 };
+
 
 type EventRow = {
   id: string;
@@ -204,7 +206,64 @@ const cleanTheme = (v?: string | null) => {
   return t;
 };
 
+type SupportPerson = {
+  key: string;
+  name: string;
+  instagram: string;
+  photo_url: string;
+  available: boolean;
+  windowLabel: string;
+  dayLabel: string;
+  sortAt: number;
+};
+
+/** Palestrantes com janelas de apoio comercial no estande. */
+function buildSupport(speakers: Speaker[], now: Date): SupportPerson[] {
+  const t = now.getTime();
+  const out: SupportPerson[] = [];
+  speakers.forEach((sp, i) => {
+    if (!sp.name) return;
+    const windows = (sp.support_sessions || [])
+      .map((se) => ({
+        start: toDate(se.date, se.start_time),
+        end: toDate(se.date, se.end_time || se.start_time),
+      }))
+      .filter((w) => w.start)
+      .map((w) => ({
+        start: w.start as Date,
+        end: w.end && w.end.getTime() > (w.start as Date).getTime()
+          ? w.end
+          : new Date((w.start as Date).getTime() + 60 * 60 * 1000),
+      }))
+      .sort((a, b) => a.start.getTime() - b.start.getTime());
+
+    if (!windows.length) return;
+
+    const current = windows.find((w) => t >= w.start.getTime() && t <= (w.end as Date).getTime());
+    const upcoming = windows.find((w) => w.start.getTime() > t);
+    const chosen = current || upcoming;
+    if (!chosen) return;
+
+    out.push({
+      key: `sup-${i}`,
+      name: sp.name,
+      instagram: handleOf(sp.instagram),
+      photo_url: sp.photo_url || "",
+      available: !!current,
+      windowLabel: [fmtTime(chosen.start), fmtTime(chosen.end as Date)].filter(Boolean).join(" – "),
+      dayLabel: fmtDayLabel(chosen.start),
+      sortAt: chosen.start.getTime(),
+    });
+  });
+
+  return out.sort((a, b) => {
+    if (a.available !== b.available) return a.available ? -1 : 1;
+    return a.sortAt - b.sortAt;
+  });
+}
+
 const endOf = (s: Slot) =>
+
   s.end ?? (s.start ? new Date(s.start.getTime() + 45 * 60 * 1000) : null);
 
 const isLive = (s: Slot, now: Date) => {
@@ -309,7 +368,7 @@ function InstagramQR({
 /* Peças de UI                                                        */
 /* ------------------------------------------------------------------ */
 
-function Avatar({ slot, size }: { slot: Slot; size: number }) {
+function Avatar({ slot, size }: { slot: { name: string; photo_url: string }; size: number }) {
   return (
     <div
       className="shrink-0 overflow-hidden rounded-full border-[3px] border-[--tv-slate]/35 bg-[--tv-sky] shadow-[0_4px_16px_rgba(11,37,69,0.12)]"
@@ -465,7 +524,13 @@ export default function EventAgendaTV() {
     return out;
   }, [visible]);
 
+  const support = useMemo(
+    () => buildSupport(((event?.speakers as Speaker[]) || []), now).slice(0, 5),
+    [event, now]
+  );
+
   const footerQr = useQr(AGENDA_URL, 82);
+
 
   const shell =
     "tv-root flex h-screen w-screen flex-col overflow-hidden bg-[--tv-bg] text-[--tv-navy]";
@@ -660,6 +725,61 @@ export default function EventAgendaTV() {
             )}
           </div>
         </main>
+
+        {/* --------------------- Apoio comercial no estande --------------------- */}
+        {support.length > 0 && (
+          <section className="relative z-10 shrink-0 px-12 pb-2">
+            <div className="flex items-center gap-4 pb-2">
+              <h3 className="text-[26px] font-extrabold uppercase tracking-[0.14em] text-[--tv-navy]">
+                Quer conhecer mais sobre nossas soluções?
+              </h3>
+              <span className="h-px flex-1 bg-[--tv-line]" />
+            </div>
+            <div className="flex items-stretch gap-4">
+              {support.map((p) => (
+                <article
+                  key={p.key}
+                  className={`tv-card flex min-h-[112px] flex-1 items-center gap-4 rounded-[16px] px-5 py-3 ${
+                    p.available ? "border-2 border-[--tv-orange]" : ""
+                  }`}
+                >
+                  <Avatar slot={{ name: p.name, photo_url: p.photo_url }} size={78} />
+                  <InstagramQR handle={p.instagram} size={68} caption={false} />
+                  <div className="min-w-0 flex-1">
+                    <p className="line-clamp-1 text-[26px] font-extrabold leading-tight tracking-[-0.02em] text-[--tv-navy]">
+                      {p.name}
+                    </p>
+                    {p.available ? (
+                      <>
+                        <span className="mt-1 inline-flex items-center gap-2 rounded-full bg-[--tv-orange] px-3 py-1 text-[17px] font-extrabold uppercase tracking-[0.1em] text-white">
+                          <span className="tv-pulse inline-block h-2.5 w-2.5 rounded-full bg-white" />
+                          Disponível neste momento
+                        </span>
+                        <p className="pt-1 text-[19px] font-semibold tabular-nums text-[--tv-slate]">
+                          até {p.windowLabel.split("–")[1]?.trim() || p.windowLabel}
+                        </p>
+                      </>
+                    ) : (
+                      <>
+                        <p className="mt-1 text-[16px] font-bold uppercase tracking-[0.14em] text-[--tv-blue]">
+                          Próxima disponibilidade
+                        </p>
+                        <p className="text-[21px] font-extrabold tabular-nums leading-tight text-[--tv-navy]">
+                          {p.windowLabel}
+                        </p>
+                        <p className="text-[16px] font-semibold uppercase tracking-[0.1em] text-[--tv-slate]">
+                          {p.dayLabel}
+                        </p>
+                      </>
+                    )}
+                  </div>
+                </article>
+              ))}
+            </div>
+          </section>
+        )}
+
+
 
 
         {/* ------------------------------ Rodapé ------------------------------ */}
