@@ -27,7 +27,60 @@ const BodySchema = z.object({
   event_id: z.string().uuid(),
   comment_keyword: z.string().min(2).max(24).optional(),
   kinds: z.array(z.enum(["carousel", "stories"])).min(1).optional(),
+  /** Gera o FUNDO com IA (mesma tecnologia dos thumbs das lives), usando a arte
+   *  enviada como referência de estilo. Os textos continuam 100% exatos. */
+  ai_background: z.boolean().optional(),
 });
+
+const GATEWAY = "https://ai.gateway.lovable.dev/v1/images/generations";
+
+/** Fundo gerado por IA a partir da arte padrão do evento (referência de estilo).
+ *  Nunca escreve texto: nomes, temas e horários são compostos depois em SVG. */
+async function aiBackground(
+  refDataUri: string,
+  aspect: "4:5" | "9:16",
+  eventName: string,
+): Promise<string | null> {
+  const key = Deno.env.get("LOVABLE_API_KEY");
+  if (!key) return null;
+  const prompt = [
+    `Crie uma IMAGEM DE FUNDO em proporção ${aspect} para divulgação do evento de odontologia digital "${eventName}".`,
+    "Use a imagem anexada apenas como REFERÊNCIA de identidade visual: paleta azul-marinho profundo, azul-claro e laranja, atmosfera de congresso/estande, tecnologia odontológica digital.",
+    "Composição limpa, iluminação suave, profundidade, gradiente escuro na base e no topo para receber textos brancos por cima.",
+    "PROIBIDO: qualquer texto, letra, número, palavra, logotipo, marca-d'água, moldura ou interface. Sem rostos reconhecíveis em close.",
+    "Resultado: apenas cenário/fundo gráfico-fotográfico, sem nenhum tipo de escrita.",
+  ].join(" ");
+  try {
+    const r = await fetch(GATEWAY, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "google/gemini-3-pro-image",
+        messages: [
+          {
+            role: "user",
+            content: [
+              { type: "text", text: prompt },
+              { type: "image_url", image_url: { url: refDataUri } },
+            ],
+          },
+        ],
+        modalities: ["image", "text"],
+      }),
+    });
+    if (!r.ok) {
+      console.error("[event-marketing-render] IA fundo falhou:", r.status, (await r.text()).slice(0, 300));
+      return null;
+    }
+    const out = await r.json();
+    const img = out?.data?.[0]?.b64_json;
+    return img ? `data:image/png;base64,${img}` : null;
+  } catch (e) {
+    console.error("[event-marketing-render] IA fundo erro:", (e as Error)?.message);
+    return null;
+  }
+}
+
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
