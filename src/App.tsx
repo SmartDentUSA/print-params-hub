@@ -194,6 +194,10 @@ const App = () => (
       {/* TV do congresso: agenda de demonstrações (acesso externo, sem login) */}
       <Route path="/agenda-tv/:slug" element={<EventAgendaTV />} />
 
+      {/* Autoagendamento dos KOLs do congresso (link compartilhável, sem login) */}
+      <Route path="/agenda-kol/:eventId" element={<EventSpeakerBooking />} />
+
+
       
       {/* Public forms */}
       <Route path="/f/:slug" element={<PublicFormPage />} />
