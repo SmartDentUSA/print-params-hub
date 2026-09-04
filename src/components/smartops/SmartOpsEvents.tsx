@@ -27,6 +27,8 @@ type EventRow = {
   country: string | null;
   start_date: string | null;
   end_date: string | null;
+  start_time: string | null;
+  end_time: string | null;
   location: string | null;
   company_stand: string | null;
   website_url: string | null;
