@@ -22488,6 +22488,7 @@ export type Database = {
           drive_json_file_id: string | null
           drive_subfolders: Json
           end_date: string | null
+          end_time: string
           event_logo_url: string | null
           id: string
           instagram_handle: string | null
@@ -22505,6 +22506,7 @@ export type Database = {
           slug: string | null
           speakers: Json
           start_date: string | null
+          start_time: string
           title_en: string | null
           title_es: string | null
           translated_at_en: string | null
@@ -22548,6 +22550,7 @@ export type Database = {
           drive_json_file_id?: string | null
           drive_subfolders?: Json
           end_date?: string | null
+          end_time?: string
           event_logo_url?: string | null
           id?: string
           instagram_handle?: string | null
@@ -22565,6 +22568,7 @@ export type Database = {
           slug?: string | null
           speakers?: Json
           start_date?: string | null
+          start_time?: string
           title_en?: string | null
           title_es?: string | null
           translated_at_en?: string | null
@@ -22608,6 +22612,7 @@ export type Database = {
           drive_json_file_id?: string | null
           drive_subfolders?: Json
           end_date?: string | null
+          end_time?: string
           event_logo_url?: string | null
           id?: string
           instagram_handle?: string | null
@@ -22625,6 +22630,7 @@ export type Database = {
           slug?: string | null
           speakers?: Json
           start_date?: string | null
+          start_time?: string
           title_en?: string | null
           title_es?: string | null
           translated_at_en?: string | null

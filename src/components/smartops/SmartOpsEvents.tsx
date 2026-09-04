@@ -27,6 +27,8 @@ type EventRow = {
   country: string | null;
   start_date: string | null;
   end_date: string | null;
+  start_time: string | null;
+  end_time: string | null;
   location: string | null;
   company_stand: string | null;
   website_url: string | null;
@@ -63,6 +65,8 @@ function emptyForm(): Partial<EventRow> {
     country: "",
     start_date: "",
     end_date: "",
+    start_time: "08:00",
+    end_time: "19:00",
     location: "",
     company_stand: "",
     website_url: "",
@@ -151,6 +155,8 @@ export function SmartOpsEvents() {
         country: editing.country || null,
         start_date: editing.start_date || null,
         end_date: editing.end_date || null,
+        start_time: (editing.start_time || "08:00").slice(0, 5),
+        end_time: (editing.end_time || "19:00").slice(0, 5),
         location: editing.location || null,
         company_stand: editing.company_stand || null,
         website_url: editing.website_url || null,
@@ -373,6 +379,29 @@ export function SmartOpsEvents() {
                 <div>
                   <Label>Data de fim</Label>
                   <Input type="date" value={editing.end_date || ""} onChange={(e) => setEditing({ ...editing, end_date: e.target.value })} />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label>Horário de início (por dia)</Label>
+                  <Input
+                    type="time"
+                    step={3600}
+                    value={(editing.start_time || "08:00").slice(0, 5)}
+                    onChange={(e) => setEditing({ ...editing, start_time: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <Label>Horário de término (por dia)</Label>
+                  <Input
+                    type="time"
+                    step={3600}
+                    value={(editing.end_time || "19:00").slice(0, 5)}
+                    onChange={(e) => setEditing({ ...editing, end_time: e.target.value })}
+                  />
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Define a grade de horários do autoagendamento de KOLs.
+                  </p>
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">

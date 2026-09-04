@@ -74,7 +74,7 @@ function eventDays(start: string | null, end: string | null, daysCount: number |
 async function loadEvent(eventId: string) {
   const { data, error } = await admin
     .from("smartops_events")
-    .select("id, name, location, company_stand, start_date, end_date, days_count, event_logo_url, instagram_handle, speakers")
+    .select("id, name, location, company_stand, start_date, end_date, start_time, end_time, days_count, event_logo_url, instagram_handle, speakers")
     .eq("id", eventId)
     .maybeSingle();
   if (error) throw error;
@@ -240,6 +240,8 @@ Deno.serve(async (req) => {
           company_stand: event.company_stand,
           start_date: event.start_date,
           end_date: event.end_date,
+          start_time: event.start_time,
+          end_time: event.end_time,
           event_logo_url: event.event_logo_url,
           instagram_handle: event.instagram_handle,
         },
