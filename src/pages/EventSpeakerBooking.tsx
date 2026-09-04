@@ -17,6 +17,8 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { AREA_ATUACAO_OPTIONS, ESPECIALIDADE_OPTIONS } from "@/lib/dentalTaxonomy";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import {
