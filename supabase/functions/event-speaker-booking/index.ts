@@ -130,6 +130,92 @@ async function listProfessionals() {
     }));
 }
 
+/**
+ * Registra na timeline do lead (palestrante/KOL) a participação no evento:
+ * quantas palestras deu, quanto tempo palestrou e quanto tempo ficou
+ * disponível para apoio do time comercial. Um único evento por lead+evento,
+ * sempre atualizado (idempotente).
+ */
+async function logSpeakerEngagement(
+  event: any,
+  professionalId: string,
+  demos: Session[],
+  support: Session[],
+) {
+  if (!professionalId) return;
+  const minutesOf = (list: Session[]) =>
+    list.reduce((sum, s) => {
+      const toMin = (t?: string) => {
+        const [h, m] = String(t || "").slice(0, 5).split(":").map(Number);
+        return Number.isFinite(h) ? h * 60 + (m || 0) : null;
+      };
+      const st = toMin(s.start_time);
+      if (st === null) return sum;
+      const en = toMin(s.end_time) ?? st + 60;
+      return sum + Math.max(0, en - st);
+    }, 0);
+
+  const demoMinutes = minutesOf(demos);
+  const supportMinutes = minutesOf(support);
+  const eventTs = event.start_date
+    ? new Date(`${String(event.start_date).slice(0, 10)}T12:00:00Z`).toISOString()
+    : new Date().toISOString();
+
+  const row = {
+    lead_id: professionalId,
+    event_type: "event_participation",
+    entity_type: "smartops_event",
+    entity_id: String(event.id),
+    entity_name: event.name ?? null,
+    event_timestamp: eventTs,
+    source_channel: "evento",
+    value_numeric: Number(((demoMinutes + supportMinutes) / 60).toFixed(2)),
+    duration_seconds: (demoMinutes + supportMinutes) * 60,
+    event_data: {
+      kind: "evento",
+      kind_label: "Participação em evento",
+      icon: "🎤",
+      evento: event.name ?? null,
+      local: event.location ?? null,
+      estande: event.company_stand ?? null,
+      data_inicio: event.start_date ?? null,
+      data_fim: event.end_date ?? null,
+      palestras_qtd: demos.length,
+      palestras_minutos: demoMinutes,
+      palestras_horas: Number((demoMinutes / 60).toFixed(2)),
+      palestras: demos.map((s) => ({
+        data: s.date,
+        inicio: s.start_time,
+        fim: s.end_time,
+        tema: s.theme ?? null,
+      })),
+      apoio_comercial_qtd: support.length,
+      apoio_comercial_minutos: supportMinutes,
+      apoio_comercial_horas: Number((supportMinutes / 60).toFixed(2)),
+      apoio_comercial: support.map((s) => ({ data: s.date, inicio: s.start_time, fim: s.end_time })),
+      fonte: "smartops_agenda_kol",
+      dedupe_key: `event_participation:${event.id}:${professionalId}`,
+    },
+  };
+
+  try {
+    const { data: existing } = await admin
+      .from("lead_activity_log")
+      .select("id")
+      .eq("lead_id", professionalId)
+      .eq("event_type", "event_participation")
+      .eq("entity_id", String(event.id))
+      .limit(1);
+    if (existing?.[0]?.id) {
+      await admin.from("lead_activity_log").update(row).eq("id", existing[0].id);
+    } else {
+      await admin.from("lead_activity_log").insert(row);
+    }
+  } catch (e) {
+    console.error("[event-speaker-booking] engagement log", e);
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
