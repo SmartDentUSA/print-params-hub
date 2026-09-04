@@ -7,7 +7,8 @@ import { getStorageImageUrl } from "@/utils/storageImage";
 const SMARTDENT_LOGO_URL =
   "https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/h7stblp3qxn_1760720051743.png";
 
-
+const AGENDA_SHORT_URL = "parametros.smartdent.com.br/CIPRO";
+const AGENDA_URL = `https://${AGENDA_SHORT_URL}`;
 
 /* ------------------------------------------------------------------ */
 /* Tipos                                                              */
@@ -43,7 +44,8 @@ type Slot = {
   photo_url: string;
   start: Date | null;
   end: Date | null;
-  dateLabel: string;
+  dayKey: string;
+  dayLabel: string;
   timeLabel: string;
 };
 
@@ -71,9 +73,46 @@ function toDate(date?: string, time?: string): Date | null {
   return isNaN(d.getTime()) ? null : d;
 }
 
-const WEEK = ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"];
-const fmtDate = (d: Date | null) =>
-  d ? `${WEEK[d.getDay()]} ${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}` : "";
+const WEEK_SHORT = ["DOM", "SEG", "TER", "QUA", "QUI", "SEX", "SÁB"];
+const WEEK_LONG = [
+  "domingo",
+  "segunda-feira",
+  "terça-feira",
+  "quarta-feira",
+  "quinta-feira",
+  "sexta-feira",
+  "sábado",
+];
+const MONTH_SHORT = [
+  "JAN",
+  "FEV",
+  "MAR",
+  "ABR",
+  "MAI",
+  "JUN",
+  "JUL",
+  "AGO",
+  "SET",
+  "OUT",
+  "NOV",
+  "DEZ",
+];
+
+const dayKeyOf = (d: Date | null) =>
+  d
+    ? `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
+    : "";
+
+/** "QUINTA • 17 SET" */
+const fmtDayLabel = (d: Date | null) =>
+  d
+    ? `${WEEK_LONG[d.getDay()].replace("-feira", "").toUpperCase()} • ${String(d.getDate()).padStart(2, "0")} ${MONTH_SHORT[d.getMonth()]}`
+    : "";
+
+/** "QUI, 04/09" */
+const fmtHeaderDate = (d: Date) =>
+  `${WEEK_SHORT[d.getDay()]}, ${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
+
 const fmtTime = (d: Date | null) =>
   d ? `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}` : "";
 
@@ -87,12 +126,13 @@ function flatten(speakers: Speaker[]): Slot[] {
       out.push({
         key: `${i}-${j}`,
         name: sp.name || "",
-        theme: sp.theme || "",
+        theme: cleanTheme(sp.theme),
         instagram: handleOf(sp.instagram),
         photo_url: sp.photo_url || "",
         start,
         end,
-        dateLabel: fmtDate(start),
+        dayKey: dayKeyOf(start),
+        dayLabel: fmtDayLabel(start),
         timeLabel: [fmtTime(start), fmtTime(end)].filter(Boolean).join(" – "),
       });
     });
@@ -102,65 +142,166 @@ function flatten(speakers: Speaker[]): Slot[] {
     .sort((a, b) => (a.start?.getTime() ?? Infinity) - (b.start?.getTime() ?? Infinity));
 }
 
-function countdown(target: Date | null, now: Date): string {
+/** Ignora temas de preenchimento ("xxxxx", "----", "a definir") vindos do cadastro. */
+const cleanTheme = (v?: string | null) => {
+  const t = String(v || "").trim();
+  if (!t) return "";
+  if (/^[x\-_.\s]{3,}$/i.test(t)) return "";
+  if (/^(a\s*definir|tbd|placeholder)$/i.test(t)) return "";
+  return t;
+};
+
+const endOf = (s: Slot) =>
+  s.end ?? (s.start ? new Date(s.start.getTime() + 45 * 60 * 1000) : null);
+
+const isLive = (s: Slot, now: Date) => {
+  const e = endOf(s);
+  return !!(s.start && e && now >= s.start && now <= e);
+};
+
+/**
+ * Contagem regressiva legível:
+ *  - < 1 min  -> "começa agora"
+ *  - < 1 h    -> "começa em 24min 10s"
+ *  - < 24 h   -> "começa em 01h 24min"
+ *  - >= 24 h  -> "em 13 dias" / "quinta-feira, 11:56"
+ */
+function countdownLabel(target: Date | null, now: Date, compact = false): string {
   if (!target) return "";
-  let ms = target.getTime() - now.getTime();
+  const ms = target.getTime() - now.getTime();
   if (ms <= 0) return "";
-  const h = Math.floor(ms / 3600000);
-  ms -= h * 3600000;
-  const m = Math.floor(ms / 60000);
-  const s = Math.floor((ms - m * 60000) / 1000);
-  return h > 0
-    ? `${h}h ${String(m).padStart(2, "0")}m ${String(s).padStart(2, "0")}s`
-    : `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+  const totalMin = Math.floor(ms / 60000);
+  if (totalMin < 1) return compact ? "agora" : "começa agora";
+  if (totalMin < 60) {
+    const s = Math.floor((ms % 60000) / 1000);
+    const body = `${totalMin}min ${String(s).padStart(2, "0")}s`;
+    return compact ? body : `começa em ${body}`;
+  }
+  const hours = Math.floor(totalMin / 60);
+  if (hours < 24) {
+    const body = `${String(hours).padStart(2, "0")}h ${String(totalMin % 60).padStart(2, "0")}min`;
+    return compact ? body : `começa em ${body}`;
+  }
+  const days = Math.round(hours / 24);
+  if (days <= 6) return `${WEEK_LONG[target.getDay()]}, ${fmtTime(target)}`;
+  return `em ${days} dias`;
 }
+
+type StatusKind = "live" | "next" | "scheduled" | "done";
+
+function statusOf(s: Slot, now: Date, nextKey?: string): StatusKind {
+  if (isLive(s, now)) return "live";
+  const e = endOf(s);
+  if (e && e.getTime() <= now.getTime()) return "done";
+  if (s.key === nextKey) return "next";
+  return "scheduled";
+}
+
+const STATUS_LABEL: Record<StatusKind, string> = {
+  live: "AO VIVO",
+  next: "A SEGUIR",
+  scheduled: "PROGRAMADO",
+  done: "ENCERRADO",
+};
+
+const STATUS_CLASS: Record<StatusKind, string> = {
+  live: "bg-[--tv-orange] text-white",
+  next: "bg-[--tv-blue] text-white",
+  scheduled: "bg-[--tv-sky] text-[--tv-navy]",
+  done: "bg-[--tv-line] text-[--tv-slate]",
+};
 
 /* ------------------------------------------------------------------ */
 /* QR                                                                 */
 /* ------------------------------------------------------------------ */
 
-function InstagramQR({ handle, size = 180 }: { handle: string; size?: number }) {
+function useQr(url: string, size: number) {
   const [src, setSrc] = useState("");
   useEffect(() => {
-    const url = instaUrl(handle);
     if (!url) return setSrc("");
-    QRCode.toDataURL(url, { width: size * 2, margin: 2, color: { dark: "#0b1220", light: "#ffffff" } })
+    QRCode.toDataURL(url, {
+      width: size * 3,
+      margin: 1,
+      errorCorrectionLevel: "M",
+      color: { dark: "#0B2545", light: "#ffffff" },
+    })
       .then(setSrc)
       .catch(() => setSrc(""));
-  }, [handle, size]);
+  }, [url, size]);
+  return src;
+}
+
+function InstagramQR({
+  handle,
+  size,
+  caption = true,
+}: {
+  handle: string;
+  size: number;
+  caption?: boolean;
+}) {
+  const src = useQr(instaUrl(handle), size);
   if (!src) return null;
   return (
-    <div className="flex flex-col items-center gap-2">
-      <img
-        src={src}
-        alt={`QR code do Instagram @${handle}`}
-        width={size}
-        height={size}
-        className="rounded-2xl bg-background p-2"
-        style={{ width: size, height: size }}
-      />
-      <span className="text-[1.25rem] font-black tracking-wide text-primary-foreground/90">@{handle}</span>
+    <div className="flex shrink-0 flex-col items-center gap-1.5">
+      <div
+        className="rounded-[12px] border border-[--tv-line] bg-white p-2 shadow-[0_2px_10px_rgba(11,37,69,0.08)]"
+        style={{ width: size + 20, height: size + 20 }}
+      >
+        <img
+          src={src}
+          alt={`QR code do Instagram @${handle}`}
+          width={size}
+          height={size}
+          style={{ width: size, height: size }}
+        />
+      </div>
+      {caption && (
+        <span className="text-[0.95rem] font-semibold uppercase tracking-[0.18em] text-[--tv-slate]">
+          Instagram
+        </span>
+      )}
     </div>
   );
 }
 
-function FooterQR({ url, size = 90 }: { url: string; size?: number }) {
-  const [src, setSrc] = useState("");
-  useEffect(() => {
-    QRCode.toDataURL(url, { width: size * 2, margin: 2, color: { dark: "#0b1220", light: "#ffffff" } })
-      .then(setSrc)
-      .catch(() => setSrc(""));
-  }, [url, size]);
-  if (!src) return null;
+/* ------------------------------------------------------------------ */
+/* Peças de UI                                                        */
+/* ------------------------------------------------------------------ */
+
+function Avatar({ slot, size }: { slot: Slot; size: number }) {
   return (
-    <img
-      src={src}
-      alt={`QR code ${url}`}
-      width={size}
-      height={size}
-      className="rounded-xl"
+    <div
+      className="shrink-0 overflow-hidden rounded-full border-[3px] border-[--tv-slate]/35 bg-[--tv-sky] shadow-[0_4px_16px_rgba(11,37,69,0.12)]"
       style={{ width: size, height: size }}
-    />
+    >
+      {slot.photo_url ? (
+        <img
+          src={getStorageImageUrl(slot.photo_url, { width: 400, height: 400, resize: "cover" })}
+          alt={slot.name}
+          className="h-full w-full object-cover object-top"
+        />
+      ) : (
+        <div className="flex h-full w-full items-center justify-center text-[2.4rem] font-bold text-[--tv-blue]">
+          {slot.name.slice(0, 1)}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function StatusPill({ kind, size = "md" }: { kind: StatusKind; size?: "md" | "lg" }) {
+  return (
+    <span
+      className={`inline-flex items-center gap-2 rounded-full px-4 py-1.5 font-bold uppercase tracking-[0.16em] ${STATUS_CLASS[kind]} ${
+        size === "lg" ? "text-[1.25rem]" : "text-[1rem]"
+      }`}
+    >
+      {kind === "live" && (
+        <span className="tv-pulse inline-block h-2.5 w-2.5 rounded-full bg-white" />
+      )}
+      {STATUS_LABEL[kind]}
+    </span>
   );
 }
 
@@ -175,12 +316,30 @@ export default function EventAgendaTV() {
   const [loading, setLoading] = useState(true);
   const [now, setNow] = useState(() => new Date());
   const [page, setPage] = useState(0);
+  const [fadeIn, setFadeIn] = useState(true);
+  const [paused, setPaused] = useState(false);
   const pagesRef = useRef(1);
 
   /* Relógio */
   useEffect(() => {
     const t = setInterval(() => setNow(new Date()), 1000);
     return () => clearInterval(t);
+  }, []);
+
+  /* Pausa a rotação quando o administrador interage */
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout>;
+    const onInteract = () => {
+      setPaused(true);
+      clearTimeout(timer);
+      timer = setTimeout(() => setPaused(false), 30_000);
+    };
+    const evts = ["mousemove", "mousedown", "keydown", "touchstart", "wheel"] as const;
+    evts.forEach((e) => window.addEventListener(e, onInteract, { passive: true }));
+    return () => {
+      evts.forEach((e) => window.removeEventListener(e, onInteract));
+      clearTimeout(timer);
+    };
   }, []);
 
   /* Carrega evento + refetch a cada 3 min (TV fica ligada o dia todo) */
@@ -207,255 +366,354 @@ export default function EventAgendaTV() {
   const slots = useMemo(() => flatten((event?.speakers as Speaker[]) || []), [event]);
 
   /* Só o que ainda não terminou: ao encerrar, a demonstração sai da tela */
-  const upcoming = useMemo(() => {
+  const active = useMemo(() => {
     const t = now.getTime();
     const withDate = slots.filter((s) => {
-      if (!s.start) return false;
-      const end = s.end ?? new Date(s.start.getTime() + 45 * 60 * 1000);
-      return end.getTime() > t;
+      const e = endOf(s);
+      return !!(s.start && e && e.getTime() > t);
     });
     const noDate = slots.filter((s) => !s.start);
     return [...withDate, ...noDate];
   }, [slots, now]);
 
-  const perPage = Number(params.get("por") || 4) || 4;
-  const pages = Math.max(1, Math.ceil(upcoming.length / perPage));
+  /* Card principal: o que está ao vivo; senão, a próxima */
+  const live = useMemo(() => active.find((s) => isLive(s, now)) ?? null, [active, now]);
+  const next = useMemo(
+    () => active.find((s) => s.start && s.start.getTime() > now.getTime()) ?? null,
+    [active, now]
+  );
+  const hero = live ?? next ?? active[0] ?? null;
+
+  const rest = useMemo(() => active.filter((s) => s.key !== hero?.key), [active, hero]);
+
+  const perPage = Math.max(1, Number(params.get("por") || 3) || 3);
+  const pages = Math.max(1, Math.ceil(rest.length / perPage));
   pagesRef.current = pages;
 
-  /* Rotação automática das páginas */
+  /* Rotação automática com fade suave */
   useEffect(() => {
-    if (pages <= 1) return;
-    const t = setInterval(() => setPage((p) => (p + 1) % pagesRef.current), 20_000);
+    if (pages <= 1 || paused) return;
+    const t = setInterval(() => {
+      setFadeIn(false);
+      setTimeout(() => {
+        setPage((p) => (p + 1) % pagesRef.current);
+        setFadeIn(true);
+      }, 400);
+    }, 10_000);
     return () => clearInterval(t);
-  }, [pages]);
+  }, [pages, paused]);
 
-  const visible = upcoming.slice((page % pages) * perPage, (page % pages) * perPage + perPage);
-  const next = upcoming.find((s) => s.start && s.start.getTime() > now.getTime());
+  const visible = rest.slice((page % pages) * perPage, (page % pages) * perPage + perPage);
 
-  /* Agrupa a tela por dia: o dia corrente vai esvaziando e os próximos dias entram */
+  /* Agrupa por dia */
   const groups = useMemo(() => {
-    const todayLabel = fmtDate(now);
-    const out: { label: string; isToday: boolean; items: Slot[] }[] = [];
+    const out: { label: string; items: Slot[] }[] = [];
     visible.forEach((s) => {
-      const label = s.dateLabel || "Data a definir";
+      const label = s.dayLabel || "DATA A DEFINIR";
       const last = out[out.length - 1];
       if (last && last.label === label) last.items.push(s);
-      else out.push({ label, isToday: label === todayLabel, items: [s] });
+      else out.push({ label, items: [s] });
     });
     return out;
-  }, [visible, now]);
+  }, [visible]);
 
+  const footerQr = useQr(AGENDA_URL, 82);
 
-  if (loading) {
+  const shell =
+    "tv-root flex h-screen w-screen flex-col overflow-hidden bg-[--tv-bg] text-[--tv-navy]";
+
+  if (loading || !event) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[hsl(222_47%_8%)] text-2xl text-primary-foreground/70">
-        Carregando agenda…
-      </div>
-    );
-  }
-
-  if (!event) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-[hsl(222_47%_8%)] text-2xl text-primary-foreground/70">
-        Evento não encontrado.
-      </div>
+      <>
+        <TvStyles />
+        <div className={`${shell} items-center justify-center`}>
+          <p className="text-[2rem] font-semibold text-[--tv-slate]">
+            {loading ? "Carregando agenda…" : "Evento não encontrado."}
+          </p>
+        </div>
+      </>
     );
   }
 
   return (
-    <div className="flex min-h-screen flex-col overflow-hidden bg-[hsl(222_47%_8%)] text-primary-foreground">
-      {/* Header */}
-      <header className="flex items-center justify-between gap-8 border-b border-white/15 px-12 py-7">
-        <div className="flex items-center gap-8">
-          {event.event_logo_url && (
+    <>
+      <TvStyles />
+      <div className={shell}>
+        {/* Grafismos curvos translúcidos */}
+        <div aria-hidden className="tv-graphics" />
+
+        {/* ------------------------------ Cabeçalho ------------------------------ */}
+        <header className="relative z-10 flex h-[115px] shrink-0 items-center justify-between gap-10 px-12">
+          <div className="flex items-center gap-8">
             <img
-              src={getStorageImageUrl(event.event_logo_url, { width: 260 })}
-              alt={event.name}
-              className="h-20 w-auto object-contain"
+              src={SMARTDENT_LOGO_URL}
+              alt="Smart Dent"
+              className="h-[52px] w-auto object-contain"
             />
-          )}
-          <div>
-            <h1 className="text-[3.2rem] font-black leading-none tracking-tight text-white">
-              Agenda de Demonstrações
-            </h1>
-            <p className="pt-2 text-[1.6rem] font-bold leading-tight text-primary-foreground/85">
-              {event.name}
-              {event.company_stand ? ` · Estande ${event.company_stand}` : ""}
-              {event.location ? ` · ${event.location}` : ""}
-            </p>
-          </div>
-        </div>
-        <div className="flex flex-col items-end gap-4">
-          <img
-            src={SMARTDENT_LOGO_URL}
-            alt="Smart Dent"
-            className="h-16 w-auto object-contain brightness-0 invert"
-          />
-          <div className="text-right">
-            <div className="font-mono text-[4rem] font-black leading-none tabular-nums text-white">
-              {fmtTime(now)}
-              <span className="text-[2rem] text-primary-foreground/60">:{String(now.getSeconds()).padStart(2, "0")}</span>
+            <span className="h-14 w-px bg-[--tv-line]" />
+            <div>
+              <h1 className="text-[2.5rem] font-bold leading-none tracking-tight text-[--tv-navy]">
+                AGENDA AO VIVO
+              </h1>
+              <p className="pt-1.5 text-[1.35rem] font-semibold leading-none text-[--tv-slate]">
+                {event.name}
+                {event.company_stand ? ` • Estande ${event.company_stand}` : ""}
+              </p>
             </div>
-            <p className="text-[1.4rem] font-black uppercase tracking-widest text-primary-foreground/70">
-              {fmtDate(now)}
-            </p>
           </div>
-        </div>
-      </header>
-
-
-      {/* Próxima demonstração */}
-      {next && (
-        <div className="flex items-center justify-between gap-6 bg-primary/20 px-12 py-5">
-          <p className="text-[1.8rem] font-bold text-primary-foreground/95">
-            Próxima demonstração: <span className="font-black text-white">{next.name}</span>
-            <span className="text-primary-foreground/80"> · {next.timeLabel || fmtTime(next.start)}</span>
-          </p>
-          <p className="font-mono text-[2.6rem] font-black tabular-nums text-emerald-400">
-            começa em {countdown(next.start, now)}
-          </p>
-        </div>
-      )}
-
-      {/* Lista */}
-      <main className="flex-1 px-12 py-8">
-        {visible.length === 0 ? (
-          <p className="pt-24 text-center text-[2.6rem] font-black leading-tight text-primary-foreground/80">
-            Nenhuma demonstração programada no momento.<br />
-            <span className="text-[1.8rem] font-semibold text-primary-foreground/60">
-              Visite o estande {event.company_stand || "Smart Dent"}.
-            </span>
-          </p>
-        ) : (
-          <div className="space-y-8">
-            {groups.map((g) => (
-              <section key={g.label} className="space-y-5">
-                <div className="flex items-center gap-4">
-                  <h3 className="text-[1.6rem] font-black uppercase tracking-[0.25em] text-primary-foreground/80">
-                    {g.isToday ? `Hoje · ${g.label}` : g.label}
-                  </h3>
-                  <span className="h-px flex-1 bg-white/15" />
-                </div>
-                {g.items.map((s) => {
-                  const live = s.start && s.end && now >= s.start && now <= s.end;
-                  const cd = countdown(s.start, now);
-                  return (
-                    <article
-                      key={s.key}
-                      className={`grid grid-cols-[auto_auto_auto_1fr_auto_auto] items-center gap-8 rounded-[1.75rem] border px-8 py-5 ${
-                        live
-                          ? "border-emerald-400/60 bg-emerald-400/10 shadow-[0_0_80px_-24px_hsl(var(--primary))]"
-                          : "border-white/15 bg-white/[0.05]"
-                      }`}
-                    >
-                      {/* Foto */}
-                      <div className="h-[130px] w-[130px] shrink-0 overflow-hidden rounded-2xl bg-white/10 ring-2 ring-white/10">
-                        {s.photo_url ? (
-                          <img
-                            src={getStorageImageUrl(s.photo_url, { width: 400, height: 400, resize: "cover" })}
-                            alt={s.name}
-                            className="h-full w-full object-cover"
-                          />
-                        ) : (
-                          <div className="flex h-full w-full items-center justify-center text-[3rem] font-black text-primary-foreground/50">
-                            {s.name.slice(0, 1)}
-                          </div>
-                        )}
-                      </div>
-
-                      {/* QR do Instagram */}
-                      <div className="shrink-0">
-                        <InstagramQR handle={s.instagram} size={120} />
-                      </div>
-
-                      {/* Nome do palestrante */}
-                      <div className="shrink-0 max-w-[360px]">
-                        {live && (
-                          <span className="mb-2 inline-block rounded-full bg-emerald-500 px-4 py-1 text-[1rem] font-black uppercase tracking-widest text-[#0b1220]">
-                            Ao vivo
-                          </span>
-                        )}
-                        <p className="text-[2.6rem] font-black leading-tight text-white">
-                          {s.name}
-                        </p>
-                        <p className="mt-1 text-[1.05rem] font-black uppercase tracking-widest text-primary-foreground/70">
-                          {s.dateLabel}
-                        </p>
-                      </div>
-
-                      {/* Tema central — destaque principal */}
-                      <div className="min-w-0 px-4 text-center">
-                        <h2 className="text-[2.4rem] font-black uppercase leading-tight tracking-tight text-white">
-                          {s.theme || "—"}
-                        </h2>
-                      </div>
-
-                      {/* Início */}
-                      <div className="shrink-0 text-center">
-                        <p className="text-[1.25rem] font-black uppercase tracking-widest text-primary-foreground/70">
-                          Início
-                        </p>
-                        <p className="mt-1 font-mono text-[3rem] font-black leading-none tabular-nums text-white">
-                          {fmtTime(s.start) || "--:--"}
-                        </p>
-                      </div>
-
-                      {/* Começa em */}
-                      <div className="w-[220px] shrink-0 text-center">
-                        <p className="text-[1.25rem] font-black uppercase tracking-widest text-primary-foreground/70">
-                          {live ? "Status" : "Começa em"}
-                        </p>
-                        <p className="mt-1 font-mono text-[3rem] font-black leading-none tabular-nums text-emerald-400">
-                          {live ? "ao vivo" : cd || "—"}
-                        </p>
-                      </div>
-
-                    </article>
-                  );
-                })}
-              </section>
-            ))}
+          <div className="flex items-center gap-8">
+            {event.event_logo_url && (
+              <img
+                src={getStorageImageUrl(event.event_logo_url, { width: 260 })}
+                alt={event.name}
+                className="h-[56px] w-auto object-contain"
+              />
+            )}
+            <div className="text-right">
+              <div className="text-[3.2rem] font-bold leading-none tabular-nums tracking-tight text-[--tv-navy]">
+                {fmtTime(now)}
+              </div>
+              <p className="pt-1 text-[1.2rem] font-semibold uppercase tracking-[0.2em] text-[--tv-slate]">
+                {fmtHeaderDate(now)}
+              </p>
+            </div>
           </div>
-        )}
+        </header>
 
-      </main>
+        {/* ------------------------------ Card principal ------------------------------ */}
+        <div className="relative z-10 shrink-0 px-12">
+          {hero ? (
+            <section className="tv-card flex h-[210px] items-center gap-9 rounded-[22px] px-10">
+              <div className="flex shrink-0 items-center gap-6">
+                <Avatar slot={hero} size={140} />
+                <InstagramQR handle={hero.instagram} size={120} />
+              </div>
 
-      {/* Footer */}
-      <footer className="flex items-center justify-between gap-8 border-t border-white/15 bg-[hsl(222_47%_8%)] px-12 py-5">
-        <div className="flex items-center gap-6">
-          <div className="shrink-0 rounded-2xl bg-white p-2">
-            <FooterQR url="https://parametros.smartdent.com.br/CIPRO" size={90} />
-          </div>
-          <div>
-            <p className="text-[1.8rem] font-black leading-tight text-white">
-              Perdeu alguma demonstração?
-            </p>
-            <p className="text-[1.5rem] font-bold leading-tight text-primary-foreground/90">
-              Escaneie o QR Code e receba o acesso à aula.
-            </p>
-            <p className="mt-1 text-[1.15rem] font-semibold tracking-wide text-primary-foreground/60">
-              parametros.smartdent.com.br/CIPRO
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center gap-6">
-          <span className="text-right text-[1.25rem] font-black text-primary-foreground/70">
-            Smart Dent | Fluxo Digital
-            {event.instagram_handle ? <br /> : null}
-            {event.instagram_handle ? event.instagram_handle : ""}
-          </span>
-          {pages > 1 && (
-            <span className="flex items-center gap-3">
-              {Array.from({ length: pages }).map((_, i) => (
-                <span
-                  key={i}
-                  className={`h-3.5 w-3.5 rounded-full ${i === page % pages ? "bg-primary" : "bg-white/30"}`}
-                />
-              ))}
-            </span>
+              <div className="min-w-0 flex-1">
+                <StatusPill kind={live ? "live" : "next"} size="lg" />
+                <p className="mt-2.5 line-clamp-2 text-[2.5rem] font-bold leading-[1.1] text-[--tv-navy]">
+                  {hero.name}
+                </p>
+                {hero.instagram && (
+                  <p className="text-[1.4rem] font-semibold leading-tight text-[--tv-slate]">
+                    @{hero.instagram}
+                  </p>
+                )}
+              </div>
+
+              <div className="min-w-0 flex-[1.4] border-l border-[--tv-line] pl-9">
+                <p className="text-[1rem] font-semibold uppercase tracking-[0.2em] text-[--tv-slate]">
+                  {live ? "Ao vivo agora" : "Próxima demonstração"}
+                </p>
+                <h2 className="mt-1.5 line-clamp-2 text-[3rem] font-bold leading-[1.08] text-[--tv-navy]">
+                  {hero.theme || hero.name}
+                </h2>
+              </div>
+
+              <div className="w-[300px] shrink-0 border-l border-[--tv-line] pl-9 text-right">
+                <p className="text-[1rem] font-semibold uppercase tracking-[0.2em] text-[--tv-slate]">
+                  Horário
+                </p>
+                <p className="text-[3rem] font-bold leading-none tabular-nums text-[--tv-navy]">
+                  {fmtTime(hero.start) || "--:--"}
+                </p>
+                <p className="tv-fade mt-2 text-[1.55rem] font-bold leading-tight text-[--tv-orange]">
+                  {live ? "acontecendo agora" : countdownLabel(hero.start, now) || "em instantes"}
+                </p>
+              </div>
+            </section>
+          ) : (
+            <section className="tv-card flex h-[210px] flex-col items-center justify-center rounded-[22px] px-10 text-center">
+              <p className="text-[2.4rem] font-bold text-[--tv-navy]">
+                Nenhuma demonstração programada no momento.
+              </p>
+              <p className="mt-2 text-[1.5rem] font-semibold text-[--tv-slate]">
+                Visite o estande {event.company_stand || "Smart Dent"}
+                {event.location ? ` • ${event.location}` : ""}.
+              </p>
+            </section>
           )}
         </div>
-      </footer>
-    </div>
+
+        {/* ------------------------------ Próximas ------------------------------ */}
+        <main className="relative z-10 min-h-0 flex-1 overflow-hidden px-12 pt-6">
+          <div
+            className="flex h-full flex-col justify-start gap-3.5 transition-opacity duration-500"
+            style={{ opacity: fadeIn ? 1 : 0 }}
+          >
+            {groups.length === 0 ? (
+              <p className="pt-10 text-[1.6rem] font-semibold text-[--tv-slate]">
+                Acompanhe as próximas demonstrações no estande.
+              </p>
+            ) : (
+              groups.map((g) => (
+                <section key={g.label} className="flex flex-col gap-3.5">
+                  <div className="flex items-center gap-4">
+                    <h3 className="text-[1.15rem] font-bold uppercase tracking-[0.24em] text-[--tv-blue]">
+                      {g.label}
+                    </h3>
+                    <span className="h-px flex-1 bg-[--tv-line]" />
+                  </div>
+                  {g.items.map((s) => {
+                    const kind = statusOf(s, now, next?.key);
+                    return (
+                      <article
+                        key={s.key}
+                        className="tv-card flex h-[155px] items-center gap-7 rounded-[16px] px-8"
+                      >
+                        <Avatar slot={s} size={96} />
+                        <InstagramQR handle={s.instagram} size={88} caption={false} />
+
+                        <div className="w-[300px] shrink-0">
+                          <p className="line-clamp-2 text-[1.95rem] font-bold leading-tight text-[--tv-navy]">
+                            {s.name}
+                          </p>
+                          {s.instagram && (
+                            <p className="text-[1.3rem] font-semibold leading-tight text-[--tv-slate]">
+                              @{s.instagram}
+                            </p>
+                          )}
+                        </div>
+
+                        <div className="min-w-0 flex-1 border-l border-[--tv-line] pl-7">
+                          <h4 className="line-clamp-2 text-[2.1rem] font-bold leading-[1.15] text-[--tv-navy]">
+                            {s.theme || "Demonstração Smart Dent"}
+                          </h4>
+                        </div>
+
+                        <div className="w-[250px] shrink-0 border-l border-[--tv-line] pl-7 text-right">
+                          <p className="text-[2.4rem] font-bold leading-none tabular-nums text-[--tv-navy]">
+                            {fmtTime(s.start) || "--:--"}
+                          </p>
+                          <div className="mt-2 flex justify-end">
+                            <StatusPill kind={kind} />
+                          </div>
+                          {kind !== "live" && kind !== "done" && (
+                            <p className="mt-1.5 text-[1.15rem] font-semibold text-[--tv-orange]">
+                              {countdownLabel(s.start, now, true)}
+                            </p>
+                          )}
+                        </div>
+                      </article>
+                    );
+                  })}
+                </section>
+              ))
+            )}
+          </div>
+        </main>
+
+        {/* ------------------------------ Rodapé ------------------------------ */}
+        <footer className="relative z-10 flex h-[104px] shrink-0 items-center justify-between gap-8 px-12">
+          <div className="flex items-center gap-6">
+            {footerQr && (
+              <div className="rounded-[12px] border border-[--tv-line] bg-white p-1.5 shadow-[0_2px_10px_rgba(11,37,69,0.08)]">
+                <img
+                  src={footerQr}
+                  alt={`QR code da agenda completa — ${AGENDA_SHORT_URL}`}
+                  width={82}
+                  height={82}
+                  style={{ width: 82, height: 82 }}
+                />
+              </div>
+            )}
+            <div>
+              <p className="text-[1.7rem] font-bold leading-tight text-[--tv-navy]">
+                Escaneie e acesse a agenda completa
+              </p>
+              <p className="text-[1.25rem] font-semibold leading-tight text-[--tv-orange]">
+                {AGENDA_SHORT_URL}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-7">
+            {pages > 1 && (
+              <span className="flex items-center gap-2.5">
+                {Array.from({ length: pages }).map((_, i) => (
+                  <span
+                    key={i}
+                    className={`h-2.5 w-2.5 rounded-full transition-colors ${
+                      i === page % pages ? "bg-[--tv-orange]" : "bg-[--tv-line]"
+                    }`}
+                  />
+                ))}
+              </span>
+            )}
+            <span className="text-right text-[1.1rem] font-semibold leading-tight text-[--tv-slate]">
+              Smart Dent | Fluxo Digital
+              {event.instagram_handle ? (
+                <>
+                  <br />
+                  {event.instagram_handle.startsWith("@")
+                    ? event.instagram_handle
+                    : `@${handleOf(event.instagram_handle)}`}
+                </>
+              ) : null}
+            </span>
+          </div>
+        </footer>
+      </div>
+    </>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Estilos da sinalização (escopo da própria tela)                     */
+/* ------------------------------------------------------------------ */
+
+function TvStyles() {
+  return (
+    <style>{`
+@import url('https://fonts.googleapis.com/css2?family=Host+Grotesk:wght@400;500;600;700&display=swap');
+
+.tv-root {
+  --tv-bg: #F2F4F7;
+  --tv-card: #FFFFFF;
+  --tv-navy: #0B2545;
+  --tv-slate: #5A7391;
+  --tv-blue: #1F5FA9;
+  --tv-sky: #E4EEF9;
+  --tv-orange: #E8762C;
+  --tv-line: #DDE4EC;
+  font-family: 'Host Grotesk', 'Poppins', system-ui, -apple-system, sans-serif;
+  font-feature-settings: 'ss01';
+  position: relative;
+}
+
+.tv-card {
+  background: rgba(255,255,255,0.94);
+  border: 1px solid var(--tv-line);
+  box-shadow: 0 6px 26px -12px rgba(11,37,69,0.18);
+  backdrop-filter: blur(6px);
+}
+
+.tv-graphics {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  background:
+    radial-gradient(700px 420px at 96% -8%, rgba(31,95,169,0.10), transparent 70%),
+    radial-gradient(620px 380px at -6% 108%, rgba(232,118,44,0.08), transparent 70%);
+}
+.tv-graphics::before,
+.tv-graphics::after {
+  content: '';
+  position: absolute;
+  border-radius: 50%;
+  border: 1px solid rgba(31,95,169,0.10);
+}
+.tv-graphics::before { width: 1100px; height: 1100px; right: -380px; top: -420px; }
+.tv-graphics::after  { width: 860px;  height: 860px;  left: -320px;  bottom: -380px; border-color: rgba(232,118,44,0.12); }
+
+@keyframes tvPulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.35; }
+}
+.tv-pulse { animation: tvPulse 2.4s ease-in-out infinite; }
+
+@keyframes tvFade { from { opacity: 0.6; } to { opacity: 1; } }
+.tv-fade { animation: tvFade 0.4s ease-out; }
+`}</style>
   );
 }
