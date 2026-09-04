@@ -531,7 +531,7 @@ export default function EventAgendaTV() {
         {/* ------------------------------ Card principal ------------------------------ */}
         <div className="relative z-10 shrink-0 px-12 pb-2">
           {hero ? (
-            <section className="tv-card next-demo-card flex min-h-[294px] items-center gap-8 rounded-[24px] py-6 pl-12 pr-10">
+            <section className="tv-card next-demo-card flex min-h-[282px] items-center gap-8 rounded-[24px] py-5 pl-12 pr-10">
               <div className="flex shrink-0 flex-col items-center gap-4">
                 <Avatar slot={hero} size={170} />
                 <InstagramQR handle={hero.instagram} size={150} caption={false} />
@@ -596,7 +596,7 @@ export default function EventAgendaTV() {
         {/* ------------------------------ Próximas ------------------------------ */}
         <main className="relative z-10 min-h-0 flex-1 overflow-hidden px-12 pt-4">
           <div
-            className="flex h-full flex-col justify-evenly gap-4 transition-opacity duration-500"
+            className="flex h-full min-h-0 flex-col gap-4 pb-2 transition-opacity duration-500"
             style={{ opacity: fadeIn ? 1 : 0 }}
           >
             {groups.length === 0 ? (
@@ -605,7 +605,7 @@ export default function EventAgendaTV() {
               </p>
             ) : (
               groups.map((g) => (
-                <section key={g.label} className="flex flex-col gap-4">
+                <section key={g.label} className="flex min-h-0 flex-1 flex-col gap-3">
                   <div className="flex items-center gap-4">
                     <h3 className="text-[25px] font-extrabold uppercase tracking-[0.22em] text-[--tv-blue]">
                       {g.label}
@@ -617,7 +617,7 @@ export default function EventAgendaTV() {
                     return (
                       <article
                         key={s.key}
-                        className="tv-card flex min-h-[195px] items-center gap-7 rounded-[18px] px-8"
+                        className="tv-card flex min-h-[176px] flex-1 items-center gap-7 rounded-[18px] px-8"
                       >
                         <Avatar slot={s} size={120} />
                         <InstagramQR handle={s.instagram} size={110} caption={false} />
