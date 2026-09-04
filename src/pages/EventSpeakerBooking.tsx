@@ -431,6 +431,14 @@ export default function EventSpeakerBooking() {
           </CardContent>
         </Card>
 
+        {/* Calendário de demonstrações */}
+        <div>
+          <h2 className="text-base font-bold">Calendário de demonstrações</h2>
+          <p className="text-xs text-muted-foreground">
+            Escolha os horários em que você vai palestrar no estande. A TV atualiza automaticamente.
+          </p>
+        </div>
+
         {/* Dias */}
         <div className="flex gap-2 overflow-x-auto pb-1">
           {days.map((d) => {
