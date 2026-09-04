@@ -61,6 +61,8 @@ type EventInfo = {
   end_date: string | null;
   event_logo_url: string | null;
   instagram_handle: string | null;
+  start_time?: string | null;
+  end_time?: string | null;
 };
 
 const FN = "event-speaker-booking";
