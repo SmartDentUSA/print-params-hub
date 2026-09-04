@@ -97,6 +97,34 @@ const buildSlots = (start?: string | null, end?: string | null) => {
   return Array.from({ length: e - s }, (_, i) => `${String(s + i).padStart(2, "0")}:00`);
 };
 
+/** Intervalo obrigatório entre demonstrações (minutos). */
+const GAP_MIN = 60;
+const DURATION_OPTIONS = [30, 60, 90, 120, 150, 180];
+
+const toMin = (t?: string | null) => {
+  const [h, m] = String(t || "").slice(0, 5).split(":").map(Number);
+  return Number.isFinite(h) ? h * 60 + (m || 0) : null;
+};
+
+const fromMin = (v: number) =>
+  `${String(Math.floor(v / 60) % 24).padStart(2, "0")}:${String(v % 60).padStart(2, "0")}`;
+
+const durationLabel = (mins: number) =>
+  mins < 60
+    ? `${mins} min`
+    : mins % 60 === 0
+      ? `${mins / 60}h`
+      : `${Math.floor(mins / 60)}h${mins % 60}`;
+
+const durationOf = (s?: Session | null) => {
+  if (!s) return 60;
+  const st = toMin(s.start_time);
+  const en = toMin(s.end_time);
+  if (st === null || en === null || en <= st) return 60;
+  return en - st;
+};
+
+
 const DDI_OPTIONS = [
   { value: "55", label: "🇧🇷 +55 (Brasil)" },
   { value: "1", label: "🇺🇸 +1 (EUA/Canadá)" },
