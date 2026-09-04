@@ -206,7 +206,64 @@ const cleanTheme = (v?: string | null) => {
   return t;
 };
 
+type SupportPerson = {
+  key: string;
+  name: string;
+  instagram: string;
+  photo_url: string;
+  available: boolean;
+  windowLabel: string;
+  dayLabel: string;
+  sortAt: number;
+};
+
+/** Palestrantes com janelas de apoio comercial no estande. */
+function buildSupport(speakers: Speaker[], now: Date): SupportPerson[] {
+  const t = now.getTime();
+  const out: SupportPerson[] = [];
+  speakers.forEach((sp, i) => {
+    if (!sp.name) return;
+    const windows = (sp.support_sessions || [])
+      .map((se) => ({
+        start: toDate(se.date, se.start_time),
+        end: toDate(se.date, se.end_time || se.start_time),
+      }))
+      .filter((w) => w.start)
+      .map((w) => ({
+        start: w.start as Date,
+        end: w.end && w.end.getTime() > (w.start as Date).getTime()
+          ? w.end
+          : new Date((w.start as Date).getTime() + 60 * 60 * 1000),
+      }))
+      .sort((a, b) => a.start.getTime() - b.start.getTime());
+
+    if (!windows.length) return;
+
+    const current = windows.find((w) => t >= w.start.getTime() && t <= (w.end as Date).getTime());
+    const upcoming = windows.find((w) => w.start.getTime() > t);
+    const chosen = current || upcoming;
+    if (!chosen) return;
+
+    out.push({
+      key: `sup-${i}`,
+      name: sp.name,
+      instagram: handleOf(sp.instagram),
+      photo_url: sp.photo_url || "",
+      available: !!current,
+      windowLabel: [fmtTime(chosen.start), fmtTime(chosen.end as Date)].filter(Boolean).join(" – "),
+      dayLabel: fmtDayLabel(chosen.start),
+      sortAt: chosen.start.getTime(),
+    });
+  });
+
+  return out.sort((a, b) => {
+    if (a.available !== b.available) return a.available ? -1 : 1;
+    return a.sortAt - b.sortAt;
+  });
+}
+
 const endOf = (s: Slot) =>
+
   s.end ?? (s.start ? new Date(s.start.getTime() + 45 * 60 * 1000) : null);
 
 const isLive = (s: Slot, now: Date) => {
