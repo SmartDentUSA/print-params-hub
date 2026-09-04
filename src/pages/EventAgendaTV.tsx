@@ -213,32 +213,19 @@ const isLive = (s: Slot, now: Date) => {
 };
 
 /**
- * Contagem regressiva legível:
- *  - < 1 min  -> "começa agora"
- *  - < 1 h    -> "começa em 24min 10s"
- *  - < 24 h   -> "começa em 01h 24min"
- *  - >= 24 h  -> "em 13 dias" / "quinta-feira, 11:56"
+ * Contagem regressiva em horas + minutos, sempre no total de horas.
+ * Ex.: 13 dias, 13h e 1min -> "325h 01min". Nunca negativa, nunca NaN.
  */
-function countdownLabel(target: Date | null, now: Date, compact = false): string {
-  if (!target) return "";
+function countdownLabel(target: Date | null, now: Date): string {
+  if (!target || isNaN(target.getTime())) return "";
   const ms = target.getTime() - now.getTime();
-  if (ms <= 0) return "";
+  if (!Number.isFinite(ms) || ms <= 0) return "";
   const totalMin = Math.floor(ms / 60000);
-  if (totalMin < 1) return compact ? "agora" : "começa agora";
-  if (totalMin < 60) {
-    const s = Math.floor((ms % 60000) / 1000);
-    const body = `${totalMin}min ${String(s).padStart(2, "0")}s`;
-    return compact ? body : `começa em ${body}`;
-  }
   const hours = Math.floor(totalMin / 60);
-  if (hours < 24) {
-    const body = `${String(hours).padStart(2, "0")}h ${String(totalMin % 60).padStart(2, "0")}min`;
-    return compact ? body : `começa em ${body}`;
-  }
-  const days = Math.round(hours / 24);
-  if (days <= 6) return `${WEEK_LONG[target.getDay()]}, ${fmtTime(target)}`;
-  return `em ${days} dias`;
+  const minutes = totalMin % 60;
+  return `${String(hours).padStart(2, "0")}h ${String(minutes).padStart(2, "0")}min`;
 }
+
 
 type StatusKind = "live" | "next" | "scheduled" | "done";
 
