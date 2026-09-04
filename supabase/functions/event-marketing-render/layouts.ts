@@ -100,8 +100,8 @@ function chrome(W: number, H: number, c: Common, artHeight: number): string {
       <stop offset="1" stop-color="#061A3B"/>
     </linearGradient>
     <linearGradient id="scrim" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="${BLUE}" stop-opacity="0.35"/>
-      <stop offset="0.45" stop-color="${BLUE}" stop-opacity="0.55"/>
+      <stop offset="0" stop-color="${BLUE}" stop-opacity="0.15"/>
+      <stop offset="0.55" stop-color="${BLUE}" stop-opacity="0.35"/>
       <stop offset="1" stop-color="${BLUE}" stop-opacity="1"/>
     </linearGradient>
     <clipPath id="artClip"><rect x="0" y="0" width="${W}" height="${artHeight}"/></clipPath>
@@ -144,23 +144,24 @@ export function buildCarouselSvg(slide: CarouselSlide, c: Common): { svg: string
   } else if (slide.kind === "day") {
     artH = 420;
     const rows = slide.sessions.slice(0, 5);
-    const rowH = Math.min(150, Math.floor((H - 560) / Math.max(rows.length, 1)));
-    let y = 520;
+    const top = artH + 230;
+    const rowH = Math.min(170, Math.floor((H - top - 70) / Math.max(rows.length, 1)));
+    let y = top;
     const items = rows
       .map((s, i) => {
-        const av = avatar(`av${i}`, 56, y, Math.min(112, rowH - 16), s.photoDataUri);
+        const av = avatar(`av${i}`, 56, y, Math.min(116, rowH - 30), s.photoDataUri);
         const themeLines = wrap(s.theme, 30, W - 260, 2);
         const block = `${av}
       <text x="192" y="${y + 34}" font-family="Poppins" font-weight="700" font-size="36" fill="${WHITE}">${esc(s.speakerName.toUpperCase())}</text>
       <text x="192" y="${y + 74}" font-family="Poppins" font-weight="700" font-size="28" fill="${ORANGE}">${esc(s.timeLabel)}</text>
       ${textBlock(themeLines, 192, y + 112, 30, SOFT, 400, 1.2)}`;
-        y += rowH + 34;
+        y += rowH;
         return block;
       })
       .join("");
     body = `
     <text x="56" y="${artH + 62}" font-family="Poppins" font-weight="600" font-size="32" fill="${BLUE_LIGHT}" letter-spacing="4">HANDS-ON · DEMONSTRAÇÕES</text>
-    <text x="56" y="${artH + 132}" font-family="Poppins" font-weight="700" font-size="72" fill="${WHITE}">${esc(slide.dayLabel.toUpperCase())}</text>
+    <text x="56" y="${artH + 150}" font-family="Poppins" font-weight="700" font-size="72" fill="${WHITE}">${esc(slide.dayLabel.toUpperCase())}</text>
     ${items}`;
   } else {
     artH = H;
