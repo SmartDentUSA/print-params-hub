@@ -560,7 +560,11 @@ export default function EventAgendaTV() {
                 <p className="mt-2 text-[0.95rem] font-semibold uppercase tracking-[0.2em] text-[--tv-slate]">
                   {live ? "Status" : "Começa em"}
                 </p>
-                <p className="tv-fade whitespace-nowrap text-[1.9rem] font-bold leading-none tabular-nums text-[--tv-orange]">
+                <p
+                  className={`tv-fade whitespace-nowrap font-bold leading-none tabular-nums text-[--tv-orange] ${
+                    live ? "text-[1.5rem]" : "text-[1.9rem]"
+                  }`}
+                >
                   {live
                     ? "ACONTECENDO AGORA"
                     : countdownLabel(hero.start, now) || "00h 00min"}
@@ -635,8 +639,8 @@ export default function EventAgendaTV() {
                             <StatusPill kind={kind} />
                           </div>
                           {kind !== "live" && kind !== "done" && (
-                            <p className="mt-1.5 text-[1.15rem] font-semibold text-[--tv-orange]">
-                              {countdownLabel(s.start, now, true)}
+                            <p className="mt-1.5 whitespace-nowrap text-[1.15rem] font-bold tabular-nums text-[--tv-orange]">
+                              em {countdownLabel(s.start, now) || "00h 00min"}
                             </p>
                           )}
                         </div>
