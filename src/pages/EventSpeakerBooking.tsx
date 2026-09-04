@@ -48,7 +48,6 @@ function buildSlots() {
   const out: string[] = [];
   for (let h = SLOT_START_HOUR; h < SLOT_END_HOUR; h++) {
     out.push(`${String(h).padStart(2, "0")}:00`);
-    out.push(`${String(h).padStart(2, "0")}:30`);
   }
   return out;
 }
