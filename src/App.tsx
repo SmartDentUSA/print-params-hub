@@ -24,6 +24,7 @@ const AgentEmbed = lazy(() => import("./pages/AgentEmbed"));
 const AgendaPublica = lazy(() => import("./pages/AgendaPublica"));
 const EventAgendaTV = lazy(() => import("./pages/EventAgendaTV"));
 const EventSpeakerBooking = lazy(() => import("./pages/EventSpeakerBooking"));
+const EventPublicAgenda = lazy(() => import("./pages/EventPublicAgenda"));
 
 const PublicFormPage = lazy(() => import("./pages/PublicFormPage"));
 const PublicLandingPage = lazy(() => import("./pages/PublicLandingPage"));
@@ -196,6 +197,11 @@ const App = () => (
 
       {/* Autoagendamento dos KOLs do congresso (link compartilhável, sem login) */}
       <Route path="/agenda-kol/:eventId" element={<EventSpeakerBooking />} />
+
+      {/* Landing page pública da agenda do congresso (QR Code / vendedores) */}
+      <Route path="/evento/:slug" element={<EventPublicAgenda />} />
+      <Route path="/CIPRO" element={<EventPublicAgenda term="CIPRO" />} />
+      <Route path="/cipro" element={<EventPublicAgenda term="CIPRO" />} />
 
 
       
