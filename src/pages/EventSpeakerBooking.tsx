@@ -17,6 +17,8 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { AREA_ATUACAO_OPTIONS, ESPECIALIDADE_OPTIONS } from "@/lib/dentalTaxonomy";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import {
@@ -85,7 +87,31 @@ const SLOTS = Array.from({ length: SLOT_END_HOUR - SLOT_START_HOUR }, (_, i) =>
   `${String(SLOT_START_HOUR + i).padStart(2, "0")}:00`,
 );
 
-const emptyNew = { name: "", instagram: "", email: "", phone: "", specialty: "", cro: "", mini_bio: "" };
+const DDI_OPTIONS = [
+  { value: "55", label: "🇧🇷 +55 (Brasil)" },
+  { value: "1", label: "🇺🇸 +1 (EUA/Canadá)" },
+  { value: "351", label: "🇵🇹 +351 (Portugal)" },
+  { value: "34", label: "🇪🇸 +34 (Espanha)" },
+  { value: "54", label: "🇦🇷 +54 (Argentina)" },
+  { value: "56", label: "🇨🇱 +56 (Chile)" },
+  { value: "57", label: "🇨🇴 +57 (Colômbia)" },
+  { value: "52", label: "🇲🇽 +52 (México)" },
+];
+
+// Mesmos campos e taxonomias do cadastro de Profissionais em Cursos
+const emptyNew = {
+  name: "",
+  email: "",
+  area_atuacao: "",
+  specialty: "",
+  birth_date: "",
+  cro: "",
+  course_platform: "",
+  instagram: "",
+  wa_ddi: "55",
+  wa_number: "",
+  mini_bio: "",
+};
 
 export default function EventSpeakerBooking() {
   const { eventId = "" } = useParams();
@@ -186,6 +212,14 @@ export default function EventSpeakerBooking() {
   const mySupportAt = (date: string, time: string) =>
     mySupport.find((s) => s.date === date && String(s.start_time).slice(0, 5) === time) ?? null;
 
+  /** Outros profissionais que também marcaram apoio comercial neste horário (informativo). */
+  const supportOthers = (date: string, time: string) =>
+    speakers
+      .filter((s) => (!mine || s !== mine) &&
+        (s.support_sessions || []).some((x) => x.date === date && String(x.start_time).slice(0, 5) === time))
+      .map((s) => s.name || "")
+      .filter(Boolean);
+
   const mySlotAt = (date: string, time: string) =>
     mySessions.find((s) => s.date === date && String(s.start_time).slice(0, 5) === time) ?? null;
 
@@ -283,7 +317,7 @@ export default function EventSpeakerBooking() {
 
   async function toggleSupport(date: string, time: string) {
     if (!person) return toast.error("Selecione o palestrante primeiro.");
-    if (mySlotAt(date, time)) return; // já estará no estande palestrando
+    // Apoio comercial não é bloqueante: vários KOLs podem estar no estande no mesmo horário.
     const exists = mySupportAt(date, time);
     const next = exists
       ? mySupport.filter((s) => !(s.date === date && String(s.start_time).slice(0, 5) === time))
@@ -511,6 +545,7 @@ export default function EventSpeakerBooking() {
           <h2 className="text-base font-bold">Disponibilidade para apoio comercial durante o evento</h2>
           <p className="text-xs text-muted-foreground">
             Selecione os horários em que você estará disponível no estande da Smart Dent para apoio do time comercial.
+            Este calendário não bloqueia ninguém — vários profissionais podem estar juntos no mesmo horário.
           </p>
         </div>
 
@@ -522,23 +557,25 @@ export default function EventSpeakerBooking() {
             </div>
             <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
               {(activeDay ? SLOTS : []).map((t) => {
-                const talk = mySlotAt(activeDay, t);
                 const sup = mySupportAt(activeDay, t);
+                const others = supportOthers(activeDay, t);
                 return (
                   <button
                     key={`sup-${activeDay}|${t}`}
-                    disabled={!!talk || saving}
+                    disabled={saving}
                     onClick={() => toggleSupport(activeDay, t)}
                     className={cn(
                       "rounded-lg border px-2 py-2 text-sm font-medium transition-colors",
-                      talk && "cursor-not-allowed bg-muted text-muted-foreground opacity-50",
-                      !talk && sup && "border-sky-600 bg-sky-600 text-white",
-                      !talk && !sup && "bg-card hover:bg-accent",
+                      sup ? "border-sky-600 bg-sky-600 text-white" : "bg-card hover:bg-accent",
                     )}
-                    title={talk ? "Você já estará no estande palestrando neste horário" : undefined}
+                    title={others.length ? `Também no estande: ${others.join(", ")}` : undefined}
                   >
                     <div className="tabular-nums">{t}</div>
-                    {talk && <div className="truncate text-[10px] opacity-80">No estande (palestra)</div>}
+                    {others.length > 0 && (
+                      <div className={cn("truncate text-[10px]", sup ? "opacity-90" : "text-muted-foreground")}>
+                        +{others.length} no estande
+                      </div>
+                    )}
                   </button>
                 );
               })}
@@ -546,7 +583,7 @@ export default function EventSpeakerBooking() {
             <div className="mt-3 flex flex-wrap gap-3 text-[11px] text-muted-foreground">
               <span className="inline-flex items-center gap-1"><span className="h-3 w-3 rounded border bg-card" /> Disponível p/ marcar</span>
               <span className="inline-flex items-center gap-1"><span className="h-3 w-3 rounded bg-sky-600" /> Apoio confirmado</span>
-              <span className="inline-flex items-center gap-1"><span className="h-3 w-3 rounded bg-muted opacity-50" /> Já estará no estande (palestra)</span>
+              <span>+N = outros profissionais que também estarão no estande</span>
             </div>
           </CardContent>
         </Card>
@@ -622,29 +659,63 @@ export default function EventSpeakerBooking() {
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
               <div>
-                <Label className="text-xs">Instagram</Label>
-                <Input value={newForm.instagram} onChange={(e) => setNewForm({ ...newForm, instagram: e.target.value })} placeholder="@perfil" />
-              </div>
-              <div>
-                <Label className="text-xs">CRO</Label>
-                <Input value={newForm.cro} onChange={(e) => setNewForm({ ...newForm, cro: e.target.value })} />
-              </div>
-              <div>
                 <Label className="text-xs">E-mail</Label>
                 <Input type="email" value={newForm.email} onChange={(e) => setNewForm({ ...newForm, email: e.target.value })} />
               </div>
               <div>
-                <Label className="text-xs">WhatsApp</Label>
-                <Input value={newForm.phone} onChange={(e) => setNewForm({ ...newForm, phone: e.target.value })} placeholder="(11) 99999-9999" />
+                <Label className="text-xs">Data de nascimento</Label>
+                <Input type="date" value={newForm.birth_date} onChange={(e) => setNewForm({ ...newForm, birth_date: e.target.value })} />
+              </div>
+              <div>
+                <Label className="text-xs">Área de atuação</Label>
+                <Select value={newForm.area_atuacao} onValueChange={(v) => setNewForm({ ...newForm, area_atuacao: v })}>
+                  <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                  <SelectContent>
+                    {AREA_ATUACAO_OPTIONS.map((o) => (
+                      <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-xs">Especialidade</Label>
+                <Select value={newForm.specialty} onValueChange={(v) => setNewForm({ ...newForm, specialty: v })}>
+                  <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                  <SelectContent>
+                    {ESPECIALIDADE_OPTIONS.map((o) => (
+                      <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-xs">Registro profissional (CRO)</Label>
+                <Input value={newForm.cro} onChange={(e) => setNewForm({ ...newForm, cro: e.target.value })} />
+              </div>
+              <div>
+                <Label className="text-xs">Plataforma de cursos</Label>
+                <Input value={newForm.course_platform} onChange={(e) => setNewForm({ ...newForm, course_platform: e.target.value })} placeholder="Hotmart, Kiwify, Astron..." />
               </div>
             </div>
             <div>
-              <Label className="text-xs">Especialidade</Label>
-              <Input value={newForm.specialty} onChange={(e) => setNewForm({ ...newForm, specialty: e.target.value })} placeholder="Ex.: Prótese dentária" />
+              <Label className="text-xs">WhatsApp</Label>
+              <div className="flex gap-2">
+                <Select value={newForm.wa_ddi} onValueChange={(v) => setNewForm({ ...newForm, wa_ddi: v })}>
+                  <SelectTrigger className="w-36"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {DDI_OPTIONS.map((d) => <SelectItem key={d.value} value={d.value}>{d.label}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+                <Input value={newForm.wa_number} onChange={(e) => setNewForm({ ...newForm, wa_number: e.target.value })} placeholder="DDD + número" />
+              </div>
+            </div>
+            <div>
+              <Label className="text-xs">Instagram</Label>
+              <Input value={newForm.instagram} onChange={(e) => setNewForm({ ...newForm, instagram: e.target.value })} placeholder="@perfil" />
             </div>
             <div>
               <Label className="text-xs">Mini CV</Label>
-              <Textarea rows={3} value={newForm.mini_bio} onChange={(e) => setNewForm({ ...newForm, mini_bio: e.target.value })} placeholder="Formação, experiência, cursos ministrados…" />
+              <Textarea rows={4} value={newForm.mini_bio} onChange={(e) => setNewForm({ ...newForm, mini_bio: e.target.value })} placeholder="Formação, experiência, cursos ministrados..." />
             </div>
             <div>
               <Label className="text-xs">Foto</Label>
