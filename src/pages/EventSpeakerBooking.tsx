@@ -759,25 +759,59 @@ export default function EventSpeakerBooking() {
         )}
       </main>
 
-      {/* Modal do tema do horário */}
+      {/* Modal do tema + duração do horário */}
       <Dialog open={!!slotDialog} onOpenChange={(o) => !o && setSlotDialog(null)}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>
-              Tema da demonstração — {slotDialog ? `${dayLabel(slotDialog.date).day}/${dayLabel(slotDialog.date).month} às ${slotDialog.time}` : ""}
+              Agendar demonstração — {slotDialog ? `${dayLabel(slotDialog.date).day}/${dayLabel(slotDialog.date).month} às ${slotDialog.time}` : ""}
             </DialogTitle>
           </DialogHeader>
-          <div className="space-y-2">
-            <Label className="text-xs">Tema *</Label>
-            <Textarea
-              rows={3}
-              autoFocus
-              value={slotDialog?.theme ?? ""}
-              onChange={(e) => setSlotDialog((cur) => (cur ? { ...cur, theme: e.target.value } : cur))}
-              placeholder="Ex.: Fluxo digital completo em prótese total"
-            />
-            <p className="text-[11px] text-muted-foreground">Aparece na TV do estande junto ao seu nome e QR Code.</p>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label className="text-xs">Tempo de duração *</Label>
+              <div className="grid grid-cols-3 gap-2">
+                {DURATION_OPTIONS.map((d) => {
+                  const max = slotDialog ? maxDurationAt(slotDialog.date, slotDialog.time) : 180;
+                  const disabled = d > max;
+                  const active = slotDialog?.duration === d;
+                  return (
+                    <button
+                      key={d}
+                      type="button"
+                      disabled={disabled}
+                      onClick={() => setSlotDialog((cur) => (cur ? { ...cur, duration: d } : cur))}
+                      className={cn(
+                        "rounded-lg border px-2 py-2 text-sm font-medium transition-colors",
+                        disabled && "cursor-not-allowed border-dashed bg-muted text-muted-foreground",
+                        !disabled && active && "border-emerald-600 bg-emerald-600 text-white",
+                        !disabled && !active && "bg-card hover:bg-accent",
+                      )}
+                    >
+                      {durationLabel(d)}
+                    </button>
+                  );
+                })}
+              </div>
+              {slotDialog && (
+                <p className="text-[11px] text-muted-foreground">
+                  Das {slotDialog.time} às {fromMin((toMin(slotDialog.time) || 0) + slotDialog.duration)} — depois há
+                  1 hora de intervalo antes da próxima demonstração.
+                </p>
+              )}
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs">Tema *</Label>
+              <Textarea
+                rows={3}
+                value={slotDialog?.theme ?? ""}
+                onChange={(e) => setSlotDialog((cur) => (cur ? { ...cur, theme: e.target.value } : cur))}
+                placeholder="Ex.: Fluxo digital completo em prótese total"
+              />
+              <p className="text-[11px] text-muted-foreground">Aparece na TV do estande junto ao seu nome e QR Code.</p>
+            </div>
           </div>
+
           <DialogFooter className="gap-2 sm:justify-between">
             {slotDialog?.existing ? (
               <Button variant="outline" onClick={removeSlot} disabled={saving} className="text-destructive">
