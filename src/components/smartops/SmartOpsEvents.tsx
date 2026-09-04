@@ -495,9 +495,24 @@ export function SmartOpsEvents() {
                   <Label>Ordem de exibição</Label>
                   <Input type="number" value={editing.display_order ?? 0} onChange={(e) => setEditing({ ...editing, display_order: Number(e.target.value) || 0 })} />
                 </div>
-                <div className="flex items-end gap-2">
+                <div className="flex flex-wrap items-end gap-2">
                   <Switch checked={editing.is_active ?? true} onCheckedChange={(v) => setEditing({ ...editing, is_active: v })} />
                   <Label>Ativo (visível no site)</Label>
+                  {editing.id && (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        const url = `${getPublicOrigin()}/agenda-kol/${editing.id}`;
+                        navigator.clipboard?.writeText(url);
+                        toast.success("Link de autoagendamento copiado", { description: url });
+                        window.open(url, "_blank", "noopener");
+                      }}
+                    >
+                      <Users className="w-4 h-4 mr-1" /> Autoagendamento KOLs
+                    </Button>
+                  )}
                 </div>
               </div>
               <div>
