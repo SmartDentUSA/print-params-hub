@@ -270,7 +270,22 @@ export function SmartOpsEvents() {
                         ) : "—"}
                       </td>
                       <td className="py-2 pr-3">
-                        <Switch checked={r.is_active} onCheckedChange={() => toggleActive(r)} />
+                        <div className="flex items-center gap-1">
+                          <Switch checked={r.is_active} onCheckedChange={() => toggleActive(r)} />
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            title="Autoagendamento dos KOLs (link para o grupo de WhatsApp)"
+                            onClick={() => {
+                              const url = `${getPublicOrigin()}/agenda-kol/${r.id}`;
+                              navigator.clipboard?.writeText(url);
+                              toast.success("Link de autoagendamento copiado", { description: url });
+                              window.open(url, "_blank", "noopener");
+                            }}
+                          >
+                            <Users className="w-4 h-4" />
+                          </Button>
+                        </div>
                       </td>
                       <td className="py-2 pr-3 text-right">
                         <div className="flex items-center justify-end gap-1">
