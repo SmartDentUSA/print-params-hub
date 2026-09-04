@@ -338,6 +338,7 @@ Deno.serve(async (req) => {
         photo_url: photoUrl || (idx >= 0 ? list[idx].photo_url || "" : ""),
         professional_id: professionalId || (idx >= 0 ? list[idx].professional_id || "" : ""),
         sessions: slots,
+        support_sessions: supportSlots,
       };
       if (idx >= 0) list[idx] = entry;
       else list.push(entry);
