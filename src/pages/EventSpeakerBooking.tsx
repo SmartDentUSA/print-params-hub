@@ -270,12 +270,21 @@ export default function EventSpeakerBooking() {
   const mySlotAt = (date: string, time: string) =>
     mySessions.find((s) => s.date === date && String(s.start_time).slice(0, 5) === time) ?? null;
 
-  const takenByOthers = useMemo(() => {
-    const toMin = (t?: string) => {
-      const [h, m] = String(t || "").slice(0, 5).split(":").map(Number);
-      return Number.isFinite(h) ? h * 60 + (m || 0) : null;
-    };
-    const map = new Map<string, Speaker>();
+  /** Sessão própria que cobre este horário (duração maior que 1 hora). */
+  const myCoverAt = (date: string, time: string) => {
+    const cell = toMin(time)!;
+    return (
+      mySessions.find((s) => {
+        if (s.date !== date) return false;
+        const st = toMin(s.start_time)!;
+        return cell > st && cell < (toMin(s.end_time) ?? st + 60);
+      }) ?? null
+    );
+  };
+
+  /** Horários bloqueados por outros palestrantes: ocupados ou dentro do intervalo de 1h. */
+  const blocked = useMemo(() => {
+    const map = new Map<string, { name: string; reason: "busy" | "gap" }>();
     for (const s of speakers) {
       if (mine && s === mine) continue;
       for (const ses of s.sessions || []) {
@@ -284,12 +293,47 @@ export default function EventSpeakerBooking() {
         const end = toMin(ses.end_time) ?? start + 60;
         for (const t of SLOTS) {
           const cell = toMin(t)!;
-          if (cell < end && cell + 60 > start) map.set(`${ses.date}|${t}`, s);
+          const key = `${ses.date}|${t}`;
+          if (cell < end && cell + 60 > start) map.set(key, { name: s.name || "", reason: "busy" });
+          else if (cell < end + GAP_MIN && cell + 60 + GAP_MIN > start && !map.has(key))
+            map.set(key, { name: s.name || "", reason: "gap" });
         }
       }
     }
     return map;
   }, [speakers, mine, SLOTS]);
+
+  /** Intervalo de 1h em volta das próprias demonstrações. */
+  const myGap = (date: string, time: string) => {
+    const cell = toMin(time)!;
+    return mySessions.some((s) => {
+      if (s.date !== date) return false;
+      const st = toMin(s.start_time)!;
+      const en = toMin(s.end_time) ?? st + 60;
+      const inside = cell >= st && cell < en;
+      return !inside && cell < en + GAP_MIN && cell + 60 + GAP_MIN > st;
+    });
+  };
+
+  /** Duração máxima possível a partir deste horário, respeitando o intervalo de 1h. */
+  const maxDurationAt = (date: string, time: string) => {
+    const st = toMin(time)!;
+    const dayEnd = (toMin(SLOTS[SLOTS.length - 1]) ?? st) + 60;
+    let limit = Math.max(30, dayEnd - st);
+    for (const s of speakers) {
+      for (const ses of s.sessions || []) {
+        if (ses.date !== date) continue;
+        const isMineSame = mine && s === mine && String(ses.start_time).slice(0, 5) === time;
+        if (isMineSame) continue;
+        const oStart = toMin(ses.start_time);
+        if (oStart === null) continue;
+        if (oStart > st) limit = Math.min(limit, oStart - GAP_MIN - st);
+      }
+    }
+    const capped = Math.floor(Math.max(30, limit) / 30) * 30;
+    return Math.min(180, capped);
+  };
+
 
   const persist = useCallback(
     async (slots: Session[], support: Session[] = mySupport) => {
