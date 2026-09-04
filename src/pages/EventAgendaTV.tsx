@@ -211,14 +211,19 @@ type SupportPerson = {
   name: string;
   instagram: string;
   photo_url: string;
-  available: boolean;
   windowLabel: string;
-  dayLabel: string;
   sortAt: number;
 };
 
-/** Palestrantes com janelas de apoio comercial no estande. */
-function buildSupport(speakers: Speaker[], now: Date): SupportPerson[] {
+/** Verdadeiro se a data (em SP) for o mesmo dia de `now`. */
+function isSameDaySP(d: Date, now: Date) {
+  const a = spParts(d);
+  const b = spParts(now);
+  return a.year === b.year && a.month === b.month && a.day === b.day;
+}
+
+/** Apenas especialistas disponíveis AGORA no dia atual no estande. */
+function buildSupportToday(speakers: Speaker[], now: Date): SupportPerson[] {
   const t = now.getTime();
   const out: SupportPerson[] = [];
   speakers.forEach((sp, i) => {
@@ -235,31 +240,23 @@ function buildSupport(speakers: Speaker[], now: Date): SupportPerson[] {
           ? w.end
           : new Date((w.start as Date).getTime() + 60 * 60 * 1000),
       }))
+      .filter((w) => isSameDaySP(w.start, now))
       .sort((a, b) => a.start.getTime() - b.start.getTime());
 
-    if (!windows.length) return;
-
     const current = windows.find((w) => t >= w.start.getTime() && t <= (w.end as Date).getTime());
-    const upcoming = windows.find((w) => w.start.getTime() > t);
-    const chosen = current || upcoming;
-    if (!chosen) return;
+    if (!current) return;
 
     out.push({
       key: `sup-${i}`,
       name: sp.name,
       instagram: handleOf(sp.instagram),
       photo_url: sp.photo_url || "",
-      available: !!current,
-      windowLabel: [fmtTime(chosen.start), fmtTime(chosen.end as Date)].filter(Boolean).join(" – "),
-      dayLabel: fmtDayLabel(chosen.start),
-      sortAt: chosen.start.getTime(),
+      windowLabel: [fmtTime(current.start), fmtTime(current.end as Date)].filter(Boolean).join(" – "),
+      sortAt: current.start.getTime(),
     });
   });
 
-  return out.sort((a, b) => {
-    if (a.available !== b.available) return a.available ? -1 : 1;
-    return a.sortAt - b.sortAt;
-  });
+  return out.sort((a, b) => a.sortAt - b.sortAt);
 }
 
 const endOf = (s: Slot) =>
