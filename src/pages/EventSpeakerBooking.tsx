@@ -212,6 +212,14 @@ export default function EventSpeakerBooking() {
   const mySupportAt = (date: string, time: string) =>
     mySupport.find((s) => s.date === date && String(s.start_time).slice(0, 5) === time) ?? null;
 
+  /** Outros profissionais que também marcaram apoio comercial neste horário (informativo). */
+  const supportOthers = (date: string, time: string) =>
+    speakers
+      .filter((s) => (!mine || s !== mine) &&
+        (s.support_sessions || []).some((x) => x.date === date && String(x.start_time).slice(0, 5) === time))
+      .map((s) => s.name || "")
+      .filter(Boolean);
+
   const mySlotAt = (date: string, time: string) =>
     mySessions.find((s) => s.date === date && String(s.start_time).slice(0, 5) === time) ?? null;
 
