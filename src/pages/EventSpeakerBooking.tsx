@@ -97,6 +97,34 @@ const buildSlots = (start?: string | null, end?: string | null) => {
   return Array.from({ length: e - s }, (_, i) => `${String(s + i).padStart(2, "0")}:00`);
 };
 
+/** Intervalo obrigatório entre demonstrações (minutos). */
+const GAP_MIN = 60;
+const DURATION_OPTIONS = [30, 60, 90, 120, 150, 180];
+
+const toMin = (t?: string | null) => {
+  const [h, m] = String(t || "").slice(0, 5).split(":").map(Number);
+  return Number.isFinite(h) ? h * 60 + (m || 0) : null;
+};
+
+const fromMin = (v: number) =>
+  `${String(Math.floor(v / 60) % 24).padStart(2, "0")}:${String(v % 60).padStart(2, "0")}`;
+
+const durationLabel = (mins: number) =>
+  mins < 60
+    ? `${mins} min`
+    : mins % 60 === 0
+      ? `${mins / 60}h`
+      : `${Math.floor(mins / 60)}h${mins % 60}`;
+
+const durationOf = (s?: Session | null) => {
+  if (!s) return 60;
+  const st = toMin(s.start_time);
+  const en = toMin(s.end_time);
+  if (st === null || en === null || en <= st) return 60;
+  return en - st;
+};
+
+
 const DDI_OPTIONS = [
   { value: "55", label: "🇧🇷 +55 (Brasil)" },
   { value: "1", label: "🇺🇸 +1 (EUA/Canadá)" },
@@ -137,8 +165,15 @@ export default function EventSpeakerBooking() {
   const [personId, setPersonId] = useState<string>("");
   const [pickerOpen, setPickerOpen] = useState(false);
 
-  // Modal de tema por horário
-  const [slotDialog, setSlotDialog] = useState<{ date: string; time: string; theme: string; existing: boolean } | null>(null);
+  // Modal de tema + duração por horário
+  const [slotDialog, setSlotDialog] = useState<{
+    date: string;
+    time: string;
+    theme: string;
+    duration: number;
+    existing: boolean;
+  } | null>(null);
+
 
   // Modal de novo palestrante
   const [newOpen, setNewOpen] = useState(false);
@@ -235,12 +270,21 @@ export default function EventSpeakerBooking() {
   const mySlotAt = (date: string, time: string) =>
     mySessions.find((s) => s.date === date && String(s.start_time).slice(0, 5) === time) ?? null;
 
-  const takenByOthers = useMemo(() => {
-    const toMin = (t?: string) => {
-      const [h, m] = String(t || "").slice(0, 5).split(":").map(Number);
-      return Number.isFinite(h) ? h * 60 + (m || 0) : null;
-    };
-    const map = new Map<string, Speaker>();
+  /** Sessão própria que cobre este horário (duração maior que 1 hora). */
+  const myCoverAt = (date: string, time: string) => {
+    const cell = toMin(time)!;
+    return (
+      mySessions.find((s) => {
+        if (s.date !== date) return false;
+        const st = toMin(s.start_time)!;
+        return cell > st && cell < (toMin(s.end_time) ?? st + 60);
+      }) ?? null
+    );
+  };
+
+  /** Horários bloqueados por outros palestrantes: ocupados ou dentro do intervalo de 1h. */
+  const blocked = useMemo(() => {
+    const map = new Map<string, { name: string; reason: "busy" | "gap" }>();
     for (const s of speakers) {
       if (mine && s === mine) continue;
       for (const ses of s.sessions || []) {
@@ -249,12 +293,47 @@ export default function EventSpeakerBooking() {
         const end = toMin(ses.end_time) ?? start + 60;
         for (const t of SLOTS) {
           const cell = toMin(t)!;
-          if (cell < end && cell + 60 > start) map.set(`${ses.date}|${t}`, s);
+          const key = `${ses.date}|${t}`;
+          if (cell < end && cell + 60 > start) map.set(key, { name: s.name || "", reason: "busy" });
+          else if (cell < end + GAP_MIN && cell + 60 + GAP_MIN > start && !map.has(key))
+            map.set(key, { name: s.name || "", reason: "gap" });
         }
       }
     }
     return map;
   }, [speakers, mine, SLOTS]);
+
+  /** Intervalo de 1h em volta das próprias demonstrações. */
+  const myGap = (date: string, time: string) => {
+    const cell = toMin(time)!;
+    return mySessions.some((s) => {
+      if (s.date !== date) return false;
+      const st = toMin(s.start_time)!;
+      const en = toMin(s.end_time) ?? st + 60;
+      const inside = cell >= st && cell < en;
+      return !inside && cell < en + GAP_MIN && cell + 60 + GAP_MIN > st;
+    });
+  };
+
+  /** Duração máxima possível a partir deste horário, respeitando o intervalo de 1h. */
+  const maxDurationAt = (date: string, time: string) => {
+    const st = toMin(time)!;
+    const dayEnd = (toMin(SLOTS[SLOTS.length - 1]) ?? st) + 60;
+    let limit = Math.max(30, dayEnd - st);
+    for (const s of speakers) {
+      for (const ses of s.sessions || []) {
+        if (ses.date !== date) continue;
+        const isMineSame = mine && s === mine && String(ses.start_time).slice(0, 5) === time;
+        if (isMineSame) continue;
+        const oStart = toMin(ses.start_time);
+        if (oStart === null) continue;
+        if (oStart > st) limit = Math.min(limit, oStart - GAP_MIN - st);
+      }
+    }
+    const capped = Math.floor(Math.max(30, limit) / 30) * 30;
+    return Math.min(180, capped);
+  };
+
 
   const persist = useCallback(
     async (slots: Session[], support: Session[] = mySupport) => {
@@ -267,7 +346,12 @@ export default function EventSpeakerBooking() {
           name: person.name,
           instagram: person.instagram,
           photo_url: person.photo_url,
-          slots: slots.map((s) => ({ date: s.date, start_time: String(s.start_time).slice(0, 5), theme: s.theme })),
+          slots: slots.map((s) => ({
+            date: s.date,
+            start_time: String(s.start_time).slice(0, 5),
+            duration_minutes: durationOf(s),
+            theme: s.theme,
+          })),
           support_slots: support.map((s) => ({ date: s.date, start_time: String(s.start_time).slice(0, 5) })),
         });
         setSpeakers(res.speakers || []);
@@ -288,12 +372,25 @@ export default function EventSpeakerBooking() {
 
   function openSlot(date: string, time: string) {
     if (!person) return toast.error("Selecione o palestrante primeiro.");
-    if (takenByOthers.has(`${date}|${time}`)) return;
-    const existing = mySlotAt(date, time);
+    const b = blocked.get(`${date}|${time}`);
+    if (b) {
+      return toast.error(
+        b.reason === "busy"
+          ? `Horário reservado por ${b.name}.`
+          : `Intervalo de 1 hora após a demonstração de ${b.name}.`,
+      );
+    }
+    const cover = myCoverAt(date, time);
+    const existing = mySlotAt(date, time) || cover;
+    if (!existing && myGap(date, time)) {
+      return toast.error("É preciso deixar 1 hora de intervalo entre suas demonstrações.");
+    }
+    const start = existing ? String(existing.start_time).slice(0, 5) : time;
     setSlotDialog({
       date,
-      time,
+      time: start,
       theme: existing?.theme || mySessions[0]?.theme || "",
+      duration: existing ? durationOf(existing) : 60,
       existing: !!existing,
     });
   }
@@ -302,18 +399,30 @@ export default function EventSpeakerBooking() {
     if (!slotDialog) return;
     const theme = slotDialog.theme.trim();
     if (theme.length < 3) return toast.error("Informe o tema da demonstração.");
+    const max = maxDurationAt(slotDialog.date, slotDialog.time);
+    if (slotDialog.duration > max) {
+      return toast.error(`Neste horário a duração máxima é ${durationLabel(max)} (1 hora de intervalo obrigatório).`);
+    }
     const rest = mySessions.filter(
       (s) => !(s.date === slotDialog.date && String(s.start_time).slice(0, 5) === slotDialog.time),
     );
-    const next = [...rest, { date: slotDialog.date, start_time: slotDialog.time, theme }].sort((a, b) =>
-      `${a.date}${a.start_time}`.localeCompare(`${b.date}${b.start_time}`),
-    );
+    const start = toMin(slotDialog.time)!;
+    const next = [
+      ...rest,
+      {
+        date: slotDialog.date,
+        start_time: slotDialog.time,
+        end_time: fromMin(start + slotDialog.duration),
+        theme,
+      },
+    ].sort((a, b) => `${a.date}${a.start_time}`.localeCompare(`${b.date}${b.start_time}`));
     const ok = await persist(next);
     if (ok) {
       setSlotDialog(null);
       toast.success("Horário confirmado! Já aparece na TV do estande.");
     }
   }
+
 
   async function removeSlot() {
     if (!slotDialog) return;
@@ -515,31 +624,54 @@ export default function EventSpeakerBooking() {
         {/* Grade de horários */}
         <Card>
           <CardContent className="p-4">
-            <div className="mb-3 flex items-center gap-2 text-sm font-semibold">
+            <div className="mb-1 flex items-center gap-2 text-sm font-semibold">
               <Clock className="h-4 w-4" /> Horários de 1 em 1 hora
               {saving && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
             </div>
+            <p className="mb-3 text-[11px] text-muted-foreground">
+              A duração é escolhida no momento de agendar (de 30 em 30 minutos) e há 1 hora de intervalo
+              obrigatório entre demonstrações.
+            </p>
             <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
               {(activeDay ? SLOTS : []).map((t) => {
                 const key = `${activeDay}|${t}`;
-                const other = takenByOthers.get(key);
+                const other = blocked.get(key);
                 const own = mySlotAt(activeDay, t);
+                const cover = !own ? myCoverAt(activeDay, t) : null;
+                const gap = !own && !cover && !other && myGap(activeDay, t);
+                const dim = !!other || gap;
                 return (
                   <button
                     key={key}
-                    disabled={!!other || saving}
+                    disabled={dim || saving}
                     onClick={() => openSlot(activeDay, t)}
                     className={cn(
                       "rounded-lg border px-2 py-2 text-sm font-medium transition-colors",
-                      other && "cursor-not-allowed border-dashed bg-muted text-muted-foreground",
-                      !other && own && "border-emerald-600 bg-emerald-600 text-white",
-                      !other && !own && "bg-card hover:bg-accent",
+                      dim && "cursor-not-allowed border-dashed bg-muted text-muted-foreground",
+                      !dim && own && "border-emerald-600 bg-emerald-600 text-white",
+                      !dim && cover && "border-emerald-600 bg-emerald-600/70 text-white",
+                      !dim && !own && !cover && "bg-card hover:bg-accent",
                     )}
-                    title={other ? `Reservado por ${other.name}` : own?.theme || undefined}
+                    title={
+                      other
+                        ? other.reason === "busy"
+                          ? `Reservado por ${other.name}`
+                          : `Intervalo após ${other.name}`
+                        : gap
+                          ? "Intervalo obrigatório de 1 hora"
+                          : (own || cover)?.theme || undefined
+                    }
                   >
                     <div className="tabular-nums">{t}</div>
-                    {other && <div className="truncate text-[10px] opacity-80">{other.name}</div>}
-                    {!other && own?.theme && <div className="truncate text-[10px] opacity-90">{own.theme}</div>}
+                    {other?.reason === "busy" && <div className="truncate text-[10px] opacity-80">{other.name}</div>}
+                    {other?.reason === "gap" && <div className="truncate text-[10px] opacity-80">intervalo</div>}
+                    {gap && <div className="truncate text-[10px] opacity-80">intervalo</div>}
+                    {!dim && own && (
+                      <div className="truncate text-[10px] opacity-90">
+                        {durationLabel(durationOf(own))}{own.theme ? ` • ${own.theme}` : ""}
+                      </div>
+                    )}
+                    {!dim && cover && <div className="truncate text-[10px] opacity-90">em andamento</div>}
                   </button>
                 );
               })}
@@ -547,8 +679,9 @@ export default function EventSpeakerBooking() {
             <div className="mt-3 flex flex-wrap gap-3 text-[11px] text-muted-foreground">
               <span className="inline-flex items-center gap-1"><span className="h-3 w-3 rounded border bg-card" /> Livre</span>
               <span className="inline-flex items-center gap-1"><span className="h-3 w-3 rounded bg-emerald-600" /> Seu horário</span>
-              <span className="inline-flex items-center gap-1"><span className="h-3 w-3 rounded border border-dashed bg-muted" /> Ocupado</span>
+              <span className="inline-flex items-center gap-1"><span className="h-3 w-3 rounded border border-dashed bg-muted" /> Ocupado / intervalo</span>
             </div>
+
           </CardContent>
         </Card>
 
@@ -626,25 +759,59 @@ export default function EventSpeakerBooking() {
         )}
       </main>
 
-      {/* Modal do tema do horário */}
+      {/* Modal do tema + duração do horário */}
       <Dialog open={!!slotDialog} onOpenChange={(o) => !o && setSlotDialog(null)}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>
-              Tema da demonstração — {slotDialog ? `${dayLabel(slotDialog.date).day}/${dayLabel(slotDialog.date).month} às ${slotDialog.time}` : ""}
+              Agendar demonstração — {slotDialog ? `${dayLabel(slotDialog.date).day}/${dayLabel(slotDialog.date).month} às ${slotDialog.time}` : ""}
             </DialogTitle>
           </DialogHeader>
-          <div className="space-y-2">
-            <Label className="text-xs">Tema *</Label>
-            <Textarea
-              rows={3}
-              autoFocus
-              value={slotDialog?.theme ?? ""}
-              onChange={(e) => setSlotDialog((cur) => (cur ? { ...cur, theme: e.target.value } : cur))}
-              placeholder="Ex.: Fluxo digital completo em prótese total"
-            />
-            <p className="text-[11px] text-muted-foreground">Aparece na TV do estande junto ao seu nome e QR Code.</p>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label className="text-xs">Tempo de duração *</Label>
+              <div className="grid grid-cols-3 gap-2">
+                {DURATION_OPTIONS.map((d) => {
+                  const max = slotDialog ? maxDurationAt(slotDialog.date, slotDialog.time) : 180;
+                  const disabled = d > max;
+                  const active = slotDialog?.duration === d;
+                  return (
+                    <button
+                      key={d}
+                      type="button"
+                      disabled={disabled}
+                      onClick={() => setSlotDialog((cur) => (cur ? { ...cur, duration: d } : cur))}
+                      className={cn(
+                        "rounded-lg border px-2 py-2 text-sm font-medium transition-colors",
+                        disabled && "cursor-not-allowed border-dashed bg-muted text-muted-foreground",
+                        !disabled && active && "border-emerald-600 bg-emerald-600 text-white",
+                        !disabled && !active && "bg-card hover:bg-accent",
+                      )}
+                    >
+                      {durationLabel(d)}
+                    </button>
+                  );
+                })}
+              </div>
+              {slotDialog && (
+                <p className="text-[11px] text-muted-foreground">
+                  Das {slotDialog.time} às {fromMin((toMin(slotDialog.time) || 0) + slotDialog.duration)} — depois há
+                  1 hora de intervalo antes da próxima demonstração.
+                </p>
+              )}
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs">Tema *</Label>
+              <Textarea
+                rows={3}
+                value={slotDialog?.theme ?? ""}
+                onChange={(e) => setSlotDialog((cur) => (cur ? { ...cur, theme: e.target.value } : cur))}
+                placeholder="Ex.: Fluxo digital completo em prótese total"
+              />
+              <p className="text-[11px] text-muted-foreground">Aparece na TV do estande junto ao seu nome e QR Code.</p>
+            </div>
           </div>
+
           <DialogFooter className="gap-2 sm:justify-between">
             {slotDialog?.existing ? (
               <Button variant="outline" onClick={removeSlot} disabled={saving} className="text-destructive">
