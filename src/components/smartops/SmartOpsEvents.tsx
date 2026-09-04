@@ -155,6 +155,8 @@ export function SmartOpsEvents() {
         country: editing.country || null,
         start_date: editing.start_date || null,
         end_date: editing.end_date || null,
+        start_time: (editing.start_time || "08:00").slice(0, 5),
+        end_time: (editing.end_time || "19:00").slice(0, 5),
         location: editing.location || null,
         company_stand: editing.company_stand || null,
         website_url: editing.website_url || null,
