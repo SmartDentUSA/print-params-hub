@@ -85,7 +85,31 @@ const SLOTS = Array.from({ length: SLOT_END_HOUR - SLOT_START_HOUR }, (_, i) =>
   `${String(SLOT_START_HOUR + i).padStart(2, "0")}:00`,
 );
 
-const emptyNew = { name: "", instagram: "", email: "", phone: "", specialty: "", cro: "", mini_bio: "" };
+const DDI_OPTIONS = [
+  { value: "55", label: "🇧🇷 +55 (Brasil)" },
+  { value: "1", label: "🇺🇸 +1 (EUA/Canadá)" },
+  { value: "351", label: "🇵🇹 +351 (Portugal)" },
+  { value: "34", label: "🇪🇸 +34 (Espanha)" },
+  { value: "54", label: "🇦🇷 +54 (Argentina)" },
+  { value: "56", label: "🇨🇱 +56 (Chile)" },
+  { value: "57", label: "🇨🇴 +57 (Colômbia)" },
+  { value: "52", label: "🇲🇽 +52 (México)" },
+];
+
+// Mesmos campos e taxonomias do cadastro de Profissionais em Cursos
+const emptyNew = {
+  name: "",
+  email: "",
+  area_atuacao: "",
+  specialty: "",
+  birth_date: "",
+  cro: "",
+  course_platform: "",
+  instagram: "",
+  wa_ddi: "55",
+  wa_number: "",
+  mini_bio: "",
+};
 
 export default function EventSpeakerBooking() {
   const { eventId = "" } = useParams();
