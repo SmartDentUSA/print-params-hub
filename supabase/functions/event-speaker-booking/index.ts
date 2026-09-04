@@ -173,9 +173,14 @@ Deno.serve(async (req) => {
       const email = String(body?.email ?? "").trim().toLowerCase() || null;
       const igHandle = handleOf(body?.instagram);
       const specialty = String(body?.specialty ?? "").trim() || null;
+      const areaAtuacao = String(body?.area_atuacao ?? "").trim() || null;
       const cro = String(body?.cro ?? "").trim() || null;
       const miniBio = String(body?.mini_bio ?? "").trim() || null;
-      const phone = String(body?.phone ?? "").replace(/\D/g, "") || null;
+      const coursePlatform = String(body?.course_platform ?? "").trim() || null;
+      const birth = String(body?.birth_date ?? "").trim();
+      const waDdi = String(body?.wa_ddi ?? "").replace(/\D/g, "") || null;
+      const waNumber = String(body?.wa_number ?? "").replace(/\D/g, "") || null;
+      const phone = waNumber ? `${waDdi ?? "55"}${waNumber}` : null;
 
       let photoUrl = typeof body?.photo_url === "string" ? body.photo_url : "";
       if (typeof body?.photo_base64 === "string" && body.photo_base64.length > 100) {
@@ -210,6 +215,10 @@ Deno.serve(async (req) => {
         prof_mini_cv: miniBio,
         prof_updated_at: new Date().toISOString(),
       };
+      if (areaAtuacao) fields.area_atuacao = areaAtuacao;
+      if (coursePlatform) fields.prof_course_platform = coursePlatform;
+      if (/^\d{4}-\d{2}-\d{2}$/.test(birth)) fields.pessoa_nascimento = birth;
+      if (waNumber) { fields.prof_wa_ddi = waDdi ?? "55"; fields.prof_wa_number = waNumber; }
       if (email) fields.email = email;
       if (phone) fields.telefone = phone;
       if (igHandle) fields.instagram = `@${igHandle}`;
