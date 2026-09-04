@@ -174,12 +174,12 @@ Deno.serve(async (req) => {
         for (const ses of s.sessions || []) {
           const st = toMin(ses?.start_time);
           if (!ses?.date || st === null) continue;
-          busy.push({ date: String(ses.date).slice(0, 10), start: st, end: toMin(ses?.end_time) ?? st + 30 });
+          busy.push({ date: String(ses.date).slice(0, 10), start: st, end: toMin(ses?.end_time) ?? st + 60 });
         }
       });
       const conflict = slots.find((s) => {
         const st = toMin(s.start_time)!;
-        return busy.some((b) => b.date === s.date && st < b.end && st + 30 > b.start);
+        return busy.some((b) => b.date === s.date && st < b.end && st + 60 > b.start);
       });
       if (conflict) {
         return json(
