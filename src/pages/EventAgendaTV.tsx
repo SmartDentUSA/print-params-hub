@@ -342,53 +342,52 @@ export default function EventAgendaTV() {
                   return (
                     <article
                       key={s.key}
-                      className={`grid grid-cols-[auto_auto_1fr_auto_auto] items-center gap-10 rounded-[2rem] border px-10 py-7 ${
+                      className={`grid grid-cols-[auto_auto_auto_1fr_auto_auto] items-center gap-8 rounded-[1.75rem] border px-8 py-5 ${
                         live
                           ? "border-emerald-400/60 bg-emerald-400/10 shadow-[0_0_80px_-24px_hsl(var(--primary))]"
                           : "border-white/15 bg-white/[0.05]"
                       }`}
                     >
-                      {/* Foto + QR */}
-                      <div className="flex items-center gap-8">
-                        <div className="h-[190px] w-[190px] shrink-0 overflow-hidden rounded-2xl bg-white/10 ring-2 ring-white/10">
-                          {s.photo_url ? (
-                            <img
-                              src={getStorageImageUrl(s.photo_url, { width: 400, height: 400, resize: "cover" })}
-                              alt={s.name}
-                              className="h-full w-full object-cover"
-                            />
-                          ) : (
-                            <div className="flex h-full w-full items-center justify-center text-[4rem] font-black text-primary-foreground/50">
-                              {s.name.slice(0, 1)}
-                            </div>
-                          )}
-                        </div>
-                        <div className="shrink-0">
-                          <InstagramQR handle={s.instagram} size={150} />
-                        </div>
+                      {/* Foto */}
+                      <div className="h-[130px] w-[130px] shrink-0 overflow-hidden rounded-2xl bg-white/10 ring-2 ring-white/10">
+                        {s.photo_url ? (
+                          <img
+                            src={getStorageImageUrl(s.photo_url, { width: 400, height: 400, resize: "cover" })}
+                            alt={s.name}
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center text-[3rem] font-black text-primary-foreground/50">
+                            {s.name.slice(0, 1)}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* QR do Instagram */}
+                      <div className="shrink-0">
+                        <InstagramQR handle={s.instagram} size={120} />
+                      </div>
+
+                      {/* Nome do palestrante */}
+                      <div className="shrink-0 max-w-[320px]">
+                        {live && (
+                          <span className="mb-2 inline-block rounded-full bg-emerald-500 px-4 py-1 text-[1rem] font-black uppercase tracking-widest text-[#0b1220]">
+                            Ao vivo
+                          </span>
+                        )}
+                        <p className="text-[1.9rem] font-black leading-tight text-white">
+                          {s.name}
+                        </p>
+                        <p className="mt-1 text-[1.05rem] font-black uppercase tracking-widest text-primary-foreground/70">
+                          {s.dateLabel}
+                        </p>
                       </div>
 
                       {/* Tema central — destaque principal */}
                       <div className="min-w-0 px-4 text-center">
-                        {live && (
-                          <span className="mb-3 inline-block rounded-full bg-emerald-500 px-5 py-1.5 text-[1.1rem] font-black uppercase tracking-widest text-[#0b1220]">
-                            Ao vivo agora
-                          </span>
-                        )}
-                        <p className="text-[1.3rem] font-black uppercase tracking-widest text-white/85">
-                          {s.theme ? "Tema" : ""}
-                        </p>
-                        <h2 className="mt-1 text-[2.6rem] font-black leading-tight tracking-tight text-white">
-                          {s.theme || s.name}
+                        <h2 className="text-[2.4rem] font-black uppercase leading-tight tracking-tight text-white">
+                          {s.theme || "—"}
                         </h2>
-                        {s.theme && (
-                          <p className="mt-3 text-[1.6rem] font-bold text-primary-foreground/90">
-                            {s.name}
-                          </p>
-                        )}
-                        <p className="mt-2 text-[1.25rem] font-black uppercase tracking-widest text-primary-foreground/70">
-                          {s.dateLabel}
-                        </p>
                       </div>
 
                       {/* Início */}
@@ -396,7 +395,7 @@ export default function EventAgendaTV() {
                         <p className="text-[1.25rem] font-black uppercase tracking-widest text-primary-foreground/70">
                           Início
                         </p>
-                        <p className="mt-2 font-mono text-[3.4rem] font-black leading-none tabular-nums text-white">
+                        <p className="mt-1 font-mono text-[3rem] font-black leading-none tabular-nums text-white">
                           {fmtTime(s.start) || "--:--"}
                         </p>
                       </div>
@@ -406,10 +405,11 @@ export default function EventAgendaTV() {
                         <p className="text-[1.25rem] font-black uppercase tracking-widest text-primary-foreground/70">
                           {live ? "Status" : "Começa em"}
                         </p>
-                        <p className="mt-2 font-mono text-[3.4rem] font-black leading-none tabular-nums text-emerald-400">
+                        <p className="mt-1 font-mono text-[3rem] font-black leading-none tabular-nums text-emerald-400">
                           {live ? "ao vivo" : cd || "—"}
                         </p>
                       </div>
+
                     </article>
                   );
                 })}
