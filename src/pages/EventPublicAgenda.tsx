@@ -526,28 +526,31 @@ export default function EventPublicAgenda({ term }: { term?: string }) {
             Horários em que os especialistas estarão no estande para tirar suas dúvidas sobre nossas
             soluções.
           </p>
-          {daySupport.length === 0 ? (
+          {daySupportGrouped.length === 0 ? (
             <p className="rounded-lg border border-dashed border-border p-4 text-sm text-muted-foreground">
               Nenhuma disponibilidade informada para este dia.
             </p>
           ) : (
             <ul className="grid gap-3 sm:grid-cols-2">
-              {daySupport.map((i) => {
-                const available = t >= i.start.getTime() && t <= i.end.getTime();
-                const done = i.end.getTime() < t;
+              {daySupportGrouped.map((sp) => {
+                const available = sp.ranges.some((r) => t >= r.start.getTime() && t <= r.end.getTime());
+                const done = sp.ranges.every((r) => r.end.getTime() < t);
+                const timeLabel = sp.ranges
+                  .map((r) => `${fmtTime(r.start)} – ${fmtTime(r.end)}`)
+                  .join("  ·  ");
                 return (
                   <li
-                    key={i.key}
+                    key={sp.key}
                     className={`flex gap-3 rounded-xl border bg-card p-4 shadow-sm ${
                       available ? "border-primary ring-1 ring-primary/40" : "border-border"
                     } ${done ? "opacity-60" : ""}`}
                   >
-                    <Avatar name={i.name} photo={i.photo_url} size={48} />
+                    <Avatar name={sp.name} photo={sp.photo_url} size={48} />
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-bold text-foreground">{i.name}</p>
-                      <p className="mt-0.5 inline-flex items-center gap-1 text-sm font-semibold text-foreground/80">
+                      <p className="truncate text-sm font-bold text-foreground">{sp.name}</p>
+                      <p className="mt-0.5 inline-flex flex-wrap items-center gap-1 text-sm font-semibold text-foreground/80">
                         <Clock className="h-3.5 w-3.5" />
-                        {fmtTime(i.start)} – {fmtTime(i.end)}
+                        {timeLabel}
                       </p>
                       {available && (
                         <p className="mt-1 text-xs font-bold uppercase text-primary">
@@ -555,7 +558,7 @@ export default function EventPublicAgenda({ term }: { term?: string }) {
                         </p>
                       )}
                       <div className="mt-1">
-                        <InstaLink handle={i.instagram} />
+                        <InstaLink handle={sp.instagram} />
                       </div>
                     </div>
                   </li>
