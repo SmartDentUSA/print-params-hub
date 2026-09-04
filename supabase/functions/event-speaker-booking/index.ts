@@ -455,6 +455,14 @@ Deno.serve(async (req) => {
       );
       const { error } = await admin.from("smartops_events").update({ speakers: list }).eq("id", eventId);
       if (error) throw error;
+      if (professionalId) {
+        await admin
+          .from("lead_activity_log")
+          .delete()
+          .eq("lead_id", professionalId)
+          .eq("event_type", "event_participation")
+          .eq("entity_id", eventId);
+      }
       return json({ ok: true, speakers: publicSpeakers(list) });
     }
 
