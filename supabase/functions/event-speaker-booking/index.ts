@@ -163,15 +163,24 @@ Deno.serve(async (req) => {
         (!instagram && normName(s.name) === normName(name))
       );
 
-      // Conflito: horário já reservado por OUTRO palestrante
-      const taken = new Set<string>();
+      // Conflito: janela já ocupada por OUTRO palestrante (checa sobreposição real)
+      const toMin = (t?: string) => {
+        const [h, m] = String(t || "").slice(0, 5).split(":").map(Number);
+        return Number.isFinite(h) ? h * 60 + (m || 0) : null;
+      };
+      const busy: { date: string; start: number; end: number }[] = [];
       list.forEach((s, i) => {
         if (i === idx) return;
         for (const ses of s.sessions || []) {
-          if (ses?.date && ses?.start_time) taken.add(`${ses.date}|${String(ses.start_time).slice(0, 5)}`);
+          const st = toMin(ses?.start_time);
+          if (!ses?.date || st === null) continue;
+          busy.push({ date: String(ses.date).slice(0, 10), start: st, end: toMin(ses?.end_time) ?? st + 30 });
         }
       });
-      const conflict = slots.find((s) => taken.has(`${s.date}|${s.start_time}`));
+      const conflict = slots.find((s) => {
+        const st = toMin(s.start_time)!;
+        return busy.some((b) => b.date === s.date && st < b.end && st + 30 > b.start);
+      });
       if (conflict) {
         return json(
           { error: `O horário ${conflict.start_time} do dia ${conflict.date} já foi reservado. Atualize a página.` },
