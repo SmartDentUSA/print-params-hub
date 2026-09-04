@@ -506,6 +506,51 @@ export default function EventSpeakerBooking() {
           </CardContent>
         </Card>
 
+        {/* Calendário de apoio comercial */}
+        <div className="pt-2">
+          <h2 className="text-base font-bold">Disponibilidade para apoio comercial durante o evento</h2>
+          <p className="text-xs text-muted-foreground">
+            Selecione os horários em que você estará disponível no estande da Smart Dent para apoio do time comercial.
+          </p>
+        </div>
+
+        <Card>
+          <CardContent className="p-4">
+            <div className="mb-3 flex items-center gap-2 text-sm font-semibold">
+              <Clock className="h-4 w-4" /> Apoio comercial — {activeDay ? `${dayLabel(activeDay).day}/${dayLabel(activeDay).month}` : ""}
+              {saving && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
+            </div>
+            <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+              {(activeDay ? SLOTS : []).map((t) => {
+                const talk = mySlotAt(activeDay, t);
+                const sup = mySupportAt(activeDay, t);
+                return (
+                  <button
+                    key={`sup-${activeDay}|${t}`}
+                    disabled={!!talk || saving}
+                    onClick={() => toggleSupport(activeDay, t)}
+                    className={cn(
+                      "rounded-lg border px-2 py-2 text-sm font-medium transition-colors",
+                      talk && "cursor-not-allowed bg-muted text-muted-foreground opacity-50",
+                      !talk && sup && "border-sky-600 bg-sky-600 text-white",
+                      !talk && !sup && "bg-card hover:bg-accent",
+                    )}
+                    title={talk ? "Você já estará no estande palestrando neste horário" : undefined}
+                  >
+                    <div className="tabular-nums">{t}</div>
+                    {talk && <div className="truncate text-[10px] opacity-80">No estande (palestra)</div>}
+                  </button>
+                );
+              })}
+            </div>
+            <div className="mt-3 flex flex-wrap gap-3 text-[11px] text-muted-foreground">
+              <span className="inline-flex items-center gap-1"><span className="h-3 w-3 rounded border bg-card" /> Disponível p/ marcar</span>
+              <span className="inline-flex items-center gap-1"><span className="h-3 w-3 rounded bg-sky-600" /> Apoio confirmado</span>
+              <span className="inline-flex items-center gap-1"><span className="h-3 w-3 rounded bg-muted opacity-50" /> Já estará no estande (palestra)</span>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Agenda do dia */}
         {speakers.length > 0 && (
           <Card>
