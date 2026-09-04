@@ -229,11 +229,12 @@ export function buildStorySvg(input: StoryInput): { svg: string; width: number; 
       <stop offset="1" stop-color="${BLUE}" stop-opacity="1"/>
     </linearGradient>
     <clipPath id="artClip"><rect x="0" y="0" width="${W}" height="${photoH}"/></clipPath>
+    <clipPath id="speakerClip"><rect x="150" y="70" width="780" height="${photoH - 70}" rx="36"/></clipPath>
   </defs>
   <rect width="${W}" height="${H}" fill="url(#bg)"/>
   <g clip-path="url(#artClip)">
     <image x="0" y="0" width="${W}" height="${photoH}" preserveAspectRatio="xMidYMid slice" xlink:href="${input.artDataUri}"/>
-    ${input.photoDataUri ? `<image x="0" y="0" width="${W}" height="${photoH}" preserveAspectRatio="xMidYMin slice" xlink:href="${input.photoDataUri}" opacity="1"/>` : ""}
+    ${input.photoDataUri ? `<g clip-path="url(#speakerClip)"><image x="150" y="70" width="780" height="${photoH - 70}" preserveAspectRatio="xMidYMin slice" xlink:href="${input.photoDataUri}"/></g>` : ""}
   </g>
   <rect x="0" y="0" width="${W}" height="${photoH}" fill="url(#scrim)"/>
   <image x="56" y="60" width="320" height="72" preserveAspectRatio="xMinYMid meet" xlink:href="${input.logoDataUri}"/>
