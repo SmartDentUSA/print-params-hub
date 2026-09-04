@@ -211,17 +211,18 @@ export default function EventSpeakerBooking() {
   }, [speakers, mine]);
 
   const persist = useCallback(
-    async (slots: Session[]) => {
+    async (slots: Session[], support: Session[] = mySupport) => {
       if (!person) return;
       setSaving(true);
       try {
         const res = await call({
-          action: slots.length ? "book" : "release",
+          action: slots.length || support.length ? "book" : "release",
           professional_id: person.id,
           name: person.name,
           instagram: person.instagram,
           photo_url: person.photo_url,
           slots: slots.map((s) => ({ date: s.date, start_time: String(s.start_time).slice(0, 5), theme: s.theme })),
+          support_slots: support.map((s) => ({ date: s.date, start_time: String(s.start_time).slice(0, 5) })),
         });
         setSpeakers(res.speakers || []);
         try {
@@ -236,7 +237,7 @@ export default function EventSpeakerBooking() {
         setSaving(false);
       }
     },
-    [call, person, eventId, load],
+    [call, person, eventId, load, mySupport],
   );
 
   function openSlot(date: string, time: string) {
