@@ -64,7 +64,11 @@ export function EventMarketingArtPanel({
     setGenerating(true);
     try {
       const { data, error } = await supabase.functions.invoke("event-marketing-render", {
-        body: { event_id: eventId, comment_keyword: keyword.trim() || undefined },
+        body: {
+          event_id: eventId,
+          comment_keyword: keyword.trim() || undefined,
+          ai_background: aiBg,
+        },
       });
       if (error) throw error;
       const res = data as any;
