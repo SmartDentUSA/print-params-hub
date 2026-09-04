@@ -532,7 +532,7 @@ export default function EventAgendaTV() {
         <div className="relative z-10 shrink-0 px-12 pb-2">
           {hero ? (
             <section className="tv-card next-demo-card flex min-h-[282px] items-center gap-8 rounded-[24px] py-5 pl-12 pr-10">
-              <div className="flex shrink-0 flex-col items-center gap-4">
+              <div className="flex shrink-0 items-center gap-5">
                 <Avatar slot={hero} size={170} />
                 <InstagramQR handle={hero.instagram} size={150} caption={false} />
               </div>
