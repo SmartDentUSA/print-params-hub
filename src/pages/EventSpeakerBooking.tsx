@@ -651,29 +651,63 @@ export default function EventSpeakerBooking() {
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
               <div>
-                <Label className="text-xs">Instagram</Label>
-                <Input value={newForm.instagram} onChange={(e) => setNewForm({ ...newForm, instagram: e.target.value })} placeholder="@perfil" />
-              </div>
-              <div>
-                <Label className="text-xs">CRO</Label>
-                <Input value={newForm.cro} onChange={(e) => setNewForm({ ...newForm, cro: e.target.value })} />
-              </div>
-              <div>
                 <Label className="text-xs">E-mail</Label>
                 <Input type="email" value={newForm.email} onChange={(e) => setNewForm({ ...newForm, email: e.target.value })} />
               </div>
               <div>
-                <Label className="text-xs">WhatsApp</Label>
-                <Input value={newForm.phone} onChange={(e) => setNewForm({ ...newForm, phone: e.target.value })} placeholder="(11) 99999-9999" />
+                <Label className="text-xs">Data de nascimento</Label>
+                <Input type="date" value={newForm.birth_date} onChange={(e) => setNewForm({ ...newForm, birth_date: e.target.value })} />
+              </div>
+              <div>
+                <Label className="text-xs">Área de atuação</Label>
+                <Select value={newForm.area_atuacao} onValueChange={(v) => setNewForm({ ...newForm, area_atuacao: v })}>
+                  <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                  <SelectContent>
+                    {AREA_ATUACAO_OPTIONS.map((o) => (
+                      <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-xs">Especialidade</Label>
+                <Select value={newForm.specialty} onValueChange={(v) => setNewForm({ ...newForm, specialty: v })}>
+                  <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                  <SelectContent>
+                    {ESPECIALIDADE_OPTIONS.map((o) => (
+                      <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-xs">Registro profissional (CRO)</Label>
+                <Input value={newForm.cro} onChange={(e) => setNewForm({ ...newForm, cro: e.target.value })} />
+              </div>
+              <div>
+                <Label className="text-xs">Plataforma de cursos</Label>
+                <Input value={newForm.course_platform} onChange={(e) => setNewForm({ ...newForm, course_platform: e.target.value })} placeholder="Hotmart, Kiwify, Astron..." />
               </div>
             </div>
             <div>
-              <Label className="text-xs">Especialidade</Label>
-              <Input value={newForm.specialty} onChange={(e) => setNewForm({ ...newForm, specialty: e.target.value })} placeholder="Ex.: Prótese dentária" />
+              <Label className="text-xs">WhatsApp</Label>
+              <div className="flex gap-2">
+                <Select value={newForm.wa_ddi} onValueChange={(v) => setNewForm({ ...newForm, wa_ddi: v })}>
+                  <SelectTrigger className="w-36"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {DDI_OPTIONS.map((d) => <SelectItem key={d.value} value={d.value}>{d.label}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+                <Input value={newForm.wa_number} onChange={(e) => setNewForm({ ...newForm, wa_number: e.target.value })} placeholder="DDD + número" />
+              </div>
+            </div>
+            <div>
+              <Label className="text-xs">Instagram</Label>
+              <Input value={newForm.instagram} onChange={(e) => setNewForm({ ...newForm, instagram: e.target.value })} placeholder="@perfil" />
             </div>
             <div>
               <Label className="text-xs">Mini CV</Label>
-              <Textarea rows={3} value={newForm.mini_bio} onChange={(e) => setNewForm({ ...newForm, mini_bio: e.target.value })} placeholder="Formação, experiência, cursos ministrados…" />
+              <Textarea rows={4} value={newForm.mini_bio} onChange={(e) => setNewForm({ ...newForm, mini_bio: e.target.value })} placeholder="Formação, experiência, cursos ministrados..." />
             </div>
             <div>
               <Label className="text-xs">Foto</Label>
