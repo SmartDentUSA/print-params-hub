@@ -85,9 +85,17 @@ const dayLabel = (d: string) => {
   return { wd: wd.toUpperCase(), day: String(dd).padStart(2, "0"), month: String(m).padStart(2, "0") };
 };
 
-const SLOTS = Array.from({ length: SLOT_END_HOUR - SLOT_START_HOUR }, (_, i) =>
-  `${String(SLOT_START_HOUR + i).padStart(2, "0")}:00`,
-);
+const hourOf = (v?: string | null, fallback = 0) => {
+  const h = Number(String(v || "").slice(0, 2));
+  return Number.isFinite(h) && String(v || "").includes(":") ? h : fallback;
+};
+
+/** Grade horária do evento (1 em 1 hora), a partir do horário de início/fim cadastrado. */
+const buildSlots = (start?: string | null, end?: string | null) => {
+  const s = hourOf(start, SLOT_START_HOUR);
+  const e = Math.max(s + 1, hourOf(end, SLOT_END_HOUR));
+  return Array.from({ length: e - s }, (_, i) => `${String(s + i).padStart(2, "0")}:00`);
+};
 
 const DDI_OPTIONS = [
   { value: "55", label: "🇧🇷 +55 (Brasil)" },
