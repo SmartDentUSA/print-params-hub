@@ -293,10 +293,8 @@ Deno.serve(async (req) => {
         if (days.length && !days.includes(date)) return json({ error: "Data de apoio fora do período do evento." }, 400);
         const [, mi] = start.split(":").map(Number);
         if (mi !== 0) return json({ error: "Os horários de apoio são de 1 em 1 hora." }, 400);
-        // Horário de palestra do próprio KOL não entra no apoio — ele já estará no estande
-        if (slots.some((d) => d.date === date && d.start_time === start)) {
-          return json({ error: `Você já palestra às ${start} do dia ${date} — já estará no estande.` }, 400);
-        }
+        // Apoio comercial NÃO é bloqueante: vários KOLs podem estar no estande
+        // no mesmo horário, e o horário de palestra também pode ser marcado.
         if (!supportSlots.some((d) => d.date === date && d.start_time === start)) {
           supportSlots.push({ date, start_time: start, end_time: addMinutes(start, 60) });
         }
