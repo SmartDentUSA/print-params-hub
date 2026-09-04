@@ -126,7 +126,7 @@ function flatten(speakers: Speaker[]): Slot[] {
       out.push({
         key: `${i}-${j}`,
         name: sp.name || "",
-        theme: sp.theme || "",
+        theme: cleanTheme(sp.theme),
         instagram: handleOf(sp.instagram),
         photo_url: sp.photo_url || "",
         start,
@@ -141,6 +141,15 @@ function flatten(speakers: Speaker[]): Slot[] {
     .filter((s) => s.name)
     .sort((a, b) => (a.start?.getTime() ?? Infinity) - (b.start?.getTime() ?? Infinity));
 }
+
+/** Ignora temas de preenchimento ("xxxxx", "----", "a definir") vindos do cadastro. */
+const cleanTheme = (v?: string | null) => {
+  const t = String(v || "").trim();
+  if (!t) return "";
+  if (/^[x\-_.\s]{3,}$/i.test(t)) return "";
+  if (/^(a\s*definir|tbd|placeholder)$/i.test(t)) return "";
+  return t;
+};
 
 const endOf = (s: Slot) =>
   s.end ?? (s.start ? new Date(s.start.getTime() + 45 * 60 * 1000) : null);
@@ -529,7 +538,7 @@ export default function EventAgendaTV() {
         {/* ------------------------------ Próximas ------------------------------ */}
         <main className="relative z-10 min-h-0 flex-1 overflow-hidden px-12 pt-6">
           <div
-            className="flex h-full flex-col gap-3.5 transition-opacity duration-500"
+            className="flex h-full flex-col justify-start gap-3.5 transition-opacity duration-500"
             style={{ opacity: fadeIn ? 1 : 0 }}
           >
             {groups.length === 0 ? (
@@ -568,7 +577,7 @@ export default function EventAgendaTV() {
 
                         <div className="min-w-0 flex-1 border-l border-[--tv-line] pl-7">
                           <h4 className="line-clamp-2 text-[2.1rem] font-bold leading-[1.15] text-[--tv-navy]">
-                            {s.theme || "—"}
+                            {s.theme || "Demonstração Smart Dent"}
                           </h4>
                         </div>
 
