@@ -111,7 +111,7 @@ function countdown(target: Date | null, now: Date): string {
   const m = Math.floor(ms / 60000);
   const s = Math.floor((ms - m * 60000) / 1000);
   return h > 0
-    ? `${h}h ${String(m).padStart(2, "0")}m`
+    ? `${h}h ${String(m).padStart(2, "0")}m ${String(s).padStart(2, "0")}s`
     : `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
 }
 
@@ -369,13 +369,13 @@ export default function EventAgendaTV() {
                       </div>
 
                       {/* Nome do palestrante */}
-                      <div className="shrink-0 max-w-[320px]">
+                      <div className="shrink-0 max-w-[360px]">
                         {live && (
                           <span className="mb-2 inline-block rounded-full bg-emerald-500 px-4 py-1 text-[1rem] font-black uppercase tracking-widest text-[#0b1220]">
                             Ao vivo
                           </span>
                         )}
-                        <p className="text-[1.9rem] font-black leading-tight text-white">
+                        <p className="text-[2.6rem] font-black leading-tight text-white">
                           {s.name}
                         </p>
                         <p className="mt-1 text-[1.05rem] font-black uppercase tracking-widest text-primary-foreground/70">
