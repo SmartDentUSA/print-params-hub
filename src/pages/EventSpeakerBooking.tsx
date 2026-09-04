@@ -254,7 +254,7 @@ export default function EventSpeakerBooking() {
       }
     }
     return map;
-  }, [speakers, mine]);
+  }, [speakers, mine, SLOTS]);
 
   const persist = useCallback(
     async (slots: Session[], support: Session[] = mySupport) => {
