@@ -747,6 +747,43 @@ function TvStyles() {
   backdrop-filter: blur(6px);
 }
 
+/* Card da próxima demonstração / ao vivo — destaque com halo laranja */
+.next-demo-card {
+  position: relative;
+  isolation: isolate;
+  background: linear-gradient(135deg, #FFFFFF 0%, #FFFFFF 55%, #EEF5FD 100%);
+  border: 3px solid rgba(232, 118, 44, 0.9);
+  border-left: 8px solid var(--tv-orange);
+  box-shadow:
+    0 14px 34px rgba(11, 37, 69, 0.16),
+    0 0 24px rgba(232, 118, 44, 0.22);
+}
+
+.next-demo-card::before {
+  content: "";
+  position: absolute;
+  inset: -5px;
+  border-radius: inherit;
+  border: 4px solid rgba(232, 118, 44, 0.45);
+  box-shadow: 0 0 22px rgba(232, 118, 44, 0.32);
+  pointer-events: none;
+  z-index: -1;
+  animation: smartDentOrangeHalo 1.8s ease-in-out infinite;
+}
+
+@keyframes smartDentOrangeHalo {
+  0%, 100% { opacity: 0.35; transform: scale(1);     box-shadow: 0 0 12px rgba(232,118,44,0.20); }
+  50%      { opacity: 0.90; transform: scale(1.008); box-shadow: 0 0 32px rgba(232,118,44,0.48); }
+}
+
+@keyframes tvHaloSoft {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(232,118,44,0.34); }
+  50%      { box-shadow: 0 0 0 8px rgba(232,118,44,0.05); }
+}
+.tv-halo-soft { animation: tvHaloSoft 1.8s ease-in-out infinite; }
+
+
+
 .tv-graphics {
   position: absolute;
   inset: 0;
