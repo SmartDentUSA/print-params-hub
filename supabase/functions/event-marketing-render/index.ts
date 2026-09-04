@@ -298,7 +298,7 @@ Deno.serve(async (req) => {
         const sessions = (Array.isArray(s?.sessions) ? s.sessions : []).filter((x: any) => x?.date);
         if (!name || !sessions.length) continue;
         const { svg } = buildStorySvg({
-          ...common,
+          ...commonStory,
           speakerName: name,
           specialty: String(s?.specialty || s?.theme || "").trim(),
           photoDataUri: s?.photo_url ? photos.get(s.photo_url) || null : null,
