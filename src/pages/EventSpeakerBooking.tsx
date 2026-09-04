@@ -149,6 +149,10 @@ export default function EventSpeakerBooking() {
   }, [mine, done]);
 
   const takenByOthers = useMemo(() => {
+    const toMin = (t?: string) => {
+      const [h, m] = String(t || "").slice(0, 5).split(":").map(Number);
+      return Number.isFinite(h) ? h * 60 + (m || 0) : null;
+    };
     const map = new Map<string, Speaker>();
     for (const s of speakers) {
       const isMe = handleOf(instagram)
@@ -156,7 +160,14 @@ export default function EventSpeakerBooking() {
         : !!name.trim() && (s.name || "").trim().toLowerCase() === name.trim().toLowerCase();
       if (isMe) continue;
       for (const ses of s.sessions || []) {
-        if (ses.date && ses.start_time) map.set(`${ses.date}|${String(ses.start_time).slice(0, 5)}`, s);
+        const start = toMin(ses.start_time);
+        if (!ses.date || start === null) continue;
+        const end = toMin(ses.end_time) ?? start + 30;
+        // Bloqueia todas as células de 30 min que a sessão ocupa (mesmo horários fora da grade)
+        for (const t of SLOTS) {
+          const cell = toMin(t)!;
+          if (cell < end && cell + 30 > start) map.set(`${ses.date}|${t}`, s);
+        }
       }
     }
     return map;
