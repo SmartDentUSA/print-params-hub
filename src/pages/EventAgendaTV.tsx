@@ -331,19 +331,27 @@ function Avatar({ slot, size }: { slot: Slot; size: number }) {
 }
 
 function StatusPill({ kind, size = "md" }: { kind: StatusKind; size?: "md" | "lg" }) {
+  const isHero = size === "lg";
   return (
     <span
-      className={`inline-flex items-center gap-2 rounded-full px-4 py-1.5 font-bold uppercase tracking-[0.16em] ${STATUS_CLASS[kind]} ${
-        size === "lg" ? "text-[1.25rem]" : "text-[1rem]"
+      className={`inline-flex items-center gap-2.5 rounded-full font-extrabold uppercase tracking-[0.14em] ${
+        isHero
+          ? `${kind === "live" ? "bg-[--tv-orange]" : "bg-[--tv-orange]"} tv-halo-soft px-6 py-2.5 text-[24px] text-white`
+          : `${STATUS_CLASS[kind]} px-4 py-1.5 text-[19px]`
       }`}
     >
-      {kind === "live" && (
-        <span className="tv-pulse inline-block h-2.5 w-2.5 rounded-full bg-white" />
+      {(kind === "live" || isHero) && (
+        <span
+          className={`tv-pulse inline-block rounded-full ${
+            isHero ? "h-3 w-3" : "h-2.5 w-2.5"
+          } ${kind === "live" || isHero ? "bg-white" : "bg-current"}`}
+        />
       )}
-      {STATUS_LABEL[kind]}
+      {kind === "live" ? (isHero ? "AO VIVO AGORA" : "AO VIVO") : STATUS_LABEL[kind]}
     </span>
   );
 }
+
 
 /* ------------------------------------------------------------------ */
 /* Página                                                             */
