@@ -309,7 +309,7 @@ export default function EventSpeakerBooking() {
 
   async function toggleSupport(date: string, time: string) {
     if (!person) return toast.error("Selecione o palestrante primeiro.");
-    if (mySlotAt(date, time)) return; // já estará no estande palestrando
+    // Apoio comercial não é bloqueante: vários KOLs podem estar no estande no mesmo horário.
     const exists = mySupportAt(date, time);
     const next = exists
       ? mySupport.filter((s) => !(s.date === date && String(s.start_time).slice(0, 5) === time))
