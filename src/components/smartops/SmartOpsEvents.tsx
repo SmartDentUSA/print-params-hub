@@ -11,7 +11,7 @@ import { Switch } from "@/components/ui/switch";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, Check, ChevronsUpDown, ExternalLink, CalendarDays, Monitor } from "lucide-react";
+import { Plus, Pencil, Trash2, Check, ChevronsUpDown, ExternalLink, CalendarDays, Monitor, Users } from "lucide-react";
 import { Country } from "country-state-city";
 import { cn } from "@/lib/utils";
 import CoverImageUpload from "@/components/smartops/CoverImageUpload";
