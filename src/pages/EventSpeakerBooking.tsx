@@ -39,6 +39,7 @@ type Speaker = {
   photo_url?: string;
   professional_id?: string;
   sessions?: Session[];
+  support_sessions?: Session[];
 };
 type Professional = {
   id: string;
@@ -176,6 +177,14 @@ export default function EventSpeakerBooking() {
     () => (mine?.sessions || []).filter((s) => s.date && s.start_time),
     [mine],
   );
+
+  const mySupport = useMemo<Session[]>(
+    () => (mine?.support_sessions || []).filter((s) => s.date && s.start_time),
+    [mine],
+  );
+
+  const mySupportAt = (date: string, time: string) =>
+    mySupport.find((s) => s.date === date && String(s.start_time).slice(0, 5) === time) ?? null;
 
   const mySlotAt = (date: string, time: string) =>
     mySessions.find((s) => s.date === date && String(s.start_time).slice(0, 5) === time) ?? null;
