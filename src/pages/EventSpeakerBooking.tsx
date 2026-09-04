@@ -161,11 +161,11 @@ export default function EventSpeakerBooking() {
       for (const ses of s.sessions || []) {
         const start = toMin(ses.start_time);
         if (!ses.date || start === null) continue;
-        const end = toMin(ses.end_time) ?? start + 30;
-        // Bloqueia todas as células de 30 min que a sessão ocupa (mesmo horários fora da grade)
+        const end = toMin(ses.end_time) ?? start + 60;
+        // Bloqueia todas as células de 1 hora que a sessão ocupa (mesmo horários fora da grade)
         for (const t of SLOTS) {
           const cell = toMin(t)!;
-          if (cell < end && cell + 30 > start) map.set(`${ses.date}|${t}`, s);
+          if (cell < end && cell + 60 > start) map.set(`${ses.date}|${t}`, s);
         }
       }
     }
@@ -328,7 +328,7 @@ export default function EventSpeakerBooking() {
         <Card>
           <CardContent className="p-4">
             <div className="mb-3 flex items-center gap-2 text-sm font-semibold">
-              <Clock className="h-4 w-4" /> Horários de 30 minutos
+              <Clock className="h-4 w-4" /> Horários de 1 em 1 hora
             </div>
             <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
               {daySlots.map((t) => {
