@@ -111,7 +111,7 @@ function countdown(target: Date | null, now: Date): string {
   const m = Math.floor(ms / 60000);
   const s = Math.floor((ms - m * 60000) / 1000);
   return h > 0
-    ? `${h}h ${String(m).padStart(2, "0")}m`
+    ? `${h}h ${String(m).padStart(2, "0")}m ${String(s).padStart(2, "0")}s`
     : `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
 }
 
