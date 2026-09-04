@@ -281,6 +281,19 @@ export default function EventSpeakerBooking() {
     }
   }
 
+  async function toggleSupport(date: string, time: string) {
+    if (!person) return toast.error("Selecione o palestrante primeiro.");
+    if (mySlotAt(date, time)) return; // já estará no estande palestrando
+    const exists = mySupportAt(date, time);
+    const next = exists
+      ? mySupport.filter((s) => !(s.date === date && String(s.start_time).slice(0, 5) === time))
+      : [...mySupport, { date, start_time: time }].sort((a, b) =>
+          `${a.date}${a.start_time}`.localeCompare(`${b.date}${b.start_time}`),
+        );
+    const ok = await persist(mySessions, next);
+    if (ok) toast.success(exists ? "Apoio removido." : "Apoio comercial confirmado!");
+  }
+
   const fileToBase64 = (f: File) =>
     new Promise<string>((resolve, reject) => {
       const r = new FileReader();
