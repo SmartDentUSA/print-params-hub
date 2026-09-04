@@ -35,3 +35,4 @@
 - [Live Demo PipeRun Activity](mem://features/live-demo-piperun-activity) — Inscrição em live cria atividade "Live agendada" (Planejada, 60min, lembrete 5min) no deal atual
 - [Premissas Tecnologia Invisível](mem://strategy/tecnologia-invisivel-premises) — _shared/smartdent-strategy.ts injeta a tese oficial nos prompts de capa e descrição de live junto ao dossiê RAG dos produtos
 - [Event Drive Pipeline](mem://features/event-drive-publication-pipeline) — Pastas/naming/copy de eventos no Google Drive; upload em /agenda restrito a membros ativos
+- [Engajamento KOL em evento](mem://features/event-kol-engagement-timeline) — event_participation na timeline com horas de palestra e de apoio comercial; apoio não bloqueia horário
