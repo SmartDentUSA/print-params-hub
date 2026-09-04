@@ -524,7 +524,13 @@ export default function EventAgendaTV() {
     return out;
   }, [visible]);
 
+  const support = useMemo(
+    () => buildSupport(((event?.speakers as Speaker[]) || []), now).slice(0, 5),
+    [event, now]
+  );
+
   const footerQr = useQr(AGENDA_URL, 82);
+
 
   const shell =
     "tv-root flex h-screen w-screen flex-col overflow-hidden bg-[--tv-bg] text-[--tv-navy]";
