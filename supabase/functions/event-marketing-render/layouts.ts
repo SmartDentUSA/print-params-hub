@@ -215,7 +215,7 @@ export function buildCarouselSvg(slide: CarouselSlide, c: Common): { svg: string
     <g>
       <rect x="${W / 2 - 320}" y="${ctaTop}" width="640" height="84" rx="42" fill="none" stroke="${BLUE_LIGHT}" stroke-width="3"/>
       <text x="${W / 2 - 24}" y="${ctaTop + 54}" text-anchor="middle" font-family="Poppins" font-weight="700" font-size="27" fill="${WHITE}" letter-spacing="2">VEJA O CRONOGRAMA DE HANDS-ON</text>
-      <text x="${W / 2 + 272}" y="${ctaTop + 56}" text-anchor="middle" font-family="Poppins" font-weight="700" font-size="32" fill="${BLUE_LIGHT}">→</text>
+      <path d="M ${W / 2 + 258} ${ctaTop + 30} L ${W / 2 + 286} ${ctaTop + 44} L ${W / 2 + 258} ${ctaTop + 58} Z" fill="${BLUE_LIGHT}"/>
     </g>`;
   } else if (slide.kind === "day") {
 
