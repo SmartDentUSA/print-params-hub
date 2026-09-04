@@ -240,6 +240,8 @@ Deno.serve(async (req) => {
           company_stand: event.company_stand,
           start_date: event.start_date,
           end_date: event.end_date,
+          start_time: event.start_time,
+          end_time: event.end_time,
           event_logo_url: event.event_logo_url,
           instagram_handle: event.instagram_handle,
         },
