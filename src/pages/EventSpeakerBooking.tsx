@@ -346,7 +346,12 @@ export default function EventSpeakerBooking() {
           name: person.name,
           instagram: person.instagram,
           photo_url: person.photo_url,
-          slots: slots.map((s) => ({ date: s.date, start_time: String(s.start_time).slice(0, 5), theme: s.theme })),
+          slots: slots.map((s) => ({
+            date: s.date,
+            start_time: String(s.start_time).slice(0, 5),
+            duration_minutes: durationOf(s),
+            theme: s.theme,
+          })),
           support_slots: support.map((s) => ({ date: s.date, start_time: String(s.start_time).slice(0, 5) })),
         });
         setSpeakers(res.speakers || []);
@@ -367,12 +372,25 @@ export default function EventSpeakerBooking() {
 
   function openSlot(date: string, time: string) {
     if (!person) return toast.error("Selecione o palestrante primeiro.");
-    if (takenByOthers.has(`${date}|${time}`)) return;
-    const existing = mySlotAt(date, time);
+    const b = blocked.get(`${date}|${time}`);
+    if (b) {
+      return toast.error(
+        b.reason === "busy"
+          ? `Horário reservado por ${b.name}.`
+          : `Intervalo de 1 hora após a demonstração de ${b.name}.`,
+      );
+    }
+    const cover = myCoverAt(date, time);
+    const existing = mySlotAt(date, time) || cover;
+    if (!existing && myGap(date, time)) {
+      return toast.error("É preciso deixar 1 hora de intervalo entre suas demonstrações.");
+    }
+    const start = existing ? String(existing.start_time).slice(0, 5) : time;
     setSlotDialog({
       date,
-      time,
+      time: start,
       theme: existing?.theme || mySessions[0]?.theme || "",
+      duration: existing ? durationOf(existing) : 60,
       existing: !!existing,
     });
   }
@@ -381,18 +399,30 @@ export default function EventSpeakerBooking() {
     if (!slotDialog) return;
     const theme = slotDialog.theme.trim();
     if (theme.length < 3) return toast.error("Informe o tema da demonstração.");
+    const max = maxDurationAt(slotDialog.date, slotDialog.time);
+    if (slotDialog.duration > max) {
+      return toast.error(`Neste horário a duração máxima é ${durationLabel(max)} (1 hora de intervalo obrigatório).`);
+    }
     const rest = mySessions.filter(
       (s) => !(s.date === slotDialog.date && String(s.start_time).slice(0, 5) === slotDialog.time),
     );
-    const next = [...rest, { date: slotDialog.date, start_time: slotDialog.time, theme }].sort((a, b) =>
-      `${a.date}${a.start_time}`.localeCompare(`${b.date}${b.start_time}`),
-    );
+    const start = toMin(slotDialog.time)!;
+    const next = [
+      ...rest,
+      {
+        date: slotDialog.date,
+        start_time: slotDialog.time,
+        end_time: fromMin(start + slotDialog.duration),
+        theme,
+      },
+    ].sort((a, b) => `${a.date}${a.start_time}`.localeCompare(`${b.date}${b.start_time}`));
     const ok = await persist(next);
     if (ok) {
       setSlotDialog(null);
       toast.success("Horário confirmado! Já aparece na TV do estande.");
     }
   }
+
 
   async function removeSlot() {
     if (!slotDialog) return;
