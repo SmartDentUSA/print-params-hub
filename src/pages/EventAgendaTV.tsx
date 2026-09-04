@@ -730,9 +730,14 @@ export default function EventAgendaTV() {
         {support.length > 0 && (
           <section className="relative z-10 shrink-0 px-12 pb-2">
             <div className="flex items-center gap-4 pb-2">
-              <h3 className="text-[26px] font-extrabold uppercase tracking-[0.14em] text-[--tv-navy]">
-                Quer conhecer mais sobre nossas soluções?
-              </h3>
+              <div className="shrink-0">
+                <h3 className="text-[26px] font-extrabold uppercase tracking-[0.14em] text-[--tv-navy]">
+                  Especialistas no estande
+                </h3>
+                <p className="text-[18px] font-semibold leading-tight text-[--tv-slate]">
+                  Disponíveis agora para tirar suas dúvidas sobre nossas soluções
+                </p>
+              </div>
               <span className="h-px flex-1 bg-[--tv-line]" />
             </div>
             <div className="flex items-stretch gap-4">
@@ -753,7 +758,7 @@ export default function EventAgendaTV() {
                       <>
                         <span className="mt-1 inline-flex items-center gap-2 rounded-full bg-[--tv-orange] px-3 py-1 text-[17px] font-extrabold uppercase tracking-[0.1em] text-white">
                           <span className="tv-pulse inline-block h-2.5 w-2.5 rounded-full bg-white" />
-                          Disponível neste momento
+                          Disponível agora para tirar dúvidas
                         </span>
                         <p className="pt-1 text-[19px] font-semibold tabular-nums text-[--tv-slate]">
                           até {p.windowLabel.split("–")[1]?.trim() || p.windowLabel}
@@ -762,7 +767,7 @@ export default function EventAgendaTV() {
                     ) : (
                       <>
                         <p className="mt-1 text-[16px] font-bold uppercase tracking-[0.14em] text-[--tv-blue]">
-                          Próxima disponibilidade
+                          Próxima disponibilidade para dúvidas
                         </p>
                         <p className="text-[21px] font-extrabold tabular-nums leading-tight text-[--tv-navy]">
                           {p.windowLabel}
