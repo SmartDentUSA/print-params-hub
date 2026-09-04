@@ -35,6 +35,7 @@ export function EventMarketingArtPanel({
   const [busy, setBusy] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [keyword, setKeyword] = useState(commentKeyword || "");
+  const [aiBg, setAiBg] = useState(true);
 
   const list = assets || [];
 
@@ -87,9 +88,10 @@ export function EventMarketingArtPanel({
       <div>
         <Label className="text-sm font-semibold">Upload da arte do evento (padrão de divulgação)</Label>
         <p className="text-[11px] text-muted-foreground">
-          Este layout é a base para gerar automaticamente o carrossel 1080×1350 (4:5) — um card por dia com
+          Esta arte é a referência visual para gerar automaticamente o carrossel 1080×1350 (4:5) — um card por dia com
           palestrantes, horários e temas, mais o card final “Comente {keyword || "PALAVRA"}” — e um story
-          1080×1920 (9:16) por palestrante.
+          1080×1920 (9:16) por palestrante. Com o fundo por IA ligado, a mesma tecnologia dos thumbs das lives cria o
+          cenário a partir desta arte, e nomes, temas e horários entram por cima com texto exato.
         </p>
       </div>
 
