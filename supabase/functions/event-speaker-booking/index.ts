@@ -400,7 +400,9 @@ Deno.serve(async (req) => {
         (!instagram && !professionalId && normName(s.name) === normName(name))
       );
 
-      // Conflito: janela já ocupada por OUTRO palestrante (checa sobreposição real)
+      // Conflito: janela ocupada por OUTRO palestrante, respeitando o
+      // intervalo obrigatório de 1 hora entre demonstrações.
+      const GAP_MIN = 60;
       const toMin = (t?: string) => {
         const [h, m] = String(t || "").slice(0, 5).split(":").map(Number);
         return Number.isFinite(h) ? h * 60 + (m || 0) : null;
@@ -416,14 +418,35 @@ Deno.serve(async (req) => {
       });
       const conflict = slots.find((s) => {
         const st = toMin(s.start_time)!;
-        return busy.some((b) => b.date === s.date && st < b.end && st + 60 > b.start);
+        const en = toMin(s.end_time) ?? st + 60;
+        return busy.some((b) => b.date === s.date && st < b.end + GAP_MIN && en + GAP_MIN > b.start);
       });
       if (conflict) {
         return json(
-          { error: `O horário ${conflict.start_time} do dia ${conflict.date} já foi reservado. Atualize a página.` },
+          {
+            error: `O horário ${conflict.start_time} do dia ${conflict.date} não está disponível (é preciso 1 hora de intervalo entre demonstrações). Atualize a página.`,
+          },
           409,
         );
       }
+
+      // Intervalo de 1 hora também entre as próprias demonstrações
+      const own = [...slots].sort((a, b) =>
+        `${a.date}${a.start_time}`.localeCompare(`${b.date}${b.start_time}`),
+      );
+      for (let i = 1; i < own.length; i++) {
+        const prev = own[i - 1];
+        const cur = own[i];
+        if (prev.date !== cur.date) continue;
+        const prevEnd = toMin(prev.end_time) ?? toMin(prev.start_time)! + 60;
+        if (toMin(cur.start_time)! < prevEnd + GAP_MIN) {
+          return json(
+            { error: `Deixe 1 hora de intervalo entre suas demonstrações (${prev.start_time} e ${cur.start_time}).` },
+            400,
+          );
+        }
+      }
+
 
       let photoUrl = typeof body?.photo_url === "string" ? body.photo_url : "";
       if (typeof body?.photo_base64 === "string" && body.photo_base64.length > 100) {
