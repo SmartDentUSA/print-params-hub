@@ -133,14 +133,20 @@ export function buildCarouselSvg(slide: CarouselSlide, c: Common): { svg: string
 
   if (slide.kind === "cover") {
     artH = H;
-    const nameLines = wrap(slide.eventName.toUpperCase(), 78, W - 112, 3);
+    const size = 72;
+    const nameLines = wrap(slide.eventName.toUpperCase(), size, W - 112, 3);
+    const bottom = H - 96;
+    const standY = slide.stand ? bottom : 0;
+    const locY = slide.stand ? bottom - 58 : bottom;
+    const badgeTop = locY - 130;
+    const nameBase = badgeTop - 46 - (nameLines.length - 1) * size * 1.1;
     body = `
-    <text x="56" y="${H - 470}" font-family="Poppins" font-weight="600" font-size="34" fill="${BLUE_LIGHT}" letter-spacing="4">ODONTOLOGIA DIGITAL AO VIVO</text>
-    ${textBlock(nameLines, 56, H - 380, 78, WHITE, 700, 1.1)}
-    <g><rect x="56" y="${H - 300 + nameLines.length * 78 * 0.1}" width="440" height="76" rx="14" fill="${ORANGE}"/>
-    <text x="276" y="${H - 250 + nameLines.length * 78 * 0.1}" text-anchor="middle" font-family="Poppins" font-weight="700" font-size="36" fill="${WHITE}">${esc(slide.dateLabel)}</text></g>
-    <text x="56" y="${H - 150}" font-family="Poppins" font-weight="400" font-size="36" fill="${SOFT}">${esc(slide.location)}</text>
-    ${slide.stand ? `<text x="56" y="${H - 96}" font-family="Poppins" font-weight="700" font-size="38" fill="${WHITE}">ESTANDE ${esc(slide.stand)}</text>` : ""}`;
+    <text x="56" y="${nameBase - size - 26}" font-family="Poppins" font-weight="600" font-size="32" fill="${BLUE_LIGHT}" letter-spacing="4">ODONTOLOGIA DIGITAL AO VIVO</text>
+    ${textBlock(nameLines, 56, nameBase, size, WHITE, 700, 1.1)}
+    <g><rect x="56" y="${badgeTop}" width="470" height="80" rx="16" fill="${ORANGE}"/>
+    <text x="291" y="${badgeTop + 54}" text-anchor="middle" font-family="Poppins" font-weight="700" font-size="36" fill="${WHITE}">${esc(slide.dateLabel)}</text></g>
+    <text x="56" y="${locY}" font-family="Poppins" font-weight="400" font-size="36" fill="${SOFT}">${esc(slide.location)}</text>
+    ${slide.stand ? `<text x="56" y="${standY}" font-family="Poppins" font-weight="700" font-size="38" fill="${WHITE}">ESTANDE ${esc(slide.stand)}</text>` : ""}`;
   } else if (slide.kind === "day") {
     artH = 420;
     const rows = slide.sessions.slice(0, 5);
