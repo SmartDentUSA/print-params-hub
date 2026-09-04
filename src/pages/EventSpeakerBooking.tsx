@@ -197,6 +197,8 @@ export default function EventSpeakerBooking() {
     } catch { /* ignore */ }
   }, [eventId]);
 
+  const SLOTS = useMemo(() => buildSlots(event?.start_time, event?.end_time), [event?.start_time, event?.end_time]);
+
   const person = useMemo(() => professionals.find((p) => p.id === personId) ?? null, [professionals, personId]);
 
   const mine = useMemo(() => {
