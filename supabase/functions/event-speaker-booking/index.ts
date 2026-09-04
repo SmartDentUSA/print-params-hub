@@ -153,8 +153,8 @@ Deno.serve(async (req) => {
         if (!isDate(date) || !isTime(start)) return json({ error: "Horário inválido." }, 400);
         if (days.length && !days.includes(date)) return json({ error: "Data fora do período do evento." }, 400);
         const [, mi] = start.split(":").map(Number);
-        if (mi !== 0 && mi !== 30) return json({ error: "Os horários são de 30 em 30 minutos." }, 400);
-        slots.push({ date, start_time: start, end_time: addMinutes(start, 30) });
+        if (mi !== 0) return json({ error: "Os horários são de 1 em 1 hora." }, 400);
+        slots.push({ date, start_time: start, end_time: addMinutes(start, 60) });
       }
 
       const list = ((event.speakers || []) as Speaker[]).map((s) => ({ ...s }));
@@ -174,12 +174,12 @@ Deno.serve(async (req) => {
         for (const ses of s.sessions || []) {
           const st = toMin(ses?.start_time);
           if (!ses?.date || st === null) continue;
-          busy.push({ date: String(ses.date).slice(0, 10), start: st, end: toMin(ses?.end_time) ?? st + 30 });
+          busy.push({ date: String(ses.date).slice(0, 10), start: st, end: toMin(ses?.end_time) ?? st + 60 });
         }
       });
       const conflict = slots.find((s) => {
         const st = toMin(s.start_time)!;
-        return busy.some((b) => b.date === s.date && st < b.end && st + 30 > b.start);
+        return busy.some((b) => b.date === s.date && st < b.end && st + 60 > b.start);
       });
       if (conflict) {
         return json(
