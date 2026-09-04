@@ -157,6 +157,15 @@ type Item = {
   end: Date;
 };
 
+type SupportRange = {
+  key: string;
+  name: string;
+  instagram: string;
+  photo_url: string;
+  specialty: string;
+  ranges: { start: Date; end: Date }[];
+};
+
 function buildItems(speakers: Speaker[], field: "sessions" | "support_sessions"): Item[] {
   const out: Item[] = [];
   speakers.forEach((sp, i) => {
@@ -182,6 +191,38 @@ function buildItems(speakers: Speaker[], field: "sessions" | "support_sessions")
     });
   });
   return out.sort((a, b) => a.start.getTime() - b.start.getTime());
+}
+
+function groupSupportBySpeaker(items: Item[]): SupportRange[] {
+  const byName = new Map<string, Item[]>();
+  items.forEach((i) => {
+    const list = byName.get(i.name) || [];
+    list.push(i);
+    byName.set(i.name, list);
+  });
+
+  const out: SupportRange[] = [];
+  byName.forEach((list, name) => {
+    list.sort((a, b) => a.start.getTime() - b.start.getTime());
+    const ranges: { start: Date; end: Date }[] = [];
+    list.forEach((it) => {
+      const last = ranges[ranges.length - 1];
+      if (last && it.start.getTime() <= last.end.getTime()) {
+        if (it.end.getTime() > last.end.getTime()) last.end = it.end;
+      } else {
+        ranges.push({ start: it.start, end: it.end });
+      }
+    });
+    out.push({
+      key: `support-${name}`,
+      name,
+      instagram: list[0].instagram,
+      photo_url: list[0].photo_url,
+      specialty: list[0].specialty,
+      ranges,
+    });
+  });
+  return out.sort((a, b) => a.ranges[0].start.getTime() - b.ranges[0].start.getTime());
 }
 
 /* ---------------- peças ---------------- */
@@ -297,6 +338,7 @@ export default function EventPublicAgenda({ term }: { term?: string }) {
 
   const dayDemos = demos.filter((i) => dayKeyOf(i.start) === activeDay);
   const daySupport = support.filter((i) => dayKeyOf(i.start) === activeDay);
+  const daySupportGrouped = useMemo(() => groupSupportBySpeaker(daySupport), [daySupport]);
   const t = now.getTime();
 
   const pageTitle = event ? `Agenda de demonstrações — ${event.name}` : "Agenda de demonstrações";
@@ -484,28 +526,31 @@ export default function EventPublicAgenda({ term }: { term?: string }) {
             Horários em que os especialistas estarão no estande para tirar suas dúvidas sobre nossas
             soluções.
           </p>
-          {daySupport.length === 0 ? (
+          {daySupportGrouped.length === 0 ? (
             <p className="rounded-lg border border-dashed border-border p-4 text-sm text-muted-foreground">
               Nenhuma disponibilidade informada para este dia.
             </p>
           ) : (
             <ul className="grid gap-3 sm:grid-cols-2">
-              {daySupport.map((i) => {
-                const available = t >= i.start.getTime() && t <= i.end.getTime();
-                const done = i.end.getTime() < t;
+              {daySupportGrouped.map((sp) => {
+                const available = sp.ranges.some((r) => t >= r.start.getTime() && t <= r.end.getTime());
+                const done = sp.ranges.every((r) => r.end.getTime() < t);
+                const timeLabel = sp.ranges
+                  .map((r) => `${fmtTime(r.start)} – ${fmtTime(r.end)}`)
+                  .join("  ·  ");
                 return (
                   <li
-                    key={i.key}
+                    key={sp.key}
                     className={`flex gap-3 rounded-xl border bg-card p-4 shadow-sm ${
                       available ? "border-primary ring-1 ring-primary/40" : "border-border"
                     } ${done ? "opacity-60" : ""}`}
                   >
-                    <Avatar name={i.name} photo={i.photo_url} size={48} />
+                    <Avatar name={sp.name} photo={sp.photo_url} size={48} />
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-bold text-foreground">{i.name}</p>
-                      <p className="mt-0.5 inline-flex items-center gap-1 text-sm font-semibold text-foreground/80">
+                      <p className="truncate text-sm font-bold text-foreground">{sp.name}</p>
+                      <p className="mt-0.5 inline-flex flex-wrap items-center gap-1 text-sm font-semibold text-foreground/80">
                         <Clock className="h-3.5 w-3.5" />
-                        {fmtTime(i.start)} – {fmtTime(i.end)}
+                        {timeLabel}
                       </p>
                       {available && (
                         <p className="mt-1 text-xs font-bold uppercase text-primary">
@@ -513,7 +558,7 @@ export default function EventPublicAgenda({ term }: { term?: string }) {
                         </p>
                       )}
                       <div className="mt-1">
-                        <InstaLink handle={i.instagram} />
+                        <InstaLink handle={sp.instagram} />
                       </div>
                     </div>
                   </li>
