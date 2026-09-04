@@ -670,3 +670,6 @@ verify_jwt = false
 
 [functions.event-media-copy]
 verify_jwt = false
+
+[functions.event-speaker-booking]
+verify_jwt = false
