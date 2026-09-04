@@ -28,6 +28,7 @@ type Speaker = {
   photo_url?: string;
   professional_id?: string;
   sessions?: Session[];
+  support_sessions?: Session[];
 };
 
 const handleOf = (v?: string | null) =>
@@ -88,6 +89,7 @@ function publicSpeakers(speakers: Speaker[]) {
     photo_url: s.photo_url || "",
     professional_id: s.professional_id || "",
     sessions: (s.sessions || []).filter((x) => x?.date && x?.start_time),
+    support_sessions: (s.support_sessions || []).filter((x) => x?.date && x?.start_time),
   }));
 }
 
