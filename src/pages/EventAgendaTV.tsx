@@ -677,12 +677,13 @@ export default function EventAgendaTV() {
               </div>
             )}
             <div>
-              <p className="text-[1.7rem] font-bold leading-tight text-[--tv-navy]">
+              <p className="text-[30px] font-extrabold leading-tight text-[--tv-navy]">
                 Escaneie e acesse a agenda completa
               </p>
-              <p className="text-[1.25rem] font-semibold leading-tight text-[--tv-orange]">
+              <p className="text-[22px] font-semibold leading-tight text-[--tv-orange]">
                 {AGENDA_SHORT_URL}
               </p>
+
             </div>
           </div>
           <div className="flex items-center gap-7">
