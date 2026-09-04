@@ -66,12 +66,56 @@ const instaUrl = (v?: string | null) => {
   return h ? `https://instagram.com/${h}` : "";
 };
 
+/* ---- Fuso oficial de Brasília (America/Sao_Paulo) ---- */
+const SP_TZ = "America/Sao_Paulo";
+const SP_FMT = new Intl.DateTimeFormat("en-CA", {
+  timeZone: SP_TZ,
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+  second: "2-digit",
+  weekday: "short",
+  hour12: false,
+});
+
+const WD_INDEX: Record<string, number> = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+
+/** Componentes de data/hora do instante `d` já convertidos para o horário de Brasília. */
+function spParts(d: Date) {
+  const o: Record<string, string> = {};
+  for (const p of SP_FMT.formatToParts(d)) if (p.type !== "literal") o[p.type] = p.value;
+  return {
+    year: Number(o.year),
+    month: Number(o.month),
+    day: Number(o.day),
+    hour: Number(o.hour === "24" ? "0" : o.hour),
+    minute: Number(o.minute),
+    second: Number(o.second),
+    weekday: WD_INDEX[o.weekday] ?? 0,
+  };
+}
+
+/** Offset (min) entre SP e UTC no instante `d`. */
+function spOffsetMinutes(d: Date): number {
+  const p = spParts(d);
+  const asUtc = Date.UTC(p.year, p.month - 1, p.day, p.hour, p.minute, p.second);
+  return Math.round((asUtc - d.getTime()) / 60000);
+}
+
+/** Converte "YYYY-MM-DD" + "HH:MM" (hora de Brasília, como cadastrado) no instante real. */
 function toDate(date?: string, time?: string): Date | null {
   if (!date) return null;
   const t = (time || "00:00").slice(0, 5);
-  const d = new Date(`${date}T${t}:00`);
-  return isNaN(d.getTime()) ? null : d;
+  const [y, mo, da] = date.slice(0, 10).split("-").map(Number);
+  const [hh, mi] = t.split(":").map(Number);
+  if (!y || !mo || !da || Number.isNaN(hh) || Number.isNaN(mi)) return null;
+  const guess = new Date(Date.UTC(y, mo - 1, da, hh, mi, 0));
+  const real = new Date(guess.getTime() - spOffsetMinutes(guess) * 60000);
+  return isNaN(real.getTime()) ? null : real;
 }
+
 
 const WEEK_SHORT = ["DOM", "SEG", "TER", "QUA", "QUI", "SEX", "SÁB"];
 const WEEK_LONG = [
@@ -98,23 +142,32 @@ const MONTH_SHORT = [
   "DEZ",
 ];
 
-const dayKeyOf = (d: Date | null) =>
-  d
-    ? `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
-    : "";
+const dayKeyOf = (d: Date | null) => {
+  if (!d) return "";
+  const p = spParts(d);
+  return `${p.year}-${String(p.month).padStart(2, "0")}-${String(p.day).padStart(2, "0")}`;
+};
 
-/** "QUINTA • 17 SET" */
-const fmtDayLabel = (d: Date | null) =>
-  d
-    ? `${WEEK_LONG[d.getDay()].replace("-feira", "").toUpperCase()} • ${String(d.getDate()).padStart(2, "0")} ${MONTH_SHORT[d.getMonth()]}`
-    : "";
+/** "QUINTA • 17 SET" (horário de Brasília) */
+const fmtDayLabel = (d: Date | null) => {
+  if (!d) return "";
+  const p = spParts(d);
+  return `${WEEK_LONG[p.weekday].replace("-feira", "").toUpperCase()} • ${String(p.day).padStart(2, "0")} ${MONTH_SHORT[p.month - 1]}`;
+};
 
-/** "QUI, 04/09" */
-const fmtHeaderDate = (d: Date) =>
-  `${WEEK_SHORT[d.getDay()]}, ${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
+/** "QUI, 04/09/2026" (horário de Brasília) */
+const fmtHeaderDate = (d: Date) => {
+  const p = spParts(d);
+  return `${WEEK_SHORT[p.weekday]}, ${String(p.day).padStart(2, "0")}/${String(p.month).padStart(2, "0")}/${p.year}`;
+};
 
-const fmtTime = (d: Date | null) =>
-  d ? `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}` : "";
+/** "11:56" (horário de Brasília, 24h) */
+const fmtTime = (d: Date | null) => {
+  if (!d) return "";
+  const p = spParts(d);
+  return `${String(p.hour).padStart(2, "0")}:${String(p.minute).padStart(2, "0")}`;
+};
+
 
 function flatten(speakers: Speaker[]): Slot[] {
   const out: Slot[] = [];
@@ -160,32 +213,19 @@ const isLive = (s: Slot, now: Date) => {
 };
 
 /**
- * Contagem regressiva legível:
- *  - < 1 min  -> "começa agora"
- *  - < 1 h    -> "começa em 24min 10s"
- *  - < 24 h   -> "começa em 01h 24min"
- *  - >= 24 h  -> "em 13 dias" / "quinta-feira, 11:56"
+ * Contagem regressiva em horas + minutos, sempre no total de horas.
+ * Ex.: 13 dias, 13h e 1min -> "325h 01min". Nunca negativa, nunca NaN.
  */
-function countdownLabel(target: Date | null, now: Date, compact = false): string {
-  if (!target) return "";
+function countdownLabel(target: Date | null, now: Date): string {
+  if (!target || isNaN(target.getTime())) return "";
   const ms = target.getTime() - now.getTime();
-  if (ms <= 0) return "";
+  if (!Number.isFinite(ms) || ms <= 0) return "";
   const totalMin = Math.floor(ms / 60000);
-  if (totalMin < 1) return compact ? "agora" : "começa agora";
-  if (totalMin < 60) {
-    const s = Math.floor((ms % 60000) / 1000);
-    const body = `${totalMin}min ${String(s).padStart(2, "0")}s`;
-    return compact ? body : `começa em ${body}`;
-  }
   const hours = Math.floor(totalMin / 60);
-  if (hours < 24) {
-    const body = `${String(hours).padStart(2, "0")}h ${String(totalMin % 60).padStart(2, "0")}min`;
-    return compact ? body : `começa em ${body}`;
-  }
-  const days = Math.round(hours / 24);
-  if (days <= 6) return `${WEEK_LONG[target.getDay()]}, ${fmtTime(target)}`;
-  return `em ${days} dias`;
+  const minutes = totalMin % 60;
+  return `${String(hours).padStart(2, "0")}h ${String(minutes).padStart(2, "0")}min`;
 }
+
 
 type StatusKind = "live" | "next" | "scheduled" | "done";
 
@@ -510,17 +550,27 @@ export default function EventAgendaTV() {
                 </h2>
               </div>
 
-              <div className="w-[300px] shrink-0 border-l border-[--tv-line] pl-9 text-right">
+              <div className="w-[340px] shrink-0 border-l border-[--tv-line] pl-9 text-right">
                 <p className="text-[1rem] font-semibold uppercase tracking-[0.2em] text-[--tv-slate]">
                   Horário
                 </p>
                 <p className="text-[3rem] font-bold leading-none tabular-nums text-[--tv-navy]">
                   {fmtTime(hero.start) || "--:--"}
                 </p>
-                <p className="tv-fade mt-2 text-[1.55rem] font-bold leading-tight text-[--tv-orange]">
-                  {live ? "acontecendo agora" : countdownLabel(hero.start, now) || "em instantes"}
+                <p className="mt-2 text-[0.95rem] font-semibold uppercase tracking-[0.2em] text-[--tv-slate]">
+                  {live ? "Status" : "Começa em"}
+                </p>
+                <p
+                  className={`tv-fade whitespace-nowrap font-bold leading-none tabular-nums text-[--tv-orange] ${
+                    live ? "text-[1.5rem]" : "text-[1.9rem]"
+                  }`}
+                >
+                  {live
+                    ? "ACONTECENDO AGORA"
+                    : countdownLabel(hero.start, now) || "00h 00min"}
                 </p>
               </div>
+
             </section>
           ) : (
             <section className="tv-card flex h-[210px] flex-col items-center justify-center rounded-[22px] px-10 text-center">
@@ -589,8 +639,8 @@ export default function EventAgendaTV() {
                             <StatusPill kind={kind} />
                           </div>
                           {kind !== "live" && kind !== "done" && (
-                            <p className="mt-1.5 text-[1.15rem] font-semibold text-[--tv-orange]">
-                              {countdownLabel(s.start, now, true)}
+                            <p className="mt-1.5 whitespace-nowrap text-[1.15rem] font-bold tabular-nums text-[--tv-orange]">
+                              em {countdownLabel(s.start, now) || "00h 00min"}
                             </p>
                           )}
                         </div>
