@@ -165,8 +165,15 @@ export default function EventSpeakerBooking() {
   const [personId, setPersonId] = useState<string>("");
   const [pickerOpen, setPickerOpen] = useState(false);
 
-  // Modal de tema por horário
-  const [slotDialog, setSlotDialog] = useState<{ date: string; time: string; theme: string; existing: boolean } | null>(null);
+  // Modal de tema + duração por horário
+  const [slotDialog, setSlotDialog] = useState<{
+    date: string;
+    time: string;
+    theme: string;
+    duration: number;
+    existing: boolean;
+  } | null>(null);
+
 
   // Modal de novo palestrante
   const [newOpen, setNewOpen] = useState(false);
