@@ -338,6 +338,7 @@ export default function EventPublicAgenda({ term }: { term?: string }) {
 
   const dayDemos = demos.filter((i) => dayKeyOf(i.start) === activeDay);
   const daySupport = support.filter((i) => dayKeyOf(i.start) === activeDay);
+  const daySupportGrouped = useMemo(() => groupSupportBySpeaker(daySupport), [daySupport]);
   const t = now.getTime();
 
   const pageTitle = event ? `Agenda de demonstrações — ${event.name}` : "Agenda de demonstrações";
