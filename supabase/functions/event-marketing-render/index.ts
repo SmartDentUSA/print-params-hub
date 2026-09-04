@@ -199,7 +199,15 @@ Deno.serve(async (req) => {
     if (!artDataUri) return json({ error: "ART_UNREADABLE", message: "Não foi possível ler a arte enviada." }, 422);
     const logoDataUri = `data:image/png;base64,${b64(await asset("smartdent-logo.png"))}`;
     const eventLogoDataUri = await fetchDataUri(event.event_logo_url);
-    const common = { artDataUri, logoDataUri, eventLogoDataUri };
+    const useAi = parsed.data.ai_background !== false;
+    const aiCarousel = useAi && kinds.includes("carousel")
+      ? await aiBackground(artDataUri, "4:5", String(event.name || ""))
+      : null;
+    const aiStory = useAi && kinds.includes("stories")
+      ? await aiBackground(artDataUri, "9:16", String(event.name || ""))
+      : null;
+    const common = { artDataUri: aiCarousel || artDataUri, logoDataUri, eventLogoDataUri };
+    const commonStory = { artDataUri: aiStory || aiCarousel || artDataUri, logoDataUri, eventLogoDataUri };
 
     const speakers = Array.isArray(event.speakers) ? (event.speakers as any[]) : [];
     const photos = new Map<string, string | null>();
