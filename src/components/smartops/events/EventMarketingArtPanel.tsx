@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import { Loader2, Upload, X, Sparkles, Download, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 
@@ -138,6 +139,10 @@ export function EventMarketingArtPanel({
             placeholder="Ex: CIPRO"
             maxLength={24}
           />
+        </div>
+        <div className="flex items-center gap-2 pb-1.5">
+          <Switch id="ai-bg" checked={aiBg} onCheckedChange={setAiBg} />
+          <Label htmlFor="ai-bg" className="text-xs">Fundo criado por IA (usa a arte como referência)</Label>
         </div>
         <Button type="button" size="sm" onClick={generate} disabled={generating || !eventId || !artUrl}>
           {generating ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <Sparkles className="w-4 h-4 mr-1.5" />}
