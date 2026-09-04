@@ -11,7 +11,7 @@ import { Switch } from "@/components/ui/switch";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, Check, ChevronsUpDown, ExternalLink, CalendarDays, Monitor } from "lucide-react";
+import { Plus, Pencil, Trash2, Check, ChevronsUpDown, ExternalLink, CalendarDays, Monitor, Users } from "lucide-react";
 import { Country } from "country-state-city";
 import { cn } from "@/lib/utils";
 import CoverImageUpload from "@/components/smartops/CoverImageUpload";
@@ -270,7 +270,22 @@ export function SmartOpsEvents() {
                         ) : "—"}
                       </td>
                       <td className="py-2 pr-3">
-                        <Switch checked={r.is_active} onCheckedChange={() => toggleActive(r)} />
+                        <div className="flex items-center gap-1">
+                          <Switch checked={r.is_active} onCheckedChange={() => toggleActive(r)} />
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            title="Autoagendamento dos KOLs (link para o grupo de WhatsApp)"
+                            onClick={() => {
+                              const url = `${getPublicOrigin()}/agenda-kol/${r.id}`;
+                              navigator.clipboard?.writeText(url);
+                              toast.success("Link de autoagendamento copiado", { description: url });
+                              window.open(url, "_blank", "noopener");
+                            }}
+                          >
+                            <Users className="w-4 h-4" />
+                          </Button>
+                        </div>
                       </td>
                       <td className="py-2 pr-3 text-right">
                         <div className="flex items-center justify-end gap-1">
@@ -480,9 +495,24 @@ export function SmartOpsEvents() {
                   <Label>Ordem de exibição</Label>
                   <Input type="number" value={editing.display_order ?? 0} onChange={(e) => setEditing({ ...editing, display_order: Number(e.target.value) || 0 })} />
                 </div>
-                <div className="flex items-end gap-2">
+                <div className="flex flex-wrap items-end gap-2">
                   <Switch checked={editing.is_active ?? true} onCheckedChange={(v) => setEditing({ ...editing, is_active: v })} />
                   <Label>Ativo (visível no site)</Label>
+                  {editing.id && (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        const url = `${getPublicOrigin()}/agenda-kol/${editing.id}`;
+                        navigator.clipboard?.writeText(url);
+                        toast.success("Link de autoagendamento copiado", { description: url });
+                        window.open(url, "_blank", "noopener");
+                      }}
+                    >
+                      <Users className="w-4 h-4 mr-1" /> Autoagendamento KOLs
+                    </Button>
+                  )}
                 </div>
               </div>
               <div>

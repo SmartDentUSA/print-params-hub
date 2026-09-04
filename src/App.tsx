@@ -23,6 +23,7 @@ const ResinRedirect = lazy(() => import("./pages/ResinRedirect"));
 const AgentEmbed = lazy(() => import("./pages/AgentEmbed"));
 const AgendaPublica = lazy(() => import("./pages/AgendaPublica"));
 const EventAgendaTV = lazy(() => import("./pages/EventAgendaTV"));
+const EventSpeakerBooking = lazy(() => import("./pages/EventSpeakerBooking"));
 
 const PublicFormPage = lazy(() => import("./pages/PublicFormPage"));
 const PublicLandingPage = lazy(() => import("./pages/PublicLandingPage"));
@@ -192,6 +193,10 @@ const App = () => (
 
       {/* TV do congresso: agenda de demonstrações (acesso externo, sem login) */}
       <Route path="/agenda-tv/:slug" element={<EventAgendaTV />} />
+
+      {/* Autoagendamento dos KOLs do congresso (link compartilhável, sem login) */}
+      <Route path="/agenda-kol/:eventId" element={<EventSpeakerBooking />} />
+
 
       
       {/* Public forms */}
