@@ -20,12 +20,13 @@ const admin = createClient(
 
 const BUCKET = "knowledge-images";
 
-type Session = { date?: string; start_time?: string; end_time?: string };
+type Session = { date?: string; start_time?: string; end_time?: string; theme?: string };
 type Speaker = {
   name?: string;
   theme?: string;
   instagram?: string;
   photo_url?: string;
+  professional_id?: string;
   sessions?: Session[];
 };
 
@@ -85,6 +86,7 @@ function publicSpeakers(speakers: Speaker[]) {
     instagram: s.instagram || "",
     theme: s.theme || "",
     photo_url: s.photo_url || "",
+    professional_id: s.professional_id || "",
     sessions: (s.sessions || []).filter((x) => x?.date && x?.start_time),
   }));
 }
@@ -101,6 +103,29 @@ async function uploadPhoto(eventId: string, base64: string, ext: string) {
   });
   if (error) throw error;
   return admin.storage.from(BUCKET).getPublicUrl(path).data.publicUrl;
+}
+
+/** Lista de profissionais liberados (mesma fonte do card de Profissionais em Cursos) */
+async function listProfessionals() {
+  const { data, error } = await admin
+    .from("lia_attendances")
+    .select("id, nome, email, especialidade, prof_cro, prof_photo_url, prof_mini_cv, instagram, prof_updated_at")
+    .not("prof_updated_at", "is", null)
+    .is("merged_into", null)
+    .order("nome", { ascending: true })
+    .limit(500);
+  if (error) throw error;
+  return (data ?? [])
+    .filter((p: any) => String(p.nome || "").trim().length > 2)
+    .map((p: any) => ({
+      id: p.id,
+      name: String(p.nome).trim(),
+      instagram: p.instagram ? `@${handleOf(p.instagram)}` : "",
+      photo_url: p.prof_photo_url || "",
+      specialty: p.especialidade || "",
+      cro: p.prof_cro || "",
+      mini_bio: p.prof_mini_cv || "",
+    }));
 }
 
 Deno.serve(async (req) => {
@@ -132,17 +157,103 @@ Deno.serve(async (req) => {
         },
         days,
         speakers: publicSpeakers((event.speakers || []) as Speaker[]),
+        professionals: await listProfessionals(),
+      });
+    }
+
+    if (action === "professionals") {
+      return json({ professionals: await listProfessionals() });
+    }
+
+    if (action === "create_professional") {
+      const name = String(body?.name ?? "").trim();
+      if (name.length < 3) return json({ error: "Informe o nome completo do palestrante." }, 400);
+      const email = String(body?.email ?? "").trim().toLowerCase() || null;
+      const igHandle = handleOf(body?.instagram);
+      const specialty = String(body?.specialty ?? "").trim() || null;
+      const cro = String(body?.cro ?? "").trim() || null;
+      const miniBio = String(body?.mini_bio ?? "").trim() || null;
+      const phone = String(body?.phone ?? "").replace(/\D/g, "") || null;
+
+      let photoUrl = typeof body?.photo_url === "string" ? body.photo_url : "";
+      if (typeof body?.photo_base64 === "string" && body.photo_base64.length > 100) {
+        photoUrl = await uploadPhoto(eventId, body.photo_base64, String(body?.photo_ext ?? "jpg"));
+      }
+
+      // Reaproveita cadastro existente (email ou nome) — nunca duplica pessoa
+      let existing: any = null;
+      if (email) {
+        const { data } = await admin
+          .from("lia_attendances")
+          .select("id, nome")
+          .ilike("email", email)
+          .is("merged_into", null)
+          .limit(1);
+        existing = data?.[0] ?? null;
+      }
+      if (!existing) {
+        const { data } = await admin
+          .from("lia_attendances")
+          .select("id, nome")
+          .ilike("nome", name)
+          .is("merged_into", null)
+          .limit(1);
+        existing = data?.[0] ?? null;
+      }
+
+      const fields: Record<string, unknown> = {
+        nome: name,
+        especialidade: specialty,
+        prof_cro: cro,
+        prof_mini_cv: miniBio,
+        prof_updated_at: new Date().toISOString(),
+      };
+      if (email) fields.email = email;
+      if (phone) fields.telefone = phone;
+      if (igHandle) fields.instagram = `@${igHandle}`;
+      if (photoUrl) fields.prof_photo_url = photoUrl;
+
+      let professionalId: string;
+      if (existing) {
+        const { error } = await admin.from("lia_attendances").update(fields).eq("id", existing.id);
+        if (error) throw error;
+        professionalId = existing.id;
+      } else {
+        const { data, error } = await admin
+          .from("lia_attendances")
+          .insert({
+            ...fields,
+            lead_status: "novo",
+            origem_primeiro_contato: "smartops_agenda_kol_evento",
+          })
+          .select("id")
+          .single();
+        if (error) throw error;
+        professionalId = data.id;
+      }
+
+      return json({
+        ok: true,
+        professional: {
+          id: professionalId,
+          name,
+          instagram: igHandle ? `@${igHandle}` : "",
+          photo_url: photoUrl || "",
+          specialty: specialty || "",
+          cro: cro || "",
+          mini_bio: miniBio || "",
+        },
+        professionals: await listProfessionals(),
       });
     }
 
     if (action === "book") {
       const name = String(body?.name ?? "").trim();
       const instagram = handleOf(body?.instagram);
-      const theme = String(body?.theme ?? "").trim();
+      const professionalId = String(body?.professional_id ?? "").trim();
       const rawSlots = Array.isArray(body?.slots) ? body.slots : [];
 
-      if (name.length < 3) return json({ error: "Informe seu nome completo." }, 400);
-      if (!theme || theme.length < 3) return json({ error: "Informe o tema da sua demonstração." }, 400);
+      if (name.length < 3) return json({ error: "Selecione o palestrante." }, 400);
       if (!rawSlots.length) return json({ error: "Selecione pelo menos um horário." }, 400);
       if (rawSlots.length > 12) return json({ error: "Máximo de 12 horários por palestrante." }, 400);
 
@@ -150,17 +261,20 @@ Deno.serve(async (req) => {
       for (const s of rawSlots) {
         const date = String(s?.date ?? "");
         const start = String(s?.start_time ?? "");
+        const theme = String(s?.theme ?? "").trim();
         if (!isDate(date) || !isTime(start)) return json({ error: "Horário inválido." }, 400);
         if (days.length && !days.includes(date)) return json({ error: "Data fora do período do evento." }, 400);
         const [, mi] = start.split(":").map(Number);
         if (mi !== 0) return json({ error: "Os horários são de 1 em 1 hora." }, 400);
-        slots.push({ date, start_time: start, end_time: addMinutes(start, 60) });
+        if (theme.length < 3) return json({ error: "Informe o tema de cada horário." }, 400);
+        slots.push({ date, start_time: start, end_time: addMinutes(start, 60), theme });
       }
 
       const list = ((event.speakers || []) as Speaker[]).map((s) => ({ ...s }));
       const idx = list.findIndex((s) =>
+        (professionalId && s.professional_id === professionalId) ||
         (instagram && handleOf(s.instagram) === instagram) ||
-        (!instagram && normName(s.name) === normName(name))
+        (!instagram && !professionalId && normName(s.name) === normName(name))
       );
 
       // Conflito: janela já ocupada por OUTRO palestrante (checa sobreposição real)
@@ -197,8 +311,9 @@ Deno.serve(async (req) => {
         ...(idx >= 0 ? list[idx] : {}),
         name,
         instagram: instagram ? `@${instagram}` : (idx >= 0 ? list[idx].instagram || "" : ""),
-        theme,
+        theme: slots[0]?.theme || (idx >= 0 ? list[idx].theme || "" : ""),
         photo_url: photoUrl || (idx >= 0 ? list[idx].photo_url || "" : ""),
+        professional_id: professionalId || (idx >= 0 ? list[idx].professional_id || "" : ""),
         sessions: slots,
       };
       if (idx >= 0) list[idx] = entry;
@@ -213,8 +328,11 @@ Deno.serve(async (req) => {
     if (action === "release") {
       const instagram = handleOf(body?.instagram);
       const name = String(body?.name ?? "").trim();
+      const professionalId = String(body?.professional_id ?? "").trim();
       const list = ((event.speakers || []) as Speaker[]).filter((s) =>
-        !((instagram && handleOf(s.instagram) === instagram) || (!instagram && normName(s.name) === normName(name)))
+        !((professionalId && s.professional_id === professionalId) ||
+          (instagram && handleOf(s.instagram) === instagram) ||
+          (!instagram && !professionalId && normName(s.name) === normName(name)))
       );
       const { error } = await admin.from("smartops_events").update({ speakers: list }).eq("id", eventId);
       if (error) throw error;

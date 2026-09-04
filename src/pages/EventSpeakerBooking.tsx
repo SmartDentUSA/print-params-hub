@@ -7,12 +7,48 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { CalendarDays, CheckCircle2, Clock, Instagram, Loader2, MapPin, RefreshCw, User } from "lucide-react";
+import {
+  CalendarDays,
+  Check,
+  ChevronsUpDown,
+  Clock,
+  Loader2,
+  MapPin,
+  Plus,
+  RefreshCw,
+  Trash2,
+} from "lucide-react";
 
-type Session = { date?: string; start_time?: string; end_time?: string };
-type Speaker = { name?: string; instagram?: string; theme?: string; photo_url?: string; sessions?: Session[] };
+type Session = { date?: string; start_time?: string; end_time?: string; theme?: string };
+type Speaker = {
+  name?: string;
+  instagram?: string;
+  theme?: string;
+  photo_url?: string;
+  professional_id?: string;
+  sessions?: Session[];
+};
+type Professional = {
+  id: string;
+  name: string;
+  instagram: string;
+  photo_url: string;
+  specialty: string;
+  cro: string;
+  mini_bio: string;
+};
 type EventInfo = {
   id: string;
   name: string;
@@ -44,14 +80,11 @@ const dayLabel = (d: string) => {
   return { wd: wd.toUpperCase(), day: String(dd).padStart(2, "0"), month: String(m).padStart(2, "0") };
 };
 
-function buildSlots() {
-  const out: string[] = [];
-  for (let h = SLOT_START_HOUR; h < SLOT_END_HOUR; h++) {
-    out.push(`${String(h).padStart(2, "0")}:00`);
-  }
-  return out;
-}
-const SLOTS = buildSlots();
+const SLOTS = Array.from({ length: SLOT_END_HOUR - SLOT_START_HOUR }, (_, i) =>
+  `${String(SLOT_START_HOUR + i).padStart(2, "0")}:00`,
+);
+
+const emptyNew = { name: "", instagram: "", email: "", phone: "", specialty: "", cro: "", mini_bio: "" };
 
 export default function EventSpeakerBooking() {
   const { eventId = "" } = useParams();
@@ -61,16 +94,22 @@ export default function EventSpeakerBooking() {
   const [event, setEvent] = useState<EventInfo | null>(null);
   const [days, setDays] = useState<string[]>([]);
   const [speakers, setSpeakers] = useState<Speaker[]>([]);
+  const [professionals, setProfessionals] = useState<Professional[]>([]);
   const [activeDay, setActiveDay] = useState<string>("");
 
-  const [name, setName] = useState("");
-  const [instagram, setInstagram] = useState("");
-  const [theme, setTheme] = useState("");
-  const [photoFile, setPhotoFile] = useState<File | null>(null);
-  const [photoPreview, setPhotoPreview] = useState<string>("");
-  const [selected, setSelected] = useState<string[]>([]); // "YYYY-MM-DD|HH:MM"
-  const [done, setDone] = useState(false);
-  const identityLoaded = useRef(false);
+  const [personId, setPersonId] = useState<string>("");
+  const [pickerOpen, setPickerOpen] = useState(false);
+
+  // Modal de tema por horário
+  const [slotDialog, setSlotDialog] = useState<{ date: string; time: string; theme: string; existing: boolean } | null>(null);
+
+  // Modal de novo palestrante
+  const [newOpen, setNewOpen] = useState(false);
+  const [newForm, setNewForm] = useState({ ...emptyNew });
+  const [newPhoto, setNewPhoto] = useState<File | null>(null);
+  const [creating, setCreating] = useState(false);
+
+  const restored = useRef(false);
 
   const call = useCallback(
     async (payload: Record<string, unknown>) => {
@@ -100,6 +139,7 @@ export default function EventSpeakerBooking() {
       setEvent(res.event);
       setDays(res.days || []);
       setSpeakers(res.speakers || []);
+      setProfessionals(res.professionals || []);
       setActiveDay((cur) => cur || (res.days?.[0] ?? ""));
     } catch (e: any) {
       setError(e?.message || "Não foi possível carregar a agenda.");
@@ -110,42 +150,35 @@ export default function EventSpeakerBooking() {
 
   useEffect(() => { load(); }, [load]);
 
-  // Recupera identidade salva no aparelho
+  // Recupera palestrante escolhido neste aparelho
   useEffect(() => {
-    if (identityLoaded.current) return;
-    identityLoaded.current = true;
+    if (restored.current) return;
+    restored.current = true;
     try {
-      const raw = localStorage.getItem(`kol-agenda:${eventId}`);
-      if (raw) {
-        const j = JSON.parse(raw);
-        setName(j.name || "");
-        setInstagram(j.instagram || "");
-      }
+      const saved = localStorage.getItem(`kol-agenda:${eventId}`);
+      if (saved) setPersonId(JSON.parse(saved)?.professional_id || "");
     } catch { /* ignore */ }
   }, [eventId]);
 
-  const myKey = handleOf(instagram) || name.trim().toLowerCase();
+  const person = useMemo(() => professionals.find((p) => p.id === personId) ?? null, [professionals, personId]);
 
-  const mine = useMemo(
-    () =>
-      speakers.find((s) =>
-        handleOf(instagram)
-          ? handleOf(s.instagram) === handleOf(instagram)
-          : !!name.trim() && (s.name || "").trim().toLowerCase() === name.trim().toLowerCase(),
-      ),
-    [speakers, instagram, name],
+  const mine = useMemo(() => {
+    if (!person) return null;
+    return (
+      speakers.find((s) => s.professional_id === person.id) ??
+      speakers.find((s) => handleOf(s.instagram) && handleOf(s.instagram) === handleOf(person.instagram)) ??
+      speakers.find((s) => (s.name || "").trim().toLowerCase() === person.name.trim().toLowerCase()) ??
+      null
+    );
+  }, [speakers, person]);
+
+  const mySessions = useMemo<Session[]>(
+    () => (mine?.sessions || []).filter((s) => s.date && s.start_time),
+    [mine],
   );
 
-  // Pré-carrega horários e tema já reservados por este palestrante
-  useEffect(() => {
-    if (!mine || done) return;
-    setTheme((cur) => cur || mine.theme || "");
-    setSelected(
-      (mine.sessions || [])
-        .filter((s) => s.date && s.start_time)
-        .map((s) => `${s.date}|${String(s.start_time).slice(0, 5)}`),
-    );
-  }, [mine, done]);
+  const mySlotAt = (date: string, time: string) =>
+    mySessions.find((s) => s.date === date && String(s.start_time).slice(0, 5) === time) ?? null;
 
   const takenByOthers = useMemo(() => {
     const toMin = (t?: string) => {
@@ -154,15 +187,11 @@ export default function EventSpeakerBooking() {
     };
     const map = new Map<string, Speaker>();
     for (const s of speakers) {
-      const isMe = handleOf(instagram)
-        ? handleOf(s.instagram) === handleOf(instagram)
-        : !!name.trim() && (s.name || "").trim().toLowerCase() === name.trim().toLowerCase();
-      if (isMe) continue;
+      if (mine && s === mine) continue;
       for (const ses of s.sessions || []) {
         const start = toMin(ses.start_time);
         if (!ses.date || start === null) continue;
         const end = toMin(ses.end_time) ?? start + 60;
-        // Bloqueia todas as células de 1 hora que a sessão ocupa (mesmo horários fora da grade)
         for (const t of SLOTS) {
           const cell = toMin(t)!;
           if (cell < end && cell + 60 > start) map.set(`${ses.date}|${t}`, s);
@@ -170,17 +199,77 @@ export default function EventSpeakerBooking() {
       }
     }
     return map;
-  }, [speakers, instagram, name, myKey]);
+  }, [speakers, mine]);
 
-  const toggle = (key: string) => {
-    if (takenByOthers.has(key)) return;
-    setSelected((cur) => (cur.includes(key) ? cur.filter((k) => k !== key) : [...cur, key]));
-  };
+  const persist = useCallback(
+    async (slots: Session[]) => {
+      if (!person) return;
+      setSaving(true);
+      try {
+        const res = await call({
+          action: slots.length ? "book" : "release",
+          professional_id: person.id,
+          name: person.name,
+          instagram: person.instagram,
+          photo_url: person.photo_url,
+          slots: slots.map((s) => ({ date: s.date, start_time: String(s.start_time).slice(0, 5), theme: s.theme })),
+        });
+        setSpeakers(res.speakers || []);
+        try {
+          localStorage.setItem(`kol-agenda:${eventId}`, JSON.stringify({ professional_id: person.id }));
+        } catch { /* ignore */ }
+        return true;
+      } catch (e: any) {
+        toast.error(e?.message || "Falha ao salvar horário");
+        load();
+        return false;
+      } finally {
+        setSaving(false);
+      }
+    },
+    [call, person, eventId, load],
+  );
 
-  const onPhoto = (f: File | null) => {
-    setPhotoFile(f);
-    setPhotoPreview(f ? URL.createObjectURL(f) : "");
-  };
+  function openSlot(date: string, time: string) {
+    if (!person) return toast.error("Selecione o palestrante primeiro.");
+    if (takenByOthers.has(`${date}|${time}`)) return;
+    const existing = mySlotAt(date, time);
+    setSlotDialog({
+      date,
+      time,
+      theme: existing?.theme || mySessions[0]?.theme || "",
+      existing: !!existing,
+    });
+  }
+
+  async function confirmSlot() {
+    if (!slotDialog) return;
+    const theme = slotDialog.theme.trim();
+    if (theme.length < 3) return toast.error("Informe o tema da demonstração.");
+    const rest = mySessions.filter(
+      (s) => !(s.date === slotDialog.date && String(s.start_time).slice(0, 5) === slotDialog.time),
+    );
+    const next = [...rest, { date: slotDialog.date, start_time: slotDialog.time, theme }].sort((a, b) =>
+      `${a.date}${a.start_time}`.localeCompare(`${b.date}${b.start_time}`),
+    );
+    const ok = await persist(next);
+    if (ok) {
+      setSlotDialog(null);
+      toast.success("Horário confirmado! Já aparece na TV do estande.");
+    }
+  }
+
+  async function removeSlot() {
+    if (!slotDialog) return;
+    const next = mySessions.filter(
+      (s) => !(s.date === slotDialog.date && String(s.start_time).slice(0, 5) === slotDialog.time),
+    );
+    const ok = await persist(next);
+    if (ok) {
+      setSlotDialog(null);
+      toast.success("Horário liberado.");
+    }
+  }
 
   const fileToBase64 = (f: File) =>
     new Promise<string>((resolve, reject) => {
@@ -190,41 +279,27 @@ export default function EventSpeakerBooking() {
       r.readAsDataURL(f);
     });
 
-  async function submit() {
-    if (name.trim().length < 3) return toast.error("Informe seu nome completo.");
-    if (theme.trim().length < 3) return toast.error("Informe o tema da sua demonstração.");
-    if (!selected.length) return toast.error("Selecione pelo menos um horário.");
-    setSaving(true);
+  async function createProfessional() {
+    if (newForm.name.trim().length < 3) return toast.error("Informe o nome completo.");
+    setCreating(true);
     try {
       let photo_base64: string | undefined;
       let photo_ext: string | undefined;
-      if (photoFile) {
-        photo_base64 = await fileToBase64(photoFile);
-        photo_ext = (photoFile.name.split(".").pop() || "jpg").toLowerCase();
+      if (newPhoto) {
+        photo_base64 = await fileToBase64(newPhoto);
+        photo_ext = (newPhoto.name.split(".").pop() || "jpg").toLowerCase();
       }
-      const res = await call({
-        action: "book",
-        name: name.trim(),
-        instagram: instagram.trim(),
-        theme: theme.trim(),
-        photo_base64,
-        photo_ext,
-        slots: selected.map((k) => {
-          const [date, start_time] = k.split("|");
-          return { date, start_time };
-        }),
-      });
-      setSpeakers(res.speakers || []);
-      setDone(true);
-      try {
-        localStorage.setItem(`kol-agenda:${eventId}`, JSON.stringify({ name: name.trim(), instagram: instagram.trim() }));
-      } catch { /* ignore */ }
-      toast.success("Agenda confirmada! Já aparece na TV do estande.");
+      const res = await call({ action: "create_professional", ...newForm, photo_base64, photo_ext });
+      setProfessionals(res.professionals || []);
+      setPersonId(res.professional?.id || "");
+      setNewOpen(false);
+      setNewForm({ ...emptyNew });
+      setNewPhoto(null);
+      toast.success("Palestrante cadastrado e disponível na lista de Profissionais.");
     } catch (e: any) {
-      toast.error(e?.message || "Falha ao confirmar");
-      load();
+      toast.error(e?.message || "Falha ao cadastrar palestrante");
     } finally {
-      setSaving(false);
+      setCreating(false);
     }
   }
 
@@ -245,10 +320,8 @@ export default function EventSpeakerBooking() {
     );
   }
 
-  const daySlots = activeDay ? SLOTS : [];
-
   return (
-    <div className="min-h-screen bg-muted/30 pb-28">
+    <div className="min-h-screen bg-muted/30 pb-10">
       <header className="bg-primary text-primary-foreground px-4 py-5">
         <div className="mx-auto max-w-2xl space-y-2">
           {event.event_logo_url && (
@@ -260,49 +333,86 @@ export default function EventSpeakerBooking() {
             {event.company_stand && <span className="inline-flex items-center gap-1"><CalendarDays className="h-3.5 w-3.5" /> Estande {event.company_stand}</span>}
           </div>
           <p className="text-xs opacity-90 pt-1">
-            Escolha seus horários de demonstração no estande Smart Dent e informe o tema. A TV do estande atualiza automaticamente.
+            Selecione o palestrante, toque no dia e no horário e informe o tema. A TV do estande atualiza automaticamente.
           </p>
         </div>
       </header>
 
       <main className="mx-auto max-w-2xl space-y-4 p-4">
+        {/* Seleção do palestrante */}
         <Card>
           <CardContent className="space-y-3 p-4">
-            <div>
-              <Label className="text-xs">Seu nome completo *</Label>
-              <div className="relative">
-                <User className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input className="pl-9" value={name} onChange={(e) => setName(e.target.value)} placeholder="Dr. Nome Sobrenome" />
-              </div>
+            <Label className="text-xs">Palestrante *</Label>
+            <div className="flex gap-2">
+              <Popover open={pickerOpen} onOpenChange={setPickerOpen}>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" role="combobox" className="flex-1 justify-between font-normal">
+                    <span className={cn("truncate", !person && "text-muted-foreground")}>
+                      {person ? person.name : "Selecione o palestrante…"}
+                    </span>
+                    <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[--radix-popover-trigger-width] min-w-[260px] p-0" align="start">
+                  <Command>
+                    <CommandInput placeholder="Buscar profissional…" />
+                    <CommandList className="max-h-72">
+                      <CommandEmpty>Nenhum profissional encontrado.</CommandEmpty>
+                      <CommandGroup heading="Profissionais liberados">
+                        {professionals.map((p) => (
+                          <CommandItem
+                            key={p.id}
+                            value={`${p.name} ${p.specialty} ${p.instagram}`}
+                            onSelect={() => {
+                              setPersonId(p.id);
+                              setPickerOpen(false);
+                            }}
+                          >
+                            <Check className={cn("mr-2 h-4 w-4", personId === p.id ? "opacity-100" : "opacity-0")} />
+                            <span className="truncate">{p.name}</span>
+                            {p.specialty && (
+                              <span className="ml-2 truncate text-xs text-muted-foreground">{p.specialty}</span>
+                            )}
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
+              <Button variant="secondary" onClick={() => setNewOpen(true)}>
+                <Plus className="mr-1.5 h-4 w-4" /> Novo
+              </Button>
             </div>
-            <div>
-              <Label className="text-xs">Seu Instagram</Label>
-              <div className="relative">
-                <Instagram className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input className="pl-9" value={instagram} onChange={(e) => setInstagram(e.target.value)} placeholder="@seuperfil" />
-              </div>
-              <p className="pt-1 text-[11px] text-muted-foreground">Vira o QR Code exibido na TV do estande.</p>
-            </div>
-            <div>
-              <Label className="text-xs">Tema da sua demonstração *</Label>
-              <Textarea value={theme} onChange={(e) => setTheme(e.target.value)} rows={2} placeholder="Ex.: Fluxo digital completo em prótese total" />
-            </div>
-            <div>
-              <Label className="text-xs">Sua foto (opcional)</Label>
-              <div className="flex items-center gap-3">
-                {(photoPreview || mine?.photo_url) && (
-                  <img src={photoPreview || mine?.photo_url} alt="" className="h-14 w-14 rounded-full border object-cover" />
+
+            {person && (
+              <div className="flex items-center gap-3 rounded-lg border bg-card p-3">
+                {person.photo_url ? (
+                  <img src={person.photo_url} alt={person.name} className="h-12 w-12 rounded-full border object-cover" />
+                ) : (
+                  <div className="flex h-12 w-12 items-center justify-center rounded-full border bg-muted text-sm font-bold">
+                    {person.name.slice(0, 1)}
+                  </div>
                 )}
-                <Input type="file" accept="image/*" onChange={(e) => onPhoto(e.target.files?.[0] ?? null)} />
+                <div className="min-w-0">
+                  <div className="truncate text-sm font-semibold">{person.name}</div>
+                  <div className="truncate text-xs text-muted-foreground">
+                    {[person.specialty, person.instagram].filter(Boolean).join(" • ") || "Perfil cadastrado"}
+                  </div>
+                </div>
+                <Badge variant="secondary" className="ml-auto shrink-0">
+                  {mySessions.length} horário{mySessions.length === 1 ? "" : "s"}
+                </Badge>
               </div>
-            </div>
+            )}
           </CardContent>
         </Card>
 
+        {/* Dias */}
         <div className="flex gap-2 overflow-x-auto pb-1">
           {days.map((d) => {
             const l = dayLabel(d);
-            const count = selected.filter((k) => k.startsWith(`${d}|`)).length;
+            const count = mySessions.filter((s) => s.date === d).length;
             return (
               <button
                 key={d}
@@ -325,31 +435,34 @@ export default function EventSpeakerBooking() {
           })}
         </div>
 
+        {/* Grade de horários */}
         <Card>
           <CardContent className="p-4">
             <div className="mb-3 flex items-center gap-2 text-sm font-semibold">
               <Clock className="h-4 w-4" /> Horários de 1 em 1 hora
+              {saving && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
             </div>
             <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
-              {daySlots.map((t) => {
+              {(activeDay ? SLOTS : []).map((t) => {
                 const key = `${activeDay}|${t}`;
                 const other = takenByOthers.get(key);
-                const isMine = selected.includes(key);
+                const own = mySlotAt(activeDay, t);
                 return (
                   <button
                     key={key}
-                    disabled={!!other}
-                    onClick={() => toggle(key)}
+                    disabled={!!other || saving}
+                    onClick={() => openSlot(activeDay, t)}
                     className={cn(
                       "rounded-lg border px-2 py-2 text-sm font-medium transition-colors",
                       other && "cursor-not-allowed border-dashed bg-muted text-muted-foreground",
-                      !other && isMine && "border-emerald-600 bg-emerald-600 text-white",
-                      !other && !isMine && "bg-card hover:bg-accent",
+                      !other && own && "border-emerald-600 bg-emerald-600 text-white",
+                      !other && !own && "bg-card hover:bg-accent",
                     )}
-                    title={other ? `Reservado por ${other.name}` : undefined}
+                    title={other ? `Reservado por ${other.name}` : own?.theme || undefined}
                   >
                     <div className="tabular-nums">{t}</div>
                     {other && <div className="truncate text-[10px] opacity-80">{other.name}</div>}
+                    {!other && own?.theme && <div className="truncate text-[10px] opacity-90">{own.theme}</div>}
                   </button>
                 );
               })}
@@ -362,6 +475,7 @@ export default function EventSpeakerBooking() {
           </CardContent>
         </Card>
 
+        {/* Agenda do dia */}
         {speakers.length > 0 && (
           <Card>
             <CardContent className="space-y-2 p-4">
@@ -375,7 +489,7 @@ export default function EventSpeakerBooking() {
                     <Badge variant="secondary" className="tabular-nums">{String(ses.start_time).slice(0, 5)}</Badge>
                     <div className="min-w-0">
                       <div className="truncate text-sm font-medium">{s.name}</div>
-                      <div className="truncate text-xs text-muted-foreground">{s.theme}</div>
+                      <div className="truncate text-xs text-muted-foreground">{ses.theme || s.theme}</div>
                     </div>
                   </div>
                 ))}
@@ -387,19 +501,91 @@ export default function EventSpeakerBooking() {
         )}
       </main>
 
-      <div className="fixed inset-x-0 bottom-0 border-t bg-background/95 p-3 backdrop-blur">
-        <div className="mx-auto flex max-w-2xl items-center gap-3">
-          <div className="flex-1 text-xs text-muted-foreground">
-            {selected.length
-              ? `${selected.length} horário${selected.length > 1 ? "s" : ""} selecionado${selected.length > 1 ? "s" : ""}`
-              : "Selecione seus horários"}
+      {/* Modal do tema do horário */}
+      <Dialog open={!!slotDialog} onOpenChange={(o) => !o && setSlotDialog(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              Tema da demonstração — {slotDialog ? `${dayLabel(slotDialog.date).day}/${dayLabel(slotDialog.date).month} às ${slotDialog.time}` : ""}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label className="text-xs">Tema *</Label>
+            <Textarea
+              rows={3}
+              autoFocus
+              value={slotDialog?.theme ?? ""}
+              onChange={(e) => setSlotDialog((cur) => (cur ? { ...cur, theme: e.target.value } : cur))}
+              placeholder="Ex.: Fluxo digital completo em prótese total"
+            />
+            <p className="text-[11px] text-muted-foreground">Aparece na TV do estande junto ao seu nome e QR Code.</p>
           </div>
-          <Button onClick={submit} disabled={saving} className="min-w-[160px]">
-            {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle2 className="mr-2 h-4 w-4" />}
-            {done ? "Atualizar agenda" : "Confirmar agenda"}
-          </Button>
-        </div>
-      </div>
+          <DialogFooter className="gap-2 sm:justify-between">
+            {slotDialog?.existing ? (
+              <Button variant="outline" onClick={removeSlot} disabled={saving} className="text-destructive">
+                <Trash2 className="mr-1.5 h-4 w-4" /> Liberar horário
+              </Button>
+            ) : <span />}
+            <Button onClick={confirmSlot} disabled={saving}>
+              {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Check className="mr-2 h-4 w-4" />} OK
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal de novo palestrante */}
+      <Dialog open={newOpen} onOpenChange={setNewOpen}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Adicionar novo palestrante</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <Label className="text-xs">Nome completo *</Label>
+              <Input value={newForm.name} onChange={(e) => setNewForm({ ...newForm, name: e.target.value })} placeholder="Dr. Nome Sobrenome" />
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div>
+                <Label className="text-xs">Instagram</Label>
+                <Input value={newForm.instagram} onChange={(e) => setNewForm({ ...newForm, instagram: e.target.value })} placeholder="@perfil" />
+              </div>
+              <div>
+                <Label className="text-xs">CRO</Label>
+                <Input value={newForm.cro} onChange={(e) => setNewForm({ ...newForm, cro: e.target.value })} />
+              </div>
+              <div>
+                <Label className="text-xs">E-mail</Label>
+                <Input type="email" value={newForm.email} onChange={(e) => setNewForm({ ...newForm, email: e.target.value })} />
+              </div>
+              <div>
+                <Label className="text-xs">WhatsApp</Label>
+                <Input value={newForm.phone} onChange={(e) => setNewForm({ ...newForm, phone: e.target.value })} placeholder="(11) 99999-9999" />
+              </div>
+            </div>
+            <div>
+              <Label className="text-xs">Especialidade</Label>
+              <Input value={newForm.specialty} onChange={(e) => setNewForm({ ...newForm, specialty: e.target.value })} placeholder="Ex.: Prótese dentária" />
+            </div>
+            <div>
+              <Label className="text-xs">Mini CV</Label>
+              <Textarea rows={3} value={newForm.mini_bio} onChange={(e) => setNewForm({ ...newForm, mini_bio: e.target.value })} placeholder="Formação, experiência, cursos ministrados…" />
+            </div>
+            <div>
+              <Label className="text-xs">Foto</Label>
+              <div className="flex items-center gap-3">
+                {newPhoto && <img src={URL.createObjectURL(newPhoto)} alt="" className="h-14 w-14 rounded-full border object-cover" />}
+                <Input type="file" accept="image/*" onChange={(e) => setNewPhoto(e.target.files?.[0] ?? null)} />
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setNewOpen(false)}>Cancelar</Button>
+            <Button onClick={createProfessional} disabled={creating}>
+              {creating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />} Cadastrar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

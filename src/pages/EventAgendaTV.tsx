@@ -14,7 +14,7 @@ const AGENDA_URL = `https://${AGENDA_SHORT_URL}`;
 /* Tipos                                                              */
 /* ------------------------------------------------------------------ */
 
-type Session = { date?: string; start_time?: string; end_time?: string };
+type Session = { date?: string; start_time?: string; end_time?: string; theme?: string };
 type Speaker = {
   name?: string;
   theme?: string;
@@ -179,7 +179,7 @@ function flatten(speakers: Speaker[]): Slot[] {
       out.push({
         key: `${i}-${j}`,
         name: sp.name || "",
-        theme: cleanTheme(sp.theme),
+        theme: cleanTheme(se.theme || sp.theme),
         instagram: handleOf(sp.instagram),
         photo_url: sp.photo_url || "",
         start,
