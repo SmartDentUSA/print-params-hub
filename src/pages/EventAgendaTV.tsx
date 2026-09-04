@@ -723,7 +723,7 @@ export default function EventAgendaTV() {
           </div>
         </main>
 
-        {/* --------------------- Apoio comercial no estande --------------------- */}
+        {/* --------------------- Especialistas no estande --------------------- */}
         {support.length > 0 && (
           <section className="relative z-10 shrink-0 px-12 pb-2">
             <div className="flex items-center gap-4 pb-2">
@@ -737,13 +737,16 @@ export default function EventAgendaTV() {
               </div>
               <span className="h-px flex-1 bg-[--tv-line]" />
             </div>
-            <div className="flex items-stretch gap-4">
+            <div
+              className="grid gap-4"
+              style={{
+                gridTemplateColumns: `repeat(${Math.min(support.length, 4)}, minmax(0, 1fr))`,
+              }}
+            >
               {support.map((p) => (
                 <article
                   key={p.key}
-                  className={`tv-card flex min-h-[112px] flex-1 items-center gap-4 rounded-[16px] px-5 py-3 ${
-                    p.available ? "border-2 border-[--tv-orange]" : ""
-                  }`}
+                  className="tv-card flex min-h-[112px] items-center gap-4 rounded-[16px] border-2 border-[--tv-orange] px-5 py-3"
                 >
                   <Avatar slot={{ name: p.name, photo_url: p.photo_url }} size={78} />
                   <InstagramQR handle={p.instagram} size={68} caption={false} />
@@ -751,29 +754,13 @@ export default function EventAgendaTV() {
                     <p className="line-clamp-1 text-[26px] font-extrabold leading-tight tracking-[-0.02em] text-[--tv-navy]">
                       {p.name}
                     </p>
-                    {p.available ? (
-                      <>
-                        <span className="mt-1 inline-flex items-center gap-2 rounded-full bg-[--tv-orange] px-3 py-1 text-[17px] font-extrabold uppercase tracking-[0.1em] text-white">
-                          <span className="tv-pulse inline-block h-2.5 w-2.5 rounded-full bg-white" />
-                          Disponível agora para tirar dúvidas
-                        </span>
-                        <p className="pt-1 text-[19px] font-semibold tabular-nums text-[--tv-slate]">
-                          até {p.windowLabel.split("–")[1]?.trim() || p.windowLabel}
-                        </p>
-                      </>
-                    ) : (
-                      <>
-                        <p className="mt-1 text-[16px] font-bold uppercase tracking-[0.14em] text-[--tv-blue]">
-                          Próxima disponibilidade para dúvidas
-                        </p>
-                        <p className="text-[21px] font-extrabold tabular-nums leading-tight text-[--tv-navy]">
-                          {p.windowLabel}
-                        </p>
-                        <p className="text-[16px] font-semibold uppercase tracking-[0.1em] text-[--tv-slate]">
-                          {p.dayLabel}
-                        </p>
-                      </>
-                    )}
+                    <span className="mt-1 inline-flex items-center gap-2 rounded-full bg-[#22C55E] px-3 py-1 text-[17px] font-extrabold uppercase tracking-[0.1em] text-white">
+                      <span className="tv-pulse inline-block h-2.5 w-2.5 rounded-full bg-white" />
+                      Disponível agora
+                    </span>
+                    <p className="pt-1 text-[19px] font-semibold tabular-nums text-[--tv-slate]">
+                      até {p.windowLabel.split("–")[1]?.trim() || p.windowLabel}
+                    </p>
                   </div>
                 </article>
               ))}
