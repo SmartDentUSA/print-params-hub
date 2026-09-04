@@ -157,6 +157,15 @@ type Item = {
   end: Date;
 };
 
+type SupportRange = {
+  key: string;
+  name: string;
+  instagram: string;
+  photo_url: string;
+  specialty: string;
+  ranges: { start: Date; end: Date }[];
+};
+
 function buildItems(speakers: Speaker[], field: "sessions" | "support_sessions"): Item[] {
   const out: Item[] = [];
   speakers.forEach((sp, i) => {
@@ -182,6 +191,38 @@ function buildItems(speakers: Speaker[], field: "sessions" | "support_sessions")
     });
   });
   return out.sort((a, b) => a.start.getTime() - b.start.getTime());
+}
+
+function groupSupportBySpeaker(items: Item[]): SupportRange[] {
+  const byName = new Map<string, Item[]>();
+  items.forEach((i) => {
+    const list = byName.get(i.name) || [];
+    list.push(i);
+    byName.set(i.name, list);
+  });
+
+  const out: SupportRange[] = [];
+  byName.forEach((list, name) => {
+    list.sort((a, b) => a.start.getTime() - b.start.getTime());
+    const ranges: { start: Date; end: Date }[] = [];
+    list.forEach((it) => {
+      const last = ranges[ranges.length - 1];
+      if (last && it.start.getTime() <= last.end.getTime()) {
+        if (it.end.getTime() > last.end.getTime()) last.end = it.end;
+      } else {
+        ranges.push({ start: it.start, end: it.end });
+      }
+    });
+    out.push({
+      key: `support-${name}`,
+      name,
+      instagram: list[0].instagram,
+      photo_url: list[0].photo_url,
+      specialty: list[0].specialty,
+      ranges,
+    });
+  });
+  return out.sort((a, b) => a.ranges[0].start.getTime() - b.ranges[0].start.getTime());
 }
 
 /* ---------------- peças ---------------- */
