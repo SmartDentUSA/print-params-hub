@@ -184,38 +184,41 @@ export function buildCarouselSvg(slide: CarouselSlide, c: Common): { svg: string
   let body = "";
 
   if (slide.kind === "cover") {
-    const artY = 320;
-    const artH = 420;
-    const headSize = 76;
-    const headLines = wrap("ODONTOLOGIA DIGITAL AO VIVO", headSize, W - 152, 3);
-    const headBase = artY + artH + 96;
-    const tagY = headBase + headLines.length * (headSize * 1.08) + 24;
-    const infoY = tagY + 116;
-    const dividerY = infoY + 168;
-    const ctaY = dividerY + 74;
+    const artY = 292;
+    const artH = 340;
+    const headSize = 62;
+    const headLines = wrap("ODONTOLOGIA DIGITAL AO VIVO", headSize, W - 152, 2);
+    const ctaTop = H - 148;
+    const microY = ctaTop - 52;
+    const dividerY = microY - 42;
+    const infoY = dividerY - 142;
+    const tagY = infoY - 40;
+    const headBottom = tagY - 96;
+    const headBase = headBottom - (headLines.length - 1) * (headSize * 1.1);
     body = `
     ${header(W, c, 78, false)}
     <g>
-      <rect x="76" y="196" width="${W - 152}" height="88" rx="44" fill="${BLUE_LIGHT}"/>
-      <text x="${W / 2}" y="${254}" text-anchor="middle" font-family="Poppins" font-weight="700" font-size="38" fill="${WHITE}" letter-spacing="2">${esc(slide.dateLabel.toUpperCase())}</text>
+      <rect x="76" y="188" width="${W - 152}" height="84" rx="42" fill="${BLUE_LIGHT}"/>
+      <text x="${W / 2}" y="${244}" text-anchor="middle" font-family="Poppins" font-weight="700" font-size="36" fill="${WHITE}" letter-spacing="2">${esc(slide.dateLabel.toUpperCase())}</text>
     </g>
     <defs><clipPath id="artClip"><rect x="76" y="${artY}" width="${W - 152}" height="${artH}" rx="22"/></clipPath></defs>
     <g clip-path="url(#artClip)">
       <image x="76" y="${artY}" width="${W - 152}" height="${artH}" preserveAspectRatio="xMidYMid slice" xlink:href="${c.artDataUri}"/>
       <rect x="76" y="${artY}" width="${W - 152}" height="${artH}" fill="url(#photoFade)"/>
     </g>
-    ${textBlock(headLines, 76, headBase, headSize, WHITE, 700, 1.08, 'letter-spacing="-1"')}
-    <text x="76" y="${tagY}" font-family="Poppins" font-weight="600" font-size="32" fill="${BLUE_LIGHT}" letter-spacing="1">HANDS-ON · DEMONSTRAÇÕES</text>
-    <text x="76" y="${tagY + 48}" font-family="Poppins" font-weight="600" font-size="32" fill="${BLUE_LIGHT}" letter-spacing="1">PALESTRANTES · SOLUÇÕES REAIS</text>
+    ${textBlock(headLines, 76, headBase, headSize, WHITE, 700, 1.1, 'letter-spacing="-1"')}
+    <text x="76" y="${tagY - 44}" font-family="Poppins" font-weight="600" font-size="29" fill="${BLUE_LIGHT}" letter-spacing="1">HANDS-ON · DEMONSTRAÇÕES</text>
+    <text x="76" y="${tagY}" font-family="Poppins" font-weight="600" font-size="29" fill="${BLUE_LIGHT}" letter-spacing="1">PALESTRANTES · SOLUÇÕES REAIS</text>
     ${infoBoxes(W, infoY, slide.location, slide.stand)}
     <line x1="76" y1="${dividerY}" x2="${W - 76}" y2="${dividerY}" stroke="${LINE}" stroke-width="2"/>
-    <text x="${W / 2}" y="${ctaY}" text-anchor="middle" font-family="Poppins" font-weight="600" font-size="26" fill="${SOFT}" letter-spacing="5">CONHECIMENTO · PRÁTICA · PESSOAS · SOLUÇÕES</text>
+    <text x="${W / 2}" y="${microY}" text-anchor="middle" font-family="Poppins" font-weight="600" font-size="24" fill="${SOFT}" letter-spacing="4">CONHECIMENTO · PRÁTICA · PESSOAS · SOLUÇÕES</text>
     <g>
-      <rect x="${W / 2 - 330}" y="${H - 152}" width="660" height="92" rx="46" fill="none" stroke="${BLUE_LIGHT}" stroke-width="3"/>
-      <text x="${W / 2 - 20}" y="${H - 94}" text-anchor="middle" font-family="Poppins" font-weight="700" font-size="30" fill="${WHITE}" letter-spacing="2">VEJA O CRONOGRAMA DE HANDS-ON</text>
-      <text x="${W / 2 + 288}" y="${H - 94}" text-anchor="middle" font-family="Poppins" font-weight="700" font-size="34" fill="${BLUE_LIGHT}">→</text>
+      <rect x="${W / 2 - 320}" y="${ctaTop}" width="640" height="84" rx="42" fill="none" stroke="${BLUE_LIGHT}" stroke-width="3"/>
+      <text x="${W / 2 - 24}" y="${ctaTop + 54}" text-anchor="middle" font-family="Poppins" font-weight="700" font-size="27" fill="${WHITE}" letter-spacing="2">VEJA O CRONOGRAMA DE HANDS-ON</text>
+      <text x="${W / 2 + 272}" y="${ctaTop + 56}" text-anchor="middle" font-family="Poppins" font-weight="700" font-size="32" fill="${BLUE_LIGHT}">→</text>
     </g>`;
   } else if (slide.kind === "day") {
+
     const artY = 180;
     const artH = 250;
     const rows = slide.sessions.slice(0, 4);
