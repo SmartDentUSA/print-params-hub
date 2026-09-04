@@ -55,13 +55,16 @@ type Slot = {
 /* Helpers                                                            */
 /* ------------------------------------------------------------------ */
 
-const handleOf = (v?: string | null) =>
-  String(v || "")
-    .trim()
-    .replace(/^https?:\/\/(www\.)?instagram\.com\//i, "")
+const handleOf = (v?: string | null) => {
+  let s = String(v || "").trim();
+  const idx = s.toLowerCase().lastIndexOf("instagram.com/");
+  if (idx >= 0) s = s.slice(idx + "instagram.com/".length);
+  return s
+    .split(/[?#\s,]/)[0]
     .replace(/\/+$/, "")
     .replace(/^@+/, "")
     .replace(/\s+/g, "");
+};
 
 const instaUrl = (v?: string | null) => {
   const h = handleOf(v);
