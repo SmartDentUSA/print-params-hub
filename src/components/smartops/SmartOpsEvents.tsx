@@ -383,6 +383,29 @@ export function SmartOpsEvents() {
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
+                  <Label>Horário de início (por dia)</Label>
+                  <Input
+                    type="time"
+                    step={3600}
+                    value={(editing.start_time || "08:00").slice(0, 5)}
+                    onChange={(e) => setEditing({ ...editing, start_time: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <Label>Horário de término (por dia)</Label>
+                  <Input
+                    type="time"
+                    step={3600}
+                    value={(editing.end_time || "19:00").slice(0, 5)}
+                    onChange={(e) => setEditing({ ...editing, end_time: e.target.value })}
+                  />
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Define a grade de horários do autoagendamento de KOLs.
+                  </p>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
                   <Label>Quantidade de dias do evento</Label>
                   <Input
                     type="number"
