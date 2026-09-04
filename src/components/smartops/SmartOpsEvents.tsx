@@ -124,7 +124,7 @@ export function SmartOpsEvents() {
       .order("display_order", { ascending: true })
       .order("start_date", { ascending: true, nullsFirst: false });
     if (error) toast.error(error.message);
-    setRows((data || []) as EventRow[]);
+    setRows((data || []) as unknown as EventRow[]);
     setLoading(false);
   }
 
