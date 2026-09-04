@@ -21,7 +21,9 @@ type Speaker = {
   instagram?: string;
   photo_url?: string;
   sessions?: Session[];
+  support_sessions?: Session[];
 };
+
 
 type EventRow = {
   id: string;
