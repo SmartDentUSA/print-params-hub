@@ -491,19 +491,19 @@ export default function EventAgendaTV() {
         <div aria-hidden className="tv-graphics" />
 
         {/* ------------------------------ Cabeçalho ------------------------------ */}
-        <header className="relative z-10 flex h-[115px] shrink-0 items-center justify-between gap-10 px-12">
+        <header className="relative z-10 flex h-[124px] shrink-0 items-center justify-between gap-10 px-12">
           <div className="flex items-center gap-8">
             <img
               src={SMARTDENT_LOGO_URL}
               alt="Smart Dent"
-              className="h-[52px] w-auto object-contain"
+              className="h-[56px] w-auto object-contain"
             />
-            <span className="h-14 w-px bg-[--tv-line]" />
+            <span className="h-16 w-px bg-[--tv-line]" />
             <div>
-              <h1 className="text-[2.5rem] font-bold leading-none tracking-tight text-[--tv-navy]">
+              <h1 className="text-[48px] font-extrabold leading-none tracking-[-0.02em] text-[--tv-navy]">
                 AGENDA AO VIVO
               </h1>
-              <p className="pt-1.5 text-[1.35rem] font-semibold leading-none text-[--tv-slate]">
+              <p className="pt-2 text-[24px] font-semibold leading-none text-[--tv-slate]">
                 {event.name}
                 {event.company_stand ? ` • Estande ${event.company_stand}` : ""}
               </p>
@@ -514,14 +514,14 @@ export default function EventAgendaTV() {
               <img
                 src={getStorageImageUrl(event.event_logo_url, { width: 260 })}
                 alt={event.name}
-                className="h-[56px] w-auto object-contain"
+                className="h-[60px] w-auto object-contain"
               />
             )}
             <div className="text-right">
-              <div className="text-[3.2rem] font-bold leading-none tabular-nums tracking-tight text-[--tv-navy]">
+              <div className="text-[56px] font-extrabold leading-none tabular-nums tracking-[-0.02em] text-[--tv-navy]">
                 {fmtTime(now)}
               </div>
-              <p className="pt-1 text-[1.2rem] font-semibold uppercase tracking-[0.2em] text-[--tv-slate]">
+              <p className="pt-1 text-[22px] font-semibold uppercase tracking-[0.18em] text-[--tv-slate]">
                 {fmtHeaderDate(now)}
               </p>
             </div>
@@ -529,48 +529,48 @@ export default function EventAgendaTV() {
         </header>
 
         {/* ------------------------------ Card principal ------------------------------ */}
-        <div className="relative z-10 shrink-0 px-12">
+        <div className="relative z-10 shrink-0 px-12 pb-2">
           {hero ? (
-            <section className="tv-card flex h-[210px] items-center gap-9 rounded-[22px] px-10">
-              <div className="flex shrink-0 items-center gap-6">
-                <Avatar slot={hero} size={140} />
-                <InstagramQR handle={hero.instagram} size={120} />
+            <section className="tv-card next-demo-card flex min-h-[294px] items-center gap-8 rounded-[24px] py-6 pl-12 pr-10">
+              <div className="flex shrink-0 flex-col items-center gap-4">
+                <Avatar slot={hero} size={170} />
+                <InstagramQR handle={hero.instagram} size={150} caption={false} />
               </div>
 
-              <div className="min-w-0 flex-1">
+              <div className="w-[330px] shrink-0">
                 <StatusPill kind={live ? "live" : "next"} size="lg" />
-                <p className="mt-2.5 line-clamp-2 text-[2.5rem] font-bold leading-[1.1] text-[--tv-navy]">
+                <p className="mt-4 line-clamp-2 text-[44px] font-extrabold leading-[1.06] tracking-[-0.02em] text-[--tv-navy]">
                   {hero.name}
                 </p>
                 {hero.instagram && (
-                  <p className="text-[1.4rem] font-semibold leading-tight text-[--tv-slate]">
+                  <p className="text-[25px] font-semibold leading-tight text-[--tv-slate]">
                     @{hero.instagram}
                   </p>
                 )}
               </div>
 
-              <div className="min-w-0 flex-[1.4] border-l border-[--tv-line] pl-9">
-                <p className="text-[1rem] font-semibold uppercase tracking-[0.2em] text-[--tv-slate]">
+              <div className="min-w-0 flex-1 self-stretch border-l border-[--tv-line] pl-9 flex flex-col justify-center">
+                <p className="text-[22px] font-bold uppercase tracking-[0.2em] text-[--tv-orange]">
                   {live ? "Ao vivo agora" : "Próxima demonstração"}
                 </p>
-                <h2 className="mt-1.5 line-clamp-2 text-[3rem] font-bold leading-[1.08] text-[--tv-navy]">
+                <h2 className="mt-3 line-clamp-2 text-[clamp(54px,3.3vw,68px)] font-extrabold uppercase leading-[1.04] tracking-[-0.02em] text-[--tv-navy]">
                   {hero.theme || hero.name}
                 </h2>
               </div>
 
-              <div className="w-[340px] shrink-0 border-l border-[--tv-line] pl-9 text-right">
-                <p className="text-[1rem] font-semibold uppercase tracking-[0.2em] text-[--tv-slate]">
+              <div className="w-[280px] shrink-0 self-stretch border-l border-[--tv-line] pl-9 text-right flex flex-col justify-center">
+                <p className="text-[21px] font-semibold uppercase tracking-[0.2em] text-[--tv-slate]">
                   Horário
                 </p>
-                <p className="text-[3rem] font-bold leading-none tabular-nums text-[--tv-navy]">
+                <p className="text-[64px] font-extrabold leading-none tabular-nums tracking-[-0.02em] text-[--tv-navy]">
                   {fmtTime(hero.start) || "--:--"}
                 </p>
-                <p className="mt-2 text-[0.95rem] font-semibold uppercase tracking-[0.2em] text-[--tv-slate]">
+                <p className="mt-4 text-[21px] font-semibold uppercase tracking-[0.2em] text-[--tv-slate]">
                   {live ? "Status" : "Começa em"}
                 </p>
                 <p
-                  className={`tv-fade whitespace-nowrap font-bold leading-none tabular-nums text-[--tv-orange] ${
-                    live ? "text-[1.5rem]" : "text-[1.9rem]"
+                  className={`tv-fade mt-1 min-w-[230px] whitespace-nowrap font-extrabold leading-none tabular-nums text-[--tv-orange] ${
+                    live ? "text-[30px]" : "text-[38px]"
                   }`}
                 >
                   {live
@@ -581,11 +581,11 @@ export default function EventAgendaTV() {
 
             </section>
           ) : (
-            <section className="tv-card flex h-[210px] flex-col items-center justify-center rounded-[22px] px-10 text-center">
-              <p className="text-[2.4rem] font-bold text-[--tv-navy]">
+            <section className="tv-card flex h-[294px] flex-col items-center justify-center rounded-[24px] px-10 text-center">
+              <p className="text-[48px] font-extrabold uppercase text-[--tv-navy]">
                 Nenhuma demonstração programada no momento.
               </p>
-              <p className="mt-2 text-[1.5rem] font-semibold text-[--tv-slate]">
+              <p className="mt-3 text-[26px] font-semibold text-[--tv-slate]">
                 Visite o estande {event.company_stand || "Smart Dent"}
                 {event.location ? ` • ${event.location}` : ""}.
               </p>
@@ -594,20 +594,20 @@ export default function EventAgendaTV() {
         </div>
 
         {/* ------------------------------ Próximas ------------------------------ */}
-        <main className="relative z-10 min-h-0 flex-1 overflow-hidden px-12 pt-6">
+        <main className="relative z-10 min-h-0 flex-1 overflow-hidden px-12 pt-4">
           <div
-            className="flex h-full flex-col justify-start gap-3.5 transition-opacity duration-500"
+            className="flex h-full flex-col justify-evenly gap-4 transition-opacity duration-500"
             style={{ opacity: fadeIn ? 1 : 0 }}
           >
             {groups.length === 0 ? (
-              <p className="pt-10 text-[1.6rem] font-semibold text-[--tv-slate]">
+              <p className="pt-10 text-[30px] font-semibold text-[--tv-slate]">
                 Acompanhe as próximas demonstrações no estande.
               </p>
             ) : (
               groups.map((g) => (
-                <section key={g.label} className="flex flex-col gap-3.5">
+                <section key={g.label} className="flex flex-col gap-4">
                   <div className="flex items-center gap-4">
-                    <h3 className="text-[1.15rem] font-bold uppercase tracking-[0.24em] text-[--tv-blue]">
+                    <h3 className="text-[25px] font-extrabold uppercase tracking-[0.22em] text-[--tv-blue]">
                       {g.label}
                     </h3>
                     <span className="h-px flex-1 bg-[--tv-line]" />
@@ -617,37 +617,37 @@ export default function EventAgendaTV() {
                     return (
                       <article
                         key={s.key}
-                        className="tv-card flex h-[155px] items-center gap-7 rounded-[16px] px-8"
+                        className="tv-card flex min-h-[195px] items-center gap-7 rounded-[18px] px-8"
                       >
-                        <Avatar slot={s} size={96} />
-                        <InstagramQR handle={s.instagram} size={88} caption={false} />
+                        <Avatar slot={s} size={120} />
+                        <InstagramQR handle={s.instagram} size={110} caption={false} />
 
                         <div className="w-[300px] shrink-0">
-                          <p className="line-clamp-2 text-[1.95rem] font-bold leading-tight text-[--tv-navy]">
+                          <p className="line-clamp-2 text-[34px] font-extrabold leading-[1.06] tracking-[-0.02em] text-[--tv-navy]">
                             {s.name}
                           </p>
                           {s.instagram && (
-                            <p className="text-[1.3rem] font-semibold leading-tight text-[--tv-slate]">
+                            <p className="text-[22px] font-semibold leading-tight text-[--tv-slate]">
                               @{s.instagram}
                             </p>
                           )}
                         </div>
 
-                        <div className="min-w-0 flex-1 border-l border-[--tv-line] pl-7">
-                          <h4 className="line-clamp-2 text-[2.1rem] font-bold leading-[1.15] text-[--tv-navy]">
+                        <div className="min-w-0 flex-1 self-stretch border-l border-[--tv-line] pl-7 flex flex-col justify-center">
+                          <h4 className="line-clamp-2 text-[clamp(36px,2.2vw,44px)] font-extrabold uppercase leading-[1.06] tracking-[-0.02em] text-[--tv-navy]">
                             {s.theme || "Demonstração Smart Dent"}
                           </h4>
                         </div>
 
-                        <div className="w-[250px] shrink-0 border-l border-[--tv-line] pl-7 text-right">
-                          <p className="text-[2.4rem] font-bold leading-none tabular-nums text-[--tv-navy]">
+                        <div className="w-[260px] shrink-0 self-stretch border-l border-[--tv-line] pl-7 text-right flex flex-col justify-center">
+                          <p className="text-[52px] font-extrabold leading-none tabular-nums tracking-[-0.02em] text-[--tv-navy]">
                             {fmtTime(s.start) || "--:--"}
                           </p>
-                          <div className="mt-2 flex justify-end">
+                          <div className="mt-2.5 flex justify-end">
                             <StatusPill kind={kind} />
                           </div>
                           {kind !== "live" && kind !== "done" && (
-                            <p className="mt-1.5 whitespace-nowrap text-[1.15rem] font-bold tabular-nums text-[--tv-orange]">
+                            <p className="mt-2 whitespace-nowrap text-[24px] font-extrabold tabular-nums text-[--tv-orange]">
                               em {countdownLabel(s.start, now) || "00h 00min"}
                             </p>
                           )}
@@ -660,6 +660,7 @@ export default function EventAgendaTV() {
             )}
           </div>
         </main>
+
 
         {/* ------------------------------ Rodapé ------------------------------ */}
         <footer className="relative z-10 flex h-[104px] shrink-0 items-center justify-between gap-8 px-12">
