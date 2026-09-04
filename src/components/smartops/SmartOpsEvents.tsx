@@ -17,6 +17,7 @@ import { cn } from "@/lib/utils";
 import CoverImageUpload from "@/components/smartops/CoverImageUpload";
 import { EventWebResearchButton, EventReferenceUploads, EventAboutByLanguage, EventCoverByLanguage } from "@/components/smartops/events/EventAIPanels";
 import EventAudienceFields from "@/components/smartops/events/EventAudienceFields";
+import { EventMarketingArtPanel, type EventMarketingAsset } from "@/components/smartops/events/EventMarketingArtPanel";
 import EventSpeakersFields, { type EventSpeaker, type EventPartnerBrand } from "@/components/smartops/events/EventSpeakersFields";
 import { CriarPastaEventoDriveButton } from "@/components/smartops/CriarPastaEventoDriveButton";
 import { getPublicOrigin } from "@/utils/publicOrigin";
@@ -55,6 +56,8 @@ type EventRow = {
   drive_folder_url: string | null;
   partner_brands: EventPartnerBrand[] | null;
   instagram_handle: string | null;
+  marketing_art_url: string | null;
+  marketing_assets: EventMarketingAsset[] | null;
 };
 
 const ALL_COUNTRIES = Country.getAllCountries();
@@ -92,6 +95,8 @@ function emptyForm(): Partial<EventRow> {
     days_count: 1,
     partner_brands: [],
     instagram_handle: "",
+    marketing_art_url: "",
+    marketing_assets: [],
   };
 }
 
@@ -119,7 +124,7 @@ export function SmartOpsEvents() {
       .order("display_order", { ascending: true })
       .order("start_date", { ascending: true, nullsFirst: false });
     if (error) toast.error(error.message);
-    setRows((data || []) as EventRow[]);
+    setRows((data || []) as unknown as EventRow[]);
     setLoading(false);
   }
 
@@ -182,6 +187,7 @@ export function SmartOpsEvents() {
         partner_brands: (editing.partner_brands ?? []).filter((b) => (b?.name || "").trim() || (b?.instagram || "").trim()),
         instagram_handle: editing.instagram_handle || null,
         days_count: Math.max(1, Math.min(10, Number(editing.days_count) || 1)),
+        marketing_art_url: editing.marketing_art_url || null,
       };
       if (editing.id) {
         const { error } = await supabase.from("smartops_events").update(payload).eq("id", editing.id);
@@ -544,6 +550,13 @@ export function SmartOpsEvents() {
                   )}
                 </div>
               </div>
+              <EventMarketingArtPanel
+                eventId={editing.id}
+                artUrl={editing.marketing_art_url}
+                assets={(editing.marketing_assets as EventMarketingAsset[]) || []}
+                onChange={(patch) => setEditing((cur) => (cur ? ({ ...cur, ...patch } as any) : cur))}
+              />
+
               <div>
                 <Label>Notas internas</Label>
                 <Textarea value={editing.notes || ""} onChange={(e) => setEditing({ ...editing, notes: e.target.value })} rows={3} />
