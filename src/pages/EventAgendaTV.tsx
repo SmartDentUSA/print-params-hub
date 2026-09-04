@@ -550,17 +550,23 @@ export default function EventAgendaTV() {
                 </h2>
               </div>
 
-              <div className="w-[300px] shrink-0 border-l border-[--tv-line] pl-9 text-right">
+              <div className="w-[340px] shrink-0 border-l border-[--tv-line] pl-9 text-right">
                 <p className="text-[1rem] font-semibold uppercase tracking-[0.2em] text-[--tv-slate]">
                   Horário
                 </p>
                 <p className="text-[3rem] font-bold leading-none tabular-nums text-[--tv-navy]">
                   {fmtTime(hero.start) || "--:--"}
                 </p>
-                <p className="tv-fade mt-2 text-[1.55rem] font-bold leading-tight text-[--tv-orange]">
-                  {live ? "acontecendo agora" : countdownLabel(hero.start, now) || "em instantes"}
+                <p className="mt-2 text-[0.95rem] font-semibold uppercase tracking-[0.2em] text-[--tv-slate]">
+                  {live ? "Status" : "Começa em"}
+                </p>
+                <p className="tv-fade whitespace-nowrap text-[1.9rem] font-bold leading-none tabular-nums text-[--tv-orange]">
+                  {live
+                    ? "ACONTECENDO AGORA"
+                    : countdownLabel(hero.start, now) || "00h 00min"}
                 </p>
               </div>
+
             </section>
           ) : (
             <section className="tv-card flex h-[210px] flex-col items-center justify-center rounded-[22px] px-10 text-center">
