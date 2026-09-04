@@ -522,7 +522,7 @@ export default function EventAgendaTV() {
   }, [visible]);
 
   const support = useMemo(
-    () => buildSupport(((event?.speakers as Speaker[]) || []), now).slice(0, 5),
+    () => buildSupportToday(((event?.speakers as Speaker[]) || []), now),
     [event, now]
   );
 
