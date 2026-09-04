@@ -439,6 +439,8 @@ Deno.serve(async (req) => {
       const { error } = await admin.from("smartops_events").update({ speakers: list }).eq("id", eventId);
       if (error) throw error;
 
+      await logSpeakerEngagement(event, entry.professional_id || "", slots, supportSlots);
+
       return json({ ok: true, speakers: publicSpeakers(list) });
     }
 
