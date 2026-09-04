@@ -22498,6 +22498,9 @@ export type Database = {
           location: string | null
           location_en: string | null
           location_es: string | null
+          marketing_art_url: string | null
+          marketing_assets: Json
+          marketing_assets_generated_at: string | null
           name: string
           notes: string | null
           partner_brands: Json
@@ -22560,6 +22563,9 @@ export type Database = {
           location?: string | null
           location_en?: string | null
           location_es?: string | null
+          marketing_art_url?: string | null
+          marketing_assets?: Json
+          marketing_assets_generated_at?: string | null
           name: string
           notes?: string | null
           partner_brands?: Json
@@ -22622,6 +22628,9 @@ export type Database = {
           location?: string | null
           location_en?: string | null
           location_es?: string | null
+          marketing_art_url?: string | null
+          marketing_assets?: Json
+          marketing_assets_generated_at?: string | null
           name?: string
           notes?: string | null
           partner_brands?: Json
