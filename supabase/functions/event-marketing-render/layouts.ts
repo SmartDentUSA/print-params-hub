@@ -371,26 +371,45 @@ export interface StoryInput extends Common {
 
 export function buildStorySvg(input: StoryInput): { svg: string; width: number; height: number } {
   const { width: W, height: H } = STORY;
-  const artH = 820;
-  const photoR = 170;
+  const artH = 740;
+  const photoR = 158;
   const photoCx = W / 2;
-  const photoCy = 570;
+  const photoCy = 500;
   const sessions = input.sessions.slice(0, 3);
-  const compact = sessions.length >= 2;
+  const footH = 210;
 
-  const nameLines = wrap(input.speakerName.toUpperCase(), 58, W - 220, 2);
-  const nameY = photoCy + photoR + 76;
-  const specialtyY = nameY + nameLines.length * 64 + 4;
-  let y = specialtyY + 72;
-  let blocks = "";
-  sessions.forEach((s, i) => {
-    if (i > 0) blocks += `<line x1="72" y1="${y - 20}" x2="${W - 72}" y2="${y - 20}" stroke="${HAIR}" stroke-width="2"/>`;
-    const b = demoBlock(72, y, W - 144, i + 1, s, compact);
-    blocks += b.svg;
-    y += b.height + (compact ? 30 : 46);
-  });
+  const name = fit(input.speakerName.toUpperCase(), W - 200, 2, 56, 36);
+  const nameY = artH + 96;
+  const specialty = fit(input.specialty || "", W - 200, 2, 30, 22);
+  const specialtyY = nameY + name.lines.length * (name.size * 1.1) + 18;
+  const blocksTop = specialtyY + specialty.lines.length * (specialty.size * 1.25) + 46;
+  const available = H - footH - 40 - blocksTop;
 
-  const footLine = [input.location, input.stand ? `Estande ${input.stand}` : ""].filter(Boolean).join("  |  ");
+  function layout(compact: boolean): { svg: string; end: number } {
+    let y = blocksTop;
+    let out = "";
+    sessions.forEach((s, i) => {
+      if (i > 0) {
+        out += `<line x1="72" y1="${y - (compact ? 16 : 22)}" x2="${W - 72}" y2="${y - (compact ? 16 : 22)}" stroke="${HAIR}" stroke-width="2"/>`;
+      }
+      const b = demoBlock(72, y, W - 144, i + 1, s, compact);
+      out += b.svg;
+      y += b.height + (compact ? 30 : 46);
+    });
+    return { svg: out, end: y - blocksTop };
+  }
+
+  let built = layout(false);
+  if (built.end > available) built = layout(true);
+
+  const footLine = fit(
+    [input.location, input.stand ? `Estande ${input.stand}` : ""].filter(Boolean).join("  |  "),
+    W - 250,
+    1,
+    32,
+    22,
+  );
+  const eventLine = fit(input.eventName, W - 250, 2, 27, 20);
 
   return {
     width: W,
@@ -401,21 +420,24 @@ ${defs(W, H)}
   <g clip-path="url(#frame)">
     <image x="0" y="0" width="${W}" height="${artH}" preserveAspectRatio="xMidYMid slice" xlink:href="${input.artDataUri}"/>
     <rect x="0" y="0" width="${W}" height="${artH}" fill="${NAVY_DEEP}" opacity="0.88"/>
-    <rect x="0" y="${artH - 110}" width="${W}" height="110" fill="url(#artToPaper)"/>
+    <rect x="0" y="${artH - 120}" width="${W}" height="120" fill="url(#artToPaper)"/>
   </g>
+  <rect x="0" y="${artH}" width="${W}" height="${H - artH}" fill="${PAPER}"/>
   ${brandTopRight(W, input, 60)}
   <defs><clipPath id="stPhoto"><circle cx="${photoCx}" cy="${photoCy}" r="${photoR}"/></clipPath></defs>
   <circle cx="${photoCx}" cy="${photoCy}" r="${photoR + 9}" fill="${WHITE}"/>
   ${input.photoDataUri
     ? `<g clip-path="url(#stPhoto)"><image x="${photoCx - photoR}" y="${photoCy - photoR}" width="${photoR * 2}" height="${photoR * 2}" preserveAspectRatio="xMidYMin slice" xlink:href="${input.photoDataUri}"/></g>`
     : `<circle cx="${photoCx}" cy="${photoCy}" r="${photoR}" fill="${CARD}"/>`}
-  ${textBlock(nameLines, W / 2, nameY, 58, INK, 700, 1.1, 'text-anchor="middle" letter-spacing="0"')}
-  <text x="${W / 2}" y="${specialtyY}" text-anchor="middle" font-family="${FONT}" font-weight="400" font-size="30" fill="${BLUE_LIGHT}" letter-spacing="2">${esc(input.specialty.toUpperCase())}</text>
-  ${blocks}
-  <rect x="0" y="${H - 220}" width="${W}" height="220" fill="${WHITE}"/>
-  ${pin(90, H - 190, 46, BLUE_LIGHT)}
-  <text x="156" y="${H - 152}" font-family="${FONT}" font-weight="700" font-size="32" fill="${INK}">${esc(footLine)}</text>
-  ${textBlock(wrap(input.eventName, 27, W - 246, 2), 156, H - 100, 27, INK_SOFT, 400, 1.2)}
+  ${textBlock(name.lines, W / 2, nameY, name.size, INK, 700, 1.1, 'text-anchor="middle"')}
+  ${specialty.lines.length
+    ? textBlock(specialty.lines, W / 2, specialtyY, specialty.size, BLUE_LIGHT, 400, 1.25, 'text-anchor="middle" letter-spacing="1"')
+    : ""}
+  ${built.svg}
+  <rect x="0" y="${H - footH}" width="${W}" height="${footH}" fill="${WHITE}"/>
+  ${pin(90, H - footH + 34, 46, BLUE_LIGHT)}
+  ${textBlock(footLine.lines, 156, H - footH + 72, footLine.size, INK, 700, 1.15)}
+  ${textBlock(eventLine.lines, 156, H - footH + 122, eventLine.size, INK_SOFT, 400, 1.25)}
 </svg>`,
   };
 }
