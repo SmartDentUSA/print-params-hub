@@ -394,10 +394,11 @@ Deno.serve(async (req) => {
         : "AMBIENTE: fundo de estúdio escuro (quase preto) com luz volumétrica azul fria e halo laranja; o profissional segura uma coroa dentária impressa em 3D entre os dedos. NÃO inclua nenhum equipamento, impressora, scanner ou embalagem na cena.",
       inlined.length
         ? [
-            `PRODUTOS — FOTOGRAFIAS OFICIAIS DO CATÁLOGO (RAG). Foram anexadas ${inlined.length} imagem(ns), nesta ordem exata: ${sources
+            `IMAGENS DE REFERÊNCIA (RAG + uploads da live). Foram anexadas ${inlined.length} imagem(ns), nesta ordem exata: ${refSources
               .slice(0, inlined.length)
-              .map((s, i) => `imagem ${i + 1} = ${produtos[i] ?? s}`)
+              .map((s, i) => `imagem ${i + 1} = ${s}`)
               .join(" · ")}.`,
+            "FONTE ÚNICA (INVIOLÁVEL): use SOMENTE as imagens anexadas (produtos associados a esta live e uploads manuais). É PROIBIDO acrescentar qualquer outro equipamento, produto ou marca que não esteja anexado.",
             "CONTRATO DE FIDELIDADE (INVIOLÁVEL): trate cada imagem anexada como recorte fotográfico imutável. É PROIBIDO redesenhar, estilizar, substituir por outro modelo, trocar cores, alterar painéis, botões, textos, marcas ou formato de qualquer produto.",
             "PROPORÇÃO FÍSICA REAL (INVIOLÁVEL): dimensione cada produto pelo TAMANHO REAL do objeto no mundo físico, não pelo tamanho do arquivo de imagem. Impressora 3D e equipamento de pós-cura são os MAIORES (altura de referência 100%); scanner intraoral é pequeno (cerca de 25% da altura da impressora); frasco de resina é menor ainda (cerca de 20%). É PROIBIDO igualar as alturas, PROIBIDO esticar, achatar ou uniformizar os produtos numa fileira de mesmo tamanho.",
             "COMPOSIÇÃO EM PROFUNDIDADE: o equipamento maior fica ao fundo/centro-direita apoiado na bancada; os itens pequenos (scanner, frascos de resina) ficam à FRENTE, mais próximos da câmera, no canto inferior, sem cobrir o texto nem o rosto. Todos apoiados na MESMA superfície, com uma única linha de horizonte e perspectiva coerente — nada flutuando.",
