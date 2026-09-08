@@ -205,10 +205,24 @@ export default function EventSpeakersFields({
 
             <div>
               <Label className="text-xs">Foto do palestrante</Label>
-              <CoverImageUpload
-                value={sp.photo_url || ""}
-                onChange={(url) => patchSpeaker(i, { photo_url: url })}
-              />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs">Foto do palestrante</Label>
+                <CoverImageUpload
+                  value={sp.photo_url || ""}
+                  onChange={(url) => patchSpeaker(i, { photo_url: url })}
+                />
+              </div>
+              <div>
+                <Label className="text-xs">Imagem da aula (fundo do card)</Label>
+                <CoverImageUpload
+                  value={sp.lesson_image_url || ""}
+                  onChange={(url) => patchSpeaker(i, { lesson_image_url: url })}
+                />
+                <p className="text-[11px] text-muted-foreground pt-1">
+                  Entra atrás da foto nas artes (carrossel e stories) para mostrar o que será ensinado.
+                </p>
+              </div>
             </div>
           </div>
         ))}
