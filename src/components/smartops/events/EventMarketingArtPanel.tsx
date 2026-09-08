@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
-import { Loader2, Upload, X, Sparkles, Download, ExternalLink } from "lucide-react";
+import { Loader2, Upload, X, Sparkles, Download, ExternalLink, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 const BUCKET = "wa-media";
