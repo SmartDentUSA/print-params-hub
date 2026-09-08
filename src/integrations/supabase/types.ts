@@ -35462,6 +35462,10 @@ export type Database = {
         Args: { p_lead_id: string }
         Returns: undefined
       }
+      fn_sync_speaker_photo: {
+        Args: { p_name: string; p_photo: string; p_professional_id: string }
+        Returns: number
+      }
       fn_team_seller_stats: {
         Args: { _months?: number }
         Returns: {
@@ -36673,6 +36677,7 @@ export type Database = {
         Returns: boolean
       }
       unaccent: { Args: { "": string }; Returns: string }
+      unaccent_safe: { Args: { p: string }; Returns: string }
       update_extra_data_reviews: {
         Args: {
           p_google_place_id: string
