@@ -1,0 +1,1 @@
+ALTER TABLE public.smartops_courses ADD COLUMN IF NOT EXISTS ai_reference_image_urls jsonb NOT NULL DEFAULT '[]'::jsonb;

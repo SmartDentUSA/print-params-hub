@@ -22086,6 +22086,7 @@ export type Database = {
       smartops_courses: {
         Row: {
           active: boolean | null
+          ai_reference_image_urls: Json
           category: string | null
           certificate_body_template: string | null
           cover_image_url: string | null
@@ -22132,6 +22133,7 @@ export type Database = {
         }
         Insert: {
           active?: boolean | null
+          ai_reference_image_urls?: Json
           category?: string | null
           certificate_body_template?: string | null
           cover_image_url?: string | null
@@ -22178,6 +22180,7 @@ export type Database = {
         }
         Update: {
           active?: boolean | null
+          ai_reference_image_urls?: Json
           category?: string | null
           certificate_body_template?: string | null
           cover_image_url?: string | null
