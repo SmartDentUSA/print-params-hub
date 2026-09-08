@@ -37,8 +37,29 @@ export function EventMarketingArtPanel({
   const [generating, setGenerating] = useState(false);
   const [keyword, setKeyword] = useState(commentKeyword || "");
   const [aiBg, setAiBg] = useState(false);
+  const [deleting, setDeleting] = useState<string | null>(null);
 
   const list = assets || [];
+
+  async function removeAsset(asset: EventMarketingAsset) {
+    const next = list.filter((a) => a.url !== asset.url);
+    setDeleting(asset.url);
+    try {
+      if (eventId) {
+        const { error } = await supabase
+          .from("smartops_events")
+          .update({ marketing_assets: next as any })
+          .eq("id", eventId);
+        if (error) throw error;
+      }
+      onChange({ marketing_assets: next });
+      toast.success(`Arte "${asset.label}" excluída`);
+    } catch (e: any) {
+      toast.error("Não foi possível excluir a arte", { description: e?.message });
+    } finally {
+      setDeleting(null);
+    }
+  }
 
   async function upload(file: File) {
     if (!ACCEPT.includes(file.type)) return toast.error("Use PNG, JPG ou WEBP");
