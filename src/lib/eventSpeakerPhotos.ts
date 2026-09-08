@@ -13,7 +13,10 @@ const norm = (v?: string | null) =>
     .trim()
     .toLowerCase()
     .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "");
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/^(dr|dra|prof|profa)\.?\s+/i, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
 
 /**
  * As fotos dos palestrantes ficam gravadas no JSON do evento no momento do

@@ -12,6 +12,7 @@ export type EventSpeaker = {
   theme?: string;
   instagram?: string;
   photo_url?: string;
+  professional_id?: string;
   sessions?: EventSpeakerSession[];
 };
 export type EventPartnerBrand = { name?: string; instagram?: string };
@@ -98,6 +99,10 @@ export default function EventSpeakersFields({
                       name: person.name,
                       instagram: person.instagram || sp.instagram || "",
                       photo_url: person.photo_url || sp.photo_url || "",
+                       professional_id:
+                         person.source === "professional" || person.source === "kol"
+                           ? person.id.replace(/^prof:/, "")
+                           : sp.professional_id,
                     })
                   }
                 />

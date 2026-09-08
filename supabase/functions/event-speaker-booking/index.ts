@@ -112,9 +112,9 @@ async function listProfessionals() {
   const { data, error } = await admin
     .from("lia_attendances")
     .select("id, nome, email, especialidade, prof_cro, prof_photo_url, prof_mini_cv, instagram, prof_updated_at")
-    .not("prof_updated_at", "is", null)
     .is("merged_into", null)
-    .order("nome", { ascending: true })
+    .not("prof_photo_url", "is", null)
+    .order("prof_updated_at", { ascending: false, nullsFirst: false })
     .limit(500);
   if (error) throw error;
   return (data ?? [])
