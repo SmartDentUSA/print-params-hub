@@ -387,6 +387,8 @@ export interface StoryInput extends Common {
   speakerName: string;
   specialty: string;
   photoDataUri?: string | null;
+  /** Imagem da aula enviada no editor: entra como hero atrás da foto. */
+  heroDataUri?: string | null;
   sessions: SpeakerSession[];
   eventName: string;
   location: string;
@@ -402,29 +404,13 @@ export function buildStorySvg(input: StoryInput): { svg: string; width: number; 
   const sessions = input.sessions.slice(0, 3);
   const footH = 210;
 
-  const name = fit(input.speakerName.toUpperCase(), W - 200, 2, 56, 36);
-  const nameY = artH + 96;
-  const specialty = fit(input.specialty || "", W - 200, 2, 30, 22);
+  const name = fit(input.speakerName.toUpperCase(), W - 200, 2, 56, 34);
+  const nameY = artH + 92;
+  const specialty = fit(input.specialty || "", W - 220, 2, 30, 20);
   const specialtyY = nameY + name.lines.length * (name.size * 1.1) + 18;
   const blocksTop = specialtyY + specialty.lines.length * (specialty.size * 1.25) + 46;
-  const available = H - footH - 40 - blocksTop;
+  const built = { svg: stackDemos(72, blocksTop, W - 144, sessions, H - footH - 40 - blocksTop) };
 
-  function layout(compact: boolean): { svg: string; end: number } {
-    let y = blocksTop;
-    let out = "";
-    sessions.forEach((s, i) => {
-      if (i > 0) {
-        out += `<line x1="72" y1="${y - (compact ? 16 : 22)}" x2="${W - 72}" y2="${y - (compact ? 16 : 22)}" stroke="${HAIR}" stroke-width="2"/>`;
-      }
-      const b = demoBlock(72, y, W - 144, i + 1, s, compact);
-      out += b.svg;
-      y += b.height + (compact ? 30 : 46);
-    });
-    return { svg: out, end: y - blocksTop };
-  }
-
-  let built = layout(false);
-  if (built.end > available) built = layout(true);
 
   const footLine = fit(
     [input.location, input.stand ? `Estande ${input.stand}` : ""].filter(Boolean).join("  |  "),
