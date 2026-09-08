@@ -149,6 +149,8 @@ export interface CarouselSpeakerSlide {
   dateLabel?: string;
   speakerName: string;
   photoDataUri?: string | null;
+  /** Imagem da aula enviada no editor: entra como hero atrás da foto. */
+  heroDataUri?: string | null;
   sessions: SpeakerSession[];
 }
 
@@ -203,47 +205,76 @@ function eventLogo(x: number, y: number, w: number, c: Common): string {
     : "";
 }
 
-/** Bloco de uma demonstração no card do palestrante. */
+/** Bloco de uma demonstração no card do palestrante. `k` = escala (0.6–1). */
 function demoBlock(
   x: number,
   y: number,
   w: number,
   index: number,
   s: SpeakerSession,
-  compact = false,
+  k = 1,
 ): { svg: string; height: number } {
-  const labelSize = compact ? 19 : 22;
-  const dateSize = compact ? 25 : 29;
-  const detailSize = compact ? 25 : 29;
-  const timeSize = compact ? 29 : 33;
-  const iconSize = compact ? 48 : 56;
-  const textX = x + iconSize + 22;
-  const themeLines = wrap(s.theme, detailSize, w - iconSize - 22, compact ? 1 : 2);
-  const iconX = x;
+  const labelSize = Math.round(22 * k);
+  const dateSize = Math.round(29 * k);
+  const detailSize = Math.round(28 * k);
+  const timeSize = Math.round(32 * k);
+  const iconSize = Math.round(56 * k);
+  const gap = Math.round(20 * k);
+  const textX = x + iconSize + gap;
+  const textW = w - iconSize - gap;
+  const theme = fit(s.theme, textW, 2, detailSize, Math.round(17 * k));
   let cy = y;
   let out = `<text x="${x}" y="${cy}" font-family="${FONT}" font-weight="700" font-size="${labelSize}" fill="${BLUE_LIGHT}" letter-spacing="2">DEMONSTRAÇÃO ${index}</text>`;
-  cy += compact ? 20 : 27;
+  cy += Math.round(26 * k);
 
   // Data
-  out += iconBox(iconX, cy, iconSize, "cal");
-  out += `<text x="${textX}" y="${cy + (compact ? 21 : 25)}" font-family="${FONT}" font-weight="700" font-size="${dateSize}" fill="${INK}">${esc(s.dateLong.toUpperCase())}</text>`;
+  out += iconBox(x, cy, iconSize, "cal");
+  const dateFit = fit(s.dateLong.toUpperCase(), textW, 1, dateSize, Math.round(19 * k));
+  out += `<text x="${textX}" y="${cy + Math.round(iconSize * 0.44)}" font-family="${FONT}" font-weight="700" font-size="${dateFit.size}" fill="${INK}">${esc(dateFit.lines[0] || "")}</text>`;
   if (s.weekday) {
-    out += `<text x="${textX}" y="${cy + (compact ? 44 : 52)}" font-family="${FONT}" font-weight="400" font-size="${compact ? 20 : 23}" fill="${INK_SOFT}">(${esc(s.weekday.toUpperCase())})</text>`;
+    out += `<text x="${textX}" y="${cy + Math.round(iconSize * 0.92)}" font-family="${FONT}" font-weight="400" font-size="${Math.round(22 * k)}" fill="${INK_SOFT}">(${esc(s.weekday.toUpperCase())})</text>`;
   }
-  cy += compact ? 57 : 72;
+  cy += iconSize + Math.round(18 * k);
 
   // Tema
-  out += iconBox(iconX, cy, iconSize, "doc");
-  out += textBlock(themeLines, textX, cy + (compact ? 31 : 34), detailSize, INK, 400, 1.2);
-  cy += Math.max(compact ? 56 : 66, 30 + themeLines.length * detailSize * 1.2);
+  if (theme.lines.length) {
+    out += iconBox(x, cy, iconSize, "doc");
+    out += textBlock(theme.lines, textX, cy + Math.round(theme.size * 1.05), theme.size, INK, 400, 1.2);
+    cy += Math.max(iconSize, Math.round(theme.lines.length * theme.size * 1.2)) + Math.round(16 * k);
+  }
 
   // Horário
-  out += iconBox(iconX, cy, iconSize, "clock");
-  out += `<text x="${textX}" y="${cy + (compact ? 34 : 38)}" font-family="${FONT}" font-weight="700" font-size="${timeSize}" fill="${INK}">${esc(s.timeLabel)}</text>`;
+  out += iconBox(x, cy, iconSize, "clock");
+  out += `<text x="${textX}" y="${cy + Math.round(iconSize * 0.66)}" font-family="${FONT}" font-weight="700" font-size="${timeSize}" fill="${INK}">${esc(s.timeLabel)}</text>`;
   cy += iconSize;
 
   return { svg: `<g>${out}</g>`, height: cy - y };
 }
+
+/** Empilha as demonstrações com a maior escala que couber no espaço disponível. */
+function stackDemos(
+  x: number,
+  top: number,
+  w: number,
+  sessions: SpeakerSession[],
+  available: number,
+): string {
+  for (let k = 1; k >= 0.58; k -= 0.04) {
+    let y = top;
+    let out = "";
+    sessions.forEach((s, i) => {
+      if (i > 0) {
+        out += `<line x1="${x}" y1="${y - Math.round(18 * k)}" x2="${x + w}" y2="${y - Math.round(18 * k)}" stroke="${HAIR}" stroke-width="2"/>`;
+      }
+      const b = demoBlock(x, y, w, i + 1, s, k);
+      out += b.svg;
+      y += b.height + Math.round(40 * k);
+    });
+    if (y - top - Math.round(40 * k) <= available || k <= 0.6) return out;
+  }
+  return "";
+}
+
 
 export function buildCarouselSvg(slide: CarouselSlide, c: Common): { svg: string; width: number; height: number } {
   const { width: W, height: H } = CAROUSEL;
@@ -277,32 +308,25 @@ export function buildCarouselSvg(slide: CarouselSlide, c: Common): { svg: string
       <path d="M 610 ${ctaTop + 34} L 646 ${ctaTop + 48} L 610 ${ctaTop + 62} Z" fill="${WHITE}"/>
     </g>`;
   } else if (slide.kind === "speaker") {
-    const artH = 500;
-    const photoR = 118;
-    const photoCx = 220;
-    const photoCy = 340;
+    const artH = 520;
+    const footH = 104;
+    const photoR = 112;
+    const photoCx = 208;
+    const photoCy = 336;
     const sessions = slide.sessions.slice(0, 3);
-    const compact = sessions.length >= 3;
-    let y = artH + 58;
-    let blocks = "";
-    sessions.forEach((s, i) => {
-      if (i > 0) {
-        blocks += `<line x1="72" y1="${y - (compact ? 17 : 24)}" x2="${W - 72}" y2="${y - (compact ? 17 : 24)}" stroke="${HAIR}" stroke-width="2"/>`;
-      }
-      const b = demoBlock(72, y, W - 144, i + 1, s, compact);
-      blocks += b.svg;
-      y += b.height + (compact ? 28 : 40);
-    });
-    const nameLines = wrap(slide.speakerName.toUpperCase(), 38, 560, 2);
-    const pillW = 610;
-    const pillH = nameLines.length > 1 ? 116 : 78;
+    const blocksTop = artH + 62;
+    const blocks = stackDemos(72, blocksTop, W - 144, sessions, H - footH - 30 - blocksTop);
+    const hero = slide.heroDataUri || c.artDataUri;
+    const pillX = photoCx + photoR + 28;
+    const pillW = W - 64 - pillX;
+    const name = fit(slide.speakerName.toUpperCase(), pillW - 56, 2, 38, 24);
+    const pillH = name.lines.length > 1 ? name.size * 2.4 + 26 : name.size * 2.1;
     body = `
     <g clip-path="url(#frame)">
-      <image x="0" y="0" width="${W}" height="${H}" preserveAspectRatio="xMidYMid slice" xlink:href="${c.artDataUri}"/>
       <rect width="${W}" height="${H}" fill="${PAPER}"/>
-      <image x="0" y="0" width="${W}" height="${artH}" preserveAspectRatio="xMidYMid slice" xlink:href="${c.artDataUri}"/>
-      <rect x="0" y="0" width="${W}" height="${artH}" fill="${NAVY_DEEP}" opacity="0.9"/>
-      <rect x="0" y="${artH - 92}" width="${W}" height="92" fill="url(#artToPaper)"/>
+      <image x="0" y="0" width="${W}" height="${artH}" preserveAspectRatio="xMidYMid slice" xlink:href="${hero}"/>
+      <rect x="0" y="0" width="${W}" height="${artH}" fill="${NAVY_DEEP}" opacity="${slide.heroDataUri ? 0.7 : 0.9}"/>
+      <rect x="0" y="${artH - 110}" width="${W}" height="110" fill="url(#artToPaper)"/>
     </g>
     ${brandTopRight(W, c, 46)}
     <defs><clipPath id="spPhoto"><circle cx="${photoCx}" cy="${photoCy}" r="${photoR}"/></clipPath></defs>
@@ -311,13 +335,13 @@ export function buildCarouselSvg(slide: CarouselSlide, c: Common): { svg: string
       ? `<g clip-path="url(#spPhoto)"><image x="${photoCx - photoR}" y="${photoCy - photoR}" width="${photoR * 2}" height="${photoR * 2}" preserveAspectRatio="xMidYMin slice" xlink:href="${slide.photoDataUri}"/></g>`
       : `<circle cx="${photoCx}" cy="${photoCy}" r="${photoR}" fill="${CARD}"/>`}
     <g>
-      <rect x="${photoCx + photoR + 30}" y="${photoCy - pillH / 2}" width="${pillW}" height="${pillH}" rx="18" fill="${INK}"/>
-      ${textBlock(nameLines, photoCx + photoR + 30 + 34, photoCy - pillH / 2 + (nameLines.length > 1 ? 47 : 51), 38, WHITE, 700, 1.12, 'letter-spacing="1"')}
+      <rect x="${pillX}" y="${photoCy - pillH / 2}" width="${pillW}" height="${pillH}" rx="18" fill="${INK}"/>
+      ${textBlock(name.lines, pillX + 28, photoCy - pillH / 2 + name.size * 1.25, name.size, WHITE, 700, 1.15, 'letter-spacing="1"')}
     </g>
     ${blocks}
-    <rect x="0" y="${H - 104}" width="${W}" height="104" fill="${WHITE}"/>
-    ${eventLogo(72, H - 91, 300, c)}
-    <text x="${W - 72}" y="${H - 44}" text-anchor="end" font-family="${FONT}" font-weight="700" font-size="27" fill="${INK_SOFT}">${esc(slide.dateLabel || "")}</text>`;
+    <rect x="0" y="${H - footH}" width="${W}" height="${footH}" fill="${WHITE}"/>
+    ${eventLogo(72, H - 91, 280, c)}
+    <text x="${W - 72}" y="${H - 44}" text-anchor="end" font-family="${FONT}" font-weight="700" font-size="26" fill="${INK_SOFT}">${esc(slide.dateLabel || "")}</text>`;
   } else {
     const nameLines = wrap(slide.eventName.toUpperCase(), 92, W - 200, 3);
     const nameBase = 470;
@@ -363,6 +387,8 @@ export interface StoryInput extends Common {
   speakerName: string;
   specialty: string;
   photoDataUri?: string | null;
+  /** Imagem da aula enviada no editor: entra como hero atrás da foto. */
+  heroDataUri?: string | null;
   sessions: SpeakerSession[];
   eventName: string;
   location: string;
@@ -378,29 +404,13 @@ export function buildStorySvg(input: StoryInput): { svg: string; width: number; 
   const sessions = input.sessions.slice(0, 3);
   const footH = 210;
 
-  const name = fit(input.speakerName.toUpperCase(), W - 200, 2, 56, 36);
-  const nameY = artH + 96;
-  const specialty = fit(input.specialty || "", W - 200, 2, 30, 22);
+  const name = fit(input.speakerName.toUpperCase(), W - 200, 2, 56, 34);
+  const nameY = artH + 92;
+  const specialty = fit(input.specialty || "", W - 220, 2, 30, 20);
   const specialtyY = nameY + name.lines.length * (name.size * 1.1) + 18;
   const blocksTop = specialtyY + specialty.lines.length * (specialty.size * 1.25) + 46;
-  const available = H - footH - 40 - blocksTop;
+  const built = { svg: stackDemos(72, blocksTop, W - 144, sessions, H - footH - 40 - blocksTop) };
 
-  function layout(compact: boolean): { svg: string; end: number } {
-    let y = blocksTop;
-    let out = "";
-    sessions.forEach((s, i) => {
-      if (i > 0) {
-        out += `<line x1="72" y1="${y - (compact ? 16 : 22)}" x2="${W - 72}" y2="${y - (compact ? 16 : 22)}" stroke="${HAIR}" stroke-width="2"/>`;
-      }
-      const b = demoBlock(72, y, W - 144, i + 1, s, compact);
-      out += b.svg;
-      y += b.height + (compact ? 30 : 46);
-    });
-    return { svg: out, end: y - blocksTop };
-  }
-
-  let built = layout(false);
-  if (built.end > available) built = layout(true);
 
   const footLine = fit(
     [input.location, input.stand ? `Estande ${input.stand}` : ""].filter(Boolean).join("  |  "),
@@ -418,8 +428,8 @@ export function buildStorySvg(input: StoryInput): { svg: string; width: number; 
 ${defs(W, H)}
   <rect width="${W}" height="${H}" fill="${PAPER}"/>
   <g clip-path="url(#frame)">
-    <image x="0" y="0" width="${W}" height="${artH}" preserveAspectRatio="xMidYMid slice" xlink:href="${input.artDataUri}"/>
-    <rect x="0" y="0" width="${W}" height="${artH}" fill="${NAVY_DEEP}" opacity="0.88"/>
+    <image x="0" y="0" width="${W}" height="${artH}" preserveAspectRatio="xMidYMid slice" xlink:href="${input.heroDataUri || input.artDataUri}"/>
+    <rect x="0" y="0" width="${W}" height="${artH}" fill="${NAVY_DEEP}" opacity="${input.heroDataUri ? 0.68 : 0.88}"/>
     <rect x="0" y="${artH - 120}" width="${W}" height="120" fill="url(#artToPaper)"/>
   </g>
   <rect x="0" y="${artH}" width="${W}" height="${H - artH}" fill="${PAPER}"/>

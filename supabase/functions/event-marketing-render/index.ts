@@ -240,6 +240,7 @@ Deno.serve(async (req) => {
           name,
           specialty: String(s?.specialty || s?.theme || "").trim(),
           photoUrl: String(s?.photo_url || ""),
+          lessonImageUrl: String(s?.lesson_image_url || ""),
           sessions,
         };
       })
@@ -284,6 +285,7 @@ Deno.serve(async (req) => {
           kind: "speaker" as const,
           speakerName: s.name,
           photoDataUri: null,
+          heroDataUri: s.lessonImageUrl || null,
           sessions: s.sessions,
           dateLabel: dateRange,
         })),
@@ -318,6 +320,7 @@ Deno.serve(async (req) => {
         const speaker = speakerCards.find((item) => item.name === slide.speakerName);
         if (!speaker) return json({ error: "SPEAKER_NOT_FOUND", message: "Palestrante não encontrado para esta arte." }, 422);
         slide.photoDataUri = speaker.photoUrl || null;
+        slide.heroDataUri = speaker.lessonImageUrl || null;
         label = `Carrossel · ${speaker.name}`;
       }
       const rendered = buildCarouselSvg(slide, {
@@ -339,6 +342,7 @@ Deno.serve(async (req) => {
         speakerName: s.name,
         specialty: s.specialty,
         photoDataUri: photo,
+        heroDataUri: s.lessonImageUrl || null,
         sessions: s.sessions,
         eventName: event.name,
         location: locationLabel,
