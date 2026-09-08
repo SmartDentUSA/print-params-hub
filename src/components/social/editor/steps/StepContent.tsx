@@ -190,6 +190,7 @@ export function StepContent({
   showSystemAPicker = false,
   pickedCarrouselRef,
   onPickSystemACarousel,
+  onPickEventArts,
 }: Props) {
   const [tagInput, setTagInput] = useState('');
 
