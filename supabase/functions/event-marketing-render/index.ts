@@ -194,11 +194,6 @@ function keywordFrom(event: any, override?: string): string {
     .slice(0, 16) || "EVENTO";
 }
 
-let wasmReady: Promise<void> | null = null;
-function ensureWasm(): Promise<void> {
-  if (!wasmReady) wasmReady = initWasm(fetch(WASM_URL));
-  return wasmReady;
-}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
