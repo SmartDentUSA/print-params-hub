@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
-import { Loader2, Upload, X, Sparkles, Download, ExternalLink } from "lucide-react";
+import { Loader2, Upload, X, Sparkles, Download, ExternalLink, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 const BUCKET = "wa-media";
@@ -37,8 +37,29 @@ export function EventMarketingArtPanel({
   const [generating, setGenerating] = useState(false);
   const [keyword, setKeyword] = useState(commentKeyword || "");
   const [aiBg, setAiBg] = useState(false);
+  const [deleting, setDeleting] = useState<string | null>(null);
 
   const list = assets || [];
+
+  async function removeAsset(asset: EventMarketingAsset) {
+    const next = list.filter((a) => a.url !== asset.url);
+    setDeleting(asset.url);
+    try {
+      if (eventId) {
+        const { error } = await supabase
+          .from("smartops_events")
+          .update({ marketing_assets: next as any })
+          .eq("id", eventId);
+        if (error) throw error;
+      }
+      onChange({ marketing_assets: next });
+      toast.success(`Arte "${asset.label}" excluída`);
+    } catch (e: any) {
+      toast.error("Não foi possível excluir a arte", { description: e?.message });
+    } finally {
+      setDeleting(null);
+    }
+  }
 
   async function upload(file: File) {
     if (!ACCEPT.includes(file.type)) return toast.error("Use PNG, JPG ou WEBP");
@@ -180,13 +201,22 @@ export function EventMarketingArtPanel({
               <img src={a.url} alt={a.label} className="w-full rounded object-cover" loading="lazy" />
               <p className="truncate text-[11px] font-medium">{a.label}</p>
               <p className="text-[10px] text-muted-foreground">{a.width}×{a.height}</p>
-              <div className="flex gap-1">
+              <div className="flex items-center gap-1">
                 <a href={a.url} target="_blank" rel="noopener" className="text-primary">
                   <ExternalLink className="h-3.5 w-3.5" />
                 </a>
                 <a href={a.url} download className="text-primary">
                   <Download className="h-3.5 w-3.5" />
                 </a>
+                <button
+                  type="button"
+                  title="Excluir arte"
+                  className="ml-auto text-destructive hover:opacity-70 disabled:opacity-40"
+                  disabled={deleting === a.url}
+                  onClick={() => removeAsset(a)}
+                >
+                  {deleting === a.url ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+                </button>
               </div>
             </div>
           ))}
