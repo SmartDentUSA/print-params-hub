@@ -23,6 +23,7 @@ const INK = "#0B2447";
 const INK_SOFT = "#3D5B85";
 const ICON_BG = "#D8E6F7";
 const HAIR = "#C9DCF1";
+const FONT = "Arial, Helvetica, sans-serif";
 
 function esc(s: string): string {
   return String(s || "")
@@ -64,7 +65,7 @@ function textBlock(
   return lines
     .map(
       (l, i) =>
-        `<text x="${x}" y="${y + i * (size * lineHeight)}" font-family="Poppins" font-weight="${weight}" font-size="${size}" fill="${fill}" ${extra}>${esc(l)}</text>`,
+        `<text x="${x}" y="${y + i * (size * lineHeight)}" font-family="${FONT}" font-weight="${weight}" font-size="${size}" fill="${fill}" ${extra}>${esc(l)}</text>`,
     )
     .join("");
 }
@@ -183,31 +184,43 @@ function eventLogo(x: number, y: number, w: number, c: Common): string {
 }
 
 /** Bloco de uma demonstração no card do palestrante. */
-function demoBlock(x: number, y: number, w: number, index: number, s: SpeakerSession): { svg: string; height: number } {
-  const themeLines = wrap(s.theme, 30, w - 110, 2);
+function demoBlock(
+  x: number,
+  y: number,
+  w: number,
+  index: number,
+  s: SpeakerSession,
+  compact = false,
+): { svg: string; height: number } {
+  const labelSize = compact ? 19 : 22;
+  const dateSize = compact ? 25 : 29;
+  const detailSize = compact ? 25 : 29;
+  const timeSize = compact ? 29 : 33;
+  const iconSize = compact ? 48 : 56;
+  const textX = x + iconSize + 22;
+  const themeLines = wrap(s.theme, detailSize, w - iconSize - 22, compact ? 1 : 2);
   const iconX = x;
-  const textX = x + 86;
   let cy = y;
-  let out = `<text x="${x}" y="${cy}" font-family="Poppins" font-weight="700" font-size="23" fill="${BLUE_LIGHT}" letter-spacing="3">DEMONSTRAÇÃO ${index}</text>`;
-  cy += 30;
+  let out = `<text x="${x}" y="${cy}" font-family="${FONT}" font-weight="700" font-size="${labelSize}" fill="${BLUE_LIGHT}" letter-spacing="2">DEMONSTRAÇÃO ${index}</text>`;
+  cy += compact ? 20 : 27;
 
   // Data
-  out += iconBox(iconX, cy, 60, "cal");
-  out += `<text x="${textX}" y="${cy + 26}" font-family="Poppins" font-weight="700" font-size="30" fill="${INK}">${esc(s.dateLong.toUpperCase())}</text>`;
+  out += iconBox(iconX, cy, iconSize, "cal");
+  out += `<text x="${textX}" y="${cy + (compact ? 21 : 25)}" font-family="${FONT}" font-weight="700" font-size="${dateSize}" fill="${INK}">${esc(s.dateLong.toUpperCase())}</text>`;
   if (s.weekday) {
-    out += `<text x="${textX}" y="${cy + 56}" font-family="Poppins" font-weight="400" font-size="25" fill="${INK_SOFT}">(${esc(s.weekday.toUpperCase())})</text>`;
+    out += `<text x="${textX}" y="${cy + (compact ? 44 : 52)}" font-family="${FONT}" font-weight="400" font-size="${compact ? 20 : 23}" fill="${INK_SOFT}">(${esc(s.weekday.toUpperCase())})</text>`;
   }
-  cy += 84;
+  cy += compact ? 57 : 72;
 
   // Tema
-  out += iconBox(iconX, cy, 60, "doc");
-  out += textBlock(themeLines, textX, cy + 26, 30, INK, 400, 1.25);
-  cy += Math.max(74, 26 + themeLines.length * 38 + 12);
+  out += iconBox(iconX, cy, iconSize, "doc");
+  out += textBlock(themeLines, textX, cy + (compact ? 31 : 34), detailSize, INK, 400, 1.2);
+  cy += Math.max(compact ? 56 : 66, 30 + themeLines.length * detailSize * 1.2);
 
   // Horário
-  out += iconBox(iconX, cy, 60, "clock");
-  out += `<text x="${textX}" y="${cy + 40}" font-family="Poppins" font-weight="700" font-size="34" fill="${INK}">${esc(s.timeLabel)}</text>`;
-  cy += 64;
+  out += iconBox(iconX, cy, iconSize, "clock");
+  out += `<text x="${textX}" y="${cy + (compact ? 34 : 38)}" font-family="${FONT}" font-weight="700" font-size="${timeSize}" fill="${INK}">${esc(s.timeLabel)}</text>`;
+  cy += iconSize;
 
   return { svg: `<g>${out}</g>`, height: cy - y };
 }
@@ -244,30 +257,32 @@ export function buildCarouselSvg(slide: CarouselSlide, c: Common): { svg: string
       <path d="M 610 ${ctaTop + 34} L 646 ${ctaTop + 48} L 610 ${ctaTop + 62} Z" fill="${WHITE}"/>
     </g>`;
   } else if (slide.kind === "speaker") {
-    const artH = 520;
-    const photoR = 132;
-    const photoCx = 250;
-    const photoCy = 380;
+    const artH = 500;
+    const photoR = 118;
+    const photoCx = 220;
+    const photoCy = 340;
     const sessions = slide.sessions.slice(0, 3);
-    let y = artH + 60;
+    const compact = sessions.length >= 3;
+    let y = artH + 58;
     let blocks = "";
     sessions.forEach((s, i) => {
       if (i > 0) {
-        blocks += `<line x1="90" y1="${y - 34}" x2="${W - 90}" y2="${y - 34}" stroke="${HAIR}" stroke-width="2"/>`;
+        blocks += `<line x1="72" y1="${y - (compact ? 17 : 24)}" x2="${W - 72}" y2="${y - (compact ? 17 : 24)}" stroke="${HAIR}" stroke-width="2"/>`;
       }
-      const b = demoBlock(90, y, W - 180, i + 1, s);
+      const b = demoBlock(72, y, W - 144, i + 1, s, compact);
       blocks += b.svg;
-      y += b.height + 40;
+      y += b.height + (compact ? 28 : 40);
     });
-    const nameLines = wrap(slide.speakerName.toUpperCase(), 40, 520, 2);
-    const pillW = Math.min(560, Math.max(...nameLines.map((l) => l.length)) * 24 + 80);
-    const pillH = nameLines.length > 1 ? 132 : 84;
+    const nameLines = wrap(slide.speakerName.toUpperCase(), 38, 560, 2);
+    const pillW = 610;
+    const pillH = nameLines.length > 1 ? 116 : 78;
     body = `
     <g clip-path="url(#frame)">
       <image x="0" y="0" width="${W}" height="${H}" preserveAspectRatio="xMidYMid slice" xlink:href="${c.artDataUri}"/>
-      <rect width="${W}" height="${H}" fill="${PAPER}" opacity="0.93"/>
-      <image x="0" y="0" width="${W}" height="${artH + 60}" preserveAspectRatio="xMidYMid slice" xlink:href="${c.artDataUri}"/>
-      <rect x="0" y="0" width="${W}" height="${artH + 60}" fill="url(#artToPaper)"/>
+      <rect width="${W}" height="${H}" fill="${PAPER}"/>
+      <image x="0" y="0" width="${W}" height="${artH}" preserveAspectRatio="xMidYMid slice" xlink:href="${c.artDataUri}"/>
+      <rect x="0" y="0" width="${W}" height="${artH}" fill="${NAVY_DEEP}" opacity="0.9"/>
+      <rect x="0" y="${artH - 92}" width="${W}" height="92" fill="url(#artToPaper)"/>
     </g>
     ${brandTopRight(W, c, 46)}
     <defs><clipPath id="spPhoto"><circle cx="${photoCx}" cy="${photoCy}" r="${photoR}"/></clipPath></defs>
@@ -276,12 +291,13 @@ export function buildCarouselSvg(slide: CarouselSlide, c: Common): { svg: string
       ? `<g clip-path="url(#spPhoto)"><image x="${photoCx - photoR}" y="${photoCy - photoR}" width="${photoR * 2}" height="${photoR * 2}" preserveAspectRatio="xMidYMin slice" xlink:href="${slide.photoDataUri}"/></g>`
       : `<circle cx="${photoCx}" cy="${photoCy}" r="${photoR}" fill="${CARD}"/>`}
     <g>
-      <rect x="${photoCx + photoR + 34}" y="${photoCy - pillH / 2}" width="${pillW}" height="${pillH}" rx="${pillH / 2}" fill="${INK}"/>
-      ${textBlock(nameLines, photoCx + photoR + 34 + 40, photoCy - pillH / 2 + (nameLines.length > 1 ? 54 : 55), 40, WHITE, 700, 1.15, 'letter-spacing="2"')}
+      <rect x="${photoCx + photoR + 30}" y="${photoCy - pillH / 2}" width="${pillW}" height="${pillH}" rx="18" fill="${INK}"/>
+      ${textBlock(nameLines, photoCx + photoR + 30 + 34, photoCy - pillH / 2 + (nameLines.length > 1 ? 47 : 51), 38, WHITE, 700, 1.12, 'letter-spacing="1"')}
     </g>
     ${blocks}
-    ${eventLogo(90, H - 118, 330, c)}
-    <text x="${W - 90}" y="${H - 60}" text-anchor="end" font-family="Poppins" font-weight="700" font-size="30" fill="${INK_SOFT}">${esc(slide.dateLabel || "")}</text>`;
+    <rect x="0" y="${H - 104}" width="${W}" height="104" fill="${WHITE}"/>
+    ${eventLogo(72, H - 91, 300, c)}
+    <text x="${W - 72}" y="${H - 44}" text-anchor="end" font-family="${FONT}" font-weight="700" font-size="27" fill="${INK_SOFT}">${esc(slide.dateLabel || "")}</text>`;
   } else {
     const nameLines = wrap(slide.eventName.toUpperCase(), 92, W - 200, 3);
     const nameBase = 470;
@@ -335,21 +351,25 @@ export interface StoryInput extends Common {
 
 export function buildStorySvg(input: StoryInput): { svg: string; width: number; height: number } {
   const { width: W, height: H } = STORY;
-  const artH = 900;
-  const photoR = 190;
+  const artH = 820;
+  const photoR = 170;
   const photoCx = W / 2;
-  const photoCy = 640;
+  const photoCy = 570;
+  const sessions = input.sessions.slice(0, 3);
+  const compact = sessions.length >= 2;
 
-  let y = artH + 190;
+  const nameLines = wrap(input.speakerName.toUpperCase(), 58, W - 220, 2);
+  const nameY = photoCy + photoR + 76;
+  const specialtyY = nameY + nameLines.length * 64 + 4;
+  let y = specialtyY + 72;
   let blocks = "";
-  input.sessions.slice(0, 3).forEach((s, i) => {
-    if (i > 0) blocks += `<line x1="90" y1="${y - 38}" x2="${W - 90}" y2="${y - 38}" stroke="${HAIR}" stroke-width="2"/>`;
-    const b = demoBlock(90, y, W - 180, i + 1, s);
+  sessions.forEach((s, i) => {
+    if (i > 0) blocks += `<line x1="72" y1="${y - 20}" x2="${W - 72}" y2="${y - 20}" stroke="${HAIR}" stroke-width="2"/>`;
+    const b = demoBlock(72, y, W - 144, i + 1, s, compact);
     blocks += b.svg;
-    y += b.height + 60;
+    y += b.height + (compact ? 30 : 46);
   });
 
-  const nameLines = wrap(input.speakerName.toUpperCase(), 62, W - 240, 2);
   const footLine = [input.location, input.stand ? `Estande ${input.stand}` : ""].filter(Boolean).join("  |  ");
 
   return {
@@ -360,7 +380,8 @@ ${defs(W, H)}
   <rect width="${W}" height="${H}" fill="${PAPER}"/>
   <g clip-path="url(#frame)">
     <image x="0" y="0" width="${W}" height="${artH}" preserveAspectRatio="xMidYMid slice" xlink:href="${input.artDataUri}"/>
-    <rect x="0" y="0" width="${W}" height="${artH}" fill="url(#artToPaper)"/>
+    <rect x="0" y="0" width="${W}" height="${artH}" fill="${NAVY_DEEP}" opacity="0.88"/>
+    <rect x="0" y="${artH - 110}" width="${W}" height="110" fill="url(#artToPaper)"/>
   </g>
   ${brandTopRight(W, input, 60)}
   <defs><clipPath id="stPhoto"><circle cx="${photoCx}" cy="${photoCy}" r="${photoR}"/></clipPath></defs>
@@ -368,12 +389,13 @@ ${defs(W, H)}
   ${input.photoDataUri
     ? `<g clip-path="url(#stPhoto)"><image x="${photoCx - photoR}" y="${photoCy - photoR}" width="${photoR * 2}" height="${photoR * 2}" preserveAspectRatio="xMidYMin slice" xlink:href="${input.photoDataUri}"/></g>`
     : `<circle cx="${photoCx}" cy="${photoCy}" r="${photoR}" fill="${CARD}"/>`}
-  ${textBlock(nameLines, W / 2, photoCy + photoR + 90, 62, INK, 700, 1.1, 'text-anchor="middle" letter-spacing="-1"')}
-  <text x="${W / 2}" y="${photoCy + photoR + 90 + nameLines.length * 68 + 6}" text-anchor="middle" font-family="Poppins" font-weight="400" font-size="34" fill="${BLUE_LIGHT}" letter-spacing="3">${esc(input.specialty.toUpperCase())}</text>
+  ${textBlock(nameLines, W / 2, nameY, 58, INK, 700, 1.1, 'text-anchor="middle" letter-spacing="0"')}
+  <text x="${W / 2}" y="${specialtyY}" text-anchor="middle" font-family="${FONT}" font-weight="400" font-size="30" fill="${BLUE_LIGHT}" letter-spacing="2">${esc(input.specialty.toUpperCase())}</text>
   ${blocks}
+  <rect x="0" y="${H - 220}" width="${W}" height="220" fill="${WHITE}"/>
   ${pin(90, H - 190, 46, BLUE_LIGHT)}
-  <text x="156" y="${H - 152}" font-family="Poppins" font-weight="700" font-size="34" fill="${INK}">${esc(footLine)}</text>
-  <text x="156" y="${H - 100}" font-family="Poppins" font-weight="400" font-size="30" fill="${INK_SOFT}">${esc(input.eventName)}</text>
+  <text x="156" y="${H - 152}" font-family="${FONT}" font-weight="700" font-size="32" fill="${INK}">${esc(footLine)}</text>
+  ${textBlock(wrap(input.eventName, 27, W - 246, 2), 156, H - 100, 27, INK_SOFT, 400, 1.2)}
 </svg>`,
   };
 }
