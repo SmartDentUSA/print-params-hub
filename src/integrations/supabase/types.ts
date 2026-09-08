@@ -34545,6 +34545,10 @@ export type Database = {
           vendas_at: string
         }[]
       }
+      fn_can_manage_event_media: {
+        Args: { _user_id: string }
+        Returns: boolean
+      }
       fn_check_group_global_dedup: {
         Args: {
           p_content_hash: string
