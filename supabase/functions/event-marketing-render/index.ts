@@ -3,13 +3,21 @@
 // cadastro (`smartops_events.marketing_art_url`):
 //   - carrossel 4:5: capa + 1 card por palestrante + card final "COMENTE <PALAVRA>"
 //   - stories 9:16: 1 por palestrante, com foto, dia, hora e tema
-// Mesmo pipeline dos thumbs das lives do YouTube: google/gemini-3-pro-image via
-// AI Gateway, com a arte do evento, o logo e a foto do palestrante anexados como
-// referência imutável. Uma arte por chamada (cursor).
+// A arte do evento é usada como fundo, enquanto fotos e textos são compostos
+// em uma grade determinística. Isso garante que todos os cards tenham exatamente
+// o mesmo layout e que nomes, datas, horários e temas não sejam alterados por IA.
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { z } from "npm:zod";
-import { CAROUSEL, STORY, type CarouselSlide, type SpeakerSession } from "./layouts.ts";
+import { initWasm, Resvg } from "https://esm.sh/@resvg/resvg-wasm@2.6.2";
+import {
+  buildCarouselSvg,
+  buildStorySvg,
+  CAROUSEL,
+  STORY,
+  type CarouselSlide,
+  type SpeakerSession,
+} from "./layouts.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -20,100 +28,34 @@ const BodySchema = z.object({
   event_id: z.string().uuid(),
   comment_keyword: z.string().min(2).max(24).optional(),
   kinds: z.array(z.enum(["carousel", "stories"])).min(1).optional(),
-  /** Mantido por compatibilidade: a geração é sempre por IA. */
+  /** Mantido por compatibilidade com o painel; o layout final é sempre fixo. */
   ai_background: z.boolean().optional(),
   cursor: z.number().int().min(0).optional(),
 });
 
-const GATEWAY = "https://ai.gateway.lovable.dev/v1/images/generations";
-const IMAGE_MODEL = "google/gemini-3-pro-image";
+const WASM_URL = "https://unpkg.com/@resvg/resvg-wasm@2.6.2/index_bg.wasm";
+let wasmReady: Promise<void> | null = null;
 
-/** Grade fixa do card — igual em TODAS as artes, para não variar o layout. */
-function layoutSpec(aspect: "4:5" | "9:16"): string[] {
-  const common = [
-    "GRADE FIXA E OBRIGATÓRIA (use exatamente esta estrutura em todos os cards, mudando apenas foto e texto):",
-    "1) FAIXA SUPERIOR escura de altura fixa: logotipo do evento alinhado à ESQUERDA e logotipo Smart Dent branco alinhado à DIREITA, ambos no mesmo eixo vertical.",
-    "2) ETIQUETA em pílula laranja #F26722, canto superior esquerdo do corpo, texto branco em caixa alta pequeno.",
-  ];
-  if (aspect === "4:5") {
-    return [
-      ...common,
-      "3) BLOCO DO PALESTRANTE: foto circular à ESQUERDA (diâmetro ~1/4 da largura), nome em caixa alta à DIREITA da foto, em duas linhas no máximo; especialidade em letra menor logo abaixo do nome.",
-      "4) CORPO: cartão claro de cantos arredondados ocupando a metade inferior, com uma LINHA POR DEMONSTRAÇÃO, sempre na ordem data · horário · tema, separadas por finas linhas horizontais.",
-      "5) RODAPÉ escuro de altura fixa: nome do evento à esquerda, local e estande à direita.",
-      "Alinhamento à esquerda em todo o card, margens iguais nas quatro bordas, mesma escala tipográfica em todos os cards.",
-    ];
-  }
-  return [
-    ...common,
-    "3) METADE SUPERIOR: foto do palestrante grande e centralizada em recorte circular, nome em caixa alta centralizado abaixo dela e especialidade em letra menor.",
-    "4) METADE INFERIOR: cartão claro de cantos arredondados com uma LINHA POR DEMONSTRAÇÃO na ordem data · horário · tema, separadas por finas linhas horizontais.",
-    "5) RODAPÉ escuro de altura fixa: nome do evento, local e estande.",
-    "Composição centralizada, margens iguais, mesma escala tipográfica em todos os stories.",
-  ];
+function asset(name: string): Promise<Uint8Array> {
+  return Deno.readFile(new URL(`./assets/${name}`, import.meta.url));
 }
 
-/** Prompt de arte: a IA compõe o card inteiro, com os textos EXATOS informados. */
-function artPrompt(
-  textLines: string[],
-  aspect: "4:5" | "9:16",
-  refCount: number,
-  hasEventLogo: boolean,
-  hasTemplate: boolean,
-): string {
-  return [
-    `Crie uma ARTE FINAL de divulgação em proporção ${aspect} (${aspect === "4:5" ? "1080x1350, card de carrossel do Instagram" : "1080x1920, story do Instagram"}) para um evento de odontologia digital da Smart Dent.`,
-    "REFERÊNCIA DE ESTILO (INVIOLÁVEL): a PRIMEIRA imagem anexada é a arte oficial do evento. Reproduza a mesma identidade visual — paleta azul-marinho profundo, azul-claro e laranja (#F26722), mesmos elementos gráficos, mesma atmosfera e mesma tipografia sans-serif pesada.",
-    hasEventLogo
-      ? "LOGO DO EVENTO: a SEGUNDA imagem anexada é o logotipo do evento. Reproduza-o exatamente como está, no topo, sem redesenhar nem reescrever."
-      : "",
-    hasTemplate
-      ? "GABARITO DE LAYOUT (OBRIGATÓRIO): a ÚLTIMA imagem anexada é um card já aprovado desta mesma sequência. Copie o layout dela pixel a pixel — mesmas posições, mesmos tamanhos de fonte, mesmas cores, mesmos blocos e mesmas margens. MUDE APENAS a fotografia e os textos indicados. É PROIBIDO criar uma composição diferente."
-      : "",
-    ...layoutSpec(aspect),
-    refCount > (hasEventLogo ? 2 : 1)
-      ? "FOTOS ANEXADAS: trate cada fotografia anexada como recorte imutável. É PROIBIDO redesenhar, estilizar, trocar ou inventar pessoas."
-      : "",
-    "TEXTO (renderize EXATAMENTE como escrito, sem erros de ortografia, sem inventar nada, sem traduzir, hierarquia clara e muito legível no celular):",
-    ...textLines.map((l) => `- ${l}`),
-    "TIPOGRAFIA: sans-serif condensada pesada, textos brancos sobre fundo escuro e textos azul-marinho sobre o cartão claro, destaques em laranja #F26722, margens de segurança generosas nas bordas.",
-    "PROIBIDO: qualquer texto além do especificado, preços, números inventados, marca d'água, logotipo de rede social, moldura de interface, texto cortado ou sobreposto de forma ilegível.",
-  ].filter(Boolean).join("\n");
+function ensureWasm(): Promise<void> {
+  if (!wasmReady) wasmReady = initWasm(fetch(WASM_URL));
+  return wasmReady;
 }
 
-
-/** Gera a arte pelo AI Gateway (mesma chamada usada nos thumbs das lives). */
-async function aiArt(prompt: string, refDataUris: string[]): Promise<Uint8Array> {
-  const key = Deno.env.get("LOVABLE_API_KEY");
-  if (!key) throw new Error("LOVABLE_API_KEY não configurada para gerar as artes.");
-  const content: any[] = [{ type: "text", text: prompt }];
-  for (const url of refDataUris) content.push({ type: "image_url", image_url: { url } });
-  const r = await fetch(GATEWAY, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model: IMAGE_MODEL,
-      messages: [{ role: "user", content }],
-      modalities: ["image", "text"],
-    }),
+async function renderPng(svg: string, width: number): Promise<Uint8Array> {
+  await ensureWasm();
+  const resvg = new Resvg(svg, {
+    fitTo: { mode: "width", value: width },
+    font: {
+      fontBuffers: [await asset("Poppins-Bold.ttf"), await asset("Poppins-Regular.ttf")],
+      defaultFontFamily: "Poppins",
+      loadSystemFonts: false,
+    },
   });
-  const raw = await r.text();
-  if (!r.ok) {
-    console.error("[event-marketing-render] gateway", r.status, raw.slice(0, 400));
-    throw new Error(`Geração da arte falhou (${r.status}): ${raw.slice(0, 200)}`);
-  }
-  let payload: any;
-  try {
-    payload = JSON.parse(raw);
-  } catch {
-    payload = null;
-  }
-  const img = payload?.data?.[0]?.b64_json;
-  if (!img) throw new Error("O modelo não retornou imagem.");
-  const bin = atob(img);
-  const bytes = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-  return bytes;
+  return resvg.render().asPng();
 }
 
 
@@ -277,6 +219,7 @@ Deno.serve(async (req) => {
     const artDataUri = await fetchDataUri(event.marketing_art_url);
     if (!artDataUri) return json({ error: "ART_UNREADABLE", message: "Não foi possível ler a arte enviada." }, 422);
     const eventLogoDataUri = await fetchDataUri(event.event_logo_url);
+    const smartDentLogo = `data:image/png;base64,${b64(await asset("smartdent-logo.png"))}`;
 
 
     const speakers = Array.isArray(event.speakers) ? (event.speakers as any[]) : [];
@@ -371,100 +314,44 @@ Deno.serve(async (req) => {
     }
     if (cursor >= total) return json({ error: "INVALID_CURSOR", message: "Etapa de geração inválida." }, 400);
 
-    const eventHeader = [
-      `Evento: "${event.name}"`,
-      dateRange ? `Datas: "${dateRange}"` : "",
-      locationLabel ? `Local: "${locationLabel}"` : "",
-      event.company_stand ? `Estande: "${event.company_stand}"` : "",
-    ].filter(Boolean);
-
-    // Gabarito de layout: o primeiro card de palestrante já gerado nesta rodada
-    // vira referência das artes seguintes, para todas ficarem idênticas.
-    const doneAssets = (cursor > 0 && Array.isArray(event.marketing_assets)
-      ? event.marketing_assets as Array<{ kind: string; label: string; url: string }>
-      : []);
-    async function templateFor(kind: "carousel" | "story"): Promise<string | null> {
-      const first = doneAssets.find(
-        (a) => a.kind === kind && !/Capa|Fechamento/i.test(a.label || ""),
-      );
-      return first ? await fetchDataUri(first.url) : null;
-    }
-
     if (cursor < slides.length) {
       const slide = slides[cursor];
-      const refs = [artDataUri];
-      if (eventLogoDataUri) refs.push(eventLogoDataUri);
-      let textLines: string[];
       let label: string;
-      let template: string | null = null;
       if (slide.kind === "cover") {
-        textLines = [
-          ...eventHeader,
-          'Headline gigante em caixa alta: "TODA A TECNOLOGIA AO VIVO"',
-          'Subtítulo: "Visite nosso estande e participe das demonstrações."',
-          'Chamada final: "ESPERAMOS VOCÊ!"',
-        ];
         label = "Carrossel · Capa";
       } else if (slide.kind === "closing") {
-        textLines = [
-          ...eventHeader,
-          'Headline: "AGENDA DE DEMONSTRAÇÕES AO VIVO"',
-          'Frase de marca: "Tecnologia que transforma sorrisos."',
-          `Chamada final destacada: "COMENTE ${keyword} E RECEBA A AGENDA COMPLETA"`,
-        ];
         label = "Carrossel · Fechamento";
       } else {
-        const speaker = speakerCards.find((item) => item.name === slide.speakerName)!;
-        const photo = await fetchDataUri(speaker.photoUrl);
-        if (photo) refs.push(photo);
-        textLines = [
-          ...eventHeader,
-          'Etiqueta no topo: "DEMONSTRAÇÃO AO VIVO"',
-          `Nome do palestrante em destaque: "${speaker.name}"`,
-          speaker.specialty ? `Especialidade em letra menor: "${speaker.specialty}"` : "",
-          ...speaker.sessions.slice(0, 4).map((ses, i) =>
-            `Demonstração ${i + 1} — data: "${ses.dateLong}" · dia da semana: "${ses.weekday}" · horário: "${ses.timeLabel}" · tema: "${ses.theme}"`
-          ),
-        ].filter(Boolean);
+        const speaker = speakerCards.find((item) => item.name === slide.speakerName);
+        if (!speaker) return json({ error: "SPEAKER_NOT_FOUND", message: "Palestrante não encontrado para esta arte." }, 422);
+        slide.photoDataUri = await fetchDataUri(speaker.photoUrl);
         label = `Carrossel · ${speaker.name}`;
-        if (photo) {
-          textLines.push(
-            "FOTO DO PALESTRANTE: a imagem anexada do rosto é fotografia real e imutável — recorte-a em um círculo à esquerda do nome. É PROIBIDO redesenhar, estilizar, trocar o rosto, alterar pele, cabelo ou roupa.",
-          );
-        }
-        template = await templateFor("carousel");
-        if (template) refs.push(template);
       }
-      const png = await aiArt(
-        artPrompt(textLines, "4:5", refs.length, Boolean(eventLogoDataUri), Boolean(template)),
-        refs,
-      );
+      const rendered = buildCarouselSvg(slide, {
+        artDataUri,
+        logoDataUri: smartDentLogo,
+        eventLogoDataUri,
+      });
+      const png = await renderPng(rendered.svg, rendered.width);
       await save(png, `carrossel-${String(cursor + 1).padStart(2, "0")}`, "carousel", label, CAROUSEL.width, CAROUSEL.height);
     } else {
       const i = cursor - slides.length;
       const s = speakerCards[i];
-      const refs = [artDataUri];
-      if (eventLogoDataUri) refs.push(eventLogoDataUri);
+      if (!s) return json({ error: "SPEAKER_NOT_FOUND", message: "Palestrante não encontrado para este story." }, 422);
       const photo = await fetchDataUri(s.photoUrl);
-      if (photo) refs.push(photo);
-      const textLines = [
-        ...eventHeader,
-        'Etiqueta no topo: "DEMONSTRAÇÃO AO VIVO"',
-        `Nome do palestrante em destaque: "${s.name}"`,
-        s.specialty ? `Especialidade em letra menor: "${s.specialty}"` : "",
-        ...s.sessions.slice(0, 3).map((ses, idx) =>
-          `Demonstração ${idx + 1} — data: "${ses.dateLong}" · dia da semana: "${ses.weekday}" · horário: "${ses.timeLabel}" · tema: "${ses.theme}"`
-        ),
-        photo
-          ? "FOTO DO PALESTRANTE: a imagem anexada do rosto é fotografia real e imutável — use-a grande na metade superior, sem redesenhar, estilizar ou trocar o rosto."
-          : "",
-      ].filter(Boolean);
-      const template = await templateFor("story");
-      if (template) refs.push(template);
-      const png = await aiArt(
-        artPrompt(textLines, "9:16", refs.length, Boolean(eventLogoDataUri), Boolean(template)),
-        refs,
-      );
+      const rendered = buildStorySvg({
+        artDataUri,
+        logoDataUri: smartDentLogo,
+        eventLogoDataUri,
+        speakerName: s.name,
+        specialty: s.specialty,
+        photoDataUri: photo,
+        sessions: s.sessions,
+        eventName: event.name,
+        location: locationLabel,
+        stand: event.company_stand || "",
+      });
+      const png = await renderPng(rendered.svg, rendered.width);
       await save(png, `story-${String(i + 1).padStart(2, "0")}`, "story", `Story · ${s.name}`, STORY.width, STORY.height);
     }
 

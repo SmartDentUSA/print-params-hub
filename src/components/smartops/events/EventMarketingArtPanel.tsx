@@ -4,7 +4,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Switch } from "@/components/ui/switch";
 import { Loader2, Upload, X, Sparkles, Download, ExternalLink, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -36,7 +35,6 @@ export function EventMarketingArtPanel({
   const [busy, setBusy] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [keyword, setKeyword] = useState(commentKeyword || "");
-  const [aiBg, setAiBg] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
 
   const list = assets || [];
@@ -99,7 +97,6 @@ export function EventMarketingArtPanel({
           body: {
             event_id: eventId,
             comment_keyword: keyword.trim() || undefined,
-            ai_background: aiBg,
             cursor,
           },
         });
@@ -132,10 +129,8 @@ export function EventMarketingArtPanel({
       <div>
         <Label className="text-sm font-semibold">Upload da arte do evento (padrão de divulgação)</Label>
         <p className="text-[11px] text-muted-foreground">
-          Esta arte é a referência visual para gerar automaticamente o carrossel 1080×1350 (4:5) — um card por dia com
-          palestrantes, horários e temas, mais o card final “Comente {keyword || "PALAVRA"}” — e um story
-          1080×1920 (9:16) por palestrante. Com o fundo por IA ligado, a mesma tecnologia dos thumbs das lives cria o
-          cenário a partir desta arte, e nomes, temas e horários entram por cima com texto exato.
+          Esta arte será usada como fundo do carrossel 1080×1350 (4:5) e dos stories 1080×1920. Todos os cards seguem
+          o mesmo padrão visual, com fotos, nomes, horários e temas aplicados exatamente como cadastrados.
         </p>
       </div>
 
@@ -182,10 +177,6 @@ export function EventMarketingArtPanel({
             placeholder="Ex: CIPRO"
             maxLength={24}
           />
-        </div>
-        <div className="flex items-center gap-2 pb-1.5">
-          <Switch id="ai-bg" checked={aiBg} onCheckedChange={setAiBg} />
-          <Label htmlFor="ai-bg" className="text-xs">Fundo criado por IA (usa a arte como referência)</Label>
         </div>
         <Button type="button" size="sm" onClick={generate} disabled={generating || !eventId || !artUrl}>
           {generating ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <Sparkles className="w-4 h-4 mr-1.5" />}
