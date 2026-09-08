@@ -78,7 +78,17 @@ export function EventMarketingArtPanel({
       onChange({ marketing_assets: res.assets as EventMarketingAsset[] });
       toast.success(`${res.count} artes geradas`, { description: `Palavra-chave: ${res.comment_keyword}` });
     } catch (e: any) {
-      toast.error(e?.message || "Falha ao gerar as artes");
+      let message = e?.message || "Falha ao gerar as artes";
+      try {
+        const response = e?.context as Response | undefined;
+        if (response) {
+          const payload = await response.clone().json();
+          message = payload?.message || payload?.error || message;
+        }
+      } catch {
+        // Mantém a mensagem original quando a resposta não for JSON.
+      }
+      toast.error("Não foi possível gerar as artes", { description: message });
     } finally {
       setGenerating(false);
     }
