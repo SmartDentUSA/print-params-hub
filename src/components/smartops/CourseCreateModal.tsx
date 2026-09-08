@@ -1237,6 +1237,15 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
                       setRelatedProductNames(names);
                     }}
                   />
+
+                  <div className="pt-3">
+                    <Label className="font-semibold">Imagens para a geração por IA</Label>
+                    <p className="text-xs text-muted-foreground mt-1 mb-2">
+                      A IA usa somente as fotos oficiais dos produtos selecionados acima. Se quiser incluir
+                      outras imagens (foto do palestrante, bancada, arte pronta), envie aqui — até 6.
+                    </p>
+                    <AiReferenceImagesUpload value={aiReferenceImages} onChange={setAiReferenceImages} />
+                  </div>
                 </div>
               )}
             </div>
