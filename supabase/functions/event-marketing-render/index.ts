@@ -35,6 +35,7 @@ const BodySchema = z.object({
   /** Gera o FUNDO com IA (mesma tecnologia dos thumbs das lives), usando a arte
    *  enviada como referência de estilo. Os textos continuam 100% exatos. */
   ai_background: z.boolean().optional(),
+  cursor: z.number().int().min(0).optional(),
 });
 
 const GATEWAY = "https://ai.gateway.lovable.dev/v1/images/generations";
@@ -247,7 +248,7 @@ Deno.serve(async (req) => {
     const { data: event, error } = await db
       .from("smartops_events")
       .select(
-        "id, name, slug, location, country, company_stand, start_date, end_date, event_logo_url, marketing_art_url, speakers",
+        "id, name, slug, location, country, company_stand, start_date, end_date, event_logo_url, marketing_art_url, marketing_assets, speakers",
       )
       .eq("id", event_id)
       .maybeSingle();
@@ -278,10 +279,6 @@ Deno.serve(async (req) => {
     const commonStory = { artDataUri: aiStory || aiCarousel || artDataUri, logoDataUri, eventLogoDataUri };
 
     const speakers = Array.isArray(event.speakers) ? (event.speakers as any[]) : [];
-    const photos = new Map<string, string | null>();
-    for (const s of speakers) {
-      if (s?.photo_url && !photos.has(s.photo_url)) photos.set(s.photo_url, await fetchDataUri(s.photo_url));
-    }
 
     // Um card por palestrante, com as demonstrações em ordem de data/hora
     const speakerCards = speakers
@@ -305,7 +302,7 @@ Deno.serve(async (req) => {
         return {
           name,
           specialty: String(s?.specialty || s?.theme || "").trim(),
-          photoDataUri: s?.photo_url ? photos.get(s.photo_url) || null : null,
+          photoUrl: String(s?.photo_url || ""),
           sessions,
         };
       })
@@ -324,6 +321,7 @@ Deno.serve(async (req) => {
         .render()
         .asPng();
 
+    const cursor = parsed.data.cursor || 0;
     const stamp = Date.now();
     const outputs: Array<{ kind: string; label: string; url: string; width: number; height: number }> = [];
 
@@ -341,8 +339,8 @@ Deno.serve(async (req) => {
 
     const dateRange = fmtRange(event.start_date, event.end_date);
 
-    if (kinds.includes("carousel")) {
-      const slides: CarouselSlide[] = [
+    const slides: CarouselSlide[] = kinds.includes("carousel")
+      ? [
         {
           kind: "cover",
           headline: "Toda a tecnologia ao vivo.",
@@ -355,7 +353,7 @@ Deno.serve(async (req) => {
         ...speakerCards.map((s) => ({
           kind: "speaker" as const,
           speakerName: s.name,
-          photoDataUri: s.photoDataUri,
+          photoDataUri: null,
           sessions: s.sessions,
           dateLabel: dateRange,
         })),
@@ -368,28 +366,41 @@ Deno.serve(async (req) => {
           tagline: "Tecnologia que transforma sorrisos.",
           keyword,
         },
-      ];
-      for (let i = 0; i < slides.length; i += 1) {
-        const { svg } = buildCarouselSvg(slides[i], common);
+      ]
+      : [];
+    const total = slides.length + (kinds.includes("stories") ? speakerCards.length : 0);
+    if (!total) {
+      return json({
+        error: "NOTHING_TO_RENDER",
+        message: "Cadastre palestrantes com dia, horário e tema antes de gerar as artes.",
+      }, 409);
+    }
+    if (cursor >= total) return json({ error: "INVALID_CURSOR", message: "Etapa de geração inválida." }, 400);
+
+    if (cursor < slides.length) {
+        const slide = slides[cursor];
+        if (slide.kind === "speaker") {
+          const speaker = speakerCards.find((item) => item.name === slide.speakerName);
+          slide.photoDataUri = await fetchDataUri(speaker?.photoUrl);
+        }
+        const { svg } = buildCarouselSvg(slide, common);
         const png = render(svg, CAROUSEL.width);
         const label =
-          slides[i].kind === "cover"
+          slide.kind === "cover"
             ? "Carrossel · Capa"
-            : slides[i].kind === "closing"
+            : slide.kind === "closing"
               ? "Carrossel · Fechamento"
-              : `Carrossel · ${(slides[i] as any).speakerName}`;
-        await save(png, `carrossel-${String(i + 1).padStart(2, "0")}`, "carousel", label, CAROUSEL.width, CAROUSEL.height);
-      }
-    }
-
-    if (kinds.includes("stories")) {
-      for (let i = 0; i < speakerCards.length; i += 1) {
+              : `Carrossel · ${(slide as any).speakerName}`;
+        await save(png, `carrossel-${String(cursor + 1).padStart(2, "0")}`, "carousel", label, CAROUSEL.width, CAROUSEL.height);
+    } else {
+        const i = cursor - slides.length;
         const s = speakerCards[i];
+        const photoDataUri = await fetchDataUri(s.photoUrl);
         const { svg } = buildStorySvg({
           ...commonStory,
           speakerName: s.name,
           specialty: s.specialty,
-          photoDataUri: s.photoDataUri,
+          photoDataUri,
           sessions: s.sessions.slice(0, 3),
           eventName: event.name,
           location: locationLabel,
@@ -397,22 +408,26 @@ Deno.serve(async (req) => {
         });
         const png = render(svg, STORY.width);
         await save(png, `story-${String(i + 1).padStart(2, "0")}`, "story", `Story · ${s.name}`, STORY.width, STORY.height);
-      }
     }
 
-    if (!outputs.length) {
-      return json({
-        error: "NOTHING_TO_RENDER",
-        message: "Cadastre palestrantes com dia, horário e tema antes de gerar as artes.",
-      }, 409);
-    }
-
+    const previousAssets = cursor > 0 && Array.isArray(event.marketing_assets)
+      ? event.marketing_assets as Array<{ kind: string; label: string; url: string; width: number; height: number }>
+      : [];
+    const allOutputs = [...previousAssets, ...outputs];
     await db
       .from("smartops_events")
-      .update({ marketing_assets: outputs, marketing_assets_generated_at: new Date().toISOString() })
+      .update({ marketing_assets: allOutputs, marketing_assets_generated_at: new Date().toISOString() })
       .eq("id", event.id);
 
-    return json({ success: true, comment_keyword: keyword, count: outputs.length, assets: outputs });
+    return json({
+      success: true,
+      comment_keyword: keyword,
+      count: allOutputs.length,
+      assets: allOutputs,
+      done: cursor + 1 >= total,
+      next_cursor: cursor + 1,
+      total,
+    });
   } catch (e: any) {
     console.error("[event-marketing-render] erro:", e?.message || e);
     return json({ success: false, error: "RENDER_FAILED", message: e?.message || String(e) }, 500);
