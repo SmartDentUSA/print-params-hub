@@ -3,6 +3,7 @@ import { useParams } from "react-router-dom";
 import { Instagram, MapPin, CalendarDays, Clock, Users, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { getStorageImageUrl } from "@/utils/storageImage";
+import { applyFreshSpeakerPhotos } from "@/lib/eventSpeakerPhotos";
 
 const SMARTDENT_LOGO_URL =
   "https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/h7stblp3qxn_1760720051743.png";
