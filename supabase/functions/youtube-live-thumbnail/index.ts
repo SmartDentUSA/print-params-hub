@@ -377,6 +377,8 @@ Deno.serve(async (req) => {
 
     const prompt = [
       "Crie uma THUMBNAIL (capa) de transmissão ao vivo do YouTube, formato horizontal 16:9 (1280x720px), estética cinematográfica de alto impacto.",
+      "FOTOGRAFIA REAL (INVIOLÁVEL): o resultado deve parecer uma FOTO tirada com câmera full-frame, lente 50mm f/2.8, ISO baixo — não uma imagem gerada por IA, não render 3D, não CGI, não ilustração digital, não arte conceitual. Pele com textura e poros reais, cabelo com fios individuais, tecido do jaleco com trama visível, superfícies com micro-arranhões, poeira e impressão digital sutil, leve grão fotográfico e profundidade de campo natural (fundo levemente desfocado).",
+      "PROIBIDO O 'LOOK DE IA': sem pele plastificada ou alisada, sem olhos vitrificados, sem simetria perfeita, sem brilho exagerado nas bordas, sem partículas mágicas, sem linhas de circuito ou HUD holográfico, sem gradientes irreais roxo/ciano saturados, sem reflexos espelhados impossíveis, sem mãos ou dedos deformados, sem objetos derretidos ou fundidos entre si.",
       "",
       renderStrategyForPrompt(true),
       "",
