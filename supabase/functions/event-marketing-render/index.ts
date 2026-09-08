@@ -15,7 +15,7 @@ import {
   buildCarouselSvg,
   buildStorySvg,
   type CarouselSlide,
-  type SessionItem,
+  type SpeakerSession,
 } from "./layouts.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -115,13 +115,48 @@ async function fetchDataUri(url?: string | null): Promise<string | null> {
   }
 }
 
-const WEEK = ["DOM", "SEG", "TER", "QUA", "QUI", "SEX", "SÁB"];
+const WEEK_FULL = [
+  "domingo",
+  "segunda-feira",
+  "terça-feira",
+  "quarta-feira",
+  "quinta-feira",
+  "sexta-feira",
+  "sábado",
+];
+const MONTHS = [
+  "janeiro",
+  "fevereiro",
+  "março",
+  "abril",
+  "maio",
+  "junho",
+  "julho",
+  "agosto",
+  "setembro",
+  "outubro",
+  "novembro",
+  "dezembro",
+];
 
-function dayLabel(iso: string): string {
+function parts(iso: string): { d: number; m: number; y: number } | null {
   const [y, m, d] = iso.slice(0, 10).split("-").map(Number);
-  if (!y || !m || !d) return iso;
-  const wd = WEEK[new Date(Date.UTC(y, m - 1, d)).getUTCDay()];
-  return `${String(d).padStart(2, "0")}/${String(m).padStart(2, "0")} · ${wd}`;
+  if (!y || !m || !d) return null;
+  return { d, m, y };
+}
+
+/** "18 de setembro de 2026" */
+function dateLong(iso: string): string {
+  const p = parts(iso);
+  if (!p) return iso;
+  return `${p.d} de ${MONTHS[p.m - 1]} de ${p.y}`;
+}
+
+/** "sexta-feira" */
+function weekdayLabel(iso: string): string {
+  const p = parts(iso);
+  if (!p) return "";
+  return WEEK_FULL[new Date(Date.UTC(p.y, p.m - 1, p.d)).getUTCDay()];
 }
 
 function fmtRange(a?: string | null, b?: string | null): string {
@@ -215,28 +250,33 @@ Deno.serve(async (req) => {
       if (s?.photo_url && !photos.has(s.photo_url)) photos.set(s.photo_url, await fetchDataUri(s.photo_url));
     }
 
-    // Sessões agrupadas por dia
-    const byDay = new Map<string, SessionItem[]>();
-    for (const s of speakers) {
-      const name = String(s?.name || "").trim();
-      const sessions = Array.isArray(s?.sessions) ? s.sessions : [];
-      for (const ses of sessions) {
-        const date = String(ses?.date || "").slice(0, 10);
-        if (!date) continue;
-        const list = byDay.get(date) || [];
-        list.push({
-          timeLabel: timeLabel(ses?.start_time, ses?.end_time),
-          theme: String(ses?.theme || s?.theme || "").trim(),
-          speakerName: name || "Palestrante",
+    // Um card por palestrante, com as demonstrações em ordem de data/hora
+    const speakerCards = speakers
+      .map((s) => {
+        const name = String(s?.name || "").trim();
+        const raw = (Array.isArray(s?.sessions) ? s.sessions : []).filter((x: any) => x?.date);
+        const sessions: SpeakerSession[] = raw
+          .slice()
+          .sort((a: any, b: any) =>
+            `${String(a.date)}${a.start_time || ""}`.localeCompare(`${String(b.date)}${b.start_time || ""}`),
+          )
+          .map((ses: any) => {
+            const iso = String(ses.date).slice(0, 10);
+            return {
+              dateLong: dateLong(iso),
+              weekday: weekdayLabel(iso),
+              theme: String(ses?.theme || s?.theme || "").trim(),
+              timeLabel: timeLabel(ses?.start_time, ses?.end_time),
+            };
+          });
+        return {
+          name,
+          specialty: String(s?.specialty || s?.theme || "").trim(),
           photoDataUri: s?.photo_url ? photos.get(s.photo_url) || null : null,
-        });
-        byDay.set(date, list);
-      }
-    }
-    const days = [...byDay.keys()].sort();
-    for (const d of days) {
-      byDay.get(d)!.sort((a, b) => a.timeLabel.localeCompare(b.timeLabel));
-    }
+          sessions,
+        };
+      })
+      .filter((s) => s.name && s.sessions.length);
 
     const locationLabel = [event.location, event.country].filter(Boolean).join(" · ");
     const keyword = keywordFrom(event, parsed.data.comment_keyword);
@@ -266,17 +306,35 @@ Deno.serve(async (req) => {
       outputs.push({ kind, label, url: data.publicUrl, width: w, height: h });
     }
 
+    const dateRange = fmtRange(event.start_date, event.end_date);
+
     if (kinds.includes("carousel")) {
       const slides: CarouselSlide[] = [
         {
           kind: "cover",
-          eventName: event.name,
-          dateLabel: fmtRange(event.start_date, event.end_date),
+          headline: "Toda a tecnologia ao vivo.",
+          subline: "Visite nosso estande e participe das demonstrações.",
+          dateLabel: dateRange,
           location: locationLabel,
           stand: event.company_stand || "",
+          cta: "Esperamos você!",
         },
-        ...days.map((d) => ({ kind: "day" as const, dayLabel: dayLabel(d), sessions: byDay.get(d)! })),
-        { kind: "cta", keyword, eventName: event.name },
+        ...speakerCards.map((s) => ({
+          kind: "speaker" as const,
+          speakerName: s.name,
+          photoDataUri: s.photoDataUri,
+          sessions: s.sessions,
+          dateLabel: dateRange,
+        })),
+        {
+          kind: "closing" as const,
+          eventName: event.name,
+          dateLabel: dateRange,
+          location: locationLabel,
+          stand: event.company_stand || "",
+          tagline: "Tecnologia que transforma sorrisos.",
+          keyword,
+        },
       ];
       for (let i = 0; i < slides.length; i += 1) {
         const { svg } = buildCarouselSvg(slides[i], common);
@@ -284,35 +342,28 @@ Deno.serve(async (req) => {
         const label =
           slides[i].kind === "cover"
             ? "Carrossel · Capa"
-            : slides[i].kind === "cta"
-              ? `Carrossel · Comente ${keyword}`
-              : `Carrossel · ${(slides[i] as any).dayLabel}`;
+            : slides[i].kind === "closing"
+              ? "Carrossel · Fechamento"
+              : `Carrossel · ${(slides[i] as any).speakerName}`;
         await save(png, `carrossel-${String(i + 1).padStart(2, "0")}`, "carousel", label, CAROUSEL.width, CAROUSEL.height);
       }
     }
 
     if (kinds.includes("stories")) {
-      for (let i = 0; i < speakers.length; i += 1) {
-        const s = speakers[i];
-        const name = String(s?.name || "").trim();
-        const sessions = (Array.isArray(s?.sessions) ? s.sessions : []).filter((x: any) => x?.date);
-        if (!name || !sessions.length) continue;
+      for (let i = 0; i < speakerCards.length; i += 1) {
+        const s = speakerCards[i];
         const { svg } = buildStorySvg({
           ...commonStory,
-          speakerName: name,
-          specialty: String(s?.specialty || s?.theme || "").trim(),
-          photoDataUri: s?.photo_url ? photos.get(s.photo_url) || null : null,
-          sessions: sessions.slice(0, 3).map((ses: any) => ({
-            dayLabel: dayLabel(String(ses.date).slice(0, 10)),
-            timeLabel: timeLabel(ses?.start_time, ses?.end_time),
-            theme: String(ses?.theme || s?.theme || "").trim(),
-          })),
+          speakerName: s.name,
+          specialty: s.specialty,
+          photoDataUri: s.photoDataUri,
+          sessions: s.sessions.slice(0, 3),
           eventName: event.name,
           location: locationLabel,
           stand: event.company_stand || "",
         });
         const png = render(svg, STORY.width);
-        await save(png, `story-${String(i + 1).padStart(2, "0")}`, "story", `Story · ${name}`, STORY.width, STORY.height);
+        await save(png, `story-${String(i + 1).padStart(2, "0")}`, "story", `Story · ${s.name}`, STORY.width, STORY.height);
       }
     }
 
