@@ -306,17 +306,35 @@ Deno.serve(async (req) => {
       outputs.push({ kind, label, url: data.publicUrl, width: w, height: h });
     }
 
+    const dateRange = fmtRange(event.start_date, event.end_date);
+
     if (kinds.includes("carousel")) {
       const slides: CarouselSlide[] = [
         {
           kind: "cover",
-          eventName: event.name,
-          dateLabel: fmtRange(event.start_date, event.end_date),
+          headline: "Toda a tecnologia ao vivo.",
+          subline: "Visite nosso estande e participe das demonstrações.",
+          dateLabel: dateRange,
           location: locationLabel,
           stand: event.company_stand || "",
+          cta: "Esperamos você!",
         },
-        ...days.map((d) => ({ kind: "day" as const, dayLabel: dayLabel(d), sessions: byDay.get(d)! })),
-        { kind: "cta", keyword, eventName: event.name },
+        ...speakerCards.map((s) => ({
+          kind: "speaker" as const,
+          speakerName: s.name,
+          photoDataUri: s.photoDataUri,
+          sessions: s.sessions,
+          dateLabel: dateRange,
+        })),
+        {
+          kind: "closing" as const,
+          eventName: event.name,
+          dateLabel: dateRange,
+          location: locationLabel,
+          stand: event.company_stand || "",
+          tagline: "Tecnologia que transforma sorrisos.",
+          keyword,
+        },
       ];
       for (let i = 0; i < slides.length; i += 1) {
         const { svg } = buildCarouselSvg(slides[i], common);
@@ -324,35 +342,28 @@ Deno.serve(async (req) => {
         const label =
           slides[i].kind === "cover"
             ? "Carrossel · Capa"
-            : slides[i].kind === "cta"
-              ? `Carrossel · Comente ${keyword}`
-              : `Carrossel · ${(slides[i] as any).dayLabel}`;
+            : slides[i].kind === "closing"
+              ? "Carrossel · Fechamento"
+              : `Carrossel · ${(slides[i] as any).speakerName}`;
         await save(png, `carrossel-${String(i + 1).padStart(2, "0")}`, "carousel", label, CAROUSEL.width, CAROUSEL.height);
       }
     }
 
     if (kinds.includes("stories")) {
-      for (let i = 0; i < speakers.length; i += 1) {
-        const s = speakers[i];
-        const name = String(s?.name || "").trim();
-        const sessions = (Array.isArray(s?.sessions) ? s.sessions : []).filter((x: any) => x?.date);
-        if (!name || !sessions.length) continue;
+      for (let i = 0; i < speakerCards.length; i += 1) {
+        const s = speakerCards[i];
         const { svg } = buildStorySvg({
           ...commonStory,
-          speakerName: name,
-          specialty: String(s?.specialty || s?.theme || "").trim(),
-          photoDataUri: s?.photo_url ? photos.get(s.photo_url) || null : null,
-          sessions: sessions.slice(0, 3).map((ses: any) => ({
-            dayLabel: dayLabel(String(ses.date).slice(0, 10)),
-            timeLabel: timeLabel(ses?.start_time, ses?.end_time),
-            theme: String(ses?.theme || s?.theme || "").trim(),
-          })),
+          speakerName: s.name,
+          specialty: s.specialty,
+          photoDataUri: s.photoDataUri,
+          sessions: s.sessions.slice(0, 3),
           eventName: event.name,
           location: locationLabel,
           stand: event.company_stand || "",
         });
         const png = render(svg, STORY.width);
-        await save(png, `story-${String(i + 1).padStart(2, "0")}`, "story", `Story · ${name}`, STORY.width, STORY.height);
+        await save(png, `story-${String(i + 1).padStart(2, "0")}`, "story", `Story · ${s.name}`, STORY.width, STORY.height);
       }
     }
 
