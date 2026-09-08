@@ -1,91 +1,90 @@
 // event-marketing-render
 // Gera as artes de divulgação do evento a partir da ARTE PADRÃO enviada no
 // cadastro (`smartops_events.marketing_art_url`):
-//   - carrossel 1080×1350 (4:5): capa + 1 card por dia com palestrantes/temas
-//     + card final "COMENTE <PALAVRA>"
-//   - stories 1080×1920 (9:16): 1 por palestrante, com foto, dia, hora e tema
-// Nenhuma imagem é gerada por IA: só crop/escala e composição gráfica.
+//   - carrossel 4:5: capa + 1 card por palestrante + card final "COMENTE <PALAVRA>"
+//   - stories 9:16: 1 por palestrante, com foto, dia, hora e tema
+// Mesmo pipeline dos thumbs das lives do YouTube: google/gemini-3-pro-image via
+// AI Gateway, com a arte do evento, o logo e a foto do palestrante anexados como
+// referência imutável. Uma arte por chamada (cursor).
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { z } from "npm:zod";
-import { initWasm, Resvg } from "https://esm.sh/@resvg/resvg-wasm@2.6.2";
-import {
-  CAROUSEL,
-  STORY,
-  buildCarouselSvg,
-  buildStorySvg,
-  type CarouselSlide,
-  type SpeakerSession,
-} from "./layouts.ts";
+import { CAROUSEL, STORY, type CarouselSlide, type SpeakerSession } from "./layouts.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
-const WASM_URL = "https://unpkg.com/@resvg/resvg-wasm@2.6.2/index_bg.wasm";
 const BUCKET = "wa-media";
-const SMARTDENT_LOGO_URL =
-  "https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/h7stblp3qxn_1760720051743.png";
-const POPPINS_BOLD_URL = "https://raw.githubusercontent.com/google/fonts/main/ofl/poppins/Poppins-Bold.ttf";
-const POPPINS_REGULAR_URL = "https://raw.githubusercontent.com/google/fonts/main/ofl/poppins/Poppins-Regular.ttf";
 
 const BodySchema = z.object({
   event_id: z.string().uuid(),
   comment_keyword: z.string().min(2).max(24).optional(),
   kinds: z.array(z.enum(["carousel", "stories"])).min(1).optional(),
-  /** Gera o FUNDO com IA (mesma tecnologia dos thumbs das lives), usando a arte
-   *  enviada como referência de estilo. Os textos continuam 100% exatos. */
+  /** Mantido por compatibilidade: a geração é sempre por IA. */
   ai_background: z.boolean().optional(),
   cursor: z.number().int().min(0).optional(),
 });
 
 const GATEWAY = "https://ai.gateway.lovable.dev/v1/images/generations";
+const IMAGE_MODEL = "google/gemini-3-pro-image";
 
-/** Fundo gerado por IA a partir da arte padrão do evento (referência de estilo).
- *  Nunca escreve texto: nomes, temas e horários são compostos depois em SVG. */
-async function aiBackground(
-  refDataUri: string,
+/** Prompt de arte: a IA compõe o card inteiro, com os textos EXATOS informados. */
+function artPrompt(
+  textLines: string[],
   aspect: "4:5" | "9:16",
-  eventName: string,
-): Promise<string | null> {
-  const key = Deno.env.get("LOVABLE_API_KEY");
-  if (!key) return null;
-  const prompt = [
-    `Crie uma IMAGEM DE FUNDO em proporção ${aspect} para divulgação do evento de odontologia digital "${eventName}".`,
-    "Use a imagem anexada apenas como REFERÊNCIA de identidade visual: paleta azul-marinho profundo, azul-claro e laranja, atmosfera de congresso/estande, tecnologia odontológica digital.",
-    "Composição limpa, iluminação suave, profundidade, gradiente escuro na base e no topo para receber textos brancos por cima.",
-    "PROIBIDO: qualquer texto, letra, número, palavra, logotipo, marca-d'água, moldura ou interface. Sem rostos reconhecíveis em close.",
-    "Resultado: apenas cenário/fundo gráfico-fotográfico, sem nenhum tipo de escrita.",
-  ].join(" ");
-  try {
-    const r = await fetch(GATEWAY, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: "google/gemini-3-pro-image",
-        messages: [
-          {
-            role: "user",
-            content: [
-              { type: "text", text: prompt },
-              { type: "image_url", image_url: { url: refDataUri } },
-            ],
-          },
-        ],
-        modalities: ["image", "text"],
-      }),
-    });
-    if (!r.ok) {
-      console.error("[event-marketing-render] IA fundo falhou:", r.status, (await r.text()).slice(0, 300));
-      return null;
-    }
-    const out = await r.json();
-    const img = out?.data?.[0]?.b64_json;
-    return img ? `data:image/png;base64,${img}` : null;
-  } catch (e) {
-    console.error("[event-marketing-render] IA fundo erro:", (e as Error)?.message);
-    return null;
-  }
+  refCount: number,
+  hasEventLogo: boolean,
+): string {
+  return [
+    `Crie uma ARTE FINAL de divulgação em proporção ${aspect} (${aspect === "4:5" ? "1080x1350, card de carrossel do Instagram" : "1080x1920, story do Instagram"}) para um evento de odontologia digital da Smart Dent.`,
+    "REFERÊNCIA DE ESTILO (INVIOLÁVEL): a PRIMEIRA imagem anexada é a arte oficial do evento. Reproduza a mesma identidade visual — paleta azul-marinho profundo, azul-claro e laranja (#F26722), mesmos elementos gráficos, mesma atmosfera e mesma tipografia sans-serif pesada.",
+    hasEventLogo
+      ? "LOGO DO EVENTO: a SEGUNDA imagem anexada é o logotipo do evento. Reproduza-o exatamente como está, no topo, sem redesenhar nem reescrever."
+      : "",
+    refCount > (hasEventLogo ? 2 : 1)
+      ? "FOTOS ANEXADAS: trate cada fotografia anexada como recorte imutável. É PROIBIDO redesenhar, estilizar, trocar ou inventar pessoas."
+      : "",
+    "TEXTO (renderize EXATAMENTE como escrito, sem erros de ortografia, sem inventar nada, sem traduzir, hierarquia clara e muito legível no celular):",
+    ...textLines.map((l) => `- ${l}`),
+    "TIPOGRAFIA: sans-serif condensada pesada, textos brancos sobre fundo escuro, destaques em laranja #F26722, margens de segurança generosas nas bordas.",
+    "PROIBIDO: qualquer texto além do especificado, preços, números inventados, marca d'água, logotipo de rede social, moldura de interface, texto cortado ou sobreposto de forma ilegível.",
+  ].filter(Boolean).join("\n");
 }
+
+/** Gera a arte pelo AI Gateway (mesma chamada usada nos thumbs das lives). */
+async function aiArt(prompt: string, refDataUris: string[]): Promise<Uint8Array> {
+  const key = Deno.env.get("LOVABLE_API_KEY");
+  if (!key) throw new Error("LOVABLE_API_KEY não configurada para gerar as artes.");
+  const content: any[] = [{ type: "text", text: prompt }];
+  for (const url of refDataUris) content.push({ type: "image_url", image_url: { url } });
+  const r = await fetch(GATEWAY, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: IMAGE_MODEL,
+      messages: [{ role: "user", content }],
+      modalities: ["image", "text"],
+    }),
+  });
+  const raw = await r.text();
+  if (!r.ok) {
+    console.error("[event-marketing-render] gateway", r.status, raw.slice(0, 400));
+    throw new Error(`Geração da arte falhou (${r.status}): ${raw.slice(0, 200)}`);
+  }
+  let payload: any;
+  try {
+    payload = JSON.parse(raw);
+  } catch {
+    payload = null;
+  }
+  const img = payload?.data?.[0]?.b64_json;
+  if (!img) throw new Error("O modelo não retornou imagem.");
+  const bin = atob(img);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return bytes;
+}
+
 
 
 function json(body: unknown, status = 200) {
