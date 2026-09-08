@@ -3,6 +3,7 @@ import { useParams } from "react-router-dom";
 import { Instagram, MapPin, CalendarDays, Clock, Users, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { getStorageImageUrl } from "@/utils/storageImage";
+import { applyFreshSpeakerPhotos } from "@/lib/eventSpeakerPhotos";
 
 const SMARTDENT_LOGO_URL =
   "https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/h7stblp3qxn_1760720051743.png";
@@ -305,6 +306,11 @@ export default function EventPublicAgenda({ term }: { term?: string }) {
         row = ((data || [])[0] as unknown as EventRow) ?? null;
       }
       if (!alive) return;
+      if (row?.speakers) {
+        const fresh = await applyFreshSpeakerPhotos(row.speakers as any);
+        if (!alive) return;
+        row = { ...row, speakers: fresh as any };
+      }
       setEvent(row);
       setLoading(false);
     };

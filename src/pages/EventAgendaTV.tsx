@@ -3,6 +3,7 @@ import { useParams, useSearchParams } from "react-router-dom";
 import QRCode from "qrcode";
 import { supabase } from "@/integrations/supabase/client";
 import { getStorageImageUrl } from "@/utils/storageImage";
+import { applyFreshSpeakerPhotos } from "@/lib/eventSpeakerPhotos";
 
 const SMARTDENT_LOGO_URL =
   "https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/h7stblp3qxn_1760720051743.png";
@@ -459,7 +460,13 @@ export default function EventAgendaTV() {
       const q = supabase.from("smartops_events").select(cols).eq("is_active", true).limit(1);
       const { data } = isUuid ? await q.eq("id", slug!) : await q.eq("slug", slug!);
       if (!alive) return;
-      setEvent(((data || [])[0] as unknown as EventRow) ?? null);
+      let row = ((data || [])[0] as unknown as EventRow) ?? null;
+      if (row?.speakers) {
+        const fresh = await applyFreshSpeakerPhotos(row.speakers as any);
+        if (!alive) return;
+        row = { ...row, speakers: fresh as Speaker[] };
+      }
+      setEvent(row);
       setLoading(false);
     };
     load();

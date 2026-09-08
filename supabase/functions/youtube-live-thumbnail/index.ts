@@ -36,6 +36,8 @@ const BodySchema = z.object({
   apply_to_youtube: z.boolean().optional().default(true),
   /** Quando informado, apenas aplica esta imagem no YouTube (sem gerar por IA). */
   image_url: z.string().url().optional(),
+  /** Imagens enviadas manualmente que devem ser usadas como referência na geração. */
+  reference_image_urls: z.array(z.string().url()).max(6).optional(),
 });
 
 function videoIdFromUrl(url?: string | null): string | null {
@@ -319,7 +321,7 @@ Deno.serve(async (req) => {
 
     const { data: course } = await admin
       .from("smartops_courses")
-      .select("id, title, description, category, instructor_name, related_product_names, marketing_briefing")
+      .select("id, title, description, category, instructor_name, related_product_names, marketing_briefing, ai_reference_image_urls")
       .eq("id", (turma as any).course_id)
       .maybeSingle();
     if (!course) return json({ error: "Curso não encontrado" }, 404);
@@ -333,11 +335,30 @@ Deno.serve(async (req) => {
       badge: b.badge_text,
     }, usedCopy);
 
+    /**
+     * Referências manuais da live (upload no editor do curso) + o que veio no body.
+     * Elas entram ANTES das fotos de catálogo e têm o mesmo contrato de fidelidade:
+     * a IA só pode usar estas imagens e as dos produtos associados à live.
+     */
+    const manualRefs: string[] = [
+      ...(Array.isArray((course as any).ai_reference_image_urls)
+        ? ((course as any).ai_reference_image_urls as unknown[])
+        : []),
+      ...(b.reference_image_urls ?? []),
+    ]
+      .filter((u): u is string => typeof u === "string" && u.startsWith("http"))
+      .filter((u, i, arr) => arr.indexOf(u) === i)
+      .slice(0, 6);
+
     const inlined: string[] = [];
-    for (const u of images) {
+    for (const u of [...manualRefs, ...images]) {
       const d = await toDataUrl(u);
       if (d) inlined.push(d);
     }
+    const refSources = [
+      ...manualRefs.map((_, i) => `upload manual ${i + 1}`),
+      ...sources,
+    ];
     // Logo oficial anexado por último (referência de marca, obrigatório na capa)
     const logoUrl = await loadBrandLogo();
     const logoData = logoUrl ? await toDataUrl(logoUrl) : null;
@@ -373,10 +394,11 @@ Deno.serve(async (req) => {
         : "AMBIENTE: fundo de estúdio escuro (quase preto) com luz volumétrica azul fria e halo laranja; o profissional segura uma coroa dentária impressa em 3D entre os dedos. NÃO inclua nenhum equipamento, impressora, scanner ou embalagem na cena.",
       inlined.length
         ? [
-            `PRODUTOS — FOTOGRAFIAS OFICIAIS DO CATÁLOGO (RAG). Foram anexadas ${inlined.length} imagem(ns), nesta ordem exata: ${sources
+            `IMAGENS DE REFERÊNCIA (RAG + uploads da live). Foram anexadas ${inlined.length} imagem(ns), nesta ordem exata: ${refSources
               .slice(0, inlined.length)
-              .map((s, i) => `imagem ${i + 1} = ${produtos[i] ?? s}`)
+              .map((s, i) => `imagem ${i + 1} = ${s}`)
               .join(" · ")}.`,
+            "FONTE ÚNICA (INVIOLÁVEL): use SOMENTE as imagens anexadas (produtos associados a esta live e uploads manuais). É PROIBIDO acrescentar qualquer outro equipamento, produto ou marca que não esteja anexado.",
             "CONTRATO DE FIDELIDADE (INVIOLÁVEL): trate cada imagem anexada como recorte fotográfico imutável. É PROIBIDO redesenhar, estilizar, substituir por outro modelo, trocar cores, alterar painéis, botões, textos, marcas ou formato de qualquer produto.",
             "PROPORÇÃO FÍSICA REAL (INVIOLÁVEL): dimensione cada produto pelo TAMANHO REAL do objeto no mundo físico, não pelo tamanho do arquivo de imagem. Impressora 3D e equipamento de pós-cura são os MAIORES (altura de referência 100%); scanner intraoral é pequeno (cerca de 25% da altura da impressora); frasco de resina é menor ainda (cerca de 20%). É PROIBIDO igualar as alturas, PROIBIDO esticar, achatar ou uniformizar os produtos numa fileira de mesmo tamanho.",
             "COMPOSIÇÃO EM PROFUNDIDADE: o equipamento maior fica ao fundo/centro-direita apoiado na bancada; os itens pequenos (scanner, frascos de resina) ficam à FRENTE, mais próximos da câmera, no canto inferior, sem cobrir o texto nem o rosto. Todos apoiados na MESMA superfície, com uma única linha de horizonte e perspectiva coerente — nada flutuando.",
@@ -476,7 +498,8 @@ Deno.serve(async (req) => {
       copy,
       references_used: inlined.length,
       logo_used: !!logoData,
-      reference_sources: sources.slice(0, inlined.length),
+      reference_sources: refSources.slice(0, inlined.length),
+      manual_references_used: manualRefs.length,
       products_selected: produtos,
       products_without_photo: missing,
       video_id: videoId,

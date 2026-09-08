@@ -21,6 +21,7 @@ import { DatePickerInput } from "./DatePickerInput";
 import { CourseProductPicker } from "./CourseProductPicker";
 import CoverImageUpload from "./CoverImageUpload";
 import LiveThumbnailUpload from "./LiveThumbnailUpload";
+import AiReferenceImagesUpload from "./AiReferenceImagesUpload";
 import InstructorSelect from "./courses/InstructorSelect";
 import { slugify, buildCourseTag, MODALITY_CONFIG } from "@/lib/courseUtils";
 import {
@@ -272,6 +273,7 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
   const [category, setCategory] = useState<string>("treinamento");
   const [description, setDescription] = useState("");
   const [marketingBriefing, setMarketingBriefing] = useState("");
+  const [aiReferenceImages, setAiReferenceImages] = useState<string[]>([]);
   const [instructorName, setInstructorName] = useState("");
   const [coverImageUrl, setCoverImageUrl] = useState("");
   const [durationDays, setDurationDays] = useState(1);
@@ -459,6 +461,7 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
       setRelatedProductIds([]);
       setRelatedProductNames([]);
       setMarketingBriefing("");
+      setAiReferenceImages([]);
       return;
     }
     setTitle(course.title);
@@ -466,6 +469,11 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
     setCategory(course.category || "treinamento");
     setDescription(course.description || "");
     setMarketingBriefing((course as any).marketing_briefing || "");
+    setAiReferenceImages(
+      Array.isArray((course as any).ai_reference_image_urls)
+        ? ((course as any).ai_reference_image_urls as string[]).filter((u) => typeof u === "string")
+        : [],
+    );
     setInstructorName(course.instructor_name || "");
     setCoverImageUrl(course.cover_image_url || "");
     setDurationDays(course.duration_days);
@@ -852,6 +860,7 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
         recurrence_weekdays: useRecurrence && recurrenceType === 'weekdays' ? recurrenceWeekdays : null,
         related_product_ids: isOnline ? relatedProductIds : [],
         related_product_names: isOnline ? relatedProductNames : [],
+        ai_reference_image_urls: aiReferenceImages,
       };
 
       let courseId: string;
@@ -1228,6 +1237,15 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
                       setRelatedProductNames(names);
                     }}
                   />
+
+                  <div className="pt-3">
+                    <Label className="font-semibold">Imagens para a geração por IA</Label>
+                    <p className="text-xs text-muted-foreground mt-1 mb-2">
+                      A IA usa somente as fotos oficiais dos produtos selecionados acima. Se quiser incluir
+                      outras imagens (foto do palestrante, bancada, arte pronta), envie aqui — até 6.
+                    </p>
+                    <AiReferenceImagesUpload value={aiReferenceImages} onChange={setAiReferenceImages} />
+                  </div>
                 </div>
               )}
             </div>
