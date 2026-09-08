@@ -70,17 +70,23 @@ export function EventMarketingArtPanel({
       if (sessionError || !accessToken) {
         throw new Error("Sua sessão expirou. Entre novamente no Sistema B.");
       }
-      const { data, error } = await supabase.functions.invoke("event-marketing-render", {
-        headers: { Authorization: `Bearer ${accessToken}` },
-        body: {
-          event_id: eventId,
-          comment_keyword: keyword.trim() || undefined,
-          ai_background: aiBg,
-        },
-      });
-      if (error) throw error;
-      const res = data as any;
-      if (!res?.success) throw new Error(res?.message || res?.error || "Falha na geração");
+      let cursor = 0;
+      let res: any = null;
+      do {
+        const { data, error } = await supabase.functions.invoke("event-marketing-render", {
+          headers: { Authorization: `Bearer ${accessToken}` },
+          body: {
+            event_id: eventId,
+            comment_keyword: keyword.trim() || undefined,
+            ai_background: aiBg,
+            cursor,
+          },
+        });
+        if (error) throw error;
+        res = data as any;
+        if (!res?.success) throw new Error(res?.message || res?.error || "Falha na geração");
+        cursor = Number(res.next_cursor || cursor + 1);
+      } while (!res.done);
       onChange({ marketing_assets: res.assets as EventMarketingAsset[] });
       toast.success(`${res.count} artes geradas`, { description: `Palavra-chave: ${res.comment_keyword}` });
     } catch (e: any) {
