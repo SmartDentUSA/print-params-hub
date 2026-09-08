@@ -488,8 +488,9 @@ function CatalogoTab() {
             return {
               ...t, days,
               vagas_disponiveis: Math.max(t.slots - t.enrolled_count, 0),
-              start_date: days[0]?.date, start_time: days[0]?.start_time,
-              end_date: days[days.length - 1]?.date, end_time: days[days.length - 1]?.end_time,
+              start_date: days[0]?.date ?? t.start_date, start_time: days[0]?.start_time,
+              end_date: days[days.length - 1]?.date ?? t.end_date ?? days[0]?.date ?? t.start_date, end_time: days[days.length - 1]?.end_time,
+
             };
           }),
       })) as SmartopsCourse[];
