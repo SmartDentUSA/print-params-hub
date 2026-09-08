@@ -28,12 +28,38 @@ const BodySchema = z.object({
 const GATEWAY = "https://ai.gateway.lovable.dev/v1/images/generations";
 const IMAGE_MODEL = "google/gemini-3-pro-image";
 
+/** Grade fixa do card — igual em TODAS as artes, para não variar o layout. */
+function layoutSpec(aspect: "4:5" | "9:16"): string[] {
+  const common = [
+    "GRADE FIXA E OBRIGATÓRIA (use exatamente esta estrutura em todos os cards, mudando apenas foto e texto):",
+    "1) FAIXA SUPERIOR escura de altura fixa: logotipo do evento alinhado à ESQUERDA e logotipo Smart Dent branco alinhado à DIREITA, ambos no mesmo eixo vertical.",
+    "2) ETIQUETA em pílula laranja #F26722, canto superior esquerdo do corpo, texto branco em caixa alta pequeno.",
+  ];
+  if (aspect === "4:5") {
+    return [
+      ...common,
+      "3) BLOCO DO PALESTRANTE: foto circular à ESQUERDA (diâmetro ~1/4 da largura), nome em caixa alta à DIREITA da foto, em duas linhas no máximo; especialidade em letra menor logo abaixo do nome.",
+      "4) CORPO: cartão claro de cantos arredondados ocupando a metade inferior, com uma LINHA POR DEMONSTRAÇÃO, sempre na ordem data · horário · tema, separadas por finas linhas horizontais.",
+      "5) RODAPÉ escuro de altura fixa: nome do evento à esquerda, local e estande à direita.",
+      "Alinhamento à esquerda em todo o card, margens iguais nas quatro bordas, mesma escala tipográfica em todos os cards.",
+    ];
+  }
+  return [
+    ...common,
+    "3) METADE SUPERIOR: foto do palestrante grande e centralizada em recorte circular, nome em caixa alta centralizado abaixo dela e especialidade em letra menor.",
+    "4) METADE INFERIOR: cartão claro de cantos arredondados com uma LINHA POR DEMONSTRAÇÃO na ordem data · horário · tema, separadas por finas linhas horizontais.",
+    "5) RODAPÉ escuro de altura fixa: nome do evento, local e estande.",
+    "Composição centralizada, margens iguais, mesma escala tipográfica em todos os stories.",
+  ];
+}
+
 /** Prompt de arte: a IA compõe o card inteiro, com os textos EXATOS informados. */
 function artPrompt(
   textLines: string[],
   aspect: "4:5" | "9:16",
   refCount: number,
   hasEventLogo: boolean,
+  hasTemplate: boolean,
 ): string {
   return [
     `Crie uma ARTE FINAL de divulgação em proporção ${aspect} (${aspect === "4:5" ? "1080x1350, card de carrossel do Instagram" : "1080x1920, story do Instagram"}) para um evento de odontologia digital da Smart Dent.`,
@@ -41,15 +67,20 @@ function artPrompt(
     hasEventLogo
       ? "LOGO DO EVENTO: a SEGUNDA imagem anexada é o logotipo do evento. Reproduza-o exatamente como está, no topo, sem redesenhar nem reescrever."
       : "",
+    hasTemplate
+      ? "GABARITO DE LAYOUT (OBRIGATÓRIO): a ÚLTIMA imagem anexada é um card já aprovado desta mesma sequência. Copie o layout dela pixel a pixel — mesmas posições, mesmos tamanhos de fonte, mesmas cores, mesmos blocos e mesmas margens. MUDE APENAS a fotografia e os textos indicados. É PROIBIDO criar uma composição diferente."
+      : "",
+    ...layoutSpec(aspect),
     refCount > (hasEventLogo ? 2 : 1)
       ? "FOTOS ANEXADAS: trate cada fotografia anexada como recorte imutável. É PROIBIDO redesenhar, estilizar, trocar ou inventar pessoas."
       : "",
     "TEXTO (renderize EXATAMENTE como escrito, sem erros de ortografia, sem inventar nada, sem traduzir, hierarquia clara e muito legível no celular):",
     ...textLines.map((l) => `- ${l}`),
-    "TIPOGRAFIA: sans-serif condensada pesada, textos brancos sobre fundo escuro, destaques em laranja #F26722, margens de segurança generosas nas bordas.",
+    "TIPOGRAFIA: sans-serif condensada pesada, textos brancos sobre fundo escuro e textos azul-marinho sobre o cartão claro, destaques em laranja #F26722, margens de segurança generosas nas bordas.",
     "PROIBIDO: qualquer texto além do especificado, preços, números inventados, marca d'água, logotipo de rede social, moldura de interface, texto cortado ou sobreposto de forma ilegível.",
   ].filter(Boolean).join("\n");
 }
+
 
 /** Gera a arte pelo AI Gateway (mesma chamada usada nos thumbs das lives). */
 async function aiArt(prompt: string, refDataUris: string[]): Promise<Uint8Array> {
@@ -347,12 +378,25 @@ Deno.serve(async (req) => {
       event.company_stand ? `Estande: "${event.company_stand}"` : "",
     ].filter(Boolean);
 
+    // Gabarito de layout: o primeiro card de palestrante já gerado nesta rodada
+    // vira referência das artes seguintes, para todas ficarem idênticas.
+    const doneAssets = (cursor > 0 && Array.isArray(event.marketing_assets)
+      ? event.marketing_assets as Array<{ kind: string; label: string; url: string }>
+      : []);
+    async function templateFor(kind: "carousel" | "story"): Promise<string | null> {
+      const first = doneAssets.find(
+        (a) => a.kind === kind && !/Capa|Fechamento/i.test(a.label || ""),
+      );
+      return first ? await fetchDataUri(first.url) : null;
+    }
+
     if (cursor < slides.length) {
       const slide = slides[cursor];
       const refs = [artDataUri];
       if (eventLogoDataUri) refs.push(eventLogoDataUri);
       let textLines: string[];
       let label: string;
+      let template: string | null = null;
       if (slide.kind === "cover") {
         textLines = [
           ...eventHeader,
@@ -388,8 +432,13 @@ Deno.serve(async (req) => {
             "FOTO DO PALESTRANTE: a imagem anexada do rosto é fotografia real e imutável — recorte-a em um círculo à esquerda do nome. É PROIBIDO redesenhar, estilizar, trocar o rosto, alterar pele, cabelo ou roupa.",
           );
         }
+        template = await templateFor("carousel");
+        if (template) refs.push(template);
       }
-      const png = await aiArt(artPrompt(textLines, "4:5", refs.length, Boolean(eventLogoDataUri)), refs);
+      const png = await aiArt(
+        artPrompt(textLines, "4:5", refs.length, Boolean(eventLogoDataUri), Boolean(template)),
+        refs,
+      );
       await save(png, `carrossel-${String(cursor + 1).padStart(2, "0")}`, "carousel", label, CAROUSEL.width, CAROUSEL.height);
     } else {
       const i = cursor - slides.length;
@@ -410,9 +459,15 @@ Deno.serve(async (req) => {
           ? "FOTO DO PALESTRANTE: a imagem anexada do rosto é fotografia real e imutável — use-a grande na metade superior, sem redesenhar, estilizar ou trocar o rosto."
           : "",
       ].filter(Boolean);
-      const png = await aiArt(artPrompt(textLines, "9:16", refs.length, Boolean(eventLogoDataUri)), refs);
+      const template = await templateFor("story");
+      if (template) refs.push(template);
+      const png = await aiArt(
+        artPrompt(textLines, "9:16", refs.length, Boolean(eventLogoDataUri), Boolean(template)),
+        refs,
+      );
       await save(png, `story-${String(i + 1).padStart(2, "0")}`, "story", `Story · ${s.name}`, STORY.width, STORY.height);
     }
+
 
 
     const previousAssets = cursor > 0 && Array.isArray(event.marketing_assets)
