@@ -21,6 +21,7 @@ import { DatePickerInput } from "./DatePickerInput";
 import { CourseProductPicker } from "./CourseProductPicker";
 import CoverImageUpload from "./CoverImageUpload";
 import LiveThumbnailUpload from "./LiveThumbnailUpload";
+import AiReferenceImagesUpload from "./AiReferenceImagesUpload";
 import InstructorSelect from "./courses/InstructorSelect";
 import { slugify, buildCourseTag, MODALITY_CONFIG } from "@/lib/courseUtils";
 import {
