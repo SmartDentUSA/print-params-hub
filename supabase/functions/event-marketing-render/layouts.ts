@@ -203,47 +203,76 @@ function eventLogo(x: number, y: number, w: number, c: Common): string {
     : "";
 }
 
-/** Bloco de uma demonstração no card do palestrante. */
+/** Bloco de uma demonstração no card do palestrante. `k` = escala (0.6–1). */
 function demoBlock(
   x: number,
   y: number,
   w: number,
   index: number,
   s: SpeakerSession,
-  compact = false,
+  k = 1,
 ): { svg: string; height: number } {
-  const labelSize = compact ? 19 : 22;
-  const dateSize = compact ? 25 : 29;
-  const detailSize = compact ? 25 : 29;
-  const timeSize = compact ? 29 : 33;
-  const iconSize = compact ? 48 : 56;
-  const textX = x + iconSize + 22;
-  const themeLines = wrap(s.theme, detailSize, w - iconSize - 22, compact ? 1 : 2);
-  const iconX = x;
+  const labelSize = Math.round(22 * k);
+  const dateSize = Math.round(29 * k);
+  const detailSize = Math.round(28 * k);
+  const timeSize = Math.round(32 * k);
+  const iconSize = Math.round(56 * k);
+  const gap = Math.round(20 * k);
+  const textX = x + iconSize + gap;
+  const textW = w - iconSize - gap;
+  const theme = fit(s.theme, textW, 2, detailSize, Math.round(17 * k));
   let cy = y;
   let out = `<text x="${x}" y="${cy}" font-family="${FONT}" font-weight="700" font-size="${labelSize}" fill="${BLUE_LIGHT}" letter-spacing="2">DEMONSTRAÇÃO ${index}</text>`;
-  cy += compact ? 20 : 27;
+  cy += Math.round(26 * k);
 
   // Data
-  out += iconBox(iconX, cy, iconSize, "cal");
-  out += `<text x="${textX}" y="${cy + (compact ? 21 : 25)}" font-family="${FONT}" font-weight="700" font-size="${dateSize}" fill="${INK}">${esc(s.dateLong.toUpperCase())}</text>`;
+  out += iconBox(x, cy, iconSize, "cal");
+  const dateFit = fit(s.dateLong.toUpperCase(), textW, 1, dateSize, Math.round(19 * k));
+  out += `<text x="${textX}" y="${cy + Math.round(iconSize * 0.44)}" font-family="${FONT}" font-weight="700" font-size="${dateFit.size}" fill="${INK}">${esc(dateFit.lines[0] || "")}</text>`;
   if (s.weekday) {
-    out += `<text x="${textX}" y="${cy + (compact ? 44 : 52)}" font-family="${FONT}" font-weight="400" font-size="${compact ? 20 : 23}" fill="${INK_SOFT}">(${esc(s.weekday.toUpperCase())})</text>`;
+    out += `<text x="${textX}" y="${cy + Math.round(iconSize * 0.92)}" font-family="${FONT}" font-weight="400" font-size="${Math.round(22 * k)}" fill="${INK_SOFT}">(${esc(s.weekday.toUpperCase())})</text>`;
   }
-  cy += compact ? 57 : 72;
+  cy += iconSize + Math.round(18 * k);
 
   // Tema
-  out += iconBox(iconX, cy, iconSize, "doc");
-  out += textBlock(themeLines, textX, cy + (compact ? 31 : 34), detailSize, INK, 400, 1.2);
-  cy += Math.max(compact ? 56 : 66, 30 + themeLines.length * detailSize * 1.2);
+  if (theme.lines.length) {
+    out += iconBox(x, cy, iconSize, "doc");
+    out += textBlock(theme.lines, textX, cy + Math.round(theme.size * 1.05), theme.size, INK, 400, 1.2);
+    cy += Math.max(iconSize, Math.round(theme.lines.length * theme.size * 1.2)) + Math.round(16 * k);
+  }
 
   // Horário
-  out += iconBox(iconX, cy, iconSize, "clock");
-  out += `<text x="${textX}" y="${cy + (compact ? 34 : 38)}" font-family="${FONT}" font-weight="700" font-size="${timeSize}" fill="${INK}">${esc(s.timeLabel)}</text>`;
+  out += iconBox(x, cy, iconSize, "clock");
+  out += `<text x="${textX}" y="${cy + Math.round(iconSize * 0.66)}" font-family="${FONT}" font-weight="700" font-size="${timeSize}" fill="${INK}">${esc(s.timeLabel)}</text>`;
   cy += iconSize;
 
   return { svg: `<g>${out}</g>`, height: cy - y };
 }
+
+/** Empilha as demonstrações com a maior escala que couber no espaço disponível. */
+function stackDemos(
+  x: number,
+  top: number,
+  w: number,
+  sessions: SpeakerSession[],
+  available: number,
+): string {
+  for (let k = 1; k >= 0.58; k -= 0.04) {
+    let y = top;
+    let out = "";
+    sessions.forEach((s, i) => {
+      if (i > 0) {
+        out += `<line x1="${x}" y1="${y - Math.round(18 * k)}" x2="${x + w}" y2="${y - Math.round(18 * k)}" stroke="${HAIR}" stroke-width="2"/>`;
+      }
+      const b = demoBlock(x, y, w, i + 1, s, k);
+      out += b.svg;
+      y += b.height + Math.round(40 * k);
+    });
+    if (y - top - Math.round(40 * k) <= available || k <= 0.6) return out;
+  }
+  return "";
+}
+
 
 export function buildCarouselSvg(slide: CarouselSlide, c: Common): { svg: string; width: number; height: number } {
   const { width: W, height: H } = CAROUSEL;
