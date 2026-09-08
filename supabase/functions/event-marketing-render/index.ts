@@ -260,23 +260,8 @@ Deno.serve(async (req) => {
 
     const artDataUri = await fetchDataUri(event.marketing_art_url);
     if (!artDataUri) return json({ error: "ART_UNREADABLE", message: "Não foi possível ler a arte enviada." }, 422);
-    const [logoBytes, poppinsBold, poppinsRegular] = await Promise.all([
-      remoteAsset(SMARTDENT_LOGO_URL, "o logo Smart Dent"),
-      remoteAsset(POPPINS_BOLD_URL, "a fonte Poppins Bold"),
-      remoteAsset(POPPINS_REGULAR_URL, "a fonte Poppins Regular"),
-    ]);
-    const logoDataUri = `data:image/png;base64,${b64(logoBytes)}`;
     const eventLogoDataUri = await fetchDataUri(event.event_logo_url);
-    // Padrão: usar exatamente a arte enviada no card do evento (sem IA).
-    const useAi = parsed.data.ai_background === true;
-    const aiCarousel = useAi && kinds.includes("carousel")
-      ? await aiBackground(artDataUri, "4:5", String(event.name || ""))
-      : null;
-    const aiStory = useAi && kinds.includes("stories")
-      ? await aiBackground(artDataUri, "9:16", String(event.name || ""))
-      : null;
-    const common = { artDataUri: aiCarousel || artDataUri, logoDataUri, eventLogoDataUri };
-    const commonStory = { artDataUri: aiStory || aiCarousel || artDataUri, logoDataUri, eventLogoDataUri };
+
 
     const speakers = Array.isArray(event.speakers) ? (event.speakers as any[]) : [];
 
