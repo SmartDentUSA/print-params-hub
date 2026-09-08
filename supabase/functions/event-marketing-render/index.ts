@@ -202,7 +202,8 @@ Deno.serve(async (req) => {
     try {
       const { data: u } = await db.auth.getUser(provided);
       if (u?.user?.id) {
-        const { data: can } = await db.rpc("can_manage_training_media", { _user_id: u.user.id });
+        // Verificação server-side (não depende de auth.uid(), que é nulo no service role).
+        const { data: can } = await db.rpc("fn_can_manage_event_media", { _user_id: u.user.id });
         allowed = can === true;
       }
     } catch {
