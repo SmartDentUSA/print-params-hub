@@ -35,7 +35,7 @@ function esc(s: string): string {
 
 function wrap(text: string, fontSize: number, maxWidth: number, maxLines: number): string[] {
   const words = String(text || "").trim().split(/\s+/).filter(Boolean);
-  const perChar = fontSize * 0.55;
+  const perChar = fontSize * 0.6;
   const lines: string[] = [];
   let cur = "";
   for (const w of words) {
