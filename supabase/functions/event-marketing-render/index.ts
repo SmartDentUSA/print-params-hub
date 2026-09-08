@@ -219,6 +219,7 @@ Deno.serve(async (req) => {
     const artDataUri = await fetchDataUri(event.marketing_art_url);
     if (!artDataUri) return json({ error: "ART_UNREADABLE", message: "Não foi possível ler a arte enviada." }, 422);
     const eventLogoDataUri = await fetchDataUri(event.event_logo_url);
+    const smartDentLogo = `data:image/png;base64,${b64(await asset("smartdent-logo.png"))}`;
 
 
     const speakers = Array.isArray(event.speakers) ? (event.speakers as any[]) : [];
@@ -313,100 +314,44 @@ Deno.serve(async (req) => {
     }
     if (cursor >= total) return json({ error: "INVALID_CURSOR", message: "Etapa de geração inválida." }, 400);
 
-    const eventHeader = [
-      `Evento: "${event.name}"`,
-      dateRange ? `Datas: "${dateRange}"` : "",
-      locationLabel ? `Local: "${locationLabel}"` : "",
-      event.company_stand ? `Estande: "${event.company_stand}"` : "",
-    ].filter(Boolean);
-
-    // Gabarito de layout: o primeiro card de palestrante já gerado nesta rodada
-    // vira referência das artes seguintes, para todas ficarem idênticas.
-    const doneAssets = (cursor > 0 && Array.isArray(event.marketing_assets)
-      ? event.marketing_assets as Array<{ kind: string; label: string; url: string }>
-      : []);
-    async function templateFor(kind: "carousel" | "story"): Promise<string | null> {
-      const first = doneAssets.find(
-        (a) => a.kind === kind && !/Capa|Fechamento/i.test(a.label || ""),
-      );
-      return first ? await fetchDataUri(first.url) : null;
-    }
-
     if (cursor < slides.length) {
       const slide = slides[cursor];
-      const refs = [artDataUri];
-      if (eventLogoDataUri) refs.push(eventLogoDataUri);
-      let textLines: string[];
       let label: string;
-      let template: string | null = null;
       if (slide.kind === "cover") {
-        textLines = [
-          ...eventHeader,
-          'Headline gigante em caixa alta: "TODA A TECNOLOGIA AO VIVO"',
-          'Subtítulo: "Visite nosso estande e participe das demonstrações."',
-          'Chamada final: "ESPERAMOS VOCÊ!"',
-        ];
         label = "Carrossel · Capa";
       } else if (slide.kind === "closing") {
-        textLines = [
-          ...eventHeader,
-          'Headline: "AGENDA DE DEMONSTRAÇÕES AO VIVO"',
-          'Frase de marca: "Tecnologia que transforma sorrisos."',
-          `Chamada final destacada: "COMENTE ${keyword} E RECEBA A AGENDA COMPLETA"`,
-        ];
         label = "Carrossel · Fechamento";
       } else {
-        const speaker = speakerCards.find((item) => item.name === slide.speakerName)!;
-        const photo = await fetchDataUri(speaker.photoUrl);
-        if (photo) refs.push(photo);
-        textLines = [
-          ...eventHeader,
-          'Etiqueta no topo: "DEMONSTRAÇÃO AO VIVO"',
-          `Nome do palestrante em destaque: "${speaker.name}"`,
-          speaker.specialty ? `Especialidade em letra menor: "${speaker.specialty}"` : "",
-          ...speaker.sessions.slice(0, 4).map((ses, i) =>
-            `Demonstração ${i + 1} — data: "${ses.dateLong}" · dia da semana: "${ses.weekday}" · horário: "${ses.timeLabel}" · tema: "${ses.theme}"`
-          ),
-        ].filter(Boolean);
+        const speaker = speakerCards.find((item) => item.name === slide.speakerName);
+        if (!speaker) return json({ error: "SPEAKER_NOT_FOUND", message: "Palestrante não encontrado para esta arte." }, 422);
+        slide.photoDataUri = await fetchDataUri(speaker.photoUrl);
         label = `Carrossel · ${speaker.name}`;
-        if (photo) {
-          textLines.push(
-            "FOTO DO PALESTRANTE: a imagem anexada do rosto é fotografia real e imutável — recorte-a em um círculo à esquerda do nome. É PROIBIDO redesenhar, estilizar, trocar o rosto, alterar pele, cabelo ou roupa.",
-          );
-        }
-        template = await templateFor("carousel");
-        if (template) refs.push(template);
       }
-      const png = await aiArt(
-        artPrompt(textLines, "4:5", refs.length, Boolean(eventLogoDataUri), Boolean(template)),
-        refs,
-      );
+      const rendered = buildCarouselSvg(slide, {
+        artDataUri,
+        logoDataUri: smartDentLogo,
+        eventLogoDataUri,
+      });
+      const png = await renderPng(rendered.svg, rendered.width);
       await save(png, `carrossel-${String(cursor + 1).padStart(2, "0")}`, "carousel", label, CAROUSEL.width, CAROUSEL.height);
     } else {
       const i = cursor - slides.length;
       const s = speakerCards[i];
-      const refs = [artDataUri];
-      if (eventLogoDataUri) refs.push(eventLogoDataUri);
+      if (!s) return json({ error: "SPEAKER_NOT_FOUND", message: "Palestrante não encontrado para este story." }, 422);
       const photo = await fetchDataUri(s.photoUrl);
-      if (photo) refs.push(photo);
-      const textLines = [
-        ...eventHeader,
-        'Etiqueta no topo: "DEMONSTRAÇÃO AO VIVO"',
-        `Nome do palestrante em destaque: "${s.name}"`,
-        s.specialty ? `Especialidade em letra menor: "${s.specialty}"` : "",
-        ...s.sessions.slice(0, 3).map((ses, idx) =>
-          `Demonstração ${idx + 1} — data: "${ses.dateLong}" · dia da semana: "${ses.weekday}" · horário: "${ses.timeLabel}" · tema: "${ses.theme}"`
-        ),
-        photo
-          ? "FOTO DO PALESTRANTE: a imagem anexada do rosto é fotografia real e imutável — use-a grande na metade superior, sem redesenhar, estilizar ou trocar o rosto."
-          : "",
-      ].filter(Boolean);
-      const template = await templateFor("story");
-      if (template) refs.push(template);
-      const png = await aiArt(
-        artPrompt(textLines, "9:16", refs.length, Boolean(eventLogoDataUri), Boolean(template)),
-        refs,
-      );
+      const rendered = buildStorySvg({
+        artDataUri,
+        logoDataUri: smartDentLogo,
+        eventLogoDataUri,
+        speakerName: s.name,
+        specialty: s.specialty,
+        photoDataUri: photo,
+        sessions: s.sessions,
+        eventName: event.name,
+        location: locationLabel,
+        stand: event.company_stand || "",
+      });
+      const png = await renderPng(rendered.svg, rendered.width);
       await save(png, `story-${String(i + 1).padStart(2, "0")}`, "story", `Story · ${s.name}`, STORY.width, STORY.height);
     }
 
