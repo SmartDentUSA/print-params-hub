@@ -308,32 +308,25 @@ export function buildCarouselSvg(slide: CarouselSlide, c: Common): { svg: string
       <path d="M 610 ${ctaTop + 34} L 646 ${ctaTop + 48} L 610 ${ctaTop + 62} Z" fill="${WHITE}"/>
     </g>`;
   } else if (slide.kind === "speaker") {
-    const artH = 500;
-    const photoR = 118;
-    const photoCx = 220;
-    const photoCy = 340;
+    const artH = 520;
+    const footH = 104;
+    const photoR = 112;
+    const photoCx = 208;
+    const photoCy = 336;
     const sessions = slide.sessions.slice(0, 3);
-    const compact = sessions.length >= 3;
-    let y = artH + 58;
-    let blocks = "";
-    sessions.forEach((s, i) => {
-      if (i > 0) {
-        blocks += `<line x1="72" y1="${y - (compact ? 17 : 24)}" x2="${W - 72}" y2="${y - (compact ? 17 : 24)}" stroke="${HAIR}" stroke-width="2"/>`;
-      }
-      const b = demoBlock(72, y, W - 144, i + 1, s, compact);
-      blocks += b.svg;
-      y += b.height + (compact ? 28 : 40);
-    });
-    const nameLines = wrap(slide.speakerName.toUpperCase(), 38, 560, 2);
-    const pillW = 610;
-    const pillH = nameLines.length > 1 ? 116 : 78;
+    const blocksTop = artH + 62;
+    const blocks = stackDemos(72, blocksTop, W - 144, sessions, H - footH - 30 - blocksTop);
+    const hero = slide.heroDataUri || c.artDataUri;
+    const pillX = photoCx + photoR + 28;
+    const pillW = W - 64 - pillX;
+    const name = fit(slide.speakerName.toUpperCase(), pillW - 56, 2, 38, 24);
+    const pillH = name.lines.length > 1 ? name.size * 2.4 + 26 : name.size * 2.1;
     body = `
     <g clip-path="url(#frame)">
-      <image x="0" y="0" width="${W}" height="${H}" preserveAspectRatio="xMidYMid slice" xlink:href="${c.artDataUri}"/>
       <rect width="${W}" height="${H}" fill="${PAPER}"/>
-      <image x="0" y="0" width="${W}" height="${artH}" preserveAspectRatio="xMidYMid slice" xlink:href="${c.artDataUri}"/>
-      <rect x="0" y="0" width="${W}" height="${artH}" fill="${NAVY_DEEP}" opacity="0.9"/>
-      <rect x="0" y="${artH - 92}" width="${W}" height="92" fill="url(#artToPaper)"/>
+      <image x="0" y="0" width="${W}" height="${artH}" preserveAspectRatio="xMidYMid slice" xlink:href="${hero}"/>
+      <rect x="0" y="0" width="${W}" height="${artH}" fill="${NAVY_DEEP}" opacity="${slide.heroDataUri ? 0.7 : 0.9}"/>
+      <rect x="0" y="${artH - 110}" width="${W}" height="110" fill="url(#artToPaper)"/>
     </g>
     ${brandTopRight(W, c, 46)}
     <defs><clipPath id="spPhoto"><circle cx="${photoCx}" cy="${photoCy}" r="${photoR}"/></clipPath></defs>
@@ -342,13 +335,13 @@ export function buildCarouselSvg(slide: CarouselSlide, c: Common): { svg: string
       ? `<g clip-path="url(#spPhoto)"><image x="${photoCx - photoR}" y="${photoCy - photoR}" width="${photoR * 2}" height="${photoR * 2}" preserveAspectRatio="xMidYMin slice" xlink:href="${slide.photoDataUri}"/></g>`
       : `<circle cx="${photoCx}" cy="${photoCy}" r="${photoR}" fill="${CARD}"/>`}
     <g>
-      <rect x="${photoCx + photoR + 30}" y="${photoCy - pillH / 2}" width="${pillW}" height="${pillH}" rx="18" fill="${INK}"/>
-      ${textBlock(nameLines, photoCx + photoR + 30 + 34, photoCy - pillH / 2 + (nameLines.length > 1 ? 47 : 51), 38, WHITE, 700, 1.12, 'letter-spacing="1"')}
+      <rect x="${pillX}" y="${photoCy - pillH / 2}" width="${pillW}" height="${pillH}" rx="18" fill="${INK}"/>
+      ${textBlock(name.lines, pillX + 28, photoCy - pillH / 2 + name.size * 1.25, name.size, WHITE, 700, 1.15, 'letter-spacing="1"')}
     </g>
     ${blocks}
-    <rect x="0" y="${H - 104}" width="${W}" height="104" fill="${WHITE}"/>
-    ${eventLogo(72, H - 91, 300, c)}
-    <text x="${W - 72}" y="${H - 44}" text-anchor="end" font-family="${FONT}" font-weight="700" font-size="27" fill="${INK_SOFT}">${esc(slide.dateLabel || "")}</text>`;
+    <rect x="0" y="${H - footH}" width="${W}" height="${footH}" fill="${WHITE}"/>
+    ${eventLogo(72, H - 91, 280, c)}
+    <text x="${W - 72}" y="${H - 44}" text-anchor="end" font-family="${FONT}" font-weight="700" font-size="26" fill="${INK_SOFT}">${esc(slide.dateLabel || "")}</text>`;
   } else {
     const nameLines = wrap(slide.eventName.toUpperCase(), 92, W - 200, 3);
     const nameBase = 470;
