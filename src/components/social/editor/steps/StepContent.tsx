@@ -12,6 +12,7 @@ import { useGenerateCaption } from '@/hooks/social/useGenerateCaption';
 import { useProductKnowledgeCopies, type ReadyCopy } from '@/hooks/social/useProductKnowledgeCopies';
 import { SearchableProductSelect } from '@/components/SearchableProductSelect';
 import { SystemACarouselPicker } from '@/components/social/editor/SystemACarouselPicker';
+import { EventArtPicker } from '@/components/social/editor/EventArtPicker';
 import type { SystemACarousel } from '@/hooks/social/useSystemACarousels';
 import { supabase } from '@/integrations/supabase/client';
 import type { PostInput } from '@/lib/social/postSchema';
@@ -29,6 +30,7 @@ interface Props {
   showSystemAPicker?: boolean;
   pickedCarrouselRef?: string;
   onPickSystemACarousel?: (c: SystemACarousel) => void;
+  onPickEventArts?: (urls: string[]) => void;
 }
 
 const PLATFORM_LABELS: Record<string, string> = {
@@ -188,6 +190,7 @@ export function StepContent({
   showSystemAPicker = false,
   pickedCarrouselRef,
   onPickSystemACarousel,
+  onPickEventArts,
 }: Props) {
   const [tagInput, setTagInput] = useState('');
 
@@ -1248,6 +1251,14 @@ ${m.location ? `📍 Local: ${m.location}` : '📍 Local: (omitir se não houver
         <SystemACarouselPicker
           selectedRef={pickedCarrouselRef}
           onPick={onPickSystemACarousel}
+          onClear={onClearCarrossel}
+        />
+      )}
+
+      {showSystemAPicker && onPickEventArts && (
+        <EventArtPicker
+          selectedUrls={selectedCarrosselImages}
+          onPick={onPickEventArts}
           onClear={onClearCarrossel}
         />
       )}

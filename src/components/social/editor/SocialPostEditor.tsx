@@ -86,6 +86,12 @@ export function SocialPostEditor() {
     onChange({ post_type: 'carousel' });
   };
 
+  const pickEventArts = (urls: string[]) => {
+    setSelectedCarrosselImages(urls);
+    setPickedCarrouselRef(undefined);
+    if (urls.length > 1) onChange({ post_type: 'carousel' });
+  };
+
   const carrosselAsMedia: MediaItem[] = useMemo(
     () => selectedCarrosselImages.map((url) => ({ url, type: 'image' as const })),
     [selectedCarrosselImages],
@@ -231,6 +237,7 @@ export function SocialPostEditor() {
               showSystemAPicker={!isCarrosselMode && !isEdit}
               pickedCarrouselRef={pickedCarrouselRef}
               onPickSystemACarousel={pickSystemACarousel}
+              onPickEventArts={pickEventArts}
             />
           )}
           {step === 1 && (
