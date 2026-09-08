@@ -461,6 +461,7 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
       setRelatedProductIds([]);
       setRelatedProductNames([]);
       setMarketingBriefing("");
+      setAiReferenceImages([]);
       return;
     }
     setTitle(course.title);
