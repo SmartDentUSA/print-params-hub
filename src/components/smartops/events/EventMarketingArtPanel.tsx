@@ -201,13 +201,22 @@ export function EventMarketingArtPanel({
               <img src={a.url} alt={a.label} className="w-full rounded object-cover" loading="lazy" />
               <p className="truncate text-[11px] font-medium">{a.label}</p>
               <p className="text-[10px] text-muted-foreground">{a.width}×{a.height}</p>
-              <div className="flex gap-1">
+              <div className="flex items-center gap-1">
                 <a href={a.url} target="_blank" rel="noopener" className="text-primary">
                   <ExternalLink className="h-3.5 w-3.5" />
                 </a>
                 <a href={a.url} download className="text-primary">
                   <Download className="h-3.5 w-3.5" />
                 </a>
+                <button
+                  type="button"
+                  title="Excluir arte"
+                  className="ml-auto text-destructive hover:opacity-70 disabled:opacity-40"
+                  disabled={deleting === a.url}
+                  onClick={() => removeAsset(a)}
+                >
+                  {deleting === a.url ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+                </button>
               </div>
             </div>
           ))}
