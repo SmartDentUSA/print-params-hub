@@ -281,7 +281,7 @@ export function buildCarouselSvg(slide: CarouselSlide, c: Common): { svg: string
       <image x="0" y="0" width="${W}" height="${H}" preserveAspectRatio="xMidYMid slice" xlink:href="${c.artDataUri}"/>
       <rect width="${W}" height="${H}" fill="${PAPER}"/>
       <image x="0" y="0" width="${W}" height="${artH}" preserveAspectRatio="xMidYMid slice" xlink:href="${c.artDataUri}"/>
-      <rect x="0" y="0" width="${W}" height="${artH}" fill="${NAVY_DEEP}" opacity="0.76"/>
+      <rect x="0" y="0" width="${W}" height="${artH}" fill="${NAVY_DEEP}" opacity="0.9"/>
       <rect x="0" y="${artH - 92}" width="${W}" height="92" fill="url(#artToPaper)"/>
     </g>
     ${brandTopRight(W, c, 46)}
@@ -351,21 +351,25 @@ export interface StoryInput extends Common {
 
 export function buildStorySvg(input: StoryInput): { svg: string; width: number; height: number } {
   const { width: W, height: H } = STORY;
-  const artH = 900;
-  const photoR = 190;
+  const artH = 820;
+  const photoR = 170;
   const photoCx = W / 2;
-  const photoCy = 640;
+  const photoCy = 570;
+  const sessions = input.sessions.slice(0, 3);
+  const compact = sessions.length >= 2;
 
-  let y = artH + 190;
+  const nameLines = wrap(input.speakerName.toUpperCase(), 58, W - 220, 2);
+  const nameY = photoCy + photoR + 76;
+  const specialtyY = nameY + nameLines.length * 64 + 4;
+  let y = specialtyY + 72;
   let blocks = "";
-  input.sessions.slice(0, 3).forEach((s, i) => {
-    if (i > 0) blocks += `<line x1="90" y1="${y - 38}" x2="${W - 90}" y2="${y - 38}" stroke="${HAIR}" stroke-width="2"/>`;
-    const b = demoBlock(90, y, W - 180, i + 1, s);
+  sessions.forEach((s, i) => {
+    if (i > 0) blocks += `<line x1="72" y1="${y - 20}" x2="${W - 72}" y2="${y - 20}" stroke="${HAIR}" stroke-width="2"/>`;
+    const b = demoBlock(72, y, W - 144, i + 1, s, compact);
     blocks += b.svg;
-    y += b.height + 60;
+    y += b.height + (compact ? 30 : 46);
   });
 
-  const nameLines = wrap(input.speakerName.toUpperCase(), 62, W - 240, 2);
   const footLine = [input.location, input.stand ? `Estande ${input.stand}` : ""].filter(Boolean).join("  |  ");
 
   return {
@@ -376,7 +380,8 @@ ${defs(W, H)}
   <rect width="${W}" height="${H}" fill="${PAPER}"/>
   <g clip-path="url(#frame)">
     <image x="0" y="0" width="${W}" height="${artH}" preserveAspectRatio="xMidYMid slice" xlink:href="${input.artDataUri}"/>
-    <rect x="0" y="0" width="${W}" height="${artH}" fill="url(#artToPaper)"/>
+    <rect x="0" y="0" width="${W}" height="${artH}" fill="${NAVY_DEEP}" opacity="0.88"/>
+    <rect x="0" y="${artH - 110}" width="${W}" height="110" fill="url(#artToPaper)"/>
   </g>
   ${brandTopRight(W, input, 60)}
   <defs><clipPath id="stPhoto"><circle cx="${photoCx}" cy="${photoCy}" r="${photoR}"/></clipPath></defs>
@@ -384,12 +389,13 @@ ${defs(W, H)}
   ${input.photoDataUri
     ? `<g clip-path="url(#stPhoto)"><image x="${photoCx - photoR}" y="${photoCy - photoR}" width="${photoR * 2}" height="${photoR * 2}" preserveAspectRatio="xMidYMin slice" xlink:href="${input.photoDataUri}"/></g>`
     : `<circle cx="${photoCx}" cy="${photoCy}" r="${photoR}" fill="${CARD}"/>`}
-  ${textBlock(nameLines, W / 2, photoCy + photoR + 90, 62, INK, 700, 1.1, 'text-anchor="middle" letter-spacing="-1"')}
-  <text x="${W / 2}" y="${photoCy + photoR + 90 + nameLines.length * 68 + 6}" text-anchor="middle" font-family="Poppins" font-weight="400" font-size="34" fill="${BLUE_LIGHT}" letter-spacing="3">${esc(input.specialty.toUpperCase())}</text>
+  ${textBlock(nameLines, W / 2, nameY, 58, INK, 700, 1.1, 'text-anchor="middle" letter-spacing="0"')}
+  <text x="${W / 2}" y="${specialtyY}" text-anchor="middle" font-family="${FONT}" font-weight="400" font-size="30" fill="${BLUE_LIGHT}" letter-spacing="2">${esc(input.specialty.toUpperCase())}</text>
   ${blocks}
+  <rect x="0" y="${H - 220}" width="${W}" height="220" fill="${WHITE}"/>
   ${pin(90, H - 190, 46, BLUE_LIGHT)}
-  <text x="156" y="${H - 152}" font-family="Poppins" font-weight="700" font-size="34" fill="${INK}">${esc(footLine)}</text>
-  <text x="156" y="${H - 100}" font-family="Poppins" font-weight="400" font-size="30" fill="${INK_SOFT}">${esc(input.eventName)}</text>
+  <text x="156" y="${H - 152}" font-family="${FONT}" font-weight="700" font-size="32" fill="${INK}">${esc(footLine)}</text>
+  ${textBlock(wrap(input.eventName, 27, W - 246, 2), 156, H - 100, 27, INK_SOFT, 400, 1.2)}
 </svg>`,
   };
 }
