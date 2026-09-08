@@ -23,6 +23,10 @@ const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const WASM_URL = "https://unpkg.com/@resvg/resvg-wasm@2.6.2/index_bg.wasm";
 const BUCKET = "wa-media";
+const SMARTDENT_LOGO_URL =
+  "https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/h7stblp3qxn_1760720051743.png";
+const POPPINS_BOLD_URL = "https://raw.githubusercontent.com/google/fonts/main/ofl/poppins/Poppins-Bold.ttf";
+const POPPINS_REGULAR_URL = "https://raw.githubusercontent.com/google/fonts/main/ofl/poppins/Poppins-Regular.ttf";
 
 const BodySchema = z.object({
   event_id: z.string().uuid(),
@@ -97,8 +101,14 @@ function b64(bytes: Uint8Array): string {
   return btoa(out);
 }
 
-function asset(name: string): Promise<Uint8Array> {
-  return Deno.readFile(new URL(`./assets/${name}`, import.meta.url));
+async function remoteAsset(url: string, label: string): Promise<Uint8Array> {
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`Não foi possível carregar ${label} (${response.status}).`);
+  }
+  const bytes = new Uint8Array(await response.arrayBuffer());
+  if (!bytes.length) throw new Error(`${label} está vazio.`);
+  return bytes;
 }
 
 async function fetchDataUri(url?: string | null): Promise<string | null> {
@@ -249,7 +259,12 @@ Deno.serve(async (req) => {
 
     const artDataUri = await fetchDataUri(event.marketing_art_url);
     if (!artDataUri) return json({ error: "ART_UNREADABLE", message: "Não foi possível ler a arte enviada." }, 422);
-    const logoDataUri = `data:image/png;base64,${b64(await asset("smartdent-logo.png"))}`;
+    const [logoBytes, poppinsBold, poppinsRegular] = await Promise.all([
+      remoteAsset(SMARTDENT_LOGO_URL, "o logo Smart Dent"),
+      remoteAsset(POPPINS_BOLD_URL, "a fonte Poppins Bold"),
+      remoteAsset(POPPINS_REGULAR_URL, "a fonte Poppins Regular"),
+    ]);
+    const logoDataUri = `data:image/png;base64,${b64(logoBytes)}`;
     const eventLogoDataUri = await fetchDataUri(event.event_logo_url);
     // Padrão: usar exatamente a arte enviada no card do evento (sem IA).
     const useAi = parsed.data.ai_background === true;
@@ -300,7 +315,7 @@ Deno.serve(async (req) => {
     const keyword = keywordFrom(event, parsed.data.comment_keyword);
 
     await ensureWasm();
-    const fontBuffers = [await asset("Poppins-Bold.ttf"), await asset("Poppins-Regular.ttf")];
+    const fontBuffers = [poppinsBold, poppinsRegular];
     const render = (svg: string, width: number) =>
       new Resvg(svg, {
         fitTo: { mode: "width", value: width },
