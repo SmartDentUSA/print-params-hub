@@ -112,9 +112,9 @@ async function listProfessionals() {
   const { data, error } = await admin
     .from("lia_attendances")
     .select("id, nome, email, especialidade, prof_cro, prof_photo_url, prof_mini_cv, instagram, prof_updated_at")
-    .not("prof_updated_at", "is", null)
     .is("merged_into", null)
-    .order("nome", { ascending: true })
+    .not("prof_photo_url", "is", null)
+    .order("prof_updated_at", { ascending: false, nullsFirst: false })
     .limit(500);
   if (error) throw error;
   return (data ?? [])
@@ -224,6 +224,14 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const action = String(body?.action ?? "");
     const eventId = String(body?.event_id ?? "");
+
+    // A agenda pública e a TV usam esta ação para substituir a foto salva no
+    // evento pela foto mais recente do cadastro de Profissionais. Ela não
+    // pertence a um evento específico e, portanto, não exige event_id.
+    if (action === "professionals") {
+      return json({ professionals: await listProfessionals() });
+    }
+
     if (!eventId) return json({ error: "event_id obrigatório" }, 400);
 
     const event = await loadEvent(eventId);
@@ -249,10 +257,6 @@ Deno.serve(async (req) => {
         speakers: publicSpeakers((event.speakers || []) as Speaker[]),
         professionals: await listProfessionals(),
       });
-    }
-
-    if (action === "professionals") {
-      return json({ professionals: await listProfessionals() });
     }
 
     if (action === "create_professional") {
