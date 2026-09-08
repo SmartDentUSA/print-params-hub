@@ -263,8 +263,9 @@ export function buildCarouselSvg(slide: CarouselSlide, c: Common): { svg: string
     const pillW = Math.min(560, Math.max(...nameLines.map((l) => l.length)) * 24 + 80);
     const pillH = nameLines.length > 1 ? 132 : 84;
     body = `
-    <rect width="${W}" height="${H}" fill="${PAPER}"/>
     <g clip-path="url(#frame)">
+      <image x="0" y="0" width="${W}" height="${H}" preserveAspectRatio="xMidYMid slice" xlink:href="${c.artDataUri}"/>
+      <rect width="${W}" height="${H}" fill="${PAPER}" opacity="0.93"/>
       <image x="0" y="0" width="${W}" height="${artH + 60}" preserveAspectRatio="xMidYMid slice" xlink:href="${c.artDataUri}"/>
       <rect x="0" y="0" width="${W}" height="${artH + 60}" fill="url(#artToPaper)"/>
     </g>
@@ -286,8 +287,9 @@ export function buildCarouselSvg(slide: CarouselSlide, c: Common): { svg: string
     const nameBase = 470;
     let y = nameBase + nameLines.length * 100 + 60;
     body = `
-    <rect width="${W}" height="${H}" fill="${PAPER}"/>
     <g clip-path="url(#frame)">
+      <image x="0" y="0" width="${W}" height="${H}" preserveAspectRatio="xMidYMid slice" xlink:href="${c.artDataUri}"/>
+      <rect width="${W}" height="${H}" fill="${PAPER}" opacity="0.93"/>
       <image x="0" y="0" width="${W}" height="${620}" preserveAspectRatio="xMidYMid slice" xlink:href="${c.artDataUri}"/>
       <rect x="0" y="0" width="${W}" height="${620}" fill="url(#artToPaper)"/>
     </g>
