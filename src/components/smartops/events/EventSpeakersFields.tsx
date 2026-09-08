@@ -12,6 +12,8 @@ export type EventSpeaker = {
   theme?: string;
   instagram?: string;
   photo_url?: string;
+  /** Imagem da aula: entra como fundo (hero) atrás da foto nas artes geradas. */
+  lesson_image_url?: string;
   professional_id?: string;
   sessions?: EventSpeakerSession[];
 };
