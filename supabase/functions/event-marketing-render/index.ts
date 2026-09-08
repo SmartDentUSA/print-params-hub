@@ -250,28 +250,33 @@ Deno.serve(async (req) => {
       if (s?.photo_url && !photos.has(s.photo_url)) photos.set(s.photo_url, await fetchDataUri(s.photo_url));
     }
 
-    // Sessões agrupadas por dia
-    const byDay = new Map<string, SessionItem[]>();
-    for (const s of speakers) {
-      const name = String(s?.name || "").trim();
-      const sessions = Array.isArray(s?.sessions) ? s.sessions : [];
-      for (const ses of sessions) {
-        const date = String(ses?.date || "").slice(0, 10);
-        if (!date) continue;
-        const list = byDay.get(date) || [];
-        list.push({
-          timeLabel: timeLabel(ses?.start_time, ses?.end_time),
-          theme: String(ses?.theme || s?.theme || "").trim(),
-          speakerName: name || "Palestrante",
+    // Um card por palestrante, com as demonstrações em ordem de data/hora
+    const speakerCards = speakers
+      .map((s) => {
+        const name = String(s?.name || "").trim();
+        const raw = (Array.isArray(s?.sessions) ? s.sessions : []).filter((x: any) => x?.date);
+        const sessions: SpeakerSession[] = raw
+          .slice()
+          .sort((a: any, b: any) =>
+            `${String(a.date)}${a.start_time || ""}`.localeCompare(`${String(b.date)}${b.start_time || ""}`),
+          )
+          .map((ses: any) => {
+            const iso = String(ses.date).slice(0, 10);
+            return {
+              dateLong: dateLong(iso),
+              weekday: weekdayLabel(iso),
+              theme: String(ses?.theme || s?.theme || "").trim(),
+              timeLabel: timeLabel(ses?.start_time, ses?.end_time),
+            };
+          });
+        return {
+          name,
+          specialty: String(s?.specialty || s?.theme || "").trim(),
           photoDataUri: s?.photo_url ? photos.get(s.photo_url) || null : null,
-        });
-        byDay.set(date, list);
-      }
-    }
-    const days = [...byDay.keys()].sort();
-    for (const d of days) {
-      byDay.get(d)!.sort((a, b) => a.timeLabel.localeCompare(b.timeLabel));
-    }
+          sessions,
+        };
+      })
+      .filter((s) => s.name && s.sessions.length);
 
     const locationLabel = [event.location, event.country].filter(Boolean).join(" · ");
     const keyword = keywordFrom(event, parsed.data.comment_keyword);
