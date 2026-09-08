@@ -9,7 +9,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { z } from "npm:zod";
-import { initWasm, Resvg } from "https://esm.sh/@resvg/resvg-wasm@2.6.2";
 import {
   buildCarouselSvg,
   buildStorySvg,
@@ -24,8 +23,7 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const BUCKET = "wa-media";
-const FONT_REGULAR_URL = "https://raw.githubusercontent.com/google/fonts/main/ofl/poppins/Poppins-Regular.ttf";
-const FONT_BOLD_URL = "https://raw.githubusercontent.com/google/fonts/main/ofl/poppins/Poppins-Bold.ttf";
+const RENDER_BASE_URL = (Deno.env.get("VERCEL_URL") || "https://print-params-hub.lovable.app").replace(/\/$/, "");
 
 const BodySchema = z.object({
   event_id: z.string().uuid(),
@@ -36,42 +34,22 @@ const BodySchema = z.object({
   cursor: z.number().int().min(0).optional(),
 });
 
-const WASM_URL = "https://unpkg.com/@resvg/resvg-wasm@2.6.2/index_bg.wasm";
-let wasmReady: Promise<void> | null = null;
-
-const binaryCache = new Map<string, Promise<Uint8Array>>();
-
-function fetchBinary(url: string): Promise<Uint8Array> {
-  const cached = binaryCache.get(url);
-  if (cached) return cached;
-  const pending = fetch(url).then(async (response) => {
-    if (!response.ok) throw new Error(`Não foi possível carregar recurso visual (${response.status}).`);
-    return new Uint8Array(await response.arrayBuffer());
+async function renderPng(svg: string, width: number, height: number): Promise<Uint8Array> {
+  const html = `<!doctype html><html><head><meta charset="utf-8"><style>
+    *{box-sizing:border-box}html,body{margin:0;width:${width}px;height:${height}px;overflow:hidden;background:#fff}
+    svg{display:block;width:${width}px;height:${height}px}
+  </style></head><body>${svg}</body></html>`;
+  const response = await fetch(`${RENDER_BASE_URL}/api/render-template`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ html, width, height }),
+    signal: AbortSignal.timeout(55_000),
   });
-  binaryCache.set(url, pending);
-  return pending;
-}
-
-function ensureWasm(): Promise<void> {
-  if (!wasmReady) wasmReady = initWasm(fetch(WASM_URL));
-  return wasmReady;
-}
-
-async function renderPng(svg: string, width: number): Promise<Uint8Array> {
-  await ensureWasm();
-  const [boldFont, regularFont] = await Promise.all([
-    fetchBinary(FONT_BOLD_URL),
-    fetchBinary(FONT_REGULAR_URL),
-  ]);
-  const resvg = new Resvg(svg, {
-    fitTo: { mode: "width", value: width },
-    font: {
-      fontBuffers: [boldFont, regularFont],
-      defaultFontFamily: "Poppins",
-      loadSystemFonts: false,
-    },
-  });
-  return resvg.render().asPng();
+  if (!response.ok) {
+    const detail = (await response.text()).slice(0, 500);
+    throw new Error(`Falha ao converter a arte (${response.status}): ${detail}`);
+  }
+  return new Uint8Array(await response.arrayBuffer());
 }
 
 
@@ -232,9 +210,8 @@ Deno.serve(async (req) => {
       return json({ error: "ART_MISSING", message: "Envie a arte padrão de divulgação do evento primeiro." }, 409);
     }
 
-    const artDataUri = await fetchDataUri(event.marketing_art_url);
-    if (!artDataUri) return json({ error: "ART_UNREADABLE", message: "Não foi possível ler a arte enviada." }, 422);
-    const eventLogoDataUri = await fetchDataUri(event.event_logo_url);
+    const artDataUri = String(event.marketing_art_url);
+    const eventLogoDataUri = event.event_logo_url ? String(event.event_logo_url) : null;
     const smartDentLogo = SMARTDENT_LOGO_DATA_URI;
 
 
@@ -340,7 +317,7 @@ Deno.serve(async (req) => {
       } else {
         const speaker = speakerCards.find((item) => item.name === slide.speakerName);
         if (!speaker) return json({ error: "SPEAKER_NOT_FOUND", message: "Palestrante não encontrado para esta arte." }, 422);
-        slide.photoDataUri = await fetchDataUri(speaker.photoUrl);
+        slide.photoDataUri = speaker.photoUrl || null;
         label = `Carrossel · ${speaker.name}`;
       }
       const rendered = buildCarouselSvg(slide, {
@@ -348,13 +325,13 @@ Deno.serve(async (req) => {
         logoDataUri: smartDentLogo,
         eventLogoDataUri,
       });
-      const png = await renderPng(rendered.svg, rendered.width);
+      const png = await renderPng(rendered.svg, rendered.width, rendered.height);
       await save(png, `carrossel-${String(cursor + 1).padStart(2, "0")}`, "carousel", label, CAROUSEL.width, CAROUSEL.height);
     } else {
       const i = cursor - slides.length;
       const s = speakerCards[i];
       if (!s) return json({ error: "SPEAKER_NOT_FOUND", message: "Palestrante não encontrado para este story." }, 422);
-      const photo = await fetchDataUri(s.photoUrl);
+      const photo = s.photoUrl || null;
       const rendered = buildStorySvg({
         artDataUri,
         logoDataUri: smartDentLogo,
@@ -367,7 +344,7 @@ Deno.serve(async (req) => {
         location: locationLabel,
         stand: event.company_stand || "",
       });
-      const png = await renderPng(rendered.svg, rendered.width);
+      const png = await renderPng(rendered.svg, rendered.width, rendered.height);
       await save(png, `story-${String(i + 1).padStart(2, "0")}`, "story", `Story · ${s.name}`, STORY.width, STORY.height);
     }
 
