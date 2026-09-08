@@ -12,6 +12,7 @@ import { useGenerateCaption } from '@/hooks/social/useGenerateCaption';
 import { useProductKnowledgeCopies, type ReadyCopy } from '@/hooks/social/useProductKnowledgeCopies';
 import { SearchableProductSelect } from '@/components/SearchableProductSelect';
 import { SystemACarouselPicker } from '@/components/social/editor/SystemACarouselPicker';
+import { EventArtPicker } from '@/components/social/editor/EventArtPicker';
 import type { SystemACarousel } from '@/hooks/social/useSystemACarousels';
 import { supabase } from '@/integrations/supabase/client';
 import type { PostInput } from '@/lib/social/postSchema';
