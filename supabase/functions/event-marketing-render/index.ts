@@ -101,15 +101,6 @@ function b64(bytes: Uint8Array): string {
   return btoa(out);
 }
 
-async function remoteAsset(url: string, label: string): Promise<Uint8Array> {
-  const response = await fetch(url);
-  if (!response.ok) {
-    throw new Error(`Não foi possível carregar ${label} (${response.status}).`);
-  }
-  const bytes = new Uint8Array(await response.arrayBuffer());
-  if (!bytes.length) throw new Error(`${label} está vazio.`);
-  return bytes;
-}
 
 async function fetchDataUri(url?: string | null): Promise<string | null> {
   if (!url || !/^https?:\/\//i.test(url)) return null;
