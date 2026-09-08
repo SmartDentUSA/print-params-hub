@@ -377,38 +377,80 @@ Deno.serve(async (req) => {
     }
     if (cursor >= total) return json({ error: "INVALID_CURSOR", message: "Etapa de geração inválida." }, 400);
 
+    const eventHeader = [
+      `Evento: "${event.name}"`,
+      dateRange ? `Datas: "${dateRange}"` : "",
+      locationLabel ? `Local: "${locationLabel}"` : "",
+      event.company_stand ? `Estande: "${event.company_stand}"` : "",
+    ].filter(Boolean);
+
     if (cursor < slides.length) {
-        const slide = slides[cursor];
-        if (slide.kind === "speaker") {
-          const speaker = speakerCards.find((item) => item.name === slide.speakerName);
-          slide.photoDataUri = await fetchDataUri(speaker?.photoUrl);
+      const slide = slides[cursor];
+      const refs = [artDataUri];
+      if (eventLogoDataUri) refs.push(eventLogoDataUri);
+      let textLines: string[];
+      let label: string;
+      if (slide.kind === "cover") {
+        textLines = [
+          ...eventHeader,
+          'Headline gigante em caixa alta: "TODA A TECNOLOGIA AO VIVO"',
+          'Subtítulo: "Visite nosso estande e participe das demonstrações."',
+          'Chamada final: "ESPERAMOS VOCÊ!"',
+        ];
+        label = "Carrossel · Capa";
+      } else if (slide.kind === "closing") {
+        textLines = [
+          ...eventHeader,
+          'Headline: "AGENDA DE DEMONSTRAÇÕES AO VIVO"',
+          'Frase de marca: "Tecnologia que transforma sorrisos."',
+          `Chamada final destacada: "COMENTE ${keyword} E RECEBA A AGENDA COMPLETA"`,
+        ];
+        label = "Carrossel · Fechamento";
+      } else {
+        const speaker = speakerCards.find((item) => item.name === slide.speakerName)!;
+        const photo = await fetchDataUri(speaker.photoUrl);
+        if (photo) refs.push(photo);
+        textLines = [
+          ...eventHeader,
+          'Etiqueta no topo: "DEMONSTRAÇÃO AO VIVO"',
+          `Nome do palestrante em destaque: "${speaker.name}"`,
+          speaker.specialty ? `Especialidade em letra menor: "${speaker.specialty}"` : "",
+          ...speaker.sessions.slice(0, 4).map((ses, i) =>
+            `Demonstração ${i + 1} — data: "${ses.dateLong}" · dia da semana: "${ses.weekday}" · horário: "${ses.timeLabel}" · tema: "${ses.theme}"`
+          ),
+        ].filter(Boolean);
+        label = `Carrossel · ${speaker.name}`;
+        if (photo) {
+          textLines.push(
+            "FOTO DO PALESTRANTE: a imagem anexada do rosto é fotografia real e imutável — recorte-a em um círculo à esquerda do nome. É PROIBIDO redesenhar, estilizar, trocar o rosto, alterar pele, cabelo ou roupa.",
+          );
         }
-        const { svg } = buildCarouselSvg(slide, common);
-        const png = render(svg, CAROUSEL.width);
-        const label =
-          slide.kind === "cover"
-            ? "Carrossel · Capa"
-            : slide.kind === "closing"
-              ? "Carrossel · Fechamento"
-              : `Carrossel · ${(slide as any).speakerName}`;
-        await save(png, `carrossel-${String(cursor + 1).padStart(2, "0")}`, "carousel", label, CAROUSEL.width, CAROUSEL.height);
+      }
+      const png = await aiArt(artPrompt(textLines, "4:5", refs.length, Boolean(eventLogoDataUri)), refs);
+      await save(png, `carrossel-${String(cursor + 1).padStart(2, "0")}`, "carousel", label, CAROUSEL.width, CAROUSEL.height);
     } else {
-        const i = cursor - slides.length;
-        const s = speakerCards[i];
-        const photoDataUri = await fetchDataUri(s.photoUrl);
-        const { svg } = buildStorySvg({
-          ...commonStory,
-          speakerName: s.name,
-          specialty: s.specialty,
-          photoDataUri,
-          sessions: s.sessions.slice(0, 3),
-          eventName: event.name,
-          location: locationLabel,
-          stand: event.company_stand || "",
-        });
-        const png = render(svg, STORY.width);
-        await save(png, `story-${String(i + 1).padStart(2, "0")}`, "story", `Story · ${s.name}`, STORY.width, STORY.height);
+      const i = cursor - slides.length;
+      const s = speakerCards[i];
+      const refs = [artDataUri];
+      if (eventLogoDataUri) refs.push(eventLogoDataUri);
+      const photo = await fetchDataUri(s.photoUrl);
+      if (photo) refs.push(photo);
+      const textLines = [
+        ...eventHeader,
+        'Etiqueta no topo: "DEMONSTRAÇÃO AO VIVO"',
+        `Nome do palestrante em destaque: "${s.name}"`,
+        s.specialty ? `Especialidade em letra menor: "${s.specialty}"` : "",
+        ...s.sessions.slice(0, 3).map((ses, idx) =>
+          `Demonstração ${idx + 1} — data: "${ses.dateLong}" · dia da semana: "${ses.weekday}" · horário: "${ses.timeLabel}" · tema: "${ses.theme}"`
+        ),
+        photo
+          ? "FOTO DO PALESTRANTE: a imagem anexada do rosto é fotografia real e imutável — use-a grande na metade superior, sem redesenhar, estilizar ou trocar o rosto."
+          : "",
+      ].filter(Boolean);
+      const png = await aiArt(artPrompt(textLines, "9:16", refs.length, Boolean(eventLogoDataUri)), refs);
+      await save(png, `story-${String(i + 1).padStart(2, "0")}`, "story", `Story · ${s.name}`, STORY.width, STORY.height);
     }
+
 
     const previousAssets = cursor > 0 && Array.isArray(event.marketing_assets)
       ? event.marketing_assets as Array<{ kind: string; label: string; url: string; width: number; height: number }>
