@@ -306,6 +306,11 @@ export default function EventPublicAgenda({ term }: { term?: string }) {
         row = ((data || [])[0] as unknown as EventRow) ?? null;
       }
       if (!alive) return;
+      if (row?.speakers) {
+        const fresh = await applyFreshSpeakerPhotos(row.speakers as any);
+        if (!alive) return;
+        row = { ...row, speakers: fresh as any };
+      }
       setEvent(row);
       setLoading(false);
     };
