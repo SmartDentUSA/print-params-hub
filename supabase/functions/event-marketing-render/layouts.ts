@@ -171,7 +171,8 @@ function defs(W: number, H: number): string {
 
 /** Logo Smart Dent no topo direito (branco por cima da arte). */
 function brandTopRight(W: number, c: Common, y = 44, white = true): string {
-  return `<image x="${W - 60 - 300}" y="${y}" width="300" height="66" preserveAspectRatio="xMaxYMid meet" xlink:href="${c.logoDataUri}"${white ? ' filter="url(#none)"' : ""}/>`;
+  void white;
+  return `<image x="${W - 60 - 300}" y="${y}" width="300" height="66" preserveAspectRatio="xMaxYMid meet" xlink:href="${c.logoDataUri}"/>`;
 }
 
 function eventLogo(x: number, y: number, w: number, c: Common): string {
