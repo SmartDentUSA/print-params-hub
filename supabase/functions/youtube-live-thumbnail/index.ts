@@ -321,7 +321,7 @@ Deno.serve(async (req) => {
 
     const { data: course } = await admin
       .from("smartops_courses")
-      .select("id, title, description, category, instructor_name, related_product_names, marketing_briefing")
+      .select("id, title, description, category, instructor_name, related_product_names, marketing_briefing, ai_reference_image_urls")
       .eq("id", (turma as any).course_id)
       .maybeSingle();
     if (!course) return json({ error: "Curso não encontrado" }, 404);
@@ -335,11 +335,30 @@ Deno.serve(async (req) => {
       badge: b.badge_text,
     }, usedCopy);
 
+    /**
+     * Referências manuais da live (upload no editor do curso) + o que veio no body.
+     * Elas entram ANTES das fotos de catálogo e têm o mesmo contrato de fidelidade:
+     * a IA só pode usar estas imagens e as dos produtos associados à live.
+     */
+    const manualRefs: string[] = [
+      ...(Array.isArray((course as any).ai_reference_image_urls)
+        ? ((course as any).ai_reference_image_urls as unknown[])
+        : []),
+      ...(b.reference_image_urls ?? []),
+    ]
+      .filter((u): u is string => typeof u === "string" && u.startsWith("http"))
+      .filter((u, i, arr) => arr.indexOf(u) === i)
+      .slice(0, 6);
+
     const inlined: string[] = [];
-    for (const u of images) {
+    for (const u of [...manualRefs, ...images]) {
       const d = await toDataUrl(u);
       if (d) inlined.push(d);
     }
+    const refSources = [
+      ...manualRefs.map((_, i) => `upload manual ${i + 1}`),
+      ...sources,
+    ];
     // Logo oficial anexado por último (referência de marca, obrigatório na capa)
     const logoUrl = await loadBrandLogo();
     const logoData = logoUrl ? await toDataUrl(logoUrl) : null;
