@@ -469,6 +469,11 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
     setCategory(course.category || "treinamento");
     setDescription(course.description || "");
     setMarketingBriefing((course as any).marketing_briefing || "");
+    setAiReferenceImages(
+      Array.isArray((course as any).ai_reference_image_urls)
+        ? ((course as any).ai_reference_image_urls as string[]).filter((u) => typeof u === "string")
+        : [],
+    );
     setInstructorName(course.instructor_name || "");
     setCoverImageUrl(course.cover_image_url || "");
     setDurationDays(course.duration_days);
