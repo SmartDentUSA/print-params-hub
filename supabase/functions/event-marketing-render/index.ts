@@ -20,6 +20,7 @@ import {
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const WASM_URL = "https://unpkg.com/@resvg/resvg-wasm@2.6.2/index_bg.wasm";
 const BUCKET = "wa-media";
 
@@ -193,24 +194,39 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "METHOD_NOT_ALLOWED" }, 405);
 
-  const provided = (req.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "").trim();
-  if (!provided) return json({ error: "UNAUTHORIZED" }, 401);
+  const authHeader = req.headers.get("Authorization") || "";
+  const provided = authHeader.replace(/^Bearer\s+/i, "").trim();
+  if (!provided || provided === ANON_KEY) {
+    console.warn("[event-marketing-render] autenticação ausente ou chave pública recebida");
+    return json({ error: "UNAUTHORIZED", message: "Entre novamente no Sistema B para gerar as artes." }, 401);
+  }
 
-  const db = createClient(SUPABASE_URL, SERVICE_ROLE);
+  const db = createClient(SUPABASE_URL, SERVICE_ROLE, { auth: { persistSession: false } });
   let allowed = provided === SERVICE_ROLE;
   if (!allowed) {
-    try {
-      const { data: u } = await db.auth.getUser(provided);
-      if (u?.user?.id) {
-        // Verificação server-side (não depende de auth.uid(), que é nulo no service role).
-        const { data: can } = await db.rpc("fn_can_manage_event_media", { _user_id: u.user.id });
-        allowed = can === true;
-      }
-    } catch {
-      allowed = false;
+    const userClient = createClient(SUPABASE_URL, ANON_KEY, {
+      global: { headers: { Authorization: `Bearer ${provided}` } },
+      auth: { persistSession: false },
+    });
+    const { data: userData, error: userError } = await userClient.auth.getUser();
+    const user = userData?.user;
+    if (userError || !user) {
+      console.warn("[event-marketing-render] sessão inválida:", userError?.message || "usuário ausente");
+      return json({ error: "UNAUTHORIZED", message: "Sua sessão expirou. Entre novamente no Sistema B." }, 401);
     }
+
+    // Mesma autorização já usada no upload e na criação das pastas dos eventos.
+    const { data: can, error: permissionError } = await db.rpc("can_manage_training_media", {
+      _user_id: user.id,
+    });
+    if (permissionError) {
+      console.error("[event-marketing-render] falha na permissão:", permissionError.message);
+      return json({ error: "PERMISSION_CHECK_FAILED", message: permissionError.message }, 500);
+    }
+    allowed = can === true;
+    console.log("[event-marketing-render] autorização", { user_id: user.id, allowed });
   }
-  if (!allowed) return json({ error: "UNAUTHORIZED", message: "Sem permissão para gerar artes do evento" }, 401);
+  if (!allowed) return json({ error: "FORBIDDEN", message: "Seu usuário não tem permissão para gerar artes do evento." }, 403);
 
   try {
     const parsed = BodySchema.safeParse(await req.json().catch(() => ({})));
