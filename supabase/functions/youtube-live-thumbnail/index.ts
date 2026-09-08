@@ -36,6 +36,8 @@ const BodySchema = z.object({
   apply_to_youtube: z.boolean().optional().default(true),
   /** Quando informado, apenas aplica esta imagem no YouTube (sem gerar por IA). */
   image_url: z.string().url().optional(),
+  /** Imagens enviadas manualmente que devem ser usadas como referência na geração. */
+  reference_image_urls: z.array(z.string().url()).max(6).optional(),
 });
 
 function videoIdFromUrl(url?: string | null): string | null {
