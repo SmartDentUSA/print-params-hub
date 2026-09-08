@@ -1255,6 +1255,14 @@ ${m.location ? `📍 Local: ${m.location}` : '📍 Local: (omitir se não houver
         />
       )}
 
+      {showSystemAPicker && onPickEventArts && (
+        <EventArtPicker
+          selectedUrls={selectedCarrosselImages}
+          onPick={onPickEventArts}
+          onClear={onClearCarrossel}
+        />
+      )}
+
       {carrosselSlides.length > 0 && (
         <Card className="border-emerald-500/30 bg-emerald-500/5">
           <CardContent className="p-4 space-y-3">
