@@ -36,7 +36,7 @@ export function EventMarketingArtPanel({
   const [busy, setBusy] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [keyword, setKeyword] = useState(commentKeyword || "");
-  const [aiBg, setAiBg] = useState(true);
+  const [aiBg, setAiBg] = useState(false);
 
   const list = assets || [];
 

@@ -234,7 +234,8 @@ Deno.serve(async (req) => {
     if (!artDataUri) return json({ error: "ART_UNREADABLE", message: "Não foi possível ler a arte enviada." }, 422);
     const logoDataUri = `data:image/png;base64,${b64(await asset("smartdent-logo.png"))}`;
     const eventLogoDataUri = await fetchDataUri(event.event_logo_url);
-    const useAi = parsed.data.ai_background !== false;
+    // Padrão: usar exatamente a arte enviada no card do evento (sem IA).
+    const useAi = parsed.data.ai_background === true;
     const aiCarousel = useAi && kinds.includes("carousel")
       ? await aiBackground(artDataUri, "4:5", String(event.name || ""))
       : null;
