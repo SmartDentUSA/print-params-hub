@@ -52,6 +52,26 @@ function wrap(text: string, fontSize: number, maxWidth: number, maxLines: number
   return lines.slice(0, maxLines);
 }
 
+/** Reduz o corpo do texto até caber por completo na largura/linhas dadas. */
+function fit(
+  text: string,
+  maxWidth: number,
+  maxLines: number,
+  size: number,
+  min: number,
+): { lines: string[]; size: number } {
+  let s = size;
+  while (s > min) {
+    const lines = wrap(text, s, maxWidth, maxLines);
+    const joined = lines.join(" ").replace(/\s+/g, " ").trim();
+    const source = String(text || "").replace(/\s+/g, " ").trim();
+    const fitsWidth = lines.every((l) => l.length * s * 0.6 <= maxWidth);
+    if (fitsWidth && joined.length >= source.length) return { lines, size: s };
+    s -= 2;
+  }
+  return { lines: wrap(text, min, maxWidth, maxLines), size: min };
+}
+
 function textBlock(
   lines: string[],
   x: number,
