@@ -311,15 +311,8 @@ Deno.serve(async (req) => {
     const locationLabel = [event.location, event.country].filter(Boolean).join(" · ");
     const keyword = keywordFrom(event, parsed.data.comment_keyword);
 
-    await ensureWasm();
-    const fontBuffers = [poppinsBold, poppinsRegular];
-    const render = (svg: string, width: number) =>
-      new Resvg(svg, {
-        fitTo: { mode: "width", value: width },
-        font: { fontBuffers, defaultFontFamily: "Poppins", loadSystemFonts: false },
-      })
-        .render()
-        .asPng();
+
+
 
     const cursor = parsed.data.cursor || 0;
     const stamp = Date.now();
