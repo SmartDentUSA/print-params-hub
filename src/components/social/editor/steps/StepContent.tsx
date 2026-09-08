@@ -30,6 +30,7 @@ interface Props {
   showSystemAPicker?: boolean;
   pickedCarrouselRef?: string;
   onPickSystemACarousel?: (c: SystemACarousel) => void;
+  onPickEventArts?: (urls: string[]) => void;
 }
 
 const PLATFORM_LABELS: Record<string, string> = {
