@@ -18,12 +18,12 @@ import {
   type CarouselSlide,
   type SpeakerSession,
 } from "./layouts.ts";
+import { SMARTDENT_LOGO_DATA_URI } from "./logo-data.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const BUCKET = "wa-media";
-const BRAND_ASSET_URL = `${SUPABASE_URL}/storage/v1/object/public/${BUCKET}/brand/logo-smart-dent-branco.png`;
 const FONT_REGULAR_URL = "https://raw.githubusercontent.com/google/fonts/main/ofl/poppins/Poppins-Regular.ttf";
 const FONT_BOLD_URL = "https://raw.githubusercontent.com/google/fonts/main/ofl/poppins/Poppins-Bold.ttf";
 
@@ -235,8 +235,7 @@ Deno.serve(async (req) => {
     const artDataUri = await fetchDataUri(event.marketing_art_url);
     if (!artDataUri) return json({ error: "ART_UNREADABLE", message: "Não foi possível ler a arte enviada." }, 422);
     const eventLogoDataUri = await fetchDataUri(event.event_logo_url);
-    const smartDentLogoBytes = await fetchBinary(BRAND_ASSET_URL);
-    const smartDentLogo = `data:image/png;base64,${b64(smartDentLogoBytes)}`;
+    const smartDentLogo = SMARTDENT_LOGO_DATA_URI;
 
 
     const speakers = Array.isArray(event.speakers) ? (event.speakers as any[]) : [];
