@@ -378,12 +378,25 @@ Deno.serve(async (req) => {
       event.company_stand ? `Estande: "${event.company_stand}"` : "",
     ].filter(Boolean);
 
+    // Gabarito de layout: o primeiro card de palestrante já gerado nesta rodada
+    // vira referência das artes seguintes, para todas ficarem idênticas.
+    const doneAssets = (cursor > 0 && Array.isArray(event.marketing_assets)
+      ? event.marketing_assets as Array<{ kind: string; label: string; url: string }>
+      : []);
+    async function templateFor(kind: "carousel" | "story"): Promise<string | null> {
+      const first = doneAssets.find(
+        (a) => a.kind === kind && !/Capa|Fechamento/i.test(a.label || ""),
+      );
+      return first ? await fetchDataUri(first.url) : null;
+    }
+
     if (cursor < slides.length) {
       const slide = slides[cursor];
       const refs = [artDataUri];
       if (eventLogoDataUri) refs.push(eventLogoDataUri);
       let textLines: string[];
       let label: string;
+      let template: string | null = null;
       if (slide.kind === "cover") {
         textLines = [
           ...eventHeader,
@@ -419,8 +432,13 @@ Deno.serve(async (req) => {
             "FOTO DO PALESTRANTE: a imagem anexada do rosto é fotografia real e imutável — recorte-a em um círculo à esquerda do nome. É PROIBIDO redesenhar, estilizar, trocar o rosto, alterar pele, cabelo ou roupa.",
           );
         }
+        template = await templateFor("carousel");
+        if (template) refs.push(template);
       }
-      const png = await aiArt(artPrompt(textLines, "4:5", refs.length, Boolean(eventLogoDataUri)), refs);
+      const png = await aiArt(
+        artPrompt(textLines, "4:5", refs.length, Boolean(eventLogoDataUri), Boolean(template)),
+        refs,
+      );
       await save(png, `carrossel-${String(cursor + 1).padStart(2, "0")}`, "carousel", label, CAROUSEL.width, CAROUSEL.height);
     } else {
       const i = cursor - slides.length;
@@ -441,9 +459,15 @@ Deno.serve(async (req) => {
           ? "FOTO DO PALESTRANTE: a imagem anexada do rosto é fotografia real e imutável — use-a grande na metade superior, sem redesenhar, estilizar ou trocar o rosto."
           : "",
       ].filter(Boolean);
-      const png = await aiArt(artPrompt(textLines, "9:16", refs.length, Boolean(eventLogoDataUri)), refs);
+      const template = await templateFor("story");
+      if (template) refs.push(template);
+      const png = await aiArt(
+        artPrompt(textLines, "9:16", refs.length, Boolean(eventLogoDataUri), Boolean(template)),
+        refs,
+      );
       await save(png, `story-${String(i + 1).padStart(2, "0")}`, "story", `Story · ${s.name}`, STORY.width, STORY.height);
     }
+
 
 
     const previousAssets = cursor > 0 && Array.isArray(event.marketing_assets)
