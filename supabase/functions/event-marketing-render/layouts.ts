@@ -125,6 +125,7 @@ export interface CarouselCoverSlide {
 
 export interface CarouselSpeakerSlide {
   kind: "speaker";
+  dateLabel?: string;
   speakerName: string;
   photoDataUri?: string | null;
   sessions: SpeakerSession[];
@@ -280,7 +281,6 @@ export function buildCarouselSvg(slide: CarouselSlide, c: Common): { svg: string
     ${blocks}
     ${eventLogo(90, H - 150, 420, c)}
     <text x="${W - 90}" y="${H - 96}" text-anchor="end" font-family="Poppins" font-weight="700" font-size="30" fill="${INK_SOFT}">${esc(slide.dateLabel || "")}</text>`;
-    void 0;
   } else {
     const nameLines = wrap(slide.eventName.toUpperCase(), 92, W - 200, 3);
     const nameBase = 470;
