@@ -1,0 +1,1 @@
+GRANT EXECUTE ON FUNCTION public.fn_can_manage_event_media(uuid) TO service_role, authenticated;

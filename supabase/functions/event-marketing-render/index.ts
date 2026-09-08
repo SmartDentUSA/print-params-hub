@@ -216,7 +216,7 @@ Deno.serve(async (req) => {
     }
 
     // Mesma autorização já usada no upload e na criação das pastas dos eventos.
-    const { data: can, error: permissionError } = await db.rpc("can_manage_training_media", {
+    const { data: can, error: permissionError } = await db.rpc("fn_can_manage_event_media", {
       _user_id: user.id,
     });
     if (permissionError) {
