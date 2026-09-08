@@ -65,7 +65,13 @@ export function EventMarketingArtPanel({
     if (!artUrl) return toast.error("Envie a arte padrão de divulgação primeiro.");
     setGenerating(true);
     try {
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
+      if (sessionError || !accessToken) {
+        throw new Error("Sua sessão expirou. Entre novamente no Sistema B.");
+      }
       const { data, error } = await supabase.functions.invoke("event-marketing-render", {
+        headers: { Authorization: `Bearer ${accessToken}` },
         body: {
           event_id: eventId,
           comment_keyword: keyword.trim() || undefined,
