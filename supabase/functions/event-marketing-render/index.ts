@@ -15,7 +15,7 @@ import {
   buildCarouselSvg,
   buildStorySvg,
   type CarouselSlide,
-  type SessionItem,
+  type SpeakerSession,
 } from "./layouts.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
