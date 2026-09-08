@@ -860,6 +860,7 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
         recurrence_weekdays: useRecurrence && recurrenceType === 'weekdays' ? recurrenceWeekdays : null,
         related_product_ids: isOnline ? relatedProductIds : [],
         related_product_names: isOnline ? relatedProductNames : [],
+        ai_reference_image_urls: aiReferenceImages,
       };
 
       let courseId: string;
