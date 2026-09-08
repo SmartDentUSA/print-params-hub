@@ -3,6 +3,7 @@ import { useParams, useSearchParams } from "react-router-dom";
 import QRCode from "qrcode";
 import { supabase } from "@/integrations/supabase/client";
 import { getStorageImageUrl } from "@/utils/storageImage";
+import { applyFreshSpeakerPhotos } from "@/lib/eventSpeakerPhotos";
 
 const SMARTDENT_LOGO_URL =
   "https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/h7stblp3qxn_1760720051743.png";
