@@ -207,7 +207,7 @@ function demoBlock(x: number, y: number, w: number, index: number, s: SpeakerSes
   // Horário
   out += iconBox(iconX, cy, 60, "clock");
   out += `<text x="${textX}" y="${cy + 40}" font-family="Poppins" font-weight="700" font-size="34" fill="${INK}">${esc(s.timeLabel)}</text>`;
-  cy += 76;
+  cy += 64;
 
   return { svg: `<g>${out}</g>`, height: cy - y };
 }
@@ -244,12 +244,12 @@ export function buildCarouselSvg(slide: CarouselSlide, c: Common): { svg: string
       <path d="M 610 ${ctaTop + 34} L 646 ${ctaTop + 48} L 610 ${ctaTop + 62} Z" fill="${WHITE}"/>
     </g>`;
   } else if (slide.kind === "speaker") {
-    const artH = 560;
+    const artH = 520;
     const photoR = 132;
     const photoCx = 250;
-    const photoCy = 400;
+    const photoCy = 380;
     const sessions = slide.sessions.slice(0, 3);
-    let y = artH + 100;
+    let y = artH + 60;
     let blocks = "";
     sessions.forEach((s, i) => {
       if (i > 0) {
@@ -257,7 +257,7 @@ export function buildCarouselSvg(slide: CarouselSlide, c: Common): { svg: string
       }
       const b = demoBlock(90, y, W - 180, i + 1, s);
       blocks += b.svg;
-      y += b.height + 56;
+      y += b.height + 40;
     });
     const nameLines = wrap(slide.speakerName.toUpperCase(), 40, 520, 2);
     const pillW = Math.min(560, Math.max(...nameLines.map((l) => l.length)) * 24 + 80);
@@ -279,8 +279,8 @@ export function buildCarouselSvg(slide: CarouselSlide, c: Common): { svg: string
       ${textBlock(nameLines, photoCx + photoR + 34 + 40, photoCy - pillH / 2 + (nameLines.length > 1 ? 54 : 55), 40, WHITE, 700, 1.15, 'letter-spacing="2"')}
     </g>
     ${blocks}
-    ${eventLogo(90, H - 150, 420, c)}
-    <text x="${W - 90}" y="${H - 96}" text-anchor="end" font-family="Poppins" font-weight="700" font-size="30" fill="${INK_SOFT}">${esc(slide.dateLabel || "")}</text>`;
+    ${eventLogo(90, H - 118, 330, c)}
+    <text x="${W - 90}" y="${H - 60}" text-anchor="end" font-family="Poppins" font-weight="700" font-size="30" fill="${INK_SOFT}">${esc(slide.dateLabel || "")}</text>`;
   } else {
     const nameLines = wrap(slide.eventName.toUpperCase(), 92, W - 200, 3);
     const nameBase = 470;
@@ -297,7 +297,7 @@ export function buildCarouselSvg(slide: CarouselSlide, c: Common): { svg: string
     ${iconBox(90, y, 64, "cal")}
     <text x="176" y="${y + 42}" font-family="Poppins" font-weight="700" font-size="34" fill="${INK}">${esc(slide.dateLabel.toUpperCase())}</text>
     ${iconBox(90, y + 104, 64, "pin")}
-    ${textBlock(wrap(slide.location, 32, W - 420, 2), 176, y + 146, 32, INK, 400, 1.3)}
+    ${textBlock(wrap(slide.location, 32, W - 480, 2), 176, y + 146, 32, INK, 400, 1.3)}
     ${slide.stand
       ? `<rect x="${W - 90 - 260}" y="${y + 96}" width="260" height="112" rx="18" fill="none" stroke="${INK}" stroke-width="3"/>
     <text x="${W - 90 - 130}" y="${y + 138}" text-anchor="middle" font-family="Poppins" font-weight="400" font-size="24" fill="${INK_SOFT}" letter-spacing="4">ESTANDE</text>
