@@ -232,7 +232,7 @@ export function buildCarouselSvg(slide: CarouselSlide, c: Common): { svg: string
     ${brandTopRight(W, c, 52)}
     ${textBlock(headLines, 90, 470, headSize, WHITE, 700, 1.06, 'letter-spacing="-2"')}
     ${textBlock(subLines, 90, subBase, 34, SOFT, 400, 1.35, 'letter-spacing="2"')}
-    ${slide.stand ? `${pin(90, ${0} + ${standY}, 62, BLUE_LIGHT)}
+    ${slide.stand ? `${pin(90, standY, 62, BLUE_LIGHT)}
     <text x="176" y="${standY + 26}" font-family="Poppins" font-weight="400" font-size="28" fill="${SOFT}" letter-spacing="4">ESTANDE</text>
     <text x="176" y="${standY + 78}" font-family="Poppins" font-weight="700" font-size="58" fill="${WHITE}">${esc(slide.stand)}</text>` : ""}
     ${eventLogo(90, logoY, 470, c)}
