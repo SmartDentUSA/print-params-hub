@@ -383,13 +383,7 @@ export function SmartOpsEvents() {
                   <Input type="date" value={editing.start_date || ""} onChange={(e) => setEditing({ ...editing, start_date: e.target.value })} />
                 </div>
                 <div>
-                  <Label>Data de fim</Label>
-                  <Input type="date" value={editing.end_date || ""} onChange={(e) => setEditing({ ...editing, end_date: e.target.value })} />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <Label>Horário de início (por dia)</Label>
+                  <Label>Hora de início (por dia)</Label>
                   <Input
                     type="time"
                     step={3600}
@@ -397,19 +391,25 @@ export function SmartOpsEvents() {
                     onChange={(e) => setEditing({ ...editing, start_time: e.target.value })}
                   />
                 </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <Label>Horário de término (por dia)</Label>
+                  <Label>Data de fim</Label>
+                  <Input type="date" value={editing.end_date || ""} onChange={(e) => setEditing({ ...editing, end_date: e.target.value })} />
+                </div>
+                <div>
+                  <Label>Hora de fim (por dia)</Label>
                   <Input
                     type="time"
                     step={3600}
                     value={(editing.end_time || "19:00").slice(0, 5)}
                     onChange={(e) => setEditing({ ...editing, end_time: e.target.value })}
                   />
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    Define a grade de horários do autoagendamento de KOLs.
-                  </p>
                 </div>
               </div>
+              <p className="text-xs text-muted-foreground">
+                A hora de início e fim define a grade de horários liberada na página de agendamento dos KOLs.
+              </p>
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <Label>Quantidade de dias do evento</Label>
