@@ -237,6 +237,7 @@ export function SocialPostEditor() {
               showSystemAPicker={!isCarrosselMode && !isEdit}
               pickedCarrouselRef={pickedCarrouselRef}
               onPickSystemACarousel={pickSystemACarousel}
+              onPickEventArts={pickEventArts}
             />
           )}
           {step === 1 && (
