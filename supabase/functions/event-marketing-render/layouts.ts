@@ -149,6 +149,8 @@ export interface CarouselSpeakerSlide {
   dateLabel?: string;
   speakerName: string;
   photoDataUri?: string | null;
+  /** Imagem da aula enviada no editor: entra como hero atrás da foto. */
+  heroDataUri?: string | null;
   sessions: SpeakerSession[];
 }
 
