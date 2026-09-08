@@ -115,13 +115,48 @@ async function fetchDataUri(url?: string | null): Promise<string | null> {
   }
 }
 
-const WEEK = ["DOM", "SEG", "TER", "QUA", "QUI", "SEX", "SÁB"];
+const WEEK_FULL = [
+  "domingo",
+  "segunda-feira",
+  "terça-feira",
+  "quarta-feira",
+  "quinta-feira",
+  "sexta-feira",
+  "sábado",
+];
+const MONTHS = [
+  "janeiro",
+  "fevereiro",
+  "março",
+  "abril",
+  "maio",
+  "junho",
+  "julho",
+  "agosto",
+  "setembro",
+  "outubro",
+  "novembro",
+  "dezembro",
+];
 
-function dayLabel(iso: string): string {
+function parts(iso: string): { d: number; m: number; y: number } | null {
   const [y, m, d] = iso.slice(0, 10).split("-").map(Number);
-  if (!y || !m || !d) return iso;
-  const wd = WEEK[new Date(Date.UTC(y, m - 1, d)).getUTCDay()];
-  return `${String(d).padStart(2, "0")}/${String(m).padStart(2, "0")} · ${wd}`;
+  if (!y || !m || !d) return null;
+  return { d, m, y };
+}
+
+/** "18 de setembro de 2026" */
+function dateLong(iso: string): string {
+  const p = parts(iso);
+  if (!p) return iso;
+  return `${p.d} de ${MONTHS[p.m - 1]} de ${p.y}`;
+}
+
+/** "sexta-feira" */
+function weekdayLabel(iso: string): string {
+  const p = parts(iso);
+  if (!p) return "";
+  return WEEK_FULL[new Date(Date.UTC(p.y, p.m - 1, p.d)).getUTCDay()];
 }
 
 function fmtRange(a?: string | null, b?: string | null): string {
