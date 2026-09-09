@@ -208,14 +208,6 @@ function eventLogo(x: number, y: number, w: number, c: Common): string {
     : "";
 }
 
-function technologyMark(x: number, y: number, scale = 1): string {
-  return `<g transform="translate(${x} ${y}) scale(${scale})">
-    <text x="0" y="0" font-family="${FONT}" font-weight="400" font-size="15" fill="${INK_SOFT}" letter-spacing="5">PRÁTICA</text>
-    <text x="-9" y="28" font-family="${FONT}" font-weight="400" font-size="15" fill="${INK_SOFT}" letter-spacing="4">TECNOLOGIA</text>
-    <text x="-2" y="56" font-family="${FONT}" font-weight="400" font-size="15" fill="${INK_SOFT}" letter-spacing="5">RESULTADOS</text>
-  </g>`;
-}
-
 function innovationTag(W: number, y = 62): string {
   return `<g>
     <text x="${W - 64}" y="${y}" text-anchor="end" font-family="${FONT}" font-weight="400" font-size="18" fill="${WHITE}" letter-spacing="5">INOVAÇÃO</text>
