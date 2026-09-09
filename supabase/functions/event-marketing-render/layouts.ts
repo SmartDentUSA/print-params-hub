@@ -325,27 +325,27 @@ function referenceDemoCards(
   if (!shown.length) return "";
   const compactThree = !story && shown.length === 3;
   const side = story ? 58 : 48;
-  const gap = story ? 24 : compactThree ? 14 : 18;
-  const cardH = story ? 244 : compactThree ? 196 : 214;
+  const gap = story ? 24 : compactThree ? 12 : 18;
+  const cardH = story ? 244 : compactThree ? 174 : 214;
   const cardW = CAROUSEL.width - side * 2;
-  const iconSize = story ? 58 : compactThree ? 44 : 52;
+  const iconSize = story ? 58 : compactThree ? 38 : 52;
   const textX = side + iconSize + 42;
   // Sem a marca decorativa lateral: todo o espaço útil fica para o conteúdo.
   const textW = CAROUSEL.width - side - textX - 34;
   return shown.map((s, index) => {
     const y = top + index * (cardH + gap);
     const labelW = story ? 276 : 248;
-    const date = fit(s.dateLong.toUpperCase(), textW, 1, story ? 28 : compactThree ? 22 : 24, 17);
-    const theme = fit(s.theme.toUpperCase(), textW, 2, story ? 34 : compactThree ? 27 : 30, story ? 24 : 20);
-    const time = fit(s.timeLabel.toUpperCase(), textW, 1, story ? 27 : compactThree ? 22 : 23, 17);
+    const date = fit(s.dateLong.toUpperCase(), textW, 1, story ? 28 : compactThree ? 20 : 24, 16);
+    const theme = fit(s.theme.toUpperCase(), textW, compactThree ? 1 : 2, story ? 34 : compactThree ? 23 : 30, story ? 24 : compactThree ? 17 : 20);
+    const time = fit(s.timeLabel.toUpperCase(), textW, 1, story ? 27 : compactThree ? 20 : 23, 16);
     const rowGap = Math.max(10, Math.round((cardH - iconSize * 3) / 4));
-    const row1 = y + rowGap + 12;
+    const row1 = y + rowGap + (compactThree ? 8 : 12);
     const row2 = row1 + iconSize + rowGap;
     const row3 = row2 + iconSize + rowGap;
     return `<g>
       <rect x="${side}" y="${y}" width="${cardW}" height="${cardH}" rx="16" fill="${WHITE}" stroke="${HAIR}" stroke-width="2"/>
-      <rect x="${side + 16}" y="${y - 14}" width="${labelW}" height="38" rx="19" fill="${BLUE_LIGHT}"/>
-      <text x="${side + 16 + labelW / 2}" y="${y + 12}" text-anchor="middle" font-family="${FONT}" font-weight="700" font-size="18" fill="${WHITE}" letter-spacing="2">DEMONSTRAÇÃO ${index + 1}</text>
+      <rect x="${side + 16}" y="${y - 14}" width="${labelW}" height="${compactThree ? 34 : 38}" rx="19" fill="${BLUE_LIGHT}"/>
+      <text x="${side + 16 + labelW / 2}" y="${y + (compactThree ? 9 : 12)}" text-anchor="middle" font-family="${FONT}" font-weight="700" font-size="${compactThree ? 16 : 18}" fill="${WHITE}" letter-spacing="2">DEMONSTRAÇÃO ${index + 1}</text>
       ${iconBox(side + 22, row1, iconSize, "cal")}
       <text x="${textX}" y="${row1 + iconSize * 0.46}" font-family="${FONT}" font-weight="700" font-size="${date.size}" fill="${INK}">${esc(date.lines[0] || "")}</text>
       <text x="${textX}" y="${row1 + iconSize * 0.84}" font-family="${FONT}" font-weight="400" font-size="${story ? 18 : 16}" fill="${INK_SOFT}">(${esc(s.weekday.toUpperCase())})</text>
@@ -402,7 +402,7 @@ export function buildCarouselSvg(slide: CarouselSlide, c: Common): { svg: string
     const photoCy = 496;
     const sessions = slide.sessions.slice(0, 3);
     // Template fixo: os cards sempre começam na mesma altura.
-    const blocksTop = 690;
+    const blocksTop = sessions.length === 3 ? 634 : 690;
     const blocks = referenceDemoCards(sessions, blocksTop, 0);
     // Única imagem de fundo permitida: a imagem de fundo do evento (hero).
     const hero = c.bgDataUri || null;
