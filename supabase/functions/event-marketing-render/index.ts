@@ -391,6 +391,7 @@ Deno.serve(async (req) => {
         photoDataUri: photo,
         sessions: s.sessions,
         eventName: event.name,
+        dateLabel: dateRange,
         location: locationLabel,
         stand: event.company_stand || "",
       });
