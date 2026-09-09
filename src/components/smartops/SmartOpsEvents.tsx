@@ -97,6 +97,7 @@ function emptyForm(): Partial<EventRow> {
     partner_brands: [],
     instagram_handle: "",
     marketing_art_url: "",
+    marketing_hero_url: "",
     marketing_assets: [],
   };
 }
