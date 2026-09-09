@@ -447,7 +447,7 @@ export function buildCarouselSvg(slide: CarouselSlide, c: Common): { svg: string
     <g>
       <rect x="${pillX}" y="${photoCy - pillH / 2}" width="${pillW}" height="${pillH}" rx="14" fill="${INK}" stroke="${BLUE_LIGHT}" stroke-width="2"/>
       ${textBlock(name.lines, pillX + 28, slide.miniCv ? photoCy - 18 : photoCy + name.size * 0.36, name.size, WHITE, 700, 1.15)}
-      ${slide.miniCv ? textBlock(miniCv.lines, pillX + 28, photoCy + 18, miniCv.size, SOFT, 400, 1.18) : ""}
+      ${slide.miniCv ? textBlock(miniCv.lines, pillX + 28, photoCy + 22, miniCv.size, SOFT, 400, 1.22) : ""}
     </g>
     ${blocks}
     <rect x="0" y="${H - footH}" width="${W}" height="${footH}" fill="${WHITE}"/>
