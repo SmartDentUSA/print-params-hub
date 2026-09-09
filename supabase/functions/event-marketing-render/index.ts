@@ -69,6 +69,14 @@ function b64(bytes: Uint8Array): string {
 }
 
 
+/**
+ * Referência de imagem usada no SVG.
+ * Imagens pequenas viram data URI (render mais rápido e imune a rede);
+ * imagens grandes permanecem como URL remota — o Chrome do /api/render-template
+ * baixa direto, evitando estourar o limite de payload (413) da requisição.
+ */
+const INLINE_LIMIT = 220 * 1024;
+
 async function fetchDataUri(url?: string | null): Promise<string | null> {
   if (!url || !/^https?:\/\//i.test(url)) return null;
   try {
@@ -77,12 +85,14 @@ async function fetchDataUri(url?: string | null): Promise<string | null> {
     const mime = (r.headers.get("content-type") || "image/jpeg").split(";")[0];
     if (!/^image\//.test(mime) || /svg/.test(mime)) return null;
     const bytes = new Uint8Array(await r.arrayBuffer());
-    if (!bytes.length || bytes.length > 12 * 1024 * 1024) return null;
+    if (!bytes.length || bytes.length > 20 * 1024 * 1024) return null;
+    if (bytes.length > INLINE_LIMIT) return url;
     return `data:${mime};base64,${b64(bytes)}`;
   } catch {
     return null;
   }
 }
+
 
 const WEEK_FULL = [
   "domingo",
