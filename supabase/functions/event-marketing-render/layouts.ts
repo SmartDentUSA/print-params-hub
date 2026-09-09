@@ -426,7 +426,7 @@ export function buildCarouselSvg(slide: CarouselSlide, c: Common): { svg: string
       <rect x="0" y="0" width="${W}" height="${artH}" fill="url(#bg)"/>
       ${hero ? `<image x="0" y="0" width="${W}" height="${artH}" preserveAspectRatio="xMidYMid slice" xlink:href="${hero}"/>
       <rect x="0" y="0" width="${W}" height="${artH}" fill="${NAVY_DEEP}" opacity="0.34"/>
-      <rect x="0" y="0" width="${Math.round(W * 0.72)}" width="${W}" height="${artH}" fill="url(#leftScrim)"/>` : ""}
+      <rect x="0" y="0" width="${Math.round(W * 0.72)}" height="${artH}" fill="url(#leftScrim)"/>` : ""}
       <rect x="0" y="${artH - 96}" width="${W}" height="96" fill="url(#artToPaper)"/>
     </g>
     <defs>
