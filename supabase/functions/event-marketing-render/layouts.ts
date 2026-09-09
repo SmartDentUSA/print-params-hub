@@ -454,9 +454,19 @@ export function buildCarouselSvg(slide: CarouselSlide, c: Common): { svg: string
     ${eventLogo(W - 304, H - 138, 240, c)}
     ${brandRibbon(W, H - 14)}`;
   } else {
-    const nameLines = wrap(slide.eventName.toUpperCase(), 92, W - 200, 3);
-    const nameBase = 470;
-    let y = nameBase + nameLines.length * 100 + 60;
+    const nameSize = 84;
+    const nameLines = wrap(slide.eventName.toUpperCase(), nameSize, W - 200, 3);
+    const nameBase = 430;
+    const tagSize = 42;
+    const tagLines = wrap(slide.tagline.toUpperCase(), tagSize, W - 200, 2);
+    const tagBase = H - 80 - (tagLines.length - 1) * Math.round(tagSize * 1.12);
+    const ctaH = 92;
+    const ctaTop = tagBase - tagSize - 40 - ctaH;
+    const logoW = 360;
+    const logoH = Math.round(logoW * 0.32);
+    const logoY = (slide.keyword ? ctaTop : tagBase - tagSize - 40) - 44 - logoH;
+    const infoH = 168;
+    const y = logoY - 52 - infoH;
     body = `
     <g clip-path="url(#frame)">
       <rect width="${W}" height="${H}" fill="${PAPER}"/>
@@ -466,24 +476,25 @@ export function buildCarouselSvg(slide: CarouselSlide, c: Common): { svg: string
       <rect x="0" y="0" width="${W}" height="${620}" fill="url(#artToPaper)"/>
     </g>
     ${brandTopRight(W, c, 46)}
-    <text x="90" y="${nameBase - 70}" font-family="Poppins" font-weight="400" font-size="34" fill="${INK_SOFT}" letter-spacing="4">ESTAREMOS PRESENTES NA</text>
-    ${textBlock(nameLines, 90, nameBase, 92, INK, 700, 1.08, 'letter-spacing="-2"')}
-    ${iconBox(90, y, 64, "cal")}
-    <text x="176" y="${y + 42}" font-family="Poppins" font-weight="700" font-size="34" fill="${INK}">${esc(slide.dateLabel.toUpperCase())}</text>
-    ${iconBox(90, y + 104, 64, "pin")}
-    ${textBlock(wrap(slide.location, 32, W - 480, 2), 176, y + 146, 32, INK, 400, 1.3)}
+    <text x="90" y="${nameBase - 66}" font-family="Poppins" font-weight="400" font-size="30" fill="${INK_SOFT}" letter-spacing="5">ESTAREMOS PRESENTES NA</text>
+    ${textBlock(nameLines, 90, nameBase, nameSize, INK, 700, 1.08, 'letter-spacing="-2"')}
+    ${iconBox(90, y, 60, "cal")}
+    <text x="172" y="${y + 40}" font-family="Poppins" font-weight="700" font-size="32" fill="${INK}">${esc(slide.dateLabel.toUpperCase())}</text>
+    ${iconBox(90, y + 104, 60, "pin")}
+    ${textBlock(wrap(slide.location, 30, W - 520, 2), 172, y + 144, 30, INK, 400, 1.3)}
     ${slide.stand
-      ? `<rect x="${W - 90 - 260}" y="${y + 96}" width="260" height="112" rx="18" fill="none" stroke="${INK}" stroke-width="3"/>
-    <text x="${W - 90 - 130}" y="${y + 138}" text-anchor="middle" font-family="Poppins" font-weight="400" font-size="24" fill="${INK_SOFT}" letter-spacing="4">ESTANDE</text>
-    <text x="${W - 90 - 130}" y="${y + 188}" text-anchor="middle" font-family="Poppins" font-weight="700" font-size="46" fill="${INK}">${esc(slide.stand)}</text>`
+      ? `<rect x="${W - 90 - 250}" y="${y + 76}" width="250" height="104" rx="18" fill="none" stroke="${INK}" stroke-width="3"/>
+    <text x="${W - 90 - 125}" y="${y + 116}" text-anchor="middle" font-family="Poppins" font-weight="400" font-size="22" fill="${INK_SOFT}" letter-spacing="4">ESTANDE</text>
+    <text x="${W - 90 - 125}" y="${y + 164}" text-anchor="middle" font-family="Poppins" font-weight="700" font-size="44" fill="${INK}">${esc(slide.stand)}</text>`
       : ""}
-    ${eventLogo(90, y + 250, 440, c)}
+    ${eventLogo(90, logoY, logoW, c)}
     ${slide.keyword
-      ? `<g><rect x="90" y="${H - 300}" width="${W - 180}" height="92" rx="46" fill="${ORANGE}"/>
-      <text x="${W / 2}" y="${H - 240}" text-anchor="middle" font-family="Poppins" font-weight="700" font-size="34" fill="${WHITE}" letter-spacing="2">COMENTE ${esc(slide.keyword.toUpperCase())} E RECEBA A AGENDA</text></g>`
+      ? `<g><rect x="90" y="${ctaTop}" width="${W - 180}" height="${ctaH}" rx="46" fill="${ORANGE}"/>
+      <text x="${W / 2}" y="${ctaTop + 60}" text-anchor="middle" font-family="Poppins" font-weight="700" font-size="32" fill="${WHITE}" letter-spacing="2">COMENTE ${esc(slide.keyword.toUpperCase())} E RECEBA A AGENDA</text></g>`
       : ""}
-    ${textBlock(wrap(slide.tagline.toUpperCase(), 44, W - 200, 2), 90, H - 140, 44, INK, 700, 1.12, 'letter-spacing="-1"')}`;
+    ${textBlock(tagLines, 90, tagBase, tagSize, INK, 700, 1.12, 'letter-spacing="-1"')}`;
   }
+
 
   return {
     width: W,
