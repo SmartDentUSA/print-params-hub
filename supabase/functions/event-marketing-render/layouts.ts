@@ -398,7 +398,7 @@ export function buildCarouselSvg(slide: CarouselSlide, c: Common): { svg: string
     const pillW = W - 64 - pillX;
     const name = fit(slide.speakerName.toUpperCase(), pillW - 56, 1, 34, 22);
     const pillH = 76;
-    const headline = fit("TODA A TECNOLOGIA AO VIVO.", 520, 3, 62, 44);
+    const headline = fit("TODA A TECNOLOGIA AO VIVO.", 470, 3, 60, 44);
     const headTop = 182;
     const headLines = headline.lines
       .map((l, i) => `<text x="64" y="${headTop + i * headline.size * 1.02}" font-family="${FONT}" font-weight="700" font-size="${headline.size}" fill="${/TECNOLOG/.test(l) ? BLUE_LIGHT : WHITE}" letter-spacing="-1">${esc(l)}</text>`)
