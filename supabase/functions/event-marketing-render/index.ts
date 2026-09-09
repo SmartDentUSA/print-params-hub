@@ -247,7 +247,6 @@ Deno.serve(async (req) => {
           name,
           specialty: String(s?.specialty || s?.theme || "").trim(),
           photoUrl: String(s?.photo_url || ""),
-          lessonImageUrl: String(s?.lesson_image_url || ""),
           sessions,
         };
       })
