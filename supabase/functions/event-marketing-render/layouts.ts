@@ -437,7 +437,6 @@ export function buildCarouselSvg(slide: CarouselSlide, c: Common): { svg: string
     </defs>
     <image x="64" y="44" width="288" height="62" preserveAspectRatio="xMinYMid meet" xlink:href="${c.logoDataUri}"/>
     ${headLines}
-    <text x="64" y="${headTop + 3 * headlineSize * 1.02 - 18}" font-family="${FONT}" font-weight="400" font-size="${invite.size}" fill="${WHITE}">${esc(invite.lines[0] || "")}</text>
     ${innovationTag(W, 48)}
     <defs><clipPath id="spPhoto"><circle cx="${photoCx}" cy="${photoCy}" r="${photoR}"/></clipPath></defs>
     <circle cx="${photoCx}" cy="${photoCy}" r="${photoR + 7}" fill="${WHITE}"/>
@@ -449,6 +448,7 @@ export function buildCarouselSvg(slide: CarouselSlide, c: Common): { svg: string
       ${textBlock(name.lines, pillX + 28, slide.miniCv ? photoCy - 18 : photoCy + name.size * 0.36, name.size, WHITE, 700, 1.15)}
       ${slide.miniCv ? textBlock(miniCv.lines, pillX + 28, photoCy + 22, miniCv.size, SOFT, 400, 1.22) : ""}
     </g>
+    <text x="64" y="600" font-family="${FONT}" font-weight="700" font-size="${invite.size}" fill="${INK}">${esc(invite.lines[0] || "")}</text>
     ${blocks}
     <rect x="0" y="${H - footH}" width="${W}" height="${footH}" fill="${WHITE}"/>
     ${pin(64, H - 108, 40, BLUE_LIGHT)}
@@ -551,7 +551,6 @@ ${defs(W, H)}
   <image x="64" y="54" width="310" height="68" preserveAspectRatio="xMinYMid meet" xlink:href="${input.logoDataUri}"/>
   ${innovationTag(W, 58)}
   ${liveTechnologyHeadline(64, 226, headlineSize)}
-  <text x="64" y="470" font-family="${FONT}" font-weight="400" font-size="27" fill="${WHITE}">VISITE NOSSO ESTANDE E PARTICIPE DAS DEMONSTRAÇÕES.</text>
   <defs><clipPath id="stPhoto"><circle cx="${photoCx}" cy="${photoCy}" r="${photoR}"/></clipPath></defs>
   <circle cx="${photoCx}" cy="${photoCy}" r="${photoR + 9}" fill="${WHITE}"/>
   ${input.photoDataUri
@@ -560,6 +559,7 @@ ${defs(W, H)}
   <rect x="${pillX}" y="${pillY}" width="${W - pillX - 58}" height="${pillH}" rx="14" fill="${INK}" stroke="${BLUE_LIGHT}" stroke-width="2"/>
   ${textBlock(name.lines, pillX + 28, pillY + 48, name.size, WHITE, 700, 1.1)}
   ${input.miniCv ? textBlock(miniCv.lines, pillX + 28, pillY + 92, miniCv.size, SOFT, 400, 1.22) : ""}
+  <text x="64" y="830" font-family="${FONT}" font-weight="700" font-size="27" fill="${INK}">VISITE NOSSO ESTANDE E PARTICIPE DAS DEMONSTRAÇÕES.</text>
   ${built.svg}
   <rect x="0" y="${H - footH}" width="${W}" height="${footH}" fill="${WHITE}"/>
   ${pin(90, H - footH + 34, 46, BLUE_LIGHT)}
