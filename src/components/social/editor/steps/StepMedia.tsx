@@ -356,33 +356,6 @@ export function StepMedia({
 
   return (
     <div className="space-y-6">
-      {carrosselImages.length > 0 && (
-        <div className="rounded-md border border-emerald-500/30 bg-emerald-500/5 p-3 space-y-2">
-          <div className="flex items-center gap-2">
-            <Pin className="w-4 h-4 text-emerald-600" />
-            <Label className="text-sm font-semibold">📌 Imagens do Carrossel</Label>
-            <Badge variant="outline" className="text-[10px]">{carrosselImages.length}</Badge>
-            <span className="text-[11px] text-muted-foreground ml-auto">
-              Arraste para reordenar — publicadas antes dos uploads manuais
-            </span>
-          </div>
-          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleCarrosselDragEnd}>
-            <SortableContext items={carrosselImages} strategy={rectSortingStrategy}>
-              <div className="flex flex-wrap gap-2">
-                {carrosselImages.map((url, i) => (
-                  <CarrosselSortableCard
-                    key={url}
-                    url={url}
-                    index={i}
-                    onRemove={() => onCarrosselRemove?.(url)}
-                  />
-                ))}
-              </div>
-            </SortableContext>
-          </DndContext>
-        </div>
-      )}
-
       {isCarousel && (
         <div className="rounded-md border border-primary/30 bg-primary/5 p-3 text-xs flex items-start gap-2">
           <Info className="w-4 h-4 text-primary mt-0.5" />
@@ -395,14 +368,49 @@ export function StepMedia({
         </div>
       )}
       <div>
-        <Label className="text-sm font-medium">Mídia padrão (todas as plataformas sem override)</Label>
+        <div className="flex items-center justify-between">
+          <Label className="text-sm font-medium">Mídia(s)</Label>
+          {totalMediaCount > 0 && (
+            <span className="text-xs text-muted-foreground">
+              {totalMediaCount}/10 selecionada(s)
+            </span>
+          )}
+        </div>
         <p className="text-xs text-muted-foreground mb-2">
-          Para carrosséis do Instagram envie até 10 itens nesta lista.
+          Para carrosséis do Instagram envie até 10 itens. As imagens do carrossel aparecem primeiro, seguidas dos uploads manuais.
         </p>
         <div className="space-y-3 mb-3">
           <ProductImagesPanel value={value} onChange={onChange} />
           <AIImagePanel value={value} onChange={onChange} />
         </div>
+
+        {/* Imagens do carrossel selecionadas — exibidas dentro da seção de mídia */}
+        {carrosselImages.length > 0 && (
+          <div className="mb-3 space-y-2">
+            <div className="flex items-center gap-2">
+              <Pin className="w-3.5 h-3.5 text-emerald-600" />
+              <span className="text-xs font-medium text-emerald-700">Imagens do carrossel</span>
+              <span className="text-[11px] text-muted-foreground ml-auto">
+                Arraste para reordenar
+              </span>
+            </div>
+            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleCarrosselDragEnd}>
+              <SortableContext items={carrosselImages} strategy={rectSortingStrategy}>
+                <div className="flex flex-wrap gap-2">
+                  {carrosselImages.map((url, i) => (
+                    <CarrosselSortableCard
+                      key={url}
+                      url={url}
+                      index={i}
+                      onRemove={() => onCarrosselRemove?.(url)}
+                    />
+                  ))}
+                </div>
+              </SortableContext>
+            </DndContext>
+          </div>
+        )}
+
         <MediaItemsEditor
           items={value.media_items}
           onChange={(next) => onChange({ media_items: next })}
