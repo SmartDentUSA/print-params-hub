@@ -253,10 +253,17 @@ Deno.serve(async (req) => {
               timeLabel: timeLabel(ses?.start_time, ses?.end_time),
             };
           });
+        // Fundo (hero) do card: imagem da aula do palestrante, quando cadastrada.
+        const lessonImageUrl = String(
+          s?.lesson_image_url ||
+            raw.map((ses: any) => ses?.lesson_image_url).find((u: any) => typeof u === "string" && u) ||
+            "",
+        );
         return {
           name,
           specialty: String(s?.specialty || s?.theme || "").trim(),
           photoUrl: String(s?.photo_url || ""),
+          lessonImageUrl,
           sessions,
         };
       })
@@ -329,6 +336,7 @@ Deno.serve(async (req) => {
     if (cursor < slides.length) {
       const slide = slides[cursor];
       let label: string;
+      let slideBg: string | null = bgDataUri;
       if (slide.kind === "cover") {
         label = "Carrossel · Capa";
       } else if (slide.kind === "closing") {
@@ -337,11 +345,12 @@ Deno.serve(async (req) => {
         const speaker = speakerCards.find((item) => item.name === slide.speakerName);
         if (!speaker) return json({ error: "SPEAKER_NOT_FOUND", message: "Palestrante não encontrado para esta arte." }, 422);
         slide.photoDataUri = await fetchDataUri(speaker.photoUrl);
+        slideBg = (speaker.lessonImageUrl ? await fetchDataUri(speaker.lessonImageUrl) : null) || bgDataUri;
         label = `Carrossel · ${speaker.name}`;
       }
       const rendered = buildCarouselSvg(slide, {
         artDataUri,
-        bgDataUri,
+        bgDataUri: slideBg,
         logoDataUri: smartDentLogo,
         eventLogoDataUri,
       });
@@ -352,9 +361,10 @@ Deno.serve(async (req) => {
       const s = speakerCards[i];
       if (!s) return json({ error: "SPEAKER_NOT_FOUND", message: "Palestrante não encontrado para este story." }, 422);
       const photo = await fetchDataUri(s.photoUrl);
+      const storyBg = (s.lessonImageUrl ? await fetchDataUri(s.lessonImageUrl) : null) || bgDataUri;
       const rendered = buildStorySvg({
         artDataUri,
-        bgDataUri,
+        bgDataUri: storyBg,
         logoDataUri: smartDentLogo,
         eventLogoDataUri,
         speakerName: s.name,
