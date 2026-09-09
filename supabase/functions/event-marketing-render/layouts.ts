@@ -419,7 +419,6 @@ export function buildCarouselSvg(slide: CarouselSlide, c: Common): { svg: string
     const headTop = 182;
     const headlineSize = 60;
     const headLines = liveTechnologyHeadline(64, headTop, headlineSize);
-    const invite = fit("VISITE NOSSO ESTANDE E PARTICIPE DAS DEMONSTRAÇÕES.", W - 128, 1, 23, 18);
     body = `
     <g clip-path="url(#frame)">
       <rect width="${W}" height="${H}" fill="${PAPER}"/>
@@ -448,7 +447,6 @@ export function buildCarouselSvg(slide: CarouselSlide, c: Common): { svg: string
       ${textBlock(name.lines, pillX + 28, slide.miniCv ? photoCy - 18 : photoCy + name.size * 0.36, name.size, WHITE, 700, 1.15)}
       ${slide.miniCv ? textBlock(miniCv.lines, pillX + 28, photoCy + 22, miniCv.size, SOFT, 400, 1.22) : ""}
     </g>
-    <text x="64" y="600" font-family="${FONT}" font-weight="700" font-size="${invite.size}" fill="${INK}">${esc(invite.lines[0] || "")}</text>
     ${blocks}
     <rect x="0" y="${H - footH}" width="${W}" height="${footH}" fill="${WHITE}"/>
     ${pin(64, H - 108, 40, BLUE_LIGHT)}
