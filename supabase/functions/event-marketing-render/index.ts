@@ -233,11 +233,27 @@ Deno.serve(async (req) => {
 
 
     const speakers = Array.isArray(event.speakers) ? (event.speakers as any[]) : [];
+    const professionalIds = speakers
+      .map((s) => String(s?.professional_id || ""))
+      .filter(Boolean);
+    const professionalMiniCv = new Map<string, string>();
+    if (professionalIds.length) {
+      const { data: profiles, error: profilesError } = await db
+        .from("lia_attendances")
+        .select("id, prof_mini_cv")
+        .in("id", professionalIds)
+        .is("merged_into", null);
+      if (profilesError) console.warn("[event-marketing-render] mini CV indisponível:", profilesError.message);
+      for (const profile of profiles || []) {
+        if (profile.prof_mini_cv) professionalMiniCv.set(String(profile.id), String(profile.prof_mini_cv));
+      }
+    }
 
     // Um card por palestrante, com as demonstrações em ordem de data/hora
     const speakerCards = speakers
       .map((s) => {
         const name = String(s?.name || "").trim();
+        const professionalId = String(s?.professional_id || "");
         const raw = (Array.isArray(s?.sessions) ? s.sessions : []).filter((x: any) => x?.date);
         const sessions: SpeakerSession[] = raw
           .slice()
@@ -261,6 +277,7 @@ Deno.serve(async (req) => {
         );
         return {
           name,
+          miniCv: professionalMiniCv.get(professionalId) || String(s?.mini_cv || s?.mini_bio || "").trim(),
           specialty: String(s?.specialty || s?.theme || "").trim(),
           photoUrl: String(s?.photo_url || ""),
           lessonImageUrl,
@@ -307,6 +324,7 @@ Deno.serve(async (req) => {
         ...speakerCards.map((s) => ({
           kind: "speaker" as const,
           speakerName: s.name,
+          miniCv: s.miniCv,
           photoDataUri: null,
           sessions: s.sessions,
           dateLabel: dateRange,
@@ -368,6 +386,7 @@ Deno.serve(async (req) => {
         logoDataUri: smartDentLogo,
         eventLogoDataUri,
         speakerName: s.name,
+        miniCv: s.miniCv,
         specialty: s.specialty,
         photoDataUri: photo,
         sessions: s.sessions,
