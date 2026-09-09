@@ -512,6 +512,7 @@ export interface StoryInput extends Common {
   photoDataUri?: string | null;
   sessions: SpeakerSession[];
   eventName: string;
+  dateLabel: string;
   location: string;
   stand: string;
 }
