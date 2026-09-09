@@ -391,7 +391,7 @@ export function buildCarouselSvg(slide: CarouselSlide, c: Common): { svg: string
     const sessions = slide.sessions.slice(0, 3);
     const blocksTop = 610;
     const blocks = referenceDemoCards(sessions, blocksTop, H - footH - blocksTop - 28);
-    const hero = slide.heroDataUri || c.artDataUri;
+    const hero = slide.heroDataUri || c.bgDataUri || null;
     const pillX = photoCx + photoR + 28;
     const pillW = W - 64 - pillX;
     const name = fit(slide.speakerName.toUpperCase(), pillW - 56, 1, 34, 22);
@@ -400,8 +400,9 @@ export function buildCarouselSvg(slide: CarouselSlide, c: Common): { svg: string
     body = `
     <g clip-path="url(#frame)">
       <rect width="${W}" height="${H}" fill="${PAPER}"/>
-      <image x="0" y="0" width="${W}" height="${artH}" preserveAspectRatio="xMidYMid slice" xlink:href="${hero}"/>
-      <rect x="0" y="0" width="${W}" height="${artH}" fill="${NAVY_DEEP}" opacity="${slide.heroDataUri ? 0.28 : 0.62}"/>
+      <rect x="0" y="0" width="${W}" height="${artH}" fill="url(#bg)"/>
+      ${hero ? `<image x="0" y="0" width="${W}" height="${artH}" preserveAspectRatio="xMidYMid slice" xlink:href="${hero}"/>
+      <rect x="0" y="0" width="${W}" height="${artH}" fill="${NAVY_DEEP}" opacity="0.3"/>` : ""}
       <rect x="0" y="${artH - 86}" width="${W}" height="86" fill="url(#artToPaper)"/>
     </g>
     <image x="64" y="44" width="288" height="62" preserveAspectRatio="xMinYMid meet" xlink:href="${c.logoDataUri}"/>
