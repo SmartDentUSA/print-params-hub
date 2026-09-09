@@ -208,6 +208,10 @@ function defs(W: number, H: number): string {
       <stop offset="0.62" stop-color="${PAPER}" stop-opacity="0.35"/>
       <stop offset="1" stop-color="${PAPER}" stop-opacity="1"/>
     </linearGradient>
+    <linearGradient id="leftScrim" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="${NAVY_DEEP}" stop-opacity="0.82"/>
+      <stop offset="1" stop-color="${NAVY_DEEP}" stop-opacity="0"/>
+    </linearGradient>
     <clipPath id="frame"><rect x="0" y="0" width="${W}" height="${H}"/></clipPath>
   </defs>`;
 }
