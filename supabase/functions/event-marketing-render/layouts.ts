@@ -149,8 +149,6 @@ export interface CarouselSpeakerSlide {
   dateLabel?: string;
   speakerName: string;
   photoDataUri?: string | null;
-  /** Imagem da aula enviada no editor: entra como hero atrás da foto. */
-  heroDataUri?: string | null;
   sessions: SpeakerSession[];
   location?: string;
   stand?: string;
@@ -304,20 +302,25 @@ function stackDemos(
   return "";
 }
 
-/** Blocos claros e compactos, seguindo a anatomia da referência enviada. */
+/**
+ * Template FIXO das demonstrações (1, 2 ou 3): a altura e a posição de cada
+ * card são sempre as mesmas, independente da quantidade — com 1 ou 2
+ * demonstrações o restante do espaço fica livre, exatamente como o padrão
+ * aprovado. Só texto do editor de eventos entra aqui; nenhuma imagem.
+ */
 function referenceDemoCards(
   sessions: SpeakerSession[],
   top: number,
-  available: number,
+  _available: number,
   story = false,
 ): string {
   const shown = sessions.slice(0, 3);
   if (!shown.length) return "";
   const side = story ? 58 : 48;
   const gap = story ? 24 : 18;
-  const cardH = Math.floor((available - gap * (shown.length - 1)) / shown.length);
+  const cardH = story ? 244 : 214;
   const cardW = CAROUSEL.width - side * 2;
-  const iconSize = Math.min(story ? 62 : 54, Math.max(44, Math.round(cardH * 0.23)));
+  const iconSize = story ? 58 : 52;
   const textX = side + iconSize + 42;
   const markX = CAROUSEL.width - side - 122;
   const textW = markX - textX - 36;
@@ -350,6 +353,7 @@ function referenceDemoCards(
     </g>`;
   }).join("");
 }
+
 
 
 export function buildCarouselSvg(slide: CarouselSlide, c: Common): { svg: string; width: number; height: number } {
@@ -391,9 +395,13 @@ export function buildCarouselSvg(slide: CarouselSlide, c: Common): { svg: string
     const photoCx = 205;
     const photoCy = 496;
     const sessions = slide.sessions.slice(0, 3);
-    const blocksTop = 636;
-    const blocks = referenceDemoCards(sessions, blocksTop, H - footH - blocksTop - 28);
-    const hero = slide.heroDataUri || c.bgDataUri || null;
+    // Template fixo: os cards sempre começam na mesma altura.
+    const blocksTop = 690;
+    const blocks = referenceDemoCards(sessions, blocksTop, 0);
+    // Única imagem de fundo permitida: a imagem de fundo do evento (hero).
+    const hero = c.bgDataUri || null;
+
+
     const pillX = photoCx + photoR + 28;
     const pillW = W - 64 - pillX;
     const name = fit(slide.speakerName.toUpperCase(), pillW - 56, 1, 34, 22);
@@ -485,8 +493,6 @@ export interface StoryInput extends Common {
   speakerName: string;
   specialty: string;
   photoDataUri?: string | null;
-  /** Imagem da aula enviada no editor: entra como hero atrás da foto. */
-  heroDataUri?: string | null;
   sessions: SpeakerSession[];
   eventName: string;
   location: string;
@@ -505,8 +511,8 @@ export function buildStorySvg(input: StoryInput): { svg: string; width: number; 
   const name = fit(input.speakerName.toUpperCase(), 620, 1, 38, 24);
   const pillX = 366;
   const pillY = photoCy - 42;
-  const blocksTop = 850;
-  const built = { svg: referenceDemoCards(sessions, blocksTop, H - footH - blocksTop - 34, true) };
+  const blocksTop = 900;
+  const built = { svg: referenceDemoCards(sessions, blocksTop, 0, true) };
   const headline = fit("TODA A TECNOLOGIA AO VIVO.", 600, 3, 76, 54);
 
 
@@ -527,7 +533,7 @@ ${defs(W, H)}
   <rect width="${W}" height="${H}" fill="${PAPER}"/>
   <g clip-path="url(#frame)">
     <rect x="0" y="0" width="${W}" height="${artH}" fill="url(#bg)"/>
-    ${(input.heroDataUri || input.bgDataUri) ? `<image x="0" y="0" width="${W}" height="${artH}" preserveAspectRatio="xMidYMid slice" xlink:href="${input.heroDataUri || input.bgDataUri}"/>
+    ${(input.bgDataUri) ? `<image x="0" y="0" width="${W}" height="${artH}" preserveAspectRatio="xMidYMid slice" xlink:href="${input.bgDataUri}"/>
     <rect x="0" y="0" width="${W}" height="${artH}" fill="${NAVY_DEEP}" opacity="0.3"/>` : ""}
     <rect x="0" y="${artH - 100}" width="${W}" height="100" fill="url(#artToPaper)"/>
   </g>

@@ -247,7 +247,6 @@ Deno.serve(async (req) => {
           name,
           specialty: String(s?.specialty || s?.theme || "").trim(),
           photoUrl: String(s?.photo_url || ""),
-          lessonImageUrl: String(s?.lesson_image_url || ""),
           sessions,
         };
       })
@@ -292,7 +291,6 @@ Deno.serve(async (req) => {
           kind: "speaker" as const,
           speakerName: s.name,
           photoDataUri: null,
-          heroDataUri: s.lessonImageUrl || eventHeroUrl || null,
           sessions: s.sessions,
           dateLabel: dateRange,
           location: locationLabel,
@@ -328,13 +326,7 @@ Deno.serve(async (req) => {
       } else {
         const speaker = speakerCards.find((item) => item.name === slide.speakerName);
         if (!speaker) return json({ error: "SPEAKER_NOT_FOUND", message: "Palestrante não encontrado para esta arte." }, 422);
-         const [photoDataUri, lessonHeroDataUri, eventHeroDataUri] = await Promise.all([
-           fetchDataUri(speaker.photoUrl),
-           fetchDataUri(speaker.lessonImageUrl),
-           fetchDataUri(eventHeroUrl),
-         ]);
-         slide.photoDataUri = photoDataUri;
-         slide.heroDataUri = lessonHeroDataUri || eventHeroDataUri || null;
+        slide.photoDataUri = await fetchDataUri(speaker.photoUrl);
         label = `Carrossel · ${speaker.name}`;
       }
       const rendered = buildCarouselSvg(slide, {
@@ -349,11 +341,7 @@ Deno.serve(async (req) => {
       const i = cursor - slides.length;
       const s = speakerCards[i];
       if (!s) return json({ error: "SPEAKER_NOT_FOUND", message: "Palestrante não encontrado para este story." }, 422);
-      const [photo, lessonHeroDataUri, eventHeroDataUri] = await Promise.all([
-        fetchDataUri(s.photoUrl),
-        fetchDataUri(s.lessonImageUrl),
-        fetchDataUri(eventHeroUrl),
-      ]);
+      const photo = await fetchDataUri(s.photoUrl);
       const rendered = buildStorySvg({
         artDataUri,
         bgDataUri,
@@ -362,7 +350,6 @@ Deno.serve(async (req) => {
         speakerName: s.name,
         specialty: s.specialty,
         photoDataUri: photo,
-         heroDataUri: lessonHeroDataUri || eventHeroDataUri || null,
         sessions: s.sessions,
         eventName: event.name,
         location: locationLabel,
