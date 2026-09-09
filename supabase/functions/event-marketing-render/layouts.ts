@@ -414,8 +414,8 @@ export function buildCarouselSvg(slide: CarouselSlide, c: Common): { svg: string
     const pillX = photoCx + photoR + 28;
     const pillW = W - 64 - pillX;
     const name = fit(slide.speakerName.toUpperCase(), pillW - 56, 1, 34, 22);
-    const miniCv = fit(slide.miniCv || "", pillW - 56, 2, 18, 14);
-    const pillH = slide.miniCv ? 122 : 76;
+    const miniCv = fit(slide.miniCv || "", pillW - 56, 2, 22, 15);
+    const pillH = slide.miniCv ? 132 : 76;
     const headTop = 182;
     const headlineSize = 60;
     const headLines = liveTechnologyHeadline(64, headTop, headlineSize);
