@@ -295,6 +295,8 @@ Deno.serve(async (req) => {
           heroDataUri: s.lessonImageUrl || eventHeroUrl || null,
           sessions: s.sessions,
           dateLabel: dateRange,
+          location: locationLabel,
+          stand: event.company_stand || "",
         })),
         {
           kind: "closing" as const,
