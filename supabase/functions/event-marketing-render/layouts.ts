@@ -152,6 +152,8 @@ export interface CarouselSpeakerSlide {
   /** Imagem da aula enviada no editor: entra como hero atrás da foto. */
   heroDataUri?: string | null;
   sessions: SpeakerSession[];
+  location?: string;
+  stand?: string;
 }
 
 export interface CarouselClosingSlide {
