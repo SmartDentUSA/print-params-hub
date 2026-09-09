@@ -323,20 +323,21 @@ function referenceDemoCards(
 ): string {
   const shown = sessions.slice(0, 3);
   if (!shown.length) return "";
+  const compactThree = !story && shown.length === 3;
   const side = story ? 58 : 48;
-  const gap = story ? 24 : 18;
-  const cardH = story ? 244 : 214;
+  const gap = story ? 24 : compactThree ? 14 : 18;
+  const cardH = story ? 244 : compactThree ? 196 : 214;
   const cardW = CAROUSEL.width - side * 2;
-  const iconSize = story ? 58 : 52;
+  const iconSize = story ? 58 : compactThree ? 44 : 52;
   const textX = side + iconSize + 42;
   // Sem a marca decorativa lateral: todo o espaço útil fica para o conteúdo.
   const textW = CAROUSEL.width - side - textX - 34;
   return shown.map((s, index) => {
     const y = top + index * (cardH + gap);
     const labelW = story ? 276 : 248;
-    const date = fit(s.dateLong.toUpperCase(), textW, 1, story ? 28 : 24, 17);
-    const theme = fit(s.theme.toUpperCase(), textW, 2, story ? 34 : 30, story ? 24 : 21);
-    const time = fit(s.timeLabel.toUpperCase(), textW, 1, story ? 27 : 23, 17);
+    const date = fit(s.dateLong.toUpperCase(), textW, 1, story ? 28 : compactThree ? 22 : 24, 17);
+    const theme = fit(s.theme.toUpperCase(), textW, 2, story ? 34 : compactThree ? 27 : 30, story ? 24 : 20);
+    const time = fit(s.timeLabel.toUpperCase(), textW, 1, story ? 27 : compactThree ? 22 : 23, 17);
     const rowGap = Math.max(10, Math.round((cardH - iconSize * 3) / 4));
     const row1 = y + rowGap + 12;
     const row2 = row1 + iconSize + rowGap;
@@ -414,6 +415,7 @@ export function buildCarouselSvg(slide: CarouselSlide, c: Common): { svg: string
     const headTop = 182;
     const headlineSize = 60;
     const headLines = liveTechnologyHeadline(64, headTop, headlineSize);
+    const invite = fit("VISITE NOSSO ESTANDE E PARTICIPE DAS DEMONSTRAÇÕES.", W - 128, 1, 23, 18);
     body = `
     <g clip-path="url(#frame)">
       <rect width="${W}" height="${H}" fill="${PAPER}"/>
@@ -431,7 +433,7 @@ export function buildCarouselSvg(slide: CarouselSlide, c: Common): { svg: string
     </defs>
     <image x="64" y="44" width="288" height="62" preserveAspectRatio="xMinYMid meet" xlink:href="${c.logoDataUri}"/>
     ${headLines}
-    <text x="64" y="${headTop + 3 * headlineSize * 1.02 + 18}" font-family="${FONT}" font-weight="400" font-size="23" fill="${WHITE}" letter-spacing="1">VISITE NOSSO ESTANDE E PARTICIPE DAS DEMONSTRAÇÕES.</text>
+    <text x="64" y="${headTop + 3 * headlineSize * 1.02 + 18}" font-family="${FONT}" font-weight="400" font-size="${invite.size}" fill="${WHITE}">${esc(invite.lines[0] || "")}</text>
     ${innovationTag(W, 48)}
     <defs><clipPath id="spPhoto"><circle cx="${photoCx}" cy="${photoCy}" r="${photoR}"/></clipPath></defs>
     <circle cx="${photoCx}" cy="${photoCy}" r="${photoR + 7}" fill="${WHITE}"/>
