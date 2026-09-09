@@ -163,6 +163,7 @@ export interface CarouselSpeakerSlide {
   kind: "speaker";
   dateLabel?: string;
   speakerName: string;
+  miniCv?: string;
   photoDataUri?: string | null;
   sessions: SpeakerSession[];
   location?: string;
@@ -411,7 +412,8 @@ export function buildCarouselSvg(slide: CarouselSlide, c: Common): { svg: string
     const pillX = photoCx + photoR + 28;
     const pillW = W - 64 - pillX;
     const name = fit(slide.speakerName.toUpperCase(), pillW - 56, 1, 34, 22);
-    const pillH = 76;
+    const miniCv = fit(slide.miniCv || "", pillW - 56, 2, 18, 14);
+    const pillH = slide.miniCv ? 122 : 76;
     const headTop = 182;
     const headlineSize = 60;
     const headLines = liveTechnologyHeadline(64, headTop, headlineSize);
@@ -442,7 +444,8 @@ export function buildCarouselSvg(slide: CarouselSlide, c: Common): { svg: string
       : `<circle cx="${photoCx}" cy="${photoCy}" r="${photoR}" fill="${CARD}"/>`}
     <g>
       <rect x="${pillX}" y="${photoCy - pillH / 2}" width="${pillW}" height="${pillH}" rx="14" fill="${INK}" stroke="${BLUE_LIGHT}" stroke-width="2"/>
-      ${textBlock(name.lines, pillX + 28, photoCy + name.size * 0.36, name.size, WHITE, 700, 1.15)}
+      ${textBlock(name.lines, pillX + 28, slide.miniCv ? photoCy - 18 : photoCy + name.size * 0.36, name.size, WHITE, 700, 1.15)}
+      ${slide.miniCv ? textBlock(miniCv.lines, pillX + 28, photoCy + 18, miniCv.size, SOFT, 400, 1.18) : ""}
     </g>
     ${blocks}
     <rect x="0" y="${H - footH}" width="${W}" height="${footH}" fill="${WHITE}"/>
@@ -502,6 +505,7 @@ ${body}
 
 export interface StoryInput extends Common {
   speakerName: string;
+  miniCv?: string;
   specialty: string;
   photoDataUri?: string | null;
   sessions: SpeakerSession[];
@@ -520,8 +524,10 @@ export function buildStorySvg(input: StoryInput): { svg: string; width: number; 
   const footH = 220;
 
   const name = fit(input.speakerName.toUpperCase(), 620, 1, 38, 24);
+  const miniCv = fit(input.miniCv || "", 620, 2, 20, 15);
   const pillX = 366;
-  const pillY = photoCy - 42;
+  const pillH = input.miniCv ? 132 : 84;
+  const pillY = photoCy - pillH / 2;
   const blocksTop = 900;
   const built = { svg: referenceDemoCards(sessions, blocksTop, 0, true) };
   const headlineSize = 76;
@@ -558,8 +564,9 @@ ${defs(W, H)}
   ${input.photoDataUri
     ? `<g clip-path="url(#stPhoto)"><image x="${photoCx - photoR}" y="${photoCy - photoR}" width="${photoR * 2}" height="${photoR * 2}" preserveAspectRatio="xMidYMin slice" xlink:href="${input.photoDataUri}"/></g>`
     : `<circle cx="${photoCx}" cy="${photoCy}" r="${photoR}" fill="${CARD}"/>`}
-  <rect x="${pillX}" y="${pillY}" width="${W - pillX - 58}" height="84" rx="14" fill="${INK}" stroke="${BLUE_LIGHT}" stroke-width="2"/>
-  ${textBlock(name.lines, pillX + 28, pillY + 54, name.size, WHITE, 700, 1.1)}
+  <rect x="${pillX}" y="${pillY}" width="${W - pillX - 58}" height="${pillH}" rx="14" fill="${INK}" stroke="${BLUE_LIGHT}" stroke-width="2"/>
+  ${textBlock(name.lines, pillX + 28, pillY + 48, name.size, WHITE, 700, 1.1)}
+  ${input.miniCv ? textBlock(miniCv.lines, pillX + 28, pillY + 80, miniCv.size, SOFT, 400, 1.18) : ""}
   ${built.svg}
   <rect x="0" y="${H - footH}" width="${W}" height="${footH}" fill="${WHITE}"/>
   ${pin(90, H - footH + 34, 46, BLUE_LIGHT)}

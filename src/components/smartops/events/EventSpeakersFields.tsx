@@ -2,6 +2,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import { Plus, X, Trash2 } from "lucide-react";
 import CoverImageUpload from "@/components/smartops/CoverImageUpload";
 import PersonPicker from "@/components/smartops/PersonPicker";
@@ -12,6 +13,7 @@ export type EventSpeaker = {
   theme?: string;
   instagram?: string;
   photo_url?: string;
+  mini_cv?: string;
   /** Imagem da aula: entra como fundo (hero) atrás da foto nas artes geradas. */
   lesson_image_url?: string;
   professional_id?: string;
@@ -101,6 +103,7 @@ export default function EventSpeakersFields({
                       name: person.name,
                       instagram: person.instagram || sp.instagram || "",
                       photo_url: person.photo_url || sp.photo_url || "",
+                      mini_cv: person.mini_bio || sp.mini_cv || "",
                        professional_id:
                          person.source === "professional" || person.source === "kol"
                            ? person.id.replace(/^prof:/, "")
@@ -137,6 +140,19 @@ export default function EventSpeakersFields({
                   placeholder="@dr.nome"
                 />
               </div>
+            </div>
+
+            <div>
+              <Label className="text-xs">Mini CV do profissional</Label>
+              <Textarea
+                value={sp.mini_cv || ""}
+                onChange={(e) => patchSpeaker(i, { mini_cv: e.target.value })}
+                rows={3}
+                placeholder="Formação, especialidade e experiência profissional"
+              />
+              <p className="text-[11px] text-muted-foreground pt-1">
+                Preenchido automaticamente ao selecionar um perfil e exibido abaixo do nome nas artes.
+              </p>
             </div>
 
             <div>
