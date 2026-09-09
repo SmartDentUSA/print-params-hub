@@ -344,7 +344,7 @@ function referenceDemoCards(
       <text x="${textX}" y="${row3 + iconSize * 0.66}" font-family="${FONT}" font-weight="700" font-size="${time.size}" fill="${INK}">${esc(time.lines[0] || "")}</text>
       <line x1="${markX - 22}" y1="${y + 30}" x2="${markX - 22}" y2="${y + cardH - 26}" stroke="${BLUE_LIGHT}" stroke-width="3"/>
       <g transform="translate(${markX + 10} ${y + cardH / 2 - 46})">
-        <circle cx="28" cy="15" r="22" fill="none" stroke="${BLUE_LIGHT}" stroke-width="4"/>
+        <path d="M 12 4 C 20 -2 36 -2 44 4 C 52 10 50 24 46 34 C 42 44 38 46 34 40 C 31 35 25 35 22 40 C 18 46 14 44 10 34 C 6 24 4 10 12 4 Z" fill="none" stroke="${BLUE_LIGHT}" stroke-width="3.5" stroke-linejoin="round"/>
         ${technologyMark(-20, 66, 0.72)}
       </g>
     </g>`;
