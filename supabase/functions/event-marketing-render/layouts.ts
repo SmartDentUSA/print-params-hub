@@ -526,9 +526,9 @@ export function buildStorySvg(input: StoryInput): { svg: string; width: number; 
   const footH = 220;
 
   const name = fit(input.speakerName.toUpperCase(), 620, 1, 38, 24);
-  const miniCv = fit(input.miniCv || "", 620, 2, 20, 15);
+  const miniCv = fit(input.miniCv || "", 620, 2, 24, 17);
   const pillX = 366;
-  const pillH = input.miniCv ? 132 : 84;
+  const pillH = input.miniCv ? 146 : 84;
   const pillY = photoCy - pillH / 2;
   const blocksTop = 900;
   const built = { svg: referenceDemoCards(sessions, blocksTop, 0, true) };
