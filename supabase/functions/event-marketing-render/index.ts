@@ -253,10 +253,17 @@ Deno.serve(async (req) => {
               timeLabel: timeLabel(ses?.start_time, ses?.end_time),
             };
           });
+        // Fundo (hero) do card: imagem da aula do palestrante, quando cadastrada.
+        const lessonImageUrl = String(
+          s?.lesson_image_url ||
+            raw.map((ses: any) => ses?.lesson_image_url).find((u: any) => typeof u === "string" && u) ||
+            "",
+        );
         return {
           name,
           specialty: String(s?.specialty || s?.theme || "").trim(),
           photoUrl: String(s?.photo_url || ""),
+          lessonImageUrl,
           sessions,
         };
       })
