@@ -361,13 +361,20 @@ export function buildCarouselSvg(slide: CarouselSlide, c: Common): { svg: string
   let body = "";
 
   if (slide.kind === "cover") {
-    const headSize = 84;
+    const headSize = 82;
     const headLines = wrap(slide.headline.toUpperCase(), headSize, W - 200, 3);
-    const subLines = wrap(slide.subline.toUpperCase(), 34, W - 220, 3);
-    const ctaTop = H - 190;
-    const logoY = ctaTop - 190;
-    const standY = logoY - 190;
-    const subBase = 470 + headLines.length * (headSize * 1.06) + 40;
+    const subLines = wrap(slide.subline.toUpperCase(), 32, W - 220, 2);
+    // Pilha calculada de baixo para cima: nada se sobrepõe.
+    const ctaH = 96;
+    const ctaTop = H - 200;
+    const dateBaseline = ctaTop - 48;
+    const logoW = 380;
+    const logoH = Math.round(logoW * 0.32);
+    const logoY = dateBaseline - 30 - logoH;
+    const standH = 104;
+    const standY = logoY - 44 - standH;
+    const headBase = 430;
+    const subBase = headBase + (headLines.length - 1) * (headSize * 1.06) + 62;
     body = `
     <g clip-path="url(#frame)">
       <rect width="${W}" height="${H}" fill="url(#bg)"/>
@@ -376,16 +383,16 @@ export function buildCarouselSvg(slide: CarouselSlide, c: Common): { svg: string
       <rect width="${W}" height="${H}" fill="url(#photoFade)"/>
     </g>
     ${brandTopRight(W, c, 52)}
-    ${textBlock(headLines, 90, 470, headSize, WHITE, 700, 1.06, 'letter-spacing="-2"')}
-    ${textBlock(subLines, 90, subBase, 34, SOFT, 400, 1.35, 'letter-spacing="2"')}
-    ${slide.stand ? `${pin(90, standY, 62, BLUE_LIGHT)}
-    <text x="176" y="${standY + 26}" font-family="Poppins" font-weight="400" font-size="28" fill="${SOFT}" letter-spacing="4">ESTANDE</text>
-    <text x="176" y="${standY + 78}" font-family="Poppins" font-weight="700" font-size="58" fill="${WHITE}">${esc(slide.stand)}</text>` : ""}
-    ${eventLogo(90, logoY, 470, c)}
-    <text x="90" y="${logoY + 176}" font-family="Poppins" font-weight="400" font-size="24" fill="${SOFT}" letter-spacing="3">${esc(slide.dateLabel.toUpperCase())}</text>
+    ${textBlock(headLines, 90, headBase, headSize, WHITE, 700, 1.06, 'letter-spacing="-2"')}
+    ${textBlock(subLines, 90, subBase, 32, SOFT, 400, 1.35, 'letter-spacing="2"')}
+    ${slide.stand ? `${pin(90, standY + 12, 56, BLUE_LIGHT)}
+    <text x="168" y="${standY + 34}" font-family="Poppins" font-weight="400" font-size="26" fill="${SOFT}" letter-spacing="4">ESTANDE</text>
+    <text x="168" y="${standY + 88}" font-family="Poppins" font-weight="700" font-size="56" fill="${WHITE}">${esc(slide.stand)}</text>` : ""}
+    ${eventLogo(90, logoY, logoW, c)}
+    <text x="90" y="${dateBaseline}" font-family="Poppins" font-weight="400" font-size="26" fill="${SOFT}" letter-spacing="3">${esc(slide.dateLabel.toUpperCase())}</text>
     <g>
-      <rect x="90" y="${ctaTop}" width="620" height="96" rx="48" fill="${BLUE_LIGHT}"/>
-      <text x="140" y="${ctaTop + 62}" font-family="Poppins" font-weight="700" font-size="38" fill="${WHITE}" letter-spacing="2">${esc(slide.cta.toUpperCase())}</text>
+      <rect x="90" y="${ctaTop}" width="620" height="${ctaH}" rx="48" fill="${BLUE_LIGHT}"/>
+      <text x="140" y="${ctaTop + 62}" font-family="Poppins" font-weight="700" font-size="36" fill="${WHITE}" letter-spacing="2">${esc(slide.cta.toUpperCase())}</text>
       <path d="M 610 ${ctaTop + 34} L 646 ${ctaTop + 48} L 610 ${ctaTop + 62} Z" fill="${WHITE}"/>
     </g>`;
   } else if (slide.kind === "speaker") {
