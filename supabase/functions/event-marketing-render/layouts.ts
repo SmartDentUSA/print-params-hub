@@ -426,7 +426,7 @@ export function buildCarouselSvg(slide: CarouselSlide, c: Common): { svg: string
       <rect x="0" y="0" width="${W}" height="${artH}" fill="url(#bg)"/>
       ${hero ? `<image x="0" y="0" width="${W}" height="${artH}" preserveAspectRatio="xMidYMid slice" xlink:href="${hero}"/>
       <rect x="0" y="0" width="${W}" height="${artH}" fill="${NAVY_DEEP}" opacity="0.34"/>
-      <rect x="0" y="0" width="${Math.round(W * 0.72)}" height="${artH}" fill="url(#leftScrim)"/>` : ""}
+      <rect x="0" y="0" width="${Math.round(W * 0.72)}" width="${W}" height="${artH}" fill="url(#leftScrim)"/>` : ""}
       <rect x="0" y="${artH - 96}" width="${W}" height="96" fill="url(#artToPaper)"/>
     </g>
     <defs>
@@ -437,7 +437,6 @@ export function buildCarouselSvg(slide: CarouselSlide, c: Common): { svg: string
     </defs>
     <image x="64" y="44" width="288" height="62" preserveAspectRatio="xMinYMid meet" xlink:href="${c.logoDataUri}"/>
     ${headLines}
-    <text x="64" y="${headTop + 3 * headlineSize * 1.02 - 18}" font-family="${FONT}" font-weight="400" font-size="${invite.size}" fill="${WHITE}">${esc(invite.lines[0] || "")}</text>
     ${innovationTag(W, 48)}
     <defs><clipPath id="spPhoto"><circle cx="${photoCx}" cy="${photoCy}" r="${photoR}"/></clipPath></defs>
     <circle cx="${photoCx}" cy="${photoCy}" r="${photoR + 7}" fill="${WHITE}"/>
@@ -449,6 +448,7 @@ export function buildCarouselSvg(slide: CarouselSlide, c: Common): { svg: string
       ${textBlock(name.lines, pillX + 28, slide.miniCv ? photoCy - 18 : photoCy + name.size * 0.36, name.size, WHITE, 700, 1.15)}
       ${slide.miniCv ? textBlock(miniCv.lines, pillX + 28, photoCy + 22, miniCv.size, SOFT, 400, 1.22) : ""}
     </g>
+    <text x="64" y="600" font-family="${FONT}" font-weight="700" font-size="${invite.size}" fill="${INK}">${esc(invite.lines[0] || "")}</text>
     ${blocks}
     <rect x="0" y="${H - footH}" width="${W}" height="${footH}" fill="${WHITE}"/>
     ${pin(64, H - 108, 40, BLUE_LIGHT)}
