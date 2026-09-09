@@ -167,7 +167,10 @@ export interface CarouselClosingSlide {
 export type CarouselSlide = CarouselCoverSlide | CarouselSpeakerSlide | CarouselClosingSlide;
 
 interface Common {
+  /** Arte enviada no cadastro: gabarito de referência, NUNCA usada como fundo. */
   artDataUri: string;
+  /** Imagem de fundo real (hero do evento). Sem ela, o fundo é o gradiente institucional. */
+  bgDataUri?: string | null;
   logoDataUri: string;
   eventLogoDataUri?: string | null;
 }
