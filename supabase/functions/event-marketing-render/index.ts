@@ -210,8 +210,13 @@ Deno.serve(async (req) => {
       return json({ error: "ART_MISSING", message: "Envie a arte padrão de divulgação do evento primeiro." }, 409);
     }
 
-    const artDataUri = String(event.marketing_art_url);
-    const eventLogoDataUri = event.event_logo_url ? String(event.event_logo_url) : null;
+    const artDataUri = await fetchDataUri(String(event.marketing_art_url));
+    if (!artDataUri) {
+      return json({ error: "ART_UNAVAILABLE", message: "Não foi possível carregar a arte padrão do evento. Envie a imagem novamente." }, 422);
+    }
+    const eventLogoDataUri = event.event_logo_url
+      ? await fetchDataUri(String(event.event_logo_url))
+      : null;
     const eventHeroUrl = event.marketing_hero_url ? String(event.marketing_hero_url) : "";
     const smartDentLogo = SMARTDENT_LOGO_DATA_URI;
 
@@ -320,8 +325,13 @@ Deno.serve(async (req) => {
       } else {
         const speaker = speakerCards.find((item) => item.name === slide.speakerName);
         if (!speaker) return json({ error: "SPEAKER_NOT_FOUND", message: "Palestrante não encontrado para esta arte." }, 422);
-        slide.photoDataUri = speaker.photoUrl || null;
-        slide.heroDataUri = speaker.lessonImageUrl || eventHeroUrl || null;
+         const [photoDataUri, lessonHeroDataUri, eventHeroDataUri] = await Promise.all([
+           fetchDataUri(speaker.photoUrl),
+           fetchDataUri(speaker.lessonImageUrl),
+           fetchDataUri(eventHeroUrl),
+         ]);
+         slide.photoDataUri = photoDataUri;
+         slide.heroDataUri = lessonHeroDataUri || eventHeroDataUri || null;
         label = `Carrossel · ${speaker.name}`;
       }
       const rendered = buildCarouselSvg(slide, {
@@ -335,7 +345,11 @@ Deno.serve(async (req) => {
       const i = cursor - slides.length;
       const s = speakerCards[i];
       if (!s) return json({ error: "SPEAKER_NOT_FOUND", message: "Palestrante não encontrado para este story." }, 422);
-      const photo = s.photoUrl || null;
+      const [photo, lessonHeroDataUri, eventHeroDataUri] = await Promise.all([
+        fetchDataUri(s.photoUrl),
+        fetchDataUri(s.lessonImageUrl),
+        fetchDataUri(eventHeroUrl),
+      ]);
       const rendered = buildStorySvg({
         artDataUri,
         logoDataUri: smartDentLogo,
@@ -343,7 +357,7 @@ Deno.serve(async (req) => {
         speakerName: s.name,
         specialty: s.specialty,
         photoDataUri: photo,
-        heroDataUri: s.lessonImageUrl || eventHeroUrl || null,
+         heroDataUri: lessonHeroDataUri || eventHeroDataUri || null,
         sessions: s.sessions,
         eventName: event.name,
         location: locationLabel,

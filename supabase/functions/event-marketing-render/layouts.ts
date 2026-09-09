@@ -205,6 +205,30 @@ function eventLogo(x: number, y: number, w: number, c: Common): string {
     : "";
 }
 
+function technologyMark(x: number, y: number, scale = 1): string {
+  return `<g transform="translate(${x} ${y}) scale(${scale})">
+    <text x="0" y="0" font-family="${FONT}" font-weight="400" font-size="15" fill="${INK_SOFT}" letter-spacing="5">PRÁTICA</text>
+    <text x="-9" y="28" font-family="${FONT}" font-weight="400" font-size="15" fill="${INK_SOFT}" letter-spacing="4">TECNOLOGIA</text>
+    <text x="-2" y="56" font-family="${FONT}" font-weight="400" font-size="15" fill="${INK_SOFT}" letter-spacing="5">RESULTADOS</text>
+  </g>`;
+}
+
+function innovationTag(W: number, y = 62): string {
+  return `<g>
+    <text x="${W - 64}" y="${y}" text-anchor="end" font-family="${FONT}" font-weight="400" font-size="18" fill="${WHITE}" letter-spacing="5">INOVAÇÃO</text>
+    <text x="${W - 64}" y="${y + 28}" text-anchor="end" font-family="${FONT}" font-weight="400" font-size="18" fill="${WHITE}" letter-spacing="5">QUE CONECTA</text>
+    <text x="${W - 64}" y="${y + 56}" text-anchor="end" font-family="${FONT}" font-weight="400" font-size="18" fill="${WHITE}" letter-spacing="5">PESSOAS</text>
+    <rect x="${W - 150}" y="${y + 72}" width="86" height="6" rx="3" fill="${BLUE_LIGHT}"/>
+  </g>`;
+}
+
+function brandRibbon(W: number, y: number): string {
+  return `<g>
+    <line x1="64" y1="${y - 30}" x2="${W - 64}" y2="${y - 30}" stroke="${BLUE_LIGHT}" stroke-width="2"/>
+    <text x="${W / 2}" y="${y}" text-anchor="middle" font-family="${FONT}" font-weight="400" font-size="16" fill="${INK_SOFT}" letter-spacing="4">CONHECIMENTO   •   PRÁTICA   •   PESSOAS   •   SOLUÇÕES</text>
+  </g>`;
+}
+
 /** Bloco de uma demonstração no card do palestrante. `k` = escala (0.6–1). */
 function demoBlock(
   x: number,
@@ -275,6 +299,53 @@ function stackDemos(
   return "";
 }
 
+/** Blocos claros e compactos, seguindo a anatomia da referência enviada. */
+function referenceDemoCards(
+  sessions: SpeakerSession[],
+  top: number,
+  available: number,
+  story = false,
+): string {
+  const shown = sessions.slice(0, 3);
+  if (!shown.length) return "";
+  const side = story ? 58 : 48;
+  const gap = story ? 24 : 18;
+  const cardH = Math.floor((available - gap * (shown.length - 1)) / shown.length);
+  const cardW = CAROUSEL.width - side * 2;
+  const iconSize = Math.min(story ? 62 : 54, Math.max(44, Math.round(cardH * 0.23)));
+  const textX = side + iconSize + 42;
+  const markX = CAROUSEL.width - side - 122;
+  const textW = markX - textX - 36;
+  return shown.map((s, index) => {
+    const y = top + index * (cardH + gap);
+    const labelW = story ? 276 : 248;
+    const date = fit(s.dateLong.toUpperCase(), textW, 1, story ? 28 : 24, 17);
+    const theme = fit(s.theme.toUpperCase(), textW, 2, story ? 27 : 23, 16);
+    const time = fit(s.timeLabel.toUpperCase(), textW, 1, story ? 27 : 23, 17);
+    const rowGap = Math.max(10, Math.round((cardH - iconSize * 3) / 4));
+    const row1 = y + rowGap + 12;
+    const row2 = row1 + iconSize + rowGap;
+    const row3 = row2 + iconSize + rowGap;
+    return `<g>
+      <rect x="${side}" y="${y}" width="${cardW}" height="${cardH}" rx="16" fill="${WHITE}" stroke="${HAIR}" stroke-width="2"/>
+      <rect x="${side + 16}" y="${y - 14}" width="${labelW}" height="38" rx="19" fill="${BLUE_LIGHT}"/>
+      <text x="${side + 16 + labelW / 2}" y="${y + 12}" text-anchor="middle" font-family="${FONT}" font-weight="700" font-size="18" fill="${WHITE}" letter-spacing="2">DEMONSTRAÇÃO ${index + 1}</text>
+      ${iconBox(side + 22, row1, iconSize, "cal")}
+      <text x="${textX}" y="${row1 + iconSize * 0.46}" font-family="${FONT}" font-weight="700" font-size="${date.size}" fill="${INK}">${esc(date.lines[0] || "")}</text>
+      <text x="${textX}" y="${row1 + iconSize * 0.84}" font-family="${FONT}" font-weight="400" font-size="${story ? 18 : 16}" fill="${INK_SOFT}">(${esc(s.weekday.toUpperCase())})</text>
+      ${iconBox(side + 22, row2, iconSize, "doc")}
+      ${textBlock(theme.lines, textX, row2 + theme.size * 1.05, theme.size, INK, 400, 1.12)}
+      ${iconBox(side + 22, row3, iconSize, "clock")}
+      <text x="${textX}" y="${row3 + iconSize * 0.66}" font-family="${FONT}" font-weight="700" font-size="${time.size}" fill="${INK}">${esc(time.lines[0] || "")}</text>
+      <line x1="${markX - 22}" y1="${y + 30}" x2="${markX - 22}" y2="${y + cardH - 26}" stroke="${BLUE_LIGHT}" stroke-width="3"/>
+      <g transform="translate(${markX + 10} ${y + cardH / 2 - 46})">
+        <circle cx="28" cy="15" r="22" fill="none" stroke="${BLUE_LIGHT}" stroke-width="4"/>
+        ${technologyMark(-20, 66, 0.72)}
+      </g>
+    </g>`;
+  }).join("");
+}
+
 
 export function buildCarouselSvg(slide: CarouselSlide, c: Common): { svg: string; width: number; height: number } {
   const { width: W, height: H } = CAROUSEL;
@@ -308,40 +379,47 @@ export function buildCarouselSvg(slide: CarouselSlide, c: Common): { svg: string
       <path d="M 610 ${ctaTop + 34} L 646 ${ctaTop + 48} L 610 ${ctaTop + 62} Z" fill="${WHITE}"/>
     </g>`;
   } else if (slide.kind === "speaker") {
-    const artH = 520;
-    const footH = 104;
-    const photoR = 112;
-    const photoCx = 208;
-    const photoCy = 336;
+    const artH = 540;
+    const footH = 150;
+    const photoR = 118;
+    const photoCx = 205;
+    const photoCy = 474;
     const sessions = slide.sessions.slice(0, 3);
-    const blocksTop = artH + 62;
-    const blocks = stackDemos(72, blocksTop, W - 144, sessions, H - footH - 30 - blocksTop);
+    const blocksTop = 610;
+    const blocks = referenceDemoCards(sessions, blocksTop, H - footH - blocksTop - 28);
     const hero = slide.heroDataUri || c.artDataUri;
     const pillX = photoCx + photoR + 28;
     const pillW = W - 64 - pillX;
-    const name = fit(slide.speakerName.toUpperCase(), pillW - 56, 2, 38, 24);
-    const pillH = name.lines.length > 1 ? name.size * 2.4 + 26 : name.size * 2.1;
+    const name = fit(slide.speakerName.toUpperCase(), pillW - 56, 1, 34, 22);
+    const pillH = 76;
+    const headline = fit("TODA A TECNOLOGIA AO VIVO.", 510, 3, 66, 48);
     body = `
     <g clip-path="url(#frame)">
       <rect width="${W}" height="${H}" fill="${PAPER}"/>
       <image x="0" y="0" width="${W}" height="${artH}" preserveAspectRatio="xMidYMid slice" xlink:href="${hero}"/>
-      <rect x="0" y="0" width="${W}" height="${artH}" fill="${NAVY_DEEP}" opacity="${slide.heroDataUri ? 0.42 : 0.9}"/>
-      <rect x="0" y="${artH - 110}" width="${W}" height="110" fill="url(#artToPaper)"/>
+      <rect x="0" y="0" width="${W}" height="${artH}" fill="${NAVY_DEEP}" opacity="${slide.heroDataUri ? 0.28 : 0.62}"/>
+      <rect x="0" y="${artH - 86}" width="${W}" height="86" fill="url(#artToPaper)"/>
     </g>
-    ${brandTopRight(W, c, 46)}
+    <image x="64" y="44" width="288" height="62" preserveAspectRatio="xMinYMid meet" xlink:href="${c.logoDataUri}"/>
+    ${textBlock(headline.lines, 64, 174, headline.size, WHITE, 400, 0.98)}
+    <text x="64" y="376" font-family="${FONT}" font-weight="400" font-size="24" fill="${WHITE}">VISITE NOSSO ESTANDE E PARTICIPE DAS DEMONSTRAÇÕES.</text>
+    ${eventLogo(W - 370, 136, 300, c)}
+    ${innovationTag(W, 48)}
     <defs><clipPath id="spPhoto"><circle cx="${photoCx}" cy="${photoCy}" r="${photoR}"/></clipPath></defs>
     <circle cx="${photoCx}" cy="${photoCy}" r="${photoR + 7}" fill="${WHITE}"/>
     ${slide.photoDataUri
       ? `<g clip-path="url(#spPhoto)"><image x="${photoCx - photoR}" y="${photoCy - photoR}" width="${photoR * 2}" height="${photoR * 2}" preserveAspectRatio="xMidYMin slice" xlink:href="${slide.photoDataUri}"/></g>`
       : `<circle cx="${photoCx}" cy="${photoCy}" r="${photoR}" fill="${CARD}"/>`}
     <g>
-      <rect x="${pillX}" y="${photoCy - pillH / 2}" width="${pillW}" height="${pillH}" rx="18" fill="${INK}"/>
-      ${textBlock(name.lines, pillX + 28, photoCy - pillH / 2 + name.size * 1.25, name.size, WHITE, 700, 1.15, 'letter-spacing="1"')}
+      <rect x="${pillX}" y="${photoCy - pillH / 2}" width="${pillW}" height="${pillH}" rx="14" fill="${INK}" stroke="${BLUE_LIGHT}" stroke-width="2"/>
+      ${textBlock(name.lines, pillX + 28, photoCy + name.size * 0.36, name.size, WHITE, 700, 1.15)}
     </g>
     ${blocks}
     <rect x="0" y="${H - footH}" width="${W}" height="${footH}" fill="${WHITE}"/>
-    ${eventLogo(72, H - 91, 280, c)}
-    <text x="${W - 72}" y="${H - 44}" text-anchor="end" font-family="${FONT}" font-weight="700" font-size="26" fill="${INK_SOFT}">${esc(slide.dateLabel || "")}</text>`;
+    ${pin(64, H - 100, 42, BLUE_LIGHT)}
+    <text x="122" y="${H - 74}" font-family="${FONT}" font-weight="700" font-size="23" fill="${INK}">${esc(slide.dateLabel || "")}</text>
+    ${eventLogo(W - 304, H - 134, 240, c)}
+    ${brandRibbon(W, H - 14)}`;
   } else {
     const nameLines = wrap(slide.eventName.toUpperCase(), 92, W - 200, 3);
     const nameBase = 470;
@@ -397,19 +475,19 @@ export interface StoryInput extends Common {
 
 export function buildStorySvg(input: StoryInput): { svg: string; width: number; height: number } {
   const { width: W, height: H } = STORY;
-  const artH = 740;
-  const photoR = 158;
-  const photoCx = W / 2;
-  const photoCy = 500;
+  const artH = 760;
+  const photoR = 138;
+  const photoCx = 202;
+  const photoCy = 682;
   const sessions = input.sessions.slice(0, 3);
-  const footH = 210;
+  const footH = 220;
 
-  const name = fit(input.speakerName.toUpperCase(), W - 200, 2, 56, 34);
-  const nameY = artH + 92;
-  const specialty = fit(input.specialty || "", W - 220, 2, 30, 20);
-  const specialtyY = nameY + name.lines.length * (name.size * 1.1) + 18;
-  const blocksTop = specialtyY + specialty.lines.length * (specialty.size * 1.25) + 46;
-  const built = { svg: stackDemos(72, blocksTop, W - 144, sessions, H - footH - 40 - blocksTop) };
+  const name = fit(input.speakerName.toUpperCase(), 620, 1, 38, 24);
+  const pillX = 366;
+  const pillY = photoCy - 42;
+  const blocksTop = 850;
+  const built = { svg: referenceDemoCards(sessions, blocksTop, H - footH - blocksTop - 34, true) };
+  const headline = fit("TODA A TECNOLOGIA AO VIVO.", 600, 3, 76, 54);
 
 
   const footLine = fit(
@@ -429,25 +507,28 @@ ${defs(W, H)}
   <rect width="${W}" height="${H}" fill="${PAPER}"/>
   <g clip-path="url(#frame)">
     <image x="0" y="0" width="${W}" height="${artH}" preserveAspectRatio="xMidYMid slice" xlink:href="${input.heroDataUri || input.artDataUri}"/>
-    <rect x="0" y="0" width="${W}" height="${artH}" fill="${NAVY_DEEP}" opacity="${input.heroDataUri ? 0.42 : 0.88}"/>
-    <rect x="0" y="${artH - 120}" width="${W}" height="120" fill="url(#artToPaper)"/>
+    <rect x="0" y="0" width="${W}" height="${artH}" fill="${NAVY_DEEP}" opacity="${input.heroDataUri ? 0.28 : 0.62}"/>
+    <rect x="0" y="${artH - 100}" width="${W}" height="100" fill="url(#artToPaper)"/>
   </g>
   <rect x="0" y="${artH}" width="${W}" height="${H - artH}" fill="${PAPER}"/>
-  ${brandTopRight(W, input, 60)}
+  <image x="64" y="54" width="310" height="68" preserveAspectRatio="xMinYMid meet" xlink:href="${input.logoDataUri}"/>
+  ${eventLogo(W - 382, 148, 318, input)}
+  ${innovationTag(W, 58)}
+  ${textBlock(headline.lines, 64, 226, headline.size, WHITE, 400, 0.98)}
+  <text x="64" y="470" font-family="${FONT}" font-weight="400" font-size="27" fill="${WHITE}">VISITE NOSSO ESTANDE E PARTICIPE DAS DEMONSTRAÇÕES.</text>
   <defs><clipPath id="stPhoto"><circle cx="${photoCx}" cy="${photoCy}" r="${photoR}"/></clipPath></defs>
   <circle cx="${photoCx}" cy="${photoCy}" r="${photoR + 9}" fill="${WHITE}"/>
   ${input.photoDataUri
     ? `<g clip-path="url(#stPhoto)"><image x="${photoCx - photoR}" y="${photoCy - photoR}" width="${photoR * 2}" height="${photoR * 2}" preserveAspectRatio="xMidYMin slice" xlink:href="${input.photoDataUri}"/></g>`
     : `<circle cx="${photoCx}" cy="${photoCy}" r="${photoR}" fill="${CARD}"/>`}
-  ${textBlock(name.lines, W / 2, nameY, name.size, INK, 700, 1.1, 'text-anchor="middle"')}
-  ${specialty.lines.length
-    ? textBlock(specialty.lines, W / 2, specialtyY, specialty.size, BLUE_LIGHT, 400, 1.25, 'text-anchor="middle" letter-spacing="1"')
-    : ""}
+  <rect x="${pillX}" y="${pillY}" width="${W - pillX - 58}" height="84" rx="14" fill="${INK}" stroke="${BLUE_LIGHT}" stroke-width="2"/>
+  ${textBlock(name.lines, pillX + 28, pillY + 54, name.size, WHITE, 700, 1.1)}
   ${built.svg}
   <rect x="0" y="${H - footH}" width="${W}" height="${footH}" fill="${WHITE}"/>
   ${pin(90, H - footH + 34, 46, BLUE_LIGHT)}
   ${textBlock(footLine.lines, 156, H - footH + 72, footLine.size, INK, 700, 1.15)}
   ${textBlock(eventLine.lines, 156, H - footH + 122, eventLine.size, INK_SOFT, 400, 1.25)}
+  ${brandRibbon(W, H - 18)}
 </svg>`,
   };
 }
