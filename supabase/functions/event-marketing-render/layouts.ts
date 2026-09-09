@@ -533,7 +533,7 @@ export function buildStorySvg(input: StoryInput): { svg: string; width: number; 
   const pillX = 366;
   const pillH = input.miniCv ? 146 : 84;
   const pillY = photoCy - pillH / 2;
-  const blocksTop = 900;
+  const blocksTop = 928;
   const built = { svg: referenceDemoCards(sessions, blocksTop, 0, true) };
   const headlineSize = 76;
 
@@ -562,7 +562,7 @@ ${defs(W, H)}
   <rect x="${pillX}" y="${pillY}" width="${W - pillX - 58}" height="${pillH}" rx="14" fill="${INK}" stroke="${BLUE_LIGHT}" stroke-width="2"/>
   ${textBlock(name.lines, pillX + 28, pillY + 48, name.size, WHITE, 700, 1.1)}
   ${input.miniCv ? textBlock(miniCv.lines, pillX + 28, pillY + 92, miniCv.size, SOFT, 400, 1.22) : ""}
-  <text x="64" y="830" font-family="${FONT}" font-weight="700" font-size="27" fill="${INK}">VISITE NOSSO ESTANDE E PARTICIPE DAS DEMONSTRAÇÕES.</text>
+  <text x="64" y="882" font-family="${FONT}" font-weight="700" font-size="27" fill="${INK}">VISITE NOSSO ESTANDE E PARTICIPE DAS DEMONSTRAÇÕES.</text>
   ${built.svg}
   <rect x="0" y="${H - footH}" width="${W}" height="${footH}" fill="${WHITE}"/>
   ${pin(90, H - footH + 34, 46, BLUE_LIGHT)}
