@@ -199,6 +199,47 @@ export function EventMarketingArtPanel({
         </div>
       </div>
 
+      <div className="space-y-2 rounded-md border border-dashed p-3">
+        <Label className="text-sm font-semibold">Imagem de fundo dos cards (hero)</Label>
+        <p className="text-[11px] text-muted-foreground">
+          Usada atrás da foto do palestrante em todos os cards e stories. A imagem da aula enviada em cada palestrante
+          tem prioridade sobre esta.
+        </p>
+        <div className="flex flex-wrap items-center gap-3">
+          <input
+            ref={heroInput}
+            type="file"
+            accept={ACCEPT.join(",")}
+            className="hidden"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) uploadHero(f);
+              if (heroInput.current) heroInput.current.value = "";
+            }}
+          />
+          {heroUrl ? (
+            <a href={heroUrl} target="_blank" rel="noopener">
+              <img src={heroUrl} alt="Fundo dos cards" className="h-24 w-auto rounded-md border object-cover" />
+            </a>
+          ) : (
+            <div className="flex h-24 w-24 items-center justify-center rounded-md border border-dashed text-[11px] text-muted-foreground">
+              sem fundo
+            </div>
+          )}
+          <div className="flex flex-col gap-2">
+            <Button type="button" variant="outline" size="sm" disabled={heroBusy} onClick={() => heroInput.current?.click()}>
+              {heroBusy ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <Upload className="w-4 h-4 mr-1.5" />}
+              {heroUrl ? "Trocar fundo" : "Enviar fundo"}
+            </Button>
+            {heroUrl && (
+              <Button type="button" variant="ghost" size="sm" onClick={() => onChange({ marketing_hero_url: null })}>
+                <X className="w-4 h-4 mr-1.5" /> Remover
+              </Button>
+            )}
+          </div>
+        </div>
+      </div>
+
       <div className="flex flex-wrap items-end gap-2">
         <div className="w-48">
           <Label className="text-xs">Palavra-chave do comentário</Label>
