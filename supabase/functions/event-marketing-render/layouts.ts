@@ -213,6 +213,22 @@ function technologyMark(x: number, y: number, scale = 1): string {
   </g>`;
 }
 
+function innovationTag(W: number, y = 62): string {
+  return `<g>
+    <text x="${W - 64}" y="${y}" text-anchor="end" font-family="${FONT}" font-weight="400" font-size="18" fill="${WHITE}" letter-spacing="5">INOVAÇÃO</text>
+    <text x="${W - 64}" y="${y + 28}" text-anchor="end" font-family="${FONT}" font-weight="400" font-size="18" fill="${WHITE}" letter-spacing="5">QUE CONECTA</text>
+    <text x="${W - 64}" y="${y + 56}" text-anchor="end" font-family="${FONT}" font-weight="400" font-size="18" fill="${WHITE}" letter-spacing="5">PESSOAS</text>
+    <rect x="${W - 150}" y="${y + 72}" width="86" height="6" rx="3" fill="${BLUE_LIGHT}"/>
+  </g>`;
+}
+
+function brandRibbon(W: number, y: number): string {
+  return `<g>
+    <line x1="64" y1="${y - 30}" x2="${W - 64}" y2="${y - 30}" stroke="${BLUE_LIGHT}" stroke-width="2"/>
+    <text x="${W / 2}" y="${y}" text-anchor="middle" font-family="${FONT}" font-weight="400" font-size="16" fill="${INK_SOFT}" letter-spacing="4">CONHECIMENTO   •   PRÁTICA   •   PESSOAS   •   SOLUÇÕES</text>
+  </g>`;
+}
+
 /** Bloco de uma demonstração no card do palestrante. `k` = escala (0.6–1). */
 function demoBlock(
   x: number,
@@ -387,7 +403,8 @@ export function buildCarouselSvg(slide: CarouselSlide, c: Common): { svg: string
     <image x="64" y="44" width="288" height="62" preserveAspectRatio="xMinYMid meet" xlink:href="${c.logoDataUri}"/>
     ${textBlock(headline.lines, 64, 174, headline.size, WHITE, 400, 0.98)}
     <text x="64" y="376" font-family="${FONT}" font-weight="400" font-size="24" fill="${WHITE}">VISITE NOSSO ESTANDE E PARTICIPE DAS DEMONSTRAÇÕES.</text>
-    ${eventLogo(W - 360, 48, 290, c)}
+    ${eventLogo(W - 370, 136, 300, c)}
+    ${innovationTag(W, 48)}
     <defs><clipPath id="spPhoto"><circle cx="${photoCx}" cy="${photoCy}" r="${photoR}"/></clipPath></defs>
     <circle cx="${photoCx}" cy="${photoCy}" r="${photoR + 7}" fill="${WHITE}"/>
     ${slide.photoDataUri
@@ -399,8 +416,10 @@ export function buildCarouselSvg(slide: CarouselSlide, c: Common): { svg: string
     </g>
     ${blocks}
     <rect x="0" y="${H - footH}" width="${W}" height="${footH}" fill="${WHITE}"/>
-    <text x="64" y="${H - 70}" font-family="${FONT}" font-weight="700" font-size="25" fill="${INK}">${esc(slide.dateLabel || "")}</text>
-    ${eventLogo(W - 392, H - 101, 328, c)}`;
+    ${pin(64, H - 100, 42, BLUE_LIGHT)}
+    <text x="122" y="${H - 74}" font-family="${FONT}" font-weight="700" font-size="23" fill="${INK}">${esc(slide.dateLabel || "")}</text>
+    ${eventLogo(W - 382, H - 114, 318, c)}
+    ${brandRibbon(W, H - 14)}`;
   } else {
     const nameLines = wrap(slide.eventName.toUpperCase(), 92, W - 200, 3);
     const nameBase = 470;
@@ -493,7 +512,8 @@ ${defs(W, H)}
   </g>
   <rect x="0" y="${artH}" width="${W}" height="${H - artH}" fill="${PAPER}"/>
   <image x="64" y="54" width="310" height="68" preserveAspectRatio="xMinYMid meet" xlink:href="${input.logoDataUri}"/>
-  ${eventLogo(W - 382, 56, 318, input)}
+  ${eventLogo(W - 382, 148, 318, input)}
+  ${innovationTag(W, 58)}
   ${textBlock(headline.lines, 64, 226, headline.size, WHITE, 400, 0.98)}
   <text x="64" y="470" font-family="${FONT}" font-weight="400" font-size="27" fill="${WHITE}">VISITE NOSSO ESTANDE E PARTICIPE DAS DEMONSTRAÇÕES.</text>
   <defs><clipPath id="stPhoto"><circle cx="${photoCx}" cy="${photoCy}" r="${photoR}"/></clipPath></defs>
@@ -508,6 +528,7 @@ ${defs(W, H)}
   ${pin(90, H - footH + 34, 46, BLUE_LIGHT)}
   ${textBlock(footLine.lines, 156, H - footH + 72, footLine.size, INK, 700, 1.15)}
   ${textBlock(eventLine.lines, 156, H - footH + 122, eventLine.size, INK_SOFT, 400, 1.25)}
+  ${brandRibbon(W, H - 18)}
 </svg>`,
   };
 }
