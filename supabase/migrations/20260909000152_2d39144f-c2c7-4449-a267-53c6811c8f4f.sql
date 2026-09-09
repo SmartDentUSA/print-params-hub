@@ -1,0 +1,1 @@
+ALTER TABLE public.smartops_events ADD COLUMN IF NOT EXISTS marketing_hero_url text;
