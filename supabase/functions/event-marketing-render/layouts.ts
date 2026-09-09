@@ -509,8 +509,9 @@ export function buildStorySvg(input: StoryInput): { svg: string; width: number; 
 ${defs(W, H)}
   <rect width="${W}" height="${H}" fill="${PAPER}"/>
   <g clip-path="url(#frame)">
-    <image x="0" y="0" width="${W}" height="${artH}" preserveAspectRatio="xMidYMid slice" xlink:href="${input.heroDataUri || input.artDataUri}"/>
-    <rect x="0" y="0" width="${W}" height="${artH}" fill="${NAVY_DEEP}" opacity="${input.heroDataUri ? 0.28 : 0.62}"/>
+    <rect x="0" y="0" width="${W}" height="${artH}" fill="url(#bg)"/>
+    ${(input.heroDataUri || input.bgDataUri) ? `<image x="0" y="0" width="${W}" height="${artH}" preserveAspectRatio="xMidYMid slice" xlink:href="${input.heroDataUri || input.bgDataUri}"/>
+    <rect x="0" y="0" width="${W}" height="${artH}" fill="${NAVY_DEEP}" opacity="0.3"/>` : ""}
     <rect x="0" y="${artH - 100}" width="${W}" height="100" fill="url(#artToPaper)"/>
   </g>
   <rect x="0" y="${artH}" width="${W}" height="${H - artH}" fill="${PAPER}"/>
