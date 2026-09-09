@@ -364,8 +364,9 @@ export function buildCarouselSvg(slide: CarouselSlide, c: Common): { svg: string
     const subBase = 470 + headLines.length * (headSize * 1.06) + 40;
     body = `
     <g clip-path="url(#frame)">
-      <image x="0" y="0" width="${W}" height="${H}" preserveAspectRatio="xMidYMid slice" xlink:href="${c.artDataUri}"/>
-      <rect width="${W}" height="${H}" fill="${NAVY_DEEP}" opacity="0.62"/>
+      <rect width="${W}" height="${H}" fill="url(#bg)"/>
+      ${c.bgDataUri ? `<image x="0" y="0" width="${W}" height="${H}" preserveAspectRatio="xMidYMid slice" xlink:href="${c.bgDataUri}"/>
+      <rect width="${W}" height="${H}" fill="${NAVY_DEEP}" opacity="0.45"/>` : ""}
       <rect width="${W}" height="${H}" fill="url(#photoFade)"/>
     </g>
     ${brandTopRight(W, c, 52)}
