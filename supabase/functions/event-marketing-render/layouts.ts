@@ -512,6 +512,7 @@ export interface StoryInput extends Common {
   photoDataUri?: string | null;
   sessions: SpeakerSession[];
   eventName: string;
+  dateLabel: string;
   location: string;
   stand: string;
 }
@@ -533,16 +534,6 @@ export function buildStorySvg(input: StoryInput): { svg: string; width: number; 
   const blocksTop = 900;
   const built = { svg: referenceDemoCards(sessions, blocksTop, 0, true) };
   const headlineSize = 76;
-
-
-  const footLine = fit(
-    [input.location, input.stand ? `Estande ${input.stand}` : ""].filter(Boolean).join("  |  "),
-    W - 250,
-    1,
-    32,
-    22,
-  );
-  const eventLine = fit(input.eventName, W - 250, 2, 27, 20);
 
   return {
     width: W,
@@ -572,9 +563,10 @@ ${defs(W, H)}
   ${built.svg}
   <rect x="0" y="${H - footH}" width="${W}" height="${footH}" fill="${WHITE}"/>
   ${pin(90, H - footH + 34, 46, BLUE_LIGHT)}
-  ${textBlock(footLine.lines, 156, H - footH + 72, footLine.size, INK, 700, 1.15)}
-  ${textBlock(eventLine.lines, 156, H - footH + 122, eventLine.size, INK_SOFT, 400, 1.25)}
-  ${brandRibbon(W, H - 18)}
+  <text x="156" y="${H - footH + 78}" font-family="${FONT}" font-weight="700" font-size="30" fill="${INK}">${esc(input.dateLabel || "")}</text>
+  <text x="156" y="${H - footH + 126}" font-family="${FONT}" font-weight="400" font-size="26" fill="${INK_SOFT}">${esc([input.location, input.stand ? `ESTANDE ${input.stand}` : ""].filter(Boolean).join(" • ").toUpperCase())}</text>
+  ${eventLogo(W - 360, H - footH + 20, 300, input)}
+  ${brandRibbon(W, H - 22)}
 </svg>`,
   };
 }
