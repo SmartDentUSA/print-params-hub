@@ -397,9 +397,12 @@ export function buildCarouselSvg(slide: CarouselSlide, c: Common): { svg: string
     const photoCx = 205;
     const photoCy = 496;
     const sessions = slide.sessions.slice(0, 3);
-    const blocksTop = 636;
-    const blocks = referenceDemoCards(sessions, blocksTop, H - footH - blocksTop - 28);
-    const hero = slide.heroDataUri || c.bgDataUri || null;
+    // Template fixo: os cards sempre começam na mesma altura.
+    const blocksTop = 690;
+    const blocks = referenceDemoCards(sessions, blocksTop, 0);
+    // Única imagem de fundo permitida: a arte padrão do evento.
+    const hero = c.artDataUri || null;
+
     const pillX = photoCx + photoR + 28;
     const pillW = W - 64 - pillX;
     const name = fit(slide.speakerName.toUpperCase(), pillW - 56, 1, 34, 22);
