@@ -546,7 +546,8 @@ ${defs(W, H)}
   <g clip-path="url(#frame)">
     <rect x="0" y="0" width="${W}" height="${artH}" fill="url(#bg)"/>
     ${(input.bgDataUri) ? `<image x="0" y="0" width="${W}" height="${artH}" preserveAspectRatio="xMidYMid slice" xlink:href="${input.bgDataUri}"/>
-    <rect x="0" y="0" width="${W}" height="${artH}" fill="${NAVY_DEEP}" opacity="0.3"/>` : ""}
+    <rect x="0" y="0" width="${W}" height="${artH}" fill="${NAVY_DEEP}" opacity="0.34"/>
+    <rect x="0" y="0" width="${Math.round(W * 0.72)}" height="${artH}" fill="url(#leftScrim)"/>` : ""}
     <rect x="0" y="${artH - 100}" width="${W}" height="100" fill="url(#artToPaper)"/>
   </g>
   <rect x="0" y="${artH}" width="${W}" height="${H - artH}" fill="${PAPER}"/>
