@@ -86,7 +86,7 @@ async function fetchDataUri(url?: string | null): Promise<string | null> {
     if (!/^image\//.test(mime) || /svg/.test(mime)) return null;
     const bytes = new Uint8Array(await r.arrayBuffer());
     if (!bytes.length || bytes.length > 20 * 1024 * 1024) return null;
-    if (bytes.length > INLINE_LIMIT) return url;
+    if (bytes.length > INLINE_LIMIT) return url.replace(/&/g, "&amp;");
     return `data:${mime};base64,${b64(bytes)}`;
   } catch {
     return null;
