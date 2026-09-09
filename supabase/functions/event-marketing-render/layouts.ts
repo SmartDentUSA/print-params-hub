@@ -326,8 +326,8 @@ function referenceDemoCards(
   if (!shown.length) return "";
   const compactThree = !story && shown.length === 3;
   const side = story ? 58 : 48;
-  const gap = story ? 24 : compactThree ? 12 : 18;
-  const cardH = story ? 244 : compactThree ? 174 : 214;
+  const gap = story ? 24 : compactThree ? 10 : 18;
+  const cardH = story ? 244 : compactThree ? 176 : 214;
   const cardW = CAROUSEL.width - side * 2;
   const iconSize = story ? 58 : compactThree ? 38 : 52;
   const textX = side + iconSize + 42;
@@ -337,7 +337,9 @@ function referenceDemoCards(
     const y = top + index * (cardH + gap);
     const labelW = story ? 276 : 248;
     const date = fit(s.dateLong.toUpperCase(), textW, 1, story ? 28 : compactThree ? 20 : 24, 16);
-    const theme = fit(s.theme.toUpperCase(), textW, compactThree ? 1 : 2, story ? 34 : compactThree ? 23 : 30, story ? 24 : compactThree ? 17 : 20);
+    // No template com três demonstrações, o tema pode ocupar duas linhas.
+    // Isso evita cortar títulos longos sem invadir o horário ou o rodapé.
+    const theme = fit(s.theme.toUpperCase(), textW, 2, story ? 34 : compactThree ? 21 : 30, story ? 24 : compactThree ? 14 : 20);
     const time = fit(s.timeLabel.toUpperCase(), textW, 1, story ? 27 : compactThree ? 20 : 23, 16);
     const rowGap = Math.max(10, Math.round((cardH - iconSize * 3) / 4));
     const row1 = y + rowGap + (compactThree ? 8 : 12);
@@ -403,7 +405,7 @@ export function buildCarouselSvg(slide: CarouselSlide, c: Common): { svg: string
     const photoCy = 496;
     const sessions = slide.sessions.slice(0, 3);
     // Template fixo: os cards sempre começam na mesma altura.
-    const blocksTop = sessions.length === 3 ? 634 : 690;
+    const blocksTop = sessions.length === 3 ? 624 : 690;
     const blocks = referenceDemoCards(sessions, blocksTop, 0);
     // Única imagem de fundo permitida: a imagem de fundo do evento (hero).
     const hero = c.bgDataUri || null;
