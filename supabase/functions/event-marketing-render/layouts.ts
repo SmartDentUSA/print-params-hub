@@ -383,32 +383,43 @@ export function buildCarouselSvg(slide: CarouselSlide, c: Common): { svg: string
       <path d="M 610 ${ctaTop + 34} L 646 ${ctaTop + 48} L 610 ${ctaTop + 62} Z" fill="${WHITE}"/>
     </g>`;
   } else if (slide.kind === "speaker") {
-    const artH = 540;
+    const artH = 560;
     const footH = 150;
     const photoR = 118;
     const photoCx = 205;
-    const photoCy = 474;
+    const photoCy = 496;
     const sessions = slide.sessions.slice(0, 3);
-    const blocksTop = 610;
+    const blocksTop = 636;
     const blocks = referenceDemoCards(sessions, blocksTop, H - footH - blocksTop - 28);
     const hero = slide.heroDataUri || c.bgDataUri || null;
     const pillX = photoCx + photoR + 28;
     const pillW = W - 64 - pillX;
     const name = fit(slide.speakerName.toUpperCase(), pillW - 56, 1, 34, 22);
     const pillH = 76;
-    const headline = fit("TODA A TECNOLOGIA AO VIVO.", 510, 3, 66, 48);
+    const headline = fit("TODA A TECNOLOGIA AO VIVO.", 520, 3, 62, 44);
+    const headTop = 216;
+    const headLines = headline.lines
+      .map((l, i) => `<text x="64" y="${headTop + i * headline.size * 1.02}" font-family="${FONT}" font-weight="700" font-size="${headline.size}" fill="${/TECNOLOG/.test(l) ? BLUE_LIGHT : WHITE}" letter-spacing="-1">${esc(l)}</text>`)
+      .join("");
     body = `
     <g clip-path="url(#frame)">
       <rect width="${W}" height="${H}" fill="${PAPER}"/>
       <rect x="0" y="0" width="${W}" height="${artH}" fill="url(#bg)"/>
       ${hero ? `<image x="0" y="0" width="${W}" height="${artH}" preserveAspectRatio="xMidYMid slice" xlink:href="${hero}"/>
-      <rect x="0" y="0" width="${W}" height="${artH}" fill="${NAVY_DEEP}" opacity="0.3"/>` : ""}
-      <rect x="0" y="${artH - 86}" width="${W}" height="86" fill="url(#artToPaper)"/>
+      <rect x="0" y="0" width="${W}" height="${artH}" fill="${NAVY_DEEP}" opacity="0.34"/>
+      <rect x="0" y="0" width="${Math.round(W * 0.72)}" height="${artH}" fill="url(#leftScrim)"/>` : ""}
+      <rect x="0" y="${artH - 96}" width="${W}" height="96" fill="url(#artToPaper)"/>
     </g>
+    <defs>
+      <linearGradient id="leftScrim" x1="0" y1="0" x2="1" y2="0">
+        <stop offset="0" stop-color="${NAVY_DEEP}" stop-opacity="0.82"/>
+        <stop offset="1" stop-color="${NAVY_DEEP}" stop-opacity="0"/>
+      </linearGradient>
+    </defs>
     <image x="64" y="44" width="288" height="62" preserveAspectRatio="xMinYMid meet" xlink:href="${c.logoDataUri}"/>
-    ${textBlock(headline.lines, 64, 174, headline.size, WHITE, 400, 0.98)}
-    <text x="64" y="376" font-family="${FONT}" font-weight="400" font-size="24" fill="${WHITE}">VISITE NOSSO ESTANDE E PARTICIPE DAS DEMONSTRAÇÕES.</text>
-    ${eventLogo(W - 370, 136, 300, c)}
+    ${headLines}
+    <text x="64" y="${headTop + headline.lines.length * headline.size * 1.02 + 18}" font-family="${FONT}" font-weight="400" font-size="23" fill="${WHITE}" letter-spacing="1">VISITE NOSSO ESTANDE E PARTICIPE DAS DEMONSTRAÇÕES.</text>
+    ${eventLogo(W - 370, 148, 300, c)}
     ${innovationTag(W, 48)}
     <defs><clipPath id="spPhoto"><circle cx="${photoCx}" cy="${photoCy}" r="${photoR}"/></clipPath></defs>
     <circle cx="${photoCx}" cy="${photoCy}" r="${photoR + 7}" fill="${WHITE}"/>
@@ -421,9 +432,10 @@ export function buildCarouselSvg(slide: CarouselSlide, c: Common): { svg: string
     </g>
     ${blocks}
     <rect x="0" y="${H - footH}" width="${W}" height="${footH}" fill="${WHITE}"/>
-    ${pin(64, H - 100, 42, BLUE_LIGHT)}
-    <text x="122" y="${H - 74}" font-family="${FONT}" font-weight="700" font-size="23" fill="${INK}">${esc(slide.dateLabel || "")}</text>
-    ${eventLogo(W - 304, H - 134, 240, c)}
+    ${pin(64, H - 108, 40, BLUE_LIGHT)}
+    <text x="120" y="${H - 100}" font-family="${FONT}" font-weight="700" font-size="23" fill="${INK}">${esc(slide.dateLabel || "")}</text>
+    <text x="120" y="${H - 70}" font-family="${FONT}" font-weight="400" font-size="21" fill="${INK_SOFT}">${esc([slide.location, slide.stand ? `ESTANDE ${slide.stand}` : ""].filter(Boolean).join(" • ").toUpperCase())}</text>
+    ${eventLogo(W - 304, H - 138, 240, c)}
     ${brandRibbon(W, H - 14)}`;
   } else {
     const nameLines = wrap(slide.eventName.toUpperCase(), 92, W - 200, 3);
