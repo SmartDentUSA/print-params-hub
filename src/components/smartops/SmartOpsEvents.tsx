@@ -57,6 +57,7 @@ type EventRow = {
   partner_brands: EventPartnerBrand[] | null;
   instagram_handle: string | null;
   marketing_art_url: string | null;
+  marketing_hero_url: string | null;
   marketing_assets: EventMarketingAsset[] | null;
 };
 
