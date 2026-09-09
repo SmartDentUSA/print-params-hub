@@ -218,6 +218,7 @@ Deno.serve(async (req) => {
       ? await fetchDataUri(String(event.event_logo_url))
       : null;
     const eventHeroUrl = event.marketing_hero_url ? String(event.marketing_hero_url) : "";
+    const bgDataUri = eventHeroUrl ? await fetchDataUri(eventHeroUrl) : null;
     const smartDentLogo = SMARTDENT_LOGO_DATA_URI;
 
 
