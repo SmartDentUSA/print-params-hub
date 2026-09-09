@@ -348,39 +348,35 @@ export function buildCarouselSvg(slide: CarouselSlide, c: Common): { svg: string
   let body = "";
 
   if (slide.kind === "cover") {
-    const headSize = 82;
-    const headLines = wrap(slide.headline.toUpperCase(), headSize, W - 200, 3);
-    const subLines = wrap(slide.subline.toUpperCase(), 32, W - 220, 2);
-    // Pilha calculada de baixo para cima: nada se sobrepõe.
-    const ctaH = 96;
-    const ctaTop = H - 200;
-    const dateBaseline = ctaTop - 48;
-    const logoW = 380;
-    const logoH = Math.round(logoW * 0.32);
-    const logoY = dateBaseline - 30 - logoH;
-    const standH = 104;
-    const standY = logoY - 44 - standH;
-    const headBase = 430;
-    const subBase = headBase + (headLines.length - 1) * (headSize * 1.06) + 62;
+    const head = fit(slide.headline.toUpperCase(), W - 150, 3, 82, 64);
+    const sub = fit(slide.subline.toUpperCase(), 560, 3, 32, 26);
+    const headTop = 360;
+    const subTop = headTop + head.lines.length * head.size * 1.02 + 28;
+    const standTop = 765;
+    const eventTop = 1000;
+    const ctaTop = 1212;
     body = `
     <g clip-path="url(#frame)">
       <rect width="${W}" height="${H}" fill="url(#bg)"/>
       ${c.bgDataUri ? `<image x="0" y="0" width="${W}" height="${H}" preserveAspectRatio="xMidYMid slice" xlink:href="${c.bgDataUri}"/>
-      <rect width="${W}" height="${H}" fill="${NAVY_DEEP}" opacity="0.45"/>` : ""}
-      <rect width="${W}" height="${H}" fill="url(#photoFade)"/>
+      <rect width="${W}" height="${H}" fill="${NAVY_DEEP}" opacity="0.48"/>` : ""}
+      <rect width="${W}" height="${H}" fill="url(#photoFade)" opacity="0.72"/>
     </g>
-    ${brandTopRight(W, c, 52)}
-    ${textBlock(headLines, 90, headBase, headSize, WHITE, 700, 1.06, 'letter-spacing="-2"')}
-    ${textBlock(subLines, 90, subBase, 32, SOFT, 400, 1.35, 'letter-spacing="2"')}
-    ${slide.stand ? `${pin(90, standY + 12, 56, BLUE_LIGHT)}
-    <text x="168" y="${standY + 34}" font-family="Poppins" font-weight="400" font-size="26" fill="${SOFT}" letter-spacing="4">ESTANDE</text>
-    <text x="168" y="${standY + 88}" font-family="Poppins" font-weight="700" font-size="56" fill="${WHITE}">${esc(slide.stand)}</text>` : ""}
-    ${eventLogo(90, logoY, logoW, c)}
-    <text x="90" y="${dateBaseline}" font-family="Poppins" font-weight="400" font-size="26" fill="${SOFT}" letter-spacing="3">${esc(slide.dateLabel.toUpperCase())}</text>
+    ${brandTopRight(W, c, 54)}
+    ${textBlock(head.lines, 72, headTop, head.size, WHITE, 700, 1.02)}
+    ${textBlock(sub.lines, 72, subTop, sub.size, WHITE, 400, 1.18)}
+    ${slide.stand ? `<g>
+      <rect x="72" y="${standTop}" width="80" height="80" rx="18" fill="#0878F9"/>
+      ${pin(92, standTop + 18, 40, WHITE)}
+      <text x="178" y="${standTop + 28}" font-family="${FONT}" font-weight="400" font-size="24" fill="${WHITE}">ESTANDE</text>
+      <text x="178" y="${standTop + 78}" font-family="${FONT}" font-weight="700" font-size="52" fill="${WHITE}">${esc(slide.stand)}</text>
+    </g>` : ""}
+    ${eventLogo(72, eventTop, 470, c)}
+    <text x="570" y="${eventTop + 48}" font-family="${FONT}" font-weight="700" font-size="30" fill="${WHITE}">${esc(slide.dateLabel.toUpperCase())}</text>
     <g>
-      <rect x="90" y="${ctaTop}" width="620" height="${ctaH}" rx="48" fill="${BLUE_LIGHT}"/>
-      <text x="140" y="${ctaTop + 62}" font-family="Poppins" font-weight="700" font-size="36" fill="${WHITE}" letter-spacing="2">${esc(slide.cta.toUpperCase())}</text>
-      <path d="M 610 ${ctaTop + 34} L 646 ${ctaTop + 48} L 610 ${ctaTop + 62} Z" fill="${WHITE}"/>
+      <rect x="72" y="${ctaTop}" width="936" height="92" rx="46" fill="#0878F9"/>
+      <text x="540" y="${ctaTop + 60}" text-anchor="middle" font-family="${FONT}" font-weight="700" font-size="34" fill="${WHITE}">${esc(slide.cta.toUpperCase())}</text>
+      <path d="M 930 ${ctaTop + 29} L 958 ${ctaTop + 46} L 930 ${ctaTop + 63}" fill="none" stroke="${WHITE}" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
     </g>`;
   } else if (slide.kind === "speaker") {
     const artH = 560;
@@ -441,45 +437,41 @@ export function buildCarouselSvg(slide: CarouselSlide, c: Common): { svg: string
     ${eventLogo(W - 304, H - 138, 240, c)}
     ${brandRibbon(W, H - 14)}`;
   } else {
-    const nameSize = 84;
-    const nameLines = wrap(slide.eventName.toUpperCase(), nameSize, W - 200, 3);
-    const nameBase = 430;
-    const tagSize = 42;
-    const tagLines = wrap(slide.tagline.toUpperCase(), tagSize, W - 200, 2);
-    const tagBase = H - 80 - (tagLines.length - 1) * Math.round(tagSize * 1.12);
-    const ctaH = 92;
-    const ctaTop = tagBase - tagSize - 40 - ctaH;
-    const logoW = 360;
-    const logoH = Math.round(logoW * 0.32);
-    const logoY = (slide.keyword ? ctaTop : tagBase - tagSize - 40) - 44 - logoH;
-    const infoH = 168;
-    const y = logoY - 52 - infoH;
+    const title = fit(slide.eventName.toUpperCase(), W - 150, 3, 72, 54);
+    const tagline = fit(slide.tagline.toUpperCase(), W - 150, 2, 42, 32);
+    const titleTop = 370;
+    const taglineTop = titleTop + title.lines.length * title.size * 1.04 + 34;
+    const infoTop = 780;
+    const eventTop = 1010;
+    const ctaTop = 1212;
+    const ctaText = slide.keyword
+      ? `COMENTE ${slide.keyword.toUpperCase()} E RECEBA A AGENDA`
+      : "ESPERAMOS VOCÊ!";
     body = `
     <g clip-path="url(#frame)">
-      <rect width="${W}" height="${H}" fill="${PAPER}"/>
-      <rect x="0" y="0" width="${W}" height="${620}" fill="url(#bg)"/>
-      ${c.bgDataUri ? `<image x="0" y="0" width="${W}" height="${620}" preserveAspectRatio="xMidYMid slice" xlink:href="${c.bgDataUri}"/>
-      <rect x="0" y="0" width="${W}" height="${620}" fill="${NAVY_DEEP}" opacity="0.3"/>` : ""}
-      <rect x="0" y="0" width="${W}" height="${620}" fill="url(#artToPaper)"/>
+      <rect width="${W}" height="${H}" fill="url(#bg)"/>
+      ${c.bgDataUri ? `<image x="0" y="0" width="${W}" height="${H}" preserveAspectRatio="xMidYMid slice" xlink:href="${c.bgDataUri}"/>
+      <rect width="${W}" height="${H}" fill="${NAVY_DEEP}" opacity="0.5"/>` : ""}
+      <rect width="${W}" height="${H}" fill="url(#photoFade)" opacity="0.76"/>
     </g>
-    ${brandTopRight(W, c, 46)}
-    <text x="90" y="${nameBase - 66}" font-family="Poppins" font-weight="400" font-size="30" fill="${INK_SOFT}" letter-spacing="5">ESTAREMOS PRESENTES NA</text>
-    ${textBlock(nameLines, 90, nameBase, nameSize, INK, 700, 1.08, 'letter-spacing="-2"')}
-    ${iconBox(90, y, 60, "cal")}
-    <text x="172" y="${y + 40}" font-family="Poppins" font-weight="700" font-size="32" fill="${INK}">${esc(slide.dateLabel.toUpperCase())}</text>
-    ${iconBox(90, y + 104, 60, "pin")}
-    ${textBlock(wrap(slide.location, 30, W - 520, 2), 172, y + 144, 30, INK, 400, 1.3)}
-    ${slide.stand
-      ? `<rect x="${W - 90 - 250}" y="${y + 76}" width="250" height="104" rx="18" fill="none" stroke="${INK}" stroke-width="3"/>
-    <text x="${W - 90 - 125}" y="${y + 116}" text-anchor="middle" font-family="Poppins" font-weight="400" font-size="22" fill="${INK_SOFT}" letter-spacing="4">ESTANDE</text>
-    <text x="${W - 90 - 125}" y="${y + 164}" text-anchor="middle" font-family="Poppins" font-weight="700" font-size="44" fill="${INK}">${esc(slide.stand)}</text>`
-      : ""}
-    ${eventLogo(90, logoY, logoW, c)}
-    ${slide.keyword
-      ? `<g><rect x="90" y="${ctaTop}" width="${W - 180}" height="${ctaH}" rx="46" fill="${ORANGE}"/>
-      <text x="${W / 2}" y="${ctaTop + 60}" text-anchor="middle" font-family="Poppins" font-weight="700" font-size="32" fill="${WHITE}" letter-spacing="2">COMENTE ${esc(slide.keyword.toUpperCase())} E RECEBA A AGENDA</text></g>`
-      : ""}
-    ${textBlock(tagLines, 90, tagBase, tagSize, INK, 700, 1.12, 'letter-spacing="-1"')}`;
+    ${brandTopRight(W, c, 54)}
+    <text x="72" y="300" font-family="${FONT}" font-weight="400" font-size="30" fill="${WHITE}">ESTAREMOS PRESENTES NO</text>
+    ${textBlock(title.lines, 72, titleTop, title.size, WHITE, 700, 1.04)}
+    ${textBlock(tagline.lines, 72, taglineTop, tagline.size, SOFT, 700, 1.12)}
+    <g>
+      ${iconBox(72, infoTop, 64, "cal", INK)}
+      <text x="160" y="${infoTop + 43}" font-family="${FONT}" font-weight="700" font-size="30" fill="${WHITE}">${esc(slide.dateLabel.toUpperCase())}</text>
+      ${iconBox(72, infoTop + 92, 64, "pin", INK)}
+      ${textBlock(wrap(slide.location, 28, 520, 2), 160, infoTop + 133, 28, WHITE, 400, 1.18)}
+      ${slide.stand ? `<text x="760" y="${infoTop + 106}" text-anchor="middle" font-family="${FONT}" font-weight="400" font-size="22" fill="${SOFT}">ESTANDE</text>
+      <text x="760" y="${infoTop + 158}" text-anchor="middle" font-family="${FONT}" font-weight="700" font-size="48" fill="${WHITE}">${esc(slide.stand)}</text>` : ""}
+    </g>
+    ${eventLogo(72, eventTop, 470, c)}
+    <g>
+      <rect x="72" y="${ctaTop}" width="936" height="92" rx="46" fill="#0878F9"/>
+      <text x="540" y="${ctaTop + 59}" text-anchor="middle" font-family="${FONT}" font-weight="700" font-size="30" fill="${WHITE}">${esc(ctaText)}</text>
+      <path d="M 930 ${ctaTop + 29} L 958 ${ctaTop + 46} L 930 ${ctaTop + 63}" fill="none" stroke="${WHITE}" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>`;
   }
 
 
