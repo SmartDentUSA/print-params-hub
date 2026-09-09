@@ -429,7 +429,6 @@ export function buildCarouselSvg(slide: CarouselSlide, c: Common): { svg: string
     <image x="64" y="44" width="288" height="62" preserveAspectRatio="xMinYMid meet" xlink:href="${c.logoDataUri}"/>
     ${headLines}
     <text x="64" y="${headTop + headline.lines.length * headline.size * 1.02 - 18}" font-family="${FONT}" font-weight="400" font-size="23" fill="${WHITE}" letter-spacing="1">VISITE NOSSO ESTANDE E PARTICIPE DAS DEMONSTRAÇÕES.</text>
-    ${eventLogo(W - 370, 148, 300, c)}
     ${innovationTag(W, 48)}
     <defs><clipPath id="spPhoto"><circle cx="${photoCx}" cy="${photoCy}" r="${photoR}"/></clipPath></defs>
     <circle cx="${photoCx}" cy="${photoCy}" r="${photoR + 7}" fill="${WHITE}"/>
@@ -539,7 +538,6 @@ ${defs(W, H)}
   </g>
   <rect x="0" y="${artH}" width="${W}" height="${H - artH}" fill="${PAPER}"/>
   <image x="64" y="54" width="310" height="68" preserveAspectRatio="xMinYMid meet" xlink:href="${input.logoDataUri}"/>
-  ${eventLogo(W - 382, 148, 318, input)}
   ${innovationTag(W, 58)}
   ${textBlock(headline.lines, 64, 226, headline.size, WHITE, 400, 0.98)}
   <text x="64" y="470" font-family="${FONT}" font-weight="400" font-size="27" fill="${WHITE}">VISITE NOSSO ESTANDE E PARTICIPE DAS DEMONSTRAÇÕES.</text>
