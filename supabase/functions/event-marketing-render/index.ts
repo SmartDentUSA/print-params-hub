@@ -336,6 +336,7 @@ Deno.serve(async (req) => {
     if (cursor < slides.length) {
       const slide = slides[cursor];
       let label: string;
+      let slideBg: string | null = bgDataUri;
       if (slide.kind === "cover") {
         label = "Carrossel · Capa";
       } else if (slide.kind === "closing") {
