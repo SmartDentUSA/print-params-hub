@@ -218,6 +218,7 @@ Deno.serve(async (req) => {
       ? await fetchDataUri(String(event.event_logo_url))
       : null;
     const eventHeroUrl = event.marketing_hero_url ? String(event.marketing_hero_url) : "";
+    const bgDataUri = eventHeroUrl ? await fetchDataUri(eventHeroUrl) : null;
     const smartDentLogo = SMARTDENT_LOGO_DATA_URI;
 
 
@@ -294,6 +295,8 @@ Deno.serve(async (req) => {
           heroDataUri: s.lessonImageUrl || eventHeroUrl || null,
           sessions: s.sessions,
           dateLabel: dateRange,
+          location: locationLabel,
+          stand: event.company_stand || "",
         })),
         {
           kind: "closing" as const,
@@ -336,6 +339,7 @@ Deno.serve(async (req) => {
       }
       const rendered = buildCarouselSvg(slide, {
         artDataUri,
+        bgDataUri,
         logoDataUri: smartDentLogo,
         eventLogoDataUri,
       });
@@ -352,6 +356,7 @@ Deno.serve(async (req) => {
       ]);
       const rendered = buildStorySvg({
         artDataUri,
+        bgDataUri,
         logoDataUri: smartDentLogo,
         eventLogoDataUri,
         speakerName: s.name,
