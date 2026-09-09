@@ -414,8 +414,8 @@ export function buildCarouselSvg(slide: CarouselSlide, c: Common): { svg: string
     const pillX = photoCx + photoR + 28;
     const pillW = W - 64 - pillX;
     const name = fit(slide.speakerName.toUpperCase(), pillW - 56, 1, 34, 22);
-    const miniCv = fit(slide.miniCv || "", pillW - 56, 2, 18, 14);
-    const pillH = slide.miniCv ? 122 : 76;
+    const miniCv = fit(slide.miniCv || "", pillW - 56, 2, 22, 15);
+    const pillH = slide.miniCv ? 132 : 76;
     const headTop = 182;
     const headlineSize = 60;
     const headLines = liveTechnologyHeadline(64, headTop, headlineSize);
@@ -447,7 +447,7 @@ export function buildCarouselSvg(slide: CarouselSlide, c: Common): { svg: string
     <g>
       <rect x="${pillX}" y="${photoCy - pillH / 2}" width="${pillW}" height="${pillH}" rx="14" fill="${INK}" stroke="${BLUE_LIGHT}" stroke-width="2"/>
       ${textBlock(name.lines, pillX + 28, slide.miniCv ? photoCy - 18 : photoCy + name.size * 0.36, name.size, WHITE, 700, 1.15)}
-      ${slide.miniCv ? textBlock(miniCv.lines, pillX + 28, photoCy + 18, miniCv.size, SOFT, 400, 1.18) : ""}
+      ${slide.miniCv ? textBlock(miniCv.lines, pillX + 28, photoCy + 22, miniCv.size, SOFT, 400, 1.22) : ""}
     </g>
     ${blocks}
     <rect x="0" y="${H - footH}" width="${W}" height="${footH}" fill="${WHITE}"/>
@@ -526,9 +526,9 @@ export function buildStorySvg(input: StoryInput): { svg: string; width: number; 
   const footH = 220;
 
   const name = fit(input.speakerName.toUpperCase(), 620, 1, 38, 24);
-  const miniCv = fit(input.miniCv || "", 620, 2, 20, 15);
+  const miniCv = fit(input.miniCv || "", 620, 2, 24, 17);
   const pillX = 366;
-  const pillH = input.miniCv ? 132 : 84;
+  const pillH = input.miniCv ? 146 : 84;
   const pillY = photoCy - pillH / 2;
   const blocksTop = 900;
   const built = { svg: referenceDemoCards(sessions, blocksTop, 0, true) };
@@ -568,7 +568,7 @@ ${defs(W, H)}
     : `<circle cx="${photoCx}" cy="${photoCy}" r="${photoR}" fill="${CARD}"/>`}
   <rect x="${pillX}" y="${pillY}" width="${W - pillX - 58}" height="${pillH}" rx="14" fill="${INK}" stroke="${BLUE_LIGHT}" stroke-width="2"/>
   ${textBlock(name.lines, pillX + 28, pillY + 48, name.size, WHITE, 700, 1.1)}
-  ${input.miniCv ? textBlock(miniCv.lines, pillX + 28, pillY + 80, miniCv.size, SOFT, 400, 1.18) : ""}
+  ${input.miniCv ? textBlock(miniCv.lines, pillX + 28, pillY + 92, miniCv.size, SOFT, 400, 1.22) : ""}
   ${built.svg}
   <rect x="0" y="${H - footH}" width="${W}" height="${footH}" fill="${WHITE}"/>
   ${pin(90, H - footH + 34, 46, BLUE_LIGHT)}
