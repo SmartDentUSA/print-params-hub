@@ -304,20 +304,25 @@ function stackDemos(
   return "";
 }
 
-/** Blocos claros e compactos, seguindo a anatomia da referência enviada. */
+/**
+ * Template FIXO das demonstrações (1, 2 ou 3): a altura e a posição de cada
+ * card são sempre as mesmas, independente da quantidade — com 1 ou 2
+ * demonstrações o restante do espaço fica livre, exatamente como o padrão
+ * aprovado. Só texto do editor de eventos entra aqui; nenhuma imagem.
+ */
 function referenceDemoCards(
   sessions: SpeakerSession[],
   top: number,
-  available: number,
+  _available: number,
   story = false,
 ): string {
   const shown = sessions.slice(0, 3);
   if (!shown.length) return "";
   const side = story ? 58 : 48;
   const gap = story ? 24 : 18;
-  const cardH = Math.floor((available - gap * (shown.length - 1)) / shown.length);
+  const cardH = story ? 244 : 214;
   const cardW = CAROUSEL.width - side * 2;
-  const iconSize = Math.min(story ? 62 : 54, Math.max(44, Math.round(cardH * 0.23)));
+  const iconSize = story ? 58 : 52;
   const textX = side + iconSize + 42;
   const markX = CAROUSEL.width - side - 122;
   const textW = markX - textX - 36;
@@ -350,6 +355,7 @@ function referenceDemoCards(
     </g>`;
   }).join("");
 }
+
 
 
 export function buildCarouselSvg(slide: CarouselSlide, c: Common): { svg: string; width: number; height: number } {
