@@ -21,17 +21,25 @@ export interface EventMarketingAsset {
 export function EventMarketingArtPanel({
   eventId,
   artUrl,
+  heroUrl,
   assets,
   commentKeyword,
   onChange,
 }: {
   eventId?: string;
   artUrl?: string | null;
+  heroUrl?: string | null;
   assets?: EventMarketingAsset[] | null;
   commentKeyword?: string | null;
-  onChange: (patch: { marketing_art_url?: string | null; marketing_assets?: EventMarketingAsset[] }) => void;
+  onChange: (patch: {
+    marketing_art_url?: string | null;
+    marketing_hero_url?: string | null;
+    marketing_assets?: EventMarketingAsset[];
+  }) => void;
 }) {
   const fileInput = useRef<HTMLInputElement>(null);
+  const heroInput = useRef<HTMLInputElement>(null);
+  const [heroBusy, setHeroBusy] = useState(false);
   const [busy, setBusy] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [keyword, setKeyword] = useState(commentKeyword || "");
