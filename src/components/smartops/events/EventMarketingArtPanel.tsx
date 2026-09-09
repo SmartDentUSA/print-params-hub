@@ -21,17 +21,25 @@ export interface EventMarketingAsset {
 export function EventMarketingArtPanel({
   eventId,
   artUrl,
+  heroUrl,
   assets,
   commentKeyword,
   onChange,
 }: {
   eventId?: string;
   artUrl?: string | null;
+  heroUrl?: string | null;
   assets?: EventMarketingAsset[] | null;
   commentKeyword?: string | null;
-  onChange: (patch: { marketing_art_url?: string | null; marketing_assets?: EventMarketingAsset[] }) => void;
+  onChange: (patch: {
+    marketing_art_url?: string | null;
+    marketing_hero_url?: string | null;
+    marketing_assets?: EventMarketingAsset[];
+  }) => void;
 }) {
   const fileInput = useRef<HTMLInputElement>(null);
+  const heroInput = useRef<HTMLInputElement>(null);
+  const [heroBusy, setHeroBusy] = useState(false);
   const [busy, setBusy] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [keyword, setKeyword] = useState(commentKeyword || "");
@@ -76,6 +84,29 @@ export function EventMarketingArtPanel({
       toast.error(e?.message || "Falha no upload");
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function uploadHero(file: File) {
+    if (!ACCEPT.includes(file.type)) return toast.error("Use PNG, JPG ou WEBP");
+    setHeroBusy(true);
+    try {
+      const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
+      const path = `events-marketing-hero/${eventId || "new"}/${Date.now()}.${ext}`;
+      const { error } = await supabase.storage
+        .from(BUCKET)
+        .upload(path, file, { cacheControl: "31536000", upsert: true, contentType: file.type });
+      if (error) throw error;
+      const { data } = supabase.storage.from(BUCKET).getPublicUrl(path);
+      onChange({ marketing_hero_url: data.publicUrl });
+      if (eventId) {
+        await supabase.from("smartops_events").update({ marketing_hero_url: data.publicUrl } as any).eq("id", eventId);
+      }
+      toast.success("Imagem de fundo enviada. Gere as artes novamente.");
+    } catch (e: any) {
+      toast.error(e?.message || "Falha no upload");
+    } finally {
+      setHeroBusy(false);
     }
   }
 
@@ -165,6 +196,47 @@ export function EventMarketingArtPanel({
               <X className="w-4 h-4 mr-1.5" /> Remover
             </Button>
           )}
+        </div>
+      </div>
+
+      <div className="space-y-2 rounded-md border border-dashed p-3">
+        <Label className="text-sm font-semibold">Imagem de fundo dos cards (hero)</Label>
+        <p className="text-[11px] text-muted-foreground">
+          Usada atrás da foto do palestrante em todos os cards e stories. A imagem da aula enviada em cada palestrante
+          tem prioridade sobre esta.
+        </p>
+        <div className="flex flex-wrap items-center gap-3">
+          <input
+            ref={heroInput}
+            type="file"
+            accept={ACCEPT.join(",")}
+            className="hidden"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) uploadHero(f);
+              if (heroInput.current) heroInput.current.value = "";
+            }}
+          />
+          {heroUrl ? (
+            <a href={heroUrl} target="_blank" rel="noopener">
+              <img src={heroUrl} alt="Fundo dos cards" className="h-24 w-auto rounded-md border object-cover" />
+            </a>
+          ) : (
+            <div className="flex h-24 w-24 items-center justify-center rounded-md border border-dashed text-[11px] text-muted-foreground">
+              sem fundo
+            </div>
+          )}
+          <div className="flex flex-col gap-2">
+            <Button type="button" variant="outline" size="sm" disabled={heroBusy} onClick={() => heroInput.current?.click()}>
+              {heroBusy ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <Upload className="w-4 h-4 mr-1.5" />}
+              {heroUrl ? "Trocar fundo" : "Enviar fundo"}
+            </Button>
+            {heroUrl && (
+              <Button type="button" variant="ghost" size="sm" onClick={() => onChange({ marketing_hero_url: null })}>
+                <X className="w-4 h-4 mr-1.5" /> Remover
+              </Button>
+            )}
+          </div>
         </div>
       </div>
 

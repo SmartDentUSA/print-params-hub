@@ -325,7 +325,7 @@ export function buildCarouselSvg(slide: CarouselSlide, c: Common): { svg: string
     <g clip-path="url(#frame)">
       <rect width="${W}" height="${H}" fill="${PAPER}"/>
       <image x="0" y="0" width="${W}" height="${artH}" preserveAspectRatio="xMidYMid slice" xlink:href="${hero}"/>
-      <rect x="0" y="0" width="${W}" height="${artH}" fill="${NAVY_DEEP}" opacity="${slide.heroDataUri ? 0.7 : 0.9}"/>
+      <rect x="0" y="0" width="${W}" height="${artH}" fill="${NAVY_DEEP}" opacity="${slide.heroDataUri ? 0.42 : 0.9}"/>
       <rect x="0" y="${artH - 110}" width="${W}" height="110" fill="url(#artToPaper)"/>
     </g>
     ${brandTopRight(W, c, 46)}
@@ -429,7 +429,7 @@ ${defs(W, H)}
   <rect width="${W}" height="${H}" fill="${PAPER}"/>
   <g clip-path="url(#frame)">
     <image x="0" y="0" width="${W}" height="${artH}" preserveAspectRatio="xMidYMid slice" xlink:href="${input.heroDataUri || input.artDataUri}"/>
-    <rect x="0" y="0" width="${W}" height="${artH}" fill="${NAVY_DEEP}" opacity="${input.heroDataUri ? 0.68 : 0.88}"/>
+    <rect x="0" y="0" width="${W}" height="${artH}" fill="${NAVY_DEEP}" opacity="${input.heroDataUri ? 0.42 : 0.88}"/>
     <rect x="0" y="${artH - 120}" width="${W}" height="120" fill="url(#artToPaper)"/>
   </g>
   <rect x="0" y="${artH}" width="${W}" height="${H - artH}" fill="${PAPER}"/>

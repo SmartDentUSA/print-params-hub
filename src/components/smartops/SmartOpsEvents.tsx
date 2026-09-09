@@ -57,6 +57,7 @@ type EventRow = {
   partner_brands: EventPartnerBrand[] | null;
   instagram_handle: string | null;
   marketing_art_url: string | null;
+  marketing_hero_url: string | null;
   marketing_assets: EventMarketingAsset[] | null;
 };
 
@@ -96,6 +97,7 @@ function emptyForm(): Partial<EventRow> {
     partner_brands: [],
     instagram_handle: "",
     marketing_art_url: "",
+    marketing_hero_url: "",
     marketing_assets: [],
   };
 }
@@ -188,6 +190,7 @@ export function SmartOpsEvents() {
         instagram_handle: editing.instagram_handle || null,
         days_count: Math.max(1, Math.min(10, Number(editing.days_count) || 1)),
         marketing_art_url: editing.marketing_art_url || null,
+        marketing_hero_url: editing.marketing_hero_url || null,
       };
       if (editing.id) {
         const { error } = await supabase.from("smartops_events").update(payload).eq("id", editing.id);
@@ -553,6 +556,7 @@ export function SmartOpsEvents() {
               <EventMarketingArtPanel
                 eventId={editing.id}
                 artUrl={editing.marketing_art_url}
+                heroUrl={editing.marketing_hero_url}
                 assets={(editing.marketing_assets as EventMarketingAsset[]) || []}
                 onChange={(patch) => setEditing((cur) => (cur ? ({ ...cur, ...patch } as any) : cur))}
               />

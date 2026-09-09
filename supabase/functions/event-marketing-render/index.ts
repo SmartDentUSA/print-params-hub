@@ -200,7 +200,7 @@ Deno.serve(async (req) => {
     const { data: event, error } = await db
       .from("smartops_events")
       .select(
-        "id, name, slug, location, country, company_stand, start_date, end_date, event_logo_url, marketing_art_url, marketing_assets, speakers",
+        "id, name, slug, location, country, company_stand, start_date, end_date, event_logo_url, marketing_art_url, marketing_hero_url, marketing_assets, speakers",
       )
       .eq("id", event_id)
       .maybeSingle();
@@ -212,6 +212,7 @@ Deno.serve(async (req) => {
 
     const artDataUri = String(event.marketing_art_url);
     const eventLogoDataUri = event.event_logo_url ? String(event.event_logo_url) : null;
+    const eventHeroUrl = event.marketing_hero_url ? String(event.marketing_hero_url) : "";
     const smartDentLogo = SMARTDENT_LOGO_DATA_URI;
 
 
@@ -285,7 +286,7 @@ Deno.serve(async (req) => {
           kind: "speaker" as const,
           speakerName: s.name,
           photoDataUri: null,
-          heroDataUri: s.lessonImageUrl || null,
+          heroDataUri: s.lessonImageUrl || eventHeroUrl || null,
           sessions: s.sessions,
           dateLabel: dateRange,
         })),
@@ -320,7 +321,7 @@ Deno.serve(async (req) => {
         const speaker = speakerCards.find((item) => item.name === slide.speakerName);
         if (!speaker) return json({ error: "SPEAKER_NOT_FOUND", message: "Palestrante não encontrado para esta arte." }, 422);
         slide.photoDataUri = speaker.photoUrl || null;
-        slide.heroDataUri = speaker.lessonImageUrl || null;
+        slide.heroDataUri = speaker.lessonImageUrl || eventHeroUrl || null;
         label = `Carrossel · ${speaker.name}`;
       }
       const rendered = buildCarouselSvg(slide, {
@@ -342,7 +343,7 @@ Deno.serve(async (req) => {
         speakerName: s.name,
         specialty: s.specialty,
         photoDataUri: photo,
-        heroDataUri: s.lessonImageUrl || null,
+        heroDataUri: s.lessonImageUrl || eventHeroUrl || null,
         sessions: s.sessions,
         eventName: event.name,
         location: locationLabel,
