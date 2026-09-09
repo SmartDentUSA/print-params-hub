@@ -364,7 +364,7 @@ Deno.serve(async (req) => {
       const storyBg = (s.lessonImageUrl ? await fetchDataUri(s.lessonImageUrl) : null) || bgDataUri;
       const rendered = buildStorySvg({
         artDataUri,
-        bgDataUri,
+        bgDataUri: storyBg,
         logoDataUri: smartDentLogo,
         eventLogoDataUri,
         speakerName: s.name,
