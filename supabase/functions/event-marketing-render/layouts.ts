@@ -420,7 +420,7 @@ export function buildCarouselSvg(slide: CarouselSlide, c: Common): { svg: string
     </defs>
     <image x="64" y="44" width="288" height="62" preserveAspectRatio="xMinYMid meet" xlink:href="${c.logoDataUri}"/>
     ${headLines}
-    <text x="64" y="${headTop + headline.lines.length * headline.size * 1.02 + 18}" font-family="${FONT}" font-weight="400" font-size="23" fill="${WHITE}" letter-spacing="1">VISITE NOSSO ESTANDE E PARTICIPE DAS DEMONSTRAÇÕES.</text>
+    <text x="64" y="${headTop + headline.lines.length * headline.size * 1.02 - 18}" font-family="${FONT}" font-weight="400" font-size="23" fill="${WHITE}" letter-spacing="1">VISITE NOSSO ESTANDE E PARTICIPE DAS DEMONSTRAÇÕES.</text>
     ${eventLogo(W - 370, 148, 300, c)}
     ${innovationTag(W, 48)}
     <defs><clipPath id="spPhoto"><circle cx="${photoCx}" cy="${photoCy}" r="${photoR}"/></clipPath></defs>
