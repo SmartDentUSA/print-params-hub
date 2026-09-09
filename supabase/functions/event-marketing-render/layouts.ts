@@ -149,8 +149,6 @@ export interface CarouselSpeakerSlide {
   dateLabel?: string;
   speakerName: string;
   photoDataUri?: string | null;
-  /** Imagem da aula enviada no editor: entra como hero atrás da foto. */
-  heroDataUri?: string | null;
   sessions: SpeakerSession[];
   location?: string;
   stand?: string;
@@ -495,8 +493,6 @@ export interface StoryInput extends Common {
   speakerName: string;
   specialty: string;
   photoDataUri?: string | null;
-  /** Imagem da aula enviada no editor: entra como hero atrás da foto. */
-  heroDataUri?: string | null;
   sessions: SpeakerSession[];
   eventName: string;
   location: string;
@@ -515,8 +511,8 @@ export function buildStorySvg(input: StoryInput): { svg: string; width: number; 
   const name = fit(input.speakerName.toUpperCase(), 620, 1, 38, 24);
   const pillX = 366;
   const pillY = photoCy - 42;
-  const blocksTop = 850;
-  const built = { svg: referenceDemoCards(sessions, blocksTop, H - footH - blocksTop - 34, true) };
+  const blocksTop = 900;
+  const built = { svg: referenceDemoCards(sessions, blocksTop, 0, true) };
   const headline = fit("TODA A TECNOLOGIA AO VIVO.", 600, 3, 76, 54);
 
 
@@ -537,7 +533,7 @@ ${defs(W, H)}
   <rect width="${W}" height="${H}" fill="${PAPER}"/>
   <g clip-path="url(#frame)">
     <rect x="0" y="0" width="${W}" height="${artH}" fill="url(#bg)"/>
-    ${(input.heroDataUri || input.bgDataUri) ? `<image x="0" y="0" width="${W}" height="${artH}" preserveAspectRatio="xMidYMid slice" xlink:href="${input.heroDataUri || input.bgDataUri}"/>
+    ${(input.bgDataUri) ? `<image x="0" y="0" width="${W}" height="${artH}" preserveAspectRatio="xMidYMid slice" xlink:href="${input.bgDataUri}"/>
     <rect x="0" y="0" width="${W}" height="${artH}" fill="${NAVY_DEEP}" opacity="0.3"/>` : ""}
     <rect x="0" y="${artH - 100}" width="${W}" height="100" fill="url(#artToPaper)"/>
   </g>
