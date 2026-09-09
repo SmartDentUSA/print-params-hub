@@ -337,6 +337,7 @@ Deno.serve(async (req) => {
       }
       const rendered = buildCarouselSvg(slide, {
         artDataUri,
+        bgDataUri,
         logoDataUri: smartDentLogo,
         eventLogoDataUri,
       });
