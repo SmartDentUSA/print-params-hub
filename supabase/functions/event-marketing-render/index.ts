@@ -354,6 +354,7 @@ Deno.serve(async (req) => {
       ]);
       const rendered = buildStorySvg({
         artDataUri,
+        bgDataUri,
         logoDataUri: smartDentLogo,
         eventLogoDataUri,
         speakerName: s.name,
