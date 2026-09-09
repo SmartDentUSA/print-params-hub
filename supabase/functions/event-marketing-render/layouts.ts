@@ -400,8 +400,9 @@ export function buildCarouselSvg(slide: CarouselSlide, c: Common): { svg: string
     // Template fixo: os cards sempre começam na mesma altura.
     const blocksTop = 690;
     const blocks = referenceDemoCards(sessions, blocksTop, 0);
-    // Única imagem de fundo permitida: a arte padrão do evento.
-    const hero = c.artDataUri || null;
+    // Única imagem de fundo permitida: a imagem de fundo do evento (hero).
+    const hero = c.bgDataUri || null;
+
 
     const pillX = photoCx + photoR + 28;
     const pillW = W - 64 - pillX;
