@@ -87,6 +87,29 @@ export function EventMarketingArtPanel({
     }
   }
 
+  async function uploadHero(file: File) {
+    if (!ACCEPT.includes(file.type)) return toast.error("Use PNG, JPG ou WEBP");
+    setHeroBusy(true);
+    try {
+      const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
+      const path = `events-marketing-hero/${eventId || "new"}/${Date.now()}.${ext}`;
+      const { error } = await supabase.storage
+        .from(BUCKET)
+        .upload(path, file, { cacheControl: "31536000", upsert: true, contentType: file.type });
+      if (error) throw error;
+      const { data } = supabase.storage.from(BUCKET).getPublicUrl(path);
+      onChange({ marketing_hero_url: data.publicUrl });
+      if (eventId) {
+        await supabase.from("smartops_events").update({ marketing_hero_url: data.publicUrl } as any).eq("id", eventId);
+      }
+      toast.success("Imagem de fundo enviada. Gere as artes novamente.");
+    } catch (e: any) {
+      toast.error(e?.message || "Falha no upload");
+    } finally {
+      setHeroBusy(false);
+    }
+  }
+
   async function generate() {
     if (!eventId) return toast.error("Salve o evento antes de gerar as artes.");
     if (!artUrl) return toast.error("Envie a arte padrão de divulgação primeiro.");
