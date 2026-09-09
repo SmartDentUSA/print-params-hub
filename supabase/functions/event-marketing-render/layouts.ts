@@ -380,7 +380,7 @@ export function buildCarouselSvg(slide: CarouselSlide, c: Common): { svg: string
     </g>`;
   } else if (slide.kind === "speaker") {
     const artH = 540;
-    const footH = 118;
+    const footH = 150;
     const photoR = 118;
     const photoCx = 205;
     const photoCy = 474;
@@ -418,7 +418,7 @@ export function buildCarouselSvg(slide: CarouselSlide, c: Common): { svg: string
     <rect x="0" y="${H - footH}" width="${W}" height="${footH}" fill="${WHITE}"/>
     ${pin(64, H - 100, 42, BLUE_LIGHT)}
     <text x="122" y="${H - 74}" font-family="${FONT}" font-weight="700" font-size="23" fill="${INK}">${esc(slide.dateLabel || "")}</text>
-    ${eventLogo(W - 382, H - 114, 318, c)}
+    ${eventLogo(W - 304, H - 134, 240, c)}
     ${brandRibbon(W, H - 14)}`;
   } else {
     const nameLines = wrap(slide.eventName.toUpperCase(), 92, W - 200, 3);
@@ -480,7 +480,7 @@ export function buildStorySvg(input: StoryInput): { svg: string; width: number; 
   const photoCx = 202;
   const photoCy = 682;
   const sessions = input.sessions.slice(0, 3);
-  const footH = 178;
+  const footH = 220;
 
   const name = fit(input.speakerName.toUpperCase(), 620, 1, 38, 24);
   const pillX = 366;
