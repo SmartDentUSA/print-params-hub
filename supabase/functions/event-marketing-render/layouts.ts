@@ -568,7 +568,7 @@ ${defs(W, H)}
     : `<circle cx="${photoCx}" cy="${photoCy}" r="${photoR}" fill="${CARD}"/>`}
   <rect x="${pillX}" y="${pillY}" width="${W - pillX - 58}" height="${pillH}" rx="14" fill="${INK}" stroke="${BLUE_LIGHT}" stroke-width="2"/>
   ${textBlock(name.lines, pillX + 28, pillY + 48, name.size, WHITE, 700, 1.1)}
-  ${input.miniCv ? textBlock(miniCv.lines, pillX + 28, pillY + 80, miniCv.size, SOFT, 400, 1.18) : ""}
+  ${input.miniCv ? textBlock(miniCv.lines, pillX + 28, pillY + 92, miniCv.size, SOFT, 400, 1.22) : ""}
   ${built.svg}
   <rect x="0" y="${H - footH}" width="${W}" height="${footH}" fill="${WHITE}"/>
   ${pin(90, H - footH + 34, 46, BLUE_LIGHT)}
