@@ -556,6 +556,7 @@ export function SmartOpsEvents() {
               <EventMarketingArtPanel
                 eventId={editing.id}
                 artUrl={editing.marketing_art_url}
+                heroUrl={editing.marketing_hero_url}
                 assets={(editing.marketing_assets as EventMarketingAsset[]) || []}
                 onChange={(patch) => setEditing((cur) => (cur ? ({ ...cur, ...patch } as any) : cur))}
               />
