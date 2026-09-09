@@ -208,6 +208,10 @@ function defs(W: number, H: number): string {
       <stop offset="0.62" stop-color="${PAPER}" stop-opacity="0.35"/>
       <stop offset="1" stop-color="${PAPER}" stop-opacity="1"/>
     </linearGradient>
+    <linearGradient id="leftScrim" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="${NAVY_DEEP}" stop-opacity="0.82"/>
+      <stop offset="1" stop-color="${NAVY_DEEP}" stop-opacity="0"/>
+    </linearGradient>
     <clipPath id="frame"><rect x="0" y="0" width="${W}" height="${H}"/></clipPath>
   </defs>`;
 }
@@ -542,7 +546,8 @@ ${defs(W, H)}
   <g clip-path="url(#frame)">
     <rect x="0" y="0" width="${W}" height="${artH}" fill="url(#bg)"/>
     ${(input.bgDataUri) ? `<image x="0" y="0" width="${W}" height="${artH}" preserveAspectRatio="xMidYMid slice" xlink:href="${input.bgDataUri}"/>
-    <rect x="0" y="0" width="${W}" height="${artH}" fill="${NAVY_DEEP}" opacity="0.3"/>` : ""}
+    <rect x="0" y="0" width="${W}" height="${artH}" fill="${NAVY_DEEP}" opacity="0.34"/>
+    <rect x="0" y="0" width="${Math.round(W * 0.72)}" height="${artH}" fill="url(#leftScrim)"/>` : ""}
     <rect x="0" y="${artH - 100}" width="${W}" height="100" fill="url(#artToPaper)"/>
   </g>
   <rect x="0" y="${artH}" width="${W}" height="${H - artH}" fill="${PAPER}"/>
