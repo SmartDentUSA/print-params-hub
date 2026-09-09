@@ -188,6 +188,7 @@ export function SmartOpsEvents() {
         instagram_handle: editing.instagram_handle || null,
         days_count: Math.max(1, Math.min(10, Number(editing.days_count) || 1)),
         marketing_art_url: editing.marketing_art_url || null,
+        marketing_hero_url: editing.marketing_hero_url || null,
       };
       if (editing.id) {
         const { error } = await supabase.from("smartops_events").update(payload).eq("id", editing.id);
