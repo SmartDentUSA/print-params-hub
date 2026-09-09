@@ -437,7 +437,7 @@ export function buildCarouselSvg(slide: CarouselSlide, c: Common): { svg: string
     </defs>
     <image x="64" y="44" width="288" height="62" preserveAspectRatio="xMinYMid meet" xlink:href="${c.logoDataUri}"/>
     ${headLines}
-    <text x="64" y="${headTop + 3 * headlineSize * 1.02 + 18}" font-family="${FONT}" font-weight="400" font-size="${invite.size}" fill="${WHITE}">${esc(invite.lines[0] || "")}</text>
+    <text x="64" y="${headTop + 3 * headlineSize * 1.02 - 18}" font-family="${FONT}" font-weight="400" font-size="${invite.size}" fill="${WHITE}">${esc(invite.lines[0] || "")}</text>
     ${innovationTag(W, 48)}
     <defs><clipPath id="spPhoto"><circle cx="${photoCx}" cy="${photoCy}" r="${photoR}"/></clipPath></defs>
     <circle cx="${photoCx}" cy="${photoCy}" r="${photoR + 7}" fill="${WHITE}"/>
