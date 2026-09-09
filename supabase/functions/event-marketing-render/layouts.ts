@@ -208,14 +208,6 @@ function eventLogo(x: number, y: number, w: number, c: Common): string {
     : "";
 }
 
-function technologyMark(x: number, y: number, scale = 1): string {
-  return `<g transform="translate(${x} ${y}) scale(${scale})">
-    <text x="0" y="0" font-family="${FONT}" font-weight="400" font-size="15" fill="${INK_SOFT}" letter-spacing="5">PRÁTICA</text>
-    <text x="-9" y="28" font-family="${FONT}" font-weight="400" font-size="15" fill="${INK_SOFT}" letter-spacing="4">TECNOLOGIA</text>
-    <text x="-2" y="56" font-family="${FONT}" font-weight="400" font-size="15" fill="${INK_SOFT}" letter-spacing="5">RESULTADOS</text>
-  </g>`;
-}
-
 function innovationTag(W: number, y = 62): string {
   return `<g>
     <text x="${W - 64}" y="${y}" text-anchor="end" font-family="${FONT}" font-weight="400" font-size="18" fill="${WHITE}" letter-spacing="5">INOVAÇÃO</text>
@@ -322,13 +314,13 @@ function referenceDemoCards(
   const cardW = CAROUSEL.width - side * 2;
   const iconSize = story ? 58 : 52;
   const textX = side + iconSize + 42;
-  const markX = CAROUSEL.width - side - 122;
-  const textW = markX - textX - 36;
+  // Sem a marca decorativa lateral: todo o espaço útil fica para o conteúdo.
+  const textW = CAROUSEL.width - side - textX - 34;
   return shown.map((s, index) => {
     const y = top + index * (cardH + gap);
     const labelW = story ? 276 : 248;
     const date = fit(s.dateLong.toUpperCase(), textW, 1, story ? 28 : 24, 17);
-    const theme = fit(s.theme.toUpperCase(), textW, 2, story ? 27 : 23, 16);
+    const theme = fit(s.theme.toUpperCase(), textW, 2, story ? 34 : 30, story ? 24 : 21);
     const time = fit(s.timeLabel.toUpperCase(), textW, 1, story ? 27 : 23, 17);
     const rowGap = Math.max(10, Math.round((cardH - iconSize * 3) / 4));
     const row1 = y + rowGap + 12;
@@ -342,14 +334,9 @@ function referenceDemoCards(
       <text x="${textX}" y="${row1 + iconSize * 0.46}" font-family="${FONT}" font-weight="700" font-size="${date.size}" fill="${INK}">${esc(date.lines[0] || "")}</text>
       <text x="${textX}" y="${row1 + iconSize * 0.84}" font-family="${FONT}" font-weight="400" font-size="${story ? 18 : 16}" fill="${INK_SOFT}">(${esc(s.weekday.toUpperCase())})</text>
       ${iconBox(side + 22, row2, iconSize, "doc")}
-      ${textBlock(theme.lines, textX, row2 + theme.size * 1.05, theme.size, INK, 400, 1.12)}
+      ${textBlock(theme.lines, textX, row2 + theme.size * 1.02, theme.size, INK, 700, 1.08)}
       ${iconBox(side + 22, row3, iconSize, "clock")}
       <text x="${textX}" y="${row3 + iconSize * 0.66}" font-family="${FONT}" font-weight="700" font-size="${time.size}" fill="${INK}">${esc(time.lines[0] || "")}</text>
-      <line x1="${markX - 22}" y1="${y + 30}" x2="${markX - 22}" y2="${y + cardH - 26}" stroke="${BLUE_LIGHT}" stroke-width="3"/>
-      <g transform="translate(${markX + 10} ${y + cardH / 2 - 46})">
-        <path d="M 12 4 C 20 -2 36 -2 44 4 C 52 10 50 24 46 34 C 42 44 38 46 34 40 C 31 35 25 35 22 40 C 18 46 14 44 10 34 C 6 24 4 10 12 4 Z" fill="none" stroke="${BLUE_LIGHT}" stroke-width="3.5" stroke-linejoin="round"/>
-        ${technologyMark(-20, 66, 0.72)}
-      </g>
     </g>`;
   }).join("");
 }
