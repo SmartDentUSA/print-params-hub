@@ -90,6 +90,21 @@ function textBlock(
     .join("");
 }
 
+/** Chamada institucional com quebra aprovada e idêntica em carrossel e stories. */
+function liveTechnologyHeadline(x: number, y: number, size: number): string {
+  const lines = [
+    { text: "TODA A", fill: WHITE },
+    { text: "TECNOLOGIA", fill: BLUE_LIGHT },
+    { text: "AO VIVO", fill: WHITE },
+  ];
+  return lines
+    .map(
+      (line, index) =>
+        `<text x="${x}" y="${y + index * size * 1.02}" font-family="${FONT}" font-weight="700" font-size="${size}" fill="${line.fill}">${line.text}</text>`,
+    )
+    .join("");
+}
+
 function pin(x: number, y: number, size: number, fill: string): string {
   const s = size / 24;
   return `<g transform="translate(${x} ${y}) scale(${s})" fill="${fill}"><path d="M12 0C7.03 0 3 4.03 3 9c0 6.5 9 15 9 15s9-8.5 9-15c0-4.97-4.03-9-9-9zm0 12.5A3.5 3.5 0 1 1 12 5.5a3.5 3.5 0 0 1 0 7z"/></g>`;
@@ -396,11 +411,9 @@ export function buildCarouselSvg(slide: CarouselSlide, c: Common): { svg: string
     const pillW = W - 64 - pillX;
     const name = fit(slide.speakerName.toUpperCase(), pillW - 56, 1, 34, 22);
     const pillH = 76;
-    const headline = fit("TODA A TECNOLOGIA AO VIVO.", 470, 3, 60, 44);
     const headTop = 182;
-    const headLines = headline.lines
-      .map((l, i) => `<text x="64" y="${headTop + i * headline.size * 1.02}" font-family="${FONT}" font-weight="700" font-size="${headline.size}" fill="${/TECNOLOG/.test(l) ? BLUE_LIGHT : WHITE}" letter-spacing="-1">${esc(l)}</text>`)
-      .join("");
+    const headlineSize = 60;
+    const headLines = liveTechnologyHeadline(64, headTop, headlineSize);
     body = `
     <g clip-path="url(#frame)">
       <rect width="${W}" height="${H}" fill="${PAPER}"/>
@@ -418,7 +431,7 @@ export function buildCarouselSvg(slide: CarouselSlide, c: Common): { svg: string
     </defs>
     <image x="64" y="44" width="288" height="62" preserveAspectRatio="xMinYMid meet" xlink:href="${c.logoDataUri}"/>
     ${headLines}
-    <text x="64" y="${headTop + headline.lines.length * headline.size * 1.02 - 18}" font-family="${FONT}" font-weight="400" font-size="23" fill="${WHITE}" letter-spacing="1">VISITE NOSSO ESTANDE E PARTICIPE DAS DEMONSTRAÇÕES.</text>
+    <text x="64" y="${headTop + 3 * headlineSize * 1.02 + 18}" font-family="${FONT}" font-weight="400" font-size="23" fill="${WHITE}" letter-spacing="1">VISITE NOSSO ESTANDE E PARTICIPE DAS DEMONSTRAÇÕES.</text>
     ${innovationTag(W, 48)}
     <defs><clipPath id="spPhoto"><circle cx="${photoCx}" cy="${photoCy}" r="${photoR}"/></clipPath></defs>
     <circle cx="${photoCx}" cy="${photoCy}" r="${photoR + 7}" fill="${WHITE}"/>
@@ -509,7 +522,7 @@ export function buildStorySvg(input: StoryInput): { svg: string; width: number; 
   const pillY = photoCy - 42;
   const blocksTop = 900;
   const built = { svg: referenceDemoCards(sessions, blocksTop, 0, true) };
-  const headline = fit("TODA A TECNOLOGIA AO VIVO.", 600, 3, 76, 54);
+  const headlineSize = 76;
 
 
   const footLine = fit(
@@ -536,7 +549,7 @@ ${defs(W, H)}
   <rect x="0" y="${artH}" width="${W}" height="${H - artH}" fill="${PAPER}"/>
   <image x="64" y="54" width="310" height="68" preserveAspectRatio="xMinYMid meet" xlink:href="${input.logoDataUri}"/>
   ${innovationTag(W, 58)}
-  ${textBlock(headline.lines, 64, 226, headline.size, WHITE, 400, 0.98)}
+  ${liveTechnologyHeadline(64, 226, headlineSize)}
   <text x="64" y="470" font-family="${FONT}" font-weight="400" font-size="27" fill="${WHITE}">VISITE NOSSO ESTANDE E PARTICIPE DAS DEMONSTRAÇÕES.</text>
   <defs><clipPath id="stPhoto"><circle cx="${photoCx}" cy="${photoCy}" r="${photoR}"/></clipPath></defs>
   <circle cx="${photoCx}" cy="${photoCy}" r="${photoR + 9}" fill="${WHITE}"/>
