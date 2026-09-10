@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { supabase } from '@/integrations/supabase/client';
 import { useMediaUpload } from '@/hooks/social/useMediaUpload';
+import { extractAudioMp3Base64, extractFrames } from '@/lib/social/videoExtract';
 
 export interface VideoCopyResult {
   caption: string;
@@ -110,6 +111,7 @@ export function VideoCopyStudio({
       toast.error(e?.message || 'Falha ao analisar o vídeo');
     } finally {
       setAnalyzing(false);
+      setStage('');
     }
   };
 
@@ -155,10 +157,10 @@ export function VideoCopyStudio({
             size="sm"
             className="ml-auto"
             onClick={handleAnalyze}
-            disabled={!videoUrl || analyzing || uploading}
+            disabled={(!videoUrl && !videoFile) || analyzing || uploading}
           >
             {analyzing ? (
-              <><Loader2 className="w-4 h-4 mr-1 animate-spin" /> Transcrevendo e escrevendo...</>
+              <><Loader2 className="w-4 h-4 mr-1 animate-spin" /> {stage || 'Transcrevendo e escrevendo...'}</>
             ) : (
               <><Sparkles className="w-4 h-4 mr-1" /> Gerar copy do vídeo</>
             )}
