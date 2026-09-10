@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import type { PostInput } from '@/lib/social/postSchema';
+import { localInputToIso } from '@/lib/social/scheduleTime';
 
 export function useUpdateScheduledPost() {
   const [saving, setSaving] = useState(false);

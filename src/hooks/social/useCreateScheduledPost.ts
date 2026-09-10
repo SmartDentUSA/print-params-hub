@@ -3,6 +3,7 @@ import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import type { PostInput } from '@/lib/social/postSchema';
+import { localInputToIso } from '@/lib/social/scheduleTime';
 
 export function useCreateScheduledPost() {
   const [saving, setSaving] = useState(false);
@@ -19,7 +20,7 @@ export function useCreateScheduledPost() {
         media_items: data.media_items as any,
         per_channel_media: data.per_channel_media as any,
         channels: data.channels as any,
-        scheduled_at: data.publish_now ? null : data.scheduled_at,
+        scheduled_at: data.publish_now ? null : localInputToIso(data.scheduled_at, data.timezone),
         timezone: data.timezone,
         publish_now: data.publish_now,
         status: data.publish_now ? 'publishing' : 'scheduled',
