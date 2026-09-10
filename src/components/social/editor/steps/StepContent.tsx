@@ -720,15 +720,20 @@ export function StepContent({
         const theme = String(s?.theme || '').trim();
         if (!name && !theme) return '';
         const ig = String(s?.instagram || '').trim();
-        const slots = (Array.isArray(s?.sessions) ? s.sessions : [])
+        const sessions = (Array.isArray(s?.sessions) ? s.sessions : [])
           .map((se: any) => {
             const d = se?.date ? fmtDate(se.date) : '';
             const ini = fmtTime(se?.start_time);
             const fim = fmtTime(se?.end_time);
             const hora = ini && fim ? `${ini} às ${fim}` : ini || fim;
-            return [d ? `📅 ${d}` : '', hora ? `🕒 ${hora}` : ''].filter(Boolean).join(' ');
+            const tema = String(se?.theme || '').trim();
+            return [d ? `📅 ${d}` : '', hora ? `⏰ ${hora}` : '', tema ? `— ${tema}` : '']
+              .filter(Boolean)
+              .join(' ');
           })
-          .filter(Boolean)
+          .filter(Boolean);
+        const slots = sessions
+          .map((l, i) => (sessions.length > 1 ? `Demonstração ${i + 1}: ${l}` : l))
           .join(' | ');
         return `🎤 ${[name, ig ? `(${ig})` : ''].filter(Boolean).join(' ')}${theme ? ` — ${theme}` : ''}${slots ? ` · ${slots}` : ''}`;
       })
