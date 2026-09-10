@@ -2,8 +2,8 @@
 // da IA não dependa de enviar o arquivo original (que pode ter centenas de MB).
 import * as lamejs from '@breezystack/lamejs';
 
-const TARGET_RATE = 24000;
-const BITRATE = 48;
+const TARGET_RATE = 16000;
+const BITRATE = 32;
 
 function floatTo16(input: Float32Array): Int16Array {
   const out = new Int16Array(input.length);
@@ -70,7 +70,7 @@ export async function extractAudioMp3Base64(file: File): Promise<{ base64: strin
 }
 
 /** Captura quadros distribuídos ao longo do vídeo (para ler os textos na tela). */
-export async function extractFrames(file: File, count = 8, maxWidth = 720): Promise<string[]> {
+export async function extractFrames(file: File, count = 4, maxWidth = 512): Promise<string[]> {
   const url = URL.createObjectURL(file);
   const video = document.createElement('video');
   video.preload = 'auto';
@@ -109,7 +109,7 @@ export async function extractFrames(file: File, count = 8, maxWidth = 720): Prom
         }
       });
       ctx.drawImage(video, 0, 0, w, h);
-      out.push(canvas.toDataURL('image/jpeg', 0.72));
+      out.push(canvas.toDataURL('image/jpeg', 0.6));
     }
     return out;
   } finally {
