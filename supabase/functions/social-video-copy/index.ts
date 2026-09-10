@@ -28,6 +28,33 @@ function sanitizeHashtags(arr: unknown): string[] {
   return out;
 }
 
+const MAX_VIDEO_BYTES = 24 * 1024 * 1024; // 24 MB
+
+function bytesToBase64(bytes: Uint8Array): string {
+  let binary = "";
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
+  }
+  return btoa(binary);
+}
+
+// O provedor de IA não consegue baixar o vídeo do Storage: enviamos os bytes inline.
+async function fetchVideoAsDataUri(url: string): Promise<string> {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`Não foi possível baixar o vídeo (${res.status})`);
+  const declared = Number(res.headers.get("content-length") || 0);
+  if (declared && declared > MAX_VIDEO_BYTES) {
+    throw new Error("Vídeo muito grande para análise (limite ~24 MB). Envie uma versão mais curta ou compactada.");
+  }
+  const buf = new Uint8Array(await res.arrayBuffer());
+  if (buf.byteLength > MAX_VIDEO_BYTES) {
+    throw new Error("Vídeo muito grande para análise (limite ~24 MB). Envie uma versão mais curta ou compactada.");
+  }
+  const mime = (res.headers.get("content-type") || "video/mp4").split(";")[0].trim();
+  return `data:${mime.startsWith("video/") ? mime : "video/mp4"};base64,${bytesToBase64(buf)}`;
+}
+
 function stripJson(text: string): any {
   const cleaned = String(text || "").replace(/```json|```/g, "").trim();
   const start = cleaned.indexOf("{");
@@ -80,7 +107,7 @@ Deno.serve(async (req) => {
           .filter(Boolean)
           .join("\n\n"),
       },
-      { type: "video_url", video_url: { url: videoUrl } },
+      { type: "video_url", video_url: { url: await fetchVideoAsDataUri(videoUrl) } },
     ];
 
     const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
