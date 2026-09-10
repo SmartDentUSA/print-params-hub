@@ -126,6 +126,16 @@ export function VideoCopyStudio({
           Envie um vídeo com narração. O sistema transcreve o áudio, lê os textos da tela e escreve a
           legenda com os horários, o estande e as marcações dos palestrantes cadastrados.
         </p>
+        {hardFacts?.length ? (
+          <p className="text-[11px] text-primary">
+            Agenda carregada: {hardFacts.length} informações do evento (datas, horários, local e estande).
+          </p>
+        ) : (
+          <p className="text-[11px] text-amber-600">
+            Nenhuma agenda carregada. Selecione o evento acima para que as datas e os horários das
+            demonstrações entrem na legenda.
+          </p>
+        )}
 
         <input
           ref={inputRef}
