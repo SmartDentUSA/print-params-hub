@@ -127,20 +127,82 @@ function findSpeaker(agendas: EventAgenda[], evidence: string): { event: EventAg
   return winner && winner.score >= 2 ? winner : null;
 }
 
+const WEEKDAYS = ["Domingo", "Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado"];
+const MONTHS = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
+
+function longDate(value?: string): string {
+  const match = String(value || "").match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!match) return String(value || "");
+  const [, y, m, d] = match;
+  const weekday = WEEKDAYS[new Date(`${y}-${m}-${d}T12:00:00Z`).getUTCDay()] || "";
+  return `${Number(d)} de ${MONTHS[Number(m) - 1] || m}${weekday ? ` (${weekday})` : ""}`;
+}
+
+/** Remove qualquer agenda escrita pela IA — a oficial vem do cadastro do evento. */
+function stripModelSchedule(caption: string): string {
+  return caption
+    .split("\n")
+    .filter((line) => {
+      const l = line.trim();
+      if (!l) return true;
+      if (/anote na agenda|localiza[çc][ãa]o\s*:|^📍|^🗓|^📅|^⏰|demonstra[çc][ãa]o\s*\d/i.test(l)) return false;
+      if (/\d{1,2}\s*[hH:]\s*\d{2}/.test(l) && /\d{1,2}\s*(de\s+\p{L}+|\/\d{1,2})/u.test(l)) return false;
+      if (/\d{1,2}\s*[hH]\d{2}\s*(às|as|a|-|—)\s*\d{1,2}\s*[hH]\d{2}/.test(l)) return false;
+      if (/estande\s+[a-z]?\d+/i.test(l) && l.length < 120) return false;
+      return true;
+    })
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
 function agendaBlock(event: EventAgenda, speaker: AgendaSpeaker): string {
   const sessions = (speaker.sessions || []).filter((session) => session.date && session.start_time);
   if (!sessions.length) return "";
-  const lines = sessions.flatMap((session, index) => {
-    const end = session.end_time ? ` às ${String(session.end_time).slice(0, 5)}` : "";
-    return [
-      `Demonstração ${index + 1}`,
-      `🗓️ ${formatDate(session.date)} ⏰ ${String(session.start_time).slice(0, 5)}${end}`,
-    ];
+  const lines = sessions.map((session) => {
+    const start = String(session.start_time).slice(0, 5).replace(":", "h");
+    const end = session.end_time ? ` às ${String(session.end_time).slice(0, 5).replace(":", "h")}` : "";
+    const theme = String(session.theme || speaker.theme || "").trim();
+    return `📅 ${longDate(session.date)} ⏰ ${start}${end}${theme ? `\n🦷 ${theme}` : ""}`;
   });
   const place = [event.stand ? `Estande ${String(event.stand).replace(/^estande\s*/i, "")}` : "", event.location || ""]
     .filter(Boolean)
     .join(" — ");
-  return [`Anote na agenda:`, ...lines, place ? `📍 ${place}` : ""].filter(Boolean).join("\n");
+  const header = `🗓️ Anote na agenda${event.event_name ? ` — ${event.event_name}` : ""}:`;
+  return [header, ...lines, place ? `📍 ${place}` : ""].filter(Boolean).join("\n");
+}
+
+function levenshtein(a: string, b: string): number {
+  const dp = Array.from({ length: b.length + 1 }, (_, i) => i);
+  for (let i = 1; i <= a.length; i++) {
+    let prev = dp[0];
+    dp[0] = i;
+    for (let j = 1; j <= b.length; j++) {
+      const tmp = dp[j];
+      dp[j] = Math.min(dp[j] + 1, dp[j - 1] + 1, prev + (a[i - 1] === b[j - 1] ? 0 : 1));
+      prev = tmp;
+    }
+  }
+  return dp[b.length];
+}
+
+/** Corrige o nome do evento quando a IA escreve variações erradas (ex.: CIAPRO → CIPRO). */
+function fixEventNames(caption: string, agendas: EventAgenda[]): string {
+  const official = agendas
+    .flatMap((event) => String(event.event_name || "").split(/[^\p{L}\p{N}]+/u))
+    .filter((token) => token.length >= 4 && /\p{L}/u.test(token));
+  if (!official.length) return caption;
+  return caption.replace(/\p{L}{4,}/gu, (word) => {
+    const nw = normalize(word);
+    for (const token of official) {
+      const nt = normalize(token);
+      if (nw === nt) return word;
+      if (Math.abs(nw.length - nt.length) <= 2 && levenshtein(nw, nt) <= 2 && nw[0] === nt[0]) {
+        return word === word.toUpperCase() ? token.toUpperCase() : token;
+      }
+    }
+    return word;
+  });
 }
 
 function ensureAgenda(caption: string, agendas: EventAgenda[], evidence: string): { caption: string; matched: string | null } {
@@ -148,16 +210,18 @@ function ensureAgenda(caption: string, agendas: EventAgenda[], evidence: string)
   const matched = findSpeaker(agendas, evidence);
   const onlySpeaker = agendas.flatMap((event) => (event.speakers || []).map((speaker) => ({ event, speaker })));
   const target = matched || (onlySpeaker.length === 1 ? onlySpeaker[0] : null);
-  if (!target) return { caption, matched: null };
+  if (!target) return { caption: fixEventNames(caption, agendas), matched: null };
   const block = agendaBlock(target.event, target.speaker);
-  if (!block) return { caption, matched: null };
-  const sessionTimes = (target.speaker.sessions || []).map((session) => String(session.start_time || "").slice(0, 5));
-  const hasEveryTime = sessionTimes.every((time) => time && caption.includes(time));
-  if (hasEveryTime) return { caption, matched: String(target.speaker.name || "") || null };
+  if (!block) return { caption: fixEventNames(caption, agendas), matched: null };
+  const handle = cleanHandle(target.speaker.instagram);
+  let body = fixEventNames(stripModelSchedule(caption), agendas);
+  if (handle && !body.includes(handle)) {
+    const name = String(target.speaker.name || "").trim();
+    body = name && body.includes(name) ? body.replace(name, `${name} (${handle})`) : body;
+  }
   const available = Math.max(0, 2200 - block.length - 2);
-  const trimmedCaption = caption.trim().slice(0, available).trim();
   return {
-    caption: `${trimmedCaption}\n\n${block}`,
+    caption: `${body.slice(0, available).trim()}\n\n${block}`,
     matched: String(target.speaker.name || "") || null,
   };
 }
@@ -229,6 +293,8 @@ Deno.serve(async (req) => {
       "- Sempre cite o local e o estande junto do bloco de agenda quando existirem nos fatos.",
       "- Se não conseguir identificar a pessoa do vídeo com segurança, escreva o bloco de agenda com as demonstrações de todos os profissionais listados nos fatos.",
       "- Nunca publique a legenda sem datas e horários quando eles existirem nos fatos obrigatórios.",
+      "- A legenda deve girar em torno do profissional identificado no vídeo e do TEMA cadastrado da demonstração dele (copie o tema como está na agenda oficial), não em uma descrição genérica do estande.",
+      "- Escreva o nome do evento exatamente como aparece na agenda oficial (caractere por caractere), mesmo que o áudio soe diferente.",
       "- Marque os @perfis autorizados (palestrantes, evento, marcas) no fechamento da legenda.",
       "- Imediatamente antes das hashtags, inclua todos os perfis obrigatórios de palestrantes e empresas fornecidos pelo sistema.",
       "- Legenda: gancho forte na 1ª linha, parágrafos curtos, emojis pontuais, bloco de agenda quando houver horários, CTA de comentário/compartilhamento e 'salve este post'.",
