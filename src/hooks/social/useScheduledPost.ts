@@ -34,7 +34,7 @@ export function useScheduledPost(id: string | undefined) {
         media_items: Array.isArray(data.media_items) ? (data.media_items as any) : [],
         channels: Array.isArray(data.channels) ? (data.channels as any) : [],
         publish_now: !!data.publish_now,
-        scheduled_at: data.scheduled_at ? toLocalInput(data.scheduled_at) : '',
+        scheduled_at: isoToLocalInput(data.scheduled_at, data.timezone ?? 'America/Sao_Paulo'),
         timezone: data.timezone ?? 'America/Sao_Paulo',
       };
       return {
