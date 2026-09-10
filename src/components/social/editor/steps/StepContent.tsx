@@ -1574,7 +1574,7 @@ ${m.location ? `📍 Local: ${m.location}` : '📍 Local: (omitir se não houver
           ))}
           <input
             className="flex-1 min-w-[120px] bg-transparent outline-none text-sm"
-            placeholder="Digite e pressione Enter"
+            placeholder="Digite ou cole: #aaa #bbb #ccc"
             value={tagInput}
             onChange={(e) => setTagInput(e.target.value)}
             onKeyDown={onTagKey}
