@@ -107,7 +107,7 @@ export function StepSchedule({ value, onChange }: Props) {
               <Select value={value.timezone} onValueChange={(v) => onChange({ timezone: v })}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {TIMEZONES.map((tz) => <SelectItem key={tz} value={tz}>{tz}</SelectItem>)}
+                  {TIMEZONES.map((z) => <SelectItem key={z} value={z}>{z}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
