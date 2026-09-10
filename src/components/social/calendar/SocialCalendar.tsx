@@ -14,6 +14,7 @@ import { useReschedulePost } from '@/hooks/social/useReschedulePost';
 import { CalendarDayCell } from './CalendarDayCell';
 import { CalendarFilters, type CalendarFiltersValue } from './CalendarFilters';
 import { RescheduleDialog } from './RescheduleDialog';
+import { isoToLocalInput } from '@/lib/social/scheduleTime';
 import { TrainingApprovals } from '@/components/social/training/TrainingApprovals';
 
 const WEEKDAYS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
