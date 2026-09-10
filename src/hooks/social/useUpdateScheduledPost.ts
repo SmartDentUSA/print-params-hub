@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import type { PostInput } from '@/lib/social/postSchema';
+import { localInputToIso } from '@/lib/social/scheduleTime';
 
 export function useUpdateScheduledPost() {
   const [saving, setSaving] = useState(false);
@@ -13,11 +14,7 @@ export function useUpdateScheduledPost() {
   const save = async (id: string, data: PostInput) => {
     setSaving(true);
     try {
-      const scheduledAt = data.publish_now
-        ? null
-        : data.scheduled_at
-        ? new Date(data.scheduled_at).toISOString()
-        : null;
+      const scheduledAt = data.publish_now ? null : localInputToIso(data.scheduled_at, data.timezone);
       const row = {
         caption: data.caption || null,
         hashtags: data.hashtags,
