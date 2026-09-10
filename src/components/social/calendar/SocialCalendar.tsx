@@ -59,10 +59,14 @@ export function SocialCalendar() {
     const map = new Map<string, CalendarPost[]>();
     for (const p of posts) {
       if (!p.scheduled_at) continue;
-      const key = format(new Date(p.scheduled_at), 'yyyy-MM-dd');
+      // Agrupa pelo dia no fuso de São Paulo (mesmo fuso usado no agendamento).
+      const key = isoToLocalInput(p.scheduled_at, 'America/Sao_Paulo').slice(0, 10);
       const arr = map.get(key) ?? [];
       arr.push(p);
       map.set(key, arr);
+    }
+    for (const arr of map.values()) {
+      arr.sort((a, b) => new Date(a.scheduled_at!).getTime() - new Date(b.scheduled_at!).getTime());
     }
     return map;
   }, [posts]);
