@@ -117,8 +117,21 @@ Deno.serve(async (req) => {
           .filter(Boolean)
           .join("\n\n"),
       },
-      { type: "video_url", video_url: { url: await fetchVideoAsDataUri(videoUrl) } },
     ];
+
+    if (hasExtracted) {
+      if (audioBase64) {
+        userParts.push({
+          type: "input_audio",
+          input_audio: { data: audioBase64, format: audioFormat },
+        });
+      }
+      for (const f of frames) {
+        userParts.push({ type: "image_url", image_url: { url: f } });
+      }
+    } else {
+      userParts.push({ type: "video_url", video_url: { url: await fetchVideoAsDataUri(videoUrl) } });
+    }
 
     const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
