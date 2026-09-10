@@ -92,7 +92,9 @@ Deno.serve(async (req) => {
     const system = [
       "Você é redator sênior de social media da Smart Dent (odontologia digital, impressão 3D, CAD/CAM).",
       `Idioma: ${language}. Plataforma: ${platform}. Tom: ${tone}.`,
-      "Você vai ASSISTIR ao vídeo enviado: ouça toda a narração e leia todos os textos que aparecem na tela.",
+      hasExtracted
+        ? "Você recebeu o ÁUDIO do vídeo (narração completa) e vários QUADROS extraídos ao longo dele: ouça toda a narração e leia todos os textos que aparecem nas imagens."
+        : "Você vai ASSISTIR ao vídeo enviado: ouça toda a narração e leia todos os textos que aparecem na tela.",
       "Com base APENAS no que está no vídeo + nos fatos fornecidos, escreva a copy final pronta para publicar.",
       "REGRAS:",
       "- Nunca invente datas, horários, locais, estande, nomes, @perfis, preços ou especificações. Se não estiver no vídeo nem nos fatos, não cite.",
