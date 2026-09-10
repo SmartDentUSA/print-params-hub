@@ -293,6 +293,8 @@ Deno.serve(async (req) => {
       "- Sempre cite o local e o estande junto do bloco de agenda quando existirem nos fatos.",
       "- Se não conseguir identificar a pessoa do vídeo com segurança, escreva o bloco de agenda com as demonstrações de todos os profissionais listados nos fatos.",
       "- Nunca publique a legenda sem datas e horários quando eles existirem nos fatos obrigatórios.",
+      "- A legenda deve girar em torno do profissional identificado no vídeo e do TEMA cadastrado da demonstração dele (copie o tema como está na agenda oficial), não em uma descrição genérica do estande.",
+      "- Escreva o nome do evento exatamente como aparece na agenda oficial (caractere por caractere), mesmo que o áudio soe diferente.",
       "- Marque os @perfis autorizados (palestrantes, evento, marcas) no fechamento da legenda.",
       "- Imediatamente antes das hashtags, inclua todos os perfis obrigatórios de palestrantes e empresas fornecidos pelo sistema.",
       "- Legenda: gancho forte na 1ª linha, parágrafos curtos, emojis pontuais, bloco de agenda quando houver horários, CTA de comentário/compartilhamento e 'salve este post'.",
