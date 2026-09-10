@@ -14,6 +14,7 @@ import { useReschedulePost } from '@/hooks/social/useReschedulePost';
 import { CalendarDayCell } from './CalendarDayCell';
 import { CalendarFilters, type CalendarFiltersValue } from './CalendarFilters';
 import { RescheduleDialog } from './RescheduleDialog';
+import { isoToLocalInput } from '@/lib/social/scheduleTime';
 import { TrainingApprovals } from '@/components/social/training/TrainingApprovals';
 
 const WEEKDAYS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
@@ -59,10 +60,14 @@ export function SocialCalendar() {
     const map = new Map<string, CalendarPost[]>();
     for (const p of posts) {
       if (!p.scheduled_at) continue;
-      const key = format(new Date(p.scheduled_at), 'yyyy-MM-dd');
+      // Agrupa pelo dia no fuso de São Paulo (mesmo fuso usado no agendamento).
+      const key = isoToLocalInput(p.scheduled_at, 'America/Sao_Paulo').slice(0, 10);
       const arr = map.get(key) ?? [];
       arr.push(p);
       map.set(key, arr);
+    }
+    for (const arr of map.values()) {
+      arr.sort((a, b) => new Date(a.scheduled_at!).getTime() - new Date(b.scheduled_at!).getTime());
     }
     return map;
   }, [posts]);

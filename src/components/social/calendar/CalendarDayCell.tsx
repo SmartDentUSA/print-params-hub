@@ -53,12 +53,12 @@ export function CalendarDayCell({
         >
           {date.getDate()}
         </span>
-        {posts.length > 3 && (
-          <span className="text-[9px] text-muted-foreground">+{posts.length - 3}</span>
+        {posts.length > 0 && (
+          <span className="text-[9px] text-muted-foreground">{posts.length}</span>
         )}
       </div>
-      <div className="flex flex-col gap-0.5 overflow-hidden">
-        {posts.slice(0, 3).map((p) => (
+      <div className="flex flex-col gap-0.5 max-h-[160px] overflow-y-auto pr-0.5">
+        {posts.map((p) => (
           <CalendarPostChip key={p.id} post={p} onDragStart={onDragStart} onClick={onChipClick} />
         ))}
       </div>
