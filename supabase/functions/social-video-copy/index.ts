@@ -134,8 +134,10 @@ function ensureAgenda(caption: string, agendas: EventAgenda[], evidence: string)
   const sessionTimes = (target.speaker.sessions || []).map((session) => String(session.start_time || "").slice(0, 5));
   const hasEveryTime = sessionTimes.every((time) => time && caption.includes(time));
   if (hasEveryTime) return { caption, matched: String(target.speaker.name || "") || null };
+  const available = Math.max(0, 2200 - block.length - 2);
+  const trimmedCaption = caption.trim().slice(0, available).trim();
   return {
-    caption: `${caption.trim()}\n\n${block}`.slice(0, 2200),
+    caption: `${trimmedCaption}\n\n${block}`,
     matched: String(target.speaker.name || "") || null,
   };
 }
@@ -176,6 +178,8 @@ Deno.serve(async (req) => {
       "Com base APENAS no que está no vídeo + nos fatos fornecidos, escreva a copy final pronta para publicar.",
       "REGRAS:",
       "- Nunca invente datas, horários, locais, estande, nomes, @perfis, preços ou especificações. Se não estiver no vídeo nem nos fatos, não cite.",
+      "- Não amplie o assunto: não cite scanner, fresagem, CAD/CAM, impressão 3D, materiais, produtos ou procedimentos que não apareçam claramente no áudio, nos quadros ou nos fatos fornecidos.",
+      "- Preserve literalmente o nome oficial do evento recebido nos fatos; não corrija nem recrie sua grafia com base no áudio.",
       "- NUNCA cite preços ou valores comerciais.",
       "- Reproduza literalmente os fatos obrigatórios (datas, horários, local, estande).",
       "- AGENDA ESTRUTURADA é a fonte oficial. O texto e o áudio do vídeo servem para identificar o profissional; nunca substitua a agenda cadastrada por horários lidos no vídeo.",
