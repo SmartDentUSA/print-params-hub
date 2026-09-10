@@ -44,7 +44,9 @@ export function VideoCopyStudio({
   const { upload, uploading } = useMediaUpload();
   const [videoUrl, setVideoUrl] = useState<string>('');
   const [videoName, setVideoName] = useState<string>('');
+  const [videoFile, setVideoFile] = useState<File | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
+  const [stage, setStage] = useState<string>('');
   const [result, setResult] = useState<VideoCopyResult | null>(null);
 
   const handlePick = async (files: FileList | null) => {
@@ -55,6 +57,7 @@ export function VideoCopyStudio({
       return;
     }
     setResult(null);
+    setVideoFile(file);
     const items = await upload([file]);
     const item = items[0];
     if (!item) return;
@@ -64,12 +67,28 @@ export function VideoCopyStudio({
   };
 
   const handleAnalyze = async () => {
-    if (!videoUrl) return;
+    if (!videoUrl && !videoFile) return;
     setAnalyzing(true);
     try {
+      let audio_base64 = '';
+      let frames: string[] = [];
+      if (videoFile) {
+        setStage('Extraindo áudio...');
+        const audio = await extractAudioMp3Base64(videoFile).catch(() => null);
+        audio_base64 = audio?.base64 || '';
+        setStage('Lendo os textos da tela...');
+        frames = await extractFrames(videoFile, 8).catch(() => []);
+      }
+      if (!audio_base64 && !frames.length && !videoUrl) {
+        throw new Error('Não foi possível ler o vídeo neste navegador');
+      }
+      setStage('Escrevendo a copy...');
       const { data, error } = await supabase.functions.invoke('social-video-copy', {
         body: {
           video_url: videoUrl,
+          audio_base64,
+          audio_format: 'mp3',
+          frames,
           instructions,
           hard_facts: hardFacts || [],
           mentions: mentions || [],
