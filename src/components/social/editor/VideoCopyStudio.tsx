@@ -126,7 +126,12 @@ export function VideoCopyStudio({
       if (error) throw new Error(error.message);
       const res = data as VideoCopyResult;
       setResult(res);
-      toast.success('Copy gerada a partir do vídeo');
+      const matched = (data as any)?._meta?.matched_speaker as string | null | undefined;
+      if (eventAgendas?.length && !matched) {
+        toast.warning('Não identifiquei qual palestrante aparece no vídeo — confira as datas e horários antes de publicar.');
+      } else {
+        toast.success(matched ? `Copy gerada com a agenda de ${matched}` : 'Copy gerada a partir do vídeo');
+      }
     } catch (e: any) {
       toast.error(e?.message || 'Falha ao analisar o vídeo');
     } finally {
