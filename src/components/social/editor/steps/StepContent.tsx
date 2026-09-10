@@ -1227,12 +1227,19 @@ ${m.location ? `📍 Local: ${m.location}` : '📍 Local: (omitir se não houver
     seo: { label: 'SEO', cls: 'bg-violet-500/15 text-violet-700 dark:text-violet-300 border-violet-500/30' },
   };
 
+  // Aceita lista colada: "#aaa #bbb, #ccc" → adiciona todas de uma vez
   const addTag = () => {
-    const t = tagInput.trim().replace(/^#/, '');
-    if (!t) return;
-    if (value.hashtags.includes(t)) return;
-    if (value.hashtags.length >= 30) return;
-    onChange({ hashtags: [...value.hashtags, t] });
+    const parts = tagInput
+      .split(/[\s,;]+/)
+      .map((p) => p.trim().replace(/^#+/, '').replace(/[^\wÀ-ÿ]/g, ''))
+      .filter(Boolean);
+    if (!parts.length) return;
+    const next = [...value.hashtags];
+    for (const t of parts) {
+      if (next.length >= 30) break;
+      if (!next.includes(t)) next.push(t);
+    }
+    onChange({ hashtags: next });
     setTagInput('');
   };
 
@@ -1567,7 +1574,7 @@ ${m.location ? `📍 Local: ${m.location}` : '📍 Local: (omitir se não houver
           ))}
           <input
             className="flex-1 min-w-[120px] bg-transparent outline-none text-sm"
-            placeholder="Digite e pressione Enter"
+            placeholder="Digite ou cole: #aaa #bbb #ccc"
             value={tagInput}
             onChange={(e) => setTagInput(e.target.value)}
             onKeyDown={onTagKey}
