@@ -676,3 +676,6 @@ verify_jwt = false
 
 [functions.event-marketing-render]
 verify_jwt = false
+
+[functions.social-video-copy]
+verify_jwt = false
