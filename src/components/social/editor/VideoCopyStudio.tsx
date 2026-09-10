@@ -91,11 +91,13 @@ export function VideoCopyStudio({
       let audio_base64 = '';
       let frames: string[] = [];
       if (videoFile) {
-        setStage('Extraindo áudio...');
-        const audio = await extractAudioMp3Base64(videoFile).catch(() => null);
+        setStage('Ouvindo e lendo o vídeo...');
+        const [audio, shots] = await Promise.all([
+          extractAudioMp3Base64(videoFile).catch(() => null),
+          extractFrames(videoFile, 4).catch(() => []),
+        ]);
         audio_base64 = audio?.base64 || '';
-        setStage('Lendo os textos da tela...');
-        frames = await extractFrames(videoFile, 8).catch(() => []);
+        frames = shots;
       }
       if (!audio_base64 && !frames.length && !videoUrl) {
         throw new Error('Não foi possível ler o vídeo neste navegador');
