@@ -70,7 +70,17 @@ Deno.serve(async (req) => {
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY não configurada");
     const body = await req.json();
     const videoUrl = String(body?.video_url || "").trim();
-    if (!/^https:\/\//.test(videoUrl)) throw new Error("Envie um vídeo válido (video_url https)");
+    // Caminho preferido: o navegador extrai o áudio (MP3 leve) + quadros do vídeo,
+    // então vídeos grandes (centenas de MB) funcionam sem enviar o arquivo original.
+    const audioBase64 = String(body?.audio_base64 || "");
+    const audioFormat = String(body?.audio_format || "mp3");
+    const frames: string[] = Array.isArray(body?.frames)
+      ? body.frames.map(String).filter((f: string) => f.startsWith("data:image/")).slice(0, 12)
+      : [];
+    const hasExtracted = !!audioBase64 || frames.length > 0;
+    if (!hasExtracted && !/^https:\/\//.test(videoUrl)) {
+      throw new Error("Envie um vídeo válido (video_url https)");
+    }
 
     const hardFacts: string[] = Array.isArray(body?.hard_facts) ? body.hard_facts.map(String) : [];
     const mentions: string[] = Array.isArray(body?.mentions) ? body.mentions.map(String) : [];
