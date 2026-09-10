@@ -13,6 +13,26 @@ const corsHeaders = {
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 const MODEL = "google/gemini-3.8-flash";
 const MAX_HASHTAGS = 30;
+const REQUIRED_SPEAKER_MENTIONS = [
+  "@allexbenevides",
+  "@ederaraujo.tpd",
+  "@francisco_mello_jr",
+  "@ctosergiosilva",
+  "@dt.joberto",
+  "@jrvlaboratorio",
+  "@grin_design",
+];
+const REQUIRED_COMPANY_MENTIONS = [
+  "@rayshape3d",
+  "@blz_dental",
+  "@medit_br",
+  "@smartdentusa",
+  "@dental.mv",
+  "@rocaldentproductos",
+  "@exocadofficial",
+  "@cadcam_service",
+  "@zublerusa",
+];
 
 type AgendaSession = { date?: string; start_time?: string; end_time?: string; theme?: string };
 type AgendaSpeaker = { name?: string; instagram?: string; theme?: string; sessions?: AgendaSession[] };
@@ -142,6 +162,28 @@ function ensureAgenda(caption: string, agendas: EventAgenda[], evidence: string)
   };
 }
 
+function ensureRequiredMentions(caption: string): string {
+  const mentionBlock = [
+    "Palestrantes:",
+    REQUIRED_SPEAKER_MENTIONS.join(" "),
+    "",
+    "Empresas:",
+    REQUIRED_COMPANY_MENTIONS.join(" "),
+  ].join("\n");
+  const requiredHandles = [...REQUIRED_SPEAKER_MENTIONS, ...REQUIRED_COMPANY_MENTIONS];
+  const withoutRequiredMentions = requiredHandles.reduce(
+    (text, handle) => text.replace(new RegExp(`${handle.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "gi"), ""),
+    caption,
+  );
+  const cleanedCaption = withoutRequiredMentions
+    .replace(/^\s*(Palestrantes|Empresas):\s*$/gim, "")
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+  const available = Math.max(0, 2200 - mentionBlock.length - 2);
+  return `${cleanedCaption.slice(0, available).trim()}\n\n${mentionBlock}`.trim();
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -188,6 +230,7 @@ Deno.serve(async (req) => {
       "- Se não conseguir identificar a pessoa do vídeo com segurança, escreva o bloco de agenda com as demonstrações de todos os profissionais listados nos fatos.",
       "- Nunca publique a legenda sem datas e horários quando eles existirem nos fatos obrigatórios.",
       "- Marque os @perfis autorizados (palestrantes, evento, marcas) no fechamento da legenda.",
+      "- Imediatamente antes das hashtags, inclua todos os perfis obrigatórios de palestrantes e empresas fornecidos pelo sistema.",
       "- Legenda: gancho forte na 1ª linha, parágrafos curtos, emojis pontuais, bloco de agenda quando houver horários, CTA de comentário/compartilhamento e 'salve este post'.",
       "- NÃO escreva hashtags dentro da legenda: elas vão só no campo hashtags (10 a 20).",
       "- Máximo 2200 caracteres na legenda.",
@@ -260,12 +303,13 @@ Deno.serve(async (req) => {
     const rawCaption = String(parsed.caption || "").replace(/#([\p{L}\p{N}_]{2,60})/gu, "").replace(/\n{3,}/g, "\n\n").trim();
     const evidence = [parsed.transcript, parsed.on_screen_text, rawCaption].filter(Boolean).join("\n");
     const enforced = ensureAgenda(rawCaption, eventAgendas, evidence);
+    const captionWithMentions = ensureRequiredMentions(enforced.caption);
 
     return new Response(
       JSON.stringify({
         transcript: String(parsed.transcript || ""),
         on_screen_text: String(parsed.on_screen_text || ""),
-        caption: enforced.caption.slice(0, 2200),
+        caption: captionWithMentions,
         hashtags: sanitizeHashtags(parsed.hashtags),
         first_comment: String(parsed.first_comment || "").slice(0, 2200),
         _meta: { model: MODEL, matched_speaker: enforced.matched, agenda_enforced: enforced.caption !== rawCaption },
