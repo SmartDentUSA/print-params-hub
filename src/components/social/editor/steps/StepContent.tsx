@@ -1044,6 +1044,30 @@ ${m.location ? `📍 Local: ${m.location}` : '📍 Local: (omitir se não houver
     return facts;
   };
 
+  /** @perfis autorizados: palestrantes cadastrados, evento e marcas parceiras. */
+  const buildMentions = (): string[] => {
+    const refs = [value.product_ref, ...(value.extra_products || []).map((e) => e.ref)].filter(Boolean) as string[];
+    const out: string[] = [];
+    for (const ref of refs) {
+      if (!ref.startsWith('event:')) continue;
+      const e = events.find((x) => x.id === ref.slice('event:'.length));
+      const m = e?.meta || {};
+      (Array.isArray(m.speakers) ? m.speakers : []).forEach((s: any) => {
+        const h = normalizeIgHandle(s?.instagram);
+        if (h) out.push(h);
+      });
+      (Array.isArray(m.partner_brands) ? m.partner_brands : []).forEach((b: any) => {
+        const h = normalizeIgHandle(b?.instagram);
+        if (h) out.push(h);
+      });
+      const ev = normalizeIgHandle(m.instagram_handle);
+      if (ev) out.push(ev);
+    }
+    return Array.from(new Set(out));
+  };
+
+
+
   /** Consulta enxuta para o RAG: só nomes de produtos + especialidades do público. */
   const buildRagQuery = (): string | undefined => {
     const names: string[] = [];
