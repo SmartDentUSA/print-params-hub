@@ -70,7 +70,17 @@ Deno.serve(async (req) => {
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY não configurada");
     const body = await req.json();
     const videoUrl = String(body?.video_url || "").trim();
-    if (!/^https:\/\//.test(videoUrl)) throw new Error("Envie um vídeo válido (video_url https)");
+    // Caminho preferido: o navegador extrai o áudio (MP3 leve) + quadros do vídeo,
+    // então vídeos grandes (centenas de MB) funcionam sem enviar o arquivo original.
+    const audioBase64 = String(body?.audio_base64 || "");
+    const audioFormat = String(body?.audio_format || "mp3");
+    const frames: string[] = Array.isArray(body?.frames)
+      ? body.frames.map(String).filter((f: string) => f.startsWith("data:image/")).slice(0, 12)
+      : [];
+    const hasExtracted = !!audioBase64 || frames.length > 0;
+    if (!hasExtracted && !/^https:\/\//.test(videoUrl)) {
+      throw new Error("Envie um vídeo válido (video_url https)");
+    }
 
     const hardFacts: string[] = Array.isArray(body?.hard_facts) ? body.hard_facts.map(String) : [];
     const mentions: string[] = Array.isArray(body?.mentions) ? body.mentions.map(String) : [];
@@ -82,7 +92,9 @@ Deno.serve(async (req) => {
     const system = [
       "Você é redator sênior de social media da Smart Dent (odontologia digital, impressão 3D, CAD/CAM).",
       `Idioma: ${language}. Plataforma: ${platform}. Tom: ${tone}.`,
-      "Você vai ASSISTIR ao vídeo enviado: ouça toda a narração e leia todos os textos que aparecem na tela.",
+      hasExtracted
+        ? "Você recebeu o ÁUDIO do vídeo (narração completa) e vários QUADROS extraídos ao longo dele: ouça toda a narração e leia todos os textos que aparecem nas imagens."
+        : "Você vai ASSISTIR ao vídeo enviado: ouça toda a narração e leia todos os textos que aparecem na tela.",
       "Com base APENAS no que está no vídeo + nos fatos fornecidos, escreva a copy final pronta para publicar.",
       "REGRAS:",
       "- Nunca invente datas, horários, locais, estande, nomes, @perfis, preços ou especificações. Se não estiver no vídeo nem nos fatos, não cite.",
@@ -107,8 +119,21 @@ Deno.serve(async (req) => {
           .filter(Boolean)
           .join("\n\n"),
       },
-      { type: "video_url", video_url: { url: await fetchVideoAsDataUri(videoUrl) } },
     ];
+
+    if (hasExtracted) {
+      if (audioBase64) {
+        userParts.push({
+          type: "input_audio",
+          input_audio: { data: audioBase64, format: audioFormat },
+        });
+      }
+      for (const f of frames) {
+        userParts.push({ type: "image_url", image_url: { url: f } });
+      }
+    } else {
+      userParts.push({ type: "video_url", video_url: { url: await fetchVideoAsDataUri(videoUrl) } });
+    }
 
     const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
