@@ -18,6 +18,20 @@ export interface VideoCopyResult {
   on_screen_text?: string;
 }
 
+export interface VideoCopyAgendaSpeaker {
+  name: string;
+  instagram?: string;
+  theme?: string;
+  sessions: Array<{ date: string; start_time: string; end_time?: string; theme?: string }>;
+}
+
+export interface VideoCopyEventAgenda {
+  event_name: string;
+  location?: string;
+  stand?: string;
+  speakers: VideoCopyAgendaSpeaker[];
+}
+
 interface Props {
   /** Briefing/contexto textual (mesmo usado na geração de legenda). */
   instructions?: string;
@@ -25,6 +39,8 @@ interface Props {
   hardFacts?: string[];
   /** @perfis autorizados (palestrantes cadastrados, evento, marcas). */
   mentions?: string[];
+  /** Agenda estruturada para impedir que datas e horários sejam omitidos pela IA. */
+  eventAgendas?: VideoCopyEventAgenda[];
   platform?: string;
   tone?: string;
   onApply: (result: VideoCopyResult) => void;
@@ -36,6 +52,7 @@ export function VideoCopyStudio({
   instructions,
   hardFacts,
   mentions,
+  eventAgendas,
   platform,
   tone,
   onApply,
@@ -93,6 +110,7 @@ export function VideoCopyStudio({
           instructions,
           hard_facts: hardFacts || [],
           mentions: mentions || [],
+          event_agendas: eventAgendas || [],
           platform,
           tone,
           language: 'pt-BR',

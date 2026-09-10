@@ -13,7 +13,7 @@ import { useProductKnowledgeCopies, type ReadyCopy } from '@/hooks/social/usePro
 import { SearchableProductSelect } from '@/components/SearchableProductSelect';
 import { SystemACarouselPicker } from '@/components/social/editor/SystemACarouselPicker';
 import { EventArtPicker } from '@/components/social/editor/EventArtPicker';
-import { VideoCopyStudio } from '@/components/social/editor/VideoCopyStudio';
+import { VideoCopyStudio, type VideoCopyEventAgenda } from '@/components/social/editor/VideoCopyStudio';
 import type { SystemACarousel } from '@/hooks/social/useSystemACarousels';
 import { supabase } from '@/integrations/supabase/client';
 import type { PostInput } from '@/lib/social/postSchema';
@@ -1071,6 +1071,38 @@ ${m.location ? `📍 Local: ${m.location}` : '📍 Local: (omitir se não houver
     return Array.from(new Set(out));
   };
 
+  /** Agenda em campos separados; a função usa isto para garantir o bloco de horários na copy. */
+  const buildVideoEventAgendas = (): VideoCopyEventAgenda[] => {
+    const refs = [value.product_ref, ...(value.extra_products || []).map((e) => e.ref)].filter(Boolean) as string[];
+    return refs
+      .filter((ref) => ref.startsWith('event:'))
+      .map((ref) => events.find((event) => event.id === ref.slice('event:'.length)))
+      .filter((event): event is NonNullable<typeof event> => Boolean(event))
+      .map((event) => {
+        const meta = event.meta || {};
+        return {
+          event_name: event.name,
+          location: String(meta.location || ''),
+          stand: String(meta.stand || ''),
+          speakers: (Array.isArray(meta.speakers) ? meta.speakers : [])
+            .map((speaker: any) => ({
+              name: String(speaker?.name || '').trim(),
+              instagram: String(speaker?.instagram || '').trim(),
+              theme: String(speaker?.theme || '').trim(),
+              sessions: (Array.isArray(speaker?.sessions) ? speaker.sessions : [])
+                .filter((session: any) => session?.date && session?.start_time)
+                .map((session: any) => ({
+                  date: String(session.date),
+                  start_time: String(session.start_time).slice(0, 5),
+                  end_time: session.end_time ? String(session.end_time).slice(0, 5) : undefined,
+                  theme: String(session?.theme || '').trim() || undefined,
+                })),
+            }))
+            .filter((speaker: any) => speaker.name && speaker.sessions.length),
+        };
+      });
+  };
+
 
 
   /** Consulta enxuta para o RAG: só nomes de produtos + especialidades do público. */
@@ -1595,6 +1627,7 @@ ${m.location ? `📍 Local: ${m.location}` : '📍 Local: (omitir se não houver
         instructions={[buildContextBrief(), aiInstructions].filter(Boolean).join('\n\n') || undefined}
         hardFacts={buildHardFacts()}
         mentions={buildMentions()}
+        eventAgendas={buildVideoEventAgendas()}
         platform={selectedPlatform}
         tone={aiTone}
         onVideoUploaded={(m) =>
