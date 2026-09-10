@@ -13,6 +13,7 @@ import { useProductKnowledgeCopies, type ReadyCopy } from '@/hooks/social/usePro
 import { SearchableProductSelect } from '@/components/SearchableProductSelect';
 import { SystemACarouselPicker } from '@/components/social/editor/SystemACarouselPicker';
 import { EventArtPicker } from '@/components/social/editor/EventArtPicker';
+import { VideoCopyStudio } from '@/components/social/editor/VideoCopyStudio';
 import type { SystemACarousel } from '@/hooks/social/useSystemACarousels';
 import { supabase } from '@/integrations/supabase/client';
 import type { PostInput } from '@/lib/social/postSchema';
@@ -1560,6 +1561,25 @@ ${m.location ? `📍 Local: ${m.location}` : '📍 Local: (omitir se não houver
           onChange={(e) => onChange({ caption: e.target.value })}
         />
       </div>
+
+      <VideoCopyStudio
+        instructions={[buildContextBrief(), aiInstructions].filter(Boolean).join('\n\n') || undefined}
+        hardFacts={buildHardFacts()}
+        mentions={buildMentions()}
+        platform={selectedPlatform}
+        tone={aiTone}
+        onVideoUploaded={(m) =>
+          onChange({ media_items: [...(value.media_items || []), { url: m.url, path: m.path, type: 'video' }] })
+        }
+        onApply={(r) =>
+          onChange({
+            caption: r.caption,
+            hashtags: r.hashtags?.length ? r.hashtags : value.hashtags,
+            first_comment: r.first_comment || value.first_comment,
+          })
+        }
+      />
+
 
       <div>
         <Label>Hashtags ({value.hashtags.length}/30)</Label>
