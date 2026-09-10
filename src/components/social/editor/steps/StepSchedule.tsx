@@ -8,6 +8,7 @@ import { Sparkles, Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import type { PostInput } from '@/lib/social/postSchema';
+import { isoToLocalInput, nowLocalInput } from '@/lib/social/scheduleTime';
 
 const TIMEZONES = [
   'America/Sao_Paulo',
@@ -25,22 +26,12 @@ interface Props {
   onChange: (patch: Partial<PostInput>) => void;
 }
 
-function nowLocalIso() {
-  const d = new Date(Date.now() + 60 * 60 * 1000);
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
-
-function toLocalInput(d: Date) {
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
-
 export function StepSchedule({ value, onChange }: Props) {
   const [loading, setLoading] = useState(false);
   const [suggestion, setSuggestion] = useState<string | null>(null);
 
   const platform = value.channels?.[0]?.platform;
+  const tz = value.timezone || 'America/Sao_Paulo';
 
   async function suggestBestTime() {
     setLoading(true);
@@ -69,10 +60,10 @@ export function StepSchedule({ value, onChange }: Props) {
       target.setUTCMinutes(target.getUTCMinutes() - 30);
       if (target.getTime() < Date.now() + 5 * 60 * 1000) target.setUTCDate(target.getUTCDate() + 7);
 
-      onChange({ publish_now: false, scheduled_at: toLocalInput(target) });
+      onChange({ publish_now: false, scheduled_at: isoToLocalInput(target.toISOString(), tz) });
       setSuggestion(
         `Melhor desempenho: ${WEEKDAYS[dow]} às ${String(hour).padStart(2, '0')}:00 (UTC). ` +
-          `Agendamos 30 minutos antes: ${target.toLocaleString('pt-BR', { timeZone: value.timezone || 'America/Sao_Paulo', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}.`,
+          `Agendamos 30 minutos antes: ${target.toLocaleString('pt-BR', { timeZone: tz, day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}.`,
       );
     } catch (e: any) {
       toast({ title: 'Não foi possível analisar', description: String(e?.message ?? e), variant: 'destructive' });
@@ -103,11 +94,11 @@ export function StepSchedule({ value, onChange }: Props) {
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <Label>Data e hora</Label>
+              <Label>Data e hora ({tz.split('/')[1]?.replace('_', ' ') || tz})</Label>
               <Input
                 type="datetime-local"
                 value={value.scheduled_at ?? ''}
-                min={nowLocalIso()}
+                min={nowLocalInput(tz, 60)}
                 onChange={(e) => onChange({ scheduled_at: e.target.value })}
               />
             </div>
