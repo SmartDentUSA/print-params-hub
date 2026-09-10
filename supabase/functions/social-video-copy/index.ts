@@ -107,7 +107,7 @@ Deno.serve(async (req) => {
           .filter(Boolean)
           .join("\n\n"),
       },
-      { type: "video_url", video_url: { url: videoUrl } },
+      { type: "video_url", video_url: { url: await fetchVideoAsDataUri(videoUrl) } },
     ];
 
     const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
