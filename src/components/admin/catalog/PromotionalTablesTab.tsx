@@ -44,17 +44,36 @@ export function PromotionalTablesTab() {
   const [customSection, setCustomSection] = useState<string | null>(null);
   const [customItem, setCustomItem] = useState({ name: "", description: "", quantity: "1", market: "0", promotional: "0" });
 
+  const [loadError, setLoadError] = useState<string | null>(null);
+
   const loadTables = async () => {
     setLoading(true);
-    const [{ data: rows, error }, { data: dist }] = await Promise.all([
-      supabase.from("promotional_tables" as any).select("*").order("updated_at", { ascending: false }),
-      supabase.from("distributors" as any).select("id,razao_social,nome_fantasia").eq("active", true).order("razao_social"),
-    ]);
-    if (error) toast.error(`Erro ao carregar promoções: ${error.message}`);
-    setTables(((rows as any) || []) as PromotionalTable[]);
-    setDistributors(((dist as any) || []) as DistributorOption[]);
-    setLoading(false);
+    setLoadError(null);
+    try {
+      const { data: rows, error } = await supabase
+        .from("promotional_tables" as any)
+        .select("*")
+        .order("updated_at", { ascending: false });
+      if (error) {
+        setLoadError(error.message);
+        toast.error(`Erro ao carregar promoções: ${error.message}`);
+      }
+      setTables(((rows as any) || []) as PromotionalTable[]);
+
+      const { data: dist, error: distError } = await supabase
+        .from("distributors" as any)
+        .select("id,razao_social,nome_fantasia")
+        .eq("active", true)
+        .order("razao_social");
+      if (distError) console.warn("distributors", distError.message);
+      setDistributors(((dist as any) || []) as DistributorOption[]);
+    } catch (err: any) {
+      setLoadError(err?.message || "Falha inesperada ao carregar as tabelas promocionais.");
+    } finally {
+      setLoading(false);
+    }
   };
+
 
   useEffect(() => { loadTables(); }, []);
 
@@ -249,7 +268,7 @@ export function PromotionalTablesTab() {
         <div><h3 className="text-lg font-semibold">Tabelas promocionais</h3><p className="text-sm text-muted-foreground">Monte combos gerais ou por distribuidor e gere PDFs para ações comerciais.</p></div>
         <Button onClick={() => { setDraft(blankTable()); setSections([]); setSelected({ id: "", created_at: "", updated_at: "", ...blankTable() } as PromotionalTable); }}><Plus className="mr-2 h-4 w-4" />Nova tabela</Button>
       </div>
-      {loading ? <p className="text-sm text-muted-foreground">Carregando...</p> : tables.length === 0 ? <Card><CardContent className="p-10 text-center text-muted-foreground">Nenhuma tabela promocional criada.</CardContent></Card> : (
+      {loading ? <p className="text-sm text-muted-foreground">Carregando...</p> : loadError ? <Card><CardContent className="space-y-3 p-10 text-center"><p className="text-sm text-destructive">Não foi possível carregar: {loadError}</p><Button variant="outline" size="sm" onClick={loadTables}>Tentar novamente</Button></CardContent></Card> : tables.length === 0 ? <Card><CardContent className="p-10 text-center text-muted-foreground">Nenhuma tabela promocional criada.</CardContent></Card> : (
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">{tables.map((table) => (
           <Card key={table.id}><CardHeader className="pb-3"><div className="flex items-start justify-between gap-2"><CardTitle className="text-base">{table.name}</CardTitle><Badge variant={table.status === "active" ? "default" : "secondary"}>{table.status === "active" ? "Ativa" : table.status === "archived" ? "Arquivada" : "Rascunho"}</Badge></div></CardHeader><CardContent className="space-y-3"><div className="text-sm text-muted-foreground">{distributorName(table.distributor_id) || "Campanha geral"}<br />{table.valid_until ? `Válida até ${new Date(`${table.valid_until}T12:00:00`).toLocaleDateString("pt-BR")}` : "Sem validade definida"}</div><div className="flex flex-wrap gap-2"><Button size="sm" onClick={() => openTable(table)}><Pencil className="mr-1 h-3.5 w-3.5" />Editar</Button><Button size="sm" variant="outline" onClick={() => exportFromList(table)}><FileText className="mr-1 h-3.5 w-3.5" />PDF</Button><Button size="sm" variant="outline" onClick={() => duplicateTable(table)}><Copy className="mr-1 h-3.5 w-3.5" />Duplicar</Button><Button size="icon" variant="ghost" title="Excluir tabela" onClick={() => removeTable(table)}><Trash2 className="h-4 w-4 text-destructive" /></Button></div></CardContent></Card>
         ))}</div>
