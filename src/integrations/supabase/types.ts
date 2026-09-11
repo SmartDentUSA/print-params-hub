@@ -6407,6 +6407,51 @@ export type Database = {
           },
         ]
       }
+      event_store: {
+        Row: {
+          company_id: string | null
+          deal_id: string | null
+          event_source: string
+          event_type: string
+          id: number
+          ingested_at: string
+          lead_id: string | null
+          occurred_at: string
+          payload: Json
+          person_id: string | null
+          source_id: string
+          source_table: string
+        }
+        Insert: {
+          company_id?: string | null
+          deal_id?: string | null
+          event_source: string
+          event_type: string
+          id?: number
+          ingested_at?: string
+          lead_id?: string | null
+          occurred_at?: string
+          payload?: Json
+          person_id?: string | null
+          source_id: string
+          source_table: string
+        }
+        Update: {
+          company_id?: string | null
+          deal_id?: string | null
+          event_source?: string
+          event_type?: string
+          id?: number
+          ingested_at?: string
+          lead_id?: string | null
+          occurred_at?: string
+          payload?: Json
+          person_id?: string | null
+          source_id?: string
+          source_table?: string
+        }
+        Relationships: []
+      }
       export_jobs: {
         Row: {
           created_at: string
@@ -6686,6 +6731,33 @@ export type Database = {
           star_rating?: number | null
           update_time?: string | null
           updated_at?: string
+        }
+        Relationships: []
+      }
+      graph_maintenance_runs: {
+        Row: {
+          created_at: string
+          error: string | null
+          finished_at: string | null
+          id: string
+          report: Json
+          started_at: string
+        }
+        Insert: {
+          created_at?: string
+          error?: string | null
+          finished_at?: string | null
+          id?: string
+          report?: Json
+          started_at?: string
+        }
+        Update: {
+          created_at?: string
+          error?: string | null
+          finished_at?: string | null
+          id?: string
+          report?: Json
+          started_at?: string
         }
         Relationships: []
       }
@@ -34903,6 +34975,7 @@ export type Database = {
         Args: { p_lead_id: string }
         Returns: undefined
       }
+      fn_event_store_ingest: { Args: { p_limit?: number }; Returns: Json }
       fn_expand_deal_proposals_to_items: {
         Args: { p_deal_id: string }
         Returns: number
@@ -35047,6 +35120,14 @@ export type Database = {
         }[]
       }
       fn_get_turma_factory_data: { Args: { p_turma_id: string }; Returns: Json }
+      fn_graph_backfill_identity_keys: {
+        Args: { p_limit?: number }
+        Returns: number
+      }
+      fn_graph_link_activities: { Args: { p_limit?: number }; Returns: number }
+      fn_graph_link_deals: { Args: { p_limit?: number }; Returns: number }
+      fn_graph_link_leads: { Args: { p_limit?: number }; Returns: number }
+      fn_graph_maintenance: { Args: { p_batch?: number }; Returns: Json }
       fn_import_dh_leads: {
         Args: { p_leads: Json }
         Returns: {

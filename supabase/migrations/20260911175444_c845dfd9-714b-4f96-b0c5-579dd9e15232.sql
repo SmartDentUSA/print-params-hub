@@ -1,0 +1,12 @@
+REVOKE EXECUTE ON FUNCTION public.fn_graph_maintenance(INT) FROM anon, authenticated, PUBLIC;
+REVOKE EXECUTE ON FUNCTION public.fn_graph_link_leads(INT) FROM anon, authenticated, PUBLIC;
+REVOKE EXECUTE ON FUNCTION public.fn_graph_backfill_identity_keys(INT) FROM anon, authenticated, PUBLIC;
+REVOKE EXECUTE ON FUNCTION public.fn_graph_link_deals(INT) FROM anon, authenticated, PUBLIC;
+REVOKE EXECUTE ON FUNCTION public.fn_graph_link_activities(INT) FROM anon, authenticated, PUBLIC;
+REVOKE EXECUTE ON FUNCTION public.fn_event_store_ingest(INT) FROM anon, authenticated, PUBLIC;
+GRANT EXECUTE ON FUNCTION public.fn_graph_maintenance(INT) TO service_role;
+GRANT EXECUTE ON FUNCTION public.fn_graph_link_leads(INT) TO service_role;
+GRANT EXECUTE ON FUNCTION public.fn_graph_backfill_identity_keys(INT) TO service_role;
+GRANT EXECUTE ON FUNCTION public.fn_graph_link_deals(INT) TO service_role;
+GRANT EXECUTE ON FUNCTION public.fn_graph_link_activities(INT) TO service_role;
+GRANT EXECUTE ON FUNCTION public.fn_event_store_ingest(INT) TO service_role;
