@@ -101,6 +101,7 @@ export function PromotionalTablesTab() {
       name: table.name, pdf_title: table.pdf_title, distributor_id: table.distributor_id,
       currency: table.currency, valid_from: table.valid_from, valid_until: table.valid_until,
       notes: table.notes, status: table.status,
+      include_official_price_table: table.include_official_price_table !== false,
     });
     await loadSections(table);
   };
@@ -121,11 +122,31 @@ export function PromotionalTablesTab() {
   };
 
   const addSection = async () => {
-    if (!selected) { toast.info("Salve a tabela antes de adicionar seções."); return; }
+    if (!selected) { toast.info("Salve a tabela antes de adicionar combos."); return; }
     const { error } = await supabase.from("promotional_table_sections" as any).insert({
-      promotional_table_id: selected.id, title: `Nova seção ${sections.length + 1}`, sort_order: sections.length,
+      promotional_table_id: selected.id, title: `Combo ${sections.length + 1}`, sort_order: sections.length,
     });
     if (error) toast.error(error.message); else await loadSections(selected);
+  };
+
+  const uploadSectionImage = async (sectionId: string, file: File) => {
+    if (!file.type.startsWith("image/")) { toast.error("Selecione um arquivo de imagem."); return; }
+    setUploadingSection(sectionId);
+    try {
+      const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
+      const path = `promocionais/${sectionId}-${Date.now()}.${ext}`;
+      const { error } = await supabase.storage.from("catalog-images").upload(path, file, {
+        cacheControl: "3600", upsert: true, contentType: file.type || undefined,
+      });
+      if (error) throw error;
+      const { data } = supabase.storage.from("catalog-images").getPublicUrl(path);
+      await updateSection(sectionId, { image_url: data.publicUrl });
+      toast.success("Foto do combo atualizada.");
+    } catch (err: any) {
+      toast.error(err?.message || "Não foi possível enviar a foto.");
+    } finally {
+      setUploadingSection(null);
+    }
   };
 
   const updateSection = async (id: string, patch: Record<string, unknown>) => {
