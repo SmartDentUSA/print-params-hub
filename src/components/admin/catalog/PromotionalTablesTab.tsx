@@ -241,10 +241,23 @@ export function PromotionalTablesTab() {
     }));
   };
 
+  const runExport = async (
+    table: PromotionalTable,
+    rows: PromotionalSectionWithItems[],
+    mode: "download" | "preview" = "download",
+  ) => {
+    if (!rows.some((section) => section.items.length)) { toast.info("Adicione itens antes de gerar o PDF."); return; }
+    try {
+      await exportPromotionalPdf(table, rows, distributorName(table.distributor_id), mode);
+    } catch (error: any) {
+      console.error("[promotional-pdf]", error);
+      toast.error(error?.message || "Não foi possível gerar o PDF.");
+    }
+  };
+
   const exportFromList = async (table: PromotionalTable) => {
     const rows = await getTableSections(table.id);
-    if (!rows.some((section) => section.items.length)) { toast.info("Adicione itens antes de gerar o PDF."); return; }
-    await exportPromotionalPdf(table, rows, distributorName(table.distributor_id));
+    await runExport(table, rows);
   };
 
   const removeTable = async (table: PromotionalTable) => {
@@ -279,7 +292,7 @@ export function PromotionalTablesTab() {
   const persisted = Boolean(selected.id);
   return (
     <div className="space-y-5">
-      <div className="flex flex-wrap items-center justify-between gap-3"><Button variant="ghost" onClick={() => { setSelected(null); setSections([]); }}><ArrowLeft className="mr-2 h-4 w-4" />Voltar</Button><div className="flex flex-wrap gap-2"><Button variant="outline" disabled={!persisted || !sections.some((section) => section.items.length)} onClick={() => exportPromotionalPdf({ ...selected, ...draft }, sections, distributorName(draft.distributor_id), "preview")}><Eye className="mr-2 h-4 w-4" />Visualizar PDF</Button><Button variant="outline" disabled={!persisted || !sections.some((section) => section.items.length)} onClick={() => exportPromotionalPdf({ ...selected, ...draft }, sections, distributorName(draft.distributor_id))}><FileText className="mr-2 h-4 w-4" />Exportar PDF</Button><Button onClick={saveTable} disabled={saving}><Save className="mr-2 h-4 w-4" />{saving ? "Salvando..." : "Salvar tabela"}</Button></div></div>
+      <div className="flex flex-wrap items-center justify-between gap-3"><Button variant="ghost" onClick={() => { setSelected(null); setSections([]); }}><ArrowLeft className="mr-2 h-4 w-4" />Voltar</Button><div className="flex flex-wrap gap-2"><Button variant="outline" disabled={!persisted || !sections.some((section) => section.items.length)} onClick={() => runExport({ ...selected, ...draft } as PromotionalTable, sections, "preview")}><Eye className="mr-2 h-4 w-4" />Visualizar PDF</Button><Button variant="outline" disabled={!persisted || !sections.some((section) => section.items.length)} onClick={() => runExport({ ...selected, ...draft } as PromotionalTable, sections)}><FileText className="mr-2 h-4 w-4" />Exportar PDF</Button><Button onClick={saveTable} disabled={saving}><Save className="mr-2 h-4 w-4" />{saving ? "Salvando..." : "Salvar tabela"}</Button></div></div>
       <Card><CardHeader><CardTitle>Dados da promoção</CardTitle></CardHeader><CardContent className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <div className="space-y-2 md:col-span-2"><Label>Nome interno</Label><Input value={draft.name} onChange={(e) => setDraft((value) => ({ ...value, name: e.target.value }))} placeholder="Ex.: Combo Congresso CIPRO" /></div>
         <div className="space-y-2 md:col-span-2"><Label>Título no PDF</Label><Input value={draft.pdf_title} onChange={(e) => setDraft((value) => ({ ...value, pdf_title: e.target.value }))} /></div>
