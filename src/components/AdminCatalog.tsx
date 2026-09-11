@@ -11,6 +11,7 @@ import { AdminCatalogTable } from "./AdminCatalogTable";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { SkuMappingTab } from "./admin/catalog/SkuMappingTab";
 import { exportCatalogXlsx } from "./admin/catalog/exportCatalogXlsx";
+import { PromotionalTablesTab } from "./admin/catalog/PromotionalTablesTab";
 
 export function AdminCatalog() {
   const [products, setProducts] = useState<CatalogProduct[]>([]);
@@ -300,6 +301,7 @@ export function AdminCatalog() {
         <TabsList>
           <TabsTrigger value="catalog">Catálogo</TabsTrigger>
           <TabsTrigger value="sku-mapping">Mapeamento de SKU</TabsTrigger>
+          <TabsTrigger value="promotional-tables">Tabelas promocionais</TabsTrigger>
         </TabsList>
 
         <TabsContent value="catalog">
@@ -511,6 +513,10 @@ export function AdminCatalog() {
               <SkuMappingTab />
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="promotional-tables">
+          <PromotionalTablesTab />
         </TabsContent>
       </Tabs>
 
