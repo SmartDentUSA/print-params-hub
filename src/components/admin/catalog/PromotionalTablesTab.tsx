@@ -243,7 +243,7 @@ export function PromotionalTablesTab() {
     const { data: copy, error } = await supabase.from("promotional_tables" as any).insert({ ...table, id: undefined, name: `${table.name} — cópia`, status: "draft", created_at: undefined, updated_at: undefined, created_by: undefined }).select("*").single();
     if (error || !copy) { toast.error(error?.message || "Não foi possível duplicar."); return; }
     for (const sourceSection of ((sourceSections as any) || [])) {
-      const { data: newSection } = await supabase.from("promotional_table_sections" as any).insert({ promotional_table_id: (copy as any).id, title: sourceSection.title, description: sourceSection.description, sort_order: sourceSection.sort_order }).select("*").single();
+      const { data: newSection } = await supabase.from("promotional_table_sections" as any).insert({ promotional_table_id: (copy as any).id, title: sourceSection.title, description: sourceSection.description, image_url: sourceSection.image_url, sort_order: sourceSection.sort_order }).select("*").single();
       if (!newSection) continue;
       const rows = ((sourceItems as any) || []).filter((item: any) => item.section_id === sourceSection.id).map(({ id, section_id, created_at, updated_at, ...item }: any) => ({ ...item, section_id: (newSection as any).id }));
       if (rows.length) await supabase.from("promotional_table_items" as any).insert(rows);
