@@ -241,10 +241,23 @@ export function PromotionalTablesTab() {
     }));
   };
 
+  const runExport = async (
+    table: PromotionalTable,
+    rows: PromotionalSectionWithItems[],
+    mode: "download" | "preview" = "download",
+  ) => {
+    if (!rows.some((section) => section.items.length)) { toast.info("Adicione itens antes de gerar o PDF."); return; }
+    try {
+      await exportPromotionalPdf(table, rows, distributorName(table.distributor_id), mode);
+    } catch (error: any) {
+      console.error("[promotional-pdf]", error);
+      toast.error(error?.message || "Não foi possível gerar o PDF.");
+    }
+  };
+
   const exportFromList = async (table: PromotionalTable) => {
     const rows = await getTableSections(table.id);
-    if (!rows.some((section) => section.items.length)) { toast.info("Adicione itens antes de gerar o PDF."); return; }
-    await exportPromotionalPdf(table, rows, distributorName(table.distributor_id));
+    await runExport(table, rows);
   };
 
   const removeTable = async (table: PromotionalTable) => {
