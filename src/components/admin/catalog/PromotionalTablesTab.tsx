@@ -47,6 +47,7 @@ export function PromotionalTablesTab() {
   const [customItem, setCustomItem] = useState({ name: "", description: "", quantity: "1", market: "0", promotional: "0" });
 
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [uploadingSection, setUploadingSection] = useState<string | null>(null);
 
   const loadTables = async () => {
     setLoading(true);
