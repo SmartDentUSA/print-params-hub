@@ -44,17 +44,36 @@ export function PromotionalTablesTab() {
   const [customSection, setCustomSection] = useState<string | null>(null);
   const [customItem, setCustomItem] = useState({ name: "", description: "", quantity: "1", market: "0", promotional: "0" });
 
+  const [loadError, setLoadError] = useState<string | null>(null);
+
   const loadTables = async () => {
     setLoading(true);
-    const [{ data: rows, error }, { data: dist }] = await Promise.all([
-      supabase.from("promotional_tables" as any).select("*").order("updated_at", { ascending: false }),
-      supabase.from("distributors" as any).select("id,razao_social,nome_fantasia").eq("active", true).order("razao_social"),
-    ]);
-    if (error) toast.error(`Erro ao carregar promoções: ${error.message}`);
-    setTables(((rows as any) || []) as PromotionalTable[]);
-    setDistributors(((dist as any) || []) as DistributorOption[]);
-    setLoading(false);
+    setLoadError(null);
+    try {
+      const { data: rows, error } = await supabase
+        .from("promotional_tables" as any)
+        .select("*")
+        .order("updated_at", { ascending: false });
+      if (error) {
+        setLoadError(error.message);
+        toast.error(`Erro ao carregar promoções: ${error.message}`);
+      }
+      setTables(((rows as any) || []) as PromotionalTable[]);
+
+      const { data: dist, error: distError } = await supabase
+        .from("distributors" as any)
+        .select("id,razao_social,nome_fantasia")
+        .eq("active", true)
+        .order("razao_social");
+      if (distError) console.warn("distributors", distError.message);
+      setDistributors(((dist as any) || []) as DistributorOption[]);
+    } catch (err: any) {
+      setLoadError(err?.message || "Falha inesperada ao carregar as tabelas promocionais.");
+    } finally {
+      setLoading(false);
+    }
   };
+
 
   useEffect(() => { loadTables(); }, []);
 
