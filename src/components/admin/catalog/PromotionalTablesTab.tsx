@@ -326,6 +326,10 @@ export function PromotionalTablesTab() {
         <div className="space-y-2"><Label>Fim</Label><Input type="date" value={draft.valid_until || ""} onChange={(e) => setDraft((row) => ({ ...row, valid_until: e.target.value || null }))} /></div>
         <div className="space-y-2"><Label>Status</Label><Select value={draft.status} onValueChange={(status: PromotionalStatus) => setDraft((row) => ({ ...row, status }))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="draft">Rascunho</SelectItem><SelectItem value="active">Ativa</SelectItem><SelectItem value="archived">Arquivada</SelectItem></SelectContent></Select></div>
         <div className="space-y-2 xl:col-span-3"><Label>Observações e condições</Label><Textarea value={draft.notes || ""} onChange={(e) => setDraft((row) => ({ ...row, notes: e.target.value || null }))} placeholder="Condições de pagamento, disponibilidade ou observações do combo" /></div>
+        <div className="flex items-start gap-3 rounded-md border p-3 md:col-span-2 xl:col-span-4">
+          <Switch checked={draft.include_official_price_table !== false} onCheckedChange={(checked) => setDraft((row) => ({ ...row, include_official_price_table: checked }))} />
+          <div className="space-y-1"><Label className="cursor-pointer">Incluir tabela Smart Dent (Loja Oficial) no final do PDF</Label><p className="text-xs text-muted-foreground">Anexa a tabela de preços oficial no mesmo formato usado nas revendas.</p></div>
+        </div>
       </CardContent></Card>
 
       {persisted && <div className="space-y-4">
