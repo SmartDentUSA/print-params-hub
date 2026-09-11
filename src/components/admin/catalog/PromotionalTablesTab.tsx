@@ -9,7 +9,8 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { ArrowDown, ArrowLeft, ArrowUp, Copy, Eye, FileText, PackagePlus, Pencil, Plus, Save, Search, Trash2 } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { ArrowDown, ArrowLeft, ArrowUp, Copy, Eye, FileText, ImagePlus, Loader2, PackagePlus, Pencil, Plus, Save, Search, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { exportPromotionalPdf } from "./exportPromotionalPdf";
 import type { PromotionalItem, PromotionalSectionWithItems, PromotionalStatus, PromotionalTable } from "./promotionalTypes";
@@ -24,6 +25,7 @@ type CatalogOption = {
 const blankTable = (): Omit<PromotionalTable, "id" | "created_at" | "updated_at"> => ({
   name: "", pdf_title: "TABELA PROMOCIONAL", distributor_id: null, currency: "BRL",
   valid_from: null, valid_until: null, notes: null, status: "draft",
+  include_official_price_table: true,
 });
 
 const money = (value: number, currency: string) =>
@@ -45,6 +47,7 @@ export function PromotionalTablesTab() {
   const [customItem, setCustomItem] = useState({ name: "", description: "", quantity: "1", market: "0", promotional: "0" });
 
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [uploadingSection, setUploadingSection] = useState<string | null>(null);
 
   const loadTables = async () => {
     setLoading(true);
@@ -99,6 +102,7 @@ export function PromotionalTablesTab() {
       name: table.name, pdf_title: table.pdf_title, distributor_id: table.distributor_id,
       currency: table.currency, valid_from: table.valid_from, valid_until: table.valid_until,
       notes: table.notes, status: table.status,
+      include_official_price_table: table.include_official_price_table !== false,
     });
     await loadSections(table);
   };
@@ -119,11 +123,31 @@ export function PromotionalTablesTab() {
   };
 
   const addSection = async () => {
-    if (!selected) { toast.info("Salve a tabela antes de adicionar seções."); return; }
+    if (!selected) { toast.info("Salve a tabela antes de adicionar combos."); return; }
     const { error } = await supabase.from("promotional_table_sections" as any).insert({
-      promotional_table_id: selected.id, title: `Nova seção ${sections.length + 1}`, sort_order: sections.length,
+      promotional_table_id: selected.id, title: `Combo ${sections.length + 1}`, sort_order: sections.length,
     });
     if (error) toast.error(error.message); else await loadSections(selected);
+  };
+
+  const uploadSectionImage = async (sectionId: string, file: File) => {
+    if (!file.type.startsWith("image/")) { toast.error("Selecione um arquivo de imagem."); return; }
+    setUploadingSection(sectionId);
+    try {
+      const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
+      const path = `promocionais/${sectionId}-${Date.now()}.${ext}`;
+      const { error } = await supabase.storage.from("catalog-images").upload(path, file, {
+        cacheControl: "3600", upsert: true, contentType: file.type || undefined,
+      });
+      if (error) throw error;
+      const { data } = supabase.storage.from("catalog-images").getPublicUrl(path);
+      await updateSection(sectionId, { image_url: data.publicUrl });
+      toast.success("Foto do combo atualizada.");
+    } catch (err: any) {
+      toast.error(err?.message || "Não foi possível enviar a foto.");
+    } finally {
+      setUploadingSection(null);
+    }
   };
 
   const updateSection = async (id: string, patch: Record<string, unknown>) => {
@@ -219,7 +243,7 @@ export function PromotionalTablesTab() {
     const { data: copy, error } = await supabase.from("promotional_tables" as any).insert({ ...table, id: undefined, name: `${table.name} — cópia`, status: "draft", created_at: undefined, updated_at: undefined, created_by: undefined }).select("*").single();
     if (error || !copy) { toast.error(error?.message || "Não foi possível duplicar."); return; }
     for (const sourceSection of ((sourceSections as any) || [])) {
-      const { data: newSection } = await supabase.from("promotional_table_sections" as any).insert({ promotional_table_id: (copy as any).id, title: sourceSection.title, description: sourceSection.description, sort_order: sourceSection.sort_order }).select("*").single();
+      const { data: newSection } = await supabase.from("promotional_table_sections" as any).insert({ promotional_table_id: (copy as any).id, title: sourceSection.title, description: sourceSection.description, image_url: sourceSection.image_url, sort_order: sourceSection.sort_order }).select("*").single();
       if (!newSection) continue;
       const rows = ((sourceItems as any) || []).filter((item: any) => item.section_id === sourceSection.id).map(({ id, section_id, created_at, updated_at, ...item }: any) => ({ ...item, section_id: (newSection as any).id }));
       if (rows.length) await supabase.from("promotional_table_items" as any).insert(rows);
@@ -302,12 +326,39 @@ export function PromotionalTablesTab() {
         <div className="space-y-2"><Label>Fim</Label><Input type="date" value={draft.valid_until || ""} onChange={(e) => setDraft((row) => ({ ...row, valid_until: e.target.value || null }))} /></div>
         <div className="space-y-2"><Label>Status</Label><Select value={draft.status} onValueChange={(status: PromotionalStatus) => setDraft((row) => ({ ...row, status }))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="draft">Rascunho</SelectItem><SelectItem value="active">Ativa</SelectItem><SelectItem value="archived">Arquivada</SelectItem></SelectContent></Select></div>
         <div className="space-y-2 xl:col-span-3"><Label>Observações e condições</Label><Textarea value={draft.notes || ""} onChange={(e) => setDraft((row) => ({ ...row, notes: e.target.value || null }))} placeholder="Condições de pagamento, disponibilidade ou observações do combo" /></div>
+        <div className="flex items-start gap-3 rounded-md border p-3 md:col-span-2 xl:col-span-4">
+          <Switch checked={draft.include_official_price_table !== false} onCheckedChange={(checked) => setDraft((row) => ({ ...row, include_official_price_table: checked }))} />
+          <div className="space-y-1"><Label className="cursor-pointer">Incluir tabela Smart Dent (Loja Oficial) no final do PDF</Label><p className="text-xs text-muted-foreground">Anexa a tabela de preços oficial no mesmo formato usado nas revendas.</p></div>
+        </div>
       </CardContent></Card>
 
       {persisted && <div className="space-y-4">
-        <div className="flex items-center justify-between"><div><h3 className="font-semibold">Seções do combo</h3><p className="text-sm text-muted-foreground">Organize equipamentos, consumíveis, serviços, treinamentos ou qualquer outra composição.</p></div><Button variant="outline" onClick={addSection}><Plus className="mr-2 h-4 w-4" />Adicionar seção</Button></div>
+        <div className="flex items-center justify-between"><div><h3 className="font-semibold">Seções do combo</h3><p className="text-sm text-muted-foreground">Organize equipamentos, consumíveis, serviços, treinamentos ou qualquer outra composição.</p></div><Button variant="outline" onClick={addSection}><Plus className="mr-2 h-4 w-4" />Adicionar combo</Button></div>
         {sections.map((section, index) => (
-          <Card key={section.id}><CardHeader className="pb-3"><div className="flex flex-wrap items-center gap-2"><Input className="min-w-[220px] flex-1 font-semibold" value={section.title} onChange={(e) => setSections((current) => current.map((row) => row.id === section.id ? { ...row, title: e.target.value } : row))} onBlur={(e) => updateSection(section.id, { title: e.target.value })} /><Button variant="ghost" size="icon" title="Mover para cima" onClick={() => moveSection(index, -1)} disabled={index === 0}><ArrowUp className="h-4 w-4" /></Button><Button variant="ghost" size="icon" title="Mover para baixo" onClick={() => moveSection(index, 1)} disabled={index === sections.length - 1}><ArrowDown className="h-4 w-4" /></Button><Button variant="ghost" size="icon" title="Excluir seção" onClick={() => removeSection(section.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button></div></CardHeader><CardContent className="space-y-3">
+          <Card key={section.id}><CardHeader className="pb-3"><div className="flex flex-wrap items-center gap-2"><Input className="min-w-[220px] flex-1 font-semibold" value={section.title} onChange={(e) => setSections((current) => current.map((row) => row.id === section.id ? { ...row, title: e.target.value } : row))} onBlur={(e) => updateSection(section.id, { title: e.target.value })} /><Button variant="ghost" size="icon" title="Mover para cima" onClick={() => moveSection(index, -1)} disabled={index === 0}><ArrowUp className="h-4 w-4" /></Button><Button variant="ghost" size="icon" title="Mover para baixo" onClick={() => moveSection(index, 1)} disabled={index === sections.length - 1}><ArrowDown className="h-4 w-4" /></Button><Button variant="ghost" size="icon" title="Excluir combo" onClick={() => removeSection(section.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button></div></CardHeader><CardContent className="space-y-3">
+            <div className="grid gap-3 rounded-md border p-3 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label className="text-xs">Foto do combo</Label>
+                {section.image_url
+                  ? <img src={section.image_url} alt={`Foto do combo ${section.title}`} loading="lazy" className="h-36 w-full rounded-md border bg-white object-contain" />
+                  : <div className="flex h-36 w-full items-center justify-center rounded-md border border-dashed text-xs text-muted-foreground">Nenhuma foto enviada</div>}
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button asChild size="sm" variant="outline" disabled={uploadingSection === section.id}>
+                    <label className="cursor-pointer">
+                      {uploadingSection === section.id ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ImagePlus className="mr-2 h-4 w-4" />}
+                      {section.image_url ? "Trocar foto" : "Enviar foto"}
+                      <input type="file" accept="image/*" className="hidden" onChange={(e) => { const file = e.target.files?.[0]; if (file) uploadSectionImage(section.id, file); e.target.value = ""; }} />
+                    </label>
+                  </Button>
+                  {section.image_url && <Button size="sm" variant="ghost" onClick={() => updateSection(section.id, { image_url: null })}>Remover</Button>}
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label className="text-xs">Descrição do combo</Label>
+                <Textarea rows={6} value={section.description || ""} placeholder="Explique o que o combo entrega, benefícios e condições" onChange={(e) => setSections((current) => current.map((row) => row.id === section.id ? { ...row, description: e.target.value } : row))} onBlur={(e) => updateSection(section.id, { description: e.target.value || null })} />
+                <p className="text-xs text-muted-foreground">No PDF a foto aparece à esquerda e a descrição à direita, antes dos itens.</p>
+              </div>
+            </div>
             {section.items.map((item) => { const row = itemTotals(item); return <div key={item.id} className="grid items-end gap-2 rounded-md border p-3 md:grid-cols-[minmax(180px,2fr)_90px_140px_140px_100px_40px]"><div><Label className="text-xs">Item</Label><Input value={item.name} onChange={(e) => setSections((current) => current.map((s) => ({ ...s, items: s.items.map((i) => i.id === item.id ? { ...i, name: e.target.value } : i) })))} onBlur={(e) => updateItem(item.id, { name: e.target.value })} /><p className="mt-1 text-xs text-muted-foreground">{item.item_type === "catalog" ? item.sku || "Catálogo oficial" : "Linha personalizada"}</p></div><div><Label className="text-xs">Qtd.</Label><Input type="number" min="0.01" step="0.01" value={item.quantity} onChange={(e) => updateItem(item.id, { quantity: Number(e.target.value) })} /></div><div><Label className="text-xs">Valor mercado</Label><Input type="number" min="0" step="0.01" value={item.market_unit_price} onChange={(e) => updateItem(item.id, { market_unit_price: Number(e.target.value) })} /></div><div><Label className="text-xs">Valor promocional</Label><Input type="number" min="0" step="0.01" value={item.promotional_unit_price} onChange={(e) => updateItem(item.id, { promotional_unit_price: Number(e.target.value) })} /></div><div className="pb-2 text-right"><p className="text-xs text-muted-foreground">Desconto</p><p className="font-semibold">{row.discount.toFixed(1)}%</p></div><Button variant="ghost" size="icon" onClick={() => removeItem(item.id)} title="Remover item"><Trash2 className="h-4 w-4 text-destructive" /></Button></div>; })}
             <div className="flex flex-wrap items-center justify-between gap-2"><div className="flex gap-2"><Button size="sm" variant="outline" onClick={() => openPicker(section.id)}><PackagePlus className="mr-2 h-4 w-4" />Produto do catálogo</Button><Button size="sm" variant="outline" onClick={() => { setCustomSection(section.id); setCustomOpen(true); }}><Plus className="mr-2 h-4 w-4" />Item personalizado</Button></div><div className="text-sm font-semibold">Subtotal: {money(section.items.reduce((sum, item) => sum + itemTotals(item).promotional, 0), draft.currency)}</div></div>
           </CardContent></Card>

@@ -18460,6 +18460,7 @@ export type Database = {
           created_at: string
           description: string | null
           id: string
+          image_url: string | null
           promotional_table_id: string
           sort_order: number
           title: string
@@ -18469,6 +18470,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           id?: string
+          image_url?: string | null
           promotional_table_id: string
           sort_order?: number
           title: string
@@ -18478,6 +18480,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           id?: string
+          image_url?: string | null
           promotional_table_id?: string
           sort_order?: number
           title?: string
@@ -18500,6 +18503,7 @@ export type Database = {
           currency: string
           distributor_id: string | null
           id: string
+          include_official_price_table: boolean
           name: string
           notes: string | null
           pdf_title: string
@@ -18514,6 +18518,7 @@ export type Database = {
           currency?: string
           distributor_id?: string | null
           id?: string
+          include_official_price_table?: boolean
           name: string
           notes?: string | null
           pdf_title?: string
@@ -18528,6 +18533,7 @@ export type Database = {
           currency?: string
           distributor_id?: string | null
           id?: string
+          include_official_price_table?: boolean
           name?: string
           notes?: string | null
           pdf_title?: string

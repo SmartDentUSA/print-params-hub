@@ -99,7 +99,7 @@ function localeForLang(lang: string | null | undefined): string {
 }
 
 /** Group items keeping first-seen order of categories/subcategories. */
-function groupItemsByCategory(items: DealerPriceItem[]) {
+export function groupItemsByCategory(items: DealerPriceItem[]) {
   // Parses a variant label (e.g. "1000", "1 kg", "500g", "2.5") into a numeric
   // weight for ordering. Larger presentations come first (1000 → 500 → 250 → 100).
   const variantWeight = (v: unknown): number => {
