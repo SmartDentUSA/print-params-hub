@@ -9,7 +9,8 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { ArrowDown, ArrowLeft, ArrowUp, Copy, Eye, FileText, PackagePlus, Pencil, Plus, Save, Search, Trash2 } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { ArrowDown, ArrowLeft, ArrowUp, Copy, Eye, FileText, ImagePlus, Loader2, PackagePlus, Pencil, Plus, Save, Search, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { exportPromotionalPdf } from "./exportPromotionalPdf";
 import type { PromotionalItem, PromotionalSectionWithItems, PromotionalStatus, PromotionalTable } from "./promotionalTypes";
@@ -24,6 +25,7 @@ type CatalogOption = {
 const blankTable = (): Omit<PromotionalTable, "id" | "created_at" | "updated_at"> => ({
   name: "", pdf_title: "TABELA PROMOCIONAL", distributor_id: null, currency: "BRL",
   valid_from: null, valid_until: null, notes: null, status: "draft",
+  include_official_price_table: true,
 });
 
 const money = (value: number, currency: string) =>
