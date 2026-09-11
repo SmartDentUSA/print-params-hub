@@ -18379,6 +18379,173 @@ export type Database = {
           },
         ]
       }
+      promotional_table_items: {
+        Row: {
+          catalog_product_id: string | null
+          catalog_variation_id: string | null
+          created_at: string
+          description: string | null
+          id: string
+          image_url: string | null
+          item_type: string
+          market_unit_price: number
+          name: string
+          promotional_unit_price: number
+          quantity: number
+          section_id: string
+          sku: string | null
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          catalog_product_id?: string | null
+          catalog_variation_id?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          image_url?: string | null
+          item_type?: string
+          market_unit_price?: number
+          name: string
+          promotional_unit_price?: number
+          quantity?: number
+          section_id: string
+          sku?: string | null
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          catalog_product_id?: string | null
+          catalog_variation_id?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          image_url?: string | null
+          item_type?: string
+          market_unit_price?: number
+          name?: string
+          promotional_unit_price?: number
+          quantity?: number
+          section_id?: string
+          sku?: string | null
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "promotional_table_items_catalog_product_id_fkey"
+            columns: ["catalog_product_id"]
+            isOneToOne: false
+            referencedRelation: "system_a_catalog"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "promotional_table_items_catalog_variation_id_fkey"
+            columns: ["catalog_variation_id"]
+            isOneToOne: false
+            referencedRelation: "catalog_product_variations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "promotional_table_items_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: false
+            referencedRelation: "promotional_table_sections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      promotional_table_sections: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          promotional_table_id: string
+          sort_order: number
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          promotional_table_id: string
+          sort_order?: number
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          promotional_table_id?: string
+          sort_order?: number
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "promotional_table_sections_promotional_table_id_fkey"
+            columns: ["promotional_table_id"]
+            isOneToOne: false
+            referencedRelation: "promotional_tables"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      promotional_tables: {
+        Row: {
+          created_at: string
+          created_by: string
+          currency: string
+          distributor_id: string | null
+          id: string
+          name: string
+          notes: string | null
+          pdf_title: string
+          status: string
+          updated_at: string
+          valid_from: string | null
+          valid_until: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string
+          currency?: string
+          distributor_id?: string | null
+          id?: string
+          name: string
+          notes?: string | null
+          pdf_title?: string
+          status?: string
+          updated_at?: string
+          valid_from?: string | null
+          valid_until?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          currency?: string
+          distributor_id?: string | null
+          id?: string
+          name?: string
+          notes?: string | null
+          pdf_title?: string
+          status?: string
+          updated_at?: string
+          valid_from?: string | null
+          valid_until?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "promotional_tables_distributor_id_fkey"
+            columns: ["distributor_id"]
+            isOneToOne: false
+            referencedRelation: "distributors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       push_campaigns: {
         Row: {
           body: string
