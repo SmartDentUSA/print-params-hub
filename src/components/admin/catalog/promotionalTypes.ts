@@ -10,6 +10,7 @@ export type PromotionalTable = {
   valid_until: string | null;
   notes: string | null;
   status: PromotionalStatus;
+  include_official_price_table?: boolean;
   created_at: string;
   updated_at: string;
 };
@@ -19,6 +20,7 @@ export type PromotionalSection = {
   promotional_table_id: string;
   title: string;
   description: string | null;
+  image_url?: string | null;
   sort_order: number;
 };
 
