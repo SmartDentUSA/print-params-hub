@@ -1,0 +1,2 @@
+ALTER TABLE public.promotional_table_sections ADD COLUMN IF NOT EXISTS image_url TEXT;
+ALTER TABLE public.promotional_tables ADD COLUMN IF NOT EXISTS include_official_price_table BOOLEAN NOT NULL DEFAULT true;
