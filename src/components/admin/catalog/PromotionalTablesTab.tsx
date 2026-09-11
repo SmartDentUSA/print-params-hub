@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { ArrowDown, ArrowLeft, ArrowUp, Copy, FileText, PackagePlus, Pencil, Plus, Save, Search, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowLeft, ArrowUp, Copy, Eye, FileText, PackagePlus, Pencil, Plus, Save, Search, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { exportPromotionalPdf } from "./exportPromotionalPdf";
 import type { PromotionalItem, PromotionalSectionWithItems, PromotionalStatus, PromotionalTable } from "./promotionalTypes";
@@ -208,6 +208,32 @@ export function PromotionalTablesTab() {
     toast.success("Tabela duplicada."); await loadTables();
   };
 
+  const getTableSections = async (tableId: string): Promise<PromotionalSectionWithItems[]> => {
+    const { data: sectionRows, error } = await supabase.from("promotional_table_sections" as any).select("*").eq("promotional_table_id", tableId).order("sort_order");
+    if (error) { toast.error(error.message); return []; }
+    const ids = ((sectionRows as any) || []).map((section: any) => section.id);
+    const { data: itemRows, error: itemError } = ids.length
+      ? await supabase.from("promotional_table_items" as any).select("*").in("section_id", ids).order("sort_order")
+      : { data: [], error: null };
+    if (itemError) { toast.error(itemError.message); return []; }
+    return (((sectionRows as any) || []) as any[]).map((section) => ({
+      ...section,
+      items: (((itemRows as any) || []) as PromotionalItem[]).filter((item) => item.section_id === section.id),
+    }));
+  };
+
+  const exportFromList = async (table: PromotionalTable) => {
+    const rows = await getTableSections(table.id);
+    if (!rows.some((section) => section.items.length)) { toast.info("Adicione itens antes de gerar o PDF."); return; }
+    await exportPromotionalPdf(table, rows, distributorName(table.distributor_id));
+  };
+
+  const removeTable = async (table: PromotionalTable) => {
+    if (!confirm(`Excluir a tabela promocional “${table.name}”?`)) return;
+    const { error } = await supabase.from("promotional_tables" as any).delete().eq("id", table.id);
+    if (error) toast.error(error.message); else { toast.success("Tabela excluída."); await loadTables(); }
+  };
+
   const totals = useMemo(() => sections.flatMap((section) => section.items).reduce((sum, item) => {
     const row = itemTotals(item); return { market: sum.market + row.market, promotional: sum.promotional + row.promotional };
   }, { market: 0, promotional: 0 }), [sections]);
@@ -225,7 +251,7 @@ export function PromotionalTablesTab() {
       </div>
       {loading ? <p className="text-sm text-muted-foreground">Carregando...</p> : tables.length === 0 ? <Card><CardContent className="p-10 text-center text-muted-foreground">Nenhuma tabela promocional criada.</CardContent></Card> : (
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">{tables.map((table) => (
-          <Card key={table.id}><CardHeader className="pb-3"><div className="flex items-start justify-between gap-2"><CardTitle className="text-base">{table.name}</CardTitle><Badge variant={table.status === "active" ? "default" : "secondary"}>{table.status === "active" ? "Ativa" : table.status === "archived" ? "Arquivada" : "Rascunho"}</Badge></div></CardHeader><CardContent className="space-y-3"><div className="text-sm text-muted-foreground">{distributorName(table.distributor_id) || "Campanha geral"}<br />{table.valid_until ? `Válida até ${new Date(`${table.valid_until}T12:00:00`).toLocaleDateString("pt-BR")}` : "Sem validade definida"}</div><div className="flex flex-wrap gap-2"><Button size="sm" onClick={() => openTable(table)}><Pencil className="mr-1 h-3.5 w-3.5" />Editar</Button><Button size="sm" variant="outline" onClick={() => duplicateTable(table)}><Copy className="mr-1 h-3.5 w-3.5" />Duplicar</Button></div></CardContent></Card>
+          <Card key={table.id}><CardHeader className="pb-3"><div className="flex items-start justify-between gap-2"><CardTitle className="text-base">{table.name}</CardTitle><Badge variant={table.status === "active" ? "default" : "secondary"}>{table.status === "active" ? "Ativa" : table.status === "archived" ? "Arquivada" : "Rascunho"}</Badge></div></CardHeader><CardContent className="space-y-3"><div className="text-sm text-muted-foreground">{distributorName(table.distributor_id) || "Campanha geral"}<br />{table.valid_until ? `Válida até ${new Date(`${table.valid_until}T12:00:00`).toLocaleDateString("pt-BR")}` : "Sem validade definida"}</div><div className="flex flex-wrap gap-2"><Button size="sm" onClick={() => openTable(table)}><Pencil className="mr-1 h-3.5 w-3.5" />Editar</Button><Button size="sm" variant="outline" onClick={() => exportFromList(table)}><FileText className="mr-1 h-3.5 w-3.5" />PDF</Button><Button size="sm" variant="outline" onClick={() => duplicateTable(table)}><Copy className="mr-1 h-3.5 w-3.5" />Duplicar</Button><Button size="icon" variant="ghost" title="Excluir tabela" onClick={() => removeTable(table)}><Trash2 className="h-4 w-4 text-destructive" /></Button></div></CardContent></Card>
         ))}</div>
       )}
     </div>
@@ -234,7 +260,7 @@ export function PromotionalTablesTab() {
   const persisted = Boolean(selected.id);
   return (
     <div className="space-y-5">
-      <div className="flex flex-wrap items-center justify-between gap-3"><Button variant="ghost" onClick={() => { setSelected(null); setSections([]); }}><ArrowLeft className="mr-2 h-4 w-4" />Voltar</Button><div className="flex gap-2"><Button variant="outline" disabled={!persisted || !sections.some((section) => section.items.length)} onClick={() => exportPromotionalPdf({ ...selected, ...draft }, sections, distributorName(draft.distributor_id))}><FileText className="mr-2 h-4 w-4" />Exportar PDF</Button><Button onClick={saveTable} disabled={saving}><Save className="mr-2 h-4 w-4" />{saving ? "Salvando..." : "Salvar tabela"}</Button></div></div>
+      <div className="flex flex-wrap items-center justify-between gap-3"><Button variant="ghost" onClick={() => { setSelected(null); setSections([]); }}><ArrowLeft className="mr-2 h-4 w-4" />Voltar</Button><div className="flex flex-wrap gap-2"><Button variant="outline" disabled={!persisted || !sections.some((section) => section.items.length)} onClick={() => exportPromotionalPdf({ ...selected, ...draft }, sections, distributorName(draft.distributor_id), "preview")}><Eye className="mr-2 h-4 w-4" />Visualizar PDF</Button><Button variant="outline" disabled={!persisted || !sections.some((section) => section.items.length)} onClick={() => exportPromotionalPdf({ ...selected, ...draft }, sections, distributorName(draft.distributor_id))}><FileText className="mr-2 h-4 w-4" />Exportar PDF</Button><Button onClick={saveTable} disabled={saving}><Save className="mr-2 h-4 w-4" />{saving ? "Salvando..." : "Salvar tabela"}</Button></div></div>
       <Card><CardHeader><CardTitle>Dados da promoção</CardTitle></CardHeader><CardContent className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <div className="space-y-2 md:col-span-2"><Label>Nome interno</Label><Input value={draft.name} onChange={(e) => setDraft((value) => ({ ...value, name: e.target.value }))} placeholder="Ex.: Combo Congresso CIPRO" /></div>
         <div className="space-y-2 md:col-span-2"><Label>Título no PDF</Label><Input value={draft.pdf_title} onChange={(e) => setDraft((value) => ({ ...value, pdf_title: e.target.value }))} /></div>
