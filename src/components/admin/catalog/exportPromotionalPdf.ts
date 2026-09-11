@@ -3,8 +3,14 @@ import autoTable from "jspdf-autotable";
 import type { PromotionalSectionWithItems, PromotionalTable } from "./promotionalTypes";
 import { itemTotals } from "./promotionalTypes";
 
-const money = (value: number, currency: string) =>
-  new Intl.NumberFormat("pt-BR", { style: "currency", currency }).format(value || 0);
+const money = (value: number, currency?: string | null) => {
+  const safe = (currency || "BRL").toUpperCase();
+  try {
+    return new Intl.NumberFormat("pt-BR", { style: "currency", currency: safe }).format(Number(value) || 0);
+  } catch {
+    return `${safe} ${(Number(value) || 0).toFixed(2)}`;
+  }
+};
 
 const date = (value: string | null) => value
   ? new Date(`${value}T12:00:00`).toLocaleDateString("pt-BR")
