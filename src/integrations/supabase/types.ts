@@ -6734,6 +6734,27 @@ export type Database = {
         }
         Relationships: []
       }
+      graph_link_skips: {
+        Row: {
+          attempts: number
+          entity_id: string
+          entity_table: string
+          last_attempt_at: string
+        }
+        Insert: {
+          attempts?: number
+          entity_id: string
+          entity_table: string
+          last_attempt_at?: string
+        }
+        Update: {
+          attempts?: number
+          entity_id?: string
+          entity_table?: string
+          last_attempt_at?: string
+        }
+        Relationships: []
+      }
       graph_maintenance_runs: {
         Row: {
           created_at: string
