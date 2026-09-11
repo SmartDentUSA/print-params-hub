@@ -106,7 +106,7 @@ export function PromotionalTablesTab() {
   const saveTable = async () => {
     if (!draft.name.trim()) { toast.error("Informe o nome da tabela promocional."); return; }
     setSaving(true);
-    if (selected) {
+    if (selected?.id) {
       const { data, error } = await supabase.from("promotional_tables" as any).update(draft).eq("id", selected.id).select("*").single();
       if (error) toast.error(error.message);
       else { setSelected(data as any); toast.success("Tabela promocional salva."); await loadTables(); }
