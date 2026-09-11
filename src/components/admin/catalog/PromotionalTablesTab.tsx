@@ -150,7 +150,7 @@ export function PromotionalTablesTab() {
   const loadCatalog = async () => {
     const [{ data: products, error }, { data: variations }] = await Promise.all([
       supabase.from("system_a_catalog" as any)
-        .select("id,name,image_url,image_background_removed_url,price,category,active,approved")
+        .select("id,name,image_url,price,category,active,approved")
         .in("category", [...PRODUCT_CATALOG_ENTITY_TYPES]).eq("active", true).eq("approved", true).order("name"),
       supabase.from("catalog_product_variations" as any).select("id,catalog_product_id,presentation_qty,sku,price_brl,price_usd,price_eur,sort_order").order("sort_order"),
     ]);
@@ -164,10 +164,10 @@ export function PromotionalTablesTab() {
     const rows: CatalogOption[] = [];
     for (const product of ((products as any) || [])) {
       const vars = byProduct.get(product.id) || [];
-      if (!vars.length) rows.push({ key: product.id, productId: product.id, variationId: null, name: product.name, sku: null, imageUrl: product.image_background_removed_url || product.image_url, price: Number(product.price || 0), variation: null });
+      if (!vars.length) rows.push({ key: product.id, productId: product.id, variationId: null, name: product.name, sku: null, imageUrl: product.image_url, price: Number(product.price || 0), variation: null });
       for (const variation of vars) {
         const priceKey = draft.currency === "USD" ? "price_usd" : draft.currency === "EUR" ? "price_eur" : "price_brl";
-        rows.push({ key: variation.id, productId: product.id, variationId: variation.id, name: product.name, sku: variation.sku, imageUrl: product.image_background_removed_url || product.image_url, price: Number(variation[priceKey] ?? product.price ?? 0), variation: variation.presentation_qty });
+        rows.push({ key: variation.id, productId: product.id, variationId: variation.id, name: product.name, sku: variation.sku, imageUrl: product.image_url, price: Number(variation[priceKey] ?? product.price ?? 0), variation: variation.presentation_qty });
       }
     }
     setCatalog(rows);
