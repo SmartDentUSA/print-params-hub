@@ -22,6 +22,9 @@ type CatalogOption = {
   imageUrl: string | null; price: number; variation: string | null;
 };
 
+const catalogImage = (product: { image_url?: string | null; og_image_url?: string | null }) =>
+  product.image_url?.trim() || product.og_image_url?.trim() || null;
+
 const blankTable = (): Omit<PromotionalTable, "id" | "created_at" | "updated_at"> => ({
   name: "", pdf_title: "TABELA PROMOCIONAL", distributor_id: null, currency: "BRL",
   valid_from: null, valid_until: null, notes: null, status: "draft",
@@ -48,6 +51,28 @@ export function PromotionalTablesTab() {
 
   const [loadError, setLoadError] = useState<string | null>(null);
   const [uploadingSection, setUploadingSection] = useState<string | null>(null);
+  const [uploadingItem, setUploadingItem] = useState<string | null>(null);
+
+  const hydrateMissingItemImages = async (items: PromotionalItem[]) => {
+    const productIds = [...new Set(items
+      .filter((item) => item.item_type === "catalog" && !item.image_url && item.catalog_product_id)
+      .map((item) => item.catalog_product_id as string))];
+    if (!productIds.length) return items;
+
+    const { data } = await supabase
+      .from("system_a_catalog" as any)
+      .select("id,image_url,og_image_url")
+      .in("id", productIds);
+    const images = new Map<string, string>();
+    for (const product of ((data as any) || [])) {
+      const image = catalogImage(product);
+      if (image) images.set(product.id, image);
+    }
+    return items.map((item) => ({
+      ...item,
+      image_url: item.image_url || (item.catalog_product_id ? images.get(item.catalog_product_id) || null : null),
+    }));
+  };
 
   const loadTables = async () => {
     setLoading(true);
@@ -90,7 +115,7 @@ export function PromotionalTablesTab() {
       ? await supabase.from("promotional_table_items" as any).select("*").in("section_id", ids).order("sort_order")
       : { data: [], error: null };
     if (itemRows.error) { toast.error(itemRows.error.message); return; }
-    const items = ((itemRows.data as any) || []) as PromotionalItem[];
+    const items = await hydrateMissingItemImages(((itemRows.data as any) || []) as PromotionalItem[]);
     setSections((((sectionRows as any) || []) as any[]).map((section) => ({
       ...section, items: items.filter((item) => item.section_id === section.id),
     })));
@@ -150,6 +175,26 @@ export function PromotionalTablesTab() {
     }
   };
 
+  const uploadItemImage = async (itemId: string, file: File) => {
+    if (!file.type.startsWith("image/")) { toast.error("Selecione um arquivo de imagem."); return; }
+    setUploadingItem(itemId);
+    try {
+      const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
+      const path = `promocionais/itens/${itemId}-${Date.now()}.${ext}`;
+      const { error } = await supabase.storage.from("catalog-images").upload(path, file, {
+        cacheControl: "3600", upsert: true, contentType: file.type || undefined,
+      });
+      if (error) throw error;
+      const { data } = supabase.storage.from("catalog-images").getPublicUrl(path);
+      await updateItem(itemId, { image_url: data.publicUrl });
+      toast.success("Foto do produto atualizada.");
+    } catch (err: any) {
+      toast.error(err?.message || "Não foi possível enviar a foto do produto.");
+    } finally {
+      setUploadingItem(null);
+    }
+  };
+
   const updateSection = async (id: string, patch: Record<string, unknown>) => {
     setSections((current) => current.map((section) => section.id === id ? { ...section, ...patch } : section));
     const { error } = await supabase.from("promotional_table_sections" as any).update(patch).eq("id", id);
@@ -174,7 +219,7 @@ export function PromotionalTablesTab() {
   const loadCatalog = async () => {
     const [{ data: products, error }, { data: variations }] = await Promise.all([
       supabase.from("system_a_catalog" as any)
-        .select("id,name,image_url,price,category,active,approved")
+        .select("id,name,image_url,og_image_url,price,category,active,approved")
         .in("category", [...PRODUCT_CATALOG_ENTITY_TYPES]).eq("active", true).eq("approved", true).order("name"),
       supabase.from("catalog_product_variations" as any).select("id,catalog_product_id,presentation_qty,sku,price_brl,price_usd,price_eur,sort_order").order("sort_order"),
     ]);
@@ -188,10 +233,10 @@ export function PromotionalTablesTab() {
     const rows: CatalogOption[] = [];
     for (const product of ((products as any) || [])) {
       const vars = byProduct.get(product.id) || [];
-      if (!vars.length) rows.push({ key: product.id, productId: product.id, variationId: null, name: product.name, sku: null, imageUrl: product.image_url, price: Number(product.price || 0), variation: null });
+      if (!vars.length) rows.push({ key: product.id, productId: product.id, variationId: null, name: product.name, sku: null, imageUrl: catalogImage(product), price: Number(product.price || 0), variation: null });
       for (const variation of vars) {
         const priceKey = draft.currency === "USD" ? "price_usd" : draft.currency === "EUR" ? "price_eur" : "price_brl";
-        rows.push({ key: variation.id, productId: product.id, variationId: variation.id, name: product.name, sku: variation.sku, imageUrl: product.image_url, price: Number(variation[priceKey] ?? product.price ?? 0), variation: variation.presentation_qty });
+        rows.push({ key: variation.id, productId: product.id, variationId: variation.id, name: product.name, sku: variation.sku, imageUrl: catalogImage(product), price: Number(variation[priceKey] ?? product.price ?? 0), variation: variation.presentation_qty });
       }
     }
     setCatalog(rows);
@@ -259,9 +304,10 @@ export function PromotionalTablesTab() {
       ? await supabase.from("promotional_table_items" as any).select("*").in("section_id", ids).order("sort_order")
       : { data: [], error: null };
     if (itemError) { toast.error(itemError.message); return []; }
+    const hydratedItems = await hydrateMissingItemImages((((itemRows as any) || []) as PromotionalItem[]));
     return (((sectionRows as any) || []) as any[]).map((section) => ({
       ...section,
-      items: (((itemRows as any) || []) as PromotionalItem[]).filter((item) => item.section_id === section.id),
+      items: hydratedItems.filter((item) => item.section_id === section.id),
     }));
   };
 
@@ -359,7 +405,7 @@ export function PromotionalTablesTab() {
                 <p className="text-xs text-muted-foreground">No PDF a foto aparece à esquerda e a descrição à direita, antes dos itens.</p>
               </div>
             </div>
-            {section.items.map((item) => { const row = itemTotals(item); return <div key={item.id} className="grid items-end gap-2 rounded-md border p-3 md:grid-cols-[minmax(180px,2fr)_90px_140px_140px_100px_40px]"><div><Label className="text-xs">Item</Label><Input value={item.name} onChange={(e) => setSections((current) => current.map((s) => ({ ...s, items: s.items.map((i) => i.id === item.id ? { ...i, name: e.target.value } : i) })))} onBlur={(e) => updateItem(item.id, { name: e.target.value })} /><p className="mt-1 text-xs text-muted-foreground">{item.item_type === "catalog" ? item.sku || "Catálogo oficial" : "Linha personalizada"}</p></div><div><Label className="text-xs">Qtd.</Label><Input type="number" min="0.01" step="0.01" value={item.quantity} onChange={(e) => updateItem(item.id, { quantity: Number(e.target.value) })} /></div><div><Label className="text-xs">Valor mercado</Label><Input type="number" min="0" step="0.01" value={item.market_unit_price} onChange={(e) => updateItem(item.id, { market_unit_price: Number(e.target.value) })} /></div><div><Label className="text-xs">Valor promocional</Label><Input type="number" min="0" step="0.01" value={item.promotional_unit_price} onChange={(e) => updateItem(item.id, { promotional_unit_price: Number(e.target.value) })} /></div><div className="pb-2 text-right"><p className="text-xs text-muted-foreground">Desconto</p><p className="font-semibold">{row.discount.toFixed(1)}%</p></div><Button variant="ghost" size="icon" onClick={() => removeItem(item.id)} title="Remover item"><Trash2 className="h-4 w-4 text-destructive" /></Button></div>; })}
+            {section.items.map((item) => { const row = itemTotals(item); return <div key={item.id} className="grid items-end gap-2 rounded-md border p-3 md:grid-cols-[72px_minmax(180px,2fr)_90px_140px_140px_100px_40px]"><div className="space-y-1"><div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-md border bg-muted">{item.image_url ? <img src={item.image_url} alt={item.name} loading="lazy" className="h-full w-full object-contain" /> : <ImagePlus className="h-5 w-5 text-muted-foreground" />}</div><Button asChild size="sm" variant="ghost" className="h-6 w-16 px-1 text-[10px]" disabled={uploadingItem === item.id}><label className="cursor-pointer">{uploadingItem === item.id ? <Loader2 className="h-3 w-3 animate-spin" /> : item.image_url ? "Trocar" : "Foto"}<input type="file" accept="image/*" className="hidden" onChange={(e) => { const file = e.target.files?.[0]; if (file) uploadItemImage(item.id, file); e.target.value = ""; }} /></label></Button></div><div><Label className="text-xs">Item</Label><Input value={item.name} onChange={(e) => setSections((current) => current.map((s) => ({ ...s, items: s.items.map((i) => i.id === item.id ? { ...i, name: e.target.value } : i) })))} onBlur={(e) => updateItem(item.id, { name: e.target.value })} /><p className="mt-1 text-xs text-muted-foreground">{item.item_type === "catalog" ? item.sku || "Catálogo oficial" : "Linha personalizada"}</p></div><div><Label className="text-xs">Qtd.</Label><Input type="number" min="0.01" step="0.01" value={item.quantity} onChange={(e) => updateItem(item.id, { quantity: Number(e.target.value) })} /></div><div><Label className="text-xs">Valor mercado</Label><Input type="number" min="0" step="0.01" value={item.market_unit_price} onChange={(e) => updateItem(item.id, { market_unit_price: Number(e.target.value) })} /></div><div><Label className="text-xs">Valor promocional</Label><Input type="number" min="0" step="0.01" value={item.promotional_unit_price} onChange={(e) => updateItem(item.id, { promotional_unit_price: Number(e.target.value) })} /></div><div className="pb-2 text-right"><p className="text-xs text-muted-foreground">Desconto</p><p className="font-semibold">{row.discount.toFixed(1)}%</p></div><Button variant="ghost" size="icon" onClick={() => removeItem(item.id)} title="Remover item"><Trash2 className="h-4 w-4 text-destructive" /></Button></div>; })}
             <div className="flex flex-wrap items-center justify-between gap-2"><div className="flex gap-2"><Button size="sm" variant="outline" onClick={() => openPicker(section.id)}><PackagePlus className="mr-2 h-4 w-4" />Produto do catálogo</Button><Button size="sm" variant="outline" onClick={() => { setCustomSection(section.id); setCustomOpen(true); }}><Plus className="mr-2 h-4 w-4" />Item personalizado</Button></div><div className="text-sm font-semibold">Subtotal: {money(section.items.reduce((sum, item) => sum + itemTotals(item).promotional, 0), draft.currency)}</div></div>
           </CardContent></Card>
         ))}
@@ -367,7 +413,7 @@ export function PromotionalTablesTab() {
         <Card className="border-primary/30"><CardContent className="grid gap-3 p-5 sm:grid-cols-3"><div><p className="text-xs text-muted-foreground">Valor de mercado</p><p className="text-lg font-semibold">{money(totals.market, draft.currency)}</p></div><div><p className="text-xs text-muted-foreground">Economia total</p><p className="text-lg font-semibold text-destructive">{money(totals.market - totals.promotional, draft.currency)}</p></div><div><p className="text-xs text-muted-foreground">Valor promocional</p><p className="text-xl font-bold text-primary">{money(totals.promotional, draft.currency)}</p></div></CardContent></Card>
       </div>}
 
-      <Dialog open={Boolean(pickerSection)} onOpenChange={(open) => !open && setPickerSection(null)}><DialogContent className="max-w-3xl"><DialogHeader><DialogTitle>Adicionar produto do catálogo</DialogTitle><DialogDescription>Os dados atuais serão copiados para preservar esta promoção.</DialogDescription></DialogHeader><div className="relative"><Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" /><Input className="pl-9" value={catalogSearch} onChange={(e) => setCatalogSearch(e.target.value)} placeholder="Buscar produto, SKU ou apresentação" /></div><div className="max-h-[55vh] space-y-2 overflow-y-auto">{filteredCatalog.map((option) => <Button type="button" variant="outline" key={option.key} onClick={() => addCatalogItem(option)} className="h-auto w-full justify-between gap-3 p-3 text-left"><div><p className="font-medium">{option.name}</p><p className="text-xs text-muted-foreground">{[option.variation, option.sku].filter(Boolean).join(" • ") || "Produto"}</p></div><span className="font-semibold">{money(option.price, draft.currency)}</span></Button>)}</div></DialogContent></Dialog>
+      <Dialog open={Boolean(pickerSection)} onOpenChange={(open) => !open && setPickerSection(null)}><DialogContent className="max-w-3xl"><DialogHeader><DialogTitle>Adicionar produto do catálogo</DialogTitle><DialogDescription>Os dados atuais serão copiados para preservar esta promoção.</DialogDescription></DialogHeader><div className="relative"><Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" /><Input className="pl-9" value={catalogSearch} onChange={(e) => setCatalogSearch(e.target.value)} placeholder="Buscar produto, SKU ou apresentação" /></div><div className="max-h-[55vh] space-y-2 overflow-y-auto">{filteredCatalog.map((option) => <Button type="button" variant="outline" key={option.key} onClick={() => addCatalogItem(option)} className="h-auto w-full justify-between gap-3 p-3 text-left"><div className="flex min-w-0 items-center gap-3"><div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-md border bg-muted">{option.imageUrl ? <img src={option.imageUrl} alt={option.name} loading="lazy" className="h-full w-full object-contain" /> : <ImagePlus className="h-5 w-5 text-muted-foreground" />}</div><div className="min-w-0"><p className="font-medium">{option.name}</p><p className="text-xs text-muted-foreground">{[option.variation, option.sku].filter(Boolean).join(" • ") || "Produto"}</p>{!option.imageUrl && <p className="text-xs text-destructive">Sem foto no catálogo — envie após adicionar</p>}</div></div><span className="shrink-0 font-semibold">{money(option.price, draft.currency)}</span></Button>)}</div></DialogContent></Dialog>
 
       <Dialog open={customOpen} onOpenChange={setCustomOpen}><DialogContent><DialogHeader><DialogTitle>Adicionar item personalizado</DialogTitle><DialogDescription>Use para serviços, créditos, treinamentos ou benefícios.</DialogDescription></DialogHeader><div className="space-y-3"><div><Label>Nome</Label><Input value={customItem.name} onChange={(e) => setCustomItem((row) => ({ ...row, name: e.target.value }))} /></div><div><Label>Descrição</Label><Textarea value={customItem.description} onChange={(e) => setCustomItem((row) => ({ ...row, description: e.target.value }))} /></div><div className="grid grid-cols-3 gap-3"><div><Label>Quantidade</Label><Input type="number" value={customItem.quantity} onChange={(e) => setCustomItem((row) => ({ ...row, quantity: e.target.value }))} /></div><div><Label>Valor mercado</Label><Input type="number" value={customItem.market} onChange={(e) => setCustomItem((row) => ({ ...row, market: e.target.value }))} /></div><div><Label>Valor promocional</Label><Input type="number" value={customItem.promotional} onChange={(e) => setCustomItem((row) => ({ ...row, promotional: e.target.value }))} /></div></div><Button className="w-full" onClick={addCustomItem}>Adicionar item</Button></div></DialogContent></Dialog>
     </div>
