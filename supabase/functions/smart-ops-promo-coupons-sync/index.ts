@@ -127,6 +127,12 @@ Deno.serve(async (req) => {
       return json({ ok: true, categories: all });
     }
 
+    // Diagnóstico: mostra os campos de um cupom já existente na loja.
+    if (mode === "inspect_coupons") {
+      const parsed = await liRequest("/cupom?limit=2&format=json", "GET", null, apiKey, appKey);
+      return json({ ok: true, sample: parsed });
+    }
+
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
