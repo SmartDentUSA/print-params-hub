@@ -208,11 +208,11 @@ export function PromotionalCouponsCard({ table, draft, onDraftChange }: Props) {
         if (error) throw error;
       }
       await loadCoupons();
-      toast.success("Cupons gerados/atualizados.");
+      toast.success(isFreight ? "Cupons com frete grátis gerados/atualizados." : "Cupons gerados/atualizados.");
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Não foi possível gerar os cupons.");
     } finally {
-      setBusy(false);
+      setBusy(null);
     }
   };
 
