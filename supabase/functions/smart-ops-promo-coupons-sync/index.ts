@@ -137,6 +137,15 @@ Deno.serve(async (req) => {
       return json({ ok: true, coupon: raw });
     }
 
+    // Diagnóstico: aplica um payload cru num cupom e devolve como a loja gravou.
+    if (mode === "probe") {
+      const liId = String(body?.li_coupon_id || "").replace(/\D/g, "");
+      if (!liId) return json({ ok: false, error: "li_coupon_id é obrigatório" }, 400);
+      const put = await liRequest(`/cupom/${liId}`, "PUT", body?.payload ?? {}, apiKey, appKey);
+      const raw = await liRequest(`/cupom/${liId}?format=json`, "GET", null, apiKey, appKey);
+      return json({ ok: true, put, coupon: raw });
+    }
+
 
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
