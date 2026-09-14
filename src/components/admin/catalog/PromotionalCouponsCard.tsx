@@ -26,7 +26,16 @@ const DEFAULT_CATEGORY_IDS = [
 const slug = (value: string) =>
   value.toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^A-Z0-9]+/g, "").slice(0, 12);
 
-const firstName = (value: string) => slug(value.trim().split(/\s+/)[0] || "");
+/** Iniciais do vendedor: primeira letra do nome + primeira letra do sobrenome. */
+const sellerInitials = (value: string) => {
+  const parts = slug(value).length ? value.trim().split(/\s+/).filter(Boolean) : [];
+  const first = slug(parts[0] || "").slice(0, 1);
+  const last = slug(parts.length > 1 ? parts[parts.length - 1] : "").slice(0, 1);
+  return `${first}${last}` || "XX";
+};
+
+/** Número do desconto usado no código do cupom (20% => "20"; R$ 150 => "150"). */
+const discountToken = (value: number) => String(Math.round(Number(value) || 0));
 
 type Props = {
   table: PromotionalTable;
