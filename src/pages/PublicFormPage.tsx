@@ -1152,13 +1152,13 @@ export default function PublicFormPage() {
                 <Label style={isEmbed ? { color: "#0f172a", opacity: 1 } : undefined}>
                   Combos promocionais do evento
                 </Label>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                <div className="grid grid-cols-1 gap-2">
                   {eventCombos.map((combo) => {
                     const checked = selectedCategories.includes(combo.title);
                     return (
                       <label
                         key={combo.title}
-                        className={`relative flex flex-row md:flex-col overflow-hidden rounded-lg border text-sm cursor-pointer transition-colors h-auto min-h-[5.5rem] md:h-auto ${
+                        className={`relative flex flex-row overflow-hidden rounded-lg border text-sm cursor-pointer transition-colors h-auto min-h-[5.5rem] ${
                           checked ? "border-primary bg-primary/5" : "border-input"
                         }`}
                       >
@@ -1174,7 +1174,7 @@ export default function PublicFormPage() {
                             )
                           }
                         />
-                        <div className="relative w-24 shrink-0 aspect-square md:w-full md:aspect-[4/3] bg-muted/40">
+                        <div className="relative w-24 shrink-0 aspect-square bg-muted/40">
                           {combo.imageUrl ? (
                             <img
                               src={combo.imageUrl}
@@ -1188,7 +1188,7 @@ export default function PublicFormPage() {
                             </span>
                           )}
                         </div>
-                        <div className="flex flex-1 items-center md:items-start p-3 md:p-2">
+                        <div className="flex flex-1 items-center p-3">
                           <span className="block font-medium leading-tight line-clamp-2">{combo.title}</span>
                         </div>
                       </label>
