@@ -488,8 +488,29 @@ export function PromotionalTablesTab() {
                 <p className="text-xs text-muted-foreground">No PDF a foto aparece à esquerda e a descrição à direita, antes dos itens.</p>
               </div>
             </div>
-            {section.items.map((item) => { const row = itemTotals(item); return <div key={item.id} className="grid items-end gap-2 rounded-md border p-3 md:grid-cols-[72px_minmax(180px,2fr)_90px_140px_140px_100px_40px]"><div className="space-y-1"><div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-md border bg-muted">{item.image_url ? <img src={item.image_url} alt={item.name} loading="lazy" className="h-full w-full object-contain" /> : <ImagePlus className="h-5 w-5 text-muted-foreground" />}</div><Button asChild size="sm" variant="ghost" className="h-6 w-16 px-1 text-[10px]" disabled={uploadingItem === item.id}><label className="cursor-pointer">{uploadingItem === item.id ? <Loader2 className="h-3 w-3 animate-spin" /> : item.image_url ? "Trocar" : "Foto"}<input type="file" accept="image/*" className="hidden" onChange={(e) => { const file = e.target.files?.[0]; if (file) uploadItemImage(item.id, file); e.target.value = ""; }} /></label></Button></div><div><Label className="text-xs">Item</Label><Input value={item.name} onChange={(e) => setSections((current) => current.map((s) => ({ ...s, items: s.items.map((i) => i.id === item.id ? { ...i, name: e.target.value } : i) })))} onBlur={(e) => updateItem(item.id, { name: e.target.value })} /><p className="mt-1 text-xs text-muted-foreground">{item.item_type === "catalog" ? item.sku || "Catálogo oficial" : "Linha personalizada"}</p></div><div><Label className="text-xs">Qtd.</Label><Input type="number" min="0.01" step="0.01" value={item.quantity} onChange={(e) => updateItem(item.id, { quantity: Number(e.target.value) })} /></div><div><Label className="text-xs">Valor mercado</Label><Input type="number" min="0" step="0.01" value={item.market_unit_price} onChange={(e) => updateItem(item.id, { market_unit_price: Number(e.target.value) })} /></div><div><Label className="text-xs">Valor promocional</Label><Input type="number" min="0" step="0.01" value={item.promotional_unit_price} onChange={(e) => updateItem(item.id, { promotional_unit_price: Number(e.target.value) })} /></div><div className="pb-2 text-right"><p className="text-xs text-muted-foreground">Desconto</p><p className="font-semibold">{row.discount.toFixed(1)}%</p></div><Button variant="ghost" size="icon" onClick={() => removeItem(item.id)} title="Remover item"><Trash2 className="h-4 w-4 text-destructive" /></Button></div>; })}
-            <div className="flex flex-wrap items-center justify-between gap-2"><div className="flex gap-2"><Button size="sm" variant="outline" onClick={() => openPicker(section.id)}><PackagePlus className="mr-2 h-4 w-4" />Produto do catálogo</Button><Button size="sm" variant="outline" onClick={() => { setCustomSection(section.id); setCustomOpen(true); }}><Plus className="mr-2 h-4 w-4" />Item personalizado</Button></div><div className="text-sm font-semibold">Subtotal: {money(section.items.reduce((sum, item) => sum + itemTotals(item).promotional, 0), draft.currency)}</div></div>
+            {groupsOf(section.id).map((group) => {
+              const groupItems = section.items.filter((item) => (item.group_label || "").trim() === group);
+              return (
+                <div key={group || "__sem_secao"} className="space-y-2 rounded-md border border-dashed p-3">
+                  <div className="flex items-center gap-2">
+                    {group
+                      ? <><Input className="max-w-sm font-medium" defaultValue={group} onBlur={(e) => renameGroup(section.id, group, e.target.value)} /><Button variant="ghost" size="icon" title="Excluir seção" onClick={() => removeGroup(section.id, group)}><Trash2 className="h-4 w-4 text-destructive" /></Button></>
+                      : <p className="text-sm font-medium text-muted-foreground">Itens sem seção</p>}
+                  </div>
+                  {groupItems.map(renderItem)}
+                  {!groupItems.length && <p className="text-xs text-muted-foreground">Nenhum item nesta seção ainda.</p>}
+                  <div className="flex flex-wrap gap-2">
+                    <Button size="sm" variant="outline" onClick={() => openPicker(section.id, group)}><PackagePlus className="mr-2 h-4 w-4" />Produto do catálogo</Button>
+                    <Button size="sm" variant="outline" onClick={() => { setCustomSection(section.id); setTargetGroup(group); setCustomOpen(true); }}><Plus className="mr-2 h-4 w-4" />Item personalizado</Button>
+                  </div>
+                </div>
+              );
+            })}
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <Button size="sm" variant="secondary" onClick={() => addGroup(section.id)}><Plus className="mr-2 h-4 w-4" />Adicionar seção neste combo</Button>
+              <div className="text-sm font-semibold">Subtotal: {money(section.items.reduce((sum, item) => sum + itemTotals(item).promotional, 0), draft.currency)}</div>
+            </div>
+
           </CardContent></Card>
         ))}
         {sections.length === 0 && <Card><CardContent className="p-8 text-center text-muted-foreground">Adicione a primeira seção para começar a montar o combo.</CardContent></Card>}
