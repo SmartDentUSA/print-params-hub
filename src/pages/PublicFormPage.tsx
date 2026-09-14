@@ -1301,37 +1301,42 @@ export default function PublicFormPage() {
                 )}
 
                 {field.field_type === "radio" && (
-                  <div className="space-y-2">
-                    {(Array.isArray(field.options) ? field.options : []).map((opt: string) => (
-                      <label key={opt} className="flex items-center gap-3 text-base py-1.5 md:gap-2 md:text-sm md:py-0">
-                        <input
-                          type="radio"
-                          name={`field-${field.id}`}
-                          value={opt}
-                          checked={values[field.id] === opt}
-                          onChange={() => handleChange(field.id, opt)}
-                          required={field.required && !values[field.id]}
-                          className="w-5 h-5 md:w-4 md:h-4"
-                        />
-                        {opt}
-                      </label>
-                    ))}
+                  <div className="grid grid-cols-2 gap-2">
+                    {(Array.isArray(field.options) ? field.options : []).map((opt: string) => {
+                      const checked = values[field.id] === opt;
+                      return (
+                        <label
+                          key={opt}
+                          className={`flex min-h-12 items-center gap-2 rounded-md border px-3 py-2.5 text-sm cursor-pointer transition-colors ${
+                            checked ? "border-primary bg-primary/10 ring-1 ring-primary/20" : "border-input bg-card"
+                          }`}
+                        >
+                          <input
+                            type="radio"
+                            name={`field-${field.id}`}
+                            value={opt}
+                            checked={checked}
+                            onChange={() => handleChange(field.id, opt)}
+                            required={field.required && !values[field.id]}
+                            className="w-5 h-5 md:w-4 md:h-4"
+                          />
+                          <span className="leading-tight">{opt}</span>
+                        </label>
+                      );
+                    })}
                   </div>
                 )}
 
                 {field.field_type === "checkbox" && (
-                  <div className={isEventForm ? "grid grid-cols-2 gap-2" : "space-y-2"}>
+                  <div className="grid grid-cols-2 gap-2">
                     {(Array.isArray(field.options) ? field.options : []).map((opt: string) => {
                       const checked = (values[field.id] || []).includes(opt);
                       return (
                         <label
                           key={opt}
-                          className={isEventForm
-                            ? `flex min-h-12 items-center gap-2 rounded-md border px-3 py-2.5 text-sm cursor-pointer transition-colors ${
-                                checked ? "border-primary bg-primary/10 ring-1 ring-primary/20" : "border-input bg-card"
-                              }`
-                            : "flex items-center gap-3 text-base py-1.5 md:gap-2 md:text-sm md:py-0"
-                          }
+                          className={`flex min-h-12 items-center gap-2 rounded-md border px-3 py-2.5 text-sm cursor-pointer transition-colors ${
+                            checked ? "border-primary bg-primary/10 ring-1 ring-primary/20" : "border-input bg-card"
+                          }`}
                         >
                           <input
                             type="checkbox"
@@ -1345,7 +1350,7 @@ export default function PublicFormPage() {
                             }}
                             className="w-5 h-5 md:w-4 md:h-4"
                           />
-                          <span className={isEventForm ? "leading-tight" : undefined}>{opt}</span>
+                          <span className="leading-tight">{opt}</span>
                         </label>
                       );
                     })}
