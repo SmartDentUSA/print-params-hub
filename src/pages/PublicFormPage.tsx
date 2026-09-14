@@ -1089,35 +1089,44 @@ export default function PublicFormPage() {
               </div>
             )}
 
-            {isEventForm && eventCategories.length > 0 && (
-              <div className="space-y-1.5">
+            {isEventForm && eventCategoryGroups.length > 0 && (
+              <div className="space-y-3">
                 <Label style={isEmbed ? { color: "#0f172a", opacity: 1 } : undefined}>
-                  Categorias de interesse
+                  Interesses
                 </Label>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
-                  {eventCategories.map((cat) => {
-                    const checked = selectedCategories.includes(cat);
-                    return (
-                      <label
-                        key={cat}
-                        className={`flex items-center gap-2 rounded-md border px-2.5 py-2 text-sm cursor-pointer transition-colors ${
-                          checked ? "border-primary bg-primary/5" : "border-input"
-                        }`}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={checked}
-                          onChange={(ev) =>
-                            setSelectedCategories((s) =>
-                              ev.target.checked ? [...s, cat] : s.filter((v) => v !== cat),
-                            )
-                          }
-                        />
-                        <span className="truncate">{cat}</span>
-                      </label>
-                    );
-                  })}
-                </div>
+                {eventCategoryGroups.map((group) => (
+                  <div key={group.category} className="space-y-1.5">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      {group.category}
+                    </p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                      {group.options.map((opt) => {
+                        const checked = selectedCategories.includes(opt.key);
+                        return (
+                          <label
+                            key={opt.key}
+                            className={`flex items-center gap-2 rounded-md border px-2.5 py-2 text-sm cursor-pointer transition-colors ${
+                              checked ? "border-primary bg-primary/5" : "border-input"
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={(ev) =>
+                                setSelectedCategories((s) =>
+                                  ev.target.checked
+                                    ? [...s, opt.key]
+                                    : s.filter((v) => v !== opt.key),
+                                )
+                              }
+                            />
+                            <span className="truncate">{opt.label}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
 
