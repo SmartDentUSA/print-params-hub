@@ -130,6 +130,14 @@ export function PromotionalCouponsCard({ table, draft, onDraftChange }: Props) {
         coupon_valid_from: draft.coupon_valid_from ?? null,
         coupon_valid_until: draft.coupon_valid_until ?? null,
         coupon_li_category_ids: categoryIds,
+        coupon_li_category_labels: categoryIds
+          .map((id) => {
+            const cat = categories.find((row) => row.id === id);
+            if (!cat) return null;
+            const parent = categories.find((row) => row.id === cat.parent_id);
+            return parent ? `${parent.nome}: ${cat.nome}` : cat.nome;
+          })
+          .filter(Boolean),
       }).eq("id", table.id);
 
       const used = new Set(coupons.map((coupon) => coupon.code));
