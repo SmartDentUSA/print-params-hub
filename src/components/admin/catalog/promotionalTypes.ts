@@ -5,6 +5,7 @@ export type PromotionalTable = {
   name: string;
   pdf_title: string;
   distributor_id: string | null;
+  event_id?: string | null;
   currency: string;
   valid_from: string | null;
   valid_until: string | null;

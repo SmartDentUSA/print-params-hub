@@ -71,6 +71,56 @@ async function fetchOfficialPriceList() {
   return { distributor: distributor as any, list: list as any, items: items as any[] };
 }
 
+type EventSession = { date?: string; start_time?: string; end_time?: string; theme?: string };
+type EventSpeaker = {
+  name?: string; theme?: string; instagram?: string; specialty?: string;
+  sessions?: EventSession[]; support_sessions?: EventSession[];
+};
+type EventRow = {
+  id: string; name: string; location: string | null; company_stand: string | null;
+  start_date: string | null; end_date: string | null; speakers: EventSpeaker[] | null;
+};
+
+async function fetchEvent(eventId?: string | null): Promise<EventRow | null> {
+  if (!eventId) return null;
+  const { data } = await supabase
+    .from("smartops_events" as any)
+    .select("id,name,location,company_stand,start_date,end_date,speakers")
+    .eq("id", eventId)
+    .maybeSingle();
+  return (data as any) ?? null;
+}
+
+const handleOf = (value?: string | null) => {
+  let raw = String(value || "").trim();
+  const idx = raw.toLowerCase().lastIndexOf("instagram.com/");
+  if (idx >= 0) raw = raw.slice(idx + "instagram.com/".length);
+  return raw.split(/[?#\s,]/)[0].replace(/\/+$/, "").replace(/^@+/, "");
+};
+
+const hhmm = (value?: string | null) => String(value || "").slice(0, 5);
+
+/** Flattens speaker sessions into printable rows grouped by day. */
+function eventRows(speakers: EventSpeaker[], field: "sessions" | "support_sessions") {
+  const rows: { day: string; start: string; end: string; name: string; theme: string; instagram: string; specialty: string }[] = [];
+  for (const speaker of speakers) {
+    if (!speaker.name) continue;
+    for (const session of speaker[field] || []) {
+      if (!session.date) continue;
+      rows.push({
+        day: session.date.slice(0, 10),
+        start: hhmm(session.start_time),
+        end: hhmm(session.end_time),
+        name: speaker.name,
+        theme: String(session.theme || speaker.theme || "").trim(),
+        instagram: handleOf(speaker.instagram),
+        specialty: speaker.specialty || "",
+      });
+    }
+  }
+  return rows.sort((a, b) => `${a.day}${a.start}`.localeCompare(`${b.day}${b.start}`));
+}
+
 export async function exportPromotionalPdf(
   table: PromotionalTable,
   sections: PromotionalSectionWithItems[],
@@ -367,6 +417,72 @@ export async function exportPromotionalPdf(
           cursor = ((doc as any).lastAutoTable?.finalY ?? cursor) + 4;
         }
       }
+    }
+  }
+
+  // ---- Event appendix: demo schedule + stand support, always last ----
+  const event = await fetchEvent(table.event_id);
+  if (event) {
+    const speakers = (event.speakers || []) as EventSpeaker[];
+    const demos = eventRows(speakers, "sessions");
+    const support = eventRows(speakers, "support_sessions");
+    if (demos.length || support.length) {
+      doc.addPage();
+      header();
+      let cursor = pageTop;
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(12);
+      doc.text(`AGENDA NO EVENTO — ${event.name.toUpperCase()}`, margin, cursor);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8);
+      doc.setTextColor(110, 110, 110);
+      doc.text(
+        [event.location, event.company_stand ? `Estande ${event.company_stand}` : null,
+          event.start_date ? `${date(event.start_date)} a ${date(event.end_date)}` : null]
+          .filter(Boolean).join("  •  "),
+        margin,
+        cursor + 14,
+      );
+      doc.setTextColor(0, 0, 0);
+      cursor += 30;
+
+      const block = (title: string, rows: typeof demos, withTheme: boolean) => {
+        if (!rows.length) return;
+        if (cursor + 60 > height - pageBottom) { doc.addPage(); header(); cursor = pageTop; }
+        doc.setFillColor(...dark);
+        doc.rect(margin, cursor, width - margin * 2, 20, "F");
+        doc.setTextColor(255, 255, 255);
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(9);
+        doc.text(title, margin + 8, cursor + 14);
+        doc.setTextColor(0, 0, 0);
+        cursor += 26;
+
+        const head = withTheme
+          ? [["Dia", "Horário", "Profissional", "Tema", "Instagram"]]
+          : [["Dia", "Horário", "Profissional", "Especialidade", "Instagram"]];
+        autoTable(doc, {
+          startY: cursor,
+          margin: { left: margin, right: margin, top: pageTop, bottom: pageBottom },
+          head,
+          body: rows.map((row) => [
+            date(row.day),
+            [row.start, row.end].filter(Boolean).join(" - "),
+            row.name,
+            withTheme ? (row.theme || "—") : (row.specialty || "—"),
+            row.instagram ? `@${row.instagram}` : "—",
+          ]),
+          styles: { fontSize: 8, cellPadding: 5, lineColor: [210, 214, 218], lineWidth: 0.4, valign: "middle", overflow: "linebreak" },
+          headStyles: { fillColor: dark, textColor: 255, fontStyle: "bold" },
+          alternateRowStyles: { fillColor: [245, 246, 247] },
+          columnStyles: { 0: { cellWidth: 60 }, 1: { cellWidth: 70, halign: "center" }, 2: { cellWidth: 120 }, 4: { cellWidth: 100 } },
+          didDrawPage: header,
+        });
+        cursor = ((doc as any).lastAutoTable?.finalY ?? cursor) + 18;
+      };
+
+      block("CRONOGRAMA DE DEMONSTRAÇÕES", demos, true);
+      block("PROFISSIONAIS DE APOIO NO ESTANDE", support, false);
     }
   }
 

@@ -18595,6 +18595,7 @@ export type Database = {
           created_by: string
           currency: string
           distributor_id: string | null
+          event_id: string | null
           id: string
           include_official_price_table: boolean
           name: string
@@ -18610,6 +18611,7 @@ export type Database = {
           created_by?: string
           currency?: string
           distributor_id?: string | null
+          event_id?: string | null
           id?: string
           include_official_price_table?: boolean
           name: string
@@ -18625,6 +18627,7 @@ export type Database = {
           created_by?: string
           currency?: string
           distributor_id?: string | null
+          event_id?: string | null
           id?: string
           include_official_price_table?: boolean
           name?: string
@@ -18641,6 +18644,13 @@ export type Database = {
             columns: ["distributor_id"]
             isOneToOne: false
             referencedRelation: "distributors"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "promotional_tables_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "smartops_events"
             referencedColumns: ["id"]
           },
         ]

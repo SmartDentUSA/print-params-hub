@@ -17,6 +17,7 @@ import type { PromotionalItem, PromotionalSectionWithItems, PromotionalStatus, P
 import { itemTotals } from "./promotionalTypes";
 
 type DistributorOption = { id: string; razao_social: string; nome_fantasia: string | null };
+type EventOption = { id: string; name: string; start_date: string | null; company_stand: string | null };
 type CatalogOption = {
   key: string; productId: string; variationId: string | null; name: string; sku: string | null;
   imageUrl: string | null; price: number; variation: string | null;
@@ -26,7 +27,7 @@ const catalogImage = (product: { image_url?: string | null; og_image_url?: strin
   product.image_url?.trim() || product.og_image_url?.trim() || null;
 
 const blankTable = (): Omit<PromotionalTable, "id" | "created_at" | "updated_at"> => ({
-  name: "", pdf_title: "TABELA PROMOCIONAL", distributor_id: null, currency: "BRL",
+  name: "", pdf_title: "TABELA PROMOCIONAL", distributor_id: null, event_id: null, currency: "BRL",
   valid_from: null, valid_until: null, notes: null, status: "draft",
   include_official_price_table: true,
 });
@@ -40,6 +41,7 @@ export function PromotionalTablesTab() {
   const [draft, setDraft] = useState(blankTable());
   const [sections, setSections] = useState<PromotionalSectionWithItems[]>([]);
   const [distributors, setDistributors] = useState<DistributorOption[]>([]);
+  const [events, setEvents] = useState<EventOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [pickerSection, setPickerSection] = useState<string | null>(null);
@@ -95,6 +97,14 @@ export function PromotionalTablesTab() {
         .order("razao_social");
       if (distError) console.warn("distributors", distError.message);
       setDistributors(((dist as any) || []) as DistributorOption[]);
+
+      const { data: eventRows, error: eventError } = await supabase
+        .from("smartops_events" as any)
+        .select("id,name,start_date,company_stand")
+        .order("start_date", { ascending: false })
+        .limit(100);
+      if (eventError) console.warn("smartops_events", eventError.message);
+      setEvents(((eventRows as any) || []) as EventOption[]);
     } catch (err: any) {
       setLoadError(err?.message || "Falha inesperada ao carregar as tabelas promocionais.");
     } finally {
@@ -125,6 +135,7 @@ export function PromotionalTablesTab() {
     setSelected(table);
     setDraft({
       name: table.name, pdf_title: table.pdf_title, distributor_id: table.distributor_id,
+      event_id: table.event_id ?? null,
       currency: table.currency, valid_from: table.valid_from, valid_until: table.valid_until,
       notes: table.notes, status: table.status,
       include_official_price_table: table.include_official_price_table !== false,
@@ -379,6 +390,7 @@ export function PromotionalTablesTab() {
       <Card><CardHeader><CardTitle>Dados da promoção</CardTitle></CardHeader><CardContent className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <div className="space-y-2 md:col-span-2"><Label>Nome interno</Label><Input value={draft.name} onChange={(e) => setDraft((value) => ({ ...value, name: e.target.value }))} placeholder="Ex.: Combo Congresso CIPRO" /></div>
         <div className="space-y-2 md:col-span-2"><Label>Título no PDF</Label><Input value={draft.pdf_title} onChange={(e) => setDraft((value) => ({ ...value, pdf_title: e.target.value }))} /></div>
+        <div className="space-y-2 md:col-span-2"><Label>Evento associado</Label><Select value={draft.event_id || "none"} onValueChange={(value) => setDraft((row) => ({ ...row, event_id: value === "none" ? null : value }))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="none">Nenhum evento</SelectItem>{events.map((event) => <SelectItem key={event.id} value={event.id}>{event.name}{event.start_date ? ` — ${new Date(`${event.start_date}T12:00:00`).toLocaleDateString("pt-BR")}` : ""}</SelectItem>)}</SelectContent></Select><p className="text-xs text-muted-foreground">Ao escolher um evento, o cronograma de demonstrações e os profissionais de apoio no estande entram no final do PDF, depois da tabela de preços.</p></div>
         <div className="space-y-2"><Label>Uso</Label><Select value={draft.distributor_id || "general"} onValueChange={(value) => setDraft((row) => ({ ...row, distributor_id: value === "general" ? null : value }))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="general">Campanha geral</SelectItem>{distributors.map((distributor) => <SelectItem key={distributor.id} value={distributor.id}>{distributor.nome_fantasia || distributor.razao_social}</SelectItem>)}</SelectContent></Select></div>
         <div className="space-y-2"><Label>Moeda</Label><Select value={draft.currency} onValueChange={(currency) => setDraft((row) => ({ ...row, currency }))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="BRL">BRL — Real</SelectItem><SelectItem value="USD">USD — Dólar</SelectItem><SelectItem value="EUR">EUR — Euro</SelectItem></SelectContent></Select></div>
         <div className="space-y-2"><Label>Início</Label><Input type="date" value={draft.valid_from || ""} onChange={(e) => setDraft((row) => ({ ...row, valid_from: e.target.value || null }))} /></div>
