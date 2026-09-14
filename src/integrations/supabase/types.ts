@@ -35417,6 +35417,7 @@ export type Database = {
         Args: { p_event_id: string }
         Returns: {
           section_description: string
+          section_image_url: string
           section_title: string
           sort_order: number
         }[]
