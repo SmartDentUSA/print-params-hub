@@ -12,6 +12,16 @@ import { toast } from "sonner";
 import type { PromotionalCoupon, PromotionalTable } from "./promotionalTypes";
 
 type Seller = { id: string; nome_completo: string; celular?: string | null };
+type LiCategory = { id: number; nome: string; parent_id: number | null };
+
+/** Categorias da loja liberadas por padrão nas promoções de evento. */
+const DEFAULT_CATEGORY_IDS = [
+  23783660, 23783662,                                             // Resinas 3D: Biocompatíveis, Uso geral
+  23791999,                                                       // Pós-Impressão: Acabamento e Finalização
+  23792018, 23792019,                                             // Caracterização: SmartGum, SmartMake
+  23791995, 23824438, 23791996, 23824571, 23824557, 23791997,     // Dentística, Estética e Ortodontia
+  23824433, 23791988, 23791989,                                   // Insumos Laboratório
+];
 
 const slug = (value: string) =>
   value.toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^A-Z0-9]+/g, "").slice(0, 12);
