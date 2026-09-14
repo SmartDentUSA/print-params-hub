@@ -428,9 +428,6 @@ export function PromotionalTablesTab() {
     if (error) toast.error(error.message); else { toast.success("Tabela excluída."); await loadTables(); }
   };
 
-  const totals = useMemo(() => sections.flatMap((section) => section.items).reduce((sum, item) => {
-    const row = itemTotals(item); return { market: sum.market + row.market, promotional: sum.promotional + row.promotional };
-  }, { market: 0, promotional: 0 }), [sections]);
   const filteredCatalog = catalog.filter((option) => `${option.name} ${option.sku || ""} ${option.variation || ""}`.toLowerCase().includes(catalogSearch.toLowerCase()));
   const distributorName = (id: string | null) => {
     const distributor = distributors.find((row) => row.id === id);

@@ -279,11 +279,38 @@ export async function exportPromotionalPdf(
     });
 
     y = ((doc as any).lastAutoTable?.finalY ?? y) + 5;
-    const sectionTotal = section.items.reduce((sum, item) => sum + itemTotals(item).promotional, 0);
+
+    // Resumo do combo (cada combo tem o próprio total — nunca a soma dos combos).
+    const combo = section.items.reduce((acc, item) => {
+      const row = itemTotals(item);
+      acc.market += row.market;
+      acc.promotional += row.promotional;
+      return acc;
+    }, { market: 0, promotional: 0 });
+    const comboSavings = combo.market - combo.promotional;
+    const comboDiscount = combo.market > 0 ? (comboSavings / combo.market) * 100 : 0;
+    if (y > height - 130) {
+      doc.addPage();
+      header();
+      y = pageTop;
+    }
+    doc.setFillColor(245, 246, 247);
+    doc.roundedRect(width - margin - 300, y + 8, 300, 80, 4, 4, "F");
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.text("Valor de mercado", width - margin - 286, y + 27);
+    doc.text(money(combo.market, table.currency), width - margin - 14, y + 27, { align: "right" });
+    doc.text("Economia", width - margin - 286, y + 45);
+    doc.text(`${money(comboSavings, table.currency)} (${comboDiscount.toFixed(1)}%)`, width - margin - 14, y + 45, { align: "right" });
+    doc.setFillColor(...dark);
+    doc.rect(width - margin - 300, y + 55, 300, 33, "F");
+    doc.setTextColor(255, 255, 255);
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(8);
-    doc.text(`Subtotal promocional: ${money(sectionTotal, table.currency)}`, width - margin, y + 10, { align: "right" });
-    y += 24;
+    doc.setFontSize(10);
+    doc.text("VALOR PROMOCIONAL", width - margin - 286, y + 78);
+    doc.text(money(combo.promotional, table.currency), width - margin - 14, y + 78, { align: "right" });
+    doc.setTextColor(0, 0, 0);
+    y += 100;
   }
 
   if (y > height - 130) {
@@ -291,24 +318,6 @@ export async function exportPromotionalPdf(
     header();
     y = pageTop;
   }
-  const savings = totals.market - totals.promotional;
-  const discount = totals.market > 0 ? (savings / totals.market) * 100 : 0;
-  doc.setFillColor(245, 246, 247);
-  doc.roundedRect(width - margin - 300, y + 8, 300, 80, 4, 4, "F");
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(9);
-  doc.text("Valor de mercado", width - margin - 286, y + 27);
-  doc.text(money(totals.market, table.currency), width - margin - 14, y + 27, { align: "right" });
-  doc.text("Economia total", width - margin - 286, y + 45);
-  doc.text(`${money(savings, table.currency)} (${discount.toFixed(1)}%)`, width - margin - 14, y + 45, { align: "right" });
-  doc.setFillColor(...dark);
-  doc.rect(width - margin - 300, y + 55, 300, 33, "F");
-  doc.setTextColor(255, 255, 255);
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(10);
-  doc.text("VALOR PROMOCIONAL", width - margin - 286, y + 78);
-  doc.text(money(totals.promotional, table.currency), width - margin - 14, y + 78, { align: "right" });
-  doc.setTextColor(0, 0, 0);
   if (table.notes) {
     doc.setTextColor(70, 70, 70);
     doc.setFont("helvetica", "normal");
