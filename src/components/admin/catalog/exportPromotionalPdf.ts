@@ -441,7 +441,6 @@ export async function exportPromotionalPdf(
   }
 
   // ---- Event appendix: demo schedule + stand support, always last ----
-  const event = await fetchEvent(table.event_id);
   if (event) {
     const speakers = (event.speakers || []) as EventSpeaker[];
     const demos = eventRows(speakers, "sessions");
