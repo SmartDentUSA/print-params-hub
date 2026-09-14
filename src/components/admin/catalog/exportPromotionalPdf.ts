@@ -165,14 +165,6 @@ export async function exportPromotionalPdf(
 
   header();
   let y = pageTop;
-  const allItems = sections.flatMap((section) => section.items);
-  const totals = allItems.reduce((acc, item) => {
-    const row = itemTotals(item);
-    acc.market += row.market;
-    acc.promotional += row.promotional;
-    return acc;
-  }, { market: 0, promotional: 0 });
-
   for (const [index, section] of sections.entries()) {
     if (y > height - 150) {
       doc.addPage();
