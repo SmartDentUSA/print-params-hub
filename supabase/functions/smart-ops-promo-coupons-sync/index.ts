@@ -127,6 +127,15 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
+    const { data: tableRow } = await supabase
+      .from("promotional_tables")
+      .select("title,coupon_li_category_ids")
+      .eq("id", tableId)
+      .maybeSingle();
+    const categoryIds = ((tableRow?.coupon_li_category_ids || []) as unknown[])
+      .map((v) => Number(v))
+      .filter((v) => Number.isFinite(v) && v > 0);
+
     let query = supabase
       .from("promotional_coupons")
       .select("id,code,discount_type,discount_value,valid_from,valid_until,usage_limit,active,li_coupon_id")
