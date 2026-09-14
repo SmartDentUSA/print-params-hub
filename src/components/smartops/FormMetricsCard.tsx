@@ -4,6 +4,8 @@ import { Switch } from "@/components/ui/switch";
 import { Card, CardContent } from "@/components/ui/card";
 import { ExternalLink, Pencil, Trash2, Settings, CopyPlus, Copy, Layout, Link2, Loader2, Wand2 } from "lucide-react";
 import { toast } from "sonner";
+import { QrCodeButton } from "./QrCodeButton";
+import { getPublicOrigin } from "@/utils/publicOrigin";
 
 export interface FormMetrics {
   visitors: number;
@@ -103,6 +105,17 @@ export function FormMetricsCard({
   ) => {
     const label = target === "form" ? "Form" : "LP";
     const busy = generatingTarget === target;
+    const publicUrl =
+      target === "form"
+        ? `${getPublicOrigin()}/f/${form.slug}`
+        : `${getPublicOrigin()}/lp/${form.slug}`;
+    const qr = (
+      <QrCodeButton
+        url={info ? `https://s.smartdent.com.br/${info.short_code}` : publicUrl}
+        title={`${form.name} — ${target === "form" ? "Formulário" : "Landing page"}`}
+        fileSuffix={target === "form" ? "form" : "landing-page"}
+      />
+    );
     if (info) {
       return (
         <div className="flex items-center gap-1.5 text-[10px]">
@@ -120,6 +133,7 @@ export function FormMetricsCard({
           <span className="text-muted-foreground tabular-nums">
             ({info.click_count.toLocaleString()})
           </span>
+          {qr}
         </div>
       );
     }
@@ -137,6 +151,7 @@ export function FormMetricsCard({
           {busy ? <Loader2 className="w-3 h-3 animate-spin" /> : <Link2 className="w-3 h-3" />}
           Gerar link curto
         </Button>
+        {qr}
       </div>
     );
   };
