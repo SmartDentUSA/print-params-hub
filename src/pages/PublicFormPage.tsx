@@ -351,6 +351,32 @@ export default function PublicFormPage() {
     };
   }, [isEventForm, form?.id]);
 
+  // Combos da tabela promocional associada ao evento
+  useEffect(() => {
+    const eventId = (form as any)?.event_id as string | undefined;
+    if (!isEventForm || !eventId) {
+      setEventCombos([]);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const { data, error } = await (supabase as any).rpc("fn_public_event_combos", {
+        p_event_id: eventId,
+      });
+      if (cancelled) return;
+      if (error) {
+        setEventCombos([]);
+        return;
+      }
+      setEventCombos(
+        (data ?? []).map((r: any) => ({ title: r.section_title, description: r.section_description })),
+      );
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isEventForm, form?.id, (form as any)?.event_id]);
+
   // SEO meta tags (title, description, canonical, og/twitter)
   useEffect(() => {
     if (!form) return;
