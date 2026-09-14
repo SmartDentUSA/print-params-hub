@@ -335,6 +335,31 @@ export async function buildSellerDealSummaryHTML(
   // Sem este bloco o vendedor não vê NADA do que o lead respondeu além dos
   // poucos campos promovidos para colunas (era o bug reportado em 03/09/2026).
   const NOISE_LABEL = /^(dedupe_key|piperun_link|utm_|gclid|fbclid|form_id|form_name|source|submitted_at|lead_id|telefone_raw|nome( completo)?|e-?mail|seu e-?mail|seu whatsapp|whatsapp|telefone)$/i;
+  // Campos internos (colunas do CDP e IDs) que já aparecem em blocos próprios
+  // da nota — no formulário do CIPRO estavam duplicando tudo no fim da lista.
+  const INTERNAL_LABEL = new Set([
+    "event id",
+    "event consultant team member id",
+    "event consultant",
+    "proprietario lead crm",
+    "consultor",
+    "produto interesse",
+    "produto interesse auto",
+    "origem primeiro contato",
+    "impressora modelo",
+    "scanner marca",
+    "area atuacao",
+    "tem scanner",
+    "tem impressora",
+    "software cad",
+    "cidade",
+    "uf",
+    "celuar de contato",
+    "celular de contato",
+    "nome comleto",
+    "combos de interesse",
+    "event interest categories",
+  ]);
   const humanizeLabel = (k: string) =>
     k.replace(/_/g, " ").replace(/^\s*(\S)/, (_m, c) => c.toUpperCase()).trim();
   const cleanVal = (v: unknown) => String(v ?? "").replace(/\s+/g, " ").trim();
