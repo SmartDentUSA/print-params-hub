@@ -493,6 +493,24 @@ export function PromotionalTablesTab() {
                 </div>
               </div>
               <div className="space-y-2">
+                <Label className="text-xs">Produto principal (produto de interesse no CRM)</Label>
+                <Input
+                  list={`combo-produtos-${section.id}`}
+                  value={section.main_product_name || ""}
+                  placeholder="Ex.: CHAIRSIDE SMART A.I. PRO"
+                  onChange={(e) => setSections((current) => current.map((row) => row.id === section.id ? { ...row, main_product_name: e.target.value } : row))}
+                  onBlur={(e) => {
+                    const name = e.target.value.trim();
+                    const match = section.items.find((i) => i.name.trim().toLowerCase() === name.toLowerCase());
+                    updateSection(section.id, { main_product_name: name || null, main_product_catalog_id: match?.catalog_product_id || null } as any);
+                  }}
+                />
+                <datalist id={`combo-produtos-${section.id}`}>
+                  {section.items.map((item) => <option key={item.id} value={item.name} />)}
+                </datalist>
+                <p className="text-xs text-muted-foreground">Escolha um item do combo ou digite o nome. É esse produto que entra como "Produto de interesse" no PipeRun quando o lead marca este combo no formulário do evento.</p>
+              </div>
+              <div className="space-y-2 md:col-span-2">
                 <Label className="text-xs">Descrição do combo</Label>
                 <Textarea rows={6} value={section.description || ""} placeholder="Explique o que o combo entrega, benefícios e condições" onChange={(e) => setSections((current) => current.map((row) => row.id === section.id ? { ...row, description: e.target.value } : row))} onBlur={(e) => updateSection(section.id, { description: e.target.value || null })} />
                 <p className="text-xs text-muted-foreground">No PDF a foto aparece à esquerda e a descrição à direita, antes dos itens.</p>
