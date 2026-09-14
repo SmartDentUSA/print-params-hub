@@ -162,6 +162,8 @@ export function PromotionalTablesTab() {
       coupon_freight_valid_from: table.coupon_freight_valid_from ?? null,
       coupon_freight_valid_until: table.coupon_freight_valid_until ?? null,
       coupon_freight_usage_limit: table.coupon_freight_usage_limit ?? null,
+      coupon_pdf_enabled: table.coupon_pdf_enabled !== false,
+      coupon_freight_pdf_enabled: table.coupon_freight_pdf_enabled !== false,
     });
     await loadSections(table);
   };
