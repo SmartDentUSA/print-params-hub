@@ -129,6 +129,23 @@ Deno.serve(async (req) => {
       return json({ ok: true, categories: all });
     }
 
+    // Diagnóstico: devolve o cupom exatamente como está gravado na loja.
+    if (mode === "inspect") {
+      const liId = String(body?.li_coupon_id || "").replace(/\D/g, "");
+      if (!liId) return json({ ok: false, error: "li_coupon_id é obrigatório" }, 400);
+      const raw = await liRequest(`/cupom/${liId}?format=json`, "GET", null, apiKey, appKey);
+      return json({ ok: true, coupon: raw });
+    }
+
+    // Diagnóstico: aplica um payload cru num cupom e devolve como a loja gravou.
+    if (mode === "probe") {
+      const liId = String(body?.li_coupon_id || "").replace(/\D/g, "");
+      if (!liId) return json({ ok: false, error: "li_coupon_id é obrigatório" }, 400);
+      const put = await liRequest(`/cupom/${liId}`, "PUT", body?.payload ?? {}, apiKey, appKey);
+      const raw = await liRequest(`/cupom/${liId}?format=json`, "GET", null, apiKey, appKey);
+      return json({ ok: true, put, coupon: raw });
+    }
+
 
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
@@ -137,7 +154,7 @@ Deno.serve(async (req) => {
 
     const { data: tableRow } = await supabase
       .from("promotional_tables")
-      .select("title,coupon_li_category_ids")
+      .select("name,coupon_li_category_ids")
       .eq("id", tableId)
       .maybeSingle();
     const categoryIds = ((tableRow?.coupon_li_category_ids || []) as unknown[])
@@ -167,7 +184,7 @@ Deno.serve(async (req) => {
       const isFreight = coupon.free_shipping === true || coupon.kind === "freight";
       const payload: Record<string, unknown> = {
         codigo: coupon.code,
-        descricao: `${tableRow?.title || "Promoção Smart Dent"} — ${coupon.code}${isFreight ? " (frete grátis)" : ""}`,
+        descricao: `${tableRow?.name || "Promoção Smart Dent"} — ${coupon.code}${isFreight ? " (frete grátis)" : ""}`,
         valor: isFreight ? "0.00" : Number(coupon.discount_value || 0).toFixed(2),
         tipo: isFreight ? "frete_gratis" : isPercent ? "porcentagem" : "fixo",
         ativo: coupon.active,
@@ -177,7 +194,8 @@ Deno.serve(async (req) => {
         condicao_produto: isFreight
           ? "todos_produtos"
           : categoryIds.length ? "categorias_selecionadas" : "todos_produtos",
-        categorias: isFreight ? [] : categoryIds,
+        // A Loja Integrada só persiste as categorias quando os IDs vêm como string.
+        categorias: isFreight ? [] : categoryIds.map((id) => String(id)),
         validade: asDateTime(coupon.valid_until, true),
       };
       if (coupon.usage_limit && coupon.usage_limit > 0) payload.quantidade = coupon.usage_limit;
