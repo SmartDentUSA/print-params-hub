@@ -291,6 +291,42 @@ export default function PublicFormPage() {
     ? ((form as any).event_categories as string[])
     : [];
 
+  const { data: catalogTree = [] } = useCatalogCategoryTree();
+
+  /** Categorias habilitadas expandidas em subcategorias do catálogo. */
+  const eventCategoryGroups = useMemo(() => {
+    if (!isEventForm || eventCategories.length === 0) return [];
+    const enabled = new Set(eventCategories);
+    const groups: { category: string; options: { key: string; label: string }[] }[] = [];
+    for (const node of catalogTree) {
+      const parentOn = enabled.has(node.category);
+      const subs = node.subcategories.filter(
+        (s) => parentOn || enabled.has(catKey(node.category, s.label)),
+      );
+      if (subs.length > 0) {
+        groups.push({
+          category: node.category,
+          options: subs.map((s) => ({ key: catKey(node.category, s.label), label: s.label })),
+        });
+      } else if (parentOn) {
+        groups.push({
+          category: node.category,
+          options: [{ key: node.category, label: node.category }],
+        });
+      }
+    }
+    // Categorias habilitadas que não existem mais no catálogo
+    const covered = new Set(groups.flatMap((g) => g.options.map((o) => o.key)).concat(groups.map((g) => g.category)));
+    const orphans = eventCategories.filter((c) => !covered.has(c));
+    if (orphans.length > 0) {
+      groups.push({
+        category: "Outros",
+        options: orphans.map((c) => ({ key: c, label: c.includes(" > ") ? c.split(" > ")[1] : c })),
+      });
+    }
+    return groups;
+  }, [isEventForm, eventCategories.join("|"), catalogTree]);
+
   // Consultores habilitados para o evento
   useEffect(() => {
     const ids: string[] = ((form as any)?.event_consultant_ids ?? []) as string[];
