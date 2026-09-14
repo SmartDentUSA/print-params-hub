@@ -18686,6 +18686,7 @@ export type Database = {
         Row: {
           coupon_discount_type: string
           coupon_discount_value: number
+          coupon_li_category_ids: number[]
           coupon_prefix: string | null
           coupon_seller_ids: string[]
           coupon_usage_limit: number | null
@@ -18709,6 +18710,7 @@ export type Database = {
         Insert: {
           coupon_discount_type?: string
           coupon_discount_value?: number
+          coupon_li_category_ids?: number[]
           coupon_prefix?: string | null
           coupon_seller_ids?: string[]
           coupon_usage_limit?: number | null
@@ -18732,6 +18734,7 @@ export type Database = {
         Update: {
           coupon_discount_type?: string
           coupon_discount_value?: number
+          coupon_li_category_ids?: number[]
           coupon_prefix?: string | null
           coupon_seller_ids?: string[]
           coupon_usage_limit?: number | null
