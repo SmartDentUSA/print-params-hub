@@ -46,7 +46,7 @@ export function PromotionalTablesTab() {
   const [saving, setSaving] = useState(false);
   const [pickerSection, setPickerSection] = useState<string | null>(null);
   const [targetGroup, setTargetGroup] = useState<string>("");
-  const [extraGroups, setExtraGroups] = useState<Record<string, string[]>>({});
+  
   const [catalog, setCatalog] = useState<CatalogOption[]>([]);
   const [catalogSearch, setCatalogSearch] = useState("");
   const [customOpen, setCustomOpen] = useState(false);
