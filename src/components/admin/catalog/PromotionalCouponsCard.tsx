@@ -445,8 +445,18 @@ export function PromotionalCouponsCard({ table, draft, onDraftChange }: Props) {
         <div className="space-y-3 rounded-lg border border-dashed p-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <p className="flex items-center gap-2 text-sm font-semibold"><Truck className="h-4 w-4" />Cupons com desconto + frete grátis</p>
-            <Badge variant="secondary">{freightCoupons.length} cupom(ns)</Badge>
+            <div className="flex items-center gap-3">
+              <Badge variant="secondary">{freightCoupons.length} cupom(ns)</Badge>
+              <div className="flex items-center gap-2">
+                <Switch id="freight-pdf" checked={draft.coupon_freight_pdf_enabled !== false}
+                  onCheckedChange={(value) => onDraftChange({ coupon_freight_pdf_enabled: value })} />
+                <Label htmlFor="freight-pdf" className="text-xs font-normal">
+                  {draft.coupon_freight_pdf_enabled !== false ? "Ativo no PDF" : "Não ativo"}
+                </Label>
+              </div>
+            </div>
           </div>
+
           <p className="text-xs text-muted-foreground">
             Para o cliente que esteve no congresso e o produto não estava disponível para entrega no local:
             ele compra online e não paga o frete. Cada vendedor recebe um segundo código terminado em "F",
