@@ -41,9 +41,34 @@ export function PromotionalCouponsCard({ table, draft, onDraftChange }: Props) {
   const [busy, setBusy] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [sellerSource, setSellerSource] = useState<"event" | "team">("team");
+  const [categories, setCategories] = useState<LiCategory[]>([]);
+  const [loadingCats, setLoadingCats] = useState(false);
 
   const selected = (draft.coupon_seller_ids || []) as string[];
   const discountType = (draft.coupon_discount_type || "percent") as "percent" | "fixed";
+  const categoryIds = (draft.coupon_li_category_ids || []) as number[];
+
+  const loadCategories = useCallback(async () => {
+    setLoadingCats(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("smart-ops-promo-coupons-sync", {
+        body: { mode: "categories" },
+      });
+      if (error) throw error;
+      setCategories(((data as { categories?: LiCategory[] })?.categories || []));
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Não foi possível carregar as categorias da loja.");
+    } finally {
+      setLoadingCats(false);
+    }
+  }, []);
+
+  useEffect(() => { loadCategories(); }, [loadCategories]);
+
+  const toggleCategory = (id: number) => {
+    const next = categoryIds.includes(id) ? categoryIds.filter((row) => row !== id) : [...categoryIds, id];
+    onDraftChange({ coupon_li_category_ids: next });
+  };
 
   const loadSellers = useCallback(async () => {
     // Mesma lista liberada no formulário do evento; sem evento, toda a equipe ativa.
