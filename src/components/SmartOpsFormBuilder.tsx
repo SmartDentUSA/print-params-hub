@@ -827,9 +827,14 @@ export function SmartOpsFormBuilder() {
                   <Button
                     onClick={handleCreate}
                     className="w-full"
-                    disabled={newPurpose !== "sdr_captacao" || !newName.trim()}
+                    disabled={
+                      (newPurpose !== "sdr_captacao" && newPurpose !== "feira_evento") ||
+                      !newName.trim()
+                    }
                   >
-                    Criar formulário SDR — Captação
+                    {newPurpose === "feira_evento"
+                      ? "Criar formulário Feiras e eventos"
+                      : "Criar formulário SDR — Captação"}
                   </Button>
                 </div>
               </div>
