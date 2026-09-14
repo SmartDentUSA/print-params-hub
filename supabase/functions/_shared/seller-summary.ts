@@ -166,15 +166,23 @@ export async function buildSellerDealSummaryHTML(
   sections.push(`<b>🧾 Resumo do Lead — Smart Dent</b>`);
   sections.push(`<i>Atualizado em ${fmtDate(new Date().toISOString())}</i><br>`);
 
-  // 1. Origem
-  sections.push(
-    `<b>🎯 Origem</b><br>` +
-    `• Primeiro contato: ${fmtDate(lead.data_primeiro_contato || lead.created_at)}<br>` +
-    `• Origem PipeRun: ${esc(lead.piperun_origin_name)}<br>` +
-    `• Campanha: ${esc(lead.utm_campaign || lead.origem_campanha)}<br>` +
-    `• Formulário inicial: ${esc(lead.form_name)}<br>` +
-    `• Produto de interesse: ${esc(lead.produto_interesse || lead.produto_interesse_auto)}<br>`,
-  );
+  // 1. Origem — só linhas com conteúdo real (sem "—" solto e sem ID técnico
+  //    de campanha, que poluía a nota: "Campanha: form_1566608407378526").
+  const isTechnicalValue = (v: unknown) => {
+    const s = String(v ?? "").trim();
+    if (!s) return true;
+    return /^(form[_-]?\d+|\d{6,}|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i.test(s);
+  };
+  const originLines: string[] = [];
+  const primeiroContato = fmtDate(lead.data_primeiro_contato || lead.created_at);
+  if (primeiroContato && primeiroContato !== "—") originLines.push(`• Primeiro contato: ${primeiroContato}`);
+  if (!isTechnicalValue(lead.piperun_origin_name)) originLines.push(`• Origem: ${esc(lead.piperun_origin_name)}`);
+  const campanha = lead.utm_campaign || lead.origem_campanha;
+  if (!isTechnicalValue(campanha)) originLines.push(`• Campanha: ${esc(campanha)}`);
+  if (!isTechnicalValue(lead.form_name)) originLines.push(`• Último formulário: ${esc(lead.form_name)}`);
+  const produtoInteresse = lead.produto_interesse || lead.produto_interesse_auto;
+  if (!isTechnicalValue(produtoInteresse)) originLines.push(`• Produto de interesse: ${esc(produtoInteresse)}`);
+  sections.push(`<b>🎯 Origem</b><br>${originLines.join("<br>")}<br>`);
 
   // 2. Identidade
   sections.push(
@@ -200,19 +208,39 @@ export async function buildSellerDealSummaryHTML(
     else if (s.includes("perd")) lost++;
     else open++;
   }
-  const histLines = history
+  const historySorted = history
     .slice()
-    .sort((a, b) => String(b.created_at || "").localeCompare(String(a.created_at || "")))
-    .slice(0, 8)
-    .map(d => `&nbsp;&nbsp;◦ #${esc(d.deal_id)} — ${esc(d.pipeline_name || "—")} / ${esc(d.stage_name || "—")} — ${esc(d.status || "aberto")} — ${fmtMoney(d.value)} (${fmtDate(d.created_at)})`)
+    .sort((a, b) => String(b.created_at || "").localeCompare(String(a.created_at || "")));
+  // Etapa atual = etapa do deal ABERTO mais recente (o campo cacheado no lead
+  // frequentemente aponta para um deal antigo já fechado).
+  const currentDeal = historySorted.find((d) => {
+    const s = String(d.status || "").toLowerCase();
+    return !s.includes("ganh") && !s.includes("perd");
+  });
+  const currentStage = currentDeal
+    ? `${esc(currentDeal.stage_name || "—")}${currentDeal.pipeline_name ? ` (${esc(currentDeal.pipeline_name)})` : ""}`
+    : esc(lead.status_atual_lead_crm);
+  const histLines = historySorted
+    .slice(0, 5)
+    .map((d) => {
+      const money = fmtMoney(d.value);
+      const parts = [
+        `#${esc(d.deal_id)}`,
+        `${esc(d.pipeline_name || "—")} / ${esc(d.stage_name || "—")}`,
+        esc(d.status || "aberto"),
+      ];
+      if (money && money !== "—" && !/^R\$\s*0(,00)?$/.test(money)) parts.push(money);
+      return `&nbsp;&nbsp;◦ ${parts.join(" — ")} (${fmtDate(d.created_at)})`;
+    })
     .join("<br>");
   sections.push(
     `<b>📊 CRM</b><br>` +
     `• Total de deals: ${history.length} (${won} ganhos · ${lost} perdidos · ${open} abertos)<br>` +
     `• Vendedor atual: ${esc(lead.proprietario_lead_crm)}<br>` +
-    `• Etapa atual: ${esc(lead.status_atual_lead_crm)}<br>` +
+    `• Etapa atual: ${currentStage}<br>` +
     (histLines ? `• Últimos deals:<br>${histLines}<br>` : ""),
   );
+
 
   // 4. E-commerce
   const ecom = (ecomRes as any)?.data;
