@@ -176,6 +176,11 @@ export function FeiraEventoConfig({ formId }: { formId: string }) {
             Seguem a estrutura do catálogo de produtos. Aparecem no formulário como interesse
             de múltipla escolha.
           </p>
+          <p className="text-xs text-muted-foreground">
+            Se o evento tiver uma <strong>tabela promocional</strong> associada (em Produtos →
+            Tabelas promocionais), o formulário mostra os <strong>combos da tabela</strong> no
+            lugar destas categorias.
+          </p>
           {treeLoading ? (
             <div className="flex items-center gap-2 text-xs text-muted-foreground py-3">
               <Loader2 className="w-3.5 h-3.5 animate-spin" /> Carregando catálogo...
