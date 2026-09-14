@@ -148,7 +148,9 @@ export default function PublicFormPage() {
   const [eventConsultants, setEventConsultants] = useState<{ id: string; nome_completo: string }[]>([]);
   const [consultantId, setConsultantId] = useState<string>("");
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
-  const [eventCombos, setEventCombos] = useState<{ title: string; description: string | null }[]>([]);
+  const [eventCombos, setEventCombos] = useState<
+    { title: string; description: string | null; imageUrl: string | null }[]
+  >([]);
   // Embed mode (usado pela landing page): renderiza somente o formulário,
   // sem coluna de mídia/texto e sem fundo de página.
   const isEmbed = searchParams.get("embed") === "1";
@@ -370,7 +372,11 @@ export default function PublicFormPage() {
         return;
       }
       setEventCombos(
-        (data ?? []).map((r: any) => ({ title: r.section_title, description: r.section_description })),
+        (data ?? []).map((r: any) => ({
+          title: r.section_title,
+          description: r.section_description,
+          imageUrl: r.section_image_url ?? null,
+        })),
       );
     })();
     return () => {
@@ -1132,18 +1138,19 @@ export default function PublicFormPage() {
                 <Label style={isEmbed ? { color: "#0f172a", opacity: 1 } : undefined}>
                   Combos promocionais do evento
                 </Label>
-                <div className="grid grid-cols-1 gap-1.5">
+                <div className="grid grid-cols-2 gap-2">
                   {eventCombos.map((combo) => {
                     const checked = selectedCategories.includes(combo.title);
                     return (
                       <label
                         key={combo.title}
-                        className={`flex items-center gap-2 rounded-md border px-2.5 py-2 text-sm cursor-pointer transition-colors ${
+                        className={`relative flex flex-col overflow-hidden rounded-lg border text-sm cursor-pointer transition-colors ${
                           checked ? "border-primary bg-primary/5" : "border-input"
                         }`}
                       >
                         <input
                           type="checkbox"
+                          className="absolute left-2 top-2 z-10"
                           checked={checked}
                           onChange={(ev) =>
                             setSelectedCategories((s) =>
@@ -1153,14 +1160,28 @@ export default function PublicFormPage() {
                             )
                           }
                         />
-                        <span className="flex-1">
-                          <span className="block font-medium">{combo.title}</span>
+                        <div className="flex aspect-[4/3] w-full items-center justify-center bg-muted/40">
+                          {combo.imageUrl ? (
+                            <img
+                              src={combo.imageUrl}
+                              alt={combo.title}
+                              loading="lazy"
+                              className="h-full w-full object-contain p-2"
+                            />
+                          ) : (
+                            <span className="px-2 text-center text-xs text-muted-foreground">
+                              {combo.title}
+                            </span>
+                          )}
+                        </div>
+                        <div className="space-y-0.5 p-2">
+                          <span className="block font-medium leading-tight">{combo.title}</span>
                           {combo.description && (
-                            <span className="block text-xs text-muted-foreground truncate">
+                            <span className="block text-xs text-muted-foreground line-clamp-3">
                               {combo.description}
                             </span>
                           )}
-                        </span>
+                        </div>
                       </label>
                     );
                   })}
