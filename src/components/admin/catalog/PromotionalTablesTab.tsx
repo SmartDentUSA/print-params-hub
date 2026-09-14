@@ -13,6 +13,7 @@ import { Switch } from "@/components/ui/switch";
 import { ArrowDown, ArrowLeft, ArrowUp, Copy, Eye, FileText, ImagePlus, Loader2, PackagePlus, Pencil, Plus, Save, Search, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { exportPromotionalPdf } from "./exportPromotionalPdf";
+import { PromotionalCouponsCard } from "./PromotionalCouponsCard";
 import type { PromotionalItem, PromotionalSectionWithItems, PromotionalStatus, PromotionalTable } from "./promotionalTypes";
 import { itemTotals } from "./promotionalTypes";
 
@@ -144,6 +145,13 @@ export function PromotionalTablesTab() {
       currency: table.currency, valid_from: table.valid_from, valid_until: table.valid_until,
       notes: table.notes, status: table.status,
       include_official_price_table: table.include_official_price_table !== false,
+      coupon_seller_ids: table.coupon_seller_ids ?? [],
+      coupon_discount_type: table.coupon_discount_type ?? "percent",
+      coupon_discount_value: table.coupon_discount_value ?? 0,
+      coupon_prefix: table.coupon_prefix ?? null,
+      coupon_usage_limit: table.coupon_usage_limit ?? null,
+      coupon_valid_from: table.coupon_valid_from ?? null,
+      coupon_valid_until: table.coupon_valid_until ?? null,
     });
     await loadSections(table);
   };
