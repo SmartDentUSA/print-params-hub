@@ -35422,6 +35422,13 @@ export type Database = {
           sort_order: number
         }[]
       }
+      fn_public_event_consultants: {
+        Args: { p_form_id: string }
+        Returns: {
+          id: string
+          nome_completo: string
+        }[]
+      }
       fn_push_audience: {
         Args: { p_filters?: Json }
         Returns: {
