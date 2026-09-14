@@ -23,7 +23,9 @@ export type PromotionalSection = {
   description: string | null;
   image_url?: string | null;
   sort_order: number;
+  group_labels?: string[] | null;
 };
+
 
 export type PromotionalItem = {
   id: string;

@@ -46,7 +46,7 @@ export function PromotionalTablesTab() {
   const [saving, setSaving] = useState(false);
   const [pickerSection, setPickerSection] = useState<string | null>(null);
   const [targetGroup, setTargetGroup] = useState<string>("");
-  const [extraGroups, setExtraGroups] = useState<Record<string, string[]>>({});
+  
   const [catalog, setCatalog] = useState<CatalogOption[]>([]);
   const [catalogSearch, setCatalogSearch] = useState("");
   const [customOpen, setCustomOpen] = useState(false);
@@ -269,35 +269,48 @@ export function PromotionalTablesTab() {
     setCatalog(rows);
   };
 
-  /** Seções internas de um combo: grupos já usados pelos itens + grupos recém-criados vazios. */
+  /** Seções internas de um combo: grupos salvos no banco + grupos usados pelos itens. */
   const groupsOf = (sectionId: string): string[] => {
     const section = sections.find((row) => row.id === sectionId);
     const labels: string[] = [];
+    for (const saved of section?.group_labels || []) {
+      const label = (saved || "").trim();
+      if (label && !labels.includes(label)) labels.push(label);
+    }
     for (const item of section?.items || []) {
       const label = (item.group_label || "").trim();
-      if (!labels.includes(label)) labels.push(label);
+      if (label && !labels.includes(label)) labels.push(label);
     }
-    for (const extra of extraGroups[sectionId] || []) if (!labels.includes(extra)) labels.push(extra);
-    if (!labels.length) labels.push("");
+    const hasLoose = (section?.items || []).some((item) => !(item.group_label || "").trim());
+    if (hasLoose || !labels.length) labels.unshift("");
     return labels;
   };
 
   const openPicker = async (sectionId: string, group = "") => { setPickerSection(sectionId); setTargetGroup(group); setCatalogSearch(""); await loadCatalog(); };
 
+  /** Persiste a lista de seções internas de um combo. */
+  const saveGroupLabels = async (sectionId: string, labels: string[]) => {
+    setSections((current) => current.map((row) => row.id === sectionId ? { ...row, group_labels: labels } : row));
+    const { error } = await supabase.from("promotional_table_sections" as any)
+      .update({ group_labels: labels }).eq("id", sectionId);
+    if (error) toast.error(error.message);
+  };
 
   /** Cria uma seção interna (subgrupo) dentro de um combo. */
-  const addGroup = (sectionId: string) => {
-    const existing = groupsOf(sectionId);
-    let name = `Seção ${existing.filter(Boolean).length + 1}`;
-    let counter = existing.filter(Boolean).length + 1;
+  const addGroup = async (sectionId: string) => {
+    const existing = groupsOf(sectionId).filter(Boolean);
+    let counter = existing.length + 1;
+    let name = `Seção ${counter}`;
     while (existing.includes(name)) { counter += 1; name = `Seção ${counter}`; }
-    setExtraGroups((current) => ({ ...current, [sectionId]: [...(current[sectionId] || []), name] }));
+    await saveGroupLabels(sectionId, [...existing, name]);
+    toast.success(`"${name}" criada dentro do combo.`);
   };
 
   const renameGroup = async (sectionId: string, from: string, to: string) => {
     const label = to.trim();
     if (!label || label === from) return;
-    setExtraGroups((current) => ({ ...current, [sectionId]: (current[sectionId] || []).map((g) => g === from ? label : g) }));
+    const existing = groupsOf(sectionId).filter(Boolean);
+    await saveGroupLabels(sectionId, existing.map((g) => g === from ? label : g));
     setSections((current) => current.map((section) => section.id !== sectionId ? section : {
       ...section,
       items: section.items.map((item) => (item.group_label || "") === from ? { ...item, group_label: label } : item),
@@ -312,7 +325,7 @@ export function PromotionalTablesTab() {
   const removeGroup = async (sectionId: string, group: string) => {
     const items = sections.find((s) => s.id === sectionId)?.items.filter((i) => (i.group_label || "") === group) || [];
     if (items.length && !confirm(`Excluir a seção "${group}" e seus ${items.length} item(ns)?`)) return;
-    setExtraGroups((current) => ({ ...current, [sectionId]: (current[sectionId] || []).filter((g) => g !== group) }));
+    await saveGroupLabels(sectionId, groupsOf(sectionId).filter((g) => Boolean(g) && g !== group));
     if (items.length) {
       const { error } = await supabase.from("promotional_table_items" as any).delete().in("id", items.map((i) => i.id));
       if (error) { toast.error(error.message); return; }
@@ -367,7 +380,7 @@ export function PromotionalTablesTab() {
     const { data: copy, error } = await supabase.from("promotional_tables" as any).insert({ ...table, id: undefined, name: `${table.name} — cópia`, status: "draft", created_at: undefined, updated_at: undefined, created_by: undefined }).select("*").single();
     if (error || !copy) { toast.error(error?.message || "Não foi possível duplicar."); return; }
     for (const sourceSection of ((sourceSections as any) || [])) {
-      const { data: newSection } = await supabase.from("promotional_table_sections" as any).insert({ promotional_table_id: (copy as any).id, title: sourceSection.title, description: sourceSection.description, image_url: sourceSection.image_url, sort_order: sourceSection.sort_order }).select("*").single();
+      const { data: newSection } = await supabase.from("promotional_table_sections" as any).insert({ promotional_table_id: (copy as any).id, title: sourceSection.title, description: sourceSection.description, image_url: sourceSection.image_url, sort_order: sourceSection.sort_order, group_labels: sourceSection.group_labels || [] }).select("*").single();
       if (!newSection) continue;
       const rows = ((sourceItems as any) || []).filter((item: any) => item.section_id === sourceSection.id).map(({ id, section_id, created_at, updated_at, ...item }: any) => ({ ...item, section_id: (newSection as any).id }));
       if (rows.length) await supabase.from("promotional_table_items" as any).insert(rows);
@@ -494,8 +507,8 @@ export function PromotionalTablesTab() {
                 <div key={group || "__sem_secao"} className="space-y-2 rounded-md border border-dashed p-3">
                   <div className="flex items-center gap-2">
                     {group
-                      ? <><Input className="max-w-sm font-medium" defaultValue={group} onBlur={(e) => renameGroup(section.id, group, e.target.value)} /><Button variant="ghost" size="icon" title="Excluir seção" onClick={() => removeGroup(section.id, group)}><Trash2 className="h-4 w-4 text-destructive" /></Button></>
-                      : <p className="text-sm font-medium text-muted-foreground">Itens sem seção</p>}
+                      ? <><Input className="max-w-sm font-medium" defaultValue={group} key={group} onBlur={(e) => renameGroup(section.id, group, e.target.value)} /><Badge variant="secondary">{groupItems.length} item(ns)</Badge><Button variant="ghost" size="icon" title="Excluir seção" onClick={() => removeGroup(section.id, group)}><Trash2 className="h-4 w-4 text-destructive" /></Button></>
+                      : <p className="text-sm font-medium text-muted-foreground">Itens sem seção ({groupItems.length})</p>}
                   </div>
                   {groupItems.map(renderItem)}
                   {!groupItems.length && <p className="text-xs text-muted-foreground">Nenhum item nesta seção ainda.</p>}
