@@ -39,6 +39,8 @@ export type PromotionalItem = {
   market_unit_price: number;
   promotional_unit_price: number;
   sort_order: number;
+  group_label?: string | null;
+
 };
 
 export type PromotionalSectionWithItems = PromotionalSection & { items: PromotionalItem[] };
