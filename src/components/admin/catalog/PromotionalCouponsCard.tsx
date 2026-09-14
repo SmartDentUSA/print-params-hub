@@ -206,6 +206,8 @@ export function PromotionalCouponsCard({ table, draft, onDraftChange }: Props) {
           valid_until: validUntil,
           usage_limit: usageLimit,
           active: true,
+          // Código alterado: precisa voltar para a loja com o novo código.
+          ...(existing && existing.code !== code ? { li_synced_at: null, li_sync_error: null } : {}),
         });
       }
       const inserts = rows.filter((row) => !row.id).map(({ id: _id, ...row }) => row);
