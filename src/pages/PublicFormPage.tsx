@@ -1174,13 +1174,8 @@ export default function PublicFormPage() {
                             </span>
                           )}
                         </div>
-                        <div className="space-y-0.5 p-2">
+                        <div className="p-2">
                           <span className="block font-medium leading-tight">{combo.title}</span>
-                          {combo.description && (
-                            <span className="block text-xs text-muted-foreground line-clamp-3">
-                              {combo.description}
-                            </span>
-                          )}
                         </div>
                       </label>
                     );
