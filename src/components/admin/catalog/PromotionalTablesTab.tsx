@@ -481,6 +481,12 @@ export function PromotionalTablesTab() {
         </div>
       </CardContent></Card>
 
+      {persisted && <PromotionalCouponsCard
+        table={selected}
+        draft={draft}
+        onDraftChange={(patch) => setDraft((row) => ({ ...row, ...patch }))}
+      />}
+
       {persisted && <div className="space-y-4">
         <div className="flex items-center justify-between"><div><h3 className="font-semibold">Seções do combo</h3><p className="text-sm text-muted-foreground">Organize equipamentos, consumíveis, serviços, treinamentos ou qualquer outra composição.</p></div><div className="flex items-center gap-3"><p className="text-xs text-muted-foreground">{sections.length} combo(s)</p><Button variant="outline" onClick={addSection}><Plus className="mr-2 h-4 w-4" />Adicionar combo</Button></div></div>
         {sections.map((section, index) => (
