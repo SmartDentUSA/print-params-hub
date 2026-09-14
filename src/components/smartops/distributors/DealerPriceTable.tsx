@@ -741,7 +741,7 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
       if (v.sku) bySku.set(normQty(v.sku), v);
       byQty.set(`${v.catalog_product_id}::${normQty(v.presentation_qty)}`, v);
     }
-    const ops: Array<Promise<any>> = [];
+    const ops: any[] = [];
     const productsToTouch = new Set<string>();
     let count = 0;
     for (const it of candidates) {
