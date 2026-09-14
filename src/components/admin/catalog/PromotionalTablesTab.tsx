@@ -45,11 +45,14 @@ export function PromotionalTablesTab() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [pickerSection, setPickerSection] = useState<string | null>(null);
+  const [targetGroup, setTargetGroup] = useState<string>("");
+  const [extraGroups, setExtraGroups] = useState<Record<string, string[]>>({});
   const [catalog, setCatalog] = useState<CatalogOption[]>([]);
   const [catalogSearch, setCatalogSearch] = useState("");
   const [customOpen, setCustomOpen] = useState(false);
   const [customSection, setCustomSection] = useState<string | null>(null);
   const [customItem, setCustomItem] = useState({ name: "", description: "", quantity: "1", market: "0", promotional: "0" });
+
 
   const [loadError, setLoadError] = useState<string | null>(null);
   const [uploadingSection, setUploadingSection] = useState<string | null>(null);
@@ -266,7 +269,56 @@ export function PromotionalTablesTab() {
     setCatalog(rows);
   };
 
-  const openPicker = async (sectionId: string) => { setPickerSection(sectionId); setCatalogSearch(""); await loadCatalog(); };
+  /** Seções internas de um combo: grupos já usados pelos itens + grupos recém-criados vazios. */
+  const groupsOf = (sectionId: string): string[] => {
+    const section = sections.find((row) => row.id === sectionId);
+    const labels: string[] = [];
+    for (const item of section?.items || []) {
+      const label = (item.group_label || "").trim();
+      if (!labels.includes(label)) labels.push(label);
+    }
+    for (const extra of extraGroups[sectionId] || []) if (!labels.includes(extra)) labels.push(extra);
+    if (!labels.length) labels.push("");
+    return labels;
+  };
+
+  const openPicker = async (sectionId: string, group = "") => { setPickerSection(sectionId); setTargetGroup(group); setCatalogSearch(""); await loadCatalog(); };
+
+
+  /** Cria uma seção interna (subgrupo) dentro de um combo. */
+  const addGroup = (sectionId: string) => {
+    const existing = groupsOf(sectionId);
+    let name = `Seção ${existing.filter(Boolean).length + 1}`;
+    let counter = existing.filter(Boolean).length + 1;
+    while (existing.includes(name)) { counter += 1; name = `Seção ${counter}`; }
+    setExtraGroups((current) => ({ ...current, [sectionId]: [...(current[sectionId] || []), name] }));
+  };
+
+  const renameGroup = async (sectionId: string, from: string, to: string) => {
+    const label = to.trim();
+    if (!label || label === from) return;
+    setExtraGroups((current) => ({ ...current, [sectionId]: (current[sectionId] || []).map((g) => g === from ? label : g) }));
+    setSections((current) => current.map((section) => section.id !== sectionId ? section : {
+      ...section,
+      items: section.items.map((item) => (item.group_label || "") === from ? { ...item, group_label: label } : item),
+    }));
+    const ids = sections.find((s) => s.id === sectionId)?.items.filter((i) => (i.group_label || "") === from).map((i) => i.id) || [];
+    if (ids.length) {
+      const { error } = await supabase.from("promotional_table_items" as any).update({ group_label: label }).in("id", ids);
+      if (error) toast.error(error.message);
+    }
+  };
+
+  const removeGroup = async (sectionId: string, group: string) => {
+    const items = sections.find((s) => s.id === sectionId)?.items.filter((i) => (i.group_label || "") === group) || [];
+    if (items.length && !confirm(`Excluir a seção "${group}" e seus ${items.length} item(ns)?`)) return;
+    setExtraGroups((current) => ({ ...current, [sectionId]: (current[sectionId] || []).filter((g) => g !== group) }));
+    if (items.length) {
+      const { error } = await supabase.from("promotional_table_items" as any).delete().in("id", items.map((i) => i.id));
+      if (error) { toast.error(error.message); return; }
+      if (selected) await loadSections(selected);
+    }
+  };
 
   const addCatalogItem = async (option: CatalogOption) => {
     if (!pickerSection || !selected) return;
@@ -276,6 +328,7 @@ export function PromotionalTablesTab() {
       item_type: "catalog", name: option.variation ? `${option.name} — ${option.variation}` : option.name,
       sku: option.sku, image_url: option.imageUrl, quantity: 1, market_unit_price: option.price,
       promotional_unit_price: option.price, sort_order: section?.items.length || 0,
+      group_label: targetGroup || null,
     });
     if (error) toast.error(error.message); else { toast.success("Produto adicionado."); setPickerSection(null); await loadSections(selected); }
   };
@@ -287,12 +340,14 @@ export function PromotionalTablesTab() {
       section_id: customSection, item_type: "custom", name: customItem.name.trim(), description: customItem.description.trim() || null,
       quantity: Number(customItem.quantity) || 1, market_unit_price: Number(customItem.market) || 0,
       promotional_unit_price: Number(customItem.promotional) || 0, sort_order: section?.items.length || 0,
+      group_label: targetGroup || null,
     });
     if (error) toast.error(error.message); else {
       setCustomOpen(false); setCustomItem({ name: "", description: "", quantity: "1", market: "0", promotional: "0" });
       await loadSections(selected);
     }
   };
+
 
   const updateItem = async (id: string, patch: Record<string, unknown>) => {
     setSections((current) => current.map((section) => ({ ...section, items: section.items.map((item) => item.id === id ? { ...item, ...patch } as PromotionalItem : item) })));
@@ -384,6 +439,9 @@ export function PromotionalTablesTab() {
   );
 
   const persisted = Boolean(selected.id);
+
+  const renderItem = (item: PromotionalItem) => { const row = itemTotals(item); return <div key={item.id} className="grid items-end gap-2 rounded-md border p-3 md:grid-cols-[72px_minmax(180px,2fr)_90px_140px_140px_100px_40px]"><div className="space-y-1"><div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-md border bg-muted">{item.image_url ? <img src={item.image_url} alt={item.name} loading="lazy" className="h-full w-full object-contain" /> : <ImagePlus className="h-5 w-5 text-muted-foreground" />}</div><Button asChild size="sm" variant="ghost" className="h-6 w-16 px-1 text-[10px]" disabled={uploadingItem === item.id}><label className="cursor-pointer">{uploadingItem === item.id ? <Loader2 className="h-3 w-3 animate-spin" /> : item.image_url ? "Trocar" : "Foto"}<input type="file" accept="image/*" className="hidden" onChange={(e) => { const file = e.target.files?.[0]; if (file) uploadItemImage(item.id, file); e.target.value = ""; }} /></label></Button></div><div><Label className="text-xs">Item</Label><Input value={item.name} onChange={(e) => setSections((current) => current.map((s) => ({ ...s, items: s.items.map((i) => i.id === item.id ? { ...i, name: e.target.value } : i) })))} onBlur={(e) => updateItem(item.id, { name: e.target.value })} /><p className="mt-1 text-xs text-muted-foreground">{item.item_type === "catalog" ? item.sku || "Catálogo oficial" : "Linha personalizada"}</p></div><div><Label className="text-xs">Qtd.</Label><Input type="number" min="0.01" step="0.01" value={item.quantity} onChange={(e) => updateItem(item.id, { quantity: Number(e.target.value) })} /></div><div><Label className="text-xs">Valor mercado</Label><Input type="number" min="0" step="0.01" value={item.market_unit_price} onChange={(e) => updateItem(item.id, { market_unit_price: Number(e.target.value) })} /></div><div><Label className="text-xs">Valor promocional</Label><Input type="number" min="0" step="0.01" value={item.promotional_unit_price} onChange={(e) => updateItem(item.id, { promotional_unit_price: Number(e.target.value) })} /></div><div className="pb-2 text-right"><p className="text-xs text-muted-foreground">Desconto</p><p className="font-semibold">{row.discount.toFixed(1)}%</p></div><Button variant="ghost" size="icon" onClick={() => removeItem(item.id)} title="Remover item"><Trash2 className="h-4 w-4 text-destructive" /></Button></div>; };
+
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3"><Button variant="ghost" onClick={() => { setSelected(null); setSections([]); }}><ArrowLeft className="mr-2 h-4 w-4" />Voltar</Button><div className="flex flex-wrap gap-2"><Button variant="outline" disabled={!persisted || !sections.some((section) => section.items.length)} onClick={() => runExport({ ...selected, ...draft } as PromotionalTable, sections, "preview")}><Eye className="mr-2 h-4 w-4" />Visualizar PDF</Button><Button variant="outline" disabled={!persisted || !sections.some((section) => section.items.length)} onClick={() => runExport({ ...selected, ...draft } as PromotionalTable, sections)}><FileText className="mr-2 h-4 w-4" />Exportar PDF</Button><Button onClick={saveTable} disabled={saving}><Save className="mr-2 h-4 w-4" />{saving ? "Salvando..." : "Salvar tabela"}</Button></div></div>
@@ -430,8 +488,29 @@ export function PromotionalTablesTab() {
                 <p className="text-xs text-muted-foreground">No PDF a foto aparece à esquerda e a descrição à direita, antes dos itens.</p>
               </div>
             </div>
-            {section.items.map((item) => { const row = itemTotals(item); return <div key={item.id} className="grid items-end gap-2 rounded-md border p-3 md:grid-cols-[72px_minmax(180px,2fr)_90px_140px_140px_100px_40px]"><div className="space-y-1"><div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-md border bg-muted">{item.image_url ? <img src={item.image_url} alt={item.name} loading="lazy" className="h-full w-full object-contain" /> : <ImagePlus className="h-5 w-5 text-muted-foreground" />}</div><Button asChild size="sm" variant="ghost" className="h-6 w-16 px-1 text-[10px]" disabled={uploadingItem === item.id}><label className="cursor-pointer">{uploadingItem === item.id ? <Loader2 className="h-3 w-3 animate-spin" /> : item.image_url ? "Trocar" : "Foto"}<input type="file" accept="image/*" className="hidden" onChange={(e) => { const file = e.target.files?.[0]; if (file) uploadItemImage(item.id, file); e.target.value = ""; }} /></label></Button></div><div><Label className="text-xs">Item</Label><Input value={item.name} onChange={(e) => setSections((current) => current.map((s) => ({ ...s, items: s.items.map((i) => i.id === item.id ? { ...i, name: e.target.value } : i) })))} onBlur={(e) => updateItem(item.id, { name: e.target.value })} /><p className="mt-1 text-xs text-muted-foreground">{item.item_type === "catalog" ? item.sku || "Catálogo oficial" : "Linha personalizada"}</p></div><div><Label className="text-xs">Qtd.</Label><Input type="number" min="0.01" step="0.01" value={item.quantity} onChange={(e) => updateItem(item.id, { quantity: Number(e.target.value) })} /></div><div><Label className="text-xs">Valor mercado</Label><Input type="number" min="0" step="0.01" value={item.market_unit_price} onChange={(e) => updateItem(item.id, { market_unit_price: Number(e.target.value) })} /></div><div><Label className="text-xs">Valor promocional</Label><Input type="number" min="0" step="0.01" value={item.promotional_unit_price} onChange={(e) => updateItem(item.id, { promotional_unit_price: Number(e.target.value) })} /></div><div className="pb-2 text-right"><p className="text-xs text-muted-foreground">Desconto</p><p className="font-semibold">{row.discount.toFixed(1)}%</p></div><Button variant="ghost" size="icon" onClick={() => removeItem(item.id)} title="Remover item"><Trash2 className="h-4 w-4 text-destructive" /></Button></div>; })}
-            <div className="flex flex-wrap items-center justify-between gap-2"><div className="flex gap-2"><Button size="sm" variant="outline" onClick={() => openPicker(section.id)}><PackagePlus className="mr-2 h-4 w-4" />Produto do catálogo</Button><Button size="sm" variant="outline" onClick={() => { setCustomSection(section.id); setCustomOpen(true); }}><Plus className="mr-2 h-4 w-4" />Item personalizado</Button></div><div className="text-sm font-semibold">Subtotal: {money(section.items.reduce((sum, item) => sum + itemTotals(item).promotional, 0), draft.currency)}</div></div>
+            {groupsOf(section.id).map((group) => {
+              const groupItems = section.items.filter((item) => (item.group_label || "").trim() === group);
+              return (
+                <div key={group || "__sem_secao"} className="space-y-2 rounded-md border border-dashed p-3">
+                  <div className="flex items-center gap-2">
+                    {group
+                      ? <><Input className="max-w-sm font-medium" defaultValue={group} onBlur={(e) => renameGroup(section.id, group, e.target.value)} /><Button variant="ghost" size="icon" title="Excluir seção" onClick={() => removeGroup(section.id, group)}><Trash2 className="h-4 w-4 text-destructive" /></Button></>
+                      : <p className="text-sm font-medium text-muted-foreground">Itens sem seção</p>}
+                  </div>
+                  {groupItems.map(renderItem)}
+                  {!groupItems.length && <p className="text-xs text-muted-foreground">Nenhum item nesta seção ainda.</p>}
+                  <div className="flex flex-wrap gap-2">
+                    <Button size="sm" variant="outline" onClick={() => openPicker(section.id, group)}><PackagePlus className="mr-2 h-4 w-4" />Produto do catálogo</Button>
+                    <Button size="sm" variant="outline" onClick={() => { setCustomSection(section.id); setTargetGroup(group); setCustomOpen(true); }}><Plus className="mr-2 h-4 w-4" />Item personalizado</Button>
+                  </div>
+                </div>
+              );
+            })}
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <Button size="sm" variant="secondary" onClick={() => addGroup(section.id)}><Plus className="mr-2 h-4 w-4" />Adicionar seção neste combo</Button>
+              <div className="text-sm font-semibold">Subtotal: {money(section.items.reduce((sum, item) => sum + itemTotals(item).promotional, 0), draft.currency)}</div>
+            </div>
+
           </CardContent></Card>
         ))}
         {sections.length === 0 && <Card><CardContent className="p-8 text-center text-muted-foreground">Adicione a primeira seção para começar a montar o combo.</CardContent></Card>}

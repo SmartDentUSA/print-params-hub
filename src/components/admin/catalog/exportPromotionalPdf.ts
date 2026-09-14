@@ -238,27 +238,46 @@ export async function exportPromotionalPdf(
       y += blockH + 10;
     }
 
+    const bodyRows: any[] = [];
+    const groupHeaderRows = new Set<number>();
+    let lastGroup: string | null = null;
+    for (const item of section.items) {
+      const group = ((item as any).group_label || "").trim();
+      if (group && group !== lastGroup) {
+        groupHeaderRows.add(bodyRows.length);
+        bodyRows.push([group, "", "", "", "", ""]);
+      }
+      lastGroup = group || null;
+      const row = itemTotals(item);
+      bodyRows.push([
+        `${item.name}${item.sku ? `\nSKU: ${item.sku}` : ""}`,
+        String(item.quantity),
+        money(row.market, table.currency),
+        money(row.promotional, table.currency),
+        money(row.savings, table.currency),
+        `${row.discount.toFixed(1)}%`,
+      ]);
+    }
+
     autoTable(doc, {
       startY: y,
       margin: { left: margin, right: margin, top: pageTop, bottom: pageBottom },
       head: [["Item", "Qtd.", "Valor de mercado", "Valor promocional", "Economia", "Desc. %"]],
-      body: section.items.map((item) => {
-        const row = itemTotals(item);
-        return [
-          `${item.name}${item.sku ? `\nSKU: ${item.sku}` : ""}`,
-          String(item.quantity),
-          money(row.market, table.currency),
-          money(row.promotional, table.currency),
-          money(row.savings, table.currency),
-          `${row.discount.toFixed(1)}%`,
-        ];
-      }),
+      body: bodyRows,
       styles: { fontSize: 8, cellPadding: 5, lineColor: [210, 214, 218], lineWidth: 0.4, valign: "middle" },
       headStyles: { fillColor: dark, textColor: 255, fontStyle: "bold" },
       alternateRowStyles: { fillColor: [245, 246, 247] },
       columnStyles: { 0: { cellWidth: 190 }, 1: { halign: "center" }, 2: { halign: "right" }, 3: { halign: "right" }, 4: { halign: "right" }, 5: { halign: "right" } },
+      didParseCell: (data: any) => {
+        if (data.section === "body" && groupHeaderRows.has(data.row.index)) {
+          data.cell.styles.fillColor = [226, 232, 240];
+          data.cell.styles.fontStyle = "bold";
+          data.cell.styles.fontSize = 8.5;
+        }
+      },
       didDrawPage: header,
     });
+
     y = ((doc as any).lastAutoTable?.finalY ?? y) + 5;
     const sectionTotal = section.items.reduce((sum, item) => sum + itemTotals(item).promotional, 0);
     doc.setFont("helvetica", "bold");
