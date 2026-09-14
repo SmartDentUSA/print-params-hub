@@ -238,7 +238,9 @@ const FORM_NOISE_KEYS = new Set([
   "dedupe_key", "piperun_link", "lead_id", "id", "form_id", "field_id",
   "created_at", "updated_at", "submitted_at", "raw_payload", "utm_content",
   "fbclid", "gclid", "leadgen_id", "campaign_id", "adset_id", "ad_id",
+  "label", "is_existing", "pql_detected", "fields_updated", "event_id", "responses",
 ]);
+
 
 const humanizeFormKey = (key: string): string =>
   FORM_FIELD_LABELS[key] ||
@@ -591,7 +593,23 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
     const seenActivityKeys = new Set<string>();
     const usedSnapshotKeys = new Set<string>();
     const usedSubmissionKeys = new Set<string>();
+    // Respostas individuais (`form_response`) agrupadas por submissão — entram
+    // como detalhe do evento de formulário, não como linhas soltas na timeline.
+    const responsesByEntity = new Map<string, Record<string, string>>();
+    (detail?.activity_log || []).forEach((ev: any) => {
+      if ((ev.event_type || "") !== "form_response") return;
+      const d = ev.event_data || {};
+      const label = String(d.label ?? ev.entity_name ?? "").trim();
+      const value = d.value;
+      if (!label || !isUsefulFormValue(value)) return;
+      const key = String(ev.entity_id ?? "");
+      const bucket = responsesByEntity.get(key) || {};
+      bucket[humanizeFormKey(label)] = String(value).trim();
+      responsesByEntity.set(key, bucket);
+    });
+
     const dedupedActivityLogs = (detail?.activity_log || []).filter((ev: any) => {
+      if ((ev.event_type || "") === "form_response") return false;
       if (!ev.entity_id) return true;
       const key = `${ev.event_type}|${ev.entity_id}`;
       if (seenActivityKeys.has(key)) return false;
@@ -602,6 +620,7 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
       const isEcommerce = ev.source_channel === "ecommerce";
       const isForm = (ev.event_type || "") === "form_submission";
       const evData = ev.event_data || {};
+
 
       // Atividades realizadas no CRM (ligação, reunião, WhatsApp, e-mail, tarefa)
       if ((ev.event_type || "") === "crm_activity") {
@@ -690,6 +709,17 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
           Object.assign(answers, formAnswersToDetail(snapshot.raw_fields as Record<string, unknown>));
         }
         if (matchedSubmission?.submitted_at) usedSubmissionKeys.add(`${matchedSubmission.form_id || ""}|${matchedSubmission.submitted_at}`);
+        // Respostas gravadas no próprio evento (event_data.responses)
+        if (Array.isArray(evData.responses)) {
+          evData.responses.forEach((r: any) => {
+            const label = String(r?.label ?? "").trim();
+            if (!label || !isUsefulFormValue(r?.value)) return;
+            answers[humanizeFormKey(label)] = String(r.value).trim();
+          });
+        }
+        // Respostas individuais registradas como eventos `form_response`
+        const granular = responsesByEntity.get(String(ev.entity_id ?? ""));
+        if (granular) Object.assign(answers, granular);
         // Fallback: o que veio no próprio event_data
         const fallback = formAnswersToDetail(evData);
         for (const [k, v] of Object.entries(fallback)) if (!(k in answers)) answers[k] = v;
@@ -703,6 +733,7 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
           tags: evData.source ? [String(evData.source)] : [],
           detail: answers,
         });
+
         return;
       }
 
