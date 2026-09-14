@@ -45,11 +45,14 @@ export function PromotionalTablesTab() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [pickerSection, setPickerSection] = useState<string | null>(null);
+  const [targetGroup, setTargetGroup] = useState<string>("");
+  const [extraGroups, setExtraGroups] = useState<Record<string, string[]>>({});
   const [catalog, setCatalog] = useState<CatalogOption[]>([]);
   const [catalogSearch, setCatalogSearch] = useState("");
   const [customOpen, setCustomOpen] = useState(false);
   const [customSection, setCustomSection] = useState<string | null>(null);
   const [customItem, setCustomItem] = useState({ name: "", description: "", quantity: "1", market: "0", promotional: "0" });
+
 
   const [loadError, setLoadError] = useState<string | null>(null);
   const [uploadingSection, setUploadingSection] = useState<string | null>(null);
