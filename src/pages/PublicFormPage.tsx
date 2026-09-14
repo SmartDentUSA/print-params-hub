@@ -1111,7 +1111,7 @@ export default function PublicFormPage() {
                 <Label style={isEmbed ? { color: "#0f172a", opacity: 1 } : undefined}>
                   Consultores no estande <span className="text-destructive ml-1">*</span>
                 </Label>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                <div className="grid grid-cols-2 gap-2">
                   {eventConsultants.map((c) => {
                     const checked = consultantId === c.id;
                     return (
