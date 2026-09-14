@@ -2041,7 +2041,12 @@ Deno.serve(async (req) => {
         fields_updated: fieldsUpdated.slice(0, 20),
         produto_interesse: produtoInteresse || null,
         pql_detected: detectedStage === "PQL_recompra",
+        evento: eventNameForTimeline,
+        event_id: payload.event_id || null,
+        consultor: payload.proprietario_lead_crm || null,
+        combos_interesse: Array.isArray(payload.event_interest_categories) ? payload.event_interest_categories : null,
         responses: normalizedFormResponses,
+
       },
       source_channel: source,
       event_timestamp: new Date().toISOString(),
