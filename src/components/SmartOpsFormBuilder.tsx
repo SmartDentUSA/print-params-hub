@@ -813,7 +813,7 @@ export function SmartOpsFormBuilder() {
                 <hr className="my-1" />
                 <div className="space-y-2">
                   <p className="text-xs text-slate-600">
-                    {newPurpose === "sdr_captacao"
+                    {newPurpose === "sdr_captacao" || newPurpose === "feira_evento"
                       ? "Digite um nome interno e clique em Criar."
                       : "Selecione um tipo acima para continuar."}
                   </p>
