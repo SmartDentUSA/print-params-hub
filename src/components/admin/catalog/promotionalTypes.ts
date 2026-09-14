@@ -12,8 +12,33 @@ export type PromotionalTable = {
   notes: string | null;
   status: PromotionalStatus;
   include_official_price_table?: boolean;
+  /** Vendedores autorizados a divulgar a promoção (mesma lista do formulário do evento). */
+  coupon_seller_ids?: string[] | null;
+  coupon_discount_type?: "percent" | "fixed" | null;
+  coupon_discount_value?: number | null;
+  coupon_prefix?: string | null;
+  coupon_usage_limit?: number | null;
+  coupon_valid_from?: string | null;
+  coupon_valid_until?: string | null;
   created_at: string;
   updated_at: string;
+};
+
+export type PromotionalCoupon = {
+  id: string;
+  promotional_table_id: string;
+  team_member_id: string | null;
+  seller_name: string | null;
+  code: string;
+  discount_type: "percent" | "fixed";
+  discount_value: number;
+  valid_from: string | null;
+  valid_until: string | null;
+  usage_limit: number | null;
+  active: boolean;
+  li_coupon_id: string | null;
+  li_synced_at: string | null;
+  li_sync_error: string | null;
 };
 
 export type PromotionalSection = {
