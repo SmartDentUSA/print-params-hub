@@ -357,6 +357,10 @@ export async function buildSellerDealSummaryHTML(
     "celular de contato",
     "nome comleto",
     "event interest categories",
+    "telefone raw",
+    "scanner modelo",
+    "impressora marca",
+    "dedupe key",
   ]);
   const humanizeLabel = (k: string) =>
     k.replace(/_/g, " ").replace(/^\s*(\S)/, (_m, c) => c.toUpperCase()).trim();
@@ -377,6 +381,8 @@ export async function buildSellerDealSummaryHTML(
         .replace(/\s+/g, " ")
         .trim();
       if (INTERNAL_LABEL.has(key)) continue;
+      // rótulo truncado/inutilizável ("Voc", "?")
+      if (key.replace(/ /g, "").length < 4) continue;
       if (seen.has(key)) continue;
       seen.add(key);
       target.push({ label, value });
