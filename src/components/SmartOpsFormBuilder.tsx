@@ -767,6 +767,27 @@ export function SmartOpsFormBuilder() {
                   </div>
                 </button>
 
+                {/* Tipo: Feiras e eventos (habilitado) */}
+                <button
+                  className="w-full text-left rounded-lg border-2 border-amber-300 bg-amber-50 p-3 hover:bg-amber-100 transition-colors"
+                  onClick={() => {
+                    setNewPurpose("feira_evento");
+                    setTimeout(() => nameInputRef.current?.focus(), 50);
+                  }}
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-semibold text-amber-800 text-sm">Feiras e eventos</p>
+                      <p className="text-xs text-amber-700 mt-0.5">
+                        Evento associado, lista de consultores e categorias habilitadas
+                      </p>
+                    </div>
+                    {newPurpose === "feira_evento" && (
+                      <span className="text-xs bg-amber-600 text-white px-2 py-0.5 rounded">Selecionado</span>
+                    )}
+                  </div>
+                </button>
+
                 {/* Tipos desabilitados */}
                 {(["cm_update_deal", "cs_update_deals", "st_update_deals"] as const).map((key) => {
                   const cfg = PURPOSE_CONFIG[key];
