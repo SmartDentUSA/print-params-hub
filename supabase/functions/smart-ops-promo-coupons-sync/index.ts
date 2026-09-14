@@ -194,7 +194,8 @@ Deno.serve(async (req) => {
         condicao_produto: isFreight
           ? "todos_produtos"
           : categoryIds.length ? "categorias_selecionadas" : "todos_produtos",
-        categorias: isFreight ? [] : categoryIds,
+        // A Loja Integrada só persiste as categorias quando os IDs vêm como string.
+        categorias: isFreight ? [] : categoryIds.map((id) => String(id)),
         validade: asDateTime(coupon.valid_until, true),
       };
       if (coupon.usage_limit && coupon.usage_limit > 0) payload.quantidade = coupon.usage_limit;
