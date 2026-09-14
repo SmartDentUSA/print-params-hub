@@ -1230,6 +1230,12 @@ Deno.serve(async (req) => {
       status_oportunidade: payload.status_oportunidade || null,
       valor_oportunidade: payload.valor_oportunidade ? Number(payload.valor_oportunidade) : null,
       proprietario_lead_crm: payload.proprietario_lead_crm || null,
+      // Feiras e eventos (form_purpose = feira_evento)
+      event_id: payload.event_id || null,
+      event_consultant_team_member_id: payload.event_consultant_team_member_id || null,
+      event_interest_categories: Array.isArray(payload.event_interest_categories)
+        ? payload.event_interest_categories
+        : null,
       produto_interesse_auto: produtoInteresseAuto || payload.produto_interesse_auto || null,
       // Equipamentos Ativos (seriais)
       equip_scanner: payload.equip_scanner || null,

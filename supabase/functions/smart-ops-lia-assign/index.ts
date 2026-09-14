@@ -3125,7 +3125,31 @@ Deno.serve(async (req) => {
     // Quando não há seleção, segue a rota de distribuição normal (round robin).
     let forcedSeller: { id: string; nome_completo: string; piperun_owner_id: number } | null = null;
     const leadFormName = (lead as Record<string, unknown>).form_name as string | null | undefined;
-    if (leadFormName) {
+
+    // ── 2.0.a Feiras e eventos: consultor escolhido no estande manda ──
+    const eventConsultantId = (lead as Record<string, unknown>)
+      .event_consultant_team_member_id as string | null | undefined;
+    if (eventConsultantId) {
+      try {
+        const { data: ec } = await supabase
+          .from("team_members")
+          .select("id, nome_completo, piperun_owner_id, ativo")
+          .eq("id", eventConsultantId)
+          .maybeSingle();
+        if (ec?.ativo && Number(ec.piperun_owner_id) > 0) {
+          forcedSeller = {
+            id: ec.id as string,
+            nome_completo: ec.nome_completo as string,
+            piperun_owner_id: Number(ec.piperun_owner_id),
+          };
+          console.log(`[lia-assign] EVENT_CONSULTANT → ${forcedSeller.nome_completo}`);
+        }
+      } catch (e) {
+        console.warn("[lia-assign] event consultant lookup failed:", String(e));
+      }
+    }
+
+    if (!forcedSeller && leadFormName) {
       try {
         const { data: formRow } = await supabase
           .from("smartops_forms")

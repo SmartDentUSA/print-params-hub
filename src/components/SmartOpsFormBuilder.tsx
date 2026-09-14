@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import { Plus, Copy, ExternalLink, Pencil, Trash2, Settings, CopyPlus, FileText, Lock, Search, X } from "lucide-react";
 import { SmartOpsFormEditor } from "./SmartOpsFormEditor";
 import { SmartOpsSdrCaptacaoEditor } from "./SmartOpsSdrCaptacaoEditor";
+import { FeiraEventoConfig } from "./smartops/FeiraEventoConfig";
 import { FormMetricsCard, type FormMetrics } from "./smartops/FormMetricsCard";
 import type { ShortLinkInfo } from "./smartops/FormMetricsCard";
 import { FormMetricsRow } from "./smartops/FormMetricsRow";
@@ -46,6 +47,7 @@ const PURPOSE_CONFIG: Record<string, { label: string; color: string; disabled?: 
   cm_update_deal:  { label: "CM — Update Deal",  color: "bg-slate-100 text-slate-600 border-slate-300", disabled: true,  description: "Uso interno — em breve" },
   cs_update_deals: { label: "CS — Update Deals", color: "bg-slate-100 text-slate-600 border-slate-300", disabled: true,  description: "Uso interno — em breve" },
   st_update_deals: { label: "ST — Update Deals", color: "bg-slate-100 text-slate-600 border-slate-300", disabled: true,  description: "Uso interno — em breve" },
+  feira_evento:    { label: "Feiras e Eventos",  color: "bg-amber-100 text-amber-800 border-amber-300",  disabled: false, description: "Preenchido pelo consultor no estande" },
 };
 
 interface SmartOpsForm {
@@ -717,6 +719,11 @@ export function SmartOpsFormBuilder() {
         </div>
         {editingForm.form_purpose === "sdr_captacao" ? (
           <SmartOpsSdrCaptacaoEditor form={editingForm} />
+        ) : editingForm.form_purpose === "feira_evento" ? (
+          <>
+            <FeiraEventoConfig formId={editingForm.id} />
+            <SmartOpsFormEditor formId={editingForm.id} />
+          </>
         ) : (
           <SmartOpsFormEditor formId={editingForm.id} />
         )}
@@ -760,6 +767,27 @@ export function SmartOpsFormBuilder() {
                   </div>
                 </button>
 
+                {/* Tipo: Feiras e eventos (habilitado) */}
+                <button
+                  className="w-full text-left rounded-lg border-2 border-amber-300 bg-amber-50 p-3 hover:bg-amber-100 transition-colors"
+                  onClick={() => {
+                    setNewPurpose("feira_evento");
+                    setTimeout(() => nameInputRef.current?.focus(), 50);
+                  }}
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-semibold text-amber-800 text-sm">Feiras e eventos</p>
+                      <p className="text-xs text-amber-700 mt-0.5">
+                        Evento associado, lista de consultores e categorias habilitadas
+                      </p>
+                    </div>
+                    {newPurpose === "feira_evento" && (
+                      <span className="text-xs bg-amber-600 text-white px-2 py-0.5 rounded">Selecionado</span>
+                    )}
+                  </div>
+                </button>
+
                 {/* Tipos desabilitados */}
                 {(["cm_update_deal", "cs_update_deals", "st_update_deals"] as const).map((key) => {
                   const cfg = PURPOSE_CONFIG[key];
@@ -785,7 +813,7 @@ export function SmartOpsFormBuilder() {
                 <hr className="my-1" />
                 <div className="space-y-2">
                   <p className="text-xs text-slate-600">
-                    {newPurpose === "sdr_captacao"
+                    {newPurpose === "sdr_captacao" || newPurpose === "feira_evento"
                       ? "Digite um nome interno e clique em Criar."
                       : "Selecione um tipo acima para continuar."}
                   </p>
@@ -799,9 +827,14 @@ export function SmartOpsFormBuilder() {
                   <Button
                     onClick={handleCreate}
                     className="w-full"
-                    disabled={newPurpose !== "sdr_captacao" || !newName.trim()}
+                    disabled={
+                      (newPurpose !== "sdr_captacao" && newPurpose !== "feira_evento") ||
+                      !newName.trim()
+                    }
                   >
-                    Criar formulário SDR — Captação
+                    {newPurpose === "feira_evento"
+                      ? "Criar formulário Feiras e eventos"
+                      : "Criar formulário SDR — Captação"}
                   </Button>
                 </div>
               </div>

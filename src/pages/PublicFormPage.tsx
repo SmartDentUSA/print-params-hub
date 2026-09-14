@@ -143,6 +143,10 @@ export default function PublicFormPage() {
   // Simple inline toast
   const [inlineError, setInlineError] = useState<string | null>(null);
   const [currentStep, setCurrentStep] = useState(0);
+  // Feiras e eventos — consultor no estande + categorias habilitadas
+  const [eventConsultants, setEventConsultants] = useState<{ id: string; nome_completo: string }[]>([]);
+  const [consultantId, setConsultantId] = useState<string>("");
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   // Embed mode (usado pela landing page): renderiza somente o formulário,
   // sem coluna de mídia/texto e sem fundo de página.
   const isEmbed = searchParams.get("embed") === "1";
@@ -281,6 +285,33 @@ export default function PublicFormPage() {
     };
     load();
   }, [slug]);
+
+  const isEventForm = form?.form_purpose === "feira_evento";
+  const eventCategories: string[] = Array.isArray((form as any)?.event_categories)
+    ? ((form as any).event_categories as string[])
+    : [];
+
+  // Consultores habilitados para o evento
+  useEffect(() => {
+    const ids: string[] = ((form as any)?.event_consultant_ids ?? []) as string[];
+    if (!isEventForm || ids.length === 0) {
+      setEventConsultants([]);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const { data } = await (supabase as any)
+        .from("team_members")
+        .select("id, nome_completo")
+        .in("id", ids)
+        .eq("ativo", true)
+        .order("nome_completo");
+      if (!cancelled) setEventConsultants((data ?? []) as { id: string; nome_completo: string }[]);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isEventForm, form?.id]);
 
   // SEO meta tags (title, description, canonical, og/twitter)
   useEffect(() => {
@@ -516,6 +547,29 @@ export default function PublicFormPage() {
           value: Array.isArray(values[f.id]) ? (values[f.id] as string[]).join(", ") : String(values[f.id]),
         })),
     };
+
+    // Feiras e eventos — consultor do estande define o responsável no CRM
+    if (isEventForm) {
+      if (eventConsultants.length > 0 && !consultantId) {
+        toast_inline("Selecione o consultor que fez o atendimento.");
+        setSubmitting(false);
+        return;
+      }
+      const consultant = eventConsultants.find((c) => c.id === consultantId);
+      if (consultant) {
+        payload.event_consultant_team_member_id = consultant.id;
+        payload.proprietario_lead_crm = consultant.nome_completo;
+        payload.form_responses.push({ label: "Consultor", value: consultant.nome_completo });
+      }
+      if ((form as any).event_id) payload.event_id = (form as any).event_id;
+      if (selectedCategories.length > 0) {
+        payload.event_interest_categories = selectedCategories;
+        payload.form_responses.push({
+          label: "Categorias de interesse",
+          value: selectedCategories.join(", "),
+        });
+      }
+    }
 
     const customFields: Record<string, any> = {};
 
@@ -974,6 +1028,59 @@ export default function PublicFormPage() {
                     ? `Perguntas ${qualificationBatchStart + 1}–${Math.min(qualificationBatchEnd, totalSteps)} de ${totalSteps}`
                     : `Pergunta ${qualificationBatchStart + 1} de ${totalSteps}`}
                 </p>
+              </div>
+            )}
+
+            {/* Feiras e eventos — consultor do estande + categorias habilitadas */}
+            {isEventForm && eventConsultants.length > 0 && (
+              <div className="space-y-1.5">
+                <Label style={isEmbed ? { color: "#0f172a", opacity: 1 } : undefined}>
+                  Consultor <span className="text-destructive ml-1">*</span>
+                </Label>
+                <select
+                  className="w-full border rounded-md h-12 md:h-10 px-3 text-base md:text-sm bg-background border-input"
+                  value={consultantId}
+                  onChange={(e) => setConsultantId(e.target.value)}
+                >
+                  <option value="">Selecione o consultor...</option>
+                  {eventConsultants.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.nome_completo}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {isEventForm && eventCategories.length > 0 && (
+              <div className="space-y-1.5">
+                <Label style={isEmbed ? { color: "#0f172a", opacity: 1 } : undefined}>
+                  Categorias de interesse
+                </Label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                  {eventCategories.map((cat) => {
+                    const checked = selectedCategories.includes(cat);
+                    return (
+                      <label
+                        key={cat}
+                        className={`flex items-center gap-2 rounded-md border px-2.5 py-2 text-sm cursor-pointer transition-colors ${
+                          checked ? "border-primary bg-primary/5" : "border-input"
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={(ev) =>
+                            setSelectedCategories((s) =>
+                              ev.target.checked ? [...s, cat] : s.filter((v) => v !== cat),
+                            )
+                          }
+                        />
+                        <span className="truncate">{cat}</span>
+                      </label>
+                    );
+                  })}
+                </div>
               </div>
             )}
 
