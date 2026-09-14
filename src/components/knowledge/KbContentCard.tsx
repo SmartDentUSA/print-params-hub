@@ -55,7 +55,7 @@ function formatViews(n: number | null | undefined): string {
   return `${v}`;
 }
 
-export default function KbContentCard({ data, index, buttonLabel, onClick, thumbAspect = 'video' }: Props) {
+export default function KbContentCard({ data, index, buttonLabel, onClick, thumbAspect = 'video', showQrCode = false }: Props) {
   const cat = getCategoryColor(data.categoryLetter);
   const portrait = thumbAspect === 'portrait';
   const thumbW = portrait ? 405 : 480;
