@@ -18567,6 +18567,8 @@ export type Database = {
           group_labels: string[]
           id: string
           image_url: string | null
+          main_product_catalog_id: string | null
+          main_product_name: string | null
           promotional_table_id: string
           sort_order: number
           title: string
@@ -18578,6 +18580,8 @@ export type Database = {
           group_labels?: string[]
           id?: string
           image_url?: string | null
+          main_product_catalog_id?: string | null
+          main_product_name?: string | null
           promotional_table_id: string
           sort_order?: number
           title: string
@@ -18589,6 +18593,8 @@ export type Database = {
           group_labels?: string[]
           id?: string
           image_url?: string | null
+          main_product_catalog_id?: string | null
+          main_product_name?: string | null
           promotional_table_id?: string
           sort_order?: number
           title?: string
@@ -35416,6 +35422,7 @@ export type Database = {
       fn_public_event_combos: {
         Args: { p_event_id: string }
         Returns: {
+          main_product_name: string
           section_description: string
           section_image_url: string
           section_title: string
