@@ -58,7 +58,7 @@ export function FeiraEventoConfig({ formId }: { formId: string }) {
       ]);
       setEvents((evs ?? []) as EventOption[]);
       setEventId((form?.event_id as string) ?? "");
-      setConsultants(((form?.event_consultant_ids ?? []) as string[]) ?? []);
+      setConsultants((form?.event_consultant_ids ?? []) as string[]);
       setCategories(
         Array.isArray(form?.event_categories) ? (form!.event_categories as string[]) : [],
       );
