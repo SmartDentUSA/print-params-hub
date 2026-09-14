@@ -18693,11 +18693,13 @@ export type Database = {
           coupon_discount_type: string
           coupon_discount_value: number
           coupon_freight_discount_value: number | null
+          coupon_freight_pdf_enabled: boolean
           coupon_freight_usage_limit: number | null
           coupon_freight_valid_from: string | null
           coupon_freight_valid_until: string | null
           coupon_li_category_ids: number[]
           coupon_li_category_labels: string[]
+          coupon_pdf_enabled: boolean
           coupon_prefix: string | null
           coupon_seller_ids: string[]
           coupon_usage_limit: number | null
@@ -18722,11 +18724,13 @@ export type Database = {
           coupon_discount_type?: string
           coupon_discount_value?: number
           coupon_freight_discount_value?: number | null
+          coupon_freight_pdf_enabled?: boolean
           coupon_freight_usage_limit?: number | null
           coupon_freight_valid_from?: string | null
           coupon_freight_valid_until?: string | null
           coupon_li_category_ids?: number[]
           coupon_li_category_labels?: string[]
+          coupon_pdf_enabled?: boolean
           coupon_prefix?: string | null
           coupon_seller_ids?: string[]
           coupon_usage_limit?: number | null
@@ -18751,11 +18755,13 @@ export type Database = {
           coupon_discount_type?: string
           coupon_discount_value?: number
           coupon_freight_discount_value?: number | null
+          coupon_freight_pdf_enabled?: boolean
           coupon_freight_usage_limit?: number | null
           coupon_freight_valid_from?: string | null
           coupon_freight_valid_until?: string | null
           coupon_li_category_ids?: number[]
           coupon_li_category_labels?: string[]
+          coupon_pdf_enabled?: boolean
           coupon_prefix?: string | null
           coupon_seller_ids?: string[]
           coupon_usage_limit?: number | null
