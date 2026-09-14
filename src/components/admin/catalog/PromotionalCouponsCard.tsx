@@ -7,11 +7,16 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CheckCircle2, Copy, Loader2, RefreshCw, Store, Ticket, Trash2 } from "lucide-react";
+import { CheckCircle2, Copy, Loader2, RefreshCw, Store, Ticket, Trash2, Truck } from "lucide-react";
 import { toast } from "sonner";
 import type { PromotionalCoupon, PromotionalTable } from "./promotionalTypes";
 
 type Seller = { id: string; nome_completo: string; whatsapp_number?: string | null };
+type CouponKind = "discount" | "freight";
+
+/** Cupons antigos não têm "kind"; tratamos pelo campo de frete grátis. */
+const couponKind = (coupon: PromotionalCoupon): CouponKind =>
+  coupon.free_shipping || coupon.kind === "freight" ? "freight" : "discount";
 type LiCategory = { id: number; nome: string; parent_id: number | null };
 
 /** Categorias da loja liberadas por padrão nas promoções de evento. */
@@ -26,7 +31,16 @@ const DEFAULT_CATEGORY_IDS = [
 const slug = (value: string) =>
   value.toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^A-Z0-9]+/g, "").slice(0, 12);
 
-const firstName = (value: string) => slug(value.trim().split(/\s+/)[0] || "");
+/** Iniciais do vendedor: primeira letra do nome + primeira letra do sobrenome. */
+const sellerInitials = (value: string) => {
+  const parts = slug(value).length ? value.trim().split(/\s+/).filter(Boolean) : [];
+  const first = slug(parts[0] || "").slice(0, 1);
+  const last = slug(parts.length > 1 ? parts[parts.length - 1] : "").slice(0, 1);
+  return `${first}${last}` || "XX";
+};
+
+/** Número do desconto usado no código do cupom (20% => "20"; R$ 150 => "150"). */
+const discountToken = (value: number) => String(Math.round(Number(value) || 0));
 
 type Props = {
   table: PromotionalTable;
@@ -38,7 +52,7 @@ export function PromotionalCouponsCard({ table, draft, onDraftChange }: Props) {
   const [sellers, setSellers] = useState<Seller[]>([]);
   const [coupons, setCoupons] = useState<PromotionalCoupon[]>([]);
   const [loading, setLoading] = useState(true);
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useState<CouponKind | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [sellerSource, setSellerSource] = useState<"event" | "team">("team");
   const [categories, setCategories] = useState<LiCategory[]>([]);
@@ -121,21 +135,31 @@ export function PromotionalCouponsCard({ table, draft, onDraftChange }: Props) {
 
   const prefix = slug(draft.coupon_prefix || draft.name || table.name || "PROMO") || "PROMO";
 
-  const generateCoupons = async () => {
+  const generateCoupons = async (kind: CouponKind = "discount") => {
     if (!selected.length) { toast.error("Selecione os vendedores autorizados."); return; }
-    const value = Number(draft.coupon_discount_value || 0);
+    const isFreight = kind === "freight";
+    const value = Number(
+      (isFreight ? draft.coupon_freight_discount_value ?? draft.coupon_discount_value : draft.coupon_discount_value) || 0,
+    );
     if (value <= 0) { toast.error("Informe o valor do desconto do cupom."); return; }
-    setBusy(true);
+    const validFrom = (isFreight ? draft.coupon_freight_valid_from : draft.coupon_valid_from) ?? null;
+    const validUntil = (isFreight ? draft.coupon_freight_valid_until : draft.coupon_valid_until) ?? null;
+    const usageLimit = (isFreight ? draft.coupon_freight_usage_limit : draft.coupon_usage_limit) ?? null;
+    setBusy(kind);
     try {
       // Persiste os dados da promoção antes de gerar os códigos.
       await supabase.from("promotional_tables" as any).update({
         coupon_seller_ids: selected,
         coupon_discount_type: discountType,
-        coupon_discount_value: value,
+        coupon_discount_value: Number(draft.coupon_discount_value || 0),
         coupon_prefix: prefix,
         coupon_usage_limit: draft.coupon_usage_limit ?? null,
         coupon_valid_from: draft.coupon_valid_from ?? null,
         coupon_valid_until: draft.coupon_valid_until ?? null,
+        coupon_freight_discount_value: draft.coupon_freight_discount_value ?? null,
+        coupon_freight_valid_from: draft.coupon_freight_valid_from ?? null,
+        coupon_freight_valid_until: draft.coupon_freight_valid_until ?? null,
+        coupon_freight_usage_limit: draft.coupon_freight_usage_limit ?? null,
         coupon_li_category_ids: categoryIds,
         coupon_li_category_labels: categoryIds
           .map((id) => {
@@ -152,8 +176,11 @@ export function PromotionalCouponsCard({ table, draft, onDraftChange }: Props) {
       for (const id of selected) {
         const seller = sellers.find((row) => row.id === id);
         if (!seller) continue;
-        const existing = coupons.find((coupon) => coupon.team_member_id === id);
-        const base = `${prefix}${firstName(seller.nome_completo)}`;
+        const existing = coupons.find(
+          (coupon) => coupon.team_member_id === id && couponKind(coupon) === kind,
+        );
+        // Padrão do código: iniciais do congresso + iniciais do vendedor + número do desconto (+ F no frete grátis).
+        const base = `${prefix}${sellerInitials(seller.nome_completo)}${discountToken(value)}${isFreight ? "F" : ""}`;
         let code = existing?.code || base;
         let counter = 2;
         while (!existing && used.has(code)) { code = `${base}${counter}`; counter += 1; }
@@ -164,11 +191,13 @@ export function PromotionalCouponsCard({ table, draft, onDraftChange }: Props) {
           team_member_id: id,
           seller_name: seller.nome_completo,
           code,
+          kind,
+          free_shipping: isFreight,
           discount_type: discountType,
           discount_value: value,
-          valid_from: draft.coupon_valid_from ?? null,
-          valid_until: draft.coupon_valid_until ?? null,
-          usage_limit: draft.coupon_usage_limit ?? null,
+          valid_from: validFrom,
+          valid_until: validUntil,
+          usage_limit: usageLimit,
           active: true,
         });
       }
@@ -184,11 +213,11 @@ export function PromotionalCouponsCard({ table, draft, onDraftChange }: Props) {
         if (error) throw error;
       }
       await loadCoupons();
-      toast.success("Cupons gerados/atualizados.");
+      toast.success(isFreight ? "Cupons com frete grátis gerados/atualizados." : "Cupons gerados/atualizados.");
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Não foi possível gerar os cupons.");
     } finally {
-      setBusy(false);
+      setBusy(null);
     }
   };
 
@@ -224,13 +253,49 @@ export function PromotionalCouponsCard({ table, draft, onDraftChange }: Props) {
   const shareText = (coupon: PromotionalCoupon) =>
     [
       `${draft.pdf_title || table.pdf_title} — Smart Dent`,
-      coupon.discount_type === "fixed"
-        ? `Desconto de R$ ${Number(coupon.discount_value).toFixed(2).replace(".", ",")}`
-        : `Desconto de ${Number(coupon.discount_value).toFixed(1).replace(".", ",")}%`,
+      couponKind(coupon) === "freight"
+        ? "Frete grátis na compra online"
+        : coupon.discount_type === "fixed"
+          ? `Desconto de R$ ${Number(coupon.discount_value).toFixed(2).replace(".", ",")}`
+          : `Desconto de ${Number(coupon.discount_value).toFixed(1).replace(".", ",")}%`,
       `Cupom: ${coupon.code}`,
       coupon.valid_until ? `Válido até ${new Date(`${coupon.valid_until}T12:00:00`).toLocaleDateString("pt-BR")}` : null,
       "Use em loja.smartdent.com.br",
     ].filter(Boolean).join("\n");
+
+  const discountCoupons = coupons.filter((coupon) => couponKind(coupon) === "discount");
+  const freightCoupons = coupons.filter((coupon) => couponKind(coupon) === "freight");
+
+  const renderCoupon = (coupon: PromotionalCoupon) => (
+    <div key={coupon.id} className="flex flex-wrap items-center gap-3 rounded-md border p-3 text-sm">
+      <div className="min-w-[160px] flex-1">
+        <p className="font-semibold">{coupon.code}</p>
+        <p className="text-xs text-muted-foreground">{coupon.seller_name || "—"}</p>
+      </div>
+      <span className="text-xs text-muted-foreground">
+        {couponKind(coupon) === "freight"
+          ? "Frete grátis"
+          : coupon.discount_type === "fixed"
+            ? `R$ ${Number(coupon.discount_value).toFixed(2).replace(".", ",")}`
+            : `${Number(coupon.discount_value).toFixed(1).replace(".", ",")}%`}
+      </span>
+      {coupon.li_synced_at
+        ? <Badge variant="secondary" className="gap-1"><CheckCircle2 className="h-3 w-3" />Na loja</Badge>
+        : coupon.li_sync_error
+          ? <Badge variant="destructive" title={coupon.li_sync_error}>Erro no envio</Badge>
+          : <Badge variant="outline">Não enviado</Badge>}
+      <Button size="sm" variant="outline" onClick={() => { navigator.clipboard.writeText(shareText(coupon)); toast.success("Mensagem copiada para o WhatsApp."); }}>
+        <Copy className="mr-1 h-3.5 w-3.5" />Mensagem
+      </Button>
+      <Button size="sm" variant="outline" asChild>
+        <a href={`https://wa.me/?text=${encodeURIComponent(shareText(coupon))}`} target="_blank" rel="noreferrer">WhatsApp</a>
+      </Button>
+      <Button size="icon" variant="ghost" title="Excluir cupom" onClick={() => removeCoupon(coupon)}>
+        <Trash2 className="h-4 w-4 text-destructive" />
+      </Button>
+    </div>
+  );
+
 
   return (
     <Card>
@@ -351,8 +416,8 @@ export function PromotionalCouponsCard({ table, draft, onDraftChange }: Props) {
         </div>
 
         <div className="flex flex-wrap gap-2">
-          <Button onClick={generateCoupons} disabled={busy}>
-            {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Ticket className="mr-2 h-4 w-4" />}
+          <Button onClick={() => generateCoupons("discount")} disabled={!!busy}>
+            {busy === "discount" ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Ticket className="mr-2 h-4 w-4" />}
             Gerar cupons dos vendedores
           </Button>
           <Button variant="outline" onClick={sendToLojaIntegrada} disabled={syncing || !coupons.length}>
@@ -362,37 +427,52 @@ export function PromotionalCouponsCard({ table, draft, onDraftChange }: Props) {
           <Button variant="ghost" onClick={loadCoupons}><RefreshCw className="mr-2 h-4 w-4" />Atualizar</Button>
         </div>
 
-        {coupons.length > 0 && (
-          <div className="space-y-2">
-            {coupons.map((coupon) => (
-              <div key={coupon.id} className="flex flex-wrap items-center gap-3 rounded-md border p-3 text-sm">
-                <div className="min-w-[160px] flex-1">
-                  <p className="font-semibold">{coupon.code}</p>
-                  <p className="text-xs text-muted-foreground">{coupon.seller_name || "—"}</p>
-                </div>
-                <span className="text-xs text-muted-foreground">
-                  {coupon.discount_type === "fixed"
-                    ? `R$ ${Number(coupon.discount_value).toFixed(2).replace(".", ",")}`
-                    : `${Number(coupon.discount_value).toFixed(1).replace(".", ",")}%`}
-                </span>
-                {coupon.li_synced_at
-                  ? <Badge variant="secondary" className="gap-1"><CheckCircle2 className="h-3 w-3" />Na loja</Badge>
-                  : coupon.li_sync_error
-                    ? <Badge variant="destructive" title={coupon.li_sync_error}>Erro no envio</Badge>
-                    : <Badge variant="outline">Não enviado</Badge>}
-                <Button size="sm" variant="outline" onClick={() => { navigator.clipboard.writeText(shareText(coupon)); toast.success("Mensagem copiada para o WhatsApp."); }}>
-                  <Copy className="mr-1 h-3.5 w-3.5" />Mensagem
-                </Button>
-                <Button size="sm" variant="outline" asChild>
-                  <a href={`https://wa.me/?text=${encodeURIComponent(shareText(coupon))}`} target="_blank" rel="noreferrer">WhatsApp</a>
-                </Button>
-                <Button size="icon" variant="ghost" title="Excluir cupom" onClick={() => removeCoupon(coupon)}>
-                  <Trash2 className="h-4 w-4 text-destructive" />
-                </Button>
-              </div>
-            ))}
-          </div>
+        {discountCoupons.length > 0 && (
+          <div className="space-y-2">{discountCoupons.map(renderCoupon)}</div>
         )}
+
+        {/* ---- Segunda seção: cupons com frete grátis ---- */}
+        <div className="space-y-3 rounded-lg border border-dashed p-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="flex items-center gap-2 text-sm font-semibold"><Truck className="h-4 w-4" />Cupons com desconto + frete grátis</p>
+            <Badge variant="secondary">{freightCoupons.length} cupom(ns)</Badge>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Para o cliente que esteve no congresso e o produto não estava disponível para entrega no local:
+            ele compra online e não paga o frete. Cada vendedor recebe um segundo código terminado em "F",
+            que pode ser usado junto com o cupom de desconto.
+          </p>
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+            <div className="space-y-2">
+              <Label>Desconto do cupom com frete</Label>
+              <Input type="number" min="0" step="0.01"
+                value={draft.coupon_freight_discount_value ?? draft.coupon_discount_value ?? 0}
+                onChange={(e) => onDraftChange({ coupon_freight_discount_value: Number(e.target.value) })} />
+            </div>
+            <div className="space-y-2">
+              <Label>Início</Label>
+              <Input type="date" value={draft.coupon_freight_valid_from || ""}
+                onChange={(e) => onDraftChange({ coupon_freight_valid_from: e.target.value || null })} />
+            </div>
+            <div className="space-y-2">
+              <Label>Fim</Label>
+              <Input type="date" value={draft.coupon_freight_valid_until || ""}
+                onChange={(e) => onDraftChange({ coupon_freight_valid_until: e.target.value || null })} />
+            </div>
+            <div className="space-y-2">
+              <Label>Limite de usos por cupom</Label>
+              <Input type="number" min="0" step="1" value={draft.coupon_freight_usage_limit ?? ""} placeholder="Sem limite"
+                onChange={(e) => onDraftChange({ coupon_freight_usage_limit: e.target.value ? Number(e.target.value) : null })} />
+            </div>
+          </div>
+          <Button onClick={() => generateCoupons("freight")} disabled={!!busy}>
+            {busy === "freight" ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Truck className="mr-2 h-4 w-4" />}
+            Gerar cupons com frete grátis
+          </Button>
+          {freightCoupons.length > 0 && (
+            <div className="space-y-2">{freightCoupons.map(renderCoupon)}</div>
+          )}
+        </div>
       </CardContent>
     </Card>
   );

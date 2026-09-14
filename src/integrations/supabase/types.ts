@@ -18488,7 +18488,9 @@ export type Database = {
           created_at: string
           discount_type: string
           discount_value: number
+          free_shipping: boolean
           id: string
+          kind: string
           li_coupon_id: string | null
           li_sync_error: string | null
           li_synced_at: string | null
@@ -18506,7 +18508,9 @@ export type Database = {
           created_at?: string
           discount_type?: string
           discount_value?: number
+          free_shipping?: boolean
           id?: string
+          kind?: string
           li_coupon_id?: string | null
           li_sync_error?: string | null
           li_synced_at?: string | null
@@ -18524,7 +18528,9 @@ export type Database = {
           created_at?: string
           discount_type?: string
           discount_value?: number
+          free_shipping?: boolean
           id?: string
+          kind?: string
           li_coupon_id?: string | null
           li_sync_error?: string | null
           li_synced_at?: string | null
@@ -18686,6 +18692,10 @@ export type Database = {
         Row: {
           coupon_discount_type: string
           coupon_discount_value: number
+          coupon_freight_discount_value: number | null
+          coupon_freight_usage_limit: number | null
+          coupon_freight_valid_from: string | null
+          coupon_freight_valid_until: string | null
           coupon_li_category_ids: number[]
           coupon_li_category_labels: string[]
           coupon_prefix: string | null
@@ -18711,6 +18721,10 @@ export type Database = {
         Insert: {
           coupon_discount_type?: string
           coupon_discount_value?: number
+          coupon_freight_discount_value?: number | null
+          coupon_freight_usage_limit?: number | null
+          coupon_freight_valid_from?: string | null
+          coupon_freight_valid_until?: string | null
           coupon_li_category_ids?: number[]
           coupon_li_category_labels?: string[]
           coupon_prefix?: string | null
@@ -18736,6 +18750,10 @@ export type Database = {
         Update: {
           coupon_discount_type?: string
           coupon_discount_value?: number
+          coupon_freight_discount_value?: number | null
+          coupon_freight_usage_limit?: number | null
+          coupon_freight_valid_from?: string | null
+          coupon_freight_valid_until?: string | null
           coupon_li_category_ids?: number[]
           coupon_li_category_labels?: string[]
           coupon_prefix?: string | null

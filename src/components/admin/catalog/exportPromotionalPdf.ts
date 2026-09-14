@@ -509,14 +509,17 @@ export async function exportPromotionalPdf(
   // ---- Cupons: vendedores autorizados e códigos para o e-commerce ----
   const { data: couponRows } = await supabase
     .from("promotional_coupons" as any)
-    .select("code,seller_name,discount_type,discount_value,valid_from,valid_until,active")
+    .select("code,seller_name,discount_type,discount_value,valid_from,valid_until,active,kind,free_shipping")
     .eq("promotional_table_id", table.id)
     .eq("active", true)
     .order("seller_name");
   const coupons = ((couponRows as any) || []) as Array<{
     code: string; seller_name: string | null; discount_type: string;
     discount_value: number; valid_from: string | null; valid_until: string | null;
+    kind?: string | null; free_shipping?: boolean | null;
   }>;
+  const isFreightCoupon = (coupon: { kind?: string | null; free_shipping?: boolean | null }) =>
+    coupon.free_shipping === true || coupon.kind === "freight";
   if (coupons.length) {
     doc.addPage();
     header();
@@ -554,13 +557,15 @@ export async function exportPromotionalPdf(
     autoTable(doc, {
       startY: cursor,
       margin: { left: margin, right: margin, top: pageTop, bottom: pageBottom },
-      head: [["Vendedor autorizado", "Cupom", "Desconto", "Início", "Término"]],
-      body: coupons.map((coupon) => [
+      head: [["Vendedor autorizado", "Cupom", "Benefício", "Início", "Término"]],
+      body: [...coupons].sort((a, b) => Number(isFreightCoupon(a)) - Number(isFreightCoupon(b))).map((coupon) => [
         coupon.seller_name || "—",
         coupon.code,
-        coupon.discount_type === "fixed"
-          ? money(Number(coupon.discount_value || 0), table.currency)
-          : `${Number(coupon.discount_value || 0).toFixed(1).replace(".", ",")}%`,
+        isFreightCoupon(coupon)
+          ? "Frete grátis"
+          : coupon.discount_type === "fixed"
+            ? money(Number(coupon.discount_value || 0), table.currency)
+            : `${Number(coupon.discount_value || 0).toFixed(1).replace(".", ",")}%`,
         coupon.valid_from ? date(coupon.valid_from) : "—",
         coupon.valid_until ? date(coupon.valid_until) : "—",
       ]),

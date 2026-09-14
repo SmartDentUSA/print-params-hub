@@ -22,6 +22,10 @@ export type PromotionalTable = {
   coupon_valid_until?: string | null;
   coupon_li_category_ids?: number[] | null;
   coupon_li_category_labels?: string[] | null;
+  coupon_freight_discount_value?: number | null;
+  coupon_freight_valid_from?: string | null;
+  coupon_freight_valid_until?: string | null;
+  coupon_freight_usage_limit?: number | null;
   created_at: string;
   updated_at: string;
 };
@@ -41,6 +45,8 @@ export type PromotionalCoupon = {
   li_coupon_id: string | null;
   li_synced_at: string | null;
   li_sync_error: string | null;
+  kind?: "discount" | "freight" | string | null;
+  free_shipping?: boolean | null;
 };
 
 export type PromotionalSection = {
