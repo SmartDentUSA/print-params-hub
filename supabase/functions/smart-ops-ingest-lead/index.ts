@@ -634,7 +634,7 @@ Deno.serve(async (req) => {
     }
 
     const produtoInteresseAuto = payload.produto_interesse_auto || produtoInteresse || formProduct || null;
-    let conversionKey = buildConversionKey({
+    const conversionKey = buildConversionKey({
       source,
       formName,
       formId: payload.platform_form_id || payload.meta_form_id,
@@ -643,15 +643,7 @@ Deno.serve(async (req) => {
       phone: telefoneNormalized || telefoneRaw,
       submissionId: payload.submission_id || payload.form_submission_id || payload.response_id,
     });
-    // Feiras e eventos: cada cadastro no estande é uma conversão comercial real
-    // (o visitante foi atendido por um consultor). Sem chave de conversão, leads
-    // já existentes ficavam CDP-only e nunca entravam no fluxo do CRM.
-    // Chave determinística por evento + formulário + dia: reenvio no mesmo dia
-    // não duplica, mas cada dia de feira conta como nova conversão.
-    if (!conversionKey && formPurpose === "feira_evento" && formName) {
-      const day = new Date().toISOString().slice(0, 10);
-      conversionKey = `feira:${payload.event_id || "evento"}:${formName}:${day}`;
-    }
+
 
 
     // ─── UNIVERSAL META RE-DELIVERY ROUTE ───
