@@ -93,7 +93,7 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const tableId = String(body?.promotional_table_id || "").trim();
     const mode = String(body?.mode || "sync");
-    if (!tableId && mode !== "categories") {
+    if (!tableId && mode !== "categories" && mode !== "inspect_coupons") {
       return json({ ok: false, error: "promotional_table_id é obrigatório" }, 400);
     }
 
