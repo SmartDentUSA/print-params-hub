@@ -164,17 +164,23 @@ Deno.serve(async (req) => {
 
     for (const coupon of coupons) {
       const isPercent = coupon.discount_type !== "fixed";
+      // A Loja Integrada aceita um único tipo por cupom ('porcentagem' | 'fixo' | 'frete_gratis').
+      // Os cupons de frete grátis são criados como cumulativos para poderem ser usados
+      // junto com o cupom de desconto do mesmo vendedor.
+      const isFreight = coupon.free_shipping === true || coupon.kind === "freight";
       const payload: Record<string, unknown> = {
         codigo: coupon.code,
-        descricao: `${tableRow?.title || "Promoção Smart Dent"} — ${coupon.code}`,
-        valor: Number(coupon.discount_value || 0).toFixed(2),
-        tipo: isPercent ? "porcentagem" : "fixo",
+        descricao: `${tableRow?.title || "Promoção Smart Dent"} — ${coupon.code}${isFreight ? " (frete grátis)" : ""}`,
+        valor: isFreight ? "0.00" : Number(coupon.discount_value || 0).toFixed(2),
+        tipo: isFreight ? "frete_gratis" : isPercent ? "porcentagem" : "fixo",
         ativo: coupon.active,
         aplicar_no_total: true,
-        cumulativo: false,
+        cumulativo: isFreight,
         condicao_cliente: "todos_clientes",
-        condicao_produto: categoryIds.length ? "categorias_selecionadas" : "todos_produtos",
-        categorias: categoryIds,
+        condicao_produto: isFreight
+          ? "todos_produtos"
+          : categoryIds.length ? "categorias_selecionadas" : "todos_produtos",
+        categorias: isFreight ? [] : categoryIds,
         validade: asDateTime(coupon.valid_until, true),
       };
       if (coupon.usage_limit && coupon.usage_limit > 0) payload.quantidade = coupon.usage_limit;
