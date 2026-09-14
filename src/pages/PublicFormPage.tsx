@@ -328,7 +328,7 @@ export default function PublicFormPage() {
       });
     }
     return groups;
-  }, [isEventForm, eventCategories.join("|"), catalogTree]);
+  }, [isEventForm, eventCategories.join("|"), catalogTree, eventCombos.length]);
 
   // Consultores habilitados para o evento
   useEffect(() => {
