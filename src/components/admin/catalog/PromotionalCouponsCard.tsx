@@ -12,6 +12,16 @@ import { toast } from "sonner";
 import type { PromotionalCoupon, PromotionalTable } from "./promotionalTypes";
 
 type Seller = { id: string; nome_completo: string; celular?: string | null };
+type LiCategory = { id: number; nome: string; parent_id: number | null };
+
+/** Categorias da loja liberadas por padrão nas promoções de evento. */
+const DEFAULT_CATEGORY_IDS = [
+  23783660, 23783662,                                             // Resinas 3D: Biocompatíveis, Uso geral
+  23791999,                                                       // Pós-Impressão: Acabamento e Finalização
+  23792018, 23792019,                                             // Caracterização: SmartGum, SmartMake
+  23791995, 23824438, 23791996, 23824571, 23824557, 23791997,     // Dentística, Estética e Ortodontia
+  23824433, 23791988, 23791989,                                   // Insumos Laboratório
+];
 
 const slug = (value: string) =>
   value.toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^A-Z0-9]+/g, "").slice(0, 12);
@@ -31,9 +41,34 @@ export function PromotionalCouponsCard({ table, draft, onDraftChange }: Props) {
   const [busy, setBusy] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [sellerSource, setSellerSource] = useState<"event" | "team">("team");
+  const [categories, setCategories] = useState<LiCategory[]>([]);
+  const [loadingCats, setLoadingCats] = useState(false);
 
   const selected = (draft.coupon_seller_ids || []) as string[];
   const discountType = (draft.coupon_discount_type || "percent") as "percent" | "fixed";
+  const categoryIds = (draft.coupon_li_category_ids || []) as number[];
+
+  const loadCategories = useCallback(async () => {
+    setLoadingCats(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("smart-ops-promo-coupons-sync", {
+        body: { mode: "categories" },
+      });
+      if (error) throw error;
+      setCategories(((data as { categories?: LiCategory[] })?.categories || []));
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Não foi possível carregar as categorias da loja.");
+    } finally {
+      setLoadingCats(false);
+    }
+  }, []);
+
+  useEffect(() => { loadCategories(); }, [loadCategories]);
+
+  const toggleCategory = (id: number) => {
+    const next = categoryIds.includes(id) ? categoryIds.filter((row) => row !== id) : [...categoryIds, id];
+    onDraftChange({ coupon_li_category_ids: next });
+  };
 
   const loadSellers = useCallback(async () => {
     // Mesma lista liberada no formulário do evento; sem evento, toda a equipe ativa.
@@ -94,6 +129,15 @@ export function PromotionalCouponsCard({ table, draft, onDraftChange }: Props) {
         coupon_usage_limit: draft.coupon_usage_limit ?? null,
         coupon_valid_from: draft.coupon_valid_from ?? null,
         coupon_valid_until: draft.coupon_valid_until ?? null,
+        coupon_li_category_ids: categoryIds,
+        coupon_li_category_labels: categoryIds
+          .map((id) => {
+            const cat = categories.find((row) => row.id === id);
+            if (!cat) return null;
+            const parent = categories.find((row) => row.id === cat.parent_id);
+            return parent ? `${parent.nome}: ${cat.nome}` : cat.nome;
+          })
+          .filter(Boolean),
       }).eq("id", table.id);
 
       const used = new Set(coupons.map((coupon) => coupon.code));
@@ -248,6 +292,53 @@ export function PromotionalCouponsCard({ table, draft, onDraftChange }: Props) {
                 );
               })}
               {!sellers.length && <p className="text-sm text-muted-foreground">Nenhum vendedor ativo encontrado.</p>}
+            </div>
+          )}
+        </div>
+
+        <div className="space-y-2">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <Label>Categorias da loja onde o cupom vale</Label>
+            <div className="flex gap-2">
+              <Button type="button" size="sm" variant="outline"
+                onClick={() => onDraftChange({ coupon_li_category_ids: DEFAULT_CATEGORY_IDS })}>
+                Seleção padrão
+              </Button>
+              <Button type="button" size="sm" variant="ghost"
+                onClick={() => onDraftChange({ coupon_li_category_ids: [] })}>
+                Limpar
+              </Button>
+            </div>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            {categoryIds.length
+              ? `${categoryIds.length} categoria(s) selecionada(s) — o desconto só vale nesses produtos.`
+              : "Nenhuma categoria marcada: o cupom valerá para toda a loja."}
+          </p>
+          {loadingCats ? <p className="text-sm text-muted-foreground">Carregando categorias da loja...</p> : (
+            <div className="max-h-72 space-y-3 overflow-y-auto rounded-md border p-3">
+              {categories.filter((cat) => !cat.parent_id).map((parent) => {
+                const children = categories.filter((cat) => cat.parent_id === parent.id);
+                if (!children.length) return null;
+                return (
+                  <div key={parent.id} className="space-y-2">
+                    <p className="text-xs font-semibold uppercase text-muted-foreground">{parent.nome}</p>
+                    <div className="grid gap-2 grid-cols-2">
+                      {children.map((child) => {
+                        const active = categoryIds.includes(child.id);
+                        return (
+                          <button type="button" key={child.id} onClick={() => toggleCategory(child.id)}
+                            className={`flex items-center gap-2 rounded-lg border p-2 text-left text-sm transition ${active ? "border-primary bg-primary/5" : "hover:bg-muted/50"}`}>
+                            <Checkbox checked={active} className="pointer-events-none" />
+                            <span className="truncate">{child.nome}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+              {!categories.length && <p className="text-sm text-muted-foreground">Nenhuma categoria retornada pela loja.</p>}
             </div>
           )}
         </div>
