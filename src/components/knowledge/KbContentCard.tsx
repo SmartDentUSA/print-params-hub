@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { getStorageImageUrl } from '@/utils/storageImage';
 import { shortenUrl } from '@/utils/shortLink';
+import { QrCodeButton } from '@/components/smartops/QrCodeButton';
 
 export interface KbContentCardData {
   id: string;
