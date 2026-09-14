@@ -147,12 +147,25 @@ export function PromotionalTablesTab() {
     setSaving(false);
   };
 
+  /** Garante que a tabela exista no banco antes de criar seções/itens. */
+  const ensureTable = async (): Promise<PromotionalTable | null> => {
+    if (selected?.id) return selected;
+    if (!draft.name.trim()) { toast.error("Informe o nome da tabela promocional."); return null; }
+    const { data, error } = await supabase.from("promotional_tables" as any).insert(draft).select("*").single();
+    if (error) { toast.error(error.message); return null; }
+    const created = data as any as PromotionalTable;
+    setSelected(created);
+    await loadTables();
+    return created;
+  };
+
   const addSection = async () => {
-    if (!selected) { toast.info("Salve a tabela antes de adicionar combos."); return; }
+    const table = await ensureTable();
+    if (!table) return;
     const { error } = await supabase.from("promotional_table_sections" as any).insert({
-      promotional_table_id: selected.id, title: `Combo ${sections.length + 1}`, sort_order: sections.length,
+      promotional_table_id: table.id, title: `Combo ${sections.length + 1}`, sort_order: sections.length,
     });
-    if (error) toast.error(error.message); else await loadSections(selected);
+    if (error) toast.error(error.message); else await loadSections(table);
   };
 
   const uploadSectionImage = async (sectionId: string, file: File) => {
