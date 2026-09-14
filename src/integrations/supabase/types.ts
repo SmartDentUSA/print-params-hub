@@ -10761,6 +10761,9 @@ export type Database = {
           erp_status: string | null
           erp_updated_at: string | null
           especialidade: string | null
+          event_consultant_team_member_id: string | null
+          event_id: string | null
+          event_interest_categories: string[] | null
           facebook_psid: string | null
           form_data: Json | null
           form_name: string | null
@@ -11382,6 +11385,9 @@ export type Database = {
           erp_status?: string | null
           erp_updated_at?: string | null
           especialidade?: string | null
+          event_consultant_team_member_id?: string | null
+          event_id?: string | null
+          event_interest_categories?: string[] | null
           facebook_psid?: string | null
           form_data?: Json | null
           form_name?: string | null
@@ -12003,6 +12009,9 @@ export type Database = {
           erp_status?: string | null
           erp_updated_at?: string | null
           especialidade?: string | null
+          event_consultant_team_member_id?: string | null
+          event_id?: string | null
+          event_interest_categories?: string[] | null
           facebook_psid?: string | null
           form_data?: Json | null
           form_name?: string | null
@@ -23317,6 +23326,9 @@ export type Database = {
           custom_css: string | null
           description: string | null
           display_mode: string
+          event_categories: Json
+          event_consultant_ids: string[]
+          event_id: string | null
           extra_sections: Json | null
           font_body: string | null
           font_heading: string | null
@@ -23384,6 +23396,9 @@ export type Database = {
           custom_css?: string | null
           description?: string | null
           display_mode?: string
+          event_categories?: Json
+          event_consultant_ids?: string[]
+          event_id?: string | null
           extra_sections?: Json | null
           font_body?: string | null
           font_heading?: string | null
@@ -23451,6 +23466,9 @@ export type Database = {
           custom_css?: string | null
           description?: string | null
           display_mode?: string
+          event_categories?: Json
+          event_consultant_ids?: string[]
+          event_id?: string | null
           extra_sections?: Json | null
           font_body?: string | null
           font_heading?: string | null
@@ -23495,6 +23513,13 @@ export type Database = {
           workflow_stage_target?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "smartops_forms_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "smartops_events"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "smartops_forms_forced_seller_team_member_id_fkey"
             columns: ["forced_seller_team_member_id"]
@@ -36009,6 +36034,9 @@ export type Database = {
           erp_status: string | null
           erp_updated_at: string | null
           especialidade: string | null
+          event_consultant_team_member_id: string | null
+          event_id: string | null
+          event_interest_categories: string[] | null
           facebook_psid: string | null
           form_data: Json | null
           form_name: string | null
