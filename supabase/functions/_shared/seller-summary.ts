@@ -342,7 +342,6 @@ export async function buildSellerDealSummaryHTML(
     "event consultant team member id",
     "event consultant",
     "proprietario lead crm",
-    "consultor",
     "produto interesse",
     "produto interesse auto",
     "origem primeiro contato",
@@ -357,7 +356,6 @@ export async function buildSellerDealSummaryHTML(
     "celuar de contato",
     "celular de contato",
     "nome comleto",
-    "combos de interesse",
     "event interest categories",
   ]);
   const humanizeLabel = (k: string) =>
