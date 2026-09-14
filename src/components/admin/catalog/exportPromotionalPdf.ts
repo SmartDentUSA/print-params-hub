@@ -71,6 +71,56 @@ async function fetchOfficialPriceList() {
   return { distributor: distributor as any, list: list as any, items: items as any[] };
 }
 
+type EventSession = { date?: string; start_time?: string; end_time?: string; theme?: string };
+type EventSpeaker = {
+  name?: string; theme?: string; instagram?: string; specialty?: string;
+  sessions?: EventSession[]; support_sessions?: EventSession[];
+};
+type EventRow = {
+  id: string; name: string; location: string | null; company_stand: string | null;
+  start_date: string | null; end_date: string | null; speakers: EventSpeaker[] | null;
+};
+
+async function fetchEvent(eventId?: string | null): Promise<EventRow | null> {
+  if (!eventId) return null;
+  const { data } = await supabase
+    .from("smartops_events" as any)
+    .select("id,name,location,company_stand,start_date,end_date,speakers")
+    .eq("id", eventId)
+    .maybeSingle();
+  return (data as any) ?? null;
+}
+
+const handleOf = (value?: string | null) => {
+  let raw = String(value || "").trim();
+  const idx = raw.toLowerCase().lastIndexOf("instagram.com/");
+  if (idx >= 0) raw = raw.slice(idx + "instagram.com/".length);
+  return raw.split(/[?#\s,]/)[0].replace(/\/+$/, "").replace(/^@+/, "");
+};
+
+const hhmm = (value?: string | null) => String(value || "").slice(0, 5);
+
+/** Flattens speaker sessions into printable rows grouped by day. */
+function eventRows(speakers: EventSpeaker[], field: "sessions" | "support_sessions") {
+  const rows: { day: string; start: string; end: string; name: string; theme: string; instagram: string; specialty: string }[] = [];
+  for (const speaker of speakers) {
+    if (!speaker.name) continue;
+    for (const session of speaker[field] || []) {
+      if (!session.date) continue;
+      rows.push({
+        day: session.date.slice(0, 10),
+        start: hhmm(session.start_time),
+        end: hhmm(session.end_time),
+        name: speaker.name,
+        theme: String(session.theme || speaker.theme || "").trim(),
+        instagram: handleOf(speaker.instagram),
+        specialty: speaker.specialty || "",
+      });
+    }
+  }
+  return rows.sort((a, b) => `${a.day}${a.start}`.localeCompare(`${b.day}${b.start}`));
+}
+
 export async function exportPromotionalPdf(
   table: PromotionalTable,
   sections: PromotionalSectionWithItems[],
