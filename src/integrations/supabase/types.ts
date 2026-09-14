@@ -18478,6 +18478,7 @@ export type Database = {
           catalog_variation_id: string | null
           created_at: string
           description: string | null
+          group_label: string | null
           id: string
           image_url: string | null
           item_type: string
@@ -18495,6 +18496,7 @@ export type Database = {
           catalog_variation_id?: string | null
           created_at?: string
           description?: string | null
+          group_label?: string | null
           id?: string
           image_url?: string | null
           item_type?: string
@@ -18512,6 +18514,7 @@ export type Database = {
           catalog_variation_id?: string | null
           created_at?: string
           description?: string | null
+          group_label?: string | null
           id?: string
           image_url?: string | null
           item_type?: string

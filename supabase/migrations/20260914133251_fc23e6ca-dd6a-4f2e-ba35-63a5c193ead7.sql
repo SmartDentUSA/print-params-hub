@@ -1,0 +1,1 @@
+ALTER TABLE public.promotional_table_items ADD COLUMN IF NOT EXISTS group_label text;
