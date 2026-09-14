@@ -163,8 +163,140 @@ export async function exportPromotionalPdf(
     comboImages.set(section.id, await loadImage(section.image_url, 520));
   }));
 
+  // ---- Primeira página: dados do evento + vendedores autorizados com seus cupons ----
+  const event = await fetchEvent(table.event_id);
+  const showDiscount = table.coupon_pdf_enabled !== false;
+  const showFreight = table.coupon_freight_pdf_enabled !== false;
+
+  type CouponRow = {
+    code: string; seller_name: string | null; discount_type: string; discount_value: number;
+    valid_from: string | null; valid_until: string | null; kind?: string | null; free_shipping?: boolean | null;
+  };
+  let couponList: CouponRow[] = [];
+  if (showDiscount || showFreight) {
+    const { data } = await supabase
+      .from("promotional_coupons" as any)
+      .select("code,seller_name,discount_type,discount_value,valid_from,valid_until,active,kind,free_shipping")
+      .eq("promotional_table_id", table.id)
+      .eq("active", true)
+      .order("seller_name");
+    couponList = ((data as any) || []) as CouponRow[];
+  }
+  const isFreightCoupon = (coupon: CouponRow) =>
+    coupon.free_shipping === true || coupon.kind === "freight";
+  const benefit = (coupon: CouponRow) =>
+    coupon.discount_type === "fixed"
+      ? money(Number(coupon.discount_value || 0), table.currency)
+      : `${Number(coupon.discount_value || 0).toFixed(1).replace(".", ",")}%`;
+
+  // Uma linha por vendedor: cupom de desconto e cupom de frete grátis lado a lado.
+  const sellerMap = new Map<string, { discount?: CouponRow; freight?: CouponRow }>();
+  for (const coupon of couponList) {
+    const key = coupon.seller_name || "—";
+    const entry = sellerMap.get(key) || {};
+    if (isFreightCoupon(coupon)) { if (showFreight) entry.freight = coupon; }
+    else if (showDiscount) entry.discount = coupon;
+    sellerMap.set(key, entry);
+  }
+  const sellerRows = [...sellerMap.entries()].filter(([, entry]) => entry.discount || entry.freight);
+
   header();
   let y = pageTop;
+
+  if (event || sellerRows.length) {
+    if (event) {
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(13);
+      doc.text(event.name.toUpperCase(), margin, y);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9);
+      doc.setTextColor(90, 95, 100);
+      const info = [
+        event.location,
+        event.company_stand ? `Estande ${event.company_stand}` : null,
+        event.start_date ? `${date(event.start_date)} a ${date(event.end_date)}` : null,
+      ].filter(Boolean).join("  •  ");
+      if (info) doc.text(info, margin, y + 16);
+      doc.setTextColor(0, 0, 0);
+      y += info ? 38 : 24;
+    }
+
+    if (sellerRows.length) {
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(11);
+      doc.text("VENDEDORES HABILITADOS E CUPONS", margin, y);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8);
+      doc.setTextColor(110, 110, 110);
+      const period = [
+        table.coupon_valid_from ? `Início ${date(table.coupon_valid_from)}` : null,
+        table.coupon_valid_until ? `Término ${date(table.coupon_valid_until)}` : null,
+      ].filter(Boolean).join("  •  ");
+      doc.text(
+        ["Cupons válidos na loja oficial: loja.smartdent.com.br", period || null].filter(Boolean).join("  •  "),
+        margin,
+        y + 14,
+      );
+      y += 26;
+      const categoryLabels = (table.coupon_li_category_labels || []).filter(Boolean);
+      if (categoryLabels.length) {
+        const lines = doc.splitTextToSize(
+          `Cupons válidos nas categorias: ${categoryLabels.join(" • ")}`,
+          width - margin * 2,
+        ) as string[];
+        doc.text(lines, margin, y);
+        y += lines.length * 10 + 6;
+      }
+      doc.setTextColor(0, 0, 0);
+
+      const head = showFreight
+        ? [["Vendedor habilitado", "Cupom de desconto", "Desconto", "Cupom frete grátis"]]
+        : [["Vendedor habilitado", "Cupom de desconto", "Desconto"]];
+      autoTable(doc, {
+        startY: y,
+        margin: { left: margin, right: margin, top: pageTop, bottom: pageBottom },
+        head,
+        body: sellerRows.map(([name, entry]) => {
+          const row = [
+            name,
+            entry.discount?.code || "—",
+            entry.discount ? benefit(entry.discount) : "—",
+          ];
+          if (showFreight) row.push(entry.freight?.code || "—");
+          return row;
+        }),
+        styles: { fontSize: 8.5, cellPadding: 5, lineColor: [210, 214, 218], lineWidth: 0.4, valign: "middle" },
+        headStyles: { fillColor: dark, textColor: 255, fontStyle: "bold" },
+        alternateRowStyles: { fillColor: [245, 246, 247] },
+        columnStyles: {
+          1: { fontStyle: "bold", halign: "center", cellWidth: 120 },
+          2: { halign: "center", cellWidth: 70 },
+          3: { fontStyle: "bold", halign: "center", cellWidth: 120 },
+        },
+        didDrawPage: header,
+      });
+      y = ((doc as any).lastAutoTable?.finalY ?? y) + 14;
+      if (showFreight) {
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(7.5);
+        doc.setTextColor(110, 110, 110);
+        doc.text(
+          doc.splitTextToSize(
+            'O cupom terminado em "F" garante frete grátis na compra online e pode ser usado junto com o cupom de desconto.',
+            width - margin * 2,
+          ) as string[],
+          margin,
+          y,
+        );
+        doc.setTextColor(0, 0, 0);
+      }
+    }
+
+    doc.addPage();
+    header();
+    y = pageTop;
+  }
+
   for (const [index, section] of sections.entries()) {
     if (y > height - 150) {
       doc.addPage();
