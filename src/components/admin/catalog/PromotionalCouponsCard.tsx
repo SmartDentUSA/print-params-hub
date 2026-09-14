@@ -288,6 +288,53 @@ export function PromotionalCouponsCard({ table, draft, onDraftChange }: Props) {
           )}
         </div>
 
+        <div className="space-y-2">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <Label>Categorias da loja onde o cupom vale</Label>
+            <div className="flex gap-2">
+              <Button type="button" size="sm" variant="outline"
+                onClick={() => onDraftChange({ coupon_li_category_ids: DEFAULT_CATEGORY_IDS })}>
+                Seleção padrão
+              </Button>
+              <Button type="button" size="sm" variant="ghost"
+                onClick={() => onDraftChange({ coupon_li_category_ids: [] })}>
+                Limpar
+              </Button>
+            </div>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            {categoryIds.length
+              ? `${categoryIds.length} categoria(s) selecionada(s) — o desconto só vale nesses produtos.`
+              : "Nenhuma categoria marcada: o cupom valerá para toda a loja."}
+          </p>
+          {loadingCats ? <p className="text-sm text-muted-foreground">Carregando categorias da loja...</p> : (
+            <div className="max-h-72 space-y-3 overflow-y-auto rounded-md border p-3">
+              {categories.filter((cat) => !cat.parent_id).map((parent) => {
+                const children = categories.filter((cat) => cat.parent_id === parent.id);
+                if (!children.length) return null;
+                return (
+                  <div key={parent.id} className="space-y-2">
+                    <p className="text-xs font-semibold uppercase text-muted-foreground">{parent.nome}</p>
+                    <div className="grid gap-2 grid-cols-2">
+                      {children.map((child) => {
+                        const active = categoryIds.includes(child.id);
+                        return (
+                          <button type="button" key={child.id} onClick={() => toggleCategory(child.id)}
+                            className={`flex items-center gap-2 rounded-lg border p-2 text-left text-sm transition ${active ? "border-primary bg-primary/5" : "hover:bg-muted/50"}`}>
+                            <Checkbox checked={active} className="pointer-events-none" />
+                            <span className="truncate">{child.nome}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+              {!categories.length && <p className="text-sm text-muted-foreground">Nenhuma categoria retornada pela loja.</p>}
+            </div>
+          )}
+        </div>
+
         <div className="flex flex-wrap gap-2">
           <Button onClick={generateCoupons} disabled={busy}>
             {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Ticket className="mr-2 h-4 w-4" />}
