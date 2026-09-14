@@ -644,6 +644,35 @@ Deno.serve(async (req) => {
       submissionId: payload.submission_id || payload.form_submission_id || payload.response_id,
     });
 
+    // Feiras e eventos: injeta "Evento" nas respostas ANTES de gravar form_data
+    // e de despachar lia-assign, para que a nota "Resumo do Lead" no PipeRun
+    // mostre o evento junto do consultor e dos combos escolhidos.
+    let eventNameForTimeline: string | null = null;
+    if (payload.event_id) {
+      try {
+        const { data: ev } = await supabase
+          .from("smartops_events")
+          .select("name, location, company_stand")
+          .eq("id", payload.event_id)
+          .maybeSingle();
+        if (ev?.name) {
+          eventNameForTimeline = String(ev.name);
+          const stand = [ev.location, ev.company_stand].filter(Boolean).join(" · ");
+          const evValue = stand ? `${ev.name} (${stand})` : String(ev.name);
+          const existing = Array.isArray(payload.form_responses) ? payload.form_responses : [];
+          const hasEvento = existing.some(
+            (r: any) => String(r?.label ?? "").trim().toLowerCase() === "evento",
+          );
+          if (!hasEvento) {
+            payload.form_responses = [{ label: "Evento", value: evValue }, ...existing];
+          }
+        }
+      } catch (e) {
+        console.warn("[ingest-lead] event name lookup failed:", e);
+      }
+    }
+
+
 
 
     // ─── UNIVERSAL META RE-DELIVERY ROUTE ───
