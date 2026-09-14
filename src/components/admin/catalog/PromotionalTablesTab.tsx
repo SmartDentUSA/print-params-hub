@@ -17,6 +17,7 @@ import type { PromotionalItem, PromotionalSectionWithItems, PromotionalStatus, P
 import { itemTotals } from "./promotionalTypes";
 
 type DistributorOption = { id: string; razao_social: string; nome_fantasia: string | null };
+type EventOption = { id: string; name: string; start_date: string | null; company_stand: string | null };
 type CatalogOption = {
   key: string; productId: string; variationId: string | null; name: string; sku: string | null;
   imageUrl: string | null; price: number; variation: string | null;
