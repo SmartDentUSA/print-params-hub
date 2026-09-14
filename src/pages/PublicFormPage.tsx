@@ -297,7 +297,8 @@ export default function PublicFormPage() {
 
   /** Categorias habilitadas expandidas em subcategorias do catálogo. */
   const eventCategoryGroups = useMemo(() => {
-    if (!isEventForm || eventCategories.length === 0) return [];
+    // Quando o evento tem tabela promocional, os combos substituem as categorias
+    if (!isEventForm || eventCategories.length === 0 || eventCombos.length > 0) return [];
     const enabled = new Set(eventCategories);
     const groups: { category: string; options: { key: string; label: string }[] }[] = [];
     for (const node of catalogTree) {
