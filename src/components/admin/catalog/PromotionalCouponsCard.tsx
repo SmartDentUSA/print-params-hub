@@ -312,8 +312,18 @@ export function PromotionalCouponsCard({ table, draft, onDraftChange }: Props) {
       <CardHeader className="pb-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <CardTitle className="flex items-center gap-2 text-base"><Ticket className="h-4 w-4" />Cupons e vendedores autorizados</CardTitle>
-          <Badge variant="secondary">{coupons.length} cupom(ns)</Badge>
+          <div className="flex items-center gap-3">
+            <Badge variant="secondary">{coupons.length} cupom(ns)</Badge>
+            <div className="flex items-center gap-2">
+              <Switch id="coupon-pdf" checked={draft.coupon_pdf_enabled !== false}
+                onCheckedChange={(value) => onDraftChange({ coupon_pdf_enabled: value })} />
+              <Label htmlFor="coupon-pdf" className="text-xs font-normal">
+                {draft.coupon_pdf_enabled !== false ? "Ativo no PDF" : "Não ativo"}
+              </Label>
+            </div>
+          </div>
         </div>
+
         <p className="text-xs text-muted-foreground">
           {sellerSource === "event"
             ? "Lista liberada no formulário deste evento."
