@@ -11,6 +11,7 @@ import KbSkeletonGrid from './KbSkeletonGrid';
 import KbContentCard, { KbContentCardData } from './KbContentCard';
 import { resolveCategoryTk } from './kbCategoryTaxonomy';
 import KbListControls, { KbSortKey, KbViewMode } from './KbListControls';
+import { useIsAdminUser } from '@/hooks/useMetaFormMappings';
 
 interface Row {
   id: string; title: string; title_en: string | null; title_es: string | null;
@@ -28,16 +29,7 @@ export default function KbTabEbooks({ onOpen }: Props) {
   const [q, setQ] = useState('');
   const [sort, setSort] = useState<KbSortKey>('recent');
   const [view, setView] = useState<KbViewMode>('grid');
-  const [isLogged, setIsLogged] = useState(false);
-
-  useEffect(() => {
-    let cancel = false;
-    supabase.auth.getSession().then(({ data }) => {
-      if (!cancel) setIsLogged(!!data.session);
-    });
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => setIsLogged(!!session));
-    return () => { cancel = true; sub.subscription.unsubscribe(); };
-  }, []);
+  const { data: isAdmin } = useIsAdminUser();
 
   useEffect(() => {
     let cancel = false;
@@ -103,7 +95,7 @@ export default function KbTabEbooks({ onOpen }: Props) {
           <KbEmptyState icon="📘" />
         ) : (
           cards.map((c, i) => (
-            <KbContentCard key={c.id} data={c} index={i} buttonLabel={t('kb.artigos.read_more')} showQrCode={isLogged} onClick={() => onOpen(sortedRows[i].slug)} />
+            <KbContentCard key={c.id} data={c} index={i} buttonLabel={t('kb.artigos.read_more')} showQrCode={!!isAdmin} onClick={() => onOpen(sortedRows[i].slug)} />
           ))
         )}
       </div>
