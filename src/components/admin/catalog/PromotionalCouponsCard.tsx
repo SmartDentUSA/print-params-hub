@@ -171,7 +171,14 @@ export function PromotionalCouponsCard({ table, draft, onDraftChange }: Props) {
           .filter(Boolean),
       }).eq("id", table.id);
 
-      const used = new Set(coupons.map((coupon) => coupon.code));
+      // Os códigos dos cupons que vão ser regenerados saem da lista de conflitos,
+      // senão o código nunca muda quando o prefixo ou o desconto são alterados.
+      const regenerating = new Set(
+        coupons
+          .filter((coupon) => couponKind(coupon) === kind && selected.includes(coupon.team_member_id || ""))
+          .map((coupon) => coupon.id),
+      );
+      const used = new Set(coupons.filter((coupon) => !regenerating.has(coupon.id)).map((coupon) => coupon.code));
       const rows: Record<string, unknown>[] = [];
       for (const id of selected) {
         const seller = sellers.find((row) => row.id === id);
@@ -181,9 +188,9 @@ export function PromotionalCouponsCard({ table, draft, onDraftChange }: Props) {
         );
         // Padrão do código: iniciais do congresso + iniciais do vendedor + número do desconto (+ F no frete grátis).
         const base = `${prefix}${sellerInitials(seller.nome_completo)}${discountToken(value)}${isFreight ? "F" : ""}`;
-        let code = existing?.code || base;
+        let code = base;
         let counter = 2;
-        while (!existing && used.has(code)) { code = `${base}${counter}`; counter += 1; }
+        while (used.has(code)) { code = `${base}${counter}`; counter += 1; }
         used.add(code);
         rows.push({
           id: existing?.id,
