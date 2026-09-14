@@ -1100,20 +1100,30 @@ export default function PublicFormPage() {
             {isEventForm && eventConsultants.length > 0 && (
               <div className="space-y-1.5">
                 <Label style={isEmbed ? { color: "#0f172a", opacity: 1 } : undefined}>
-                  Consultor <span className="text-destructive ml-1">*</span>
+                  Consultores no estande <span className="text-destructive ml-1">*</span>
                 </Label>
-                <select
-                  className="w-full border rounded-md h-12 md:h-10 px-3 text-base md:text-sm bg-background border-input"
-                  value={consultantId}
-                  onChange={(e) => setConsultantId(e.target.value)}
-                >
-                  <option value="">Selecione o consultor...</option>
-                  {eventConsultants.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.nome_completo}
-                    </option>
-                  ))}
-                </select>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                  {eventConsultants.map((c) => {
+                    const checked = consultantId === c.id;
+                    return (
+                      <label
+                        key={c.id}
+                        className={`flex items-center gap-2 rounded-md border px-2.5 py-2 text-sm cursor-pointer transition-colors ${
+                          checked ? "border-primary bg-primary/5" : "border-input"
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={(ev) =>
+                            setConsultantId(ev.target.checked ? c.id : "")
+                          }
+                        />
+                        <span className="truncate">{c.nome_completo}</span>
+                      </label>
+                    );
+                  })}
+                </div>
               </div>
             )}
 
