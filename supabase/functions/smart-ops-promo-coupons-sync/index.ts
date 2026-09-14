@@ -92,7 +92,8 @@ Deno.serve(async (req) => {
   try {
     const body = await req.json().catch(() => ({}));
     const tableId = String(body?.promotional_table_id || "").trim();
-    if (!tableId && body?.mode !== "inspect") {
+    const mode = String(body?.mode || "sync");
+    if (!tableId && mode !== "categories") {
       return json({ ok: false, error: "promotional_table_id é obrigatório" }, 400);
     }
 
@@ -100,26 +101,30 @@ Deno.serve(async (req) => {
     const appKey = (Deno.env.get("LOJA_INTEGRADA_APP_KEY") || "").trim() || null;
     if (!apiKey) return json({ ok: false, error: "LOJA_INTEGRADA_API_KEY não configurada" }, 400);
 
-    if (body?.mode === "inspect") {
-      const path = String(body?.path || "/categoria?limit=100&format=json");
-      const raw = await fetch(`${LI_BASE}${path}`, {
-        method: body?.payload ? String(body?.http || "POST") : "GET",
-        headers: {
-          Authorization: appKey ? `chave_api ${apiKey} aplicacao ${appKey}` : `chave_api ${apiKey}`,
-          Accept: "application/json",
-          "Content-Type": "application/json",
-        },
-        body: body?.payload ? JSON.stringify(body.payload) : undefined,
-      });
-      const text = await raw.text();
-      if (body?.slim) {
-        const parsed = JSON.parse(text);
-        const slim = (parsed.objects || []).map((c: Record<string, unknown>) => ({
-          id: c.id, nome: c.nome, pai: c.categoria_pai,
-        }));
-        return json({ ok: true, status: raw.status, total: parsed?.meta?.total_count, slim });
+    // Lista as categorias da loja (id, nome e categoria pai) para o seletor do editor.
+    if (mode === "categories") {
+      const all: Array<{ id: number; nome: string; parent_id: number | null }> = [];
+      for (let offset = 0; offset < 500; offset += 100) {
+        const parsed = await liRequest(
+          `/categoria?limit=100&offset=${offset}&format=json`,
+          "GET",
+          null,
+          apiKey,
+          appKey,
+        ) as { objects?: Array<Record<string, unknown>>; meta?: { total_count?: number } };
+        const objects = parsed?.objects || [];
+        for (const cat of objects) {
+          const parentUri = typeof cat.categoria_pai === "string" ? cat.categoria_pai : "";
+          const parentId = parentUri ? Number(parentUri.split("/").pop()) : null;
+          all.push({
+            id: Number(cat.id),
+            nome: String(cat.nome || ""),
+            parent_id: Number.isFinite(parentId as number) ? (parentId as number) : null,
+          });
+        }
+        if (objects.length < 100) break;
       }
-      return json({ ok: true, status: raw.status, body: text.slice(0, 6000) });
+      return json({ ok: true, categories: all });
     }
 
     const supabase = createClient(
