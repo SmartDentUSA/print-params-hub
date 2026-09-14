@@ -129,6 +129,7 @@ export function PromotionalCouponsCard({ table, draft, onDraftChange }: Props) {
         coupon_usage_limit: draft.coupon_usage_limit ?? null,
         coupon_valid_from: draft.coupon_valid_from ?? null,
         coupon_valid_until: draft.coupon_valid_until ?? null,
+        coupon_li_category_ids: categoryIds,
       }).eq("id", table.id);
 
       const used = new Set(coupons.map((coupon) => coupon.code));
