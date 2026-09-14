@@ -27,7 +27,7 @@ const catalogImage = (product: { image_url?: string | null; og_image_url?: strin
   product.image_url?.trim() || product.og_image_url?.trim() || null;
 
 const blankTable = (): Omit<PromotionalTable, "id" | "created_at" | "updated_at"> => ({
-  name: "", pdf_title: "TABELA PROMOCIONAL", distributor_id: null, currency: "BRL",
+  name: "", pdf_title: "TABELA PROMOCIONAL", distributor_id: null, event_id: null, currency: "BRL",
   valid_from: null, valid_until: null, notes: null, status: "draft",
   include_official_price_table: true,
 });
@@ -41,6 +41,7 @@ export function PromotionalTablesTab() {
   const [draft, setDraft] = useState(blankTable());
   const [sections, setSections] = useState<PromotionalSectionWithItems[]>([]);
   const [distributors, setDistributors] = useState<DistributorOption[]>([]);
+  const [events, setEvents] = useState<EventOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [pickerSection, setPickerSection] = useState<string | null>(null);
