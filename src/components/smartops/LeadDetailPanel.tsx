@@ -238,7 +238,9 @@ const FORM_NOISE_KEYS = new Set([
   "dedupe_key", "piperun_link", "lead_id", "id", "form_id", "field_id",
   "created_at", "updated_at", "submitted_at", "raw_payload", "utm_content",
   "fbclid", "gclid", "leadgen_id", "campaign_id", "adset_id", "ad_id",
+  "label", "is_existing", "pql_detected", "fields_updated", "event_id", "responses",
 ]);
+
 
 const humanizeFormKey = (key: string): string =>
   FORM_FIELD_LABELS[key] ||
