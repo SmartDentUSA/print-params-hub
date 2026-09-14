@@ -143,6 +143,10 @@ export default function PublicFormPage() {
   // Simple inline toast
   const [inlineError, setInlineError] = useState<string | null>(null);
   const [currentStep, setCurrentStep] = useState(0);
+  // Feiras e eventos — consultor no estande + categorias habilitadas
+  const [eventConsultants, setEventConsultants] = useState<{ id: string; nome_completo: string }[]>([]);
+  const [consultantId, setConsultantId] = useState<string>("");
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   // Embed mode (usado pela landing page): renderiza somente o formulário,
   // sem coluna de mídia/texto e sem fundo de página.
   const isEmbed = searchParams.get("embed") === "1";
