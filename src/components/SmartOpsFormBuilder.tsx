@@ -719,6 +719,11 @@ export function SmartOpsFormBuilder() {
         </div>
         {editingForm.form_purpose === "sdr_captacao" ? (
           <SmartOpsSdrCaptacaoEditor form={editingForm} />
+        ) : editingForm.form_purpose === "feira_evento" ? (
+          <>
+            <FeiraEventoConfig formId={editingForm.id} />
+            <SmartOpsFormEditor formId={editingForm.id} />
+          </>
         ) : (
           <SmartOpsFormEditor formId={editingForm.id} />
         )}
