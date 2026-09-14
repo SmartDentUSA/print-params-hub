@@ -540,8 +540,17 @@ export async function exportPromotionalPdf(
       margin,
       cursor + 14,
     );
-    doc.setTextColor(0, 0, 0);
     cursor += 30;
+    const categoryLabels = (table.coupon_li_category_labels || []).filter(Boolean);
+    if (categoryLabels.length) {
+      const lines = doc.splitTextToSize(
+        `Desconto válido nas categorias: ${categoryLabels.join(" • ")}`,
+        width - margin * 2,
+      ) as string[];
+      doc.text(lines, margin, cursor);
+      cursor += lines.length * 10 + 6;
+    }
+    doc.setTextColor(0, 0, 0);
     autoTable(doc, {
       startY: cursor,
       margin: { left: margin, right: margin, top: pageTop, bottom: pageBottom },
