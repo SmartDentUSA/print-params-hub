@@ -85,11 +85,17 @@ export function PromotionalCouponsCard({ table, draft, onDraftChange }: Props) {
     }
     setSellerSource(ids.length ? "event" : "team");
     let query = supabase.from("team_members" as any)
-      .select("id,nome_completo,celular").eq("ativo", true).order("nome_completo");
+      .select("id,nome_completo,whatsapp_number").eq("ativo", true).order("nome_completo");
     if (ids.length) query = query.in("id", ids);
     const { data: rows, error } = await query;
     if (error) toast.error(error.message);
-    setSellers(((rows as any) || []) as Seller[]);
+    const list = ((rows as any) || []) as Seller[];
+    setSellers(list);
+    // Pré-seleciona os consultores do estande — quem for escolhido no formulário
+    // é o responsável do lead no CRM, e cada um recebe seu próprio cupom.
+    if (ids.length && !(draft.coupon_seller_ids || []).length && list.length) {
+      onDraftChange({ coupon_seller_ids: list.map((row) => row.id) });
+    }
   }, [draft.event_id]);
 
   const loadCoupons = useCallback(async () => {
