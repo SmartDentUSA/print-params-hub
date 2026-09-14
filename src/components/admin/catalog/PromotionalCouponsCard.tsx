@@ -161,6 +161,8 @@ export function PromotionalCouponsCard({ table, draft, onDraftChange }: Props) {
         coupon_freight_valid_from: draft.coupon_freight_valid_from ?? null,
         coupon_freight_valid_until: draft.coupon_freight_valid_until ?? null,
         coupon_freight_usage_limit: draft.coupon_freight_usage_limit ?? null,
+        coupon_pdf_enabled: draft.coupon_pdf_enabled !== false,
+        coupon_freight_pdf_enabled: draft.coupon_freight_pdf_enabled !== false,
         coupon_li_category_ids: categoryIds,
         coupon_li_category_labels: categoryIds
           .map((id) => {
