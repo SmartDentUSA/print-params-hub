@@ -153,6 +153,8 @@ export function PromotionalTablesTab() {
       coupon_usage_limit: table.coupon_usage_limit ?? null,
       coupon_valid_from: table.coupon_valid_from ?? null,
       coupon_valid_until: table.coupon_valid_until ?? null,
+      coupon_li_category_ids: table.coupon_li_category_ids ?? [],
+      coupon_li_category_labels: table.coupon_li_category_labels ?? [],
     });
     await loadSections(table);
   };
