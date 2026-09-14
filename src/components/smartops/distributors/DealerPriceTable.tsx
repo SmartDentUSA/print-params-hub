@@ -642,10 +642,14 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
       if (!variation) return it;
       const pick = cur === "USD" ? variation.price_usd : cur === "EUR" ? variation.price_eur : variation.price_brl;
       const value = Number(pick);
-      if (!(value > 0)) fallback++;
+      // Sem preço no catálogo: preserva o valor digitado manualmente na tabela.
+      if (!(value > 0)) {
+        fallback++;
+        return it;
+      }
       const price_dealer = recalcDealerPrice(value, Number(it.discount_pct) || 0);
       updated++;
-      return { ...it, price_base: value > 0 ? value : 0, price_dealer: value > 0 ? price_dealer : 0 };
+      return { ...it, price_base: value, price_dealer };
     });
     // Persist updates in parallel
     const changed = nextItems.filter((n, i) => n !== items[i]);
