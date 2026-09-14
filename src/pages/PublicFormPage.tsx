@@ -148,6 +148,7 @@ export default function PublicFormPage() {
   const [eventConsultants, setEventConsultants] = useState<{ id: string; nome_completo: string }[]>([]);
   const [consultantId, setConsultantId] = useState<string>("");
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [eventCombos, setEventCombos] = useState<{ title: string; description: string | null }[]>([]);
   // Embed mode (usado pela landing page): renderiza somente o formulário,
   // sem coluna de mídia/texto e sem fundo de página.
   const isEmbed = searchParams.get("embed") === "1";
