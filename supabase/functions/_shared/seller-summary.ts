@@ -369,7 +369,14 @@ export async function buildSellerDealSummaryHTML(
       const value = cleanVal(p.value);
       if (!label || !value || value === "[object Object]") continue;
       if (NOISE_LABEL.test(label)) continue;
-      const key = label.toLowerCase();
+      const key = label
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-z0-9 ]/g, "")
+        .replace(/\s+/g, " ")
+        .trim();
+      if (INTERNAL_LABEL.has(key)) continue;
       if (seen.has(key)) continue;
       seen.add(key);
       target.push({ label, value });
@@ -377,11 +384,14 @@ export async function buildSellerDealSummaryHTML(
   };
 
   const formBlocks: string[] = [];
+  // Dedupe GLOBAL: a mesma pergunta não se repete entre blocos (o formulário mais
+  // recente manda; antes a nota mostrava respostas antigas contraditórias).
+  const seenAll = new Set<string>();
 
   // 7a. Formulário que acabou de ser enviado (destaque)
   if (opts.highlightFormResponses?.length) {
     const pairs: Pair[] = [];
-    pushPairs(pairs, new Set<string>(), opts.highlightFormResponses);
+    pushPairs(pairs, seenAll, opts.highlightFormResponses);
     if (pairs.length) {
       formBlocks.push(
         `&nbsp;&nbsp;◦ <b>${esc(opts.highlightFormName || lead.form_name || "Formulário")}</b> (envio mais recente)<br>` +
@@ -400,7 +410,7 @@ export async function buildSellerDealSummaryHTML(
         if (!entry || typeof entry !== "object") continue;
         const e = entry as Record<string, unknown>;
         const pairs: Pair[] = [];
-        const seen = new Set<string>();
+        const seen = seenAll;
         if (Array.isArray(e.responses)) {
           pushPairs(pairs, seen, (e.responses as Pair[]) || []);
         }
@@ -439,7 +449,7 @@ export async function buildSellerDealSummaryHTML(
   if (fieldRows.length) {
     const pairs: Pair[] = [];
     pushPairs(
-      pairs, new Set<string>(),
+      pairs, seenAll,
       fieldRows.map(r => ({ label: String(r.field_label || ""), value: String(r.value || "") })),
     );
     if (pairs.length) {
