@@ -557,13 +557,15 @@ export async function exportPromotionalPdf(
     autoTable(doc, {
       startY: cursor,
       margin: { left: margin, right: margin, top: pageTop, bottom: pageBottom },
-      head: [["Vendedor autorizado", "Cupom", "Desconto", "Início", "Término"]],
-      body: coupons.map((coupon) => [
+      head: [["Vendedor autorizado", "Cupom", "Benefício", "Início", "Término"]],
+      body: [...coupons].sort((a, b) => Number(isFreightCoupon(a)) - Number(isFreightCoupon(b))).map((coupon) => [
         coupon.seller_name || "—",
         coupon.code,
-        coupon.discount_type === "fixed"
-          ? money(Number(coupon.discount_value || 0), table.currency)
-          : `${Number(coupon.discount_value || 0).toFixed(1).replace(".", ",")}%`,
+        isFreightCoupon(coupon)
+          ? "Frete grátis"
+          : coupon.discount_type === "fixed"
+            ? money(Number(coupon.discount_value || 0), table.currency)
+            : `${Number(coupon.discount_value || 0).toFixed(1).replace(".", ",")}%`,
         coupon.valid_from ? date(coupon.valid_from) : "—",
         coupon.valid_until ? date(coupon.valid_until) : "—",
       ]),
