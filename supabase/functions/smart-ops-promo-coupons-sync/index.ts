@@ -133,6 +133,23 @@ Deno.serve(async (req) => {
       return json({ ok: true, sample: parsed });
     }
 
+    // Diagnóstico: valida o tipo de cupom de frete grátis aceito pela loja.
+    if (mode === "probe_freight") {
+      const parsed = await liRequest("/cupom", "POST", {
+        codigo: `ZZTESTFRETE${Date.now().toString().slice(-5)}`,
+        descricao: "Teste frete gratis (apagar)",
+        valor: "0.00",
+        tipo: String(body?.tipo || "frete_gratis"),
+        ativo: false,
+        aplicar_no_total: true,
+        cumulativo: false,
+        condicao_cliente: "todos_clientes",
+        condicao_produto: "todos_produtos",
+        categorias: [],
+      }, apiKey, appKey);
+      return json({ ok: true, created: parsed });
+    }
+
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
