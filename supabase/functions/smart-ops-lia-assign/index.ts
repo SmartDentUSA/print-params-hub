@@ -2178,7 +2178,7 @@ async function executarReativacaoSdrCaptacao(
   );
 
   // 4. Fresh Round Robin — NUNCA herda owner anterior
-  const newOwner = await pickRandomActiveVendedor(supabase);
+  const newOwner = await pickOwnerForNewDeal(supabase, lead as Record<string, unknown>);
   const newOwnerId = newOwner.piperun_owner_id;
   const newOwnerName = newOwner.nome_completo;
   console.log(`[lia-assign] SDR-CAPTAÇÃO reativação: novo owner → ${newOwnerName} (${newOwnerId})`);
@@ -3779,7 +3779,7 @@ Deno.serve(async (req) => {
           flowType = "reactivate_estagnado_new_deal";
 
           // Fresh Round Robin — NUNCA herda o vendedor do deal antigo.
-          const novoVendedor = await pickRandomActiveVendedor(supabase);
+          const novoVendedor = await pickOwnerForNewDeal(supabase, lead as Record<string, unknown>);
           assignedOwnerId = novoVendedor.piperun_owner_id;
           assignedOwnerName = novoVendedor.nome_completo;
           assignedTeamMemberId = novoVendedor.id === "fallback-admin" ? null : novoVendedor.id;
@@ -3881,7 +3881,7 @@ Deno.serve(async (req) => {
           `[lia-assign] CS ATIVO detectado (${csOpenDeals.map((d) => d.id).join(",")}) — criando NOVO deal em VENDAS para novo interesse comercial`,
         );
 
-        const novoVendedor = await pickRandomActiveVendedor(supabase);
+        const novoVendedor = await pickOwnerForNewDeal(supabase, lead as Record<string, unknown>);
         assignedOwnerId = novoVendedor.piperun_owner_id;
         assignedOwnerName = novoVendedor.nome_completo;
         assignedTeamMemberId = novoVendedor.id === "fallback-admin" ? null : novoVendedor.id;
