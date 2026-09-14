@@ -400,49 +400,54 @@ export async function buildSellerDealSummaryHTML(
     }
   }
 
-  // 7b. Snapshots acumulados em form_data (últimos 3 formulários)
+  // 7b. Snapshots acumulados em form_data (últimos 3 formulários).
+  // Ordena ANTES de filtrar para que o formulário mais recente fique com a
+  // resposta e os antigos não repitam a mesma pergunta com valor velho.
   const fd = (lead.form_data as Record<string, unknown> | null) || null;
   if (fd && typeof fd === "object") {
-    const snaps: Array<{ formName: string; submittedAt: string; pairs: Pair[] }> = [];
+    const rawSnaps: Array<{ formName: string; submittedAt: string; input: Pair[] }> = [];
     for (const [formName, bucket] of Object.entries(fd)) {
       const entries = Array.isArray(bucket) ? bucket : [bucket];
       for (const entry of entries) {
         if (!entry || typeof entry !== "object") continue;
         const e = entry as Record<string, unknown>;
-        const pairs: Pair[] = [];
-        const seen = seenAll;
-        if (Array.isArray(e.responses)) {
-          pushPairs(pairs, seen, (e.responses as Pair[]) || []);
-        }
+        const input: Pair[] = [];
+        if (Array.isArray(e.responses)) input.push(...((e.responses as Pair[]) || []));
         const raw = e.raw_fields as Record<string, unknown> | undefined;
         if (raw && typeof raw === "object") {
-          pushPairs(
-            pairs, seen,
-            Object.entries(raw)
+          input.push(
+            ...Object.entries(raw)
               .filter(([, v]) => v != null && typeof v !== "object")
               .map(([k, v]) => ({ label: k, value: String(v) })),
           );
         }
-        if (pairs.length) {
-          snaps.push({
+        if (input.length) {
+          rawSnaps.push({
             formName: formName === "_unnamed" ? "Formulário" : formName,
             submittedAt: String(e.submitted_at || ""),
-            pairs,
+            input,
           });
         }
       }
     }
-    snaps.sort((a, b) => b.submittedAt.localeCompare(a.submittedAt));
+    rawSnaps.sort((a, b) => b.submittedAt.localeCompare(a.submittedAt));
     const highlightKey = cleanVal(opts.highlightFormName || "").toLowerCase();
-    for (const s of snaps.slice(0, 3)) {
+    let rendered = 0;
+    for (const s of rawSnaps) {
+      if (rendered >= 3) break;
       // não repetir o formulário já destacado com o mesmo conteúdo
       if (highlightKey && s.formName.toLowerCase() === highlightKey && formBlocks.length) continue;
+      const pairs: Pair[] = [];
+      pushPairs(pairs, seenAll, s.input);
+      if (!pairs.length) continue;
+      rendered++;
       formBlocks.push(
         `&nbsp;&nbsp;◦ <b>${esc(s.formName)}</b>${s.submittedAt ? ` — ${fmtDate(s.submittedAt)}` : ""}<br>` +
-        s.pairs.map(p => `&nbsp;&nbsp;&nbsp;&nbsp;• <b>${esc(p.label)}:</b> ${esc(p.value)}`).join("<br>"),
+        pairs.map(p => `&nbsp;&nbsp;&nbsp;&nbsp;• <b>${esc(p.label)}:</b> ${esc(p.value)}`).join("<br>"),
       );
     }
   }
+
 
   // 7c. Respostas persistidas em smartops_form_field_responses (7x3 e afins)
   const fieldRows = ((formsRes as any)?.data as Array<Record<string, unknown>>) || [];
