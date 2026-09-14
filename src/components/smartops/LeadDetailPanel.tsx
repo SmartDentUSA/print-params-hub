@@ -593,7 +593,23 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
     const seenActivityKeys = new Set<string>();
     const usedSnapshotKeys = new Set<string>();
     const usedSubmissionKeys = new Set<string>();
+    // Respostas individuais (`form_response`) agrupadas por submissão — entram
+    // como detalhe do evento de formulário, não como linhas soltas na timeline.
+    const responsesByEntity = new Map<string, Record<string, string>>();
+    (detail?.activity_log || []).forEach((ev: any) => {
+      if ((ev.event_type || "") !== "form_response") return;
+      const d = ev.event_data || {};
+      const label = String(d.label ?? ev.entity_name ?? "").trim();
+      const value = d.value;
+      if (!label || !isUsefulFormValue(value)) return;
+      const key = String(ev.entity_id ?? "");
+      const bucket = responsesByEntity.get(key) || {};
+      bucket[humanizeFormKey(label)] = String(value).trim();
+      responsesByEntity.set(key, bucket);
+    });
+
     const dedupedActivityLogs = (detail?.activity_log || []).filter((ev: any) => {
+      if ((ev.event_type || "") === "form_response") return false;
       if (!ev.entity_id) return true;
       const key = `${ev.event_type}|${ev.entity_id}`;
       if (seenActivityKeys.has(key)) return false;
@@ -604,6 +620,7 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
       const isEcommerce = ev.source_channel === "ecommerce";
       const isForm = (ev.event_type || "") === "form_submission";
       const evData = ev.event_data || {};
+
 
       // Atividades realizadas no CRM (ligação, reunião, WhatsApp, e-mail, tarefa)
       if ((ev.event_type || "") === "crm_activity") {
