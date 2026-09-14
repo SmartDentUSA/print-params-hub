@@ -154,7 +154,7 @@ Deno.serve(async (req) => {
 
     const { data: tableRow } = await supabase
       .from("promotional_tables")
-      .select("title,coupon_li_category_ids")
+      .select("name,coupon_li_category_ids")
       .eq("id", tableId)
       .maybeSingle();
     const categoryIds = ((tableRow?.coupon_li_category_ids || []) as unknown[])
