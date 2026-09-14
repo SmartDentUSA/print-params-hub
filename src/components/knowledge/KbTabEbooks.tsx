@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { getArticleUrl } from '@/utils/knowledgeUrls';
 import { getPublicOrigin } from '@/utils/publicOrigin';
