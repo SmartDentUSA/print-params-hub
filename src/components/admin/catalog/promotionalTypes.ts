@@ -45,6 +45,8 @@ export type PromotionalCoupon = {
   li_coupon_id: string | null;
   li_synced_at: string | null;
   li_sync_error: string | null;
+  kind?: "discount" | "freight" | string | null;
+  free_shipping?: boolean | null;
 };
 
 export type PromotionalSection = {
