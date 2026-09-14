@@ -98,6 +98,12 @@ Deno.serve(async (req) => {
     const appKey = (Deno.env.get("LOJA_INTEGRADA_APP_KEY") || "").trim() || null;
     if (!apiKey) return json({ ok: false, error: "LOJA_INTEGRADA_API_KEY não configurada" }, 400);
 
+    if (body?.mode === "inspect") {
+      const cats = await liRequest("/categoria/?limit=200", "GET", null, apiKey, appKey).catch((e) => ({ error: String(e) }));
+      const cupons = await liRequest("/cupom_desconto/?limit=2", "GET", null, apiKey, appKey).catch((e) => ({ error: String(e) }));
+      return json({ ok: true, cats, cupons });
+    }
+
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
