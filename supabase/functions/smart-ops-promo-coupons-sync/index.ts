@@ -155,19 +155,23 @@ Deno.serve(async (req) => {
       const isPercent = coupon.discount_type !== "fixed";
       const payload: Record<string, unknown> = {
         codigo: coupon.code,
-        descricao: `Promoção Smart Dent — ${coupon.code}`,
-        valor: Number(coupon.discount_value || 0),
+        descricao: `${tableRow?.title || "Promoção Smart Dent"} — ${coupon.code}`,
+        valor: Number(coupon.discount_value || 0).toFixed(2),
         tipo: isPercent ? "porcentagem" : "fixo",
         ativo: coupon.active,
-        validade_inicio: asDateTime(coupon.valid_from),
-        validade_fim: asDateTime(coupon.valid_until, true),
+        aplicar_no_total: true,
+        cumulativo: false,
+        condicao_cliente: "todos_clientes",
+        condicao_produto: categoryIds.length ? "categorias_selecionadas" : "todos_produtos",
+        categorias: categoryIds,
+        validade: asDateTime(coupon.valid_until, true),
       };
       if (coupon.usage_limit && coupon.usage_limit > 0) payload.quantidade = coupon.usage_limit;
 
       try {
         const response = coupon.li_coupon_id
-          ? await liRequest(`/cupom_desconto/${coupon.li_coupon_id}/`, "PUT", payload, apiKey, appKey)
-          : await liRequest("/cupom_desconto/", "POST", payload, apiKey, appKey);
+          ? await liRequest(`/cupom/${coupon.li_coupon_id}`, "PUT", payload, apiKey, appKey)
+          : await liRequest("/cupom", "POST", payload, apiKey, appKey);
         const liId = String(
           (response as Record<string, unknown>)?.id ??
           (response as Record<string, unknown>)?.cupom ??
