@@ -130,21 +130,31 @@ export function PromotionalCouponsCard({ table, draft, onDraftChange }: Props) {
 
   const prefix = slug(draft.coupon_prefix || draft.name || table.name || "PROMO") || "PROMO";
 
-  const generateCoupons = async () => {
+  const generateCoupons = async (kind: CouponKind = "discount") => {
     if (!selected.length) { toast.error("Selecione os vendedores autorizados."); return; }
-    const value = Number(draft.coupon_discount_value || 0);
+    const isFreight = kind === "freight";
+    const value = Number(
+      (isFreight ? draft.coupon_freight_discount_value ?? draft.coupon_discount_value : draft.coupon_discount_value) || 0,
+    );
     if (value <= 0) { toast.error("Informe o valor do desconto do cupom."); return; }
-    setBusy(true);
+    const validFrom = (isFreight ? draft.coupon_freight_valid_from : draft.coupon_valid_from) ?? null;
+    const validUntil = (isFreight ? draft.coupon_freight_valid_until : draft.coupon_valid_until) ?? null;
+    const usageLimit = (isFreight ? draft.coupon_freight_usage_limit : draft.coupon_usage_limit) ?? null;
+    setBusy(kind);
     try {
       // Persiste os dados da promoção antes de gerar os códigos.
       await supabase.from("promotional_tables" as any).update({
         coupon_seller_ids: selected,
         coupon_discount_type: discountType,
-        coupon_discount_value: value,
+        coupon_discount_value: Number(draft.coupon_discount_value || 0),
         coupon_prefix: prefix,
         coupon_usage_limit: draft.coupon_usage_limit ?? null,
         coupon_valid_from: draft.coupon_valid_from ?? null,
         coupon_valid_until: draft.coupon_valid_until ?? null,
+        coupon_freight_discount_value: draft.coupon_freight_discount_value ?? null,
+        coupon_freight_valid_from: draft.coupon_freight_valid_from ?? null,
+        coupon_freight_valid_until: draft.coupon_freight_valid_until ?? null,
+        coupon_freight_usage_limit: draft.coupon_freight_usage_limit ?? null,
         coupon_li_category_ids: categoryIds,
         coupon_li_category_labels: categoryIds
           .map((id) => {
@@ -161,8 +171,11 @@ export function PromotionalCouponsCard({ table, draft, onDraftChange }: Props) {
       for (const id of selected) {
         const seller = sellers.find((row) => row.id === id);
         if (!seller) continue;
-        const existing = coupons.find((coupon) => coupon.team_member_id === id);
-        const base = `${prefix}${firstName(seller.nome_completo)}`;
+        const existing = coupons.find(
+          (coupon) => coupon.team_member_id === id && couponKind(coupon) === kind,
+        );
+        // Padrão do código: iniciais do congresso + iniciais do vendedor + número do desconto (+ F no frete grátis).
+        const base = `${prefix}${sellerInitials(seller.nome_completo)}${discountToken(value)}${isFreight ? "F" : ""}`;
         let code = existing?.code || base;
         let counter = 2;
         while (!existing && used.has(code)) { code = `${base}${counter}`; counter += 1; }
@@ -173,11 +186,13 @@ export function PromotionalCouponsCard({ table, draft, onDraftChange }: Props) {
           team_member_id: id,
           seller_name: seller.nome_completo,
           code,
+          kind,
+          free_shipping: isFreight,
           discount_type: discountType,
           discount_value: value,
-          valid_from: draft.coupon_valid_from ?? null,
-          valid_until: draft.coupon_valid_until ?? null,
-          usage_limit: draft.coupon_usage_limit ?? null,
+          valid_from: validFrom,
+          valid_until: validUntil,
+          usage_limit: usageLimit,
           active: true,
         });
       }
