@@ -506,6 +506,64 @@ export async function exportPromotionalPdf(
     }
   }
 
+  // ---- Cupons: vendedores autorizados e códigos para o e-commerce ----
+  const { data: couponRows } = await supabase
+    .from("promotional_coupons" as any)
+    .select("code,seller_name,discount_type,discount_value,valid_from,valid_until,active")
+    .eq("promotional_table_id", table.id)
+    .eq("active", true)
+    .order("seller_name");
+  const coupons = ((couponRows as any) || []) as Array<{
+    code: string; seller_name: string | null; discount_type: string;
+    discount_value: number; valid_from: string | null; valid_until: string | null;
+  }>;
+  if (coupons.length) {
+    doc.addPage();
+    header();
+    let cursor = pageTop;
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(12);
+    doc.text("VENDEDORES AUTORIZADOS E CUPONS DE DESCONTO", margin, cursor);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+    doc.setTextColor(110, 110, 110);
+    const period = [
+      table.coupon_valid_from ? `Início ${date(table.coupon_valid_from)}` : null,
+      table.coupon_valid_until ? `Término ${date(table.coupon_valid_until)}` : null,
+    ].filter(Boolean).join("  •  ");
+    doc.text(
+      [
+        "Cupons válidos na loja oficial: loja.smartdent.com.br",
+        period || null,
+        event ? `Evento: ${event.name}` : null,
+      ].filter(Boolean).join("  •  "),
+      margin,
+      cursor + 14,
+    );
+    doc.setTextColor(0, 0, 0);
+    cursor += 30;
+    autoTable(doc, {
+      startY: cursor,
+      margin: { left: margin, right: margin, top: pageTop, bottom: pageBottom },
+      head: [["Vendedor autorizado", "Cupom", "Desconto", "Início", "Término"]],
+      body: coupons.map((coupon) => [
+        coupon.seller_name || "—",
+        coupon.code,
+        coupon.discount_type === "fixed"
+          ? money(Number(coupon.discount_value || 0), table.currency)
+          : `${Number(coupon.discount_value || 0).toFixed(1).replace(".", ",")}%`,
+        coupon.valid_from ? date(coupon.valid_from) : "—",
+        coupon.valid_until ? date(coupon.valid_until) : "—",
+      ]),
+      styles: { fontSize: 8, cellPadding: 5, lineColor: [210, 214, 218], lineWidth: 0.4, valign: "middle" },
+      headStyles: { fillColor: dark, textColor: 255, fontStyle: "bold" },
+      alternateRowStyles: { fillColor: [245, 246, 247] },
+      columnStyles: { 1: { fontStyle: "bold" }, 2: { halign: "right" }, 3: { halign: "center", cellWidth: 70 }, 4: { halign: "center", cellWidth: 70 } },
+      didDrawPage: header,
+    });
+  }
+
+
   const pages = doc.getNumberOfPages();
   for (let page = 1; page <= pages; page += 1) {
     doc.setPage(page);
