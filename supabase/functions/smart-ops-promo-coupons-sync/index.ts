@@ -191,11 +191,10 @@ Deno.serve(async (req) => {
         aplicar_no_total: true,
         cumulativo: isFreight,
         condicao_cliente: "todos_clientes",
-        condicao_produto: isFreight
-          ? "todos_produtos"
-          : categoryIds.length ? "categorias_selecionadas" : "todos_produtos",
+        // Frete grátis e desconto seguem a MESMA regra de produtos (categorias selecionadas).
+        condicao_produto: categoryIds.length ? "categorias_selecionadas" : "todos_produtos",
         // A Loja Integrada só persiste as categorias quando os IDs vêm como string.
-        categorias: isFreight ? [] : categoryIds.map((id) => String(id)),
+        categorias: categoryIds.map((id) => String(id)),
         validade: asDateTime(coupon.valid_until, true),
       };
       if (coupon.usage_limit && coupon.usage_limit > 0) payload.quantidade = coupon.usage_limit;
