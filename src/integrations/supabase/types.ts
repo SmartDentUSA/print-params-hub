@@ -35413,6 +35413,14 @@ export type Database = {
           uf: string
         }[]
       }
+      fn_public_event_combos: {
+        Args: { p_event_id: string }
+        Returns: {
+          section_description: string
+          section_title: string
+          sort_order: number
+        }[]
+      }
       fn_push_audience: {
         Args: { p_filters?: Json }
         Returns: {

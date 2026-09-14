@@ -148,6 +148,7 @@ export default function PublicFormPage() {
   const [eventConsultants, setEventConsultants] = useState<{ id: string; nome_completo: string }[]>([]);
   const [consultantId, setConsultantId] = useState<string>("");
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [eventCombos, setEventCombos] = useState<{ title: string; description: string | null }[]>([]);
   // Embed mode (usado pela landing page): renderiza somente o formulário,
   // sem coluna de mídia/texto e sem fundo de página.
   const isEmbed = searchParams.get("embed") === "1";
@@ -296,7 +297,8 @@ export default function PublicFormPage() {
 
   /** Categorias habilitadas expandidas em subcategorias do catálogo. */
   const eventCategoryGroups = useMemo(() => {
-    if (!isEventForm || eventCategories.length === 0) return [];
+    // Quando o evento tem tabela promocional, os combos substituem as categorias
+    if (!isEventForm || eventCategories.length === 0 || eventCombos.length > 0) return [];
     const enabled = new Set(eventCategories);
     const groups: { category: string; options: { key: string; label: string }[] }[] = [];
     for (const node of catalogTree) {
@@ -326,7 +328,7 @@ export default function PublicFormPage() {
       });
     }
     return groups;
-  }, [isEventForm, eventCategories.join("|"), catalogTree]);
+  }, [isEventForm, eventCategories.join("|"), catalogTree, eventCombos.length]);
 
   // Consultores habilitados para o evento
   useEffect(() => {
@@ -349,6 +351,32 @@ export default function PublicFormPage() {
       cancelled = true;
     };
   }, [isEventForm, form?.id]);
+
+  // Combos da tabela promocional associada ao evento
+  useEffect(() => {
+    const eventId = (form as any)?.event_id as string | undefined;
+    if (!isEventForm || !eventId) {
+      setEventCombos([]);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const { data, error } = await (supabase as any).rpc("fn_public_event_combos", {
+        p_event_id: eventId,
+      });
+      if (cancelled) return;
+      if (error) {
+        setEventCombos([]);
+        return;
+      }
+      setEventCombos(
+        (data ?? []).map((r: any) => ({ title: r.section_title, description: r.section_description })),
+      );
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isEventForm, form?.id, (form as any)?.event_id]);
 
   // SEO meta tags (title, description, canonical, og/twitter)
   useEffect(() => {
@@ -602,7 +630,7 @@ export default function PublicFormPage() {
       if (selectedCategories.length > 0) {
         payload.event_interest_categories = selectedCategories;
         payload.form_responses.push({
-          label: "Categorias de interesse",
+          label: eventCombos.length > 0 ? "Combos de interesse" : "Categorias de interesse",
           value: selectedCategories.join(", "),
         });
       }
@@ -1086,6 +1114,47 @@ export default function PublicFormPage() {
                     </option>
                   ))}
                 </select>
+              </div>
+            )}
+
+            {isEventForm && eventCombos.length > 0 && (
+              <div className="space-y-1.5">
+                <Label style={isEmbed ? { color: "#0f172a", opacity: 1 } : undefined}>
+                  Combos promocionais do evento
+                </Label>
+                <div className="grid grid-cols-1 gap-1.5">
+                  {eventCombos.map((combo) => {
+                    const checked = selectedCategories.includes(combo.title);
+                    return (
+                      <label
+                        key={combo.title}
+                        className={`flex items-center gap-2 rounded-md border px-2.5 py-2 text-sm cursor-pointer transition-colors ${
+                          checked ? "border-primary bg-primary/5" : "border-input"
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={(ev) =>
+                            setSelectedCategories((s) =>
+                              ev.target.checked
+                                ? [...s, combo.title]
+                                : s.filter((v) => v !== combo.title),
+                            )
+                          }
+                        />
+                        <span className="flex-1">
+                          <span className="block font-medium">{combo.title}</span>
+                          {combo.description && (
+                            <span className="block text-xs text-muted-foreground truncate">
+                              {combo.description}
+                            </span>
+                          )}
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
               </div>
             )}
 
