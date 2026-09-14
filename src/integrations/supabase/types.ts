@@ -18481,6 +18481,78 @@ export type Database = {
           },
         ]
       }
+      promotional_coupons: {
+        Row: {
+          active: boolean
+          code: string
+          created_at: string
+          discount_type: string
+          discount_value: number
+          id: string
+          li_coupon_id: string | null
+          li_sync_error: string | null
+          li_synced_at: string | null
+          promotional_table_id: string
+          seller_name: string | null
+          team_member_id: string | null
+          updated_at: string
+          usage_limit: number | null
+          valid_from: string | null
+          valid_until: string | null
+        }
+        Insert: {
+          active?: boolean
+          code: string
+          created_at?: string
+          discount_type?: string
+          discount_value?: number
+          id?: string
+          li_coupon_id?: string | null
+          li_sync_error?: string | null
+          li_synced_at?: string | null
+          promotional_table_id: string
+          seller_name?: string | null
+          team_member_id?: string | null
+          updated_at?: string
+          usage_limit?: number | null
+          valid_from?: string | null
+          valid_until?: string | null
+        }
+        Update: {
+          active?: boolean
+          code?: string
+          created_at?: string
+          discount_type?: string
+          discount_value?: number
+          id?: string
+          li_coupon_id?: string | null
+          li_sync_error?: string | null
+          li_synced_at?: string | null
+          promotional_table_id?: string
+          seller_name?: string | null
+          team_member_id?: string | null
+          updated_at?: string
+          usage_limit?: number | null
+          valid_from?: string | null
+          valid_until?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "promotional_coupons_promotional_table_id_fkey"
+            columns: ["promotional_table_id"]
+            isOneToOne: false
+            referencedRelation: "promotional_tables"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "promotional_coupons_team_member_id_fkey"
+            columns: ["team_member_id"]
+            isOneToOne: false
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       promotional_table_items: {
         Row: {
           catalog_product_id: string | null
@@ -18612,6 +18684,13 @@ export type Database = {
       }
       promotional_tables: {
         Row: {
+          coupon_discount_type: string
+          coupon_discount_value: number
+          coupon_prefix: string | null
+          coupon_seller_ids: string[]
+          coupon_usage_limit: number | null
+          coupon_valid_from: string | null
+          coupon_valid_until: string | null
           created_at: string
           created_by: string
           currency: string
@@ -18628,6 +18707,13 @@ export type Database = {
           valid_until: string | null
         }
         Insert: {
+          coupon_discount_type?: string
+          coupon_discount_value?: number
+          coupon_prefix?: string | null
+          coupon_seller_ids?: string[]
+          coupon_usage_limit?: number | null
+          coupon_valid_from?: string | null
+          coupon_valid_until?: string | null
           created_at?: string
           created_by?: string
           currency?: string
@@ -18644,6 +18730,13 @@ export type Database = {
           valid_until?: string | null
         }
         Update: {
+          coupon_discount_type?: string
+          coupon_discount_value?: number
+          coupon_prefix?: string | null
+          coupon_seller_ids?: string[]
+          coupon_usage_limit?: number | null
+          coupon_valid_from?: string | null
+          coupon_valid_until?: string | null
           created_at?: string
           created_by?: string
           currency?: string

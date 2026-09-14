@@ -13,6 +13,7 @@ import { Switch } from "@/components/ui/switch";
 import { ArrowDown, ArrowLeft, ArrowUp, Copy, Eye, FileText, ImagePlus, Loader2, PackagePlus, Pencil, Plus, Save, Search, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { exportPromotionalPdf } from "./exportPromotionalPdf";
+import { PromotionalCouponsCard } from "./PromotionalCouponsCard";
 import type { PromotionalItem, PromotionalSectionWithItems, PromotionalStatus, PromotionalTable } from "./promotionalTypes";
 import { itemTotals } from "./promotionalTypes";
 
@@ -30,6 +31,8 @@ const blankTable = (): Omit<PromotionalTable, "id" | "created_at" | "updated_at"
   name: "", pdf_title: "TABELA PROMOCIONAL", distributor_id: null, event_id: null, currency: "BRL",
   valid_from: null, valid_until: null, notes: null, status: "draft",
   include_official_price_table: true,
+  coupon_seller_ids: [], coupon_discount_type: "percent", coupon_discount_value: 0,
+  coupon_prefix: null, coupon_usage_limit: null, coupon_valid_from: null, coupon_valid_until: null,
 });
 
 const money = (value: number, currency: string) =>
@@ -142,6 +145,13 @@ export function PromotionalTablesTab() {
       currency: table.currency, valid_from: table.valid_from, valid_until: table.valid_until,
       notes: table.notes, status: table.status,
       include_official_price_table: table.include_official_price_table !== false,
+      coupon_seller_ids: table.coupon_seller_ids ?? [],
+      coupon_discount_type: table.coupon_discount_type ?? "percent",
+      coupon_discount_value: table.coupon_discount_value ?? 0,
+      coupon_prefix: table.coupon_prefix ?? null,
+      coupon_usage_limit: table.coupon_usage_limit ?? null,
+      coupon_valid_from: table.coupon_valid_from ?? null,
+      coupon_valid_until: table.coupon_valid_until ?? null,
     });
     await loadSections(table);
   };
@@ -470,6 +480,12 @@ export function PromotionalTablesTab() {
           <div className="space-y-1"><Label className="cursor-pointer">Incluir tabela Smart Dent (Loja Oficial) no final do PDF</Label><p className="text-xs text-muted-foreground">Anexa a tabela de preços oficial no mesmo formato usado nas revendas.</p></div>
         </div>
       </CardContent></Card>
+
+      {persisted && <PromotionalCouponsCard
+        table={selected}
+        draft={draft}
+        onDraftChange={(patch) => setDraft((row) => ({ ...row, ...patch }))}
+      />}
 
       {persisted && <div className="space-y-4">
         <div className="flex items-center justify-between"><div><h3 className="font-semibold">Seções do combo</h3><p className="text-sm text-muted-foreground">Organize equipamentos, consumíveis, serviços, treinamentos ou qualquer outra composição.</p></div><div className="flex items-center gap-3"><p className="text-xs text-muted-foreground">{sections.length} combo(s)</p><Button variant="outline" onClick={addSection}><Plus className="mr-2 h-4 w-4" />Adicionar combo</Button></div></div>
