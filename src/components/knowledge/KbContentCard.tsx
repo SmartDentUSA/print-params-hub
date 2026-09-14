@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { getStorageImageUrl } from '@/utils/storageImage';
 import { shortenUrl } from '@/utils/shortLink';
+import { QrCodeButton } from '@/components/smartops/QrCodeButton';
 
 export interface KbContentCardData {
   id: string;
@@ -27,6 +28,8 @@ interface Props {
   onClick: () => void;
   /** "portrait" usa proporção vertical de vídeo (9:16), ex.: depoimentos */
   thumbAspect?: 'video' | 'portrait';
+  /** Exibe botão de QR Code (somente usuários logados) */
+  showQrCode?: boolean;
 }
 
 function formatDuration(sec: number): string {
@@ -53,7 +56,7 @@ function formatViews(n: number | null | undefined): string {
   return `${v}`;
 }
 
-export default function KbContentCard({ data, index, buttonLabel, onClick, thumbAspect = 'video' }: Props) {
+export default function KbContentCard({ data, index, buttonLabel, onClick, thumbAspect = 'video', showQrCode = false }: Props) {
   const cat = getCategoryColor(data.categoryLetter);
   const portrait = thumbAspect === 'portrait';
   const thumbW = portrait ? 405 : 480;
@@ -176,6 +179,11 @@ export default function KbContentCard({ data, index, buttonLabel, onClick, thumb
               >
                 <Share2 size={14} />
               </button>
+            )}
+            {showQrCode && data.shareUrl && (
+              <span onClick={(e) => e.stopPropagation()}>
+                <QrCodeButton url={data.shareUrl} title={data.title} fileSuffix="ebook" />
+              </span>
             )}
             <button type="button" className="kb-action-btn" onClick={onClick}>{buttonLabel}</button>
           </div>
