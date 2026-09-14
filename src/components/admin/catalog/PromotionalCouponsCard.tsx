@@ -52,7 +52,7 @@ export function PromotionalCouponsCard({ table, draft, onDraftChange }: Props) {
   const [sellers, setSellers] = useState<Seller[]>([]);
   const [coupons, setCoupons] = useState<PromotionalCoupon[]>([]);
   const [loading, setLoading] = useState(true);
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useState<CouponKind | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [sellerSource, setSellerSource] = useState<"event" | "team">("team");
   const [categories, setCategories] = useState<LiCategory[]>([]);
