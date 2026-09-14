@@ -249,19 +249,18 @@ export async function exportPromotionalPdf(
       }
       doc.setTextColor(0, 0, 0);
 
-      const head = showFreight
-        ? [["Vendedor habilitado", "Cupom de desconto", "Desconto", "Cupom frete grátis"]]
-        : [["Vendedor habilitado", "Cupom de desconto", "Desconto"]];
+      const head = [[
+        "Vendedor habilitado",
+        ...(showDiscount ? ["Cupom de desconto", "Desconto"] : []),
+        ...(showFreight ? ["Cupom frete grátis"] : []),
+      ]];
       autoTable(doc, {
         startY: y,
         margin: { left: margin, right: margin, top: pageTop, bottom: pageBottom },
         head,
         body: sellerRows.map(([name, entry]) => {
-          const row = [
-            name,
-            entry.discount?.code || "—",
-            entry.discount ? benefit(entry.discount) : "—",
-          ];
+          const row = [name];
+          if (showDiscount) row.push(entry.discount?.code || "—", entry.discount ? benefit(entry.discount) : "—");
           if (showFreight) row.push(entry.freight?.code || "—");
           return row;
         }),
