@@ -11,7 +11,7 @@ import { CheckCircle2, Copy, Loader2, RefreshCw, Store, Ticket, Trash2 } from "l
 import { toast } from "sonner";
 import type { PromotionalCoupon, PromotionalTable } from "./promotionalTypes";
 
-type Seller = { id: string; nome_completo: string; celular?: string | null };
+type Seller = { id: string; nome_completo: string; whatsapp_number?: string | null };
 type LiCategory = { id: number; nome: string; parent_id: number | null };
 
 /** Categorias da loja liberadas por padrão nas promoções de evento. */
