@@ -30,6 +30,8 @@ const blankTable = (): Omit<PromotionalTable, "id" | "created_at" | "updated_at"
   name: "", pdf_title: "TABELA PROMOCIONAL", distributor_id: null, event_id: null, currency: "BRL",
   valid_from: null, valid_until: null, notes: null, status: "draft",
   include_official_price_table: true,
+  coupon_seller_ids: [], coupon_discount_type: "percent", coupon_discount_value: 0,
+  coupon_prefix: null, coupon_usage_limit: null, coupon_valid_from: null, coupon_valid_until: null,
 });
 
 const money = (value: number, currency: string) =>
