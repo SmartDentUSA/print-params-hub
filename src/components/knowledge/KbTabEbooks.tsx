@@ -28,6 +28,16 @@ export default function KbTabEbooks({ onOpen }: Props) {
   const [q, setQ] = useState('');
   const [sort, setSort] = useState<KbSortKey>('recent');
   const [view, setView] = useState<KbViewMode>('grid');
+  const [isLogged, setIsLogged] = useState(false);
+
+  useEffect(() => {
+    let cancel = false;
+    supabase.auth.getSession().then(({ data }) => {
+      if (!cancel) setIsLogged(!!data.session);
+    });
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => setIsLogged(!!session));
+    return () => { cancel = true; sub.subscription.unsubscribe(); };
+  }, []);
 
   useEffect(() => {
     let cancel = false;
