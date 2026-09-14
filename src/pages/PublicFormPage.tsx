@@ -10,6 +10,7 @@ import { useCompanyData } from "@/hooks/useCompanyData";
 import { Slider } from "@/components/ui/slider";
 import { isFieldVisible } from "@/lib/formConditions";
 import { linkLeadToPageSession } from "@/hooks/usePageTracking";
+import { useCatalogCategoryTree, catKey } from "@/hooks/useCatalogCategoryTree";
 
 interface FormField {
   id: string;
