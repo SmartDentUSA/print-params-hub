@@ -33,7 +33,7 @@ Deno.serve(async (req) => {
 
   let leadQuery = supabase
     .from("lia_attendances")
-    .select("id, nome, event_consultant_team_member_id, proprietario_lead_crm")
+    .select("id, nome, created_at, event_consultant_team_member_id, proprietario_lead_crm")
     .not("event_consultant_team_member_id", "is", null)
     .is("merged_into", null);
   if (leadIds) leadQuery = leadQuery.in("id", leadIds);
@@ -66,7 +66,12 @@ Deno.serve(async (req) => {
       .select("id, piperun_deal_id, owner_name, owner_id, stage_name")
       .eq("lead_id", lead.id as string)
       .eq("pipeline_id", PIPELINE_VENDAS)
-      .eq("status", "aberta");
+      .eq("status", "aberta")
+      // Somente deals gerados a partir do cadastro do evento (não mexe em histórico anterior)
+      .gte(
+        "piperun_created_at",
+        new Date(new Date(lead.created_at as string).getTime() - 60 * 60 * 1000).toISOString(),
+      );
 
     for (const deal of deals ?? []) {
       if (String(deal.owner_name ?? "").trim() === String(consultant.nome_completo).trim()) {
