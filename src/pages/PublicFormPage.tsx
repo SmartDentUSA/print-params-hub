@@ -1031,6 +1031,59 @@ export default function PublicFormPage() {
               </div>
             )}
 
+            {/* Feiras e eventos — consultor do estande + categorias habilitadas */}
+            {isEventForm && eventConsultants.length > 0 && (
+              <div className="space-y-1.5">
+                <Label style={isEmbed ? { color: "#0f172a", opacity: 1 } : undefined}>
+                  Consultor <span className="text-destructive ml-1">*</span>
+                </Label>
+                <select
+                  className="w-full border rounded-md h-12 md:h-10 px-3 text-base md:text-sm bg-background border-input"
+                  value={consultantId}
+                  onChange={(e) => setConsultantId(e.target.value)}
+                >
+                  <option value="">Selecione o consultor...</option>
+                  {eventConsultants.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.nome_completo}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {isEventForm && eventCategories.length > 0 && (
+              <div className="space-y-1.5">
+                <Label style={isEmbed ? { color: "#0f172a", opacity: 1 } : undefined}>
+                  Categorias de interesse
+                </Label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                  {eventCategories.map((cat) => {
+                    const checked = selectedCategories.includes(cat);
+                    return (
+                      <label
+                        key={cat}
+                        className={`flex items-center gap-2 rounded-md border px-2.5 py-2 text-sm cursor-pointer transition-colors ${
+                          checked ? "border-primary bg-primary/5" : "border-input"
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={(ev) =>
+                            setSelectedCategories((s) =>
+                              ev.target.checked ? [...s, cat] : s.filter((v) => v !== cat),
+                            )
+                          }
+                        />
+                        <span className="truncate">{cat}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             {visibleFields.map((field) => (
               <div key={field.id} className="space-y-1.5">
                 <Label style={isEmbed ? { color: "#0f172a", opacity: 1 } : undefined}>
