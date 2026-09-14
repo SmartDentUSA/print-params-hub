@@ -253,13 +253,49 @@ export function PromotionalCouponsCard({ table, draft, onDraftChange }: Props) {
   const shareText = (coupon: PromotionalCoupon) =>
     [
       `${draft.pdf_title || table.pdf_title} — Smart Dent`,
-      coupon.discount_type === "fixed"
-        ? `Desconto de R$ ${Number(coupon.discount_value).toFixed(2).replace(".", ",")}`
-        : `Desconto de ${Number(coupon.discount_value).toFixed(1).replace(".", ",")}%`,
+      couponKind(coupon) === "freight"
+        ? "Frete grátis na compra online"
+        : coupon.discount_type === "fixed"
+          ? `Desconto de R$ ${Number(coupon.discount_value).toFixed(2).replace(".", ",")}`
+          : `Desconto de ${Number(coupon.discount_value).toFixed(1).replace(".", ",")}%`,
       `Cupom: ${coupon.code}`,
       coupon.valid_until ? `Válido até ${new Date(`${coupon.valid_until}T12:00:00`).toLocaleDateString("pt-BR")}` : null,
       "Use em loja.smartdent.com.br",
     ].filter(Boolean).join("\n");
+
+  const discountCoupons = coupons.filter((coupon) => couponKind(coupon) === "discount");
+  const freightCoupons = coupons.filter((coupon) => couponKind(coupon) === "freight");
+
+  const renderCoupon = (coupon: PromotionalCoupon) => (
+    <div key={coupon.id} className="flex flex-wrap items-center gap-3 rounded-md border p-3 text-sm">
+      <div className="min-w-[160px] flex-1">
+        <p className="font-semibold">{coupon.code}</p>
+        <p className="text-xs text-muted-foreground">{coupon.seller_name || "—"}</p>
+      </div>
+      <span className="text-xs text-muted-foreground">
+        {couponKind(coupon) === "freight"
+          ? "Frete grátis"
+          : coupon.discount_type === "fixed"
+            ? `R$ ${Number(coupon.discount_value).toFixed(2).replace(".", ",")}`
+            : `${Number(coupon.discount_value).toFixed(1).replace(".", ",")}%`}
+      </span>
+      {coupon.li_synced_at
+        ? <Badge variant="secondary" className="gap-1"><CheckCircle2 className="h-3 w-3" />Na loja</Badge>
+        : coupon.li_sync_error
+          ? <Badge variant="destructive" title={coupon.li_sync_error}>Erro no envio</Badge>
+          : <Badge variant="outline">Não enviado</Badge>}
+      <Button size="sm" variant="outline" onClick={() => { navigator.clipboard.writeText(shareText(coupon)); toast.success("Mensagem copiada para o WhatsApp."); }}>
+        <Copy className="mr-1 h-3.5 w-3.5" />Mensagem
+      </Button>
+      <Button size="sm" variant="outline" asChild>
+        <a href={`https://wa.me/?text=${encodeURIComponent(shareText(coupon))}`} target="_blank" rel="noreferrer">WhatsApp</a>
+      </Button>
+      <Button size="icon" variant="ghost" title="Excluir cupom" onClick={() => removeCoupon(coupon)}>
+        <Trash2 className="h-4 w-4 text-destructive" />
+      </Button>
+    </div>
+  );
+
 
   return (
     <Card>
