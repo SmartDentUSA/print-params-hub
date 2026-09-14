@@ -14,6 +14,8 @@ import {
   Wand2,
 } from "lucide-react";
 import { toast } from "sonner";
+import { QrCodeButton } from "./QrCodeButton";
+import { getPublicOrigin } from "@/utils/publicOrigin";
 import type { FormMetrics, ShortLinkInfo } from "./FormMetricsCard";
 
 interface Props {
@@ -69,12 +71,19 @@ function ShortChip({
   info,
   busy,
   onGenerate,
+  qrUrl,
+  qrTitle,
+  qrSuffix,
 }: {
   label: string;
   info: ShortLinkInfo | null | undefined;
   busy: boolean;
   onGenerate?: () => void;
+  qrUrl: string;
+  qrTitle: string;
+  qrSuffix: string;
 }) {
+  const qr = <QrCodeButton url={info ? `https://s.smartdent.com.br/${info.short_code}` : qrUrl} title={qrTitle} fileSuffix={qrSuffix} />;
   if (info) {
     const url = `https://s.smartdent.com.br/${info.short_code}`;
     const copy = () =>
@@ -83,6 +92,7 @@ function ShortChip({
         () => toast.error("Falha ao copiar"),
       );
     return (
+      <div className="inline-flex items-center gap-1">
       <div className="inline-flex items-center gap-1 rounded border px-1.5 py-0.5 text-[10px] bg-muted/40">
         <Badge variant="secondary" className="text-[9px] py-0 px-1 h-4">{label}</Badge>
         <button
@@ -99,9 +109,12 @@ function ShortChip({
           · {info.click_count.toLocaleString()}
         </span>
       </div>
+      {qr}
+      </div>
     );
   }
   return (
+    <div className="inline-flex items-center gap-1">
     <Button
       type="button"
       size="sm"
@@ -113,6 +126,8 @@ function ShortChip({
       {busy ? <Loader2 className="w-3 h-3 animate-spin" /> : <Link2 className="w-3 h-3" />}
       {label} · gerar curto
     </Button>
+    {qr}
+    </div>
   );
 }
 
@@ -163,6 +178,9 @@ export function FormMetricsRow({
             info={shortLinkForm}
             busy={generatingTarget === "form"}
             onGenerate={() => onGenerateShortLink?.("form")}
+            qrUrl={`${getPublicOrigin()}/f/${form.slug}`}
+            qrTitle={`${form.name} — Formulário`}
+            qrSuffix="form"
           />
           {hasLandingPage && (
             <ShortChip
@@ -170,6 +188,9 @@ export function FormMetricsRow({
               info={shortLinkLanding}
               busy={generatingTarget === "landing_page"}
               onGenerate={() => onGenerateShortLink?.("landing_page")}
+              qrUrl={`${getPublicOrigin()}/lp/${form.slug}`}
+              qrTitle={`${form.name} — Landing page`}
+              qrSuffix="landing-page"
             />
           )}
         </div>
