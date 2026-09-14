@@ -33,6 +33,7 @@ const blankTable = (): Omit<PromotionalTable, "id" | "created_at" | "updated_at"
   include_official_price_table: true,
   coupon_seller_ids: [], coupon_discount_type: "percent", coupon_discount_value: 0,
   coupon_prefix: null, coupon_usage_limit: null, coupon_valid_from: null, coupon_valid_until: null,
+  coupon_li_category_ids: [], coupon_li_category_labels: [],
 });
 
 const money = (value: number, currency: string) =>
