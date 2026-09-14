@@ -184,7 +184,7 @@ Deno.serve(async (req) => {
       const isFreight = coupon.free_shipping === true || coupon.kind === "freight";
       const payload: Record<string, unknown> = {
         codigo: coupon.code,
-        descricao: `${tableRow?.title || "Promoção Smart Dent"} — ${coupon.code}${isFreight ? " (frete grátis)" : ""}`,
+        descricao: `${tableRow?.name || "Promoção Smart Dent"} — ${coupon.code}${isFreight ? " (frete grátis)" : ""}`,
         valor: isFreight ? "0.00" : Number(coupon.discount_value || 0).toFixed(2),
         tipo: isFreight ? "frete_gratis" : isPercent ? "porcentagem" : "fixo",
         ativo: coupon.active,
