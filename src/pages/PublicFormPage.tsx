@@ -548,6 +548,29 @@ export default function PublicFormPage() {
         })),
     };
 
+    // Feiras e eventos — consultor do estande define o responsável no CRM
+    if (isEventForm) {
+      if (eventConsultants.length > 0 && !consultantId) {
+        toast_inline("Selecione o consultor que fez o atendimento.");
+        setSubmitting(false);
+        return;
+      }
+      const consultant = eventConsultants.find((c) => c.id === consultantId);
+      if (consultant) {
+        payload.event_consultant_team_member_id = consultant.id;
+        payload.proprietario_lead_crm = consultant.nome_completo;
+        payload.form_responses.push({ label: "Consultor", value: consultant.nome_completo });
+      }
+      if ((form as any).event_id) payload.event_id = (form as any).event_id;
+      if (selectedCategories.length > 0) {
+        payload.event_interest_categories = selectedCategories;
+        payload.form_responses.push({
+          label: "Categorias de interesse",
+          value: selectedCategories.join(", "),
+        });
+      }
+    }
+
     const customFields: Record<string, any> = {};
 
     for (const field of activeFields) {
