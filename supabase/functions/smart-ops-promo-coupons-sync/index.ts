@@ -78,7 +78,7 @@ async function liRequest(
 }
 
 const asDateTime = (value: string | null, endOfDay = false) =>
-  value ? `${value} ${endOfDay ? "23:59:59" : "00:00:00"}` : null;
+  value ? `${value}T${endOfDay ? "23:59:59" : "00:00:00"}` : null;
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
