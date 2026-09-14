@@ -1117,6 +1117,47 @@ export default function PublicFormPage() {
               </div>
             )}
 
+            {isEventForm && eventCombos.length > 0 && (
+              <div className="space-y-1.5">
+                <Label style={isEmbed ? { color: "#0f172a", opacity: 1 } : undefined}>
+                  Combos promocionais do evento
+                </Label>
+                <div className="grid grid-cols-1 gap-1.5">
+                  {eventCombos.map((combo) => {
+                    const checked = selectedCategories.includes(combo.title);
+                    return (
+                      <label
+                        key={combo.title}
+                        className={`flex items-center gap-2 rounded-md border px-2.5 py-2 text-sm cursor-pointer transition-colors ${
+                          checked ? "border-primary bg-primary/5" : "border-input"
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={(ev) =>
+                            setSelectedCategories((s) =>
+                              ev.target.checked
+                                ? [...s, combo.title]
+                                : s.filter((v) => v !== combo.title),
+                            )
+                          }
+                        />
+                        <span className="flex-1">
+                          <span className="block font-medium">{combo.title}</span>
+                          {combo.description && (
+                            <span className="block text-xs text-muted-foreground truncate">
+                              {combo.description}
+                            </span>
+                          )}
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             {isEventForm && eventCategoryGroups.length > 0 && (
               <div className="space-y-3">
                 <Label style={isEmbed ? { color: "#0f172a", opacity: 1 } : undefined}>
