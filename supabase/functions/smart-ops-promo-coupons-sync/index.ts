@@ -149,7 +149,7 @@ Deno.serve(async (req) => {
 
     let query = supabase
       .from("promotional_coupons")
-      .select("id,code,discount_type,discount_value,valid_from,valid_until,usage_limit,active,li_coupon_id")
+      .select("id,code,discount_type,discount_value,valid_from,valid_until,usage_limit,active,li_coupon_id,kind,free_shipping")
       .eq("promotional_table_id", tableId);
     if (Array.isArray(body?.coupon_ids) && body.coupon_ids.length) {
       query = query.in("id", body.coupon_ids as string[]);
