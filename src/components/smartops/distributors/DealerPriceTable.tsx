@@ -376,12 +376,16 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
       if (!keySet) { keySet = new Set(); validKeysByProduct.set(v.catalog_product_id, keySet); }
       keySet.add(norm(norm2.qty));
       const priced = priceFor(v, p);
-      if (priced.missing) missingCount++;
       const skuKey = v.sku ? `sku::${norm(v.sku)}` : null;
       const legacyKey = `${v.catalog_product_id}::${norm(norm2.qty)}`;
       const current = (skuKey && existingByKey.get(skuKey)) || legacyByKey.get(legacyKey);
       // Consome a linha legada para não ser reusada por outra variação do mesmo produto.
       if (current && !((current as any).sku)) legacyByKey.delete(legacyKey);
+      // Nunca zerar um preço já digitado manualmente na tabela do distribuidor:
+      // se o catálogo não tem preço na moeda-alvo, mantém o valor atual da linha.
+      const keptManual = priced.missing && Number(current?.price_base) > 0;
+      const effectivePrice = keptManual ? Number(current?.price_base) : priced.value;
+      if (priced.missing && !keptManual) missingCount++;
       const catalogFields = {
         catalog_product_id: p.id,
         cod: p?.external_id || null,
@@ -396,7 +400,7 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
         ncm_hs: v.ncm_hs ?? null,
         gtin_ean: v.gtin_ean ?? null,
         color: v.color ?? null,
-        price_base: priced.value,
+        price_base: effectivePrice,
         presentation: norm2.pres,
         quantity_multiplier: Number(p.quantity_multiplier ?? 1) || 1,
         presentation_qty: norm2.qty,
@@ -408,7 +412,7 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
           id: current.id,
           patch: {
             ...catalogFields,
-            price_dealer: recalcDealerPrice(priced.value, Number(current.discount_pct) || 0),
+            price_dealer: recalcDealerPrice(effectivePrice, Number(current.discount_pct) || 0),
           },
         });
       } else {
@@ -416,7 +420,7 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
           price_list_id: list.id,
           ...catalogFields,
           discount_pct: 0,
-          price_dealer: priced.value,
+          price_dealer: effectivePrice,
           sort_order: cursor++,
         });
       }
@@ -638,10 +642,14 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
       if (!variation) return it;
       const pick = cur === "USD" ? variation.price_usd : cur === "EUR" ? variation.price_eur : variation.price_brl;
       const value = Number(pick);
-      if (!(value > 0)) fallback++;
+      // Sem preço no catálogo: preserva o valor digitado manualmente na tabela.
+      if (!(value > 0)) {
+        fallback++;
+        return it;
+      }
       const price_dealer = recalcDealerPrice(value, Number(it.discount_pct) || 0);
       updated++;
-      return { ...it, price_base: value > 0 ? value : 0, price_dealer: value > 0 ? price_dealer : 0 };
+      return { ...it, price_base: value, price_dealer };
     });
     // Persist updates in parallel
     const changed = nextItems.filter((n, i) => n !== items[i]);
@@ -699,9 +707,84 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
       if (error) { toast.error(`Erro em ${it.name}: ${error.message}`); setSaving(false); return; }
     }
     toast.success(`${toSave.length} linhas salvas`);
+    const backfilled = await backfillCatalogPrices(toSave);
+    if (backfilled > 0)
+      toast.success(`${backfilled} preços gravados no catálogo (usados nas tabelas promocionais)`);
     setDirtyIds(new Set());
     setSaving(false);
     await autoSnapshot(`${t.autoEdit} (${toSave.length})`, items);
+  };
+
+  /**
+   * Grava no catálogo (catalog_product_variations + system_a_catalog) o preço
+   * digitado manualmente na tabela do distribuidor, SOMENTE quando o catálogo
+   * está sem preço naquela moeda. Sem isso, produtos novos (ex.: linha UNIKK)
+   * ficavam com preço só na tabela do dealer, voltavam a zero no próximo
+   * "Recalcular preços do catálogo" e entravam em R$ 0,00 nas tabelas promocionais.
+   */
+  const backfillCatalogPrices = async (rows: DealerPriceItem[]): Promise<number> => {
+    const cur = (list?.currency || distributor?.preferred_currency || "BRL").toUpperCase();
+    const priceCol = cur === "USD" ? "price_usd" : cur === "EUR" ? "price_eur" : "price_brl";
+    const candidates = rows.filter(
+      (it) => it.catalog_product_id && Number(it.price_base) > 0,
+    );
+    if (candidates.length === 0) return 0;
+    const productIds = Array.from(new Set(candidates.map((it) => it.catalog_product_id as string)));
+    const { data: variations } = await supabase
+      .from("catalog_product_variations" as any)
+      .select(`id,catalog_product_id,sku,presentation_qty,${priceCol}`)
+      .in("catalog_product_id", productIds);
+    const normQty = (value: unknown) => String(value ?? "").trim().toLowerCase().replace(/\s+/g, "");
+    const bySku = new Map<string, any>();
+    const byQty = new Map<string, any>();
+    for (const v of ((variations as any) || []) as any[]) {
+      if (v.sku) bySku.set(normQty(v.sku), v);
+      byQty.set(`${v.catalog_product_id}::${normQty(v.presentation_qty)}`, v);
+    }
+    const ops: any[] = [];
+    const productsToTouch = new Set<string>();
+    let count = 0;
+    for (const it of candidates) {
+      const variation =
+        ((it as any).sku && bySku.get(normQty((it as any).sku))) ||
+        byQty.get(`${it.catalog_product_id}::${normQty(it.presentation_qty)}`);
+      if (!variation) continue;
+      if (Number(variation[priceCol]) > 0) continue;
+      count++;
+      ops.push(
+        supabase
+          .from("catalog_product_variations" as any)
+          .update({ [priceCol]: Number(it.price_base) })
+          .eq("id", variation.id),
+      );
+      if (cur === "BRL") productsToTouch.add(it.catalog_product_id as string);
+    }
+    // Preço-base do produto em BRL (fallback usado por quem lê só system_a_catalog).
+    if (productsToTouch.size > 0) {
+      const { data: products } = await supabase
+        .from("system_a_catalog" as any)
+        .select("id,price")
+        .in("id", Array.from(productsToTouch));
+      for (const p of ((products as any) || []) as any[]) {
+        if (Number(p.price) > 0) continue;
+        const row = candidates.find((it) => it.catalog_product_id === p.id);
+        if (!row) continue;
+        ops.push(
+          supabase
+            .from("system_a_catalog" as any)
+            .update({ price: Number(row.price_base) })
+            .eq("id", p.id),
+        );
+      }
+    }
+    if (ops.length === 0) return 0;
+    const results = await Promise.all(ops);
+    const failed = results.find((r: any) => r?.error);
+    if (failed) {
+      toast.warning(`Preços salvos na tabela, mas não replicados no catálogo: ${(failed as any).error.message}`);
+      return 0;
+    }
+    return count;
   };
 
   const saveSnapshot = async () => {
