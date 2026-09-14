@@ -1300,6 +1300,51 @@ async function pickRandomActiveVendedor(
   return eligible[idx] as TeamMember;
 }
 
+/**
+ * Feiras e eventos: o consultor escolhido no estande é o dono do lead.
+ * Vale para QUALQUER rota de criação de deal (inclusive reativação de
+ * Estagnados e novo interesse durante CS), onde antes havia round robin.
+ */
+async function resolveEventConsultant(
+  supabase: ReturnType<typeof createClient>,
+  lead: Record<string, unknown>,
+): Promise<TeamMember | null> {
+  const consultantId = lead.event_consultant_team_member_id as string | null | undefined;
+  if (!consultantId) return null;
+  try {
+    const { data: ec } = await supabase
+      .from("team_members")
+      .select("id, nome_completo, piperun_owner_id, ativo")
+      .eq("id", consultantId)
+      .maybeSingle();
+    const ownerId = Number(ec?.piperun_owner_id);
+    if (ec?.ativo && Number.isFinite(ownerId) && ownerId > 0) {
+      console.log(`[lia-assign] EVENT_CONSULTANT owner → ${ec.nome_completo} (${ownerId})`);
+      return {
+        id: ec.id as string,
+        nome_completo: ec.nome_completo as string,
+        piperun_owner_id: ownerId,
+      };
+    }
+  } catch (e) {
+    console.warn("[lia-assign] resolveEventConsultant failed:", String(e));
+  }
+  return null;
+}
+
+/**
+ * Dono do novo deal: consultor do evento (feiras) tem prioridade sobre o
+ * sorteio de vendedores ativos.
+ */
+async function pickOwnerForNewDeal(
+  supabase: ReturnType<typeof createClient>,
+  lead: Record<string, unknown>,
+): Promise<TeamMember> {
+  const consultant = await resolveEventConsultant(supabase, lead);
+  if (consultant) return consultant;
+  return await pickRandomActiveVendedor(supabase);
+}
+
 // ─── AI Message Generation ───
 
 const LIA_SOURCES = ["dra-lia", "whatsapp_lia", "handoff_lia"];
