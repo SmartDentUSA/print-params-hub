@@ -286,6 +286,33 @@ export default function PublicFormPage() {
     load();
   }, [slug]);
 
+  const isEventForm = form?.form_purpose === "feira_evento";
+  const eventCategories: string[] = Array.isArray((form as any)?.event_categories)
+    ? ((form as any).event_categories as string[])
+    : [];
+
+  // Consultores habilitados para o evento
+  useEffect(() => {
+    const ids: string[] = ((form as any)?.event_consultant_ids ?? []) as string[];
+    if (!isEventForm || ids.length === 0) {
+      setEventConsultants([]);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const { data } = await (supabase as any)
+        .from("team_members")
+        .select("id, nome_completo")
+        .in("id", ids)
+        .eq("ativo", true)
+        .order("nome_completo");
+      if (!cancelled) setEventConsultants((data ?? []) as { id: string; nome_completo: string }[]);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isEventForm, form?.id]);
+
   // SEO meta tags (title, description, canonical, og/twitter)
   useEffect(() => {
     if (!form) return;
