@@ -180,6 +180,11 @@ export default function KbContentCard({ data, index, buttonLabel, onClick, thumb
                 <Share2 size={14} />
               </button>
             )}
+            {showQrCode && data.shareUrl && (
+              <span onClick={(e) => e.stopPropagation()}>
+                <QrCodeButton url={data.shareUrl} title={data.title} fileSuffix="ebook" />
+              </span>
+            )}
             <button type="button" className="kb-action-btn" onClick={onClick}>{buttonLabel}</button>
           </div>
         </div>
