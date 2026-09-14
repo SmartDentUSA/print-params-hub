@@ -97,6 +97,14 @@ export function PromotionalTablesTab() {
         .order("razao_social");
       if (distError) console.warn("distributors", distError.message);
       setDistributors(((dist as any) || []) as DistributorOption[]);
+
+      const { data: eventRows, error: eventError } = await supabase
+        .from("smartops_events" as any)
+        .select("id,name,start_date,company_stand")
+        .order("start_date", { ascending: false })
+        .limit(100);
+      if (eventError) console.warn("smartops_events", eventError.message);
+      setEvents(((eventRows as any) || []) as EventOption[]);
     } catch (err: any) {
       setLoadError(err?.message || "Falha inesperada ao carregar as tabelas promocionais.");
     } finally {
@@ -127,6 +135,7 @@ export function PromotionalTablesTab() {
     setSelected(table);
     setDraft({
       name: table.name, pdf_title: table.pdf_title, distributor_id: table.distributor_id,
+      event_id: table.event_id ?? null,
       currency: table.currency, valid_from: table.valid_from, valid_until: table.valid_until,
       notes: table.notes, status: table.status,
       include_official_price_table: table.include_official_price_table !== false,
