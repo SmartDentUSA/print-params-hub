@@ -630,7 +630,7 @@ export default function PublicFormPage() {
       if (selectedCategories.length > 0) {
         payload.event_interest_categories = selectedCategories;
         payload.form_responses.push({
-          label: "Categorias de interesse",
+          label: eventCombos.length > 0 ? "Combos de interesse" : "Categorias de interesse",
           value: selectedCategories.join(", "),
         });
       }
