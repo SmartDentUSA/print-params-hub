@@ -376,12 +376,16 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
       if (!keySet) { keySet = new Set(); validKeysByProduct.set(v.catalog_product_id, keySet); }
       keySet.add(norm(norm2.qty));
       const priced = priceFor(v, p);
-      if (priced.missing) missingCount++;
       const skuKey = v.sku ? `sku::${norm(v.sku)}` : null;
       const legacyKey = `${v.catalog_product_id}::${norm(norm2.qty)}`;
       const current = (skuKey && existingByKey.get(skuKey)) || legacyByKey.get(legacyKey);
       // Consome a linha legada para não ser reusada por outra variação do mesmo produto.
       if (current && !((current as any).sku)) legacyByKey.delete(legacyKey);
+      // Nunca zerar um preço já digitado manualmente na tabela do distribuidor:
+      // se o catálogo não tem preço na moeda-alvo, mantém o valor atual da linha.
+      const keptManual = priced.missing && Number(current?.price_base) > 0;
+      const effectivePrice = keptManual ? Number(current?.price_base) : priced.value;
+      if (priced.missing && !keptManual) missingCount++;
       const catalogFields = {
         catalog_product_id: p.id,
         cod: p?.external_id || null,
