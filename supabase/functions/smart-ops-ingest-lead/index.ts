@@ -1986,29 +1986,8 @@ Deno.serve(async (req) => {
             .slice(0, 60)
         : [];
 
-    // Feiras e eventos — garante Evento / Consultor / Combos na timeline
-    let eventNameForTimeline: string | null = null;
-    if (payload.event_id) {
-      try {
-        const { data: ev } = await supabase
-          .from("smartops_events")
-          .select("name, location, company_stand")
-          .eq("id", payload.event_id)
-          .maybeSingle();
-        if (ev?.name) {
-          eventNameForTimeline = String(ev.name);
-          const stand = [ev.location, ev.company_stand].filter(Boolean).join(" · ");
-          if (!normalizedFormResponses.some((r) => r.label.toLowerCase() === "evento")) {
-            normalizedFormResponses.unshift({
-              label: "Evento",
-              value: stand ? `${ev.name} (${stand})` : String(ev.name),
-            });
-          }
-        }
-      } catch (e) {
-        console.warn("[ingest-lead] event name lookup failed:", e);
-      }
-    }
+    // Feiras e eventos — "Evento" já foi injetado em payload.form_responses acima
+
     if (payload.proprietario_lead_crm && !normalizedFormResponses.some((r) => r.label.toLowerCase() === "consultor")) {
       normalizedFormResponses.unshift({ label: "Consultor", value: String(payload.proprietario_lead_crm) });
     }
