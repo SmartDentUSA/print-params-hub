@@ -92,7 +92,9 @@ Deno.serve(async (req) => {
   try {
     const body = await req.json().catch(() => ({}));
     const tableId = String(body?.promotional_table_id || "").trim();
-    if (!tableId) return json({ ok: false, error: "promotional_table_id é obrigatório" }, 400);
+    if (!tableId && body?.mode !== "inspect") {
+      return json({ ok: false, error: "promotional_table_id é obrigatório" }, 400);
+    }
 
     const apiKey = (Deno.env.get("LOJA_INTEGRADA_API_KEY") || "").trim();
     const appKey = (Deno.env.get("LOJA_INTEGRADA_APP_KEY") || "").trim() || null;
