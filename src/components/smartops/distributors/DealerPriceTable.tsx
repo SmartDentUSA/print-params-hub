@@ -420,7 +420,7 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
           price_list_id: list.id,
           ...catalogFields,
           discount_pct: 0,
-          price_dealer: priced.value,
+          price_dealer: effectivePrice,
           sort_order: cursor++,
         });
       }
