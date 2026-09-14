@@ -27,6 +27,8 @@ interface Props {
   onClick: () => void;
   /** "portrait" usa proporção vertical de vídeo (9:16), ex.: depoimentos */
   thumbAspect?: 'video' | 'portrait';
+  /** Exibe botão de QR Code (somente usuários logados) */
+  showQrCode?: boolean;
 }
 
 function formatDuration(sec: number): string {
