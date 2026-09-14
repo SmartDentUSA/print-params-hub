@@ -412,7 +412,7 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
           id: current.id,
           patch: {
             ...catalogFields,
-            price_dealer: recalcDealerPrice(priced.value, Number(current.discount_pct) || 0),
+            price_dealer: recalcDealerPrice(effectivePrice, Number(current.discount_pct) || 0),
           },
         });
       } else {
