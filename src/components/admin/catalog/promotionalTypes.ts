@@ -26,6 +26,10 @@ export type PromotionalTable = {
   coupon_freight_valid_from?: string | null;
   coupon_freight_valid_until?: string | null;
   coupon_freight_usage_limit?: number | null;
+  /** Liga/desliga a lista de vendedores e cupons de desconto no PDF. */
+  coupon_pdf_enabled?: boolean | null;
+  /** Liga/desliga a coluna de cupom com frete grátis no PDF. */
+  coupon_freight_pdf_enabled?: boolean | null;
   created_at: string;
   updated_at: string;
 };
