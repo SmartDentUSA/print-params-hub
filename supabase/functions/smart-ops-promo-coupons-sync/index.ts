@@ -129,6 +129,14 @@ Deno.serve(async (req) => {
       return json({ ok: true, categories: all });
     }
 
+    // Diagnóstico: devolve o cupom exatamente como está gravado na loja.
+    if (mode === "inspect") {
+      const liId = String(body?.li_coupon_id || "").replace(/\D/g, "");
+      if (!liId) return json({ ok: false, error: "li_coupon_id é obrigatório" }, 400);
+      const raw = await liRequest(`/cupom/${liId}?format=json`, "GET", null, apiKey, appKey);
+      return json({ ok: true, coupon: raw });
+    }
+
 
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
