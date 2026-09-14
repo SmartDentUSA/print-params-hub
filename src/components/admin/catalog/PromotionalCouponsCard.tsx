@@ -74,11 +74,12 @@ export function PromotionalCouponsCard({ table, draft, onDraftChange }: Props) {
     // Mesma lista liberada no formulário do evento; sem evento, toda a equipe ativa.
     let ids: string[] = [];
     if (draft.event_id) {
-      const { data } = await supabase
+      const { data, error: formsError } = await supabase
         .from("smartops_forms" as any)
         .select("event_consultant_ids,updated_at")
         .eq("event_id", draft.event_id)
         .order("updated_at", { ascending: false });
+      if (formsError) toast.error(formsError.message);
       for (const form of ((data as any) || [])) {
         for (const id of (form.event_consultant_ids || [])) if (!ids.includes(id)) ids.push(id);
       }
