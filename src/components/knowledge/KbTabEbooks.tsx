@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { getArticleUrl } from '@/utils/knowledgeUrls';
 import { getPublicOrigin } from '@/utils/publicOrigin';
@@ -11,6 +10,7 @@ import KbSkeletonGrid from './KbSkeletonGrid';
 import KbContentCard, { KbContentCardData } from './KbContentCard';
 import { resolveCategoryTk } from './kbCategoryTaxonomy';
 import KbListControls, { KbSortKey, KbViewMode } from './KbListControls';
+import { useIsAdminUser } from '@/hooks/useMetaFormMappings';
 
 interface Row {
   id: string; title: string; title_en: string | null; title_es: string | null;
