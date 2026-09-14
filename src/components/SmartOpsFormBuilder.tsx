@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import { Plus, Copy, ExternalLink, Pencil, Trash2, Settings, CopyPlus, FileText, Lock, Search, X } from "lucide-react";
 import { SmartOpsFormEditor } from "./SmartOpsFormEditor";
 import { SmartOpsSdrCaptacaoEditor } from "./SmartOpsSdrCaptacaoEditor";
+import { FeiraEventoConfig } from "./smartops/FeiraEventoConfig";
 import { FormMetricsCard, type FormMetrics } from "./smartops/FormMetricsCard";
 import type { ShortLinkInfo } from "./smartops/FormMetricsCard";
 import { FormMetricsRow } from "./smartops/FormMetricsRow";
