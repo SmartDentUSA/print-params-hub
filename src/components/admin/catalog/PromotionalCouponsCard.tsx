@@ -11,7 +11,7 @@ import { CheckCircle2, Copy, Loader2, RefreshCw, Store, Ticket, Trash2 } from "l
 import { toast } from "sonner";
 import type { PromotionalCoupon, PromotionalTable } from "./promotionalTypes";
 
-type Seller = { id: string; nome_completo: string; celular?: string | null };
+type Seller = { id: string; nome_completo: string; whatsapp_number?: string | null };
 type LiCategory = { id: number; nome: string; parent_id: number | null };
 
 /** Categorias da loja liberadas por padrão nas promoções de evento. */
@@ -74,22 +74,29 @@ export function PromotionalCouponsCard({ table, draft, onDraftChange }: Props) {
     // Mesma lista liberada no formulário do evento; sem evento, toda a equipe ativa.
     let ids: string[] = [];
     if (draft.event_id) {
-      const { data } = await supabase
+      const { data, error: formsError } = await supabase
         .from("smartops_forms" as any)
         .select("event_consultant_ids,updated_at")
         .eq("event_id", draft.event_id)
         .order("updated_at", { ascending: false });
+      if (formsError) toast.error(formsError.message);
       for (const form of ((data as any) || [])) {
         for (const id of (form.event_consultant_ids || [])) if (!ids.includes(id)) ids.push(id);
       }
     }
     setSellerSource(ids.length ? "event" : "team");
     let query = supabase.from("team_members" as any)
-      .select("id,nome_completo,celular").eq("ativo", true).order("nome_completo");
+      .select("id,nome_completo,whatsapp_number").eq("ativo", true).order("nome_completo");
     if (ids.length) query = query.in("id", ids);
     const { data: rows, error } = await query;
     if (error) toast.error(error.message);
-    setSellers(((rows as any) || []) as Seller[]);
+    const list = ((rows as any) || []) as Seller[];
+    setSellers(list);
+    // Pré-seleciona os consultores do estande — quem for escolhido no formulário
+    // é o responsável do lead no CRM, e cada um recebe seu próprio cupom.
+    if (ids.length && !(draft.coupon_seller_ids || []).length && list.length) {
+      onDraftChange({ coupon_seller_ids: list.map((row) => row.id) });
+    }
   }, [draft.event_id]);
 
   const loadCoupons = useCallback(async () => {
