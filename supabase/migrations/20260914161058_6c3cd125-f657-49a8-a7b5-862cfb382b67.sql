@@ -1,0 +1,2 @@
+ALTER TABLE public.smartops_forms DROP CONSTRAINT smartops_forms_form_purpose_check;
+ALTER TABLE public.smartops_forms ADD CONSTRAINT smartops_forms_form_purpose_check CHECK (form_purpose = ANY (ARRAY['nps'::text,'sdr'::text,'roi'::text,'cs'::text,'captacao'::text,'evento'::text,'sdr_captacao'::text,'cm_update_deal'::text,'cs_update_deals'::text,'st_update_deals'::text,'feira_evento'::text]));
