@@ -420,6 +420,72 @@ export async function exportPromotionalPdf(
     }
   }
 
+  // ---- Event appendix: demo schedule + stand support, always last ----
+  const event = await fetchEvent(table.event_id);
+  if (event) {
+    const speakers = (event.speakers || []) as EventSpeaker[];
+    const demos = eventRows(speakers, "sessions");
+    const support = eventRows(speakers, "support_sessions");
+    if (demos.length || support.length) {
+      doc.addPage();
+      header();
+      let cursor = pageTop;
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(12);
+      doc.text(`AGENDA NO EVENTO — ${event.name.toUpperCase()}`, margin, cursor);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8);
+      doc.setTextColor(110, 110, 110);
+      doc.text(
+        [event.location, event.company_stand ? `Estande ${event.company_stand}` : null,
+          event.start_date ? `${date(event.start_date)} a ${date(event.end_date)}` : null]
+          .filter(Boolean).join("  •  "),
+        margin,
+        cursor + 14,
+      );
+      doc.setTextColor(0, 0, 0);
+      cursor += 30;
+
+      const block = (title: string, rows: typeof demos, withTheme: boolean) => {
+        if (!rows.length) return;
+        if (cursor + 60 > height - pageBottom) { doc.addPage(); header(); cursor = pageTop; }
+        doc.setFillColor(...dark);
+        doc.rect(margin, cursor, width - margin * 2, 20, "F");
+        doc.setTextColor(255, 255, 255);
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(9);
+        doc.text(title, margin + 8, cursor + 14);
+        doc.setTextColor(0, 0, 0);
+        cursor += 26;
+
+        const head = withTheme
+          ? [["Dia", "Horário", "Profissional", "Tema", "Instagram"]]
+          : [["Dia", "Horário", "Profissional", "Especialidade", "Instagram"]];
+        autoTable(doc, {
+          startY: cursor,
+          margin: { left: margin, right: margin, top: pageTop, bottom: pageBottom },
+          head,
+          body: rows.map((row) => [
+            date(row.day),
+            [row.start, row.end].filter(Boolean).join(" - "),
+            row.name,
+            withTheme ? (row.theme || "—") : (row.specialty || "—"),
+            row.instagram ? `@${row.instagram}` : "—",
+          ]),
+          styles: { fontSize: 8, cellPadding: 5, lineColor: [210, 214, 218], lineWidth: 0.4, valign: "middle", overflow: "linebreak" },
+          headStyles: { fillColor: dark, textColor: 255, fontStyle: "bold" },
+          alternateRowStyles: { fillColor: [245, 246, 247] },
+          columnStyles: { 0: { cellWidth: 60 }, 1: { cellWidth: 70, halign: "center" }, 2: { cellWidth: 120 }, 4: { cellWidth: 100 } },
+          didDrawPage: header,
+        });
+        cursor = ((doc as any).lastAutoTable?.finalY ?? cursor) + 18;
+      };
+
+      block("CRONOGRAMA DE DEMONSTRAÇÕES", demos, true);
+      block("PROFISSIONAIS DE APOIO NO ESTANDE", support, false);
+    }
+  }
+
   const pages = doc.getNumberOfPages();
   for (let page = 1; page <= pages; page += 1) {
     doc.setPage(page);
