@@ -380,7 +380,7 @@ export function PromotionalTablesTab() {
     const { data: copy, error } = await supabase.from("promotional_tables" as any).insert({ ...table, id: undefined, name: `${table.name} — cópia`, status: "draft", created_at: undefined, updated_at: undefined, created_by: undefined }).select("*").single();
     if (error || !copy) { toast.error(error?.message || "Não foi possível duplicar."); return; }
     for (const sourceSection of ((sourceSections as any) || [])) {
-      const { data: newSection } = await supabase.from("promotional_table_sections" as any).insert({ promotional_table_id: (copy as any).id, title: sourceSection.title, description: sourceSection.description, image_url: sourceSection.image_url, sort_order: sourceSection.sort_order, group_labels: sourceSection.group_labels || [] }).select("*").single();
+      const { data: newSection } = await supabase.from("promotional_table_sections" as any).insert({ promotional_table_id: (copy as any).id, title: sourceSection.title, description: sourceSection.description, image_url: sourceSection.image_url, sort_order: sourceSection.sort_order, group_labels: sourceSection.group_labels || [], main_product_name: sourceSection.main_product_name || null, main_product_catalog_id: sourceSection.main_product_catalog_id || null }).select("*").single();
       if (!newSection) continue;
       const rows = ((sourceItems as any) || []).filter((item: any) => item.section_id === sourceSection.id).map(({ id, section_id, created_at, updated_at, ...item }: any) => ({ ...item, section_id: (newSection as any).id }));
       if (rows.length) await supabase.from("promotional_table_items" as any).insert(rows);
@@ -493,6 +493,24 @@ export function PromotionalTablesTab() {
                 </div>
               </div>
               <div className="space-y-2">
+                <Label className="text-xs">Produto principal (produto de interesse no CRM)</Label>
+                <Input
+                  list={`combo-produtos-${section.id}`}
+                  value={section.main_product_name || ""}
+                  placeholder="Ex.: CHAIRSIDE SMART A.I. PRO"
+                  onChange={(e) => setSections((current) => current.map((row) => row.id === section.id ? { ...row, main_product_name: e.target.value } : row))}
+                  onBlur={(e) => {
+                    const name = e.target.value.trim();
+                    const match = section.items.find((i) => i.name.trim().toLowerCase() === name.toLowerCase());
+                    updateSection(section.id, { main_product_name: name || null, main_product_catalog_id: match?.catalog_product_id || null } as any);
+                  }}
+                />
+                <datalist id={`combo-produtos-${section.id}`}>
+                  {section.items.map((item) => <option key={item.id} value={item.name} />)}
+                </datalist>
+                <p className="text-xs text-muted-foreground">Escolha um item do combo ou digite o nome. É esse produto que entra como "Produto de interesse" no PipeRun quando o lead marca este combo no formulário do evento.</p>
+              </div>
+              <div className="space-y-2 md:col-span-2">
                 <Label className="text-xs">Descrição do combo</Label>
                 <Textarea rows={6} value={section.description || ""} placeholder="Explique o que o combo entrega, benefícios e condições" onChange={(e) => setSections((current) => current.map((row) => row.id === section.id ? { ...row, description: e.target.value } : row))} onBlur={(e) => updateSection(section.id, { description: e.target.value || null })} />
                 <p className="text-xs text-muted-foreground">No PDF a foto aparece à esquerda e a descrição à direita, antes dos itens.</p>

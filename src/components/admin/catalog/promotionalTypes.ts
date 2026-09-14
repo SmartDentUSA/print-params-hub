@@ -24,6 +24,9 @@ export type PromotionalSection = {
   image_url?: string | null;
   sort_order: number;
   group_labels?: string[] | null;
+  /** Produto principal do combo — vira "produto de interesse" no PipeRun. */
+  main_product_name?: string | null;
+  main_product_catalog_id?: string | null;
 };
 
 

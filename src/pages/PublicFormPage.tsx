@@ -149,7 +149,7 @@ export default function PublicFormPage() {
   const [consultantId, setConsultantId] = useState<string>("");
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [eventCombos, setEventCombos] = useState<
-    { title: string; description: string | null; imageUrl: string | null }[]
+    { title: string; description: string | null; imageUrl: string | null; mainProduct: string | null }[]
   >([]);
   // Embed mode (usado pela landing page): renderiza somente o formulário,
   // sem coluna de mídia/texto e sem fundo de página.
@@ -379,6 +379,7 @@ export default function PublicFormPage() {
           title: r.section_title,
           description: r.section_description,
           imageUrl: r.section_image_url ?? null,
+          mainProduct: r.main_product_name ?? null,
         })),
       );
     })();
@@ -642,6 +643,16 @@ export default function PublicFormPage() {
           label: eventCombos.length > 0 ? "Combos de interesse" : "Categorias de interesse",
           value: selectedCategories.join(", "),
         });
+        // Produto de interesse (PipeRun): produto principal do 1º combo marcado
+        const chosen = eventCombos.filter((c) => selectedCategories.includes(c.title));
+        const produtos = chosen.map((c) => (c.mainProduct || c.title).trim()).filter(Boolean);
+        if (produtos.length > 0) {
+          payload.produto_interesse = produtos[0];
+          payload.form_responses.push({
+            label: "Produto de interesse",
+            value: produtos.join(", "),
+          });
+        }
       }
     }
 
