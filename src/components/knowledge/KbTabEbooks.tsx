@@ -94,7 +94,7 @@ export default function KbTabEbooks({ onOpen }: Props) {
           <KbEmptyState icon="📘" />
         ) : (
           cards.map((c, i) => (
-            <KbContentCard key={c.id} data={c} index={i} buttonLabel={t('kb.artigos.read_more')} showQrCode={isLogged} onClick={() => onOpen(sortedRows[i].slug)} />
+            <KbContentCard key={c.id} data={c} index={i} buttonLabel={t('kb.artigos.read_more')} showQrCode={!!isAdmin} onClick={() => onOpen(sortedRows[i].slug)} />
           ))
         )}
       </div>
