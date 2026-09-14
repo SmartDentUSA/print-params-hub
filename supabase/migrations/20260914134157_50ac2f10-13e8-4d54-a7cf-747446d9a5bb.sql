@@ -1,0 +1,1 @@
+ALTER TABLE public.promotional_table_sections ADD COLUMN IF NOT EXISTS group_labels text[] NOT NULL DEFAULT '{}'::text[];

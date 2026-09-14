@@ -18555,6 +18555,7 @@ export type Database = {
         Row: {
           created_at: string
           description: string | null
+          group_labels: string[]
           id: string
           image_url: string | null
           promotional_table_id: string
@@ -18565,6 +18566,7 @@ export type Database = {
         Insert: {
           created_at?: string
           description?: string | null
+          group_labels?: string[]
           id?: string
           image_url?: string | null
           promotional_table_id: string
@@ -18575,6 +18577,7 @@ export type Database = {
         Update: {
           created_at?: string
           description?: string | null
+          group_labels?: string[]
           id?: string
           image_url?: string | null
           promotional_table_id?: string
