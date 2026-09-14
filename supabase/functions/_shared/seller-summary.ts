@@ -166,15 +166,23 @@ export async function buildSellerDealSummaryHTML(
   sections.push(`<b>🧾 Resumo do Lead — Smart Dent</b>`);
   sections.push(`<i>Atualizado em ${fmtDate(new Date().toISOString())}</i><br>`);
 
-  // 1. Origem
-  sections.push(
-    `<b>🎯 Origem</b><br>` +
-    `• Primeiro contato: ${fmtDate(lead.data_primeiro_contato || lead.created_at)}<br>` +
-    `• Origem PipeRun: ${esc(lead.piperun_origin_name)}<br>` +
-    `• Campanha: ${esc(lead.utm_campaign || lead.origem_campanha)}<br>` +
-    `• Formulário inicial: ${esc(lead.form_name)}<br>` +
-    `• Produto de interesse: ${esc(lead.produto_interesse || lead.produto_interesse_auto)}<br>`,
-  );
+  // 1. Origem — só linhas com conteúdo real (sem "—" solto e sem ID técnico
+  //    de campanha, que poluía a nota: "Campanha: form_1566608407378526").
+  const isTechnicalValue = (v: unknown) => {
+    const s = String(v ?? "").trim();
+    if (!s) return true;
+    return /^(form[_-]?\d+|\d{6,}|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i.test(s);
+  };
+  const originLines: string[] = [];
+  const primeiroContato = fmtDate(lead.data_primeiro_contato || lead.created_at);
+  if (primeiroContato && primeiroContato !== "—") originLines.push(`• Primeiro contato: ${primeiroContato}`);
+  if (!isTechnicalValue(lead.piperun_origin_name)) originLines.push(`• Origem: ${esc(lead.piperun_origin_name)}`);
+  const campanha = lead.utm_campaign || lead.origem_campanha;
+  if (!isTechnicalValue(campanha)) originLines.push(`• Campanha: ${esc(campanha)}`);
+  if (!isTechnicalValue(lead.form_name)) originLines.push(`• Último formulário: ${esc(lead.form_name)}`);
+  const produtoInteresse = lead.produto_interesse || lead.produto_interesse_auto;
+  if (!isTechnicalValue(produtoInteresse)) originLines.push(`• Produto de interesse: ${esc(produtoInteresse)}`);
+  sections.push(`<b>🎯 Origem</b><br>${originLines.join("<br>")}<br>`);
 
   // 2. Identidade
   sections.push(
@@ -200,19 +208,39 @@ export async function buildSellerDealSummaryHTML(
     else if (s.includes("perd")) lost++;
     else open++;
   }
-  const histLines = history
+  const historySorted = history
     .slice()
-    .sort((a, b) => String(b.created_at || "").localeCompare(String(a.created_at || "")))
-    .slice(0, 8)
-    .map(d => `&nbsp;&nbsp;◦ #${esc(d.deal_id)} — ${esc(d.pipeline_name || "—")} / ${esc(d.stage_name || "—")} — ${esc(d.status || "aberto")} — ${fmtMoney(d.value)} (${fmtDate(d.created_at)})`)
+    .sort((a, b) => String(b.created_at || "").localeCompare(String(a.created_at || "")));
+  // Etapa atual = etapa do deal ABERTO mais recente (o campo cacheado no lead
+  // frequentemente aponta para um deal antigo já fechado).
+  const currentDeal = historySorted.find((d) => {
+    const s = String(d.status || "").toLowerCase();
+    return !s.includes("ganh") && !s.includes("perd");
+  });
+  const currentStage = currentDeal
+    ? `${esc(currentDeal.stage_name || "—")}${currentDeal.pipeline_name ? ` (${esc(currentDeal.pipeline_name)})` : ""}`
+    : esc(lead.status_atual_lead_crm);
+  const histLines = historySorted
+    .slice(0, 5)
+    .map((d) => {
+      const money = fmtMoney(d.value);
+      const parts = [
+        `#${esc(d.deal_id)}`,
+        `${esc(d.pipeline_name || "—")} / ${esc(d.stage_name || "—")}`,
+        esc(d.status || "aberto"),
+      ];
+      if (money && money !== "—" && !/^R\$\s*0(,00)?$/.test(money)) parts.push(money);
+      return `&nbsp;&nbsp;◦ ${parts.join(" — ")} (${fmtDate(d.created_at)})`;
+    })
     .join("<br>");
   sections.push(
     `<b>📊 CRM</b><br>` +
     `• Total de deals: ${history.length} (${won} ganhos · ${lost} perdidos · ${open} abertos)<br>` +
     `• Vendedor atual: ${esc(lead.proprietario_lead_crm)}<br>` +
-    `• Etapa atual: ${esc(lead.status_atual_lead_crm)}<br>` +
+    `• Etapa atual: ${currentStage}<br>` +
     (histLines ? `• Últimos deals:<br>${histLines}<br>` : ""),
   );
+
 
   // 4. E-commerce
   const ecom = (ecomRes as any)?.data;
@@ -307,6 +335,33 @@ export async function buildSellerDealSummaryHTML(
   // Sem este bloco o vendedor não vê NADA do que o lead respondeu além dos
   // poucos campos promovidos para colunas (era o bug reportado em 03/09/2026).
   const NOISE_LABEL = /^(dedupe_key|piperun_link|utm_|gclid|fbclid|form_id|form_name|source|submitted_at|lead_id|telefone_raw|nome( completo)?|e-?mail|seu e-?mail|seu whatsapp|whatsapp|telefone)$/i;
+  // Campos internos (colunas do CDP e IDs) que já aparecem em blocos próprios
+  // da nota — no formulário do CIPRO estavam duplicando tudo no fim da lista.
+  const INTERNAL_LABEL = new Set([
+    "event id",
+    "event consultant team member id",
+    "event consultant",
+    "proprietario lead crm",
+    "produto interesse",
+    "produto interesse auto",
+    "origem primeiro contato",
+    "impressora modelo",
+    "scanner marca",
+    "area atuacao",
+    "tem scanner",
+    "tem impressora",
+    "software cad",
+    "cidade",
+    "uf",
+    "celuar de contato",
+    "celular de contato",
+    "nome comleto",
+    "event interest categories",
+    "telefone raw",
+    "scanner modelo",
+    "impressora marca",
+    "dedupe key",
+  ]);
   const humanizeLabel = (k: string) =>
     k.replace(/_/g, " ").replace(/^\s*(\S)/, (_m, c) => c.toUpperCase()).trim();
   const cleanVal = (v: unknown) => String(v ?? "").replace(/\s+/g, " ").trim();
@@ -318,7 +373,16 @@ export async function buildSellerDealSummaryHTML(
       const value = cleanVal(p.value);
       if (!label || !value || value === "[object Object]") continue;
       if (NOISE_LABEL.test(label)) continue;
-      const key = label.toLowerCase();
+      const key = label
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-z0-9 ]/g, "")
+        .replace(/\s+/g, " ")
+        .trim();
+      if (INTERNAL_LABEL.has(key)) continue;
+      // rótulo truncado/inutilizável ("Voc", "?")
+      if (key.replace(/ /g, "").length < 4) continue;
       if (seen.has(key)) continue;
       seen.add(key);
       target.push({ label, value });
@@ -326,11 +390,14 @@ export async function buildSellerDealSummaryHTML(
   };
 
   const formBlocks: string[] = [];
+  // Dedupe GLOBAL: a mesma pergunta não se repete entre blocos (o formulário mais
+  // recente manda; antes a nota mostrava respostas antigas contraditórias).
+  const seenAll = new Set<string>();
 
   // 7a. Formulário que acabou de ser enviado (destaque)
   if (opts.highlightFormResponses?.length) {
     const pairs: Pair[] = [];
-    pushPairs(pairs, new Set<string>(), opts.highlightFormResponses);
+    pushPairs(pairs, seenAll, opts.highlightFormResponses);
     if (pairs.length) {
       formBlocks.push(
         `&nbsp;&nbsp;◦ <b>${esc(opts.highlightFormName || lead.form_name || "Formulário")}</b> (envio mais recente)<br>` +
@@ -339,56 +406,61 @@ export async function buildSellerDealSummaryHTML(
     }
   }
 
-  // 7b. Snapshots acumulados em form_data (últimos 3 formulários)
+  // 7b. Snapshots acumulados em form_data (últimos 3 formulários).
+  // Ordena ANTES de filtrar para que o formulário mais recente fique com a
+  // resposta e os antigos não repitam a mesma pergunta com valor velho.
   const fd = (lead.form_data as Record<string, unknown> | null) || null;
   if (fd && typeof fd === "object") {
-    const snaps: Array<{ formName: string; submittedAt: string; pairs: Pair[] }> = [];
+    const rawSnaps: Array<{ formName: string; submittedAt: string; input: Pair[] }> = [];
     for (const [formName, bucket] of Object.entries(fd)) {
       const entries = Array.isArray(bucket) ? bucket : [bucket];
       for (const entry of entries) {
         if (!entry || typeof entry !== "object") continue;
         const e = entry as Record<string, unknown>;
-        const pairs: Pair[] = [];
-        const seen = new Set<string>();
-        if (Array.isArray(e.responses)) {
-          pushPairs(pairs, seen, (e.responses as Pair[]) || []);
-        }
+        const input: Pair[] = [];
+        if (Array.isArray(e.responses)) input.push(...((e.responses as Pair[]) || []));
         const raw = e.raw_fields as Record<string, unknown> | undefined;
         if (raw && typeof raw === "object") {
-          pushPairs(
-            pairs, seen,
-            Object.entries(raw)
+          input.push(
+            ...Object.entries(raw)
               .filter(([, v]) => v != null && typeof v !== "object")
               .map(([k, v]) => ({ label: k, value: String(v) })),
           );
         }
-        if (pairs.length) {
-          snaps.push({
+        if (input.length) {
+          rawSnaps.push({
             formName: formName === "_unnamed" ? "Formulário" : formName,
             submittedAt: String(e.submitted_at || ""),
-            pairs,
+            input,
           });
         }
       }
     }
-    snaps.sort((a, b) => b.submittedAt.localeCompare(a.submittedAt));
+    rawSnaps.sort((a, b) => b.submittedAt.localeCompare(a.submittedAt));
     const highlightKey = cleanVal(opts.highlightFormName || "").toLowerCase();
-    for (const s of snaps.slice(0, 3)) {
+    let rendered = 0;
+    for (const s of rawSnaps) {
+      if (rendered >= 3) break;
       // não repetir o formulário já destacado com o mesmo conteúdo
       if (highlightKey && s.formName.toLowerCase() === highlightKey && formBlocks.length) continue;
+      const pairs: Pair[] = [];
+      pushPairs(pairs, seenAll, s.input);
+      if (!pairs.length) continue;
+      rendered++;
       formBlocks.push(
         `&nbsp;&nbsp;◦ <b>${esc(s.formName)}</b>${s.submittedAt ? ` — ${fmtDate(s.submittedAt)}` : ""}<br>` +
-        s.pairs.map(p => `&nbsp;&nbsp;&nbsp;&nbsp;• <b>${esc(p.label)}:</b> ${esc(p.value)}`).join("<br>"),
+        pairs.map(p => `&nbsp;&nbsp;&nbsp;&nbsp;• <b>${esc(p.label)}:</b> ${esc(p.value)}`).join("<br>"),
       );
     }
   }
+
 
   // 7c. Respostas persistidas em smartops_form_field_responses (7x3 e afins)
   const fieldRows = ((formsRes as any)?.data as Array<Record<string, unknown>>) || [];
   if (fieldRows.length) {
     const pairs: Pair[] = [];
     pushPairs(
-      pairs, new Set<string>(),
+      pairs, seenAll,
       fieldRows.map(r => ({ label: String(r.field_label || ""), value: String(r.value || "") })),
     );
     if (pairs.length) {
