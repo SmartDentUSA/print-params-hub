@@ -12,6 +12,11 @@ import { toast } from "sonner";
 import type { PromotionalCoupon, PromotionalTable } from "./promotionalTypes";
 
 type Seller = { id: string; nome_completo: string; whatsapp_number?: string | null };
+type CouponKind = "discount" | "freight";
+
+/** Cupons antigos não têm "kind"; tratamos pelo campo de frete grátis. */
+const couponKind = (coupon: PromotionalCoupon): CouponKind =>
+  coupon.free_shipping || coupon.kind === "freight" ? "freight" : "discount";
 type LiCategory = { id: number; nome: string; parent_id: number | null };
 
 /** Categorias da loja liberadas por padrão nas promoções de evento. */
