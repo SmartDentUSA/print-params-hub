@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CheckCircle2, Copy, Loader2, RefreshCw, Store, Ticket, Trash2, Truck } from "lucide-react";
 import { toast } from "sonner";
@@ -160,6 +161,8 @@ export function PromotionalCouponsCard({ table, draft, onDraftChange }: Props) {
         coupon_freight_valid_from: draft.coupon_freight_valid_from ?? null,
         coupon_freight_valid_until: draft.coupon_freight_valid_until ?? null,
         coupon_freight_usage_limit: draft.coupon_freight_usage_limit ?? null,
+        coupon_pdf_enabled: draft.coupon_pdf_enabled !== false,
+        coupon_freight_pdf_enabled: draft.coupon_freight_pdf_enabled !== false,
         coupon_li_category_ids: categoryIds,
         coupon_li_category_labels: categoryIds
           .map((id) => {
@@ -311,8 +314,18 @@ export function PromotionalCouponsCard({ table, draft, onDraftChange }: Props) {
       <CardHeader className="pb-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <CardTitle className="flex items-center gap-2 text-base"><Ticket className="h-4 w-4" />Cupons e vendedores autorizados</CardTitle>
-          <Badge variant="secondary">{coupons.length} cupom(ns)</Badge>
+          <div className="flex items-center gap-3">
+            <Badge variant="secondary">{coupons.length} cupom(ns)</Badge>
+            <div className="flex items-center gap-2">
+              <Switch id="coupon-pdf" checked={draft.coupon_pdf_enabled !== false}
+                onCheckedChange={(value) => onDraftChange({ coupon_pdf_enabled: value })} />
+              <Label htmlFor="coupon-pdf" className="text-xs font-normal">
+                {draft.coupon_pdf_enabled !== false ? "Ativo no PDF" : "Não ativo"}
+              </Label>
+            </div>
+          </div>
         </div>
+
         <p className="text-xs text-muted-foreground">
           {sellerSource === "event"
             ? "Lista liberada no formulário deste evento."
@@ -444,8 +457,18 @@ export function PromotionalCouponsCard({ table, draft, onDraftChange }: Props) {
         <div className="space-y-3 rounded-lg border border-dashed p-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <p className="flex items-center gap-2 text-sm font-semibold"><Truck className="h-4 w-4" />Cupons com desconto + frete grátis</p>
-            <Badge variant="secondary">{freightCoupons.length} cupom(ns)</Badge>
+            <div className="flex items-center gap-3">
+              <Badge variant="secondary">{freightCoupons.length} cupom(ns)</Badge>
+              <div className="flex items-center gap-2">
+                <Switch id="freight-pdf" checked={draft.coupon_freight_pdf_enabled !== false}
+                  onCheckedChange={(value) => onDraftChange({ coupon_freight_pdf_enabled: value })} />
+                <Label htmlFor="freight-pdf" className="text-xs font-normal">
+                  {draft.coupon_freight_pdf_enabled !== false ? "Ativo no PDF" : "Não ativo"}
+                </Label>
+              </div>
+            </div>
           </div>
+
           <p className="text-xs text-muted-foreground">
             Para o cliente que esteve no congresso e o produto não estava disponível para entrega no local:
             ele compra online e não paga o frete. Cada vendedor recebe um segundo código terminado em "F",
