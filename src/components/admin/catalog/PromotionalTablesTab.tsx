@@ -507,8 +507,8 @@ export function PromotionalTablesTab() {
                 <div key={group || "__sem_secao"} className="space-y-2 rounded-md border border-dashed p-3">
                   <div className="flex items-center gap-2">
                     {group
-                      ? <><Input className="max-w-sm font-medium" defaultValue={group} onBlur={(e) => renameGroup(section.id, group, e.target.value)} /><Button variant="ghost" size="icon" title="Excluir seção" onClick={() => removeGroup(section.id, group)}><Trash2 className="h-4 w-4 text-destructive" /></Button></>
-                      : <p className="text-sm font-medium text-muted-foreground">Itens sem seção</p>}
+                      ? <><Input className="max-w-sm font-medium" defaultValue={group} key={group} onBlur={(e) => renameGroup(section.id, group, e.target.value)} /><Badge variant="secondary">{groupItems.length} item(ns)</Badge><Button variant="ghost" size="icon" title="Excluir seção" onClick={() => removeGroup(section.id, group)}><Trash2 className="h-4 w-4 text-destructive" /></Button></>
+                      : <p className="text-sm font-medium text-muted-foreground">Itens sem seção ({groupItems.length})</p>}
                   </div>
                   {groupItems.map(renderItem)}
                   {!groupItems.length && <p className="text-xs text-muted-foreground">Nenhum item nesta seção ainda.</p>}
