@@ -25,6 +25,8 @@ type Coupon = {
   usage_limit: number | null;
   active: boolean;
   li_coupon_id: string | null;
+  kind?: string | null;
+  free_shipping?: boolean | null;
 };
 
 function authVariants(apiKey: string, appKey: string | null) {
