@@ -36,6 +36,7 @@ const blankTable = (): Omit<PromotionalTable, "id" | "created_at" | "updated_at"
   coupon_li_category_ids: [], coupon_li_category_labels: [],
   coupon_freight_discount_value: null, coupon_freight_valid_from: null,
   coupon_freight_valid_until: null, coupon_freight_usage_limit: null,
+  coupon_pdf_enabled: true, coupon_freight_pdf_enabled: true,
 });
 
 const money = (value: number, currency: string) =>
