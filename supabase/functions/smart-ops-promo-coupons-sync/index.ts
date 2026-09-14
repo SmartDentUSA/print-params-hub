@@ -109,6 +109,13 @@ Deno.serve(async (req) => {
         },
       });
       const text = await raw.text();
+      if (body?.slim) {
+        const parsed = JSON.parse(text);
+        const slim = (parsed.objects || []).map((c: Record<string, unknown>) => ({
+          id: c.id, nome: c.nome, pai: c.categoria_pai,
+        }));
+        return json({ ok: true, status: raw.status, total: parsed?.meta?.total_count, slim });
+      }
       return json({ ok: true, status: raw.status, body: text.slice(0, 6000) });
     }
 
