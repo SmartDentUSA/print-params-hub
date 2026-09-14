@@ -509,14 +509,17 @@ export async function exportPromotionalPdf(
   // ---- Cupons: vendedores autorizados e códigos para o e-commerce ----
   const { data: couponRows } = await supabase
     .from("promotional_coupons" as any)
-    .select("code,seller_name,discount_type,discount_value,valid_from,valid_until,active")
+    .select("code,seller_name,discount_type,discount_value,valid_from,valid_until,active,kind,free_shipping")
     .eq("promotional_table_id", table.id)
     .eq("active", true)
     .order("seller_name");
   const coupons = ((couponRows as any) || []) as Array<{
     code: string; seller_name: string | null; discount_type: string;
     discount_value: number; valid_from: string | null; valid_until: string | null;
+    kind?: string | null; free_shipping?: boolean | null;
   }>;
+  const isFreightCoupon = (coupon: { kind?: string | null; free_shipping?: boolean | null }) =>
+    coupon.free_shipping === true || coupon.kind === "freight";
   if (coupons.length) {
     doc.addPage();
     header();
