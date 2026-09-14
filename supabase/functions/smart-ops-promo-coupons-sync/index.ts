@@ -101,7 +101,7 @@ Deno.serve(async (req) => {
     if (!apiKey) return json({ ok: false, error: "LOJA_INTEGRADA_API_KEY não configurada" }, 400);
 
     if (body?.mode === "inspect") {
-      const path = String(body?.path || "/categoria/?limit=100");
+      const path = String(body?.path || "/categoria?limit=100&format=json");
       const raw = await fetch(`${LI_BASE}${path}`, {
         headers: {
           Authorization: appKey ? `chave_api ${apiKey} aplicacao ${appKey}` : `chave_api ${apiKey}`,
