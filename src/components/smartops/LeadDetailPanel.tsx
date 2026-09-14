@@ -709,6 +709,17 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
           Object.assign(answers, formAnswersToDetail(snapshot.raw_fields as Record<string, unknown>));
         }
         if (matchedSubmission?.submitted_at) usedSubmissionKeys.add(`${matchedSubmission.form_id || ""}|${matchedSubmission.submitted_at}`);
+        // Respostas gravadas no próprio evento (event_data.responses)
+        if (Array.isArray(evData.responses)) {
+          evData.responses.forEach((r: any) => {
+            const label = String(r?.label ?? "").trim();
+            if (!label || !isUsefulFormValue(r?.value)) return;
+            answers[humanizeFormKey(label)] = String(r.value).trim();
+          });
+        }
+        // Respostas individuais registradas como eventos `form_response`
+        const granular = responsesByEntity.get(String(ev.entity_id ?? ""));
+        if (granular) Object.assign(answers, granular);
         // Fallback: o que veio no próprio event_data
         const fallback = formAnswersToDetail(evData);
         for (const [k, v] of Object.entries(fallback)) if (!(k in answers)) answers[k] = v;
@@ -722,6 +733,7 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
           tags: evData.source ? [String(evData.source)] : [],
           detail: answers,
         });
+
         return;
       }
 
