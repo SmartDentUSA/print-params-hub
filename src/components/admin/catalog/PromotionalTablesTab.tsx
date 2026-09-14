@@ -269,7 +269,21 @@ export function PromotionalTablesTab() {
     setCatalog(rows);
   };
 
+  /** Seções internas de um combo: grupos já usados pelos itens + grupos recém-criados vazios. */
+  const groupsOf = (sectionId: string): string[] => {
+    const section = sections.find((row) => row.id === sectionId);
+    const labels: string[] = [];
+    for (const item of section?.items || []) {
+      const label = (item.group_label || "").trim();
+      if (!labels.includes(label)) labels.push(label);
+    }
+    for (const extra of extraGroups[sectionId] || []) if (!labels.includes(extra)) labels.push(extra);
+    if (!labels.length) labels.push("");
+    return labels;
+  };
+
   const openPicker = async (sectionId: string, group = "") => { setPickerSection(sectionId); setTargetGroup(group); setCatalogSearch(""); await loadCatalog(); };
+
 
   /** Cria uma seção interna (subgrupo) dentro de um combo. */
   const addGroup = (sectionId: string) => {
