@@ -103,10 +103,13 @@ Deno.serve(async (req) => {
     if (body?.mode === "inspect") {
       const path = String(body?.path || "/categoria?limit=100&format=json");
       const raw = await fetch(`${LI_BASE}${path}`, {
+        method: body?.payload ? String(body?.http || "POST") : "GET",
         headers: {
           Authorization: appKey ? `chave_api ${apiKey} aplicacao ${appKey}` : `chave_api ${apiKey}`,
           Accept: "application/json",
+          "Content-Type": "application/json",
         },
+        body: body?.payload ? JSON.stringify(body.payload) : undefined,
       });
       const text = await raw.text();
       if (body?.slim) {
