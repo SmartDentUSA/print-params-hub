@@ -400,7 +400,7 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
         ncm_hs: v.ncm_hs ?? null,
         gtin_ean: v.gtin_ean ?? null,
         color: v.color ?? null,
-        price_base: priced.value,
+        price_base: effectivePrice,
         presentation: norm2.pres,
         quantity_multiplier: Number(p.quantity_multiplier ?? 1) || 1,
         presentation_qty: norm2.qty,
