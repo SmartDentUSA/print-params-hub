@@ -380,8 +380,8 @@ export function PromotionalCouponsCard({ table, draft, onDraftChange }: Props) {
         </div>
 
         <div className="flex flex-wrap gap-2">
-          <Button onClick={generateCoupons} disabled={busy}>
-            {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Ticket className="mr-2 h-4 w-4" />}
+          <Button onClick={() => generateCoupons("discount")} disabled={!!busy}>
+            {busy === "discount" ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Ticket className="mr-2 h-4 w-4" />}
             Gerar cupons dos vendedores
           </Button>
           <Button variant="outline" onClick={sendToLojaIntegrada} disabled={syncing || !coupons.length}>
@@ -391,37 +391,52 @@ export function PromotionalCouponsCard({ table, draft, onDraftChange }: Props) {
           <Button variant="ghost" onClick={loadCoupons}><RefreshCw className="mr-2 h-4 w-4" />Atualizar</Button>
         </div>
 
-        {coupons.length > 0 && (
-          <div className="space-y-2">
-            {coupons.map((coupon) => (
-              <div key={coupon.id} className="flex flex-wrap items-center gap-3 rounded-md border p-3 text-sm">
-                <div className="min-w-[160px] flex-1">
-                  <p className="font-semibold">{coupon.code}</p>
-                  <p className="text-xs text-muted-foreground">{coupon.seller_name || "—"}</p>
-                </div>
-                <span className="text-xs text-muted-foreground">
-                  {coupon.discount_type === "fixed"
-                    ? `R$ ${Number(coupon.discount_value).toFixed(2).replace(".", ",")}`
-                    : `${Number(coupon.discount_value).toFixed(1).replace(".", ",")}%`}
-                </span>
-                {coupon.li_synced_at
-                  ? <Badge variant="secondary" className="gap-1"><CheckCircle2 className="h-3 w-3" />Na loja</Badge>
-                  : coupon.li_sync_error
-                    ? <Badge variant="destructive" title={coupon.li_sync_error}>Erro no envio</Badge>
-                    : <Badge variant="outline">Não enviado</Badge>}
-                <Button size="sm" variant="outline" onClick={() => { navigator.clipboard.writeText(shareText(coupon)); toast.success("Mensagem copiada para o WhatsApp."); }}>
-                  <Copy className="mr-1 h-3.5 w-3.5" />Mensagem
-                </Button>
-                <Button size="sm" variant="outline" asChild>
-                  <a href={`https://wa.me/?text=${encodeURIComponent(shareText(coupon))}`} target="_blank" rel="noreferrer">WhatsApp</a>
-                </Button>
-                <Button size="icon" variant="ghost" title="Excluir cupom" onClick={() => removeCoupon(coupon)}>
-                  <Trash2 className="h-4 w-4 text-destructive" />
-                </Button>
-              </div>
-            ))}
-          </div>
+        {discountCoupons.length > 0 && (
+          <div className="space-y-2">{discountCoupons.map(renderCoupon)}</div>
         )}
+
+        {/* ---- Segunda seção: cupons com frete grátis ---- */}
+        <div className="space-y-3 rounded-lg border border-dashed p-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="flex items-center gap-2 text-sm font-semibold"><Truck className="h-4 w-4" />Cupons com desconto + frete grátis</p>
+            <Badge variant="secondary">{freightCoupons.length} cupom(ns)</Badge>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Para o cliente que esteve no congresso e o produto não estava disponível para entrega no local:
+            ele compra online e não paga o frete. Cada vendedor recebe um segundo código terminado em "F",
+            que pode ser usado junto com o cupom de desconto.
+          </p>
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+            <div className="space-y-2">
+              <Label>Desconto do cupom com frete</Label>
+              <Input type="number" min="0" step="0.01"
+                value={draft.coupon_freight_discount_value ?? draft.coupon_discount_value ?? 0}
+                onChange={(e) => onDraftChange({ coupon_freight_discount_value: Number(e.target.value) })} />
+            </div>
+            <div className="space-y-2">
+              <Label>Início</Label>
+              <Input type="date" value={draft.coupon_freight_valid_from || ""}
+                onChange={(e) => onDraftChange({ coupon_freight_valid_from: e.target.value || null })} />
+            </div>
+            <div className="space-y-2">
+              <Label>Fim</Label>
+              <Input type="date" value={draft.coupon_freight_valid_until || ""}
+                onChange={(e) => onDraftChange({ coupon_freight_valid_until: e.target.value || null })} />
+            </div>
+            <div className="space-y-2">
+              <Label>Limite de usos por cupom</Label>
+              <Input type="number" min="0" step="1" value={draft.coupon_freight_usage_limit ?? ""} placeholder="Sem limite"
+                onChange={(e) => onDraftChange({ coupon_freight_usage_limit: e.target.value ? Number(e.target.value) : null })} />
+            </div>
+          </div>
+          <Button onClick={() => generateCoupons("freight")} disabled={!!busy}>
+            {busy === "freight" ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Truck className="mr-2 h-4 w-4" />}
+            Gerar cupons com frete grátis
+          </Button>
+          {freightCoupons.length > 0 && (
+            <div className="space-y-2">{freightCoupons.map(renderCoupon)}</div>
+          )}
+        </div>
       </CardContent>
     </Card>
   );
