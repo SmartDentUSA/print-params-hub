@@ -269,7 +269,42 @@ export function PromotionalTablesTab() {
     setCatalog(rows);
   };
 
-  const openPicker = async (sectionId: string) => { setPickerSection(sectionId); setCatalogSearch(""); await loadCatalog(); };
+  const openPicker = async (sectionId: string, group = "") => { setPickerSection(sectionId); setTargetGroup(group); setCatalogSearch(""); await loadCatalog(); };
+
+  /** Cria uma seção interna (subgrupo) dentro de um combo. */
+  const addGroup = (sectionId: string) => {
+    const existing = groupsOf(sectionId);
+    let name = `Seção ${existing.filter(Boolean).length + 1}`;
+    let counter = existing.filter(Boolean).length + 1;
+    while (existing.includes(name)) { counter += 1; name = `Seção ${counter}`; }
+    setExtraGroups((current) => ({ ...current, [sectionId]: [...(current[sectionId] || []), name] }));
+  };
+
+  const renameGroup = async (sectionId: string, from: string, to: string) => {
+    const label = to.trim();
+    if (!label || label === from) return;
+    setExtraGroups((current) => ({ ...current, [sectionId]: (current[sectionId] || []).map((g) => g === from ? label : g) }));
+    setSections((current) => current.map((section) => section.id !== sectionId ? section : {
+      ...section,
+      items: section.items.map((item) => (item.group_label || "") === from ? { ...item, group_label: label } : item),
+    }));
+    const ids = sections.find((s) => s.id === sectionId)?.items.filter((i) => (i.group_label || "") === from).map((i) => i.id) || [];
+    if (ids.length) {
+      const { error } = await supabase.from("promotional_table_items" as any).update({ group_label: label }).in("id", ids);
+      if (error) toast.error(error.message);
+    }
+  };
+
+  const removeGroup = async (sectionId: string, group: string) => {
+    const items = sections.find((s) => s.id === sectionId)?.items.filter((i) => (i.group_label || "") === group) || [];
+    if (items.length && !confirm(`Excluir a seção "${group}" e seus ${items.length} item(ns)?`)) return;
+    setExtraGroups((current) => ({ ...current, [sectionId]: (current[sectionId] || []).filter((g) => g !== group) }));
+    if (items.length) {
+      const { error } = await supabase.from("promotional_table_items" as any).delete().in("id", items.map((i) => i.id));
+      if (error) { toast.error(error.message); return; }
+      if (selected) await loadSections(selected);
+    }
+  };
 
   const addCatalogItem = async (option: CatalogOption) => {
     if (!pickerSection || !selected) return;
@@ -279,6 +314,7 @@ export function PromotionalTablesTab() {
       item_type: "catalog", name: option.variation ? `${option.name} — ${option.variation}` : option.name,
       sku: option.sku, image_url: option.imageUrl, quantity: 1, market_unit_price: option.price,
       promotional_unit_price: option.price, sort_order: section?.items.length || 0,
+      group_label: targetGroup || null,
     });
     if (error) toast.error(error.message); else { toast.success("Produto adicionado."); setPickerSection(null); await loadSections(selected); }
   };
@@ -290,12 +326,14 @@ export function PromotionalTablesTab() {
       section_id: customSection, item_type: "custom", name: customItem.name.trim(), description: customItem.description.trim() || null,
       quantity: Number(customItem.quantity) || 1, market_unit_price: Number(customItem.market) || 0,
       promotional_unit_price: Number(customItem.promotional) || 0, sort_order: section?.items.length || 0,
+      group_label: targetGroup || null,
     });
     if (error) toast.error(error.message); else {
       setCustomOpen(false); setCustomItem({ name: "", description: "", quantity: "1", market: "0", promotional: "0" });
       await loadSections(selected);
     }
   };
+
 
   const updateItem = async (id: string, patch: Record<string, unknown>) => {
     setSections((current) => current.map((section) => ({ ...section, items: section.items.map((item) => item.id === id ? { ...item, ...patch } as PromotionalItem : item) })));
