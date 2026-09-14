@@ -53,17 +53,18 @@ function authVariants(apiKey: string, appKey: string | null) {
 /** Envia a requisição tentando as duas formas de autenticação da Loja Integrada. */
 async function liRequest(
   path: string,
-  method: "POST" | "PUT",
+  method: "GET" | "POST" | "PUT",
   body: unknown,
   apiKey: string,
   appKey: string | null,
 ) {
   let lastError = "";
   for (const variant of authVariants(apiKey, appKey)) {
-    const response = await fetch(`${LI_BASE}${path}${variant.query}`, {
+    const sep = path.includes("?") && variant.query ? variant.query.replace("?", "&") : variant.query;
+    const response = await fetch(`${LI_BASE}${path}${sep}`, {
       method,
       headers: variant.headers,
-      body: JSON.stringify(body),
+      body: method === "GET" ? undefined : JSON.stringify(body),
     });
     const text = await response.text();
     if (response.ok) {
