@@ -2574,7 +2574,7 @@ async function executeQueryLeadTimeline(args: any) {
     if ((res as any).error) return res;
     const lead = (res as any).lead;
     const limit = Math.min(Number(args?.limit ?? 120), 400);
-    const perSource = Math.min(limit, 200);
+    const perSource = Math.min(Math.max(limit, 80), 200);
     const asc = args?.ascending === true;
     const from = args?.from ? new Date(args.from).toISOString() : null;
     const to = args?.to ? new Date(args.to).toISOString() : null;
@@ -2594,10 +2594,10 @@ async function executeQueryLeadTimeline(args: any) {
     if (want("activity_log")) tasks.activity_log = range(supabase.from("lead_activity_log").select("id, event_type, event_timestamp, event_data, entity_type, entity_name, source_channel, value_numeric, duration_seconds").eq("lead_id", lead.id), "event_timestamp");
     if (want("interactions")) tasks.interactions = range(supabase.from("interactions").select("id, type, direction, source, subject, body, channel_ref, handled_by, sentiment, intent, occurred_at").eq("lead_id", lead.id), "occurred_at");
     if (want("event_store")) tasks.event_store = range(supabase.from("event_store").select("id, event_type, event_source, occurred_at, source_table, source_id, payload").eq("lead_id", lead.id), "occurred_at");
-    if (want("message_logs")) tasks.message_logs = range(supabase.from("message_logs").select("*").eq("lead_id", lead.id), "created_at");
+    if (want("message_logs")) tasks.message_logs = range(supabase.from("message_logs").select("id, created_at, data_envio, tipo, mensagem_preview, status, error_details, evolution_instance, whatsapp_number").eq("lead_id", lead.id), "data_envio");
     if (want("page_views")) tasks.page_views = range(supabase.from("lead_page_views").select("*").eq("lead_id", lead.id), "created_at");
-    if (want("state_events")) tasks.state_events = range(supabase.from("lead_state_events").select("*").eq("lead_id", lead.id), "created_at");
-    if (want("agent_interactions")) tasks.agent_interactions = range(supabase.from("agent_interactions").select("id, created_at, user_message, agent_response, channel, session_id, intent_detected").eq("lead_id", lead.id), "created_at");
+    if (want("state_events")) tasks.state_events = range(supabase.from("lead_state_events").select("id, old_stage, new_stage, cognitive_stage, intelligence_score, source, is_regression, regression_gap_days, changed_at").eq("lead_id", lead.id), "changed_at");
+    if (want("agent_interactions")) tasks.agent_interactions = range(supabase.from("agent_interactions").select("id, created_at, user_message, agent_response, session_id, lang, unanswered, top_similarity").eq("lead_id", lead.id), "created_at");
     if (want("whatsapp_inbox")) {
       const base = supabase.from("whatsapp_inbox").select("*");
       tasks.whatsapp_inbox = range(phoneDigits ? base.or(`lead_id.eq.${lead.id},phone.eq.${phoneDigits}`) : base.eq("lead_id", lead.id), "created_at");
@@ -2615,7 +2615,7 @@ async function executeQueryLeadTimeline(args: any) {
       const rows = (r?.data || []) as any[];
       counts[k] = rows.length;
       for (const row of rows) {
-        const ts = row.event_timestamp || row.occurred_at || row.created_at || null;
+        const ts = row.event_timestamp || row.occurred_at || row.changed_at || row.data_envio || row.created_at || null;
         let type = row.event_type || row.type || row.state || row.event || k;
         let title = "";
         let data: any = {};
@@ -2633,14 +2633,14 @@ async function executeQueryLeadTimeline(args: any) {
             data = { event_source: row.event_source, source_table: row.source_table, source_id: row.source_id, payload: row.payload };
             break;
           case "message_logs":
-            type = row.tipo || row.channel || row.message_type || "message";
-            title = String(row.mensagem || row.message || row.conteudo || "").slice(0, 500);
-            data = { status: row.status, canal: row.canal || row.channel, direction: row.direction, provider: row.provider };
+            type = row.tipo || "message";
+            title = String(row.mensagem_preview || "").slice(0, 500);
+            data = { status: row.status, instancia: row.evolution_instance, whatsapp: row.whatsapp_number, erro: row.error_details };
             break;
           case "whatsapp_inbox":
             type = row.direction ? `whatsapp_${row.direction}` : "whatsapp";
-            title = String(row.message || row.body || row.content || "").slice(0, 500);
-            data = { phone: row.phone, instance: row.instance_name || row.instance, from_me: row.from_me, status: row.status };
+            title = String(row.message_text || "").slice(0, 500);
+            data = { phone: row.phone, instance: row.instance_name, sender_name: row.sender_name, is_group: row.is_group, matched_by: row.matched_by, intent: row.intent_detected, media_type: row.media_type };
             break;
           case "page_views":
             type = row.page_type || "page_view";
@@ -2648,14 +2648,14 @@ async function executeQueryLeadTimeline(args: any) {
             data = { url: row.page_url || row.url, referrer: row.referrer, time_on_page: row.time_on_page_seconds };
             break;
           case "state_events":
-            type = row.event_type || row.new_state || "state_change";
-            title = `${row.old_state ?? row.previous_state ?? "—"} → ${row.new_state ?? row.state ?? "—"}`;
-            data = { reason: row.reason, source: row.source, metadata: row.metadata };
+            type = "stage_change";
+            title = `${row.old_stage ?? "—"} → ${row.new_stage ?? "—"}`;
+            data = { source: row.source, cognitive_stage: row.cognitive_stage, intelligence_score: row.intelligence_score, is_regression: row.is_regression, regression_gap_days: row.regression_gap_days };
             break;
           case "agent_interactions":
             type = "agent_interaction";
             title = String(row.user_message || "").slice(0, 300);
-            data = { channel: row.channel, session_id: row.session_id, intent: row.intent_detected, agent_response: row.agent_response ? String(row.agent_response).slice(0, 600) : null };
+            data = { session_id: row.session_id, lang: row.lang, unanswered: row.unanswered, top_similarity: row.top_similarity, agent_response: row.agent_response ? String(row.agent_response).slice(0, 600) : null };
             break;
         }
         events.push({ ts, source: k, type: String(type ?? ""), title, data });
