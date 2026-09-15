@@ -1027,6 +1027,21 @@ const tools = [
   {
     type: "function",
     function: {
+      name: "query_event_briefing",
+      description: "BRIEFING COMPLETO DE UM EVENTO/CONGRESSO (feira, congresso, CIPRO etc.). Retorna: dados do evento (datas, horários, local, estande, sobre, marcas parceiras, público-alvo — audience_areas/specialties/notes), PALESTRANTES com foto, instagram, mini CV, especialidade, temas/tópicos das palestras e agenda de sessões (demonstrações) e sessões de apoio comercial; TABELA PROMOCIONAL vinculada ao evento com todos os combos (seções), itens, quantidades, preço de mercado, preço promocional, economia por combo e produto principal de cada combo; CUPONS gerados por vendedor (desconto e desconto + frete grátis, com validade, limite e categorias da loja); FORMULÁRIO do evento com consultores no estande. USE SEMPRE que o usuário perguntar sobre participação em evento, o que expor, campanha de congresso, agenda de palestras, combos/promoção do evento, cupons do evento. Combine com query_proposal_items_sold (o que o público mais compra), query_product_owners, search_products e get_product_anti_hallucination para montar recomendação de campanha. NUNCA invente palestrante, horário, preço ou cupom que não esteja no retorno.",
+      parameters: {
+        type: "object",
+        properties: {
+          event: { type: "string", description: "Nome, parte do nome, slug ou UUID do evento (ex.: 'CIPRO')" },
+          include_items: { type: "boolean", description: "Incluir itens de cada combo (padrão true)" }
+        },
+        required: ["event"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
       name: "list_social_flows",
       description: "Lista automações de Instagram DM (social_flows). Use quando o usuário mencionar: automação, social publisher, flow IG, DM automática, comment-to-DM. Mostra nome, status ativo/pausado, canal e resumo do trigger.",
       parameters: {
