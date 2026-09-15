@@ -1839,7 +1839,7 @@ async function executeQueryTable(args: any) {
 
 async function executeDescribeTable(args: any) {
   const schemas: Record<string, string[]> = {
-    lia_attendances: ["id","nome","email","telefone","cidade","piperun_stage_name","tags_crm","intelligence_score_total","urgency_level","interest_timeline","tem_impressora","tem_scanner","especialidade","created_at","proprietario_lead_crm","total_messages","total_sessions","proposals_total_value","lojaintegrada_ultimo_pedido_valor"],
+    lia_attendances: ["id","nome","email","telefone_raw","telefone_normalized","cidade","piperun_stage_name","tags_crm","intelligence_score_total","urgency_level","interest_timeline","tem_impressora","tem_scanner","especialidade","created_at","proprietario_lead_crm","total_messages","total_sessions","proposals_total_value","lojaintegrada_ultimo_pedido_valor","lojaintegrada_ultimo_pedido_data","lojaintegrada_ultimo_pedido_numero","lojaintegrada_ultimo_pedido_status","lojaintegrada_cupom_desconto","lojaintegrada_cupom_json","lojaintegrada_valor_desconto","lojaintegrada_historico_pedidos","lojaintegrada_ltv"],
     knowledge_contents: ["id","title","excerpt","slug","content_html","category_id","keywords","active","author_id","created_at"],
     knowledge_videos: ["id","title","description","url","embed_url","thumbnail_url","video_type","panda_tags","content_id","pandavideo_id","analytics_views","analytics_plays"],
     team_members: ["id","nome","email","telefone","papel","ativo"],
