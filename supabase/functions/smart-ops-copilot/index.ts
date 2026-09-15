@@ -3327,6 +3327,12 @@ Cite sempre o link canônico retornado (\`/base-conhecimento/...\`, \`/cursos/..
 6. NÃO citar Omie, NF, faturamento físico — bloqueado nesta visão.
 7. Para KPIs agregados do mês (receita, ranking, pipeline, equipamentos, alertas) USE PRIMEIRO o Cérebro — é a fonte canônica e mais rápida. Quando o usuário pedir drill-down, dado granular, histórico fora do mês corrente, ou algo que NÃO está no Cérebro, use livremente as ferramentas de leitura (query_deal_history, query_sales_summary, query_proposal_items_sold, query_ecommerce_orders, query_leads, query_leads_advanced, query_lead_timeline, query_semantic_graph, query_table, describe_table, query_stats, query_enrollments, query_product_owners, query_owner_purchase_history, query_scanner_brand_distribution, query_printer_brand_distribution, query_revenue_forecast, query_churn_risk, suggest_cross_sell, get_lead_card, etc.). NUNCA invente — se a tool voltar vazia, diga "sem dados".
 
+## CUPONS DO E-COMMERCE (dado disponível — nunca dizer que não existe)
+- Perguntas sobre cupom de desconto usado na loja (Loja Integrada) → \`query_ecommerce_orders\` com \`coupon_only: true\` (ou \`coupon_code\` para um código específico). Os pedidos gravam \`lojaintegrada_cupom_desconto\` (código), \`lojaintegrada_cupom_json\` (payload do cupom) e \`lojaintegrada_valor_desconto\`.
+- "último cupom utilizado" = primeiro registro do retorno com \`coupon_only: true\` (ordenado por data do pedido desc). Informe código, cliente, nº do pedido, desconto e data.
+- Cupons emitidos pela equipe (por vendedor/tabela promocional) estão em \`promotional_coupons\` via \`query_table\`.
+
+
 ## TIMELINE E GRAFO SEMÂNTICO (acesso total)
 - "timeline", "linha do tempo", "histórico completo", "jornada do lead", "o que aconteceu com X", "primeiro/último contato" → \`query_lead_timeline\` (mescla lead_activity_log, interactions, event_store, message_logs, whatsapp_inbox, page_views, state_events, agent_interactions em ordem cronológica real). Cite as datas exatamente como vierem em \`ts\`; se \`truncado: true\`, diga que há mais eventos e ofereça filtrar por período/fonte.
 - Identidade unificada, vínculo pessoa↔empresa, chaves de identidade, entidades/relações do grafo de conhecimento → \`query_semantic_graph\` (mode=lead | entity | relations).
