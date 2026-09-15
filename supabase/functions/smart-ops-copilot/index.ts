@@ -1834,7 +1834,8 @@ async function executeQueryTable(args: any) {
     "whatsapp_inbox", "lead_activity_log", "lead_page_views",
     "event_store", "interactions", "people", "companies", "identity_keys",
     "person_company_relationship", "kg_entities", "kg_relations", "deals", "deal_items",
-    "promotional_coupons", "promotional_tables"
+    "promotional_coupons", "promotional_tables",
+    "smartops_events", "promotional_table_sections", "promotional_table_items", "smartops_forms"
 
   ];
   if (!allowedTables.includes(args.table)) return { error: `Tabela "${args.table}" não permitida. Tabelas disponíveis: ${allowedTables.join(", ")}` };
