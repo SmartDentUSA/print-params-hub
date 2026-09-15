@@ -2546,11 +2546,11 @@ async function executeGetLeadCard(args: any) {
 // ─── Resolver canônico compartilhado (timeline + grafo) ───
 async function resolveCanonicalLead(args: any) {
   let q = supabase.from("lia_attendances")
-    .select("id, nome, email, telefone, telefone_normalized, piperun_id, proprietario_lead_crm, piperun_stage_name")
+    .select("id, nome, email, telefone_raw, telefone_normalized, piperun_id, proprietario_lead_crm, piperun_stage_name")
     .is("merged_into", null).limit(1);
   if (args?.lead_id) {
     q = supabase.from("lia_attendances")
-      .select("id, nome, email, telefone, telefone_normalized, piperun_id, proprietario_lead_crm, piperun_stage_name")
+      .select("id, nome, email, telefone_raw, telefone_normalized, piperun_id, proprietario_lead_crm, piperun_stage_name")
       .eq("id", args.lead_id).limit(1);
   } else if (args?.piperun_id) {
     q = q.eq("piperun_id", String(args.piperun_id));
@@ -2558,7 +2558,7 @@ async function resolveCanonicalLead(args: any) {
     q = q.ilike("email", String(args.email).trim());
   } else if (args?.telefone) {
     const d = String(args.telefone).replace(/\D/g, "");
-    q = q.or(`telefone_normalized.eq.${d},telefone.ilike.%${d}%`);
+    q = q.or(`telefone_normalized.eq.${d},telefone_raw.ilike.%${d}%`);
   } else {
     return { error: "Informe lead_id, piperun_id, email ou telefone" };
   }
@@ -2672,7 +2672,7 @@ async function executeQueryLeadTimeline(args: any) {
     const out = filtered.slice(0, limit);
 
     return {
-      lead: { id: lead.id, nome: lead.nome, email: lead.email, telefone: lead.telefone, responsavel: lead.proprietario_lead_crm, etapa: lead.piperun_stage_name },
+      lead: { id: lead.id, nome: lead.nome, email: lead.email, telefone: lead.telefone_normalized || lead.telefone_raw, responsavel: lead.proprietario_lead_crm, etapa: lead.piperun_stage_name },
       window: { from, to },
       sources_used: sources,
       counts_por_fonte: counts,
@@ -2742,7 +2742,7 @@ async function executeQuerySemanticGraph(args: any) {
     const companyIds = [...new Set((linkRows || []).map((r: any) => r.company_id).filter(Boolean))];
 
     if (!personId) {
-      const digits = String(lead.telefone_normalized || lead.telefone || "").replace(/\D/g, "");
+      const digits = String(lead.telefone_normalized || lead.telefone_raw || "").replace(/\D/g, "");
       let pq = supabase.from("people").select("id").limit(1);
       if (lead.piperun_id) pq = pq.eq("piperun_person_id", String(lead.piperun_id));
       else if (lead.email) pq = pq.ilike("email", String(lead.email).trim());
@@ -2778,7 +2778,7 @@ async function executeQuerySemanticGraph(args: any) {
 
     return {
       mode: "lead",
-      lead: { id: lead.id, nome: lead.nome, email: lead.email, telefone: lead.telefone },
+      lead: { id: lead.id, nome: lead.nome, email: lead.email, telefone: lead.telefone_normalized || lead.telefone_raw },
       person: personRes.data || null,
       identity_keys: keysRes.data || [],
       companies,
