@@ -465,6 +465,50 @@ const tools = [
   {
     type: "function",
     function: {
+      name: "query_lead_timeline",
+      description: "TIMELINE UNIFICADA E COMPLETA de um lead canônico, em ordem cronológica real, mesclando TODAS as fontes: lead_activity_log (formulários, CRM, propostas, snapshots de etapa), interactions (grafo), event_store (append-only), message_logs, whatsapp_inbox, lead_page_views, lead_state_events e agent_interactions. Use SEMPRE que o usuário pedir 'timeline', 'histórico completo', 'linha do tempo', 'o que aconteceu com o lead X', 'jornada', 'primeiro contato', 'última interação'. Cada evento traz ts (data real do evento, nunca now()), source (tabela de origem), type, title e data. NUNCA invente eventos: o array retornado é a verdade absoluta.",
+      parameters: {
+        type: "object",
+        properties: {
+          lead_id: { type: "string", description: "UUID do lead canônico" },
+          email: { type: "string", description: "Email do lead (alternativa ao lead_id)" },
+          telefone: { type: "string", description: "Telefone do lead (alternativa ao lead_id)" },
+          piperun_id: { type: "string", description: "ID da pessoa no PipeRun (alternativa)" },
+          sources: { type: "array", items: { type: "string" }, description: "Filtrar fontes: activity_log, interactions, event_store, message_logs, whatsapp_inbox, page_views, state_events, agent_interactions. Padrão: todas." },
+          event_types: { type: "array", items: { type: "string" }, description: "Filtro parcial por tipo de evento (ex: ['crm_proposal','form'])" },
+          from: { type: "string", description: "Data inicial ISO" },
+          to: { type: "string", description: "Data final ISO" },
+          limit: { type: "number", description: "Máx eventos no resultado (padrão 120, máx 400)" },
+          ascending: { type: "boolean", description: "true = mais antigo primeiro (padrão false)" }
+        },
+        required: []
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "query_semantic_graph",
+      description: "GRAFO SEMÂNTICO / Identity Graph do CDP. Modos: 'lead' (pessoa, chaves de identidade, empresas vinculadas, contagem de interações e resumo do event_store por tipo, a partir de lead_id/email/telefone); 'entity' (busca entidades em kg_entities por nome/tipo com suas relações em kg_relations); 'relations' (relações de uma entidade específica). Use quando o usuário perguntar sobre identidade unificada, vínculos pessoa↔empresa, chaves de identidade (email/telefone/CNPJ), atribuição, ou o grafo de conhecimento. NUNCA invente vínculos.",
+      parameters: {
+        type: "object",
+        properties: {
+          mode: { type: "string", description: "lead | entity | relations" },
+          lead_id: { type: "string" },
+          email: { type: "string" },
+          telefone: { type: "string" },
+          query: { type: "string", description: "Termo de busca de entidade (mode=entity)" },
+          entity_type: { type: "string", description: "Tipo da entidade (mode=entity)" },
+          entity_id: { type: "string", description: "UUID da entidade (mode=relations)" },
+          limit: { type: "number", description: "Máx resultados (padrão 25, máx 100)" }
+        },
+        required: []
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
       name: "describe_table",
       description: "Lista as colunas e tipos de uma tabela do banco de dados.",
       parameters: {
@@ -1769,7 +1813,9 @@ async function executeQueryTable(args: any) {
     "team_members", "ai_token_usage", "external_links", "leads", "content_requests",
     "lead_state_events", "company_kb_texts", "intelligence_score_config",
     "system_health_logs", "message_logs",
-    "whatsapp_inbox", "lead_activity_log", "lead_page_views"
+    "whatsapp_inbox", "lead_activity_log", "lead_page_views",
+    "event_store", "interactions", "people", "companies", "identity_keys",
+    "person_company_relationship", "kg_entities", "kg_relations", "deals", "deal_items"
   ];
   if (!allowedTables.includes(args.table)) return { error: `Tabela "${args.table}" não permitida. Tabelas disponíveis: ${allowedTables.join(", ")}` };
 
@@ -2497,6 +2543,255 @@ async function executeGetLeadCard(args: any) {
   }
 }
 
+// ─── Resolver canônico compartilhado (timeline + grafo) ───
+async function resolveCanonicalLead(args: any) {
+  let q = supabase.from("lia_attendances")
+    .select("id, nome, email, telefone_raw, telefone_normalized, piperun_id, proprietario_lead_crm, piperun_stage_name")
+    .is("merged_into", null).limit(1);
+  if (args?.lead_id) {
+    q = supabase.from("lia_attendances")
+      .select("id, nome, email, telefone_raw, telefone_normalized, piperun_id, proprietario_lead_crm, piperun_stage_name")
+      .eq("id", args.lead_id).limit(1);
+  } else if (args?.piperun_id) {
+    q = q.eq("piperun_id", String(args.piperun_id));
+  } else if (args?.email) {
+    q = q.ilike("email", String(args.email).trim());
+  } else if (args?.telefone) {
+    const d = String(args.telefone).replace(/\D/g, "");
+    q = q.or(`telefone_normalized.eq.${d},telefone_raw.ilike.%${d}%`);
+  } else {
+    return { error: "Informe lead_id, piperun_id, email ou telefone" };
+  }
+  const { data, error } = await q;
+  if (error) return { error: error.message };
+  if (!data?.[0]) return { error: "Lead não encontrado (ou não é canônico)" };
+  return { lead: data[0] as any };
+}
+
+async function executeQueryLeadTimeline(args: any) {
+  try {
+    const res = await resolveCanonicalLead(args);
+    if ((res as any).error) return res;
+    const lead = (res as any).lead;
+    const limit = Math.min(Number(args?.limit ?? 120), 400);
+    const perSource = Math.min(Math.max(limit, 80), 200);
+    const asc = args?.ascending === true;
+    const from = args?.from ? new Date(args.from).toISOString() : null;
+    const to = args?.to ? new Date(args.to).toISOString() : null;
+    const allSources = ["activity_log", "interactions", "event_store", "message_logs", "whatsapp_inbox", "page_views", "state_events", "agent_interactions"];
+    const sources: string[] = Array.isArray(args?.sources) && args.sources.length ? args.sources : allSources;
+    const want = (s: string) => sources.includes(s);
+    const phoneDigits = String(lead.telefone_normalized || lead.telefone_raw || "").replace(/\D/g, "");
+
+    const range = (qb: any, col: string) => {
+      let x = qb;
+      if (from) x = x.gte(col, from);
+      if (to) x = x.lte(col, to);
+      return x.order(col, { ascending: false }).limit(perSource);
+    };
+
+    const tasks: Record<string, any> = {};
+    if (want("activity_log")) tasks.activity_log = range(supabase.from("lead_activity_log").select("id, event_type, event_timestamp, event_data, entity_type, entity_name, source_channel, value_numeric, duration_seconds").eq("lead_id", lead.id), "event_timestamp");
+    if (want("interactions")) tasks.interactions = range(supabase.from("interactions").select("id, type, direction, source, subject, body, channel_ref, handled_by, sentiment, intent, occurred_at").eq("lead_id", lead.id), "occurred_at");
+    if (want("event_store")) tasks.event_store = range(supabase.from("event_store").select("id, event_type, event_source, occurred_at, source_table, source_id, payload").eq("lead_id", lead.id), "occurred_at");
+    if (want("message_logs")) tasks.message_logs = range(supabase.from("message_logs").select("id, created_at, data_envio, tipo, mensagem_preview, status, error_details, evolution_instance, whatsapp_number").eq("lead_id", lead.id), "data_envio");
+    if (want("page_views")) tasks.page_views = range(supabase.from("lead_page_views").select("*").eq("lead_id", lead.id), "created_at");
+    if (want("state_events")) tasks.state_events = range(supabase.from("lead_state_events").select("id, old_stage, new_stage, cognitive_stage, intelligence_score, source, is_regression, regression_gap_days, changed_at").eq("lead_id", lead.id), "changed_at");
+    if (want("agent_interactions")) tasks.agent_interactions = range(supabase.from("agent_interactions").select("id, created_at, user_message, agent_response, session_id, lang, unanswered, top_similarity").eq("lead_id", lead.id), "created_at");
+    if (want("whatsapp_inbox")) {
+      const base = supabase.from("whatsapp_inbox").select("*");
+      tasks.whatsapp_inbox = range(phoneDigits ? base.or(`lead_id.eq.${lead.id},phone.eq.${phoneDigits}`) : base.eq("lead_id", lead.id), "created_at");
+    }
+
+    const keys = Object.keys(tasks);
+    const results = await Promise.all(keys.map((k) => tasks[k]));
+    const errors: Record<string, string> = {};
+    const events: any[] = [];
+    const counts: Record<string, number> = {};
+
+    keys.forEach((k, i) => {
+      const r: any = results[i];
+      if (r?.error) { errors[k] = r.error.message; counts[k] = 0; return; }
+      const rows = (r?.data || []) as any[];
+      counts[k] = rows.length;
+      for (const row of rows) {
+        const ts = row.event_timestamp || row.occurred_at || row.changed_at || row.data_envio || row.created_at || null;
+        let type = row.event_type || row.type || row.state || row.event || k;
+        let title = "";
+        let data: any = {};
+        switch (k) {
+          case "activity_log":
+            title = String(row.entity_name || row.event_type || "");
+            data = { entity_type: row.entity_type, source_channel: row.source_channel, value_numeric: row.value_numeric, event_data: row.event_data };
+            break;
+          case "interactions":
+            title = String(row.subject || row.type || "");
+            data = { direction: row.direction, source: row.source, body: row.body ? String(row.body).slice(0, 800) : null, handled_by: row.handled_by, sentiment: row.sentiment, intent: row.intent };
+            break;
+          case "event_store":
+            title = String(row.event_type || "");
+            data = { event_source: row.event_source, source_table: row.source_table, source_id: row.source_id, payload: row.payload };
+            break;
+          case "message_logs":
+            type = row.tipo || "message";
+            title = String(row.mensagem_preview || "").slice(0, 500);
+            data = { status: row.status, instancia: row.evolution_instance, whatsapp: row.whatsapp_number, erro: row.error_details };
+            break;
+          case "whatsapp_inbox":
+            type = row.direction ? `whatsapp_${row.direction}` : "whatsapp";
+            title = String(row.message_text || "").slice(0, 500);
+            data = { phone: row.phone, instance: row.instance_name, sender_name: row.sender_name, is_group: row.is_group, matched_by: row.matched_by, intent: row.intent_detected, media_type: row.media_type };
+            break;
+          case "page_views":
+            type = row.page_type || "page_view";
+            title = String(row.page_title || row.page_url || row.url || "");
+            data = { url: row.page_url || row.url, referrer: row.referrer, time_on_page: row.time_on_page_seconds };
+            break;
+          case "state_events":
+            type = "stage_change";
+            title = `${row.old_stage ?? "—"} → ${row.new_stage ?? "—"}`;
+            data = { source: row.source, cognitive_stage: row.cognitive_stage, intelligence_score: row.intelligence_score, is_regression: row.is_regression, regression_gap_days: row.regression_gap_days };
+            break;
+          case "agent_interactions":
+            type = "agent_interaction";
+            title = String(row.user_message || "").slice(0, 300);
+            data = { session_id: row.session_id, lang: row.lang, unanswered: row.unanswered, top_similarity: row.top_similarity, agent_response: row.agent_response ? String(row.agent_response).slice(0, 600) : null };
+            break;
+        }
+        events.push({ ts, source: k, type: String(type ?? ""), title, data });
+      }
+    });
+
+    let filtered = events.filter((e) => e.ts);
+    if (Array.isArray(args?.event_types) && args.event_types.length) {
+      const needles = args.event_types.map((t: string) => String(t).toLowerCase());
+      filtered = filtered.filter((e) => needles.some((n: string) => e.type.toLowerCase().includes(n) || String(e.title).toLowerCase().includes(n)));
+    }
+    filtered.sort((a, b) => (asc ? +new Date(a.ts) - +new Date(b.ts) : +new Date(b.ts) - +new Date(a.ts)));
+    const total = filtered.length;
+    const out = filtered.slice(0, limit);
+
+    return {
+      lead: { id: lead.id, nome: lead.nome, email: lead.email, telefone: lead.telefone_normalized || lead.telefone_raw, responsavel: lead.proprietario_lead_crm, etapa: lead.piperun_stage_name },
+      window: { from, to },
+      sources_used: sources,
+      counts_por_fonte: counts,
+      total_eventos: total,
+      retornados: out.length,
+      truncado: total > out.length,
+      primeiro_evento: filtered.length ? (asc ? out[0]?.ts : filtered[filtered.length - 1]?.ts) : null,
+      ultimo_evento: filtered.length ? (asc ? filtered[filtered.length - 1]?.ts : out[0]?.ts) : null,
+      errors: Object.keys(errors).length ? errors : null,
+      timeline: out,
+      _disclaimer: "Datas são os timestamps reais dos eventos. Não invente eventos fora desta lista.",
+    };
+  } catch (e) { return { error: (e as Error).message }; }
+}
+
+async function executeQuerySemanticGraph(args: any) {
+  try {
+    const mode = String(args?.mode || (args?.entity_id ? "relations" : args?.query ? "entity" : "lead"));
+    const limit = Math.min(Number(args?.limit ?? 25), 100);
+
+    if (mode === "entity") {
+      let q = supabase.from("kg_entities").select("id, entity_type, name, slug, description, wikidata_qid, source_table, source_id, extra").eq("active", true).limit(limit);
+      if (args?.query) q = q.ilike("name", `%${String(args.query).trim()}%`);
+      if (args?.entity_type) q = q.eq("entity_type", args.entity_type);
+      const { data, error } = await q;
+      if (error) return { error: error.message };
+      const ids = (data || []).map((e: any) => e.id);
+      let relations: any[] = [];
+      if (ids.length) {
+        const { data: rel } = await supabase.from("kg_relations")
+          .select("id, from_entity_id, relation_type, to_entity_id, confidence, source, notes")
+          .eq("active", true)
+          .or(`from_entity_id.in.(${ids.join(",")}),to_entity_id.in.(${ids.join(",")})`)
+          .limit(200);
+        relations = rel || [];
+      }
+      return { mode, entities: data || [], relations, total_entidades: (data || []).length };
+    }
+
+    if (mode === "relations") {
+      if (!args?.entity_id) return { error: "entity_id obrigatório no mode=relations" };
+      const { data: ent } = await supabase.from("kg_entities").select("*").eq("id", args.entity_id).maybeSingle();
+      const { data: rel, error } = await supabase.from("kg_relations")
+        .select("id, from_entity_id, relation_type, to_entity_id, confidence, source, notes")
+        .eq("active", true)
+        .or(`from_entity_id.eq.${args.entity_id},to_entity_id.eq.${args.entity_id}`)
+        .limit(200);
+      if (error) return { error: error.message };
+      const otherIds = [...new Set((rel || []).flatMap((r: any) => [r.from_entity_id, r.to_entity_id]).filter((id: string) => id !== args.entity_id))];
+      let vizinhos: any[] = [];
+      if (otherIds.length) {
+        const { data: nb } = await supabase.from("kg_entities").select("id, entity_type, name, slug").in("id", otherIds);
+        vizinhos = nb || [];
+      }
+      return { mode, entity: ent || null, relations: rel || [], vizinhos };
+    }
+
+    // mode = lead → Identity Graph
+    const res = await resolveCanonicalLead(args);
+    if ((res as any).error) return res;
+    const lead = (res as any).lead;
+
+    const { data: linkRows } = await supabase.from("lead_activity_log")
+      .select("person_id, company_id").eq("lead_id", lead.id)
+      .not("person_id", "is", null).order("event_timestamp", { ascending: false }).limit(50);
+    let personId: string | null = (linkRows || []).find((r: any) => r.person_id)?.person_id ?? null;
+    const companyIds = [...new Set((linkRows || []).map((r: any) => r.company_id).filter(Boolean))];
+
+    if (!personId) {
+      const digits = String(lead.telefone_normalized || lead.telefone_raw || "").replace(/\D/g, "");
+      let pq = supabase.from("people").select("id").limit(1);
+      if (lead.piperun_id) pq = pq.eq("piperun_person_id", String(lead.piperun_id));
+      else if (lead.email) pq = pq.ilike("email", String(lead.email).trim());
+      else if (digits) pq = pq.eq("telefone_normalized", digits);
+      const { data: pd } = await pq;
+      personId = pd?.[0]?.id ?? null;
+    }
+
+    if (!personId) {
+      return { mode: "lead", lead_id: lead.id, person: null, aviso: "Lead ainda não vinculado a uma pessoa no grafo (fn_graph_link_leads roda a cada 10 min).", identity_keys: [], companies: [], event_store_resumo: [] };
+    }
+
+    const [personRes, keysRes, pcrRes, interRes, evRes] = await Promise.all([
+      supabase.from("people").select("*").eq("id", personId).maybeSingle(),
+      supabase.from("identity_keys").select("type, value, confidence, source, is_primary, verified_at").eq("person_id", personId).limit(50),
+      supabase.from("person_company_relationship").select("company_id, role").eq("person_id", personId).limit(20),
+      supabase.from("interactions").select("id", { count: "exact", head: true }).eq("person_id", personId),
+      supabase.from("event_store").select("event_type, event_source, occurred_at").eq("person_id", personId).order("occurred_at", { ascending: false }).limit(500),
+    ]);
+
+    const allCompanyIds = [...new Set([...companyIds, ...((pcrRes.data || []).map((r: any) => r.company_id))])].filter(Boolean);
+    let companies: any[] = [];
+    if (allCompanyIds.length) {
+      const { data: comp } = await supabase.from("companies")
+        .select("id, nome, razao_social, cnpj, cidade, uf, segmento, porte, domain, is_active, merged_into")
+        .in("id", allCompanyIds).limit(20);
+      companies = comp || [];
+    }
+
+    const byType: Record<string, number> = {};
+    for (const e of (evRes.data || []) as any[]) byType[e.event_type] = (byType[e.event_type] || 0) + 1;
+    const evRows = (evRes.data || []) as any[];
+
+    return {
+      mode: "lead",
+      lead: { id: lead.id, nome: lead.nome, email: lead.email, telefone: lead.telefone_normalized || lead.telefone_raw },
+      person: personRes.data || null,
+      identity_keys: keysRes.data || [],
+      companies,
+      papeis_empresa: pcrRes.data || [],
+      total_interactions: interRes.count ?? 0,
+      event_store_resumo: Object.entries(byType).map(([event_type, n]) => ({ event_type, eventos: n })).sort((a, b) => b.eventos - a.eventos),
+      event_store_amostrado: evRows.length,
+      event_store_janela: evRows.length ? { mais_recente: evRows[0].occurred_at, mais_antigo: evRows[evRows.length - 1].occurred_at } : null,
+      _disclaimer: "Vínculos vêm do Identity Graph. Não invente empresas, pessoas ou chaves que não estejam aqui.",
+    };
+  } catch (e) { return { error: (e as Error).message }; }
+}
+
 async function executeQueryProductOwners(args: any) {
   const busca = String(args?.busca || "").trim();
   if (!busca) return { error: "Parâmetro 'busca' obrigatório (ex: 'edge mini')." };
@@ -2920,6 +3215,8 @@ const toolExecutors: Record<string, (args: any) => Promise<any>> = {
   search_success_stories: executeSearchSuccessStories,
   search_social_posts: executeSearchSocialPosts,
   query_table: executeQueryTable,
+  query_lead_timeline: executeQueryLeadTimeline,
+  query_semantic_graph: executeQuerySemanticGraph,
   describe_table: executeDescribeTable,
   query_stats: executeQueryStats,
   check_missing_fields: executeCheckMissingFields,
@@ -3015,7 +3312,12 @@ Cite sempre o link canônico retornado (\`/base-conhecimento/...\`, \`/cursos/..
 4. NÃO recalcular médias, deltas, conversões — use os campos prontos do Cérebro.
 5. NÃO completar listas; o tamanho real é \`array.length\`.
 6. NÃO citar Omie, NF, faturamento físico — bloqueado nesta visão.
-7. Para KPIs agregados do mês (receita, ranking, pipeline, equipamentos, alertas) USE PRIMEIRO o Cérebro — é a fonte canônica e mais rápida. Quando o usuário pedir drill-down, dado granular, histórico fora do mês corrente, ou algo que NÃO está no Cérebro, use livremente as ferramentas de leitura (query_deal_history, query_sales_summary, query_proposal_items_sold, query_ecommerce_orders, query_leads, query_leads_advanced, query_table, describe_table, query_stats, query_enrollments, query_product_owners, query_owner_purchase_history, query_scanner_brand_distribution, query_printer_brand_distribution, query_revenue_forecast, query_churn_risk, suggest_cross_sell, get_lead_card, etc.). NUNCA invente — se a tool voltar vazia, diga "sem dados".
+7. Para KPIs agregados do mês (receita, ranking, pipeline, equipamentos, alertas) USE PRIMEIRO o Cérebro — é a fonte canônica e mais rápida. Quando o usuário pedir drill-down, dado granular, histórico fora do mês corrente, ou algo que NÃO está no Cérebro, use livremente as ferramentas de leitura (query_deal_history, query_sales_summary, query_proposal_items_sold, query_ecommerce_orders, query_leads, query_leads_advanced, query_lead_timeline, query_semantic_graph, query_table, describe_table, query_stats, query_enrollments, query_product_owners, query_owner_purchase_history, query_scanner_brand_distribution, query_printer_brand_distribution, query_revenue_forecast, query_churn_risk, suggest_cross_sell, get_lead_card, etc.). NUNCA invente — se a tool voltar vazia, diga "sem dados".
+
+## TIMELINE E GRAFO SEMÂNTICO (acesso total)
+- "timeline", "linha do tempo", "histórico completo", "jornada do lead", "o que aconteceu com X", "primeiro/último contato" → \`query_lead_timeline\` (mescla lead_activity_log, interactions, event_store, message_logs, whatsapp_inbox, page_views, state_events, agent_interactions em ordem cronológica real). Cite as datas exatamente como vierem em \`ts\`; se \`truncado: true\`, diga que há mais eventos e ofereça filtrar por período/fonte.
+- Identidade unificada, vínculo pessoa↔empresa, chaves de identidade, entidades/relações do grafo de conhecimento → \`query_semantic_graph\` (mode=lead | entity | relations).
+- Nunca deduza vínculos, empresas ou eventos ausentes do retorno. Se \`person: null\`, informe que o lead ainda não foi vinculado no grafo.
 
 ## INTELIGÊNCIA PREDITIVA — TOOLS DEDICADAS
 - **Forecast de receita** ("quanto vamos faturar", "previsão", "vamos bater a meta") → use \`query_revenue_forecast\`. NUNCA estime de cabeça. Apresente os 3 cenários (conservador/realista/otimista), receita já fechada e gap para média histórica.
