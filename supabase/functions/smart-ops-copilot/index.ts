@@ -3215,6 +3215,8 @@ const toolExecutors: Record<string, (args: any) => Promise<any>> = {
   search_success_stories: executeSearchSuccessStories,
   search_social_posts: executeSearchSocialPosts,
   query_table: executeQueryTable,
+  query_lead_timeline: executeQueryLeadTimeline,
+  query_semantic_graph: executeQuerySemanticGraph,
   describe_table: executeDescribeTable,
   query_stats: executeQueryStats,
   check_missing_fields: executeCheckMissingFields,
