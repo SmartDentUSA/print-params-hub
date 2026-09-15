@@ -2541,6 +2541,255 @@ async function executeGetLeadCard(args: any) {
   }
 }
 
+// ─── Resolver canônico compartilhado (timeline + grafo) ───
+async function resolveCanonicalLead(args: any) {
+  let q = supabase.from("lia_attendances")
+    .select("id, nome, email, telefone, telefone_normalized, piperun_id, proprietario_lead_crm, piperun_stage_name")
+    .is("merged_into", null).limit(1);
+  if (args?.lead_id) {
+    q = supabase.from("lia_attendances")
+      .select("id, nome, email, telefone, telefone_normalized, piperun_id, proprietario_lead_crm, piperun_stage_name")
+      .eq("id", args.lead_id).limit(1);
+  } else if (args?.piperun_id) {
+    q = q.eq("piperun_id", String(args.piperun_id));
+  } else if (args?.email) {
+    q = q.ilike("email", String(args.email).trim());
+  } else if (args?.telefone) {
+    const d = String(args.telefone).replace(/\D/g, "");
+    q = q.or(`telefone_normalized.eq.${d},telefone.ilike.%${d}%`);
+  } else {
+    return { error: "Informe lead_id, piperun_id, email ou telefone" };
+  }
+  const { data, error } = await q;
+  if (error) return { error: error.message };
+  if (!data?.[0]) return { error: "Lead não encontrado (ou não é canônico)" };
+  return { lead: data[0] as any };
+}
+
+async function executeQueryLeadTimeline(args: any) {
+  try {
+    const res = await resolveCanonicalLead(args);
+    if ((res as any).error) return res;
+    const lead = (res as any).lead;
+    const limit = Math.min(Number(args?.limit ?? 120), 400);
+    const perSource = Math.min(limit, 200);
+    const asc = args?.ascending === true;
+    const from = args?.from ? new Date(args.from).toISOString() : null;
+    const to = args?.to ? new Date(args.to).toISOString() : null;
+    const allSources = ["activity_log", "interactions", "event_store", "message_logs", "whatsapp_inbox", "page_views", "state_events", "agent_interactions"];
+    const sources: string[] = Array.isArray(args?.sources) && args.sources.length ? args.sources : allSources;
+    const want = (s: string) => sources.includes(s);
+    const phoneDigits = String(lead.telefone_normalized || lead.telefone || "").replace(/\D/g, "");
+
+    const range = (qb: any, col: string) => {
+      let x = qb;
+      if (from) x = x.gte(col, from);
+      if (to) x = x.lte(col, to);
+      return x.order(col, { ascending: false }).limit(perSource);
+    };
+
+    const tasks: Record<string, any> = {};
+    if (want("activity_log")) tasks.activity_log = range(supabase.from("lead_activity_log").select("id, event_type, event_timestamp, event_data, entity_type, entity_name, source_channel, value_numeric, duration_seconds").eq("lead_id", lead.id), "event_timestamp");
+    if (want("interactions")) tasks.interactions = range(supabase.from("interactions").select("id, type, direction, source, subject, body, channel_ref, handled_by, sentiment, intent, occurred_at").eq("lead_id", lead.id), "occurred_at");
+    if (want("event_store")) tasks.event_store = range(supabase.from("event_store").select("id, event_type, event_source, occurred_at, source_table, source_id, payload").eq("lead_id", lead.id), "occurred_at");
+    if (want("message_logs")) tasks.message_logs = range(supabase.from("message_logs").select("*").eq("lead_id", lead.id), "created_at");
+    if (want("page_views")) tasks.page_views = range(supabase.from("lead_page_views").select("*").eq("lead_id", lead.id), "created_at");
+    if (want("state_events")) tasks.state_events = range(supabase.from("lead_state_events").select("*").eq("lead_id", lead.id), "created_at");
+    if (want("agent_interactions")) tasks.agent_interactions = range(supabase.from("agent_interactions").select("id, created_at, user_message, agent_response, channel, session_id, intent_detected").eq("lead_id", lead.id), "created_at");
+    if (want("whatsapp_inbox")) {
+      const base = supabase.from("whatsapp_inbox").select("*");
+      tasks.whatsapp_inbox = range(phoneDigits ? base.or(`lead_id.eq.${lead.id},phone.eq.${phoneDigits}`) : base.eq("lead_id", lead.id), "created_at");
+    }
+
+    const keys = Object.keys(tasks);
+    const results = await Promise.all(keys.map((k) => tasks[k]));
+    const errors: Record<string, string> = {};
+    const events: any[] = [];
+    const counts: Record<string, number> = {};
+
+    keys.forEach((k, i) => {
+      const r: any = results[i];
+      if (r?.error) { errors[k] = r.error.message; counts[k] = 0; return; }
+      const rows = (r?.data || []) as any[];
+      counts[k] = rows.length;
+      for (const row of rows) {
+        const ts = row.event_timestamp || row.occurred_at || row.created_at || null;
+        let type = row.event_type || row.type || row.state || row.event || k;
+        let title = "";
+        let data: any = {};
+        switch (k) {
+          case "activity_log":
+            title = String(row.entity_name || row.event_type || "");
+            data = { entity_type: row.entity_type, source_channel: row.source_channel, value_numeric: row.value_numeric, event_data: row.event_data };
+            break;
+          case "interactions":
+            title = String(row.subject || row.type || "");
+            data = { direction: row.direction, source: row.source, body: row.body ? String(row.body).slice(0, 800) : null, handled_by: row.handled_by, sentiment: row.sentiment, intent: row.intent };
+            break;
+          case "event_store":
+            title = String(row.event_type || "");
+            data = { event_source: row.event_source, source_table: row.source_table, source_id: row.source_id, payload: row.payload };
+            break;
+          case "message_logs":
+            type = row.tipo || row.channel || row.message_type || "message";
+            title = String(row.mensagem || row.message || row.conteudo || "").slice(0, 500);
+            data = { status: row.status, canal: row.canal || row.channel, direction: row.direction, provider: row.provider };
+            break;
+          case "whatsapp_inbox":
+            type = row.direction ? `whatsapp_${row.direction}` : "whatsapp";
+            title = String(row.message || row.body || row.content || "").slice(0, 500);
+            data = { phone: row.phone, instance: row.instance_name || row.instance, from_me: row.from_me, status: row.status };
+            break;
+          case "page_views":
+            type = row.page_type || "page_view";
+            title = String(row.page_title || row.page_url || row.url || "");
+            data = { url: row.page_url || row.url, referrer: row.referrer, time_on_page: row.time_on_page_seconds };
+            break;
+          case "state_events":
+            type = row.event_type || row.new_state || "state_change";
+            title = `${row.old_state ?? row.previous_state ?? "—"} → ${row.new_state ?? row.state ?? "—"}`;
+            data = { reason: row.reason, source: row.source, metadata: row.metadata };
+            break;
+          case "agent_interactions":
+            type = "agent_interaction";
+            title = String(row.user_message || "").slice(0, 300);
+            data = { channel: row.channel, session_id: row.session_id, intent: row.intent_detected, agent_response: row.agent_response ? String(row.agent_response).slice(0, 600) : null };
+            break;
+        }
+        events.push({ ts, source: k, type: String(type ?? ""), title, data });
+      }
+    });
+
+    let filtered = events.filter((e) => e.ts);
+    if (Array.isArray(args?.event_types) && args.event_types.length) {
+      const needles = args.event_types.map((t: string) => String(t).toLowerCase());
+      filtered = filtered.filter((e) => needles.some((n: string) => e.type.toLowerCase().includes(n) || String(e.title).toLowerCase().includes(n)));
+    }
+    filtered.sort((a, b) => (asc ? +new Date(a.ts) - +new Date(b.ts) : +new Date(b.ts) - +new Date(a.ts)));
+    const total = filtered.length;
+    const out = filtered.slice(0, limit);
+
+    return {
+      lead: { id: lead.id, nome: lead.nome, email: lead.email, telefone: lead.telefone, responsavel: lead.proprietario_lead_crm, etapa: lead.piperun_stage_name },
+      window: { from, to },
+      sources_used: sources,
+      counts_por_fonte: counts,
+      total_eventos: total,
+      retornados: out.length,
+      truncado: total > out.length,
+      primeiro_evento: filtered.length ? (asc ? out[0]?.ts : filtered[filtered.length - 1]?.ts) : null,
+      ultimo_evento: filtered.length ? (asc ? filtered[filtered.length - 1]?.ts : out[0]?.ts) : null,
+      errors: Object.keys(errors).length ? errors : null,
+      timeline: out,
+      _disclaimer: "Datas são os timestamps reais dos eventos. Não invente eventos fora desta lista.",
+    };
+  } catch (e) { return { error: (e as Error).message }; }
+}
+
+async function executeQuerySemanticGraph(args: any) {
+  try {
+    const mode = String(args?.mode || (args?.entity_id ? "relations" : args?.query ? "entity" : "lead"));
+    const limit = Math.min(Number(args?.limit ?? 25), 100);
+
+    if (mode === "entity") {
+      let q = supabase.from("kg_entities").select("id, entity_type, name, slug, description, wikidata_qid, source_table, source_id, extra").eq("active", true).limit(limit);
+      if (args?.query) q = q.ilike("name", `%${String(args.query).trim()}%`);
+      if (args?.entity_type) q = q.eq("entity_type", args.entity_type);
+      const { data, error } = await q;
+      if (error) return { error: error.message };
+      const ids = (data || []).map((e: any) => e.id);
+      let relations: any[] = [];
+      if (ids.length) {
+        const { data: rel } = await supabase.from("kg_relations")
+          .select("id, from_entity_id, relation_type, to_entity_id, confidence, source, notes")
+          .eq("active", true)
+          .or(`from_entity_id.in.(${ids.join(",")}),to_entity_id.in.(${ids.join(",")})`)
+          .limit(200);
+        relations = rel || [];
+      }
+      return { mode, entities: data || [], relations, total_entidades: (data || []).length };
+    }
+
+    if (mode === "relations") {
+      if (!args?.entity_id) return { error: "entity_id obrigatório no mode=relations" };
+      const { data: ent } = await supabase.from("kg_entities").select("*").eq("id", args.entity_id).maybeSingle();
+      const { data: rel, error } = await supabase.from("kg_relations")
+        .select("id, from_entity_id, relation_type, to_entity_id, confidence, source, notes")
+        .eq("active", true)
+        .or(`from_entity_id.eq.${args.entity_id},to_entity_id.eq.${args.entity_id}`)
+        .limit(200);
+      if (error) return { error: error.message };
+      const otherIds = [...new Set((rel || []).flatMap((r: any) => [r.from_entity_id, r.to_entity_id]).filter((id: string) => id !== args.entity_id))];
+      let vizinhos: any[] = [];
+      if (otherIds.length) {
+        const { data: nb } = await supabase.from("kg_entities").select("id, entity_type, name, slug").in("id", otherIds);
+        vizinhos = nb || [];
+      }
+      return { mode, entity: ent || null, relations: rel || [], vizinhos };
+    }
+
+    // mode = lead → Identity Graph
+    const res = await resolveCanonicalLead(args);
+    if ((res as any).error) return res;
+    const lead = (res as any).lead;
+
+    const { data: linkRows } = await supabase.from("lead_activity_log")
+      .select("person_id, company_id").eq("lead_id", lead.id)
+      .not("person_id", "is", null).order("event_timestamp", { ascending: false }).limit(50);
+    let personId: string | null = (linkRows || []).find((r: any) => r.person_id)?.person_id ?? null;
+    const companyIds = [...new Set((linkRows || []).map((r: any) => r.company_id).filter(Boolean))];
+
+    if (!personId) {
+      const digits = String(lead.telefone_normalized || lead.telefone || "").replace(/\D/g, "");
+      let pq = supabase.from("people").select("id").limit(1);
+      if (lead.piperun_id) pq = pq.eq("piperun_person_id", String(lead.piperun_id));
+      else if (lead.email) pq = pq.ilike("email", String(lead.email).trim());
+      else if (digits) pq = pq.eq("telefone_normalized", digits);
+      const { data: pd } = await pq;
+      personId = pd?.[0]?.id ?? null;
+    }
+
+    if (!personId) {
+      return { mode: "lead", lead_id: lead.id, person: null, aviso: "Lead ainda não vinculado a uma pessoa no grafo (fn_graph_link_leads roda a cada 10 min).", identity_keys: [], companies: [], event_store_resumo: [] };
+    }
+
+    const [personRes, keysRes, pcrRes, interRes, evRes] = await Promise.all([
+      supabase.from("people").select("*").eq("id", personId).maybeSingle(),
+      supabase.from("identity_keys").select("type, value, confidence, source, is_primary, verified_at").eq("person_id", personId).limit(50),
+      supabase.from("person_company_relationship").select("company_id, role").eq("person_id", personId).limit(20),
+      supabase.from("interactions").select("id", { count: "exact", head: true }).eq("person_id", personId),
+      supabase.from("event_store").select("event_type, event_source, occurred_at").eq("person_id", personId).order("occurred_at", { ascending: false }).limit(500),
+    ]);
+
+    const allCompanyIds = [...new Set([...companyIds, ...((pcrRes.data || []).map((r: any) => r.company_id))])].filter(Boolean);
+    let companies: any[] = [];
+    if (allCompanyIds.length) {
+      const { data: comp } = await supabase.from("companies")
+        .select("id, nome, razao_social, cnpj, cidade, uf, segmento, porte, domain, is_active, merged_into")
+        .in("id", allCompanyIds).limit(20);
+      companies = comp || [];
+    }
+
+    const byType: Record<string, number> = {};
+    for (const e of (evRes.data || []) as any[]) byType[e.event_type] = (byType[e.event_type] || 0) + 1;
+    const evRows = (evRes.data || []) as any[];
+
+    return {
+      mode: "lead",
+      lead: { id: lead.id, nome: lead.nome, email: lead.email, telefone: lead.telefone },
+      person: personRes.data || null,
+      identity_keys: keysRes.data || [],
+      companies,
+      papeis_empresa: pcrRes.data || [],
+      total_interactions: interRes.count ?? 0,
+      event_store_resumo: Object.entries(byType).map(([event_type, n]) => ({ event_type, eventos: n })).sort((a, b) => b.eventos - a.eventos),
+      event_store_amostrado: evRows.length,
+      event_store_janela: evRows.length ? { mais_recente: evRows[0].occurred_at, mais_antigo: evRows[evRows.length - 1].occurred_at } : null,
+      _disclaimer: "Vínculos vêm do Identity Graph. Não invente empresas, pessoas ou chaves que não estejam aqui.",
+    };
+  } catch (e) { return { error: (e as Error).message }; }
+}
+
 async function executeQueryProductOwners(args: any) {
   const busca = String(args?.busca || "").trim();
   if (!busca) return { error: "Parâmetro 'busca' obrigatório (ex: 'edge mini')." };
