@@ -465,6 +465,50 @@ const tools = [
   {
     type: "function",
     function: {
+      name: "query_lead_timeline",
+      description: "TIMELINE UNIFICADA E COMPLETA de um lead canônico, em ordem cronológica real, mesclando TODAS as fontes: lead_activity_log (formulários, CRM, propostas, snapshots de etapa), interactions (grafo), event_store (append-only), message_logs, whatsapp_inbox, lead_page_views, lead_state_events e agent_interactions. Use SEMPRE que o usuário pedir 'timeline', 'histórico completo', 'linha do tempo', 'o que aconteceu com o lead X', 'jornada', 'primeiro contato', 'última interação'. Cada evento traz ts (data real do evento, nunca now()), source (tabela de origem), type, title e data. NUNCA invente eventos: o array retornado é a verdade absoluta.",
+      parameters: {
+        type: "object",
+        properties: {
+          lead_id: { type: "string", description: "UUID do lead canônico" },
+          email: { type: "string", description: "Email do lead (alternativa ao lead_id)" },
+          telefone: { type: "string", description: "Telefone do lead (alternativa ao lead_id)" },
+          piperun_id: { type: "string", description: "ID da pessoa no PipeRun (alternativa)" },
+          sources: { type: "array", items: { type: "string" }, description: "Filtrar fontes: activity_log, interactions, event_store, message_logs, whatsapp_inbox, page_views, state_events, agent_interactions. Padrão: todas." },
+          event_types: { type: "array", items: { type: "string" }, description: "Filtro parcial por tipo de evento (ex: ['crm_proposal','form'])" },
+          from: { type: "string", description: "Data inicial ISO" },
+          to: { type: "string", description: "Data final ISO" },
+          limit: { type: "number", description: "Máx eventos no resultado (padrão 120, máx 400)" },
+          ascending: { type: "boolean", description: "true = mais antigo primeiro (padrão false)" }
+        },
+        required: []
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "query_semantic_graph",
+      description: "GRAFO SEMÂNTICO / Identity Graph do CDP. Modos: 'lead' (pessoa, chaves de identidade, empresas vinculadas, contagem de interações e resumo do event_store por tipo, a partir de lead_id/email/telefone); 'entity' (busca entidades em kg_entities por nome/tipo com suas relações em kg_relations); 'relations' (relações de uma entidade específica). Use quando o usuário perguntar sobre identidade unificada, vínculos pessoa↔empresa, chaves de identidade (email/telefone/CNPJ), atribuição, ou o grafo de conhecimento. NUNCA invente vínculos.",
+      parameters: {
+        type: "object",
+        properties: {
+          mode: { type: "string", description: "lead | entity | relations" },
+          lead_id: { type: "string" },
+          email: { type: "string" },
+          telefone: { type: "string" },
+          query: { type: "string", description: "Termo de busca de entidade (mode=entity)" },
+          entity_type: { type: "string", description: "Tipo da entidade (mode=entity)" },
+          entity_id: { type: "string", description: "UUID da entidade (mode=relations)" },
+          limit: { type: "number", description: "Máx resultados (padrão 25, máx 100)" }
+        },
+        required: []
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
       name: "describe_table",
       description: "Lista as colunas e tipos de uma tabela do banco de dados.",
       parameters: {
