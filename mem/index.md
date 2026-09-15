@@ -37,3 +37,4 @@
 - [Event Drive Pipeline](mem://features/event-drive-publication-pipeline) — Pastas/naming/copy de eventos no Google Drive; upload em /agenda restrito a membros ativos
 - [Engajamento KOL em evento](mem://features/event-kol-engagement-timeline) — event_participation na timeline com horas de palestra e de apoio comercial; apoio não bloqueia horário
 - [Copilot Timeline & Grafo](mem://smart-ops/copilot-timeline-and-graph-access) — query_lead_timeline (8 fontes cronológicas) e query_semantic_graph (Identity Graph + kg_entities/kg_relations)
+- [Copilot Cupons E-commerce](mem://smart-ops/copilot-ecommerce-coupon-access) — cupom da Loja Integrada gravado nos pedidos; query_ecommerce_orders coupon_only/coupon_code
