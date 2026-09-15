@@ -1813,7 +1813,9 @@ async function executeQueryTable(args: any) {
     "team_members", "ai_token_usage", "external_links", "leads", "content_requests",
     "lead_state_events", "company_kb_texts", "intelligence_score_config",
     "system_health_logs", "message_logs",
-    "whatsapp_inbox", "lead_activity_log", "lead_page_views"
+    "whatsapp_inbox", "lead_activity_log", "lead_page_views",
+    "event_store", "interactions", "people", "companies", "identity_keys",
+    "person_company_relationship", "kg_entities", "kg_relations", "deals", "deal_items"
   ];
   if (!allowedTables.includes(args.table)) return { error: `Tabela "${args.table}" não permitida. Tabelas disponíveis: ${allowedTables.join(", ")}` };
 
