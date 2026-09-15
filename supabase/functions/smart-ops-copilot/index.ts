@@ -772,7 +772,7 @@ const tools = [
     type: "function",
     function: {
       name: "query_ecommerce_orders",
-      description: "Consulta pedidos e-commerce na tabela lia_attendances filtrando por status do último pedido, data, e outras condições. Ideal para carrinhos abandonados, pedidos pendentes, clientes recorrentes.",
+      description: "Consulta pedidos e-commerce (Loja Integrada) na tabela lia_attendances: status, data, valor, desconto e CUPOM de desconto usado (lojaintegrada_cupom_desconto / lojaintegrada_cupom_json). Use coupon_only=true ou coupon_code para responder perguntas sobre cupons utilizados na loja.",
       parameters: {
         type: "object",
         properties: {
@@ -780,10 +780,13 @@ const tools = [
           since: { type: "string", description: "Data ISO mínima do último pedido (ex: 2026-03-11)" },
           until: { type: "string", description: "Data ISO máxima do último pedido" },
           min_value: { type: "number", description: "Valor mínimo do último pedido" },
+          coupon_only: { type: "boolean", description: "true = apenas pedidos com cupom de desconto registrado" },
+          coupon_code: { type: "string", description: "Filtra por código do cupom (busca parcial, ex: CIPRO)" },
           limit: { type: "number", description: "Máximo de resultados (padrão 50)" }
         },
         required: []
       }
+
     }
   },
   {
@@ -2142,10 +2145,19 @@ async function executeQueryEcommerceOrders(args: any) {
   try {
     const limit = Math.min(args.limit || 50, 200);
     let query = supabase.from("lia_attendances")
-      .select("id,nome,email,telefone_normalized,cidade,lojaintegrada_ultimo_pedido_status,lojaintegrada_ultimo_pedido_valor,lojaintegrada_ultimo_pedido_data,lojaintegrada_ultimo_pedido_numero,lojaintegrada_ltv,lojaintegrada_total_pedidos_pagos,tags_crm,proprietario_lead_crm")
-      .not("lojaintegrada_ultimo_pedido_status", "is", null)
+      .select("id,nome,email,telefone_normalized,cidade,lojaintegrada_ultimo_pedido_status,lojaintegrada_ultimo_pedido_valor,lojaintegrada_ultimo_pedido_data,lojaintegrada_ultimo_pedido_numero,lojaintegrada_cupom_desconto,lojaintegrada_cupom_json,lojaintegrada_valor_desconto,lojaintegrada_ltv,lojaintegrada_total_pedidos_pagos,tags_crm,proprietario_lead_crm")
+      .is("merged_into", null)
       .limit(limit);
 
+    const couponOnly = args.coupon_only === true || !!args.coupon_code;
+    if (couponOnly) {
+      query = query.not("lojaintegrada_cupom_desconto", "is", null).neq("lojaintegrada_cupom_desconto", "");
+    } else {
+      query = query.not("lojaintegrada_ultimo_pedido_status", "is", null);
+    }
+    if (args.coupon_code) {
+      query = query.ilike("lojaintegrada_cupom_desconto", `%${args.coupon_code}%`);
+    }
     if (args.order_status) {
       query = query.ilike("lojaintegrada_ultimo_pedido_status", `%${args.order_status}%`);
     }
@@ -2159,7 +2171,8 @@ async function executeQueryEcommerceOrders(args: any) {
       query = query.gte("lojaintegrada_ultimo_pedido_valor", args.min_value);
     }
 
-    query = query.order("lojaintegrada_ultimo_pedido_data", { ascending: false });
+    query = query.order("lojaintegrada_ultimo_pedido_data", { ascending: false, nullsFirst: false });
+
     const { data, error } = await query;
     if (error) return { error: error.message };
     return { count: data?.length || 0, orders: data };
