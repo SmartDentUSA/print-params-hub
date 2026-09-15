@@ -1027,6 +1027,21 @@ const tools = [
   {
     type: "function",
     function: {
+      name: "query_event_briefing",
+      description: "BRIEFING COMPLETO DE UM EVENTO/CONGRESSO (feira, congresso, CIPRO etc.). Retorna: dados do evento (datas, horários, local, estande, sobre, marcas parceiras, público-alvo — audience_areas/specialties/notes), PALESTRANTES com foto, instagram, mini CV, especialidade, temas/tópicos das palestras e agenda de sessões (demonstrações) e sessões de apoio comercial; TABELA PROMOCIONAL vinculada ao evento com todos os combos (seções), itens, quantidades, preço de mercado, preço promocional, economia por combo e produto principal de cada combo; CUPONS gerados por vendedor (desconto e desconto + frete grátis, com validade, limite e categorias da loja); FORMULÁRIO do evento com consultores no estande. USE SEMPRE que o usuário perguntar sobre participação em evento, o que expor, campanha de congresso, agenda de palestras, combos/promoção do evento, cupons do evento. Combine com query_proposal_items_sold (o que o público mais compra), query_product_owners, search_products e get_product_anti_hallucination para montar recomendação de campanha. NUNCA invente palestrante, horário, preço ou cupom que não esteja no retorno.",
+      parameters: {
+        type: "object",
+        properties: {
+          event: { type: "string", description: "Nome, parte do nome, slug ou UUID do evento (ex.: 'CIPRO')" },
+          include_items: { type: "boolean", description: "Incluir itens de cada combo (padrão true)" }
+        },
+        required: ["event"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
       name: "list_social_flows",
       description: "Lista automações de Instagram DM (social_flows). Use quando o usuário mencionar: automação, social publisher, flow IG, DM automática, comment-to-DM. Mostra nome, status ativo/pausado, canal e resumo do trigger.",
       parameters: {
@@ -1819,7 +1834,8 @@ async function executeQueryTable(args: any) {
     "whatsapp_inbox", "lead_activity_log", "lead_page_views",
     "event_store", "interactions", "people", "companies", "identity_keys",
     "person_company_relationship", "kg_entities", "kg_relations", "deals", "deal_items",
-    "promotional_coupons", "promotional_tables"
+    "promotional_coupons", "promotional_tables",
+    "smartops_events", "promotional_table_sections", "promotional_table_items", "smartops_forms"
 
   ];
   if (!allowedTables.includes(args.table)) return { error: `Tabela "${args.table}" não permitida. Tabelas disponíveis: ${allowedTables.join(", ")}` };
@@ -3213,7 +3229,220 @@ async function executeDeleteSocialFlow(args: any) {
   return error ? { error: error.message } : { ok: true, excluido: flow?.name, aviso: "Flow, triggers e sessões removidos." };
 }
 
+async function executeQueryEventBriefing(args: any) {
+  const key = String(args?.event ?? "").trim();
+  if (!key) return { error: "Informe o evento (nome, slug ou UUID)." };
+  const includeItems = args?.include_items !== false;
+
+  const cols =
+    "id,name,slug,start_date,end_date,start_time,end_time,location,company_stand,website_url,instagram_handle," +
+    "audience_areas,audience_specialties,audience_notes,about_event_pt,partner_brands,speakers,days_count,is_active,drive_folder_url";
+
+  let ev: any = null;
+  if (/^[0-9a-f-]{36}$/i.test(key)) {
+    const { data } = await supabase.from("smartops_events").select(cols).eq("id", key).limit(1);
+    ev = (data || [])[0] ?? null;
+  }
+  if (!ev) {
+    const { data } = await supabase.from("smartops_events").select(cols).eq("slug", key).limit(1);
+    ev = (data || [])[0] ?? null;
+  }
+  if (!ev) {
+    const { data } = await supabase
+      .from("smartops_events")
+      .select(cols)
+      .ilike("name", `%${key}%`)
+      .order("start_date", { ascending: false })
+      .limit(1);
+    ev = (data || [])[0] ?? null;
+  }
+  if (!ev) return { evento: null, aviso: `Nenhum evento encontrado para "${key}".` };
+
+  const speakers = Array.isArray(ev.speakers) ? ev.speakers : [];
+  const palestrantes = speakers.map((s: any) => ({
+    nome: s?.name ?? s?.nome ?? null,
+    especialidade: s?.specialty ?? s?.especialidade ?? null,
+    mini_cv: s?.mini_cv ?? s?.bio ?? s?.cv ?? null,
+    instagram: s?.instagram ?? s?.instagram_handle ?? null,
+    whatsapp: s?.whatsapp ?? s?.phone ?? null,
+    foto_url: s?.photo_url ?? s?.photo ?? s?.image_url ?? null,
+    temas: s?.topics ?? s?.themes ?? s?.temas ?? s?.subjects ?? null,
+    empresa: s?.company ?? null,
+    sessoes_demonstracao: Array.isArray(s?.sessions) ? s.sessions : [],
+    sessoes_apoio_comercial: Array.isArray(s?.support_sessions) ? s.support_sessions : [],
+  }));
+
+  // tabela promocional vinculada ao evento
+  const { data: tables } = await supabase
+    .from("promotional_tables")
+    .select(
+      "id,name,pdf_title,status,currency,valid_from,valid_until,notes,coupon_prefix,coupon_discount_type,coupon_discount_value," +
+        "coupon_valid_from,coupon_valid_until,coupon_usage_limit,coupon_li_category_labels,coupon_freight_discount_value," +
+        "coupon_freight_valid_from,coupon_freight_valid_until,coupon_pdf_enabled,coupon_freight_pdf_enabled,created_at",
+    )
+    .eq("event_id", ev.id)
+    .order("created_at", { ascending: false })
+    .limit(5);
+
+  const table = (tables || []).find((t: any) => t.status === "active") ?? (tables || [])[0] ?? null;
+
+  let combos: any[] = [];
+  if (table) {
+    const { data: sections } = await supabase
+      .from("promotional_table_sections")
+      .select("id,title,description,image_url,main_product_name,main_product_catalog_id,group_labels,sort_order")
+      .eq("promotional_table_id", table.id)
+      .order("sort_order", { ascending: true });
+
+    const sectionIds = (sections || []).map((s: any) => s.id);
+    let itemsBySection = new Map<string, any[]>();
+    if (sectionIds.length) {
+      const { data: items } = await supabase
+        .from("promotional_table_items")
+        .select("id,section_id,name,sku,item_type,quantity,market_unit_price,promotional_unit_price,group_label,sort_order")
+        .in("section_id", sectionIds)
+        .order("sort_order", { ascending: true });
+      for (const it of items || []) {
+        const arr = itemsBySection.get(String(it.section_id)) || [];
+        arr.push(it);
+        itemsBySection.set(String(it.section_id), arr);
+      }
+    }
+
+    combos = (sections || []).map((s: any) => {
+      const items = itemsBySection.get(String(s.id)) || [];
+      const mercado = items.reduce(
+        (a, i) => a + Number(i.market_unit_price || 0) * Number(i.quantity || 1),
+        0,
+      );
+      const promo = items.reduce(
+        (a, i) => a + Number(i.promotional_unit_price || 0) * Number(i.quantity || 1),
+        0,
+      );
+      return {
+        combo: s.title,
+        descricao: s.description,
+        produto_principal: s.main_product_name,
+        imagem_url: s.image_url,
+        grupos: s.group_labels,
+        valor_mercado: Number(mercado.toFixed(2)),
+        valor_promocional: Number(promo.toFixed(2)),
+        economia: Number((mercado - promo).toFixed(2)),
+        economia_pct: mercado > 0 ? Number((((mercado - promo) / mercado) * 100).toFixed(1)) : null,
+        itens: includeItems
+          ? items.map((i: any) => ({
+              item: i.name,
+              sku: i.sku,
+              tipo: i.item_type,
+              qtd: i.quantity,
+              preco_mercado: i.market_unit_price,
+              preco_promocional: i.promotional_unit_price,
+              grupo: i.group_label,
+            }))
+          : items.length,
+      };
+    });
+  }
+
+  let cupons: any[] = [];
+  if (table) {
+    const { data } = await supabase
+      .from("promotional_coupons")
+      .select("code,seller_name,kind,free_shipping,discount_type,discount_value,valid_from,valid_until,usage_limit,active,li_synced_at,li_sync_error")
+      .eq("promotional_table_id", table.id)
+      .order("seller_name", { ascending: true });
+    cupons = data || [];
+  }
+
+  // formulário do evento + consultores no estande
+  const { data: forms } = await supabase
+    .from("smartops_forms")
+    .select("id,name,slug,active,event_consultant_ids,event_categories,submissions_count")
+    .eq("event_id", ev.id)
+    .limit(5);
+
+  const consultantIds = [
+    ...new Set((forms || []).flatMap((f: any) => (Array.isArray(f.event_consultant_ids) ? f.event_consultant_ids : []))),
+  ];
+  let consultores: any[] = [];
+  if (consultantIds.length) {
+    const { data } = await supabase
+      .from("team_members")
+      .select("id,nome,email,whatsapp_number,ativo")
+      .in("id", consultantIds as string[]);
+    consultores = data || [];
+  }
+
+  return {
+    evento: {
+      id: ev.id,
+      nome: ev.name,
+      slug: ev.slug,
+      inicio: ev.start_date,
+      fim: ev.end_date,
+      horario: [ev.start_time, ev.end_time].filter(Boolean).join(" - ") || null,
+      dias: ev.days_count,
+      local: ev.location,
+      estande: ev.company_stand,
+      site: ev.website_url,
+      instagram: ev.instagram_handle,
+      ativo: ev.is_active,
+      publico_areas: ev.audience_areas,
+      publico_especialidades: ev.audience_specialties,
+      publico_observacoes: ev.audience_notes,
+      sobre: ev.about_event_pt,
+      marcas_parceiras: ev.partner_brands,
+      drive: ev.drive_folder_url,
+    },
+    palestrantes,
+    total_palestrantes: palestrantes.length,
+    tabela_promocional: table
+      ? {
+          id: table.id,
+          nome: table.name,
+          titulo_pdf: table.pdf_title,
+          status: table.status,
+          moeda: table.currency,
+          vigencia: { de: table.valid_from, ate: table.valid_until },
+          observacoes: table.notes,
+          regras_cupom: {
+            prefixo: table.coupon_prefix,
+            tipo_desconto: table.coupon_discount_type,
+            valor_desconto: table.coupon_discount_value,
+            validade: { de: table.coupon_valid_from, ate: table.coupon_valid_until },
+            limite_usos: table.coupon_usage_limit,
+            categorias_loja: table.coupon_li_category_labels,
+            frete_gratis: {
+              valor_desconto: table.coupon_freight_discount_value,
+              validade: { de: table.coupon_freight_valid_from, ate: table.coupon_freight_valid_until },
+            },
+            no_pdf: { desconto: table.coupon_pdf_enabled, frete: table.coupon_freight_pdf_enabled },
+          },
+        }
+      : null,
+    combos,
+    total_combos: combos.length,
+    cupons,
+    total_cupons: cupons.length,
+    formularios: (forms || []).map((f: any) => ({
+      id: f.id,
+      nome: f.name,
+      slug: f.slug,
+      ativo: f.active,
+      cadastros: f.submissions_count,
+      categorias_evento: f.event_categories,
+    })),
+    consultores_no_estande: consultores.map((c: any) => ({
+      nome: c.nome,
+      email: c.email,
+      whatsapp: c.whatsapp_number,
+      ativo: c.ativo,
+    })),
+  };
+}
+
 const toolExecutors: Record<string, (args: any) => Promise<any>> = {
+  query_event_briefing: executeQueryEventBriefing,
   query_leads: executeQueryLeads,
   update_lead: executeUpdateLead,
   add_tags: executeAddTags,
@@ -3328,6 +3557,12 @@ Cite sempre o link canônico retornado (\`/base-conhecimento/...\`, \`/cursos/..
 5. NÃO completar listas; o tamanho real é \`array.length\`.
 6. NÃO citar Omie, NF, faturamento físico — bloqueado nesta visão.
 7. Para KPIs agregados do mês (receita, ranking, pipeline, equipamentos, alertas) USE PRIMEIRO o Cérebro — é a fonte canônica e mais rápida. Quando o usuário pedir drill-down, dado granular, histórico fora do mês corrente, ou algo que NÃO está no Cérebro, use livremente as ferramentas de leitura (query_deal_history, query_sales_summary, query_proposal_items_sold, query_ecommerce_orders, query_leads, query_leads_advanced, query_lead_timeline, query_semantic_graph, query_table, describe_table, query_stats, query_enrollments, query_product_owners, query_owner_purchase_history, query_scanner_brand_distribution, query_printer_brand_distribution, query_revenue_forecast, query_churn_risk, suggest_cross_sell, get_lead_card, etc.). NUNCA invente — se a tool voltar vazia, diga "sem dados".
+
+## EVENTOS E CONGRESSOS (briefing completo — dado disponível)
+- "vamos participar do evento X", "o que expor no congresso", "campanha do evento", "agenda de palestras", "quem palestra", "combos/promoção do evento", "cupons do evento" → \`query_event_briefing({ event: "CIPRO" })\`. Retorna evento (datas, horário, local, estande, público-alvo, sobre, marcas parceiras), palestrantes (foto, instagram, mini CV, especialidade, temas, sessões de demonstração e de apoio comercial), combos da tabela promocional (itens, preço de mercado, promocional, economia, produto principal), cupons por vendedor (desconto e frete grátis, validade, categorias) e consultores no estande.
+- Para montar RECOMENDAÇÃO DE CAMPANHA de evento, encadeie: (1) \`query_event_briefing\`; (2) \`query_proposal_items_sold\` (o que mais vendeu por período — base do que o público realmente compra); (3) \`query_printer_brand_distribution\` / \`query_scanner_brand_distribution\` (parque instalado); (4) \`search_products\` + \`get_product_anti_hallucination\` para público-alvo, aplicações e regras técnicas de cada produto/combo (ex.: impacto da Rayshape no fluxo); (5) opcional \`query_product_owners\` para clientes de um produto que estarão na região.
+- Público de protéticos/laboratório: derive de \`query_proposal_items_sold\` e \`query_leads_advanced\` (especialidade/área de atuação) — nunca invente ranking de compra.
+- Sempre cite números, nomes, horários e preços exatamente como vierem no payload. Se o evento não tiver tabela promocional ativa ou palestrantes cadastrados, diga isso explicitamente em vez de estimar.
 
 ## CUPONS DO E-COMMERCE (dado disponível — nunca dizer que não existe)
 - Perguntas sobre cupom de desconto usado na loja (Loja Integrada) → \`query_ecommerce_orders\` com \`coupon_only: true\` (ou \`coupon_code\` para um código específico). Os pedidos gravam \`lojaintegrada_cupom_desconto\` (código), \`lojaintegrada_cupom_json\` (payload do cupom) e \`lojaintegrada_valor_desconto\`.
