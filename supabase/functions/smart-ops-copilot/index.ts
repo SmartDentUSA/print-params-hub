@@ -2581,7 +2581,7 @@ async function executeQueryLeadTimeline(args: any) {
     const allSources = ["activity_log", "interactions", "event_store", "message_logs", "whatsapp_inbox", "page_views", "state_events", "agent_interactions"];
     const sources: string[] = Array.isArray(args?.sources) && args.sources.length ? args.sources : allSources;
     const want = (s: string) => sources.includes(s);
-    const phoneDigits = String(lead.telefone_normalized || lead.telefone || "").replace(/\D/g, "");
+    const phoneDigits = String(lead.telefone_normalized || lead.telefone_raw || "").replace(/\D/g, "");
 
     const range = (qb: any, col: string) => {
       let x = qb;
