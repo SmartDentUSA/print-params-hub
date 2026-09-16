@@ -63,12 +63,36 @@ type EventRow = {
 
 type SellerStat = { seller: string; qtd: number };
 type ProductStat = { produto: string; qtd: number };
+type AreaStat = { area: string; qtd: number };
+type EspecialidadeStat = { especialidade: string; qtd: number };
 type EventStats = {
   total_leads: number;
   by_seller: SellerStat[];
   by_product: ProductStat[];
+  by_area: AreaStat[];
+  by_especialidade: EspecialidadeStat[];
+  tem_scanner_sim: number;
+  tem_impressora_sim: number;
+  imprime_placas_sim: number;
+  imprime_modelos_sim: number;
+  imprime_nanohibrida_sim: number;
   coupons_discount: number;
   coupons_freight: number;
+};
+
+const emptyStats: EventStats = {
+  total_leads: 0,
+  by_seller: [],
+  by_product: [],
+  by_area: [],
+  by_especialidade: [],
+  tem_scanner_sim: 0,
+  tem_impressora_sim: 0,
+  imprime_placas_sim: 0,
+  imprime_modelos_sim: 0,
+  imprime_nanohibrida_sim: 0,
+  coupons_discount: 0,
+  coupons_freight: 0,
 };
 
 const ALL_COUNTRIES = Country.getAllCountries();
@@ -145,18 +169,19 @@ export function SmartOpsEvents() {
         total_leads: Number(s.total_leads) || 0,
         by_seller: (s.by_seller || []) as SellerStat[],
         by_product: (s.by_product || []) as ProductStat[],
+        by_area: (s.by_area || []) as AreaStat[],
+        by_especialidade: (s.by_especialidade || []) as EspecialidadeStat[],
+        tem_scanner_sim: Number(s.tem_scanner_sim) || 0,
+        tem_impressora_sim: Number(s.tem_impressora_sim) || 0,
+        imprime_placas_sim: Number(s.imprime_placas_sim) || 0,
+        imprime_modelos_sim: Number(s.imprime_modelos_sim) || 0,
+        imprime_nanohibrida_sim: Number(s.imprime_nanohibrida_sim) || 0,
         coupons_discount: 0,
         coupons_freight: 0,
       };
     }
     for (const t of (tables || []) as any[]) {
-      const cur = map[t.event_id] || {
-        total_leads: 0,
-        by_seller: [],
-        by_product: [],
-        coupons_discount: 0,
-        coupons_freight: 0,
-      };
+      const cur = map[t.event_id] || { ...emptyStats };
       for (const c of (t.promotional_coupons || []) as any[]) {
         if (c.free_shipping) cur.coupons_freight += 1;
         else cur.coupons_discount += 1;
@@ -302,6 +327,17 @@ export function SmartOpsEvents() {
                 const st = stats[r.id];
                 const sellers = st?.by_seller ?? [];
                 const produtos = st?.by_product ?? [];
+                const areas = st?.by_area ?? [];
+                const especialidades = st?.by_especialidade ?? [];
+                const perfil: { label: string; qtd: number }[] = st
+                  ? [
+                      { label: "Tem scanner", qtd: st.tem_scanner_sim },
+                      { label: "Tem impressora", qtd: st.tem_impressora_sim },
+                      { label: "Imprime placa", qtd: st.imprime_placas_sim },
+                      { label: "Imprime modelo", qtd: st.imprime_modelos_sim },
+                      { label: "Imprime nanohíbrida", qtd: st.imprime_nanohibrida_sim },
+                    ]
+                  : [];
                 return (
                   <div key={r.id} className="rounded-lg border bg-card overflow-hidden flex flex-col">
                     <div className="aspect-video bg-muted">
@@ -358,6 +394,52 @@ export function SmartOpsEvents() {
                               </Badge>
                             ))}
                           </div>
+                        )}
+                      </div>
+
+                      <div>
+                        <div className="text-[11px] uppercase text-muted-foreground mb-1">Área de atuação</div>
+                        {areas.length === 0 ? (
+                          <p className="text-xs text-muted-foreground">Não informado.</p>
+                        ) : (
+                          <div className="flex flex-wrap gap-1">
+                            {areas.slice(0, 4).map((a) => (
+                              <Badge key={a.area} variant="outline" className="text-[10px] font-normal">
+                                {a.area} · {a.qtd}
+                              </Badge>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      <div>
+                        <div className="text-[11px] uppercase text-muted-foreground mb-1">Especialidade</div>
+                        {especialidades.length === 0 ? (
+                          <p className="text-xs text-muted-foreground">Não informado.</p>
+                        ) : (
+                          <div className="flex flex-wrap gap-1">
+                            {especialidades.slice(0, 4).map((e) => (
+                              <Badge key={e.especialidade} variant="outline" className="text-[10px] font-normal">
+                                {e.especialidade} · {e.qtd}
+                              </Badge>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      <div>
+                        <div className="text-[11px] uppercase text-muted-foreground mb-1">Perfil de impressão</div>
+                        {perfil.every((p) => p.qtd === 0) ? (
+                          <p className="text-xs text-muted-foreground">Nenhum lead com esse perfil.</p>
+                        ) : (
+                          <ul className="space-y-0.5">
+                            {perfil.map((p) => (
+                              <li key={p.label} className="flex justify-between gap-2 text-xs">
+                                <span className="truncate">{p.label}</span>
+                                <span className="font-semibold tabular-nums">{p.qtd}</span>
+                              </li>
+                            ))}
+                          </ul>
                         )}
                       </div>
 
