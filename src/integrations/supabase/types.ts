@@ -35166,6 +35166,15 @@ export type Database = {
         Args: { p_lead_id: string }
         Returns: undefined
       }
+      fn_event_lead_stats: {
+        Args: { p_event_id?: string }
+        Returns: {
+          by_product: Json
+          by_seller: Json
+          event_id: string
+          total_leads: number
+        }[]
+      }
       fn_event_store_ingest: { Args: { p_limit?: number }; Returns: Json }
       fn_expand_deal_proposals_to_items: {
         Args: { p_deal_id: string }

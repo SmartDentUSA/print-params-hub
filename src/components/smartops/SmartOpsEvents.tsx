@@ -61,7 +61,18 @@ type EventRow = {
   marketing_assets: EventMarketingAsset[] | null;
 };
 
+type SellerStat = { seller: string; qtd: number };
+type ProductStat = { produto: string; qtd: number };
+type EventStats = {
+  total_leads: number;
+  by_seller: SellerStat[];
+  by_product: ProductStat[];
+  coupons_discount: number;
+  coupons_freight: number;
+};
+
 const ALL_COUNTRIES = Country.getAllCountries();
+
 
 function emptyForm(): Partial<EventRow> {
   return {
@@ -118,6 +129,43 @@ export function SmartOpsEvents() {
   const [saving, setSaving] = useState(false);
   const [countryOpen, setCountryOpen] = useState(false);
 
+  const [stats, setStats] = useState<Record<string, EventStats>>({});
+
+  async function loadStats() {
+    const [{ data: leadStats }, { data: tables }] = await Promise.all([
+      (supabase as any).rpc("fn_event_lead_stats", { p_event_id: null }),
+      (supabase as any)
+        .from("promotional_tables")
+        .select("id, event_id, promotional_coupons(id, free_shipping)")
+        .not("event_id", "is", null),
+    ]);
+    const map: Record<string, EventStats> = {};
+    for (const s of (leadStats || []) as any[]) {
+      map[s.event_id] = {
+        total_leads: Number(s.total_leads) || 0,
+        by_seller: (s.by_seller || []) as SellerStat[],
+        by_product: (s.by_product || []) as ProductStat[],
+        coupons_discount: 0,
+        coupons_freight: 0,
+      };
+    }
+    for (const t of (tables || []) as any[]) {
+      const cur = map[t.event_id] || {
+        total_leads: 0,
+        by_seller: [],
+        by_product: [],
+        coupons_discount: 0,
+        coupons_freight: 0,
+      };
+      for (const c of (t.promotional_coupons || []) as any[]) {
+        if (c.free_shipping) cur.coupons_freight += 1;
+        else cur.coupons_discount += 1;
+      }
+      map[t.event_id] = cur;
+    }
+    setStats(map);
+  }
+
   async function load() {
     setLoading(true);
     const { data, error } = await supabase
@@ -128,9 +176,11 @@ export function SmartOpsEvents() {
     if (error) toast.error(error.message);
     setRows((data || []) as unknown as EventRow[]);
     setLoading(false);
+    loadStats().catch(() => {});
   }
 
   useEffect(() => { load(); }, []);
+
 
   const filtered = useMemo(() => {
     const s = q.trim().toLowerCase();
@@ -247,46 +297,80 @@ export function SmartOpsEvents() {
           ) : filtered.length === 0 ? (
             <div className="text-sm text-muted-foreground py-8 text-center">Nenhum evento cadastrado.</div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b text-left text-muted-foreground">
-                    <th className="py-2 pr-3">Capa</th>
-                    <th className="py-2 pr-3">Nome</th>
-                    <th className="py-2 pr-3">País</th>
-                    <th className="py-2 pr-3">Datas</th>
-                    <th className="py-2 pr-3">Local</th>
-                    <th className="py-2 pr-3">Stand</th>
-                    <th className="py-2 pr-3">Site</th>
-                    <th className="py-2 pr-3">Ativo</th>
-                    <th className="py-2 pr-3 text-right">Ações</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filtered.map((r) => (
-                    <tr key={r.id} className="border-b last:border-0">
-                      <td className="py-2 pr-3">
-                        {r.cover_image_url ? (
-                          <img src={r.cover_image_url} alt={r.name} className="w-16 h-10 object-cover rounded border" />
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+              {filtered.map((r) => {
+                const st = stats[r.id];
+                const sellers = st?.by_seller ?? [];
+                const produtos = st?.by_product ?? [];
+                return (
+                  <div key={r.id} className="rounded-lg border bg-card overflow-hidden flex flex-col">
+                    <div className="aspect-video bg-muted">
+                      {r.cover_image_url ? (
+                        <img src={r.cover_image_url} alt={r.name} className="w-full h-full object-cover" loading="lazy" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-muted-foreground">
+                          <CalendarDays className="w-8 h-8" />
+                        </div>
+                      )}
+                    </div>
+                    <div className="p-3 flex flex-col gap-2 flex-1">
+                      <div className="font-semibold leading-tight">{r.name}</div>
+                      <div className="text-xs text-muted-foreground">{fmtRange(r.start_date, r.end_date)}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {[r.location, r.country].filter(Boolean).join(" — ") || "—"}
+                      </div>
+                      <div className="flex flex-wrap items-center gap-1">
+                        {r.company_stand && <Badge variant="secondary">Estande {r.company_stand}</Badge>}
+                        {!!st?.coupons_discount && <Badge variant="outline">{st.coupons_discount} cupons desconto</Badge>}
+                        {!!st?.coupons_freight && <Badge variant="outline">{st.coupons_freight} cupons frete</Badge>}
+                      </div>
+
+                      <div className="rounded-md bg-muted/50 p-2">
+                        <div className="text-[11px] uppercase text-muted-foreground">Leads gerados</div>
+                        <div className="text-2xl font-bold leading-none">{st?.total_leads ?? 0}</div>
+                      </div>
+
+                      <div>
+                        <div className="text-[11px] uppercase text-muted-foreground mb-1">Leads por vendedor no estande</div>
+                        {sellers.length === 0 ? (
+                          <p className="text-xs text-muted-foreground">Nenhum lead registrado.</p>
                         ) : (
-                          <div className="w-16 h-10 rounded border bg-muted" />
+                          <ul className="space-y-0.5">
+                            {sellers.slice(0, 5).map((s) => (
+                              <li key={s.seller} className="flex justify-between gap-2 text-xs">
+                                <span className="truncate">{s.seller}</span>
+                                <span className="font-semibold tabular-nums">{s.qtd}</span>
+                              </li>
+                            ))}
+                          </ul>
                         )}
-                      </td>
-                      <td className="py-2 pr-3 font-medium">{r.name}</td>
-                      <td className="py-2 pr-3">{r.country || "—"}</td>
-                      <td className="py-2 pr-3 whitespace-nowrap">{fmtRange(r.start_date, r.end_date)}</td>
-                      <td className="py-2 pr-3">{r.location || "—"}</td>
-                      <td className="py-2 pr-3">{r.company_stand || "—"}</td>
-                      <td className="py-2 pr-3">
-                        {r.website_url ? (
-                          <a href={r.website_url} target="_blank" rel="noopener" className="text-primary inline-flex items-center gap-1">
-                            link <ExternalLink className="w-3 h-3" />
-                          </a>
-                        ) : "—"}
-                      </td>
-                      <td className="py-2 pr-3">
+                      </div>
+
+                      <div>
+                        <div className="text-[11px] uppercase text-muted-foreground mb-1">Produtos de interesse</div>
+                        {produtos.length === 0 ? (
+                          <p className="text-xs text-muted-foreground">Nenhum produto informado.</p>
+                        ) : (
+                          <div className="flex flex-wrap gap-1">
+                            {produtos.slice(0, 5).map((p) => (
+                              <Badge key={p.produto} variant="secondary" className="text-[10px] font-normal">
+                                {p.produto} · {p.qtd}
+                              </Badge>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="mt-auto flex items-center justify-between gap-1 pt-2 border-t">
                         <div className="flex items-center gap-1">
                           <Switch checked={r.is_active} onCheckedChange={() => toggleActive(r)} />
+                          {r.website_url && (
+                            <a href={r.website_url} target="_blank" rel="noopener" className="text-primary" title="Site do evento">
+                              <ExternalLink className="w-4 h-4" />
+                            </a>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-0.5">
                           <Button
                             size="sm"
                             variant="ghost"
@@ -300,10 +384,6 @@ export function SmartOpsEvents() {
                           >
                             <Users className="w-4 h-4" />
                           </Button>
-                        </div>
-                      </td>
-                      <td className="py-2 pr-3 text-right">
-                        <div className="flex items-center justify-end gap-1">
                           <Button
                             size="sm"
                             variant="ghost"
@@ -318,16 +398,16 @@ export function SmartOpsEvents() {
                             <Monitor className="w-4 h-4" />
                           </Button>
                           <CriarPastaEventoDriveButton eventId={r.id} folderUrl={r.drive_folder_url} />
-
                           <Button size="sm" variant="ghost" onClick={() => openEdit(r)}><Pencil className="w-4 h-4" /></Button>
                           <Button size="sm" variant="ghost" onClick={() => handleDelete(r)}><Trash2 className="w-4 h-4 text-destructive" /></Button>
                         </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
+
           )}
         </CardContent>
       </Card>
