@@ -327,6 +327,17 @@ export function SmartOpsEvents() {
                 const st = stats[r.id];
                 const sellers = st?.by_seller ?? [];
                 const produtos = st?.by_product ?? [];
+                const areas = st?.by_area ?? [];
+                const especialidades = st?.by_especialidade ?? [];
+                const perfil: { label: string; qtd: number }[] = st
+                  ? [
+                      { label: "Tem scanner", qtd: st.tem_scanner_sim },
+                      { label: "Tem impressora", qtd: st.tem_impressora_sim },
+                      { label: "Imprime placa", qtd: st.imprime_placas_sim },
+                      { label: "Imprime modelo", qtd: st.imprime_modelos_sim },
+                      { label: "Imprime nanohíbrida", qtd: st.imprime_nanohibrida_sim },
+                    ]
+                  : [];
                 return (
                   <div key={r.id} className="rounded-lg border bg-card overflow-hidden flex flex-col">
                     <div className="aspect-video bg-muted">
@@ -383,6 +394,52 @@ export function SmartOpsEvents() {
                               </Badge>
                             ))}
                           </div>
+                        )}
+                      </div>
+
+                      <div>
+                        <div className="text-[11px] uppercase text-muted-foreground mb-1">Área de atuação</div>
+                        {areas.length === 0 ? (
+                          <p className="text-xs text-muted-foreground">Não informado.</p>
+                        ) : (
+                          <div className="flex flex-wrap gap-1">
+                            {areas.slice(0, 4).map((a) => (
+                              <Badge key={a.area} variant="outline" className="text-[10px] font-normal">
+                                {a.area} · {a.qtd}
+                              </Badge>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      <div>
+                        <div className="text-[11px] uppercase text-muted-foreground mb-1">Especialidade</div>
+                        {especialidades.length === 0 ? (
+                          <p className="text-xs text-muted-foreground">Não informado.</p>
+                        ) : (
+                          <div className="flex flex-wrap gap-1">
+                            {especialidades.slice(0, 4).map((e) => (
+                              <Badge key={e.especialidade} variant="outline" className="text-[10px] font-normal">
+                                {e.especialidade} · {e.qtd}
+                              </Badge>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      <div>
+                        <div className="text-[11px] uppercase text-muted-foreground mb-1">Perfil de impressão</div>
+                        {perfil.every((p) => p.qtd === 0) ? (
+                          <p className="text-xs text-muted-foreground">Nenhum lead com esse perfil.</p>
+                        ) : (
+                          <ul className="space-y-0.5">
+                            {perfil.map((p) => (
+                              <li key={p.label} className="flex justify-between gap-2 text-xs">
+                                <span className="truncate">{p.label}</span>
+                                <span className="font-semibold tabular-nums">{p.qtd}</span>
+                              </li>
+                            ))}
+                          </ul>
                         )}
                       </div>
 
