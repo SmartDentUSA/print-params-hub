@@ -54,6 +54,13 @@ interface FormData {
   trust_text: string | null;
   display_mode?: string | null;
   show_progress?: boolean | null;
+  event_product_buttons?: EventProductButton[] | null;
+}
+
+interface EventProductButton {
+  label: string;
+  product_catalog_id: string;
+  product_name: string;
 }
 
 interface SubmittedScreenProps {
@@ -148,6 +155,7 @@ export default function PublicFormPage() {
   const [eventConsultants, setEventConsultants] = useState<{ id: string; nome_completo: string }[]>([]);
   const [consultantId, setConsultantId] = useState<string>("");
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [selectedEventProduct, setSelectedEventProduct] = useState<EventProductButton | null>(null);
   const [eventCombos, setEventCombos] = useState<
     { title: string; description: string | null; imageUrl: string | null; mainProduct: string | null }[]
   >([]);
@@ -646,13 +654,21 @@ export default function PublicFormPage() {
         // Produto de interesse (PipeRun): produto principal do 1º combo marcado
         const chosen = eventCombos.filter((c) => selectedCategories.includes(c.title));
         const produtos = chosen.map((c) => (c.mainProduct || c.title).trim()).filter(Boolean);
-        if (produtos.length > 0) {
+        if (produtos.length > 0 && !selectedEventProduct) {
           payload.produto_interesse = produtos[0];
           payload.form_responses.push({
             label: "Produto de interesse",
             value: produtos.join(", "),
           });
         }
+      }
+      if (selectedEventProduct) {
+        payload.produto_interesse = selectedEventProduct.product_name;
+        payload.product_catalog_id = selectedEventProduct.product_catalog_id;
+        payload.form_responses.push({
+          label: "Produto de interesse",
+          value: selectedEventProduct.product_name,
+        });
       }
     }
 
@@ -1236,6 +1252,32 @@ export default function PublicFormPage() {
                     </div>
                   </div>
                 ))}
+              </div>
+            )}
+
+            {isEventForm && Array.isArray(form.event_product_buttons) && form.event_product_buttons.length > 0 && (
+              <div className="space-y-1.5">
+                <Label style={isEmbed ? { color: "#0f172a", opacity: 1 } : undefined}>
+                  Produto de interesse
+                </Label>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  {form.event_product_buttons.slice(0, 3).map((button) => {
+                    const selected = selectedEventProduct?.product_catalog_id === button.product_catalog_id;
+                    return (
+                      <Button
+                        key={`${button.product_catalog_id}-${button.label}`}
+                        type="button"
+                        variant={selected ? "default" : "outline"}
+                        className="min-h-12 h-auto whitespace-normal py-2.5 text-sm"
+                        aria-pressed={selected}
+                        onClick={() => setSelectedEventProduct(selected ? null : button)}
+                        style={selected ? { backgroundColor: "var(--brand)", borderColor: "var(--brand-dark)" } : undefined}
+                      >
+                        {button.label}
+                      </Button>
+                    );
+                  })}
+                </div>
               </div>
             )}
 

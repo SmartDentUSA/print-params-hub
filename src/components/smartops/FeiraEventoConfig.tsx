@@ -14,15 +14,27 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Loader2, CalendarDays, Users, Tags } from "lucide-react";
+import { Loader2, CalendarDays, Users, Tags, Plus, Trash2, MousePointerClick } from "lucide-react";
 import { useActiveTeamMembers } from "@/hooks/useActiveTeamMembers";
 import { useCatalogCategoryTree, catKey } from "@/hooks/useCatalogCategoryTree";
+import { PRODUCT_CATALOG_ENTITY_TYPES } from "@/lib/catalogEntityTypes";
 
 interface EventOption {
   id: string;
   name: string;
   start_date: string | null;
   end_date: string | null;
+}
+
+interface CatalogProductOption {
+  id: string;
+  name: string;
+}
+
+interface EventProductButton {
+  label: string;
+  product_catalog_id: string;
+  product_name: string;
 }
 
 /**
@@ -37,6 +49,8 @@ export function FeiraEventoConfig({ formId }: { formId: string }) {
   const [eventId, setEventId] = useState<string>("");
   const [consultants, setConsultants] = useState<string[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
+  const [products, setProducts] = useState<CatalogProductOption[]>([]);
+  const [productButtons, setProductButtons] = useState<EventProductButton[]>([]);
   const [memberSearch, setMemberSearch] = useState("");
 
   const { data: members = [] } = useActiveTeamMembers();
@@ -44,10 +58,10 @@ export function FeiraEventoConfig({ formId }: { formId: string }) {
 
   useEffect(() => {
     (async () => {
-      const [{ data: form }, { data: evs }] = await Promise.all([
+      const [{ data: form }, { data: evs }, { data: catalogProducts }] = await Promise.all([
         (supabase as any)
           .from("smartops_forms")
-          .select("event_id, event_consultant_ids, event_categories")
+          .select("event_id, event_consultant_ids, event_categories, event_product_buttons")
           .eq("id", formId)
           .maybeSingle(),
         (supabase as any)
@@ -55,12 +69,26 @@ export function FeiraEventoConfig({ formId }: { formId: string }) {
           .select("id, name, start_date, end_date")
           .order("start_date", { ascending: false })
           .limit(200),
+        (supabase as any)
+          .from("system_a_catalog")
+          .select("id, name")
+          .in("category", [...PRODUCT_CATALOG_ENTITY_TYPES])
+          .eq("active", true)
+          .eq("approved", true)
+          .order("name")
+          .limit(2000),
       ]);
       setEvents((evs ?? []) as EventOption[]);
+      setProducts((catalogProducts ?? []) as CatalogProductOption[]);
       setEventId((form?.event_id as string) ?? "");
       setConsultants((form?.event_consultant_ids ?? []) as string[]);
       setCategories(
         Array.isArray(form?.event_categories) ? (form!.event_categories as string[]) : [],
+      );
+      setProductButtons(
+        Array.isArray(form?.event_product_buttons)
+          ? (form.event_product_buttons as EventProductButton[]).slice(0, 3)
+          : [],
       );
       setLoading(false);
     })();
@@ -75,7 +103,32 @@ export function FeiraEventoConfig({ formId }: { formId: string }) {
   const toggle = (list: string[], value: string) =>
     list.includes(value) ? list.filter((v) => v !== value) : [...list, value];
 
+  const updateProductButton = (index: number, updates: Partial<EventProductButton>) => {
+    setProductButtons((current) =>
+      current.map((button, buttonIndex) =>
+        buttonIndex === index ? { ...button, ...updates } : button,
+      ),
+    );
+  };
+
+  const selectProduct = (index: number, productId: string) => {
+    const product = products.find((item) => item.id === productId);
+    if (!product) return;
+    updateProductButton(index, {
+      product_catalog_id: product.id,
+      product_name: product.name,
+      label: productButtons[index]?.label || product.name,
+    });
+  };
+
   const save = async () => {
+    const invalidButton = productButtons.find(
+      (button) => !button.label.trim() || !button.product_catalog_id || !button.product_name.trim(),
+    );
+    if (invalidButton) {
+      toast.error("Preencha o texto e selecione o produto de cada botão.");
+      return;
+    }
     setSaving(true);
     const { error } = await (supabase as any)
       .from("smartops_forms")
@@ -83,6 +136,10 @@ export function FeiraEventoConfig({ formId }: { formId: string }) {
         event_id: eventId || null,
         event_consultant_ids: consultants,
         event_categories: categories,
+        event_product_buttons: productButtons.map((button) => ({
+          ...button,
+          label: button.label.trim(),
+        })),
       })
       .eq("id", formId);
     setSaving(false);
@@ -164,6 +221,74 @@ export function FeiraEventoConfig({ formId }: { formId: string }) {
               <p className="px-2 py-3 text-xs text-muted-foreground">Nenhum membro encontrado.</p>
             )}
           </div>
+        </div>
+
+        {/* Botões rápidos de produto */}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between gap-3">
+            <Label className="text-xs flex items-center gap-1.5">
+              <MousePointerClick className="w-3.5 h-3.5" /> Botões de produto de interesse
+              <Badge variant="secondary" className="ml-1">{productButtons.length}/3</Badge>
+            </Label>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={productButtons.length >= 3}
+              onClick={() =>
+                setProductButtons((current) => [
+                  ...current,
+                  { label: "", product_catalog_id: "", product_name: "" },
+                ])
+              }
+            >
+              <Plus className="w-3.5 h-3.5 mr-1" /> Adicionar botão
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Aparecem abaixo dos combos e antes das perguntas. O visitante escolhe somente um,
+            que será o produto de interesse no CRM.
+          </p>
+          {productButtons.map((button, index) => (
+            <div key={index} className="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_minmax(0,1.5fr)_auto] gap-2 items-end rounded-md border p-3">
+              <div className="space-y-1">
+                <Label className="text-[11px]">Texto do botão</Label>
+                <Input
+                  value={button.label}
+                  placeholder="Ex.: SmartMake"
+                  maxLength={40}
+                  onChange={(event) => updateProductButton(index, { label: event.target.value })}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-[11px]">Produto de interesse associado</Label>
+                <Select value={button.product_catalog_id || undefined} onValueChange={(value) => selectProduct(index, value)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione o produto..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {products.map((product) => (
+                      <SelectItem key={product.id} value={product.id}>{product.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                aria-label={`Remover botão ${index + 1}`}
+                onClick={() => setProductButtons((current) => current.filter((_, itemIndex) => itemIndex !== index))}
+              >
+                <Trash2 className="w-4 h-4 text-destructive" />
+              </Button>
+            </div>
+          ))}
+          {productButtons.length === 0 && (
+            <p className="rounded-md border border-dashed p-3 text-xs text-muted-foreground">
+              Nenhum botão configurado. Você pode adicionar até três.
+            </p>
+          )}
         </div>
 
         {/* Categorias */}
