@@ -654,7 +654,7 @@ export default function PublicFormPage() {
         // Produto de interesse (PipeRun): produto principal do 1º combo marcado
         const chosen = eventCombos.filter((c) => selectedCategories.includes(c.title));
         const produtos = chosen.map((c) => (c.mainProduct || c.title).trim()).filter(Boolean);
-        if (produtos.length > 0) {
+        if (produtos.length > 0 && !selectedEventProduct) {
           payload.produto_interesse = produtos[0];
           payload.form_responses.push({
             label: "Produto de interesse",
