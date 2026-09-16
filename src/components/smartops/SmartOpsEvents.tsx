@@ -118,6 +118,43 @@ export function SmartOpsEvents() {
   const [saving, setSaving] = useState(false);
   const [countryOpen, setCountryOpen] = useState(false);
 
+  const [stats, setStats] = useState<Record<string, EventStats>>({});
+
+  async function loadStats() {
+    const [{ data: leadStats }, { data: tables }] = await Promise.all([
+      (supabase as any).rpc("fn_event_lead_stats", { p_event_id: null }),
+      (supabase as any)
+        .from("promotional_tables")
+        .select("id, event_id, promotional_coupons(id, free_shipping)")
+        .not("event_id", "is", null),
+    ]);
+    const map: Record<string, EventStats> = {};
+    for (const s of (leadStats || []) as any[]) {
+      map[s.event_id] = {
+        total_leads: Number(s.total_leads) || 0,
+        by_seller: (s.by_seller || []) as SellerStat[],
+        by_product: (s.by_product || []) as ProductStat[],
+        coupons_discount: 0,
+        coupons_freight: 0,
+      };
+    }
+    for (const t of (tables || []) as any[]) {
+      const cur = map[t.event_id] || {
+        total_leads: 0,
+        by_seller: [],
+        by_product: [],
+        coupons_discount: 0,
+        coupons_freight: 0,
+      };
+      for (const c of (t.promotional_coupons || []) as any[]) {
+        if (c.free_shipping) cur.coupons_freight += 1;
+        else cur.coupons_discount += 1;
+      }
+      map[t.event_id] = cur;
+    }
+    setStats(map);
+  }
+
   async function load() {
     setLoading(true);
     const { data, error } = await supabase
@@ -128,9 +165,11 @@ export function SmartOpsEvents() {
     if (error) toast.error(error.message);
     setRows((data || []) as unknown as EventRow[]);
     setLoading(false);
+    loadStats().catch(() => {});
   }
 
   useEffect(() => { load(); }, []);
+
 
   const filtered = useMemo(() => {
     const s = q.trim().toLowerCase();
