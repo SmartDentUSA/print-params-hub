@@ -61,7 +61,18 @@ type EventRow = {
   marketing_assets: EventMarketingAsset[] | null;
 };
 
+type SellerStat = { seller: string; qtd: number };
+type ProductStat = { produto: string; qtd: number };
+type EventStats = {
+  total_leads: number;
+  by_seller: SellerStat[];
+  by_product: ProductStat[];
+  coupons_discount: number;
+  coupons_freight: number;
+};
+
 const ALL_COUNTRIES = Country.getAllCountries();
+
 
 function emptyForm(): Partial<EventRow> {
   return {
