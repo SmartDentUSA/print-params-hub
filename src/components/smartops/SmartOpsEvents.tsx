@@ -61,7 +61,7 @@ type EventRow = {
   marketing_assets: EventMarketingAsset[] | null;
 };
 
-type SellerStat = { seller: string; qtd: number };
+type SellerStat = { seller: string; qtd: number; ganhos?: number; valor?: number };
 type ProductStat = { produto: string; qtd: number };
 type AreaStat = { area: string; qtd: number };
 type EspecialidadeStat = { especialidade: string; qtd: number };
@@ -76,6 +76,9 @@ type EventStats = {
   imprime_placas_sim: number;
   imprime_modelos_sim: number;
   imprime_nanohibrida_sim: number;
+  won_leads: number;
+  won_deals: number;
+  won_value: number;
   coupons_discount: number;
   coupons_freight: number;
 };
@@ -91,9 +94,16 @@ const emptyStats: EventStats = {
   imprime_placas_sim: 0,
   imprime_modelos_sim: 0,
   imprime_nanohibrida_sim: 0,
+  won_leads: 0,
+  won_deals: 0,
+  won_value: 0,
   coupons_discount: 0,
   coupons_freight: 0,
 };
+
+const brl = (n: number) =>
+  n.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
+
 
 const ALL_COUNTRIES = Country.getAllCountries();
 
@@ -176,8 +186,12 @@ export function SmartOpsEvents() {
         imprime_placas_sim: Number(s.imprime_placas_sim) || 0,
         imprime_modelos_sim: Number(s.imprime_modelos_sim) || 0,
         imprime_nanohibrida_sim: Number(s.imprime_nanohibrida_sim) || 0,
+        won_leads: Number(s.won_leads) || 0,
+        won_deals: Number(s.won_deals) || 0,
+        won_value: Number(s.won_value) || 0,
         coupons_discount: 0,
         coupons_freight: 0,
+
       };
     }
     for (const t of (tables || []) as any[]) {
@@ -361,9 +375,25 @@ export function SmartOpsEvents() {
                         {!!st?.coupons_freight && <Badge variant="outline">{st.coupons_freight} cupons frete</Badge>}
                       </div>
 
-                      <div className="rounded-md bg-muted/50 p-2">
-                        <div className="text-[11px] uppercase text-muted-foreground">Leads gerados</div>
-                        <div className="text-2xl font-bold leading-none">{st?.total_leads ?? 0}</div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="rounded-md bg-muted/50 p-2">
+                          <div className="text-[11px] uppercase text-muted-foreground">Leads gerados</div>
+                          <div className="text-2xl font-bold leading-none">{st?.total_leads ?? 0}</div>
+                        </div>
+                        <div className="rounded-md bg-muted/50 p-2">
+                          <div className="text-[11px] uppercase text-muted-foreground">Convertidos</div>
+                          <div className="text-2xl font-bold leading-none">
+                            {st?.won_leads ?? 0}
+                            <span className="text-xs font-medium text-muted-foreground ml-1">
+                              {st?.total_leads
+                                ? `(${Math.round(((st.won_leads || 0) / st.total_leads) * 100)}%)`
+                                : ""}
+                            </span>
+                          </div>
+                          <div className="text-[10px] text-muted-foreground">
+                            {(st?.won_deals ?? 0)} negócios · {brl(st?.won_value ?? 0)}
+                          </div>
+                        </div>
                       </div>
 
                       <div>
@@ -375,12 +405,20 @@ export function SmartOpsEvents() {
                             {sellers.slice(0, 5).map((s) => (
                               <li key={s.seller} className="flex justify-between gap-2 text-xs">
                                 <span className="truncate">{s.seller}</span>
-                                <span className="font-semibold tabular-nums">{s.qtd}</span>
+                                <span className="font-semibold tabular-nums">
+                                  {s.qtd}
+                                  {!!s.ganhos && (
+                                    <span className="text-[10px] font-medium text-emerald-600 ml-1">
+                                      {s.ganhos} ganho{s.ganhos > 1 ? "s" : ""}
+                                    </span>
+                                  )}
+                                </span>
                               </li>
                             ))}
                           </ul>
                         )}
                       </div>
+
 
                       <div>
                         <div className="text-[11px] uppercase text-muted-foreground mb-1">Produtos de interesse</div>

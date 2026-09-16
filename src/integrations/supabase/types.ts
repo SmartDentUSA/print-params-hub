@@ -35184,6 +35184,9 @@ export type Database = {
           tem_impressora_sim: number
           tem_scanner_sim: number
           total_leads: number
+          won_deals: number
+          won_leads: number
+          won_value: number
         }[]
       }
       fn_event_store_ingest: { Args: { p_limit?: number }; Returns: Json }
