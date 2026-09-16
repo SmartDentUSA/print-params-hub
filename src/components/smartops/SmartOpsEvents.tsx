@@ -63,12 +63,36 @@ type EventRow = {
 
 type SellerStat = { seller: string; qtd: number };
 type ProductStat = { produto: string; qtd: number };
+type AreaStat = { area: string; qtd: number };
+type EspecialidadeStat = { especialidade: string; qtd: number };
 type EventStats = {
   total_leads: number;
   by_seller: SellerStat[];
   by_product: ProductStat[];
+  by_area: AreaStat[];
+  by_especialidade: EspecialidadeStat[];
+  tem_scanner_sim: number;
+  tem_impressora_sim: number;
+  imprime_placas_sim: number;
+  imprime_modelos_sim: number;
+  imprime_nanohibrida_sim: number;
   coupons_discount: number;
   coupons_freight: number;
+};
+
+const emptyStats: EventStats = {
+  total_leads: 0,
+  by_seller: [],
+  by_product: [],
+  by_area: [],
+  by_especialidade: [],
+  tem_scanner_sim: 0,
+  tem_impressora_sim: 0,
+  imprime_placas_sim: 0,
+  imprime_modelos_sim: 0,
+  imprime_nanohibrida_sim: 0,
+  coupons_discount: 0,
+  coupons_freight: 0,
 };
 
 const ALL_COUNTRIES = Country.getAllCountries();
@@ -145,18 +169,19 @@ export function SmartOpsEvents() {
         total_leads: Number(s.total_leads) || 0,
         by_seller: (s.by_seller || []) as SellerStat[],
         by_product: (s.by_product || []) as ProductStat[],
+        by_area: (s.by_area || []) as AreaStat[],
+        by_especialidade: (s.by_especialidade || []) as EspecialidadeStat[],
+        tem_scanner_sim: Number(s.tem_scanner_sim) || 0,
+        tem_impressora_sim: Number(s.tem_impressora_sim) || 0,
+        imprime_placas_sim: Number(s.imprime_placas_sim) || 0,
+        imprime_modelos_sim: Number(s.imprime_modelos_sim) || 0,
+        imprime_nanohibrida_sim: Number(s.imprime_nanohibrida_sim) || 0,
         coupons_discount: 0,
         coupons_freight: 0,
       };
     }
     for (const t of (tables || []) as any[]) {
-      const cur = map[t.event_id] || {
-        total_leads: 0,
-        by_seller: [],
-        by_product: [],
-        coupons_discount: 0,
-        coupons_freight: 0,
-      };
+      const cur = map[t.event_id] || { ...emptyStats };
       for (const c of (t.promotional_coupons || []) as any[]) {
         if (c.free_shipping) cur.coupons_freight += 1;
         else cur.coupons_discount += 1;
