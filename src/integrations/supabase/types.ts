@@ -35166,12 +35166,23 @@ export type Database = {
         Args: { p_lead_id: string }
         Returns: undefined
       }
+      fn_event_form_answer: {
+        Args: { p_form_data: Json; p_labels: string[] }
+        Returns: string
+      }
       fn_event_lead_stats: {
         Args: { p_event_id?: string }
         Returns: {
+          by_area: Json
+          by_especialidade: Json
           by_product: Json
           by_seller: Json
           event_id: string
+          imprime_modelos_sim: number
+          imprime_nanohibrida_sim: number
+          imprime_placas_sim: number
+          tem_impressora_sim: number
+          tem_scanner_sim: number
           total_leads: number
         }[]
       }
