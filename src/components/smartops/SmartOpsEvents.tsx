@@ -186,8 +186,12 @@ export function SmartOpsEvents() {
         imprime_placas_sim: Number(s.imprime_placas_sim) || 0,
         imprime_modelos_sim: Number(s.imprime_modelos_sim) || 0,
         imprime_nanohibrida_sim: Number(s.imprime_nanohibrida_sim) || 0,
+        won_leads: Number(s.won_leads) || 0,
+        won_deals: Number(s.won_deals) || 0,
+        won_value: Number(s.won_value) || 0,
         coupons_discount: 0,
         coupons_freight: 0,
+
       };
     }
     for (const t of (tables || []) as any[]) {
