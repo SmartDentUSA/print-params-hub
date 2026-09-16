@@ -375,9 +375,25 @@ export function SmartOpsEvents() {
                         {!!st?.coupons_freight && <Badge variant="outline">{st.coupons_freight} cupons frete</Badge>}
                       </div>
 
-                      <div className="rounded-md bg-muted/50 p-2">
-                        <div className="text-[11px] uppercase text-muted-foreground">Leads gerados</div>
-                        <div className="text-2xl font-bold leading-none">{st?.total_leads ?? 0}</div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="rounded-md bg-muted/50 p-2">
+                          <div className="text-[11px] uppercase text-muted-foreground">Leads gerados</div>
+                          <div className="text-2xl font-bold leading-none">{st?.total_leads ?? 0}</div>
+                        </div>
+                        <div className="rounded-md bg-muted/50 p-2">
+                          <div className="text-[11px] uppercase text-muted-foreground">Convertidos</div>
+                          <div className="text-2xl font-bold leading-none">
+                            {st?.won_leads ?? 0}
+                            <span className="text-xs font-medium text-muted-foreground ml-1">
+                              {st?.total_leads
+                                ? `(${Math.round(((st.won_leads || 0) / st.total_leads) * 100)}%)`
+                                : ""}
+                            </span>
+                          </div>
+                          <div className="text-[10px] text-muted-foreground">
+                            {(st?.won_deals ?? 0)} negócios · {brl(st?.won_value ?? 0)}
+                          </div>
+                        </div>
                       </div>
 
                       <div>
@@ -389,12 +405,20 @@ export function SmartOpsEvents() {
                             {sellers.slice(0, 5).map((s) => (
                               <li key={s.seller} className="flex justify-between gap-2 text-xs">
                                 <span className="truncate">{s.seller}</span>
-                                <span className="font-semibold tabular-nums">{s.qtd}</span>
+                                <span className="font-semibold tabular-nums">
+                                  {s.qtd}
+                                  {!!s.ganhos && (
+                                    <span className="text-[10px] font-medium text-emerald-600 ml-1">
+                                      {s.ganhos} ganho{s.ganhos > 1 ? "s" : ""}
+                                    </span>
+                                  )}
+                                </span>
                               </li>
                             ))}
                           </ul>
                         )}
                       </div>
+
 
                       <div>
                         <div className="text-[11px] uppercase text-muted-foreground mb-1">Produtos de interesse</div>
