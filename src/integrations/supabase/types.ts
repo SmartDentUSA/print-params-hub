@@ -23458,6 +23458,7 @@ export type Database = {
           event_categories: Json
           event_consultant_ids: string[]
           event_id: string | null
+          event_product_buttons: Json
           extra_sections: Json | null
           font_body: string | null
           font_heading: string | null
@@ -23528,6 +23529,7 @@ export type Database = {
           event_categories?: Json
           event_consultant_ids?: string[]
           event_id?: string | null
+          event_product_buttons?: Json
           extra_sections?: Json | null
           font_body?: string | null
           font_heading?: string | null
@@ -23598,6 +23600,7 @@ export type Database = {
           event_categories?: Json
           event_consultant_ids?: string[]
           event_id?: string | null
+          event_product_buttons?: Json
           extra_sections?: Json | null
           font_body?: string | null
           font_heading?: string | null
