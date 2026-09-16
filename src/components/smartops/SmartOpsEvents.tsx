@@ -61,7 +61,7 @@ type EventRow = {
   marketing_assets: EventMarketingAsset[] | null;
 };
 
-type SellerStat = { seller: string; qtd: number };
+type SellerStat = { seller: string; qtd: number; ganhos?: number; valor?: number };
 type ProductStat = { produto: string; qtd: number };
 type AreaStat = { area: string; qtd: number };
 type EspecialidadeStat = { especialidade: string; qtd: number };
@@ -76,6 +76,9 @@ type EventStats = {
   imprime_placas_sim: number;
   imprime_modelos_sim: number;
   imprime_nanohibrida_sim: number;
+  won_leads: number;
+  won_deals: number;
+  won_value: number;
   coupons_discount: number;
   coupons_freight: number;
 };
@@ -91,9 +94,16 @@ const emptyStats: EventStats = {
   imprime_placas_sim: 0,
   imprime_modelos_sim: 0,
   imprime_nanohibrida_sim: 0,
+  won_leads: 0,
+  won_deals: 0,
+  won_value: 0,
   coupons_discount: 0,
   coupons_freight: 0,
 };
+
+const brl = (n: number) =>
+  n.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
+
 
 const ALL_COUNTRIES = Country.getAllCountries();
 
