@@ -679,3 +679,9 @@ verify_jwt = false
 
 [functions.social-video-copy]
 verify_jwt = false
+
+[functions.smart-ops-raffle-entry]
+verify_jwt = false
+
+[functions.smart-ops-raffle-draw]
+verify_jwt = false
