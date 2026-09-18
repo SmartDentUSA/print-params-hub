@@ -78,7 +78,7 @@ async function chatJson(system: string, user: string): Promise<any> {
   return JSON.parse(String(content).replace(/^```json\s*|\s*```$/g, ""));
 }
 
-const SYSTEM = `Você é o redator de redes sociais da Smart Dent | Fluxo Digital, distribuidora brasileira de impressão 3D e fluxo digital odontológico (scanners, impressoras, resinas e treinamentos).
+const SYSTEM_BASE = `Você é o redator de redes sociais da Smart Dent | Fluxo Digital, distribuidora brasileira de impressão 3D e fluxo digital odontológico (scanners, impressoras, resinas e treinamentos).
 
 REGRAS ABSOLUTAS:
 - Português do Brasil, tom humano, direto, sem "marketês" e sem emojis em excesso (máx. 4).
@@ -95,6 +95,18 @@ Responda SOMENTE JSON:
   "hashtags": ["#semEspacos"],
   "alt_text": "descrição objetiva da imagem/vídeo para acessibilidade"
 }`;
+
+// Sem transcrição (fotos e vídeos grandes): a copy nasce do cadastro do evento.
+const SYSTEM_NO_TRANSCRIPT = `${SYSTEM_BASE}
+
+MODO SEM TRANSCRIÇÃO (não há áudio disponível):
+- Construa a legenda inteiramente a partir do CADASTRO DO EVENTO fornecido: nome do evento, cidade/país, período, dia do evento, número do estande, sobre o evento, público-alvo (áreas e especialidades), palestrantes/KOLs cadastrados com seus temas e @, marcas parceiras e o objetivo da pasta de destino.
+- Se houver palestrante identificado nesta mídia, ele é o protagonista: cite o nome, o @ e o tema dele.
+- Se NÃO houver palestrante identificado, escreva sobre o momento do estande descrito no objetivo da pasta (bastidores, demonstração, depoimento, fotos com clientes, abertura ou fechamento do dia).
+- Não descreva o que aparece na imagem como se você a tivesse visto; fale do contexto do evento e do convite para visitar o estande.
+- Nunca escreva frases como "sem transcrição", "não foi possível", "áudio indisponível" ou qualquer referência a limitação técnica.
+- Hashtags: combine o evento, a cidade, odontologia digital e as linhas da Smart Dent citadas no contexto.`;
+
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
