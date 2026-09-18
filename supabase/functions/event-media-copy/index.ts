@@ -134,10 +134,11 @@ serve(async (req) => {
 
     const { data: ev } = await db
       .from("smartops_events")
-      .select("id, name, location, country, company_stand, start_date, end_date, about_event_pt, audience_areas, audience_specialties, instagram_handle, speakers, partner_brands, drive_destinations")
+      .select("id, name, location, country, company_stand, start_date, end_date, days_count, about_event_pt, audience_areas, audience_specialties, audience_notes, notes, instagram_handle, speakers, partner_brands, drive_destinations")
       .eq("id", media.event_id)
       .maybeSingle();
     if (!ev) return json({ error: "Evento não encontrado" }, 404);
+
 
     await db.from("event_drive_media").update({ copy_status: "processing", copy_error: null }).eq("id", mediaId);
 
@@ -158,28 +159,54 @@ serve(async (req) => {
       ? ((ev.speakers || []) as any[]).find((s) => String(s?.name || "").trim() === media.speaker_name)
       : null;
 
+    const allSpeakers = ((ev.speakers || []) as any[])
+      .map((s) => {
+        const sessions = Array.isArray(s?.sessions)
+          ? s.sessions
+              .map((x: any) => [x?.date, x?.start_time, x?.end_time].filter(Boolean).join(" "))
+              .filter(Boolean)
+              .join("; ")
+          : "";
+        return [
+          s?.name,
+          s?.instagram ? `(${s.instagram})` : "",
+          s?.theme ? `— tema: ${s.theme}` : "",
+          sessions ? `— horários: ${sessions}` : "",
+        ]
+          .filter(Boolean)
+          .join(" ");
+      })
+      .filter(Boolean);
+
     const context = [
       `EVENTO: ${ev.name}`,
       `LOCAL: ${[ev.location, ev.country].filter(Boolean).join(" - ") || "—"}`,
       `ESTANDE SMART DENT: ${ev.company_stand || "—"}`,
       `PERÍODO: ${ev.start_date || "—"}${ev.end_date && ev.end_date !== ev.start_date ? ` a ${ev.end_date}` : ""}`,
+      ev.days_count ? `DIAS DE EVENTO: ${ev.days_count}` : "",
       `INSTAGRAM DO EVENTO: ${ev.instagram_handle || "—"}`,
-      `SOBRE O EVENTO: ${String(ev.about_event_pt || "—").slice(0, 1200)}`,
+      `SOBRE O EVENTO: ${String(ev.about_event_pt || "—").slice(0, 1500)}`,
       `PÚBLICO: ${[...(ev.audience_areas || []), ...(ev.audience_specialties || [])].join(", ") || "—"}`,
+      ev.audience_notes ? `NOTAS DE PÚBLICO: ${String(ev.audience_notes).slice(0, 600)}` : "",
+      ev.notes ? `OBSERVAÇÕES DO EVENTO: ${String(ev.notes).slice(0, 600)}` : "",
       `MARCAS PARCEIRAS: ${((ev.partner_brands || []) as any[]).map((b) => `${b?.name || ""} ${b?.instagram || ""}`.trim()).filter(Boolean).join(", ") || "—"}`,
+      allSpeakers.length ? `PALESTRANTES/KOLs CADASTRADOS:\n- ${allSpeakers.join("\n- ")}` : "",
       "",
       `TIPO DE ARQUIVO: ${String(media.mime_type).startsWith("video/") ? "vídeo" : "foto"}`,
       `PASTA DE DESTINO: ${media.destination_label || media.destination_key}`,
       `OBJETIVO DO CONTEÚDO: ${dest?.purpose || media.destination_label || media.destination_key}`,
       media.event_day ? `DIA DO EVENTO: dia ${media.event_day}${media.event_date ? ` (${media.event_date})` : ""}` : "",
-      media.speaker_name ? `PALESTRANTE/KOL: ${media.speaker_name}${speaker?.instagram ? ` (${speaker.instagram})` : ""}${speaker?.theme ? ` — tema: ${speaker.theme}` : ""}` : "",
+      media.speaker_name ? `PALESTRANTE/KOL DESTA MÍDIA: ${media.speaker_name}${speaker?.instagram ? ` (${speaker.instagram})` : ""}${speaker?.theme ? ` — tema: ${speaker.theme}` : ""}` : "",
       media.orientation ? `ORIENTAÇÃO: ${media.orientation}` : "",
       "",
-      transcript ? `TRANSCRIÇÃO DO VÍDEO:\n${transcript.slice(0, 6000)}` : "TRANSCRIÇÃO: não disponível",
+      transcript
+        ? `TRANSCRIÇÃO DO VÍDEO:\n${transcript.slice(0, 6000)}`
+        : "SEM ÁUDIO PARA TRANSCREVER: escreva a copy usando apenas o cadastro do evento acima.",
     ].filter(Boolean).join("\n");
 
     try {
-      const out = await chatJson(SYSTEM, context);
+      const out = await chatJson(transcript ? SYSTEM_BASE : SYSTEM_NO_TRANSCRIPT, context);
+
       const hashtags = Array.isArray(out?.hashtags)
         ? out.hashtags.map((h: any) => String(h).trim().replace(/\s+/g, "")).filter(Boolean).slice(0, 12)
         : [];
