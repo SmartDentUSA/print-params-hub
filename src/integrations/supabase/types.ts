@@ -6407,6 +6407,223 @@ export type Database = {
           },
         ]
       }
+      event_raffle_draws: {
+        Row: {
+          created_at: string
+          drawn_at: string
+          drawn_by: string | null
+          entry_id: string | null
+          id: string
+          notified_at: string | null
+          notify_error: string | null
+          participants_count: number
+          prize_id: string | null
+          prize_title: string | null
+          raffle_id: string
+          seed: string | null
+          winner_email: string | null
+          winner_name: string | null
+          winner_phone: string | null
+        }
+        Insert: {
+          created_at?: string
+          drawn_at?: string
+          drawn_by?: string | null
+          entry_id?: string | null
+          id?: string
+          notified_at?: string | null
+          notify_error?: string | null
+          participants_count?: number
+          prize_id?: string | null
+          prize_title?: string | null
+          raffle_id: string
+          seed?: string | null
+          winner_email?: string | null
+          winner_name?: string | null
+          winner_phone?: string | null
+        }
+        Update: {
+          created_at?: string
+          drawn_at?: string
+          drawn_by?: string | null
+          entry_id?: string | null
+          id?: string
+          notified_at?: string | null
+          notify_error?: string | null
+          participants_count?: number
+          prize_id?: string | null
+          prize_title?: string | null
+          raffle_id?: string
+          seed?: string | null
+          winner_email?: string | null
+          winner_name?: string | null
+          winner_phone?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_raffle_draws_entry_id_fkey"
+            columns: ["entry_id"]
+            isOneToOne: false
+            referencedRelation: "event_raffle_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_raffle_draws_raffle_id_fkey"
+            columns: ["raffle_id"]
+            isOneToOne: false
+            referencedRelation: "event_raffles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      event_raffle_entries: {
+        Row: {
+          answers: Json
+          consent: boolean
+          created_at: string
+          disqualified_reason: string | null
+          eligible: boolean
+          email: string | null
+          id: string
+          lead_id: string | null
+          name: string
+          phone: string | null
+          raffle_id: string
+          seller_team_member_id: string | null
+          source: string
+          tickets: number
+          updated_at: string
+        }
+        Insert: {
+          answers?: Json
+          consent?: boolean
+          created_at?: string
+          disqualified_reason?: string | null
+          eligible?: boolean
+          email?: string | null
+          id?: string
+          lead_id?: string | null
+          name: string
+          phone?: string | null
+          raffle_id: string
+          seller_team_member_id?: string | null
+          source?: string
+          tickets?: number
+          updated_at?: string
+        }
+        Update: {
+          answers?: Json
+          consent?: boolean
+          created_at?: string
+          disqualified_reason?: string | null
+          eligible?: boolean
+          email?: string | null
+          id?: string
+          lead_id?: string | null
+          name?: string
+          phone?: string | null
+          raffle_id?: string
+          seller_team_member_id?: string | null
+          source?: string
+          tickets?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_raffle_entries_raffle_id_fkey"
+            columns: ["raffle_id"]
+            isOneToOne: false
+            referencedRelation: "event_raffles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      event_raffles: {
+        Row: {
+          cover_image_url: string | null
+          created_at: string
+          draw_mode: string
+          eligibility: Json
+          ends_at: string | null
+          event_id: string
+          form_fields: Json
+          group_message_template: string | null
+          id: string
+          name: string
+          notify_group: boolean
+          notify_winner: boolean
+          prizes: Json
+          public_results: boolean
+          rules_text: string | null
+          slug: string
+          starts_at: string | null
+          status: string
+          updated_at: string
+          wa_group_jid: string | null
+          wa_group_name: string | null
+          wa_instance: string | null
+          winner_message_template: string | null
+        }
+        Insert: {
+          cover_image_url?: string | null
+          created_at?: string
+          draw_mode?: string
+          eligibility?: Json
+          ends_at?: string | null
+          event_id: string
+          form_fields?: Json
+          group_message_template?: string | null
+          id?: string
+          name: string
+          notify_group?: boolean
+          notify_winner?: boolean
+          prizes?: Json
+          public_results?: boolean
+          rules_text?: string | null
+          slug: string
+          starts_at?: string | null
+          status?: string
+          updated_at?: string
+          wa_group_jid?: string | null
+          wa_group_name?: string | null
+          wa_instance?: string | null
+          winner_message_template?: string | null
+        }
+        Update: {
+          cover_image_url?: string | null
+          created_at?: string
+          draw_mode?: string
+          eligibility?: Json
+          ends_at?: string | null
+          event_id?: string
+          form_fields?: Json
+          group_message_template?: string | null
+          id?: string
+          name?: string
+          notify_group?: boolean
+          notify_winner?: boolean
+          prizes?: Json
+          public_results?: boolean
+          rules_text?: string | null
+          slug?: string
+          starts_at?: string | null
+          status?: string
+          updated_at?: string
+          wa_group_jid?: string | null
+          wa_group_name?: string | null
+          wa_instance?: string | null
+          winner_message_template?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_raffles_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "smartops_events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       event_store: {
         Row: {
           company_id: string | null
@@ -35585,6 +35802,7 @@ export type Database = {
           nome_completo: string
         }[]
       }
+      fn_public_raffle: { Args: { p_slug: string }; Returns: Json }
       fn_push_audience: {
         Args: { p_filters?: Json }
         Returns: {
