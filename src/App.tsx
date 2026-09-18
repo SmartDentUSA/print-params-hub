@@ -31,6 +31,8 @@ const PublicLandingPage = lazy(() => import("./pages/PublicLandingPage"));
 const PublicBioPage = lazy(() => import("./pages/PublicBioPage"));
 const PublicCourseEnrollment = lazy(() => import("./pages/PublicCourseEnrollment"));
 const PublicNps = lazy(() => import("./pages/PublicNps"));
+const PublicRaffle = lazy(() => import("./pages/PublicRaffle"));
+
 const ProfessionalCoursePortal = lazy(() => import("./pages/ProfessionalCoursePortal"));
 const ROICalculatorPage = lazy(() => import("./pages/ROICalculatorPage"));
 const PublicDistributorRegister = lazy(() => import("./pages/PublicDistributorRegister"));

@@ -19,6 +19,8 @@ import { EventWebResearchButton, EventReferenceUploads, EventAboutByLanguage, Ev
 import EventAudienceFields from "@/components/smartops/events/EventAudienceFields";
 import { EventMarketingArtPanel, type EventMarketingAsset } from "@/components/smartops/events/EventMarketingArtPanel";
 import EventSpeakersFields, { type EventSpeaker, type EventPartnerBrand } from "@/components/smartops/events/EventSpeakersFields";
+import EventRafflesPanel from "@/components/smartops/events/EventRafflesPanel";
+
 import { CriarPastaEventoDriveButton } from "@/components/smartops/CriarPastaEventoDriveButton";
 import { getPublicOrigin } from "@/utils/publicOrigin";
 
@@ -685,6 +687,12 @@ export function SmartOpsEvents() {
                 instagramHandle={editing.instagram_handle}
                 onChange={(patch) => setEditing((cur) => (cur ? ({ ...cur, ...patch } as any) : cur))}
               />
+
+              {editing.id && (
+                <EventRafflesPanel eventId={editing.id} eventName={editing.name || ""} />
+              )}
+
+
 
               <div className="space-y-2 border rounded-md p-3">
                 <Label className="text-sm font-semibold">Sobre o evento (por idioma)</Label>
