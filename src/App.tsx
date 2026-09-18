@@ -210,6 +210,10 @@ const App = () => (
       {/* Public forms */}
       <Route path="/f/:slug" element={<PublicFormPage />} />
 
+      {/* Sorteios de eventos */}
+      <Route path="/sorteio/:slug" element={<PublicRaffle />} />
+
+
       {/* Public landing pages (per-form) */}
       <Route path="/lp/:slug" element={<PublicLandingPage />} />
 
