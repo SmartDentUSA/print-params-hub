@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -10,62 +10,61 @@ import { supabase } from "@/integrations/supabase/client";
 import type { User } from '@supabase/supabase-js';
 
 interface AuthPageProps {
-  onAuthSuccess: (user: User) => void;
+  onAuthSuccess: (user: User) => void | Promise<void>;
 }
 
 export function AuthPage({ onAuthSuccess }: AuthPageProps) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
   const { toast } = useToast();
-
-  useEffect(() => {
-    // Check if user is already authenticated
-    const checkAuth = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user) {
-        onAuthSuccess(session.user);
-      }
-    };
-    
-    checkAuth();
-
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'SIGNED_IN' && session?.user) {
-        onAuthSuccess(session.user);
-      }
-    });
-
-    return () => subscription.unsubscribe();
-  }, [onAuthSuccess]);
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
+    setFormError(null);
 
     try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
+      const normalizedEmail = email.trim().toLowerCase();
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: normalizedEmail,
         password,
       });
 
       if (error) {
+        const message = error.message === "Invalid login credentials"
+          ? "E-mail ou senha incorretos. Confira os dados e tente novamente."
+          : error.message;
+        setFormError(message);
         toast({
           title: "Erro ao fazer login",
-          description: error.message,
+          description: message,
           variant: "destructive",
         });
-      } else {
-        toast({
-          title: "Login realizado com sucesso!",
-          description: "Bem-vindo ao painel administrativo.",
-        });
+        return;
       }
+
+      if (!data.user || !data.session) {
+        const message = "Não foi possível confirmar a sessão. Tente novamente.";
+        setFormError(message);
+        toast({ title: "Erro ao fazer login", description: message, variant: "destructive" });
+        return;
+      }
+
+      await onAuthSuccess(data.user);
+      toast({
+        title: "Login realizado com sucesso!",
+        description: "Bem-vindo ao painel administrativo.",
+      });
     } catch (error) {
+      const message = error instanceof Error
+        ? error.message
+        : "Ocorreu um erro ao tentar fazer login.";
+      setFormError(message);
       toast({
         title: "Erro inesperado",
-        description: "Ocorreu um erro ao tentar fazer login.",
+        description: message,
         variant: "destructive",
       });
     } finally {
@@ -120,6 +119,11 @@ export function AuthPage({ onAuthSuccess }: AuthPageProps) {
                 />
               </div>
             </div>
+            {formError && (
+              <p role="alert" className="text-sm text-destructive">
+                {formError}
+              </p>
+            )}
             <Button 
               type="submit" 
               className="w-full" 
