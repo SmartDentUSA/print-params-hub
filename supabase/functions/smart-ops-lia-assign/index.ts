@@ -980,8 +980,24 @@ async function createNewDeal(
 
 
 
+  // TÍTULO ÚNICO: o PipeRun deduplica Deal por título — quando o lead digitou
+  // só o primeiro nome ("Rafael"), o POST /deals devolvia o Deal JÁ EXISTENTE
+  // de outro cliente homônimo, e a guarda de piperun_id abortava a gravação
+  // deixando o lead sem negócio (casos CIPRO 18-21/09). Nomes de um único
+  // token recebem um sufixo de identificação.
+  const cleanName = cleanPersonName(lead.nome as string) || "";
+  const nameTokens = cleanName.split(/\s+/).filter((t) => t.length >= 2);
+  let dealTitle = cleanName || email;
+  if (cleanName && nameTokens.length < 2) {
+    const phoneDigits = String(lead.telefone_normalized || lead.telefone_raw || "").replace(/\D/g, "");
+    const suffix = phoneDigits.length >= 8
+      ? phoneDigits.slice(-8)
+      : (String(email || "").split("@")[0] || String(lead.id || "").slice(0, 8));
+    dealTitle = `${cleanName} (${suffix})`;
+  }
+
   const dealPayload: Record<string, unknown> = {
-    title: cleanPersonName(lead.nome as string) || email,
+    title: dealTitle,
     pipeline_id: pipelineId,
     stage_id: stageId,
     owner_id: ownerId,
