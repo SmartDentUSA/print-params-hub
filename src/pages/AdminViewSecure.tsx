@@ -1,4 +1,4 @@
-import { useState, useEffect, lazy, Suspense } from "react";
+import { useState, useEffect, lazy, Suspense, useCallback } from "react";
 import { User } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { ConnectionError } from "@/components/ConnectionError";
@@ -81,6 +81,25 @@ export default function AdminViewSecure() {
   const [syncingFull, setSyncingFull] = useState(false);
   const [exporting, setExporting] = useState(false);
   const { toast } = useToast();
+
+  const loadUserAccess = useCallback(async (authUser: User) => {
+    const { data: roleRows, error } = await supabase
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', authUser.id);
+
+    if (error) throw error;
+
+    const roles = (roleRows ?? []).map((row) => row.role as string);
+    const effective = pickEffectiveRole(roles);
+    setUser(authUser);
+    setUserRole(effective as 'admin' | 'author' | 'user' | 'distribuidor' | null);
+    setIsAdmin(roles.includes('admin'));
+    setIsAuthor(roles.includes('author'));
+    setIsDistribuidor(roles.includes('distribuidor'));
+    if (effective === 'author') setActiveSection('knowledge');
+    if (effective === 'distribuidor') setActiveSection('so-distribuicao');
+  }, []);
 
   const handleSyncIncremental = async () => {
     setSyncingIncremental(true);
@@ -165,38 +184,16 @@ export default function AdminViewSecure() {
   useEffect(() => {
     const checkAuthAndRole = async () => {
       try {
-        const sessionPromise = supabase.auth.getSession();
+        const userPromise = supabase.auth.getUser();
         const timeoutPromise = new Promise((_, reject) =>
           setTimeout(() => reject(new Error('timeout')), 8000)
         );
-        const { data: { session } } = await Promise.race([sessionPromise, timeoutPromise]) as any;
-        if (session?.user) {
-          setUser(session.user);
-          let { data: roleRows } = await supabase
-            .from('user_roles')
-            .select('role')
-            .eq('user_id', session.user.id);
-          if (!roleRows || roleRows.length === 0) {
-            // retry uma vez: token pode ainda não estar propagado no primeiro fetch
-            await new Promise((r) => setTimeout(r, 600));
-            const retry = await supabase
-              .from('user_roles')
-              .select('role')
-              .eq('user_id', session.user.id);
-            roleRows = retry.data;
-          }
-          const roles = (roleRows ?? []).map((r: any) => r.role as string);
-          const effective = pickEffectiveRole(roles);
-          if (effective) {
-            setUserRole(effective as any);
-            setIsAdmin(roles.includes('admin'));
-            setIsAuthor(roles.includes('author'));
-            setIsDistribuidor(roles.includes('distribuidor'));
-            if (effective === 'author') setActiveSection('knowledge');
-            if (effective === 'distribuidor') setActiveSection('so-distribuicao');
-          }
-
+        const { data, error } = await Promise.race([userPromise, timeoutPromise]) as Awaited<ReturnType<typeof supabase.auth.getUser>>;
+        if (error) {
+          await supabase.auth.signOut({ scope: 'local' });
+          return;
         }
+        if (data.user) await loadUserAccess(data.user);
       } catch (error) {
         setConnectionError(true);
       } finally {
@@ -215,21 +212,9 @@ export default function AdminViewSecure() {
           setIsDistribuidor(false);
           setUserRole(null);
         } else if (session?.user) {
-          setUser(session.user);
           setTimeout(async () => {
             try {
-              const { data: roleRows } = await supabase
-                .from('user_roles')
-                .select('role')
-                .eq('user_id', session.user.id);
-              const roles = (roleRows ?? []).map((r: any) => r.role as string);
-              const effective = pickEffectiveRole(roles);
-              if (effective) {
-                setUserRole(effective as any);
-                setIsAdmin(roles.includes('admin'));
-                setIsAuthor(roles.includes('author'));
-                setIsDistribuidor(roles.includes('distribuidor'));
-              }
+              await loadUserAccess(session.user);
             } catch (error) {}
 
           }, 100);
@@ -238,7 +223,7 @@ export default function AdminViewSecure() {
     );
 
     return () => subscription.unsubscribe();
-  }, []);
+  }, [loadUserAccess]);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -248,12 +233,8 @@ export default function AdminViewSecure() {
     });
   };
 
-  const handleAuthSuccess = (authUser: User) => {
-    setUser(authUser);
-    toast({
-      title: "Login realizado com sucesso!",
-      description: "Bem-vindo ao painel administrativo.",
-    });
+  const handleAuthSuccess = async (authUser: User) => {
+    await loadUserAccess(authUser);
   };
 
   if (loading) {
