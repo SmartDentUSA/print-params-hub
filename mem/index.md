@@ -5,7 +5,10 @@
 
 - **WaLeads descomissionado**: envio WhatsApp 100% Evolution via `smart-ops-wa-send`; gatilho de voz SDR removido (automações só no painel).
 
+- **Título de Deal único**: PipeRun deduplica Deal por título — nome de 1 token recebe sufixo do telefone; match de Person por nome exige 2+ tokens.
+
 ## Memories
+- [PipeRun Deal Title Uniqueness](mem://integration/piperun-deal-title-uniqueness) — Dedup por título sequestrava Deal de homônimo; sufixo no título, match por nome só com 2+ tokens, pessoa persistida na hora
 - [WaLeads descomissionado](mem://architecture/waleads-decommissioned) — Remoção total do WaLeads (código, UI, colunas, função) e fim do gatilho de voz do SDR
 - [WhatsApp Conversation Capture](mem://integration/wa-conversation-capture) — Cron captura conversas de todas as instâncias Evolution (vendedor/cs/suporte) para whatsapp_inbox
 - [WA LID Phone-Only Match](mem://architecture/wa-lid-phone-only-match) — Vínculo de conversas @lid a leads só por telefone real; match por pushName é opt-in
