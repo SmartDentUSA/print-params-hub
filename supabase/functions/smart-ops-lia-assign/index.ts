@@ -3421,6 +3421,21 @@ Deno.serve(async (req) => {
       } else {
         personId = await createPerson(PIPERUN_API_KEY, lead as Record<string, unknown>, resolvedPersonOriginId);
         console.log(`[lia-assign] Created new person: ${personId}`);
+        // PERSIST-NOW: grava a pessoa imediatamente. Se o fluxo abortar depois
+        // (ex.: piperun_id_conflict), a próxima tentativa reaproveita esta
+        // pessoa em vez de criar outra — era isso que gerava contatos
+        // duplicados no PipeRun a cada retentativa.
+        if (personId) {
+          try {
+            await supabase
+              .from("lia_attendances")
+              .update({ pessoa_piperun_id: String(personId) })
+              .eq("id", lead.id as string)
+              .is("pessoa_piperun_id", null);
+          } catch (e) {
+            console.warn("[lia-assign] Failed to persist pessoa_piperun_id early:", e);
+          }
+        }
         try {
           await supabase.from("system_health_logs").insert({
             function_name: "smart-ops-lia-assign",

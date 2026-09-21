@@ -663,11 +663,16 @@ export default function PublicFormPage() {
         }
       }
       if (selectedEventProduct) {
-        payload.produto_interesse = selectedEventProduct.product_name;
+        // O CRM recebe o RÓTULO do botão (ex. "Resinas"), não o produto
+        // específico usado só para vincular o catálogo (ex. "Resina 3D Smart
+        // Print Bio Hybrid A2").
+        const interestLabel =
+          (selectedEventProduct.label || "").trim() || selectedEventProduct.product_name;
+        payload.produto_interesse = interestLabel;
         payload.product_catalog_id = selectedEventProduct.product_catalog_id;
         payload.form_responses.push({
           label: "Produto de interesse",
-          value: selectedEventProduct.product_name,
+          value: interestLabel,
         });
       }
     }
