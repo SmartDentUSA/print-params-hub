@@ -196,8 +196,12 @@ Deno.serve(async (req) => {
         // A Loja Integrada só persiste as categorias quando os IDs vêm como string.
         categorias: categoryIds.map((id) => String(id)),
         validade: asDateTime(coupon.valid_until, true),
+        // USO ILIMITADO: os cupons dos vendedores valem até a data final, sem
+        // limite de resgates. `quantidade: null` na Loja Integrada = ilimitado
+        // (qualquer número faz a loja bloquear o cupom após esgotar).
+        quantidade: null,
       };
-      if (coupon.usage_limit && coupon.usage_limit > 0) payload.quantidade = coupon.usage_limit;
+
 
       try {
         const response = coupon.li_coupon_id
