@@ -82,6 +82,10 @@ async function liRequest(
 const asDateTime = (value: string | null, endOfDay = false) =>
   value ? `${value}T${endOfDay ? "23:59:59" : "00:00:00"}` : null;
 
+// Teto de resgates usado como "ilimitado" na Loja Integrada.
+const UNLIMITED_QTY = 999999;
+
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
@@ -196,10 +200,13 @@ Deno.serve(async (req) => {
         // A Loja Integrada só persiste as categorias quando os IDs vêm como string.
         categorias: categoryIds.map((id) => String(id)),
         validade: asDateTime(coupon.valid_until, true),
-        // USO ILIMITADO: os cupons dos vendedores valem até a data final, sem
-        // limite de resgates. `quantidade: null` na Loja Integrada = ilimitado
-        // (qualquer número faz a loja bloquear o cupom após esgotar).
-        quantidade: null,
+        // USO ILIMITADO até a data final. A Loja Integrada rejeita
+        // `quantidade: null` (HTTP 400) e trata `quantidade: 0` como cupom
+        // esgotado — por isso usamos um teto altíssimo.
+        // `quantidade_por_cliente: 0` = sem limite por cliente.
+        quantidade: UNLIMITED_QTY,
+        quantidade_por_cliente: 0,
+
       };
 
 
