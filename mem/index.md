@@ -7,7 +7,10 @@
 
 - **Título de Deal único**: PipeRun deduplica Deal por título — nome de 1 token recebe sufixo do telefone; match de Person por nome exige 2+ tokens.
 
+- **Cupons ilimitados**: cupom de vendedor vale sem limite de usos até a validade — LI recebe quantidade 999999 e quantidade_por_cliente 0.
+
 ## Memories
+- [Cupons Loja Integrada uso ilimitado](mem://integration/loja-integrada-coupon-unlimited-usage) — quantidade null dá 400 e 0 esgota; usar 999999 + quantidade_por_cliente 0
 - [PipeRun Deal Title Uniqueness](mem://integration/piperun-deal-title-uniqueness) — Dedup por título sequestrava Deal de homônimo; sufixo no título, match por nome só com 2+ tokens, pessoa persistida na hora
 - [WaLeads descomissionado](mem://architecture/waleads-decommissioned) — Remoção total do WaLeads (código, UI, colunas, função) e fim do gatilho de voz do SDR
 - [WhatsApp Conversation Capture](mem://integration/wa-conversation-capture) — Cron captura conversas de todas as instâncias Evolution (vendedor/cs/suporte) para whatsapp_inbox
