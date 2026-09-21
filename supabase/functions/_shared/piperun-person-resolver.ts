@@ -270,7 +270,14 @@ export async function findPersonExpanded(
         (c.length >= 11 && phoneDigits.endsWith(c)) ||
         (phoneDigits.length >= 11 && c.endsWith(phoneDigits))
       );
-      const nameHit = lowerName && pname && pname === lowerName;
+      // NAME MATCH GUARD: only full names (2+ tokens) may match by name.
+      // A lead that typed only "Rafael" was matching a PipeRun Person named
+      // "Rafael" belonging to someone else — the lead then inherited that
+      // person's Deal and the piperun_id UNIQUE guard aborted the write,
+      // leaving the lead without a Deal (CIPRO cases 18-21/09).
+      const nameTokens = lowerName.split(/\s+/).filter((t) => t.length >= 2);
+      const nameMatchAllowed = nameTokens.length >= 2;
+      const nameHit = nameMatchAllowed && pname && pname === lowerName;
       if (!emailHit && !phoneHit && !nameHit) continue;
       if (requireContact && emails.length === 0 && phones.length === 0) continue;
       if (!p.id) continue;
