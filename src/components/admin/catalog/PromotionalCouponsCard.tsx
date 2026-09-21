@@ -145,7 +145,9 @@ export function PromotionalCouponsCard({ table, draft, onDraftChange }: Props) {
     if (value <= 0) { toast.error("Informe o valor do desconto do cupom."); return; }
     const validFrom = (isFreight ? draft.coupon_freight_valid_from : draft.coupon_valid_from) ?? null;
     const validUntil = (isFreight ? draft.coupon_freight_valid_until : draft.coupon_valid_until) ?? null;
-    const usageLimit = (isFreight ? draft.coupon_freight_usage_limit : draft.coupon_usage_limit) ?? null;
+    // Cupons de vendedor são sempre de uso ilimitado até a data final.
+    const usageLimit = null;
+
     setBusy(kind);
     try {
       // Persiste os dados da promoção antes de gerar os códigos.
@@ -154,13 +156,13 @@ export function PromotionalCouponsCard({ table, draft, onDraftChange }: Props) {
         coupon_discount_type: discountType,
         coupon_discount_value: Number(draft.coupon_discount_value || 0),
         coupon_prefix: prefix,
-        coupon_usage_limit: draft.coupon_usage_limit ?? null,
+        coupon_usage_limit: null,
         coupon_valid_from: draft.coupon_valid_from ?? null,
         coupon_valid_until: draft.coupon_valid_until ?? null,
         coupon_freight_discount_value: draft.coupon_freight_discount_value ?? null,
         coupon_freight_valid_from: draft.coupon_freight_valid_from ?? null,
         coupon_freight_valid_until: draft.coupon_freight_valid_until ?? null,
-        coupon_freight_usage_limit: draft.coupon_freight_usage_limit ?? null,
+        coupon_freight_usage_limit: null,
         coupon_pdf_enabled: draft.coupon_pdf_enabled !== false,
         coupon_freight_pdf_enabled: draft.coupon_freight_pdf_enabled !== false,
         coupon_li_category_ids: categoryIds,
@@ -366,9 +368,11 @@ export function PromotionalCouponsCard({ table, draft, onDraftChange }: Props) {
           </div>
           <div className="space-y-2">
             <Label>Limite de usos por cupom</Label>
-            <Input type="number" min="0" step="1" value={draft.coupon_usage_limit ?? ""} placeholder="Sem limite"
-              onChange={(e) => onDraftChange({ coupon_usage_limit: e.target.value ? Number(e.target.value) : null })} />
+            <p className="text-sm text-muted-foreground rounded-md border bg-muted/40 px-3 py-2">
+              Uso ilimitado até a data final
+            </p>
           </div>
+
         </div>
 
         <div className="space-y-2">
@@ -493,9 +497,11 @@ export function PromotionalCouponsCard({ table, draft, onDraftChange }: Props) {
             </div>
             <div className="space-y-2">
               <Label>Limite de usos por cupom</Label>
-              <Input type="number" min="0" step="1" value={draft.coupon_freight_usage_limit ?? ""} placeholder="Sem limite"
-                onChange={(e) => onDraftChange({ coupon_freight_usage_limit: e.target.value ? Number(e.target.value) : null })} />
+              <p className="text-sm text-muted-foreground rounded-md border bg-muted/40 px-3 py-2">
+                Uso ilimitado até a data final
+              </p>
             </div>
+
           </div>
           <Button onClick={() => generateCoupons("freight")} disabled={!!busy}>
             {busy === "freight" ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Truck className="mr-2 h-4 w-4" />}
