@@ -404,7 +404,7 @@ export function SmartOpsEvents() {
                           <p className="text-xs text-muted-foreground">Nenhum lead registrado.</p>
                         ) : (
                           <ul className="space-y-0.5">
-                            {sellers.slice(0, 5).map((s) => (
+                            {sellers.map((s) => (
                               <li key={s.seller} className="flex justify-between gap-2 text-xs">
                                 <span className="truncate">{s.seller}</span>
                                 <span className="font-semibold tabular-nums">
