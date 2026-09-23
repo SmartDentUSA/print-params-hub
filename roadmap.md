@@ -1,0 +1,1 @@
+- [ ] Fluxo IG AIPRO não disparou: verificar criação em social_flows, provisionamento na Zernio (zernio_automation_id) e execução (comentário + DM)
