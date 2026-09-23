@@ -1,1 +1,1 @@
-- [ ] Fluxo IG AIPRO não disparou: verificar criação em social_flows, provisionamento na Zernio (zernio_automation_id) e execução (comentário + DM)
+- [x] Fluxo IG AIPRO: fluxo criado em social_flows e provisionado na Zernio (automation 6ab3e456ace5079aa7604c61); causa do não disparo = fluxo não tinha sido criado
