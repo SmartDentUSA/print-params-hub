@@ -363,6 +363,26 @@ export default function KbTabInstitucional() {
           </div>
         </section>
 
+        <section className="sdi-sec" aria-labelledby="sdi-video">
+          <h2 id="sdi-video" className="sdi-h2">{c.videoTitle}</h2>
+          <p className="sdi-sub">{c.videoSub}</p>
+          <div className="sdi-video">
+            {play ? (
+              <iframe
+                src={`https://www.youtube-nocookie.com/embed/${VIDEO_ID}?autoplay=1&rel=0`}
+                title={VIDEO_TITLE}
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                allowFullScreen
+              />
+            ) : (
+              <button type="button" className="sdi-video-facade" onClick={() => setPlay(true)} aria-label={c.videoTitle}>
+                <img src={VIDEO_THUMB} alt={VIDEO_TITLE} loading="lazy" />
+                <span className="sdi-play"><svg viewBox="0 0 24 24" width="30" height="30" fill="currentColor" aria-hidden><path d="M8 5v14l11-7z" /></svg></span>
+              </button>
+            )}
+          </div>
+        </section>
+
         <section className="sdi-sec">
           <div className="sdi-bento">
             <div className="sdi-panel">
