@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react';
-import { Menu, LayoutGrid, PlaySquare, FileText, BookOpen, Calendar, Store, Sliders, Radio, GraduationCap, Tag } from 'lucide-react';
+import { Menu, LayoutGrid, PlaySquare, FileText, BookOpen, Calendar, Store, Sliders, Radio, GraduationCap, Tag, Building2 } from 'lucide-react';
 import { LanguageSelector } from '@/components/LanguageSelector';
 import { AccountButton } from '@/components/AccountButton';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -24,6 +24,7 @@ interface Props {
 }
 
 const TOP_TABS: { key: KbTab; icon: React.ReactNode }[] = [
+  { key: 'institucional',  icon: <Building2 /> },
   { key: 'parametros',     icon: <Sliders /> },
   { key: 'catalogo',       icon: <LayoutGrid /> },
   { key: 'videos',         icon: <PlaySquare /> },
@@ -81,7 +82,7 @@ export default function KbShellLayout({
           </div>
         </div>
         <div className="kbs-content">
-          <KbHero title={heroTitle} subtitle={heroSubtitle} artUrl={heroArtUrl} />
+          {active !== 'institucional' && <KbHero title={heroTitle} subtitle={heroSubtitle} artUrl={heroArtUrl} />}
           {children}
         </div>
       </div>

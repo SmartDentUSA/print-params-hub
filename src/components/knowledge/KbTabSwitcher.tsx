@@ -1,9 +1,12 @@
 import React from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
 
-export type KbTab = 'parametros' | 'catalogo' | 'videos' | 'artigos' | 'ebooks' | 'distribuidores' | 'eventos' | 'classificados' | 'lives' | 'cursos';
+export type KbTab = 'institucional' | 'parametros' | 'catalogo' | 'videos' | 'artigos' | 'ebooks' | 'distribuidores' | 'eventos' | 'classificados' | 'lives' | 'cursos';
 
 const ICONS: Record<KbTab, React.ReactNode> = {
+  institucional: (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 10l9-7 9 7v10a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z" /></svg>
+  ),
   parametros: (
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <line x1="4" y1="21" x2="4" y2="14" /><line x1="4" y1="10" x2="4" y2="3" />
@@ -74,7 +77,7 @@ const ICONS: Record<KbTab, React.ReactNode> = {
   ),
 };
 
-const ORDER: KbTab[] = ['parametros', 'catalogo', 'videos', 'artigos', 'ebooks', 'lives', 'cursos', 'distribuidores', 'eventos', 'classificados'];
+const ORDER: KbTab[] = ['institucional', 'parametros', 'catalogo', 'videos', 'artigos', 'ebooks', 'lives', 'cursos', 'distribuidores', 'eventos', 'classificados'];
 
 interface Props {
   active: KbTab;
