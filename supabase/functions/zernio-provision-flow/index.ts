@@ -68,6 +68,22 @@ Deno.serve(async (req) => {
     const zernioKey = Deno.env.get("ZERNIO_API_KEY");
     if (!zernioKey) throw new Error("ZERNIO_API_KEY not configured");
 
+    // ---- modo diagnóstico: lê a automação e os logs na Zernio
+    if (body?.inspect_automation_id) {
+      const id = String(body.inspect_automation_id);
+      const h = { Authorization: `Bearer ${zernioKey}` };
+      const get = async (u: string) => {
+        const r = await fetch(u, { headers: h, signal: AbortSignal.timeout(20_000) });
+        const t = await r.text();
+        try { return { status: r.status, data: JSON.parse(t) }; } catch { return { status: r.status, data: t.slice(0, 2000) }; }
+      };
+      const out = {
+        automation: await get(`${ZERNIO_BASE}/${id}`),
+        logs: await get(`${ZERNIO_BASE}/${id}/logs`),
+      };
+      return new Response(JSON.stringify(out), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
     // ---- modo lote: cria (ou atualiza, com resync) os flows IG ativos
     if (batch) {
       let q = supabase
