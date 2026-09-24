@@ -7,6 +7,7 @@ import logoFda from '@/assets/logo-fda.png';
 import logoIso from '@/assets/logo-iso.png';
 import logoUnc from '@/assets/logo-unc.png';
 import logoUsp from '@/assets/logo-usp.png';
+import resinasLinha from '@/assets/resinas-linha.png.asset.json';
 
 const VIDEO_ID = 'HyGSOn6gIsw';
 const VIDEO_THUMB = `https://i.ytimg.com/vi/${VIDEO_ID}/maxresdefault.jpg`;
@@ -147,7 +148,7 @@ const C = {
 
 const SOL_ICONS = [Beaker, ScanLine, Printer, Layers, Sparkles, FlaskConical];
 const SOL_IMGS = [
-  'https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/catalog-images/products/resina-3d-smart-print-bio-vitality-longa-duracao-1784782470169.png',
+  resinasLinha.url,
   'https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/catalog-images/products/scanner-intraoral-medit-i600-2.png',
   'https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/c3f880d0-3841-4bda-8f62-757594eff6dd-1764283866699.webp',
   IMG + 'zboysil9dqc_1768439495195.png',
@@ -341,7 +342,7 @@ export default function KbTabInstitucional() {
               const Ic = SOL_ICONS[i];
               return (
                 <div className="sdi-card" key={t}>
-                  <div className="sdi-card-img" style={{ backgroundImage: `url(${SOL_IMGS[i]}), radial-gradient(60% 60% at 50% 70%, #ffffff 0%, #e9eef5 70%)`, backgroundSize: i === 3 ? '60% auto, cover' : 'auto 78%, cover', backgroundBlendMode: 'multiply, normal' }} role="img" aria-label={t} />
+                  <div className="sdi-card-img" style={{ backgroundImage: `url(${SOL_IMGS[i]}), radial-gradient(60% 60% at 50% 70%, #ffffff 0%, #e9eef5 70%)`, backgroundSize: i === 0 ? '96% auto, cover' : i === 3 ? '60% auto, cover' : 'auto 78%, cover', backgroundBlendMode: 'multiply, normal' }} role="img" aria-label={t} />
                   <div className="sdi-card-b">
                     <div className="sdi-card-ic"><Ic size={18} /></div>
                     <h3>{t}</h3>
