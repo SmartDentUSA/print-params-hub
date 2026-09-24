@@ -8,6 +8,11 @@ import logoIso from '@/assets/logo-iso.png';
 import logoUnc from '@/assets/logo-unc.png';
 import logoUsp from '@/assets/logo-usp.png';
 import resinasLinha from '@/assets/resinas-linha.png.asset.json';
+import cardSoftware from '@/assets/card-software.jpg';
+import cardScanners from '@/assets/card-scanners.jpg';
+import cardImpressoras from '@/assets/card-impressoras.jpg';
+import cardPoscura from '@/assets/card-poscura.jpg';
+import cardCimentacao from '@/assets/card-cimentacao.jpg';
 
 const VIDEO_ID = 'HyGSOn6gIsw';
 const VIDEO_THUMB = `https://i.ytimg.com/vi/${VIDEO_ID}/maxresdefault.jpg`;
@@ -149,11 +154,11 @@ const C = {
 const SOL_ICONS = [Beaker, ScanLine, Printer, Layers, Sparkles, FlaskConical];
 const SOL_IMGS = [
   resinasLinha.url,
-  'https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/catalog-images/products/scanner-intraoral-medit-i600-2.png',
-  'https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/c3f880d0-3841-4bda-8f62-757594eff6dd-1764283866699.webp',
-  IMG + 'zboysil9dqc_1768439495195.png',
-  'https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/18206007-3dbb-4f06-9f6c-8f2d49503152-1764283862887.webp',
-  'https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/catalog-images/products/nanoclean-pod-limpeza-resina-3d-odontologica-sem-alcool-1784902807481.png',
+  cardSoftware,
+  cardScanners,
+  cardImpressoras,
+  cardPoscura,
+  cardCimentacao,
 ];
 
 const css = `
