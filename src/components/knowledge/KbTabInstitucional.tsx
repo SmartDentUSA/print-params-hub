@@ -342,7 +342,7 @@ export default function KbTabInstitucional() {
               const Ic = SOL_ICONS[i];
               return (
                 <div className="sdi-card" key={t}>
-                  <div className="sdi-card-img" style={{ backgroundImage: `url(${SOL_IMGS[i]}), radial-gradient(60% 60% at 50% 70%, #ffffff 0%, #e9eef5 70%)`, backgroundSize: i === 3 ? '60% auto, cover' : 'auto 78%, cover', backgroundBlendMode: 'multiply, normal' }} role="img" aria-label={t} />
+                  <div className="sdi-card-img" style={{ backgroundImage: `url(${SOL_IMGS[i]}), radial-gradient(60% 60% at 50% 70%, #ffffff 0%, #e9eef5 70%)`, backgroundSize: i === 0 ? '96% auto, cover' : i === 3 ? '60% auto, cover' : 'auto 78%, cover', backgroundBlendMode: 'multiply, normal' }} role="img" aria-label={t} />
                   <div className="sdi-card-b">
                     <div className="sdi-card-ic"><Ic size={18} /></div>
                     <h3>{t}</h3>
