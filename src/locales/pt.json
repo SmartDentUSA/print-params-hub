@@ -429,6 +429,10 @@
       "classificados": {
         "title": "Classificados",
         "subtitle": "Equipamentos usados anunciados por profissionais da odontologia digital."
+      },
+      "institucional": {
+        "title": "Institucional",
+        "subtitle": ""
       }
     },
     "nav": {
@@ -441,7 +445,8 @@
       "distribuidores": "Revendas",
       "parametros": "Parâmetros",
       "lives": "Lives",
-      "cursos": "Cursos"
+      "cursos": "Cursos",
+      "institucional": "Institucional"
     },
     "sidebar_cta": {
       "title": "Soluções de odontologia digital",

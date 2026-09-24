@@ -133,7 +133,7 @@ const C = {
 } as const;
 
 const SOL_ICONS = [Beaker, ScanLine, Printer, Layers, Sparkles, FlaskConical];
-const SOL_IMGS = ['zdaohxi7e3_1768439101916.png', 'ivfswu0ncpg_1768439293931.png', 'zboysil9dqc_1768439495195.png', 'ikain1x6wfa_1768439639882.png', 'iwscpzp2ggc_1768439749969.png', 'rbk3n79mqbc_1768439795135.png'];
+const SOL_IMGS = ['rbk3n79mqbc_1768439795135.png', 'zdaohxi7e3_1768439101916.png', 'ikain1x6wfa_1768439639882.png', 'zboysil9dqc_1768439495195.png', '', 'iwscpzp2ggc_1768439749969.png'];
 
 const css = `
 .sdi{--ink:#07111f;--ink2:#0c1b30;--line:rgba(148,197,255,.14);--txt:#e8f0fb;--mut:#93a7c3;--cy:#38d6f5;--cy2:#7cf0d4;--gold:#f3c969;
@@ -148,8 +148,8 @@ const css = `
 .sdi-eyebrow{display:inline-flex;gap:8px;align-items:center;font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:var(--cy);border:1px solid rgba(56,214,245,.35);background:rgba(56,214,245,.08);padding:7px 14px;border-radius:999px}
 .sdi-eyebrow i{width:6px;height:6px;border-radius:50%;background:var(--cy);box-shadow:0 0 12px var(--cy);animation:sdiPulse 2s infinite}
 @keyframes sdiPulse{50%{opacity:.3}}
-.sdi h1{font-size:clamp(36px,5.4vw,68px);line-height:1.02;letter-spacing:-.035em;font-weight:700;margin:22px 0 20px;max-width:780px}
-.sdi h1 em{font-style:normal;background:linear-gradient(90deg,var(--cy),var(--cy2));-webkit-background-clip:text;background-clip:text;color:transparent}
+.sdi h1{color:var(--txt)!important;-webkit-text-fill-color:currentColor;background:none;font-size:clamp(36px,5.4vw,68px);line-height:1.02;letter-spacing:-.035em;font-weight:700;margin:22px 0 20px;max-width:780px}
+.sdi h1 em{font-style:normal;-webkit-text-fill-color:transparent;background:linear-gradient(90deg,var(--cy),var(--cy2));-webkit-background-clip:text;background-clip:text;color:transparent}
 .sdi-lead{font-size:clamp(16px,1.35vw,19px);line-height:1.65;color:var(--mut);max-width:620px}
 .sdi-tldr{margin-top:22px;max-width:620px;font-size:13.5px;line-height:1.6;color:#c6d4e8;border-left:2px solid var(--cy);padding:4px 0 4px 14px}
 .sdi-ctas{display:flex;flex-wrap:wrap;gap:12px;margin-top:32px}
@@ -162,12 +162,12 @@ const css = `
 .sdi-stat{padding:26px 24px;border-left:1px solid var(--line)}.sdi-stat:first-child{border:0}
 .sdi-stat b{display:block;font-size:30px;letter-spacing:-.03em;color:var(--txt)}.sdi-stat span{font-size:13px;color:var(--mut)}
 .sdi-sec{padding:96px 0 0}
-.sdi-h2{font-size:clamp(28px,3.4vw,44px);letter-spacing:-.03em;line-height:1.1;margin:0 0 12px;font-weight:700}
+.sdi-h2{color:var(--txt);font-size:clamp(28px,3.4vw,44px);letter-spacing:-.03em;line-height:1.1;margin:0 0 12px;font-weight:700}
 .sdi-sub{color:var(--mut);font-size:16px;max-width:560px;margin:0 0 40px}
 .sdi-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
 .sdi-card{position:relative;border:1px solid var(--line);border-radius:22px;overflow:hidden;background:linear-gradient(180deg,var(--ink2),var(--ink));display:flex;flex-direction:column;transition:transform .35s,border-color .35s}
 .sdi-card:hover{transform:translateY(-6px);border-color:rgba(56,214,245,.45)}
-.sdi-card-img{height:190px;background:#0a1626 center/contain no-repeat;border-bottom:1px solid var(--line);transition:transform .6s}
+.sdi-card-img{height:170px;background:#f4f7fb center/62% auto no-repeat;border-bottom:1px solid var(--line);transition:transform .6s}
 .sdi-card:hover .sdi-card-img{transform:scale(1.04)}
 .sdi-card-b{padding:22px;display:flex;flex-direction:column;gap:10px;flex:1}
 .sdi-card-ic{width:38px;height:38px;border-radius:11px;display:grid;place-items:center;background:rgba(56,214,245,.1);color:var(--cy)}
@@ -181,7 +181,7 @@ const css = `
 .sdi-bento{display:grid;grid-template-columns:1.3fr 1fr;gap:18px}
 .sdi-panel{border:1px solid var(--line);border-radius:24px;padding:36px;background:radial-gradient(120% 120% at 0% 0%,rgba(56,214,245,.12),transparent 55%),var(--ink2)}
 .sdi-panel h3{font-size:24px;margin:14px 0 12px;letter-spacing:-.02em}.sdi-panel p{color:var(--mut);line-height:1.7;margin:0;font-size:15px}
-.sdi-badges{display:flex;flex-wrap:wrap;gap:8px;margin-top:22px}.sdi-badges span{font-size:12px;padding:6px 12px;border-radius:999px;border:1px solid var(--line);color:#c6d4e8}
+.sdi-badges{display:flex;flex-wrap:wrap;gap:8px;margin-top:22px}.sdi-badges span{display:inline-flex;align-items:center;gap:6px;font-size:12px;padding:6px 12px;border-radius:999px;border:1px solid var(--line);color:#c6d4e8}
 .sdi-band{margin-top:96px;border-radius:24px;padding:44px;display:flex;align-items:center;justify-content:space-between;gap:24px;flex-wrap:wrap;background:linear-gradient(120deg,rgba(56,214,245,.18),rgba(124,240,212,.08)),var(--ink2);border:1px solid rgba(56,214,245,.3)}
 .sdi-band h2{margin:0;font-size:clamp(24px,2.6vw,34px);letter-spacing:-.02em}.sdi-band p{margin:6px 0 0;color:var(--mut)}
 .sdi-faq{max-width:860px}
@@ -283,7 +283,7 @@ export default function KbTabInstitucional() {
               const Ic = SOL_ICONS[i];
               return (
                 <div className="sdi-card" key={t}>
-                  <div className="sdi-card-img" style={{ backgroundImage: `url(${IMG}${SOL_IMGS[i]})` }} role="img" aria-label={t} />
+                  <div className="sdi-card-img" style={SOL_IMGS[i] ? { backgroundImage: `url(${IMG}${SOL_IMGS[i]})` } : { backgroundImage: `url(${heroImg})`, backgroundSize: 'cover' }} role="img" aria-label={t} />
                   <div className="sdi-card-b">
                     <div className="sdi-card-ic"><Ic size={18} /></div>
                     <h3>{t}</h3>
