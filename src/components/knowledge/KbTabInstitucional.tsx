@@ -3,6 +3,15 @@ import { Helmet } from 'react-helmet-async';
 import { ArrowRight, MessageCircle, ShieldCheck, GraduationCap, Printer, ScanLine, Layers, Sparkles, Beaker, ChevronDown, MapPin, Building2, FlaskConical, Award } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import heroImg from '@/assets/institucional-hero-produtos.jpg';
+import logoFda from '@/assets/logo-fda.png.asset.json';
+import logoIso from '@/assets/logo-iso.png.asset.json';
+import logoUnc from '@/assets/logo-unc.png.asset.json';
+import logoUsp from '@/assets/logo-usp.png.asset.json';
+
+const VIDEO_ID = 'HyGSOn6gIsw';
+const VIDEO_THUMB = `https://i.ytimg.com/vi/${VIDEO_ID}/maxresdefault.jpg`;
+const VIDEO_TITLE = 'Descubra o poder do Chair Side com resina Vitality';
+const LOGOS = [logoFda, logoIso, logoUnc, logoUsp];
 
 type Lang = 'pt' | 'en' | 'es';
 const SITE = 'https://parametros.smartdent.com.br';
@@ -27,6 +36,8 @@ const C = {
     tldr: 'Em resumo: a Smart Dent é uma empresa brasileira de odontologia digital (São Carlos-SP, 2009) com subsidiária nos EUA (Charlotte-NC), que fornece resinas 3D biocompatíveis, scanners, impressoras, softwares CAD e treinamento com suporte técnico incluso.',
     ctaTalk: 'Falar com especialista', ctaStore: 'Visitar a loja', ctaParams: 'Acessar parâmetros',
     stats: [['2009', 'Fundação em São Carlos-SP'], ['FDA', 'Est. nº 3027526455'], ['12+', 'UDIs no AccessGUDID'], ['R1', 'Parceira UNC Charlotte']],
+    videoTitle: 'Conheça a Smart Dent', videoSub: 'Descubra o poder do Chair Side com resina Vitality — o fluxo digital completo dentro do seu consultório.',
+    logos: [['FDA', 'Registro nº 3027526455'], ['ISO 13485', 'Gestão da qualidade'], ['UNC Charlotte', 'Parceira universitária R1'], ['USP', 'Origem da empresa · 2009']],
     solTitle: 'Nossas soluções', solSub: 'Tudo o que o consultório e o laboratório precisam — do escaneamento ao acabamento.',
     sol: [
       ['Resinas 3D odontológicas', 'Biocompatíveis, com certificações ISO 10993, ANVISA e FDA.', 'resinas-3d', 'resina-3d-smartprint-bio-vitality'],
@@ -65,6 +76,8 @@ const C = {
     tldr: 'In short: Smart Dent is a Brazilian digital dentistry company (São Carlos, 2009) with a US subsidiary (Charlotte, NC), supplying biocompatible 3D resins, scanners, printers, CAD software and training with technical support included.',
     ctaTalk: 'Talk to a specialist', ctaStore: 'Visit the store', ctaParams: 'Printing parameters',
     stats: [['2009', 'Founded in São Carlos, Brazil'], ['FDA', 'Est. No. 3027526455'], ['12+', 'UDIs on AccessGUDID'], ['R1', 'UNC Charlotte partner']],
+    videoTitle: 'Meet Smart Dent', videoSub: 'Discover the power of Chair Side with Vitality resin — the complete digital workflow inside your practice.',
+    logos: [['FDA', 'Est. No. 3027526455'], ['ISO 13485', 'Quality management'], ['UNC Charlotte', 'R1 University partner'], ['USP', 'Company origin · 2009']],
     solTitle: 'Our solutions', solSub: 'Everything clinics and labs need — from scanning to finishing.',
     sol: [
       ['Dental 3D resins', 'Biocompatible, ISO 10993, ANVISA and FDA certified.', 'resinas-3d', 'resina-3d-smartprint-bio-vitality'],
