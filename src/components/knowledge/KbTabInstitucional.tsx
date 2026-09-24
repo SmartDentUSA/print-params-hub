@@ -3,10 +3,10 @@ import { Helmet } from 'react-helmet-async';
 import { ArrowRight, MessageCircle, ShieldCheck, GraduationCap, Printer, ScanLine, Layers, Sparkles, Beaker, ChevronDown, MapPin, Building2, FlaskConical, Award } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import heroImg from '@/assets/institucional-hero-produtos.jpg';
-import logoFda from '@/assets/logo-fda.png.asset.json';
-import logoIso from '@/assets/logo-iso.png.asset.json';
-import logoUnc from '@/assets/logo-unc.png.asset.json';
-import logoUsp from '@/assets/logo-usp.png.asset.json';
+import logoFda from '@/assets/logo-fda.png';
+import logoIso from '@/assets/logo-iso.png';
+import logoUnc from '@/assets/logo-unc.png';
+import logoUsp from '@/assets/logo-usp.png';
 
 const VIDEO_ID = 'HyGSOn6gIsw';
 const VIDEO_THUMB = `https://i.ytimg.com/vi/${VIDEO_ID}/maxresdefault.jpg`;
@@ -318,7 +318,7 @@ export default function KbTabInstitucional() {
         <div className="sdi-logos">
           {c.logos.map(([t, s], i) => (
             <div className="sdi-logo" key={t}>
-              <img src={LOGOS[i].url} alt={t} width={LOGO_DIM[i][0]} height={LOGO_DIM[i][1]} loading="lazy" />
+              <img src={LOGOS[i]} alt={t} width={LOGO_DIM[i][0]} height={LOGO_DIM[i][1]} loading="lazy" />
               <b>{t}</b>
               <span>{s}</span>
             </div>
