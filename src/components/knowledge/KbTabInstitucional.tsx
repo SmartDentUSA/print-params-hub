@@ -12,6 +12,7 @@ const VIDEO_ID = 'HyGSOn6gIsw';
 const VIDEO_THUMB = `https://i.ytimg.com/vi/${VIDEO_ID}/maxresdefault.jpg`;
 const VIDEO_TITLE = 'Descubra o poder do Chair Side com resina Vitality';
 const LOGOS = [logoFda, logoIso, logoUnc, logoUsp];
+const LOGO_DIM: Array<[number, number]> = [[900, 188], [900, 324], [900, 387], [900, 366]];
 
 type Lang = 'pt' | 'en' | 'es';
 const SITE = 'https://parametros.smartdent.com.br';
