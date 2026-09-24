@@ -29,6 +29,7 @@ export const kbShellStyles = `
 .kbs-toptab svg{width:15px;height:15px;}
 .kbs-topright{display:flex;align-items:center;gap:8px;flex-shrink:0;}
 .kbs-content{padding:24px 28px 48px;max-width:1400px;width:100%;margin:0 auto;}
+.kbs-content.kbs-content-institutional{max-width:none;padding:0;width:100%;margin:0;}
 .kbs-content > *{position:relative;}
 .kbs-content > .kbs-hero + *{margin-top:-38px;z-index:3;position:relative;}
 .kbs-hero{position:relative;background:#fff;border-radius:18px;padding:40px 44px 76px;margin-bottom:20px;overflow:hidden;min-height:240px;display:flex;align-items:center;}
@@ -44,6 +45,7 @@ export const kbShellStyles = `
   .kbs-mobile-btn{display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:8px;background:#F1F5F9;border:none;cursor:pointer;margin-right:auto;}
   .kbs-topbar{padding:10px 14px;}
   .kbs-content{padding:16px;}
+  .kbs-content.kbs-content-institutional{padding:0;}
   .kbs-hero{padding:20px 20px 48px;min-height:auto;}
   .kbs-hero-text h1{font-size:24px;}
   .kbs-hero-art{opacity:.35;}
