@@ -161,7 +161,7 @@ const css = `
   background:radial-gradient(120% 70% at 80% 0%,#ffffff 0%,transparent 60%),linear-gradient(180deg,#dfe6ef 0%,#eef2f7 45%,#e4eaf2 100%)}
 .sdi *{box-sizing:border-box}
 .sdi a{color:inherit;text-decoration:none}
-.sdi-wrap{max-width:1440px;margin:0 auto;padding:0 clamp(24px,5vw,80px)}
+.sdi-wrap{max-width:none;margin:0;padding:0 clamp(24px,5vw,80px)}
 .sdi-hero{position:relative;min-height:660px;display:flex;align-items:center;padding:88px 0 96px}
 .sdi-hero-bg{position:absolute;top:0;bottom:0;right:0;left:52%;z-index:-1;background-color:#e6ecf3;background-repeat:no-repeat;background-position:right center;background-size:cover}
 .sdi-hero-bg:after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,#e6ecf3 0%,rgba(230,236,243,.6) 18%,rgba(230,236,243,0) 45%)}
