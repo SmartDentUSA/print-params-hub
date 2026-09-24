@@ -36,7 +36,6 @@ const C = {
     lead: 'Mais que equipamentos ou softwares, entregamos autonomia e rentabilidade. Nosso ecossistema otimiza sua hora clínica ou laboratório, tornando a odontologia digital um investimento de altíssimo retorno e viabilidade imediata.',
     tldr: 'Em resumo: a Smart Dent é uma empresa brasileira de odontologia digital (São Carlos-SP, 2009) com subsidiária nos EUA (Charlotte-NC), que fornece resinas 3D biocompatíveis, scanners, impressoras, softwares CAD e treinamento com suporte técnico incluso.',
     ctaTalk: 'Falar com especialista', ctaStore: 'Visitar a loja', ctaParams: 'Acessar parâmetros',
-    stats: [['2009', 'Fundação em São Carlos-SP'], ['FDA', 'Est. nº 3027526455'], ['12+', 'UDIs no AccessGUDID'], ['R1', 'Parceira UNC Charlotte']],
     videoTitle: 'Conheça a Smart Dent', videoSub: 'Descubra o poder do Chair Side com resina Vitality — o fluxo digital completo dentro do seu consultório.',
     logos: [['FDA', 'Registro nº 3027526455'], ['ISO 13485', 'Gestão da qualidade'], ['UNC Charlotte', 'Parceira universitária R1'], ['USP', 'Origem da empresa · 2009']],
     solTitle: 'Nossas soluções', solSub: 'Tudo o que o consultório e o laboratório precisam — do escaneamento ao acabamento.',
@@ -76,7 +75,6 @@ const C = {
     lead: 'More than equipment or software, we deliver autonomy and profitability. Our ecosystem optimizes your clinical or lab hour, making digital dentistry a high-return investment with immediate viability.',
     tldr: 'In short: Smart Dent is a Brazilian digital dentistry company (São Carlos, 2009) with a US subsidiary (Charlotte, NC), supplying biocompatible 3D resins, scanners, printers, CAD software and training with technical support included.',
     ctaTalk: 'Talk to a specialist', ctaStore: 'Visit the store', ctaParams: 'Printing parameters',
-    stats: [['2009', 'Founded in São Carlos, Brazil'], ['FDA', 'Est. No. 3027526455'], ['12+', 'UDIs on AccessGUDID'], ['R1', 'UNC Charlotte partner']],
     videoTitle: 'Meet Smart Dent', videoSub: 'Discover the power of Chair Side with Vitality resin — the complete digital workflow inside your practice.',
     logos: [['FDA', 'Est. No. 3027526455'], ['ISO 13485', 'Quality management'], ['UNC Charlotte', 'R1 University partner'], ['USP', 'Company origin · 2009']],
     solTitle: 'Our solutions', solSub: 'Everything clinics and labs need — from scanning to finishing.',
@@ -115,7 +113,6 @@ const C = {
     lead: 'Más que equipos o software, entregamos autonomía y rentabilidad. Nuestro ecosistema optimiza su hora clínica o de laboratorio, haciendo de la odontología digital una inversión de altísimo retorno.',
     tldr: 'En resumen: Smart Dent es una empresa brasileña de odontología digital (São Carlos, 2009) con filial en EE. UU. (Charlotte, NC), que ofrece resinas 3D biocompatibles, escáneres, impresoras, software CAD y formación con soporte técnico incluido.',
     ctaTalk: 'Hablar con un especialista', ctaStore: 'Visitar la tienda', ctaParams: 'Parámetros de impresión',
-    stats: [['2009', 'Fundada en São Carlos, Brasil'], ['FDA', 'Est. nº 3027526455'], ['12+', 'UDIs en AccessGUDID'], ['R1', 'Socia de UNC Charlotte']],
     videoTitle: 'Conozca Smart Dent', videoSub: 'Descubra el poder del Chair Side con resina Vitality — el flujo digital completo en su consultorio.',
     logos: [['FDA', 'Registro n.º 3027526455'], ['ISO 13485', 'Gestión de calidad'], ['UNC Charlotte', 'Socia universitaria R1'], ['USP', 'Origen de la empresa · 2009']],
     solTitle: 'Nuestras soluciones', solSub: 'Todo lo que clínicas y laboratorios necesitan — del escaneo al acabado.',
@@ -182,10 +179,8 @@ const css = `
 .sdi-btn.gho{border:1px solid rgba(255,255,255,.9);background:rgba(255,255,255,.55);backdrop-filter:blur(10px);color:var(--txt)}
 .sdi-btn.gho:hover{background:rgba(255,255,255,.85)}
 .sdi-glass{background:rgba(255,255,255,.55);border:1px solid rgba(255,255,255,.95);backdrop-filter:blur(16px);box-shadow:0 20px 50px -30px rgba(47,54,80,.35)}
-.sdi-stats{display:grid;grid-template-columns:repeat(4,1fr);border-radius:22px;margin-top:-56px;position:relative;background:rgba(255,255,255,.6);border:1px solid #fff;backdrop-filter:blur(16px);box-shadow:0 24px 60px -34px rgba(47,54,80,.4)}
-.sdi-stat{padding:26px 24px;border-left:1px solid var(--line);text-align:center}.sdi-stat:first-child{border:0}
-.sdi-stat b{display:block;font-size:30px;font-weight:800;letter-spacing:-.03em;color:var(--txt)}.sdi-stat span{font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--mut)}
-.sdi-logos{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-top:20px}
+.sdi-logos{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-top:34px}
+
 .sdi-logo{border-radius:18px;background:rgba(255,255,255,.62);border:1px solid #fff;backdrop-filter:blur(14px);padding:22px 16px 18px;display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center;box-shadow:0 14px 34px -26px rgba(47,54,80,.35)}
 .sdi-logo img{max-height:46px;max-width:72%;object-fit:contain}
 .sdi-logo b{font-size:14px;font-weight:800;letter-spacing:.04em}
@@ -237,7 +232,7 @@ const css = `
 .sdi-rv{animation:sdiUp .8s cubic-bezier(.2,.7,.2,1) both}.sdi-rv.d1{animation-delay:.1s}.sdi-rv.d2{animation-delay:.2s}.sdi-rv.d3{animation-delay:.3s}
 @keyframes sdiUp{from{opacity:0;transform:translateY(18px)}}
 @media(prefers-reduced-motion:reduce){.sdi *{animation:none!important;transition:none!important}}
-@media(max-width:960px){.sdi-hero .sdi-wrap>*{max-width:100%!important}.sdi-cards{grid-template-columns:repeat(2,1fr)}.sdi-steps{grid-template-columns:repeat(2,1fr)}.sdi-step:nth-child(3){border-left:0}.sdi-bento{grid-template-columns:1fr}.sdi-stats{grid-template-columns:repeat(2,1fr)}.sdi-stat:nth-child(3){border-left:0}.sdi-hero-bg{left:0!important;opacity:.35}.sdi-logos{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:960px){.sdi-hero .sdi-wrap>*{max-width:100%!important}.sdi-cards{grid-template-columns:repeat(2,1fr)}.sdi-steps{grid-template-columns:repeat(2,1fr)}.sdi-step:nth-child(3){border-left:0}.sdi-bento{grid-template-columns:1fr}.sdi-hero-bg{left:0!important;opacity:.35}.sdi-logos{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:600px){.sdi-cards,.sdi-steps{grid-template-columns:1fr}.sdi-step{border-left:0!important}.sdi-hero{min-height:560px;padding-top:64px}.sdi-panel,.sdi-band{padding:26px}.sdi-logos{gap:10px}.sdi-logo{padding:16px 12px 14px}.sdi-logo img{max-height:36px}}
 `;
 
@@ -317,10 +312,8 @@ export default function KbTabInstitucional() {
         </div>
       </header>
 
-      <div className="sdi-wrap">
-        <div className="sdi-stats">
-          {c.stats.map(([b, s]) => <div className="sdi-stat" key={b}><b>{b}</b><span>{s}</span></div>)}
-        </div>
+        <div className="sdi-wrap">
+
 
         <div className="sdi-logos">
           {c.logos.map(([t, s], i) => (
