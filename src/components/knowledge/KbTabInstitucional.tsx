@@ -8,11 +8,6 @@ import logoIso from '@/assets/logo-iso.png';
 import logoUnc from '@/assets/logo-unc.png';
 import logoUsp from '@/assets/logo-usp.png';
 import resinasLinha from '@/assets/resinas-linha.png.asset.json';
-import cardSoftware from '@/assets/card-software.jpg';
-import cardScanners from '@/assets/card-scanners.jpg';
-import cardImpressoras from '@/assets/card-impressoras.jpg';
-import cardPoscura from '@/assets/card-poscura.jpg';
-import cardCimentacao from '@/assets/card-cimentacao.jpg';
 
 const VIDEO_ID = 'HyGSOn6gIsw';
 const VIDEO_THUMB = `https://i.ytimg.com/vi/${VIDEO_ID}/maxresdefault.jpg`;
@@ -152,14 +147,19 @@ const C = {
 } as const;
 
 const SOL_ICONS = [Beaker, ScanLine, Printer, Layers, Sparkles, FlaskConical];
+// Imagens reais de produtos do catálogo (buckets oficiais do Sistema A/B).
+const CAT_IMG = 'https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/catalog-images/products';
+const PROD_IMG = 'https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products';
 const SOL_IMGS = [
   resinasLinha.url,
-  cardSoftware,
-  cardScanners,
-  cardImpressoras,
-  cardPoscura,
-  cardCimentacao,
+  `${PROD_IMG}/9ca9fd62-7282-409f-b633-d9f25ea2cb5d-1770349119603.webp`,
+  `${CAT_IMG}/scanner-intraoral-medit-i600-2.png`,
+  `${PROD_IMG}/c3f880d0-3841-4bda-8f62-757594eff6dd-1764283866699.webp`,
+  `${PROD_IMG}/18206007-3dbb-4f06-9f6c-8f2d49503152-1764283862887.webp`,
+  `${CAT_IMG}/nanoclean-pod-limpeza-resina-3d-odontologica-sem-alcool-1784902807481.png`,
 ];
+// Categoria correspondente no catálogo da Base de Conhecimento (chaves de catalogSidebarFilters).
+const SOL_CATS = ['resinas_3d', 'softwares_cad', 'scanners', 'impressoras_3d', 'pos_impressao', 'cimentos'];
 
 const css = `
 .sdi{--ink:#2f3650;--ink2:#ffffff;--line:rgba(47,54,80,.12);--txt:#2f3650;--mut:#5d6782;--cy:#2f3650;--or:#e5703a;
@@ -274,7 +274,7 @@ export default function KbTabInstitucional() {
       },
       {
         '@type': 'ItemList', name: c.solTitle,
-        itemListElement: c.sol.map((s, i) => ({ '@type': 'ListItem', position: i + 1, name: s[0], url: `${STORE}/${s[2]}` })),
+        itemListElement: c.sol.map((s, i) => ({ '@type': 'ListItem', position: i + 1, name: s[0], url: `${ORIGIN}${p.kb}?tab=catalogo&cat=${SOL_CATS[i]}` })),
       },
       {
         '@type': 'VideoObject', '@id': `${url}#video`, name: VIDEO_TITLE, description: c.videoSub,
@@ -343,7 +343,7 @@ export default function KbTabInstitucional() {
           <h2 id="sdi-sol" className="sdi-h2">{c.solTitle}</h2>
           <p className="sdi-sub">{c.solSub}</p>
           <div className="sdi-cards">
-            {c.sol.map(([t, d, cat, form], i) => {
+            {c.sol.map(([t, d, , form], i) => {
               const Ic = SOL_ICONS[i];
               return (
                 <div className="sdi-card" key={t}>
@@ -353,7 +353,7 @@ export default function KbTabInstitucional() {
                     <h3>{t}</h3>
                     <p>{d}</p>
                     <div className="sdi-card-a">
-                      <a href={`${STORE}/${cat}`} target="_blank" rel="noopener">{c.shop}<ArrowRight size={14} /></a>
+                      <a href={`${p.kb}?tab=catalogo&cat=${SOL_CATS[i]}`}>{c.shop}<ArrowRight size={14} /></a>
                       <a href={`/f/${form}`}>{c.quote}</a>
                     </div>
                   </div>
