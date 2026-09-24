@@ -357,12 +357,6 @@ export default function KbTabInstitucional() {
           </div>
         </section>
 
-        <section className="sdi-sec" aria-labelledby="sdi-flow">
-          <h2 id="sdi-flow" className="sdi-h2">{c.flowTitle}</h2>
-          <div className="sdi-steps" style={{ marginTop: 32 }}>
-            {c.flow.map(([t, d]) => <div className="sdi-step" key={t}><h3>{t}</h3><p>{d}</p></div>)}
-          </div>
-        </section>
 
         <section className="sdi-sec">
           <div className="sdi-bento">
