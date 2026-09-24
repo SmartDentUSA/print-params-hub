@@ -239,6 +239,7 @@
   },
   "kb": {
     "tabs": {
+      "institucional": "Institucional",
       "parametros": "Parámetros",
       "catalogo": "Catálogo",
       "videos": "Videos",
@@ -428,6 +429,10 @@
       "classificados": {
         "title": "Clasificados",
         "subtitle": "Equipos usados anunciados por profesionales de la odontología digital."
+      },
+      "institucional": {
+        "title": "Institucional",
+        "subtitle": ""
       }
     },
     "nav": {
@@ -440,7 +445,8 @@
       "distribuidores": "Distribuidores",
       "parametros": "Parámetros",
       "lives": "Lives",
-      "cursos": "Cursos"
+      "cursos": "Cursos",
+      "institucional": "Institucional"
     },
     "sidebar_cta": {
       "title": "Soluciones de odontología digital",

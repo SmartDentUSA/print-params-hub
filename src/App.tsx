@@ -136,6 +136,9 @@ const App = () => (
       <Route path="/ferramentas/social-publisher/criar" element={<SocialPostEditor />} />
 
       {/* Portuguese routes (default) */}
+      <Route path="/institucional" element={<KnowledgeBase lang="pt" forcedTab="institucional" />} />
+      <Route path="/en/institutional" element={<KnowledgeBase lang="en" forcedTab="institucional" />} />
+      <Route path="/es/institucional" element={<KnowledgeBase lang="es" forcedTab="institucional" />} />
       <Route path="/base-conhecimento" element={<KnowledgeBase lang="pt" />} />
       <Route path="/base-conhecimento/calculadora-roi" element={<ROICalculatorPage />} />
       <Route path="/base-conhecimento/calculadora-roi/:slug" element={<ROICalculatorPage />} />

@@ -239,6 +239,7 @@
   },
   "kb": {
     "tabs": {
+      "institucional": "About us",
       "parametros": "Parameters",
       "catalogo": "Catalog",
       "videos": "Videos",
@@ -428,6 +429,10 @@
       "classificados": {
         "title": "Classifieds",
         "subtitle": "Used equipment listed by digital dentistry professionals."
+      },
+      "institucional": {
+        "title": "About us",
+        "subtitle": ""
       }
     },
     "nav": {
@@ -440,7 +445,8 @@
       "distribuidores": "Resellers",
       "parametros": "Parameters",
       "lives": "Lives",
-      "cursos": "Courses"
+      "cursos": "Courses",
+      "institucional": "About us"
     },
     "sidebar_cta": {
       "title": "Digital dentistry solutions",
