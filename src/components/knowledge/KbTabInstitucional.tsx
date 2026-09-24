@@ -221,7 +221,7 @@ const css = `
 .sdi-band:after{content:"";position:absolute;right:-80px;top:-80px;width:280px;height:280px;border-radius:50%;background:radial-gradient(circle,rgba(229,112,58,.45),transparent 70%)}
 .sdi-band h2{margin:0;font-size:clamp(24px,2.6vw,36px);font-weight:300;letter-spacing:-.02em;color:#fff}.sdi-band p{margin:6px 0 0;color:rgba(255,255,255,.75)}
 .sdi-band .sdi-btn.pri{background:#fff;color:var(--ink);position:relative;z-index:1}
-.sdi-faq{max-width:860px}
+.sdi-faq{max-width:none}
 .sdi-q{border-bottom:1px solid var(--line)}
 .sdi-q button{all:unset;cursor:pointer;display:flex;justify-content:space-between;gap:16px;width:100%;padding:22px 0;font-size:17px;font-weight:600;color:var(--txt)}
 .sdi-q svg{transition:transform .3s;flex:none;color:var(--or)}.sdi-q.on svg{transform:rotate(180deg)}
