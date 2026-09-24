@@ -245,6 +245,7 @@ export default function KbTabInstitucional() {
   const lang: Lang = (['pt', 'en', 'es'].includes(language) ? language : 'pt') as Lang;
   const c = C[lang];
   const [open, setOpen] = useState<number | null>(0);
+  const [play, setPlay] = useState(false);
   const p = PATHS[lang];
   const wa = WA_SALES + encodeURIComponent(c.waSales);
   const url = SITE + p.home;
@@ -271,6 +272,12 @@ export default function KbTabInstitucional() {
       {
         '@type': 'ItemList', name: c.solTitle,
         itemListElement: c.sol.map((s, i) => ({ '@type': 'ListItem', position: i + 1, name: s[0], url: `${STORE}/${s[2]}` })),
+      },
+      {
+        '@type': 'VideoObject', '@id': `${url}#video`, name: VIDEO_TITLE, description: c.videoSub,
+        thumbnailUrl: [VIDEO_THUMB], embedUrl: `https://www.youtube-nocookie.com/embed/${VIDEO_ID}`,
+        contentUrl: `https://www.youtube.com/watch?v=${VIDEO_ID}`,
+        publisher: { '@id': `${SITE}/#org` },
       },
     ],
   };
@@ -312,6 +319,16 @@ export default function KbTabInstitucional() {
       <div className="sdi-wrap">
         <div className="sdi-stats">
           {c.stats.map(([b, s]) => <div className="sdi-stat" key={b}><b>{b}</b><span>{s}</span></div>)}
+        </div>
+
+        <div className="sdi-logos">
+          {c.logos.map(([t, s], i) => (
+            <div className="sdi-logo" key={t}>
+              <img src={LOGOS[i].url} alt={t} width={900} height={Math.round(900 * (LOGO_H[i] / LOGO_W[i]))} loading="lazy" />
+              <b>{t}</b>
+              <span>{s}</span>
+            </div>
+          ))}
         </div>
 
         <section className="sdi-sec" aria-labelledby="sdi-sol">
