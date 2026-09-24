@@ -318,7 +318,7 @@ export default function KbTabInstitucional() {
         <div className="sdi-logos">
           {c.logos.map(([t, s], i) => (
             <div className="sdi-logo" key={t}>
-              <img src={LOGOS[i].url} alt={t} width={LOGO_DIM[i][0]} height={LOGO_DIM[i][1]} loading="lazy" />
+              <img src={LOGOS[i]} alt={t} width={LOGO_DIM[i][0]} height={LOGO_DIM[i][1]} loading="lazy" />
               <b>{t}</b>
               <span>{s}</span>
             </div>
