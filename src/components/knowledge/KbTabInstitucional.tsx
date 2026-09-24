@@ -144,11 +144,11 @@ const SOL_IMGS = [
 
 const css = `
 .sdi{--ink:#2f3650;--ink2:#ffffff;--line:rgba(47,54,80,.12);--txt:#2f3650;--mut:#5d6782;--cy:#2f3650;--or:#e5703a;
-  font-family:'Manrope','Sora',system-ui,sans-serif;color:var(--txt);border-radius:28px;overflow:hidden;margin:-8px 0 24px;position:relative;isolation:isolate;
+  font-family:'Manrope','Sora',system-ui,sans-serif;color:var(--txt);overflow:hidden;margin:0;position:relative;isolation:isolate;
   background:radial-gradient(120% 70% at 80% 0%,#ffffff 0%,transparent 60%),linear-gradient(180deg,#dfe6ef 0%,#eef2f7 45%,#e4eaf2 100%)}
 .sdi *{box-sizing:border-box}
 .sdi a{color:inherit;text-decoration:none}
-.sdi-wrap{max-width:1180px;margin:0 auto;padding:0 clamp(20px,4vw,48px)}
+.sdi-wrap{max-width:1440px;margin:0 auto;padding:0 clamp(24px,5vw,80px)}
 .sdi-hero{position:relative;min-height:660px;display:flex;align-items:center;padding:88px 0 96px}
 .sdi-hero-bg{position:absolute;top:0;bottom:0;right:0;left:52%;z-index:-1;background-color:#e6ecf3;background-repeat:no-repeat;background-position:right center;background-size:cover}
 .sdi-hero-bg:after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,#e6ecf3 0%,rgba(230,236,243,.6) 18%,rgba(230,236,243,0) 45%)}

@@ -81,7 +81,7 @@ export default function KbShellLayout({
             <LanguageSelector />
           </div>
         </div>
-        <div className="kbs-content">
+        <div className={`kbs-content${active === 'institucional' ? ' kbs-content-institutional' : ''}`}>
           {active !== 'institucional' && <KbHero title={heroTitle} subtitle={heroSubtitle} artUrl={heroArtUrl} />}
           {children}
         </div>
