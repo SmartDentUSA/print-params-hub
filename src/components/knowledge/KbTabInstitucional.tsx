@@ -317,10 +317,8 @@ export default function KbTabInstitucional() {
         </div>
       </header>
 
-      <div className="sdi-wrap">
-        <div className="sdi-stats">
-          {c.stats.map(([b, s]) => <div className="sdi-stat" key={b}><b>{b}</b><span>{s}</span></div>)}
-        </div>
+        <div className="sdi-wrap">
+
 
         <div className="sdi-logos">
           {c.logos.map(([t, s], i) => (
