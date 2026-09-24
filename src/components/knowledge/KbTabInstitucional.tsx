@@ -162,20 +162,21 @@ const css = `
 .sdi *{box-sizing:border-box}
 .sdi a{color:inherit;text-decoration:none}
 .sdi-wrap{max-width:none;margin:0;padding:0 clamp(24px,5vw,80px)}
-.sdi-hero{position:relative;min-height:660px;display:flex;align-items:center;padding:88px 0 96px}
-.sdi-hero-bg{position:absolute;top:0;bottom:0;right:0;left:52%;z-index:-1;background-color:#e6ecf3;background-repeat:no-repeat;background-position:right center;background-size:cover}
-.sdi-hero-bg:after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,#e6ecf3 0%,rgba(230,236,243,.6) 18%,rgba(230,236,243,0) 45%)}
+.sdi-hero{position:relative;min-height:660px;display:flex;align-items:center;padding:88px 0 96px;overflow:hidden;background:#26344a}
+.sdi-hero-bg{position:absolute;inset:0;z-index:-1;background-color:#26344a;background-repeat:no-repeat;background-position:center;background-size:cover;overflow:hidden}
+.sdi-hero-bg iframe{position:absolute;top:50%;left:50%;width:max(100vw,177.78vh);height:max(56.25vw,100vh);transform:translate(-50%,-50%);border:0;pointer-events:none}
+.sdi-hero-bg:after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,rgba(22,35,52,.9) 0%,rgba(25,43,62,.72) 42%,rgba(31,71,91,.3) 72%,rgba(31,71,91,.42) 100%)}
 .sdi-grid-fx{display:none}
-.sdi-eyebrow{display:inline-flex;gap:10px;align-items:center;font-size:11.5px;letter-spacing:.28em;text-transform:uppercase;color:var(--mut)}
+.sdi-eyebrow{display:inline-flex;gap:10px;align-items:center;font-size:11.5px;letter-spacing:.28em;text-transform:uppercase;color:rgba(255,255,255,.78)}
 .sdi-eyebrow i{width:28px;height:2px;background:var(--or)}
-.sdi h1{color:var(--txt)!important;-webkit-text-fill-color:currentColor;background:none;font-size:clamp(34px,3.9vw,62px);line-height:1.02;letter-spacing:-.04em;font-weight:300;margin:22px 0 22px;max-width:640px}
-.sdi h1 em{font-style:normal;font-weight:800;display:block;-webkit-text-fill-color:currentColor;color:var(--txt)}
-.sdi-hero .sdi-wrap>*{max-width:min(470px,48%)}.sdi-lead{font-size:clamp(16px,1.3vw,19px);line-height:1.6;color:var(--mut);max-width:520px}
-.sdi-tldr{margin-top:22px;max-width:520px;font-size:13px;line-height:1.6;color:var(--mut);border-left:2px solid var(--or);padding:2px 0 2px 14px}
+.sdi h1{color:#fff!important;-webkit-text-fill-color:currentColor;background:none;font-size:clamp(34px,3.9vw,62px);line-height:1.02;letter-spacing:-.04em;font-weight:300;margin:22px 0 22px;max-width:640px;text-shadow:0 2px 24px rgba(0,0,0,.22)}
+.sdi h1 em{font-style:normal;font-weight:800;display:block;-webkit-text-fill-color:currentColor;color:#fff}
+.sdi-hero .sdi-wrap>*{max-width:min(560px,52%)}.sdi-lead{font-size:clamp(16px,1.3vw,19px);line-height:1.6;color:rgba(255,255,255,.9);max-width:560px}
+.sdi-tldr{margin-top:22px;max-width:560px;font-size:13px;line-height:1.6;color:rgba(255,255,255,.76);border-left:2px solid var(--or);padding:2px 0 2px 14px}
 .sdi-ctas{display:flex;flex-wrap:wrap;gap:12px;margin-top:32px}
 .sdi-btn{display:inline-flex;align-items:center;gap:10px;height:52px;padding:0 26px;border-radius:14px;font-weight:600;font-size:15px;transition:transform .25s,box-shadow .25s,background .25s}
 .sdi-btn:hover{transform:translateY(-2px)}
-.sdi-btn.pri{background:var(--ink);color:#fff;box-shadow:0 14px 34px -14px rgba(47,54,80,.7)}
+.sdi-btn.pri{background:#fff;color:var(--ink);box-shadow:0 14px 34px -14px rgba(0,0,0,.6)}
 .sdi-btn.gho{border:1px solid rgba(255,255,255,.9);background:rgba(255,255,255,.55);backdrop-filter:blur(10px);color:var(--txt)}
 .sdi-btn.gho:hover{background:rgba(255,255,255,.85)}
 .sdi-glass{background:rgba(255,255,255,.55);border:1px solid rgba(255,255,255,.95);backdrop-filter:blur(16px);box-shadow:0 20px 50px -30px rgba(47,54,80,.35)}
@@ -232,7 +233,7 @@ const css = `
 .sdi-rv{animation:sdiUp .8s cubic-bezier(.2,.7,.2,1) both}.sdi-rv.d1{animation-delay:.1s}.sdi-rv.d2{animation-delay:.2s}.sdi-rv.d3{animation-delay:.3s}
 @keyframes sdiUp{from{opacity:0;transform:translateY(18px)}}
 @media(prefers-reduced-motion:reduce){.sdi *{animation:none!important;transition:none!important}}
-@media(max-width:960px){.sdi-hero .sdi-wrap>*{max-width:100%!important}.sdi-cards{grid-template-columns:repeat(2,1fr)}.sdi-steps{grid-template-columns:repeat(2,1fr)}.sdi-step:nth-child(3){border-left:0}.sdi-bento{grid-template-columns:1fr}.sdi-hero-bg{left:0!important;opacity:.35}.sdi-logos{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:960px){.sdi-hero .sdi-wrap>*{max-width:100%!important}.sdi-cards{grid-template-columns:repeat(2,1fr)}.sdi-steps{grid-template-columns:repeat(2,1fr)}.sdi-step:nth-child(3){border-left:0}.sdi-bento{grid-template-columns:1fr}.sdi-hero-bg:after{background:rgba(22,35,52,.74)}.sdi-logos{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:600px){.sdi-cards,.sdi-steps{grid-template-columns:1fr}.sdi-step{border-left:0!important}.sdi-hero{min-height:560px;padding-top:64px}.sdi-panel,.sdi-band{padding:26px}.sdi-logos{gap:10px}.sdi-logo{padding:16px 12px 14px}.sdi-logo img{max-height:36px}}
 `;
 
@@ -241,7 +242,6 @@ export default function KbTabInstitucional() {
   const lang: Lang = (['pt', 'en', 'es'].includes(language) ? language : 'pt') as Lang;
   const c = C[lang];
   const [open, setOpen] = useState<number | null>(0);
-  const [play, setPlay] = useState(false);
   const p = PATHS[lang];
   const wa = WA_SALES + encodeURIComponent(c.waSales);
   const url = SITE + p.home;
@@ -297,7 +297,14 @@ export default function KbTabInstitucional() {
       <style>{css}</style>
 
       <header className="sdi-hero">
-        <div className="sdi-hero-bg" style={{ backgroundImage: `url(${heroImg})` }} aria-hidden />
+        <div className="sdi-hero-bg" style={{ backgroundImage: `url(${heroImg})` }} aria-hidden>
+          <iframe
+            src={`https://www.youtube-nocookie.com/embed/${VIDEO_ID}?autoplay=1&mute=1&loop=1&playlist=${VIDEO_ID}&controls=0&rel=0&playsinline=1&disablekb=1`}
+            title=""
+            tabIndex={-1}
+            allow="autoplay; encrypted-media"
+          />
+        </div>
         <div className="sdi-grid-fx" aria-hidden />
         <div className="sdi-wrap" style={{ width: '100%' }}>
           <span className="sdi-eyebrow sdi-rv"><i />{c.eyebrow}</span>
@@ -353,26 +360,6 @@ export default function KbTabInstitucional() {
           <h2 id="sdi-flow" className="sdi-h2">{c.flowTitle}</h2>
           <div className="sdi-steps" style={{ marginTop: 32 }}>
             {c.flow.map(([t, d]) => <div className="sdi-step" key={t}><h3>{t}</h3><p>{d}</p></div>)}
-          </div>
-        </section>
-
-        <section className="sdi-sec" aria-labelledby="sdi-video">
-          <h2 id="sdi-video" className="sdi-h2">{c.videoTitle}</h2>
-          <p className="sdi-sub">{c.videoSub}</p>
-          <div className="sdi-video">
-            {play ? (
-              <iframe
-                src={`https://www.youtube-nocookie.com/embed/${VIDEO_ID}?autoplay=1&rel=0`}
-                title={VIDEO_TITLE}
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                allowFullScreen
-              />
-            ) : (
-              <button type="button" className="sdi-video-facade" onClick={() => setPlay(true)} aria-label={c.videoTitle}>
-                <img src={VIDEO_THUMB} alt={VIDEO_TITLE} loading="lazy" />
-                <span className="sdi-play"><svg viewBox="0 0 24 24" width="30" height="30" fill="currentColor" aria-hidden><path d="M8 5v14l11-7z" /></svg></span>
-              </button>
-            )}
           </div>
         </section>
 
