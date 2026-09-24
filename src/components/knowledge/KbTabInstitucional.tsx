@@ -137,7 +137,7 @@ const SOL_IMGS = [
   'https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/catalog-images/products/resina-3d-smart-print-bio-vitality-longa-duracao-1784782470169.png',
   'https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/catalog-images/products/scanner-intraoral-medit-i600-2.png',
   'https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/c3f880d0-3841-4bda-8f62-757594eff6dd-1764283866699.webp',
-  IMG + 'ikain1x6wfa_1768439639882.png',
+  IMG + 'zboysil9dqc_1768439495195.png',
   'https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/18206007-3dbb-4f06-9f6c-8f2d49503152-1764283862887.webp',
   'https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/catalog-images/products/nanoclean-pod-limpeza-resina-3d-odontologica-sem-alcool-1784902807481.png',
 ];
@@ -150,8 +150,8 @@ const css = `
 .sdi a{color:inherit;text-decoration:none}
 .sdi-wrap{max-width:1180px;margin:0 auto;padding:0 clamp(20px,4vw,48px)}
 .sdi-hero{position:relative;min-height:660px;display:flex;align-items:center;padding:88px 0 96px}
-.sdi-hero-bg{position:absolute;inset:0;z-index:-1;background:center right/cover no-repeat}
-.sdi-hero-bg:after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,#e6ecf3 22%,rgba(230,236,243,.75) 42%,rgba(230,236,243,0) 62%)}
+.sdi-hero-bg{position:absolute;inset:0;z-index:-1;background-color:#e6ecf3;background-repeat:no-repeat;background-position:right bottom;background-size:auto 100%}
+.sdi-hero-bg:after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,#e6ecf3 38%,rgba(230,236,243,.85) 50%,rgba(230,236,243,0) 66%)}
 .sdi-grid-fx{display:none}
 .sdi-eyebrow{display:inline-flex;gap:10px;align-items:center;font-size:11.5px;letter-spacing:.28em;text-transform:uppercase;color:var(--mut)}
 .sdi-eyebrow i{width:28px;height:2px;background:var(--or)}
@@ -296,7 +296,7 @@ export default function KbTabInstitucional() {
               const Ic = SOL_ICONS[i];
               return (
                 <div className="sdi-card" key={t}>
-                  <div className="sdi-card-img" style={{ backgroundImage: `url(${SOL_IMGS[i]}), radial-gradient(60% 60% at 50% 70%, #ffffff 0%, #e9eef5 70%)`, backgroundSize: i === 3 ? '60% auto, cover' : 'auto 78%, cover' }} role="img" aria-label={t} />
+                  <div className="sdi-card-img" style={{ backgroundImage: `url(${SOL_IMGS[i]}), radial-gradient(60% 60% at 50% 70%, #ffffff 0%, #e9eef5 70%)`, backgroundSize: i === 3 ? '60% auto, cover' : 'auto 78%, cover', backgroundBlendMode: 'multiply, normal' }} role="img" aria-label={t} />
                   <div className="sdi-card-b">
                     <div className="sdi-card-ic"><Ic size={18} /></div>
                     <h3>{t}</h3>
