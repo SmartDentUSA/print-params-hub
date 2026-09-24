@@ -1,1 +1,2 @@
 - [x] Fluxo IG AIPRO: fluxo criado em social_flows e provisionado na Zernio (automation 6ab3e456ace5079aa7604c61); causa do não disparo = fluxo não tinha sido criado
+- [x] Lista de Leads: identificar no card compra na Loja Integrada, indicação KOL e origem em congresso/evento
