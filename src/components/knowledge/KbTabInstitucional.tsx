@@ -151,7 +151,7 @@ const css = `
 .sdi-wrap{max-width:1180px;margin:0 auto;padding:0 clamp(20px,4vw,48px)}
 .sdi-hero{position:relative;min-height:660px;display:flex;align-items:center;padding:88px 0 96px}
 .sdi-hero-bg{position:absolute;top:0;bottom:0;right:0;left:52%;z-index:-1;background-color:#e6ecf3;background-repeat:no-repeat;background-position:right center;background-size:cover}
-.sdi-hero-bg:after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,#e6ecf3 0%,rgba(230,236,243,0) 30%)}
+.sdi-hero-bg:after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,#e6ecf3 0%,rgba(230,236,243,.6) 18%,rgba(230,236,243,0) 45%)}
 .sdi-grid-fx{display:none}
 .sdi-eyebrow{display:inline-flex;gap:10px;align-items:center;font-size:11.5px;letter-spacing:.28em;text-transform:uppercase;color:var(--mut)}
 .sdi-eyebrow i{width:28px;height:2px;background:var(--or)}
