@@ -3,10 +3,10 @@ import { Helmet } from 'react-helmet-async';
 import { ArrowRight, MessageCircle, ShieldCheck, GraduationCap, Printer, ScanLine, Layers, Sparkles, Beaker, ChevronDown, MapPin, Building2, FlaskConical, Award } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import heroImg from '@/assets/institucional-hero-produtos.jpg';
-import logoFda from '@/assets/logo-fda.png.asset.json';
-import logoIso from '@/assets/logo-iso.png.asset.json';
-import logoUnc from '@/assets/logo-unc.png.asset.json';
-import logoUsp from '@/assets/logo-usp.png.asset.json';
+import logoFda from '@/assets/logo-fda.png';
+import logoIso from '@/assets/logo-iso.png';
+import logoUnc from '@/assets/logo-unc.png';
+import logoUsp from '@/assets/logo-usp.png';
 
 const VIDEO_ID = 'HyGSOn6gIsw';
 const VIDEO_THUMB = `https://i.ytimg.com/vi/${VIDEO_ID}/maxresdefault.jpg`;
