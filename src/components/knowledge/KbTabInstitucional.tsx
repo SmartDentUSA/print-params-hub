@@ -3,6 +3,16 @@ import { Helmet } from 'react-helmet-async';
 import { ArrowRight, MessageCircle, ShieldCheck, GraduationCap, Printer, ScanLine, Layers, Sparkles, Beaker, ChevronDown, MapPin, Building2, FlaskConical, Award } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import heroImg from '@/assets/institucional-hero-produtos.jpg';
+import logoFda from '@/assets/logo-fda.png.asset.json';
+import logoIso from '@/assets/logo-iso.png.asset.json';
+import logoUnc from '@/assets/logo-unc.png.asset.json';
+import logoUsp from '@/assets/logo-usp.png.asset.json';
+
+const VIDEO_ID = 'HyGSOn6gIsw';
+const VIDEO_THUMB = `https://i.ytimg.com/vi/${VIDEO_ID}/maxresdefault.jpg`;
+const VIDEO_TITLE = 'Descubra o poder do Chair Side com resina Vitality';
+const LOGOS = [logoFda, logoIso, logoUnc, logoUsp];
+const LOGO_DIM: Array<[number, number]> = [[900, 188], [900, 324], [900, 387], [900, 366]];
 
 type Lang = 'pt' | 'en' | 'es';
 const SITE = 'https://parametros.smartdent.com.br';
@@ -27,6 +37,8 @@ const C = {
     tldr: 'Em resumo: a Smart Dent é uma empresa brasileira de odontologia digital (São Carlos-SP, 2009) com subsidiária nos EUA (Charlotte-NC), que fornece resinas 3D biocompatíveis, scanners, impressoras, softwares CAD e treinamento com suporte técnico incluso.',
     ctaTalk: 'Falar com especialista', ctaStore: 'Visitar a loja', ctaParams: 'Acessar parâmetros',
     stats: [['2009', 'Fundação em São Carlos-SP'], ['FDA', 'Est. nº 3027526455'], ['12+', 'UDIs no AccessGUDID'], ['R1', 'Parceira UNC Charlotte']],
+    videoTitle: 'Conheça a Smart Dent', videoSub: 'Descubra o poder do Chair Side com resina Vitality — o fluxo digital completo dentro do seu consultório.',
+    logos: [['FDA', 'Registro nº 3027526455'], ['ISO 13485', 'Gestão da qualidade'], ['UNC Charlotte', 'Parceira universitária R1'], ['USP', 'Origem da empresa · 2009']],
     solTitle: 'Nossas soluções', solSub: 'Tudo o que o consultório e o laboratório precisam — do escaneamento ao acabamento.',
     sol: [
       ['Resinas 3D odontológicas', 'Biocompatíveis, com certificações ISO 10993, ANVISA e FDA.', 'resinas-3d', 'resina-3d-smartprint-bio-vitality'],
@@ -65,6 +77,8 @@ const C = {
     tldr: 'In short: Smart Dent is a Brazilian digital dentistry company (São Carlos, 2009) with a US subsidiary (Charlotte, NC), supplying biocompatible 3D resins, scanners, printers, CAD software and training with technical support included.',
     ctaTalk: 'Talk to a specialist', ctaStore: 'Visit the store', ctaParams: 'Printing parameters',
     stats: [['2009', 'Founded in São Carlos, Brazil'], ['FDA', 'Est. No. 3027526455'], ['12+', 'UDIs on AccessGUDID'], ['R1', 'UNC Charlotte partner']],
+    videoTitle: 'Meet Smart Dent', videoSub: 'Discover the power of Chair Side with Vitality resin — the complete digital workflow inside your practice.',
+    logos: [['FDA', 'Est. No. 3027526455'], ['ISO 13485', 'Quality management'], ['UNC Charlotte', 'R1 University partner'], ['USP', 'Company origin · 2009']],
     solTitle: 'Our solutions', solSub: 'Everything clinics and labs need — from scanning to finishing.',
     sol: [
       ['Dental 3D resins', 'Biocompatible, ISO 10993, ANVISA and FDA certified.', 'resinas-3d', 'resina-3d-smartprint-bio-vitality'],
@@ -102,6 +116,8 @@ const C = {
     tldr: 'En resumen: Smart Dent es una empresa brasileña de odontología digital (São Carlos, 2009) con filial en EE. UU. (Charlotte, NC), que ofrece resinas 3D biocompatibles, escáneres, impresoras, software CAD y formación con soporte técnico incluido.',
     ctaTalk: 'Hablar con un especialista', ctaStore: 'Visitar la tienda', ctaParams: 'Parámetros de impresión',
     stats: [['2009', 'Fundada en São Carlos, Brasil'], ['FDA', 'Est. nº 3027526455'], ['12+', 'UDIs en AccessGUDID'], ['R1', 'Socia de UNC Charlotte']],
+    videoTitle: 'Conozca Smart Dent', videoSub: 'Descubra el poder del Chair Side con resina Vitality — el flujo digital completo en su consultorio.',
+    logos: [['FDA', 'Registro n.º 3027526455'], ['ISO 13485', 'Gestión de calidad'], ['UNC Charlotte', 'Socia universitaria R1'], ['USP', 'Origen de la empresa · 2009']],
     solTitle: 'Nuestras soluciones', solSub: 'Todo lo que clínicas y laboratorios necesitan — del escaneo al acabado.',
     sol: [
       ['Resinas 3D odontológicas', 'Biocompatibles, certificadas ISO 10993, ANVISA y FDA.', 'resinas-3d', 'resina-3d-smartprint-bio-vitality'],
@@ -169,6 +185,17 @@ const css = `
 .sdi-stats{display:grid;grid-template-columns:repeat(4,1fr);border-radius:22px;margin-top:-56px;position:relative;background:rgba(255,255,255,.6);border:1px solid #fff;backdrop-filter:blur(16px);box-shadow:0 24px 60px -34px rgba(47,54,80,.4)}
 .sdi-stat{padding:26px 24px;border-left:1px solid var(--line);text-align:center}.sdi-stat:first-child{border:0}
 .sdi-stat b{display:block;font-size:30px;font-weight:800;letter-spacing:-.03em;color:var(--txt)}.sdi-stat span{font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--mut)}
+.sdi-logos{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-top:20px}
+.sdi-logo{border-radius:18px;background:rgba(255,255,255,.62);border:1px solid #fff;backdrop-filter:blur(14px);padding:22px 16px 18px;display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center;box-shadow:0 14px 34px -26px rgba(47,54,80,.35)}
+.sdi-logo img{max-height:46px;max-width:72%;object-fit:contain}
+.sdi-logo b{font-size:14px;font-weight:800;letter-spacing:.04em}
+.sdi-logo span{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--mut)}
+.sdi-video{position:relative;max-width:980px;aspect-ratio:16/9;border-radius:24px;overflow:hidden;box-shadow:0 30px 70px -35px rgba(47,54,80,.55);background:#2f3650}
+.sdi-video iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
+.sdi-video-facade{all:unset;cursor:pointer;position:absolute;inset:0;display:block}
+.sdi-video-facade img{width:100%;height:100%;object-fit:cover;display:block}
+.sdi-play{position:absolute;inset:0;margin:auto;width:76px;height:76px;border-radius:50%;display:grid;place-items:center;background:rgba(255,255,255,.92);color:var(--or);box-shadow:0 18px 40px -12px rgba(47,54,80,.6);transition:transform .25s}
+.sdi-video-facade:hover .sdi-play{transform:scale(1.08)}
 .sdi-sec{padding:96px 0 0}
 .sdi-h2{color:var(--txt);font-size:clamp(28px,3.4vw,46px);letter-spacing:-.035em;line-height:1.05;margin:0 0 12px;font-weight:300}
 .sdi-h2 b,.sdi-h2 strong{font-weight:800}
@@ -210,8 +237,8 @@ const css = `
 .sdi-rv{animation:sdiUp .8s cubic-bezier(.2,.7,.2,1) both}.sdi-rv.d1{animation-delay:.1s}.sdi-rv.d2{animation-delay:.2s}.sdi-rv.d3{animation-delay:.3s}
 @keyframes sdiUp{from{opacity:0;transform:translateY(18px)}}
 @media(prefers-reduced-motion:reduce){.sdi *{animation:none!important;transition:none!important}}
-@media(max-width:960px){.sdi-hero .sdi-wrap>*{max-width:100%!important}.sdi-cards{grid-template-columns:repeat(2,1fr)}.sdi-steps{grid-template-columns:repeat(2,1fr)}.sdi-step:nth-child(3){border-left:0}.sdi-bento{grid-template-columns:1fr}.sdi-stats{grid-template-columns:repeat(2,1fr)}.sdi-stat:nth-child(3){border-left:0}.sdi-hero-bg{left:0!important;opacity:.35}}
-@media(max-width:600px){.sdi-cards,.sdi-steps{grid-template-columns:1fr}.sdi-step{border-left:0!important}.sdi-hero{min-height:560px;padding-top:64px}.sdi-panel,.sdi-band{padding:26px}}
+@media(max-width:960px){.sdi-hero .sdi-wrap>*{max-width:100%!important}.sdi-cards{grid-template-columns:repeat(2,1fr)}.sdi-steps{grid-template-columns:repeat(2,1fr)}.sdi-step:nth-child(3){border-left:0}.sdi-bento{grid-template-columns:1fr}.sdi-stats{grid-template-columns:repeat(2,1fr)}.sdi-stat:nth-child(3){border-left:0}.sdi-hero-bg{left:0!important;opacity:.35}.sdi-logos{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:600px){.sdi-cards,.sdi-steps{grid-template-columns:1fr}.sdi-step{border-left:0!important}.sdi-hero{min-height:560px;padding-top:64px}.sdi-panel,.sdi-band{padding:26px}.sdi-logos{gap:10px}.sdi-logo{padding:16px 12px 14px}.sdi-logo img{max-height:36px}}
 `;
 
 export default function KbTabInstitucional() {
@@ -219,6 +246,7 @@ export default function KbTabInstitucional() {
   const lang: Lang = (['pt', 'en', 'es'].includes(language) ? language : 'pt') as Lang;
   const c = C[lang];
   const [open, setOpen] = useState<number | null>(0);
+  const [play, setPlay] = useState(false);
   const p = PATHS[lang];
   const wa = WA_SALES + encodeURIComponent(c.waSales);
   const url = SITE + p.home;
@@ -245,6 +273,12 @@ export default function KbTabInstitucional() {
       {
         '@type': 'ItemList', name: c.solTitle,
         itemListElement: c.sol.map((s, i) => ({ '@type': 'ListItem', position: i + 1, name: s[0], url: `${STORE}/${s[2]}` })),
+      },
+      {
+        '@type': 'VideoObject', '@id': `${url}#video`, name: VIDEO_TITLE, description: c.videoSub,
+        thumbnailUrl: [VIDEO_THUMB], embedUrl: `https://www.youtube-nocookie.com/embed/${VIDEO_ID}`,
+        contentUrl: `https://www.youtube.com/watch?v=${VIDEO_ID}`,
+        publisher: { '@id': `${SITE}/#org` },
       },
     ],
   };
@@ -288,6 +322,16 @@ export default function KbTabInstitucional() {
           {c.stats.map(([b, s]) => <div className="sdi-stat" key={b}><b>{b}</b><span>{s}</span></div>)}
         </div>
 
+        <div className="sdi-logos">
+          {c.logos.map(([t, s], i) => (
+            <div className="sdi-logo" key={t}>
+              <img src={LOGOS[i].url} alt={t} width={LOGO_DIM[i][0]} height={LOGO_DIM[i][1]} loading="lazy" />
+              <b>{t}</b>
+              <span>{s}</span>
+            </div>
+          ))}
+        </div>
+
         <section className="sdi-sec" aria-labelledby="sdi-sol">
           <h2 id="sdi-sol" className="sdi-h2">{c.solTitle}</h2>
           <p className="sdi-sub">{c.solSub}</p>
@@ -316,6 +360,26 @@ export default function KbTabInstitucional() {
           <h2 id="sdi-flow" className="sdi-h2">{c.flowTitle}</h2>
           <div className="sdi-steps" style={{ marginTop: 32 }}>
             {c.flow.map(([t, d]) => <div className="sdi-step" key={t}><h3>{t}</h3><p>{d}</p></div>)}
+          </div>
+        </section>
+
+        <section className="sdi-sec" aria-labelledby="sdi-video">
+          <h2 id="sdi-video" className="sdi-h2">{c.videoTitle}</h2>
+          <p className="sdi-sub">{c.videoSub}</p>
+          <div className="sdi-video">
+            {play ? (
+              <iframe
+                src={`https://www.youtube-nocookie.com/embed/${VIDEO_ID}?autoplay=1&rel=0`}
+                title={VIDEO_TITLE}
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                allowFullScreen
+              />
+            ) : (
+              <button type="button" className="sdi-video-facade" onClick={() => setPlay(true)} aria-label={c.videoTitle}>
+                <img src={VIDEO_THUMB} alt={VIDEO_TITLE} loading="lazy" />
+                <span className="sdi-play"><svg viewBox="0 0 24 24" width="30" height="30" fill="currentColor" aria-hidden><path d="M8 5v14l11-7z" /></svg></span>
+              </button>
+            )}
           </div>
         </section>
 
