@@ -115,6 +115,8 @@ const C = {
     tldr: 'En resumen: Smart Dent es una empresa brasileña de odontología digital (São Carlos, 2009) con filial en EE. UU. (Charlotte, NC), que ofrece resinas 3D biocompatibles, escáneres, impresoras, software CAD y formación con soporte técnico incluido.',
     ctaTalk: 'Hablar con un especialista', ctaStore: 'Visitar la tienda', ctaParams: 'Parámetros de impresión',
     stats: [['2009', 'Fundada en São Carlos, Brasil'], ['FDA', 'Est. nº 3027526455'], ['12+', 'UDIs en AccessGUDID'], ['R1', 'Socia de UNC Charlotte']],
+    videoTitle: 'Conozca Smart Dent', videoSub: 'Descubra el poder del Chair Side con resina Vitality — el flujo digital completo en su consultorio.',
+    logos: [['FDA', 'Registro n.º 3027526455'], ['ISO 13485', 'Gestión de calidad'], ['UNC Charlotte', 'Socia universitaria R1'], ['USP', 'Origen de la empresa · 2009']],
     solTitle: 'Nuestras soluciones', solSub: 'Todo lo que clínicas y laboratorios necesitan — del escaneo al acabado.',
     sol: [
       ['Resinas 3D odontológicas', 'Biocompatibles, certificadas ISO 10993, ANVISA y FDA.', 'resinas-3d', 'resina-3d-smartprint-bio-vitality'],
@@ -182,6 +184,17 @@ const css = `
 .sdi-stats{display:grid;grid-template-columns:repeat(4,1fr);border-radius:22px;margin-top:-56px;position:relative;background:rgba(255,255,255,.6);border:1px solid #fff;backdrop-filter:blur(16px);box-shadow:0 24px 60px -34px rgba(47,54,80,.4)}
 .sdi-stat{padding:26px 24px;border-left:1px solid var(--line);text-align:center}.sdi-stat:first-child{border:0}
 .sdi-stat b{display:block;font-size:30px;font-weight:800;letter-spacing:-.03em;color:var(--txt)}.sdi-stat span{font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--mut)}
+.sdi-logos{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-top:20px}
+.sdi-logo{border-radius:18px;background:rgba(255,255,255,.62);border:1px solid #fff;backdrop-filter:blur(14px);padding:22px 16px 18px;display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center;box-shadow:0 14px 34px -26px rgba(47,54,80,.35)}
+.sdi-logo img{max-height:46px;max-width:72%;object-fit:contain}
+.sdi-logo b{font-size:14px;font-weight:800;letter-spacing:.04em}
+.sdi-logo span{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--mut)}
+.sdi-video{position:relative;max-width:980px;aspect-ratio:16/9;border-radius:24px;overflow:hidden;box-shadow:0 30px 70px -35px rgba(47,54,80,.55);background:#2f3650}
+.sdi-video iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
+.sdi-video-facade{all:unset;cursor:pointer;position:absolute;inset:0;display:block}
+.sdi-video-facade img{width:100%;height:100%;object-fit:cover;display:block}
+.sdi-play{position:absolute;inset:0;margin:auto;width:76px;height:76px;border-radius:50%;display:grid;place-items:center;background:rgba(255,255,255,.92);color:var(--or);box-shadow:0 18px 40px -12px rgba(47,54,80,.6);transition:transform .25s}
+.sdi-video-facade:hover .sdi-play{transform:scale(1.08)}
 .sdi-sec{padding:96px 0 0}
 .sdi-h2{color:var(--txt);font-size:clamp(28px,3.4vw,46px);letter-spacing:-.035em;line-height:1.05;margin:0 0 12px;font-weight:300}
 .sdi-h2 b,.sdi-h2 strong{font-weight:800}
