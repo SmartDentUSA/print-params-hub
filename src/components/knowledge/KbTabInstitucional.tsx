@@ -147,7 +147,7 @@ const C = {
 
 const SOL_ICONS = [Beaker, ScanLine, Printer, Layers, Sparkles, FlaskConical];
 const SOL_IMGS = [
-  'https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/catalog-images/products/resina-3d-smart-print-bio-vitality-longa-duracao-1784782470169.png',
+  resinasLinha.url,
   'https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/catalog-images/products/scanner-intraoral-medit-i600-2.png',
   'https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products/c3f880d0-3841-4bda-8f62-757594eff6dd-1764283866699.webp',
   IMG + 'zboysil9dqc_1768439495195.png',
