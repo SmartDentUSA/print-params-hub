@@ -274,7 +274,7 @@ export default function KbTabInstitucional() {
       },
       {
         '@type': 'ItemList', name: c.solTitle,
-        itemListElement: c.sol.map((s, i) => ({ '@type': 'ListItem', position: i + 1, name: s[0], url: `${ORIGIN}${p.kb}?tab=catalogo&cat=${SOL_CATS[i]}` })),
+        itemListElement: c.sol.map((s, i) => ({ '@type': 'ListItem', position: i + 1, name: s[0], url: `${SITE}${p.kb}?tab=catalogo&cat=${SOL_CATS[i]}` })),
       },
       {
         '@type': 'VideoObject', '@id': `${url}#video`, name: VIDEO_TITLE, description: c.videoSub,
