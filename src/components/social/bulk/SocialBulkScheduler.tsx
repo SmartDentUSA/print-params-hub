@@ -67,6 +67,7 @@ export function SocialBulkScheduler() {
   const [igReels, setIgReels] = useState(true);
   const [igStories, setIgStories] = useState(false);
   const [igHideFromGrid, setIgHideFromGrid] = useState(false);
+  const [ytFormat, setYtFormat] = useState<'Vídeo' | 'Shorts'>('Vídeo');
   const [startDate, setStartDate] = useState(() => addDays(new Date().toISOString().slice(0, 10), 1));
   const [interval, setIntervalDays] = useState(1);
   const [time, setTime] = useState(10 * 60);
