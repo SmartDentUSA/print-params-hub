@@ -10,6 +10,8 @@ export const channelSchema = z.object({
   subreddit: z.string().optional(),
   reddit_kind: z.enum(['self', 'link', 'image']).optional(),
   tiktok_privacy: z.enum(['public', 'friends', 'private']).optional(),
+  // Instagram Reels: false = não exibir na grade do feed do perfil
+  ig_share_to_feed: z.boolean().optional(),
 });
 export type ChannelInput = z.infer<typeof channelSchema>;
 

@@ -44,8 +44,11 @@ export function StepChannels({ value, onChange }: Props) {
     });
   };
 
+  const isIgReels = (c: ChannelInput) =>
+    c.platform === 'instagram' && /reel/i.test(c.format ?? '');
+
   const needsExtras = (c: ChannelInput) =>
-    c.platform === 'youtube' || c.platform === 'pinterest' || c.platform === 'reddit' || c.platform === 'tiktok';
+    c.platform === 'youtube' || c.platform === 'pinterest' || c.platform === 'reddit' || c.platform === 'tiktok' || isIgReels(c);
 
   return (
     <div className="space-y-4">
@@ -170,6 +173,20 @@ export function StepChannels({ value, onChange }: Props) {
                           <SelectItem value="private">Privado</SelectItem>
                         </SelectContent>
                       </Select>
+                    </div>
+                  )}
+
+                  {isIgReels(c) && (
+                    <div className="col-span-2">
+                      <label className="flex items-center gap-2 text-xs cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          className="accent-primary w-4 h-4"
+                          checked={c.ig_share_to_feed === false}
+                          onChange={(e) => update(c.platform, c.format, { ig_share_to_feed: e.target.checked ? false : true })}
+                        />
+                        Não mostrar na grade do feed (aparece só na aba Reels)
+                      </label>
                     </div>
                   )}
                 </div>
