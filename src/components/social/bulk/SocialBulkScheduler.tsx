@@ -167,7 +167,7 @@ export function SocialBulkScheduler() {
               if (igStories) out.push({ platform: c, format: 'Stories', ...base });
               return out;
             }
-            if (c === 'youtube') return { platform: c, format: 'Shorts', title: copy.caption.split('\n')[0].slice(0, 100) };
+            if (c === 'youtube') return { platform: c, format: ytFormat, title: copy.caption.split('\n')[0].slice(0, 100) };
             if (c === 'tiktok') return { platform: c, format: 'Vídeo', tiktok_privacy: 'public' };
             const title = (copy.caption || '').split('\n')[0].slice(0, 100) || 'Smart Dent';
             if (c === 'pinterest') return { platform: c, format: isVideo ? 'Video Pin' : 'Image Pin', title, ...(pinBoard.trim() ? { pinterest_board: pinBoard.trim() } : {}) };
