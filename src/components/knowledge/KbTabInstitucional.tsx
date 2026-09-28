@@ -92,6 +92,7 @@ const C = {
     flowTitle: 'How it works', flow: [['Free consultation', 'We understand your workflow and budget.'], ['Tailored proposal', 'Only what makes sense for your business.'], ['Delivery & setup', 'Contract, invoice and assisted installation.'], ['Training & support', 'In-person and online courses, support included.']],
     storyTitle: 'Science applied to dentistry', story: 'Founded in 2009 in São Carlos, Brazil, as MMTech, led by Marcelo Del Guerra and Marcelo Cestari with an EESC-USP academic background. Born from applied research in dental materials and CNC manufacturing, funded by FAPESP, CAPES and CNPq — leading to the ChairSide Print workflow.',
     usTitle: 'Presence in the United States', us: 'Since 2022, MMTech North America LLC operates in Charlotte, NC (10800 Sikes Place) and on the UNC Charlotte campus (Grigg Hall 146) as a University Business Partner of this R1 research university.',
+    distTitle: 'Distributors', dist: 'Our network of official distributors brings Smart Dent consumables and equipment to clinics and labs across the Americas. Every approved distributor gets an official page on our domain, marketing material and technical support straight from the factory.', distCta1: 'See the current network', distCta2: 'Become a distributor',
     boughtTitle: 'Bought our resin?', boughtSub: 'Find validated parameters for your 3D printer.',
     faqTitle: 'Frequently asked questions',
     faq: [
