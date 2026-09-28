@@ -15,6 +15,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useMediaUpload } from '@/hooks/social/useMediaUpload';
 import type { MediaItem } from '@/lib/social/postSchema';
 import { localInputToIso } from '@/lib/social/scheduleTime';
+import { SOCIAL_CHANNELS, type SocialPlatform } from '@/lib/socialChannels';
 import { extractAudioMp3Base64, extractFrames } from '@/lib/social/videoExtract';
 
 const MAX_VIDEO_BYTES = 500 * 1024 * 1024;
@@ -23,13 +24,12 @@ const TZ = 'America/Sao_Paulo';
 const MIN_T = 7 * 60;
 const MAX_T = 21 * 60;
 
-type ChannelKey = 'instagram' | 'facebook' | 'tiktok' | 'youtube';
-const CHANNELS: { key: ChannelKey; label: string }[] = [
-  { key: 'instagram', label: 'Instagram (Feed / Reels)' },
-  { key: 'facebook', label: 'Facebook' },
-  { key: 'tiktok', label: 'TikTok (só vídeos)' },
-  { key: 'youtube', label: 'YouTube Shorts (só vídeos)' },
-];
+type ChannelKey = SocialPlatform;
+const VIDEO_ONLY: ChannelKey[] = ['tiktok', 'youtube'];
+const CHANNELS: { key: ChannelKey; label: string }[] = (Object.keys(SOCIAL_CHANNELS) as ChannelKey[]).map((k) => ({
+  key: k,
+  label: `${SOCIAL_CHANNELS[k].emoji} ${SOCIAL_CHANNELS[k].label}${VIDEO_ONLY.includes(k) ? ' (só vídeos)' : ''}`,
+}));
 
 const fmtTime = (m: number) => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
 const handles = (s: string) =>
@@ -69,6 +69,8 @@ export function SocialBulkScheduler() {
   const [companies, setCompanies] = useState('');
   const [people, setPeople] = useState('');
   const [collabs, setCollabs] = useState('');
+  const [subreddit, setSubreddit] = useState('');
+  const [pinBoard, setPinBoard] = useState('');
   const [instructions, setInstructions] = useState('');
   const [running, setRunning] = useState(false);
   const [step, setStep] = useState({ done: 0, total: 0, label: '' });
@@ -103,6 +105,7 @@ export function SocialBulkScheduler() {
   const handleSchedule = async () => {
     if (!media.length) return toast.error('Escolha pelo menos uma mídia');
     if (!channels.length) return toast.error('Escolha pelo menos um canal');
+    if (channels.includes('reddit') && !subreddit.trim()) return toast.error('Informe o subreddit para o Reddit');
     if (collabList.length > 3) return toast.error('O Instagram aceita no máximo 3 colaboradores');
     const firstIso = localInputToIso(`${plan[0].date}T${plan[0].time}`, TZ);
     if (!firstIso || new Date(firstIso).getTime() < Date.now()) return toast.error('A primeira data precisa ser no futuro');
@@ -149,13 +152,19 @@ export function SocialBulkScheduler() {
 
         const userTags = tagList.map((username) => ({ username }));
         const chs = channels
-          .filter((c) => isVideo || (c !== 'tiktok' && c !== 'youtube'))
+          .filter((c) => isVideo || !VIDEO_ONLY.includes(c))
           .map((c) => {
             if (c === 'instagram') {
               return { platform: c, format: isVideo ? 'Reels' : 'Feed', userTags, collaborators: collabList };
             }
             if (c === 'youtube') return { platform: c, format: 'Shorts', title: copy.caption.split('\n')[0].slice(0, 100) };
             if (c === 'tiktok') return { platform: c, format: 'Vídeo', tiktok_privacy: 'public' };
+            const title = (copy.caption || '').split('\n')[0].slice(0, 100) || 'Smart Dent';
+            if (c === 'pinterest') return { platform: c, format: isVideo ? 'Video Pin' : 'Image Pin', title, ...(pinBoard.trim() ? { pinterest_board: pinBoard.trim() } : {}) };
+            if (c === 'reddit') return { platform: c, format: 'Imagem', reddit_kind: 'image', subreddit: subreddit.trim().replace(/^r\//, ''), title };
+            if (c === 'gmb') return { platform: c, format: 'Update' };
+            if (c === 'gallery') return { platform: c, format: 'Mídia' };
+            if (c === 'facebook') return { platform: c, format: isVideo ? 'Reels' : 'Post' };
             return { platform: c, format: 'Post' };
           });
         if (!chs.length) throw new Error('Nenhum canal aceita esta mídia');
