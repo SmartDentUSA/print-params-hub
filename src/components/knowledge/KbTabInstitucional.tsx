@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Helmet } from 'react-helmet-async';
-import { ArrowRight, MessageCircle, ShieldCheck, GraduationCap, Printer, ScanLine, Layers, Sparkles, Beaker, ChevronDown, MapPin, Building2, FlaskConical, Award } from 'lucide-react';
+import { ArrowRight, MessageCircle, ShieldCheck, GraduationCap, Printer, ScanLine, Layers, Sparkles, Beaker, ChevronDown, MapPin, Building2, FlaskConical, Award, Globe2 } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import heroImg from '@/assets/institucional-hero-produtos.jpg';
 import logoFda from '@/assets/logo-fda.png';
@@ -52,6 +52,7 @@ const C = {
     flowTitle: 'Como funciona', flow: [['Consultoria gratuita', 'Entendemos seu fluxo e seu investimento.'], ['Proposta sob medida', 'Apenas o que faz sentido para o seu negócio.'], ['Entrega e instalação', 'Contrato, nota fiscal e instalação assistida.'], ['Treinamento e suporte', 'Cursos presenciais e online com suporte incluso.']],
     storyTitle: 'Ciência aplicada à odontologia', story: 'Fundada em 2009 em São Carlos (SP) como MMTech Projetos Tecnológicos, liderada por Marcelo Del Guerra e Marcelo Cestari, com background na EESC-USP. Nasceu da pesquisa aplicada em materiais odontológicos e manufatura CNC, com apoio de FAPESP, CAPES e CNPq — e culminou no fluxo ChairSide Print, que leva a odontologia digital para dentro do consultório.',
     usTitle: 'Presença nos Estados Unidos', us: 'Desde 2022 a MMTech North America LLC opera em Charlotte (NC), com escritório na 10800 Sikes Place e presença no campus da UNC Charlotte (Grigg Hall 146) como University Business Partner — universidade de pesquisa R1.',
+    distTitle: 'Distribuidores', dist: 'Nossa rede de distribuidores oficiais leva os insumos e os equipamentos Smart Dent para clínicas e laboratórios em toda a América. Cada distribuidor aprovado ganha página oficial no nosso domínio, material de divulgação e suporte técnico direto da fábrica.', distCta1: 'Ver a rede atual', distCta2: 'Quero ser distribuidor',
     boughtTitle: 'Comprou nossa resina?', boughtSub: 'Encontre os parâmetros validados para a sua impressora 3D.',
     faqTitle: 'Perguntas frequentes',
     faq: [
@@ -91,6 +92,7 @@ const C = {
     flowTitle: 'How it works', flow: [['Free consultation', 'We understand your workflow and budget.'], ['Tailored proposal', 'Only what makes sense for your business.'], ['Delivery & setup', 'Contract, invoice and assisted installation.'], ['Training & support', 'In-person and online courses, support included.']],
     storyTitle: 'Science applied to dentistry', story: 'Founded in 2009 in São Carlos, Brazil, as MMTech, led by Marcelo Del Guerra and Marcelo Cestari with an EESC-USP academic background. Born from applied research in dental materials and CNC manufacturing, funded by FAPESP, CAPES and CNPq — leading to the ChairSide Print workflow.',
     usTitle: 'Presence in the United States', us: 'Since 2022, MMTech North America LLC operates in Charlotte, NC (10800 Sikes Place) and on the UNC Charlotte campus (Grigg Hall 146) as a University Business Partner of this R1 research university.',
+    distTitle: 'Distributors', dist: 'Our network of official distributors brings Smart Dent consumables and equipment to clinics and labs across the Americas. Every approved distributor gets an official page on our domain, marketing material and technical support straight from the factory.', distCta1: 'See the current network', distCta2: 'Become a distributor',
     boughtTitle: 'Bought our resin?', boughtSub: 'Find validated parameters for your 3D printer.',
     faqTitle: 'Frequently asked questions',
     faq: [
@@ -129,6 +131,7 @@ const C = {
     flowTitle: 'Cómo funciona', flow: [['Consultoría gratuita', 'Entendemos su flujo y su inversión.'], ['Propuesta a medida', 'Solo lo que tiene sentido para su negocio.'], ['Entrega e instalación', 'Contrato, factura e instalación asistida.'], ['Formación y soporte', 'Cursos presenciales y online con soporte incluido.']],
     storyTitle: 'Ciencia aplicada a la odontología', story: 'Fundada en 2009 en São Carlos (Brasil) como MMTech, liderada por Marcelo Del Guerra y Marcelo Cestari, con formación en la EESC-USP. Nació de la investigación aplicada en materiales dentales y manufactura CNC, con apoyo de FAPESP, CAPES y CNPq.',
     usTitle: 'Presencia en Estados Unidos', us: 'Desde 2022, MMTech North America LLC opera en Charlotte (NC), en 10800 Sikes Place y en el campus de UNC Charlotte (Grigg Hall 146) como University Business Partner, universidad de investigación R1.',
+    distTitle: 'Distribuidores', dist: 'Nuestra red de distribuidores oficiales lleva los insumos y equipos Smart Dent a clínicas y laboratorios de toda América. Cada distribuidor aprobado recibe una página oficial en nuestro dominio, material de difusión y soporte técnico directo de fábrica.', distCta1: 'Ver la red actual', distCta2: 'Quiero ser distribuidor',
     boughtTitle: '¿Compró nuestra resina?', boughtSub: 'Encuentre los parámetros validados para su impresora 3D.',
     faqTitle: 'Preguntas frecuentes',
     faq: [
@@ -218,7 +221,10 @@ const css = `
 .sdi-step{padding:30px 26px;border-left:1px solid var(--line);position:relative}.sdi-step:first-child{border:0}
 .sdi-step:before{counter-increment:s;content:"0" counter(s);font-size:13px;font-weight:800;letter-spacing:.2em;color:var(--or);display:block;margin-bottom:14px}
 .sdi-step h3{margin:0 0 6px;font-size:16px;font-weight:700}.sdi-step p{margin:0;color:var(--mut);font-size:14px;line-height:1.55}
-.sdi-bento{display:grid;grid-template-columns:1.3fr 1fr;gap:20px}
+.sdi-bento{display:grid;grid-template-columns:1.2fr 1fr 1fr;gap:20px}
+.sdi-panel-a{display:flex;flex-wrap:wrap;gap:10px;margin-top:22px}
+.sdi-panel-a a{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:600;padding:9px 14px;border-radius:999px;background:#fff;color:var(--ink);box-shadow:0 8px 20px -14px rgba(47,54,80,.5)}
+.sdi-panel-a a.or{background:var(--or);color:#fff}
 .sdi-panel{border-radius:24px;padding:38px;background:rgba(255,255,255,.62);border:1px solid #fff;backdrop-filter:blur(14px);box-shadow:0 18px 44px -30px rgba(47,54,80,.35)}
 .sdi-panel svg{color:var(--or)}
 .sdi-panel h3{font-size:24px;font-weight:700;margin:14px 0 12px;letter-spacing:-.02em}.sdi-panel p{color:var(--mut);line-height:1.7;margin:0;font-size:15px}
@@ -377,6 +383,15 @@ export default function KbTabInstitucional() {
               <h3>{c.usTitle}</h3>
               <p>{c.us}</p>
               <div className="sdi-badges"><span><ShieldCheck size={12} style={{ verticalAlign: -2 }} /> FDA 3027526455</span><span><Award size={12} style={{ verticalAlign: -2 }} /> UNC Charlotte</span><span>ISO 10993</span><span>ANVISA</span></div>
+            </div>
+            <div className="sdi-panel">
+              <Globe2 />
+              <h3>{c.distTitle}</h3>
+              <p>{c.dist}</p>
+              <div className="sdi-panel-a">
+                <a href="/distribuidores">{c.distCta1}<ArrowRight size={14} /></a>
+                <a className="or" href="/cadastro-distribuidor">{c.distCta2}<ArrowRight size={14} /></a>
+              </div>
             </div>
           </div>
         </section>
