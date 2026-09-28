@@ -81,9 +81,9 @@ const C = {
     solTitle: 'Our solutions', solSub: 'Everything clinics and labs need — from scanning to finishing.',
     sol: [
       ['Dental 3D resins', 'Biocompatible, ISO 10993, ANVISA and FDA certified.', 'resinas-3d', 'resina-3d-smartprint-bio-vitality'],
+      ['Planning software', 'exocad DentalCAD, exoplan and Smart Slicer.', 'exocad-software-cad', 'software-cad-exocad-dentcad'],
       ['Intraoral & desktop scanners', 'Medit i600, i700 and BLZ INO200.', 'scanners-3d', 'ios-medit-i600'],
       ['Dental 3D printers', 'Rayshape, Asiga, Elegoo and the ChairSide Print workflow.', 'impressoras-3d', 'impressora-3d-rayshape-edge-mini'],
-      ['Planning software', 'exocad DentalCAD, exoplan and Smart Slicer.', 'exocad-software-cad', 'software-cad-exocad-dentcad'],
       ['Post-curing & characterization', 'Asiga Cure, ShapeCure, SmartMake, SmartGum and GlazeON.', 'maleta-smart-make', 'caracterizacao-smart-make'],
       ['Cleaning & cementation', 'NanoClean, UNIKK cement and SmartOrto adhesive.', 'nanoclean', 'cimento-unikk'],
     ],
@@ -119,9 +119,9 @@ const C = {
     solTitle: 'Nuestras soluciones', solSub: 'Todo lo que clínicas y laboratorios necesitan — del escaneo al acabado.',
     sol: [
       ['Resinas 3D odontológicas', 'Biocompatibles, certificadas ISO 10993, ANVISA y FDA.', 'resinas-3d', 'resina-3d-smartprint-bio-vitality'],
+      ['Software de planificación', 'exocad DentalCAD, exoplan y Smart Slicer.', 'exocad-software-cad', 'software-cad-exocad-dentcad'],
       ['Escáneres intraorales y de mesa', 'Medit i600, i700 y BLZ INO200.', 'scanners-3d', 'ios-medit-i600'],
       ['Impresoras 3D odontológicas', 'Rayshape, Asiga, Elegoo y el flujo ChairSide Print.', 'impressoras-3d', 'impressora-3d-rayshape-edge-mini'],
-      ['Software de planificación', 'exocad DentalCAD, exoplan y Smart Slicer.', 'exocad-software-cad', 'software-cad-exocad-dentcad'],
       ['Poscurado y caracterización', 'Asiga Cure, ShapeCure, SmartMake, SmartGum y GlazeON.', 'maleta-smart-make', 'caracterizacao-smart-make'],
       ['Limpieza y cementación', 'NanoClean, cemento UNIKK y adhesivo SmartOrto.', 'nanoclean', 'cimento-unikk'],
     ],
