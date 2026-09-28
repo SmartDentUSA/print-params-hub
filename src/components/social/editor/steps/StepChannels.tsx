@@ -175,6 +175,20 @@ export function StepChannels({ value, onChange }: Props) {
                       </Select>
                     </div>
                   )}
+
+                  {isIgReels(c) && (
+                    <div className="col-span-2">
+                      <label className="flex items-center gap-2 text-xs cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          className="accent-primary w-4 h-4"
+                          checked={c.ig_share_to_feed === false}
+                          onChange={(e) => update(c.platform, c.format, { ig_share_to_feed: e.target.checked ? false : true })}
+                        />
+                        Não mostrar na grade do feed (aparece só na aba Reels)
+                      </label>
+                    </div>
+                  )}
                 </div>
               </div>
             );
