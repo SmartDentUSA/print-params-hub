@@ -52,6 +52,7 @@ const C = {
     flowTitle: 'Como funciona', flow: [['Consultoria gratuita', 'Entendemos seu fluxo e seu investimento.'], ['Proposta sob medida', 'Apenas o que faz sentido para o seu negócio.'], ['Entrega e instalação', 'Contrato, nota fiscal e instalação assistida.'], ['Treinamento e suporte', 'Cursos presenciais e online com suporte incluso.']],
     storyTitle: 'Ciência aplicada à odontologia', story: 'Fundada em 2009 em São Carlos (SP) como MMTech Projetos Tecnológicos, liderada por Marcelo Del Guerra e Marcelo Cestari, com background na EESC-USP. Nasceu da pesquisa aplicada em materiais odontológicos e manufatura CNC, com apoio de FAPESP, CAPES e CNPq — e culminou no fluxo ChairSide Print, que leva a odontologia digital para dentro do consultório.',
     usTitle: 'Presença nos Estados Unidos', us: 'Desde 2022 a MMTech North America LLC opera em Charlotte (NC), com escritório na 10800 Sikes Place e presença no campus da UNC Charlotte (Grigg Hall 146) como University Business Partner — universidade de pesquisa R1.',
+    distTitle: 'Distribuidores', dist: 'Nossa rede de distribuidores oficiais leva os insumos e os equipamentos Smart Dent para clínicas e laboratórios em toda a América. Cada distribuidor aprovado ganha página oficial no nosso domínio, material de divulgação e suporte técnico direto da fábrica.', distCta1: 'Ver a rede atual', distCta2: 'Quero ser distribuidor',
     boughtTitle: 'Comprou nossa resina?', boughtSub: 'Encontre os parâmetros validados para a sua impressora 3D.',
     faqTitle: 'Perguntas frequentes',
     faq: [
