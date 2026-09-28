@@ -221,7 +221,10 @@ const css = `
 .sdi-step{padding:30px 26px;border-left:1px solid var(--line);position:relative}.sdi-step:first-child{border:0}
 .sdi-step:before{counter-increment:s;content:"0" counter(s);font-size:13px;font-weight:800;letter-spacing:.2em;color:var(--or);display:block;margin-bottom:14px}
 .sdi-step h3{margin:0 0 6px;font-size:16px;font-weight:700}.sdi-step p{margin:0;color:var(--mut);font-size:14px;line-height:1.55}
-.sdi-bento{display:grid;grid-template-columns:1.3fr 1fr;gap:20px}
+.sdi-bento{display:grid;grid-template-columns:1.2fr 1fr 1fr;gap:20px}
+.sdi-panel-a{display:flex;flex-wrap:wrap;gap:10px;margin-top:22px}
+.sdi-panel-a a{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:600;padding:9px 14px;border-radius:999px;background:#fff;color:var(--ink);box-shadow:0 8px 20px -14px rgba(47,54,80,.5)}
+.sdi-panel-a a.or{background:var(--or);color:#fff}
 .sdi-panel{border-radius:24px;padding:38px;background:rgba(255,255,255,.62);border:1px solid #fff;backdrop-filter:blur(14px);box-shadow:0 18px 44px -30px rgba(47,54,80,.35)}
 .sdi-panel svg{color:var(--or)}
 .sdi-panel h3{font-size:24px;font-weight:700;margin:14px 0 12px;letter-spacing:-.02em}.sdi-panel p{color:var(--mut);line-height:1.7;margin:0;font-size:15px}
