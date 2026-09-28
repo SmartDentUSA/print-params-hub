@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Helmet } from 'react-helmet-async';
-import { ArrowRight, MessageCircle, ShieldCheck, GraduationCap, Printer, ScanLine, Layers, Sparkles, Beaker, ChevronDown, MapPin, Building2, FlaskConical, Award } from 'lucide-react';
+import { ArrowRight, MessageCircle, ShieldCheck, GraduationCap, Printer, ScanLine, Layers, Sparkles, Beaker, ChevronDown, MapPin, Building2, FlaskConical, Award, Globe2 } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import heroImg from '@/assets/institucional-hero-produtos.jpg';
 import logoFda from '@/assets/logo-fda.png';
