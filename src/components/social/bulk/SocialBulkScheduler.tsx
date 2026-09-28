@@ -63,6 +63,10 @@ export function SocialBulkScheduler() {
   const [media, setMedia] = useState<MediaItem[]>([]);
   const fileMap = useRef(new Map<string, File>());
   const [channels, setChannels] = useState<ChannelKey[]>(['instagram']);
+  const [igFeed, setIgFeed] = useState(true);
+  const [igReels, setIgReels] = useState(true);
+  const [igStories, setIgStories] = useState(false);
+  const [igHideFromGrid, setIgHideFromGrid] = useState(false);
   const [startDate, setStartDate] = useState(() => addDays(new Date().toISOString().slice(0, 10), 1));
   const [interval, setIntervalDays] = useState(1);
   const [time, setTime] = useState(10 * 60);
@@ -153,9 +157,14 @@ export function SocialBulkScheduler() {
         const userTags = tagList.map((username) => ({ username }));
         const chs = channels
           .filter((c) => isVideo || !VIDEO_ONLY.includes(c))
-          .map((c) => {
+          .flatMap((c) => {
             if (c === 'instagram') {
-              return { platform: c, format: isVideo ? 'Reels' : 'Feed', userTags, collaborators: collabList };
+              const base = { userTags, collaborators: collabList };
+              const out: any[] = [];
+              if (igFeed) out.push({ platform: c, format: 'Feed', ...base });
+              if (isVideo && igReels) out.push({ platform: c, format: 'Reels', ...base, ...(igHideFromGrid ? { ig_share_to_feed: false } : {}) });
+              if (igStories) out.push({ platform: c, format: 'Stories', ...base });
+              return out;
             }
             if (c === 'youtube') return { platform: c, format: 'Shorts', title: copy.caption.split('\n')[0].slice(0, 100) };
             if (c === 'tiktok') return { platform: c, format: 'Vídeo', tiktok_privacy: 'public' };
@@ -180,7 +189,7 @@ export function SocialBulkScheduler() {
           timezone: TZ,
           publish_now: false,
           status: 'scheduled',
-          post_type: isVideo ? 'reels' : 'feed',
+          post_type: isVideo ? (igStories && !igFeed && !igReels ? 'story' : 'reels') : (igStories && !igFeed ? 'story' : 'feed'),
           created_by: auth.user?.email ?? auth.user?.id ?? null,
         } as any);
         if (insErr) throw insErr;
@@ -248,6 +257,28 @@ export function SocialBulkScheduler() {
               </label>
             ))}
           </div>
+          {channels.includes('instagram') && (
+            <div className="rounded-md border p-3 space-y-2">
+              <p className="text-sm font-medium">📸 Instagram — formatos</p>
+              <div className="flex flex-wrap gap-4">
+                <label className="flex items-center gap-2 text-sm cursor-pointer">
+                  <Checkbox checked={igFeed} onCheckedChange={(v) => setIgFeed(!!v)} /> Feed
+                </label>
+                <label className="flex items-center gap-2 text-sm cursor-pointer">
+                  <Checkbox checked={igReels} onCheckedChange={(v) => setIgReels(!!v)} /> Reels (só vídeos)
+                </label>
+                <label className="flex items-center gap-2 text-sm cursor-pointer">
+                  <Checkbox checked={igStories} onCheckedChange={(v) => setIgStories(!!v)} /> Stories
+                </label>
+              </div>
+              {igReels && (
+                <label className="flex items-center gap-2 text-sm cursor-pointer text-muted-foreground">
+                  <Checkbox checked={igHideFromGrid} onCheckedChange={(v) => setIgHideFromGrid(!!v)} />
+                  Não mostrar Reels na grade do feed (aparece só na aba Reels)
+                </label>
+              )}
+            </div>
+          )}
           {(channels.includes('reddit') || channels.includes('pinterest')) && (
             <div className="grid md:grid-cols-2 gap-3">
               {channels.includes('reddit') && (
