@@ -65,6 +65,7 @@ const SocialSequences = lazy(() => import("./components/social/broadcasts/Social
 const SocialContacts = lazy(() => import("./components/social/broadcasts/SocialContacts").then(m => ({ default: m.SocialContacts })));
 const SocialReviews = lazy(() => import("./components/social/reviews/SocialReviews").then(m => ({ default: m.SocialReviews })));
 const SocialInbox = lazy(() => import("./components/social/inbox/SocialInbox").then(m => ({ default: m.SocialInbox })));
+const SocialBulkScheduler = lazy(() => import("./components/social/bulk/SocialBulkScheduler").then(m => ({ default: m.SocialBulkScheduler })));
 const PostGrupos = lazy(() => import("./components/social/PostGrupos").then(m => ({ default: m.PostGrupos })));
 
 function PageTracker() {
@@ -117,6 +118,7 @@ const App = () => (
         <Route index element={<SocialDashboard />} />
         <Route path="banco" element={<SocialPostsBank />} />
         <Route path="novo" element={<SocialPostEditor />} />
+        <Route path="agendamento-massa" element={<SocialBulkScheduler />} />
         <Route path=":id/editar" element={<SocialPostEditor />} />
         <Route path="calendario" element={<SocialCalendar />} />
         <Route path="analytics" element={<SocialAnalytics />} />
