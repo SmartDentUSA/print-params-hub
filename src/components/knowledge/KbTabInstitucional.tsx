@@ -384,6 +384,15 @@ export default function KbTabInstitucional() {
               <p>{c.us}</p>
               <div className="sdi-badges"><span><ShieldCheck size={12} style={{ verticalAlign: -2 }} /> FDA 3027526455</span><span><Award size={12} style={{ verticalAlign: -2 }} /> UNC Charlotte</span><span>ISO 10993</span><span>ANVISA</span></div>
             </div>
+            <div className="sdi-panel">
+              <Globe2 />
+              <h3>{c.distTitle}</h3>
+              <p>{c.dist}</p>
+              <div className="sdi-panel-a">
+                <a href="/distribuidores">{c.distCta1}<ArrowRight size={14} /></a>
+                <a className="or" href="/cadastro-distribuidor">{c.distCta2}<ArrowRight size={14} /></a>
+              </div>
+            </div>
           </div>
         </section>
 
