@@ -157,7 +157,7 @@ export function SocialBulkScheduler() {
         const userTags = tagList.map((username) => ({ username }));
         const chs = channels
           .filter((c) => isVideo || !VIDEO_ONLY.includes(c))
-          .map((c) => {
+          .flatMap((c) => {
             if (c === 'instagram') {
               const base = { userTags, collaborators: collabList };
               const out: any[] = [];
