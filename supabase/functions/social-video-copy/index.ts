@@ -369,7 +369,11 @@ Deno.serve(async (req) => {
     const rawCaption = String(parsed.caption || "").replace(/#([\p{L}\p{N}_]{2,60})/gu, "").replace(/\n{3,}/g, "\n\n").trim();
     const evidence = [parsed.transcript, parsed.on_screen_text, rawCaption].filter(Boolean).join("\n");
     const enforced = ensureAgenda(rawCaption, eventAgendas, evidence);
-    const captionWithMentions = ensureRequiredMentions(enforced.caption);
+    // Agendamento em massa envia skip_required_mentions: a lista fixa de palestrantes/empresas
+    // do evento só vale para o fluxo de evento (VideoCopyStudio).
+    const captionWithMentions = body?.skip_required_mentions === true
+      ? enforced.caption
+      : ensureRequiredMentions(enforced.caption);
 
     return new Response(
       JSON.stringify({
