@@ -67,6 +67,7 @@ export function SocialBulkScheduler() {
   const [igReels, setIgReels] = useState(true);
   const [igStories, setIgStories] = useState(false);
   const [igHideFromGrid, setIgHideFromGrid] = useState(false);
+  const [ytFormat, setYtFormat] = useState<'Vídeo' | 'Shorts'>('Vídeo');
   const [startDate, setStartDate] = useState(() => addDays(new Date().toISOString().slice(0, 10), 1));
   const [interval, setIntervalDays] = useState(1);
   const [time, setTime] = useState(10 * 60);
@@ -166,7 +167,7 @@ export function SocialBulkScheduler() {
               if (igStories) out.push({ platform: c, format: 'Stories', ...base });
               return out;
             }
-            if (c === 'youtube') return { platform: c, format: 'Shorts', title: copy.caption.split('\n')[0].slice(0, 100) };
+            if (c === 'youtube') return { platform: c, format: ytFormat, title: copy.caption.split('\n')[0].slice(0, 100) };
             if (c === 'tiktok') return { platform: c, format: 'Vídeo', tiktok_privacy: 'public' };
             const title = (copy.caption || '').split('\n')[0].slice(0, 100) || 'Smart Dent';
             if (c === 'pinterest') return { platform: c, format: isVideo ? 'Video Pin' : 'Image Pin', title, ...(pinBoard.trim() ? { pinterest_board: pinBoard.trim() } : {}) };
@@ -277,6 +278,19 @@ export function SocialBulkScheduler() {
                   Não mostrar Reels na grade do feed (aparece só na aba Reels)
                 </label>
               )}
+            </div>
+          )}
+          {channels.includes('youtube') && (
+            <div className="rounded-md border p-3 space-y-2">
+              <p className="text-sm font-medium">▶️ YouTube — formato</p>
+              <div className="flex flex-wrap gap-4">
+                <label className="flex items-center gap-2 text-sm cursor-pointer">
+                  <input type="radio" name="yt-format" checked={ytFormat === 'Vídeo'} onChange={() => setYtFormat('Vídeo')} /> Vídeo
+                </label>
+                <label className="flex items-center gap-2 text-sm cursor-pointer">
+                  <input type="radio" name="yt-format" checked={ytFormat === 'Shorts'} onChange={() => setYtFormat('Shorts')} /> Shorts
+                </label>
+              </div>
             </div>
           )}
           {(channels.includes('reddit') || channels.includes('pinterest')) && (
