@@ -146,7 +146,7 @@ const C = {
   },
 } as const;
 
-const SOL_ICONS = [Beaker, ScanLine, Printer, Layers, Sparkles, FlaskConical];
+const SOL_ICONS = [Beaker, Layers, ScanLine, Printer, Sparkles, FlaskConical];
 // Imagens reais de produtos do catálogo (buckets oficiais do Sistema A/B).
 const CAT_IMG = 'https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/catalog-images/products';
 const PROD_IMG = 'https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products';
