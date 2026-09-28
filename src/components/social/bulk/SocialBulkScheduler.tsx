@@ -257,6 +257,28 @@ export function SocialBulkScheduler() {
               </label>
             ))}
           </div>
+          {channels.includes('instagram') && (
+            <div className="rounded-md border p-3 space-y-2">
+              <p className="text-sm font-medium">📸 Instagram — formatos</p>
+              <div className="flex flex-wrap gap-4">
+                <label className="flex items-center gap-2 text-sm cursor-pointer">
+                  <Checkbox checked={igFeed} onCheckedChange={(v) => setIgFeed(!!v)} /> Feed
+                </label>
+                <label className="flex items-center gap-2 text-sm cursor-pointer">
+                  <Checkbox checked={igReels} onCheckedChange={(v) => setIgReels(!!v)} /> Reels (só vídeos)
+                </label>
+                <label className="flex items-center gap-2 text-sm cursor-pointer">
+                  <Checkbox checked={igStories} onCheckedChange={(v) => setIgStories(!!v)} /> Stories
+                </label>
+              </div>
+              {igReels && (
+                <label className="flex items-center gap-2 text-sm cursor-pointer text-muted-foreground">
+                  <Checkbox checked={igHideFromGrid} onCheckedChange={(v) => setIgHideFromGrid(!!v)} />
+                  Não mostrar Reels na grade do feed (aparece só na aba Reels)
+                </label>
+              )}
+            </div>
+          )}
           {(channels.includes('reddit') || channels.includes('pinterest')) && (
             <div className="grid md:grid-cols-2 gap-3">
               {channels.includes('reddit') && (
