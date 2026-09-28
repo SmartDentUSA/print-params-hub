@@ -280,6 +280,19 @@ export function SocialBulkScheduler() {
               )}
             </div>
           )}
+          {channels.includes('youtube') && (
+            <div className="rounded-md border p-3 space-y-2">
+              <p className="text-sm font-medium">▶️ YouTube — formato</p>
+              <div className="flex flex-wrap gap-4">
+                <label className="flex items-center gap-2 text-sm cursor-pointer">
+                  <input type="radio" name="yt-format" checked={ytFormat === 'Vídeo'} onChange={() => setYtFormat('Vídeo')} /> Vídeo
+                </label>
+                <label className="flex items-center gap-2 text-sm cursor-pointer">
+                  <input type="radio" name="yt-format" checked={ytFormat === 'Shorts'} onChange={() => setYtFormat('Shorts')} /> Shorts
+                </label>
+              </div>
+            </div>
+          )}
           {(channels.includes('reddit') || channels.includes('pinterest')) && (
             <div className="grid md:grid-cols-2 gap-3">
               {channels.includes('reddit') && (
