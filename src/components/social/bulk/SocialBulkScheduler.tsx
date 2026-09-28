@@ -15,6 +15,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { useMediaUpload } from '@/hooks/social/useMediaUpload';
 import type { MediaItem } from '@/lib/social/postSchema';
 import { localInputToIso } from '@/lib/social/scheduleTime';
+import { extractAudioMp3Base64, extractFrames } from '@/lib/social/videoExtract';
+
+const MAX_VIDEO_BYTES = 500 * 1024 * 1024;
 
 const TZ = 'America/Sao_Paulo';
 const MIN_T = 7 * 60;
@@ -58,6 +61,7 @@ export function SocialBulkScheduler() {
   const inputRef = useRef<HTMLInputElement>(null);
   const { upload, uploading, progress: upProgress } = useMediaUpload();
   const [media, setMedia] = useState<MediaItem[]>([]);
+  const fileMap = useRef(new Map<string, File>());
   const [channels, setChannels] = useState<ChannelKey[]>(['instagram']);
   const [startDate, setStartDate] = useState(() => addDays(new Date().toISOString().slice(0, 10), 1));
   const [interval, setIntervalDays] = useState(1);
@@ -82,8 +86,17 @@ export function SocialBulkScheduler() {
 
   const onPick = async (files: FileList | null) => {
     if (!files?.length) return;
-    const items = await upload(files);
-    setMedia((m) => [...m, ...items]);
+    const all = Array.from(files);
+    const tooBig = all.filter((f) => f.type.startsWith('video/') && f.size > MAX_VIDEO_BYTES);
+    if (tooBig.length) toast.error(`Vídeo acima de 500 MB ignorado: ${tooBig.map((f) => f.name).join(', ')}`);
+    const ok = all.filter((f) => !tooBig.includes(f));
+    for (const f of ok) {
+      const [item] = await upload([f]);
+      if (item) {
+        fileMap.current.set(item.url, f);
+        setMedia((m) => [...m, item]);
+      }
+    }
     if (inputRef.current) inputRef.current.value = '';
   };
 
@@ -107,10 +120,22 @@ export function SocialBulkScheduler() {
       setStep({ done: i, total: plan.length, label: isVideo ? `Transcrevendo vídeo ${i + 1}...` : `Lendo imagem ${i + 1}...` });
       try {
         const frame = isVideo ? null : await imageToDataUrl(p.media.url);
+        let audio: { base64: string } | null = null;
+        let vFrames: string[] = [];
+        const vf = isVideo ? fileMap.current.get(p.media.url) : undefined;
+        if (vf) {
+          [audio, vFrames] = await Promise.all([
+            extractAudioMp3Base64(vf).catch(() => null),
+            extractFrames(vf, 4).catch(() => [] as string[]),
+          ]);
+        }
+        const extracted = !!audio || vFrames.length > 0;
         const { data, error } = await supabase.functions.invoke('social-video-copy', {
           body: {
-            video_url: isVideo ? p.media.url : undefined,
-            frames: frame ? [frame] : [],
+            video_url: isVideo && !extracted ? p.media.url : undefined,
+            audio_base64: audio?.base64,
+            audio_format: 'mp3',
+            frames: frame ? [frame] : vFrames,
             instructions,
             mentions,
             platform: channels[0],
