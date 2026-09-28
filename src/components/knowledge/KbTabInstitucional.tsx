@@ -131,6 +131,7 @@ const C = {
     flowTitle: 'Cómo funciona', flow: [['Consultoría gratuita', 'Entendemos su flujo y su inversión.'], ['Propuesta a medida', 'Solo lo que tiene sentido para su negocio.'], ['Entrega e instalación', 'Contrato, factura e instalación asistida.'], ['Formación y soporte', 'Cursos presenciales y online con soporte incluido.']],
     storyTitle: 'Ciencia aplicada a la odontología', story: 'Fundada en 2009 en São Carlos (Brasil) como MMTech, liderada por Marcelo Del Guerra y Marcelo Cestari, con formación en la EESC-USP. Nació de la investigación aplicada en materiales dentales y manufactura CNC, con apoyo de FAPESP, CAPES y CNPq.',
     usTitle: 'Presencia en Estados Unidos', us: 'Desde 2022, MMTech North America LLC opera en Charlotte (NC), en 10800 Sikes Place y en el campus de UNC Charlotte (Grigg Hall 146) como University Business Partner, universidad de investigación R1.',
+    distTitle: 'Distribuidores', dist: 'Nuestra red de distribuidores oficiales lleva los insumos y equipos Smart Dent a clínicas y laboratorios de toda América. Cada distribuidor aprobado recibe una página oficial en nuestro dominio, material de difusión y soporte técnico directo de fábrica.', distCta1: 'Ver la red actual', distCta2: 'Quiero ser distribuidor',
     boughtTitle: '¿Compró nuestra resina?', boughtSub: 'Encuentre los parámetros validados para su impresora 3D.',
     faqTitle: 'Preguntas frecuentes',
     faq: [
