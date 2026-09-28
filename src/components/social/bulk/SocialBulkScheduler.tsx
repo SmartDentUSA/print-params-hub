@@ -159,7 +159,12 @@ export function SocialBulkScheduler() {
           .filter((c) => isVideo || !VIDEO_ONLY.includes(c))
           .map((c) => {
             if (c === 'instagram') {
-              return { platform: c, format: isVideo ? 'Reels' : 'Feed', userTags, collaborators: collabList };
+              const base = { userTags, collaborators: collabList };
+              const out: any[] = [];
+              if (igFeed) out.push({ platform: c, format: 'Feed', ...base });
+              if (isVideo && igReels) out.push({ platform: c, format: 'Reels', ...base, ...(igHideFromGrid ? { ig_share_to_feed: false } : {}) });
+              if (igStories) out.push({ platform: c, format: 'Stories', ...base });
+              return out;
             }
             if (c === 'youtube') return { platform: c, format: 'Shorts', title: copy.caption.split('\n')[0].slice(0, 100) };
             if (c === 'tiktok') return { platform: c, format: 'Vídeo', tiktok_privacy: 'public' };
