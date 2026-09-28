@@ -44,8 +44,11 @@ export function StepChannels({ value, onChange }: Props) {
     });
   };
 
+  const isIgReels = (c: ChannelInput) =>
+    c.platform === 'instagram' && /reel/i.test(c.format ?? '');
+
   const needsExtras = (c: ChannelInput) =>
-    c.platform === 'youtube' || c.platform === 'pinterest' || c.platform === 'reddit' || c.platform === 'tiktok';
+    c.platform === 'youtube' || c.platform === 'pinterest' || c.platform === 'reddit' || c.platform === 'tiktok' || isIgReels(c);
 
   return (
     <div className="space-y-4">
