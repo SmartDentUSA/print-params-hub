@@ -189,7 +189,7 @@ export function SocialBulkScheduler() {
           timezone: TZ,
           publish_now: false,
           status: 'scheduled',
-          post_type: isVideo ? 'reels' : 'feed',
+          post_type: isVideo ? (igStories && !igFeed && !igReels ? 'story' : 'reels') : (igStories && !igFeed ? 'story' : 'feed'),
           created_by: auth.user?.email ?? auth.user?.id ?? null,
         } as any);
         if (insErr) throw insErr;
