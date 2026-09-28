@@ -240,12 +240,24 @@ export function SocialBulkScheduler() {
 
       <Card>
         <CardHeader><CardTitle className="text-base">2. Canais</CardTitle></CardHeader>
-        <CardContent className="flex flex-wrap gap-4">
-          {CHANNELS.map((c) => (
-            <label key={c.key} className="flex items-center gap-2 text-sm cursor-pointer">
-              <Checkbox checked={channels.includes(c.key)} onCheckedChange={() => toggleChannel(c.key)} /> {c.label}
-            </label>
-          ))}
+        <CardContent className="space-y-3">
+          <div className="flex flex-wrap gap-4">
+            {CHANNELS.map((c) => (
+              <label key={c.key} className="flex items-center gap-2 text-sm cursor-pointer">
+                <Checkbox checked={channels.includes(c.key)} onCheckedChange={() => toggleChannel(c.key)} /> {c.label}
+              </label>
+            ))}
+          </div>
+          {(channels.includes('reddit') || channels.includes('pinterest')) && (
+            <div className="grid md:grid-cols-2 gap-3">
+              {channels.includes('reddit') && (
+                <div><Label>Subreddit (Reddit)</Label><Input value={subreddit} onChange={(e) => setSubreddit(e.target.value)} placeholder="ex: Dentistry" /></div>
+              )}
+              {channels.includes('pinterest') && (
+                <div><Label>Pasta do Pinterest (opcional)</Label><Input value={pinBoard} onChange={(e) => setPinBoard(e.target.value)} placeholder="nome da pasta" /></div>
+              )}
+            </div>
+          )}
         </CardContent>
       </Card>
 
