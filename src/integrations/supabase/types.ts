@@ -18932,6 +18932,7 @@ export type Database = {
           name: string
           notes: string | null
           pdf_title: string
+          professional_lead_id: string | null
           status: string
           updated_at: string
           valid_from: string | null
@@ -18963,6 +18964,7 @@ export type Database = {
           name: string
           notes?: string | null
           pdf_title?: string
+          professional_lead_id?: string | null
           status?: string
           updated_at?: string
           valid_from?: string | null
@@ -18994,6 +18996,7 @@ export type Database = {
           name?: string
           notes?: string | null
           pdf_title?: string
+          professional_lead_id?: string | null
           status?: string
           updated_at?: string
           valid_from?: string | null

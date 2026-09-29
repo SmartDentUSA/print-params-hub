@@ -93,6 +93,7 @@ export function PromotionalTablesTab() {
       const { data: rows, error } = await supabase
         .from("promotional_tables" as any)
         .select("*")
+        .is("professional_lead_id", null)
         .order("updated_at", { ascending: false });
       if (error) {
         setLoadError(error.message);

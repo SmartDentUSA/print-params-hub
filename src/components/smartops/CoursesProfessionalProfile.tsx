@@ -14,6 +14,7 @@ import { Loader2, Search, Save, Upload, Pencil, Lock } from "lucide-react";
 import PersonPicker from "./PersonPicker";
 import ProfessionalMixSummary from "./ProfessionalMixSummary";
 import ProfessionalQualifications from "./ProfessionalQualifications";
+import ProfessionalCouponsGenerator from "./ProfessionalCouponsGenerator";
 import ProfessionalKolCommercial, { type KolFormRef, type KolCommissionRule, type KolCoupon } from "./ProfessionalKolCommercial";
 import type { QualificationEntry, UniversityRoleEntry } from "@/lib/mecInstitutions";
 
@@ -542,6 +543,15 @@ export default function CoursesProfessionalProfile({ initialEmail, startEditing 
         commissions={form.prof_kol_commissions}
         onCommissionsChange={(v) => setField("prof_kol_commissions", v)}
       />
+
+      {leadId && (
+        <ProfessionalCouponsGenerator
+          leadId={leadId}
+          nome={form.nome || form.email || "Profissional"}
+          kolCoupons={form.prof_kol_coupons}
+          onKolCouponsChange={(v) => setField("prof_kol_coupons", v)}
+        />
+      )}
 
       <ProfessionalMixSummary
         leadId={leadId}
