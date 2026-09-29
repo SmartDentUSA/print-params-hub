@@ -47,9 +47,12 @@ type Props = {
   table: PromotionalTable;
   draft: Partial<PromotionalTable>;
   onDraftChange: (patch: Partial<PromotionalTable>) => void;
+  /** Modo profissional: um único beneficiário (o profissional), sem lista de vendedores. */
+  professional?: { id: string; nome: string };
+  onCouponsGenerated?: (coupons: PromotionalCoupon[]) => void;
 };
 
-export function PromotionalCouponsCard({ table, draft, onDraftChange }: Props) {
+export function PromotionalCouponsCard({ table, draft, onDraftChange, professional, onCouponsGenerated }: Props) {
   const [sellers, setSellers] = useState<Seller[]>([]);
   const [coupons, setCoupons] = useState<PromotionalCoupon[]>([]);
   const [loading, setLoading] = useState(true);
@@ -59,7 +62,8 @@ export function PromotionalCouponsCard({ table, draft, onDraftChange }: Props) {
   const [categories, setCategories] = useState<LiCategory[]>([]);
   const [loadingCats, setLoadingCats] = useState(false);
 
-  const selected = (draft.coupon_seller_ids || []) as string[];
+  const selected = professional ? [professional.id] : ((draft.coupon_seller_ids || []) as string[]);
+  const ownerKey = (coupon: PromotionalCoupon) => (professional ? professional.id : coupon.team_member_id || "");
   const discountType = (draft.coupon_discount_type || "percent") as "percent" | "fixed";
   const categoryIds = (draft.coupon_li_category_ids || []) as number[];
 
@@ -87,6 +91,10 @@ export function PromotionalCouponsCard({ table, draft, onDraftChange }: Props) {
 
   const loadSellers = useCallback(async () => {
     // Mesma lista liberada no formulário do evento; sem evento, toda a equipe ativa.
+    if (professional) {
+      setSellers([{ id: professional.id, nome_completo: professional.nome }]);
+      return;
+    }
     let ids: string[] = [];
     if (draft.event_id) {
       const { data, error: formsError } = await supabase
@@ -112,7 +120,7 @@ export function PromotionalCouponsCard({ table, draft, onDraftChange }: Props) {
     if (ids.length && !(draft.coupon_seller_ids || []).length && list.length) {
       onDraftChange({ coupon_seller_ids: list.map((row) => row.id) });
     }
-  }, [draft.event_id]);
+  }, [draft.event_id, professional?.id, professional?.nome]);
 
   const loadCoupons = useCallback(async () => {
     const { data, error } = await supabase
@@ -134,7 +142,7 @@ export function PromotionalCouponsCard({ table, draft, onDraftChange }: Props) {
     onDraftChange({ coupon_seller_ids: next });
   };
 
-  const prefix = slug(draft.coupon_prefix || draft.name || table.name || "PROMO") || "PROMO";
+  const prefix = slug(draft.coupon_prefix || (professional ? professional.nome.replace(/\s+/g, "") : "") || draft.name || table.name || "PROMO") || "PROMO";
 
   const generateCoupons = async (kind: CouponKind = "discount") => {
     if (!selected.length) { toast.error("Selecione os vendedores autorizados."); return; }
@@ -180,7 +188,7 @@ export function PromotionalCouponsCard({ table, draft, onDraftChange }: Props) {
       // senão o código nunca muda quando o prefixo ou o desconto são alterados.
       const regenerating = new Set(
         coupons
-          .filter((coupon) => couponKind(coupon) === kind && selected.includes(coupon.team_member_id || ""))
+          .filter((coupon) => couponKind(coupon) === kind && selected.includes(ownerKey(coupon)))
           .map((coupon) => coupon.id),
       );
       const used = new Set(coupons.filter((coupon) => !regenerating.has(coupon.id)).map((coupon) => coupon.code));
@@ -189,10 +197,10 @@ export function PromotionalCouponsCard({ table, draft, onDraftChange }: Props) {
         const seller = sellers.find((row) => row.id === id);
         if (!seller) continue;
         const existing = coupons.find(
-          (coupon) => coupon.team_member_id === id && couponKind(coupon) === kind,
+          (coupon) => ownerKey(coupon) === id && couponKind(coupon) === kind,
         );
         // Padrão do código: iniciais do congresso + iniciais do vendedor + número do desconto (+ F no frete grátis).
-        const base = `${prefix}${sellerInitials(seller.nome_completo)}${discountToken(value)}${isFreight ? "F" : ""}`;
+        const base = `${prefix}${professional ? "" : sellerInitials(seller.nome_completo)}${discountToken(value)}${isFreight ? "F" : ""}`;
         let code = base;
         let counter = 2;
         while (used.has(code)) { code = `${base}${counter}`; counter += 1; }
@@ -200,7 +208,7 @@ export function PromotionalCouponsCard({ table, draft, onDraftChange }: Props) {
         rows.push({
           id: existing?.id,
           promotional_table_id: table.id,
-          team_member_id: id,
+          team_member_id: professional ? null : id,
           seller_name: seller.nome_completo,
           code,
           kind,
@@ -227,6 +235,10 @@ export function PromotionalCouponsCard({ table, draft, onDraftChange }: Props) {
         if (error) throw error;
       }
       await loadCoupons();
+      if (onCouponsGenerated) {
+        const { data: fresh } = await supabase.from("promotional_coupons" as any).select("*").eq("promotional_table_id", table.id);
+        onCouponsGenerated(((fresh as any) || []) as PromotionalCoupon[]);
+      }
       toast.success(isFreight ? "Cupons com frete grátis gerados/atualizados." : "Cupons gerados/atualizados.");
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Não foi possível gerar os cupons.");
@@ -315,7 +327,7 @@ export function PromotionalCouponsCard({ table, draft, onDraftChange }: Props) {
     <Card>
       <CardHeader className="pb-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <CardTitle className="flex items-center gap-2 text-base"><Ticket className="h-4 w-4" />Cupons e vendedores autorizados</CardTitle>
+          <CardTitle className="flex items-center gap-2 text-base"><Ticket className="h-4 w-4" />{professional ? "Cupons do profissional (Loja Integrada)" : "Cupons e vendedores autorizados"}</CardTitle>
           <div className="flex items-center gap-3">
             <Badge variant="secondary">{coupons.length} cupom(ns)</Badge>
             <div className="flex items-center gap-2">
@@ -329,7 +341,9 @@ export function PromotionalCouponsCard({ table, draft, onDraftChange }: Props) {
         </div>
 
         <p className="text-xs text-muted-foreground">
-          {sellerSource === "event"
+          {professional
+            ? `Os cupons ficam no nome de ${professional.nome} e entram automaticamente na lista de cupons de indicação.`
+            : sellerSource === "event"
             ? "Lista liberada no formulário deste evento."
             : "Nenhum formulário de evento associado — mostrando toda a equipe ativa."}
         </p>
@@ -375,7 +389,7 @@ export function PromotionalCouponsCard({ table, draft, onDraftChange }: Props) {
 
         </div>
 
-        <div className="space-y-2">
+        <div className={professional ? "hidden" : "space-y-2"}>
           <Label>Vendedores autorizados</Label>
           {loading ? <p className="text-sm text-muted-foreground">Carregando equipe...</p> : (
             <div className="grid gap-2 grid-cols-2">
@@ -444,7 +458,7 @@ export function PromotionalCouponsCard({ table, draft, onDraftChange }: Props) {
         <div className="flex flex-wrap gap-2">
           <Button onClick={() => generateCoupons("discount")} disabled={!!busy}>
             {busy === "discount" ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Ticket className="mr-2 h-4 w-4" />}
-            Gerar cupons dos vendedores
+            {professional ? "Gerar cupom do profissional" : "Gerar cupons dos vendedores"}
           </Button>
           <Button variant="outline" onClick={sendToLojaIntegrada} disabled={syncing || !coupons.length}>
             {syncing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Store className="mr-2 h-4 w-4" />}
