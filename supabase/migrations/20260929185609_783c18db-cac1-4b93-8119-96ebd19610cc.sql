@@ -1,0 +1,2 @@
+ALTER TABLE public.promotional_tables ADD COLUMN IF NOT EXISTS professional_lead_id uuid;
+CREATE UNIQUE INDEX IF NOT EXISTS promotional_tables_professional_uidx ON public.promotional_tables(professional_lead_id) WHERE professional_lead_id IS NOT NULL;
