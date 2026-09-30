@@ -1056,8 +1056,8 @@ export default function PublicFormPage() {
             : "form-grid w-full max-w-5xl mt-1 grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-12 items-start"
         }
       >
-        {/* Left column — media + text (sticky on desktop) */}
-        <div className={`md:sticky md:top-8 space-y-6 ${isEmbed ? "hidden" : ""}`}>
+        {/* Left column — media + text (rola junto com a página) */}
+        <div className={`space-y-6 ${isEmbed ? "hidden" : ""}`}>
           {/* Mídia HERO (somente imagem — vídeos removidos dos formulários) */}
           {form.hero_image_url && (
             <img
