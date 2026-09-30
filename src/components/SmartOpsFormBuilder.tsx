@@ -17,6 +17,7 @@ import type { ShortLinkInfo } from "./smartops/FormMetricsCard";
 import { FormMetricsRow } from "./smartops/FormMetricsRow";
 import { LandingPageBuilderModal } from "./smartops/LandingPageBuilderModal";
 import { FormHeroImageStudio } from "./smartops/forms/FormHeroImageStudio";
+import CoverImageUpload from "./smartops/CoverImageUpload";
 import CredenciamentoConfig from "./smartops/forms/CredenciamentoConfig";
 
 import {
@@ -940,8 +941,11 @@ export function SmartOpsFormBuilder() {
               <div className="border-t pt-3 space-y-3">
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">SDR-Captação / Workflow</p>
                 <div>
-                  <label className="text-xs font-medium">URL da imagem HERO</label>
-                  <Input value={metaHeroImageUrl} onChange={(e) => setMetaHeroImageUrl(e.target.value)} placeholder="https://..." />
+                  <label className="text-xs font-medium">Imagem HERO</label>
+                  <div className="mt-1 mb-2">
+                    <CoverImageUpload value={metaHeroImageUrl} onChange={setMetaHeroImageUrl} />
+                  </div>
+                  <Input value={metaHeroImageUrl} onChange={(e) => setMetaHeroImageUrl(e.target.value)} placeholder="ou cole a URL: https://..." />
                 </div>
                 <div>
                   <label className="text-xs font-medium">ALT da imagem HERO</label>
