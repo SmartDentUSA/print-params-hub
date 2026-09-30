@@ -57,6 +57,7 @@ export interface ProfessionalCourse {
   featured: boolean;
   views_count: number;
   interested_count: number;
+  credenciamento_form_id: string | null;
   created_source: string;
   internal_notes: string | null;
   published_at: string | null;
@@ -72,6 +73,7 @@ export const COURSE_MODALITIES = [
   { value: "gravado", label: "Gravado (on-demand)" },
   { value: "hibrido", label: "Híbrido" },
   { value: "mentoria", label: "Mentoria / consultoria" },
+  { value: "credenciamento", label: "Credenciamento" },
 ];
 
 export const COURSE_CATEGORIES = [
@@ -134,6 +136,7 @@ export const emptyCourseDraft = (): ProfessionalCourseDraft => ({
   certificate: true,
   language: "pt-BR",
   tags: [],
+  credenciamento_form_id: null,
   status: "rascunho",
   public_visible: false,
 });

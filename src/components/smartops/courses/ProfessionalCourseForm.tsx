@@ -1,3 +1,5 @@
+import { useEffect, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -32,6 +34,23 @@ export default function ProfessionalCourseForm({ value, onChange, onUploadCover,
   const v = value;
   const isOnline = v.modality === "online_ao_vivo" || v.modality === "gravado" || v.modality === "hibrido";
   const isPresencial = v.modality === "presencial" || v.modality === "hibrido";
+  const isCredenciamento = v.modality === "credenciamento";
+
+  const [credForms, setCredForms] = useState<{ id: string; name: string; slug: string }[]>([]);
+  useEffect(() => {
+    if (!isCredenciamento) return;
+    let alive = true;
+    (async () => {
+      const { data } = await supabase
+        .from("smartops_forms" as any)
+        .select("id, name, slug")
+        .eq("form_purpose", "credenciamento")
+        .order("name");
+      if (alive) setCredForms(((data as any[]) ?? []) as any);
+    })();
+    return () => { alive = false; };
+  }, [isCredenciamento]);
+
 
   const schedule: ScheduleDay[] = Array.isArray(v.schedule) ? (v.schedule as ScheduleDay[]) : [];
   const syllabus: SyllabusModule[] = Array.isArray(v.syllabus) ? (v.syllabus as SyllabusModule[]) : [];
@@ -77,6 +96,27 @@ export default function ProfessionalCourseForm({ value, onChange, onUploadCover,
                 </SelectContent>
               </Select>
             </div>
+            {isCredenciamento && (
+              <div className="md:col-span-2">
+                <Label>Formulário de credenciamento *</Label>
+                <Select
+                  value={v.credenciamento_form_id ?? undefined}
+                  onValueChange={(x) => onChange({ credenciamento_form_id: x })}
+                >
+                  <SelectTrigger><SelectValue placeholder="Selecione o formulário de credenciamento..." /></SelectTrigger>
+                  <SelectContent>
+                    {credForms.length === 0 ? (
+                      <SelectItem value="__none" disabled>Nenhum formulário de credenciamento criado</SelectItem>
+                    ) : (
+                      credForms.map((f) => <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>)
+                    )}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground mt-1">
+                  As candidaturas serão recebidas por este formulário, que já fica vinculado à ficha do profissional.
+                </p>
+              </div>
+            )}
             <div className="md:col-span-2">
               <Label>Descrição</Label>
               <Textarea rows={4} value={v.description ?? ""} onChange={(e) => onChange({ description: e.target.value })} placeholder="O que o aluno vai aprender, formato das aulas, diferenciais..." />
