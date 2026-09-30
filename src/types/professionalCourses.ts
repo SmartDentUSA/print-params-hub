@@ -72,6 +72,7 @@ export const COURSE_MODALITIES = [
   { value: "gravado", label: "Gravado (on-demand)" },
   { value: "hibrido", label: "Híbrido" },
   { value: "mentoria", label: "Mentoria / consultoria" },
+  { value: "credenciamento", label: "Credenciamento" },
 ];
 
 export const COURSE_CATEGORIES = [
