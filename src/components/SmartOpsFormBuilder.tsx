@@ -17,6 +17,7 @@ import type { ShortLinkInfo } from "./smartops/FormMetricsCard";
 import { FormMetricsRow } from "./smartops/FormMetricsRow";
 import { LandingPageBuilderModal } from "./smartops/LandingPageBuilderModal";
 import { FormHeroImageStudio } from "./smartops/forms/FormHeroImageStudio";
+import CredenciamentoConfig from "./smartops/forms/CredenciamentoConfig";
 
 import {
   Select,
@@ -723,6 +724,11 @@ export function SmartOpsFormBuilder() {
         ) : editingForm.form_purpose === "feira_evento" ? (
           <>
             <FeiraEventoConfig formId={editingForm.id} />
+            <SmartOpsFormEditor formId={editingForm.id} />
+          </>
+        ) : editingForm.form_purpose === "credenciamento" ? (
+          <>
+            <CredenciamentoConfig formId={editingForm.id} />
             <SmartOpsFormEditor formId={editingForm.id} />
           </>
         ) : (
