@@ -18027,6 +18027,7 @@ export type Database = {
           cover_image_url: string | null
           created_at: string
           created_source: string
+          credenciamento_form_id: string | null
           description: string | null
           duration_days: number | null
           end_date: string | null
@@ -18080,6 +18081,7 @@ export type Database = {
           cover_image_url?: string | null
           created_at?: string
           created_source?: string
+          credenciamento_form_id?: string | null
           description?: string | null
           duration_days?: number | null
           end_date?: string | null
@@ -18133,6 +18135,7 @@ export type Database = {
           cover_image_url?: string | null
           created_at?: string
           created_source?: string
+          credenciamento_form_id?: string | null
           description?: string | null
           duration_days?: number | null
           end_date?: string | null
@@ -18177,6 +18180,20 @@ export type Database = {
           workload_hours?: number | null
         }
         Relationships: [
+          {
+            foreignKeyName: "professional_courses_credenciamento_form_id_fkey"
+            columns: ["credenciamento_form_id"]
+            isOneToOne: false
+            referencedRelation: "smartops_forms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "professional_courses_credenciamento_form_id_fkey"
+            columns: ["credenciamento_form_id"]
+            isOneToOne: false
+            referencedRelation: "v_form_health"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "professional_courses_producer_lead_id_fkey"
             columns: ["producer_lead_id"]
@@ -23698,6 +23715,7 @@ export type Database = {
           muted_color: string | null
           name: string
           product_catalog_id: string | null
+          professional_lead_id: string | null
           seo_description: string | null
           seo_keywords: string | null
           seo_title: string | null
@@ -23769,6 +23787,7 @@ export type Database = {
           muted_color?: string | null
           name: string
           product_catalog_id?: string | null
+          professional_lead_id?: string | null
           seo_description?: string | null
           seo_keywords?: string | null
           seo_title?: string | null
@@ -23840,6 +23859,7 @@ export type Database = {
           muted_color?: string | null
           name?: string
           product_catalog_id?: string | null
+          professional_lead_id?: string | null
           seo_description?: string | null
           seo_keywords?: string | null
           seo_title?: string | null
