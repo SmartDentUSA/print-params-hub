@@ -23537,6 +23537,7 @@ export type Database = {
           db_column: string | null
           field_type: string
           form_id: string
+          help_text: string | null
           id: string
           label: string
           options: Json | null
@@ -23555,6 +23556,7 @@ export type Database = {
           db_column?: string | null
           field_type?: string
           form_id: string
+          help_text?: string | null
           id?: string
           label: string
           options?: Json | null
@@ -23573,6 +23575,7 @@ export type Database = {
           db_column?: string | null
           field_type?: string
           form_id?: string
+          help_text?: string | null
           id?: string
           label?: string
           options?: Json | null
