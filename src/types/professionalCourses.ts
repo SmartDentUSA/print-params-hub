@@ -136,6 +136,7 @@ export const emptyCourseDraft = (): ProfessionalCourseDraft => ({
   certificate: true,
   language: "pt-BR",
   tags: [],
+  credenciamento_form_id: null,
   status: "rascunho",
   public_visible: false,
 });
