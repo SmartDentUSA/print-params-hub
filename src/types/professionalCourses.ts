@@ -57,6 +57,7 @@ export interface ProfessionalCourse {
   featured: boolean;
   views_count: number;
   interested_count: number;
+  credenciamento_form_id: string | null;
   created_source: string;
   internal_notes: string | null;
   published_at: string | null;
