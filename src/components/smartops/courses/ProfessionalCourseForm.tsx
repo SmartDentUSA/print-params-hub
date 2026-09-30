@@ -34,6 +34,23 @@ export default function ProfessionalCourseForm({ value, onChange, onUploadCover,
   const v = value;
   const isOnline = v.modality === "online_ao_vivo" || v.modality === "gravado" || v.modality === "hibrido";
   const isPresencial = v.modality === "presencial" || v.modality === "hibrido";
+  const isCredenciamento = v.modality === "credenciamento";
+
+  const [credForms, setCredForms] = useState<{ id: string; name: string; slug: string }[]>([]);
+  useEffect(() => {
+    if (!isCredenciamento) return;
+    let alive = true;
+    (async () => {
+      const { data } = await supabase
+        .from("smartops_forms" as any)
+        .select("id, name, slug")
+        .eq("form_purpose", "credenciamento")
+        .order("name");
+      if (alive) setCredForms(((data as any[]) ?? []) as any);
+    })();
+    return () => { alive = false; };
+  }, [isCredenciamento]);
+
 
   const schedule: ScheduleDay[] = Array.isArray(v.schedule) ? (v.schedule as ScheduleDay[]) : [];
   const syllabus: SyllabusModule[] = Array.isArray(v.syllabus) ? (v.syllabus as SyllabusModule[]) : [];
