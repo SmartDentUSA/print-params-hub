@@ -1,7 +1,7 @@
 - [x] Fluxo IG AIPRO: fluxo criado em social_flows e provisionado na Zernio (automation 6ab3e456ace5079aa7604c61); causa do não disparo = fluxo não tinha sido criado
 - [x] Lista de Leads: identificar no card compra na Loja Integrada, indicação KOL e origem em congresso/evento
-- [ ] Ficha do Profissional: gerador de cupons da Loja Integrada visível no editor "Editar profissional"
-- [ ] Novo tipo de formulário "Credenciamento" (com área de atuação / especialidade padrão)
-- [ ] Campo no editor do formulário de credenciamento para vincular a um profissional (ex.: Erick Adriano de Souza)
-- [ ] Criar formulário "# - [GrinDesignClub] - Credenciamento"
-- [ ] Editor de curso do profissional: nova modalidade "Credenciamento" com seleção do formulário de credenciamento
+- [ ] Ficha do Profissional: gerador de cupons da Loja Integrada visível no editor "Editar profissional" (em investigação — bloqueio de permissão ao criar a tabela oculta de cupons)
+- [x] Novo tipo de formulário "Credenciamento" (com área de atuação / especialidade padrão)
+- [x] Campo no editor do formulário de credenciamento para vincular a um profissional
+- [x] Formulário "# - [GrinDesignClub] - Credenciamento" criado e vinculado a Erick adriano de souza
+- [x] Editor de curso do profissional: modalidade "Credenciamento" com seleção do formulário
