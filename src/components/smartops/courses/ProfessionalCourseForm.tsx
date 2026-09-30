@@ -96,6 +96,27 @@ export default function ProfessionalCourseForm({ value, onChange, onUploadCover,
                 </SelectContent>
               </Select>
             </div>
+            {isCredenciamento && (
+              <div className="md:col-span-2">
+                <Label>Formulário de credenciamento *</Label>
+                <Select
+                  value={v.credenciamento_form_id ?? undefined}
+                  onValueChange={(x) => onChange({ credenciamento_form_id: x })}
+                >
+                  <SelectTrigger><SelectValue placeholder="Selecione o formulário de credenciamento..." /></SelectTrigger>
+                  <SelectContent>
+                    {credForms.length === 0 ? (
+                      <SelectItem value="__none" disabled>Nenhum formulário de credenciamento criado</SelectItem>
+                    ) : (
+                      credForms.map((f) => <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>)
+                    )}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground mt-1">
+                  As candidaturas serão recebidas por este formulário, que já fica vinculado à ficha do profissional.
+                </p>
+              </div>
+            )}
             <div className="md:col-span-2">
               <Label>Descrição</Label>
               <Textarea rows={4} value={v.description ?? ""} onChange={(e) => onChange({ description: e.target.value })} placeholder="O que o aluno vai aprender, formato das aulas, diferenciais..." />
