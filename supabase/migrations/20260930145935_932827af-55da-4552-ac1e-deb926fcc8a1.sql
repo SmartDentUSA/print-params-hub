@@ -1,0 +1,1 @@
+ALTER TABLE public.smartops_form_fields ADD COLUMN IF NOT EXISTS help_text text;
