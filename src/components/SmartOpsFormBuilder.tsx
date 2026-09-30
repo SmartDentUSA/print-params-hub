@@ -795,6 +795,27 @@ export function SmartOpsFormBuilder() {
                   </div>
                 </button>
 
+                {/* Tipo: Credenciamento (habilitado) */}
+                <button
+                  className="w-full text-left rounded-lg border-2 border-violet-300 bg-violet-50 p-3 hover:bg-violet-100 transition-colors"
+                  onClick={() => {
+                    setNewPurpose("credenciamento");
+                    setTimeout(() => nameInputRef.current?.focus(), 50);
+                  }}
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-semibold text-violet-800 text-sm">Credenciamento</p>
+                      <p className="text-xs text-violet-700 mt-0.5">
+                        Candidatura vinculada à ficha de um profissional
+                      </p>
+                    </div>
+                    {newPurpose === "credenciamento" && (
+                      <span className="text-xs bg-violet-600 text-white px-2 py-0.5 rounded">Selecionado</span>
+                    )}
+                  </div>
+                </button>
+
                 {/* Tipos desabilitados */}
                 {(["cm_update_deal", "cs_update_deals", "st_update_deals"] as const).map((key) => {
                   const cfg = PURPOSE_CONFIG[key];
@@ -820,7 +841,7 @@ export function SmartOpsFormBuilder() {
                 <hr className="my-1" />
                 <div className="space-y-2">
                   <p className="text-xs text-slate-600">
-                    {newPurpose === "sdr_captacao" || newPurpose === "feira_evento"
+                    {newPurpose === "sdr_captacao" || newPurpose === "feira_evento" || newPurpose === "credenciamento"
                       ? "Digite um nome interno e clique em Criar."
                       : "Selecione um tipo acima para continuar."}
                   </p>
@@ -835,13 +856,15 @@ export function SmartOpsFormBuilder() {
                     onClick={handleCreate}
                     className="w-full"
                     disabled={
-                      (newPurpose !== "sdr_captacao" && newPurpose !== "feira_evento") ||
+                      (newPurpose !== "sdr_captacao" && newPurpose !== "feira_evento" && newPurpose !== "credenciamento") ||
                       !newName.trim()
                     }
                   >
                     {newPurpose === "feira_evento"
                       ? "Criar formulário Feiras e eventos"
-                      : "Criar formulário SDR — Captação"}
+                      : newPurpose === "credenciamento"
+                        ? "Criar formulário de Credenciamento"
+                        : "Criar formulário SDR — Captação"}
                   </Button>
                 </div>
               </div>
