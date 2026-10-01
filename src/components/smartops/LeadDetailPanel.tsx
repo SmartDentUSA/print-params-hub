@@ -553,7 +553,7 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
       events.push({
         date: leadOriginDate,
         dotCls: "tl-dot-lead",
-        title: "Lead criado no sistema",
+        title: "🤠 Lead criado no sistema",
         desc: `Origem: ${ld.source || "piperun"}${ld.utm_source ? " · " + ld.utm_source : ""}`,
       });
     }
