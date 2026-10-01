@@ -24,6 +24,7 @@ interface FormField {
   order_index: number;
   workflow_cell_target: string | null;
   conditions?: any;
+  help_text?: string | null;
 }
 
 interface FormData {
@@ -1288,6 +1289,9 @@ export default function PublicFormPage() {
 
             {visibleFields.map((field) => (
               <div key={field.id} className="space-y-1.5">
+                {field.help_text && (
+                  <p className="text-xs text-muted-foreground bg-muted/50 rounded-md px-3 py-2 border-l-2 border-primary" style={isEmbed ? { color: "#475569" } : undefined}>{field.help_text}</p>
+                )}
                 <Label style={isEmbed ? { color: "#0f172a", opacity: 1 } : undefined}>
                   {field.label}
                   {field.required && <span className="text-destructive ml-1">*</span>}
