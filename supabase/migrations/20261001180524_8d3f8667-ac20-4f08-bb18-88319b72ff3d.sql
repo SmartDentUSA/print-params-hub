@@ -1,0 +1,1 @@
+revoke execute on function public.fn_link_crm_origin_to_event_form() from public, anon, authenticated;
