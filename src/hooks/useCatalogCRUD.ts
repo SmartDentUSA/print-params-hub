@@ -131,6 +131,9 @@ export const useCatalogCRUD = () => {
     try {
       setLoading(true);
       setError(null);
+      if (!String((product as any).name || '').trim()) {
+        throw new Error('Nome do produto é obrigatório — nada foi salvo.');
+      }
       
       const { data, error } = await supabase
         .from('system_a_catalog')
