@@ -15,6 +15,7 @@ import { CreateTurmaWaGroupButton } from "@/components/smartops/CreateTurmaWaGro
 import { useTurmaWaGroup } from "@/hooks/useTurmaWaGroup";
 import { formatTurmaNumber } from "@/lib/turmaNumber";
 import { TurmaFactoryDialog } from "@/components/smartops/TurmaFactoryDialog";
+import { TurmaWaitlistButton } from "@/components/smartops/TurmaWaitlistButton";
 
 type Variant = "green" | "amber" | "red" | "blue" | "muted";
 
@@ -193,6 +194,9 @@ export function TurmaListRow({ turma, companionCount, status, onEnroll }: Props)
             group={effectiveWaGroup}
             checking={waChecking}
           />
+          {turma.modality === "presencial" && (
+            <TurmaWaitlistButton turmaId={turma.id} courseId={turma.course_id} turmaLabel={turma.label} />
+          )}
           <Button
             size="sm"
             variant={lotado ? "secondary" : "default"}
