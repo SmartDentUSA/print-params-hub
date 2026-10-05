@@ -12,6 +12,7 @@ import { DepoimentoUploadAccordion } from "@/components/agenda/DepoimentoUploadA
 import { PastTrainingsUploadAccordion } from "@/components/agenda/PastTrainingsUploadAccordion";
 import { EventsUploadAccordion } from "@/components/agenda/EventsUploadAccordion";
 import { AccountButton } from "@/components/AccountButton";
+import { Button } from "@/components/ui/button";
 import {
   useTeamMemberSession,
   publicPageStyles,
