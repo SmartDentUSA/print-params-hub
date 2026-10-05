@@ -1,6 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { z } from "https://esm.sh/zod@3.23.8";
 import { getWaAutomationSetting } from "../_shared/wa-automation-settings.ts";
+import { notifyWaitlist } from "../_shared/training-waitlist.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -89,7 +90,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    const allowed = ["online", "online_ao_vivo", "workshop", "webinar"];
+    const allowed = ["online", "online_ao_vivo", "workshop", "webinar", "presencial"];
     if (!allowed.includes(course.modality)) {
       return new Response(JSON.stringify({ error: "modality_not_public" }), {
         status: 400,
@@ -124,7 +125,10 @@ Deno.serve(async (req) => {
       .from("smartops_course_turmas")
       .select("id, label, turma_number, slots, whatsapp_group_link, live_url, sellflux_tag")
       .eq("id", turmaId)
+      .eq("course_id", course.id)
+      .eq("active", true)
       .maybeSingle();
+    if (!turmaRow) throw new Error("turma_not_available");
     const { data: turmaDays } = await supabase
       .from("smartops_turma_days")
       .select("day_number, date, start_time, end_time, topic")
@@ -338,7 +342,37 @@ Deno.serve(async (req) => {
     // 6. Create enrollment (idempotent: reuse active enrollment for same lead+turma)
     let enrollment: { id: string } | null = null;
     let reusedEnrollment = false;
-    {
+    if (course.modality === "presencial") {
+      const { data: registration, error: registerError } = await supabase.rpc("fn_register_presencial_or_waitlist", {
+        p_course_id: course.id, p_turma_id: turmaId, p_lead_id: leadId,
+        p_name: body.nome, p_phone: phone, p_email: email,
+        p_enrollment: {
+          turma_snapshot: turmaSnapshot,
+          is_client_smartdent: isExistingClient || Boolean(body.is_client_smartdent),
+          public_form_payload: { nome: body.nome, email, telefone: phone, qualification: body.qualification, confirmation: body.confirmation },
+        },
+      });
+      if (registerError) throw registerError;
+      if (registration?.status === "waitlisted") {
+        if (!registration.reused) {
+          const { error: activityError } = await supabase.from("lead_activity_log").insert({
+            lead_id: leadId, event_type: "inscricao_lista_espera", entity_type: "course_waitlist",
+            entity_id: registration.waitlist_id, entity_name: course.title, source_channel: "formulario_publico",
+            event_data: { course_id: course.id, turma_id: turmaId, respostas: body.qualification?.form_responses ?? [], description: `Vagas completas — inscrição na lista de espera de ${course.title}` },
+          });
+          if (activityError) console.warn("[waitlist-activity]", activityError);
+        }
+        let notified = false;
+        try { notified = (await notifyWaitlist(supabase, registration.waitlist_id)).ok; }
+        catch (err) { console.warn("[waitlist-notify]", err); }
+        return new Response(JSON.stringify({ ok: true, status: "waitlisted", enrollment_id: null, waitlist_id: registration.waitlist_id, show_nps: false, wa_notified: notified }), {
+          status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      if (!registration?.enrollment_id) throw new Error("enrollment_creation_failed");
+      enrollment = { id: registration.enrollment_id };
+      reusedEnrollment = Boolean(registration.reused);
+    } else {
       const { data: existing } = await supabase
         .from("smartops_course_enrollments")
         .select("id")

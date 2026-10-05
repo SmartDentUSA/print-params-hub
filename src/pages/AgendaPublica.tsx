@@ -12,6 +12,7 @@ import { DepoimentoUploadAccordion } from "@/components/agenda/DepoimentoUploadA
 import { PastTrainingsUploadAccordion } from "@/components/agenda/PastTrainingsUploadAccordion";
 import { EventsUploadAccordion } from "@/components/agenda/EventsUploadAccordion";
 import { AccountButton } from "@/components/AccountButton";
+import { Button } from "@/components/ui/button";
 import {
   useTeamMemberSession,
   publicPageStyles,
@@ -638,6 +639,13 @@ function PublicTurmaCard({ turma, status, driveFolderId = null, driveFolderUrl =
                 <User className="w-3 h-3 shrink-0" />
                 {turma.instructor_name}
               </span>
+            </div>
+          )}
+          {(turma as any).public_enrollment_enabled && (turma as any).course_slug && (
+            <div className="mt-4 flex justify-center">
+              <Button asChild>
+                <a href={`/inscricao/${(turma as any).course_slug}`}>Inscreva-se</a>
+              </Button>
             </div>
           )}
         </>

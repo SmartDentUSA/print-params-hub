@@ -35980,6 +35980,18 @@ export type Database = {
         }
         Returns: string
       }
+      fn_register_presencial_or_waitlist: {
+        Args: {
+          p_course_id: string
+          p_email: string
+          p_enrollment: Json
+          p_lead_id: string
+          p_name: string
+          p_phone: string
+          p_turma_id: string
+        }
+        Returns: Json
+      }
       fn_relatorio_mes_astron: {
         Args: { p_ano: number; p_mes: number }
         Returns: {

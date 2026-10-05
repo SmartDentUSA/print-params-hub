@@ -861,7 +861,7 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
         pipeline_id_kanban: pipelineId,
         stage_after_enroll: stageAfterEnroll,
         public_visible: publicVisible,
-        public_enrollment_enabled: ['online', 'online_ao_vivo', 'acesso_remoto', 'workshop', 'webinar'].includes(modality)
+        public_enrollment_enabled: ['online', 'online_ao_vivo', 'acesso_remoto', 'workshop', 'webinar', 'presencial'].includes(modality)
           ? publicEnrollmentEnabled
           : false,
         active: true,
@@ -1200,7 +1200,7 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
                 </div>
               </div>
 
-              {['online', 'online_ao_vivo', 'acesso_remoto', 'workshop', 'webinar'].includes(modality) && (
+              {['online', 'online_ao_vivo', 'acesso_remoto', 'workshop', 'webinar', 'presencial'].includes(modality) && (
                 <div className="rounded-lg border border-border p-3 space-y-2 bg-muted/30">
                   <div className="flex items-center gap-2">
                     <Switch
@@ -1502,7 +1502,7 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
                 <div className="pt-2 space-y-2 border rounded-md p-3">
                   <div className="flex items-center justify-between">
                     <Label className="text-xs">Lista de espera (quando a turma lotar)</Label>
-                    <Switch checked={waitlistEnabled} onCheckedChange={setWaitlistEnabled} />
+                    <Switch checked={waitlistEnabled} onCheckedChange={(enabled) => { setWaitlistEnabled(enabled); if (enabled) setPublicEnrollmentEnabled(true); }} />
                   </div>
                   {waitlistEnabled && (
                     <>
