@@ -372,7 +372,11 @@ function LeadRow({ lead, active, onClick, nps }: { lead: LeadFull; active: boole
   const hasLojaPurchase = Number(lead.lojaintegrada_total_pedidos_pagos || 0) > 0
     || Number(lead.lojaintegrada_ltv || 0) > 0
     || /pago|aprovado|faturado|enviado|entregue|conclu[ií]do/i.test(lead.lojaintegrada_ultimo_pedido_status || "");
-  const isProfessionalReferral = /\bkol\b|indica[cç][aã]o|indicado\s+por/i.test(`${originText} ${formDataText}`);
+  const kolFormName = [lead.form_name, lead.origem_campanha, lead.origem_primeiro_contato]
+    .find((v) => typeof v === "string" && /^#\s*-\s*(indica[cç][aã]o|publi)\b/i.test(v)) as string | undefined;
+  const kolName = kolFormName ? kolFormName.split(/\s+-\s+/).pop()?.trim() : undefined;
+  const isProfessionalReferral = Boolean(kolFormName) || /\bkol\b|indica[cç][aã]o|indicado\s+por/i.test(`${originText} ${formDataText}`);
+  const referralLabel = kolName ? `PUBLI - ${kolName}` : "Indicação KOL";
   const isCongress = /congress|cipro/i.test(`${originText} ${formDataText}`);
   const isEventLead = Boolean(lead.event_id)
     || /feira[_ -]?evento|\bevento\b|\bfeira\b|\bcipro\b|\bin26\b|congress/i.test(`${originText} ${formDataText}`);
@@ -421,8 +425,8 @@ function LeadRow({ lead, active, onClick, nps }: { lead: LeadFull; active: boole
           </span>
         )}
         {isProfessionalReferral && (
-          <span className="intel-lr-tag intel-tag-referral" title={`Indicação de profissional${originText ? ` · ${originText}` : ""}`}>
-            <UserRoundCheck size={11} aria-hidden="true" /> Indicação KOL
+          <span className="intel-lr-tag intel-tag-referral" title={`Indicação de profissional${kolFormName ? ` · ${kolFormName}` : originText ? ` · ${originText}` : ""}`}>
+            <UserRoundCheck size={11} aria-hidden="true" /> {referralLabel}
           </span>
         )}
         {isEventLead && (
