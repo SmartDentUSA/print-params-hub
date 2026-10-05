@@ -182,7 +182,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
           image_url: '',
           active: true,
           approved: true,
-          visible_in_ui: false,
+          visible_in_ui: true,
           cta_1_label: '',
           cta_1_url: '',
           cta_2_label: '',
@@ -487,6 +487,13 @@ export const AdminModal: React.FC<AdminModalProps> = ({
   };
 
   const handleInputChange = (field: string, value: any) => {
+    // Updater funcional: callbacks assíncronos (upload de foto, importação)
+    // não podem sobrescrever o formulário com uma cópia antiga e apagar o nome.
+    if (field === 'processing_instructions') {
+      setGeneratedCards(null);
+      setCardGenerationError(null);
+    }
+    setFormData((formData: any) => {
     const newFormData = { ...formData, [field]: value };
 
     // Cards e planos são derivados das instruções. Ao editar o texto, não
@@ -500,8 +507,6 @@ export const AdminModal: React.FC<AdminModalProps> = ({
       newFormData.info_card_url_es = null;
       newFormData.info_card_status = null;
       newFormData.info_card_error = null;
-      setGeneratedCards(null);
-      setCardGenerationError(null);
     }
     
     // If brand changes in parameter form, reset the model selection
@@ -517,7 +522,8 @@ export const AdminModal: React.FC<AdminModalProps> = ({
       }
     }
     
-    setFormData(newFormData);
+    return newFormData;
+    });
   };
 
   const handleLojaIntegradaImport = async (importedData: any) => {
