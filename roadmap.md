@@ -5,3 +5,4 @@
 - [x] Campo no editor do formulário de credenciamento para vincular a um profissional
 - [x] Formulário "# - [GrinDesignClub] - Credenciamento" criado e vinculado a Erick adriano de souza
 - [x] Editor de curso do profissional: modalidade "Credenciamento" com seleção do formulário
+- [ ] Inscrição em treinamento presencial lotado: concluir cadastro na lista de espera e exibir confirmação, sem reservar vaga.
