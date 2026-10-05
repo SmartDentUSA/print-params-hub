@@ -54,6 +54,7 @@ export function PublicAPIProductImporter({
           // 12 CAMPOS: 3 visíveis + 6 SEO + 3 correlação
           const mappedData = {
             // Campos visíveis (básicos)
+            name: result.data.name || null,
             image_url: result.data.image_url || null,
             description: result.data.description || null,
             price: result.data.price || null,

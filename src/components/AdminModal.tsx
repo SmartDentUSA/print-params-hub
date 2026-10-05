@@ -537,7 +537,10 @@ export const AdminModal: React.FC<AdminModalProps> = ({
       
       setFormData((prev: any) => ({
         ...prev,
+        name: String(prev.name || '').trim() ? prev.name : (importedData.name || ''),
         description: importedData.description || prev.description || '',
+        product_category: prev.product_category || importedData.product_category || '',
+        product_subcategory: prev.product_subcategory || importedData.product_subcategory || '',
         price: parsedPrice || prev.price || 0,
         // Usar URL externa temporariamente (funciona mesmo sem upload)
         image_url: importedData.image_url || prev.image_url || '',
