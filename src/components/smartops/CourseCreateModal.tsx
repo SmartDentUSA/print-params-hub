@@ -290,6 +290,8 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
   const [publicEnrollmentEnabled, setPublicEnrollmentEnabled] = useState(true);
   const [waTemplate, setWaTemplate] = useState(DEFAULT_ENROLLMENT_TEMPLATE);
   const [reminderTemplate, setReminderTemplate] = useState(DEFAULT_REMINDER_TEMPLATE);
+  const [waitlistEnabled, setWaitlistEnabled] = useState(false);
+  const [waitlistTemplate, setWaitlistTemplate] = useState(DEFAULT_WAITLIST_TEMPLATE);
   const [npsTemplate, setNpsTemplate] = useState(DEFAULT_NPS_TEMPLATE);
   const [npsSmsEnabled, setNpsSmsEnabled] = useState(false);
   const [npsSmsTemplate, setNpsSmsTemplate] = useState(DEFAULT_NPS_SMS_TEMPLATE);
@@ -445,6 +447,7 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
       setPipelineId(83896); setStageAfterEnroll("treinamento_agendado");
       setPublicVisible(false); setWaTemplate(DEFAULT_ENROLLMENT_TEMPLATE);
       setReminderTemplate(DEFAULT_REMINDER_TEMPLATE);
+      setWaitlistEnabled(false); setWaitlistTemplate(DEFAULT_WAITLIST_TEMPLATE);
       setNpsTemplate(DEFAULT_NPS_TEMPLATE);
       setNpsSmsEnabled(false);
       setNpsSmsTemplate(DEFAULT_NPS_SMS_TEMPLATE);
@@ -488,6 +491,8 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
     setPublicEnrollmentEnabled(Boolean((course as any).public_enrollment_enabled));
     setWaTemplate(course.whatsapp_message_template || DEFAULT_ENROLLMENT_TEMPLATE);
     setReminderTemplate((course as any).reminder_message_template || DEFAULT_REMINDER_TEMPLATE);
+    setWaitlistEnabled(Boolean((course as any).waitlist_enabled));
+    setWaitlistTemplate((course as any).waitlist_message_template || DEFAULT_WAITLIST_TEMPLATE);
     setNpsTemplate((course as any).nps_message_template || DEFAULT_NPS_TEMPLATE);
     setNpsSmsEnabled(Boolean((course as any).nps_sms_followup_enabled));
     setNpsSmsTemplate((course as any).nps_sms_template || DEFAULT_NPS_SMS_TEMPLATE);
@@ -836,6 +841,8 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
         whatsapp_group_link: whatsappGroupLink || null,
         whatsapp_message_template: waTemplate !== DEFAULT_ENROLLMENT_TEMPLATE ? waTemplate : null,
         reminder_message_template: reminderTemplate && reminderTemplate !== DEFAULT_REMINDER_TEMPLATE ? reminderTemplate : null,
+        waitlist_enabled: modality === "presencial" && waitlistEnabled,
+        waitlist_message_template: waitlistTemplate && waitlistTemplate !== DEFAULT_WAITLIST_TEMPLATE ? waitlistTemplate : null,
         nps_message_template: npsTemplate && npsTemplate !== DEFAULT_NPS_TEMPLATE ? npsTemplate : null,
         nps_sms_followup_enabled: npsSmsEnabled,
         nps_sms_template: npsSmsTemplate && npsSmsTemplate !== DEFAULT_NPS_SMS_TEMPLATE ? npsSmsTemplate : null,
@@ -1481,6 +1488,27 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
                 <Textarea rows={7} className="font-mono text-sm"
                   value={reminderTemplate} onChange={(e) => setReminderTemplate(e.target.value)} />
               </div>
+
+              {/* Lista de espera (presencial) */}
+              {modality === "presencial" && (
+                <div className="pt-2 space-y-2 border rounded-md p-3">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs">Lista de espera (quando a turma lotar)</Label>
+                    <Switch checked={waitlistEnabled} onCheckedChange={setWaitlistEnabled} />
+                  </div>
+                  {waitlistEnabled && (
+                    <>
+                      <p className="text-xs text-muted-foreground">
+                        Mensagem enviada pelo WhatsApp do CS ao entrar na lista. Variáveis: {"{{nome}} {{curso}} {{turma_label}} {{data_inicio}} {{horario_inicio}} {{cs_nome}}"}
+                      </p>
+                      <Textarea rows={7} className="font-mono text-sm"
+                        value={waitlistTemplate} onChange={(e) => setWaitlistTemplate(e.target.value)} />
+                      <Button type="button" variant="ghost" size="sm" className="text-xs"
+                        onClick={() => setWaitlistTemplate(DEFAULT_WAITLIST_TEMPLATE)}>Restaurar padrão</Button>
+                    </>
+                  )}
+                </div>
+              )}
 
               {/* Pesquisa de NPS */}
               <div className="pt-2 space-y-2">
