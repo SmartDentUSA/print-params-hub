@@ -27,7 +27,7 @@ function buildPayload(flow: any) {
     accountId: ACCOUNT_ID,
     name: flow.name,
     keywords: c.keywords ?? [],
-    matchMode: "contains",
+    matchMode: c.match_mode === "exact" ? "exact" : "contains",
     dmMessage: stripPlaceholders(c.dm_message ?? ""),
     dmMessageVariations: variations,
     commentReply: stripPlaceholders(c.comment_reply ?? ""),
