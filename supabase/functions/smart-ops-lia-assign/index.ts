@@ -3221,7 +3221,20 @@ Deno.serve(async (req) => {
     const leadDealClosed =
       (Number.isFinite(statusNum) && statusNum !== 0 && statusNum !== null) ||
       ["ganha", "perdida", "won", "lost"].includes(statusText);
+    // Referral (KOL) forms with a fixed seller override Vendas immutability
+    // (handled later by referral_override_new_vendas).
+    let referralBypassesImmutability = false;
     if (leadPipelineId === 18784 && !leadDealClosed && lead.piperun_id) {
+      try {
+        const ref = await resolveReferralFormSeller(supabase, lead.form_name as string | null);
+        referralBypassesImmutability = Boolean(
+          ref && String(ref.seller.nome_completo ?? "") !== String(lead.proprietario_lead_crm ?? ""),
+        );
+      } catch (e) {
+        console.warn("[lia-assign] referral check before immutability guard failed:", e);
+      }
+    }
+    if (leadPipelineId === 18784 && !leadDealClosed && lead.piperun_id && !referralBypassesImmutability) {
       console.log(`[lia-assign] VENDAS_IMMUTABILITY skip — lead ${lead.id} já em 18784 (deal ${lead.piperun_id}, owner=${lead.proprietario_lead_crm})`);
       try {
         await supabase.from("system_health_logs").insert({
