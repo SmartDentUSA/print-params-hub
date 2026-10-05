@@ -22785,6 +22785,8 @@ export type Database = {
           title: string
           updated_at: string | null
           wa_instance_name: string | null
+          waitlist_enabled: boolean
+          waitlist_message_template: string | null
           whatsapp_group_link: string | null
           whatsapp_message_template: string | null
         }
@@ -22832,6 +22834,8 @@ export type Database = {
           title: string
           updated_at?: string | null
           wa_instance_name?: string | null
+          waitlist_enabled?: boolean
+          waitlist_message_template?: string | null
           whatsapp_group_link?: string | null
           whatsapp_message_template?: string | null
         }
@@ -22879,6 +22883,8 @@ export type Database = {
           title?: string
           updated_at?: string | null
           wa_instance_name?: string | null
+          waitlist_enabled?: boolean
+          waitlist_message_template?: string | null
           whatsapp_group_link?: string | null
           whatsapp_message_template?: string | null
         }
@@ -24121,6 +24127,57 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      smartops_turma_waitlist: {
+        Row: {
+          course_id: string | null
+          created_at: string
+          created_by: string | null
+          email: string | null
+          id: string
+          lead_id: string | null
+          notes: string | null
+          person_name: string
+          phone: string | null
+          position: number | null
+          turma_id: string
+          updated_at: string
+          wa_error: string | null
+          wa_sent_at: string | null
+        }
+        Insert: {
+          course_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          email?: string | null
+          id?: string
+          lead_id?: string | null
+          notes?: string | null
+          person_name: string
+          phone?: string | null
+          position?: number | null
+          turma_id: string
+          updated_at?: string
+          wa_error?: string | null
+          wa_sent_at?: string | null
+        }
+        Update: {
+          course_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          email?: string | null
+          id?: string
+          lead_id?: string | null
+          notes?: string | null
+          person_name?: string
+          phone?: string | null
+          position?: number | null
+          turma_id?: string
+          updated_at?: string
+          wa_error?: string | null
+          wa_sent_at?: string | null
+        }
+        Relationships: []
       }
       smartpoints_ledger: {
         Row: {
