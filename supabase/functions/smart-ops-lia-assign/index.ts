@@ -23,6 +23,7 @@ import {
   PIPELINES,
   PIPELINE_NAMES,
   STAGES_VENDAS,
+  STAGES_ESTAGNADOS,
   STAGES_DISTRIBUIDOR,
   STAGE_TO_ETAPA,
   DEAL_STATUS_MAP,
@@ -1149,49 +1150,47 @@ async function resolveOriginId(apiToken: string, formName: string | null): Promi
 // ─── §4.6 Estagnados → Vendas: Motivo de perda "Novo interesse" ───
 
 const LOST_REASON_NOVO_INTERESSE = "Entrou novamente em contato";
+const LOST_REASON_INDICACAO = "Teve interesse direto através de formulário de indicação";
 const lostReasonCache = new Map<string, number>();
 
 /**
- * Resolve (ou cria) o ID do motivo de perda "Novo interesse", usado para
- * fechar deals do Funil Estagnados quando um lead reage a um novo anúncio
- * ou formulário. Cache em memória por invocação — mesmo padrão de
- * resolveOriginId.
+ * Resolve (ou cria) o ID de um motivo de perda no PipeRun. Default = "Novo
+ * interesse" (Estagnados). Cache em memória por invocação.
  */
-async function resolveLostReasonId(apiToken: string): Promise<number | null> {
-  if (lostReasonCache.has(LOST_REASON_NOVO_INTERESSE)) {
-    return lostReasonCache.get(LOST_REASON_NOVO_INTERESSE)!;
+async function resolveLostReasonId(
+  apiToken: string,
+  reasonName: string = LOST_REASON_NOVO_INTERESSE,
+): Promise<number | null> {
+  if (lostReasonCache.has(reasonName)) {
+    return lostReasonCache.get(reasonName)!;
   }
   try {
-    const searchRes = await piperunGet(apiToken, "lostReasons", { name: LOST_REASON_NOVO_INTERESSE, show: 5 });
+    const searchRes = await piperunGet(apiToken, "lostReasons", { name: reasonName, show: 5 });
     if (searchRes.success && searchRes.data) {
       const items = (searchRes.data as Record<string, unknown>).data as Array<Record<string, unknown>> | undefined;
       const exact = items?.find(
-        (r) => String(r.name).trim().toLowerCase() === LOST_REASON_NOVO_INTERESSE.toLowerCase(),
+        (r) => String(r.name).trim().toLowerCase() === reasonName.toLowerCase(),
       );
       if (exact?.id) {
         const id = Number(exact.id);
-        lostReasonCache.set(LOST_REASON_NOVO_INTERESSE, id);
-        console.log(`[lia-assign] Lost reason found: "${LOST_REASON_NOVO_INTERESSE}" → ${id}`);
+        lostReasonCache.set(reasonName, id);
         return id;
       }
     }
-    console.log(`[lia-assign] Creating lost reason: "${LOST_REASON_NOVO_INTERESSE}" (no exact match)`);
     const createRes = await piperunPost(apiToken, "lostReasons", {
-      name: LOST_REASON_NOVO_INTERESSE,
+      name: reasonName,
       status: false, // false = ativo (conforme doc PipeRun)
     });
     if (createRes.success && createRes.data) {
       const created = (createRes.data as Record<string, unknown>).data as Record<string, unknown> | undefined;
       if (created?.id) {
         const id = Number(created.id);
-        lostReasonCache.set(LOST_REASON_NOVO_INTERESSE, id);
-        console.log(`[lia-assign] Lost reason created: "${LOST_REASON_NOVO_INTERESSE}" → ${id}`);
+        lostReasonCache.set(reasonName, id);
+        console.log(`[lia-assign] Lost reason created: "${reasonName}" → ${id}`);
         return id;
       }
     }
-    console.warn(
-      `[lia-assign] Could not resolve/create lost reason "${LOST_REASON_NOVO_INTERESSE}" — deal será fechado sem lost_reason_id`,
-    );
+    console.warn(`[lia-assign] Could not resolve/create lost reason "${reasonName}"`);
   } catch (e) {
     console.warn("[lia-assign] Lost reason resolution error:", e);
   }
@@ -1208,6 +1207,7 @@ async function closeDealAsLost(
   dealId: number,
   lostReasonId: number | null,
   reasonComment: string,
+  reasonLabel: string = LOST_REASON_NOVO_INTERESSE,
 ): Promise<boolean> {
   const payload: Record<string, unknown> = {
     status: 2,
@@ -1215,12 +1215,54 @@ async function closeDealAsLost(
     closed_at: new Date().toISOString().slice(0, 19).replace("T", " "),
   };
   if (lostReasonId != null) payload.lost_reason_id = lostReasonId;
-  console.log(`[lia-assign] Closing deal ${dealId} as Perdido (motivo="${LOST_REASON_NOVO_INTERESSE}")`);
+  console.log(`[lia-assign] Closing deal ${dealId} as Perdido (motivo="${reasonLabel}")`);
   const res = await piperunPut(apiToken, `deals/${dealId}`, payload);
   console.log(
     `[lia-assign] Close-as-lost deal ${dealId}: ${res.success} (${res.status})${!res.success ? " body=" + JSON.stringify(res.data).slice(0, 400) : ""}`,
   );
   return res.success;
+}
+
+/**
+ * Formulário de indicação (KOL) com vendedor fixo ativo. Indicação =
+ * formulário referenciado em `prof_kol_form_ids` de algum profissional ou
+ * com prefixo "# - INDICAÇÃO". Retorna null se não for indicação.
+ */
+async function resolveReferralFormSeller(
+  supabase: ReturnType<typeof createClient>,
+  formName: string | null | undefined,
+): Promise<{ formId: string; seller: TeamMember } | null> {
+  if (!formName) return null;
+  try {
+    const { data: form } = await supabase
+      .from("smartops_forms")
+      .select("id, name, forced_seller_team_member_id")
+      .eq("name", formName)
+      .not("forced_seller_team_member_id", "is", null)
+      .limit(1)
+      .maybeSingle();
+    if (!form?.forced_seller_team_member_id) return null;
+    let isReferral = /^#\s*-\s*INDICA[ÇC][ÃA]O/i.test(String(form.name));
+    if (!isReferral) {
+      const { count } = await supabase
+        .from("lia_attendances")
+        .select("id", { count: "exact", head: true })
+        .is("merged_into", null)
+        .contains("prof_kol_form_ids", [{ id: form.id }]);
+      isReferral = (count ?? 0) > 0;
+    }
+    if (!isReferral) return null;
+    const { data: fs } = await supabase
+      .from("team_members")
+      .select("*")
+      .eq("id", form.forced_seller_team_member_id)
+      .maybeSingle();
+    if (!fs?.ativo || !(Number(fs.piperun_owner_id) > 0)) return null;
+    return { formId: String(form.id), seller: fs as unknown as TeamMember };
+  } catch (e) {
+    console.warn("[lia-assign] resolveReferralFormSeller failed:", String(e));
+    return null;
+  }
 }
 
 /**
@@ -3727,9 +3769,100 @@ Deno.serve(async (req) => {
         }
       }
 
+      // ── EXCEÇÃO AUTORIZADA (out/2026): FORMULÁRIO DE INDICAÇÃO (KOL) ──
+      // Regra do usuário: em formulário de indicação, deals abertos em VENDAS
+      // de OUTRO vendedor são movidos para Estagnados e fechados como Perdido
+      // ("Teve interesse direto através de formulário de indicação"), e um
+      // NOVO deal é criado com o vendedor fixo do formulário. CS e ganhos
+      // continuam intocáveis. Novo deal é criado ANTES de fechar os antigos.
+      let referralHandled = false;
+      if (!wonFrozen && force_new_deal !== true) {
+        const referral = await resolveReferralFormSeller(supabase, lead.form_name as string | null);
+        const foreignVendas = referral
+          ? openDeals.filter(
+              (d) =>
+                Number(d.pipeline_id) === PIPELINES.VENDAS &&
+                Number(d.owner_id) !== Number(referral.seller.piperun_owner_id),
+            )
+          : [];
+        if (referral && foreignVendas.length > 0) {
+          referralHandled = true;
+          piperunId = null;
+          flowType = "referral_override_new_vendas";
+          assignedOwnerId = referral.seller.piperun_owner_id;
+          assignedOwnerName = referral.seller.nome_completo;
+          assignedTeamMemberId = referral.seller.id;
+          const claimRef = await claimDealCreateSlot(
+            supabase,
+            lead.id as string,
+            personId,
+            `referral_override:${String(lead.form_name ?? "")}`,
+          );
+          if (!claimRef.ok) {
+            flowType = "referral_override_lock_held";
+          } else {
+            try {
+              piperunId = await createNewDeal(
+                PIPERUN_API_KEY, personId, companyId, lead as Record<string, unknown>,
+                PIPELINES.VENDAS, STAGES_VENDAS.SEM_CONTATO, assignedOwnerId,
+                customFields, leadEmail, supabase, inputFormResponses,
+              );
+            } finally {
+              await releaseDealCreateSlot(supabase, lead.id as string);
+            }
+          }
+          const closedIds: string[] = [];
+          if (piperunId) {
+            const reasonId = await resolveLostReasonId(PIPERUN_API_KEY, LOST_REASON_INDICACAO);
+            const toClose = [...foreignVendas, ...(estagnDeal ? [estagnDeal] : [])];
+            for (const d of toClose) {
+              try {
+                if (Number(d.pipeline_id) !== PIPELINES.ESTAGNADOS) {
+                  await piperunPut(PIPERUN_API_KEY, `deals/${d.id}`, {
+                    pipeline_id: PIPELINES.ESTAGNADOS,
+                    stage_id: STAGES_ESTAGNADOS.ETAPA_00_NOVOS,
+                  });
+                }
+                const ok = await closeDealAsLost(
+                  PIPERUN_API_KEY, Number(d.id), reasonId,
+                  `${LOST_REASON_INDICACAO} — novo deal VENDAS ${piperunId} (${assignedOwnerName}) via formulário "${lead.form_name}"`,
+                  LOST_REASON_INDICACAO,
+                );
+                if (ok) closedIds.push(String(d.id));
+              } catch (e) {
+                console.warn(`[lia-assign] referral_override: falha ao fechar deal ${d.id}:`, e);
+              }
+            }
+          } else {
+            console.error(`[lia-assign] referral_override: novo deal não criado para lead ${lead.id}; deals antigos preservados`);
+          }
+          try {
+            await supabase.from("lead_activity_log").insert({
+              lead_id: lead.id,
+              event_type: "indicacao_novo_deal_vendas",
+              entity_type: "deal",
+              entity_id: piperunId ? String(piperunId) : null,
+              entity_name: "Indicação: deals de outro vendedor fechados → novo deal Vendas",
+              event_data: {
+                novo_deal_vendas: piperunId,
+                deals_fechados: closedIds,
+                deals_vendas_outro_vendedor: foreignVendas.map((d) => String(d.id)),
+                motivo_perda: LOST_REASON_INDICACAO,
+                novo_owner: assignedOwnerName,
+                novo_owner_id: assignedOwnerId,
+                form_name: lead.form_name,
+              },
+              source_channel: "form",
+              event_timestamp: new Date().toISOString(),
+            });
+          } catch (_) { /* best-effort */ }
+          vendaDeal = undefined;
+        }
+      }
+
       // ── GOLDEN RULE: Open deal in Vendas → NEVER change owner/stage ──
-      if (wonFrozen) {
-        // Já tratado pelo bloco acima. Nada mais a fazer no decision tree.
+      if (wonFrozen || referralHandled) {
+        // Já tratado pelos blocos acima. Nada mais a fazer no decision tree.
       } else if (vendaDeal) {
         piperunId = String(vendaDeal.id);
         flowType = "preserve_vendas";
