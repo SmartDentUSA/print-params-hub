@@ -640,6 +640,13 @@ function PublicTurmaCard({ turma, status, driveFolderId = null, driveFolderUrl =
               </span>
             </div>
           )}
+          {(turma as any).public_enrollment_enabled && (turma as any).course_slug && (
+            <div className="mt-4 flex justify-center">
+              <Button asChild>
+                <a href={`/inscricao/${(turma as any).course_slug}`}>Inscreva-se</a>
+              </Button>
+            </div>
+          )}
         </>
       )}
       {canUpload && (
