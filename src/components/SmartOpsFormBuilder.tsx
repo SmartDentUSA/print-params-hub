@@ -53,6 +53,13 @@ const PURPOSE_CONFIG: Record<string, { label: string; color: string; disabled?: 
   credenciamento:  { label: "Credenciamento",    color: "bg-violet-100 text-violet-800 border-violet-300", disabled: false, description: "Candidatura vinculada à ficha de um profissional" },
 };
 
+// Presentation-only grouping: referral forms retain their saved purpose and CRM behavior.
+const REFERRAL_GROUP = "kol_referral";
+const FORM_LIST_GROUPS = {
+  [REFERRAL_GROUP]: { label: "Indicações — Palestrantes (KOLs)", color: "bg-accent text-accent-foreground border-border" },
+  ...PURPOSE_CONFIG,
+};
+
 interface SmartOpsForm {
   id: string;
   name: string;
@@ -183,6 +190,7 @@ const BASE_FORM_FIELDS = [
 
 export function SmartOpsFormBuilder() {
   const [forms, setForms] = useState<SmartOpsForm[]>([]);
+  const [kolReferralFormIds, setKolReferralFormIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [periodDays, setPeriodDays] = useState<number>(0);
   const [metricsByForm, setMetricsByForm] = useState<Record<string, FormMetrics>>({});
@@ -274,10 +282,22 @@ export function SmartOpsFormBuilder() {
   const PRODUCTION_BASE = "https://parametros.smartdent.com.br";
 
   const fetchForms = async () => {
-    const { data, error } = await supabase
-      .from("smartops_forms" as any)
-      .select("*")
-      .order("created_at", { ascending: false });
+    const [{ data, error }, { data: professionals, error: referralError }] = await Promise.all([
+      supabase.from("smartops_forms" as any).select("*").order("created_at", { ascending: false }),
+      supabase.from("lia_attendances").select("prof_kol_form_ids").is("merged_into", null)
+        .not("prof_kol_form_ids", "is", null).neq("prof_kol_form_ids", "[]"),
+    ]);
+    if (referralError) console.warn("[kol-referral-forms]", referralError);
+    else {
+      const ids = new Set<string>();
+      for (const professional of professionals ?? []) {
+        if (!Array.isArray(professional.prof_kol_form_ids)) continue;
+        for (const ref of professional.prof_kol_form_ids) {
+          if (ref && typeof ref === "object" && !Array.isArray(ref) && typeof ref.id === "string") ids.add(ref.id);
+        }
+      }
+      setKolReferralFormIds(ids);
+    }
     if (!error && data) setForms(data as any);
     setLoading(false);
   };
@@ -386,6 +406,11 @@ export function SmartOpsFormBuilder() {
   const normalizeSearch = (text: string) =>
     text.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
 
+  const getFormListGroup = (form: SmartOpsForm) =>
+    kolReferralFormIds.has(form.id) || /^#\s*-\s*indicacao\s*-/i.test(normalizeSearch(form.name))
+      ? REFERRAL_GROUP
+      : form.form_purpose;
+
   const matchesSearch = (form: SmartOpsForm) => {
     if (!searchQuery.trim()) return true;
     const term = normalizeSearch(searchQuery);
@@ -393,6 +418,7 @@ export function SmartOpsFormBuilder() {
       form.name,
       form.slug,
       PURPOSE_CONFIG[form.form_purpose]?.label,
+      FORM_LIST_GROUPS[getFormListGroup(form)]?.label,
     ]
       .filter(Boolean)
       .map((s) => normalizeSearch(String(s)))
@@ -1541,8 +1567,8 @@ export function SmartOpsFormBuilder() {
           </div>
 
           {/* Grupos por finalidade */}
-          {Object.entries(PURPOSE_CONFIG).map(([purposeKey, cfg]) => {
-            const groupForms = forms.filter((f) => f.form_purpose === purposeKey && matchesFilters(f));
+          {Object.entries(FORM_LIST_GROUPS).map(([purposeKey, cfg]) => {
+            const groupForms = forms.filter((f) => getFormListGroup(f) === purposeKey && matchesFilters(f));
             if (groupForms.length === 0) return null;
             return (
               <section key={purposeKey} className="space-y-3">
@@ -1591,8 +1617,8 @@ export function SmartOpsFormBuilder() {
           })}
 
           {(searchQuery || activeFilter !== "all") &&
-            Object.entries(PURPOSE_CONFIG).every(
-              ([purposeKey]) => !forms.some((f) => f.form_purpose === purposeKey && matchesFilters(f))
+            Object.entries(FORM_LIST_GROUPS).every(
+              ([purposeKey]) => !forms.some((f) => getFormListGroup(f) === purposeKey && matchesFilters(f))
             ) && (
               <div className="text-sm text-muted-foreground">
                 Nenhum formulário encontrado
