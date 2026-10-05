@@ -106,6 +106,14 @@ function isExocadContext(...parts: Array<string | null | undefined>): boolean {
   return /exocad|dentalcad|\brms\b|ultimate\s*lab\s*bundle/.test(hay);
 }
 
+// Só a LP do DentalCAD (Ultimate Lab Bundle) usa os 15 módulos/25 FAQs canônicos.
+// exoplan, ChairsideCAD etc. são produtos exocad diferentes.
+function isDentalCadBundleContext(formCtx: string): boolean {
+  const hay = formCtx.toLowerCase();
+  if (/exoplan|chairside|exocam|guide\s*creator/.test(hay)) return false;
+  return /dentalcad|dentcad|ultimate\s*lab\s*bundle/.test(hay);
+}
+
 function enforceCanonicalContent(content: any): any {
   if (!content || typeof content !== "object") return content;
   const modules = (content.modules && typeof content.modules === "object") ? content.modules : {};
@@ -188,14 +196,13 @@ function buildComparisonFromRag(
   };
 }
 
-function applyNonExocadPolicy(
+function applySpecsSections(
   content: any,
   specs: Array<{ label?: string; value?: string }>,
   compare: unknown[],
 ): any {
   if (!content || typeof content !== "object") return content;
   const enabled = { ...(content.sectionsEnabled ?? {}) };
-  for (const key of EXOCAD_ONLY_SECTIONS) enabled[key] = false;
 
   const comparison = buildComparisonFromRag(specs, compare);
   if (comparison) {
@@ -213,10 +220,27 @@ function applyNonExocadPolicy(
       items: specRows.map((s) => ({ name: String(s.label).trim(), application: String(s.value).trim() })),
     };
     enabled.modules = true;
+  } else if (Array.isArray(content.modules?.items)) {
+    // Remove módulos canônicos do DentalCAD que a IA possa ter copiado.
+    const canon = new Set(CANONICAL_MODULE_ITEMS.map((m) => m.name));
+    const items = content.modules.items.filter((m: any) => !canon.has(String(m?.name ?? "").trim()));
+    content.modules = { ...content.modules, items };
+    if (!items.length) enabled.modules = false;
   }
 
   content.sectionsEnabled = enabled;
   return content;
+}
+
+function applyNonExocadPolicy(
+  content: any,
+  specs: Array<{ label?: string; value?: string }>,
+  compare: unknown[],
+): any {
+  if (!content || typeof content !== "object") return content;
+  content.sectionsEnabled = { ...(content.sectionsEnabled ?? {}) };
+  for (const key of EXOCAD_ONLY_SECTIONS) content.sectionsEnabled[key] = false;
+  return applySpecsSections(content, specs, compare);
 }
 
 const CONTENT_SCHEMA_DOC = `Retorne APENAS JSON válido no schema abaixo. Nada de HTML, CSS, markdown, comentários, texto fora do JSON.
@@ -267,8 +291,8 @@ REGRAS CRÍTICAS:
 - Sem depoimentos reais → OMITA "testimonials".
 - Tom Smart Dent: profissional, direto, PT-BR. Copy curta e potente.
 - Icons apenas da lista permitida.
-- Para landing pages de exocad / Ultimate Lab Bundle / DentalCAD, a seção "modules" DEVE conter obrigatoriamente os 15 módulos canônicos na ordem e com as descrições fornecidas abaixo. Não omita nenhum, não altere os nomes e não adicione módulos extras.
-- Para landing pages de exocad / RMS / Ultimate Lab Bundle / DentalCAD, a seção "faq" DEVE conter obrigatoriamente as 25 perguntas e respostas canônicas fornecidas abaixo. Não omita nenhuma, não altere as respostas e não adicione FAQs extras.
+- SOMENTE para landing pages do DentalCAD / Ultimate Lab Bundle, a seção "modules" DEVE conter os 15 módulos canônicos abaixo. Para exoplan, ChairsideCAD ou qualquer outro produto, "modules" = especificações técnicas do produto do input; NUNCA use os módulos do DentalCAD.
+- SOMENTE para landing pages do DentalCAD / Ultimate Lab Bundle, a seção "faq" DEVE conter as 25 FAQs canônicas abaixo. Para outros produtos, escreva FAQs do produto do input.
 
 ${CANONICAL_MODULES}
 
@@ -427,7 +451,7 @@ Deno.serve(async (req) => {
       }
       const { data: sysA } = await admin
         .from("system_a_catalog")
-        .select("id,name,description,price,promo_price,currency,product_category,product_subcategory,technical_specs,clinical_indications,keywords,image_url,external_id")
+        .select("id,name,description,price,promo_price,currency,product_category,product_subcategory,technical_specs,extra_data,clinical_indications,keywords,image_url,external_id")
         .eq("id", pcId)
         .maybeSingle();
       if (!sysA) {
@@ -460,9 +484,21 @@ Deno.serve(async (req) => {
           target_audience: (pc as any)?.target_audience ?? [],
           unique_selling_points: (pc as any)?.features ?? [],
         },
+        // Cascata: tabela editada no catálogo (system_a_live) → sync do Sistema A
+        // (extra_data.technical_specifications) → coluna technical_specs → products_catalog.
         technical_specs: (() => {
-          const a = normalizeSpecs((sysA as any).technical_specs);
-          return a.length ? a : normalizeSpecs((pc as any)?.technical_specifications);
+          const extra = ((sysA as any).extra_data ?? {}) as Record<string, any>;
+          const sources = [
+            extra?.system_a_live?.technical_specs,
+            extra?.technical_specifications,
+            (sysA as any).technical_specs,
+            (pc as any)?.technical_specifications,
+          ];
+          for (const src of sources) {
+            const n = normalizeSpecs(src);
+            if (n.length) return n;
+          }
+          return [];
         })(),
         clinical_indications: (sysA as any).clinical_indications ?? [],
         competitor_comparison: (pc as any)?.competitor_comparison ?? [],
@@ -586,8 +622,23 @@ Deno.serve(async (req) => {
       }
     }
 
-    if (isExocadContext(input, form?.title, form?.subtitle, form?.name)) {
+    // No modo playbook, as specs vêm do JSON colado.
+    if (mode === "playbook" && !ragSpecs.length) {
+      try {
+        const p = JSON.parse(input as string);
+        ragSpecs = normalizeSpecs(p?.technical_specs ?? p?.technical_specifications);
+        if (!ragCompare.length && Array.isArray(p?.competitor_comparison)) ragCompare = p.competitor_comparison;
+      } catch { /* briefing textual */ }
+    }
+
+    const formCtx = [form?.title, form?.subtitle, form?.name].filter(Boolean).join(" ");
+    if (isDentalCadBundleContext(formCtx)) {
+      // LP do DentalCAD Ultimate Lab Bundle: módulos e FAQ canônicos.
       content = enforceCanonicalContent(content);
+    } else if (isExocadContext(input, formCtx)) {
+      // Outros produtos exocad (ex.: exoplan RMS): mantém seções RMS, mas a
+      // tabela técnica vem do produto, nunca dos módulos do DentalCAD.
+      content = applySpecsSections(content, ragSpecs, ragCompare);
     } else {
       content = applyNonExocadPolicy(content, ragSpecs, ragCompare);
     }
