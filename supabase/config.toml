@@ -685,3 +685,6 @@ verify_jwt = false
 
 [functions.smart-ops-raffle-draw]
 verify_jwt = false
+
+[functions.smartops-waitlist-notify]
+verify_jwt = false
