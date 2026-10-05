@@ -32,6 +32,14 @@ import {
 } from "@/lib/courseWhatsapp";
 import type { SmartopsCourse, TurmaDay } from "@/types/courses";
 
+const DEFAULT_WAITLIST_TEMPLATE = `Olá, {{nome}}! 👋
+
+As vagas do treinamento *{{curso}}* ({{turma_label}}) estão esgotadas no momento, mas você está na nossa *lista de espera* ✅
+
+Assim que uma vaga for liberada, entraremos em contato por aqui.
+
+*{{cs_nome}}*`;
+
 // Default do texto do certificado (corpo após o nome do aluno)
 export const DEFAULT_CERTIFICATE_BODY = `concluiu com êxito o treinamento de {{curso}}.
 A imersão ocorreu em {{local}}, no período de {{data_inicio}} a {{data_fim}}, com duração de {{horas_dia}}h/dia em {{dias}} dias, e teve como objetivo o treinamento técnico para operação e utilização das soluções adquiridas.`;
