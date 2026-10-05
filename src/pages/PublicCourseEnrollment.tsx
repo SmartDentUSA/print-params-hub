@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Star, CheckCircle2 } from "lucide-react";
+import { Loader2, Star, CheckCircle2, Hourglass } from "lucide-react";
 import {
   QualificationFormInline,
   type QualificationSubmitPayload,
@@ -110,6 +110,7 @@ export default function PublicCourseEnrollment() {
     "form" | "confirm_data" | "qualify" | "nps" | "done"
   >("form");
   const [enrollmentId, setEnrollmentId] = useState<string | null>(null);
+  const [waitlisted, setWaitlisted] = useState(false);
   const [showNps, setShowNps] = useState(false);
   const [lookup, setLookup] = useState<LeadLookup | null>(null);
   const [lookingUp, setLookingUp] = useState(false);
@@ -186,16 +187,19 @@ export default function PublicCourseEnrollment() {
         },
       });
       if (error) throw error;
-      const res = data as { ok: boolean; enrollment_id: string; show_nps: boolean };
+      const res = data as { ok: boolean; enrollment_id: string | null; show_nps: boolean; status?: string };
+      if (!res?.ok) throw new Error("Não foi possível concluir sua inscrição.");
+      const isWaitlisted = res.status === "waitlisted";
+      setWaitlisted(isWaitlisted);
       setEnrollmentId(res.enrollment_id);
       setShowNps(res.show_nps);
       // Quem decide o NPS é o servidor: só cliente confirmado no banco e que
       // NÃO respondeu nos últimos 30 dias. Nesse caso o NPS é OBRIGATÓRIO
       // para concluir o agendamento.
-      setPhase(res.show_nps ? "nps" : "done");
+      setPhase(!isWaitlisted && res.show_nps ? "nps" : "done");
       toast({
-        title: res.show_nps ? "Falta só a avaliação" : "Inscrição confirmada!",
-        description: res.show_nps
+        title: isWaitlisted ? "Vagas completas — você está na lista de espera" : res.show_nps ? "Falta só a avaliação" : "Inscrição confirmada!",
+        description: isWaitlisted ? "Entraremos em contato pelo WhatsApp quando uma vaga for liberada." : res.show_nps
           ? "Responda as 3 perguntas para concluir seu agendamento."
           : "Em breve você receberá os detalhes no WhatsApp.",
       });
@@ -457,11 +461,11 @@ export default function PublicCourseEnrollment() {
                 {lookup && !lookup.found && (
                   <div className="rounded-lg border border-border bg-muted/40 p-3 text-sm text-muted-foreground">
                     Não encontramos seu cadastro de cliente com estes contatos. Sem problema —
-                    responda as perguntas abaixo para garantirmos sua vaga.
+                    responda as perguntas abaixo para concluir sua inscrição.
                   </div>
                 )}
                 <div>
-                  <p className="font-medium">Antes de confirmar sua vaga</p>
+                  <p className="font-medium">Antes de concluir sua inscrição</p>
                   <p className="text-sm text-muted-foreground">
                     Responda algumas perguntas rápidas para personalizarmos seu treinamento.
                   </p>
@@ -486,10 +490,10 @@ export default function PublicCourseEnrollment() {
 
             {phase === "done" && (
               <div className="text-center py-6 space-y-3">
-                <CheckCircle2 className="w-14 h-14 text-primary mx-auto" />
-                <h3 className="text-xl font-semibold">Inscrição confirmada!</h3>
+                {waitlisted ? <Hourglass className="w-14 h-14 text-primary mx-auto" /> : <CheckCircle2 className="w-14 h-14 text-primary mx-auto" />}
+                <h3 className="text-xl font-semibold">{waitlisted ? "Vagas completas — você está na lista de espera" : "Inscrição confirmada!"}</h3>
                 <p className="text-sm text-muted-foreground">
-                  Enviaremos os detalhes pelo WhatsApp. Te lembraremos 1 hora antes do início.
+                  {waitlisted ? "Seu cadastro foi registrado na lista de espera. Entraremos em contato pelo WhatsApp quando uma vaga for liberada." : "Enviaremos os detalhes pelo WhatsApp. Te lembraremos 1 hora antes do início."}
                 </p>
               </div>
             )}
