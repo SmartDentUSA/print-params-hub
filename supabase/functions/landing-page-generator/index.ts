@@ -129,6 +129,23 @@ function enforceCanonicalContent(content: any): any {
 // elas ficam desabilitadas (o conteúdo é preservado, apenas não renderiza).
 const EXOCAD_ONLY_SECTIONS = ["positioning", "conditions", "regionalRules", "implementation"] as const;
 
+// O catálogo guarda especificações como array [{label,value}] OU objeto {chave: valor}.
+function normalizeSpecs(raw: unknown): Array<{ label: string; value: string }> {
+  const pretty = (k: string) => k.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+  const val = (v: unknown) => (v && typeof v === "object" ? JSON.stringify(v) : String(v ?? "")).trim();
+  if (Array.isArray(raw)) {
+    return raw
+      .map((s: any) => ({ label: String(s?.label ?? s?.name ?? "").trim(), value: val(s?.value) }))
+      .filter((s) => s.label && s.value);
+  }
+  if (raw && typeof raw === "object") {
+    return Object.entries(raw as Record<string, unknown>)
+      .map(([k, v]) => ({ label: pretty(k), value: val(v) }))
+      .filter((s) => s.label && s.value && s.value !== "null");
+  }
+  return [];
+}
+
 function buildComparisonFromRag(
   specs: Array<{ label?: string; value?: string }>,
   compare: unknown[],
@@ -184,6 +201,18 @@ function applyNonExocadPolicy(
   if (comparison) {
     content.comparison = comparison;
     enabled.comparison = true;
+  }
+
+  // Garante que a seção de Especificações Técnicas reflita sempre o catálogo atual.
+  const specRows = (specs ?? []).filter((s) => s?.label && s?.value);
+  if (specRows.length) {
+    content.modules = {
+      ...(content.modules ?? {}),
+      eyebrow: content.modules?.eyebrow || "Especificações técnicas",
+      title: content.modules?.title || "Especificações técnicas",
+      items: specRows.map((s) => ({ name: String(s.label).trim(), application: String(s.value).trim() })),
+    };
+    enabled.modules = true;
   }
 
   content.sectionsEnabled = enabled;
@@ -431,11 +460,10 @@ Deno.serve(async (req) => {
           target_audience: (pc as any)?.target_audience ?? [],
           unique_selling_points: (pc as any)?.features ?? [],
         },
-        technical_specs: Array.isArray((sysA as any).technical_specs)
-          ? (sysA as any).technical_specs
-          : Array.isArray((pc as any)?.technical_specifications)
-          ? (pc as any).technical_specifications
-          : [],
+        technical_specs: (() => {
+          const a = normalizeSpecs((sysA as any).technical_specs);
+          return a.length ? a : normalizeSpecs((pc as any)?.technical_specifications);
+        })(),
         clinical_indications: (sysA as any).clinical_indications ?? [],
         competitor_comparison: (pc as any)?.competitor_comparison ?? [],
         applications: (pc as any)?.applications ?? [],
