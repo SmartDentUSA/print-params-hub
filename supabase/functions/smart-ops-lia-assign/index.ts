@@ -1358,6 +1358,32 @@ async function pickOwnerForNewDeal(
 ): Promise<TeamMember> {
   const consultant = await resolveEventConsultant(supabase, lead);
   if (consultant) return consultant;
+  // Vendedor fixo do formulário (ex.: indicações de KOL) vale também para
+  // deals novos abertos em reativação (Estagnados/CS) — nunca sortear.
+  const formName = lead.form_name as string | null | undefined;
+  if (formName) {
+    try {
+      const { data: formRow } = await supabase
+        .from("smartops_forms")
+        .select("forced_seller_team_member_id")
+        .eq("name", formName)
+        .not("forced_seller_team_member_id", "is", null)
+        .maybeSingle();
+      if (formRow?.forced_seller_team_member_id) {
+        const { data: fs } = await supabase
+          .from("team_members")
+          .select("*")
+          .eq("id", formRow.forced_seller_team_member_id)
+          .maybeSingle();
+        if (fs?.ativo && Number(fs.piperun_owner_id) > 0) {
+          console.log(`[lia-assign] FORCED_SELLER (new deal) form="${formName}" → ${fs.nome_completo}`);
+          return fs as unknown as TeamMember;
+        }
+      }
+    } catch (e) {
+      console.warn("[lia-assign] forced seller (new deal) lookup failed:", String(e));
+    }
+  }
   return await pickRandomActiveVendedor(supabase);
 }
 
