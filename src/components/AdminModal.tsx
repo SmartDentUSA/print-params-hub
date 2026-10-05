@@ -457,6 +457,25 @@ export const AdminModal: React.FC<AdminModalProps> = ({
         }
       }
       
+      if (type === 'catalog') {
+        const name = String(formData.name || '').trim();
+        if (!name) {
+          toast({
+            title: "Nome do produto é obrigatório",
+            description: "Preencha o nome antes de salvar.",
+            variant: "destructive",
+          });
+          setIsSaving(false);
+          return;
+        }
+        formData.name = name;
+        if (!String(formData.slug || '').trim()) {
+          formData.slug = name
+            .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+            .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+        }
+      }
+
       await onSave(formData, documents);
       // Don't close here - let parent component close on success
     } catch (error) {
