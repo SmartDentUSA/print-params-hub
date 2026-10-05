@@ -32,6 +32,34 @@ async function mirrorTechSpecsToProductsCatalog(row: any | null | undefined): Pr
   }
 }
 
+
+// Colunas reais de system_a_catalog. O formulário carrega campos auxiliares
+// (ex.: system_a_product_id/url vindos do importador) que NÃO existem na tabela;
+// enviá-los fazia o PostgREST rejeitar o save inteiro e nada era persistido.
+const CATALOG_COLUMNS = new Set(
+  'active,approved,canonical_url,category,certifications,clinical_indications,clinical_indications_en,clinical_indications_es,compatibility_list,contraindications,cta_1_description,cta_1_description_en,cta_1_description_es,cta_1_label,cta_1_label_en,cta_1_label_es,cta_1_url,cta_2_description,cta_2_description_en,cta_2_description_es,cta_2_label,cta_2_label_en,cta_2_label_es,cta_2_url,cta_3_description,cta_3_description_en,cta_3_description_es,cta_3_label,cta_3_label_en,cta_3_label_es,cta_3_url,currency,description,description_en,description_es,display_order,external_id,extra_data,gtin,image_url,keyword_ids,keywords,last_sync_at,meta_description,meta_description_en,meta_description_es,name,name_en,name_es,ncm,og_image_url,presentation,presentation_qty,price,price_eur,price_usd,product_category,product_category_en,product_category_es,product_subcategory,product_subcategory_en,product_subcategory_es,promo_price,quantity_multiplier,rating,review_count,seo_title_override,seo_title_override_en,seo_title_override_es,slug,source,technical_specs,technical_specs_en,technical_specs_es,translated_at_en,translated_at_es,visible_in_ui,wikidata_qid'.split(',')
+);
+
+function sanitizeCatalogPayload(input: Record<string, any>): Record<string, any> {
+  const out: Record<string, any> = {};
+  for (const [k, v] of Object.entries(input || {})) {
+    if (CATALOG_COLUMNS.has(k) && v !== undefined) out[k] = v;
+  }
+  // Preserva o vínculo com o Sistema A dentro de extra_data (sem coluna própria).
+  if (input?.system_a_product_id || input?.system_a_product_url) {
+    out.extra_data = {
+      ...(out.extra_data && typeof out.extra_data === 'object' ? out.extra_data : {}),
+      system_a_link: {
+        product_id: input.system_a_product_id ?? null,
+        url: input.system_a_product_url ?? null,
+      },
+    };
+  }
+  if (out.price === '' || out.price === null) out.price = 0;
+  if (out.promo_price === '') out.promo_price = null;
+  return out;
+}
+
 export interface CatalogProduct {
   id?: string;
   name: string;
@@ -137,7 +165,7 @@ export const useCatalogCRUD = () => {
       
       const { data, error } = await supabase
         .from('system_a_catalog')
-        .insert([product])
+        .insert([sanitizeCatalogPayload(product as any)] as any)
         .select()
         .single();
       
@@ -170,7 +198,8 @@ export const useCatalogCRUD = () => {
 
       // Detect description change → invalidate stale EN/ES translations and re-translate.
       let descriptionChanged = false;
-      const payload: Record<string, unknown> = { ...updates };
+      const payload: Record<string, unknown> = sanitizeCatalogPayload(updates as any);
+      delete (payload as any).id;
       if (Object.prototype.hasOwnProperty.call(updates, 'description')) {
         const { data: current } = await supabase
           .from('system_a_catalog')
@@ -188,7 +217,7 @@ export const useCatalogCRUD = () => {
 
       const { data, error } = await supabase
         .from('system_a_catalog')
-        .update(payload)
+        .update(payload as any)
         .eq('id', id)
         .select()
         .single();
