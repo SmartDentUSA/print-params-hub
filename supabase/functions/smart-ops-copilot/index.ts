@@ -199,6 +199,22 @@ const tools = [
   {
     type: "function",
     function: {
+      name: "diagnose_routine",
+      description: "Diagnostica uma rotina automática (cron) do sistema: agenda, ativo, execuções/falhas nas últimas 24h, último erro e comando. Use antes de corrigir.",
+      parameters: { type: "object", properties: { jobname: { type: "string" } }, required: ["jobname"] }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "reactivate_routine",
+      description: "Ativa (ou desativa com active:false) uma rotina automática. Ao ativar, se a rotina chama uma função, dispara um teste e retorna o status.",
+      parameters: { type: "object", properties: { jobname: { type: "string" }, active: { type: "boolean" } }, required: ["jobname"] }
+    }
+  },
+  {
+    type: "function",
+    function: {
       name: "query_leads",
       description: "Busca leads na tabela lia_attendances por qualquer filtro: email, nome, telefone, cidade, tags, equipamento, score, etapa CRM, etc. Retorna até 50 resultados.",
       parameters: {
@@ -3182,6 +3198,36 @@ async function executeUpdateSocialFlow(args: any) {
   return error ? { error: error.message } : { ok: true, campos_atualizados: Object.keys(allowed).filter(k => k !== "updated_at") };
 }
 
+async function executeDiagnoseRoutine(args: any) {
+  const { data, error } = await supabase.rpc("admin_list_cron_routines");
+  if (error) return { error: error.message };
+  const r = (data || []).find((x: any) => x.jobname === args.jobname);
+  if (!r) return { error: "rotina não encontrada", disponiveis: (data || []).map((x: any) => x.jobname) };
+  const fn = String(r.command).match(/functions\/v1\/([a-z0-9-_]+)/i)?.[1] || null;
+  return { ...r, edge_function: fn, dica: r.last_error ? "Analise last_error para identificar causa" : "Sem erro recente" };
+}
+
+async function executeReactivateRoutine(args: any) {
+  const active = args.active !== false;
+  const { error } = await supabase.rpc("admin_set_cron_active", { p_jobname: args.jobname, p_active: active });
+  if (error) return { error: error.message };
+  let teste: any = null;
+  if (active) {
+    const d: any = await executeDiagnoseRoutine(args);
+    if (d.edge_function) {
+      try {
+        const res = await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/${d.edge_function}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}` },
+          body: "{}",
+        });
+        teste = { status: res.status, body: (await res.text()).slice(0, 400) };
+      } catch (e) { teste = { error: (e as Error).message }; }
+    }
+  }
+  return { ok: true, jobname: args.jobname, active, teste };
+}
+
 async function executeToggleSocialFlow(args: any) {
   const { id, is_active } = args;
   const { data: flow } = await supabase.from("social_flows").select("*").eq("id", id).single();
@@ -3507,6 +3553,8 @@ const toolExecutors: Record<string, (args: any) => Promise<any>> = {
   create_social_flow: executeCreateSocialFlow,
   update_social_flow: executeUpdateSocialFlow,
   toggle_social_flow: executeToggleSocialFlow,
+  diagnose_routine: executeDiagnoseRoutine,
+  reactivate_routine: executeReactivateRoutine,
   delete_social_flow: executeDeleteSocialFlow,
   provision_social_flow: executeProvisionSocialFlow,
 };
