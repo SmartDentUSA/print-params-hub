@@ -115,9 +115,16 @@ export default function ZernioAdsTab() {
   const revenueByCampaign = revenueQ.data?.byCampaign;
   const revenueLoaded = !!revenueQ.data;
 
-  /** Investido da campanha: insights do período; se a Zernio não retornar, usa o acumulado. */
-  const spendOf = (c: ZernioAdCampaign) =>
-    periodByCampaign?.get(c.platformCampaignId ?? '')?.spend ?? c.metrics?.spend;
+  /** Conta Meta coberta pelos insights do período: ausência de linha = R$ 0 no período (não o acumulado). */
+  const periodCovers = (c: ZernioAdCampaign) =>
+    !!periodQ.data && c.platform === 'facebook' && !!c.platformAdAccountId;
+  /** Investido da campanha: insights do período; só usa o acumulado quando a plataforma não tem insights por período. */
+  const spendOf = (c: ZernioAdCampaign) => {
+    const pm = periodByCampaign?.get(c.platformCampaignId ?? '');
+    if (pm) return pm.spend;
+    if (periodCovers(c)) return 0;
+    return c.metrics?.spend;
+  };
 
   const totals = useMemo(() => {
     const acc = { spend: 0, impressions: 0, clicks: 0, conversions: 0 };
@@ -148,11 +155,11 @@ export default function ZernioAdsTab() {
   }, [filtered, revenueByCampaign, revenueQ.data, search]);
 
   const spendTotal = useMemo(() => {
-    if (totals.spend > 0) return totals.spend;
     let sum = 0;
-    for (const c of filtered) sum += periodByCampaign?.get(c.platformCampaignId ?? '')?.spend ?? c.metrics?.spend ?? 0;
+    for (const c of filtered) sum += spendOf(c) ?? 0;
     return sum;
-  }, [filtered, periodByCampaign, totals.spend]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filtered, periodByCampaign, periodQ.data]);
 
   const loading = campaignsQ.isLoading || adsQ.isLoading || periodQ.isLoading;
   const err = (campaignsQ.error ?? adsQ.error) as Error | null;
