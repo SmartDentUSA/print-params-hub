@@ -35900,6 +35900,13 @@ export type Database = {
           visitors: number
         }[]
       }
+      fn_form_revenue: {
+        Args: { p_period_days?: number }
+        Returns: {
+          form_id: string
+          revenue: number
+        }[]
+      }
       fn_funil_jornada_cliente: {
         Args: { p_mes_fim?: string; p_mes_inicio?: string }
         Returns: {
