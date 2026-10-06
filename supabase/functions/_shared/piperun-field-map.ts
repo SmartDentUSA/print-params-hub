@@ -1583,19 +1583,33 @@ export async function piperunPut(
   path: string,
   body: Record<string, unknown>
 ): Promise<{ success: boolean; data: unknown; status: number }> {
-  const url = `${PIPERUN_API_BASE}/${path.replace(/^\/+/, "")}?token=${apiToken}`;
+  const cleanPath = path.replace(/^\/+/, "");
+  const url = `${PIPERUN_API_BASE}/${cleanPath}?token=${apiToken}`;
 
-  try {
-    const res = await fetch(url, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-    const json = await res.json();
-    return { success: res.ok, data: json, status: res.status };
-  } catch (err) {
-    return { success: false, data: String(err), status: 0 };
+  let finalBody = body;
+  if (/^(persons|companies)\/\d+$/.test(cleanPath)) {
+    const wanted = bodyContacts(body);
+    if (wanted.emails.length || wanted.phones.length) {
+      // Merge with what is already on the card so the PUT never drops contacts.
+      const current = await piperunGet(apiToken, cleanPath);
+      const data = (current.data as Record<string, unknown> | undefined)?.data as Record<string, unknown> | undefined;
+      const existing = current.success && data
+        ? {
+            emails: contactStrings(data.emails, ["email", "address"]),
+            phones: contactStrings(data.phones, ["phone", "number"]),
+          }
+        : null;
+      finalBody = toPiperunContactBody(body, existing);
+    }
   }
+
+  const res = await fetchJson(url, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(finalBody),
+  });
+  if (res.success) normalizePiperunContacts(res.data);
+  return res;
 }
 
 /**
