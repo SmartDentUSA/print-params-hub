@@ -1,4 +1,4 @@
-import { ReactFlow, Background, Controls, Handle, Position, MarkerType, type NodeProps } from "@xyflow/react";
+import { ReactFlow, Background, Controls, Handle, Position, MarkerType, type NodeProps, type Node } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { Package, Instagram, BookOpen, Calendar, GraduationCap, Mail } from "lucide-react";
 
@@ -25,7 +25,7 @@ function ContentNode({ data, selected }: NodeProps) {
 }
 const nodeTypes = { content: ContentNode };
 export function EmailContentCanvas({ selection, lists, active, onSelect }: { selection: ContentSelection; lists: Record<string, any[]>; active: ContentKey; onSelect: (k: ContentKey) => void }) {
-  const nodes = CONTENT_SOURCES.map((s, i) => {
+  const nodes: Node[] = CONTENT_SOURCES.map((s, i) => {
     const chosen = (lists[s.list] || []).filter((x) => selection[s.key].includes(x.id));
     return { id: s.key, type: "content", selected: active === s.key, position: { x: i * 270, y: 0 }, data: { source: s.key, summary: selection[s.key].length ? `${selection[s.key].length} selecionado(s) · ${chosen.map((x) => x.name || x.title || x.caption || "Publicação").join(" · ").slice(0, 110)}` : "Nenhum conteúdo selecionado" } };
   });

@@ -11,3 +11,4 @@
 - The Rotinas automáticas screen reads scheduled jobs live through admin-only database functions, and the Copilot turns jobs on or off through the same functions; this keeps the list always matching the real scheduler.
 
 - Email sequence automations (email_flows) run through one bounded, locked runner with per-enrollment idempotent progress and DB-trigger enrollment for system events; this keeps limits, priority and exit rules in one place.
+- Email audience and content graphs are presentation layers over the existing rule definitions and content IDs; retain runner-compatible payloads and persist graph positions/selections without introducing executable node types.

@@ -1,7 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -29,8 +28,6 @@ function ListInput({ value, onChange, options, placeholder }: { value: string[];
 
 function RuleEditor({ rule, onChange, options, courses, products, distributors }: { rule: AudienceRule; onChange: (r: AudienceRule) => void; options: Options | null; courses: any[]; products: any[]; distributors: any[] }) {
   const set = (p: Partial<AudienceRule>) => onChange({ ...rule, ...p });
-  const pipelines = [...new Set((options?.pipelines || []).map((p) => p.pipeline))];
-  const stages = [...new Set((options?.pipelines || []).filter((p) => !rule.pipeline || p.pipeline === rule.pipeline).map((p) => p.stage))];
   const dates = (
     <div className="grid grid-cols-2 gap-2">
       <div><Label className="text-[10px]">De</Label><Input type="date" className="h-8 text-xs" value={rule.from || ""} onChange={(e) => set({ from: e.target.value })} /></div>
@@ -61,7 +58,7 @@ function RuleEditor({ rule, onChange, options, courses, products, distributors }
     case "equipment_won": return <ListInput value={rule.values || []} onChange={(v) => set({ values: v })} options={products.map((p) => p.name)} placeholder="Selecionar equipamentos / produtos" />;
     case "resin_buyer": return <ListInput value={rule.values || []} onChange={(v) => set({ values: v })} options={products.filter((p) => p.category === "resin" || p.category === "Resinas" || /resina/i.test(p.name)).map((p) => p.name)} placeholder="Todas as resinas ou selecionar específicas" />;
     case "field": return (
-      <div className="grid grid-cols-3 gap-2">
+      <div className="space-y-2">
         <Select value={rule.column || ""} onValueChange={(v) => set({ column: v })}><SelectTrigger><SelectValue placeholder="Selecionar campo" /></SelectTrigger><SelectContent>{(options?.columns || []).map((c) => <SelectItem key={c.name} value={c.name}>{c.name}</SelectItem>)}</SelectContent></Select>
         <Select value={rule.op || "eq"} onValueChange={(v) => set({ op: v })}>
           <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
@@ -70,7 +67,7 @@ function RuleEditor({ rule, onChange, options, courses, products, distributors }
         {!["is_null", "not_null", "is_true", "is_false"].includes(rule.op || "eq") && <Input className="h-8 text-xs" placeholder="Valor" value={rule.value || ""} onChange={(e) => set({ value: e.target.value })} />}
       </div>);
     case "dist_country": case "dist_state": case "dist_tipo":
-      return <ListInput value={rule.values || []} onChange={(v) => set({ values: v })} options={distributors.map((d) => d[rule.type === "dist_country" ? "country" : rule.type === "dist_state" ? "state" : "tipo"]).filter(Boolean)} />;
+      return <ListInput value={rule.values || []} onChange={(v) => set({ values: v })} options={distributors.map((d) => d[rule.type === "dist_country" ? "pais" : rule.type === "dist_state" ? "estado" : "tipo"]).filter(Boolean)} />;
     case "dist_active":
       return <Select value={rule.value || "true"} onValueChange={(v) => set({ value: v })}><SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="true">Ativos</SelectItem><SelectItem value="false">Inativos</SelectItem></SelectContent></Select>;
   }
@@ -103,7 +100,7 @@ export function AudienceBuilder({ onSaved }: { onSaved?: () => void }) {
     load();
     db.rpc("fn_email_audience_options").then(({ data, error }: any) => { if (error) toast.error("Não foi possível carregar os filtros: " + error.message); else setOptions(data); });
     db.from("system_a_catalog").select("id, name, category").in("category", [...PRODUCT_CATALOG_ENTITY_TYPES]).eq("active", true).eq("approved", true).order("name").then(({ data }: any) => setProducts(data || []));
-    db.from("distributors").select("country, state, tipo").then(({ data }: any) => setDistributors(data || []));
+    db.from("distributors").select("pais, estado, tipo").then(({ data, error }: any) => { if (error) toast.error("Não foi possível carregar distribuidores"); else setDistributors(data || []); });
     db.from("smartops_courses").select("id, title").order("title").then(({ data }: any) => setCourses(data || []));
   }, []);
 
@@ -149,7 +146,7 @@ export function AudienceBuilder({ onSaved }: { onSaved?: () => void }) {
           <div className="grid gap-3 sm:grid-cols-3">
             <div className="sm:col-span-2"><Label className="text-xs">Nome</Label><Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex.: Compradores de resina SP" /></div>
             <div><Label className="text-xs">Quem recebe</Label>
-              <Select value={source} onValueChange={(v: any) => { setSource(v); setDef({ match: "all", rules: [] }); }}>
+               <Select value={source} onValueChange={(v: any) => { setSource(v); setDef({ match: "all", rules: [] }); setPositions({}); setSelectedRuleId(null); }}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent><SelectItem value="leads">Leads / clientes</SelectItem><SelectItem value="distributors">Distribuidores</SelectItem></SelectContent>
               </Select></div>

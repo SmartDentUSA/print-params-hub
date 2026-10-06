@@ -16,6 +16,9 @@ import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ArrowLeft, Save, Play, Pause, Mail, Clock, GitBranch, MessageCircle, MessageSquare, Flag, Trash2, Target, Repeat } from "lucide-react";
 import { EmailNodeEditor } from "./EmailNodeEditor";
+import { PipelineStageSelect } from "./AudienceSelectors";
+import { AudienceBuilder } from "./AudienceBuilder";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { FlowNodeType, NODE_LABELS, TRIGGERS, WEEKDAYS, defaultNodeData, uid, EMAIL_TYPES } from "./types";
 
 const db = supabase as any;
@@ -85,8 +88,11 @@ export function FlowEditor({ flowId, onBack }: { flowId: string | null; onBack: 
   const [courses, setCourses] = useState<any[]>([]);
   const [counts, setCounts] = useState<Record<string, number>>({});
   const [saving, setSaving] = useState(false);
+  const [audienceOpen, setAudienceOpen] = useState(false);
+  const [audienceOptions, setAudienceOptions] = useState<{ pipelines: { pipeline: string; stage: string }[]; forms: string[] }>({ pipelines: [], forms: [] });
 
   useEffect(() => {
+    db.rpc("fn_email_audience_options").then(({ data, error }: any) => { if (error) toast.error("Não foi possível carregar funis e etapas"); else setAudienceOptions({ pipelines: data?.pipelines || [], forms: data?.forms || [] }); });
     db.from("email_audiences").select("id, name, last_count").order("name").then(({ data }: any) => setAudiences(data || []));
     db.from("email_flows").select("id, name").order("name").then(({ data }: any) => setFlows(data || []));
     db.from("team_members").select("id, nome_completo, photo_url, cargo, whatsapp_number, instagram_url, linkedin_url, facebook_url, youtube_url, evolution_instance_name, evolution_api_key").eq("ativo", true).order("nome_completo")
@@ -196,7 +202,7 @@ export function FlowEditor({ flowId, onBack }: { flowId: string | null; onBack: 
         <span className="text-[11px] text-muted-foreground self-center ml-2">Arraste das bolinhas para ligar os passos. Ligue o fim a qualquer passo para repetir.</span>
       </div>
 
-      <div className="grid gap-3 lg:grid-cols-[1fr_400px]">
+      <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_400px]">
         <div className="h-[70vh] border rounded-lg bg-muted/20">
           <ReactFlow nodes={viewNodes} edges={edges} nodeTypes={nodeTypes} onNodesChange={onNodesChange} onEdgesChange={onEdgesChange}
             onConnect={onConnect} onNodeClick={(_, n) => setSelectedId(n.id)} onPaneClick={() => setSelectedId(null)} fitView deleteKeyCode={null}>
@@ -238,7 +244,7 @@ export function FlowEditor({ flowId, onBack }: { flowId: string | null; onBack: 
             {selected && (
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <div className="text-sm font-semibold">{NODE_LABELS[kind!]}</div>
+                  <div className="text-sm font-semibold">{kind ? NODE_LABELS[kind] : "Passo"}</div>
                   {kind !== "origin" && <Button size="sm" variant="ghost" onClick={deleteSelected}><Trash2 className="w-4 h-4 text-destructive" /></Button>}
                 </div>
 
@@ -249,10 +255,13 @@ export function FlowEditor({ flowId, onBack }: { flowId: string | null; onBack: 
                       <SelectContent><SelectItem value="audience">Público salvo</SelectItem><SelectItem value="trigger">Gatilho do sistema</SelectItem></SelectContent>
                     </Select>
                     {flow.origin_type === "audience" ? (
+                      <div className="space-y-2">
                       <Select value={flow.audience_id || ""} onValueChange={(v) => setF({ audience_id: v })}>
                         <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Escolha o público" /></SelectTrigger>
                         <SelectContent>{audiences.map((a) => <SelectItem key={a.id} value={a.id}>{a.name}{a.last_count != null ? ` (${a.last_count})` : ""}</SelectItem>)}</SelectContent>
                       </Select>
+                      <Button size="sm" variant="outline" onClick={() => setAudienceOpen(true)}>Criar / editar público em nós</Button>
+                      </div>
                     ) : (
                       <>
                         <Select value={flow.trigger_type || ""} onValueChange={(v) => setF({ trigger_type: v })}>
@@ -265,12 +274,9 @@ export function FlowEditor({ flowId, onBack }: { flowId: string | null; onBack: 
                             <SelectContent><SelectItem value="any">Qualquer curso</SelectItem>{courses.map((c) => <SelectItem key={c.id} value={c.id}>{c.title}</SelectItem>)}</SelectContent>
                           </Select>
                         )}
-                        {flow.trigger_type === "form_submitted" && <Input className="h-8 text-xs" placeholder="Nome do formulário (vazio = qualquer)" value={flow.trigger_config?.form_name || ""} onChange={(e) => setF({ trigger_config: { ...flow.trigger_config, form_name: e.target.value } })} />}
+                        {flow.trigger_type === "form_submitted" && <Select value={flow.trigger_config?.form_name || "__any"} onValueChange={(v) => setF({ trigger_config: { ...flow.trigger_config, form_name: v === "__any" ? "" : v } })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="__any">Todos os formulários</SelectItem>{audienceOptions.forms.map((f) => <SelectItem key={f} value={f}>{f}</SelectItem>)}</SelectContent></Select>}
                         {["stage_changed", "deal_won"].includes(flow.trigger_type) && (
-                          <div className="grid grid-cols-2 gap-2">
-                            <Input className="h-8 text-xs" placeholder="Funil (vazio = qualquer)" value={flow.trigger_config?.pipeline || ""} onChange={(e) => setF({ trigger_config: { ...flow.trigger_config, pipeline: e.target.value } })} />
-                            {flow.trigger_type === "stage_changed" && <Input className="h-8 text-xs" placeholder="Etapa (vazio = qualquer)" value={flow.trigger_config?.stage || ""} onChange={(e) => setF({ trigger_config: { ...flow.trigger_config, stage: e.target.value } })} />}
-                          </div>
+                          <PipelineStageSelect entries={audienceOptions.pipelines} pipeline={flow.trigger_config?.pipeline} stage={flow.trigger_config?.stage} onChange={(v) => setF({ trigger_config: { ...flow.trigger_config, ...v } })} />
                         )}
                       </>
                     )}
@@ -351,6 +357,7 @@ export function FlowEditor({ flowId, onBack }: { flowId: string | null; onBack: 
           </CardContent>
         </Card>
       </div>
+      <Dialog open={audienceOpen} onOpenChange={setAudienceOpen}><DialogContent className="max-w-[95vw] max-h-[92vh] overflow-auto"><DialogHeader><DialogTitle>Públicos — segmentação em nós</DialogTitle></DialogHeader><AudienceBuilder onSaved={() => { db.from("email_audiences").select("id, name, last_count").order("name").then(({ data }: any) => setAudiences(data || [])); }} /></DialogContent></Dialog>
     </div>
   );
 }
