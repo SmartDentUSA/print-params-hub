@@ -312,7 +312,6 @@ Deno.serve(async (req) => {
       }
     }
     }
-    }
     return json({ ok: true, email_budget_left: emailBudget, ...stats });
   } catch (err: any) {
     console.error("[runner] fatal", err);
