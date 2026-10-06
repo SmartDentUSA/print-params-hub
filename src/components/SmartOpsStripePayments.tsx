@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
+import { resolveCatalogProduct, rmsFamily, familyLeadKey } from "@/lib/stripeRmsProducts";
 
 interface PaymentUnit {
   id: string;
@@ -118,41 +119,8 @@ const PRE_STATUSES = ["Pendente", "Agendada", "Concluída", "Bloqueada"];
 const ATIV_STATUSES = ["Pendente", "Em andamento", "Concluída", "Cancelada"];
 const MENS_STATUSES = ["A vencer", "Paga", "Vencida", "Cancelada", "Trial"];
 
-// Produtos do catálogo (System A) — nome oficial + slug canônico
-const CATALOG_ATIVACAO = {
-  name: "Ativação DentalCAD Ultimate Lab Bundle - RMS",
-  slug: "ativacao-dentalcad-ultimate-lab-bundle-rms",
-};
-const CATALOG_MENSALIDADE = {
-  name: "Assinatura mensal DentalCAD Ultimate Lab Bundle - RMS",
-  slug: "mensalidade-dentalcad-ultimate-lab-bundle-rms",
-};
-
-const PRODUCT_LABELS: Record<string, string> = {
-  ativacao_dentalcad_ultimate_lab_bundle_rms: CATALOG_ATIVACAO.name,
-  ativacao_exocad_dentalcad_ia: CATALOG_ATIVACAO.name,
-  exocad_ultimate_bundle_rms: CATALOG_MENSALIDADE.name,
-  mensalidade_dentalcad_ultimate_lab_bundle_rms: CATALOG_MENSALIDADE.name,
-};
-
-// Resolve a descrição crua da Stripe para o produto do catálogo.
-function resolveCatalogProduct(
-  raw: string | null | undefined,
-  chargeKind?: string | null,
-): { name: string; slug: string } | null {
-  const t = (raw || "").toLowerCase();
-  if (chargeKind === "mensalidade") return CATALOG_MENSALIDADE;
-  if (t && (t.includes("ativa") || t.includes("implanta") || t.includes("setup"))) return CATALOG_ATIVACAO;
-  if (chargeKind === "ativacao") return CATALOG_ATIVACAO;
-  if (t.includes("ultimate bundle") || t.includes("ultimate lab bundle")) return CATALOG_MENSALIDADE;
-  return null;
-}
-
-function productLabel(slug: string | null | undefined, chargeKind?: string | null): string {
-  const resolved = resolveCatalogProduct(slug, chargeKind);
-  if (resolved) return resolved.name;
-  if (!slug) return "—";
-  return PRODUCT_LABELS[slug] || slug;
+function productLabel(raw: string | null | undefined, chargeKind?: string | null): string {
+  return resolveCatalogProduct(raw, chargeKind)?.name || raw || "—";
 }
 
 // A cobrança de "Ativação e Implantação Inicial" NUNCA é mensalidade.
@@ -184,9 +152,9 @@ function deriveMensalidadeLabel(sub: { status: string | null; current_period_end
 function statusColor(s: string | null): string {
   if (!s) return "bg-slate-500/10 text-slate-400 border-slate-500/30";
   const l = s.toLowerCase();
-  if (l.includes("conclu") || l === "paga" || l === "ativa") return "bg-emerald-500/10 text-emerald-400 border-emerald-500/30";
-  if (l.includes("vencid") || l === "cancelada" || l === "bloqueada") return "bg-red-500/10 text-red-400 border-red-500/30";
-  if (l.includes("vence") || l === "a vencer" || l === "agendada" || l === "em andamento") return "bg-amber-500/10 text-amber-400 border-amber-500/30";
+  if (l.includes("conclu") || l === "paga" || l === "ativa") return "bg-emerald-500/10 text-success border-emerald-500/30";
+  if (l.includes("vencid") || l === "cancelada" || l === "bloqueada") return "bg-red-500/10 text-destructive border-red-500/30";
+  if (l.includes("vence") || l === "a vencer" || l === "agendada" || l === "em andamento") return "bg-amber-500/10 text-warning border-amber-500/30";
   if (l === "trial") return "bg-sky-500/10 text-sky-400 border-sky-500/30";
   return "bg-slate-500/10 text-slate-400 border-slate-500/30";
 }
@@ -247,6 +215,7 @@ export function SmartOpsStripePayments() {
             .from("lia_attendances")
             .select("id, nome, email, telefone_normalized")
             .in("id", leadIds)
+            .is("merged_into", null)
         : { data: [] as LeadRow[], error: null };
       if ((leadsRes as any).error) throw (leadsRes as any).error;
       const leadMap = new Map<string, LeadRow>();
@@ -279,6 +248,11 @@ export function SmartOpsStripePayments() {
         for (const r of (invRows as any[]) ?? []) {
           if (!r?.lead_id) continue;
           const ed = r.event_data ?? {};
+          const subscription = subs.find(s => s.stripe_subscription_id === ed.stripe_subscription_id);
+          const productText = [ed.product_name, ed.description, ...(ed.products ?? []).map((p: { name?: string }) => p.name)].filter(Boolean).join(" ") || subscription?.product;
+          const family = rmsFamily(productText);
+          if (!family) continue;
+          const invoiceKey = familyLeadKey(family, r.lead_id);
           const isSubscription =
             !!ed.stripe_subscription_id ||
             String(ed.mode ?? "").toLowerCase() === "subscription" ||
@@ -288,14 +262,14 @@ export function SmartOpsStripePayments() {
           if (isAtivacaoCharge(ed.description) || isAtivacaoCharge(ed.product_name)) continue;
           const v = Number(r.value_numeric ?? 0);
           if (isFinite(v)) {
-            invoicePaid.set(r.lead_id, (invoicePaid.get(r.lead_id) ?? 0) + v);
+            invoicePaid.set(invoiceKey, (invoicePaid.get(invoiceKey) ?? 0) + v);
           }
           if (r.event_timestamp) {
             const d = new Date(r.event_timestamp);
             if (!isNaN(d.getTime())) {
-              const prev = firstSubInvoice.get(r.lead_id);
+              const prev = firstSubInvoice.get(invoiceKey);
               if (!prev || d.getTime() < prev.getTime()) {
-                firstSubInvoice.set(r.lead_id, d);
+                firstSubInvoice.set(invoiceKey, d);
               }
             }
           }
@@ -313,9 +287,12 @@ export function SmartOpsStripePayments() {
           subByCustomer.set(s.stripe_customer_id, s);
         }
         if (s.lead_id) {
-          const prev = subByLead.get(s.lead_id);
+          const family = rmsFamily(s.product);
+          if (!family) continue;
+          const key = familyLeadKey(family, s.lead_id);
+          const prev = subByLead.get(key);
           const rank = (x?: Subscription) => (x?.status === "active" || x?.status === "trialing" ? 2 : x ? 1 : 0);
-          if (!prev || rank(s) > rank(prev)) subByLead.set(s.lead_id, s);
+          if (!prev || rank(s) > rank(prev)) subByLead.set(key, s);
         }
       }
 
@@ -326,9 +303,10 @@ export function SmartOpsStripePayments() {
 
       const built: Row[] = units.map(u => {
         const lead = u.lead_id ? leadMap.get(u.lead_id) : undefined;
-        const sub =
-          (u.stripe_customer_id ? subByCustomer.get(u.stripe_customer_id) : undefined) ??
-          (u.lead_id ? subByLead.get(u.lead_id) : undefined);
+        const family = rmsFamily(u.product_name);
+        const customerSub = u.stripe_customer_id ? subByCustomer.get(u.stripe_customer_id) : undefined;
+        const sub = (customerSub && rmsFamily(customerSub.product) === family ? customerSub : undefined) ??
+          (u.lead_id && family ? subByLead.get(familyLeadKey(family, u.lead_id)) : undefined);
         const sellerCode = u.stripe_seller_id ?? null;
         const vendedorLabel = sellerCode
           ? vendMap.get(sellerCode) || sellerCode
@@ -363,7 +341,7 @@ export function SmartOpsStripePayments() {
           mensalidade_status:
             u.mensalidade_status ||
             deriveMensalidadeLabel(sub ?? null) ||
-            ((u.lead_id && (invoicePaid.get(u.lead_id) ?? 0) > 0) ? "Paga" : null),
+            ((u.lead_id && (invoicePaid.get(familyLeadKey(family, u.lead_id)) ?? 0) > 0) ? "Paga" : null),
           charge_kind: ((u as any).charge_kind === "mensalidade" ? "mensalidade" : "ativacao") as ChargeKind,
           subscription_status: sub?.status ?? null,
           current_period_end: sub?.current_period_end ?? null,
@@ -473,7 +451,7 @@ export function SmartOpsStripePayments() {
     return l.includes("vencid") || l === "cancelada" || l === "bloqueada";
   };
 
-  const kpis = useMemo(() => {
+  const kpisByFamily = useMemo(() => (["dentalcad", "exoplan"] as const).map(family => {
     let subsAtivas = 0;
     let subsFalhas = 0;
     let preAtivPend = 0;
@@ -488,7 +466,8 @@ export function SmartOpsStripePayments() {
     const DAY = 86400000;
     // Ativações: somente unidades de RMS (cobranças de ativação). Cobranças
     // recorrentes (mensalidade) nunca contam como unidade vendida.
-    const ativUnits = searchFiltered.filter(r => r.charge_kind !== "mensalidade");
+    const familyRows = searchFiltered.filter(r => rmsFamily(r.produto) === family);
+    const ativUnits = familyRows.filter(r => r.charge_kind !== "mensalidade");
     const ativacoesPagas = ativUnits.reduce((s, r) => s + (r.valor || 0), 0);
     const pagamentosAtiv = new Set(ativUnits.map(r => `${r.lead_id ?? "nolead"}|${r.payment_at}`)).size;
 
@@ -501,13 +480,13 @@ export function SmartOpsStripePayments() {
 
     // Mensalidades — por cliente (lead), nunca por unidade
     const leadsInView = new Set<string>();
-    for (const r of ativUnits) if (r.lead_id) leadsInView.add(r.lead_id);
+    for (const r of familyRows) if (r.lead_id) leadsInView.add(r.lead_id);
     const subStatusByLead = new Map<string, string>();
-    for (const r of rows) if (r.lead_id && r.subscription_status) subStatusByLead.set(r.lead_id, r.subscription_status.toLowerCase());
+    for (const r of rows.filter(r => rmsFamily(r.produto) === family)) if (r.lead_id && r.subscription_status) subStatusByLead.set(r.lead_id, r.subscription_status.toLowerCase());
     let mensalidadesPagas = 0;
     let primeirasMensalidadesClientes = 0;
     for (const lid of leadsInView) {
-      const v = invoicePaidByLead.get(lid) ?? 0;
+      const v = invoicePaidByLead.get(familyLeadKey(family, lid)) ?? 0;
       if (v > 0) {
         mensalidadesPagas += v;
         primeirasMensalidadesClientes += 1;
@@ -515,7 +494,7 @@ export function SmartOpsStripePayments() {
       const ss = subStatusByLead.get(lid) ?? "";
       if (ss === "active" || ss === "trialing") subsAtivas += 1;
       if (ss === "past_due" || ss === "canceled" || ss === "unpaid") subsFalhas += 1;
-      const first = firstSubInvoiceByLead.get(lid);
+      const first = firstSubInvoiceByLead.get(familyLeadKey(family, lid));
       if (first) {
         const diff = Math.floor((now - first.getTime()) / DAY);
         if (diff >= 0 && diff <= 10) mens0a10 += 1;
@@ -543,7 +522,7 @@ export function SmartOpsStripePayments() {
       mens21a30,
       mensNaoPaga,
     };
-  }, [rows, searchFiltered, invoicePaidByLead, firstSubInvoiceByLead]);
+  }), [rows, searchFiltered, invoicePaidByLead, firstSubInvoiceByLead]);
 
   if (loading) {
     return (
@@ -597,21 +576,22 @@ export function SmartOpsStripePayments() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+        {kpisByFamily.map((kpis, familyIndex) => <div key={familyIndex} className="contents">
         <Card className="p-3">
           <div className="flex items-center gap-2 mb-2">
             <CreditCard className="w-4 h-4 text-primary" />
-            <h2 className="text-sm font-semibold uppercase tracking-wide">Ativações</h2>
+            <h2 className="text-sm font-semibold uppercase tracking-wide">{familyIndex === 0 ? "Ativações" : "Ativação e Implantação exoplan RMS + Guide Creator"}</h2>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
             {[
               { label: "Pagamentos", value: String(kpis.pagamentos), tone: "text-foreground" },
               { label: "Unidades vendidas", value: String(kpis.unidades), tone: "text-foreground" },
-              { label: "Ativações pagas", value: fmtBRL(kpis.ativacoesPagas), tone: "text-emerald-400" },
+              { label: "Ativações pagas", value: fmtBRL(kpis.ativacoesPagas), tone: "text-success" },
               { label: "Ticket médio", value: fmtBRL(kpis.ticketMedio), tone: "text-foreground" },
-              { label: "Ativas", value: String(kpis.ativas), tone: "text-emerald-400" },
-              { label: "Pré-ativações pendentes", value: String(kpis.preAtivPend), tone: "text-amber-400" },
-              { label: "Ativações pendentes", value: String(kpis.ativPend), tone: "text-amber-400" },
-              { label: "Dongles sem ID", value: String(kpis.semDongle), tone: "text-amber-400" },
+              { label: "Ativas", value: String(kpis.ativas), tone: "text-success" },
+              { label: "Pré-ativações pendentes", value: String(kpis.preAtivPend), tone: "text-warning" },
+              { label: "Ativações pendentes", value: String(kpis.ativPend), tone: "text-warning" },
+              { label: "Dongles sem ID", value: String(kpis.semDongle), tone: "text-warning" },
             ].map(k => (
               <div key={k.label} className="rounded-md border border-border bg-background/40 p-2">
                 <div className="text-[10px] uppercase tracking-wide text-muted-foreground">{k.label}</div>
@@ -624,17 +604,17 @@ export function SmartOpsStripePayments() {
         <Card className="p-3">
           <div className="flex items-center gap-2 mb-2">
             <RefreshCw className="w-4 h-4 text-primary" />
-            <h2 className="text-sm font-semibold uppercase tracking-wide">Mensalidades</h2>
+            <h2 className="text-sm font-semibold uppercase tracking-wide">{familyIndex === 0 ? "Mensalidades" : "Mensalidade exoplan RMS + Guide Creator"}</h2>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
             {[
-              { label: "Primeira mensalidade (clientes)", value: String(kpis.primeirasMensalidadesClientes), tone: "text-emerald-400" },
-              { label: "Total mensalidades pagas", value: fmtBRL(kpis.mensalidadesPagas), tone: "text-emerald-400" },
-              { label: "Assinaturas ativas", value: String(kpis.subsAtivas), tone: "text-emerald-400" },
-              { label: "Vencidas / Canceladas", value: String(kpis.subsFalhas), tone: "text-red-400" },
-              { label: "0–10 dias", value: String(kpis.mens0a10), tone: "text-emerald-400" },
-              { label: "11–20 dias", value: String(kpis.mens11a20), tone: "text-amber-400" },
-              { label: "21–30 dias", value: String(kpis.mens21a30), tone: "text-amber-400" },
+              { label: "Primeira mensalidade (clientes)", value: String(kpis.primeirasMensalidadesClientes), tone: "text-success" },
+              { label: "Total mensalidades pagas", value: fmtBRL(kpis.mensalidadesPagas), tone: "text-success" },
+              { label: "Assinaturas ativas", value: String(kpis.subsAtivas), tone: "text-success" },
+              { label: "Vencidas / Canceladas", value: String(kpis.subsFalhas), tone: "text-destructive" },
+              { label: "0–10 dias", value: String(kpis.mens0a10), tone: "text-success" },
+              { label: "11–20 dias", value: String(kpis.mens11a20), tone: "text-warning" },
+              { label: "21–30 dias", value: String(kpis.mens21a30), tone: "text-warning" },
               { label: "> 30 dias — Não paga", value: String(kpis.mensNaoPaga), tone: "text-destructive" },
             ].map(k => (
               <div key={k.label} className="rounded-md border border-border bg-background/40 p-2">
@@ -644,6 +624,7 @@ export function SmartOpsStripePayments() {
             ))}
           </div>
         </Card>
+        </div>)}
       </div>
 
       <Card className="overflow-hidden">
@@ -693,7 +674,7 @@ export function SmartOpsStripePayments() {
                       {productLabel(r.produto, r.charge_kind)}
                       {(() => {
                         const cat = resolveCatalogProduct(r.produto, r.charge_kind);
-                        if (!cat) return null;
+                        if (!cat?.slug) return null;
                         return (
                           <a
                             href={`/${cat.slug}`}
@@ -710,7 +691,7 @@ export function SmartOpsStripePayments() {
                           variant="outline"
                           className={r.charge_kind === "mensalidade"
                             ? "bg-sky-500/10 text-sky-400 border-sky-500/30"
-                            : "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"}
+                            : "bg-emerald-500/10 text-success border-emerald-500/30"}
                         >
                           {r.charge_kind === "mensalidade" ? "Mensalidade" : "Ativação"}
                         </Badge>
