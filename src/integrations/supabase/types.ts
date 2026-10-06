@@ -35233,6 +35233,8 @@ export type Database = {
         Returns: {
           conversions: number
           deals_created: number
+          revenue: number
+          won_deals: number
         }[]
       }
       fn_campaign_email_stats: {
@@ -35419,6 +35421,10 @@ export type Database = {
       }
       fn_count_push_audience: { Args: { p_filters?: Json }; Returns: number }
       fn_deal_closed_mes: { Args: { closed_at: string }; Returns: string }
+      fn_deal_won_at: {
+        Args: { p_closed_at: string; p_piperun_updated_at: string }
+        Returns: string
+      }
       fn_deduplicate_proposal_csv: {
         Args: { p_csv_rows: Json }
         Returns: {
