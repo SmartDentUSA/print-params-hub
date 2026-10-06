@@ -1398,37 +1398,177 @@ export function customFieldsToDealPayload(
 
 // ─── PipeRun API helpers ───
 
+// PipeRun contact contract (verified 2026-10-06 against live API):
+//  • Writes: only `contact_emails: [{ email }]` and `contact_phones: [{ phone }]`
+//    are persisted on persons/companies. `email`, `emails[]`, `cellphone` and
+//    `phones[]` return HTTP 200 but are silently discarded.
+//  • Reads: contacts only come back as `contactEmails`/`contactPhones` when
+//    requested via `with[]`. List filters are `?email=` and `?phone=`;
+//    `emails[email]` / `phones[phone]` / `search` ignore the value and return
+//    the latest persons.
+// The helpers below translate legacy payloads and normalize responses so every
+// caller keeps working with `emails[].email` / `phones[].phone`.
+const CONTACT_ENTITY_RE = /^(persons|companies)(\/\d+)?(\?|$)/;
+const CONTACT_WITH = ["contactEmails", "contactPhones"];
+
+function contactStrings(list: unknown, keys: string[]): string[] {
+  if (!Array.isArray(list)) return [];
+  return list
+    .map((item) => {
+      if (typeof item === "string") return item;
+      if (item && typeof item === "object") {
+        for (const k of keys) {
+          const v = (item as Record<string, unknown>)[k];
+          if (typeof v === "string" && v.trim()) return v;
+        }
+      }
+      return "";
+    })
+    .map((s) => String(s).trim())
+    .filter(Boolean);
+}
+
+function uniqueBy(values: string[], keyOf: (v: string) => string): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const v of values) {
+    const k = keyOf(v);
+    if (!k || seen.has(k)) continue;
+    seen.add(k);
+    out.push(v);
+  }
+  return out;
+}
+const emailKey = (v: string) => v.trim().toLowerCase();
+const phoneKey = (v: string) => {
+  const d = v.replace(/\D/g, "");
+  return d.length >= 12 && d.startsWith("55") ? d.slice(2) : d;
+};
+
+function bodyContacts(body: Record<string, unknown>): { emails: string[]; phones: string[] } {
+  const emails = [
+    ...(typeof body.email === "string" ? [body.email] : []),
+    ...contactStrings(body.emails, ["email", "address"]),
+    ...contactStrings(body.contact_emails, ["email", "address"]),
+  ];
+  const phones = [
+    ...(typeof body.cellphone === "string" ? [body.cellphone] : []),
+    ...contactStrings(body.phones, ["phone", "number"]),
+    ...contactStrings(body.contact_phones, ["phone", "number"]),
+  ];
+  return {
+    emails: uniqueBy(emails.filter((e) => e.includes("@")), emailKey),
+    phones: uniqueBy(phones.map((p) => p.replace(/\D/g, "")).filter((p) => p.length >= 10), phoneKey),
+  };
+}
+
+/** Recursively mirror `contactEmails`/`contactPhones` into `emails`/`phones`. */
+export function normalizePiperunContacts(value: unknown, depth = 0): unknown {
+  if (depth > 4 || value === null || typeof value !== "object") return value;
+  if (Array.isArray(value)) {
+    for (const item of value) normalizePiperunContacts(item, depth + 1);
+    return value;
+  }
+  const obj = value as Record<string, unknown>;
+  const ce = contactStrings(obj.contactEmails ?? obj.contact_emails, ["email", "address"]);
+  const cp = contactStrings(obj.contactPhones ?? obj.contact_phones, ["phone", "number"]);
+  const legacyEmails = contactStrings(obj.emails, ["email", "address"]);
+  const legacyPhones = contactStrings(obj.phones, ["phone", "number"]);
+  if (ce.length || "contactEmails" in obj) {
+    const merged = uniqueBy([...legacyEmails, ...ce], emailKey);
+    obj.emails = merged.map((email) => ({ email }));
+    if (!Array.isArray(obj.contact_emails) || !(obj.contact_emails as unknown[]).length) {
+      obj.contact_emails = merged.map((email) => ({ email, address: email }));
+    }
+  }
+  if (cp.length || "contactPhones" in obj) {
+    const merged = uniqueBy([...legacyPhones, ...cp], phoneKey);
+    obj.phones = merged.map((phone) => ({ phone }));
+    if (!Array.isArray(obj.contact_phones) || !(obj.contact_phones as unknown[]).length) {
+      obj.contact_phones = merged.map((phone) => ({ phone, number: phone }));
+    }
+  }
+  for (const k of ["data", "person", "company", "persons", "companies"]) {
+    if (obj[k] && typeof obj[k] === "object") normalizePiperunContacts(obj[k], depth + 1);
+  }
+  return value;
+}
+
+/**
+ * Build the body PipeRun actually persists. Existing contacts are merged in so
+ * a PUT never drops an e-mail/phone already on the card.
+ */
+export function toPiperunContactBody(
+  body: Record<string, unknown>,
+  existing?: { emails: string[]; phones: string[] } | null,
+): Record<string, unknown> {
+  const wanted = bodyContacts(body);
+  if (!wanted.emails.length && !wanted.phones.length) return body;
+  const out: Record<string, unknown> = { ...body };
+  if (wanted.emails.length) {
+    const merged = uniqueBy([...(existing?.emails ?? []), ...wanted.emails], emailKey);
+    out.contact_emails = merged.map((email) => ({ email }));
+  }
+  if (wanted.phones.length) {
+    const merged = uniqueBy([...(existing?.phones ?? []), ...wanted.phones], phoneKey);
+    out.contact_phones = merged.map((phone) => ({ phone }));
+  }
+  return out;
+}
+
+async function fetchJson(url: string, init?: RequestInit): Promise<{ success: boolean; data: unknown; status: number }> {
+  // PipeRun answers 429 "Too Many Attempts" in bursts; wait and retry so a
+  // throttled read is never mistaken for an empty contact card.
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const res = await fetch(url, init);
+      if (res.status === 429 && attempt < 2) {
+        await res.body?.cancel();
+        await new Promise((r) => setTimeout(r, 2000 * (attempt + 1)));
+        continue;
+      }
+      const json = await res.json();
+      return { success: res.ok, data: json, status: res.status };
+    } catch (err) {
+      if (attempt < 2) continue;
+      return { success: false, data: String(err), status: 0 };
+    }
+  }
+  return { success: false, data: "retry_exhausted", status: 429 };
+}
+
 export async function piperunGet(
   apiToken: string,
   path: string,
   params?: Record<string, string | number>,
   arrayParams?: Record<string, string[]>
 ): Promise<{ success: boolean; data: unknown; status: number }> {
-  let url = `${PIPERUN_API_BASE}/${path.replace(/^\/+/, "")}`;
+  const cleanPath = path.replace(/^\/+/, "");
+  let url = `${PIPERUN_API_BASE}/${cleanPath}`;
   const searchParams = new URLSearchParams({ token: apiToken });
   if (params) {
     for (const [k, v] of Object.entries(params)) {
       searchParams.set(k, String(v));
     }
   }
+  // Persons/companies only expose contacts through with[]=contactEmails/contactPhones.
+  const isContactEntity = CONTACT_ENTITY_RE.test(cleanPath);
+  const arrays: Record<string, string[]> = { ...(arrayParams || {}) };
+  if (isContactEntity) {
+    arrays["with[]"] = Array.from(new Set([...(arrays["with[]"] || []), ...CONTACT_WITH]));
+  }
   // Support array params like with[]=person&with[]=origin
   let extraParams = "";
-  if (arrayParams) {
-    for (const [k, values] of Object.entries(arrayParams)) {
-      for (const v of values) {
-        extraParams += `&${encodeURIComponent(k)}=${encodeURIComponent(v)}`;
-      }
+  for (const [k, values] of Object.entries(arrays)) {
+    for (const v of values) {
+      extraParams += `&${encodeURIComponent(k)}=${encodeURIComponent(v)}`;
     }
   }
   url += (url.includes("?") ? "&" : "?") + searchParams.toString() + extraParams;
 
-  try {
-    const res = await fetch(url);
-    const json = await res.json();
-    return { success: res.ok, data: json, status: res.status };
-  } catch (err) {
-    return { success: false, data: String(err), status: 0 };
-  }
+  const res = await fetchJson(url);
+  if (res.success) normalizePiperunContacts(res.data);
+  return res;
 }
 
 export async function piperunPost(
@@ -1436,39 +1576,51 @@ export async function piperunPost(
   path: string,
   body: Record<string, unknown>
 ): Promise<{ success: boolean; data: unknown; status: number }> {
-  const url = `${PIPERUN_API_BASE}/${path.replace(/^\/+/, "")}?token=${apiToken}`;
-
-  try {
-    const res = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-    const json = await res.json();
-    return { success: res.ok, data: json, status: res.status };
-  } catch (err) {
-    return { success: false, data: String(err), status: 0 };
-  }
+  const cleanPath = path.replace(/^\/+/, "");
+  const url = `${PIPERUN_API_BASE}/${cleanPath}?token=${apiToken}`;
+  const finalBody = CONTACT_ENTITY_RE.test(cleanPath) ? toPiperunContactBody(body) : body;
+  const res = await fetchJson(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(finalBody),
+  });
+  if (res.success) normalizePiperunContacts(res.data);
+  return res;
 }
+
 
 export async function piperunPut(
   apiToken: string,
   path: string,
   body: Record<string, unknown>
 ): Promise<{ success: boolean; data: unknown; status: number }> {
-  const url = `${PIPERUN_API_BASE}/${path.replace(/^\/+/, "")}?token=${apiToken}`;
+  const cleanPath = path.replace(/^\/+/, "");
+  const url = `${PIPERUN_API_BASE}/${cleanPath}?token=${apiToken}`;
 
-  try {
-    const res = await fetch(url, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-    const json = await res.json();
-    return { success: res.ok, data: json, status: res.status };
-  } catch (err) {
-    return { success: false, data: String(err), status: 0 };
+  let finalBody = body;
+  if (/^(persons|companies)\/\d+$/.test(cleanPath)) {
+    const wanted = bodyContacts(body);
+    if (wanted.emails.length || wanted.phones.length) {
+      // Merge with what is already on the card so the PUT never drops contacts.
+      const current = await piperunGet(apiToken, cleanPath);
+      const data = (current.data as Record<string, unknown> | undefined)?.data as Record<string, unknown> | undefined;
+      const existing = current.success && data
+        ? {
+            emails: contactStrings(data.emails, ["email", "address"]),
+            phones: contactStrings(data.phones, ["phone", "number"]),
+          }
+        : null;
+      finalBody = toPiperunContactBody(body, existing);
+    }
   }
+
+  const res = await fetchJson(url, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(finalBody),
+  });
+  if (res.success) normalizePiperunContacts(res.data);
+  return res;
 }
 
 /**

@@ -183,7 +183,8 @@ export async function findPersonByContact(
   // a) email exact
   if (email) {
     try {
-      const res = await piperunGet(apiToken, "persons", { show: 50 }, { "emails[email]": [email] });
+      // PipeRun list filter is `?email=` (emails[email] is ignored by the API).
+      const res = await piperunGet(apiToken, "persons", { show: 50, email });
       if (res.success) {
         const hit = pickByEmail(res.data, email);
         if (hit) return { ...hit, matched_via: "email_filter" };
@@ -203,13 +204,21 @@ export async function findPersonByContact(
   // c) phone exact filter
   const phoneDigits = digits(phone);
   if (phoneDigits.length >= 11) {
-    try {
-      const res = await piperunGet(apiToken, "persons", { show: 50 }, { "phones[phone]": [phone as string] });
-      if (res.success) {
-        const hit = pickByPhone(res.data, phone as string);
-        if (hit) return { ...hit, matched_via: "phone_filter" };
-      }
-    } catch (e) { console.warn("[piperun-resolver] phone_filter error:", e); }
+    // PipeRun list filter is `?phone=<digits>` (phones[phone] is ignored).
+    // Try with and without the 55 country code, since cards store either.
+    const variants = Array.from(new Set([
+      phoneDigits,
+      phoneDigits.startsWith("55") && phoneDigits.length >= 12 ? phoneDigits.slice(2) : `55${phoneDigits}`,
+    ]));
+    for (const variant of variants) {
+      try {
+        const res = await piperunGet(apiToken, "persons", { show: 50, phone: variant });
+        if (res.success) {
+          const hit = pickByPhone(res.data, phone as string);
+          if (hit) return { ...hit, matched_via: "phone_filter" };
+        }
+      } catch (e) { console.warn("[piperun-resolver] phone_filter error:", e); }
+    }
 
     // d) phone via search (digits only)
     try {
