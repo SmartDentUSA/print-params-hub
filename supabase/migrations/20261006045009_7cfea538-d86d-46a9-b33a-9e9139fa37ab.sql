@@ -1,0 +1,2 @@
+update system_a_catalog set slug = 'glazeon-splint' where id = '0e1e3597-0d7a-4570-94b8-ba3d7e62d6a8';
+update system_a_catalog set slug = 'scanner-intraoral-blz-ino100-plus' where id = '38e09b6d-eacd-43a4-9faa-13c7263dfba4';
