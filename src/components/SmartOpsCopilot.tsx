@@ -156,6 +156,16 @@ export function SmartOpsCopilot() {
     else startListening();
   };
 
+  // Mensagem pré-preenchida (ex.: botão Diagnóstico das rotinas automáticas)
+  useEffect(() => {
+    const pre = sessionStorage.getItem("copilot-prefill");
+    if (pre) {
+      sessionStorage.removeItem("copilot-prefill");
+      setTimeout(() => sendMessage(pre), 300);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Stream chat
   const sendMessage = async (text: string) => {
     if (!text.trim() || isLoading) return;
