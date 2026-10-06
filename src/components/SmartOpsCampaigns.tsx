@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import ZernioAdsTab from "@/components/campaigns/ZernioAdsTab";
 import { PushAppTab } from "@/components/campaigns/PushAppTab";
+import EmailFlowsTab from "@/components/campaigns/emailflows/EmailFlowsTab";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -2799,6 +2800,7 @@ export function SmartOpsCampaigns() {
           <TabsTrigger value="formularios-meta">Origens</TabsTrigger>
           <TabsTrigger value="anuncios">Anúncios</TabsTrigger>
           <TabsTrigger value="pushapp">PushApp</TabsTrigger>
+          <TabsTrigger value="email-sequencial">Automação e-mails sequenciais</TabsTrigger>
         </TabsList>
 
         <TabsContent value="biblioteca">
@@ -2829,6 +2831,9 @@ export function SmartOpsCampaigns() {
         </TabsContent>
         <TabsContent value="pushapp">
           <PushAppTab />
+        </TabsContent>
+        <TabsContent value="email-sequencial">
+          <EmailFlowsTab />
         </TabsContent>
       </Tabs>
     </div>

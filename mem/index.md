@@ -10,6 +10,7 @@
 - **Cupons ilimitados**: cupom de vendedor vale sem limite de usos até a validade — LI recebe quantidade 999999 e quantidade_por_cliente 0.
 
 ## Memories
+- [Automação de e-mails sequenciais](mem://features/email-sequence-automations) — 3x/dia 08/12/17h, 150 e-mails/dia por prioridade, dias da semana, origem obrigatória
 - [Indicadores RMS exoplan](mem://features/stripe-rms-exoplan) — Cards de ativação e mensalidade exoplan separados de DentalCAD; nome correto na lista
 - [Cupons Loja Integrada uso ilimitado](mem://integration/loja-integrada-coupon-unlimited-usage) — quantidade null dá 400 e 0 esgota; usar 999999 + quantidade_por_cliente 0
 - [PipeRun Deal Title Uniqueness](mem://integration/piperun-deal-title-uniqueness) — Dedup por título sequestrava Deal de homônimo; sufixo no título, match por nome só com 2+ tokens, pessoa persistida na hora

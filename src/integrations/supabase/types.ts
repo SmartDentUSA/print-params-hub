@@ -35737,6 +35737,7 @@ export type Database = {
         Args: { p_form_id: string }
         Returns: string
       }
+      fn_email_audience_options: { Args: never; Returns: Json }
       fn_email_campaign_metrics: {
         Args: { p_campaign_id: string }
         Returns: Json
