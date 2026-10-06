@@ -1,0 +1,2 @@
+REVOKE ALL ON FUNCTION public.trg_email_flow_from_enrollment(), public.trg_email_flow_from_form(), public.trg_email_flow_from_stage(), public.trg_email_flow_from_deal() FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.fn_audience_where(jsonb) FROM authenticated;
