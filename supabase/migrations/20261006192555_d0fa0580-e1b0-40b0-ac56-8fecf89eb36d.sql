@@ -1,0 +1,1 @@
+REVOKE EXECUTE ON FUNCTION public.fn_form_revenue(integer) FROM PUBLIC, anon;
