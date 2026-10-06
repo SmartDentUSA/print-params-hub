@@ -16,3 +16,7 @@
 
 - [x] Ajustar segmentação em nós, seletores de funis/etapas, conteúdo e assinatura do vendedor atual nas réguas de e-mail. Controles isolados testados; conferência completa autenticada indisponível no Supabase externo.
 - [x] Condição de e-mail: espera em horas, minutos, segundos ou imediatamente; quatro opções testadas isoladamente e executor implantado, mantendo réguas antigas. Precisão limitada às rodadas atuais; fluxo autenticado completo indisponível.
+- [x] E-mails dos leads não chegavam no CRM: PipeRun ignorava `emails[]`/`phones[]`; envio passou a usar `contact_emails`/`contact_phones` e 191 leads dos congressos foram reenviados
+- [x] Notas Omie 17–25/09: datas reais, 13 canceladas marcadas, 34 vinculadas ao lead; datas de 03/08–06/10 corrigidas em lote
+- [x] Listas de vendas dos vendedores (373 negócios IN26/CIPRO) conferidas; negócio 63309679 (Daniel, R$ 28.000) atualizado para ganho
+- [ ] Rotina diária de notas do Omie grava data no dia 10 do mês — código dessa rotina não está no projeto (bloqueado: precisa do código da rotina `omie-sync-nf`)
