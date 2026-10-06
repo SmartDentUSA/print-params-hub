@@ -13,3 +13,5 @@
 - Email sequence automations (email_flows) run through one bounded, locked runner with per-enrollment idempotent progress and DB-trigger enrollment for system events; this keeps limits, priority and exit rules in one place.
 - Email audience and content graphs are presentation layers over the existing rule definitions and content IDs; retain runner-compatible payloads and persist graph positions/selections without introducing executable node types.
 - PipeRun deal value in `deals.value` is P&S plus MRR (both kept in `value_ps`/`value_mrr`); subscription-style sales booked only as MRR would otherwise count as zero revenue.
+- PipeRun sync hydrates person contacts via a read-only persons/{id} GET and matches/creates leads by phone when e-mail is missing; deals typed directly in PipeRun otherwise never reach the system.
+- Proposal item expansion failures never block saving the deal; one bad item used to hide every deal of the lead.
