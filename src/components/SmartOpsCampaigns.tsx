@@ -2525,13 +2525,18 @@ function CampaignHistory() {
                             const cv = conversions[selectedCampaign.id];
                             const conv = cv?.conversions ?? 0;
                             const deals = cv?.deals_created ?? 0;
+                            const wonDeals = cv?.won_deals ?? 0;
+                            const revenue = Number(cv?.revenue ?? 0);
                             return (
                               <div className="text-center p-3 border rounded col-span-4 bg-green-50/50">
                                 <p className="text-2xl font-bold text-green-600">
                                   {conv}<span className="text-xs text-muted-foreground font-normal">{pct(conv)}</span>
                                 </p>
                                 <p className="text-xs text-muted-foreground">
-                                  Conversão · {deals} novo{deals === 1 ? "" : "s"} deal{deals === 1 ? "" : "s"} criado{deals === 1 ? "" : "s"} após o envio
+                                  Conversão em venda · {wonDeals} negócio{wonDeals === 1 ? "" : "s"} ganho{wonDeals === 1 ? "" : "s"} após o envio · {revenue.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                                </p>
+                                <p className="text-[11px] text-muted-foreground">
+                                  {deals} negócio{deals === 1 ? "" : "s"} aberto{deals === 1 ? "" : "s"} após o envio
                                 </p>
                               </div>
                             );
