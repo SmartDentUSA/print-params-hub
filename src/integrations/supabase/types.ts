@@ -35013,6 +35013,25 @@ export type Database = {
       }
     }
     Functions: {
+      admin_list_cron_routines: {
+        Args: never
+        Returns: {
+          active: boolean
+          command: string
+          failures_24h: number
+          jobid: number
+          jobname: string
+          last_error: string
+          last_run: string
+          last_status: string
+          runs_24h: number
+          schedule: string
+        }[]
+      }
+      admin_set_cron_active: {
+        Args: { p_active: boolean; p_jobname: string }
+        Returns: boolean
+      }
       apply_variation_specs: {
         Args: { _new_specs: Json; _sac_id: string }
         Returns: undefined

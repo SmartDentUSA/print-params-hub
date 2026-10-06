@@ -21,6 +21,7 @@ import { SmartOpsAutomationsBuilder } from "@/components/smartops/SmartOpsAutoma
 import { TriggerAutomations } from "@/components/smartops/TriggerAutomations";
 import { WaAutomationsInventory } from "@/components/smartops/WaAutomationsInventory";
 import { WaAutomationSettings } from "@/components/smartops/WaAutomationSettings";
+import { AutomationRoutinesTab } from "@/components/smartops/AutomationRoutinesTab";
 
 const ACCEPT_BY_TIPO: Record<string, string> = {
   image: "image/*",
@@ -805,6 +806,8 @@ export function SmartOpsCSRules() {
       <WaAutomationSettings />
 
       <WaAutomationsInventory />
+
+      <AutomationRoutinesTab />
     </div>
   );
 }
