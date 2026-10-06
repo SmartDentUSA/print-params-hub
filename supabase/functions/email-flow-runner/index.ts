@@ -152,7 +152,7 @@ Deno.serve(async (req) => {
         const vars: Record<string, string> = {
           nome, primeiro_nome: nome.split(/\s+/)[0] || "", email: enr.email || lead?.email || "",
           curso: ctx.curso || "", vendedor_nome: seller?.nome_completo || "Smart Dent",
-          link_wa_vendedor: seller?.whatsapp_number ? `https://wa.me/${String(seller.whatsapp_number).replace(/\D/g, "")}` : "https://wa.me/5516993831794",
+          link_wa_vendedor: seller?.whatsapp_number ? `https://wa.me/${String(seller.whatsapp_number).replace(/\D/g, "")}` : "https://wa.me/5516997501531",
         };
 
         let node: any = enr.current_node_id ? byId.get(enr.current_node_id) : nodes.find((n) => n.type === "origin");
