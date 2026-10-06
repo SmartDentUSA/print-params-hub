@@ -47,13 +47,29 @@ export default function ProfessionalKolCardStats({ formIds, coupons }: Props) {
         <span className="text-muted-foreground shrink-0">Formulários:</span>
         <span className="font-medium text-right">{forms.length}</span>
       </div>
+      <div className="flex justify-between gap-2">
+        <span className="text-muted-foreground shrink-0">Visualizações dos formulários:</span>
+        <span className="font-medium text-right">{perf.totals.views} ({perf.totals.visitors} pessoas)</span>
+      </div>
+      <div className="flex justify-between gap-2">
+        <span className="text-muted-foreground shrink-0">Leads gerados → ganhos:</span>
+        <span className="font-medium text-right">{perf.totals.leads} → {perf.totals.deals}</span>
+      </div>
+      <div className="flex justify-between gap-2">
+        <span className="text-muted-foreground shrink-0">Conversão em R$ (leads):</span>
+        <span className="font-medium text-right text-green-600">{money(perf.totals.receita)}</span>
+      </div>
+      <div className="flex justify-between gap-2">
+        <span className="text-muted-foreground shrink-0">Cupons gerados:</span>
+        <span className="font-medium text-right">{perf.totals.cuponsGerados}</span>
+      </div>
       {rules.length > 0 && (
         <div className="flex justify-between gap-2">
           <span className="text-muted-foreground shrink-0">
             Cupons ({rules.map((c) => c.code).join(", ")}):
           </span>
           <span className="font-medium text-right">
-            {perf.totals.vendasCupons} vendas · {money(perf.totals.receitaCupons)}
+            {perf.totals.vendasCupons} usos · {perf.totals.clientesCupons} clientes · {money(perf.totals.receitaCupons)}
           </span>
         </div>
       )}

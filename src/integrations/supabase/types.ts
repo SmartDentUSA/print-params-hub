@@ -35670,11 +35670,27 @@ export type Database = {
           ticket_medio: number
         }[]
       }
+      fn_kol_coupon_sales: {
+        Args: { _code: string; _from?: string; _to?: string }
+        Returns: {
+          clientes: number
+          receita: number
+          vendas: number
+        }[]
+      }
       fn_kol_form_leads: {
         Args: { _names: string[] }
         Returns: {
           form_key: string
           lead_id: string
+        }[]
+      }
+      fn_kol_form_views: {
+        Args: { _slugs: string[] }
+        Returns: {
+          slug: string
+          views: number
+          visitors: number
         }[]
       }
       fn_lal_dedupe_hash: {
