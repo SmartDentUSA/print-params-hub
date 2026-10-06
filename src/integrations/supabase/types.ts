@@ -35884,6 +35884,14 @@ export type Database = {
           uf: string
         }[]
       }
+      fn_professional_ecom_items: {
+        Args: { _lead_id: string }
+        Returns: {
+          data_pedido: string
+          nome_produto: string
+          valor_total: number
+        }[]
+      }
       fn_public_event_combos: {
         Args: { p_event_id: string }
         Returns: {
