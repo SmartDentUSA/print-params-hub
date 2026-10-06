@@ -279,7 +279,7 @@ Deno.serve(async (req) => {
               if (r.ok) stats.sms++;
             }
           } else if (node.type === "goto_flow") {
-            if (d.flow_id && d.flow_id !== flow.id || d.flow_id) {
+            if (d.flow_id) {
               await supabase.from("email_flow_enrollments").insert({
                 flow_id: d.flow_id, contact_type: enr.contact_type, lead_id: enr.lead_id, distributor_id: enr.distributor_id,
                 nome: enr.nome, email: enr.email, phone: enr.phone, context: { ...(enr.context || {}), from_flow: flow.id },
