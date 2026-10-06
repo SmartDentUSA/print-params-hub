@@ -329,6 +329,8 @@ export function MetaFormMappingsPanel() {
                   <TableHead className="w-44">Aquisição</TableHead>
                   <TableHead className="text-right">Leads</TableHead>
                   <TableHead className="text-right">Ativos (90d)</TableHead>
+                  <TableHead className="text-right">Conversão</TableHead>
+                  <TableHead className="text-right">Valor gerado</TableHead>
                   <TableHead>Célula 7×3</TableHead>
                   <TableHead>Criado em</TableHead>
                   <TableHead className="w-16" />
@@ -371,6 +373,15 @@ export function MetaFormMappingsPanel() {
                     </TableCell>
                     <TableCell className="text-right tabular-nums">{o.leads_count}</TableCell>
                     <TableCell className="text-right tabular-nums">{o.active_leads_count}</TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      {o.won_leads}
+                      <div className="text-xs text-muted-foreground">
+                        {o.leads_count > 0 ? `${((o.won_leads / o.leads_count) * 100).toFixed(1)}%` : "—"}
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums whitespace-nowrap">
+                      {o.revenue.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 })}
+                    </TableCell>
                     <TableCell className="text-xs">
                       {workflowCellLabel(o.workflow_stage_target) ?? "—"}
                     </TableCell>

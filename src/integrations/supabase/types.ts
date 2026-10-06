@@ -37447,6 +37447,15 @@ export type Database = {
       increment_wa_click: { Args: { p_listing: string }; Returns: undefined }
       is_admin: { Args: { user_id: string }; Returns: boolean }
       is_author: { Args: { user_id: string }; Returns: boolean }
+      list_lead_origin_conversions: {
+        Args: never
+        Returns: {
+          origin_key: string
+          revenue: number
+          won_deals: number
+          won_leads: number
+        }[]
+      }
       list_lead_origins: {
         Args: never
         Returns: {

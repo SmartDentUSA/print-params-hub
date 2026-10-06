@@ -45,15 +45,24 @@ export interface LeadOrigin {
   mapped: boolean;
   acquisition_type: AcquisitionType;
   acquisition_source: "manual" | "auto";
+  won_leads: number;
+  revenue: number;
 }
 
 export function useLeadOrigins() {
   return useQuery({
     queryKey: ["meta_form_mappings", "lead_origins"],
     queryFn: async (): Promise<LeadOrigin[]> => {
-      const { data, error } = await supabase.rpc("list_lead_origins" as any);
+      const [{ data, error }, conv] = await Promise.all([
+        supabase.rpc("list_lead_origins" as any),
+        supabase.rpc("list_lead_origin_conversions" as any),
+      ]);
       if (error) throw error;
+      const convMap = new Map<string, any>();
+      ((conv.data ?? []) as any[]).forEach((c) => convMap.set(c.origin_key, c));
       return ((data ?? []) as any[]).map((r) => ({
+        won_leads: Number(convMap.get(r.origin_key)?.won_leads ?? convMap.get(r.origin_name)?.won_leads ?? 0),
+        revenue: Number(convMap.get(r.origin_key)?.revenue ?? convMap.get(r.origin_name)?.revenue ?? 0),
         origin_key: r.origin_key,
         origin_name: r.origin_name ?? r.origin_key,
         origin_type: r.origin_type ?? "inbound",
