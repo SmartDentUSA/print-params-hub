@@ -13,6 +13,7 @@ import { getCourseStatusBadge } from "@/lib/courseStatusBadge";
 import { cn } from "@/lib/utils";
 import { fetchPurchaseSummaries, EMPTY_SUMMARY, type PurchaseSummary } from "@/hooks/useProfessionalPurchaseSummary";
 import ProfessionalKolCardStats from "./ProfessionalKolCardStats";
+import { sanitizeEquipmentLabel } from "@/utils/equipmentLabel";
 
 function fmtBRL(v: number): string {
   return v.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
@@ -95,7 +96,7 @@ type ProfCourseRow = {
 
 // Classificação de equipamentos a partir de deals ganhos (espelha smart-ops-backfill-equipment-from-deals).
 const ACCESSORY_RE = /\b(painel\s+lcd|tela\s+lcd|teflon|fep|nfep|pelicula|película|filme|filtro|fonte|placa\s+m[ãa]e|cabo|adesivo|parafuso|kit\s+(?:de\s+)?(?:reposi[çc][ãa]o|manuten[çc][ãa]o|limpeza)|reposi[çc][ãa]o|manuten[çc][ãa]o|spare|cartucho|bandeja|plataforma\s+de?\s+constru[çc][ãa]o|build\s*plate|vat|cuba|elastico|elástico|bombinha|seringa|ponta|broca|garantia|extensao|extensão|treinamento|curso|aula|consultoria|servi[çc]o|frete|instala[çc][ãa]o)\b/i;
-const SCANNER_RE = /\b(medit\s*i[567]00|i600|i700|aoralscan\s*\d?|trios\s*\d|itero|primescan|panda\s*p\d|launca\s*\w*|runyes|shining\s*\w*|emerald)\b/i;
+const SCANNER_RE = /\b(medit\s*i[567]00|i500|i600|i700|ino\s*[12]00(?:\s*plus)?|aoralscan\s*\d?|trios\s*\d|itero|primescan|panda\s*p\d|launca\s*\w*|runyes|shining\s*\w*|emerald)\b/i;
 const IMPRESSORA_RE = /\b(halot\s*(?:one|mage|max|sky|ray)[\w\s\-]*|elegoo\s+(?:mars|saturn|jupiter)\s*\d?\s*(?:ultra|pro|plus|s|m|max)?|mars\s*\d\s*(?:ultra|pro)?|saturn\s*\d\s*(?:ultra|pro|s)?|phrozen\s+(?:sonic|mighty|shuffle)[\w\s\-]*|sonic\s+(?:mini|mighty|xl)[\w\s\-]*|anycubic\s+(?:photon|mono)[\w\s\-]*|miicraft[\w\s\-]*|rayshape\s+(?:edge|shape)[\w\s\-]*|edge\s*mini|edgemini|nextdent\s*\w*|asiga\s+\w+|formlabs\s+form\s*\d)\b/i;
 
 function detectEquip(name: string): { scanner?: string; impressora?: string } {
@@ -387,16 +388,22 @@ export default function CoursesPage() {
                   </div>
                   <div className="flex justify-between gap-2">
                     <span className="text-muted-foreground shrink-0">Scanner:</span>
-                    <span className="font-medium truncate text-right">{wonEquip[p.id]?.scanner || "—"}</span>
+                    {(() => {
+                      const v = sanitizeEquipmentLabel(p.equip_scanner) || wonEquip[p.id]?.scanner || sanitizeEquipmentLabel(p.equip_scanner_bancada);
+                      return <span className="font-medium truncate text-right" title={v ?? ""}>{v || "—"}</span>;
+                    })()}
                   </div>
                   <div className="flex justify-between gap-2">
                     <span className="text-muted-foreground shrink-0">Impressora 3D:</span>
-                    <span className="font-medium truncate text-right">{wonEquip[p.id]?.impressora || "—"}</span>
+                    {(() => {
+                      const v = sanitizeEquipmentLabel(p.equip_impressora) || wonEquip[p.id]?.impressora;
+                      return <span className="font-medium truncate text-right" title={v ?? ""}>{v || "—"}</span>;
+                    })()}
                   </div>
                   <div className="flex justify-between gap-2">
                     <span className="text-muted-foreground shrink-0">CAD / Software:</span>
                     <span className="font-medium truncate text-right" title={p.equip_cad ?? ""}>
-                      {p.equip_cad || "—"}
+                      {sanitizeEquipmentLabel(p.equip_cad) || "—"}
                     </span>
                   </div>
                 </div>
