@@ -539,6 +539,8 @@ async function processDeal(
   }
 
   const updatePayload = mapDealToAttendance(deal, currentLead as any);
+  // Diagnostic-only flag from the mapper; not a lia_attendances column.
+  delete (updatePayload as Record<string, unknown>).piperun_person_mismatch;
 
   if (deal.stage_id) {
     const mappedStatus = STAGE_TO_ETAPA[deal.stage_id];
