@@ -13,3 +13,4 @@
 - [x] Réguas: rotina 08h/12h/17h, limite 150 e-mails/dia com prioridade, dias da semana, fila visual de réguas ativas, ligar fim da régua a outro nó/régua, constar em Rotinas automáticas
 
 - [x] Ajustar segmentação em nós, seletores de funis/etapas, conteúdo e assinatura do vendedor atual nas réguas de e-mail. Controles isolados testados; conferência completa autenticada indisponível no Supabase externo.
+- [x] Condição de e-mail: espera em horas, minutos, segundos ou imediatamente; quatro opções testadas isoladamente e executor implantado, mantendo réguas antigas. Precisão limitada às rodadas atuais; fluxo autenticado completo indisponível.
