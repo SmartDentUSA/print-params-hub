@@ -660,7 +660,9 @@ async function processDeal(
       console.error(`[sync-piperun] Update error deal ${dealId}:`, error.message);
     }
   } else {
-    if (!email && phoneDigits.length < 12) {
+    // Every PipeRun deal has a person or company: keep it in the system even
+    // without contact data (identity = piperun_id, so no duplicate risk).
+    if (!email && phoneDigits.length < 12 && !updatePayload.telefone_raw && !deal.person_id && !(deal as any).company_id) {
       counters.skippedNoData++;
       return;
     }
