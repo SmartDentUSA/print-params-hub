@@ -8,6 +8,8 @@ export interface KolFormPerformance {
   deals_ganhos: number;
   conversao: number; // 0..1
   receita: number;
+  views: number;
+  visitors: number;
 }
 
 export interface KolCouponPerformance {
@@ -27,13 +29,13 @@ export interface KolCouponRule {
 export interface KolPerformance {
   forms: KolFormPerformance[];
   coupons: KolCouponPerformance[];
-  totals: { leads: number; deals: number; receita: number; receitaCupons: number; vendasCupons: number };
+  totals: { leads: number; deals: number; receita: number; receitaCupons: number; vendasCupons: number; views: number; visitors: number; cuponsGerados: number; clientesCupons: number };
 }
 
 const empty: KolPerformance = {
   forms: [],
   coupons: [],
-  totals: { leads: 0, deals: 0, receita: 0, receitaCupons: 0, vendasCupons: 0 },
+  totals: { leads: 0, deals: 0, receita: 0, receitaCupons: 0, vendasCupons: 0, views: 0, visitors: 0, cuponsGerados: 0, clientesCupons: 0 },
 };
 
 /**
@@ -92,6 +94,14 @@ export function useKolPerformance(formIds: { id: string; name: string }[], coupo
           nameById.set(f.id, [f.name, f.slug].filter(Boolean));
         }
         const allNames = Array.from(nameById.values()).flat();
+        const slugById = new Map<string, string>();
+        for (const f of (formRows ?? []) as any[]) if (f.slug) slugById.set(f.id, f.slug);
+        const viewsBySlug: Record<string, { views: number; visitors: number }> = {};
+        if (slugById.size > 0) {
+          const { data: vRows } = await (supabase as any).rpc("fn_kol_form_views", { _slugs: Array.from(slugById.values()) });
+          for (const r of (vRows ?? []) as any[]) viewsBySlug[r.slug] = { views: Number(r.views) || 0, visitors: Number(r.visitors) || 0 };
+        }
+        (leadsByForm as any).__views = { slugById, viewsBySlug };
 
         if (allNames.length > 0) {
           // 3) Fonte definitiva: RPC que casa form_name OU a chave do formulário dentro de form_data
@@ -132,7 +142,11 @@ export function useKolPerformance(formIds: { id: string; name: string }[], coupo
           const leadSet = leadsByForm[f.id] ?? new Set<string>();
           const won = Array.from(leadSet).filter((l) => wonByLead[l] !== undefined);
           const receita = won.reduce((s, l) => s + (wonByLead[l] ?? 0), 0);
+          const vinfo = (leadsByForm as any).__views;
+          const vv = vinfo?.viewsBySlug?.[vinfo?.slugById?.get(f.id)] ?? { views: 0, visitors: 0 };
           forms.push({
+            views: vv.views,
+            visitors: vv.visitors,
             form_id: f.id,
             form_name: f.name,
             leads: leadSet.size,
@@ -146,23 +160,21 @@ export function useKolPerformance(formIds: { id: string; name: string }[], coupo
 
       const couponsPerf: KolCouponPerformance[] = [];
       for (const rule of rules) {
-        let q = (supabase as any)
-          .from("loja_integrada_orders")
-          .select("valor_total, cupom_codigo, cupom_json, data_pedido")
-          .limit(5000);
-        // cupom pode vir na coluna normalizada ou no payload do cupom
-        q = q.or(`cupom_codigo.ilike.${rule.code},cupom_json->>codigo.ilike.${rule.code}`);
-        if (rule.active_from) q = q.gte("data_pedido", rule.active_from);
-        if (rule.active_to) q = q.lte("data_pedido", `${rule.active_to}T23:59:59`);
-        const { data: orders } = await q;
-        const rows = (orders ?? []) as any[];
+        // Pedidos da loja só são legíveis no servidor: consulta agregada (cancelados excluídos)
+        const { data: cRows } = await (supabase as any).rpc("fn_kol_coupon_sales", {
+          _code: rule.code,
+          _from: rule.active_from ? String(rule.active_from).slice(0, 10) : null,
+          _to: rule.active_to ? String(rule.active_to).slice(0, 10) : null,
+        });
+        const r0 = ((cRows ?? []) as any[])[0] ?? {};
         couponsPerf.push({
           cupom: rule.code,
           active_from: rule.active_from ?? null,
           active_to: rule.active_to ?? null,
-          vendas: rows.length,
-          receita: rows.reduce((s, o) => s + Number(o.valor_total ?? 0), 0),
-        });
+          vendas: Number(r0.vendas) || 0,
+          receita: Number(r0.receita) || 0,
+          clientes: Number(r0.clientes) || 0,
+        } as any);
       }
 
       const coupons = couponsPerf;
@@ -176,6 +188,10 @@ export function useKolPerformance(formIds: { id: string; name: string }[], coupo
           receita: forms.reduce((s, f) => s + f.receita, 0),
           vendasCupons: coupons.reduce((s, c) => s + c.vendas, 0),
           receitaCupons: coupons.reduce((s, c) => s + c.receita, 0),
+          views: forms.reduce((s, f) => s + f.views, 0),
+          visitors: forms.reduce((s, f) => s + f.visitors, 0),
+          cuponsGerados: rules.length,
+          clientesCupons: coupons.reduce((s, c: any) => s + (c.clientes || 0), 0),
         },
       });
     } catch {
