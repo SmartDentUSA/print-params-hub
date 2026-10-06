@@ -387,16 +387,22 @@ export default function CoursesPage() {
                   </div>
                   <div className="flex justify-between gap-2">
                     <span className="text-muted-foreground shrink-0">Scanner:</span>
-                    <span className="font-medium truncate text-right">{wonEquip[p.id]?.scanner || "—"}</span>
+                    {(() => {
+                      const v = sanitizeEquipmentLabel(p.equip_scanner) || wonEquip[p.id]?.scanner || sanitizeEquipmentLabel(p.equip_scanner_bancada);
+                      return <span className="font-medium truncate text-right" title={v ?? ""}>{v || "—"}</span>;
+                    })()}
                   </div>
                   <div className="flex justify-between gap-2">
                     <span className="text-muted-foreground shrink-0">Impressora 3D:</span>
-                    <span className="font-medium truncate text-right">{wonEquip[p.id]?.impressora || "—"}</span>
+                    {(() => {
+                      const v = sanitizeEquipmentLabel(p.equip_impressora) || wonEquip[p.id]?.impressora;
+                      return <span className="font-medium truncate text-right" title={v ?? ""}>{v || "—"}</span>;
+                    })()}
                   </div>
                   <div className="flex justify-between gap-2">
                     <span className="text-muted-foreground shrink-0">CAD / Software:</span>
                     <span className="font-medium truncate text-right" title={p.equip_cad ?? ""}>
-                      {p.equip_cad || "—"}
+                      {sanitizeEquipmentLabel(p.equip_cad) || "—"}
                     </span>
                   </div>
                 </div>
