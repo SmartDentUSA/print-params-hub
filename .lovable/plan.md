@@ -25,6 +25,8 @@ Toda régua começa por um nó de **Origem**, que pode ser:
 
 Nós disponíveis:
 - **E-mail**: nome do remetente, assunto, pré-cabeçalho, editor HTML com prévia ao vivo, **anexos** (arquivo fixo ou arquivo do gatilho, ex.: diploma PDF do participante), e botão "Gerar com IA" no padrão visual Smart Dent, usando qualquer combinação de: produto(s) do catálogo, postagem(ns) do Instagram (imagem + texto baseado na legenda), conteúdos da base de conhecimento, **eventos** e **cursos/turmas** (data, local, link de inscrição). Sem preços (regra existente).
+- **Tipo de e-mail** (orienta a IA no tom e na estrutura): boas-vindas, promocional, prospecção, follow-up, conteúdo educacional, reengajamento, transacional, feedback, agradecimento.
+- **Assinatura**: escolher um membro da equipe (ou "vendedor do lead"); insere foto, nome, cargo, telefone clicável (WhatsApp/ligação) e ícones das redes sociais no rodapé do e-mail.
 - **Espera**: X minutos/horas/dias, ou até uma data/hora.
 - **Condição**: abriu o e-mail / clicou / clicou em link específico → caminhos Sim / Não (com tempo limite).
 - **WhatsApp**: editor de mensagem com variáveis ({{nome}} etc.) e seletor da instância a usar.

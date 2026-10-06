@@ -9,3 +9,4 @@
 - [x] Inscrição em treinamento presencial lotado: cadastro na lista de espera e confirmação sem reservar vaga; interface verificada com resposta simulada, envio real pendente de turma habilitada.
 
 - [ ] Automação de e-mails sequenciais (Central de Campanhas): públicos, editor visual, nós e-mail/WA/SMS, conteúdo de eventos/cursos, segmento distribuidores, gatilhos do sistema (diploma PDF anexado)
+- [ ] Tipos de e-mail (boas-vindas, promocional, prospecção, follow-up, educacional, reengajamento, transacional, feedback, agradecimento) + assinatura por membro da equipe (foto, telefone, redes)
