@@ -61,14 +61,15 @@ Deno.serve(async (req) => {
     let query = supabase
       .from('system_a_catalog')
       .select('*')
-      .eq('slug', slug);
+      // Alguns slugs do catálogo usam "_" (ex.: dispositivo_t_marker_all_on_t)
+      .in('slug', Array.from(new Set([slug, slug.replace(/-/g, '_')])));
 
     // Apply approved filter if requested
     if (approved) {
       query = query.eq('approved', true);
     }
 
-    const { data, error } = await query.maybeSingle();
+    const { data, error } = await query.limit(1).maybeSingle();
 
     if (error || !data) {
       console.log('⚠️ Produto não encontrado no catálogo com slug exato, tentando fallback tolerante por slug:', { slug, error });
