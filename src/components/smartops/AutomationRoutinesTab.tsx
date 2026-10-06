@@ -25,6 +25,7 @@ const RULES: { re: RegExp; aba: string; faz: string; apis: string; dados: string
   { re: /omie/i, aba: "Intelligence", faz: "Importa notas e faturamento do ERP", apis: "Omie API", dados: "Notas fiscais, faturamento, clientes" },
   { re: /loja|ecommerce|li[-_]order|integrada/i, aba: "Intelligence · Cupons", faz: "Sincroniza pedidos e cupons do e-commerce", apis: "Loja Integrada API", dados: "Pedidos, cupons, clientes" },
   { re: /sellflux/i, aba: "Campanhas", faz: "Sincroniza contatos e tags da automação de marketing", apis: "SellFlux", dados: "Tags, campos, eventos" },
+  { re: /email-flow/i, aba: "Campanhas → Automação de e-mails sequenciais", faz: "Executa as réguas (e-mail, WhatsApp, SMS, esperas e condições) às 08h, 12h e 17h, até 150 e-mails/dia por prioridade", apis: "Gmail, Evolution (WhatsApp), DisparoPro (SMS)", dados: "Envios, aberturas, cliques e saídas por régua" },
   { re: /email|gmail|sequence/i, aba: "Campanhas", faz: "Disparo agendado de e-mails e sequências", apis: "Gmail / e-mail", dados: "Envios e aberturas" },
   { re: /sms/i, aba: "Campanhas", faz: "Disparos de SMS", apis: "DisparoPro", dados: "Envios de SMS" },
   { re: /push/i, aba: "Campanhas", faz: "Envio de notificações push", apis: "Web Push", dados: "Notificações" },
