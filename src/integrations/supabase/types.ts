@@ -5258,7 +5258,9 @@ export type Database = {
           updated_at: string | null
           value: number | null
           value_freight: number | null
+          value_mrr: number | null
           value_products: number | null
+          value_ps: number | null
         }
         Insert: {
           billing_entity?: string | null
@@ -5309,7 +5311,9 @@ export type Database = {
           updated_at?: string | null
           value?: number | null
           value_freight?: number | null
+          value_mrr?: number | null
           value_products?: number | null
+          value_ps?: number | null
         }
         Update: {
           billing_entity?: string | null
@@ -5360,7 +5364,9 @@ export type Database = {
           updated_at?: string | null
           value?: number | null
           value_freight?: number | null
+          value_mrr?: number | null
           value_products?: number | null
+          value_ps?: number | null
         }
         Relationships: [
           {
@@ -35711,6 +35717,7 @@ export type Database = {
       }
       fn_count_push_audience: { Args: { p_filters?: Json }; Returns: number }
       fn_deal_closed_mes: { Args: { closed_at: string }; Returns: string }
+      fn_deal_num: { Args: { t: string }; Returns: number }
       fn_deal_won_at: {
         Args: { p_closed_at: string; p_piperun_updated_at: string }
         Returns: string
