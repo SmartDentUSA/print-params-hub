@@ -140,6 +140,50 @@ export async function fetchPurchaseSummaries(leadIds: string[]): Promise<Record<
     }
   }
 
+  // 3b) Notas fiscais Omie (saída) — o campo consolidado do lead costuma vir zerado
+  const { data: nfs } = await (supabase as any)
+    .from("omie_notas_fiscais")
+    .select("lead_id, valor_total, data_emissao, nf_direcao")
+    .in("lead_id", leadIds)
+    .eq("nf_direcao", "saida");
+  const nfSum: Record<string, number> = {};
+  for (const n of (nfs ?? []) as any[]) {
+    const s = out[n.lead_id];
+    if (!s) continue;
+    nfSum[n.lead_id] = (nfSum[n.lead_id] ?? 0) + (Number(n.valor_total) || 0);
+    const dt: string | null = n.data_emissao ?? null;
+    if (dt) {
+      if (!s.lastPurchaseDate || dt > s.lastPurchaseDate) {
+        s.lastPurchaseDate = dt;
+        s.lastPurchaseName = "Faturamento ERP (Omie)";
+      }
+      if (!s.firstPurchaseDate || dt < s.firstPurchaseDate) s.firstPurchaseDate = dt;
+    }
+  }
+  for (const id of leadIds) {
+    if ((nfSum[id] ?? 0) > out[id].omieTotal) out[id].omieTotal = nfSum[id];
+  }
+
+  // 3c) Pagamentos Stripe (RMS) — contam como compra
+  const { data: stripe } = await (supabase as any)
+    .from("stripe_payment_units")
+    .select("lead_id, product_name, paid_at")
+    .in("lead_id", leadIds);
+  for (const u of (stripe ?? []) as any[]) {
+    const s = out[u.lead_id];
+    if (!s) continue;
+    s.purchaseCount += 1;
+    const dt: string | null = u.paid_at ?? null;
+    if (dt) {
+      if (!s.lastPurchaseDate || dt > s.lastPurchaseDate) {
+        s.lastPurchaseDate = dt;
+        s.lastPurchaseName = u.product_name ?? "Pagamento Stripe";
+        s.lastPurchaseVendor = "Stripe";
+      }
+      if (!s.firstPurchaseDate || dt < s.firstPurchaseDate) s.firstPurchaseDate = dt;
+    }
+  }
+
   // 4) Negócios em aberto no CRM (contexto comercial — não são compras)
   const { data: openDeals } = await supabase
     .from("deals")
