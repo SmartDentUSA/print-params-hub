@@ -47,7 +47,7 @@ function Picker({ items, selected, onToggle, render }: { items: any[]; selected:
   );
 }
 
-function AiDialog({ open, onClose, emailType, selection, onSelectionChange, onResult }: { open: boolean; onClose: () => void; emailType: string; selection: ContentSelection; onSelectionChange: (s: ContentSelection) => void; onResult: (r: { subject: string; preheader: string; html: string }) => void }) {
+function AiDialog({ open, onClose, emailType, selection, initialSource, onSelectionChange, onResult }: { open: boolean; onClose: () => void; emailType: string; selection: ContentSelection; initialSource: ContentKey; onSelectionChange: (s: ContentSelection) => void; onResult: (r: { subject: string; preheader: string; html: string }) => void }) {
   const [lists, setLists] = useState<Record<string, any[]>>({});
   const sel = selection;
   const [active, setActive] = useState<ContentKey>("product_ids");
@@ -55,6 +55,7 @@ function AiDialog({ open, onClose, emailType, selection, onSelectionChange, onRe
   const [loadError, setLoadError] = useState("");
   const [instructions, setInstructions] = useState("");
   const [busy, setBusy] = useState(false);
+  useEffect(() => { if (open) setActive(initialSource); }, [open, initialSource]);
 
   useEffect(() => {
     if (!open || Object.keys(lists).length) return;
@@ -123,6 +124,7 @@ function AiDialog({ open, onClose, emailType, selection, onSelectionChange, onRe
 
 export function EmailNodeEditor({ data, onChange, members, isCertificateTrigger }: { data: any; onChange: (d: any) => void; members: any[]; isCertificateTrigger: boolean }) {
   const [aiOpen, setAiOpen] = useState(false);
+  const [contentSource, setContentSource] = useState<ContentKey>("product_ids");
   const [bigOpen, setBigOpen] = useState(false);
   const [newUrl, setNewUrl] = useState("");
   const set = (p: any) => onChange({ ...data, ...p });
@@ -152,7 +154,7 @@ export function EmailNodeEditor({ data, onChange, members, isCertificateTrigger 
         <Button size="sm" variant="outline" onClick={() => setBigOpen(true)}><Maximize2 className="w-3.5 h-3.5 mr-1" /> Editor HTML</Button>
       </div>
       <div className="grid gap-1">
-        {CONTENT_SOURCES.map((s) => <Button key={s.key} size="sm" variant="outline" className="justify-start text-xs" onClick={() => setAiOpen(true)}><s.Icon className="w-3.5 h-3.5 mr-2" />{s.label}<Badge variant="secondary" className="ml-auto">{contentSelection[s.key].length}</Badge></Button>)}
+        {CONTENT_SOURCES.map((s) => <Button key={s.key} size="sm" variant="outline" className="justify-start text-xs" onClick={() => { setContentSource(s.key); setAiOpen(true); }}><s.Icon className="w-3.5 h-3.5 mr-2" />{s.label}<Badge variant="secondary" className="ml-auto">{contentSelection[s.key].length}</Badge></Button>)}
       </div>
       <div className="text-[10px] text-muted-foreground">Variáveis: {"{{primeiro_nome}} {{nome}} {{curso}} {{vendedor_nome}} {{link_wa_vendedor}}"}</div>
       <iframe title="Prévia" srcDoc={previewHtml || "<p style='font-family:Arial;color:#888;padding:16px'>Sem conteúdo ainda.</p>"} sandbox="" className="w-full h-64 border rounded-md bg-background" />
@@ -188,7 +190,7 @@ export function EmailNodeEditor({ data, onChange, members, isCertificateTrigger 
         )}
       </div>
 
-      <AiDialog open={aiOpen} onClose={() => setAiOpen(false)} emailType={data.email_type} selection={contentSelection} onSelectionChange={(content_selection) => set({ content_selection })} onResult={(r) => set({ subject: r.subject || data.subject, preheader: r.preheader || data.preheader, html: r.html })} />
+      <AiDialog open={aiOpen} onClose={() => setAiOpen(false)} emailType={data.email_type} selection={contentSelection} initialSource={contentSource} onSelectionChange={(content_selection) => set({ content_selection })} onResult={(r) => set({ subject: r.subject || data.subject, preheader: r.preheader || data.preheader, html: r.html })} />
       <Dialog open={bigOpen} onOpenChange={setBigOpen}>
         <DialogContent className="max-w-[95vw]">
           <DialogHeader><DialogTitle>Editor HTML do e-mail</DialogTitle></DialogHeader>
