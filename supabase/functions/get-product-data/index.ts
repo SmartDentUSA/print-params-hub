@@ -158,6 +158,23 @@ Deno.serve(async (req) => {
         }
       }
 
+      // Fallback por palavras do endereço da loja contra o nome do produto
+      // (ex.: "dispositivo-t-marker-compativel-com-all-on-t" → "Dispositivo T-Marker All-on-T (AOT)").
+      // Só aceita quando há exatamente um produto correspondente.
+      if (!catalogProduct && slug) {
+        const STOP = new Set(['compativel', 'com', 'de', 'da', 'do', 'para', 'e', 'a', 'o']);
+        const tokens = slug.split('-').filter((t) => t.length >= 2 && !STOP.has(t));
+        if (tokens.length >= 2) {
+          let q = supabase.from('system_a_catalog').select('*');
+          for (const t of tokens) q = q.ilike('name', `%${t}%`);
+          if (approved) q = q.eq('approved', true);
+          const { data: rows, error: e4 } = await q.limit(2);
+          console.log('🔎 Fallback catalog.name tokens:', { tokens, found: rows?.length ?? 0, error: e4 });
+          if (rows && rows.length === 1) catalogProduct = rows[0];
+        }
+      }
+
+
       // If found in catalog with fuzzy matching, return it
       if (catalogProduct) {
         console.log('✅ Produto encontrado via fallback no catálogo:', catalogProduct.name);
