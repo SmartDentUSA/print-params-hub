@@ -8,9 +8,11 @@ const corsHeaders = {
 };
 const GATEWAY_URL = "https://connector-gateway.lovable.dev/google_mail/gmail/v1";
 const DISPARO_PRO_URL = "https://apihttp.disparopro.com.br:8433/mt";
-const DAILY_CAP = 499;
+const DAILY_CAP = 150; // limite das réguas (marketing + transacional)
+const GMAIL_CAP = 499; // limite global da conta Gmail
 const WINDOW_START = 7 * 60 + 30, WINDOW_END = 19 * 60;
 const BATCH = 40;
+const MAX_RUN_MS = 110_000;
 const MAX_HOPS = 6;
 
 const b64 = (s: string) => btoa(Array.from(new TextEncoder().encode(s), (b) => String.fromCharCode(b)).join(""));
@@ -82,19 +84,15 @@ Deno.serve(async (req) => {
     }
 
     // 2) Claim due enrollments
-    const { data: claimed, error: claimErr } = await supabase.rpc("fn_email_flow_claim", { _limit: BATCH });
-    if (claimErr) throw claimErr;
-    if (!claimed?.length) return json({ ok: true, ...stats });
-
-    const flowIds = [...new Set(claimed.map((e: any) => e.flow_id))];
-    const { data: flows } = await supabase.from("email_flows").select("*").in("id", flowIds);
+    const { data: flows } = await supabase.from("email_flows").select("*").eq("status", "active");
     const flowMap = new Map((flows || []).map((f: any) => [f.id, f]));
+    const startedAt = Date.now();
 
     // Email budget
     const { data: q } = await supabase.rpc("fn_email_queue_status");
     const { count: flowSentToday } = await supabase.from("email_flow_events").select("id", { count: "exact", head: true })
       .eq("event_type", "email_sent").gte("created_at", spDayStartIso());
-    let emailBudget = Math.max(0, DAILY_CAP - Number((q as any)?.sent_today ?? 0) - Number(flowSentToday ?? 0));
+    let emailBudget = Math.max(0, Math.min(DAILY_CAP - Number(flowSentToday ?? 0), GMAIL_CAP - Number((q as any)?.sent_today ?? 0) - Number(flowSentToday ?? 0)));
     const inWindow = (() => { const m = spMinutes(); return m >= WINDOW_START && m < WINDOW_END; })();
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
@@ -109,6 +107,10 @@ Deno.serve(async (req) => {
       memberCache.set(id, data); return data;
     };
 
+    for (let round = 0; round < 10 && Date.now() - startedAt < MAX_RUN_MS; round++) {
+    const { data: claimed, error: claimErr } = await supabase.rpc("fn_email_flow_claim", { _limit: BATCH });
+    if (claimErr) throw claimErr;
+    if (!claimed?.length) break;
     for (const enr of claimed as any[]) {
       const flow: any = flowMap.get(enr.flow_id);
       if (!flow) continue;
@@ -276,6 +278,16 @@ Deno.serve(async (req) => {
               await log(node.id, r.ok ? "sms_sent" : "sms_failed", { numero, status: r.status, body: body.slice(0, 200) });
               if (r.ok) stats.sms++;
             }
+          } else if (node.type === "goto_flow") {
+            if (d.flow_id && d.flow_id !== flow.id || d.flow_id) {
+              await supabase.from("email_flow_enrollments").insert({
+                flow_id: d.flow_id, contact_type: enr.contact_type, lead_id: enr.lead_id, distributor_id: enr.distributor_id,
+                nome: enr.nome, email: enr.email, phone: enr.phone, context: { ...(enr.context || {}), from_flow: flow.id },
+                dedupe_key: `chain:${enr.id}:${Date.now()}`,
+              });
+              await log(node.id, "moved_to_flow", { flow_id: d.flow_id });
+            }
+            go = null;
           } else if (node.type === "end") {
             go = null;
           }
@@ -299,7 +311,9 @@ Deno.serve(async (req) => {
         await supabase.from("email_flow_events").insert({ flow_id: enr.flow_id, enrollment_id: enr.id, event_type: "error", payload: { error: String(err?.message || err).slice(0, 300) } });
       }
     }
-    return json({ ok: true, ...stats });
+    }
+    }
+    return json({ ok: true, email_budget_left: emailBudget, ...stats });
   } catch (err: any) {
     console.error("[runner] fatal", err);
     return json({ error: String(err?.message || err), ...stats }, 500);
