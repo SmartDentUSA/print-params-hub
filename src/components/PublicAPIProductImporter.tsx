@@ -35,12 +35,24 @@ export function PublicAPIProductImporter({
         cleanSlug = cleanSlug.split('loja.smartdent.com.br/')[1].split('?')[0];
       }
 
-      const apiUrl = new URL(EXTERNAL_API_CONFIG.PRODUCTS_API_URL);
-      apiUrl.searchParams.append('slug', cleanSlug);
-      apiUrl.searchParams.append('approved', 'true');
+      cleanSlug = cleanSlug.replace(/\/+$/, '');
+      // O catálogo guarda alguns endereços com "_" e a loja usa "-": tenta as variações
+      const variants = Array.from(new Set([
+        cleanSlug,
+        cleanSlug.replace(/-/g, '_'),
+        cleanSlug.replace(/_/g, '-'),
+      ]));
 
-      const response = await fetch(apiUrl.toString());
-      
+      let response: Response | null = null;
+      for (const v of variants) {
+        const apiUrl = new URL(EXTERNAL_API_CONFIG.PRODUCTS_API_URL);
+        apiUrl.searchParams.append('slug', v);
+        apiUrl.searchParams.append('approved', 'true');
+        response = await fetch(apiUrl.toString());
+        if (response.status !== 404) break;
+      }
+      if (!response) throw new Error('Não foi possível consultar o catálogo agora. Tente novamente.');
+
       if (response.status === 404) {
         throw new Error(`Nenhum produto com o endereço "${cleanSlug}" está cadastrado no catálogo. Cadastre os dados manualmente ou confira o endereço.`);
       }
