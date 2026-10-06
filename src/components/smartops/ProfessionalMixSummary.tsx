@@ -307,22 +307,10 @@ export default function ProfessionalMixSummary({ leadId, disabled, cadValue, onC
           }
         }
 
-        // E-commerce orders (Loja Integrada)
-        const { data: orders } = await supabase
-          .from("loja_integrada_orders")
-          .select("id, data_pedido, status")
-          .eq("attendance_id", leadId);
-        const okOrders = (orders ?? []).filter((o: any) => !["cancelado", "cancelled", "estornado"].includes((o.status || "").toLowerCase()));
-        const orderIds = okOrders.map((o: any) => o.id);
-        const orderDate = new Map<string, string>();
-        okOrders.forEach((o: any) => orderDate.set(o.id, o.data_pedido));
-
+        // E-commerce (Loja Integrada) — pedidos só legíveis no servidor, via consulta agregada
         const ecomItems: PurchaseItem[] = [];
-        if (orderIds.length > 0) {
-          const { data: rows } = await supabase
-            .from("loja_integrada_order_items")
-            .select("order_id, nome_produto, valor_total")
-            .in("order_id", orderIds);
+        {
+          const { data: rows } = await (supabase as any).rpc("fn_professional_ecom_items", { _lead_id: leadId });
           for (const r of (rows ?? []) as any[]) {
             const name = r.nome_produto || "";
             if (!name) continue;
@@ -331,10 +319,41 @@ export default function ProfessionalMixSummary({ leadId, disabled, cadValue, onC
               name,
               category: classify(name, null),
               total: Number(r.valor_total) || 0,
-              date: orderDate.get(r.order_id) || new Date().toISOString(),
+              date: r.data_pedido || new Date().toISOString(),
               vendor: "E-commerce",
               source: "ecom",
             });
+          }
+        }
+
+        // ERP (Omie) — notas fiscais faturadas para o profissional. Usado quando o
+        // negócio ganho não trouxe itens da proposta (negócios antigos do CRM).
+        if (crmItems.length === 0) {
+          const { data: nfs } = await (supabase as any)
+            .from("omie_notas_fiscais")
+            .select("id, data_emissao")
+            .eq("lead_id", leadId);
+          const nfIds = ((nfs ?? []) as any[]).map((n) => n.id);
+          if (nfIds.length > 0) {
+            const { data: nfItems } = await (supabase as any)
+              .from("omie_nf_items")
+              .select("nf_id, produto_nome, valor_total, cfop, data_emissao")
+              .in("nf_id", nfIds);
+            for (const r of (nfItems ?? []) as any[]) {
+              const name = r.produto_nome || "";
+              if (!name || ACCESSORY_RE.test(name.toLowerCase())) continue;
+              const cfop = String(r.cfop || "");
+              // Bonificação/remessa (x.910, x.949...) entra no portfólio mas sem valor
+              const isSale = /^[56]\.1/.test(cfop);
+              crmItems.push({
+                name,
+                category: classify(name, null),
+                total: isSale ? Number(r.valor_total) || 0 : 0,
+                date: r.data_emissao || new Date().toISOString(),
+                vendor: "Faturamento (Omie)",
+                source: "crm",
+              });
+            }
           }
         }
 
