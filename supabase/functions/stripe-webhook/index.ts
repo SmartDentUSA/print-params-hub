@@ -513,6 +513,21 @@ async function handle(req: Request): Promise<Response> {
     if (units.length === 0) {
       units.push({ product_name: products?.[0]?.name ?? null, unit_total: amount });
     }
+    // Resolve Stripe product names to the catalog name via produto_aliases
+    try {
+      const names = [...new Set(units.map((u) => u.product_name).filter(Boolean))] as string[];
+      if (names.length) {
+        const { data: al } = await supabase
+          .from("produto_aliases")
+          .select("nome_variante, nome_canonico")
+          .in("nome_variante", names)
+          .eq("ativo", true);
+        const map = new Map((al ?? []).map((a: any) => [a.nome_variante, a.nome_canonico]));
+        units = units.map((u) => ({ ...u, product_name: (u.product_name && map.get(u.product_name)) || u.product_name }));
+      }
+    } catch (e) {
+      console.error("[stripe-webhook] alias resolve failed:", (e as Error).message);
+    }
     try {
       const rows = units.map((u, idx) => ({
         lead_id: leadId,
