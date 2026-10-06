@@ -65,7 +65,7 @@ const CONSUMABLE_CATS: Cat[] = [
 ];
 
 const ACCESSORY_RE =
-  /\b(painel\s+lcd|tela\s+lcd|teflon|fep|nfep|pelicula|película|filme\s+lcd|filtro|fonte|placa\s+m[ãa]e|cabo|parafuso|kit\s+(?:de\s+)?(?:reposi[çc][ãa]o|manuten[çc][ãa]o)|reposi[çc][ãa]o|manuten[çc][ãa]o|spare|cartucho|bandeja|plataforma\s+de?\s+constru[çc][ãa]o|build\s*plate|vat|cuba|garantia|extensao|extensão|treinamento|curso|aula|consultoria|servi[çc]o|frete|instala[çc][ãa]o)\b/i;
+  /\b(painel\s+lcd|tela\s+lcd|teflon|fep|nfep|pelicula|película|filme\s+lcd|filtro|fonte|placa\s+m[ãa]e|cabo|ponteira|ponta|parafuso|kit\s+(?:de\s+)?(?:reposi[çc][ãa]o|manuten[çc][ãa]o)|reposi[çc][ãa]o|manuten[çc][ãa]o|spare|cartucho|bandeja|plataforma\s+de?\s+constru[çc][ãa]o|build\s*plate|vat|cuba|garantia|extensao|extensão|treinamento|curso|aula|consultoria|servi[çc]o|frete|instala[çc][ãa]o)\b/i;
 
 function classify(name: string, category: string | null | undefined): Cat {
   const n = (name || "").toLowerCase();
@@ -79,8 +79,8 @@ function classify(name: string, category: string | null | undefined): Cat {
   if (c.includes("kit caracteriz") || c.includes("caracteriz")) return "caracterizacao";
   if (c.includes("resina 3d")) return "resina_3d";
   // Name-based fallback
-  if (/\b(medit\s*i[567]00|i600|i700|aoralscan|trios\s*\d|itero|primescan|panda\s*p\d|launca|runyes|shining|emerald)\b/.test(n)) return "scanner_intraoral";
-  if (/\b(scanner\s+de\s+bancada|e1\b|e2\b|e3\b|freedom\s+hd|medit\s*t|autoscan)\b/.test(n)) return "scanner_bancada";
+  if (/\b(scanner\s+de\s+bancada|e1\b|e2\b|e3\b|freedom\s+hd|medit\s*t\d*|autoscan)\b/.test(n)) return "scanner_bancada";
+  if (/\b(scanner\s+intra\s*oral|medit\s*i[567]00|i500|i600|i700|i900|ino\s*[12]00(?:\s*plus)?|aoralscan|trios\s*\d|itero|primescan|panda\s*p\d|launca|runyes|shining|emerald)\b/.test(n)) return "scanner_intraoral";
   if (/\b(halot|elegoo|mars\s*\d|saturn\s*\d|phrozen|sonic\s+(mini|mighty|xl)|anycubic|miicraft|rayshape|edge\s*mini|nextdent|asiga|formlabs)\b/.test(n)) return "impressora";
   if (/\b(wash\s*&?\s*cure|cure\s*m|mercury|nova\s*cure|c-?cure|pos\s*cura|pós\s*cura|uv\s*cure|cura\s+uv)\b/.test(n)) return "pos_impressao";
   if (/\b(fresadora|mill|k5|dwx|imes|roland\s+dwx|blz\s*mill)\b/.test(n)) return "fresadora";
