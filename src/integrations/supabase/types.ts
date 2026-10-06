@@ -5946,6 +5946,244 @@ export type Database = {
         }
         Relationships: []
       }
+      email_audiences: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          definition: Json
+          description: string | null
+          id: string
+          last_count: number | null
+          last_counted_at: string | null
+          name: string
+          source: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          definition?: Json
+          description?: string | null
+          id?: string
+          last_count?: number | null
+          last_counted_at?: string | null
+          name: string
+          source?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          definition?: Json
+          description?: string | null
+          id?: string
+          last_count?: number | null
+          last_counted_at?: string | null
+          name?: string
+          source?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      email_flow_enrollments: {
+        Row: {
+          contact_type: string
+          context: Json
+          created_at: string
+          current_node_id: string | null
+          dedupe_key: string
+          distributor_id: string | null
+          email: string | null
+          exit_reason: string | null
+          finished_at: string | null
+          flow_id: string
+          id: string
+          lead_id: string | null
+          next_run_at: string
+          nome: string | null
+          phone: string | null
+          started_at: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          contact_type?: string
+          context?: Json
+          created_at?: string
+          current_node_id?: string | null
+          dedupe_key: string
+          distributor_id?: string | null
+          email?: string | null
+          exit_reason?: string | null
+          finished_at?: string | null
+          flow_id: string
+          id?: string
+          lead_id?: string | null
+          next_run_at?: string
+          nome?: string | null
+          phone?: string | null
+          started_at?: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          contact_type?: string
+          context?: Json
+          created_at?: string
+          current_node_id?: string | null
+          dedupe_key?: string
+          distributor_id?: string | null
+          email?: string | null
+          exit_reason?: string | null
+          finished_at?: string | null
+          flow_id?: string
+          id?: string
+          lead_id?: string | null
+          next_run_at?: string
+          nome?: string | null
+          phone?: string | null
+          started_at?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_flow_enrollments_flow_id_fkey"
+            columns: ["flow_id"]
+            isOneToOne: false
+            referencedRelation: "email_flows"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      email_flow_events: {
+        Row: {
+          created_at: string
+          enrollment_id: string | null
+          event_type: string
+          flow_id: string
+          id: string
+          node_id: string | null
+          payload: Json
+        }
+        Insert: {
+          created_at?: string
+          enrollment_id?: string | null
+          event_type: string
+          flow_id: string
+          id?: string
+          node_id?: string | null
+          payload?: Json
+        }
+        Update: {
+          created_at?: string
+          enrollment_id?: string | null
+          event_type?: string
+          flow_id?: string
+          id?: string
+          node_id?: string | null
+          payload?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_flow_events_enrollment_id_fkey"
+            columns: ["enrollment_id"]
+            isOneToOne: false
+            referencedRelation: "email_flow_enrollments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_flow_events_flow_id_fkey"
+            columns: ["flow_id"]
+            isOneToOne: false
+            referencedRelation: "email_flows"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      email_flow_runner_state: {
+        Row: {
+          id: number
+          locked_until: string | null
+          paused_reason: string | null
+          updated_at: string
+        }
+        Insert: {
+          id: number
+          locked_until?: string | null
+          paused_reason?: string | null
+          updated_at?: string
+        }
+        Update: {
+          id?: number
+          locked_until?: string | null
+          paused_reason?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      email_flows: {
+        Row: {
+          activated_at: string | null
+          audience_id: string | null
+          created_at: string
+          created_by: string | null
+          description: string | null
+          edges: Json
+          exit_rules: Json
+          id: string
+          name: string
+          nodes: Json
+          origin_type: string
+          status: string
+          trigger_config: Json
+          trigger_type: string | null
+          updated_at: string
+        }
+        Insert: {
+          activated_at?: string | null
+          audience_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          edges?: Json
+          exit_rules?: Json
+          id?: string
+          name: string
+          nodes?: Json
+          origin_type?: string
+          status?: string
+          trigger_config?: Json
+          trigger_type?: string | null
+          updated_at?: string
+        }
+        Update: {
+          activated_at?: string | null
+          audience_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          edges?: Json
+          exit_rules?: Json
+          id?: string
+          name?: string
+          nodes?: Json
+          origin_type?: string
+          status?: string
+          trigger_config?: Json
+          trigger_type?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_flows_audience_id_fkey"
+            columns: ["audience_id"]
+            isOneToOne: false
+            referencedRelation: "email_audiences"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       email_sequence_dispatches: {
         Row: {
           created_at: string
@@ -26689,6 +26927,7 @@ export type Database = {
       team_members: {
         Row: {
           ativo: boolean
+          cargo: string | null
           created_at: string
           direct_message_provider: string
           elevenlabs_voice_id: string | null
@@ -26709,9 +26948,12 @@ export type Database = {
           evolution_lid: string | null
           evolution_phone: string | null
           evolution_status: string
+          facebook_url: string | null
           group_management_provider: string
           group_message_provider: string
           id: string
+          instagram_url: string | null
+          linkedin_url: string | null
           manychat_api_key: string | null
           manychat_page_id: string | null
           manychat_subscriber_key: string | null
@@ -26729,9 +26971,11 @@ export type Database = {
           voice_stability: number | null
           wa_welcome_link_enabled: boolean
           whatsapp_number: string
+          youtube_url: string | null
         }
         Insert: {
           ativo?: boolean
+          cargo?: string | null
           created_at?: string
           direct_message_provider?: string
           elevenlabs_voice_id?: string | null
@@ -26752,9 +26996,12 @@ export type Database = {
           evolution_lid?: string | null
           evolution_phone?: string | null
           evolution_status?: string
+          facebook_url?: string | null
           group_management_provider?: string
           group_message_provider?: string
           id?: string
+          instagram_url?: string | null
+          linkedin_url?: string | null
           manychat_api_key?: string | null
           manychat_page_id?: string | null
           manychat_subscriber_key?: string | null
@@ -26772,9 +27019,11 @@ export type Database = {
           voice_stability?: number | null
           wa_welcome_link_enabled?: boolean
           whatsapp_number: string
+          youtube_url?: string | null
         }
         Update: {
           ativo?: boolean
+          cargo?: string | null
           created_at?: string
           direct_message_provider?: string
           elevenlabs_voice_id?: string | null
@@ -26795,9 +27044,12 @@ export type Database = {
           evolution_lid?: string | null
           evolution_phone?: string | null
           evolution_status?: string
+          facebook_url?: string | null
           group_management_provider?: string
           group_message_provider?: string
           id?: string
+          instagram_url?: string | null
+          linkedin_url?: string | null
           manychat_api_key?: string | null
           manychat_page_id?: string | null
           manychat_subscriber_key?: string | null
@@ -26815,6 +27067,7 @@ export type Database = {
           voice_stability?: number | null
           wa_welcome_link_enabled?: boolean
           whatsapp_number?: string
+          youtube_url?: string | null
         }
         Relationships: []
       }
@@ -35225,6 +35478,18 @@ export type Database = {
         }[]
       }
       fn_atualizar_parcelas_vencidas: { Args: never; Returns: undefined }
+      fn_audience_count: { Args: { _def: Json }; Returns: Json }
+      fn_audience_resolve: {
+        Args: { _def: Json; _limit?: number; _offset?: number }
+        Returns: {
+          contact_id: string
+          contact_type: string
+          email: string
+          nome: string
+          phone: string
+        }[]
+      }
+      fn_audience_where: { Args: { _def: Json }; Returns: string }
       fn_auto_update_enrollment_status: { Args: never; Returns: undefined }
       fn_automation_run_stats: {
         Args: never
@@ -35470,6 +35735,46 @@ export type Database = {
         Args: { p_campaign_id: string }
         Returns: Json
       }
+      fn_email_flow_claim: {
+        Args: { _limit?: number }
+        Returns: {
+          contact_type: string
+          context: Json
+          created_at: string
+          current_node_id: string | null
+          dedupe_key: string
+          distributor_id: string | null
+          email: string | null
+          exit_reason: string | null
+          finished_at: string | null
+          flow_id: string
+          id: string
+          lead_id: string | null
+          next_run_at: string
+          nome: string | null
+          phone: string | null
+          started_at: string
+          status: string
+          updated_at: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "email_flow_enrollments"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      fn_email_flow_enroll_audience: {
+        Args: { _flow: string; _limit?: number }
+        Returns: number
+      }
+      fn_email_flow_exit_reason: { Args: { _enr: string }; Returns: string }
+      fn_email_flow_fire: {
+        Args: { _ctx: Json; _dedupe: string; _lead: string; _trigger: string }
+        Returns: undefined
+      }
+      fn_email_flow_try_lock: { Args: { _seconds?: number }; Returns: boolean }
+      fn_email_flow_unlock: { Args: never; Returns: undefined }
       fn_email_queue_status: { Args: never; Returns: Json }
       fn_enqueue_whatsapp: {
         Args: {

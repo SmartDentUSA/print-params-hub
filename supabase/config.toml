@@ -688,3 +688,12 @@ verify_jwt = false
 
 [functions.smartops-waitlist-notify]
 verify_jwt = false
+
+[functions.email-flow-track]
+verify_jwt = false
+
+[functions.email-flow-runner]
+verify_jwt = false
+
+[functions.email-flow-ai]
+verify_jwt = false
