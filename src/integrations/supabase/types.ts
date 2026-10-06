@@ -6125,6 +6125,7 @@ export type Database = {
       email_flows: {
         Row: {
           activated_at: string | null
+          active_weekdays: number[]
           audience_id: string | null
           created_at: string
           created_by: string | null
@@ -6135,6 +6136,7 @@ export type Database = {
           name: string
           nodes: Json
           origin_type: string
+          priority: number
           status: string
           trigger_config: Json
           trigger_type: string | null
@@ -6142,6 +6144,7 @@ export type Database = {
         }
         Insert: {
           activated_at?: string | null
+          active_weekdays?: number[]
           audience_id?: string | null
           created_at?: string
           created_by?: string | null
@@ -6152,6 +6155,7 @@ export type Database = {
           name: string
           nodes?: Json
           origin_type?: string
+          priority?: number
           status?: string
           trigger_config?: Json
           trigger_type?: string | null
@@ -6159,6 +6163,7 @@ export type Database = {
         }
         Update: {
           activated_at?: string | null
+          active_weekdays?: number[]
           audience_id?: string | null
           created_at?: string
           created_by?: string | null
@@ -6169,6 +6174,7 @@ export type Database = {
           name?: string
           nodes?: Json
           origin_type?: string
+          priority?: number
           status?: string
           trigger_config?: Json
           trigger_type?: string | null
