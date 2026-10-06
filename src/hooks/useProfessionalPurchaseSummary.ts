@@ -58,7 +58,7 @@ export async function fetchPurchaseSummaries(leadIds: string[]): Promise<Record<
   // 1) Negócios ganhos do CRM
   const { data: wonDeals } = await supabase
     .from("deals")
-    .select("id, lead_id, piperun_deal_id, owner_name, closed_at, value, title")
+    .select("id, lead_id, piperun_deal_id, owner_name, closed_at, value, deal_title")
     .in("lead_id", leadIds)
     .eq("status", "ganha");
 
@@ -72,7 +72,7 @@ export async function fetchPurchaseSummaries(leadIds: string[]): Promise<Record<
     if (dt) {
       if (!s.lastPurchaseDate || dt > s.lastPurchaseDate) {
         s.lastPurchaseDate = dt;
-        s.lastPurchaseName = d.title ?? null;
+        s.lastPurchaseName = d.deal_title ?? null;
         s.lastPurchaseVendor = d.owner_name ?? null;
       }
       if (!s.firstPurchaseDate || dt < s.firstPurchaseDate) s.firstPurchaseDate = dt;
