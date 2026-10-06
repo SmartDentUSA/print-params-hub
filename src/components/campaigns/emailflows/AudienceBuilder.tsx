@@ -9,6 +9,9 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Trash2, Save, Users, RefreshCw, Copy } from "lucide-react";
 import { AudienceDefinition, AudienceRule, DIST_RULES, FIELD_OPS, LEAD_RULES, RuleType, uid } from "./types";
+import { AudienceListSelect, PipelineStageSelect } from "./AudienceSelectors";
+import { AudienceCanvas } from "./AudienceCanvas";
+import { PRODUCT_CATALOG_ENTITY_TYPES } from "@/lib/catalogEntityTypes";
 
 const db = supabase as any;
 
@@ -21,27 +24,10 @@ interface Options {
 }
 
 function ListInput({ value, onChange, options, placeholder }: { value: string[]; onChange: (v: string[]) => void; options?: string[]; placeholder?: string }) {
-  const [draft, setDraft] = useState("");
-  const listId = useMemo(() => `dl-${uid()}`, []);
-  const add = (v: string) => { const t = v.trim(); if (t && !value.includes(t)) onChange([...value, t]); setDraft(""); };
-  return (
-    <div className="space-y-1">
-      <div className="flex gap-1">
-        <Input list={listId} value={draft} placeholder={placeholder || "Digite e pressione Enter"} onChange={(e) => setDraft(e.target.value)}
-          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); add(draft); } }} className="h-8 text-xs" />
-        <Button type="button" size="sm" variant="outline" className="h-8" onClick={() => add(draft)}><Plus className="w-3 h-3" /></Button>
-      </div>
-      {options && <datalist id={listId}>{options.slice(0, 300).map((o) => <option key={o} value={o} />)}</datalist>}
-      <div className="flex flex-wrap gap-1">
-        {value.map((v) => (
-          <Badge key={v} variant="secondary" className="text-[10px] cursor-pointer" onClick={() => onChange(value.filter((x) => x !== v))}>{v} ✕</Badge>
-        ))}
-      </div>
-    </div>
-  );
+  return <AudienceListSelect value={value} onChange={onChange} options={options} placeholder={placeholder} />;
 }
 
-function RuleEditor({ rule, onChange, options, courses }: { rule: AudienceRule; onChange: (r: AudienceRule) => void; options: Options | null; courses: any[] }) {
+function RuleEditor({ rule, onChange, options, courses, products, distributors }: { rule: AudienceRule; onChange: (r: AudienceRule) => void; options: Options | null; courses: any[]; products: any[]; distributors: any[] }) {
   const set = (p: Partial<AudienceRule>) => onChange({ ...rule, ...p });
   const pipelines = [...new Set((options?.pipelines || []).map((p) => p.pipeline))];
   const stages = [...new Set((options?.pipelines || []).filter((p) => !rule.pipeline || p.pipeline === rule.pipeline).map((p) => p.stage))];
@@ -51,16 +37,7 @@ function RuleEditor({ rule, onChange, options, courses }: { rule: AudienceRule; 
       <div><Label className="text-[10px]">Até</Label><Input type="date" className="h-8 text-xs" value={rule.to || ""} onChange={(e) => set({ to: e.target.value })} /></div>
     </div>
   );
-  const pipeStage = (
-    <div className="grid grid-cols-2 gap-2">
-      <div><Label className="text-[10px]">Funil</Label>
-        <Input list="dl-pipes" className="h-8 text-xs" value={rule.pipeline || ""} onChange={(e) => set({ pipeline: e.target.value })} placeholder="Qualquer funil" />
-        <datalist id="dl-pipes">{pipelines.map((p) => <option key={p} value={p} />)}</datalist></div>
-      <div><Label className="text-[10px]">Etapa</Label>
-        <Input list={`dl-st-${rule.id}`} className="h-8 text-xs" value={rule.stage || ""} onChange={(e) => set({ stage: e.target.value })} placeholder="Qualquer etapa" />
-        <datalist id={`dl-st-${rule.id}`}>{stages.map((s) => <option key={s} value={s} />)}</datalist></div>
-    </div>
-  );
+  const pipeStage = <PipelineStageSelect entries={options?.pipelines || []} pipeline={rule.pipeline} stage={rule.stage} onChange={set} />;
   switch (rule.type) {
     case "created_between": return dates;
     case "form": return <div className="space-y-2"><ListInput value={rule.values || []} onChange={(v) => set({ values: v })} options={options?.forms} placeholder="Nome do formulário" /><div className="text-[10px] text-muted-foreground">Período do envio (opcional)</div>{dates}</div>;
@@ -79,14 +56,13 @@ function RuleEditor({ rule, onChange, options, courses }: { rule: AudienceRule; 
           <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Curso" /></SelectTrigger>
           <SelectContent><SelectItem value="any">Qualquer curso</SelectItem>{courses.map((c) => <SelectItem key={c.id} value={c.id}>{c.title}</SelectItem>)}</SelectContent>
         </Select>
-        <Input className="h-8 text-xs" placeholder="Situação (ex.: confirmado)" value={rule.status || ""} onChange={(e) => set({ status: e.target.value })} />
+        <Select value={rule.status || "any"} onValueChange={(v) => set({ status: v === "any" ? "" : v })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="any">Qualquer situação</SelectItem><SelectItem value="confirmado">Confirmado</SelectItem><SelectItem value="presente">Presente</SelectItem><SelectItem value="cancelado">Cancelado</SelectItem></SelectContent></Select>
       </div>);
-    case "equipment_won": return <div className="space-y-1"><div className="text-[10px] text-muted-foreground">Termos do equipamento (ex.: scanner, impressora, Medit, INO200, exocad)</div><ListInput value={rule.values || []} onChange={(v) => set({ values: v })} /></div>;
-    case "resin_buyer": return <div className="space-y-1"><div className="text-[10px] text-muted-foreground">Vazio = qualquer resina. Ou liste resinas específicas.</div><ListInput value={rule.values || []} onChange={(v) => set({ values: v })} placeholder="Ex.: Vitality, Smart Print Bio" /></div>;
+    case "equipment_won": return <ListInput value={rule.values || []} onChange={(v) => set({ values: v })} options={products.map((p) => p.name)} placeholder="Selecionar equipamentos / produtos" />;
+    case "resin_buyer": return <ListInput value={rule.values || []} onChange={(v) => set({ values: v })} options={products.filter((p) => p.category === "resin" || p.category === "Resinas" || /resina/i.test(p.name)).map((p) => p.name)} placeholder="Todas as resinas ou selecionar específicas" />;
     case "field": return (
       <div className="grid grid-cols-3 gap-2">
-        <Input list="dl-cols" className="h-8 text-xs" placeholder="Campo" value={rule.column || ""} onChange={(e) => set({ column: e.target.value })} />
-        <datalist id="dl-cols">{(options?.columns || []).map((c) => <option key={c.name} value={c.name}>{c.type}</option>)}</datalist>
+        <Select value={rule.column || ""} onValueChange={(v) => set({ column: v })}><SelectTrigger><SelectValue placeholder="Selecionar campo" /></SelectTrigger><SelectContent>{(options?.columns || []).map((c) => <SelectItem key={c.name} value={c.name}>{c.name}</SelectItem>)}</SelectContent></Select>
         <Select value={rule.op || "eq"} onValueChange={(v) => set({ op: v })}>
           <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
           <SelectContent>{FIELD_OPS.map((o) => <SelectItem key={o.v} value={o.v}>{o.l}</SelectItem>)}</SelectContent>
@@ -94,7 +70,7 @@ function RuleEditor({ rule, onChange, options, courses }: { rule: AudienceRule; 
         {!["is_null", "not_null", "is_true", "is_false"].includes(rule.op || "eq") && <Input className="h-8 text-xs" placeholder="Valor" value={rule.value || ""} onChange={(e) => set({ value: e.target.value })} />}
       </div>);
     case "dist_country": case "dist_state": case "dist_tipo":
-      return <ListInput value={rule.values || []} onChange={(v) => set({ values: v })} />;
+      return <ListInput value={rule.values || []} onChange={(v) => set({ values: v })} options={distributors.map((d) => d[rule.type === "dist_country" ? "country" : rule.type === "dist_state" ? "state" : "tipo"]).filter(Boolean)} />;
     case "dist_active":
       return <Select value={rule.value || "true"} onValueChange={(v) => set({ value: v })}><SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="true">Ativos</SelectItem><SelectItem value="false">Inativos</SelectItem></SelectContent></Select>;
   }
@@ -114,6 +90,10 @@ export function AudienceBuilder({ onSaved }: { onSaved?: () => void }) {
   const [preview, setPreview] = useState<any[]>([]);
   const [counting, setCounting] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [selectedRuleId, setSelectedRuleId] = useState<string | null>(null);
+  const [positions, setPositions] = useState<Record<string, { x: number; y: number }>>({});
+  const [products, setProducts] = useState<any[]>([]);
+  const [distributors, setDistributors] = useState<any[]>([]);
 
   const load = async () => {
     const { data } = await db.from("email_audiences").select("*").order("updated_at", { ascending: false });
@@ -121,11 +101,14 @@ export function AudienceBuilder({ onSaved }: { onSaved?: () => void }) {
   };
   useEffect(() => {
     load();
-    db.rpc("fn_email_audience_options").then(({ data }: any) => setOptions(data));
+    db.rpc("fn_email_audience_options").then(({ data, error }: any) => { if (error) toast.error("Não foi possível carregar os filtros: " + error.message); else setOptions(data); });
+    db.from("system_a_catalog").select("id, name, category").in("category", [...PRODUCT_CATALOG_ENTITY_TYPES]).eq("active", true).eq("approved", true).order("name").then(({ data }: any) => setProducts(data || []));
+    db.from("distributors").select("country, state, tipo").then(({ data }: any) => setDistributors(data || []));
     db.from("smartops_courses").select("id, title").order("title").then(({ data }: any) => setCourses(data || []));
   }, []);
 
   const fullDef = () => ({ ...def, source });
+  useEffect(() => { setCount(null); setPreview([]); }, [def, source]);
 
   const runCount = async () => {
     setCounting(true);
@@ -138,12 +121,12 @@ export function AudienceBuilder({ onSaved }: { onSaved?: () => void }) {
     setCount(c.data); setPreview(p.data || []);
   };
 
-  const reset = () => { setEditingId(null); setName(""); setDescription(""); setSource("leads"); setDef({ match: "all", rules: [] }); setCount(null); setPreview([]); };
+  const reset = () => { setEditingId(null); setName(""); setDescription(""); setSource("leads"); setDef({ match: "all", rules: [] }); setCount(null); setPreview([]); setPositions({}); setSelectedRuleId(null); };
 
   const save = async () => {
     if (!name.trim()) return toast.error("Dê um nome ao público");
     setSaving(true);
-    const row = { name, description, source, definition: def, last_count: count?.total ?? null, last_counted_at: count ? new Date().toISOString() : null };
+    const row = { name, description, source, definition: { ...def, positions }, last_count: count?.total ?? null, last_counted_at: count ? new Date().toISOString() : null };
     const res = editingId ? await db.from("email_audiences").update(row).eq("id", editingId) : await db.from("email_audiences").insert(row);
     setSaving(false);
     if (res.error) return toast.error(res.error.message);
@@ -154,15 +137,15 @@ export function AudienceBuilder({ onSaved }: { onSaved?: () => void }) {
   const edit = (a: any, copy = false) => {
     setEditingId(copy ? null : a.id); setName(copy ? `${a.name} (cópia)` : a.name); setDescription(a.description || "");
     setSource(a.source || "leads"); setDef(a.definition || { match: "all", rules: [] }); setCount(null); setPreview([]);
+    setPositions(a.definition?.positions || {}); setSelectedRuleId(null);
   };
 
   const ruleCatalog = source === "distributors" ? DIST_RULES : LEAD_RULES;
 
   return (
-    <div className="grid gap-4 lg:grid-cols-[1fr_340px]">
-      <Card>
-        <CardHeader><CardTitle className="text-base flex items-center gap-2"><Users className="w-4 h-4" /> {editingId ? "Editar público" : "Novo público"}</CardTitle></CardHeader>
-        <CardContent className="space-y-4">
+    <div className="space-y-4">
+      <div className="space-y-4">
+        <h3 className="text-base font-semibold flex items-center gap-2"><Users className="w-4 h-4" /> {editingId ? "Editar público" : "Novo público"}</h3>
           <div className="grid gap-3 sm:grid-cols-3">
             <div className="sm:col-span-2"><Label className="text-xs">Nome</Label><Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex.: Compradores de resina SP" /></div>
             <div><Label className="text-xs">Quem recebe</Label>
@@ -181,20 +164,15 @@ export function AudienceBuilder({ onSaved }: { onSaved?: () => void }) {
             </Select>
           </div>
 
-          <div className="space-y-2">
-            {def.rules.map((r, i) => (
-              <div key={r.id} className="border rounded-md p-3 bg-muted/30 space-y-2">
-                <div className="flex items-center justify-between">
-                  <Badge variant="outline" className="text-xs">{ruleCatalog.find((x) => x.type === r.type)?.label}</Badge>
-                  <Button size="sm" variant="ghost" onClick={() => setDef({ ...def, rules: def.rules.filter((_, j) => j !== i) })}><Trash2 className="w-3.5 h-3.5 text-destructive" /></Button>
-                </div>
-                <RuleEditor rule={r} options={options} courses={courses} onChange={(nr) => setDef({ ...def, rules: def.rules.map((x, j) => (j === i ? nr : x)) })} />
-              </div>
-            ))}
-            <Select value="" onValueChange={(t) => setDef({ ...def, rules: [...def.rules, { id: uid(), type: t as RuleType, values: [] }] })}>
-              <SelectTrigger className="w-64"><SelectValue placeholder="+ Adicionar regra" /></SelectTrigger>
-              <SelectContent>{ruleCatalog.map((r) => <SelectItem key={r.type} value={r.type}>{r.label}</SelectItem>)}</SelectContent>
-            </Select>
+          <div className="flex flex-wrap gap-2">
+            {ruleCatalog.map((r) => <Button key={r.type} size="sm" variant="outline" onClick={() => { const id = uid(); setDef({ ...def, rules: [...def.rules, { id, type: r.type, values: [] }] }); setSelectedRuleId(id); }}><Plus className="w-3 h-3 mr-1" />{r.label}</Button>)}
+          </div>
+          <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_320px]">
+            <AudienceCanvas definition={def} source={source} positions={positions} onPositionsChange={setPositions} selectedId={selectedRuleId} onSelect={setSelectedRuleId} total={count?.total} />
+            <aside className="border rounded-lg p-4 space-y-3 bg-background overflow-auto">
+              {def.rules.filter((r) => r.id === selectedRuleId).map((r) => <div key={r.id} className="space-y-3"><div className="flex justify-between items-start gap-2"><h4 className="text-sm font-semibold">{ruleCatalog.find((x) => x.type === r.type)?.label}</h4><Button size="icon" variant="ghost" aria-label="Excluir condição" onClick={() => { setDef({ ...def, rules: def.rules.filter((x) => x.id !== r.id) }); setSelectedRuleId(null); }}><Trash2 className="w-4 h-4 text-destructive" /></Button></div><RuleEditor rule={r} options={options} courses={courses} products={products} distributors={distributors} onChange={(nr) => setDef({ ...def, rules: def.rules.map((x) => x.id === nr.id ? nr : x) })} /></div>)}
+              {!selectedRuleId && <div className="text-sm font-semibold">Condições do público ({def.rules.length})</div>}
+            </aside>
           </div>
 
           <div className="flex flex-wrap items-center gap-2 border-t pt-3">
@@ -210,12 +188,11 @@ export function AudienceBuilder({ onSaved }: { onSaved?: () => void }) {
               {preview.map((p) => <div key={p.contact_id} className="px-3 py-1.5 flex justify-between gap-2"><span className="truncate">{p.nome || "—"}</span><span className="text-muted-foreground truncate">{p.email || p.phone || "sem contato"}</span></div>)}
             </div>
           )}
-        </CardContent>
-      </Card>
+      </div>
 
-      <Card>
-        <CardHeader><CardTitle className="text-sm">Públicos salvos ({audiences.length})</CardTitle></CardHeader>
-        <CardContent className="space-y-2 max-h-[70vh] overflow-auto">
+      <section className="border-t pt-4">
+        <h3 className="text-sm font-semibold mb-3">Públicos salvos ({audiences.length})</h3>
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {audiences.length === 0 && <div className="text-xs text-muted-foreground">Nenhum público ainda.</div>}
           {audiences.map((a) => (
             <div key={a.id} className="border rounded-md p-2 text-xs space-y-1">
@@ -228,8 +205,8 @@ export function AudienceBuilder({ onSaved }: { onSaved?: () => void }) {
               </div>
             </div>
           ))}
-        </CardContent>
-      </Card>
+        </div>
+      </section>
     </div>
   );
 }
