@@ -468,6 +468,31 @@ async function processDeal(
 
   // Extract identity keys for cascade BEFORE mapping (so we can pass currentLead
   // to mapDealToAttendance and trigger the person-mismatch guard).
+  // Hydrate person contacts: the deal include often returns `emails: []` and no
+  // phones, so deals typed directly into PipeRun were skipped. Read-only GET.
+  {
+    const p0: any = (deal as any).person;
+    const hasEmail = !!(p0?.contact_emails?.[0]?.address || p0?.emails?.[0]?.email || p0?.email);
+    const hasPhone = !!(p0?.contact_phones?.[0]?.number || p0?.phones?.[0]?.phone || p0?.phone || p0?.mobile);
+    const key = Deno.env.get("PIPERUN_API_KEY");
+    if (deal.person_id && key && (!hasEmail || !hasPhone)) {
+      try {
+        const r = await piperunGet(key, `persons/${deal.person_id}`, undefined, { "with[]": ["contactEmails", "contactPhones", "emails", "phones"] });
+        const full: any = (r.data as any)?.data;
+        const fp: any = Array.isArray(full) ? full[0] : full;
+        if (fp) {
+          const emails = fp.contact_emails || fp.contactEmails || fp.emails || [];
+          const phones = fp.contact_phones || fp.contactPhones || fp.phones || [];
+          (deal as any).person = {
+            ...(p0 || {}),
+            ...fp,
+            contact_emails: (emails as any[]).map((e) => ({ address: e?.address || e?.email })).filter((e) => e.address),
+            contact_phones: (phones as any[]).map((ph) => ({ number: ph?.number || ph?.phone })).filter((ph) => ph.number),
+          };
+        }
+      } catch (_) { /* keep original payload */ }
+    }
+  }
   const person = deal.person;
   const pessoaHash = person?.hash ? String(person.hash) : null;
   const pessoaPiperunId = deal.person_id ? Number(deal.person_id) : null;
