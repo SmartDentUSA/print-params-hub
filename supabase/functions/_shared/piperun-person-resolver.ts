@@ -183,7 +183,8 @@ export async function findPersonByContact(
   // a) email exact
   if (email) {
     try {
-      const res = await piperunGet(apiToken, "persons", { show: 50 }, { "emails[email]": [email] });
+      // PipeRun list filter is `?email=` (emails[email] is ignored by the API).
+      const res = await piperunGet(apiToken, "persons", { show: 50, email });
       if (res.success) {
         const hit = pickByEmail(res.data, email);
         if (hit) return { ...hit, matched_via: "email_filter" };
