@@ -8,6 +8,8 @@ import { ErpDataTab } from "../leads/tabs/ErpDataTab";
 import { FinanceiroTab } from "../leads/tabs/FinanceiroTab";
 import { RayshapePanel } from "./RayshapePanel";
 import LeadFieldsInventory from "./LeadFieldsInventory";
+import { useCaptureEvents } from "@/hooks/useCaptureEvents";
+import { resolveCaptureEventName } from "@/lib/lead-event-name";
 
 // ─── Constants ───
 const API_BASE = "https://okeogjgqijbfkudfjadz.supabase.co/functions/v1";
@@ -329,6 +331,8 @@ async function runCognitiveAnalysis(leadId: string): Promise<string> {
 
 // ─── COMPONENT ───
 export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: string; [key: string]: unknown }; onClose: () => void }) {
+  const captureEvents = useCaptureEvents();
+  const captureName = (record: Record<string, unknown>) => resolveCaptureEventName(record, captureEvents.events, captureEvents.forms);
   const [detail, setDetail] = useState<DetailResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -554,7 +558,7 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
         date: leadOriginDate,
         dotCls: "tl-dot-lead",
         title: "🤠 Lead criado no sistema",
-        desc: `Origem: ${ld.source || "piperun"}${ld.utm_source ? " · " + ld.utm_source : ""}`,
+        desc: `Origem: ${captureName(ld) || ld.source || "piperun"}${ld.utm_source ? " · " + ld.utm_source : ""}`,
       });
     }
 
@@ -689,6 +693,7 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
 
       if (isForm) {
         const formName = evData.form_name || ev.entity_name || "Formulário";
+        const formEventName = captureName({ ...evData, form_name: formName, form_id: evData.form_id || ev.entity_id });
         const evTime = new Date(ev.event_timestamp || ev.created_at).getTime();
         // Respostas completas: casa a submissão dinâmica mais próxima no tempo (±10min)
         const matchedSubmission = (detail?.form_submissions || []).find((s) => {
@@ -723,12 +728,13 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
         // Fallback: o que veio no próprio event_data
         const fallback = formAnswersToDetail(evData);
         for (const [k, v] of Object.entries(fallback)) if (!(k in answers)) answers[k] = v;
+        if (formEventName) answers["Evento de captação"] = formEventName;
 
         const answerCount = Object.keys(answers).length;
         events.push({
           date: ev.event_timestamp || ev.created_at,
           dotCls: "tl-dot-lead",
-          title: `📝 Formulário — ${formName}`,
+          title: `📝 Formulário — ${formName}${formEventName ? ` · ${formEventName}` : ""}`,
           desc: answerCount > 0 ? `${answerCount} campo(s) respondido(s)` : "Submissão sem campos registrados",
           tags: evData.source ? [String(evData.source)] : [],
           detail: answers,
@@ -737,15 +743,19 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
         return;
       }
 
+      const activityEventName = captureName({ ...evData,
+        ...(ev.entity_type === "event" || ev.entity_type === "evento" ? { event_id: ev.entity_id } : {}),
+      });
       events.push({
         date: ev.event_timestamp || ev.created_at,
         dotCls: isEcommerce ? "tl-dot-buy" : "tl-dot-crm",
         title: isEcommerce
           ? `🛒 ${(ev.event_type || "").replace("ecommerce_", "")} — Pedido #${evData.pedido || ev.entity_id || "?"}`
-          : ev.event_type || "Evento",
+          : activityEventName ? `📅 ${activityEventName}` : ev.event_type || "Evento",
         desc: ev.entity_name || (evData.produtos ? evData.produtos.join(", ") : "") || "",
         tags: evData.tags_added?.slice(0, 3) || [],
         detail: isEcommerce ? ecommerceDetail : {
+          ...(activityEventName ? { "Evento de captação": activityEventName } : {}),
           ...(evData.valor ? { Valor: formatBRLFull(evData.valor) } : {}),
           ...(evData.status ? { Status: evData.status } : {}),
           ...(evData.fonte ? { Fonte: evData.fonte } : {}),
@@ -764,7 +774,7 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
       events.push({
         date: snap.submitted_at || ld.created_at,
         dotCls: "tl-dot-lead",
-        title: `📝 Formulário — ${snap.form_name}`,
+        title: `📝 Formulário — ${snap.form_name}${captureName({ form_name: snap.form_name }) ? ` · ${captureName({ form_name: snap.form_name })}` : ""}`,
         desc: `${Object.keys(answers).length} campo(s) respondido(s)`,
         tags: snap.source ? [String(snap.source)] : [],
         detail: answers,
@@ -782,7 +792,7 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
       events.push({
         date: sub.submitted_at || ld.created_at,
         dotCls: "tl-dot-lead",
-        title: `📝 Formulário — ${sub.form_name || "Formulário do sistema"}`,
+        title: `📝 Formulário — ${sub.form_name || "Formulário do sistema"}${captureName({ form_id: sub.form_id, form_name: sub.form_name }) ? ` · ${captureName({ form_id: sub.form_id, form_name: sub.form_name })}` : ""}`,
         desc: `${Object.keys(answers).length} campo(s) respondido(s)`,
         detail: answers,
       });

@@ -6,6 +6,8 @@ import { SmartOpsLeadImporter } from "./SmartOpsLeadImporter";
 import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
 import { LeadDetailPanel } from "./smartops/LeadDetailPanel";
+import { useCaptureEvents } from "@/hooks/useCaptureEvents";
+import { resolveCaptureEventName, type CaptureEvent, type CaptureForm } from "@/lib/lead-event-name";
 
 // ─── Constants ───
 const PAGE_SIZE = 200;
@@ -356,7 +358,7 @@ const TIMELINE_LABEL: Record<string, string> = {
 };
 
 // ─── LEAD ROW COMPONENT ───
-function LeadRow({ lead, active, onClick, nps }: { lead: LeadFull; active: boolean; onClick: () => void; nps?: { score: number; date: string } }) {
+function LeadRow({ lead, active, onClick, nps, captureEvents }: { lead: LeadFull; active: boolean; onClick: () => void; nps?: { score: number; date: string }; captureEvents: { events: CaptureEvent[]; forms: CaptureForm[] } }) {
   const lis = (lead.intelligence_score as Record<string, unknown>)?.score_total as number || lead.intelligence_score_total || 0;
   const lc = lisColor(lis);
   const bt = lead.buyer_type;
@@ -377,11 +379,11 @@ function LeadRow({ lead, active, onClick, nps }: { lead: LeadFull; active: boole
   const kolName = kolFormName ? kolFormName.split(/\s+-\s+/).pop()?.trim() : undefined;
   const isProfessionalReferral = Boolean(kolFormName) || /\bkol\b|indica[cç][aã]o|indicado\s+por/i.test(`${originText} ${formDataText}`);
   const referralLabel = kolName ? `PUBLI - ${kolName}` : "Indicação KOL";
-  const isCongress = /congress|cipro/i.test(`${originText} ${formDataText}`);
-  const isEventLead = Boolean(lead.event_id)
+  const eventName = resolveCaptureEventName(lead, captureEvents.events, captureEvents.forms);
+  const isEventLead = Boolean(eventName || lead.event_id)
     || /feira[_ -]?evento|\bevento\b|\bfeira\b|\bcipro\b|\bin26\b|congress/i.test(`${originText} ${formDataText}`);
-  const eventLabel = isCongress ? "Congresso" : "Evento";
-  const eventTitle = lead.form_name || lead.origem_campanha || "Lead captado em evento";
+  const eventLabel = eventName || "Evento não identificado";
+  const eventTitle = eventLabel;
 
   return (
     <div className={`intel-lead-row ${active ? "active" : ""}`} onClick={onClick}>
@@ -430,7 +432,7 @@ function LeadRow({ lead, active, onClick, nps }: { lead: LeadFull; active: boole
           </span>
         )}
         {isEventLead && (
-          <span className="intel-lr-tag intel-tag-event" title={eventTitle}>
+          <span className="intel-lr-tag intel-tag-event max-w-full whitespace-normal break-words" title={eventTitle}>
             <CalendarDays size={11} aria-hidden="true" /> {eventLabel}
           </span>
         )}
@@ -479,6 +481,7 @@ function DetailPanel({ lead, onClose }: { lead: LeadFull; onClose: () => void })
 
 // ─── MAIN COMPONENT ───
 export function SmartOpsLeadsList() {
+  const captureEvents = useCaptureEvents();
   const [leads, setLeads] = useState<LeadFull[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -888,6 +891,7 @@ export function SmartOpsLeadsList() {
                     active={selectedLead?.id === lead.id}
                     onClick={() => setSelectedLead(lead)}
                     nps={npsMap[lead.id]}
+                    captureEvents={captureEvents}
                   />
                 ))}
                 {totalPages > 1 && (
