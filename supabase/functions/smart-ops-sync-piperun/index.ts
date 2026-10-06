@@ -664,7 +664,8 @@ async function processDeal(
   } else {
     // Every PipeRun deal has a person or company: keep it in the system even
     // without contact data (identity = piperun_id, so no duplicate risk).
-    if (!email && phoneDigits.length < 12 && !updatePayload.telefone_raw && !deal.person_id && !(deal as any).company_id) {
+    // Deals without person/company are still kept (matched later by piperun_id).
+    if (!email && phoneDigits.length < 12 && !updatePayload.telefone_raw && !deal.person_id && !(deal as any).company_id && !(deal as any).title) {
       counters.skippedNoData++;
       return;
     }
