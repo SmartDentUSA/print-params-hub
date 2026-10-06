@@ -6,6 +6,7 @@
 
 import { normalizeAreaAtuacao, normalizeEspecialidade } from "./zernio-field-normalizer.ts";
 import { isValidEquipmentLabel, sanitizeEquipmentLabel } from "./equipment-field-guard.ts";
+import { normalizeBrazilianPhone } from "./phone-normalize.ts";
 
 export const PIPERUN_API_BASE = "https://api.pipe.run/v1";
 
@@ -901,7 +902,12 @@ export function mapDealToAttendance(
   const personPhone = person?.contact_phones?.[0]?.number || person?.phones?.[0]?.phone || person?.phone || person?.mobile || null;
   const companyPhone = company?.contact_phones?.[0]?.number || company?.phones?.[0]?.phone || company?.phone || null;
   const phone = whatsappPhone || personPhone || companyPhone || null;
-  if (!personMismatch && phone) fields.telefone_raw = phone;
+  if (!personMismatch && phone) {
+    fields.telefone_raw = phone;
+    // Lead cards, search and phone matching read telefone_normalized only.
+    const normalized = normalizeBrazilianPhone(String(phone));
+    if (normalized) fields.telefone_normalized = normalized;
+  }
 
   if (personMismatch) {
     // Strip person-derived identity fields so we don't poison local data
