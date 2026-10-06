@@ -481,8 +481,8 @@ async function processDeal(
         const full: any = (r.data as any)?.data;
         const fp: any = Array.isArray(full) ? full[0] : full;
         if (fp) {
-          const emails = fp.contact_emails || fp.contactEmails || fp.emails || [];
-          const phones = fp.contact_phones || fp.contactPhones || fp.phones || [];
+          const emails = [fp.contact_emails, fp.contactEmails, fp.emails].flatMap((items) => Array.isArray(items) ? items : []);
+          const phones = [fp.contact_phones, fp.contactPhones, fp.phones].flatMap((items) => Array.isArray(items) ? items : []);
           (deal as any).person = {
             ...(p0 || {}),
             ...fp,
@@ -491,6 +491,28 @@ async function processDeal(
           };
         }
       } catch (_) { /* keep original payload */ }
+    }
+  }
+  // Company contacts belong to the company, not necessarily to the person.
+  // Hydrate them independently without merging different people by company ID.
+  {
+    const company: any = deal.company;
+    const companyId = (deal as any).company_id || company?.id;
+    const key = Deno.env.get("PIPERUN_API_KEY");
+    const hasEmail = company?.contact_emails?.[0]?.address || company?.emails?.[0]?.email || company?.email;
+    if (companyId && key && !hasEmail) {
+      try {
+        const response = await piperunGet(key, `companies/${companyId}`, undefined, { "with[]": ["emails", "phones"] });
+        const full: any = (response.data as any)?.data;
+        const hydrated: any = Array.isArray(full) ? full[0] : full;
+        if (response.success && hydrated) {
+          const emails = [company?.contact_emails, company?.emails, hydrated.contact_emails, hydrated.contactEmails, hydrated.emails]
+            .flatMap((items) => Array.isArray(items) ? items : []);
+          (deal as any).company = { ...company, ...hydrated,
+            contact_emails: emails.map((item) => ({ address: item?.address || item?.email })).filter((item) => item.address),
+          };
+        }
+      } catch (_) { /* keep the original company contact */ }
     }
   }
   const person = deal.person;
@@ -532,7 +554,12 @@ async function processDeal(
   if (currentLead) {
     const remoteSig = signatureOf(deal);
     const localSig = lastSnapshotSignature((currentLead as any).piperun_deals_history, dealId);
-    if (localSig && remoteSig === localSig) {
+    const company: any = deal.company;
+    const companyEmail = company?.contact_emails?.[0]?.address || company?.emails?.[0]?.email || company?.email;
+    const missingContactAvailable = (!currentLead.email && initialEmail)
+      || (!(currentLead as any).empresa_email && companyEmail)
+      || (!(currentLead as any).telefone_raw && rawPhoneForMatch);
+    if (localSig && remoteSig === localSig && !missingContactAvailable) {
       counters.skippedUnchanged++;
       return;
     }

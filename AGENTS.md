@@ -14,5 +14,6 @@
 - Email audience and content graphs are presentation layers over the existing rule definitions and content IDs; retain runner-compatible payloads and persist graph positions/selections without introducing executable node types.
 - PipeRun deal value in `deals.value` is P&S plus MRR (both kept in `value_ps`/`value_mrr`); subscription-style sales booked only as MRR would otherwise count as zero revenue.
 - PipeRun sync hydrates person contacts via a read-only persons/{id} GET, matches leads by phone when e-mail is missing, and keeps deals without contacts keyed by piperun_id; deals typed directly in PipeRun otherwise never reach the system.
+- PipeRun sync hydrates company contacts separately and does not skip unchanged deals when missing contacts become available; company identifiers must never merge distinct people.
 - Proposal item expansion failures never block saving the deal; one bad item used to hide every deal of the lead.
 - Lead cards and timeline resolve capture event names through shared event/form references; timeline entries use their own references rather than the lead's latest event to avoid misattributing historical submissions.
