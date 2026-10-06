@@ -550,6 +550,7 @@ export default function CoursesProfessionalProfile({ initialEmail, startEditing 
           nome={form.nome || form.email || "Profissional"}
           kolCoupons={form.prof_kol_coupons}
           onKolCouponsChange={(v) => setField("prof_kol_coupons", v)}
+          disabled={disabled}
         />
       )}
 

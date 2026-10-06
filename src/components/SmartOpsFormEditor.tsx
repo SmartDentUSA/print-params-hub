@@ -179,6 +179,7 @@ interface FormField {
   options: any;
   required: boolean;
   placeholder: string | null;
+  help_text?: string | null;
   order_index: number;
   roi_config: any;
   conditions?: any;
@@ -394,6 +395,15 @@ export function SmartOpsFormEditor({
                 </div>
               </div>
             )}
+
+            <div>
+              <Label className="text-xs">Texto explicativo (aparece acima da pergunta)</Label>
+              <textarea
+                className="flex min-h-[60px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                value={field.help_text || ""}
+                onChange={(e) => updateField(field.id, { help_text: e.target.value || null })}
+              />
+            </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div>
