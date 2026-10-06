@@ -12,6 +12,7 @@ export interface FormMetrics {
   unique_visitors: number;
   leads: number;
   deals_won: number;
+  revenue?: number;
   daily_series: Array<{ d: string; v: number }>;
 }
 
@@ -198,7 +199,7 @@ export function FormMetricsCard({
               {conversion !== null ? `${conversion}%` : "—"}
             </div>
             <div className="text-[10px] text-muted-foreground">
-              {m.deals_won.toLocaleString()} ganhas
+              {m.deals_won.toLocaleString()} ganhas · {(m.revenue ?? 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 })}
             </div>
           </div>
         </div>

@@ -303,13 +303,17 @@ export function SmartOpsFormBuilder() {
   };
 
   const fetchMetrics = async (days: number) => {
-    const { data, error } = await (supabase as any).rpc("fn_form_metrics", {
-      p_period_days: days,
-    });
+    const [{ data, error }, rev] = await Promise.all([
+      (supabase as any).rpc("fn_form_metrics", { p_period_days: days }),
+      (supabase as any).rpc("fn_form_revenue", { p_period_days: days }),
+    ]);
     if (error) {
       console.error("[fn_form_metrics]", error);
       return;
     }
+    if (rev?.error) console.error("[fn_form_revenue]", rev.error);
+    const revMap: Record<string, number> = {};
+    (rev?.data || []).forEach((r: any) => { revMap[r.form_id] = Number(r.revenue) || 0; });
     const map: Record<string, FormMetrics> = {};
     (data || []).forEach((row: any) => {
       map[row.form_id] = {
@@ -317,6 +321,7 @@ export function SmartOpsFormBuilder() {
         unique_visitors: Number(row.unique_visitors) || 0,
         leads: Number(row.leads) || 0,
         deals_won: Number(row.deals_won) || 0,
+        revenue: revMap[row.form_id] ?? 0,
         daily_series: Array.isArray(row.daily_series) ? row.daily_series : [],
       };
     });

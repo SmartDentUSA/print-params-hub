@@ -247,6 +247,9 @@ export function FormMetricsRow({
         <div className="text-[10px] text-muted-foreground">
           {m.deals_won.toLocaleString()} ganhas
         </div>
+        <div className="text-[10px] font-medium tabular-nums">
+          {(m.revenue ?? 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 })}
+        </div>
       </div>
 
       {/* Sub-row mobile (Vis/Leads/Conv juntos) */}
