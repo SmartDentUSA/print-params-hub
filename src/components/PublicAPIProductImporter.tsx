@@ -41,8 +41,11 @@ export function PublicAPIProductImporter({
 
       const response = await fetch(apiUrl.toString());
       
+      if (response.status === 404) {
+        throw new Error(`Nenhum produto com o endereço "${cleanSlug}" está cadastrado no catálogo. Cadastre os dados manualmente ou confira o endereço.`);
+      }
       if (!response.ok) {
-        throw new Error('Produto não encontrado');
+        throw new Error('Não foi possível consultar o catálogo agora. Tente novamente.');
       }
 
       const result = await response.json();
