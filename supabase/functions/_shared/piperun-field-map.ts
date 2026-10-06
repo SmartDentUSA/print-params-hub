@@ -1517,13 +1517,24 @@ export function toPiperunContactBody(
 }
 
 async function fetchJson(url: string, init?: RequestInit): Promise<{ success: boolean; data: unknown; status: number }> {
-  try {
-    const res = await fetch(url, init);
-    const json = await res.json();
-    return { success: res.ok, data: json, status: res.status };
-  } catch (err) {
-    return { success: false, data: String(err), status: 0 };
+  // PipeRun answers 429 "Too Many Attempts" in bursts; wait and retry so a
+  // throttled read is never mistaken for an empty contact card.
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const res = await fetch(url, init);
+      if (res.status === 429 && attempt < 2) {
+        await res.body?.cancel();
+        await new Promise((r) => setTimeout(r, 2000 * (attempt + 1)));
+        continue;
+      }
+      const json = await res.json();
+      return { success: res.ok, data: json, status: res.status };
+    } catch (err) {
+      if (attempt < 2) continue;
+      return { success: false, data: String(err), status: 0 };
+    }
   }
+  return { success: false, data: "retry_exhausted", status: 429 };
 }
 
 export async function piperunGet(
