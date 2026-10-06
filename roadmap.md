@@ -1,4 +1,5 @@
 - [x] Fluxo IG AIPRO: fluxo criado em social_flows e provisionado na Zernio (automation 6ab3e456ace5079aa7604c61); causa do não disparo = fluxo não tinha sido criado
+- [ ] Corrigir nome/link exoplan de Marcelo no painel RMS e criar cards de ativação/mensalidade exoplan separados de DentalCAD.
 - [x] Lista de Leads: identificar no card compra na Loja Integrada, indicação KOL e origem em congresso/evento
 - [ ] Ficha do Profissional: gerador de cupons da Loja Integrada visível no editor "Editar profissional" (em investigação — bloqueio de permissão ao criar a tabela oculta de cupons)
 - [x] Novo tipo de formulário "Credenciamento" (com área de atuação / especialidade padrão)
