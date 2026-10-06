@@ -15,17 +15,24 @@ Construtor de filtros combináveis (E / OU), com contagem de leads ao vivo e pr�
 - Equipamentos presentes em propostas ganhas (scanner, impressora, CAD)
 - Quem comprou resinas + seleção de resinas específicas (itens de propostas ganhas)
 - Qualquer outro campo da tabela de leads (campo + operador + valor)
+- **Distribuidores** (cadastro de distribuidores, por país/região/status) como público próprio
 Sempre só leads canônicos (não mesclados). Públicos salvos com nome e descrição.
 
 ### 2. Réguas (editor visual em blocos, igual ao de respostas de formulários)
-Toda régua começa obrigatoriamente por um nó "Origem: Público" (público salvo). Nós disponíveis:
-- **E-mail**: nome do remetente, assunto, pré-cabeçalho, editor HTML com prévia ao vivo, e botão "Gerar com IA" no padrão visual Smart Dent, usando qualquer combinação de: produto(s) do catálogo, postagem(ns) do Instagram (imagem + texto baseado na legenda), conteúdos da base de conhecimento. Sem preços (regra existente).
+Toda régua começa por um nó de **Origem**, que pode ser:
+- **Público salvo** (envio para a lista), ou
+- **Gatilho do sistema** (envio automático por acontecimento): diploma de treinamento gerado, inscrição em curso/turma, fim do treinamento, inscrição em evento, novo envio de formulário, mudança de etapa no funil, negócio ganho. O gatilho entrega ao e-mail os dados do acontecimento (ex.: o PDF do diploma).
+
+Nós disponíveis:
+- **E-mail**: nome do remetente, assunto, pré-cabeçalho, editor HTML com prévia ao vivo, **anexos** (arquivo fixo ou arquivo do gatilho, ex.: diploma PDF do participante), e botão "Gerar com IA" no padrão visual Smart Dent, usando qualquer combinação de: produto(s) do catálogo, postagem(ns) do Instagram (imagem + texto baseado na legenda), conteúdos da base de conhecimento, **eventos** e **cursos/turmas** (data, local, link de inscrição). Sem preços (regra existente).
 - **Espera**: X minutos/horas/dias, ou até uma data/hora.
 - **Condição**: abriu o e-mail / clicou / clicou em link específico → caminhos Sim / Não (com tempo limite).
 - **WhatsApp**: editor de mensagem com variáveis ({{nome}} etc.) e seletor da instância a usar.
 - **SMS**: editor com contador de caracteres.
 - **Envio**: imediato, depois de X minutos, ou data marcada.
 - **Saída automática** (configuração da régua): sair quando o lead converter (negócio ganho), fizer novo cadastro de formulário ou mudar de etapa no funil de vendas.
+
+Exemplo pronto: "Diploma do treinamento" — gatilho diploma gerado → e-mail ao participante com o PDF anexado ao final do treinamento.
 
 Lista de réguas com status (rascunho/ativa/pausada), quantos leads em cada nó, enviados, abertos, cliques, saídas.
 

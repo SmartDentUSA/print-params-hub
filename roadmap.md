@@ -7,3 +7,5 @@
 - [x] Formulário "# - [GrinDesignClub] - Credenciamento" criado e vinculado a Erick adriano de souza
 - [x] Editor de curso do profissional: modalidade "Credenciamento" com seleção do formulário
 - [x] Inscrição em treinamento presencial lotado: cadastro na lista de espera e confirmação sem reservar vaga; interface verificada com resposta simulada, envio real pendente de turma habilitada.
+
+- [ ] Automação de e-mails sequenciais (Central de Campanhas): públicos, editor visual, nós e-mail/WA/SMS, conteúdo de eventos/cursos, segmento distribuidores, gatilhos do sistema (diploma PDF anexado)
