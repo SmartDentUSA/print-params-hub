@@ -30,7 +30,7 @@ function summary(type: FlowNodeType, d: any, ctx: { audiences: any[]; flows: any
     case "origin": return flow.origin_type === "trigger" ? `Gatilho: ${TRIGGERS.find((t) => t.v === flow.trigger_type)?.l || "—"}` : `Público: ${ctx.audiences.find((a) => a.id === flow.audience_id)?.name || "—"}`;
     case "email": return `${EMAIL_TYPES.find((t) => t.v === d.email_type)?.l || ""} · ${d.subject || "sem assunto"}`;
     case "wait": return d.mode === "until" ? `Até ${d.until ? new Date(d.until).toLocaleString("pt-BR") : "—"}` : `${d.amount} ${d.unit === "days" ? "dia(s)" : d.unit === "hours" ? "hora(s)" : "min"}`;
-    case "condition": return `${d.check === "opened" ? "Abriu" : d.check === "clicked" ? "Clicou" : "Clicou no link"} · até ${d.timeout_hours}h`;
+    case "condition": return `${d.check === "opened" ? "Abriu" : d.check === "clicked" ? "Clicou" : "Clicou no link"} · ${Number(d.timeout_hours) === 0 ? "imediatamente" : `até ${d.timeout_amount ?? d.timeout_hours ?? 48} ${{ hours: "h", minutes: "min", seconds: "s" }[d.timeout_unit as string] || "h"}`}`;
     case "whatsapp": return (d.message || "").slice(0, 50);
     case "sms": return (d.message || "").slice(0, 50);
     case "goto_flow": return ctx.flows.find((f) => f.id === d.flow_id)?.name || "escolha a régua";
@@ -60,6 +60,20 @@ function FlowNodeView({ data, selected }: NodeProps) {
   );
 }
 const nodeTypes = { step: FlowNodeView };
+
+export function ConditionTimeoutEditor({ value, onChange }: { value: any; onChange: (v: any) => void }) {
+  const unit = value.timeout_unit || (Number(value.timeout_hours) === 0 ? "immediate" : "hours");
+  const amount = value.timeout_amount ?? value.timeout_hours ?? 48;
+  const setTimeoutValue = (nextUnit: string, nextAmount: number) => {
+    const safeAmount = Number.isFinite(nextAmount) ? Math.max(0, nextAmount) : 0;
+    const divisor = nextUnit === "seconds" ? 3600 : nextUnit === "minutes" ? 60 : 1;
+    onChange({ ...value, timeout_unit: nextUnit, timeout_amount: safeAmount, timeout_hours: nextUnit === "immediate" ? 0 : safeAmount / divisor });
+  };
+  return <div className="space-y-2"><Label className="text-[11px]">Aguardar até antes de seguir pelo "Não"</Label>
+    <Select value={unit} onValueChange={(v) => setTimeoutValue(v, amount)}><SelectTrigger aria-label="Unidade de espera da condição"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="hours">Horas</SelectItem><SelectItem value="minutes">Minutos</SelectItem><SelectItem value="seconds">Segundos</SelectItem><SelectItem value="immediate">Imediatamente</SelectItem></SelectContent></Select>
+    {unit !== "immediate" && <Input aria-label="Tempo de espera da condição" type="number" min={0} step="any" value={amount} onChange={(e) => setTimeoutValue(unit, Number(e.target.value))} />}
+  </div>;
+}
 
 function TimingEditor({ value, onChange }: { value: any; onChange: (v: any) => void }) {
   const t = value || { mode: "immediate" };
@@ -314,7 +328,7 @@ export function FlowEditor({ flowId, onBack }: { flowId: string | null; onBack: 
                       <SelectContent><SelectItem value="last">Último e-mail enviado</SelectItem>{nodes.filter((n: any) => n.data.kind === "email").map((n: any) => <SelectItem key={n.id} value={n.id}>{n.data.cfg.subject || n.id}</SelectItem>)}</SelectContent>
                     </Select>
                     {cfg.check === "clicked_link" && <Input className="h-8 text-xs" placeholder="Parte do link (ex.: /inscricao)" value={cfg.link_contains || ""} onChange={(e) => updateCfg({ ...cfg, link_contains: e.target.value })} />}
-                    <div><Label className="text-[11px]">Aguardar até (horas) antes de seguir pelo "Não"</Label><Input type="number" min={1} className="h-8 text-xs" value={cfg.timeout_hours} onChange={(e) => updateCfg({ ...cfg, timeout_hours: +e.target.value })} /></div>
+                    <ConditionTimeoutEditor value={cfg} onChange={updateCfg} />
                   </div>
                 )}
 

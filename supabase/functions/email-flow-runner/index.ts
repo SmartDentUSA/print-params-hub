@@ -237,17 +237,19 @@ Deno.serve(async (req) => {
             // chegou e já venceu → segue
           } else if (node.type === "condition") {
             const ref = d.ref_node || ctx._last_email_node;
-            const arrived = ctx._arrived[node.id] ? new Date(ctx._arrived[node.id]).getTime() : Date.now();
+            if (!ctx._arrived[node.id]) ctx._arrived[node.id] = new Date().toISOString();
+            const arrived = new Date(ctx._arrived[node.id]).getTime();
             const evType = d.check === "opened" ? "email_opened" : "email_clicked";
             let qy = supabase.from("email_flow_events").select("id, payload").eq("enrollment_id", enr.id).eq("event_type", evType);
             if (ref) qy = qy.eq("node_id", ref);
             const { data: hits } = await qy.limit(50);
             let ok = (hits || []).length > 0;
             if (ok && d.check === "clicked_link" && d.link_contains) ok = (hits || []).some((h: any) => String(h.payload?.url || "").includes(d.link_contains));
-            const timeoutMs = Math.max(1, Number(d.timeout_hours || 24)) * 3600_000;
+            const timeoutHours = Number(d.timeout_hours ?? 48);
+            const timeoutMs = (Number.isFinite(timeoutHours) ? Math.max(0, timeoutHours) : 48) * 3600_000;
             if (ok) { go = nextOf(node.id, "yes") ?? null; await log(node.id, "condition_yes", { check: d.check }); }
             else if (Date.now() - arrived >= timeoutMs) { go = nextOf(node.id, "no") ?? null; await log(node.id, "condition_no", { check: d.check }); }
-            else { nextRun = new Date(Date.now() + 15 * 60_000).toISOString(); break; }
+            else { nextRun = new Date(Math.min(arrived + timeoutMs, Date.now() + 15 * 60_000)).toISOString(); break; }
           } else if (node.type === "whatsapp") {
             const phone = String(enr.phone || lead?.telefone_normalized || "").replace(/\D/g, "");
             const tm = await getMember(d.instance_member_id || null);
