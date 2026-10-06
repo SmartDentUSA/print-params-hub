@@ -482,7 +482,23 @@ async function processDeal(
   const remoteEmail = remoteEmailRaw ? String(remoteEmailRaw).trim().toLowerCase() : null;
   const initialEmail = remoteEmail?.includes(",") ? remoteEmail.split(",")[0].trim() : remoteEmail;
 
-  const currentLead = await findLeadByCascade(supabase, dealId, pessoaHash, pessoaPiperunId, initialEmail);
+  let currentLead = await findLeadByCascade(supabase, dealId, pessoaHash, pessoaPiperunId, initialEmail);
+
+  // Phone fallback (identity cascade piperun_id > email > phone): deals created
+  // directly in PipeRun without e-mail would otherwise never reach the system.
+  const rawPhoneForMatch = (person as any)?.contact_phones?.[0]?.number || (person as any)?.phones?.[0]?.phone || (person as any)?.phone || (person as any)?.mobile || null;
+  let phoneDigits = rawPhoneForMatch ? String(rawPhoneForMatch).replace(/\D/g, "") : "";
+  if (phoneDigits && !phoneDigits.startsWith("55") && phoneDigits.length <= 11) phoneDigits = `55${phoneDigits}`;
+  if (!currentLead && phoneDigits.length >= 12) {
+    const { data: byPhone } = await supabase
+      .from("lia_attendances")
+      .select("*")
+      .is("merged_into", null)
+      .eq("telefone_normalized", `+${phoneDigits}`)
+      .order("created_at", { ascending: true })
+      .limit(1);
+    if (byPhone && byPhone.length) currentLead = byPhone[0] as any;
+  }
 
   // ── EARLY EXIT: skip if PipeRun's deal signature matches the last
   // snapshot we already stored. Avoids re-running the whole map+merge
@@ -619,7 +635,7 @@ async function processDeal(
       console.error(`[sync-piperun] Update error deal ${dealId}:`, error.message);
     }
   } else {
-    if (!email) {
+    if (!email && phoneDigits.length < 12) {
       counters.skippedNoData++;
       return;
     }
@@ -719,8 +735,10 @@ Deno.serve(async (req) => {
             perDeal.push({ deal_id: id, ok: false, error: "no_data" });
             continue;
           }
+          const before = counters.skippedNoData;
           await processDeal(supabase, deal as PipeRunDealData, counters);
-          perDeal.push({ deal_id: id, ok: true });
+          const p: any = (deal as any).person;
+          perDeal.push({ deal_id: id, ok: true, ...(counters.skippedNoData > before && url.searchParams.get("debug") === "1" ? { error: JSON.stringify({ person_id: (deal as any).person_id, keys: p ? Object.keys(p) : null, phones: p?.phones ?? p?.contact_phones ?? p?.cellphone ?? null, emails: p?.emails ?? p?.contact_emails ?? null }).slice(0, 600) } : {}) });
         } catch (e) {
           perDeal.push({ deal_id: id, ok: false, error: String(e) });
         }
@@ -745,6 +763,7 @@ Deno.serve(async (req) => {
         updated: counters.updated,
         created: counters.created,
         skipped_unchanged: counters.skippedUnchanged,
+        skipped_no_identifier: counters.skippedNoData,
         per_deal: perDeal,
         elapsed_ms: Date.now() - startedAt,
       }), {
