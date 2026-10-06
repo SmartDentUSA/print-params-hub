@@ -2269,7 +2269,7 @@ function CampaignHistory() {
   const [sendLogs, setSendLogs] = useState<SendLog[]>([]);
   const [smsAttribution, setSmsAttribution] = useState<SmsAttribution | null>(null);
   const [emailStats, setEmailStats] = useState<Record<string, EmailStats>>({});
-  const [conversions, setConversions] = useState<Record<string, { conversions: number; deals_created: number }>>({});
+  const [conversions, setConversions] = useState<Record<string, { conversions: number; deals_created: number; won_deals?: number; revenue?: number }>>({});
 
   useEffect(() => {
     (async () => {
@@ -2336,17 +2336,17 @@ function CampaignHistory() {
         setEmailStats(map);
       }
 
-      // Fetch conversion (novo deal criado após envio) para todas as campanhas
+      // Conversão = leads com negócio GANHO após o envio (+ deals abertos separados)
       const convEntries = await Promise.all(merged.map(async (c) => {
         try {
           const { data } = await supabase.rpc("fn_campaign_conversions" as any, { p_campaign_id: c.id });
           const row = Array.isArray(data) ? data[0] : data;
-          return [c.id, row as { conversions: number; deals_created: number } | undefined] as const;
+          return [c.id, row as { conversions: number; deals_created: number; won_deals?: number; revenue?: number } | undefined] as const;
         } catch {
           return [c.id, undefined] as const;
         }
       }));
-      const cmap: Record<string, { conversions: number; deals_created: number }> = {};
+      const cmap: Record<string, { conversions: number; deals_created: number; won_deals?: number; revenue?: number }> = {};
       for (const [id, s] of convEntries) if (s) cmap[id] = s;
       setConversions(cmap);
     })();
@@ -2525,13 +2525,18 @@ function CampaignHistory() {
                             const cv = conversions[selectedCampaign.id];
                             const conv = cv?.conversions ?? 0;
                             const deals = cv?.deals_created ?? 0;
+                            const wonDeals = cv?.won_deals ?? 0;
+                            const revenue = Number(cv?.revenue ?? 0);
                             return (
                               <div className="text-center p-3 border rounded col-span-4 bg-green-50/50">
                                 <p className="text-2xl font-bold text-green-600">
                                   {conv}<span className="text-xs text-muted-foreground font-normal">{pct(conv)}</span>
                                 </p>
                                 <p className="text-xs text-muted-foreground">
-                                  Conversão · {deals} novo{deals === 1 ? "" : "s"} deal{deals === 1 ? "" : "s"} criado{deals === 1 ? "" : "s"} após o envio
+                                  Conversão em venda · {wonDeals} negócio{wonDeals === 1 ? "" : "s"} ganho{wonDeals === 1 ? "" : "s"} após o envio · {revenue.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                                </p>
+                                <p className="text-[11px] text-muted-foreground">
+                                  {deals} negócio{deals === 1 ? "" : "s"} aberto{deals === 1 ? "" : "s"} após o envio
                                 </p>
                               </div>
                             );
