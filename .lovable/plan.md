@@ -1,7 +1,9 @@
 # LIA de campanha + botão WhatsApp nas landing pages SDR
 
 ## O que o usuário verá
-1. **Botão flutuante do WhatsApp** em todas as landing pages de formulários SDR. Ao clicar, abre a Dra. LIA (`/embed/dra-lia`) já sabendo o produto de interesse do formulário (ou do botão de interesse escolhido).
+1. **Ícone do WhatsApp ao lado do botão "Falar com especialista"** (e também flutuante) em todas as landing pages de formulários SDR. Ao clicar, abre a Dra. LIA (`/embed/dra-lia`) já sabendo o produto de interesse do formulário (ou do botão de interesse escolhido).
+1b. **Comparativo por canal de atendimento** em cada formulário/landing e na Central de Campanhas: **Formulário x Falar com especialista x WhatsApp (LIA)**, cada um com visualizações (cliques/aberturas), leads gerados, conversões e valor total das conversões. Conversão segue a regra atual: só negócios ganhos depois da captura.
+   - Técnico: cada clique/abertura grava um evento com `channel` (`form`, `specialist`, `whatsapp_lia`) e a origem; leads do chat recebem `channel` na submissão. Uma função de métricas agrega por canal reaproveitando a lógica de conversão de formulários.
 2. **Link de campanha da LIA**: `admin.smartdent.com.br/embed/dra-lia?c=<campanha>&p=<produto>` com UTMs. Dentro da Central de Campanhas, um botão **"Gerar link da LIA"** copia o link pronto. Cada campanha pode ter uma mensagem de abertura e um produto de interesse.
 3. **Conversa de qualificação**:
    - Abertura personalizada ("Olá! Vi que você se interessou pela Resina Vitality…").
