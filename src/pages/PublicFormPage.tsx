@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from "react";
-import { trackAttendanceEvent } from "@/lib/attendanceChannel";
+import { trackAttendanceEvent, buildLiaUrl } from "@/lib/attendanceChannel";
+import { WhatsAppGlyph } from "@/components/lp/PremiumLandingTemplate";
 import { useParams, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -1090,6 +1091,19 @@ export default function PublicFormPage() {
       `}</style>
       {/* Brand color strip */}
       {!isEmbed && <div className="brand-strip fixed top-0 left-0 right-0 h-1 z-50" />}
+      {!isEmbed && form.form_purpose !== "feira_evento" && (
+        <a
+          href={buildLiaUrl({ formId: form.id }) + "&utm_source=form_page&utm_medium=whatsapp_lia"}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={() => trackAttendanceEvent({ channel: "whatsapp_lia", event_type: "click", form_id: form.id })}
+          aria-label="Falar pelo WhatsApp com a Dra. LIA"
+          className="fixed bottom-5 right-5 z-50 inline-flex h-14 w-14 items-center justify-center rounded-full text-white shadow-lg transition hover:scale-105"
+          style={{ background: "var(--lp-whatsapp, #25D366)" }}
+        >
+          <WhatsAppGlyph className="h-7 w-7" />
+        </a>
+      )}
       <div
         className={
           isEmbed
