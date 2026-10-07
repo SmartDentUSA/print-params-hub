@@ -25,10 +25,7 @@ export default function ProfessionalKolPerformance({ formIds, coupons, commissio
     const p = commissionOf(c.cupom);
     return s + (p ? (c.receita * p) / 100 : 0);
   }, 0);
-  const hasCoupons = (coupons ?? []).some((c) => (c.code || "").trim());
-  // % de comissão do KOL usada também para o comissionamento da receita dos formulários
-  const kolCommissionPct =
-    (coupons ?? []).find((c) => c.commission_percent != null)?.commission_percent ?? null;
+
 
   return (
     <Card>
