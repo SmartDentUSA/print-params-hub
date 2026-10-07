@@ -32,6 +32,7 @@ export const SUPPORT_COLUMNS = [
 const PRIORITY_VARIANT: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
   baixa: "outline", normal: "secondary", alta: "default", urgente: "destructive",
 };
+const PRIORITY_ORDER: Record<string, number> = { urgente: 3, alta: 2, normal: 1, baixa: 0 };
 
 type Ticket = {
   id: string;
@@ -323,7 +324,7 @@ function SupportKanban({ userId }: { userId: string }) {
       if (!q) return true;
       return [t.ticket_full_id, t.equipment, t.serial_number, t.client_summary, t.clientFacts?.name, t.clientFacts?.phone, t.lia_attendances?.nome, t.lia_attendances?.telefone_normalized]
         .some((v) => v?.toLowerCase().includes(q));
-    }).sort((a, b) => Number(b.clientFacts?.priority ?? false) - Number(a.clientFacts?.priority ?? false) || ({urgente: 3, alta: 2, normal: 1, baixa: 0}[b.priority] ?? 0) - ({urgente: 3, alta: 2, normal: 1, baixa: 0}[a.priority] ?? 0) || Date.parse(a.created_at) - Date.parse(b.created_at));
+    }).sort((a, b) => Number(b.clientFacts?.priority ?? false) - Number(a.clientFacts?.priority ?? false) || (PRIORITY_ORDER[b.priority] ?? 0) - (PRIORITY_ORDER[a.priority] ?? 0) || Date.parse(a.created_at) - Date.parse(b.created_at));
   }, [tickets, facts, search, onlyMine, userId]);
 
   const move = async (id: string, status: string) => {
@@ -461,7 +462,8 @@ export default function SuporteTecnico() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="support-workspace min-h-screen bg-background text-foreground">
+      <Helmet><link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Sora:wght@600;700;800&display=swap" rel="stylesheet" /></Helmet>
       <header className="border-b px-4 py-3 flex items-center gap-3">
         <Headset className="w-5 h-5 text-primary" />
         <h1 className="text-lg font-semibold">Suporte Técnico</h1>
