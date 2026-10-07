@@ -93,17 +93,6 @@ export function SupportMetricsDashboard() {
     },
   });
 
-  const { data: agentNames = {} } = useQuery({
-    queryKey: ["support_agent_names"],
-    staleTime: 300000,
-    queryFn: async () => {
-      const map: Record<string, string> = {};
-      const { data } = await supabase.from("profiles").select("id, full_name, email");
-      for (const p of data ?? []) map[p.id] = p.full_name || p.email || p.id.slice(0, 8);
-      return map;
-    },
-  });
-
   const metrics = useMemo(() => {
     const resolved = tickets.filter((t) => t.resolved_at);
     const fcrBase = resolved.filter((t) => t.first_contact_resolution != null);
