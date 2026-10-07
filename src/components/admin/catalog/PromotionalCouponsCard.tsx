@@ -153,8 +153,10 @@ export function PromotionalCouponsCard({ table, draft, onDraftChange, profession
     if (value <= 0) { toast.error("Informe o valor do desconto do cupom."); return; }
     const validFrom = (isFreight ? draft.coupon_freight_valid_from : draft.coupon_valid_from) ?? null;
     const validUntil = (isFreight ? draft.coupon_freight_valid_until : draft.coupon_valid_until) ?? null;
-    // Cupons de vendedor são sempre de uso ilimitado até a data final.
-    const usageLimit = null;
+    // Quantidade de cupons disponíveis e quantas vezes cada cliente pode usar (vazio = ilimitado).
+    const toPos = (v: unknown) => { const n = Math.floor(Number(v)); return Number.isFinite(n) && n > 0 ? n : null; };
+    const usageLimit = toPos(isFreight ? draft.coupon_freight_usage_limit : draft.coupon_usage_limit);
+    const usagePerCustomer = toPos(isFreight ? draft.coupon_freight_usage_per_customer : draft.coupon_usage_per_customer);
 
     setBusy(kind);
     try {
@@ -164,13 +166,15 @@ export function PromotionalCouponsCard({ table, draft, onDraftChange, profession
         coupon_discount_type: discountType,
         coupon_discount_value: Number(draft.coupon_discount_value || 0),
         coupon_prefix: prefix,
-        coupon_usage_limit: null,
+        coupon_usage_limit: toPos(draft.coupon_usage_limit),
+        coupon_usage_per_customer: toPos(draft.coupon_usage_per_customer),
         coupon_valid_from: draft.coupon_valid_from ?? null,
         coupon_valid_until: draft.coupon_valid_until ?? null,
         coupon_freight_discount_value: draft.coupon_freight_discount_value ?? null,
         coupon_freight_valid_from: draft.coupon_freight_valid_from ?? null,
         coupon_freight_valid_until: draft.coupon_freight_valid_until ?? null,
-        coupon_freight_usage_limit: null,
+        coupon_freight_usage_limit: toPos(draft.coupon_freight_usage_limit),
+        coupon_freight_usage_per_customer: toPos(draft.coupon_freight_usage_per_customer),
         coupon_pdf_enabled: draft.coupon_pdf_enabled !== false,
         coupon_freight_pdf_enabled: draft.coupon_freight_pdf_enabled !== false,
         coupon_li_category_ids: categoryIds,
@@ -218,6 +222,9 @@ export function PromotionalCouponsCard({ table, draft, onDraftChange, profession
           valid_from: validFrom,
           valid_until: validUntil,
           usage_limit: usageLimit,
+          usage_per_customer: usagePerCustomer,
+          // Limites mudaram: reenviar para a loja.
+          ...(existing && (existing.usage_limit !== usageLimit || (existing.usage_per_customer ?? null) !== usagePerCustomer) ? { li_synced_at: null } : {}),
           active: true,
           // Código alterado: precisa voltar para a loja com o novo código.
           ...(existing && existing.code !== code ? { li_synced_at: null, li_sync_error: null } : {}),
@@ -381,11 +388,15 @@ export function PromotionalCouponsCard({ table, draft, onDraftChange, profession
               onChange={(e) => onDraftChange({ coupon_prefix: e.target.value || null })} />
           </div>
           <div className="space-y-2">
-            <Label>Limite de usos por cupom</Label>
-            <p className="text-sm text-muted-foreground rounded-md border bg-muted/40 px-3 py-2">
-              Uso ilimitado até a data final
-            </p>
-          </div>
+              <Label>Número de cupons a gerar</Label>
+              <Input type="number" min={1} placeholder="Ilimitado" value={draft.coupon_usage_limit ?? ""}
+                onChange={(e) => onDraftChange({ coupon_usage_limit: e.target.value ? Number(e.target.value) : null })} />
+            </div>
+            <div className="space-y-2">
+              <Label>Vezes que cada cliente pode usar</Label>
+              <Input type="number" min={1} placeholder="Ilimitado" value={draft.coupon_usage_per_customer ?? ""}
+                onChange={(e) => onDraftChange({ coupon_usage_per_customer: e.target.value ? Number(e.target.value) : null })} />
+            </div>
 
         </div>
 
@@ -510,10 +521,14 @@ export function PromotionalCouponsCard({ table, draft, onDraftChange, profession
                 onChange={(e) => onDraftChange({ coupon_freight_valid_until: e.target.value || null })} />
             </div>
             <div className="space-y-2">
-              <Label>Limite de usos por cupom</Label>
-              <p className="text-sm text-muted-foreground rounded-md border bg-muted/40 px-3 py-2">
-                Uso ilimitado até a data final
-              </p>
+              <Label>Número de cupons a gerar</Label>
+              <Input type="number" min={1} placeholder="Ilimitado" value={draft.coupon_freight_usage_limit ?? ""}
+                onChange={(e) => onDraftChange({ coupon_freight_usage_limit: e.target.value ? Number(e.target.value) : null })} />
+            </div>
+            <div className="space-y-2">
+              <Label>Vezes que cada cliente pode usar</Label>
+              <Input type="number" min={1} placeholder="Ilimitado" value={draft.coupon_freight_usage_per_customer ?? ""}
+                onChange={(e) => onDraftChange({ coupon_freight_usage_per_customer: e.target.value ? Number(e.target.value) : null })} />
             </div>
 
           </div>
