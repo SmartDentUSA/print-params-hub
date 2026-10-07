@@ -18,6 +18,7 @@ export type PromotionalTable = {
   coupon_discount_value?: number | null;
   coupon_prefix?: string | null;
   coupon_usage_limit?: number | null;
+  coupon_usage_per_customer?: number | null;
   coupon_valid_from?: string | null;
   coupon_valid_until?: string | null;
   coupon_li_category_ids?: number[] | null;
@@ -26,6 +27,7 @@ export type PromotionalTable = {
   coupon_freight_valid_from?: string | null;
   coupon_freight_valid_until?: string | null;
   coupon_freight_usage_limit?: number | null;
+  coupon_freight_usage_per_customer?: number | null;
   /** Liga/desliga a lista de vendedores e cupons de desconto no PDF. */
   coupon_pdf_enabled?: boolean | null;
   /** Liga/desliga a coluna de cupom com frete grátis no PDF. */
@@ -45,6 +47,7 @@ export type PromotionalCoupon = {
   valid_from: string | null;
   valid_until: string | null;
   usage_limit: number | null;
+  usage_per_customer?: number | null;
   active: boolean;
   li_coupon_id: string | null;
   li_synced_at: string | null;
