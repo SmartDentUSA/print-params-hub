@@ -140,6 +140,188 @@ function Section({ table, title, fields, rows, summary, order }: { table: Table;
   );
 }
 
+// ---- Cascata Categoria → Subcategoria → Produto (portfólio products_catalog) ----
+type PortfolioItem = { category: string | null; subcategory: string | null; name: string | null };
+
+const norm = (s?: string | null) => (s ?? "").trim().toLowerCase();
+
+function usePortfolio() {
+  return useQuery({
+    queryKey: ["support-settings", "portfolio"],
+    queryFn: async () => {
+      const { data, error } = await (supabase.from("products_catalog") as any).select("category, subcategory, name");
+      if (error) throw error;
+      return (data ?? []) as PortfolioItem[];
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
+/** Dedup case-insensitive, mantendo o rótulo mais comum/bem formatado. */
+function distinctLabels(items: PortfolioItem[], pick: (p: PortfolioItem) => string | null): string[] {
+  const map = new Map<string, string>();
+  for (const p of items) {
+    const raw = pick(p)?.trim();
+    if (!raw) continue;
+    const k = norm(raw);
+    const prev = map.get(k);
+    if (!prev || (prev === prev.toUpperCase() && raw !== raw.toUpperCase())) map.set(k, raw);
+  }
+  return [...map.values()].sort((a, b) => a.localeCompare(b, "pt-BR"));
+}
+
+function CategorySection({ rows }: { rows: Row[] }) {
+  const qc = useQueryClient();
+  const { toast } = useToast();
+  const portfolio = usePortfolio();
+  const items = portfolio.data ?? [];
+  const [edit, setEdit] = useState<Row | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  const catName = (id?: string | null) => rows.find((c) => c.id === id)?.name;
+  const parentOpts = rows.filter((c) => !c.parent_id);
+
+  const prodCats = distinctLabels(items, (p) => p.category);
+  const subcatsFor = (cat: string) => distinctLabels(items.filter((p) => norm(p.category) === norm(cat)), (p) => p.subcategory);
+  const productsFor = (cat: string, sub: string) =>
+    distinctLabels(items.filter((p) => norm(p.category) === norm(cat) && (!sub || norm(p.subcategory) === norm(sub))), (p) => p.name);
+
+  const save = async () => {
+    if (!edit) return;
+    if (!String(edit.name ?? "").trim()) return toast({ title: "Preencha o nome", variant: "destructive" });
+    const payload: Row = {
+      name: edit.name.trim(),
+      parent_id: edit.parent_id || null,
+      product_category: edit.product_category || null,
+      product_subcategory: edit.product_subcategory || null,
+      product_name: edit.product_name || null,
+      workflow_stage: edit.workflow_stage === "" || edit.workflow_stage == null ? null : Number(edit.workflow_stage),
+      description: edit.description?.trim() || null,
+      sort_order: edit.sort_order === "" || edit.sort_order == null ? null : Number(edit.sort_order),
+    };
+    setSaving(true);
+    const q = supabase.from("support_ticket_categories") as any;
+    const { error } = edit.id ? await q.update(payload).eq("id", edit.id) : await q.insert({ ...payload, is_active: true });
+    setSaving(false);
+    if (error) return toast({ title: "Não foi possível salvar", description: error.message, variant: "destructive" });
+    toast({ title: "Salvo" });
+    setEdit(null);
+    qc.invalidateQueries({ queryKey: ["support-settings", "support_ticket_categories"] });
+  };
+
+  const toggle = async (r: Row) => {
+    await (supabase.from("support_ticket_categories") as any).update({ is_active: !r.is_active }).eq("id", r.id);
+    qc.invalidateQueries({ queryKey: ["support-settings", "support_ticket_categories"] });
+  };
+
+  const remove = async (r: Row) => {
+    if (!confirm("Excluir esta categoria? Prefira desativar se já foi usada em chamados.")) return;
+    const { error } = await (supabase.from("support_ticket_categories") as any).delete().eq("id", r.id);
+    if (error) return toast({ title: "Não foi possível excluir", description: "Item em uso — desative em vez de excluir.", variant: "destructive" });
+    qc.invalidateQueries({ queryKey: ["support-settings", "support_ticket_categories"] });
+  };
+
+  const sel = "h-10 w-full rounded-md border bg-background px-3 text-sm";
+
+  return (
+    <div className="rounded-xl border bg-card">
+      <div className="flex items-center justify-between border-b px-4 py-3">
+        <h3 className="font-semibold">Categorias e subcategorias <span className="text-sm text-muted-foreground">({rows.length})</span></h3>
+        <Button size="sm" onClick={() => setEdit({ name: "", parent_id: "", product_category: "", product_subcategory: "", product_name: "", workflow_stage: "", description: "", sort_order: rows.length + 1 })}><Plus className="mr-1 h-4 w-4" />Adicionar</Button>
+      </div>
+      {rows.length === 0 ? (
+        <p className="p-6 text-center text-sm text-muted-foreground">Nenhuma categoria cadastrada ainda.</p>
+      ) : (
+        <ul className="divide-y">
+          {rows.map((r) => (
+            <li key={r.id} className={`flex items-center gap-3 px-4 py-3 ${r.is_active ? "" : "opacity-50"}`}>
+              <div className="min-w-0 flex-1">
+                <p className="font-medium">{r.parent_id ? <span className="text-muted-foreground">{catName(r.parent_id)} ↳ </span> : null}{r.name}</p>
+                <div className="mt-1 flex flex-wrap gap-1">
+                  {r.workflow_stage && <Badge variant="secondary">Etapa {r.workflow_stage}: {STAGES[r.workflow_stage - 1]}</Badge>}
+                  {r.product_category && <Badge variant="outline">{r.product_category}{r.product_subcategory ? ` / ${r.product_subcategory}` : ""}{r.product_name ? ` / ${r.product_name}` : ""}</Badge>}
+                </div>
+              </div>
+              <Switch checked={r.is_active} onCheckedChange={() => toggle(r)} aria-label="Ativo" />
+              <Button size="icon" variant="ghost" onClick={() => setEdit({ ...r, parent_id: r.parent_id ?? "", product_category: r.product_category ?? "", product_subcategory: r.product_subcategory ?? "", product_name: r.product_name ?? "", workflow_stage: r.workflow_stage ?? "" })} aria-label="Editar"><Pencil className="h-4 w-4" /></Button>
+              <Button size="icon" variant="ghost" onClick={() => remove(r)} aria-label="Excluir"><Trash2 className="h-4 w-4" /></Button>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <Dialog open={!!edit} onOpenChange={(o) => !o && setEdit(null)}>
+        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">
+          <DialogHeader><DialogTitle>{edit?.id ? "Editar" : "Nova"} — Categoria</DialogTitle></DialogHeader>
+          {edit && (
+            <div className="space-y-3">
+              <div className="space-y-1">
+                <Label>Nome *</Label>
+                <Input value={edit.name ?? ""} onChange={(e) => setEdit({ ...edit, name: e.target.value })} />
+              </div>
+              <div className="space-y-1">
+                <Label>Categoria pai (deixe vazio para principal)</Label>
+                <select className={sel} value={edit.parent_id ?? ""} onChange={(e) => setEdit({ ...edit, parent_id: e.target.value })}>
+                  <option value="">— Categoria principal —</option>
+                  {parentOpts.filter((p) => p.id !== edit.id).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                </select>
+              </div>
+
+              <div className="rounded-lg border p-3 space-y-3">
+                <p className="text-xs font-medium text-muted-foreground">Vínculo com o portfólio de produtos</p>
+                <div className="space-y-1">
+                  <Label>Categoria de produto</Label>
+                  <select className={sel} value={edit.product_category ?? ""} onChange={(e) => setEdit({ ...edit, product_category: e.target.value, product_subcategory: "", product_name: "" })}>
+                    <option value="">— Nenhuma —</option>
+                    {prodCats.map((c) => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                </div>
+                {edit.product_category && (
+                  <div className="space-y-1">
+                    <Label>Subcategoria de produto</Label>
+                    <select className={sel} value={edit.product_subcategory ?? ""} onChange={(e) => setEdit({ ...edit, product_subcategory: e.target.value, product_name: "" })}>
+                      <option value="">— Todas —</option>
+                      {subcatsFor(edit.product_category).map((s) => <option key={s} value={s}>{s}</option>)}
+                    </select>
+                  </div>
+                )}
+                {edit.product_category && (
+                  <div className="space-y-1">
+                    <Label>Produto do portfólio</Label>
+                    <select className={sel} value={edit.product_name ?? ""} onChange={(e) => setEdit({ ...edit, product_name: e.target.value })}>
+                      <option value="">— Todos os produtos —</option>
+                      {productsFor(edit.product_category, edit.product_subcategory).map((n) => <option key={n} value={n}>{n}</option>)}
+                    </select>
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-1">
+                <Label>Etapa do fluxo digital (7 etapas)</Label>
+                <select className={sel} value={edit.workflow_stage ?? ""} onChange={(e) => setEdit({ ...edit, workflow_stage: e.target.value })}>
+                  {stageOpts.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                </select>
+              </div>
+              <div className="space-y-1">
+                <Label>Descrição</Label>
+                <Textarea rows={3} value={edit.description ?? ""} onChange={(e) => setEdit({ ...edit, description: e.target.value })} />
+              </div>
+              <div className="space-y-1">
+                <Label>Ordem</Label>
+                <Input type="number" value={edit.sort_order ?? ""} onChange={(e) => setEdit({ ...edit, sort_order: e.target.value })} />
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEdit(null)}>Cancelar</Button>
+            <Button onClick={save} disabled={saving}>{saving ? "Salvando…" : "Salvar"}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
 export function SupportSettings() {
   const cats = useRows("support_ticket_categories", "sort_order");
   const types = useRows("support_ticket_types", "sort_order");
