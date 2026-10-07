@@ -64,6 +64,13 @@ interface EventProductButton {
   product_name: string;
 }
 
+interface CaptureButtonOpt {
+  label: string;
+  workflow_stage_target: string | null;
+  product_catalog_id: string | null;
+  product_name: string | null;
+}
+
 interface SubmittedScreenProps {
   form: FormData;
   company: any;
@@ -157,6 +164,7 @@ export default function PublicFormPage() {
   const [consultantId, setConsultantId] = useState<string>("");
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [selectedEventProduct, setSelectedEventProduct] = useState<EventProductButton | null>(null);
+  const [selectedCaptureButton, setSelectedCaptureButton] = useState<CaptureButtonOpt | null>(null);
   const [eventCombos, setEventCombos] = useState<
     { title: string; description: string | null; imageUrl: string | null; mainProduct: string | null }[]
   >([]);
@@ -678,6 +686,22 @@ export default function PublicFormPage() {
       }
     }
 
+    const captureButtons: CaptureButtonOpt[] =
+      (form as any).capture_buttons_enabled && Array.isArray((form as any).capture_buttons)
+        ? (form as any).capture_buttons
+        : [];
+    if (captureButtons.length > 0 && !selectedCaptureButton) {
+      toast_inline("Selecione uma das opções de interesse.");
+      setSubmitting(false);
+      return;
+    }
+    if (selectedCaptureButton) {
+      const interest = selectedCaptureButton.product_name || selectedCaptureButton.label;
+      payload.produto_interesse = interest;
+      if (selectedCaptureButton.product_catalog_id) payload.product_catalog_id = selectedCaptureButton.product_catalog_id;
+      payload.form_responses.push({ label: "Produto de interesse", value: interest });
+    }
+
     const customFields: Record<string, any> = {};
 
     for (const field of activeFields) {
@@ -749,6 +773,17 @@ export default function PublicFormPage() {
           })
           .filter(Boolean);
 
+        if (selectedCaptureButton?.workflow_stage_target) {
+          // Grava a etapa do botão no mapeamento 7x3 (trigger de portfólio)
+          responses.push({
+            form_id: form.id,
+            field_id: form.id,
+            lead_id: leadId,
+            value: selectedCaptureButton.product_name || selectedCaptureButton.label,
+            workflow_cell_target: selectedCaptureButton.workflow_stage_target,
+            field_label: `Botão: ${selectedCaptureButton.label}`,
+          });
+        }
         if (responses.length > 0) {
           supabase
             .from("smartops_form_field_responses" as any)
@@ -1277,6 +1312,32 @@ export default function PublicFormPage() {
                         className="min-h-12 h-auto whitespace-normal py-2.5 text-sm"
                         aria-pressed={selected}
                         onClick={() => setSelectedEventProduct(selected ? null : button)}
+                        style={selected ? { backgroundColor: "var(--brand)", borderColor: "var(--brand-dark)" } : undefined}
+                      >
+                        {button.label}
+                      </Button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {(form as any).capture_buttons_enabled && Array.isArray((form as any).capture_buttons) && (form as any).capture_buttons.length > 0 && (
+              <div className="space-y-1.5">
+                <Label style={isEmbed ? { color: "#0f172a", opacity: 1 } : undefined}>
+                  Qual é o seu interesse? <span className="text-destructive ml-1">*</span>
+                </Label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {((form as any).capture_buttons as CaptureButtonOpt[]).map((button, i) => {
+                    const selected = selectedCaptureButton?.label === button.label;
+                    return (
+                      <Button
+                        key={`${i}-${button.label}`}
+                        type="button"
+                        variant={selected ? "default" : "outline"}
+                        className="min-h-12 h-auto whitespace-normal py-2.5 text-sm"
+                        aria-pressed={selected}
+                        onClick={() => setSelectedCaptureButton(selected ? null : button)}
                         style={selected ? { backgroundColor: "var(--brand)", borderColor: "var(--brand-dark)" } : undefined}
                       >
                         {button.label}
