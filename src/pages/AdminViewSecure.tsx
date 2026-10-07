@@ -1,5 +1,6 @@
 import { useState, useEffect, lazy, Suspense, useCallback } from "react";
 import { User } from '@supabase/supabase-js';
+import { useNavigate } from "react-router-dom";
 import { supabase } from '@/integrations/supabase/client';
 import { ConnectionError } from "@/components/ConnectionError";
 import { AuthPage } from "@/components/AuthPage";
@@ -73,6 +74,8 @@ export default function AdminViewSecure() {
   const [isAuthor, setIsAuthor] = useState(false);
   const [isDistribuidor, setIsDistribuidor] = useState(false);
   const [userRole, setUserRole] = useState<'admin' | 'author' | 'user' | 'distribuidor' | null>(null);
+  const [isSupport, setIsSupport] = useState(false);
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [connectionError, setConnectionError] = useState(false);
   const [activeSection, setActiveSection] = useState<string>('models');
@@ -97,9 +100,15 @@ export default function AdminViewSecure() {
     setIsAdmin(roles.includes('admin'));
     setIsAuthor(roles.includes('author'));
     setIsDistribuidor(roles.includes('distribuidor'));
+    const support = roles.includes('support_agent');
+    setIsSupport(support);
     if (effective === 'author') setActiveSection('knowledge');
     if (effective === 'distribuidor') setActiveSection('so-distribuicao');
-  }, []);
+    // Atendente sem acesso ao painel comercial: vai direto para a área de suporte.
+    if (support && !roles.includes('admin') && !roles.includes('author') && !roles.includes('distribuidor')) {
+      navigate('/suporte-tecnico', { replace: true });
+    }
+  }, [navigate]);
 
   const handleSyncIncremental = async () => {
     setSyncingIncremental(true);
@@ -362,6 +371,7 @@ export default function AdminViewSecure() {
           isAdmin={isAdmin}
           isAuthor={isAuthor}
           isDistribuidor={isDistribuidor}
+          isSupport={isSupport}
           userEmail={user.email || ''}
           onLogout={handleLogout}
         />

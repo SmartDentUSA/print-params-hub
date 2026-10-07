@@ -4,7 +4,7 @@ import {
   Wrench, BarChart3, Users, Settings, LogOut, ArrowLeft,
   Zap, LayoutDashboard, Contact, UsersRound, Bot, MessageSquare,
   ClipboardList, Heart, Cpu, Coins, BrainCircuit, LineChart,
-  Video, ChevronDown, GraduationCap, Map, Megaphone, Printer, CreditCard
+  Video, ChevronDown, GraduationCap, Map, Megaphone, Printer, CreditCard, Headset
 } from "lucide-react";
 import { CalendarDays, Tag } from "lucide-react";
 import { Truck } from "lucide-react";
@@ -34,6 +34,7 @@ interface AdminSidebarProps {
   isAdmin: boolean;
   isAuthor: boolean;
   isDistribuidor?: boolean;
+  isSupport?: boolean;
   userEmail: string;
   onLogout: () => void;
 }
@@ -130,7 +131,7 @@ const sidebarGroups: SidebarGroupDef[] = [
   },
 ];
 
-export function AdminSidebar({ activeSection, onSectionChange, isAdmin, isAuthor, isDistribuidor, userEmail, onLogout }: AdminSidebarProps) {
+export function AdminSidebar({ activeSection, onSectionChange, isAdmin, isAuthor, isDistribuidor, isSupport, userEmail, onLogout }: AdminSidebarProps) {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
 
@@ -202,6 +203,14 @@ export function AdminSidebar({ activeSection, onSectionChange, isAdmin, isAuthor
       <SidebarFooter className="p-3 border-t border-border space-y-2">
         {!collapsed && (
           <p className="text-xs text-muted-foreground truncate px-2">{userEmail}</p>
+        )}
+        {(isAdmin || isSupport) && (
+          <Link to="/suporte-tecnico" className="block">
+            <Button variant="outline" size="sm" className="w-full">
+              <Headset className="w-3.5 h-3.5" />
+              {!collapsed && <span className="ml-1.5">Suporte Técnico</span>}
+            </Button>
+          </Link>
         )}
         <Link to="/social" className="block">
           <Button variant="outline" size="sm" className="w-full">

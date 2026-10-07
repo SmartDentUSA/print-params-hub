@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
@@ -8,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Headset, LogOut, RefreshCw, Search, ShieldAlert, Clock } from "lucide-react";
+import { Headset, LogOut, RefreshCw, Search, ShieldAlert, Clock, ArrowLeft } from "lucide-react";
 
 export const SUPPORT_COLUMNS = [
   { key: "triagem", label: "Triagem / Novo (IA)" },
@@ -235,6 +236,9 @@ export default function SuporteTecnico() {
       <header className="border-b px-4 py-3 flex items-center gap-3">
         <Headset className="w-5 h-5 text-primary" />
         <h1 className="text-lg font-semibold">Suporte Técnico</h1>
+        <Link to="/smartops">
+          <Button variant="ghost" size="sm"><ArrowLeft className="w-4 h-4 mr-1.5" />Painel</Button>
+        </Link>
         <span className="text-xs text-muted-foreground ml-auto">{user.email}</span>
         <Button variant="ghost" size="sm" onClick={() => supabase.auth.signOut()}><LogOut className="w-4 h-4" /></Button>
       </header>
