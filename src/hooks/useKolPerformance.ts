@@ -8,6 +8,8 @@ export interface KolFormPerformance {
   deals_ganhos: number;
   conversao: number; // 0..1
   receita: number;
+  /** Comissão calculada pelas regras por produto (itens dos negócios ganhos). null = sem regra aplicável. */
+  comissao: number | null;
   views: number;
   visitors: number;
 }
@@ -26,6 +28,15 @@ export interface KolCouponRule {
   active_to?: string | null;
   commission_percent?: number | null;
 }
+
+export interface KolProductRule {
+  product_name: string;
+  percent: number | null;
+  active_from: string | null;
+}
+
+const norm = (v: string | null | undefined) =>
+  (v ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 
 export interface KolPerformance {
   forms: KolFormPerformance[];
@@ -46,7 +57,7 @@ const empty: KolPerformance = {
  * - receita = soma dos negócios ganhos desses leads
  * - cupons: vendas e receita da Loja Integrada com o cupom do KOL
  */
-export function useKolPerformance(formIds: { id: string; name: string }[], coupons: KolCouponRule[]) {
+export function useKolPerformance(formIds: { id: string; name: string }[], coupons: KolCouponRule[], productRules: KolProductRule[] = []) {
   const [data, setData] = useState<KolPerformance>(empty);
   const [loading, setLoading] = useState(false);
 
@@ -57,7 +68,11 @@ export function useKolPerformance(formIds: { id: string; name: string }[], coupo
   const key = `${ids.slice().sort().join(",")}|${rules
     .map((c) => `${c.code}:${c.active_from ?? ""}:${c.active_to ?? ""}`)
     .sort()
-    .join(",")}`;
+    .join(",")}|${productRules.map((r) => `${r.product_name}:${r.percent}:${r.active_from}`).join(",")}`;
+  const prules = productRules
+    .filter((r) => r.product_name && r.percent != null)
+    .map((r) => ({ key: norm(r.product_name), pct: Number(r.percent), from: r.active_from ? String(r.active_from).slice(0, 10) : null }));
+  const fallbackPct = rules.find((c) => c.commission_percent != null)?.commission_percent ?? null;
 
   const load = useCallback(async () => {
     if (ids.length === 0 && rules.length === 0) {
@@ -126,16 +141,56 @@ export function useKolPerformance(formIds: { id: string; name: string }[], coupo
 
         // Negócios ganhos dos leads indicados
         const wonByLead: Record<string, number> = {};
+        const commByLead: Record<string, number> = {};
         for (let i = 0; i < allLeads.length; i += 300) {
           const chunk = allLeads.slice(i, i + 300);
           const { data: deals } = await (supabase as any)
             .from("deals")
-            .select("lead_id, value, status, is_deleted")
+            .select("id, piperun_deal_id, lead_id, value, status, is_deleted, closed_at")
             .in("lead_id", chunk)
             .eq("status", "ganha");
-          for (const d of (deals ?? []) as any[]) {
-            if (d.is_deleted) continue;
+          const won = ((deals ?? []) as any[]).filter((d) => !d.is_deleted);
+          for (const d of won) {
             wonByLead[d.lead_id] = (wonByLead[d.lead_id] ?? 0) + Number(d.value ?? 0);
+          }
+          if (prules.length === 0 && fallbackPct == null) continue;
+          // Itens das propostas dos negócios ganhos → regra por produto (respeitando a data de ativação)
+          const dealIds = new Set<string>();
+          const dealDate: Record<string, string | null> = {};
+          for (const d of won) {
+            for (const k of [d.id, d.piperun_deal_id].filter(Boolean).map(String)) {
+              dealIds.add(k);
+              dealDate[k] = d.closed_at ? String(d.closed_at).slice(0, 10) : null;
+            }
+          }
+          const covered = new Set<string>();
+          if (dealIds.size > 0) {
+            const { data: items } = await (supabase as any)
+              .from("deal_items")
+              .select("deal_id, lead_id, product_name, nome_produto, total_value, valor_total, deal_date, parent_deal_item_id")
+              .in("lead_id", chunk)
+              .limit(20000);
+            for (const it of (items ?? []) as any[]) {
+              const did = it.deal_id ? String(it.deal_id) : "";
+              if (!dealIds.has(did) || it.parent_deal_item_id) continue;
+              covered.add(did);
+              const name = norm(it.product_name || it.nome_produto);
+              const date = dealDate[did] ?? (it.deal_date ? String(it.deal_date).slice(0, 10) : null);
+              const val = Number(it.total_value ?? it.valor_total ?? 0);
+              const rule = prules
+                .filter((r) => r.key && (name === r.key || name.includes(r.key) || r.key.includes(name)))
+                .filter((r) => !r.from || !date || date >= r.from)
+                .sort((a, b) => b.key.length - a.key.length)[0];
+              const pct = rule ? rule.pct : fallbackPct;
+              if (pct != null) commByLead[it.lead_id] = (commByLead[it.lead_id] ?? 0) + (val * pct) / 100;
+            }
+          }
+          // Negócios ganhos sem itens de proposta: usa a % geral do KOL sobre o valor do negócio
+          if (fallbackPct != null) {
+            for (const d of won) {
+              const hit = [d.id, d.piperun_deal_id].filter(Boolean).some((k) => covered.has(String(k)));
+              if (!hit) commByLead[d.lead_id] = (commByLead[d.lead_id] ?? 0) + (Number(d.value ?? 0) * fallbackPct) / 100;
+            }
           }
         }
 
@@ -143,6 +198,8 @@ export function useKolPerformance(formIds: { id: string; name: string }[], coupo
           const leadSet = leadsByForm[f.id] ?? new Set<string>();
           const won = Array.from(leadSet).filter((l) => wonByLead[l] !== undefined);
           const receita = won.reduce((s, l) => s + (wonByLead[l] ?? 0), 0);
+          const hasRules = prules.length > 0 || fallbackPct != null;
+          const comissao = hasRules ? won.reduce((s, l) => s + (commByLead[l] ?? 0), 0) : null;
           const vinfo = (leadsByForm as any).__views;
           const vv = vinfo?.viewsBySlug?.[vinfo?.slugById?.get(f.id)] ?? { views: 0, visitors: 0 };
           forms.push({
@@ -154,6 +211,7 @@ export function useKolPerformance(formIds: { id: string; name: string }[], coupo
             deals_ganhos: won.length,
             conversao: leadSet.size > 0 ? won.length / leadSet.size : 0,
             receita,
+            comissao,
           });
         }
       }

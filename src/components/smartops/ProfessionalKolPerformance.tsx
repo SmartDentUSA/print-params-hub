@@ -1,7 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { BarChart3, Loader2, Ticket } from "lucide-react";
-import { useKolPerformance, type KolCouponRule } from "@/hooks/useKolPerformance";
+import { useKolPerformance, type KolCouponRule, type KolProductRule } from "@/hooks/useKolPerformance";
 
 const money = (v: number) =>
   new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(v || 0);
@@ -11,11 +11,12 @@ const br = (d?: string | null) => (d ? d.split("-").reverse().join("/") : "—")
 interface Props {
   formIds: { id: string; name: string }[];
   coupons: KolCouponRule[];
+  commissions?: KolProductRule[];
 }
 
 /** Performance do KOL: formulários de indicação (leads, conversão, receita) e cupons ativos. */
-export default function ProfessionalKolPerformance({ formIds, coupons }: Props) {
-  const perf = useKolPerformance(formIds, coupons);
+export default function ProfessionalKolPerformance({ formIds, coupons, commissions = [] }: Props) {
+  const perf = useKolPerformance(formIds, coupons, commissions);
   const commissionOf = (code: string) => {
     const r = (coupons ?? []).find((c) => (c.code || "").trim().toUpperCase() === code.toUpperCase());
     return r?.commission_percent ?? null;
@@ -25,9 +26,7 @@ export default function ProfessionalKolPerformance({ formIds, coupons }: Props) 
     return s + (p ? (c.receita * p) / 100 : 0);
   }, 0);
   const hasCoupons = (coupons ?? []).some((c) => (c.code || "").trim());
-  // % de comissão do KOL usada também para o comissionamento da receita dos formulários
-  const kolCommissionPct =
-    (coupons ?? []).find((c) => c.commission_percent != null)?.commission_percent ?? null;
+
 
   return (
     <Card>
@@ -81,7 +80,7 @@ export default function ProfessionalKolPerformance({ formIds, coupons }: Props) 
                       </td>
                       <td className="px-2 py-2 text-right font-medium">{money(f.receita)}</td>
                       <td className="px-2 py-2 text-right font-medium">
-                        {kolCommissionPct != null ? money((f.receita * kolCommissionPct) / 100) : "—"}
+                        {f.comissao != null ? money(f.comissao) : "—"}
                       </td>
                     </tr>
                   ))}
@@ -99,7 +98,9 @@ export default function ProfessionalKolPerformance({ formIds, coupons }: Props) 
                     </td>
                     <td className="px-2 py-2 text-right font-bold">{money(perf.totals.receita)}</td>
                     <td className="px-2 py-2 text-right font-bold">
-                      {kolCommissionPct != null ? money((perf.totals.receita * kolCommissionPct) / 100) : "—"}
+                      {perf.forms.some((f) => f.comissao != null)
+                        ? money(perf.forms.reduce((s, f) => s + (f.comissao ?? 0), 0))
+                        : "—"}
                     </td>
                   </tr>
                 </tfoot>
@@ -109,7 +110,7 @@ export default function ProfessionalKolPerformance({ formIds, coupons }: Props) 
           <p className="text-[11px] text-muted-foreground">
             Visitas = acessos à página do formulário (visitantes únicos entre parênteses). Conversão = leads que
             chegaram pelos formulários de indicação e fecharam negócio ganho no CRM. Receita = soma dos negócios
-            ganhos desses leads. Comissionamento = receita × % de comissão do KOL definida no cupom.
+            ganhos desses leads. Comissionamento = cada produto vendido × % da regra de comissionamento do produto (a partir da data de ativação); produtos sem regra usam a % do cupom.
           </p>
         </div>
 
