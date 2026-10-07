@@ -29,4 +29,4 @@
 - [x] Sprint 5 Suporte: aba BI & Métricas com FCR, TMA, TMR, TME, CSAT, NPS, CES, backlog, volume/dia e desempenho por atendente (nome gravado no chamado ao assumir).
 
 - [x] LIA campanha/landing: ícone WhatsApp ao lado de "Falar com especialista" + métricas por canal (formulário x especialista x WhatsApp): visualizações, leads, conversões, valor
-- [ ] Corrigir abertura da LIA com produto real, reconhecimento telefone/e-mail e qualificação humanizada começando pela área de atuação.
+- [x] Corrigir abertura da LIA com produto real, reconhecimento telefone/e-mail e área de atuação primeiro. Abertura e busca real verificadas; avanço da conversa testado com respostas controladas, sem criar negócios/notificações de teste; compilação OK.
