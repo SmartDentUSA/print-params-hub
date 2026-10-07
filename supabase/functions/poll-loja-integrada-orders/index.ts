@@ -171,6 +171,17 @@ Deno.serve(async (req) => {
         }
 
         try {
+          // ── Full order detail: the list endpoint returns only a summary (no items,
+          // address, payments, shipping or situacao object), so fetch the detail first.
+          try {
+            const num = pedido.numero || pedido.id;
+            const full = await apiFetch(`/pedido/${num}/`);
+            if (full && typeof full === 'object') Object.assign(pedido, full);
+            await new Promise(r => setTimeout(r, ORDER_DELAY));
+          } catch (e) {
+            console.warn(`[poll-li] detail fetch failed for ${pedido.numero}:`, (e as Error).message);
+          }
+
           // ── Pre-enrich: resolve cliente URI ──
           if (typeof pedido.cliente === 'string' && /\/cliente\//.test(pedido.cliente)) {
             const clienteData = await resolveCliente(pedido.cliente);
