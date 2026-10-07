@@ -1099,7 +1099,7 @@ export default function PublicFormPage() {
       {!isEmbed && <div className="brand-strip fixed top-0 left-0 right-0 h-1 z-50" />}
       {!isEmbed && form.form_purpose !== "feira_evento" && (
         <a
-          href={buildLiaUrl({ formId: form.id }) + "&utm_source=form_page&utm_medium=whatsapp_lia"}
+          href={buildLiaUrl({ formId: form.id, product: selectedCaptureButton?.product_name }) + "&utm_source=form_page&utm_medium=whatsapp_lia"}
           target="_blank"
           rel="noopener noreferrer"
           onClick={() => trackAttendanceEvent({ channel: "whatsapp_lia", event_type: "click", form_id: form.id })}

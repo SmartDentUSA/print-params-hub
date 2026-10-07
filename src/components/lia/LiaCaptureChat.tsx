@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Loader2, Send, MessageCircle } from "lucide-react";
 import { trackAttendanceEvent } from "@/lib/attendanceChannel";
 
-type Question = { field_id: string; form_id: string; db_column: string; label: string; options: string[] };
+type Question = { field_id: string | null; form_id: string | null; db_column: string; label: string; options: string[] };
 type Ctx = { form_id: string | null; campaign: string | null; product: string; origin: string; opening: string; questions: Question[] };
 type Msg = { from: "lia" | "user"; text: string };
 type Seller = { seller_name: string; seller_first_name: string; photo_url: string | null; deal_id: string | null; wa_url: string };
@@ -21,7 +21,7 @@ async function call(body: Record<string, unknown>) {
 
 export default function LiaCaptureChat({ formId, campaign, product }: { formId: string | null; campaign: string | null; product: string | null }) {
   const params = useMemo(() => new URLSearchParams(window.location.search), []);
-  const storeKey = `lia_capture_${formId ?? ""}_${campaign ?? ""}_${product ?? ""}`;
+  const storeKey = `lia_capture_v2_${formId ?? ""}_${campaign ?? ""}_${product ?? ""}`;
   const [ctx, setCtx] = useState<Ctx | null>(null);
   const [msgs, setMsgs] = useState<Msg[]>([]);
   const [step, setStep] = useState<Step>("phone");
@@ -34,6 +34,7 @@ export default function LiaCaptureChat({ formId, campaign, product }: { formId: 
   const [closed, setClosed] = useState(false);
   const lastActivity = useRef(Date.now());
   const endRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const say = (text: string) => setMsgs((m) => [...m, { from: "lia", text }]);
   const echo = (text: string) => setMsgs((m) => [...m, { from: "user", text }]);
@@ -49,7 +50,7 @@ export default function LiaCaptureChat({ formId, campaign, product }: { formId: 
           return;
         } catch { /* ignore */ }
       }
-      setMsgs([{ from: "lia", text: c.opening }, { from: "lia", text: "Para começar, qual é o seu WhatsApp com DDD?" }]);
+      setMsgs([{ from: "lia", text: "Olá!" }, { from: "lia", text: c.opening }]);
       trackAttendanceEvent({ channel: "whatsapp_lia", event_type: "open", form_id: c.form_id, campaign_slug: c.campaign, product_name: c.product });
     }).catch(() => setMsgs([{ from: "lia", text: "Não consegui iniciar o atendimento agora. Tente novamente em instantes." }]));
   }, [formId, campaign, product, storeKey]);
@@ -96,6 +97,23 @@ export default function LiaCaptureChat({ formId, campaign, product }: { formId: 
     if (q) say(q.label);
   };
 
+  useEffect(() => {
+    if (!busy && !closed) inputRef.current?.focus();
+  }, [busy, closed, step, ctx]);
+
+  const register = async (identity: typeof data, firstName?: string | null) => {
+    if (!ctx) return;
+    const r = await call({
+      action: "create", form_id: ctx.form_id, campaign: ctx.campaign, product: ctx.product,
+      name: identity.name, email: identity.email, phone: identity.phone,
+      session_id: sessionStorage.getItem("dra_lia_session"),
+      utm_source: params.get("utm_source"), utm_medium: params.get("utm_medium"), utm_campaign: params.get("utm_campaign"),
+    });
+    setLead({ id: r.lead_id, token: r.token });
+    say(firstName ? `Maravilha, ${firstName}!` : "Maravilha!");
+    setStep("qualify"); setQIdx(0); askQuestion(0);
+  };
+
   const submit = async (raw: string) => {
     const text = raw.trim();
     if (!text || busy || !ctx) return;
@@ -108,38 +126,29 @@ export default function LiaCaptureChat({ formId, campaign, product }: { formId: 
         const digits = text.replace(/\D/g, "");
         if (digits.length < 10) { say("Esse número parece incompleto. Pode enviar com DDD? Ex.: 16 99999-9999"); return; }
         const r = await call({ action: "lookup", phone: digits });
-        setData((d) => ({ ...d, phone: digits }));
-        if (r?.found && r.first_name) say(`Que bom te ver por aqui, ${r.first_name}!`);
-        setStep("email");
-        say("Qual é o seu melhor e-mail?");
+        const identity = { ...data, phone: digits };
+        setData(identity);
+        if (r?.found && r.has_email && r.has_name) await register(identity, r.first_name);
+        else {
+          if (r?.first_name) say(`Maravilha, ${r.first_name}!`);
+          setStep("email");
+          say("Me passa seu melhor e-mail para eu continuar por aqui?");
+        }
       } else if (step === "email") {
         if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(text)) { say("Esse e-mail não parece válido. Pode conferir?"); return; }
-        setData((d) => ({ ...d, email: text.toLowerCase() }));
-        setStep("name");
-        say("E qual é o seu nome completo?");
+        const identity = { ...data, email: text.toLowerCase() };
+        const r = await call({ action: "lookup", phone: identity.phone, email: identity.email });
+        setData(identity);
+        if (r?.found && r.has_name) await register(identity, r.first_name);
+        else { setStep("name"); say("E como você se chama?"); }
       } else if (step === "name") {
         if (text.length < 2) { say("Pode me dizer seu nome?"); return; }
         const full = { ...data, name: text };
         setData(full);
-        setStep("creating");
-        const r = await call({
-          action: "create", form_id: ctx.form_id, campaign: ctx.campaign, product: ctx.product,
-          name: full.name, email: full.email, phone: full.phone, session_id: sessionStorage.getItem("dra_lia_session"),
-          utm_source: params.get("utm_source"), utm_medium: params.get("utm_medium"), utm_campaign: params.get("utm_campaign"),
-        });
-        const info = { id: r.lead_id, token: r.token };
-        setLead(info);
-        const first = text.split(" ")[0];
-        say(`Obrigada, ${first}! Seu atendimento já está registrado.`);
-        if (ctx.questions.length > 0) {
-          say("Para o especialista não tomar seu tempo, me conta rapidinho:");
-          setStep("qualify"); setQIdx(0); askQuestion(0);
-        } else {
-          finish(info);
-        }
+        await register(full, text.split(" ")[0]);
       } else if (step === "qualify" && lead) {
         const q = ctx.questions[qIdx];
-        if (q) call({ action: "answer", lead_id: lead.id, token: lead.token, db_column: q.db_column, field_id: q.field_id, form_id: q.form_id, value: text }).catch(() => {});
+        if (q) await call({ action: "answer", lead_id: lead.id, token: lead.token, db_column: q.db_column, field_id: q.field_id, form_id: q.form_id, value: text });
         const next = qIdx + 1;
         if (next < ctx.questions.length) { setQIdx(next); askQuestion(next); } else finish();
       }
@@ -207,9 +216,9 @@ export default function LiaCaptureChat({ formId, campaign, product }: { formId: 
             </select>
           ) : (
             <form className="flex gap-2" onSubmit={(e) => { e.preventDefault(); submit(input); }}>
-              <Input value={input} onChange={(e) => setInput(e.target.value)} placeholder="Digite sua resposta…" disabled={busy || step === "creating" || !ctx}
+              <Input ref={inputRef} value={input} onChange={(e) => setInput(e.target.value)} placeholder="Digite sua resposta…" disabled={busy || step === "creating" || !ctx}
                 inputMode={step === "phone" ? "tel" : step === "email" ? "email" : "text"} />
-              <Button type="submit" size="icon" disabled={busy || !input.trim()}><Send className="h-4 w-4" /></Button>
+              <Button type="submit" size="icon" aria-label="Enviar mensagem" disabled={busy || !input.trim()}><Send className="h-4 w-4" /></Button>
             </form>
           )}
         </div>
