@@ -542,6 +542,12 @@ export default function PublicFormPage() {
     return () => { created.forEach((el) => el.remove()); };
   }, [form]);
 
+  // Visualização do formulário direto (no embed a landing já registra)
+  useEffect(() => {
+    if (form && !isEmbed) trackAttendanceEvent({ channel: "form", event_type: "view", form_id: form.id, campaign_slug: searchParams.get("c") });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form?.id]);
+
   // Immediate GA4/Meta/TikTok page_view for the form (bypass hook debounce of 2s)
   useEffect(() => {
     if (!form) return;
