@@ -249,6 +249,8 @@ Deno.serve(async (req) => {
 
     return new Response(JSON.stringify({
       success: true,
+      total_count: totalCount,
+      next_offset: offset,
       total_fetched: totalFetched,
       processados: totalProcessed,
       ignorados: totalIgnored,
