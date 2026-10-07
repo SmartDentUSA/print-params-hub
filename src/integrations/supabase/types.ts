@@ -27327,6 +27327,7 @@ export type Database = {
         Row: {
           ai_paused: boolean
           ai_summary: string | null
+          assigned_agent_name: string | null
           assigned_at: string | null
           assigned_user_id: string | null
           category_id: string | null
@@ -27368,6 +27369,7 @@ export type Database = {
         Insert: {
           ai_paused?: boolean
           ai_summary?: string | null
+          assigned_agent_name?: string | null
           assigned_at?: string | null
           assigned_user_id?: string | null
           category_id?: string | null
@@ -27409,6 +27411,7 @@ export type Database = {
         Update: {
           ai_paused?: boolean
           ai_summary?: string | null
+          assigned_agent_name?: string | null
           assigned_at?: string | null
           assigned_user_id?: string | null
           category_id?: string | null

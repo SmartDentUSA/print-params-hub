@@ -1,0 +1,1 @@
+ALTER TABLE public.technical_tickets ADD COLUMN IF NOT EXISTS assigned_agent_name text;
