@@ -18,3 +18,4 @@
 - PipeRun sync hydrates company contacts separately and does not skip unchanged deals when missing contacts become available; company identifiers must never merge distinct people.
 - Proposal item expansion failures never block saving the deal; one bad item used to hide every deal of the lead.
 - Lead cards and timeline resolve capture event names through shared event/form references; timeline entries use their own references rather than the lead's latest event to avoid misattributing historical submissions.
+- PipeRun deal sync writes `telefone_normalized` alongside `telefone_raw` using the shared Brazilian phone normalizer; lead cards, search and phone matching read only the normalized phone.
