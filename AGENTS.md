@@ -1,5 +1,7 @@
 # Architecture rules
 
+- Support customer context is read through a ticket-scoped edge function after session, support-role and ticket authorization; this exposes required customer details without widening commercial lead RLS.
+
 - RMS payment presentation and metrics share product-family resolution; subscription fallback and invoice totals are scoped by family and lead to prevent exoplan/DentalCAD cross-attribution.
 
 - KOL referral forms use a presentation-only list group derived from canonical professional form references or the legacy referral name prefix; preserve stored purposes to avoid changing ingestion and CRM behavior.

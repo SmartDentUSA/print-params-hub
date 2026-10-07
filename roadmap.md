@@ -1,3 +1,6 @@
+- [x] Atendimento de suporte: ficha lateral com equipamentos, seriais, vendedor, dados de treinamento, contagem/histórico de chamados e timeline; apresentação revisada, compilação OK e acesso sem sessão bloqueado.
+- [ ] Validar ficha do suporte com sessão real — bloqueado: Supabase externo sem sessão disponível para teste autenticado.
+- [ ] Recebimento do WhatsApp oficial via Lovable — bloqueado: conector de entrada exige stack moderna; projeto atual React/Vite não tem receptor compatível. Número conectado confirmado; Evolution permanece intacto.
 - [x] Fluxo IG AIPRO: fluxo criado em social_flows e provisionado na Zernio (automation 6ab3e456ace5079aa7604c61); causa do não disparo = fluxo não tinha sido criado
 - [x] Corrigir nome/link exoplan de Marcelo no painel RMS e criar cards de ativação/mensalidade exoplan separados de DentalCAD; verificações de nomes/links aprovadas, sem erros de compilação; conferência autenticada indisponível no Supabase externo.
 - [x] Lista de Leads: identificar no card compra na Loja Integrada, indicação KOL e origem em congresso/evento

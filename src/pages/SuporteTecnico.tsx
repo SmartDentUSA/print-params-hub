@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import type { User } from "@supabase/supabase-js";
+import { FunctionsHttpError, type User } from "@supabase/supabase-js";
+import { SupportClientProfile } from "@/components/support/SupportClientProfile";
 import { supabase } from "@/integrations/supabase/client";
 import { AuthPage } from "@/components/AuthPage";
 import { Badge } from "@/components/ui/badge";
@@ -17,12 +18,12 @@ import {
 } from "lucide-react";
 
 export const SUPPORT_COLUMNS = [
-  { key: "triagem", label: "Triagem / Novo (IA)" },
+  { key: "triagem", label: "Triagem" },
   { key: "fila", label: "Fila de espera" },
   { key: "em_atendimento", label: "Em atendimento" },
   { key: "aguardando_cliente", label: "Aguardando cliente" },
-  { key: "aguardando_terceiros", label: "Aguardando peça / terceiros" },
-  { key: "resolvido", label: "Resolvido (CSAT)" },
+  { key: "aguardando_terceiros", label: "Aguardando terceiros" },
+  { key: "resolvido", label: "Resolvido" },
   { key: "encerrado", label: "Encerrado" },
 ] as const;
 
@@ -157,7 +158,9 @@ function TicketRoom({ ticket, userId, onBack }: { ticket: Ticket; userId: string
   const [sending, setSending] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
-  const { open: windowOpen, left } = windowInfo(ticket.last_inbound_at);
+  const newestInbound = messages.filter(m => m.from === "client").at(-1)?.at;
+  const lastInbound = [ticket.last_inbound_at, newestInbound].filter((value): value is string => !!value).sort((a, b) => Date.parse(b) - Date.parse(a))[0] ?? null;
+  const { open: windowOpen } = windowInfo(lastInbound);
   const clientName = ticket.lia_attendances?.nome || "Cliente";
   const phone = ticket.lia_attendances?.telefone_normalized;
 
@@ -169,12 +172,13 @@ function TicketRoom({ ticket, userId, onBack }: { ticket: Ticket; userId: string
     const text = draft.trim();
     if (!text || sending) return;
     setSending(true);
-    const { error } = await supabase.functions.invoke("support-whatsapp-send", {
+    const { data, error } = await supabase.functions.invoke("support-whatsapp-send", {
       body: { ticket_id: ticket.id, message: text },
     });
     setSending(false);
-    if (error) {
-      toast({ title: "Falha ao enviar", description: error.message, variant: "destructive" });
+    if (error || data?.error) {
+      const detail = error instanceof FunctionsHttpError ? await error.context.json().catch(() => null) : null;
+      toast({ title: "Falha ao enviar", description: detail?.error || data?.error || error?.message || "Envio não confirmado", variant: "destructive" });
       return;
     }
     setDraft("");
@@ -182,32 +186,32 @@ function TicketRoom({ ticket, userId, onBack }: { ticket: Ticket; userId: string
   };
 
   return (
-    <div className="flex gap-4 h-[calc(100vh-180px)]">
+    <div className="flex flex-col xl:flex-row h-[calc(100dvh-180px)] min-h-[620px] border rounded-lg overflow-hidden bg-card">
       {/* Chat column */}
-      <div className="flex-1 flex flex-col rounded-lg border bg-background overflow-hidden">
-        <div className="border-b px-4 py-2.5 flex items-center gap-3">
+      <div className="flex-1 min-w-0 min-h-[500px] flex flex-col bg-background overflow-hidden">
+        <div className="border-b px-5 py-4 flex flex-wrap items-center gap-3">
           <Button variant="ghost" size="sm" onClick={onBack}><ArrowLeft className="w-4 h-4 mr-1" />Kanban</Button>
           <div className="min-w-0">
             <p className="text-sm font-semibold truncate">{clientName}</p>
             <p className="text-[11px] text-muted-foreground font-mono">{ticket.ticket_full_id}</p>
           </div>
           <div className="ml-auto flex items-center gap-1.5">
-            {windowBadge(ticket.last_inbound_at)}
+            {windowBadge(lastInbound)}
             {ticket.ai_paused && <Badge variant="outline" className="text-[10px]">IA pausada</Badge>}
             <Badge variant={PRIORITY_VARIANT[ticket.priority] ?? "secondary"} className="text-[10px] capitalize">{ticket.priority}</Badge>
           </div>
         </div>
 
-        <ScrollArea className="flex-1 px-4 py-3 bg-muted/30">
+        <ScrollArea className="flex-1 min-h-0 px-5 py-6 bg-muted/40">
           {isLoading ? (
             <p className="text-sm text-muted-foreground text-center py-8">Carregando conversa…</p>
           ) : messages.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-8">Nenhuma mensagem registrada neste chamado ainda.</p>
           ) : (
-            <div className="space-y-2 max-w-3xl mx-auto">
+            <div className="space-y-4 max-w-3xl mx-auto">
               {messages.map((m) => (
                 <div key={m.id} className={`flex ${m.from === "client" ? "justify-start" : "justify-end"}`}>
-                  <div className={`max-w-[80%] rounded-2xl px-3 py-2 text-sm shadow-sm ${
+                  <div className={`max-w-[85%] rounded-lg px-4 py-3 text-sm shadow-sm ${
                     m.from === "client"
                       ? "bg-card border rounded-tl-sm"
                       : m.from === "ia"
@@ -232,7 +236,7 @@ function TicketRoom({ ticket, userId, onBack }: { ticket: Ticket; userId: string
           )}
         </ScrollArea>
 
-        <div className="border-t p-3">
+        <div className="border-t p-4 bg-card">
           {!windowOpen && (
             <p className="text-xs text-destructive mb-2">
               Janela de 24h fechada — mensagens livres não são entregues. É preciso usar um template aprovado (em breve) ou aguardar o cliente responder.
@@ -243,53 +247,20 @@ function TicketRoom({ ticket, userId, onBack }: { ticket: Ticket; userId: string
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
-              placeholder={windowOpen ? "Digite a resposta para o cliente… (Enter envia)" : "Janela de 24h fechada"}
+              placeholder={windowOpen ? "Escreva sua mensagem…" : "Aguardando mensagem do cliente"}
               disabled={!windowOpen || sending}
               className="min-h-[44px] max-h-32 resize-none"
               rows={1}
             />
-            <Button onClick={send} disabled={!windowOpen || sending || !draft.trim()} size="icon" className="h-11 w-11 shrink-0">
+            <Button aria-label="Enviar mensagem" title="Enviar mensagem" onClick={send} disabled={!windowOpen || sending || !draft.trim()} size="icon" className="h-11 w-11 shrink-0">
               {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
             </Button>
           </div>
         </div>
       </div>
 
-      {/* Client 360 side panel */}
-      <div className="w-80 shrink-0 rounded-lg border bg-card p-4 space-y-4 overflow-y-auto hidden lg:block">
-        <div>
-          <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Cliente</h3>
-          <p className="text-sm font-medium">{clientName}</p>
-          {phone && <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1"><Phone className="w-3 h-3" />{phone}</p>}
-          {ticket.lia_attendances?.email && <p className="text-xs text-muted-foreground mt-0.5">{ticket.lia_attendances.email}</p>}
-        </div>
-        {(ticket.equipment || ticket.serial_number) && (
-          <div>
-            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2 flex items-center gap-1"><Wrench className="w-3 h-3" />Equipamento</h3>
-            {ticket.equipment && <p className="text-sm">{ticket.equipment}</p>}
-            {ticket.serial_number && <p className="text-xs text-muted-foreground">SN: {ticket.serial_number}</p>}
-          </div>
-        )}
-        {ticket.client_summary && (
-          <div>
-            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2 flex items-center gap-1"><FileText className="w-3 h-3" />Relato do cliente</h3>
-            <p className="text-xs whitespace-pre-wrap">{ticket.client_summary}</p>
-          </div>
-        )}
-        {ticket.ai_summary && (
-          <div>
-            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2 flex items-center gap-1"><Bot className="w-3 h-3" />Resumo da IA</h3>
-            <p className="text-xs whitespace-pre-wrap">{ticket.ai_summary}</p>
-          </div>
-        )}
-        <div>
-          <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Status</h3>
-          <p className="text-xs">Etapa: <span className="font-medium">{SUPPORT_COLUMNS.find(c => c.key === ticket.kanban_status)?.label ?? ticket.kanban_status}</span></p>
-          <p className="text-xs mt-1">Aberto há: <span className="font-medium">{waitTime(ticket.created_at)}</span></p>
-          {windowOpen && <p className="text-xs mt-1">Janela de resposta: <span className="font-medium">{Math.floor(left)}h restantes</span></p>}
-          {ticket.assigned_user_id === userId && <Badge className="text-[10px] mt-2">Atribuído a você</Badge>}
-        </div>
-      </div>
+      <SupportClientProfile ticketId={ticket.id} equipment={ticket.equipment} serial={ticket.serial_number}
+        fallbackName={clientName} fallbackPhone={phone} fallbackEmail={ticket.lia_attendances?.email} />
     </div>
   );
 }
@@ -307,7 +278,8 @@ function SupportKanban({ userId }: { userId: string }) {
     queryFn: async (): Promise<Ticket[]> => {
       const { data, error } = await supabase
         .from("technical_tickets")
-        .select("id, ticket_full_id, kanban_status, priority, equipment, serial_number, client_summary, ai_summary, created_at, last_inbound_at, assigned_user_id, ai_paused, lia_attendances(nome, telefone_normalized, email)")
+        .select("id, ticket_full_id, kanban_status, priority, equipment, serial_number, client_summary, ai_summary, created_at, last_inbound_at, assigned_user_id, ai_paused, conversation_log, lia_attendances(nome, telefone_normalized, email)")
+        .is("lia_attendances.merged_into", null)
         .or(`kanban_status.neq.encerrado,closed_at.gte.${new Date(Date.now() - 30 * 864e5).toISOString()}`)
         .order("created_at", { ascending: false })
         .limit(1000);
@@ -379,7 +351,7 @@ function SupportKanban({ userId }: { userId: string }) {
             return (
               <div
                 key={col.key}
-                className="flex-shrink-0 w-64 rounded-lg border bg-muted/40 p-2 flex flex-col"
+                className="flex-shrink-0 w-72 border-t-2 border-primary/30 bg-muted/30 p-3 flex flex-col"
                 onDragOver={(e) => e.preventDefault()}
                 onDrop={() => { if (dragId) move(dragId, col.key); setDragId(null); }}
               >
@@ -394,7 +366,10 @@ function SupportKanban({ userId }: { userId: string }) {
                       draggable
                       onDragStart={() => setDragId(t.id)}
                       onClick={() => setSelected(t)}
-                      className="rounded-md border bg-card p-2 shadow-sm cursor-pointer hover:border-primary/50 space-y-1.5"
+                      role="button"
+                       tabIndex={0}
+                       onKeyDown={(e) => { if (e.key === "Enter") setSelected(t); }}
+                       className="rounded-lg border bg-card p-4 shadow-sm cursor-pointer hover:border-primary/50 focus-visible:outline-primary space-y-3"
                     >
                       <div className="flex items-center justify-between gap-1">
                         <span className="text-[11px] font-mono text-muted-foreground">{t.ticket_full_id}</span>
@@ -463,7 +438,7 @@ export default function SuporteTecnico() {
         <span className="text-xs text-muted-foreground ml-auto">{user.email}</span>
         <Button variant="ghost" size="sm" onClick={() => supabase.auth.signOut()}><LogOut className="w-4 h-4" /></Button>
       </header>
-      <main className="p-4">
+      <main className="p-5">
         <Tabs defaultValue="kanban">
           <TabsList>
             <TabsTrigger value="kanban">Chamados (Kanban)</TabsTrigger>
