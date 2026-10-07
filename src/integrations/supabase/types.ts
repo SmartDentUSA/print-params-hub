@@ -18983,6 +18983,7 @@ export type Database = {
           team_member_id: string | null
           updated_at: string
           usage_limit: number | null
+          usage_per_customer: number | null
           valid_from: string | null
           valid_until: string | null
         }
@@ -19003,6 +19004,7 @@ export type Database = {
           team_member_id?: string | null
           updated_at?: string
           usage_limit?: number | null
+          usage_per_customer?: number | null
           valid_from?: string | null
           valid_until?: string | null
         }
@@ -19023,6 +19025,7 @@ export type Database = {
           team_member_id?: string | null
           updated_at?: string
           usage_limit?: number | null
+          usage_per_customer?: number | null
           valid_from?: string | null
           valid_until?: string | null
         }
@@ -19179,6 +19182,7 @@ export type Database = {
           coupon_freight_discount_value: number | null
           coupon_freight_pdf_enabled: boolean
           coupon_freight_usage_limit: number | null
+          coupon_freight_usage_per_customer: number | null
           coupon_freight_valid_from: string | null
           coupon_freight_valid_until: string | null
           coupon_li_category_ids: number[]
@@ -19187,6 +19191,7 @@ export type Database = {
           coupon_prefix: string | null
           coupon_seller_ids: string[]
           coupon_usage_limit: number | null
+          coupon_usage_per_customer: number | null
           coupon_valid_from: string | null
           coupon_valid_until: string | null
           created_at: string
@@ -19211,6 +19216,7 @@ export type Database = {
           coupon_freight_discount_value?: number | null
           coupon_freight_pdf_enabled?: boolean
           coupon_freight_usage_limit?: number | null
+          coupon_freight_usage_per_customer?: number | null
           coupon_freight_valid_from?: string | null
           coupon_freight_valid_until?: string | null
           coupon_li_category_ids?: number[]
@@ -19219,6 +19225,7 @@ export type Database = {
           coupon_prefix?: string | null
           coupon_seller_ids?: string[]
           coupon_usage_limit?: number | null
+          coupon_usage_per_customer?: number | null
           coupon_valid_from?: string | null
           coupon_valid_until?: string | null
           created_at?: string
@@ -19243,6 +19250,7 @@ export type Database = {
           coupon_freight_discount_value?: number | null
           coupon_freight_pdf_enabled?: boolean
           coupon_freight_usage_limit?: number | null
+          coupon_freight_usage_per_customer?: number | null
           coupon_freight_valid_from?: string | null
           coupon_freight_valid_until?: string | null
           coupon_li_category_ids?: number[]
@@ -19251,6 +19259,7 @@ export type Database = {
           coupon_prefix?: string | null
           coupon_seller_ids?: string[]
           coupon_usage_limit?: number | null
+          coupon_usage_per_customer?: number | null
           coupon_valid_from?: string | null
           coupon_valid_until?: string | null
           created_at?: string

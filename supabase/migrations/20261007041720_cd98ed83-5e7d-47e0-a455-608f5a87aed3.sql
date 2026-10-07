@@ -1,0 +1,2 @@
+ALTER TABLE public.promotional_tables ADD COLUMN IF NOT EXISTS coupon_usage_per_customer integer, ADD COLUMN IF NOT EXISTS coupon_freight_usage_per_customer integer;
+ALTER TABLE public.promotional_coupons ADD COLUMN IF NOT EXISTS usage_per_customer integer;
