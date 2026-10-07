@@ -704,7 +704,40 @@ Deno.serve(async (req) => {
           .gte("created_at", thirtyDaysAgo)
           .limit(1);
         if (dupeCheck && dupeCheck.length > 0) {
-          console.log(`[ecommerce-webhook] Duplicate detected: pedido=${numeroPedido} event=${eventType}, skipping`);
+          console.log(`[ecommerce-webhook] Duplicate detected: pedido=${numeroPedido} event=${eventType}, skipping events`);
+          // Event already handled, but still refresh the lead's order/address/payment fields
+          // (earlier deliveries may have been summary-only payloads without them).
+          if (isEnrichedByPoll && email) {
+            const { data: lead } = await supabase.from("lia_attendances")
+              .select("id, pessoa_cpf, empresa_cnpj, lojaintegrada_ultimo_pedido_data")
+              .eq("email", email).is("merged_into", null).limit(1).maybeSingle();
+            if (lead) {
+              const isLatest = !lead.lojaintegrada_ultimo_pedido_data || !liPedidoData
+                || String(liPedidoData) >= String(lead.lojaintegrada_ultimo_pedido_data).replace(" ", "T").slice(0, 26);
+              const u: Record<string, unknown> = {};
+              if (cpf && !lead.pessoa_cpf) u.pessoa_cpf = cpf;
+              if (cnpj && !lead.empresa_cnpj) u.empresa_cnpj = cnpj;
+              if (isLatest) {
+                const f: Record<string, unknown> = {
+                  lojaintegrada_endereco: liEndereco, lojaintegrada_numero: liNumero, lojaintegrada_complemento: liComplemento,
+                  lojaintegrada_bairro: liBairro, lojaintegrada_cep: liCep, cidade, uf,
+                  lojaintegrada_ultimo_pedido_status: liPedidoStatus, lojaintegrada_cupom_desconto: liCupomDesconto,
+                  lojaintegrada_cupom_json: liCupomJson, lojaintegrada_forma_pagamento: liFormaPagamento,
+                  lojaintegrada_parcelas: liParcelas, lojaintegrada_bandeira_cartao: liBandeiraCartao,
+                  lojaintegrada_forma_envio: liFormaEnvio, lojaintegrada_tracking_code: liTrackingCode,
+                  lojaintegrada_itens_json: items.length ? items : null, lojaintegrada_pedido_id: liPedidoId,
+                  lojaintegrada_valor_desconto: liValorDesconto, lojaintegrada_valor_envio: liValorEnvio,
+                  lojaintegrada_valor_subtotal: liValorSubtotal, lojaintegrada_data_modificacao: liDataModificacao,
+                };
+                for (const [k, v] of Object.entries(f)) if (v !== null && v !== undefined && v !== "") u[k] = v;
+                u.lojaintegrada_raw_payload = rawPayload;
+              }
+              if (Object.keys(u).length) {
+                u.lojaintegrada_updated_at = new Date().toISOString();
+                await supabase.from("lia_attendances").update(u).eq("id", lead.id);
+              }
+            }
+          }
           return new Response(JSON.stringify({ skipped: true, reason: "duplicate", pedido: numeroPedido }), {
             status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
           });
