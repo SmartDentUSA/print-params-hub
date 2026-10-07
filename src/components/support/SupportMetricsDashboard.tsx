@@ -141,7 +141,7 @@ export function SupportMetricsDashboard() {
       if (t.csat_score != null) row.csat.push(t.csat_score);
     }
     return [...map.values()].sort((a, b) => b.total - a.total);
-  }, [tickets, agentNames]);
+  }, [tickets]);
 
   const volumeByDay = useMemo(() => {
     const map = new Map<string, { created: number; resolved: number }>();
