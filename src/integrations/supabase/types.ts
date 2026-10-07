@@ -26444,6 +26444,214 @@ export type Database = {
           },
         ]
       }
+      support_diagnostic_checklists: {
+        Row: {
+          answer_type: string
+          category_id: string | null
+          created_at: string
+          id: string
+          is_active: boolean
+          is_required: boolean
+          options: Json
+          question: string
+          sort_order: number
+          ticket_type_id: string | null
+          updated_at: string
+          use_in_ai: boolean
+        }
+        Insert: {
+          answer_type?: string
+          category_id?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          is_required?: boolean
+          options?: Json
+          question: string
+          sort_order?: number
+          ticket_type_id?: string | null
+          updated_at?: string
+          use_in_ai?: boolean
+        }
+        Update: {
+          answer_type?: string
+          category_id?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          is_required?: boolean
+          options?: Json
+          question?: string
+          sort_order?: number
+          ticket_type_id?: string | null
+          updated_at?: string
+          use_in_ai?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "support_diagnostic_checklists_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "support_ticket_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "support_diagnostic_checklists_ticket_type_id_fkey"
+            columns: ["ticket_type_id"]
+            isOneToOne: false
+            referencedRelation: "support_ticket_types"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      support_quick_replies: {
+        Row: {
+          body: string
+          category: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          is_active: boolean
+          shortcut: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          body: string
+          category?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          shortcut?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          body?: string
+          category?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          shortcut?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      support_ticket_categories: {
+        Row: {
+          color: string | null
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean
+          name: string
+          parent_id: string | null
+          product_category: string | null
+          product_subcategory: string | null
+          sort_order: number
+          updated_at: string
+          workflow_stage: number | null
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          parent_id?: string | null
+          product_category?: string | null
+          product_subcategory?: string | null
+          sort_order?: number
+          updated_at?: string
+          workflow_stage?: number | null
+        }
+        Update: {
+          color?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          parent_id?: string | null
+          product_category?: string | null
+          product_subcategory?: string | null
+          sort_order?: number
+          updated_at?: string
+          workflow_stage?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "support_ticket_categories_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "support_ticket_categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      support_ticket_types: {
+        Row: {
+          ai_guidance: string | null
+          category_id: string | null
+          color: string | null
+          created_at: string
+          default_priority: string
+          description: string | null
+          id: string
+          is_active: boolean
+          name: string
+          requires_serial: boolean
+          sla_first_response_minutes: number | null
+          sla_resolution_hours: number | null
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          ai_guidance?: string | null
+          category_id?: string | null
+          color?: string | null
+          created_at?: string
+          default_priority?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          requires_serial?: boolean
+          sla_first_response_minutes?: number | null
+          sla_resolution_hours?: number | null
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          ai_guidance?: string | null
+          category_id?: string | null
+          color?: string | null
+          created_at?: string
+          default_priority?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          requires_serial?: boolean
+          sla_first_response_minutes?: number | null
+          sla_resolution_hours?: number | null
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "support_ticket_types_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "support_ticket_categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       system_a_catalog: {
         Row: {
           active: boolean | null
@@ -27117,54 +27325,136 @@ export type Database = {
       }
       technical_tickets: {
         Row: {
+          ai_paused: boolean
           ai_summary: string | null
+          assigned_at: string | null
+          assigned_user_id: string | null
+          category_id: string | null
+          ces_score: number | null
+          channel: string
           client_summary: string | null
+          closed_at: string | null
           conversation_log: Json | null
           created_at: string
+          csat_score: number | null
+          diagnostic_answers: Json
           equipment: string | null
+          first_contact_resolution: boolean | null
+          first_response_at: string | null
           id: string
+          kanban_status: string
+          last_inbound_at: string | null
           lead_id: string | null
           notified_at: string | null
+          nps_score: number | null
+          priority: string
+          queued_at: string | null
+          reopened_count: number
           resolved_at: string | null
+          serial_number: string | null
           status: string
+          subcategory_id: string | null
           support_team_member_id: string | null
+          survey_answered_at: string | null
+          survey_feedback: string | null
+          survey_sent_at: string | null
           ticket_full_id: string
           ticket_sequence: number
+          ticket_type_id: string | null
           ticket_version: string
+          updated_at: string
+          workflow_stage: number | null
         }
         Insert: {
+          ai_paused?: boolean
           ai_summary?: string | null
+          assigned_at?: string | null
+          assigned_user_id?: string | null
+          category_id?: string | null
+          ces_score?: number | null
+          channel?: string
           client_summary?: string | null
+          closed_at?: string | null
           conversation_log?: Json | null
           created_at?: string
+          csat_score?: number | null
+          diagnostic_answers?: Json
           equipment?: string | null
+          first_contact_resolution?: boolean | null
+          first_response_at?: string | null
           id?: string
+          kanban_status?: string
+          last_inbound_at?: string | null
           lead_id?: string | null
           notified_at?: string | null
+          nps_score?: number | null
+          priority?: string
+          queued_at?: string | null
+          reopened_count?: number
           resolved_at?: string | null
+          serial_number?: string | null
           status?: string
+          subcategory_id?: string | null
           support_team_member_id?: string | null
+          survey_answered_at?: string | null
+          survey_feedback?: string | null
+          survey_sent_at?: string | null
           ticket_full_id: string
           ticket_sequence: number
+          ticket_type_id?: string | null
           ticket_version?: string
+          updated_at?: string
+          workflow_stage?: number | null
         }
         Update: {
+          ai_paused?: boolean
           ai_summary?: string | null
+          assigned_at?: string | null
+          assigned_user_id?: string | null
+          category_id?: string | null
+          ces_score?: number | null
+          channel?: string
           client_summary?: string | null
+          closed_at?: string | null
           conversation_log?: Json | null
           created_at?: string
+          csat_score?: number | null
+          diagnostic_answers?: Json
           equipment?: string | null
+          first_contact_resolution?: boolean | null
+          first_response_at?: string | null
           id?: string
+          kanban_status?: string
+          last_inbound_at?: string | null
           lead_id?: string | null
           notified_at?: string | null
+          nps_score?: number | null
+          priority?: string
+          queued_at?: string | null
+          reopened_count?: number
           resolved_at?: string | null
+          serial_number?: string | null
           status?: string
+          subcategory_id?: string | null
           support_team_member_id?: string | null
+          survey_answered_at?: string | null
+          survey_feedback?: string | null
+          survey_sent_at?: string | null
           ticket_full_id?: string
           ticket_sequence?: number
+          ticket_type_id?: string | null
           ticket_version?: string
+          updated_at?: string
+          workflow_stage?: number | null
         }
         Relationships: [
+          {
+            foreignKeyName: "technical_tickets_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "support_ticket_categories"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "technical_tickets_lead_id_fkey"
             columns: ["lead_id"]
@@ -27313,10 +27603,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "technical_tickets_subcategory_id_fkey"
+            columns: ["subcategory_id"]
+            isOneToOne: false
+            referencedRelation: "support_ticket_categories"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "technical_tickets_support_team_member_id_fkey"
             columns: ["support_team_member_id"]
             isOneToOne: false
             referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "technical_tickets_ticket_type_id_fkey"
+            columns: ["ticket_type_id"]
+            isOneToOne: false
+            referencedRelation: "support_ticket_types"
             referencedColumns: ["id"]
           },
         ]
@@ -37447,6 +37751,7 @@ export type Database = {
       increment_wa_click: { Args: { p_listing: string }; Returns: undefined }
       is_admin: { Args: { user_id: string }; Returns: boolean }
       is_author: { Args: { user_id: string }; Returns: boolean }
+      is_support_staff: { Args: { _user_id: string }; Returns: boolean }
       list_lead_origin_conversions: {
         Args: never
         Returns: {
