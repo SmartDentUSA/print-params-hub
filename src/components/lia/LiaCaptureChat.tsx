@@ -133,7 +133,7 @@ export default function LiaCaptureChat({ formId, campaign, product }: { formId: 
         else {
           if (r?.first_name) say(`Maravilha, ${r.first_name}!`);
           setStep("email");
-          say("Me passa seu melhor e-mail para eu continuar por aqui?");
+          say(r?.ambiguous ? "Encontrei mais de um cadastro com esse telefone. Qual é o seu e-mail? Assim sigo com suas informações certinhas." : "Me passa seu melhor e-mail para eu continuar por aqui?");
         }
       } else if (step === "email") {
         if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(text)) { say("Esse e-mail não parece válido. Pode conferir?"); return; }

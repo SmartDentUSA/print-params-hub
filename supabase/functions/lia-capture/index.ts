@@ -4,6 +4,7 @@
 // qualificação e devolve o cartão do vendedor designado.
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
+import { normalizeBrazilianPhone } from "../_shared/phone-normalize.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
@@ -23,9 +24,7 @@ const json = (b: unknown, s = 200) =>
 
 const digits = (v: unknown) => String(v ?? "").replace(/\D/g, "");
 function normPhone(v: unknown) {
-  let d = digits(v);
-  if (d.length === 10 || d.length === 11) d = "55" + d;
-  return d.length >= 12 && d.length <= 13 ? d : "";
+  return digits(normalizeBrazilianPhone(str(v, 40)));
 }
 const str = (v: unknown, max = 300) => (typeof v === "string" ? v.trim().slice(0, max) : "");
 const isUuid = (v: unknown) => typeof v === "string" && /^[0-9a-f-]{36}$/i.test(v);
@@ -99,9 +98,11 @@ const validEmail = (v: unknown) => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(String(v ??
 async function findLead(phone: string, email: string) {
   if (phone) {
     const { data, error } = await sb.from("lia_attendances").select("nome, email").is("merged_into", null)
-      .in("telefone_normalized", [phone, phone.slice(2)]).limit(1).maybeSingle();
+      .in("telefone_normalized", [`+${phone}`, phone, ...(phone.startsWith("55") ? [phone.slice(2)] : [])]).limit(2);
     if (error) throw error;
-    if (data) return data;
+    if (data?.length === 1 && !email) return data[0];
+    if ((data?.length ?? 0) > 1 && !email) return { ambiguous: true, nome: null, email: null };
+    if (data?.length === 1 && email && data[0].email?.toLowerCase() === email) return data[0];
   }
   if (validEmail(email)) {
     const { data, error } = await sb.from("lia_attendances").select("nome, email").is("merged_into", null)
@@ -159,13 +160,14 @@ Deno.serve(async (req) => {
       const phone = normPhone(body.phone);
       const email = str(body.email, 200).toLowerCase();
       const row = await findLead(phone, email);
-      return json({ found: !!row, first_name: row?.nome ? String(row.nome).trim().split(" ")[0] : null, has_email: validEmail(row?.email), has_name: !!row?.nome });
+      return json({ found: !!row && !("ambiguous" in row), ambiguous: !!row && "ambiguous" in row, first_name: row?.nome ? String(row.nome).trim().split(" ")[0] : null, has_email: validEmail(row?.email), has_name: !!row?.nome });
     }
 
     if (action === "create") {
       const phone = normPhone(body.phone);
       const providedEmail = str(body.email, 200).toLowerCase();
       const existing = await findLead(phone, providedEmail);
+      if (existing && "ambiguous" in existing) return json({ error: "Confirme seu e-mail para identificar o cadastro correto." }, 409);
       const nome = str(existing?.nome, 120) || str(body.name, 120);
       const email = validEmail(existing?.email) ? String(existing?.email).toLowerCase() : providedEmail;
       if (!nome || !phone || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return json({ error: "Nome, e-mail e telefone válidos são obrigatórios." }, 400);
