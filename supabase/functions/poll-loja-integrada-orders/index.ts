@@ -111,6 +111,10 @@ Deno.serve(async (req) => {
           .eq('key', 'li_poll_since')
           .maybeSingle();
         if (cursor?.value) since = cursor.value;
+        // Guard: a stale cursor makes every run reprocess the oldest orders and time out
+        // before advancing, so new orders never arrive. Never look back more than 7 days.
+        const floor = new Date(Date.now() - 7 * 86400_000).toISOString().slice(0, 19);
+        if (!since || since < floor) since = floor;
       }
     }
 
