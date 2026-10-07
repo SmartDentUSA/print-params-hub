@@ -1,6 +1,8 @@
 # Architecture rules
 
 - Support customer context is read through a ticket-scoped edge function after session, support-role and ticket authorization; this exposes required customer details without widening commercial lead RLS.
+- Support board customer summaries use the same ticket-authorized endpoint in bounded batches, counting complete ticket history and deriving queue priority from owned equipment rather than sales interest; this avoids per-card requests and commercial RLS changes.
+- Support workspace theme tokens are scoped to its page and use an equal-width conversation/profile layout; this preserves unrelated admin styling.
 
 - RMS payment presentation and metrics share product-family resolution; subscription fallback and invoice totals are scoped by family and lead to prevent exoplan/DentalCAD cross-attribution.
 

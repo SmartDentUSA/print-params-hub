@@ -10,7 +10,7 @@ import { Phone, Mail, MapPin, Wrench, GraduationCap, Ticket, UserRound, RefreshC
 
 type HistoryTicket = { id: string; ticket_full_id: string; equipment: string | null; serial_number: string | null; kanban_status: string; created_at: string };
 type ActivityEntry = { id: string; event_type: string; event_timestamp: string; entity_name: string | null; source_channel: string | null };
-type Context = { client: Record<string, string | string[] | null> | null; tickets: HistoryTicket[]; ticket_count: number; activity: ActivityEntry[] };
+type Context = { client: Record<string, string | string[] | null> | null; tickets: HistoryTicket[]; ticket_count: number; summary?: { open: number; resolved: number; priority: boolean }; activity: ActivityEntry[] };
 const EQUIPMENT = [
   ['equip_scanner', 'Scanner intraoral'], ['equip_scanner_bancada', 'Scanner de bancada'],
   ['equip_impressora', 'Impressora 3D'], ['equip_cad', 'CAD'], ['equip_pos_impressao', 'Pós-impressão'],
@@ -46,18 +46,19 @@ export function SupportClientProfile({ ticketId, equipment, serial, fallbackName
     const number = text(client?.[`${field}_serial`]);
     return label || number ? [{ label: label || category, category, serial: number }] : [];
   });
-  if ((equipment || serial) && !devices.some(d => d.label === equipment && d.serial === serial)) {
-    devices.unshift({ label: equipment || 'Equipamento do chamado', category: 'Neste chamado', serial });
+  const cleanEquipment = sanitizeEquipmentLabel(equipment);
+  if ((cleanEquipment || serial) && !devices.some(d => d.label === cleanEquipment && d.serial === serial)) {
+    devices.unshift({ label: cleanEquipment || 'Equipamento do chamado', category: 'Neste chamado', serial });
   }
   const training = text(client?.cs_treinamento);
   const trainingDate = text(client?.data_treinamento);
   const trainedEquipment = Array.isArray(client?.imersao_equipamentos_treinados) ? client.imersao_equipamentos_treinados : [];
-  return <aside className="w-full xl:w-[380px] xl:shrink-0 border-t xl:border-t-0 xl:border-l bg-card overflow-y-auto">
-    <div className="p-5 border-b">
+  return <aside className="w-full min-w-0 border-t lg:border-t-0 lg:border-l bg-card overflow-y-auto">
+    <div className="p-6 lg:p-8 border-b">
       <p className="text-xs font-medium text-muted-foreground mb-4">FICHA DO CLIENTE</p>
       <div className="flex items-center gap-3">
-        <div className="h-11 w-11 rounded-full bg-primary/10 text-primary flex items-center justify-center font-semibold shrink-0">{name.slice(0, 1).toUpperCase()}</div>
-        <h2 className="font-semibold text-base break-words min-w-0">{name}</h2>
+         <div className="h-16 w-16 rounded-lg bg-primary text-primary-foreground flex items-center justify-center text-2xl font-semibold shrink-0">{name.slice(0, 1).toUpperCase()}</div>
+         <div className="min-w-0"><h2 className="font-semibold text-2xl break-words">{name}</h2>{data && <p className="text-sm text-muted-foreground mt-1">{data.ticket_count} chamados no histórico</p>}</div>
       </div>
       <div className="mt-4 space-y-2 text-sm text-muted-foreground">
         {phone && <p className="flex items-start gap-2"><Phone className="h-4 w-4 shrink-0 mt-0.5" /><span className="break-all">{phone}</span></p>}
@@ -65,16 +66,16 @@ export function SupportClientProfile({ ticketId, equipment, serial, fallbackName
         {(client?.cidade || client?.uf) && <p className="flex gap-2"><MapPin className="h-4 w-4 shrink-0" />{[client.cidade, client.uf].filter(Boolean).join(' / ')}</p>}
         {text(client?.proprietario_lead_crm) && <p className="flex gap-2"><UserRound className="h-4 w-4 shrink-0" /><span>Vendedor: {text(client?.proprietario_lead_crm)}</span></p>}
       </div>
-      {data && <div className="mt-4 flex items-center gap-2 text-sm"><Ticket className="h-4 w-4 text-primary" /><strong>{data.ticket_count}</strong><span className="text-muted-foreground">chamados no histórico</span></div>}
+      {data?.summary && <div className="mt-5 border-t pt-4 flex flex-wrap gap-5 text-sm"><span><strong>{data.summary.open}</strong> abertos</span><span><strong>{data.summary.resolved}</strong> resolvidos / encerrados</span>{data.summary.priority && <Badge variant="destructive">Prioritário · Edge Mini</Badge>}</div>}
     </div>
     {isLoading && <p className="p-5 text-sm text-muted-foreground">Carregando ficha do cliente…</p>}
     {error && <div className="p-5 text-sm space-y-3"><p className="flex gap-2 text-destructive"><AlertCircle className="h-4 w-4 shrink-0" />{error.message}</p><Button variant="outline" size="sm" onClick={() => refetch()}><RefreshCw className="h-4 w-4 mr-2" />Tentar novamente</Button></div>}
     {data && !client && <p className="p-5 text-sm text-muted-foreground">Cadastro canônico do cliente não disponível para este chamado.</p>}
-    <Tabs defaultValue="equipment" className="p-5">
+    <Tabs defaultValue="equipment" className="p-6 lg:p-8">
       <TabsList className="w-full grid grid-cols-3"><TabsTrigger value="equipment">Ficha</TabsTrigger><TabsTrigger value="tickets">Chamados</TabsTrigger><TabsTrigger value="timeline">Timeline</TabsTrigger></TabsList>
       <TabsContent value="equipment" className="mt-5 space-y-6">
         <section><h3 className="text-sm font-semibold flex items-center gap-2 mb-3"><Wrench className="h-4 w-4 text-primary" />Equipamentos e seriais</h3>
-          {devices.length ? <div className="divide-y">{devices.map((d, i) => <div key={`${d.category}-${i}`} className="py-3 first:pt-0"><p className="text-xs text-muted-foreground mb-1">{d.category}</p><p className="text-sm font-medium break-words">{d.label}</p><p className="text-xs mt-1 font-mono break-all text-muted-foreground">{d.serial ? `SN ${d.serial}` : 'Serial não cadastrado'}</p></div>)}</div> : <p className="text-sm text-muted-foreground">Nenhum equipamento cadastrado.</p>}
+          {devices.length ? <div className="space-y-3">{devices.map((d, i) => <div key={`${d.category}-${i}`} className="support-equipment-row p-4 rounded-lg"><p className="text-xs text-muted-foreground mb-2">{d.category}</p><div className="flex flex-wrap justify-between gap-2"><p className="text-base font-medium break-words">{d.label}</p><p className="text-xs font-mono break-all text-muted-foreground">{d.serial ? `SN ${d.serial}` : 'Serial não cadastrado'}</p></div></div>)}</div> : <p className="text-sm text-muted-foreground">Nenhum equipamento cadastrado.</p>}
         </section>
         <section><h3 className="text-sm font-semibold flex items-center gap-2 mb-3"><GraduationCap className="h-4 w-4 text-primary" />Treinamentos</h3>
           {training || trainingDate || trainedEquipment.length ? <div className="text-sm space-y-2">{training && <p>{training}</p>}{trainingDate && <p className="text-muted-foreground">Data: {trainingDate}</p>}{trainedEquipment.map((item, i) => <p key={i}>{item}</p>)}</div> : <p className="text-sm text-muted-foreground">Nenhum treinamento cadastrado.</p>}

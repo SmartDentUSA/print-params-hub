@@ -3,6 +3,8 @@ import { Link } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { FunctionsHttpError, type User } from "@supabase/supabase-js";
 import { SupportClientProfile } from "@/components/support/SupportClientProfile";
+import { Helmet } from "react-helmet-async";
+import { sanitizeEquipmentLabel } from "@/utils/equipmentLabel";
 import { supabase } from "@/integrations/supabase/client";
 import { AuthPage } from "@/components/AuthPage";
 import { Badge } from "@/components/ui/badge";
@@ -30,9 +32,12 @@ export const SUPPORT_COLUMNS = [
 const PRIORITY_VARIANT: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
   baixa: "outline", normal: "secondary", alta: "default", urgente: "destructive",
 };
+const PRIORITY_ORDER: Record<string, number> = { urgente: 3, alta: 2, normal: 1, baixa: 0 };
 
 type Ticket = {
   id: string;
+  lead_id: string | null;
+  clientFacts?: { name: string | null; phone: string | null; email: string | null; open: number; resolved: number; priority: boolean; printer: string | null };
   ticket_full_id: string;
   kanban_status: string;
   priority: string;
@@ -161,8 +166,8 @@ function TicketRoom({ ticket, userId, onBack }: { ticket: Ticket; userId: string
   const newestInbound = messages.filter(m => m.from === "client").at(-1)?.at;
   const lastInbound = [ticket.last_inbound_at, newestInbound].filter((value): value is string => !!value).sort((a, b) => Date.parse(b) - Date.parse(a))[0] ?? null;
   const { open: windowOpen } = windowInfo(lastInbound);
-  const clientName = ticket.lia_attendances?.nome || "Cliente";
-  const phone = ticket.lia_attendances?.telefone_normalized;
+  const clientName = ticket.clientFacts?.name || ticket.lia_attendances?.nome || "Cliente";
+  const phone = ticket.clientFacts?.phone || ticket.lia_attendances?.telefone_normalized;
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -186,13 +191,18 @@ function TicketRoom({ ticket, userId, onBack }: { ticket: Ticket; userId: string
   };
 
   return (
-    <div className="flex flex-col xl:flex-row h-[calc(100dvh-180px)] min-h-[620px] border rounded-lg overflow-hidden bg-card">
+    <div className="bg-card border rounded-lg overflow-hidden">
+      <div className="bg-primary text-primary-foreground px-6 py-4 flex flex-wrap gap-4 items-center justify-between">
+        <div className="flex items-center gap-5 text-sm"><span className="font-semibold">Histórico do cliente</span><span>{ticket.clientFacts?.open ?? '—'} abertos</span><span>{ticket.clientFacts?.resolved ?? '—'} resolvidos</span></div>
+        {ticket.clientFacts?.priority && <Badge variant="destructive" className="text-xs py-1.5">Prioritário · RayShape Edge Mini</Badge>}
+      </div>
+      <div className="support-room-grid grid grid-cols-1 lg:grid-cols-2 h-[calc(100dvh-240px)] min-h-[660px]">
       {/* Chat column */}
       <div className="flex-1 min-w-0 min-h-[500px] flex flex-col bg-background overflow-hidden">
         <div className="border-b px-5 py-4 flex flex-wrap items-center gap-3">
           <Button variant="ghost" size="sm" onClick={onBack}><ArrowLeft className="w-4 h-4 mr-1" />Kanban</Button>
           <div className="min-w-0">
-            <p className="text-sm font-semibold truncate">{clientName}</p>
+            <h2 className="text-lg font-semibold truncate">{clientName}</h2>
             <p className="text-[11px] text-muted-foreground font-mono">{ticket.ticket_full_id}</p>
           </div>
           <div className="ml-auto flex items-center gap-1.5">
@@ -215,17 +225,17 @@ function TicketRoom({ ticket, userId, onBack }: { ticket: Ticket; userId: string
                     m.from === "client"
                       ? "bg-card border rounded-tl-sm"
                       : m.from === "ia"
-                        ? "bg-primary/10 border border-primary/20 rounded-tr-sm"
+                         ? "bg-primary text-primary-foreground rounded-tr-sm"
                         : "bg-primary text-primary-foreground rounded-tr-sm"
                   }`}>
                     {m.from !== "client" && (
-                      <p className={`text-[10px] font-medium mb-0.5 flex items-center gap-1 ${m.from === "agent" ? "text-primary-foreground/70" : "text-primary"}`}>
+                      <p className="text-xs font-medium mb-1 flex items-center gap-1 text-primary-foreground/70">
                         {m.from === "ia" ? <><Bot className="w-3 h-3" />LIA (IA)</> : <><UserIcon className="w-3 h-3" />Atendente</>}
                       </p>
                     )}
                     {m.media_url && <a href={m.media_url} target="_blank" rel="noreferrer" className="text-xs underline block mb-1">Ver mídia</a>}
                     <p className="whitespace-pre-wrap break-words">{m.text}</p>
-                    <p className={`text-[10px] mt-1 text-right ${m.from === "agent" ? "text-primary-foreground/60" : "text-muted-foreground"}`}>
+                    <p className={`text-xs mt-2 text-right ${m.from !== "client" ? "text-primary-foreground/60" : "text-muted-foreground"}`}>
                       {new Date(m.at).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
                     </p>
                   </div>
@@ -260,7 +270,8 @@ function TicketRoom({ ticket, userId, onBack }: { ticket: Ticket; userId: string
       </div>
 
       <SupportClientProfile ticketId={ticket.id} equipment={ticket.equipment} serial={ticket.serial_number}
-        fallbackName={clientName} fallbackPhone={phone} fallbackEmail={ticket.lia_attendances?.email} />
+        fallbackName={clientName} fallbackPhone={phone} fallbackEmail={ticket.clientFacts?.email || ticket.lia_attendances?.email} />
+      </div>
     </div>
   );
 }
@@ -278,7 +289,7 @@ function SupportKanban({ userId }: { userId: string }) {
     queryFn: async (): Promise<Ticket[]> => {
       const { data, error } = await supabase
         .from("technical_tickets")
-        .select("id, ticket_full_id, kanban_status, priority, equipment, serial_number, client_summary, ai_summary, created_at, last_inbound_at, assigned_user_id, ai_paused, conversation_log, lia_attendances(nome, telefone_normalized, email)")
+         .select("id, lead_id, ticket_full_id, kanban_status, priority, equipment, serial_number, client_summary, ai_summary, created_at, last_inbound_at, assigned_user_id, ai_paused, conversation_log, lia_attendances(nome, telefone_normalized, email)")
         .is("lia_attendances.merged_into", null)
         .or(`kanban_status.neq.encerrado,closed_at.gte.${new Date(Date.now() - 30 * 864e5).toISOString()}`)
         .order("created_at", { ascending: false })
@@ -289,15 +300,32 @@ function SupportKanban({ userId }: { userId: string }) {
     refetchInterval: 30000,
   });
 
+  const { data: facts = {}, error: factsError } = useQuery({
+    queryKey: ['support_board_facts', tickets.map(t => t.id).join(','), tickets.map(t => t.kanban_status).join(',')],
+    enabled: tickets.length > 0,
+    refetchInterval: 30000,
+    queryFn: async () => {
+      const summaries: Record<string, NonNullable<Ticket['clientFacts']>> = {};
+      // One authorized ticket per client; bounded batches avoid per-card calls.
+      const unique = [...new Map(tickets.filter(t => t.lead_id).map(t => [t.lead_id, t.id])).values()];
+      for (let i = 0; i < unique.length; i += 40) {
+        const { data, error } = await supabase.functions.invoke('support-client-context', { body: { ticket_ids: unique.slice(i, i + 40) } });
+        if (error || data?.error) throw error || new Error(data.error);
+        Object.assign(summaries, data.summaries);
+      }
+      return summaries;
+    },
+  });
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return tickets.filter((t) => {
+    return tickets.map(t => ({ ...t, clientFacts: t.lead_id ? facts[t.lead_id] : undefined })).filter((t) => {
       if (onlyMine && t.assigned_user_id !== userId) return false;
       if (!q) return true;
-      return [t.ticket_full_id, t.equipment, t.serial_number, t.client_summary, t.lia_attendances?.nome, t.lia_attendances?.telefone_normalized]
+      return [t.ticket_full_id, t.equipment, t.serial_number, t.client_summary, t.clientFacts?.name, t.clientFacts?.phone, t.lia_attendances?.nome, t.lia_attendances?.telefone_normalized]
         .some((v) => v?.toLowerCase().includes(q));
-    });
-  }, [tickets, search, onlyMine, userId]);
+    }).sort((a, b) => Number(b.clientFacts?.priority ?? false) - Number(a.clientFacts?.priority ?? false) || (PRIORITY_ORDER[b.priority] ?? 0) - (PRIORITY_ORDER[a.priority] ?? 0) || Date.parse(a.created_at) - Date.parse(b.created_at));
+  }, [tickets, facts, search, onlyMine, userId]);
 
   const move = async (id: string, status: string) => {
     const t = tickets.find((x) => x.id === id);
@@ -322,12 +350,15 @@ function SupportKanban({ userId }: { userId: string }) {
   };
 
   if (selected) {
-    const fresh = tickets.find((t) => t.id === selected.id) ?? selected;
+    const base = tickets.find((t) => t.id === selected.id) ?? selected;
+    const fresh = { ...base, clientFacts: base.lead_id ? facts[base.lead_id] : undefined };
     return <TicketRoom ticket={fresh} userId={userId} onBack={() => setSelected(null)} />;
   }
 
   return (
     <div className="space-y-3">
+      <div className="flex flex-wrap items-center justify-between gap-4 py-3"><h2 className="text-xl font-semibold">Fila de atendimento</h2><span className="text-sm text-muted-foreground">{filtered.filter(t => t.clientFacts?.priority && !['resolvido', 'encerrado'].includes(t.kanban_status)).length} chamados prioritários</span></div>
+      {factsError && <p role="alert" className="text-sm text-destructive">Não foi possível consultar o histórico e a prioridade dos clientes. <Button variant="link" onClick={() => qc.invalidateQueries({ queryKey: ['support_board_facts'] })}>Tentar novamente</Button></p>}
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative w-full max-w-sm">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -336,7 +367,7 @@ function SupportKanban({ userId }: { userId: string }) {
         <Button variant={onlyMine ? "default" : "outline"} size="sm" onClick={() => setOnlyMine((v) => !v)}>
           {onlyMine ? "Meus chamados" : "Fila geral"}
         </Button>
-        <Button variant="ghost" size="sm" onClick={() => refetch()} disabled={isFetching}>
+        <Button aria-label="Atualizar chamados" title="Atualizar chamados" variant="ghost" size="sm" onClick={() => { refetch(); qc.invalidateQueries({ queryKey: ['support_board_facts'] }); }} disabled={isFetching}>
           <RefreshCw className={`w-4 h-4 ${isFetching ? "animate-spin" : ""}`} />
         </Button>
         <span className="text-xs text-muted-foreground ml-auto">{filtered.length} chamados</span>
@@ -351,12 +382,12 @@ function SupportKanban({ userId }: { userId: string }) {
             return (
               <div
                 key={col.key}
-                className="flex-shrink-0 w-72 border-t-2 border-primary/30 bg-muted/30 p-3 flex flex-col"
+                className="flex-shrink-0 w-[320px] border-t-2 border-primary/40 bg-muted p-3 flex flex-col"
                 onDragOver={(e) => e.preventDefault()}
                 onDrop={() => { if (dragId) move(dragId, col.key); setDragId(null); }}
               >
                 <div className="flex items-center justify-between mb-2 px-1">
-                  <h3 className="text-xs font-semibold">{col.label}</h3>
+                  <h3 className="text-sm font-semibold py-2">{col.label}</h3>
                   <Badge variant="secondary" className="text-[10px]">{items.length}</Badge>
                 </div>
                 <div className="space-y-2 overflow-y-auto max-h-[70vh] min-h-[120px]">
@@ -369,15 +400,18 @@ function SupportKanban({ userId }: { userId: string }) {
                       role="button"
                        tabIndex={0}
                        onKeyDown={(e) => { if (e.key === "Enter") setSelected(t); }}
-                       className="rounded-lg border bg-card p-4 shadow-sm cursor-pointer hover:border-primary/50 focus-visible:outline-primary space-y-3"
+                        className={`rounded-lg border bg-card p-4 shadow-sm cursor-pointer hover:border-primary/50 focus-visible:outline-primary space-y-3 ${t.clientFacts?.priority ? 'border-l-4 border-l-destructive' : ''}`}
                     >
                       <div className="flex items-center justify-between gap-1">
                         <span className="text-[11px] font-mono text-muted-foreground">{t.ticket_full_id}</span>
-                        <Badge variant={PRIORITY_VARIANT[t.priority] ?? "secondary"} className="text-[10px] capitalize">{t.priority}</Badge>
+                         <Badge variant={t.clientFacts?.priority ? 'destructive' : PRIORITY_VARIANT[t.priority] ?? "secondary"} className="text-xs capitalize">{t.clientFacts?.priority ? 'Prioritário' : t.priority}</Badge>
                       </div>
-                      <p className="text-sm font-medium leading-tight truncate">{t.lia_attendances?.nome || "Cliente sem nome"}</p>
-                      {t.equipment && <p className="text-xs text-muted-foreground truncate">{t.equipment}{t.serial_number ? ` · SN ${t.serial_number}` : ""}</p>}
-                      {t.client_summary && <p className="text-xs line-clamp-2">{t.client_summary}</p>}
+                       <h3 className="text-base font-semibold leading-snug break-words">{t.clientFacts?.name || t.lia_attendances?.nome || "Cliente sem nome"}</h3>
+                       {(sanitizeEquipmentLabel(t.equipment) || sanitizeEquipmentLabel(t.clientFacts?.printer)) && <p className="text-sm text-primary font-medium break-words">{sanitizeEquipmentLabel(t.equipment) || sanitizeEquipmentLabel(t.clientFacts?.printer)}</p>}
+                       {t.serial_number && <p className="text-xs font-mono text-muted-foreground">SN {t.serial_number}</p>}
+                       {t.clientFacts?.priority && <p className="text-xs text-destructive font-semibold">Proprietário de RayShape Edge Mini</p>}
+                       {t.client_summary && <p className="text-sm text-muted-foreground line-clamp-2 leading-relaxed">{t.client_summary}</p>}
+                       <div className="grid grid-cols-2 border-y py-3 text-sm"><div><strong className="text-lg">{t.clientFacts?.open ?? '—'}</strong><span className="block text-xs text-muted-foreground">Chamados abertos</span></div><div className="border-l pl-4"><strong className="text-lg text-primary">{t.clientFacts?.resolved ?? '—'}</strong><span className="block text-xs text-muted-foreground">Resolvidos / encerrados</span></div></div>
                       <div className="flex items-center gap-1 flex-wrap">
                         <Badge variant="outline" className="text-[10px]">{waitTime(t.created_at)}</Badge>
                         {windowBadge(t.last_inbound_at)}
@@ -385,7 +419,7 @@ function SupportKanban({ userId }: { userId: string }) {
                         {t.assigned_user_id === userId && <Badge className="text-[10px]">Meu</Badge>}
                       </div>
                       {!t.assigned_user_id && !["resolvido", "encerrado"].includes(t.kanban_status) && (
-                        <Button size="sm" variant="outline" className="w-full h-7 text-xs" onClick={(e) => { e.stopPropagation(); assumeTicket(t.id); }}>Assumir</Button>
+                         <Button size="sm" variant={t.clientFacts?.priority ? 'default' : 'outline'} className="w-full h-9 text-sm" onClick={(e) => { e.stopPropagation(); assumeTicket(t.id); }}>Assumir chamado</Button>
                       )}
                     </div>
                   ))}
@@ -428,7 +462,8 @@ export default function SuporteTecnico() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="support-workspace min-h-screen bg-background text-foreground">
+      <Helmet><link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Sora:wght@600;700;800&display=swap" rel="stylesheet" /></Helmet>
       <header className="border-b px-4 py-3 flex items-center gap-3">
         <Headset className="w-5 h-5 text-primary" />
         <h1 className="text-lg font-semibold">Suporte Técnico</h1>
@@ -438,7 +473,7 @@ export default function SuporteTecnico() {
         <span className="text-xs text-muted-foreground ml-auto">{user.email}</span>
         <Button variant="ghost" size="sm" onClick={() => supabase.auth.signOut()}><LogOut className="w-4 h-4" /></Button>
       </header>
-      <main className="p-5">
+      <main className="p-4 lg:p-6">
         <Tabs defaultValue="kanban">
           <TabsList>
             <TabsTrigger value="kanban">Chamados (Kanban)</TabsTrigger>

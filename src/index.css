@@ -180,3 +180,44 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Isolated support workspace palette from the selected direction. */
+.support-workspace {
+  --gradient-primary: linear-gradient(hsl(185 100% 16.5%), hsl(185 100% 16.5%));
+  --accent: 185 100% 16.5%;
+  --accent-foreground: 0 0% 100%;
+  --shadow-glow: 0 2px 8px hsl(185 100% 16.5% / 0.12);
+  --background: 180 16% 96%;
+  --foreground: 185 100% 16.5%;
+  --card: 0 0% 100%;
+  --card-foreground: 185 100% 16.5%;
+  --primary: 185 100% 16.5%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 180 16% 96%;
+  --secondary-foreground: 185 100% 16.5%;
+  --muted: 180 16% 96%;
+  --muted-foreground: 185 15% 42%;
+  --border: 185 15% 88%;
+  --input: 185 15% 88%;
+  --ring: 185 100% 16.5%;
+  --destructive: 4 74% 49%;
+  --destructive-foreground: 0 0% 100%;
+  font-family: 'Manrope', sans-serif;
+  letter-spacing: 0;
+}
+.support-workspace h1, .support-workspace h2, .support-workspace h3 {
+  font-family: 'Sora', sans-serif;
+  letter-spacing: 0;
+}
+.support-workspace .support-equipment-row {
+  background: hsl(var(--muted));
+  border-left: 4px solid hsl(var(--primary));
+}
+@media (max-width: 1023px) {
+  .support-workspace .support-room-grid {
+    height: auto;
+  }
+  .support-workspace .support-room-grid > div:first-child {
+    height: 650px;
+  }
+}

@@ -1,5 +1,6 @@
 import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors'
 import { createClient } from 'npm:@supabase/supabase-js@2'
+import { ownsPriorityPrinter } from '../_shared/support-client-facts.ts'
 
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), {
   status, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -21,12 +22,38 @@ Deno.serve(async (req) => {
     const { data: allowed, error: accessError } = await caller.rpc('is_support_staff', { _user_id: user.id })
     if (accessError || !allowed) return json({ error: 'Acesso restrito ao suporte técnico' }, 403)
     const body = await req.json().catch(() => null)
+    const service = createClient(url, serviceKey)
+    const summaryFor = async (leadIds: string[]) => {
+      if (!leadIds.length) return {}
+      const { data: clients, error } = await service.from('lia_attendances')
+        .select('id,nome,email,telefone_normalized,equip_impressora,impressora_modelo,portfolio_json')
+        .in('id', leadIds).is('merged_into', null)
+      if (error) throw error
+      const result: Record<string, unknown> = {}
+      await Promise.all((clients ?? []).map(async (client) => {
+        const [open, resolved] = await Promise.all([
+          service.from('technical_tickets').select('id', { count: 'exact', head: true }).eq('lead_id', client.id).not('kanban_status', 'in', '(resolvido,encerrado)'),
+          service.from('technical_tickets').select('id', { count: 'exact', head: true }).eq('lead_id', client.id).in('kanban_status', ['resolvido', 'encerrado']),
+        ])
+        if (open.error) throw open.error
+        if (resolved.error) throw resolved.error
+        result[client.id] = { name: client.nome, phone: client.telefone_normalized, email: client.email,
+          open: open.count ?? 0, resolved: resolved.count ?? 0, priority: ownsPriorityPrinter(client), printer: client.equip_impressora || client.impressora_modelo }
+      }))
+      return result
+    }
+    if (Array.isArray(body?.ticket_ids)) {
+      if (!body.ticket_ids.length || body.ticket_ids.length > 40 || body.ticket_ids.some((id: unknown) => typeof id !== 'string' || !/^[0-9a-f-]{36}$/i.test(id))) return json({ error: 'Chamados inválidos' }, 400)
+      const { data: authorized, error } = await caller.from('technical_tickets').select('lead_id').in('id', body.ticket_ids)
+      if (error) throw error
+      const ids = [...new Set((authorized ?? []).flatMap(t => t.lead_id ? [t.lead_id] : []))]
+      return json({ summaries: await summaryFor(ids) })
+    }
     if (typeof body?.ticket_id !== 'string' || !/^[0-9a-f-]{36}$/i.test(body.ticket_id)) return json({ error: 'Chamado inválido' }, 400)
     // Authorize the ticket through the caller before reading its scoped customer context.
     const { data: ticket, error: ticketError } = await caller.from('technical_tickets').select('lead_id').eq('id', body.ticket_id).single()
     if (ticketError || !ticket) return json({ error: 'Chamado não encontrado' }, 404)
     if (!ticket.lead_id) return json({ client: null, tickets: [], activity: [] })
-    const service = createClient(url, serviceKey)
     const fields = 'id,nome,email,telefone_normalized,cidade,uf,omie_razao_social,proprietario_lead_crm,equip_scanner,equip_scanner_serial,equip_scanner_bancada,equip_scanner_bancada_serial,equip_impressora,equip_impressora_serial,equip_cad,equip_cad_serial,equip_pos_impressao,equip_pos_impressao_serial,equip_fresadora,equip_fresadora_serial,equip_notebook,equip_notebook_serial,cs_treinamento,data_treinamento,imersao_equipamentos_treinados'
     const { data: client, error: clientError } = await service.from('lia_attendances').select(fields).eq('id', ticket.lead_id).is('merged_into', null).maybeSingle()
     if (clientError) throw clientError
@@ -39,7 +66,8 @@ Deno.serve(async (req) => {
     if (activity.error) throw activity.error
     const { count, error: countError } = await service.from('technical_tickets').select('id', { count: 'exact', head: true }).eq('lead_id', client.id)
     if (countError) throw countError
-    return json({ client, tickets: history.data ?? [], ticket_count: count ?? 0, activity: activity.data ?? [] })
+    const summaries = await summaryFor([client.id])
+    return json({ client, tickets: history.data ?? [], ticket_count: count ?? 0, summary: summaries[client.id], activity: activity.data ?? [] })
   } catch (error) {
     console.error('support-client-context:', error)
     return json({ error: 'Não foi possível carregar a ficha do cliente' }, 500)
