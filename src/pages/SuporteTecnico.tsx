@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { FunctionsHttpError, type User } from "@supabase/supabase-js";
 import { SupportClientProfile } from "@/components/support/SupportClientProfile";
 import { SupportMetricsDashboard } from "@/components/support/SupportMetricsDashboard";
+import { SupportSettings } from "@/components/support/SupportSettings";
 import { Helmet } from "react-helmet-async";
 import { sanitizeEquipmentLabel } from "@/utils/equipmentLabel";
 import { supabase } from "@/integrations/supabase/client";
@@ -486,7 +487,7 @@ export default function SuporteTecnico() {
           </TabsList>
           <TabsContent value="kanban" className="mt-4"><SupportKanban userId={user.id} userEmail={user.email ?? ""} /></TabsContent>
           <TabsContent value="bi" className="mt-4"><SupportMetricsDashboard /></TabsContent>
-          <TabsContent value="config" className="mt-4"><ComingSoon title="Categorias, tipos, checklists e respostas rápidas" sprint="Sprint 5" /></TabsContent>
+          <TabsContent value="config" className="mt-4"><SupportSettings /></TabsContent>
         </Tabs>
       </main>
     </div>
