@@ -309,6 +309,7 @@ function SupportKanban({ userId }: { userId: string }) {
           })}
         </div>
       )}
+      <TicketConversation ticket={selected} onClose={() => setSelected(null)} />
     </div>
   );
 }
