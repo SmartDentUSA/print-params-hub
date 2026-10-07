@@ -26,3 +26,4 @@
 - [x] Notas Omie 17–25/09: datas reais, 13 canceladas marcadas, 34 vinculadas ao lead; datas de 03/08–06/10 corrigidas em lote
 - [x] Listas de vendas dos vendedores (373 negócios IN26/CIPRO) conferidas; negócio 63309679 (Daniel, R$ 28.000) atualizado para ganho
 - [ ] Rotina diária de notas do Omie grava data no dia 10 do mês — código dessa rotina não está no projeto (bloqueado: precisa do código da rotina `omie-sync-nf`)
+- [x] Sprint 5 Suporte: aba BI & Métricas com FCR, TMA, TMR, TME, CSAT, NPS, CES, backlog, volume/dia e desempenho por atendente (nome gravado no chamado ao assumir).
