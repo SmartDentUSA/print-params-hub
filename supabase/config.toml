@@ -697,3 +697,6 @@ verify_jwt = false
 
 [functions.email-flow-ai]
 verify_jwt = false
+
+[functions.lia-capture]
+verify_jwt = false

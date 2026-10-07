@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import AttendanceChannelMetrics from "@/components/lia/AttendanceChannelMetrics";
 import { useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -752,7 +753,10 @@ export function SmartOpsFormBuilder() {
           )}
         </div>
         {editingForm.form_purpose === "sdr_captacao" ? (
-          <SmartOpsSdrCaptacaoEditor form={editingForm} />
+          <div className="space-y-4">
+            <AttendanceChannelMetrics formId={editingForm.id} />
+            <SmartOpsSdrCaptacaoEditor form={editingForm} />
+          </div>
         ) : editingForm.form_purpose === "feira_evento" ? (
           <>
             <FeiraEventoConfig formId={editingForm.id} />

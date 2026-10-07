@@ -1,0 +1,1 @@
+ALTER FUNCTION public.fn_attendance_channel_metrics(uuid,text,timestamptz) SECURITY INVOKER;

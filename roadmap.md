@@ -28,4 +28,4 @@
 - [ ] Rotina diária de notas do Omie grava data no dia 10 do mês — código dessa rotina não está no projeto (bloqueado: precisa do código da rotina `omie-sync-nf`)
 - [x] Sprint 5 Suporte: aba BI & Métricas com FCR, TMA, TMR, TME, CSAT, NPS, CES, backlog, volume/dia e desempenho por atendente (nome gravado no chamado ao assumir).
 
-- [ ] LIA campanha/landing: ícone WhatsApp ao lado de "Falar com especialista" + métricas por canal (formulário x especialista x WhatsApp): visualizações, leads, conversões, valor
+- [x] LIA campanha/landing: ícone WhatsApp ao lado de "Falar com especialista" + métricas por canal (formulário x especialista x WhatsApp): visualizações, leads, conversões, valor
