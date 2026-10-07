@@ -27,4 +27,4 @@
 - Technical support access is checked in the database through `is_support_staff` (admin or support_agent roles in user_roles); support data stays isolated from commercial queues and campaigns.
 - Support ticket lifecycle timestamps (assignment, resolution, closing, reopen count/FCR) are set by a validation trigger on technical_tickets so KPIs never depend on client code.
 
-- LIA capture uses smart-ops-ingest-lead and HMAC follow-ups; metrics use attendance_channel_events and post-capture wins. Resolve form products from system_a_catalog and reuse phone/email identity server-side, returning only first name/completeness to avoid redundant questions and contact disclosure.
+- LIA capture uses smart-ops-ingest-lead/HMAC and post-capture metrics. Resolve products from system_a_catalog and phones through phone-normalize including +E.164; multiple canonical matches require email, never first-row selection. Reuse identity server-side, returning only first name/completeness for privacy.
