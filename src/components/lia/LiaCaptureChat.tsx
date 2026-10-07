@@ -131,9 +131,14 @@ export default function LiaCaptureChat({ formId, campaign, product }: { formId: 
         setData(identity);
         if (r?.found && r.has_email && r.has_name) await register(identity, r.first_name);
         else {
-          if (r?.first_name) say(`Maravilha, ${r.first_name}!`);
           setStep("email");
-          say(r?.ambiguous ? "Encontrei mais de um cadastro com esse telefone. Qual é o seu e-mail? Assim sigo com suas informações certinhas." : "Me passa seu melhor e-mail para eu continuar por aqui?");
+          if (r?.ambiguous) {
+            const hints = Array.isArray(r.email_hints) ? r.email_hints.filter((hint: unknown): hint is string => typeof hint === "string") : [];
+            say(`${r.first_name ? `${r.first_name}, identifiquei` : "Identifiquei"} ${r.match_count ?? "vários"} cadastros com esse telefone.${hints.length ? `\n\n${hints.join("\n")}\n\nQual destes e-mails é o correto? Me escreva o e-mail completo para confirmar.` : " Qual é o seu e-mail para eu confirmar o cadastro correto?"}`);
+          } else {
+            if (r?.first_name) say(`Maravilha, ${r.first_name}!`);
+            say("Me passa seu melhor e-mail para eu continuar por aqui?");
+          }
         }
       } else if (step === "email") {
         if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(text)) { say("Esse e-mail não parece válido. Pode conferir?"); return; }
