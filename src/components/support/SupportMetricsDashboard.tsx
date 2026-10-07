@@ -27,6 +27,7 @@ type TicketRow = {
   nps_score: number | null;
   ces_score: number | null;
   assigned_user_id: string | null;
+  assigned_agent_name: string | null;
 };
 
 const PERIODS = [
@@ -84,7 +85,7 @@ export function SupportMetricsDashboard() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("technical_tickets")
-        .select("id, kanban_status, created_at, queued_at, assigned_at, first_response_at, resolved_at, closed_at, reopened_count, first_contact_resolution, csat_score, nps_score, ces_score, assigned_user_id")
+        .select("id, kanban_status, created_at, queued_at, assigned_at, first_response_at, resolved_at, closed_at, reopened_count, first_contact_resolution, csat_score, nps_score, ces_score, assigned_user_id, assigned_agent_name")
         .gte("created_at", since)
         .order("created_at", { ascending: false });
       if (error) throw error;
