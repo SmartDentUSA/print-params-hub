@@ -333,7 +333,6 @@ export function SupportSettings() {
   const catName = (id?: string | null) => catRows.find((c) => c.id === id)?.name;
   const typeName = (id?: string | null) => typeRows.find((t) => t.id === id)?.name;
   const catOpts = [{ value: "", label: "— Nenhuma —" }, ...catRows.map((c) => ({ value: c.id, label: c.parent_id ? `  ↳ ${c.name}` : c.name }))];
-  const parentOpts = [{ value: "", label: "— Categoria principal —" }, ...catRows.filter((c) => !c.parent_id).map((c) => ({ value: c.id, label: c.name }))];
   const typeOpts = [{ value: "", label: "— Todos —" }, ...typeRows.map((t) => ({ value: t.id, label: t.name }))];
 
   if (cats.error) return <p className="text-sm text-destructive">Não foi possível carregar as configurações: {(cats.error as Error).message}</p>;
