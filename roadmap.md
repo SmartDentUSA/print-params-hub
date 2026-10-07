@@ -33,3 +33,4 @@
 - [x] Aplicar visual WhatsApp escuro ao chat da LIA: cabeçalho/avatar, balões com cauda e horários, barra arredondada e emojis. Visual amplo/compacto e controles verificados sem erros; qualificação preservada.
 - [x] Corrigir reconhecimento de telefone +E.164 na LIA; telefone informado consta em três cadastros distintos, exigindo confirmação por e-mail sem escolher uma pessoa arbitrariamente. Busca real e mensagem na interface verificadas; nenhuma alteração nos cadastros.
 - [x] Confirmar múltiplos cadastros na LIA com quantidade, nome comum e sugestões de e-mail ocultas, exigindo e-mail completo. Busca real e apresentação verificadas, sem gravar cadastros; compilação OK.
+- [ ] LIA: aproveitar respostas existentes do cadastro identificado e não perguntar novamente área, especialidade ou outros campos preenchidos, inclusive ao retomar a conversa.
