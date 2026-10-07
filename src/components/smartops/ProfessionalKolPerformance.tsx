@@ -16,6 +16,14 @@ interface Props {
 /** Performance do KOL: formulários de indicação (leads, conversão, receita) e cupons ativos. */
 export default function ProfessionalKolPerformance({ formIds, coupons }: Props) {
   const perf = useKolPerformance(formIds, coupons);
+  const commissionOf = (code: string) => {
+    const r = (coupons ?? []).find((c) => (c.code || "").trim().toUpperCase() === code.toUpperCase());
+    return r?.commission_percent ?? null;
+  };
+  const totalCommission = perf.coupons.reduce((s, c) => {
+    const p = commissionOf(c.cupom);
+    return s + (p ? (c.receita * p) / 100 : 0);
+  }, 0);
   const hasCoupons = (coupons ?? []).some((c) => (c.code || "").trim());
 
   return (
@@ -103,6 +111,8 @@ export default function ProfessionalKolPerformance({ formIds, coupons }: Props) 
                     <th className="px-2 py-2 text-left">Vigência</th>
                     <th className="px-2 py-2 text-right">Vendas geradas</th>
                     <th className="px-2 py-2 text-right">Receita gerada</th>
+                    <th className="px-2 py-2 text-right">% comissão</th>
+                    <th className="px-2 py-2 text-right">Comissão KOL</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -114,6 +124,10 @@ export default function ProfessionalKolPerformance({ formIds, coupons }: Props) 
                       </td>
                       <td className="px-2 py-2 text-right font-medium">{c.vendas}</td>
                       <td className="px-2 py-2 text-right font-medium">{money(c.receita)}</td>
+                      <td className="px-2 py-2 text-right">{commissionOf(c.cupom) != null ? `${commissionOf(c.cupom)}%` : "—"}</td>
+                      <td className="px-2 py-2 text-right font-medium">
+                        {commissionOf(c.cupom) != null ? money((c.receita * (commissionOf(c.cupom) as number)) / 100) : "—"}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -123,6 +137,8 @@ export default function ProfessionalKolPerformance({ formIds, coupons }: Props) 
                       <td className="px-2 py-2" colSpan={2}>Total</td>
                       <td className="px-2 py-2 text-right">{perf.totals.vendasCupons}</td>
                       <td className="px-2 py-2 text-right">{money(perf.totals.receitaCupons)}</td>
+                      <td className="px-2 py-2" />
+                      <td className="px-2 py-2 text-right">{money(totalCommission)}</td>
                     </tr>
                   </tfoot>
                 )}
@@ -130,7 +146,7 @@ export default function ProfessionalKolPerformance({ formIds, coupons }: Props) 
             </div>
           )}
           <p className="text-[11px] text-muted-foreground">
-            Vendas e receita apuradas nos pedidos da Loja Integrada com este cupom.
+            Vendas e receita apuradas nos pedidos da Loja Integrada com este cupom. Comissão = receita × % de comissão do KOL definida no cupom.
           </p>
         </div>
       </CardContent>

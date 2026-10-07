@@ -90,8 +90,8 @@ export default function ProfessionalCouponsGenerator({ leadId, nome, kolCoupons,
     const next = [...kolCoupons];
     for (const c of coupons) {
       const code = c.code.toUpperCase();
-      const entry = { code, active_from: c.valid_from, active_to: c.valid_until };
       const idx = next.findIndex((k) => k.code.toUpperCase() === code);
+      const entry = { code, active_from: c.valid_from, active_to: c.valid_until, commission_percent: idx >= 0 ? next[idx].commission_percent ?? null : null };
       if (idx >= 0) next[idx] = entry; else next.push(entry);
     }
     onKolCouponsChange(next);

@@ -24,6 +24,7 @@ export interface KolCouponRule {
   code: string;
   active_from?: string | null;
   active_to?: string | null;
+  commission_percent?: number | null;
 }
 
 export interface KolPerformance {
