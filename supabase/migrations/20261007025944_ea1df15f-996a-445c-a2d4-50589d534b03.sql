@@ -1,0 +1,1 @@
+CREATE POLICY "support_staff_read_inbox" ON public.whatsapp_inbox FOR SELECT TO authenticated USING (public.is_support_staff(auth.uid()));
