@@ -196,7 +196,7 @@ function TicketRoom({ ticket, userId, onBack }: { ticket: Ticket; userId: string
         <div className="flex items-center gap-5 text-sm"><span className="font-semibold">Histórico do cliente</span><span>{ticket.clientFacts?.open ?? '—'} abertos</span><span>{ticket.clientFacts?.resolved ?? '—'} resolvidos</span></div>
         {ticket.clientFacts?.priority && <Badge variant="destructive" className="text-xs py-1.5">Prioritário · RayShape Edge Mini</Badge>}
       </div>
-      <div className="grid grid-cols-1 lg:grid-cols-2 h-[calc(100dvh-240px)] min-h-[660px]">
+      <div className="support-room-grid grid grid-cols-1 lg:grid-cols-2 h-[calc(100dvh-240px)] min-h-[660px]">
       {/* Chat column */}
       <div className="flex-1 min-w-0 min-h-[500px] flex flex-col bg-background overflow-hidden">
         <div className="border-b px-5 py-4 flex flex-wrap items-center gap-3">
