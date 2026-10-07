@@ -37945,7 +37945,7 @@ export type Database = {
       wa_normalize_name: { Args: { p_name: string }; Returns: string }
     }
     Enums: {
-      app_role: "admin" | "user" | "author" | "distribuidor"
+      app_role: "admin" | "user" | "author" | "distribuidor" | "support_agent"
       resin_type:
         | "standard"
         | "flexible"
@@ -38080,7 +38080,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin", "user", "author", "distribuidor"],
+      app_role: ["admin", "user", "author", "distribuidor", "support_agent"],
       resin_type: [
         "standard",
         "flexible",
