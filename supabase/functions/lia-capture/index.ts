@@ -95,13 +95,25 @@ async function resolveContext(body: any) {
 }
 
 const validEmail = (v: unknown) => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(String(v ?? "")) && !/@(no-email|placeholder|example|test)\b/i.test(String(v));
+function maskEmail(email: string) {
+  const [local, domain] = email.toLowerCase().split("@");
+  const dot = domain.lastIndexOf(".");
+  return `${local.slice(0, 2)}***@${domain.slice(0, 1)}***${dot >= 0 ? domain.slice(dot) : ""}`;
+}
 async function findLead(phone: string, email: string) {
   if (phone) {
-    const { data, error } = await sb.from("lia_attendances").select("nome, email").is("merged_into", null)
-      .in("telefone_normalized", [`+${phone}`, phone, ...(phone.startsWith("55") ? [phone.slice(2)] : [])]).limit(2);
+    const { data, error, count } = await sb.from("lia_attendances").select("nome, email", { count: "exact" }).is("merged_into", null)
+      .in("telefone_normalized", [`+${phone}`, phone, ...(phone.startsWith("55") ? [phone.slice(2)] : [])]).limit(20);
     if (error) throw error;
     if (data?.length === 1 && !email) return data[0];
-    if ((data?.length ?? 0) > 1 && !email) return { ambiguous: true, nome: null, email: null };
+    if ((count ?? 0) > 1 && !email) {
+      const names = (data ?? []).map((row) => String(row.nome ?? "").trim().split(/\s+/)[0]);
+      const commonName = count === data?.length && names[0] && names.every((name) => name.toLowerCase() === names[0].toLowerCase()) ? names[0] : null;
+      return {
+        ambiguous: true, nome: commonName, email: null, match_count: count,
+        email_hints: [...new Set((data ?? []).filter((row) => validEmail(row.email)).map((row) => maskEmail(String(row.email))))],
+      };
+    }
     if (data?.length === 1 && email && data[0].email?.toLowerCase() === email) return data[0];
   }
   if (validEmail(email)) {
@@ -160,7 +172,9 @@ Deno.serve(async (req) => {
       const phone = normPhone(body.phone);
       const email = str(body.email, 200).toLowerCase();
       const row = await findLead(phone, email);
-      return json({ found: !!row && !("ambiguous" in row), ambiguous: !!row && "ambiguous" in row, first_name: row?.nome ? String(row.nome).trim().split(" ")[0] : null, has_email: validEmail(row?.email), has_name: !!row?.nome });
+      return json({ found: !!row && !("ambiguous" in row), ambiguous: !!row && "ambiguous" in row, first_name: row?.nome ? String(row.nome).trim().split(" ")[0] : null, has_email: validEmail(row?.email), has_name: !!row?.nome,
+        ...(row && "ambiguous" in row ? { match_count: row.match_count, email_hints: row.email_hints } : {}),
+      });
     }
 
     if (action === "create") {
