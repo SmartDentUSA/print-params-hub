@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { User } from "@supabase/supabase-js";
@@ -7,11 +7,14 @@ import { AuthPage } from "@/components/AuthPage";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useToast } from "@/hooks/use-toast";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Headset, LogOut, RefreshCw, Search, ShieldAlert, Clock, ArrowLeft, Bot, User as UserIcon } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import {
+  Headset, LogOut, RefreshCw, Search, ShieldAlert, Clock, ArrowLeft,
+  Bot, User as UserIcon, Send, Loader2, Phone, Wrench, FileText,
+} from "lucide-react";
 
 export const SUPPORT_COLUMNS = [
   { key: "triagem", label: "Triagem / Novo (IA)" },
@@ -35,11 +38,12 @@ type Ticket = {
   equipment: string | null;
   serial_number: string | null;
   client_summary: string | null;
+  ai_summary: string | null;
   created_at: string;
   last_inbound_at: string | null;
   assigned_user_id: string | null;
   ai_paused: boolean;
-  lia_attendances: { nome: string | null; telefone_normalized: string | null } | null;
+  lia_attendances: { nome: string | null; telefone_normalized: string | null; email: string | null } | null;
 };
 
 function useSupportAccess() {
@@ -66,11 +70,15 @@ function useSupportAccess() {
   return { user, loading, allowed, recheck: check };
 }
 
+function windowInfo(lastInbound: string | null) {
+  if (!lastInbound) return { open: false, left: 0 };
+  const left = 24 - (Date.now() - new Date(lastInbound).getTime()) / 36e5;
+  return { open: left > 0, left };
+}
+
 function windowBadge(lastInbound: string | null) {
-  if (!lastInbound) return null;
-  const hours = (Date.now() - new Date(lastInbound).getTime()) / 36e5;
-  const left = 24 - hours;
-  if (left <= 0) return <Badge variant="outline" className="text-[10px]">Janela fechada</Badge>;
+  const { open, left } = windowInfo(lastInbound);
+  if (!lastInbound || !open) return <Badge variant="outline" className="text-[10px]">Janela fechada</Badge>;
   const variant = left < 4 ? "destructive" : left < 8 ? "default" : "secondary";
   return <Badge variant={variant} className="text-[10px] gap-1"><Clock className="w-3 h-3" />{Math.floor(left)}h</Badge>;
 }
@@ -91,12 +99,12 @@ function normalizeSender(sender: string | null | undefined): ChatMessage["from"]
   return "agent";
 }
 
-function TicketConversation({ ticket, onClose }: { ticket: Ticket | null; onClose: () => void }) {
+function useTicketMessages(ticket: Ticket | null) {
   const phone = ticket?.lia_attendances?.telefone_normalized ?? null;
-
-  const { data: messages = [], isLoading } = useQuery({
+  return useQuery({
     queryKey: ["ticket_conversation", ticket?.id, phone],
     enabled: !!ticket,
+    refetchInterval: 15000,
     queryFn: async (): Promise<ChatMessage[]> => {
       if (!ticket) return [];
       const out: ChatMessage[] = [];
@@ -139,24 +147,64 @@ function TicketConversation({ ticket, onClose }: { ticket: Ticket | null; onClos
         .filter((m, i, arr) => arr.findIndex((x) => x.text === m.text && x.at === m.at) === i);
     },
   });
+}
+
+function TicketRoom({ ticket, userId, onBack }: { ticket: Ticket; userId: string; onBack: () => void }) {
+  const { toast } = useToast();
+  const qc = useQueryClient();
+  const { data: messages = [], isLoading } = useTicketMessages(ticket);
+  const [draft, setDraft] = useState("");
+  const [sending, setSending] = useState(false);
+  const bottomRef = useRef<HTMLDivElement>(null);
+
+  const { open: windowOpen, left } = windowInfo(ticket.last_inbound_at);
+  const clientName = ticket.lia_attendances?.nome || "Cliente";
+  const phone = ticket.lia_attendances?.telefone_normalized;
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages.length]);
+
+  const send = async () => {
+    const text = draft.trim();
+    if (!text || sending) return;
+    setSending(true);
+    const { error } = await supabase.functions.invoke("support-whatsapp-send", {
+      body: { ticket_id: ticket.id, message: text },
+    });
+    setSending(false);
+    if (error) {
+      toast({ title: "Falha ao enviar", description: error.message, variant: "destructive" });
+      return;
+    }
+    setDraft("");
+    qc.invalidateQueries({ queryKey: ["ticket_conversation", ticket.id] });
+  };
 
   return (
-    <Sheet open={!!ticket} onOpenChange={(o) => { if (!o) onClose(); }}>
-      <SheetContent side="right" className="w-full sm:max-w-md p-0 flex flex-col">
-        <SheetHeader className="border-b px-4 py-3">
-          <SheetTitle className="text-sm flex items-center gap-2">
-            {ticket?.lia_attendances?.nome || "Cliente"}
-            <span className="font-mono text-xs text-muted-foreground">{ticket?.ticket_full_id}</span>
-          </SheetTitle>
-          {phone && <p className="text-xs text-muted-foreground">{phone}</p>}
-        </SheetHeader>
+    <div className="flex gap-4 h-[calc(100vh-180px)]">
+      {/* Chat column */}
+      <div className="flex-1 flex flex-col rounded-lg border bg-background overflow-hidden">
+        <div className="border-b px-4 py-2.5 flex items-center gap-3">
+          <Button variant="ghost" size="sm" onClick={onBack}><ArrowLeft className="w-4 h-4 mr-1" />Kanban</Button>
+          <div className="min-w-0">
+            <p className="text-sm font-semibold truncate">{clientName}</p>
+            <p className="text-[11px] text-muted-foreground font-mono">{ticket.ticket_full_id}</p>
+          </div>
+          <div className="ml-auto flex items-center gap-1.5">
+            {windowBadge(ticket.last_inbound_at)}
+            {ticket.ai_paused && <Badge variant="outline" className="text-[10px]">IA pausada</Badge>}
+            <Badge variant={PRIORITY_VARIANT[ticket.priority] ?? "secondary"} className="text-[10px] capitalize">{ticket.priority}</Badge>
+          </div>
+        </div>
+
         <ScrollArea className="flex-1 px-4 py-3 bg-muted/30">
           {isLoading ? (
             <p className="text-sm text-muted-foreground text-center py-8">Carregando conversa…</p>
           ) : messages.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-8">Nenhuma mensagem registrada neste chamado ainda.</p>
           ) : (
-            <div className="space-y-2">
+            <div className="space-y-2 max-w-3xl mx-auto">
               {messages.map((m) => (
                 <div key={m.id} className={`flex ${m.from === "client" ? "justify-start" : "justify-end"}`}>
                   <div className={`max-w-[80%] rounded-2xl px-3 py-2 text-sm shadow-sm ${
@@ -179,11 +227,70 @@ function TicketConversation({ ticket, onClose }: { ticket: Ticket | null; onClos
                   </div>
                 </div>
               ))}
+              <div ref={bottomRef} />
             </div>
           )}
         </ScrollArea>
-      </SheetContent>
-    </Sheet>
+
+        <div className="border-t p-3">
+          {!windowOpen && (
+            <p className="text-xs text-destructive mb-2">
+              Janela de 24h fechada — mensagens livres não são entregues. É preciso usar um template aprovado (em breve) ou aguardar o cliente responder.
+            </p>
+          )}
+          <div className="flex items-end gap-2">
+            <Textarea
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
+              placeholder={windowOpen ? "Digite a resposta para o cliente… (Enter envia)" : "Janela de 24h fechada"}
+              disabled={!windowOpen || sending}
+              className="min-h-[44px] max-h-32 resize-none"
+              rows={1}
+            />
+            <Button onClick={send} disabled={!windowOpen || sending || !draft.trim()} size="icon" className="h-11 w-11 shrink-0">
+              {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      {/* Client 360 side panel */}
+      <div className="w-80 shrink-0 rounded-lg border bg-card p-4 space-y-4 overflow-y-auto hidden lg:block">
+        <div>
+          <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Cliente</h3>
+          <p className="text-sm font-medium">{clientName}</p>
+          {phone && <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1"><Phone className="w-3 h-3" />{phone}</p>}
+          {ticket.lia_attendances?.email && <p className="text-xs text-muted-foreground mt-0.5">{ticket.lia_attendances.email}</p>}
+        </div>
+        {(ticket.equipment || ticket.serial_number) && (
+          <div>
+            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2 flex items-center gap-1"><Wrench className="w-3 h-3" />Equipamento</h3>
+            {ticket.equipment && <p className="text-sm">{ticket.equipment}</p>}
+            {ticket.serial_number && <p className="text-xs text-muted-foreground">SN: {ticket.serial_number}</p>}
+          </div>
+        )}
+        {ticket.client_summary && (
+          <div>
+            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2 flex items-center gap-1"><FileText className="w-3 h-3" />Relato do cliente</h3>
+            <p className="text-xs whitespace-pre-wrap">{ticket.client_summary}</p>
+          </div>
+        )}
+        {ticket.ai_summary && (
+          <div>
+            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2 flex items-center gap-1"><Bot className="w-3 h-3" />Resumo da IA</h3>
+            <p className="text-xs whitespace-pre-wrap">{ticket.ai_summary}</p>
+          </div>
+        )}
+        <div>
+          <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Status</h3>
+          <p className="text-xs">Etapa: <span className="font-medium">{SUPPORT_COLUMNS.find(c => c.key === ticket.kanban_status)?.label ?? ticket.kanban_status}</span></p>
+          <p className="text-xs mt-1">Aberto há: <span className="font-medium">{waitTime(ticket.created_at)}</span></p>
+          {windowOpen && <p className="text-xs mt-1">Janela de resposta: <span className="font-medium">{Math.floor(left)}h restantes</span></p>}
+          {ticket.assigned_user_id === userId && <Badge className="text-[10px] mt-2">Atribuído a você</Badge>}
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -200,7 +307,7 @@ function SupportKanban({ userId }: { userId: string }) {
     queryFn: async (): Promise<Ticket[]> => {
       const { data, error } = await supabase
         .from("technical_tickets")
-        .select("id, ticket_full_id, kanban_status, priority, equipment, serial_number, client_summary, created_at, last_inbound_at, assigned_user_id, ai_paused, lia_attendances(nome, telefone_normalized)")
+        .select("id, ticket_full_id, kanban_status, priority, equipment, serial_number, client_summary, ai_summary, created_at, last_inbound_at, assigned_user_id, ai_paused, lia_attendances(nome, telefone_normalized, email)")
         .or(`kanban_status.neq.encerrado,closed_at.gte.${new Date(Date.now() - 30 * 864e5).toISOString()}`)
         .order("created_at", { ascending: false })
         .limit(1000);
@@ -241,6 +348,11 @@ function SupportKanban({ userId }: { userId: string }) {
     else toast({ title: "Chamado assumido", description: "A IA foi pausada nesta conversa." });
     refetch();
   };
+
+  if (selected) {
+    const fresh = tickets.find((t) => t.id === selected.id) ?? selected;
+    return <TicketRoom ticket={fresh} userId={userId} onBack={() => setSelected(null)} />;
+  }
 
   return (
     <div className="space-y-3">
@@ -309,7 +421,6 @@ function SupportKanban({ userId }: { userId: string }) {
           })}
         </div>
       )}
-      <TicketConversation ticket={selected} onClose={() => setSelected(null)} />
     </div>
   );
 }
@@ -356,12 +467,10 @@ export default function SuporteTecnico() {
         <Tabs defaultValue="kanban">
           <TabsList>
             <TabsTrigger value="kanban">Chamados (Kanban)</TabsTrigger>
-            <TabsTrigger value="atendimento">Atendimento</TabsTrigger>
             <TabsTrigger value="bi">BI & Métricas</TabsTrigger>
             <TabsTrigger value="config">Configurações</TabsTrigger>
           </TabsList>
           <TabsContent value="kanban" className="mt-4"><SupportKanban userId={user.id} /></TabsContent>
-          <TabsContent value="atendimento" className="mt-4"><ComingSoon title="Sala de atendimento em 3 colunas" sprint="Sprint 3" /></TabsContent>
           <TabsContent value="bi" className="mt-4"><ComingSoon title="Dashboard de KPIs (FCR, TMA, TMR, TME, CSAT, NPS, CES, Backlog)" sprint="Sprint 5" /></TabsContent>
           <TabsContent value="config" className="mt-4"><ComingSoon title="Categorias, tipos, checklists e respostas rápidas" sprint="Sprint 5" /></TabsContent>
         </Tabs>
