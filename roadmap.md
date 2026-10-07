@@ -30,3 +30,4 @@
 
 - [x] LIA campanha/landing: ícone WhatsApp ao lado de "Falar com especialista" + métricas por canal (formulário x especialista x WhatsApp): visualizações, leads, conversões, valor
 - [x] Corrigir abertura da LIA com produto real, reconhecimento telefone/e-mail e área de atuação primeiro. Abertura e busca real verificadas; avanço da conversa testado com respostas controladas, sem criar negócios/notificações de teste; compilação OK.
+- [ ] Aplicar visual WhatsApp escuro ao chat de captura da LIA, preservando a qualificação existente.
