@@ -5,8 +5,8 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 
-const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
+const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
 const sb = createClient(SUPABASE_URL, SERVICE_KEY);
 
@@ -55,20 +55,16 @@ async function resolveContext(body: any) {
     }
   }
   if (formId) {
-    const { data: f } = await sb.from("smartops_forms").select("name, product_catalog_id").eq("id", formId).maybeSingle();
+    const { data: f } = await sb.from("smartops_forms").select("name, product_catalog_id, capture_buttons_enabled, capture_buttons").eq("id", formId).maybeSingle();
     formName = f?.name ?? "";
     if (!product && f?.product_catalog_id) {
-      const { data: p } = await sb.from("products_catalog").select("name").eq("id", f.product_catalog_id).maybeSingle();
+      const { data: p } = await sb.from("system_a_catalog").select("name").eq("id", f.product_catalog_id).maybeSingle();
       product = p?.name ?? "";
     }
   }
   const label = product || campaignName || formName || "Smart Dent";
   const origin = campaignSlug && !formId ? `# CHAT - Campanha - ${campaignName || campaignSlug}` : `# CHAT - Landing - ${label}`;
-  if (!opening) {
-    opening = product
-      ? `Olá! Sou a Dra. LIA, da Smart Dent. Vi que você se interessou por ${product}. Vou registrar seu atendimento e já te conectar com um especialista.`
-      : "Olá! Sou a Dra. LIA, da Smart Dent. Vou registrar seu atendimento e já te conectar com um especialista.";
-  }
+  opening = `Vamos lá, vou te mandar todas as informações sobre o ${label}. Qual é o seu telefone de contato?`;
 
   // Perguntas de qualificação: do formulário de origem ou de um formulário de captação padrão
   let qFormId = formId;
@@ -91,7 +87,29 @@ async function resolveContext(body: any) {
     label: String(f.label).trim(),
     options: Array.isArray(f.options) ? f.options.map((o: any) => (typeof o === "string" ? o : o?.label ?? o?.value)).filter(Boolean) : [],
   }));
+  const areaIndex = questions.findIndex((q: any) => q.db_column === "area_atuacao");
+  const area = areaIndex >= 0 ? questions.splice(areaIndex, 1)[0] : {
+    field_id: null, form_id: null, db_column: "area_atuacao", options: [],
+  };
+  questions.unshift({ ...area, label: "Me diz, qual é a sua área de atuação? Assim eu entendo exatamente como essa solução pode ser aplicada ao seu dia a dia." });
   return { form_id: formId, campaign: campaignSlug, product, origin, opening, questions };
+}
+
+const validEmail = (v: unknown) => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(String(v ?? "")) && !/@(no-email|placeholder|example|test)\b/i.test(String(v));
+async function findLead(phone: string, email: string) {
+  if (phone) {
+    const { data, error } = await sb.from("lia_attendances").select("nome, email").is("merged_into", null)
+      .in("telefone_normalized", [phone, phone.slice(2)]).limit(1).maybeSingle();
+    if (error) throw error;
+    if (data) return data;
+  }
+  if (validEmail(email)) {
+    const { data, error } = await sb.from("lia_attendances").select("nome, email").is("merged_into", null)
+      .eq("email", email).limit(1).maybeSingle();
+    if (error) throw error;
+    return data;
+  }
+  return null;
 }
 
 async function sellerCard(leadId: string) {
@@ -140,24 +158,16 @@ Deno.serve(async (req) => {
     if (action === "lookup") {
       const phone = normPhone(body.phone);
       const email = str(body.email, 200).toLowerCase();
-      let row: any = null;
-      if (phone) {
-        const { data } = await sb.from("lia_attendances").select("nome, email").is("merged_into", null)
-          .in("telefone_normalized", [phone, phone.slice(2)]).limit(1).maybeSingle();
-        row = data;
-      }
-      if (!row && email && email.includes("@")) {
-        const { data } = await sb.from("lia_attendances").select("nome, email").is("merged_into", null).ilike("email", email).limit(1).maybeSingle();
-        row = data;
-      }
-      // Só devolve o primeiro nome (não expõe dados do cadastro)
-      return json({ found: !!row, first_name: row?.nome ? String(row.nome).split(" ")[0] : null, has_email: !!row?.email && !String(row.email).includes("@no-email") });
+      const row = await findLead(phone, email);
+      return json({ found: !!row, first_name: row?.nome ? String(row.nome).trim().split(" ")[0] : null, has_email: validEmail(row?.email), has_name: !!row?.nome });
     }
 
     if (action === "create") {
-      const nome = str(body.name, 120);
-      const email = str(body.email, 200).toLowerCase();
       const phone = normPhone(body.phone);
+      const providedEmail = str(body.email, 200).toLowerCase();
+      const existing = await findLead(phone, providedEmail);
+      const nome = str(existing?.nome, 120) || str(body.name, 120);
+      const email = validEmail(existing?.email) ? String(existing?.email).toLowerCase() : providedEmail;
       if (!nome || !phone || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return json({ error: "Nome, e-mail e telefone válidos são obrigatórios." }, 400);
       const ctx = await resolveContext(body);
       const payload: Record<string, unknown> = {
@@ -194,7 +204,8 @@ Deno.serve(async (req) => {
       const col = str(body.db_column, 60);
       const value = str(body.value, 300);
       if (!ANSWER_COLS.has(col) || !value) return json({ error: "invalid field" }, 400);
-      await sb.from("lia_attendances").update({ [col]: value }).eq("id", body.lead_id).is("merged_into", null);
+      const { error: updateError } = await sb.from("lia_attendances").update({ [col]: value }).eq("id", body.lead_id).is("merged_into", null);
+      if (updateError) throw updateError;
       if (isUuid(body.field_id) && isUuid(body.form_id)) {
         const { data: f } = await sb.from("smartops_form_fields").select("label, workflow_cell_target").eq("id", body.field_id).maybeSingle();
         await sb.from("smartops_form_field_responses").insert({
