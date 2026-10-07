@@ -145,7 +145,9 @@ export function AdminSidebar({ activeSection, onSectionChange, isAdmin, isAuthor
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
 
-  let visibleGroups = sidebarGroups.filter(g => !g.adminOnly || isAdmin);
+  let visibleGroups = sidebarGroups.filter(g =>
+    (g.adminOnly ? isAdmin : true) && (g.supportOnly ? (isAdmin || isSupport) : true)
+  );
   if (isDistribuidor && !isAdmin) {
     visibleGroups = [{
       label: "Smart Ops",
