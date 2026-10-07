@@ -213,19 +213,19 @@ Deno.serve(async (req) => {
 
       if (timedOut) break;
 
-      const hasMore = !!res.meta?.next;
-      if (!hasMore || pedidos.length < batchSize) {
-        console.log(`[poll-li] No more pages (hasMore=${hasMore}, fetched=${pedidos.length})`);
+      if (reachedOld || offset === 0) {
+        console.log(`[poll-li] Reached orders older than cursor (or start) — done`);
         break;
       }
 
-      offset += batchSize;
+      offset = Math.max(offset - batchSize, 0);
       page++;
       await new Promise(r => setTimeout(r, RATE_LIMIT_DELAY));
     }
 
     // ── Persist cursor ──
-    if (maxTimestamp && maxTimestamp !== (since || '')) {
+    // Only advance the cursor after a complete pass, so a timeout never skips older unprocessed orders.
+    if (!timedOut && maxTimestamp && maxTimestamp !== (since || '')) {
       const { error: cursorErr } = await supabase
         .from('omie_sync_cursors')
         .upsert({ key: 'li_poll_since', value: maxTimestamp }, { onConflict: 'key' });
