@@ -1194,6 +1194,45 @@ export type Database = {
           },
         ]
       }
+      attendance_channel_events: {
+        Row: {
+          campaign_slug: string | null
+          channel: string
+          created_at: string
+          event_type: string
+          form_id: string | null
+          id: string
+          lead_id: string | null
+          page_path: string | null
+          product_name: string | null
+          session_id: string | null
+        }
+        Insert: {
+          campaign_slug?: string | null
+          channel: string
+          created_at?: string
+          event_type: string
+          form_id?: string | null
+          id?: string
+          lead_id?: string | null
+          page_path?: string | null
+          product_name?: string | null
+          session_id?: string | null
+        }
+        Update: {
+          campaign_slug?: string | null
+          channel?: string
+          created_at?: string
+          event_type?: string
+          form_id?: string | null
+          id?: string
+          lead_id?: string | null
+          page_path?: string | null
+          product_name?: string | null
+          session_id?: string | null
+        }
+        Relationships: []
+      }
       authors: {
         Row: {
           academic_title: string | null
@@ -2558,6 +2597,9 @@ export type Database = {
           hashtags: string[] | null
           id: string
           lead_filter: Json | null
+          lia_opening_message: string | null
+          lia_product_name: string | null
+          lia_slug: string | null
           media_items: Json | null
           media_url_override: string | null
           mensagem_template: string | null
@@ -2600,6 +2642,9 @@ export type Database = {
           hashtags?: string[] | null
           id?: string
           lead_filter?: Json | null
+          lia_opening_message?: string | null
+          lia_product_name?: string | null
+          lia_slug?: string | null
           media_items?: Json | null
           media_url_override?: string | null
           mensagem_template?: string | null
@@ -2642,6 +2687,9 @@ export type Database = {
           hashtags?: string[] | null
           id?: string
           lead_filter?: Json | null
+          lia_opening_message?: string | null
+          lia_product_name?: string | null
+          lia_slug?: string | null
           media_items?: Json | null
           media_url_override?: string | null
           mensagem_template?: string | null
@@ -35812,6 +35860,16 @@ export type Database = {
           location: string
           name: string
           start_date: string
+        }[]
+      }
+      fn_attendance_channel_metrics: {
+        Args: { _campaign_slug?: string; _form_id?: string; _since?: string }
+        Returns: {
+          channel: string
+          conversions: number
+          leads: number
+          revenue: number
+          views: number
         }[]
       }
       fn_atualizar_parcelas_vencidas: { Args: never; Returns: undefined }
