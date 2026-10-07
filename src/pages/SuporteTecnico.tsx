@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { FunctionsHttpError, type User } from "@supabase/supabase-js";
 import { SupportClientProfile } from "@/components/support/SupportClientProfile";
+import { SupportMetricsDashboard } from "@/components/support/SupportMetricsDashboard";
 import { Helmet } from "react-helmet-async";
 import { sanitizeEquipmentLabel } from "@/utils/equipmentLabel";
 import { supabase } from "@/integrations/supabase/client";
@@ -481,7 +482,7 @@ export default function SuporteTecnico() {
             <TabsTrigger value="config">Configurações</TabsTrigger>
           </TabsList>
           <TabsContent value="kanban" className="mt-4"><SupportKanban userId={user.id} /></TabsContent>
-          <TabsContent value="bi" className="mt-4"><ComingSoon title="Dashboard de KPIs (FCR, TMA, TMR, TME, CSAT, NPS, CES, Backlog)" sprint="Sprint 5" /></TabsContent>
+          <TabsContent value="bi" className="mt-4"><SupportMetricsDashboard /></TabsContent>
           <TabsContent value="config" className="mt-4"><ComingSoon title="Categorias, tipos, checklists e respostas rápidas" sprint="Sprint 5" /></TabsContent>
         </Tabs>
       </main>
