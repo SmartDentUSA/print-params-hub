@@ -82,12 +82,118 @@ function waitTime(createdAt: string) {
   return `${Math.floor(mins / 1440)}d`;
 }
 
+type ChatMessage = { id: string; from: "client" | "agent" | "ia"; text: string; at: string; media_url?: string | null };
+
+function normalizeSender(sender: string | null | undefined): ChatMessage["from"] {
+  const s = (sender || "").toLowerCase();
+  if (["client", "cliente", "user", "lead", "inbound"].includes(s)) return "client";
+  if (["lia", "ia", "ai", "assistant", "bot"].includes(s)) return "ia";
+  return "agent";
+}
+
+function TicketConversation({ ticket, onClose }: { ticket: Ticket | null; onClose: () => void }) {
+  const phone = ticket?.lia_attendances?.telefone_normalized ?? null;
+
+  const { data: messages = [], isLoading } = useQuery({
+    queryKey: ["ticket_conversation", ticket?.id, phone],
+    enabled: !!ticket,
+    queryFn: async (): Promise<ChatMessage[]> => {
+      if (!ticket) return [];
+      const out: ChatMessage[] = [];
+
+      const { data: tm } = await supabase
+        .from("technical_ticket_messages")
+        .select("id, sender, message, created_at")
+        .eq("ticket_id", ticket.id)
+        .order("created_at", { ascending: true });
+      (tm ?? []).forEach((m: any) => out.push({ id: `tm-${m.id}`, from: normalizeSender(m.sender), text: m.message, at: m.created_at }));
+
+      if (phone) {
+        const { data: wa } = await supabase
+          .from("whatsapp_inbox")
+          .select("id, direction, message_text, media_url, created_at")
+          .eq("phone_normalized", phone)
+          .order("created_at", { ascending: true })
+          .limit(500);
+        (wa ?? []).forEach((m: any) => out.push({
+          id: `wa-${m.id}`,
+          from: m.direction === "inbound" ? "client" : "agent",
+          text: m.message_text || (m.media_url ? "[mídia]" : ""),
+          at: m.created_at,
+          media_url: m.media_url,
+        }));
+      }
+
+      if (out.length === 0 && Array.isArray((ticket as any).conversation_log)) {
+        ((ticket as any).conversation_log as any[]).forEach((m, i) => out.push({
+          id: `log-${i}`,
+          from: normalizeSender(m.sender ?? m.role),
+          text: m.message ?? m.text ?? m.content ?? "",
+          at: m.created_at ?? m.at ?? ticket.created_at,
+        }));
+      }
+
+      return out
+        .filter((m) => m.text)
+        .sort((a, b) => new Date(a.at).getTime() - new Date(b.at).getTime())
+        .filter((m, i, arr) => arr.findIndex((x) => x.text === m.text && x.at === m.at) === i);
+    },
+  });
+
+  return (
+    <Sheet open={!!ticket} onOpenChange={(o) => { if (!o) onClose(); }}>
+      <SheetContent side="right" className="w-full sm:max-w-md p-0 flex flex-col">
+        <SheetHeader className="border-b px-4 py-3">
+          <SheetTitle className="text-sm flex items-center gap-2">
+            {ticket?.lia_attendances?.nome || "Cliente"}
+            <span className="font-mono text-xs text-muted-foreground">{ticket?.ticket_full_id}</span>
+          </SheetTitle>
+          {phone && <p className="text-xs text-muted-foreground">{phone}</p>}
+        </SheetHeader>
+        <ScrollArea className="flex-1 px-4 py-3 bg-muted/30">
+          {isLoading ? (
+            <p className="text-sm text-muted-foreground text-center py-8">Carregando conversa…</p>
+          ) : messages.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-8">Nenhuma mensagem registrada neste chamado ainda.</p>
+          ) : (
+            <div className="space-y-2">
+              {messages.map((m) => (
+                <div key={m.id} className={`flex ${m.from === "client" ? "justify-start" : "justify-end"}`}>
+                  <div className={`max-w-[80%] rounded-2xl px-3 py-2 text-sm shadow-sm ${
+                    m.from === "client"
+                      ? "bg-card border rounded-tl-sm"
+                      : m.from === "ia"
+                        ? "bg-primary/10 border border-primary/20 rounded-tr-sm"
+                        : "bg-primary text-primary-foreground rounded-tr-sm"
+                  }`}>
+                    {m.from !== "client" && (
+                      <p className={`text-[10px] font-medium mb-0.5 flex items-center gap-1 ${m.from === "agent" ? "text-primary-foreground/70" : "text-primary"}`}>
+                        {m.from === "ia" ? <><Bot className="w-3 h-3" />LIA (IA)</> : <><UserIcon className="w-3 h-3" />Atendente</>}
+                      </p>
+                    )}
+                    {m.media_url && <a href={m.media_url} target="_blank" rel="noreferrer" className="text-xs underline block mb-1">Ver mídia</a>}
+                    <p className="whitespace-pre-wrap break-words">{m.text}</p>
+                    <p className={`text-[10px] mt-1 text-right ${m.from === "agent" ? "text-primary-foreground/60" : "text-muted-foreground"}`}>
+                      {new Date(m.at).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </ScrollArea>
+      </SheetContent>
+    </Sheet>
+  );
+}
+
 function SupportKanban({ userId }: { userId: string }) {
   const { toast } = useToast();
   const qc = useQueryClient();
   const [search, setSearch] = useState("");
   const [onlyMine, setOnlyMine] = useState(false);
   const [dragId, setDragId] = useState<string | null>(null);
+  const [selected, setSelected] = useState<Ticket | null>(null);
 
   const { data: tickets = [], isLoading, refetch, isFetching } = useQuery({
     queryKey: ["support_tickets"],
