@@ -23,6 +23,7 @@ type Coupon = {
   valid_from: string | null;
   valid_until: string | null;
   usage_limit: number | null;
+  usage_per_customer?: number | null;
   active: boolean;
   li_coupon_id: string | null;
   kind?: string | null;
@@ -167,7 +168,7 @@ Deno.serve(async (req) => {
 
     let query = supabase
       .from("promotional_coupons")
-      .select("id,code,discount_type,discount_value,valid_from,valid_until,usage_limit,active,li_coupon_id,kind,free_shipping")
+      .select("id,code,discount_type,discount_value,valid_from,valid_until,usage_limit,usage_per_customer,active,li_coupon_id,kind,free_shipping")
       .eq("promotional_table_id", tableId);
     if (Array.isArray(body?.coupon_ids) && body.coupon_ids.length) {
       query = query.in("id", body.coupon_ids as string[]);
@@ -200,12 +201,11 @@ Deno.serve(async (req) => {
         // A Loja Integrada só persiste as categorias quando os IDs vêm como string.
         categorias: categoryIds.map((id) => String(id)),
         validade: asDateTime(coupon.valid_until, true),
-        // USO ILIMITADO até a data final. A Loja Integrada rejeita
-        // `quantidade: null` (HTTP 400) e trata `quantidade: 0` como cupom
-        // esgotado — por isso usamos um teto altíssimo.
-        // `quantidade_por_cliente: 0` = sem limite por cliente.
-        quantidade: UNLIMITED_QTY,
-        quantidade_por_cliente: 0,
+        // quantidade = nº de cupons disponíveis; quantidade_por_cliente = usos por cliente.
+        // A Loja Integrada rejeita null e trata 0 como esgotado/bloqueado, então
+        // "ilimitado" vira um teto altíssimo nos dois campos.
+        quantidade: coupon.usage_limit && coupon.usage_limit > 0 ? coupon.usage_limit : UNLIMITED_QTY,
+        quantidade_por_cliente: coupon.usage_per_customer && coupon.usage_per_customer > 0 ? coupon.usage_per_customer : UNLIMITED_QTY,
 
       };
 
