@@ -27,5 +27,4 @@
 - Technical support access is checked in the database through `is_support_staff` (admin or support_agent roles in user_roles); support data stays isolated from commercial queues and campaigns.
 - Support ticket lifecycle timestamps (assignment, resolution, closing, reopen count/FCR) are set by a validation trigger on technical_tickets so KPIs never depend on client code.
 
-- Landing/campaign LIA capture runs through the scripted `lia-capture` edge function, which creates leads only via smart-ops-ingest-lead with a `# CHAT - ...` origin and HMAC lead tokens for follow-up writes; this keeps CRM rules identical to forms without exposing lead data.
-- Attendance channel metrics (form, specialist, whatsapp_lia) come from `attendance_channel_events` view/click/open/lead rows, with conversions counted only for deals won after the lead event; this compares channels on the same rule.
+- LIA landing/campaign capture (`lia-capture`) creates leads only via smart-ops-ingest-lead with HMAC-tokened follow-ups; channel metrics come from `attendance_channel_events`, crediting deals won after the lead event. Keeps form CRM rules and one conversion rule.
