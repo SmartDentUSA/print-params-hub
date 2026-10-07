@@ -13,10 +13,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { SmartOpsFormEditor } from "./SmartOpsFormEditor";
 import { SmartOpsMappingFieldsEditor } from "./SmartOpsMappingFieldsEditor";
 import { WORKFLOW_CELLS } from "./SmartOpsMappingFieldsEditor";
 import { SmartOpsFormFlowPreview } from "./SmartOpsFormFlowPreview";
+
+export interface CaptureButton {
+  label: string;
+  workflow_stage_target: string | null;
+  product_catalog_id: string | null;
+  product_name: string | null;
+}
 
 interface SdrForm {
   id: string;
@@ -133,6 +141,10 @@ export function SmartOpsSdrCaptacaoEditor({ form }: { form: SdrForm }) {
   const [campaignIdentifier, setCampaignIdentifier] = useState(form.campaign_identifier ?? "");
   const [productCatalogId, setProductCatalogId] = useState(form.product_catalog_id ?? "__none__");
   const [workflowStageTarget, setWorkflowStageTarget] = useState(form.workflow_stage_target ?? "__none__");
+  const [captureButtonsEnabled, setCaptureButtonsEnabled] = useState<boolean>(!!(form as any).capture_buttons_enabled);
+  const [captureButtons, setCaptureButtons] = useState<CaptureButton[]>(
+    Array.isArray((form as any).capture_buttons) ? (form as any).capture_buttons : [],
+  );
   const [mediaType, setMediaType] = useState<"image" | "video">(
     form.media_type === "video" ? "video" : "image"
   );
@@ -230,6 +242,10 @@ export function SmartOpsSdrCaptacaoEditor({ form }: { form: SdrForm }) {
         campaign_identifier: campaignIdentifier || null,
         product_catalog_id: productCatalogId === "__none__" ? null : (productCatalogId || null),
         workflow_stage_target: workflowStageTarget === "__none__" ? null : (workflowStageTarget || null),
+        capture_buttons_enabled: captureButtonsEnabled,
+        capture_buttons: captureButtons
+          .map((b) => ({ ...b, label: (b.label || "").trim() }))
+          .filter((b) => b.label),
         media_type: mediaType,
         video_id: mediaType === "video" ? (videoId || null) : null,
         video_thumbnail_url: mediaType === "video" ? (videoThumbnailUrl || null) : null,
@@ -538,6 +554,81 @@ export function SmartOpsSdrCaptacaoEditor({ form }: { form: SdrForm }) {
               </SelectContent>
             </Select>
           </div>
+        </div>
+
+        {/* Botões de interesse no formulário */}
+        <div className="rounded-lg border p-4 space-y-3">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <Label className="text-sm font-semibold">Habilitar botões no formulário</Label>
+              <p className="text-[11px] text-muted-foreground">
+                O lead escolhe um botão; a etapa do Workflow 7×3 e o produto de interesse do botão são gravados no mapeamento e no CRM (no lugar da seleção única acima).
+              </p>
+            </div>
+            <Switch checked={captureButtonsEnabled} onCheckedChange={setCaptureButtonsEnabled} />
+          </div>
+          {captureButtonsEnabled && (
+            <div className="space-y-3">
+              {captureButtons.map((b, i) => {
+                const upd = (patch: Partial<CaptureButton>) =>
+                  setCaptureButtons((arr) => arr.map((x, j) => (j === i ? { ...x, ...patch } : x)));
+                return (
+                  <div key={i} className="rounded-md border bg-muted/30 p-3 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-semibold">Botão {i + 1}</span>
+                      <Button type="button" size="sm" variant="ghost" onClick={() => setCaptureButtons((arr) => arr.filter((_, j) => j !== i))}>
+                        <X className="w-4 h-4" />
+                      </Button>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                      <div>
+                        <Label className="text-xs">Etapa SDR / Interesse no Workflow 7×3</Label>
+                        <Select value={b.workflow_stage_target || "__none__"} onValueChange={(v) => upd({ workflow_stage_target: v === "__none__" ? null : v })}>
+                          <SelectTrigger><SelectValue placeholder="Etapa de captura" /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="__none__">— Nenhuma —</SelectItem>
+                            {WORKFLOW_CELLS.map((cell) => (
+                              <SelectItem key={cell.value} value={cell.value}>{cell.label}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <Label className="text-xs">Produto de interesse</Label>
+                        <Select
+                          value={b.product_catalog_id || "__none__"}
+                          onValueChange={(v) => {
+                            const opt = catalogOptions.find((o) => o.id === v);
+                            upd({ product_catalog_id: v === "__none__" ? null : v, product_name: opt?.name ?? null });
+                          }}
+                        >
+                          <SelectTrigger><SelectValue placeholder="Produto" /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="__none__">— Nenhum —</SelectItem>
+                            {catalogOptions.map((opt) => (
+                              <SelectItem key={opt.id} value={opt.id}>{opt.name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <Label className="text-xs">Nome do botão no formulário</Label>
+                        <Input value={b.label} onChange={(e) => upd({ label: e.target.value })} placeholder="ex: Quero um scanner" />
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setCaptureButtons((arr) => [...arr, { label: "", workflow_stage_target: null, product_catalog_id: null, product_name: null }])}
+              >
+                + Adicionar outro botão
+              </Button>
+            </div>
+          )}
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
