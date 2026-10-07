@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import LiaCampaignLinksTab from "@/components/lia/LiaCampaignLinksTab";
 import { useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { CampaignLinkPicker } from "@/components/smartops/CampaignLinkPicker";
@@ -2799,6 +2800,7 @@ export function SmartOpsCampaigns() {
           <TabsTrigger value="grupos-wa">Grupos WA</TabsTrigger>
           <TabsTrigger value="formularios-meta">Origens</TabsTrigger>
           <TabsTrigger value="anuncios">Anúncios</TabsTrigger>
+          <TabsTrigger value="links-lia">Links da LIA</TabsTrigger>
           <TabsTrigger value="pushapp">PushApp</TabsTrigger>
           <TabsTrigger value="email-sequencial">Automação e-mails sequenciais</TabsTrigger>
         </TabsList>
@@ -2828,6 +2830,9 @@ export function SmartOpsCampaigns() {
         </TabsContent>
         <TabsContent value="anuncios">
           <ZernioAdsTab />
+        </TabsContent>
+        <TabsContent value="links-lia">
+          <LiaCampaignLinksTab />
         </TabsContent>
         <TabsContent value="pushapp">
           <PushAppTab />
