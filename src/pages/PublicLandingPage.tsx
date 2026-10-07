@@ -3,7 +3,8 @@ import { useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Loader2 } from "lucide-react";
-import { PremiumLandingTemplate, type LPContent } from "@/components/lp/PremiumLandingTemplate";
+import { PremiumLandingTemplate, WhatsAppGlyph, type LPContent } from "@/components/lp/PremiumLandingTemplate";
+import { trackAttendanceEvent, buildLiaUrl } from "@/lib/attendanceChannel";
 
 type LandingPage = {
   id: string;
@@ -26,6 +27,8 @@ export default function PublicLandingPage() {
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
+  const [modalChannel, setModalChannel] = useState<"form" | "specialist">("form");
+  const [liaOpen, setLiaOpen] = useState(false);
 
   useEffect(() => {
     if (!slug) return;
@@ -69,9 +72,22 @@ export default function PublicLandingPage() {
   }, [lp]);
 
   const iframeUrl = useMemo(
-    () => (lp ? `/f/${lp.smartops_forms.slug}?embed=1&utm_source=landing_page` : null),
-    [lp],
+    () => (lp ? `/f/${lp.smartops_forms.slug}?embed=1&utm_source=landing_page&channel=${modalChannel}` : null),
+    [lp, modalChannel],
   );
+
+  // Visualização da landing (base do canal formulário)
+  useEffect(() => {
+    if (lp) trackAttendanceEvent({ channel: "form", event_type: "view", form_id: lp.smartops_forms.id });
+  }, [lp]);
+
+  const openLia = (source: string) => {
+    if (!lp) return;
+    trackAttendanceEvent({ channel: "whatsapp_lia", event_type: "click", form_id: lp.smartops_forms.id });
+    void source;
+    setLiaOpen(true);
+  };
+  const liaUrl = lp ? buildLiaUrl({ formId: lp.smartops_forms.id }) + "&utm_source=landing_page&utm_medium=whatsapp_lia" : "";
 
   const inlineFormUrl = useMemo(
     () =>
@@ -133,7 +149,13 @@ export default function PublicLandingPage() {
       <PremiumLandingTemplate
         content={lp.content}
         heroImageUrl={lp.hero_image_url}
-        onCta={() => setModalOpen(true)}
+        onCta={(source) => {
+          const ch = source === "hero-secondary" ? "specialist" : "form";
+          if (ch === "specialist") trackAttendanceEvent({ channel: "specialist", event_type: "click", form_id: lp.smartops_forms.id });
+          setModalChannel(ch);
+          setModalOpen(true);
+        }}
+        onWhatsApp={openLia}
         formSlot={
           inlineFormUrl ? (
             <iframe
@@ -164,6 +186,22 @@ export default function PublicLandingPage() {
               className="w-full h-[80vh] border-0 bg-white"
             />
           )}
+        </DialogContent>
+      </Dialog>
+      <button
+        type="button"
+        onClick={() => openLia("floating")}
+        aria-label="Falar pelo WhatsApp com a Dra. LIA"
+        className="fixed bottom-5 right-5 z-40 inline-flex h-14 w-14 items-center justify-center rounded-full text-white shadow-lg transition hover:scale-105"
+        style={{ background: "var(--lp-whatsapp, #25D366)" }}
+      >
+        <WhatsAppGlyph className="h-7 w-7" />
+      </button>
+      <Dialog open={liaOpen} onOpenChange={setLiaOpen}>
+        <DialogContent className="max-w-md p-0 overflow-hidden">
+          <DialogTitle className="sr-only">Atendimento Dra. LIA</DialogTitle>
+          <DialogDescription className="sr-only">Converse com a Dra. LIA</DialogDescription>
+          {liaOpen && <iframe title="Dra. LIA" src={liaUrl} className="w-full h-[80vh] border-0" />}
         </DialogContent>
       </Dialog>
     </>

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from "react";
+import { trackAttendanceEvent } from "@/lib/attendanceChannel";
 import { useParams, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -752,6 +753,10 @@ export default function PublicFormPage() {
 
       // Gravar respostas dos campos de mapeamento
       const leadId = ingestData?.lead_id;
+      if (leadId) {
+        const ch = searchParams.get("channel") === "specialist" ? "specialist" : "form";
+        trackAttendanceEvent({ channel: ch, event_type: "lead", form_id: form.id, lead_id: leadId, campaign_slug: searchParams.get("c") });
+      }
       // Vincula a navegação anônima desta sessão ao lead identificado
       if (leadId) void linkLeadToPageSession(leadId);
       // Grava TODAS as respostas dos campos (qualquer tipo de formulário),
