@@ -1,0 +1,1 @@
+ALTER TABLE public.support_ticket_categories ADD COLUMN IF NOT EXISTS product_name TEXT;
