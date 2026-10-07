@@ -11,6 +11,7 @@ import { PushOptInGate } from "./components/PushOptInGate";
 
 // Lazy: heavy / admin / non-landing routes
 const AdminViewSecure = lazy(() => import("./pages/AdminViewSecure"));
+const SuporteTecnico = lazy(() => import("./pages/SuporteTecnico"));
 const ClientLogin = lazy(() => import("./pages/ClientLogin"));
 const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 const KnowledgeBase = lazy(() => import("./pages/KnowledgeBase"));
@@ -105,6 +106,7 @@ const App = () => (
      <Route path="/entrar/:token" element={<ClientLogin />} />
      <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/painel-comercial" element={<PainelComercial />} />
+      <Route path="/suporte-tecnico" element={<SuporteTecnico />} />
       <Route path="/admin/form-flow/:formId" element={<SmartOpsFormFlowStandalone />} />
       <Route path="/smartops/wa-flow-visualizer" element={<WaFlowVisualizerPage />} />
 
