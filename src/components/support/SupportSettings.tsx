@@ -348,25 +348,7 @@ export function SupportSettings() {
       </TabsList>
 
       <TabsContent value="cats" className="mt-4">
-        <Section table="support_ticket_categories" title="Categorias e subcategorias" order="sort_order" rows={catRows}
-          fields={[
-            { key: "name", label: "Nome", type: "text", required: true },
-            { key: "parent_id", label: "Categoria pai (deixe vazio para principal)", type: "select", options: parentOpts },
-            { key: "product_category", label: "Categoria de produto", type: "text" },
-            { key: "product_subcategory", label: "Subcategoria de produto", type: "text" },
-            { key: "workflow_stage", label: "Etapa do fluxo digital (7 etapas)", type: "select", options: stageOpts },
-            { key: "description", label: "Descrição", type: "textarea" },
-            { key: "sort_order", label: "Ordem", type: "number" },
-          ]}
-          summary={(r) => (
-            <div>
-              <p className="font-medium">{r.parent_id ? <span className="text-muted-foreground">{catName(r.parent_id)} ↳ </span> : null}{r.name}</p>
-              <div className="mt-1 flex flex-wrap gap-1">
-                {r.workflow_stage && <Badge variant="secondary">Etapa {r.workflow_stage}: {STAGES[r.workflow_stage - 1]}</Badge>}
-                {r.product_category && <Badge variant="outline">{r.product_category}{r.product_subcategory ? ` / ${r.product_subcategory}` : ""}</Badge>}
-              </div>
-            </div>
-          )} />
+        <CategorySection rows={catRows} />
       </TabsContent>
 
       <TabsContent value="types" className="mt-4">
