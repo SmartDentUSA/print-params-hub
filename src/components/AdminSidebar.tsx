@@ -50,6 +50,7 @@ interface SidebarGroupDef {
   icon: React.ElementType;
   items: SidebarItem[];
   adminOnly?: boolean;
+  supportOnly?: boolean;
   defaultOpen?: boolean;
 }
 
@@ -116,6 +117,15 @@ const sidebarGroups: SidebarGroupDef[] = [
     items: [
       { id: "tools", title: "Ferramentas", icon: Wrench },
       { id: "pandavideo-test", title: "PandaVideo", icon: Video },
+    ],
+  },
+  {
+    label: "Suporte Técnico",
+    icon: Headset,
+    supportOnly: true,
+    defaultOpen: true,
+    items: [
+      { id: "suporte-tecnico", title: "Atendimento & Tickets", icon: Headset },
     ],
   },
   {
