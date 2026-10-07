@@ -9,7 +9,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Headset, LogOut, RefreshCw, Search, ShieldAlert, Clock, ArrowLeft } from "lucide-react";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Headset, LogOut, RefreshCw, Search, ShieldAlert, Clock, ArrowLeft, Bot, User as UserIcon } from "lucide-react";
 
 export const SUPPORT_COLUMNS = [
   { key: "triagem", label: "Triagem / Novo (IA)" },
