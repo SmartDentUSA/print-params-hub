@@ -25,6 +25,9 @@ export default function ProfessionalKolPerformance({ formIds, coupons }: Props) 
     return s + (p ? (c.receita * p) / 100 : 0);
   }, 0);
   const hasCoupons = (coupons ?? []).some((c) => (c.code || "").trim());
+  // % de comissão do KOL usada também para o comissionamento da receita dos formulários
+  const kolCommissionPct =
+    (coupons ?? []).find((c) => c.commission_percent != null)?.commission_percent ?? null;
 
   return (
     <Card>
@@ -54,27 +57,39 @@ export default function ProfessionalKolPerformance({ formIds, coupons }: Props) 
                 <thead className="bg-muted/40 text-[11px] uppercase tracking-wide text-muted-foreground">
                   <tr>
                     <th className="px-2 py-2 text-left">Formulário</th>
+                    <th className="px-2 py-2 text-right">Visitas</th>
                     <th className="px-2 py-2 text-right">Leads gerados</th>
                     <th className="px-2 py-2 text-right">Conversão</th>
                     <th className="px-2 py-2 text-right">Receita gerada</th>
+                    <th className="px-2 py-2 text-right">Comissionamento</th>
                   </tr>
                 </thead>
                 <tbody>
                   {perf.forms.map((f) => (
                     <tr key={f.form_id} className="border-t">
                       <td className="px-2 py-2">{f.form_name}</td>
+                      <td className="px-2 py-2 text-right">
+                        <span className="font-medium">{f.views}</span>
+                        {f.visitors > 0 && (
+                          <span className="ml-1 text-xs text-muted-foreground">({f.visitors} únicos)</span>
+                        )}
+                      </td>
                       <td className="px-2 py-2 text-right font-medium">{f.leads}</td>
                       <td className="px-2 py-2 text-right">
                         <span className="font-medium">{(f.conversao * 100).toFixed(1)}%</span>
                         <span className="ml-1 text-xs text-muted-foreground">({f.deals_ganhos} ganhos)</span>
                       </td>
                       <td className="px-2 py-2 text-right font-medium">{money(f.receita)}</td>
+                      <td className="px-2 py-2 text-right font-medium">
+                        {kolCommissionPct != null ? money((f.receita * kolCommissionPct) / 100) : "—"}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
                 <tfoot className="border-t bg-muted/20 text-xs">
                   <tr>
                     <td className="px-2 py-2 uppercase text-muted-foreground">Total</td>
+                    <td className="px-2 py-2 text-right font-bold">{perf.totals.views}</td>
                     <td className="px-2 py-2 text-right font-bold">{perf.totals.leads}</td>
                     <td className="px-2 py-2 text-right font-bold">
                       {perf.totals.leads > 0
@@ -83,14 +98,18 @@ export default function ProfessionalKolPerformance({ formIds, coupons }: Props) 
                       %
                     </td>
                     <td className="px-2 py-2 text-right font-bold">{money(perf.totals.receita)}</td>
+                    <td className="px-2 py-2 text-right font-bold">
+                      {kolCommissionPct != null ? money((perf.totals.receita * kolCommissionPct) / 100) : "—"}
+                    </td>
                   </tr>
                 </tfoot>
               </table>
             </div>
           )}
           <p className="text-[11px] text-muted-foreground">
-            Conversão = leads que chegaram pelos formulários de indicação e fecharam negócio ganho no CRM.
-            Receita = soma dos negócios ganhos desses leads.
+            Visitas = acessos à página do formulário (visitantes únicos entre parênteses). Conversão = leads que
+            chegaram pelos formulários de indicação e fecharam negócio ganho no CRM. Receita = soma dos negócios
+            ganhos desses leads. Comissionamento = receita × % de comissão do KOL definida no cupom.
           </p>
         </div>
 
