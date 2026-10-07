@@ -27,6 +27,8 @@ export interface KolCoupon {
   code: string;
   active_from: string | null;
   active_to: string | null;
+  /** % de comissão do profissional sobre as compras feitas com este cupom. */
+  commission_percent?: number | null;
 }
 
 interface Props {
@@ -98,7 +100,7 @@ export default function ProfessionalKolCommercial({
 
   const removeRule = (i: number) => onCommissionsChange(commissions.filter((_, idx) => idx !== i));
 
-  const addCoupon = () => onCouponsChange([...coupons, { code: "", active_from: null, active_to: null }]);
+  const addCoupon = () => onCouponsChange([...coupons, { code: "", active_from: null, active_to: null, commission_percent: null }]);
   const patchCoupon = (i: number, p: Partial<KolCoupon>) =>
     onCouponsChange(coupons.map((c, idx) => (idx === i ? { ...c, ...p } : c)));
   const removeCoupon = (i: number) => onCouponsChange(coupons.filter((_, idx) => idx !== i));
@@ -166,7 +168,7 @@ export default function ProfessionalKolCommercial({
           ) : (
             <div className="space-y-2">
               {coupons.map((c, i) => (
-                <div key={i} className="grid grid-cols-1 md:grid-cols-[1fr_180px_180px_40px] gap-2 items-end rounded-md border p-2">
+                <div key={i} className="grid grid-cols-1 md:grid-cols-[1fr_180px_180px_130px_40px] gap-2 items-end rounded-md border p-2">
                   <div>
                     <Label className="text-xs">Cupom</Label>
                     <Input
@@ -193,6 +195,22 @@ export default function ProfessionalKolCommercial({
                       disabled={disabled}
                       className="w-full"
                       placeholder="Sem fim"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs">% comissão KOL</Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      max={100}
+                      step="0.1"
+                      value={c.commission_percent ?? ""}
+                      onChange={(e) => {
+                        const v = e.target.value === "" ? null : Math.min(100, Math.max(0, Number(e.target.value)));
+                        patchCoupon(i, { commission_percent: v });
+                      }}
+                      disabled={disabled}
+                      placeholder="Ex: 5"
                     />
                   </div>
                   <Button type="button" size="icon" variant="ghost" onClick={() => removeCoupon(i)} disabled={disabled}>
