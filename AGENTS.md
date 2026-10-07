@@ -19,3 +19,6 @@
 - Proposal item expansion failures never block saving the deal; one bad item used to hide every deal of the lead.
 - Lead cards and timeline resolve capture event names through shared event/form references; timeline entries use their own references rather than the lead's latest event to avoid misattributing historical submissions.
 - PipeRun deal sync writes `telefone_normalized` alongside `telefone_raw` using the shared Brazilian phone normalizer; lead cards, search and phone matching read only the normalized phone.
+
+- Technical support access is checked in the database through `is_support_staff` (admin or support_agent roles in user_roles); support data stays isolated from commercial queues and campaigns.
+- Support ticket lifecycle timestamps (assignment, resolution, closing, reopen count/FCR) are set by a validation trigger on technical_tickets so KPIs never depend on client code.
