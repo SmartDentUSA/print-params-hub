@@ -123,7 +123,7 @@ export function SupportMetricsDashboard() {
       const key = t.assigned_user_id ?? "sem-atendente";
       if (!map.has(key)) {
         map.set(key, {
-          name: t.assigned_user_id ? (agentNames[t.assigned_user_id] ?? "Atendente") : "Não atribuído",
+          name: t.assigned_agent_name ?? (t.assigned_user_id ? "Atendente" : "Não atribuído"),
           total: 0, resolved: 0, fcrYes: 0, fcrBase: 0, tma: [], csat: [],
         });
       }
