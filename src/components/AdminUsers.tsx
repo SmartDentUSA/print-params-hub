@@ -20,17 +20,18 @@ interface UserData {
   email: string;
   created_at: string;
   last_sign_in_at?: string | null;
-  roles: Array<'admin' | 'author' | 'user' | 'distribuidor'>;
+  roles: Array<'admin' | 'author' | 'user' | 'distribuidor' | 'support_agent'>;
   email_confirmed: boolean;
 }
 
-type Role = 'admin' | 'author' | 'user' | 'distribuidor';
+type Role = 'admin' | 'author' | 'user' | 'distribuidor' | 'support_agent';
 
 const ROLE_LABEL: Record<Role, string> = {
   admin: 'Admin',
   author: 'Autor',
   distribuidor: 'Distribuição',
   user: 'Usuário',
+  support_agent: 'Suporte Técnico',
 };
 
 export function AdminUsers() {
@@ -41,7 +42,7 @@ export function AdminUsers() {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [newUserEmail, setNewUserEmail] = useState("");
   const [newUserPassword, setNewUserPassword] = useState("");
-  const [newUserRole, setNewUserRole] = useState<'admin' | 'author' | 'user' | 'distribuidor'>('user');
+  const [newUserRole, setNewUserRole] = useState<Role>('user');
   const [isCreating, setIsCreating] = useState(false);
   const [createdCredentials, setCreatedCredentials] = useState<{email: string, password: string} | null>(null);
   const { toast } = useToast();
