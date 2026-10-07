@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Phone, Mail, MapPin, Wrench, GraduationCap, Ticket, UserRound, RefreshCw, AlertCircle, Activity } from 'lucide-react';
+import { TicketClassification } from './TicketClassification';
 
 type HistoryTicket = { id: string; ticket_full_id: string; equipment: string | null; serial_number: string | null; kanban_status: string; created_at: string };
 type ActivityEntry = { id: string; event_type: string; event_timestamp: string; entity_name: string | null; source_channel: string | null };
@@ -71,6 +72,7 @@ export function SupportClientProfile({ ticketId, equipment, serial, fallbackName
     {isLoading && <p className="p-5 text-sm text-muted-foreground">Carregando ficha do cliente…</p>}
     {error && <div className="p-5 text-sm space-y-3"><p className="flex gap-2 text-destructive"><AlertCircle className="h-4 w-4 shrink-0" />{error.message}</p><Button variant="outline" size="sm" onClick={() => refetch()}><RefreshCw className="h-4 w-4 mr-2" />Tentar novamente</Button></div>}
     {data && !client && <p className="p-5 text-sm text-muted-foreground">Cadastro canônico do cliente não disponível para este chamado.</p>}
+    <TicketClassification ticketId={ticketId} />
     <Tabs defaultValue="equipment" className="p-6 lg:p-8">
       <TabsList className="w-full grid grid-cols-3"><TabsTrigger value="equipment">Ficha</TabsTrigger><TabsTrigger value="tickets">Chamados</TabsTrigger><TabsTrigger value="timeline">Timeline</TabsTrigger></TabsList>
       <TabsContent value="equipment" className="mt-5 space-y-6">
