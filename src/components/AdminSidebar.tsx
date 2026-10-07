@@ -50,6 +50,7 @@ interface SidebarGroupDef {
   icon: React.ElementType;
   items: SidebarItem[];
   adminOnly?: boolean;
+  supportOnly?: boolean;
   defaultOpen?: boolean;
 }
 
@@ -119,6 +120,15 @@ const sidebarGroups: SidebarGroupDef[] = [
     ],
   },
   {
+    label: "Suporte Técnico",
+    icon: Headset,
+    supportOnly: true,
+    defaultOpen: true,
+    items: [
+      { id: "suporte-tecnico", title: "Atendimento & Tickets", icon: Headset },
+    ],
+  },
+  {
     label: "Sistema",
     icon: Settings,
     adminOnly: true,
@@ -135,7 +145,9 @@ export function AdminSidebar({ activeSection, onSectionChange, isAdmin, isAuthor
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
 
-  let visibleGroups = sidebarGroups.filter(g => !g.adminOnly || isAdmin);
+  let visibleGroups = sidebarGroups.filter(g =>
+    (g.adminOnly ? isAdmin : true) && (g.supportOnly ? (isAdmin || isSupport) : true)
+  );
   if (isDistribuidor && !isAdmin) {
     visibleGroups = [{
       label: "Smart Ops",
@@ -203,14 +215,6 @@ export function AdminSidebar({ activeSection, onSectionChange, isAdmin, isAuthor
       <SidebarFooter className="p-3 border-t border-border space-y-2">
         {!collapsed && (
           <p className="text-xs text-muted-foreground truncate px-2">{userEmail}</p>
-        )}
-        {(isAdmin || isSupport) && (
-          <Link to="/suporte-tecnico" className="block">
-            <Button variant="outline" size="sm" className="w-full">
-              <Headset className="w-3.5 h-3.5" />
-              {!collapsed && <span className="ml-1.5">Suporte Técnico</span>}
-            </Button>
-          </Link>
         )}
         <Link to="/social" className="block">
           <Button variant="outline" size="sm" className="w-full">

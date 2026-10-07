@@ -367,7 +367,13 @@ export default function AdminViewSecure() {
       <div className="min-h-screen flex w-full bg-background">
         <AdminSidebar
           activeSection={activeSection}
-          onSectionChange={setActiveSection}
+          onSectionChange={(section) => {
+            if (section === 'suporte-tecnico') {
+              navigate('/suporte-tecnico');
+              return;
+            }
+            setActiveSection(section);
+          }}
           isAdmin={isAdmin}
           isAuthor={isAuthor}
           isDistribuidor={isDistribuidor}
