@@ -23955,6 +23955,8 @@ export type Database = {
           button_radius: string | null
           button_shadow: string | null
           campaign_identifier: string | null
+          capture_buttons: Json
+          capture_buttons_enabled: boolean
           created_at: string
           cta_text: string | null
           custom_css: string | null
@@ -24027,6 +24029,8 @@ export type Database = {
           button_radius?: string | null
           button_shadow?: string | null
           campaign_identifier?: string | null
+          capture_buttons?: Json
+          capture_buttons_enabled?: boolean
           created_at?: string
           cta_text?: string | null
           custom_css?: string | null
@@ -24099,6 +24103,8 @@ export type Database = {
           button_radius?: string | null
           button_shadow?: string | null
           campaign_identifier?: string | null
+          capture_buttons?: Json
+          capture_buttons_enabled?: boolean
           created_at?: string
           cta_text?: string | null
           custom_css?: string | null
