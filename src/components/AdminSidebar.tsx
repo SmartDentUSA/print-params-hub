@@ -216,14 +216,6 @@ export function AdminSidebar({ activeSection, onSectionChange, isAdmin, isAuthor
         {!collapsed && (
           <p className="text-xs text-muted-foreground truncate px-2">{userEmail}</p>
         )}
-        {(isAdmin || isSupport) && (
-          <Link to="/suporte-tecnico" className="block">
-            <Button variant="outline" size="sm" className="w-full">
-              <Headset className="w-3.5 h-3.5" />
-              {!collapsed && <span className="ml-1.5">Suporte Técnico</span>}
-            </Button>
-          </Link>
-        )}
         <Link to="/social" className="block">
           <Button variant="outline" size="sm" className="w-full">
             <Share2 className="w-3.5 h-3.5" />
