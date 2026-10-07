@@ -26550,6 +26550,7 @@ export type Database = {
           name: string
           parent_id: string | null
           product_category: string | null
+          product_name: string | null
           product_subcategory: string | null
           sort_order: number
           updated_at: string
@@ -26564,6 +26565,7 @@ export type Database = {
           name: string
           parent_id?: string | null
           product_category?: string | null
+          product_name?: string | null
           product_subcategory?: string | null
           sort_order?: number
           updated_at?: string
@@ -26578,6 +26580,7 @@ export type Database = {
           name?: string
           parent_id?: string | null
           product_category?: string | null
+          product_name?: string | null
           product_subcategory?: string | null
           sort_order?: number
           updated_at?: string
