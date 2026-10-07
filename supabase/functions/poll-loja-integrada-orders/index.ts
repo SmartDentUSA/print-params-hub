@@ -118,8 +118,12 @@ Deno.serve(async (req) => {
       }
     }
 
-    // ── Auto-pagination loop ──
-    let offset = body.offset || 0;
+    // ── Newest-first pagination ──
+    // The API ignores since_atualizado and returns oldest-first, so we read the total
+    // count and walk pages backwards from the end, filtering by date locally.
+    const head = await apiFetch(`/pedido/?limit=1&offset=0`);
+    const totalCount: number = Number(head?.meta?.total_count || 0);
+    let offset = typeof body.offset === 'number' ? body.offset : Math.max(totalCount - batchSize, 0);
     let page = 0;
     let totalProcessed = 0;
     let totalIgnored = 0;
@@ -127,32 +131,36 @@ Deno.serve(async (req) => {
     let totalClienteResolved = 0;
     let timedOut = false;
     let maxTimestamp = since || '';
+    const sinceCmp = since ? since.replace('T', ' ').slice(0, 19) : '';
+    const tsOf = (p: any) => String(p.data_modificacao || p.data_criacao || '').replace('T', ' ').slice(0, 19);
     const allResults: Array<{ id: unknown; success: boolean; error?: string }> = [];
 
-    while (page < maxPages) {
-      // Timeout guard before fetching next page
+    while (page < maxPages && offset >= 0) {
       if (Date.now() - startTime > TIMEOUT_MS) {
         console.warn('[poll-li] ⏱ Timeout guard before page fetch — breaking');
         timedOut = true;
         break;
       }
 
-      // Ordenação reversa: recentes primeiro
-      let endpoint = `/pedido/?limit=${batchSize}&offset=${offset}`;
-      if (since) endpoint += `&since_atualizado=${encodeURIComponent(since.replace('T', ' ').slice(0, 19))}`;
-
-      console.log(`[poll-li] Page ${page + 1}/${maxPages}: ${endpoint}`);
+      const endpoint = `/pedido/?limit=${batchSize}&offset=${offset}`;
+      console.log(`[poll-li] Page ${page + 1}/${maxPages} (total=${totalCount}): ${endpoint}`);
 
       const res = await apiFetch(endpoint);
-      const pedidos = res.objects || [];
+      const raw = res.objects || [];
 
-      if (!Array.isArray(pedidos) || pedidos.length === 0) {
+      if (!Array.isArray(raw) || raw.length === 0) {
         console.log(`[poll-li] No more orders at offset ${offset}`);
         break;
       }
 
+      // newest first within the page, keep only those changed since cursor
+      const sorted = [...raw].sort((a, b) => tsOf(b).localeCompare(tsOf(a)));
+      const pedidos = sinceCmp ? sorted.filter((p) => tsOf(p) >= sinceCmp) : sorted;
+      const reachedOld = sinceCmp ? sorted.some((p) => tsOf(p) && tsOf(p) < sinceCmp) : false;
+
       totalFetched += pedidos.length;
-      console.log(`[poll-li] Page ${page + 1}: ${pedidos.length} orders fetched`);
+      console.log(`[poll-li] Page ${page + 1}: ${raw.length} fetched, ${pedidos.length} recent`);
+
 
       for (const pedido of pedidos) {
         // Timeout guard before each order
@@ -205,19 +213,19 @@ Deno.serve(async (req) => {
 
       if (timedOut) break;
 
-      const hasMore = !!res.meta?.next;
-      if (!hasMore || pedidos.length < batchSize) {
-        console.log(`[poll-li] No more pages (hasMore=${hasMore}, fetched=${pedidos.length})`);
+      if (reachedOld || offset === 0) {
+        console.log(`[poll-li] Reached orders older than cursor (or start) — done`);
         break;
       }
 
-      offset += batchSize;
+      offset = Math.max(offset - batchSize, 0);
       page++;
       await new Promise(r => setTimeout(r, RATE_LIMIT_DELAY));
     }
 
     // ── Persist cursor ──
-    if (maxTimestamp && maxTimestamp !== (since || '')) {
+    // Only advance the cursor after a complete pass, so a timeout never skips older unprocessed orders.
+    if (!timedOut && maxTimestamp && maxTimestamp !== (since || '')) {
       const { error: cursorErr } = await supabase
         .from('omie_sync_cursors')
         .upsert({ key: 'li_poll_since', value: maxTimestamp }, { onConflict: 'key' });
