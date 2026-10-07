@@ -107,8 +107,9 @@ export default function ProfessionalKolPerformance({ formIds, coupons }: Props) 
             </div>
           )}
           <p className="text-[11px] text-muted-foreground">
-            Conversão = leads que chegaram pelos formulários de indicação e fecharam negócio ganho no CRM.
-            Receita = soma dos negócios ganhos desses leads.
+            Visitas = acessos à página do formulário (visitantes únicos entre parênteses). Conversão = leads que
+            chegaram pelos formulários de indicação e fecharam negócio ganho no CRM. Receita = soma dos negócios
+            ganhos desses leads. Comissionamento = receita × % de comissão do KOL definida no cupom.
           </p>
         </div>
 
