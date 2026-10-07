@@ -277,7 +277,7 @@ function TicketRoom({ ticket, userId, onBack }: { ticket: Ticket; userId: string
   );
 }
 
-function SupportKanban({ userId }: { userId: string }) {
+function SupportKanban({ userId, userEmail }: { userId: string; userEmail: string }) {
   const { toast } = useToast();
   const qc = useQueryClient();
   const [search, setSearch] = useState("");
@@ -333,7 +333,10 @@ function SupportKanban({ userId }: { userId: string }) {
     if (!t || t.kanban_status === status) return;
     qc.setQueryData<Ticket[]>(["support_tickets"], (old) => old?.map((x) => x.id === id ? { ...x, kanban_status: status } : x));
     const patch: Record<string, unknown> = { kanban_status: status };
-    if (status === "em_atendimento" && !t.assigned_user_id) patch.assigned_user_id = userId;
+    if (status === "em_atendimento" && !t.assigned_user_id) {
+      patch.assigned_user_id = userId;
+      patch.assigned_agent_name = userEmail;
+    }
     if (status === "fila") patch.queued_at = new Date().toISOString();
     const { error } = await supabase.from("technical_tickets").update(patch as any).eq("id", id);
     if (error) {
@@ -344,7 +347,7 @@ function SupportKanban({ userId }: { userId: string }) {
 
   const assumeTicket = async (id: string) => {
     const { error } = await supabase.from("technical_tickets")
-      .update({ assigned_user_id: userId, kanban_status: "em_atendimento", ai_paused: true } as any).eq("id", id);
+      .update({ assigned_user_id: userId, assigned_agent_name: userEmail, kanban_status: "em_atendimento", ai_paused: true } as any).eq("id", id);
     if (error) toast({ title: "Erro ao assumir", description: error.message, variant: "destructive" });
     else toast({ title: "Chamado assumido", description: "A IA foi pausada nesta conversa." });
     refetch();
@@ -481,7 +484,7 @@ export default function SuporteTecnico() {
             <TabsTrigger value="bi">BI & Métricas</TabsTrigger>
             <TabsTrigger value="config">Configurações</TabsTrigger>
           </TabsList>
-          <TabsContent value="kanban" className="mt-4"><SupportKanban userId={user.id} /></TabsContent>
+          <TabsContent value="kanban" className="mt-4"><SupportKanban userId={user.id} userEmail={user.email ?? ""} /></TabsContent>
           <TabsContent value="bi" className="mt-4"><SupportMetricsDashboard /></TabsContent>
           <TabsContent value="config" className="mt-4"><ComingSoon title="Categorias, tipos, checklists e respostas rápidas" sprint="Sprint 5" /></TabsContent>
         </Tabs>
