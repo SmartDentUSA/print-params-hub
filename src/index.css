@@ -180,3 +180,32 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Isolated support workspace palette from the selected direction. */
+.support-workspace {
+  --background: 180 16% 96%;
+  --foreground: 185 100% 16.5%;
+  --card: 0 0% 100%;
+  --card-foreground: 185 100% 16.5%;
+  --primary: 185 100% 16.5%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 180 16% 96%;
+  --secondary-foreground: 185 100% 16.5%;
+  --muted: 180 16% 96%;
+  --muted-foreground: 185 15% 42%;
+  --border: 185 15% 88%;
+  --input: 185 15% 88%;
+  --ring: 185 100% 16.5%;
+  --destructive: 4 74% 49%;
+  --destructive-foreground: 0 0% 100%;
+  font-family: 'Manrope', sans-serif;
+  letter-spacing: 0;
+}
+.support-workspace h1, .support-workspace h2, .support-workspace h3 {
+  font-family: 'Sora', sans-serif;
+  letter-spacing: 0;
+}
+.support-workspace .support-equipment-row {
+  background: hsl(var(--muted));
+  border-left: 4px solid hsl(var(--primary));
+}
