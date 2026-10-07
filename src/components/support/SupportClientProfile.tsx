@@ -41,7 +41,7 @@ export function SupportClientProfile({ ticketId, equipment, serial, fallbackName
   const name = client ? resolveLeadDisplayName(client) : fallbackName || 'Cliente';
   const phone = text(client?.telefone_normalized) || fallbackPhone;
   const email = text(client?.email) || fallbackEmail;
-  const devices = EQUIPMENT.flatMap(([field, category]) => {
+  const devices: { label: string; category: string; serial: string | null }[] = EQUIPMENT.flatMap(([field, category]) => {
     const label = sanitizeEquipmentLabel(client?.[field]);
     const number = text(client?.[`${field}_serial`]);
     return label || number ? [{ label: label || category, category, serial: number }] : [];
@@ -80,8 +80,8 @@ export function SupportClientProfile({ ticketId, equipment, serial, fallbackName
           {training || trainingDate || trainedEquipment.length ? <div className="text-sm space-y-2">{training && <p>{training}</p>}{trainingDate && <p className="text-muted-foreground">Data: {trainingDate}</p>}{trainedEquipment.map((item, i) => <p key={i}>{item}</p>)}</div> : <p className="text-sm text-muted-foreground">Nenhum treinamento cadastrado.</p>}
         </section>
       </TabsContent>
-      <TabsContent value="tickets" className="mt-5 divide-y">{data?.tickets.length ? data.tickets.map(t => <section key={t.id} className="py-3"><div className="flex justify-between gap-2"><p className="font-mono text-xs text-primary">#{t.ticket_full_id}</p><span className="text-xs text-muted-foreground">{date(t.created_at)}</span></div><p className="text-sm mt-2 break-words">{t.equipment || 'Equipamento não informado'}</p>{t.serial_number && <p className="text-xs font-mono mt-1">SN {t.serial_number}</p>}<Badge variant="secondary" className="mt-2">{t.kanban_status.replaceAll('_', ' ')}</Badge></section>) : <p className="text-sm text-muted-foreground py-3">Sem histórico disponível.</p>}</TabsContent>
-      <TabsContent value="timeline" className="mt-5 space-y-4">{data?.activity.length ? data.activity.map(a => <div key={a.id} className="flex gap-3"><Activity className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0" /><div className="min-w-0"><p className="text-sm break-words">{a.entity_name || a.event_type.replaceAll('_', ' ')}</p><p className="text-xs text-muted-foreground mt-1">{date(a.event_timestamp)}{a.source_channel ? ` · ${a.source_channel}` : ''}</p></div></div>) : <p className="text-sm text-muted-foreground">Sem atividades registradas.</p>}</TabsContent>
+      <TabsContent value="tickets" className="mt-5 divide-y">{data?.tickets.length ? data.tickets.map(t => <section key={t.id} className="py-3"><div className="flex justify-between gap-2"><p className="font-mono text-xs text-primary">#{t.ticket_full_id}</p><span className="text-xs text-muted-foreground">{date(t.created_at)}</span></div><p className="text-sm mt-2 break-words">{t.equipment || 'Equipamento não informado'}</p>{t.serial_number && <p className="text-xs font-mono mt-1">SN {t.serial_number}</p>}<Badge variant="secondary" className="mt-2">{t.kanban_status.replace(/_/g, ' ')}</Badge></section>) : <p className="text-sm text-muted-foreground py-3">Sem histórico disponível.</p>}</TabsContent>
+      <TabsContent value="timeline" className="mt-5 space-y-4">{data?.activity.length ? data.activity.map(a => <div key={a.id} className="flex gap-3"><Activity className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0" /><div className="min-w-0"><p className="text-sm break-words">{a.entity_name || a.event_type.replace(/_/g, ' ')}</p><p className="text-xs text-muted-foreground mt-1">{date(a.event_timestamp)}{a.source_channel ? ` · ${a.source_channel}` : ''}</p></div></div>) : <p className="text-sm text-muted-foreground">Sem atividades registradas.</p>}</TabsContent>
     </Tabs>
   </aside>;
 }
