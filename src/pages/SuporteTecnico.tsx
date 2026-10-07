@@ -281,7 +281,8 @@ function SupportKanban({ userId }: { userId: string }) {
                       key={t.id}
                       draggable
                       onDragStart={() => setDragId(t.id)}
-                      className="rounded-md border bg-card p-2 shadow-sm cursor-grab active:cursor-grabbing space-y-1.5"
+                      onClick={() => setSelected(t)}
+                      className="rounded-md border bg-card p-2 shadow-sm cursor-pointer hover:border-primary/50 space-y-1.5"
                     >
                       <div className="flex items-center justify-between gap-1">
                         <span className="text-[11px] font-mono text-muted-foreground">{t.ticket_full_id}</span>
@@ -297,7 +298,7 @@ function SupportKanban({ userId }: { userId: string }) {
                         {t.assigned_user_id === userId && <Badge className="text-[10px]">Meu</Badge>}
                       </div>
                       {!t.assigned_user_id && !["resolvido", "encerrado"].includes(t.kanban_status) && (
-                        <Button size="sm" variant="outline" className="w-full h-7 text-xs" onClick={() => assumeTicket(t.id)}>Assumir</Button>
+                        <Button size="sm" variant="outline" className="w-full h-7 text-xs" onClick={(e) => { e.stopPropagation(); assumeTicket(t.id); }}>Assumir</Button>
                       )}
                     </div>
                   ))}
