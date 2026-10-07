@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Loader2, Send, MessageCircle, ChevronLeft, Smile, Check } from "lucide-react";
+import { Loader2, Send, MessageCircle, ChevronLeft, Smile } from "lucide-react";
 import { trackAttendanceEvent } from "@/lib/attendanceChannel";
 
 type Question = { field_id: string | null; form_id: string | null; db_column: string; label: string; options: string[] };
