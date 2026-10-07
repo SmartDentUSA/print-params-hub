@@ -1,3 +1,6 @@
+- [ ] Redesenhar Kanban e sala de suporte — aguardando escolha visual do usuário; referências nas capturas fornecidas.
+- [ ] Mostrar chamados abertos e resolvidos por cliente nos cards, considerando o histórico completo.
+- [ ] Priorizar atendimento de clientes que possuem RayShape Edge Mini, sem confundir interesse com equipamento adquirido.
 - [x] Atendimento de suporte: ficha lateral com equipamentos, seriais, vendedor, dados de treinamento, contagem/histórico de chamados e timeline; apresentação revisada, compilação OK e acesso sem sessão bloqueado.
 - [ ] Validar ficha do suporte com sessão real — bloqueado: Supabase externo sem sessão disponível para teste autenticado.
 - [ ] Recebimento do WhatsApp oficial via Lovable — bloqueado: conector de entrada exige stack moderna; projeto atual React/Vite não tem receptor compatível. Número conectado confirmado; Evolution permanece intacto.
