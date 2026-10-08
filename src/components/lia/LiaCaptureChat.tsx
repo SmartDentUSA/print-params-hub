@@ -174,7 +174,7 @@ export default function LiaCaptureChat({ formId, campaign, product }: { formId: 
 
   useEffect(() => {
     if (!closed || !seller || handoffStage !== 3) return;
-    const timer = setTimeout(() => setHandoffStage(4), messageDelay(sellerInvitation(seller, data.name)));
+    const timer = setTimeout(() => setHandoffStage(4), messageDelay(invitation));
     return () => clearTimeout(timer);
   }, [closed, seller, handoffStage]);
 
@@ -329,7 +329,7 @@ export default function LiaCaptureChat({ formId, campaign, product }: { formId: 
         {showSeller && (
           <div className="flex justify-start">
             <div className="lia-bubble lia-bubble-in max-w-[88%] rounded-lg rounded-tl-none bg-muted px-3 py-2 text-[15px] leading-5 text-foreground sm:max-w-[78%]">
-              {sellerInvitation(seller, data.name)}
+              {invitation}
             </div>
           </div>
         )}
