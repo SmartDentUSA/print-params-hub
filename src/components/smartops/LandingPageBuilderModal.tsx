@@ -620,7 +620,6 @@ function EditorSidebar({
   onHeroImageChange: (v: string) => void;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
-  const [videoPickerOpen, setVideoPickerOpen] = useState(false);
   const jumpTo = (id: string) => {
     const container = scrollRef.current;
     if (!container) return;
@@ -675,6 +674,7 @@ function ContentEditor({
   heroImage: string;
   onHeroImageChange: (v: string) => void;
 }) {
+  const [videoPickerOpen, setVideoPickerOpen] = useState(false);
   const patch = (p: Partial<LPContent>) => onChange({ ...content, ...p });
   const sectionsEnabled = content.sectionsEnabled ?? {};
   const isOn = (k: LPSectionKey) => sectionsEnabled[k] !== false;
