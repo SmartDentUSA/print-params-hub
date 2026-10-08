@@ -15,25 +15,9 @@ type Step = "phone" | "email" | "name" | "creating" | "qualify" | "done";
 const IDLE_MS = 3 * 60 * 1000;
 const messageDelay = (text: string) => Math.min(6500, 1800 + text.length * 24 + Math.random() * 600);
 
-function sellerInvitation(seller: Seller, leadName?: string, pick?: (n: number) => number) {
-  const choose = pick ?? ((n: number) => Math.floor(Math.random() * n));
-  const name = seller.seller_first_name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
-  const female = ["ana", "maria", "patricia", "luciana", "juliana", "mariana", "carolina", "camila", "fernanda", "gabriela", "amanda", "beatriz", "jessica", "leticia", "bruna", "aline", "daniela", "paula", "renata", "vanessa"].includes(name);
-  const male = ["lucas", "danilo", "daniel", "rafael", "fabio", "carlos", "joao", "pedro", "bruno", "marcos", "paulo", "andre", "luiz", "luis", "erick", "felipe", "gustavo", "rodrigo", "leonardo", "eduardo"].includes(name);
-  const specialist = female ? "a especialista" : male ? "o especialista" : seller.seller_first_name;
-  const contact = female ? "ela" : male ? "ele" : seller.seller_first_name;
+function sellerInvitation(seller: Seller, leadName?: string) {
   const first = seller.lead_first_name || leadName?.trim().split(/\s+/)[0];
-  const lead = first ? `${first}, ` : "";
-  const introduction = female ? `O nome dela é ${seller.seller_name}.` : male ? `O nome dele é ${seller.seller_name}.` : `Seu atendimento será com ${seller.seller_name}.`;
-  const pronoun = female ? "Ela" : male ? "Ele" : seller.seller_first_name;
-  const variants = [
-    `${lead}tudo certo! ${introduction} Quer pular a fila?\n\nClica no botão abaixo e chama ${contact} agora mesmo! 😄`,
-    `${lead}já passei todas as suas informações para ${specialist}. ${introduction} Se quiser adiantar as coisas, clica no botão abaixo e já manda um 'oi' pra ${contact}! 😄👇`,
-    `${lead}tudo certo por aqui! ${introduction} Para não precisar ficar esperando, clica no botão abaixo e já inicia a conversa agora mesmo! 😄`,
-    `${lead}já enviei tudo para ${specialist}! ${introduction} ${pronoun} vai te procurar, mas como você já está com a mão na massa, clica no botão abaixo e chama ${contact} para agilizar. 😄`,
-    `${lead}seu atendimento já está encaminhado para ${specialist}. ${introduction} Se quiser falar antes, é só clicar no botão abaixo e mandar o primeiro oi! 😉`,
-  ];
-  return variants[choose(variants.length)];
+  return `${first ? `${first}, seu` : "Seu"} atendimento está com ${seller.seller_name}. Você pode continuar a conversa pelo WhatsApp abaixo.`;
 }
 
 async function call(body: Record<string, unknown>) {
@@ -52,6 +36,8 @@ export default function LiaCaptureChat({ formId, campaign, product }: { formId: 
   const [busy, setBusy] = useState(false);
   const [typing, setTyping] = useState(false);
   const [handoffStage, setHandoffStage] = useState(0);
+  const [brainMessage, setBrainMessage] = useState<string | null>(null);
+  const [brainReady, setBrainReady] = useState(false);
   const mounted = useRef(true);
   const sending = useRef(false);
   const [data, setData] = useState<{ phone?: string; email?: string; name?: string }>({});
@@ -59,7 +45,7 @@ export default function LiaCaptureChat({ formId, campaign, product }: { formId: 
   const [qIdx, setQIdx] = useState(0);
   const [selected, setSelected] = useState<string[]>([]);
   const [seller, setSeller] = useState<Seller | null>(null);
-  // A frase de encaminhamento é sorteada uma vez por vendedor e não muda durante a conversa.
+  // Only announce the seller returned by the authorized endpoint.
   const invitation = useMemo(() => (seller ? sellerInvitation(seller, data.name) : ""), [seller, data.name]);
   const [closed, setClosed] = useState(false);
   const [emojiOpen, setEmojiOpen] = useState(false);
@@ -135,7 +121,7 @@ export default function LiaCaptureChat({ formId, campaign, product }: { formId: 
     let stop = false;
     const tick = async () => {
       try {
-        const s = await call({ action: "seller", lead_id: lead.id, token: lead.token, form_id: ctx?.form_id ?? undefined, campaign: ctx?.campaign ?? undefined });
+        const s = await call({ action: "seller", lead_id: lead.id, token: lead.token, form_id: ctx?.form_id ?? undefined, campaign: ctx?.campaign ?? undefined, product: ctx?.product ?? product ?? undefined });
         if (!stop && s?.ready) setSeller(s);
       } catch { /* retry */ }
     };
@@ -143,6 +129,24 @@ export default function LiaCaptureChat({ formId, campaign, product }: { formId: 
     const t = setInterval(tick, 8000);
     return () => { stop = true; clearInterval(t); };
   }, [lead, seller]);
+
+  // Knowledge runs while the existing assignment continues independently.
+  useEffect(() => {
+    if (!closed || !lead || !ctx) return;
+    let cancelled = false;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 20000);
+    supabase.functions.invoke("lia-capture", { signal: controller.signal, body: {
+      action: "conversation", lead_id: lead.id, token: lead.token,
+      form_id: ctx.form_id, campaign: ctx.campaign, product: ctx.product,
+    } }).then(({ data: result }) => {
+      if (!cancelled && typeof result?.message === "string") setBrainMessage(result.message);
+    }).catch(() => { /* Knowledge failure must not block handoff. */ }).finally(() => {
+      clearTimeout(timeout);
+      if (!cancelled) setBrainReady(true);
+    });
+    return () => { cancelled = true; clearTimeout(timeout); controller.abort(); };
+  }, [closed, lead?.id]);
 
   // Inatividade na qualificação com vendedor já designado → encerra
   useEffect(() => {
@@ -168,10 +172,10 @@ export default function LiaCaptureChat({ formId, campaign, product }: { formId: 
   }, [closed, ctx?.product_summary, ctx?.modules_summary]);
 
   useEffect(() => {
-    if (!closed || !seller || handoffStage !== 2) return;
-    const timer = setTimeout(() => setHandoffStage(3), seller.hook ? messageDelay(seller.hook) : 800);
+    if (!closed || !brainReady || handoffStage !== 2) return;
+    const timer = setTimeout(() => setHandoffStage(3), brainMessage ? messageDelay(brainMessage) : 0);
     return () => clearTimeout(timer);
-  }, [closed, seller, handoffStage]);
+  }, [closed, brainReady, brainMessage, handoffStage]);
 
   useEffect(() => {
     if (!closed || !seller || handoffStage !== 3) return;
@@ -322,9 +326,9 @@ export default function LiaCaptureChat({ formId, campaign, product }: { formId: 
             <div className="lia-bubble lia-bubble-in max-w-[88%] whitespace-pre-wrap break-words rounded-lg rounded-tl-none bg-muted px-3 py-2 text-[15px] leading-5 text-foreground sm:max-w-[78%]">{ctx.modules_summary}</div>
           </div>
         )}
-        {closed && seller && handoffStage >= 3 && seller.hook && (
+        {closed && handoffStage >= 3 && brainMessage && (
           <div className="flex justify-start">
-            <div className="lia-bubble lia-bubble-in max-w-[88%] whitespace-pre-wrap break-words rounded-lg rounded-tl-none bg-muted px-3 py-2 text-[15px] leading-5 text-foreground sm:max-w-[78%]">{seller.hook}</div>
+            <div className="lia-bubble lia-bubble-in max-w-[88%] whitespace-pre-wrap break-words rounded-lg rounded-tl-none bg-muted px-3 py-2 text-[15px] leading-5 text-foreground sm:max-w-[78%]">{brainMessage}</div>
           </div>
         )}
         {showSeller && (
