@@ -257,7 +257,7 @@ async function sellerCard(leadId: string, body: any) {
   }
   if (!ownerName || /distribuidor/i.test(ownerName)) return { ready: false };
   const first = ownerName.split(" ")[0];
-  const product = lead.produto_interesse || "seus produtos";
+  const product = ctx?.product || lead.produto_interesse || lead.produto_interesse_auto || "seus produtos";
   const dealId = deal?.piperun_deal_id ? String(deal.piperun_deal_id) : "";
   const phone = normPhone(member?.whatsapp_number) || FALLBACK_WA;
   const text = `Olá ${first}, quero saber mais sobre o ${product}, e meu atendimento já foi registrado com número ${dealId || leadId.slice(0, 8)}`;
@@ -269,7 +269,7 @@ async function sellerCard(leadId: string, body: any) {
     photo_url: member?.photo_url ?? null,
     deal_id: dealId || null,
     wa_url: `https://wa.me/${phone}?text=${encodeURIComponent(text)}`,
-    hook: personalHook(lead as Record<string, unknown>, product),
+    hook: personalHook(lead as Record<string, unknown>, product, ctx?.product_summary, leadId),
   };
 }
 
@@ -365,7 +365,7 @@ Deno.serve(async (req) => {
 
     if (action === "seller") {
       if (!(await checkToken(body.lead_id, body.token))) return json({ error: "unauthorized" }, 401);
-      return json(await sellerCard(body.lead_id));
+      return json(await sellerCard(body.lead_id, body));
     }
 
     return json({ error: "unknown action" }, 400);
