@@ -196,7 +196,10 @@ export default function KnowledgeBase({ lang = 'pt', forcedTab }: KnowledgeBaseP
 
   // Update URL when tab changes (no reload). Skip when route is a dedicated path alias.
   useEffect(() => {
-    if (forcedTab) return;
+    if (forcedTab) {
+      if (tab !== forcedTab) navigate(`/base-conhecimento?tab=${tab}${tab === 'catalogo' ? '&cat=resinas_3d' : ''}`);
+      return;
+    }
     const params = new URLSearchParams(window.location.search);
     let changed = false;
     if (params.get('tab') !== tab) {
@@ -210,7 +213,7 @@ export default function KnowledgeBase({ lang = 'pt', forcedTab }: KnowledgeBaseP
     if (changed) {
       window.history.replaceState(null, '', `${window.location.pathname}?${params.toString()}${window.location.hash}`);
     }
-  }, [tab, forcedTab]);
+  }, [tab, forcedTab, navigate]);
 
   // Deep-link to article: open dialog
   useEffect(() => {
@@ -352,7 +355,7 @@ export default function KnowledgeBase({ lang = 'pt', forcedTab }: KnowledgeBaseP
       <>
         <style>{kbStyles}</style>
         <style>{kbShellStyles}</style>
-        {!dialogOpen && <KnowledgeSEOHead currentLang={lang} />}
+        {!dialogOpen && tab !== 'institucional' && <KnowledgeSEOHead currentLang={lang} />}
         <KbShellLayout
           active={activeKey}
           heroArtUrl={heroArt}
@@ -413,7 +416,7 @@ export default function KnowledgeBase({ lang = 'pt', forcedTab }: KnowledgeBaseP
   return (
     <div className="min-h-screen" style={{ background: '#EEF1F6' }}>
       <style>{kbStyles}</style>
-      {!dialogOpen && <KnowledgeSEOHead currentLang={lang} />}
+      {!dialogOpen && tab !== 'institucional' && <KnowledgeSEOHead currentLang={lang} />}
       <Header showAdminButton={true} />
       <main className="kb-root">
         <KbTabSwitcher active={tab} onChange={setTab} />

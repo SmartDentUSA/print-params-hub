@@ -1,6 +1,7 @@
 import { lazy, Suspense } from "react";
 import { Routes, Route, useLocation, Navigate, useParams } from "react-router-dom";
 import Index from "./pages/Index";
+import { isInstitutionalHost } from './utils/institutionalHost';
 import NotFound from "./pages/NotFound";
 import { Footer } from "./components/Footer";
 import { usePageTracking } from "./hooks/usePageTracking";
@@ -96,7 +97,9 @@ const App = () => (
     <PushOptInGate />
     <Suspense fallback={<RouteFallback />}>
     <Routes>
-      <Route path="/" element={<Navigate to="/base-conhecimento?tab=parametros" replace />} />
+      <Route path="/" element={isInstitutionalHost(window.location.hostname)
+        ? <KnowledgeBase lang="pt" forcedTab="institucional" />
+        : <Navigate to="/base-conhecimento?tab=parametros" replace />} />
       <Route path="/:brandSlug" element={<RootSlugGate />} />
       <Route path="/:brandSlug/:modelSlug" element={<Index />} />
       <Route path="/:brandSlug/:modelSlug/:resinSlug" element={<Index />} />

@@ -1,8 +1,16 @@
+import { isInstitutionalHost } from '../src/utils/institutionalHost';
+import { institutionalHomepage } from '../src/utils/institutionalHomepage';
+
 export const config = { runtime: 'edge' };
 
 export default async function handler(req: Request): Promise<Response> {
   const url = new URL(req.url);
   const originalPath = url.searchParams.get('originalPath') || '/';
+  if (isInstitutionalHost(url.hostname) && originalPath === '/') {
+    return new Response(institutionalHomepage(), {
+      headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'public, max-age=300, s-maxage=300' },
+    });
+  }
   const upstream = `https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/seo-proxy?originalPath=${encodeURIComponent(originalPath)}`;
 
   try {
