@@ -1896,14 +1896,22 @@ export function buildRichDealSnapshot(
       if (Array.isArray(p.items)) {
         for (const it of p.items) {
           const itemId = String(it.id || it.item_id || "");
+          const qtd = Number(it.qtd || it.quantity || it.quantidade) || 1;
+          // PipeRun `value` é o preço de tabela; o "Valor unit." da proposta
+          // já desconta `discount_value` (discount_type 1 = R$, 0 = %).
+          const listPrice = Number(it.value || it.unit_value || it.unit_price || 0);
+          const disc = Number(it.discount_value || 0);
+          const unit = disc > 0
+            ? Math.max(0, Number(it.discount_type) === 1 ? listPrice - disc : listPrice * (1 - disc / 100))
+            : listPrice;
           items.push({
             item_id: itemId,
             sku: String(it.sku || it.code || it.reference || it.external_code || itemId || ""),
             nome: stripHtmlShared(it.product_name || it.item?.name || it.name || ""),
             tipo: it.type || "Produto",
-            qtd: Number(it.qtd || it.quantity || it.quantidade) || 1,
-            unit: Number(it.value || it.unit_value || it.unit_price || 0),
-            total: Number(it.value || 0) * (Number(it.qtd || it.quantity || it.quantidade) || 1),
+            qtd,
+            unit: Math.round(unit * 100) / 100,
+            total: Math.round(unit * qtd * 100) / 100,
             categoria: it.category || "",
           });
         }
