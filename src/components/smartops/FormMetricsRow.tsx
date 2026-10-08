@@ -157,6 +157,7 @@ export function FormMetricsRow({
   const m = metrics ?? { visitors: 0, unique_visitors: 0, leads: 0, deals_won: 0, daily_series: [] };
   const completion = pct(m.leads, m.unique_visitors);
   const conversion = pct(m.deals_won, m.leads);
+  const [showChannels, setShowChannels] = useState(false);
 
   return (
     <div className="grid grid-cols-12 gap-2 items-center px-3 py-2 border-b hover:bg-muted/30 transition-colors text-sm">
