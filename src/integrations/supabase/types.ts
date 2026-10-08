@@ -36404,6 +36404,15 @@ export type Database = {
           ticket_medio: number
         }[]
       }
+      fn_kol_coupon_items: {
+        Args: { _code: string; _from?: string; _to?: string }
+        Returns: {
+          data_pedido: string
+          produto: string
+          quantidade: number
+          valor: number
+        }[]
+      }
       fn_kol_coupon_sales: {
         Args: { _code: string; _from?: string; _to?: string }
         Returns: {
