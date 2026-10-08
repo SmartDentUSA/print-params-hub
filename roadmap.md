@@ -44,4 +44,4 @@
 - [x] Chat com intervalos proporcionais de 1,8–6,5s por mensagem e respostas rápidas alinhadas em linhas; abertura real e avanço visual controlado verificados sem erros, sem simular ser o WhatsApp oficial.
 - [x] Notas CRM: leitura real do negócio 63974581 confirmou perguntas de impressão/scanner/CAD; removidos cortes 30/20/3 e filtro de rótulos curtos. Respostas persistidas recentes prevalecem sobre snapshots antigos; chat atualiza notas com retry pelo lock compartilhado. Teste 1105 respostas aprovado; funções implantadas. Nova entrega de nota após correção não exercitada para não gerar notas de teste no CRM.
 - [x] Corrigir registro de respostas dos formulários de eventos nos cards, timeline do lead e notas do CRM.
-- [ ] Adicionar e verificar botão WhatsApp/LIA em todos os cards do Link da Bio, preservando acesso e vínculo de formulário.
+- [x] Botão WhatsApp/LIA nos 19 cards e 2 destaques do Link da Bio, preservando acesso e vínculo de formulário; conversa real abriu com produto correto, sem criar lead; apresentação compacta sem overflow e compilação OK.
