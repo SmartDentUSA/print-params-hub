@@ -7,14 +7,14 @@ type Row = { channel: string; views: number; leads: number; conversions: number;
 const LABEL: Record<string, string> = { form: "Formulário", specialist: "Falar com especialista", whatsapp_lia: "WhatsApp (Dra. LIA)" };
 const brl = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
 
-export default function AttendanceChannelMetrics({ formId, campaignSlug, days = 90, title }: { formId?: string | null; campaignSlug?: string | null; days?: number; title?: string }) {
+export default function AttendanceChannelMetrics({ formId, campaignSlug, days = 90, title, formOverride }: { formId?: string | null; campaignSlug?: string | null; days?: number; title?: string; formOverride?: { views: number; leads: number; conversions: number; revenue: number } }) {
   const [rows, setRows] = useState<Row[] | null>(null);
   useEffect(() => {
     setRows(null);
     const since = new Date(Date.now() - days * 86400000).toISOString();
     (supabase as any).rpc("fn_attendance_channel_metrics", { _form_id: formId ?? null, _campaign_slug: campaignSlug ?? null, _since: since })
-      .then(({ data }: any) => setRows((data ?? []).map((r: any) => ({ ...r, views: +r.views, leads: +r.leads, conversions: +r.conversions, revenue: +r.revenue }))));
-  }, [formId, campaignSlug, days]);
+      .then(({ data }: any) => setRows((data ?? []).map((r: any) => ({ ...r, views: +r.views, leads: +r.leads, conversions: +r.conversions, revenue: +r.revenue, ...(formOverride && r.channel === "form" ? formOverride : {}) }))));
+  }, [formId, campaignSlug, days, formOverride?.views, formOverride?.leads, formOverride?.conversions, formOverride?.revenue]);
 
   return (
     <Card>
@@ -40,7 +40,7 @@ export default function AttendanceChannelMetrics({ formId, campaignSlug, days = 
                 ))}
               </tbody>
             </table>
-            <p className="mt-2 text-xs text-muted-foreground">Visualizações: aberturas da página (formulário) e cliques nos botões (especialista e WhatsApp). Conversão conta só negócios ganhos depois da captura. Os dados começam a contar a partir de hoje.</p>
+            <p className="mt-2 text-xs text-muted-foreground">Visualizações: aberturas da página (formulário) e cliques nos botões (especialista e WhatsApp). Conversão conta só negócios ganhos depois da captura. {formOverride ? "A linha Formulário usa os mesmos números do card; especialista e WhatsApp contam a partir da ativação do rastreio." : "Os dados começam a contar a partir de hoje."}</p>
           </div>
         )}
       </CardContent>
