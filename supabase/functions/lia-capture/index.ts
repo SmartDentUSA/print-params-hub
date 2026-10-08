@@ -33,6 +33,8 @@ function normPhone(v: unknown) {
   return digits(normalizeBrazilianPhone(str(v, 40)));
 }
 const str = (v: unknown, max = 300) => (typeof v === "string" ? v.trim().slice(0, max) : "");
+// Nomes provisórios ("Nome não informado", "Sem nome", "Lead") não contam como nome real.
+const realName = (v: unknown) => { const n = str(v, 120); return !n || /^(nome( n[ãa]o informado)?|sem nome|n[ãa]o informado|lead|cliente|desconhecido|-+)$/i.test(n) ? "" : n; };
 const isUuid = (v: unknown) => typeof v === "string" && /^[0-9a-f-]{36}$/i.test(v);
 
 function whatsappGroupUrl(value: unknown): string | null {
@@ -287,7 +289,7 @@ Deno.serve(async (req) => {
       const phone = normPhone(body.phone);
       const email = str(body.email, 200).toLowerCase();
       const row = await findLead(phone, email);
-      return json({ found: !!row && !("ambiguous" in row), ambiguous: !!row && "ambiguous" in row, first_name: row?.nome ? String(row.nome).trim().split(" ")[0] : null, has_email: validEmail(row?.email), has_name: !!row?.nome,
+      return json({ found: !!row && !("ambiguous" in row), ambiguous: !!row && "ambiguous" in row, first_name: realName(row?.nome) ? realName(row?.nome).split(" ")[0] : null, has_email: validEmail(row?.email), has_name: !!realName(row?.nome),
         ...(row && "ambiguous" in row ? { match_count: row.match_count, email_hints: row.email_hints } : {}),
       });
     }
@@ -297,7 +299,7 @@ Deno.serve(async (req) => {
       const providedEmail = str(body.email, 200).toLowerCase();
       const existing = await findLead(phone, providedEmail);
       if (existing && "ambiguous" in existing) return json({ error: "Confirme seu e-mail para identificar o cadastro correto." }, 409);
-      const nome = str(existing?.nome, 120) || str(body.name, 120);
+      const nome = realName(existing?.nome) || realName(body.name);
       const email = validEmail(existing?.email) ? String(existing?.email).toLowerCase() : providedEmail;
       if (!nome || !phone || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return json({ error: "Nome, e-mail e telefone válidos são obrigatórios." }, 400);
       const ctx = await resolveContext(body);
