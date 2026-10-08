@@ -5,7 +5,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { CalendarDays, ExternalLink, UploadCloud } from "lucide-react";
+import { CalendarDays, ExternalLink, UploadCloud, Users } from "lucide-react";
 import { CriarPastaEventoDriveButton } from "@/components/smartops/CriarPastaEventoDriveButton";
 import { EventMediaUploadDialog } from "@/components/smartops/EventMediaUploadDialog";
 import type { EventDestination } from "@/lib/eventDriveUpload";
@@ -43,10 +43,36 @@ export function EventsUploadAccordion() {
     },
   });
 
+  const { data: formRows } = useQuery({
+    queryKey: ["agenda-event-visitor-forms"],
+    staleTime: 60_000,
+    queryFn: async (): Promise<Record<string, string>> => {
+      const { data, error } = await supabase
+        .from("smartops_forms")
+        .select("event_id,slug")
+        .not("event_id", "is", null)
+        .eq("active", true);
+      if (error) throw error;
+      const map: Record<string, string> = {};
+      for (const f of (data || []) as { event_id: string | null; slug: string }[]) {
+        if (f.event_id && f.slug && !map[f.event_id]) map[f.event_id] = f.slug;
+      }
+      return map;
+    },
+  });
+
   const rows = useMemo(() => {
+    // Eventos realizados há mais de 15 dias não aparecem na lista.
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - 15);
+    const cutoffStr = cutoff.toISOString().slice(0, 10);
+    const recent = (data || []).filter((r) => {
+      const ref = r.end_date || r.start_date;
+      return !ref || ref >= cutoffStr;
+    });
     const s = search.trim().toLowerCase();
-    if (!s) return data || [];
-    return (data || []).filter((r) =>
+    if (!s) return recent;
+    return recent.filter((r) =>
       [r.name, r.location, r.country].filter(Boolean).some((v) => String(v).toLowerCase().includes(s)),
     );
   }, [data, search]);
@@ -86,6 +112,18 @@ export function EventsUploadAccordion() {
                 {row.folder_url && (
                   <a href={row.folder_url} target="_blank" rel="noopener" className="text-primary">
                     <ExternalLink className="h-3.5 w-3.5" />
+                  </a>
+                )}
+                {formRows?.[row.event_id] && (
+                  <a
+                    href={`/f/${formRows[row.event_id]}`}
+                    target="_blank"
+                    rel="noopener"
+                    title="Abrir formulário de cadastro de leads do evento"
+                  >
+                    <Button size="sm" variant="outline" className="h-7 gap-1 px-2 text-xs">
+                      <Users className="h-3.5 w-3.5" /> Visitantes
+                    </Button>
                   </a>
                 )}
                 <CriarPastaEventoDriveButton eventId={row.event_id} folderUrl={row.folder_url} />
