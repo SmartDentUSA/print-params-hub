@@ -1,0 +1,1 @@
+REVOKE EXECUTE ON FUNCTION public.fn_event_lead_stats(uuid) FROM PUBLIC, anon;
