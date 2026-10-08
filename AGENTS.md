@@ -27,4 +27,4 @@
 - Technical support access is checked in the database through `is_support_staff` (admin or support_agent roles in user_roles); support data stays isolated from commercial queues and campaigns.
 - Support ticket lifecycle timestamps (assignment, resolution, closing, reopen count/FCR) are set by a validation trigger on technical_tickets so KPIs never depend on client code.
 
-- LIA follows source-form order/conditions and canonical/cross-form answers, preserving conditional branches. Server-side answer storage emits timeline entries transactionally. Standardize SDR questions, never product bindings. Use stacked replies and length-based pacing; preserve HMAC identity, masked hints, São Paulo greeting and published price-free handoff.
+- LIA follows form order/conditions and canonical answers; server-side storage emits timeline entries. Keep product bindings, HMAC, masked hints and price-free handoff. CRM notes paginate all answers; chat updates refresh notes through the shared lock with cooldown retries, never changing deals.

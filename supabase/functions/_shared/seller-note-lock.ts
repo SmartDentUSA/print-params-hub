@@ -24,7 +24,7 @@ const BURST_FLOOR_SECONDS = 60;
 
 export interface ClaimResult {
   ok: boolean;
-  reason?: "duplicate_same_hash" | "lead_burst_floor" | "claim_error";
+  reason?: "duplicate_same_hash" | "lead_burst_floor" | "same_deal_cooldown" | "claim_error";
 }
 
 /**

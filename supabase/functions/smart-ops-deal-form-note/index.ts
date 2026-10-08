@@ -2,12 +2,11 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { addDealNote } from "../_shared/piperun-field-map.ts";
 import { buildSellerDealSummaryHTML } from "../_shared/seller-summary.ts";
 import { claimSellerNoteSlot, releaseSellerNoteSlot } from "../_shared/seller-note-lock.ts";
+import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
+import { syncFormNote } from "../_shared/form-note-sync.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
-};
+declare const EdgeRuntime: { waitUntil(promise: Promise<unknown>): void };
+
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -27,6 +26,7 @@ async function getPiperunDealId(
       .from("lia_attendances")
       .select("piperun_id")
       .eq("id", leadId)
+      .is("merged_into", null)
       .maybeSingle();
 
     if (data?.piperun_id) return Number(data.piperun_id);
@@ -64,8 +64,12 @@ Deno.serve(async (req) => {
     const dealId = await getPiperunDealId(supabase, lead_id);
 
     if (!dealId) {
+      EdgeRuntime.waitUntil(syncFormNote(supabase, lead_id).catch(async (error) => {
+        console.error("[deal-form-note] deferred note failed", error);
+        await supabase.from("system_health_logs").insert({ function_name: "smart-ops-deal-form-note", severity: "error", error_type: "crm_note_sync_failed", details: { lead_id } });
+      }));
       console.warn(`[deal-form-note] No piperun_id found for lead ${lead_id} after retries`);
-      return json({ ok: false, reason: "no_deal_id" });
+      return json({ ok: true, queued: true, reason: "awaiting_deal_id" });
     }
 
     // Build full seller summary with the just-submitted form highlighted
@@ -73,6 +77,7 @@ Deno.serve(async (req) => {
       .from("lia_attendances")
       .select("*")
       .eq("id", lead_id)
+      .is("merged_into", null)
       .single();
 
     let noteText: string;
@@ -89,6 +94,13 @@ Deno.serve(async (req) => {
       // ── Per-deal claim: 1 note per (deal_id, content_hash), 60s burst floor per lead ──
       const claim = await claimSellerNoteSlot(supabase, { dealId, leadId: lead_id, contentHash: hash });
       if (!claim.ok) {
+        if (claim.reason !== "duplicate_same_hash") {
+          EdgeRuntime.waitUntil(syncFormNote(supabase, lead_id).catch(async (error) => {
+            console.error("[deal-form-note] retry failed", error);
+            await supabase.from("system_health_logs").insert({ function_name: "smart-ops-deal-form-note", severity: "error", error_type: "crm_note_sync_failed", details: { lead_id } });
+          }));
+          return json({ ok: true, deal_id: dealId, queued: true });
+        }
         console.log(`[deal-form-note] Skipping (${claim.reason}) — deal=${dealId} lead=${lead_id}`);
         return json({ ok: true, deal_id: dealId, duplicate_skipped: true, reason: claim.reason });
       }
@@ -107,7 +119,7 @@ Deno.serve(async (req) => {
 
     console.log(`[deal-form-note] Note added to deal ${dealId} for lead ${lead_id}:`, result.success);
 
-    return json({ ok: true, deal_id: dealId });
+    return json({ ok: result.success, deal_id: dealId }, result.success ? 200 : 502);
   } catch (err) {
     console.error("[deal-form-note] Error:", err);
     return json({ error: String(err) }, 500);
