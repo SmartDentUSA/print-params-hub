@@ -1,3 +1,4 @@
+import { localizeArticle, hasArticleTranslation, type ArticleLanguage } from "../_shared/article-language.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.0';
 
 const corsHeaders = {
@@ -1738,8 +1739,8 @@ async function generateKnowledgeCategoryHTML(letter: string, supabase: any): Pro
 </html>`;
 }
 
-async function generateKnowledgeArticleHTML(letter: string, slug: string, supabase: any): Promise<string> {
-  const { data: content, error } = await supabase
+async function generateKnowledgeArticleHTML(letter: string, slug: string, supabase: any, requestedLanguage: ArticleLanguage = 'pt'): Promise<string> {
+  const { data: sourceContent, error } = await supabase
     .from('knowledge_contents')
     .select('*, knowledge_categories(*), authors(*)')
     .eq('slug', slug)
@@ -1751,10 +1752,12 @@ async function generateKnowledgeArticleHTML(letter: string, slug: string, supaba
     return '';
   }
 
-  if (!content) {
+  if (!sourceContent) {
     console.log('Article not found:', slug);
     return '';
   }
+
+  const { content, path: articleBasePath, locale } = localizeArticle(sourceContent, requestedLanguage);
 
   // Buscar vídeos, resinas, knowledge context e reviews em paralelo
   const [videosRes, knowledgeCtx, companyReviews] = await Promise.all([
@@ -1864,17 +1867,17 @@ async function generateKnowledgeArticleHTML(letter: string, slug: string, supaba
   } : null;
 
   return `<!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="${locale}">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>${escapeHtml(content.title)} | Base de Conhecimento Smart Dent</title>
   <meta name="description" content="${escapeHtml(desc)}" />
   ${FAVICON_TAGS}
-  <link rel="canonical" href="${baseUrl}/base-conhecimento/${letter}/${slug}" />
+  <link rel="canonical" href="${baseUrl}${articleBasePath}/${letter}/${slug}" />
   <link rel="alternate" hreflang="pt-BR" href="${baseUrl}/base-conhecimento/${letter}/${slug}" />
-  <link rel="alternate" hreflang="en-US" href="${baseUrl}/en/knowledge-base/${letter}/${slug}" />
-  <link rel="alternate" hreflang="es-ES" href="${baseUrl}/es/base-conocimiento/${letter}/${slug}" />
+  ${hasArticleTranslation(sourceContent, 'en') ? `<link rel="alternate" hreflang="en-US" href="${baseUrl}/en/knowledge-base/${letter}/${slug}" />` : ''}
+  ${hasArticleTranslation(sourceContent, 'es') ? `<link rel="alternate" hreflang="es-ES" href="${baseUrl}/es/base-conocimiento/${letter}/${slug}" />` : ''}
   <link rel="alternate" hreflang="x-default" href="${baseUrl}/base-conhecimento/${letter}/${slug}" />
   ${content.keywords ? `<meta name="keywords" content="${escapeHtml(content.keywords.join(', '))}" />` : ''}
   ${buildAICrawlerPolicy()}
@@ -1933,7 +1936,7 @@ async function generateKnowledgeArticleHTML(letter: string, slug: string, supaba
   <script type="application/ld+json">
   ${(() => {
     const contentType = detectContentType(content);
-    const canonicalUrl = `${baseUrl}/base-conhecimento/${letter}/${slug}`;
+    const canonicalUrl = `${baseUrl}${articleBasePath}/${letter}/${slug}`;
     const authorSchema = buildAuthorSchema(content.authors, baseUrl);
     const publisherSchema = buildPublisherSchema(baseUrl, companyReviews);
     
@@ -1956,7 +1959,7 @@ async function generateKnowledgeArticleHTML(letter: string, slug: string, supaba
         "datePublished": content.created_at,
         "dateModified": content.updated_at,
         "url": canonicalUrl,
-        "inLanguage": "pt-BR",
+        "inLanguage": locale,
         "keywords": content.keywords?.join(', ') || undefined,
         "articleBody": content.content_html?.replace(/<[^>]*>/g, '').substring(0, 5000),
         "proficiencyLevel": "Expert",
@@ -1970,6 +1973,8 @@ async function generateKnowledgeArticleHTML(letter: string, slug: string, supaba
       };
     }
     
+    mainArticleSchema.inLanguage = locale;
+
     // Construir o @graph completo
     const graph = [
       // Publisher (Organization) - sempre incluir primeiro
@@ -2027,7 +2032,7 @@ async function generateKnowledgeArticleHTML(letter: string, slug: string, supaba
           "educationalRole": "Professional",
           "audienceType": "Cirurgiões-dentistas, técnicos em prótese dentária"
         },
-        "inLanguage": "pt-BR",
+        "inLanguage": locale,
         "isAccessibleForFree": true,
         "author": { "@id": authorSchema["@id"] },
         "publisher": { "@id": `${baseUrl}/#organization` },
@@ -2069,7 +2074,7 @@ async function generateKnowledgeArticleHTML(letter: string, slug: string, supaba
   ${content.authors?.name ? `<meta name="citation_author" content="${escapeHtml(content.authors.name)}" />` : ''}
   <meta name="citation_date" content="${content.created_at?.split('T')[0] || ''}" />
   <meta name="citation_publisher" content="Smart Dent" />
-  <link rel="cite-as" href="${baseUrl}/base-conhecimento/${letter}/${slug}" />
+  <link rel="cite-as" href="${baseUrl}${articleBasePath}/${letter}/${slug}" />
   ${buildGTMHead()}
 </head>
 <body>
@@ -2224,7 +2229,7 @@ async function generateKnowledgeArticleHTML(letter: string, slug: string, supaba
   </article>
   ${buildKnowledgeGraphJsonLd(knowledgeCtx)}
   ${buildStandardFooter()}
-  ${buildBotRedirectScript(`/base-conhecimento/${letter}/${slug}`)}
+  ${buildBotRedirectScript(`${articleBasePath}/${letter}/${slug}`)}
 </body>
 </html>`;
 }
