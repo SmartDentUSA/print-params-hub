@@ -123,7 +123,7 @@ export default function LiaCaptureChat({ formId, campaign, product }: { formId: 
     let stop = false;
     const tick = async () => {
       try {
-        const s = await call({ action: "seller", lead_id: lead.id, token: lead.token });
+        const s = await call({ action: "seller", lead_id: lead.id, token: lead.token, form_id: ctx?.form_id ?? undefined, campaign: ctx?.campaign ?? undefined });
         if (!stop && s?.ready) setSeller(s);
       } catch { /* retry */ }
     };
@@ -342,21 +342,18 @@ export default function LiaCaptureChat({ formId, campaign, product }: { formId: 
           </div>
         )}
         {showSeller && handoffStage >= 5 && ctx?.whatsapp_group_url && (
-          <div className="flex justify-start">
-            <div className="lia-bubble lia-bubble-in max-w-[88%] rounded-lg rounded-tl-none bg-muted px-3 py-2 text-[15px] leading-5 text-foreground sm:max-w-[78%]">
-              <a href={ctx.whatsapp_group_url} target="_blank" rel="noopener noreferrer" aria-label="Entrar no grupo exclusivo no WhatsApp" className="mb-2 flex flex-col items-center rounded-md bg-background/40 px-3 py-4 text-center">
-                <img src={groupBadge.url} alt="Selo Smart Dent" width={88} height={88} className="h-20 w-20 rounded-full object-contain bg-background" />
-                <span className="mt-2 text-base font-medium">Grupo exclusivo Smart Dent</span>
-                <span className="text-sm text-muted-foreground">Convite para conversa de grupo</span>
-              </a>
-              <p>Se quiser tirar dúvidas com experts, assim como trocar experiências com os usuários, acesse o grupo de WhatsApp exclusivo.</p>
-              <Button asChild variant="ghost" className="lia-reply mt-3 h-auto min-h-11 w-full whitespace-normal rounded-none px-3 py-3 text-center text-sm font-medium leading-5">
-                <a href={ctx.whatsapp_group_url} target="_blank" rel="noopener noreferrer">
-                  <Users className="mr-2 h-4 w-4" aria-hidden="true" />
-                  Entrar no grupo
-                </a>
-              </Button>
+          <div className="mt-3 flex max-w-sm flex-col items-center gap-3 rounded-lg border border-border bg-card p-4 text-center">
+            <img src={groupBadge.url} alt="Selo Smart Dent" width={80} height={80} className="h-20 w-20 rounded-full object-contain bg-background" />
+            <div>
+              <p className="font-semibold text-foreground">Grupo exclusivo Smart Dent</p>
+              <p className="text-xs text-muted-foreground">Convite para conversa de grupo</p>
             </div>
+            <p className="text-sm leading-5 text-muted-foreground">Se quiser tirar dúvidas com experts, assim como trocar experiências com os usuários, acesse o grupo de WhatsApp exclusivo.</p>
+            <Button asChild variant="secondary" className="lia-send w-full">
+              <a href={ctx.whatsapp_group_url} target="_blank" rel="noopener noreferrer" aria-label="Entrar no grupo exclusivo no WhatsApp">
+                <Users className="mr-2 h-4 w-4" aria-hidden="true" /> Entrar no grupo
+              </a>
+            </Button>
           </div>
         )}
         <div ref={endRef} />

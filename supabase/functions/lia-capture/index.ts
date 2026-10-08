@@ -191,7 +191,7 @@ async function findLead(phone: string, email: string) {
 
 // Gancho curto e humano montado com o que já sabemos do lead (perfil + respostas).
 // Nunca expõe dados sensíveis; só ecoa o que o próprio lead informou.
-function personalHook(lead: Record<string, unknown>, product: string): string | null {
+function personalHook(lead: Record<string, unknown>, product: string, productSummary?: string | null, seed = ""): string | null {
   // Valores genéricos/negativos do formulário (ex.: "OUTRAS", "Não, ainda não digitalizo") nunca entram no texto.
   const generic = (raw: string) => !raw || /^(outras?|outros?|nenhum[as]?|sem resposta|n\/?d|-+|—+)$/i.test(raw) || /^n[ãa]o\b/i.test(raw);
   const area = str(lead.area_atuacao, 80).trim();
@@ -219,15 +219,30 @@ function personalHook(lead: Record<string, unknown>, product: string): string | 
   const context = parts.join(", ").replace(/, ([^,]*)$/, " e $1");
   const productLower = (product || "").toLowerCase();
   const alreadyMentioned = productLower && parts.some((part) => part.toLowerCase().includes(productLower));
-  const tie = alreadyMentioned ? "" : ` — então o ${product || "nosso fluxo digital"} tende a encaixar muito bem no seu dia a dia`;
-  return `Pelo que você me contou, ${context}${tie}. Vale muito a pena conversar com o especialista, ele já vai te chamar com tudo pronto. 😉`;
+  // Frase de ligação com o produto varia por lead para as mensagens não saírem iguais.
+  const ties = [
+    `então o ${product || "nosso fluxo digital"} tende a encaixar muito bem no seu dia a dia`,
+    `e é exatamente aí que o ${product || "nosso fluxo digital"} faz diferença`,
+    `e o ${product || "nosso fluxo digital"} foi pensado justamente para essa rotina`,
+  ];
+  let hash = 0;
+  for (const ch of seed) hash = (hash * 31 + ch.charCodeAt(0)) >>> 0;
+  const tie = alreadyMentioned ? "" : ` — ${ties[hash % ties.length]}`;
+  // Um benefício real do produto (1ª frase do resumo da landing), sem preço nem valores.
+  let benefit = "";
+  if (productSummary) {
+    const firstSentence = productSummary.split(/(?<=[.!?])\s+/)[0]?.trim() ?? "";
+    if (firstSentence && firstSentence.length <= 180 && !/r\$|preço|valor|desconto/i.test(firstSentence)) benefit = ` ${firstSentence}`;
+  }
+  return `Pelo que você me contou, ${context}${tie}.${benefit} Vale muito a pena conversar com o especialista, ele já vai te chamar com tudo pronto. 😉`;
 }
 
-async function sellerCard(leadId: string) {
+async function sellerCard(leadId: string, body: any) {
   const { data: lead } = await sb.from("lia_attendances")
-    .select("nome, proprietario_lead_crm, piperun_owner_id, produto_interesse, area_atuacao, especialidade, impressora_modelo, equip_scanner, sdr_software_cad_interesse, imprime_modelos, imprime_placas, imprime_guias, imprime_resinas_ld")
+    .select("nome, proprietario_lead_crm, piperun_owner_id, produto_interesse, produto_interesse_auto, area_atuacao, especialidade, impressora_modelo, equip_scanner, sdr_software_cad_interesse, imprime_modelos, imprime_placas, imprime_guias, imprime_resinas_ld")
     .eq("id", leadId).is("merged_into", null).maybeSingle();
   if (!lead) return { ready: false };
+  const ctx = await resolveContext(body ?? {}).catch(() => null);
   const { data: deal } = await sb.from("deals").select("piperun_deal_id, owner_name")
     .eq("lead_id", leadId).order("created_at", { ascending: false }).limit(1).maybeSingle();
   let member: any = null;
@@ -242,7 +257,7 @@ async function sellerCard(leadId: string) {
   }
   if (!ownerName || /distribuidor/i.test(ownerName)) return { ready: false };
   const first = ownerName.split(" ")[0];
-  const product = lead.produto_interesse || "seus produtos";
+  const product = ctx?.product || lead.produto_interesse || lead.produto_interesse_auto || "seus produtos";
   const dealId = deal?.piperun_deal_id ? String(deal.piperun_deal_id) : "";
   const phone = normPhone(member?.whatsapp_number) || FALLBACK_WA;
   const text = `Olá ${first}, quero saber mais sobre o ${product}, e meu atendimento já foi registrado com número ${dealId || leadId.slice(0, 8)}`;
@@ -254,7 +269,7 @@ async function sellerCard(leadId: string) {
     photo_url: member?.photo_url ?? null,
     deal_id: dealId || null,
     wa_url: `https://wa.me/${phone}?text=${encodeURIComponent(text)}`,
-    hook: personalHook(lead as Record<string, unknown>, product),
+    hook: personalHook(lead as Record<string, unknown>, product, ctx?.product_summary, leadId),
   };
 }
 
@@ -350,7 +365,7 @@ Deno.serve(async (req) => {
 
     if (action === "seller") {
       if (!(await checkToken(body.lead_id, body.token))) return json({ error: "unauthorized" }, 401);
-      return json(await sellerCard(body.lead_id));
+      return json(await sellerCard(body.lead_id, body));
     }
 
     return json({ error: "unknown action" }, 400);
