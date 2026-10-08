@@ -217,7 +217,10 @@ function personalHook(lead: Record<string, unknown>, product: string): string | 
   if (!generic(cad) && !(product && product.toLowerCase().includes(cad.toLowerCase()))) parts.push(`quer colocar o ${cad} na sua rotina`);
   if (!parts.length) return null;
   const context = parts.join(", ").replace(/, ([^,]*)$/, " e $1");
-  return `Pelo que você me contou, ${context} — então o ${product || "nosso fluxo digital"} tende a encaixar muito bem no seu dia a dia. Vale muito a pena conversar com o especialista, ele já vai te chamar com tudo pronto. 😉`;
+  const productLower = (product || "").toLowerCase();
+  const alreadyMentioned = productLower && parts.some((part) => part.toLowerCase().includes(productLower));
+  const tie = alreadyMentioned ? "" : ` — então o ${product || "nosso fluxo digital"} tende a encaixar muito bem no seu dia a dia`;
+  return `Pelo que você me contou, ${context}${tie}. Vale muito a pena conversar com o especialista, ele já vai te chamar com tudo pronto. 😉`;
 }
 
 async function sellerCard(leadId: string) {
