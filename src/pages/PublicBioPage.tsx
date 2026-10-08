@@ -93,9 +93,6 @@ export default function PublicBioPage() {
   const [liaItem, setLiaItem] = useState<BioItem | null>(null);
   useEffect(() => {
     if (!page?.id) return;
-    const key = `bio_view_${page.id}`;
-    if (sessionStorage.getItem(key)) return;
-    sessionStorage.setItem(key, "1");
     trackBio(page.id, "view");
   }, [page?.id]);
   const onTrack = (e: BioEvent, id: string) => trackBio(page?.id, e, id);
