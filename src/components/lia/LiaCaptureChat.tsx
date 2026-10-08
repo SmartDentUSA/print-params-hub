@@ -9,7 +9,7 @@ import groupBadge from "@/assets/smartdent-group-badge.png.asset.json";
 type Question = { field_id: string | null; form_id: string | null; db_column: string | null; label: string; options: string[]; field_type?: string };
 type Ctx = { form_id: string | null; campaign: string | null; product: string; origin: string; opening: string; greeting?: string; questions: Question[]; product_summary?: string | null; modules_summary?: string | null; whatsapp_group_url?: string | null };
 type Msg = { from: "lia" | "user"; text: string; createdAt?: number; question?: Question };
-type Seller = { seller_name: string; seller_first_name: string; lead_first_name?: string | null; photo_url: string | null; deal_id: string | null; wa_url: string };
+type Seller = { seller_name: string; seller_first_name: string; lead_first_name?: string | null; photo_url: string | null; deal_id: string | null; wa_url: string; hook?: string | null };
 type Step = "phone" | "email" | "name" | "creating" | "qualify" | "done";
 
 const IDLE_MS = 3 * 60 * 1000;
@@ -157,13 +157,19 @@ export default function LiaCaptureChat({ formId, campaign, product }: { formId: 
 
   useEffect(() => {
     if (!closed || !seller || handoffStage !== 2) return;
-    const timer = setTimeout(() => setHandoffStage(3), messageDelay(sellerInvitation(seller, data.name)));
+    const timer = setTimeout(() => setHandoffStage(3), seller.hook ? messageDelay(seller.hook) : 800);
     return () => clearTimeout(timer);
   }, [closed, seller, handoffStage]);
 
   useEffect(() => {
-    if (!closed || !seller || handoffStage !== 3 || !ctx?.whatsapp_group_url) return;
-    const timer = setTimeout(() => setHandoffStage(4), 1000);
+    if (!closed || !seller || handoffStage !== 3) return;
+    const timer = setTimeout(() => setHandoffStage(4), messageDelay(sellerInvitation(seller, data.name)));
+    return () => clearTimeout(timer);
+  }, [closed, seller, handoffStage]);
+
+  useEffect(() => {
+    if (!closed || !seller || handoffStage !== 4 || !ctx?.whatsapp_group_url) return;
+    const timer = setTimeout(() => setHandoffStage(5), 1000);
     return () => clearTimeout(timer);
   }, [closed, seller, handoffStage, ctx?.whatsapp_group_url]);
 
@@ -255,7 +261,7 @@ export default function LiaCaptureChat({ formId, campaign, product }: { formId: 
   };
 
   const q = step === "qualify" ? ctx?.questions[qIdx] : undefined;
-  const showSeller = seller && closed && handoffStage >= 3;
+  const showSeller = seller && closed && handoffStage >= 4;
   const waiting = busy || typing;
 
   return (
@@ -302,6 +308,11 @@ export default function LiaCaptureChat({ formId, campaign, product }: { formId: 
             <div className="lia-bubble lia-bubble-in max-w-[88%] whitespace-pre-wrap break-words rounded-lg rounded-tl-none bg-muted px-3 py-2 text-[15px] leading-5 text-foreground sm:max-w-[78%]">{ctx.modules_summary}</div>
           </div>
         )}
+        {closed && seller && handoffStage >= 3 && seller.hook && (
+          <div className="flex justify-start">
+            <div className="lia-bubble lia-bubble-in max-w-[88%] whitespace-pre-wrap break-words rounded-lg rounded-tl-none bg-muted px-3 py-2 text-[15px] leading-5 text-foreground sm:max-w-[78%]">{seller.hook}</div>
+          </div>
+        )}
         {showSeller && (
           <div className="flex justify-start">
             <div className="lia-bubble lia-bubble-in max-w-[88%] rounded-lg rounded-tl-none bg-muted px-3 py-2 text-[15px] leading-5 text-foreground sm:max-w-[78%]">
@@ -330,7 +341,7 @@ export default function LiaCaptureChat({ formId, campaign, product }: { formId: 
             </Button>
           </div>
         )}
-        {showSeller && handoffStage >= 4 && ctx?.whatsapp_group_url && (
+        {showSeller && handoffStage >= 5 && ctx?.whatsapp_group_url && (
           <div className="flex justify-start">
             <div className="lia-bubble lia-bubble-in max-w-[88%] rounded-lg rounded-tl-none bg-muted px-3 py-2 text-[15px] leading-5 text-foreground sm:max-w-[78%]">
               <a href={ctx.whatsapp_group_url} target="_blank" rel="noopener noreferrer" aria-label="Entrar no grupo exclusivo no WhatsApp" className="mb-2 flex flex-col items-center rounded-md bg-background/40 px-3 py-4 text-center">
