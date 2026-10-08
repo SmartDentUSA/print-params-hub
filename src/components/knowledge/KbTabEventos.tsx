@@ -202,16 +202,28 @@ export default function KbTabEventos() {
                       {t('kb.eventos.stand')}: {e.company_stand}
                     </div>
                   )}
-                  {e.website_url && (
-                    <a
-                      href={e.website_url}
-                      target="_blank"
-                      rel="noopener"
-                      style={{ marginTop: 'auto', display: 'inline-flex', alignItems: 'center', gap: 6, color: '#2563eb', fontSize: 13, fontWeight: 600, textDecoration: 'none' }}
-                    >
-                      {t('kb.eventos.event_site')} <ExternalLink size={13} />
-                    </a>
-                  )}
+                  <div style={{ marginTop: 'auto', display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
+                    {e.website_url && (
+                      <a
+                        href={e.website_url}
+                        target="_blank"
+                        rel="noopener"
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: '#2563eb', fontSize: 13, fontWeight: 600, textDecoration: 'none' }}
+                      >
+                        {t('kb.eventos.event_site')} <ExternalLink size={13} />
+                      </a>
+                    )}
+                    {formByEvent[e.id] && (
+                      <a
+                        href={`/f/${formByEvent[e.id]}`}
+                        target="_blank"
+                        rel="noopener"
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: '#059669', fontSize: 13, fontWeight: 600, textDecoration: 'none' }}
+                      >
+                        <Users size={13} /> Visitantes
+                      </a>
+                    )}
+                  </div>
                 </div>
               </div>
             );
