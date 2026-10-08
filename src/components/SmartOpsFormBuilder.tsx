@@ -597,9 +597,23 @@ export function SmartOpsFormBuilder() {
 
   const handleSaveMeta = async () => {
     if (!editingMeta || !metaName.trim()) return;
+    const nextSlug = generateSlug(metaSlug) || editingMeta.slug;
+    if (nextSlug !== editingMeta.slug) {
+      const { data: conflict } = await supabase.from("smartops_forms" as any)
+        .select("id")
+        .eq("slug", nextSlug)
+        .neq("id", editingMeta.id)
+        .maybeSingle();
+      if (conflict) {
+        toast.error("Este slug já está em uso por outro formulário.");
+        return;
+      }
+    }
+    const slugChanged = nextSlug !== editingMeta.slug;
     const { error } = await supabase.from("smartops_forms" as any)
       .update({
         name: metaName.trim(),
+        slug: nextSlug,
         title: metaTitle || null,
         subtitle: metaSubtitle || null,
         description: metaDescription || null,
@@ -934,6 +948,16 @@ export function SmartOpsFormBuilder() {
               <div>
                 <label className="text-xs font-medium text-muted-foreground">Nome interno (admin)</label>
                 <Input value={metaName} onChange={(e) => setMetaName(e.target.value)} />
+              </div>
+              <div>
+                <label className="text-xs font-medium">Slug (URL pública)</label>
+                <div className="flex items-center gap-1">
+                  <span className="text-xs text-muted-foreground whitespace-nowrap">/f/</span>
+                  <Input value={metaSlug} onChange={(e) => setMetaSlug(e.target.value)} placeholder="meu-formulario" />
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Usado na URL pública do formulário e da landing page. Ao alterar, links antigos (inclusive encurtados) deixam de funcionar.
+                </p>
               </div>
               <div>
                 <label className="text-xs font-medium">Título público (web)</label>
