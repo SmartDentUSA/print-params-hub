@@ -2,11 +2,11 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Loader2, Send, MessageCircle, ChevronLeft, Smile } from "lucide-react";
+import { Loader2, Send, MessageCircle, ChevronLeft, Smile, Users } from "lucide-react";
 import { trackAttendanceEvent } from "@/lib/attendanceChannel";
 
 type Question = { field_id: string | null; form_id: string | null; db_column: string | null; label: string; options: string[]; field_type?: string };
-type Ctx = { form_id: string | null; campaign: string | null; product: string; origin: string; opening: string; greeting?: string; questions: Question[]; product_summary?: string | null; modules_summary?: string | null };
+type Ctx = { form_id: string | null; campaign: string | null; product: string; origin: string; opening: string; greeting?: string; questions: Question[]; product_summary?: string | null; modules_summary?: string | null; whatsapp_group_url?: string | null };
 type Msg = { from: "lia" | "user"; text: string; createdAt?: number; question?: Question };
 type Seller = { seller_name: string; seller_first_name: string; lead_first_name?: string | null; photo_url: string | null; deal_id: string | null; wa_url: string };
 type Step = "phone" | "email" | "name" | "creating" | "qualify" | "done";
@@ -21,7 +21,8 @@ function sellerInvitation(seller: Seller, leadName?: string) {
   const specialist = female ? "a especialista" : male ? "o especialista" : seller.seller_first_name;
   const contact = female ? "ela" : male ? "ele" : seller.seller_first_name;
   const first = seller.lead_first_name || leadName?.trim().split(/\s+/)[0];
-  return `${first ? `${first}, j` : "J"}á passei todas as informações para ${specialist} que vai te chamar. Mas, já que está com o celular na mão, clica aqui no botão abaixo e já chama ${contact} 😄!`;
+  const introduction = female ? `O nome dela é ${seller.seller_name}.` : male ? `O nome dele é ${seller.seller_name}.` : `Seu atendimento será com ${seller.seller_name}.`;
+  return `${first ? `${first}, j` : "J"}á passei todas as informações para ${specialist} que vai te chamar. ${introduction}\n\nMas, já que está com o celular na mão, clica aqui no botão abaixo e já chama ${contact} 😄!`;
 }
 
 async function call(body: Record<string, unknown>) {
@@ -158,6 +159,16 @@ export default function LiaCaptureChat({ formId, campaign, product }: { formId: 
     const timer = setTimeout(() => setHandoffStage(3), messageDelay(sellerInvitation(seller, data.name)));
     return () => clearTimeout(timer);
   }, [closed, seller, handoffStage]);
+
+  useEffect(() => {
+    if (!closed || !seller || handoffStage !== 3 || !ctx?.whatsapp_group_url) return;
+    const timer = setTimeout(() => setHandoffStage(4), 1000);
+    return () => clearTimeout(timer);
+  }, [closed, seller, handoffStage, ctx?.whatsapp_group_url]);
+
+  useEffect(() => {
+    endRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [handoffStage]);
 
   useEffect(() => {
     if (!busy && !closed) inputRef.current?.focus();
@@ -319,6 +330,7 @@ export default function LiaCaptureChat({ formId, campaign, product }: { formId: 
           </div>
         )}
         <div ref={endRef} />
+        
         </div>
       </div>
       {!closed && (
