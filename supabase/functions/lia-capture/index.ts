@@ -191,7 +191,7 @@ async function findLead(phone: string, email: string) {
 
 // Gancho curto e humano montado com o que já sabemos do lead (perfil + respostas).
 // Nunca expõe dados sensíveis; só ecoa o que o próprio lead informou.
-function personalHook(lead: Record<string, unknown>, product: string): string | null {
+function personalHook(lead: Record<string, unknown>, product: string, productSummary?: string | null, seed = ""): string | null {
   // Valores genéricos/negativos do formulário (ex.: "OUTRAS", "Não, ainda não digitalizo") nunca entram no texto.
   const generic = (raw: string) => !raw || /^(outras?|outros?|nenhum[as]?|sem resposta|n\/?d|-+|—+)$/i.test(raw) || /^n[ãa]o\b/i.test(raw);
   const area = str(lead.area_atuacao, 80).trim();
@@ -219,8 +219,22 @@ function personalHook(lead: Record<string, unknown>, product: string): string | 
   const context = parts.join(", ").replace(/, ([^,]*)$/, " e $1");
   const productLower = (product || "").toLowerCase();
   const alreadyMentioned = productLower && parts.some((part) => part.toLowerCase().includes(productLower));
-  const tie = alreadyMentioned ? "" : ` — então o ${product || "nosso fluxo digital"} tende a encaixar muito bem no seu dia a dia`;
-  return `Pelo que você me contou, ${context}${tie}. Vale muito a pena conversar com o especialista, ele já vai te chamar com tudo pronto. 😉`;
+  // Frase de ligação com o produto varia por lead para as mensagens não saírem iguais.
+  const ties = [
+    `então o ${product || "nosso fluxo digital"} tende a encaixar muito bem no seu dia a dia`,
+    `e é exatamente aí que o ${product || "nosso fluxo digital"} faz diferença`,
+    `e o ${product || "nosso fluxo digital"} foi pensado justamente para essa rotina`,
+  ];
+  let hash = 0;
+  for (const ch of seed) hash = (hash * 31 + ch.charCodeAt(0)) >>> 0;
+  const tie = alreadyMentioned ? "" : ` — ${ties[hash % ties.length]}`;
+  // Um benefício real do produto (1ª frase do resumo da landing), sem preço nem valores.
+  let benefit = "";
+  if (productSummary) {
+    const firstSentence = productSummary.split(/(?<=[.!?])\s+/)[0]?.trim() ?? "";
+    if (firstSentence && firstSentence.length <= 180 && !/r\$|preço|valor|desconto/i.test(firstSentence)) benefit = ` ${firstSentence}`;
+  }
+  return `Pelo que você me contou, ${context}${tie}.${benefit} Vale muito a pena conversar com o especialista, ele já vai te chamar com tudo pronto. 😉`;
 }
 
 async function sellerCard(leadId: string) {
