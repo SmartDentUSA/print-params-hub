@@ -518,6 +518,8 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
   // Meta row
   const meta = [
     ld.cidade && ld.uf && `🏙️ ${ld.cidade}, ${ld.uf}`,
+    (ld as any).pessoa_cpf && `🪪 CPF ${(ld as any).pessoa_cpf}`,
+    ld.empresa_cnpj && `🏢 CNPJ ${ld.empresa_cnpj}`,
     ld.data_primeiro_contato && `📅 Primeiro: ${formatDate(ld.data_primeiro_contato)}`,
     ld.updated_at && `🔄 Último: ${formatDate(ld.updated_at)}`,
     ld.total_deals && `💼 ${ld.total_deals} deal${ld.total_deals !== 1 ? "s" : ""}`,
