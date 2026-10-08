@@ -9,6 +9,11 @@ import { normalizeBrazilianPhone } from "../_shared/phone-normalize.ts";
 import { buildKnownAnswers, filterPending, hasAnswer, normLabel } from "./qualification.ts";
 import { syncFormNote } from "../_shared/form-note-sync.ts";
 import { resolveFormProduct } from "../_shared/form-product.ts";
+import { composeConversation, priceFree } from "./conversation.ts";
+import { aiComplete } from "../_shared/ai-router.ts";
+import { searchKnowledge } from "../_shared/lia-rag.ts";
+import { generateEmbedding } from "../_shared/generate-embedding.ts";
+import { isPromptInjection } from "../_shared/lia-guards.ts";
 
 declare const EdgeRuntime: { waitUntil(promise: Promise<unknown>): void };
 import { buildProductSummary, buildModulesSummary } from "./product-summary.ts";
@@ -206,62 +211,41 @@ async function findLead(phone: string, email: string) {
   return null;
 }
 
-// Gancho curto e humano montado com o que já sabemos do lead (perfil + respostas).
-// Nunca expõe dados sensíveis; só ecoa o que o próprio lead informou.
-function personalHook(lead: Record<string, unknown>, product: string, productSummary?: string | null, seed = "", history?: { bought: string[]; quoted: string[]; courses?: string[]; orders?: string[]; event?: string | null }): string | null {
-  // Valores genéricos/negativos do formulário (ex.: "OUTRAS", "Não, ainda não digitalizo") nunca entram no texto.
-  const generic = (raw: string) => !raw || /^(outras?|outros?|nenhum[as]?|sem resposta|n\/?d|-+|—+)$/i.test(raw) || /^n[ãa]o\b/i.test(raw);
-  const area = str(lead.area_atuacao, 80).trim();
-  const esp = str(lead.especialidade, 80).trim();
-  const impressora = str(lead.impressora_modelo, 80).trim();
-  const scanner = str(lead.equip_scanner, 80).trim();
-  const cad = str(lead.sdr_software_cad_interesse, 80).trim();
-  const prints: string[] = [];
-  if (lead.imprime_modelos === true || lead.imprime_modelos === "true") prints.push("modelos");
-  if (lead.imprime_placas === true || lead.imprime_placas === "true") prints.push("placas");
-  if (lead.imprime_guias === true || lead.imprime_guias === "true") prints.push("guias cirúrgicos");
-  if (lead.imprime_resinas_ld === true || lead.imprime_resinas_ld === "true") prints.push("resinas de longa duração");
-  const areaOk = !generic(area);
-  const espOk = !generic(esp);
-  const cap = (t: string) => t.toLowerCase().replace(/(^|\s)\S/g, (m) => m.toUpperCase());
-  const clean = (n: string) => n.replace(/^treinamento (finalizado|agendado)\s*\(?/i, "").replace(/\)$/, "").replace(/\s+/g, " ").trim();
-  const productLowerName = (product || "").toLowerCase();
-  const notCurrent = (name: string) => name && !productLowerName.includes(name.toLowerCase()) && !name.toLowerCase().includes(productLowerName || "\0");
-  const bought = (history?.bought ?? []).filter(notCurrent);
-  const orders = (history?.orders ?? []).filter(notCurrent);
-  const courses = (history?.courses ?? []).map(clean).filter(Boolean);
-  const event = history?.event ? String(history.event).replace(/^#\s*-?\s*/, "").trim() : "";
-  // Equipamento que a Smart Dent vende/apoia = relação já existente com a empresa.
-  const ownBrand = /rayshape|miicraft|blz|smart ?print|edge mini|medit/i;
-  const printerOk = !generic(impressora);
-  const ourPrinter = printerOk && ownBrand.test(impressora);
-  const p = product || "esse próximo passo";
-  const variants = (opts: string[]) => { let h = 0; for (const ch of seed) h = (h * 31 + ch.charCodeAt(0)) >>> 0; return opts[h % opts.length]; };
-
-  // Maturidade digital: já é da casa (curso, compra, equipamento nosso) → fala de evolução, não de apresentação.
-  const relation: string[] = [];
-  if (ourPrinter) relation.push(`a sua ${cap(impressora)}`);
-  else if (bought.length) relation.push(bought[0]);
-  if (courses.length) relation.push(courses.length > 1 ? "os nossos treinamentos" : `o treinamento de ${courses[0]}`);
-  else if (orders.length && relation.length < 2) relation.push("as nossas resinas");
-  let text: string;
-  if (relation.length) {
-    const rel = relation.join(" e ");
-    text = variants([
-      `Você já tem o fluxo de impressão rodando com ${rel}, então não precisa começar do zero. O ${p} é o passo que completa esse fluxo e coloca o desenho na sua mão.`,
-      `Com ${rel}, você já domina a parte da produção. Agora o ${p} entra para você ganhar autonomia no planejamento, sem depender de terceiros.`,
-      `Quem já trabalha com ${rel} costuma sentir falta justamente de ter o desenho em casa — e é isso que o ${p} resolve.`,
-    ]);
-  } else if (event) {
-    text = `Que bom te reencontrar depois do ${event}! O ${p} é um ótimo próximo passo para levar o digital para dentro da sua rotina.`;
-  } else {
-    const who = areaOk && espOk && area.toLowerCase() !== esp.toLowerCase() ? `${esp.toLowerCase()} em ${area.toLowerCase()}` : espOk ? esp.toLowerCase() : areaOk ? `quem atua em ${area.toLowerCase()}` : "";
-    const tech = printerOk ? ` e já trabalha com a ${cap(impressora)}` : !generic(scanner) ? ` e já digitaliza com o ${scanner}` : "";
-    if (!who && !tech) return null;
-    text = who ? `Para ${who}${tech}, o ${p} faz muito sentido no dia a dia.` : `Como você${tech.replace(/^ e/, "")}, o ${p} faz muito sentido no dia a dia.`;
-  }
-  void cad; void prints;
-  return `${text} O especialista já vai te chamar com tudo pronto. 😉`;
+// Knowledge generation is independent of ingestion and seller polling.
+async function conversation(leadId: string, body: any) {
+  const ctx = await resolveContext(body);
+  const { data: lead } = await sb.from("lia_attendances")
+    .select("area_atuacao, especialidade, impressora_modelo, equip_scanner, imprime_modelos, imprime_placas, imprime_guias, imprime_resinas_ld")
+    .eq("id", leadId).is("merged_into", null).maybeSingle();
+  if (!lead || !ctx.product || isPromptInjection(ctx.product)) return { message: null };
+  const { data: rows } = ctx.qualification_form_id ? await sb.from("smartops_form_field_responses")
+    .select("field_label, value").eq("lead_id", leadId).eq("form_id", ctx.qualification_form_id)
+    .order("created_at", { ascending: false }).limit(80) : { data: [] };
+  const allowedLabels = new Set(ctx.questions.map((q: any) => normLabel(q.label)));
+  const seen = new Set<string>();
+  const answers = (rows ?? []).filter((row: any) => {
+    const key = normLabel(row.field_label);
+    if (!allowedLabels.has(key) || seen.has(key)) return false;
+    seen.add(key); return true;
+  }).map((row: any) => ({ label: priceFree(row.field_label), value: priceFree(row.value) }))
+    .filter((row: any) => row.label && row.value);
+  const knowledge = await searchKnowledge(sb, ctx.product, "pt-BR", "products", [], "https://parametros.smartdent.com.br",
+    (text: string) => generateEmbedding({ text, taskType: "RETRIEVAL_QUERY" })).catch(() => ({ results: [] }));
+  const titles = new Set<string>();
+  const sources = knowledge.results.filter((r: any) => {
+    const title = normLabel(r.metadata?.title || r.id);
+    if (r.similarity < 0.56 || r.source_type === "video" || titles.has(title)) return false;
+    titles.add(title); return true;
+  }).slice(0, 4).map((r: any) => priceFree(r.chunk_text));
+  const message = await composeConversation({
+    product: ctx.product, positioning: ctx.product_summary, modules: ctx.modules_summary,
+    profile: Object.fromEntries(Object.entries(lead).map(([key, value]) => [key, typeof value === "string" ? priceFree(value) : value])), answers, sources,
+  }, async (messages) => {
+    const result = await aiComplete({ task: "dra_lia_chat", functionName: "lia-capture", messages, temperature: 0.3, maxTokens: 250 });
+    if (!result.ok) console.warn("[lia-capture] conversation unavailable", result.error_code);
+    return result.ok ? result.text ?? null : null;
+  }, isPromptInjection);
+  return { message };
 }
 
 async function sellerCard(leadId: string, body: any) {
@@ -272,44 +256,6 @@ async function sellerCard(leadId: string, body: any) {
   const ctx = await resolveContext(body ?? {}).catch(() => null);
   const { data: deal } = await sb.from("deals").select("piperun_deal_id, owner_name")
     .eq("lead_id", leadId).order("created_at", { ascending: false }).limit(1).maybeSingle();
-  // Histórico de produtos do lead (negócios ganhos = cliente; demais = já cotou).
-  const { data: leadDeals } = await sb.from("deals").select("id, status")
-    .eq("lead_id", leadId).limit(50);
-  const dealIds = (leadDeals ?? []).map((d: any) => d.id);
-  const wonIds = new Set((leadDeals ?? []).filter((d: any) => /won|ganh/i.test(String(d.status ?? ""))).map((d: any) => d.id));
-  const bought: string[] = [];
-  const quoted: string[] = [];
-  if (dealIds.length) {
-    const { data: items } = await sb.from("deal_items").select("deal_id, product_name, total_value")
-      .in("deal_id", dealIds).limit(200);
-    const seen = new Set<string>();
-    for (const item of items ?? []) {
-      const name = String((item as any).product_name ?? "").trim();
-      // Ignora brindes/itens de R$0 (treinamento, suporte, instalação) e duplicados.
-      if (!name || Number((item as any).total_value ?? 0) <= 0) continue;
-      const key = name.toLowerCase();
-      if (seen.has(key)) continue;
-      seen.add(key);
-      (wonIds.has((item as any).deal_id) ? bought : quoted).push(name);
-    }
-  }
-  // Fatos mais recentes da timeline (só o que realmente aconteceu).
-  const { data: tl } = await sb.from("lead_activity_log").select("event_type, entity_name, event_data")
-    .eq("lead_id", leadId).in("event_type", ["treinamento_finalizado", "treinamento_agendado", "astron_course_progress", "ecommerce_order_paid", "ecommerce_order_invoiced", "form_submission"])
-    .order("event_timestamp", { ascending: false }).limit(200);
-  const courses: string[] = []; const orders: string[] = []; let event: string | null = null;
-  const pushU = (arr: string[], v: unknown) => { const n = String(v ?? "").replace(/\s+/g, " ").trim(); if (n && !arr.some((a) => a.toLowerCase() === n.toLowerCase())) arr.push(n); };
-  for (const r of tl ?? []) {
-    const d: any = (r as any).event_data ?? {};
-    if (r.event_type === "treinamento_finalizado" || r.event_type === "treinamento_agendado") pushU(courses, d.course_name ?? r.entity_name);
-    else if (r.event_type === "astron_course_progress" && Number(d.percentage ?? 0) >= 50) pushU(courses, d.course_name ?? r.entity_name);
-    else if (r.event_type.startsWith("ecommerce_order")) for (const it of Array.isArray(d.itens) ? d.itens : []) pushU(orders, it?.nome);
-    else if (r.event_type === "form_submission" && !event) {
-      const ev = String(d.evento ?? "").trim();
-      const fn = String(d.form_name ?? "").replace(/^#\s*-?\s*/, "").trim();
-      if (ev) event = ev; else if (/congresso|feira|expo|evento|ciosp|semin/i.test(fn)) event = fn;
-    }
-  }
   let member: any = null;
   if (lead.piperun_owner_id) {
     const { data } = await sb.from("team_members").select("nome_completo, photo_url, whatsapp_number").eq("piperun_owner_id", lead.piperun_owner_id).limit(1).maybeSingle();
@@ -334,7 +280,6 @@ async function sellerCard(leadId: string, body: any) {
     photo_url: member?.photo_url ?? null,
     deal_id: dealId || null,
     wa_url: `https://wa.me/${phone}?text=${encodeURIComponent(text)}`,
-    hook: personalHook(lead as Record<string, unknown>, product, ctx?.product_summary, leadId, { bought, quoted, courses, orders, event }),
   };
 }
 
@@ -441,6 +386,11 @@ Deno.serve(async (req) => {
         await sb.from("system_health_logs").insert({ function_name: "lia-capture", severity: "error", error_type: "crm_note_sync_failed", details: { lead_id: body.lead_id } });
       }));
       return json({ ok: true, questions: await pendingQuestions(body.lead_id, context) });
+    }
+
+    if (action === "conversation") {
+      if (!(await checkToken(body.lead_id, body.token))) return json({ error: "unauthorized" }, 401);
+      return json(await conversation(body.lead_id, body));
     }
 
     if (action === "seller") {

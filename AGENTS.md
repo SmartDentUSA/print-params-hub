@@ -2,7 +2,7 @@
 
 - Support context requires session, support-role and ticket authorization via an edge function; this exposes customer details without widening commercial RLS.
 - Support board uses that endpoint in bounded batches for complete ticket counts and owned-equipment priority; this avoids per-card requests and RLS changes.
-- Support workspace theme tokens are scoped to its page and use an equal-width conversation/profile layout; this preserves unrelated admin styling.
+- Support uses page-scoped theme tokens and equal-width conversation/profile areas to preserve unrelated admin styling.
 - Bio cards pass hydrated form IDs to LIA, never editable labels as products; this preserves attribution.
 
 - RMS payment presentation and metrics share product-family resolution; subscription fallback and invoice totals are scoped by family and lead to prevent exoplan/DentalCAD cross-attribution.
@@ -28,6 +28,6 @@
 - Technical support access is checked in the database through `is_support_staff` (admin or support_agent roles in user_roles); support data stays isolated from commercial queues and campaigns.
 - Support ticket lifecycle timestamps (assignment, resolution, closing, reopen count/FCR) are set by a validation trigger on technical_tickets so KPIs never depend on client code.
 
-- LIA follows form order/conditions and canonical answers; server-side storage emits timeline entries. Keep HMAC, masked hints and price-free handoff. CRM notes paginate all answers and refresh through the shared lock, never changing deals.
+- LIA keeps form order, conditions, canonical answers, HMAC, masked hints and timeline. Notes paginate under shared lock without changing deals. Grounded RAG/AI conversation runs separately during assignment; failure never blocks handoff; seller announcements stay factual.
 - LIA context validates the form's success_redirect_url as a WhatsApp group; optional group CTA follows seller CTA without changing ingestion.
 - Internal forms and LIA resolve interest from their catalog binding or selected product button so CRM uses exact product names; Meta ingestion stays unchanged.
