@@ -66,15 +66,33 @@ export function EventsUploadAccordion() {
     const cutoff = new Date();
     cutoff.setDate(cutoff.getDate() - 15);
     const cutoffStr = cutoff.toISOString().slice(0, 10);
+    const todayStr = new Date().toISOString().slice(0, 10);
     const recent = (data || []).filter((r) => {
       const ref = r.end_date || r.start_date;
       return !ref || ref >= cutoffStr;
     });
     const s = search.trim().toLowerCase();
-    if (!s) return recent;
-    return recent.filter((r) =>
-      [r.name, r.location, r.country].filter(Boolean).some((v) => String(v).toLowerCase().includes(s)),
-    );
+    const filtered = s
+      ? recent.filter((r) =>
+          [r.name, r.location, r.country].filter(Boolean).some((v) => String(v).toLowerCase().includes(s)),
+        )
+      : recent;
+    // Ordem do evento mais próximo ao mais distante: os que ainda vão acontecer
+    // primeiro (data crescente), depois os já realizados (mais recentes antes),
+    // e os sem data por último.
+    const startRef = (r: EventFolderRow) => r.start_date || r.end_date || "";
+    const isUpcoming = (r: EventFolderRow) => (r.end_date || r.start_date || "") >= todayStr;
+    return [...filtered].sort((a, b) => {
+      const ra = startRef(a);
+      const rb = startRef(b);
+      if (!ra && !rb) return 0;
+      if (!ra) return 1;
+      if (!rb) return -1;
+      const ua = isUpcoming(a);
+      const ub = isUpcoming(b);
+      if (ua !== ub) return ua ? -1 : 1;
+      return ua ? ra.localeCompare(rb) : rb.localeCompare(ra);
+    });
   }, [data, search]);
 
   return (
