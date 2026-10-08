@@ -207,7 +207,7 @@ async function findLead(phone: string, email: string) {
 
 // Gancho curto e humano montado com o que já sabemos do lead (perfil + respostas).
 // Nunca expõe dados sensíveis; só ecoa o que o próprio lead informou.
-function personalHook(lead: Record<string, unknown>, product: string, productSummary?: string | null, seed = "", history?: { bought: string[]; quoted: string[] }): string | null {
+function personalHook(lead: Record<string, unknown>, product: string, productSummary?: string | null, seed = "", history?: { bought: string[]; quoted: string[]; courses?: string[]; orders?: string[]; event?: string | null }): string | null {
   // Valores genéricos/negativos do formulário (ex.: "OUTRAS", "Não, ainda não digitalizo") nunca entram no texto.
   const generic = (raw: string) => !raw || /^(outras?|outros?|nenhum[as]?|sem resposta|n\/?d|-+|—+)$/i.test(raw) || /^n[ãa]o\b/i.test(raw);
   const area = str(lead.area_atuacao, 80).trim();
@@ -238,6 +238,12 @@ function personalHook(lead: Record<string, unknown>, product: string, productSum
   const quoted = (history?.quoted ?? []).filter(notCurrent).filter((n) => !bought.some((b) => b.toLowerCase() === n.toLowerCase())).slice(0, 2);
   if (bought.length) parts.push(`já é cliente de ${bought.join(" e ")}`);
   else if (quoted.length) parts.push(`já conversou com a gente sobre ${quoted.join(" e ")}`);
+  // Timeline recente: cursos, compras na loja e eventos/congressos onde nos encontrou.
+  const courses = (history?.courses ?? []).slice(0, 2);
+  const orders = (history?.orders ?? []).filter(notCurrent).slice(0, 2);
+  if (courses.length) parts.push(`já fez com a gente o curso ${courses.join(" e ")}`);
+  if (orders.length) parts.push(`já usa ${orders.join(" e ")} da nossa loja`);
+  if (history?.event) parts.push(`a gente já se encontrou no ${history.event}`);
   if (!parts.length) return null;
   const context = parts.join(", ").replace(/, ([^,]*)$/, " e $1");
   const productLower = (product || "").toLowerCase();
@@ -297,6 +303,23 @@ async function sellerCard(leadId: string, body: any) {
       (wonIds.has((item as any).deal_id) ? bought : quoted).push(name);
     }
   }
+  // Fatos mais recentes da timeline (só o que realmente aconteceu).
+  const { data: tl } = await sb.from("lead_activity_log").select("event_type, entity_name, event_data")
+    .eq("lead_id", leadId).in("event_type", ["treinamento_finalizado", "treinamento_agendado", "astron_course_progress", "ecommerce_order_paid", "ecommerce_order_invoiced", "form_submission"])
+    .order("event_timestamp", { ascending: false }).limit(200);
+  const courses: string[] = []; const orders: string[] = []; let event: string | null = null;
+  const pushU = (arr: string[], v: unknown) => { const n = String(v ?? "").replace(/\s+/g, " ").trim(); if (n && !arr.some((a) => a.toLowerCase() === n.toLowerCase())) arr.push(n); };
+  for (const r of tl ?? []) {
+    const d: any = (r as any).event_data ?? {};
+    if (r.event_type === "treinamento_finalizado" || r.event_type === "treinamento_agendado") pushU(courses, d.course_name ?? r.entity_name);
+    else if (r.event_type === "astron_course_progress" && Number(d.percentage ?? 0) >= 50) pushU(courses, d.course_name ?? r.entity_name);
+    else if (r.event_type.startsWith("ecommerce_order")) for (const it of Array.isArray(d.itens) ? d.itens : []) pushU(orders, it?.nome);
+    else if (r.event_type === "form_submission" && !event) {
+      const ev = String(d.evento ?? "").trim();
+      const fn = String(d.form_name ?? "").replace(/^#\s*-?\s*/, "").trim();
+      if (ev) event = ev; else if (/congresso|feira|expo|evento|ciosp|semin/i.test(fn)) event = fn;
+    }
+  }
   let member: any = null;
   if (lead.piperun_owner_id) {
     const { data } = await sb.from("team_members").select("nome_completo, photo_url, whatsapp_number").eq("piperun_owner_id", lead.piperun_owner_id).limit(1).maybeSingle();
@@ -321,7 +344,7 @@ async function sellerCard(leadId: string, body: any) {
     photo_url: member?.photo_url ?? null,
     deal_id: dealId || null,
     wa_url: `https://wa.me/${phone}?text=${encodeURIComponent(text)}`,
-    hook: personalHook(lead as Record<string, unknown>, product, ctx?.product_summary, leadId, { bought, quoted }),
+    hook: personalHook(lead as Record<string, unknown>, product, ctx?.product_summary, leadId, { bought, quoted, courses, orders, event }),
   };
 }
 
