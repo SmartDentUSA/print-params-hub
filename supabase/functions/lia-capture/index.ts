@@ -262,7 +262,6 @@ function personalHook(lead: Record<string, unknown>, product: string, productSum
   void cad; void prints;
   return `${text} O especialista já vai te chamar com tudo pronto. 😉`;
 }
-}
 
 async function sellerCard(leadId: string, body: any) {
   const { data: lead } = await sb.from("lia_attendances")
