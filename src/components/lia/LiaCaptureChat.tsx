@@ -6,7 +6,7 @@ import { Loader2, Send, MessageCircle, ChevronLeft, Smile } from "lucide-react";
 import { trackAttendanceEvent } from "@/lib/attendanceChannel";
 
 type Question = { field_id: string | null; form_id: string | null; db_column: string; label: string; options: string[] };
-type Ctx = { form_id: string | null; campaign: string | null; product: string; origin: string; opening: string; questions: Question[] };
+type Ctx = { form_id: string | null; campaign: string | null; product: string; origin: string; opening: string; questions: Question[]; product_summary?: string | null };
 type Msg = { from: "lia" | "user"; text: string; createdAt?: number };
 type Seller = { seller_name: string; seller_first_name: string; photo_url: string | null; deal_id: string | null; wa_url: string };
 type Step = "phone" | "email" | "name" | "creating" | "qualify" | "done";
@@ -85,7 +85,6 @@ export default function LiaCaptureChat({ formId, campaign, product }: { formId: 
     if (!leadInfo || closed) return;
     setClosed(true);
     setStep("done");
-    say("Acabei de designar um especialista de produto para te atender e, com as informações que você me passou, ele não tomará seu tempo.");
   };
 
   // Busca o vendedor designado (lia-assign roda em segundo plano)
@@ -221,6 +220,18 @@ export default function LiaCaptureChat({ formId, campaign, product }: { formId: 
             </div>
           </div>
         ))}
+        {closed && ctx?.product_summary && (
+          <div className="flex justify-start">
+            <div className="lia-bubble lia-bubble-in max-w-[88%] whitespace-pre-wrap break-words rounded-lg rounded-tl-none bg-muted px-3 py-2 text-[15px] leading-5 text-foreground sm:max-w-[78%]">{ctx.product_summary}</div>
+          </div>
+        )}
+        {showSeller && (
+          <div className="flex justify-start">
+            <div className="lia-bubble lia-bubble-in max-w-[88%] rounded-lg rounded-tl-none bg-muted px-3 py-2 text-[15px] leading-5 text-foreground sm:max-w-[78%]">
+              {`Quer entender como ${ctx?.product || "essa solução"} pode se encaixar no seu dia a dia? Chame ${seller.seller_first_name} no WhatsApp abaixo — seu especialista já terá as informações que você compartilhou por aqui.`}
+            </div>
+          </div>
+        )}
         {(busy || (closed && !seller)) && (
           <div className="flex items-center gap-2 text-xs text-muted-foreground"><Loader2 className="h-3 w-3 animate-spin" /> {closed ? "Localizando seu especialista…" : "Digitando…"}</div>
         )}
