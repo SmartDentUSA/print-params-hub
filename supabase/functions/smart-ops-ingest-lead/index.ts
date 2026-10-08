@@ -1007,7 +1007,14 @@ Deno.serve(async (req) => {
       existingLead = parent;
       hops++;
     }
-    if (existingLead && existingLead.email && existingLead.email.toLowerCase() !== email) {
+    const isPlaceholderEmailValue = (v: unknown) =>
+      !v || /@(.+\.)?placeholder(\.local)?$/i.test(String(v).trim()) || /^import_\d+_\d+@/i.test(String(v).trim());
+    const isPlaceholderNameValue = (v: unknown) =>
+      !v || /^(nome\s+n[ãa]o\s+informado|sem[\s-]*nome|n\/a|null|desconhecido)$/i.test(String(v).trim());
+    if (
+      existingLead && existingLead.email && existingLead.email.toLowerCase() !== email &&
+      !isPlaceholderEmailValue(existingLead.email)
+    ) {
       incomingEmailDiffersFromCanonical = true;
       console.log(`[ingest-lead] Lead matched via ${matchedVia}; incoming email "${email}" differs from canonical "${existingLead.email}". Preserving canonical email.`);
     }
