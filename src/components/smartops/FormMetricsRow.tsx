@@ -320,7 +320,7 @@ export function FormMetricsRow({
         </button>
         {showChannels && (
           <div className="mt-2">
-            <AttendanceChannelMetrics formId={form.id} />
+            <AttendanceChannelMetrics formId={form.id} formOverride={metrics ? { views: metrics.visitors, leads: metrics.leads, conversions: metrics.deals_won, revenue: metrics.revenue ?? 0 } : undefined} />
           </div>
         )}
       </div>
