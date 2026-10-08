@@ -9,6 +9,7 @@ export interface BioItem {
   image_url?: string | null;
   url: string;
   button_text?: string | null;
+  form_id?: string | null;
 }
 
 export interface BioSocialLinks {
@@ -87,6 +88,7 @@ async function fetchBioSourceOptions(): Promise<BioSourceOption[]> {
       options.push({
         key: `form:${f.slug}`,
         kind: "form",
+        form_id: f.id,
         slug: f.slug,
         label,
         description,
@@ -100,6 +102,7 @@ async function fetchBioSourceOptions(): Promise<BioSourceOption[]> {
       options.push({
         key: `landing_page:${f.slug}`,
         kind: "landing_page",
+        form_id: f.id,
         slug: f.slug,
         label,
         description,
@@ -121,6 +124,7 @@ function hydratePageItems(page: BioPage, sources: BioSourceOption[]): BioPage {
       return {
         ...item,
         kind: liveSource.kind,
+        form_id: liveSource.form_id,
         label: item.label || liveSource.label,
         description: item.description ?? liveSource.description,
         image_url: liveSource.image_url ?? item.image_url ?? null,
@@ -196,6 +200,7 @@ export function useDeleteBioPage() {
 
 export interface BioSourceOption {
   key: string;
+  form_id?: string;
   kind: "form" | "landing_page";
   slug: string;
   label: string;

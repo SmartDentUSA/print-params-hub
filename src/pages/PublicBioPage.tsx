@@ -5,6 +5,10 @@ import { Instagram, Youtube, Facebook, Linkedin, Globe, MessageCircle, Share2, A
 import { toast } from "sonner";
 import { useBioPage, DEFAULT_LOGO_URL, type BioItem, type BioSocialLinks } from "@/hooks/useBioPages";
 import { useEffect, useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { WhatsAppGlyph } from "@/components/lp/PremiumLandingTemplate";
+import { buildLiaUrl, trackAttendanceEvent } from "@/lib/attendanceChannel";
 import catalogoBanner from "@/assets/catalogo-produtos-banner.webp";
 import parametrizeBanner from "@/assets/parametrize-printer-banner.webp";
 
@@ -19,7 +23,7 @@ const SOCIAL_ICONS: Array<{ key: keyof BioSocialLinks; Icon: typeof Instagram; l
   { key: "website", Icon: Globe, label: "Site" },
 ];
 
-function BioCard({ item }: { item: BioItem }) {
+function BioCard({ item, onWhatsApp }: { item: BioItem; onWhatsApp: (item: BioItem) => void }) {
   const [imageAspectRatio, setImageAspectRatio] = useState<number | null>(null);
 
   useEffect(() => {
@@ -27,13 +31,10 @@ function BioCard({ item }: { item: BioItem }) {
   }, [item.image_url]);
 
   return (
-    <a
-      href={item.url}
-      target={item.url.startsWith("http") ? "_blank" : undefined}
-      rel="noopener noreferrer"
+    <article
       className="group flex h-fit w-full flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-lg"
     >
-
+      <a href={item.url} target={item.url.startsWith("http") ? "_blank" : undefined} rel="noopener noreferrer" aria-label={item.label}>
       <div
         className="relative w-full overflow-hidden bg-muted"
         style={imageAspectRatio ? { aspectRatio: imageAspectRatio } : undefined}
@@ -58,23 +59,36 @@ function BioCard({ item }: { item: BioItem }) {
           </div>
         )}
       </div>
+      </a>
       <div className="flex flex-1 flex-col gap-2 p-3">
         <h2 className="text-sm font-semibold leading-snug text-foreground line-clamp-2">{item.label}</h2>
         {item.description && (
           <p className="text-xs text-muted-foreground line-clamp-2">{item.description}</p>
         )}
-        <span className="mt-auto inline-flex items-center justify-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground transition-colors group-hover:bg-primary/90">
-          {item.button_text || "Acessar"}
-          <ArrowRight className="h-3.5 w-3.5" />
-        </span>
+        <div className="mt-auto flex flex-wrap gap-2">
+          <Button asChild size="sm" className="min-w-0 flex-1 text-xs">
+            <a href={item.url} target={item.url.startsWith("http") ? "_blank" : undefined} rel="noopener noreferrer">
+              {item.button_text || "Acessar"}<ArrowRight className="h-3.5 w-3.5 shrink-0" />
+            </a>
+          </Button>
+          <Button className="bio-whatsapp-button h-auto min-h-10 rounded-full px-5 py-2 text-xs" onClick={() => onWhatsApp(item)} aria-label={`Falar com um Especialista — ${item.label}`}>
+            <WhatsAppGlyph className="h-5 w-5 shrink-0" />Falar com um Especialista
+          </Button>
+        </div>
       </div>
-    </a>
+    </article>
   );
 }
 
 export default function PublicBioPage() {
   const { slug } = useParams<{ slug: string }>();
   const { data: page, isLoading } = useBioPage(slug);
+  const [liaItem, setLiaItem] = useState<BioItem | null>(null);
+  const openWhatsApp = (item: BioItem) => {
+    trackAttendanceEvent({ channel: "whatsapp_lia", event_type: "click", form_id: item.form_id });
+    setLiaItem(item);
+  };
+  const liaUrl = liaItem ? buildLiaUrl({ formId: liaItem.form_id }) + "&utm_source=link_na_bio&utm_medium=whatsapp_lia" : "";
 
   const share = async () => {
     const url = `${getPublicOrigin()}/bio/${page?.slug ?? ""}`;
@@ -131,6 +145,7 @@ export default function PublicBioPage() {
           {page.subtitle && <p className="mt-1 text-sm text-muted-foreground">{page.subtitle}</p>}
 
           <div className="mt-5 flex w-full flex-col items-stretch gap-3 px-2 sm:px-0">
+            <div>
             <a
               href="/base-conhecimento?tab=parametros"
               className="group flex w-full flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md"
@@ -147,6 +162,11 @@ export default function PublicBioPage() {
                 Parametrize sua impressora
               </span>
             </a>
+            <Button className="bio-whatsapp-button mt-2 min-h-10 w-full rounded-full" onClick={() => openWhatsApp({ id: "parametros", kind: "custom", label: "Parametrize sua impressora", url: "/base-conhecimento?tab=parametros" })} aria-label="Falar com um Especialista — Parametrize sua impressora">
+              <WhatsAppGlyph className="h-5 w-5" />Falar com um Especialista
+            </Button>
+            </div>
+            <div>
             <a
               href="https://parametros.smartdent.com.br/base-conhecimento?tab=catalogo&_cb=1788186308518&cat=resinas_3d"
               target="_blank"
@@ -165,6 +185,10 @@ export default function PublicBioPage() {
                 Catálogo de produtos
               </span>
             </a>
+            <Button className="bio-whatsapp-button mt-2 min-h-10 w-full rounded-full" onClick={() => openWhatsApp({ id: "catalogo", kind: "custom", label: "Catálogo de produtos", url: "/base-conhecimento?tab=catalogo" })} aria-label="Falar com um Especialista — Catálogo de produtos">
+              <WhatsAppGlyph className="h-5 w-5" />Falar com um Especialista
+            </Button>
+            </div>
           </div>
 
         </header>
@@ -172,7 +196,7 @@ export default function PublicBioPage() {
 
         <section className="mt-8 flex w-full flex-col items-center gap-3">
           {page.items.map((item) => (
-            <BioCard key={item.id} item={item} />
+            <BioCard key={item.id} item={item} onWhatsApp={openWhatsApp} />
           ))}
         </section>
 
@@ -212,6 +236,13 @@ export default function PublicBioPage() {
           © {new Date().getFullYear()} Smart Dent | Fluxo Digital
         </footer>
       </main>
+      <Dialog open={liaItem !== null} onOpenChange={(open) => { if (!open) setLiaItem(null); }}>
+        <DialogContent className="max-w-md overflow-hidden p-0">
+          <DialogTitle className="sr-only">Atendimento Dra. LIA</DialogTitle>
+          <DialogDescription className="sr-only">Converse com a Dra. LIA</DialogDescription>
+          {liaItem && <iframe title="Dra. LIA" src={liaUrl} className="h-[80vh] w-full border-0" />}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
