@@ -192,27 +192,35 @@ async function findLead(phone: string, email: string) {
 // Gancho curto e humano montado com o que já sabemos do lead (perfil + respostas).
 // Nunca expõe dados sensíveis; só ecoa o que o próprio lead informou.
 function personalHook(lead: Record<string, unknown>, product: string): string | null {
-  const area = str(lead.area_atuacao, 80).toLowerCase();
-  const esp = str(lead.especialidade, 80).toLowerCase();
-  const impressora = str(lead.impressora_modelo, 80);
-  const scanner = str(lead.equip_scanner, 80);
-  const cad = str(lead.sdr_software_cad_interesse, 80);
+  // Valores genéricos/negativos do formulário (ex.: "OUTRAS", "Não, ainda não digitalizo") nunca entram no texto.
+  const generic = (raw: string) => !raw || /^(outras?|outros?|nenhum[as]?|sem resposta|n\/?d|-+|—+)$/i.test(raw) || /^n[ãa]o\b/i.test(raw);
+  const area = str(lead.area_atuacao, 80).trim();
+  const esp = str(lead.especialidade, 80).trim();
+  const impressora = str(lead.impressora_modelo, 80).trim();
+  const scanner = str(lead.equip_scanner, 80).trim();
+  const cad = str(lead.sdr_software_cad_interesse, 80).trim();
   const prints: string[] = [];
   if (lead.imprime_modelos === true || lead.imprime_modelos === "true") prints.push("modelos");
   if (lead.imprime_placas === true || lead.imprime_placas === "true") prints.push("placas");
   if (lead.imprime_guias === true || lead.imprime_guias === "true") prints.push("guias cirúrgicos");
   if (lead.imprime_resinas_ld === true || lead.imprime_resinas_ld === "true") prints.push("resinas de longa duração");
   const parts: string[] = [];
-  if (area && esp) parts.push(`você atua em ${area} com foco em ${esp}`);
-  else if (area) parts.push(`você atua em ${area}`);
-  else if (esp) parts.push(`sua área é ${esp}`);
+  const areaOk = !generic(area);
+  const espOk = !generic(esp);
+  if (areaOk && espOk && area.toLowerCase() !== esp.toLowerCase()) parts.push(`você atua em ${area.toLowerCase()} como ${esp.toLowerCase()}`);
+  else if (areaOk && espOk) parts.push(`você é ${esp.toLowerCase()}`);
+  else if (areaOk) parts.push(`você atua em ${area.toLowerCase()}`);
+  else if (espOk) parts.push(`você é ${esp.toLowerCase()}`);
   if (prints.length) parts.push(`já imprime ${prints.slice(0, 3).join(", ")}`);
-  if (impressora) parts.push(`trabalha com a ${impressora}`);
-  if (scanner) parts.push(`usa o scanner ${scanner}`);
-  if (cad) parts.push(`e já tem interesse em ${cad}`);
+  if (!generic(impressora)) parts.push(`trabalha com a ${impressora}`);
+  if (!generic(scanner)) parts.push(`usa o scanner ${scanner}`);
+  if (!generic(cad) && !(product && product.toLowerCase().includes(cad.toLowerCase()))) parts.push(`quer colocar o ${cad} na sua rotina`);
   if (!parts.length) return null;
   const context = parts.join(", ").replace(/, ([^,]*)$/, " e $1");
-  return `Pelo que você me contou, ${context} — então o ${product || "nosso fluxo digital"} tende a encaixar muito bem no seu dia a dia. Vale muito a pena conversar com o especialista, ele já vai te chamar com tudo pronto. 😉`;
+  const productLower = (product || "").toLowerCase();
+  const alreadyMentioned = productLower && parts.some((part) => part.toLowerCase().includes(productLower));
+  const tie = alreadyMentioned ? "" : ` — então o ${product || "nosso fluxo digital"} tende a encaixar muito bem no seu dia a dia`;
+  return `Pelo que você me contou, ${context}${tie}. Vale muito a pena conversar com o especialista, ele já vai te chamar com tudo pronto. 😉`;
 }
 
 async function sellerCard(leadId: string) {
