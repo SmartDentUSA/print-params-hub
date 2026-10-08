@@ -33,6 +33,8 @@ function normPhone(v: unknown) {
   return digits(normalizeBrazilianPhone(str(v, 40)));
 }
 const str = (v: unknown, max = 300) => (typeof v === "string" ? v.trim().slice(0, max) : "");
+// Nomes provisórios ("Nome não informado", "Sem nome", "Lead") não contam como nome real.
+const realName = (v: unknown) => { const n = str(v, 120); return !n || /^(nome( n[ãa]o informado)?|sem nome|n[ãa]o informado|lead|cliente|desconhecido|-+)$/i.test(n) ? "" : n; };
 const isUuid = (v: unknown) => typeof v === "string" && /^[0-9a-f-]{36}$/i.test(v);
 
 function whatsappGroupUrl(value: unknown): string | null {
@@ -265,7 +267,7 @@ async function sellerCard(leadId: string, body: any) {
     ready: true,
     seller_name: ownerName,
     seller_first_name: first,
-    lead_first_name: String(lead.nome ?? "").trim().split(/\s+/)[0] || null,
+    lead_first_name: realName(lead.nome).split(/\s+/)[0] || null,
     photo_url: member?.photo_url ?? null,
     deal_id: dealId || null,
     wa_url: `https://wa.me/${phone}?text=${encodeURIComponent(text)}`,
@@ -287,7 +289,7 @@ Deno.serve(async (req) => {
       const phone = normPhone(body.phone);
       const email = str(body.email, 200).toLowerCase();
       const row = await findLead(phone, email);
-      return json({ found: !!row && !("ambiguous" in row), ambiguous: !!row && "ambiguous" in row, first_name: row?.nome ? String(row.nome).trim().split(" ")[0] : null, has_email: validEmail(row?.email), has_name: !!row?.nome,
+      return json({ found: !!row && !("ambiguous" in row), ambiguous: !!row && "ambiguous" in row, first_name: realName(row?.nome) ? realName(row?.nome).split(" ")[0] : null, has_email: validEmail(row?.email), has_name: !!realName(row?.nome),
         ...(row && "ambiguous" in row ? { match_count: row.match_count, email_hints: row.email_hints } : {}),
       });
     }
@@ -297,7 +299,7 @@ Deno.serve(async (req) => {
       const providedEmail = str(body.email, 200).toLowerCase();
       const existing = await findLead(phone, providedEmail);
       if (existing && "ambiguous" in existing) return json({ error: "Confirme seu e-mail para identificar o cadastro correto." }, 409);
-      const nome = str(existing?.nome, 120) || str(body.name, 120);
+      const nome = realName(existing?.nome) || realName(body.name);
       const email = validEmail(existing?.email) ? String(existing?.email).toLowerCase() : providedEmail;
       if (!nome || !phone || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return json({ error: "Nome, e-mail e telefone válidos são obrigatórios." }, 400);
       const ctx = await resolveContext(body);
@@ -344,8 +346,12 @@ Deno.serve(async (req) => {
       const context = { ...body, form_id: body.form_id_context ?? body.form_id };
       const pending = await pendingQuestions(body.lead_id, context);
       const field = pending.find((q: any) => q.field_id === (body.field_id || null) && q.db_column === body.db_column);
-      const values = Array.isArray(body.value) ? body.value.map((v: unknown) => str(v, 300)) : [str(body.value, 300)];
-      if (!field || !values.length || values.some((v: string) => !v || (field.options.length && !field.options.includes(v))) || (Array.isArray(body.value) && field.field_type !== "checkbox")) return json({ error: "invalid field or answer" }, 400);
+      const rawValues = Array.isArray(body.value) ? body.value.map((v: unknown) => str(v, 300)) : [str(body.value, 300)];
+      // Opções do formulário podem ter espaços extras; compara normalizado e grava a opção canônica do formulário.
+      const norm = (s: string) => String(s ?? "").replace(/\s+/g, " ").trim().toLowerCase();
+      const options: string[] = field?.options ?? [];
+      const values = rawValues.map((v: string) => (options.length ? options.find((o) => norm(o) === norm(v)) ?? "" : v));
+      if (!field || !values.length || values.some((v: string) => !v) || (Array.isArray(body.value) && field.field_type !== "checkbox")) return json({ error: "invalid field or answer" }, 400);
       const value = Array.isArray(body.value) ? JSON.stringify(values) : values[0];
       if (field.db_column && ANSWER_COLS.has(field.db_column)) {
         const { error } = await sb.from("lia_attendances").update({ [field.db_column]: value }).eq("id", body.lead_id).is("merged_into", null);
