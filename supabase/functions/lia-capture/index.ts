@@ -189,9 +189,35 @@ async function findLead(phone: string, email: string) {
   return null;
 }
 
+// Gancho curto e humano montado com o que já sabemos do lead (perfil + respostas).
+// Nunca expõe dados sensíveis; só ecoa o que o próprio lead informou.
+function personalHook(lead: Record<string, unknown>, product: string): string | null {
+  const area = str(lead.area_atuacao, 80).toLowerCase();
+  const esp = str(lead.especialidade, 80).toLowerCase();
+  const impressora = str(lead.impressora_modelo, 80);
+  const scanner = str(lead.equip_scanner, 80);
+  const cad = str(lead.sdr_software_cad_interesse, 80);
+  const prints: string[] = [];
+  if (lead.imprime_modelos === true || lead.imprime_modelos === "true") prints.push("modelos");
+  if (lead.imprime_placas === true || lead.imprime_placas === "true") prints.push("placas");
+  if (lead.imprime_guias === true || lead.imprime_guias === "true") prints.push("guias cirúrgicos");
+  if (lead.imprime_resinas_ld === true || lead.imprime_resinas_ld === "true") prints.push("resinas de longa duração");
+  const parts: string[] = [];
+  if (area && esp) parts.push(`você atua em ${area} com foco em ${esp}`);
+  else if (area) parts.push(`você atua em ${area}`);
+  else if (esp) parts.push(`sua área é ${esp}`);
+  if (prints.length) parts.push(`já imprime ${prints.slice(0, 3).join(", ")}`);
+  if (impressora) parts.push(`trabalha com a ${impressora}`);
+  if (scanner) parts.push(`usa o scanner ${scanner}`);
+  if (cad) parts.push(`e já tem interesse em ${cad}`);
+  if (!parts.length) return null;
+  const context = parts.join(", ").replace(/, ([^,]*)$/, " e $1");
+  return `Pelo que você me contou, ${context} — então o ${product || "nosso fluxo digital"} tende a encaixar muito bem no seu dia a dia. Vale muito a pena conversar com o especialista, ele já vai te chamar com tudo pronto. 😉`;
+}
+
 async function sellerCard(leadId: string) {
   const { data: lead } = await sb.from("lia_attendances")
-    .select("nome, proprietario_lead_crm, piperun_owner_id, produto_interesse")
+    .select("nome, proprietario_lead_crm, piperun_owner_id, produto_interesse, area_atuacao, especialidade, impressora_modelo, equip_scanner, sdr_software_cad_interesse, imprime_modelos, imprime_placas, imprime_guias, imprime_resinas_ld")
     .eq("id", leadId).is("merged_into", null).maybeSingle();
   if (!lead) return { ready: false };
   const { data: deal } = await sb.from("deals").select("piperun_deal_id, owner_name")
