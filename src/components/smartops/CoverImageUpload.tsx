@@ -16,6 +16,10 @@ function isVideoUrl(url: string) {
   return /(\.mp4|\.webm|\.ogg|\.mov)(\?|#|$)/i.test(url);
 }
 
+function isEmbedPlayerUrl(url: string) {
+  return /pandavideo|\/embed\/?\?v=|player-vz-/i.test(url);
+}
+
 interface Props {
   value: string;
   onChange: (url: string) => void;
@@ -89,7 +93,9 @@ export default function CoverImageUpload({ value, onChange }: Props) {
       </div>
       {value && (
         <div className="aspect-[16/9] w-full max-w-xs rounded-md overflow-hidden border bg-muted">
-          {isVideoUrl(value) ? (
+          {isEmbedPlayerUrl(value) ? (
+            <iframe src={value} title="Preview do vídeo" className="w-full h-full" allow="accelerometer; autoplay; encrypted-media; picture-in-picture" allowFullScreen />
+          ) : isVideoUrl(value) ? (
             <video src={value} controls playsInline preload="metadata" className="w-full h-full object-cover" />
           ) : (
             <img src={value} alt="Preview" className="w-full h-full object-cover" />
