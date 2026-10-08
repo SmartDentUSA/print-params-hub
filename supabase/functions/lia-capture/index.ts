@@ -267,7 +267,7 @@ async function sellerCard(leadId: string, body: any) {
     ready: true,
     seller_name: ownerName,
     seller_first_name: first,
-    lead_first_name: String(lead.nome ?? "").trim().split(/\s+/)[0] || null,
+    lead_first_name: realName(lead.nome).split(/\s+/)[0] || null,
     photo_url: member?.photo_url ?? null,
     deal_id: dealId || null,
     wa_url: `https://wa.me/${phone}?text=${encodeURIComponent(text)}`,
