@@ -3,6 +3,7 @@ import { sendLeadToSellFlux, sendCampaignViaSellFlux } from "../_shared/sellflux
 import { mergeSmartLead } from "../_shared/lead-enrichment.ts";
 import { validateLeadIdentity, logRejectedLead, sanitizeDisplayName } from "../_shared/lead-identity-guard.ts";
 import { normalizeBrazilianPhone } from "../_shared/phone-normalize.ts";
+import { resolveFormProduct } from "../_shared/form-product.ts";
 import {
   canonicalizeArea,
   canonicalizeSpecialty,
@@ -616,6 +617,10 @@ Deno.serve(async (req) => {
     const impressoraModelo = printerCanon.impressora_marca ?? impressoraModeloRaw;
     const resinaInteresse = extractField(payload, "resina_interesse", "resina", "resin");
     const formProduct = detectProductFromFormName(formName);
+    const linkedProduct = await resolveFormProduct(supabase, {
+      source, form_id: payload.form_id, product_catalog_id: payload.product_catalog_id,
+      product: payload.produto_interesse,
+    });
     let produtoInteresse: string | null = payload.produto_interesse
       ? String(payload.produto_interesse).trim()
       : (extractField(payload, "produto_interesse", "product") || formProduct);
@@ -633,6 +638,17 @@ Deno.serve(async (req) => {
       }
     }
 
+    if (linkedProduct) {
+      produtoInteresse = linkedProduct.name;
+      payload.produto_interesse = linkedProduct.name;
+      payload.produto_interesse_auto = linkedProduct.name;
+      if (Array.isArray(payload.form_responses)) {
+        const responses = payload.form_responses as Array<{ label: string; value: unknown }>;
+        const interest = responses.find((r) => r.label === "Produto de interesse");
+        if (interest) interest.value = linkedProduct.name;
+        else responses.push({ label: "Produto de interesse", value: linkedProduct.name });
+      }
+    }
     const produtoInteresseAuto = payload.produto_interesse_auto || produtoInteresse || formProduct || null;
     const conversionKey = buildConversionKey({
       source,

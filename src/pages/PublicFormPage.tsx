@@ -639,6 +639,7 @@ export default function PublicFormPage() {
       source: "form",
       form_name: form.name,
       form_id: form.id,
+      product_catalog_id: form.product_catalog_id,
       form_purpose: form.form_purpose,
       // Enviar respostas inline para evitar race condition com lia-assign
       form_responses: activeFields
@@ -681,11 +682,8 @@ export default function PublicFormPage() {
         }
       }
       if (selectedEventProduct) {
-        // O CRM recebe o RÓTULO do botão (ex. "Resinas"), não o produto
-        // específico usado só para vincular o catálogo (ex. "Resina 3D Smart
-        // Print Bio Hybrid A2").
-        const interestLabel =
-          (selectedEventProduct.label || "").trim() || selectedEventProduct.product_name;
+        // Display labels do not replace the linked catalog product in CRM.
+        const interestLabel = selectedEventProduct.product_name;
         payload.produto_interesse = interestLabel;
         payload.product_catalog_id = selectedEventProduct.product_catalog_id;
         payload.form_responses.push({
