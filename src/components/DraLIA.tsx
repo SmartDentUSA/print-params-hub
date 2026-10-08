@@ -975,15 +975,15 @@ export default function DraLIA({ embedded = false }: DraLIAProps) {
 
   const chatContent = (
     <div
-      className={`flex flex-col bg-white ${
-        embedded ? 'w-full h-full' : 'w-[380px] h-[560px] rounded-2xl shadow-2xl'
+      className={`flex flex-col ${
+        embedded ? 'w-full h-full bg-background text-foreground' : 'w-[380px] h-[560px] rounded-2xl shadow-2xl bg-white'
       } overflow-hidden`}
       style={{ fontFamily: 'inherit' }}
     >
       {/* Header */}
       <div
         className="flex items-center justify-between px-4 py-3 text-white shrink-0"
-        style={{ background: '#1e3a5f' }}
+        style={{ background: embedded ? 'hsl(var(--primary))' : '#1e3a5f' }}
       >
         <div className="flex items-center gap-2">
           <img src={draLiaAvatar} alt="Dra. L.I.A." width={32} height={32} loading="lazy" className="w-8 h-8 rounded-full object-cover" />
@@ -1004,7 +1004,7 @@ export default function DraLIA({ embedded = false }: DraLIAProps) {
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-3 space-y-3 bg-gray-50">
+      <div className={`flex-1 overflow-y-auto p-3 space-y-3 ${embedded ? 'bg-background' : 'bg-gray-50'}`}>
         {messages.map((msg) => (
           <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
             <div className="max-w-[85%]">
@@ -1018,9 +1018,11 @@ export default function DraLIA({ embedded = false }: DraLIAProps) {
                 className={`px-3 py-2 rounded-2xl text-sm leading-relaxed ${
                   msg.role === 'user'
                     ? 'text-white rounded-br-sm'
-                    : 'bg-white text-gray-800 rounded-bl-sm shadow-sm border border-gray-100'
+                    : embedded
+                      ? 'bg-muted text-foreground rounded-bl-sm shadow-sm border border-border'
+                      : 'bg-white text-gray-800 rounded-bl-sm shadow-sm border border-gray-100'
                 }`}
-                style={msg.role === 'user' ? { background: '#1e3a5f' } : {}}
+                style={msg.role === 'user' ? { background: embedded ? 'hsl(var(--primary))' : '#1e3a5f' } : {}}
               >
                 {msg.role === 'assistant' ? renderMarkdown(msg.content) : msg.content}
               </div>
@@ -1380,7 +1382,7 @@ export default function DraLIA({ embedded = false }: DraLIAProps) {
 
         {isLoading && (
           <div className="flex justify-start">
-            <div className="bg-white border border-gray-100 shadow-sm px-3 py-2 rounded-2xl rounded-bl-sm flex items-center gap-1">
+            <div className={`${embedded ? 'bg-muted border-border' : 'bg-white border-gray-100'} border shadow-sm px-3 py-2 rounded-2xl rounded-bl-sm flex items-center gap-1`}>
               <span className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
               <span className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
               <span className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
@@ -1392,7 +1394,7 @@ export default function DraLIA({ embedded = false }: DraLIAProps) {
       </div>
 
       {/* Input */}
-      <div className="border-t border-gray-100 bg-white shrink-0">
+      <div className={`border-t shrink-0 ${embedded ? 'border-border bg-card' : 'border-gray-100 bg-white'}`}>
         {/* "Novo assunto" reset link — only when topic is selected */}
         {topicSelected && (
           <div className="px-3 pt-2 pb-0 flex items-center justify-between">
@@ -1439,8 +1441,8 @@ export default function DraLIA({ embedded = false }: DraLIAProps) {
           </button>
           <textarea
             ref={inputRef}
-            className="flex-1 resize-none border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:border-transparent max-h-24 min-h-[40px]"
-            style={{ '--tw-ring-color': '#1e3a5f' } as React.CSSProperties}
+            className={`flex-1 resize-none border rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:border-transparent max-h-24 min-h-[40px] ${embedded ? 'border-input bg-secondary text-foreground placeholder:text-muted-foreground' : 'border-gray-200'}`}
+            style={{ '--tw-ring-color': embedded ? 'hsl(var(--ring))' : '#1e3a5f' } as React.CSSProperties}
             placeholder={t('dra_lia.input_placeholder')}
             value={input}
             rows={1}
@@ -1457,7 +1459,7 @@ export default function DraLIA({ embedded = false }: DraLIAProps) {
             disabled={(!input.trim() || input.trim().length < 3) && !pendingImage || isLoading}
             aria-label={t('dra_lia.send_aria')}
             className="w-9 h-9 rounded-xl flex items-center justify-center text-white disabled:opacity-40 transition-opacity shrink-0"
-            style={{ background: '#1e3a5f' }}
+            style={{ background: embedded ? 'hsl(var(--primary))' : '#1e3a5f' }}
           >
             {isLoading ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
           </button>

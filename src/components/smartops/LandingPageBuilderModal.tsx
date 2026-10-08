@@ -784,7 +784,7 @@ function ContentEditor({
         <TextField label="CTA secundário" value={content.hero.secondaryCta ?? ""} onChange={(v) => patch({ hero: { ...content.hero, secondaryCta: v } })} />
         <ListEditor label="Bullets do hero" items={content.hero.bullets ?? []} onChange={(items) => patch({ hero: { ...content.hero, bullets: items } })} />
         <div className="space-y-1.5">
-          <Label className="text-xs font-medium">Imagem do hero (opcional)</Label>
+          <Label className="text-xs font-medium">Imagem ou vídeo do hero (opcional)</Label>
           <CoverImageUpload value={heroImage} onChange={onHeroImageChange} />
           <TextField label="ou cole uma URL" value={heroImage} onChange={onHeroImageChange} placeholder="https://…  (deixe vazio para SVG geométrico)" />
         </div>

@@ -17,7 +17,7 @@ export default function AgentEmbed() {
   }
 
   return (
-    <div className="w-full h-screen bg-white flex flex-col">
+    <div className="lia-whatsapp w-full h-screen bg-background text-foreground flex flex-col">
       <DraLIA embedded={true} />
     </div>
   );

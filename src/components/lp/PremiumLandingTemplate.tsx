@@ -581,11 +581,24 @@ function HeroAudioPlayer({ url, label }: { url: string; label?: string }) {
   );
 }
 
+function isVideoUrl(url: string) {
+  return /(\.mp4|\.webm|\.ogg|\.mov)(\?|#|$)/i.test(url);
+}
+
 function HeroProductCard({ src, caption, audio }: { src?: string | null; caption?: string; audio?: { url: string; label?: string } }) {
   return (
     <div className="relative mx-auto w-full max-w-md lg:max-w-none">
       <div className="absolute inset-0 -z-10 rounded-[36px] blur-2xl opacity-40" style={{ background: GRADIENT_BRAND }} />
-      {src ? (
+      {src && isVideoUrl(src) ? (
+        <video
+          src={src}
+          controls
+          playsInline
+          preload="metadata"
+          className="relative w-full rounded-[28px] border border-white/60 bg-black"
+          style={{ boxShadow: "0 30px 60px -20px color-mix(in oklab, var(--lp-brand) 35%, transparent)" }}
+        />
+      ) : src ? (
         <img
           src={src}
           alt=""
