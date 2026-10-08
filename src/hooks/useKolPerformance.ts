@@ -257,7 +257,7 @@ export function useKolPerformance(formIds: { id: string; name: string }[], coupo
           const leadSet = leadsByForm[f.id] ?? new Set<string>();
           const won = Array.from(leadSet).filter((l) => wonByLead[l] !== undefined);
           const receita = won.reduce((s, l) => s + (wonByLead[l] ?? 0), 0);
-          const hasRules = prules.length > 0 || fallbackPct != null;
+          const hasRules = prules.length > 0 || crules.length > 0 || fallbackPct != null;
           const comissao = hasRules ? won.reduce((s, l) => s + (commByLead[l] ?? 0), 0) : null;
           const vinfo = (leadsByForm as any).__views;
           const vv = vinfo?.viewsBySlug?.[vinfo?.slugById?.get(f.id)] ?? { views: 0, visitors: 0 };

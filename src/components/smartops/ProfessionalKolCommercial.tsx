@@ -17,6 +17,10 @@ export interface KolFormRef {
 }
 
 export interface KolCommissionRule {
+  /** "category" = regra por categoria/subcategoria do portfólio; ausente = produto específico. */
+  kind?: "product" | "category";
+  category?: string | null;
+  subcategory?: string | null;
   product_id: string;
   product_name: string;
   percent: number | null;
@@ -56,6 +60,7 @@ export default function ProfessionalKolCommercial({
 }: Props) {
   const [forms, setForms] = useState<FormOption[]>([]);
   const [products, setProducts] = useState<ProductOption[]>([]);
+  const [cats, setCats] = useState<{ cat: string; subs: string[] }[]>([]);
   const [pendingForm, setPendingForm] = useState<string>("");
 
   useEffect(() => {
@@ -75,6 +80,23 @@ export default function ProfessionalKolCommercial({
           .order("name", { ascending: true })
           .limit(1000),
       ]);
+      const { data: cr } = await (supabase as any)
+        .from("system_a_catalog")
+        .select("product_category, product_subcategory")
+        .not("product_category", "is", null)
+        .eq("active", true)
+        .limit(2000);
+      const m = new Map<string, Set<string>>();
+      for (const x of (cr ?? []) as any[]) {
+        const c = String(x.product_category).trim();
+        if (!m.has(c)) m.set(c, new Set());
+        if (x.product_subcategory) m.get(c)!.add(String(x.product_subcategory).trim());
+      }
+      setCats(
+        Array.from(m.entries())
+          .sort((a, b) => a[0].localeCompare(b[0], "pt-BR", { numeric: true }))
+          .map(([cat, subs]) => ({ cat, subs: Array.from(subs).sort((a, b) => a.localeCompare(b, "pt-BR", { numeric: true })) })),
+      );
       setForms(((f ?? []) as any[]).map((x) => ({ id: x.id, name: x.name ?? "(sem nome)" })));
       setProducts(((p ?? []) as any[]).map((x) => ({ id: x.id, name: x.name ?? "(sem nome)" })));
     })();
@@ -98,6 +120,12 @@ export default function ProfessionalKolCommercial({
   const patchRule = (i: number, p: Partial<KolCommissionRule>) =>
     onCommissionsChange(commissions.map((r, idx) => (idx === i ? { ...r, ...p } : r)));
 
+  const addCatRule = () =>
+    onCommissionsChange([
+      ...commissions,
+      { kind: "category", category: "", subcategory: null, product_id: "", product_name: "", percent: null, active_from: null },
+    ]);
+  const isCat = (r: KolCommissionRule) => r.kind === "category";
   const removeRule = (i: number) => onCommissionsChange(commissions.filter((_, idx) => idx !== i));
 
   const addCoupon = () => onCouponsChange([...coupons, { code: "", active_from: null, active_to: null, commission_percent: null }]);
@@ -230,11 +258,11 @@ export default function ProfessionalKolCommercial({
               <Plus className="w-4 h-4 mr-1" /> Adicionar regra
             </Button>
           </div>
-          {commissions.length === 0 ? (
+          {commissions.filter((r) => !isCat(r)).length === 0 ? (
             <p className="text-xs text-muted-foreground">Nenhuma regra cadastrada.</p>
           ) : (
             <div className="space-y-2">
-              {commissions.map((r, i) => (
+              {commissions.map((r, i) => isCat(r) ? null : (
                 <div key={i} className="grid grid-cols-1 md:grid-cols-[1fr_120px_180px_40px] gap-2 items-end rounded-md border p-2">
                   <div>
                     <Label className="text-xs">Produto</Label>
@@ -281,6 +309,75 @@ export default function ProfessionalKolCommercial({
                     onClick={() => removeRule(i)}
                     disabled={disabled}
                   >
+                    <Trash2 className="w-4 h-4 text-destructive" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* 4. Comissionamento por categoria / subcategoria do portfólio */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <Label>Comissionamento por categoria e subcategoria</Label>
+            <Button type="button" size="sm" variant="outline" onClick={addCatRule} disabled={disabled}>
+              <Plus className="w-4 h-4 mr-1" /> Adicionar categoria
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            O KOL é remunerado por todos os produtos do portfólio da categoria (ou subcategoria) selecionada, vendidos pelos
+            formulários ou cupons a partir da data de ativação. Regra de produto específico tem prioridade, depois subcategoria, depois categoria.
+          </p>
+          {commissions.filter(isCat).length === 0 ? (
+            <p className="text-xs text-muted-foreground">Nenhuma categoria cadastrada.</p>
+          ) : (
+            <div className="space-y-2">
+              {commissions.map((r, i) => !isCat(r) ? null : (
+                <div key={i} className="grid grid-cols-1 md:grid-cols-[1fr_1fr_120px_180px_40px] gap-2 items-end rounded-md border p-2">
+                  <div>
+                    <Label className="text-xs">Categoria</Label>
+                    <Select
+                      value={r.category ?? ""}
+                      onValueChange={(v) => patchRule(i, { category: v, subcategory: null, product_name: v })}
+                      disabled={disabled}
+                    >
+                      <SelectTrigger><SelectValue placeholder="Selecione a categoria..." /></SelectTrigger>
+                      <SelectContent>
+                        {cats.map((c) => <SelectItem key={c.cat} value={c.cat}>{c.cat}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label className="text-xs">Subcategoria</Label>
+                    <Select
+                      value={r.subcategory ?? "__all__"}
+                      onValueChange={(v) => patchRule(i, { subcategory: v === "__all__" ? null : v })}
+                      disabled={disabled || !r.category}
+                    >
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__all__">Todas da categoria</SelectItem>
+                        {(cats.find((c) => c.cat === r.category)?.subs ?? []).map((s) => (
+                          <SelectItem key={s} value={s}>{s}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label className="text-xs">% comissão</Label>
+                    <Input
+                      type="number" min={0} max={100} step="0.1"
+                      value={r.percent ?? ""}
+                      onChange={(e) => patchRule(i, { percent: e.target.value === "" ? null : Math.min(100, Math.max(0, parseFloat(e.target.value))) })}
+                      disabled={disabled}
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Data de ativação</Label>
+                    <DatePickerInput value={r.active_from ?? undefined} onChange={(v) => patchRule(i, { active_from: v })} disabled={disabled} className="w-full" />
+                  </div>
+                  <Button type="button" size="icon" variant="ghost" onClick={() => removeRule(i)} disabled={disabled}>
                     <Trash2 className="w-4 h-4 text-destructive" />
                   </Button>
                 </div>
