@@ -242,6 +242,7 @@ export function BioLinkPanel() {
                   <Badge variant="outline">{p.items.length} cards</Badge>
                 </div>
                 <p className="truncate text-xs text-muted-foreground">/bio/{p.slug}</p>
+                <BioShortLink url={publicUrl(p.slug)} />
               </div>
               <div className="flex items-center gap-2">
                 <Button
