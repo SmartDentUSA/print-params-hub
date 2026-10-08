@@ -1,0 +1,1 @@
+REVOKE EXECUTE ON FUNCTION public.fn_kol_coupon_items(text, date, date) FROM PUBLIC, anon;
