@@ -1,7 +1,7 @@
 // Corrige o responsável de deals abertos em VENDAS originados de formulários
 // de Feiras e Eventos: o consultor escolhido no estande passa a ser o dono.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
+const corsHeaders = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version", "Access-Control-Allow-Methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS" };
 import { addDealNote, updateDealOwner } from "../_shared/piperun-field-map.ts";
 
 const PIPELINE_VENDAS = 18784;

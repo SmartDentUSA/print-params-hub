@@ -4,7 +4,7 @@
 // mesmo caminho dos formulários (smart-ops-ingest-lead), grava as respostas de
 // qualificação e devolve o cartão do vendedor designado.
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
+const corsHeaders = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version", "Access-Control-Allow-Methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS" };
 import { normalizeBrazilianPhone } from "../_shared/phone-normalize.ts";
 import { buildKnownAnswers, filterPending, hasAnswer, normLabel } from "./qualification.ts";
 import { syncFormNote } from "../_shared/form-note-sync.ts";
