@@ -306,6 +306,23 @@ export function FormMetricsRow({
           <Trash2 className="w-3.5 h-3.5 text-destructive" />
         </Button>
       </div>
+
+      {/* Comparativo por canal — abaixo dos gráficos do card */}
+      <div className="col-span-12 md:col-span-12">
+        <button
+          type="button"
+          onClick={() => setShowChannels((v) => !v)}
+          className="inline-flex items-center gap-1 text-[11px] font-medium text-muted-foreground hover:text-foreground"
+        >
+          <ChevronDown className={`w-3.5 h-3.5 transition-transform ${showChannels ? "rotate-180" : ""}`} />
+          Comparativo por canal de atendimento (90 dias)
+        </button>
+        {showChannels && (
+          <div className="mt-2">
+            <AttendanceChannelMetrics formId={form.id} />
+          </div>
+        )}
+      </div>
     </div>
   );
 }
