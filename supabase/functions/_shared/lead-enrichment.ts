@@ -114,6 +114,11 @@ const ALWAYS_UPDATE_FIELDS = new Set([
   "sdr_solucoes_interesse",
   "sdr_dentistica_interesse",
   "sdr_caracterizacao_interesse",
+  // Immutable participation history lives in lead_activity_log; these columns
+  // are snapshots of the lead's latest event submission.
+  "event_id",
+  "event_consultant_team_member_id",
+  "event_interest_categories",
 ]);
 
 const MERGE_ARRAY_FIELDS = new Set([
@@ -259,7 +264,7 @@ export async function enrichLeadFromIdentity(
           if (current != null && String(current).trim() !== "" && String(current).toLowerCase() !== "não") {
             continue;
           }
-          for (const sib of siblings as Array<Record<string, unknown>>) {
+          for (const sib of siblings as unknown as Array<Record<string, unknown>>) {
             const v = sib[field];
             if (v != null && String(v).trim() !== "" && String(v).toLowerCase() !== "não") {
               enriched[field] = v;
@@ -292,7 +297,7 @@ export async function enrichLeadFromIdentity(
       const { data: omieSib } = await q.maybeSingle();
       if (omieSib) {
         for (const f of OMIE_FIELDS) {
-          if (enriched[f] == null) enriched[f] = (omieSib as Record<string, unknown>)[f];
+          if (enriched[f] == null) enriched[f] = (omieSib as unknown as Record<string, unknown>)[f];
         }
         meta.omie_match = true;
       }
