@@ -5,9 +5,9 @@ import { Input } from "@/components/ui/input";
 import { Loader2, Send, MessageCircle, ChevronLeft, Smile } from "lucide-react";
 import { trackAttendanceEvent } from "@/lib/attendanceChannel";
 
-type Question = { field_id: string | null; form_id: string | null; db_column: string; label: string; options: string[] };
+type Question = { field_id: string | null; form_id: string | null; db_column: string; label: string; options: string[]; field_type?: string };
 type Ctx = { form_id: string | null; campaign: string | null; product: string; origin: string; opening: string; greeting?: string; questions: Question[]; product_summary?: string | null; modules_summary?: string | null };
-type Msg = { from: "lia" | "user"; text: string; createdAt?: number };
+type Msg = { from: "lia" | "user"; text: string; createdAt?: number; question?: Question };
 type Seller = { seller_name: string; seller_first_name: string; lead_first_name?: string | null; photo_url: string | null; deal_id: string | null; wa_url: string };
 type Step = "phone" | "email" | "name" | "creating" | "qualify" | "done";
 
@@ -37,9 +37,14 @@ export default function LiaCaptureChat({ formId, campaign, product }: { formId: 
   const [step, setStep] = useState<Step>("phone");
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
+  const [typing, setTyping] = useState(false);
+  const [handoffStage, setHandoffStage] = useState(0);
+  const mounted = useRef(true);
+  const sending = useRef(false);
   const [data, setData] = useState<{ phone?: string; email?: string; name?: string }>({});
   const [lead, setLead] = useState<{ id: string; token: string } | null>(null);
   const [qIdx, setQIdx] = useState(0);
+  const [selected, setSelected] = useState<string[]>([]);
   const [seller, setSeller] = useState<Seller | null>(null);
   const [closed, setClosed] = useState(false);
   const [emojiOpen, setEmojiOpen] = useState(false);
@@ -47,7 +52,18 @@ export default function LiaCaptureChat({ formId, campaign, product }: { formId: 
   const endRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const say = (text: string) => setMsgs((m) => [...m, { from: "lia", text, createdAt: Date.now() }]);
+  useEffect(() => {
+    mounted.current = true;
+    return () => { mounted.current = false; };
+  }, []);
+
+  const say = async (text: string, question?: Question) => {
+    setTyping(true);
+    await new Promise((resolve) => setTimeout(resolve, 700));
+    if (!mounted.current) return;
+    setMsgs((m) => [...m, { from: "lia", text, question, createdAt: Date.now() }]);
+    setTyping(false);
+  };
   const echo = (text: string) => setMsgs((m) => [...m, { from: "user", text, createdAt: Date.now() }]);
 
   useEffect(() => {
@@ -69,7 +85,7 @@ export default function LiaCaptureChat({ formId, campaign, product }: { formId: 
             if (last?.from === "lia" && (c.questions.some((q) => q.label === last.text) || questions.some((q) => q.label === last.text))) messages.pop();
             setData(s.data ?? {}); setLead(s.lead); setQIdx(0);
             if (questions.length) {
-              setStep("qualify"); setMsgs([...messages, { from: "lia", text: questions[0].label, createdAt: Date.now() }]);
+              setStep("qualify"); setMsgs([...messages, { from: "lia", text: questions[0].label, question: questions[0], createdAt: Date.now() }]);
             } else {
               setStep("done"); setClosed(true); setMsgs([...messages, { from: "lia", text: "Maravilha! Já tenho as informações para seguir com seu atendimento.", createdAt: Date.now() }]);
             }
@@ -79,7 +95,8 @@ export default function LiaCaptureChat({ formId, campaign, product }: { formId: 
           return;
         } catch { /* ignore */ }
       }
-      setMsgs([{ from: "lia", text: c.greeting || "Olá!", createdAt: Date.now() }, { from: "lia", text: c.opening, createdAt: Date.now() }]);
+      setMsgs([{ from: "lia", text: c.greeting || "Olá!", createdAt: Date.now() }]);
+      await say(c.opening);
       trackAttendanceEvent({ channel: "whatsapp_lia", event_type: "open", form_id: c.form_id, campaign_slug: c.campaign, product_name: c.product });
     }).catch(() => { if (!cancelled) setMsgs([{ from: "lia", text: "Não consegui iniciar o atendimento agora. Tente novamente em instantes." }]); });
     return () => { cancelled = true; };
@@ -121,10 +138,18 @@ export default function LiaCaptureChat({ formId, campaign, product }: { formId: 
     return () => clearInterval(t);
   });
 
-  const askQuestion = (i: number) => {
-    const q = ctx?.questions[i];
-    if (q) say(q.label);
-  };
+  useEffect(() => {
+    if (!closed) return;
+    const first = setTimeout(() => setHandoffStage(1), 700);
+    const second = setTimeout(() => setHandoffStage(2), 1400);
+    return () => { clearTimeout(first); clearTimeout(second); };
+  }, [closed]);
+
+  useEffect(() => {
+    if (!closed || !seller || handoffStage !== 2) return;
+    const timer = setTimeout(() => setHandoffStage(3), 700);
+    return () => clearTimeout(timer);
+  }, [closed, seller, handoffStage]);
 
   useEffect(() => {
     if (!busy && !closed) inputRef.current?.focus();
@@ -140,21 +165,22 @@ export default function LiaCaptureChat({ formId, campaign, product }: { formId: 
     });
     setLead({ id: r.lead_id, token: r.token });
     if (firstName) setData({ ...identity, name: firstName });
-    say(firstName ? `Maravilha, ${firstName}!` : "Maravilha!");
+    await say(firstName ? `Maravilha, ${firstName}!` : "Maravilha!");
     const questions: Question[] = r.questions;
     setCtx({ ...ctx, questions });
     setQIdx(0);
     if (questions.length) {
-      setStep("qualify"); say(questions[0].label);
+      setStep("qualify"); await say(questions[0].label, questions[0]);
     } else {
-      say("Já tenho as informações para seguir com seu atendimento.");
+      await say("Já tenho as informações para seguir com seu atendimento.");
       await finish({ id: r.lead_id, token: r.token });
     }
   };
 
-  const submit = async (raw: string) => {
-    const text = raw.trim();
-    if (!text || busy || !ctx) return;
+  const submit = async (raw: string | string[]) => {
+    const text = Array.isArray(raw) ? raw.join(", ") : raw.trim();
+    if (!text || busy || typing || sending.current || !ctx || closed) return;
+    sending.current = true;
     lastActivity.current = Date.now();
     setInput("");
     echo(text);
@@ -162,7 +188,7 @@ export default function LiaCaptureChat({ formId, campaign, product }: { formId: 
     try {
       if (step === "phone") {
         const digits = text.replace(/\D/g, "");
-        if (digits.length < 10) { say("Esse número parece incompleto. Pode enviar com DDD? Ex.: 16 99999-9999"); return; }
+        if (digits.length < 10) { await say("Esse número parece incompleto. Pode enviar com DDD? Ex.: 16 99999-9999"); return; }
         const r = await call({ action: "lookup", phone: digits });
         const identity = { ...data, phone: digits };
         setData(identity);
@@ -171,40 +197,46 @@ export default function LiaCaptureChat({ formId, campaign, product }: { formId: 
           setStep("email");
           if (r?.ambiguous) {
             const hints = Array.isArray(r.email_hints) ? r.email_hints.filter((hint: unknown): hint is string => typeof hint === "string") : [];
-            say(`${r.first_name ? `${r.first_name}, identifiquei` : "Identifiquei"} ${r.match_count ?? "vários"} cadastros com esse telefone.${hints.length ? `\n\n${hints.join("\n")}\n\nQual destes e-mails é o correto? Me escreva o e-mail completo para confirmar.` : " Qual é o seu e-mail para eu confirmar o cadastro correto?"}`);
+            await say(`${r.first_name ? `${r.first_name}, identifiquei` : "Identifiquei"} ${r.match_count ?? "vários"} cadastros com esse telefone.${hints.length ? `\n\n${hints.join("\n")}\n\nQual destes e-mails é o correto? Me escreva o e-mail completo para confirmar.` : " Qual é o seu e-mail para eu confirmar o cadastro correto?"}`);
           } else {
-            if (r?.first_name) say(`Maravilha, ${r.first_name}!`);
-            say("Me passa seu melhor e-mail para eu continuar por aqui?");
+            if (r?.first_name) await say(`Maravilha, ${r.first_name}!`);
+            await say("Me passa seu melhor e-mail para eu continuar por aqui?");
           }
         }
       } else if (step === "email") {
-        if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(text)) { say("Esse e-mail não parece válido. Pode conferir?"); return; }
+        if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(text)) { await say("Esse e-mail não parece válido. Pode conferir?"); return; }
         const identity = { ...data, email: text.toLowerCase() };
         const r = await call({ action: "lookup", phone: identity.phone, email: identity.email });
         setData(identity);
         if (r?.found && r.has_name) await register(identity, r.first_name);
-        else { setStep("name"); say("E como você se chama?"); }
+        else { setStep("name"); await say("E como você se chama?"); }
       } else if (step === "name") {
-        if (text.length < 2) { say("Pode me dizer seu nome?"); return; }
+        if (text.length < 2) { await say("Pode me dizer seu nome?"); return; }
         const full = { ...data, name: text };
         setData(full);
         await register(full, text.split(" ")[0]);
       } else if (step === "qualify" && lead) {
         const q = ctx.questions[qIdx];
-        if (q) await call({ action: "answer", lead_id: lead.id, token: lead.token, db_column: q.db_column, field_id: q.field_id, form_id: q.form_id, value: text });
-        const next = qIdx + 1;
-        if (next < ctx.questions.length) { setQIdx(next); askQuestion(next); } else finish();
+        if (!q) return;
+        const r = await call({ action: "answer", lead_id: lead.id, token: lead.token, db_column: q.db_column, field_id: q.field_id, form_id: q.form_id, form_id_context: ctx.form_id, campaign: ctx.campaign, product: ctx.product, value: Array.isArray(raw) ? raw : text });
+        setSelected([]);
+        const questions: Question[] = r.questions;
+        setCtx({ ...ctx, questions });
+        setQIdx(0);
+        if (questions.length) await say(questions[0].label, questions[0]); else await finish();
       }
     } catch {
-      say("Tive um problema para registrar. Pode tentar de novo?");
+      await say("Tive um problema para registrar. Pode tentar de novo?");
       if (step === "creating") setStep("name");
     } finally {
+      sending.current = false;
       setBusy(false);
     }
   };
 
   const q = step === "qualify" ? ctx?.questions[qIdx] : undefined;
-  const showSeller = seller && (closed || step === "done");
+  const showSeller = seller && closed && handoffStage >= 3;
+  const waiting = busy || typing;
 
   return (
     <div className="lia-whatsapp flex h-full min-h-0 flex-col overflow-hidden bg-background text-foreground">
@@ -215,7 +247,7 @@ export default function LiaCaptureChat({ formId, campaign, product }: { formId: 
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-semibold text-primary-foreground" aria-hidden="true">LIA</div>
         <div className="min-w-0 flex-1">
           <p className="text-[15px] font-semibold">Dra. LIA</p>
-          <p className="truncate text-xs text-muted-foreground">{busy ? "digitando…" : "Smart Dent | Fluxo Digital"}</p>
+          <p className="truncate text-xs text-muted-foreground">{waiting ? "digitando…" : "Smart Dent | Fluxo Digital"}</p>
         </div>
       </header>
       <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-6" role="log" aria-label="Conversa com a Dra. LIA" aria-live="polite">
@@ -225,18 +257,25 @@ export default function LiaCaptureChat({ formId, campaign, product }: { formId: 
           <div key={i} className={`flex ${m.from === "user" ? "justify-end" : "justify-start"}`}>
             <div className={`lia-bubble max-w-[88%] rounded-lg px-3 pb-1 pt-2 text-[15px] leading-5 sm:max-w-[78%] ${m.from === "user" ? "lia-bubble-out rounded-tr-none bg-primary text-primary-foreground" : "lia-bubble-in rounded-tl-none bg-muted text-foreground"}`}>
               <p className="whitespace-pre-wrap break-words">{m.text}</p>
+              {m.from === "lia" && (m.question || (i === msgs.length - 1 && q?.label === m.text ? q : null))?.options.map((option) => (
+                <Button key={option} size="sm" variant="secondary" className="lia-reply mt-2 h-auto min-h-9 w-full whitespace-normal rounded-md text-left text-xs" disabled={waiting || closed || i !== msgs.length - 1} aria-pressed={m.question?.field_type === "checkbox" ? selected.includes(option) : undefined} onClick={() => {
+                  if (m.question?.field_type === "checkbox") setSelected((items) => items.includes(option) ? items.filter((item) => item !== option) : [...items, option]);
+                  else submit(option);
+                }}>{m.question?.field_type === "checkbox" && selected.includes(option) ? "✓ " : ""}{option.trim()}</Button>
+              ))}
+              {m.question?.field_type === "checkbox" && i === msgs.length - 1 && !closed && <Button variant="secondary" size="sm" className="mt-2 w-full" disabled={waiting || !selected.length} onClick={() => submit(selected)}>Confirmar</Button>}
               {m.createdAt && <time dateTime={new Date(m.createdAt).toISOString()} className="ml-4 mt-1 flex items-center justify-end gap-1 text-[10px] leading-3 text-muted-foreground">
                 {new Date(m.createdAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
               </time>}
             </div>
           </div>
         ))}
-        {closed && ctx?.product_summary && (
+        {closed && handoffStage >= 1 && ctx?.product_summary && (
           <div className="flex justify-start">
             <div className="lia-bubble lia-bubble-in max-w-[88%] whitespace-pre-wrap break-words rounded-lg rounded-tl-none bg-muted px-3 py-2 text-[15px] leading-5 text-foreground sm:max-w-[78%]">{ctx.product_summary}</div>
           </div>
         )}
-        {closed && ctx?.modules_summary && (
+        {closed && handoffStage >= 2 && ctx?.modules_summary && (
           <div className="flex justify-start">
             <div className="lia-bubble lia-bubble-in max-w-[88%] whitespace-pre-wrap break-words rounded-lg rounded-tl-none bg-muted px-3 py-2 text-[15px] leading-5 text-foreground sm:max-w-[78%]">{ctx.modules_summary}</div>
           </div>
@@ -248,8 +287,8 @@ export default function LiaCaptureChat({ formId, campaign, product }: { formId: 
             </div>
           </div>
         )}
-        {(busy || (closed && !seller)) && (
-          <div className="flex items-center gap-2 text-xs text-muted-foreground"><Loader2 className="h-3 w-3 animate-spin" /> {closed ? "Localizando seu especialista…" : "Digitando…"}</div>
+        {(waiting || (closed && !showSeller)) && (
+          <div className="flex items-center gap-2 text-xs text-muted-foreground"><Loader2 className="h-3 w-3 animate-spin" /> {closed && handoffStage >= 2 && !seller ? "Localizando seu especialista…" : "Digitando…"}</div>
         )}
         {showSeller && (
           <div className="mt-3 flex max-w-sm flex-col items-center gap-3 rounded-lg border border-border bg-card p-4 text-center">
@@ -275,26 +314,14 @@ export default function LiaCaptureChat({ formId, campaign, product }: { formId: 
       {!closed && (
         <div className="shrink-0 border-t border-border bg-card px-3 pb-3 pt-2">
           <div className="mx-auto max-w-3xl">
-          {q && q.options.length > 0 && q.options.length <= 10 ? (
-            <div className="mb-3 flex flex-wrap gap-2">
-              {q.options.map((o) => (
-                <Button key={o} size="sm" variant="secondary" className="lia-reply h-auto min-h-9 max-w-full whitespace-normal rounded-lg text-left text-xs" disabled={busy} onClick={() => submit(o)}>{o.trim()}</Button>
-              ))}
-            </div>
-          ) : q && q.options.length > 10 ? (
-            <select className="w-full rounded-md border border-input bg-background p-2 text-sm" defaultValue="" disabled={busy} onChange={(e) => e.target.value && submit(e.target.value)}>
-              <option value="" disabled>Selecione…</option>
-              {q.options.map((o) => <option key={o} value={o}>{o.trim()}</option>)}
-            </select>
-           ) : null}
              {emojiOpen && <div className="mb-2 flex flex-wrap gap-1 rounded-lg bg-secondary p-2" aria-label="Emojis">
                {["😊", "👍", "👋", "🙏", "✅", "🦷"].map((emoji) => <Button key={emoji} variant="ghost" size="icon" aria-label={`Inserir ${emoji}`} onClick={() => { setInput((v) => v + emoji); setEmojiOpen(false); inputRef.current?.focus(); }}>{emoji}</Button>)}
              </div>}
              <form className="flex items-center gap-2" onSubmit={(e) => { e.preventDefault(); setEmojiOpen(false); submit(input); }}>
                <Button type="button" variant="ghost" size="icon" className="lia-icon-button shrink-0 rounded-full text-muted-foreground" aria-label="Emojis" title="Emojis" onClick={() => setEmojiOpen((v) => !v)}><Smile className="h-5 w-5" /></Button>
-               <Input ref={inputRef} className="h-10 min-w-0 rounded-full border-0 bg-secondary px-4 text-[15px] shadow-none focus-visible:ring-1" value={input} onChange={(e) => setInput(e.target.value)} placeholder="Mensagem" disabled={busy || step === "creating" || !ctx}
+               <Input ref={inputRef} className="h-10 min-w-0 rounded-full border-0 bg-secondary px-4 text-[15px] shadow-none focus-visible:ring-1" value={input} onChange={(e) => setInput(e.target.value)} placeholder="Mensagem" disabled={waiting || step === "creating" || !ctx}
                 inputMode={step === "phone" ? "tel" : step === "email" ? "email" : "text"} />
-               <Button type="submit" variant="secondary" className="lia-send shrink-0 rounded-full" size="icon" aria-label="Enviar mensagem" disabled={busy || !input.trim()}><Send className="h-5 w-5" /></Button>
+               <Button type="submit" variant="secondary" className="lia-send shrink-0 rounded-full" size="icon" aria-label="Enviar mensagem" disabled={waiting || !ctx || !input.trim()}><Send className="h-5 w-5" /></Button>
             </form>
            </div>
         </div>

@@ -5,6 +5,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { normalizeBrazilianPhone } from "../_shared/phone-normalize.ts";
+import { isFieldVisible } from "../_shared/form-conditions.ts";
 import { buildProductSummary, buildModulesSummary } from "./product-summary.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
@@ -82,17 +83,20 @@ async function resolveContext(body: any) {
   let qFormId = formId;
   const loadFields = async (id: string) => {
     const { data } = await sb.from("smartops_form_fields")
-      .select("id, label, db_column, field_type, options, order_index")
-      .eq("form_id", id).not("db_column", "is", null).order("order_index");
-    return (data ?? []).filter((f: any) => ANSWER_COLS.has(f.db_column) && !IDENTITY_COLS.has(f.db_column));
+      .select("id, label, db_column, field_type, options, order_index, conditions")
+      .eq("form_id", id).order("order_index");
+    return data ?? [];
   };
   let fields = qFormId ? await loadFields(qFormId) : [];
-  if (fields.length === 0) {
+  if (!qFormId) {
     const { data: tpl } = await sb.from("smartops_form_fields").select("form_id").eq("db_column", "imprime_modelos").limit(1).maybeSingle();
     if (tpl?.form_id) { qFormId = tpl.form_id; fields = await loadFields(tpl.form_id); }
   }
   const seen = new Set<string>();
-  const questions = fields.filter((f: any) => !seen.has(f.db_column) && seen.add(f.db_column)).map((f: any) => ({
+  const questions = fields.filter((f: any) => !IDENTITY_COLS.has(f.db_column) && (!f.db_column || ANSWER_COLS.has(f.db_column)) && (!f.db_column || (!seen.has(f.db_column) && seen.add(f.db_column)))).map((f: any) => ({
+    id: f.id,
+    conditions: f.conditions,
+    field_type: f.field_type,
     field_id: f.id,
     form_id: qFormId,
     db_column: f.db_column,
@@ -101,24 +105,52 @@ async function resolveContext(body: any) {
   }));
   const areaIndex = questions.findIndex((q: any) => q.db_column === "area_atuacao");
   const area = areaIndex >= 0 ? questions.splice(areaIndex, 1)[0] : {
-    field_id: null, form_id: null, db_column: "area_atuacao", options: [],
+    id: "area_atuacao", conditions: null, field_id: null, form_id: null, db_column: "area_atuacao", options: ["CLÍNICA OU CONSULTÓRIO", "LABORATÓRIO DE PRÓTESE", "RADIOLOGIA ODONTOLÓGICA", "PLANNING CENTER", "EMPRESA DE ALINHADORES", "GESTOR DE REDE DE CLÍNICAS", "GESTOR DE FRANQUIAS", "CENTRAL DE IMPRESSÕES", "EDUCAÇÃO"],
   };
   questions.unshift({ ...area, label: "Me diz, qual é a sua área de atuação? Assim eu entendo exatamente como essa solução pode ser aplicada ao seu dia a dia." });
+  for (const question of questions) {
+    if (!question.options.length && question.db_column === "area_atuacao") question.options = ["CLÍNICA OU CONSULTÓRIO", "LABORATÓRIO DE PRÓTESE", "RADIOLOGIA ODONTOLÓGICA", "PLANNING CENTER", "EMPRESA DE ALINHADORES", "GESTOR DE REDE DE CLÍNICAS", "GESTOR DE FRANQUIAS", "CENTRAL DE IMPRESSÕES", "EDUCAÇÃO"];
+    if (!question.options.length && question.db_column === "especialidade") question.options = ["CLÍNICO GERAL", "DENTÍSTICA", "IMPLANTODONTISTA", "PROTESISTA", "ORTODONTISTA", "ODONTOPEDIATRIA", "PERIODONTISTA", "ENDODONTISTA", "RADIOLOGISTA", "CIRURGIA BUCO MAXILO FACIAL", "TÉCNICO EM RADIOLOGIA", "TÉCNICO EM PRÓTESE ODONTOLÓGICA", "OUTROS"];
+  }
+  if (!questions.some((q: any) => q.db_column === "especialidade")) questions.splice(1, 0, {
+    id: "especialidade", conditions: null, field_id: null, form_id: null, db_column: "especialidade",
+    label: "E qual é a sua especialidade?", options: ["CLÍNICO GERAL", "DENTÍSTICA", "IMPLANTODONTISTA", "PROTESISTA", "ORTODONTISTA", "ODONTOPEDIATRIA", "PERIODONTISTA", "ENDODONTISTA", "RADIOLOGISTA", "CIRURGIA BUCO MAXILO FACIAL", "TÉCNICO EM RADIOLOGIA", "TÉCNICO EM PRÓTESE ODONTOLÓGICA", "OUTROS"],
+  });
   const hour = Number(new Intl.DateTimeFormat("en-US", { timeZone: "America/Sao_Paulo", hour: "numeric", hourCycle: "h23" }).format(new Date()));
   const greeting = hour < 12 ? "Bom dia!" : hour < 18 ? "Boa tarde!" : "Boa noite!";
-  return { form_id: formId, campaign: campaignSlug, product, origin, opening, greeting, questions, product_summary: productSummary, modules_summary: modulesSummary };
+  return { form_id: formId, campaign: campaignSlug, product, origin, opening, greeting, questions, product_summary: productSummary, modules_summary: modulesSummary, qualification_form_id: qFormId, fields };
 }
 
 const validEmail = (v: unknown) => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(String(v ?? "")) && !/@(no-email|placeholder|example|test)\b/i.test(String(v));
-const hasAnswer = (value: unknown) => value !== null && value !== undefined && (typeof value !== "string" || !!value.trim());
+const hasAnswer = (value: unknown) => value !== null && value !== undefined && (!Array.isArray(value) || value.length > 0) && (typeof value !== "string" || !!value.trim());
 async function pendingQuestions(leadId: string, body: any) {
   const ctx = await resolveContext(body);
-  const { data, error } = await sb.from("lia_attendances").select([...ANSWER_COLS].join(","))
+  const { data, error } = await sb.from("lia_attendances").select([...ANSWER_COLS, "nome", "email", "telefone_raw", "telefone_normalized"].join(","))
     .eq("id", leadId).is("merged_into", null).maybeSingle();
   if (error) throw error;
   if (!data) throw new Error("canonical lead not found");
   const profile = data as unknown as Record<string, unknown>;
-  return ctx.questions.filter((q: any) => !hasAnswer(profile[q.db_column]));
+  const answers: Record<string, unknown> = {};
+  for (const field of ctx.fields) {
+    if (field.db_column && hasAnswer(profile[field.db_column])) {
+      let value = profile[field.db_column];
+      if (typeof value === "string" && value.startsWith("[")) { try { value = JSON.parse(value); } catch { /* legacy text */ } }
+      answers[field.id] = value;
+    }
+  }
+  if (ctx.qualification_form_id) {
+    const { data: history, error: historyError } = await sb.from("smartops_form_field_responses")
+      .select("field_id, value").eq("lead_id", leadId).eq("form_id", ctx.qualification_form_id).order("created_at", { ascending: false });
+    if (historyError) throw historyError;
+    for (const response of history ?? []) {
+      if (answers[response.field_id] === undefined && hasAnswer(response.value)) {
+        let value: unknown = response.value;
+        if (typeof value === "string" && value.startsWith("[")) { try { value = JSON.parse(value); } catch { /* legacy text */ } }
+        answers[response.field_id] = value;
+      }
+    }
+  }
+  return ctx.questions.filter((q: any) => !hasAnswer(profile[q.db_column]) && !hasAnswer(answers[q.id]) && isFieldVisible(q, answers));
 }
 function maskEmail(email: string) {
   const [local, domain] = email.toLowerCase().split("@");
@@ -248,19 +280,25 @@ Deno.serve(async (req) => {
 
     if (action === "answer") {
       if (!(await checkToken(body.lead_id, body.token))) return json({ error: "unauthorized" }, 401);
-      const col = str(body.db_column, 60);
-      const value = str(body.value, 300);
-      if (!ANSWER_COLS.has(col) || !value) return json({ error: "invalid field" }, 400);
-      const { error: updateError } = await sb.from("lia_attendances").update({ [col]: value }).eq("id", body.lead_id).is("merged_into", null);
-      if (updateError) throw updateError;
-      if (isUuid(body.field_id) && isUuid(body.form_id)) {
-        const { data: f } = await sb.from("smartops_form_fields").select("label, workflow_cell_target").eq("id", body.field_id).maybeSingle();
-        await sb.from("smartops_form_field_responses").insert({
-          form_id: body.form_id, field_id: body.field_id, lead_id: body.lead_id, value,
-          field_label: f?.label ?? col, workflow_cell_target: f?.workflow_cell_target ?? null,
-        });
+      const context = { ...body, form_id: body.form_id_context ?? body.form_id };
+      const pending = await pendingQuestions(body.lead_id, context);
+      const field = pending.find((q: any) => q.field_id === (body.field_id || null) && q.db_column === body.db_column);
+      const values = Array.isArray(body.value) ? body.value.map((v: unknown) => str(v, 300)) : [str(body.value, 300)];
+      if (!field || !values.length || values.some((v: string) => !v || (field.options.length && !field.options.includes(v))) || (Array.isArray(body.value) && field.field_type !== "checkbox")) return json({ error: "invalid field or answer" }, 400);
+      const value = Array.isArray(body.value) ? JSON.stringify(values) : values[0];
+      if (field.db_column) {
+        const { error } = await sb.from("lia_attendances").update({ [field.db_column]: value }).eq("id", body.lead_id).is("merged_into", null);
+        if (error) throw error;
       }
-      return json({ ok: true });
+      if (field.field_id && field.form_id) {
+        const { data: f } = await sb.from("smartops_form_fields").select("label, workflow_cell_target").eq("id", field.field_id).eq("form_id", field.form_id).maybeSingle();
+        const { error } = await sb.from("smartops_form_field_responses").insert({
+          form_id: field.form_id, field_id: field.field_id, lead_id: body.lead_id, value,
+          field_label: f?.label ?? field.label, workflow_cell_target: f?.workflow_cell_target ?? null,
+        });
+        if (error) throw error;
+      }
+      return json({ ok: true, questions: await pendingQuestions(body.lead_id, context) });
     }
 
     if (action === "seller") {

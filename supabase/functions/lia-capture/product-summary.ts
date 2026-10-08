@@ -8,7 +8,12 @@ function clean(value: unknown, max: number): string {
 export function buildProductSummary(_product: string, content: any): string | null {
   if (content?.sectionsEnabled?.positioning === false) return null;
   const section = content?.positioning;
-  const parts = [clean(section?.eyebrow, 120), clean(section?.headline?.replace(/\{(?:strike|highlight)\}/g, ""), 220), clean(section?.body, 400)].filter(Boolean);
+  // Price placeholders describe incomplete commercial sentences; omit those
+  // sentences rather than leaving dangling copy or substituting price values.
+  const headline = typeof section?.headline === "string"
+    ? section.headline.split(/(?<=[.!?])\s+/).filter((part: string) => !/\{(?:strike|highlight)\}/.test(part)).join(" ")
+    : "";
+  const parts = [clean(section?.eyebrow, 120), clean(headline, 220), clean(section?.body, 400)].filter(Boolean);
   return parts.length ? parts.join("\n\n") : null;
 }
 
