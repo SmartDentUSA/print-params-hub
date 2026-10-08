@@ -211,6 +211,7 @@ export function SmartOpsFormBuilder() {
   const nameInputRef = useRef<HTMLInputElement | null>(null);
   const [editingMeta, setEditingMeta] = useState<SmartOpsForm | null>(null);
   const [metaName, setMetaName] = useState("");
+  const [metaSlug, setMetaSlug] = useState("");
   const [metaTitle, setMetaTitle] = useState("");
   const [metaSubtitle, setMetaSubtitle] = useState("");
   const [metaDescription, setMetaDescription] = useState("");
@@ -534,6 +535,7 @@ export function SmartOpsFormBuilder() {
 
   const openEditMeta = (form: SmartOpsForm) => {
     setMetaName(form.name);
+    setMetaSlug(form.slug || "");
     setMetaTitle(form.title || "");
     setMetaSubtitle(form.subtitle || "");
     setMetaDescription(form.description || "");
