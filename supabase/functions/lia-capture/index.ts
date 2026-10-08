@@ -240,8 +240,16 @@ function personalHook(lead: Record<string, unknown>, product: string, productSum
   // Um benefício real do produto (1ª frase do resumo da landing), sem preço nem valores.
   let benefit = "";
   if (productSummary) {
-    const firstSentence = productSummary.split(/(?<=[.!?])\s+/)[0]?.trim() ?? "";
-    if (firstSentence && firstSentence.length <= 180 && !/r\$|preço|valor|desconto/i.test(firstSentence)) benefit = ` ${firstSentence}`;
+    // Procura a 1ª frase que pareça benefício real: sem caixa alta promocional, sem preço, tamanho razoável.
+    for (const sentence of productSummary.split(/(?<=[.!?])\s+/)) {
+      const s = sentence.trim();
+      if (!s || s.length < 30 || s.length > 180) continue;
+      if (/r\$|preço|valor|desconto|oferta|oportunidade/i.test(s)) continue;
+      const letters = s.replace(/[^a-zà-ú]/gi, "");
+      if (letters.length && letters.replace(/[^A-ZÀ-Ú]/g, "").length / letters.length > 0.5) continue;
+      benefit = ` ${s}`;
+      break;
+    }
   }
   return `Pelo que você me contou, ${context}${tie}.${benefit} Vale muito a pena conversar com o especialista, ele já vai te chamar com tudo pronto. 😉`;
 }
