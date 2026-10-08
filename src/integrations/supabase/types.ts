@@ -36376,6 +36376,13 @@ export type Database = {
           won_value: number
         }[]
       }
+      fn_event_seller_crm_stats: {
+        Args: never
+        Returns: {
+          by_seller: Json
+          event_id: string
+        }[]
+      }
       fn_event_store_ingest: { Args: { p_limit?: number }; Returns: Json }
       fn_expand_deal_proposals_to_items: {
         Args: { p_deal_id: string }
