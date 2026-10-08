@@ -34,4 +34,4 @@
 - [x] Corrigir reconhecimento de telefone +E.164 na LIA; telefone informado consta em três cadastros distintos, exigindo confirmação por e-mail sem escolher uma pessoa arbitrariamente. Busca real e mensagem na interface verificadas; nenhuma alteração nos cadastros.
 - [x] Confirmar múltiplos cadastros na LIA com quantidade, nome comum e sugestões de e-mail ocultas, exigindo e-mail completo. Busca real e apresentação verificadas, sem gravar cadastros; compilação OK.
 - [x] LIA: filtrar respostas existentes após captura e ao retomar conversa. Área/especialidade do cadastro informado confirmadas; filtro server-side e interface testados com captura controlada, sem criar negócios de teste. Captura CRM real não exercitada.
-- [ ] LIA: resumo curto das vantagens publicadas do produto seguido de convite separado antes do contato do vendedor.
+- [x] LIA: resumo curto das vantagens publicadas do produto seguido de convite separado antes do contato do vendedor. Conteúdo real de landing publicado conferido; ordem visual testada com vendedor controlado, sem gerar cadastros CRM. Sem conteúdo disponível, não inventar vantagens.
