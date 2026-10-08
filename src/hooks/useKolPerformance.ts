@@ -372,6 +372,15 @@ export function useKolPerformance(formIds: { id: string; name: string }[], coupo
         for (const point of form.daily_series) dailyTotals.set(point.d, (dailyTotals.get(point.d) ?? 0) + point.v);
       }
 
+      // Comissão total: itens dos negócios ganhos (regra por produto > subcategoria >
+      // categoria > % do cupom) + receita dos cupons × % de comissão do cupom.
+      const comissaoLeads = forms.reduce((s, f) => s + (f.comissao ?? 0), 0);
+      const comissaoCupons = coupons.reduce((s, c) => {
+        const pct = rules.find((r) => r.code === c.cupom)?.commission_percent ?? null;
+        return s + (pct != null ? (c.receita * pct) / 100 : 0);
+      }, 0);
+      const temRegraComissao = prules.length > 0 || crules.length > 0 || fallbackPct != null;
+
       setData({
         products: Array.from(sold.values()).sort((a, b) => b.valor - a.valor),
         forms,
@@ -387,6 +396,9 @@ export function useKolPerformance(formIds: { id: string; name: string }[], coupo
           daily_series: Array.from(dailyTotals, ([d, v]) => ({ d, v })).sort((a, b) => a.d.localeCompare(b.d)),
           cuponsGerados: rules.length,
           clientesCupons: coupons.reduce((s, c: any) => s + (c.clientes || 0), 0),
+          comissao: temRegraComissao ? comissaoLeads + comissaoCupons : null,
+          comissaoLeads,
+          comissaoCupons,
         },
       });
     } catch {
