@@ -31,6 +31,7 @@ interface FormField {
 
 interface FormData {
   id: string;
+  product_catalog_id: string | null;
   name: string;
   slug: string;
   form_purpose: string;
