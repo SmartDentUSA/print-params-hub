@@ -1,4 +1,4 @@
-- [ ] Garantir nome exato do produto vinculado no interesse enviado ao CRM pelos formulários do sistema; não alterar Meta.
+- [x] Formulários do sistema e LIA resolvem interesse pelo produto vinculado no catálogo; Meta e históricos intactos. Testes de vínculo/botão/Meta e contexto publicado Edge Mini aprovados; chat e compilação OK. Entrega de nova submissão ao CRM não exercitada.
 - [x] Redesenhar Kanban e sala de suporte na direção Conversa e histórico, com ficha/conversa em áreas equilibradas e tema isolado.
 - [x] Mostrar chamados abertos e resolvidos por cliente nos cards, com contagens exatas de todo o histórico autorizado.
 - [x] Priorizar na fila de suporte clientes que possuem RayShape Edge Mini, sem usar campos SDR/interesse.
