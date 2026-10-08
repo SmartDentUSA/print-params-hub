@@ -62,6 +62,10 @@ const DB_COLUMNS: Record<string, { label: string; columns: { value: string; labe
       { value: "tem_scanner", label: "Tem scanner?" },
       { value: "software_cad", label: "Software CAD" },
       { value: "como_digitaliza", label: "Como digitaliza" },
+      { value: "imprime_modelos", label: "Imprime modelos?" },
+      { value: "imprime_placas", label: "Imprime placas miorrelaxantes?" },
+      { value: "imprime_resinas_ld", label: "Imprime resinas longa duração?" },
+      { value: "imprime_guias", label: "Imprime guias cirúrgicas?" },
     ],
   },
   "Interesse": {
