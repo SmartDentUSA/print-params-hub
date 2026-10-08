@@ -3,6 +3,7 @@
 - Support context requires session, support-role and ticket authorization via an edge function; this exposes customer details without widening commercial RLS.
 - Support board uses that endpoint in bounded batches for complete ticket counts and owned-equipment priority; this avoids per-card requests and RLS changes.
 - Support workspace theme tokens are scoped to its page and use an equal-width conversation/profile layout; this preserves unrelated admin styling.
+- Bio cards pass hydrated form IDs to LIA, never editable labels as products; this preserves attribution.
 
 - RMS payment presentation and metrics share product-family resolution; subscription fallback and invoice totals are scoped by family and lead to prevent exoplan/DentalCAD cross-attribution.
 
@@ -20,7 +21,7 @@
 - PipeRun sync hydrates person contacts via a read-only persons/{id} GET, matches leads by phone when e-mail is missing, and keeps deals without contacts keyed by piperun_id; deals typed directly in PipeRun otherwise never reach the system.
 - PipeRun person/company contacts are written and read only through the shared `piperunGet/Post/Put` helpers, which translate to `contact_emails`/`contact_phones`, request `with[]=contactEmails,contactPhones`, merge existing contacts on PUT and use `?email=`/`?phone=` list filters; the legacy `emails[]`/`phones[]` keys and filters are silently ignored by PipeRun and left persons without e-mail and caused duplicate persons.
 - PipeRun sync hydrates company contacts separately and does not skip unchanged deals when missing contacts become available; company identifiers must never merge distinct people.
-- Proposal item expansion failures never block saving the deal; one bad item used to hide every deal of the lead.
+- Proposal item failures never block deal saving; this prevents hidden deals.
 - Event cards and timelines use immutable submission activity, not the latest lead event snapshot; repeat visitors count in every event and refresh CRM summaries without changing Deals.
 - PipeRun deal sync writes `telefone_normalized` alongside `telefone_raw` using the shared Brazilian phone normalizer; lead cards, search and phone matching read only the normalized phone.
 
