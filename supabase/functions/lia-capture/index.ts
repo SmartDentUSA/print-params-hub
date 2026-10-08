@@ -244,6 +244,7 @@ function personalHook(lead: Record<string, unknown>, product: string, productSum
   if (courses.length) parts.push(`já fez com a gente o curso ${courses.join(" e ")}`);
   if (orders.length) parts.push(`já usa ${orders.join(" e ")} da nossa loja`);
   if (history?.event) parts.push(`a gente já se encontrou no ${history.event}`);
+  if (parts.length > 5) parts.splice(2, parts.length - 5);
   if (!parts.length) return null;
   const context = parts.join(", ").replace(/, ([^,]*)$/, " e $1");
   const productLower = (product || "").toLowerCase();
