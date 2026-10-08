@@ -1,5 +1,5 @@
 import { Loader2 } from "lucide-react";
-import { useKolPerformance, type KolCouponRule } from "@/hooks/useKolPerformance";
+import { useKolPerformance, type KolCouponRule, type KolProductRule } from "@/hooks/useKolPerformance";
 
 const money = (v: number) =>
   new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(v || 0);
@@ -7,6 +7,8 @@ const money = (v: number) =>
 interface Props {
   formIds: { id: string; name: string }[];
   coupons: KolCouponRule[];
+  /** Regras de comissionamento do KOL (produto, subcategoria ou categoria). */
+  commissions?: KolProductRule[];
   compact?: boolean;
 }
 
@@ -28,10 +30,10 @@ function VisitorsSparkline({ series }: { series: Array<{ d: string; v: number }>
 }
 
 /** Resumo compacto da performance do KOL exibido no card da listagem. */
-export default function ProfessionalKolCardStats({ formIds, coupons, compact }: Props) {
+export default function ProfessionalKolCardStats({ formIds, coupons, commissions, compact }: Props) {
   const forms = (formIds ?? []).filter((f) => f?.id);
   const rules = (coupons ?? []).filter((c) => (c?.code || "").trim());
-  const perf = useKolPerformance(forms, rules);
+  const perf = useKolPerformance(forms, rules, commissions ?? []);
 
   if (forms.length === 0 && rules.length === 0) return null;
 
@@ -57,6 +59,19 @@ export default function ProfessionalKolCardStats({ formIds, coupons, compact }: 
         >
           <div className="font-semibold text-primary">{money(total)}</div>
           <div className="text-[9px] uppercase tracking-wide text-muted-foreground">Conversão R$</div>
+        </div>
+        <div
+          className="rounded-md bg-success/10 px-2 py-1 text-center leading-tight"
+          title={
+            perf.totals.comissao == null
+              ? "Nenhuma regra de comissionamento cadastrada para este KOL"
+              : `Negócios ganhos: ${money(perf.totals.comissaoLeads)} · Cupons: ${money(perf.totals.comissaoCupons)}`
+          }
+        >
+          <div className="font-semibold text-success">
+            {perf.totals.comissao == null ? "—" : money(perf.totals.comissao)}
+          </div>
+          <div className="text-[9px] uppercase tracking-wide text-muted-foreground">Comissão R$</div>
         </div>
       </div>
     );
@@ -103,6 +118,14 @@ export default function ProfessionalKolCardStats({ formIds, coupons, compact }: 
       <div className="flex justify-between gap-2">
         <span className="text-muted-foreground shrink-0">Conversão em R$ (leads):</span>
         <span className="font-medium text-right text-green-600">{money(perf.totals.receita)}</span>
+      </div>
+      <div className="flex justify-between gap-2">
+        <span className="text-muted-foreground shrink-0">Comissão total:</span>
+        <span className="font-medium text-right text-success">
+          {perf.totals.comissao == null
+            ? "—"
+            : `${money(perf.totals.comissao)} (${money(perf.totals.comissaoLeads)} leads + ${money(perf.totals.comissaoCupons)} cupons)`}
+        </span>
       </div>
       <div className="flex justify-between gap-2">
         <span className="text-muted-foreground shrink-0">Cupons gerados:</span>
