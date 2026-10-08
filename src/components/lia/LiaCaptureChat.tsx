@@ -15,15 +15,25 @@ type Step = "phone" | "email" | "name" | "creating" | "qualify" | "done";
 const IDLE_MS = 3 * 60 * 1000;
 const messageDelay = (text: string) => Math.min(6500, 1800 + text.length * 24 + Math.random() * 600);
 
-function sellerInvitation(seller: Seller, leadName?: string) {
+function sellerInvitation(seller: Seller, leadName?: string, pick?: (n: number) => number) {
+  const choose = pick ?? ((n: number) => Math.floor(Math.random() * n));
   const name = seller.seller_first_name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
   const female = ["ana", "maria", "patricia", "luciana", "juliana", "mariana", "carolina", "camila", "fernanda", "gabriela", "amanda", "beatriz", "jessica", "leticia", "bruna", "aline", "daniela", "paula", "renata", "vanessa"].includes(name);
   const male = ["lucas", "danilo", "daniel", "rafael", "fabio", "carlos", "joao", "pedro", "bruno", "marcos", "paulo", "andre", "luiz", "luis", "erick", "felipe", "gustavo", "rodrigo", "leonardo", "eduardo"].includes(name);
   const specialist = female ? "a especialista" : male ? "o especialista" : seller.seller_first_name;
   const contact = female ? "ela" : male ? "ele" : seller.seller_first_name;
   const first = seller.lead_first_name || leadName?.trim().split(/\s+/)[0];
+  const lead = first ? `${first}, ` : "";
   const introduction = female ? `O nome dela é ${seller.seller_name}.` : male ? `O nome dele é ${seller.seller_name}.` : `Seu atendimento será com ${seller.seller_name}.`;
-  return `${first ? `${first}, j` : "J"}á passei todas as informações para ${specialist} que vai te chamar. ${introduction}\n\nMas, já que está com o celular na mão, clica aqui no botão abaixo e já chama ${contact} 😄!`;
+  const pronoun = female ? "Ela" : male ? "Ele" : seller.seller_first_name;
+  const variants = [
+    `${lead}tudo certo! ${introduction} Quer pular a fila?\n\nClica no botão abaixo e chama ${contact} agora mesmo! 😄`,
+    `${lead}já passei todas as suas informações para ${specialist}. ${introduction} Se quiser adiantar as coisas, clica no botão abaixo e já manda um 'oi' pra ${contact}! 😄👇`,
+    `${lead}tudo certo por aqui! ${introduction} Para não precisar ficar esperando, clica no botão abaixo e já inicia a conversa agora mesmo! 😄`,
+    `${lead}já enviei tudo para ${specialist}! ${introduction} ${pronoun} vai te procurar, mas como você já está com a mão na massa, clica no botão abaixo e chama ${contact} para agilizar. 😄`,
+    `${lead}seu atendimento já está encaminhado para ${specialist}. ${introduction} Se quiser falar antes, é só clicar no botão abaixo e mandar o primeiro oi! 😉`,
+  ];
+  return variants[choose(variants.length)];
 }
 
 async function call(body: Record<string, unknown>) {
@@ -49,6 +59,8 @@ export default function LiaCaptureChat({ formId, campaign, product }: { formId: 
   const [qIdx, setQIdx] = useState(0);
   const [selected, setSelected] = useState<string[]>([]);
   const [seller, setSeller] = useState<Seller | null>(null);
+  // A frase de encaminhamento é sorteada uma vez por vendedor e não muda durante a conversa.
+  const invitation = useMemo(() => (seller ? sellerInvitation(seller, data.name) : ""), [seller, data.name]);
   const [closed, setClosed] = useState(false);
   const [emojiOpen, setEmojiOpen] = useState(false);
   const lastActivity = useRef(Date.now());
@@ -163,7 +175,7 @@ export default function LiaCaptureChat({ formId, campaign, product }: { formId: 
 
   useEffect(() => {
     if (!closed || !seller || handoffStage !== 3) return;
-    const timer = setTimeout(() => setHandoffStage(4), messageDelay(sellerInvitation(seller, data.name)));
+    const timer = setTimeout(() => setHandoffStage(4), messageDelay(invitation));
     return () => clearTimeout(timer);
   }, [closed, seller, handoffStage]);
 
@@ -318,7 +330,7 @@ export default function LiaCaptureChat({ formId, campaign, product }: { formId: 
         {showSeller && (
           <div className="flex justify-start">
             <div className="lia-bubble lia-bubble-in max-w-[88%] rounded-lg rounded-tl-none bg-muted px-3 py-2 text-[15px] leading-5 text-foreground sm:max-w-[78%]">
-              {sellerInvitation(seller, data.name)}
+              {invitation}
             </div>
           </div>
         )}
