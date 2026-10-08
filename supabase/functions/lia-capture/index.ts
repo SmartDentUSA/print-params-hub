@@ -193,7 +193,7 @@ async function findLead(phone: string, email: string) {
 
 // Gancho curto e humano montado com o que já sabemos do lead (perfil + respostas).
 // Nunca expõe dados sensíveis; só ecoa o que o próprio lead informou.
-function personalHook(lead: Record<string, unknown>, product: string, productSummary?: string | null, seed = ""): string | null {
+function personalHook(lead: Record<string, unknown>, product: string, productSummary?: string | null, seed = "", history?: { bought: string[]; quoted: string[] }): string | null {
   // Valores genéricos/negativos do formulário (ex.: "OUTRAS", "Não, ainda não digitalizo") nunca entram no texto.
   const generic = (raw: string) => !raw || /^(outras?|outros?|nenhum[as]?|sem resposta|n\/?d|-+|—+)$/i.test(raw) || /^n[ãa]o\b/i.test(raw);
   const area = str(lead.area_atuacao, 80).trim();
@@ -217,6 +217,13 @@ function personalHook(lead: Record<string, unknown>, product: string, productSum
   if (!generic(impressora)) parts.push(`trabalha com a ${impressora}`);
   if (!generic(scanner)) parts.push(`usa o scanner ${scanner}`);
   if (!generic(cad) && !(product && product.toLowerCase().includes(cad.toLowerCase()))) parts.push(`quer colocar o ${cad} na sua rotina`);
+  // Histórico com a Smart Dent: produtos já comprados ou cotados em negócios anteriores.
+  const productLowerName = (product || "").toLowerCase();
+  const notCurrent = (name: string) => name && !productLowerName.includes(name.toLowerCase()) && !name.toLowerCase().includes(productLowerName || "\0");
+  const bought = (history?.bought ?? []).filter(notCurrent).slice(0, 2);
+  const quoted = (history?.quoted ?? []).filter(notCurrent).filter((n) => !bought.some((b) => b.toLowerCase() === n.toLowerCase())).slice(0, 2);
+  if (bought.length) parts.push(`já é cliente de ${bought.join(" e ")}`);
+  else if (quoted.length) parts.push(`já conversou com a gente sobre ${quoted.join(" e ")}`);
   if (!parts.length) return null;
   const context = parts.join(", ").replace(/, ([^,]*)$/, " e $1");
   const productLower = (product || "").toLowerCase();
@@ -233,8 +240,16 @@ function personalHook(lead: Record<string, unknown>, product: string, productSum
   // Um benefício real do produto (1ª frase do resumo da landing), sem preço nem valores.
   let benefit = "";
   if (productSummary) {
-    const firstSentence = productSummary.split(/(?<=[.!?])\s+/)[0]?.trim() ?? "";
-    if (firstSentence && firstSentence.length <= 180 && !/r\$|preço|valor|desconto/i.test(firstSentence)) benefit = ` ${firstSentence}`;
+    // Procura a 1ª frase que pareça benefício real: sem caixa alta promocional, sem preço, tamanho razoável.
+    for (const sentence of productSummary.split(/(?<=[.!?])\s+/)) {
+      const s = sentence.trim();
+      if (!s || s.length < 30 || s.length > 180) continue;
+      if (/r\$|preço|valor|desconto|oferta|oportunidade/i.test(s)) continue;
+      const letters = s.replace(/[^a-zà-ú]/gi, "");
+      if (letters.length && letters.replace(/[^A-ZÀ-Ú]/g, "").length / letters.length > 0.5) continue;
+      benefit = ` ${s}`;
+      break;
+    }
   }
   return `Pelo que você me contou, ${context}${tie}.${benefit} Vale muito a pena conversar com o especialista, ele já vai te chamar com tudo pronto. 😉`;
 }
@@ -247,6 +262,27 @@ async function sellerCard(leadId: string, body: any) {
   const ctx = await resolveContext(body ?? {}).catch(() => null);
   const { data: deal } = await sb.from("deals").select("piperun_deal_id, owner_name")
     .eq("lead_id", leadId).order("created_at", { ascending: false }).limit(1).maybeSingle();
+  // Histórico de produtos do lead (negócios ganhos = cliente; demais = já cotou).
+  const { data: leadDeals } = await sb.from("deals").select("id, status")
+    .eq("lead_id", leadId).limit(50);
+  const dealIds = (leadDeals ?? []).map((d: any) => d.id);
+  const wonIds = new Set((leadDeals ?? []).filter((d: any) => /won|ganh/i.test(String(d.status ?? ""))).map((d: any) => d.id));
+  const bought: string[] = [];
+  const quoted: string[] = [];
+  if (dealIds.length) {
+    const { data: items } = await sb.from("deal_items").select("deal_id, product_name, total_value")
+      .in("deal_id", dealIds).limit(200);
+    const seen = new Set<string>();
+    for (const item of items ?? []) {
+      const name = String((item as any).product_name ?? "").trim();
+      // Ignora brindes/itens de R$0 (treinamento, suporte, instalação) e duplicados.
+      if (!name || Number((item as any).total_value ?? 0) <= 0) continue;
+      const key = name.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      (wonIds.has((item as any).deal_id) ? bought : quoted).push(name);
+    }
+  }
   let member: any = null;
   if (lead.piperun_owner_id) {
     const { data } = await sb.from("team_members").select("nome_completo, photo_url, whatsapp_number").eq("piperun_owner_id", lead.piperun_owner_id).limit(1).maybeSingle();
@@ -271,7 +307,7 @@ async function sellerCard(leadId: string, body: any) {
     photo_url: member?.photo_url ?? null,
     deal_id: dealId || null,
     wa_url: `https://wa.me/${phone}?text=${encodeURIComponent(text)}`,
-    hook: personalHook(lead as Record<string, unknown>, product, ctx?.product_summary, leadId),
+    hook: personalHook(lead as Record<string, unknown>, product, ctx?.product_summary, leadId, { bought, quoted }),
   };
 }
 
