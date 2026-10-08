@@ -52,6 +52,7 @@ const slugifyName = (s: string) =>
     .replace(/^_+|_+$/g, "");
 
 const EMPTY_FORM = {
+  photo_url: "",
   nome_completo: "",
   email: "",
   whatsapp_number: "",
@@ -226,6 +227,27 @@ export function SmartOpsTeam() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<TeamMember | null>(null);
   const [form, setForm] = useState({ ...EMPTY_FORM });
+  const [photoUploading, setPhotoUploading] = useState(false);
+  const uploadPhoto = async (file: File) => {
+    if (!file.type.startsWith("image/") || file.size > 10 * 1024 * 1024) {
+      toast({ title: "Foto inválida", description: "Envie uma imagem de até 10MB.", variant: "destructive" });
+      return;
+    }
+    setPhotoUploading(true);
+    try {
+      const ext = file.name.split(".").pop() || "jpg";
+      const key = `team-members/${(form.email || form.nome_completo || "membro").replace(/[^a-z0-9]/gi, "_")}-${Date.now()}.${ext}`;
+      const { error } = await supabase.storage.from("catalog-images").upload(key, file, { upsert: true, contentType: file.type });
+      if (error) throw error;
+      const { data } = supabase.storage.from("catalog-images").getPublicUrl(key);
+      setForm((f) => ({ ...f, photo_url: data.publicUrl }));
+      toast({ title: "Foto enviada", description: "Clique em salvar para confirmar." });
+    } catch (e: any) {
+      toast({ title: "Erro no upload", description: e.message, variant: "destructive" });
+    } finally {
+      setPhotoUploading(false);
+    }
+  };
   const { toast } = useToast();
 
   // Evolution state
@@ -362,6 +384,7 @@ export function SmartOpsTeam() {
   const openEdit = (m: TeamMember) => {
     setEditing(m);
     setForm({
+      photo_url: (m as any).photo_url || "",
       nome_completo: m.nome_completo,
       email: m.email,
       whatsapp_number: m.whatsapp_number,
@@ -664,6 +687,7 @@ export function SmartOpsTeam() {
       whatsapp_number: form.whatsapp_number.trim(),
       evolution_base_url: evolutionBaseUrl,
       evo_go_base_url: evoGoBaseUrl,
+      photo_url: nullify(form.photo_url) as any,
       piperun_owner_id: nullify(form.piperun_owner_id) as any,
       manychat_api_key: nullify(form.manychat_api_key) as any,
       evolution_instance_name: nullify(form.evolution_instance_name) as any,
@@ -787,6 +811,16 @@ export function SmartOpsTeam() {
                 <TabsTrigger value="grupos" className="flex-1">Grupos (EvoGo)</TabsTrigger>
               </TabsList>
               <TabsContent value="dados" className="space-y-4 pt-2">
+              <div className="flex items-center gap-4">
+                <div className="h-20 w-20 shrink-0 overflow-hidden rounded-full border bg-muted flex items-center justify-center">
+                  {form.photo_url ? <img src={form.photo_url} alt="Foto do membro" className="h-full w-full object-cover" /> : <span className="text-xs text-muted-foreground">Sem foto</span>}
+                </div>
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor="team-photo" className="cursor-pointer"><span className="inline-flex h-9 items-center rounded-md border px-3 text-sm hover:bg-accent">{photoUploading ? "Enviando..." : "Enviar foto"}</span></Label>
+                  <input id="team-photo" type="file" accept="image/*" className="sr-only" disabled={photoUploading} onChange={(e) => { const f = e.target.files?.[0]; if (f) void uploadPhoto(f); e.target.value = ""; }} />
+                  {form.photo_url && <Button type="button" variant="ghost" size="sm" onClick={() => setForm((f) => ({ ...f, photo_url: "" }))}>Remover foto</Button>}
+                </div>
+              </div>
               <div><Label>Nome Completo</Label><Input value={form.nome_completo} onChange={(e) => handleNameChange(e.target.value)} /></div>
               <div><Label>Email</Label><Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></div>
               <div><Label>WhatsApp (+55...)</Label><Input value={form.whatsapp_number} onChange={(e) => setForm({ ...form, whatsapp_number: e.target.value })} placeholder="+5511999999999" /></div>
