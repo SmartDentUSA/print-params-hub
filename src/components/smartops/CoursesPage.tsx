@@ -5,7 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { GraduationCap, Loader2, Pencil, Plus, UserCircle, Star, Eye, MessageCircle, Link2, BookOpen } from "lucide-react";
+import { ChevronDown, GraduationCap, Loader2, Pencil, Plus, UserCircle, Star, Eye, MessageCircle, Link2, BookOpen } from "lucide-react";
 import CoursesProfessionalProfile from "./CoursesProfessionalProfile";
 import ProfessionalCoursesModal from "./courses/ProfessionalCoursesModal";
 import ShareCoursePortalDialog from "./courses/ShareCoursePortalDialog";
@@ -129,6 +129,7 @@ export default function CoursesPage() {
   const [coursesStartNew, setCoursesStartNew] = useState(false);
   const [shareFor, setShareFor] = useState<Professional | null>(null);
   const [summaries, setSummaries] = useState<Record<string, PurchaseSummary>>({});
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
 
   const load = useCallback(async () => {
