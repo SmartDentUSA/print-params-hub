@@ -27,6 +27,7 @@ import {
   type LPMedia,
 } from "@/components/lp/PremiumLandingTemplate";
 import CoverImageUpload from "@/components/smartops/CoverImageUpload";
+import { VideoSelector } from "@/components/VideoSelector";
 import HeroAudioUpload from "@/components/smartops/HeroAudioUpload";
 import { Switch } from "@/components/ui/switch";
 
@@ -619,6 +620,7 @@ function EditorSidebar({
   onHeroImageChange: (v: string) => void;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
+  const [videoPickerOpen, setVideoPickerOpen] = useState(false);
   const jumpTo = (id: string) => {
     const container = scrollRef.current;
     if (!container) return;
@@ -786,6 +788,19 @@ function ContentEditor({
         <div className="space-y-1.5">
           <Label className="text-xs font-medium">Imagem ou vídeo do hero (opcional)</Label>
           <CoverImageUpload value={heroImage} onChange={onHeroImageChange} />
+          <Button type="button" variant="outline" size="sm" onClick={() => setVideoPickerOpen(true)}>
+            Buscar na base de vídeos (PandaVideo)
+          </Button>
+          <VideoSelector
+            open={videoPickerOpen}
+            onClose={() => setVideoPickerOpen(false)}
+            onSelect={(sel) => {
+              const v = Array.isArray(sel) ? sel[0] : sel;
+              const url = (v as any)?.embed_url || (v as any)?.url || "";
+              if (url) onHeroImageChange(url);
+              setVideoPickerOpen(false);
+            }}
+          />
           <TextField label="ou cole uma URL" value={heroImage} onChange={onHeroImageChange} placeholder="https://…  (deixe vazio para SVG geométrico)" />
         </div>
         <div className="space-y-1.5 rounded-md border border-dashed border-primary/30 bg-primary/5 p-3">
