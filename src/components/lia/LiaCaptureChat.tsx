@@ -6,12 +6,22 @@ import { Loader2, Send, MessageCircle, ChevronLeft, Smile } from "lucide-react";
 import { trackAttendanceEvent } from "@/lib/attendanceChannel";
 
 type Question = { field_id: string | null; form_id: string | null; db_column: string; label: string; options: string[] };
-type Ctx = { form_id: string | null; campaign: string | null; product: string; origin: string; opening: string; questions: Question[]; product_summary?: string | null };
+type Ctx = { form_id: string | null; campaign: string | null; product: string; origin: string; opening: string; greeting?: string; questions: Question[]; product_summary?: string | null; modules_summary?: string | null };
 type Msg = { from: "lia" | "user"; text: string; createdAt?: number };
-type Seller = { seller_name: string; seller_first_name: string; photo_url: string | null; deal_id: string | null; wa_url: string };
+type Seller = { seller_name: string; seller_first_name: string; lead_first_name?: string | null; photo_url: string | null; deal_id: string | null; wa_url: string };
 type Step = "phone" | "email" | "name" | "creating" | "qualify" | "done";
 
 const IDLE_MS = 3 * 60 * 1000;
+
+function sellerInvitation(seller: Seller, leadName?: string) {
+  const name = seller.seller_first_name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  const female = ["ana", "maria", "patricia", "luciana", "juliana", "mariana", "carolina", "camila", "fernanda", "gabriela", "amanda", "beatriz", "jessica", "leticia", "bruna", "aline", "daniela", "paula", "renata", "vanessa"].includes(name);
+  const male = ["lucas", "danilo", "daniel", "rafael", "fabio", "carlos", "joao", "pedro", "bruno", "marcos", "paulo", "andre", "luiz", "luis", "erick", "felipe", "gustavo", "rodrigo", "leonardo", "eduardo"].includes(name);
+  const specialist = female ? "a especialista" : male ? "o especialista" : seller.seller_first_name;
+  const contact = female ? "ela" : male ? "ele" : seller.seller_first_name;
+  const first = seller.lead_first_name || leadName?.trim().split(/\s+/)[0];
+  return `${first ? `${first}, j` : "J"}á passei todas as informações para ${specialist} que vai te chamar. Mas, já que está com o celular na mão, clica aqui no botão abaixo e já chama ${contact} 😄!`;
+}
 
 async function call(body: Record<string, unknown>) {
   const { data, error } = await supabase.functions.invoke("lia-capture", { body });
@@ -69,7 +79,7 @@ export default function LiaCaptureChat({ formId, campaign, product }: { formId: 
           return;
         } catch { /* ignore */ }
       }
-      setMsgs([{ from: "lia", text: "Olá!", createdAt: Date.now() }, { from: "lia", text: c.opening, createdAt: Date.now() }]);
+      setMsgs([{ from: "lia", text: c.greeting || "Olá!", createdAt: Date.now() }, { from: "lia", text: c.opening, createdAt: Date.now() }]);
       trackAttendanceEvent({ channel: "whatsapp_lia", event_type: "open", form_id: c.form_id, campaign_slug: c.campaign, product_name: c.product });
     }).catch(() => { if (!cancelled) setMsgs([{ from: "lia", text: "Não consegui iniciar o atendimento agora. Tente novamente em instantes." }]); });
     return () => { cancelled = true; };
@@ -129,6 +139,7 @@ export default function LiaCaptureChat({ formId, campaign, product }: { formId: 
       utm_source: params.get("utm_source"), utm_medium: params.get("utm_medium"), utm_campaign: params.get("utm_campaign"),
     });
     setLead({ id: r.lead_id, token: r.token });
+    if (firstName) setData({ ...identity, name: firstName });
     say(firstName ? `Maravilha, ${firstName}!` : "Maravilha!");
     const questions: Question[] = r.questions;
     setCtx({ ...ctx, questions });
@@ -225,10 +236,15 @@ export default function LiaCaptureChat({ formId, campaign, product }: { formId: 
             <div className="lia-bubble lia-bubble-in max-w-[88%] whitespace-pre-wrap break-words rounded-lg rounded-tl-none bg-muted px-3 py-2 text-[15px] leading-5 text-foreground sm:max-w-[78%]">{ctx.product_summary}</div>
           </div>
         )}
+        {closed && ctx?.modules_summary && (
+          <div className="flex justify-start">
+            <div className="lia-bubble lia-bubble-in max-w-[88%] whitespace-pre-wrap break-words rounded-lg rounded-tl-none bg-muted px-3 py-2 text-[15px] leading-5 text-foreground sm:max-w-[78%]">{ctx.modules_summary}</div>
+          </div>
+        )}
         {showSeller && (
           <div className="flex justify-start">
             <div className="lia-bubble lia-bubble-in max-w-[88%] rounded-lg rounded-tl-none bg-muted px-3 py-2 text-[15px] leading-5 text-foreground sm:max-w-[78%]">
-              {`Quer entender como ${ctx?.product || "essa solução"} pode se encaixar no seu dia a dia? Chame ${seller.seller_first_name} no WhatsApp abaixo — seu especialista já terá as informações que você compartilhou por aqui.`}
+              {sellerInvitation(seller, data.name)}
             </div>
           </div>
         )}

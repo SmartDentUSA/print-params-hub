@@ -5,7 +5,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { normalizeBrazilianPhone } from "../_shared/phone-normalize.ts";
-import { buildProductSummary } from "./product-summary.ts";
+import { buildProductSummary, buildModulesSummary } from "./product-summary.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
@@ -47,6 +47,7 @@ async function resolveContext(body: any) {
   let campaignName = "";
   let formName = "";
   let productSummary: string | null = null;
+  let modulesSummary: string | null = null;
   if (campaignSlug) {
     const { data: c } = await sb.from("campaigns").select("nome, lia_opening_message, lia_product_name").ilike("lia_slug", campaignSlug).maybeSingle();
     if (c) {
@@ -69,15 +70,9 @@ async function resolveContext(body: any) {
       const { data: landing, error } = await sb.from("smartops_form_landing_pages").select("content")
         .eq("form_id", formId).eq("status", "published").limit(1).maybeSingle();
       if (error) console.warn("[lia-capture] summary unavailable", error.code);
-      const features = Array.isArray(f?.extra_sections) ? f.extra_sections.filter((section: any) => section?.type === "features")
-        .flatMap((section: any) => Array.isArray(section.items) ? section.items.map((item: any) => ({ title: item.title, desc: item.text })) : []) : [];
-      productSummary = buildProductSummary(product, landing?.content ?? { benefits: { items: features } }, f?.subtitle || f?.description);
+      productSummary = buildProductSummary(product, landing?.content);
+      modulesSummary = buildModulesSummary(landing?.content);
     }
-  }
-  if (!productSummary && product) {
-    const { data: catalog } = await sb.from("system_a_catalog").select("name, description, extra_data")
-      .in("category", ["product", "resin", "Resinas", "consumables", "Serviços"]).eq("name", product).limit(1).maybeSingle();
-    if (catalog) productSummary = buildProductSummary(product, { hero: { bullets: catalog.extra_data?.benefits } }, catalog.description);
   }
   const label = product || campaignName || formName || "Smart Dent";
   const origin = campaignSlug && !formId ? `# CHAT - Campanha - ${campaignName || campaignSlug}` : `# CHAT - Landing - ${label}`;
@@ -109,7 +104,9 @@ async function resolveContext(body: any) {
     field_id: null, form_id: null, db_column: "area_atuacao", options: [],
   };
   questions.unshift({ ...area, label: "Me diz, qual é a sua área de atuação? Assim eu entendo exatamente como essa solução pode ser aplicada ao seu dia a dia." });
-  return { form_id: formId, campaign: campaignSlug, product, origin, opening, questions, product_summary: productSummary };
+  const hour = Number(new Intl.DateTimeFormat("en-US", { timeZone: "America/Sao_Paulo", hour: "numeric", hourCycle: "h23" }).format(new Date()));
+  const greeting = hour < 12 ? "Bom dia!" : hour < 18 ? "Boa tarde!" : "Boa noite!";
+  return { form_id: formId, campaign: campaignSlug, product, origin, opening, greeting, questions, product_summary: productSummary, modules_summary: modulesSummary };
 }
 
 const validEmail = (v: unknown) => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(String(v ?? "")) && !/@(no-email|placeholder|example|test)\b/i.test(String(v));
@@ -180,6 +177,7 @@ async function sellerCard(leadId: string) {
     ready: true,
     seller_name: ownerName,
     seller_first_name: first,
+    lead_first_name: String(lead.nome ?? "").trim().split(/\s+/)[0] || null,
     photo_url: member?.photo_url ?? null,
     deal_id: dealId || null,
     wa_url: `https://wa.me/${phone}?text=${encodeURIComponent(text)}`,
