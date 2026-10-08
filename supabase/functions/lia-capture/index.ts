@@ -35,6 +35,14 @@ function normPhone(v: unknown) {
 const str = (v: unknown, max = 300) => (typeof v === "string" ? v.trim().slice(0, max) : "");
 const isUuid = (v: unknown) => typeof v === "string" && /^[0-9a-f-]{36}$/i.test(v);
 
+function whatsappGroupUrl(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  try {
+    const url = new URL(value.trim());
+    return url.protocol === "https:" && url.hostname === "chat.whatsapp.com" && /^\/[A-Za-z0-9]+\/?$/.test(url.pathname) && !url.username && !url.password ? url.href : null;
+  } catch { return null; }
+}
+
 async function sign(leadId: string) {
   const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(SERVICE_KEY), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
   const sig = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode("lia-capture:" + leadId));
@@ -53,6 +61,7 @@ async function resolveContext(body: any) {
   let formName = "";
   let productSummary: string | null = null;
   let modulesSummary: string | null = null;
+  let groupUrl: string | null = null;
   if (campaignSlug) {
     const { data: c } = await sb.from("campaigns").select("nome, lia_opening_message, lia_product_name").ilike("lia_slug", campaignSlug).maybeSingle();
     if (c) {
@@ -66,8 +75,9 @@ async function resolveContext(body: any) {
       source: "form", form_id: formId, product_catalog_id: body.product_catalog_id, product,
     });
     if (linkedProduct) product = linkedProduct.name;
-    const { data: f } = await sb.from("smartops_forms").select("name, subtitle, description, extra_sections, product_catalog_id, capture_buttons_enabled, capture_buttons").eq("id", formId).maybeSingle();
+    const { data: f } = await sb.from("smartops_forms").select("name, subtitle, description, extra_sections, product_catalog_id, capture_buttons_enabled, capture_buttons, success_redirect_url").eq("id", formId).maybeSingle();
     formName = f?.name ?? "";
+    groupUrl = whatsappGroupUrl(f?.success_redirect_url);
     let boundProduct = "";
     if (f?.product_catalog_id) {
       const { data: p } = await sb.from("system_a_catalog").select("name").eq("id", f.product_catalog_id).maybeSingle();
@@ -128,7 +138,7 @@ async function resolveContext(body: any) {
   });
   const hour = Number(new Intl.DateTimeFormat("en-US", { timeZone: "America/Sao_Paulo", hour: "numeric", hourCycle: "h23" }).format(new Date()));
   const greeting = hour < 12 ? "Bom dia!" : hour < 18 ? "Boa tarde!" : "Boa noite!";
-  return { form_id: formId, campaign: campaignSlug, product, origin, opening, greeting, questions, product_summary: productSummary, modules_summary: modulesSummary, qualification_form_id: qFormId, fields };
+  return { form_id: formId, campaign: campaignSlug, product, origin, opening, greeting, questions, product_summary: productSummary, modules_summary: modulesSummary, whatsapp_group_url: groupUrl, qualification_form_id: qFormId, fields };
 }
 
 const validEmail = (v: unknown) => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(String(v ?? "")) && !/@(no-email|placeholder|example|test)\b/i.test(String(v));
