@@ -1,3 +1,4 @@
+- [ ] Padronizar o produto vinculado Edge Mini em todos os formulários e na ingestão, sem usar o nome da campanha como produto.
 - [x] Redesenhar Kanban e sala de suporte na direção Conversa e histórico, com ficha/conversa em áreas equilibradas e tema isolado.
 - [x] Mostrar chamados abertos e resolvidos por cliente nos cards, com contagens exatas de todo o histórico autorizado.
 - [x] Priorizar na fila de suporte clientes que possuem RayShape Edge Mini, sem usar campos SDR/interesse.
