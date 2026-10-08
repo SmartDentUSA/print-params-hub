@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -12,8 +13,10 @@ import {
   Link2,
   Loader2,
   Wand2,
+  ChevronDown,
 } from "lucide-react";
 import { toast } from "sonner";
+import AttendanceChannelMetrics from "@/components/lia/AttendanceChannelMetrics";
 import { QrCodeButton } from "./QrCodeButton";
 import { getPublicOrigin } from "@/utils/publicOrigin";
 import type { FormMetrics, ShortLinkInfo } from "./FormMetricsCard";
@@ -155,6 +158,7 @@ export function FormMetricsRow({
   const m = metrics ?? { visitors: 0, unique_visitors: 0, leads: 0, deals_won: 0, daily_series: [] };
   const completion = pct(m.leads, m.unique_visitors);
   const conversion = pct(m.deals_won, m.leads);
+  const [showChannels, setShowChannels] = useState(false);
 
   return (
     <div className="grid grid-cols-12 gap-2 items-center px-3 py-2 border-b hover:bg-muted/30 transition-colors text-sm">
@@ -302,6 +306,23 @@ export function FormMetricsRow({
         <Button variant="ghost" size="icon" onClick={onDelete} title="Excluir" className="h-7 w-7">
           <Trash2 className="w-3.5 h-3.5 text-destructive" />
         </Button>
+      </div>
+
+      {/* Comparativo por canal — abaixo dos gráficos do card */}
+      <div className="col-span-12 md:col-span-12">
+        <button
+          type="button"
+          onClick={() => setShowChannels((v) => !v)}
+          className="inline-flex items-center gap-1 text-[11px] font-medium text-muted-foreground hover:text-foreground"
+        >
+          <ChevronDown className={`w-3.5 h-3.5 transition-transform ${showChannels ? "rotate-180" : ""}`} />
+          Comparativo por canal de atendimento (90 dias)
+        </button>
+        {showChannels && (
+          <div className="mt-2">
+            <AttendanceChannelMetrics formId={form.id} />
+          </div>
+        )}
       </div>
     </div>
   );
