@@ -439,13 +439,13 @@ export function SmartOpsEvents() {
                         )}
                       </div>
 
-                      {(crmSellers[ev.id]?.length ?? 0) > 0 && (
+                      {(crmSellers[r.id]?.length ?? 0) > 0 && (
                         <div>
                           <div className="text-[11px] uppercase text-muted-foreground mb-1">
                             Vendedores no CRM desde o evento
                           </div>
                           <ul className="space-y-0.5">
-                            {crmSellers[ev.id].map((s) => (
+                            {crmSellers[r.id].map((s) => (
                               <li key={s.seller} className="flex justify-between gap-2 text-xs">
                                 <span className="truncate">{s.seller}</span>
                                 <span className="font-semibold tabular-nums text-right">
