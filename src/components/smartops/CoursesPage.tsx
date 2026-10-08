@@ -73,6 +73,8 @@ type Professional = {
   prof_wa_number?: string | null;
   prof_kol_form_ids?: { id: string; name: string }[] | null;
   prof_kol_coupons?: { code: string; active_from?: string | null; active_to?: string | null }[] | null;
+  /** Regras de comissionamento (produto, subcategoria ou categoria) do KOL. */
+  prof_kol_commissions?: Record<string, any>[] | null;
 };
 
 
@@ -137,7 +139,7 @@ export default function CoursesPage() {
     try {
       const { data, error } = await supabase
         .from("lia_attendances")
-        .select("id, nome, email, area_atuacao, especialidade, prof_photo_url, prof_cro, prof_course_platform, prof_updated_at, created_at, equip_scanner, equip_scanner_bancada, equip_impressora, equip_cad, prof_rating_quality, prof_rating_price, prof_rating_value, prof_wa_ddi, prof_wa_number, prof_kol_form_ids, prof_kol_coupons")
+        .select("id, nome, email, area_atuacao, especialidade, prof_photo_url, prof_cro, prof_course_platform, prof_updated_at, created_at, equip_scanner, equip_scanner_bancada, equip_impressora, equip_cad, prof_rating_quality, prof_rating_price, prof_rating_value, prof_wa_ddi, prof_wa_number, prof_kol_form_ids, prof_kol_coupons, prof_kol_commissions")
         .not("prof_updated_at", "is", null)
         .is("merged_into", null)
         .order("prof_updated_at", { ascending: false })
@@ -302,6 +304,7 @@ export default function CoursesPage() {
                       compact
                       formIds={(p.prof_kol_form_ids ?? []) as { id: string; name: string }[]}
                       coupons={(p.prof_kol_coupons ?? []) as any}
+                      commissions={(p.prof_kol_commissions ?? []) as any}
                     />
                     <Badge variant="secondary" className="text-xs">{stats?.total ?? 0} {stats?.total === 1 ? "curso" : "cursos"}</Badge>
                     {(stats?.ativos ?? 0) > 0 && (
@@ -489,6 +492,7 @@ export default function CoursesPage() {
                     <ProfessionalKolCardStats
                       formIds={(p.prof_kol_form_ids ?? []) as { id: string; name: string }[]}
                       coupons={(p.prof_kol_coupons ?? []) as any}
+                      commissions={(p.prof_kol_commissions ?? []) as any}
                     />
 
                     <div className="grid grid-cols-2 gap-2 pt-2">
