@@ -17,7 +17,15 @@
 - `tsc --noEmit -p tsconfig.app.json`: pass.
 - `vite build`: pass; existing CSS import ordering and large chunk warnings remain.
 - Browser: 76 article links; one canonical and description on hub and article; canonical/title restored on close; event schema valid JSON, no CSS in articleBody; Organization knowsAbout contains 26 terms, not hundreds of characters.
-- Video list: 500 cards. Database contains 501 active content records with video, of which one is an ebook. Therefore 500 is the expected video-tab count, not proof of truncation. Sidebar counts use a broader category universe and still need a unified definition.
+- Video list: 500 cards. Database contains 501 active content records with video, of which one is an ebook. Therefore 500 is the expected video-tab count, not proof of truncation.
+
+## Sidebar follow-up (2026-10-08)
+
+- Sidebar counts now classify active, categorized records by ebook first, then video presence, then article, matching the list queries. Categories come from that tab's actual records rather than a fixed subset.
+- Article "All" includes technical-parameter articles. Database and local browser both show 126 articles; the sidebar also shows 126. Videos total 500; the Technology video filter renders 36 cards and its sidebar count is 36.
+- Changing the sidebar category clears stale chips/search so an earlier chip cannot silently override the chosen category.
+- TypeScript, the existing pagination/SEO verification script and Vite production build passed. Existing CSS import-order and chunk-size warnings remain.
+- Editorial corrections were applied separately to 179 knowledge records with original-field hash guards; 476 changed fields were verified after normalizing line endings. No remaining bare-hash links in PT/EN/ES; all 14 ebooks received three-language summaries. Source PDFs remain unchanged. This is not a claim of complete clinical/regulatory validation.
 
 ## Environment
 
