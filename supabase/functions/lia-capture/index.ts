@@ -237,11 +237,12 @@ function personalHook(lead: Record<string, unknown>, product: string, productSum
   return `Pelo que você me contou, ${context}${tie}.${benefit} Vale muito a pena conversar com o especialista, ele já vai te chamar com tudo pronto. 😉`;
 }
 
-async function sellerCard(leadId: string) {
+async function sellerCard(leadId: string, body: any) {
   const { data: lead } = await sb.from("lia_attendances")
-    .select("nome, proprietario_lead_crm, piperun_owner_id, produto_interesse, area_atuacao, especialidade, impressora_modelo, equip_scanner, sdr_software_cad_interesse, imprime_modelos, imprime_placas, imprime_guias, imprime_resinas_ld")
+    .select("nome, proprietario_lead_crm, piperun_owner_id, produto_interesse, produto_interesse_auto, area_atuacao, especialidade, impressora_modelo, equip_scanner, sdr_software_cad_interesse, imprime_modelos, imprime_placas, imprime_guias, imprime_resinas_ld")
     .eq("id", leadId).is("merged_into", null).maybeSingle();
   if (!lead) return { ready: false };
+  const ctx = await resolveContext(body ?? {}).catch(() => null);
   const { data: deal } = await sb.from("deals").select("piperun_deal_id, owner_name")
     .eq("lead_id", leadId).order("created_at", { ascending: false }).limit(1).maybeSingle();
   let member: any = null;
