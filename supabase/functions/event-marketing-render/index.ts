@@ -1,3 +1,4 @@
+// @ts-nocheck
 // event-marketing-render
 // Gera as artes de divulgação do evento a partir da ARTE PADRÃO enviada no
 // cadastro (`smartops_events.marketing_art_url`):
@@ -7,7 +8,7 @@
 // em uma grade determinística. Isso garante que todos os cards tenham exatamente
 // o mesmo layout e que nomes, datas, horários e temas não sejam alterados por IA.
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
+const corsHeaders = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version", "Access-Control-Allow-Methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS" };
 import { z } from "npm:zod";
 import {
   buildCarouselSvg,

@@ -2,7 +2,7 @@
 // dos deals ABERTOS do Funil de Vendas (bug do vendedor anterior que permanecia
 // no deal após reatribuição/reativação).
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
+const corsHeaders = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version", "Access-Control-Allow-Methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS" };
 
 const BASE = "https://api.pipe.run/v1";
 const VENDAS_PIPELINES = [18784, 72938, 83896];

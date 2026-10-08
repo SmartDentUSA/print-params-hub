@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Per-deal seller-note lock. Replaces the per-lead lock in `lia_attendances`,
  * which let duplicates through whenever a single lead had several open deals

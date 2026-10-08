@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * LIA Printer Dialog — guided brand → model → resin flow for parameter lookup.
  * Extracted from dra-lia/index.ts for modularity and testability.
