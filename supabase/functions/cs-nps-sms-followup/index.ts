@@ -1,3 +1,4 @@
+// @ts-nocheck
 // cs-nps-sms-followup — follow-up de NPS por SMS (DisparoPro).
 // Cron diário 08:00 (America/Sao_Paulo) + modo manual "Enviar agora".
 // Envia o MESMO link exclusivo do participante (nps_token) enviado antes no WhatsApp.

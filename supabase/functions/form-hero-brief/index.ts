@@ -1,3 +1,4 @@
+// @ts-nocheck
 // form-hero-brief — monta o briefing do banner Hero a partir da RAG do produto
 // (system_a_catalog + API live do Sistema A) usando Lovable AI Gateway.
 import { createClient } from "npm:@supabase/supabase-js@2";

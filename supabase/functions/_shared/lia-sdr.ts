@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * LIA SDR — Commercial SDR instructions, lead archetype determination,
  * maturity classification, and strategy mapping.

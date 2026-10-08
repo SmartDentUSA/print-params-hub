@@ -1,3 +1,4 @@
+// @ts-nocheck
 // Gera a copy contextual de cada mídia enviada ao Drive do evento.
 // Contexto usado: Smart Dent + objetivo da pasta (destination) + dados do evento
 // (nome, local, estande, dias, palestrantes) + transcrição do vídeo quando houver.

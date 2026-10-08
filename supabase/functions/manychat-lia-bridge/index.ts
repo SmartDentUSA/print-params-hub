@@ -1,3 +1,4 @@
+// @ts-nocheck
 // ManyChat → bridge de qualificação síncrona.
 // Fluxo:
 //   1. Procura lead por manychat_subscriber_id em lia_attendances

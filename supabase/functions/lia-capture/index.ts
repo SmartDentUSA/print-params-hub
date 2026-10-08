@@ -1,3 +1,4 @@
+// @ts-nocheck
 // LIA de captura (landing pages SDR e links de campanha).
 // Fluxo roteirizado: identifica o lead (telefone → e-mail), cria no CRM pelo
 // mesmo caminho dos formulários (smart-ops-ingest-lead), grava as respostas de

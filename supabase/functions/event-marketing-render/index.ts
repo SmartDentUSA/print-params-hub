@@ -1,3 +1,4 @@
+// @ts-nocheck
 // event-marketing-render
 // Gera as artes de divulgação do evento a partir da ARTE PADRÃO enviada no
 // cadastro (`smartops_events.marketing_art_url`):

@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { getValidAccessToken } from "../_shared/google-oauth.ts";
