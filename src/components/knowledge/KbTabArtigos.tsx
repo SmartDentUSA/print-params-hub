@@ -1,3 +1,4 @@
+import { fetchAllRows } from '@/utils/fetchAllRows';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -39,15 +40,17 @@ export default function KbTabArtigos({ onOpen, letterFilter }: Props) {
   const [sort, setSort] = useState<KbSortKey>('recent');
   const [view, setView] = useState<KbViewMode>('grid');
 
+  useEffect(() => { setChip('all'); setQ(''); }, [letterFilter]);
+
   useEffect(() => {
     let cancel = false;
     setLoading(true);
     (async () => {
       // 1) IDs that have videos (to exclude — emulates NOT EXISTS)
-      const { data: vids } = await supabase
+      const { data: vids, error: videoError } = await fetchAllRows((from, to) => supabase
         .from('knowledge_videos')
-        .select('content_id')
-        .limit(10000);
+        .select('content_id').order('id').range(from, to), () => cancel);
+      if (videoError) { console.error(videoError); if (!cancel) { setRows([]); setLoading(false); } return; }
       const videoIds = new Set((vids || []).map((v: any) => v.content_id).filter(Boolean));
 
       const term = q.trim();
@@ -57,21 +60,19 @@ export default function KbTabArtigos({ onOpen, letterFilter }: Props) {
         .eq('active', true)
         // Ebooks têm aba própria: nunca aparecem em Artigos/categorias
         .not('is_ebook', 'is', true)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false }).order('id');
       // When the user is searching, ignore the active chip and scan the whole base.
       // Chip selection has priority over letter route filter: when the user
       // explicitly picks a category chip, respect it and ignore /letra.
-      // Chip 'all': exclui Parâmetros Técnicos (tem navegação própria — pill F e chip dedicado).
       if (!term && chip !== 'all') query = query.eq('category_id', chip);
       else if (!term && letterFilter) query = query.eq('knowledge_categories.letter', letterFilter.toUpperCase());
-      else if (!term) query = query.neq('category_id', '67f92f1b-ea9e-42b9-94d1-7d685e25629c');
       if (term) {
         const safe = term.replace(/[%,()]/g, ' ');
         query = query.or(`title.ilike.%${safe}%,excerpt.ilike.%${safe}%,content_html.ilike.%${safe}%`).limit(10000);
       } else {
         query = query.limit(10000);
       }
-      const { data, error } = await query;
+      const { data, error } = await fetchAllRows((from, to) => query.range(from, to), () => cancel);
       if (!cancel) {
         if (error) { console.error(error); setRows([]); }
         else {
@@ -140,6 +141,7 @@ export default function KbTabArtigos({ onOpen, letterFilter }: Props) {
     categoryName: r.knowledge_categories?.name || null,
     categoryTk: resolveCategoryTk(r.knowledge_categories?.id || r.category_id),
     viewCount: r.view_count ?? 0,
+    href: getArticleUrl({ slug: r.slug, knowledge_categories: r.knowledge_categories }, language),
     shareUrl: `${getPublicOrigin()}${getArticleUrl({ slug: r.slug, knowledge_categories: r.knowledge_categories })}`,
   }));
 

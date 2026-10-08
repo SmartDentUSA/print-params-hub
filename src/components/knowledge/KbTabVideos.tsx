@@ -1,3 +1,4 @@
+import { fetchAllRows } from '@/utils/fetchAllRows';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -40,6 +41,8 @@ export default function KbTabVideos({ onOpen, letterFilter }: Props) {
   const [sort, setSort] = useState<KbSortKey>('recent');
   const [view, setView] = useState<KbViewMode>('grid');
 
+  useEffect(() => { setChip('all'); setQ(''); }, [letterFilter]);
+
   useEffect(() => {
     let cancel = false;
     setLoading(true);
@@ -51,7 +54,7 @@ export default function KbTabVideos({ onOpen, letterFilter }: Props) {
         .eq('active', true)
         // Ebooks têm aba própria
         .not('is_ebook', 'is', true)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false }).order('id');
       // Chip selection tem prioridade sobre o filtro de letra da rota.
       if (!term && chip !== 'all') query = query.eq('category_id', chip);
       else if (!term && letterFilter) query = query.eq('knowledge_categories.letter', letterFilter.toUpperCase());
@@ -61,7 +64,7 @@ export default function KbTabVideos({ onOpen, letterFilter }: Props) {
       } else {
         query = query.limit(10000);
       }
-      const { data, error } = await query;
+      const { data, error } = await fetchAllRows((from, to) => query.range(from, to), () => cancel);
       if (!cancel) {
         if (error) { console.error(error); setRows([]); }
         else {
@@ -142,6 +145,7 @@ export default function KbTabVideos({ onOpen, letterFilter }: Props) {
     categoryTk: resolveCategoryTk(r.knowledge_categories?.id || r.category_id),
     durationSeconds: r.knowledge_videos?.[0]?.video_duration_seconds || null,
     viewCount: r.knowledge_videos?.[0]?.analytics_views ?? r.view_count ?? 0,
+    href: getArticleUrl({ slug: r.slug, knowledge_categories: r.knowledge_categories }, language),
     shareUrl: `${getPublicOrigin()}${getArticleUrl({ slug: r.slug, knowledge_categories: r.knowledge_categories })}`,
   }));
 

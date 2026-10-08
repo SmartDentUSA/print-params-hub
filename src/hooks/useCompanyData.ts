@@ -1,3 +1,4 @@
+import { seoTerms } from '@/utils/seoText';
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -187,7 +188,11 @@ export function useCompanyData() {
         media: extraData.media || {},
         corporate: extraData.corporate || {},
         contact: extraData.contact || {},
-        seo: extraData.seo || {},
+        seo: {
+          ...extraData.seo,
+          technical_expertise: seoTerms(extraData.seo?.technical_expertise),
+          context_keywords: seoTerms(extraData.seo?.context_keywords),
+        },
         social_media: extraData.social_media || {},
         institutional_links: extraData.institutional_links || [],
         company_videos: extraData.company_videos || [],

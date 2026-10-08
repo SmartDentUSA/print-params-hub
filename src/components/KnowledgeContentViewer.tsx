@@ -337,6 +337,9 @@ export function KnowledgeContentViewer({ content }: KnowledgeContentViewerProps)
   // Select correct language content (prioritize translatedContent from auto-translation)
   const displayContent = {
     ...content,
+    meta_description: (language === 'en' && content.meta_description_en)
+      || (language === 'es' && content.meta_description_es)
+      || (language === 'pt' ? content.meta_description : undefined),
     title: 
       translatedContent?.title
         ? translatedContent.title
@@ -446,7 +449,8 @@ ${processedHTML}
   return (
     <div className="space-y-6">
       <KnowledgeSEOHead 
-        content={content}
+        content={displayContent}
+        currentLang={language}
         category={content.knowledge_categories}
         videos={videos}
         relatedDocuments={relatedDocuments}
@@ -646,10 +650,7 @@ ${processedHTML}
           <AuthorSignature author={content.authors} />
         )}
 
-        {/* Transparency Disclaimer */}
-        <div className="mt-8 p-4 bg-muted/30 border border-border rounded-lg text-xs text-muted-foreground">
-          {t('knowledge.transparency_disclaimer')}
-        </div>
+        {/* Authorship and testing disclosures belong to each article's verified content. */}
       </div>
 
       {/* CTA BOTTOM */}
