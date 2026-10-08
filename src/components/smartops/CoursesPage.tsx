@@ -270,238 +270,253 @@ export default function CoursesPage() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {professionals.map((p) => (
-            <Card key={p.id} className="overflow-hidden">
-              <CardContent className="p-4 space-y-3">
-                <div className="flex items-start gap-3">
-                  <div className="w-16 h-16 rounded-full bg-muted overflow-hidden border shrink-0">
+        <div className="space-y-3">
+          {professionals.map((p) => {
+            const stats = courseStats[p.id];
+            const isOpen = !!expanded[p.id];
+            return (
+              <Card key={p.id} className="overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => setExpanded((e) => ({ ...e, [p.id]: !e[p.id] }))}
+                  className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-muted/40 transition-colors"
+                >
+                  <div className="w-11 h-11 rounded-full bg-muted overflow-hidden border shrink-0">
                     {p.prof_photo_url ? (
                       <img src={p.prof_photo_url} alt={p.nome ?? ""} className="w-full h-full object-cover" />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center">
-                        <UserCircle className="w-8 h-8 text-muted-foreground" />
+                        <UserCircle className="w-6 h-6 text-muted-foreground" />
                       </div>
                     )}
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="font-semibold truncate">{p.nome ?? "(sem nome)"}</div>
-                    <div className="text-xs text-muted-foreground truncate">{p.email}</div>
-                    {p.prof_cro && (
-                      <div className="text-xs text-muted-foreground">CRO: {p.prof_cro}</div>
+                    <div className="text-xs text-muted-foreground truncate">
+                      {[p.area_atuacao, p.especialidade, p.prof_cro ? `CRO: ${p.prof_cro}` : null].filter(Boolean).join(" · ") || p.email}
+                    </div>
+                  </div>
+                  <div className="hidden sm:flex items-center gap-2 shrink-0">
+                    <Badge variant="secondary" className="text-xs">{stats?.total ?? 0} {stats?.total === 1 ? "curso" : "cursos"}</Badge>
+                    {(stats?.ativos ?? 0) > 0 && (
+                      <Badge variant="outline" className="text-xs text-green-600 border-green-600/40">{stats?.ativos} ativos</Badge>
                     )}
                   </div>
-                </div>
+                  <ChevronDown className={cn("w-5 h-5 shrink-0 text-muted-foreground transition-transform", isOpen && "rotate-180")} />
+                </button>
 
-                <div className="flex flex-wrap gap-1">
-                  {p.area_atuacao && <Badge variant="secondary" className="text-xs">{p.area_atuacao}</Badge>}
-                  {p.especialidade && <Badge variant="outline" className="text-xs">{p.especialidade}</Badge>}
-                  {p.prof_course_platform && <Badge variant="outline" className="text-xs">{p.prof_course_platform}</Badge>}
-                </div>
+                {isOpen && (
+                  <CardContent className="p-4 pt-0 space-y-3 border-t">
+                    <div className="flex flex-wrap gap-1 pt-3">
+                      {p.area_atuacao && <Badge variant="secondary" className="text-xs">{p.area_atuacao}</Badge>}
+                      {p.especialidade && <Badge variant="outline" className="text-xs">{p.especialidade}</Badge>}
+                      {p.prof_course_platform && <Badge variant="outline" className="text-xs">{p.prof_course_platform}</Badge>}
+                      {p.email && <Badge variant="outline" className="text-xs font-normal">{p.email}</Badge>}
+                    </div>
 
-                <div className="grid grid-cols-3 gap-2 pt-2 border-t">
-                  <div className="text-center">
-                    <div className="text-lg font-semibold">{courseStats[p.id]?.total ?? 0}</div>
-                    <div className="text-[10px] text-muted-foreground uppercase tracking-wide">Cursos</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-lg font-semibold text-green-600">{courseStats[p.id]?.ativos ?? 0}</div>
-                    <div className="text-[10px] text-muted-foreground uppercase tracking-wide">Ativos</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-lg font-semibold text-blue-600">{courseStats[p.id]?.realizados ?? 0}</div>
-                    <div className="text-[10px] text-muted-foreground uppercase tracking-wide">Realizados</div>
-                  </div>
-                </div>
+                    <div className="grid grid-cols-3 gap-2 pt-2 border-t">
+                      <div className="text-center">
+                        <div className="text-lg font-semibold">{stats?.total ?? 0}</div>
+                        <div className="text-[10px] text-muted-foreground uppercase tracking-wide">Cursos</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-lg font-semibold text-green-600">{stats?.ativos ?? 0}</div>
+                        <div className="text-[10px] text-muted-foreground uppercase tracking-wide">Ativos</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-lg font-semibold text-blue-600">{stats?.realizados ?? 0}</div>
+                        <div className="text-[10px] text-muted-foreground uppercase tracking-wide">Realizados</div>
+                      </div>
+                    </div>
 
-                <div className="grid grid-cols-2 gap-2 text-xs">
-                  <div className="flex items-center gap-1.5 text-muted-foreground">
-                    <Eye className="w-3.5 h-3.5" />
-                    <span><strong className="text-foreground">{courseStats[p.id]?.views ?? 0}</strong> visualizações</span>
-                  </div>
-                  <div className="flex items-center gap-1.5 text-muted-foreground">
-                    <MessageCircle className="w-3.5 h-3.5" />
-                    <span><strong className="text-foreground">{courseStats[p.id]?.interested ?? 0}</strong> interessados</span>
-                  </div>
-                </div>
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                      <div className="flex items-center gap-1.5 text-muted-foreground">
+                        <Eye className="w-3.5 h-3.5" />
+                        <span><strong className="text-foreground">{stats?.views ?? 0}</strong> visualizações</span>
+                      </div>
+                      <div className="flex items-center gap-1.5 text-muted-foreground">
+                        <MessageCircle className="w-3.5 h-3.5" />
+                        <span><strong className="text-foreground">{stats?.interested ?? 0}</strong> interessados</span>
+                      </div>
+                    </div>
 
-                <div className="border-t pt-2 space-y-1.5">
-                  <div className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium">Cursos</div>
-                  {(coursesByProf[p.id] ?? []).length === 0 ? (
-                    <div className="text-xs text-muted-foreground">Nenhum curso cadastrado.</div>
-                  ) : (
-                    (coursesByProf[p.id] ?? []).slice(0, 4).map((c) => {
-                      const st = getCourseStatusBadge(c);
-                      return (
+                    <div className="border-t pt-2 space-y-1.5">
+                      <div className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium">Cursos</div>
+                      {(coursesByProf[p.id] ?? []).length === 0 ? (
+                        <div className="text-xs text-muted-foreground">Nenhum curso cadastrado.</div>
+                      ) : (
+                        (coursesByProf[p.id] ?? []).slice(0, 4).map((c) => {
+                          const st = getCourseStatusBadge(c);
+                          return (
+                            <button
+                              key={c.id}
+                              type="button"
+                              onClick={() => {
+                                setCoursesStartNew(false);
+                                setCoursesFor(p);
+                              }}
+                              className="w-full text-left rounded-md border bg-muted/30 px-2 py-1.5 hover:bg-muted transition-colors"
+                            >
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs font-medium truncate flex-1">{c.title}</span>
+                                <span className={cn("shrink-0 text-[10px] px-1.5 py-0.5 rounded-full border font-medium", st.cls)}>
+                                  {st.label}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-3 mt-1 text-[11px] text-muted-foreground">
+                                <span className="flex items-center gap-1">
+                                  <UserCircle className="w-3 h-3" />
+                                  {c.enrolled_count ?? 0}{c.max_students ? `/${c.max_students}` : ""} inscritos
+                                </span>
+                                <span className="flex items-center gap-1">
+                                  <Eye className="w-3 h-3" />
+                                  {c.views_count ?? 0} views
+                                </span>
+                              </div>
+                            </button>
+                          );
+                        })
+                      )}
+                      {(coursesByProf[p.id] ?? []).length > 4 && (
                         <button
-                          key={c.id}
                           type="button"
+                          className="text-[11px] text-primary hover:underline"
                           onClick={() => {
                             setCoursesStartNew(false);
                             setCoursesFor(p);
                           }}
-                          className="w-full text-left rounded-md border bg-muted/30 px-2 py-1.5 hover:bg-muted transition-colors"
                         >
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs font-medium truncate flex-1">{c.title}</span>
-                            <span className={cn("shrink-0 text-[10px] px-1.5 py-0.5 rounded-full border font-medium", st.cls)}>
-                              {st.label}
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-3 mt-1 text-[11px] text-muted-foreground">
-                            <span className="flex items-center gap-1">
-                              <UserCircle className="w-3 h-3" />
-                              {c.enrolled_count ?? 0}{c.max_students ? `/${c.max_students}` : ""} inscritos
-                            </span>
-                            <span className="flex items-center gap-1">
-                              <Eye className="w-3 h-3" />
-                              {c.views_count ?? 0} views
-                            </span>
-                          </div>
+                          Ver todos os {(coursesByProf[p.id] ?? []).length} cursos
                         </button>
-                      );
-                    })
-                  )}
-                  {(coursesByProf[p.id] ?? []).length > 4 && (
-                    <button
-                      type="button"
-                      className="text-[11px] text-primary hover:underline"
-                      onClick={() => {
-                        setCoursesStartNew(false);
-                        setCoursesFor(p);
-                      }}
-                    >
-                      Ver todos os {(coursesByProf[p.id] ?? []).length} cursos
-                    </button>
-                  )}
-                </div>
-
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-muted-foreground">Avaliações</span>
-                  <StarRating value={avgRating(p)} />
-                </div>
-
-                <div className="space-y-1 text-xs border-t pt-2">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Cliente desde:</span>
-                    <span className="font-medium">{formatClienteDesde(p.created_at)}</span>
-                  </div>
-                  <div className="flex justify-between gap-2">
-                    <span className="text-muted-foreground shrink-0">Scanner:</span>
-                    {(() => {
-                      const v = sanitizeEquipmentLabel(p.equip_scanner) || wonEquip[p.id]?.scanner || sanitizeEquipmentLabel(p.equip_scanner_bancada);
-                      return <span className="font-medium truncate text-right" title={v ?? ""}>{v || "—"}</span>;
-                    })()}
-                  </div>
-                  <div className="flex justify-between gap-2">
-                    <span className="text-muted-foreground shrink-0">Impressora 3D:</span>
-                    {(() => {
-                      const v = sanitizeEquipmentLabel(p.equip_impressora) || wonEquip[p.id]?.impressora;
-                      return <span className="font-medium truncate text-right" title={v ?? ""}>{v || "—"}</span>;
-                    })()}
-                  </div>
-                  <div className="flex justify-between gap-2">
-                    <span className="text-muted-foreground shrink-0">CAD / Software:</span>
-                    <span className="font-medium truncate text-right" title={p.equip_cad ?? ""}>
-                      {sanitizeEquipmentLabel(p.equip_cad) || "—"}
-                    </span>
-                  </div>
-                </div>
-
-                {(() => {
-                  const s = summaries[p.id] ?? EMPTY_SUMMARY;
-                  const hasPurchase = s.purchaseCount > 0;
-                  return (
-                    <div className="space-y-1 text-xs border-t pt-2">
-                      <div className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium">
-                        Informações comerciais
-                      </div>
-                      <div className="flex justify-between gap-2">
-                        <span className="text-muted-foreground shrink-0">Última compra:</span>
-                        <span className="font-medium text-right truncate">
-                          {hasPurchase ? fmtDate(s.lastPurchaseDate) : "Sem compras"}
-                        </span>
-                      </div>
-                      {hasPurchase && s.lastPurchaseName && (
-                        <div className="text-[11px] text-muted-foreground truncate" title={s.lastPurchaseName}>
-                          {s.lastPurchaseName}
-                        </div>
-                      )}
-                      <div className="flex justify-between gap-2">
-                        <span className="text-muted-foreground shrink-0">Vendedor:</span>
-                        <span className="font-medium text-right truncate">
-                          {(hasPurchase ? s.lastPurchaseVendor : s.openVendor) || "—"}
-                        </span>
-                      </div>
-                      <div className="flex justify-between gap-2">
-                        <span className="text-muted-foreground shrink-0">Total investido:</span>
-                        <span className="font-semibold text-right text-green-600">{fmtBRL(s.totalInvested)}</span>
-                      </div>
-                      <div className="flex justify-between gap-2">
-                        <span className="text-muted-foreground shrink-0">Nº de compras:</span>
-                        <span className="font-medium text-right">
-                          {s.purchaseCount} {s.purchaseCount === 1 ? "compra" : "compras"}
-                        </span>
-                      </div>
-                      {s.openCount > 0 && (
-                        <>
-                          <div className="flex justify-between gap-2">
-                            <span className="text-muted-foreground shrink-0">Em negociação:</span>
-                            <span className="font-medium text-right">
-                              {s.openCount} {s.openCount === 1 ? "negócio" : "negócios"}
-                              {s.openValue > 0 ? ` · ${fmtBRL(s.openValue)}` : ""}
-                            </span>
-                          </div>
-                          {s.openProduct && (
-                            <div className="text-[11px] text-muted-foreground truncate" title={s.openProduct}>
-                              {s.openProduct}
-                              {s.openDate ? ` — ${fmtDate(s.openDate)}` : ""}
-                              {s.openPipeline ? ` · ${s.openPipeline}` : ""}
-                            </div>
-                          )}
-                        </>
                       )}
                     </div>
-                  );
-                })()}
 
-                <ProfessionalKolCardStats
-                  formIds={(p.prof_kol_form_ids ?? []) as { id: string; name: string }[]}
-                  coupons={(p.prof_kol_coupons ?? []) as any}
-                />
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-muted-foreground">Avaliações</span>
+                      <StarRating value={avgRating(p)} />
+                    </div>
 
+                    <div className="space-y-1 text-xs border-t pt-2">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Cliente desde:</span>
+                        <span className="font-medium">{formatClienteDesde(p.created_at)}</span>
+                      </div>
+                      <div className="flex justify-between gap-2">
+                        <span className="text-muted-foreground shrink-0">Scanner:</span>
+                        {(() => {
+                          const v = sanitizeEquipmentLabel(p.equip_scanner) || wonEquip[p.id]?.scanner || sanitizeEquipmentLabel(p.equip_scanner_bancada);
+                          return <span className="font-medium truncate text-right" title={v ?? ""}>{v || "—"}</span>;
+                        })()}
+                      </div>
+                      <div className="flex justify-between gap-2">
+                        <span className="text-muted-foreground shrink-0">Impressora 3D:</span>
+                        {(() => {
+                          const v = sanitizeEquipmentLabel(p.equip_impressora) || wonEquip[p.id]?.impressora;
+                          return <span className="font-medium truncate text-right" title={v ?? ""}>{v || "—"}</span>;
+                        })()}
+                      </div>
+                      <div className="flex justify-between gap-2">
+                        <span className="text-muted-foreground shrink-0">CAD / Software:</span>
+                        <span className="font-medium truncate text-right" title={p.equip_cad ?? ""}>
+                          {sanitizeEquipmentLabel(p.equip_cad) || "—"}
+                        </span>
+                      </div>
+                    </div>
 
+                    {(() => {
+                      const s = summaries[p.id] ?? EMPTY_SUMMARY;
+                      const hasPurchase = s.purchaseCount > 0;
+                      return (
+                        <div className="space-y-1 text-xs border-t pt-2">
+                          <div className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium">
+                            Informações comerciais
+                          </div>
+                          <div className="flex justify-between gap-2">
+                            <span className="text-muted-foreground shrink-0">Última compra:</span>
+                            <span className="font-medium text-right truncate">
+                              {hasPurchase ? fmtDate(s.lastPurchaseDate) : "Sem compras"}
+                            </span>
+                          </div>
+                          {hasPurchase && s.lastPurchaseName && (
+                            <div className="text-[11px] text-muted-foreground truncate" title={s.lastPurchaseName}>
+                              {s.lastPurchaseName}
+                            </div>
+                          )}
+                          <div className="flex justify-between gap-2">
+                            <span className="text-muted-foreground shrink-0">Vendedor:</span>
+                            <span className="font-medium text-right truncate">
+                              {(hasPurchase ? s.lastPurchaseVendor : s.openVendor) || "—"}
+                            </span>
+                          </div>
+                          <div className="flex justify-between gap-2">
+                            <span className="text-muted-foreground shrink-0">Total investido:</span>
+                            <span className="font-semibold text-right text-green-600">{fmtBRL(s.totalInvested)}</span>
+                          </div>
+                          <div className="flex justify-between gap-2">
+                            <span className="text-muted-foreground shrink-0">Nº de compras:</span>
+                            <span className="font-medium text-right">
+                              {s.purchaseCount} {s.purchaseCount === 1 ? "compra" : "compras"}
+                            </span>
+                          </div>
+                          {s.openCount > 0 && (
+                            <>
+                              <div className="flex justify-between gap-2">
+                                <span className="text-muted-foreground shrink-0">Em negociação:</span>
+                                <span className="font-medium text-right">
+                                  {s.openCount} {s.openCount === 1 ? "negócio" : "negócios"}
+                                  {s.openValue > 0 ? ` · ${fmtBRL(s.openValue)}` : ""}
+                                </span>
+                              </div>
+                              {s.openProduct && (
+                                <div className="text-[11px] text-muted-foreground truncate" title={s.openProduct}>
+                                  {s.openProduct}
+                                  {s.openDate ? ` — ${fmtDate(s.openDate)}` : ""}
+                                  {s.openPipeline ? ` · ${s.openPipeline}` : ""}
+                                </div>
+                              )}
+                            </>
+                          )}
+                        </div>
+                      );
+                    })()}
 
-                <div className="grid grid-cols-2 gap-2 pt-2">
-                  <Button size="sm" variant="outline" onClick={() => openEdit(p.email)}>
-                    <Pencil className="w-3.5 h-3.5 mr-1.5" /> Editar perfil
-                  </Button>
-                  <Button
-                    size="sm"
-                    onClick={() => {
-                      setCoursesStartNew(true);
-                      setCoursesFor(p);
-                    }}
-                  >
-                    <Plus className="w-3.5 h-3.5 mr-1.5" /> Adicionar curso
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    onClick={() => {
-                      setCoursesStartNew(false);
-                      setCoursesFor(p);
-                    }}
-                  >
-                    <BookOpen className="w-3.5 h-3.5 mr-1.5" /> Ver cursos
-                  </Button>
-                  <Button size="sm" variant="outline" onClick={() => setShareFor(p)}>
-                    <Link2 className="w-3.5 h-3.5 mr-1.5" /> Compartilhar link
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                    <ProfessionalKolCardStats
+                      formIds={(p.prof_kol_form_ids ?? []) as { id: string; name: string }[]}
+                      coupons={(p.prof_kol_coupons ?? []) as any}
+                    />
+
+                    <div className="grid grid-cols-2 gap-2 pt-2">
+                      <Button size="sm" variant="outline" onClick={() => openEdit(p.email)}>
+                        <Pencil className="w-3.5 h-3.5 mr-1.5" /> Editar perfil
+                      </Button>
+                      <Button
+                        size="sm"
+                        onClick={() => {
+                          setCoursesStartNew(true);
+                          setCoursesFor(p);
+                        }}
+                      >
+                        <Plus className="w-3.5 h-3.5 mr-1.5" /> Adicionar curso
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => {
+                          setCoursesStartNew(false);
+                          setCoursesFor(p);
+                        }}
+                      >
+                        <BookOpen className="w-3.5 h-3.5 mr-1.5" /> Ver cursos
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={() => setShareFor(p)}>
+                        <Link2 className="w-3.5 h-3.5 mr-1.5" /> Compartilhar link
+                      </Button>
+                    </div>
+                  </CardContent>
+                )}
+              </Card>
+            );
+          })}
         </div>
       )}
 
