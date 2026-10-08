@@ -1007,7 +1007,14 @@ Deno.serve(async (req) => {
       existingLead = parent;
       hops++;
     }
-    if (existingLead && existingLead.email && existingLead.email.toLowerCase() !== email) {
+    const isPlaceholderEmailValue = (v: unknown) =>
+      !v || /@(.+\.)?placeholder(\.local)?$/i.test(String(v).trim()) || /^import_\d+_\d+@/i.test(String(v).trim());
+    const isPlaceholderNameValue = (v: unknown) =>
+      !v || /^(nome\s+n[ãa]o\s+informado|sem[\s-]*nome|n\/a|null|desconhecido)$/i.test(String(v).trim());
+    if (
+      existingLead && existingLead.email && existingLead.email.toLowerCase() !== email &&
+      !isPlaceholderEmailValue(existingLead.email)
+    ) {
       incomingEmailDiffersFromCanonical = true;
       console.log(`[ingest-lead] Lead matched via ${matchedVia}; incoming email "${email}" differs from canonical "${existingLead.email}". Preserving canonical email.`);
     }
@@ -1475,6 +1482,20 @@ Deno.serve(async (req) => {
       // Never overwrite canonical email when matched via phone
       if (incomingEmailDiffersFromCanonical) {
         delete (merged as Record<string, unknown>).email;
+      }
+      // Placeholder upgrade: canonical lead imported with synthetic e-mail /
+      // "Nome não informado" receives the real identity from the new submission.
+      {
+        const m = merged as Record<string, unknown>;
+        const inc = incomingData as Record<string, unknown>;
+        if (isPlaceholderEmailValue(existingLead.email) && email && !isPlaceholderEmailValue(email)) {
+          m.email = email;
+          if (!fieldsUpdated.includes("email")) fieldsUpdated.push("email");
+        }
+        if (isPlaceholderNameValue(existingLead.nome) && inc.nome && !isPlaceholderNameValue(inc.nome)) {
+          m.nome = inc.nome;
+          if (!fieldsUpdated.includes("nome")) fieldsUpdated.push("nome");
+        }
       }
 
       // ── PLATFORM_LEAD_ID SYNC (Identity-Collision Fix) ──
