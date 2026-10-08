@@ -193,7 +193,7 @@ async function findLead(phone: string, email: string) {
 
 // Gancho curto e humano montado com o que já sabemos do lead (perfil + respostas).
 // Nunca expõe dados sensíveis; só ecoa o que o próprio lead informou.
-function personalHook(lead: Record<string, unknown>, product: string, productSummary?: string | null, seed = ""): string | null {
+function personalHook(lead: Record<string, unknown>, product: string, productSummary?: string | null, seed = "", history?: { bought: string[]; quoted: string[] }): string | null {
   // Valores genéricos/negativos do formulário (ex.: "OUTRAS", "Não, ainda não digitalizo") nunca entram no texto.
   const generic = (raw: string) => !raw || /^(outras?|outros?|nenhum[as]?|sem resposta|n\/?d|-+|—+)$/i.test(raw) || /^n[ãa]o\b/i.test(raw);
   const area = str(lead.area_atuacao, 80).trim();
