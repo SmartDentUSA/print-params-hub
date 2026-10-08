@@ -246,6 +246,7 @@ async function sellerCard(leadId: string) {
     photo_url: member?.photo_url ?? null,
     deal_id: dealId || null,
     wa_url: `https://wa.me/${phone}?text=${encodeURIComponent(text)}`,
+    hook: personalHook(lead as Record<string, unknown>, product),
   };
 }
 
