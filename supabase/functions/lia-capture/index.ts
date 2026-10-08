@@ -257,7 +257,7 @@ function personalHook(lead: Record<string, unknown>, product: string, productSum
     const who = areaOk && espOk && area.toLowerCase() !== esp.toLowerCase() ? `${esp.toLowerCase()} em ${area.toLowerCase()}` : espOk ? esp.toLowerCase() : areaOk ? `quem atua em ${area.toLowerCase()}` : "";
     const tech = printerOk ? ` e já trabalha com a ${cap(impressora)}` : !generic(scanner) ? ` e já digitaliza com o ${scanner}` : "";
     if (!who && !tech) return null;
-    text = `Para ${who || "quem"}${tech}, o ${p} faz muito sentido no dia a dia.`;
+    text = who ? `Para ${who}${tech}, o ${p} faz muito sentido no dia a dia.` : `Como você${tech.replace(/^ e/, "")}, o ${p} faz muito sentido no dia a dia.`;
   }
   void cad; void prints;
   return `${text} O especialista já vai te chamar com tudo pronto. 😉`;
