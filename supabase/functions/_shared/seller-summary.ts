@@ -11,6 +11,18 @@ import { normalizeBrazilianPhone } from "./phone-normalize.ts";
 
 type SupabaseClient = ReturnType<typeof createClient>;
 
+async function loadAllFormResponses(supabase: SupabaseClient, leadId: string) {
+  const rows: Array<Record<string, unknown>> = [];
+  for (let offset = 0; ; offset += 1000) {
+    const { data, error } = await supabase.from("smartops_form_field_responses")
+      .select("field_label,value,created_at,form_id").eq("lead_id", leadId)
+      .order("created_at", { ascending: false }).order("id", { ascending: false }).range(offset, offset + 999);
+    if (error) throw error;
+    rows.push(...(data || []));
+    if (!data || data.length < 1000) return { data: rows };
+  }
+}
+
 const esc = (v: unknown): string => {
   if (v === null || v === undefined || v === "") return "—";
   return String(v)
@@ -110,9 +122,7 @@ export async function buildSellerDealSummaryHTML(
           .eq("lead_id", leadId).order("enrolled_at", { ascending: false }).limit(10)
       : Promise.resolve({ data: [] }),
     leadId
-      ? supabase.from("smartops_form_field_responses")
-          .select("field_label,value,created_at,form_id")
-          .eq("lead_id", leadId).order("created_at", { ascending: false }).limit(1000)
+      ? loadAllFormResponses(supabase, leadId)
       : Promise.resolve({ data: [] }),
     email
       ? supabase.from("leads").select("id").eq("email", email).maybeSingle()
@@ -406,7 +416,15 @@ export async function buildSellerDealSummaryHTML(
     }
   }
 
-  // 7b. Snapshots acumulados em form_data (últimos 3 formulários).
+  // Persisted answers precede legacy snapshots so chat updates win over old submissions.
+  const fieldRows = ((formsRes as any)?.data as Array<Record<string, unknown>>) || [];
+  if (fieldRows.length) {
+    const pairs: Pair[] = [];
+    pushPairs(pairs, seenAll, fieldRows.map(r => ({ label: String(r.field_label || ""), value: String(r.value ?? "") })));
+    if (pairs.length) formBlocks.push(`<b>Respostas registradas (mais recentes)</b><br>` + pairs.map(p => `• <b>${esc(p.label)}:</b> ${esc(p.value)}`).join("<br>"));
+  }
+
+  // 7b. Snapshots acumulados em form_data.
   // Ordena ANTES de filtrar para que o formulário mais recente fique com a
   // resposta e os antigos não repitam a mesma pergunta com valor velho.
   const fd = (lead.form_data as Record<string, unknown> | null) || null;
@@ -438,14 +456,12 @@ export async function buildSellerDealSummaryHTML(
     }
     rawSnaps.sort((a, b) => b.submittedAt.localeCompare(a.submittedAt));
     const highlightKey = cleanVal(opts.highlightFormName || "").toLowerCase();
-    let rendered = 0;
     for (const s of rawSnaps) {
       // não repetir o formulário já destacado com o mesmo conteúdo
       if (highlightKey && s.formName.toLowerCase() === highlightKey && formBlocks.length) continue;
       const pairs: Pair[] = [];
       pushPairs(pairs, seenAll, s.input);
       if (!pairs.length) continue;
-      rendered++;
       formBlocks.push(
         `&nbsp;&nbsp;◦ <b>${esc(s.formName)}</b>${s.submittedAt ? ` — ${fmtDate(s.submittedAt)}` : ""}<br>` +
         pairs.map(p => `&nbsp;&nbsp;&nbsp;&nbsp;• <b>${esc(p.label)}:</b> ${esc(p.value)}`).join("<br>"),
@@ -455,7 +471,6 @@ export async function buildSellerDealSummaryHTML(
 
 
   // 7c. Respostas persistidas em smartops_form_field_responses (7x3 e afins)
-  const fieldRows = ((formsRes as any)?.data as Array<Record<string, unknown>>) || [];
   if (fieldRows.length) {
     const pairs: Pair[] = [];
     pushPairs(
