@@ -5,7 +5,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { normalizeBrazilianPhone } from "../_shared/phone-normalize.ts";
-import { buildKnownAnswers, filterPending } from "./qualification.ts";
+import { buildKnownAnswers, filterPending, hasAnswer, normLabel } from "./qualification.ts";
 import { syncFormNote } from "../_shared/form-note-sync.ts";
 import { resolveFormProduct } from "../_shared/form-product.ts";
 
@@ -412,6 +412,17 @@ Deno.serve(async (req) => {
           p_answers: [{ field_id: field.field_id, value }] });
         if (error) throw error;
       }
+      // Registra a resposta na timeline do lead (mesmo formato das respostas de formulário).
+      const ctxOrigin = (await resolveContext(context).catch(() => null))?.origin ?? "# CHAT - Dra. LIA";
+      const label = String(field.label ?? field.db_column ?? "Resposta").trim();
+      const shown = Array.isArray(body.value) ? values.join(", ") : values[0];
+      const { error: tlError } = await sb.from("lead_activity_log").insert({
+        lead_id: body.lead_id, event_type: "form_response", source_channel: "form",
+        entity_type: "form_field", entity_id: ctxOrigin, entity_name: label,
+        event_data: { label, value: shown, form_name: ctxOrigin, description: `${label}: ${shown}`, channel: "whatsapp_lia" },
+        dedupe_hash: `lia_answer:${body.lead_id}:${field.field_id ?? field.db_column}:${normLabel(shown)}`,
+      });
+      if (tlError && tlError.code !== "23505") console.warn("[lia-capture] timeline insert failed", tlError.code);
       EdgeRuntime.waitUntil(syncFormNote(sb, body.lead_id).catch(async (error) => {
         console.error("[lia-capture] CRM note refresh failed", error);
         await sb.from("system_health_logs").insert({ function_name: "lia-capture", severity: "error", error_type: "crm_note_sync_failed", details: { lead_id: body.lead_id } });
