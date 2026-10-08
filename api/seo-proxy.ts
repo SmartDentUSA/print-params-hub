@@ -7,6 +7,7 @@ export default async function handler(req: Request): Promise<Response> {
 
   try {
     const res = await fetch(upstream, {
+      redirect: 'manual',
       headers: {
         'user-agent': req.headers.get('user-agent') || 'bot',
         'accept': 'text/html',
@@ -14,13 +15,16 @@ export default async function handler(req: Request): Promise<Response> {
     });
 
     const html = await res.text();
+    const headers = new Headers({
+      'Content-Type': res.headers.get('Content-Type') || 'text/html; charset=utf-8',
+      'Cache-Control': res.headers.get('Cache-Control') || 'public, max-age=300, s-maxage=300',
+      'X-SSR-Source': 'seo-proxy-internal',
+    });
+    const location = res.headers.get('Location');
+    if (location) headers.set('Location', location);
     return new Response(html, {
       status: res.status,
-      headers: {
-        'Content-Type': 'text/html; charset=utf-8',
-        'Cache-Control': 'public, max-age=300, s-maxage=300',
-        'X-SSR-Source': 'seo-proxy-internal',
-      },
+      headers,
     });
   } catch (err) {
     return new Response(
