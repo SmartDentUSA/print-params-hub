@@ -114,6 +114,18 @@ export function EventsUploadAccordion() {
                     <ExternalLink className="h-3.5 w-3.5" />
                   </a>
                 )}
+                {formRows?.[row.event_id] && (
+                  <a
+                    href={`/f/${formRows[row.event_id]}`}
+                    target="_blank"
+                    rel="noopener"
+                    title="Abrir formulário de cadastro de leads do evento"
+                  >
+                    <Button size="sm" variant="outline" className="h-7 gap-1 px-2 text-xs">
+                      <Users className="h-3.5 w-3.5" /> Visitantes
+                    </Button>
+                  </a>
+                )}
                 <CriarPastaEventoDriveButton eventId={row.event_id} folderUrl={row.folder_url} />
                 <Button
                   size="sm"
