@@ -585,6 +585,10 @@ function isVideoUrl(url: string) {
   return /(\.mp4|\.webm|\.ogg|\.mov)(\?|#|$)/i.test(url);
 }
 
+function isEmbedPlayerUrl(url: string) {
+  return /pandavideo|\/embed\/?\?v=|player-vz-/i.test(url);
+}
+
 function HeroProductCard({ src, caption, audio }: { src?: string | null; caption?: string; audio?: { url: string; label?: string } }) {
   return (
     <div className="relative mx-auto w-full max-w-md lg:max-w-none">
