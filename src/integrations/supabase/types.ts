@@ -36208,6 +36208,7 @@ export type Database = {
           by_product: Json
           by_seller: Json
           event_id: string
+          imprime_guias_sim: number
           imprime_modelos_sim: number
           imprime_nanohibrida_sim: number
           imprime_placas_sim: number

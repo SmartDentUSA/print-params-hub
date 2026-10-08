@@ -78,6 +78,7 @@ type EventStats = {
   imprime_placas_sim: number;
   imprime_modelos_sim: number;
   imprime_nanohibrida_sim: number;
+  imprime_guias_sim: number;
   won_leads: number;
   won_deals: number;
   won_value: number;
@@ -96,6 +97,7 @@ const emptyStats: EventStats = {
   imprime_placas_sim: 0,
   imprime_modelos_sim: 0,
   imprime_nanohibrida_sim: 0,
+  imprime_guias_sim: 0,
   won_leads: 0,
   won_deals: 0,
   won_value: 0,
@@ -188,6 +190,7 @@ export function SmartOpsEvents() {
         imprime_placas_sim: Number(s.imprime_placas_sim) || 0,
         imprime_modelos_sim: Number(s.imprime_modelos_sim) || 0,
         imprime_nanohibrida_sim: Number(s.imprime_nanohibrida_sim) || 0,
+        imprime_guias_sim: Number(s.imprime_guias_sim) || 0,
         won_leads: Number(s.won_leads) || 0,
         won_deals: Number(s.won_deals) || 0,
         won_value: Number(s.won_value) || 0,
@@ -352,6 +355,7 @@ export function SmartOpsEvents() {
                       { label: "Imprime placa", qtd: st.imprime_placas_sim },
                       { label: "Imprime modelo", qtd: st.imprime_modelos_sim },
                       { label: "Imprime nanohíbrida", qtd: st.imprime_nanohibrida_sim },
+                      { label: "Imprime guias", qtd: st.imprime_guias_sim },
                     ]
                   : [];
                 return (
