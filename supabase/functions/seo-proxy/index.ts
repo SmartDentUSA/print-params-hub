@@ -1,3 +1,4 @@
+import { articleText } from "../_shared/article-text.ts";
 import { localizeArticle, hasArticleTranslation, type ArticleLanguage } from "../_shared/article-language.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.0';
 
@@ -878,8 +879,6 @@ function buildMedicalWebPageSchema(content: any, author: any, baseUrl: string, c
       "audienceType": "Clinician",
       "geographicArea": { "@type": "Country", "name": "Brasil" }
     },
-    "lastReviewed": content.updated_at,
-    "reviewedBy": buildAuthorSchema(author, baseUrl),
     "author": { "@id": buildAuthorSchema(author, baseUrl)["@id"] },
     "publisher": { "@id": `${baseUrl}/#organization` },
     "about": {
@@ -916,7 +915,6 @@ function buildScholarlyArticleSchema(content: any, author: any, baseUrl: string,
     "isAccessibleForFree": true,
     "keywords": content.keywords?.join(', '),
     "articleSection": content.knowledge_categories?.name || "Documentação Técnica",
-    "backstory": "Documento técnico-científico baseado em ensaios laboratoriais e normas internacionais (ISO, ANVISA).",
     "citation": content.file_url ? `Documento disponível em: ${content.file_url}` : undefined,
     "copyrightHolder": { "@id": `${baseUrl}/#organization` },
     "copyrightYear": new Date(content.created_at).getFullYear()
@@ -1961,7 +1959,7 @@ async function generateKnowledgeArticleHTML(letter: string, slug: string, supaba
         "url": canonicalUrl,
         "inLanguage": locale,
         "keywords": content.keywords?.join(', ') || undefined,
-        "articleBody": content.content_html?.replace(/<[^>]*>/g, '').substring(0, 5000),
+        "articleBody": articleText(content.content_html).substring(0, 5000),
         "proficiencyLevel": "Expert",
         "dependencies": recommendedResins.length > 0 ? recommendedResins.map((r: any) => r.name).join(', ') : undefined,
         "author": { "@id": authorSchema["@id"] },

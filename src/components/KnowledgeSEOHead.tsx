@@ -1,3 +1,4 @@
+import { articleText, seoTerms } from '@/utils/seoText';
 import { Helmet } from 'react-helmet-async';
 import { useProductReviews } from '@/hooks/useProductReviews';
 import { useEffect, useState } from 'react';
@@ -215,13 +216,7 @@ const extractKeywordsFromContent = (htmlContent: string): string => {
 };
 
 // Remove tags HTML e retorna texto limpo
-const stripTags = (html: string): string => {
-  if (!html) return '';
-  return html
-    .replace(/<[^>]*>/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-};
+const stripTags = articleText;
 
 // Extrai instruções de processamento das resinas e cria HowTo Schema
 const extractProcessingInstructions = (instructions: string): { 
@@ -355,6 +350,8 @@ export function KnowledgeSEOHead({ content, category, videos = [], relatedDocume
   const [resinsWithInstructions, setResinsWithInstructions] = useState<any[]>([]);
   
   useEffect(() => {
+    let cancelled = false;
+    setResinsWithInstructions([]);
     if (content?.recommended_resins && content.recommended_resins.length > 0) {
       supabase
         .from('resins')
@@ -362,9 +359,10 @@ export function KnowledgeSEOHead({ content, category, videos = [], relatedDocume
         .in('slug', content.recommended_resins)
         .not('processing_instructions', 'is', null)
         .then(({ data }) => {
-          if (data) setResinsWithInstructions(data);
+          if (!cancelled && data) setResinsWithInstructions(data);
         });
     }
+    return () => { cancelled = true; };
   }, [content?.recommended_resins]);
   
   // Map language to hreflang format
@@ -488,7 +486,7 @@ export function KnowledgeSEOHead({ content, category, videos = [], relatedDocume
 
   // 🆕 AUDITORIA SEO: Detectar tipo de conteúdo para schemas avançados (MedicalWebPage, ScholarlyArticle)
   const detectContentType = (): 'MedicalWebPage' | 'ScholarlyArticle' | 'TechArticle' | 'Article' => {
-    const keywords = (content.keywords || []).join(' ').toLowerCase();
+    const keywords = seoTerms(content.keywords).join(' ').toLowerCase();
     const title = (content.title || '').toLowerCase();
     const categoryName = category?.name?.toLowerCase() || '';
     
@@ -623,7 +621,7 @@ export function KnowledgeSEOHead({ content, category, videos = [], relatedDocume
       ? ["TechArticle", "ScholarlyArticle"]
       : isTechnicalPage ? "TechArticle" : "Article",
     "headline": displayTitle,
-    "keywords": content.keywords?.join(', ') || extractKeywordsFromContent(content.content_html || ''),
+    "keywords": seoTerms(content.keywords).join(', ') || extractKeywordsFromContent(content.content_html || ''),
     "description": content.meta_description || content.excerpt,
     "image": content.og_image_url,
     "datePublished": new Date(content.created_at).toISOString(),
@@ -655,50 +653,20 @@ export function KnowledgeSEOHead({ content, category, videos = [], relatedDocume
         "audienceType": "Clinician",
         "geographicArea": { "@type": "Country", "name": "Brazil" }
       },
-      "lastReviewed": new Date(content.updated_at).toISOString().split('T')[0],
-      "reviewedBy": content.authors ? {
-        "@type": "Person",
-        "name": content.authors.name,
-        "jobTitle": content.authors.specialty
-      } : {
-        "@type": "Organization",
-        "name": "Smart Dent - Equipe Técnica"
-      }
+
     }),
     
     // 🆕 AUDITORIA SEO: Propriedades específicas para ScholarlyArticle
     ...(contentType === 'ScholarlyArticle' && {
       "abstract": content.meta_description || content.excerpt,
-      "isAccessibleForFree": true,
-      "citation": content.keywords?.slice(0, 3).map((k: string) => `Protocolo ${k}`).join('; ')
+      "isAccessibleForFree": true
     }),
     
     // TechArticle com proficiencyLevel
     ...(isTechnicalPage && { 
       "proficiencyLevel": "Expert",
-      "teaches": content.keywords?.slice(0, 5) || [],
-      "reviewAspect": [
-        {
-          "@type": "Review",
-          "reviewAspect": "Rigor Técnico dos Dados",
-          "reviewBody": "Artigo validado com dados de fabricante, especificações técnicas verificadas e protocolo clínico testado. Todas as informações técnicas (resistência, módulo de elasticidade, temperatura) foram extraídas de fichas técnicas oficiais e manuais de fabricante.",
-          "reviewRating": {
-            "@type": "Rating",
-            "ratingValue": "5",
-            "bestRating": "5",
-            "worstRating": "1"
-          },
-          "author": content.authors ? {
-            "@type": "Person",
-            "name": content.authors.name,
-            "jobTitle": content.authors.specialty
-          } : {
-            "@type": "Organization",
-            "name": "Equipe Técnica Smart Dent"
-          },
-          "datePublished": new Date(content.created_at).toISOString()
-        }
-      ]
+      "teaches": seoTerms(content.keywords).slice(0, 5) || [],
+
     }),
     
     // 🆕 AUDITORIA SEO: Autor enriquecido com credentials e alumniOf detectados automaticamente
@@ -730,7 +698,7 @@ export function KnowledgeSEOHead({ content, category, videos = [], relatedDocume
         content.authors.specialty,
         "Impressão 3D Odontológica",
         "Odontologia Digital",
-        ...(content.keywords?.slice(0, 3) || [])
+        ...seoTerms(content.keywords).slice(0, 3)
       ].filter(Boolean)
     } : { 
       "@type": "Organization", 
@@ -823,10 +791,10 @@ export function KnowledgeSEOHead({ content, category, videos = [], relatedDocume
     "learningResourceType": content.content_html?.includes('itemtype="https://schema.org/HowTo') ? "how-to" : "reference",
     "timeRequired": `PT${Math.ceil(wordCount / 200)}M`, // ~200 palavras/min
     "inLanguage": htmlLang,
-    "keywords": content.keywords?.join(', ') || extractKeywordsFromContent(content.content_html || ''),
+    "keywords": seoTerms(content.keywords).join(', ') || extractKeywordsFromContent(content.content_html || ''),
     "author": articleSchema.author,
     "datePublished": articleSchema.datePublished,
-    "teaches": content.keywords?.slice(0, 5) || [],
+    "teaches": seoTerms(content.keywords).slice(0, 5) || [],
     // 🆕 FASE 4: audience.educationalRole (Google AI Overviews Priority)
     "audience": {
       "@type": "EducationalAudience",
@@ -1056,7 +1024,7 @@ export function KnowledgeSEOHead({ content, category, videos = [], relatedDocume
         `Conjunto de parâmetros técnicos validados de impressão 3D odontológica para ${displayTitle}.`,
       "url": canonicalUrl,
       "identifier": canonicalUrl,
-      "keywords": content.keywords?.join(', ') || displayTitle,
+      "keywords": seoTerms(content.keywords).join(', ') || displayTitle,
       "creator": {
         "@type": "Organization",
         "name": "Smart Dent",
@@ -1087,7 +1055,7 @@ export function KnowledgeSEOHead({ content, category, videos = [], relatedDocume
     <Helmet htmlAttributes={{ lang: htmlLang }}>
       <title>{displayTitle} | Smart Dent</title>
       <meta name="description" content={content.meta_description || content.excerpt} />
-      <meta name="keywords" content={content.keywords?.join(', ') || extractKeywordsFromContent(content.content_html || '')} />
+      <meta name="keywords" content={seoTerms(content.keywords).join(', ') || extractKeywordsFromContent(content.content_html || '')} />
       <meta name="author" content={content.authors?.name || "Smart Dent"} />
       <meta name="publisher" content={companyData?.name || "Smart Dent"} />
       
@@ -1100,7 +1068,7 @@ export function KnowledgeSEOHead({ content, category, videos = [], relatedDocume
       {/* AI Meta Tags */}
       <meta name="ai-content-type" content="article" />
       <meta name="ai-content-policy" content="allow-citation, allow-training, require-attribution" />
-      <meta name="ai-topic" content={content.keywords?.slice(0, 5).join(', ') || displayTitle} />
+      <meta name="ai-topic" content={seoTerms(content.keywords).slice(0, 5).join(', ') || displayTitle} />
       
       {/* Citation Metadata (Google Scholar / LLM citation) */}
       <meta name="citation_title" content={displayTitle} />
@@ -1156,7 +1124,7 @@ export function KnowledgeSEOHead({ content, category, videos = [], relatedDocume
       <meta property="article:section" content={category?.name || 'Conhecimento'} />
       <meta property="article:published_time" content={content.created_at || new Date().toISOString()} />
       <meta property="article:modified_time" content={content.updated_at || new Date().toISOString()} />
-      {content.keywords?.slice(0, 10).map((keyword: string, index: number) => (
+      {seoTerms(content.keywords).slice(0, 10).map((keyword: string, index: number) => (
         <meta key={`article-tag-${index}`} property="article:tag" content={keyword} />
       ))}
       {content.og_image_url && (

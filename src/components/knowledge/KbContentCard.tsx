@@ -19,6 +19,7 @@ export interface KbContentCardData {
   durationSeconds?: number | null;
   viewCount?: number | null;
   shareUrl?: string;
+  href?: string;
 }
 
 interface Props {
@@ -127,7 +128,7 @@ export default function KbContentCard({ data, index, buttonLabel, onClick, thumb
 
   return (
     <article className="kb-card" style={{ animationDelay: `${index * 22}ms` }}>
-      <div className={`kb-cthumb-wrap${portrait ? ' kb-cthumb-portrait' : ''}`} onClick={onClick} role="button" tabIndex={0}>
+      <div className={`kb-cthumb-wrap${portrait ? ' kb-cthumb-portrait' : ''}`} onClick={onClick} role="button" tabIndex={0} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); onClick(); } }}>
         {data.imageUrl ? (
           <img
             className="kb-cthumb"
@@ -185,7 +186,13 @@ export default function KbContentCard({ data, index, buttonLabel, onClick, thumb
                 <QrCodeButton url={data.shareUrl} title={data.title} fileSuffix="ebook" />
               </span>
             )}
-            <button type="button" className="kb-action-btn" onClick={onClick}>{buttonLabel}</button>
+            {data.href ? (
+              <a href={data.href} className="kb-action-btn" onClick={(event) => {
+                if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+                event.preventDefault();
+                onClick();
+              }}>{buttonLabel}</a>
+            ) : <button type="button" className="kb-action-btn" onClick={onClick}>{buttonLabel}</button>}
           </div>
         </div>
       </div>

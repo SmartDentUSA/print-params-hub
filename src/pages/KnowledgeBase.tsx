@@ -347,9 +347,7 @@ export default function KnowledgeBase({ lang = 'pt', forcedTab }: KnowledgeBaseP
       <>
         <style>{kbStyles}</style>
         <style>{kbShellStyles}</style>
-        {dialogContent && (
-          <KnowledgeSEOHead content={dialogContent} category={dialogContent?.knowledge_categories} currentLang={lang} />
-        )}
+        {!dialogOpen && <KnowledgeSEOHead currentLang={lang} />}
         <KbShellLayout
           active={activeKey}
           heroArtUrl={heroArt}
@@ -410,9 +408,7 @@ export default function KnowledgeBase({ lang = 'pt', forcedTab }: KnowledgeBaseP
   return (
     <div className="min-h-screen" style={{ background: '#EEF1F6' }}>
       <style>{kbStyles}</style>
-      {dialogContent && (
-        <KnowledgeSEOHead content={dialogContent} category={dialogContent?.knowledge_categories} currentLang={lang} />
-      )}
+      {!dialogOpen && <KnowledgeSEOHead currentLang={lang} />}
       <Header showAdminButton={true} />
       <main className="kb-root">
         <KbTabSwitcher active={tab} onChange={setTab} />

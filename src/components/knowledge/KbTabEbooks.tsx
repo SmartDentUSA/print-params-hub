@@ -1,3 +1,4 @@
+import { fetchAllRows } from '@/utils/fetchAllRows';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -41,13 +42,13 @@ export default function KbTabEbooks({ onOpen }: Props) {
         .select('id, title, title_en, title_es, slug, excerpt, excerpt_en, excerpt_es, og_image_url, created_at, category_id, view_count, knowledge_categories!inner(id,letter,name)')
         .eq('active', true)
         .eq('is_ebook', true)
-        .order('created_at', { ascending: false })
+        .order('created_at', { ascending: false }).order('id')
         .limit(10000);
       if (term) {
         const safe = term.replace(/[%,()]/g, ' ');
         query = query.or(`title.ilike.%${safe}%,excerpt.ilike.%${safe}%,content_html.ilike.%${safe}%`);
       }
-      const { data, error } = await query;
+      const { data, error } = await fetchAllRows((from, to) => query.range(from, to), () => cancel);
       if (!cancel) {
         if (error) { console.error(error); setRows([]); }
         else setRows((data || []) as any);
@@ -79,6 +80,7 @@ export default function KbTabEbooks({ onOpen }: Props) {
     categoryName: r.knowledge_categories?.name || null,
     categoryTk: resolveCategoryTk(r.knowledge_categories?.id || r.category_id),
     viewCount: r.view_count ?? 0,
+    href: getArticleUrl({ slug: r.slug, knowledge_categories: r.knowledge_categories }, language),
     shareUrl: `${getPublicOrigin()}${getArticleUrl({ slug: r.slug, knowledge_categories: r.knowledge_categories })}`,
   }));
 

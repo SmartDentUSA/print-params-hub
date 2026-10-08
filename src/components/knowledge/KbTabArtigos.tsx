@@ -1,3 +1,4 @@
+import { fetchAllRows } from '@/utils/fetchAllRows';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -44,10 +45,10 @@ export default function KbTabArtigos({ onOpen, letterFilter }: Props) {
     setLoading(true);
     (async () => {
       // 1) IDs that have videos (to exclude — emulates NOT EXISTS)
-      const { data: vids } = await supabase
+      const { data: vids, error: videoError } = await fetchAllRows((from, to) => supabase
         .from('knowledge_videos')
-        .select('content_id')
-        .limit(10000);
+        .select('content_id').order('id').range(from, to), () => cancel);
+      if (videoError) { console.error(videoError); if (!cancel) { setRows([]); setLoading(false); } return; }
       const videoIds = new Set((vids || []).map((v: any) => v.content_id).filter(Boolean));
 
       const term = q.trim();
@@ -57,7 +58,7 @@ export default function KbTabArtigos({ onOpen, letterFilter }: Props) {
         .eq('active', true)
         // Ebooks têm aba própria: nunca aparecem em Artigos/categorias
         .not('is_ebook', 'is', true)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false }).order('id');
       // When the user is searching, ignore the active chip and scan the whole base.
       // Chip selection has priority over letter route filter: when the user
       // explicitly picks a category chip, respect it and ignore /letra.
@@ -71,7 +72,7 @@ export default function KbTabArtigos({ onOpen, letterFilter }: Props) {
       } else {
         query = query.limit(10000);
       }
-      const { data, error } = await query;
+      const { data, error } = await fetchAllRows((from, to) => query.range(from, to), () => cancel);
       if (!cancel) {
         if (error) { console.error(error); setRows([]); }
         else {
@@ -140,6 +141,7 @@ export default function KbTabArtigos({ onOpen, letterFilter }: Props) {
     categoryName: r.knowledge_categories?.name || null,
     categoryTk: resolveCategoryTk(r.knowledge_categories?.id || r.category_id),
     viewCount: r.view_count ?? 0,
+    href: getArticleUrl({ slug: r.slug, knowledge_categories: r.knowledge_categories }, language),
     shareUrl: `${getPublicOrigin()}${getArticleUrl({ slug: r.slug, knowledge_categories: r.knowledge_categories })}`,
   }));
 
