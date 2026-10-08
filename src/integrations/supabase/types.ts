@@ -37023,6 +37023,10 @@ export type Database = {
       }
       fn_social_internal_analytics: { Args: { p_days?: number }; Returns: Json }
       fn_stage_dh_leads: { Args: { p_data: Json }; Returns: number }
+      fn_store_form_answers: {
+        Args: { p_answers: Json; p_form_id: string; p_lead_id: string }
+        Returns: number
+      }
       fn_suggest_cross_sell: { Args: { p_lead_id: string }; Returns: Json }
       fn_sync_normalized_from_lead: {
         Args: { p_lead_id: string }
