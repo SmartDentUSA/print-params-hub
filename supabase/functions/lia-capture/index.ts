@@ -7,6 +7,7 @@ import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { normalizeBrazilianPhone } from "../_shared/phone-normalize.ts";
 import { buildKnownAnswers, filterPending } from "./qualification.ts";
 import { syncFormNote } from "../_shared/form-note-sync.ts";
+import { resolveFormProduct } from "../_shared/form-product.ts";
 
 declare const EdgeRuntime: { waitUntil(promise: Promise<unknown>): void };
 import { buildProductSummary, buildModulesSummary } from "./product-summary.ts";
@@ -61,6 +62,10 @@ async function resolveContext(body: any) {
     }
   }
   if (formId) {
+    const linkedProduct = await resolveFormProduct(sb, {
+      source: "form", form_id: formId, product_catalog_id: body.product_catalog_id, product,
+    });
+    if (linkedProduct) product = linkedProduct.name;
     const { data: f } = await sb.from("smartops_forms").select("name, subtitle, description, extra_sections, product_catalog_id, capture_buttons_enabled, capture_buttons").eq("id", formId).maybeSingle();
     formName = f?.name ?? "";
     let boundProduct = "";
@@ -239,6 +244,7 @@ Deno.serve(async (req) => {
       const payload: Record<string, unknown> = {
         source: "form",
         form_name: ctx.origin,
+        form_id: ctx.form_id,
         form_purpose: "captacao",
         nome, email, telefone_raw: phone,
         produto_interesse: ctx.product || undefined,
