@@ -37,4 +37,5 @@ console.log('PASS: schema terms, 640-row pagination, error propagation and cance
 const { articleText } = await loadModule('../supabase/functions/_shared/article-text.ts');
 assert.equal(articleText('<style>.red { color: red }</style><h2>Título</h2><p>Resina &amp; cura</p><script type="application/ld+json">{"hidden":"schema"}</script>'), 'Título Resina & cura');
 assert.equal(articleText(null), '');
+assert.equal(articleText('&amp;lt; &amp;quot; &lt; &AMP;'), '&lt; &quot; < &');
 console.log('PASS: server article text excludes CSS and JSON-LD');
