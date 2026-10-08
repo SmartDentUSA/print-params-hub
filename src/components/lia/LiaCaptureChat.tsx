@@ -5,13 +5,14 @@ import { Input } from "@/components/ui/input";
 import { Loader2, Send, MessageCircle, ChevronLeft, Smile } from "lucide-react";
 import { trackAttendanceEvent } from "@/lib/attendanceChannel";
 
-type Question = { field_id: string | null; form_id: string | null; db_column: string; label: string; options: string[]; field_type?: string };
+type Question = { field_id: string | null; form_id: string | null; db_column: string | null; label: string; options: string[]; field_type?: string };
 type Ctx = { form_id: string | null; campaign: string | null; product: string; origin: string; opening: string; greeting?: string; questions: Question[]; product_summary?: string | null; modules_summary?: string | null };
 type Msg = { from: "lia" | "user"; text: string; createdAt?: number; question?: Question };
 type Seller = { seller_name: string; seller_first_name: string; lead_first_name?: string | null; photo_url: string | null; deal_id: string | null; wa_url: string };
 type Step = "phone" | "email" | "name" | "creating" | "qualify" | "done";
 
 const IDLE_MS = 3 * 60 * 1000;
+const messageDelay = (text: string) => Math.min(6500, 1800 + text.length * 24 + Math.random() * 600);
 
 function sellerInvitation(seller: Seller, leadName?: string) {
   const name = seller.seller_first_name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
@@ -59,7 +60,7 @@ export default function LiaCaptureChat({ formId, campaign, product }: { formId: 
 
   const say = async (text: string, question?: Question) => {
     setTyping(true);
-    await new Promise((resolve) => setTimeout(resolve, 700));
+    await new Promise((resolve) => setTimeout(resolve, messageDelay(text)));
     if (!mounted.current) return;
     setMsgs((m) => [...m, { from: "lia", text, question, createdAt: Date.now() }]);
     setTyping(false);
@@ -140,14 +141,21 @@ export default function LiaCaptureChat({ formId, campaign, product }: { formId: 
 
   useEffect(() => {
     if (!closed) return;
-    const first = setTimeout(() => setHandoffStage(1), 700);
-    const second = setTimeout(() => setHandoffStage(2), 1400);
-    return () => { clearTimeout(first); clearTimeout(second); };
-  }, [closed]);
+    let cancelled = false;
+    const sequence = async () => {
+      await new Promise((resolve) => setTimeout(resolve, messageDelay(ctx?.product_summary || "")));
+      if (cancelled) return;
+      setHandoffStage(1);
+      await new Promise((resolve) => setTimeout(resolve, messageDelay(ctx?.modules_summary || "")));
+      if (!cancelled) setHandoffStage(2);
+    };
+    void sequence();
+    return () => { cancelled = true; };
+  }, [closed, ctx?.product_summary, ctx?.modules_summary]);
 
   useEffect(() => {
     if (!closed || !seller || handoffStage !== 2) return;
-    const timer = setTimeout(() => setHandoffStage(3), 700);
+    const timer = setTimeout(() => setHandoffStage(3), messageDelay(sellerInvitation(seller, data.name)));
     return () => clearTimeout(timer);
   }, [closed, seller, handoffStage]);
 
@@ -257,13 +265,15 @@ export default function LiaCaptureChat({ formId, campaign, product }: { formId: 
           <div key={i} className={`flex ${m.from === "user" ? "justify-end" : "justify-start"}`}>
             <div className={`lia-bubble max-w-[88%] rounded-lg px-3 pb-1 pt-2 text-[15px] leading-5 sm:max-w-[78%] ${m.from === "user" ? "lia-bubble-out rounded-tr-none bg-primary text-primary-foreground" : "lia-bubble-in rounded-tl-none bg-muted text-foreground"}`}>
               <p className="whitespace-pre-wrap break-words">{m.text}</p>
-              {m.from === "lia" && (m.question || (i === msgs.length - 1 && q?.label === m.text ? q : null))?.options.map((option) => (
-                <Button key={option} size="sm" variant="secondary" className="lia-reply mt-2 h-auto min-h-9 w-full whitespace-normal rounded-md text-left text-xs" disabled={waiting || closed || i !== msgs.length - 1} aria-pressed={m.question?.field_type === "checkbox" ? selected.includes(option) : undefined} onClick={() => {
+              {m.from === "lia" && !!(m.question || (i === msgs.length - 1 && q?.label === m.text ? q : null))?.options.length && <div className="lia-replies mt-3 flex flex-col" role="group" aria-label="Opções de resposta">
+              {(m.question || q)?.options.map((option) => (
+                <Button key={option} variant="ghost" className="lia-reply h-auto min-h-11 w-full whitespace-normal rounded-none px-3 py-3 text-center text-sm font-medium leading-5" disabled={waiting || closed || i !== msgs.length - 1} aria-pressed={m.question?.field_type === "checkbox" ? selected.includes(option) : undefined} onClick={() => {
                   if (m.question?.field_type === "checkbox") setSelected((items) => items.includes(option) ? items.filter((item) => item !== option) : [...items, option]);
                   else submit(option);
                 }}>{m.question?.field_type === "checkbox" && selected.includes(option) ? "✓ " : ""}{option.trim()}</Button>
               ))}
-              {m.question?.field_type === "checkbox" && i === msgs.length - 1 && !closed && <Button variant="secondary" size="sm" className="mt-2 w-full" disabled={waiting || !selected.length} onClick={() => submit(selected)}>Confirmar</Button>}
+              {m.question?.field_type === "checkbox" && i === msgs.length - 1 && !closed && <Button variant="ghost" className="lia-reply min-h-11 w-full rounded-none" disabled={waiting || !selected.length} onClick={() => submit(selected)}>Confirmar</Button>}
+              </div>}
               {m.createdAt && <time dateTime={new Date(m.createdAt).toISOString()} className="ml-4 mt-1 flex items-center justify-end gap-1 text-[10px] leading-3 text-muted-foreground">
                 {new Date(m.createdAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
               </time>}

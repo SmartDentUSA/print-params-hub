@@ -638,6 +638,7 @@ export default function PublicFormPage() {
     const payload: Record<string, any> = {
       source: "form",
       form_name: form.name,
+      form_id: form.id,
       form_purpose: form.form_purpose,
       // Enviar respostas inline para evitar race condition com lia-assign
       form_responses: activeFields
@@ -714,12 +715,13 @@ export default function PublicFormPage() {
 
     for (const field of activeFields) {
       const val = values[field.id];
-      if (!val && field.required) {
+      const empty = val === undefined || val === null || val === "" || (Array.isArray(val) && val.length === 0);
+      if (empty && field.required) {
         toast_inline(`Campo "${field.label}" é obrigatório.`);
         setSubmitting(false);
         return;
       }
-      if (!val) continue;
+      if (empty) continue;
 
       if (field.db_column) {
         payload[field.db_column] = val;
@@ -738,6 +740,8 @@ export default function PublicFormPage() {
     if (Object.keys(customFields).length > 0) {
       payload.raw_payload = { custom_fields: customFields };
     }
+    payload.field_answers = activeFields.filter((f) => values[f.id] !== undefined && values[f.id] !== null && values[f.id] !== "")
+      .map((f) => ({ field_id: f.id, value: Array.isArray(values[f.id]) ? JSON.stringify(values[f.id]) : String(values[f.id]) }));
 
     // Ensure required email field
     if (!payload.email) {
@@ -768,7 +772,7 @@ export default function PublicFormPage() {
       if (leadId) void linkLeadToPageSession(leadId);
       // Grava TODAS as respostas dos campos (qualquer tipo de formulário),
       // não só os campos com célula de workflow em formulários de captação.
-      if (leadId) {
+      if (leadId && !ingestData?.answers_stored) {
         const responses = activeFields
           .map((f) => {
             const raw = values[f.id];

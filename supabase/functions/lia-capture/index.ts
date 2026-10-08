@@ -5,7 +5,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { normalizeBrazilianPhone } from "../_shared/phone-normalize.ts";
-import { isFieldVisible } from "../_shared/form-conditions.ts";
+import { buildKnownAnswers, filterPending } from "./qualification.ts";
 import { buildProductSummary, buildModulesSummary } from "./product-summary.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
@@ -83,23 +83,23 @@ async function resolveContext(body: any) {
   let qFormId = formId;
   const loadFields = async (id: string) => {
     const { data } = await sb.from("smartops_form_fields")
-      .select("id, label, db_column, field_type, options, order_index, conditions")
+      .select("id, label, db_column, custom_field_name, field_type, options, order_index, conditions")
       .eq("form_id", id).order("order_index");
     return data ?? [];
   };
   let fields = qFormId ? await loadFields(qFormId) : [];
   if (!qFormId) {
-    const { data: tpl } = await sb.from("smartops_form_fields").select("form_id").eq("db_column", "imprime_modelos").limit(1).maybeSingle();
-    if (tpl?.form_id) { qFormId = tpl.form_id; fields = await loadFields(tpl.form_id); }
+    const { data: tpl } = await sb.from("smartops_forms").select("id").eq("slug", "exocad_dentalcad_rms").eq("active", true).maybeSingle();
+    if (tpl?.id) { qFormId = tpl.id; fields = await loadFields(tpl.id); }
   }
-  const seen = new Set<string>();
-  const questions = fields.filter((f: any) => !IDENTITY_COLS.has(f.db_column) && (!f.db_column || ANSWER_COLS.has(f.db_column)) && (!f.db_column || (!seen.has(f.db_column) && seen.add(f.db_column)))).map((f: any) => ({
+  const questions = fields.filter((f: any) => !IDENTITY_COLS.has(f.db_column)).map((f: any) => ({
     id: f.id,
     conditions: f.conditions,
     field_type: f.field_type,
     field_id: f.id,
     form_id: qFormId,
     db_column: f.db_column,
+    custom_field_name: f.custom_field_name,
     label: String(f.label).trim(),
     options: Array.isArray(f.options) ? f.options.map((o: any) => (typeof o === "string" ? o : o?.label ?? o?.value)).filter(Boolean) : [],
   }));
@@ -107,12 +107,14 @@ async function resolveContext(body: any) {
   const area = areaIndex >= 0 ? questions.splice(areaIndex, 1)[0] : {
     id: "area_atuacao", conditions: null, field_id: null, form_id: null, db_column: "area_atuacao", options: ["CLÍNICA OU CONSULTÓRIO", "LABORATÓRIO DE PRÓTESE", "RADIOLOGIA ODONTOLÓGICA", "PLANNING CENTER", "EMPRESA DE ALINHADORES", "GESTOR DE REDE DE CLÍNICAS", "GESTOR DE FRANQUIAS", "CENTRAL DE IMPRESSÕES", "EDUCAÇÃO"],
   };
-  questions.unshift({ ...area, label: "Me diz, qual é a sua área de atuação? Assim eu entendo exatamente como essa solução pode ser aplicada ao seu dia a dia." });
+  if (qFormId) {
+    if (areaIndex >= 0) questions.splice(areaIndex, 0, area);
+  } else questions.unshift({ ...area, label: "Me diz, qual é a sua área de atuação? Assim eu entendo exatamente como essa solução pode ser aplicada ao seu dia a dia." });
   for (const question of questions) {
     if (!question.options.length && question.db_column === "area_atuacao") question.options = ["CLÍNICA OU CONSULTÓRIO", "LABORATÓRIO DE PRÓTESE", "RADIOLOGIA ODONTOLÓGICA", "PLANNING CENTER", "EMPRESA DE ALINHADORES", "GESTOR DE REDE DE CLÍNICAS", "GESTOR DE FRANQUIAS", "CENTRAL DE IMPRESSÕES", "EDUCAÇÃO"];
     if (!question.options.length && question.db_column === "especialidade") question.options = ["CLÍNICO GERAL", "DENTÍSTICA", "IMPLANTODONTISTA", "PROTESISTA", "ORTODONTISTA", "ODONTOPEDIATRIA", "PERIODONTISTA", "ENDODONTISTA", "RADIOLOGISTA", "CIRURGIA BUCO MAXILO FACIAL", "TÉCNICO EM RADIOLOGIA", "TÉCNICO EM PRÓTESE ODONTOLÓGICA", "OUTROS"];
   }
-  if (!questions.some((q: any) => q.db_column === "especialidade")) questions.splice(1, 0, {
+  if (!qFormId && !questions.some((q: any) => q.db_column === "especialidade")) questions.splice(1, 0, {
     id: "especialidade", conditions: null, field_id: null, form_id: null, db_column: "especialidade",
     label: "E qual é a sua especialidade?", options: ["CLÍNICO GERAL", "DENTÍSTICA", "IMPLANTODONTISTA", "PROTESISTA", "ORTODONTISTA", "ODONTOPEDIATRIA", "PERIODONTISTA", "ENDODONTISTA", "RADIOLOGISTA", "CIRURGIA BUCO MAXILO FACIAL", "TÉCNICO EM RADIOLOGIA", "TÉCNICO EM PRÓTESE ODONTOLÓGICA", "OUTROS"],
   });
@@ -122,35 +124,22 @@ async function resolveContext(body: any) {
 }
 
 const validEmail = (v: unknown) => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(String(v ?? "")) && !/@(no-email|placeholder|example|test)\b/i.test(String(v));
-const hasAnswer = (value: unknown) => value !== null && value !== undefined && (!Array.isArray(value) || value.length > 0) && (typeof value !== "string" || !!value.trim());
 async function pendingQuestions(leadId: string, body: any) {
   const ctx = await resolveContext(body);
-  const { data, error } = await sb.from("lia_attendances").select([...ANSWER_COLS, "nome", "email", "telefone_raw", "telefone_normalized"].join(","))
+  // Read the canonical profile internally; only pending question definitions leave this endpoint.
+  const { data, error } = await sb.from("lia_attendances").select("*")
     .eq("id", leadId).is("merged_into", null).maybeSingle();
   if (error) throw error;
   if (!data) throw new Error("canonical lead not found");
   const profile = data as unknown as Record<string, unknown>;
-  const answers: Record<string, unknown> = {};
-  for (const field of ctx.fields) {
-    if (field.db_column && hasAnswer(profile[field.db_column])) {
-      let value = profile[field.db_column];
-      if (typeof value === "string" && value.startsWith("[")) { try { value = JSON.parse(value); } catch { /* legacy text */ } }
-      answers[field.id] = value;
-    }
-  }
+  let history: any[] = [];
   if (ctx.qualification_form_id) {
-    const { data: history, error: historyError } = await sb.from("smartops_form_field_responses")
-      .select("field_id, value").eq("lead_id", leadId).eq("form_id", ctx.qualification_form_id).order("created_at", { ascending: false });
+    const { data: rows, error: historyError } = await sb.from("smartops_form_field_responses")
+      .select("field_id, value, field:smartops_form_fields(db_column, custom_field_name)").eq("lead_id", leadId).order("created_at", { ascending: false }).limit(1000);
     if (historyError) throw historyError;
-    for (const response of history ?? []) {
-      if (answers[response.field_id] === undefined && hasAnswer(response.value)) {
-        let value: unknown = response.value;
-        if (typeof value === "string" && value.startsWith("[")) { try { value = JSON.parse(value); } catch { /* legacy text */ } }
-        answers[response.field_id] = value;
-      }
-    }
+    history = rows ?? [];
   }
-  return ctx.questions.filter((q: any) => !hasAnswer(profile[q.db_column]) && !hasAnswer(answers[q.id]) && isFieldVisible(q, answers));
+  return filterPending(ctx.questions, buildKnownAnswers(ctx.fields, profile, history));
 }
 function maskEmail(email: string) {
   const [local, domain] = email.toLowerCase().split("@");
@@ -286,16 +275,13 @@ Deno.serve(async (req) => {
       const values = Array.isArray(body.value) ? body.value.map((v: unknown) => str(v, 300)) : [str(body.value, 300)];
       if (!field || !values.length || values.some((v: string) => !v || (field.options.length && !field.options.includes(v))) || (Array.isArray(body.value) && field.field_type !== "checkbox")) return json({ error: "invalid field or answer" }, 400);
       const value = Array.isArray(body.value) ? JSON.stringify(values) : values[0];
-      if (field.db_column) {
+      if (field.db_column && ANSWER_COLS.has(field.db_column)) {
         const { error } = await sb.from("lia_attendances").update({ [field.db_column]: value }).eq("id", body.lead_id).is("merged_into", null);
         if (error) throw error;
       }
       if (field.field_id && field.form_id) {
-        const { data: f } = await sb.from("smartops_form_fields").select("label, workflow_cell_target").eq("id", field.field_id).eq("form_id", field.form_id).maybeSingle();
-        const { error } = await sb.from("smartops_form_field_responses").insert({
-          form_id: field.form_id, field_id: field.field_id, lead_id: body.lead_id, value,
-          field_label: f?.label ?? field.label, workflow_cell_target: f?.workflow_cell_target ?? null,
-        });
+        const { error } = await sb.rpc("fn_store_form_answers", { p_lead_id: body.lead_id, p_form_id: field.form_id,
+          p_answers: [{ field_id: field.field_id, value }] });
         if (error) throw error;
       }
       return json({ ok: true, questions: await pendingQuestions(body.lead_id, context) });
