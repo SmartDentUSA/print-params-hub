@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DatePickerInput } from "@/components/smartops/DatePickerInput";
 import { Plus, Trash2, Ticket } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 import { PRODUCT_CATALOG_ENTITY_TYPES } from "@/lib/catalogEntityTypes";
 import ProfessionalKolPerformance from "./ProfessionalKolPerformance";
 
@@ -120,13 +121,33 @@ export default function ProfessionalKolCommercial({
   const patchRule = (i: number, p: Partial<KolCommissionRule>) =>
     onCommissionsChange(commissions.map((r, idx) => (idx === i ? { ...r, ...p } : r)));
 
-  const addCatRule = () =>
-    onCommissionsChange([
-      ...commissions,
-      { kind: "category", category: "", subcategory: null, product_id: "", product_name: "", percent: null, active_from: null },
-    ]);
   const isCat = (r: KolCommissionRule) => r.kind === "category";
   const removeRule = (i: number) => onCommissionsChange(commissions.filter((_, idx) => idx !== i));
+
+  /** Índice da regra de categoria/subcategoria existente (ou -1). */
+  const catRuleIdx = (category: string, subcategory: string | null) =>
+    commissions.findIndex((r) => isCat(r) && r.category === category && (r.subcategory ?? null) === subcategory);
+
+  /** Ativa/desativa uma combinação da lista pronta: cria ou remove a regra correspondente. */
+  const toggleCatRule = (category: string, subcategory: string | null, on: boolean) => {
+    const idx = catRuleIdx(category, subcategory);
+    if (on && idx === -1) {
+      onCommissionsChange([
+        ...commissions,
+        {
+          kind: "category",
+          category,
+          subcategory,
+          product_id: "",
+          product_name: subcategory ? `${category} › ${subcategory}` : category,
+          percent: null,
+          active_from: null,
+        },
+      ]);
+    } else if (!on && idx !== -1) {
+      removeRule(idx);
+    }
+  };
 
   const addCoupon = () => onCouponsChange([...coupons, { code: "", active_from: null, active_to: null, commission_percent: null }]);
   const patchCoupon = (i: number, p: Partial<KolCoupon>) =>
@@ -317,71 +338,70 @@ export default function ProfessionalKolCommercial({
           )}
         </div>
 
-        {/* 4. Comissionamento por categoria / subcategoria do portfólio */}
+        {/* 4. Comissionamento por categoria / subcategoria do portfólio — lista pronta */}
         <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <Label>Comissionamento por categoria e subcategoria</Label>
-            <Button type="button" size="sm" variant="outline" onClick={addCatRule} disabled={disabled}>
-              <Plus className="w-4 h-4 mr-1" /> Adicionar categoria
-            </Button>
-          </div>
+          <Label>Comissionamento por categoria e subcategoria</Label>
           <p className="text-xs text-muted-foreground">
-            O KOL é remunerado por todos os produtos do portfólio da categoria (ou subcategoria) selecionada, vendidos pelos
-            formulários ou cupons a partir da data de ativação. Regra de produto específico tem prioridade, depois subcategoria, depois categoria.
+            Todas as categorias e subcategorias do portfólio já estão listadas abaixo: ative as que remuneram este KOL e
+            informe o percentual (e, se quiser, a data de ativação). Regra de produto específico tem prioridade, depois
+            subcategoria, depois categoria.
           </p>
-          {commissions.filter(isCat).length === 0 ? (
-            <p className="text-xs text-muted-foreground">Nenhuma categoria cadastrada.</p>
+          {cats.length === 0 ? (
+            <p className="text-xs text-muted-foreground">Carregando categorias do portfólio...</p>
           ) : (
-            <div className="space-y-2">
-              {commissions.map((r, i) => !isCat(r) ? null : (
-                <div key={i} className="grid grid-cols-1 md:grid-cols-[1fr_1fr_120px_180px_40px] gap-2 items-end rounded-md border p-2">
-                  <div>
-                    <Label className="text-xs">Categoria</Label>
-                    <Select
-                      value={r.category ?? ""}
-                      onValueChange={(v) => patchRule(i, { category: v, subcategory: null, product_name: v })}
-                      disabled={disabled}
+            <div className="space-y-1">
+              {cats.flatMap((c) => {
+                const rows: { category: string; subcategory: string | null; label: string; isSub: boolean }[] = [
+                  { category: c.cat, subcategory: null, label: c.cat, isSub: false },
+                  ...c.subs.map((s) => ({ category: c.cat, subcategory: s as string | null, label: s, isSub: true })),
+                ];
+                return rows.map((row) => {
+                  const idx = catRuleIdx(row.category, row.subcategory);
+                  const rule = idx !== -1 ? commissions[idx] : null;
+                  const active = idx !== -1;
+                  return (
+                    <div
+                      key={`${row.category}::${row.subcategory ?? "*"}`}
+                      className={`grid grid-cols-1 md:grid-cols-[1fr_120px_180px_60px] gap-2 items-center rounded-md border p-2 ${
+                        active ? "" : "opacity-60"
+                      } ${row.isSub ? "md:ml-6" : "bg-muted/40"}`}
                     >
-                      <SelectTrigger><SelectValue placeholder="Selecione a categoria..." /></SelectTrigger>
-                      <SelectContent>
-                        {cats.map((c) => <SelectItem key={c.cat} value={c.cat}>{c.cat}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label className="text-xs">Subcategoria</Label>
-                    <Select
-                      value={r.subcategory ?? "__all__"}
-                      onValueChange={(v) => patchRule(i, { subcategory: v === "__all__" ? null : v })}
-                      disabled={disabled || !r.category}
-                    >
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="__all__">Todas da categoria</SelectItem>
-                        {(cats.find((c) => c.cat === r.category)?.subs ?? []).map((s) => (
-                          <SelectItem key={s} value={s}>{s}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label className="text-xs">% comissão</Label>
-                    <Input
-                      type="number" min={0} max={100} step="0.1"
-                      value={r.percent ?? ""}
-                      onChange={(e) => patchRule(i, { percent: e.target.value === "" ? null : Math.min(100, Math.max(0, parseFloat(e.target.value))) })}
-                      disabled={disabled}
-                    />
-                  </div>
-                  <div>
-                    <Label className="text-xs">Data de ativação</Label>
-                    <DatePickerInput value={r.active_from ?? undefined} onChange={(v) => patchRule(i, { active_from: v })} disabled={disabled} className="w-full" />
-                  </div>
-                  <Button type="button" size="icon" variant="ghost" onClick={() => removeRule(i)} disabled={disabled}>
-                    <Trash2 className="w-4 h-4 text-destructive" />
-                  </Button>
-                </div>
-              ))}
+                      <div className="flex items-center gap-2">
+                        <Switch
+                          checked={active}
+                          onCheckedChange={(on) => toggleCatRule(row.category, row.subcategory, on)}
+                          disabled={disabled}
+                        />
+                        <span className={`text-sm ${row.isSub ? "" : "font-medium"}`}>
+                          {row.isSub ? row.label : `${row.label} (todas as subcategorias)`}
+                        </span>
+                      </div>
+                      <div>
+                        <Input
+                          type="number" min={0} max={100} step="0.1"
+                          value={rule?.percent ?? ""}
+                          onChange={(e) =>
+                            idx !== -1 &&
+                            patchRule(idx, { percent: e.target.value === "" ? null : Math.min(100, Math.max(0, parseFloat(e.target.value))) })
+                          }
+                          disabled={disabled || !active}
+                          placeholder="%"
+                        />
+                      </div>
+                      <div>
+                        <DatePickerInput
+                          value={rule?.active_from ?? undefined}
+                          onChange={(v) => idx !== -1 && patchRule(idx, { active_from: v })}
+                          disabled={disabled || !active}
+                          className="w-full"
+                          placeholder="Ativação"
+                        />
+                      </div>
+                      <div className="text-xs text-muted-foreground text-right">{active ? "Ativa" : ""}</div>
+                    </div>
+                  );
+                });
+              })}
             </div>
           )}
         </div>
