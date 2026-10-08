@@ -3,6 +3,9 @@ import { addDealNote } from "../_shared/piperun-field-map.ts";
 import { buildSellerDealSummaryHTML } from "../_shared/seller-summary.ts";
 import { claimSellerNoteSlot, releaseSellerNoteSlot } from "../_shared/seller-note-lock.ts";
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
+import { syncFormNote } from "../_shared/form-note-sync.ts";
+
+declare const EdgeRuntime: { waitUntil(promise: Promise<unknown>): void };
 
 
 function json(body: unknown, status = 200) {
@@ -87,6 +90,13 @@ Deno.serve(async (req) => {
       // ── Per-deal claim: 1 note per (deal_id, content_hash), 60s burst floor per lead ──
       const claim = await claimSellerNoteSlot(supabase, { dealId, leadId: lead_id, contentHash: hash });
       if (!claim.ok) {
+        if (claim.reason !== "duplicate_same_hash") {
+          EdgeRuntime.waitUntil(syncFormNote(supabase, lead_id).catch(async (error) => {
+            console.error("[deal-form-note] retry failed", error);
+            await supabase.from("system_health_logs").insert({ function_name: "smart-ops-deal-form-note", severity: "error", error_type: "crm_note_sync_failed", details: { lead_id } });
+          }));
+          return json({ ok: true, deal_id: dealId, queued: true });
+        }
         console.log(`[deal-form-note] Skipping (${claim.reason}) — deal=${dealId} lead=${lead_id}`);
         return json({ ok: true, deal_id: dealId, duplicate_skipped: true, reason: claim.reason });
       }
