@@ -220,59 +220,48 @@ function personalHook(lead: Record<string, unknown>, product: string, productSum
   if (lead.imprime_placas === true || lead.imprime_placas === "true") prints.push("placas");
   if (lead.imprime_guias === true || lead.imprime_guias === "true") prints.push("guias cirúrgicos");
   if (lead.imprime_resinas_ld === true || lead.imprime_resinas_ld === "true") prints.push("resinas de longa duração");
-  const parts: string[] = [];
   const areaOk = !generic(area);
   const espOk = !generic(esp);
-  if (areaOk && espOk && area.toLowerCase() !== esp.toLowerCase()) parts.push(`você atua em ${area.toLowerCase()} como ${esp.toLowerCase()}`);
-  else if (areaOk && espOk) parts.push(`você é ${esp.toLowerCase()}`);
-  else if (areaOk) parts.push(`você atua em ${area.toLowerCase()}`);
-  else if (espOk) parts.push(`você é ${esp.toLowerCase()}`);
-  if (prints.length) parts.push(`já imprime ${prints.slice(0, 3).join(", ")}`);
-  if (!generic(impressora)) parts.push(`trabalha com a ${impressora}`);
-  if (!generic(scanner)) parts.push(`usa o scanner ${scanner}`);
-  if (!generic(cad) && !(product && product.toLowerCase().includes(cad.toLowerCase()))) parts.push(`quer colocar o ${cad} na sua rotina`);
-  // Histórico com a Smart Dent: produtos já comprados ou cotados em negócios anteriores.
+  const cap = (t: string) => t.toLowerCase().replace(/(^|\s)\S/g, (m) => m.toUpperCase());
+  const clean = (n: string) => n.replace(/^treinamento (finalizado|agendado)\s*\(?/i, "").replace(/\)$/, "").replace(/\s+/g, " ").trim();
   const productLowerName = (product || "").toLowerCase();
   const notCurrent = (name: string) => name && !productLowerName.includes(name.toLowerCase()) && !name.toLowerCase().includes(productLowerName || "\0");
-  const bought = (history?.bought ?? []).filter(notCurrent).slice(0, 2);
-  const quoted = (history?.quoted ?? []).filter(notCurrent).filter((n) => !bought.some((b) => b.toLowerCase() === n.toLowerCase())).slice(0, 2);
-  if (bought.length) parts.push(`já é cliente de ${bought.join(" e ")}`);
-  else if (quoted.length) parts.push(`já conversou com a gente sobre ${quoted.join(" e ")}`);
-  // Timeline recente: cursos, compras na loja e eventos/congressos onde nos encontrou.
-  const courses = (history?.courses ?? []).slice(0, 2);
-  const orders = (history?.orders ?? []).filter(notCurrent).slice(0, 2);
-  if (courses.length) parts.push(`já fez com a gente o curso ${courses.join(" e ")}`);
-  if (orders.length) parts.push(`já usa ${orders.join(" e ")} da nossa loja`);
-  if (history?.event) parts.push(`a gente já se encontrou no ${history.event}`);
-  if (parts.length > 5) parts.splice(2, parts.length - 5);
-  if (!parts.length) return null;
-  const context = parts.join(", ").replace(/, ([^,]*)$/, " e $1");
-  const productLower = (product || "").toLowerCase();
-  const alreadyMentioned = productLower && parts.some((part) => part.toLowerCase().includes(productLower));
-  // Frase de ligação com o produto varia por lead para as mensagens não saírem iguais.
-  const ties = [
-    `então o ${product || "nosso fluxo digital"} tende a encaixar muito bem no seu dia a dia`,
-    `e é exatamente aí que o ${product || "nosso fluxo digital"} faz diferença`,
-    `e o ${product || "nosso fluxo digital"} foi pensado justamente para essa rotina`,
-  ];
-  let hash = 0;
-  for (const ch of seed) hash = (hash * 31 + ch.charCodeAt(0)) >>> 0;
-  const tie = alreadyMentioned ? "" : ` — ${ties[hash % ties.length]}`;
-  // Um benefício real do produto (1ª frase do resumo da landing), sem preço nem valores.
-  let benefit = "";
-  if (productSummary) {
-    // Procura a 1ª frase que pareça benefício real: sem caixa alta promocional, sem preço, tamanho razoável.
-    for (const sentence of productSummary.split(/(?<=[.!?])\s+/)) {
-      const s = sentence.trim();
-      if (!s || s.length < 30 || s.length > 180) continue;
-      if (/r\$|preço|valor|desconto|oferta|oportunidade/i.test(s)) continue;
-      const letters = s.replace(/[^a-zà-ú]/gi, "");
-      if (letters.length && letters.replace(/[^A-ZÀ-Ú]/g, "").length / letters.length > 0.5) continue;
-      benefit = ` ${s}`;
-      break;
-    }
+  const bought = (history?.bought ?? []).filter(notCurrent);
+  const orders = (history?.orders ?? []).filter(notCurrent);
+  const courses = (history?.courses ?? []).map(clean).filter(Boolean);
+  const event = history?.event ? String(history.event).replace(/^#\s*-?\s*/, "").trim() : "";
+  // Equipamento que a Smart Dent vende/apoia = relação já existente com a empresa.
+  const ownBrand = /rayshape|miicraft|blz|smart ?print|edge mini|medit/i;
+  const printerOk = !generic(impressora);
+  const ourPrinter = printerOk && ownBrand.test(impressora);
+  const p = product || "esse próximo passo";
+  const variants = (opts: string[]) => { let h = 0; for (const ch of seed) h = (h * 31 + ch.charCodeAt(0)) >>> 0; return opts[h % opts.length]; };
+
+  // Maturidade digital: já é da casa (curso, compra, equipamento nosso) → fala de evolução, não de apresentação.
+  const relation: string[] = [];
+  if (ourPrinter) relation.push(`a sua ${cap(impressora)}`);
+  else if (bought.length) relation.push(bought[0]);
+  if (courses.length) relation.push(courses.length > 1 ? "os nossos treinamentos" : `o treinamento de ${courses[0]}`);
+  else if (orders.length && relation.length < 2) relation.push("as nossas resinas");
+  let text: string;
+  if (relation.length) {
+    const rel = relation.join(" e ");
+    text = variants([
+      `Você já tem o fluxo de impressão rodando com ${rel}, então não precisa começar do zero. O ${p} é o passo que completa esse fluxo e coloca o desenho na sua mão.`,
+      `Com ${rel}, você já domina a parte da produção. Agora o ${p} entra para você ganhar autonomia no planejamento, sem depender de terceiros.`,
+      `Quem já trabalha com ${rel} costuma sentir falta justamente de ter o desenho em casa — e é isso que o ${p} resolve.`,
+    ]);
+  } else if (event) {
+    text = `Que bom te reencontrar depois do ${event}! O ${p} é um ótimo próximo passo para levar o digital para dentro da sua rotina.`;
+  } else {
+    const who = areaOk && espOk && area.toLowerCase() !== esp.toLowerCase() ? `${esp.toLowerCase()} em ${area.toLowerCase()}` : espOk ? esp.toLowerCase() : areaOk ? `quem atua em ${area.toLowerCase()}` : "";
+    const tech = printerOk ? ` e já trabalha com a ${cap(impressora)}` : !generic(scanner) ? ` e já digitaliza com o ${scanner}` : "";
+    if (!who && !tech) return null;
+    text = `Para ${who || "quem"}${tech}, o ${p} faz muito sentido no dia a dia.`;
   }
-  return `Pelo que você me contou, ${context}${tie}.${benefit} Vale muito a pena conversar com o especialista, ele já vai te chamar com tudo pronto. 😉`;
+  void cad; void prints;
+  return `${text} O especialista já vai te chamar com tudo pronto. 😉`;
+}
 }
 
 async function sellerCard(leadId: string, body: any) {
