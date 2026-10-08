@@ -169,6 +169,70 @@ export default function ProfessionalKolPerformance({ formIds, coupons, commissio
             Vendas e receita apuradas nos pedidos da Loja Integrada com este cupom. Comissão = receita × % de comissão do KOL definida no cupom.
           </p>
         </div>
+
+        {/* Indicadores consolidados */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+          {[
+            { t: "Formulários ativos", a: `${perf.totals.leads} leads → ${perf.totals.deals} ganhos`, v: perf.totals.receita },
+            { t: "Cupons do e-commerce", a: `${perf.totals.vendasCupons} pedidos · ${perf.totals.clientesCupons} clientes`, v: perf.totals.receitaCupons },
+            {
+              t: "Produtos do portfólio vendidos",
+              a: `${perf.products.reduce((s, p) => s + p.quantidade, 0)} itens · comissão ${money(perf.products.reduce((s, p) => s + (p.comissao ?? 0), 0))}`,
+              v: perf.products.reduce((s, p) => s + p.valor, 0),
+            },
+          ].map((k) => (
+            <div key={k.t} className="rounded-md border p-3">
+              <div className="text-[11px] uppercase tracking-wide text-muted-foreground">{k.t}</div>
+              <div className="text-lg font-semibold text-primary">{money(k.v)}</div>
+              <div className="text-xs text-muted-foreground">{k.a}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* Produtos vendidos */}
+        <div className="space-y-2">
+          <span className="text-xs uppercase tracking-wide text-muted-foreground font-medium">
+            Produtos do portfólio vendidos pelas indicações
+          </span>
+          {perf.products.length === 0 ? (
+            <p className="text-xs text-muted-foreground">Nenhum produto vendido pelos formulários ou cupons até agora.</p>
+          ) : (
+            <div className="overflow-x-auto rounded-md border max-h-96">
+              <table className="w-full text-sm">
+                <thead className="bg-muted/40 text-[11px] uppercase tracking-wide text-muted-foreground sticky top-0">
+                  <tr>
+                    <th className="px-2 py-2 text-left">Produto</th>
+                    <th className="px-2 py-2 text-left">Categoria / subcategoria</th>
+                    <th className="px-2 py-2 text-left">Origem</th>
+                    <th className="px-2 py-2 text-right">Qtd</th>
+                    <th className="px-2 py-2 text-right">Valor</th>
+                    <th className="px-2 py-2 text-right">Comissão</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {perf.products.map((p) => (
+                    <tr key={`${p.origem}-${p.produto}`} className="border-t">
+                      <td className="px-2 py-2">{p.produto}</td>
+                      <td className="px-2 py-2 text-xs text-muted-foreground">
+                        {[p.categoria, p.subcategoria].filter(Boolean).join(" › ") || "—"}
+                      </td>
+                      <td className="px-2 py-2">
+                        <Badge variant="outline" className="text-[10px]">{p.origem === "cupom" ? "Cupom" : "Formulário"}</Badge>
+                      </td>
+                      <td className="px-2 py-2 text-right">{p.quantidade}</td>
+                      <td className="px-2 py-2 text-right font-medium">{money(p.valor)}</td>
+                      <td className="px-2 py-2 text-right">{p.comissao != null ? money(p.comissao) : "—"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+          <p className="text-[11px] text-muted-foreground">
+            Formulário = itens das propostas dos negócios ganhos dos leads indicados. Cupom = itens dos pedidos da loja com o cupom do KOL.
+            Comissão usa a regra do produto, depois subcategoria, depois categoria (a partir da data de ativação).
+          </p>
+        </div>
       </CardContent>
     </Card>
   );
