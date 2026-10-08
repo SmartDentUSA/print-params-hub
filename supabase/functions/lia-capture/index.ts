@@ -152,14 +152,28 @@ async function pendingQuestions(leadId: string, body: any) {
   if (error) throw error;
   if (!data) throw new Error("canonical lead not found");
   const profile = data as unknown as Record<string, unknown>;
-  let history: any[] = [];
-  if (ctx.qualification_form_id) {
-    const { data: rows, error: historyError } = await sb.from("smartops_form_field_responses")
-      .select("field_id, value, field:smartops_form_fields(db_column, custom_field_name)").eq("lead_id", leadId).order("created_at", { ascending: false }).limit(1000);
-    if (historyError) throw historyError;
-    history = rows ?? [];
+  // Respostas anteriores do lead em QUALQUER formulário (sistema, timeline e snapshots), para não repetir perguntas.
+  const [{ data: rows, error: historyError }, { data: timeline }] = await Promise.all([
+    sb.from("smartops_form_field_responses")
+      .select("field_id, field_label, value, field:smartops_form_fields(db_column, custom_field_name, label)").eq("lead_id", leadId).order("created_at", { ascending: false }).limit(1000),
+    sb.from("lead_activity_log").select("event_data").eq("lead_id", leadId).eq("event_type", "form_response")
+      .order("event_timestamp", { ascending: false }).limit(500),
+  ]);
+  if (historyError) throw historyError;
+  const history: any[] = rows ?? [];
+  const labelAnswers = new Map<string, unknown>();
+  const addLabel = (label: unknown, value: unknown) => {
+    const k = normLabel(label);
+    if (k && hasAnswer(value) && !labelAnswers.has(k) && !/^nome n[aã]o informado$/i.test(String(value))) labelAnswers.set(k, value);
+  };
+  for (const r of history) addLabel(r.field_label ?? r.field?.label, r.value);
+  for (const t of timeline ?? []) addLabel((t as any).event_data?.label, (t as any).event_data?.value);
+  const formData = (profile.form_data ?? {}) as Record<string, any>;
+  for (const bucket of Object.values(formData)) {
+    const snaps = Array.isArray(bucket) ? [...bucket].reverse() : [bucket];
+    for (const s of snaps) for (const r of Array.isArray(s?.responses) ? s.responses : []) addLabel(r?.label, r?.value);
   }
-  return filterPending(ctx.questions, buildKnownAnswers(ctx.fields, profile, history));
+  return filterPending(ctx.questions, buildKnownAnswers(ctx.fields, profile, history, labelAnswers));
 }
 function maskEmail(email: string) {
   const [local, domain] = email.toLowerCase().split("@");
