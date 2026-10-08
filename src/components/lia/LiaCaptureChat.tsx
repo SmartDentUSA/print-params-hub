@@ -41,12 +41,27 @@ export default function LiaCaptureChat({ formId, campaign, product }: { formId: 
   const echo = (text: string) => setMsgs((m) => [...m, { from: "user", text, createdAt: Date.now() }]);
 
   useEffect(() => {
-    call({ action: "context", form_id: formId, campaign, product }).then((c: Ctx) => {
+    call({ action: "context", form_id: formId, campaign, product }).then(async (c: Ctx) => {
       setCtx(c);
       const saved = sessionStorage.getItem(storeKey);
       if (saved) {
         try {
           const s = JSON.parse(saved);
+          if (s.lead && s.step === "qualify" && !s.closed) {
+            const r = await call({ action: "qualification", lead_id: s.lead.id, token: s.lead.token, form_id: formId, campaign, product });
+            const questions: Question[] = r.questions;
+            setCtx({ ...c, questions });
+            const messages: Msg[] = s.msgs ?? [];
+            const last = messages[messages.length - 1];
+            if (last?.from === "lia" && c.questions.some((q) => q.label === last.text)) messages.pop();
+            setMsgs(messages); setData(s.data ?? {}); setLead(s.lead); setQIdx(0);
+            if (questions.length) {
+              setStep("qualify"); say(questions[0].label);
+            } else {
+              setStep("done"); setClosed(true); say("Maravilha! Já tenho as informações para seguir com seu atendimento.");
+            }
+            return;
+          }
           setMsgs(s.msgs ?? []); setStep(s.step ?? "phone"); setData(s.data ?? {}); setLead(s.lead ?? null); setQIdx(s.qIdx ?? 0); setClosed(!!s.closed);
           return;
         } catch { /* ignore */ }
@@ -112,7 +127,15 @@ export default function LiaCaptureChat({ formId, campaign, product }: { formId: 
     });
     setLead({ id: r.lead_id, token: r.token });
     say(firstName ? `Maravilha, ${firstName}!` : "Maravilha!");
-    setStep("qualify"); setQIdx(0); askQuestion(0);
+    const questions: Question[] = r.questions;
+    setCtx({ ...ctx, questions });
+    setQIdx(0);
+    if (questions.length) {
+      setStep("qualify"); say(questions[0].label);
+    } else {
+      say("Já tenho as informações para seguir com seu atendimento.");
+      await finish({ id: r.lead_id, token: r.token });
+    }
   };
 
   const submit = async (raw: string) => {
