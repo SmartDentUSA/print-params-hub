@@ -25,11 +25,12 @@ function sellerInvitation(seller: Seller, leadName?: string, pick?: (n: number) 
   const first = seller.lead_first_name || leadName?.trim().split(/\s+/)[0];
   const lead = first ? `${first}, ` : "";
   const introduction = female ? `O nome dela é ${seller.seller_name}.` : male ? `O nome dele é ${seller.seller_name}.` : `Seu atendimento será com ${seller.seller_name}.`;
+  const pronoun = female ? "Ela" : male ? "Ele" : seller.seller_first_name;
   const variants = [
     `${lead}tudo certo! ${introduction} Quer pular a fila?\n\nClica no botão abaixo e chama ${contact} agora mesmo! 😄`,
-    `${lead}já passei todas as suas informações para ${specialist}. ${introduction} Ele vai te chamar em breve, mas se quiser adiantar as coisas, clica no botão abaixo e já manda um 'oi' pra ${contact}! 😄👇`,
+    `${lead}já passei todas as suas informações para ${specialist}. ${introduction} Se quiser adiantar as coisas, clica no botão abaixo e já manda um 'oi' pra ${contact}! 😄👇`,
     `${lead}tudo certo por aqui! ${introduction} Para não precisar ficar esperando, clica no botão abaixo e já inicia a conversa agora mesmo! 😄`,
-    `${lead}já enviei tudo para ${specialist}, nosso especialista! ${introduction} E${female ? "la" : "le"} vai te procurar, mas como você já está com a mão na massa, clica no botão abaixo e chama ${contact} para agilizar. 😄`,
+    `${lead}já enviei tudo para ${specialist}! ${introduction} ${pronoun} vai te procurar, mas como você já está com a mão na massa, clica no botão abaixo e chama ${contact} para agilizar. 😄`,
     `${lead}seu atendimento já está encaminhado para ${specialist}. ${introduction} Se quiser falar antes, é só clicar no botão abaixo e mandar o primeiro oi! 😉`,
   ];
   return variants[choose(variants.length)];
