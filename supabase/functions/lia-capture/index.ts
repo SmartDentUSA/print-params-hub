@@ -96,6 +96,7 @@ async function resolveContext(body: any) {
   const questions = fields.filter((f: any) => !IDENTITY_COLS.has(f.db_column) && (!f.db_column || ANSWER_COLS.has(f.db_column)) && (!f.db_column || (!seen.has(f.db_column) && seen.add(f.db_column)))).map((f: any) => ({
     id: f.id,
     conditions: f.conditions,
+    field_type: f.field_type,
     field_id: f.id,
     form_id: qFormId,
     db_column: f.db_column,
@@ -131,7 +132,11 @@ async function pendingQuestions(leadId: string, body: any) {
   const profile = data as unknown as Record<string, unknown>;
   const answers: Record<string, unknown> = {};
   for (const field of ctx.fields) {
-    if (field.db_column && hasAnswer(profile[field.db_column])) answers[field.id] = profile[field.db_column];
+    if (field.db_column && hasAnswer(profile[field.db_column])) {
+      let value = profile[field.db_column];
+      if (typeof value === "string" && value.startsWith("[")) { try { value = JSON.parse(value); } catch { /* legacy text */ } }
+      answers[field.id] = value;
+    }
   }
   if (ctx.qualification_form_id) {
     const { data: history, error: historyError } = await sb.from("smartops_form_field_responses")
@@ -278,8 +283,9 @@ Deno.serve(async (req) => {
       const context = { ...body, form_id: body.form_id_context ?? body.form_id };
       const pending = await pendingQuestions(body.lead_id, context);
       const field = pending.find((q: any) => q.field_id === (body.field_id || null) && q.db_column === body.db_column);
-      const value = str(body.value, 300);
-      if (!field || !value || (field.options.length && !field.options.includes(value))) return json({ error: "invalid field or answer" }, 400);
+      const values = Array.isArray(body.value) ? body.value.map((v: unknown) => str(v, 300)) : [str(body.value, 300)];
+      if (!field || !values.length || values.some((v: string) => !v || (field.options.length && !field.options.includes(v))) || (Array.isArray(body.value) && field.field_type !== "checkbox")) return json({ error: "invalid field or answer" }, 400);
+      const value = Array.isArray(body.value) ? JSON.stringify(values) : values[0];
       if (field.db_column) {
         const { error } = await sb.from("lia_attendances").update({ [field.db_column]: value }).eq("id", body.lead_id).is("merged_into", null);
         if (error) throw error;

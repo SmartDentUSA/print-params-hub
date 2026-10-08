@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Loader2, Send, MessageCircle, ChevronLeft, Smile } from "lucide-react";
 import { trackAttendanceEvent } from "@/lib/attendanceChannel";
 
-type Question = { field_id: string | null; form_id: string | null; db_column: string; label: string; options: string[] };
+type Question = { field_id: string | null; form_id: string | null; db_column: string; label: string; options: string[]; field_type?: string };
 type Ctx = { form_id: string | null; campaign: string | null; product: string; origin: string; opening: string; greeting?: string; questions: Question[]; product_summary?: string | null; modules_summary?: string | null };
 type Msg = { from: "lia" | "user"; text: string; createdAt?: number; question?: Question };
 type Seller = { seller_name: string; seller_first_name: string; lead_first_name?: string | null; photo_url: string | null; deal_id: string | null; wa_url: string };
@@ -44,6 +44,7 @@ export default function LiaCaptureChat({ formId, campaign, product }: { formId: 
   const [data, setData] = useState<{ phone?: string; email?: string; name?: string }>({});
   const [lead, setLead] = useState<{ id: string; token: string } | null>(null);
   const [qIdx, setQIdx] = useState(0);
+  const [selected, setSelected] = useState<string[]>([]);
   const [seller, setSeller] = useState<Seller | null>(null);
   const [closed, setClosed] = useState(false);
   const [emojiOpen, setEmojiOpen] = useState(false);
@@ -176,8 +177,8 @@ export default function LiaCaptureChat({ formId, campaign, product }: { formId: 
     }
   };
 
-  const submit = async (raw: string) => {
-    const text = raw.trim();
+  const submit = async (raw: string | string[]) => {
+    const text = Array.isArray(raw) ? raw.join(", ") : raw.trim();
     if (!text || busy || typing || sending.current || !ctx || closed) return;
     sending.current = true;
     lastActivity.current = Date.now();
@@ -198,7 +199,7 @@ export default function LiaCaptureChat({ formId, campaign, product }: { formId: 
             const hints = Array.isArray(r.email_hints) ? r.email_hints.filter((hint: unknown): hint is string => typeof hint === "string") : [];
             await say(`${r.first_name ? `${r.first_name}, identifiquei` : "Identifiquei"} ${r.match_count ?? "vários"} cadastros com esse telefone.${hints.length ? `\n\n${hints.join("\n")}\n\nQual destes e-mails é o correto? Me escreva o e-mail completo para confirmar.` : " Qual é o seu e-mail para eu confirmar o cadastro correto?"}`);
           } else {
-            if (r?.first_name) say(`Maravilha, ${r.first_name}!`);
+            if (r?.first_name) await say(`Maravilha, ${r.first_name}!`);
             await say("Me passa seu melhor e-mail para eu continuar por aqui?");
           }
         }
@@ -217,7 +218,8 @@ export default function LiaCaptureChat({ formId, campaign, product }: { formId: 
       } else if (step === "qualify" && lead) {
         const q = ctx.questions[qIdx];
         if (!q) return;
-        const r = await call({ action: "answer", lead_id: lead.id, token: lead.token, db_column: q.db_column, field_id: q.field_id, form_id: q.form_id, form_id_context: ctx.form_id, campaign: ctx.campaign, product: ctx.product, value: text });
+        const r = await call({ action: "answer", lead_id: lead.id, token: lead.token, db_column: q.db_column, field_id: q.field_id, form_id: q.form_id, form_id_context: ctx.form_id, campaign: ctx.campaign, product: ctx.product, value: Array.isArray(raw) ? raw : text });
+        setSelected([]);
         const questions: Question[] = r.questions;
         setCtx({ ...ctx, questions });
         setQIdx(0);
@@ -256,8 +258,12 @@ export default function LiaCaptureChat({ formId, campaign, product }: { formId: 
             <div className={`lia-bubble max-w-[88%] rounded-lg px-3 pb-1 pt-2 text-[15px] leading-5 sm:max-w-[78%] ${m.from === "user" ? "lia-bubble-out rounded-tr-none bg-primary text-primary-foreground" : "lia-bubble-in rounded-tl-none bg-muted text-foreground"}`}>
               <p className="whitespace-pre-wrap break-words">{m.text}</p>
               {m.from === "lia" && (m.question || (i === msgs.length - 1 && q?.label === m.text ? q : null))?.options.map((option) => (
-                <Button key={option} size="sm" variant="secondary" className="lia-reply mt-2 h-auto min-h-9 w-full whitespace-normal rounded-md text-left text-xs" disabled={waiting || closed || i !== msgs.length - 1} onClick={() => submit(option)}>{option.trim()}</Button>
+                <Button key={option} size="sm" variant="secondary" className="lia-reply mt-2 h-auto min-h-9 w-full whitespace-normal rounded-md text-left text-xs" disabled={waiting || closed || i !== msgs.length - 1} aria-pressed={m.question?.field_type === "checkbox" ? selected.includes(option) : undefined} onClick={() => {
+                  if (m.question?.field_type === "checkbox") setSelected((items) => items.includes(option) ? items.filter((item) => item !== option) : [...items, option]);
+                  else submit(option);
+                }}>{m.question?.field_type === "checkbox" && selected.includes(option) ? "✓ " : ""}{option.trim()}</Button>
               ))}
+              {m.question?.field_type === "checkbox" && i === msgs.length - 1 && !closed && <Button variant="secondary" size="sm" className="mt-2 w-full" disabled={waiting || !selected.length} onClick={() => submit(selected)}>Confirmar</Button>}
               {m.createdAt && <time dateTime={new Date(m.createdAt).toISOString()} className="ml-4 mt-1 flex items-center justify-end gap-1 text-[10px] leading-3 text-muted-foreground">
                 {new Date(m.createdAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
               </time>}
