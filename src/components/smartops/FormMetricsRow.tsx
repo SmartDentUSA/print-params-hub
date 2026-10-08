@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -14,6 +15,7 @@ import {
   Wand2,
 } from "lucide-react";
 import { toast } from "sonner";
+import AttendanceChannelMetrics from "@/components/lia/AttendanceChannelMetrics";
 import { QrCodeButton } from "./QrCodeButton";
 import { getPublicOrigin } from "@/utils/publicOrigin";
 import type { FormMetrics, ShortLinkInfo } from "./FormMetricsCard";
