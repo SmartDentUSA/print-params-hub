@@ -23,6 +23,8 @@ export async function resolveFormProduct(
   if (!id) return null;
   const { data: product, error: productError } = await db.from("system_a_catalog")
     .select("id, name").eq("id", id).in("category", COMMERCIAL_TYPES).maybeSingle();
-  if (productError || !product?.name) throw new Error("Produto vinculado indisponível no catálogo.");
+  if (productError) throw new Error("Produto vinculado indisponível no catálogo.");
+  // Legacy category bindings are not products; preserve their existing flow.
+  if (!product?.name) return null;
   return { id: product.id, name: product.name };
 }
