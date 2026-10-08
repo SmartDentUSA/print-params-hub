@@ -87,7 +87,7 @@ export function FeiraEventoConfig({ formId }: { formId: string }) {
       );
       setProductButtons(
         Array.isArray(form?.event_product_buttons)
-          ? (form.event_product_buttons as EventProductButton[]).slice(0, 3)
+          ? (form.event_product_buttons as EventProductButton[]).slice(0, 10)
           : [],
       );
       setLoading(false);
@@ -228,13 +228,13 @@ export function FeiraEventoConfig({ formId }: { formId: string }) {
           <div className="flex items-center justify-between gap-3">
             <Label className="text-xs flex items-center gap-1.5">
               <MousePointerClick className="w-3.5 h-3.5" /> Botões de produto de interesse
-              <Badge variant="secondary" className="ml-1">{productButtons.length}/3</Badge>
+              <Badge variant="secondary" className="ml-1">{productButtons.length}/10</Badge>
             </Label>
             <Button
               type="button"
               variant="outline"
               size="sm"
-              disabled={productButtons.length >= 3}
+              disabled={productButtons.length >= 10}
               onClick={() =>
                 setProductButtons((current) => [
                   ...current,
@@ -286,7 +286,7 @@ export function FeiraEventoConfig({ formId }: { formId: string }) {
           ))}
           {productButtons.length === 0 && (
             <p className="rounded-md border border-dashed p-3 text-xs text-muted-foreground">
-              Nenhum botão configurado. Você pode adicionar até três.
+              Nenhum botão configurado. Você pode adicionar até dez.
             </p>
           )}
         </div>
