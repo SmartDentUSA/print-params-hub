@@ -56,7 +56,22 @@ export interface KolPerformance {
   products: KolSoldProduct[];
   forms: KolFormPerformance[];
   coupons: KolCouponPerformance[];
-  totals: { leads: number; deals: number; receita: number; receitaCupons: number; vendasCupons: number; views: number; visitors: number; daily_series: Array<{ d: string; v: number }>; cuponsGerados: number; clientesCupons: number };
+  totals: {
+    leads: number;
+    deals: number;
+    receita: number;
+    receitaCupons: number;
+    vendasCupons: number;
+    views: number;
+    visitors: number;
+    daily_series: Array<{ d: string; v: number }>;
+    cuponsGerados: number;
+    clientesCupons: number;
+    /** Comissão total (leads + cupons) pelas regras do KOL. null = nenhuma regra cadastrada. */
+    comissao: number | null;
+    comissaoLeads: number;
+    comissaoCupons: number;
+  };
 }
 
 const empty: KolPerformance = {
