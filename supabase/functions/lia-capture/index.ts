@@ -15,7 +15,7 @@ const IDENTITY_COLS = new Set(["nome", "email", "telefone_raw"]);
 const ANSWER_COLS = new Set([
   "area_atuacao", "especialidade", "tem_scanner", "equip_scanner", "impressora_modelo",
   "imprime_modelos", "imprime_placas", "imprime_guias", "imprime_resinas_ld",
-  "sdr_software_cad_interesse", "equip_pos_impressao", "cidade", "uf", "pais", "instagram",
+  "sdr_software_cad_interesse", "equip_pos_impressao", "cidade", "uf", "instagram",
 ]);
 const FALLBACK_WA = "5516993831794";
 
