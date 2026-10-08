@@ -6,6 +6,9 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { normalizeBrazilianPhone } from "../_shared/phone-normalize.ts";
 import { buildKnownAnswers, filterPending } from "./qualification.ts";
+import { syncFormNote } from "../_shared/form-note-sync.ts";
+
+declare const EdgeRuntime: { waitUntil(promise: Promise<unknown>): void };
 import { buildProductSummary, buildModulesSummary } from "./product-summary.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
@@ -287,6 +290,10 @@ Deno.serve(async (req) => {
           p_answers: [{ field_id: field.field_id, value }] });
         if (error) throw error;
       }
+      EdgeRuntime.waitUntil(syncFormNote(sb, body.lead_id).catch(async (error) => {
+        console.error("[lia-capture] CRM note refresh failed", error);
+        await sb.from("system_health_logs").insert({ function_name: "lia-capture", severity: "error", error_type: "crm_note_sync_failed", details: { lead_id: body.lead_id } });
+      }));
       return json({ ok: true, questions: await pendingQuestions(body.lead_id, context) });
     }
 
