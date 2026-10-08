@@ -392,7 +392,7 @@ export async function buildSellerDealSummaryHTML(
         .trim();
       if (INTERNAL_LABEL.has(key)) continue;
       // rótulo truncado/inutilizável ("Voc", "?")
-      if (key.replace(/ /g, "").length < 4) continue;
+      if (key.replace(/ /g, "").length < 2) continue;
       if (seen.has(key)) continue;
       seen.add(key);
       target.push({ label, value });

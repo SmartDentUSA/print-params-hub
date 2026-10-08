@@ -64,8 +64,12 @@ Deno.serve(async (req) => {
     const dealId = await getPiperunDealId(supabase, lead_id);
 
     if (!dealId) {
+      EdgeRuntime.waitUntil(syncFormNote(supabase, lead_id).catch(async (error) => {
+        console.error("[deal-form-note] deferred note failed", error);
+        await supabase.from("system_health_logs").insert({ function_name: "smart-ops-deal-form-note", severity: "error", error_type: "crm_note_sync_failed", details: { lead_id } });
+      }));
       console.warn(`[deal-form-note] No piperun_id found for lead ${lead_id} after retries`);
-      return json({ ok: false, reason: "no_deal_id" });
+      return json({ ok: true, queued: true, reason: "awaiting_deal_id" });
     }
 
     // Build full seller summary with the just-submitted form highlighted
