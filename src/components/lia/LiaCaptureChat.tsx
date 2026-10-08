@@ -134,9 +134,8 @@ export default function LiaCaptureChat({ formId, campaign, product }: { formId: 
   useEffect(() => {
     if (!closed || !lead || !ctx) return;
     let cancelled = false;
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 20000);
-    supabase.functions.invoke("lia-capture", { signal: controller.signal, body: {
+    const timeout = setTimeout(() => { cancelled = true; setBrainReady(true); }, 20000);
+    supabase.functions.invoke("lia-capture", { body: {
       action: "conversation", lead_id: lead.id, token: lead.token,
       form_id: ctx.form_id, campaign: ctx.campaign, product: ctx.product,
     } }).then(({ data: result }) => {
@@ -145,7 +144,7 @@ export default function LiaCaptureChat({ formId, campaign, product }: { formId: 
       clearTimeout(timeout);
       if (!cancelled) setBrainReady(true);
     });
-    return () => { cancelled = true; clearTimeout(timeout); controller.abort(); };
+    return () => { cancelled = true; clearTimeout(timeout); };
   }, [closed, lead?.id]);
 
   // Inatividade na qualificação com vendedor já designado → encerra
