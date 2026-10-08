@@ -1,3 +1,4 @@
+- [ ] LIA: substituir ganchos e convites artificiais por conversa fundamentada no conhecimento durante o encaminhamento, sem alterar ingestão ou regras comerciais.
 - [x] LIA: convite com nome e gênero do especialista; grupo cadastrado aparece 1 segundo após botão, ausente quando não configurado. Interface testada com vendedores controlados masculino/feminino/neutro; contexto implantado confirmou grupo real DentalCAD, compilação OK. Sem criar atendimento CRM de teste.
 - [x] Formulários do sistema e LIA resolvem interesse pelo produto vinculado no catálogo; Meta e históricos intactos. Testes de vínculo/botão/Meta e contexto publicado Edge Mini aprovados; chat e compilação OK. Entrega de nova submissão ao CRM não exercitada.
 - [x] Redesenhar Kanban e sala de suporte na direção Conversa e histórico, com ficha/conversa em áreas equilibradas e tema isolado.
