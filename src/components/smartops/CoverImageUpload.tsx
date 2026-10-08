@@ -16,6 +16,10 @@ function isVideoUrl(url: string) {
   return /(\.mp4|\.webm|\.ogg|\.mov)(\?|#|$)/i.test(url);
 }
 
+function isEmbedPlayerUrl(url: string) {
+  return /pandavideo|\/embed\/?\?v=|player-vz-/i.test(url);
+}
+
 interface Props {
   value: string;
   onChange: (url: string) => void;
