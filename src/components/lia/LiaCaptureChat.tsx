@@ -41,7 +41,9 @@ export default function LiaCaptureChat({ formId, campaign, product }: { formId: 
   const echo = (text: string) => setMsgs((m) => [...m, { from: "user", text, createdAt: Date.now() }]);
 
   useEffect(() => {
+    let cancelled = false;
     call({ action: "context", form_id: formId, campaign, product }).then(async (c: Ctx) => {
+      if (cancelled) return;
       setCtx(c);
       const saved = sessionStorage.getItem(storeKey);
       if (saved) {
@@ -49,16 +51,17 @@ export default function LiaCaptureChat({ formId, campaign, product }: { formId: 
           const s = JSON.parse(saved);
           if (s.lead && s.step === "qualify" && !s.closed) {
             const r = await call({ action: "qualification", lead_id: s.lead.id, token: s.lead.token, form_id: formId, campaign, product });
+            if (cancelled) return;
             const questions: Question[] = r.questions;
             setCtx({ ...c, questions });
             const messages: Msg[] = s.msgs ?? [];
             const last = messages[messages.length - 1];
-            if (last?.from === "lia" && c.questions.some((q) => q.label === last.text)) messages.pop();
-            setMsgs(messages); setData(s.data ?? {}); setLead(s.lead); setQIdx(0);
+            if (last?.from === "lia" && (c.questions.some((q) => q.label === last.text) || questions.some((q) => q.label === last.text))) messages.pop();
+            setData(s.data ?? {}); setLead(s.lead); setQIdx(0);
             if (questions.length) {
-              setStep("qualify"); say(questions[0].label);
+              setStep("qualify"); setMsgs([...messages, { from: "lia", text: questions[0].label, createdAt: Date.now() }]);
             } else {
-              setStep("done"); setClosed(true); say("Maravilha! Já tenho as informações para seguir com seu atendimento.");
+              setStep("done"); setClosed(true); setMsgs([...messages, { from: "lia", text: "Maravilha! Já tenho as informações para seguir com seu atendimento.", createdAt: Date.now() }]);
             }
             return;
           }
@@ -68,7 +71,8 @@ export default function LiaCaptureChat({ formId, campaign, product }: { formId: 
       }
       setMsgs([{ from: "lia", text: "Olá!", createdAt: Date.now() }, { from: "lia", text: c.opening, createdAt: Date.now() }]);
       trackAttendanceEvent({ channel: "whatsapp_lia", event_type: "open", form_id: c.form_id, campaign_slug: c.campaign, product_name: c.product });
-    }).catch(() => setMsgs([{ from: "lia", text: "Não consegui iniciar o atendimento agora. Tente novamente em instantes." }]));
+    }).catch(() => { if (!cancelled) setMsgs([{ from: "lia", text: "Não consegui iniciar o atendimento agora. Tente novamente em instantes." }]); });
+    return () => { cancelled = true; };
   }, [formId, campaign, product, storeKey]);
 
   useEffect(() => {
