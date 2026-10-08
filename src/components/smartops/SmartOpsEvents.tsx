@@ -168,8 +168,16 @@ export function SmartOpsEvents() {
   const [countryOpen, setCountryOpen] = useState(false);
 
   const [stats, setStats] = useState<Record<string, EventStats>>({});
+  const [crmSellers, setCrmSellers] = useState<
+    Record<string, { seller: string; leads: number; ganhos: number; valor: number }[]>
+  >({});
 
   async function loadStats() {
+    (supabase as any).rpc("fn_event_seller_crm_stats").then(({ data }: any) => {
+      const m: Record<string, any[]> = {};
+      for (const r of (data || []) as any[]) m[r.event_id] = r.by_seller || [];
+      setCrmSellers(m);
+    });
     const [{ data: leadStats }, { data: tables }] = await Promise.all([
       (supabase as any).rpc("fn_event_lead_stats", { p_event_id: null }),
       (supabase as any)
@@ -430,6 +438,32 @@ export function SmartOpsEvents() {
                           </ul>
                         )}
                       </div>
+
+                      {(crmSellers[r.id]?.length ?? 0) > 0 && (
+                        <div>
+                          <div className="text-[11px] uppercase text-muted-foreground mb-1">
+                            Vendedores no CRM desde o evento
+                          </div>
+                          <ul className="space-y-0.5">
+                            {crmSellers[r.id].map((s) => (
+                              <li key={s.seller} className="flex justify-between gap-2 text-xs">
+                                <span className="truncate">{s.seller}</span>
+                                <span className="font-semibold tabular-nums text-right">
+                                  {s.leads} lead{s.leads === 1 ? "" : "s"}
+                                  <span className="text-[10px] font-medium text-primary ml-1">
+                                    · {s.ganhos} venda{s.ganhos === 1 ? "" : "s"}
+                                  </span>
+                                  {s.valor > 0 && (
+                                    <span className="block text-[10px] font-medium text-muted-foreground">
+                                      {brl(s.valor)}
+                                    </span>
+                                  )}
+                                </span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
 
 
                       <div>
