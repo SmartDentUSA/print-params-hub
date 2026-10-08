@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DatePickerInput } from "@/components/smartops/DatePickerInput";
 import { Plus, Trash2, Ticket } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 import { PRODUCT_CATALOG_ENTITY_TYPES } from "@/lib/catalogEntityTypes";
 import ProfessionalKolPerformance from "./ProfessionalKolPerformance";
 
@@ -120,13 +121,33 @@ export default function ProfessionalKolCommercial({
   const patchRule = (i: number, p: Partial<KolCommissionRule>) =>
     onCommissionsChange(commissions.map((r, idx) => (idx === i ? { ...r, ...p } : r)));
 
-  const addCatRule = () =>
-    onCommissionsChange([
-      ...commissions,
-      { kind: "category", category: "", subcategory: null, product_id: "", product_name: "", percent: null, active_from: null },
-    ]);
   const isCat = (r: KolCommissionRule) => r.kind === "category";
   const removeRule = (i: number) => onCommissionsChange(commissions.filter((_, idx) => idx !== i));
+
+  /** Índice da regra de categoria/subcategoria existente (ou -1). */
+  const catRuleIdx = (category: string, subcategory: string | null) =>
+    commissions.findIndex((r) => isCat(r) && r.category === category && (r.subcategory ?? null) === subcategory);
+
+  /** Ativa/desativa uma combinação da lista pronta: cria ou remove a regra correspondente. */
+  const toggleCatRule = (category: string, subcategory: string | null, on: boolean) => {
+    const idx = catRuleIdx(category, subcategory);
+    if (on && idx === -1) {
+      onCommissionsChange([
+        ...commissions,
+        {
+          kind: "category",
+          category,
+          subcategory,
+          product_id: "",
+          product_name: subcategory ? `${category} › ${subcategory}` : category,
+          percent: null,
+          active_from: null,
+        },
+      ]);
+    } else if (!on && idx !== -1) {
+      removeRule(idx);
+    }
+  };
 
   const addCoupon = () => onCouponsChange([...coupons, { code: "", active_from: null, active_to: null, commission_percent: null }]);
   const patchCoupon = (i: number, p: Partial<KolCoupon>) =>
