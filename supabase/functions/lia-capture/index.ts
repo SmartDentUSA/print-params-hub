@@ -95,6 +95,16 @@ async function resolveContext(body: any) {
 }
 
 const validEmail = (v: unknown) => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(String(v ?? "")) && !/@(no-email|placeholder|example|test)\b/i.test(String(v));
+const hasAnswer = (value: unknown) => value !== null && value !== undefined && (typeof value !== "string" || !!value.trim());
+async function pendingQuestions(leadId: string, body: any) {
+  const ctx = await resolveContext(body);
+  const { data, error } = await sb.from("lia_attendances").select([...ANSWER_COLS].join(","))
+    .eq("id", leadId).is("merged_into", null).maybeSingle();
+  if (error) throw error;
+  if (!data) throw new Error("canonical lead not found");
+  const profile = data as unknown as Record<string, unknown>;
+  return ctx.questions.filter((q: any) => !hasAnswer(profile[q.db_column]));
+}
 function maskEmail(email: string) {
   const [local, domain] = email.toLowerCase().split("@");
   const dot = domain.lastIndexOf(".");
@@ -212,7 +222,12 @@ Deno.serve(async (req) => {
         channel: "whatsapp_lia", event_type: "lead", form_id: ctx.form_id, campaign_slug: ctx.campaign,
         product_name: ctx.product || null, lead_id: leadId, session_id: str(body.session_id, 120) || null,
       });
-      return json({ lead_id: leadId, token: await sign(leadId) });
+      return json({ lead_id: leadId, token: await sign(leadId), questions: await pendingQuestions(leadId, body) });
+    }
+
+    if (action === "qualification") {
+      if (!(await checkToken(body.lead_id, body.token))) return json({ error: "unauthorized" }, 401);
+      return json({ questions: await pendingQuestions(body.lead_id, body) });
     }
 
     if (action === "answer") {
