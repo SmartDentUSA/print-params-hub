@@ -30,6 +30,9 @@ export interface KolCouponRule {
 }
 
 export interface KolProductRule {
+  kind?: "product" | "category";
+  category?: string | null;
+  subcategory?: string | null;
   product_name: string;
   percent: number | null;
   active_from: string | null;
@@ -38,13 +41,25 @@ export interface KolProductRule {
 const norm = (v: string | null | undefined) =>
   (v ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 
+export interface KolSoldProduct {
+  produto: string;
+  categoria: string | null;
+  subcategoria: string | null;
+  origem: "formulario" | "cupom";
+  quantidade: number;
+  valor: number;
+  comissao: number | null;
+}
+
 export interface KolPerformance {
+  products: KolSoldProduct[];
   forms: KolFormPerformance[];
   coupons: KolCouponPerformance[];
   totals: { leads: number; deals: number; receita: number; receitaCupons: number; vendasCupons: number; views: number; visitors: number; cuponsGerados: number; clientesCupons: number };
 }
 
 const empty: KolPerformance = {
+  products: [],
   forms: [],
   coupons: [],
   totals: { leads: 0, deals: 0, receita: 0, receitaCupons: 0, vendasCupons: 0, views: 0, visitors: 0, cuponsGerados: 0, clientesCupons: 0 },
@@ -68,10 +83,13 @@ export function useKolPerformance(formIds: { id: string; name: string }[], coupo
   const key = `${ids.slice().sort().join(",")}|${rules
     .map((c) => `${c.code}:${c.active_from ?? ""}:${c.active_to ?? ""}`)
     .sort()
-    .join(",")}|${productRules.map((r) => `${r.product_name}:${r.percent}:${r.active_from}`).join(",")}`;
+    .join(",")}|${productRules.map((r) => `${r.kind ?? "p"}:${r.category ?? ""}:${r.subcategory ?? ""}:${r.product_name}:${r.percent}:${r.active_from}`).join(",")}`;
   const prules = productRules
-    .filter((r) => r.product_name && r.percent != null)
+    .filter((r) => r.kind !== "category" && r.product_name && r.percent != null)
     .map((r) => ({ key: norm(r.product_name), pct: Number(r.percent), from: r.active_from ? String(r.active_from).slice(0, 10) : null }));
+  const crules = productRules
+    .filter((r) => r.kind === "category" && r.category && r.percent != null)
+    .map((r) => ({ cat: norm(r.category), sub: r.subcategory ? norm(r.subcategory) : null, pct: Number(r.percent), from: r.active_from ? String(r.active_from).slice(0, 10) : null }));
   const fallbackPct = rules.find((c) => c.commission_percent != null)?.commission_percent ?? null;
 
   const load = useCallback(async () => {
@@ -81,6 +99,47 @@ export function useKolPerformance(formIds: { id: string; name: string }[], coupo
     }
     setLoading(true);
     try {
+      // Portfólio: nome do produto → categoria/subcategoria
+      const catalog = new Map<string, { cat: string | null; sub: string | null }>();
+      const { data: catRows } = await (supabase as any)
+        .from("system_a_catalog")
+        .select("name, product_category, product_subcategory")
+        .not("product_category", "is", null)
+        .limit(2000);
+      for (const c of (catRows ?? []) as any[]) catalog.set(norm(c.name), { cat: c.product_category, sub: c.product_subcategory });
+      const classify = (rawName: string, cat?: string | null, sub?: string | null) => {
+        const n = norm(rawName);
+        let hit = catalog.get(n);
+        if (!hit) {
+          let best = "";
+          for (const k of catalog.keys()) if (k.length > best.length && k.length >= 5 && (n.includes(k) || k.includes(n))) best = k;
+          if (best) hit = catalog.get(best);
+        }
+        return { cat: hit?.cat ?? cat ?? null, sub: hit?.sub ?? sub ?? null };
+      };
+      const pctFor = (rawName: string, cat: string | null, sub: string | null, date: string | null, fb: number | null) => {
+        const name = norm(rawName);
+        const okDate = (from: string | null) => !from || !date || date >= from;
+        const pr = prules
+          .filter((r) => r.key && (name === r.key || name.includes(r.key) || r.key.includes(name)) && okDate(r.from))
+          .sort((a, b) => b.key.length - a.key.length)[0];
+        if (pr) return pr.pct;
+        const nc = norm(cat), ns = norm(sub);
+        const sr = crules.find((r) => r.sub && r.cat === nc && r.sub === ns && okDate(r.from));
+        if (sr) return sr.pct;
+        const cr = crules.find((r) => !r.sub && r.cat === nc && okDate(r.from));
+        if (cr) return cr.pct;
+        return fb;
+      };
+      const sold = new Map<string, KolSoldProduct>();
+      const addSold = (origem: "formulario" | "cupom", produto: string, cat: string | null, sub: string | null, qtd: number, valor: number, com: number | null) => {
+        const k = `${origem}|${norm(produto)}`;
+        const cur = sold.get(k) ?? { produto, categoria: cat, subcategoria: sub, origem, quantidade: 0, valor: 0, comissao: null };
+        cur.quantidade += qtd;
+        cur.valor += valor;
+        if (com != null) cur.comissao = (cur.comissao ?? 0) + com;
+        sold.set(k, cur);
+      };
       const forms: KolFormPerformance[] = [];
       const leadsByForm: Record<string, Set<string>> = {};
 
@@ -153,7 +212,6 @@ export function useKolPerformance(formIds: { id: string; name: string }[], coupo
           for (const d of won) {
             wonByLead[d.lead_id] = (wonByLead[d.lead_id] ?? 0) + Number(d.value ?? 0);
           }
-          if (prules.length === 0 && fallbackPct == null) continue;
           // Itens das propostas dos negócios ganhos → regra por produto (respeitando a data de ativação)
           const dealIds = new Set<string>();
           const dealDate: Record<string, string | null> = {};
@@ -167,7 +225,7 @@ export function useKolPerformance(formIds: { id: string; name: string }[], coupo
           if (dealIds.size > 0) {
             const { data: items } = await (supabase as any)
               .from("deal_items")
-              .select("deal_id, lead_id, product_name, nome_produto, total_value, valor_total, deal_date, parent_deal_item_id")
+              .select("deal_id, lead_id, product_name, nome_produto, total_value, valor_total, quantity, quantidade, deal_date, parent_deal_item_id, product_category, product_subcategory")
               .in("lead_id", chunk)
               .limit(20000);
             for (const it of (items ?? []) as any[]) {
@@ -177,12 +235,13 @@ export function useKolPerformance(formIds: { id: string; name: string }[], coupo
               const name = norm(it.product_name || it.nome_produto);
               const date = dealDate[did] ?? (it.deal_date ? String(it.deal_date).slice(0, 10) : null);
               const val = Number(it.total_value ?? it.valor_total ?? 0);
-              const rule = prules
-                .filter((r) => r.key && (name === r.key || name.includes(r.key) || r.key.includes(name)))
-                .filter((r) => !r.from || !date || date >= r.from)
-                .sort((a, b) => b.key.length - a.key.length)[0];
-              const pct = rule ? rule.pct : fallbackPct;
-              if (pct != null) commByLead[it.lead_id] = (commByLead[it.lead_id] ?? 0) + (val * pct) / 100;
+              void name;
+              const raw = it.product_name || it.nome_produto || "(sem nome)";
+              const c = classify(raw, it.product_category, it.product_subcategory);
+              const pct = pctFor(raw, c.cat, c.sub, date, fallbackPct);
+              const com = pct != null ? (val * pct) / 100 : null;
+              if (com != null) commByLead[it.lead_id] = (commByLead[it.lead_id] ?? 0) + com;
+              addSold("formulario", raw, c.cat, c.sub, Number(it.quantity ?? it.quantidade ?? 1) || 1, val, com);
             }
           }
           // Negócios ganhos sem itens de proposta: usa a % geral do KOL sobre o valor do negócio
@@ -226,6 +285,18 @@ export function useKolPerformance(formIds: { id: string; name: string }[], coupo
           _to: rule.active_to ? String(rule.active_to).slice(0, 10) : null,
         });
         const r0 = ((cRows ?? []) as any[])[0] ?? {};
+        const { data: iRows } = await (supabase as any).rpc("fn_kol_coupon_items", {
+          _code: rule.code,
+          _from: rule.active_from ? String(rule.active_from).slice(0, 10) : null,
+          _to: rule.active_to ? String(rule.active_to).slice(0, 10) : null,
+        });
+        for (const it of (iRows ?? []) as any[]) {
+          const raw = it.produto || "(sem nome)";
+          const c = classify(raw);
+          const val = Number(it.valor) || 0;
+          const pct = pctFor(raw, c.cat, c.sub, it.data_pedido ? String(it.data_pedido).slice(0, 10) : null, rule.commission_percent ?? null);
+          addSold("cupom", raw, c.cat, c.sub, Number(it.quantidade) || 1, val, pct != null ? (val * pct) / 100 : null);
+        }
         couponsPerf.push({
           cupom: rule.code,
           active_from: rule.active_from ?? null,
@@ -239,6 +310,7 @@ export function useKolPerformance(formIds: { id: string; name: string }[], coupo
       const coupons = couponsPerf;
 
       setData({
+        products: Array.from(sold.values()).sort((a, b) => b.valor - a.valor),
         forms,
         coupons,
         totals: {
