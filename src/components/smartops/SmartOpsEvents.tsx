@@ -411,11 +411,17 @@ export function SmartOpsEvents() {
                             {sellers.map((s) => (
                               <li key={s.seller} className="flex justify-between gap-2 text-xs">
                                 <span className="truncate">{s.seller}</span>
-                                <span className="font-semibold tabular-nums">
+                                <span className="font-semibold tabular-nums text-right">
                                   {s.qtd} lead{s.qtd === 1 ? "" : "s"}
                                   {!!s.ganhos && (
                                     <span className="text-[10px] font-medium text-primary ml-1">
                                       · {s.ganhos} ganho{s.ganhos > 1 ? "s" : ""}
+                                      {` (${Math.round(((s.ganhos || 0) / s.qtd) * 100)}%)`}
+                                    </span>
+                                  )}
+                                  {!!s.valor && s.valor > 0 && (
+                                    <span className="block text-[10px] font-medium text-muted-foreground">
+                                      {brl(s.valor)}
                                     </span>
                                   )}
                                 </span>
