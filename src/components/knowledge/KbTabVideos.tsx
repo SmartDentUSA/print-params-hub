@@ -41,6 +41,8 @@ export default function KbTabVideos({ onOpen, letterFilter }: Props) {
   const [sort, setSort] = useState<KbSortKey>('recent');
   const [view, setView] = useState<KbViewMode>('grid');
 
+  useEffect(() => { setChip('all'); setQ(''); }, [letterFilter]);
+
   useEffect(() => {
     let cancel = false;
     setLoading(true);

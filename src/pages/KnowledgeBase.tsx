@@ -1,3 +1,4 @@
+import { fetchAllRows } from '@/utils/fetchAllRows';
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -74,7 +75,7 @@ export default function KnowledgeBase({ lang = 'pt', forcedTab }: KnowledgeBaseP
   }, [categoryLetter]);
   const [dialogContent, setDialogContent] = useState<any>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [catCounts, setCatCounts] = useState<Record<string, { name: string; count: number }>>({});
+  const [countsByTab, setCountsByTab] = useState<Record<string, Record<string, { name: string; count: number }>>>({});
   const [countryCounts, setCountryCounts] = useState<Array<{ country: string; count: number }>>([]);
   const [catalogRowsMeta, setCatalogRowsMeta] = useState<Array<{ name: string | null; product_category: string | null; product_subcategory: string | null }>>([]);
   const [activeCatalogFilter, setActiveCatalogFilter] = useState<string>(() => {
@@ -128,18 +129,26 @@ export default function KnowledgeBase({ lang = 'pt', forcedTab }: KnowledgeBaseP
     })();
   }, []);
   useEffect(() => {
+    let cancelled = false;
     (async () => {
-      const { data } = await supabase
-        .from('knowledge_categories')
-        .select('letter, name, knowledge_contents(count)')
-        .eq('knowledge_contents.active', true);
-      if (!data) return;
-      const m: Record<string, { name: string; count: number }> = {};
-      (data as any[]).forEach((row) => {
-        m[row.letter] = { name: row.name, count: row.knowledge_contents?.[0]?.count ?? 0 };
-      });
-      setCatCounts(m);
+      const { data, error } = await fetchAllRows((from, to) => supabase
+        .from('knowledge_contents')
+        .select('id,is_ebook,knowledge_categories!inner(letter,name),knowledge_videos(id)')
+        .eq('active', true).order('id').range(from, to), () => cancelled);
+      if (cancelled) return;
+      if (error) { console.error('Knowledge sidebar counts', error); return; }
+      const counts: Record<string, Record<string, { name: string; count: number }>> = {};
+      for (const row of data || []) {
+        const kind = row.is_ebook ? 'ebooks' : row.knowledge_videos.length ? 'videos' : 'artigos';
+        const category = row.knowledge_categories;
+        if (!category) continue;
+        counts[kind] ??= {};
+        counts[kind][category.letter] ??= { name: category.name, count: 0 };
+        counts[kind][category.letter].count++;
+      }
+      setCountsByTab(counts);
     })();
+    return () => { cancelled = true; };
   }, []);
   useEffect(() => {
     (async () => {
@@ -257,12 +266,8 @@ export default function KnowledgeBase({ lang = 'pt', forcedTab }: KnowledgeBaseP
     const heroTitle = (isDefaultLang && override.title) ? override.title : hero.title;
     const heroSubtitle = (isDefaultLang && override.subtitle) ? override.subtitle : hero.subtitle;
     const heroArt = override.image_url || heroPrinterImg;
-    const TAB_LETTERS: Partial<Record<KbShellNavKey, string[]>> = {
-      videos: ['A', 'E', 'C', 'G'],
-      artigos: ['B', 'C', 'D', 'F'],
-      catalogo: ['G'],
-    };
-    const letters = TAB_LETTERS[activeKey] ?? [];
+    const catCounts = countsByTab[activeKey] ?? {};
+    const letters = Object.keys(catCounts).sort();
     const total = letters.reduce((s, l) => s + (catCounts[l]?.count ?? 0), 0);
     const basePath = lang === 'en' ? '/en/knowledge-base'
       : lang === 'es' ? '/es/base-conocimiento'

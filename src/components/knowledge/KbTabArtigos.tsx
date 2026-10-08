@@ -40,6 +40,8 @@ export default function KbTabArtigos({ onOpen, letterFilter }: Props) {
   const [sort, setSort] = useState<KbSortKey>('recent');
   const [view, setView] = useState<KbViewMode>('grid');
 
+  useEffect(() => { setChip('all'); setQ(''); }, [letterFilter]);
+
   useEffect(() => {
     let cancel = false;
     setLoading(true);
@@ -62,10 +64,8 @@ export default function KbTabArtigos({ onOpen, letterFilter }: Props) {
       // When the user is searching, ignore the active chip and scan the whole base.
       // Chip selection has priority over letter route filter: when the user
       // explicitly picks a category chip, respect it and ignore /letra.
-      // Chip 'all': exclui Parâmetros Técnicos (tem navegação própria — pill F e chip dedicado).
       if (!term && chip !== 'all') query = query.eq('category_id', chip);
       else if (!term && letterFilter) query = query.eq('knowledge_categories.letter', letterFilter.toUpperCase());
-      else if (!term) query = query.neq('category_id', '67f92f1b-ea9e-42b9-94d1-7d685e25629c');
       if (term) {
         const safe = term.replace(/[%,()]/g, ' ');
         query = query.or(`title.ilike.%${safe}%,excerpt.ilike.%${safe}%,content_html.ilike.%${safe}%`).limit(10000);
