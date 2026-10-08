@@ -1,3 +1,5 @@
+import { institutionalCopy as C } from '@/content/institutional';
+import { isInstitutionalHost } from '@/utils/institutionalHost';
 import { useState } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { ArrowRight, MessageCircle, ShieldCheck, GraduationCap, Printer, ScanLine, Layers, Sparkles, Beaker, ChevronDown, MapPin, Building2, FlaskConical, Award, Globe2 } from 'lucide-react';
@@ -16,138 +18,19 @@ const LOGOS = [logoFda, logoIso, logoUnc, logoUsp];
 const LOGO_DIM: Array<[number, number]> = [[900, 188], [900, 324], [900, 387], [900, 366]];
 
 type Lang = 'pt' | 'en' | 'es';
-const SITE = 'https://parametros.smartdent.com.br';
+const SITE = typeof window !== 'undefined' && isInstitutionalHost(window.location.hostname)
+  ? 'https://www.smartdent.com.br' : 'https://parametros.smartdent.com.br';
 const STORE = 'https://loja.smartdent.com.br';
 const IMG = 'https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/landing-page-images/';
 const WA_SALES = 'https://api.whatsapp.com/send?phone=5516993831794&text=';
 const WA_SUPPORT = 'https://api.whatsapp.com/send/?phone=551634194735&text=';
 
 const PATHS: Record<Lang, { kb: string; home: string }> = {
-  pt: { kb: '/base-conhecimento', home: '/institucional' },
+  pt: { kb: '/base-conhecimento', home: SITE === 'https://www.smartdent.com.br' ? '/' : '/institucional' },
   en: { kb: '/en/knowledge-base', home: '/en/institutional' },
   es: { kb: '/es/base-conocimiento', home: '/es/institucional' },
 };
 
-const C = {
-  pt: {
-    seoTitle: 'Smart Dent — Odontologia Digital End-to-End | Resinas 3D, Scanners e Impressoras',
-    seoDesc: 'Smart Dent: spin-off da USP São Carlos desde 2009, parceira da UNC Charlotte e registrada no FDA. Resinas 3D, scanners intraorais, impressoras 3D, softwares CAD e treinamento.',
-    eyebrow: 'Workflow Digital End-to-End',
-    h1a: 'Inovação e tecnologia', h1b: 'para a odontologia', h1c: 'digital.',
-    lead: 'A Smart Dent fabrica insumos para odontologia digital e integra scanners intraorais, softwares e impressoras 3D para fluxos laboratoriais e clínicos.',
-    tldr: 'Em resumo: a Smart Dent é uma empresa brasileira de odontologia digital (São Carlos-SP, 2009) com subsidiária nos EUA (Charlotte-NC), que fabrica insumos e integra resinas 3D biocompatíveis, scanners, impressoras, softwares CAD e treinamento com suporte técnico incluso.',
-    ctaTalk: 'Falar com especialista', ctaStore: 'Visitar a loja', ctaParams: 'Acessar parâmetros',
-    videoTitle: 'Conheça a Smart Dent', videoSub: 'Descubra o poder do Chair Side com resina Vitality — o fluxo digital completo dentro do seu consultório.',
-    logos: [['FDA', 'Registro nº 3027526455'], ['ISO 13485', 'Gestão da qualidade'], ['UNC Charlotte', 'Parceira universitária R1'], ['USP', 'Origem da empresa · 2009']],
-    solTitle: 'Nossas soluções', solSub: 'Tudo o que o consultório e o laboratório precisam do escaneamento a cimentação.',
-    sol: [
-      ['RESINAS 3D ODONTOLÓGICAS DE ALTA TECNOLOGIA', 'Biocompatíveis, com certificações ISO 10993, ANVISA e FDA.', 'resinas-3d', 'resina-3d-smartprint-bio-vitality'],
-      ['SOFTWARES DE PLANEJAMENTO', 'exocad DentalCAD, exoplan e Smart Slicer.', 'exocad-software-cad', 'software-cad-exocad-dentcad'],
-      ['SCANNERS INTRAORAIS E BANCADA', 'Medit i600, i700 e BLZ INO200 com suporte nacional.', 'scanners-3d', 'ios-medit-i600'],
-      ['IMPRESSORAS 3D ODONTOLÓGICAS', 'Rayshape, Asiga, Elegoo e o fluxo ChairSide Print.', 'impressoras-3d', 'impressora-3d-rayshape-edge-mini'],
-      ['SISTEMAS DE PÓS-CURA E CARACTERIZAÇÃO', 'Asiga Cure, ShapeCure, SmartMake, SmartGum e GlazeON.', 'maleta-smart-make', 'caracterizacao-smart-make'],
-      ['CIMENTAÇÃO, DENTÍSTICA E ORTODONTIA', 'NanoClean, cimento UNIKK e adesivo SmartOrto.', 'nanoclean', 'cimento-unikk'],
-    ],
-    shop: 'Ver no catálogo', quote: 'Solicitar proposta',
-    flowTitle: 'Como funciona', flow: [['Consultoria gratuita', 'Entendemos seu fluxo e seu investimento.'], ['Proposta sob medida', 'Apenas o que faz sentido para o seu negócio.'], ['Entrega e instalação', 'Contrato, nota fiscal e instalação assistida.'], ['Treinamento e suporte', 'Cursos presenciais e online com suporte incluso.']],
-    storyTitle: 'Ciência aplicada à odontologia', story: 'Fundada em 2009 em São Carlos (SP) como MMTech Projetos Tecnológicos, liderada por Marcelo Del Guerra e Marcelo Cestari, com background na EESC-USP. Nasceu da pesquisa aplicada em materiais odontológicos e manufatura CNC, com apoio de FAPESP, CAPES e CNPq — e culminou no fluxo ChairSide Print, que leva a odontologia digital para dentro do consultório.',
-    usTitle: 'Presença nos Estados Unidos', us: 'Desde 2022 a MMTech North America LLC opera em Charlotte (NC), com escritório na 10800 Sikes Place e presença no campus da UNC Charlotte (Grigg Hall 146) como University Business Partner — universidade de pesquisa R1.',
-    distTitle: 'Distribuidores', dist: 'Nossa rede de distribuidores oficiais leva os insumos e os equipamentos Smart Dent para clínicas e laboratórios em toda a América. Cada distribuidor aprovado ganha página oficial no nosso domínio, material de divulgação e suporte técnico direto da fábrica.', distCta1: 'Ver a rede atual', distCta2: 'Quero ser distribuidor',
-    boughtTitle: 'Comprou nossa resina?', boughtSub: 'Encontre os parâmetros validados para a sua impressora 3D.',
-    faqTitle: 'Perguntas frequentes',
-    faq: [
-      ['O que é a Smart Dent?', 'Empresa especializada em odontologia digital que oferece equipamentos, insumos e suporte técnico para CAD/CAM, impressão 3D, escaneamento intraoral e fresagem.'],
-      ['Para quem são as soluções?', 'Cirurgiões-dentistas, laboratórios de prótese, ortodontistas e clínicas — de quem está começando a laboratórios de alto volume.'],
-      ['Há suporte técnico e treinamento?', 'Sim. Todo produto tem suporte técnico especializado incluso, além de cursos presenciais e online.'],
-      ['Existe financiamento?', 'Sim. Parcelamento facilitado de equipamentos e condições especiais para clínicas e laboratórios com múltiplas unidades.'],
-      ['Os equipamentos têm garantia?', 'Sim, com prazo e cobertura conforme fabricante e linha, além de manutenção preventiva e peças de reposição.'],
-      ['Atendem todo o Brasil?', 'Sim, com equipe comercial e suporte centralizado em todo o território nacional.'],
-      ['Os produtos são certificados?', 'Sim. Os materiais seguem ISO 10993, ANVISA e FDA, garantindo biocompatibilidade e segurança clínica.'],
-    ],
-    finalTitle: 'Compromisso com a sua jornada', final: 'Nossos especialistas entendem a fundo o seu fluxo de trabalho e oferecem apenas o que realmente faz sentido para o seu negócio.',
-    support: 'Suporte técnico', courses: 'Cursos online', kb: 'Base de conhecimento',
-    waSales: 'Olá, tudo bem? Vim pela página institucional da Smart Dent e gostaria de falar com um especialista.',
-    waSupport: 'Olá, Smart Dent, preciso de informações de suporte.',
-  },
-  en: {
-    seoTitle: 'Smart Dent — End-to-End Digital Dentistry | 3D Resins, Scanners & Printers',
-    seoDesc: 'Smart Dent: USP spin-off since 2009, UNC Charlotte partner and FDA-registered. Biocompatible 3D resins, intraoral scanners, 3D printers, CAD software and training.',
-    eyebrow: 'End-to-End Digital Workflow',
-    h1a: 'Innovation and technology', h1b: 'for digital', h1c: 'dentistry.',
-    lead: 'Smart Dent manufactures digital dentistry supplies and integrates intraoral scanners, software and 3D printers for laboratory and clinical workflows.',
-    tldr: 'In short: Smart Dent is a Brazilian digital dentistry company (São Carlos, 2009) with a US subsidiary (Charlotte, NC), that manufactures supplies and integrates biocompatible 3D resins, scanners, printers, CAD software and training with technical support included.',
-    ctaTalk: 'Talk to a specialist', ctaStore: 'Visit the store', ctaParams: 'Printing parameters',
-    videoTitle: 'Meet Smart Dent', videoSub: 'Discover the power of Chair Side with Vitality resin — the complete digital workflow inside your practice.',
-    logos: [['FDA', 'Est. No. 3027526455'], ['ISO 13485', 'Quality management'], ['UNC Charlotte', 'R1 University partner'], ['USP', 'Company origin · 2009']],
-    solTitle: 'Our solutions', solSub: 'Everything clinics and labs need — from scanning to finishing.',
-    sol: [
-      ['Dental 3D resins', 'Biocompatible, ISO 10993, ANVISA and FDA certified.', 'resinas-3d', 'resina-3d-smartprint-bio-vitality'],
-      ['Planning software', 'exocad DentalCAD, exoplan and Smart Slicer.', 'exocad-software-cad', 'software-cad-exocad-dentcad'],
-      ['Intraoral & desktop scanners', 'Medit i600, i700 and BLZ INO200.', 'scanners-3d', 'ios-medit-i600'],
-      ['Dental 3D printers', 'Rayshape, Asiga, Elegoo and the ChairSide Print workflow.', 'impressoras-3d', 'impressora-3d-rayshape-edge-mini'],
-      ['Post-curing & characterization', 'Asiga Cure, ShapeCure, SmartMake, SmartGum and GlazeON.', 'maleta-smart-make', 'caracterizacao-smart-make'],
-      ['Cleaning & cementation', 'NanoClean, UNIKK cement and SmartOrto adhesive.', 'nanoclean', 'cimento-unikk'],
-    ],
-    shop: 'View in catalog', quote: 'Request a quote',
-    flowTitle: 'How it works', flow: [['Free consultation', 'We understand your workflow and budget.'], ['Tailored proposal', 'Only what makes sense for your business.'], ['Delivery & setup', 'Contract, invoice and assisted installation.'], ['Training & support', 'In-person and online courses, support included.']],
-    storyTitle: 'Science applied to dentistry', story: 'Founded in 2009 in São Carlos, Brazil, as MMTech, led by Marcelo Del Guerra and Marcelo Cestari with an EESC-USP academic background. Born from applied research in dental materials and CNC manufacturing, funded by FAPESP, CAPES and CNPq — leading to the ChairSide Print workflow.',
-    usTitle: 'Presence in the United States', us: 'Since 2022, MMTech North America LLC operates in Charlotte, NC (10800 Sikes Place) and on the UNC Charlotte campus (Grigg Hall 146) as a University Business Partner of this R1 research university.',
-    distTitle: 'Distributors', dist: 'Our network of official distributors brings Smart Dent consumables and equipment to clinics and labs across the Americas. Every approved distributor gets an official page on our domain, marketing material and technical support straight from the factory.', distCta1: 'See the current network', distCta2: 'Become a distributor',
-    boughtTitle: 'Bought our resin?', boughtSub: 'Find validated parameters for your 3D printer.',
-    faqTitle: 'Frequently asked questions',
-    faq: [
-      ['What is Smart Dent?', 'A digital dentistry company providing equipment, materials and technical support for CAD/CAM, 3D printing, intraoral scanning and milling.'],
-      ['Who are the solutions for?', 'Dentists, dental labs, orthodontists and clinics — from beginners to high-volume labs.'],
-      ['Is support and training included?', 'Yes. Every product includes specialized technical support, plus in-person and online courses.'],
-      ['Is financing available?', 'Yes, with installment plans and special conditions for multi-unit clinics and labs.'],
-      ['Do products have a warranty?', 'Yes, according to manufacturer and product line, plus preventive maintenance and spare parts.'],
-      ['Are products certified?', 'Yes. Materials follow ISO 10993, ANVISA and FDA standards for biocompatibility and clinical safety.'],
-    ],
-    finalTitle: 'Committed to your journey', final: 'Our specialists deeply understand your workflow and offer only what truly makes sense for your business.',
-    support: 'Technical support', courses: 'Online courses', kb: 'Knowledge base',
-    waSales: 'Hello! I came from the Smart Dent institutional page and would like to talk to a specialist.',
-    waSupport: 'Hello Smart Dent, I need support information.',
-  },
-  es: {
-    seoTitle: 'Smart Dent — Odontología Digital End-to-End | Resinas 3D, Escáneres e Impresoras',
-    seoDesc: 'Smart Dent: spin-off de la USP desde 2009, socia de UNC Charlotte y registrada en la FDA. Resinas 3D, escáneres intraorales, impresoras 3D, software CAD y formación.',
-    eyebrow: 'Flujo Digital End-to-End',
-    h1a: 'Innovación y tecnología', h1b: 'para la odontología', h1c: 'digital.',
-    lead: 'Smart Dent fabrica insumos para odontología digital e integra escáneres intraorales, software e impresoras 3D para flujos de laboratorio y clínicos.',
-    tldr: 'En resumen: Smart Dent es una empresa brasileña de odontología digital (São Carlos, 2009) con filial en EE. UU. (Charlotte, NC), que fabrica insumos e integra resinas 3D biocompatibles, escáneres, impresoras, software CAD y formación con soporte técnico incluido.',
-    ctaTalk: 'Hablar con un especialista', ctaStore: 'Visitar la tienda', ctaParams: 'Parámetros de impresión',
-    videoTitle: 'Conozca Smart Dent', videoSub: 'Descubra el poder del Chair Side con resina Vitality — el flujo digital completo en su consultorio.',
-    logos: [['FDA', 'Registro n.º 3027526455'], ['ISO 13485', 'Gestión de calidad'], ['UNC Charlotte', 'Socia universitaria R1'], ['USP', 'Origen de la empresa · 2009']],
-    solTitle: 'Nuestras soluciones', solSub: 'Todo lo que clínicas y laboratorios necesitan — del escaneo al acabado.',
-    sol: [
-      ['Resinas 3D odontológicas', 'Biocompatibles, certificadas ISO 10993, ANVISA y FDA.', 'resinas-3d', 'resina-3d-smartprint-bio-vitality'],
-      ['Software de planificación', 'exocad DentalCAD, exoplan y Smart Slicer.', 'exocad-software-cad', 'software-cad-exocad-dentcad'],
-      ['Escáneres intraorales y de mesa', 'Medit i600, i700 y BLZ INO200.', 'scanners-3d', 'ios-medit-i600'],
-      ['Impresoras 3D odontológicas', 'Rayshape, Asiga, Elegoo y el flujo ChairSide Print.', 'impressoras-3d', 'impressora-3d-rayshape-edge-mini'],
-      ['Poscurado y caracterización', 'Asiga Cure, ShapeCure, SmartMake, SmartGum y GlazeON.', 'maleta-smart-make', 'caracterizacao-smart-make'],
-      ['Limpieza y cementación', 'NanoClean, cemento UNIKK y adhesivo SmartOrto.', 'nanoclean', 'cimento-unikk'],
-    ],
-    shop: 'Ver en el catálogo', quote: 'Solicitar propuesta',
-    flowTitle: 'Cómo funciona', flow: [['Consultoría gratuita', 'Entendemos su flujo y su inversión.'], ['Propuesta a medida', 'Solo lo que tiene sentido para su negocio.'], ['Entrega e instalación', 'Contrato, factura e instalación asistida.'], ['Formación y soporte', 'Cursos presenciales y online con soporte incluido.']],
-    storyTitle: 'Ciencia aplicada a la odontología', story: 'Fundada en 2009 en São Carlos (Brasil) como MMTech, liderada por Marcelo Del Guerra y Marcelo Cestari, con formación en la EESC-USP. Nació de la investigación aplicada en materiales dentales y manufactura CNC, con apoyo de FAPESP, CAPES y CNPq.',
-    usTitle: 'Presencia en Estados Unidos', us: 'Desde 2022, MMTech North America LLC opera en Charlotte (NC), en 10800 Sikes Place y en el campus de UNC Charlotte (Grigg Hall 146) como University Business Partner, universidad de investigación R1.',
-    distTitle: 'Distribuidores', dist: 'Nuestra red de distribuidores oficiales lleva los insumos y equipos Smart Dent a clínicas y laboratorios de toda América. Cada distribuidor aprobado recibe una página oficial en nuestro dominio, material de difusión y soporte técnico directo de fábrica.', distCta1: 'Ver la red actual', distCta2: 'Quiero ser distribuidor',
-    boughtTitle: '¿Compró nuestra resina?', boughtSub: 'Encuentre los parámetros validados para su impresora 3D.',
-    faqTitle: 'Preguntas frecuentes',
-    faq: [
-      ['¿Qué es Smart Dent?', 'Empresa de odontología digital que ofrece equipos, insumos y soporte técnico para CAD/CAM, impresión 3D, escaneo intraoral y fresado.'],
-      ['¿Para quién son las soluciones?', 'Odontólogos, laboratorios, ortodoncistas y clínicas — desde principiantes hasta laboratorios de alto volumen.'],
-      ['¿Incluye soporte y formación?', 'Sí. Todo producto incluye soporte técnico especializado y cursos presenciales y online.'],
-      ['¿Hay financiación?', 'Sí, con pagos en cuotas y condiciones especiales para clínicas y laboratorios.'],
-      ['¿Los equipos tienen garantía?', 'Sí, según fabricante y línea, con mantenimiento preventivo y repuestos.'],
-      ['¿Los productos están certificados?', 'Sí. Siguen ISO 10993, ANVISA y FDA, garantizando biocompatibilidad y seguridad clínica.'],
-    ],
-    finalTitle: 'Compromiso con su camino', final: 'Nuestros especialistas entienden a fondo su flujo de trabajo y ofrecen solo lo que realmente tiene sentido para su negocio.',
-    support: 'Soporte técnico', courses: 'Cursos online', kb: 'Base de conocimiento',
-    waSales: '¡Hola! Vengo de la página institucional de Smart Dent y quisiera hablar con un especialista.',
-    waSupport: 'Hola Smart Dent, necesito información de soporte.',
-  },
-} as const;
 
 const SOL_ICONS = [Beaker, Layers, ScanLine, Printer, Sparkles, FlaskConical];
 // Imagens reais de produtos do catálogo (buckets oficiais do Sistema A/B).
