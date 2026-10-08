@@ -52,6 +52,7 @@ const PURPOSE_CONFIG: Record<string, { label: string; color: string; disabled?: 
   st_update_deals: { label: "ST — Update Deals", color: "bg-slate-100 text-slate-600 border-slate-300", disabled: true,  description: "Uso interno — em breve" },
   feira_evento:    { label: "Feiras e Eventos",  color: "bg-amber-100 text-amber-800 border-amber-300",  disabled: false, description: "Preenchido pelo consultor no estande" },
   credenciamento:  { label: "Credenciamento",    color: "bg-violet-100 text-violet-800 border-violet-300", disabled: false, description: "Candidatura vinculada à ficha de um profissional" },
+  kol_referral:    { label: "Indicações — Palestrantes (KOLs)", color: "bg-accent text-accent-foreground border-border", disabled: false, description: "Formulário de indicação vinculado a um palestrante (KOL)" },
 };
 
 // Presentation-only grouping: referral forms retain their saved purpose and CRM behavior.
