@@ -10,6 +10,23 @@ interface Props {
   compact?: boolean;
 }
 
+function VisitorsSparkline({ series }: { series: Array<{ d: string; v: number }> }) {
+  if (series.length < 2) return <div className="h-7 w-20" />;
+  const width = 80;
+  const height = 24;
+  const max = Math.max(...series.map((point) => point.v), 1);
+  const step = width / (series.length - 1);
+  const points = series
+    .map((point, index) => `${(index * step).toFixed(1)},${(height - (point.v / max) * height).toFixed(1)}`)
+    .join(" ");
+
+  return (
+    <svg width={width} height={height} aria-label="Visitas nos últimos 30 dias" className="overflow-visible">
+      <polyline points={points} fill="none" stroke="hsl(var(--primary))" strokeWidth="1.5" />
+    </svg>
+  );
+}
+
 /** Resumo compacto da performance do KOL exibido no card da listagem. */
 export default function ProfessionalKolCardStats({ formIds, coupons, compact }: Props) {
   const forms = (formIds ?? []).filter((f) => f?.id);
@@ -23,6 +40,13 @@ export default function ProfessionalKolCardStats({ formIds, coupons, compact }: 
     return (
       <div className="flex items-center gap-2 text-xs">
         {perf.loading && <Loader2 className="w-3 h-3 animate-spin text-muted-foreground" />}
+        <div className="flex items-center gap-2 rounded-md bg-muted/50 px-2 py-1 leading-tight">
+          <div>
+            <div className="font-semibold tabular-nums">{perf.totals.views.toLocaleString("pt-BR")}</div>
+            <div className="text-[9px] text-muted-foreground">{perf.totals.visitors.toLocaleString("pt-BR")} únicos</div>
+          </div>
+          <VisitorsSparkline series={perf.totals.daily_series} />
+        </div>
         <div className="rounded-md bg-muted/50 px-2 py-1 text-center leading-tight">
           <div className="font-semibold">{perf.totals.leads}</div>
           <div className="text-[9px] uppercase tracking-wide text-muted-foreground">Leads</div>

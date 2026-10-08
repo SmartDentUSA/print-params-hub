@@ -12,6 +12,7 @@ export interface KolFormPerformance {
   comissao: number | null;
   views: number;
   visitors: number;
+  daily_series: Array<{ d: string; v: number }>;
 }
 
 export interface KolCouponPerformance {
@@ -55,14 +56,14 @@ export interface KolPerformance {
   products: KolSoldProduct[];
   forms: KolFormPerformance[];
   coupons: KolCouponPerformance[];
-  totals: { leads: number; deals: number; receita: number; receitaCupons: number; vendasCupons: number; views: number; visitors: number; cuponsGerados: number; clientesCupons: number };
+  totals: { leads: number; deals: number; receita: number; receitaCupons: number; vendasCupons: number; views: number; visitors: number; daily_series: Array<{ d: string; v: number }>; cuponsGerados: number; clientesCupons: number };
 }
 
 const empty: KolPerformance = {
   products: [],
   forms: [],
   coupons: [],
-  totals: { leads: 0, deals: 0, receita: 0, receitaCupons: 0, vendasCupons: 0, views: 0, visitors: 0, cuponsGerados: 0, clientesCupons: 0 },
+  totals: { leads: 0, deals: 0, receita: 0, receitaCupons: 0, vendasCupons: 0, views: 0, visitors: 0, daily_series: [], cuponsGerados: 0, clientesCupons: 0 },
 };
 
 /**
@@ -201,11 +202,23 @@ export function useKolPerformance(formIds: { id: string; name: string }[], coupo
         const slugById = new Map<string, string>();
         for (const f of (formRows ?? []) as any[]) if (f.slug) slugById.set(f.id, f.slug);
         const viewsBySlug: Record<string, { views: number; visitors: number }> = {};
+        const dailyByForm = new Map<string, Array<{ d: string; v: number }>>();
         if (slugById.size > 0) {
-          const { data: vRows } = await (supabase as any).rpc("fn_kol_form_views", { _slugs: Array.from(slugById.values()) });
+          const [{ data: vRows }, { data: metricRows }] = await Promise.all([
+            (supabase as any).rpc("fn_kol_form_views", { _slugs: Array.from(slugById.values()) }),
+            (supabase as any).rpc("fn_form_metrics", { p_period_days: 30 }),
+          ]);
           for (const r of (vRows ?? []) as any[]) viewsBySlug[r.slug] = { views: Number(r.views) || 0, visitors: Number(r.visitors) || 0 };
+          const wantedIds = new Set(ids);
+          for (const r of (metricRows ?? []) as any[]) {
+            if (!wantedIds.has(r.form_id)) continue;
+            dailyByForm.set(
+              r.form_id,
+              (Array.isArray(r.daily_series) ? r.daily_series : []).map((p: any) => ({ d: String(p.d), v: Number(p.v) || 0 })),
+            );
+          }
         }
-        (leadsByForm as any).__views = { slugById, viewsBySlug };
+        (leadsByForm as any).__views = { slugById, viewsBySlug, dailyByForm };
 
         if (allNames.length > 0) {
           // 3) Fonte definitiva: RPC que casa form_name OU a chave do formulário dentro de form_data
@@ -293,6 +306,7 @@ export function useKolPerformance(formIds: { id: string; name: string }[], coupo
           forms.push({
             views: vv.views,
             visitors: vv.visitors,
+            daily_series: vinfo?.dailyByForm?.get(f.id) ?? [],
             form_id: f.id,
             form_name: f.name,
             leads: leadSet.size,
@@ -338,6 +352,11 @@ export function useKolPerformance(formIds: { id: string; name: string }[], coupo
 
       const coupons = couponsPerf;
 
+      const dailyTotals = new Map<string, number>();
+      for (const form of forms) {
+        for (const point of form.daily_series) dailyTotals.set(point.d, (dailyTotals.get(point.d) ?? 0) + point.v);
+      }
+
       setData({
         products: Array.from(sold.values()).sort((a, b) => b.valor - a.valor),
         forms,
@@ -350,6 +369,7 @@ export function useKolPerformance(formIds: { id: string; name: string }[], coupo
           receitaCupons: coupons.reduce((s, c) => s + c.receita, 0),
           views: forms.reduce((s, f) => s + f.views, 0),
           visitors: forms.reduce((s, f) => s + f.visitors, 0),
+          daily_series: Array.from(dailyTotals, ([d, v]) => ({ d, v })).sort((a, b) => a.d.localeCompare(b.d)),
           cuponsGerados: rules.length,
           clientesCupons: coupons.reduce((s, c: any) => s + (c.clientes || 0), 0),
         },
