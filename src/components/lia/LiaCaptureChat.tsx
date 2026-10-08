@@ -54,6 +54,9 @@ export default function LiaCaptureChat({ formId, campaign, product }: { formId: 
   const mounted = useRef(true);
   const sending = useRef(false);
   const [data, setData] = useState<{ phone?: string; email?: string; name?: string }>({});
+  const [lead, setLead] = useState<{ id: string; token: string } | null>(null);
+  const [qIdx, setQIdx] = useState(0);
+  const [selected, setSelected] = useState<string[]>([]);
   const [seller, setSeller] = useState<Seller | null>(null);
   // A frase de encaminhamento é sorteada uma vez por vendedor e não muda durante a conversa.
   const invitation = useMemo(() => (seller ? sellerInvitation(seller, data.name) : ""), [seller, data.name]);
