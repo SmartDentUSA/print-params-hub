@@ -3,7 +3,7 @@ import { useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Loader2 } from "lucide-react";
-import { PremiumLandingTemplate, WhatsAppGlyph, type LPContent } from "@/components/lp/PremiumLandingTemplate";
+import { PremiumLandingTemplate, type LPContent } from "@/components/lp/PremiumLandingTemplate";
 import { trackAttendanceEvent, buildLiaUrl } from "@/lib/attendanceChannel";
 
 type LandingPage = {
@@ -188,15 +188,6 @@ export default function PublicLandingPage() {
           )}
         </DialogContent>
       </Dialog>
-      <button
-        type="button"
-        onClick={() => openLia("floating")}
-        aria-label="Falar pelo WhatsApp com a Dra. LIA"
-        className="fixed bottom-5 right-5 z-40 inline-flex h-14 w-14 items-center justify-center rounded-full text-white shadow-lg transition hover:scale-105"
-        style={{ background: "var(--lp-whatsapp, #25D366)" }}
-      >
-        <WhatsAppGlyph className="h-7 w-7" />
-      </button>
       <Dialog open={liaOpen} onOpenChange={setLiaOpen}>
         <DialogContent className="max-w-md p-0 overflow-hidden">
           <DialogTitle className="sr-only">Atendimento Dra. LIA</DialogTitle>

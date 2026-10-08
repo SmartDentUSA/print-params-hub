@@ -142,7 +142,7 @@ interface Props {
   content: LPContent;
   heroImageUrl?: string | null;
   onCta?: (source: string) => void;
-  /** Abre a Dra. LIA (ícone do WhatsApp ao lado de "Falar com especialista"). */
+  /** Abre a Dra. LIA pelo botão único com ícone do WhatsApp + "Falar com um Especialista". */
   onWhatsApp?: (source: string) => void;
   /** Formulário embutido (renderizado na seção "inlineForm"). */
   formSlot?: React.ReactNode;
@@ -434,17 +434,21 @@ export function WhatsAppGlyph({ className }: { className?: string }) {
   );
 }
 
-function WhatsAppIconButton({ onClick }: { onClick: () => void }) {
+function WhatsAppPillButton({ label, onClick }: { label: string; onClick: () => void }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      aria-label="Falar pelo WhatsApp com a Dra. LIA"
-      title="Falar pelo WhatsApp"
-      className="inline-flex items-center justify-center h-12 w-12 rounded-full text-white transition hover:-translate-y-0.5 focus-visible:ring-2 focus-visible:ring-offset-2"
-      style={{ background: "var(--lp-whatsapp, #25D366)" }}
+      aria-label={label}
+      title={label}
+      className="inline-flex items-center justify-center gap-2.5 min-h-12 px-6 py-3 rounded-full text-white font-semibold text-sm transition hover:-translate-y-0.5 hover:brightness-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--lp-whatsapp,#25D366)] focus-visible:ring-offset-2"
+      style={{
+        background: "var(--lp-whatsapp, #25D366)",
+        boxShadow: "0 10px 26px -12px color-mix(in oklab, var(--lp-whatsapp, #25D366) 70%, transparent)",
+      }}
     >
-      <WhatsAppGlyph />
+      <WhatsAppGlyph className="h-5 w-5 shrink-0" />
+      {label}
     </button>
   );
 }
@@ -893,8 +897,16 @@ export function PremiumLandingTemplate({ content, heroImageUrl, onCta, onWhatsAp
 
             <div className="mt-7 flex flex-wrap gap-3">
               <PrimaryButton onClick={cta("hero-primary")}>{c.hero.primaryCta}</PrimaryButton>
-              {c.hero.secondaryCta && <SecondaryButton onClick={cta("hero-secondary")}>{c.hero.secondaryCta}</SecondaryButton>}
-              {onWhatsApp && <WhatsAppIconButton onClick={() => onWhatsApp("hero-whatsapp")} />}
+              {onWhatsApp ? (
+                <WhatsAppPillButton
+                  label={c.hero.secondaryCta?.trim() || "Falar com um Especialista"}
+                  onClick={() => onWhatsApp("hero-whatsapp")}
+                />
+              ) : (
+                c.hero.secondaryCta && (
+                  <SecondaryButton onClick={cta("hero-secondary")}>{c.hero.secondaryCta}</SecondaryButton>
+                )
+              )}
             </div>
 
             {c.hero.trustInline && c.hero.trustInline.length > 0 && (
