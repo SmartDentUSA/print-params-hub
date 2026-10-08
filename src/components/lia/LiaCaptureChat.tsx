@@ -297,6 +297,7 @@ export default function LiaCaptureChat({ formId, campaign, product }: { formId: 
                 {new Date(m.createdAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
               </time>}
             </div>
+            );})()}
           </div>
         ))}
         {closed && handoffStage >= 1 && ctx?.product_summary && (
