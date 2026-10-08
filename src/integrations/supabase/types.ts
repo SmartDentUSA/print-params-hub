@@ -22668,6 +22668,38 @@ export type Database = {
         }
         Relationships: []
       }
+      smartops_bio_events: {
+        Row: {
+          created_at: string
+          event_type: string
+          id: string
+          item_id: string | null
+          page_id: string
+        }
+        Insert: {
+          created_at?: string
+          event_type: string
+          id?: string
+          item_id?: string | null
+          page_id: string
+        }
+        Update: {
+          created_at?: string
+          event_type?: string
+          id?: string
+          item_id?: string | null
+          page_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "smartops_bio_events_page_id_fkey"
+            columns: ["page_id"]
+            isOneToOne: false
+            referencedRelation: "smartops_bio_pages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       smartops_bio_pages: {
         Row: {
           active: boolean
