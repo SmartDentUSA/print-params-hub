@@ -255,6 +255,10 @@
   right: -6px; background: hsl(var(--primary)); clip-path: polygon(0 0, 100% 0, 0 100%);
 }
 .lia-whatsapp .lia-icon-button:hover { background: hsl(var(--secondary)); color: hsl(var(--accent)); }
-.lia-whatsapp .lia-reply:hover { background: hsl(var(--primary)); color: hsl(var(--primary-foreground)); }
+.lia-whatsapp .lia-replies { margin-left: -12px; margin-right: -12px; }
+.lia-whatsapp .lia-reply { border-top: 1px solid hsl(var(--border)); color: hsl(var(--accent)); justify-content: center; box-shadow: none; }
+.lia-whatsapp .lia-reply:hover { background: hsl(var(--secondary)); color: hsl(var(--accent)); }
+.lia-whatsapp .lia-reply[aria-pressed="true"] { background: hsl(var(--primary)); color: hsl(var(--primary-foreground)); }
+.lia-whatsapp .lia-reply:disabled { opacity: .65; }
 .lia-whatsapp .lia-send { background: hsl(var(--primary)); color: hsl(var(--primary-foreground)); }
 .lia-whatsapp .lia-send:hover { background: hsl(var(--primary) / .8); }

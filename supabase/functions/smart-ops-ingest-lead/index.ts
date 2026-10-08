@@ -1299,7 +1299,7 @@ Deno.serve(async (req) => {
 
     // --- Auto-forward: dynamically include any payload key that matches a lia_attendances column ---
     const META_KEYS = new Set([
-      "source", "form_name", "form_purpose", "form_responses", "raw_payload",
+      "source", "form_name", "form_purpose", "form_responses", "raw_payload", "form_id", "field_answers",
       "campaign", "formName", "form", "ip", "full_name", "name", "user_name",
       "first_name", "last_name", "phone_number", "phone", "mobile", "celular",
       "user_phone", "user_email", "specialty", "product", "nome", "email",
@@ -1983,7 +1983,7 @@ Deno.serve(async (req) => {
               value: String(r?.value ?? r?.answer ?? "").trim(),
             }))
             .filter((r: { label: string; value: string }) => r.label && r.value)
-            .slice(0, 60)
+            .slice(0, 200)
         : [];
 
     // Feiras e eventos — "Evento" já foi injetado em payload.form_responses acima
@@ -2065,7 +2065,15 @@ Deno.serve(async (req) => {
     // ─── Timeline: uma entrada por resposta do formulário ───
     // Garante que TODOS os campos respondidos apareçam na timeline do lead,
     // não só o evento agregado de submissão.
-    if (normalizedFormResponses.length > 0) {
+    let answersStored = false;
+    if (payload.form_id && Array.isArray(payload.field_answers)) {
+      const { error: answersError } = await supabase.rpc("fn_store_form_answers", {
+        p_lead_id: leadId, p_form_id: payload.form_id, p_answers: payload.field_answers,
+      });
+      if (answersError) throw answersError;
+      answersStored = true;
+    }
+    if (!answersStored && normalizedFormResponses.length > 0) {
       try {
         const { data: priorAnswers } = await supabase
           .from("lead_activity_log")
@@ -2106,6 +2114,7 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({
       success: true,
       lead_id: leadId,
+      answers_stored: answersStored,
       is_existing: !!existingLead,
       fields_updated: fieldsUpdated,
       pql_detected: detectedStage === "PQL_recompra",
