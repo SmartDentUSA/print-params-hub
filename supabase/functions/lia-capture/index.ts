@@ -217,6 +217,13 @@ function personalHook(lead: Record<string, unknown>, product: string, productSum
   if (!generic(impressora)) parts.push(`trabalha com a ${impressora}`);
   if (!generic(scanner)) parts.push(`usa o scanner ${scanner}`);
   if (!generic(cad) && !(product && product.toLowerCase().includes(cad.toLowerCase()))) parts.push(`quer colocar o ${cad} na sua rotina`);
+  // Histórico com a Smart Dent: produtos já comprados ou cotados em negócios anteriores.
+  const productLowerName = (product || "").toLowerCase();
+  const notCurrent = (name: string) => name && !productLowerName.includes(name.toLowerCase()) && !name.toLowerCase().includes(productLowerName || "\0");
+  const bought = (history?.bought ?? []).filter(notCurrent).slice(0, 2);
+  const quoted = (history?.quoted ?? []).filter(notCurrent).filter((n) => !bought.some((b) => b.toLowerCase() === n.toLowerCase())).slice(0, 2);
+  if (bought.length) parts.push(`já é cliente de ${bought.join(" e ")}`);
+  else if (quoted.length) parts.push(`já conversou com a gente sobre ${quoted.join(" e ")}`);
   if (!parts.length) return null;
   const context = parts.join(", ").replace(/, ([^,]*)$/, " e $1");
   const productLower = (product || "").toLowerCase();
