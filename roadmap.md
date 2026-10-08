@@ -37,3 +37,6 @@
 - [x] LIA: resumo curto das vantagens publicadas do produto seguido de convite separado antes do contato do vendedor. Conteúdo real de landing publicado conferido; ordem visual testada com vendedor controlado, sem gerar cadastros CRM. Sem conteúdo disponível, não inventar vantagens.
 - [x] LIA: resumo exclusivo de Oferta/Posicionamento e mensagem separada de Módulos (apenas títulos dos itens), saudação São Paulo e convite personalizado antes do botão. Função implantada; extração e conversa controlada verificadas sem criar negócios; compilação OK. Frase adicional “E se prefer…” aguarda complemento do usuário.
 - [x] LIA: pausas leves entre mensagens, opções nos balões de área/especialidade e condições compartilhadas com formulários, reavaliadas após cada resposta; múltipla seleção preservada. Função implantada; lógica e conversa controlada verificadas sem criar cadastros. Resumos preservam a regra de não incluir preços; captura CRM real não exercitada.
+- [ ] Padronizar fluxos SDR de produtos com a referência exocad_dentalcad_rms, preservando produtos e histórico; chat acompanha campos/condições e pula dados existentes.
+- [ ] Registrar todas as respostas na timeline e conferir persistência real, sem criar negócios de teste.
+- [ ] Aumentar intervalos do chat e alinhar respostas rápidas no padrão visual WhatsApp Business.
