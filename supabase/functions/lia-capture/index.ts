@@ -243,6 +243,9 @@ Deno.serve(async (req) => {
         utm_medium: str(body.utm_medium, 120) || "whatsapp_lia",
         utm_campaign: str(body.utm_campaign, 120) || ctx.campaign || undefined,
         form_responses: [
+          { label: "Nome completo", value: nome },
+          { label: "Seu e-mail", value: email },
+          { label: "Seu WhatsApp", value: `+${phone}` },
           { label: "Canal", value: "Chat Dra. LIA (WhatsApp)" },
           ...(ctx.product ? [{ label: "Produto de interesse", value: ctx.product }] : []),
         ],
