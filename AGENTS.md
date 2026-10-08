@@ -1,7 +1,7 @@
 # Architecture rules
 
-- Support customer context is read through a ticket-scoped edge function after session, support-role and ticket authorization; this exposes required customer details without widening commercial lead RLS.
-- Support board customer summaries use the same ticket-authorized endpoint in bounded batches, counting complete ticket history and deriving queue priority from owned equipment rather than sales interest; this avoids per-card requests and commercial RLS changes.
+- Support context requires session, support-role and ticket authorization via an edge function; this exposes customer details without widening commercial RLS.
+- Support board uses that endpoint in bounded batches for complete ticket counts and owned-equipment priority; this avoids per-card requests and RLS changes.
 - Support workspace theme tokens are scoped to its page and use an equal-width conversation/profile layout; this preserves unrelated admin styling.
 
 - RMS payment presentation and metrics share product-family resolution; subscription fallback and invoice totals are scoped by family and lead to prevent exoplan/DentalCAD cross-attribution.
@@ -28,4 +28,5 @@
 - Support ticket lifecycle timestamps (assignment, resolution, closing, reopen count/FCR) are set by a validation trigger on technical_tickets so KPIs never depend on client code.
 
 - LIA follows form order/conditions and canonical answers; server-side storage emits timeline entries. Keep HMAC, masked hints and price-free handoff. CRM notes paginate all answers and refresh through the shared lock, never changing deals.
+- LIA context validates the form's success_redirect_url as a WhatsApp group; optional group CTA follows seller CTA without changing ingestion.
 - Internal forms and LIA resolve interest from their catalog binding or selected product button so CRM uses exact product names; Meta ingestion stays unchanged.

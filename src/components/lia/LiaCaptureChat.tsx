@@ -329,8 +329,20 @@ export default function LiaCaptureChat({ formId, campaign, product }: { formId: 
             </Button>
           </div>
         )}
+        {showSeller && handoffStage >= 4 && ctx?.whatsapp_group_url && (
+          <div className="flex justify-start">
+            <div className="lia-bubble lia-bubble-in max-w-[88%] rounded-lg rounded-tl-none bg-muted px-3 py-2 text-[15px] leading-5 text-foreground sm:max-w-[78%]">
+              <p>Se quiser tirar dúvidas com experts, assim como trocar experiências com os usuários, acesse o grupo de WhatsApp exclusivo.</p>
+              <Button asChild variant="ghost" className="lia-reply mt-3 h-auto min-h-11 w-full whitespace-normal rounded-none px-3 py-3 text-center text-sm font-medium leading-5">
+                <a href={ctx.whatsapp_group_url} target="_blank" rel="noopener noreferrer" aria-label="Acessar grupo exclusivo no WhatsApp">
+                  <span className="relative mr-2 inline-flex h-6 w-6 shrink-0 items-center justify-center" aria-hidden="true"><MessageCircle className="absolute h-6 w-6" /><Users className="h-3 w-3" /></span>
+                  Grupo exclusivo no WhatsApp
+                </a>
+              </Button>
+            </div>
+          </div>
+        )}
         <div ref={endRef} />
-        
         </div>
       </div>
       {!closed && (
