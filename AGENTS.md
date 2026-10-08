@@ -28,6 +28,6 @@
 - Technical support access is checked in the database through `is_support_staff` (admin or support_agent roles in user_roles); support data stays isolated from commercial queues and campaigns.
 - Support ticket lifecycle timestamps (assignment, resolution, closing, reopen count/FCR) are set by a validation trigger on technical_tickets so KPIs never depend on client code.
 
-- LIA follows form order/conditions and canonical answers; server-side storage emits timeline entries. Keep HMAC, masked hints and price-free handoff. CRM notes paginate all answers and refresh through the shared lock, never changing deals.
+- LIA keeps form order, conditions, canonical answers, HMAC, masked hints and timeline. Notes paginate under shared lock without changing deals. Grounded RAG/AI conversation runs separately during assignment; failure never blocks handoff; seller announcements stay factual.
 - LIA context validates the form's success_redirect_url as a WhatsApp group; optional group CTA follows seller CTA without changing ingestion.
 - Internal forms and LIA resolve interest from their catalog binding or selected product button so CRM uses exact product names; Meta ingestion stays unchanged.
