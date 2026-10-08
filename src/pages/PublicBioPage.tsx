@@ -145,7 +145,6 @@ export default function PublicBioPage() {
           {page.subtitle && <p className="mt-1 text-sm text-muted-foreground">{page.subtitle}</p>}
 
           <div className="mt-5 flex w-full flex-col items-stretch gap-3 px-2 sm:px-0">
-            <div>
             <a
               href="/base-conhecimento?tab=parametros"
               className="group flex w-full flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md"
@@ -162,11 +161,6 @@ export default function PublicBioPage() {
                 Parametrize sua impressora
               </span>
             </a>
-            <Button className="bio-whatsapp-button mt-2 min-h-10 w-full rounded-full" onClick={() => openWhatsApp({ id: "parametros", kind: "custom", label: "Parametrize sua impressora", url: "/base-conhecimento?tab=parametros" })} aria-label="Falar com um Especialista — Parametrize sua impressora">
-              <WhatsAppGlyph className="h-5 w-5" />Falar com um Especialista
-            </Button>
-            </div>
-            <div>
             <a
               href="https://parametros.smartdent.com.br/base-conhecimento?tab=catalogo&_cb=1788186308518&cat=resinas_3d"
               target="_blank"
@@ -185,10 +179,6 @@ export default function PublicBioPage() {
                 Catálogo de produtos
               </span>
             </a>
-            <Button className="bio-whatsapp-button mt-2 min-h-10 w-full rounded-full" onClick={() => openWhatsApp({ id: "catalogo", kind: "custom", label: "Catálogo de produtos", url: "/base-conhecimento?tab=catalogo" })} aria-label="Falar com um Especialista — Catálogo de produtos">
-              <WhatsAppGlyph className="h-5 w-5" />Falar com um Especialista
-            </Button>
-            </div>
           </div>
 
         </header>
