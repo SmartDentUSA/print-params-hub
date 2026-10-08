@@ -21,7 +21,7 @@
 - PipeRun person/company contacts are written and read only through the shared `piperunGet/Post/Put` helpers, which translate to `contact_emails`/`contact_phones`, request `with[]=contactEmails,contactPhones`, merge existing contacts on PUT and use `?email=`/`?phone=` list filters; the legacy `emails[]`/`phones[]` keys and filters are silently ignored by PipeRun and left persons without e-mail and caused duplicate persons.
 - PipeRun sync hydrates company contacts separately and does not skip unchanged deals when missing contacts become available; company identifiers must never merge distinct people.
 - Proposal item expansion failures never block saving the deal; one bad item used to hide every deal of the lead.
-- Lead cards and timeline resolve capture event names through shared event/form references; timeline entries use their own references rather than the lead's latest event to avoid misattributing historical submissions.
+- Event cards and timelines use immutable submission activity, not the latest lead event snapshot; repeat visitors count in every event and refresh CRM summaries without changing Deals.
 - PipeRun deal sync writes `telefone_normalized` alongside `telefone_raw` using the shared Brazilian phone normalizer; lead cards, search and phone matching read only the normalized phone.
 
 - Technical support access is checked in the database through `is_support_staff` (admin or support_agent roles in user_roles); support data stays isolated from commercial queues and campaigns.

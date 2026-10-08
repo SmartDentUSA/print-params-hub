@@ -43,3 +43,4 @@
 - [x] Persistência server-side de respostas de formulário e chat com timeline transacional; teste real de resposta e leitura do evento aprovado e integralmente desfeito, sem criar negócios. Fluxo completo de captura CRM não exercitado.
 - [x] Chat com intervalos proporcionais de 1,8–6,5s por mensagem e respostas rápidas alinhadas em linhas; abertura real e avanço visual controlado verificados sem erros, sem simular ser o WhatsApp oficial.
 - [x] Notas CRM: leitura real do negócio 63974581 confirmou perguntas de impressão/scanner/CAD; removidos cortes 30/20/3 e filtro de rótulos curtos. Respostas persistidas recentes prevalecem sobre snapshots antigos; chat atualiza notas com retry pelo lock compartilhado. Teste 1105 respostas aprovado; funções implantadas. Nova entrega de nota após correção não exercitada para não gerar notas de teste no CRM.
+- [x] Corrigir registro de respostas dos formulários de eventos nos cards, timeline do lead e notas do CRM.

@@ -740,7 +740,7 @@ export default function PublicFormPage() {
       payload.raw_payload = { custom_fields: customFields };
     }
     payload.field_answers = activeFields.filter((f) => values[f.id] !== undefined && values[f.id] !== null && values[f.id] !== "")
-      .map((f) => ({ field_id: f.id, value: Array.isArray(values[f.id]) ? JSON.stringify(values[f.id]) : String(values[f.id]) }));
+      .map((f) => ({ field_id: f.id, value: Array.isArray(values[f.id]) ? values[f.id].join(", ") : String(values[f.id]) }));
 
     // Ensure required email field
     if (!payload.email) {
@@ -812,12 +812,12 @@ export default function PublicFormPage() {
 
       // Enviar respostas como nota no deal do PipeRun (fire-and-forget)
       if (leadId) {
-        const allResponses = activeFields
-          .filter((f) => values[f.id] !== undefined && values[f.id] !== null && values[f.id] !== "")
-          .map((f) => ({
-            label: f.label,
-            value: Array.isArray(values[f.id]) ? (values[f.id] as string[]).join(", ") : String(values[f.id]),
-          }));
+        // Reuse the canonical payload so event, consultant, combo/category and
+        // resolved catalog product reach the CRM note together with form fields.
+        const allResponses = (payload.form_responses as Array<{ label: string; value: string }>).map((response) => ({
+          label: response.label,
+          value: String(response.value),
+        }));
 
         if (allResponses.length > 0) {
           supabase.functions

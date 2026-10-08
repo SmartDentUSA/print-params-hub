@@ -1728,10 +1728,11 @@ Deno.serve(async (req) => {
         console.warn("[ingest-lead] estagnados escape hatch (enrichment_merge) crashed:", e);
       }
 
-      // Existing leads are CDP-only by default. Do NOT post PipeRun notes for
-      // Meta/form re-delivery; notes are only allowed for a confirmed new
-      // commercial conversion key.
-      if (allowCommercialReactivation && existingLead.piperun_id && (formName || source === "form")) {
+      // Existing leads are CDP-only by default. Event submissions are the one
+      // note-only exception: refresh the seller summary without creating,
+      // reopening or moving any Deal.
+      const isEventSubmission = formPurpose === "feira_evento" && Boolean(payload.event_id);
+      if ((allowCommercialReactivation || isEventSubmission) && existingLead.piperun_id && (formName || source === "form")) {
         const responses: Array<{ label: string; value: string }> = Array.isArray(payload.form_responses)
           ? payload.form_responses.map((r: any) => ({
               label: String(r.label ?? r.name ?? r.field ?? ""),
