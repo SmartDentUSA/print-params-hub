@@ -2,7 +2,7 @@
 
 - Support context requires session, support-role and ticket authorization via an edge function; this exposes customer details without widening commercial RLS.
 - Support board uses that endpoint in bounded batches for complete ticket counts and owned-equipment priority; this avoids per-card requests and RLS changes.
-- Support workspace theme tokens are scoped to its page and use an equal-width conversation/profile layout; this preserves unrelated admin styling.
+- Support uses page-scoped theme tokens and equal-width conversation/profile areas to preserve unrelated admin styling.
 - Bio cards pass hydrated form IDs to LIA, never editable labels as products; this preserves attribution.
 
 - RMS payment presentation and metrics share product-family resolution; subscription fallback and invoice totals are scoped by family and lead to prevent exoplan/DentalCAD cross-attribution.
