@@ -28,7 +28,7 @@ function sellerInvitation(seller: Seller, leadName?: string, pick?: (n: number) 
   const variants = [
     `${lead}tudo certo! ${introduction} Quer pular a fila?\n\nClica no botão abaixo e chama ${contact} agora mesmo! 😄`,
     `${lead}já passei todas as suas informações para ${specialist}. ${introduction} Ele vai te chamar em breve, mas se quiser adiantar as coisas, clica no botão abaixo e já manda um 'oi' pra ${contact}! 😄👇`,
-    `${lead}tudo certo por aqui! ${introduction} ${first ? "Ele" : "Essa pessoa"} vai entrar em contato. Para não precisar ficar esperando, clica no botão abaixo e já inicia a conversa agora mesmo! 😄`,
+    `${lead}tudo certo por aqui! ${introduction} Para não precisar ficar esperando, clica no botão abaixo e já inicia a conversa agora mesmo! 😄`,
     `${lead}já enviei tudo para ${specialist}, nosso especialista! ${introduction} E${female ? "la" : "le"} vai te procurar, mas como você já está com a mão na massa, clica no botão abaixo e chama ${contact} para agilizar. 😄`,
     `${lead}seu atendimento já está encaminhado para ${specialist}. ${introduction} Se quiser falar antes, é só clicar no botão abaixo e mandar o primeiro oi! 😉`,
   ];
