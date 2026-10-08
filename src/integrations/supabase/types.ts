@@ -6705,6 +6705,71 @@ export type Database = {
           },
         ]
       }
+      event_participants: {
+        Row: {
+          captured_at: string | null
+          created_at: string
+          dedupe_key: string
+          doc: string | null
+          email: string | null
+          event_id: string
+          fontes: string[]
+          id: string
+          in_crm: boolean
+          in_sistema_b: boolean
+          lead_id: string | null
+          nome: string | null
+          piperun_deal_ids: string[]
+          qualificacao: number | null
+          telefone: string | null
+          vendedor: string | null
+        }
+        Insert: {
+          captured_at?: string | null
+          created_at?: string
+          dedupe_key: string
+          doc?: string | null
+          email?: string | null
+          event_id: string
+          fontes?: string[]
+          id?: string
+          in_crm?: boolean
+          in_sistema_b?: boolean
+          lead_id?: string | null
+          nome?: string | null
+          piperun_deal_ids?: string[]
+          qualificacao?: number | null
+          telefone?: string | null
+          vendedor?: string | null
+        }
+        Update: {
+          captured_at?: string | null
+          created_at?: string
+          dedupe_key?: string
+          doc?: string | null
+          email?: string | null
+          event_id?: string
+          fontes?: string[]
+          id?: string
+          in_crm?: boolean
+          in_sistema_b?: boolean
+          lead_id?: string | null
+          nome?: string | null
+          piperun_deal_ids?: string[]
+          qualificacao?: number | null
+          telefone?: string | null
+          vendedor?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_participants_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "smartops_events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       event_raffle_draws: {
         Row: {
           created_at: string
@@ -6915,6 +6980,77 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "event_raffles_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "smartops_events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      event_sales: {
+        Row: {
+          cliente: string | null
+          created_at: string
+          doc: string | null
+          event_id: string
+          fonte_valor: string | null
+          id: string
+          lead_id: string | null
+          nf_numero: string | null
+          observacao: string | null
+          piperun_deal_id: string | null
+          status: string | null
+          valor_crm: number | null
+          valor_final: number
+          valor_omie: number | null
+          valor_planilha: number | null
+          vendedor_crm: string | null
+          vendedor_omie: string | null
+          vendedor_planilha: string | null
+        }
+        Insert: {
+          cliente?: string | null
+          created_at?: string
+          doc?: string | null
+          event_id: string
+          fonte_valor?: string | null
+          id?: string
+          lead_id?: string | null
+          nf_numero?: string | null
+          observacao?: string | null
+          piperun_deal_id?: string | null
+          status?: string | null
+          valor_crm?: number | null
+          valor_final?: number
+          valor_omie?: number | null
+          valor_planilha?: number | null
+          vendedor_crm?: string | null
+          vendedor_omie?: string | null
+          vendedor_planilha?: string | null
+        }
+        Update: {
+          cliente?: string | null
+          created_at?: string
+          doc?: string | null
+          event_id?: string
+          fonte_valor?: string | null
+          id?: string
+          lead_id?: string | null
+          nf_numero?: string | null
+          observacao?: string | null
+          piperun_deal_id?: string | null
+          status?: string | null
+          valor_crm?: number | null
+          valor_final?: number
+          valor_omie?: number | null
+          valor_planilha?: number | null
+          vendedor_crm?: string | null
+          vendedor_omie?: string | null
+          vendedor_planilha?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_sales_event_id_fkey"
             columns: ["event_id"]
             isOneToOne: false
             referencedRelation: "smartops_events"
@@ -36201,6 +36337,26 @@ export type Database = {
         Returns: string
       }
       fn_event_lead_stats: {
+        Args: { p_event_id?: string }
+        Returns: {
+          by_area: Json
+          by_especialidade: Json
+          by_product: Json
+          by_seller: Json
+          event_id: string
+          imprime_guias_sim: number
+          imprime_modelos_sim: number
+          imprime_nanohibrida_sim: number
+          imprime_placas_sim: number
+          tem_impressora_sim: number
+          tem_scanner_sim: number
+          total_leads: number
+          won_deals: number
+          won_leads: number
+          won_value: number
+        }[]
+      }
+      fn_event_lead_stats_legacy: {
         Args: { p_event_id?: string }
         Returns: {
           by_area: Json
