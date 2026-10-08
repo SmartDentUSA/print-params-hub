@@ -6,12 +6,17 @@ import { supabase } from "@/integrations/supabase/client";
 import { usePushSubscription, isIos, isIosStandalone } from "@/hooks/usePushSubscription";
 
 /**
- * Aceitação obrigatória de notificações: assim que o cliente faz login,
- * o aviso é exibido e não pode ser fechado até autorizar as notificações.
+ * Aceitação obrigatória de notificações apenas no desktop: no mobile o aviso
+ * não é exibido e o app funciona sem autorizar notificações.
  */
+const isMobileDevice = () =>
+  /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) ||
+  window.matchMedia("(max-width: 767px)").matches;
+
 export function PushOptInGate() {
   const { supported, permission, subscribed, loading, error, subscribe } = usePushSubscription();
   const [logged, setLogged] = useState(false);
+  const [mobile] = useState(() => (typeof window !== "undefined" ? isMobileDevice() : false));
 
   useEffect(() => {
     const isCliente = (user?: { user_metadata?: Record<string, unknown> } | null) =>
@@ -22,7 +27,7 @@ export function PushOptInGate() {
   }, []);
 
   const iosNeedsInstall = isIos() && !isIosStandalone();
-  const open = logged && !subscribed && (supported || iosNeedsInstall);
+  const open = logged && !mobile && !subscribed && (supported || iosNeedsInstall);
 
   if (!open) return null;
 
