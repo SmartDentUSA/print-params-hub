@@ -344,8 +344,12 @@ Deno.serve(async (req) => {
       const context = { ...body, form_id: body.form_id_context ?? body.form_id };
       const pending = await pendingQuestions(body.lead_id, context);
       const field = pending.find((q: any) => q.field_id === (body.field_id || null) && q.db_column === body.db_column);
-      const values = Array.isArray(body.value) ? body.value.map((v: unknown) => str(v, 300)) : [str(body.value, 300)];
-      if (!field || !values.length || values.some((v: string) => !v || (field.options.length && !field.options.includes(v))) || (Array.isArray(body.value) && field.field_type !== "checkbox")) return json({ error: "invalid field or answer" }, 400);
+      const rawValues = Array.isArray(body.value) ? body.value.map((v: unknown) => str(v, 300)) : [str(body.value, 300)];
+      // Opções do formulário podem ter espaços extras; compara normalizado e grava a opção canônica do formulário.
+      const norm = (s: string) => String(s ?? "").replace(/\s+/g, " ").trim().toLowerCase();
+      const options: string[] = field?.options ?? [];
+      const values = rawValues.map((v: string) => (options.length ? options.find((o) => norm(o) === norm(v)) ?? "" : v));
+      if (!field || !values.length || values.some((v: string) => !v) || (Array.isArray(body.value) && field.field_type !== "checkbox")) return json({ error: "invalid field or answer" }, 400);
       const value = Array.isArray(body.value) ? JSON.stringify(values) : values[0];
       if (field.db_column && ANSWER_COLS.has(field.db_column)) {
         const { error } = await sb.from("lia_attendances").update({ [field.db_column]: value }).eq("id", body.lead_id).is("merged_into", null);
