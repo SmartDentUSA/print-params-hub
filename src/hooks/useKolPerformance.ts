@@ -107,13 +107,42 @@ export function useKolPerformance(formIds: { id: string; name: string }[], coupo
         .not("product_category", "is", null)
         .limit(2000);
       for (const c of (catRows ?? []) as any[]) catalog.set(norm(c.name), { cat: c.product_category, sub: c.product_subcategory });
+      // Mapeamento já existente (combos e portfólio): produto_aliases leva a
+      // variante vendida ao nome canônico com categoria/subcategoria.
+      const aliases = new Map<string, { canonical: string; cat: string | null; sub: string | null }>();
+      const { data: aliasRows } = await (supabase as any)
+        .from("produto_aliases")
+        .select("nome_variante, nome_canonico, categoria, subcategoria")
+        .eq("ativo", true)
+        .limit(5000);
+      for (const a of (aliasRows ?? []) as any[]) {
+        if (a.nome_variante) aliases.set(norm(a.nome_variante), { canonical: a.nome_canonico || "", cat: a.categoria ?? null, sub: a.subcategoria ?? null });
+      }
       const classify = (rawName: string, cat?: string | null, sub?: string | null) => {
         const n = norm(rawName);
+        // 1) alias exato (mapeamento manual de combos/portfólio)
+        const alias = aliases.get(n);
+        if (alias) {
+          const catHit = alias.canonical ? catalog.get(norm(alias.canonical)) : undefined;
+          return { cat: alias.cat ?? catHit?.cat ?? cat ?? null, sub: alias.sub ?? catHit?.sub ?? sub ?? null };
+        }
+        // 2) catálogo por nome exato normalizado
         let hit = catalog.get(n);
+        // 3) catálogo por contenção (padrão mais longo vence)
         if (!hit) {
           let best = "";
           for (const k of catalog.keys()) if (k.length > best.length && k.length >= 5 && (n.includes(k) || k.includes(n))) best = k;
           if (best) hit = catalog.get(best);
+        }
+        // 4) alias por contenção
+        if (!hit) {
+          let best = "";
+          for (const k of aliases.keys()) if (k.length > best.length && k.length >= 5 && (n.includes(k) || k.includes(n))) best = k;
+          if (best) {
+            const a = aliases.get(best)!;
+            const catHit = a.canonical ? catalog.get(norm(a.canonical)) : undefined;
+            return { cat: a.cat ?? catHit?.cat ?? cat ?? null, sub: a.sub ?? catHit?.sub ?? sub ?? null };
+          }
         }
         return { cat: hit?.cat ?? cat ?? null, sub: hit?.sub ?? sub ?? null };
       };
