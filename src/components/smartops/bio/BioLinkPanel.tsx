@@ -30,6 +30,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { getPublicOrigin } from "@/utils/publicOrigin";
+import { BioPageStats, BioShortLink } from "./BioPageStats";
 import {
   useBioPages,
   useBioSourceOptions,
@@ -242,6 +243,7 @@ export function BioLinkPanel() {
                   <Badge variant="outline">{p.items.length} cards</Badge>
                 </div>
                 <p className="truncate text-xs text-muted-foreground">/bio/{p.slug}</p>
+                <BioShortLink url={publicUrl(p.slug)} />
               </div>
               <div className="flex items-center gap-2">
                 <Button
@@ -268,6 +270,7 @@ export function BioLinkPanel() {
                   <Trash2 className="h-3.5 w-3.5 text-destructive" />
                 </Button>
               </div>
+              <BioPageStats page={p} />
             </div>
           ))
         )}

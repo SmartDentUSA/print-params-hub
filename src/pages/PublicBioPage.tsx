@@ -11,6 +11,13 @@ import { WhatsAppGlyph } from "@/components/lp/PremiumLandingTemplate";
 import { buildLiaUrl, trackAttendanceEvent } from "@/lib/attendanceChannel";
 import catalogoBanner from "@/assets/catalogo-produtos-banner.webp";
 import parametrizeBanner from "@/assets/parametrize-printer-banner.webp";
+import { supabase } from "@/integrations/supabase/client";
+
+type BioEvent = "view" | "card_click" | "cta_click" | "whatsapp_click";
+function trackBio(pageId: string | undefined, eventType: BioEvent, itemId?: string) {
+  if (!pageId) return;
+  void (supabase as any).from("smartops_bio_events").insert({ page_id: pageId, event_type: eventType, item_id: itemId ?? null });
+}
 
 
 
@@ -23,7 +30,7 @@ const SOCIAL_ICONS: Array<{ key: keyof BioSocialLinks; Icon: typeof Instagram; l
   { key: "website", Icon: Globe, label: "Site" },
 ];
 
-function BioCard({ item, onWhatsApp }: { item: BioItem; onWhatsApp: (item: BioItem) => void }) {
+function BioCard({ item, onWhatsApp, onTrack }: { item: BioItem; onWhatsApp: (item: BioItem) => void; onTrack: (e: BioEvent, id: string) => void }) {
   const [imageAspectRatio, setImageAspectRatio] = useState<number | null>(null);
 
   useEffect(() => {
@@ -34,7 +41,7 @@ function BioCard({ item, onWhatsApp }: { item: BioItem; onWhatsApp: (item: BioIt
     <article
       className="group flex h-fit w-full flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-lg"
     >
-      <a href={item.url} target={item.url.startsWith("http") ? "_blank" : undefined} rel="noopener noreferrer" aria-label={item.label}>
+      <a href={item.url} target={item.url.startsWith("http") ? "_blank" : undefined} rel="noopener noreferrer" aria-label={item.label} onClick={() => onTrack("card_click", item.id)}>
       <div
         className="relative w-full overflow-hidden bg-muted"
         style={imageAspectRatio ? { aspectRatio: imageAspectRatio } : undefined}
@@ -67,7 +74,7 @@ function BioCard({ item, onWhatsApp }: { item: BioItem; onWhatsApp: (item: BioIt
         )}
         <div className="mt-auto flex flex-wrap gap-2">
           <Button asChild size="sm" className="min-w-0 flex-1 text-xs">
-            <a href={item.url} target={item.url.startsWith("http") ? "_blank" : undefined} rel="noopener noreferrer">
+            <a href={item.url} target={item.url.startsWith("http") ? "_blank" : undefined} rel="noopener noreferrer" onClick={() => onTrack("cta_click", item.id)}>
               {item.button_text || "Acessar"}<ArrowRight className="h-3.5 w-3.5 shrink-0" />
             </a>
           </Button>
@@ -84,7 +91,16 @@ export default function PublicBioPage() {
   const { slug } = useParams<{ slug: string }>();
   const { data: page, isLoading } = useBioPage(slug);
   const [liaItem, setLiaItem] = useState<BioItem | null>(null);
+  useEffect(() => {
+    if (!page?.id) return;
+    const key = `bio_view_${page.id}`;
+    if (sessionStorage.getItem(key)) return;
+    sessionStorage.setItem(key, "1");
+    trackBio(page.id, "view");
+  }, [page?.id]);
+  const onTrack = (e: BioEvent, id: string) => trackBio(page?.id, e, id);
   const openWhatsApp = (item: BioItem) => {
+    trackBio(page?.id, "whatsapp_click", item.id);
     trackAttendanceEvent({ channel: "whatsapp_lia", event_type: "click", form_id: item.form_id });
     setLiaItem(item);
   };
@@ -186,7 +202,7 @@ export default function PublicBioPage() {
 
         <section className="mt-8 flex w-full flex-col items-center gap-3">
           {page.items.map((item) => (
-            <BioCard key={item.id} item={item} onWhatsApp={openWhatsApp} />
+            <BioCard key={item.id} item={item} onWhatsApp={openWhatsApp} onTrack={onTrack} />
           ))}
         </section>
 
