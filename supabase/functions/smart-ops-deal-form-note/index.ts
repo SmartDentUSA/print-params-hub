@@ -2,12 +2,8 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { addDealNote } from "../_shared/piperun-field-map.ts";
 import { buildSellerDealSummaryHTML } from "../_shared/seller-summary.ts";
 import { claimSellerNoteSlot, releaseSellerNoteSlot } from "../_shared/seller-note-lock.ts";
+import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
-};
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -27,6 +23,7 @@ async function getPiperunDealId(
       .from("lia_attendances")
       .select("piperun_id")
       .eq("id", leadId)
+      .is("merged_into", null)
       .maybeSingle();
 
     if (data?.piperun_id) return Number(data.piperun_id);
@@ -73,6 +70,7 @@ Deno.serve(async (req) => {
       .from("lia_attendances")
       .select("*")
       .eq("id", lead_id)
+      .is("merged_into", null)
       .single();
 
     let noteText: string;
@@ -107,7 +105,7 @@ Deno.serve(async (req) => {
 
     console.log(`[deal-form-note] Note added to deal ${dealId} for lead ${lead_id}:`, result.success);
 
-    return json({ ok: true, deal_id: dealId });
+    return json({ ok: result.success, deal_id: dealId }, result.success ? 200 : 502);
   } catch (err) {
     console.error("[deal-form-note] Error:", err);
     return json({ error: String(err) }, 500);

@@ -112,7 +112,7 @@ export async function buildSellerDealSummaryHTML(
     leadId
       ? supabase.from("smartops_form_field_responses")
           .select("field_label,value,created_at,form_id")
-          .eq("lead_id", leadId).order("created_at", { ascending: false }).limit(30)
+          .eq("lead_id", leadId).order("created_at", { ascending: false }).limit(1000)
       : Promise.resolve({ data: [] }),
     email
       ? supabase.from("leads").select("id").eq("email", email).maybeSingle()
@@ -440,7 +440,6 @@ export async function buildSellerDealSummaryHTML(
     const highlightKey = cleanVal(opts.highlightFormName || "").toLowerCase();
     let rendered = 0;
     for (const s of rawSnaps) {
-      if (rendered >= 3) break;
       // não repetir o formulário já destacado com o mesmo conteúdo
       if (highlightKey && s.formName.toLowerCase() === highlightKey && formBlocks.length) continue;
       const pairs: Pair[] = [];
@@ -466,7 +465,7 @@ export async function buildSellerDealSummaryHTML(
     if (pairs.length) {
       formBlocks.push(
         `&nbsp;&nbsp;◦ <b>Outras respostas registradas</b><br>` +
-        pairs.slice(0, 20).map(p => `&nbsp;&nbsp;&nbsp;&nbsp;• <b>${esc(p.label)}:</b> ${esc(p.value)}`).join("<br>"),
+        pairs.map(p => `&nbsp;&nbsp;&nbsp;&nbsp;• <b>${esc(p.label)}:</b> ${esc(p.value)}`).join("<br>"),
       );
     }
   }

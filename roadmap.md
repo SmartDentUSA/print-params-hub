@@ -40,3 +40,4 @@
 - [x] Padronizar 51 formulários SDR de produtos com a referência exocad_dentalcad_rms, preservando produtos, IDs históricos e perguntas específicas; chat segue ordem/condições sem remover ramos com a mesma coluna. Reaproveitamento de perfil e respostas customizadas testado.
 - [x] Persistência server-side de respostas de formulário e chat com timeline transacional; teste real de resposta e leitura do evento aprovado e integralmente desfeito, sem criar negócios. Fluxo completo de captura CRM não exercitado.
 - [x] Chat com intervalos proporcionais de 1,8–6,5s por mensagem e respostas rápidas alinhadas em linhas; abertura real e avanço visual controlado verificados sem erros, sem simular ser o WhatsApp oficial.
+- [ ] Conferir e corrigir cobertura de todas as respostas nas notas do PipeRun, inclusive respostas posteriores do chat e campos personalizados.
