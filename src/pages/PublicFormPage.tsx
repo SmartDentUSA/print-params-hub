@@ -1330,7 +1330,7 @@ export default function PublicFormPage() {
                   Produto de interesse
                 </Label>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                  {form.event_product_buttons.slice(0, 3).map((button) => {
+                  {form.event_product_buttons.slice(0, 10).map((button) => {
                     const selected = selectedEventProduct?.product_catalog_id === button.product_catalog_id;
                     return (
                       <Button
