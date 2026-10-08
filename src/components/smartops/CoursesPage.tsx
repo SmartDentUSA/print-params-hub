@@ -298,6 +298,11 @@ export default function CoursesPage() {
                     </div>
                   </div>
                   <div className="hidden sm:flex items-center gap-2 shrink-0">
+                    <ProfessionalKolCardStats
+                      compact
+                      formIds={(p.prof_kol_form_ids ?? []) as { id: string; name: string }[]}
+                      coupons={(p.prof_kol_coupons ?? []) as any}
+                    />
                     <Badge variant="secondary" className="text-xs">{stats?.total ?? 0} {stats?.total === 1 ? "curso" : "cursos"}</Badge>
                     {(stats?.ativos ?? 0) > 0 && (
                       <Badge variant="outline" className="text-xs text-green-600 border-green-600/40">{stats?.ativos} ativos</Badge>
