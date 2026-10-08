@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { ExternalLink, MapPin, CalendarDays } from 'lucide-react';
+import { ExternalLink, MapPin, CalendarDays, Users } from 'lucide-react';
 import KbSectionHeader from './KbSectionHeader';
 import KbSearchBar from './KbSearchBar';
 import KbResultCount from './KbResultCount';
@@ -97,6 +97,7 @@ export default function KbTabEventos() {
   const { t, language } = useLanguage();
   const dateLocale = language === 'en' ? 'en-US' : language === 'es' ? 'es-ES' : 'pt-BR';
   const [rows, setRows] = useState<EventRow[]>([]);
+  const [formByEvent, setFormByEvent] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState('');
 
@@ -110,6 +111,18 @@ export default function KbTabEventos() {
         .order('display_order', { ascending: true })
         .order('start_date', { ascending: true, nullsFirst: false });
       if (!error && data) setRows(data as EventRow[]);
+      const { data: forms } = await supabase
+        .from('smartops_forms')
+        .select('event_id,slug')
+        .not('event_id', 'is', null)
+        .eq('active', true);
+      if (forms) {
+        const map: Record<string, string> = {};
+        for (const f of forms as { event_id: string; slug: string }[]) {
+          if (f.event_id && f.slug && !map[f.event_id]) map[f.event_id] = f.slug;
+        }
+        setFormByEvent(map);
+      }
       setLoading(false);
     })();
   }, []);
