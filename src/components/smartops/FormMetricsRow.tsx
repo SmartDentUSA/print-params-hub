@@ -13,6 +13,7 @@ import {
   Link2,
   Loader2,
   Wand2,
+  ChevronDown,
 } from "lucide-react";
 import { toast } from "sonner";
 import AttendanceChannelMetrics from "@/components/lia/AttendanceChannelMetrics";
