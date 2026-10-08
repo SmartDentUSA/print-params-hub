@@ -254,6 +254,27 @@ async function sellerCard(leadId: string, body: any) {
   const ctx = await resolveContext(body ?? {}).catch(() => null);
   const { data: deal } = await sb.from("deals").select("piperun_deal_id, owner_name")
     .eq("lead_id", leadId).order("created_at", { ascending: false }).limit(1).maybeSingle();
+  // Histórico de produtos do lead (negócios ganhos = cliente; demais = já cotou).
+  const { data: leadDeals } = await sb.from("deals").select("id, status")
+    .eq("lead_id", leadId).limit(50);
+  const dealIds = (leadDeals ?? []).map((d: any) => d.id);
+  const wonIds = new Set((leadDeals ?? []).filter((d: any) => /won|ganh/i.test(String(d.status ?? ""))).map((d: any) => d.id));
+  const bought: string[] = [];
+  const quoted: string[] = [];
+  if (dealIds.length) {
+    const { data: items } = await sb.from("deal_items").select("deal_id, product_name, total_value")
+      .in("deal_id", dealIds).limit(200);
+    const seen = new Set<string>();
+    for (const item of items ?? []) {
+      const name = String((item as any).product_name ?? "").trim();
+      // Ignora brindes/itens de R$0 (treinamento, suporte, instalação) e duplicados.
+      if (!name || Number((item as any).total_value ?? 0) <= 0) continue;
+      const key = name.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      (wonIds.has((item as any).deal_id) ? bought : quoted).push(name);
+    }
+  }
   let member: any = null;
   if (lead.piperun_owner_id) {
     const { data } = await sb.from("team_members").select("nome_completo, photo_url, whatsapp_number").eq("piperun_owner_id", lead.piperun_owner_id).limit(1).maybeSingle();
