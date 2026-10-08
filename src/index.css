@@ -17,6 +17,16 @@
 
 @import './styles/inline-product-card.css';
 
+.bio-whatsapp-button {
+  background: hsl(var(--bio-whatsapp));
+  color: hsl(var(--bio-whatsapp-foreground));
+  box-shadow: 0 10px 26px -12px hsl(var(--bio-whatsapp) / 0.7);
+}
+.bio-whatsapp-button:hover {
+  background: hsl(var(--bio-whatsapp));
+  filter: brightness(1.05);
+}
+
 @layer base {
   :root {
     /* Core brand colors - Deep tech blues with warm accents */
