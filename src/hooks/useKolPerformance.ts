@@ -78,7 +78,7 @@ const empty: KolPerformance = {
   products: [],
   forms: [],
   coupons: [],
-  totals: { leads: 0, deals: 0, receita: 0, receitaCupons: 0, vendasCupons: 0, views: 0, visitors: 0, daily_series: [], cuponsGerados: 0, clientesCupons: 0 },
+  totals: { leads: 0, deals: 0, receita: 0, receitaCupons: 0, vendasCupons: 0, views: 0, visitors: 0, daily_series: [], cuponsGerados: 0, clientesCupons: 0, comissao: null, comissaoLeads: 0, comissaoCupons: 0 },
 };
 
 /**
