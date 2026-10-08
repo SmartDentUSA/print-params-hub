@@ -1483,6 +1483,20 @@ Deno.serve(async (req) => {
       if (incomingEmailDiffersFromCanonical) {
         delete (merged as Record<string, unknown>).email;
       }
+      // Placeholder upgrade: canonical lead imported with synthetic e-mail /
+      // "Nome não informado" receives the real identity from the new submission.
+      {
+        const m = merged as Record<string, unknown>;
+        const inc = incomingData as Record<string, unknown>;
+        if (isPlaceholderEmailValue(existingLead.email) && email && !isPlaceholderEmailValue(email)) {
+          m.email = email;
+          if (!fieldsUpdated.includes("email")) fieldsUpdated.push("email");
+        }
+        if (isPlaceholderNameValue(existingLead.nome) && inc.nome && !isPlaceholderNameValue(inc.nome)) {
+          m.nome = inc.nome;
+          if (!fieldsUpdated.includes("nome")) fieldsUpdated.push("nome");
+        }
+      }
 
       // ── PLATFORM_LEAD_ID SYNC (Identity-Collision Fix) ──
       // When a Meta/SellFlux retry brings a NEW leadgen_id that we absorbed into
