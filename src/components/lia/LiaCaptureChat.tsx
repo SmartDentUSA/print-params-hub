@@ -281,9 +281,10 @@ export default function LiaCaptureChat({ formId, campaign, product }: { formId: 
         <div className="mb-3 self-center rounded-md bg-card px-3 py-1 text-[11px] text-muted-foreground">Hoje</div>
         {msgs.map((m, i) => (
           <div key={i} className={`flex ${m.from === "user" ? "justify-end" : "justify-start"}`}>
-            <div className={`lia-bubble max-w-[88%] rounded-lg px-3 pb-1 pt-2 text-[15px] leading-5 sm:max-w-[78%] ${m.from === "user" ? "lia-bubble-out rounded-tr-none bg-primary text-primary-foreground" : "lia-bubble-in rounded-tl-none bg-muted text-foreground"}`}>
+            {(() => { const opts = m.from === "lia" ? (m.question || (i === msgs.length - 1 && q?.label === m.text ? q : null))?.options : undefined; const hasOptions = !!opts?.length; return (
+            <div className={`lia-bubble rounded-lg px-3 pb-1 pt-2 text-[15px] leading-5 ${hasOptions ? "w-[85%] sm:w-[70%] sm:max-w-md" : "max-w-[88%] sm:max-w-[78%]"} ${m.from === "user" ? "lia-bubble-out rounded-tr-none bg-primary text-primary-foreground" : "lia-bubble-in rounded-tl-none bg-muted text-foreground"}`}>
               <p className="whitespace-pre-wrap break-words">{m.text}</p>
-              {m.from === "lia" && !!(m.question || (i === msgs.length - 1 && q?.label === m.text ? q : null))?.options.length && <div className="lia-replies mt-3 flex flex-col" role="group" aria-label="Opções de resposta">
+              {hasOptions && <div className="lia-replies mt-3 flex flex-col" role="group" aria-label="Opções de resposta">
               {(m.question || q)?.options.map((option) => (
                 <Button key={option} variant="ghost" className="lia-reply h-auto min-h-11 w-full whitespace-normal rounded-none px-3 py-3 text-center text-sm font-medium leading-5" disabled={waiting || closed || i !== msgs.length - 1} aria-pressed={m.question?.field_type === "checkbox" ? selected.includes(option) : undefined} onClick={() => {
                   if (m.question?.field_type === "checkbox") setSelected((items) => items.includes(option) ? items.filter((item) => item !== option) : [...items, option]);
