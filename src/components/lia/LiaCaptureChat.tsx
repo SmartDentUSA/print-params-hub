@@ -261,7 +261,7 @@ export default function LiaCaptureChat({ formId, campaign, product }: { formId: 
   };
 
   const q = step === "qualify" ? ctx?.questions[qIdx] : undefined;
-  const showSeller = seller && closed && handoffStage >= 3;
+  const showSeller = seller && closed && handoffStage >= 4;
   const waiting = busy || typing;
 
   return (
@@ -308,6 +308,11 @@ export default function LiaCaptureChat({ formId, campaign, product }: { formId: 
             <div className="lia-bubble lia-bubble-in max-w-[88%] whitespace-pre-wrap break-words rounded-lg rounded-tl-none bg-muted px-3 py-2 text-[15px] leading-5 text-foreground sm:max-w-[78%]">{ctx.modules_summary}</div>
           </div>
         )}
+        {closed && seller && handoffStage >= 3 && seller.hook && (
+          <div className="flex justify-start">
+            <div className="lia-bubble lia-bubble-in max-w-[88%] whitespace-pre-wrap break-words rounded-lg rounded-tl-none bg-muted px-3 py-2 text-[15px] leading-5 text-foreground sm:max-w-[78%]">{seller.hook}</div>
+          </div>
+        )}
         {showSeller && (
           <div className="flex justify-start">
             <div className="lia-bubble lia-bubble-in max-w-[88%] rounded-lg rounded-tl-none bg-muted px-3 py-2 text-[15px] leading-5 text-foreground sm:max-w-[78%]">
@@ -336,7 +341,7 @@ export default function LiaCaptureChat({ formId, campaign, product }: { formId: 
             </Button>
           </div>
         )}
-        {showSeller && handoffStage >= 4 && ctx?.whatsapp_group_url && (
+        {showSeller && handoffStage >= 5 && ctx?.whatsapp_group_url && (
           <div className="flex justify-start">
             <div className="lia-bubble lia-bubble-in max-w-[88%] rounded-lg rounded-tl-none bg-muted px-3 py-2 text-[15px] leading-5 text-foreground sm:max-w-[78%]">
               <a href={ctx.whatsapp_group_url} target="_blank" rel="noopener noreferrer" aria-label="Entrar no grupo exclusivo no WhatsApp" className="mb-2 flex flex-col items-center rounded-md bg-background/40 px-3 py-4 text-center">
