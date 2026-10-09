@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   GraduationCap,
@@ -15,6 +15,7 @@ import {
   Globe,
   Award,
   ArrowRight,
+  Share2,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Badge } from '@/components/ui/badge';
@@ -24,6 +25,8 @@ import KbSearchBar from './KbSearchBar';
 import CourseRating, { RatingSummaryBadge } from './CourseRating';
 import '@/styles/course-professional-card.css';
 import { CourseCountdown, CourseSeats, CoursePrice, CourseInstructor, MiniCv, SyllabusPremium } from './CourseDetailBlocks';
+import { shortenUrl } from '@/utils/shortLink';
+import { toast } from 'sonner';
 
 /** Converte URL de vídeo (YouTube, PandaVideo, mp4) em embed. */
 function videoEmbed(url: string): { type: 'iframe' | 'video'; src: string } | null {
