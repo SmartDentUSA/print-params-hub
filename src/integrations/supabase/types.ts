@@ -23124,6 +23124,7 @@ export type Database = {
           active: boolean
           course_id: string
           created_at: string | null
+          cronograma_description: string | null
           drive_descricao_file_id: string | null
           drive_docx_file_id: string | null
           drive_folder_created_at: string | null
@@ -23159,6 +23160,7 @@ export type Database = {
           active?: boolean
           course_id: string
           created_at?: string | null
+          cronograma_description?: string | null
           drive_descricao_file_id?: string | null
           drive_docx_file_id?: string | null
           drive_folder_created_at?: string | null
@@ -23194,6 +23196,7 @@ export type Database = {
           active?: boolean
           course_id?: string
           created_at?: string | null
+          cronograma_description?: string | null
           drive_descricao_file_id?: string | null
           drive_docx_file_id?: string | null
           drive_folder_created_at?: string | null
