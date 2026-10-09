@@ -31,3 +31,4 @@
 
 - KOL card summaries use existing totals and profile validity; attribution stays unchanged.
 - Public courses read professional profiles only through a restricted RPC limited to producers of public courses or approved Smart Dent recommendations; anonymous visitors never read the leads table directly.
+- Imported Smart Dent trainings become editable professional_courses copies linked by source_smartops_course_id; public pages hide the synthetic entry once a copy exists, and professional public names live in prof_display_name so CRM sync cannot overwrite them.

@@ -151,9 +151,66 @@ export default function ProfessionalCoursesModal({ open, onOpenChange, professio
       toast({ title: "Erro ao aprovar", description: error.message, variant: "destructive" });
       return;
     }
-    toast({ title: "Curso aprovado para o card do profissional" });
+    await importSmartDentCourse(c);
+  };
+
+  // Importa o treinamento como curso editável do profissional, preservando os campos do treinamento.
+  const importSmartDentCourse = async (c: SmartDentCourse) => {
+    const existing = courses.find((pc: any) => pc.source_smartops_course_id === c.id);
+    if (existing) {
+      setDraft({ ...emptyCourseDraft(), ...(existing as any) });
+      return;
+    }
+    const { data: full, error: e1 } = await (supabase as any).from("smartops_courses").select("*").eq("id", c.id).maybeSingle();
+    if (e1 || !full) {
+      toast({ title: "Erro ao importar", description: e1?.message ?? "Treinamento não encontrado", variant: "destructive" });
+      return;
+    }
+    const { data: turmas } = await (supabase as any)
+      .from("v_turmas_com_vagas")
+      .select("start_date, end_date, start_time, end_time")
+      .eq("course_id", c.id)
+      .eq("active", true)
+      .order("start_date", { ascending: true });
+    const today = new Date().toISOString().slice(0, 10);
+    const t = ((turmas ?? []) as any[]).find((x) => !x.start_date || (x.end_date ?? x.start_date) >= today) ?? null;
+    const hours = full.duration_days && full.duration_hours_per_day ? Number(full.duration_days) * Number(full.duration_hours_per_day) : null;
+    const insert: any = {
+      producer_lead_id: professional.id,
+      source_smartops_course_id: c.id,
+      title: full.title,
+      slug: slugify(`${full.title}-${professional.id.slice(0, 6)}`),
+      description: full.description ?? null,
+      modality: full.modality || "presencial",
+      category: full.category ?? null,
+      cover_image_url: full.cover_image_url ?? null,
+      duration_days: full.duration_days ?? null,
+      workload_hours: hours,
+      start_date: t?.start_date ?? null,
+      end_date: t?.end_date ?? null,
+      start_time: t?.start_time ?? null,
+      end_time: t?.end_time ?? null,
+      venue: full.location ?? null,
+      meeting_link: full.meeting_link ?? null,
+      max_students: full.max_capacity ?? null,
+      registration_url: full.public_enrollment_enabled && full.slug ? `/inscricao/${full.slug}` : full.signup_form_url ?? null,
+      course_platform: "Smart Dent",
+      tags: ["Smart Dent"],
+      status: "publicado",
+      public_visible: true,
+      featured: true,
+      published_at: new Date().toISOString(),
+      created_source: "smartdent_import",
+    };
+    const { data: created, error } = await (supabase as any).from("professional_courses").insert(insert).select("*").single();
+    if (error) {
+      toast({ title: "Erro ao importar", description: error.message, variant: "destructive" });
+      return;
+    }
+    toast({ title: "Curso importado", description: "Revise e complete os dados do curso." });
     await load();
     onChanged?.();
+    setDraft({ ...emptyCourseDraft(), ...created });
   };
 
   const duplicate = async (c: ProfessionalCourse) => {
@@ -237,9 +294,13 @@ export default function ProfessionalCoursesModal({ open, onOpenChange, professio
                             {approved && <Badge className="text-xs bg-emerald-600 text-white">Aprovado</Badge>}
                           </div>
                         </div>
-                        {!approved && (
+                        {!approved ? (
                           <Button size="sm" variant="outline" className="shrink-0" onClick={() => approveSmartDentCourse(c)}>
                             <Check className="w-4 h-4 mr-1" /> Aprovar
+                          </Button>
+                        ) : (
+                          <Button size="sm" variant="outline" className="shrink-0" onClick={() => importSmartDentCourse(c)}>
+                            {courses.some((pc: any) => pc.source_smartops_course_id === c.id) ? "Editar" : "Importar e editar"}
                           </Button>
                         )}
                       </CardContent>

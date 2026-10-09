@@ -183,6 +183,7 @@ export default function KbTabCursos() {
         const t = nextTurma[c.id];
         const registration = c.public_enrollment_enabled && c.slug ? `/inscricao/${c.slug}` : c.signup_form_url ?? null;
         for (const profId of c.recommend_professional_ids as string[]) {
+          if (own.some((o: any) => o.source_smartops_course_id === c.id && o.producer_lead_id === profId)) continue;
           smartDent.push({
             id: `sd-${c.id}-${profId}`,
             producer_lead_id: profId,
