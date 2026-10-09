@@ -65,20 +65,44 @@ export default function ProfessionalKolCardStats({ formIds, coupons, commissions
   if (forms.length === 0 && rules.length === 0) return null;
 
   if (compact) {
+    const comissaoTxt = (v: number | null) => (v == null ? "—" : money(v));
+    const sep = <span className="text-muted-foreground/60">–</span>;
     return (
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs min-w-0">
-        <div className="flex shrink-0 items-center gap-3 rounded-md border border-primary/20 bg-primary/5 px-3 py-2 leading-tight">
-          <VisitorsSparkline series={perf.totals.daily_series} />
-          <div className="whitespace-nowrap">
-            <span className="font-semibold tabular-nums text-sm">{perf.totals.views.toLocaleString("pt-BR")}</span>
-            <span className="text-xs text-muted-foreground"> visitas · </span>
-            <span className="font-semibold tabular-nums text-sm">{perf.totals.visitors.toLocaleString("pt-BR")}</span>
-            <span className="text-xs text-muted-foreground"> únicos</span>
-          </div>
-        </div>
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs min-w-0 whitespace-nowrap">
+        <VisitorsSparkline series={perf.totals.daily_series} />
         {perf.loading && <Loader2 className="w-3 h-3 animate-spin text-muted-foreground" />}
-        <span className="shrink-0 text-muted-foreground"><b className="text-sm text-foreground tabular-nums">{perf.totals.leads}</b> leads</span>
-        {financialSummary}
+        <span className="tabular-nums">
+          <span className="text-muted-foreground">Visitas:</span> <b className="text-foreground">{perf.totals.views.toLocaleString("pt-BR")}</b>
+          <span className="text-muted-foreground"> · Únicos:</span> <b className="text-foreground">{perf.totals.visitors.toLocaleString("pt-BR")}</b>
+          <span className="text-muted-foreground"> · Leads:</span> <b className="text-foreground">{perf.totals.leads}</b>
+        </span>
+        {sep}
+        <span className="tabular-nums" title="Formulários: receita e comissão">
+          <span className="text-muted-foreground">Formulários:</span> <b className="text-primary">{money(perf.totals.receita)}</b>
+          <span className="text-muted-foreground"> · Comissão:</span> <b className="text-success">{comissaoTxt(perf.totals.comissao == null ? null : perf.totals.comissaoLeads)}</b>
+        </span>
+        {rules.length > 0 && (
+          <>
+            {sep}
+            <span className="tabular-nums flex flex-wrap items-center gap-x-3 gap-y-1">
+              {perf.coupons.map((c) => {
+                const pct = rules.find((r) => r.code === c.cupom)?.commission_percent ?? null;
+                const com = pct != null ? (c.receita * pct) / 100 : null;
+                return (
+                  <span key={c.cupom} title={`Cupom ${c.cupom}: receita e comissão`}>
+                    <span className="text-muted-foreground">Cupom</span> <b className="text-foreground">{c.cupom}</b>
+                    <span className="text-muted-foreground">:</span> <b className="text-primary">{money(c.receita)}</b>
+                    <span className="text-muted-foreground"> · Comissão:</span> <b className="text-success">{comissaoTxt(com)}</b>
+                  </span>
+                );
+              })}
+            </span>
+          </>
+        )}
+        {sep}
+        <span className="tabular-nums" title="Valor total de comissões (formulários + cupons)">
+          <span className="text-muted-foreground">Valor total de comissões:</span> <b className="text-success">{comissaoTxt(perf.totals.comissao)}</b>
+        </span>
       </div>
     );
   }
