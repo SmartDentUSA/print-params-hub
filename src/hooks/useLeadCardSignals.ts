@@ -4,6 +4,8 @@ import { supabase } from "@/integrations/supabase/client";
 export interface LeadCardSignals {
   lives: number;
   lastWonAt: string | null;
+  /** Data (start_date da turma) do treinamento/imersão mais recente do lead. */
+  lastTrainingAt: string | null;
 }
 
 // Batches card requests (one query per ~60ms window) to avoid N requests per board.
