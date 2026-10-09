@@ -234,6 +234,7 @@ export default function ProfessionalCoursesModal({ open, onOpenChange, professio
       ...rest,
       title: `${c.title} (cópia)`,
       slug: slugify(`${c.title}-copia-${Date.now()}`),
+      source_smartops_course_id: null,
       status: "rascunho",
       public_visible: false,
       published_at: null,
