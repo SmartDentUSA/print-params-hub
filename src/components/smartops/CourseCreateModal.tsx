@@ -1323,6 +1323,29 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
                       </Button>
                     </div>
                   )}
+                  {modality === "presencial" && (
+                    <div className="flex items-center gap-2 pt-1 border-t">
+                      <Switch
+                        checked={waitlistEnabled}
+                        onCheckedChange={(enabled) => { setWaitlistEnabled(enabled); if (enabled) setPublicEnrollmentEnabled(true); }}
+                      />
+                      <Label>Lista de espera (quando a turma lotar)</Label>
+                      {waitlistEnabled && (
+                        <Badge variant="secondary" className="ml-auto">Ativa</Badge>
+                      )}
+                    </div>
+                  )}
+                  {modality === "presencial" && waitlistEnabled && (
+                    <div className="space-y-1.5">
+                      <p className="text-xs text-muted-foreground">
+                        Mensagem enviada pelo WhatsApp do CS ao entrar na lista. Variáveis: {"{{nome}} {{curso}} {{turma_label}} {{data_inicio}} {{horario_inicio}} {{cs_nome}}"}
+                      </p>
+                      <Textarea rows={6} className="font-mono text-sm"
+                        value={waitlistTemplate} onChange={(e) => setWaitlistTemplate(e.target.value)} />
+                      <Button type="button" variant="ghost" size="sm" className="text-xs"
+                        onClick={() => setWaitlistTemplate(DEFAULT_WAITLIST_TEMPLATE)}>Restaurar padrão</Button>
+                    </div>
+                  )}
                 </div>
               )}
 
