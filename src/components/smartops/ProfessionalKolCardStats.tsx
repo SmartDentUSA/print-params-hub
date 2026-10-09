@@ -14,19 +14,22 @@ interface Props {
 }
 
 function VisitorsSparkline({ series }: { series: Array<{ d: string; v: number }> }) {
-  if (series.length < 2) return <div className="h-11 w-36 text-[10px] text-muted-foreground flex items-center justify-center">Sem histórico de visitas</div>;
-  const width = 140;
-  const height = 40;
-  const max = Math.max(...series.map((point) => point.v), 1);
-  const step = width / (series.length - 1);
-  const points = series
-    .map((point, index) => `${(index * step).toFixed(1)},${(height - (point.v / max) * height).toFixed(1)}`)
+  const data = series && series.length > 0 ? series : [];
+  if (data.length < 2) {
+    return <div className="h-8 flex items-end text-xs text-muted-foreground">—</div>;
+  }
+  const w = 120;
+  const h = 28;
+  const max = Math.max(...data.map((p) => p.v), 1);
+  const step = data.length > 1 ? w / (data.length - 1) : w;
+  const points = data
+    .map((p, i) => `${(i * step).toFixed(1)},${(h - (p.v / max) * h).toFixed(1)}`)
     .join(" ");
-
+  const areaPoints = `0,${h} ${points} ${w},${h}`;
   return (
-    <svg width={width} height={height} viewBox={`-2 -2 ${width + 4} ${height + 4}`} role="img" aria-label="Visitas nos últimos 30 dias" className="shrink-0 overflow-hidden">
-      <polygon points={`0,${height} ${points} ${width},${height}`} fill="hsl(var(--primary) / 0.12)" />
-      <polyline points={points} fill="none" stroke="hsl(var(--primary))" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
+    <svg width={w} height={h} className="overflow-visible">
+      <polyline points={areaPoints} fill="hsl(var(--primary) / 0.12)" stroke="none" />
+      <polyline points={points} fill="none" stroke="hsl(var(--primary))" strokeWidth="1.5" />
     </svg>
   );
 }
