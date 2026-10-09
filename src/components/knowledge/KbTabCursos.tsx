@@ -696,18 +696,38 @@ export default function KbTabCursos() {
               {/* Hero */}
               <div className="relative">
                 <div className="aspect-[16/7] w-full overflow-hidden bg-muted">
-                  {detailCourse.cover_image_url ? (
-                    <img
-                      src={detailCourse.cover_image_url}
-                      alt={detailCourse.title}
-                      className="w-full h-full object-cover"
-                      loading="lazy"
-                    />
-                  ) : (
-                    <div className="pc-hero-empty w-full h-full flex items-center justify-center">
-                      <GraduationCap />
-                    </div>
-                  )}
+                  {(() => {
+                    const heroEmbed = detailCourse.video_url ? videoEmbed(detailCourse.video_url) : null;
+                    if (heroEmbed) {
+                      return heroEmbed.type === 'iframe' ? (
+                        <iframe
+                          src={heroEmbed.src}
+                          title={`Vídeo do curso ${detailCourse.title}`}
+                          className="w-full h-full"
+                          allow="accelerometer; autoplay; encrypted-media; picture-in-picture"
+                          allowFullScreen
+                          loading="lazy"
+                        />
+                      ) : (
+                        <video src={heroEmbed.src} className="w-full h-full object-cover" autoPlay muted loop playsInline preload="metadata" />
+                      );
+                    }
+                    if (detailCourse.cover_image_url) {
+                      return (
+                        <img
+                          src={detailCourse.cover_image_url}
+                          alt={detailCourse.title}
+                          className="w-full h-full object-cover"
+                          loading="lazy"
+                        />
+                      );
+                    }
+                    return (
+                      <div className="pc-hero-empty w-full h-full flex items-center justify-center">
+                        <GraduationCap />
+                      </div>
+                    );
+                  })()}
                 </div>
                 <div className="absolute inset-0 bg-gradient-to-t from-background via-background/70 to-transparent" />
                 <div className="absolute bottom-0 left-0 right-0 p-5 sm:p-6">

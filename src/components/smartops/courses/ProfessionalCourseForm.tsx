@@ -325,7 +325,6 @@ export default function ProfessionalCourseForm({ value, onChange, onUploadCover,
           </div>
           <div><Label>Instagram</Label><Input value={v.instagram ?? ""} onChange={(e) => onChange({ instagram: e.target.value })} placeholder="@perfil" /></div>
           <div className="md:col-span-3"><Label>Materiais inclusos</Label><Textarea rows={2} value={v.materials_included ?? ""} onChange={(e) => onChange({ materials_included: e.target.value })} /></div>
-          <div className="md:col-span-3"><Label>Materiais inclusos</Label><Textarea rows={2} value={v.materials_included ?? ""} onChange={(e) => onChange({ materials_included: e.target.value })} /></div>
         </CardContent>
       </Card>
 
