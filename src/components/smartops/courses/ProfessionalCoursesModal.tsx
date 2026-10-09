@@ -9,7 +9,10 @@ import { ArrowLeft, Loader2, Pencil, Plus, Save, Trash2, Copy } from "lucide-rea
 import ProfessionalCourseForm from "./ProfessionalCourseForm";
 import { emptyCourseDraft, COURSE_MODALITIES, COURSE_STATUS, type ProfessionalCourse, type ProfessionalCourseDraft } from "@/types/professionalCourses";
 import { getCourseStatusBadge } from "@/lib/courseStatusBadge";
+import { normalizeInstructorName } from "@/lib/instructorNameMatch";
 import { cn } from "@/lib/utils";
+
+type SmartDentCourse = { id: string; title: string; start_date: string | null; modality: string | null; instructor_name: string | null };
 
 interface Props {
   open: boolean;
@@ -29,6 +32,7 @@ export default function ProfessionalCoursesModal({ open, onOpenChange, professio
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [courses, setCourses] = useState<ProfessionalCourse[]>([]);
+  const [smartDentCourses, setSmartDentCourses] = useState<SmartDentCourse[]>([]);
   const [draft, setDraft] = useState<ProfessionalCourseDraft | null>(null);
 
   const load = useCallback(async () => {
@@ -41,12 +45,26 @@ export default function ProfessionalCoursesModal({ open, onOpenChange, professio
         .order("created_at", { ascending: false });
       if (error) throw error;
       setCourses((data ?? []) as unknown as ProfessionalCourse[]);
+
+      // Treinamentos Smart Dent associados ao profissional (liberados para "Cursos recomendados")
+      const { data: recs } = await (supabase as any)
+        .from("smartops_courses")
+        .select("id, title, start_date, modality, instructor_name")
+        .eq("recommend_on_instructor_card", true)
+        .eq("active", true)
+        .order("start_date", { ascending: true, nullsFirst: false });
+      const target = normalizeInstructorName(professional.nome);
+      setSmartDentCourses(
+        ((recs ?? []) as SmartDentCourse[]).filter(
+          (c) => target.length > 0 && normalizeInstructorName(c.instructor_name) === target,
+        ),
+      );
     } catch (e: any) {
       toast({ title: "Erro ao carregar cursos", description: e.message, variant: "destructive" });
     } finally {
       setLoading(false);
     }
-  }, [professional.id, toast]);
+  }, [professional.id, professional.nome, toast]);
 
   useEffect(() => {
     if (!open) return;
@@ -179,7 +197,35 @@ export default function ProfessionalCoursesModal({ open, onOpenChange, professio
               <div className="flex items-center justify-center py-10 text-muted-foreground">
                 <Loader2 className="w-5 h-5 animate-spin mr-2" /> Carregando…
               </div>
-            ) : courses.length === 0 ? (
+            ) : (
+              <>
+            {smartDentCourses.length > 0 && (
+              <div className="space-y-2">
+                <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Cursos Smart Dent associados
+                </div>
+                {smartDentCourses.map((c) => (
+                  <Card key={c.id}>
+                    <CardContent className="p-4 flex items-start gap-3">
+                      <div className="min-w-0 flex-1">
+                        <div className="font-medium truncate">{c.title}</div>
+                        <div className="text-xs text-muted-foreground truncate">
+                          {[c.modality, c.start_date].filter(Boolean).join(" · ")}
+                        </div>
+                        <div className="flex flex-wrap gap-1 mt-1.5">
+                          <Badge variant="secondary" className="text-xs">Smart Dent</Badge>
+                          <Badge variant="outline" className="text-xs">Cursos recomendados</Badge>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+                <p className="text-xs text-muted-foreground">
+                  Estes treinamentos são gerenciados na aba Treinamentos.
+                </p>
+              </div>
+            )}
+            {courses.length === 0 ? (
               <Card><CardContent className="py-10 text-center text-muted-foreground">Nenhum curso cadastrado para este profissional.</CardContent></Card>
             ) : (
               courses.map((c) => (
@@ -223,6 +269,8 @@ export default function ProfessionalCoursesModal({ open, onOpenChange, professio
                   </CardContent>
                 </Card>
               ))
+            )}
+              </>
             )}
           </div>
         )}
