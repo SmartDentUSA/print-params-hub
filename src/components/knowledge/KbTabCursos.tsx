@@ -445,7 +445,7 @@ export default function KbTabCursos() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 items-start">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3 items-start">
         {Array.from(
           visible
             .reduce((acc, c) => {
