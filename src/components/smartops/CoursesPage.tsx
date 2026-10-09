@@ -180,7 +180,7 @@ export default function CoursesPage() {
         // Treinamentos liberados para "Cursos recomendados" do instrutor
         const norm = (s?: string | null) =>
           (s ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/\s+/g, " ").trim();
-        const { data: recs } = await supabase
+        const { data: recs } = await (supabase as any)
           .from("smartops_courses")
           .select("id, title, start_date, modality, instructor_name")
           .eq("recommend_on_instructor_card" as any, true)
