@@ -153,6 +153,9 @@ export default function KbTabCursos() {
   const [selectedEsp, setSelectedEsp] = useState('');
   const [search, setSearch] = useState('');
   const [detail, setDetail] = useState<{ course: ProfCourse; kol?: Kol } | null>(null);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+  const sharedCurso = useMemo(() => new URLSearchParams(window.location.search).get('curso'), []);
+
 
   const { data: courses = [], isLoading } = useQuery({
     queryKey: ['kb_professional_courses'],
