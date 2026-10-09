@@ -42,6 +42,7 @@ import { CourseCard } from "./smartops/CourseCard";
 import { CoursesCalendarTab } from "./smartops/CoursesCalendarTab";
 import { CoursesNpsTab } from "./smartops/CoursesNpsTab";
 import { NpsDemosTab } from "./smartops/NpsDemosTab";
+import { CoursesWaitlistTab } from "./smartops/CoursesWaitlistTab";
 
 // ─── Countdown Hook ───
 type CountdownResult = {
@@ -1514,6 +1515,7 @@ export function SmartOpsCourses() {
         <TabsTrigger value="agendamentos">Agendamentos</TabsTrigger>
         <TabsTrigger value="catalogo">Catálogo</TabsTrigger>
         <TabsTrigger value="inscricoes">Inscrições</TabsTrigger>
+        <TabsTrigger value="lista-espera">Lista de espera</TabsTrigger>
         <TabsTrigger value="publica-imersoes">Página Pública Imersões</TabsTrigger>
         <TabsTrigger value="publica-aovivo">Página Pública Ao Vivo</TabsTrigger>
         <TabsTrigger value="calendario">Calendário</TabsTrigger>
@@ -1529,6 +1531,9 @@ export function SmartOpsCourses() {
       </TabsContent>
       <TabsContent value="inscricoes">
         <InscricoesTab />
+      </TabsContent>
+      <TabsContent value="lista-espera">
+        <CoursesWaitlistTab />
       </TabsContent>
       <TabsContent value="publica-imersoes">
         <PaginaPublicaTab variant="presencial" />
