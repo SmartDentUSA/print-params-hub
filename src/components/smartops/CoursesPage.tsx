@@ -178,20 +178,18 @@ export default function CoursesPage() {
         setCourseStats(stats);
         setCoursesByProf(grouped);
 
-        // Treinamentos liberados para "Cursos recomendados" do instrutor
-        const norm = normalizeInstructorName;
+        // Treinamentos liberados para "Cursos recomendados" — só entram no card
+        // depois de aprovados para o profissional (recommend_professional_ids).
         const { data: recs } = await (supabase as any)
           .from("smartops_courses")
-          .select("id, title, start_date, modality, instructor_name")
+          .select("id, title, start_date, modality, instructor_name, recommend_professional_ids")
           .eq("recommend_on_instructor_card" as any, true)
           .eq("active", true)
           .order("start_date", { ascending: true, nullsFirst: false });
-        const byName = new Map<string, string>();
-        for (const p of list) if (p.nome) byName.set(norm(p.nome), p.id);
         const recGrouped: Record<string, RecommendedCourse[]> = {};
         for (const c of (recs ?? []) as any[]) {
-          const pid = byName.get(norm(c.instructor_name));
-          if (pid) (recGrouped[pid] ??= []).push(c);
+          const ids: string[] = Array.isArray(c.recommend_professional_ids) ? c.recommend_professional_ids : [];
+          for (const pid of ids) (recGrouped[pid] ??= []).push(c);
         }
         setRecommendedByProf(recGrouped);
       } else {
