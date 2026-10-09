@@ -176,6 +176,36 @@ export type Database = {
         }
         Relationships: []
       }
+      _translation_jobs_20261008: {
+        Row: {
+          applied: boolean
+          content_id: string
+          created_at: string
+          id: number
+          lang: string
+          note: string | null
+          request_id: number | null
+        }
+        Insert: {
+          applied?: boolean
+          content_id: string
+          created_at?: string
+          id?: number
+          lang: string
+          note?: string | null
+          request_id?: number | null
+        }
+        Update: {
+          applied?: boolean
+          content_id?: string
+          created_at?: string
+          id?: number
+          lang?: string
+          note?: string | null
+          request_id?: number | null
+        }
+        Relationships: []
+      }
       agent_actions_log: {
         Row: {
           action_title: string
