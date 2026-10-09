@@ -643,55 +643,9 @@ export default function KbTabCursos() {
         <DialogContent className="w-[calc(100vw-1.5rem)] max-w-3xl max-h-[92dvh] overflow-y-auto overflow-x-hidden p-0 gap-0 rounded-xl grid-cols-[minmax(0,1fr)] [&>*]:min-w-0">
           {detailCourse && (
             <>
-              {/* Professor — acima do título */}
-              {detail?.kol && (
-                <div className="p-5 sm:p-6 pb-0">
-                  <div className="flex items-start gap-4 rounded-2xl border border-border bg-card p-4">
-                    <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full overflow-hidden bg-muted shrink-0 ring-2 ring-primary/10">
-                      {detail.kol.prof_photo_url ? (
-                        <img
-                          src={detail.kol.prof_photo_url}
-                          alt={detail.kol.nome ?? 'Profissional'}
-                          className="w-full h-full object-cover"
-                          loading="lazy"
-                        />
-                      ) : (
-                        <UserCircle className="w-full h-full text-muted-foreground/60" />
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="text-base sm:text-lg font-semibold text-foreground truncate">
-                        {detail.kol.nome}
-                      </div>
-                      {detail.kol.especialidade && (
-                        <div className="text-xs sm:text-sm font-semibold uppercase tracking-wide text-primary truncate">
-                          {detail.kol.especialidade}
-                        </div>
-                      )}
-                      {igHandle(detail.kol.instagram) && (
-                        <a
-                          href={`https://instagram.com/${igHandle(detail.kol.instagram)}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-xs text-primary hover:underline inline-flex items-center gap-1 mt-0.5"
-                        >
-                          <Instagram className="w-3 h-3" /> @{igHandle(detail.kol.instagram)}
-                        </a>
-                      )}
-                      {detail.kol.cliente_desde && (
-                        <p className="text-[11px] text-muted-foreground mt-1.5">
-                          Cliente Smart Dent desde {fmtDate(detail.kol.cliente_desde)}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                  {detail.kol.prof_mini_cv && <MiniCv cv={detail.kol.prof_mini_cv} />}
-                </div>
-              )}
-
               {/* Hero */}
               <div className="relative">
-                <div className="aspect-[16/7] w-full overflow-hidden bg-muted">
+                <div className={`${detailCourse.video_url ? 'aspect-video' : 'aspect-[16/7]'} w-full overflow-hidden bg-muted`}>
                   {(() => {
                     const emb = detailCourse.video_url ? videoEmbed(detailCourse.video_url) : null;
                     if (emb) {
@@ -724,8 +678,8 @@ export default function KbTabCursos() {
                     );
                   })()}
                 </div>
-                <div className="absolute inset-0 bg-gradient-to-t from-background via-background/70 to-transparent" />
-                <div className="absolute bottom-0 left-0 right-0 p-5 sm:p-6">
+                {!detailCourse.video_url && <div className="absolute inset-0 bg-gradient-to-t from-background via-background/70 to-transparent" />}
+                <div className={detailCourse.video_url ? "p-5 sm:p-6 pb-0" : "absolute bottom-0 left-0 right-0 p-5 sm:p-6"}>
                   <div className="flex flex-wrap gap-1.5 mb-2">
                     {detailCourse.modality && <Badge variant="secondary">{label(detailCourse.modality)}</Badge>}
                     {detailCourse.category && <Badge variant="outline">{label(detailCourse.category)}</Badge>}
