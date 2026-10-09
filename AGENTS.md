@@ -2,8 +2,8 @@
 
 - Support context requires session, support-role and ticket authorization via an edge function; this exposes customer details without widening commercial RLS.
 - Support board uses that endpoint in bounded batches for complete ticket counts and owned-equipment priority; this avoids per-card requests and RLS changes.
-- Support uses page-scoped theme tokens and equal-width conversation/profile areas to preserve unrelated admin styling.
-- Bio cards pass hydrated form IDs to LIA, never editable labels as products; this preserves attribution.
+- Support uses scoped tokens and equal-width conversation/profile areas; preserves other admin styling.
+- Bio cards pass hydrated form IDs to LIA, not labels; preserves attribution.
 
 - RMS payment presentation and metrics share product-family resolution; subscription fallback and invoice totals are scoped by family and lead to prevent exoplan/DentalCAD cross-attribution.
 
@@ -21,7 +21,7 @@
 - PipeRun sync hydrates person contacts via a read-only persons/{id} GET, matches leads by phone when e-mail is missing, and keeps deals without contacts keyed by piperun_id; deals typed directly in PipeRun otherwise never reach the system.
 - PipeRun person/company contacts are written and read only through the shared `piperunGet/Post/Put` helpers, which translate to `contact_emails`/`contact_phones`, request `with[]=contactEmails,contactPhones`, merge existing contacts on PUT and use `?email=`/`?phone=` list filters; the legacy `emails[]`/`phones[]` keys and filters are silently ignored by PipeRun and left persons without e-mail and caused duplicate persons.
 - PipeRun sync hydrates company contacts separately and does not skip unchanged deals when missing contacts become available; company identifiers must never merge distinct people.
-- Proposal item failures never block deal saving; this prevents hidden deals.
+- Proposal item failures never block saving; avoids hidden deals.
 - Event cards and timelines use immutable submission activity, not the latest lead event snapshot; repeat visitors count in every event and refresh CRM summaries without changing Deals.
 - PipeRun deal sync writes `telefone_normalized` alongside `telefone_raw` using the shared Brazilian phone normalizer; lead cards, search and phone matching read only the normalized phone.
 
@@ -31,3 +31,5 @@
 - LIA keeps form order, conditions, canonical answers, HMAC, masked hints and timeline. Notes paginate under shared lock without changing deals. Grounded RAG/AI conversation runs separately during assignment; failure never blocks handoff; seller announcements stay factual.
 - LIA context validates the form's success_redirect_url as a WhatsApp group; optional group CTA follows seller CTA without changing ingestion.
 - Internal forms and LIA resolve interest from their catalog binding or selected product button so CRM uses exact product names; Meta ingestion stays unchanged.
+
+- KOL card summaries use existing totals and profile validity; attribution stays unchanged.
