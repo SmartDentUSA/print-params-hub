@@ -418,6 +418,14 @@ function LeadRow({ lead, active, onClick, nps, captureEvents }: { lead: LeadFull
                 ● LIVE {signals.lives}
               </span>
             )}
+            {signals && signals.lastTrainingAt && (
+              <span
+                title="Cliente fez treinamento (Imersão)"
+                style={{ flexShrink: 0, padding: "1px 6px", borderRadius: 4, fontSize: 9, fontWeight: 700, background: "#047857", color: "#fff" }}
+              >
+                🎓 Imersão {formatTrainingMonthYear(signals.lastTrainingAt)}
+              </span>
+            )}
           </div>
           <div className="intel-lr-email">
             {lead.email && !lead.email.includes("placeholder") ? lead.email : (lead.empresa_nome || lead.area_atuacao || "—")}
