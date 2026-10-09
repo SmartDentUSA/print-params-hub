@@ -640,7 +640,7 @@ export default function KbTabCursos() {
 
 
       <Dialog open={!!detail} onOpenChange={(o) => !o && setDetail(null)}>
-        <DialogContent className="max-w-3xl max-h-[92vh] overflow-y-auto p-0 gap-0">
+        <DialogContent className="w-[calc(100vw-1.5rem)] max-w-3xl max-h-[92dvh] overflow-y-auto overflow-x-hidden p-0 gap-0 rounded-xl">
           {detailCourse && (
             <>
               {/* Professor — acima do título */}
