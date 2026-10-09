@@ -69,9 +69,11 @@ export default function ProfessionalKolCardStats({ formIds, coupons, commissions
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs min-w-0">
         <div className="flex shrink-0 items-center gap-3 rounded-md border border-primary/20 bg-primary/5 px-3 py-2 leading-tight">
           <VisitorsSparkline series={perf.totals.daily_series} />
-          <div>
-            <div className="font-semibold tabular-nums text-sm">{perf.totals.views.toLocaleString("pt-BR")} <span className="text-xs font-normal text-muted-foreground">visitas</span></div>
-            <div className="text-[11px] text-muted-foreground">{perf.totals.visitors.toLocaleString("pt-BR")} únicos</div>
+          <div className="whitespace-nowrap">
+            <span className="font-semibold tabular-nums text-sm">{perf.totals.views.toLocaleString("pt-BR")}</span>
+            <span className="text-xs text-muted-foreground"> visitas · </span>
+            <span className="font-semibold tabular-nums text-sm">{perf.totals.visitors.toLocaleString("pt-BR")}</span>
+            <span className="text-xs text-muted-foreground"> únicos</span>
           </div>
         </div>
         {perf.loading && <Loader2 className="w-3 h-3 animate-spin text-muted-foreground" />}
