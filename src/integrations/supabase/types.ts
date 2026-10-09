@@ -24729,6 +24729,8 @@ export type Database = {
           position: number | null
           turma_id: string
           updated_at: string
+          vacancy_error: string | null
+          vacancy_notified_at: string | null
           wa_error: string | null
           wa_sent_at: string | null
         }
@@ -24745,6 +24747,8 @@ export type Database = {
           position?: number | null
           turma_id: string
           updated_at?: string
+          vacancy_error?: string | null
+          vacancy_notified_at?: string | null
           wa_error?: string | null
           wa_sent_at?: string | null
         }
@@ -24761,6 +24765,8 @@ export type Database = {
           position?: number | null
           turma_id?: string
           updated_at?: string
+          vacancy_error?: string | null
+          vacancy_notified_at?: string | null
           wa_error?: string | null
           wa_sent_at?: string | null
         }

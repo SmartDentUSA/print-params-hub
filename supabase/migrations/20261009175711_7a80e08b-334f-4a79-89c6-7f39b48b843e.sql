@@ -1,0 +1,1 @@
+ALTER TABLE public.smartops_turma_waitlist ADD COLUMN IF NOT EXISTS vacancy_notified_at timestamptz, ADD COLUMN IF NOT EXISTS vacancy_error text;
