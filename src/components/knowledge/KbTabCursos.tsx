@@ -179,12 +179,14 @@ export default function KbTabCursos() {
         .eq('active', true)
         .eq('public_visible', true);
       const approved = ((recs ?? []) as any[]).filter((c) => (c.recommend_professional_ids ?? []).length > 0);
-      if (approved.length === 0) return own;
+      const linkedIds = own.map((o: any) => o.source_smartops_course_id).filter(Boolean);
+      const turmaCourseIds = Array.from(new Set([...approved.map((c) => c.id), ...linkedIds]));
+      if (turmaCourseIds.length === 0) return own;
 
       const { data: turmas } = await (supabase as any)
         .from('v_turmas_com_vagas')
-        .select('course_id, start_date, end_date, start_time, end_time, enrolled_count')
-        .in('course_id', approved.map((c) => c.id))
+        .select('course_id, start_date, end_date, start_time, end_time, enrolled_count, slots')
+        .in('course_id', turmaCourseIds)
         .eq('active', true)
         .order('start_date', { ascending: true });
       const today = new Date().toISOString().slice(0, 10);
@@ -192,6 +194,13 @@ export default function KbTabCursos() {
       for (const t of (turmas ?? []) as any[]) {
         if (nextTurma[t.course_id]) continue;
         if (!t.start_date || (t.end_date ?? t.start_date) >= today) nextTurma[t.course_id] = t;
+      }
+      // Cópias editáveis de treinamentos Smart Dent usam as vagas ao vivo da turma de origem
+      for (const o of own as any[]) {
+        const t = o.source_smartops_course_id ? nextTurma[o.source_smartops_course_id] : null;
+        if (!t) continue;
+        o.enrolled_count = t.enrolled_count ?? o.enrolled_count;
+        if (t.slots) o.max_students = t.slots;
       }
 
       const smartDent: ProfCourse[] = [];
@@ -224,7 +233,7 @@ export default function KbTabCursos() {
             video_url: null,
             duration_days: c.duration_days ?? null,
             end_time: t?.end_time ?? null,
-            max_students: c.max_capacity ?? null,
+            max_students: t?.slots ?? c.max_capacity ?? null,
             enrolled_count: t?.enrolled_count ?? null,
             language: null,
             tags: ['Smart Dent'],
