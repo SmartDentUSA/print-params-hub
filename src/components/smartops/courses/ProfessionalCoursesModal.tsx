@@ -273,13 +273,18 @@ export default function ProfessionalCoursesModal({ open, onOpenChange, professio
               </div>
             ) : (
               <>
-            {smartDentCourses.length > 0 && (
+            {smartDentCourses.some((c) => !courses.some((pc: any) => pc.source_smartops_course_id === c.id)) && (
               <div className="space-y-2">
                 <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   Cursos Smart Dent associados
                 </div>
                 {smartDentCourses.map((c) => {
                   const approved = (c.recommend_professional_ids ?? []).includes(professional.id);
+                  // Quando já existe uma cópia editável importada, ela aparece na lista
+                  // abaixo com o próprio botão Editar — esconder o card de origem para
+                  // não exibir o curso duplicado nem clonar de novo.
+                  const imported = courses.some((pc: any) => pc.source_smartops_course_id === c.id);
+                  if (imported) return null;
                   return (
                     <Card key={c.id}>
                       <CardContent className="p-4 flex items-start gap-3">
@@ -300,7 +305,7 @@ export default function ProfessionalCoursesModal({ open, onOpenChange, professio
                           </Button>
                         ) : (
                           <Button size="sm" variant="outline" className="shrink-0" onClick={() => importSmartDentCourse(c)}>
-                            {courses.some((pc: any) => pc.source_smartops_course_id === c.id) ? "Editar" : "Importar e editar"}
+                            Importar e editar
                           </Button>
                         )}
                       </CardContent>
