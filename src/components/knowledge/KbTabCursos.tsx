@@ -465,7 +465,7 @@ export default function KbTabCursos() {
             return (
               <section key={producerId} className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
                 {/* Identificação do profissional no topo do card */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-5 bg-card">
+                <div className="flex flex-col gap-4 p-5 bg-card">
                   {/* Coluna 1: Foto + Nome */}
                   <div className="flex items-center gap-4 min-w-0">
                     <div className="w-20 h-20 rounded-full overflow-hidden bg-muted shrink-0 ring-2 ring-primary/10">
@@ -565,6 +565,35 @@ export default function KbTabCursos() {
                           {c.description && (
                             <p className="text-xs text-muted-foreground line-clamp-2">{c.description}</p>
                           )}
+
+                          {c.video_url && (() => {
+                            const embed = videoEmbed(c.video_url);
+                            return embed ? (
+                              <div className="aspect-video w-full max-w-md rounded-lg overflow-hidden bg-black">
+                                {embed.type === 'iframe' ? (
+                                  <iframe
+                                    src={embed.src}
+                                    title={`Vídeo do curso ${c.title}`}
+                                    className="w-full h-full"
+                                    allow="accelerometer; autoplay; encrypted-media; picture-in-picture"
+                                    allowFullScreen
+                                    loading="lazy"
+                                  />
+                                ) : (
+                                  <video src={embed.src} controls className="w-full h-full" preload="metadata" />
+                                )}
+                              </div>
+                            ) : (
+                              <a
+                                href={c.video_url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:underline"
+                              >
+                                <Video className="w-3.5 h-3.5" /> Assistir vídeo do professor
+                              </a>
+                            );
+                          })()}
 
                           <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
                             {date && (
