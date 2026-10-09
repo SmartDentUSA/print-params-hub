@@ -24,6 +24,15 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import KbSearchBar from './KbSearchBar';
 import CourseRating, { RatingSummaryBadge } from './CourseRating';
 
+/** Converte URL de vídeo (YouTube, PandaVideo, mp4) em embed. */
+function videoEmbed(url: string): { type: 'iframe' | 'video'; src: string } | null {
+  const yt = url.match(/(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([\w-]{6,})/);
+  if (yt) return { type: 'iframe', src: `https://www.youtube.com/embed/${yt[1]}` };
+  if (/\.(mp4|webm|mov)(\?|$)/i.test(url)) return { type: 'video', src: url };
+  if (/embed|player|pandavideo/i.test(url)) return { type: 'iframe', src: url };
+  return null;
+}
+
 interface SyllabusModule {
   title?: string | null;
   items?: string[] | null;
@@ -434,7 +443,7 @@ export default function KbTabCursos() {
         </div>
       )}
 
-      <div className="flex flex-col gap-8">
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 items-start">
         {Array.from(
           visible
             .reduce((acc, c) => {
