@@ -23362,6 +23362,7 @@ export type Database = {
           wa_instance_name: string | null
           waitlist_enabled: boolean
           waitlist_message_template: string | null
+          waitlist_vacancy_template: string | null
           whatsapp_group_link: string | null
           whatsapp_message_template: string | null
         }
@@ -23414,6 +23415,7 @@ export type Database = {
           wa_instance_name?: string | null
           waitlist_enabled?: boolean
           waitlist_message_template?: string | null
+          waitlist_vacancy_template?: string | null
           whatsapp_group_link?: string | null
           whatsapp_message_template?: string | null
         }
@@ -23466,6 +23468,7 @@ export type Database = {
           wa_instance_name?: string | null
           waitlist_enabled?: boolean
           waitlist_message_template?: string | null
+          waitlist_vacancy_template?: string | null
           whatsapp_group_link?: string | null
           whatsapp_message_template?: string | null
         }

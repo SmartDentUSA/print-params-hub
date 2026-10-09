@@ -456,6 +456,7 @@ function CatalogoTab() {
       const { data, error } = await (supabase as any)
         .from("smartops_courses")
         .select(`
+          *,
           id, title, slug, modality, category, instructor_name,
           cover_image_url, max_capacity, duration_days, duration_hours_per_day,
           location, meeting_link, active, public_visible, description, marketing_briefing,
