@@ -10,6 +10,7 @@ import CoursesProfessionalProfile from "./CoursesProfessionalProfile";
 import ProfessionalCoursesModal from "./courses/ProfessionalCoursesModal";
 import ShareCoursePortalDialog from "./courses/ShareCoursePortalDialog";
 import { getCourseStatusBadge } from "@/lib/courseStatusBadge";
+import { normalizeInstructorName } from "@/lib/instructorNameMatch";
 import { cn } from "@/lib/utils";
 import { fetchPurchaseSummaries, EMPTY_SUMMARY, type PurchaseSummary } from "@/hooks/useProfessionalPurchaseSummary";
 import ProfessionalKolCardStats from "./ProfessionalKolCardStats";
@@ -178,16 +179,7 @@ export default function CoursesPage() {
         setCoursesByProf(grouped);
 
         // Treinamentos liberados para "Cursos recomendados" do instrutor
-        const norm = (s?: string | null) =>
-          (s ?? "")
-            .normalize("NFD")
-            .replace(/[\u0300-\u036f]/g, "")
-            .toLowerCase()
-            .replace(/[^a-z0-9 ]+/g, " ")
-            .replace(/\s+/g, " ")
-            .trim()
-            .replace(/^((dr|dra|drs|prof|profa|professor|professora|cd|me|mestre|doutor|doutora)\s+)+/, "")
-            .trim();
+        const norm = normalizeInstructorName;
         const { data: recs } = await (supabase as any)
           .from("smartops_courses")
           .select("id, title, start_date, modality, instructor_name")
