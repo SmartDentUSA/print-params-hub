@@ -5,14 +5,14 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Loader2, Pencil, Plus, Save, Trash2, Copy } from "lucide-react";
+import { ArrowLeft, Check, Loader2, Pencil, Plus, Save, Trash2, Copy } from "lucide-react";
 import ProfessionalCourseForm from "./ProfessionalCourseForm";
 import { emptyCourseDraft, COURSE_MODALITIES, COURSE_STATUS, type ProfessionalCourse, type ProfessionalCourseDraft } from "@/types/professionalCourses";
 import { getCourseStatusBadge } from "@/lib/courseStatusBadge";
 import { normalizeInstructorName } from "@/lib/instructorNameMatch";
 import { cn } from "@/lib/utils";
 
-type SmartDentCourse = { id: string; title: string; start_date: string | null; modality: string | null; instructor_name: string | null };
+type SmartDentCourse = { id: string; title: string; start_date: string | null; modality: string | null; instructor_name: string | null; recommend_professional_ids: string[] | null };
 
 interface Props {
   open: boolean;
