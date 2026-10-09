@@ -66,9 +66,10 @@ export function CourseSeats({ total, enrolled }: { total: number | null; enrolle
 export function CoursePrice({ price, promo, installments }: { price: number | null; promo: number | null; installments: number | null }) {
   const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
   const hasPrice = typeof price === 'number' && price > 0;
-  const hasPromo = typeof promo === 'number' && promo > 0 && (!hasPrice || promo < price!);
+  // promo 0 é válido: significa curso gratuito (De R$ X,00 por R$ 0,00)
+  const hasPromo = typeof promo === 'number' && promo >= 0 && (!hasPrice || promo < price!);
   const final = hasPromo ? promo! : hasPrice ? price! : null;
-  if (!final) return null;
+  if (final === null) return null;
   const off = hasPromo && hasPrice ? Math.round((1 - promo! / price!) * 100) : 0;
   return (
     <div className="price-wrap">
@@ -78,8 +79,9 @@ export function CoursePrice({ price, promo, installments }: { price: number | nu
       <div className="price-por">
         {hasPromo && hasPrice && <span className="price-por-l">Por</span>}
         <strong>{fmt(final)}</strong>
+        {final === 0 && <span className="price-free">Gratuito</span>}
       </div>
-      {installments && installments > 1 ? (
+      {installments && installments > 1 && final > 0 ? (
         <div className="price-inst">ou {installments}x de {fmt(final / installments)}</div>
       ) : null}
     </div>
