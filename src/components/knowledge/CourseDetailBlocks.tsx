@@ -101,7 +101,9 @@ function splitCv(cv: string): { summary: string | null; items: string[] } {
     .replace(/\r/g, '')
     .split(/\n+|•|;|\s[-–]\s|(?<=[.!?])\s+(?=[A-ZÁÉÍÓÚÂÊÔÃÕÇ])/)
     .map((s) => s.replace(/^[\s\-–•*·]+/, '').replace(/[.;\s]+$/, '').trim())
-    .filter((s) => s.length > 2);
+    .filter((s) => s.length > 2)
+    // Descarta títulos soltos sem conteúdo ("Prof", "Dr", "MsC" etc.)
+    .filter((s) => !(s.length < 25 && /^(prof|dr|dra|msc|phd|especialista|mestre|doutor)(a)?\.?$/i.test(s)));
   const seen = new Set<string>();
   const uniq = parts.filter((p) => { const k = p.toLowerCase(); if (seen.has(k)) return false; seen.add(k); return true; });
   if (uniq.length <= 1) return { summary: uniq[0] ?? null, items: [] };

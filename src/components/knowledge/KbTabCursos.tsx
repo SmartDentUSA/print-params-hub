@@ -666,7 +666,6 @@ export default function KbTabCursos() {
                           <Instagram className="w-3 h-3" /> @{igHandle(detail.kol.instagram)}
                         </a>
                       )}
-                      {detail.kol.prof_mini_cv && <MiniCv cv={detail.kol.prof_mini_cv} />}
                       {detail.kol.cliente_desde && (
                         <p className="text-[11px] text-muted-foreground mt-1.5">
                           Cliente Smart Dent desde {fmtDate(detail.kol.cliente_desde)}
@@ -674,6 +673,7 @@ export default function KbTabCursos() {
                       )}
                     </div>
                   </div>
+                  {detail.kol.prof_mini_cv && <MiniCv cv={detail.kol.prof_mini_cv} />}
                 </div>
               )}
 
