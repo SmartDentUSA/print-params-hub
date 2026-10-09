@@ -14,9 +14,9 @@ interface Props {
 }
 
 function VisitorsSparkline({ series }: { series: Array<{ d: string; v: number }> }) {
-  if (series.length < 2) return <div className="h-7 w-20" />;
-  const width = 80;
-  const height = 24;
+  if (series.length < 2) return <div className="h-11 w-36 text-[10px] text-muted-foreground flex items-center justify-center">Sem histórico de visitas</div>;
+  const width = 140;
+  const height = 40;
   const max = Math.max(...series.map((point) => point.v), 1);
   const step = width / (series.length - 1);
   const points = series
@@ -24,8 +24,9 @@ function VisitorsSparkline({ series }: { series: Array<{ d: string; v: number }>
     .join(" ");
 
   return (
-    <svg width={width} height={height} viewBox={`-1 -1 ${width + 2} ${height + 2}`} aria-label="Visitas nos últimos 30 dias" className="shrink-0 overflow-hidden">
-      <polyline points={points} fill="none" stroke="hsl(var(--primary))" strokeWidth="1.5" />
+    <svg width={width} height={height} viewBox={`-2 -2 ${width + 4} ${height + 4}`} role="img" aria-label="Visitas nos últimos 30 dias" className="shrink-0 overflow-hidden">
+      <polygon points={`0,${height} ${points} ${width},${height}`} fill="hsl(var(--primary) / 0.12)" />
+      <polyline points={points} fill="none" stroke="hsl(var(--primary))" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
     </svg>
   );
 }
@@ -39,14 +40,14 @@ export default function ProfessionalKolCardStats({ formIds, coupons, commissions
   const activeCodes = activeKolCouponCodes(rules, today);
   const channels = kolCardChannels(perf.totals);
   const financialSummary = (
-    <div className="min-w-0 w-full space-y-1 overflow-hidden">
-      <div className="text-[10px] text-muted-foreground break-words">
+    <div className="min-w-0 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs leading-relaxed">
+      <div className="text-muted-foreground break-words">
         <span className="font-medium">{activeCodes.length > 1 ? "Cupons ativos:" : "Cupom ativo:"}</span>{" "}
         <span className="font-semibold text-foreground">{activeCodes.join(" · ") || "Nenhum"}</span>
       </div>
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[10px] tabular-nums leading-tight">
+      <div className="contents tabular-nums">
         {channels.map((channel) => (
-          <span key={channel.label} className="whitespace-nowrap" title={`${channel.label}: conversão ${money(channel.revenue)} · comissão ${channel.commission == null ? "não definida" : money(channel.commission)}`}>
+          <span key={channel.label} className="max-w-full" title={`${channel.label}: conversão ${money(channel.revenue)} · comissão ${channel.commission == null ? "não definida" : money(channel.commission)}`}>
             <span className={channel.label === "Total" ? "font-semibold text-foreground" : "text-muted-foreground"}>{channel.label}</span>{" "}
             <span className="font-semibold text-primary">{money(channel.revenue)}</span>
             <span className="text-muted-foreground"> · </span>
@@ -62,19 +63,16 @@ export default function ProfessionalKolCardStats({ formIds, coupons, commissions
 
   if (compact) {
     return (
-      <div className="flex flex-wrap items-center gap-3 text-xs min-w-0">
-        {perf.loading && <Loader2 className="w-3 h-3 animate-spin text-muted-foreground" />}
-        <div className="flex shrink-0 items-center gap-2 overflow-hidden rounded-md bg-muted/50 px-2 py-1 leading-tight">
-          <div>
-            <div className="font-semibold tabular-nums">{perf.totals.views.toLocaleString("pt-BR")}</div>
-            <div className="text-[9px] text-muted-foreground">{perf.totals.visitors.toLocaleString("pt-BR")} únicos</div>
-          </div>
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs min-w-0">
+        <div className="flex shrink-0 items-center gap-3 rounded-md border border-primary/20 bg-primary/5 px-3 py-2 leading-tight">
           <VisitorsSparkline series={perf.totals.daily_series} />
+          <div>
+            <div className="font-semibold tabular-nums text-sm">{perf.totals.views.toLocaleString("pt-BR")} <span className="text-xs font-normal text-muted-foreground">visitas</span></div>
+            <div className="text-[11px] text-muted-foreground">{perf.totals.visitors.toLocaleString("pt-BR")} únicos</div>
+          </div>
         </div>
-        <div className="rounded-md bg-muted/50 px-2 py-1 text-center leading-tight">
-          <div className="font-semibold">{perf.totals.leads}</div>
-          <div className="text-[9px] uppercase tracking-wide text-muted-foreground">Leads</div>
-        </div>
+        {perf.loading && <Loader2 className="w-3 h-3 animate-spin text-muted-foreground" />}
+        <span className="shrink-0 text-muted-foreground"><b className="text-sm text-foreground tabular-nums">{perf.totals.leads}</b> leads</span>
         {financialSummary}
       </div>
     );
