@@ -23,6 +23,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import KbSearchBar from './KbSearchBar';
 import CourseRating, { RatingSummaryBadge } from './CourseRating';
+import '@/styles/course-professional-card.css';
 
 /** Converte URL de vídeo (YouTube, PandaVideo, mp4) em embed. */
 function videoEmbed(url: string): { type: 'iframe' | 'video'; src: string } | null {
