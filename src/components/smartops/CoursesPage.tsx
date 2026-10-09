@@ -118,6 +118,8 @@ function titleCase(s: string): string {
     .join(" ");
 }
 
+type RecommendedCourse = { id: string; title: string; start_date: string | null; modality: string | null };
+
 export default function CoursesPage() {
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
@@ -127,6 +129,7 @@ export default function CoursesPage() {
   const [editingEmail, setEditingEmail] = useState<string | undefined>(undefined);
   const [courseStats, setCourseStats] = useState<Record<string, CourseStats>>({});
   const [coursesByProf, setCoursesByProf] = useState<Record<string, ProfCourseRow[]>>({});
+  const [recommendedByProf, setRecommendedByProf] = useState<Record<string, RecommendedCourse[]>>({});
   const [coursesFor, setCoursesFor] = useState<Professional | null>(null);
   const [coursesStartNew, setCoursesStartNew] = useState(false);
   const [shareFor, setShareFor] = useState<Professional | null>(null);
@@ -173,6 +176,24 @@ export default function CoursesPage() {
         }
         setCourseStats(stats);
         setCoursesByProf(grouped);
+
+        // Treinamentos liberados para "Cursos recomendados" do instrutor
+        const norm = (s?: string | null) =>
+          (s ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/\s+/g, " ").trim();
+        const { data: recs } = await (supabase as any)
+          .from("smartops_courses")
+          .select("id, title, start_date, modality, instructor_name")
+          .eq("recommend_on_instructor_card" as any, true)
+          .eq("active", true)
+          .order("start_date", { ascending: true, nullsFirst: false });
+        const byName = new Map<string, string>();
+        for (const p of list) if (p.nome) byName.set(norm(p.nome), p.id);
+        const recGrouped: Record<string, RecommendedCourse[]> = {};
+        for (const c of (recs ?? []) as any[]) {
+          const pid = byName.get(norm(c.instructor_name));
+          if (pid) (recGrouped[pid] ??= []).push(c);
+        }
+        setRecommendedByProf(recGrouped);
       } else {
         setCourseStats({});
         setCoursesByProf({});
@@ -349,6 +370,21 @@ export default function CoursesPage() {
                         <span><strong className="text-foreground">{stats?.interested ?? 0}</strong> interessados</span>
                       </div>
                     </div>
+
+                    {(recommendedByProf[p.id] ?? []).length > 0 && (
+                      <div className="border-t pt-2 space-y-1.5">
+                        <div className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium">Cursos recomendados</div>
+                        {(recommendedByProf[p.id] ?? []).map((c) => (
+                          <div key={c.id} className="rounded-md border px-2 py-1.5">
+                            <div className="text-xs font-medium truncate" title={c.title}>{c.title}</div>
+                            <div className="text-[11px] text-muted-foreground">
+                              {c.start_date ? new Date(c.start_date + "T12:00:00").toLocaleDateString("pt-BR") : "Data a definir"}
+                              {c.modality ? ` · ${c.modality}` : ""}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
 
                     <div className="border-t pt-2 space-y-1.5">
                       <div className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium">Cursos</div>
