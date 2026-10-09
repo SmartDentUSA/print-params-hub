@@ -322,16 +322,15 @@ export default function CoursesProfessionalProfile({ initialEmail, startEditing 
                 if (person.email || leadIdFromPicker) {
                   await loadByEmail(person.email ?? "", leadIdFromPicker);
                 }
-                }
                 setLocked(false);
                 setForm((f) => ({
                   ...f,
-                  nome: person.name || f.nome,
-                  email: person.email || f.email,
-                  especialidade: person.specialty || f.especialidade,
-                  prof_photo_url: person.photo_url || f.prof_photo_url,
-                  prof_mini_cv: person.mini_bio || f.prof_mini_cv,
-                  instagram: person.instagram || f.instagram,
+                  nome: f.nome || person.name || "",
+                  email: f.email || person.email || "",
+                  especialidade: f.especialidade || person.specialty || "",
+                  prof_photo_url: f.prof_photo_url || person.photo_url || "",
+                  prof_mini_cv: f.prof_mini_cv || person.mini_bio || "",
+                  instagram: f.instagram || person.instagram || "",
                 }));
               }}
             />
