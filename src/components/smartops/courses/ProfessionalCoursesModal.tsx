@@ -221,24 +221,33 @@ export default function ProfessionalCoursesModal({ open, onOpenChange, professio
                 <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   Cursos Smart Dent associados
                 </div>
-                {smartDentCourses.map((c) => (
-                  <Card key={c.id}>
-                    <CardContent className="p-4 flex items-start gap-3">
-                      <div className="min-w-0 flex-1">
-                        <div className="font-medium truncate">{c.title}</div>
-                        <div className="text-xs text-muted-foreground truncate">
-                          {[c.modality, c.start_date].filter(Boolean).join(" · ")}
+                {smartDentCourses.map((c) => {
+                  const approved = (c.recommend_professional_ids ?? []).includes(professional.id);
+                  return (
+                    <Card key={c.id}>
+                      <CardContent className="p-4 flex items-start gap-3">
+                        <div className="min-w-0 flex-1">
+                          <div className="font-medium truncate">{c.title}</div>
+                          <div className="text-xs text-muted-foreground truncate">
+                            {[c.modality, c.start_date].filter(Boolean).join(" · ")}
+                          </div>
+                          <div className="flex flex-wrap gap-1 mt-1.5">
+                            <Badge variant="secondary" className="text-xs">Smart Dent</Badge>
+                            <Badge variant="outline" className="text-xs">Cursos recomendados</Badge>
+                            {approved && <Badge className="text-xs bg-emerald-600 text-white">Aprovado</Badge>}
+                          </div>
                         </div>
-                        <div className="flex flex-wrap gap-1 mt-1.5">
-                          <Badge variant="secondary" className="text-xs">Smart Dent</Badge>
-                          <Badge variant="outline" className="text-xs">Cursos recomendados</Badge>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
+                        {!approved && (
+                          <Button size="sm" variant="outline" className="shrink-0" onClick={() => approveSmartDentCourse(c)}>
+                            <Check className="w-4 h-4 mr-1" /> Aprovar
+                          </Button>
+                        )}
+                      </CardContent>
+                    </Card>
+                  );
+                })}
                 <p className="text-xs text-muted-foreground">
-                  Estes treinamentos são gerenciados na aba Treinamentos.
+                  Aprove a associação para o treinamento aparecer no card do profissional. Estes treinamentos são gerenciados na aba Treinamentos.
                 </p>
               </div>
             )}
