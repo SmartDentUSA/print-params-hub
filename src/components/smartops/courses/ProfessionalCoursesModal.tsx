@@ -141,6 +141,21 @@ export default function ProfessionalCoursesModal({ open, onOpenChange, professio
     onChanged?.();
   };
 
+  const approveSmartDentCourse = async (c: SmartDentCourse) => {
+    const ids = Array.from(new Set([...(c.recommend_professional_ids ?? []), professional.id]));
+    const { error } = await (supabase as any)
+      .from("smartops_courses")
+      .update({ recommend_professional_ids: ids })
+      .eq("id", c.id);
+    if (error) {
+      toast({ title: "Erro ao aprovar", description: error.message, variant: "destructive" });
+      return;
+    }
+    toast({ title: "Curso aprovado para o card do profissional" });
+    await load();
+    onChanged?.();
+  };
+
   const duplicate = async (c: ProfessionalCourse) => {
     const { id, created_at, updated_at, views_count, interested_count, ...rest } = c as any;
     const { error } = await supabase.from("professional_courses").insert({
