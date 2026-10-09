@@ -273,7 +273,7 @@ export default function ProfessionalCoursesModal({ open, onOpenChange, professio
               </div>
             ) : (
               <>
-            {smartDentCourses.length > 0 && (
+            {smartDentCourses.some((c) => !courses.some((pc: any) => pc.source_smartops_course_id === c.id)) && (
               <div className="space-y-2">
                 <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   Cursos Smart Dent associados
