@@ -39,7 +39,7 @@ export default function ProfessionalKolCardStats({ formIds, coupons, commissions
   const activeCodes = activeKolCouponCodes(rules, today);
   const channels = kolCardChannels(perf.totals);
   const financialSummary = (
-    <div className="min-w-0 space-y-1">
+    <div className="min-w-0 w-full space-y-1 overflow-hidden">
       <div className="text-[10px] text-muted-foreground break-words">
         <span className="font-medium">{activeCodes.length > 1 ? "Cupons ativos:" : "Cupom ativo:"}</span>{" "}
         <span className="font-semibold text-foreground">{activeCodes.join(" · ") || "Nenhum"}</span>
