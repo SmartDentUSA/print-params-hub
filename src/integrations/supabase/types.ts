@@ -23243,6 +23243,7 @@ export type Database = {
           public_enrollment_enabled: boolean
           public_visible: boolean | null
           recommend_on_instructor_card: boolean
+          recommend_professional_ids: string[]
           recurrence_duration_h: number | null
           recurrence_enabled: boolean | null
           recurrence_interval: number | null
@@ -23293,6 +23294,7 @@ export type Database = {
           public_enrollment_enabled?: boolean
           public_visible?: boolean | null
           recommend_on_instructor_card?: boolean
+          recommend_professional_ids?: string[]
           recurrence_duration_h?: number | null
           recurrence_enabled?: boolean | null
           recurrence_interval?: number | null
@@ -23343,6 +23345,7 @@ export type Database = {
           public_enrollment_enabled?: boolean
           public_visible?: boolean | null
           recommend_on_instructor_card?: boolean
+          recommend_professional_ids?: string[]
           recurrence_duration_h?: number | null
           recurrence_enabled?: boolean | null
           recurrence_interval?: number | null
