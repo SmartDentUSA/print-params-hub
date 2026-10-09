@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -37,6 +38,38 @@ export default function ProfessionalCourseForm({ value, onChange, onUploadCover,
   const isCredenciamento = v.modality === "credenciamento";
 
   const [credForms, setCredForms] = useState<{ id: string; name: string; slug: string }[]>([]);
+  const [videoUploading, setVideoUploading] = useState(false);
+  const uploadVideoToPanda = async (file: File) => {
+    setVideoUploading(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("Faça login para enviar vídeos");
+      const url = `https://${import.meta.env.VITE_SUPABASE_PROJECT_ID}.supabase.co/functions/v1/course-video-panda-upload`;
+      const res = await fetch(url, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+          apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          "Content-Type": "application/octet-stream",
+          "x-filename": encodeURIComponent(file.name),
+          "x-title": encodeURIComponent(`${value.title || "Curso"} | Apresentação`),
+        },
+        body: file,
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.error || `Erro ${res.status}`);
+      if (data.video_player) {
+        onChange({ video_url: data.video_player });
+        toast.success("Vídeo enviado ao Panda Video");
+      } else {
+        toast.info(`Vídeo enviado (ID ${data.pandavideo_id}). O link aparece quando o Panda terminar o processamento.`);
+      }
+    } catch (e: any) {
+      toast.error(`Falha no envio: ${e.message}`);
+    } finally {
+      setVideoUploading(false);
+    }
+  };
   useEffect(() => {
     if (!isCredenciamento) return;
     let alive = true;
