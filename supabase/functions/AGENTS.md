@@ -1,0 +1,5 @@
+# Edge function rules
+- PipeRun sync hydrates person contacts via a read-only persons/{id} GET, matches leads by phone when e-mail is missing, and keeps deals without contacts keyed by piperun_id; deals typed directly in PipeRun otherwise never reach the system.
+- PipeRun person/company contacts are written and read only through the shared `piperunGet/Post/Put` helpers, which translate to `contact_emails`/`contact_phones`, request `with[]=contactEmails,contactPhones`, merge existing contacts on PUT and use `?email=`/`?phone=` list filters; the legacy `emails[]`/`phones[]` keys and filters are silently ignored by PipeRun and left persons without e-mail and caused duplicate persons.
+- PipeRun sync hydrates company contacts separately and does not skip unchanged deals when missing contacts become available; company identifiers must never merge distinct people.
+- PipeRun deal sync writes `telefone_normalized` alongside `telefone_raw` using the shared Brazilian phone normalizer; lead cards, search and phone matching read only the normalized phone.

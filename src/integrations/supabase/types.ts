@@ -36837,6 +36837,17 @@ export type Database = {
           valor_total: number
         }[]
       }
+      fn_public_course_professionals: {
+        Args: { _ids: string[] }
+        Returns: {
+          especialidade: string
+          id: string
+          instagram: string
+          nome: string
+          prof_mini_cv: string
+          prof_photo_url: string
+        }[]
+      }
       fn_public_event_combos: {
         Args: { p_event_id: string }
         Returns: {

@@ -153,7 +153,82 @@ export default function KbTabCursos() {
         .order('featured', { ascending: false })
         .order('start_date', { ascending: true, nullsFirst: false });
       if (error) throw error;
-      return (data ?? []) as ProfCourse[];
+      const own = (data ?? []) as ProfCourse[];
+
+      // Treinamentos Smart Dent aprovados no card do profissional ("Cursos recomendados")
+      const { data: recs } = await (supabase as any)
+        .from('smartops_courses')
+        .select('id, title, slug, description, modality, category, cover_image_url, duration_days, location, meeting_link, max_capacity, signup_form_url, public_enrollment_enabled, recommend_professional_ids')
+        .eq('recommend_on_instructor_card', true)
+        .eq('active', true)
+        .eq('public_visible', true);
+      const approved = ((recs ?? []) as any[]).filter((c) => (c.recommend_professional_ids ?? []).length > 0);
+      if (approved.length === 0) return own;
+
+      const { data: turmas } = await (supabase as any)
+        .from('v_turmas_com_vagas')
+        .select('course_id, start_date, end_date, start_time, end_time, enrolled_count')
+        .in('course_id', approved.map((c) => c.id))
+        .eq('active', true)
+        .order('start_date', { ascending: true });
+      const today = new Date().toISOString().slice(0, 10);
+      const nextTurma: Record<string, any> = {};
+      for (const t of (turmas ?? []) as any[]) {
+        if (nextTurma[t.course_id]) continue;
+        if (!t.start_date || (t.end_date ?? t.start_date) >= today) nextTurma[t.course_id] = t;
+      }
+
+      const smartDent: ProfCourse[] = [];
+      for (const c of approved) {
+        const t = nextTurma[c.id];
+        const registration = c.public_enrollment_enabled && c.slug ? `/inscricao/${c.slug}` : c.signup_form_url ?? null;
+        for (const profId of c.recommend_professional_ids as string[]) {
+          smartDent.push({
+            id: `sd-${c.id}-${profId}`,
+            producer_lead_id: profId,
+            title: c.title,
+            subtitle: null,
+            description: c.description ?? null,
+            modality: c.modality ?? null,
+            category: c.category ?? null,
+            cover_image_url: c.cover_image_url ?? null,
+            workload_hours: null,
+            start_date: t?.start_date ?? null,
+            end_date: t?.end_date ?? null,
+            start_time: t?.start_time ?? null,
+            city: null,
+            state: null,
+            country: null,
+            venue: c.location ?? null,
+            address: null,
+            online_platform: null,
+            meeting_link: null,
+            course_platform: 'Smart Dent',
+            video_url: null,
+            duration_days: c.duration_days ?? null,
+            end_time: t?.end_time ?? null,
+            max_students: c.max_capacity ?? null,
+            enrolled_count: t?.enrolled_count ?? null,
+            language: null,
+            tags: ['Smart Dent'],
+            registration_url: registration,
+            whatsapp_ddi: null,
+            whatsapp_number: null,
+            instagram: null,
+            featured: true,
+            published_at: null,
+            target_audience: null,
+            prerequisites: null,
+            syllabus: null,
+            price_brl: null,
+            promo_price_brl: null,
+            installments: null,
+            certificate: null,
+            materials_included: null,
+          });
+        }
+      }
+      return [...smartDent, ...own];
     },
   });
 
@@ -167,11 +242,8 @@ export default function KbTabCursos() {
     enabled: producerIds.length > 0,
     staleTime: 60_000,
     queryFn: async () => {
-      const [{ data: rows, error: err1 }, { data: mirrors, error: err2 }] = await Promise.all([
-        (supabase as any)
-          .from('lia_attendances')
-          .select('id, nome, prof_photo_url, especialidade, instagram, prof_mini_cv')
-          .in('id', producerIds),
+      const [{ data: rows, error: err1 }, { data: mirrors }] = await Promise.all([
+        (supabase as any).rpc('fn_public_course_professionals', { _ids: producerIds }),
         (supabase as any)
           .from('piperun_persons_mirror')
           .select('lia_attendance_id, cliente_desde')
@@ -179,7 +251,6 @@ export default function KbTabCursos() {
           .order('created_at', { ascending: false }),
       ]);
       if (err1) throw err1;
-      if (err2) throw err2;
 
       const sinceMap: Record<string, string> = {};
       for (const m of (mirrors ?? []) as { lia_attendance_id: string; cliente_desde: string | null }[]) {
@@ -513,7 +584,7 @@ export default function KbTabCursos() {
                             >
                               <Info className="w-3.5 h-3.5 mr-1.5" /> Informações do curso
                             </Button>
-                            <span className="ml-3 align-middle"><RatingSummaryBadge courseId={c.id} /></span>
+                            {!c.id.startsWith("sd-") && <span className="ml-3 align-middle"><RatingSummaryBadge courseId={c.id} /></span>}
                           </div>
                         </div>
                       </article>
@@ -818,7 +889,7 @@ export default function KbTabCursos() {
                 )}
 
                 {/* Avaliações dos usuários */}
-                <CourseRating courseId={detailCourse.id} />
+                {!detailCourse.id.startsWith("sd-") && <CourseRating courseId={detailCourse.id} />}
               </div>
 
               {/* Rodapé fixo com investimento + CTA */}
