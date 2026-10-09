@@ -557,10 +557,11 @@ export default function KbTabCursos() {
                                 decoding="async"
                               />
                             ) : (
-                            <div className="pc-cover-empty">
-                              <GraduationCap />
-                            </div>
-                          )}
+                              <div className="pc-cover-empty">
+                                <GraduationCap />
+                              </div>
+                            );
+                          })()}
                           {c.start_date && (
                             <div className="pc-cd-overlay">
                               <CourseCountdown date={c.start_date} time={c.start_time} compact />
