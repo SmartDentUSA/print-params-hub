@@ -27,7 +27,7 @@ function VisitorsSparkline({ series }: { series: Array<{ d: string; v: number }>
     .join(" ");
   const areaPoints = `0,${h} ${points} ${w},${h}`;
   return (
-    <svg width={w} height={h} className="overflow-visible">
+    <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} className="shrink-0 overflow-hidden">
       <polyline points={areaPoints} fill="hsl(var(--primary) / 0.12)" stroke="none" />
       <polyline points={points} fill="none" stroke="hsl(var(--primary))" strokeWidth="1.5" />
     </svg>
