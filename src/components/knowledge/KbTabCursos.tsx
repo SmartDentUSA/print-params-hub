@@ -531,6 +531,11 @@ export default function KbTabCursos() {
                             ) : (
                               <video src={embed.src} controls preload="metadata" />
                             )}
+                            {c.start_date && (
+                              <div className="pc-cd-overlay">
+                                <CourseCountdown date={c.start_date} time={c.start_time} compact />
+                              </div>
+                            )}
                           </div>
                         ) : (
                           <div
@@ -556,6 +561,11 @@ export default function KbTabCursos() {
                             ) : (
                               <div className="pc-cover-empty">
                                 <GraduationCap />
+                              </div>
+                            )}
+                            {c.start_date && (
+                              <div className="pc-cd-overlay">
+                                <CourseCountdown date={c.start_date} time={c.start_time} compact />
                               </div>
                             )}
                           </div>
@@ -606,7 +616,6 @@ export default function KbTabCursos() {
                           </div>
 
                           <div className="pc-offer">
-                            <CourseCountdown date={c.start_date} time={c.start_time} compact />
                             <CoursePrice
                               price={c.price_brl}
                               promo={c.promo_price_brl}
