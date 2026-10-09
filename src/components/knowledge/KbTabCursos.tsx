@@ -546,27 +546,9 @@ export default function KbTabCursos() {
                         </div>
 
                         <div className="pc-course-body">
-                          <div className="pc-ic"><GraduationCap /></div>
-                          <div className="pc-chips">
-                            {c.modality && (
-                              <span className="pc-chip pc-chip--primary">{label(c.modality)}</span>
-                            )}
-                            {c.category && <span className="pc-chip">{label(c.category)}</span>}
-                            {c.featured && <span className="pc-chip pc-chip--featured">Destaque</span>}
-                          </div>
-
-                          <div>
-                            <h4 className="pc-title" onClick={open}>
-                              {c.title}
-                            </h4>
-                            {c.subtitle && <p className="pc-sub line-clamp-2">{c.subtitle}</p>}
-                          </div>
-
-                          {c.description && <p className="pc-desc line-clamp-2">{c.description}</p>}
-
                           {c.video_url &&
                             (embed ? (
-                              <div className="pc-video">
+                              <div className="pc-video pc-video--top">
                                 {embed.type === 'iframe' ? (
                                   <iframe
                                     src={embed.src}
@@ -589,6 +571,24 @@ export default function KbTabCursos() {
                                 <Video /> Assistir vídeo do professor
                               </a>
                             ))}
+
+                          <div className="pc-ic"><GraduationCap /></div>
+                          <div className="pc-chips">
+                            {c.modality && (
+                              <span className="pc-chip pc-chip--primary">{label(c.modality)}</span>
+                            )}
+                            {c.category && <span className="pc-chip">{label(c.category)}</span>}
+                            {c.featured && <span className="pc-chip pc-chip--featured">Destaque</span>}
+                          </div>
+
+                          <div>
+                            <h4 className="pc-title" onClick={open}>
+                              {c.title}
+                            </h4>
+                            {c.subtitle && <p className="pc-sub line-clamp-2">{c.subtitle}</p>}
+                          </div>
+
+                          {c.description && <p className="pc-desc line-clamp-2">{c.description}</p>}
 
                           <div className="pc-meta">
                             {date && (
