@@ -47,6 +47,36 @@ export type Database = {
         }
         Relationships: []
       }
+      _bkp_knowledge_contents_seo_20261008: {
+        Row: {
+          backed_up_at: string | null
+          id: string | null
+          keywords: string[] | null
+          meta_description: string | null
+          og_image_url: string | null
+          title: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          backed_up_at?: string | null
+          id?: string | null
+          keywords?: string[] | null
+          meta_description?: string | null
+          og_image_url?: string | null
+          title?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          backed_up_at?: string | null
+          id?: string | null
+          keywords?: string[] | null
+          meta_description?: string | null
+          og_image_url?: string | null
+          title?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       _bkp_knowledge_videos_titles_20261008: {
         Row: {
           backed_up_at: string | null
