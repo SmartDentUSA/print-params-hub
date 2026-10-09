@@ -223,12 +223,17 @@ a.pc-pill:hover {
   justify-content: center;
   width: 100%;
   height: 100%;
+  background:
+    radial-gradient(120% 120% at 0% 0%, hsl(var(--primary) / 0.14), transparent 60%),
+    radial-gradient(120% 120% at 100% 100%, hsl(var(--accent) / 0.12), transparent 62%),
+    hsl(var(--muted));
 }
 
 .pc-cover-empty svg {
-  width: 32px;
-  height: 32px;
-  opacity: 0.45;
+  width: 34px;
+  height: 34px;
+  color: hsl(var(--primary));
+  opacity: 0.55;
 }
 
 .pc-course-body {
