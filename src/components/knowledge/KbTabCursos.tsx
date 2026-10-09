@@ -14,7 +14,6 @@ import {
   Users,
   Globe,
   Award,
-  Video,
   ArrowRight,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
@@ -534,18 +533,34 @@ export default function KbTabCursos() {
                             }
                           }}
                         >
-                          {c.cover_image_url ? (
-                            <img
-                              src={c.cover_image_url}
-                              alt={c.title}
-                              loading="lazy"
-                              decoding="async"
-                            />
-                          ) : (
-                            <div className="pc-cover-empty">
-                              <GraduationCap />
-                            </div>
-                          )}
+                          {(() => {
+                            const coverEmbed = c.video_url ? videoEmbed(c.video_url) : null;
+                            if (coverEmbed) {
+                              return coverEmbed.type === 'iframe' ? (
+                                <iframe
+                                  src={coverEmbed.src}
+                                  title={c.title}
+                                  className="pc-cover-video"
+                                  allow="autoplay; fullscreen; picture-in-picture"
+                                  allowFullScreen
+                                />
+                              ) : (
+                                <video src={coverEmbed.src} className="pc-cover-video" autoPlay muted loop playsInline preload="metadata" />
+                              );
+                            }
+                            return c.cover_image_url ? (
+                              <img
+                                src={c.cover_image_url}
+                                alt={c.title}
+                                loading="lazy"
+                                decoding="async"
+                              />
+                            ) : (
+                              <div className="pc-cover-empty">
+                                <GraduationCap />
+                              </div>
+                            );
+                          })()}
                           {c.start_date && (
                             <div className="pc-cd-overlay">
                               <CourseCountdown date={c.start_date} time={c.start_time} compact />
@@ -678,21 +693,6 @@ export default function KbTabCursos() {
               <div className="relative">
                 <div className="aspect-[16/7] w-full overflow-hidden bg-muted">
                   {(() => {
-                    const heroEmbed = detailCourse.video_url ? videoEmbed(detailCourse.video_url) : null;
-                    if (heroEmbed) {
-                      return heroEmbed.type === 'iframe' ? (
-                        <iframe
-                          src={heroEmbed.src}
-                          title={`Vídeo do curso ${detailCourse.title}`}
-                          className="w-full h-full"
-                          allow="accelerometer; autoplay; encrypted-media; picture-in-picture"
-                          allowFullScreen
-                          loading="lazy"
-                        />
-                      ) : (
-                        <video src={heroEmbed.src} className="w-full h-full object-cover" autoPlay muted loop playsInline preload="metadata" />
-                      );
-                    }
                     if (detailCourse.cover_image_url) {
                       return (
                         <img
@@ -840,34 +840,6 @@ export default function KbTabCursos() {
                   </div>
                 </div>
 
-                {detailCourse.video_url && (() => {
-                  const embed = videoEmbed(detailCourse.video_url);
-                  return embed ? (
-                    <div className="aspect-video w-full rounded-xl overflow-hidden bg-black">
-                      {embed.type === 'iframe' ? (
-                        <iframe
-                          src={embed.src}
-                          title={`Vídeo do curso ${detailCourse.title}`}
-                          className="w-full h-full"
-                          allow="accelerometer; autoplay; encrypted-media; picture-in-picture"
-                          allowFullScreen
-                          loading="lazy"
-                        />
-                      ) : (
-                        <video src={embed.src} controls className="w-full h-full" preload="metadata" />
-                      )}
-                    </div>
-                  ) : (
-                    <a
-                      href={detailCourse.video_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-2 text-sm font-medium text-primary hover:underline"
-                    >
-                      <Video className="w-4 h-4" /> Assistir vídeo de apresentação
-                    </a>
-                  );
-                })()}
 
                 {detailCourse.description && (
                   <section>
