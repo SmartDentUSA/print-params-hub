@@ -380,6 +380,18 @@ function LeadRow({ lead, active, onClick, nps, captureEvents }: { lead: LeadFull
   const kolName = kolFormName ? kolFormName.split(/\s+-\s+/).pop()?.trim() : undefined;
   const isProfessionalReferral = Boolean(kolFormName) || /\bkol\b|indica[cç][aã]o|indicado\s+por/i.test(`${originText} ${formDataText}`);
   const referralLabel = kolName ? `PUBLI - ${kolName}` : "Indicação KOL";
+  const signals = useLeadCardSignals(lead.id);
+  const anyLead = lead as unknown as Record<string, unknown>;
+  const lastPurchase = latestDate([
+    signals?.lastWonAt, anyLead.omie_ultima_compra, anyLead.data_ultima_compra_scan, anyLead.data_ultima_compra_print,
+    anyLead.data_ultima_compra_cad, anyLead.data_ultima_compra_cad_ia, anyLead.data_ultima_compra_cura,
+    anyLead.data_ultima_compra_insumos, anyLead.data_ultima_compra_notebook, anyLead.data_ultima_compra_smart_slice,
+  ]);
+  const isClient = Boolean(lastPurchase) || (lead.lead_status as string) === "CLIENTE_ativo" || Number(lead.ltv_total) > 0;
+  const dot = resolveClientDot(lastPurchase, isClient);
+  const dotColor = dot === "verde" ? "#22c55e" : dot === "amarelo" ? "#facc15" : dot === "vermelho" ? "#ef4444" : "#e2e8f0";
+  const dotTitle = dot === "nao_cliente" ? "Não é cliente"
+    : `Cliente · última compra ${lastPurchase ? new Date(lastPurchase).toLocaleDateString("pt-BR") : "sem data registrada"}`;
   const eventName = resolveCaptureEventName(lead, captureEvents.events, captureEvents.forms);
   const isEventLead = Boolean(eventName || lead.event_id)
     || /feira[_ -]?evento|\bevento\b|\bfeira\b|\bcipro\b|\bin26\b|congress/i.test(`${originText} ${formDataText}`);
