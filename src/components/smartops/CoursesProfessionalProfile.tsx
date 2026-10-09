@@ -102,18 +102,19 @@ export default function CoursesProfessionalProfile({ initialEmail, startEditing 
 
   const setField = (k: keyof FormState, v: any) => setForm((f) => ({ ...f, [k]: v }));
 
-  const loadByEmail = useCallback(async () => {
-    const email = searchEmail.trim().toLowerCase();
-    if (!email) return;
+  const loadByEmail = useCallback(async (emailOverride?: string, leadIdOverride?: string) => {
+    const email = (emailOverride ?? searchEmail).trim().toLowerCase();
+    if (!email && !leadIdOverride) return;
     setSearching(true);
     try {
-      const { data, error } = await supabase
+      let q: any = supabase
         .from("lia_attendances")
         .select(
           "id, nome, email, area_atuacao, especialidade, pessoa_nascimento, prof_cro, prof_photo_url, prof_mini_cv, prof_course_platform, prof_wa_ddi, prof_wa_number, prof_course_wa_ddi, prof_course_wa_number, prof_cep, prof_country, prof_state, prof_city, prof_neighborhood, prof_street, prof_number, prof_complement, instagram, prof_tiktok, prof_youtube, pessoa_linkedin, prof_lattes, prof_orcid, prof_fapesp_id, prof_site, prof_marketing_consent, produto_interesse, equip_scanner, equip_scanner_bancada, equip_notebook, equip_cad, equip_impressora, equip_pos_impressao, equip_fresadora, prof_rating_quality, prof_rating_price, prof_rating_value, prof_qualifications, prof_university_roles, prof_kol_form_ids, prof_kol_coupon, prof_kol_coupons, prof_kol_commissions"
         )
-        .ilike("email", email)
-        .is("merged_into", null)
+        .is("merged_into", null);
+      q = leadIdOverride ? q.eq("id", leadIdOverride) : q.ilike("email", email);
+      const { data, error } = await q
         .order("created_at", { ascending: false } as any)
         .limit(1)
         .maybeSingle();
