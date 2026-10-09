@@ -700,3 +700,18 @@ a.pc-pill:hover{color:#e5703a;border-color:rgba(229,112,58,.55)}
   .pc-head{padding:16px 14px 14px}
   .pc-body{padding:2px 14px 14px}
 }
+
+/* Modal de informações do curso — mobile */
+@media (max-width:640px){
+  .cd-grid{gap:.35rem}
+  .cd-cell{padding:.35rem .15rem;border-radius:.6rem}
+  .cd-num{font-size:1.15rem}
+  .cd-unit{font-size:.6rem}
+  .seats-nums strong{font-size:1.1rem}
+  .seats-nums span{font-size:.58rem}
+  .price-por strong{font-size:1.35rem}
+  .price-de{font-size:.85rem}
+  .price-inst{font-size:.75rem}
+  .cv-summary{font-size:.8rem}
+  .cv-list li{font-size:.75rem;padding:.45rem .55rem}
+}
