@@ -367,7 +367,7 @@ export default function KbTabCursos() {
   // Deep link: /base-conhecimento?tab=cursos&curso=<id> abre o informativo do curso diretamente
   useEffect(() => {
     if (!sharedCurso || isLoading || detail || courses.length === 0) return;
-    const found = courses.find((c) => c.id === sharedCurso);
+    const found = courses.find((c) => c.id === sharedCurso || (c as any).source_smartops_course_id === sharedCurso);
     if (found) {
       setDetail({ course: found, kol: found.producer_lead_id ? kols[found.producer_lead_id] : undefined });
       const params = new URLSearchParams(window.location.search);
