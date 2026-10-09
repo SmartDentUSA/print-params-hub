@@ -1636,27 +1636,6 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
                   value={reminderTemplate} onChange={(e) => setReminderTemplate(e.target.value)} />
               </div>
 
-              {/* Lista de espera (presencial) */}
-              {modality === "presencial" && (
-                <div className="pt-2 space-y-2 border rounded-md p-3">
-                  <div className="flex items-center justify-between">
-                    <Label className="text-xs">Lista de espera (quando a turma lotar)</Label>
-                    <Switch checked={waitlistEnabled} onCheckedChange={(enabled) => { setWaitlistEnabled(enabled); if (enabled) setPublicEnrollmentEnabled(true); }} />
-                  </div>
-                  {waitlistEnabled && (
-                    <>
-                      <p className="text-xs text-muted-foreground">
-                        Mensagem enviada pelo WhatsApp do CS ao entrar na lista. Variáveis: {"{{nome}} {{curso}} {{turma_label}} {{data_inicio}} {{horario_inicio}} {{cs_nome}}"}
-                      </p>
-                      <Textarea rows={7} className="font-mono text-sm"
-                        value={waitlistTemplate} onChange={(e) => setWaitlistTemplate(e.target.value)} />
-                      <Button type="button" variant="ghost" size="sm" className="text-xs"
-                        onClick={() => setWaitlistTemplate(DEFAULT_WAITLIST_TEMPLATE)}>Restaurar padrão</Button>
-                    </>
-                  )}
-                </div>
-              )}
-
               {/* Pesquisa de NPS */}
               <div className="pt-2 space-y-2">
                 <div className="flex items-center justify-between">
