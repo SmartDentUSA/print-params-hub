@@ -59,6 +59,7 @@ export interface ProfessionalCourse {
   interested_count: number;
   credenciamento_form_id: string | null;
   created_source: string;
+  source_smartops_course_id: string | null;
   internal_notes: string | null;
   published_at: string | null;
   created_at: string;
@@ -137,6 +138,7 @@ export const emptyCourseDraft = (): ProfessionalCourseDraft => ({
   language: "pt-BR",
   tags: [],
   credenciamento_form_id: null,
+  source_smartops_course_id: null,
   status: "rascunho",
   public_visible: false,
 });
