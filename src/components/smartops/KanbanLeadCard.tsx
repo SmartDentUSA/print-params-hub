@@ -1,6 +1,7 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { resolveLeadDisplayName, cleanLeadEmail, cleanLeadPhone } from "@/utils/leadDisplay";
+import { useLeadCardSignals, resolveClientDot, latestDate } from "@/hooks/useLeadCardSignals";
 
 export interface ParsedProposalItem {
   name: string;
@@ -115,6 +116,18 @@ export function KanbanLeadCard({ lead, showDaysStagnant = false, onDragStart, on
     kolRules.length ? `${kolRules.length} regra(s) de comissionamento` : null,
   ].filter(Boolean).join(" · ") || "KOL cadastrado";
 
+  const signals = useLeadCardSignals(lead.id);
+  const anyLead = lead as any;
+  const lastPurchase = latestDate([
+    signals?.lastWonAt, anyLead.omie_ultima_compra, anyLead.data_ultima_compra_scan, anyLead.data_ultima_compra_print,
+    anyLead.data_ultima_compra_cad, anyLead.data_ultima_compra_cad_ia, anyLead.data_ultima_compra_cura,
+    anyLead.data_ultima_compra_insumos, anyLead.data_ultima_compra_notebook, anyLead.data_ultima_compra_smart_slice,
+  ]);
+  const isClient = Boolean(lastPurchase) || lead.lead_status === "CLIENTE_ativo" || Number(anyLead.ltv_total) > 0;
+  const dot = resolveClientDot(lastPurchase, isClient);
+  const dotClass = dot === "verde" ? "bg-green-500 border-green-600" : dot === "amarelo" ? "bg-yellow-400 border-yellow-500" : dot === "vermelho" ? "bg-red-500 border-red-600" : "bg-background border-muted-foreground/50";
+  const dotTitle = dot === "nao_cliente" ? "Não é cliente"
+    : `Cliente · última compra ${lastPurchase ? new Date(lastPurchase).toLocaleDateString("pt-BR") : "sem data"}`;
 
   return (
     <Card
@@ -125,12 +138,18 @@ export function KanbanLeadCard({ lead, showDaysStagnant = false, onDragStart, on
     >
       <CardContent className="p-2 space-y-0.5">
         <div className="flex items-center justify-between gap-1">
+          <span className="flex items-center gap-1 min-w-0">
+          <span className={`inline-block h-2.5 w-2.5 rounded-full border shrink-0 ${dotClass}`} title={dotTitle} aria-label={dotTitle} />
           {lead.piperun_link ? (
             <a href={lead.piperun_link} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="font-medium text-[11px] truncate text-primary hover:underline" title={displayName}>{displayName}</a>
           ) : (
             <span className="font-medium text-[11px] truncate" title={displayName}>{displayName}</span>
           )}
+          </span>
           <div className="flex items-center gap-0.5 shrink-0">
+            {signals && signals.lives > 0 && (
+              <Badge className="text-[9px] px-1 py-0 font-bold bg-red-600 text-white border-red-700" title={`${signals.lives} inscrição(ões) em lives/cursos`}>● LIVE {signals.lives}</Badge>
+            )}
             {isKol && (
               <Badge className="text-[9px] px-1 py-0 font-bold bg-yellow-100 text-yellow-800 border-yellow-300" title={kolTitle}>⭐ KOL</Badge>
             )}
