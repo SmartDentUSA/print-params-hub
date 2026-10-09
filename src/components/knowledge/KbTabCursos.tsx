@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   GraduationCap,
@@ -15,6 +15,7 @@ import {
   Globe,
   Award,
   ArrowRight,
+  Share2,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Badge } from '@/components/ui/badge';
@@ -24,6 +25,8 @@ import KbSearchBar from './KbSearchBar';
 import CourseRating, { RatingSummaryBadge } from './CourseRating';
 import '@/styles/course-professional-card.css';
 import { CourseCountdown, CourseSeats, CoursePrice, CourseInstructor, MiniCv, SyllabusPremium } from './CourseDetailBlocks';
+import { shortenUrl } from '@/utils/shortLink';
+import { toast } from 'sonner';
 
 /** Converte URL de vídeo (YouTube, PandaVideo, mp4) em embed. */
 function videoEmbed(url: string): { type: 'iframe' | 'video'; src: string } | null {
@@ -150,6 +153,9 @@ export default function KbTabCursos() {
   const [selectedEsp, setSelectedEsp] = useState('');
   const [search, setSearch] = useState('');
   const [detail, setDetail] = useState<{ course: ProfCourse; kol?: Kol } | null>(null);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+  const sharedCurso = useMemo(() => new URLSearchParams(window.location.search).get('curso'), []);
+
 
   const { data: courses = [], isLoading } = useQuery({
     queryKey: ['kb_professional_courses'],
@@ -341,6 +347,39 @@ export default function KbTabCursos() {
     if (c.instagram) return `https://instagram.com/${igHandle(c.instagram)}`;
     return null;
   };
+
+  // Deep link: /base-conhecimento?tab=cursos&curso=<id> abre o informativo do curso diretamente
+  useEffect(() => {
+    if (!sharedCurso || isLoading || detail || courses.length === 0) return;
+    const found = courses.find((c) => c.id === sharedCurso);
+    if (found) {
+      setDetail({ course: found, kol: found.producer_lead_id ? kols[found.producer_lead_id] : undefined });
+      const params = new URLSearchParams(window.location.search);
+      params.delete('curso');
+      const qs = params.toString();
+      window.history.replaceState(null, '', `${window.location.pathname}${qs ? `?${qs}` : ''}`);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sharedCurso, isLoading, courses, detail]);
+
+  const handleShareCourse = async (c: ProfCourse) => {
+    const target = `${window.location.origin}/base-conhecimento?tab=cursos&curso=${encodeURIComponent(c.id)}`;
+    const short = await shortenUrl(target);
+    try {
+      await navigator.clipboard.writeText(short);
+    } catch {
+      const ta = document.createElement('textarea');
+      ta.value = short;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+    }
+    setCopiedId(c.id);
+    toast.success('Link encurtado copiado!', { description: 'Cole no SMS ou WhatsApp' });
+    setTimeout(() => setCopiedId((id) => (id === c.id ? null : id)), 3000);
+  };
+
 
 
   if (isLoading) {
@@ -624,6 +663,14 @@ export default function KbTabCursos() {
                           <div className="pc-actions">
                             <button type="button" className="pc-cta" onClick={open}>
                               Informações do curso <ArrowRight />
+                            </button>
+                            <button
+                              type="button"
+                              className="pc-cta"
+                              onClick={(e) => { e.stopPropagation(); handleShareCourse(c); }}
+                              title="Copiar link encurtado do curso"
+                            >
+                              <Share2 /> {copiedId === c.id ? 'Link copiado!' : 'Compartilhar'}
                             </button>
                             {!c.id.startsWith('sd-') && <RatingSummaryBadge courseId={c.id} />}
                           </div>
