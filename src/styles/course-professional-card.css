@@ -635,3 +635,22 @@ a.pc-pill:hover{color:#e5703a;border-color:rgba(229,112,58,.55)}
 .price-compact-de{font-size:.85rem;color:#5d6782}
 .price-compact-por{font-size:.78rem;font-weight:600;color:#2f3650}
 .price-compact-final{font-size:1.35rem;letter-spacing:-.02em}
+
+/* ===== Fundo da aba Cursos no mesmo padrão da página institucional ===== */
+.pc-page{
+  font-family:'Manrope','Sora',system-ui,sans-serif;
+  color:#2f3650;
+  margin:-16px;
+  padding:24px 16px 40px;
+  border-radius:24px;
+  background:
+    radial-gradient(120% 70% at 80% 0%,#ffffff 0%,transparent 60%),
+    linear-gradient(180deg,#dfe6ef 0%,#eef2f7 45%,#e4eaf2 100%);
+}
+.pc-page .text-muted-foreground{color:#5d6782}
+.pc-page input,.pc-page select{
+  font-family:inherit;color:#2f3650;
+  background:rgba(255,255,255,.75)!important;
+  border-color:#fff!important;
+  backdrop-filter:blur(10px);
+}
