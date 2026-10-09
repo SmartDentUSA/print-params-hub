@@ -546,6 +546,7 @@ export default function KbTabCursos() {
                         </div>
 
                         <div className="pc-course-body">
+                          <div className="pc-ic"><GraduationCap /></div>
                           <div className="pc-chips">
                             {c.modality && (
                               <span className="pc-chip pc-chip--primary">{label(c.modality)}</span>
