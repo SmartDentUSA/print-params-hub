@@ -626,11 +626,7 @@ a.pc-pill:hover{color:#e5703a;border-color:rgba(229,112,58,.55)}
 .pc-cta{color:#e5703a}
 .pc-cta:hover{color:rgba(229,112,58,.75)}
 
-/* Vídeo no topo do card (no lugar da capa) */
-.pc-course .pc-cover.pc-cover--video{height:auto;aspect-ratio:16/9;background:#2f3650;cursor:default}
-.pc-cover--video iframe,.pc-cover--video video{position:absolute;inset:0;width:100%;height:100%;border:0;display:block;background:#2f3650}
-
-/* Cronômetro sobreposto no canto superior esquerdo do vídeo/capa */
+/* Cronômetro sobreposto no canto superior esquerdo da capa */
 .pc-cd-overlay{position:absolute;top:12px;left:12px;z-index:3}
 .pc-cd-overlay .cd-compact{background:#fff;border-color:#fff;box-shadow:0 8px 20px -10px rgba(47,54,80,.45);font-size:.66rem;padding:.3rem .55rem}
 
