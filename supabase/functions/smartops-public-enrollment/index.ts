@@ -215,14 +215,15 @@ Deno.serve(async (req) => {
         origem_primeiro_contato: formName,
         // "Produtos do portfólio relacionados" (editor do curso) é a fonte de
         // verdade do produto de interesse — sobrepõe qualquer inferência.
+        // Pass DB column answers (area_atuacao, especialidade, tem_scanner, etc.)
+        ...(q.db_columns ?? {}),
+        // Produto do editor do curso vem DEPOIS das respostas para nunca ser sobrescrito.
         ...(productNames.length > 0
           ? {
               produto_interesse: productNames.join(", "),
               produto_interesse_auto: productNames[0],
             }
           : {}),
-        // Pass DB column answers (area_atuacao, especialidade, tem_scanner, etc.)
-        ...(q.db_columns ?? {}),
         // Dados confirmados pelo cliente têm prioridade sobre inferências
         ...(body.confirmation?.area_atuacao ? { area_atuacao: body.confirmation.area_atuacao } : {}),
         ...(body.confirmation?.especialidade ? { especialidade: body.confirmation.especialidade } : {}),
