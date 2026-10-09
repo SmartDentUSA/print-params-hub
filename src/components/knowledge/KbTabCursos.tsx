@@ -691,8 +691,8 @@ export default function KbTabCursos() {
                       loading="lazy"
                     />
                   ) : (
-                    <div className="w-full h-full flex items-center justify-center">
-                      <GraduationCap className="w-12 h-12 text-muted-foreground/40" />
+                    <div className="pc-hero-empty w-full h-full flex items-center justify-center">
+                      <GraduationCap />
                     </div>
                   )}
                 </div>

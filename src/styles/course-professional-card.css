@@ -444,3 +444,19 @@ a.pc-pill:hover {
     aspect-ratio: 16 / 10;
   }
 }
+
+/* ---------- Faixa do modal sem capa ---------- */
+
+.pc-hero-empty {
+  background:
+    radial-gradient(90% 140% at 0% 0%, hsl(var(--primary) / 0.22), transparent 58%),
+    radial-gradient(90% 140% at 100% 100%, hsl(var(--accent) / 0.18), transparent 60%),
+    hsl(var(--muted));
+}
+
+.pc-hero-empty svg {
+  width: 56px;
+  height: 56px;
+  color: hsl(var(--primary));
+  opacity: 0.4;
+}
