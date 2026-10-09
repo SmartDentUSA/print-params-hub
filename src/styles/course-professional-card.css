@@ -497,6 +497,7 @@ a.pc-pill:hover {
 .cd-compact b{font-variant-numeric:tabular-nums;font-weight:800;color:hsl(var(--foreground));letter-spacing:0}
 .cd-compact i{font-style:normal;font-size:.6rem;font-weight:800;color:hsl(var(--primary));margin-left:.04rem}
 .price-compact{display:flex;align-items:baseline;gap:.38rem;flex-wrap:wrap}
+.price-compact-final-wrap{display:inline-flex;align-items:baseline;gap:.35rem;white-space:nowrap}
 .price-compact-de{font-size:.78rem;color:hsl(var(--muted-foreground))}
 .price-compact-off{font-size:.62rem;font-weight:800;color:hsl(var(--primary-foreground));background:hsl(var(--primary));border-radius:999px;padding:.1rem .4rem}
 .price-compact-por{font-size:.72rem;color:hsl(var(--muted-foreground))}

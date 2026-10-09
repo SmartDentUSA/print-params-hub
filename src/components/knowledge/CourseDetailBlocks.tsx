@@ -112,10 +112,12 @@ export function CoursePrice({
           <>
             <s className="price-compact-de">{fmt(price!)}</s>
             {off > 0 && <span className="price-compact-off">-{off}%</span>}
-            <span className="price-compact-por">por</span>
           </>
         )}
-        <strong className="price-compact-final">{fmt(final)}</strong>
+        <span className="price-compact-final-wrap">
+          {hasPromo && hasPrice && <span className="price-compact-por">por</span>}
+          <strong className="price-compact-final">{fmt(final)}</strong>
+        </span>
         {final === 0 && <span className="price-compact-free">Gratuito</span>}
         {parcela && <span className="price-compact-inst">ou {parcela}</span>}
       </div>
