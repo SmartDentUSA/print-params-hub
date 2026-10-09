@@ -197,7 +197,35 @@ export default function ProfessionalCoursesModal({ open, onOpenChange, professio
               <div className="flex items-center justify-center py-10 text-muted-foreground">
                 <Loader2 className="w-5 h-5 animate-spin mr-2" /> Carregando…
               </div>
-            ) : courses.length === 0 ? (
+            ) : (
+              <>
+            {smartDentCourses.length > 0 && (
+              <div className="space-y-2">
+                <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Cursos Smart Dent associados
+                </div>
+                {smartDentCourses.map((c) => (
+                  <Card key={c.id}>
+                    <CardContent className="p-4 flex items-start gap-3">
+                      <div className="min-w-0 flex-1">
+                        <div className="font-medium truncate">{c.title}</div>
+                        <div className="text-xs text-muted-foreground truncate">
+                          {[c.modality, c.start_date].filter(Boolean).join(" · ")}
+                        </div>
+                        <div className="flex flex-wrap gap-1 mt-1.5">
+                          <Badge variant="secondary" className="text-xs">Smart Dent</Badge>
+                          <Badge variant="outline" className="text-xs">Cursos recomendados</Badge>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+                <p className="text-xs text-muted-foreground">
+                  Estes treinamentos são gerenciados na aba Treinamentos.
+                </p>
+              </div>
+            )}
+            {courses.length === 0 ? (
               <Card><CardContent className="py-10 text-center text-muted-foreground">Nenhum curso cadastrado para este profissional.</CardContent></Card>
             ) : (
               courses.map((c) => (
