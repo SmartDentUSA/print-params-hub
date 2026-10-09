@@ -286,6 +286,39 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
   const [instructorName, setInstructorName] = useState("");
   const [recommendOnInstructor, setRecommendOnInstructor] = useState(false);
   const [coverImageUrl, setCoverImageUrl] = useState("");
+  const [videoUrl, setVideoUrl] = useState("");
+  const [videoUploading, setVideoUploading] = useState(false);
+  const uploadVideoToPanda = async (file: File) => {
+    setVideoUploading(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("Faça login para enviar vídeos");
+      const url = `https://${import.meta.env.VITE_SUPABASE_PROJECT_ID}.supabase.co/functions/v1/course-video-panda-upload`;
+      const res = await fetch(url, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+          apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          "Content-Type": "application/octet-stream",
+          "x-filename": encodeURIComponent(file.name),
+          "x-title": encodeURIComponent(`${title || "Curso"} | Apresentação`),
+        },
+        body: file,
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.error || `Erro ${res.status}`);
+      if (data.video_player) {
+        setVideoUrl(data.video_player);
+        toast({ title: "Vídeo enviado ao Panda Video" });
+      } else {
+        toast({ title: `Vídeo enviado (ID ${data.pandavideo_id}). O link aparece quando o Panda terminar o processamento.` });
+      }
+    } catch (e: any) {
+      toast({ title: "Falha no envio", description: e.message, variant: "destructive" });
+    } finally {
+      setVideoUploading(false);
+    }
+  };
   const [durationDays, setDurationDays] = useState(1);
   const [durationHoursPerDay, setDurationHoursPerDay] = useState<number | undefined>(undefined);
   const [location, setLocation] = useState("");
@@ -494,6 +527,7 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
     setLocation(course.location || "");
     setMeetingLink(course.meeting_link || "");
     setSignupFormUrl((course as any).signup_form_url || "");
+    setVideoUrl((course as any).video_url || "");
     setWhatsappGroupLink(course.whatsapp_group_link || "");
     setPipelineId(course.pipeline_id_kanban);
     setStageAfterEnroll(course.stage_after_enroll);
@@ -851,6 +885,7 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
         location: location || null,
         meeting_link: meetingLink || null,
         signup_form_url: signupFormUrl || null,
+        video_url: videoUrl || null,
         whatsapp_group_link: whatsappGroupLink || null,
         whatsapp_message_template: waTemplate !== DEFAULT_ENROLLMENT_TEMPLATE ? waTemplate : null,
         reminder_message_template: reminderTemplate && reminderTemplate !== DEFAULT_REMINDER_TEMPLATE ? reminderTemplate : null,
@@ -1123,6 +1158,35 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
                   <Label>Imagem de capa</Label>
                   <CoverImageUpload value={coverImageUrl} onChange={setCoverImageUrl} />
                 </div>
+              </div>
+
+              <div>
+                <Label>Vídeo de apresentação</Label>
+                <div className="flex gap-2">
+                  <Input
+                    value={videoUrl}
+                    onChange={(e) => setVideoUrl(e.target.value)}
+                    placeholder="YouTube / Panda Video"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    disabled={videoUploading}
+                    title="Enviar vídeo ao Panda Video"
+                    onClick={() => document.getElementById("smartops-course-video-upload")?.click()}
+                  >
+                    {videoUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                  </Button>
+                  <input
+                    id="smartops-course-video-upload"
+                    type="file"
+                    accept="video/*"
+                    className="hidden"
+                    onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) uploadVideoToPanda(f); }}
+                  />
+                </div>
+                {videoUploading && <p className="mt-1 text-xs text-muted-foreground">Enviando ao Panda Video… não feche a janela.</p>}
               </div>
 
               <div className="grid gap-3 sm:grid-cols-3">
