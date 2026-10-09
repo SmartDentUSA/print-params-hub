@@ -506,7 +506,7 @@ function DynamicLinkSection({
   onInsert,
 }: {
   label: string;
-  icon: React.ReactNode;
+  icon: import("react").ReactNode;
   prefix: string;
   links: DynamicLink[];
   busy: string | null;
