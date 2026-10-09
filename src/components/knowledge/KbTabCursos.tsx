@@ -10,7 +10,6 @@ import {
   UserCircle,
   ExternalLink,
   Instagram,
-  Info,
   Tag,
   Users,
   Globe,
