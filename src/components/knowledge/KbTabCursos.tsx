@@ -24,6 +24,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import KbSearchBar from './KbSearchBar';
 import CourseRating, { RatingSummaryBadge } from './CourseRating';
 import '@/styles/course-professional-card.css';
+import { CourseCountdown, CourseSeats, CoursePrice, MiniCv, SyllabusPremium } from './CourseDetailBlocks';
 
 /** Converte URL de vídeo (YouTube, PandaVideo, mp4) em embed. */
 function videoEmbed(url: string): { type: 'iframe' | 'video'; src: string } | null {
@@ -665,11 +666,7 @@ export default function KbTabCursos() {
                           <Instagram className="w-3 h-3" /> @{igHandle(detail.kol.instagram)}
                         </a>
                       )}
-                      {detail.kol.prof_mini_cv && (
-                        <p className="text-xs sm:text-sm text-muted-foreground line-clamp-3 mt-2 leading-relaxed">
-                          {detail.kol.prof_mini_cv}
-                        </p>
-                      )}
+                      {detail.kol.prof_mini_cv && <MiniCv cv={detail.kol.prof_mini_cv} />}
                       {detail.kol.cliente_desde && (
                         <p className="text-[11px] text-muted-foreground mt-1.5">
                           Cliente Smart Dent desde {fmtDate(detail.kol.cliente_desde)}
@@ -717,6 +714,12 @@ export default function KbTabCursos() {
               </div>
 
               <div className="p-5 sm:p-6 space-y-6">
+                {(detailCourse.max_students || detailCourse.start_date) && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <CourseCountdown date={detailCourse.start_date} time={detailCourse.start_time} />
+                    <CourseSeats total={detailCourse.max_students} enrolled={detailCourse.enrolled_count} />
+                  </div>
+                )}
                 {/* Fatos rápidos */}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   {(detailCourse.category || detailCourse.modality) && (
@@ -888,25 +891,7 @@ export default function KbTabCursos() {
                     <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
                       Conteúdo programático
                     </h4>
-                    <div className="flex flex-col gap-2">
-                      {detailSyllabus.map((mod, i) => (
-                        <div key={i} className="rounded-xl border border-border p-3">
-                          {mod?.title && (
-                            <div className="text-sm font-semibold text-foreground mb-1">
-                              <span className="text-muted-foreground mr-1.5">{String(i + 1).padStart(2, '0')}</span>
-                              {mod.title}
-                            </div>
-                          )}
-                          {Array.isArray(mod?.items) && mod.items.length > 0 && (
-                            <ul className="list-disc pl-5 text-sm text-muted-foreground space-y-0.5">
-                              {mod.items.map((it, j) => (
-                                <li key={j}>{it}</li>
-                              ))}
-                            </ul>
-                          )}
-                        </div>
-                      ))}
-                    </div>
+                    <SyllabusPremium modules={detailSyllabus} />
                   </section>
                 )}
 
@@ -940,30 +925,9 @@ export default function KbTabCursos() {
 
               {/* Rodapé fixo com investimento + CTA */}
               <div className="sticky bottom-0 border-t border-border bg-background/95 backdrop-blur p-4 sm:px-6 flex flex-col sm:flex-row sm:items-center gap-3">
-                {(detailPrice || detailPromo || detailCourse.installments) && (
-                  <div className="flex-1">
-                    <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                      Investimento
-                    </div>
-                    <div className="flex flex-wrap items-baseline gap-2">
-                      {detailPromo ? (
-                        <>
-                          <span className="text-xl font-bold text-foreground">{detailPromo}</span>
-                          {detailPrice && (
-                            <span className="text-sm text-muted-foreground line-through">{detailPrice}</span>
-                          )}
-                        </>
-                      ) : (
-                        detailPrice && <span className="text-xl font-bold text-foreground">{detailPrice}</span>
-                      )}
-                      {detailCourse.installments ? (
-                        <span className="text-xs text-muted-foreground">
-                          em até {detailCourse.installments}x
-                        </span>
-                      ) : null}
-                    </div>
-                  </div>
-                )}
+                <div className="flex-1">
+                  <CoursePrice price={detailCourse.price_brl} promo={detailCourse.promo_price_brl} installments={detailCourse.installments} />
+                </div>
                 {ctaUrl(detailCourse) && (
                   <Button asChild size="lg" className="w-full sm:w-auto">
                     <a href={ctaUrl(detailCourse)!} target="_blank" rel="noopener noreferrer">
