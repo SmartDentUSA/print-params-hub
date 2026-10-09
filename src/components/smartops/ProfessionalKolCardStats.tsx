@@ -24,7 +24,7 @@ function VisitorsSparkline({ series }: { series: Array<{ d: string; v: number }>
     .join(" ");
 
   return (
-    <svg width={width} height={height} aria-label="Visitas nos últimos 30 dias" className="overflow-visible">
+    <svg width={width} height={height} viewBox={`-1 -1 ${width + 2} ${height + 2}`} aria-label="Visitas nos últimos 30 dias" className="shrink-0 overflow-hidden">
       <polyline points={points} fill="none" stroke="hsl(var(--primary))" strokeWidth="1.5" />
     </svg>
   );
@@ -67,7 +67,7 @@ export default function ProfessionalKolCardStats({ formIds, coupons, commissions
     return (
       <div className="flex flex-wrap items-center gap-3 text-xs min-w-0">
         {perf.loading && <Loader2 className="w-3 h-3 animate-spin text-muted-foreground" />}
-        <div className="flex items-center gap-2 rounded-md bg-muted/50 px-2 py-1 leading-tight">
+        <div className="flex shrink-0 items-center gap-2 overflow-hidden rounded-md bg-muted/50 px-2 py-1 leading-tight">
           <div>
             <div className="font-semibold tabular-nums">{perf.totals.views.toLocaleString("pt-BR")}</div>
             <div className="text-[9px] text-muted-foreground">{perf.totals.visitors.toLocaleString("pt-BR")} únicos</div>
