@@ -349,6 +349,8 @@ Deno.serve(async (req) => {
         p_name: body.nome, p_phone: phone, p_email: email,
         p_enrollment: {
           turma_snapshot: turmaSnapshot,
+          especialidade: body.confirmation?.especialidade ?? null,
+          area_atuacao: body.confirmation?.area_atuacao ?? null,
           is_client_smartdent: isExistingClient || Boolean(body.is_client_smartdent),
           public_form_payload: { nome: body.nome, email, telefone: phone, qualification: body.qualification, confirmation: body.confirmation },
         },
