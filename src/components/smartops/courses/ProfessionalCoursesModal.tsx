@@ -270,6 +270,8 @@ export default function ProfessionalCoursesModal({ open, onOpenChange, professio
                 </Card>
               ))
             )}
+              </>
+            )}
           </div>
         )}
       </DialogContent>
