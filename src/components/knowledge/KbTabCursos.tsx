@@ -694,21 +694,6 @@ export default function KbTabCursos() {
               <div className="relative">
                 <div className="aspect-[16/7] w-full overflow-hidden bg-muted">
                   {(() => {
-                    const heroEmbed = detailCourse.video_url ? videoEmbed(detailCourse.video_url) : null;
-                    if (heroEmbed) {
-                      return heroEmbed.type === 'iframe' ? (
-                        <iframe
-                          src={heroEmbed.src}
-                          title={`Vídeo do curso ${detailCourse.title}`}
-                          className="w-full h-full"
-                          allow="accelerometer; autoplay; encrypted-media; picture-in-picture"
-                          allowFullScreen
-                          loading="lazy"
-                        />
-                      ) : (
-                        <video src={heroEmbed.src} className="w-full h-full object-cover" autoPlay muted loop playsInline preload="metadata" />
-                      );
-                    }
                     if (detailCourse.cover_image_url) {
                       return (
                         <img
