@@ -294,9 +294,13 @@ export default function ProfessionalCoursesModal({ open, onOpenChange, professio
                             {approved && <Badge className="text-xs bg-emerald-600 text-white">Aprovado</Badge>}
                           </div>
                         </div>
-                        {!approved && (
+                        {!approved ? (
                           <Button size="sm" variant="outline" className="shrink-0" onClick={() => approveSmartDentCourse(c)}>
                             <Check className="w-4 h-4 mr-1" /> Aprovar
+                          </Button>
+                        ) : (
+                          <Button size="sm" variant="outline" className="shrink-0" onClick={() => importSmartDentCourse(c)}>
+                            {courses.some((pc: any) => pc.source_smartops_course_id === c.id) ? "Editar" : "Importar e editar"}
                           </Button>
                         )}
                       </CardContent>
