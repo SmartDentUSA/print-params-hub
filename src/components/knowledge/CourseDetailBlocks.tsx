@@ -4,7 +4,15 @@ import {
 } from 'lucide-react';
 
 /* ---------- Countdown ---------- */
-export function CourseCountdown({ date, time }: { date: string | null; time?: string | null }) {
+export function CourseCountdown({
+  date,
+  time,
+  compact,
+}: {
+  date: string | null;
+  time?: string | null;
+  compact?: boolean;
+}) {
   const target = useMemo(() => {
     if (!date) return null;
     const t = (time ?? '08:00').slice(0, 5);
@@ -19,11 +27,25 @@ export function CourseCountdown({ date, time }: { date: string | null; time?: st
   if (!target || target <= now) return null;
   const diff = Math.floor((target - now) / 1000);
   const parts = [
-    { v: Math.floor(diff / 86400), l: 'dias' },
-    { v: Math.floor((diff % 86400) / 3600), l: 'horas' },
-    { v: Math.floor((diff % 3600) / 60), l: 'min' },
-    { v: diff % 60, l: 'seg' },
+    { v: Math.floor(diff / 86400), l: 'dias', s: 'd' },
+    { v: Math.floor((diff % 86400) / 3600), l: 'horas', s: 'h' },
+    { v: Math.floor((diff % 3600) / 60), l: 'min', s: 'm' },
+    { v: diff % 60, l: 'seg', s: 's' },
   ];
+  if (compact) {
+    return (
+      <div className="cd-compact">
+        <Timer className="w-3.5 h-3.5" />
+        <span>Começa em</span>
+        {parts.map((p) => (
+          <b key={p.s}>
+            {String(p.v).padStart(2, '0')}
+            <i>{p.s}</i>
+          </b>
+        ))}
+      </div>
+    );
+  }
   return (
     <div className="cd-wrap">
       <div className="cd-label"><Timer className="w-3.5 h-3.5" /> Começa em</div>
@@ -63,7 +85,17 @@ export function CourseSeats({ total, enrolled }: { total: number | null; enrolle
 }
 
 /* ---------- Preço De/Por ---------- */
-export function CoursePrice({ price, promo, installments }: { price: number | null; promo: number | null; installments: number | null }) {
+export function CoursePrice({
+  price,
+  promo,
+  installments,
+  compact,
+}: {
+  price: number | null;
+  promo: number | null;
+  installments: number | null;
+  compact?: boolean;
+}) {
   const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
   const hasPrice = typeof price === 'number' && price > 0;
   // promo 0 é válido: significa curso gratuito (De R$ X,00 por R$ 0,00)
@@ -71,6 +103,24 @@ export function CoursePrice({ price, promo, installments }: { price: number | nu
   const final = hasPromo ? promo! : hasPrice ? price! : null;
   if (final === null) return null;
   const off = hasPromo && hasPrice ? Math.round((1 - promo! / price!) * 100) : 0;
+  const parcela =
+    installments && installments > 1 && final > 0 ? `${installments}x de ${fmt(final / installments)}` : null;
+  if (compact) {
+    return (
+      <div className="price-compact">
+        {hasPromo && hasPrice && (
+          <>
+            <s className="price-compact-de">{fmt(price!)}</s>
+            {off > 0 && <span className="price-compact-off">-{off}%</span>}
+            <span className="price-compact-por">por</span>
+          </>
+        )}
+        <strong className="price-compact-final">{fmt(final)}</strong>
+        {final === 0 && <span className="price-compact-free">Gratuito</span>}
+        {parcela && <span className="price-compact-inst">ou {parcela}</span>}
+      </div>
+    );
+  }
   return (
     <div className="price-wrap">
       {hasPromo && hasPrice && (
@@ -81,9 +131,7 @@ export function CoursePrice({ price, promo, installments }: { price: number | nu
         <strong>{fmt(final)}</strong>
         {final === 0 && <span className="price-free">Gratuito</span>}
       </div>
-      {installments && installments > 1 && final > 0 ? (
-        <div className="price-inst">ou {installments}x de {fmt(final / installments)}</div>
-      ) : null}
+      {parcela ? <div className="price-inst">ou {parcela}</div> : null}
     </div>
   );
 }

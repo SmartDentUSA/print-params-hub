@@ -609,6 +609,16 @@ export default function KbTabCursos() {
                             ) : null}
                           </div>
 
+                          <div className="pc-offer">
+                            <CourseCountdown date={c.start_date} time={c.start_time} compact />
+                            <CoursePrice
+                              price={c.price_brl}
+                              promo={c.promo_price_brl}
+                              installments={c.installments}
+                              compact
+                            />
+                          </div>
+
                           <div className="pc-actions">
                             <button type="button" className="pc-cta" onClick={open}>
                               Informações do curso <ArrowRight />
