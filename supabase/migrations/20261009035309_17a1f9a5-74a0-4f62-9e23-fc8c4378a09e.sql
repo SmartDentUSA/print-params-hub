@@ -1,0 +1,1 @@
+alter table smartops_courses add column if not exists video_url text;

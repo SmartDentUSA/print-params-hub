@@ -23358,6 +23358,7 @@ export type Database = {
           stage_after_enroll: string
           title: string
           updated_at: string | null
+          video_url: string | null
           wa_instance_name: string | null
           waitlist_enabled: boolean
           waitlist_message_template: string | null
@@ -23409,6 +23410,7 @@ export type Database = {
           stage_after_enroll?: string
           title: string
           updated_at?: string | null
+          video_url?: string | null
           wa_instance_name?: string | null
           waitlist_enabled?: boolean
           waitlist_message_template?: string | null
@@ -23460,6 +23462,7 @@ export type Database = {
           stage_after_enroll?: string
           title?: string
           updated_at?: string | null
+          video_url?: string | null
           wa_instance_name?: string | null
           waitlist_enabled?: boolean
           waitlist_message_template?: string | null
