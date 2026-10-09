@@ -8,6 +8,7 @@ import ReactMarkdown from "react-markdown";
 import { LeadDetailPanel } from "./smartops/LeadDetailPanel";
 import { useCaptureEvents } from "@/hooks/useCaptureEvents";
 import { resolveCaptureEventName, type CaptureEvent, type CaptureForm } from "@/lib/lead-event-name";
+import { useLeadCardSignals, resolveClientDot, latestDate } from "@/hooks/useLeadCardSignals";
 
 // ─── Constants ───
 const PAGE_SIZE = 200;
@@ -379,6 +380,18 @@ function LeadRow({ lead, active, onClick, nps, captureEvents }: { lead: LeadFull
   const kolName = kolFormName ? kolFormName.split(/\s+-\s+/).pop()?.trim() : undefined;
   const isProfessionalReferral = Boolean(kolFormName) || /\bkol\b|indica[cç][aã]o|indicado\s+por/i.test(`${originText} ${formDataText}`);
   const referralLabel = kolName ? `PUBLI - ${kolName}` : "Indicação KOL";
+  const signals = useLeadCardSignals(lead.id);
+  const anyLead = lead as unknown as Record<string, unknown>;
+  const lastPurchase = latestDate([
+    signals?.lastWonAt, anyLead.omie_ultima_compra, anyLead.data_ultima_compra_scan, anyLead.data_ultima_compra_print,
+    anyLead.data_ultima_compra_cad, anyLead.data_ultima_compra_cad_ia, anyLead.data_ultima_compra_cura,
+    anyLead.data_ultima_compra_insumos, anyLead.data_ultima_compra_notebook, anyLead.data_ultima_compra_smart_slice,
+  ]);
+  const isClient = Boolean(lastPurchase) || (lead.lead_status as string) === "CLIENTE_ativo" || Number(lead.ltv_total) > 0;
+  const dot = resolveClientDot(lastPurchase, isClient);
+  const dotColor = dot === "verde" ? "#22c55e" : dot === "amarelo" ? "#facc15" : dot === "vermelho" ? "#ef4444" : "#e2e8f0";
+  const dotTitle = dot === "nao_cliente" ? "Não é cliente"
+    : `Cliente · última compra ${lastPurchase ? new Date(lastPurchase).toLocaleDateString("pt-BR") : "sem data registrada"}`;
   const eventName = resolveCaptureEventName(lead, captureEvents.events, captureEvents.forms);
   const isEventLead = Boolean(eventName || lead.event_id)
     || /feira[_ -]?evento|\bevento\b|\bfeira\b|\bcipro\b|\bin26\b|congress/i.test(`${originText} ${formDataText}`);
@@ -390,7 +403,22 @@ function LeadRow({ lead, active, onClick, nps, captureEvents }: { lead: LeadFull
       <div className="intel-lr-top">
         <div className={`intel-avatar ${avClass(bt)}`}>{initials(lead.nome)}</div>
         <div className="intel-lr-info">
-          <div className="intel-lr-name">{lead.nome}</div>
+          <div className="intel-lr-name" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <span
+              title={dotTitle}
+              aria-label={dotTitle}
+              style={{ width: 10, height: 10, borderRadius: "50%", background: dotColor, border: "1px solid rgba(0,0,0,0.25)", flexShrink: 0, display: "inline-block" }}
+            />
+            <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{lead.nome}</span>
+            {signals && signals.lives > 0 && (
+              <span
+                title={`${signals.lives} inscrição(ões) em lives/cursos`}
+                style={{ flexShrink: 0, padding: "1px 6px", borderRadius: 4, fontSize: 9, fontWeight: 700, background: "#dc2626", color: "#fff" }}
+              >
+                ● LIVE {signals.lives}
+              </span>
+            )}
+          </div>
           <div className="intel-lr-email">
             {lead.email && !lead.email.includes("placeholder") ? lead.email : (lead.empresa_nome || lead.area_atuacao || "—")}
             {lead.email_bounced && (
