@@ -305,7 +305,7 @@ export default function ProfessionalCoursesModal({ open, onOpenChange, professio
                           </Button>
                         ) : (
                           <Button size="sm" variant="outline" className="shrink-0" onClick={() => importSmartDentCourse(c)}>
-                            {courses.some((pc: any) => pc.source_smartops_course_id === c.id) ? "Editar" : "Importar e editar"}
+                            Importar e editar
                           </Button>
                         )}
                       </CardContent>
