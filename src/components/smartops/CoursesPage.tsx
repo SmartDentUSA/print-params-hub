@@ -373,24 +373,21 @@ export default function CoursesPage() {
                       </div>
                     </div>
 
-                    {(recommendedByProf[p.id] ?? []).length > 0 && (
-                      <div className="border-t pt-2 space-y-1.5">
-                        <div className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium">Cursos recomendados</div>
-                        {(recommendedByProf[p.id] ?? []).map((c) => (
-                          <div key={c.id} className="rounded-md border px-2 py-1.5">
-                            <div className="text-xs font-medium truncate" title={c.title}>{c.title}</div>
-                            <div className="text-[11px] text-muted-foreground">
-                              {c.start_date ? new Date(c.start_date + "T12:00:00").toLocaleDateString("pt-BR") : "Data a definir"}
-                              {c.modality ? ` · ${c.modality}` : ""}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-
                     <div className="border-t pt-2 space-y-1.5">
                       <div className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium">Cursos</div>
-                      {(coursesByProf[p.id] ?? []).length === 0 ? (
+                      {recs.map((c) => (
+                        <div key={`rec-${c.id}`} className="rounded-md border px-2 py-1.5">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-medium truncate flex-1" title={c.title}>{c.title}</span>
+                            <Badge variant="secondary" className="text-[10px] shrink-0">Smart Dent</Badge>
+                          </div>
+                          <div className="text-[11px] text-muted-foreground mt-0.5">
+                            {c.start_date ? new Date(c.start_date + "T12:00:00").toLocaleDateString("pt-BR") : "Data a definir"}
+                            {c.modality ? ` · ${c.modality}` : ""}
+                          </div>
+                        </div>
+                      ))}
+                      {(coursesByProf[p.id] ?? []).length === 0 && recs.length === 0 ? (
                         <div className="text-xs text-muted-foreground">Nenhum curso cadastrado.</div>
                       ) : (
                         (coursesByProf[p.id] ?? []).slice(0, 4).map((c) => {
