@@ -66,6 +66,7 @@ interface LocalTurma {
   whatsapp_group_link: string;
   live_url: string;
   live_thumbnail_url: string;
+  cronograma_description: string;
   sort_order: number;
   enrolled_count: number;
   days: LocalDay[];
@@ -560,6 +561,7 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
           whatsapp_group_link: t.whatsapp_group_link || "",
           live_url: t.live_url || "",
           live_thumbnail_url: t.live_thumbnail_url || "",
+          cronograma_description: t.cronograma_description || "",
           sort_order: t.sort_order,
           enrolled_count: t.enrolled_count,
           days: (() => {
@@ -601,6 +603,7 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
         whatsapp_group_link: "",
         live_url: "",
         live_thumbnail_url: "",
+        cronograma_description: "",
         sort_order: idx,
         enrolled_count: 0,
         days: [{ day_number: 1, date: "", start_time: defaultStart, end_time: defaultEnd, topic: "" }],
@@ -946,6 +949,7 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
               whatsapp_group_link: turma.whatsapp_group_link || null,
               live_url: turma.live_url || null,
               live_thumbnail_url: turma.live_thumbnail_url || null,
+              cronograma_description: turma.cronograma_description || null,
               sort_order: turma.sort_order,
             })
             .eq("id", turma.id);
@@ -990,6 +994,7 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
               whatsapp_group_link: turma.whatsapp_group_link || null,
               live_url: turma.live_url || null,
               live_thumbnail_url: turma.live_thumbnail_url || null,
+              cronograma_description: turma.cronograma_description || null,
               sort_order: turma.sort_order,
             })
             .select("id")
@@ -1418,6 +1423,16 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
                             <Plus className="w-3 h-3 mr-1" /> Adicionar dia
                           </Button>
                         )}
+                      </div>
+
+                      <div>
+                        <Label className="text-xs">Descrição do cronograma</Label>
+                        <Textarea
+                          value={turma.cronograma_description}
+                          onChange={(e) => updateTurma(tIdx, "cronograma_description", e.target.value)}
+                          rows={2}
+                          placeholder="Descreva o conteúdo programático desta turma (opcional)"
+                        />
                       </div>
                     </CardContent>
                   </Card>
