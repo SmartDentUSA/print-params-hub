@@ -111,6 +111,21 @@ export default function ProfessionalCoursesModal({ open, onOpenChange, professio
       delete payload.views_count;
       delete payload.interested_count;
 
+      // Cursos importados de um treinamento Smart Dent: o link de inscrição
+      // é sempre o do treinamento de origem (formulário público ou URL externa).
+      if (draft.source_smartops_course_id) {
+        const { data: src } = await (supabase as any)
+          .from("smartops_courses")
+          .select("slug, public_enrollment_enabled, signup_form_url")
+          .eq("id", draft.source_smartops_course_id)
+          .maybeSingle();
+        if (src) {
+          payload.registration_url = src.public_enrollment_enabled && src.slug
+            ? `/inscricao/${src.slug}`
+            : src.signup_form_url ?? null;
+        }
+      }
+
       if (draft.id) {
         const { error } = await supabase.from("professional_courses").update(payload).eq("id", draft.id);
         if (error) throw error;
