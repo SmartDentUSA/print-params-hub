@@ -159,7 +159,7 @@ export default function CoursesPage() {
       if (leadIds.length > 0) {
         const { data: pcourses } = await supabase
           .from("professional_courses")
-          .select("id, producer_lead_id, title, status, modality, start_date, end_date, start_time, end_time, enrolled_count, max_students, views_count, interested_count")
+          .select("id, producer_lead_id, title, status, modality, start_date, end_date, start_time, end_time, enrolled_count, max_students, views_count, interested_count, source_smartops_course_id")
           .in("producer_lead_id", leadIds)
           .order("start_date", { ascending: true, nullsFirst: false });
         const stats: Record<string, CourseStats> = {};
@@ -187,9 +187,19 @@ export default function CoursesPage() {
           .eq("active", true)
           .order("title", { ascending: true });
         const recGrouped: Record<string, RecommendedCourse[]> = {};
+        // Quando o profissional já tem a cópia editável (importada), a origem
+        // Smart Dent não é listada de novo — evita o curso aparecer duas vezes.
+        const imported = new Set(
+          ((pcourses ?? []) as any[])
+            .filter((pc) => pc.source_smartops_course_id)
+            .map((pc) => `${pc.producer_lead_id}:${pc.source_smartops_course_id}`)
+        );
         for (const c of (recs ?? []) as any[]) {
           const ids: string[] = Array.isArray(c.recommend_professional_ids) ? c.recommend_professional_ids : [];
-          for (const pid of ids) (recGrouped[pid] ??= []).push(c);
+          for (const pid of ids) {
+            if (imported.has(`${pid}:${c.id}`)) continue;
+            (recGrouped[pid] ??= []).push(c);
+          }
         }
         setRecommendedByProf(recGrouped);
       } else {
