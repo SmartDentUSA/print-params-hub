@@ -47,6 +47,27 @@ export type Database = {
         }
         Relationships: []
       }
+      _bkp_knowledge_videos_titles_20261008: {
+        Row: {
+          backed_up_at: string | null
+          id: string | null
+          title: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          backed_up_at?: string | null
+          id?: string | null
+          title?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          backed_up_at?: string | null
+          id?: string | null
+          title?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       _check_leads_0710: {
         Row: {
           criado_em: string | null
@@ -11726,6 +11747,7 @@ export type Database = {
           prof_course_wa_ddi: string | null
           prof_course_wa_number: string | null
           prof_cro: string | null
+          prof_display_name: string | null
           prof_fapesp_id: string | null
           prof_kol_commissions: Json
           prof_kol_coupon: string | null
@@ -12350,6 +12372,7 @@ export type Database = {
           prof_course_wa_ddi?: string | null
           prof_course_wa_number?: string | null
           prof_cro?: string | null
+          prof_display_name?: string | null
           prof_fapesp_id?: string | null
           prof_kol_commissions?: Json
           prof_kol_coupon?: string | null
@@ -12974,6 +12997,7 @@ export type Database = {
           prof_course_wa_ddi?: string | null
           prof_course_wa_number?: string | null
           prof_cro?: string | null
+          prof_display_name?: string | null
           prof_fapesp_id?: string | null
           prof_kol_commissions?: Json
           prof_kol_coupon?: string | null
@@ -18488,6 +18512,7 @@ export type Database = {
           registration_url: string | null
           schedule: Json
           slug: string | null
+          source_smartops_course_id: string | null
           start_date: string | null
           start_time: string | null
           state: string | null
@@ -18542,6 +18567,7 @@ export type Database = {
           registration_url?: string | null
           schedule?: Json
           slug?: string | null
+          source_smartops_course_id?: string | null
           start_date?: string | null
           start_time?: string | null
           state?: string | null
@@ -18596,6 +18622,7 @@ export type Database = {
           registration_url?: string | null
           schedule?: Json
           slug?: string | null
+          source_smartops_course_id?: string | null
           start_date?: string | null
           start_time?: string | null
           state?: string | null
@@ -18773,6 +18800,13 @@ export type Database = {
             columns: ["producer_lead_id"]
             isOneToOne: false
             referencedRelation: "vw_vendas_ganhas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "professional_courses_source_smartops_course_id_fkey"
+            columns: ["source_smartops_course_id"]
+            isOneToOne: false
+            referencedRelation: "smartops_courses"
             referencedColumns: ["id"]
           },
         ]
@@ -37817,6 +37851,7 @@ export type Database = {
           prof_course_wa_ddi: string | null
           prof_course_wa_number: string | null
           prof_cro: string | null
+          prof_display_name: string | null
           prof_fapesp_id: string | null
           prof_kol_commissions: Json
           prof_kol_coupon: string | null
