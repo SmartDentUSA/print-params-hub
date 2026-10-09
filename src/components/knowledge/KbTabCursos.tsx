@@ -856,34 +856,6 @@ export default function KbTabCursos() {
                   </div>
                 </div>
 
-                {detailCourse.video_url && (() => {
-                  const embed = videoEmbed(detailCourse.video_url);
-                  return embed ? (
-                    <div className="aspect-video w-full rounded-xl overflow-hidden bg-black">
-                      {embed.type === 'iframe' ? (
-                        <iframe
-                          src={embed.src}
-                          title={`Vídeo do curso ${detailCourse.title}`}
-                          className="w-full h-full"
-                          allow="accelerometer; autoplay; encrypted-media; picture-in-picture"
-                          allowFullScreen
-                          loading="lazy"
-                        />
-                      ) : (
-                        <video src={embed.src} controls className="w-full h-full" preload="metadata" />
-                      )}
-                    </div>
-                  ) : (
-                    <a
-                      href={detailCourse.video_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-2 text-sm font-medium text-primary hover:underline"
-                    >
-                      <Video className="w-4 h-4" /> Assistir vídeo de apresentação
-                    </a>
-                  );
-                })()}
 
                 {detailCourse.description && (
                   <section>
