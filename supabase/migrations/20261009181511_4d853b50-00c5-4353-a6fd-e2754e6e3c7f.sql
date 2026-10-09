@@ -1,0 +1,2 @@
+ALTER TABLE public.smartops_courses ADD COLUMN IF NOT EXISTS waitlist_vacancy_template text;
+UPDATE public.smartops_courses SET wa_instance_name='cs_principal' WHERE id='3e244be5-5e1a-4987-93ab-046e65be1a77' AND wa_instance_name IS NULL;
