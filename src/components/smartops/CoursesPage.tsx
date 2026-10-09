@@ -297,6 +297,8 @@ export default function CoursesPage() {
         <div className="space-y-3">
           {professionals.map((p) => {
             const stats = courseStats[p.id];
+            const recs = recommendedByProf[p.id] ?? [];
+            const totalCursos = (stats?.total ?? 0) + recs.length;
             const isOpen = !!expanded[p.id];
             return (
               <Card key={p.id} className="overflow-hidden">
@@ -328,7 +330,7 @@ export default function CoursesPage() {
                       coupons={(p.prof_kol_coupons ?? []) as any}
                       commissions={(p.prof_kol_commissions ?? []) as any}
                     />
-                    <Badge variant="secondary" className="text-xs">{stats?.total ?? 0} {stats?.total === 1 ? "curso" : "cursos"}</Badge>
+                    <Badge variant="secondary" className="text-xs">{totalCursos} {totalCursos === 1 ? "curso" : "cursos"}</Badge>
                     {(stats?.ativos ?? 0) > 0 && (
                       <Badge variant="outline" className="text-xs text-green-600 border-green-600/40">{stats?.ativos} ativos</Badge>
                     )}
@@ -347,7 +349,7 @@ export default function CoursesPage() {
 
                     <div className="grid grid-cols-3 gap-2 pt-2 border-t">
                       <div className="text-center">
-                        <div className="text-lg font-semibold">{stats?.total ?? 0}</div>
+                        <div className="text-lg font-semibold">{totalCursos}</div>
                         <div className="text-[10px] text-muted-foreground uppercase tracking-wide">Cursos</div>
                       </div>
                       <div className="text-center">
@@ -371,24 +373,21 @@ export default function CoursesPage() {
                       </div>
                     </div>
 
-                    {(recommendedByProf[p.id] ?? []).length > 0 && (
-                      <div className="border-t pt-2 space-y-1.5">
-                        <div className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium">Cursos recomendados</div>
-                        {(recommendedByProf[p.id] ?? []).map((c) => (
-                          <div key={c.id} className="rounded-md border px-2 py-1.5">
-                            <div className="text-xs font-medium truncate" title={c.title}>{c.title}</div>
-                            <div className="text-[11px] text-muted-foreground">
-                              {c.start_date ? new Date(c.start_date + "T12:00:00").toLocaleDateString("pt-BR") : "Data a definir"}
-                              {c.modality ? ` · ${c.modality}` : ""}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-
                     <div className="border-t pt-2 space-y-1.5">
                       <div className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium">Cursos</div>
-                      {(coursesByProf[p.id] ?? []).length === 0 ? (
+                      {recs.map((c) => (
+                        <div key={`rec-${c.id}`} className="rounded-md border px-2 py-1.5">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-medium truncate flex-1" title={c.title}>{c.title}</span>
+                            <Badge variant="secondary" className="text-[10px] shrink-0">Smart Dent</Badge>
+                          </div>
+                          <div className="text-[11px] text-muted-foreground mt-0.5">
+                            {c.start_date ? new Date(c.start_date + "T12:00:00").toLocaleDateString("pt-BR") : "Data a definir"}
+                            {c.modality ? ` · ${c.modality}` : ""}
+                          </div>
+                        </div>
+                      ))}
+                      {(coursesByProf[p.id] ?? []).length === 0 && recs.length === 0 ? (
                         <div className="text-xs text-muted-foreground">Nenhum curso cadastrado.</div>
                       ) : (
                         (coursesByProf[p.id] ?? []).slice(0, 4).map((c) => {
