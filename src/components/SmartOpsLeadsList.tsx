@@ -8,7 +8,7 @@ import ReactMarkdown from "react-markdown";
 import { LeadDetailPanel } from "./smartops/LeadDetailPanel";
 import { useCaptureEvents } from "@/hooks/useCaptureEvents";
 import { resolveCaptureEventName, type CaptureEvent, type CaptureForm } from "@/lib/lead-event-name";
-import { useLeadCardSignals, resolveClientDot, latestDate } from "@/hooks/useLeadCardSignals";
+import { useLeadCardSignals, resolveClientDot, latestDate, formatTrainingMonthYear } from "@/hooks/useLeadCardSignals";
 
 // ─── Constants ───
 const PAGE_SIZE = 200;
@@ -416,6 +416,14 @@ function LeadRow({ lead, active, onClick, nps, captureEvents }: { lead: LeadFull
                 style={{ flexShrink: 0, padding: "1px 6px", borderRadius: 4, fontSize: 9, fontWeight: 700, background: "#dc2626", color: "#fff" }}
               >
                 ● LIVE {signals.lives}
+              </span>
+            )}
+            {signals && signals.lastTrainingAt && (
+              <span
+                title="Cliente fez treinamento (Imersão)"
+                style={{ flexShrink: 0, padding: "1px 6px", borderRadius: 4, fontSize: 9, fontWeight: 700, background: "#047857", color: "#fff" }}
+              >
+                🎓 Imersão {formatTrainingMonthYear(signals.lastTrainingAt)}
               </span>
             )}
           </div>

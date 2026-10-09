@@ -1,7 +1,7 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { resolveLeadDisplayName, cleanLeadEmail, cleanLeadPhone } from "@/utils/leadDisplay";
-import { useLeadCardSignals, resolveClientDot, latestDate } from "@/hooks/useLeadCardSignals";
+import { useLeadCardSignals, resolveClientDot, latestDate, formatTrainingMonthYear } from "@/hooks/useLeadCardSignals";
 
 export interface ParsedProposalItem {
   name: string;
@@ -149,6 +149,9 @@ export function KanbanLeadCard({ lead, showDaysStagnant = false, onDragStart, on
           <div className="flex items-center gap-0.5 shrink-0">
             {signals && signals.lives > 0 && (
               <Badge className="text-[9px] px-1 py-0 font-bold bg-red-600 text-white border-red-700" title={`${signals.lives} inscrição(ões) em lives/cursos`}>● LIVE {signals.lives}</Badge>
+            )}
+            {signals && signals.lastTrainingAt && (
+              <Badge className="text-[9px] px-1 py-0 font-bold bg-emerald-700 text-white border-emerald-800" title="Cliente fez treinamento (Imersão)">🎓 Imersão {formatTrainingMonthYear(signals.lastTrainingAt)}</Badge>
             )}
             {isKol && (
               <Badge className="text-[9px] px-1 py-0 font-bold bg-yellow-100 text-yellow-800 border-yellow-300" title={kolTitle}>⭐ KOL</Badge>

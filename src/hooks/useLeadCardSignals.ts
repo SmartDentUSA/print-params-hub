@@ -4,6 +4,8 @@ import { supabase } from "@/integrations/supabase/client";
 export interface LeadCardSignals {
   lives: number;
   lastWonAt: string | null;
+  /** Data (start_date da turma) do treinamento/imersão mais recente do lead. */
+  lastTrainingAt: string | null;
 }
 
 // Batches card requests (one query per ~60ms window) to avoid N requests per board.
@@ -19,13 +21,26 @@ async function flush() {
   for (let i = 0; i < ids.length; i += 100) {
     const chunk = ids.slice(i, i + 100);
     const [enr, won] = await Promise.all([
-      supabase.from("smartops_course_enrollments").select("lead_id").in("lead_id", chunk),
+      supabase.from("smartops_course_enrollments").select("lead_id, turma_id, status").in("lead_id", chunk),
       supabase.from("deals").select("lead_id, closed_at").in("lead_id", chunk).eq("status", "ganha"),
     ]);
-    const result = new Map<string, LeadCardSignals>(chunk.map((id) => [id, { lives: 0, lastWonAt: null }]));
-    for (const r of (enr.data ?? []) as { lead_id: string }[]) {
+    const result = new Map<string, LeadCardSignals>(chunk.map((id) => [id, { lives: 0, lastWonAt: null, lastTrainingAt: null }]));
+    const enrollments = (enr.data ?? []) as { lead_id: string; turma_id: string | null; status: string | null }[];
+    for (const r of enrollments) {
       const s = result.get(r.lead_id);
       if (s) s.lives += 1;
+    }
+    // Treinamento (Imersão): inscrição confirmada/agendada com turma datada.
+    const turmaIds = [...new Set(enrollments.filter((e) => e.turma_id && e.status !== "cancelado").map((e) => e.turma_id!))];
+    if (turmaIds.length > 0) {
+      const { data: turmas } = await supabase.from("smartops_course_turmas").select("id, start_date").in("id", turmaIds);
+      const turmaDate = new Map(((turmas ?? []) as { id: string; start_date: string | null }[]).map((t) => [t.id, t.start_date]));
+      for (const e of enrollments) {
+        if (!e.turma_id || e.status === "cancelado") continue;
+        const d = turmaDate.get(e.turma_id);
+        const s = result.get(e.lead_id);
+        if (s && d && (!s.lastTrainingAt || d > s.lastTrainingAt)) s.lastTrainingAt = d;
+      }
     }
     for (const r of (won.data ?? []) as { lead_id: string; closed_at: string | null }[]) {
       const s = result.get(r.lead_id);
@@ -63,6 +78,14 @@ export function resolveClientDot(lastPurchase: string | null, isClient: boolean,
   if (months <= 3) return "verde";
   if (months <= 9) return "amarelo";
   return "vermelho";
+}
+
+/** Rótulo "MM/AAAA" do treinamento mais recente (ex.: 10/2026). */
+export function formatTrainingMonthYear(iso: string | null): string | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  return `${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
 }
 
 export function latestDate(dates: Array<unknown>): string | null {
