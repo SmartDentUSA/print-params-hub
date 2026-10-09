@@ -1,7 +1,7 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { resolveLeadDisplayName, cleanLeadEmail, cleanLeadPhone } from "@/utils/leadDisplay";
-import { useLeadCardSignals, resolveClientDot, latestDate } from "@/hooks/useLeadCardSignals";
+import { useLeadCardSignals, resolveClientDot, latestDate, formatTrainingMonthYear } from "@/hooks/useLeadCardSignals";
 
 export interface ParsedProposalItem {
   name: string;

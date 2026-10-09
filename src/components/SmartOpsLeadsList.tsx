@@ -8,7 +8,7 @@ import ReactMarkdown from "react-markdown";
 import { LeadDetailPanel } from "./smartops/LeadDetailPanel";
 import { useCaptureEvents } from "@/hooks/useCaptureEvents";
 import { resolveCaptureEventName, type CaptureEvent, type CaptureForm } from "@/lib/lead-event-name";
-import { useLeadCardSignals, resolveClientDot, latestDate } from "@/hooks/useLeadCardSignals";
+import { useLeadCardSignals, resolveClientDot, latestDate, formatTrainingMonthYear } from "@/hooks/useLeadCardSignals";
 
 // ─── Constants ───
 const PAGE_SIZE = 200;
