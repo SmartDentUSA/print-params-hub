@@ -664,6 +664,14 @@ export default function KbTabCursos() {
                             <button type="button" className="pc-cta" onClick={open}>
                               Informações do curso <ArrowRight />
                             </button>
+                            <button
+                              type="button"
+                              className="pc-cta"
+                              onClick={(e) => { e.stopPropagation(); handleShareCourse(c); }}
+                              title="Copiar link encurtado do curso"
+                            >
+                              <Share2 /> {copiedId === c.id ? 'Link copiado!' : 'Compartilhar'}
+                            </button>
                             {!c.id.startsWith('sd-') && <RatingSummaryBadge courseId={c.id} />}
                           </div>
                         </div>
