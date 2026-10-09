@@ -14,7 +14,9 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Link2, RefreshCw, Plus, CornerDownLeft, Pencil, Trash2, Loader2, FileText, Layout } from "lucide-react";
+import { shortenUrl } from "@/utils/shortLink";
+import { buildLiaUrl } from "@/lib/attendanceChannel";
+import { MessageCircle, GraduationCap, Link2, RefreshCw, Plus, CornerDownLeft, Pencil, Trash2, Loader2, FileText, Layout } from "lucide-react";
 
 type Channel = "sms" | "whatsapp" | "whatsapp_groups";
 
@@ -167,6 +169,9 @@ export function CampaignLinkPicker({ channel, onInsert }: Props) {
   const [syncing, setSyncing] = useState(false);
   const [links, setLinks] = useState<CampaignLink[]>([]);
   const [formLinks, setFormLinks] = useState<FormShortLink[]>([]);
+  const [chatLinks, setChatLinks] = useState<DynamicLink[]>([]);
+  const [courseLinks, setCourseLinks] = useState<DynamicLink[]>([]);
+  const [shortening, setShortening] = useState<string | null>(null);
   const [editorOpen, setEditorOpen] = useState(false);
   const [editing, setEditing] = useState<CampaignLink | null>(null);
 
@@ -196,6 +201,8 @@ export function CampaignLinkPicker({ channel, onInsert }: Props) {
     if (open) {
       load();
       loadFormLinks();
+      fetchChatLinks().then(setChatLinks).catch(() => setChatLinks([]));
+      fetchCourseLinks().then(setCourseLinks).catch(() => setCourseLinks([]));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, channel]);
@@ -241,6 +248,17 @@ export function CampaignLinkPicker({ channel, onInsert }: Props) {
     setOpen(false);
   };
 
+  const handleInsertDynamic = async (key: string, link: DynamicLink) => {
+    setShortening(key);
+    try {
+      const short = await shortenUrl(link.target);
+      onInsert(short);
+      setOpen(false);
+    } finally {
+      setShortening(null);
+    }
+  };
+
   const openEditor = (link: CampaignLink | null) => {
     setEditing(link);
     setEditorOpen(true);
@@ -280,7 +298,7 @@ export function CampaignLinkPicker({ channel, onInsert }: Props) {
               <div className="p-6 text-center text-sm text-muted-foreground flex items-center justify-center gap-2">
                 <Loader2 className="w-4 h-4 animate-spin" /> Carregando...
               </div>
-            ) : links.length === 0 && formLinks.length === 0 ? (
+            ) : links.length === 0 && formLinks.length === 0 && chatLinks.length === 0 && courseLinks.length === 0 ? (
               <div className="p-6 text-center text-sm text-muted-foreground">
                 Nenhum link para este canal.
               </div>
@@ -311,6 +329,26 @@ export function CampaignLinkPicker({ channel, onInsert }: Props) {
                     label="Formulários e Landing Pages"
                     links={formLinks}
                     onInsert={handleInsertFormLink}
+                  />
+                )}
+                {chatLinks.length > 0 && (
+                  <DynamicLinkSection
+                    label="Chat da Dra. LIA (formulários)"
+                    icon={<MessageCircle className="w-3 h-3" />}
+                    prefix="chat"
+                    links={chatLinks}
+                    busy={shortening}
+                    onInsert={handleInsertDynamic}
+                  />
+                )}
+                {courseLinks.length > 0 && (
+                  <DynamicLinkSection
+                    label="Páginas de informações de cursos"
+                    icon={<GraduationCap className="w-3 h-3" />}
+                    prefix="curso"
+                    links={courseLinks}
+                    busy={shortening}
+                    onInsert={handleInsertDynamic}
                   />
                 )}
               </>
@@ -455,6 +493,47 @@ function FormLinkSection({
           </ul>
         </>
       )}
+    </div>
+  );
+}
+
+function DynamicLinkSection({
+  label,
+  icon,
+  prefix,
+  links,
+  busy,
+  onInsert,
+}: {
+  label: string;
+  icon: React.ReactNode;
+  prefix: string;
+  links: DynamicLink[];
+  busy: string | null;
+  onInsert: (key: string, l: DynamicLink) => void;
+}) {
+  return (
+    <div className="py-1 border-t">
+      <div className="px-3 py-1.5 flex items-center gap-2 sticky top-0 bg-popover">
+        <Badge variant="outline" className="text-[10px] gap-1">{icon}{label}</Badge>
+        <span className="text-xs text-muted-foreground">{links.length}</span>
+      </div>
+      <ul className="divide-y">
+        {links.map((l) => {
+          const key = `${prefix}-${l.id}`;
+          return (
+            <li key={key} className="px-3 py-2 flex items-center gap-2 hover:bg-muted/40">
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-medium truncate">{l.name}</div>
+                <div className="text-xs text-muted-foreground truncate">Link curto gerado ao inserir</div>
+              </div>
+              <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => onInsert(key, l)} disabled={busy === key} type="button" title="Inserir link curto">
+                {busy === key ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CornerDownLeft className="w-3.5 h-3.5" />}
+              </Button>
+            </li>
+          );
+        })}
+      </ul>
     </div>
   );
 }
