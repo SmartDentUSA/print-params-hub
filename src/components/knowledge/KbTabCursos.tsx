@@ -377,7 +377,7 @@ export default function KbTabCursos() {
               value={selectedKol}
               onChange={(e) => setSelectedKol(e.target.value)}
               aria-label="Filtrar por parceiro"
-              className="appearance-none h-9 pl-8 pr-8 rounded-full border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 min-w-[200px]"
+              className="appearance-none h-9 pl-8 pr-8 rounded-full border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 min-w-[200px] max-w-[calc(100vw-2.5rem)] truncate"
             >
               <option value="">Todos os parceiros</option>
               {kolOptions.map(([id, nome]) => (
@@ -394,7 +394,7 @@ export default function KbTabCursos() {
               value={selectedTipo}
               onChange={(e) => setSelectedTipo(e.target.value)}
               aria-label="Filtrar por tipo"
-              className="appearance-none h-9 pl-3.5 pr-8 rounded-full border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 min-w-[160px]"
+              className="appearance-none h-9 pl-3.5 pr-8 rounded-full border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 min-w-[160px] max-w-[calc(100vw-2.5rem)] truncate"
             >
               <option value="">Todos os tipos</option>
               {tipoOptions.map((t) => (
@@ -411,7 +411,7 @@ export default function KbTabCursos() {
               value={selectedEsp}
               onChange={(e) => setSelectedEsp(e.target.value)}
               aria-label="Filtrar por especialidade"
-              className="appearance-none h-9 pl-3.5 pr-8 rounded-full border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 min-w-[180px]"
+              className="appearance-none h-9 pl-3.5 pr-8 rounded-full border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 min-w-[180px] max-w-[calc(100vw-2.5rem)] truncate"
             >
               <option value="">Todas as especialidades</option>
               {espOptions.map((e) => (
