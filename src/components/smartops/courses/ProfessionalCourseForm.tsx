@@ -210,6 +210,17 @@ export default function ProfessionalCourseForm({ value, onChange, onUploadCover,
               ) : null}
             </div>
             <div className="md:col-span-2">
+              <Label>Vídeo do hero (apresentação)</Label>
+              <div className="flex gap-2">
+                <Input value={v.video_url ?? ""} onChange={(e) => onChange({ video_url: e.target.value })} placeholder="YouTube / Panda" />
+                <Button type="button" variant="outline" size="icon" disabled={videoUploading} title="Enviar vídeo ao Panda Video" onClick={() => document.getElementById("course-video-upload")?.click()}>
+                  {videoUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                </Button>
+                <input id="course-video-upload" type="file" accept="video/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) uploadVideoToPanda(f); }} />
+              </div>
+              {videoUploading && <p className="mt-1 text-xs text-muted-foreground">Enviando ao Panda Video… não feche a janela.</p>}
+            </div>
+            <div className="md:col-span-2">
               <Label>Tags (separadas por vírgula)</Label>
               <Input
                 value={(v.tags ?? []).join(", ")}
