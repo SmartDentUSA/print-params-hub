@@ -395,6 +395,8 @@ Deno.serve(async (req) => {
             wa_reminder_scheduled_for: waReminderScheduledFor,
             lead_id: leadId,
             person_name: body.nome,
+            especialidade: body.confirmation?.especialidade ?? null,
+            area_atuacao: body.confirmation?.area_atuacao ?? null,
             status: "agendado",
             enrolled_at: new Date().toISOString(),
             source: "public",
