@@ -150,6 +150,9 @@ export function KanbanLeadCard({ lead, showDaysStagnant = false, onDragStart, on
             {signals && signals.lives > 0 && (
               <Badge className="text-[9px] px-1 py-0 font-bold bg-red-600 text-white border-red-700" title={`${signals.lives} inscrição(ões) em lives/cursos`}>● LIVE {signals.lives}</Badge>
             )}
+            {signals && signals.lastTrainingAt && (
+              <Badge className="text-[9px] px-1 py-0 font-bold bg-emerald-700 text-white border-emerald-800" title="Cliente fez treinamento (Imersão)">🎓 Imersão {formatTrainingMonthYear(signals.lastTrainingAt)}</Badge>
+            )}
             {isKol && (
               <Badge className="text-[9px] px-1 py-0 font-bold bg-yellow-100 text-yellow-800 border-yellow-300" title={kolTitle}>⭐ KOL</Badge>
             )}

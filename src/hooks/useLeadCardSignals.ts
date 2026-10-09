@@ -80,6 +80,14 @@ export function resolveClientDot(lastPurchase: string | null, isClient: boolean,
   return "vermelho";
 }
 
+/** Rótulo "MM/AAAA" do treinamento mais recente (ex.: 10/2026). */
+export function formatTrainingMonthYear(iso: string | null): string | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  return `${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
+}
+
 export function latestDate(dates: Array<unknown>): string | null {
   let best: number | null = null;
   for (const d of dates) {
