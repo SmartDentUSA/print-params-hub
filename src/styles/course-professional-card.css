@@ -487,6 +487,23 @@ a.pc-pill:hover {
 .price-por strong{font-size:1.6rem;font-weight:800;color:hsl(var(--foreground));letter-spacing:-.01em}
 .price-free{font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:hsl(var(--primary));background:hsl(var(--primary)/.1);border:1px solid hsl(var(--primary)/.25);border-radius:999px;padding:.15rem .55rem}
 .price-inst{font-size:.75rem;color:hsl(var(--muted-foreground))}
+
+/* ---- Versão compacta (card externo) ---- */
+.pc-offer{display:flex;align-items:center;justify-content:space-between;gap:.6rem;flex-wrap:wrap;margin-top:.85rem;padding:.55rem .75rem;border-radius:.85rem;background:hsl(var(--muted)/.5);border:1px solid hsl(var(--border))}
+.pc-offer:empty{display:none}
+.cd-compact{display:inline-flex;align-items:center;gap:.3rem;font-size:.7rem;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:hsl(var(--primary));background:hsl(var(--primary)/.08);border:1px solid hsl(var(--primary)/.22);border-radius:999px;padding:.28rem .6rem;white-space:nowrap}
+.cd-compact svg{opacity:.9}
+.cd-compact span{opacity:.85}
+.cd-compact b{font-variant-numeric:tabular-nums;font-weight:800;color:hsl(var(--foreground));letter-spacing:0}
+.cd-compact i{font-style:normal;font-size:.6rem;font-weight:800;color:hsl(var(--primary));margin-left:.04rem}
+.price-compact{display:flex;align-items:baseline;gap:.38rem;flex-wrap:wrap}
+.price-compact-final-wrap{display:inline-flex;align-items:baseline;gap:.35rem;white-space:nowrap}
+.price-compact-de{font-size:.78rem;color:hsl(var(--muted-foreground))}
+.price-compact-off{font-size:.62rem;font-weight:800;color:hsl(var(--primary-foreground));background:hsl(var(--primary));border-radius:999px;padding:.1rem .4rem}
+.price-compact-por{font-size:.72rem;color:hsl(var(--muted-foreground))}
+.price-compact-final{font-size:1.2rem;font-weight:800;color:hsl(var(--foreground));letter-spacing:-.01em}
+.price-compact-free{font-size:.64rem;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:hsl(var(--primary));background:hsl(var(--primary)/.1);border:1px solid hsl(var(--primary)/.25);border-radius:999px;padding:.12rem .45rem}
+.price-compact-inst{font-size:.7rem;color:hsl(var(--muted-foreground))}
 .cv-wrap{margin-top:.9rem;width:100%}
 .cv-summary{font-size:.85rem;line-height:1.55;color:hsl(var(--foreground)/.85);font-style:italic;border-left:2px solid hsl(var(--primary));padding-left:.65rem;margin-bottom:.65rem}
 .cv-list{display:flex;flex-direction:column;gap:.45rem}
