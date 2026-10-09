@@ -297,6 +297,8 @@ export default function CoursesPage() {
         <div className="space-y-3">
           {professionals.map((p) => {
             const stats = courseStats[p.id];
+            const recs = recommendedByProf[p.id] ?? [];
+            const totalCursos = (stats?.total ?? 0) + recs.length;
             const isOpen = !!expanded[p.id];
             return (
               <Card key={p.id} className="overflow-hidden">
