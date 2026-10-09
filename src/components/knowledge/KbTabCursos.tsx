@@ -445,7 +445,7 @@ export default function KbTabCursos() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 items-start">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3 items-start">
         {Array.from(
           visible
             .reduce((acc, c) => {
@@ -467,47 +467,51 @@ export default function KbTabCursos() {
             return (
               <section key={producerId} className="pc-card">
                 <header className="pc-head">
-                  <div className="pc-avatar">
-                    {kol?.prof_photo_url ? (
-                      <img
-                        src={kol.prof_photo_url}
-                        alt={kol.nome ?? 'Profissional'}
-                        loading="lazy"
-                        decoding="async"
-                      />
-                    ) : (
-                      <UserCircle className="text-muted-foreground/60" />
-                    )}
-                  </div>
-
-                  <div className="pc-head-main">
-                    {kol?.especialidade && <p className="pc-role">{kol.especialidade}</p>}
-                    <h3 className="pc-name">{kol?.nome ?? 'Smart Dent'}</h3>
-                    {kol?.prof_mini_cv && (
-                      <p className="pc-cv line-clamp-3">{kol.prof_mini_cv}</p>
-                    )}
-                    <div className="pc-head-pills">
-                      {handle && (
-                        <a
-                          href={`https://instagram.com/${handle}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="pc-pill pc-pill--accent"
-                        >
-                          <Instagram /> @{handle}
-                        </a>
-                      )}
-                      {kol?.cliente_desde && (
-                        <span className="pc-pill">
-                          <Award /> Smart Dent desde {fmtDate(kol.cliente_desde)}
-                        </span>
+                  <div className="pc-head-top">
+                    <div className="pc-avatar">
+                      {kol?.prof_photo_url ? (
+                        <img
+                          src={kol.prof_photo_url}
+                          alt={kol.nome ?? 'Profissional'}
+                          loading="lazy"
+                          decoding="async"
+                        />
+                      ) : (
+                        <UserCircle className="text-muted-foreground/60" />
                       )}
                     </div>
+
+                    <div className="pc-head-main">
+                      <h3 className="pc-name pc-name--clamp">{kol?.nome ?? 'Smart Dent'}</h3>
+                      {kol?.especialidade && <p className="pc-role">{kol.especialidade}</p>}
+                    </div>
+
+                    <span className="pc-pill pc-count">
+                      <GraduationCap /> {list.length} {list.length === 1 ? 'curso' : 'cursos'}
+                    </span>
                   </div>
 
-                  <span className="pc-pill pc-count">
-                    <GraduationCap /> {list.length} {list.length === 1 ? 'curso' : 'cursos'}
-                  </span>
+                  {kol?.prof_mini_cv && (
+                    <p className="pc-cv line-clamp-2">{kol.prof_mini_cv}</p>
+                  )}
+
+                  <div className="pc-head-pills">
+                    {handle && (
+                      <a
+                        href={`https://instagram.com/${handle}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="pc-pill pc-pill--accent"
+                      >
+                        <Instagram /> @{handle}
+                      </a>
+                    )}
+                    {kol?.cliente_desde && (
+                      <span className="pc-pill">
+                        <Award /> Smart Dent desde {fmtDate(kol.cliente_desde)}
+                      </span>
+                    )}
+                  </div>
                 </header>
 
                 <div className="pc-body">
