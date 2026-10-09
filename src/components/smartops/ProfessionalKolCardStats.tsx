@@ -1,4 +1,5 @@
 import { Loader2 } from "lucide-react";
+import { activeKolCouponCodes, kolCardChannels } from "@/lib/kolCardMetrics";
 import { useKolPerformance, type KolCouponRule, type KolProductRule } from "@/hooks/useKolPerformance";
 
 const money = (v: number) =>
@@ -34,13 +35,37 @@ export default function ProfessionalKolCardStats({ formIds, coupons, commissions
   const forms = (formIds ?? []).filter((f) => f?.id);
   const rules = (coupons ?? []).filter((c) => (c?.code || "").trim());
   const perf = useKolPerformance(forms, rules, commissions ?? []);
+  const today = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+  const activeCodes = activeKolCouponCodes(rules, today);
+  const channels = kolCardChannels(perf.totals);
+  const financialSummary = (
+    <div className="min-w-0 space-y-1">
+      <div className="text-[10px] text-muted-foreground break-words">
+        <span className="font-medium">{activeCodes.length > 1 ? "Cupons ativos:" : "Cupom ativo:"}</span>{" "}
+        <span className="font-semibold text-foreground">{activeCodes.join(" · ") || "Nenhum"}</span>
+      </div>
+      <table className="w-full text-[10px] tabular-nums">
+        <thead><tr className="text-muted-foreground">
+          <th className="text-left font-normal pr-3">Origem</th>
+          <th className="text-right font-normal px-2">Conversão R$</th>
+          <th className="text-right font-normal pl-2">Comissão R$</th>
+        </tr></thead>
+        <tbody>{channels.map((channel) => (
+          <tr key={channel.label} className={channel.label === "Total" ? "border-t border-border font-semibold" : ""}>
+            <td className="text-left pr-3 py-0.5">{channel.label}</td>
+            <td className="text-right px-2 py-0.5 text-primary whitespace-nowrap">{money(channel.revenue)}</td>
+            <td className="text-right pl-2 py-0.5 text-success whitespace-nowrap">{channel.commission == null ? "—" : money(channel.commission)}</td>
+          </tr>
+        ))}</tbody>
+      </table>
+    </div>
+  );
 
   if (forms.length === 0 && rules.length === 0) return null;
 
   if (compact) {
-    const total = (perf.totals.receita || 0) + (perf.totals.receitaCupons || 0);
     return (
-      <div className="flex items-center gap-2 text-xs">
+      <div className="flex flex-wrap items-center gap-3 text-xs min-w-0">
         {perf.loading && <Loader2 className="w-3 h-3 animate-spin text-muted-foreground" />}
         <div className="flex items-center gap-2 rounded-md bg-muted/50 px-2 py-1 leading-tight">
           <div>
@@ -53,26 +78,7 @@ export default function ProfessionalKolCardStats({ formIds, coupons, commissions
           <div className="font-semibold">{perf.totals.leads}</div>
           <div className="text-[9px] uppercase tracking-wide text-muted-foreground">Leads</div>
         </div>
-        <div
-          className="rounded-md bg-primary/10 px-2 py-1 text-center leading-tight"
-          title={`Formulários/CRM: ${money(perf.totals.receita)} · Cupons: ${money(perf.totals.receitaCupons)}`}
-        >
-          <div className="font-semibold text-primary">{money(total)}</div>
-          <div className="text-[9px] uppercase tracking-wide text-muted-foreground">Conversão R$</div>
-        </div>
-        <div
-          className="rounded-md bg-success/10 px-2 py-1 text-center leading-tight"
-          title={
-            perf.totals.comissao == null
-              ? "Nenhuma regra de comissionamento cadastrada para este KOL"
-              : `Negócios ganhos: ${money(perf.totals.comissaoLeads)} · Cupons: ${money(perf.totals.comissaoCupons)}`
-          }
-        >
-          <div className="font-semibold text-success">
-            {perf.totals.comissao == null ? "—" : money(perf.totals.comissao)}
-          </div>
-          <div className="text-[9px] uppercase tracking-wide text-muted-foreground">Comissão R$</div>
-        </div>
+        {financialSummary}
       </div>
     );
   }
@@ -115,18 +121,7 @@ export default function ProfessionalKolCardStats({ formIds, coupons, commissions
         <span className="text-muted-foreground shrink-0">Leads gerados → ganhos:</span>
         <span className="font-medium text-right">{perf.totals.leads} → {perf.totals.deals}</span>
       </div>
-      <div className="flex justify-between gap-2">
-        <span className="text-muted-foreground shrink-0">Conversão em R$ (leads):</span>
-        <span className="font-medium text-right text-green-600">{money(perf.totals.receita)}</span>
-      </div>
-      <div className="flex justify-between gap-2">
-        <span className="text-muted-foreground shrink-0">Comissão total:</span>
-        <span className="font-medium text-right text-success">
-          {perf.totals.comissao == null
-            ? "—"
-            : `${money(perf.totals.comissao)} (${money(perf.totals.comissaoLeads)} leads + ${money(perf.totals.comissaoCupons)} cupons)`}
-        </span>
-      </div>
+      {financialSummary}
       <div className="flex justify-between gap-2">
         <span className="text-muted-foreground shrink-0">Cupons gerados:</span>
         <span className="font-medium text-right">{perf.totals.cuponsGerados}</span>

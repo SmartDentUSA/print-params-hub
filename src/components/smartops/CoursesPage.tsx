@@ -279,10 +279,11 @@ export default function CoursesPage() {
             const isOpen = !!expanded[p.id];
             return (
               <Card key={p.id} className="overflow-hidden">
-                <button
+                <Button
                   type="button"
                   onClick={() => setExpanded((e) => ({ ...e, [p.id]: !e[p.id] }))}
-                  className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-muted/40 transition-colors"
+                  variant="ghost"
+                  className="w-full h-auto flex flex-wrap items-center justify-start gap-3 px-4 py-3 text-left whitespace-normal hover:bg-muted/40 transition-colors"
                 >
                   <div className="w-11 h-11 rounded-full bg-muted overflow-hidden border shrink-0">
                     {p.prof_photo_url ? (
@@ -299,7 +300,7 @@ export default function CoursesPage() {
                       {[p.area_atuacao, p.especialidade, p.prof_cro ? `CRO: ${p.prof_cro}` : null].filter(Boolean).join(" · ") || p.email}
                     </div>
                   </div>
-                  <div className="hidden sm:flex items-center gap-2 shrink-0">
+                  <div className="flex flex-wrap items-center gap-2 min-w-0 basis-full sm:basis-auto sm:ml-auto">
                     <ProfessionalKolCardStats
                       compact
                       formIds={(p.prof_kol_form_ids ?? []) as { id: string; name: string }[]}
@@ -312,7 +313,7 @@ export default function CoursesPage() {
                     )}
                   </div>
                   <ChevronDown className={cn("w-5 h-5 shrink-0 text-muted-foreground transition-transform", isOpen && "rotate-180")} />
-                </button>
+                </Button>
 
                 {isOpen && (
                   <CardContent className="p-4 pt-0 space-y-3 border-t">
