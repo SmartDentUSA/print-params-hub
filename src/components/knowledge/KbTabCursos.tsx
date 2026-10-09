@@ -534,14 +534,29 @@ export default function KbTabCursos() {
                             }
                           }}
                         >
-                          {c.cover_image_url ? (
-                            <img
-                              src={c.cover_image_url}
-                              alt={c.title}
-                              loading="lazy"
-                              decoding="async"
-                            />
-                          ) : (
+                          {(() => {
+                            const coverEmbed = c.video_url ? videoEmbed(c.video_url) : null;
+                            if (coverEmbed) {
+                              return coverEmbed.type === 'iframe' ? (
+                                <iframe
+                                  src={coverEmbed.src}
+                                  title={c.title}
+                                  className="pc-cover-video"
+                                  allow="autoplay; fullscreen; picture-in-picture"
+                                  allowFullScreen
+                                />
+                              ) : (
+                                <video src={coverEmbed.src} className="pc-cover-video" autoPlay muted loop playsInline preload="metadata" />
+                              );
+                            }
+                            return c.cover_image_url ? (
+                              <img
+                                src={c.cover_image_url}
+                                alt={c.title}
+                                loading="lazy"
+                                decoding="async"
+                              />
+                            ) : (
                             <div className="pc-cover-empty">
                               <GraduationCap />
                             </div>
