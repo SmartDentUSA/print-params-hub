@@ -324,17 +324,7 @@ export default function ProfessionalCourseForm({ value, onChange, onUploadCover,
             </div>
           </div>
           <div><Label>Instagram</Label><Input value={v.instagram ?? ""} onChange={(e) => onChange({ instagram: e.target.value })} placeholder="@perfil" /></div>
-          <div>
-            <Label>Vídeo de apresentação</Label>
-            <div className="flex gap-2">
-              <Input value={v.video_url ?? ""} onChange={(e) => onChange({ video_url: e.target.value })} placeholder="YouTube / Panda" />
-              <Button type="button" variant="outline" size="icon" disabled={videoUploading} title="Enviar vídeo ao Panda Video" onClick={() => document.getElementById("course-video-upload")?.click()}>
-                {videoUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
-              </Button>
-              <input id="course-video-upload" type="file" accept="video/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) uploadVideoToPanda(f); }} />
-            </div>
-            {videoUploading && <p className="mt-1 text-xs text-muted-foreground">Enviando ao Panda Video… não feche a janela.</p>}
-          </div>
+          <div className="md:col-span-3"><Label>Materiais inclusos</Label><Textarea rows={2} value={v.materials_included ?? ""} onChange={(e) => onChange({ materials_included: e.target.value })} /></div>
           <div className="md:col-span-3"><Label>Materiais inclusos</Label><Textarea rows={2} value={v.materials_included ?? ""} onChange={(e) => onChange({ materials_included: e.target.value })} /></div>
         </CardContent>
       </Card>
