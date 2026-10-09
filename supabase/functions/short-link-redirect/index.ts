@@ -24,6 +24,8 @@ async function previewHtml(supabase: any, dest: string): Promise<string | null> 
     const { data: src } = await supabase.from("smartops_courses").select("cover_image_url").eq("id", c.source_smartops_course_id).maybeSingle();
     img = src?.cover_image_url ?? null;
   }
+  // Miniatura definida para o curso Medit (Weber Ricci).
+  if (!img && (id === "c3dfc274-db3d-4041-92b9-93f17eb0b41d" || id === "3e244be5-5e1a-4987-93ab-046e65be1a77")) img = "https://parametros.smartdent.com.br/og-curso-medit-weber.jpg";
   img = img || DEFAULT_IMG;
   const title = c.title || "Curso Smart Dent";
   const desc = String(c.description || "Informações do curso Smart Dent").replace(/\s+/g, " ").slice(0, 200);
