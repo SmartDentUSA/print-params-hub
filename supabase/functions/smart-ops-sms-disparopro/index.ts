@@ -133,7 +133,7 @@ Deno.serve(async (req) => {
 
       // 2. Buscar telefones (canonical leads) em blocos para evitar URL/query gigante.
       const leads: any[] = [];
-      for (const idsChunk of chunkArray(leadIds, 500)) {
+      for (const idsChunk of chunkArray(leadIds, 100)) {
         const { data: chunkRows, error: leadsErr } = await supabase
           .from("lia_attendances")
           .select("id,nome,telefone_normalized,telefone_raw,wa_phone")
