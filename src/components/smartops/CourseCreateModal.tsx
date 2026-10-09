@@ -283,6 +283,7 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
   const [marketingBriefing, setMarketingBriefing] = useState("");
   const [aiReferenceImages, setAiReferenceImages] = useState<string[]>([]);
   const [instructorName, setInstructorName] = useState("");
+  const [recommendOnInstructor, setRecommendOnInstructor] = useState(false);
   const [coverImageUrl, setCoverImageUrl] = useState("");
   const [durationDays, setDurationDays] = useState(1);
   const [durationHoursPerDay, setDurationHoursPerDay] = useState<number | undefined>(undefined);
@@ -497,6 +498,7 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
     setStageAfterEnroll(course.stage_after_enroll);
     setPublicVisible(course.public_visible);
     setPublicEnrollmentEnabled(Boolean((course as any).public_enrollment_enabled));
+    setRecommendOnInstructor(Boolean((course as any).recommend_on_instructor_card));
     setWaTemplate(course.whatsapp_message_template || DEFAULT_ENROLLMENT_TEMPLATE);
     setReminderTemplate((course as any).reminder_message_template || DEFAULT_REMINDER_TEMPLATE);
     setWaitlistEnabled(Boolean((course as any).waitlist_enabled));
@@ -861,6 +863,7 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
         pipeline_id_kanban: pipelineId,
         stage_after_enroll: stageAfterEnroll,
         public_visible: publicVisible,
+        recommend_on_instructor_card: Boolean(instructorName) && recommendOnInstructor,
         public_enrollment_enabled: ['online', 'online_ao_vivo', 'acesso_remoto', 'workshop', 'webinar', 'presencial'].includes(modality)
           ? publicEnrollmentEnabled
           : false,
@@ -1198,6 +1201,22 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
                   <Switch checked={publicVisible} onCheckedChange={setPublicVisible} />
                   <Label>Visível publicamente</Label>
                 </div>
+              </div>
+
+              <div className="rounded-lg border border-border p-3 space-y-1 bg-muted/30">
+                <div className="flex items-center gap-2">
+                  <Switch
+                    checked={recommendOnInstructor}
+                    onCheckedChange={setRecommendOnInstructor}
+                    disabled={!instructorName}
+                  />
+                  <Label>Liberar para Cursos recomendados</Label>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {instructorName
+                    ? <>O curso passa a aparecer em “Cursos recomendados” no card do profissional <strong>{instructorName}</strong>.</>
+                    : "Selecione o instrutor para liberar este curso no card dele."}
+                </p>
               </div>
 
               {['online', 'online_ao_vivo', 'acesso_remoto', 'workshop', 'webinar', 'presencial'].includes(modality) && (
