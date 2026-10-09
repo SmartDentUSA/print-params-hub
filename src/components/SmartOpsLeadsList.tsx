@@ -403,7 +403,22 @@ function LeadRow({ lead, active, onClick, nps, captureEvents }: { lead: LeadFull
       <div className="intel-lr-top">
         <div className={`intel-avatar ${avClass(bt)}`}>{initials(lead.nome)}</div>
         <div className="intel-lr-info">
-          <div className="intel-lr-name">{lead.nome}</div>
+          <div className="intel-lr-name" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <span
+              title={dotTitle}
+              aria-label={dotTitle}
+              style={{ width: 10, height: 10, borderRadius: "50%", background: dotColor, border: "1px solid rgba(0,0,0,0.25)", flexShrink: 0, display: "inline-block" }}
+            />
+            <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{lead.nome}</span>
+            {signals && signals.lives > 0 && (
+              <span
+                title={`${signals.lives} inscrição(ões) em lives/cursos`}
+                style={{ flexShrink: 0, padding: "1px 6px", borderRadius: 4, fontSize: 9, fontWeight: 700, background: "#dc2626", color: "#fff" }}
+              >
+                ● LIVE {signals.lives}
+              </span>
+            )}
+          </div>
           <div className="intel-lr-email">
             {lead.email && !lead.email.includes("placeholder") ? lead.email : (lead.empresa_nome || lead.area_atuacao || "—")}
             {lead.email_bounced && (
