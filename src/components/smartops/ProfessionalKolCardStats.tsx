@@ -79,7 +79,7 @@ export default function ProfessionalKolCardStats({ formIds, coupons, commissions
         {sep}
         <span className="tabular-nums" title="Formulários: receita e comissão">
           <span className="text-muted-foreground">Formulários:</span> <b className="text-primary">{money(perf.totals.receita)}</b>
-          <span className="text-muted-foreground"> · Comissão:</span> <b className="text-success">{comissaoTxt(perf.totals.comissaoLeads || (perf.totals.comissao == null ? null : 0))}</b>
+          <span className="text-muted-foreground"> · Comissão:</span> <b className="text-success">{comissaoTxt(perf.totals.comissao == null ? null : perf.totals.comissaoLeads)}</b>
         </span>
         {rules.length > 0 && (
           <>
