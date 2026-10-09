@@ -36698,6 +36698,7 @@ export type Database = {
           novos: number
         }[]
       }
+      fn_increment_course_view: { Args: { _id: string }; Returns: undefined }
       fn_is_cliente: { Args: { p_lead: string }; Returns: boolean }
       fn_is_pipeline_venda: { Args: { pipeline: string }; Returns: boolean }
       fn_is_rayshape_edge_printer: {

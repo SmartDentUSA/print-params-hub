@@ -155,6 +155,13 @@ export default function KbTabCursos() {
   const [detail, setDetail] = useState<{ course: ProfCourse; kol?: Kol } | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const sharedCurso = useMemo(() => new URLSearchParams(window.location.search).get('curso'), []);
+  const viewedCourseId = detail?.course?.id;
+  useEffect(() => {
+    if (!viewedCourseId) return;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (supabase.rpc as any)('fn_increment_course_view', { _id: viewedCourseId }).then(() => {}, () => {});
+  }, [viewedCourseId]);
+
 
 
   const { data: courses = [], isLoading } = useQuery({
