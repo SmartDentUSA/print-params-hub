@@ -17,6 +17,8 @@
 
 @import './styles/inline-product-card.css';
 
+@import './styles/course-professional-card.css';
+
 .bio-whatsapp-button {
   background: hsl(var(--bio-whatsapp));
   color: hsl(var(--bio-whatsapp-foreground));
