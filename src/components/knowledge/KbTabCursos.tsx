@@ -507,16 +507,11 @@ export default function KbTabCursos() {
                       </a>
                     )}
                     {kol?.cliente_desde && (
-                        <span className="pc-pill">
-                          <Award /> Smart Dent desde {fmtDate(kol.cliente_desde)}
-                        </span>
-                      )}
-                    </div>
+                      <span className="pc-pill">
+                        <Award /> Smart Dent desde {fmtDate(kol.cliente_desde)}
+                      </span>
+                    )}
                   </div>
-
-                  <span className="pc-pill pc-count">
-                    <GraduationCap /> {list.length} {list.length === 1 ? 'curso' : 'cursos'}
-                  </span>
                 </header>
 
                 <div className="pc-body">
