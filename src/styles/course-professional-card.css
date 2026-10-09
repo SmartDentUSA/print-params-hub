@@ -715,3 +715,8 @@ a.pc-pill:hover{color:#e5703a;border-color:rgba(229,112,58,.55)}
   .cv-summary{font-size:.8rem}
   .cv-list li{font-size:.75rem;padding:.45rem .55rem}
 }
+
+/* Quebra de textos longos (mini CV, nomes) — evita estouro de largura no mobile */
+.cv-list li{min-width:0}
+.cv-list li>span:last-child{flex:1;min-width:0;overflow-wrap:anywhere;word-break:break-word}
+.cv-summary{overflow-wrap:anywhere;word-break:break-word}
