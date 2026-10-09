@@ -102,18 +102,19 @@ export default function CoursesProfessionalProfile({ initialEmail, startEditing 
 
   const setField = (k: keyof FormState, v: any) => setForm((f) => ({ ...f, [k]: v }));
 
-  const loadByEmail = useCallback(async () => {
-    const email = searchEmail.trim().toLowerCase();
-    if (!email) return;
+  const loadByEmail = useCallback(async (emailOverride?: string, leadIdOverride?: string) => {
+    const email = (emailOverride ?? searchEmail).trim().toLowerCase();
+    if (!email && !leadIdOverride) return;
     setSearching(true);
     try {
-      const { data, error } = await supabase
+      let q: any = supabase
         .from("lia_attendances")
         .select(
           "id, nome, email, area_atuacao, especialidade, pessoa_nascimento, prof_cro, prof_photo_url, prof_mini_cv, prof_course_platform, prof_wa_ddi, prof_wa_number, prof_course_wa_ddi, prof_course_wa_number, prof_cep, prof_country, prof_state, prof_city, prof_neighborhood, prof_street, prof_number, prof_complement, instagram, prof_tiktok, prof_youtube, pessoa_linkedin, prof_lattes, prof_orcid, prof_fapesp_id, prof_site, prof_marketing_consent, produto_interesse, equip_scanner, equip_scanner_bancada, equip_notebook, equip_cad, equip_impressora, equip_pos_impressao, equip_fresadora, prof_rating_quality, prof_rating_price, prof_rating_value, prof_qualifications, prof_university_roles, prof_kol_form_ids, prof_kol_coupon, prof_kol_coupons, prof_kol_commissions"
         )
-        .ilike("email", email)
-        .is("merged_into", null)
+        .is("merged_into", null);
+      q = leadIdOverride ? q.eq("id", leadIdOverride) : q.ilike("email", email);
+      const { data, error } = await q
         .order("created_at", { ascending: false } as any)
         .limit(1)
         .maybeSingle();
@@ -307,7 +308,7 @@ export default function CoursesProfessionalProfile({ initialEmail, startEditing 
               onChange={(e) => setSearchEmail(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && loadByEmail()}
             />
-            <Button onClick={loadByEmail} disabled={searching || !searchEmail.trim()}>
+            <Button onClick={() => loadByEmail()} disabled={searching || !searchEmail.trim()}>
               {searching ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4 mr-2" />}
               Buscar
             </Button>
@@ -315,20 +316,21 @@ export default function CoursesProfessionalProfile({ initialEmail, startEditing 
           <div className="mt-2 flex flex-wrap items-center gap-2">
             <PersonPicker
               label="Usar cadastro existente (autores, team, KOLs)"
-              onSelect={(person) => {
-                if (person.email) {
-                  setSearchEmail(person.email);
-                  setTimeout(() => void loadByEmail(), 0);
+              onSelect={async (person) => {
+                const leadIdFromPicker = person.id.startsWith("prof:") ? person.id.slice(5) : undefined;
+                if (person.email) setSearchEmail(person.email);
+                if (person.email || leadIdFromPicker) {
+                  await loadByEmail(person.email ?? "", leadIdFromPicker);
                 }
                 setLocked(false);
                 setForm((f) => ({
                   ...f,
-                  nome: person.name || f.nome,
-                  email: person.email || f.email,
-                  especialidade: person.specialty || f.especialidade,
-                  prof_photo_url: person.photo_url || f.prof_photo_url,
-                  prof_mini_cv: person.mini_bio || f.prof_mini_cv,
-                  instagram: person.instagram || f.instagram,
+                  nome: f.nome || person.name || "",
+                  email: f.email || person.email || "",
+                  especialidade: f.especialidade || person.specialty || "",
+                  prof_photo_url: f.prof_photo_url || person.photo_url || "",
+                  prof_mini_cv: f.prof_mini_cv || person.mini_bio || "",
+                  instagram: f.instagram || person.instagram || "",
                 }));
               }}
             />
