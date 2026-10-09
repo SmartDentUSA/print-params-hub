@@ -16,7 +16,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Plus, X, CalendarDays, Image, Repeat, Youtube } from "lucide-react";
+import { Plus, X, CalendarDays, Image, Repeat, Youtube, Loader2, Upload } from "lucide-react";
 import { DatePickerInput } from "./DatePickerInput";
 import { CourseProductPicker } from "./CourseProductPicker";
 import CoverImageUpload from "./CoverImageUpload";
