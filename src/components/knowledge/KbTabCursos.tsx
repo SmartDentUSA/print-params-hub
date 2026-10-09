@@ -23,7 +23,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import KbSearchBar from './KbSearchBar';
 import CourseRating, { RatingSummaryBadge } from './CourseRating';
 import '@/styles/course-professional-card.css';
-import { CourseCountdown, CourseSeats, CoursePrice, MiniCv, SyllabusPremium } from './CourseDetailBlocks';
+import { CourseCountdown, CourseSeats, CoursePrice, CourseInstructor, MiniCv, SyllabusPremium } from './CourseDetailBlocks';
 
 /** Converte URL de vídeo (YouTube, PandaVideo, mp4) em embed. */
 function videoEmbed(url: string): { type: 'iframe' | 'video'; src: string } | null {
@@ -699,6 +699,12 @@ export default function KbTabCursos() {
               </div>
 
               <div className="p-5 sm:p-6 space-y-6">
+                <CourseInstructor
+                  name={detail?.kol?.nome ?? (detailCourse.id.startsWith('sd-') ? 'Smart Dent' : null)}
+                  photoUrl={detail?.kol?.prof_photo_url}
+                  specialty={detail?.kol?.especialidade}
+                  instagram={detail?.kol?.instagram}
+                />
                 {(detailCourse.max_students || detailCourse.start_date) && (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <CourseCountdown date={detailCourse.start_date} time={detailCourse.start_time} />

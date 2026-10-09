@@ -1,7 +1,56 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   Award, BookOpen, Briefcase, GraduationCap, Microscope, Sparkles, Star, Users, Timer, CheckCircle2, Flame,
+  Instagram, UserCircle,
 } from 'lucide-react';
+
+/* ---------- Instrutor (foto + nome + atuação + Instagram) ---------- */
+export function CourseInstructor({
+  name,
+  photoUrl,
+  specialty,
+  instagram,
+}: {
+  name?: string | null;
+  photoUrl?: string | null;
+  specialty?: string | null;
+  instagram?: string | null;
+}) {
+  const handle = String(instagram ?? '')
+    .replace(/^https?:\/\/(www\.)?instagram\.com\//i, '')
+    .replace(/\?.*$/, '')
+    .replace(/\/+$/, '')
+    .replace(/^@+/, '')
+    .trim();
+
+  if (!name && !photoUrl) return null;
+
+  return (
+    <div className="pc-instr">
+      <div className="pc-instr-photo">
+        {photoUrl ? (
+          <img src={photoUrl} alt={name ?? 'Instrutor'} loading="lazy" decoding="async" />
+        ) : (
+          <UserCircle className="text-muted-foreground/60" />
+        )}
+      </div>
+      <div className="pc-instr-main">
+        <p className="pc-instr-name">{name ?? 'Smart Dent'}</p>
+        {specialty && <p className="pc-instr-role">{specialty}</p>}
+        {handle && (
+          <a
+            className="pc-instr-ig"
+            href={`https://instagram.com/${handle}`}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <Instagram /> @{handle}
+          </a>
+        )}
+      </div>
+    </div>
+  );
+}
 
 /* ---------- Countdown ---------- */
 export function CourseCountdown({

@@ -722,3 +722,30 @@ a.pc-pill:hover{color:#e5703a;border-color:rgba(229,112,58,.55)}
 .cv-list li{min-width:0}
 .cv-list li>span:last-child{flex:1;min-width:0;overflow-wrap:anywhere;word-break:break-word}
 .cv-summary{overflow-wrap:anywhere;word-break:break-word}
+
+/* ===== Ficha do instrutor abaixo do vídeo (modal de informações do curso) ===== */
+.pc-instr{
+  display:flex;align-items:center;gap:.85rem;
+  padding:.75rem .9rem;border-radius:.9rem;
+  background:rgba(255,255,255,.72);border:1px solid #fff;
+  backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+  box-shadow:0 14px 34px -28px rgba(47,54,80,.45);
+  font-family:'Manrope','Sora',system-ui,sans-serif;
+}
+.pc-instr-photo{flex:0 0 52px;width:52px;height:52px;border-radius:50%;overflow:hidden;display:flex;align-items:center;justify-content:center;background:#e9eef5}
+.pc-instr-photo img{width:100%;height:100%;object-fit:cover;display:block}
+.pc-instr-photo svg{width:34px;height:34px}
+.pc-instr-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:.12rem}
+.pc-instr-name{margin:0;font-size:1rem;font-weight:700;color:#2f3650;letter-spacing:-.015em;line-height:1.25;overflow-wrap:anywhere}
+.pc-instr-role{margin:0;font-size:.66rem;font-weight:600;text-transform:uppercase;letter-spacing:.09em;color:#e5703a;line-height:1.35;overflow-wrap:anywhere}
+.pc-instr-ig{display:inline-flex;align-items:center;gap:.3rem;font-size:.78rem;font-weight:600;color:#5d6782;text-decoration:none;width:fit-content}
+.pc-instr-ig svg{width:13px;height:13px}
+.pc-instr-ig:hover{color:#e5703a}
+@media (max-width:640px){
+  .pc-instr{gap:.7rem;padding:.65rem .75rem}
+  .pc-instr-photo{flex:0 0 44px;width:44px;height:44px}
+  .pc-instr-photo svg{width:28px;height:28px}
+  .pc-instr-name{font-size:.92rem}
+  .pc-instr-role{font-size:.6rem}
+  .pc-instr-ig{font-size:.72rem}
+}
