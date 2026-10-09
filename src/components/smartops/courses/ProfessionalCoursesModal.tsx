@@ -12,7 +12,7 @@ import { getCourseStatusBadge } from "@/lib/courseStatusBadge";
 import { normalizeInstructorName } from "@/lib/instructorNameMatch";
 import { cn } from "@/lib/utils";
 
-type SmartDentCourse = { id: string; title: string; start_date: string | null; modality: string | null; instructor_name: string | null; recommend_professional_ids: string[] | null };
+type SmartDentCourse = { id: string; title: string; modality: string | null; instructor_name: string | null; recommend_professional_ids: string[] | null };
 
 interface Props {
   open: boolean;
@@ -49,10 +49,10 @@ export default function ProfessionalCoursesModal({ open, onOpenChange, professio
       // Treinamentos Smart Dent sugeridos/aprovados para o profissional ("Cursos recomendados")
       const { data: recs } = await (supabase as any)
         .from("smartops_courses")
-        .select("id, title, start_date, modality, instructor_name, recommend_professional_ids")
+        .select("id, title, modality, instructor_name, recommend_professional_ids")
         .eq("recommend_on_instructor_card", true)
         .eq("active", true)
-        .order("start_date", { ascending: true, nullsFirst: false });
+        .order("title", { ascending: true });
       const target = normalizeInstructorName(professional.nome);
       setSmartDentCourses(
         ((recs ?? []) as SmartDentCourse[]).filter(
@@ -229,7 +229,7 @@ export default function ProfessionalCoursesModal({ open, onOpenChange, professio
                         <div className="min-w-0 flex-1">
                           <div className="font-medium truncate">{c.title}</div>
                           <div className="text-xs text-muted-foreground truncate">
-                            {[c.modality, c.start_date].filter(Boolean).join(" · ")}
+                            {c.modality ?? ""}
                           </div>
                           <div className="flex flex-wrap gap-1 mt-1.5">
                             <Badge variant="secondary" className="text-xs">Smart Dent</Badge>
