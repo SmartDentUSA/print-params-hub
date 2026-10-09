@@ -515,61 +515,39 @@ export default function KbTabCursos() {
                     const local = [c.city, c.state].filter(Boolean).join(' - ') || c.online_platform || null;
                     const date = fmtDate(c.start_date);
                     const open = () => setDetail({ course: c, kol });
-                    const embed = c.video_url ? videoEmbed(c.video_url) : null;
                     return (
                       <article key={c.id} className="pc-course">
-                        {embed ? (
-                          <div className="pc-cover pc-cover--video">
-                            {embed.type === 'iframe' ? (
-                              <iframe
-                                src={embed.src}
-                                title={`Vídeo do curso ${c.title}`}
-                                allow="accelerometer; autoplay; encrypted-media; picture-in-picture"
-                                allowFullScreen
-                                loading="lazy"
-                              />
-                            ) : (
-                              <video src={embed.src} controls preload="metadata" />
-                            )}
-                            {c.start_date && (
-                              <div className="pc-cd-overlay">
-                                <CourseCountdown date={c.start_date} time={c.start_time} compact />
-                              </div>
-                            )}
-                          </div>
-                        ) : (
-                          <div
-                            className="pc-cover"
-                            role="button"
-                            tabIndex={0}
-                            aria-label={`Ver informações do curso ${c.title}`}
-                            onClick={open}
-                            onKeyDown={(event) => {
-                              if (event.key === 'Enter' || event.key === ' ') {
-                                event.preventDefault();
-                                open();
-                              }
-                            }}
-                          >
-                            {c.cover_image_url ? (
-                              <img
-                                src={c.cover_image_url}
-                                alt={c.title}
-                                loading="lazy"
-                                decoding="async"
-                              />
-                            ) : (
-                              <div className="pc-cover-empty">
-                                <GraduationCap />
-                              </div>
-                            )}
-                            {c.start_date && (
-                              <div className="pc-cd-overlay">
-                                <CourseCountdown date={c.start_date} time={c.start_time} compact />
-                              </div>
-                            )}
-                          </div>
-                        )}
+                        <div
+                          className="pc-cover"
+                          role="button"
+                          tabIndex={0}
+                          aria-label={`Ver informações do curso ${c.title}`}
+                          onClick={open}
+                          onKeyDown={(event) => {
+                            if (event.key === 'Enter' || event.key === ' ') {
+                              event.preventDefault();
+                              open();
+                            }
+                          }}
+                        >
+                          {c.cover_image_url ? (
+                            <img
+                              src={c.cover_image_url}
+                              alt={c.title}
+                              loading="lazy"
+                              decoding="async"
+                            />
+                          ) : (
+                            <div className="pc-cover-empty">
+                              <GraduationCap />
+                            </div>
+                          )}
+                          {c.start_date && (
+                            <div className="pc-cd-overlay">
+                              <CourseCountdown date={c.start_date} time={c.start_time} compact />
+                            </div>
+                          )}
+                        </div>
 
                         <div className="pc-course-body">
                           <div className="pc-ic"><GraduationCap /></div>
