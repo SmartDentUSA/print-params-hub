@@ -24,7 +24,7 @@ export async function notifyWaitlist(db: SupabaseClient, id: string): Promise<{ 
   const { data: turma } = await db.from("smartops_course_turmas").select("id, label, course_id").eq("id", w.turma_id).maybeSingle();
   const courseId = w.course_id || turma?.course_id;
   const { data: course } = await db.from("smartops_courses")
-    .select("id, title, wa_instance_name, waitlist_message_template").eq("id", courseId).maybeSingle();
+    .select("id, title, wa_instance_name, waitlist_message_template, location, modality").eq("id", courseId).maybeSingle();
   const { data: day } = await db.from("smartops_turma_days").select("date, start_time")
     .eq("turma_id", w.turma_id).order("day_number").limit(1).maybeSingle();
 
@@ -52,6 +52,7 @@ export async function notifyWaitlist(db: SupabaseClient, id: string): Promise<{ 
     .replace(/\{\{turma_label\}\}/g, turma?.label ?? "")
     .replace(/\{\{data_inicio\}\}/g, fmtDateBR(day?.date ?? ""))
     .replace(/\{\{horario_inicio\}\}/g, (day?.start_time ?? "").substring(0, 5))
+    .replace(/\{\{local\}\}/g, course?.modality === "presencial" ? (course?.location || "Local a confirmar") : "Online")
     .replace(/\{\{cs_nome\}\}/g, cs.nome_completo ?? "")
     .replace(/\{\{[a-z_]+\}\}/g, "")
     .replace(/\n{3,}/g, "\n\n").trim();

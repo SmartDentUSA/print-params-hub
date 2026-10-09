@@ -12,6 +12,9 @@ const VACANCY_TEMPLATE = `Olá, {{nome}}! 👋
 
 Boa notícia: abriu uma vaga no treinamento *{{curso}}* ({{turma_label}}) porque houve uma desistência.
 
+📅 {{data_inicio}} às {{horario_inicio}}
+📍 {{local}}
+
 Você é o(a) próximo(a) da lista de espera. Se ainda tiver interesse, responda esta mensagem o mais rápido possível para garantirmos a sua vaga! 🙌
 
 *{{cs_nome}}*`;
@@ -30,7 +33,7 @@ async function notifyVacancy(db: any, turmaId: string) {
   if (!w) return { notified: false, reason: "lista de espera vazia" };
 
   const { data: turma } = await db.from("smartops_course_turmas").select("label, course_id").eq("id", turmaId).maybeSingle();
-  const { data: course } = await db.from("smartops_courses").select("title, wa_instance_name").eq("id", w.course_id || turma?.course_id).maybeSingle();
+  const { data: course } = await db.from("smartops_courses").select("title, wa_instance_name, location, modality, waitlist_vacancy_template").eq("id", w.course_id || turma?.course_id).maybeSingle();
   const instance = course?.wa_instance_name || Deno.env.get("CS_EVOLUTION_INSTANCE") || "cs_principal";
   const { data: cs } = await db.from("team_members").select("id, nome_completo").eq("evolution_instance_name", instance).maybeSingle();
   const fail = async (msg: string) => {
@@ -46,11 +49,18 @@ async function notifyVacancy(db: any, turmaId: string) {
   const phone = phoneRaw ? formatPhone(phoneRaw) : null;
   if (!phone) return fail("sem telefone válido");
 
-  const message = VACANCY_TEMPLATE
+  const { data: day } = await db.from("smartops_turma_days").select("date, start_time")
+    .eq("turma_id", turmaId).order("day_number").limit(1).maybeSingle();
+  const local = course?.modality === "presencial" ? (course?.location || "Local a confirmar") : "Online";
+  const message = (course?.waitlist_vacancy_template || VACANCY_TEMPLATE)
+    .replace(/\{\{data_inicio\}\}/g, day?.date ? String(day.date).split("-").reverse().join("/") : "")
+    .replace(/\{\{horario_inicio\}\}/g, (day?.start_time ?? "").substring(0, 5))
+    .replace(/\{\{local\}\}/g, local)
     .replace(/\{\{nome\}\}/g, (w.person_name || "").split(" ")[0])
     .replace(/\{\{curso\}\}/g, course?.title ?? "")
     .replace(/\{\{turma_label\}\}/g, turma?.label ?? "")
-    .replace(/\{\{cs_nome\}\}/g, cs.nome_completo ?? "");
+    .replace(/\{\{cs_nome\}\}/g, cs.nome_completo ?? "")
+    .replace(/\{\{[a-z_]+\}\}/g, "").trim();
 
   const { data: sent, error } = await db.functions.invoke("smart-ops-wa-send", {
     body: { to: phone, message, lead_id: w.lead_id, team_member_id: cs.id, source: "course_waitlist_vacancy",

@@ -32,6 +32,17 @@ import {
 } from "@/lib/courseWhatsapp";
 import type { SmartopsCourse, TurmaDay } from "@/types/courses";
 
+const DEFAULT_VACANCY_TEMPLATE = `Olá, {{nome}}! 👋
+
+Boa notícia: abriu uma vaga no treinamento *{{curso}}* ({{turma_label}}) porque houve uma desistência.
+
+📅 {{data_inicio}} às {{horario_inicio}}
+📍 {{local}}
+
+Você é o(a) próximo(a) da lista de espera. Se ainda tiver interesse, responda esta mensagem o mais rápido possível para garantirmos a sua vaga! 🙌
+
+*{{cs_nome}}*`;
+
 const DEFAULT_WAITLIST_TEMPLATE = `Olá, {{nome}}! 👋
 
 As vagas do treinamento *{{curso}}* ({{turma_label}}) estão esgotadas no momento, mas você está na nossa *lista de espera* ✅
