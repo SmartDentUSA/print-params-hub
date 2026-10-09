@@ -330,7 +330,7 @@ export default function CoursesPage() {
                       coupons={(p.prof_kol_coupons ?? []) as any}
                       commissions={(p.prof_kol_commissions ?? []) as any}
                     />
-                    <Badge variant="secondary" className="text-xs">{stats?.total ?? 0} {stats?.total === 1 ? "curso" : "cursos"}</Badge>
+                    <Badge variant="secondary" className="text-xs">{totalCursos} {totalCursos === 1 ? "curso" : "cursos"}</Badge>
                     {(stats?.ativos ?? 0) > 0 && (
                       <Badge variant="outline" className="text-xs text-green-600 border-green-600/40">{stats?.ativos} ativos</Badge>
                     )}
