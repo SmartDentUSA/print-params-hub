@@ -32,6 +32,7 @@ export default function ProfessionalCoursesModal({ open, onOpenChange, professio
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [courses, setCourses] = useState<ProfessionalCourse[]>([]);
+  const [smartDentCourses, setSmartDentCourses] = useState<SmartDentCourse[]>([]);
   const [draft, setDraft] = useState<ProfessionalCourseDraft | null>(null);
 
   const load = useCallback(async () => {
@@ -44,12 +45,26 @@ export default function ProfessionalCoursesModal({ open, onOpenChange, professio
         .order("created_at", { ascending: false });
       if (error) throw error;
       setCourses((data ?? []) as unknown as ProfessionalCourse[]);
+
+      // Treinamentos Smart Dent associados ao profissional (liberados para "Cursos recomendados")
+      const { data: recs } = await (supabase as any)
+        .from("smartops_courses")
+        .select("id, title, start_date, modality, instructor_name")
+        .eq("recommend_on_instructor_card", true)
+        .eq("active", true)
+        .order("start_date", { ascending: true, nullsFirst: false });
+      const target = normalizeInstructorName(professional.nome);
+      setSmartDentCourses(
+        ((recs ?? []) as SmartDentCourse[]).filter(
+          (c) => target.length > 0 && normalizeInstructorName(c.instructor_name) === target,
+        ),
+      );
     } catch (e: any) {
       toast({ title: "Erro ao carregar cursos", description: e.message, variant: "destructive" });
     } finally {
       setLoading(false);
     }
-  }, [professional.id, toast]);
+  }, [professional.id, professional.nome, toast]);
 
   useEffect(() => {
     if (!open) return;
