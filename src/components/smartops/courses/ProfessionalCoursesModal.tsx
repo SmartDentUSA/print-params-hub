@@ -46,17 +46,19 @@ export default function ProfessionalCoursesModal({ open, onOpenChange, professio
       if (error) throw error;
       setCourses((data ?? []) as unknown as ProfessionalCourse[]);
 
-      // Treinamentos Smart Dent associados ao profissional (liberados para "Cursos recomendados")
+      // Treinamentos Smart Dent sugeridos/aprovados para o profissional ("Cursos recomendados")
       const { data: recs } = await (supabase as any)
         .from("smartops_courses")
-        .select("id, title, start_date, modality, instructor_name")
+        .select("id, title, start_date, modality, instructor_name, recommend_professional_ids")
         .eq("recommend_on_instructor_card", true)
         .eq("active", true)
         .order("start_date", { ascending: true, nullsFirst: false });
       const target = normalizeInstructorName(professional.nome);
       setSmartDentCourses(
         ((recs ?? []) as SmartDentCourse[]).filter(
-          (c) => target.length > 0 && normalizeInstructorName(c.instructor_name) === target,
+          (c) =>
+            (c.recommend_professional_ids ?? []).includes(professional.id) ||
+            (target.length > 0 && normalizeInstructorName(c.instructor_name) === target),
         ),
       );
     } catch (e: any) {
