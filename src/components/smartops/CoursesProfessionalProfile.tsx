@@ -308,7 +308,7 @@ export default function CoursesProfessionalProfile({ initialEmail, startEditing 
               onChange={(e) => setSearchEmail(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && loadByEmail()}
             />
-            <Button onClick={loadByEmail} disabled={searching || !searchEmail.trim()}>
+            <Button onClick={() => loadByEmail()} disabled={searching || !searchEmail.trim()}>
               {searching ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4 mr-2" />}
               Buscar
             </Button>
@@ -316,10 +316,12 @@ export default function CoursesProfessionalProfile({ initialEmail, startEditing 
           <div className="mt-2 flex flex-wrap items-center gap-2">
             <PersonPicker
               label="Usar cadastro existente (autores, team, KOLs)"
-              onSelect={(person) => {
-                if (person.email) {
-                  setSearchEmail(person.email);
-                  setTimeout(() => void loadByEmail(), 0);
+              onSelect={async (person) => {
+                const leadIdFromPicker = person.id.startsWith("prof:") ? person.id.slice(5) : undefined;
+                if (person.email) setSearchEmail(person.email);
+                if (person.email || leadIdFromPicker) {
+                  await loadByEmail(person.email ?? "", leadIdFromPicker);
+                }
                 }
                 setLocked(false);
                 setForm((f) => ({
