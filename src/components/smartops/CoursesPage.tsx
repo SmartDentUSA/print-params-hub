@@ -182,10 +182,10 @@ export default function CoursesPage() {
         // depois de aprovados para o profissional (recommend_professional_ids).
         const { data: recs } = await (supabase as any)
           .from("smartops_courses")
-          .select("id, title, start_date, modality, instructor_name, recommend_professional_ids")
+          .select("id, title, modality, instructor_name, recommend_professional_ids")
           .eq("recommend_on_instructor_card" as any, true)
           .eq("active", true)
-          .order("start_date", { ascending: true, nullsFirst: false });
+          .order("title", { ascending: true });
         const recGrouped: Record<string, RecommendedCourse[]> = {};
         for (const c of (recs ?? []) as any[]) {
           const ids: string[] = Array.isArray(c.recommend_professional_ids) ? c.recommend_professional_ids : [];
