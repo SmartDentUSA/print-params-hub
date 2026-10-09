@@ -16,6 +16,7 @@ import {
   Globe,
   Award,
   Video,
+  ArrowRight,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Badge } from '@/components/ui/badge';
@@ -463,167 +464,155 @@ export default function KbTabCursos() {
             const kol = producerId !== '__smartdent' ? kols[producerId] : undefined;
             const handle = igHandle(kol?.instagram);
             return (
-              <section key={producerId} className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
-                {/* Identificação do profissional no topo do card */}
-                <div className="flex flex-col gap-4 p-5 bg-card">
-                  {/* Coluna 1: Foto + Nome */}
-                  <div className="flex items-center gap-4 min-w-0">
-                    <div className="w-20 h-20 rounded-full overflow-hidden bg-muted shrink-0 ring-2 ring-primary/10">
-                      {kol?.prof_photo_url ? (
-                        <img
-                          src={kol.prof_photo_url}
-                          alt={kol.nome ?? 'Profissional'}
-                          loading="lazy"
-                          decoding="async"
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <UserCircle className="w-full h-full text-muted-foreground/60" />
-                      )}
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-lg font-semibold text-foreground truncate">
-                        {kol?.nome ?? 'Smart Dent'}
-                      </p>
+              <section key={producerId} className="pc-card">
+                <header className="pc-head">
+                  <div className="pc-avatar">
+                    {kol?.prof_photo_url ? (
+                      <img
+                        src={kol.prof_photo_url}
+                        alt={kol.nome ?? 'Profissional'}
+                        loading="lazy"
+                        decoding="async"
+                      />
+                    ) : (
+                      <UserCircle className="text-muted-foreground/60" />
+                    )}
+                  </div>
+
+                  <div className="pc-head-main">
+                    {kol?.especialidade && <p className="pc-role">{kol.especialidade}</p>}
+                    <h3 className="pc-name">{kol?.nome ?? 'Smart Dent'}</h3>
+                    {kol?.prof_mini_cv && (
+                      <p className="pc-cv line-clamp-3">{kol.prof_mini_cv}</p>
+                    )}
+                    <div className="pc-head-pills">
                       {handle && (
                         <a
                           href={`https://instagram.com/${handle}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline"
+                          className="pc-pill pc-pill--accent"
                         >
-                          <Instagram className="w-3.5 h-3.5" /> @{handle}
+                          <Instagram /> @{handle}
                         </a>
+                      )}
+                      {kol?.cliente_desde && (
+                        <span className="pc-pill">
+                          <Award /> Smart Dent desde {fmtDate(kol.cliente_desde)}
+                        </span>
                       )}
                     </div>
                   </div>
 
-                  {/* Coluna 2: Especialidade + Mini CV + Cliente desde */}
-                  <div className="flex flex-col gap-2 min-w-0">
-                    {kol?.especialidade && (
-                      <p className="text-sm font-semibold text-foreground uppercase tracking-wide">
-                        {kol.especialidade}
-                      </p>
-                    )}
-                    {kol?.prof_mini_cv && (
-                      <p className="text-sm text-muted-foreground line-clamp-4">
-                        {kol.prof_mini_cv}
-                      </p>
-                    )}
-                    {kol?.cliente_desde && (
-                      <p className="text-xs text-muted-foreground">
-                        Clientes Smart Dent desde: {fmtDate(kol.cliente_desde)}
-                      </p>
-                    )}
-                  </div>
-                </div>
+                  <span className="pc-pill pc-count">
+                    <GraduationCap /> {list.length} {list.length === 1 ? 'curso' : 'cursos'}
+                  </span>
+                </header>
 
-                {/* Cursos incrementais abaixo da foto, no mesmo card */}
-                <div className="border-t border-border bg-background/50">
-                  {list.map((c, idx) => {
+                <div className="pc-body">
+                  {list.map((c) => {
                     const local = [c.city, c.state].filter(Boolean).join(' - ') || c.online_platform || null;
                     const date = fmtDate(c.start_date);
+                    const open = () => setDetail({ course: c, kol });
+                    const embed = c.video_url ? videoEmbed(c.video_url) : null;
                     return (
-                      <article
-                        key={c.id}
-                        className={`flex flex-col sm:flex-row gap-4 p-4 hover:bg-accent/40 transition-colors ${
-                          idx !== list.length - 1 ? 'border-b border-border' : ''
-                        }`}
-                      >
-                        <div className="sm:w-40 shrink-0">
-                          <div className="aspect-video sm:aspect-square rounded-lg bg-muted overflow-hidden">
-                            {c.cover_image_url ? (
-                              <img
-                                src={c.cover_image_url}
-                                alt={c.title}
-                                loading="lazy"
-                                decoding="async"
-                                className="w-full h-full object-cover"
-                              />
-                            ) : (
-                              <div className="w-full h-full flex items-center justify-center">
-                                <GraduationCap className="w-8 h-8 text-muted-foreground/50" />
-                              </div>
-                            )}
-                          </div>
+                      <article key={c.id} className="pc-course">
+                        <div
+                          className="pc-cover"
+                          role="button"
+                          tabIndex={0}
+                          aria-label={`Ver informações do curso ${c.title}`}
+                          onClick={open}
+                          onKeyDown={(event) => {
+                            if (event.key === 'Enter' || event.key === ' ') {
+                              event.preventDefault();
+                              open();
+                            }
+                          }}
+                        >
+                          {c.cover_image_url ? (
+                            <img
+                              src={c.cover_image_url}
+                              alt={c.title}
+                              loading="lazy"
+                              decoding="async"
+                            />
+                          ) : (
+                            <div className="pc-cover-empty">
+                              <GraduationCap />
+                            </div>
+                          )}
                         </div>
 
-                        <div className="flex-1 min-w-0 flex flex-col gap-2">
-                          <div className="flex flex-wrap gap-1">
-                            {c.modality && <Badge variant="secondary" className="text-[11px]">{label(c.modality)}</Badge>}
-                            {c.category && <Badge variant="outline" className="text-[11px]">{label(c.category)}</Badge>}
-                            {c.featured && <Badge className="text-[11px]">Destaque</Badge>}
+                        <div className="pc-course-body">
+                          <div className="pc-chips">
+                            {c.modality && (
+                              <span className="pc-chip pc-chip--primary">{label(c.modality)}</span>
+                            )}
+                            {c.category && <span className="pc-chip">{label(c.category)}</span>}
+                            {c.featured && <span className="pc-chip pc-chip--featured">Destaque</span>}
                           </div>
 
                           <div>
-                            <h4 className="font-semibold text-foreground leading-snug">{c.title}</h4>
-                            {c.subtitle && (
-                              <p className="text-sm text-muted-foreground line-clamp-2 mt-0.5">{c.subtitle}</p>
-                            )}
+                            <h4 className="pc-title" onClick={open}>
+                              {c.title}
+                            </h4>
+                            {c.subtitle && <p className="pc-sub line-clamp-2">{c.subtitle}</p>}
                           </div>
 
-                          {c.description && (
-                            <p className="text-xs text-muted-foreground line-clamp-2">{c.description}</p>
-                          )}
+                          {c.description && <p className="pc-desc line-clamp-2">{c.description}</p>}
 
-                          {c.video_url && (() => {
-                            const embed = videoEmbed(c.video_url);
-                            return embed ? (
-                              <div className="aspect-video w-full max-w-md rounded-lg overflow-hidden bg-black">
+                          {c.video_url &&
+                            (embed ? (
+                              <div className="pc-video">
                                 {embed.type === 'iframe' ? (
                                   <iframe
                                     src={embed.src}
                                     title={`Vídeo do curso ${c.title}`}
-                                    className="w-full h-full"
                                     allow="accelerometer; autoplay; encrypted-media; picture-in-picture"
                                     allowFullScreen
                                     loading="lazy"
                                   />
                                 ) : (
-                                  <video src={embed.src} controls className="w-full h-full" preload="metadata" />
+                                  <video src={embed.src} controls preload="metadata" />
                                 )}
                               </div>
                             ) : (
                               <a
+                                className="pc-video-link"
                                 href={c.video_url}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:underline"
                               >
-                                <Video className="w-3.5 h-3.5" /> Assistir vídeo do professor
+                                <Video /> Assistir vídeo do professor
                               </a>
-                            );
-                          })()}
+                            ))}
 
-                          <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                          <div className="pc-meta">
                             {date && (
-                              <span className="inline-flex items-center gap-1.5">
-                                <CalendarDays className="w-3.5 h-3.5" />
-                                {date}{c.start_time ? ` às ${c.start_time}` : ''}
+                              <span className="pc-chip">
+                                <CalendarDays />
+                                {date}
+                                {c.start_time ? ` às ${c.start_time}` : ''}
                               </span>
                             )}
                             {c.workload_hours ? (
-                              <span className="inline-flex items-center gap-1.5">
-                                <Clock className="w-3.5 h-3.5" /> {c.workload_hours}h
+                              <span className="pc-chip">
+                                <Clock /> {c.workload_hours}h
                               </span>
                             ) : null}
-                            {local && (
-                              <span className="inline-flex items-center gap-1.5">
-                                <MapPin className="w-3.5 h-3.5" /> {local}
+                            {local ? (
+                              <span className="pc-chip">
+                                <MapPin /> {local}
                               </span>
-                            )}
+                            ) : null}
                           </div>
 
-                          <div className="mt-auto pt-2">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="w-full sm:w-auto"
-                              onClick={() => setDetail({ course: c, kol })}
-                            >
-                              <Info className="w-3.5 h-3.5 mr-1.5" /> Informações do curso
-                            </Button>
-                            {!c.id.startsWith("sd-") && <span className="ml-3 align-middle"><RatingSummaryBadge courseId={c.id} /></span>}
+                          <div className="pc-actions">
+                            <button type="button" className="pc-cta" onClick={open}>
+                              Informações do curso <ArrowRight />
+                            </button>
+                            {!c.id.startsWith('sd-') && <RatingSummaryBadge courseId={c.id} />}
                           </div>
                         </div>
                       </article>
