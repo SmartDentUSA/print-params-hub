@@ -597,6 +597,11 @@ export default function KbTabCursos() {
                                 {c.start_time ? ` às ${c.start_time}` : ''}
                               </span>
                             )}
+                            {c.duration_days ? (
+                              <span className="pc-chip pc-chip--primary">
+                                <CalendarDays /> {c.duration_days} {c.duration_days === 1 ? 'Dia' : 'Dias'}
+                              </span>
+                            ) : null}
                             {c.workload_hours ? (
                               <span className="pc-chip">
                                 <Clock /> {c.workload_hours}h
