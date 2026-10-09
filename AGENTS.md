@@ -33,3 +33,4 @@
 - Internal forms and LIA resolve interest from their catalog binding or selected product button so CRM uses exact product names; Meta ingestion stays unchanged.
 
 - KOL card summaries use existing totals and profile validity; attribution stays unchanged.
+- Public courses read professional profiles only through a restricted RPC limited to producers of public courses or approved Smart Dent recommendations; anonymous visitors never read the leads table directly.
