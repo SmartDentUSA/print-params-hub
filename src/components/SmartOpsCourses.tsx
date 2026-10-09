@@ -463,7 +463,7 @@ function CatalogoTab() {
           recurrence_enabled, recurrence_type, recurrence_interval,
           recurrence_until, recurrence_time_start, recurrence_time_end,
           recurrence_weekdays,
-          whatsapp_group_link, signup_form_url, public_enrollment_enabled,
+          whatsapp_group_link, signup_form_url, public_enrollment_enabled, recommend_on_instructor_card,
           related_product_ids, related_product_names,
           turmas:smartops_course_turmas (
             id, label, turma_number, slots, enrolled_count, active, live_url,
