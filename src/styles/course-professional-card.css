@@ -488,7 +488,7 @@ a.pc-pill:hover {
 .seats-bar{height:.45rem;border-radius:999px;background:hsl(var(--muted));overflow:hidden}
 .seats-bar>div{height:100%;border-radius:999px;background:var(--gradient-primary, hsl(var(--primary)));transition:width .6s}
 .price-wrap{display:flex;flex-direction:column;gap:.1rem}
-.price-de{font-size:1.2rem;font-weight:800;color:hsl(var(--foreground)/.85);display:flex;align-items:center;gap:.4rem;font-variant-numeric:tabular-nums}
+.price-de{font-size:1.7rem;font-weight:800;color:hsl(var(--foreground)/.92);display:flex;align-items:center;gap:.4rem;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
 .price-de s{text-decoration-thickness:2px;text-decoration-color:hsl(var(--foreground)/.45)}
 .price-off{font-size:.65rem;font-weight:700;color:hsl(var(--primary-foreground));background:hsl(var(--primary));padding:.1rem .4rem;border-radius:999px}
 .price-por{display:flex;align-items:baseline;gap:.35rem}
@@ -641,7 +641,7 @@ a.pc-pill:hover{color:#e5703a;border-color:rgba(229,112,58,.55)}
 
 /* Preço compacto mais legível */
 .price-compact{gap:.5rem}
-.price-compact-de{font-size:1.15rem;font-weight:800;color:#2f3650;text-decoration-thickness:2px;text-decoration-color:rgba(47,54,80,.45)}
+.price-compact-de{font-size:1.5rem;font-weight:800;color:#2f3650;letter-spacing:-.02em;text-decoration-thickness:2.5px;text-decoration-color:rgba(47,54,80,.5)}
 .price-compact-por{font-size:.78rem;font-weight:600;color:#2f3650}
 .price-compact-final{font-size:1.35rem;letter-spacing:-.02em}
 
@@ -693,7 +693,7 @@ a.pc-pill:hover{color:#e5703a;border-color:rgba(229,112,58,.55)}
 .pc-sub{font-size:14px;line-height:1.4}
 .pc-desc{font-size:12.5px;line-height:1.55}
 .pc-offer{padding:.45rem .6rem;gap:.5rem}
-.price-compact-final{font-size:1.2rem}
+.price-compact-final{font-size:1.3rem}
 .pc-actions{gap:12px;margin-top:10px}
 .pc-cta{font-size:13px}
 
@@ -711,8 +711,8 @@ a.pc-pill:hover{color:#e5703a;border-color:rgba(229,112,58,.55)}
   .seats-nums strong{font-size:1.1rem}
   .seats-nums span{font-size:.58rem}
   .price-por strong{font-size:1.35rem}
-  .price-de{font-size:1.05rem}
-  .price-compact-de{font-size:1rem}
+  .price-de{font-size:1.25rem}
+  .price-compact-de{font-size:1.25rem}
   .price-inst{font-size:.75rem}
   .cv-summary{font-size:.8rem}
   .cv-list li{font-size:.75rem;padding:.45rem .55rem}
