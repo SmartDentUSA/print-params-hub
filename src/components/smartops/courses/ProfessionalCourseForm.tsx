@@ -256,7 +256,21 @@ export default function ProfessionalCourseForm({ value, onChange, onUploadCover,
           <div><Label>Valor (R$)</Label><Input type="number" min={0} step="0.01" value={v.price_brl ?? ""} onChange={(e) => onChange({ price_brl: num(e.target.value) })} /></div>
           <div><Label>Valor promocional (R$)</Label><Input type="number" min={0} step="0.01" value={v.promo_price_brl ?? ""} onChange={(e) => onChange({ promo_price_brl: num(e.target.value) })} /></div>
           <div><Label>Parcelas</Label><Input type="number" min={1} value={v.installments ?? ""} onChange={(e) => onChange({ installments: num(e.target.value) })} /></div>
-          <div className="md:col-span-2"><Label>Link de inscrição / checkout</Label><Input value={v.registration_url ?? ""} onChange={(e) => onChange({ registration_url: e.target.value })} placeholder="https://..." /></div>
+          <div className="md:col-span-2">
+            <Label>Link de inscrição / checkout</Label>
+            <Input
+              value={v.registration_url ?? ""}
+              onChange={(e) => onChange({ registration_url: e.target.value })}
+              placeholder="https://..."
+              readOnly={!!v.source_smartops_course_id}
+              disabled={!!v.source_smartops_course_id}
+            />
+            {!!v.source_smartops_course_id && (
+              <p className="text-xs text-muted-foreground mt-1">
+                Link herdado do treinamento Smart Dent — a inscrição é sempre feita pelo formulário oficial do treinamento.
+              </p>
+            )}
+          </div>
           <div><Label>Plataforma de venda</Label><Input value={v.course_platform ?? ""} onChange={(e) => onChange({ course_platform: e.target.value })} placeholder="Hotmart, Kiwify..." /></div>
           <div>
             <Label>WhatsApp do curso</Label>
