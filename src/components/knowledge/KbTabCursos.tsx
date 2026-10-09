@@ -546,32 +546,6 @@ export default function KbTabCursos() {
                         </div>
 
                         <div className="pc-course-body">
-                          {c.video_url &&
-                            (embed ? (
-                              <div className="pc-video pc-video--top">
-                                {embed.type === 'iframe' ? (
-                                  <iframe
-                                    src={embed.src}
-                                    title={`Vídeo do curso ${c.title}`}
-                                    allow="accelerometer; autoplay; encrypted-media; picture-in-picture"
-                                    allowFullScreen
-                                    loading="lazy"
-                                  />
-                                ) : (
-                                  <video src={embed.src} controls preload="metadata" />
-                                )}
-                              </div>
-                            ) : (
-                              <a
-                                className="pc-video-link"
-                                href={c.video_url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                              >
-                                <Video /> Assistir vídeo do professor
-                              </a>
-                            ))}
-
                           <div className="pc-ic"><GraduationCap /></div>
                           <div className="pc-chips">
                             {c.modality && (
