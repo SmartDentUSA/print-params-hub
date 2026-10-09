@@ -91,6 +91,57 @@ async function fetchFormShortLinks(): Promise<FormShortLink[]> {
     .filter(Boolean) as FormShortLink[];
 }
 
+const PUBLIC_SITE = "https://parametros.smartdent.com.br";
+
+interface DynamicLink {
+  id: string;
+  name: string;
+  target: string;
+  utm: string;
+}
+
+async function fetchChatLinks(): Promise<DynamicLink[]> {
+  const { data } = await (supabase as any)
+    .from("smartops_forms")
+    .select("id, name")
+    .eq("active", true)
+    .order("name");
+  return ((data ?? []) as any[]).map((f) => ({
+    id: f.id,
+    name: f.name,
+    target: buildLiaUrl({ formId: f.id, base: PUBLIC_SITE }) + "&utm_source=campanha&utm_medium=whatsapp_lia",
+    utm: "",
+  }));
+}
+
+async function fetchCourseLinks(): Promise<DynamicLink[]> {
+  const [{ data: prof }, { data: sd }] = await Promise.all([
+    (supabase as any)
+      .from("professional_courses")
+      .select("id, title, source_smartops_course_id")
+      .eq("public_visible", true)
+      .eq("status", "publicado"),
+    (supabase as any)
+      .from("smartops_courses")
+      .select("id, title")
+      .eq("recommend_on_instructor_card", true)
+      .eq("active", true),
+  ]);
+  const copied = new Set(((prof ?? []) as any[]).map((p) => p.source_smartops_course_id).filter(Boolean));
+  const all = [
+    ...((prof ?? []) as any[]),
+    ...((sd ?? []) as any[]).filter((s) => !copied.has(s.id)),
+  ];
+  return all
+    .map((c) => ({
+      id: c.id,
+      name: c.title,
+      target: `${PUBLIC_SITE}/base-conhecimento?tab=cursos&curso=${encodeURIComponent(c.id)}`,
+      utm: "",
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+
 async function fetchLinks(channel: Channel): Promise<CampaignLink[]> {
   const { data: { session } } = await supabase.auth.getSession();
   const token = session?.access_token ?? SUPABASE_ANON;
