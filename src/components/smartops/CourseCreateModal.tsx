@@ -487,6 +487,7 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
       setDurationDays(1); setDurationHoursPerDay(undefined);
       setLocation(""); setMeetingLink(""); setWhatsappGroupLink("");
       setSignupFormUrl("");
+      setVideoUrl("");
       setPipelineId(83896); setStageAfterEnroll("treinamento_agendado");
       setPublicVisible(false); setWaTemplate(DEFAULT_ENROLLMENT_TEMPLATE);
       setReminderTemplate(DEFAULT_REMINDER_TEMPLATE);
