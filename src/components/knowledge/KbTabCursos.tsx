@@ -363,7 +363,7 @@ export default function KbTabCursos() {
   const detailPromo = fmtMoney(detailCourse?.promo_price_brl);
 
   return (
-    <div>
+    <div className="pc-page">
       <KbSearchBar
         placeholder="Buscar curso, parceiro, cidade…"
         value={search}
