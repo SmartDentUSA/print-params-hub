@@ -348,6 +348,39 @@ export default function KbTabCursos() {
     return null;
   };
 
+  // Deep link: /base-conhecimento?tab=cursos&curso=<id> abre o informativo do curso diretamente
+  useEffect(() => {
+    if (!sharedCurso || isLoading || detail || courses.length === 0) return;
+    const found = courses.find((c) => c.id === sharedCurso);
+    if (found) {
+      setDetail({ course: found, kol: found.producer_lead_id ? kols[found.producer_lead_id] : undefined });
+      const params = new URLSearchParams(window.location.search);
+      params.delete('curso');
+      const qs = params.toString();
+      window.history.replaceState(null, '', `${window.location.pathname}${qs ? `?${qs}` : ''}`);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sharedCurso, isLoading, courses, detail]);
+
+  const handleShareCourse = async (c: ProfCourse) => {
+    const target = `${window.location.origin}/base-conhecimento?tab=cursos&curso=${encodeURIComponent(c.id)}`;
+    const short = await shortenUrl(target);
+    try {
+      await navigator.clipboard.writeText(short);
+    } catch {
+      const ta = document.createElement('textarea');
+      ta.value = short;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+    }
+    setCopiedId(c.id);
+    toast.success('Link encurtado copiado!', { description: 'Cole no SMS ou WhatsApp' });
+    setTimeout(() => setCopiedId((id) => (id === c.id ? null : id)), 3000);
+  };
+
+
 
   if (isLoading) {
     return <div className="py-12 text-center text-muted-foreground">Carregando cursos…</div>;
