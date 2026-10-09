@@ -14,7 +14,6 @@ import {
   Users,
   Globe,
   Award,
-  Video,
   ArrowRight,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
