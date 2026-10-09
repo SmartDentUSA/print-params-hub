@@ -242,11 +242,8 @@ export default function KbTabCursos() {
     enabled: producerIds.length > 0,
     staleTime: 60_000,
     queryFn: async () => {
-      const [{ data: rows, error: err1 }, { data: mirrors, error: err2 }] = await Promise.all([
-        (supabase as any)
-          .from('lia_attendances')
-          .select('id, nome, prof_photo_url, especialidade, instagram, prof_mini_cv')
-          .in('id', producerIds),
+      const [{ data: rows, error: err1 }, { data: mirrors }] = await Promise.all([
+        (supabase as any).rpc('fn_public_course_professionals', { _ids: producerIds }),
         (supabase as any)
           .from('piperun_persons_mirror')
           .select('lia_attendance_id, cliente_desde')
@@ -254,7 +251,6 @@ export default function KbTabCursos() {
           .order('created_at', { ascending: false }),
       ]);
       if (err1) throw err1;
-      if (err2) throw err2;
 
       const sinceMap: Record<string, string> = {};
       for (const m of (mirrors ?? []) as { lia_attendance_id: string; cliente_desde: string | null }[]) {
