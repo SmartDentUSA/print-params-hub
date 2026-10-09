@@ -44,20 +44,17 @@ export default function ProfessionalKolCardStats({ formIds, coupons, commissions
         <span className="font-medium">{activeCodes.length > 1 ? "Cupons ativos:" : "Cupom ativo:"}</span>{" "}
         <span className="font-semibold text-foreground">{activeCodes.join(" · ") || "Nenhum"}</span>
       </div>
-      <table className="w-full text-[10px] tabular-nums">
-        <thead><tr className="text-muted-foreground">
-          <th className="text-left font-normal pr-3">Origem</th>
-          <th className="text-right font-normal px-2">Conversão R$</th>
-          <th className="text-right font-normal pl-2">Comissão R$</th>
-        </tr></thead>
-        <tbody>{channels.map((channel) => (
-          <tr key={channel.label} className={channel.label === "Total" ? "border-t border-border font-semibold" : ""}>
-            <td className="text-left pr-3 py-0.5">{channel.label}</td>
-            <td className="text-right px-2 py-0.5 text-primary whitespace-nowrap">{money(channel.revenue)}</td>
-            <td className="text-right pl-2 py-0.5 text-success whitespace-nowrap">{channel.commission == null ? "—" : money(channel.commission)}</td>
-          </tr>
-        ))}</tbody>
-      </table>
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[10px] tabular-nums leading-tight">
+        {channels.map((channel) => (
+          <span key={channel.label} className="whitespace-nowrap" title={`${channel.label}: conversão ${money(channel.revenue)} · comissão ${channel.commission == null ? "não definida" : money(channel.commission)}`}>
+            <span className={channel.label === "Total" ? "font-semibold text-foreground" : "text-muted-foreground"}>{channel.label}</span>{" "}
+            <span className="font-semibold text-primary">{money(channel.revenue)}</span>
+            <span className="text-muted-foreground"> · </span>
+            <span className={channel.label === "Total" ? "font-semibold" : ""}>comissão </span>
+            <span className={channel.commission == null ? "text-muted-foreground" : "font-semibold text-success"}>{channel.commission == null ? "—" : money(channel.commission)}</span>
+          </span>
+        ))}
+      </div>
     </div>
   );
 
