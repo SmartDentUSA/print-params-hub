@@ -23242,6 +23242,7 @@ export type Database = {
           pipeline_id_kanban: number
           public_enrollment_enabled: boolean
           public_visible: boolean | null
+          recommend_on_instructor_card: boolean
           recurrence_duration_h: number | null
           recurrence_enabled: boolean | null
           recurrence_interval: number | null
@@ -23291,6 +23292,7 @@ export type Database = {
           pipeline_id_kanban?: number
           public_enrollment_enabled?: boolean
           public_visible?: boolean | null
+          recommend_on_instructor_card?: boolean
           recurrence_duration_h?: number | null
           recurrence_enabled?: boolean | null
           recurrence_interval?: number | null
@@ -23340,6 +23342,7 @@ export type Database = {
           pipeline_id_kanban?: number
           public_enrollment_enabled?: boolean
           public_visible?: boolean | null
+          recommend_on_instructor_card?: boolean
           recurrence_duration_h?: number | null
           recurrence_enabled?: boolean | null
           recurrence_interval?: number | null
