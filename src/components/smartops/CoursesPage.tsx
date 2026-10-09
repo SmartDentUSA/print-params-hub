@@ -349,7 +349,7 @@ export default function CoursesPage() {
 
                     <div className="grid grid-cols-3 gap-2 pt-2 border-t">
                       <div className="text-center">
-                        <div className="text-lg font-semibold">{stats?.total ?? 0}</div>
+                        <div className="text-lg font-semibold">{totalCursos}</div>
                         <div className="text-[10px] text-muted-foreground uppercase tracking-wide">Cursos</div>
                       </div>
                       <div className="text-center">
