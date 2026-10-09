@@ -915,8 +915,8 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
         recurrence_time_start: useRecurrence ? recurrenceTimeStart : null,
         recurrence_time_end: useRecurrence ? recurrenceTimeEnd : null,
         recurrence_weekdays: useRecurrence && recurrenceType === 'weekdays' ? recurrenceWeekdays : null,
-        related_product_ids: isOnline ? relatedProductIds : [],
-        related_product_names: isOnline ? relatedProductNames : [],
+        related_product_ids: relatedProductIds,
+        related_product_names: relatedProductNames,
         ai_reference_image_urls: aiReferenceImages,
       };
 
@@ -1323,6 +1323,23 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
                       </Button>
                     </div>
                   )}
+                </div>
+              )}
+
+              {!isOnline && (
+                <div className="space-y-2 pt-2 border-t">
+                  <Label className="font-semibold">Produto de interesse (CRM)</Label>
+                  <p className="text-xs text-muted-foreground -mt-1">
+                    Produtos Smart Dent deste treinamento. Vão como produto de interesse do lead no CRM a cada inscrição, igual às lives.
+                  </p>
+                  <CourseProductPicker
+                    selectedIds={relatedProductIds}
+                    selectedNames={relatedProductNames}
+                    onChange={(ids, names) => {
+                      setRelatedProductIds(ids);
+                      setRelatedProductNames(names);
+                    }}
+                  />
                 </div>
               )}
 
