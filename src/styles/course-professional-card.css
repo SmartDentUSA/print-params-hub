@@ -545,3 +545,81 @@ a.pc-pill:hover {
 .pc-cta:hover{transform:none;filter:none;box-shadow:none;background:none;color:hsl(var(--primary)/.75)}
 .pc-cta svg{width:14px;height:14px}
 .pc-cta:hover svg{transform:translateX(3px)}
+
+/* ===== Padrão visual da aba institucional — mesmas fontes, cores e superfícies ===== */
+/* Tipografia Manrope/Sora e paleta: tinta #2f3650 · texto secundário #5d6782 · laranja #e5703a */
+
+.pc-card,.pc-course,.cd-wrap,.seats-wrap,.cd-compact,.price-wrap,.price-compact,.cv-wrap,.sy-day,
+.pc-pill,.pc-chip,.pc-cta,.pc-video-link,.pc-name,.pc-title{
+  font-family:'Manrope','Sora',system-ui,sans-serif;
+}
+
+/* Superfície de vidro sobre fundo claro, como .sdi-card */
+.pc-card{background:rgba(255,255,255,.62);border:1px solid #fff;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);box-shadow:0 18px 44px -30px rgba(47,54,80,.35);color:#2f3650}
+.pc-card::before{content:none}
+.pc-card:hover{transform:translateY(-6px);border-color:#fff;box-shadow:0 30px 60px -30px rgba(47,54,80,.5)}
+
+.pc-head{border-bottom:1px solid rgba(47,54,80,.12);background:none}
+.pc-role{color:#e5703a}
+.pc-name{color:#2f3650}
+.pc-cv{color:#5d6782}
+.pc-pill{background:#fff;border-color:#fff;color:#5d6782}
+.pc-pill--accent{color:#e5703a;border-color:rgba(229,112,58,.35);background:#fff}
+a.pc-pill:hover{color:#e5703a;border-color:rgba(229,112,58,.55)}
+.pc-count{background:#fff}
+.pc-avatar{box-shadow:0 0 0 4px rgba(255,255,255,.92),0 0 0 5px rgba(229,112,58,.35),0 18px 34px -18px rgba(229,112,58,.5)}
+
+.pc-course,.pc-course:first-child{border:1px solid #fff;background:rgba(255,255,255,.62);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);box-shadow:0 18px 44px -30px rgba(47,54,80,.35)}
+.pc-course:hover{box-shadow:0 30px 60px -30px rgba(47,54,80,.5)}
+.pc-course .pc-cover{background:radial-gradient(60% 60% at 50% 70%,#ffffff 0%,#e9eef5 70%)}
+.pc-course .pc-cover::after{background:rgba(47,54,80,.12)}
+.pc-ic{background:#fff;color:#e5703a;border:1px solid #fff;box-shadow:0 6px 16px -8px rgba(47,54,80,.4)}
+
+.pc-chip{background:#fff;color:#5d6782;border:1px solid rgba(47,54,80,.08)}
+.pc-chip--primary{background:#fff;color:#e5703a;border-color:rgba(229,112,58,.3)}
+.pc-chip--featured{background:#e5703a;color:#fff;box-shadow:0 8px 18px -10px rgba(229,112,58,.8)}
+
+.pc-title{color:#2f3650}
+.pc-title:hover,.pc-course:hover .pc-title{color:#e5703a}
+.pc-sub,.pc-desc{color:#5d6782}
+
+.pc-video{background:#2f3650}
+.pc-video-link{color:#e5703a;border-color:rgba(229,112,58,.3);background:#fff}
+.pc-video-link:hover{border-color:rgba(229,112,58,.55)}
+
+.pc-offer{background:#fff;border:1px solid rgba(47,54,80,.08)}
+.cd-compact{color:#e5703a;background:#fff;border:1px solid rgba(229,112,58,.3)}
+.cd-compact b{color:#2f3650}
+.cd-compact i{color:#e5703a}
+.price-compact-de{color:#2f3650}
+.price-compact-off{color:#fff;background:#e5703a}
+.price-compact-por{color:#5d6782}
+.price-compact-final{color:#2f3650}
+.price-compact-free{color:#e5703a;background:#fff;border-color:rgba(229,112,58,.3)}
+
+/* Detalhe (modal) no mesmo padrão */
+.cd-wrap{background:#e5703a;color:#fff}
+.seats-wrap{background:#fff;border-color:rgba(47,54,80,.12)}
+.seats-nums strong{color:#2f3650}
+.seats-nums div:first-child strong{color:#e5703a}
+.seats-bar>div{background:#e5703a}
+.price-de{color:#2f3650}
+.price-off{background:#e5703a;color:#fff}
+.price-por strong{color:#2f3650}
+.price-free{color:#e5703a;background:#fff}
+.cv-summary{border-left-color:#e5703a;color:#2f3650}
+.cv-list li{background:#fff;border-color:rgba(47,54,80,.12);color:#5d6782}
+.cv-ic{background:rgba(229,112,58,.12);color:#e5703a}
+.sy-day{background:#fff;border-color:rgba(47,54,80,.12);box-shadow:0 10px 30px -18px rgba(47,54,80,.25)}
+.sy-num{background:#e5703a;color:#fff}
+.sy-day-title{color:#2f3650}
+.sy-day-date{color:#e5703a}
+.sy-intro{color:#2f3650}
+.sy-block:hover{background:rgba(229,112,58,.07)}
+.sy-letter{color:#e5703a;background:rgba(229,112,58,.1);border-color:rgba(229,112,58,.3)}
+.sy-block-title{color:#2f3650}
+.sy-block-text{color:#5d6782}
+.sy-result{color:#2f3650;background:rgba(229,112,58,.08);border-color:rgba(229,112,58,.25)}
+.sy-result svg{color:#e5703a}
+.pc-cta{color:#e5703a}
+.pc-cta:hover{color:rgba(229,112,58,.75)}
