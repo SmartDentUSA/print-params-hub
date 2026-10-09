@@ -588,7 +588,7 @@ export default function KbTabCursos() {
                             >
                               <Info className="w-3.5 h-3.5 mr-1.5" /> Informações do curso
                             </Button>
-                            <span className="ml-3 align-middle"><RatingSummaryBadge courseId={c.id} /></span>
+                            {!c.id.startsWith("sd-") && <span className="ml-3 align-middle"><RatingSummaryBadge courseId={c.id} /></span>}
                           </div>
                         </div>
                       </article>
@@ -893,7 +893,7 @@ export default function KbTabCursos() {
                 )}
 
                 {/* Avaliações dos usuários */}
-                <CourseRating courseId={detailCourse.id} />
+                {!detailCourse.id.startsWith("sd-") && <CourseRating courseId={detailCourse.id} />}
               </div>
 
               {/* Rodapé fixo com investimento + CTA */}
