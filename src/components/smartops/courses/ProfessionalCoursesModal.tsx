@@ -5,14 +5,14 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Loader2, Pencil, Plus, Save, Trash2, Copy } from "lucide-react";
+import { ArrowLeft, Check, Loader2, Pencil, Plus, Save, Trash2, Copy } from "lucide-react";
 import ProfessionalCourseForm from "./ProfessionalCourseForm";
 import { emptyCourseDraft, COURSE_MODALITIES, COURSE_STATUS, type ProfessionalCourse, type ProfessionalCourseDraft } from "@/types/professionalCourses";
 import { getCourseStatusBadge } from "@/lib/courseStatusBadge";
 import { normalizeInstructorName } from "@/lib/instructorNameMatch";
 import { cn } from "@/lib/utils";
 
-type SmartDentCourse = { id: string; title: string; start_date: string | null; modality: string | null; instructor_name: string | null };
+type SmartDentCourse = { id: string; title: string; start_date: string | null; modality: string | null; instructor_name: string | null; recommend_professional_ids: string[] | null };
 
 interface Props {
   open: boolean;
@@ -46,17 +46,19 @@ export default function ProfessionalCoursesModal({ open, onOpenChange, professio
       if (error) throw error;
       setCourses((data ?? []) as unknown as ProfessionalCourse[]);
 
-      // Treinamentos Smart Dent associados ao profissional (liberados para "Cursos recomendados")
+      // Treinamentos Smart Dent sugeridos/aprovados para o profissional ("Cursos recomendados")
       const { data: recs } = await (supabase as any)
         .from("smartops_courses")
-        .select("id, title, start_date, modality, instructor_name")
+        .select("id, title, start_date, modality, instructor_name, recommend_professional_ids")
         .eq("recommend_on_instructor_card", true)
         .eq("active", true)
         .order("start_date", { ascending: true, nullsFirst: false });
       const target = normalizeInstructorName(professional.nome);
       setSmartDentCourses(
         ((recs ?? []) as SmartDentCourse[]).filter(
-          (c) => target.length > 0 && normalizeInstructorName(c.instructor_name) === target,
+          (c) =>
+            (c.recommend_professional_ids ?? []).includes(professional.id) ||
+            (target.length > 0 && normalizeInstructorName(c.instructor_name) === target),
         ),
       );
     } catch (e: any) {
@@ -139,6 +141,21 @@ export default function ProfessionalCoursesModal({ open, onOpenChange, professio
     onChanged?.();
   };
 
+  const approveSmartDentCourse = async (c: SmartDentCourse) => {
+    const ids = Array.from(new Set([...(c.recommend_professional_ids ?? []), professional.id]));
+    const { error } = await (supabase as any)
+      .from("smartops_courses")
+      .update({ recommend_professional_ids: ids })
+      .eq("id", c.id);
+    if (error) {
+      toast({ title: "Erro ao aprovar", description: error.message, variant: "destructive" });
+      return;
+    }
+    toast({ title: "Curso aprovado para o card do profissional" });
+    await load();
+    onChanged?.();
+  };
+
   const duplicate = async (c: ProfessionalCourse) => {
     const { id, created_at, updated_at, views_count, interested_count, ...rest } = c as any;
     const { error } = await supabase.from("professional_courses").insert({
@@ -204,24 +221,33 @@ export default function ProfessionalCoursesModal({ open, onOpenChange, professio
                 <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   Cursos Smart Dent associados
                 </div>
-                {smartDentCourses.map((c) => (
-                  <Card key={c.id}>
-                    <CardContent className="p-4 flex items-start gap-3">
-                      <div className="min-w-0 flex-1">
-                        <div className="font-medium truncate">{c.title}</div>
-                        <div className="text-xs text-muted-foreground truncate">
-                          {[c.modality, c.start_date].filter(Boolean).join(" · ")}
+                {smartDentCourses.map((c) => {
+                  const approved = (c.recommend_professional_ids ?? []).includes(professional.id);
+                  return (
+                    <Card key={c.id}>
+                      <CardContent className="p-4 flex items-start gap-3">
+                        <div className="min-w-0 flex-1">
+                          <div className="font-medium truncate">{c.title}</div>
+                          <div className="text-xs text-muted-foreground truncate">
+                            {[c.modality, c.start_date].filter(Boolean).join(" · ")}
+                          </div>
+                          <div className="flex flex-wrap gap-1 mt-1.5">
+                            <Badge variant="secondary" className="text-xs">Smart Dent</Badge>
+                            <Badge variant="outline" className="text-xs">Cursos recomendados</Badge>
+                            {approved && <Badge className="text-xs bg-emerald-600 text-white">Aprovado</Badge>}
+                          </div>
                         </div>
-                        <div className="flex flex-wrap gap-1 mt-1.5">
-                          <Badge variant="secondary" className="text-xs">Smart Dent</Badge>
-                          <Badge variant="outline" className="text-xs">Cursos recomendados</Badge>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
+                        {!approved && (
+                          <Button size="sm" variant="outline" className="shrink-0" onClick={() => approveSmartDentCourse(c)}>
+                            <Check className="w-4 h-4 mr-1" /> Aprovar
+                          </Button>
+                        )}
+                      </CardContent>
+                    </Card>
+                  );
+                })}
                 <p className="text-xs text-muted-foreground">
-                  Estes treinamentos são gerenciados na aba Treinamentos.
+                  Aprove a associação para o treinamento aparecer no card do profissional. Estes treinamentos são gerenciados na aba Treinamentos.
                 </p>
               </div>
             )}
