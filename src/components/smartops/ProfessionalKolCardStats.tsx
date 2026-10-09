@@ -16,10 +16,10 @@ interface Props {
 function VisitorsSparkline({ series }: { series: Array<{ d: string; v: number }> }) {
   const data = series && series.length > 0 ? series : [];
   if (data.length < 2) {
-    return <div className="h-8 flex items-end text-xs text-muted-foreground">—</div>;
+    return <div className="h-11 flex items-end text-xs text-muted-foreground">—</div>;
   }
-  const w = 120;
-  const h = 28;
+  const w = 220;
+  const h = 48;
   const max = Math.max(...data.map((p) => p.v), 1);
   const step = data.length > 1 ? w / (data.length - 1) : w;
   const points = data
@@ -29,7 +29,7 @@ function VisitorsSparkline({ series }: { series: Array<{ d: string; v: number }>
   return (
     <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} className="shrink-0 overflow-hidden">
       <polyline points={areaPoints} fill="hsl(var(--primary) / 0.12)" stroke="none" />
-      <polyline points={points} fill="none" stroke="hsl(var(--primary))" strokeWidth="1.5" />
+      <polyline points={points} fill="none" stroke="hsl(var(--primary))" strokeWidth="2" />
     </svg>
   );
 }
