@@ -693,6 +693,20 @@ export default function KbTabCursos() {
               <div className="relative">
                 <div className="aspect-[16/7] w-full overflow-hidden bg-muted">
                   {(() => {
+                    const emb = detailCourse.video_url ? videoEmbed(detailCourse.video_url) : null;
+                    if (emb) {
+                      return emb.type === 'iframe' ? (
+                        <iframe
+                          src={emb.src}
+                          title={detailCourse.title}
+                          className="w-full h-full"
+                          allow="autoplay; fullscreen; picture-in-picture"
+                          allowFullScreen
+                        />
+                      ) : (
+                        <video src={emb.src} className="w-full h-full object-cover" controls playsInline preload="metadata" />
+                      );
+                    }
                     if (detailCourse.cover_image_url) {
                       return (
                         <img
