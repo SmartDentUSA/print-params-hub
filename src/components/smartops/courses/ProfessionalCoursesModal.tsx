@@ -199,6 +199,7 @@ export default function ProfessionalCoursesModal({ open, onOpenChange, professio
       modality: full.modality || "presencial",
       category: full.category ?? null,
       cover_image_url: full.cover_image_url ?? null,
+      video_url: full.video_url ?? null,
       duration_days: full.duration_days ?? null,
       workload_hours: hours,
       start_date: t?.start_date ?? null,
