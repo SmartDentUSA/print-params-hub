@@ -8808,6 +8808,54 @@ export type Database = {
           },
         ]
       }
+      kol_access_sessions: {
+        Row: {
+          created_at: string
+          expires_at: string | null
+          id: string
+          lead_id: string
+          otp_attempts: number
+          otp_expires_at: string | null
+          otp_hash: string | null
+          otp_required: boolean
+          phone_key: string
+          revoked_at: string | null
+          token_hash: string | null
+          updated_at: string
+          verified_at: string | null
+        }
+        Insert: {
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          lead_id: string
+          otp_attempts?: number
+          otp_expires_at?: string | null
+          otp_hash?: string | null
+          otp_required?: boolean
+          phone_key: string
+          revoked_at?: string | null
+          token_hash?: string | null
+          updated_at?: string
+          verified_at?: string | null
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          lead_id?: string
+          otp_attempts?: number
+          otp_expires_at?: string | null
+          otp_hash?: string | null
+          otp_required?: boolean
+          phone_key?: string
+          revoked_at?: string | null
+          token_hash?: string | null
+          updated_at?: string
+          verified_at?: string | null
+        }
+        Relationships: []
+      }
       kol_portal_attempts: {
         Row: {
           blocked_until: string | null
@@ -11593,8 +11641,10 @@ export type Database = {
           intelligence_score_updated_at: string | null
           interest_timeline: string | null
           ip_origem: string | null
+          is_kol: boolean
           itens_proposta_crm: string | null
           itens_proposta_parsed: Json | null
+          kol_phone_key: string | null
           last_automated_action_at: string | null
           last_deal_date: string | null
           last_deal_value: number | null
@@ -12220,8 +12270,10 @@ export type Database = {
           intelligence_score_updated_at?: string | null
           interest_timeline?: string | null
           ip_origem?: string | null
+          is_kol?: boolean
           itens_proposta_crm?: string | null
           itens_proposta_parsed?: Json | null
+          kol_phone_key?: string | null
           last_automated_action_at?: string | null
           last_deal_date?: string | null
           last_deal_value?: number | null
@@ -12847,8 +12899,10 @@ export type Database = {
           intelligence_score_updated_at?: string | null
           interest_timeline?: string | null
           ip_origem?: string | null
+          is_kol?: boolean
           itens_proposta_crm?: string | null
           itens_proposta_parsed?: Json | null
+          kol_phone_key?: string | null
           last_automated_action_at?: string | null
           last_deal_date?: string | null
           last_deal_value?: number | null
@@ -36753,6 +36807,7 @@ export type Database = {
           ticket_medio: number
         }[]
       }
+      fn_kol_contract_ready: { Args: { _lead_id: string }; Returns: Json }
       fn_kol_coupon_items: {
         Args: { _code: string; _from?: string; _to?: string }
         Returns: {
@@ -36822,6 +36877,7 @@ export type Database = {
           wa_phone: string
         }[]
       }
+      fn_kol_unblock: { Args: { _lead_id: string }; Returns: number }
       fn_lal_dedupe_hash: {
         Args: {
           _entity_id: string
@@ -37776,8 +37832,10 @@ export type Database = {
           intelligence_score_updated_at: string | null
           interest_timeline: string | null
           ip_origem: string | null
+          is_kol: boolean
           itens_proposta_crm: string | null
           itens_proposta_parsed: Json | null
+          kol_phone_key: string | null
           last_automated_action_at: string | null
           last_deal_date: string | null
           last_deal_value: number | null
