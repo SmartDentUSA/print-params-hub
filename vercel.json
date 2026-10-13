@@ -55,6 +55,21 @@
       "has": [
         {
           "type": "host",
+          "value": ".+\\.vercel\\.app"
+        },
+        {
+          "type": "query",
+          "key": "__public",
+          "value": "1"
+        }
+      ],
+      "destination": "/_public-home.html"
+    },
+    {
+      "source": "/",
+      "has": [
+        {
+          "type": "host",
           "value": "www.smartdent.com.br"
         }
       ],

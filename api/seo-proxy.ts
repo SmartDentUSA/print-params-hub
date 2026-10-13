@@ -6,10 +6,11 @@ export const config = { runtime: 'edge' };
 
 export default async function handler(req: Request): Promise<Response> {
   const url = new URL(req.url);
+  const publicHost = isInstitutionalHost(url.hostname) || (url.hostname.endsWith('.vercel.app') && url.searchParams.get('__public') === '1');
   const originalPath = url.searchParams.get('originalPath') || '/';
   const originalUrl = new URL(originalPath, PUBLIC_ORIGIN);
-  for (const [key,value] of url.searchParams) if (key !== 'originalPath' && !originalUrl.searchParams.has(key)) originalUrl.searchParams.append(key,value);
-  if (isInstitutionalHost(url.hostname) && originalUrl.pathname === '/') {
+  for (const [key,value] of url.searchParams) if (key !== 'originalPath' && key !== '__public' && !originalUrl.searchParams.has(key)) originalUrl.searchParams.append(key,value);
+  if (publicHost && originalUrl.pathname === '/') {
     return new Response(institutionalHomepage(), {
       headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'public, max-age=300, s-maxage=300' },
     });
@@ -28,14 +29,14 @@ export default async function handler(req: Request): Promise<Response> {
       },
     });
 
-    const html = isInstitutionalHost(url.hostname) ? publicText(await res.text()) : await res.text();
+    const html = publicHost ? publicText(await res.text()) : await res.text();
     const headers = new Headers({
       'Content-Type': 'text/html; charset=utf-8',
       'Cache-Control': res.headers.get('Cache-Control') || 'public, max-age=300, s-maxage=300',
       'X-SSR-Source': 'seo-proxy-internal',
     });
     const location = res.headers.get('Location');
-    if (location) headers.set('Location', isInstitutionalHost(url.hostname) ? publicUrl(location) : location);
+    if (location) headers.set('Location', publicHost ? publicUrl(location) : location);
     return new Response(html, {
       status: res.status,
       headers,
