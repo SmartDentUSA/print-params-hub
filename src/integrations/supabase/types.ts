@@ -8808,6 +8808,33 @@ export type Database = {
           },
         ]
       }
+      kol_portal_attempts: {
+        Row: {
+          blocked_until: string | null
+          created_at: string
+          id: string
+          ip_hash: string | null
+          professional_id: string | null
+          success: boolean
+        }
+        Insert: {
+          blocked_until?: string | null
+          created_at?: string
+          id?: string
+          ip_hash?: string | null
+          professional_id?: string | null
+          success?: boolean
+        }
+        Update: {
+          blocked_until?: string | null
+          created_at?: string
+          id?: string
+          ip_hash?: string | null
+          professional_id?: string | null
+          success?: boolean
+        }
+        Relationships: []
+      }
       lead_activity_log: {
         Row: {
           company_id: string | null
@@ -11820,7 +11847,9 @@ export type Database = {
           prof_neighborhood: string | null
           prof_number: string | null
           prof_orcid: string | null
+          prof_otp_required: boolean
           prof_photo_url: string | null
+          prof_public_slug: string | null
           prof_qualifications: Json
           prof_rating_price: number | null
           prof_rating_quality: number | null
@@ -12445,7 +12474,9 @@ export type Database = {
           prof_neighborhood?: string | null
           prof_number?: string | null
           prof_orcid?: string | null
+          prof_otp_required?: boolean
           prof_photo_url?: string | null
+          prof_public_slug?: string | null
           prof_qualifications?: Json
           prof_rating_price?: number | null
           prof_rating_quality?: number | null
@@ -13070,7 +13101,9 @@ export type Database = {
           prof_neighborhood?: string | null
           prof_number?: string | null
           prof_orcid?: string | null
+          prof_otp_required?: boolean
           prof_photo_url?: string | null
+          prof_public_slug?: string | null
           prof_qualifications?: Json
           prof_rating_price?: number | null
           prof_rating_quality?: number | null
@@ -36799,6 +36832,10 @@ export type Database = {
         }
         Returns: string
       }
+      fn_lead_is_kol: {
+        Args: { _coupons: Json; _forms: Json; _rules: Json }
+        Returns: boolean
+      }
       fn_lead_timeline_unified: {
         Args: { p_categories?: string[]; p_lead_id: string; p_limit?: number }
         Returns: {
@@ -37993,7 +38030,9 @@ export type Database = {
           prof_neighborhood: string | null
           prof_number: string | null
           prof_orcid: string | null
+          prof_otp_required: boolean
           prof_photo_url: string | null
+          prof_public_slug: string | null
           prof_qualifications: Json
           prof_rating_price: number | null
           prof_rating_quality: number | null
