@@ -539,7 +539,6 @@ Deno.serve(async (req) => {
 
       await logSpeakerEngagement(event, entry.professional_id || "", slots, supportSlots);
       if (entry.professional_id) {
-        const eventTs = event.start_date ? `${String(event.start_date).slice(0, 10)}T12:00:00Z` : undefined;
         for (const s of slots) {
           await kolLog(entry.professional_id, "kol_talk_scheduled", String(event.id), event.name ?? null, {
             descricao: `Palestra ${s.start_time}-${s.end_time} · ${event.name ?? ""}`.trim(),
@@ -556,7 +555,6 @@ Deno.serve(async (req) => {
             dedupe_key: `kol_stand:${event.id}:${entry.professional_id}:${s.date}:${s.start_time}`,
           }, null, actorOf(caller));
         }
-        void eventTs;
       }
 
       return json({ ok: true, speakers: publicSpeakers(list) });
