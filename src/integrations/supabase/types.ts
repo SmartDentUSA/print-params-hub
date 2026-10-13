@@ -18503,6 +18503,7 @@ export type Database = {
           course_id: string
           created_at: string
           id: string
+          phone_key: string | null
           rating: number
           visitor_key: string
         }
@@ -18512,6 +18513,7 @@ export type Database = {
           course_id: string
           created_at?: string
           id?: string
+          phone_key?: string | null
           rating: number
           visitor_key: string
         }
@@ -18521,6 +18523,7 @@ export type Database = {
           course_id?: string
           created_at?: string
           id?: string
+          phone_key?: string | null
           rating?: number
           visitor_key?: string
         }
@@ -36700,6 +36703,7 @@ export type Database = {
       }
       fn_increment_course_view: { Args: { _id: string }; Returns: undefined }
       fn_is_cliente: { Args: { p_lead: string }; Returns: boolean }
+      fn_is_internal_staff: { Args: { _user_id: string }; Returns: boolean }
       fn_is_pipeline_venda: { Args: { pipeline: string }; Returns: boolean }
       fn_is_rayshape_edge_printer: {
         Args: { p_name: string }
@@ -36733,6 +36737,10 @@ export type Database = {
           vendas: number
         }[]
       }
+      fn_kol_fix_phone: {
+        Args: { _ddi: string; _lead_id: string; _number: string }
+        Returns: Json
+      }
       fn_kol_form_leads: {
         Args: { _names: string[] }
         Returns: {
@@ -36746,6 +36754,39 @@ export type Database = {
           slug: string
           views: number
           visitors: number
+        }[]
+      }
+      fn_kol_lead_phone: {
+        Args: { _ddi: string; _number: string; _tel: string; _wa: string }
+        Returns: string
+      }
+      fn_kol_log: {
+        Args: {
+          _channel?: string
+          _data: Json
+          _entity_id: string
+          _entity_name: string
+          _entity_type: string
+          _event_type: string
+          _lead_id: string
+          _value?: number
+        }
+        Returns: string
+      }
+      fn_kol_phone_key: { Args: { _raw: string }; Returns: string }
+      fn_kol_phone_pending: {
+        Args: never
+        Returns: {
+          duplicado_com: string
+          lead_id: string
+          nome: string
+          phone_key: string
+          problema: string
+          prof_cro: string
+          prof_wa_ddi: string
+          prof_wa_number: string
+          telefone_normalized: string
+          wa_phone: string
         }[]
       }
       fn_lal_dedupe_hash: {
@@ -36873,6 +36914,7 @@ export type Database = {
           wa_click_count: number
         }[]
       }
+      fn_normalize_phone: { Args: { _raw: string }; Returns: string }
       fn_normalize_printer_brand: {
         Args: { p_raw: string }
         Returns: {
@@ -37358,6 +37400,17 @@ export type Database = {
       fn_store_form_answers: {
         Args: { p_answers: Json; p_form_id: string; p_lead_id: string }
         Returns: number
+      }
+      fn_submit_course_rating: {
+        Args: {
+          _author_name: string
+          _comment: string
+          _course_id: string
+          _phone: string
+          _rating: number
+          _visitor_key: string
+        }
+        Returns: Json
       }
       fn_suggest_cross_sell: { Args: { p_lead_id: string }; Returns: Json }
       fn_sync_normalized_from_lead: {
