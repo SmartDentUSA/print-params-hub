@@ -39,7 +39,8 @@ type Speaker = {
   instagram?: string;
   theme?: string;
   photo_url?: string;
-  professional_id?: string;
+  professional_id?: string; // só para a equipe interna
+  speaker_slug?: string; // código público do palestrante
   sessions?: Session[];
   support_sessions?: Session[];
 };
@@ -253,7 +254,7 @@ export default function EventSpeakerBooking() {
   const mine = useMemo(() => {
     if (!person) return null;
     return (
-      speakers.find((s) => s.professional_id === person.id) ??
+      speakers.find((s) => (s.professional_id || s.speaker_slug) === person.id) ??
       speakers.find((s) => handleOf(s.instagram) && handleOf(s.instagram) === handleOf(person.instagram)) ??
       speakers.find((s) => (s.name || "").trim().toLowerCase() === person.name.trim().toLowerCase()) ??
       null
@@ -578,9 +579,11 @@ export default function EventSpeakerBooking() {
                   </Command>
                 </PopoverContent>
               </Popover>
-              <Button variant="secondary" onClick={() => setNewOpen(true)}>
-                <Plus className="mr-1.5 h-4 w-4" /> Novo
-              </Button>
+              {isStaffSession && (
+                <Button variant="secondary" onClick={() => setNewOpen(true)}>
+                  <Plus className="mr-1.5 h-4 w-4" /> Novo
+                </Button>
+              )}
             </div>
 
             {person && !isStaffSession && !kolToken && (
