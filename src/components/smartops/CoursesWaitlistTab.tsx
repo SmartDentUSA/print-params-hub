@@ -13,9 +13,49 @@ import {
 import { Loader2, UserCheck, XCircle, Hourglass } from "lucide-react";
 import { toast } from "sonner";
 import { STATUS_CONFIG } from "@/lib/courseUtils";
+import { latestDate, resolveClientDot } from "@/hooks/useLeadCardSignals";
 
 const sb = supabase as any;
 const fmt = (d?: string | null) => (d ? new Date(d).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" }) : "—");
+const fmtDay = (d?: string | null) => (d ? new Date(d).toLocaleDateString("pt-BR") : "—");
+
+interface LeadInfo {
+  lastPurchase: string | null; isClient: boolean;
+  scanner: string | null; scannerAt: string | null;
+  printer: string | null; printerAt: string | null;
+}
+
+/** "há 7 meses (214 dias)" desde a data informada. */
+export function elapsedLabel(iso: string | null, now = Date.now()): string | null {
+  if (!iso) return null;
+  const t = new Date(iso).getTime();
+  if (Number.isNaN(t)) return null;
+  const days = Math.max(0, Math.floor((now - t) / 86400000));
+  const months = Math.floor(days / 30.4375);
+  return `há ${months} ${months === 1 ? "mês" : "meses"} (${days} dias)`;
+}
+
+const DOT = { verde: "#22c55e", amarelo: "#facc15", vermelho: "#ef4444", nao_cliente: "#e2e8f0" } as const;
+
+function ClientCell({ info }: { info: LeadInfo | null }) {
+  if (!info) return <span className="text-muted-foreground">—</span>;
+  const dot = resolveClientDot(info.lastPurchase, info.isClient);
+  return (
+    <div className="flex items-center gap-2">
+      <span style={{ width: 10, height: 10, borderRadius: "50%", background: DOT[dot], border: "1px solid rgba(0,0,0,.25)" }} />
+      <div>
+        <div>{info.isClient ? "Cliente Smart Dent" : "Não é cliente"}</div>
+        {info.isClient && <div className="text-xs text-muted-foreground">Última compra: {fmtDay(info.lastPurchase)}</div>}
+      </div>
+    </div>
+  );
+}
+
+function EquipCell({ name, at }: { name: string | null; at: string | null }) {
+  if (!name) return <span className="text-muted-foreground">—</span>;
+  const el = elapsedLabel(at);
+  return <div><div>{name}</div>{at && <div className="text-xs text-muted-foreground">{fmtDay(at)} · {el}</div>}</div>;
+}
 
 async function callManage(action: "cancel" | "promote", id: string) {
   const { data, error } = await supabase.functions.invoke("smartops-waitlist-manage", { body: { action, id } });
@@ -40,15 +80,37 @@ export function CoursesWaitlistTab() {
       if (!ids.length) return [];
       const [{ data: turmas }, { data: enr }, { data: wl }] = await Promise.all([
         sb.from("smartops_course_turmas").select("id, label, course_id, slots, enrolled_count").in("course_id", ids),
-        sb.from("smartops_course_enrollments").select("id, turma_id, person_name, enrolled_at, created_at, status").in("course_id", ids).order("enrolled_at"),
-        sb.from("smartops_turma_waitlist").select("id, turma_id, person_name, phone, created_at, wa_sent_at, vacancy_notified_at, vacancy_error").in("course_id", ids).order("created_at"),
+        sb.from("smartops_course_enrollments").select("id, turma_id, lead_id, person_name, enrolled_at, created_at, status").in("course_id", ids).order("enrolled_at"),
+        sb.from("smartops_turma_waitlist").select("id, turma_id, lead_id, person_name, phone, created_at, wa_sent_at, vacancy_notified_at, vacancy_error").in("course_id", ids).order("created_at"),
       ]);
+      const leadIds = [...new Set([...(enr ?? []), ...(wl ?? [])].map((r: any) => r.lead_id).filter(Boolean))] as string[];
+      const leadInfo = new Map<string, LeadInfo>();
+      for (let i = 0; i < leadIds.length; i += 100) {
+        const chunk = leadIds.slice(i, i + 100);
+        const [{ data: leads }, { data: won }] = await Promise.all([
+          sb.from("lia_attendances").select("id, lead_status, ltv_total, omie_ultima_compra, data_ultima_compra_scan, data_ultima_compra_print, equip_scanner, equip_scanner_ativacao, equip_impressora, impressora_modelo, equip_impressora_ativacao").in("id", chunk).is("merged_into", null),
+          sb.from("deals").select("lead_id, closed_at").in("lead_id", chunk).eq("status", "ganha"),
+        ]);
+        for (const l of leads ?? []) {
+          const wonDates = (won ?? []).filter((d: any) => d.lead_id === l.id).map((d: any) => d.closed_at);
+          const last = latestDate([...wonDates, l.omie_ultima_compra, l.data_ultima_compra_scan, l.data_ultima_compra_print]);
+          leadInfo.set(l.id, {
+            lastPurchase: last,
+            isClient: Boolean(last) || l.lead_status === "CLIENTE_ativo" || Number(l.ltv_total) > 0,
+            scanner: l.equip_scanner || null,
+            scannerAt: l.equip_scanner_ativacao || l.data_ultima_compra_scan || null,
+            printer: l.equip_impressora || l.impressora_modelo || null,
+            printerAt: l.equip_impressora_ativacao || l.data_ultima_compra_print || null,
+          });
+        }
+      }
+      const withInfo = (r: any) => ({ ...r, info: r.lead_id ? leadInfo.get(r.lead_id) ?? null : null });
       return (courses ?? []).map((c: any) => ({
         ...c,
         turmas: (turmas ?? []).filter((t: any) => t.course_id === c.id).map((t: any) => ({
           ...t,
-          enrollments: (enr ?? []).filter((e: any) => e.turma_id === t.id),
-          waitlist: (wl ?? []).filter((w: any) => w.turma_id === t.id),
+          enrollments: (enr ?? []).filter((e: any) => e.turma_id === t.id).map(withInfo),
+          waitlist: (wl ?? []).filter((w: any) => w.turma_id === t.id).map(withInfo),
         })),
       }));
     },
@@ -99,17 +161,17 @@ export function CoursesWaitlistTab() {
                 <h4 className="text-sm font-semibold mb-1">Inscritos</h4>
                 <Table>
                   <TableHeader><TableRow>
-                    <TableHead>Nome</TableHead><TableHead>Data da inscrição</TableHead><TableHead>Status</TableHead><TableHead className="text-right">Ação</TableHead>
+                    <TableHead>Nome</TableHead><TableHead>Data da inscrição</TableHead><TableHead>Status</TableHead><TableHead>Cliente Smart Dent</TableHead><TableHead>Scanner</TableHead><TableHead>Impressora</TableHead><TableHead className="text-right">Ação</TableHead>
                   </TableRow></TableHeader>
                   <TableBody>
-                    {t.enrollments.length === 0 && <TableRow><TableCell colSpan={4} className="text-muted-foreground">Nenhum inscrito.</TableCell></TableRow>}
+                    {t.enrollments.length === 0 && <TableRow><TableCell colSpan={7} className="text-muted-foreground">Nenhum inscrito.</TableCell></TableRow>}
                     {t.enrollments.map((e: any) => {
                       const st = (STATUS_CONFIG as any)[e.status];
                       return (
                         <TableRow key={e.id} className={e.status === "cancelado" ? "opacity-60" : ""}>
                           <TableCell>{e.person_name || "—"}</TableCell>
                           <TableCell>{fmt(e.enrolled_at || e.created_at)}</TableCell>
-                          <TableCell><Badge variant="outline" className={st?.badge}>{st?.label ?? e.status}</Badge></TableCell>
+                          <TableCell><Badge variant="outline" className={st?.badge}>{st?.label ?? e.status}</Badge></TableCell><TableCell><ClientCell info={e.info} /></TableCell><TableCell><EquipCell name={e.info?.scanner ?? null} at={e.info?.scannerAt ?? null} /></TableCell><TableCell><EquipCell name={e.info?.printer ?? null} at={e.info?.printerAt ?? null} /></TableCell>
                           <TableCell className="text-right">
                             {e.status !== "cancelado" && (
                               <Button size="sm" variant="outline" className="gap-1" disabled={busy === e.id}
@@ -129,15 +191,15 @@ export function CoursesWaitlistTab() {
                 <h4 className="text-sm font-semibold mb-1">Lista de espera</h4>
                 <Table>
                   <TableHeader><TableRow>
-                    <TableHead className="w-10">#</TableHead><TableHead>Nome</TableHead><TableHead>Data da inscrição</TableHead><TableHead>Aviso de vaga</TableHead><TableHead className="text-right">Ação</TableHead>
+                    <TableHead className="w-10">#</TableHead><TableHead>Nome</TableHead><TableHead>Data da inscrição</TableHead><TableHead>Cliente Smart Dent</TableHead><TableHead>Scanner</TableHead><TableHead>Impressora</TableHead><TableHead>Aviso de vaga</TableHead><TableHead className="text-right">Ação</TableHead>
                   </TableRow></TableHeader>
                   <TableBody>
-                    {t.waitlist.length === 0 && <TableRow><TableCell colSpan={5} className="text-muted-foreground">Ninguém na lista de espera.</TableCell></TableRow>}
+                    {t.waitlist.length === 0 && <TableRow><TableCell colSpan={8} className="text-muted-foreground">Ninguém na lista de espera.</TableCell></TableRow>}
                     {t.waitlist.map((w: any, i: number) => (
                       <TableRow key={w.id}>
                         <TableCell>{i + 1}</TableCell>
                         <TableCell>{w.person_name}<div className="text-xs text-muted-foreground">{w.phone || ""}</div></TableCell>
-                        <TableCell>{fmt(w.created_at)}</TableCell>
+                        <TableCell>{fmt(w.created_at)}</TableCell><TableCell><ClientCell info={w.info} /></TableCell><TableCell><EquipCell name={w.info?.scanner ?? null} at={w.info?.scannerAt ?? null} /></TableCell><TableCell><EquipCell name={w.info?.printer ?? null} at={w.info?.printerAt ?? null} /></TableCell>
                         <TableCell>
                           {w.vacancy_notified_at ? <Badge variant="secondary">Avisado {fmt(w.vacancy_notified_at)}</Badge>
                             : w.vacancy_error ? <Badge variant="destructive" title={w.vacancy_error}>Falhou</Badge> : "—"}
