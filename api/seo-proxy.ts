@@ -14,7 +14,10 @@ export default async function handler(req: Request): Promise<Response> {
       headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'public, max-age=300, s-maxage=300' },
     });
   }
-  const upstream = `https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/seo-proxy?originalPath=${encodeURIComponent(originalUrl.pathname + originalUrl.search)}`;
+  const upstreamUrl = new URL('https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/seo-proxy');
+  upstreamUrl.searchParams.set('originalPath', originalUrl.pathname);
+  for (const [key,value] of originalUrl.searchParams) if (key !== 'originalPath') upstreamUrl.searchParams.append(key,value);
+  const upstream = upstreamUrl.toString();
 
   try {
     const res = await fetch(upstream, {
