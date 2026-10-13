@@ -33,3 +33,5 @@
 - Public courses read professional profiles only through a restricted RPC limited to producers of public courses or approved Smart Dent recommendations; anonymous visitors never read the leads table directly.
 - Imported Smart Dent trainings become editable professional_courses copies linked by source_smartops_course_id; public pages hide the synthetic entry once a copy exists, and professional public names live in prof_display_name so CRM sync cannot overwrite them.
 - Waitlist cancel/promote run server-side in smartops-waitlist-manage; cancelling an enrollment notifies only the oldest not-yet-notified waitlist entry via the course CS instance, keeping vacancy messages single and auditable.
+- Public KOL agenda identifies speakers only by `prof_public_slug` (internal ids never leave the server); phone validation is rate-limited in `kol_portal_attempts` and staff-only `create_professional` fills only empty fields, logging before/after via `fn_kol_log`.
+- `fn_kol_log` updates the existing event explicitly before inserting, because the `lead_activity_log` dedupe trigger silently drops repeated inserts (ON CONFLICT never fires).
