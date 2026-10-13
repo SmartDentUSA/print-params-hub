@@ -29,11 +29,9 @@ if (process.env.VERCEL) {
     await page.waitForNetworkIdle({idleTime:500,timeout:10000}).catch(()=>{});
     const summary=await page.evaluate(()=>({h1:document.querySelector('h1')?.textContent,text:document.querySelector('#root')?.textContent?.length||0,canonical:document.querySelector('link[rel="canonical"]')?.getAttribute('href')}));
     if(summary.text<1500 || summary.canonical!=='https://www.smartdent.com.br/')throw new Error('Homepage prerender validation failed: '+JSON.stringify(summary));
-    await page.evaluate(scripts=>{
-      document.querySelectorAll('script:not([type="application/ld+json"])').forEach(s=>s.remove());
-      for(const markup of scripts){const box=document.createElement('template');box.innerHTML=markup;document.head.appendChild(box.content.cloneNode(true));}
-    },originalScripts);
-    const html=await page.content();
+    await page.evaluate(()=>document.querySelectorAll('script:not([type="application/ld+json"])').forEach(s=>s.remove()));
+    const html=(await page.content()).replace('</head>',originalScripts.join('')+'</head>');
+    if(!/<div[^>]*id="root"[^>]*>\\s*</.test(html))throw new Error('Rendered React root missing');
     await writeFile('dist/_public-home.html',html,'utf8');
     console.log('PASS public home prerender',JSON.stringify(summary));
   } finally {await browser.close();}
