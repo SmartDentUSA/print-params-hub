@@ -210,7 +210,7 @@ export default function CourseRating({ courseId }: { courseId: string }) {
             <div className="flex gap-2">
               <Button
                 size="sm"
-                disabled={rating < 1 || submit.isPending}
+                disabled={rating < 1 || phone.replace(/\D/g, "").length < 10 || submit.isPending}
                 onClick={() => submit.mutate()}
               >
                 {submit.isPending ? 'Enviando...' : 'Enviar avaliação'}
