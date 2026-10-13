@@ -80,23 +80,34 @@ Deno.serve(async (req) => {
       const blocked = await isBlocked(kol?.id ?? null, ipHash);
       if (blocked) return json({ error: "Acesso bloqueado por 1 hora. Fale com a equipe.", blocked_until: blocked }, 429);
       // Resposta genérica: não revela se o celular é de um KOL
-      const generic = { ok: true, message: "Se o celular for de um KOL cadastrado, o código chega pelo WhatsApp." };
+      const generic = { ok: true, message: "Se o celular for de um KOL cadastrado, o link do portal chega pelo WhatsApp." };
       if (!kol) { await registerFail(null, ipHash, "celular_desconhecido"); return json(generic); }
 
-      const code = String(crypto.getRandomValues(new Uint32Array(1))[0] % 1_000_000).padStart(6, "0");
-      const { data: sess, error } = await admin.from("kol_access_sessions").insert({
-        lead_id: kol.id, phone_key: kol.key, otp_required: true,
-        otp_hash: await sha(`${kol.id}:${code}`), otp_expires_at: new Date(Date.now() + OTP_TTL_MS).toISOString(),
-      }).select("id").single();
-      if (error) throw error;
-
+      // Sem código: envia o endereço externo do portal com o celular cadastrado
+      const nowIso = new Date().toISOString();
+      const { data: tok } = await admin.from("professional_portal_tokens").select("token")
+        .eq("lead_id", kol.id).is("revoked_at", null).gt("expires_at", nowIso)
+        .order("expires_at", { ascending: false }).limit(1).maybeSingle();
+      let portalToken = tok?.token as string | undefined;
+      if (!portalToken) {
+        portalToken = Array.from(crypto.getRandomValues(new Uint8Array(24)), (x) => x.toString(16).padStart(2, "0")).join("");
+        const { error: tErr } = await admin.from("professional_portal_tokens").insert({
+          token: portalToken, lead_id: kol.id, created_by: "kol_portal_auth",
+          expires_at: new Date(Date.now() + 90 * 86400000).toISOString(),
+        });
+        if (tErr) throw tErr;
+      }
+      const portalUrl = `${Deno.env.get("PUBLIC_SITE_URL") || "https://parametros.smartdent.com.br"}/portal-cursos/${portalToken}`;
+      const sess = { id: portalToken };
       let to = (kol.prof_wa_number ? `${kol.prof_wa_ddi || "55"}${kol.prof_wa_number}` : "") || kol.wa_phone || kol.telefone_normalized || "";
       to = String(to).replace(/\D/g, "");
       if (to.length === 10 || to.length === 11) to = "55" + to;
       const instance = Deno.env.get("CS_EVOLUTION_INSTANCE") || "cs_principal";
       const { data: cs } = await admin.from("team_members").select("id").eq("evolution_instance_name", instance).maybeSingle();
       const first = String(kol.nome || "").trim().split(" ")[0];
-      const message = `Olá${first ? `, ${first}` : ""}! Seu código de acesso ao portal Smart Dent é *${code}*. Ele vale por 10 minutos. Não compartilhe com ninguém.`;
+      const d = String(kol.key || phone).replace(/\D/g, "").replace(/^55(?=\d{10,11}$)/, "");
+      const celFmt = d.length === 11 ? `(${d.slice(0,2)}) ${d.slice(2,7)}-${d.slice(7)}` : d.length === 10 ? `(${d.slice(0,2)}) ${d.slice(2,6)}-${d.slice(6)}` : d;
+      const message = `Olá${first ? `, ${first}` : ""}! Este é o seu acesso ao Portal do KOL Smart Dent:\n${portalUrl}\n\nPara entrar, utilize o seu número de celular cadastrado: *${celFmt}*.\nSe tiver qualquer dúvida, é só responder esta mensagem.`;
       const { data: sent, error: sendErr } = cs
         ? await admin.functions.invoke("smart-ops-wa-send", {
           body: { to, message, lead_id: kol.id, team_member_id: cs.id, source: "kol_portal_otp" },
@@ -104,9 +115,9 @@ Deno.serve(async (req) => {
         : { data: null, error: new Error("WhatsApp do CS não encontrado") };
       const sendOk = !sendErr && sent?.success !== false && !sent?.error;
       await kolLog(kol.id, "kol_portal_otp_sent", {
-        descricao: sendOk ? "Código de acesso enviado por WhatsApp" : "Falha ao enviar código de acesso",
+        descricao: sendOk ? "Link do portal enviado por WhatsApp" : "Falha ao enviar link do portal",
         enviado: sendOk, erro: sendOk ? null : String(sendErr?.message ?? sent?.error ?? "").slice(0, 300),
-        dedupe_key: `kol_otp:${sess.id}`,
+        dedupe_key: `kol_portal_link:${sess.id}:${Date.now()}`,
       });
       if (!sendOk) console.error("[kol-portal-auth] envio OTP", sendErr?.message ?? sent?.error);
       return json(generic);
