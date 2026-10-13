@@ -1,3 +1,4 @@
+import { legacyPublicRedirect } from "./utils/legacyPublicRoutes.mjs";
 import { lazy, Suspense } from "react";
 import { Routes, Route, useLocation, Navigate, useParams } from "react-router-dom";
 import Index from "./pages/Index";
@@ -79,6 +80,8 @@ function PageTracker() {
 function RootSlugGate() {
   const { brandSlug } = useParams();
   if (/^turma\d+$/i.test(String(brandSlug || ""))) return <TurmaWelcome />;
+  const destination = legacyPublicRedirect("/" + String(brandSlug || ""));
+  if (destination) return <Navigate to={destination} replace />;
   return <Index />;
 }
 

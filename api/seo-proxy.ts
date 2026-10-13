@@ -1,17 +1,24 @@
-import { isInstitutionalHost } from '../src/utils/institutionalHost';
-import { institutionalHomepage } from '../src/utils/institutionalHomepage';
+import { isInstitutionalHost } from '../src/utils/institutionalHost.js';
+import { PUBLIC_ORIGIN, publicText, publicUrl } from '../src/utils/publicDomain.mjs';
+import { institutionalHomepage } from '../src/utils/institutionalHomepage.js';
 
 export const config = { runtime: 'edge' };
 
 export default async function handler(req: Request): Promise<Response> {
   const url = new URL(req.url);
+  const publicHost = isInstitutionalHost(url.hostname) || (url.hostname.endsWith('.vercel.app') && url.searchParams.get('__public') === '1');
   const originalPath = url.searchParams.get('originalPath') || '/';
-  if (isInstitutionalHost(url.hostname) && originalPath === '/') {
+  const originalUrl = new URL(originalPath, PUBLIC_ORIGIN);
+  for (const [key,value] of url.searchParams) if (key !== 'originalPath' && key !== '__public' && !originalUrl.searchParams.has(key)) originalUrl.searchParams.append(key,value);
+  if (publicHost && originalUrl.pathname === '/') {
     return new Response(institutionalHomepage(), {
       headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'public, max-age=300, s-maxage=300' },
     });
   }
-  const upstream = `https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/seo-proxy?originalPath=${encodeURIComponent(originalPath)}`;
+  const upstreamUrl = new URL('https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/seo-proxy');
+  upstreamUrl.searchParams.set('originalPath', originalUrl.pathname);
+  for (const [key,value] of originalUrl.searchParams) if (key !== 'originalPath') upstreamUrl.searchParams.append(key,value);
+  const upstream = upstreamUrl.toString();
 
   try {
     const res = await fetch(upstream, {
@@ -22,14 +29,14 @@ export default async function handler(req: Request): Promise<Response> {
       },
     });
 
-    const html = await res.text();
+    const html = publicHost ? publicText(await res.text()) : await res.text();
     const headers = new Headers({
-      'Content-Type': res.headers.get('Content-Type') || 'text/html; charset=utf-8',
+      'Content-Type': 'text/html; charset=utf-8',
       'Cache-Control': res.headers.get('Cache-Control') || 'public, max-age=300, s-maxage=300',
       'X-SSR-Source': 'seo-proxy-internal',
     });
     const location = res.headers.get('Location');
-    if (location) headers.set('Location', location);
+    if (location) headers.set('Location', publicHost ? publicUrl(location) : location);
     return new Response(html, {
       status: res.status,
       headers,

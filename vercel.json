@@ -1,6 +1,39 @@
 {
   "redirects": [
     {
+      "source": "/caracterização",
+      "has": [
+        {
+          "type": "host",
+          "value": "(?:www\\.smartdent\\.com\\.br|smartdent\\.com\\.br|[a-z0-9-]+\\.vercel\\.app)"
+        }
+      ],
+      "destination": "/base-conhecimento?tab=catalogo&cat=resinas_3d",
+      "permanent": true
+    },
+    {
+      "source": "/caracterizacao",
+      "has": [
+        {
+          "type": "host",
+          "value": "(?:www\\.smartdent\\.com\\.br|smartdent\\.com\\.br|[a-z0-9-]+\\.vercel\\.app)"
+        }
+      ],
+      "destination": "/base-conhecimento?tab=catalogo&cat=resinas_3d",
+      "permanent": true
+    },
+    {
+      "source": "/caracteriza%C3%A7%C3%A3o",
+      "has": [
+        {
+          "type": "host",
+          "value": "(?:www\\.smartdent\\.com\\.br|smartdent\\.com\\.br|[a-z0-9-]+\\.vercel\\.app)"
+        }
+      ],
+      "destination": "/base-conhecimento?tab=catalogo&cat=resinas_3d",
+      "permanent": true
+    },
+    {
       "source": "/base-conhecimento/undefined/:slug*",
       "destination": "/base-conhecimento/f/:slug*",
       "permanent": true
@@ -18,13 +51,178 @@
   ],
   "rewrites": [
     {
+      "source": "/",
+      "has": [
+        {
+          "type": "host",
+          "value": ".+\\.vercel\\.app"
+        },
+        {
+          "type": "query",
+          "key": "__public",
+          "value": "1"
+        }
+      ],
+      "destination": "/_public-home.html"
+    },
+    {
+      "source": "/",
+      "has": [
+        {
+          "type": "host",
+          "value": "www.smartdent.com.br"
+        }
+      ],
+      "destination": "/_public-home.html"
+    },
+    {
+      "source": "/robots.txt",
+      "has": [
+        {
+          "type": "host",
+          "value": "(?:www\\.smartdent\\.com\\.br|smartdent\\.com\\.br|[a-z0-9-]+\\.vercel\\.app)"
+        }
+      ],
+      "destination": "/api/public-discovery?file=robots.txt"
+    },
+    {
+      "source": "/sitemap.xml",
+      "has": [
+        {
+          "type": "host",
+          "value": "(?:www\\.smartdent\\.com\\.br|smartdent\\.com\\.br|[a-z0-9-]+\\.vercel\\.app)"
+        }
+      ],
+      "destination": "/api/public-discovery?file=sitemap.xml"
+    },
+    {
+      "source": "/sitemap-index.xml",
+      "has": [
+        {
+          "type": "host",
+          "value": "(?:www\\.smartdent\\.com\\.br|smartdent\\.com\\.br|[a-z0-9-]+\\.vercel\\.app)"
+        }
+      ],
+      "destination": "/api/public-discovery?file=sitemap-index.xml"
+    },
+    {
+      "source": "/sitemap-conhecimento-pt.xml",
+      "has": [
+        {
+          "type": "host",
+          "value": "(?:www\\.smartdent\\.com\\.br|smartdent\\.com\\.br|[a-z0-9-]+\\.vercel\\.app)"
+        }
+      ],
+      "destination": "/api/public-discovery?file=sitemap-conhecimento-pt.xml"
+    },
+    {
+      "source": "/sitemap-conhecimento-en.xml",
+      "has": [
+        {
+          "type": "host",
+          "value": "(?:www\\.smartdent\\.com\\.br|smartdent\\.com\\.br|[a-z0-9-]+\\.vercel\\.app)"
+        }
+      ],
+      "destination": "/api/public-discovery?file=sitemap-conhecimento-en.xml"
+    },
+    {
+      "source": "/sitemap-conhecimento-es.xml",
+      "has": [
+        {
+          "type": "host",
+          "value": "(?:www\\.smartdent\\.com\\.br|smartdent\\.com\\.br|[a-z0-9-]+\\.vercel\\.app)"
+        }
+      ],
+      "destination": "/api/public-discovery?file=sitemap-conhecimento-es.xml"
+    },
+    {
+      "source": "/sitemap-documentos.xml",
+      "has": [
+        {
+          "type": "host",
+          "value": "(?:www\\.smartdent\\.com\\.br|smartdent\\.com\\.br|[a-z0-9-]+\\.vercel\\.app)"
+        }
+      ],
+      "destination": "/api/public-discovery?file=sitemap-documentos.xml"
+    },
+    {
+      "source": "/video-sitemap.xml",
+      "has": [
+        {
+          "type": "host",
+          "value": "(?:www\\.smartdent\\.com\\.br|smartdent\\.com\\.br|[a-z0-9-]+\\.vercel\\.app)"
+        }
+      ],
+      "destination": "/api/public-discovery?file=video-sitemap.xml"
+    },
+    {
+      "source": "/llms.txt",
+      "has": [
+        {
+          "type": "host",
+          "value": "(?:www\\.smartdent\\.com\\.br|smartdent\\.com\\.br|[a-z0-9-]+\\.vercel\\.app)"
+        }
+      ],
+      "destination": "/api/public-discovery?file=llms.txt"
+    },
+    {
+      "source": "/llms-full.txt",
+      "has": [
+        {
+          "type": "host",
+          "value": "(?:www\\.smartdent\\.com\\.br|smartdent\\.com\\.br|[a-z0-9-]+\\.vercel\\.app)"
+        }
+      ],
+      "destination": "/api/public-discovery?file=llms-full.txt"
+    },
+    {
+      "source": "/llms-full-en.txt",
+      "has": [
+        {
+          "type": "host",
+          "value": "(?:www\\.smartdent\\.com\\.br|smartdent\\.com\\.br|[a-z0-9-]+\\.vercel\\.app)"
+        }
+      ],
+      "destination": "/api/public-discovery?file=llms-full-en.txt"
+    },
+    {
+      "source": "/llms-full-es.txt",
+      "has": [
+        {
+          "type": "host",
+          "value": "(?:www\\.smartdent\\.com\\.br|smartdent\\.com\\.br|[a-z0-9-]+\\.vercel\\.app)"
+        }
+      ],
+      "destination": "/api/public-discovery?file=llms-full-es.txt"
+    },
+    {
+      "source": "/rss.xml",
+      "has": [
+        {
+          "type": "host",
+          "value": "(?:www\\.smartdent\\.com\\.br|smartdent\\.com\\.br|[a-z0-9-]+\\.vercel\\.app)"
+        }
+      ],
+      "destination": "/api/public-discovery?file=rss.xml"
+    },
+    {
       "source": "/:code([a-z0-9]{4,8})",
-      "has": [{ "type": "host", "value": "s.smartdent.com.br" }],
+      "has": [
+        {
+          "type": "host",
+          "value": "s.smartdent.com.br"
+        }
+      ],
       "destination": "https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/short-link-resolve?c=:code"
     },
     {
       "source": "/:path*",
-      "has": [{ "type": "host", "value": "s.smartdent.com.br" }],
+      "has": [
+        {
+          "type": "host",
+          "value": "s.smartdent.com.br"
+        }
+      ],
       "destination": "https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/short-link-resolve"
     },
     {
@@ -104,7 +302,7 @@
     },
     {
       "source": "/f/:path*",
-      "destination": "/index.html"
+      "destination": "/_static-fallback/index.html"
     },
     {
       "source": "/api/v1/:path*",
@@ -131,26 +329,51 @@
     },
     {
       "source": "/((?!api/|.*\\.[a-zA-Z0-9]+$).*)",
-      "destination": "/index.html"
+      "destination": "/_static-fallback/index.html"
+    },
+    {
+      "source": "/index.html",
+      "destination": "/_static-fallback/index.html"
+    },
+    {
+      "source": "/robots.txt",
+      "destination": "/_static-fallback/robots.txt"
+    },
+    {
+      "source": "/sitemap.xml",
+      "destination": "/_static-fallback/sitemap.xml"
+    },
+    {
+      "source": "/sitemap-index.xml",
+      "destination": "/_static-fallback/sitemap-index.xml"
     }
   ],
   "headers": [
     {
       "source": "/",
       "headers": [
-        { "key": "Cache-Control", "value": "no-cache, must-revalidate" }
+        {
+          "key": "Cache-Control",
+          "value": "no-cache, must-revalidate"
+        }
       ]
     },
     {
       "source": "/index.html",
       "headers": [
-        { "key": "Cache-Control", "value": "no-cache, must-revalidate" }
+        {
+          "key": "Cache-Control",
+          "value": "no-cache, must-revalidate"
+        }
       ]
     },
     {
       "source": "/assets/(.*)",
       "headers": [
-        { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
       ]
     },
     {
@@ -204,53 +427,104 @@
     {
       "source": "/llms.txt",
       "headers": [
-        { "key": "Content-Type", "value": "text/plain; charset=utf-8" },
-        { "key": "Cache-Control", "value": "public, max-age=3600" },
-        { "key": "Access-Control-Allow-Origin", "value": "*" }
+        {
+          "key": "Content-Type",
+          "value": "text/plain; charset=utf-8"
+        },
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=3600"
+        },
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "*"
+        }
       ]
     },
     {
       "source": "/llms-full.txt",
       "headers": [
-        { "key": "Content-Type", "value": "text/plain; charset=utf-8" },
-        { "key": "Cache-Control", "value": "public, max-age=3600" },
-        { "key": "Access-Control-Allow-Origin", "value": "*" }
+        {
+          "key": "Content-Type",
+          "value": "text/plain; charset=utf-8"
+        },
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=3600"
+        },
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "*"
+        }
       ]
     },
     {
       "source": "/sitemap-conhecimento-:lang.xml",
       "headers": [
-        { "key": "Content-Type", "value": "application/xml; charset=utf-8" },
-        { "key": "Cache-Control", "value": "public, max-age=3600" }
+        {
+          "key": "Content-Type",
+          "value": "application/xml; charset=utf-8"
+        },
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=3600"
+        }
       ]
     },
     {
       "source": "/sitemap-documentos.xml",
       "headers": [
-        { "key": "Content-Type", "value": "application/xml; charset=utf-8" },
-        { "key": "Cache-Control", "value": "public, max-age=3600" }
+        {
+          "key": "Content-Type",
+          "value": "application/xml; charset=utf-8"
+        },
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=3600"
+        }
       ]
     },
     {
       "source": "/(rss\\.xml|feed|feed\\.xml)",
       "headers": [
-        { "key": "Content-Type", "value": "application/rss+xml; charset=utf-8" },
-        { "key": "Cache-Control", "value": "public, max-age=1800" },
-        { "key": "Access-Control-Allow-Origin", "value": "*" }
+        {
+          "key": "Content-Type",
+          "value": "application/rss+xml; charset=utf-8"
+        },
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=1800"
+        },
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "*"
+        }
       ]
     },
     {
       "source": "/agenda",
       "headers": [
-        { "key": "Cache-Control", "value": "no-store, must-revalidate" },
-        { "key": "Content-Security-Policy", "value": "frame-ancestors 'self' https://*.pipe.run https://app.pipe.run https://pipe.run https://*.piperun.com https://piperun.com" }
+        {
+          "key": "Cache-Control",
+          "value": "no-store, must-revalidate"
+        },
+        {
+          "key": "Content-Security-Policy",
+          "value": "frame-ancestors 'self' https://*.pipe.run https://app.pipe.run https://pipe.run https://*.piperun.com https://piperun.com"
+        }
       ]
     },
     {
       "source": "/agenda/(.*)",
       "headers": [
-        { "key": "Cache-Control", "value": "no-store, must-revalidate" },
-        { "key": "Content-Security-Policy", "value": "frame-ancestors 'self' https://*.pipe.run https://app.pipe.run https://pipe.run https://*.piperun.com https://piperun.com" }
+        {
+          "key": "Cache-Control",
+          "value": "no-store, must-revalidate"
+        },
+        {
+          "key": "Content-Security-Policy",
+          "value": "frame-ancestors 'self' https://*.pipe.run https://app.pipe.run https://pipe.run https://*.piperun.com https://piperun.com"
+        }
       ]
     }
   ]

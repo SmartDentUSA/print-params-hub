@@ -42,7 +42,7 @@ const VARIANT_CONFIG: Record<AgendaVariant, {
   presencial: {
     title: "Próximos Treinamentos Presenciais",
     subtitle: "Confira nossos treinamentos e imersões presenciais com vagas abertas.",
-    canonical: "https://parametros.smartdent.com.br/agenda",
+    canonical: "https://www.smartdent.com.br/agenda",
     metaDescription: "Agenda de treinamentos e imersões presenciais Smart Dent com vagas abertas.",
     modalities: ["presencial"],
     categories: ["treinamento", "imersao"],
@@ -51,7 +51,7 @@ const VARIANT_CONFIG: Record<AgendaVariant, {
   online: {
     title: "Próximos Cursos Online",
     subtitle: "Workshops e webinars ao vivo da Smart Dent com inscrições abertas.",
-    canonical: "https://parametros.smartdent.com.br/agenda/online",
+    canonical: "https://www.smartdent.com.br/agenda/online",
     metaDescription: "Agenda de workshops e webinars online Smart Dent com vagas abertas.",
     modalities: ONLINE_LIVE_MODALITIES,
     categories: ONLINE_LIVE_CATEGORIES,
@@ -725,7 +725,7 @@ function FreshnessIndicator({ updatedAt, fetching }: { updatedAt: number; fetchi
 
 function ShareButton({ turma }: { turma: TurmaComVagas }) {
   const handleShare = () => {
-    const PUBLIC_BASE = "https://parametros.smartdent.com.br";
+    const PUBLIC_BASE = "https://www.smartdent.com.br";
     const path = turma.modality === "presencial" ? "/agenda" : "/agenda/online";
     const url = `${PUBLIC_BASE}${path}?turma=${turma.id}`;
 

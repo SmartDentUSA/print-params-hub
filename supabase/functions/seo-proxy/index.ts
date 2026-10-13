@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { articleText } from "../_shared/article-text.ts";
 import { localizeArticle, hasArticleTranslation, type ArticleLanguage } from "../_shared/article-language.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.0';
@@ -3063,7 +3064,10 @@ Deno.serve(async (req) => {
   const url = new URL(req.url);
   
   // FIXED: Read original path from query parameter (set by Vercel rewrite)
-  const originalPath = url.searchParams.get('originalPath') || '';
+  const requestedPath = url.searchParams.get('originalPath') || '';
+  const originalUrl = new URL(requestedPath || '/', 'https://parametros.smartdent.com.br');
+  const originalPath = originalUrl.pathname;
+  for (const [key, value] of originalUrl.searchParams) if (!url.searchParams.has(key)) url.searchParams.set(key, value);
   const path = originalPath.replace(/^\/+$/, '').replace(/^\//, ''); // Remove leading/trailing slashes
   const segments = path.length === 0 ? [] : path.split('/').filter(Boolean);
   const tab = (url.searchParams.get('tab') || '').toLowerCase();

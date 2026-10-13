@@ -19,7 +19,7 @@ const LOGO_DIM: Array<[number, number]> = [[900, 188], [900, 324], [900, 387], [
 
 type Lang = 'pt' | 'en' | 'es';
 const SITE = typeof window !== 'undefined' && isInstitutionalHost(window.location.hostname)
-  ? 'https://www.smartdent.com.br' : 'https://parametros.smartdent.com.br';
+  ? 'https://www.smartdent.com.br' : 'https://www.smartdent.com.br';
 const STORE = 'https://loja.smartdent.com.br';
 const IMG = 'https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/landing-page-images/';
 const WA_SALES = 'https://api.whatsapp.com/send?phone=5516993831794&text=';
@@ -188,6 +188,13 @@ export default function KbTabInstitucional() {
         <meta property="og:description" content={c.seoDesc} />
         <meta property="og:url" content={url} />
         <meta property="og:type" content="website" />
+        <meta property="og:image" content={new URL(heroImg, 'https://www.smartdent.com.br').href} />
+        <meta property="og:image:alt" content={c.seoTitle} />
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content={c.seoTitle} />
+        <meta name="twitter:description" content={c.seoDesc} />
+        <meta name="twitter:image" content={new URL(heroImg, 'https://www.smartdent.com.br').href} />
+        <link rel="preload" as="image" href={heroImg} fetchPriority="high" />
         <script type="application/ld+json">{JSON.stringify(jsonLd)}</script>
       </Helmet>
       <style>{css}</style>
