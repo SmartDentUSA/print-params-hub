@@ -353,6 +353,68 @@ async function logSpeakerEngagement(
   }
 }
 
+/** Versão pública da lista: sem id interno, e-mail ou CRO; o id vira o slug público. */
+async function publicPros(list: Awaited<ReturnType<typeof listProfessionals>>) {
+  const missing = list.filter((p) => !p.slug).map((p) => p.id);
+  const extra = await slugsFor(missing);
+  return list.map((p) => ({
+    id: p.slug || extra.get(p.id) || "",
+    name: p.name, instagram: p.instagram, photo_url: p.photo_url, specialty: p.specialty, cro: "", mini_bio: p.mini_bio,
+  })).filter((p) => p.id);
+}
+
+const slotKey = (kind: "palestra" | "estande", s: Session) => `${kind}|${s.date}|${String(s.start_time).slice(0, 5)}`;
+const fmtBR = (d?: string) => (d ? d.slice(0, 10).split("-").reverse().join("/") : "");
+
+/** Avisa o dono da agenda (WhatsApp do CS) quando ela é alterada pelo link público. */
+async function notifyOwner(event: any, leadId: string, resumo: string) {
+  try {
+    const { data: lead } = await admin.from("lia_attendances")
+      .select("nome, prof_wa_ddi, prof_wa_number, wa_phone, telefone_normalized")
+      .eq("id", leadId).is("merged_into", null).maybeSingle();
+    if (!lead) return;
+    const raw = (lead.prof_wa_number ? `${lead.prof_wa_ddi || "55"}${lead.prof_wa_number}` : "") || lead.wa_phone || lead.telefone_normalized || "";
+    let to = String(raw).replace(/\D/g, "");
+    if (to.length === 10 || to.length === 11) to = "55" + to;
+    if (to.length < 12) return;
+    const instance = Deno.env.get("CS_EVOLUTION_INSTANCE") || "cs_principal";
+    const { data: cs } = await admin.from("team_members").select("id").eq("evolution_instance_name", instance).maybeSingle();
+    if (!cs) return;
+    const first = String(lead.nome || "").trim().split(" ")[0];
+    const message = `Olá${first ? `, ${first}` : ""}! Sua agenda do evento ${event.name ?? ""} foi alterada.\n\n${resumo}\n\nSe não foi você, responda esta mensagem para avisar a equipe Smart Dent.`;
+    const { error } = await admin.functions.invoke("smart-ops-wa-send", {
+      body: { to, message, lead_id: leadId, team_member_id: cs.id, source: "kol_agenda_alterada", metadata: { event_id: event.id } },
+    });
+    if (error) console.error("[event-speaker-booking] notifyOwner", error.message);
+  } catch (e) {
+    console.error("[event-speaker-booking] notifyOwner", e);
+  }
+}
+
+/** Marca como cancelados os horários informados (linhas kol_talk/kol_stand) e registra kol_schedule_cancelled. */
+async function cancelSlots(event: any, pid: string, talks: Session[], stands: Session[], actor: string) {
+  if (!pid || (!talks.length && !stands.length)) return;
+  const keys = [
+    ...talks.map((s) => `kol_talk:${event.id}:${pid}:${s.date}:${String(s.start_time).slice(0, 5)}`),
+    ...stands.map((s) => `kol_stand:${event.id}:${pid}:${s.date}:${String(s.start_time).slice(0, 5)}`),
+  ];
+  const { data: rows } = await admin.from("lead_activity_log").select("id, event_data")
+    .eq("lead_id", pid).in("event_type", ["kol_talk_scheduled", "kol_stand_scheduled"]).eq("entity_id", String(event.id));
+  const now = new Date().toISOString();
+  for (const r of rows ?? []) {
+    if (!keys.includes(String((r.event_data as any)?.dedupe_key ?? ""))) continue;
+    await admin.from("lead_activity_log")
+      .update({ event_data: { ...(r.event_data ?? {}), status: "cancelado", cancelado_em: now } }).eq("id", r.id);
+  }
+  const n = talks.length + stands.length;
+  await kolLog(pid, "kol_schedule_cancelled", String(event.id), event.name ?? null, {
+    descricao: `${n} horário${n === 1 ? "" : "s"} cancelado${n === 1 ? "" : "s"} · ${event.name ?? ""}`,
+    evento: event.name ?? null,
+    palestras: talks, apoio_comercial: stands, status: "cancelado",
+    dedupe_key: `kol_cancel:${event.id}:${pid}:${Date.now()}`,
+  }, null, actor);
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
@@ -367,16 +429,23 @@ Deno.serve(async (req) => {
     // pertence a um evento específico e, portanto, não exige event_id.
     const caller = await resolveCaller(req, body);
     const isStaff = caller?.kind === "staff";
+    if (caller?.kind === "blocked") {
+      return json({ error: "Muitas tentativas com celular incorreto. Acesso bloqueado por 1 hora.", blocked_until: caller.until }, 429);
+    }
 
     // Fotos públicas dos palestrantes já presentes na agenda/TV (só nome, foto e Instagram)
     if (action === "speaker_photos") {
       const ids = new Set((Array.isArray(body?.ids) ? body.ids : []).slice(0, 80).map(String));
+      for (const sl of (Array.isArray(body?.slugs) ? body.slugs : []).slice(0, 80)) {
+        const id = await idFromRef(String(sl), false);
+        if (id) ids.add(id);
+      }
       const names = new Set((Array.isArray(body?.names) ? body.names : []).slice(0, 80).map((n: unknown) => normName(String(n))));
       const all = await listProfessionals();
       return json({
         professionals: all
           .filter((p) => ids.has(p.id) || names.has(normName(p.name)))
-          .map((p) => ({ id: p.id, name: p.name, photo_url: p.photo_url, instagram: p.instagram })),
+          .map((p) => ({ ...(isStaff ? { id: p.id } : {}), slug: p.slug, name: p.name, photo_url: p.photo_url, instagram: p.instagram })),
       });
     }
 
@@ -407,17 +476,18 @@ Deno.serve(async (req) => {
           instagram_handle: event.instagram_handle,
         },
         days,
-        speakers: publicSpeakers((event.speakers || []) as Speaker[]),
+        speakers: await publicSpeakers((event.speakers || []) as Speaker[], isStaff),
         professionals: isStaff
           ? await listProfessionals()
-          : (await listProfessionals())
-            .filter((p) => caller?.kind !== "kol" || p.id === caller.leadId)
-            .map((p) => ({ id: p.id, name: p.name, instagram: p.instagram, photo_url: p.photo_url, specialty: p.specialty, cro: "", mini_bio: p.mini_bio })),
-        session: caller ? { kind: caller.kind, lead_id: caller.kind === "kol" ? caller.leadId : null } : null,
+          : await publicPros((await listProfessionals()).filter((p) => caller?.kind !== "kol" || p.id === caller.leadId)),
+        session: caller
+          ? { kind: caller.kind, lead_id: caller.kind === "kol" ? (await slugsFor([caller.leadId])).get(caller.leadId) ?? null : null }
+          : null,
       });
     }
 
     if (action === "create_professional") {
+      if (!isStaff) return json({ error: "unauthorized" }, 401);
       const name = String(body?.name ?? "").trim();
       if (name.length < 3) return json({ error: "Informe o nome completo do palestrante." }, 400);
       const email = String(body?.email ?? "").trim().toLowerCase() || null;
@@ -442,7 +512,7 @@ Deno.serve(async (req) => {
       if (email) {
         const { data } = await admin
           .from("lia_attendances")
-          .select("id, nome")
+          .select("*")
           .ilike("email", email)
           .is("merged_into", null)
           .limit(1);
@@ -451,7 +521,7 @@ Deno.serve(async (req) => {
       if (!existing) {
         const { data } = await admin
           .from("lia_attendances")
-          .select("id, nome")
+          .select("*")
           .ilike("nome", name)
           .is("merged_into", null)
           .limit(1);
@@ -481,8 +551,28 @@ Deno.serve(async (req) => {
 
       let professionalId: string;
       if (existing) {
-        const { error } = await admin.from("lia_attendances").update(fields).eq("id", existing.id);
-        if (error) throw error;
+        // Cadastro existente: nunca sobrescreve; só preenche campos vazios e registra antes/depois
+        const empty = (v: unknown) => v === null || v === undefined || String(v).trim() === "";
+        const patch: Record<string, unknown> = {};
+        const antes: Record<string, unknown> = {};
+        for (const [k, v] of Object.entries(fields)) {
+          if (k === "prof_updated_at" || empty(v)) continue;
+          if (empty(existing[k])) { patch[k] = v; antes[k] = existing[k] ?? null; }
+        }
+        // celular é um bloco: só entra se o cadastro não tiver nenhum celular
+        const hasPhone = !empty(existing.prof_wa_number) || !empty(existing.wa_phone) || !empty(existing.telefone_normalized);
+        if (hasPhone) for (const k of ["prof_wa_ddi", "prof_wa_number", "wa_phone", "telefone_raw", "telefone_normalized"]) { delete patch[k]; delete antes[k]; }
+        if (Object.keys(patch).length) {
+          patch.prof_updated_at = new Date().toISOString();
+          const { error } = await admin.from("lia_attendances").update(patch).eq("id", existing.id);
+          if (error) throw error;
+          const depois = { ...patch }; delete depois.prof_updated_at;
+          await kolLog(existing.id, "kol_profile_update", String(event.id), event.name ?? null, {
+            descricao: `Cadastro complementado pela agenda do evento (${Object.keys(depois).length} campo(s) vazio(s))`,
+            antes, depois, origem: "agenda_kol_evento",
+            dedupe_key: `kol_profile_fill:${existing.id}:${Date.now()}`,
+          }, null, actorOf(caller));
+        }
         professionalId = existing.id;
       } else {
         const { data, error } = await admin
@@ -520,11 +610,9 @@ Deno.serve(async (req) => {
     if (action === "book") {
       const name = String(body?.name ?? "").trim();
       const instagram = handleOf(body?.instagram);
-      let professionalId = String(body?.professional_id ?? "").trim();
-      if (caller?.kind === "kol") {
-        if (professionalId && professionalId !== caller.leadId) return json({ error: "forbidden" }, 403);
-        professionalId = caller.leadId;
-      }
+      let professionalId = caller?.kind === "kol"
+        ? caller.leadId
+        : await idFromRef(String(body?.professional_ref ?? body?.professional_id ?? ""), true);
       const rawSlots = Array.isArray(body?.slots) ? body.slots : [];
       const rawSupport = Array.isArray(body?.support_slots) ? body.support_slots : [];
 
@@ -638,6 +726,8 @@ Deno.serve(async (req) => {
         sessions: slots,
         support_sessions: supportSlots,
       };
+      const prevTalks = idx >= 0 ? (list[idx].sessions || []) : [];
+      const prevStands = idx >= 0 ? (list[idx].support_sessions || []) : [];
       if (idx >= 0) list[idx] = entry;
       else list.push(entry);
 
@@ -645,6 +735,18 @@ Deno.serve(async (req) => {
       if (error) throw error;
 
       await logSpeakerEngagement(event, entry.professional_id || "", slots, supportSlots);
+      const newKeys = new Set([...slots.map((x) => slotKey("palestra", x)), ...supportSlots.map((x) => slotKey("estande", x))]);
+      const removedTalks = prevTalks.filter((x) => x?.date && x?.start_time && !newKeys.has(slotKey("palestra", x)));
+      const removedStands = prevStands.filter((x) => x?.date && x?.start_time && !newKeys.has(slotKey("estande", x)));
+      await cancelSlots(event, entry.professional_id || "", removedTalks, removedStands, actorOf(caller));
+      if (caller?.kind === "kol" && entry.professional_id) {
+        const linhas = [
+          ...slots.map((x) => `• Palestra ${fmtBR(x.date)} ${x.start_time}–${x.end_time}`),
+          ...supportSlots.map((x) => `• Estande ${fmtBR(x.date)} ${x.start_time}–${x.end_time}`),
+        ];
+        const canc = removedTalks.length + removedStands.length;
+        await notifyOwner(event, entry.professional_id, `Horários ativos:\n${linhas.join("\n") || "nenhum"}${canc ? `\n\n${canc} horário(s) cancelado(s).` : ""}`);
+      }
       if (entry.professional_id) {
         for (const s of slots) {
           await kolLog(entry.professional_id, "kol_talk_scheduled", String(event.id), event.name ?? null, {
@@ -664,54 +766,72 @@ Deno.serve(async (req) => {
         }
       }
 
-      return json({ ok: true, speakers: publicSpeakers(list) });
+      return json({ ok: true, speakers: await publicSpeakers(list, isStaff) });
     }
 
     if (action === "release") {
       const instagram = handleOf(body?.instagram);
       const name = String(body?.name ?? "").trim();
-      let professionalId = String(body?.professional_id ?? "").trim();
-      if (caller?.kind === "kol") {
-        if (professionalId && professionalId !== caller.leadId) return json({ error: "forbidden" }, 403);
-        professionalId = caller.leadId;
-      }
-      const released = ((event.speakers || []) as Speaker[]).find((s) =>
+      const professionalId = caller?.kind === "kol"
+        ? caller.leadId
+        : await idFromRef(String(body?.professional_ref ?? body?.professional_id ?? ""), true);
+      const matches = (s: Speaker) =>
         (professionalId && s.professional_id === professionalId) ||
         (instagram && handleOf(s.instagram) === instagram) ||
-        (!instagram && !professionalId && normName(s.name) === normName(name))
-      );
-      if (caller?.kind === "kol" && !released) return json({ error: "not_found" }, 404);
-      const list = ((event.speakers || []) as Speaker[]).filter((s) =>
-        !((professionalId && s.professional_id === professionalId) ||
-          (instagram && handleOf(s.instagram) === instagram) ||
-          (!instagram && !professionalId && normName(s.name) === normName(name)))
-      );
+        (!instagram && !professionalId && normName(s.name) === normName(name));
+      const all = (event.speakers || []) as Speaker[];
+      const released = all.find(matches);
+      if (!released) return json({ error: "not_found" }, 404);
+      const pid = professionalId || released.professional_id || "";
+
+      // Lista opcional de horários: [{ date, start_time, type: "palestra" | "estande" }]
+      const rawSel = Array.isArray(body?.slots) ? body.slots : [];
+      const sel = new Set<string>();
+      for (const x of rawSel.slice(0, 80)) {
+        const type = x?.type === "estande" ? "estande" : x?.type === "palestra" ? "palestra" : "";
+        if (!type || !isDate(x?.date) || !isTime(String(x?.start_time ?? "").slice(0, 5))) {
+          return json({ error: "Horário inválido para cancelamento (data, início e tipo palestra/estande)." }, 400);
+        }
+        sel.add(`${type}|${x.date}|${String(x.start_time).slice(0, 5)}`);
+      }
+      const talks = (released.sessions || []).filter((x) => x?.date && x?.start_time);
+      const stands = (released.support_sessions || []).filter((x) => x?.date && x?.start_time);
+      const cancelAll = sel.size === 0;
+      const cTalks = cancelAll ? talks : talks.filter((x) => sel.has(slotKey("palestra", x)));
+      const cStands = cancelAll ? stands : stands.filter((x) => sel.has(slotKey("estande", x)));
+      if (!cancelAll && cTalks.length + cStands.length === 0) return json({ error: "Nenhum dos horários informados está na agenda." }, 404);
+      const keepTalks = talks.filter((x) => !cTalks.includes(x));
+      const keepStands = stands.filter((x) => !cStands.includes(x));
+
+      const list = (keepTalks.length || keepStands.length)
+        ? all.map((s) => (s === released ? { ...s, sessions: keepTalks, support_sessions: keepStands } : s))
+        : all.filter((s) => s !== released);
       const { error } = await admin.from("smartops_events").update({ speakers: list }).eq("id", eventId);
       if (error) throw error;
-      const pid = professionalId || released?.professional_id || "";
+
       if (pid) {
-        // Mantém a linha: marca como cancelado (nunca apaga histórico)
-        const { data: rows } = await admin
-          .from("lead_activity_log")
-          .select("id, event_data")
-          .eq("lead_id", pid)
-          .in("event_type", ["event_participation", "kol_talk_scheduled", "kol_stand_scheduled"])
-          .eq("entity_id", eventId);
-        for (const r of rows ?? []) {
-          await admin.from("lead_activity_log")
-            .update({ event_data: { ...(r.event_data ?? {}), status: "cancelado", cancelado_em: new Date().toISOString() } })
-            .eq("id", r.id);
+        await cancelSlots(event, pid, cTalks, cStands, actorOf(caller));
+        if (keepTalks.length || keepStands.length) {
+          // Recalcula horas da participação só com os horários ativos
+          await logSpeakerEngagement(event, pid, keepTalks, keepStands);
+        } else {
+          const { data: rows } = await admin.from("lead_activity_log").select("id, event_data")
+            .eq("lead_id", pid).eq("event_type", "event_participation").eq("entity_id", eventId);
+          for (const r of rows ?? []) {
+            await admin.from("lead_activity_log")
+              .update({ event_data: { ...(r.event_data ?? {}), status: "cancelado", cancelado_em: new Date().toISOString() } })
+              .eq("id", r.id);
+          }
         }
-        const n = (released?.sessions?.length ?? 0) + (released?.support_sessions?.length ?? 0);
-        await kolLog(pid, "kol_schedule_cancelled", eventId, event.name ?? null, {
-          descricao: `Agenda cancelada · ${event.name ?? ""} (${n} horário${n === 1 ? "" : "s"})`,
-          evento: event.name ?? null,
-          palestras: released?.sessions ?? [], apoio_comercial: released?.support_sessions ?? [],
-          status: "cancelado",
-          dedupe_key: `kol_cancel:${eventId}:${pid}:${Date.now()}`,
-        }, null, actorOf(caller));
+        if (caller?.kind === "kol") {
+          const linhas = [
+            ...cTalks.map((x) => `• Palestra ${fmtBR(x.date)} ${x.start_time} cancelada`),
+            ...cStands.map((x) => `• Estande ${fmtBR(x.date)} ${x.start_time} cancelado`),
+          ];
+          await notifyOwner(event, pid, linhas.join("\n"));
+        }
       }
-      return json({ ok: true, speakers: publicSpeakers(list) });
+      return json({ ok: true, speakers: await publicSpeakers(list, isStaff) });
     }
 
     return json({ error: "unknown_action" }, 400);
