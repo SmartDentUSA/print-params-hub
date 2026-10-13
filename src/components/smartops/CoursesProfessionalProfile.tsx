@@ -17,6 +17,7 @@ import ProfessionalQualifications from "./ProfessionalQualifications";
 import ProfessionalCouponsGenerator from "./ProfessionalCouponsGenerator";
 import ProfessionalKolCommercial, { type KolFormRef, type KolCommissionRule, type KolCoupon } from "./ProfessionalKolCommercial";
 import type { QualificationEntry, UniversityRoleEntry } from "@/lib/mecInstitutions";
+import KolAccessActions from "./courses/KolAccessActions";
 
 type LeadRow = Record<string, any>;
 
@@ -353,6 +354,7 @@ export default function CoursesProfessionalProfile({ initialEmail, startEditing 
                   <Pencil className="w-3 h-3 mr-1" /> Modo edição
                 </Badge>
               )}
+              <KolAccessActions leadId={leadId} />
             </div>
           )}
         </CardContent>
