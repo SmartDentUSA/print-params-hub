@@ -39,7 +39,6 @@ export default async function handler(request: Request) {
         {
           headers: { 'user-agent': request.headers.get('user-agent') || '' },
           signal: controller.signal,
-          cf: { cacheTtl: 3600, cacheEverything: true } as any,
         }
       );
       clearTimeout(timeoutId);
