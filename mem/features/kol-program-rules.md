@@ -12,3 +12,6 @@ type: feature
 - Antes de gerar o contrato, a tela do profissional exige selecionar a instância de WhatsApp e os integrantes do grupo (vendedor responsável e demais team members, todos como administradores).
 - Sem instância e integrantes selecionados, o contrato não é gerado.
 - Quando o contrato é aprovado/assinado, o sistema cria o grupo automaticamente com a instância e os integrantes escolhidos (todos administradores) — não é criação manual.
+
+## Prazos KOL (definidos pelo usuário)
+- Inatividade: 90 dias · Meses sem publicar conteúdo: 2 · Prazo para indicação contar para o KOL: 90 dias.

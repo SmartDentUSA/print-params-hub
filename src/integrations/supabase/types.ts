@@ -8813,48 +8813,301 @@ export type Database = {
           created_at: string
           expires_at: string | null
           id: string
+          ip_hash: string | null
           lead_id: string
           otp_attempts: number
           otp_expires_at: string | null
           otp_hash: string | null
           otp_required: boolean
           phone_key: string
+          phone_last10: string | null
           revoked_at: string | null
           token_hash: string | null
           updated_at: string
+          user_agent: string | null
           verified_at: string | null
         }
         Insert: {
           created_at?: string
           expires_at?: string | null
           id?: string
+          ip_hash?: string | null
           lead_id: string
           otp_attempts?: number
           otp_expires_at?: string | null
           otp_hash?: string | null
           otp_required?: boolean
           phone_key: string
+          phone_last10?: string | null
           revoked_at?: string | null
           token_hash?: string | null
           updated_at?: string
+          user_agent?: string | null
           verified_at?: string | null
         }
         Update: {
           created_at?: string
           expires_at?: string | null
           id?: string
+          ip_hash?: string | null
           lead_id?: string
           otp_attempts?: number
           otp_expires_at?: string | null
           otp_hash?: string | null
           otp_required?: boolean
           phone_key?: string
+          phone_last10?: string | null
           revoked_at?: string | null
           token_hash?: string | null
           updated_at?: string
+          user_agent?: string | null
           verified_at?: string | null
         }
         Relationships: []
+      }
+      kol_commission_template_items: {
+        Row: {
+          active_from: string | null
+          category: string | null
+          created_at: string
+          id: string
+          kind: string
+          percent: number
+          product_id: string | null
+          subcategory: string | null
+          template_id: string
+        }
+        Insert: {
+          active_from?: string | null
+          category?: string | null
+          created_at?: string
+          id?: string
+          kind?: string
+          percent?: number
+          product_id?: string | null
+          subcategory?: string | null
+          template_id: string
+        }
+        Update: {
+          active_from?: string | null
+          category?: string | null
+          created_at?: string
+          id?: string
+          kind?: string
+          percent?: number
+          product_id?: string | null
+          subcategory?: string | null
+          template_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "kol_commission_template_items_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "kol_commission_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      kol_commission_templates: {
+        Row: {
+          created_at: string
+          id: string
+          is_default: boolean
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_default?: boolean
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_default?: boolean
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      kol_contract_templates: {
+        Row: {
+          active: boolean
+          body_md: string
+          created_at: string
+          id: string
+          updated_at: string
+          version: string
+        }
+        Insert: {
+          active?: boolean
+          body_md: string
+          created_at?: string
+          id?: string
+          updated_at?: string
+          version: string
+        }
+        Update: {
+          active?: boolean
+          body_md?: string
+          created_at?: string
+          id?: string
+          updated_at?: string
+          version?: string
+        }
+        Relationships: []
+      }
+      kol_contracts: {
+        Row: {
+          acceptance_method: string
+          accepted_phone_last10: string | null
+          accepted_text_hash: string | null
+          adjust_notes: string | null
+          body_rendered: string | null
+          created_at: string
+          created_by: string | null
+          document: string | null
+          id: string
+          image_scope: Json | null
+          image_term_signed_at: string | null
+          lead_id: string
+          legal_name: string | null
+          pdf_url: string | null
+          pending_fields: Json
+          person_type: string | null
+          pix_key: string | null
+          revoked_at: string | null
+          sent_at: string | null
+          signed_at: string | null
+          signed_ip: string | null
+          signed_user_agent: string | null
+          status: string
+          template_version: string
+          updated_at: string
+          wa_group_error: string | null
+          wa_group_id: string | null
+          wa_group_members: Json
+          wa_instance_name: string | null
+        }
+        Insert: {
+          acceptance_method?: string
+          accepted_phone_last10?: string | null
+          accepted_text_hash?: string | null
+          adjust_notes?: string | null
+          body_rendered?: string | null
+          created_at?: string
+          created_by?: string | null
+          document?: string | null
+          id?: string
+          image_scope?: Json | null
+          image_term_signed_at?: string | null
+          lead_id: string
+          legal_name?: string | null
+          pdf_url?: string | null
+          pending_fields?: Json
+          person_type?: string | null
+          pix_key?: string | null
+          revoked_at?: string | null
+          sent_at?: string | null
+          signed_at?: string | null
+          signed_ip?: string | null
+          signed_user_agent?: string | null
+          status?: string
+          template_version: string
+          updated_at?: string
+          wa_group_error?: string | null
+          wa_group_id?: string | null
+          wa_group_members?: Json
+          wa_instance_name?: string | null
+        }
+        Update: {
+          acceptance_method?: string
+          accepted_phone_last10?: string | null
+          accepted_text_hash?: string | null
+          adjust_notes?: string | null
+          body_rendered?: string | null
+          created_at?: string
+          created_by?: string | null
+          document?: string | null
+          id?: string
+          image_scope?: Json | null
+          image_term_signed_at?: string | null
+          lead_id?: string
+          legal_name?: string | null
+          pdf_url?: string | null
+          pending_fields?: Json
+          person_type?: string | null
+          pix_key?: string | null
+          revoked_at?: string | null
+          sent_at?: string | null
+          signed_at?: string | null
+          signed_ip?: string | null
+          signed_user_agent?: string | null
+          status?: string
+          template_version?: string
+          updated_at?: string
+          wa_group_error?: string | null
+          wa_group_id?: string | null
+          wa_group_members?: Json
+          wa_instance_name?: string | null
+        }
+        Relationships: []
+      }
+      kol_equipment_loans: {
+        Row: {
+          contract_id: string | null
+          created_at: string
+          id: string
+          lead_id: string
+          product_id: string | null
+          product_name: string | null
+          released_at: string | null
+          returned_at: string | null
+          serial_number: string | null
+          status: string
+          updated_at: string
+          value_brl: number | null
+        }
+        Insert: {
+          contract_id?: string | null
+          created_at?: string
+          id?: string
+          lead_id: string
+          product_id?: string | null
+          product_name?: string | null
+          released_at?: string | null
+          returned_at?: string | null
+          serial_number?: string | null
+          status?: string
+          updated_at?: string
+          value_brl?: number | null
+        }
+        Update: {
+          contract_id?: string | null
+          created_at?: string
+          id?: string
+          lead_id?: string
+          product_id?: string | null
+          product_name?: string | null
+          released_at?: string | null
+          returned_at?: string | null
+          serial_number?: string | null
+          status?: string
+          updated_at?: string
+          value_brl?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "kol_equipment_loans_contract_id_fkey"
+            columns: ["contract_id"]
+            isOneToOne: false
+            referencedRelation: "kol_contracts"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       kol_portal_attempts: {
         Row: {
