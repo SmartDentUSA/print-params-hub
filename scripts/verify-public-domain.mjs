@@ -8,3 +8,8 @@ assert.equal(publicUrl('https://parametros.smartdent.com.br.evil.test/f/a'),'htt
 assert.equal(publicUrl('javascript:alert(1)'),'javascript:alert(1)');
 assert.ok(publicText('<loc>https://parametros.smartdent.com.br/base-conhecimento</loc>').includes('https://www.smartdent.com.br/base-conhecimento'));
 console.log('PASS: public links preserve paths, query strings and fragments; operational routes and external domains preserved');
+
+const { legacyPublicRedirect,LEGACY_CATALOG_DESTINATION }=await import('../src/utils/legacyPublicRoutes.mjs');
+for(const path of ['/caracterização','/caracterizacao','/caracteriza%C3%A7%C3%A3o','/CARACTERIZAÇÃO/'])assert.equal(legacyPublicRedirect(path),LEGACY_CATALOG_DESTINATION);
+for(const path of ['/anycubic','/elegoo','/phrozen','/turma123','/f/form','/%ZZ'])assert.equal(legacyPublicRedirect(path),null);
+console.log('PASS: legacy characterization aliases redirect to the resin catalog; printer brands and course paths remain intact');

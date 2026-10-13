@@ -1,6 +1,39 @@
 {
   "redirects": [
     {
+      "source": "/caracterização",
+      "has": [
+        {
+          "type": "host",
+          "value": "(?:www\\.smartdent\\.com\\.br|smartdent\\.com\\.br|[a-z0-9-]+\\.vercel\\.app)"
+        }
+      ],
+      "destination": "/base-conhecimento?tab=catalogo&cat=resinas_3d",
+      "permanent": true
+    },
+    {
+      "source": "/caracterizacao",
+      "has": [
+        {
+          "type": "host",
+          "value": "(?:www\\.smartdent\\.com\\.br|smartdent\\.com\\.br|[a-z0-9-]+\\.vercel\\.app)"
+        }
+      ],
+      "destination": "/base-conhecimento?tab=catalogo&cat=resinas_3d",
+      "permanent": true
+    },
+    {
+      "source": "/caracteriza%C3%A7%C3%A3o",
+      "has": [
+        {
+          "type": "host",
+          "value": "(?:www\\.smartdent\\.com\\.br|smartdent\\.com\\.br|[a-z0-9-]+\\.vercel\\.app)"
+        }
+      ],
+      "destination": "/base-conhecimento?tab=catalogo&cat=resinas_3d",
+      "permanent": true
+    },
+    {
       "source": "/base-conhecimento/undefined/:slug*",
       "destination": "/base-conhecimento/f/:slug*",
       "permanent": true
