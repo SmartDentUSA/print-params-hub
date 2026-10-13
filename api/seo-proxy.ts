@@ -1,5 +1,5 @@
-import { isInstitutionalHost } from '../src/utils/institutionalHost';
-import { institutionalHomepage } from '../src/utils/institutionalHomepage';
+import { isInstitutionalHost } from '../src/utils/institutionalHost.js';
+import { institutionalHomepage } from '../src/utils/institutionalHomepage.js';
 
 export const config = { runtime: 'edge' };
 

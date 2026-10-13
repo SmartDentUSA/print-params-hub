@@ -1933,7 +1933,7 @@
     },
     {
       "source": "/f/:path*",
-      "destination": "/index.html"
+      "destination": "/_static-fallback/index.html"
     },
     {
       "source": "/api/v1/:path*",
@@ -1960,7 +1960,23 @@
     },
     {
       "source": "/((?!api/|.*\\.[a-zA-Z0-9]+$).*)",
-      "destination": "/index.html"
+      "destination": "/_static-fallback/index.html"
+    },
+    {
+      "source": "/index.html",
+      "destination": "/_static-fallback/index.html"
+    },
+    {
+      "source": "/robots.txt",
+      "destination": "/_static-fallback/robots.txt"
+    },
+    {
+      "source": "/sitemap.xml",
+      "destination": "/_static-fallback/sitemap.xml"
+    },
+    {
+      "source": "/sitemap-index.xml",
+      "destination": "/_static-fallback/sitemap-index.xml"
     }
   ],
   "headers": [

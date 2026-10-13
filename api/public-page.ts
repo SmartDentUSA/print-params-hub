@@ -16,7 +16,7 @@ export default async function handler(req: VercelRequest,res: VercelResponse) {
   const screenshot = req.query.format === 'png' && process.env.VERCEL_ENV !== 'production';
   let browser: Awaited<ReturnType<typeof puppeteer.launch>> | undefined;
   try {
-    const entry = await readFile(resolve(dist,'index.html'),'utf8');
+    const entry = await readFile(resolve(dist,'_static-fallback/index.html'),'utf8');
     browser = await puppeteer.launch({args:chromium.args,defaultViewport:{width:1365,height:900},executablePath:await chromium.executablePath(),headless:true});
     const page = await browser.newPage();
     if (screenshot && req.query.viewport === 'mobile') await page.setViewport({width:390,height:844});
@@ -49,7 +49,7 @@ export default async function handler(req: VercelRequest,res: VercelResponse) {
           const readOnlyRpc = request.method() === 'POST' && url.hostname === 'okeogjgqijbfkudfjadz.supabase.co' && url.pathname === '/rest/v1/rpc/fn_public_course_professionals';
           if (!['GET','HEAD'].includes(request.method()) && !readOnlyRpc) return request.respond({status:204,body:''});
           if (url.origin === PUBLIC_ORIGIN) {
-            let file = request.resourceType() === 'document' ? resolve(dist,'index.html') : resolve(dist,decodeURIComponent(url.pathname).replace(/^\//,''));
+            let file = request.resourceType() === 'document' ? resolve(dist,'_static-fallback/index.html') : resolve(dist,decodeURIComponent(url.pathname).replace(/^\//,''));
             if (!file.startsWith(dist + sep)) return request.abort();
             const body = file.endsWith('index.html') ? Buffer.from(entry) : await readFile(file);
             return request.respond({status:200,contentType:types[extname(file)] || 'application/octet-stream',body});
