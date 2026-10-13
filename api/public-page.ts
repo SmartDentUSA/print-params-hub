@@ -11,7 +11,10 @@ const types: Record<string,string> = {'.html':'text/html; charset=utf-8','.js':'
 
 export default async function handler(req: VercelRequest,res: VercelResponse) {
   if (!['GET','HEAD'].includes(req.method || 'GET')) return res.status(405).setHeader('Allow','GET, HEAD').end();
-  const path = publicLocation(typeof req.query.path === 'string' ? req.query.path : '/');
+  const input = new URL(typeof req.query.path === 'string' ? req.query.path : '/', PUBLIC_ORIGIN);
+  // Vercel keeps the visitor's query separately from the rewritten path argument.
+  for (const key of ['tab','cat','country','shell']) if (typeof req.query[key] === 'string') input.searchParams.set(key,req.query[key] as string);
+  const path = publicLocation(input.pathname+input.search);
   if (!path) return res.status(404).setHeader('Content-Type','text/html; charset=utf-8').send('<!doctype html><html lang="pt-BR"><title>404</title><h1>Página não encontrada</h1></html>');
   const screenshot = req.query.format === 'png' && process.env.VERCEL_ENV !== 'production';
   let browser: Awaited<ReturnType<typeof puppeteer.launch>> | undefined;
