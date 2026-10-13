@@ -276,6 +276,18 @@ Deno.serve(async (req) => {
     const caller = await resolveCaller(req, body);
     const isStaff = caller?.kind === "staff";
 
+    // Fotos públicas dos palestrantes já presentes na agenda/TV (só nome, foto e Instagram)
+    if (action === "speaker_photos") {
+      const ids = new Set((Array.isArray(body?.ids) ? body.ids : []).slice(0, 80).map(String));
+      const names = new Set((Array.isArray(body?.names) ? body.names : []).slice(0, 80).map((n: unknown) => normName(String(n))));
+      const all = await listProfessionals();
+      return json({
+        professionals: all
+          .filter((p) => ids.has(p.id) || names.has(normName(p.name)))
+          .map((p) => ({ id: p.id, name: p.name, photo_url: p.photo_url, instagram: p.instagram })),
+      });
+    }
+
     if (action === "professionals") {
       if (!isStaff) return json({ error: "unauthorized" }, 401);
       return json({ professionals: await listProfessionals() });
@@ -304,7 +316,11 @@ Deno.serve(async (req) => {
         },
         days,
         speakers: publicSpeakers((event.speakers || []) as Speaker[]),
-        professionals: isStaff ? await listProfessionals() : [],
+        professionals: isStaff
+          ? await listProfessionals()
+          : caller?.kind === "kol"
+            ? (await listProfessionals()).filter((p) => p.id === caller.leadId)
+            : [],
         session: caller ? { kind: caller.kind, lead_id: caller.kind === "kol" ? caller.leadId : null } : null,
       });
     }
