@@ -1,3 +1,4 @@
+import { getPublicSiteOrigin } from "@/utils/publicSite";
 import { Helmet } from "react-helmet-async";
 import { useCompanyData } from "@/hooks/useCompanyData";
 
@@ -6,10 +7,11 @@ export function OrganizationSchema() {
 
   if (!company) return null;
 
+  const baseUrl = getPublicSiteOrigin();
   const schema: any = {
     "@context": "https://schema.org",
     "@type": ["Organization", "LocalBusiness", "Store"],
-    "@id": "https://parametros.smartdent.com.br/#organization",
+    "@id": `${baseUrl}/#organization`,
     
     // Core Identity
     "name": company.name,
@@ -54,7 +56,6 @@ export function OrganizationSchema() {
         "@type": "ContactPoint",
         "telephone": company.contact.whatsapp,
         "contactType": "customer support",
-        "contactOption": "TollFree",
       } : null,
     ].filter(Boolean),
     
@@ -67,23 +68,6 @@ export function OrganizationSchema() {
       "postalCode": company.contact.postal_code,
       "addressCountry": company.contact.country,
     },
-    
-    // GeoCoordinates (LocalBusiness SEO - Google Maps/Local Pack)
-    "geo": {
-      "@type": "GeoCoordinates",
-      "latitude": -22.0154,
-      "longitude": -47.8911
-    },
-    
-    // Opening Hours (LocalBusiness SEO)
-    "openingHoursSpecification": [
-      {
-        "@type": "OpeningHoursSpecification",
-        "dayOfWeek": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
-        "opens": "08:00",
-        "closes": "18:00"
-      }
-    ],
     
     // Telephone for LocalBusiness
     "telephone": company.contact.phone,
@@ -98,35 +82,9 @@ export function OrganizationSchema() {
       company.social_media.tiktok,
     ].filter(Boolean),
     
-    // ⭐ CRITICAL FOR GOOGLE: Aggregate Ratings
-    "aggregateRating": company.reviews_reputation?.google_rating ? {
-      "@type": "AggregateRating",
-      "ratingValue": company.reviews_reputation.google_rating,
-      "reviewCount": company.reviews_reputation.google_review_count || company.reviews_reputation.testimonial_count,
-      "bestRating": "5",
-      "worstRating": "1",
-    } : undefined,
-    
-    // FASE 2: Awards and Certifications (E-E-A-T Enhancement)
-    "award": [
-      "Certificação ISO 13485 - Dispositivos Médicos",
-      "Registro ANVISA para resinas odontológicas",
-      ...(company.corporate?.awards?.map(a => `${a.name} (${a.year}) - ${a.issuer}`) || [])
-    ].filter(Boolean),
-    "accreditation": company.corporate?.certifications || [],
-    "certifications": [
-      {
-        "@type": "Certification",
-        "name": "ISO 13485",
-        "description": "Sistema de gestão da qualidade para dispositivos médicos"
-      },
-      {
-        "@type": "Certification", 
-        "name": "ANVISA",
-        "description": "Registro sanitário para comercialização de resinas odontológicas no Brasil"
-      }
-    ],
-    
+    // Emit only explicit profile records; do not infer certifications or scored reviews.
+    "award": company.corporate?.awards?.map(a => [a.name,a.year,a.issuer].filter(Boolean).join(' — ')),
+    "hasCertification": company.corporate?.certifications?.map(name => ({ "@type":"Certification", "name":name })),
     // Corporate Data
     "numberOfEmployees": company.business?.number_of_employees,
     "duns": company.business?.duns_number,
@@ -168,11 +126,11 @@ export function OrganizationSchema() {
 
     // Parent Organization (entidade controladora EUA — MMTech NA LLC)
     "parentOrganization": (() => {
-      const us = company.legal_entities?.find(e => e.country === 'US');
+      const us = company.legal_entities?.find(e => e.country === 'US' && (e as any).relationship_type === 'parent');
       if (!us) return undefined;
       return {
         "@type": "Organization",
-        "@id": "https://parametros.smartdent.com.br/#organization-us",
+        "@id": `${baseUrl}/#organization-us`,
         "name": us.legal_name,
         "alternateName": us.trade_name,
         "url": us.website,
@@ -201,7 +159,7 @@ export function OrganizationSchema() {
     // Founders (Person Schema completo — E-E-A-T máximo)
     "founder": company.founders?.map(f => ({
       "@type": "Person",
-      "@id": `https://parametros.smartdent.com.br/#founder-${f.name.toLowerCase().replace(/\s+/g, '-').normalize('NFD').replace(/[\u0300-\u036f]/g, '')}`,
+      "@id": `${baseUrl}/#founder-${f.name.toLowerCase().replace(/\s+/g, '-').normalize('NFD').replace(/[\u0300-\u036f]/g, '')}`,
       "name": f.name,
       "honorificSuffix": f.title,
       "jobTitle": [f.role_br, f.role_us].filter(Boolean).join(' / '),

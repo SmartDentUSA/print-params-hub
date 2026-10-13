@@ -27,7 +27,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const page = await browser.newPage()
       const isAuto = height === 'auto' || height === 0
       await page.setViewport({ width, height: isAuto ? 1500 : (height as number) })
-      await page.setContent(html, { waitUntil: 'networkidle0', timeout: 30000 })
+      await page.setContent(html, { waitUntil: 'domcontentloaded', timeout: 30000 })
+      await page.waitForNetworkIdle({ idleTime: 500, timeout: 30000 })
 
       let finalHeight: number = isAuto ? 1500 : (height as number)
       if (isAuto) {

@@ -1,3 +1,4 @@
+import { getPublicSiteOrigin } from '@/utils/publicSite';
 import { articleText, seoTerms } from '@/utils/seoText';
 import { Helmet } from 'react-helmet-async';
 import { useProductReviews } from '@/hooks/useProductReviews';
@@ -340,7 +341,7 @@ const generateSPINFromCatalog = (
 };
 
 export function KnowledgeSEOHead({ content, category, videos = [], relatedDocuments = [], currentLang = 'pt' }: KnowledgeSEOHeadProps) {
-  const baseUrl = 'https://parametros.smartdent.com.br';
+  const baseUrl = getPublicSiteOrigin();
   const { data: companyData } = useCompanyData();
   
   // 🆕 Fetch products for Review Schema
@@ -626,18 +627,6 @@ export function KnowledgeSEOHead({ content, category, videos = [], relatedDocume
     "image": content.og_image_url,
     "datePublished": new Date(content.created_at).toISOString(),
     "dateModified": new Date(content.updated_at).toISOString(),
-    // Fix Google Search Console: Product/Article sem offers
-    "offers": {
-      "@type": "Offer",
-      "price": "0",
-      "priceCurrency": "BRL",
-      "availability": "https://schema.org/InStock",
-      "seller": {
-        "@type": "Organization",
-        "name": "SmartDent",
-        "url": "https://parametros.smartdent.com.br"
-      }
-    },
     "articleBody": articleBody,
     "wordCount": wordCount,
     "inLanguage": htmlLang,
@@ -707,7 +696,7 @@ export function KnowledgeSEOHead({ content, category, videos = [], relatedDocume
     },
     "publisher": {
       "@type": "Organization",
-      "@id": "https://parametros.smartdent.com.br/#organization",
+      "@id": `${baseUrl}/#organization`,
       "name": companyData?.name || "Smart Dent",
       "url": companyData?.website_url,
       "logo": {
@@ -963,37 +952,8 @@ export function KnowledgeSEOHead({ content, category, videos = [], relatedDocume
     }))
   } : null;
 
-  // 🆕 FASE 4: Product Review Schema para Produtos Recomendados
-  const productReviewSchemas = products.slice(0, 3).map((product) => ({
-    "@context": "https://schema.org",
-    "@type": "Review",
-    "itemReviewed": {
-      "@type": "Product",
-      "name": product.name,
-      "brand": { 
-        "@type": "Brand", 
-        "name": product.product_category || "Smart Dent" 
-      },
-      "sku": product.external_id,
-      "image": product.image_url,
-      "offers": {
-        "@type": "Offer",
-        "price": product.price,
-        "priceCurrency": product.currency || "BRL",
-        "availability": "https://schema.org/InStock"
-      },
-      "category": product.product_category || product.category
-    },
-    "reviewRating": {
-      "@type": "Rating",
-      "ratingValue": product.rating || 5,
-      "bestRating": 5,
-      "worstRating": 1
-    },
-    "author": articleSchema.author,
-    "reviewBody": `Produto recomendado por ${content.authors?.name || 'Smart Dent'} no contexto de ${displayTitle}. ${product.product_subcategory ? `Categoria: ${product.product_subcategory}.` : ''}`,
-    "datePublished": new Date(content.created_at).toISOString()
-  }));
+  // Recommendations are mentions, not fabricated scored reviews.
+  const productReviewSchemas: never[] = [];
 
   // Detectar tipo de Twitter Card baseado no conteúdo
   const twitterCardType = videos.length > 0 
