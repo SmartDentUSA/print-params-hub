@@ -24,7 +24,7 @@ const COURSE_FIELDS = [
   "price_brl", "promo_price_brl", "installments", "workload_hours", "duration_days",
   "start_date", "end_date", "start_time", "end_time", "schedule",
   "country", "state", "city", "venue", "address", "online_platform", "meeting_link",
-  "max_students", "enrolled_count", "registration_url", "whatsapp_ddi", "whatsapp_number",
+  "max_students", "registration_url", "whatsapp_ddi", "whatsapp_number",
   "instagram", "course_platform", "video_url", "target_audience", "prerequisites",
   "syllabus", "materials_included", "certificate", "language", "tags", "status",
   "public_visible",
@@ -112,6 +112,21 @@ Deno.serve(async (req) => {
         return json({ error: "O título do curso é obrigatório." }, 400);
       }
       const id = typeof input.id === "string" && input.id ? input.id : null;
+      // enrolled_count é controlado só pelo sistema de inscrições (nunca pelo KOL)
+      delete (payload as Record<string, unknown>).enrolled_count;
+      if (payload.max_students != null) {
+        const m = Number(payload.max_students);
+        if (!Number.isInteger(m) || m < 1 || m > 5000) {
+          return json({ error: "Número máximo de alunos inválido (1 a 5000)." }, 400);
+        }
+        if (id) {
+          const { data: cur } = await admin.from("professional_courses")
+            .select("enrolled_count").eq("id", id).eq("producer_lead_id", leadId).maybeSingle();
+          if (cur && Number(cur.enrolled_count ?? 0) > m) {
+            return json({ error: `Já existem ${cur.enrolled_count} inscritos; o máximo não pode ser menor.` }, 400);
+          }
+        }
+      }
       if (id) {
         const { data, error } = await admin
           .from("professional_courses")
