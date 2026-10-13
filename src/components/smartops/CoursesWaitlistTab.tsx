@@ -161,17 +161,17 @@ export function CoursesWaitlistTab() {
                 <h4 className="text-sm font-semibold mb-1">Inscritos</h4>
                 <Table>
                   <TableHeader><TableRow>
-                    <TableHead>Nome</TableHead><TableHead>Data da inscrição</TableHead><TableHead>Status</TableHead><TableHead className="text-right">Ação</TableHead>
+                    <TableHead>Nome</TableHead><TableHead>Data da inscrição</TableHead><TableHead>Status</TableHead><TableHead>Cliente Smart Dent</TableHead><TableHead>Scanner</TableHead><TableHead>Impressora</TableHead><TableHead className="text-right">Ação</TableHead>
                   </TableRow></TableHeader>
                   <TableBody>
-                    {t.enrollments.length === 0 && <TableRow><TableCell colSpan={4} className="text-muted-foreground">Nenhum inscrito.</TableCell></TableRow>}
+                    {t.enrollments.length === 0 && <TableRow><TableCell colSpan={7} className="text-muted-foreground">Nenhum inscrito.</TableCell></TableRow>}
                     {t.enrollments.map((e: any) => {
                       const st = (STATUS_CONFIG as any)[e.status];
                       return (
                         <TableRow key={e.id} className={e.status === "cancelado" ? "opacity-60" : ""}>
                           <TableCell>{e.person_name || "—"}</TableCell>
                           <TableCell>{fmt(e.enrolled_at || e.created_at)}</TableCell>
-                          <TableCell><Badge variant="outline" className={st?.badge}>{st?.label ?? e.status}</Badge></TableCell>
+                          <TableCell><Badge variant="outline" className={st?.badge}>{st?.label ?? e.status}</Badge></TableCell><TableCell><ClientCell info={e.info} /></TableCell><TableCell><EquipCell name={e.info?.scanner ?? null} at={e.info?.scannerAt ?? null} /></TableCell><TableCell><EquipCell name={e.info?.printer ?? null} at={e.info?.printerAt ?? null} /></TableCell>
                           <TableCell className="text-right">
                             {e.status !== "cancelado" && (
                               <Button size="sm" variant="outline" className="gap-1" disabled={busy === e.id}
@@ -191,15 +191,15 @@ export function CoursesWaitlistTab() {
                 <h4 className="text-sm font-semibold mb-1">Lista de espera</h4>
                 <Table>
                   <TableHeader><TableRow>
-                    <TableHead className="w-10">#</TableHead><TableHead>Nome</TableHead><TableHead>Data da inscrição</TableHead><TableHead>Aviso de vaga</TableHead><TableHead className="text-right">Ação</TableHead>
+                    <TableHead className="w-10">#</TableHead><TableHead>Nome</TableHead><TableHead>Data da inscrição</TableHead><TableHead>Cliente Smart Dent</TableHead><TableHead>Scanner</TableHead><TableHead>Impressora</TableHead><TableHead>Aviso de vaga</TableHead><TableHead className="text-right">Ação</TableHead>
                   </TableRow></TableHeader>
                   <TableBody>
-                    {t.waitlist.length === 0 && <TableRow><TableCell colSpan={5} className="text-muted-foreground">Ninguém na lista de espera.</TableCell></TableRow>}
+                    {t.waitlist.length === 0 && <TableRow><TableCell colSpan={8} className="text-muted-foreground">Ninguém na lista de espera.</TableCell></TableRow>}
                     {t.waitlist.map((w: any, i: number) => (
                       <TableRow key={w.id}>
                         <TableCell>{i + 1}</TableCell>
                         <TableCell>{w.person_name}<div className="text-xs text-muted-foreground">{w.phone || ""}</div></TableCell>
-                        <TableCell>{fmt(w.created_at)}</TableCell>
+                        <TableCell>{fmt(w.created_at)}</TableCell><TableCell><ClientCell info={w.info} /></TableCell><TableCell><EquipCell name={w.info?.scanner ?? null} at={w.info?.scannerAt ?? null} /></TableCell><TableCell><EquipCell name={w.info?.printer ?? null} at={w.info?.printerAt ?? null} /></TableCell>
                         <TableCell>
                           {w.vacancy_notified_at ? <Badge variant="secondary">Avisado {fmt(w.vacancy_notified_at)}</Badge>
                             : w.vacancy_error ? <Badge variant="destructive" title={w.vacancy_error}>Falhou</Badge> : "—"}
