@@ -29,7 +29,7 @@
 - LIA context validates the form's success_redirect_url as a WhatsApp group; optional group CTA follows seller CTA without changing ingestion.
 - Internal forms and LIA resolve interest from their catalog binding or selected product button so CRM uses exact product names; Meta ingestion stays unchanged.
 
-- KOL card summaries use existing totals and profile validity; attribution stays unchanged.
+- KOL cards preserve attribution; commission UI groups catalog keys by portfolio stages without renaming stored rules, preventing calculation changes.
 - Public courses read professional profiles only through a restricted RPC limited to producers of public courses or approved Smart Dent recommendations; anonymous visitors never read the leads table directly.
 - Imported Smart Dent trainings become editable professional_courses copies linked by source_smartops_course_id; public pages hide the synthetic entry once a copy exists, and professional public names live in prof_display_name so CRM sync cannot overwrite them.
 - Waitlist cancel/promote run server-side in smartops-waitlist-manage; cancelling an enrollment notifies only the oldest not-yet-notified waitlist entry via the course CS instance, keeping vacancy messages single and auditable.

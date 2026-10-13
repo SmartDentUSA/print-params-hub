@@ -11,6 +11,7 @@ import { Plus, Trash2, Ticket } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { PRODUCT_CATALOG_ENTITY_TYPES } from "@/lib/catalogEntityTypes";
 import ProfessionalKolPerformance from "./ProfessionalKolPerformance";
+import { groupKolCatalogCategories } from "@/lib/kolPortfolioGroups";
 
 export interface KolFormRef {
   id: string;
@@ -91,7 +92,7 @@ export default function ProfessionalKolCommercial({
       for (const x of (cr ?? []) as any[]) {
         const c = String(x.product_category).trim();
         if (!m.has(c)) m.set(c, new Set());
-        if (x.product_subcategory) m.get(c)!.add(String(x.product_subcategory).trim());
+        if (x.product_subcategory) m.get(c)?.add(String(x.product_subcategory).trim());
       }
       setCats(
         Array.from(m.entries())
@@ -107,6 +108,7 @@ export default function ProfessionalKolCommercial({
     () => forms.filter((f) => !formIds.some((s) => s.id === f.id)),
     [forms, formIds],
   );
+  const portfolioGroups = useMemo(() => groupKolCatalogCategories(cats), [cats]);
 
   const addForm = () => {
     const f = forms.find((x) => x.id === pendingForm);
@@ -349,8 +351,12 @@ export default function ProfessionalKolCommercial({
           {cats.length === 0 ? (
             <p className="text-xs text-muted-foreground">Carregando categorias do portfólio...</p>
           ) : (
-            <div className="space-y-1">
-              {cats.flatMap((c) => {
+            <div className="space-y-5">
+              {portfolioGroups.map((group) => (
+                <section key={group.label} className="space-y-2">
+                  <h3 className="border-b pb-2 text-sm font-semibold text-foreground">{group.label}</h3>
+                  {group.categories.length === 0 && <p className="text-xs text-muted-foreground">Sem categorias cadastradas nesta etapa.</p>}
+                  {group.categories.flatMap((c) => {
                 const rows: { category: string; subcategory: string | null; label: string; isSub: boolean }[] = [
                   { category: c.cat, subcategory: null, label: c.cat, isSub: false },
                   ...c.subs.map((s) => ({ category: c.cat, subcategory: s as string | null, label: s, isSub: true })),
@@ -401,7 +407,9 @@ export default function ProfessionalKolCommercial({
                     </div>
                   );
                 });
-              })}
+                  })}
+                </section>
+              ))}
             </div>
           )}
         </div>
