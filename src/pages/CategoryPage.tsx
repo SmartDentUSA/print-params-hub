@@ -79,7 +79,7 @@ const CategoryPage = () => {
   const ogImage = category.og_image_url || "/og-image.jpg";
   const extraData = category.extra_data || {};
 
-  const baseUrl = "https://parametros.smartdent.com.br";
+  const baseUrl = "https://www.smartdent.com.br";
   const canonicalUrl = `${baseUrl}/categorias/${slug}`;
   const keywords = [category.name, extraData.category, extraData.subcategory, companyName].filter(Boolean).join(", ");
 

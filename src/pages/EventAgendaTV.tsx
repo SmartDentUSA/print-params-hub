@@ -8,7 +8,7 @@ import { applyFreshSpeakerPhotos } from "@/lib/eventSpeakerPhotos";
 const SMARTDENT_LOGO_URL =
   "https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/h7stblp3qxn_1760720051743.png";
 
-const AGENDA_SHORT_URL = "parametros.smartdent.com.br/CIPRO";
+const AGENDA_SHORT_URL = "www.smartdent.com.br/CIPRO";
 const AGENDA_URL = `https://${AGENDA_SHORT_URL}`;
 
 /* ------------------------------------------------------------------ */

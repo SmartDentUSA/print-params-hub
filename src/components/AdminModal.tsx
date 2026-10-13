@@ -940,7 +940,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
       selectedResource = systemResources.knowledgeArticles.find((a: any) => a.id === resourceId);
       if (selectedResource) {
         generatedLabel = 'Leia: ' + selectedResource.title;
-        generatedUrl = `https://parametros.smartdent.com.br/base-de-conhecimento/${selectedResource.slug}`;
+        generatedUrl = `https://www.smartdent.com.br/base-conhecimento/${selectedResource.slug}`;
       }
     }
     
@@ -986,7 +986,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
       selectedResource = systemResources.knowledgeArticles.find((a: any) => a.id === resourceId);
       if (selectedResource) {
         generatedLabel = 'Leia: ' + selectedResource.title;
-        generatedUrl = `https://parametros.smartdent.com.br/base-de-conhecimento/${selectedResource.slug}`;
+        generatedUrl = `https://www.smartdent.com.br/base-conhecimento/${selectedResource.slug}`;
       }
     }
     
@@ -1032,7 +1032,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
       selectedResource = systemResources.knowledgeArticles.find((a: any) => a.id === resourceId);
       if (selectedResource) {
         generatedLabel = 'Leia: ' + selectedResource.title;
-        generatedUrl = `https://parametros.smartdent.com.br/base-de-conhecimento/${selectedResource.slug}`;
+        generatedUrl = `https://www.smartdent.com.br/base-conhecimento/${selectedResource.slug}`;
       }
     }
     

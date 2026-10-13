@@ -282,7 +282,7 @@ export function SmartOpsFormBuilder() {
   }, []);
 
 
-  const PRODUCTION_BASE = "https://parametros.smartdent.com.br";
+  const PRODUCTION_BASE = "https://www.smartdent.com.br";
 
   const fetchForms = async () => {
     const [{ data, error }, { data: professionals, error: referralError }] = await Promise.all([
@@ -734,7 +734,7 @@ export function SmartOpsFormBuilder() {
     "publisher": {
       "@type": "Organization",
       "name": "SmartDent 3D",
-      "url": "https://parametros.smartdent.com.br"
+      "url": "https://www.smartdent.com.br"
     }
   }
   </script>
@@ -995,7 +995,7 @@ export function SmartOpsFormBuilder() {
               </div>
               <div>
                 <label className="text-xs font-medium">URL de redirecionamento após envio</label>
-                <Input value={metaRedirect} onChange={(e) => setMetaRedirect(e.target.value)} placeholder="https://parametros.smartdent.com.br/obrigado" />
+                <Input value={metaRedirect} onChange={(e) => setMetaRedirect(e.target.value)} placeholder="https://www.smartdent.com.br/obrigado" />
                 <p className="text-xs text-muted-foreground mt-1">Se preenchido, redireciona o lead para esta URL após o envio.</p>
               </div>
 

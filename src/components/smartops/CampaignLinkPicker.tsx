@@ -93,7 +93,7 @@ async function fetchFormShortLinks(): Promise<FormShortLink[]> {
     .filter(Boolean) as FormShortLink[];
 }
 
-const PUBLIC_SITE = "https://parametros.smartdent.com.br";
+const PUBLIC_SITE = "https://www.smartdent.com.br";
 
 interface DynamicLink {
   id: string;

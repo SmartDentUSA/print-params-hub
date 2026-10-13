@@ -246,16 +246,16 @@ export default function SupportResources() {
       <Helmet>
         <title>Catálogo de Produtos e Documentos Técnicos | Smart Dent</title>
         <meta name="description" content="Catálogo Smart Dent: resinas 3D, equipamentos odontológicos, fichas técnicas, FISPQ e documentos de uso clínico em um só lugar." />
-        <link rel="canonical" href="https://parametros.smartdent.com.br/support-resources" />
+        <link rel="canonical" href="https://www.smartdent.com.br/support-resources" />
         <meta property="og:title" content="Catálogo de Produtos e Documentos Técnicos | Smart Dent" />
         <meta property="og:description" content="Resinas 3D, equipamentos odontológicos e documentos técnicos Smart Dent reunidos em um catálogo unificado." />
         <meta property="og:type" content="website" />
-        <meta property="og:url" content="https://parametros.smartdent.com.br/support-resources" />
+        <meta property="og:url" content="https://www.smartdent.com.br/support-resources" />
         <script type="application/ld+json">{JSON.stringify({
           "@context": "https://schema.org",
           "@type": "ItemList",
           "name": "Catálogo Smart Dent",
-          "url": "https://parametros.smartdent.com.br/support-resources",
+          "url": "https://www.smartdent.com.br/support-resources",
           "numberOfItems": filteredProducts.length || products.length,
           "itemListElement": (filteredProducts.length ? filteredProducts : products).slice(0, 30).map((p, i) => ({
             "@type": "ListItem",
@@ -405,7 +405,7 @@ export default function SupportResources() {
                             {product.source === "resin" && product.slug && (
                               <div className="mb-2">
                                 <Button size="sm" variant="tech" className="text-xs h-7 px-2 w-full" asChild>
-                                  <a href="https://parametros.smartdent.com.br/" target="_blank" rel="noopener noreferrer">
+                                  <a href="https://www.smartdent.com.br/" target="_blank" rel="noopener noreferrer">
                                     <BookOpen className="w-3 h-3 mr-1" />
                                     Parametrização
                                   </a>

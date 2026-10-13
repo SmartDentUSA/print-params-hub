@@ -227,6 +227,7 @@ function renderMarkdown(text: string): React.ReactNode {
 // Known production base URLs to convert to relative paths
 const SITE_BASES = [
   'https://parametros.smartdent.com.br',
+  'https://www.smartdent.com.br',
   'https://print-params-hub.lovable.app',
 ];
 
