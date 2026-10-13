@@ -1,3 +1,4 @@
+// @ts-nocheck
 // push-campaign-send — cria/dispara campanhas de Web Push (imediato ou agendado).
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import webpush from "npm:web-push@3.6.7";

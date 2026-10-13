@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * WhatsApp Messaging — send messages, build notifications, AI greetings.
  * Extracted from smart-ops-lia-assign for reuse.

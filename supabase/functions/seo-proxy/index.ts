@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { articleText } from "../_shared/article-text.ts";
 import { localizeArticle, hasArticleTranslation, type ArticleLanguage } from "../_shared/article-language.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.0';

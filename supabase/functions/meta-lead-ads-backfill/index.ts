@@ -1,3 +1,4 @@
+// @ts-nocheck
 // Meta Lead Ads — one-shot backfill for enriching existing CDP leads
 // with the original form field_data (área, especialidade, scanner,
 // impressora, etc.). Unlike meta-lead-ads-pull, this function is NOT

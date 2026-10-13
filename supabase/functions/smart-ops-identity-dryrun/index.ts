@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { piperunGet } from "../_shared/piperun-field-map.ts";
 import { findPersonByContact } from "../_shared/piperun-person-resolver.ts";

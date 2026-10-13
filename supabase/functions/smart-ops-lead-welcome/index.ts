@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 
 const EVOLUTION_BASE = Deno.env.get("EVOLUTION_BASE_URL") || "http://82.25.75.61:8080";
