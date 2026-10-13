@@ -15,7 +15,8 @@ const handlerUrl = await moduleUrl('../api/seo-proxy.ts', { '../src/utils/instit
 const { isInstitutionalHost } = await import(hostUrl);
 const { default: handler } = await import(handlerUrl);
 assert.ok(isInstitutionalHost('www.smartdent.com.br'));
-for (const host of ['admin.smartdent.com.br', 'parametros.smartdent.com.br', 'smartdent.com.br', 'www.smartdent.com.br.example.org']) assert.equal(isInstitutionalHost(host), false);
+assert.ok(isInstitutionalHost('smartdent.com.br'));
+for (const host of ['admin.smartdent.com.br', 'parametros.smartdent.com.br', 'www.smartdent.com.br.example.org']) assert.equal(isInstitutionalHost(host), false);
 const originalFetch = globalThis.fetch;
 let upstreamCalls = 0;
 globalThis.fetch = async () => { upstreamCalls++; return new Response('existing proxy response'); };

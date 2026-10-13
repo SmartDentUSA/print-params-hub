@@ -1,0 +1,34 @@
+import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
+import { publicLocation, publicCanonical, cleanSchema, cleanStructuredData, safeJson, isPublicDeliveryHost } from '../server/public-site.mjs';
+for(const value of ['//evil.test','/admin','/smartops','/base-conhecimento/%2e%2e/admin','/base-conhecimento/a/../admin','/base-conhecimento?tab=invalid','/api/render-template']) assert.equal(publicLocation(value),null,value);
+assert.equal(publicLocation('/base-conhecimento/c/artigo?tab=artigos&utm_source=test'),'/base-conhecimento/c/artigo?tab=artigos');
+assert.equal(publicLocation('/base-conhecimento?tab=videos&shell=v1'),'/base-conhecimento?tab=videos&shell=v1');
+assert.equal(publicCanonical('/base-conhecimento?tab=institucional'),'https://www.smartdent.com.br/');
+assert.equal(publicCanonical('/base-conhecimento?tab=videos'),'https://www.smartdent.com.br/base-conhecimento?tab=videos');
+assert.equal(publicCanonical('/base-conhecimento/c/artigo?tab=artigos'),'https://www.smartdent.com.br/base-conhecimento/c/artigo');
+assert.equal(isPublicDeliveryHost('www.smartdent.com.br.evil.test'),false);
+assert.equal(isPublicDeliveryHost('parametros.smartdent.com.br'),false);
+assert.equal(cleanSchema({'@type':'Offer',availability:'InStock'}),undefined);
+const product=cleanSchema({'@type':'Product',name:'Produto',brand:{'@type':'Brand',name:'Smart Dent'},offers:{'@type':'Offer',price:10,availability:'InStock',shippingDetails:{price:0}}});
+assert.equal(product.brand,undefined);assert.equal(product.offers.price,10);assert.equal(product.offers.availability,undefined);assert.equal(product.offers.shippingDetails,undefined);
+assert.equal(cleanSchema({'@type':'Product',offers:{'@type':'Offer',price:0}}).offers,undefined);
+assert.equal(cleanSchema({'@type':'TechArticle',offers:{'@type':'Offer',price:0}}).offers,undefined);
+assert.equal(cleanSchema({'@type':'Organization',name:'Nova Empresa'}),undefined);
+const original='<h1>Texto original</h1><p>Conteúdo preservado</p>';
+assert.equal(cleanStructuredData(original+'<script type="application/ld+json">{bad json}</script>'),original);
+const injected=safeJson({text:'</script><script>alert(1)</script>'});
+assert.ok(!injected.includes('</script>'));assert.equal(JSON.parse(injected).text,'</script><script>alert(1)</script>');
+const cfg=JSON.parse(await readFile(new URL('../vercel.json',import.meta.url),'utf8'));
+assert.ok(cfg.rewrites.some(r=>r.source==='/' && r.destination==='/api/public-page?path=/'));
+assert.ok(cfg.rewrites.some(r=>r.source==='/sitemap-conhecimento-pt.xml' && r.destination.includes('public-discovery')));
+assert.ok(cfg.rewrites.some(r=>r.has?.some(h=>h.value==='s.smartdent.com.br')),'Short links must retain their own routing');
+for(const r of cfg.rewrites.filter(r=>r.destination.includes('/api/public-page') || r.destination.includes('/api/public-discovery'))) {
+ const pattern=new RegExp('^(?:'+r.has[0].value+')$');
+ for(const host of ['admin.smartdent.com.br','parametros.smartdent.com.br','s.smartdent.com.br','www.smartdent.com.br.evil.test']) assert.equal(pattern.test(host),false);
+}
+const renderer=await readFile(new URL('../api/public-page.ts',import.meta.url),'utf8');
+assert.ok(renderer.includes("if (!['GET','HEAD'].includes(request.method()) && !readOnlyRpc)"),'Server rendering must not execute writes');
+assert.ok(!renderer.includes('req.headers.cookie'),'Viewer cookies must never be forwarded');
+assert.ok(renderer.includes("res.status(503)"),'A failure must not become a successful empty page');
+console.log('PASS: public route isolation, canonical URLs, truthful schema, XSS serialization, short links and fail-closed delivery');

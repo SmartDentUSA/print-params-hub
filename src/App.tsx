@@ -82,6 +82,13 @@ function RootSlugGate() {
   return <Index />;
 }
 
+function KnowledgePathGate({ lang }: { lang: 'pt'|'en'|'es' }) {
+  const { categoryLetter } = useParams();
+  return /^[a-z]$/i.test(categoryLetter || '')
+    ? <KnowledgeBase lang={lang} />
+    : <KnowledgeArticleRedirect slugOverride={categoryLetter} langOverride={lang} />;
+}
+
 function RouteFallback() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-surface">
@@ -149,7 +156,7 @@ const App = () => (
       <Route path="/base-conhecimento" element={<KnowledgeBase lang="pt" />} />
       <Route path="/base-conhecimento/calculadora-roi" element={<ROICalculatorPage />} />
       <Route path="/base-conhecimento/calculadora-roi/:slug" element={<ROICalculatorPage />} />
-      <Route path="/base-conhecimento/:categoryLetter" element={<KnowledgeBase lang="pt" />} />
+      <Route path="/base-conhecimento/:categoryLetter" element={<KnowledgePathGate lang="pt" />} />
       <Route path="/base-conhecimento/:categoryLetter/:contentSlug" element={<KnowledgeBase lang="pt" />} />
       {/* Fallback: slug-only (resolves category and redirects) */}
       <Route path="/base-conhecimento/:slug" element={<KnowledgeArticleRedirect />} />
@@ -176,7 +183,7 @@ const App = () => (
       <Route path="/en/knowledge-base" element={<KnowledgeBase lang="en" />} />
       <Route path="/en/knowledge-base/roi-calculator" element={<ROICalculatorPage />} />
       <Route path="/en/knowledge-base/roi-calculator/:slug" element={<ROICalculatorPage />} />
-      <Route path="/en/knowledge-base/:categoryLetter" element={<KnowledgeBase lang="en" />} />
+      <Route path="/en/knowledge-base/:categoryLetter" element={<KnowledgePathGate lang="en" />} />
       <Route path="/en/knowledge-base/:categoryLetter/:contentSlug" element={<KnowledgeBase lang="en" />} />
       <Route path="/en/knowledge-base/:slug" element={<KnowledgeArticleRedirect />} />
       
@@ -184,7 +191,7 @@ const App = () => (
       <Route path="/es/base-conocimiento" element={<KnowledgeBase lang="es" />} />
       <Route path="/es/base-conocimiento/calculadora-roi" element={<ROICalculatorPage />} />
       <Route path="/es/base-conocimiento/calculadora-roi/:slug" element={<ROICalculatorPage />} />
-      <Route path="/es/base-conocimiento/:categoryLetter" element={<KnowledgeBase lang="es" />} />
+      <Route path="/es/base-conocimiento/:categoryLetter" element={<KnowledgePathGate lang="es" />} />
       <Route path="/es/base-conocimiento/:categoryLetter/:contentSlug" element={<KnowledgeBase lang="es" />} />
       <Route path="/es/base-conocimiento/:slug" element={<KnowledgeArticleRedirect />} />
       

@@ -163,6 +163,7 @@ export function useKnowledge() {
         .from('knowledge_contents')
         .select('*, knowledge_categories(*), authors(*)')
         .eq('slug', slug)
+        .eq('active', true)
         .single();
       
       if (error) throw error;

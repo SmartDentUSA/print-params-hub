@@ -1,3 +1,4 @@
+import { getPublicSiteOrigin } from "@/utils/publicSite";
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
@@ -109,6 +110,7 @@ const ProductPage = () => {
           .eq("slug", slug)
           .eq("active", true)
           .eq("approved", true)
+          .eq("visible_in_ui", true)
           .eq("catalog_documents.active", true)
           .maybeSingle();
 
@@ -177,7 +179,7 @@ const ProductPage = () => {
   const features = extraData.features || [];
   const faqs = extraData.faqs || [];
 
-  const baseUrl = "https://parametros.smartdent.com.br";
+  const baseUrl = getPublicSiteOrigin();
   const canonicalUrl = `${baseUrl}/produtos/${slug}`;
   const keywordsStr = product.keywords?.join(", ") || `${product.name}, ${companyName}`;
 
@@ -198,15 +200,14 @@ const ProductPage = () => {
     "@type": "Product",
     "name": product.name,
     "description": metaDescription,
-    "image": ogImage,
-    "brand": { "@type": "Brand", "name": companyName },
-    "sku": product.id,
-    ...(product.price && {
+    ...(product.image_url && { "image": product.image_url }),
+    ...(product.extra_data?.brand && { "brand": { "@type": "Brand", "name": product.extra_data.brand } }),
+    ...(product.extra_data?.sku && { "sku": product.extra_data.sku }),
+    ...(Number(product.promo_price ?? product.price) > 0 && {
       "offers": {
         "@type": "Offer",
         "priceCurrency": product.currency || "BRL",
-        "price": product.promo_price || product.price,
-        "availability": "https://schema.org/InStock",
+        "price": product.promo_price ?? product.price,
         "url": product.cta_1_url || canonicalUrl
       }
     })

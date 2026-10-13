@@ -8,8 +8,9 @@ import { getKnowledgeBasePath } from '@/utils/i18nPaths';
  * Fallback route for /base-conhecimento/:slug (without category letter).
  * Looks up the article by slug, resolves the category letter, and redirects.
  */
-export default function KnowledgeArticleRedirect() {
-  const { slug } = useParams<{ slug: string }>();
+export default function KnowledgeArticleRedirect({ slugOverride, langOverride }: { slugOverride?: string; langOverride?: 'pt'|'en'|'es' } = {}) {
+  const params = useParams<{ slug: string }>();
+  const slug = slugOverride || params.slug;
   const navigate = useNavigate();
   const { language } = useLanguage();
 
@@ -24,7 +25,7 @@ export default function KnowledgeArticleRedirect() {
         .eq('active', true)
         .maybeSingle();
 
-      const basePath = getKnowledgeBasePath(language);
+      const basePath = getKnowledgeBasePath(langOverride || language);
       const letter = (article as any)?.category?.letter?.toLowerCase();
 
       if (letter) {
@@ -36,7 +37,7 @@ export default function KnowledgeArticleRedirect() {
     };
 
     resolve();
-  }, [slug, language, navigate]);
+  }, [slug, language, langOverride, navigate]);
 
   return null;
 }
