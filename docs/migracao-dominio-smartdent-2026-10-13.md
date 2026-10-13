@@ -39,13 +39,13 @@ Não deve existir CNAME e A simultaneamente para o mesmo nome www.
 - A tela DNS Records solicitou A @ → 216.198.79.1.
 - Foi orientado substituir somente o destino do registro A @, de 212.85.6.6 para 216.198.79.1.
 
-PENDÊNCIA: a última consulta ainda retornou A @ → 212.85.6.6 e misconfigured=true. Não houve confirmação de salvamento/propagação dessa última troca. Não registrar a migração do domínio sem www como concluída até validá-la.
+CONFIRMADO em 13/10/2026: a captura da KingHost mostrou A @ → 216.198.79.1. A consulta posterior da Vercel confirmou configuredBy=A, aValues=[216.198.79.1], ausência de conflitos e misconfigured=false. O apontamento DNS do domínio sem www está validado. Ainda conferir o redirecionamento HTTPS e a preservação dos caminhos/consultas no navegador.
 
 ## Configuração final desejada
 
 | Tipo | Nome | Destino | Situação nesta revisão |
 |---|---|---|---|
-| A | @ | 216.198.79.1 | Solicitada pela Vercel; ainda não confirmada |
+| A | @ | 216.198.79.1 | Confirmada pela consulta da Vercel |
 | A | www | 216.198.79.1 | Confirmada |
 | A | www | 64.29.17.1 | Confirmada |
 
