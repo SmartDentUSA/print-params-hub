@@ -188,6 +188,13 @@ export default function KbTabInstitucional() {
         <meta property="og:description" content={c.seoDesc} />
         <meta property="og:url" content={url} />
         <meta property="og:type" content="website" />
+        <meta property="og:image" content={new URL(heroImg, 'https://www.smartdent.com.br').href} />
+        <meta property="og:image:alt" content={c.seoTitle} />
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content={c.seoTitle} />
+        <meta name="twitter:description" content={c.seoDesc} />
+        <meta name="twitter:image" content={new URL(heroImg, 'https://www.smartdent.com.br').href} />
+        <link rel="preload" as="image" href={heroImg} fetchPriority="high" />
         <script type="application/ld+json">{JSON.stringify(jsonLd)}</script>
       </Helmet>
       <style>{css}</style>
