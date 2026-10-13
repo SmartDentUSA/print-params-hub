@@ -171,6 +171,10 @@ export default function EventSpeakerBooking() {
   const [activeDay, setActiveDay] = useState<string>("");
 
   const [personId, setPersonId] = useState<string>("");
+  const [kolPhone, setKolPhone] = useState<string>(() => {
+    try { return localStorage.getItem("kol-agenda:phone") || ""; } catch { return ""; }
+  });
+  const [isStaffSession, setIsStaffSession] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
 
   // Modal de tema + duração por horário
@@ -221,6 +225,7 @@ export default function EventSpeakerBooking() {
       setSpeakers(res.speakers || []);
       setProfessionals(res.professionals || []);
       if (res.session?.kind === "kol" && res.session.lead_id) setPersonId(res.session.lead_id);
+      setIsStaffSession(res.session?.kind === "staff");
       setActiveDay((cur) => cur || (res.days?.[0] ?? ""));
     } catch (e: any) {
       setError(e?.message || "Não foi possível carregar a agenda.");
@@ -347,11 +352,16 @@ export default function EventSpeakerBooking() {
   const persist = useCallback(
     async (slots: Session[], support: Session[] = mySupport) => {
       if (!person) return;
+      if (!isStaffSession && !kolToken && kolPhone.replace(/\D/g, "").length < 10) {
+        toast.error("Informe seu celular com DDD para confirmar a agenda.");
+        return false;
+      }
       setSaving(true);
       try {
         const res = await call({
           action: slots.length || support.length ? "book" : "release",
           professional_id: person.id,
+          kol_phone: kolPhone,
           name: person.name,
           instagram: person.instagram,
           photo_url: person.photo_url,
@@ -365,6 +375,7 @@ export default function EventSpeakerBooking() {
         });
         setSpeakers(res.speakers || []);
         try {
+          if (kolPhone) localStorage.setItem("kol-agenda:phone", kolPhone);
           localStorage.setItem(`kol-agenda:${eventId}`, JSON.stringify({ professional_id: person.id }));
         } catch { /* ignore */ }
         return true;
@@ -376,7 +387,7 @@ export default function EventSpeakerBooking() {
         setSaving(false);
       }
     },
-    [call, person, eventId, load, mySupport],
+    [call, person, eventId, load, mySupport, kolPhone, kolToken, isStaffSession],
   );
 
   function openSlot(date: string, time: string) {
@@ -571,6 +582,18 @@ export default function EventSpeakerBooking() {
                 <Plus className="mr-1.5 h-4 w-4" /> Novo
               </Button>
             </div>
+
+            {person && !isStaffSession && !kolToken && (
+              <div className="space-y-1">
+                <Input
+                  value={kolPhone}
+                  onChange={(e) => setKolPhone(e.target.value)}
+                  placeholder="Seu celular com DDD (confirma que é você)"
+                  inputMode="tel"
+                />
+                <p className="text-xs text-muted-foreground">Use o mesmo celular do seu cadastro de profissional.</p>
+              </div>
+            )}
 
             {person && (
               <div className="flex items-center gap-3 rounded-lg border bg-card p-3">

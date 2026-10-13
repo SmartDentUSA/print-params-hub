@@ -52,6 +52,23 @@ async function resolveCaller(req: Request, body: any): Promise<Caller> {
       if (lead && String(raw ?? "").replace(/\D/g, "").length >= 10) return { kind: "kol", leadId: lead.id };
     }
   }
+  // KOL pelo celular: o celular informado precisa bater (últimos 10 dígitos) com o do cadastro
+  const phoneKey = String(body?.kol_phone ?? "").replace(/\D/g, "").slice(-10);
+  const pid = String(body?.professional_id ?? "");
+  if (phoneKey.length === 10 && pid) {
+    const { data: lead } = await admin
+      .from("lia_attendances")
+      .select("id, prof_wa_ddi, prof_wa_number, wa_phone, telefone_normalized")
+      .eq("id", pid)
+      .is("merged_into", null)
+      .maybeSingle();
+    if (lead) {
+      const keys = [`${lead.prof_wa_ddi ?? ""}${lead.prof_wa_number ?? ""}`, lead.wa_phone, lead.telefone_normalized]
+        .map((v) => String(v ?? "").replace(/\D/g, "").slice(-10))
+        .filter((k) => k.length === 10);
+      if (keys.includes(phoneKey)) return { kind: "kol", leadId: lead.id };
+    }
+  }
   return null;
 }
 
@@ -318,15 +335,14 @@ Deno.serve(async (req) => {
         speakers: publicSpeakers((event.speakers || []) as Speaker[]),
         professionals: isStaff
           ? await listProfessionals()
-          : caller?.kind === "kol"
-            ? (await listProfessionals()).filter((p) => p.id === caller.leadId)
-            : [],
+          : (await listProfessionals())
+            .filter((p) => caller?.kind !== "kol" || p.id === caller.leadId)
+            .map((p) => ({ id: p.id, name: p.name, instagram: p.instagram, photo_url: p.photo_url, specialty: p.specialty, cro: "", mini_bio: p.mini_bio })),
         session: caller ? { kind: caller.kind, lead_id: caller.kind === "kol" ? caller.leadId : null } : null,
       });
     }
 
     if (action === "create_professional") {
-      if (!isStaff) return json({ error: "unauthorized" }, 401);
       const name = String(body?.name ?? "").trim();
       if (name.length < 3) return json({ error: "Informe o nome completo do palestrante." }, 400);
       const email = String(body?.email ?? "").trim().toLowerCase() || null;
@@ -423,7 +439,7 @@ Deno.serve(async (req) => {
     }
 
     if ((action === "book" || action === "release") && !caller) {
-      return json({ error: "unauthorized" }, 401);
+      return json({ error: "Celular não confere com o cadastro do profissional. Confira o número ou fale com a equipe." }, 401);
     }
 
     if (action === "book") {
