@@ -371,8 +371,56 @@ const TIMELINE_CATEGORIES: { key: string; label: string; emoji: string }[] = [
   { key: "nps", label: "NPS", emoji: "⭐" },
   { key: "formulario", label: "Formulários", emoji: "📝" },
   { key: "curso", label: "Cursos", emoji: "🎓" },
+  { key: "kol", label: "KOL", emoji: "🤝" },
   { key: "sistema", label: "Sistema", emoji: "⚙️" },
 ];
+
+const KOL_EVENTS: Record<string, [string, string]> = {
+  kol_profile_created: ["🆕", "Perfil KOL criado"],
+  kol_data_autofilled: ["✍️", "Dados do KOL atualizados"],
+  kol_commission_template_applied: ["📋", "Modelo de comissão aplicado"],
+  kol_commission_rule_changed: ["⚖️", "Regra de comissão alterada"],
+  kol_equipment_loaned: ["📦", "Equipamento emprestado"],
+  kol_equipment_returned: ["↩️", "Equipamento devolvido"],
+  kol_contract_draft_generated: ["📝", "Minuta de contrato gerada"],
+  kol_contract_sent: ["📨", "Contrato enviado"],
+  kol_contract_adjust_requested: ["🔁", "Ajuste de contrato solicitado"],
+  kol_contract_signed: ["✅", "Contrato assinado"],
+  kol_contract_revoked: ["🚫", "Contrato revogado"],
+  kol_image_term_signed: ["🖼️", "Termo de imagem assinado"],
+  kol_portal_unlocked: ["🔓", "Portal KOL liberado"],
+  kol_portal_login: ["🔑", "Acesso ao portal KOL"],
+  kol_portal_login_failed: ["⛔", "Falha de acesso ao portal KOL"],
+  kol_event_invited: ["✉️", "Convidado para evento"],
+  kol_event_invite_accepted: ["👍", "Convite de evento aceito"],
+  kol_event_invite_declined: ["👎", "Convite de evento recusado"],
+  kol_talk_scheduled: ["🎤", "Palestra agendada"],
+  kol_stand_scheduled: ["🏪", "Turno de estande agendado"],
+  kol_schedule_cancelled: ["❎", "Agenda cancelada"],
+  kol_event_completed: ["🏁", "Evento concluído"],
+  kol_course_draft_saved: ["💾", "Rascunho de curso salvo"],
+  kol_course_submitted: ["📤", "Curso enviado para aprovação"],
+  kol_course_changes_requested: ["✏️", "Ajustes no curso solicitados"],
+  kol_course_published: ["🎓", "Curso publicado"],
+  kol_course_unpublished: ["🙈", "Curso despublicado"],
+  kol_referral_lead_attributed: ["🔗", "Lead indicado atribuído"],
+  kol_referral_deal_won: ["🏆", "Indicação virou venda"],
+  kol_commission_accrued: ["💰", "Comissão apurada"],
+  kol_commission_payable: ["🧾", "Comissão a pagar"],
+  kol_nfse_received: ["📑", "NFS-e recebida"],
+  kol_commission_paid: ["💸", "Comissão paga"],
+  kol_commission_reversed: ["↪️", "Comissão estornada"],
+  event_participation: ["🎤", "Participação em evento"],
+};
+
+/** Eventos KOL ganham categoria própria e descrição curta vinda do event_data. */
+function withKolCategory<T extends { event_type: string; category: string; description: string | null; event_data: Record<string, unknown> }>(ev: T): T {
+  if (!(ev.event_type in KOL_EVENTS)) return ev;
+  const d = ev.event_data || {};
+  const status = d.status === "cancelado" ? " · cancelado" : "";
+  const desc = typeof d.descricao === "string" ? d.descricao : ev.description;
+  return { ...ev, category: "kol", description: desc ? `${desc}${status}` : status.slice(3) || null };
+}
 
 const TIMELINE_EMOJI: Record<string, string> = {
   crm_deal_created: "🆕",
@@ -395,6 +443,7 @@ const TIMELINE_EMOJI: Record<string, string> = {
   astron_enrollment: "🎓",
   cognitive_analysis: "🧠",
   page_view: "👁️",
+  ...Object.fromEntries(Object.entries(KOL_EVENTS).map(([k, v]) => [k, v[0]])),
 };
 
 const TIMELINE_LABEL: Record<string, string> = {
@@ -411,6 +460,7 @@ const TIMELINE_LABEL: Record<string, string> = {
   ecommerce_boleto_expired: "Boleto vencido",
   sellflux_tag_applied: "Tag SellFlux aplicada",
   page_view: "Visitou página",
+  ...Object.fromEntries(Object.entries(KOL_EVENTS).map(([k, v]) => [k, v[1]])),
 };
 
 function TimelineItem({ event }: { event: TimelineEvent }) {
@@ -540,7 +590,7 @@ export function KanbanLeadDetail({ lead, open, onClose }: KanbanLeadDetailProps)
       setSellerMsgs(logs.filter((l) => SELLER_TO_LEAD_TYPES.includes(l.tipo || "")));
       setLiaInteractions((r2.data || []) as AgentInteraction[]);
       setWhatsappMsgs((r3.data || []) as WhatsAppMsg[]);
-      setTimelineEvents(((r4.data || []) as unknown) as TimelineEvent[]);
+      setTimelineEvents((((r4.data || []) as unknown) as TimelineEvent[]).map(withKolCategory));
       setNpsRows(((r5.data || []) as unknown) as NpsRow[]);
       setLoadingMsgs(false);
     });
@@ -570,7 +620,7 @@ export function KanbanLeadDetail({ lead, open, onClose }: KanbanLeadDetailProps)
             source_channel: (raw.source_channel as string) ?? null,
             value_numeric: (raw.value_numeric as number) ?? null,
           };
-          setTimelineEvents((prev) => [newEvent, ...prev]);
+          setTimelineEvents((prev) => [withKolCategory(newEvent), ...prev]);
         }
       )
       .subscribe();

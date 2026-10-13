@@ -14,6 +14,7 @@ import { normalizeInstructorName } from "@/lib/instructorNameMatch";
 import { cn } from "@/lib/utils";
 import { fetchPurchaseSummaries, EMPTY_SUMMARY, type PurchaseSummary } from "@/hooks/useProfessionalPurchaseSummary";
 import ProfessionalKolCardStats from "./ProfessionalKolCardStats";
+import KolPhonePendingDialog, { useKolPhonePending } from "./courses/KolPhonePendingDialog";
 import { sanitizeEquipmentLabel } from "@/utils/equipmentLabel";
 
 function fmtBRL(v: number): string {
@@ -124,6 +125,8 @@ type RecommendedCourse = { id: string; title: string; start_date: string | null;
 export default function CoursesPage() {
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
+  const [phonePendingOpen, setPhonePendingOpen] = useState(false);
+  const { data: phonePending = [] } = useKolPhonePending();
   const [professionals, setProfessionals] = useState<Professional[]>([]);
   const [wonEquip, setWonEquip] = useState<Record<string, { scanner?: string; impressora?: string }>>({});
   const [modalOpen, setModalOpen] = useState(false);
@@ -286,10 +289,17 @@ export default function CoursesPage() {
             <p className="text-sm text-muted-foreground">KOLs cadastrados e cursos</p>
           </div>
         </div>
-        <Button onClick={openNew}>
-          <Plus className="w-4 h-4 mr-2" /> Adicionar profissional
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={() => setPhonePendingOpen(true)}>
+            Pendências de celular
+            {phonePending.length > 0 && <Badge variant="destructive" className="ml-2">{phonePending.length}</Badge>}
+          </Button>
+          <Button onClick={openNew}>
+            <Plus className="w-4 h-4 mr-2" /> Adicionar profissional
+          </Button>
+        </div>
       </div>
+      <KolPhonePendingDialog open={phonePendingOpen} onOpenChange={setPhonePendingOpen} />
 
       {loading ? (
         <div className="flex items-center justify-center py-12 text-muted-foreground">

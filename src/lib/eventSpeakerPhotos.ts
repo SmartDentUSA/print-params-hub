@@ -31,7 +31,11 @@ export async function applyFreshSpeakerPhotos<T extends AnySpeaker>(
   if (list.length === 0) return list as T[];
   try {
     const { data, error } = await supabase.functions.invoke("event-speaker-booking", {
-      body: { action: "professionals" },
+      body: {
+        action: "speaker_photos",
+        ids: list.map((s) => s.professional_id).filter(Boolean),
+        names: list.map((s) => s.name).filter(Boolean),
+      },
     });
     if (error) return list as T[];
     const pros = ((data as any)?.professionals ?? []) as {

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -153,6 +153,14 @@ const emptyNew = {
 
 export default function EventSpeakerBooking() {
   const { eventId = "" } = useParams();
+  const [searchParams] = useSearchParams();
+  const kolToken = useMemo(() => {
+    const t = searchParams.get("token") || "";
+    try {
+      if (t) sessionStorage.setItem("kol-portal-token", t);
+      return t || sessionStorage.getItem("kol-portal-token") || "";
+    } catch { return t; }
+  }, [searchParams]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -186,7 +194,7 @@ export default function EventSpeakerBooking() {
   const call = useCallback(
     async (payload: Record<string, unknown>) => {
       const { data, error } = await supabase.functions.invoke(FN, {
-        body: { event_id: eventId, ...payload },
+        body: { event_id: eventId, ...(kolToken ? { kol_token: kolToken } : {}), ...payload },
       });
       if (error) {
         const ctx: any = (error as any).context;
@@ -200,7 +208,7 @@ export default function EventSpeakerBooking() {
       if ((data as any)?.error) throw new Error((data as any).error);
       return data as any;
     },
-    [eventId],
+    [eventId, kolToken],
   );
 
   const load = useCallback(async () => {
@@ -212,6 +220,7 @@ export default function EventSpeakerBooking() {
       setDays(res.days || []);
       setSpeakers(res.speakers || []);
       setProfessionals(res.professionals || []);
+      if (res.session?.kind === "kol" && res.session.lead_id) setPersonId(res.session.lead_id);
       setActiveDay((cur) => cur || (res.days?.[0] ?? ""));
     } catch (e: any) {
       setError(e?.message || "Não foi possível carregar a agenda.");

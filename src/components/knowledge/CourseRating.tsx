@@ -94,6 +94,7 @@ export default function CourseRating({ courseId }: { courseId: string }) {
   const qc = useQueryClient();
   const [rating, setRating] = useState(0);
   const [name, setName] = useState('');
+  const [phone, setPhone] = useState('');
   const [comment, setComment] = useState('');
   const [open, setOpen] = useState(false);
 
@@ -123,12 +124,13 @@ export default function CourseRating({ courseId }: { courseId: string }) {
 
   const submit = useMutation({
     mutationFn: async () => {
-      const { error } = await (supabase as any).from('professional_course_ratings').insert({
-        course_id: courseId,
-        rating,
-        comment: comment.trim() || null,
-        author_name: name.trim() || null,
-        visitor_key: getVisitorKey(),
+      const { error } = await (supabase as any).rpc('fn_submit_course_rating', {
+        _course_id: courseId,
+        _rating: rating,
+        _comment: comment.trim() || null,
+        _author_name: name.trim() || null,
+        _phone: phone,
+        _visitor_key: getVisitorKey(),
       });
       if (error) throw error;
     },
@@ -140,10 +142,10 @@ export default function CourseRating({ courseId }: { courseId: string }) {
       qc.invalidateQueries({ queryKey: ['course_ratings', courseId] });
     },
     onError: (e: any) => {
-      const dup = String(e?.message ?? '').includes('duplicate');
+      const dup = /duplicate|já avaliou/i.test(String(e?.message ?? ''));
       toast({
         title: dup ? 'Você já avaliou este curso' : 'Não foi possível enviar',
-        description: dup ? 'Cada visitante pode avaliar uma vez.' : String(e?.message ?? ''),
+        description: dup ? 'Cada celular pode avaliar este curso uma vez.' : String(e?.message ?? ''),
         variant: 'destructive',
       });
     },
@@ -193,6 +195,12 @@ export default function CourseRating({ courseId }: { courseId: string }) {
               {rating > 0 && <span className="text-sm text-muted-foreground">{rating} de 5</span>}
             </div>
             <Input placeholder="Seu nome (opcional)" value={name} onChange={(e) => setName(e.target.value)} />
+            <Input
+              placeholder="Seu celular com DDD (obrigatório, não é exibido)"
+              inputMode="tel"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+            />
             <Textarea
               placeholder="Conte como foi sua experiência (opcional)"
               value={comment}
@@ -202,7 +210,7 @@ export default function CourseRating({ courseId }: { courseId: string }) {
             <div className="flex gap-2">
               <Button
                 size="sm"
-                disabled={rating < 1 || submit.isPending}
+                disabled={rating < 1 || phone.replace(/\D/g, "").length < 10 || submit.isPending}
                 onClick={() => submit.mutate()}
               >
                 {submit.isPending ? 'Enviando...' : 'Enviar avaliação'}
