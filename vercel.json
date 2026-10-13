@@ -51,6 +51,16 @@
   ],
   "rewrites": [
     {
+      "source": "/",
+      "has": [
+        {
+          "type": "host",
+          "value": "www.smartdent.com.br"
+        }
+      ],
+      "destination": "/_public-home.html"
+    },
+    {
       "source": "/robots.txt",
       "has": [
         {

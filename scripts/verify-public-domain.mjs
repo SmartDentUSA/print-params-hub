@@ -6,7 +6,7 @@ for(const p of ['/smartops','/admin/a','/social','/entrar/token'])assert.equal(p
 assert.equal(publicUrl('https://loja.smartdent.com.br/p'),'https://loja.smartdent.com.br/p');
 assert.equal(publicUrl('https://parametros.smartdent.com.br.evil.test/f/a'),'https://parametros.smartdent.com.br.evil.test/f/a');
 assert.equal(publicUrl('javascript:alert(1)'),'javascript:alert(1)');
-assert.ok(publicText('<loc>https://parametros.smartdent.com.br/base-conhecimento</loc>').includes('https://www.smartdent.com.br/base-conhecimento'));
+assert.equal(publicText('<loc>https://parametros.smartdent.com.br/base-conhecimento</loc>'),'<loc>https://www.smartdent.com.br/base-conhecimento</loc>');
 console.log('PASS: public links preserve paths, query strings and fragments; operational routes and external domains preserved');
 
 const { legacyPublicRedirect,LEGACY_CATALOG_DESTINATION }=await import('../src/utils/legacyPublicRoutes.mjs');

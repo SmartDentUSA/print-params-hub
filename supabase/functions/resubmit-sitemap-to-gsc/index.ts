@@ -11,16 +11,8 @@ const corsHeaders = {
 const GATEWAY = 'https://connector-gateway.lovable.dev/google_search_console';
 
 // Verified GSC properties + the sitemap URL each one should receive.
-const TARGETS: Array<{ site: string; sitemap: string }> = [
-  {
-    site: 'https://print-params-hub.lovable.app/',
-    sitemap: 'https://print-params-hub.lovable.app/sitemap.xml',
-  },
-  {
-    site: 'https://parametros.smartdent.com.br/',
-    sitemap: 'https://parametros.smartdent.com.br/sitemap.xml',
-  },
-];
+const SITEMAP_URL = 'https://www.smartdent.com.br/sitemap-index.xml';
+const PUBLIC_SITE = 'https://www.smartdent.com.br/';
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
@@ -53,6 +45,21 @@ Deno.serve(async (req) => {
     });
   }
 
+  // Discover an actually verified URL-prefix or domain property before submitting.
+  const authHeaders = { 'Authorization': `Bearer ${LOVABLE_API_KEY}`, 'X-Connection-Api-Key': GSC_KEY };
+  let site: string;
+  try {
+    const propertiesResponse = await fetch(`${GATEWAY}/webmasters/v3/sites`, { headers: authHeaders });
+    if (!propertiesResponse.ok) throw new Error('GSC properties request failed: ' + propertiesResponse.status);
+    const properties = await propertiesResponse.json();
+    const permitted = (properties.siteEntry || []).filter((p: {permissionLevel: string}) => ['siteOwner','siteFullUser'].includes(p.permissionLevel));
+    site = permitted.find((p: {siteUrl: string}) => p.siteUrl === PUBLIC_SITE)?.siteUrl
+      || permitted.find((p: {siteUrl: string}) => p.siteUrl === 'sc-domain:smartdent.com.br')?.siteUrl;
+    if (!site) return new Response(JSON.stringify({ submitted:false, error:'Public domain not verified in connected Search Console account', sitemap:SITEMAP_URL }), { status:409, headers:{...corsHeaders,'Content-Type':'application/json'} });
+  } catch(e) {
+    return new Response(JSON.stringify({submitted:false,error:String(e)}), {status:502,headers:{...corsHeaders,'Content-Type':'application/json'}});
+  }
+  const TARGETS = [{ site, sitemap: SITEMAP_URL }];
   const results: Array<{ site: string; sitemap: string; status: number; ok: boolean; body?: string }> = [];
   for (const t of TARGETS) {
     const url = `${GATEWAY}/webmasters/v3/sites/${encodeURIComponent(t.site)}/sitemaps/${encodeURIComponent(t.sitemap)}`;
@@ -71,7 +78,7 @@ Deno.serve(async (req) => {
     }
   }
 
-  const anyOk = results.some(r => r.ok);
+  const anyOk = results.length > 0 && results.every(r => r.ok);
   if (anyOk) {
     await supabase
       .from('sitemap_resubmit_state')

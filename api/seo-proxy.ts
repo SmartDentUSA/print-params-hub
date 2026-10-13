@@ -1,4 +1,5 @@
 import { isInstitutionalHost } from '../src/utils/institutionalHost.js';
+import { PUBLIC_ORIGIN, publicText, publicUrl } from '../src/utils/publicDomain.mjs';
 import { institutionalHomepage } from '../src/utils/institutionalHomepage.js';
 
 export const config = { runtime: 'edge' };
@@ -6,9 +7,9 @@ export const config = { runtime: 'edge' };
 export default async function handler(req: Request): Promise<Response> {
   const url = new URL(req.url);
   const originalPath = url.searchParams.get('originalPath') || '/';
-  const originalUrl = new URL(originalPath, 'https://parametros.smartdent.com.br');
+  const originalUrl = new URL(originalPath, PUBLIC_ORIGIN);
   for (const [key,value] of url.searchParams) if (key !== 'originalPath' && !originalUrl.searchParams.has(key)) originalUrl.searchParams.append(key,value);
-  if (isInstitutionalHost(url.hostname) && originalPath === '/') {
+  if (isInstitutionalHost(url.hostname) && originalUrl.pathname === '/') {
     return new Response(institutionalHomepage(), {
       headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'public, max-age=300, s-maxage=300' },
     });
@@ -24,14 +25,14 @@ export default async function handler(req: Request): Promise<Response> {
       },
     });
 
-    const html = await res.text();
+    const html = isInstitutionalHost(url.hostname) ? publicText(await res.text()) : await res.text();
     const headers = new Headers({
       'Content-Type': 'text/html; charset=utf-8',
       'Cache-Control': res.headers.get('Cache-Control') || 'public, max-age=300, s-maxage=300',
       'X-SSR-Source': 'seo-proxy-internal',
     });
     const location = res.headers.get('Location');
-    if (location) headers.set('Location', location);
+    if (location) headers.set('Location', isInstitutionalHost(url.hostname) ? publicUrl(location) : location);
     return new Response(html, {
       status: res.status,
       headers,

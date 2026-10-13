@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "node scripts/verify-public-domain.mjs && vite build && node scripts/prepare-vercel-public.mjs",
+    "build": "node scripts/verify-public-domain.mjs && vite build && node scripts/prerender-public-home.mjs && node scripts/prepare-vercel-public.mjs",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
     "preview": "vite preview"
