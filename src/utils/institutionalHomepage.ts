@@ -1,4 +1,4 @@
-import { institutionalCopy } from '../content/institutional';
+import { institutionalCopy } from '../content/institutional.js';
 
 const escape = (value: string) => value.replace(/[&<>"']/g, c => ({
   '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',

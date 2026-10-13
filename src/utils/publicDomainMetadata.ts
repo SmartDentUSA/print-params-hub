@@ -6,7 +6,7 @@ export function installPublicDomainMetadata() {
   const clean=()=> {
     const path=location.pathname;
     const search=new URLSearchParams(location.search);
-    for(const key of Array.from(search.keys())) if(key.startsWith('utm_') || ['__public','gclid','fbclid','_cb'].includes(key))search.delete(key);
+    for(const key of Array.from(search.keys())) if(key.startsWith('utm_') || ['__public','_vercel_share','x-vercel-protection-bypass','x-vercel-set-bypass-cookie','gclid','fbclid','_cb'].includes(key))search.delete(key);
     const canonical=PUBLIC_ORIGIN+path+(search.size?'?'+search.toString():'');
     document.querySelectorAll<HTMLLinkElement>('link[rel="canonical"]').forEach(el=>{if(el.href!==canonical)el.href=canonical;});
     document.querySelectorAll<HTMLMetaElement>('meta[property="og:url"]').forEach(el=>{if(el.content!==canonical)el.content=canonical;});

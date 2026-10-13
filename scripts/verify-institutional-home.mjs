@@ -10,12 +10,13 @@ async function moduleUrl(relative, replacements = {}) {
 }
 const hostUrl = await moduleUrl('../src/utils/institutionalHost.ts');
 const copyUrl = await moduleUrl('../src/content/institutional.ts');
-const htmlUrl = await moduleUrl('../src/utils/institutionalHomepage.ts', { '../content/institutional': copyUrl });
-const handlerUrl = await moduleUrl('../api/seo-proxy.ts', { '../src/utils/institutionalHost': hostUrl, '../src/utils/institutionalHomepage': htmlUrl });
+const htmlUrl = await moduleUrl('../src/utils/institutionalHomepage.ts', { '../content/institutional.js': copyUrl });
+const handlerUrl = await moduleUrl('../api/seo-proxy.ts', { '../src/utils/institutionalHost.js': hostUrl, '../src/utils/institutionalHomepage.js': htmlUrl });
 const { isInstitutionalHost } = await import(hostUrl);
 const { default: handler } = await import(handlerUrl);
 assert.ok(isInstitutionalHost('www.smartdent.com.br'));
-for (const host of ['admin.smartdent.com.br', 'parametros.smartdent.com.br', 'smartdent.com.br', 'www.smartdent.com.br.example.org']) assert.equal(isInstitutionalHost(host), false);
+assert.equal(isInstitutionalHost('smartdent.com.br'),false);
+for (const host of ['admin.smartdent.com.br', 'parametros.smartdent.com.br', 'www.smartdent.com.br.example.org']) assert.equal(isInstitutionalHost(host), false);
 const originalFetch = globalThis.fetch;
 let upstreamCalls = 0;
 globalThis.fetch = async () => { upstreamCalls++; return new Response('existing proxy response'); };
