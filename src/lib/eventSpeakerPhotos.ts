@@ -5,6 +5,7 @@ type AnySpeaker = {
   instagram?: string;
   photo_url?: string;
   professional_id?: string;
+  speaker_slug?: string;
   [k: string]: unknown;
 };
 
@@ -34,12 +35,14 @@ export async function applyFreshSpeakerPhotos<T extends AnySpeaker>(
       body: {
         action: "speaker_photos",
         ids: list.map((s) => s.professional_id).filter(Boolean),
+        slugs: list.map((s) => s.speaker_slug).filter(Boolean),
         names: list.map((s) => s.name).filter(Boolean),
       },
     });
     if (error) return list as T[];
     const pros = ((data as any)?.professionals ?? []) as {
       id?: string;
+      slug?: string;
       name?: string;
       photo_url?: string;
       instagram?: string;
@@ -49,11 +52,13 @@ export async function applyFreshSpeakerPhotos<T extends AnySpeaker>(
     const byName = new Map<string, (typeof pros)[number]>();
     for (const p of pros) {
       if (p.id) byId.set(String(p.id), p);
+      if (p.slug) byId.set(String(p.slug), p);
       if (p.name) byName.set(norm(p.name), p);
     }
     return list.map((s) => {
       const match =
         (s.professional_id ? byId.get(String(s.professional_id)) : undefined) ||
+        (s.speaker_slug ? byId.get(String(s.speaker_slug)) : undefined) ||
         byName.get(norm(s.name));
       if (!match) return s;
       return {
