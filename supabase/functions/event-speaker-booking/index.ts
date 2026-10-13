@@ -20,7 +20,46 @@ const admin = createClient(
 
 const BUCKET = "knowledge-images";
 
-type Caller = { kind: "staff"; userId: string } | { kind: "kol"; leadId: string } | null;
+type Caller = { kind: "staff"; userId: string } | { kind: "kol"; leadId: string } | { kind: "blocked"; until: string } | null;
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const FAIL_WINDOW_MS = 15 * 60_000;
+const FAIL_LIMIT = 5;
+const BLOCK_MS = 60 * 60_000;
+
+async function sha(v: string) {
+  const b = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(v));
+  return Array.from(new Uint8Array(b)).map((x) => x.toString(16).padStart(2, "0")).join("");
+}
+const clientIp = (req: Request) =>
+  (req.headers.get("cf-connecting-ip") || req.headers.get("x-forwarded-for") || "").split(",")[0].trim() || "unknown";
+
+/** Resolve o código público do palestrante (slug) para o id interno. UUID só é aceito para a equipe. */
+async function idFromRef(ref: string, allowUuid: boolean): Promise<string> {
+  const r = String(ref || "").trim();
+  if (!r) return "";
+  if (UUID_RE.test(r)) return allowUuid ? r : "";
+  if (!/^[a-z0-9]{6,32}$/i.test(r)) return "";
+  const { data } = await admin.from("lia_attendances").select("id").eq("prof_public_slug", r).is("merged_into", null).maybeSingle();
+  return data?.id ?? "";
+}
+
+/** Garante slug público para os ids informados; devolve mapa id -> slug. */
+async function slugsFor(ids: string[]): Promise<Map<string, string>> {
+  const out = new Map<string, string>();
+  const uniq = [...new Set(ids.filter((i) => UUID_RE.test(i)))];
+  if (!uniq.length) return out;
+  const { data } = await admin.from("lia_attendances").select("id, prof_public_slug").in("id", uniq);
+  for (const r of data ?? []) {
+    let slug = r.prof_public_slug as string | null;
+    if (!slug) {
+      slug = crypto.randomUUID().replace(/-/g, "").slice(0, 12);
+      await admin.from("lia_attendances").update({ prof_public_slug: slug }).eq("id", r.id);
+    }
+    out.set(r.id, slug);
+  }
+  return out;
+}
 
 /** Sessão válida: usuário interno (JWT + papel) ou KOL (token do portal ligado ao celular). */
 async function resolveCaller(req: Request, body: any): Promise<Caller> {
@@ -54,8 +93,14 @@ async function resolveCaller(req: Request, body: any): Promise<Caller> {
   }
   // KOL pelo celular: o celular informado precisa bater (últimos 10 dígitos) com o do cadastro
   const phoneKey = String(body?.kol_phone ?? "").replace(/\D/g, "").slice(-10);
-  const pid = String(body?.professional_id ?? "");
+  const pid = await idFromRef(String(body?.professional_ref ?? body?.professional_id ?? ""), false);
   if (phoneKey.length === 10 && pid) {
+    const ipHash = await sha(`kol:${clientIp(req)}`);
+    const nowIso = new Date().toISOString();
+    const { data: blocks } = await admin.from("kol_portal_attempts").select("blocked_until")
+      .or(`professional_id.eq.${pid},ip_hash.eq.${ipHash}`).gt("blocked_until", nowIso)
+      .order("blocked_until", { ascending: false }).limit(1);
+    if (blocks?.[0]) return { kind: "blocked", until: blocks[0].blocked_until };
     const { data: lead } = await admin
       .from("lia_attendances")
       .select("id, prof_wa_ddi, prof_wa_number, wa_phone, telefone_normalized")
@@ -66,15 +111,42 @@ async function resolveCaller(req: Request, body: any): Promise<Caller> {
       const keys = [`${lead.prof_wa_ddi ?? ""}${lead.prof_wa_number ?? ""}`, lead.wa_phone, lead.telefone_normalized]
         .map((v) => String(v ?? "").replace(/\D/g, "").slice(-10))
         .filter((k) => k.length === 10);
-      if (keys.includes(phoneKey)) return { kind: "kol", leadId: lead.id };
+      if (keys.includes(phoneKey)) {
+        await admin.from("kol_portal_attempts").insert({ professional_id: pid, ip_hash: ipHash, success: true });
+        await kolLog(lead.id, "kol_portal_login", "", null, {
+          descricao: "Acesso à agenda com celular verificado",
+          metodo: "celular", celular_verificado: true,
+          dedupe_key: `kol_portal_login:${lead.id}:${nowIso.slice(0, 13)}`,
+        }, null, "kol");
+        return { kind: "kol", leadId: lead.id };
+      }
     }
+    // Celular errado: registra tentativa e bloqueia após 5 erros em 15 min (por profissional ou IP)
+    const since = new Date(Date.now() - FAIL_WINDOW_MS).toISOString();
+    await admin.from("kol_portal_attempts").insert({ professional_id: pid, ip_hash: ipHash, success: false });
+    const [{ count: byPid }, { count: byIp }] = await Promise.all([
+      admin.from("kol_portal_attempts").select("id", { count: "exact", head: true }).eq("professional_id", pid).eq("success", false).gte("created_at", since),
+      admin.from("kol_portal_attempts").select("id", { count: "exact", head: true }).eq("ip_hash", ipHash).eq("success", false).gte("created_at", since),
+    ]);
+    const blocked = (byPid ?? 0) >= FAIL_LIMIT || (byIp ?? 0) >= FAIL_LIMIT;
+    let until: string | null = null;
+    if (blocked) {
+      until = new Date(Date.now() + BLOCK_MS).toISOString();
+      await admin.from("kol_portal_attempts").insert({ professional_id: pid, ip_hash: ipHash, success: false, blocked_until: until });
+    }
+    await kolLog(pid, "kol_portal_login_failed", "", null, {
+      descricao: blocked ? "Acesso à agenda bloqueado por 1 hora (celular incorreto)" : "Tentativa de acesso com celular incorreto",
+      tentativas_15min: Math.max(byPid ?? 0, byIp ?? 0), bloqueado_ate: until,
+      dedupe_key: `kol_login_failed:${pid}:${Date.now()}`,
+    }, null, "kol");
+    if (blocked) return { kind: "blocked", until: until! };
   }
   return null;
 }
 
 async function kolLog(leadId: string, eventType: string, entityId: string, entityName: string | null, data: Record<string, unknown>, value: number | null, actor: string) {
   const { error } = await admin.rpc("fn_kol_log", {
-    _lead_id: leadId, _event_type: eventType, _entity_type: "smartops_event", _entity_id: entityId,
+    _lead_id: leadId, _event_type: eventType, _entity_type: entityId ? "smartops_event" : "kol_portal", _entity_id: entityId || null,
     _entity_name: entityName, _data: { ...data, actor }, _value: value, _channel: "kol",
   });
   if (error) console.error("[event-speaker-booking] fn_kol_log", eventType, error.message);
@@ -143,13 +215,15 @@ async function loadEvent(eventId: string) {
   return data as any;
 }
 
-function publicSpeakers(speakers: Speaker[]) {
+async function publicSpeakers(speakers: Speaker[], isStaff: boolean) {
+  const slugs = await slugsFor((speakers || []).map((s) => s.professional_id || ""));
   return (speakers || []).map((s) => ({
     name: s.name || "",
     instagram: s.instagram || "",
     theme: s.theme || "",
     photo_url: s.photo_url || "",
-    professional_id: s.professional_id || "",
+    ...(isStaff ? { professional_id: s.professional_id || "" } : {}),
+    speaker_slug: s.professional_id ? slugs.get(s.professional_id) || "" : "",
     sessions: (s.sessions || []).filter((x) => x?.date && x?.start_time),
     support_sessions: (s.support_sessions || []).filter((x) => x?.date && x?.start_time),
   }));
@@ -173,7 +247,7 @@ async function uploadPhoto(eventId: string, base64: string, ext: string) {
 async function listProfessionals() {
   const { data, error } = await admin
     .from("lia_attendances")
-    .select("id, nome, email, especialidade, prof_cro, prof_photo_url, prof_mini_cv, instagram, prof_updated_at")
+    .select("id, nome, email, especialidade, prof_cro, prof_photo_url, prof_mini_cv, instagram, prof_updated_at, prof_public_slug")
     .is("merged_into", null)
     .not("prof_photo_url", "is", null)
     .order("prof_updated_at", { ascending: false, nullsFirst: false })
@@ -183,6 +257,7 @@ async function listProfessionals() {
     .filter((p: any) => String(p.nome || "").trim().length > 2)
     .map((p: any) => ({
       id: p.id,
+      slug: p.prof_public_slug || "",
       name: String(p.nome).trim(),
       instagram: p.instagram ? `@${handleOf(p.instagram)}` : "",
       photo_url: p.prof_photo_url || "",
