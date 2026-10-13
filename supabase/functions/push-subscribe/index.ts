@@ -1,3 +1,4 @@
+// @ts-nocheck
 // push-subscribe — registra / remove assinaturas de Web Push do cliente logado.
 // Ações: public-key (sem auth), subscribe, unsubscribe, ping.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";

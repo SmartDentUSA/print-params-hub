@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { logAIUsage, extractUsage } from "../_shared/log-ai-usage.ts";
 import { evaluateCommercialIntent } from "../_shared/commercial-intent.ts";

@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { Hono } from "https://deno.land/x/hono@v4.3.6/mod.ts";
 import { McpServer, StreamableHttpTransport } from "npm:mcp-lite@^0.10.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";

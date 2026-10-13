@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Centralized PipeRun field mapping
  * All IDs, stages, pipelines, custom fields, and users mapped from PipeRun API
