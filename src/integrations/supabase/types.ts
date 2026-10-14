@@ -19491,6 +19491,7 @@ export type Database = {
           promo_price_brl: number | null
           public_visible: boolean
           published_at: string | null
+          reels_video_url: string | null
           registration_url: string | null
           review_note: string | null
           reviewed_at: string | null
@@ -19550,6 +19551,7 @@ export type Database = {
           promo_price_brl?: number | null
           public_visible?: boolean
           published_at?: string | null
+          reels_video_url?: string | null
           registration_url?: string | null
           review_note?: string | null
           reviewed_at?: string | null
@@ -19609,6 +19611,7 @@ export type Database = {
           promo_price_brl?: number | null
           public_visible?: boolean
           published_at?: string | null
+          reels_video_url?: string | null
           registration_url?: string | null
           review_note?: string | null
           reviewed_at?: string | null
