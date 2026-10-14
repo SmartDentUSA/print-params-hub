@@ -26,8 +26,8 @@ const COURSE_FIELDS = [
   "country", "state", "city", "venue", "address", "online_platform", "meeting_link",
   "max_students", "registration_url", "whatsapp_ddi", "whatsapp_number",
   "instagram", "course_platform", "video_url", "target_audience", "prerequisites",
-  "syllabus", "materials_included", "certificate", "language", "tags", "status",
-  "public_visible",
+  "syllabus", "materials_included", "certificate", "language", "tags",
+  // status e public_visible: só a equipe muda (aprovação da Fase 3 KOL)
 ] as const;
 
 const PROFILE_FIELDS = [
@@ -74,6 +74,18 @@ async function resolveToken(token: string) {
     .update({ last_used_at: new Date().toISOString(), uses: (data.uses ?? 0) + 1 })
     .eq("id", data.id);
   return data;
+}
+
+// Timeline KOL obrigatória (fn_kol_log). Rascunho: uma linha por curso e dia; envio: uma por envio.
+async function logCourse(leadId: string, type: string, c: { id: string; title: string; status?: string }, desc: string, unique = false) {
+  const day = new Date().toISOString().slice(0, 10);
+  const { error } = await admin.rpc("fn_kol_log", {
+    _lead_id: leadId, _event_type: type, _entity_type: "professional_course", _entity_id: c.id,
+    _entity_name: c.title, _value: null, _channel: "kol",
+    _data: { descricao: `${desc}: ${c.title}`, status: c.status ?? null, actor: "kol",
+      dedupe_key: unique ? `${type}:${c.id}:${Date.now()}` : `${type}:${c.id}:${day}` },
+  });
+  if (error) console.error("[professional-course-portal] fn_kol_log", type, error.message);
 }
 
 Deno.serve(async (req) => {
@@ -128,6 +140,11 @@ Deno.serve(async (req) => {
         }
       }
       if (id) {
+        const { data: cur } = await admin.from("professional_courses")
+          .select("status").eq("id", id).eq("producer_lead_id", leadId).maybeSingle();
+        if (!cur) return json({ error: "not_found" }, 404);
+        if (cur.status === "em_analise") return json({ error: "Curso em análise pela equipe; aguarde a resposta para editar." }, 409);
+        if (cur.status === "publicado") return json({ error: "Curso publicado. Peça à equipe para despublicar antes de editar." }, 409);
         const { data, error } = await admin
           .from("professional_courses")
           .update(payload)
@@ -137,20 +154,40 @@ Deno.serve(async (req) => {
           .maybeSingle();
         if (error) throw error;
         if (!data) return json({ error: "not_found" }, 404);
+        await logCourse(leadId, "kol_course_draft_saved", data, "Rascunho de curso salvo");
         return json({ course: data });
       }
       const { data, error } = await admin
         .from("professional_courses")
-        .insert({ ...payload, producer_lead_id: leadId, created_source: "portal" })
+        .insert({ ...payload, producer_lead_id: leadId, created_source: "portal", status: "rascunho", public_visible: false })
         .select("*")
         .single();
       if (error) throw error;
+      await logCourse(leadId, "kol_course_draft_saved", data, "Rascunho de curso salvo");
+      return json({ course: data });
+    }
+
+    if (action === "submit_course") {
+      const id = String(body?.course_id ?? "");
+      const { data: cur } = await admin.from("professional_courses")
+        .select("id, title, status, description, modality").eq("id", id).eq("producer_lead_id", leadId).maybeSingle();
+      if (!cur) return json({ error: "not_found" }, 404);
+      if (cur.status !== "rascunho") return json({ error: "Só rascunhos podem ser enviados para aprovação." }, 409);
+      if (!cur.description || !cur.modality) return json({ error: "Preencha descrição e modalidade antes de enviar." }, 400);
+      const { data, error } = await admin.from("professional_courses")
+        .update({ status: "em_analise", public_visible: false, submitted_at: new Date().toISOString() })
+        .eq("id", id).eq("producer_lead_id", leadId).select("*").single();
+      if (error) throw error;
+      await logCourse(leadId, "kol_course_submitted", data, "Curso enviado para aprovação", true);
       return json({ course: data });
     }
 
     if (action === "delete_course") {
       const id = String(body?.course_id ?? "");
       if (!id) return json({ error: "course_id obrigatório" }, 400);
+      const { data: cur } = await admin.from("professional_courses")
+        .select("status").eq("id", id).eq("producer_lead_id", leadId).maybeSingle();
+      if (cur?.status === "publicado") return json({ error: "Curso publicado não pode ser excluído pelo portal." }, 409);
       const { error } = await admin
         .from("professional_courses")
         .delete()
