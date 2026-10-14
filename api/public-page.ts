@@ -116,7 +116,22 @@ export default async function handler(req: VercelRequest,res: VercelResponse) {
     if (missing) return res.status(404).setHeader('Content-Type','text/html; charset=utf-8').setHeader('Cache-Control','no-store').send('<!doctype html><html lang="pt-BR"><title>404</title><h1>Página não encontrada</h1></html>');
     if (dataFailed) throw new Error('Public content data unavailable');
     const article = /^\/(?:base-conhecimento|en\/knowledge-base|es\/base-conocimiento)\/[^/]+\/[^/?]+/.test(path) && !path.includes('calculadora-roi');
-    if (article) await page.waitForFunction(() => (document.querySelector('[role="dialog"]')?.textContent || '').length > 200,{timeout:10000});
+    if (article) {
+      try {
+        await page.waitForFunction(() => {
+          const dialog = document.querySelector('[role="dialog"]');
+          return Boolean(dialog?.querySelector('h1')?.textContent?.trim()) && (dialog?.textContent || '').length > 200;
+        }, {timeout:12000});
+      } catch {
+        const diagnostics = await page.evaluate(() => ({
+          route: location.pathname,
+          rootText: (document.querySelector('#root')?.textContent || '').trim().slice(0,240),
+          dialogs: Array.from(document.querySelectorAll('[role="dialog"]')).map(el => (el.textContent || '').trim().slice(0,180)),
+          headings: Array.from(document.querySelectorAll('#root h1')).map(el => el.textContent?.trim()).slice(0,4),
+        })).catch(() => ({route:path,rootText:'unavailable',dialogs:[],headings:[]}));
+        throw new Error(`Article route did not render: ${JSON.stringify(diagnostics)}; pageErrors=${pageErrors.join(' | ')}; consoleErrors=${consoleErrors.join(' | ')}`);
+      }
+    }
     await page.evaluate((path) => {
       const url = new URL(path, 'https://www.smartdent.com.br');
       if (['/','/institucional'].includes(url.pathname) || (url.pathname === '/base-conhecimento' && url.searchParams.get('tab') === 'institucional')) { url.pathname='/';url.search=''; }
