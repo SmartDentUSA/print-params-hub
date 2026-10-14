@@ -17,7 +17,7 @@ export const VideoSchema = ({ videos, productName, currentLang = 'pt', includeAn
   };
 
   const schemas = videos
-    .filter(v => v.video_type === 'pandavideo')
+    .filter(v => v.video_type === 'pandavideo' && Boolean(v.embed_url || v.hls_url))
     .map((video) => {
       const audioLanguages = video.panda_config?.audios?.map((aud: any) => aud.srclang).filter(Boolean) || [];
       const captions = video.panda_config?.subtitles?.map((sub: any) => ({
@@ -33,9 +33,9 @@ export const VideoSchema = ({ videos, productName, currentLang = 'pt', includeAn
         "name": video.title,
         "description": video.description || productName,
         "thumbnailUrl": video.thumbnail_url,
-        "uploadDate": video.created_at,
+        "uploadDate": video.created_at ? new Date(video.created_at).toISOString() : undefined,
         "duration": video.video_duration_seconds ? `PT${video.video_duration_seconds}S` : undefined,
-        "contentUrl": video.embed_url,
+        ...(video.hls_url && { "contentUrl": video.hls_url }),
         "embedUrl": video.embed_url,
         "inLanguage": langMap[currentLang],
         ...(audioLanguages.length > 0 && { "audioLanguage": audioLanguages }),
