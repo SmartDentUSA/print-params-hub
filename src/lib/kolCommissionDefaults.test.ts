@@ -36,3 +36,18 @@ test("template item 'indicacao' maps to referral row with its own key", () => {
     kolRowKey({ kind: "product", category: null, subcategory: null, product_id: "" }),
   );
 });
+
+test("same category in different channels has different keys", () => {
+  const base = { kind: "category", category: "1. SCAN", subcategory: null, product_id: "" };
+  assert.notEqual(kolRowKey({ ...base, channel: "indicacao" }), kolRowKey({ ...base, channel: "cupom" }));
+  assert.notEqual(kolRowKey({ ...base, channel: "formulario" }), kolRowKey({ ...base, channel: "cupom" }));
+});
+
+test("coupon rule ignores referral-channel rules", () => {
+  const rules = [{ kind: "category", channel: "indicacao", category: "1. SCAN", subcategory: null, percent: 9 }];
+  assert.equal(couponRuleFor(rules, "1. SCAN", null), undefined);
+});
+
+test("row marked source=custom is customized even when equal to default", () => {
+  assert.equal(isKolRowCustomized({ percent: 5, coupon_discount_percent: 10, source: "custom" }, def), true);
+});

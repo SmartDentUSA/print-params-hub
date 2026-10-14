@@ -12,7 +12,7 @@ import { Switch } from "@/components/ui/switch";
 import { PRODUCT_CATALOG_ENTITY_TYPES } from "@/lib/catalogEntityTypes";
 import ProfessionalKolPerformance from "./ProfessionalKolPerformance";
 import { groupKolCatalogCategories } from "@/lib/kolPortfolioGroups";
-import { isKolRowCustomized, kolRowKey, mapTemplateItems, type KolDefaultRow } from "@/lib/kolCommissionDefaults";
+import { isKolRowCustomized, kolRowKey, mapTemplateItems, ruleChannel, KOL_CHANNELS, type KolChannel, type KolDefaultRow } from "@/lib/kolCommissionDefaults";
 
 export interface KolFormRef {
   id: string;
@@ -22,6 +22,8 @@ export interface KolFormRef {
 export interface KolCommissionRule {
   /** "category" = regra por categoria/subcategoria do portfólio; "referral" = comissão por indicação; ausente = produto específico. */
   kind?: "product" | "category" | "referral";
+  /** Canal: indicacao | cupom | formulario (ausente = cupom). */
+  channel?: KolChannel;
   category?: string | null;
   subcategory?: string | null;
   product_id: string;
@@ -71,6 +73,8 @@ export default function ProfessionalKolCommercial({
   const [cats, setCats] = useState<{ cat: string; subs: string[] }[]>([]);
   const [defaults, setDefaults] = useState<Map<string, KolDefaultRow>>(new Map());
   const [pendingForm, setPendingForm] = useState<string>("");
+  const [channel, setChannel] = useState<KolChannel>("indicacao");
+  const channelInfo = KOL_CHANNELS.find((c) => c.id === channel)!;
 
   useEffect(() => {
     (async () => {
@@ -110,7 +114,7 @@ export default function ProfessionalKolCommercial({
       setProducts(((p ?? []) as any[]).map((x) => ({ id: x.id, name: x.name ?? "(sem nome)" })));
       const { data: items } = await (supabase as any)
         .from("kol_commission_template_items")
-        .select("kind, category, subcategory, product_id, percent, coupon_discount_percent, kol_commission_templates!inner(is_default)")
+        .select("kind, channel, category, subcategory, product_id, percent, coupon_discount_percent, kol_commission_templates!inner(is_default)")
         .eq("kol_commission_templates.is_default", true);
       setDefaults(mapTemplateItems((items ?? []) as any[]));
     })();
@@ -159,7 +163,7 @@ export default function ProfessionalKolCommercial({
 
   /** Índice da regra de categoria/subcategoria existente (ou -1). */
   const catRuleIdx = (category: string, subcategory: string | null) =>
-    commissions.findIndex((r) => isCat(r) && r.category === category && (r.subcategory ?? null) === subcategory);
+    commissions.findIndex((r) => isCat(r) && ruleChannel(r) === channel && r.category === category && (r.subcategory ?? null) === subcategory);
 
   /** Ativa/desativa uma combinação da lista pronta: cria ou remove a regra correspondente. */
   const toggleCatRule = (category: string, subcategory: string | null, on: boolean) => {
@@ -169,6 +173,7 @@ export default function ProfessionalKolCommercial({
         ...commissions,
         {
           kind: "category",
+          channel,
           category,
           subcategory,
           product_id: "",
@@ -235,24 +240,9 @@ export default function ProfessionalKolCommercial({
               <Plus className="w-4 h-4" />
             </Button>
           </div>
-          <div className="flex items-end gap-2 rounded-md border p-2">
-            <div className="w-40">
-              <Label className="text-xs">% comissão por indicação</Label>
-              <Input
-                type="number"
-                min={0}
-                max={100}
-                step="0.1"
-                value={referralRule?.percent ?? ""}
-                onChange={(e) => patchReferral(e.target.value === "" ? null : Math.min(100, Math.max(0, parseFloat(e.target.value))))}
-                disabled={disabled}
-                placeholder="Ex: 5"
-              />
-            </div>
-            <p className="pb-2 text-xs text-muted-foreground">
-              Percentual sobre vendas dos leads indicados. O padrão vem das Configurações de comissionamento; aqui você personaliza para este KOL.
-            </p>
-          </div>
+          <p className="text-xs text-muted-foreground">
+            Os percentuais destes formulários ficam em "Comissionamento por canal" abaixo (Formulários de indicação ou Formulários do profissional).
+          </p>
         </div>
 
         {/* 2. Cupons Loja Integrada */}
@@ -391,7 +381,15 @@ export default function ProfessionalKolCommercial({
 
         {/* 4. Comissionamento por categoria / subcategoria do portfólio — lista pronta */}
         <div className="space-y-2">
-          <Label>Comissionamento por categoria e subcategoria</Label>
+          <Label>Comissionamento por canal, categoria e subcategoria</Label>
+          <div className="flex flex-wrap gap-2">
+            {KOL_CHANNELS.map((c) => (
+              <Button key={c.id} type="button" size="sm" variant={channel === c.id ? "default" : "outline"} onClick={() => setChannel(c.id)}>
+                {c.label}
+              </Button>
+            ))}
+          </div>
+          <p className="text-xs font-medium text-foreground">{channelInfo.description}</p>
           <p className="text-xs text-muted-foreground">
             Todas as categorias e subcategorias do portfólio já estão listadas abaixo: ative as que remuneram este KOL e
             informe o percentual (e, se quiser, a data de ativação). Regra de produto específico tem prioridade, depois
@@ -414,7 +412,7 @@ export default function ProfessionalKolCommercial({
                   const idx = catRuleIdx(row.category, row.subcategory);
                   const rule = idx !== -1 ? commissions[idx] : null;
                   const active = idx !== -1;
-                  const def = defaults.get(kolRowKey({ kind: "category", category: row.category, subcategory: row.subcategory, product_id: "" }));
+                  const def = defaults.get(kolRowKey({ kind: "category", channel, category: row.category, subcategory: row.subcategory, product_id: "" }));
                   const custom = !!rule && isKolRowCustomized(rule, def);
                   const clamp = (v: string) => (v === "" ? null : Math.min(100, Math.max(0, parseFloat(v))));
                   return (
@@ -443,14 +441,14 @@ export default function ProfessionalKolCommercial({
                         placeholder="KOL %"
                         title="Comissão do KOL (%)"
                       />
-                      <Input
+                      {channelInfo.hasDiscount ? <Input
                         type="number" min={0} max={100} step="0.1"
                         value={rule?.coupon_discount_percent ?? ""}
                         onChange={(e) => idx !== -1 && patchRule(idx, { coupon_discount_percent: clamp(e.target.value) })}
                         disabled={disabled || !active}
                         placeholder="Cupom %"
                         title="Desconto do cupom da loja (%)"
-                      />
+                      /> : <span className="text-xs text-muted-foreground">sem cupom</span>}
                       <DatePickerInput
                         value={rule?.active_from ?? undefined}
                         onChange={(v) => idx !== -1 && patchRule(idx, { active_from: v })}
