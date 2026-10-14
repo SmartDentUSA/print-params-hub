@@ -17,6 +17,7 @@ import { translatePrintType } from '@/lib/dentalTaxonomy';
 import { ProcessingInstructionsView } from '@/components/ProcessingInstructionsView';
 import { PRODUCT_CATALOG_ENTITY_TYPES } from '@/lib/catalogEntityTypes';
 import { findCatalogFilter, rowMatchesCatalogFilter, CATALOG_SIDEBAR_FILTERS } from './catalogSidebarFilters';
+import { Button } from '@/components/ui/button';
 
 const SPECIAL = /\b(FDA|ANVISA|NOVO|LANÇAMENTO|KIT|KOL)\b/i;
 
@@ -405,6 +406,7 @@ export default function KbTabCatalogo({ filterKey, pinnedIds, pinnedElsewhereIds
   const [chip, setChip] = useState('RESINAS 3D');
   const [subChip, setSubChip] = useState('all');
   const [q, setQ] = useState('');
+  const [visibleList, setVisibleList] = useState<{ key: string; count: number }>({ key: '', count: 24 });
   const sidebarDef = useMemo(() => findCatalogFilter(filterKey), [filterKey]);
   const usingSidebarFilter = !!filterKey && filterKey !== undefined;
   const [sheetResin, setSheetResin] = useState<string | null>(null);
@@ -709,6 +711,10 @@ export default function KbTabCatalogo({ filterKey, pinnedIds, pinnedElsewhereIds
     });
   }, [rows, q, chip, subChip, usingSidebarFilter, sidebarDef, pinnedIds, pinnedElsewhereIds]);
 
+  const visibleListKey = `${filterKey || 'all'}|${chip}|${subChip}|${q.trim().toLowerCase()}`;
+  const visibleCount = visibleList.key === visibleListKey ? visibleList.count : 24;
+  const visibleProducts = filtered.slice(0, visibleCount);
+
   // Subcategorias derivadas da categoria ativa (distinct, ordenadas)
   const subChips: KbChipOption[] = useMemo(() => {
     if (chip === 'all' || CATEGORIES_WITHOUT_SUBFILTER.has(chip)) return [];
@@ -753,7 +759,7 @@ export default function KbTabCatalogo({ filterKey, pinnedIds, pinnedElsewhereIds
         ) : filtered.length === 0 ? (
           <KbEmptyState icon="📦" />
         ) : (
-          filtered.map((p, i) => {
+          visibleProducts.map((p, i) => {
             const canon = canonFromCatalogRow(p.product_category, p.product_subcategory) || 'SOFTWARES';
             const color = CATALOG_COLORS[canon] || '#5F6368';
             const bgBadge = color + '1A';
@@ -1039,6 +1045,16 @@ export default function KbTabCatalogo({ filterKey, pinnedIds, pinnedElsewhereIds
           })
         )}
       </div>
+      {visibleCount < filtered.length && !loading && (
+        <div className="mt-6 text-center">
+          <Button
+            variant="outline"
+            onClick={() => setVisibleList({ key: visibleListKey, count: visibleCount + 24 })}
+          >
+            Carregar mais produtos
+          </Button>
+        </div>
+      )}
       <KbResinSheetDialog
         open={!!sheetResin}
         onClose={() => setSheetResin(null)}

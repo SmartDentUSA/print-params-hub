@@ -1,5 +1,4 @@
-import { fetchAllRows } from '@/utils/fetchAllRows';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { getArticleUrl } from '@/utils/knowledgeUrls';
@@ -13,6 +12,9 @@ import KbSkeletonGrid from './KbSkeletonGrid';
 import KbContentCard, { KbContentCardData } from './KbContentCard';
 import { resolveCategoryTk } from './kbCategoryTaxonomy';
 import KbListControls, { KbSortKey, KbViewMode } from './KbListControls';
+import { Button } from '@/components/ui/button';
+
+const PAGE_SIZE = 48;
 
 const CHIP_KEYS: { key: string; tk: string }[] = [
   { key: 'all', tk: 'kb.chips.all' },
@@ -25,7 +27,7 @@ const CHIP_KEYS: { key: string; tk: string }[] = [
 interface Row {
   id: string; title: string; title_en: string | null; title_es: string | null;
   slug: string; excerpt: string | null; excerpt_en: string | null; excerpt_es: string | null;
-  og_image_url: string | null; created_at: string; category_id: string; view_count: number | null;
+  og_image_url: string | null; created_at: string; updated_at: string | null; category_id: string; view_count: number | null;
   knowledge_categories: { id?: string; letter: string; name: string } | null;
 }
 
@@ -39,27 +41,38 @@ export default function KbTabArtigos({ onOpen, letterFilter }: Props) {
   const [q, setQ] = useState('');
   const [sort, setSort] = useState<KbSortKey>('recent');
   const [view, setView] = useState<KbViewMode>('grid');
-
-  useEffect(() => { setChip('all'); setQ(''); }, [letterFilter]);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const requestGeneration = useRef(0);
+  const previousLetter = useRef(letterFilter);
 
   useEffect(() => {
+    if (previousLetter.current !== letterFilter) {
+      previousLetter.current = letterFilter;
+      setChip('all');
+      setQ('');
+      setRows([]);
+      setHasMore(false);
+      setLoadingMore(false);
+      setLoading(true);
+      return;
+    }
     let cancel = false;
+    requestGeneration.current += 1;
     setLoading(true);
+    setRows([]);
+    setHasMore(false);
+    setLoadingMore(false);
     (async () => {
-      // 1) IDs that have videos (to exclude — emulates NOT EXISTS)
-      const { data: vids, error: videoError } = await fetchAllRows((from, to) => supabase
-        .from('knowledge_videos')
-        .select('content_id').order('id').range(from, to), () => cancel);
-      if (videoError) { console.error(videoError); if (!cancel) { setRows([]); setLoading(false); } return; }
-      const videoIds = new Set((vids || []).map((v: any) => v.content_id).filter(Boolean));
-
       const term = q.trim();
       let query = supabase
         .from('knowledge_contents')
-        .select('id, title, title_en, title_es, slug, excerpt, excerpt_en, excerpt_es, og_image_url, created_at, updated_at, category_id, view_count, knowledge_categories!inner(id,letter,name)')
+        .select('id, title, title_en, title_es, slug, excerpt, excerpt_en, excerpt_es, og_image_url, created_at, updated_at, category_id, view_count, knowledge_categories!inner(id,letter,name), knowledge_videos!left(id)')
         .eq('active', true)
         // Ebooks têm aba própria: nunca aparecem em Artigos/categorias
         .not('is_ebook', 'is', true)
+        // Exclui artigos com vídeo no próprio relacionamento, sem varrer toda a tabela de vídeos.
+        .is('knowledge_videos.id', null)
         .order('created_at', { ascending: false }).order('id');
       // When the user is searching, ignore the active chip and scan the whole base.
       // Chip selection has priority over letter route filter: when the user
@@ -68,16 +81,14 @@ export default function KbTabArtigos({ onOpen, letterFilter }: Props) {
       else if (!term && letterFilter) query = query.eq('knowledge_categories.letter', letterFilter.toUpperCase());
       if (term) {
         const safe = term.replace(/[%,()]/g, ' ');
-        query = query.or(`title.ilike.%${safe}%,excerpt.ilike.%${safe}%,content_html.ilike.%${safe}%`).limit(10000);
-      } else {
-        query = query.limit(10000);
+        query = query.or(`title.ilike.%${safe}%,excerpt.ilike.%${safe}%,content_html.ilike.%${safe}%`);
       }
-      const { data, error } = await fetchAllRows((from, to) => query.range(from, to), () => cancel);
+      const { data, error } = await query.range(0, PAGE_SIZE - 1);
       if (!cancel) {
         if (error) { console.error(error); setRows([]); }
         else {
-          const filtered = (data || []).filter((r: any) => !videoIds.has(r.id));
-          const byDateDesc = (a: any, b: any) =>
+          const filtered = (data || []) as unknown as Row[];
+          const byDateDesc = (a: Row, b: Row) =>
             new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
 
           const dateSorted = filtered.slice().sort(byDateDesc);
@@ -85,40 +96,69 @@ export default function KbTabArtigos({ onOpen, letterFilter }: Props) {
           const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
           const now = Date.now();
           const recent = dateSorted
-            .filter((r: any) => now - new Date(r.created_at).getTime() <= THIRTY_DAYS_MS)
+            .filter((r) => now - new Date(r.created_at).getTime() <= THIRTY_DAYS_MS)
             .slice(0, RECENT_COUNT);
-          const recentIds = new Set(recent.map((r: any) => r.id));
-          const byUpdatedDesc = (a: any, b: any) =>
+          const recentIds = new Set(recent.map((r) => r.id));
+          const byUpdatedDesc = (a: Row, b: Row) =>
             new Date(b.updated_at ?? b.created_at).getTime() -
             new Date(a.updated_at ?? a.created_at).getTime();
-          const afterRecent = dateSorted.filter((r: any) => !recentIds.has(r.id));
+          const afterRecent = dateSorted.filter((r) => !recentIds.has(r.id));
           const updatedRecent = afterRecent
-            .filter((r: any) => {
+            .filter((r) => {
               const u = new Date(r.updated_at ?? r.created_at).getTime();
               const c = new Date(r.created_at).getTime();
               return now - u <= THIRTY_DAYS_MS && now - c > THIRTY_DAYS_MS;
             })
             .sort(byUpdatedDesc)
             .slice(0, RECENT_COUNT);
-          const updatedIds = new Set(updatedRecent.map((r: any) => r.id));
-          const byViewsDesc = (a: any, b: any) => {
+          const updatedIds = new Set(updatedRecent.map((r) => r.id));
+          const byViewsDesc = (a: Row, b: Row) => {
             const va = a?.view_count ?? 0;
             const vb = b?.view_count ?? 0;
             if (vb !== va) return vb - va;
             return byDateDesc(a, b);
           };
-          const remaining = afterRecent.filter((r: any) => !updatedIds.has(r.id));
+          const remaining = afterRecent.filter((r) => !updatedIds.has(r.id));
           const topViewed = remaining.slice().sort(byViewsDesc).slice(0, RECENT_COUNT);
-          const topViewedIds = new Set(topViewed.map((r: any) => r.id));
-          const rest = remaining.filter((r: any) => !topViewedIds.has(r.id));
+          const topViewedIds = new Set(topViewed.map((r) => r.id));
+          const rest = remaining.filter((r) => !topViewedIds.has(r.id));
           const sortedDefault = [...recent, ...updatedRecent, ...topViewed, ...rest];
-          setRows(sortedDefault as any);
+          setRows(sortedDefault);
+          setHasMore((data || []).length === PAGE_SIZE);
         }
         setLoading(false);
       }
     })();
-    return () => { cancel = true; };
+    return () => { cancel = true; requestGeneration.current += 1; };
   }, [chip, q, letterFilter]);
+
+  const loadMore = async () => {
+    if (loading || loadingMore || !hasMore) return;
+    setLoadingMore(true);
+    const requestId = requestGeneration.current;
+    const term = q.trim();
+    let query = supabase
+      .from('knowledge_contents')
+      .select('id, title, title_en, title_es, slug, excerpt, excerpt_en, excerpt_es, og_image_url, created_at, updated_at, category_id, view_count, knowledge_categories!inner(id,letter,name), knowledge_videos!left(id)')
+      .eq('active', true)
+      .not('is_ebook', 'is', true)
+      .is('knowledge_videos.id', null)
+      .order('created_at', { ascending: false }).order('id');
+    if (!term && chip !== 'all') query = query.eq('category_id', chip);
+    else if (!term && letterFilter) query = query.eq('knowledge_categories.letter', letterFilter.toUpperCase());
+    if (term) {
+      const safe = term.replace(/[%,()]/g, ' ');
+      query = query.or(`title.ilike.%${safe}%,excerpt.ilike.%${safe}%,content_html.ilike.%${safe}%`);
+    }
+    const offset = rows.length;
+    const { data, error } = await query.range(offset, offset + PAGE_SIZE - 1);
+    if (error) console.error(error);
+    else if (requestId === requestGeneration.current) {
+      setRows((current) => [...current, ...((data || []) as unknown as Row[])]);
+      setHasMore((data || []).length === PAGE_SIZE);
+    }
+    setLoadingMore(false);
+  };
 
   const filtered = (() => {
     const arr = rows.slice();
@@ -173,6 +213,13 @@ export default function KbTabArtigos({ onOpen, letterFilter }: Props) {
           ))
         )}
       </div>
+      {hasMore && !loading && (
+        <div className="mt-6 text-center">
+          <Button variant="outline" onClick={loadMore} disabled={loadingMore}>
+            {loadingMore ? 'Carregando…' : 'Carregar mais artigos'}
+          </Button>
+        </div>
+      )}
     </section>
   );
 }

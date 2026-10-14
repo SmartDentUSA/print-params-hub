@@ -1,5 +1,4 @@
-import { fetchAllRows } from '@/utils/fetchAllRows';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { getArticleUrl } from '@/utils/knowledgeUrls';
@@ -12,6 +11,9 @@ import KbSkeletonGrid from './KbSkeletonGrid';
 import KbContentCard, { KbContentCardData } from './KbContentCard';
 import { resolveCategoryTk } from './kbCategoryTaxonomy';
 import KbListControls, { KbSortKey, KbViewMode } from './KbListControls';
+import { Button } from '@/components/ui/button';
+
+const PAGE_SIZE = 48;
 
 const CHIP_KEYS: { key: string; tk: string }[] = [
   { key: 'all', tk: 'kb.chips.all' },
@@ -25,7 +27,7 @@ const CHIP_KEYS: { key: string; tk: string }[] = [
 interface Row {
   id: string; title: string; title_en: string | null; title_es: string | null;
   slug: string; excerpt: string | null; excerpt_en: string | null; excerpt_es: string | null;
-  og_image_url: string | null; created_at: string; category_id: string; view_count: number | null;
+  og_image_url: string | null; created_at: string; updated_at: string | null; category_id: string; view_count: number | null;
   knowledge_categories: { id?: string; letter: string; name: string } | null;
   knowledge_videos: { thumbnail_url: string | null; video_duration_seconds: number | null; analytics_views: number | null }[];
 }
@@ -40,12 +42,28 @@ export default function KbTabVideos({ onOpen, letterFilter }: Props) {
   const [q, setQ] = useState('');
   const [sort, setSort] = useState<KbSortKey>('recent');
   const [view, setView] = useState<KbViewMode>('grid');
-
-  useEffect(() => { setChip('all'); setQ(''); }, [letterFilter]);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const requestGeneration = useRef(0);
+  const previousLetter = useRef(letterFilter);
 
   useEffect(() => {
+    if (previousLetter.current !== letterFilter) {
+      previousLetter.current = letterFilter;
+      setChip('all');
+      setQ('');
+      setRows([]);
+      setHasMore(false);
+      setLoadingMore(false);
+      setLoading(true);
+      return;
+    }
     let cancel = false;
+    requestGeneration.current += 1;
     setLoading(true);
+    setRows([]);
+    setHasMore(false);
+    setLoadingMore(false);
     (async () => {
       const term = q.trim();
       let query = supabase
@@ -60,67 +78,94 @@ export default function KbTabVideos({ onOpen, letterFilter }: Props) {
       else if (!term && letterFilter) query = query.eq('knowledge_categories.letter', letterFilter.toUpperCase());
       if (term) {
         const safe = term.replace(/[%,()]/g, ' ');
-        query = query.or(`title.ilike.%${safe}%,excerpt.ilike.%${safe}%,content_html.ilike.%${safe}%`).limit(10000);
-      } else {
-        query = query.limit(10000);
+        query = query.or(`title.ilike.%${safe}%,excerpt.ilike.%${safe}%,content_html.ilike.%${safe}%`);
       }
-      const { data, error } = await fetchAllRows((from, to) => query.range(from, to), () => cancel);
+      const { data, error } = await query.range(0, PAGE_SIZE - 1);
       if (!cancel) {
         if (error) { console.error(error); setRows([]); }
         else {
           const isDepoimentos = chip === 'ff524477-c553-4518-868e-8435e16a5c57';
-          const byDateDesc = (a: any, b: any) =>
+          const videoRows = (data || []) as unknown as Row[];
+          const byDateDesc = (a: Row, b: Row) =>
             new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
 
-          let sorted: any[];
+          let sorted: Row[];
           if (isDepoimentos) {
-            sorted = ((data || []) as any[]).slice().sort(byDateDesc);
+            sorted = videoRows.slice().sort(byDateDesc);
           } else {
-            const dateSorted = ((data || []) as any[]).slice().sort(byDateDesc);
+            const dateSorted = videoRows.slice().sort(byDateDesc);
             const RECENT_COUNT = 10;
             const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
             const now = Date.now();
             const recent = dateSorted
-              .filter((r: any) => now - new Date(r.created_at).getTime() <= THIRTY_DAYS_MS)
+              .filter((r) => now - new Date(r.created_at).getTime() <= THIRTY_DAYS_MS)
               .slice(0, RECENT_COUNT);
-            const recentIds = new Set(recent.map((r: any) => r.id));
-            const byUpdatedDesc = (a: any, b: any) =>
+            const recentIds = new Set(recent.map((r) => r.id));
+            const byUpdatedDesc = (a: Row, b: Row) =>
               new Date(b.updated_at ?? b.created_at).getTime() -
               new Date(a.updated_at ?? a.created_at).getTime();
-            const afterRecent = dateSorted.filter((r: any) => !recentIds.has(r.id));
+            const afterRecent = dateSorted.filter((r) => !recentIds.has(r.id));
             const updatedRecent = afterRecent
-              .filter((r: any) => {
+              .filter((r) => {
                 const u = new Date(r.updated_at ?? r.created_at).getTime();
                 const c = new Date(r.created_at).getTime();
                 return now - u <= THIRTY_DAYS_MS && now - c > THIRTY_DAYS_MS;
               })
               .sort(byUpdatedDesc)
               .slice(0, RECENT_COUNT);
-            const updatedIds = new Set(updatedRecent.map((r: any) => r.id));
-            const byViewsDesc = (a: any, b: any) => {
+            const updatedIds = new Set(updatedRecent.map((r) => r.id));
+            const byViewsDesc = (a: Row, b: Row) => {
               const va = a?.knowledge_videos?.[0]?.analytics_views ?? 0;
               const vb = b?.knowledge_videos?.[0]?.analytics_views ?? 0;
               if (vb !== va) return vb - va;
               return byDateDesc(a, b);
             };
-            const remaining = afterRecent.filter((r: any) => !updatedIds.has(r.id));
+            const remaining = afterRecent.filter((r) => !updatedIds.has(r.id));
             const topViewed = remaining.slice().sort(byViewsDesc).slice(0, RECENT_COUNT);
-            const topViewedIds = new Set(topViewed.map((r: any) => r.id));
-            const rest = remaining.filter((r: any) => !topViewedIds.has(r.id));
+            const topViewedIds = new Set(topViewed.map((r) => r.id));
+            const rest = remaining.filter((r) => !topViewedIds.has(r.id));
             sorted = [...recent, ...updatedRecent, ...topViewed, ...rest];
           }
-          setRows(sorted as any);
+          setRows(sorted);
+          setHasMore((data || []).length === PAGE_SIZE);
         }
         setLoading(false);
       }
     })();
-    return () => { cancel = true; };
+    return () => { cancel = true; requestGeneration.current += 1; };
   }, [chip, q, letterFilter]);
+
+  const loadMore = async () => {
+    if (loading || loadingMore || !hasMore) return;
+    setLoadingMore(true);
+    const requestId = requestGeneration.current;
+    const term = q.trim();
+    let query = supabase
+      .from('knowledge_contents')
+      .select('id, title, title_en, title_es, slug, excerpt, excerpt_en, excerpt_es, og_image_url, created_at, updated_at, category_id, view_count, knowledge_categories!inner(id,letter,name), knowledge_videos!inner(thumbnail_url,video_duration_seconds,analytics_views)')
+      .eq('active', true)
+      .not('is_ebook', 'is', true)
+      .order('created_at', { ascending: false }).order('id');
+    if (!term && chip !== 'all') query = query.eq('category_id', chip);
+    else if (!term && letterFilter) query = query.eq('knowledge_categories.letter', letterFilter.toUpperCase());
+    if (term) {
+      const safe = term.replace(/[%,()]/g, ' ');
+      query = query.or(`title.ilike.%${safe}%,excerpt.ilike.%${safe}%,content_html.ilike.%${safe}%`);
+    }
+    const offset = rows.length;
+    const { data, error } = await query.range(offset, offset + PAGE_SIZE - 1);
+    if (error) console.error(error);
+    else if (requestId === requestGeneration.current) {
+      setRows((current) => [...current, ...((data || []) as unknown as Row[])]);
+      setHasMore((data || []).length === PAGE_SIZE);
+    }
+    setLoadingMore(false);
+  };
 
   const filtered = (() => {
     const arr = rows.slice();
     if (sort === 'views') {
-      arr.sort((a: any, b: any) => {
+      arr.sort((a, b) => {
         const va = a?.knowledge_videos?.[0]?.analytics_views ?? a?.view_count ?? 0;
         const vb = b?.knowledge_videos?.[0]?.analytics_views ?? b?.view_count ?? 0;
         return vb - va;
@@ -183,6 +228,13 @@ export default function KbTabVideos({ onOpen, letterFilter }: Props) {
           ))
         )}
       </div>
+      {hasMore && !loading && (
+        <div className="mt-6 text-center">
+          <Button variant="outline" onClick={loadMore} disabled={loadingMore}>
+            {loadingMore ? 'Carregando…' : 'Carregar mais vídeos'}
+          </Button>
+        </div>
+      )}
     </section>
   );
 }
