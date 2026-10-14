@@ -128,18 +128,28 @@ Deno.serve(async (req) => {
         .select("id, nome, prof_display_name, prof_wa_ddi, prof_wa_number, wa_phone, telefone_normalized, kol_phone_key")
         .eq("id", leadId).single();
 
-      await admin.from("kol_contracts").update({
+      const phoneDigits = String(
+        (lead?.prof_wa_number ? `${lead.prof_wa_ddi || "55"}${lead.prof_wa_number}` : "") || lead?.wa_phone || lead?.telefone_normalized || "",
+      ).replace(/\D/g, "");
+      const last10 = lead?.kol_phone_key ?? (phoneDigits.length >= 10 ? phoneDigits.slice(-10) : null);
+      if (!last10) return json({ error: "Celular cadastrado inválido para registrar o aceite." }, 400);
+
+      const { error: upErr } = await admin.from("kol_contracts").update({
         status: "assinado",
         signed_at: now,
         signed_ip: ip,
         signed_user_agent: ua,
         accepted_text_hash: hash,
-        accepted_phone_last10: lead?.kol_phone_key ?? null,
+        accepted_phone_last10: last10,
         acceptance_method: "aceite_eletronico",
         image_term_signed_at: now,
         commission_addendum_accepted_at: now,
         updated_at: now,
       }).eq("id", c.id);
+      if (upErr) {
+        console.error("[kol-portal] accept update", upErr.message);
+        return json({ error: `Falha ao registrar o aceite: ${upErr.message}` }, 500);
+      }
 
       await admin.from("lia_attendances").update({
         prof_marketing_consent: true,
