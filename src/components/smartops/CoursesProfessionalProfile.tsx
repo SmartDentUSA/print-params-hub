@@ -18,6 +18,7 @@ import ProfessionalCouponsGenerator from "./ProfessionalCouponsGenerator";
 import ProfessionalKolCommercial, { type KolFormRef, type KolCommissionRule, type KolCoupon } from "./ProfessionalKolCommercial";
 import type { QualificationEntry, UniversityRoleEntry } from "@/lib/mecInstitutions";
 import KolAccessActions from "./courses/KolAccessActions";
+import KolContractPanel from "./courses/KolContractPanel";
 
 type LeadRow = Record<string, any>;
 
@@ -562,6 +563,10 @@ export default function CoursesProfessionalProfile({ initialEmail, startEditing 
           commissions={form.prof_kol_commissions}
           disabled={disabled}
         />
+      )}
+
+      {leadId && (
+        <KolContractPanel leadId={leadId} leadNome={form.nome || form.email || "Profissional"} />
       )}
 
       <ProfessionalMixSummary

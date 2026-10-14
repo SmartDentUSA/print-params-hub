@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, GraduationCap, Loader2, Pencil, Plus, Save, Trash2 } from "lucide-react";
 import ProfessionalCourseForm from "@/components/smartops/courses/ProfessionalCourseForm";
+import KolContractPortalCard from "@/components/smartops/courses/KolContractPortalCard";
 import { useClientPresence } from "@/hooks/useClientPresence";
 import { PushOptInBanner } from "@/components/PushOptInBanner";
 import {
@@ -161,6 +162,8 @@ export default function ProfessionalCoursePortal() {
         </header>
 
         <PushOptInBanner />
+
+        <KolContractPortalCard token={token} />
 
         <Card>
           <CardHeader className="flex-row items-center justify-between space-y-0">

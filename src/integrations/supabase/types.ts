@@ -37216,6 +37216,7 @@ export type Database = {
         }
         Returns: string
       }
+      fn_kol_next_contract_number: { Args: never; Returns: string }
       fn_kol_phone_key: { Args: { _raw: string }; Returns: string }
       fn_kol_phone_pending: {
         Args: never
