@@ -1,17 +1,19 @@
-import { isInstitutionalHost } from '../src/utils/institutionalHost';
-import { institutionalHomepage } from '../src/utils/institutionalHomepage';
+import { isInstitutionalHost } from '../src/utils/institutionalHost.js';
+import { institutionalHomepage } from '../src/utils/institutionalHomepage.js';
 
 export const config = { runtime: 'edge' };
 
 export default async function handler(req: Request): Promise<Response> {
   const url = new URL(req.url);
   const originalPath = url.searchParams.get('originalPath') || '/';
+  const originalUrl = new URL(originalPath, 'https://parametros.smartdent.com.br');
+  for (const [key,value] of url.searchParams) if (key !== 'originalPath' && !originalUrl.searchParams.has(key)) originalUrl.searchParams.append(key,value);
   if (isInstitutionalHost(url.hostname) && originalPath === '/') {
     return new Response(institutionalHomepage(), {
       headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'public, max-age=300, s-maxage=300' },
     });
   }
-  const upstream = `https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/seo-proxy?originalPath=${encodeURIComponent(originalPath)}`;
+  const upstream = `https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/seo-proxy?originalPath=${encodeURIComponent(originalUrl.pathname + originalUrl.search)}`;
 
   try {
     const res = await fetch(upstream, {
@@ -24,7 +26,7 @@ export default async function handler(req: Request): Promise<Response> {
 
     const html = await res.text();
     const headers = new Headers({
-      'Content-Type': res.headers.get('Content-Type') || 'text/html; charset=utf-8',
+      'Content-Type': 'text/html; charset=utf-8',
       'Cache-Control': res.headers.get('Cache-Control') || 'public, max-age=300, s-maxage=300',
       'X-SSR-Source': 'seo-proxy-internal',
     });

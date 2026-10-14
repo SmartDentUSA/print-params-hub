@@ -1,3 +1,5 @@
+import { installPublicMetadata } from "./utils/publicMetadata";
+import { preparePublicSnapshot } from "./utils/publicSnapshot";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
@@ -13,7 +15,7 @@ import { OrganizationSchema } from "./components/OrganizationSchema";
 
 const queryClient = new QueryClient();
 
-createRoot(document.getElementById("root")!).render(
+createRoot(preparePublicSnapshot()).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
       <HelmetProvider>
@@ -32,3 +34,5 @@ createRoot(document.getElementById("root")!).render(
     </QueryClientProvider>
   </StrictMode>
 );
+
+installPublicMetadata();

@@ -270,7 +270,16 @@ export function KnowledgeContentViewer({ content }: KnowledgeContentViewerProps)
       setVideos(vids);
       setRelatedArticles(related);
       setCtaResins(resinsData);
-      setRelatedDocuments(documentsData);
+      // Include both the generally related resin documents and the PDFs
+      // explicitly attached to this publication. This keeps the visible
+      // evidence links and the article's structured data in sync.
+      const allDocuments = [...documentsData, ...pdfsData];
+      const uniqueDocuments = Array.from(new Map(allDocuments.map((doc: any) => [doc.id, doc])).values());
+      setRelatedDocuments(uniqueDocuments.map((doc: any) => ({
+        ...doc,
+        resin_name: doc.resin_name || doc.resins?.name || doc.system_a_catalog?.name || '',
+        resin_manufacturer: doc.resin_manufacturer || doc.resins?.manufacturer || '',
+      })));
       setSelectedPdfs(pdfsData);
       setVideosLoading(false);
     };

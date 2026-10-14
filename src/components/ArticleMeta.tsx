@@ -11,6 +11,7 @@ export function ArticleMeta({ createdAt, updatedAt }: ArticleMetaProps) {
   // Format dates based on language
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
+    if (!Number.isFinite(date.getTime())) return '';
     const locales = {
       pt: 'pt-BR',
       en: 'en-US',
@@ -34,7 +35,11 @@ export function ArticleMeta({ createdAt, updatedAt }: ArticleMetaProps) {
   const label = labels[language as keyof typeof labels] || labels.pt;
   
   // Only show updated date if different from created date
-  const showUpdated = new Date(createdAt).toDateString() !== new Date(updatedAt).toDateString();
+  const createdDate = new Date(createdAt);
+  const updatedDate = new Date(updatedAt);
+  const showUpdated = Number.isFinite(createdDate.getTime())
+    && Number.isFinite(updatedDate.getTime())
+    && createdDate.toDateString() !== updatedDate.toDateString();
 
   return (
     <div className="article-meta">

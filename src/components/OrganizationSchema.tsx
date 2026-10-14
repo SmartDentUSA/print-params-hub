@@ -1,3 +1,4 @@
+import { getPublicSiteOrigin } from "@/utils/publicSite";
 import { Helmet } from "react-helmet-async";
 import { useCompanyData } from "@/hooks/useCompanyData";
 
@@ -6,10 +7,11 @@ export function OrganizationSchema() {
 
   if (!company) return null;
 
+  const baseUrl = getPublicSiteOrigin();
   const schema: any = {
     "@context": "https://schema.org",
-    "@type": ["Organization", "LocalBusiness", "Store"],
-    "@id": "https://parametros.smartdent.com.br/#organization",
+    "@type": "Organization",
+    "@id": `${baseUrl}/#organization`,
     
     // Core Identity
     "name": company.name,
@@ -23,7 +25,6 @@ export function OrganizationSchema() {
     "foundingDate": company.business?.founded_year ? `${company.business.founded_year}-01-01` : (company.corporate.founded_year ? `${company.corporate.founded_year}-01-01` : undefined),
     
     // FASE 2: E-E-A-T Enhancement (Expertise, Authoritativeness, Trustworthiness)
-    "expertise": "Fabricação de resinas odontológicas para impressão 3D, desenvolvimento de parâmetros de impressão otimizados",
     "knowsAbout": [
       "Impressão 3D odontológica",
       "Resinas fotopolimerizáveis",
@@ -68,23 +69,6 @@ export function OrganizationSchema() {
       "addressCountry": company.contact.country,
     },
     
-    // GeoCoordinates (LocalBusiness SEO - Google Maps/Local Pack)
-    "geo": {
-      "@type": "GeoCoordinates",
-      "latitude": -22.0154,
-      "longitude": -47.8911
-    },
-    
-    // Opening Hours (LocalBusiness SEO)
-    "openingHoursSpecification": [
-      {
-        "@type": "OpeningHoursSpecification",
-        "dayOfWeek": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
-        "opens": "08:00",
-        "closes": "18:00"
-      }
-    ],
-    
     // Telephone for LocalBusiness
     "telephone": company.contact.phone,
     
@@ -98,34 +82,22 @@ export function OrganizationSchema() {
       company.social_media.tiktok,
     ].filter(Boolean),
     
-    // ⭐ CRITICAL FOR GOOGLE: Aggregate Ratings
-    "aggregateRating": company.reviews_reputation?.google_rating ? {
-      "@type": "AggregateRating",
-      "ratingValue": company.reviews_reputation.google_rating,
-      "reviewCount": company.reviews_reputation.google_review_count || company.reviews_reputation.testimonial_count,
-      "bestRating": "5",
-      "worstRating": "1",
-    } : undefined,
-    
-    // FASE 2: Awards and Certifications (E-E-A-T Enhancement)
-    "award": [
-      "Certificação ISO 13485 - Dispositivos Médicos",
-      "Registro ANVISA para resinas odontológicas",
-      ...(company.corporate?.awards?.map(a => `${a.name} (${a.year}) - ${a.issuer}`) || [])
-    ].filter(Boolean),
-    "accreditation": company.corporate?.certifications || [],
-    "certifications": [
-      {
-        "@type": "Certification",
-        "name": "ISO 13485",
-        "description": "Sistema de gestão da qualidade para dispositivos médicos"
-      },
-      {
-        "@type": "Certification", 
-        "name": "ANVISA",
-        "description": "Registro sanitário para comercialização de resinas odontológicas no Brasil"
-      }
-    ],
+    // Awards and certifications are separate concepts. The source record keeps
+    // certification status and issuing body so an in-progress item stays explicit.
+    // Google's self-serving-review rule is separate: API-imported business ratings
+    // are not marked up here because Google excludes Organization review stars.
+    "award": company.corporate?.awards?.map(a => `${a.name} (${a.year}) - ${a.issuer}`),
+    "hasCertification": company.corporate?.certifications?.map(cert => typeof cert === 'string' ? ({
+      "@type": "Certification",
+      "name": cert,
+    }) : ({
+      "@type": "Certification",
+      "name": cert.standard,
+      "description": [cert.status, cert.description].filter(Boolean).join(' — '),
+      ...(cert.certifier && { "issuedBy": { "@type": "Organization", "name": cert.certifier, ...(cert.certifier_url && { "url": cert.certifier_url }) } }),
+      ...(cert.certifier_url && { "url": cert.certifier_url }),
+      ...(cert.main_product && { "about": { "@type": "Product", "name": cert.main_product } }),
+    })),
     
     // Corporate Data
     "numberOfEmployees": company.business?.number_of_employees,
@@ -172,7 +144,7 @@ export function OrganizationSchema() {
       if (!us) return undefined;
       return {
         "@type": "Organization",
-        "@id": "https://parametros.smartdent.com.br/#organization-us",
+        "@id": `${baseUrl}/#organization-us`,
         "name": us.legal_name,
         "alternateName": us.trade_name,
         "url": us.website,
@@ -201,7 +173,7 @@ export function OrganizationSchema() {
     // Founders (Person Schema completo — E-E-A-T máximo)
     "founder": company.founders?.map(f => ({
       "@type": "Person",
-      "@id": `https://parametros.smartdent.com.br/#founder-${f.name.toLowerCase().replace(/\s+/g, '-').normalize('NFD').replace(/[\u0300-\u036f]/g, '')}`,
+      "@id": `${baseUrl}/#founder-${f.name.toLowerCase().replace(/\s+/g, '-').normalize('NFD').replace(/[\u0300-\u036f]/g, '')}`,
       "name": f.name,
       "honorificSuffix": f.title,
       "jobTitle": [f.role_br, f.role_us].filter(Boolean).join(' / '),

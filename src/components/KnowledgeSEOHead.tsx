@@ -1,3 +1,4 @@
+import { getPublicSiteOrigin } from '@/utils/publicSite';
 import { articleText, seoTerms } from '@/utils/seoText';
 import { Helmet } from 'react-helmet-async';
 import { useProductReviews } from '@/hooks/useProductReviews';
@@ -43,6 +44,16 @@ const getEmbedUrl = (url: string | null | undefined): string => {
     return url.replace('youtu.be/', 'youtube.com/embed/');
   }
   return url;
+};
+
+const toIsoDate = (value: string | null | undefined, fallback?: string): string | undefined => {
+  const date = value ? new Date(value) : null;
+  if (date && Number.isFinite(date.getTime())) return date.toISOString();
+  if (fallback) {
+    const fallbackDate = new Date(fallback);
+    if (Number.isFinite(fallbackDate.getTime())) return fallbackDate.toISOString();
+  }
+  return undefined;
 };
 
 // Extrai FAQs do conteúdo HTML
@@ -340,7 +351,7 @@ const generateSPINFromCatalog = (
 };
 
 export function KnowledgeSEOHead({ content, category, videos = [], relatedDocuments = [], currentLang = 'pt' }: KnowledgeSEOHeadProps) {
-  const baseUrl = 'https://parametros.smartdent.com.br';
+  const baseUrl = getPublicSiteOrigin();
   const { data: companyData } = useCompanyData();
   
   // 🆕 Fetch products for Review Schema
@@ -616,28 +627,16 @@ export function KnowledgeSEOHead({ content, category, videos = [], relatedDocume
     "@context": "https://schema.org",
     // 🆕 AUDITORIA SEO: Usar tipo dinâmico com array para MedicalWebPage/ScholarlyArticle
     "@type": contentType === 'MedicalWebPage' 
-      ? ["TechArticle", "MedicalWebPage"]
+      ? ["BlogPosting", "TechArticle", "MedicalWebPage"]
       : contentType === 'ScholarlyArticle'
-      ? ["TechArticle", "ScholarlyArticle"]
-      : isTechnicalPage ? "TechArticle" : "Article",
+      ? ["BlogPosting", "TechArticle", "ScholarlyArticle"]
+      : isTechnicalPage ? ["BlogPosting", "TechArticle"] : "BlogPosting",
     "headline": displayTitle,
     "keywords": seoTerms(content.keywords).join(', ') || extractKeywordsFromContent(content.content_html || ''),
     "description": content.meta_description || content.excerpt,
     "image": content.og_image_url,
-    "datePublished": new Date(content.created_at).toISOString(),
-    "dateModified": new Date(content.updated_at).toISOString(),
-    // Fix Google Search Console: Product/Article sem offers
-    "offers": {
-      "@type": "Offer",
-      "price": "0",
-      "priceCurrency": "BRL",
-      "availability": "https://schema.org/InStock",
-      "seller": {
-        "@type": "Organization",
-        "name": "SmartDent",
-        "url": "https://parametros.smartdent.com.br"
-      }
-    },
+    "datePublished": toIsoDate(content.created_at),
+    "dateModified": toIsoDate(content.updated_at, content.created_at),
     "articleBody": articleBody,
     "wordCount": wordCount,
     "inLanguage": htmlLang,
@@ -707,7 +706,7 @@ export function KnowledgeSEOHead({ content, category, videos = [], relatedDocume
     },
     "publisher": {
       "@type": "Organization",
-      "@id": "https://parametros.smartdent.com.br/#organization",
+      "@id": `${baseUrl}/#organization`,
       "name": companyData?.name || "Smart Dent",
       "url": companyData?.website_url,
       "logo": {
@@ -725,7 +724,7 @@ export function KnowledgeSEOHead({ content, category, videos = [], relatedDocume
         "description": doc.document_description || `Documento técnico: ${doc.document_name}`,
         "encodingFormat": "application/pdf",
         "contentUrl": doc.file_url,
-        "dateModified": new Date(doc.updated_at).toISOString(),
+        "dateModified": toIsoDate(doc.updated_at, content.updated_at || content.created_at),
         "fileSize": doc.file_size ? `${doc.file_size} bytes` : undefined,
         "inLanguage": "pt-BR",
         "about": {
@@ -738,9 +737,12 @@ export function KnowledgeSEOHead({ content, category, videos = [], relatedDocume
 
   // VideoObject Schema para cada vídeo
   const videoSchemas = videos
-    .filter(video => video.url)
+    .filter(video => video.video_type === 'pandavideo'
+      ? Boolean(video.embed_url || video.hls_url)
+      : Boolean(video.url))
     .map((video, idx) => {
-      const videoId = extractVideoId(video.url);
+      const sourceUrl = video.video_type === 'pandavideo' ? video.hls_url : video.url;
+      const videoId = extractVideoId(sourceUrl);
       
       // Calcular duração real em formato ISO 8601
       const duration = video.video_duration_seconds && video.video_duration_seconds > 0
@@ -765,9 +767,9 @@ export function KnowledgeSEOHead({ content, category, videos = [], relatedDocume
         "name": video.title || `${displayTitle} - Vídeo ${idx + 1}`,
         "description": video.description || content.meta_description || content.excerpt,
         "thumbnailUrl": video.thumbnail_url || (videoId ? `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg` : content.og_image_url),
-        "uploadDate": new Date(video.created_at || content.created_at).toISOString(),
-        "contentUrl": video.url,
-        "embedUrl": video.embed_url || getEmbedUrl(video.url),
+        "uploadDate": toIsoDate(video.created_at, content.created_at),
+        ...(sourceUrl && { "contentUrl": sourceUrl }),
+        "embedUrl": video.video_type === 'pandavideo' ? video.embed_url : getEmbedUrl(video.url),
         "inLanguage": htmlLang,
         ...(audioLanguages.length > 0 && { "audioLanguage": audioLanguages }),
         ...(duration && { "duration": duration }),
@@ -963,37 +965,8 @@ export function KnowledgeSEOHead({ content, category, videos = [], relatedDocume
     }))
   } : null;
 
-  // 🆕 FASE 4: Product Review Schema para Produtos Recomendados
-  const productReviewSchemas = products.slice(0, 3).map((product) => ({
-    "@context": "https://schema.org",
-    "@type": "Review",
-    "itemReviewed": {
-      "@type": "Product",
-      "name": product.name,
-      "brand": { 
-        "@type": "Brand", 
-        "name": product.product_category || "Smart Dent" 
-      },
-      "sku": product.external_id,
-      "image": product.image_url,
-      "offers": {
-        "@type": "Offer",
-        "price": product.price,
-        "priceCurrency": product.currency || "BRL",
-        "availability": "https://schema.org/InStock"
-      },
-      "category": product.product_category || product.category
-    },
-    "reviewRating": {
-      "@type": "Rating",
-      "ratingValue": product.rating || 5,
-      "bestRating": 5,
-      "worstRating": 1
-    },
-    "author": articleSchema.author,
-    "reviewBody": `Produto recomendado por ${content.authors?.name || 'Smart Dent'} no contexto de ${displayTitle}. ${product.product_subcategory ? `Categoria: ${product.product_subcategory}.` : ''}`,
-    "datePublished": new Date(content.created_at).toISOString()
-  }));
+  // Recommendations are mentions, not fabricated scored reviews.
+  const productReviewSchemas: never[] = [];
 
   // Detectar tipo de Twitter Card baseado no conteúdo
   const twitterCardType = videos.length > 0 
@@ -1029,7 +1002,7 @@ export function KnowledgeSEOHead({ content, category, videos = [], relatedDocume
         "@type": "Organization",
         "name": "Smart Dent",
         "url": baseUrl,
-        "sameAs": "https://www.wikidata.org/wiki/Q138636902"
+        "sameAs": "https://www.wikidata.org/wiki/Q139535514"
       },
       "publisher": {
         "@type": "Organization",
@@ -1037,8 +1010,8 @@ export function KnowledgeSEOHead({ content, category, videos = [], relatedDocume
       },
       "license": "https://parametros.smartdent.com.br/termos",
       "isAccessibleForFree": true,
-      "datePublished": new Date(content.created_at).toISOString(),
-      "dateModified": new Date(content.updated_at).toISOString(),
+      "datePublished": toIsoDate(content.created_at),
+      "dateModified": toIsoDate(content.updated_at, content.created_at),
       "inLanguage": htmlLang,
       "measurementTechnique": "Validação técnica em laboratório Smart Dent (parâmetros de impressão 3D odontológica)",
       ...(productMentions.length > 0 && { "about": productMentions }),
