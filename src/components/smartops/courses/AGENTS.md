@@ -8,3 +8,5 @@
 - KOL group fixed members and dry-run live in kol_program_settings (read by kol-portal); test contracts (is_test) never create real groups. Test leads/contracts carry is_test=true and are excluded from lists, counts and commission ledgers.
 - Contract acceptance is refused server-side without seller_team_member_id or at least one referral form/coupon, logged as kol_contract_accept_blocked.
 - KOL Transparency Portal (/portal-kol, edge kol-transparency): phone-only login creates kol_access_sessions; every read uses the session lead, never request ids; acceptance logic is shared via _shared/kol-accept.ts with kol-portal.
+- Internal KOL ops (contest answers, portal unblock, new-device alert test) run in kol-staff-ops gated by fn_is_internal_staff; answering logs kol_contest_answered and notifies the contract seller.
+- Commission ledger and any KOL report must read v_kol_contracts_reportable / v_kol_leads_reportable (is_test excluded at DB level), never raw tables.
