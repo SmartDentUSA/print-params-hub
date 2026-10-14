@@ -10,7 +10,9 @@ import { PRODUCT_CATALOG_ENTITY_TYPES } from "@/lib/catalogEntityTypes";
 import { groupKolCatalogCategories } from "@/lib/kolPortfolioGroups";
 import { kolRowKey } from "@/lib/kolCommissionDefaults";
 
-interface Row { kind: "category" | "product"; category: string | null; subcategory: string | null; product_id: string; percent: number | null; coupon_discount_percent: number | null }
+interface Row { kind: "category" | "product" | "referral"; category: string | null; subcategory: string | null; product_id: string; percent: number | null; coupon_discount_percent: number | null }
+
+const REFERRAL_BASE = { kind: "referral" as const, category: null, subcategory: null, product_id: "" };
 
 const pct = (v: string) => (v === "" ? null : Math.min(100, Math.max(0, Number(v))));
 
@@ -48,7 +50,7 @@ export default function KolCommissionDefaultsDialog({ open, onOpenChange }: { op
       if (t?.id) {
         const { data: items } = await sb.from("kol_commission_template_items").select("*").eq("template_id", t.id);
         for (const i of (items ?? []) as any[]) {
-          const r: Row = { kind: i.kind === "produto" ? "product" : "category", category: i.category, subcategory: i.subcategory, product_id: i.product_id ?? "", percent: i.percent == null ? null : Number(i.percent), coupon_discount_percent: i.coupon_discount_percent == null ? null : Number(i.coupon_discount_percent) };
+          const r: Row = { kind: i.kind === "produto" ? "product" : i.kind === "indicacao" ? "referral" : "category", category: i.category, subcategory: i.subcategory, product_id: i.product_id ?? "", percent: i.percent == null ? null : Number(i.percent), coupon_discount_percent: i.coupon_discount_percent == null ? null : Number(i.coupon_discount_percent) };
           next.set(kolRowKey(r), r);
         }
       }
@@ -73,7 +75,7 @@ export default function KolCommissionDefaultsDialog({ open, onOpenChange }: { op
     const sb = supabase as any;
     const payload = Array.from(rows.values())
       .filter((r) => r.percent != null || r.coupon_discount_percent != null)
-      .map((r) => ({ template_id: templateId, kind: r.kind === "product" ? "produto" : "categoria", category: r.category, subcategory: r.subcategory, product_id: r.product_id || null, percent: r.percent ?? 0, coupon_discount_percent: r.coupon_discount_percent }));
+      .map((r) => ({ template_id: templateId, kind: r.kind === "product" ? "produto" : r.kind === "referral" ? "indicacao" : "categoria", category: r.category, subcategory: r.subcategory, product_id: r.product_id || null, percent: r.percent ?? 0, coupon_discount_percent: r.coupon_discount_percent }));
     const del = await sb.from("kol_commission_template_items").delete().eq("template_id", templateId);
     const ins = del.error ? del : payload.length ? await sb.from("kol_commission_template_items").insert(payload) : { error: null };
     setSaving(false);
