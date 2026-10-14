@@ -137,6 +137,24 @@ Deno.serve(async (req) => {
       if (!c) return json({ error: "Nenhum contrato aguardando aceite" }, 404);
       if (!c.body_rendered) return json({ error: "Contrato sem texto renderizado" }, 500);
 
+      // Bloqueios de aceite: vendedor responsável e ao menos um formulário de indicação ou cupom
+      {
+        const { data: lk } = await admin.from("lia_attendances")
+          .select("prof_kol_coupons, prof_kol_form_ids").eq("id", leadId).single();
+        const motivos: string[] = [];
+        if (!c.seller_team_member_id) motivos.push("vendedor responsável não definido");
+        const hasCoupon = Array.isArray(lk?.prof_kol_coupons) && lk!.prof_kol_coupons.length > 0;
+        const hasForm = Array.isArray(lk?.prof_kol_form_ids) && lk!.prof_kol_form_ids.length > 0;
+        if (!hasCoupon && !hasForm) motivos.push("nenhum formulário de indicação ou cupom vinculado");
+        if (motivos.length) {
+          const msg = `Aceite bloqueado: ${motivos.join("; ")}. Fale com a equipe Smart Dent.`;
+          await kolLog(admin, leadId, "kol_contract_accept_blocked", {
+            numero: c.number, motivos, dedupe_key: `kol_contract_accept_blocked:${c.id}:${Date.now()}`,
+          }, c.id, c.number);
+          return json({ error: msg, blocked: true, motivos }, 409);
+        }
+      }
+
       const ip = ipOf(req);
       const ua = (req.headers.get("user-agent") || "").slice(0, 300);
       const hash = await sha256Hex(c.body_rendered);
@@ -190,10 +208,11 @@ Deno.serve(async (req) => {
       await admin.from("kol_contracts").update({
         wa_group_id: grp.groupId ?? null,
         wa_group_error: grp.error ?? null,
+        ...(grp.participants ? { wa_group_members: grp.participants } : {}),
       }).eq("id", c.id);
       await kolLog(admin, leadId, "kol_group_created", {
         numero: c.number, grupo: grp.groupId ?? null, erro: grp.error ?? null,
-        participantes: grp.participants ?? [],
+        participantes: grp.participants ?? [], simulado: grp.simulated === true,
         dedupe_key: `kol_group_created:${c.id}`,
       }, c.id, c.number);
 
