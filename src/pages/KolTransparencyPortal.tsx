@@ -12,6 +12,14 @@ import { toast } from "sonner";
 const KEY = "kol_tp_session";
 const brl = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 const dt = (s?: string | null) => (s ? new Date(s).toLocaleDateString("pt-BR") : "—");
+const EVT: Record<string, string> = {
+  kol_portal_login: "Acesso ao portal", kol_portal_login_failed: "Tentativa de acesso recusada", kol_portal_new_device_alert: "Aviso de aparelho novo",
+  kol_contract_draft_generated: "Contrato preparado", kol_contract_sent: "Contrato enviado", kol_contract_signed: "Contrato aceito",
+  kol_image_term_signed: "Termo de imagem aceito", kol_portal_unlocked: "Portal liberado", kol_portal_accept: "Aceite pelo portal",
+  kol_group_created: "Grupo de WhatsApp", kol_contract_accept_blocked: "Aceite bloqueado", kol_statement_viewed: "Extrato visualizado",
+  kol_contest_opened: "Contestação aberta", kol_commission_changed: "Comissão alterada", kol_commission_defaults_copied: "Comissão padrão aplicada",
+  kol_talk_scheduled: "Palestra agendada", kol_stand_scheduled: "Estande agendado", kol_schedule_cancelled: "Horário cancelado",
+};
 const CANAL: Record<string, string> = { indicacao: "Indicação", cupom: "Cupom e-commerce", formulario: "Formulários do profissional" };
 
 async function call(action: string, extra: Record<string, unknown> = {}) {
@@ -221,7 +229,7 @@ export default function KolTransparencyPortal() {
 
         <Section id="timeline" title="Linha do tempo">
           <ul className="space-y-1">{d.linha_do_tempo.map((t: any, i: number) => (
-            <li key={i} className="flex justify-between gap-2"><span>{t.descricao || t.tipo.replace(/^kol_/, "").replace(/_/g, " ")}</span><span className="text-xs text-muted-foreground whitespace-nowrap">{new Date(t.em).toLocaleString("pt-BR")}</span></li>
+            <li key={i} className="flex justify-between gap-2"><span>{EVT[t.tipo] ?? t.descricao ?? t.tipo.replace(/^kol_/, "").replace(/_/g, " ")}</span><span className="text-xs text-muted-foreground whitespace-nowrap">{new Date(t.em).toLocaleString("pt-BR")}</span></li>
           ))}</ul>
         </Section>
 
