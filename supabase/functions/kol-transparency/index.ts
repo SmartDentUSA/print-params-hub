@@ -224,7 +224,7 @@ Deno.serve(async (req) => {
       const eventos = tl.filter((t) => /kol_(talk|stand)_scheduled|kol_schedule_cancelled/.test(t.event_type)).map((t) => ({
         tipo: t.event_type, em: t.created_at,
         evento: t.event_data?.evento || t.event_data?.event_name || t.event_data?.descricao || "",
-        inicio: t.event_data?.inicio || t.event_data?.start || null, fim: t.event_data?.fim || t.event_data?.end || null,
+        data: t.event_data?.data || null, inicio: t.event_data?.inicio || t.event_data?.start || null, fim: t.event_data?.fim || t.event_data?.end || null,
       }));
       const hide = new Set(["kol_profile_update"]);
       const atividade = {
