@@ -14,14 +14,6 @@ function escapeXml(str: string): string {
     .replace(/'/g, '&apos;');
 }
 
-function formatDuration(seconds: number | null): string {
-  if (!seconds || seconds <= 0) return 'PT5M0S';
-  const h = Math.floor(seconds / 3600);
-  const m = Math.floor((seconds % 3600) / 60);
-  const s = seconds % 60;
-  return h > 0 ? `PT${h}H${m}M${s}S` : `PT${m}M${s}S`;
-}
-
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -37,7 +29,7 @@ Deno.serve(async (req) => {
     const { data: videos, error } = await supabase
       .from('knowledge_videos')
       .select(`
-        id, title, description, url, embed_url, thumbnail_url,
+        id, title, description, video_type, url, embed_url, hls_url, thumbnail_url,
         video_duration_seconds, created_at,
         knowledge_contents!inner(
           id, slug, title, active,
@@ -46,7 +38,7 @@ Deno.serve(async (req) => {
       `)
       .not('content_id', 'is', null)
       .order('created_at', { ascending: false })
-      .limit(500);
+      .limit(1000);
 
     if (error) {
       console.error('Error fetching videos:', error);
@@ -56,7 +48,8 @@ Deno.serve(async (req) => {
     const activeVideos = (videos || []).filter((v: any) => {
       const content = v.knowledge_contents;
       return content?.active && content?.knowledge_categories?.enabled !== false
-        && (v.url || v.embed_url); // Must have at least one playable URL
+        && Boolean(v.embed_url || v.url)
+        && Boolean(v.thumbnail_url); // Only publish complete, publicly playable video entries
     });
 
     let xml = `<?xml version="1.0" encoding="UTF-8"?>
@@ -64,37 +57,43 @@ Deno.serve(async (req) => {
         xmlns:video="http://www.google.com/schemas/sitemap-video/1.1">
 `;
 
-    for (const v of activeVideos) {
-      const content = v.knowledge_contents;
+    const videosByPage = new Map<string, any[]>();
+    for (const video of activeVideos) {
+      const content = video.knowledge_contents;
       const letter = content.knowledge_categories?.letter?.toLowerCase() || 'a';
       const pageUrl = `${baseUrl}/base-conhecimento/${letter}/${content.slug}`;
-      const title = escapeXml(v.title || content.title || 'Vídeo');
-      const description = escapeXml(
-        (v.description || content.title || 'Vídeo tutorial SmartDent').substring(0, 2048)
-      );
-      const thumbnailUrl = v.thumbnail_url
-        ? escapeXml(v.thumbnail_url)
-        : `${baseUrl}/placeholder.svg`;
-      const contentUrl = v.url ? escapeXml(v.url) : '';
-      const embedUrl = v.embed_url ? escapeXml(v.embed_url) : '';
-      const uploadDate = v.created_at
-        ? new Date(v.created_at).toISOString().split('T')[0]
-        : new Date().toISOString().split('T')[0];
-      const duration = formatDuration(v.video_duration_seconds);
+      const pageVideos = videosByPage.get(pageUrl) || [];
+      pageVideos.push(video);
+      videosByPage.set(pageUrl, pageVideos);
+    }
 
-      xml += `  <url>
-    <loc>${escapeXml(pageUrl)}</loc>
-    <video:video>
+    for (const [pageUrl, pageVideos] of videosByPage) {
+      xml += `  <url>\n    <loc>${escapeXml(pageUrl)}</loc>\n`;
+      for (const v of pageVideos) {
+        const content = v.knowledge_contents;
+        const title = escapeXml(v.title || content.title || 'Vídeo');
+        const description = escapeXml(
+          (v.description || content.title || 'Vídeo tutorial SmartDent').substring(0, 2048)
+        );
+        const thumbnailUrl = escapeXml(v.thumbnail_url);
+        // content_loc must point at the video bytes/stream, never at the player page.
+        const contentUrl = v.hls_url ? escapeXml(v.hls_url) : '';
+        const rawEmbedUrl = v.embed_url || (v.video_type === 'pandavideo' ? v.url : '');
+        const embedUrl = rawEmbedUrl ? escapeXml(rawEmbedUrl) : '';
+        const publicationDate = v.created_at && Number.isFinite(new Date(v.created_at).getTime())
+          ? new Date(v.created_at).toISOString().split('T')[0]
+          : '';
+
+        xml += `    <video:video>
       <video:thumbnail_loc>${thumbnailUrl}</video:thumbnail_loc>
       <video:title>${title}</video:title>
       <video:description>${description}</video:description>
-${contentUrl ? `      <video:content_loc>${contentUrl}</video:content_loc>\n` : ''}${embedUrl ? `      <video:player_loc>${embedUrl}</video:player_loc>\n` : ''}      <video:duration>${v.video_duration_seconds || 300}</video:duration>
-      <video:publication_date>${uploadDate}</video:publication_date>
-      <video:family_friendly>yes</video:family_friendly>
+${contentUrl ? `      <video:content_loc>${contentUrl}</video:content_loc>\n` : ''}${embedUrl ? `      <video:player_loc>${embedUrl}</video:player_loc>\n` : ''}${v.video_duration_seconds && v.video_duration_seconds > 0 ? `      <video:duration>${Math.floor(v.video_duration_seconds)}</video:duration>\n` : ''}${publicationDate ? `      <video:publication_date>${publicationDate}</video:publication_date>\n` : ''}      <video:family_friendly>yes</video:family_friendly>
       <video:live>no</video:live>
     </video:video>
-  </url>
 `;
+      }
+      xml += `  </url>\n`;
     }
 
     xml += `</urlset>`;
@@ -119,3 +118,4 @@ ${contentUrl ? `      <video:content_loc>${contentUrl}</video:content_loc>\n` : 
     });
   }
 });
+
