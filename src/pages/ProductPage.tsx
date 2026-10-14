@@ -177,7 +177,7 @@ const ProductPage = () => {
   const features = extraData.features || [];
   const faqs = extraData.faqs || [];
 
-  const baseUrl = "https://parametros.smartdent.com.br";
+  const baseUrl = "https://www.smartdent.com.br";
   const canonicalUrl = `${baseUrl}/produtos/${slug}`;
   const keywordsStr = product.keywords?.join(", ") || `${product.name}, ${companyName}`;
 
