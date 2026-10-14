@@ -256,7 +256,7 @@ export default function ProfessionalCoursePortal() {
                           <Pencil className="w-4 h-4" />
                         </Button>
                       )}
-                      {c.status !== "publicado" && (
+                      {c.status === "rascunho" && (
                         <Button size="icon" variant="ghost" onClick={() => removeCourse(c)}>
                           <Trash2 className="w-4 h-4 text-destructive" />
                         </Button>
