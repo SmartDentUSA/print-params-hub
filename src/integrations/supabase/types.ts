@@ -9058,6 +9058,7 @@ export type Database = {
           id: string
           image_scope: Json | null
           image_term_signed_at: string | null
+          is_test: boolean
           lead_id: string
           legal_name: string | null
           number: string | null
@@ -9068,6 +9069,7 @@ export type Database = {
           rep_cpf: string | null
           rep_name: string | null
           revoked_at: string | null
+          seller_team_member_id: string | null
           sent_at: string | null
           signed_at: string | null
           signed_ip: string | null
@@ -9094,6 +9096,7 @@ export type Database = {
           id?: string
           image_scope?: Json | null
           image_term_signed_at?: string | null
+          is_test?: boolean
           lead_id: string
           legal_name?: string | null
           number?: string | null
@@ -9104,6 +9107,7 @@ export type Database = {
           rep_cpf?: string | null
           rep_name?: string | null
           revoked_at?: string | null
+          seller_team_member_id?: string | null
           sent_at?: string | null
           signed_at?: string | null
           signed_ip?: string | null
@@ -9130,6 +9134,7 @@ export type Database = {
           id?: string
           image_scope?: Json | null
           image_term_signed_at?: string | null
+          is_test?: boolean
           lead_id?: string
           legal_name?: string | null
           number?: string | null
@@ -9140,6 +9145,7 @@ export type Database = {
           rep_cpf?: string | null
           rep_name?: string | null
           revoked_at?: string | null
+          seller_team_member_id?: string | null
           sent_at?: string | null
           signed_at?: string | null
           signed_ip?: string | null
@@ -9231,6 +9237,27 @@ export type Database = {
           ip_hash?: string | null
           professional_id?: string | null
           success?: boolean
+        }
+        Relationships: []
+      }
+      kol_program_settings: {
+        Row: {
+          description: string | null
+          key: string
+          updated_at: string
+          value: Json
+        }
+        Insert: {
+          description?: string | null
+          key: string
+          updated_at?: string
+          value: Json
+        }
+        Update: {
+          description?: string | null
+          key?: string
+          updated_at?: string
+          value?: Json
         }
         Relationships: []
       }
@@ -11993,6 +12020,7 @@ export type Database = {
           interest_timeline: string | null
           ip_origem: string | null
           is_kol: boolean
+          is_test: boolean
           itens_proposta_crm: string | null
           itens_proposta_parsed: Json | null
           kol_phone_key: string | null
@@ -12622,6 +12650,7 @@ export type Database = {
           interest_timeline?: string | null
           ip_origem?: string | null
           is_kol?: boolean
+          is_test?: boolean
           itens_proposta_crm?: string | null
           itens_proposta_parsed?: Json | null
           kol_phone_key?: string | null
@@ -13251,6 +13280,7 @@ export type Database = {
           interest_timeline?: string | null
           ip_origem?: string | null
           is_kol?: boolean
+          is_test?: boolean
           itens_proposta_crm?: string | null
           itens_proposta_parsed?: Json | null
           kol_phone_key?: string | null
@@ -38189,6 +38219,7 @@ export type Database = {
           interest_timeline: string | null
           ip_origem: string | null
           is_kol: boolean
+          is_test: boolean
           itens_proposta_crm: string | null
           itens_proposta_parsed: Json | null
           kol_phone_key: string | null

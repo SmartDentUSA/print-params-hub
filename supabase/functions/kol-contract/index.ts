@@ -119,6 +119,9 @@ Deno.serve(async (req) => {
       if (personType === "PF" && !lead.prof_cro) pending.push("CRO");
       if (!waInstance) pending.push("instância de WhatsApp do grupo");
       if (!sellerId) pending.push("vendedor responsável");
+      const hasCoupon = Array.isArray(lead.prof_kol_coupons) && lead.prof_kol_coupons.length > 0;
+      const hasForm = Array.isArray(lead.prof_kol_form_ids) && lead.prof_kol_form_ids.length > 0;
+      if (!hasCoupon && !hasForm) pending.push("ao menos um formulário de indicação ou cupom");
 
       const { data: seller } = sellerId
         ? await admin.from("team_members").select("id, nome_completo, evolution_phone").eq("id", sellerId).maybeSingle()
@@ -216,6 +219,8 @@ Deno.serve(async (req) => {
         commission_snapshot: commissions,
         wa_instance_name: waInstance || null,
         wa_group_members: waMembers,
+        seller_team_member_id: sellerId || null,
+        is_test: /^\[TESTE KOL\]/i.test(String(lead.nome || lead.prof_display_name || "")),
         created_by: uid,
         adjust_notes: null,
         updated_at: new Date().toISOString(),
