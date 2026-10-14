@@ -39,6 +39,8 @@ export interface KolCoupon {
   active_to: string | null;
   /** % de comissão do profissional sobre as compras feitas com este cupom. */
   commission_percent?: number | null;
+  category?: string | null;
+  subcategory?: string | null;
 }
 
 interface Props {
