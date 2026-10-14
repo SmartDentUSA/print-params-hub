@@ -59,7 +59,7 @@ const ALL_BOTS = [...AI_BOTS, ...SEARCH_BOTS, ...SOCIAL_BOTS];
 const BOT_HEURISTIC = /bot|crawler|spider|slurp|python|curl|wget|scrapy|headless|node-?fetch|axios|http-?client|postman|insomnia|go-http|java\/|okhttp|httpie|libwww|lighthouse|screaming|semrush|ahrefs|serpstat/i;
 
 // Favicon Tags para SEO
-const BASE_URL = 'https://parametros.smartdent.com.br';
+const BASE_URL = 'https://www.smartdent.com.br';
 
 // ===== JSON-LD SAFETY =====
 // Evita "Erro de análise" no GSC quando o conteúdo contém `<`, `>`, `&`
@@ -614,7 +614,7 @@ function buildPublisherSchema(baseUrl: string, companyReviews?: {
       "https://www.smartdent.com.br",
       "https://smartdentusa.com",
       "https://loja.smartdent.com.br",
-      "https://parametros.smartdent.com.br"
+      "https://www.smartdent.com.br"
     ],
     "expertise": "Desenvolvimento e fabricação de resinas odontológicas para impressão 3D, equipamentos CAD/CAM e fluxos digitais completos para odontologia",
     "knowsAbout": [
@@ -1048,7 +1048,7 @@ async function generateHomepageHTML(supabase: any): Promise<string> {
     console.error('Supabase error fetching brands:', brandsRes.error.message);
   }
 
-  const baseUrl = 'https://parametros.smartdent.com.br';
+  const baseUrl = 'https://www.smartdent.com.br';
   const title = 'Parâmetros de Impressão 3D Odontológica | Smart Dent';
   const description = `Base de dados profissional com parâmetros testados para ${brands?.length || 15}+ marcas de impressoras 3D odontológicas. Elegoo, Anycubic, Creality e mais.`;
   const contextText = `Base de dados profissional de parâmetros de impressão 3D odontológica com ${brands?.length || 15}+ marcas. Público-alvo: cirurgiões-dentistas e técnicos em prótese dentária.`;
@@ -1136,7 +1136,7 @@ async function generateBrandHTML(brandSlug: string, supabase: any): Promise<stri
   if (!brand) return '';
 
   const modelsCount = brand.models?.length || 0;
-  const baseUrl = 'https://parametros.smartdent.com.br';
+  const baseUrl = 'https://www.smartdent.com.br';
   const title = `${escapeHtml(brand.name)} - Parâmetros de Impressão 3D | Smart Dent`;
   const description = `Configurações profissionais para impressoras 3D ${escapeHtml(brand.name)}. ${modelsCount} modelos disponíveis com parâmetros testados.`;
   const contextText = `Parâmetros de impressão 3D profissional para impressoras ${escapeHtml(brand.name)}. ${modelsCount} modelos com configurações testadas para uso odontológico.`;
@@ -1219,7 +1219,7 @@ async function generateModelHTML(brandSlug: string, modelSlug: string, supabase:
   )).values()];
 
   const resinsCount = uniqueResins.length;
-  const baseUrl = 'https://parametros.smartdent.com.br';
+  const baseUrl = 'https://www.smartdent.com.br';
   const title = `${escapeHtml(model.name)} - Parâmetros de Impressão 3D | Smart Dent`;
   const description = `Parâmetros profissionais para ${escapeHtml(model.name)}. ${resinsCount} resinas disponíveis com configurações testadas.`;
   const contextText = `Parâmetros de impressão 3D para ${escapeHtml(model.name)} (${escapeHtml((model.brands as any).name)}). ${resinsCount} resinas com configurações testadas para odontologia digital.`;
@@ -1322,7 +1322,7 @@ async function generateResinHTML(brandSlug: string, modelSlug: string, resinSlug
   if (resinError) console.error('Supabase error fetching resin:', resinError.message);
 
   const params = paramData;
-  const baseUrl = 'https://parametros.smartdent.com.br';
+  const baseUrl = 'https://www.smartdent.com.br';
   const resinName = params.resin_name;
   const resinManufacturer = params.resin_manufacturer;
   const seoTitle = resinData?.seo_title_override || `${escapeHtml(resinName)} para ${escapeHtml(modelSlug)} - Parâmetros | Smart Dent`;
@@ -1437,7 +1437,7 @@ async function generateSystemACatalogHTML(
   if (itemRes.error || !itemRes.data) return generate404();
   const item = itemRes.data;
 
-  const baseUrl = 'https://parametros.smartdent.com.br';
+  const baseUrl = 'https://www.smartdent.com.br';
   const seoTitle = category === 'product' 
     ? (item.seo_title_override || `${item.name} | Smart Dent - Odontologia de Precisão`)
     : category === 'video_testimonial'
@@ -1569,7 +1569,7 @@ async function generateKnowledgeHubHTML(supabase: any): Promise<string> {
   const knowledgeCtx = await fetchKnowledgeContext(supabase);
   const categories = knowledgeCtx.categories;
 
-  const baseUrl = 'https://parametros.smartdent.com.br';
+  const baseUrl = 'https://www.smartdent.com.br';
   const title = 'Base de Conhecimento | Smart Dent';
   const description = 'Artigos, tutoriais e guias sobre impressão 3D odontológica. Aprenda técnicas, resolução de problemas e melhores práticas.';
   const contextText = 'Base de conhecimento profissional sobre impressão 3D odontológica. Conteúdo técnico-científico para cirurgiões-dentistas e técnicos em prótese dentária.';
@@ -1677,7 +1677,7 @@ async function generateKnowledgeCategoryHTML(letter: string, supabase: any): Pro
   const contents = contentsRes.data;
   if (contentsRes.error) console.error('Supabase error fetching contents:', contentsRes.error.message);
 
-  const baseUrl = 'https://parametros.smartdent.com.br';
+  const baseUrl = 'https://www.smartdent.com.br';
   const title = `${escapeHtml(category.letter)} - ${escapeHtml(category.name)} | Base de Conhecimento Smart Dent`;
   const description = `Artigos sobre ${escapeHtml(category.name)}. ${contents?.length || 0} conteúdos disponíveis na base de conhecimento Smart Dent.`;
   const contextText = `Categoria "${escapeHtml(category.name)}" da base de conhecimento Smart Dent. ${contents?.length || 0} artigos técnicos sobre impressão 3D odontológica.`;
@@ -1800,7 +1800,7 @@ async function generateKnowledgeArticleHTML(letter: string, slug: string, supaba
   const desc = content.meta_description || content.excerpt || 
     (content.content_html?.replace(/<[^>]*>/g, '').substring(0, 160) + '...');
 
-  const baseUrl = 'https://parametros.smartdent.com.br';
+  const baseUrl = 'https://www.smartdent.com.br';
 
   // og:image com fallback + URL absoluta (WhatsApp/Facebook não baixam paths relativos
   // nem aceitam content="" — sem isso o card de preview do link fica sem hero).
@@ -2164,8 +2164,8 @@ async function generateKnowledgeArticleHTML(letter: string, slug: string, supaba
             <div>
               <a href="${
                 resin.brand_slug && resin.model_slug && (resin.slug || resin.id)
-                  ? `https://parametros.smartdent.com.br/${resin.brand_slug}/${resin.model_slug}/${resin.slug || resin.id}`
-                  : `https://parametros.smartdent.com.br/resinas/${resin.slug || resin.id}`
+                  ? `https://www.smartdent.com.br/${resin.brand_slug}/${resin.model_slug}/${resin.slug || resin.id}`
+                  : `https://www.smartdent.com.br/resinas/${resin.slug || resin.id}`
               }" style="font-weight:bold;color:#007bff;text-decoration:none">
                 ${escapeHtml(resin.name)}
               </a>
@@ -2246,7 +2246,7 @@ async function generatePublicFormHTML(slug: string, supabase: any): Promise<stri
   }
   if (!form) return '';
 
-  const baseUrl = 'https://parametros.smartdent.com.br';
+  const baseUrl = 'https://www.smartdent.com.br';
   const canonical = `${baseUrl}/f/${form.slug}`;
   const title = `${escapeHtml(form.title || form.name)} | Smart Dent`;
   const description = escapeHtml(
@@ -2427,7 +2427,7 @@ function buildDistributorLocalBusinessLd(d: any, country: { name: string; iso?: 
 async function generateDistribuidorCountryHTML(countrySlug: string, supabase: any): Promise<string> {
   const country = findCountryBySlug(countrySlug);
   if (!country) return '';
-  const baseUrl = 'https://parametros.smartdent.com.br';
+  const baseUrl = 'https://www.smartdent.com.br';
   const canonical = `${baseUrl}/distribuidores/${country.slug}`;
   const title = `Distribuidores Oficiais Smart Dent ${country.name === 'Estados Unidos' ? 'nos Estados Unidos' : country.name === 'Brasil' || country.name === 'Uruguai' || country.name === 'Chile' ? 'no ' + country.name : country.name === 'Costa Rica' || country.name === 'Colômbia' || country.name === 'Venezuela' || country.name === 'República Dominicana' ? 'na ' + country.name : country.name} | Onde Comprar`;
   const description = `${country.intent} Lista oficial de revendas autorizadas Smart Dent em ${country.name}: endereço, telefone, WhatsApp, site e linhas representadas.`;
@@ -2556,7 +2556,7 @@ async function generateDistribuidorCountryHTML(countrySlug: string, supabase: an
 async function generateDistribuidorDetailHTML(countrySlug: string, distSlug: string, supabase: any): Promise<string> {
   const country = findCountryBySlug(countrySlug);
   if (!country) return '';
-  const baseUrl = 'https://parametros.smartdent.com.br';
+  const baseUrl = 'https://www.smartdent.com.br';
 
   const { data: rows } = await supabase
     .from('distributors')
@@ -2681,7 +2681,7 @@ async function generateDistribuidorDetailHTML(countrySlug: string, distSlug: str
 
 // ===== /distribuidores — Lista oficial de revendas e distribuidores =====
 async function generateDistribuidoresHTML(supabase: any): Promise<string> {
-  const baseUrl = 'https://parametros.smartdent.com.br';
+  const baseUrl = 'https://www.smartdent.com.br';
   const canonical = `${baseUrl}/distribuidores`;
   const title = 'Distribuidores e Revendas Oficiais Smart Dent | América Latina';
   const description = 'Rede oficial de distribuidores Smart Dent no Brasil e América Latina: Chile, Colômbia, Costa Rica, República Dominicana, EUA, Uruguai e Venezuela.';
@@ -2806,7 +2806,7 @@ async function generateDistribuidoresHTML(supabase: any): Promise<string> {
 
 // ===== /eventos — Agenda oficial de eventos Smart Dent =====
 async function generateEventosHTML(supabase: any): Promise<string> {
-  const baseUrl = 'https://parametros.smartdent.com.br';
+  const baseUrl = 'https://www.smartdent.com.br';
   const canonical = `${baseUrl}/eventos`;
   const title = 'Eventos de Odontologia Digital 2026 | Smart Dent';
   const description = 'Smart Dent presente nos principais eventos de odontologia digital, impressão 3D e CAD/CAM no Brasil e América Latina em 2026.';
@@ -2915,7 +2915,7 @@ async function generateEventosHTML(supabase: any): Promise<string> {
 // =====================================================================
 async function generateArticlesHubHTML(supabase: any): Promise<string> {
   const ARTICLE_LETTERS = ['B', 'C', 'D', 'F'];
-  const baseUrl = 'https://parametros.smartdent.com.br';
+  const baseUrl = 'https://www.smartdent.com.br';
 
   const [catsRes, knowledgeCtx] = await Promise.all([
     supabase
