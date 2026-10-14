@@ -8869,6 +8869,7 @@ export type Database = {
         Row: {
           active_from: string | null
           category: string | null
+          channel: string
           coupon_discount_percent: number | null
           created_at: string
           id: string
@@ -8881,6 +8882,7 @@ export type Database = {
         Insert: {
           active_from?: string | null
           category?: string | null
+          channel?: string
           coupon_discount_percent?: number | null
           created_at?: string
           id?: string
@@ -8893,6 +8895,7 @@ export type Database = {
         Update: {
           active_from?: string | null
           category?: string | null
+          channel?: string
           coupon_discount_percent?: number | null
           created_at?: string
           id?: string
