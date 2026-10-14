@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, FileText, Send, Plus, Trash2, Eye, Ban, RefreshCw } from "lucide-react";
+import { Loader2, FileText, Send, Plus, Eye, Ban, RefreshCw } from "lucide-react";
 
 interface TeamMember { id: string; nome_completo: string | null; evolution_instance_name: string | null; evolution_phone: string | null }
 interface Loan { id?: string; product_name: string; serial_number: string; released_at: string; returned_at?: string | null; value_brl: string; status: string }
@@ -331,6 +331,3 @@ export default function KolContractPanel({ leadId, leadNome }: { leadId: string;
     </div>
   );
 }
-
-// re-export para evitar import não usado em builds estritos
-export { Trash2 as _KolContractPanelTrashIcon };
