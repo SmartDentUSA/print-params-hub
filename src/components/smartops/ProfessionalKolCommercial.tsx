@@ -365,10 +365,13 @@ export default function ProfessionalKolCommercial({
                   const idx = catRuleIdx(row.category, row.subcategory);
                   const rule = idx !== -1 ? commissions[idx] : null;
                   const active = idx !== -1;
+                  const def = defaults.get(kolRowKey({ kind: "category", category: row.category, subcategory: row.subcategory, product_id: "" }));
+                  const custom = !!rule && isKolRowCustomized(rule, def);
+                  const clamp = (v: string) => (v === "" ? null : Math.min(100, Math.max(0, parseFloat(v))));
                   return (
                     <div
                       key={`${row.category}::${row.subcategory ?? "*"}`}
-                      className={`grid grid-cols-1 md:grid-cols-[1fr_120px_180px_60px] gap-2 items-center rounded-md border p-2 ${
+                      className={`grid grid-cols-1 md:grid-cols-[1fr_100px_110px_160px_150px] gap-2 items-center rounded-md border p-2 ${
                         active ? "" : "opacity-60"
                       } ${row.isSub ? "md:ml-6" : "bg-muted/40"}`}
                     >
@@ -381,29 +384,39 @@ export default function ProfessionalKolCommercial({
                         <span className={`text-sm ${row.isSub ? "" : "font-medium"}`}>
                           {row.isSub ? row.label : `${row.label} (todas as subcategorias)`}
                         </span>
+                        {custom && <Badge variant="outline" className="text-[10px]">personalizado</Badge>}
                       </div>
-                      <div>
-                        <Input
-                          type="number" min={0} max={100} step="0.1"
-                          value={rule?.percent ?? ""}
-                          onChange={(e) =>
-                            idx !== -1 &&
-                            patchRule(idx, { percent: e.target.value === "" ? null : Math.min(100, Math.max(0, parseFloat(e.target.value))) })
-                          }
-                          disabled={disabled || !active}
-                          placeholder="%"
-                        />
+                      <Input
+                        type="number" min={0} max={100} step="0.1"
+                        value={rule?.percent ?? ""}
+                        onChange={(e) => idx !== -1 && patchRule(idx, { percent: clamp(e.target.value) })}
+                        disabled={disabled || !active}
+                        placeholder="KOL %"
+                        title="Comissão do KOL (%)"
+                      />
+                      <Input
+                        type="number" min={0} max={100} step="0.1"
+                        value={rule?.coupon_discount_percent ?? ""}
+                        onChange={(e) => idx !== -1 && patchRule(idx, { coupon_discount_percent: clamp(e.target.value) })}
+                        disabled={disabled || !active}
+                        placeholder="Cupom %"
+                        title="Desconto do cupom da loja (%)"
+                      />
+                      <DatePickerInput
+                        value={rule?.active_from ?? undefined}
+                        onChange={(v) => idx !== -1 && patchRule(idx, { active_from: v })}
+                        disabled={disabled || !active}
+                        className="w-full"
+                        placeholder="Ativação"
+                      />
+                      <div className="text-right">
+                        {custom && def && (
+                          <Button type="button" size="sm" variant="ghost" disabled={disabled}
+                            onClick={() => patchRule(idx, { percent: def.percent, coupon_discount_percent: def.coupon_discount_percent })}>
+                            Restaurar padrão
+                          </Button>
+                        )}
                       </div>
-                      <div>
-                        <DatePickerInput
-                          value={rule?.active_from ?? undefined}
-                          onChange={(v) => idx !== -1 && patchRule(idx, { active_from: v })}
-                          disabled={disabled || !active}
-                          className="w-full"
-                          placeholder="Ativação"
-                        />
-                      </div>
-                      <div className="text-xs text-muted-foreground text-right">{active ? "Ativa" : ""}</div>
                     </div>
                   );
                 });

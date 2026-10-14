@@ -15,6 +15,7 @@ import { cn } from "@/lib/utils";
 import { fetchPurchaseSummaries, EMPTY_SUMMARY, type PurchaseSummary } from "@/hooks/useProfessionalPurchaseSummary";
 import ProfessionalKolCardStats from "./ProfessionalKolCardStats";
 import KolPhonePendingDialog, { useKolPhonePending } from "./courses/KolPhonePendingDialog";
+import KolCommissionDefaultsDialog from "./courses/KolCommissionDefaultsDialog";
 import { sanitizeEquipmentLabel } from "@/utils/equipmentLabel";
 
 function fmtBRL(v: number): string {
@@ -126,6 +127,7 @@ export default function CoursesPage() {
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [phonePendingOpen, setPhonePendingOpen] = useState(false);
+  const [defaultsOpen, setDefaultsOpen] = useState(false);
   const { data: phonePending = [] } = useKolPhonePending();
   const [professionals, setProfessionals] = useState<Professional[]>([]);
   const [wonEquip, setWonEquip] = useState<Record<string, { scanner?: string; impressora?: string }>>({});
@@ -290,6 +292,9 @@ export default function CoursesPage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={() => setDefaultsOpen(true)}>
+            Configurações de comissionamento padrão
+          </Button>
           <Button variant="outline" onClick={() => setPhonePendingOpen(true)}>
             Pendências de celular
             {phonePending.length > 0 && <Badge variant="destructive" className="ml-2">{phonePending.length}</Badge>}
@@ -300,6 +305,7 @@ export default function CoursesPage() {
         </div>
       </div>
       <KolPhonePendingDialog open={phonePendingOpen} onOpenChange={setPhonePendingOpen} />
+      <KolCommissionDefaultsDialog open={defaultsOpen} onOpenChange={setDefaultsOpen} />
 
       {loading ? (
         <div className="flex items-center justify-center py-12 text-muted-foreground">
