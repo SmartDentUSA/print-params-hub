@@ -9362,6 +9362,138 @@ export type Database = {
           },
         ]
       }
+      kol_event_invites: {
+        Row: {
+          contract_id: string
+          created_at: string
+          event_id: string
+          id: string
+          invited_by: string | null
+          is_test: boolean
+          lead_id: string
+          message_mode: string
+          responded_at: string | null
+          response_note: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          contract_id: string
+          created_at?: string
+          event_id: string
+          id?: string
+          invited_by?: string | null
+          is_test?: boolean
+          lead_id: string
+          message_mode?: string
+          responded_at?: string | null
+          response_note?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          contract_id?: string
+          created_at?: string
+          event_id?: string
+          id?: string
+          invited_by?: string | null
+          is_test?: boolean
+          lead_id?: string
+          message_mode?: string
+          responded_at?: string | null
+          response_note?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "kol_event_invites_contract_id_fkey"
+            columns: ["contract_id"]
+            isOneToOne: false
+            referencedRelation: "kol_contracts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "kol_event_invites_contract_id_fkey"
+            columns: ["contract_id"]
+            isOneToOne: false
+            referencedRelation: "v_kol_contracts_reportable"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "kol_event_invites_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "smartops_events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      kol_event_slots: {
+        Row: {
+          cancel_reason: string | null
+          cancelled_at: string | null
+          created_at: string
+          done_at: string | null
+          end_time: string
+          event_id: string
+          hours_done: number | null
+          id: string
+          invite_id: string
+          is_test: boolean
+          lead_id: string
+          slot_date: string
+          slot_type: string
+          start_time: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          cancel_reason?: string | null
+          cancelled_at?: string | null
+          created_at?: string
+          done_at?: string | null
+          end_time: string
+          event_id: string
+          hours_done?: number | null
+          id?: string
+          invite_id: string
+          is_test?: boolean
+          lead_id: string
+          slot_date: string
+          slot_type: string
+          start_time: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          cancel_reason?: string | null
+          cancelled_at?: string | null
+          created_at?: string
+          done_at?: string | null
+          end_time?: string
+          event_id?: string
+          hours_done?: number | null
+          id?: string
+          invite_id?: string
+          is_test?: boolean
+          lead_id?: string
+          slot_date?: string
+          slot_type?: string
+          start_time?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "kol_event_slots_invite_id_fkey"
+            columns: ["invite_id"]
+            isOneToOne: false
+            referencedRelation: "kol_event_invites"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       kol_portal_attempts: {
         Row: {
           blocked_until: string | null
@@ -33426,6 +33558,19 @@ export type Database = {
         }
         Relationships: []
       }
+      v_kol_event_hours: {
+        Row: {
+          horas_estande: number | null
+          horas_palestra: number | null
+          horas_total: number | null
+          is_test: boolean | null
+          lead_id: string | null
+          turnos_agendados: number | null
+          turnos_cancelados: number | null
+          turnos_realizados: number | null
+        }
+        Relationships: []
+      }
       v_kol_leads_reportable: {
         Row: {
           id: string | null
@@ -37769,6 +37914,10 @@ export type Database = {
           ticket_medio: number
         }[]
       }
+      fn_kol_cancel_slot: {
+        Args: { _reason: string; _slot_id: string }
+        Returns: undefined
+      }
       fn_kol_contract_ready: { Args: { _lead_id: string }; Returns: Json }
       fn_kol_coupon_items: {
         Args: { _code: string; _from?: string; _to?: string }
@@ -37810,6 +37959,19 @@ export type Database = {
           visitors: number
         }[]
       }
+      fn_kol_invite: {
+        Args: { _event_id: string; _lead_id: string; _test?: boolean }
+        Returns: string
+      }
+      fn_kol_invite_respond: {
+        Args: {
+          _accept: boolean
+          _actor?: string
+          _invite_id: string
+          _note?: string
+        }
+        Returns: undefined
+      }
       fn_kol_lead_phone: {
         Args: { _ddi: string; _number: string; _tel: string; _wa: string }
         Returns: string
@@ -37826,6 +37988,10 @@ export type Database = {
           _value?: number
         }
         Returns: string
+      }
+      fn_kol_mark_done: {
+        Args: { _end?: string; _slot_id: string; _start?: string }
+        Returns: number
       }
       fn_kol_next_contract_number: { Args: never; Returns: string }
       fn_kol_phone_key: { Args: { _raw: string }; Returns: string }
@@ -37844,6 +38010,21 @@ export type Database = {
           wa_phone: string
         }[]
       }
+      fn_kol_schedule_slot: {
+        Args: {
+          _date: string
+          _end: string
+          _invite_id: string
+          _start: string
+          _type: string
+        }
+        Returns: string
+      }
+      fn_kol_slot_hours: {
+        Args: { _end: string; _start: string }
+        Returns: number
+      }
+      fn_kol_staff_guard: { Args: never; Returns: undefined }
       fn_kol_unblock: { Args: { _lead_id: string }; Returns: number }
       fn_lal_dedupe_hash: {
         Args: {
