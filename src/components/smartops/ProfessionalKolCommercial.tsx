@@ -20,8 +20,8 @@ export interface KolFormRef {
 }
 
 export interface KolCommissionRule {
-  /** "category" = regra por categoria/subcategoria do portfólio; ausente = produto específico. */
-  kind?: "product" | "category";
+  /** "category" = regra por categoria/subcategoria do portfólio; "referral" = comissão por indicação; ausente = produto específico. */
+  kind?: "product" | "category" | "referral";
   category?: string | null;
   subcategory?: string | null;
   product_id: string;
@@ -136,6 +136,20 @@ export default function ProfessionalKolCommercial({
     onCommissionsChange(commissions.map((r, idx) => (idx === i ? { ...r, ...p } : r)));
 
   const isCat = (r: KolCommissionRule) => r.kind === "category";
+
+  /** Regra única de comissão por indicação (leads dos formulários de indicação). */
+  const referralIdx = commissions.findIndex((r) => r.kind === "referral");
+  const referralRule = referralIdx !== -1 ? commissions[referralIdx] : null;
+  const patchReferral = (percent: number | null) => {
+    if (referralIdx !== -1) {
+      patchRule(referralIdx, { percent });
+    } else if (percent !== null) {
+      onCommissionsChange([
+        ...commissions,
+        { kind: "referral", category: null, subcategory: null, product_id: "", product_name: "Comissão por indicação", percent, active_from: null },
+      ]);
+    }
+  };
   const removeRule = (i: number) => onCommissionsChange(commissions.filter((_, idx) => idx !== i));
 
   /** Índice da regra de categoria/subcategoria existente (ou -1). */
