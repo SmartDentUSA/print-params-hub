@@ -295,6 +295,7 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
   const [marketingBriefing, setMarketingBriefing] = useState("");
   const [aiReferenceImages, setAiReferenceImages] = useState<string[]>([]);
   const [instructorName, setInstructorName] = useState("");
+  const [instructorLeadId, setInstructorLeadId] = useState<string | null>(null);
   const [recommendOnInstructor, setRecommendOnInstructor] = useState(false);
   const [coverImageUrl, setCoverImageUrl] = useState("");
   const [videoUrl, setVideoUrl] = useState("");
