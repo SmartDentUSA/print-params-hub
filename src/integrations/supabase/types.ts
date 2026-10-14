@@ -24196,6 +24196,7 @@ export type Database = {
           factory_processed_at: string | null
           factory_status: string | null
           id: string
+          instructor_lead_id: string | null
           label: string
           launch_date: string | null
           live_thumbnail_copy: Json | null
@@ -24232,6 +24233,7 @@ export type Database = {
           factory_processed_at?: string | null
           factory_status?: string | null
           id?: string
+          instructor_lead_id?: string | null
           label: string
           launch_date?: string | null
           live_thumbnail_copy?: Json | null
@@ -24268,6 +24270,7 @@ export type Database = {
           factory_processed_at?: string | null
           factory_status?: string | null
           id?: string
+          instructor_lead_id?: string | null
           label?: string
           launch_date?: string | null
           live_thumbnail_copy?: Json | null
@@ -24322,6 +24325,7 @@ export type Database = {
           duration_days: number | null
           duration_hours_per_day: number | null
           id: string
+          instructor_lead_id: string | null
           instructor_name: string | null
           location: string | null
           marketing_briefing: string | null
@@ -24375,6 +24379,7 @@ export type Database = {
           duration_days?: number | null
           duration_hours_per_day?: number | null
           id?: string
+          instructor_lead_id?: string | null
           instructor_name?: string | null
           location?: string | null
           marketing_briefing?: string | null
@@ -24428,6 +24433,7 @@ export type Database = {
           duration_days?: number | null
           duration_hours_per_day?: number | null
           id?: string
+          instructor_lead_id?: string | null
           instructor_name?: string | null
           location?: string | null
           marketing_briefing?: string | null
