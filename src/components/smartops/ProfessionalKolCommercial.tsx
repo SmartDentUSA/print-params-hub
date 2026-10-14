@@ -132,8 +132,13 @@ export default function ProfessionalKolCommercial({
   const addRule = () =>
     onCommissionsChange([...commissions, { product_id: "", product_name: "", percent: null, active_from: null }]);
 
+  /** Editar % grava source='custom'; "Restaurar padrão" passa source='padrao' explicitamente. */
   const patchRule = (i: number, p: Partial<KolCommissionRule>) =>
-    onCommissionsChange(commissions.map((r, idx) => (idx === i ? { ...r, ...p } : r)));
+    onCommissionsChange(commissions.map((r, idx) => {
+      if (idx !== i) return r;
+      const touchesPct = "percent" in p || "coupon_discount_percent" in p;
+      return { ...r, ...(touchesPct && !p.source ? { source: "custom" } : {}), ...p };
+    }));
 
   const isCat = (r: KolCommissionRule) => r.kind === "category";
 
