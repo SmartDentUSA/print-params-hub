@@ -55,3 +55,7 @@
 - [x] Teste: KOL criado com linhas de indicação copiadas + timeline
 - [x] Banco do contrato: commission_snapshot, rep_name, rep_cpf, number, kol_contract_addenda
 - [ ] Telas: abas Dados, Equipamentos e Contrato (aguardando aprovação desta etapa)
+- [x] KOL Fase 2: convites e agenda (regras no banco, horas por função única, timeline, portal). Cenário de teste aprovado, sem WhatsApp.
+- [ ] KOL: tela interna para convidar/agendar/marcar realizado — aguarda validação da Fase 2 pelo usuário.
+- [ ] Validar com login real a tela de Contestações e o teste de aviso de aparelho novo — bloqueado: Supabase externo sem sessão de teste; aviso precisa de um número real do usuário.
+- [ ] Após Fase 2: RLS em copa_comentarios, boas_vindas_locks e outras 3 tabelas; demais alertas de segurança.

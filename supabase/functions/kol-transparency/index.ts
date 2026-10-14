@@ -227,11 +227,23 @@ Deno.serve(async (req) => {
         admin.from("kol_contestations").select("id, subject_type, subject_ref, reason, status, decision, staff_response, responded_at, due_at, created_at").eq("lead_id", leadId).order("created_at", { ascending: false }),
       ]);
       const tl = (timeline.data ?? []) as any[];
-      const eventos = tl.filter((t) => /kol_(talk|stand)_scheduled|kol_schedule_cancelled/.test(t.event_type)).map((t) => ({
-        tipo: t.event_type, em: t.created_at,
-        evento: t.event_data?.evento || t.event_data?.event_name || t.event_data?.descricao || "",
-        data: t.event_data?.data || null, inicio: t.event_data?.inicio || t.event_data?.start || null, fim: t.event_data?.fim || t.event_data?.end || null,
+      // Fase 2: turnos vêm de kol_event_slots; horas realizadas = fn_kol_slot_hours (gravadas em hours_done), mesma fonte da timeline
+      const [slots, hours] = await Promise.all([
+        admin.from("kol_event_slots").select("slot_type, slot_date, start_time, end_time, status, hours_done, created_at, event_id")
+          .eq("lead_id", leadId).order("slot_date", { ascending: false }),
+        admin.from("v_kol_event_hours").select("horas_palestra, horas_estande, horas_total, turnos_realizados, turnos_agendados, turnos_cancelados").eq("lead_id", leadId),
+      ]);
+      const evIds = [...new Set((slots.data ?? []).map((s: any) => s.event_id))];
+      const { data: evs } = evIds.length ? await admin.from("smartops_events").select("id, name").in("id", evIds) : { data: [] };
+      const evName = new Map((evs ?? []).map((e: any) => [e.id, e.name]));
+      const hhmm = (t: string | null) => (t ? String(t).slice(0, 5) : null);
+      const eventos = (slots.data ?? []).map((s: any) => ({
+        tipo: s.slot_type, situacao: s.status, em: s.created_at, evento: evName.get(s.event_id) || "",
+        data: s.slot_date, inicio: hhmm(s.start_time), fim: hhmm(s.end_time), horas: s.status === "realizado" ? Number(s.hours_done) : null,
       }));
+      const horas = (hours.data ?? []).reduce((a: any, r: any) => ({
+        palestra: a.palestra + Number(r.horas_palestra), estande: a.estande + Number(r.horas_estande), total: a.total + Number(r.horas_total),
+      }), { palestra: 0, estande: 0, total: 0 });
       const hide = new Set(["kol_profile_update"]);
       const atividade = {
         logins: tl.filter((t) => t.event_type === "kol_portal_login").length,
@@ -249,7 +261,7 @@ Deno.serve(async (req) => {
         })).filter((r: any) => r.percent != null && r.ativo) : [],
         indicacoes: attr.indicacoes, vendas: attr.vendas,
         extrato: { disponivel: false, aviso: "Extrato completo em breve" },
-        eventos, cursos: courses.data ?? [], equipamentos: loans.data ?? [],
+        eventos, horas, cursos: courses.data ?? [], equipamentos: loans.data ?? [],
         atividade, linha_do_tempo: tl.filter((t) => !hide.has(t.event_type)).map((t) => ({ tipo: t.event_type, em: t.created_at, descricao: t.event_data?.descricao || null })),
         contestacoes: contests.data ?? [],
       });
