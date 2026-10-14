@@ -382,7 +382,7 @@ export default function ProfessionalCourseForm({ value, onChange, onUploadCover,
             </div>
           )}
         </CardContent>
-      </Card>
+      </Card>}
     </div>
   );
 }
