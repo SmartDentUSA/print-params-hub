@@ -20,8 +20,8 @@ export interface KolFormRef {
 }
 
 export interface KolCommissionRule {
-  /** "category" = regra por categoria/subcategoria do portfólio; ausente = produto específico. */
-  kind?: "product" | "category";
+  /** "category" = regra por categoria/subcategoria do portfólio; "referral" = comissão por indicação; ausente = produto específico. */
+  kind?: "product" | "category" | "referral";
   category?: string | null;
   subcategory?: string | null;
   product_id: string;
@@ -136,6 +136,20 @@ export default function ProfessionalKolCommercial({
     onCommissionsChange(commissions.map((r, idx) => (idx === i ? { ...r, ...p } : r)));
 
   const isCat = (r: KolCommissionRule) => r.kind === "category";
+
+  /** Regra única de comissão por indicação (leads dos formulários de indicação). */
+  const referralIdx = commissions.findIndex((r) => r.kind === "referral");
+  const referralRule = referralIdx !== -1 ? commissions[referralIdx] : null;
+  const patchReferral = (percent: number | null) => {
+    if (referralIdx !== -1) {
+      patchRule(referralIdx, { percent });
+    } else if (percent !== null) {
+      onCommissionsChange([
+        ...commissions,
+        { kind: "referral", category: null, subcategory: null, product_id: "", product_name: "Comissão por indicação", percent, active_from: null },
+      ]);
+    }
+  };
   const removeRule = (i: number) => onCommissionsChange(commissions.filter((_, idx) => idx !== i));
 
   /** Índice da regra de categoria/subcategoria existente (ou -1). */
@@ -216,6 +230,24 @@ export default function ProfessionalKolCommercial({
               <Plus className="w-4 h-4" />
             </Button>
           </div>
+          <div className="flex items-end gap-2 rounded-md border p-2">
+            <div className="w-40">
+              <Label className="text-xs">% comissão por indicação</Label>
+              <Input
+                type="number"
+                min={0}
+                max={100}
+                step="0.1"
+                value={referralRule?.percent ?? ""}
+                onChange={(e) => patchReferral(e.target.value === "" ? null : Math.min(100, Math.max(0, parseFloat(e.target.value))))}
+                disabled={disabled}
+                placeholder="Ex: 5"
+              />
+            </div>
+            <p className="pb-2 text-xs text-muted-foreground">
+              Percentual sobre vendas dos leads indicados. O padrão vem das Configurações de comissionamento; aqui você personaliza para este KOL.
+            </p>
+          </div>
         </div>
 
         {/* 2. Cupons Loja Integrada */}
@@ -293,11 +325,11 @@ export default function ProfessionalKolCommercial({
               <Plus className="w-4 h-4 mr-1" /> Adicionar regra
             </Button>
           </div>
-          {commissions.filter((r) => !isCat(r)).length === 0 ? (
+          {commissions.filter((r) => !isCat(r) && r.kind !== "referral").length === 0 ? (
             <p className="text-xs text-muted-foreground">Nenhuma regra cadastrada.</p>
           ) : (
             <div className="space-y-2">
-              {commissions.map((r, i) => isCat(r) ? null : (
+              {commissions.map((r, i) => (isCat(r) || r.kind === "referral") ? null : (
                 <div key={i} className="grid grid-cols-1 md:grid-cols-[1fr_120px_180px_40px] gap-2 items-end rounded-md border p-2">
                   <div>
                     <Label className="text-xs">Produto</Label>

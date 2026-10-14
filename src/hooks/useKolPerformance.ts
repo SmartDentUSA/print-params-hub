@@ -31,7 +31,7 @@ export interface KolCouponRule {
 }
 
 export interface KolProductRule {
-  kind?: "product" | "category";
+  kind?: "product" | "category" | "referral";
   category?: string | null;
   subcategory?: string | null;
   product_name: string;

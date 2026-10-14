@@ -1,6 +1,6 @@
 /** Padrão de comissão KOL: chave estável de linha e comparação com a cópia do profissional. */
 export interface KolDefaultRow {
-  kind: "category" | "product";
+  kind: "category" | "product" | "referral";
   category: string | null;
   subcategory: string | null;
   product_id: string;
@@ -10,7 +10,7 @@ export interface KolDefaultRow {
 }
 
 export const kolRowKey = (r: { kind?: string; category?: string | null; subcategory?: string | null; product_id?: string | null }) =>
-  [r.kind === "category" ? "category" : "product", r.category ?? "", r.subcategory ?? "", r.product_id ?? ""].join("::");
+  [r.kind === "category" ? "category" : r.kind === "referral" ? "referral" : "product", r.category ?? "", r.subcategory ?? "", r.product_id ?? ""].join("::");
 
 const num = (v: unknown) => (v === null || v === undefined || v === "" ? null : Number(v));
 
@@ -28,7 +28,7 @@ export function mapTemplateItems(items: any[]): Map<string, KolDefaultRow> {
   const m = new Map<string, KolDefaultRow>();
   for (const i of items ?? []) {
     const row: KolDefaultRow = {
-      kind: i.kind === "produto" ? "product" : "category",
+      kind: i.kind === "produto" ? "product" : i.kind === "indicacao" ? "referral" : "category",
       category: i.category ?? null,
       subcategory: i.subcategory ?? null,
       product_id: i.product_id ?? "",
