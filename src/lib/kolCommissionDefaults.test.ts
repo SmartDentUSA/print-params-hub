@@ -23,3 +23,16 @@ test("coupon rule prefers subcategory over category", () => {
   assert.equal(couponRuleFor(rules, "2. CAD", "2.1 Software")?.percent, 8);
   assert.equal(couponRuleFor(rules, "2. CAD", null)?.percent, 3);
 });
+
+test("template item 'indicacao' maps to referral row with its own key", () => {
+  const m = mapTemplateItems([
+    { kind: "indicacao", category: null, subcategory: null, percent: 4, coupon_discount_percent: null },
+  ]);
+  const row = m.get(kolRowKey({ kind: "referral", category: null, subcategory: null, product_id: "" }));
+  assert.equal(row?.kind, "referral");
+  assert.equal(row?.percent, 4);
+  assert.notEqual(
+    kolRowKey({ kind: "referral", category: null, subcategory: null, product_id: "" }),
+    kolRowKey({ kind: "product", category: null, subcategory: null, product_id: "" }),
+  );
+});
