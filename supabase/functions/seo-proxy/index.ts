@@ -3076,6 +3076,19 @@ Deno.serve(async (req) => {
   const segments = path.length === 0 ? [] : path.split('/').filter(Boolean);
   const tab = (url.searchParams.get('tab') || '').toLowerCase();
 
+  // The old landing page was indexed under a slug with a trailing non-breaking
+  // space (`/suport-resurces%C2%A0/`). Decode and normalize it so crawlers get
+  // a permanent redirect to the current institutional homepage.
+  let decodedPath = path;
+  try { decodedPath = decodeURIComponent(path); } catch { /* keep the encoded path */ }
+  const normalizedLegacyPath = decodedPath.replace(/[\u00a0\u200b\ufeff]/g, '').replace(/\/+$/, '').toLowerCase();
+  if (normalizedLegacyPath === 'suport-resurces') {
+    return new Response(null, {
+      status: 301,
+      headers: { ...corsHeaders, Location: `${BASE_URL}/`, 'Cache-Control': 'public, s-maxage=86400' },
+    });
+  }
+
   console.log('SEO Proxy:', { path, segments, tab, originalPath, userAgent, uaIsBot });
 
   // Normalização de case: se qualquer segmento de categoria vier em MAIÚSCULO
