@@ -18,7 +18,7 @@ export function OrganizationSchema() {
     "taxID": company.business?.cnpj || company.business?.tax_id,
     "vatID": company.business?.cnpj || company.business?.vat_id,
     "description": company.description,
-    "url": company.website_url,
+    "url": "https://www.smartdent.com.br",
     "logo": company.logo_url,
     "foundingDate": company.business?.founded_year ? `${company.business.founded_year}-01-01` : (company.corporate.founded_year ? `${company.corporate.founded_year}-01-01` : undefined),
     
