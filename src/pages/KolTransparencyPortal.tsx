@@ -9,6 +9,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { Loader2, LogOut, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 
+const fmtH = (n: any) => Number(n || 0).toLocaleString("pt-BR", { maximumFractionDigits: 2 });
 const KEY = "kol_tp_session";
 const brl = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 const dt = (s?: string | null) => (s ? new Date(s).toLocaleDateString("pt-BR") : "—");
