@@ -54,15 +54,20 @@ export default function KolContractPanel({ leadId, leadNome }: { leadId: string;
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [c, l, tm] = await Promise.all([
+      // Cada fonte carrega sozinha: falha no contrato não pode esvaziar vendedores/integrantes.
+      const [c, l, tm] = await Promise.allSettled([
         call("list", { lead_id: leadId }),
         (supabase as any).from("kol_equipment_loans").select("*").eq("lead_id", leadId).order("created_at"),
         (supabase as any).from("team_members").select("id, nome_completo, evolution_instance_name, evolution_phone")
-          .not("evolution_instance_name", "is", null).order("nome_completo"),
+          .eq("ativo", true).order("nome_completo"),
       ]);
-      setContracts(c.contracts ?? []);
-      setLoans((l.data ?? []).map((x: any) => ({ ...x, value_brl: x.value_brl != null ? String(x.value_brl) : "", released_at: x.released_at?.slice(0, 10) ?? "" })));
-      setMembers(tm.data ?? []);
+      if (c.status === "fulfilled") setContracts(c.value.contracts ?? []);
+      else toast({ title: "Contrato indisponível", description: (c.reason as Error)?.message, variant: "destructive" });
+      if (l.status === "fulfilled") setLoans(((l.value as any).data ?? []).map((x: any) => ({ ...x, value_brl: x.value_brl != null ? String(x.value_brl) : "", released_at: x.released_at?.slice(0, 10) ?? "" })));
+      if (tm.status === "fulfilled") {
+        if ((tm.value as any).error) toast({ title: "Erro ao carregar equipe", description: (tm.value as any).error.message, variant: "destructive" });
+        setMembers((tm.value as any).data ?? []);
+      }
     } catch (e: any) {
       toast({ title: "Erro ao carregar contrato", description: e.message, variant: "destructive" });
     } finally {

@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
+import { getPublicOrigin } from "@/utils/publicOrigin";
 import { Copy, Link2, Loader2, MessageCircle, Mail, ShieldOff } from "lucide-react";
 
 interface TokenRow {
@@ -52,7 +53,7 @@ export default function ShareCoursePortalDialog({ open, onOpenChange, profession
     if (open) void load();
   }, [open, load]);
 
-  const urlFor = (t: string) => `${window.location.origin}/portal-cursos/${t}`;
+  const urlFor = (t: string) => `${getPublicOrigin()}/portal-cursos/${t}`;
 
   const generate = async () => {
     const token = makeToken();
