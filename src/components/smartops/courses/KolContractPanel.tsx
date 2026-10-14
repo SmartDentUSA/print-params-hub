@@ -220,7 +220,7 @@ export default function KolContractPanel({ leadId, leadNome }: { leadId: string;
           </div>
           <div>
             <Label>Vendedor responsável</Label>
-            <Select value={sellerId} onValueChange={setSellerId}>
+            <Select value={sellerId} onValueChange={(v) => { setSellerId(v); setWaMembers((m) => (m.includes(v) ? m : [...m, v])); }}>
               <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
               <SelectContent>
                 {members.filter((m) => String(m.role ?? "").toLowerCase() === "vendedor").map((m) => <SelectItem key={m.id} value={m.id}>{m.nome_completo ?? m.id.slice(0, 8)}</SelectItem>)}
