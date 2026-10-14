@@ -1,6 +1,11 @@
 {
   "redirects": [
     {
+      "source": "/caracteriza%C3%A7%C3%A3o",
+      "destination": "/base-conhecimento?tab=catalogo&cat=resinas_3d",
+      "permanent": true
+    },
+    {
       "source": "/base-conhecimento/undefined/:slug*",
       "destination": "/base-conhecimento/f/:slug*",
       "permanent": true
