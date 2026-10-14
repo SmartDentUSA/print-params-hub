@@ -18,4 +18,4 @@ export default function middleware(request: Request) {
   return rewrite(destination);
 }
 
-export const config = { matcher: '/' };
+export const config = { matcher: '/', runtime: 'nodejs' };
