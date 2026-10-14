@@ -727,9 +727,12 @@ export function KnowledgeSEOHead({ content, category, videos = [], relatedDocume
 
   // VideoObject Schema para cada vídeo
   const videoSchemas = videos
-    .filter(video => video.url)
+    .filter(video => video.video_type === 'pandavideo'
+      ? Boolean(video.embed_url || video.hls_url)
+      : Boolean(video.url))
     .map((video, idx) => {
-      const videoId = extractVideoId(video.url);
+      const sourceUrl = video.video_type === 'pandavideo' ? video.hls_url : video.url;
+      const videoId = extractVideoId(sourceUrl);
       
       // Calcular duração real em formato ISO 8601
       const duration = video.video_duration_seconds && video.video_duration_seconds > 0
@@ -755,8 +758,8 @@ export function KnowledgeSEOHead({ content, category, videos = [], relatedDocume
         "description": video.description || content.meta_description || content.excerpt,
         "thumbnailUrl": video.thumbnail_url || (videoId ? `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg` : content.og_image_url),
         "uploadDate": new Date(video.created_at || content.created_at).toISOString(),
-        "contentUrl": video.url,
-        "embedUrl": video.embed_url || getEmbedUrl(video.url),
+        ...(sourceUrl && { "contentUrl": sourceUrl }),
+        "embedUrl": video.video_type === 'pandavideo' ? video.embed_url : getEmbedUrl(video.url),
         "inLanguage": htmlLang,
         ...(audioLanguages.length > 0 && { "audioLanguage": audioLanguages }),
         ...(duration && { "duration": duration }),
