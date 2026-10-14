@@ -46,6 +46,8 @@ const articleViewer=await readFile(new URL('../src/components/KnowledgeContentVi
 assert.ok(articleViewer.includes('const allDocuments = [...documentsData, ...pdfsData]'),'Article evidence documents must reach its structured data');
 const organization=await readFile(new URL('../src/components/OrganizationSchema.tsx',import.meta.url),'utf8');
 assert.ok(organization.includes('company.corporate?.certifications'),'Verified certifications come from the company record');
+assert.ok(organization.includes('"hasCertification"'),'Certifications use certification schema, separate from awards');
+assert.ok(organization.includes('cert.status'),'Certification status stays explicit in the semantic graph');
 assert.ok(!organization.includes('company.reviews_reputation?.google_rating'),'Self-serving Organization stars are not eligible for Google review snippets');
 assert.ok(!organization.includes('"expertise"'),'Schema must use supported vocabulary');
 const html=await readFile(new URL('../index.html',import.meta.url),'utf8');

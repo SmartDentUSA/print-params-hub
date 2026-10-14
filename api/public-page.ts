@@ -20,8 +20,12 @@ export default async function handler(req: VercelRequest,res: VercelResponse) {
     browser = await puppeteer.launch({args:chromium.args,defaultViewport:{width:1365,height:900},executablePath:await chromium.executablePath(),headless:true});
     const page = await browser.newPage();
     const pageErrors: string[] = [];
+    const consoleErrors: string[] = [];
     const failedAssets: string[] = [];
     page.on('pageerror', error => { pageErrors.push(error.message.slice(0,180)); });
+    page.on('console', message => {
+      if (message.type() === 'error' && consoleErrors.length < 8) consoleErrors.push(message.text().slice(0,180));
+    });
     page.on('requestfailed', request => {
       if (['document','script','stylesheet'].includes(request.resourceType())) {
         failedAssets.push(`${request.resourceType()}:${new URL(request.url()).pathname}:${request.failure()?.errorText || 'failed'}`);
@@ -105,7 +109,7 @@ export default async function handler(req: VercelRequest,res: VercelResponse) {
         rootText: (document.querySelector('#root')?.textContent || '').trim().slice(0,180),
         rootHeadings: Array.from(document.querySelectorAll('#root h1')).map(el => el.textContent?.trim()).slice(0,3),
       })).catch(() => ({route:path,rootText:'unavailable',rootHeadings:[]}));
-      throw new Error(`Public route did not hydrate: ${JSON.stringify(diagnostics)}; pageErrors=${pageErrors.join(' | ')}; failedAssets=${failedAssets.join(' | ')}`);
+      throw new Error(`Public route did not hydrate: ${JSON.stringify(diagnostics)}; pageErrors=${pageErrors.join(' | ')}; consoleErrors=${consoleErrors.join(' | ')}; failedAssets=${failedAssets.join(' | ')}`);
     }
     await page.waitForNetworkIdle({idleTime:900,timeout:15000}).catch(() => {});
     await Promise.all(captures);

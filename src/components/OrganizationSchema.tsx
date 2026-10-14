@@ -82,13 +82,22 @@ export function OrganizationSchema() {
       company.social_media.tiktok,
     ].filter(Boolean),
     
-    // The certificates and awards are maintained in the verified company record.
+    // Awards and certifications are separate concepts. The source record keeps
+    // certification status and issuing body so an in-progress item stays explicit.
     // Google's self-serving-review rule is separate: API-imported business ratings
     // are not marked up here because Google excludes Organization review stars.
-    "award": [
-      ...(company.corporate?.certifications || []),
-      ...(company.corporate?.awards?.map(a => `${a.name} (${a.year}) - ${a.issuer}`) || []),
-    ],
+    "award": company.corporate?.awards?.map(a => `${a.name} (${a.year}) - ${a.issuer}`),
+    "hasCertification": company.corporate?.certifications?.map(cert => typeof cert === 'string' ? ({
+      "@type": "Certification",
+      "name": cert,
+    }) : ({
+      "@type": "Certification",
+      "name": cert.standard,
+      "description": [cert.status, cert.description].filter(Boolean).join(' — '),
+      ...(cert.certifier && { "issuedBy": { "@type": "Organization", "name": cert.certifier, ...(cert.certifier_url && { "url": cert.certifier_url }) } }),
+      ...(cert.certifier_url && { "url": cert.certifier_url }),
+      ...(cert.main_product && { "about": { "@type": "Product", "name": cert.main_product } }),
+    })),
     
     // Corporate Data
     "numberOfEmployees": company.business?.number_of_employees,

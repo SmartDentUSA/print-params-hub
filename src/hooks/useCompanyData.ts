@@ -102,7 +102,14 @@ interface CompanyData {
       year: number;
       issuer: string;
     }>;
-    certifications?: string[];
+    certifications?: Array<string | {
+      standard?: string;
+      status?: string;
+      certifier?: string;
+      description?: string;
+      certifier_url?: string;
+      main_product?: string;
+    }>;
     partnerships?: string[];
     case_studies?: Array<{
       title: string;
@@ -173,6 +180,22 @@ export function useCompanyData() {
       if (!data) return null;
 
       const extraData = data.extra_data as any || {};
+      const corporate = extraData.corporate || {};
+      const asLines = (value: unknown): string[] => Array.isArray(value)
+        ? value.filter((item): item is string => typeof item === 'string' && item.trim().length > 0).map(item => item.trim())
+        : typeof value === 'string' ? value.split(/\r?\n+/).map(item => item.trim()).filter(Boolean) : [];
+      const companyVideos = Array.isArray(extraData.company_videos)
+        ? extraData.company_videos
+        : Object.entries(extraData.company_videos || {}).flatMap(([group, items]: [string, any]) =>
+            Array.isArray(items) ? items.map((video: any) => ({
+              title: video.title || video.name || video.description?.split(/[.!?\n]/, 1)[0] || group.replace(/_/g, ' '),
+              url: video.url || video.video_url || video.link || '',
+              thumbnail: video.thumbnail || video.thumbnail_url || video.image_url,
+            })).filter((video: any) => typeof video.url === 'string' && /^https?:\/\//i.test(video.url)) : []
+          );
+      const certifications = Array.isArray(corporate.certifications)
+        ? corporate.certifications
+        : Array.isArray(extraData.certifications) ? extraData.certifications : [];
 
       return {
         name: data.name || "",
@@ -186,7 +209,13 @@ export function useCompanyData() {
         research_grants: extraData.research_grants || [],
         reviews_reputation: extraData.reviews_reputation || {},
         media: extraData.media || {},
-        corporate: extraData.corporate || {},
+        corporate: {
+          ...corporate,
+          values: asLines(corporate.values),
+          differentiators: asLines(corporate.differentiators),
+          certifications,
+          awards: Array.isArray(corporate.awards) ? corporate.awards : [],
+        },
         contact: extraData.contact || {},
         seo: {
           ...extraData.seo,
@@ -195,7 +224,7 @@ export function useCompanyData() {
         },
         social_media: extraData.social_media || {},
         institutional_links: extraData.institutional_links || [],
-        company_videos: extraData.company_videos || [],
+        company_videos: companyVideos,
         last_sync_at: data.last_sync_at,
       } as CompanyData;
     },
