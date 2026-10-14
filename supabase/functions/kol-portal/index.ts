@@ -35,7 +35,7 @@ async function resolveLeadByToken(admin: any, token: string) {
 }
 
 /** Cria o grupo de WhatsApp do KOL na instância escolhida, com KOL + integrantes como participantes. */
-async function createKolGroup(admin: any, contract: any, lead: any): Promise<{ groupId?: string; error?: string }> {
+async function createKolGroup(admin: any, contract: any, lead: any): Promise<{ groupId?: string; participants?: string[]; error?: string }> {
   try {
     const instance = contract.wa_instance_name;
     if (!instance) return { error: "instância não definida" };
@@ -63,8 +63,8 @@ async function createKolGroup(admin: any, contract: any, lead: any): Promise<{ g
       body: JSON.stringify({ subject, participants }),
     });
     const j = await res.json().catch(() => ({}));
-    if (!res.ok) return { error: `Evolution ${res.status}: ${JSON.stringify(j).slice(0, 200)}` };
-    return { groupId: j?.id || j?.groupId || j?.jid || "" };
+    if (!res.ok) return { error: `Evolution ${res.status}: ${JSON.stringify(j).slice(0, 200)}`, participants };
+    return { groupId: j?.id || j?.groupId || j?.jid || "", participants };
   } catch (e: any) {
     return { error: String(e?.message ?? e).slice(0, 300) };
   }
@@ -176,6 +176,7 @@ Deno.serve(async (req) => {
       }).eq("id", c.id);
       await kolLog(admin, leadId, "kol_group_created", {
         numero: c.number, grupo: grp.groupId ?? null, erro: grp.error ?? null,
+        participantes: grp.participants ?? [],
         dedupe_key: `kol_group_created:${c.id}`,
       }, c.id, c.number);
 
