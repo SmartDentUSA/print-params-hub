@@ -14,7 +14,7 @@ const json = (b: unknown, status = 200) =>
 
 const SESSION_TTL_MS = 12 * 3600_000;
 const FAIL_WINDOW_MS = 15 * 60_000;
-const MAX_FAILS = 5; // a 6ª tentativa errada dentro da janela já é recusada
+const MAX_FAILS = 6; // bloqueia na 6ª tentativa errada dentro de 15 min
 const BLOCK_MS = 3600_000;
 
 async function sha(v: string) {
