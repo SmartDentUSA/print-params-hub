@@ -17,7 +17,7 @@ export const TestimonialSEOHead = ({ testimonial }: TestimonialSEOHeadProps) => 
   const seoTitle = testimonial.seo_title_override || `${testimonial.name} | Smart Dent`;
   const metaDescription = testimonial.meta_description || testimonial.description || "";
   const ogImage = testimonial.og_image_url || testimonial.image_url || "/og-image.jpg";
-  const canonicalUrl = `https://parametros.smartdent.com.br/depoimentos/${testimonial.slug}`;
+  const canonicalUrl = `https://www.smartdent.com.br/depoimentos/${testimonial.slug}`;
   
   const extraData = testimonial.extra_data || {};
   const youtubeUrl = extraData.youtube_url;
@@ -92,7 +92,7 @@ export const TestimonialSEOHead = ({ testimonial }: TestimonialSEOHeadProps) => 
     },
     "publisher": {
       "@type": "Organization",
-      "@id": "https://parametros.smartdent.com.br/#organization"
+      "@id": "https://www.smartdent.com.br/#organization"
     },
     "reviewBody": testimonial.description,
     "datePublished": new Date().toISOString(),
@@ -124,13 +124,13 @@ export const TestimonialSEOHead = ({ testimonial }: TestimonialSEOHeadProps) => 
         "@type": "ListItem",
         "position": 1,
         "name": "Home",
-        "item": "https://parametros.smartdent.com.br"
+        "item": "https://www.smartdent.com.br"
       },
       {
         "@type": "ListItem",
         "position": 2,
         "name": "Depoimentos",
-        "item": "https://parametros.smartdent.com.br/depoimentos"
+        "item": "https://www.smartdent.com.br/depoimentos"
       },
       {
         "@type": "ListItem",

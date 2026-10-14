@@ -36,7 +36,7 @@ Deno.serve(async (req) => {
       throw error;
     }
 
-    const baseUrl = 'https://parametros.smartdent.com.br';
+    const baseUrl = 'https://www.smartdent.com.br';
     const now = new Date().toISOString().split('T')[0];
 
     let sitemap = `<?xml version="1.0" encoding="UTF-8"?>

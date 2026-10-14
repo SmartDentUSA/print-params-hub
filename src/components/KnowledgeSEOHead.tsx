@@ -340,7 +340,7 @@ const generateSPINFromCatalog = (
 };
 
 export function KnowledgeSEOHead({ content, category, videos = [], relatedDocuments = [], currentLang = 'pt' }: KnowledgeSEOHeadProps) {
-  const baseUrl = 'https://parametros.smartdent.com.br';
+  const baseUrl = 'https://www.smartdent.com.br';
   const { data: companyData } = useCompanyData();
   
   // 🆕 Fetch products for Review Schema
@@ -635,7 +635,7 @@ export function KnowledgeSEOHead({ content, category, videos = [], relatedDocume
       "seller": {
         "@type": "Organization",
         "name": "SmartDent",
-        "url": "https://parametros.smartdent.com.br"
+        "url": "https://www.smartdent.com.br"
       }
     },
     "articleBody": articleBody,
@@ -707,9 +707,9 @@ export function KnowledgeSEOHead({ content, category, videos = [], relatedDocume
     },
     "publisher": {
       "@type": "Organization",
-      "@id": "https://parametros.smartdent.com.br/#organization",
+      "@id": "https://www.smartdent.com.br/#organization",
       "name": companyData?.name || "Smart Dent",
-      "url": companyData?.website_url,
+      "url": baseUrl,
       "logo": {
         "@type": "ImageObject",
         "url": companyData?.logo_url || "https://smartdent.com.br/logo.png"
@@ -1035,7 +1035,7 @@ export function KnowledgeSEOHead({ content, category, videos = [], relatedDocume
         "@type": "Organization",
         "name": companyData?.name || "Smart Dent"
       },
-      "license": "https://parametros.smartdent.com.br/termos",
+      "license": "https://www.smartdent.com.br/termos",
       "isAccessibleForFree": true,
       "datePublished": new Date(content.created_at).toISOString(),
       "dateModified": new Date(content.updated_at).toISOString(),

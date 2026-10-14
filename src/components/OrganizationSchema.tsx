@@ -9,7 +9,7 @@ export function OrganizationSchema() {
   const schema: any = {
     "@context": "https://schema.org",
     "@type": ["Organization", "LocalBusiness", "Store"],
-    "@id": "https://parametros.smartdent.com.br/#organization",
+    "@id": "https://www.smartdent.com.br/#organization",
     
     // Core Identity
     "name": company.name,
@@ -18,7 +18,7 @@ export function OrganizationSchema() {
     "taxID": company.business?.cnpj || company.business?.tax_id,
     "vatID": company.business?.cnpj || company.business?.vat_id,
     "description": company.description,
-    "url": company.website_url,
+    "url": "https://www.smartdent.com.br",
     "logo": company.logo_url,
     "foundingDate": company.business?.founded_year ? `${company.business.founded_year}-01-01` : (company.corporate.founded_year ? `${company.corporate.founded_year}-01-01` : undefined),
     
@@ -172,7 +172,7 @@ export function OrganizationSchema() {
       if (!us) return undefined;
       return {
         "@type": "Organization",
-        "@id": "https://parametros.smartdent.com.br/#organization-us",
+        "@id": "https://www.smartdent.com.br/#organization-us",
         "name": us.legal_name,
         "alternateName": us.trade_name,
         "url": us.website,
@@ -201,7 +201,7 @@ export function OrganizationSchema() {
     // Founders (Person Schema completo — E-E-A-T máximo)
     "founder": company.founders?.map(f => ({
       "@type": "Person",
-      "@id": `https://parametros.smartdent.com.br/#founder-${f.name.toLowerCase().replace(/\s+/g, '-').normalize('NFD').replace(/[\u0300-\u036f]/g, '')}`,
+      "@id": `https://www.smartdent.com.br/#founder-${f.name.toLowerCase().replace(/\s+/g, '-').normalize('NFD').replace(/[\u0300-\u036f]/g, '')}`,
       "name": f.name,
       "honorificSuffix": f.title,
       "jobTitle": [f.role_br, f.role_us].filter(Boolean).join(' / '),
