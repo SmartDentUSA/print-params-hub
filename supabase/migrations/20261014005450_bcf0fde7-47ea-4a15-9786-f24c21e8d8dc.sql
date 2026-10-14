@@ -1,0 +1,1 @@
+REVOKE EXECUTE ON FUNCTION public.fn_kol_addendum_log() FROM PUBLIC, anon, authenticated;
