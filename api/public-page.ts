@@ -58,7 +58,13 @@ export default async function handler(req: VercelRequest,res: VercelResponse) {
             const original = request.url();
             if (/\/knowledge_contents$/.test(url.pathname)) url.searchParams.set('active','eq.true');
             if (/\/system_a_catalog$/.test(url.pathname)) {
-              url.searchParams.set('active','eq.true');url.searchParams.set('approved','eq.true');url.searchParams.set('visible_in_ui','eq.true');
+              url.searchParams.set('active','eq.true');
+              // The company profile is a public source record selected by the
+              // About page itself. Additional catalog visibility filters can
+              // hide that record and leave the route stuck on its loading UI.
+              if (url.searchParams.get('category') !== 'eq.company_info') {
+                url.searchParams.set('approved','eq.true');url.searchParams.set('visible_in_ui','eq.true');
+              }
             }
             (request as any).__originalPublicUrl = original;
             return request.continue({url:url.toString()});
