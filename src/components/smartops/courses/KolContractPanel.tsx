@@ -12,7 +12,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, FileText, Send, Plus, Eye, Ban, RefreshCw } from "lucide-react";
 
-interface TeamMember { id: string; nome_completo: string | null; evolution_instance_name: string | null; evolution_phone: string | null }
+interface TeamMember { id: string; nome_completo: string | null; evolution_instance_name: string | null; evolution_phone: string | null; role: string | null }
 interface Loan { id?: string; product_name: string; serial_number: string; released_at: string; returned_at?: string | null; value_brl: string; status: string }
 interface Contract { id: string; number: string; status: string; pending_fields: string[]; body_rendered: string; created_at: string; sent_at: string | null; signed_at: string | null; wa_group_id: string | null; wa_group_error: string | null; adjust_notes: string | null }
 
@@ -43,6 +43,7 @@ export default function KolContractPanel({ leadId, leadNome }: { leadId: string;
   const [waInstance, setWaInstance] = useState("");
   const [waMembers, setWaMembers] = useState<string[]>([]);
   const [sellerId, setSellerId] = useState("");
+  const [pendingMember, setPendingMember] = useState("");
 
   const call = useCallback(async (action: string, extra: Record<string, unknown> = {}) => {
     const { data, error } = await supabase.functions.invoke("kol-contract", { body: { action, ...extra } });
@@ -58,7 +59,7 @@ export default function KolContractPanel({ leadId, leadNome }: { leadId: string;
       const [c, l, tm] = await Promise.allSettled([
         call("list", { lead_id: leadId }),
         (supabase as any).from("kol_equipment_loans").select("*").eq("lead_id", leadId).order("created_at"),
-        (supabase as any).from("team_members").select("id, nome_completo, evolution_instance_name, evolution_phone")
+        (supabase as any).from("team_members").select("id, nome_completo, evolution_instance_name, evolution_phone, role")
           .eq("ativo", true).order("nome_completo"),
       ]);
       if (c.status === "fulfilled") setContracts(c.value.contracts ?? []);
@@ -222,19 +223,36 @@ export default function KolContractPanel({ leadId, leadNome }: { leadId: string;
             <Select value={sellerId} onValueChange={setSellerId}>
               <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
               <SelectContent>
-                {members.map((m) => <SelectItem key={m.id} value={m.id}>{m.nome_completo ?? m.id.slice(0, 8)}</SelectItem>)}
+                {members.filter((m) => String(m.role ?? "").toLowerCase() === "vendedor").map((m) => <SelectItem key={m.id} value={m.id}>{m.nome_completo ?? m.id.slice(0, 8)}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>
           <div className="md:col-span-3">
             <Label>Integrantes do grupo (entram como administradores)</Label>
-            <div className="flex flex-wrap gap-3 mt-1">
-              {members.map((m) => (
-                <label key={m.id} className="flex items-center gap-1.5 text-sm">
-                  <Checkbox checked={waMembers.includes(m.id)} onCheckedChange={() => toggleMember(m.id)} />
-                  {m.nome_completo ?? m.id.slice(0, 8)}
-                </label>
-              ))}
+            <div className="flex gap-2 mt-1">
+              <Select value={pendingMember} onValueChange={setPendingMember}>
+                <SelectTrigger className="flex-1"><SelectValue placeholder="Selecione um team member (qualquer departamento)..." /></SelectTrigger>
+                <SelectContent>
+                  {members.filter((m) => !waMembers.includes(m.id)).map((m) => (
+                    <SelectItem key={m.id} value={m.id}>{m.nome_completo ?? m.id.slice(0, 8)}{m.role ? ` · ${m.role}` : ""}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button type="button" variant="outline" disabled={!pendingMember}
+                onClick={() => { toggleMember(pendingMember); setPendingMember(""); }}>
+                <Plus className="w-4 h-4 mr-1" /> Adicionar
+              </Button>
+            </div>
+            <div className="flex flex-wrap gap-2 mt-2">
+              {waMembers.map((id) => {
+                const m = members.find((x) => x.id === id);
+                return (
+                  <Badge key={id} variant="secondary" className="gap-1">
+                    {m?.nome_completo ?? id.slice(0, 8)}{m?.role ? ` · ${m.role}` : ""}
+                    <button type="button" className="ml-1" onClick={() => toggleMember(id)} aria-label="Remover">×</button>
+                  </Badge>
+                );
+              })}
             </div>
           </div>
         </CardContent>
