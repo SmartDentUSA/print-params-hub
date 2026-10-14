@@ -48,3 +48,9 @@
 - [x] Corrigir registro de respostas dos formulários de eventos nos cards, timeline do lead e notas do CRM.
 - [x] Agrupar comissões KOL pelas sete etapas do portfólio com subdivisões do catálogo; registros e cálculos preservados.
 - [x] Botão WhatsApp/LIA nos 19 cards e 2 destaques do Link da Bio, preservando acesso e vínculo de formulário; conversa real abriu com produto correto, sem criar lead; apresentação compacta sem overflow e compilação OK.
+
+## Comissão KOL por canal (pedido 14/10)
+- [ ] Padrão e editor com 3 canais: formulários de indicação (categoria, só comissão), cupons e-commerce (comissão + desconto), formulários específicos do profissional (categoria, só comissão)
+- [ ] Aviso de "valores de teste" no padrão
+- [ ] Teste: KOL criado com linhas de indicação copiadas + timeline
+- [ ] Abas Dados, Equipamentos e Contrato
