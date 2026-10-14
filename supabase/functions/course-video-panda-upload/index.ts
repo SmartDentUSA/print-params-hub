@@ -9,7 +9,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { getPandaVideo, pandaApiKey, pickUploaderHost } from "../_shared/pandavideo-testimonials.ts";
 
-const cors = { ...corsHeaders, "Access-Control-Allow-Headers": `${corsHeaders["Access-Control-Allow-Headers"]}, x-filename, x-title` };
+const cors = { ...corsHeaders, "Access-Control-Allow-Headers": `${corsHeaders["Access-Control-Allow-Headers"]}, x-filename, x-title, x-portal-token` };
 const json = (b: unknown, s = 200) => new Response(JSON.stringify(b), { status: s, headers: { ...cors, "Content-Type": "application/json" } });
 const b64 = (v: string) => btoa(String.fromCharCode(...new TextEncoder().encode(v)));
 
