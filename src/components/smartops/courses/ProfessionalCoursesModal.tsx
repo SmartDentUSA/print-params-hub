@@ -7,6 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, Check, Loader2, Pencil, Plus, Save, Trash2, Copy } from "lucide-react";
 import ProfessionalCourseForm from "./ProfessionalCourseForm";
+import CoursePreviewCard from "./CoursePreviewCard";
 import { emptyCourseDraft, COURSE_MODALITIES, COURSE_STATUS, type ProfessionalCourse, type ProfessionalCourseDraft } from "@/types/professionalCourses";
 import { getCourseStatusBadge } from "@/lib/courseStatusBadge";
 import { normalizeInstructorName } from "@/lib/instructorNameMatch";
@@ -265,7 +266,7 @@ export default function ProfessionalCoursesModal({ open, onOpenChange, professio
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
             Cursos de {professional.nome ?? professional.email ?? "profissional"}
@@ -283,7 +284,10 @@ export default function ProfessionalCoursesModal({ open, onOpenChange, professio
                 Salvar curso
               </Button>
             </div>
-            <ProfessionalCourseForm value={draft} onChange={patch} onUploadCover={onUploadCover} uploading={uploading} mode="admin" />
+            <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
+              <ProfessionalCourseForm value={draft} onChange={patch} onUploadCover={onUploadCover} uploading={uploading} mode="admin" />
+              <div className="lg:sticky lg:top-0 self-start"><CoursePreviewCard course={draft} producer={{ nome: professional.nome }} /></div>
+            </div>
             <div className="flex justify-end">
               <Button onClick={save} disabled={saving}>
                 {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}

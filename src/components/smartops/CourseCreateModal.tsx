@@ -295,6 +295,7 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
   const [marketingBriefing, setMarketingBriefing] = useState("");
   const [aiReferenceImages, setAiReferenceImages] = useState<string[]>([]);
   const [instructorName, setInstructorName] = useState("");
+  const [instructorLeadId, setInstructorLeadId] = useState<string | null>(null);
   const [recommendOnInstructor, setRecommendOnInstructor] = useState(false);
   const [coverImageUrl, setCoverImageUrl] = useState("");
   const [videoUrl, setVideoUrl] = useState("");
@@ -534,6 +535,7 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
         : [],
     );
     setInstructorName(course.instructor_name || "");
+    setInstructorLeadId((course as any).instructor_lead_id ?? null);
     setCoverImageUrl(course.cover_image_url || "");
     setDurationDays(course.duration_days);
     setDurationHoursPerDay(course.duration_hours_per_day);
@@ -892,6 +894,7 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
         modality,
         category,
         instructor_name: instructorName || null,
+        instructor_lead_id: instructorName ? instructorLeadId : null,
         cover_image_url: coverImageUrl || null,
         max_capacity: useRecurrence ? recurrenceSlotsPerSession : (turmas[0]?.slots || 20),
         duration_days: isOnlineAoVivo ? 1 : durationDays,
@@ -1167,7 +1170,7 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
               <div className="grid gap-3 sm:grid-cols-2">
                 <div>
                   <Label>Instrutor</Label>
-                  <InstructorSelect value={instructorName} onChange={setInstructorName} />
+                  <InstructorSelect value={instructorName} onChange={(n, o) => { setInstructorName(n); setInstructorLeadId(o?.id?.startsWith("prof:") ? o.id.slice(5) : null); }} />
                 </div>
                 <div>
                   <Label>Imagem de capa</Label>

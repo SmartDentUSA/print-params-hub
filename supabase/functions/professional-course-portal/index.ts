@@ -186,25 +186,42 @@ Deno.serve(async (req) => {
       const id = String(body?.course_id ?? "");
       if (!id) return json({ error: "course_id obrigatório" }, 400);
       const { data: cur } = await admin.from("professional_courses")
-        .select("status").eq("id", id).eq("producer_lead_id", leadId).maybeSingle();
-      if (cur?.status === "publicado") return json({ error: "Curso publicado não pode ser excluído pelo portal." }, 409);
+        .select("id, title, status").eq("id", id).eq("producer_lead_id", leadId).maybeSingle();
+      if (!cur) return json({ error: "not_found" }, 404);
+      if (cur.status !== "rascunho") return json({ error: "Só cursos em rascunho podem ser excluídos pelo portal." }, 409);
       const { error } = await admin
         .from("professional_courses")
         .delete()
         .eq("id", id)
         .eq("producer_lead_id", leadId);
       if (error) throw error;
+      await logCourse(leadId, "kol_course_deleted", cur, "Rascunho de curso excluído", true);
       return json({ ok: true });
     }
 
     if (action === "save_profile") {
       const payload = pick((body?.professional ?? {}) as Record<string, unknown>, PROFILE_FIELDS);
+      const { data: before } = await admin.from("lia_attendances")
+        .select(PROFILE_FIELDS.join(", ")).eq("id", leadId).maybeSingle();
+      const antes: Record<string, unknown> = {}; const depois: Record<string, unknown> = {};
+      for (const [k, v] of Object.entries(payload)) {
+        const old = (before as Record<string, unknown> | null)?.[k] ?? null;
+        if ((old ?? null) !== (v ?? null)) { antes[k] = old; depois[k] = v; }
+      }
+      if (Object.keys(depois).length === 0) return json({ ok: true, changed: 0 });
       const { error } = await admin
         .from("lia_attendances")
-        .update({ ...payload, prof_updated_at: new Date().toISOString() })
+        .update({ ...depois, prof_updated_at: new Date().toISOString() })
         .eq("id", leadId);
       if (error) throw error;
-      return json({ ok: true });
+      const { error: logErr } = await admin.rpc("fn_kol_log", {
+        _lead_id: leadId, _event_type: "kol_profile_updated", _entity_type: "professional_profile", _entity_id: leadId,
+        _entity_name: "Dados do profissional", _value: null, _channel: "kol",
+        _data: { descricao: `Dados atualizados pelo profissional: ${Object.keys(depois).join(", ")}`, antes, depois,
+          actor: "kol", dedupe_key: `kol_profile_updated:${leadId}:${Date.now()}` },
+      });
+      if (logErr) console.error("[professional-course-portal] fn_kol_log profile", logErr.message);
+      return json({ ok: true, changed: Object.keys(depois).length });
     }
 
     return json({ error: "unknown_action" }, 400);

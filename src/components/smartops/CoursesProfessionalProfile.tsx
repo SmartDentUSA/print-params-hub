@@ -20,6 +20,7 @@ import type { QualificationEntry, UniversityRoleEntry } from "@/lib/mecInstituti
 import KolAccessActions from "./courses/KolAccessActions";
 import KolContractPanel from "./courses/KolContractPanel";
 import ProfessionalCrmOverview from "./ProfessionalCrmOverview";
+import ProfessionalSmartDentTrainings from "./ProfessionalSmartDentTrainings";
 
 type LeadRow = Record<string, any>;
 
@@ -413,6 +414,7 @@ export default function CoursesProfessionalProfile({ initialEmail, startEditing 
       </Card>
 
       {leadId && <ProfessionalCrmOverview key={leadId} leadId={leadId} disabled={disabled} />}
+      {leadId && <ProfessionalSmartDentTrainings key={`t-${leadId}`} leadId={leadId} leadName={form.nome || null} disabled={disabled} />}
 
       {/* Foto + Dados básicos */}
       <Card>

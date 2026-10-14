@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, GraduationCap, Loader2, Pencil, Plus, Save, Trash2 } from "lucide-react";
 import ProfessionalCourseForm from "@/components/smartops/courses/ProfessionalCourseForm";
+import CoursePreviewCard from "@/components/smartops/courses/CoursePreviewCard";
 import KolContractPortalCard from "@/components/smartops/courses/KolContractPortalCard";
 import { useClientPresence } from "@/hooks/useClientPresence";
 import { PushOptInBanner } from "@/components/PushOptInBanner";
@@ -162,7 +163,7 @@ export default function ProfessionalCoursePortal() {
 
   return (
     <main className="min-h-screen bg-muted/30 py-8 px-4">
-      <div className="max-w-4xl mx-auto space-y-6">
+      <div className={`${draft ? "max-w-6xl" : "max-w-4xl"} mx-auto space-y-6`}>
         <header className="flex items-center gap-3">
           <GraduationCap className="w-7 h-7 text-primary" />
           <div>
@@ -209,7 +210,10 @@ export default function ProfessionalCoursePortal() {
                 {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />} Salvar curso
               </Button>
             </div>
-            <ProfessionalCourseForm value={draft} onChange={patch} mode="portal" />
+            <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
+              <ProfessionalCourseForm value={draft} onChange={patch} mode="portal" />
+              <div className="lg:sticky lg:top-4 self-start"><CoursePreviewCard course={draft} producer={profile} /></div>
+            </div>
             <div className="flex justify-end">
               <Button onClick={saveCourse} disabled={saving}>
                 {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />} Salvar curso
@@ -252,7 +256,7 @@ export default function ProfessionalCoursePortal() {
                           <Pencil className="w-4 h-4" />
                         </Button>
                       )}
-                      {c.status !== "publicado" && (
+                      {c.status === "rascunho" && (
                         <Button size="icon" variant="ghost" onClick={() => removeCourse(c)}>
                           <Trash2 className="w-4 h-4 text-destructive" />
                         </Button>
