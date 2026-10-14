@@ -19,7 +19,7 @@ import {
 
 interface Props {
   value: string;
-  onChange: (v: string) => void;
+  onChange: (v: string, option?: { id: string; source: string } | null) => void;
   placeholder?: string;
 }
 
@@ -71,7 +71,7 @@ export default function InstructorSelect({ value, onChange, placeholder = "Selec
                 <CommandItem
                   value={`__custom__${typed}`}
                   onSelect={() => {
-                    onChange(typed);
+                    onChange(typed, null);
                     setOpen(false);
                   }}
                 >
@@ -86,7 +86,7 @@ export default function InstructorSelect({ value, onChange, placeholder = "Selec
                     key={o.id}
                     value={`${o.name} ${o.detail ?? ""}`}
                     onSelect={() => {
-                      onChange(o.name);
+                      onChange(o.name, { id: o.id, source: o.source });
                       setOpen(false);
                     }}
                   >
