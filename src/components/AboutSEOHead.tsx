@@ -25,7 +25,7 @@ interface AboutSEOHeadProps {
 }
 
 export const AboutSEOHead = ({ company }: AboutSEOHeadProps) => {
-  const baseUrl = "https://parametros.smartdent.com.br";
+  const baseUrl = "https://www.smartdent.com.br";
   const canonicalUrl = `${baseUrl}/sobre`;
   
   const seoTitle = `Sobre Nós - ${company.name} | Impressão 3D Odontológica`;
