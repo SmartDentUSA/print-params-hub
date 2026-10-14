@@ -19,8 +19,19 @@ import ProfessionalKolCommercial, { type KolFormRef, type KolCommissionRule, typ
 import type { QualificationEntry, UniversityRoleEntry } from "@/lib/mecInstitutions";
 import KolAccessActions from "./courses/KolAccessActions";
 import KolContractPanel from "./courses/KolContractPanel";
+import ProfessionalCrmOverview from "./ProfessionalCrmOverview";
 
 type LeadRow = Record<string, any>;
+
+type SearchType = "email" | "cpf" | "cnpj" | "deal" | "pessoa" | "org";
+const SEARCH_TYPES: { value: SearchType; label: string; placeholder: string }[] = [
+  { value: "email", label: "E-mail", placeholder: "E-mail do profissional" },
+  { value: "cpf", label: "CPF", placeholder: "CPF" },
+  { value: "cnpj", label: "CNPJ", placeholder: "CNPJ da organização" },
+  { value: "deal", label: "Deal ID", placeholder: "ID do negócio no PipeRun" },
+  { value: "pessoa", label: "Pessoa ID", placeholder: "ID da pessoa no PipeRun" },
+  { value: "org", label: "Organização ID", placeholder: "ID da organização no PipeRun" },
+];
 
 const DDI_OPTIONS = [
   { value: "55", label: "🇧🇷 +55 (Brasil)" },
@@ -95,6 +106,7 @@ interface CoursesProfessionalProfileProps {
 export default function CoursesProfessionalProfile({ initialEmail, startEditing = false, onSaved }: CoursesProfessionalProfileProps = {}) {
   const { toast } = useToast();
   const [searchEmail, setSearchEmail] = useState(initialEmail ?? "");
+  const [searchType, setSearchType] = useState<SearchType>("email");
   const [searching, setSearching] = useState(false);
   const [leadId, setLeadId] = useState<string | null>(null);
   const [locked, setLocked] = useState(!startEditing); // when a lead is loaded, fields are locked until Edit
@@ -166,6 +178,38 @@ export default function CoursesProfessionalProfile({ initialEmail, startEditing 
       setSearching(false);
     }
   }, [searchEmail, startEditing, toast]);
+
+  // Busca por e-mail, CPF, CNPJ, Deal ID, Pessoa ID ou Organização ID (sempre lead canônico)
+  const runSearch = async () => {
+    const raw = searchEmail.trim();
+    if (!raw) return;
+    if (searchType === "email") return loadByEmail(raw);
+    setSearching(true);
+    try {
+      const digits = raw.replace(/\D/g, "");
+      let id: string | null = null;
+      if (searchType === "deal") {
+        const { data } = await supabase.from("deals").select("lead_id").eq("piperun_deal_id", digits as any).not("lead_id", "is", null).limit(1).maybeSingle();
+        id = (data as any)?.lead_id ?? null;
+      } else {
+        const col = { cpf: "pessoa_cpf", cnpj: "empresa_cnpj", pessoa: "pessoa_piperun_id", org: "empresa_piperun_id" }[searchType];
+        const variants = Array.from(new Set([raw, digits].filter(Boolean)));
+        let q: any = supabase.from("lia_attendances").select("id").is("merged_into", null);
+        q = q.or(variants.map((v) => `${col}.eq.${v}`).join(",") + (searchType === "pessoa" ? `,piperun_id.eq.${digits}` : ""));
+        const { data } = await q.order("updated_at", { ascending: false }).limit(1).maybeSingle();
+        id = data?.id ?? null;
+      }
+      if (!id) {
+        toast({ title: "Nada encontrado", description: "Nenhum profissional com esse identificador." });
+        return;
+      }
+      await loadByEmail("", id);
+    } catch (e: any) {
+      toast({ title: "Erro ao buscar", description: e.message, variant: "destructive" });
+    } finally {
+      setSearching(false);
+    }
+  };
 
   useEffect(() => {
     if (initialEmail) {
