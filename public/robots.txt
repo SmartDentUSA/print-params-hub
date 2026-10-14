@@ -54,8 +54,7 @@ Disallow: /admin
 Disallow: /admin/
 
 # ==== SITEMAPS ====
-Sitemap: https://www.smartdent.com.br/sitemap.xml
-Sitemap: https://www.smartdent.com.br/video-sitemap.xml
+Sitemap: https://www.smartdent.com.br/sitemap-index.xml
 
 # ==== RSS FEED ====
 # Atom/RSS feed for AI agents and aggregators
