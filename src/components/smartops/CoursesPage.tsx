@@ -17,6 +17,7 @@ import ProfessionalKolCardStats from "./ProfessionalKolCardStats";
 import KolPhonePendingDialog, { useKolPhonePending } from "./courses/KolPhonePendingDialog";
 import KolCommissionDefaultsDialog from "./courses/KolCommissionDefaultsDialog";
 import KolContestationsDialog from "./courses/KolContestationsDialog";
+import KolEventAgendaDialog from "./courses/KolEventAgendaDialog";
 import { sanitizeEquipmentLabel } from "@/utils/equipmentLabel";
 
 function fmtBRL(v: number): string {
@@ -129,6 +130,7 @@ export default function CoursesPage() {
   const [loading, setLoading] = useState(true);
   const [phonePendingOpen, setPhonePendingOpen] = useState(false);
   const [contestsOpen, setContestsOpen] = useState(false);
+  const [agendaOpen, setAgendaOpen] = useState(false);
   const [defaultsOpen, setDefaultsOpen] = useState(false);
   const { data: phonePending = [] } = useKolPhonePending();
   const [professionals, setProfessionals] = useState<Professional[]>([]);
@@ -299,6 +301,7 @@ export default function CoursesPage() {
             Configurações de comissionamento padrão
           </Button>
           <Button variant="outline" onClick={() => setContestsOpen(true)}>Contestações de KOL</Button>
+          <Button variant="outline" onClick={() => setAgendaOpen(true)}>Agenda de eventos KOL</Button>
           <Button variant="outline" onClick={() => setPhonePendingOpen(true)}>
             Pendências de celular
             {phonePending.length > 0 && <Badge variant="destructive" className="ml-2">{phonePending.length}</Badge>}
@@ -311,6 +314,7 @@ export default function CoursesPage() {
       <KolPhonePendingDialog open={phonePendingOpen} onOpenChange={setPhonePendingOpen} />
       <KolCommissionDefaultsDialog open={defaultsOpen} onOpenChange={setDefaultsOpen} />
       <KolContestationsDialog open={contestsOpen} onOpenChange={setContestsOpen} />
+      <KolEventAgendaDialog open={agendaOpen} onOpenChange={setAgendaOpen} />
 
       {loading ? (
         <div className="flex items-center justify-center py-12 text-muted-foreground">
