@@ -151,6 +151,7 @@ export default function CoursesPage() {
         .select("id, nome, prof_display_name, email, area_atuacao, especialidade, prof_photo_url, prof_cro, prof_course_platform, prof_updated_at, created_at, equip_scanner, equip_scanner_bancada, equip_impressora, equip_cad, prof_rating_quality, prof_rating_price, prof_rating_value, prof_wa_ddi, prof_wa_number, prof_kol_form_ids, prof_kol_coupons, prof_kol_commissions")
         .not("prof_updated_at", "is", null)
         .is("merged_into", null)
+        .eq("is_test", false)
         .order("prof_updated_at", { ascending: false })
         .limit(200);
       if (error) throw error;
