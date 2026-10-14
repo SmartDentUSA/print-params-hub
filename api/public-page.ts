@@ -19,6 +19,8 @@ export default async function handler(req: VercelRequest,res: VercelResponse) {
     const entry = await readFile(resolve(dist,'index.html'),'utf8');
     browser = await puppeteer.launch({args:chromium.args,defaultViewport:{width:1365,height:900},executablePath:await chromium.executablePath(),headless:true});
     const page = await browser.newPage();
+    const pageErrors: string[] = [];
+    page.on('pageerror', error => { pageErrors.push(error.message.slice(0,180)); });
     if (screenshot && req.query.viewport === 'mobile') await page.setViewport({width:390,height:844});
     await page.evaluateOnNewDocument(() => { (window as any).__SMARTDENT_PRERENDER__ = true; });
     const responses: Array<{url:string;body:string;status:number;contentType:string}> = [];
@@ -81,11 +83,19 @@ export default async function handler(req: VercelRequest,res: VercelResponse) {
     // Wait for the routed React page, not the static noscript fallback or a
     // loading/error boundary. Those can contain plenty of text but are not
     // useful, indexable page content.
-    await page.waitForFunction(() => {
+    try { await page.waitForFunction(() => {
       const root = document.querySelector('#root');
       const heading = root?.querySelector('h1')?.textContent?.trim() || '';
       return heading.length > 2 && !/atualizando para a versão mais recente|carregando/i.test(heading);
-    },{timeout:18000});
+    },{timeout:18000}); }
+    catch {
+      const diagnostics = await page.evaluate(() => ({
+        route: location.pathname,
+        rootText: (document.querySelector('#root')?.textContent || '').trim().slice(0,180),
+        rootHeadings: Array.from(document.querySelectorAll('#root h1')).map(el => el.textContent?.trim()).slice(0,3),
+      })).catch(() => ({route:path,rootText:'unavailable',rootHeadings:[]}));
+      throw new Error(`Public route did not hydrate: ${JSON.stringify(diagnostics)}; pageErrors=${pageErrors.join(' | ')}`);
+    }
     await page.waitForNetworkIdle({idleTime:900,timeout:15000}).catch(() => {});
     await Promise.all(captures);
     if (missing) return res.status(404).setHeader('Content-Type','text/html; charset=utf-8').setHeader('Cache-Control','no-store').send('<!doctype html><html lang="pt-BR"><title>404</title><h1>Página não encontrada</h1></html>');
