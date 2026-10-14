@@ -5,7 +5,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const BASE_URL = 'https://parametros.smartdent.com.br';
+const BASE_URL = 'https://www.smartdent.com.br';
 const FEED_URL = `${BASE_URL}/rss.xml`;
 const MAX_ITEMS = 50;
 
