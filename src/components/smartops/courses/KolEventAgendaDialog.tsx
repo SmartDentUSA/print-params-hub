@@ -25,7 +25,7 @@ export default function KolEventAgendaDialog({ open, onOpenChange }: { open: boo
   const load = useCallback(async () => {
     const [ev, ct, inv, sl] = await Promise.all([
       db.from("smartops_events").select("id,name,start_date").order("start_date", { ascending: false }).limit(200),
-      db.from("kol_contracts").select("lead_id,contract_number,is_test,status").eq("status", "signed"),
+      db.from("kol_contracts").select("lead_id,contract_number,is_test,status").in("status", ["assinado", "signed"]),
       db.from("kol_event_invites").select("*").order("created_at", { ascending: false }).limit(300),
       db.from("kol_event_slots").select("*").order("slot_date").limit(1000),
     ]);
@@ -96,7 +96,7 @@ export default function KolEventAgendaDialog({ open, onOpenChange }: { open: boo
                   <Badge variant="outline">{inv.status}</Badge>
                   {inv.is_test && <Badge variant="secondary">teste</Badge>}
                   {inv.message_mode && <Badge variant="outline">WhatsApp {inv.message_mode}</Badge>}
-                  {inv.status === "pending" || inv.status === "pendente" || inv.status === "invited" ? (
+                  {inv.status === "pending" || inv.status === "pendente" || inv.status === "invited" || inv.status === "convidado" ? (
                     <span className="ml-auto flex gap-2">
                       <Button size="sm" disabled={busy} onClick={() => run("fn_kol_invite_respond", { _invite_id: inv.id, _accept: true, _actor: "equipe" }, "Convite aceito")}>Aceito</Button>
                       <Button size="sm" variant="outline" disabled={busy} onClick={() => run("fn_kol_invite_respond", { _invite_id: inv.id, _accept: false, _actor: "equipe" }, "Convite recusado")}>Recusado</Button>
