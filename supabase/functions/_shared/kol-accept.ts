@@ -14,7 +14,7 @@ export async function kolLog(admin: any, leadId: string, type: string, data: Rec
   if (error) console.error("[kol-portal] fn_kol_log", type, error.message);
 }
 
-async function resolveLeadByToken(admin: any, token: string) {
+export async function resolveLeadByToken(admin: any, token: string) {
   if (!token || token.length < 20) return null;
   const { data } = await admin.from("professional_portal_tokens").select("lead_id")
     .eq("token", token).is("revoked_at", null).gt("expires_at", new Date().toISOString()).maybeSingle();

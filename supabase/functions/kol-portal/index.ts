@@ -4,7 +4,7 @@
 // request_adjust: KOL pede ajuste com uma nota.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { sha256Hex } from "../_shared/kol-contract-render.ts";
-import { acceptKolContract, kolLog, ipOf } from "../_shared/kol-accept.ts";
+import { acceptKolContract, kolLog, resolveLeadByToken } from "../_shared/kol-accept.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
