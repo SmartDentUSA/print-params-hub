@@ -93,6 +93,21 @@ export default function ProfessionalCoursesModal({ open, onOpenChange, professio
     }
   };
 
+  // Fase 3 KOL: aprovação registrada na timeline do profissional
+  const review = async (c: ProfessionalCourse, action: "publish" | "request_changes" | "unpublish") => {
+    let note: string | null = null;
+    if (action !== "publish") {
+      note = prompt(action === "request_changes" ? "Quais ajustes o profissional deve fazer?" : "Motivo da despublicação (opcional)");
+      if (note === null) return;
+      if (action === "request_changes" && !note.trim()) return;
+    }
+    const { error } = await (supabase as any).rpc("fn_kol_course_review", { _course_id: c.id, _action: action, _note: note });
+    if (error) { toast({ title: "Erro", description: error.message, variant: "destructive" }); return; }
+    toast({ title: action === "publish" ? "Curso publicado" : action === "unpublish" ? "Curso despublicado" : "Ajustes pedidos" });
+    await load();
+    onChanged?.();
+  };
+
   const save = async () => {
     if (!draft?.title || draft.title.trim().length < 3) {
       toast({ title: "Informe o título do curso", variant: "destructive" });
@@ -365,6 +380,15 @@ export default function ProfessionalCoursesModal({ open, onOpenChange, professio
                       </div>
                     </div>
                     <div className="flex items-center gap-1 shrink-0">
+                      {c.status !== "publicado" && (
+                        <Button size="sm" variant="outline" onClick={() => review(c, "publish")}>Publicar</Button>
+                      )}
+                      {c.status === "em_analise" && (
+                        <Button size="sm" variant="outline" onClick={() => review(c, "request_changes")}>Pedir ajustes</Button>
+                      )}
+                      {c.status === "publicado" && (
+                        <Button size="sm" variant="outline" onClick={() => review(c, "unpublish")}>Despublicar</Button>
+                      )}
                       <Button size="icon" variant="ghost" title="Editar" onClick={() => setDraft(c as unknown as ProfessionalCourseDraft)}>
                         <Pencil className="w-4 h-4" />
                       </Button>
