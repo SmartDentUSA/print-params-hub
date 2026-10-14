@@ -110,6 +110,13 @@ export default function KolCommissionDefaultsDialog({ open, onOpenChange }: { op
         </p>
         {loading ? <p className="flex items-center text-sm text-muted-foreground"><Loader2 className="w-4 h-4 mr-2 animate-spin" />Carregando…</p> : (
           <div className="space-y-5">
+            <section className="space-y-2">
+              <h3 className="border-b pb-2 text-sm font-semibold">Comissão por indicação</h3>
+              <p className="text-xs text-muted-foreground">
+                Percentual do KOL sobre vendas de leads que chegarem pelos formulários de indicação dele.
+              </p>
+              {line(REFERRAL_BASE, "Leads indicados (todos os formulários de indicação)", "")}
+            </section>
             <div className="grid grid-cols-[1fr_130px_150px_36px] gap-2 text-xs font-medium text-muted-foreground px-2">
               <span>Categoria / subcategoria</span><span>Comissão do KOL (%)</span><span>Desconto do cupom (%)</span><span />
             </div>
