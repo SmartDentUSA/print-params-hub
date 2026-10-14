@@ -1,0 +1,1 @@
+- Professional profile (CoursesProfessionalProfile) shows CRM person/company/deals/NF-e from the canonical lead and stores contract-source checkboxes in prof_contract_sources; the AI history summary runs only on demand via prof-history-summary (staff-only) to control cost.
