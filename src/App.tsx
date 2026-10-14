@@ -37,6 +37,7 @@ const PublicNps = lazy(() => import("./pages/PublicNps"));
 const PublicRaffle = lazy(() => import("./pages/PublicRaffle"));
 
 const ProfessionalCoursePortal = lazy(() => import("./pages/ProfessionalCoursePortal"));
+const KolTransparencyPortal = lazy(() => import("./pages/KolTransparencyPortal"));
 const ROICalculatorPage = lazy(() => import("./pages/ROICalculatorPage"));
 const PublicDistributorRegister = lazy(() => import("./pages/PublicDistributorRegister"));
 const DistributorCountryPage = lazy(() => import("./pages/DistributorCountryPage"));
@@ -171,6 +172,7 @@ const App = () => (
 
       {/* Portal do profissional para cadastrar/editar seus cursos (link por token, sem login) */}
       <Route path="/portal-cursos/:token" element={<ProfessionalCoursePortal />} />
+      <Route path="/portal-kol" element={<KolTransparencyPortal />} />
       
       {/* English routes */}
       <Route path="/en/knowledge-base" element={<KnowledgeBase lang="en" />} />

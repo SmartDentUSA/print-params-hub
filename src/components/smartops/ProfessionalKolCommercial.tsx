@@ -11,6 +11,8 @@ import { Plus, Trash2, Ticket } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { PRODUCT_CATALOG_ENTITY_TYPES } from "@/lib/catalogEntityTypes";
 import ProfessionalKolPerformance from "./ProfessionalKolPerformance";
+import { groupKolCatalogCategories } from "@/lib/kolPortfolioGroups";
+import { isKolRowCustomized, kolRowKey, mapTemplateItems, ruleChannel, KOL_CHANNELS, type KolChannel, type KolDefaultRow } from "@/lib/kolCommissionDefaults";
 
 export interface KolFormRef {
   id: string;
@@ -18,14 +20,19 @@ export interface KolFormRef {
 }
 
 export interface KolCommissionRule {
-  /** "category" = regra por categoria/subcategoria do portfólio; ausente = produto específico. */
-  kind?: "product" | "category";
+  /** "category" = regra por categoria/subcategoria do portfólio; "referral" = comissão por indicação; ausente = produto específico. */
+  kind?: "product" | "category" | "referral";
+  /** Canal: indicacao | cupom | formulario (ausente = cupom). */
+  channel?: KolChannel;
   category?: string | null;
   subcategory?: string | null;
   product_id: string;
   product_name: string;
   percent: number | null;
+  /** Desconto do cupom da loja (%) — benefício ao cliente nos cupons desta categoria. */
+  coupon_discount_percent?: number | null;
   active_from: string | null;
+  source?: string;
 }
 
 export interface KolCoupon {
@@ -34,6 +41,8 @@ export interface KolCoupon {
   active_to: string | null;
   /** % de comissão do profissional sobre as compras feitas com este cupom. */
   commission_percent?: number | null;
+  category?: string | null;
+  subcategory?: string | null;
 }
 
 interface Props {
@@ -62,7 +71,10 @@ export default function ProfessionalKolCommercial({
   const [forms, setForms] = useState<FormOption[]>([]);
   const [products, setProducts] = useState<ProductOption[]>([]);
   const [cats, setCats] = useState<{ cat: string; subs: string[] }[]>([]);
+  const [defaults, setDefaults] = useState<Map<string, KolDefaultRow>>(new Map());
   const [pendingForm, setPendingForm] = useState<string>("");
+  const [channel, setChannel] = useState<KolChannel>("indicacao");
+  const channelInfo = KOL_CHANNELS.find((c) => c.id === channel)!;
 
   useEffect(() => {
     (async () => {
@@ -91,7 +103,7 @@ export default function ProfessionalKolCommercial({
       for (const x of (cr ?? []) as any[]) {
         const c = String(x.product_category).trim();
         if (!m.has(c)) m.set(c, new Set());
-        if (x.product_subcategory) m.get(c)!.add(String(x.product_subcategory).trim());
+        if (x.product_subcategory) m.get(c)?.add(String(x.product_subcategory).trim());
       }
       setCats(
         Array.from(m.entries())
@@ -100,6 +112,11 @@ export default function ProfessionalKolCommercial({
       );
       setForms(((f ?? []) as any[]).map((x) => ({ id: x.id, name: x.name ?? "(sem nome)" })));
       setProducts(((p ?? []) as any[]).map((x) => ({ id: x.id, name: x.name ?? "(sem nome)" })));
+      const { data: items } = await (supabase as any)
+        .from("kol_commission_template_items")
+        .select("kind, channel, category, subcategory, product_id, percent, coupon_discount_percent, kol_commission_templates!inner(is_default)")
+        .eq("kol_commission_templates.is_default", true);
+      setDefaults(mapTemplateItems((items ?? []) as any[]));
     })();
   }, []);
 
@@ -107,6 +124,7 @@ export default function ProfessionalKolCommercial({
     () => forms.filter((f) => !formIds.some((s) => s.id === f.id)),
     [forms, formIds],
   );
+  const portfolioGroups = useMemo(() => groupKolCatalogCategories(cats), [cats]);
 
   const addForm = () => {
     const f = forms.find((x) => x.id === pendingForm);
@@ -118,15 +136,34 @@ export default function ProfessionalKolCommercial({
   const addRule = () =>
     onCommissionsChange([...commissions, { product_id: "", product_name: "", percent: null, active_from: null }]);
 
+  /** Editar % grava source='custom'; "Restaurar padrão" passa source='padrao' explicitamente. */
   const patchRule = (i: number, p: Partial<KolCommissionRule>) =>
-    onCommissionsChange(commissions.map((r, idx) => (idx === i ? { ...r, ...p } : r)));
+    onCommissionsChange(commissions.map((r, idx) => {
+      if (idx !== i) return r;
+      const touchesPct = "percent" in p || "coupon_discount_percent" in p;
+      return { ...r, ...(touchesPct && !p.source ? { source: "custom" } : {}), ...p };
+    }));
 
   const isCat = (r: KolCommissionRule) => r.kind === "category";
+
+  /** Regra única de comissão por indicação (leads dos formulários de indicação). */
+  const referralIdx = commissions.findIndex((r) => r.kind === "referral");
+  const referralRule = referralIdx !== -1 ? commissions[referralIdx] : null;
+  const patchReferral = (percent: number | null) => {
+    if (referralIdx !== -1) {
+      patchRule(referralIdx, { percent });
+    } else if (percent !== null) {
+      onCommissionsChange([
+        ...commissions,
+        { kind: "referral", category: null, subcategory: null, product_id: "", product_name: "Comissão por indicação", percent, active_from: null },
+      ]);
+    }
+  };
   const removeRule = (i: number) => onCommissionsChange(commissions.filter((_, idx) => idx !== i));
 
   /** Índice da regra de categoria/subcategoria existente (ou -1). */
   const catRuleIdx = (category: string, subcategory: string | null) =>
-    commissions.findIndex((r) => isCat(r) && r.category === category && (r.subcategory ?? null) === subcategory);
+    commissions.findIndex((r) => isCat(r) && ruleChannel(r) === channel && r.category === category && (r.subcategory ?? null) === subcategory);
 
   /** Ativa/desativa uma combinação da lista pronta: cria ou remove a regra correspondente. */
   const toggleCatRule = (category: string, subcategory: string | null, on: boolean) => {
@@ -136,6 +173,7 @@ export default function ProfessionalKolCommercial({
         ...commissions,
         {
           kind: "category",
+          channel,
           category,
           subcategory,
           product_id: "",
@@ -202,6 +240,9 @@ export default function ProfessionalKolCommercial({
               <Plus className="w-4 h-4" />
             </Button>
           </div>
+          <p className="text-xs text-muted-foreground">
+            Os percentuais destes formulários ficam em "Comissionamento por canal" abaixo (Formulários de indicação ou Formulários do profissional).
+          </p>
         </div>
 
         {/* 2. Cupons Loja Integrada */}
@@ -279,11 +320,11 @@ export default function ProfessionalKolCommercial({
               <Plus className="w-4 h-4 mr-1" /> Adicionar regra
             </Button>
           </div>
-          {commissions.filter((r) => !isCat(r)).length === 0 ? (
+          {commissions.filter((r) => !isCat(r) && r.kind !== "referral").length === 0 ? (
             <p className="text-xs text-muted-foreground">Nenhuma regra cadastrada.</p>
           ) : (
             <div className="space-y-2">
-              {commissions.map((r, i) => isCat(r) ? null : (
+              {commissions.map((r, i) => (isCat(r) || r.kind === "referral") ? null : (
                 <div key={i} className="grid grid-cols-1 md:grid-cols-[1fr_120px_180px_40px] gap-2 items-end rounded-md border p-2">
                   <div>
                     <Label className="text-xs">Produto</Label>
@@ -340,7 +381,15 @@ export default function ProfessionalKolCommercial({
 
         {/* 4. Comissionamento por categoria / subcategoria do portfólio — lista pronta */}
         <div className="space-y-2">
-          <Label>Comissionamento por categoria e subcategoria</Label>
+          <Label>Comissionamento por canal, categoria e subcategoria</Label>
+          <div className="flex flex-wrap gap-2">
+            {KOL_CHANNELS.map((c) => (
+              <Button key={c.id} type="button" size="sm" variant={channel === c.id ? "default" : "outline"} onClick={() => setChannel(c.id)}>
+                {c.label}
+              </Button>
+            ))}
+          </div>
+          <p className="text-xs font-medium text-foreground">{channelInfo.description}</p>
           <p className="text-xs text-muted-foreground">
             Todas as categorias e subcategorias do portfólio já estão listadas abaixo: ative as que remuneram este KOL e
             informe o percentual (e, se quiser, a data de ativação). Regra de produto específico tem prioridade, depois
@@ -349,8 +398,12 @@ export default function ProfessionalKolCommercial({
           {cats.length === 0 ? (
             <p className="text-xs text-muted-foreground">Carregando categorias do portfólio...</p>
           ) : (
-            <div className="space-y-1">
-              {cats.flatMap((c) => {
+            <div className="space-y-5">
+              {portfolioGroups.map((group) => (
+                <section key={group.label} className="space-y-2">
+                  <h3 className="border-b pb-2 text-sm font-semibold text-foreground">{group.label}</h3>
+                  {group.categories.length === 0 && <p className="text-xs text-muted-foreground">Sem categorias cadastradas nesta etapa.</p>}
+                  {group.categories.flatMap((c) => {
                 const rows: { category: string; subcategory: string | null; label: string; isSub: boolean }[] = [
                   { category: c.cat, subcategory: null, label: c.cat, isSub: false },
                   ...c.subs.map((s) => ({ category: c.cat, subcategory: s as string | null, label: s, isSub: true })),
@@ -359,10 +412,13 @@ export default function ProfessionalKolCommercial({
                   const idx = catRuleIdx(row.category, row.subcategory);
                   const rule = idx !== -1 ? commissions[idx] : null;
                   const active = idx !== -1;
+                  const def = defaults.get(kolRowKey({ kind: "category", channel, category: row.category, subcategory: row.subcategory, product_id: "" }));
+                  const custom = !!rule && isKolRowCustomized(rule, def);
+                  const clamp = (v: string) => (v === "" ? null : Math.min(100, Math.max(0, parseFloat(v))));
                   return (
                     <div
                       key={`${row.category}::${row.subcategory ?? "*"}`}
-                      className={`grid grid-cols-1 md:grid-cols-[1fr_120px_180px_60px] gap-2 items-center rounded-md border p-2 ${
+                      className={`grid grid-cols-1 md:grid-cols-[1fr_100px_110px_160px_150px] gap-2 items-center rounded-md border p-2 ${
                         active ? "" : "opacity-60"
                       } ${row.isSub ? "md:ml-6" : "bg-muted/40"}`}
                     >
@@ -375,33 +431,45 @@ export default function ProfessionalKolCommercial({
                         <span className={`text-sm ${row.isSub ? "" : "font-medium"}`}>
                           {row.isSub ? row.label : `${row.label} (todas as subcategorias)`}
                         </span>
+                        {custom && <Badge variant="outline" className="text-[10px]">personalizado</Badge>}
                       </div>
-                      <div>
-                        <Input
-                          type="number" min={0} max={100} step="0.1"
-                          value={rule?.percent ?? ""}
-                          onChange={(e) =>
-                            idx !== -1 &&
-                            patchRule(idx, { percent: e.target.value === "" ? null : Math.min(100, Math.max(0, parseFloat(e.target.value))) })
-                          }
-                          disabled={disabled || !active}
-                          placeholder="%"
-                        />
+                      <Input
+                        type="number" min={0} max={100} step="0.1"
+                        value={rule?.percent ?? ""}
+                        onChange={(e) => idx !== -1 && patchRule(idx, { percent: clamp(e.target.value) })}
+                        disabled={disabled || !active}
+                        placeholder="KOL %"
+                        title="Comissão do KOL (%)"
+                      />
+                      {channelInfo.hasDiscount ? <Input
+                        type="number" min={0} max={100} step="0.1"
+                        value={rule?.coupon_discount_percent ?? ""}
+                        onChange={(e) => idx !== -1 && patchRule(idx, { coupon_discount_percent: clamp(e.target.value) })}
+                        disabled={disabled || !active}
+                        placeholder="Cupom %"
+                        title="Desconto do cupom da loja (%)"
+                      /> : <span className="text-xs text-muted-foreground">sem cupom</span>}
+                      <DatePickerInput
+                        value={rule?.active_from ?? undefined}
+                        onChange={(v) => idx !== -1 && patchRule(idx, { active_from: v })}
+                        disabled={disabled || !active}
+                        className="w-full"
+                        placeholder="Ativação"
+                      />
+                      <div className="text-right">
+                        {custom && def && (
+                          <Button type="button" size="sm" variant="ghost" disabled={disabled}
+                            onClick={() => patchRule(idx, { percent: def.percent, coupon_discount_percent: def.coupon_discount_percent })}>
+                            Restaurar padrão
+                          </Button>
+                        )}
                       </div>
-                      <div>
-                        <DatePickerInput
-                          value={rule?.active_from ?? undefined}
-                          onChange={(v) => idx !== -1 && patchRule(idx, { active_from: v })}
-                          disabled={disabled || !active}
-                          className="w-full"
-                          placeholder="Ativação"
-                        />
-                      </div>
-                      <div className="text-xs text-muted-foreground text-right">{active ? "Ativa" : ""}</div>
                     </div>
                   );
                 });
-              })}
+                  })}
+                </section>
+              ))}
             </div>
           )}
         </div>

@@ -15,7 +15,8 @@ import { cn } from "@/lib/utils";
 import { fetchPurchaseSummaries, EMPTY_SUMMARY, type PurchaseSummary } from "@/hooks/useProfessionalPurchaseSummary";
 import ProfessionalKolCardStats from "./ProfessionalKolCardStats";
 import KolPhonePendingDialog, { useKolPhonePending } from "./courses/KolPhonePendingDialog";
-import KolEventAgendaDialog from "./courses/KolEventAgendaDialog";
+import KolCommissionDefaultsDialog from "./courses/KolCommissionDefaultsDialog";
+import KolContestationsDialog from "./courses/KolContestationsDialog";
 import { sanitizeEquipmentLabel } from "@/utils/equipmentLabel";
 
 function fmtBRL(v: number): string {
@@ -127,7 +128,8 @@ export default function CoursesPage() {
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [phonePendingOpen, setPhonePendingOpen] = useState(false);
-  const [agendaOpen, setAgendaOpen] = useState(false);
+  const [contestsOpen, setContestsOpen] = useState(false);
+  const [defaultsOpen, setDefaultsOpen] = useState(false);
   const { data: phonePending = [] } = useKolPhonePending();
   const [professionals, setProfessionals] = useState<Professional[]>([]);
   const [wonEquip, setWonEquip] = useState<Record<string, { scanner?: string; impressora?: string }>>({});
@@ -151,6 +153,7 @@ export default function CoursesPage() {
         .select("id, nome, prof_display_name, email, area_atuacao, especialidade, prof_photo_url, prof_cro, prof_course_platform, prof_updated_at, created_at, equip_scanner, equip_scanner_bancada, equip_impressora, equip_cad, prof_rating_quality, prof_rating_price, prof_rating_value, prof_wa_ddi, prof_wa_number, prof_kol_form_ids, prof_kol_coupons, prof_kol_commissions")
         .not("prof_updated_at", "is", null)
         .is("merged_into", null)
+        .eq("is_test", false)
         .order("prof_updated_at", { ascending: false })
         .limit(200);
       if (error) throw error;
@@ -292,18 +295,22 @@ export default function CoursesPage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={() => setDefaultsOpen(true)}>
+            Configurações de comissionamento padrão
+          </Button>
+          <Button variant="outline" onClick={() => setContestsOpen(true)}>Contestações de KOL</Button>
           <Button variant="outline" onClick={() => setPhonePendingOpen(true)}>
             Pendências de celular
             {phonePending.length > 0 && <Badge variant="destructive" className="ml-2">{phonePending.length}</Badge>}
           </Button>
-          <Button variant="outline" onClick={() => setAgendaOpen(true)}>Agenda de eventos KOL</Button>
           <Button onClick={openNew}>
             <Plus className="w-4 h-4 mr-2" /> Adicionar profissional
           </Button>
         </div>
       </div>
       <KolPhonePendingDialog open={phonePendingOpen} onOpenChange={setPhonePendingOpen} />
-      <KolEventAgendaDialog open={agendaOpen} onOpenChange={setAgendaOpen} />
+      <KolCommissionDefaultsDialog open={defaultsOpen} onOpenChange={setDefaultsOpen} />
+      <KolContestationsDialog open={contestsOpen} onOpenChange={setContestsOpen} />
 
       {loading ? (
         <div className="flex items-center justify-center py-12 text-muted-foreground">
