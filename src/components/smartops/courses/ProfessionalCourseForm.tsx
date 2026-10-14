@@ -27,11 +27,13 @@ interface Props {
   uploading?: boolean;
   /** Portal do profissional esconde campos internos */
   mode?: "admin" | "portal";
+  /** Token do portal: permite enviar vídeos sem login */
+  portalToken?: string;
 }
 
 const num = (v: string) => (v === "" ? null : Number(v.replace(",", ".")));
 
-export default function ProfessionalCourseForm({ value, onChange, onUploadCover, uploading, mode = "admin" }: Props) {
+export default function ProfessionalCourseForm({ value, onChange, onUploadCover, uploading, mode = "admin", portalToken }: Props) {
   const v = value;
   const isOnline = v.modality === "online_ao_vivo" || v.modality === "gravado" || v.modality === "hibrido";
   const isPresencial = v.modality === "presencial" || v.modality === "hibrido";
