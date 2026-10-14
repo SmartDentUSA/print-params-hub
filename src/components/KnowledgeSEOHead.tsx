@@ -46,7 +46,17 @@ const getEmbedUrl = (url: string | null | undefined): string => {
   return url;
 };
 
-const toIsoDate = (value: string | null | undefined, fallback?: string): string | undefined => {\n  const date = value ? new Date(value) : null;\n  if (date && Number.isFinite(date.getTime())) return date.toISOString();\n  if (fallback) {\n    const fallbackDate = new Date(fallback);\n    if (Number.isFinite(fallbackDate.getTime())) return fallbackDate.toISOString();\n  }\n  return undefined;\n};\n\n// Extrai FAQs do conteúdo HTML
+const toIsoDate = (value: string | null | undefined, fallback?: string): string | undefined => {
+  const date = value ? new Date(value) : null;
+  if (date && Number.isFinite(date.getTime())) return date.toISOString();
+  if (fallback) {
+    const fallbackDate = new Date(fallback);
+    if (Number.isFinite(fallbackDate.getTime())) return fallbackDate.toISOString();
+  }
+  return undefined;
+};
+
+// Extrai FAQs do conteúdo HTML
 const extractFAQsFromContent = (htmlContent: string): { question: string; answer: string }[] => {
   if (!htmlContent) return [];
   
