@@ -30,6 +30,10 @@ for(const r of cfg.rewrites.filter(r=>r.destination.includes('/api/public-page')
  for(const host of ['admin.smartdent.com.br','parametros.smartdent.com.br','s.smartdent.com.br','www.smartdent.com.br.evil.test']) assert.equal(pattern.test(host),false);
 }
 const renderer=await readFile(new URL('../api/public-page.ts',import.meta.url),'utf8');
+const middleware=await readFile(new URL('../middleware.ts',import.meta.url),'utf8');
+assert.ok(middleware.includes("matcher: '/'"),'The static homepage must be routed before filesystem handling');
+assert.ok(middleware.includes("new URL('/api/public-page', incoming)"),'The homepage must use the public HTML renderer');
+assert.ok(middleware.includes("incoming.hostname.toLowerCase() === 'smartdent.com.br'"),'Apex must redirect to www');
 assert.ok(renderer.includes("if (!['GET','HEAD'].includes(request.method()) && !readOnlyRpc)"),'Server rendering must not execute writes');
 assert.ok(!renderer.includes('req.headers.cookie'),'Viewer cookies must never be forwarded');
 assert.ok(renderer.includes("res.status(503)"),'A failure must not become a successful empty page');
