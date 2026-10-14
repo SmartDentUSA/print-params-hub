@@ -42,7 +42,7 @@ export async function createKolGroup(admin: any, contract: any, lead: any): Prom
       .map((m: any) => (typeof m === "string" ? m : m?.team_member_id)).filter(Boolean);
     if (contract.seller_team_member_id && !memberIds.includes(contract.seller_team_member_id)) memberIds.push(contract.seller_team_member_id);
     const { data: members } = memberIds.length
-      ? await admin.from("team_members").select("id, nome_completo, evolution_phone").in("id", memberIds)
+      ? await admin.from("team_members").select("id, nome_completo, evolution_phone, whatsapp_number").in("id", memberIds)
       : { data: [] };
 
     const kolPhone = String(
@@ -52,7 +52,7 @@ export async function createKolGroup(admin: any, contract: any, lead: any): Prom
     const list: Participant[] = [
       { phone: kolPhone, role: "kol", nome: lead.prof_display_name || lead.nome || "" },
       ...(Array.isArray(always) ? always : []).map((p: any) => ({ phone: String(p).replace(/\D/g, ""), role: "acompanhamento" as const })),
-      ...(members ?? []).map((m: any) => ({ phone: String(m.evolution_phone || "").replace(/\D/g, ""), role: "equipe" as const, team_member_id: m.id, nome: m.nome_completo })),
+      ...(members ?? []).map((m: any) => ({ phone: String(m.evolution_phone || m.whatsapp_number || "").replace(/\D/g, ""), role: "equipe" as const, team_member_id: m.id, nome: m.nome_completo })),
     ];
     const seen = new Set<string>();
     const participants = list.filter((p) => p.phone.length >= 12 && !seen.has(p.phone) && seen.add(p.phone));
