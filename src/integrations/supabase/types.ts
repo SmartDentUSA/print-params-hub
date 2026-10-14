@@ -630,6 +630,13 @@ export type Database = {
             foreignKeyName: "agent_sessions_lead_id_fkey"
             columns: ["lead_id"]
             isOneToOne: false
+            referencedRelation: "v_kol_leads_reportable"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_sessions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
             referencedRelation: "v_lead_academy"
             referencedColumns: ["id"]
           },
@@ -1093,6 +1100,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_bi_atividades_unnested"
             referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "astron_member_access_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_kol_leads_reportable"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "astron_member_access_lead_id_fkey"
@@ -2410,6 +2424,13 @@ export type Database = {
             foreignKeyName: "campaign_send_log_lead_id_fkey"
             columns: ["lead_id"]
             isOneToOne: false
+            referencedRelation: "v_kol_leads_reportable"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campaign_send_log_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
             referencedRelation: "v_lead_academy"
             referencedColumns: ["id"]
           },
@@ -3218,6 +3239,13 @@ export type Database = {
             foreignKeyName: "classified_listings_lead_id_fkey"
             columns: ["lead_id"]
             isOneToOne: false
+            referencedRelation: "v_kol_leads_reportable"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "classified_listings_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
             referencedRelation: "v_lead_academy"
             referencedColumns: ["id"]
           },
@@ -3439,6 +3467,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_bi_atividades_unnested"
             referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "classified_saved_searches_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_kol_leads_reportable"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "classified_saved_searches_lead_id_fkey"
@@ -4530,6 +4565,13 @@ export type Database = {
             foreignKeyName: "deal_items_lead_id_fkey"
             columns: ["lead_id"]
             isOneToOne: false
+            referencedRelation: "v_kol_leads_reportable"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_items_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
             referencedRelation: "v_lead_academy"
             referencedColumns: ["id"]
           },
@@ -4735,6 +4777,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_bi_atividades_unnested"
             referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "deal_status_history_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_kol_leads_reportable"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "deal_status_history_lead_id_fkey"
@@ -5213,6 +5262,13 @@ export type Database = {
             foreignKeyName: "dealers_lead_id_fkey"
             columns: ["lead_id"]
             isOneToOne: false
+            referencedRelation: "v_kol_leads_reportable"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dealers_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
             referencedRelation: "v_lead_academy"
             referencedColumns: ["id"]
           },
@@ -5539,6 +5595,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_bi_atividades_unnested"
             referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "deals_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_kol_leads_reportable"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "deals_lead_id_fkey"
@@ -6541,6 +6604,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_bi_atividades_unnested"
             referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "enrichment_safety_queue_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_kol_leads_reportable"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "enrichment_safety_queue_lead_id_fkey"
@@ -7776,6 +7846,13 @@ export type Database = {
             foreignKeyName: "interactions_lead_id_fkey"
             columns: ["lead_id"]
             isOneToOne: false
+            referencedRelation: "v_kol_leads_reportable"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "interactions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
             referencedRelation: "v_lead_academy"
             referencedColumns: ["id"]
           },
@@ -7973,6 +8050,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_bi_atividades_unnested"
             referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "involve_me_sync_control_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_kol_leads_reportable"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "involve_me_sync_control_lead_id_fkey"
@@ -8813,48 +8897,602 @@ export type Database = {
           created_at: string
           expires_at: string | null
           id: string
+          ip_hash: string | null
           lead_id: string
           otp_attempts: number
           otp_expires_at: string | null
           otp_hash: string | null
           otp_required: boolean
           phone_key: string
+          phone_last10: string | null
           revoked_at: string | null
           token_hash: string | null
           updated_at: string
+          user_agent: string | null
           verified_at: string | null
         }
         Insert: {
           created_at?: string
           expires_at?: string | null
           id?: string
+          ip_hash?: string | null
           lead_id: string
           otp_attempts?: number
           otp_expires_at?: string | null
           otp_hash?: string | null
           otp_required?: boolean
           phone_key: string
+          phone_last10?: string | null
           revoked_at?: string | null
           token_hash?: string | null
           updated_at?: string
+          user_agent?: string | null
           verified_at?: string | null
         }
         Update: {
           created_at?: string
           expires_at?: string | null
           id?: string
+          ip_hash?: string | null
           lead_id?: string
           otp_attempts?: number
           otp_expires_at?: string | null
           otp_hash?: string | null
           otp_required?: boolean
           phone_key?: string
+          phone_last10?: string | null
           revoked_at?: string | null
           token_hash?: string | null
           updated_at?: string
+          user_agent?: string | null
           verified_at?: string | null
         }
         Relationships: []
+      }
+      kol_commission_template_items: {
+        Row: {
+          active_from: string | null
+          category: string | null
+          channel: string
+          coupon_discount_percent: number | null
+          created_at: string
+          id: string
+          kind: string
+          percent: number
+          product_id: string | null
+          subcategory: string | null
+          template_id: string
+        }
+        Insert: {
+          active_from?: string | null
+          category?: string | null
+          channel?: string
+          coupon_discount_percent?: number | null
+          created_at?: string
+          id?: string
+          kind?: string
+          percent?: number
+          product_id?: string | null
+          subcategory?: string | null
+          template_id: string
+        }
+        Update: {
+          active_from?: string | null
+          category?: string | null
+          channel?: string
+          coupon_discount_percent?: number | null
+          created_at?: string
+          id?: string
+          kind?: string
+          percent?: number
+          product_id?: string | null
+          subcategory?: string | null
+          template_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "kol_commission_template_items_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "kol_commission_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      kol_commission_templates: {
+        Row: {
+          created_at: string
+          id: string
+          is_default: boolean
+          name: string
+          updated_at: string
+          values_are_test: boolean
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_default?: boolean
+          name: string
+          updated_at?: string
+          values_are_test?: boolean
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_default?: boolean
+          name?: string
+          updated_at?: string
+          values_are_test?: boolean
+        }
+        Relationships: []
+      }
+      kol_contestations: {
+        Row: {
+          created_at: string
+          decision: string | null
+          due_at: string | null
+          id: string
+          is_test: boolean
+          lead_id: string
+          reason: string
+          responded_at: string | null
+          responded_by: string | null
+          staff_response: string | null
+          status: string
+          subject_ref: string | null
+          subject_type: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          decision?: string | null
+          due_at?: string | null
+          id?: string
+          is_test?: boolean
+          lead_id: string
+          reason: string
+          responded_at?: string | null
+          responded_by?: string | null
+          staff_response?: string | null
+          status?: string
+          subject_ref?: string | null
+          subject_type?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          decision?: string | null
+          due_at?: string | null
+          id?: string
+          is_test?: boolean
+          lead_id?: string
+          reason?: string
+          responded_at?: string | null
+          responded_by?: string | null
+          staff_response?: string | null
+          status?: string
+          subject_ref?: string | null
+          subject_type?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      kol_contract_addenda: {
+        Row: {
+          accepted_at: string | null
+          accepted_ip: string | null
+          accepted_text_hash: string | null
+          accepted_user_agent: string | null
+          body_rendered: string | null
+          commission_after: Json | null
+          commission_before: Json | null
+          contract_id: string
+          created_at: string
+          created_by: string | null
+          equipment_loan_ids: string[] | null
+          id: string
+          kind: string
+          lead_id: string
+          number: string | null
+          pdf_url: string | null
+          sent_at: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          accepted_at?: string | null
+          accepted_ip?: string | null
+          accepted_text_hash?: string | null
+          accepted_user_agent?: string | null
+          body_rendered?: string | null
+          commission_after?: Json | null
+          commission_before?: Json | null
+          contract_id: string
+          created_at?: string
+          created_by?: string | null
+          equipment_loan_ids?: string[] | null
+          id?: string
+          kind: string
+          lead_id: string
+          number?: string | null
+          pdf_url?: string | null
+          sent_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          accepted_at?: string | null
+          accepted_ip?: string | null
+          accepted_text_hash?: string | null
+          accepted_user_agent?: string | null
+          body_rendered?: string | null
+          commission_after?: Json | null
+          commission_before?: Json | null
+          contract_id?: string
+          created_at?: string
+          created_by?: string | null
+          equipment_loan_ids?: string[] | null
+          id?: string
+          kind?: string
+          lead_id?: string
+          number?: string | null
+          pdf_url?: string | null
+          sent_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "kol_contract_addenda_contract_id_fkey"
+            columns: ["contract_id"]
+            isOneToOne: false
+            referencedRelation: "kol_contracts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "kol_contract_addenda_contract_id_fkey"
+            columns: ["contract_id"]
+            isOneToOne: false
+            referencedRelation: "v_kol_contracts_reportable"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      kol_contract_templates: {
+        Row: {
+          active: boolean
+          body_md: string
+          created_at: string
+          id: string
+          updated_at: string
+          version: string
+        }
+        Insert: {
+          active?: boolean
+          body_md: string
+          created_at?: string
+          id?: string
+          updated_at?: string
+          version: string
+        }
+        Update: {
+          active?: boolean
+          body_md?: string
+          created_at?: string
+          id?: string
+          updated_at?: string
+          version?: string
+        }
+        Relationships: []
+      }
+      kol_contracts: {
+        Row: {
+          acceptance_method: string
+          accepted_phone_last10: string | null
+          accepted_text_hash: string | null
+          adjust_notes: string | null
+          body_rendered: string | null
+          commission_addendum_accepted_at: string | null
+          commission_snapshot: Json | null
+          created_at: string
+          created_by: string | null
+          document: string | null
+          id: string
+          image_scope: Json | null
+          image_term_signed_at: string | null
+          is_test: boolean
+          lead_id: string
+          legal_name: string | null
+          number: string | null
+          pdf_url: string | null
+          pending_fields: Json
+          person_type: string | null
+          pix_key: string | null
+          rep_cpf: string | null
+          rep_name: string | null
+          revoked_at: string | null
+          seller_team_member_id: string | null
+          sent_at: string | null
+          signed_at: string | null
+          signed_ip: string | null
+          signed_user_agent: string | null
+          status: string
+          template_version: string
+          updated_at: string
+          wa_group_error: string | null
+          wa_group_id: string | null
+          wa_group_members: Json
+          wa_instance_name: string | null
+        }
+        Insert: {
+          acceptance_method?: string
+          accepted_phone_last10?: string | null
+          accepted_text_hash?: string | null
+          adjust_notes?: string | null
+          body_rendered?: string | null
+          commission_addendum_accepted_at?: string | null
+          commission_snapshot?: Json | null
+          created_at?: string
+          created_by?: string | null
+          document?: string | null
+          id?: string
+          image_scope?: Json | null
+          image_term_signed_at?: string | null
+          is_test?: boolean
+          lead_id: string
+          legal_name?: string | null
+          number?: string | null
+          pdf_url?: string | null
+          pending_fields?: Json
+          person_type?: string | null
+          pix_key?: string | null
+          rep_cpf?: string | null
+          rep_name?: string | null
+          revoked_at?: string | null
+          seller_team_member_id?: string | null
+          sent_at?: string | null
+          signed_at?: string | null
+          signed_ip?: string | null
+          signed_user_agent?: string | null
+          status?: string
+          template_version: string
+          updated_at?: string
+          wa_group_error?: string | null
+          wa_group_id?: string | null
+          wa_group_members?: Json
+          wa_instance_name?: string | null
+        }
+        Update: {
+          acceptance_method?: string
+          accepted_phone_last10?: string | null
+          accepted_text_hash?: string | null
+          adjust_notes?: string | null
+          body_rendered?: string | null
+          commission_addendum_accepted_at?: string | null
+          commission_snapshot?: Json | null
+          created_at?: string
+          created_by?: string | null
+          document?: string | null
+          id?: string
+          image_scope?: Json | null
+          image_term_signed_at?: string | null
+          is_test?: boolean
+          lead_id?: string
+          legal_name?: string | null
+          number?: string | null
+          pdf_url?: string | null
+          pending_fields?: Json
+          person_type?: string | null
+          pix_key?: string | null
+          rep_cpf?: string | null
+          rep_name?: string | null
+          revoked_at?: string | null
+          seller_team_member_id?: string | null
+          sent_at?: string | null
+          signed_at?: string | null
+          signed_ip?: string | null
+          signed_user_agent?: string | null
+          status?: string
+          template_version?: string
+          updated_at?: string
+          wa_group_error?: string | null
+          wa_group_id?: string | null
+          wa_group_members?: Json
+          wa_instance_name?: string | null
+        }
+        Relationships: []
+      }
+      kol_equipment_loans: {
+        Row: {
+          contract_id: string | null
+          created_at: string
+          id: string
+          lead_id: string
+          product_id: string | null
+          product_name: string | null
+          released_at: string | null
+          returned_at: string | null
+          serial_number: string | null
+          status: string
+          updated_at: string
+          value_brl: number | null
+        }
+        Insert: {
+          contract_id?: string | null
+          created_at?: string
+          id?: string
+          lead_id: string
+          product_id?: string | null
+          product_name?: string | null
+          released_at?: string | null
+          returned_at?: string | null
+          serial_number?: string | null
+          status?: string
+          updated_at?: string
+          value_brl?: number | null
+        }
+        Update: {
+          contract_id?: string | null
+          created_at?: string
+          id?: string
+          lead_id?: string
+          product_id?: string | null
+          product_name?: string | null
+          released_at?: string | null
+          returned_at?: string | null
+          serial_number?: string | null
+          status?: string
+          updated_at?: string
+          value_brl?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "kol_equipment_loans_contract_id_fkey"
+            columns: ["contract_id"]
+            isOneToOne: false
+            referencedRelation: "kol_contracts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "kol_equipment_loans_contract_id_fkey"
+            columns: ["contract_id"]
+            isOneToOne: false
+            referencedRelation: "v_kol_contracts_reportable"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      kol_event_invites: {
+        Row: {
+          contract_id: string
+          created_at: string
+          event_id: string
+          id: string
+          invited_by: string | null
+          is_test: boolean
+          lead_id: string
+          message_mode: string
+          responded_at: string | null
+          response_note: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          contract_id: string
+          created_at?: string
+          event_id: string
+          id?: string
+          invited_by?: string | null
+          is_test?: boolean
+          lead_id: string
+          message_mode?: string
+          responded_at?: string | null
+          response_note?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          contract_id?: string
+          created_at?: string
+          event_id?: string
+          id?: string
+          invited_by?: string | null
+          is_test?: boolean
+          lead_id?: string
+          message_mode?: string
+          responded_at?: string | null
+          response_note?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "kol_event_invites_contract_id_fkey"
+            columns: ["contract_id"]
+            isOneToOne: false
+            referencedRelation: "kol_contracts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "kol_event_invites_contract_id_fkey"
+            columns: ["contract_id"]
+            isOneToOne: false
+            referencedRelation: "v_kol_contracts_reportable"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "kol_event_invites_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "smartops_events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      kol_event_slots: {
+        Row: {
+          cancel_reason: string | null
+          cancelled_at: string | null
+          created_at: string
+          done_at: string | null
+          end_time: string
+          event_id: string
+          hours_done: number | null
+          id: string
+          invite_id: string
+          is_test: boolean
+          lead_id: string
+          slot_date: string
+          slot_type: string
+          start_time: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          cancel_reason?: string | null
+          cancelled_at?: string | null
+          created_at?: string
+          done_at?: string | null
+          end_time: string
+          event_id: string
+          hours_done?: number | null
+          id?: string
+          invite_id: string
+          is_test?: boolean
+          lead_id: string
+          slot_date: string
+          slot_type: string
+          start_time: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          cancel_reason?: string | null
+          cancelled_at?: string | null
+          created_at?: string
+          done_at?: string | null
+          end_time?: string
+          event_id?: string
+          hours_done?: number | null
+          id?: string
+          invite_id?: string
+          is_test?: boolean
+          lead_id?: string
+          slot_date?: string
+          slot_type?: string
+          start_time?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "kol_event_slots_invite_id_fkey"
+            columns: ["invite_id"]
+            isOneToOne: false
+            referencedRelation: "kol_event_invites"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       kol_portal_attempts: {
         Row: {
@@ -8880,6 +9518,27 @@ export type Database = {
           ip_hash?: string | null
           professional_id?: string | null
           success?: boolean
+        }
+        Relationships: []
+      }
+      kol_program_settings: {
+        Row: {
+          description: string | null
+          key: string
+          updated_at: string
+          value: Json
+        }
+        Insert: {
+          description?: string | null
+          key: string
+          updated_at?: string
+          value: Json
+        }
+        Update: {
+          description?: string | null
+          key?: string
+          updated_at?: string
+          value?: Json
         }
         Relationships: []
       }
@@ -8989,6 +9648,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_bi_atividades_unnested"
             referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "lead_activity_log_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_kol_leads_reportable"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "lead_activity_log_lead_id_fkey"
@@ -9286,6 +9952,13 @@ export type Database = {
             foreignKeyName: "lead_cart_history_lead_id_fkey"
             columns: ["lead_id"]
             isOneToOne: false
+            referencedRelation: "v_kol_leads_reportable"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_cart_history_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
             referencedRelation: "v_lead_academy"
             referencedColumns: ["id"]
           },
@@ -9507,6 +10180,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_bi_atividades_unnested"
             referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "lead_conversion_history_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_kol_leads_reportable"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "lead_conversion_history_lead_id_fkey"
@@ -9736,6 +10416,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_bi_atividades_unnested"
             referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "lead_course_progress_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_kol_leads_reportable"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "lead_course_progress_lead_id_fkey"
@@ -10003,6 +10690,13 @@ export type Database = {
             foreignKeyName: "lead_form_submissions_lead_id_fkey"
             columns: ["lead_id"]
             isOneToOne: false
+            referencedRelation: "v_kol_leads_reportable"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_form_submissions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
             referencedRelation: "v_lead_academy"
             referencedColumns: ["id"]
           },
@@ -10230,6 +10924,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_bi_atividades_unnested"
             referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "lead_opportunities_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_kol_leads_reportable"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "lead_opportunities_lead_id_fkey"
@@ -10490,6 +11191,13 @@ export type Database = {
             foreignKeyName: "lead_page_views_lead_id_fkey"
             columns: ["lead_id"]
             isOneToOne: false
+            referencedRelation: "v_kol_leads_reportable"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_page_views_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
             referencedRelation: "v_lead_academy"
             referencedColumns: ["id"]
           },
@@ -10729,6 +11437,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_bi_atividades_unnested"
             referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "lead_product_history_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_kol_leads_reportable"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "lead_product_history_lead_id_fkey"
@@ -10978,6 +11693,13 @@ export type Database = {
             foreignKeyName: "lead_sdr_interactions_lead_id_fkey"
             columns: ["lead_id"]
             isOneToOne: false
+            referencedRelation: "v_kol_leads_reportable"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_sdr_interactions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
             referencedRelation: "v_lead_academy"
             referencedColumns: ["id"]
           },
@@ -11184,6 +11906,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_bi_atividades_unnested"
             referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "lead_state_events_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_kol_leads_reportable"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "lead_state_events_lead_id_fkey"
@@ -11642,6 +12371,7 @@ export type Database = {
           interest_timeline: string | null
           ip_origem: string | null
           is_kol: boolean
+          is_test: boolean
           itens_proposta_crm: string | null
           itens_proposta_parsed: Json | null
           kol_phone_key: string | null
@@ -12271,6 +13001,7 @@ export type Database = {
           interest_timeline?: string | null
           ip_origem?: string | null
           is_kol?: boolean
+          is_test?: boolean
           itens_proposta_crm?: string | null
           itens_proposta_parsed?: Json | null
           kol_phone_key?: string | null
@@ -12900,6 +13631,7 @@ export type Database = {
           interest_timeline?: string | null
           ip_origem?: string | null
           is_kol?: boolean
+          is_test?: boolean
           itens_proposta_crm?: string | null
           itens_proposta_parsed?: Json | null
           kol_phone_key?: string | null
@@ -13362,6 +14094,13 @@ export type Database = {
             foreignKeyName: "lia_attendances_merged_into_fkey"
             columns: ["merged_into"]
             isOneToOne: false
+            referencedRelation: "v_kol_leads_reportable"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lia_attendances_merged_into_fkey"
+            columns: ["merged_into"]
+            isOneToOne: false
             referencedRelation: "v_lead_academy"
             referencedColumns: ["id"]
           },
@@ -13655,6 +14394,13 @@ export type Database = {
             isOneToOne: true
             referencedRelation: "v_bi_atividades_unnested"
             referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "lia_cognitive_insights_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: true
+            referencedRelation: "v_kol_leads_reportable"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "lia_cognitive_insights_lead_id_fkey"
@@ -14144,6 +14890,13 @@ export type Database = {
             foreignKeyName: "loja_integrada_orders_attendance_id_fkey"
             columns: ["attendance_id"]
             isOneToOne: false
+            referencedRelation: "v_kol_leads_reportable"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "loja_integrada_orders_attendance_id_fkey"
+            columns: ["attendance_id"]
+            isOneToOne: false
             referencedRelation: "v_lead_academy"
             referencedColumns: ["id"]
           },
@@ -14522,6 +15275,13 @@ export type Database = {
             foreignKeyName: "ltv_reactivation_runs_lead_id_fkey"
             columns: ["lead_id"]
             isOneToOne: false
+            referencedRelation: "v_kol_leads_reportable"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ltv_reactivation_runs_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
             referencedRelation: "v_lead_academy"
             referencedColumns: ["id"]
           },
@@ -14838,6 +15598,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_bi_atividades_unnested"
             referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "message_logs_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_kol_leads_reportable"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "message_logs_lead_id_fkey"
@@ -15503,6 +16270,13 @@ export type Database = {
             foreignKeyName: "omie_notas_fiscais_lead_id_fkey"
             columns: ["lead_id"]
             isOneToOne: false
+            referencedRelation: "v_kol_leads_reportable"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "omie_notas_fiscais_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
             referencedRelation: "v_lead_academy"
             referencedColumns: ["id"]
           },
@@ -15726,6 +16500,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_bi_atividades_unnested"
             referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "omie_notas_servico_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_kol_leads_reportable"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "omie_notas_servico_lead_id_fkey"
@@ -15960,6 +16741,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_bi_atividades_unnested"
             referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "omie_parcelas_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_kol_leads_reportable"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "omie_parcelas_lead_id_fkey"
@@ -16368,6 +17156,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_bi_atividades_unnested"
             referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "online_courses_producer_lead_id_fkey"
+            columns: ["producer_lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_kol_leads_reportable"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "online_courses_producer_lead_id_fkey"
@@ -17429,6 +18224,13 @@ export type Database = {
             foreignKeyName: "piperun_stage_transitions_lead_id_fkey"
             columns: ["lead_id"]
             isOneToOne: false
+            referencedRelation: "v_kol_leads_reportable"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "piperun_stage_transitions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
             referencedRelation: "v_lead_academy"
             referencedColumns: ["id"]
           },
@@ -17697,6 +18499,13 @@ export type Database = {
             foreignKeyName: "piperun_webhook_events_lead_id_fkey"
             columns: ["lead_id"]
             isOneToOne: false
+            referencedRelation: "v_kol_leads_reportable"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "piperun_webhook_events_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
             referencedRelation: "v_lead_academy"
             referencedColumns: ["id"]
           },
@@ -17882,6 +18691,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_bi_atividades_unnested"
             referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "platform_plan_log_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_kol_leads_reportable"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "platform_plan_log_lead_id_fkey"
@@ -18132,6 +18948,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_bi_atividades_unnested"
             referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "platform_subscriptions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_kol_leads_reportable"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "platform_subscriptions_lead_id_fkey"
@@ -18830,6 +19653,13 @@ export type Database = {
             foreignKeyName: "professional_courses_producer_lead_id_fkey"
             columns: ["producer_lead_id"]
             isOneToOne: false
+            referencedRelation: "v_kol_leads_reportable"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "professional_courses_producer_lead_id_fkey"
+            columns: ["producer_lead_id"]
+            isOneToOne: false
             referencedRelation: "v_lead_academy"
             referencedColumns: ["id"]
           },
@@ -19024,6 +19854,13 @@ export type Database = {
             foreignKeyName: "professional_portal_tokens_lead_id_fkey"
             columns: ["lead_id"]
             isOneToOne: false
+            referencedRelation: "v_kol_leads_reportable"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "professional_portal_tokens_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
             referencedRelation: "v_lead_academy"
             referencedColumns: ["id"]
           },
@@ -19197,6 +20034,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_bi_atividades_unnested"
             referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "promotion_usage_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_kol_leads_reportable"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "promotion_usage_lead_id_fkey"
@@ -20521,6 +21365,13 @@ export type Database = {
             foreignKeyName: "rayshape_manual_owners_lead_id_fkey"
             columns: ["lead_id"]
             isOneToOne: true
+            referencedRelation: "v_kol_leads_reportable"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rayshape_manual_owners_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: true
             referencedRelation: "v_lead_academy"
             referencedColumns: ["id"]
           },
@@ -20853,6 +21704,13 @@ export type Database = {
             foreignKeyName: "reactivation_sequences_lead_id_fkey"
             columns: ["lead_id"]
             isOneToOne: false
+            referencedRelation: "v_kol_leads_reportable"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reactivation_sequences_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
             referencedRelation: "v_lead_academy"
             referencedColumns: ["id"]
           },
@@ -21062,6 +21920,13 @@ export type Database = {
             foreignKeyName: "referrals_referred_id_fkey"
             columns: ["referred_id"]
             isOneToOne: false
+            referencedRelation: "v_kol_leads_reportable"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "referrals_referred_id_fkey"
+            columns: ["referred_id"]
+            isOneToOne: false
             referencedRelation: "v_lead_academy"
             referencedColumns: ["id"]
           },
@@ -21204,6 +22069,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_bi_atividades_unnested"
             referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "referrals_referrer_id_fkey"
+            columns: ["referrer_id"]
+            isOneToOne: false
+            referencedRelation: "v_kol_leads_reportable"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "referrals_referrer_id_fkey"
@@ -22456,6 +23328,13 @@ export type Database = {
             foreignKeyName: "short_links_lead_id_fkey"
             columns: ["lead_id"]
             isOneToOne: false
+            referencedRelation: "v_kol_leads_reportable"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "short_links_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
             referencedRelation: "v_lead_academy"
             referencedColumns: ["id"]
           },
@@ -23131,6 +24010,13 @@ export type Database = {
             foreignKeyName: "smartops_course_enrollments_lead_id_fkey"
             columns: ["lead_id"]
             isOneToOne: false
+            referencedRelation: "v_kol_leads_reportable"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "smartops_course_enrollments_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
             referencedRelation: "v_lead_academy"
             referencedColumns: ["id"]
           },
@@ -23667,6 +24553,13 @@ export type Database = {
             foreignKeyName: "smartops_enrollment_companions_lead_id_fkey"
             columns: ["lead_id"]
             isOneToOne: false
+            referencedRelation: "v_kol_leads_reportable"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "smartops_enrollment_companions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
             referencedRelation: "v_lead_academy"
             referencedColumns: ["id"]
           },
@@ -24080,6 +24973,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_bi_atividades_unnested"
             referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "smartops_form_field_responses_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_kol_leads_reportable"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "smartops_form_field_responses_lead_id_fkey"
@@ -24919,6 +25819,13 @@ export type Database = {
             foreignKeyName: "smartpoints_ledger_lead_id_fkey"
             columns: ["lead_id"]
             isOneToOne: false
+            referencedRelation: "v_kol_leads_reportable"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "smartpoints_ledger_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
             referencedRelation: "v_lead_academy"
             referencedColumns: ["id"]
           },
@@ -25160,6 +26067,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_bi_atividades_unnested"
             referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "social_contacts_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_kol_leads_reportable"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "social_contacts_lead_id_fkey"
@@ -26080,6 +26994,13 @@ export type Database = {
             foreignKeyName: "social_sessions_lead_id_fkey"
             columns: ["lead_id"]
             isOneToOne: false
+            referencedRelation: "v_kol_leads_reportable"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "social_sessions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
             referencedRelation: "v_lead_academy"
             referencedColumns: ["id"]
           },
@@ -26474,6 +27395,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_bi_atividades_unnested"
             referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "stripe_payment_units_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_kol_leads_reportable"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "stripe_payment_units_lead_id_fkey"
@@ -27922,6 +28850,13 @@ export type Database = {
             foreignKeyName: "technical_tickets_lead_id_fkey"
             columns: ["lead_id"]
             isOneToOne: false
+            referencedRelation: "v_kol_leads_reportable"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "technical_tickets_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
             referencedRelation: "v_lead_academy"
             referencedColumns: ["id"]
           },
@@ -28211,6 +29146,13 @@ export type Database = {
             foreignKeyName: "tldv_meeting_intelligence_lead_id_fkey"
             columns: ["lead_id"]
             isOneToOne: false
+            referencedRelation: "v_kol_leads_reportable"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tldv_meeting_intelligence_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
             referencedRelation: "v_lead_academy"
             referencedColumns: ["id"]
           },
@@ -28410,6 +29352,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_bi_atividades_unnested"
             referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "tldv_meeting_participants_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_kol_leads_reportable"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "tldv_meeting_participants_lead_id_fkey"
@@ -29700,6 +30649,13 @@ export type Database = {
             foreignKeyName: "upsell_predictions_lead_id_fkey"
             columns: ["lead_id"]
             isOneToOne: false
+            referencedRelation: "v_kol_leads_reportable"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "upsell_predictions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
             referencedRelation: "v_lead_academy"
             referencedColumns: ["id"]
           },
@@ -30306,6 +31262,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_bi_atividades_unnested"
             referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "wa_group_members_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_kol_leads_reportable"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "wa_group_members_lead_id_fkey"
@@ -31025,6 +31988,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_bi_atividades_unnested"
             referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "whatsapp_inbox_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_kol_leads_reportable"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "whatsapp_inbox_lead_id_fkey"
@@ -31911,6 +32881,13 @@ export type Database = {
             foreignKeyName: "deal_items_lead_id_fkey"
             columns: ["lead_id"]
             isOneToOne: false
+            referencedRelation: "v_kol_leads_reportable"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_items_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
             referencedRelation: "v_lead_academy"
             referencedColumns: ["id"]
           },
@@ -32128,6 +33105,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_bi_atividades_unnested"
             referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "deal_items_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_kol_leads_reportable"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "deal_items_lead_id_fkey"
@@ -32365,6 +33349,13 @@ export type Database = {
             foreignKeyName: "smartops_form_field_responses_lead_id_fkey"
             columns: ["lead_id"]
             isOneToOne: false
+            referencedRelation: "v_kol_leads_reportable"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "smartops_form_field_responses_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
             referencedRelation: "v_lead_academy"
             referencedColumns: ["id"]
           },
@@ -32523,6 +33514,87 @@ export type Database = {
           n_tech_props: number | null
           slug: string | null
           title: string | null
+        }
+        Relationships: []
+      }
+      v_kol_contracts_reportable: {
+        Row: {
+          acceptance_method: string | null
+          accepted_phone_last10: string | null
+          accepted_text_hash: string | null
+          adjust_notes: string | null
+          body_rendered: string | null
+          commission_addendum_accepted_at: string | null
+          commission_snapshot: Json | null
+          created_at: string | null
+          created_by: string | null
+          document: string | null
+          id: string | null
+          image_scope: Json | null
+          image_term_signed_at: string | null
+          is_test: boolean | null
+          lead_id: string | null
+          legal_name: string | null
+          number: string | null
+          pdf_url: string | null
+          pending_fields: Json | null
+          person_type: string | null
+          pix_key: string | null
+          rep_cpf: string | null
+          rep_name: string | null
+          revoked_at: string | null
+          seller_team_member_id: string | null
+          sent_at: string | null
+          signed_at: string | null
+          signed_ip: string | null
+          signed_user_agent: string | null
+          status: string | null
+          template_version: string | null
+          updated_at: string | null
+          wa_group_error: string | null
+          wa_group_id: string | null
+          wa_group_members: Json | null
+          wa_instance_name: string | null
+        }
+        Relationships: []
+      }
+      v_kol_event_hours: {
+        Row: {
+          horas_estande: number | null
+          horas_palestra: number | null
+          horas_total: number | null
+          is_test: boolean | null
+          lead_id: string | null
+          turnos_agendados: number | null
+          turnos_cancelados: number | null
+          turnos_realizados: number | null
+        }
+        Relationships: []
+      }
+      v_kol_leads_reportable: {
+        Row: {
+          id: string | null
+          nome: string | null
+          prof_display_name: string | null
+          prof_kol_commissions: Json | null
+          prof_kol_coupons: Json | null
+          prof_kol_form_ids: Json | null
+        }
+        Insert: {
+          id?: string | null
+          nome?: string | null
+          prof_display_name?: string | null
+          prof_kol_commissions?: Json | null
+          prof_kol_coupons?: Json | null
+          prof_kol_form_ids?: Json | null
+        }
+        Update: {
+          id?: string | null
+          nome?: string | null
+          prof_display_name?: string | null
+          prof_kol_commissions?: Json | null
+          prof_kol_coupons?: Json | null
+          prof_kol_form_ids?: Json | null
         }
         Relationships: []
       }
@@ -32729,6 +33801,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_bi_atividades_unnested"
             referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "omie_parcelas_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_kol_leads_reportable"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "omie_parcelas_lead_id_fkey"
@@ -33107,6 +34186,13 @@ export type Database = {
             foreignKeyName: "omie_notas_fiscais_lead_id_fkey"
             columns: ["lead_id"]
             isOneToOne: false
+            referencedRelation: "v_kol_leads_reportable"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "omie_notas_fiscais_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
             referencedRelation: "v_lead_academy"
             referencedColumns: ["id"]
           },
@@ -33280,6 +34366,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_bi_atividades_unnested"
             referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "lead_opportunities_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_kol_leads_reportable"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "lead_opportunities_lead_id_fkey"
@@ -34298,6 +35391,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_bi_atividades_unnested"
             referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "tldv_meeting_intelligence_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_kol_leads_reportable"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "tldv_meeting_intelligence_lead_id_fkey"
@@ -35747,6 +36847,13 @@ export type Database = {
             foreignKeyName: "lia_attendances_merged_into_fkey"
             columns: ["merged_into"]
             isOneToOne: false
+            referencedRelation: "v_kol_leads_reportable"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lia_attendances_merged_into_fkey"
+            columns: ["merged_into"]
+            isOneToOne: false
             referencedRelation: "v_lead_academy"
             referencedColumns: ["id"]
           },
@@ -36807,6 +37914,10 @@ export type Database = {
           ticket_medio: number
         }[]
       }
+      fn_kol_cancel_slot: {
+        Args: { _reason: string; _slot_id: string }
+        Returns: undefined
+      }
       fn_kol_contract_ready: { Args: { _lead_id: string }; Returns: Json }
       fn_kol_coupon_items: {
         Args: { _code: string; _from?: string; _to?: string }
@@ -36824,6 +37935,10 @@ export type Database = {
           receita: number
           vendas: number
         }[]
+      }
+      fn_kol_default_commission_rows: {
+        Args: { _from?: string }
+        Returns: Json
       }
       fn_kol_fix_phone: {
         Args: { _ddi: string; _lead_id: string; _number: string }
@@ -36844,6 +37959,19 @@ export type Database = {
           visitors: number
         }[]
       }
+      fn_kol_invite: {
+        Args: { _event_id: string; _lead_id: string; _test?: boolean }
+        Returns: string
+      }
+      fn_kol_invite_respond: {
+        Args: {
+          _accept: boolean
+          _actor?: string
+          _invite_id: string
+          _note?: string
+        }
+        Returns: undefined
+      }
       fn_kol_lead_phone: {
         Args: { _ddi: string; _number: string; _tel: string; _wa: string }
         Returns: string
@@ -36861,6 +37989,11 @@ export type Database = {
         }
         Returns: string
       }
+      fn_kol_mark_done: {
+        Args: { _end?: string; _slot_id: string; _start?: string }
+        Returns: number
+      }
+      fn_kol_next_contract_number: { Args: never; Returns: string }
       fn_kol_phone_key: { Args: { _raw: string }; Returns: string }
       fn_kol_phone_pending: {
         Args: never
@@ -36877,6 +38010,21 @@ export type Database = {
           wa_phone: string
         }[]
       }
+      fn_kol_schedule_slot: {
+        Args: {
+          _date: string
+          _end: string
+          _invite_id: string
+          _start: string
+          _type: string
+        }
+        Returns: string
+      }
+      fn_kol_slot_hours: {
+        Args: { _end: string; _start: string }
+        Returns: number
+      }
+      fn_kol_staff_guard: { Args: never; Returns: undefined }
       fn_kol_unblock: { Args: { _lead_id: string }; Returns: number }
       fn_lal_dedupe_hash: {
         Args: {
@@ -37833,6 +38981,7 @@ export type Database = {
           interest_timeline: string | null
           ip_origem: string | null
           is_kol: boolean
+          is_test: boolean
           itens_proposta_crm: string | null
           itens_proposta_parsed: Json | null
           kol_phone_key: string | null
