@@ -206,7 +206,7 @@ export const SEOHead = ({ pageType, brand, model, resins = [], faqs = [] }: SEOH
     
     // 🆕 Priorizar canonical_url da primeira resina (se existir)
     if (resins.length > 0 && resins[0].canonical_url) {
-      canonical = resins[0].canonical_url;
+      canonical = resins[0].canonical_url.replace(/^https?:\/\/(?:www\.|parametros\.)?smartdent\.com\.br/i, baseUrl);
     } else {
       canonical = `${baseUrl}/${brand.slug}/${model.slug}`;
     }
@@ -228,7 +228,7 @@ export const SEOHead = ({ pageType, brand, model, resins = [], faqs = [] }: SEOH
     "@id": "https://www.smartdent.com.br/#organization",
     "name": companyData?.name || "Smart Dent",
     "alternateName": companyData?.business?.doing_business_as || "Smart Dent Odontologia Digital",
-    "url": companyData?.website_url || "https://www.smartdent.com.br",
+    "url": baseUrl,
     "logo": {
       "@type": "ImageObject",
       "url": companyData?.logo_url || "https://www.smartdent.com.br/og-image.jpg",
