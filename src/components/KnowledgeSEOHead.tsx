@@ -709,7 +709,7 @@ export function KnowledgeSEOHead({ content, category, videos = [], relatedDocume
       "@type": "Organization",
       "@id": "https://www.smartdent.com.br/#organization",
       "name": companyData?.name || "Smart Dent",
-      "url": companyData?.website_url,
+      "url": baseUrl,
       "logo": {
         "@type": "ImageObject",
         "url": companyData?.logo_url || "https://smartdent.com.br/logo.png"
