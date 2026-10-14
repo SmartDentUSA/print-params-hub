@@ -47,3 +47,6 @@
 - [x] Notas CRM: leitura real do negócio 63974581 confirmou perguntas de impressão/scanner/CAD; removidos cortes 30/20/3 e filtro de rótulos curtos. Respostas persistidas recentes prevalecem sobre snapshots antigos; chat atualiza notas com retry pelo lock compartilhado. Teste 1105 respostas aprovado; funções implantadas. Nova entrega de nota após correção não exercitada para não gerar notas de teste no CRM.
 - [x] Corrigir registro de respostas dos formulários de eventos nos cards, timeline do lead e notas do CRM.
 - [x] Botão WhatsApp/LIA nos 19 cards e 2 destaques do Link da Bio, preservando acesso e vínculo de formulário; conversa real abriu com produto correto, sem criar lead; apresentação compacta sem overflow e compilação OK.
+
+- [x] Inventário do módulo Profissionais/KOL (14/10)
+- [ ] Rodada 4 — Radar de Profissionais (aguarda 3A/3B, anexos spec/protótipo e segredo ZERNIO_DISCOVERY_ACCOUNT_ID)
