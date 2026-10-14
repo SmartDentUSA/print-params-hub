@@ -15,3 +15,4 @@
 - Public KOL agenda exposes only `prof_public_slug`, rate-limits phone checks in `kol_portal_attempts`, and staff-only create fills empty fields with before/after logged; keeps internal ids private.
 - `fn_kol_log` updates before inserting because the activity-log dedupe trigger silently drops repeats.
 - KOL course approval: the portal only saves drafts and submits (em_analise); publish, request changes and unpublish run only through fn_kol_course_review (staff guard), all logged via fn_kol_log; keeps unapproved courses off public pages.
+- Instructor links live in instructor_lead_id on smartops_courses/turmas and are logged by a DB trigger via fn_kol_log; course ratings expose only public columns of published courses; keeps timeline complete without client-side logging.
