@@ -46,7 +46,7 @@ const getEmbedUrl = (url: string | null | undefined): string => {
   return url;
 };
 
-// Extrai FAQs do conteúdo HTML
+const toIsoDate = (value: string | null | undefined, fallback?: string): string | undefined => {\n  const date = value ? new Date(value) : null;\n  if (date && Number.isFinite(date.getTime())) return date.toISOString();\n  if (fallback) {\n    const fallbackDate = new Date(fallback);\n    if (Number.isFinite(fallbackDate.getTime())) return fallbackDate.toISOString();\n  }\n  return undefined;\n};\n\n// Extrai FAQs do conteúdo HTML
 const extractFAQsFromContent = (htmlContent: string): { question: string; answer: string }[] => {
   if (!htmlContent) return [];
   
@@ -625,8 +625,8 @@ export function KnowledgeSEOHead({ content, category, videos = [], relatedDocume
     "keywords": seoTerms(content.keywords).join(', ') || extractKeywordsFromContent(content.content_html || ''),
     "description": content.meta_description || content.excerpt,
     "image": content.og_image_url,
-    "datePublished": new Date(content.created_at).toISOString(),
-    "dateModified": new Date(content.updated_at).toISOString(),
+    "datePublished": toIsoDate(content.created_at),
+    "dateModified": toIsoDate(content.updated_at, content.created_at),
     "articleBody": articleBody,
     "wordCount": wordCount,
     "inLanguage": htmlLang,
@@ -714,7 +714,7 @@ export function KnowledgeSEOHead({ content, category, videos = [], relatedDocume
         "description": doc.document_description || `Documento técnico: ${doc.document_name}`,
         "encodingFormat": "application/pdf",
         "contentUrl": doc.file_url,
-        "dateModified": new Date(doc.updated_at).toISOString(),
+        "dateModified": toIsoDate(doc.updated_at, content.updated_at || content.created_at),
         "fileSize": doc.file_size ? `${doc.file_size} bytes` : undefined,
         "inLanguage": "pt-BR",
         "about": {
@@ -757,7 +757,7 @@ export function KnowledgeSEOHead({ content, category, videos = [], relatedDocume
         "name": video.title || `${displayTitle} - Vídeo ${idx + 1}`,
         "description": video.description || content.meta_description || content.excerpt,
         "thumbnailUrl": video.thumbnail_url || (videoId ? `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg` : content.og_image_url),
-        "uploadDate": new Date(video.created_at || content.created_at).toISOString(),
+        "uploadDate": toIsoDate(video.created_at, content.created_at),
         ...(sourceUrl && { "contentUrl": sourceUrl }),
         "embedUrl": video.video_type === 'pandavideo' ? video.embed_url : getEmbedUrl(video.url),
         "inLanguage": htmlLang,
@@ -1000,8 +1000,8 @@ export function KnowledgeSEOHead({ content, category, videos = [], relatedDocume
       },
       "license": "https://parametros.smartdent.com.br/termos",
       "isAccessibleForFree": true,
-      "datePublished": new Date(content.created_at).toISOString(),
-      "dateModified": new Date(content.updated_at).toISOString(),
+      "datePublished": toIsoDate(content.created_at),
+      "dateModified": toIsoDate(content.updated_at, content.created_at),
       "inLanguage": htmlLang,
       "measurementTechnique": "Validação técnica em laboratório Smart Dent (parâmetros de impressão 3D odontológica)",
       ...(productMentions.length > 0 && { "about": productMentions }),
