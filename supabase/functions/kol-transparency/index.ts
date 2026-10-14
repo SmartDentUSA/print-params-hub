@@ -32,7 +32,13 @@ async function blockedUntil(pid: string | null, ipHash: string) {
 
 async function registerFail(pid: string | null, ipHash: string, motivo: string) {
   await admin.from("kol_portal_attempts").insert({ professional_id: pid, ip_hash: ipHash, success: false });
-  const since = new Date(Date.now() - FAIL_WINDOW_MS).toISOString();
+  // a contagem recomeça após um bloqueio expirado ou liberado pela equipe
+  const { data: lastBlock } = await admin.from("kol_portal_attempts").select("blocked_until")
+    .eq("ip_hash", ipHash).not("blocked_until", "is", null).lte("blocked_until", new Date().toISOString())
+    .order("blocked_until", { ascending: false }).limit(1);
+  const windowStart = Date.now() - FAIL_WINDOW_MS;
+  const lb = lastBlock?.[0]?.blocked_until ? new Date(lastBlock[0].blocked_until).getTime() : 0;
+  const since = new Date(Math.max(windowStart, lb)).toISOString();
   const { count } = await admin.from("kol_portal_attempts").select("id", { count: "exact", head: true })
     .eq("ip_hash", ipHash).eq("success", false).gte("created_at", since);
   let until: string | null = null;
