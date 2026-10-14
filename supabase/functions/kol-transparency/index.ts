@@ -229,13 +229,16 @@ Deno.serve(async (req) => {
       const tl = (timeline.data ?? []) as any[];
       // Fase 2: turnos vêm de kol_event_slots; horas realizadas = fn_kol_slot_hours (gravadas em hours_done), mesma fonte da timeline
       const [slots, hours] = await Promise.all([
-        admin.from("kol_event_slots").select("slot_type, slot_date, start_time, end_time, status, hours_done, created_at, smartops_events:event_id(name)")
+        admin.from("kol_event_slots").select("slot_type, slot_date, start_time, end_time, status, hours_done, created_at, event_id")
           .eq("lead_id", leadId).order("slot_date", { ascending: false }),
         admin.from("v_kol_event_hours").select("horas_palestra, horas_estande, horas_total, turnos_realizados, turnos_agendados, turnos_cancelados").eq("lead_id", leadId),
       ]);
+      const evIds = [...new Set((slots.data ?? []).map((s: any) => s.event_id))];
+      const { data: evs } = evIds.length ? await admin.from("smartops_events").select("id, name").in("id", evIds) : { data: [] };
+      const evName = new Map((evs ?? []).map((e: any) => [e.id, e.name]));
       const hhmm = (t: string | null) => (t ? String(t).slice(0, 5) : null);
       const eventos = (slots.data ?? []).map((s: any) => ({
-        tipo: s.slot_type, situacao: s.status, em: s.created_at, evento: s.smartops_events?.name || "",
+        tipo: s.slot_type, situacao: s.status, em: s.created_at, evento: evName.get(s.event_id) || "",
         data: s.slot_date, inicio: hhmm(s.start_time), fim: hhmm(s.end_time), horas: s.status === "realizado" ? Number(s.hours_done) : null,
       }));
       const horas = (hours.data ?? []).reduce((a: any, r: any) => ({
