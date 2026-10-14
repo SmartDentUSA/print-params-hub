@@ -6,7 +6,9 @@ import { Loader2, Lock, Ticket } from "lucide-react";
 import { toast } from "sonner";
 import { PromotionalCouponsCard } from "@/components/admin/catalog/PromotionalCouponsCard";
 import type { PromotionalCoupon, PromotionalTable } from "@/components/admin/catalog/promotionalTypes";
-import type { KolCoupon } from "./ProfessionalKolCommercial";
+import type { KolCoupon, KolCommissionRule } from "./ProfessionalKolCommercial";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
 
 interface Props {
   leadId: string;
@@ -15,6 +17,8 @@ interface Props {
   onKolCouponsChange: (v: KolCoupon[]) => void;
   /** Perfil em modo leitura: nenhuma escrita (tabela, cupons, Loja Integrada). */
   disabled?: boolean;
+  /** Regras do KOL (prof_kol_commissions): fonte do desconto sugerido e da comissão do cupom. */
+  commissions?: KolCommissionRule[];
 }
 
 /**
@@ -22,12 +26,20 @@ interface Props {
  * Usa uma tabela promocional oculta vinculada ao profissional, criada apenas
  * quando alguém em modo de edição pede explicitamente (nunca ao só visualizar).
  */
-export default function ProfessionalCouponsGenerator({ leadId, nome, kolCoupons, onKolCouponsChange, disabled }: Props) {
+export default function ProfessionalCouponsGenerator({ leadId, nome, kolCoupons, onKolCouponsChange, disabled, commissions = [] }: Props) {
   const [table, setTable] = useState<PromotionalTable | null>(null);
   const [draft, setDraft] = useState<Partial<PromotionalTable>>({});
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const saveTimer = useRef<number | null>(null);
+  const catRules = commissions.filter((r) => r.kind === "category" && r.coupon_discount_percent != null);
+  const [ruleKey, setRuleKey] = useState("");
+  const ruleOf = (k: string) => catRules.find((r) => `${r.category}::${r.subcategory ?? ""}` === k);
+  const pickRule = (k: string) => {
+    setRuleKey(k);
+    const r = ruleOf(k);
+    if (r) onDraftChange({ coupon_discount_type: "percent", coupon_discount_value: Number(r.coupon_discount_percent) } as any);
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -91,7 +103,7 @@ export default function ProfessionalCouponsGenerator({ leadId, nome, kolCoupons,
     for (const c of coupons) {
       const code = c.code.toUpperCase();
       const idx = next.findIndex((k) => k.code.toUpperCase() === code);
-      const entry = { code, active_from: c.valid_from, active_to: c.valid_until, commission_percent: idx >= 0 ? next[idx].commission_percent ?? null : null };
+      const entry = { code, active_from: c.valid_from, active_to: c.valid_until, commission_percent: ruleOf(ruleKey)?.percent ?? (idx >= 0 ? next[idx].commission_percent ?? null : null), category: ruleOf(ruleKey)?.category ?? null, subcategory: ruleOf(ruleKey)?.subcategory ?? null } as KolCoupon;
       if (idx >= 0) next[idx] = entry; else next.push(entry);
     }
     onKolCouponsChange(next);
@@ -130,6 +142,19 @@ export default function ProfessionalCouponsGenerator({ leadId, nome, kolCoupons,
         </p>
       )}
       <fieldset disabled={disabled} className={disabled ? "pointer-events-none opacity-60" : undefined}>
+        <div className="mb-3 space-y-1">
+          <Label>Categoria do cupom (regras do KOL)</Label>
+          <Select value={ruleKey} onValueChange={pickRule}>
+            <SelectTrigger><SelectValue placeholder={catRules.length ? "Escolha a categoria para sugerir o desconto" : "Nenhuma categoria com desconto de cupom nas regras do KOL"} /></SelectTrigger>
+            <SelectContent>
+              {catRules.map((r) => {
+                const k = `${r.category}::${r.subcategory ?? ""}`;
+                return <SelectItem key={k} value={k}>{r.subcategory ? `${r.category} › ${r.subcategory}` : r.category} — desconto {r.coupon_discount_percent}% · comissão {r.percent ?? 0}%</SelectItem>;
+              })}
+            </SelectContent>
+          </Select>
+          <p className="text-xs text-muted-foreground">O desconto sugerido pode ser ajustado aqui pela equipe; a comissão do cupom segue a regra da mesma categoria.</p>
+        </div>
         <PromotionalCouponsCard
           table={table}
           draft={draft}
