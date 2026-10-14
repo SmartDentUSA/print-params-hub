@@ -230,6 +230,24 @@ export default function ProfessionalKolCommercial({
               <Plus className="w-4 h-4" />
             </Button>
           </div>
+          <div className="flex items-end gap-2 rounded-md border p-2">
+            <div className="w-40">
+              <Label className="text-xs">% comissão por indicação</Label>
+              <Input
+                type="number"
+                min={0}
+                max={100}
+                step="0.1"
+                value={referralRule?.percent ?? ""}
+                onChange={(e) => patchReferral(e.target.value === "" ? null : Math.min(100, Math.max(0, parseFloat(e.target.value))))}
+                disabled={disabled}
+                placeholder="Ex: 5"
+              />
+            </div>
+            <p className="pb-2 text-xs text-muted-foreground">
+              Percentual sobre vendas dos leads indicados. O padrão vem das Configurações de comissionamento; aqui você personaliza para este KOL.
+            </p>
+          </div>
         </div>
 
         {/* 2. Cupons Loja Integrada */}
@@ -307,11 +325,11 @@ export default function ProfessionalKolCommercial({
               <Plus className="w-4 h-4 mr-1" /> Adicionar regra
             </Button>
           </div>
-          {commissions.filter((r) => !isCat(r)).length === 0 ? (
+          {commissions.filter((r) => !isCat(r) && r.kind !== "referral").length === 0 ? (
             <p className="text-xs text-muted-foreground">Nenhuma regra cadastrada.</p>
           ) : (
             <div className="space-y-2">
-              {commissions.map((r, i) => isCat(r) ? null : (
+              {commissions.map((r, i) => (isCat(r) || r.kind === "referral") ? null : (
                 <div key={i} className="grid grid-cols-1 md:grid-cols-[1fr_120px_180px_40px] gap-2 items-end rounded-md border p-2">
                   <div>
                     <Label className="text-xs">Produto</Label>
