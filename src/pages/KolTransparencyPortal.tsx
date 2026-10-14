@@ -197,9 +197,15 @@ export default function KolTransparencyPortal() {
 
         <Section id="eventos" title="Eventos e horas">
           {d.eventos.length === 0 ? <Empty t="Nenhuma participação registrada." /> : (
-            <ul className="divide-y">{d.eventos.map((e: any, i: number) => (
-              <li key={i} className="py-1.5">{e.tipo.includes("cancel") ? "Cancelado" : e.tipo.includes("talk") ? "Palestra" : "Estande"} · {e.evento || "Evento"} <span className="text-xs text-muted-foreground">{dt(e.inicio || e.em)}</span></li>
-            ))}</ul>
+            <ul className="divide-y">{d.eventos.map((e: any, i: number) => {
+              const mins = e.inicio && e.fim && /^\d{2}:\d{2}$/.test(e.inicio) && /^\d{2}:\d{2}$/.test(e.fim)
+                ? (Number(e.fim.slice(0, 2)) * 60 + Number(e.fim.slice(3))) - (Number(e.inicio.slice(0, 2)) * 60 + Number(e.inicio.slice(3))) : null;
+              const when = e.data && /^\d{2}:\d{2}$/.test(e.inicio || "")
+                ? `${e.data.split("-").reverse().join("/")} · ${e.inicio}–${e.fim}` : dt(e.inicio || e.em);
+              return (
+                <li key={i} className="py-1.5">{e.tipo.includes("cancel") ? "Cancelado" : e.tipo.includes("talk") ? "Palestra" : "Estande"} · {e.evento || "Evento"} <span className="text-xs text-muted-foreground">{when}{mins && mins > 0 ? ` · ${(mins / 60).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} h` : ""}</span></li>
+              );
+            })}</ul>
           )}
         </Section>
 
