@@ -37,7 +37,7 @@ serve(async (req) => {
 
     if (error) throw error;
 
-    const baseUrl = 'https://parametros.smartdent.com.br';
+    const baseUrl = 'https://www.smartdent.com.br';
     
     // Generate sitemap XML
     const sitemap = `<?xml version="1.0" encoding="UTF-8"?>
@@ -87,3 +87,4 @@ ${contents.map(content => {
     });
   }
 });
+
