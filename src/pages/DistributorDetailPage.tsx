@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useParams, Navigate } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
 import { supabase } from "@/integrations/supabase/client";
@@ -6,7 +6,7 @@ import { Header } from "@/components/Header";
 import { Globe, Instagram, Facebook, Linkedin, Youtube, MapPin, MessageCircle, Mail, ArrowLeft, MapPinned } from "lucide-react";
 import "flag-icons/css/flag-icons.min.css";
 
-const BASE_URL = "https://parametros.smartdent.com.br";
+const BASE_URL = "https://www.smartdent.com.br";
 
 type CountryDef = { slug: string; aliases: string[]; name: string; iso: string; prep: string };
 const COUNTRIES: CountryDef[] = [
@@ -110,7 +110,7 @@ export default function DistributorDetailPage() {
   const title = `${name} — Distribuidor Oficial Smart Dent ${country.prep} ${country.name}`;
   const description = `${name} é distribuidor autorizado Smart Dent ${country.prep} ${country.name}${local ? ` (${local})` : ""}. Endereço, telefone, WhatsApp, site e linhas representadas.`;
 
-  const localBusinessLd = useMemo(() => ({
+  const localBusinessLd = {
     "@context": "https://schema.org",
     "@type": ["LocalBusiness", "Store"],
     "@id": canonical,
@@ -167,7 +167,7 @@ export default function DistributorDetailPage() {
     })),
     "knowsAbout": Array.isArray(d.linhas_representadas) ? d.linhas_representadas : undefined,
     "description": scope ? `Distribuidor oficial Smart Dent em ${country.name} — linhas autorizadas: ${scope}.` : undefined,
-  }), [d, country, canonical, name, scope, waDigits]);
+  };
 
   return (
     <>
