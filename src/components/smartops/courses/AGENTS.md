@@ -11,3 +11,6 @@
 - Internal KOL ops (contest answers, portal unblock, new-device alert test) run in kol-staff-ops gated by fn_is_internal_staff; answering logs kol_contest_answered and notifies the contract seller.
 - Commission ledger and any KOL report must read v_kol_contracts_reportable / v_kol_leads_reportable (is_test excluded at DB level), never raw tables.
 - KOL event invites/slots (kol_event_invites, kol_event_slots) change only via fn_kol_invite/_respond/_schedule_slot/_cancel_slot/_mark_done, which enforce signed non-revoked contract, test-mode match and accepted invite; hours always come from fn_kol_slot_hours so timeline, portal JSON and v_kol_event_hours agree.
+
+- Public KOL agenda exposes only `prof_public_slug`, rate-limits phone checks in `kol_portal_attempts`, and staff-only create fills empty fields with before/after logged; keeps internal ids private.
+- `fn_kol_log` updates before inserting because the activity-log dedupe trigger silently drops repeats.
