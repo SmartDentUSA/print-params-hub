@@ -706,3 +706,6 @@ verify_jwt = false
 
 [functions.kol-portal]
 verify_jwt = false
+
+[functions.kol-transparency]
+verify_jwt = false
