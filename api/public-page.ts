@@ -20,7 +20,18 @@ export default async function handler(req: VercelRequest,res: VercelResponse) {
     browser = await puppeteer.launch({args:chromium.args,defaultViewport:{width:1365,height:900},executablePath:await chromium.executablePath(),headless:true});
     const page = await browser.newPage();
     const pageErrors: string[] = [];
+    const failedAssets: string[] = [];
     page.on('pageerror', error => { pageErrors.push(error.message.slice(0,180)); });
+    page.on('requestfailed', request => {
+      if (['document','script','stylesheet'].includes(request.resourceType())) {
+        failedAssets.push(`${request.resourceType()}:${new URL(request.url()).pathname}:${request.failure()?.errorText || 'failed'}`);
+      }
+    });
+    page.on('response', response => {
+      if (response.status() >= 400 && ['document','script','stylesheet'].includes(response.request().resourceType())) {
+        failedAssets.push(`${response.request().resourceType()}:${new URL(response.url()).pathname}:HTTP${response.status()}`);
+      }
+    });
     if (screenshot && req.query.viewport === 'mobile') await page.setViewport({width:390,height:844});
     await page.evaluateOnNewDocument(() => { (window as any).__SMARTDENT_PRERENDER__ = true; });
     const responses: Array<{url:string;body:string;status:number;contentType:string}> = [];
@@ -94,7 +105,7 @@ export default async function handler(req: VercelRequest,res: VercelResponse) {
         rootText: (document.querySelector('#root')?.textContent || '').trim().slice(0,180),
         rootHeadings: Array.from(document.querySelectorAll('#root h1')).map(el => el.textContent?.trim()).slice(0,3),
       })).catch(() => ({route:path,rootText:'unavailable',rootHeadings:[]}));
-      throw new Error(`Public route did not hydrate: ${JSON.stringify(diagnostics)}; pageErrors=${pageErrors.join(' | ')}`);
+      throw new Error(`Public route did not hydrate: ${JSON.stringify(diagnostics)}; pageErrors=${pageErrors.join(' | ')}; failedAssets=${failedAssets.join(' | ')}`);
     }
     await page.waitForNetworkIdle({idleTime:900,timeout:15000}).catch(() => {});
     await Promise.all(captures);

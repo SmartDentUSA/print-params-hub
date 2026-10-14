@@ -16,6 +16,8 @@ assert.equal(product.brand,undefined);assert.equal(product.offers.price,10);asse
 assert.equal(cleanSchema({'@type':'Product',offers:{'@type':'Offer',price:0}}).offers,undefined);
 assert.equal(cleanSchema({'@type':'TechArticle',offers:{'@type':'Offer',price:0}}).offers,undefined);
 assert.equal(cleanSchema({'@type':'Organization',name:'Nova Empresa'}),undefined);
+assert.equal(cleanSchema({'@type':'DigitalDocument',contentUrl:'internal://ai-synthesis/abc'}),undefined,'Private internal references must not be advertised as public document URLs');
+assert.equal(cleanSchema({'@type':'DigitalDocument',contentUrl:'https://smartdent.com.br/laudo.pdf'}).contentUrl,'https://smartdent.com.br/laudo.pdf','Public supporting documents remain linked');
 const original='<h1>Texto original</h1><p>Conteúdo preservado</p>';
 assert.equal(cleanStructuredData(original+'<script type="application/ld+json">{bad json}</script>'),original);
 const injected=safeJson({text:'</script><script>alert(1)</script>'});
@@ -40,6 +42,8 @@ assert.ok(renderer.includes("res.status(503)"),'A failure must not become a succ
 const articleHead=await readFile(new URL('../src/components/KnowledgeSEOHead.tsx',import.meta.url),'utf8');
 assert.ok(articleHead.includes('"BlogPosting"'),'Knowledge pages expose Google-supported Article schema');
 assert.ok(!articleHead.includes('"reviewRating"'),'Recommendations must not be fabricated as reviews');
+const articleViewer=await readFile(new URL('../src/components/KnowledgeContentViewer.tsx',import.meta.url),'utf8');
+assert.ok(articleViewer.includes('const allDocuments = [...documentsData, ...pdfsData]'),'Article evidence documents must reach its structured data');
 const organization=await readFile(new URL('../src/components/OrganizationSchema.tsx',import.meta.url),'utf8');
 assert.ok(organization.includes('company.corporate?.certifications'),'Verified certifications come from the company record');
 assert.ok(!organization.includes('company.reviews_reputation?.google_rating'),'Self-serving Organization stars are not eligible for Google review snippets');

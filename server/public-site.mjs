@@ -27,6 +27,13 @@ export function publicUrl(value) {
 export function cleanSchema(value) {
   if (Array.isArray(value)) return value.map(cleanSchema).filter(v => v !== undefined);
   if (value && typeof value === 'object') {
+    const rawTypes = Array.isArray(value['@type']) ? value['@type'] : [value['@type']];
+    if (rawTypes.includes('DigitalDocument')) {
+      try {
+        const contentUrl = new URL(value.contentUrl);
+        if (!['http:','https:'].includes(contentUrl.protocol)) return undefined;
+      } catch { return undefined; }
+    }
     const out = Object.fromEntries(Object.entries(value).filter(([,v]) => v !== null && v !== undefined).map(([k,v]) => [k,cleanSchema(v)]));
     const types = Array.isArray(out['@type']) ? out['@type'] : [out['@type']];
     if (types.includes('Offer')) {
