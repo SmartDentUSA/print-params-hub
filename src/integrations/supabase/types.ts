@@ -8942,6 +8942,45 @@ export type Database = {
         }
         Relationships: []
       }
+      kol_contestations: {
+        Row: {
+          created_at: string
+          id: string
+          is_test: boolean
+          lead_id: string
+          reason: string
+          staff_response: string | null
+          status: string
+          subject_ref: string | null
+          subject_type: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_test?: boolean
+          lead_id: string
+          reason: string
+          staff_response?: string | null
+          status?: string
+          subject_ref?: string | null
+          subject_type?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_test?: boolean
+          lead_id?: string
+          reason?: string
+          staff_response?: string | null
+          status?: string
+          subject_ref?: string | null
+          subject_type?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       kol_contract_addenda: {
         Row: {
           accepted_at: string | null
