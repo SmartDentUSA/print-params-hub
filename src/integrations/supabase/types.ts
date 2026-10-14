@@ -12606,9 +12606,12 @@ export type Database = {
           produto_interesse: string | null
           produto_interesse_auto: string | null
           produto_interesse_raw: string | null
+          prof_ai_summary: string | null
+          prof_ai_summary_at: string | null
           prof_cep: string | null
           prof_city: string | null
           prof_complement: string | null
+          prof_contract_sources: Json
           prof_country: string | null
           prof_course_platform: string | null
           prof_course_wa_ddi: string | null
@@ -13236,9 +13239,12 @@ export type Database = {
           produto_interesse?: string | null
           produto_interesse_auto?: string | null
           produto_interesse_raw?: string | null
+          prof_ai_summary?: string | null
+          prof_ai_summary_at?: string | null
           prof_cep?: string | null
           prof_city?: string | null
           prof_complement?: string | null
+          prof_contract_sources?: Json
           prof_country?: string | null
           prof_course_platform?: string | null
           prof_course_wa_ddi?: string | null
@@ -13866,9 +13872,12 @@ export type Database = {
           produto_interesse?: string | null
           produto_interesse_auto?: string | null
           produto_interesse_raw?: string | null
+          prof_ai_summary?: string | null
+          prof_ai_summary_at?: string | null
           prof_cep?: string | null
           prof_city?: string | null
           prof_complement?: string | null
+          prof_contract_sources?: Json
           prof_country?: string | null
           prof_course_platform?: string | null
           prof_course_wa_ddi?: string | null
@@ -39232,9 +39241,12 @@ export type Database = {
           produto_interesse: string | null
           produto_interesse_auto: string | null
           produto_interesse_raw: string | null
+          prof_ai_summary: string | null
+          prof_ai_summary_at: string | null
           prof_cep: string | null
           prof_city: string | null
           prof_complement: string | null
+          prof_contract_sources: Json
           prof_country: string | null
           prof_course_platform: string | null
           prof_course_wa_ddi: string | null
