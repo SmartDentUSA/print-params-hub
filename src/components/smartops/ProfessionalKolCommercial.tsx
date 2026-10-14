@@ -12,6 +12,7 @@ import { Switch } from "@/components/ui/switch";
 import { PRODUCT_CATALOG_ENTITY_TYPES } from "@/lib/catalogEntityTypes";
 import ProfessionalKolPerformance from "./ProfessionalKolPerformance";
 import { groupKolCatalogCategories } from "@/lib/kolPortfolioGroups";
+import { isKolRowCustomized, kolRowKey, mapTemplateItems, type KolDefaultRow } from "@/lib/kolCommissionDefaults";
 
 export interface KolFormRef {
   id: string;
@@ -26,7 +27,10 @@ export interface KolCommissionRule {
   product_id: string;
   product_name: string;
   percent: number | null;
+  /** Desconto do cupom da loja (%) — benefício ao cliente nos cupons desta categoria. */
+  coupon_discount_percent?: number | null;
   active_from: string | null;
+  source?: string;
 }
 
 export interface KolCoupon {
@@ -35,6 +39,8 @@ export interface KolCoupon {
   active_to: string | null;
   /** % de comissão do profissional sobre as compras feitas com este cupom. */
   commission_percent?: number | null;
+  category?: string | null;
+  subcategory?: string | null;
 }
 
 interface Props {
@@ -63,6 +69,7 @@ export default function ProfessionalKolCommercial({
   const [forms, setForms] = useState<FormOption[]>([]);
   const [products, setProducts] = useState<ProductOption[]>([]);
   const [cats, setCats] = useState<{ cat: string; subs: string[] }[]>([]);
+  const [defaults, setDefaults] = useState<Map<string, KolDefaultRow>>(new Map());
   const [pendingForm, setPendingForm] = useState<string>("");
 
   useEffect(() => {
@@ -101,6 +108,11 @@ export default function ProfessionalKolCommercial({
       );
       setForms(((f ?? []) as any[]).map((x) => ({ id: x.id, name: x.name ?? "(sem nome)" })));
       setProducts(((p ?? []) as any[]).map((x) => ({ id: x.id, name: x.name ?? "(sem nome)" })));
+      const { data: items } = await (supabase as any)
+        .from("kol_commission_template_items")
+        .select("kind, category, subcategory, product_id, percent, coupon_discount_percent, kol_commission_templates!inner(is_default)")
+        .eq("kol_commission_templates.is_default", true);
+      setDefaults(mapTemplateItems((items ?? []) as any[]));
     })();
   }, []);
 
@@ -365,10 +377,13 @@ export default function ProfessionalKolCommercial({
                   const idx = catRuleIdx(row.category, row.subcategory);
                   const rule = idx !== -1 ? commissions[idx] : null;
                   const active = idx !== -1;
+                  const def = defaults.get(kolRowKey({ kind: "category", category: row.category, subcategory: row.subcategory, product_id: "" }));
+                  const custom = !!rule && isKolRowCustomized(rule, def);
+                  const clamp = (v: string) => (v === "" ? null : Math.min(100, Math.max(0, parseFloat(v))));
                   return (
                     <div
                       key={`${row.category}::${row.subcategory ?? "*"}`}
-                      className={`grid grid-cols-1 md:grid-cols-[1fr_120px_180px_60px] gap-2 items-center rounded-md border p-2 ${
+                      className={`grid grid-cols-1 md:grid-cols-[1fr_100px_110px_160px_150px] gap-2 items-center rounded-md border p-2 ${
                         active ? "" : "opacity-60"
                       } ${row.isSub ? "md:ml-6" : "bg-muted/40"}`}
                     >
@@ -381,29 +396,39 @@ export default function ProfessionalKolCommercial({
                         <span className={`text-sm ${row.isSub ? "" : "font-medium"}`}>
                           {row.isSub ? row.label : `${row.label} (todas as subcategorias)`}
                         </span>
+                        {custom && <Badge variant="outline" className="text-[10px]">personalizado</Badge>}
                       </div>
-                      <div>
-                        <Input
-                          type="number" min={0} max={100} step="0.1"
-                          value={rule?.percent ?? ""}
-                          onChange={(e) =>
-                            idx !== -1 &&
-                            patchRule(idx, { percent: e.target.value === "" ? null : Math.min(100, Math.max(0, parseFloat(e.target.value))) })
-                          }
-                          disabled={disabled || !active}
-                          placeholder="%"
-                        />
+                      <Input
+                        type="number" min={0} max={100} step="0.1"
+                        value={rule?.percent ?? ""}
+                        onChange={(e) => idx !== -1 && patchRule(idx, { percent: clamp(e.target.value) })}
+                        disabled={disabled || !active}
+                        placeholder="KOL %"
+                        title="Comissão do KOL (%)"
+                      />
+                      <Input
+                        type="number" min={0} max={100} step="0.1"
+                        value={rule?.coupon_discount_percent ?? ""}
+                        onChange={(e) => idx !== -1 && patchRule(idx, { coupon_discount_percent: clamp(e.target.value) })}
+                        disabled={disabled || !active}
+                        placeholder="Cupom %"
+                        title="Desconto do cupom da loja (%)"
+                      />
+                      <DatePickerInput
+                        value={rule?.active_from ?? undefined}
+                        onChange={(v) => idx !== -1 && patchRule(idx, { active_from: v })}
+                        disabled={disabled || !active}
+                        className="w-full"
+                        placeholder="Ativação"
+                      />
+                      <div className="text-right">
+                        {custom && def && (
+                          <Button type="button" size="sm" variant="ghost" disabled={disabled}
+                            onClick={() => patchRule(idx, { percent: def.percent, coupon_discount_percent: def.coupon_discount_percent })}>
+                            Restaurar padrão
+                          </Button>
+                        )}
                       </div>
-                      <div>
-                        <DatePickerInput
-                          value={rule?.active_from ?? undefined}
-                          onChange={(v) => idx !== -1 && patchRule(idx, { active_from: v })}
-                          disabled={disabled || !active}
-                          className="w-full"
-                          placeholder="Ativação"
-                        />
-                      </div>
-                      <div className="text-xs text-muted-foreground text-right">{active ? "Ativa" : ""}</div>
                     </div>
                   );
                 });

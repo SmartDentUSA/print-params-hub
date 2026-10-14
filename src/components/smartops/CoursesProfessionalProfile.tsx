@@ -283,6 +283,8 @@ export default function CoursesProfessionalProfile({ initialEmail, startEditing 
       }
 
       setLocked(true);
+      // Recarrega para trazer a cópia do padrão de comissão feita ao criar o KOL
+      if (savedId) void loadByEmail(form.email, savedId);
       toast({ title: "Ficha salva com sucesso" });
     } catch (e: any) {
       toast({ title: "Erro ao salvar", description: e.message, variant: "destructive" });
@@ -557,6 +559,7 @@ export default function CoursesProfessionalProfile({ initialEmail, startEditing 
           nome={form.nome || form.email || "Profissional"}
           kolCoupons={form.prof_kol_coupons}
           onKolCouponsChange={(v) => setField("prof_kol_coupons", v)}
+          commissions={form.prof_kol_commissions}
           disabled={disabled}
         />
       )}

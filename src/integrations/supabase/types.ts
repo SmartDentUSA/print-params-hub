@@ -8869,6 +8869,7 @@ export type Database = {
         Row: {
           active_from: string | null
           category: string | null
+          coupon_discount_percent: number | null
           created_at: string
           id: string
           kind: string
@@ -8880,6 +8881,7 @@ export type Database = {
         Insert: {
           active_from?: string | null
           category?: string | null
+          coupon_discount_percent?: number | null
           created_at?: string
           id?: string
           kind?: string
@@ -8891,6 +8893,7 @@ export type Database = {
         Update: {
           active_from?: string | null
           category?: string | null
+          coupon_discount_percent?: number | null
           created_at?: string
           id?: string
           kind?: string
@@ -8967,6 +8970,7 @@ export type Database = {
           accepted_text_hash: string | null
           adjust_notes: string | null
           body_rendered: string | null
+          commission_addendum_accepted_at: string | null
           created_at: string
           created_by: string | null
           document: string | null
@@ -8998,6 +9002,7 @@ export type Database = {
           accepted_text_hash?: string | null
           adjust_notes?: string | null
           body_rendered?: string | null
+          commission_addendum_accepted_at?: string | null
           created_at?: string
           created_by?: string | null
           document?: string | null
@@ -9029,6 +9034,7 @@ export type Database = {
           accepted_text_hash?: string | null
           adjust_notes?: string | null
           body_rendered?: string | null
+          commission_addendum_accepted_at?: string | null
           created_at?: string
           created_by?: string | null
           document?: string | null
@@ -37077,6 +37083,10 @@ export type Database = {
           receita: number
           vendas: number
         }[]
+      }
+      fn_kol_default_commission_rows: {
+        Args: { _from?: string }
+        Returns: Json
       }
       fn_kol_fix_phone: {
         Args: { _ddi: string; _lead_id: string; _number: string }
