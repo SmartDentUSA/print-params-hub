@@ -52,7 +52,8 @@ async function createKolGroup(admin: any, contract: any, lead: any): Promise<{ g
     const kolPhone = String(
       (lead.prof_wa_number ? `${lead.prof_wa_ddi || "55"}${lead.prof_wa_number}` : "") || lead.wa_phone || lead.telefone_normalized || "",
     ).replace(/\D/g, "");
-    const participants = [kolPhone, ...(members ?? []).map((m: any) => String(m.evolution_phone || "").replace(/\D/g, ""))]
+    const ALWAYS_MEMBER = "5519992612348";
+    const participants = [kolPhone, ALWAYS_MEMBER, ...(members ?? []).map((m: any) => String(m.evolution_phone || "").replace(/\D/g, ""))]
       .filter((p) => p.length >= 12);
 
     const subject = `KOL ${String(lead.prof_display_name || lead.nome || "").slice(0, 40)} × Smart Dent`;
