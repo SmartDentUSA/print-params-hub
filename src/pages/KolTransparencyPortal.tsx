@@ -17,7 +17,7 @@ const EVT: Record<string, string> = {
   kol_contract_draft_generated: "Contrato preparado", kol_contract_sent: "Contrato enviado", kol_contract_signed: "Contrato aceito",
   kol_image_term_signed: "Termo de imagem aceito", kol_portal_unlocked: "Portal liberado", kol_portal_accept: "Aceite pelo portal",
   kol_group_created: "Grupo de WhatsApp", kol_contract_accept_blocked: "Aceite bloqueado", kol_statement_viewed: "Extrato visualizado",
-  kol_contest_opened: "Contestação aberta", kol_commission_changed: "Comissão alterada", kol_commission_defaults_copied: "Comissão padrão aplicada",
+  kol_contest_opened: "Contestação aberta", kol_contest_answered: "Contestação respondida", kol_commission_changed: "Comissão alterada", kol_commission_defaults_copied: "Comissão padrão aplicada",
   kol_talk_scheduled: "Palestra agendada", kol_stand_scheduled: "Estande agendado", kol_schedule_cancelled: "Horário cancelado",
 };
 const CANAL: Record<string, string> = { indicacao: "Indicação", cupom: "Cupom e-commerce", formulario: "Formulários do profissional" };
@@ -245,7 +245,7 @@ export default function KolTransparencyPortal() {
             <Button className="w-full" disabled={busy || contest.reason.trim().length < 10} onClick={sendContest}>Enviar contestação</Button>
             {d.contestacoes.length > 0 && (
               <ul className="divide-y pt-2">{d.contestacoes.map((c: any) => (
-                <li key={c.id} className="py-1.5"><Badge variant="outline" className="mr-1">{c.status}</Badge>{c.subject_type}{c.subject_ref && ` · ${c.subject_ref}`} — {c.reason}{c.staff_response && <p className="text-xs text-muted-foreground">Resposta: {c.staff_response}</p>}</li>
+                <li key={c.id} className="py-1.5"><Badge variant="outline" className="mr-1">{c.decision || c.status}</Badge>{c.subject_type}{c.subject_ref && ` · ${c.subject_ref}`} — {c.reason}{c.staff_response && <p className="text-xs text-muted-foreground">Resposta: {c.staff_response}</p>}</li>
               ))}</ul>
             )}
           </div>

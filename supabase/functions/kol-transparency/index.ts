@@ -218,7 +218,7 @@ Deno.serve(async (req) => {
         admin.from("kol_equipment_loans").select("product_name, serial_number, released_at, returned_at, value_brl, status").eq("lead_id", leadId),
         admin.from("professional_courses").select("title, status, modality, start_date, enrolled_count, max_students, views_count").eq("producer_lead_id", leadId).order("start_date", { ascending: false }),
         admin.from("lead_activity_log").select("event_type, created_at, event_data").eq("lead_id", leadId).like("event_type", "kol_%").order("created_at", { ascending: false }).limit(100),
-        admin.from("kol_contestations").select("id, subject_type, subject_ref, reason, status, staff_response, created_at").eq("lead_id", leadId).order("created_at", { ascending: false }),
+        admin.from("kol_contestations").select("id, subject_type, subject_ref, reason, status, decision, staff_response, responded_at, due_at, created_at").eq("lead_id", leadId).order("created_at", { ascending: false }),
       ]);
       const tl = (timeline.data ?? []) as any[];
       const eventos = tl.filter((t) => /kol_(talk|stand)_scheduled|kol_schedule_cancelled/.test(t.event_type)).map((t) => ({
