@@ -1,3 +1,4 @@
+import { isReferralForm } from "@/lib/kolCommissionDefaults";
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -100,12 +101,12 @@ export function useKolPerformance(formIds: { id: string; name: string }[], coupo
     .map((c) => `${c.code}:${c.active_from ?? ""}:${c.active_to ?? ""}`)
     .sort()
     .join(",")}|${productRules.map((r) => `${r.kind ?? "p"}:${r.category ?? ""}:${r.subcategory ?? ""}:${r.product_name}:${r.percent}:${r.active_from}`).join(",")}`;
-  const prules = productRules
+  const prulesAll = productRules
     .filter((r) => r.kind !== "category" && r.product_name && r.percent != null)
-    .map((r) => ({ key: norm(r.product_name), pct: Number(r.percent), from: r.active_from ? String(r.active_from).slice(0, 10) : null }));
-  const crules = productRules
+    .map((r) => ({ ch: (r as any).channel ?? null, key: norm(r.product_name), pct: Number(r.percent), from: r.active_from ? String(r.active_from).slice(0, 10) : null }));
+  const crulesAll = productRules
     .filter((r) => r.kind === "category" && r.category && r.percent != null)
-    .map((r) => ({ cat: norm(r.category), sub: r.subcategory ? norm(r.subcategory) : null, pct: Number(r.percent), from: r.active_from ? String(r.active_from).slice(0, 10) : null }));
+    .map((r) => ({ ch: (r as any).channel ?? null, cat: norm(r.category), sub: r.subcategory ? norm(r.subcategory) : null, pct: Number(r.percent), from: r.active_from ? String(r.active_from).slice(0, 10) : null }));
   const fallbackPct = rules.find((c) => c.commission_percent != null)?.commission_percent ?? null;
 
   const load = useCallback(async () => {
@@ -162,7 +163,12 @@ export function useKolPerformance(formIds: { id: string; name: string }[], coupo
         }
         return { cat: hit?.cat ?? cat ?? null, sub: hit?.sub ?? sub ?? null };
       };
-      const pctFor = (rawName: string, cat: string | null, sub: string | null, date: string | null, fb: number | null) => {
+      // Canal da venda: regra do mesmo canal; regras antigas sem canal valem como reserva.
+      const pctFor = (rawName: string, cat: string | null, sub: string | null, date: string | null, fb: number | null, ch: string = "cupom") =>
+        pctForCh(rawName, cat, sub, date, null, ch) ?? pctForCh(rawName, cat, sub, date, fb, null);
+      const pctForCh = (rawName: string, cat: string | null, sub: string | null, date: string | null, fb: number | null, ch: string | null) => {
+        const prules = prulesAll.filter((r) => r.ch === ch);
+        const crules = crulesAll.filter((r) => r.ch === ch);
         const name = norm(rawName);
         const okDate = (from: string | null) => !from || !date || date >= from;
         const pr = prules
@@ -206,7 +212,7 @@ export function useKolPerformance(formIds: { id: string; name: string }[], coupo
         //    Formulários sem perguntas extras não geram respostas de campo, então esta é a contagem real.
         const { data: formRows } = await (supabase as any)
           .from("smartops_forms")
-          .select("id, name, slug")
+          .select("id, name, slug, form_purpose")
           .in("id", ids);
 
         const nameById = new Map<string, string[]>();
@@ -253,6 +259,9 @@ export function useKolPerformance(formIds: { id: string; name: string }[], coupo
         }
 
 
+        const referralFormIds = new Set(((formRows ?? []) as any[]).filter((f) => isReferralForm(f)).map((f) => f.id));
+        const referralLeads = new Set<string>();
+        for (const fid of referralFormIds) for (const l of leadsByForm[fid] ?? []) referralLeads.add(l);
         const allLeads = Array.from(new Set(Object.values(leadsByForm).flatMap((s) => Array.from(s))));
 
         // Negócios ganhos dos leads indicados
@@ -295,7 +304,7 @@ export function useKolPerformance(formIds: { id: string; name: string }[], coupo
               void name;
               const raw = it.product_name || it.nome_produto || "(sem nome)";
               const c = classify(raw, it.product_category, it.product_subcategory);
-              const pct = pctFor(raw, c.cat, c.sub, date, fallbackPct);
+              const pct = pctFor(raw, c.cat, c.sub, date, fallbackPct, referralLeads.has(it.lead_id) ? "indicacao" : "formulario");
               const com = pct != null ? (val * pct) / 100 : null;
               if (com != null) commByLead[it.lead_id] = (commByLead[it.lead_id] ?? 0) + com;
               addSold("formulario", raw, c.cat, c.sub, Number(it.quantity ?? it.quantidade ?? 1) || 1, val, com);
