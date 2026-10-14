@@ -353,7 +353,7 @@ export default function ProfessionalCourseForm({ value, onChange, onUploadCover,
         </CardContent>
       </Card>
 
-      <Card>
+      {mode === "admin" && <Card>
         <CardHeader className="pb-3"><CardTitle className="text-base">6. Publicação</CardTitle></CardHeader>
         <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
           <div>
