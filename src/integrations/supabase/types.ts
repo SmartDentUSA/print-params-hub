@@ -19483,6 +19483,9 @@ export type Database = {
           public_visible: boolean
           published_at: string | null
           registration_url: string | null
+          review_note: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
           schedule: Json
           slug: string | null
           source_smartops_course_id: string | null
@@ -19490,6 +19493,7 @@ export type Database = {
           start_time: string | null
           state: string | null
           status: string
+          submitted_at: string | null
           subtitle: string | null
           syllabus: Json
           tags: string[]
@@ -19538,6 +19542,9 @@ export type Database = {
           public_visible?: boolean
           published_at?: string | null
           registration_url?: string | null
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
           schedule?: Json
           slug?: string | null
           source_smartops_course_id?: string | null
@@ -19545,6 +19552,7 @@ export type Database = {
           start_time?: string | null
           state?: string | null
           status?: string
+          submitted_at?: string | null
           subtitle?: string | null
           syllabus?: Json
           tags?: string[]
@@ -19593,6 +19601,9 @@ export type Database = {
           public_visible?: boolean
           published_at?: string | null
           registration_url?: string | null
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
           schedule?: Json
           slug?: string | null
           source_smartops_course_id?: string | null
@@ -19600,6 +19611,7 @@ export type Database = {
           start_time?: string | null
           state?: string | null
           status?: string
+          submitted_at?: string | null
           subtitle?: string | null
           syllabus?: Json
           tags?: string[]
@@ -37935,6 +37947,10 @@ export type Database = {
           receita: number
           vendas: number
         }[]
+      }
+      fn_kol_course_review: {
+        Args: { _action: string; _course_id: string; _note?: string }
+        Returns: Json
       }
       fn_kol_default_commission_rows: {
         Args: { _from?: string }

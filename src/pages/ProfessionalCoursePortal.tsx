@@ -105,6 +105,16 @@ export default function ProfessionalCoursePortal() {
     }
   };
 
+  const submitCourse = async (c: ProfessionalCourse) => {
+    try {
+      await call("submit_course", { course_id: c.id });
+      toast({ title: "Curso enviado para aprovação da equipe" });
+      await load();
+    } catch (e: any) {
+      toast({ title: "Não foi possível enviar", description: e.message, variant: "destructive" });
+    }
+  };
+
   const removeCourse = async (c: ProfessionalCourse) => {
     if (!confirm(`Excluir o curso "${c.title}"?`)) return;
     try {
@@ -229,14 +239,24 @@ export default function ProfessionalCoursePortal() {
                       <Badge variant="secondary" className="text-xs mt-1.5">
                         {COURSE_STATUS.find((s) => s.value === c.status)?.label ?? c.status}
                       </Badge>
+                      {(c as any).review_note && c.status === "rascunho" && (
+                        <p className="text-xs mt-1.5 text-destructive">Ajustes pedidos pela equipe: {(c as any).review_note}</p>
+                      )}
                     </div>
                     <div className="flex gap-1 shrink-0">
-                      <Button size="icon" variant="ghost" onClick={() => setDraft(c as unknown as ProfessionalCourseDraft)}>
-                        <Pencil className="w-4 h-4" />
-                      </Button>
-                      <Button size="icon" variant="ghost" onClick={() => removeCourse(c)}>
-                        <Trash2 className="w-4 h-4 text-destructive" />
-                      </Button>
+                      {c.status === "rascunho" && (
+                        <Button size="sm" variant="outline" onClick={() => submitCourse(c)}>Enviar para aprovação</Button>
+                      )}
+                      {c.status === "rascunho" && (
+                        <Button size="icon" variant="ghost" onClick={() => setDraft(c as unknown as ProfessionalCourseDraft)}>
+                          <Pencil className="w-4 h-4" />
+                        </Button>
+                      )}
+                      {c.status !== "publicado" && (
+                        <Button size="icon" variant="ghost" onClick={() => removeCourse(c)}>
+                          <Trash2 className="w-4 h-4 text-destructive" />
+                        </Button>
+                      )}
                     </div>
                   </CardContent>
                 </Card>
