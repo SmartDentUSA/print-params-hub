@@ -10,7 +10,7 @@ export function preparePublicSnapshot(): HTMLElement {
   const fetchOriginal = window.fetch.bind(window);
   const records = new Map((data.responses || []).map(r => [r.url,r]));
   const snapshotNodes = Array.from(document.body.children).filter(el => !['SCRIPT','STYLE','LINK'].includes(el.tagName));
-  const expectedHeading = document.querySelector('h1')?.textContent?.trim();
+  const expectedHeading = root.querySelector('h1')?.textContent?.trim();
   root.id = '__smartdent_snapshot';
   snapshotNodes.forEach(el => el.setAttribute('data-public-snapshot','true'));
   const live = document.createElement('div');
@@ -46,7 +46,8 @@ export function preparePublicSnapshot(): HTMLElement {
   const poll = window.setInterval(() => {
     const heading = live.querySelector('h1')?.textContent?.trim();
     const articleReady = !data.article || Array.from(document.querySelectorAll('[role="dialog"]')).some(el => !el.closest('[data-public-snapshot]') && (el.textContent || '').length > 200);
-    if (heading && (!expectedHeading || heading === expectedHeading) && articleReady && pending === 0 && Date.now()-lastActivity > 700) finish();
+    const isPlaceholder = /atualizando para a versão mais recente|carregando/i.test(heading || '');
+    if (heading && !isPlaceholder && (!expectedHeading || heading === expectedHeading) && articleReady && pending === 0 && Date.now()-lastActivity > 700) finish();
   },100);
   const timeout = window.setTimeout(finish,15000);
   return live;

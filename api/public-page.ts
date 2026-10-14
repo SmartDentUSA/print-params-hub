@@ -72,7 +72,14 @@ export default async function handler(req: VercelRequest,res: VercelResponse) {
     });
     const location = PUBLIC_ORIGIN + path;
     await page.goto(location,{waitUntil:'domcontentloaded',timeout:25000});
-    await page.waitForFunction(() => (document.querySelector('#root')?.textContent || '').trim().length > 250,{timeout:18000});
+    // Wait for the routed React page, not the static noscript fallback or a
+    // loading/error boundary. Those can contain plenty of text but are not
+    // useful, indexable page content.
+    await page.waitForFunction(() => {
+      const root = document.querySelector('#root');
+      const heading = root?.querySelector('h1')?.textContent?.trim() || '';
+      return heading.length > 2 && !/atualizando para a versão mais recente|carregando/i.test(heading);
+    },{timeout:18000});
     await page.waitForNetworkIdle({idleTime:900,timeout:15000}).catch(() => {});
     await Promise.all(captures);
     if (missing) return res.status(404).setHeader('Content-Type','text/html; charset=utf-8').setHeader('Cache-Control','no-store').send('<!doctype html><html lang="pt-BR"><title>404</title><h1>Página não encontrada</h1></html>');
