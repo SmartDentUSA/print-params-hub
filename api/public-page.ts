@@ -8,15 +8,27 @@ import { PUBLIC_ORIGIN, publicLocation, cleanStructuredData, safeJson } from '..
 export const config = { maxDuration: 60 };
 const dist = resolve(process.cwd(), 'dist');
 const types: Record<string,string> = {'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.json':'application/json','.svg':'image/svg+xml','.png':'image/png','.jpg':'image/jpeg','.webp':'image/webp','.woff2':'font/woff2'};
+const CRAWLER_UA = /googlebot|google-inspectiontool|googleother|bingbot|duckduckbot|baiduspider|yandexbot|applebot|facebookexternalhit|facebot|twitterbot|linkedinbot|slackbot|discordbot|telegrambot|whatsapp|pinterestbot|gptbot|oai-searchbot|chatgpt-user|claudebot|claude-searchbot|perplexitybot|bytespider|amazonbot|cohere-ai|crawler|spider|\\bbot\\b/i;
 
 export default async function handler(req: VercelRequest,res: VercelResponse) {
   if (!['GET','HEAD'].includes(req.method || 'GET')) return res.status(405).setHeader('Allow','GET, HEAD').end();
   const path = publicLocation(typeof req.query.path === 'string' ? req.query.path : '/');
   if (!path) return res.status(404).setHeader('Content-Type','text/html; charset=utf-8').send('<!doctype html><html lang="pt-BR"><title>404</title><h1>Página não encontrada</h1></html>');
   const screenshot = req.query.format === 'png' && process.env.VERCEL_ENV !== 'production';
+  let shellHtml: string | undefined;
   let browser: Awaited<ReturnType<typeof puppeteer.launch>> | undefined;
   try {
     const entry = await readFile(resolve(dist,'index.html'),'utf8');
+    shellHtml = entry;
+    const userAgent = Array.isArray(req.headers['user-agent']) ? req.headers['user-agent'][0] : req.headers['user-agent'] || '';
+    // Run headless Chromium only for crawlers. Ordinary visits use the SPA shell,
+    // avoiding a Chromium process and temporary profile for every human request.
+    if (!CRAWLER_UA.test(userAgent)) {
+      res.setHeader('Content-Type','text/html; charset=utf-8');
+      res.setHeader('Cache-Control','private, no-store');
+      res.setHeader('X-Public-Renderer','spa-shell');
+      return res.status(200).send(req.method === 'HEAD' ? '' : entry);
+    }
     browser = await puppeteer.launch({args:chromium.args,defaultViewport:{width:1365,height:900},executablePath:await chromium.executablePath(),headless:true});
     const page = await browser.newPage();
     const pageErrors: string[] = [];
@@ -161,6 +173,13 @@ export default async function handler(req: VercelRequest,res: VercelResponse) {
     return res.status(200).send(req.method === 'HEAD' ? '' : html);
   } catch (error) {
     console.error('[public-page]',error instanceof Error ? error.message : 'render failed');
+    // Never take the public site offline because the crawler renderer failed.
+    if (shellHtml !== undefined) {
+      res.setHeader('Content-Type','text/html; charset=utf-8');
+      res.setHeader('Cache-Control','private, no-store');
+      res.setHeader('X-Public-Renderer','spa-fallback');
+      return res.status(200).send(req.method === 'HEAD' ? '' : shellHtml);
+    }
     return res.status(503).setHeader('Content-Type','text/html; charset=utf-8').setHeader('Cache-Control','no-store').setHeader('Retry-After','30').send('<!doctype html><html lang="pt-BR"><title>Temporariamente indisponível</title><h1>Conteúdo temporariamente indisponível</h1><p>Tente novamente em instantes.</p></html>');
   } finally { await browser?.close().catch(()=>{}); }
 }

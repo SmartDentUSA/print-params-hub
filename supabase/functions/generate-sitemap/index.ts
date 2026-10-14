@@ -41,7 +41,7 @@ Deno.serve(async (req) => {
       throw modelsError;
     }
 
-    const baseUrl = 'https://parametros.smartdent.com.br';
+    const baseUrl = 'https://www.smartdent.com.br';
     const now = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
 
     // Build sitemap XML
@@ -327,3 +327,4 @@ Deno.serve(async (req) => {
     });
   }
 });
+

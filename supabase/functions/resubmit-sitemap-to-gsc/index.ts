@@ -13,6 +13,10 @@ const GATEWAY = 'https://connector-gateway.lovable.dev/google_search_console';
 // Verified GSC properties + the sitemap URL each one should receive.
 const TARGETS: Array<{ site: string; sitemap: string }> = [
   {
+    site: 'sc-domain:smartdent.com.br',
+    sitemap: 'https://www.smartdent.com.br/sitemap-index.xml',
+  },
+  {
     site: 'https://print-params-hub.lovable.app/',
     sitemap: 'https://print-params-hub.lovable.app/sitemap.xml',
   },
@@ -71,15 +75,16 @@ Deno.serve(async (req) => {
     }
   }
 
-  const anyOk = results.some(r => r.ok);
-  if (anyOk) {
+  const primarySubmitted = results.some(r => r.site === 'sc-domain:smartdent.com.br' && r.ok);
+  if (primarySubmitted) {
     await supabase
       .from('sitemap_resubmit_state')
       .upsert({ id: 1, needs_resubmit: false, last_submitted_at: new Date().toISOString() });
   }
 
-  return new Response(JSON.stringify({ submitted: anyOk, results }), {
+  return new Response(JSON.stringify({ submitted: primarySubmitted, results }), {
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    status: anyOk ? 200 : 502,
+    status: primarySubmitted ? 200 : 502,
   });
 });
+
