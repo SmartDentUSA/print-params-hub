@@ -8919,6 +8919,7 @@ export type Database = {
           is_default: boolean
           name: string
           updated_at: string
+          values_are_test: boolean
         }
         Insert: {
           created_at?: string
@@ -8926,6 +8927,7 @@ export type Database = {
           is_default?: boolean
           name: string
           updated_at?: string
+          values_are_test?: boolean
         }
         Update: {
           created_at?: string
@@ -8933,8 +8935,83 @@ export type Database = {
           is_default?: boolean
           name?: string
           updated_at?: string
+          values_are_test?: boolean
         }
         Relationships: []
+      }
+      kol_contract_addenda: {
+        Row: {
+          accepted_at: string | null
+          accepted_ip: string | null
+          accepted_text_hash: string | null
+          accepted_user_agent: string | null
+          body_rendered: string | null
+          commission_after: Json | null
+          commission_before: Json | null
+          contract_id: string
+          created_at: string
+          created_by: string | null
+          equipment_loan_ids: string[] | null
+          id: string
+          kind: string
+          lead_id: string
+          number: string | null
+          pdf_url: string | null
+          sent_at: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          accepted_at?: string | null
+          accepted_ip?: string | null
+          accepted_text_hash?: string | null
+          accepted_user_agent?: string | null
+          body_rendered?: string | null
+          commission_after?: Json | null
+          commission_before?: Json | null
+          contract_id: string
+          created_at?: string
+          created_by?: string | null
+          equipment_loan_ids?: string[] | null
+          id?: string
+          kind: string
+          lead_id: string
+          number?: string | null
+          pdf_url?: string | null
+          sent_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          accepted_at?: string | null
+          accepted_ip?: string | null
+          accepted_text_hash?: string | null
+          accepted_user_agent?: string | null
+          body_rendered?: string | null
+          commission_after?: Json | null
+          commission_before?: Json | null
+          contract_id?: string
+          created_at?: string
+          created_by?: string | null
+          equipment_loan_ids?: string[] | null
+          id?: string
+          kind?: string
+          lead_id?: string
+          number?: string | null
+          pdf_url?: string | null
+          sent_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "kol_contract_addenda_contract_id_fkey"
+            columns: ["contract_id"]
+            isOneToOne: false
+            referencedRelation: "kol_contracts"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       kol_contract_templates: {
         Row: {
@@ -8971,6 +9048,7 @@ export type Database = {
           adjust_notes: string | null
           body_rendered: string | null
           commission_addendum_accepted_at: string | null
+          commission_snapshot: Json | null
           created_at: string
           created_by: string | null
           document: string | null
@@ -8979,10 +9057,13 @@ export type Database = {
           image_term_signed_at: string | null
           lead_id: string
           legal_name: string | null
+          number: string | null
           pdf_url: string | null
           pending_fields: Json
           person_type: string | null
           pix_key: string | null
+          rep_cpf: string | null
+          rep_name: string | null
           revoked_at: string | null
           sent_at: string | null
           signed_at: string | null
@@ -9003,6 +9084,7 @@ export type Database = {
           adjust_notes?: string | null
           body_rendered?: string | null
           commission_addendum_accepted_at?: string | null
+          commission_snapshot?: Json | null
           created_at?: string
           created_by?: string | null
           document?: string | null
@@ -9011,10 +9093,13 @@ export type Database = {
           image_term_signed_at?: string | null
           lead_id: string
           legal_name?: string | null
+          number?: string | null
           pdf_url?: string | null
           pending_fields?: Json
           person_type?: string | null
           pix_key?: string | null
+          rep_cpf?: string | null
+          rep_name?: string | null
           revoked_at?: string | null
           sent_at?: string | null
           signed_at?: string | null
@@ -9035,6 +9120,7 @@ export type Database = {
           adjust_notes?: string | null
           body_rendered?: string | null
           commission_addendum_accepted_at?: string | null
+          commission_snapshot?: Json | null
           created_at?: string
           created_by?: string | null
           document?: string | null
@@ -9043,10 +9129,13 @@ export type Database = {
           image_term_signed_at?: string | null
           lead_id?: string
           legal_name?: string | null
+          number?: string | null
           pdf_url?: string | null
           pending_fields?: Json
           person_type?: string | null
           pix_key?: string | null
+          rep_cpf?: string | null
+          rep_name?: string | null
           revoked_at?: string | null
           sent_at?: string | null
           signed_at?: string | null
