@@ -51,4 +51,4 @@
 - [x] Inventário do módulo Profissionais/KOL (14/10)
 - [ ] Rodada 4 — Radar de Profissionais (aguarda 3A/3B, anexos spec/protótipo e segredo ZERNIO_DISCOVERY_ACCOUNT_ID)
 
-- [ ] Editor de curso do profissional: 2 uploads de vídeo (horizontal apresentação KOL; vertical Reels Smart Dent)
+- [x] Editor de curso do profissional: 2 uploads de vídeo (horizontal apresentação KOL; vertical Reels Smart Dent)

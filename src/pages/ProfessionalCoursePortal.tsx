@@ -211,7 +211,7 @@ export default function ProfessionalCoursePortal() {
               </Button>
             </div>
             <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
-              <ProfessionalCourseForm value={draft} onChange={patch} mode="portal" />
+              <ProfessionalCourseForm value={draft} onChange={patch} mode="portal" portalToken={token} />
               <div className="lg:sticky lg:top-4 self-start"><CoursePreviewCard course={draft} producer={profile} /></div>
             </div>
             <div className="flex justify-end">

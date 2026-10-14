@@ -45,6 +45,7 @@ export interface ProfessionalCourse {
   instagram: string | null;
   course_platform: string | null;
   video_url: string | null;
+  reels_video_url?: string | null;
   target_audience: string | null;
   prerequisites: string | null;
   syllabus: SyllabusModule[];

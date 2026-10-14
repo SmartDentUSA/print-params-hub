@@ -9,7 +9,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { getPandaVideo, pandaApiKey, pickUploaderHost } from "../_shared/pandavideo-testimonials.ts";
 
-const cors = { ...corsHeaders, "Access-Control-Allow-Headers": `${corsHeaders["Access-Control-Allow-Headers"]}, x-filename, x-title` };
+const cors = { ...corsHeaders, "Access-Control-Allow-Headers": `${corsHeaders["Access-Control-Allow-Headers"]}, x-filename, x-title, x-portal-token` };
 const json = (b: unknown, s = 200) => new Response(JSON.stringify(b), { status: s, headers: { ...cors, "Content-Type": "application/json" } });
 const b64 = (v: string) => btoa(String.fromCharCode(...new TextEncoder().encode(v)));
 
@@ -18,11 +18,22 @@ Deno.serve(async (req) => {
   if (req.method !== "POST") return json({ error: "Método inválido" }, 405);
   try {
     const authHeader = req.headers.get("Authorization") || "";
-    const sb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_ANON_KEY")!, {
-      global: { headers: { Authorization: authHeader } },
-    });
-    const { data: { user } } = await sb.auth.getUser(authHeader.replace("Bearer ", ""));
-    if (!user) return json({ error: "Não autenticado" }, 401);
+    const portalToken = (req.headers.get("x-portal-token") || "").trim();
+    let allowed = false;
+    if (portalToken && portalToken.length >= 12 && portalToken.length <= 128) {
+      // Profissional no portal (sem login): token válido, não revogado e não expirado
+      const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, { auth: { persistSession: false } });
+      const { data: t } = await admin.from("professional_portal_tokens")
+        .select("revoked_at, expires_at").eq("token", portalToken).maybeSingle();
+      allowed = !!t && !t.revoked_at && (!t.expires_at || new Date(t.expires_at).getTime() > Date.now());
+    } else {
+      const sb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_ANON_KEY")!, {
+        global: { headers: { Authorization: authHeader } },
+      });
+      const { data: { user } } = await sb.auth.getUser(authHeader.replace("Bearer ", ""));
+      allowed = !!user;
+    }
+    if (!allowed) return json({ error: "Não autenticado" }, 401);
 
     const size = Number(req.headers.get("content-length") || 0);
     if (!size || size <= 0) return json({ error: "Arquivo vazio" }, 400);

@@ -26,7 +26,7 @@ const COURSE_FIELDS = [
   "country", "state", "city", "venue", "address", "online_platform", "meeting_link",
   "max_students", "registration_url", "whatsapp_ddi", "whatsapp_number",
   "instagram", "course_platform", "video_url", "target_audience", "prerequisites",
-  "syllabus", "materials_included", "certificate", "language", "tags",
+  "syllabus", "materials_included", "certificate", "language", "tags", "reels_video_url",
   // status e public_visible: só a equipe muda (aprovação da Fase 3 KOL)
 ] as const;
 

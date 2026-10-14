@@ -27,39 +27,41 @@ interface Props {
   uploading?: boolean;
   /** Portal do profissional esconde campos internos */
   mode?: "admin" | "portal";
+  /** Token do portal: permite enviar vídeos sem login */
+  portalToken?: string;
 }
 
 const num = (v: string) => (v === "" ? null : Number(v.replace(",", ".")));
 
-export default function ProfessionalCourseForm({ value, onChange, onUploadCover, uploading, mode = "admin" }: Props) {
+export default function ProfessionalCourseForm({ value, onChange, onUploadCover, uploading, mode = "admin", portalToken }: Props) {
   const v = value;
   const isOnline = v.modality === "online_ao_vivo" || v.modality === "gravado" || v.modality === "hibrido";
   const isPresencial = v.modality === "presencial" || v.modality === "hibrido";
   const isCredenciamento = v.modality === "credenciamento";
 
   const [credForms, setCredForms] = useState<{ id: string; name: string; slug: string }[]>([]);
-  const [videoUploading, setVideoUploading] = useState(false);
-  const uploadVideoToPanda = async (file: File) => {
-    setVideoUploading(true);
+  const [videoUploading, setVideoUploading] = useState<null | "video_url" | "reels_video_url">(null);
+  const uploadVideoToPanda = async (file: File, field: "video_url" | "reels_video_url") => {
+    setVideoUploading(field);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) throw new Error("Faça login para enviar vídeos");
+      const headers: Record<string, string> = {
+        apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+        "Content-Type": "application/octet-stream",
+        "x-filename": encodeURIComponent(file.name),
+        "x-title": encodeURIComponent(`${value.title || "Curso"} | ${field === "video_url" ? "Apresentação" : "Reels"}`),
+      };
+      if (portalToken) headers["x-portal-token"] = portalToken;
+      else {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) throw new Error("Faça login para enviar vídeos");
+        headers.Authorization = `Bearer ${session.access_token}`;
+      }
       const url = `https://${import.meta.env.VITE_SUPABASE_PROJECT_ID}.supabase.co/functions/v1/course-video-panda-upload`;
-      const res = await fetch(url, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${session.access_token}`,
-          apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-          "Content-Type": "application/octet-stream",
-          "x-filename": encodeURIComponent(file.name),
-          "x-title": encodeURIComponent(`${value.title || "Curso"} | Apresentação`),
-        },
-        body: file,
-      });
+      const res = await fetch(url, { method: "POST", headers, body: file });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data?.error || `Erro ${res.status}`);
       if (data.video_player) {
-        onChange({ video_url: data.video_player });
+        onChange({ [field]: data.video_player } as Partial<ProfessionalCourseDraft>);
         toast.success("Vídeo enviado ao Panda Video");
       } else {
         toast.info(`Vídeo enviado (ID ${data.pandavideo_id}). O link aparece quando o Panda terminar o processamento.`);
@@ -67,9 +69,23 @@ export default function ProfessionalCourseForm({ value, onChange, onUploadCover,
     } catch (e: any) {
       toast.error(`Falha no envio: ${e.message}`);
     } finally {
-      setVideoUploading(false);
+      setVideoUploading(null);
     }
   };
+  const videoField = (field: "video_url" | "reels_video_url", label: string, hint: string, placeholder: string) => (
+    <div className="md:col-span-2">
+      <Label>{label}</Label>
+      <p className="text-xs text-muted-foreground mb-1">{hint}</p>
+      <div className="flex gap-2">
+        <Input value={(v as any)[field] ?? ""} onChange={(e) => onChange({ [field]: e.target.value } as Partial<ProfessionalCourseDraft>)} placeholder={placeholder} />
+        <Button type="button" variant="outline" size="icon" disabled={!!videoUploading} title="Enviar vídeo ao Panda Video" onClick={() => document.getElementById(`course-upload-${field}`)?.click()}>
+          {videoUploading === field ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+        </Button>
+        <input id={`course-upload-${field}`} type="file" accept="video/mp4,video/quicktime,video/webm" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) uploadVideoToPanda(f, field); }} />
+      </div>
+      {videoUploading === field && <p className="mt-1 text-xs text-muted-foreground">Enviando ao Panda Video… não feche a janela.</p>}
+    </div>
+  );
   useEffect(() => {
     if (!isCredenciamento) return;
     let alive = true;
@@ -209,17 +225,8 @@ export default function ProfessionalCourseForm({ value, onChange, onUploadCover,
                 <img src={v.cover_image_url} alt={v.title || "Capa do curso"} className="mt-2 h-28 w-full object-cover rounded-md border" />
               ) : null}
             </div>
-            <div className="md:col-span-2">
-              <Label>Vídeo do hero (apresentação)</Label>
-              <div className="flex gap-2">
-                <Input value={v.video_url ?? ""} onChange={(e) => onChange({ video_url: e.target.value })} placeholder="YouTube / Panda" />
-                <Button type="button" variant="outline" size="icon" disabled={videoUploading} title="Enviar vídeo ao Panda Video" onClick={() => document.getElementById("course-video-upload")?.click()}>
-                  {videoUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
-                </Button>
-                <input id="course-video-upload" type="file" accept="video/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) uploadVideoToPanda(f); }} />
-              </div>
-              {videoUploading && <p className="mt-1 text-xs text-muted-foreground">Enviando ao Panda Video… não feche a janela.</p>}
-            </div>
+            {videoField("video_url", "1. Vídeo horizontal: apresentação do curso pelo KOL", "Formato 16:9. Aparece no topo da página do curso.", "YouTube / Panda")}
+            {videoField("reels_video_url", "2. Vídeo vertical: Reels Smart Dent", "Formato 9:16. Usado pela Smart Dent para publicar nos Reels.", "Panda / link do vídeo vertical")}
             <div className="md:col-span-2">
               <Label>Tags (separadas por vírgula)</Label>
               <Input
