@@ -31,7 +31,7 @@ Deno.serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
-    const baseUrl = 'https://parametros.smartdent.com.br';
+    const baseUrl = 'https://www.smartdent.com.br';
 
     // Fetch videos with their associated knowledge content and category
     const { data: videos, error } = await supabase
