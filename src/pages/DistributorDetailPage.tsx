@@ -147,13 +147,13 @@ export default function DistributorDetailPage() {
       "@type": "Brand",
       "name": "Smart Dent",
       "url": "https://www.smartdent.com.br",
-      "sameAs": ["https://www.wikidata.org/wiki/Q138636902"],
+      "sameAs": ["https://www.wikidata.org/wiki/Q139535514"],
     },
     "parentOrganization": {
       "@type": "Organization",
       "name": "Smart Dent",
       "url": "https://www.smartdent.com.br",
-      "sameAs": ["https://www.wikidata.org/wiki/Q138636902"],
+      "sameAs": ["https://www.wikidata.org/wiki/Q139535514"],
     },
     "makesOffer": (Array.isArray(d.linhas_representadas) ? d.linhas_representadas : []).map((line) => ({
       "@type": "Offer",

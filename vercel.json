@@ -1,6 +1,226 @@
 {
   "redirects": [
     {
+      "source": "/:path*",
+      "has": [
+        {
+          "type": "host",
+          "value": "smartdent.com.br"
+        }
+      ],
+      "destination": "https://www.smartdent.com.br/:path*",
+      "permanent": true
+    },
+    {
+      "source": "/caracterização",
+      "has": [
+        {
+          "type": "host",
+          "value": "(?:www\\.smartdent\\.com\\.br|smartdent\\.com\\.br|[a-z0-9-]+\\.vercel\\.app)"
+        }
+      ],
+      "destination": "/base-conhecimento?tab=catalogo&cat=resinas_3d",
+      "permanent": true
+    },
+    {
+      "source": "/depoimentos/:slug",
+      "has": [
+        {
+          "type": "host",
+          "value": "parametros.smartdent.com.br"
+        }
+      ],
+      "destination": "https://www.smartdent.com.br/depoimentos/:slug",
+      "permanent": true
+    },
+    {
+      "source": "/categorias/:slug",
+      "has": [
+        {
+          "type": "host",
+          "value": "parametros.smartdent.com.br"
+        }
+      ],
+      "destination": "https://www.smartdent.com.br/categorias/:slug",
+      "permanent": true
+    },
+    {
+      "source": "/evento/:slug",
+      "has": [
+        {
+          "type": "host",
+          "value": "parametros.smartdent.com.br"
+        }
+      ],
+      "destination": "https://www.smartdent.com.br/evento/:slug",
+      "permanent": true
+    },
+    {
+      "source": "/agenda/online",
+      "has": [
+        {
+          "type": "host",
+          "value": "parametros.smartdent.com.br"
+        }
+      ],
+      "destination": "https://www.smartdent.com.br/agenda/online",
+      "permanent": true
+    },
+    {
+      "source": "/agenda",
+      "has": [
+        {
+          "type": "host",
+          "value": "parametros.smartdent.com.br"
+        }
+      ],
+      "destination": "https://www.smartdent.com.br/agenda",
+      "permanent": true
+    },
+    {
+      "source": "/support-resources",
+      "has": [
+        {
+          "type": "host",
+          "value": "parametros.smartdent.com.br"
+        }
+      ],
+      "destination": "https://www.smartdent.com.br/support-resources",
+      "permanent": true
+    },
+    {
+      "source": "/sobre",
+      "has": [
+        {
+          "type": "host",
+          "value": "parametros.smartdent.com.br"
+        }
+      ],
+      "destination": "https://www.smartdent.com.br/sobre",
+      "permanent": true
+    },
+    {
+      "source": "/produtos/:slug",
+      "has": [
+        {
+          "type": "host",
+          "value": "parametros.smartdent.com.br"
+        }
+      ],
+      "destination": "https://www.smartdent.com.br/produtos/:slug",
+      "permanent": true
+    },
+    {
+      "source": "/eventos",
+      "has": [
+        {
+          "type": "host",
+          "value": "parametros.smartdent.com.br"
+        }
+      ],
+      "destination": "https://www.smartdent.com.br/eventos",
+      "permanent": true
+    },
+    {
+      "source": "/distribuidores/:path*",
+      "has": [
+        {
+          "type": "host",
+          "value": "parametros.smartdent.com.br"
+        }
+      ],
+      "destination": "https://www.smartdent.com.br/distribuidores/:path*",
+      "permanent": true
+    },
+    {
+      "source": "/distribuidores",
+      "has": [
+        {
+          "type": "host",
+          "value": "parametros.smartdent.com.br"
+        }
+      ],
+      "destination": "https://www.smartdent.com.br/distribuidores",
+      "permanent": true
+    },
+    {
+      "source": "/es/base-conocimiento/:path*",
+      "has": [
+        {
+          "type": "host",
+          "value": "parametros.smartdent.com.br"
+        }
+      ],
+      "destination": "https://www.smartdent.com.br/es/base-conocimiento/:path*",
+      "permanent": true
+    },
+    {
+      "source": "/es/base-conocimiento",
+      "has": [
+        {
+          "type": "host",
+          "value": "parametros.smartdent.com.br"
+        }
+      ],
+      "destination": "https://www.smartdent.com.br/es/base-conocimiento",
+      "permanent": true
+    },
+    {
+      "source": "/en/knowledge-base/:path*",
+      "has": [
+        {
+          "type": "host",
+          "value": "parametros.smartdent.com.br"
+        }
+      ],
+      "destination": "https://www.smartdent.com.br/en/knowledge-base/:path*",
+      "permanent": true
+    },
+    {
+      "source": "/en/knowledge-base",
+      "has": [
+        {
+          "type": "host",
+          "value": "parametros.smartdent.com.br"
+        }
+      ],
+      "destination": "https://www.smartdent.com.br/en/knowledge-base",
+      "permanent": true
+    },
+    {
+      "source": "/base-conhecimento/:path*",
+      "has": [
+        {
+          "type": "host",
+          "value": "parametros.smartdent.com.br"
+        }
+      ],
+      "destination": "https://www.smartdent.com.br/base-conhecimento/:path*",
+      "permanent": true
+    },
+    {
+      "source": "/base-conhecimento",
+      "has": [
+        {
+          "type": "host",
+          "value": "parametros.smartdent.com.br"
+        }
+      ],
+      "destination": "https://www.smartdent.com.br/base-conhecimento",
+      "permanent": true
+    },
+    {
+      "source": "/",
+      "has": [
+        {
+          "type": "host",
+          "value": "parametros.smartdent.com.br"
+        }
+      ],
+      "destination": "https://www.smartdent.com.br/",
+      "permanent": true
+    },
+    {
       "source": "/base-conhecimento/undefined/:slug*",
       "destination": "/base-conhecimento/f/:slug*",
       "permanent": true
@@ -14,17 +234,485 @@
       "source": "/es/base-conocimiento/undefined/:slug*",
       "destination": "/es/base-conocimiento/f/:slug*",
       "permanent": true
+    },
+    {
+      "source": "/tecnical-data-model-plus",
+      "has": [
+        {
+          "type": "host",
+          "value": "(?:www\\.smartdent\\.com\\.br|smartdent\\.com\\.br|[a-z0-9-]+\\.vercel\\.app)"
+        }
+      ],
+      "destination": "/base-conhecimento?tab=catalogo",
+      "permanent": true
+    },
+    {
+      "source": "/manuais",
+      "has": [
+        {
+          "type": "host",
+          "value": "(?:www\\.smartdent\\.com\\.br|smartdent\\.com\\.br|[a-z0-9-]+\\.vercel\\.app)"
+        }
+      ],
+      "destination": "/base-conhecimento?tab=catalogo",
+      "permanent": true
+    },
+    {
+      "source": "/suport-resurces",
+      "has": [
+        {
+          "type": "host",
+          "value": "(?:www\\.smartdent\\.com\\.br|smartdent\\.com\\.br|[a-z0-9-]+\\.vercel\\.app)"
+        }
+      ],
+      "destination": "/base-conhecimento?tab=catalogo",
+      "permanent": true
+    },
+    {
+      "source": "/r/2y020so4",
+      "has": [
+        {
+          "type": "host",
+          "value": "(?:www\\.smartdent\\.com\\.br|smartdent\\.com\\.br|[a-z0-9-]+\\.vercel\\.app)"
+        }
+      ],
+      "destination": "https://s.smartdent.com.br/hxssbk",
+      "permanent": true
+    },
+    {
+      "source": "/r/0zlej84x",
+      "has": [
+        {
+          "type": "host",
+          "value": "(?:www\\.smartdent\\.com\\.br|smartdent\\.com\\.br|[a-z0-9-]+\\.vercel\\.app)"
+        }
+      ],
+      "destination": "https://s.smartdent.com.br/fwr5e6",
+      "permanent": true
+    },
+    {
+      "source": "/admin/:path*",
+      "has": [
+        {
+          "type": "host",
+          "value": "(?:www\\.smartdent\\.com\\.br|smartdent\\.com\\.br|[a-z0-9-]+\\.vercel\\.app)"
+        }
+      ],
+      "destination": "https://parametros.smartdent.com.br/admin/:path*",
+      "permanent": false
+    },
+    {
+      "source": "/smartops/:path*",
+      "has": [
+        {
+          "type": "host",
+          "value": "(?:www\\.smartdent\\.com\\.br|smartdent\\.com\\.br|[a-z0-9-]+\\.vercel\\.app)"
+        }
+      ],
+      "destination": "https://parametros.smartdent.com.br/smartops/:path*",
+      "permanent": false
+    },
+    {
+      "source": "/social/:path*",
+      "has": [
+        {
+          "type": "host",
+          "value": "(?:www\\.smartdent\\.com\\.br|smartdent\\.com\\.br|[a-z0-9-]+\\.vercel\\.app)"
+        }
+      ],
+      "destination": "https://parametros.smartdent.com.br/social/:path*",
+      "permanent": false
     }
   ],
   "rewrites": [
     {
+      "source": "/robots.txt",
+      "has": [
+        {
+          "type": "host",
+          "value": "(?:www\\.smartdent\\.com\\.br|smartdent\\.com\\.br|[a-z0-9-]+\\.vercel\\.app)"
+        }
+      ],
+      "destination": "/api/public-discovery?file=robots.txt"
+    },
+    {
+      "source": "/llms.txt",
+      "has": [
+        {
+          "type": "host",
+          "value": "(?:www\\.smartdent\\.com\\.br|smartdent\\.com\\.br|[a-z0-9-]+\\.vercel\\.app)"
+        }
+      ],
+      "destination": "/api/public-discovery?file=llms.txt"
+    },
+    {
+      "source": "/llms-full.txt",
+      "has": [
+        {
+          "type": "host",
+          "value": "(?:www\\.smartdent\\.com\\.br|smartdent\\.com\\.br|[a-z0-9-]+\\.vercel\\.app)"
+        }
+      ],
+      "destination": "/api/public-discovery?file=llms-full.txt"
+    },
+    {
+      "source": "/llms-full-en.txt",
+      "has": [
+        {
+          "type": "host",
+          "value": "(?:www\\.smartdent\\.com\\.br|smartdent\\.com\\.br|[a-z0-9-]+\\.vercel\\.app)"
+        }
+      ],
+      "destination": "/api/public-discovery?file=llms-full-en.txt"
+    },
+    {
+      "source": "/llms-full-es.txt",
+      "has": [
+        {
+          "type": "host",
+          "value": "(?:www\\.smartdent\\.com\\.br|smartdent\\.com\\.br|[a-z0-9-]+\\.vercel\\.app)"
+        }
+      ],
+      "destination": "/api/public-discovery?file=llms-full-es.txt"
+    },
+    {
+      "source": "/sitemap.xml",
+      "has": [
+        {
+          "type": "host",
+          "value": "(?:www\\.smartdent\\.com\\.br|smartdent\\.com\\.br|[a-z0-9-]+\\.vercel\\.app)"
+        }
+      ],
+      "destination": "/api/public-discovery?file=sitemap.xml"
+    },
+    {
+      "source": "/sitemap-index.xml",
+      "has": [
+        {
+          "type": "host",
+          "value": "(?:www\\.smartdent\\.com\\.br|smartdent\\.com\\.br|[a-z0-9-]+\\.vercel\\.app)"
+        }
+      ],
+      "destination": "/api/public-discovery?file=sitemap-index.xml"
+    },
+    {
+      "source": "/sitemap-conhecimento-pt.xml",
+      "has": [
+        {
+          "type": "host",
+          "value": "(?:www\\.smartdent\\.com\\.br|smartdent\\.com\\.br|[a-z0-9-]+\\.vercel\\.app)"
+        }
+      ],
+      "destination": "/api/public-discovery?file=sitemap-conhecimento-pt.xml"
+    },
+    {
+      "source": "/sitemap-conhecimento-en.xml",
+      "has": [
+        {
+          "type": "host",
+          "value": "(?:www\\.smartdent\\.com\\.br|smartdent\\.com\\.br|[a-z0-9-]+\\.vercel\\.app)"
+        }
+      ],
+      "destination": "/api/public-discovery?file=sitemap-conhecimento-en.xml"
+    },
+    {
+      "source": "/sitemap-conhecimento-es.xml",
+      "has": [
+        {
+          "type": "host",
+          "value": "(?:www\\.smartdent\\.com\\.br|smartdent\\.com\\.br|[a-z0-9-]+\\.vercel\\.app)"
+        }
+      ],
+      "destination": "/api/public-discovery?file=sitemap-conhecimento-es.xml"
+    },
+    {
+      "source": "/sitemap-documentos.xml",
+      "has": [
+        {
+          "type": "host",
+          "value": "(?:www\\.smartdent\\.com\\.br|smartdent\\.com\\.br|[a-z0-9-]+\\.vercel\\.app)"
+        }
+      ],
+      "destination": "/api/public-discovery?file=sitemap-documentos.xml"
+    },
+    {
+      "source": "/video-sitemap.xml",
+      "has": [
+        {
+          "type": "host",
+          "value": "(?:www\\.smartdent\\.com\\.br|smartdent\\.com\\.br|[a-z0-9-]+\\.vercel\\.app)"
+        }
+      ],
+      "destination": "/api/public-discovery?file=video-sitemap.xml"
+    },
+    {
+      "source": "/rss.xml",
+      "has": [
+        {
+          "type": "host",
+          "value": "(?:www\\.smartdent\\.com\\.br|smartdent\\.com\\.br|[a-z0-9-]+\\.vercel\\.app)"
+        }
+      ],
+      "destination": "/api/public-discovery?file=rss.xml"
+    },
+    {
+      "source": "/.well-known/llms.txt",
+      "has": [
+        {
+          "type": "host",
+          "value": "(?:www\\.smartdent\\.com\\.br|smartdent\\.com\\.br|[a-z0-9-]+\\.vercel\\.app)"
+        }
+      ],
+      "destination": "/api/public-discovery?file=llms.txt"
+    },
+    {
+      "source": "/",
+      "has": [
+        {
+          "type": "host",
+          "value": "(?:www\\.smartdent\\.com\\.br|smartdent\\.com\\.br|[a-z0-9-]+\\.vercel\\.app)"
+        }
+      ],
+      "destination": "/api/public-page?path=/"
+    },
+    {
+      "source": "/institucional",
+      "has": [
+        {
+          "type": "host",
+          "value": "(?:www\\.smartdent\\.com\\.br|smartdent\\.com\\.br|[a-z0-9-]+\\.vercel\\.app)"
+        }
+      ],
+      "destination": "/api/public-page?path=/institucional"
+    },
+    {
+      "source": "/en/institutional",
+      "has": [
+        {
+          "type": "host",
+          "value": "(?:www\\.smartdent\\.com\\.br|smartdent\\.com\\.br|[a-z0-9-]+\\.vercel\\.app)"
+        }
+      ],
+      "destination": "/api/public-page?path=/en/institutional"
+    },
+    {
+      "source": "/es/institucional",
+      "has": [
+        {
+          "type": "host",
+          "value": "(?:www\\.smartdent\\.com\\.br|smartdent\\.com\\.br|[a-z0-9-]+\\.vercel\\.app)"
+        }
+      ],
+      "destination": "/api/public-page?path=/es/institucional"
+    },
+    {
+      "source": "/base-conhecimento/:path*",
+      "has": [
+        {
+          "type": "host",
+          "value": "(?:www\\.smartdent\\.com\\.br|smartdent\\.com\\.br|[a-z0-9-]+\\.vercel\\.app)"
+        }
+      ],
+      "destination": "/api/public-page?path=/base-conhecimento/:path*"
+    },
+    {
+      "source": "/en/knowledge-base/:path*",
+      "has": [
+        {
+          "type": "host",
+          "value": "(?:www\\.smartdent\\.com\\.br|smartdent\\.com\\.br|[a-z0-9-]+\\.vercel\\.app)"
+        }
+      ],
+      "destination": "/api/public-page?path=/en/knowledge-base/:path*"
+    },
+    {
+      "source": "/es/base-conocimiento/:path*",
+      "has": [
+        {
+          "type": "host",
+          "value": "(?:www\\.smartdent\\.com\\.br|smartdent\\.com\\.br|[a-z0-9-]+\\.vercel\\.app)"
+        }
+      ],
+      "destination": "/api/public-page?path=/es/base-conocimiento/:path*"
+    },
+    {
+      "source": "/produtos/:slug",
+      "has": [
+        {
+          "type": "host",
+          "value": "(?:www\\.smartdent\\.com\\.br|smartdent\\.com\\.br|[a-z0-9-]+\\.vercel\\.app)"
+        }
+      ],
+      "destination": "/api/public-page?path=/produtos/:slug"
+    },
+    {
+      "source": "/sobre",
+      "has": [
+        {
+          "type": "host",
+          "value": "(?:www\\.smartdent\\.com\\.br|smartdent\\.com\\.br|[a-z0-9-]+\\.vercel\\.app)"
+        }
+      ],
+      "destination": "/api/public-page?path=/sobre"
+    },
+    {
+      "source": "/support-resources",
+      "has": [
+        {
+          "type": "host",
+          "value": "(?:www\\.smartdent\\.com\\.br|smartdent\\.com\\.br|[a-z0-9-]+\\.vercel\\.app)"
+        }
+      ],
+      "destination": "/api/public-page?path=/support-resources"
+    },
+    {
+      "source": "/distribuidores/:path*",
+      "has": [
+        {
+          "type": "host",
+          "value": "(?:www\\.smartdent\\.com\\.br|smartdent\\.com\\.br|[a-z0-9-]+\\.vercel\\.app)"
+        }
+      ],
+      "destination": "/api/public-page?path=/distribuidores/:path*"
+    },
+    {
+      "source": "/eventos",
+      "has": [
+        {
+          "type": "host",
+          "value": "(?:www\\.smartdent\\.com\\.br|smartdent\\.com\\.br|[a-z0-9-]+\\.vercel\\.app)"
+        }
+      ],
+      "destination": "/api/public-page?path=/eventos"
+    },
+    {
+      "source": "/base-conhecimento",
+      "has": [
+        {
+          "type": "host",
+          "value": "(?:www\\.smartdent\\.com\\.br|smartdent\\.com\\.br|[a-z0-9-]+\\.vercel\\.app)"
+        }
+      ],
+      "destination": "/api/public-page?path=/base-conhecimento"
+    },
+    {
+      "source": "/en/knowledge-base",
+      "has": [
+        {
+          "type": "host",
+          "value": "(?:www\\.smartdent\\.com\\.br|smartdent\\.com\\.br|[a-z0-9-]+\\.vercel\\.app)"
+        }
+      ],
+      "destination": "/api/public-page?path=/en/knowledge-base"
+    },
+    {
+      "source": "/es/base-conocimiento",
+      "has": [
+        {
+          "type": "host",
+          "value": "(?:www\\.smartdent\\.com\\.br|smartdent\\.com\\.br|[a-z0-9-]+\\.vercel\\.app)"
+        }
+      ],
+      "destination": "/api/public-page?path=/es/base-conocimiento"
+    },
+    {
+      "source": "/distribuidores",
+      "has": [
+        {
+          "type": "host",
+          "value": "(?:www\\.smartdent\\.com\\.br|smartdent\\.com\\.br|[a-z0-9-]+\\.vercel\\.app)"
+        }
+      ],
+      "destination": "/api/public-page?path=/distribuidores"
+    },
+    {
+      "source": "/agenda",
+      "has": [
+        {
+          "type": "host",
+          "value": "(?:www\\.smartdent\\.com\\.br|smartdent\\.com\\.br|[a-z0-9-]+\\.vercel\\.app)"
+        }
+      ],
+      "destination": "/api/public-page?path=/agenda"
+    },
+    {
+      "source": "/agenda/online",
+      "has": [
+        {
+          "type": "host",
+          "value": "(?:www\\.smartdent\\.com\\.br|smartdent\\.com\\.br|[a-z0-9-]+\\.vercel\\.app)"
+        }
+      ],
+      "destination": "/api/public-page?path=/agenda/online"
+    },
+    {
+      "source": "/evento/:slug",
+      "has": [
+        {
+          "type": "host",
+          "value": "(?:www\\.smartdent\\.com\\.br|smartdent\\.com\\.br|[a-z0-9-]+\\.vercel\\.app)"
+        }
+      ],
+      "destination": "/api/public-page?path=/evento/:slug"
+    },
+    {
+      "source": "/CIPRO",
+      "has": [
+        {
+          "type": "host",
+          "value": "(?:www\\.smartdent\\.com\\.br|smartdent\\.com\\.br|[a-z0-9-]+\\.vercel\\.app)"
+        }
+      ],
+      "destination": "/api/public-page?path=/CIPRO"
+    },
+    {
+      "source": "/cipro",
+      "has": [
+        {
+          "type": "host",
+          "value": "(?:www\\.smartdent\\.com\\.br|smartdent\\.com\\.br|[a-z0-9-]+\\.vercel\\.app)"
+        }
+      ],
+      "destination": "/api/public-page?path=/cipro"
+    },
+    {
+      "source": "/categorias/:slug",
+      "has": [
+        {
+          "type": "host",
+          "value": "(?:www\\.smartdent\\.com\\.br|smartdent\\.com\\.br|[a-z0-9-]+\\.vercel\\.app)"
+        }
+      ],
+      "destination": "/api/public-page?path=/categorias/:slug"
+    },
+    {
+      "source": "/depoimentos/:slug",
+      "has": [
+        {
+          "type": "host",
+          "value": "(?:www\\.smartdent\\.com\\.br|smartdent\\.com\\.br|[a-z0-9-]+\\.vercel\\.app)"
+        }
+      ],
+      "destination": "/api/public-page?path=/depoimentos/:slug"
+    },
+    {
       "source": "/:code([a-z0-9]{4,8})",
-      "has": [{ "type": "host", "value": "s.smartdent.com.br" }],
+      "has": [
+        {
+          "type": "host",
+          "value": "s.smartdent.com.br"
+        }
+      ],
       "destination": "https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/short-link-resolve?c=:code"
     },
     {
       "source": "/:path*",
-      "has": [{ "type": "host", "value": "s.smartdent.com.br" }],
+      "has": [
+        {
+          "type": "host",
+          "value": "s.smartdent.com.br"
+        }
+      ],
       "destination": "https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/short-link-resolve"
     },
     {
@@ -138,19 +826,28 @@
     {
       "source": "/",
       "headers": [
-        { "key": "Cache-Control", "value": "no-cache, must-revalidate" }
+        {
+          "key": "Cache-Control",
+          "value": "no-cache, must-revalidate"
+        }
       ]
     },
     {
       "source": "/index.html",
       "headers": [
-        { "key": "Cache-Control", "value": "no-cache, must-revalidate" }
+        {
+          "key": "Cache-Control",
+          "value": "no-cache, must-revalidate"
+        }
       ]
     },
     {
       "source": "/assets/(.*)",
       "headers": [
-        { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
       ]
     },
     {
@@ -204,54 +901,111 @@
     {
       "source": "/llms.txt",
       "headers": [
-        { "key": "Content-Type", "value": "text/plain; charset=utf-8" },
-        { "key": "Cache-Control", "value": "public, max-age=3600" },
-        { "key": "Access-Control-Allow-Origin", "value": "*" }
+        {
+          "key": "Content-Type",
+          "value": "text/plain; charset=utf-8"
+        },
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=3600"
+        },
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "*"
+        }
       ]
     },
     {
       "source": "/llms-full.txt",
       "headers": [
-        { "key": "Content-Type", "value": "text/plain; charset=utf-8" },
-        { "key": "Cache-Control", "value": "public, max-age=3600" },
-        { "key": "Access-Control-Allow-Origin", "value": "*" }
+        {
+          "key": "Content-Type",
+          "value": "text/plain; charset=utf-8"
+        },
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=3600"
+        },
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "*"
+        }
       ]
     },
     {
       "source": "/sitemap-conhecimento-:lang.xml",
       "headers": [
-        { "key": "Content-Type", "value": "application/xml; charset=utf-8" },
-        { "key": "Cache-Control", "value": "public, max-age=3600" }
+        {
+          "key": "Content-Type",
+          "value": "application/xml; charset=utf-8"
+        },
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=3600"
+        }
       ]
     },
     {
       "source": "/sitemap-documentos.xml",
       "headers": [
-        { "key": "Content-Type", "value": "application/xml; charset=utf-8" },
-        { "key": "Cache-Control", "value": "public, max-age=3600" }
+        {
+          "key": "Content-Type",
+          "value": "application/xml; charset=utf-8"
+        },
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=3600"
+        }
       ]
     },
     {
       "source": "/(rss\\.xml|feed|feed\\.xml)",
       "headers": [
-        { "key": "Content-Type", "value": "application/rss+xml; charset=utf-8" },
-        { "key": "Cache-Control", "value": "public, max-age=1800" },
-        { "key": "Access-Control-Allow-Origin", "value": "*" }
+        {
+          "key": "Content-Type",
+          "value": "application/rss+xml; charset=utf-8"
+        },
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=1800"
+        },
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "*"
+        }
       ]
     },
     {
       "source": "/agenda",
       "headers": [
-        { "key": "Cache-Control", "value": "no-store, must-revalidate" },
-        { "key": "Content-Security-Policy", "value": "frame-ancestors 'self' https://*.pipe.run https://app.pipe.run https://pipe.run https://*.piperun.com https://piperun.com" }
+        {
+          "key": "Cache-Control",
+          "value": "no-store, must-revalidate"
+        },
+        {
+          "key": "Content-Security-Policy",
+          "value": "frame-ancestors 'self' https://*.pipe.run https://app.pipe.run https://pipe.run https://*.piperun.com https://piperun.com"
+        }
       ]
     },
     {
       "source": "/agenda/(.*)",
       "headers": [
-        { "key": "Cache-Control", "value": "no-store, must-revalidate" },
-        { "key": "Content-Security-Policy", "value": "frame-ancestors 'self' https://*.pipe.run https://app.pipe.run https://pipe.run https://*.piperun.com https://piperun.com" }
+        {
+          "key": "Cache-Control",
+          "value": "no-store, must-revalidate"
+        },
+        {
+          "key": "Content-Security-Policy",
+          "value": "frame-ancestors 'self' https://*.pipe.run https://app.pipe.run https://pipe.run https://*.piperun.com https://piperun.com"
+        }
       ]
     }
-  ]
+  ],
+  "functions": {
+    "api/public-page.ts": {
+      "maxDuration": 60,
+      "includeFiles": "dist/**"
+    }
+  }
 }

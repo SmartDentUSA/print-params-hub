@@ -257,6 +257,7 @@ export function usePageTracking() {
 
     // Fire analytics pixels IMMEDIATELY (no debounce) so quick visits register.
     if (key !== lastPixelKey.current) {
+      const isInitialPageLoad = lastPixelKey.current === "";
       lastPixelKey.current = key;
       const sessionId = getOrCreateSessionId();
       const utms = getUtmParams();
@@ -270,7 +271,7 @@ export function usePageTracking() {
 
       // GTM dataLayer
       try {
-        if ((window as any).dataLayer) {
+        if (!isInitialPageLoad && (window as any).dataLayer) {
           (window as any).dataLayer.push({
             event: 'page_view',
             page_path: path,
@@ -283,35 +284,10 @@ export function usePageTracking() {
         }
       } catch {}
 
-      // GA4 (gtag) — config has send_page_view:false, so we must fire manually
-      try {
-        const gtag = (window as any).gtag;
-        if (typeof gtag === 'function') {
-          gtag('event', 'page_view', {
-            page_path: path,
-            page_title: pageTitle,
-            page_location: window.location.href,
-            page_referrer: document.referrer || undefined,
-            page_type: pageType,
-            campaign_source: utms.utm_source || undefined,
-            campaign_medium: utms.utm_medium || undefined,
-            campaign_name: utms.utm_campaign || undefined,
-            campaign_content: utms.utm_content || undefined,
-            campaign_term: utms.utm_term || undefined,
-          });
-        }
-      } catch {}
-
-      // Meta Pixel
-      try {
-        const fbq = (window as any).fbq;
-        if (typeof fbq === 'function') fbq('track', 'PageView');
-      } catch {}
-
       // TikTok Pixel
       try {
         const ttq = (window as any).ttq;
-        if (ttq && typeof ttq.page === 'function') ttq.page();
+        if (!isInitialPageLoad && ttq && typeof ttq.page === 'function') ttq.page();
       } catch {}
       };
       // 250ms gives Helmet time to flush title for knowledge articles, products, etc.

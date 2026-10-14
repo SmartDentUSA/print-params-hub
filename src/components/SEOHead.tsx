@@ -236,7 +236,7 @@ export const SEOHead = ({ pageType, brand, model, resins = [], faqs = [] }: SEOH
       "height": 630
     },
     "sameAs": [
-      "https://www.wikidata.org/wiki/Q138636902",
+      "https://www.wikidata.org/wiki/Q139535514",
       "https://www.smartdent.com.br",
       "https://loja.smartdent.com.br",
       companyData?.social_media?.instagram,
