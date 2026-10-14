@@ -308,14 +308,19 @@ export default function CoursesProfessionalProfile({ initialEmail, startEditing 
         </CardHeader>
         <CardContent>
           <div className="flex flex-col sm:flex-row gap-2">
+            <Select value={searchType} onValueChange={(v) => setSearchType(v as SearchType)}>
+              <SelectTrigger className="sm:w-48"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {SEARCH_TYPES.map((t) => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
+              </SelectContent>
+            </Select>
             <Input
-              type="email"
-              placeholder="E-mail do profissional (busca automática)"
+              placeholder={SEARCH_TYPES.find((t) => t.value === searchType)?.placeholder}
               value={searchEmail}
               onChange={(e) => setSearchEmail(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && loadByEmail()}
+              onKeyDown={(e) => e.key === "Enter" && runSearch()}
             />
-            <Button onClick={() => loadByEmail()} disabled={searching || !searchEmail.trim()}>
+            <Button onClick={() => runSearch()} disabled={searching || !searchEmail.trim()}>
               {searching ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4 mr-2" />}
               Buscar
             </Button>
@@ -362,6 +367,8 @@ export default function CoursesProfessionalProfile({ initialEmail, startEditing 
           )}
         </CardContent>
       </Card>
+
+      {leadId && <ProfessionalCrmOverview key={leadId} leadId={leadId} disabled={disabled} />}
 
       {/* Foto + Dados básicos */}
       <Card>
@@ -489,6 +496,13 @@ export default function CoursesProfessionalProfile({ initialEmail, startEditing 
         </CardContent>
       </Card>
 
+      <ProfessionalMixSummary
+        leadId={leadId}
+        disabled={disabled}
+        cadValue={form.equip_cad}
+        onCadChange={(v) => setField("equip_cad", v)}
+      />
+
       {/* WhatsApp */}
       <Card>
         <CardHeader><CardTitle>Contatos WhatsApp</CardTitle></CardHeader>
@@ -569,12 +583,6 @@ export default function CoursesProfessionalProfile({ initialEmail, startEditing 
         <KolContractPanel leadId={leadId} leadNome={form.nome || form.email || "Profissional"} />
       )}
 
-      <ProfessionalMixSummary
-        leadId={leadId}
-        disabled={disabled}
-        cadValue={form.equip_cad}
-        onCadChange={(v) => setField("equip_cad", v)}
-      />
 
       {/* Avaliação da experiência (0-5) */}
       <Card>
