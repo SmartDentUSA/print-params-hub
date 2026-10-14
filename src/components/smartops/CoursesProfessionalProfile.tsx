@@ -97,7 +97,7 @@ export default function CoursesProfessionalProfile({ initialEmail, startEditing 
   const [searchEmail, setSearchEmail] = useState(initialEmail ?? "");
   const [searching, setSearching] = useState(false);
   const [leadId, setLeadId] = useState<string | null>(null);
-  const [locked, setLocked] = useState(true); // when a lead is loaded, fields are locked until Edit
+  const [locked, setLocked] = useState(!startEditing); // when a lead is loaded, fields are locked until Edit
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [form, setForm] = useState<FormState>(emptyForm);
