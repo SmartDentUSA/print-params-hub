@@ -52,3 +52,5 @@
 - [ ] Rodada 4 — Radar de Profissionais (aguarda 3A/3B, anexos spec/protótipo e segredo ZERNIO_DISCOVERY_ACCOUNT_ID)
 
 - [x] Editor de curso do profissional: 2 uploads de vídeo (horizontal apresentação KOL; vertical Reels Smart Dent)
+- [x] Pipeline do vídeo vertical do curso KOL: Panda (pasta "# - Videos dos cursos Kols", nome Profissional - Curso - Chamada), IG Flow com palavra de 3 iniciais, IG/FB Reels+Story, TikTok, YouTube Shorts, 5 hashtags. Envio real às redes não testado.
+- [ ] Completar a frase "Ao publicar o curso e validar ass..." (aguarda usuário)
