@@ -1,0 +1,1 @@
+REVOKE EXECUTE ON FUNCTION public.fn_trg_kol_course_publish_reels() FROM authenticated;
