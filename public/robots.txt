@@ -1,3 +1,88 @@
+User-agent: GPTBot
+Allow: /llms.txt
+Allow: /llms-index.txt
+Allow: /llms-full.txt
+Allow: /llms-resinas.txt
+Allow: /llms-equipamentos.txt
+Allow: /llms-clinico-cad.txt
+Allow: /base-conhecimento/
+Allow: /produtos/
+Allow: /distribuidores/
+Allow: /eventos
+Disallow: /admin/
+Disallow: /smartops/
+Disallow: /social/
+Disallow: /suporte-tecnico/
+Disallow: /api/
+
+User-agent: OAI-SearchBot
+Allow: /llms.txt
+Allow: /llms-index.txt
+Allow: /llms-full.txt
+Allow: /llms-resinas.txt
+Allow: /llms-equipamentos.txt
+Allow: /llms-clinico-cad.txt
+Allow: /base-conhecimento/
+Allow: /produtos/
+Allow: /distribuidores/
+Allow: /eventos
+Disallow: /admin/
+Disallow: /smartops/
+Disallow: /social/
+Disallow: /suporte-tecnico/
+Disallow: /api/
+
+User-agent: ClaudeBot
+Allow: /llms.txt
+Allow: /llms-index.txt
+Allow: /llms-full.txt
+Allow: /llms-resinas.txt
+Allow: /llms-equipamentos.txt
+Allow: /llms-clinico-cad.txt
+Allow: /base-conhecimento/
+Allow: /produtos/
+Allow: /distribuidores/
+Allow: /eventos
+Disallow: /admin/
+Disallow: /smartops/
+Disallow: /social/
+Disallow: /suporte-tecnico/
+Disallow: /api/
+
+User-agent: PerplexityBot
+Allow: /llms.txt
+Allow: /llms-index.txt
+Allow: /llms-full.txt
+Allow: /llms-resinas.txt
+Allow: /llms-equipamentos.txt
+Allow: /llms-clinico-cad.txt
+Allow: /base-conhecimento/
+Allow: /produtos/
+Allow: /distribuidores/
+Allow: /eventos
+Disallow: /admin/
+Disallow: /smartops/
+Disallow: /social/
+Disallow: /suporte-tecnico/
+Disallow: /api/
+
+User-agent: Google-Extended
+Allow: /llms.txt
+Allow: /llms-index.txt
+Allow: /llms-full.txt
+Allow: /llms-resinas.txt
+Allow: /llms-equipamentos.txt
+Allow: /llms-clinico-cad.txt
+Allow: /base-conhecimento/
+Allow: /produtos/
+Allow: /distribuidores/
+Allow: /eventos
+Disallow: /admin/
+Disallow: /smartops/
+Disallow: /social/
+Disallow: /suporte-tecnico/
+Disallow: /api/
+
 User-agent: *
 Allow: /
 Disallow: /admin/
@@ -8,6 +93,8 @@ Disallow: /api/
 
 Sitemap: https://www.smartdent.com.br/sitemap-index.xml
 
-# Índice complementar para agentes de IA
+# URLs de orientação para crawlers; os comentários não substituem as políticas acima.
 # https://www.smartdent.com.br/llms.txt
+# https://www.smartdent.com.br/llms-index.txt
 # https://www.smartdent.com.br/llms-full.txt
+

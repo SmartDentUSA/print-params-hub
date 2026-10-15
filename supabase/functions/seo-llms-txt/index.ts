@@ -1,6 +1,6 @@
 // ═══════════════════════════════════════════════════════════
-// 📄 /llms.txt (mirror para Vercel) — Smart Dent v2.3
-// Servido em https://parametros.smartdent.com.br/llms.txt
+// 📄 /llms.txt — compact index of canonical public sources
+// Mirrored at https://www.smartdent.com.br/llms.txt
 // ═══════════════════════════════════════════════════════════
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { IDENTITY_V23 } from "../_shared/llms-identity.ts";
@@ -17,6 +17,8 @@ serve(async (req) => {
       ...corsHeaders,
       "Content-Type": "text/plain; charset=utf-8",
       "Cache-Control": "public, max-age=86400",
+      "Link": "<https://www.smartdent.com.br/llms.txt>; rel=\"describedby\"; type=\"text/markdown\"",
     },
   });
 });
+

@@ -376,6 +376,46 @@
       "destination": "/api/public-discovery?file=llms-full-es.txt"
     },
     {
+      "source": "/llms-index.txt",
+      "has": [
+        {
+          "type": "host",
+          "value": "(?:www\\.smartdent\\.com\\.br|smartdent\\.com\\.br|[a-z0-9-]+\\.vercel\\.app)"
+        }
+      ],
+      "destination": "/api/public-discovery?file=llms-index.txt"
+    },
+    {
+      "source": "/llms-resinas.txt",
+      "has": [
+        {
+          "type": "host",
+          "value": "(?:www\\.smartdent\\.com\\.br|smartdent\\.com\\.br|[a-z0-9-]+\\.vercel\\.app)"
+        }
+      ],
+      "destination": "/api/public-discovery?file=llms-resinas.txt"
+    },
+    {
+      "source": "/llms-equipamentos.txt",
+      "has": [
+        {
+          "type": "host",
+          "value": "(?:www\\.smartdent\\.com\\.br|smartdent\\.com\\.br|[a-z0-9-]+\\.vercel\\.app)"
+        }
+      ],
+      "destination": "/api/public-discovery?file=llms-equipamentos.txt"
+    },
+    {
+      "source": "/llms-clinico-cad.txt",
+      "has": [
+        {
+          "type": "host",
+          "value": "(?:www\\.smartdent\\.com\\.br|smartdent\\.com\\.br|[a-z0-9-]+\\.vercel\\.app)"
+        }
+      ],
+      "destination": "/api/public-discovery?file=llms-clinico-cad.txt"
+    },
+    {
       "source": "/sitemap.xml",
       "has": [
         {
@@ -500,6 +540,22 @@
     {
       "source": "/llms-full-:lang.txt",
       "destination": "https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/llms-full-txt?lang=:lang"
+    },
+    {
+      "source": "/llms-index.txt",
+      "destination": "/api/public-discovery?file=llms-index.txt"
+    },
+    {
+      "source": "/llms-resinas.txt",
+      "destination": "/api/public-discovery?file=llms-resinas.txt"
+    },
+    {
+      "source": "/llms-equipamentos.txt",
+      "destination": "/api/public-discovery?file=llms-equipamentos.txt"
+    },
+    {
+      "source": "/llms-clinico-cad.txt",
+      "destination": "/api/public-discovery?file=llms-clinico-cad.txt"
     },
     {
       "source": "/docs/:path*",
