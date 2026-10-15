@@ -30,8 +30,8 @@ export default async function handler(req:VercelRequest,res:VercelResponse) {
       if(!response.ok)throw new Error('Feed unavailable');
       body=publicText(await response.text());type=feed.type;
       if (name === 'sitemap.xml') {
-        body = body.replace(/<url\\b[^>]*>[\\s\\S]*?<\\/url>/gi, (entry) => {
-          const loc = entry.match(/<loc>\\s*([^<]+)\\s*<\\/loc>/i)?.[1]?.trim();
+        body = body.replace(/<url\b[^>]*>[\s\S]*?<\/url>/gi, (entry) => {
+          const loc = entry.match(/<loc>\s*([^<]+)\s*<\/loc>/i)?.[1]?.trim();
           try { return loc && new URL(loc).origin === PUBLIC_ORIGIN ? entry : ''; }
           catch { return ''; }
         });
