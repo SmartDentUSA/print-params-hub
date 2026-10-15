@@ -18,7 +18,7 @@ export default async function handler(req:VercelRequest,res:VercelResponse) {
   const name=typeof req.query.file === 'string' ? req.query.file : '';
   let body:string,type='text/plain';
   if (name === 'robots.txt') {
-    body='User-agent: *\nAllow: /\nDisallow: /admin\nDisallow: /smartops\nDisallow: /social\nDisallow: /suporte-tecnico\nDisallow: /api/\nSitemap: '+PUBLIC_ORIGIN+'/sitemap-index.xml\n';
+    body='User-agent: *\nAllow: /\nDisallow: /admin/\nDisallow: /smartops/\nDisallow: /social/\nDisallow: /suporte-tecnico/\nDisallow: /api/\n\nSitemap: '+PUBLIC_ORIGIN+'/sitemap-index.xml\n\n# Índice complementar para agentes de IA\n# '+PUBLIC_ORIGIN+'/llms.txt\n# '+PUBLIC_ORIGIN+'/llms-full.txt\n';
   } else if(name === 'sitemap-index.xml') {
     type='application/xml';
     body='<?xml version="1.0" encoding="UTF-8"?><sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'+Object.keys(feeds).filter(n=>n.endsWith('.xml') && n!=='rss.xml').map(n=>'<sitemap><loc>'+xmlEscape(PUBLIC_ORIGIN+'/'+n)+'</loc></sitemap>').join('')+'</sitemapindex>';
