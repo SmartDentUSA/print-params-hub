@@ -49,6 +49,8 @@ export default function ProfessionalCourseForm({ value, onChange, onUploadCover,
         "Content-Type": "application/octet-stream",
         "x-filename": encodeURIComponent(file.name),
         "x-title": encodeURIComponent(`${value.title || "Curso"} | ${field === "video_url" ? "Apresentação" : "Reels"}`),
+        "x-orientation": field === "reels_video_url" ? "vertical" : "horizontal",
+        ...((value as any).id ? { "x-course-id": String((value as any).id) } : {}),
       };
       if (portalToken) headers["x-portal-token"] = portalToken;
       else {
