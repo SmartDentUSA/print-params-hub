@@ -709,3 +709,6 @@ verify_jwt = false
 
 [functions.kol-transparency]
 verify_jwt = false
+
+[functions.kol-course-reels-publish]
+verify_jwt = false

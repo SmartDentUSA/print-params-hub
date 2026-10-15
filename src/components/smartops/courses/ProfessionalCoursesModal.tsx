@@ -105,6 +105,13 @@ export default function ProfessionalCoursesModal({ open, onOpenChange, professio
     const { error } = await (supabase as any).rpc("fn_kol_course_review", { _course_id: c.id, _action: action, _note: note });
     if (error) { toast({ title: "Erro", description: error.message, variant: "destructive" }); return; }
     toast({ title: action === "publish" ? "Curso publicado" : action === "unpublish" ? "Curso despublicado" : "Ajustes pedidos" });
+    // Curso publicado com vídeo vertical: libera o pipeline das redes + IG Flow
+    if (action === "publish" && (c as any).reels_storage_path) {
+      supabase.functions.invoke("kol-course-reels-publish", { body: { course_id: c.id } }).then(({ data, error: e }) => {
+        if (e || (data as any)?.error) toast({ title: "Vídeo vertical não foi às redes", description: e?.message || (data as any)?.error, variant: "destructive" });
+        else if ((data as any)?.keyword) toast({ title: "Vídeo vertical enviado às redes", description: `Palavra-gatilho: ${(data as any).keyword}` });
+      });
+    }
     await load();
     onChanged?.();
   };
