@@ -21,7 +21,7 @@ export default async function handler(req:VercelRequest,res:VercelResponse) {
     body='User-agent: *\nAllow: /\nDisallow: /admin\nDisallow: /smartops\nDisallow: /social\nDisallow: /suporte-tecnico\nDisallow: /api/\nSitemap: '+PUBLIC_ORIGIN+'/sitemap-index.xml\n';
   } else if(name === 'sitemap-index.xml') {
     type='application/xml';
-    body='<?xml version="1.0" encoding="UTF-8"?><sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'+Object.keys(feeds).filter(n=>n.endsWith('.xml') && n!=='rss.xml').map(n=>'<sitemap><loc>'+xmlEscape(PUBLIC_ORIGIN+'/'+n)+'</loc></sitemap>').join('')+'</sitemapindex>';
+    body='<?xml version="1.0" encoding="UTF-8"?><sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'+Object.keys(feeds).filter(n=>n.endsWith('.xml') && n!=='rss.xml' && n!=='sitemap-documentos.xml').map(n=>'<sitemap><loc>'+xmlEscape(PUBLIC_ORIGIN+'/'+n)+'</loc></sitemap>').join('')+'</sitemapindex>';
   } else {
     const feed=feeds[name];
     if(!feed)return res.status(404).end();
@@ -29,6 +29,13 @@ export default async function handler(req:VercelRequest,res:VercelResponse) {
       const response=await fetch(DATA_ORIGIN+'/functions/v1/'+feed.slug+(feed.query?'?'+feed.query:''),{signal:AbortSignal.timeout(15000)});
       if(!response.ok)throw new Error('Feed unavailable');
       body=publicText(await response.text());type=feed.type;
+      if (name === 'sitemap.xml') {
+        body = body.replace(/<url\\b[^>]*>[\\s\\S]*?<\\/url>/gi, (entry) => {
+          const loc = entry.match(/<loc>\\s*([^<]+)\\s*<\\/loc>/i)?.[1]?.trim();
+          try { return loc && new URL(loc).origin === PUBLIC_ORIGIN ? entry : ''; }
+          catch { return ''; }
+        });
+      }
       if(type.includes('xml') && !/^\s*(?:<\?xml[^>]*>\s*)?<(?:urlset|sitemapindex|rss|feed)\b/.test(body))throw new Error('Invalid feed response');
       if(type==='text/plain' && /^\s*<!doctype html/i.test(body))throw new Error('HTML returned for text feed');
     } catch {return res.status(503).setHeader('Cache-Control','no-store').setHeader('Retry-After','30').send('Conteúdo temporariamente indisponível');}
