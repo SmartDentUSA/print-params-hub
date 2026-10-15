@@ -53,7 +53,7 @@ const TOPICS = {
   },
   equipamentos: {
     label: "Equipamentos e scanners",
-    pattern: /\b(impressora|impress[aã]o 3d|printer|scanner|escaneamento|intraoral|rayshape|asiga|medit|blz|miicraft|wash\s*&\s*cure|p[oó]s.?cura|curadora|forno odontol[oó]gico)\b/i,
+    pattern: /\b(rayshape|edge\s*mini|ino\s?200|i600|i700|i900|ls100|t310|asiga|halot|elegoo|miicraft|wash\s*&\s*cure|scanner|impressora|printer|medit\s+link)\b/i,
   },
   "clinico-cad": {
     label: "Fluxos clínicos e CAD/CAM",
@@ -226,12 +226,6 @@ serve(async (req) => {
     const selectedArticles = topicSpec
       ? all.filter((article: any) => topicSpec.pattern.test([
           article.title, article.title_en, article.title_es,
-          article.excerpt, article.excerpt_en, article.excerpt_es,
-          article.meta_description,
-          ...(Array.isArray(article.keywords) ? article.keywords : []),
-          article.knowledge_categories?.name,
-          article.knowledge_categories?.name_en,
-          article.knowledge_categories?.name_es,
         ].filter(Boolean).join(" ")))
       : all;
     const selectedProducts = topicSpec
