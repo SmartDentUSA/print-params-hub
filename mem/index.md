@@ -48,3 +48,4 @@
 - [Copilot Cupons E-commerce](mem://smart-ops/copilot-ecommerce-coupon-access) — cupom da Loja Integrada gravado nos pedidos; query_ecommerce_orders coupon_only/coupon_code
 - [Copilot Briefing de Eventos](mem://smart-ops/copilot-event-briefing) — query_event_briefing: palestrantes/temas/sessões, combos com preços, cupons e consultores do estande
 - [Sorteios de Eventos](mem://features/event-raffles) — prêmios, período, regras, formulário próprio, pesos, sorteio ponderado e aviso no WhatsApp (ganhador + grupo)
+- [Reels do curso KOL](mem://features/kol-course-reels-pipeline) — Panda renomeado, IG Flow 3 iniciais, 6 canais após publicar
