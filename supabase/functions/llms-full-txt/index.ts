@@ -71,7 +71,7 @@ function removeLegacyIdentityFooter(markdown: string): string {
   // These exact repeated identity blocks were appended to individual articles.
   // Keep institutional facts once in the corpus header and remove only this
   // recognizable generated footer; do not strip ordinary mentions in prose.
-  const footer = /\n[ \t]*MMTech Projetos Tecnol[oó]gicos Importa[cç][aã]o e Exporta[cç][aã]o Ltda\.?\s*\n[ \t]*Smart Dent\s*\n[ \t]*10\.736\.894\/0001-36\s*\n[ \t]*2009-03-19\s*\n[ \t]*899849957\s*\n[ \t]*3027526455\s*\n[ \t]*Q139535514\s*\n[ \t]*22 registros ANVISA vigentes sob CNPJ 10\.736\.894\/0001-36\s*\n[ \t]*Rua Doutor Proc[oó]pio de Toledo Malta, 62[^\n]*\n[ \t]*Marcelo Del Guerra — Fundador \/ S[oó]cio Diretor \/ Manager MMTech North America LLC\s*\n[ \t]*Marcelo Cestari — Fundador \/ Diretor Qu[ií]mico \/ Manager MMTech North America LLC\s*\n[ \t]*Prof\. Dr\. Weber Adad Ricci — Consultor Cl[ií]nico Smart Dent\s*\n[ \t]*MMTech North America LLC — EIN 88-3712263 — NC SOS 2444464[ \t]*(?=\n|$)/gi;
+  const footer = /\n[ \t]*MMTech Projetos Tecnol[oó]gicos Importa[cç][aã]o e Exporta[cç][aã]o Ltda\.?\s+Smart Dent\s+10\.736\.894\/0001-36\s+2009-03-19\s+899849957\s+3027526455\s+Q139535514\s+22 registros ANVISA vigentes sob CNPJ\s+10\.736\.894\/0001-36\s+Rua Doutor Proc[oó]pio de Toledo Malta, 62[\s\S]*?Marcelo Del Guerra — Fundador \/ S[oó]cio Diretor \/ Manager MMTech North America LLC\s+Marcelo Cestari — Fundador \/ Diretor Qu[ií]mico \/ Manager MMTech North America LLC\s+Prof\. Dr\. Weber Adad Ricci — Consultor Cl[ií]nico Smart Dent\s+MMTech North America LLC — EIN 88-3712263 — NC SOS 2444464[ \t]*(?=\n|$)/gi;
   return sanitizeExportArtifacts(markdown.replace(footer, "\n"))
     .replace(/\n{3,}/g, "\n\n")
     .trim();
