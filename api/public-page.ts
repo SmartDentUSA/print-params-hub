@@ -46,7 +46,7 @@ export default async function handler(req: VercelRequest,res: VercelResponse) {
     const pageErrors: string[] = [];
     const consoleErrors: string[] = [];
     const failedAssets: string[] = [];
-    page.on('pageerror', error => { pageErrors.push(error.message.slice(0,180)); });
+    page.on('pageerror', error => { pageErrors.push((error instanceof Error ? error.message : String(error)).slice(0,180)); });
     page.on('console', message => {
       if (message.type() === 'error' && consoleErrors.length < 8) consoleErrors.push(message.text().slice(0,180));
     });
@@ -131,7 +131,7 @@ export default async function handler(req: VercelRequest,res: VercelResponse) {
     },{timeout:18000}); }
     catch {
       const diagnostics = await page.evaluate(() => ({
-        route: location.pathname,
+        route: window.location.pathname,
         rootText: (document.querySelector('#root')?.textContent || '').trim().slice(0,180),
         rootHeadings: Array.from(document.querySelectorAll('#root h1')).map(el => el.textContent?.trim()).slice(0,3),
       })).catch(() => ({route:path,rootText:'unavailable',rootHeadings:[]}));
