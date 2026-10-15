@@ -19475,6 +19475,7 @@ export type Database = {
           enrolled_count: number
           featured: boolean
           id: string
+          ig_trigger_keyword: string | null
           instagram: string | null
           installments: number | null
           interested_count: number
@@ -19491,6 +19492,14 @@ export type Database = {
           promo_price_brl: number | null
           public_visible: boolean
           published_at: string | null
+          reels_flow_id: string | null
+          reels_pandavideo_id: string | null
+          reels_social_error: string | null
+          reels_social_post_id: string | null
+          reels_social_published_at: string | null
+          reels_social_snapshot: Json | null
+          reels_social_status: string | null
+          reels_storage_path: string | null
           reels_video_url: string | null
           registration_url: string | null
           review_note: string | null
@@ -19535,6 +19544,7 @@ export type Database = {
           enrolled_count?: number
           featured?: boolean
           id?: string
+          ig_trigger_keyword?: string | null
           instagram?: string | null
           installments?: number | null
           interested_count?: number
@@ -19551,6 +19561,14 @@ export type Database = {
           promo_price_brl?: number | null
           public_visible?: boolean
           published_at?: string | null
+          reels_flow_id?: string | null
+          reels_pandavideo_id?: string | null
+          reels_social_error?: string | null
+          reels_social_post_id?: string | null
+          reels_social_published_at?: string | null
+          reels_social_snapshot?: Json | null
+          reels_social_status?: string | null
+          reels_storage_path?: string | null
           reels_video_url?: string | null
           registration_url?: string | null
           review_note?: string | null
@@ -19595,6 +19613,7 @@ export type Database = {
           enrolled_count?: number
           featured?: boolean
           id?: string
+          ig_trigger_keyword?: string | null
           instagram?: string | null
           installments?: number | null
           interested_count?: number
@@ -19611,6 +19630,14 @@ export type Database = {
           promo_price_brl?: number | null
           public_visible?: boolean
           published_at?: string | null
+          reels_flow_id?: string | null
+          reels_pandavideo_id?: string | null
+          reels_social_error?: string | null
+          reels_social_post_id?: string | null
+          reels_social_published_at?: string | null
+          reels_social_snapshot?: Json | null
+          reels_social_status?: string | null
+          reels_storage_path?: string | null
           reels_video_url?: string | null
           registration_url?: string | null
           review_note?: string | null
