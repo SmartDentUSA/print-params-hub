@@ -203,6 +203,16 @@ Deno.serve(async (req) => {
     }
     if (c.reels_social_post_id && !force) return json({ status: "already_published", post_id: c.reels_social_post_id, keyword });
 
+    // Trava atômica: duas chamadas simultâneas (upload + publicação) nunca geram dois posts
+    if (!force) {
+      const { data: claimed } = await db.from("professional_courses")
+        .update({ reels_social_status: "publishing", reels_social_error: null })
+        .eq("id", courseId).is("reels_social_post_id", null)
+        .or("reels_social_status.is.null,reels_social_status.neq.publishing")
+        .select("id");
+      if (!claimed?.length) return json({ status: "in_progress", keyword });
+    }
+
     // Ativa a automação comentário→DM na Zernio
     await fetch(`${SUPABASE_URL}/functions/v1/zernio-provision-flow`, {
       method: "POST",
