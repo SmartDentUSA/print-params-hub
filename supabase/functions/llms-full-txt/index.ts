@@ -227,7 +227,7 @@ serve(async (req) => {
       ? all.filter((article: any) => topicSpec.pattern.test([
           article.title, article.title_en, article.title_es,
           article.excerpt, article.excerpt_en, article.excerpt_es,
-          article.content_html, article.content_html_en, article.content_html_es,
+          article.meta_description,
           ...(Array.isArray(article.keywords) ? article.keywords : []),
           article.knowledge_categories?.name,
           article.knowledge_categories?.name_en,
