@@ -4,6 +4,9 @@ import { publicLocation, publicCanonical, cleanSchema, cleanStructuredData, safe
 for(const value of ['//evil.test','/admin','/smartops','/usados','/usados/anuncio-publico','/lp/landing','/bio/profile','/base-conhecimento/%2e%2e/admin','/base-conhecimento/a/../admin','/base-conhecimento?tab=invalid','/api/render-template']) assert.equal(publicLocation(value),null,value);
 assert.equal(publicLocation('/base-conhecimento/c/artigo?tab=artigos&utm_source=test'),'/base-conhecimento/c/artigo?tab=artigos');
 assert.equal(publicLocation('/base-conhecimento?tab=videos&shell=v1'),'/base-conhecimento?tab=videos&shell=v1');
+for(const category of ['resinas_3d','solucoes','scanners','softwares_cad','impressoras_3d','limpeza_acabamento','pos_impressao','caracterizacao','cimentos','resinas_diretas','adesivos']) {
+ assert.equal(publicLocation(`/base-conhecimento?tab=catalogo&cat=${category}`),`/base-conhecimento?tab=catalogo&cat=${category}`,`catalog category ${category}`);
+}
 assert.equal(publicCanonical('/base-conhecimento?tab=institucional'),'https://www.smartdent.com.br/');
 assert.equal(publicCanonical('/base-conhecimento?tab=videos'),'https://www.smartdent.com.br/base-conhecimento?tab=videos');
 assert.equal(publicCanonical('/base-conhecimento/c/artigo?tab=artigos'),'https://www.smartdent.com.br/base-conhecimento/c/artigo');
@@ -28,10 +31,12 @@ assert.ok(cfg.rewrites.some(r=>r.source==='/sitemap-conhecimento-pt.xml' && r.de
 for(const path of ['/','/base-conhecimento','/sobre','/support-resources','/eventos','/agenda','/agenda/online','/evento/:slug','/CIPRO','/categorias/:slug','/depoimentos/:slug','/produtos/:slug']) assert.ok(cfg.rewrites.some(r=>r.source===path && r.destination.includes('/api/public-page'))||cfg.rewrites.some(r=>r.source===path&&r.destination.includes('/api/seo-proxy')),`Vercel route ${path}`);
 assert.ok(cfg.rewrites.some(r=>r.has?.some(h=>h.value==='s.smartdent.com.br')),'Short links must retain their own routing');
 for(const r of cfg.rewrites.filter(r=>r.destination.includes('/api/public-page') || r.destination.includes('/api/public-discovery'))) {
+ if(!r.has?.[0]?.value) continue;
  const pattern=new RegExp('^(?:'+r.has[0].value+')$');
  for(const host of ['admin.smartdent.com.br','parametros.smartdent.com.br','s.smartdent.com.br','www.smartdent.com.br.evil.test']) assert.equal(pattern.test(host),false);
 }
 const renderer=await readFile(new URL('../api/public-page.ts',import.meta.url),'utf8');
+assert.ok(renderer.includes("for (const key of ['tab', 'cat', 'country', 'shell'])"),'Crawler rendering must preserve query parameters passed separately by a rewrite');
 const middleware=await readFile(new URL('../middleware.ts',import.meta.url),'utf8');
 assert.ok(middleware.includes("matcher: '/'"),'The static homepage must be routed before filesystem handling');
 assert.ok(middleware.includes("new URL('/api/public-page', incoming)"),'The homepage must use the public HTML renderer');
@@ -60,3 +65,4 @@ const tracking=await readFile(new URL('../src/hooks/usePageTracking.ts',import.m
 assert.ok(tracking.includes('if (!isInitialPageLoad && (window as any).dataLayer)'),'Initial page views are left to the GTM base tags');
 assert.ok(!tracking.includes("fbq('track', 'PageView')"),'SPA page views do not double-fire Meta alongside GTM');
 console.log('PASS: public route isolation, canonical URLs, truthful schema, XSS serialization, short links and fail-closed delivery');
+

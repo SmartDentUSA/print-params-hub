@@ -8,21 +8,45 @@ import { PUBLIC_ORIGIN, publicLocation, cleanStructuredData, safeJson } from '..
 export const config = { maxDuration: 60 };
 const dist = resolve(process.cwd(), 'dist');
 const types: Record<string,string> = {'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.json':'application/json','.svg':'image/svg+xml','.png':'image/png','.jpg':'image/jpeg','.webp':'image/webp','.woff2':'font/woff2'};
+const CRAWLER_UA = /googlebot|google-inspectiontool|googleother|bingbot|duckduckbot|baiduspider|yandexbot|applebot|facebookexternalhit|facebot|twitterbot|linkedinbot|slackbot|discordbot|telegrambot|whatsapp|pinterestbot|gptbot|oai-searchbot|chatgpt-user|claudebot|claude-searchbot|perplexitybot|bytespider|amazonbot|cohere-ai|crawler|spider|\bbot\b/i;
 
 export default async function handler(req: VercelRequest,res: VercelResponse) {
   if (!['GET','HEAD'].includes(req.method || 'GET')) return res.status(405).setHeader('Allow','GET, HEAD').end();
-  const path = publicLocation(typeof req.query.path === 'string' ? req.query.path : '/');
+  const rawPath = typeof req.query.path === 'string' ? req.query.path : '/';
+  const routedUrl = new URL(rawPath, PUBLIC_ORIGIN);
+  // Vercel rewrites can place the path in `path` while keeping the original
+  // query parameters alongside it. Preserve catalog deep links for the crawler
+  // renderer instead of silently rendering the default tab/category.
+  for (const key of ['tab', 'cat', 'country', 'shell']) {
+    const value = req.query[key];
+    if (!routedUrl.searchParams.has(key) && typeof value === 'string') {
+      routedUrl.searchParams.set(key, value);
+    }
+  }
+  const path = publicLocation(routedUrl.pathname + routedUrl.search);
   if (!path) return res.status(404).setHeader('Content-Type','text/html; charset=utf-8').send('<!doctype html><html lang="pt-BR"><title>404</title><h1>Página não encontrada</h1></html>');
   const screenshot = req.query.format === 'png' && process.env.VERCEL_ENV !== 'production';
+  let shellHtml: string | undefined;
   let browser: Awaited<ReturnType<typeof puppeteer.launch>> | undefined;
   try {
     const entry = await readFile(resolve(dist,'index.html'),'utf8');
+    shellHtml = entry;
+    const userAgent = Array.isArray(req.headers['user-agent']) ? req.headers['user-agent'][0] : req.headers['user-agent'] || '';
+    // Only crawlers need headless rendering. Sending ordinary visits through
+    // Chromium caused concurrent requests to exhaust Vercel's temporary disk
+    // and return the site's 503 fallback to real users.
+    if (!CRAWLER_UA.test(userAgent)) {
+      res.setHeader('Content-Type','text/html; charset=utf-8');
+      res.setHeader('Cache-Control','private, no-store');
+      res.setHeader('X-Public-Renderer','spa-shell');
+      return res.status(200).send(req.method === 'HEAD' ? '' : entry);
+    }
     browser = await puppeteer.launch({args:chromium.args,defaultViewport:{width:1365,height:900},executablePath:await chromium.executablePath(),headless:true});
     const page = await browser.newPage();
     const pageErrors: string[] = [];
     const consoleErrors: string[] = [];
     const failedAssets: string[] = [];
-    page.on('pageerror', error => { pageErrors.push((error instanceof Error ? error.message : String(error)).slice(0,180)); });
+    page.on('pageerror', error => { pageErrors.push(error.message.slice(0,180)); });
     page.on('console', message => {
       if (message.type() === 'error' && consoleErrors.length < 8) consoleErrors.push(message.text().slice(0,180));
     });
@@ -37,7 +61,9 @@ export default async function handler(req: VercelRequest,res: VercelResponse) {
       }
     });
     if (screenshot && req.query.viewport === 'mobile') await page.setViewport({width:390,height:844});
-    await page.evaluateOnNewDocument(() => { (window as any).__SMARTDENT_PRERENDER__ = true; });
+    await page.evaluateOnNewDocument(() => {
+      (window as Window & { __SMARTDENT_PRERENDER__?: boolean }).__SMARTDENT_PRERENDER__ = true;
+    });
     const responses: Array<{url:string;body:string;status:number;contentType:string}> = [];
     let responseSize = 0, missing = false, dataFailed = false;
     const captures: Promise<void>[] = [];
@@ -46,7 +72,7 @@ export default async function handler(req: VercelRequest,res: VercelResponse) {
       if (!url.hostname.endsWith('.supabase.co') || !url.pathname.startsWith('/rest/v1/') || response.request().method() !== 'GET') return;
       captures.push((async () => {
         const body = await response.text().catch(() => '');
-        const originalUrl = (response.request() as any).__originalPublicUrl || response.url();
+        const originalUrl = (response.request() as unknown as { __originalPublicUrl?: string }).__originalPublicUrl || response.url();
         const slug = url.searchParams.get('slug');
         if (slug && url.pathname.match(/\/(knowledge_contents|system_a_catalog)$/)) {
           if (response.status() === 406 || body === 'null' || body === '[]') missing = true;
@@ -66,7 +92,7 @@ export default async function handler(req: VercelRequest,res: VercelResponse) {
           const readOnlyRpc = request.method() === 'POST' && url.hostname === 'okeogjgqijbfkudfjadz.supabase.co' && url.pathname === '/rest/v1/rpc/fn_public_course_professionals';
           if (!['GET','HEAD'].includes(request.method()) && !readOnlyRpc) return request.respond({status:204,body:''});
           if (url.origin === PUBLIC_ORIGIN) {
-            let file = request.resourceType() === 'document' ? resolve(dist,'index.html') : resolve(dist,decodeURIComponent(url.pathname).replace(/^\//,''));
+            const file = request.resourceType() === 'document' ? resolve(dist,'index.html') : resolve(dist,decodeURIComponent(url.pathname).replace(/^\//,''));
             if (!file.startsWith(dist + sep)) return request.abort();
             const body = file.endsWith('index.html') ? Buffer.from(entry) : await readFile(file);
             return request.respond({status:200,contentType:types[extname(file)] || 'application/octet-stream',body});
@@ -83,7 +109,7 @@ export default async function handler(req: VercelRequest,res: VercelResponse) {
                 url.searchParams.set('approved','eq.true');url.searchParams.set('visible_in_ui','eq.true');
               }
             }
-            (request as any).__originalPublicUrl = original;
+            (request as unknown as { __originalPublicUrl?: string }).__originalPublicUrl = original;
             return request.continue({url:url.toString()});
           }
           if (request.resourceType() === 'image' && !screenshot) return request.abort();
@@ -105,7 +131,7 @@ export default async function handler(req: VercelRequest,res: VercelResponse) {
     },{timeout:18000}); }
     catch {
       const diagnostics = await page.evaluate(() => ({
-        route: window.location.pathname,
+        route: location.pathname,
         rootText: (document.querySelector('#root')?.textContent || '').trim().slice(0,180),
         rootHeadings: Array.from(document.querySelectorAll('#root h1')).map(el => el.textContent?.trim()).slice(0,3),
       })).catch(() => ({route:path,rootText:'unavailable',rootHeadings:[]}));
@@ -116,22 +142,7 @@ export default async function handler(req: VercelRequest,res: VercelResponse) {
     if (missing) return res.status(404).setHeader('Content-Type','text/html; charset=utf-8').setHeader('Cache-Control','no-store').send('<!doctype html><html lang="pt-BR"><title>404</title><h1>Página não encontrada</h1></html>');
     if (dataFailed) throw new Error('Public content data unavailable');
     const article = /^\/(?:base-conhecimento|en\/knowledge-base|es\/base-conocimiento)\/[^/]+\/[^/?]+/.test(path) && !path.includes('calculadora-roi');
-    if (article) {
-      try {
-        await page.waitForFunction(() => {
-          const dialog = document.querySelector('[role="dialog"]');
-          return Boolean(dialog?.querySelector('h1')?.textContent?.trim()) && (dialog?.textContent || '').length > 200;
-        }, {timeout:12000});
-      } catch {
-        const diagnostics = await page.evaluate(() => ({
-          route: window.location.pathname,
-          rootText: (document.querySelector('#root')?.textContent || '').trim().slice(0,240),
-          dialogs: Array.from(document.querySelectorAll('[role="dialog"]')).map(el => (el.textContent || '').trim().slice(0,180)),
-          headings: Array.from(document.querySelectorAll('#root h1')).map(el => el.textContent?.trim()).slice(0,4),
-        })).catch(() => ({route:path,rootText:'unavailable',dialogs:[],headings:[]}));
-        throw new Error(`Article route did not render: ${JSON.stringify(diagnostics)}; pageErrors=${pageErrors.join(' | ')}; consoleErrors=${consoleErrors.join(' | ')}`);
-      }
-    }
+    if (article) await page.waitForFunction(() => (document.querySelector('[role="dialog"]')?.textContent || '').length > 200,{timeout:10000});
     await page.evaluate((path) => {
       const url = new URL(path, 'https://www.smartdent.com.br');
       if (['/','/institucional'].includes(url.pathname) || (url.pathname === '/base-conhecimento' && url.searchParams.get('tab') === 'institucional')) { url.pathname='/';url.search=''; }
@@ -161,6 +172,15 @@ export default async function handler(req: VercelRequest,res: VercelResponse) {
     return res.status(200).send(req.method === 'HEAD' ? '' : html);
   } catch (error) {
     console.error('[public-page]',error instanceof Error ? error.message : 'render failed');
+    // Keep the site available if a crawler render fails; search engines that
+    // execute JavaScript can still render the same SPA shell on retry.
+    if (shellHtml !== undefined) {
+      res.setHeader('Content-Type','text/html; charset=utf-8');
+      res.setHeader('Cache-Control','private, no-store');
+      res.setHeader('X-Public-Renderer','spa-fallback');
+      return res.status(200).send(req.method === 'HEAD' ? '' : shellHtml);
+    }
     return res.status(503).setHeader('Content-Type','text/html; charset=utf-8').setHeader('Cache-Control','no-store').setHeader('Retry-After','30').send('<!doctype html><html lang="pt-BR"><title>Temporariamente indisponível</title><h1>Conteúdo temporariamente indisponível</h1><p>Tente novamente em instantes.</p></html>');
   } finally { await browser?.close().catch(()=>{}); }
 }
+

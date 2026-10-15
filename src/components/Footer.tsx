@@ -9,6 +9,23 @@ const socials = [
   { icon: MessageCircle, label: "WhatsApp", url: "https://api.whatsapp.com/send?phone=5516993831794", hover: "hover:text-green-500" },
 ];
 
+const catalogLinks = [
+  { label: "Resinas 3D", category: "resinas_3d" },
+  { label: "Soluções", category: "solucoes" },
+  { label: "Scanners", category: "scanners" },
+  { label: "Softwares CAD", category: "softwares_cad" },
+  { label: "Impressoras 3D", category: "impressoras_3d" },
+  { label: "Limpeza e acabamento", category: "limpeza_acabamento" },
+  { label: "Pós-impressão", category: "pos_impressao" },
+  { label: "Caracterização", category: "caracterizacao" },
+  { label: "Cimentos", category: "cimentos" },
+  { label: "Resinas diretas", category: "resinas_diretas" },
+  { label: "Adesivos", category: "adesivos" },
+];
+
+const catalogCategoryUrl = (category: string) =>
+  `https://www.smartdent.com.br/base-conhecimento?tab=catalogo&cat=${category}`;
+
 export function Footer() {
   return (
     <footer className="bg-slate-900 text-slate-300 mt-16">
@@ -66,6 +83,19 @@ export function Footer() {
           </div>
         </div>
 
+        <nav aria-label="Categorias do catálogo Smart Dent" className="mt-9 border-t border-slate-700 pt-7">
+          <h4 className="text-white font-semibold text-lg">Catálogo de produtos</h4>
+          <ul className="mt-4 grid grid-cols-2 gap-x-6 gap-y-2 text-sm sm:grid-cols-3 lg:grid-cols-4">
+            {catalogLinks.map(({ label, category }) => (
+              <li key={category}>
+                <a href={catalogCategoryUrl(category)} className="hover:text-white transition-colors">
+                  {label}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </nav>
+
         <div className="border-t border-slate-700 mt-10 pt-6 text-center text-xs text-slate-400">
           © 2026 Smart Dent — MMTech Projetos Tecnológicos
         </div>
@@ -75,3 +105,4 @@ export function Footer() {
 }
 
 export default Footer;
+
