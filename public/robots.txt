@@ -1,69 +1,99 @@
-# ==== BOTS DE BUSCA ====
-User-agent: Googlebot
-Allow: /
-
-User-agent: Bingbot
-Allow: /
-
-User-agent: Twitterbot
-Allow: /
-
-User-agent: facebookexternalhit
-Allow: /
-
-# ==== BOTS DE IA / LLM ====
 User-agent: GPTBot
-Allow: /
+Allow: /llms.txt
+Allow: /llms-index.txt
+Allow: /llms-full.txt
+Allow: /llms-resinas.txt
+Allow: /llms-equipamentos.txt
+Allow: /llms-clinico-cad.txt
+Allow: /base-conhecimento/
+Allow: /produtos/
+Allow: /distribuidores/
+Allow: /eventos
+Disallow: /admin/
+Disallow: /smartops/
+Disallow: /social/
+Disallow: /suporte-tecnico/
+Disallow: /api/
 
-User-agent: ChatGPT-User
-Allow: /
-
-User-agent: PerplexityBot
-Allow: /
+User-agent: OAI-SearchBot
+Allow: /llms.txt
+Allow: /llms-index.txt
+Allow: /llms-full.txt
+Allow: /llms-resinas.txt
+Allow: /llms-equipamentos.txt
+Allow: /llms-clinico-cad.txt
+Allow: /base-conhecimento/
+Allow: /produtos/
+Allow: /distribuidores/
+Allow: /eventos
+Disallow: /admin/
+Disallow: /smartops/
+Disallow: /social/
+Disallow: /suporte-tecnico/
+Disallow: /api/
 
 User-agent: ClaudeBot
-Allow: /
+Allow: /llms.txt
+Allow: /llms-index.txt
+Allow: /llms-full.txt
+Allow: /llms-resinas.txt
+Allow: /llms-equipamentos.txt
+Allow: /llms-clinico-cad.txt
+Allow: /base-conhecimento/
+Allow: /produtos/
+Allow: /distribuidores/
+Allow: /eventos
+Disallow: /admin/
+Disallow: /smartops/
+Disallow: /social/
+Disallow: /suporte-tecnico/
+Disallow: /api/
 
-User-agent: Anthropic
-Allow: /
-
-User-agent: Anthropic-AI
-Allow: /
-
-User-agent: Bytespider
-Allow: /
-
-User-agent: CCBot
-Allow: /
-
-User-agent: cohere-ai
-Allow: /
+User-agent: PerplexityBot
+Allow: /llms.txt
+Allow: /llms-index.txt
+Allow: /llms-full.txt
+Allow: /llms-resinas.txt
+Allow: /llms-equipamentos.txt
+Allow: /llms-clinico-cad.txt
+Allow: /base-conhecimento/
+Allow: /produtos/
+Allow: /distribuidores/
+Allow: /eventos
+Disallow: /admin/
+Disallow: /smartops/
+Disallow: /social/
+Disallow: /suporte-tecnico/
+Disallow: /api/
 
 User-agent: Google-Extended
-Allow: /
+Allow: /llms.txt
+Allow: /llms-index.txt
+Allow: /llms-full.txt
+Allow: /llms-resinas.txt
+Allow: /llms-equipamentos.txt
+Allow: /llms-clinico-cad.txt
+Allow: /base-conhecimento/
+Allow: /produtos/
+Allow: /distribuidores/
+Allow: /eventos
+Disallow: /admin/
+Disallow: /smartops/
+Disallow: /social/
+Disallow: /suporte-tecnico/
+Disallow: /api/
 
-# ==== GOOGLEBOT VIDEO ====
-User-agent: Googlebot-Video
-Allow: /base-conhecimento/a/
-
-# ==== REGRA GERAL ====
 User-agent: *
 Allow: /
-Allow: /*.pdf$
-Disallow: /admin
 Disallow: /admin/
+Disallow: /smartops/
+Disallow: /social/
+Disallow: /suporte-tecnico/
+Disallow: /api/
 
-# ==== SITEMAPS ====
-Sitemap: https://parametros.smartdent.com.br/sitemap.xml
-Sitemap: https://parametros.smartdent.com.br/video-sitemap.xml
+Sitemap: https://www.smartdent.com.br/sitemap-index.xml
 
-# ==== RSS FEED ====
-# Atom/RSS feed for AI agents and aggregators
-# Available at: https://parametros.smartdent.com.br/rss.xml
-
-# ==== LLMs.txt ====
-# See https://llmstxt.org/
-# Instructions for AI crawlers
-# Available at: https://parametros.smartdent.com.br/llms.txt
-LLMs: /llms.txt
-LLMs-Full: /llms-full.txt
+# URLs de orientação para crawlers; os comentários não substituem as políticas acima.
+# https://www.smartdent.com.br/llms.txt
+# https://www.smartdent.com.br/llms-index.txt
+# https://www.smartdent.com.br/llms-full.txt
