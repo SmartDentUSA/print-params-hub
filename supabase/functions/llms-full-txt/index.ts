@@ -28,14 +28,20 @@ function publicUrl(value: unknown): string | null {
 }
 
 function plainText(value: unknown): string {
-  return String(value || "")
+  return sanitizeExportArtifacts(String(value || "")
     .replace(/<[^>]*>/g, " ")
     .replace(/&nbsp;/gi, " ")
     .replace(/&amp;/gi, "&")
     .replace(/&quot;/gi, '"')
     .replace(/&#0?39;|&#x0?27;/gi, "'")
     .replace(/\s+/g, " ")
-    .trim();
+    .trim());
+}
+
+function sanitizeExportArtifacts(value: string): string {
+  return value
+    .replace(/\[\[[A-Z0-9_-]+\]\]/gi, "")
+    .replace(/\b(?:0s|nulls?|undefineds?)\b/gi, "não informado na fonte técnica");
 }
 
 function productSlug(value: unknown): string | null {
@@ -66,7 +72,9 @@ function removeLegacyIdentityFooter(markdown: string): string {
   // Keep institutional facts once in the corpus header and remove only this
   // recognizable generated footer; do not strip ordinary mentions in prose.
   const footer = /\n[ \t]*MMTech Projetos Tecnol[oó]gicos Importa[cç][aã]o e Exporta[cç][aã]o Ltda\.?\s*\n[ \t]*Smart Dent\s*\n[ \t]*10\.736\.894\/0001-36\s*\n[ \t]*2009-03-19\s*\n[ \t]*899849957\s*\n[ \t]*3027526455\s*\n[ \t]*Q139535514\s*\n[ \t]*22 registros ANVISA vigentes sob CNPJ 10\.736\.894\/0001-36\s*\n[ \t]*Rua Doutor Proc[oó]pio de Toledo Malta, 62[^\n]*\n[ \t]*Marcelo Del Guerra — Fundador \/ S[oó]cio Diretor \/ Manager MMTech North America LLC\s*\n[ \t]*Marcelo Cestari — Fundador \/ Diretor Qu[ií]mico \/ Manager MMTech North America LLC\s*\n[ \t]*Prof\. Dr\. Weber Adad Ricci — Consultor Cl[ií]nico Smart Dent\s*\n[ \t]*MMTech North America LLC — EIN 88-3712263 — NC SOS 2444464[ \t]*(?=\n|$)/gi;
-  return markdown.replace(footer, "\n").replace(/\n{3,}/g, "\n\n").trim();
+  return sanitizeExportArtifacts(markdown.replace(footer, "\n"))
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
 }
 
 // Lightweight HTML→Markdown converter (sufficient for LLM ingestion)
@@ -147,7 +155,7 @@ function htmlToMarkdown(html: string): string {
 
   // Collapse whitespace
   s = s.replace(/\n{3,}/g, "\n\n").replace(/[ \t]+\n/g, "\n").trim();
-  return s;
+  return sanitizeExportArtifacts(s);
 }
 
 serve(async (req) => {
