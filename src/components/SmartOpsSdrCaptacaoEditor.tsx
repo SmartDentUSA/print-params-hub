@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { Upload, X, ImageIcon, Video, ExternalLink } from "lucide-react";
+import { Upload, X, ImageIcon, Video, ExternalLink, ArrowUp, ArrowDown } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -576,9 +576,19 @@ export function SmartOpsSdrCaptacaoEditor({ form }: { form: SdrForm }) {
                   <div key={i} className="rounded-md border bg-muted/30 p-3 space-y-2">
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-semibold">Botão {i + 1}</span>
-                      <Button type="button" size="sm" variant="ghost" onClick={() => setCaptureButtons((arr) => arr.filter((_, j) => j !== i))}>
-                        <X className="w-4 h-4" />
-                      </Button>
+                      <div className="flex items-center gap-1">
+                        <Button type="button" size="sm" variant="ghost" title="Mover para cima" disabled={i === 0}
+                          onClick={() => setCaptureButtons((arr) => { const n = [...arr]; [n[i - 1], n[i]] = [n[i], n[i - 1]]; return n; })}>
+                          <ArrowUp className="w-4 h-4" />
+                        </Button>
+                        <Button type="button" size="sm" variant="ghost" title="Mover para baixo" disabled={i === captureButtons.length - 1}
+                          onClick={() => setCaptureButtons((arr) => { const n = [...arr]; [n[i + 1], n[i]] = [n[i], n[i + 1]]; return n; })}>
+                          <ArrowDown className="w-4 h-4" />
+                        </Button>
+                        <Button type="button" size="sm" variant="ghost" title="Remover" onClick={() => setCaptureButtons((arr) => arr.filter((_, j) => j !== i))}>
+                          <X className="w-4 h-4" />
+                        </Button>
+                      </div>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
                       <div>
