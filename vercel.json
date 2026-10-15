@@ -377,12 +377,6 @@
     },
     {
       "source": "/sitemap.xml",
-      "has": [
-        {
-          "type": "host",
-          "value": "(?:www\\.smartdent\\.com\\.br|smartdent\\.com\\.br|[a-z0-9-]+\\.vercel\\.app)"
-        }
-      ],
       "destination": "/api/public-discovery?file=sitemap.xml"
     },
     {
