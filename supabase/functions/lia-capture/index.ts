@@ -341,6 +341,12 @@ Deno.serve(async (req) => {
         channel: "whatsapp_lia", event_type: "lead", form_id: ctx.form_id, campaign_slug: ctx.campaign,
         product_name: ctx.product || null, lead_id: leadId, session_id: str(body.session_id, 120) || null,
       });
+      // Nota "Resumo do Lead" no CRM logo na criação (mesmo comportamento dos formulários),
+      // mesmo que o lead nunca responda as perguntas de qualificação.
+      EdgeRuntime.waitUntil(syncFormNote(sb, leadId).catch(async (error) => {
+        console.error("[lia-capture] CRM note sync on create failed", error);
+        await sb.from("system_health_logs").insert({ function_name: "lia-capture", severity: "error", error_type: "crm_note_sync_failed", details: { lead_id: leadId, stage: "create" } });
+      }));
       return json({ lead_id: leadId, token: await sign(leadId), questions: await pendingQuestions(leadId, body) });
     }
 
