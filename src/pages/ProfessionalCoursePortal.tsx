@@ -7,7 +7,23 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, GraduationCap, Loader2, Pencil, Plus, Save, Trash2 } from "lucide-react";
+import {
+  ArrowLeft,
+  BarChart3,
+  FileText,
+  GraduationCap,
+  Loader2,
+  Pencil,
+  Plus,
+  Save,
+  Share2,
+  Trash2,
+  User,
+  BookOpen,
+  Handshake,
+  Menu,
+  X,
+} from "lucide-react";
 import ProfessionalCourseForm from "@/components/smartops/courses/ProfessionalCourseForm";
 import CoursePreviewCard from "@/components/smartops/courses/CoursePreviewCard";
 import KolContractPortalCard from "@/components/smartops/courses/KolContractPortalCard";
@@ -42,6 +58,17 @@ interface ProfileState {
   prof_state: string | null;
 }
 
+type SectionKey = "visao" | "contrato" | "dados" | "colaboracao" | "social" | "cursos";
+
+const SECTIONS: { key: SectionKey; label: string; icon: typeof BarChart3 }[] = [
+  { key: "visao", label: "Visão geral", icon: BarChart3 },
+  { key: "contrato", label: "Contrato de parceria", icon: FileText },
+  { key: "dados", label: "Meus dados", icon: User },
+  { key: "colaboracao", label: "Cursos Smart Dent", icon: Handshake },
+  { key: "social", label: "Engajamento social", icon: Share2 },
+  { key: "cursos", label: "Meus cursos", icon: BookOpen },
+];
+
 export default function ProfessionalCoursePortal() {
   const { token = "" } = useParams();
   const { toast } = useToast();
@@ -52,6 +79,8 @@ export default function ProfessionalCoursePortal() {
   const [courses, setCourses] = useState<ProfessionalCourse[]>([]);
   const [draft, setDraft] = useState<ProfessionalCourseDraft | null>(null);
   const [editProfile, setEditProfile] = useState(false);
+  const [section, setSection] = useState<SectionKey>("visao");
+  const [menuOpen, setMenuOpen] = useState(false);
 
   const call = useCallback(
     async (action: string, extra: Record<string, unknown> = {}) => {
@@ -165,124 +194,223 @@ export default function ProfessionalCoursePortal() {
     );
   }
 
+  const initials = (profile.nome ?? profile.email ?? "?")
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((w) => w[0]?.toUpperCase())
+    .join("");
+
+  const nav = (mobile = false) => (
+    <nav className={mobile ? "flex gap-1 overflow-x-auto p-2" : "flex-1 space-y-1 p-3"}>
+      {SECTIONS.map(({ key, label, icon: Icon }) => (
+        <button
+          key={key}
+          onClick={() => {
+            setSection(key);
+            setDraft(null);
+            setMenuOpen(false);
+          }}
+          className={`flex items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium transition-colors whitespace-nowrap ${
+            section === key
+              ? "bg-primary text-primary-foreground"
+              : "text-muted-foreground hover:bg-muted hover:text-foreground"
+          } ${mobile ? "" : "w-full"}`}
+        >
+          <Icon className="w-4 h-4 shrink-0" />
+          {label}
+        </button>
+      ))}
+    </nav>
+  );
+
   return (
-    <main className="min-h-screen bg-muted/30 py-8 px-4">
-      <div className={`${draft ? "max-w-6xl" : "max-w-4xl"} mx-auto space-y-6`}>
-        <header className="flex items-center gap-3">
+    <main className="min-h-screen bg-muted/30 flex">
+      {/* Sidebar desktop */}
+      <aside className="hidden md:flex w-64 shrink-0 flex-col border-r bg-card sticky top-0 h-screen">
+        <div className="flex items-center gap-3 p-4 border-b">
           {profile.prof_photo_url ? (
-            <img src={profile.prof_photo_url} alt={profile.nome ?? "Profissional"} className="w-14 h-14 rounded-full object-cover border-2 border-primary/20 shrink-0" />
+            <img
+              src={profile.prof_photo_url}
+              alt={profile.nome ?? "Profissional"}
+              className="w-10 h-10 rounded-full object-cover border-2 border-primary/20 shrink-0"
+            />
           ) : (
-            <GraduationCap className="w-7 h-7 text-primary" />
+            <div className="w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center font-semibold shrink-0">
+              {initials}
+            </div>
           )}
-          <div>
-            <h1 className="text-2xl font-semibold">Portal Profissional Parceiro</h1>
-            <p className="text-sm text-muted-foreground">{profile.nome ?? profile.email}</p>
+          <div className="min-w-0">
+            <div className="text-sm font-semibold truncate">{profile.nome ?? profile.email}</div>
+            <div className="text-xs text-muted-foreground truncate">Portal Profissional Parceiro</div>
           </div>
-        </header>
+        </div>
+        {nav()}
+        <div className="p-4 border-t text-xs text-muted-foreground flex items-center gap-2">
+          <GraduationCap className="w-4 h-4" /> Smart Dent | Fluxo Digital
+        </div>
+      </aside>
 
-        <PushOptInBanner />
-
-        <KolContractPortalCard token={token} />
-
-        <Card>
-          <CardHeader className="flex-row items-center justify-between space-y-0">
-            <CardTitle className="text-base">Meus dados</CardTitle>
-            {editProfile ? (
-              <Button size="sm" onClick={saveProfile} disabled={saving}>
-                {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />} Salvar
-              </Button>
+      {/* Coluna principal */}
+      <div className="flex-1 min-w-0 flex flex-col">
+        {/* Topbar mobile */}
+        <div className="md:hidden sticky top-0 z-20 bg-card border-b">
+          <div className="flex items-center gap-3 p-3">
+            <Button size="icon" variant="ghost" onClick={() => setMenuOpen((v) => !v)}>
+              {menuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            </Button>
+            {profile.prof_photo_url ? (
+              <img
+                src={profile.prof_photo_url}
+                alt={profile.nome ?? "Profissional"}
+                className="w-8 h-8 rounded-full object-cover border border-primary/20 shrink-0"
+              />
             ) : (
-              <Button size="sm" variant="outline" onClick={() => setEditProfile(true)}>
-                <Pencil className="w-4 h-4 mr-2" /> Editar
-              </Button>
+              <div className="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-semibold shrink-0">
+                {initials}
+              </div>
             )}
-          </CardHeader>
-          <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <div><Label>Nome</Label><Input disabled={!editProfile} value={profile.nome ?? ""} onChange={(e) => setProfile({ ...profile, nome: e.target.value })} /></div>
-            <div><Label>CRO</Label><Input disabled={!editProfile} value={profile.prof_cro ?? ""} onChange={(e) => setProfile({ ...profile, prof_cro: e.target.value })} /></div>
-            <div><Label>WhatsApp</Label><Input disabled={!editProfile} value={profile.prof_wa_number ?? ""} onChange={(e) => setProfile({ ...profile, prof_wa_number: e.target.value })} /></div>
-            <div><Label>Instagram</Label><Input disabled={!editProfile} value={profile.instagram ?? ""} onChange={(e) => setProfile({ ...profile, instagram: e.target.value })} /></div>
-            <div><Label>Cidade</Label><Input disabled={!editProfile} value={profile.prof_city ?? ""} onChange={(e) => setProfile({ ...profile, prof_city: e.target.value })} /></div>
-            <div><Label>Site</Label><Input disabled={!editProfile} value={profile.prof_site ?? ""} onChange={(e) => setProfile({ ...profile, prof_site: e.target.value })} /></div>
-            <div className="md:col-span-3"><Label>Mini CV</Label><Textarea rows={3} disabled={!editProfile} value={profile.prof_mini_cv ?? ""} onChange={(e) => setProfile({ ...profile, prof_mini_cv: e.target.value })} /></div>
-          </CardContent>
-        </Card>
-
-        <PortalPartnershipStats call={call} />
-
-        <PortalCollabCourseStats call={call} profName={profile.nome ?? ""} />
-
-        <PortalSocialStats call={call} photoUrl={profile.prof_photo_url} profName={profile.nome ?? ""} />
-
-        {draft ? (
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <Button variant="ghost" size="sm" onClick={() => setDraft(null)}>
-                <ArrowLeft className="w-4 h-4 mr-1" /> Voltar
-              </Button>
-              <Button size="sm" onClick={saveCourse} disabled={saving}>
-                {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />} Salvar curso
-              </Button>
-            </div>
-            <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
-              <ProfessionalCourseForm value={draft} onChange={patch} mode="portal" portalToken={token} />
-              <div className="lg:sticky lg:top-4 self-start"><CoursePreviewCard course={draft} producer={profile} /></div>
-            </div>
-            <div className="flex justify-end">
-              <Button onClick={saveCourse} disabled={saving}>
-                {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />} Salvar curso
-              </Button>
+            <div className="min-w-0">
+              <div className="text-sm font-semibold truncate">{profile.nome ?? profile.email}</div>
+              <div className="text-xs text-muted-foreground">Portal Profissional Parceiro</div>
             </div>
           </div>
-        ) : (
-          <section className="space-y-3">
-            <div className="flex items-center justify-between">
-              <h2 className="font-medium">Cursos cadastrados ({courses.length})</h2>
-              <Button size="sm" onClick={() => setDraft(emptyCourseDraft())}>
-                <Plus className="w-4 h-4 mr-2" /> Adicionar curso
-              </Button>
-            </div>
-            {courses.length === 0 ? (
-              <Card><CardContent className="py-10 text-center text-muted-foreground">Você ainda não cadastrou cursos. Clique em <strong>Adicionar curso</strong>.</CardContent></Card>
-            ) : (
-              courses.map((c) => (
-                <Card key={c.id}>
-                  <CardContent className="p-4 flex items-start gap-3">
-                    {c.cover_image_url ? <img src={c.cover_image_url} alt={c.title} className="w-24 h-16 object-cover rounded border shrink-0" /> : null}
-                    <div className="min-w-0 flex-1">
-                      <div className="font-medium truncate">{c.title}</div>
-                      <div className="text-xs text-muted-foreground truncate">
-                        {[COURSE_MODALITIES.find((m) => m.value === c.modality)?.label, c.city, c.start_date].filter(Boolean).join(" · ")}
-                      </div>
-                      <Badge variant="secondary" className="text-xs mt-1.5">
-                        {COURSE_STATUS.find((s) => s.value === c.status)?.label ?? c.status}
-                      </Badge>
-                      {(c as any).review_note && c.status === "rascunho" && (
-                        <p className="text-xs mt-1.5 text-destructive">Ajustes pedidos pela equipe: {(c as any).review_note}</p>
-                      )}
-                      <PortalOwnCourseStats courseId={c.id} courseTitle={c.title} call={call} profName={profile.nome ?? ""} />
-                    </div>
-                    <div className="flex gap-1 shrink-0">
-                      {c.status === "rascunho" && (
-                        <Button size="sm" variant="outline" onClick={() => submitCourse(c)}>Enviar para aprovação</Button>
-                      )}
-                      {c.status === "rascunho" && (
-                        <Button size="icon" variant="ghost" onClick={() => setDraft(c as unknown as ProfessionalCourseDraft)}>
-                          <Pencil className="w-4 h-4" />
-                        </Button>
-                      )}
-                      {c.status === "rascunho" && (
-                        <Button size="icon" variant="ghost" onClick={() => removeCourse(c)}>
-                          <Trash2 className="w-4 h-4 text-destructive" />
-                        </Button>
-                      )}
-                    </div>
+          {menuOpen && <div className="border-t">{nav(true)}</div>}
+        </div>
+
+        <div className="flex-1 p-4 md:p-8">
+          <div className="max-w-5xl mx-auto space-y-6">
+            <PushOptInBanner />
+
+            {section === "visao" && (
+              <section className="space-y-4">
+                <h2 className="text-lg font-semibold">Visão geral</h2>
+                <PortalPartnershipStats call={call} />
+              </section>
+            )}
+
+            {section === "contrato" && (
+              <section className="space-y-4">
+                <h2 className="text-lg font-semibold">Contrato de parceria</h2>
+                <KolContractPortalCard token={token} />
+              </section>
+            )}
+
+            {section === "dados" && (
+              <section className="space-y-4">
+                <h2 className="text-lg font-semibold">Meus dados</h2>
+                <Card>
+                  <CardHeader className="flex-row items-center justify-between space-y-0">
+                    <CardTitle className="text-base">Perfil profissional</CardTitle>
+                    {editProfile ? (
+                      <Button size="sm" onClick={saveProfile} disabled={saving}>
+                        {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />} Salvar
+                      </Button>
+                    ) : (
+                      <Button size="sm" variant="outline" onClick={() => setEditProfile(true)}>
+                        <Pencil className="w-4 h-4 mr-2" /> Editar
+                      </Button>
+                    )}
+                  </CardHeader>
+                  <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div><Label>Nome</Label><Input disabled={!editProfile} value={profile.nome ?? ""} onChange={(e) => setProfile({ ...profile, nome: e.target.value })} /></div>
+                    <div><Label>CRO</Label><Input disabled={!editProfile} value={profile.prof_cro ?? ""} onChange={(e) => setProfile({ ...profile, prof_cro: e.target.value })} /></div>
+                    <div><Label>WhatsApp</Label><Input disabled={!editProfile} value={profile.prof_wa_number ?? ""} onChange={(e) => setProfile({ ...profile, prof_wa_number: e.target.value })} /></div>
+                    <div><Label>Instagram</Label><Input disabled={!editProfile} value={profile.instagram ?? ""} onChange={(e) => setProfile({ ...profile, instagram: e.target.value })} /></div>
+                    <div><Label>Cidade</Label><Input disabled={!editProfile} value={profile.prof_city ?? ""} onChange={(e) => setProfile({ ...profile, prof_city: e.target.value })} /></div>
+                    <div><Label>Site</Label><Input disabled={!editProfile} value={profile.prof_site ?? ""} onChange={(e) => setProfile({ ...profile, prof_site: e.target.value })} /></div>
+                    <div className="md:col-span-3"><Label>Mini CV</Label><Textarea rows={3} disabled={!editProfile} value={profile.prof_mini_cv ?? ""} onChange={(e) => setProfile({ ...profile, prof_mini_cv: e.target.value })} /></div>
                   </CardContent>
                 </Card>
-              ))
+              </section>
             )}
-          </section>
-        )}
+
+            {section === "colaboracao" && (
+              <section className="space-y-4">
+                <h2 className="text-lg font-semibold">Cursos Smart Dent em colaboração</h2>
+                <PortalCollabCourseStats call={call} profName={profile.nome ?? ""} />
+              </section>
+            )}
+
+            {section === "social" && (
+              <section className="space-y-4">
+                <h2 className="text-lg font-semibold">Engajamento social</h2>
+                <PortalSocialStats call={call} photoUrl={profile.prof_photo_url} profName={profile.nome ?? ""} />
+              </section>
+            )}
+
+            {section === "cursos" &&
+              (draft ? (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <Button variant="ghost" size="sm" onClick={() => setDraft(null)}>
+                      <ArrowLeft className="w-4 h-4 mr-1" /> Voltar
+                    </Button>
+                    <Button size="sm" onClick={saveCourse} disabled={saving}>
+                      {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />} Salvar curso
+                    </Button>
+                  </div>
+                  <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
+                    <ProfessionalCourseForm value={draft} onChange={patch} mode="portal" portalToken={token} />
+                    <div className="lg:sticky lg:top-4 self-start"><CoursePreviewCard course={draft} producer={profile} /></div>
+                  </div>
+                  <div className="flex justify-end">
+                    <Button onClick={saveCourse} disabled={saving}>
+                      {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />} Salvar curso
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <section className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h2 className="text-lg font-semibold">Cursos cadastrados ({courses.length})</h2>
+                    <Button size="sm" onClick={() => setDraft(emptyCourseDraft())}>
+                      <Plus className="w-4 h-4 mr-2" /> Adicionar curso
+                    </Button>
+                  </div>
+                  {courses.length === 0 ? (
+                    <Card><CardContent className="py-10 text-center text-muted-foreground">Você ainda não cadastrou cursos. Clique em <strong>Adicionar curso</strong>.</CardContent></Card>
+                  ) : (
+                    courses.map((c) => (
+                      <Card key={c.id}>
+                        <CardContent className="p-4 flex items-start gap-3">
+                          {c.cover_image_url ? <img src={c.cover_image_url} alt={c.title} className="w-24 h-16 object-cover rounded border shrink-0" /> : null}
+                          <div className="min-w-0 flex-1">
+                            <div className="font-medium truncate">{c.title}</div>
+                            <div className="text-xs text-muted-foreground truncate">
+                              {[COURSE_MODALITIES.find((m) => m.value === c.modality)?.label, c.city, c.start_date].filter(Boolean).join(" · ")}
+                            </div>
+                            <Badge variant="secondary" className="text-xs mt-1.5">
+                              {COURSE_STATUS.find((s) => s.value === c.status)?.label ?? c.status}
+                            </Badge>
+                            {(c as any).review_note && c.status === "rascunho" && (
+                              <p className="text-xs mt-1.5 text-destructive">Ajustes pedidos pela equipe: {(c as any).review_note}</p>
+                            )}
+                            <PortalOwnCourseStats courseId={c.id} courseTitle={c.title} call={call} profName={profile.nome ?? ""} />
+                          </div>
+                          <div className="flex gap-1 shrink-0">
+                            {c.status === "rascunho" && (
+                              <Button size="sm" variant="outline" onClick={() => submitCourse(c)}>Enviar para aprovação</Button>
+                            )}
+                            {c.status === "rascunho" && (
+                              <Button size="icon" variant="ghost" onClick={() => setDraft(c as unknown as ProfessionalCourseDraft)}>
+                                <Pencil className="w-4 h-4" />
+                              </Button>
+                            )}
+                            {c.status === "rascunho" && (
+                              <Button size="icon" variant="ghost" onClick={() => removeCourse(c)}>
+                                <Trash2 className="w-4 h-4 text-destructive" />
+                              </Button>
+                            )}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))
+                  )}
+                </section>
+              ))}
+          </div>
+        </div>
       </div>
     </main>
   );
