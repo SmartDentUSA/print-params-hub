@@ -17,11 +17,20 @@ const MONTHS = [
 ];
 
 interface PerfData {
+  professional_name?: string | null;
   forms: any[];
   coupons: any[];
-  products: any[];
+  buyers_forms: any[];
+  buyers_coupon: any[];
+  negotiating: any[];
   totals: any;
 }
+
+const waLink = (telefone: string | null, msg: string) => {
+  const digits = (telefone ?? "").replace(/\D/g, "");
+  const withCc = digits.startsWith("55") ? digits : `55${digits}`;
+  return `https://wa.me/${withCc}?text=${encodeURIComponent(msg)}`;
+};
 
 /** Performance do KOL no portal: mesmo layout da ficha do profissional, com seletor de mês/ano. */
 export default function PortalPerformance({ token }: { token: string }) {
