@@ -105,6 +105,12 @@ export default function ProfessionalCoursesModal({ open, onOpenChange, professio
     const { error } = await (supabase as any).rpc("fn_kol_course_review", { _course_id: c.id, _action: action, _note: note });
     if (error) { toast({ title: "Erro", description: error.message, variant: "destructive" }); return; }
     toast({ title: action === "publish" ? "Curso publicado" : action === "unpublish" ? "Curso despublicado" : "Ajustes pedidos" });
+    // Publicação gera o formulário de credenciamento (# CHAT - Qualificação Curso - Profissional)
+    if (action === "publish") {
+      supabase.rpc("fn_kol_ensure_credenciamento_form" as any, { _course_id: c.id }).then(({ error: e }) => {
+        if (e) toast({ title: "Formulário de credenciamento não gerado", description: e.message, variant: "destructive" });
+      });
+    }
     // Curso publicado com vídeo vertical: libera o pipeline das redes + IG Flow
     if (action === "publish" && (c as any).reels_storage_path) {
       supabase.functions.invoke("kol-course-reels-publish", { body: { course_id: c.id } }).then(({ data, error: e }) => {
