@@ -2,14 +2,17 @@ import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Download, Loader2, Receipt } from "lucide-react";
+import { exportPromotionalPdf } from "@/components/admin/catalog/exportPromotionalPdf";
 
 interface PriceTable {
   id: string;
   name: string;
   pdf_title: string | null;
   valid_until: string | null;
-  kol_pdf_url: string;
+  kol_pdf_url: string | null;
   kol_pdf_updated_at: string | null;
+  sections?: any[];
+  [k: string]: any;
 }
 
 const fmt = (d: string | null) => (d ? new Date(d.length === 10 ? `${d}T12:00:00` : d).toLocaleDateString("pt-BR") : null);
@@ -23,6 +26,8 @@ export default function PortalPriceTables({
   const [loading, setLoading] = useState(true);
   const [tables, setTables] = useState<PriceTable[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [urls, setUrls] = useState<Record<string, string>>({});
+  const [building, setBuilding] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -40,13 +45,28 @@ export default function PortalPriceTables({
 
   const active = tables.find((t) => t.id === activeId);
 
+  // Tabela sem PDF publicado: gera o PDF aqui a partir dos itens (mesmo layout do catálogo)
+  useEffect(() => {
+    if (!active || active.kol_pdf_url || urls[active.id]) return;
+    let alive = true;
+    setBuilding(true);
+    exportPromotionalPdf(active as any, (active.sections ?? []) as any, undefined, "blob")
+      .then((blob) => { if (alive && blob) setUrls((u) => ({ ...u, [active.id]: URL.createObjectURL(blob as Blob) })); })
+      .catch((e) => console.error("[portal-price-pdf]", e))
+      .finally(() => alive && setBuilding(false));
+    return () => { alive = false; };
+  }, [active, urls]);
+
+  const pdfUrl = active ? active.kol_pdf_url || urls[active.id] : null;
+  const fileName = active ? `${active.pdf_title || active.name}.pdf` : "tabela.pdf";
+
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between gap-3 space-y-0">
         <CardTitle className="flex items-center gap-2 text-lg"><Receipt className="h-5 w-5 text-primary" />Tabela de preços</CardTitle>
-        {active && (
+        {pdfUrl && (
           <Button asChild size="sm">
-            <a href={active.kol_pdf_url} download={`${active.pdf_title || active.name}.pdf`} target="_blank" rel="noopener noreferrer">
+            <a href={pdfUrl} download={fileName} target="_blank" rel="noopener noreferrer">
               <Download className="mr-2 h-4 w-4" />Baixar PDF
             </a>
           </Button>
@@ -75,12 +95,13 @@ export default function PortalPriceTables({
                   {active.kol_pdf_updated_at ? ` · Atualizada em ${fmt(active.kol_pdf_updated_at)}` : ""}
                 </p>
                 <div className="h-[75vh] overflow-hidden rounded-lg border bg-muted">
-                  <iframe
-                    key={active.id}
-                    title={active.name}
-                    src={`${active.kol_pdf_url}#toolbar=0&navpanes=0&view=FitH`}
-                    className="h-full w-full"
-                  />
+                  {pdfUrl ? (
+                    <iframe key={active.id} title={active.name} src={`${pdfUrl}#toolbar=0&navpanes=0&view=FitH`} className="h-full w-full" />
+                  ) : (
+                    <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+                      {building ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Preparando a tabela…</> : "Não foi possível montar a tabela."}
+                    </div>
+                  )}
                 </div>
               </>
             )}

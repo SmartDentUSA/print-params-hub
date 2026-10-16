@@ -681,11 +681,25 @@ Deno.serve(async (req) => {
 
     if (action === "price_tables") {
       const { data, error } = await admin.from("promotional_tables")
-        .select("id, name, pdf_title, valid_from, valid_until, kol_pdf_url, kol_pdf_updated_at")
-        .eq("kol_visible", true).neq("status", "archived").not("kol_pdf_url", "is", null)
-        .order("kol_pdf_updated_at", { ascending: false });
+        .select("*")
+        .eq("kol_visible", true).neq("status", "archived")
+        .order("updated_at", { ascending: false });
       if (error) return json({ error: error.message }, 500);
-      return json({ tables: data ?? [] });
+      const tables = [];
+      for (const t of data ?? []) {
+        // Sem PDF publicado: envia seções/itens para o portal montar o PDF somente leitura
+        let sections: unknown[] = [];
+        if (!t.kol_pdf_url) {
+          const { data: secs } = await admin.from("promotional_table_sections").select("*").eq("promotional_table_id", t.id).order("sort_order");
+          const ids = (secs ?? []).map((s: any) => s.id);
+          const { data: items } = ids.length
+            ? await admin.from("promotional_table_items").select("*").in("section_id", ids).order("sort_order")
+            : { data: [] as any[] };
+          sections = (secs ?? []).map((s: any) => ({ ...s, items: (items ?? []).filter((i: any) => i.section_id === s.id) }));
+        }
+        tables.push({ ...t, sections });
+      }
+      return json({ tables });
     }
 
     // ---- Contrato de parceria KOL: leitura, pedido de ajuste e assinatura digital ----
