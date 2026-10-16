@@ -162,11 +162,24 @@ export async function kolPerformance(
     for (const f of formRows ?? []) nameById.set(f.id, [f.name, f.slug].filter(Boolean));
     const allNames = Array.from(nameById.values()).flat();
 
-    // Leads por formulário (fn_kol_form_leads casa form_name ou chave em form_data).
-    // Sem filtro de data aqui: a atribuição de vendas é pela data do negócio.
+    // Leads por formulário — mesmas fontes da ficha do profissional (useKolPerformance):
+    // 1) respostas de campos personalizados; 2) RPC fn_kol_form_leads (form_name,
+    //    chave em form_data, histórico de submissões e deals por origem).
     const leadsByForm: Record<string, Set<string>> = {};
     const leadFormName = new Map<string, string>();
     const leadCreated = new Map<string, string>();
+
+    const { data: respRows } = await admin.from("smartops_form_field_responses")
+      .select("lead_id, form_id").in("form_id", formIds).not("lead_id", "is", null).limit(20000);
+    for (const r of respRows ?? []) {
+      if (!r.lead_id) continue;
+      leadsByForm[r.form_id] ??= new Set<string>();
+      leadsByForm[r.form_id].add(String(r.lead_id));
+      if (!leadFormName.has(String(r.lead_id))) {
+        leadFormName.set(String(r.lead_id), formRefs.find((f) => f.id === r.form_id)?.name ?? "");
+      }
+    }
+
     if (allNames.length) {
       const { data: rpcRows } = await admin.rpc("fn_kol_form_leads", { _names: allNames });
       const allLeadIds = [...new Set((rpcRows ?? []).map((r: any) => String(r.lead_id)))];
