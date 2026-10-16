@@ -164,7 +164,43 @@ Deno.serve(async (req) => {
           console.warn("[portal] cnpj auto-enrich", e);
         }
       }
-      return json({ professional: prof, courses: courses ?? [] });
+      // Especialista responsável: vendedora do contrato KOL mais recente
+      let specialist: { nome: string; photo_url: string | null; whatsapp: string | null } | null = null;
+      try {
+        const { data: ct } = await admin.from("kol_contracts").select("seller_team_member_id")
+          .eq("lead_id", leadId).not("seller_team_member_id", "is", null)
+          .order("created_at", { ascending: false }).limit(1).maybeSingle();
+        let sellerId: string | null = ct?.seller_team_member_id ?? null;
+        if (!sellerId) {
+          // Fallback: vendedora fixa do formulário de indicação do KOL
+          const { data: l } = await admin.from("lia_attendances").select("prof_kol_form_ids, piperun_owner_id").eq("id", leadId).maybeSingle();
+          const ids = Array.isArray(l?.prof_kol_form_ids) ? (l!.prof_kol_form_ids as unknown[]).map((x: any) => typeof x === "string" ? x : x?.id).filter(Boolean) : [];
+          if (ids.length) {
+            const { data: f } = await admin.from("smartops_forms").select("forced_seller_team_member_id").in("id", ids).not("forced_seller_team_member_id", "is", null).limit(1).maybeSingle();
+            sellerId = f?.forced_seller_team_member_id ?? null;
+          }
+          if (!sellerId && l?.piperun_owner_id) {
+            const { data: o } = await admin.from("team_members").select("id").eq("piperun_owner_id", l.piperun_owner_id).limit(1).maybeSingle();
+            sellerId = o?.id ?? null;
+          }
+        }
+        if (sellerId) {
+          const { data: tm } = await admin.from("team_members")
+            .select("nome_completo, photo_url, whatsapp_number, notification_phone")
+            .eq("id", sellerId).maybeSingle();
+          if (tm) {
+            const digits = String(tm.whatsapp_number || tm.notification_phone || "").replace(/\D/g, "");
+            specialist = {
+              nome: tm.nome_completo,
+              photo_url: tm.photo_url ?? null,
+              whatsapp: digits ? (digits.length <= 11 ? `55${digits}` : digits) : null,
+            };
+          }
+        }
+      } catch (e) {
+        console.warn("[portal] specialist", e);
+      }
+      return json({ professional: prof, courses: courses ?? [], specialist });
     }
 
     // Consulta pública de CNPJ (Receita via BrasilAPI) — só leitura, sem gravar
