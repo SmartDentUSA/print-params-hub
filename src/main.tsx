@@ -1,4 +1,5 @@
 import { installPublicMetadata } from "./utils/publicMetadata";
+import { redirectAdminPublicPages } from "./utils/adminPublicRedirect";
 import { preparePublicSnapshot } from "./utils/publicSnapshot";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
@@ -15,7 +16,7 @@ import { OrganizationSchema } from "./components/OrganizationSchema";
 
 const queryClient = new QueryClient();
 
-createRoot(preparePublicSnapshot()).render(
+if (!redirectAdminPublicPages()) createRoot(preparePublicSnapshot()).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
       <HelmetProvider>
