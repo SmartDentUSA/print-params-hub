@@ -34,3 +34,4 @@
 - Imported Smart Dent trainings become editable professional_courses copies linked by source_smartops_course_id; public pages hide the synthetic entry once a copy exists, and professional public names live in prof_display_name so CRM sync cannot overwrite them.
 - Waitlist cancel/promote run server-side in smartops-waitlist-manage; cancelling an enrollment notifies only the oldest not-yet-notified waitlist entry via the course CS instance, keeping vacancy messages single and auditable.
 - Subdirectories may have their own AGENTS.md; read it before changing files there (src/components/smartops/AGENTS.md, src/components/smartops/courses/AGENTS.md).
+- Páginas públicas abertas pelo endereço admin redirecionam para o www (link único para SEO); ferramentas internas ficam no admin.
