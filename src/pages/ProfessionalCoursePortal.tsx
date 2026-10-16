@@ -33,6 +33,7 @@ import PortalCommissionStats from "@/components/smartops/courses/portal/PortalCo
 import PortalMyData, { type PortalProfile } from "@/components/smartops/courses/portal/PortalMyData";
 import PortalPriceTables from "@/components/smartops/courses/portal/PortalPriceTables";
 import { Receipt } from "lucide-react";
+import PortalSpecialistCard, { type PortalSpecialist } from "@/components/smartops/courses/portal/PortalSpecialistCard";
 import { useClientPresence } from "@/hooks/useClientPresence";
 import { PushOptInBanner } from "@/components/PushOptInBanner";
 import {
@@ -71,6 +72,7 @@ export default function ProfessionalCoursePortal() {
   const [saving, setSaving] = useState(false);
   const [profile, setProfile] = useState<ProfileState | null>(null);
   const [courses, setCourses] = useState<ProfessionalCourse[]>([]);
+  const [specialist, setSpecialist] = useState<PortalSpecialist | null>(null);
   const [draft, setDraft] = useState<ProfessionalCourseDraft | null>(null);
   const [section, setSection] = useState<SectionKey>("dados");
   const [menuOpen, setMenuOpen] = useState(false);
@@ -94,6 +96,7 @@ export default function ProfessionalCoursePortal() {
     try {
       const data = await call("bootstrap");
       setProfile(data.professional ?? null);
+      setSpecialist(data.specialist ?? null);
       setCourses((data.courses ?? []) as ProfessionalCourse[]);
     } catch (e: any) {
       if (String(e.message).includes("invalid_token")) setInvalid(true);
@@ -241,6 +244,7 @@ export default function ProfessionalCoursePortal() {
             <Badge variant="secondary" className="mt-1 text-[10px] font-medium">Parceiro KOL</Badge>
           </div>
         </div>
+        <PortalSpecialistCard specialist={specialist} groupLink={(profile as any).kol_whatsapp_group_link} />
         {nav()}
         <div className="px-5 py-4 border-t text-xs text-muted-foreground flex items-center gap-2">
           <GraduationCap className="w-4 h-4 text-primary/70" /> Smart Dent | Fluxo Digital
