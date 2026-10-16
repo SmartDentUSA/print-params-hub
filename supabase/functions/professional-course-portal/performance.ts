@@ -33,8 +33,10 @@ interface BuyerFormRow {
   produto: string | null;
   valor: number;
   comissao: number | null;
+  comissao_pct: number | null;
   vendedora: string | null;
   data: string | null;
+  data_fechamento: string | null;
 }
 
 interface BuyerCouponRow {
@@ -70,6 +72,10 @@ export async function kolPerformance(
     .eq("id", leadId).maybeSingle();
 
   const formRefs: { id: string; name: string }[] = Array.isArray(lead?.prof_kol_form_ids) ? lead.prof_kol_form_ids : [];
+  // Nomes normalizados dos formulários do KOL — um negócio só conta como
+  // indicação se a ORIGEM do deal for um desses formulários (evita puxar
+  // negócios antigos da mesma pessoa com outras origens).
+  const formNamesNorm = new Set(formRefs.map((f) => norm(f.name)).filter(Boolean));
   const couponRules: { code: string; commission_percent?: number | null; active_from?: string | null; active_to?: string | null }[] =
     Array.isArray(lead?.prof_kol_coupons) ? lead.prof_kol_coupons : [];
   if (!couponRules.length && lead?.prof_kol_coupon) couponRules.push({ code: String(lead.prof_kol_coupon).toUpperCase() });
