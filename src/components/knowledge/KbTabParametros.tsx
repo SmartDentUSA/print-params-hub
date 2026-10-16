@@ -282,12 +282,12 @@ function ResinCard({ p, index, t, onOpenSheet }: { p: ParamRow; index: number; t
         </div>
       </div>
       <div className="kb-rparams">
-        <ParamItem label={t('kb.parametros.exposure')} value={p.cure_time} unit="s" />
-        <ParamItem label={t('kb.parametros.bottom')} value={p.bottom_cure_time} unit="s" />
+        <ParamItem label={t('kb.parametros.exposure')} value={p.cure_time} unit="s" decimals={2} />
+        <ParamItem label={t('kb.parametros.bottom')} value={p.bottom_cure_time} unit="s" decimals={2} />
         <ParamItem label={t('kb.parametros.layers')} value={p.bottom_layers} unit="un" />
-        <ParamItem label={t('kb.parametros.thickness')} value={p.layer_height} unit="mm" />
-        <ParamItem label={t('kb.parametros.lift_speed')} value={p.lift_speed} unit="mm/s" />
-        <ParamItem label={t('kb.parametros.retract_speed')} value={p.retract_speed} unit="mm/s" />
+        <ParamItem label={t('kb.parametros.thickness')} value={p.layer_height} unit="mm" decimals={3} />
+        <ParamItem label={t('kb.parametros.lift_speed')} value={p.lift_speed} unit="mm/s" decimals={2} />
+        <ParamItem label={t('kb.parametros.retract_speed')} value={p.retract_speed} unit="mm/s" decimals={2} />
       </div>
       <div className="kb-rfoot">
         {p.anti_aliasing && (
@@ -309,12 +309,17 @@ function ResinCard({ p, index, t, onOpenSheet }: { p: ParamRow; index: number; t
   );
 }
 
-function ParamItem({ label, value, unit }: { label: string; value: number | null; unit: string }) {
+function ParamItem({ label, value, unit, decimals = 0 }: { label: string; value: number | string | null; unit: string; decimals?: number }) {
+  // Exibe a precisão completa gravada no banco (sem arredondar nem esconder casas decimais).
+  const n = value === null || value === undefined || value === '' ? null : Number(value);
+  const shown = n === null || Number.isNaN(n)
+    ? '—'
+    : n.toLocaleString('pt-BR', { minimumFractionDigits: decimals, maximumFractionDigits: Math.max(decimals, 3) });
   return (
     <div className="kb-pitem">
       <div className="kb-pitem-l">{label}</div>
       <div className="kb-pitem-v">
-        {value ?? '—'}
+        {shown}
         <span className="kb-pitem-u">{unit}</span>
       </div>
     </div>
