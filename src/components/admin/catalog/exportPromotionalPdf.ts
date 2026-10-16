@@ -125,8 +125,8 @@ export async function exportPromotionalPdf(
   table: PromotionalTable,
   sections: PromotionalSectionWithItems[],
   distributorName?: string,
-  mode: "download" | "preview" = "download",
-) {
+  mode: "download" | "preview" | "blob" = "download",
+): Promise<Blob | void> {
   const doc = new jsPDF({ orientation: "portrait", unit: "pt", format: "a4" });
   const width = doc.internal.pageSize.getWidth();
   const height = doc.internal.pageSize.getHeight();
@@ -648,6 +648,7 @@ export async function exportPromotionalPdf(
   }
 
   const filename = table.name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+  if (mode === "blob") return doc.output("blob");
   if (mode === "preview") {
     const url = doc.output("bloburl");
     window.open(String(url), "_blank", "noopener,noreferrer");
