@@ -46,18 +46,18 @@ export const TestimonialSEOHead = ({ testimonial }: TestimonialSEOHeadProps) => 
     "name": seoTitle,
     "description": metaDescription,
     "thumbnailUrl": thumbnailUrl,
-    "uploadDate": new Date().toISOString(),
+    ...((extraData.video_published_at || extraData.published_at || (testimonial as any).created_at) && { "uploadDate": new Date(extraData.video_published_at || extraData.published_at || (testimonial as any).created_at).toISOString() }),
     ...(videoDuration && { "duration": `PT${videoDuration}S` }),
     "contentUrl": youtubeUrl,
     "embedUrl": embedUrl,
     "inLanguage": "pt-BR",
     ...(videoTranscript && { "transcript": videoTranscript }),
     "mentions": [
-      { "@type": "Product", "name": "Scanner intraoral BLZ INO200" },
-      { "@type": "Product", "name": "Scanner intraoral Medit" },
-      { "@type": "Product", "name": "Impressora 3D Rayshape Edge Mini" },
-      { "@type": "Product", "name": "Resina Smart Dent Bio Vitality" },
-      { "@type": "Product", "name": "Resina Smart Dent Bite Splint +Flex" }
+      { "@type": "Thing", "name": "Scanner intraoral BLZ INO200" },
+      { "@type": "Thing", "name": "Scanner intraoral Medit" },
+      { "@type": "Thing", "name": "Impressora 3D Rayshape Edge Mini" },
+      { "@type": "Thing", "name": "Resina Smart Dent Bio Vitality" },
+      { "@type": "Thing", "name": "Resina Smart Dent Bite Splint +Flex" }
     ]
   } : null;
 

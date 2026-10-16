@@ -380,10 +380,9 @@ export const SEOHead = ({ pageType, brand, model, resins = [], faqs = [] }: SEOH
       
       productSchema = {
         "@context": "https://schema.org",
-        "@type": "Product",
+        "@type": offers.length > 0 ? "Product" : "Thing",
         "name": resin.name,
         "sku": resin.id,
-        "gtin": resin.id,
         "mpn": resin.name.replace(/\s+/g, '-').toUpperCase(),
         "keywords": [
           `resina ${resin.type || 'odontológica'}`,
@@ -441,19 +440,7 @@ export const SEOHead = ({ pageType, brand, model, resins = [], faqs = [] }: SEOH
             "value": resin.color
           }] : [])
         ],
-        "offers": offers.length > 0
-          ? (offers.length === 1 ? offers[0] : offers)
-          : {
-              "@type": "Offer",
-              "availability": "https://schema.org/InStock",
-              "price": "0",
-              "priceCurrency": "BRL",
-              "seller": {
-                "@type": "Organization",
-                "name": "SmartDent",
-                "url": "https://parametros.smartdent.com.br"
-              }
-            }
+        ...(offers.length > 0 && { "offers": offers.length === 1 ? offers[0] : offers })
       };
     } else {
       // ItemList Schema for multiple resins (each with multiple offers)
@@ -520,11 +507,10 @@ export const SEOHead = ({ pageType, brand, model, resins = [], faqs = [] }: SEOH
           }
           
           return {
-            "@type": "Product",
+            "@type": offers.length > 0 ? "Product" : "Thing",
             "position": index + 1,
             "name": resin.name,
             "sku": resin.id,
-            "gtin": resin.id,
             "mpn": resin.name.replace(/\s+/g, '-').toUpperCase(),
             "keywords": [
               `resina ${resin.type || 'odontológica'}`,
@@ -582,19 +568,7 @@ export const SEOHead = ({ pageType, brand, model, resins = [], faqs = [] }: SEOH
                 "value": resin.color
               }] : [])
             ],
-            "offers": offers.length > 0
-              ? (offers.length === 1 ? offers[0] : offers)
-              : {
-                  "@type": "Offer",
-                  "availability": "https://schema.org/InStock",
-                  "price": "0",
-                  "priceCurrency": "BRL",
-                  "seller": {
-                    "@type": "Organization",
-                    "name": "SmartDent",
-                    "url": "https://parametros.smartdent.com.br"
-                  }
-                }
+            ...(offers.length > 0 && { "offers": offers.length === 1 ? offers[0] : offers })
           };
         });
 
