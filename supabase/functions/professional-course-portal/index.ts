@@ -1,4 +1,16 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { PDFDocument, StandardFonts, rgb } from "https://esm.sh/pdf-lib@1.17.1";
+import {
+  getDriveAccessToken,
+  driveEnsureFolder,
+  driveUploadFile,
+  driveGetWebViewLink,
+  sanitizeFolderName,
+} from "../_shared/drive.ts";
+
+// Pasta principal dos KOLs no Google Drive (contratos assinados)
+const KOL_DRIVE_PARENT_FOLDER = "16jeyfsU5dhzbYvYpk0d7d8_HFe_HnC9S";
+const CONTRACT_VALIDITY_MONTHS = 12;
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
