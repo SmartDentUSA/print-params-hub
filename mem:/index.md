@@ -1,1 +1,2 @@
 - [Portal→CRM sync](mem://architecture/portal-profissional-crm-sync) — Portal só preenche dados faltantes no PipeRun; nunca cria Pessoa/Organização/Deal
+- Busca de CNPJ: portal consulta Receita (BrasilAPI) e preenche só campos vazios de organização/endereço; CPF de sócios nunca é exposto (mascarado por lei).
