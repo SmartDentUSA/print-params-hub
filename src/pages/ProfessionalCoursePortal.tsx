@@ -45,6 +45,9 @@ import {
 
 const FN_URL = "https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/professional-course-portal";
 
+const SMARTDENT_LOGO_URL =
+  "https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/h7stblp3qxn_1760720051743.png";
+
 interface ProfileState {
   id: string;
   nome: string | null;
@@ -55,18 +58,22 @@ interface ProfileState {
   prof_wa_ddi: string | null;
   prof_wa_number: string | null;
   instagram: string | null;
+  prof_tiktok: string | null;
+  prof_youtube: string | null;
   prof_site: string | null;
   prof_city: string | null;
   prof_state: string | null;
+  area_atuacao: string | null;
+  especialidade: string | null;
 }
 
-type SectionKey = "visao" | "contrato" | "comissao" | "dados" | "colaboracao" | "social" | "cursos";
+type SectionKey = "dados" | "contrato" | "comissao" | "visao" | "colaboracao" | "social" | "cursos";
 
 const SECTIONS: { key: SectionKey; label: string; icon: typeof BarChart3 }[] = [
-  { key: "visao", label: "Visão geral", icon: BarChart3 },
+  { key: "dados", label: "Meus dados", icon: User },
   { key: "contrato", label: "Contrato de parceria", icon: FileText },
   { key: "comissao", label: "Comissão vigente", icon: Percent },
-  { key: "dados", label: "Meus dados", icon: User },
+  { key: "visao", label: "Visão geral", icon: BarChart3 },
   { key: "colaboracao", label: "Cursos Smart Dent", icon: Handshake },
   { key: "social", label: "Engajamento social", icon: Share2 },
   { key: "cursos", label: "Meus cursos", icon: BookOpen },
@@ -82,7 +89,7 @@ export default function ProfessionalCoursePortal() {
   const [courses, setCourses] = useState<ProfessionalCourse[]>([]);
   const [draft, setDraft] = useState<ProfessionalCourseDraft | null>(null);
   const [editProfile, setEditProfile] = useState(false);
-  const [section, setSection] = useState<SectionKey>("visao");
+  const [section, setSection] = useState<SectionKey>("dados");
   const [menuOpen, setMenuOpen] = useState(false);
 
   const call = useCallback(
@@ -231,6 +238,9 @@ export default function ProfessionalCoursePortal() {
     <main className="min-h-screen bg-muted/30 flex">
       {/* Sidebar desktop */}
       <aside className="hidden md:flex w-64 shrink-0 flex-col border-r bg-card sticky top-0 h-screen">
+        <div className="p-4 border-b">
+          <img src={SMARTDENT_LOGO_URL} alt="Smart Dent" className="h-9 w-auto object-contain" />
+        </div>
         <div className="flex items-center gap-3 p-4 border-b">
           {profile.prof_photo_url ? (
             <img
@@ -259,6 +269,7 @@ export default function ProfessionalCoursePortal() {
         {/* Topbar mobile */}
         <div className="md:hidden sticky top-0 z-20 bg-card border-b">
           <div className="flex items-center gap-3 p-3">
+            <img src={SMARTDENT_LOGO_URL} alt="Smart Dent" className="h-7 w-auto object-contain shrink-0" />
             <Button size="icon" variant="ghost" onClick={() => setMenuOpen((v) => !v)}>
               {menuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
             </Button>
@@ -324,10 +335,16 @@ export default function ProfessionalCoursePortal() {
                   </CardHeader>
                   <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-3">
                     <div><Label>Nome</Label><Input disabled={!editProfile} value={profile.nome ?? ""} onChange={(e) => setProfile({ ...profile, nome: e.target.value })} /></div>
+                    <div><Label>E-mail</Label><Input disabled value={profile.email ?? ""} /></div>
                     <div><Label>CRO</Label><Input disabled={!editProfile} value={profile.prof_cro ?? ""} onChange={(e) => setProfile({ ...profile, prof_cro: e.target.value })} /></div>
+                    <div><Label>Área de atuação</Label><Input disabled={!editProfile} value={profile.area_atuacao ?? ""} onChange={(e) => setProfile({ ...profile, area_atuacao: e.target.value })} /></div>
+                    <div><Label>Especialidade</Label><Input disabled={!editProfile} value={profile.especialidade ?? ""} onChange={(e) => setProfile({ ...profile, especialidade: e.target.value })} /></div>
                     <div><Label>WhatsApp</Label><Input disabled={!editProfile} value={profile.prof_wa_number ?? ""} onChange={(e) => setProfile({ ...profile, prof_wa_number: e.target.value })} /></div>
                     <div><Label>Instagram</Label><Input disabled={!editProfile} value={profile.instagram ?? ""} onChange={(e) => setProfile({ ...profile, instagram: e.target.value })} /></div>
+                    <div><Label>TikTok</Label><Input disabled={!editProfile} value={profile.prof_tiktok ?? ""} onChange={(e) => setProfile({ ...profile, prof_tiktok: e.target.value })} /></div>
+                    <div><Label>YouTube</Label><Input disabled={!editProfile} value={profile.prof_youtube ?? ""} onChange={(e) => setProfile({ ...profile, prof_youtube: e.target.value })} /></div>
                     <div><Label>Cidade</Label><Input disabled={!editProfile} value={profile.prof_city ?? ""} onChange={(e) => setProfile({ ...profile, prof_city: e.target.value })} /></div>
+                    <div><Label>Estado</Label><Input disabled={!editProfile} value={profile.prof_state ?? ""} onChange={(e) => setProfile({ ...profile, prof_state: e.target.value })} /></div>
                     <div><Label>Site</Label><Input disabled={!editProfile} value={profile.prof_site ?? ""} onChange={(e) => setProfile({ ...profile, prof_site: e.target.value })} /></div>
                     <div className="md:col-span-3"><Label>Mini CV</Label><Textarea rows={3} disabled={!editProfile} value={profile.prof_mini_cv ?? ""} onChange={(e) => setProfile({ ...profile, prof_mini_cv: e.target.value })} /></div>
                   </CardContent>
