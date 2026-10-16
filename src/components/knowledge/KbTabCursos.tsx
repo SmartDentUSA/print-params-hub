@@ -26,6 +26,7 @@ import CourseRating, { RatingSummaryBadge } from './CourseRating';
 import '@/styles/course-professional-card.css';
 import { CourseCountdown, CourseSeats, CoursePrice, CourseInstructor, MiniCv, SyllabusPremium } from './CourseDetailBlocks';
 import { shortenUrl } from '@/utils/shortLink';
+import { buildLiaUrl } from '@/lib/attendanceChannel';
 import { toast } from 'sonner';
 
 /** Converte URL de vídeo (YouTube, PandaVideo, mp4) em embed. */
