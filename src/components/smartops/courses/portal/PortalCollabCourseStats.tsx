@@ -57,7 +57,16 @@ export default function PortalCollabCourseStats({
   }, [call]);
 
   if (loading) return <Card><CardContent className="py-6"><Loader2 className="w-4 h-4 animate-spin" /></CardContent></Card>;
-  if (courses.length === 0) return null;
+  if (courses.length === 0) {
+    return (
+      <section className="space-y-3">
+        <h2 className="font-medium">Cursos em colaboração com a Smart Dent (0)</h2>
+        <Card><CardContent className="py-8 text-center text-sm text-muted-foreground">
+          Nenhum curso em colaboração com a Smart Dent vinculado a você ainda. Quando um curso Smart Dent tiver você como professor, as métricas, o perfil do público e as listas de inscritos aparecem aqui.
+        </CardContent></Card>
+      </section>
+    );
+  }
 
   const firstName = profName.trim().split(/\s+/)[0] || "profissional";
 
