@@ -1,9 +1,16 @@
 // Performance do KOL no portal: mesma lógica da ficha do profissional no SmartOps
 // (useKolPerformance), executada server-side com filtro opcional de período (from/to).
+//
+// Regra de período: leads gerados são contados pela data de criação do lead; vendas
+// (formulário ou cupom) são atribuídas pela data do negócio/pedido (closed_at /
+// data_pedido). Assim, ao escolher um mês, o usuário vê o que foi vendido naquele
+// mês independentemente de quando o lead chegou.
 import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
 
 const norm = (v: string | null | undefined) =>
   (v ?? "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+
+const CANCELLED = ["cancelado", "cancelled", "estornado", "reprovado"];
 
 interface KolFormPerformance {
   form_id: string;
@@ -18,14 +25,38 @@ interface KolFormPerformance {
   daily_series: Array<{ d: string; v: number }>;
 }
 
-interface KolSoldProduct {
-  produto: string;
-  categoria: string | null;
-  subcategoria: string | null;
-  origem: "formulario" | "cupom";
-  quantidade: number;
+interface BuyerFormRow {
+  deal_id: string;
+  lead_id: string;
+  lead_nome: string | null;
+  origem: string;
+  produto: string | null;
   valor: number;
   comissao: number | null;
+  vendedora: string | null;
+  data: string | null;
+}
+
+interface BuyerCouponRow {
+  pedido: string;
+  lead_nome: string | null;
+  origem: string;
+  produto: string | null;
+  valor: number;
+  comissao: number | null;
+  cupom: string;
+  data: string | null;
+}
+
+interface NegotiatingRow {
+  deal_id: string;
+  lead_id: string;
+  lead_nome: string | null;
+  lead_telefone: string | null;
+  origem: string;
+  produto: string | null;
+  valor: number;
+  etapa: string | null;
 }
 
 export async function kolPerformance(
@@ -35,7 +66,7 @@ export async function kolPerformance(
   to: string | null,
 ) {
   const { data: lead } = await admin.from("lia_attendances")
-    .select("prof_kol_form_ids, prof_kol_coupons, prof_kol_coupon, prof_kol_commissions")
+    .select("nome, prof_kol_form_ids, prof_kol_coupons, prof_kol_coupon, prof_kol_commissions")
     .eq("id", leadId).maybeSingle();
 
   const formRefs: { id: string; name: string }[] = Array.isArray(lead?.prof_kol_form_ids) ? lead.prof_kol_form_ids : [];
@@ -111,17 +142,6 @@ export async function kolPerformance(
   const pctFor = (rawName: string, cat: string | null, sub: string | null, date: string | null, fb: number | null, ch = "cupom") =>
     pctForCh(rawName, cat, sub, date, null, ch) ?? pctForCh(rawName, cat, sub, date, fb, null);
 
-  const sold = new Map<string, KolSoldProduct>();
-  const addSold = (origem: "formulario" | "cupom", produto: string, cat: string | null, sub: string | null, qtd: number, valor: number, com: number | null) => {
-    const k = `${origem}|${norm(produto)}`;
-    const cur = sold.get(k) ?? { produto, categoria: cat, subcategoria: sub, origem, quantidade: 0, valor: 0, comissao: null };
-    cur.quantidade += qtd;
-    cur.valor += valor;
-    if (com != null) cur.comissao = (cur.comissao ?? 0) + com;
-    sold.set(k, cur);
-  };
-
-  const forms: KolFormPerformance[] = [];
   const inRange = (d: string | null | undefined) => {
     if (!d) return false;
     const day = String(d).slice(0, 10);
@@ -129,6 +149,10 @@ export async function kolPerformance(
     if (to && day > to) return false;
     return true;
   };
+
+  const forms: KolFormPerformance[] = [];
+  const buyersForms: BuyerFormRow[] = [];
+  const negotiating: NegotiatingRow[] = [];
 
   if (formRefs.length > 0) {
     const formIds = formRefs.map((f) => f.id).filter(Boolean);
@@ -138,25 +162,28 @@ export async function kolPerformance(
     for (const f of formRows ?? []) nameById.set(f.id, [f.name, f.slug].filter(Boolean));
     const allNames = Array.from(nameById.values()).flat();
 
-    // Leads por formulário (fn_kol_form_leads casa form_name ou chave em form_data)
+    // Leads por formulário (fn_kol_form_leads casa form_name ou chave em form_data).
+    // Sem filtro de data aqui: a atribuição de vendas é pela data do negócio.
     const leadsByForm: Record<string, Set<string>> = {};
+    const leadFormName = new Map<string, string>();
     const leadCreated = new Map<string, string>();
     if (allNames.length) {
       const { data: rpcRows } = await admin.rpc("fn_kol_form_leads", { _names: allNames });
       const allLeadIds = [...new Set((rpcRows ?? []).map((r: any) => String(r.lead_id)))];
       if (allLeadIds.length) {
-        let q = admin.from("lia_attendances").select("id, created_at").in("id", allLeadIds).is("merged_into", null);
-        if (from) q = q.gte("created_at", `${from}T00:00:00-03:00`);
-        if (to) q = q.lte("created_at", `${to}T23:59:59-03:00`);
-        const { data: leadRows } = await q.limit(5000);
-        const allowed = new Set((leadRows ?? []).map((l: any) => String(l.id)));
+        const { data: leadRows } = await admin.from("lia_attendances")
+          .select("id, created_at").in("id", allLeadIds).is("merged_into", null).limit(5000);
+        const canonical = new Set((leadRows ?? []).map((l: any) => String(l.id)));
         for (const l of leadRows ?? []) leadCreated.set(String(l.id), String(l.created_at));
         for (const r of rpcRows ?? []) {
-          if (!allowed.has(String(r.lead_id))) continue;
+          if (!canonical.has(String(r.lead_id))) continue;
           for (const [formId, names] of nameById.entries()) {
             if (names.includes(r.form_key)) {
               leadsByForm[formId] ??= new Set<string>();
               leadsByForm[formId].add(String(r.lead_id));
+              if (!leadFormName.has(String(r.lead_id))) {
+                leadFormName.set(String(r.lead_id), formRefs.find((f) => f.id === formId)?.name ?? r.form_key);
+              }
             }
           }
         }
@@ -185,25 +212,56 @@ export async function kolPerformance(
     }
 
     const allLeads = Array.from(new Set(Object.values(leadsByForm).flatMap((s) => Array.from(s))));
+
+    // Nomes e telefones dos leads (para as listas de compradores e negociação)
+    const leadInfo = new Map<string, { nome: string | null; telefone: string | null }>();
+    for (let i = 0; i < allLeads.length; i += 300) {
+      const chunk = allLeads.slice(i, i + 300);
+      const { data: infos } = await admin.from("lia_attendances")
+        .select("id, nome, telefone_raw, telefone_normalized").in("id", chunk);
+      for (const l of infos ?? []) leadInfo.set(String(l.id), { nome: l.nome ?? null, telefone: l.telefone_normalized ?? l.telefone_raw ?? null });
+    }
+
     const wonByLead: Record<string, number> = {};
     const commByLead: Record<string, number> = {};
     for (let i = 0; i < allLeads.length; i += 300) {
       const chunk = allLeads.slice(i, i + 300);
       const { data: deals } = await admin.from("deals")
-        .select("id, piperun_deal_id, lead_id, value, status, is_deleted, closed_at")
-        .in("lead_id", chunk).eq("status", "ganha");
-      const won = (deals ?? []).filter((d: any) => !d.is_deleted && (!from && !to ? true : inRange(d.closed_at)));
+        .select("id, piperun_deal_id, lead_id, value, status, is_deleted, closed_at, owner_name, stage_name, product, deal_title")
+        .in("lead_id", chunk);
+      const alive = (deals ?? []).filter((d: any) => !d.is_deleted);
+      const won = alive.filter((d: any) => d.status === "ganha" && (!from && !to ? true : inRange(d.closed_at)));
       for (const d of won) wonByLead[d.lead_id] = (wonByLead[d.lead_id] ?? 0) + Number(d.value ?? 0);
+
+      // Negócios em negociação (abertos) — sem filtro de período
+      for (const d of alive) {
+        const st = String(d.status ?? "").toLowerCase();
+        if (st === "ganha" || st === "perdida") continue;
+        const info = leadInfo.get(String(d.lead_id));
+        negotiating.push({
+          deal_id: String(d.piperun_deal_id ?? d.id),
+          lead_id: String(d.lead_id),
+          lead_nome: info?.nome ?? null,
+          lead_telefone: info?.telefone ?? null,
+          origem: leadFormName.get(String(d.lead_id)) ?? "—",
+          produto: d.product ?? d.deal_title ?? null,
+          valor: Number(d.value ?? 0),
+          etapa: d.stage_name ?? null,
+        });
+      }
 
       const dealIds = new Set<string>();
       const dealDate: Record<string, string | null> = {};
+      const wonById = new Map<string, any>();
       for (const d of won) {
         for (const k of [d.id, d.piperun_deal_id].filter(Boolean).map(String)) {
           dealIds.add(k);
           dealDate[k] = d.closed_at ? String(d.closed_at).slice(0, 10) : null;
+          wonById.set(k, d);
         }
       }
       const covered = new Set<string>();
+      const itemsByDeal = new Map<string, { names: string[]; com: number }>();
       if (dealIds.size > 0) {
         const { data: items } = await admin.from("deal_items")
           .select("deal_id, lead_id, product_name, nome_produto, total_value, valor_total, quantity, quantidade, deal_date, parent_deal_item_id, product_category, product_subcategory")
@@ -219,7 +277,10 @@ export async function kolPerformance(
           const pct = pctFor(raw, c.cat, c.sub, date, fallbackPct, "formulario");
           const com = pct != null ? (val * pct) / 100 : null;
           if (com != null) commByLead[it.lead_id] = (commByLead[it.lead_id] ?? 0) + com;
-          addSold("formulario", raw, c.cat, c.sub, Number(it.quantity ?? it.quantidade ?? 1) || 1, val, com);
+          const agg = itemsByDeal.get(did) ?? { names: [], com: 0 };
+          if (!agg.names.includes(raw)) agg.names.push(raw);
+          if (com != null) agg.com += com;
+          itemsByDeal.set(did, agg);
         }
       }
       if (fallbackPct != null) {
@@ -228,10 +289,30 @@ export async function kolPerformance(
           if (!hit) commByLead[d.lead_id] = (commByLead[d.lead_id] ?? 0) + (Number(d.value ?? 0) * fallbackPct) / 100;
         }
       }
+
+      // Lista "Quem comprou através de formulários"
+      for (const d of won) {
+        const key = String(d.piperun_deal_id ?? d.id);
+        const agg = itemsByDeal.get(key) ?? itemsByDeal.get(String(d.id));
+        const info = leadInfo.get(String(d.lead_id));
+        buyersForms.push({
+          deal_id: key,
+          lead_id: String(d.lead_id),
+          lead_nome: info?.nome ?? null,
+          origem: leadFormName.get(String(d.lead_id)) ?? "—",
+          produto: agg?.names.join(" + ") || d.product || d.deal_title || null,
+          valor: Number(d.value ?? 0),
+          comissao: agg ? agg.com : (fallbackPct != null ? (Number(d.value ?? 0) * fallbackPct) / 100 : null),
+          vendedora: d.owner_name ?? null,
+          data: d.closed_at ? String(d.closed_at).slice(0, 10) : null,
+        });
+      }
     }
 
     for (const f of formRefs) {
       const leadSet = leadsByForm[f.id] ?? new Set<string>();
+      // Leads gerados no período: filtra pela data de criação do lead
+      const leadsInPeriod = Array.from(leadSet).filter((l) => (!from && !to) ? true : inRange(leadCreated.get(l)));
       const won = Array.from(leadSet).filter((l) => wonByLead[l] !== undefined);
       const receita = won.reduce((s, l) => s + (wonByLead[l] ?? 0), 0);
       const hasRules = prulesAll.length > 0 || crulesAll.length > 0 || fallbackPct != null;
@@ -243,9 +324,9 @@ export async function kolPerformance(
         daily_series: dailyByForm.get(f.id) ?? [],
         form_id: f.id,
         form_name: f.name,
-        leads: leadSet.size,
+        leads: leadsInPeriod.length,
         deals_ganhos: won.length,
-        conversao: leadSet.size > 0 ? won.length / leadSet.size : 0,
+        conversao: leadsInPeriod.length > 0 ? won.length / leadsInPeriod.length : 0,
         receita,
         comissao,
       });
@@ -254,6 +335,7 @@ export async function kolPerformance(
 
   // Cupons (Loja Integrada) com interseção entre vigência do cupom e período selecionado
   const couponsPerf: any[] = [];
+  const buyersCoupon: BuyerCouponRow[] = [];
   for (const rule of rules) {
     const ruleFrom = rule.active_from ? String(rule.active_from).slice(0, 10) : null;
     const ruleTo = rule.active_to ? String(rule.active_to).slice(0, 10) : null;
@@ -261,14 +343,6 @@ export async function kolPerformance(
     const effTo = to && ruleTo ? (to < ruleTo ? to : ruleTo) : (to ?? ruleTo);
     const { data: cRows } = await admin.rpc("fn_kol_coupon_sales", { _code: rule.code, _from: effFrom, _to: effTo });
     const r0 = (cRows ?? [])[0] ?? {};
-    const { data: iRows } = await admin.rpc("fn_kol_coupon_items", { _code: rule.code, _from: effFrom, _to: effTo });
-    for (const it of iRows ?? []) {
-      const raw = it.produto || "(sem nome)";
-      const c = classify(raw);
-      const val = Number(it.valor) || 0;
-      const pct = pctFor(raw, c.cat, c.sub, it.data_pedido ? String(it.data_pedido).slice(0, 10) : null, rule.commission_percent ?? null);
-      addSold("cupom", raw, c.cat, c.sub, Number(it.quantidade) || 1, val, pct != null ? (val * pct) / 100 : null);
-    }
     couponsPerf.push({
       cupom: rule.code,
       active_from: rule.active_from ?? null,
@@ -278,6 +352,56 @@ export async function kolPerformance(
       receita: Number(r0.receita) || 0,
       clientes: Number(r0.clientes) || 0,
     });
+
+    // Lista "Quem comprou no e-commerce": pedidos com o cupom no período
+    let q = admin.from("loja_integrada_orders")
+      .select("id, attendance_id, numero_pedido, status, data_pedido, valor_total, cupom_codigo")
+      .ilike("cupom_codigo", rule.code)
+      .order("data_pedido", { ascending: false })
+      .limit(500);
+    if (effFrom) q = q.gte("data_pedido", effFrom);
+    if (effTo) q = q.lte("data_pedido", effTo);
+    const { data: orders } = await q;
+    const valid = (orders ?? []).filter((o: any) => !CANCELLED.includes(String(o.status ?? "").toLowerCase()));
+    const attIds = [...new Set(valid.map((o: any) => o.attendance_id).filter(Boolean).map(String))];
+    const buyerNames = new Map<string, string | null>();
+    if (attIds.length) {
+      const { data: atts } = await admin.from("lia_attendances").select("id, nome").in("id", attIds);
+      for (const a of atts ?? []) buyerNames.set(String(a.id), a.nome ?? null);
+    }
+    const orderIds = valid.map((o: any) => o.id).filter(Boolean);
+    const itemsByOrder = new Map<string, { names: string[]; com: number; hasRule: boolean }>();
+    if (orderIds.length) {
+      const { data: items } = await admin.from("loja_integrada_order_items")
+        .select("order_id, nome_produto, nome_canonico, quantidade, valor_total")
+        .in("order_id", orderIds).limit(5000);
+      for (const it of items ?? []) {
+        const oid = String(it.order_id);
+        const raw = it.nome_canonico || it.nome_produto || "(sem nome)";
+        const c = classify(raw);
+        const val = Number(it.valor_total) || 0;
+        const order = valid.find((o: any) => String(o.id) === oid);
+        const pct = pctFor(raw, c.cat, c.sub, order?.data_pedido ? String(order.data_pedido).slice(0, 10) : null, rule.commission_percent ?? null);
+        const agg = itemsByOrder.get(oid) ?? { names: [], com: 0, hasRule: false };
+        if (!agg.names.includes(raw)) agg.names.push(raw);
+        if (pct != null) { agg.com += (val * pct) / 100; agg.hasRule = true; }
+        itemsByOrder.set(oid, agg);
+      }
+    }
+    for (const o of valid) {
+      const agg = itemsByOrder.get(String(o.id));
+      const valor = Number(o.valor_total) || 0;
+      buyersCoupon.push({
+        pedido: o.numero_pedido ? `#${o.numero_pedido}` : String(o.id).slice(0, 8),
+        lead_nome: o.attendance_id ? (buyerNames.get(String(o.attendance_id)) ?? null) : null,
+        origem: "Loja Integrada",
+        produto: agg?.names.join(" + ") || null,
+        valor,
+        comissao: agg?.hasRule ? agg.com : (rule.commission_percent != null ? (valor * rule.commission_percent) / 100 : null),
+        cupom: rule.code,
+        data: o.data_pedido ? String(o.data_pedido).slice(0, 10) : null,
+      });
+    }
   }
 
   const dailyTotals = new Map<string, number>();
@@ -289,9 +413,12 @@ export async function kolPerformance(
   const temRegraComissao = prulesAll.length > 0 || crulesAll.length > 0 || fallbackPct != null;
 
   return {
-    products: Array.from(sold.values()).sort((a, b) => b.valor - a.valor),
+    professional_name: lead?.nome ?? null,
     forms,
     coupons: couponsPerf,
+    buyers_forms: buyersForms.sort((a, b) => (b.data ?? "").localeCompare(a.data ?? "")),
+    buyers_coupon: buyersCoupon,
+    negotiating: negotiating.sort((a, b) => b.valor - a.valor),
     totals: {
       leads: forms.reduce((s, f) => s + f.leads, 0),
       deals: forms.reduce((s, f) => s + f.deals_ganhos, 0),
