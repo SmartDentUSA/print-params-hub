@@ -280,12 +280,19 @@ export default function PortalMyData({ profile, onProfileChange, call }: Props) 
             </div>
             <div>
               <Label>CNPJ</Label>
-              <Input
-                disabled={disabled || contractData.locked || !isPJ}
-                value={isPJ ? contractData.document : (profile.empresa_cnpj ?? "")}
-                onChange={(e) => setContractData((c) => ({ ...c, document: e.target.value }))}
-                placeholder="00.000.000/0000-00"
-              />
+              <div className="relative">
+                <Input
+                  disabled={disabled || contractData.locked || !isPJ}
+                  value={isPJ ? contractData.document : (profile.empresa_cnpj ?? "")}
+                  onChange={(e) => setContractData((c) => ({ ...c, document: e.target.value }))}
+                  onBlur={handleCnpjBlur}
+                  placeholder="00.000.000/0000-00"
+                />
+                {cnpjLoading && <Loader2 className="w-4 h-4 animate-spin absolute right-2 top-2.5 text-muted-foreground" />}
+              </div>
+              {isPJ && !disabled && !contractData.locked && (
+                <p className="text-xs text-muted-foreground mt-1">Ao sair do campo, buscamos os dados da empresa na Receita Federal.</p>
+              )}
             </div>
             <div>
               <Label>Chave PIX (CNPJ)</Label>
