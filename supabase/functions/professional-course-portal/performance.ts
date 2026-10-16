@@ -203,17 +203,30 @@ export async function kolPerformance(
       }
     }
 
-    // Visitas por slug (totais — a RPC de views não tem filtro de período)
+    // Visitas por slug. A RPC fn_kol_form_views exige is_admin(auth.uid()) e não
+    // funciona com service role, então agregamos lead_page_views diretamente
+    // (mesma regra: page_path = /f/{slug}, com query string ou subcaminho).
     const slugById = new Map<string, string>();
     for (const f of formRows ?? []) if (f.slug) slugById.set(f.id, f.slug);
     const viewsBySlug: Record<string, { views: number; visitors: number }> = {};
     const dailyByForm = new Map<string, Array<{ d: string; v: number }>>();
     if (slugById.size > 0) {
-      const [{ data: vRows }, { data: metricRows }] = await Promise.all([
-        admin.rpc("fn_kol_form_views", { _slugs: Array.from(slugById.values()) }),
+      const slugs = Array.from(slugById.values());
+      const orFilter = slugs
+        .flatMap((s) => [`page_path.eq./f/${s}`, `page_path.like./f/${s}?*`, `page_path.like./f/${s}/%`])
+        .join(",");
+      const [{ data: pvRows }, { data: metricRows }] = await Promise.all([
+        admin.from("lead_page_views").select("page_path, ip_hash, session_id").or(orFilter).limit(50000),
         admin.rpc("fn_form_metrics", { p_period_days: 30 }),
       ]);
-      for (const r of vRows ?? []) viewsBySlug[r.slug] = { views: Number(r.views) || 0, visitors: Number(r.visitors) || 0 };
+      for (const slug of slugs) {
+        const rows = (pvRows ?? []).filter((r: any) => {
+          const p = String(r.page_path ?? "");
+          return p === `/f/${slug}` || p.startsWith(`/f/${slug}?`) || p.startsWith(`/f/${slug}/`);
+        });
+        const uniq = new Set(rows.map((r: any) => r.ip_hash ?? r.session_id).filter(Boolean));
+        viewsBySlug[slug] = { views: rows.length, visitors: uniq.size };
+      }
       const wantedIds = new Set(formIds);
       for (const r of metricRows ?? []) {
         if (!wantedIds.has(r.form_id)) continue;
