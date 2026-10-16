@@ -593,7 +593,7 @@ export function KnowledgeSEOHead({ content, category, videos = [], relatedDocume
     const printerMatch = content.title?.match(/Parâmetros\s+(\w+)\s+([\w\s]+?)\s+-/);
     if (printerMatch) {
       mentions.push({
-        "@type": "Product",
+        "@type": "Thing",
         "name": `${printerMatch[1]} ${printerMatch[2].trim()}`,
         "category": "Impressora 3D"
       });
@@ -603,7 +603,7 @@ export function KnowledgeSEOHead({ content, category, videos = [], relatedDocume
     const resinMatch = content.title?.match(/-\s+([\w\s]+?)\s+([\w\s]+)$/);
     if (resinMatch) {
       mentions.push({
-        "@type": "Product",
+        "@type": "Thing",
         "name": `${resinMatch[1].trim()} ${resinMatch[2].trim()}`,
         "category": "Resina para Impressão 3D"
       });
