@@ -459,6 +459,71 @@ Deno.serve(async (req) => {
       });
     }
 
+    // ---- Transparência da parceria: indicações, vendas, conversão e comissão vigente ----
+    if (action === "partnership_stats") {
+      const { data: lead } = await admin.from("lia_attendances")
+        .select("prof_kol_form_ids, prof_kol_coupons, prof_kol_coupon, prof_kol_commissions")
+        .eq("id", leadId).maybeSingle();
+      const formRefs: { id: string; name: string }[] = Array.isArray(lead?.prof_kol_form_ids) ? lead.prof_kol_form_ids : [];
+      const formIds = formRefs.map((f) => f?.id).filter(Boolean);
+      const coupons: { code: string; commission_percent?: number | null; active_from?: string | null; active_to?: string | null }[] =
+        Array.isArray(lead?.prof_kol_coupons) ? lead.prof_kol_coupons : [];
+      if (!coupons.length && lead?.prof_kol_coupon) coupons.push({ code: String(lead.prof_kol_coupon).toUpperCase() });
+      const couponCodes = coupons.map((c) => String(c.code || "").toUpperCase()).filter(Boolean);
+      const rules: any[] = Array.isArray(lead?.prof_kol_commissions) ? lead.prof_kol_commissions : [];
+
+      // Indicações: leads canônicos que vieram dos formulários de indicação do profissional
+      let indicacoes: { id: string; nome: string | null; created_at: string }[] = [];
+      if (formIds.length) {
+        const { data } = await admin.from("lia_attendances")
+          .select("id, nome, created_at")
+          .in("form_id", formIds).is("merged_into", null)
+          .order("created_at", { ascending: false }).limit(200);
+        indicacoes = data ?? [];
+      }
+
+      // Vendas CRM: negócios ganhos dos leads indicados
+      let vendas: { origem: string; nome: string | null; valor: number; data: string | null }[] = [];
+      if (indicacoes.length) {
+        const { data: deals } = await admin.from("deals")
+          .select("lead_id, value, closed_at")
+          .in("lead_id", indicacoes.map((i) => i.id)).eq("status", "ganha");
+        const nomeByLead = new Map(indicacoes.map((i) => [i.id, i.nome]));
+        for (const d of deals ?? []) {
+          vendas.push({ origem: "indicacao", nome: nomeByLead.get(d.lead_id) ?? null, valor: Number(d.value) || 0, data: d.closed_at });
+        }
+      }
+
+      // Vendas por cupom na Loja Integrada
+      if (couponCodes.length) {
+        const { data: orders } = await admin.from("loja_integrada_orders")
+          .select("valor_total, data_pedido, cupom_codigo")
+          .in("cupom_codigo", couponCodes);
+        for (const o of orders ?? []) {
+          vendas.push({ origem: "cupom", nome: String(o.cupom_codigo ?? "").toUpperCase(), valor: Number(o.valor_total) || 0, data: o.data_pedido });
+        }
+      }
+
+      const totalIndicacoes = indicacoes.length;
+      const totalVendas = vendas.length;
+      const receita = vendas.reduce((s, v) => s + v.valor, 0);
+      const activeRules = rules.filter((r) => r?.active !== false).map((r) => ({
+        produto: r.product_name ?? r.category ?? "Geral",
+        percentual: r.percent ?? r.commission_percent ?? null,
+        canal: r.channel ?? "cupom",
+      }));
+      return json({
+        indicacoes: totalIndicacoes,
+        vendas: totalVendas,
+        receita,
+        conversao: totalIndicacoes ? Math.round((totalVendas / totalIndicacoes) * 1000) / 10 : 0,
+        formularios: formRefs.map((f) => f.name).filter(Boolean),
+        cupons: couponCodes,
+        comissao_vigente: activeRules,
+        ultimas_vendas: vendas.sort((a, b) => String(b.data).localeCompare(String(a.data))).slice(0, 20),
+      });
+    }
+
     if (action === "log_wa_click") {
       const target = String(body?.target_name ?? "").slice(0, 200);
       const courseId = String(body?.course_id ?? "");
