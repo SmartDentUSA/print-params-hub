@@ -134,7 +134,7 @@ export default function KnowledgeBase({ lang = 'pt', forcedTab }: KnowledgeBaseP
       const { data, error } = await fetchAllRows((from, to) => supabase
         .from('knowledge_contents')
         .select('id,is_ebook,knowledge_categories!inner(letter,name),knowledge_videos(id)')
-        .eq('active', true).order('id').range(from, to), () => cancelled);
+        .eq('active', true).not('hidden_from_listing', 'is', true).neq('knowledge_categories.letter', 'F').order('id').range(from, to), () => cancelled);
       if (cancelled) return;
       if (error) { console.error('Knowledge sidebar counts', error); return; }
       const counts: Record<string, Record<string, { name: string; count: number }>> = {};

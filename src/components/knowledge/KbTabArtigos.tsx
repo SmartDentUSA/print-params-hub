@@ -69,6 +69,8 @@ export default function KbTabArtigos({ onOpen, letterFilter }: Props) {
         .from('knowledge_contents')
         .select('id, title, title_en, title_es, slug, excerpt, excerpt_en, excerpt_es, og_image_url, created_at, updated_at, category_id, view_count, knowledge_categories!inner(id,letter,name), knowledge_videos!left(id)')
         .eq('active', true)
+        .not('hidden_from_listing', 'is', true)
+        .neq('knowledge_categories.letter', 'F')
         // Ebooks têm aba própria: nunca aparecem em Artigos/categorias
         .not('is_ebook', 'is', true)
         // Exclui artigos com vídeo no próprio relacionamento, sem varrer toda a tabela de vídeos.
@@ -141,6 +143,8 @@ export default function KbTabArtigos({ onOpen, letterFilter }: Props) {
       .from('knowledge_contents')
       .select('id, title, title_en, title_es, slug, excerpt, excerpt_en, excerpt_es, og_image_url, created_at, updated_at, category_id, view_count, knowledge_categories!inner(id,letter,name), knowledge_videos!left(id)')
       .eq('active', true)
+      .not('hidden_from_listing', 'is', true)
+      .neq('knowledge_categories.letter', 'F')
       .not('is_ebook', 'is', true)
       .is('knowledge_videos.id', null)
       .order('created_at', { ascending: false }).order('id');
