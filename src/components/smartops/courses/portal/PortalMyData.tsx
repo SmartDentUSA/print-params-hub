@@ -248,9 +248,12 @@ export default function PortalMyData({ profile, onProfileChange, call }: Props) 
         <CardHeader>
           <CardTitle className="text-base">Endereço profissional</CardTitle>
         </CardHeader>
-        <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <CardContent className="grid grid-cols-1 md:grid-cols-4 gap-3">
           <div><Label>CEP</Label><Input disabled={disabled} value={profile.prof_cep ?? ""} onChange={(e) => set({ prof_cep: e.target.value })} placeholder="00000-000" /></div>
-          <div className="md:col-span-2"><Label>Endereço</Label><Input disabled={disabled} value={profile.pessoa_endereco ?? ""} onChange={(e) => set({ pessoa_endereco: e.target.value })} placeholder="Rua, número, complemento, bairro" /></div>
+          <div className="md:col-span-2"><Label>Rua / Avenida</Label><Input disabled={disabled} value={profile.pessoa_endereco?.street ?? ""} onChange={(e) => set({ pessoa_endereco: { ...profile.pessoa_endereco, street: e.target.value } })} /></div>
+          <div><Label>Número</Label><Input disabled={disabled} value={profile.pessoa_endereco?.number ?? ""} onChange={(e) => set({ pessoa_endereco: { ...profile.pessoa_endereco, number: e.target.value } })} /></div>
+          <div><Label>Complemento</Label><Input disabled={disabled} value={profile.pessoa_endereco?.complement ?? ""} onChange={(e) => set({ pessoa_endereco: { ...profile.pessoa_endereco, complement: e.target.value } })} /></div>
+          <div><Label>Bairro</Label><Input disabled={disabled} value={profile.pessoa_endereco?.district ?? ""} onChange={(e) => set({ pessoa_endereco: { ...profile.pessoa_endereco, district: e.target.value } })} /></div>
           <div><Label>Cidade</Label><Input disabled={disabled} value={profile.prof_city ?? ""} onChange={(e) => set({ prof_city: e.target.value })} /></div>
           <div><Label>Estado</Label><Input disabled={disabled} value={profile.prof_state ?? ""} onChange={(e) => set({ prof_state: e.target.value })} placeholder="UF" /></div>
         </CardContent>
