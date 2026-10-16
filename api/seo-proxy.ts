@@ -7,7 +7,8 @@ export default async function handler(req: Request): Promise<Response> {
   const url = new URL(req.url);
   const originalPath = url.searchParams.get('originalPath') || '/';
   const originalUrl = new URL(originalPath, 'https://parametros.smartdent.com.br');
-  for (const [key,value] of url.searchParams) if (key !== 'originalPath' && !originalUrl.searchParams.has(key)) originalUrl.searchParams.append(key,value);
+  // 'path' is the capture Vercel's `/:path*` rewrite appends; forwarding it makes seo-proxy 404 every inner page.
+  for (const [key,value] of url.searchParams) if (key !== 'originalPath' && key !== 'path' && !originalUrl.searchParams.has(key)) originalUrl.searchParams.append(key,value);
   if (isInstitutionalHost(url.hostname) && originalPath === '/') {
     return new Response(institutionalHomepage(), {
       headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'public, max-age=300, s-maxage=300' },
