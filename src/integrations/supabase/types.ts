@@ -38015,6 +38015,7 @@ export type Database = {
         Args: { _ddi: string; _lead_id: string; _number: string }
         Returns: Json
       }
+      fn_kol_form_coupons: { Args: { _form_id: string }; Returns: Json }
       fn_kol_form_leads: {
         Args: { _names: string[] }
         Returns: {

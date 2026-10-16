@@ -171,6 +171,8 @@ export default function PublicFormPage() {
   const [eventCombos, setEventCombos] = useState<
     { title: string; description: string | null; imageUrl: string | null; mainProduct: string | null }[]
   >([]);
+  // Formulários de indicação KOL: cupons ativos do profissional
+  const [kolCoupons, setKolCoupons] = useState<{ professional_name: string; coupons: any[] } | null>(null);
   // Embed mode (usado pela landing page): renderiza somente o formulário,
   // sem coluna de mídia/texto e sem fundo de página.
   const isEmbed = searchParams.get("embed") === "1";
@@ -297,6 +299,15 @@ export default function PublicFormPage() {
         return;
       }
       setForm(formData as any);
+
+      // Formulário de indicação de profissional: busca cupons ativos do KOL
+      if (/indica/i.test((formData as any).name ?? "")) {
+        (supabase as any)
+          .rpc("fn_kol_form_coupons", { _form_id: (formData as any).id })
+          .then(({ data }: any) => {
+            if (data && Array.isArray(data.coupons) && data.coupons.length > 0) setKolCoupons(data);
+          });
+      }
 
       const { data: fieldsData } = await supabase
         .from("smartops_form_fields" as any)
@@ -1350,10 +1361,76 @@ export default function PublicFormPage() {
               </div>
             )}
 
+            {kolCoupons && kolCoupons.coupons.length > 0 && (
+              <div className="rounded-lg border bg-card p-4 space-y-3">
+                <p className="text-sm text-muted-foreground">
+                  Para descontos exclusivos na loja online referentes à parceria com{" "}
+                  <span className="font-semibold text-foreground">{kolCoupons.professional_name}</span>, utilize os
+                  cupons válidos abaixo.
+                </p>
+                {[
+                  { title: "Cupons válidos", list: kolCoupons.coupons.filter((c) => !c.free_shipping) },
+                  { title: "Cupons com desconto + frete grátis", list: kolCoupons.coupons.filter((c) => c.free_shipping) },
+                ]
+                  .filter((g) => g.list.length > 0)
+                  .map((g) => (
+                    <div key={g.title} className="space-y-1.5">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{g.title}</p>
+                      <div className="overflow-x-auto rounded-md border">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="border-b bg-muted/50 text-left text-xs text-muted-foreground">
+                              <th className="px-3 py-2 font-medium">Cupom</th>
+                              <th className="px-3 py-2 font-medium">Desconto</th>
+                              <th className="px-3 py-2 font-medium">Categorias da loja onde o cupom vale</th>
+                              <th className="px-3 py-2 font-medium whitespace-nowrap">Válido até</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {g.list.map((c: any) => (
+                              <tr key={c.code} className="border-b last:border-0">
+                                <td className="px-3 py-2 font-mono font-semibold">{c.code}</td>
+                                <td className="px-3 py-2 whitespace-nowrap">
+                                  {c.discount_value != null
+                                    ? c.discount_type === "percent"
+                                      ? `${c.discount_value}%`
+                                      : Number(c.discount_value).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
+                                    : "—"}
+                                  {c.free_shipping ? " + frete grátis" : ""}
+                                </td>
+                                <td className="px-3 py-2 text-muted-foreground">
+                                  {Array.isArray(c.categories) && c.categories.length > 0
+                                    ? c.categories.join(", ")
+                                    : [c.category, c.subcategory].filter(Boolean).join(" › ") || "Toda a loja"}
+                                </td>
+                                <td className="px-3 py-2 whitespace-nowrap">
+                                  {c.valid_until ? new Date(c.valid_until).toLocaleDateString("pt-BR") : "—"}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  ))}
+                <div className="flex items-center gap-2 pt-1">
+                  <span className="text-xs text-muted-foreground">Para utilizar os cupons, acesse o site:</span>
+                  <Button type="button" size="sm" asChild>
+                    <a href="https://loja.smartdent.com.br/" target="_blank" rel="noopener noreferrer">
+                      Ir para a loja
+                    </a>
+                  </Button>
+                </div>
+              </div>
+            )}
+
             {(form as any).capture_buttons_enabled && Array.isArray((form as any).capture_buttons) && (form as any).capture_buttons.length > 0 && (
               <div className="space-y-1.5">
                 <Label style={isEmbed ? { color: "#0f172a", opacity: 1 } : undefined}>
-                  Qual é o seu interesse? <span className="text-destructive ml-1">*</span>
+                  {/indica/i.test((form as any)?.name ?? "")
+                    ? "Sobre qual produto você quer receber mais informações?"
+                    : "Qual é o seu interesse?"}{" "}
+                  <span className="text-destructive ml-1">*</span>
                 </Label>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   {((form as any).capture_buttons as CaptureButtonOpt[]).map((button, i) => {
