@@ -152,7 +152,7 @@ export default function ProfessionalCoursePortal() {
 
   if (loading) {
     return (
-      <main className="min-h-screen flex items-center justify-center text-muted-foreground">
+      <main className="min-h-screen flex items-center justify-center bg-muted/40 text-muted-foreground">
         <Loader2 className="w-5 h-5 animate-spin mr-2" /> Carregando seu portal…
       </main>
     );
@@ -160,8 +160,8 @@ export default function ProfessionalCoursePortal() {
 
   if (invalid || !profile) {
     return (
-      <main className="min-h-screen flex items-center justify-center p-6">
-        <Card className="max-w-md w-full">
+      <main className="min-h-screen flex items-center justify-center p-6 bg-muted/40">
+        <Card className="max-w-md w-full shadow-lg">
           <CardHeader><CardTitle>Link inválido ou expirado</CardTitle></CardHeader>
           <CardContent className="text-sm text-muted-foreground">
             Solicite um novo link de acesso à equipe Smart Dent para cadastrar ou editar seus cursos.
