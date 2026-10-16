@@ -276,6 +276,21 @@ export default function CoursesProfessionalProfile({ initialEmail, startEditing 
         prof_display_name: (form.nome || "").trim() || null,
       };
 
+      // Guarda do contrato KOL: se as comissões não mudaram de fato, não enviar
+      // o campo — senão o banco rejeita o salvamento INTEIRO (incluindo contatos)
+      // quando o contrato já está assinado.
+      if (leadId) {
+        const { data: cur } = await supabase
+          .from("lia_attendances")
+          .select("prof_kol_commissions")
+          .eq("id", leadId)
+          .maybeSingle();
+        const sameCommissions =
+          JSON.stringify(cur?.prof_kol_commissions ?? null) ===
+          JSON.stringify(payload.prof_kol_commissions ?? null);
+        if (sameCommissions) delete payload.prof_kol_commissions;
+      }
+
       let savedId = leadId;
       if (leadId) {
         const { error } = await supabase.from("lia_attendances").update(payload).eq("id", leadId);
