@@ -71,6 +71,7 @@ interface ProfCourse {
   language: string | null;
   tags: string[] | null;
   registration_url: string | null;
+  credenciamento_form_id?: string | null;
   whatsapp_ddi: string | null;
   whatsapp_number: string | null;
   instagram: string | null;
@@ -352,6 +353,11 @@ export default function KbTabCursos() {
   const hasFilters = !!(selectedKol || selectedTipo || selectedEsp || search);
 
   const ctaUrl = (c: ProfCourse) => {
+    // Cursos do profissional com formulário de credenciamento: abre o chat de
+    // qualificação (cara de WhatsApp) — origem "# CHAT - Qualificação Curso - Profissional"
+    if (c.credenciamento_form_id && !c.id.startsWith('sd-')) {
+      return buildLiaUrl({ formId: c.credenciamento_form_id, product: c.title });
+    }
     if (c.whatsapp_number) {
       const digits = `${c.whatsapp_ddi ?? '55'}${c.whatsapp_number}`.replace(/\D/g, '');
       const owner = (c.producer_lead_id ? kols[c.producer_lead_id]?.nome : null) || 'Smart Dent';
