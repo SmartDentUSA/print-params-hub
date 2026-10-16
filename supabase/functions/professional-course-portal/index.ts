@@ -10,6 +10,7 @@ import {
 
 import { kolPerformance } from "./performance.ts";
 import { syncProfessionalToCrm } from "./piperun-sync.ts";
+import { lookupCnpj } from "../_shared/cnpj-lookup.ts";
 
 // Pasta principal dos KOLs no Google Drive (contratos assinados)
 const KOL_DRIVE_PARENT_FOLDER = "16jeyfsU5dhzbYvYpk0d7d8_HFe_HnC9S";
@@ -132,7 +133,45 @@ Deno.serve(async (req) => {
           .eq("producer_lead_id", leadId)
           .order("created_at", { ascending: false }),
       ]);
+      // Enriquecimento automático: profissional com CNPJ (vindo do CRM/base) mas
+      // sem endereço profissional → busca na Receita e preenche SÓ campos vazios.
+      if (prof?.empresa_cnpj && (!prof.prof_cep || !prof.pessoa_endereco || !prof.prof_city)) {
+        try {
+          const info = await lookupCnpj(String(prof.empresa_cnpj));
+          if (info) {
+            const fill: Record<string, unknown> = {};
+            const end = (prof.pessoa_endereco && typeof prof.pessoa_endereco === "object" ? prof.pessoa_endereco : {}) as Record<string, unknown>;
+            const endFill: Record<string, unknown> = { ...end };
+            if (!end.street && info.logradouro) endFill.street = info.logradouro;
+            if (!end.number && info.numero) endFill.number = info.numero;
+            if (!end.complement && info.complemento) endFill.complement = info.complemento;
+            if (!end.district && info.bairro) endFill.district = info.bairro;
+            if (JSON.stringify(endFill) !== JSON.stringify(end)) fill.pessoa_endereco = endFill;
+            if (!prof.prof_cep && info.cep) fill.prof_cep = info.cep;
+            if (!prof.prof_city && info.cidade) fill.prof_city = info.cidade;
+            if (!prof.prof_state && info.uf) fill.prof_state = info.uf;
+            if (Object.keys(fill).length) {
+              await admin.from("lia_attendances").update(fill).eq("id", leadId);
+              Object.assign(prof, fill);
+              await admin.rpc("fn_kol_log", {
+                _lead_id: leadId, _event_type: "kol_cnpj_auto_enriched", _entity_type: "professional_profile", _entity_id: leadId,
+                _entity_name: info.razao_social, _value: null, _channel: "kol",
+                _data: { descricao: `Endereço profissional preenchido automaticamente via CNPJ (${info.razao_social})`, campos: Object.keys(fill), actor: "sistema", dedupe_key: `kol_cnpj_enrich:${leadId}` },
+              });
+            }
+          }
+        } catch (e) {
+          console.warn("[portal] cnpj auto-enrich", e);
+        }
+      }
       return json({ professional: prof, courses: courses ?? [] });
+    }
+
+    // Consulta pública de CNPJ (Receita via BrasilAPI) — só leitura, sem gravar
+    if (action === "cnpj_lookup") {
+      const info = await lookupCnpj(String(body?.cnpj ?? ""));
+      if (!info) return json({ error: "CNPJ não encontrado na base da Receita Federal." }, 404);
+      return json({ company: info });
     }
 
     if (action === "save_course") {
