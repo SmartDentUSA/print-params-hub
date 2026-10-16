@@ -1,0 +1,1 @@
+- [Portal→CRM sync](mem://architecture/portal-profissional-crm-sync) — Portal só preenche dados faltantes no PipeRun; nunca cria Pessoa/Organização/Deal

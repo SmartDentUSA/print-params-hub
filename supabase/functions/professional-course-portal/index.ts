@@ -9,6 +9,7 @@ import {
 } from "../_shared/drive.ts";
 
 import { kolPerformance } from "./performance.ts";
+import { syncProfessionalToCrm } from "./piperun-sync.ts";
 
 // Pasta principal dos KOLs no Google Drive (contratos assinados)
 const KOL_DRIVE_PARENT_FOLDER = "16jeyfsU5dhzbYvYpk0d7d8_HFe_HnC9S";
@@ -122,7 +123,7 @@ Deno.serve(async (req) => {
       const [{ data: prof }, { data: courses }] = await Promise.all([
         admin
           .from("lia_attendances")
-          .select("id, nome, email, area_atuacao, especialidade, prof_photo_url, prof_cro, prof_mini_cv, prof_course_platform, prof_wa_ddi, prof_wa_number, prof_course_wa_ddi, prof_course_wa_number, instagram, prof_tiktok, prof_youtube, prof_site, prof_city, prof_state, prof_cep, pessoa_endereco, pessoa_cpf, empresa_cnpj, prof_qualifications, prof_university_roles")
+          .select("id, nome, email, area_atuacao, especialidade, prof_photo_url, prof_cro, prof_mini_cv, prof_course_platform, prof_wa_ddi, prof_wa_number, prof_course_wa_ddi, prof_course_wa_number, instagram, prof_tiktok, prof_youtube, prof_site, prof_city, prof_state, prof_cep, pessoa_endereco, pessoa_cpf, empresa_cnpj, prof_qualifications, prof_university_roles, pessoa_piperun_id, empresa_piperun_id")
           .eq("id", leadId)
           .maybeSingle(),
         admin
@@ -238,7 +239,22 @@ Deno.serve(async (req) => {
           actor: "kol", dedupe_key: `kol_profile_updated:${leadId}:${Date.now()}` },
       });
       if (logErr) console.error("[professional-course-portal] fn_kol_log profile", logErr.message);
-      return json({ ok: true, changed: Object.keys(depois).length });
+      // Espelha no CRM (PipeRun): só preenche dados faltantes em Pessoa/Organização
+      // já existentes; nunca cria registros nem sobrescreve valores.
+      let crm: { person_fields: string[]; company_fields: string[]; skipped: boolean } = { person_fields: [], company_fields: [], skipped: true };
+      try {
+        crm = await syncProfessionalToCrm(admin, leadId, depois);
+        if (crm.person_fields.length || crm.company_fields.length) {
+          await admin.rpc("fn_kol_log", {
+            _lead_id: leadId, _event_type: "kol_profile_crm_synced", _entity_type: "professional_profile", _entity_id: leadId,
+            _entity_name: "Sincronização CRM", _value: null, _channel: "kol",
+            _data: { descricao: "Dados faltantes inseridos no CRM pelo portal", person_fields: crm.person_fields, company_fields: crm.company_fields, actor: "kol", dedupe_key: `kol_crm_sync:${leadId}:${Date.now()}` },
+          });
+        }
+      } catch (crmErr) {
+        console.error("[professional-course-portal] CRM sync", crmErr);
+      }
+      return json({ ok: true, changed: Object.keys(depois).length, crm_synced: [...crm.person_fields, ...crm.company_fields] });
     }
 
     // ---- Portal Profissional Parceiro: estatísticas (somente leitura, escopo pelo token) ----
