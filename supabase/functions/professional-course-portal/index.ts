@@ -358,27 +358,38 @@ Deno.serve(async (req) => {
       // automaticamente (alimenta o botão "Quero participar" com o chat de qualificação)
       const slugify = (s: string) => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "")
         .replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60);
-      const { data: publishedNoForm } = await admin.from("professional_courses")
-        .select("id, title, slug")
+      const { data: publishedAll } = await admin.from("professional_courses")
+        .select("id, title, slug, credenciamento_form_id")
         .eq("producer_lead_id", leadId)
-        .eq("status", "publicado")
-        .is("credenciamento_form_id", null);
-      for (const c of publishedNoForm ?? []) {
-        const baseSlug = slugify(`credenciamento-${c.slug || c.title}`);
-        let slug = baseSlug;
-        for (let i = 2; i < 20; i++) {
-          const { data: clash } = await admin.from("smartops_forms").select("id").eq("slug", slug).maybeSingle();
-          if (!clash) break;
-          slug = `${baseSlug}-${i}`;
+        .eq("status", "publicado");
+      for (const c of publishedAll ?? []) {
+        let formId = c.credenciamento_form_id as string | null;
+        if (!formId) {
+          const baseSlug = slugify(`credenciamento-${c.slug || c.title}`);
+          let slug = baseSlug;
+          for (let i = 2; i < 20; i++) {
+            const { data: clash } = await admin.from("smartops_forms").select("id").eq("slug", slug).maybeSingle();
+            if (!clash) break;
+            slug = `${baseSlug}-${i}`;
+          }
+          const { data: form, error: fe } = await admin.from("smartops_forms").insert({
+            name: `Credenciamento — ${c.title}`,
+            slug,
+            active: true,
+            form_purpose: "credenciamento",
+            description: `Formulário de participação do curso ${c.title}`,
+          }).select("id").single();
+          if (fe || !form) { console.error("[portal] ensure form", fe?.message); continue; }
+          formId = form.id;
+          await admin.from("professional_courses").update({ credenciamento_form_id: formId }).eq("id", c.id);
+          await logCourse(leadId, "kol_course_form_autocreated", { id: c.id, title: c.title }, "Formulário de credenciamento criado automaticamente", true);
+          const local = list.find((x) => x.id === c.id);
+          if (local) local.credenciamento_form_id = formId;
         }
-        const { data: form, error: fe } = await admin.from("smartops_forms").insert({
-          name: `Credenciamento — ${c.title}`,
-          slug,
-          active: true,
-          form_purpose: "credenciamento",
-          description: `Formulário de participação do curso ${c.title}`,
-        }).select("id").single();
-        if (fe || !form) { console.error("[portal] ensure form", fe?.message); continue; }
+        // Formulário sem perguntas (criação anterior incompleta): completa
+        const { count: fieldCount } = await admin.from("smartops_form_fields")
+          .select("id", { count: "exact", head: true }).eq("form_id", formId);
+        if ((fieldCount ?? 0) > 0) continue;
         const fields = [
           { label: "Seu nome completo", db_column: "nome", field_type: "text", required: true, order_index: 1 },
           { label: "Seu e-mail", db_column: "email", field_type: "email", required: true, order_index: 2 },
