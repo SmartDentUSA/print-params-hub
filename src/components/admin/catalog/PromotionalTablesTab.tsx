@@ -522,7 +522,13 @@ export function PromotionalTablesTab() {
         </div>
         <div className="flex items-start gap-3 rounded-md border p-3 md:col-span-2 xl:col-span-4">
           <Switch checked={draft.kol_visible === true} onCheckedChange={(checked) => setDraft((row) => ({ ...row, kol_visible: checked }))} />
-          <div className="space-y-1"><Label className="cursor-pointer">Vincular a tabela para KOLs - Profissionais</Label><p className="text-xs text-muted-foreground">Ao salvar, o PDF é publicado no menu “Tabela de preços” do Portal Profissional Parceiro (somente leitura e download).{selected?.kol_pdf_updated_at ? ` Última publicação: ${new Date(selected.kol_pdf_updated_at).toLocaleString("pt-BR")}.` : ""}</p></div>
+          <div className="space-y-1"><Label className="cursor-pointer">Vincular a tabela para KOLs - Profissionais</Label><p className="text-xs text-muted-foreground">Ao salvar, o PDF é publicado no menu “Tabela de preços” do Portal Profissional Parceiro (somente leitura e download).{selected?.kol_pdf_updated_at ? ` Última publicação: ${new Date(selected.kol_pdf_updated_at).toLocaleString("pt-BR")}.` : " Ainda não publicado."}</p>
+            {draft.kol_visible && persisted && (
+              <Button size="sm" variant="outline" className="mt-2" onClick={async () => { const t = await publishKolPdf({ ...selected, ...draft } as PromotionalTable); setSelected(t); }}>
+                Publicar PDF no portal agora
+              </Button>
+            )}
+          </div>
         </div>
       </CardContent></Card>
 
