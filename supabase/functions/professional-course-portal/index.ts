@@ -224,6 +224,234 @@ Deno.serve(async (req) => {
       return json({ ok: true, changed: Object.keys(depois).length });
     }
 
+    // ---- Portal Profissional Parceiro: estatísticas (somente leitura, escopo pelo token) ----
+
+    if (action === "course_stats") {
+      // Cursos Smart Dent em colaboração: vínculo direto no curso ou em turmas
+      const [{ data: ownCourses }, { data: ownTurmas }] = await Promise.all([
+        admin.from("smartops_courses")
+          .select("id, title, slug, modality, cover_image_url")
+          .eq("instructor_lead_id", leadId),
+        admin.from("smartops_course_turmas")
+          .select("id, course_id, label, start_date")
+          .eq("instructor_lead_id", leadId),
+      ]);
+      const courseMap = new Map<string, { id: string; title: string; slug: string | null; modality: string; cover_image_url: string | null }>();
+      for (const c of ownCourses ?? []) courseMap.set(c.id, c);
+      const extraIds = [...new Set((ownTurmas ?? []).map((t) => t.course_id).filter((id) => !courseMap.has(id)))];
+      if (extraIds.length) {
+        const { data: extra } = await admin.from("smartops_courses")
+          .select("id, title, slug, modality, cover_image_url").in("id", extraIds);
+        for (const c of extra ?? []) courseMap.set(c.id, c);
+      }
+      const courseIds = [...courseMap.keys()];
+      if (!courseIds.length) return json({ collab_courses: [] });
+
+      const { data: turmas } = await admin.from("smartops_course_turmas")
+        .select("id, course_id, label, start_date").in("course_id", courseIds);
+      const turmaIds = (turmas ?? []).map((t) => t.id);
+
+      const [enrRes, waitRes, npsRes] = await Promise.all([
+        admin.from("smartops_course_enrollments")
+          .select("id, course_id, turma_id, status, person_name, lead_id, area_atuacao, especialidade, is_client_smartdent, public_form_payload, equipment_data, enrolled_at")
+          .in("course_id", courseIds),
+        turmaIds.length
+          ? admin.from("smartops_turma_waitlist")
+              .select("id, turma_id, person_name, email, phone, created_at")
+              .in("turma_id", turmaIds)
+          : Promise.resolve({ data: [] as any[] }),
+        admin.from("smartops_nps_responses")
+          .select("course_id, score_recomendacao, score_satisfacao")
+          .in("course_id", courseIds),
+      ]);
+      const enrollments = enrRes.data ?? [];
+
+      // Contatos dos inscritos (leads canônicos apenas)
+      const leadIds = [...new Set(enrollments.map((e) => e.lead_id).filter(Boolean))] as string[];
+      const contactMap = new Map<string, { email: string | null; telefone: string | null }>();
+      for (let i = 0; i < leadIds.length; i += 200) {
+        const { data: leads } = await admin.from("lia_attendances")
+          .select("id, email, telefone")
+          .in("id", leadIds.slice(i, i + 200))
+          .is("merged_into", null);
+        for (const l of leads ?? []) contactMap.set(l.id, { email: l.email, telefone: l.telefone });
+      }
+
+      // Visualizações: páginas públicas de inscrição do curso
+      const viewsMap = new Map<string, number>();
+      for (const c of courseMap.values()) {
+        if (!c.slug) { viewsMap.set(c.id, 0); continue; }
+        const { count } = await admin.from("lead_page_views")
+          .select("id", { count: "exact", head: true })
+          .ilike("page_path", `%/inscricao/${c.slug}%`);
+        viewsMap.set(c.id, count ?? 0);
+      }
+
+      const turmaCourse = new Map((turmas ?? []).map((t) => [t.id, t.course_id]));
+      const result = courseIds.map((cid) => {
+        const enrs = enrollments.filter((e) => e.course_id === cid);
+        const confirmed = enrs.filter((e) => !["cancelado", "cancelled", "waitlist", "lista_espera"].includes(String(e.status ?? "").toLowerCase()));
+        const waitlist = (waitRes.data ?? []).filter((w) => turmaCourse.get(w.turma_id) === cid);
+        const nps = (npsRes.data ?? []).filter((n) => n.course_id === cid);
+        const scores = nps.map((n) => n.score_recomendacao).filter((s): s is number => typeof s === "number");
+
+        // Perfil do público: respostas do formulário de inscrição (payload dinâmico)
+        const answerCounts = new Map<string, Map<string, number>>();
+        const addAnswer = (q: string, v: unknown) => {
+          if (typeof v !== "string" || !v.trim() || v.length > 120) return;
+          const key = q.trim();
+          if (!answerCounts.has(key)) answerCounts.set(key, new Map());
+          const m = answerCounts.get(key)!;
+          m.set(v.trim(), (m.get(v.trim()) ?? 0) + 1);
+        };
+        for (const e of enrs) {
+          addAnswer("Área de atuação", e.area_atuacao);
+          addAnswer("Especialidade", e.especialidade);
+          const payload = (e.public_form_payload ?? e.equipment_data) as Record<string, unknown> | null;
+          if (payload && typeof payload === "object") {
+            for (const [k, v] of Object.entries(payload)) addAnswer(k, v);
+          }
+        }
+        const audience = [...answerCounts.entries()].map(([question, m]) => ({
+          question,
+          answers: [...m.entries()].map(([value, count]) => ({ value, count })).sort((a, b) => b.count - a.count),
+        })).sort((a, b) => b.answers.reduce((s, x) => s + x.count, 0) - a.answers.reduce((s, x) => s + x.count, 0));
+
+        return {
+          course: courseMap.get(cid),
+          turmas: (turmas ?? []).filter((t) => t.course_id === cid),
+          metrics: {
+            views: viewsMap.get(cid) ?? 0,
+            inscritos: enrs.length,
+            confirmados: confirmed.length,
+            lista_espera: waitlist.length,
+            avaliacoes: scores.length,
+            avaliacao_media: scores.length ? Math.round((scores.reduce((s, x) => s + x, 0) / scores.length) * 10) / 10 : null,
+            clientes_smartdent: enrs.filter((e) => e.is_client_smartdent === true).length,
+            nao_clientes: enrs.filter((e) => e.is_client_smartdent !== true).length,
+          },
+          audience,
+          confirmed_list: confirmed.map((e) => ({
+            id: e.id,
+            nome: e.person_name,
+            email: e.lead_id ? contactMap.get(e.lead_id)?.email ?? null : null,
+            telefone: e.lead_id ? contactMap.get(e.lead_id)?.telefone ?? null : null,
+            area_atuacao: e.area_atuacao,
+            especialidade: e.especialidade,
+            cliente_smartdent: e.is_client_smartdent === true,
+          })),
+          waitlist_list: waitlist.map((w) => ({
+            id: w.id, nome: w.person_name, email: w.email, telefone: w.phone,
+          })),
+        };
+      });
+      return json({ collab_courses: result });
+    }
+
+    if (action === "own_course_stats") {
+      const { data: courses } = await admin.from("professional_courses")
+        .select("id, title, slug, views_count, enrolled_count, credenciamento_form_id")
+        .eq("producer_lead_id", leadId);
+      const list = courses ?? [];
+      const formIds = [...new Set(list.map((c) => c.credenciamento_form_id).filter(Boolean))] as string[];
+
+      const subsByForm = new Map<string, any[]>();
+      if (formIds.length) {
+        const { data: subs } = await admin.from("lead_form_submissions")
+          .select("id, form_id, lead_id, submitted_at")
+          .in("form_id", formIds)
+          .order("submitted_at", { ascending: false });
+        for (const s of subs ?? []) {
+          if (!subsByForm.has(s.form_id)) subsByForm.set(s.form_id, []);
+          subsByForm.get(s.form_id)!.push(s);
+        }
+      }
+      const subLeadIds = [...new Set([...subsByForm.values()].flat().map((s) => s.lead_id).filter(Boolean))];
+      const leadMap = new Map<string, { nome: string | null; email: string | null; telefone: string | null; area_atuacao: string | null; especialidade: string | null }>();
+      for (let i = 0; i < subLeadIds.length; i += 200) {
+        const { data: leads } = await admin.from("lia_attendances")
+          .select("id, nome, email, telefone, area_atuacao, especialidade")
+          .in("id", subLeadIds.slice(i, i + 200))
+          .is("merged_into", null);
+        for (const l of leads ?? []) leadMap.set(l.id, l);
+      }
+
+      const courseIds = list.map((c) => c.id);
+      const { data: ratings } = courseIds.length
+        ? await admin.from("professional_course_ratings").select("course_id, rating").in("course_id", courseIds)
+        : { data: [] as any[] };
+
+      return json({
+        own_courses: list.map((c) => {
+          const subs = c.credenciamento_form_id ? subsByForm.get(c.credenciamento_form_id) ?? [] : [];
+          const rs = (ratings ?? []).filter((r) => r.course_id === c.id);
+          return {
+            course_id: c.id,
+            views: c.views_count ?? 0,
+            inscritos: subs.length,
+            avaliacoes: rs.length,
+            avaliacao_media: rs.length ? Math.round((rs.reduce((s, r) => s + r.rating, 0) / rs.length) * 10) / 10 : null,
+            inscritos_list: subs.map((s) => ({
+              id: s.id,
+              nome: leadMap.get(s.lead_id)?.nome ?? null,
+              email: leadMap.get(s.lead_id)?.email ?? null,
+              telefone: leadMap.get(s.lead_id)?.telefone ?? null,
+              area_atuacao: leadMap.get(s.lead_id)?.area_atuacao ?? null,
+              especialidade: leadMap.get(s.lead_id)?.especialidade ?? null,
+              data: s.submitted_at,
+            })),
+          };
+        }),
+      });
+    }
+
+    if (action === "social_stats") {
+      const { data: courses } = await admin.from("professional_courses")
+        .select("id, title, reels_social_post_id, reels_social_status, reels_social_published_at")
+        .eq("producer_lead_id", leadId)
+        .not("reels_social_post_id", "is", null);
+      const postIds = (courses ?? []).map((c) => c.reels_social_post_id).filter(Boolean);
+      if (!postIds.length) return json({ platforms: [], posts: [] });
+
+      const { data: scheduled } = await admin.from("social_scheduled_posts")
+        .select("id, social_post_ids, status, published_at")
+        .in("id", postIds);
+      const socialIds = [...new Set((scheduled ?? []).flatMap((s) => s.social_post_ids ?? []))];
+      const { data: posts } = socialIds.length
+        ? await admin.from("social_posts")
+            .select("id, platform, views, likes, comments, shares, reach, published_at, post_url, thumbnail_url")
+            .in("id", socialIds)
+        : { data: [] as any[] };
+
+      const byPlatform = new Map<string, { platform: string; posts: number; views: number; likes: number; comments: number; shares: number; reach: number }>();
+      for (const p of posts ?? []) {
+        const cur = byPlatform.get(p.platform) ?? { platform: p.platform, posts: 0, views: 0, likes: 0, comments: 0, shares: 0, reach: 0 };
+        cur.posts += 1;
+        cur.views += p.views ?? 0;
+        cur.likes += p.likes ?? 0;
+        cur.comments += p.comments ?? 0;
+        cur.shares += p.shares ?? 0;
+        cur.reach += p.reach ?? 0;
+        byPlatform.set(p.platform, cur);
+      }
+      return json({
+        platforms: [...byPlatform.values()],
+        posts: (posts ?? []).sort((a, b) => String(b.published_at).localeCompare(String(a.published_at))).slice(0, 30),
+      });
+    }
+
+    if (action === "log_wa_click") {
+      const target = String(body?.target_name ?? "").slice(0, 200);
+      const courseId = String(body?.course_id ?? "");
+      await admin.rpc("fn_kol_log", {
+        _lead_id: leadId, _event_type: "kol_portal_wa_click", _entity_type: "professional_course",
+        _entity_id: /^[0-9a-f-]{36}$/i.test(courseId) ? courseId : null,
+        _entity_name: target || "Contato WhatsApp", _value: null, _channel: "kol",
+        _data: { descricao: `Profissional chamou ${target} no WhatsApp pelo portal`, actor: "kol", dedupe_key: `kol_wa_click:${leadId}:${Date.now()}` },
+      });
+      return json({ ok: true });
+    }
+
     return json({ error: "unknown_action" }, 400);
   } catch (e) {
     console.error("[professional-course-portal]", e);
