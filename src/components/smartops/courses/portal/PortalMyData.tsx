@@ -44,6 +44,8 @@ export interface PortalProfile {
   empresa_cnpj: string | null;
   prof_qualifications: Record<string, QualificationEntry[]> | null;
   prof_university_roles: UniversityRoleEntry[] | null;
+  pessoa_piperun_id?: number | null;
+  empresa_piperun_id?: number | null;
 }
 
 interface ContractDataState {
@@ -155,6 +157,25 @@ export default function PortalMyData({ profile, onProfileChange, call }: Props) 
           <div><Label>Área de atuação</Label><Input disabled={disabled} value={profile.area_atuacao ?? ""} onChange={(e) => set({ area_atuacao: e.target.value })} /></div>
           <div><Label>Especialidade</Label><Input disabled={disabled} value={profile.especialidade ?? ""} onChange={(e) => set({ especialidade: e.target.value })} /></div>
           <div className="md:col-span-3"><Label>Mini CV</Label><Textarea rows={3} disabled={disabled} value={profile.prof_mini_cv ?? ""} onChange={(e) => set({ prof_mini_cv: e.target.value })} /></div>
+          {(profile.pessoa_piperun_id || profile.empresa_piperun_id) && (
+            <div className="md:col-span-3 grid grid-cols-1 md:grid-cols-2 gap-3 rounded-md border border-dashed p-3 bg-muted/30">
+              {profile.pessoa_piperun_id ? (
+                <div>
+                  <Label>ID Pessoa (CRM)</Label>
+                  <Input disabled value={String(profile.pessoa_piperun_id)} className="font-mono text-xs" />
+                </div>
+              ) : null}
+              {profile.empresa_piperun_id ? (
+                <div>
+                  <Label>ID Organização (CRM)</Label>
+                  <Input disabled value={String(profile.empresa_piperun_id)} className="font-mono text-xs" />
+                </div>
+              ) : null}
+              <p className="md:col-span-2 text-xs text-muted-foreground">
+                Identificadores do seu cadastro no CRM — não editáveis. As alterações salvas aqui atualizam a base de leads e completam dados faltantes no CRM.
+              </p>
+            </div>
+          )}
         </CardContent>
       </Card>
 
