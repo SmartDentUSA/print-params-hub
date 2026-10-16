@@ -273,8 +273,31 @@ export default function ProfessionalCoursePortal() {
         </div>
 
         <div className="flex-1 p-4 md:p-8">
-          <div className="max-w-5xl mx-auto space-y-6">
+          <div className="max-w-6xl mx-auto space-y-6">
             <PushOptInBanner />
+
+            {/* Cabeçalho da seção ativa */}
+            {(() => {
+              const active = SECTIONS.find((s) => s.key === section);
+              if (!active || draft) return null;
+              const ActiveIcon = active.icon;
+              return (
+                <div className="relative overflow-hidden rounded-2xl border bg-card shadow-sm">
+                  <div className="absolute inset-0 bg-gradient-to-r from-primary/15 via-primary/5 to-transparent pointer-events-none" />
+                  <div className="relative flex items-center gap-4 px-6 py-5">
+                    <div className="w-11 h-11 rounded-xl bg-primary/15 text-primary flex items-center justify-center shrink-0">
+                      <ActiveIcon className="w-5 h-5" />
+                    </div>
+                    <div className="min-w-0">
+                      <h1 className="text-xl font-semibold tracking-tight truncate">{active.label}</h1>
+                      <p className="text-sm text-muted-foreground truncate">
+                        {profile.nome ?? profile.email} · Portal Profissional Parceiro
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
 
             {section === "visao" && (
               <section className="space-y-4">
