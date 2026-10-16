@@ -508,11 +508,21 @@ Deno.serve(async (req) => {
       const totalIndicacoes = indicacoes.length;
       const totalVendas = vendas.length;
       const receita = vendas.reduce((s, v) => s + v.valor, 0);
-      const activeRules = rules.filter((r) => r?.active !== false).map((r) => ({
-        produto: r.product_name ?? r.category ?? "Geral",
-        percentual: r.percent ?? r.commission_percent ?? null,
-        canal: r.channel ?? "cupom",
-      }));
+      const seenRules = new Set<string>();
+      const activeRules = rules
+        .filter((r) => r?.active !== false)
+        .map((r) => ({
+          produto: String(r.product_name ?? r.category ?? "").trim(),
+          percentual: r.percent ?? r.commission_percent ?? null,
+          canal: r.channel ?? "cupom",
+        }))
+        .filter((r) => {
+          if (!r.produto) return false;
+          const key = `${r.produto}|${r.percentual}|${r.canal}`;
+          if (seenRules.has(key)) return false;
+          seenRules.add(key);
+          return true;
+        });
       return json({
         indicacoes: totalIndicacoes,
         vendas: totalVendas,
