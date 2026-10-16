@@ -738,6 +738,13 @@ Deno.serve(async (req) => {
       return json({ ok: true, signed_at: signedAt, pdf_url: pdfUrl, drive_folder_url: driveFolderUrl, kol_seq: kolSeq });
     }
 
+    // ---- Performance da parceria (mesma lógica da ficha do profissional, com filtro de período) ----
+    if (action === "performance") {
+      const from = /^\d{4}-\d{2}-\d{2}$/.test(String(body?.from ?? "")) ? String(body.from) : null;
+      const to = /^\d{4}-\d{2}-\d{2}$/.test(String(body?.to ?? "")) ? String(body.to) : null;
+      return json(await kolPerformance(admin, leadId, from, to));
+    }
+
     return json({ error: "unknown_action" }, 400);
   } catch (e) {
     console.error("[professional-course-portal]", e);

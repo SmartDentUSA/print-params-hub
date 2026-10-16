@@ -31,7 +31,7 @@ import KolContractPortalCard from "@/components/smartops/courses/KolContractPort
 import PortalCollabCourseStats from "@/components/smartops/courses/portal/PortalCollabCourseStats";
 import PortalOwnCourseStats from "@/components/smartops/courses/portal/PortalOwnCourseStats";
 import PortalSocialStats from "@/components/smartops/courses/portal/PortalSocialStats";
-import PortalPartnershipStats from "@/components/smartops/courses/portal/PortalPartnershipStats";
+import PortalPerformance from "@/components/smartops/courses/portal/PortalPerformance";
 import PortalCommissionStats from "@/components/smartops/courses/portal/PortalCommissionStats";
 import { useClientPresence } from "@/hooks/useClientPresence";
 import { PushOptInBanner } from "@/components/PushOptInBanner";
