@@ -130,6 +130,45 @@ export default function PortalMyData({ profile, onProfileChange, call }: Props) 
   const disabled = !editing;
   const isPF = contractData.person_type === "PF";
   const isPJ = contractData.person_type === "PJ";
+  const [cnpjLoading, setCnpjLoading] = useState(false);
+
+  // Ao informar o CNPJ (PJ), busca na Receita e preenche razão social e
+  // endereço profissional — apenas campos vazios, nunca sobrescreve.
+  const handleCnpjBlur = async () => {
+    const cnpj = contractData.document.replace(/\D/g, "");
+    if (!isPJ || cnpj.length !== 14) return;
+    setCnpjLoading(true);
+    try {
+      const d = await call("cnpj_lookup", { cnpj });
+      const c = d.company;
+      if (!c) return;
+      setContractData((cur) => ({
+        ...cur,
+        legal_name: cur.legal_name?.trim() ? cur.legal_name : c.razao_social,
+      }));
+      const end = profile.pessoa_endereco ?? {};
+      set({
+        prof_cep: profile.prof_cep?.trim() ? profile.prof_cep : c.cep,
+        prof_city: profile.prof_city?.trim() ? profile.prof_city : c.cidade,
+        prof_state: profile.prof_state?.trim() ? profile.prof_state : c.uf,
+        pessoa_endereco: {
+          street: end.street?.trim() ? end.street : c.logradouro,
+          number: end.number?.trim() ? end.number : c.numero,
+          complement: end.complement?.trim() ? end.complement : c.complemento,
+          district: end.district?.trim() ? end.district : c.bairro,
+        },
+      });
+      const socios = (c.socios ?? []).map((s: any) => s.nome).slice(0, 5).join(", ");
+      toast({
+        title: "Dados da Receita preenchidos",
+        description: socios ? `Sócios encontrados: ${socios}${(c.socios ?? []).length > 5 ? "…" : ""}` : undefined,
+      });
+    } catch {
+      /* CNPJ não encontrado: usuário preenche manualmente */
+    } finally {
+      setCnpjLoading(false);
+    }
+  };
 
   return (
     <div className="space-y-4">
