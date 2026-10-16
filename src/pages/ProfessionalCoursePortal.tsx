@@ -301,42 +301,36 @@ export default function ProfessionalCoursePortal() {
 
             {section === "visao" && (
               <section className="space-y-4">
-                <h2 className="text-lg font-semibold">Visão geral</h2>
                 <PortalPerformance token={token} />
               </section>
             )}
 
             {section === "contrato" && (
               <section className="space-y-4">
-                <h2 className="text-lg font-semibold">Contrato de parceria</h2>
                 <KolContractPortalCard token={token} />
               </section>
             )}
 
             {section === "comissao" && (
               <section className="space-y-4">
-                <h2 className="text-lg font-semibold">Comissão vigente</h2>
                 <PortalCommissionStats call={call} />
               </section>
             )}
 
             {section === "dados" && (
               <section className="space-y-4">
-                <h2 className="text-lg font-semibold">Meus dados</h2>
                 <PortalMyData profile={profile} onProfileChange={(p) => setProfile(p)} call={call} />
               </section>
             )}
 
             {section === "colaboracao" && (
               <section className="space-y-4">
-                <h2 className="text-lg font-semibold">Cursos Smart Dent em colaboração</h2>
                 <PortalCollabCourseStats call={call} profName={profile.nome ?? ""} />
               </section>
             )}
 
             {section === "social" && (
               <section className="space-y-4">
-                <h2 className="text-lg font-semibold">Engajamento social</h2>
                 <PortalSocialStats call={call} photoUrl={profile.prof_photo_url} profName={profile.nome ?? ""} />
               </section>
             )}
