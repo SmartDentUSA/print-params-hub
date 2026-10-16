@@ -375,7 +375,7 @@ Deno.serve(async (req) => {
           name: `Credenciamento — ${c.title}`,
           slug,
           active: true,
-          form_purpose: "credenciamento_curso_profissional",
+          form_purpose: "credenciamento",
           description: `Formulário de participação do curso ${c.title}`,
         }).select("id").single();
         if (fe || !form) { console.error("[portal] ensure form", fe?.message); continue; }
