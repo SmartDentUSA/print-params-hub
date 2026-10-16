@@ -421,6 +421,13 @@ export default function KbTabCatalogo({ filterKey, pinnedIds, pinnedElsewhereIds
   useEffect(() => {
     let cancel = false;
     setLoading(true);
+    // Uma consulta que falha/pendura (ex.: 521/522 do Supabase) não pode travar o skeleton para sempre:
+    // converte rejeição/timeout em { data: null, error } e deixa as demais seguirem.
+    const safe = (q: PromiseLike<any>): Promise<any> =>
+      Promise.race([
+        Promise.resolve(q),
+        new Promise((r) => setTimeout(() => r({ data: null, error: new Error('timeout') }), 15000)),
+      ]).catch((error) => ({ data: null, error }));
     (async () => {
       const [
         { data: cat, error: e1 },
@@ -483,7 +490,7 @@ export default function KbTabCatalogo({ filterKey, pinnedIds, pinnedElsewhereIds
           .from('smartops_short_links')
           .select('short_code, form_slug, default_target')
           .limit(2000),
-      ]);
+      ].map(safe));
       if (cancel) return;
       if (e1) console.error(e1);
       if (e2) console.error(e2);
