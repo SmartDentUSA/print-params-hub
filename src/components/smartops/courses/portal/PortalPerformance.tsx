@@ -376,13 +376,13 @@ export default function PortalPerformance({ token }: { token: string }) {
                     const firstName = (n.lead_nome ?? "").trim().split(" ")[0] || "tudo bem";
                     const msg = `Olá ${firstName}, aqui é o ${profName}, deu certo a negociação com a Smart Dent do ${n.produto ?? "produto de interesse"}?`;
                     return (
-                      <tr key={`n-${n.deal_id}`} className="border-t">
+                      <tr key={`n-${n.deal_id}`} className={`border-t ${funilRowClass(n.funil)}`}>
                         <td className="px-2 py-2 text-xs text-muted-foreground">{n.deal_id}</td>
                         <td className="px-2 py-2">{n.lead_nome ?? "—"}</td>
                         <td className="px-2 py-2 text-xs">{n.origem}</td>
                         <td className="px-2 py-2 text-xs">{n.produto ?? "—"}</td>
                         <td className="px-2 py-2 text-right font-medium">{money(n.valor)}</td>
-                        <td className="px-2 py-2 text-xs">{n.etapa ?? "—"}</td>
+                        <td className="px-2 py-2 text-xs whitespace-nowrap">{n.funil ?? "—"}</td>
                         <td className="px-2 py-2 text-right">
                           {n.lead_telefone ? (
                             <Button size="sm" variant="outline" className="h-7 text-xs" asChild>
@@ -400,6 +400,16 @@ export default function PortalPerformance({ token }: { token: string }) {
                 </tbody>
               </table>
             </div>
+          )}
+          {negotiating.length > 0 && (
+            <p className="flex flex-wrap items-center gap-3 text-[11px] text-muted-foreground">
+              <span className="inline-flex items-center gap-1.5">
+                <span className="h-2.5 w-2.5 rounded-sm bg-emerald-500/70" /> Funil comercial
+              </span>
+              <span className="inline-flex items-center gap-1.5">
+                <span className="h-2.5 w-2.5 rounded-sm bg-amber-500/70" /> Funil Estagnados
+              </span>
+            </p>
           )}
         </div>
       </CardContent>
