@@ -382,7 +382,7 @@ Deno.serve(async (req) => {
         const fields = [
           { label: "Seu nome completo", db_column: "nome", field_type: "text", required: true, order_index: 1 },
           { label: "Seu e-mail", db_column: "email", field_type: "email", required: true, order_index: 2 },
-          { label: "Seu WhatsApp (com DDD)", db_column: "telefone", field_type: "tel", required: true, order_index: 3 },
+          { label: "Seu WhatsApp (com DDD)", db_column: "telefone", field_type: "phone", required: true, order_index: 3 },
           { label: "Qual é a sua área de atuação?", db_column: "area_atuacao", field_type: "select", required: true, order_index: 4,
             options: ["CLÍNICA OU CONSULTÓRIO", "LABORATÓRIO DE PRÓTESE", "RADIOLOGIA ODONTOLÓGICA", "PLANNING CENTER", "EMPRESA DE ALINHADORES", "GESTOR DE REDE DE CLÍNICAS", "GESTOR DE FRANQUIAS", "CENTRAL DE IMPRESSÕES", "EDUCAÇÃO"] },
           { label: "Qual é a sua especialidade?", db_column: "especialidade", field_type: "text", required: false, order_index: 5 },
