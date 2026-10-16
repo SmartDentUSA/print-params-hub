@@ -178,9 +178,10 @@ export function PromotionalTablesTab() {
       const blob = await exportPromotionalPdf(table, rows, distributorName(table.distributor_id), "blob");
       if (!blob) return table;
       const path = `kol-price-tables/${table.id}-${Date.now()}.pdf`;
-      const { error: upErr } = await supabase.storage.from("catalog-images").upload(path, blob, { contentType: "application/pdf", upsert: true });
+      // catalog-images só aceita imagens; PDFs vão para catalog-documents (caminho único, sem upsert)
+      const { error: upErr } = await supabase.storage.from("catalog-documents").upload(path, blob, { contentType: "application/pdf" });
       if (upErr) throw upErr;
-      const url = supabase.storage.from("catalog-images").getPublicUrl(path).data.publicUrl;
+      const url = supabase.storage.from("catalog-documents").getPublicUrl(path).data.publicUrl;
       const { data, error } = await supabase.from("promotional_tables" as any)
         .update({ kol_pdf_url: url, kol_pdf_updated_at: new Date().toISOString() }).eq("id", table.id).select("*").single();
       if (error) throw error;
