@@ -170,7 +170,8 @@ Deno.serve(async (req) => {
         const { data: ct } = await admin.from("kol_contracts").select("seller_team_member_id")
           .eq("lead_id", leadId).not("seller_team_member_id", "is", null)
           .order("created_at", { ascending: false }).limit(1).maybeSingle();
-        let sellerId: string | null = ct?.seller_team_member_id ?? null;
+        const { data: pin } = await admin.from("lia_attendances").select("prof_specialist_team_member_id").eq("id", leadId).maybeSingle();
+        let sellerId: string | null = (pin as any)?.prof_specialist_team_member_id ?? ct?.seller_team_member_id ?? null;
         if (!sellerId) {
           // Fallback: vendedora fixa do formulário de indicação do KOL
           const { data: l } = await admin.from("lia_attendances").select("prof_kol_form_ids, piperun_owner_id").eq("id", leadId).maybeSingle();
