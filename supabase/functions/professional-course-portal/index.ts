@@ -465,7 +465,6 @@ Deno.serve(async (req) => {
         .select("prof_kol_form_ids, prof_kol_coupons, prof_kol_coupon, prof_kol_commissions")
         .eq("id", leadId).maybeSingle();
       const formRefs: { id: string; name: string }[] = Array.isArray(lead?.prof_kol_form_ids) ? lead.prof_kol_form_ids : [];
-      const formIds = formRefs.map((f) => f?.id).filter(Boolean);
       const coupons: { code: string; commission_percent?: number | null; active_from?: string | null; active_to?: string | null }[] =
         Array.isArray(lead?.prof_kol_coupons) ? lead.prof_kol_coupons : [];
       if (!coupons.length && lead?.prof_kol_coupon) coupons.push({ code: String(lead.prof_kol_coupon).toUpperCase() });
