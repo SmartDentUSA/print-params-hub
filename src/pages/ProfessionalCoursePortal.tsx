@@ -73,7 +73,7 @@ const SECTIONS: { key: SectionKey; label: string; icon: typeof BarChart3 }[] = [
   { key: "dados", label: "Meus dados", icon: User },
   { key: "contrato", label: "Contrato de parceria", icon: FileText },
   { key: "comissao", label: "Comissão vigente", icon: Percent },
-  { key: "visao", label: "Visão geral", icon: BarChart3 },
+  { key: "visao", label: "Performance", icon: BarChart3 },
   { key: "colaboracao", label: "Cursos Smart Dent", icon: Handshake },
   { key: "social", label: "Engajamento social", icon: Share2 },
   { key: "cursos", label: "Meus cursos", icon: BookOpen },
