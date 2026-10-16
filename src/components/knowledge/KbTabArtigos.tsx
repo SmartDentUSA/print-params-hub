@@ -21,7 +21,6 @@ const CHIP_KEYS: { key: string; tk: string }[] = [
   { key: 'fc493982-ad8c-417f-9579-82786a97925a', tk: 'kb.chips.ciencia' },
   { key: '67b81704-64f8-4739-b79f-24f46f70752c', tk: 'kb.chips.casos_clinicos' },
   { key: '83d0b6ea-59d7-4d98-80a1-ac7df83b697a', tk: 'kb.chips.falhas' },
-  { key: '67f92f1b-ea9e-42b9-94d1-7d685e25629c', tk: 'kb.chips.parametros' },
 ];
 
 interface Row {
