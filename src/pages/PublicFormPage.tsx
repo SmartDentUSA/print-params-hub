@@ -1395,13 +1395,19 @@ export default function PublicFormPage() {
                                     ? c.discount_type === "percent"
                                       ? `${c.discount_value}%`
                                       : Number(c.discount_value).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
-                                    : "—"}
+                                    : Array.isArray(c.category_discounts) && c.category_discounts.length > 0
+                                      ? [...new Set(c.category_discounts.map((d: any) => d.discount_percent))].join("% / ") + "%"
+                                      : "—"}
                                   {c.free_shipping ? " + frete grátis" : ""}
                                 </td>
                                 <td className="px-3 py-2 text-muted-foreground">
                                   {Array.isArray(c.categories) && c.categories.length > 0
                                     ? c.categories.join(", ")
-                                    : [c.category, c.subcategory].filter(Boolean).join(" › ") || "Toda a loja"}
+                                    : Array.isArray(c.category_discounts) && c.category_discounts.length > 0
+                                      ? c.category_discounts
+                                          .map((d: any) => [d.category, d.subcategory].filter(Boolean).join(" › "))
+                                          .join(", ")
+                                      : [c.category, c.subcategory].filter(Boolean).join(" › ") || "Toda a loja"}
                                 </td>
                                 <td className="px-3 py-2 whitespace-nowrap">
                                   {c.valid_until ? new Date(c.valid_until).toLocaleDateString("pt-BR") : "—"}
