@@ -38001,6 +38001,10 @@ export type Database = {
         Args: { _from?: string }
         Returns: Json
       }
+      fn_kol_ensure_credenciamento_form: {
+        Args: { _course_id: string }
+        Returns: string
+      }
       fn_kol_fix_phone: {
         Args: { _ddi: string; _lead_id: string; _number: string }
         Returns: Json
