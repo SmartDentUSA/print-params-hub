@@ -354,52 +354,22 @@ Deno.serve(async (req) => {
         .eq("producer_lead_id", leadId);
       const list = courses ?? [];
 
-      // Cursos publicados sem formulário de credenciamento: o sistema gera um
-      // automaticamente (alimenta o botão "Quero participar" com o chat de qualificação)
-      const slugify = (s: string) => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "")
-        .replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60);
+      // Cursos publicados sem formulário de credenciamento: fallback para cursos
+      // publicados antes da geração automática na publicação. A criação/canonicalização
+      // dos campos vive em fn_kol_ensure_credenciamento_form (fonte única).
       const { data: publishedAll } = await admin.from("professional_courses")
-        .select("id, title, slug, credenciamento_form_id")
+        .select("id, title, credenciamento_form_id")
         .eq("producer_lead_id", leadId)
         .eq("status", "publicado");
       for (const c of publishedAll ?? []) {
-        let formId = c.credenciamento_form_id as string | null;
-        if (!formId) {
-          const baseSlug = slugify(`credenciamento-${c.slug || c.title}`);
-          let slug = baseSlug;
-          for (let i = 2; i < 20; i++) {
-            const { data: clash } = await admin.from("smartops_forms").select("id").eq("slug", slug).maybeSingle();
-            if (!clash) break;
-            slug = `${baseSlug}-${i}`;
-          }
-          const { data: form, error: fe } = await admin.from("smartops_forms").insert({
-            name: `Credenciamento — ${c.title}`,
-            slug,
-            active: true,
-            form_purpose: "credenciamento",
-            description: `Formulário de participação do curso ${c.title}`,
-          }).select("id").single();
-          if (fe || !form) { console.error("[portal] ensure form", fe?.message); continue; }
-          formId = form.id;
-          await admin.from("professional_courses").update({ credenciamento_form_id: formId }).eq("id", c.id);
+        const hadForm = !!c.credenciamento_form_id;
+        const { data: formId, error: fe } = await admin.rpc("fn_kol_ensure_credenciamento_form", { _course_id: c.id });
+        if (fe || !formId) { console.error("[portal] ensure form", fe?.message); continue; }
+        if (!hadForm) {
           await logCourse(leadId, "kol_course_form_autocreated", { id: c.id, title: c.title }, "Formulário de credenciamento criado automaticamente", true);
           const local = list.find((x) => x.id === c.id);
           if (local) local.credenciamento_form_id = formId;
         }
-        // Formulário sem perguntas (criação anterior incompleta): completa
-        const { count: fieldCount } = await admin.from("smartops_form_fields")
-          .select("id", { count: "exact", head: true }).eq("form_id", formId);
-        if ((fieldCount ?? 0) > 0) continue;
-        const fields = [
-          { label: "Seu nome completo", db_column: "nome", field_type: "text", required: true, order_index: 1 },
-          { label: "Seu e-mail", db_column: "email", field_type: "email", required: true, order_index: 2 },
-          { label: "Seu WhatsApp (com DDD)", db_column: "telefone", field_type: "phone", required: true, order_index: 3 },
-          { label: "Qual é a sua área de atuação?", db_column: "area_atuacao", field_type: "select", required: true, order_index: 4,
-            options: ["CLÍNICA OU CONSULTÓRIO", "LABORATÓRIO DE PRÓTESE", "RADIOLOGIA ODONTOLÓGICA", "PLANNING CENTER", "EMPRESA DE ALINHADORES", "GESTOR DE REDE DE CLÍNICAS", "GESTOR DE FRANQUIAS", "CENTRAL DE IMPRESSÕES", "EDUCAÇÃO"] },
-          { label: "Qual é a sua especialidade?", db_column: "especialidade", field_type: "text", required: false, order_index: 5 },
-        ];
-        const { error: fldErr } = await admin.from("smartops_form_fields").insert(fields.map((f) => ({ ...f, form_id: formId })));
-        if (fldErr) console.error("[portal] ensure fields", fldErr.message);
       }
 
       const formIds = [...new Set(list.map((c) => c.credenciamento_form_id).filter(Boolean))] as string[];
