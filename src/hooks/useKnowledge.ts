@@ -144,6 +144,7 @@ export function useKnowledge() {
         .select('*, knowledge_categories!inner(*), authors(*)')
         .eq('knowledge_categories.letter', categoryLetter.toUpperCase())
         .eq('active', true)
+        .not('hidden_from_listing', 'is', true)
         .order('created_at', { ascending: false });
       
       if (error) throw error;
@@ -185,6 +186,8 @@ export function useKnowledge() {
         .from('knowledge_contents')
         .select('*, knowledge_categories!inner(*), authors(*)')
         .eq('active', true)
+        .not('hidden_from_listing', 'is', true)
+        .neq('knowledge_categories.letter', 'F')
         .or(`title.ilike.%${safe}%,slug.ilike.%${safe}%,excerpt.ilike.%${safe}%,content_html.ilike.%${safe}%`)
         .order('created_at', { ascending: false })
         .limit(10000);
