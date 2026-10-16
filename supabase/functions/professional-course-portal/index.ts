@@ -398,12 +398,8 @@ Deno.serve(async (req) => {
             options: ["CLÍNICA OU CONSULTÓRIO", "LABORATÓRIO DE PRÓTESE", "RADIOLOGIA ODONTOLÓGICA", "PLANNING CENTER", "EMPRESA DE ALINHADORES", "GESTOR DE REDE DE CLÍNICAS", "GESTOR DE FRANQUIAS", "CENTRAL DE IMPRESSÕES", "EDUCAÇÃO"] },
           { label: "Qual é a sua especialidade?", db_column: "especialidade", field_type: "text", required: false, order_index: 5 },
         ];
-        await admin.from("smartops_form_fields").insert(fields.map((f) => ({ ...f, form_id: form.id })));
-        await admin.from("professional_courses").update({ credenciamento_form_id: form.id }).eq("id", c.id);
-        c.credenciamento_form_id = form.id;
-        await logCourse(leadId, "kol_course_form_autocreated", { id: c.id, title: c.title }, "Formulário de credenciamento criado automaticamente", true);
-        const local = list.find((x) => x.id === c.id);
-        if (local) local.credenciamento_form_id = form.id;
+        const { error: fldErr } = await admin.from("smartops_form_fields").insert(fields.map((f) => ({ ...f, form_id: formId })));
+        if (fldErr) console.error("[portal] ensure fields", fldErr.message);
       }
 
       const formIds = [...new Set(list.map((c) => c.credenciamento_form_id).filter(Boolean))] as string[];
