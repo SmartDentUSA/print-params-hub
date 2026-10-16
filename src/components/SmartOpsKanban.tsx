@@ -107,6 +107,7 @@ export function SmartOpsKanban() {
       .from("lia_attendances")
       .select("*")
       .in("lead_status", keys)
+      .is("archived_at", null)
       .order("created_at", { ascending: false })
       .limit(500);
     setLeads((data as unknown as Lead[]) || []);
@@ -121,7 +122,8 @@ export function SmartOpsKanban() {
       const { count } = await supabase
         .from("lia_attendances")
         .select("*", { count: "exact", head: true })
-        .in("lead_status", keys);
+        .in("lead_status", keys)
+        .is("archived_at", null);
       counts[tab.id] = count || 0;
     });
     await Promise.all(promises);
