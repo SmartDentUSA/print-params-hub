@@ -60,11 +60,12 @@ interface ProfileState {
   prof_state: string | null;
 }
 
-type SectionKey = "visao" | "contrato" | "dados" | "colaboracao" | "social" | "cursos";
+type SectionKey = "visao" | "contrato" | "comissao" | "dados" | "colaboracao" | "social" | "cursos";
 
 const SECTIONS: { key: SectionKey; label: string; icon: typeof BarChart3 }[] = [
   { key: "visao", label: "Visão geral", icon: BarChart3 },
   { key: "contrato", label: "Contrato de parceria", icon: FileText },
+  { key: "comissao", label: "Comissão vigente", icon: Percent },
   { key: "dados", label: "Meus dados", icon: User },
   { key: "colaboracao", label: "Cursos Smart Dent", icon: Handshake },
   { key: "social", label: "Engajamento social", icon: Share2 },
@@ -295,6 +296,13 @@ export default function ProfessionalCoursePortal() {
               <section className="space-y-4">
                 <h2 className="text-lg font-semibold">Contrato de parceria</h2>
                 <KolContractPortalCard token={token} />
+              </section>
+            )}
+
+            {section === "comissao" && (
+              <section className="space-y-4">
+                <h2 className="text-lg font-semibold">Comissão vigente</h2>
+                <PortalCommissionStats call={call} />
               </section>
             )}
 
