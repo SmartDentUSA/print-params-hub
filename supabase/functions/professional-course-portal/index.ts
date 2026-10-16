@@ -550,6 +550,7 @@ Deno.serve(async (req) => {
         vendas: totalVendas,
         receita,
         conversao: totalIndicacoes ? Math.round((totalVendas / totalIndicacoes) * 1000) / 10 : 0,
+        em_negociacao: emNegociacao,
         formularios: formRefs.map((f) => f.name).filter(Boolean),
         cupons: couponCodes,
         comissao_vigente: activeRules,

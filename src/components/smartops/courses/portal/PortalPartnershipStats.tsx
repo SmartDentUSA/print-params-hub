@@ -8,6 +8,7 @@ interface PartnershipData {
   vendas: number;
   receita: number;
   conversao: number;
+  em_negociacao?: { quantidade: number; valor: number };
   formularios: string[];
   cupons: string[];
   comissao_vigente: { produto: string; percentual: number | null; canal: string }[];
