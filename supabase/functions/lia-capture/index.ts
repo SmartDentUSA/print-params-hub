@@ -102,7 +102,15 @@ async function resolveContext(body: any) {
     }
   }
   const label = product || campaignName || formName || "Smart Dent";
-  const origin = campaignSlug && !formId ? `# CHAT - Campanha - ${campaignName || campaignSlug}` : `# CHAT - Landing - ${label}`;
+  // Formulário vinculado a curso de profissional parceiro (credenciamento) tem origem fixa
+  let isProfessionalCourseForm = false;
+  if (formId) {
+    const { data: pc } = await sb.from("professional_courses").select("id").eq("credenciamento_form_id", formId).limit(1).maybeSingle();
+    isProfessionalCourseForm = !!pc;
+  }
+  const origin = isProfessionalCourseForm
+    ? "# CHAT - Qualificação Curso - Profissional"
+    : campaignSlug && !formId ? `# CHAT - Campanha - ${campaignName || campaignSlug}` : `# CHAT - Landing - ${label}`;
   opening = `Vamos lá, vou te mandar todas as informações sobre o ${label}. Qual é o seu telefone de contato?`;
 
   // Perguntas de qualificação: do formulário de origem ou de um formulário de captação padrão
