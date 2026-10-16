@@ -1,4 +1,16 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { PDFDocument, StandardFonts, rgb } from "https://esm.sh/pdf-lib@1.17.1";
+import {
+  getDriveAccessToken,
+  driveEnsureFolder,
+  driveUploadFile,
+  driveGetWebViewLink,
+  sanitizeFolderName,
+} from "../_shared/drive.ts";
+
+// Pasta principal dos KOLs no Google Drive (contratos assinados)
+const KOL_DRIVE_PARENT_FOLDER = "16jeyfsU5dhzbYvYpk0d7d8_HFe_HnC9S";
+const CONTRACT_VALIDITY_MONTHS = 12;
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -34,6 +46,7 @@ const PROFILE_FIELDS = [
   "nome", "prof_cro", "prof_photo_url", "prof_mini_cv", "prof_course_platform",
   "prof_wa_ddi", "prof_wa_number", "prof_course_wa_ddi", "prof_course_wa_number",
   "instagram", "prof_tiktok", "prof_youtube", "prof_site", "prof_city", "prof_state",
+  "area_atuacao", "especialidade",
 ] as const;
 
 const NUMERIC = new Set(["price_brl", "promo_price_brl", "installments", "workload_hours", "duration_days", "max_students", "enrolled_count"]);
@@ -568,6 +581,159 @@ Deno.serve(async (req) => {
         _data: { descricao: `Profissional chamou ${target} no WhatsApp pelo portal`, actor: "kol", dedupe_key: `kol_wa_click:${leadId}:${Date.now()}` },
       });
       return json({ ok: true });
+    }
+
+    // ---- Contrato de parceria KOL: leitura, pedido de ajuste e assinatura digital ----
+
+    if (action === "contract") {
+      const { data: contract } = await admin.from("kol_contracts")
+        .select("id, number, status, body_rendered, signed_at, adjust_notes, pdf_url")
+        .eq("lead_id", leadId).is("revoked_at", null)
+        .order("created_at", { ascending: false }).limit(1).maybeSingle();
+      if (!contract) return json({ contract: null });
+      const { data: lead } = await admin.from("lia_attendances")
+        .select("prof_kol_commissions").eq("id", leadId).maybeSingle();
+      const rules = Array.isArray(lead?.prof_kol_commissions) ? lead.prof_kol_commissions : [];
+      const { data: equipment } = await admin.from("kol_equipment_loans")
+        .select("product_name, serial_number, status").eq("lead_id", leadId);
+      return json({
+        contract,
+        signed: contract.status === "assinado" || !!contract.signed_at,
+        commissions: rules,
+        equipment: equipment ?? [],
+      });
+    }
+
+    if (action === "request_adjust") {
+      const note = String(body?.note ?? "").trim();
+      if (note.length < 5) return json({ error: "Descreva o ajuste desejado." }, 400);
+      const { data: contract } = await admin.from("kol_contracts")
+        .select("id, number, status").eq("lead_id", leadId).is("revoked_at", null)
+        .order("created_at", { ascending: false }).limit(1).maybeSingle();
+      if (!contract) return json({ error: "Nenhum contrato encontrado." }, 404);
+      if (contract.status === "assinado") return json({ error: "Contrato já assinado." }, 409);
+      const { error } = await admin.from("kol_contracts")
+        .update({ status: "ajuste_solicitado", adjust_notes: note, updated_at: new Date().toISOString() })
+        .eq("id", contract.id);
+      if (error) throw error;
+      await admin.rpc("fn_kol_log", {
+        _lead_id: leadId, _event_type: "kol_contract_adjust_requested", _entity_type: "kol_contract",
+        _entity_id: contract.id, _entity_name: contract.number, _value: null, _channel: "kol",
+        _data: { descricao: `Pedido de ajuste no contrato ${contract.number}`, ajuste: note, actor: "kol", dedupe_key: `kol_adjust:${contract.id}:${Date.now()}` },
+      });
+      return json({ ok: true });
+    }
+
+    if (action === "sign_contract") {
+      const checks = (body?.checks ?? {}) as Record<string, unknown>;
+      if (!checks.contrato || !checks.imagem || !checks.lgpd) {
+        return json({ error: "É preciso marcar as três confirmações de leitura antes de assinar." }, 400);
+      }
+      const { data: contract } = await admin.from("kol_contracts")
+        .select("id, number, status, body_rendered, signed_at").eq("lead_id", leadId).is("revoked_at", null)
+        .order("created_at", { ascending: false }).limit(1).maybeSingle();
+      if (!contract) return json({ error: "Nenhum contrato encontrado." }, 404);
+      if (contract.status === "assinado" || contract.signed_at) {
+        return json({ error: "Contrato já assinado.", already_signed: true }, 409);
+      }
+      const { data: prof } = await admin.from("lia_attendances")
+        .select("nome, prof_wa_ddi, prof_wa_number, telefone_normalized")
+        .eq("id", leadId).maybeSingle();
+      const profName = String(prof?.nome ?? "Profissional").trim();
+
+      const now = new Date();
+      const signedAt = now.toISOString();
+      const validUntil = new Date(now);
+      validUntil.setMonth(validUntil.getMonth() + CONTRACT_VALIDITY_MONTHS);
+      const fmtDate = (d: Date) => d.toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" }).replace(/\//g, "-");
+
+      // Numeração sequencial de KOL por assinatura de contrato
+      const { count: signedCount } = await admin.from("kol_contracts")
+        .select("id", { count: "exact", head: true })
+        .not("signed_at", "is", null).eq("is_test", false);
+      const kolSeq = (signedCount ?? 0) + 1;
+
+      // Marca assinatura (hash do texto aceito + metadados)
+      const textHashBuf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(contract.body_rendered ?? ""));
+      const textHash = Array.from(new Uint8Array(textHashBuf)).map((x) => x.toString(16).padStart(2, "0")).join("");
+      const phoneDigits = String(prof?.prof_wa_number ?? prof?.telefone_normalized ?? "").replace(/\D/g, "");
+      const { error: upErr } = await admin.from("kol_contracts").update({
+        status: "assinado",
+        signed_at: signedAt,
+        signed_user_agent: req.headers.get("user-agent") ?? null,
+        accepted_text_hash: textHash,
+        accepted_phone_last10: phoneDigits.slice(-10) || null,
+        acceptance_method: "portal_assinatura_digital",
+        image_term_signed_at: signedAt,
+        updated_at: signedAt,
+      }).eq("id", contract.id).neq("status", "assinado");
+      if (upErr) throw upErr;
+
+      // Gera o PDF do contrato assinado
+      const pdf = await PDFDocument.create();
+      const font = await pdf.embedFont(StandardFonts.Helvetica);
+      const fontBold = await pdf.embedFont(StandardFonts.HelveticaBold);
+      const pageW = 595.28, pageH = 841.89, margin = 56, lineH = 14;
+      const maxChars = 88;
+      let page = pdf.addPage([pageW, pageH]);
+      let y = pageH - margin;
+      const newPage = () => { page = pdf.addPage([pageW, pageH]); y = pageH - margin; };
+      const drawLine = (text: string, bold = false, size = 10) => {
+        if (y < margin + lineH) newPage();
+        page.drawText(text, { x: margin, y, size, font: bold ? fontBold : font, color: rgb(0.1, 0.1, 0.1) });
+        y -= lineH;
+      };
+      drawLine(`CONTRATO DE PARCERIA KOL — ${contract.number}`, true, 13);
+      drawLine(`Smart Dent | Fluxo Digital`, false, 10);
+      y -= lineH;
+      for (const rawLine of String(contract.body_rendered ?? "").split("\n")) {
+        let line = rawLine.replace(/\t/g, "  ");
+        if (!line.trim()) { y -= lineH / 2; if (y < margin) newPage(); continue; }
+        while (line.length > maxChars) {
+          let cut = line.lastIndexOf(" ", maxChars);
+          if (cut < 30) cut = maxChars;
+          drawLine(line.slice(0, cut));
+          line = line.slice(cut).trimStart();
+        }
+        drawLine(line);
+      }
+      y -= lineH;
+      drawLine(`Assinado digitalmente por: ${profName}`, true);
+      drawLine(`Data da assinatura: ${fmtDate(now)}   Validade do contrato: ${fmtDate(validUntil)}`);
+      drawLine(`Hash do texto aceito: ${textHash.slice(0, 32)}…`);
+      const pdfBytes = await pdf.save();
+
+      // Pasta no Drive: "KOL {seq} - {Nome}" dentro da pasta principal de KOLs
+      let pdfUrl: string | null = null;
+      let driveFolderUrl: string | null = null;
+      try {
+        const driveToken = await getDriveAccessToken();
+        const folderName = sanitizeFolderName(`KOL ${String(kolSeq).padStart(3, "0")} - ${profName}`);
+        const folderId = await driveEnsureFolder(driveToken, KOL_DRIVE_PARENT_FOLDER, folderName);
+        const pdfName = sanitizeFolderName(`Contrato KOL - ${profName} - ${fmtDate(now)} - Validade ${fmtDate(validUntil)}`) + ".pdf";
+        const fileId = await driveUploadFile({
+          token: driveToken, folderId, name: pdfName,
+          content: new Uint8Array(pdfBytes), mimeType: "application/pdf", overwriteByName: true,
+        });
+        pdfUrl = await driveGetWebViewLink(driveToken, fileId);
+        driveFolderUrl = `https://drive.google.com/drive/folders/${folderId}`;
+        await admin.from("kol_contracts").update({ pdf_url: pdfUrl, updated_at: new Date().toISOString() }).eq("id", contract.id);
+      } catch (driveErr) {
+        // Assinatura já registrada; falha de Drive não pode desfazer o aceite
+        console.error("[professional-course-portal] Drive contrato", driveErr);
+      }
+
+      await admin.rpc("fn_kol_log", {
+        _lead_id: leadId, _event_type: "kol_contract_signed", _entity_type: "kol_contract",
+        _entity_id: contract.id, _entity_name: contract.number, _value: null, _channel: "kol",
+        _data: {
+          descricao: `Contrato ${contract.number} assinado digitalmente pelo portal`,
+          kol_seq: kolSeq, pdf_url: pdfUrl, drive_folder: driveFolderUrl,
+          validade: validUntil.toISOString(), actor: "kol",
+          dedupe_key: `kol_signed:${contract.id}`,
+        },
+      });
+      return json({ ok: true, signed_at: signedAt, pdf_url: pdfUrl, drive_folder_url: driveFolderUrl, kol_seq: kolSeq });
     }
 
     return json({ error: "unknown_action" }, 400);
