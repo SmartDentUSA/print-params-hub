@@ -472,12 +472,14 @@ Deno.serve(async (req) => {
       const couponCodes = coupons.map((c) => String(c.code || "").toUpperCase()).filter(Boolean);
       const rules: any[] = Array.isArray(lead?.prof_kol_commissions) ? lead.prof_kol_commissions : [];
 
-      // Indicações: leads canônicos que vieram dos formulários de indicação do profissional
+      // Indicações: leads canônicos que vieram dos formulários de indicação do profissional.
+      // A ingestão grava o NOME do formulário em lia_attendances.form_name (não o id).
       let indicacoes: { id: string; nome: string | null; created_at: string }[] = [];
-      if (formIds.length) {
+      const formNames = formRefs.map((f) => f?.name).filter(Boolean);
+      if (formNames.length) {
         const { data } = await admin.from("lia_attendances")
           .select("id, nome, created_at")
-          .in("form_id", formIds).is("merged_into", null)
+          .in("form_name", formNames).is("merged_into", null)
           .order("created_at", { ascending: false }).limit(200);
         indicacoes = data ?? [];
       }
