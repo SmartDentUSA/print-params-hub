@@ -471,37 +471,59 @@ Deno.serve(async (req) => {
       const couponCodes = coupons.map((c) => String(c.code || "").toUpperCase()).filter(Boolean);
       const rules: any[] = Array.isArray(lead?.prof_kol_commissions) ? lead.prof_kol_commissions : [];
 
-      // Indicações: leads canônicos que vieram dos formulários de indicação do profissional.
-      // A ingestão grava o NOME do formulário em lia_attendances.form_name (não o id).
-      let indicacoes: { id: string; nome: string | null; created_at: string }[] = [];
+      // Indicações: mesma fonte da ficha do profissional (fn_kol_form_leads casa
+      // form_name OU a chave do formulário em form_data, resolvendo leads unificados).
       const formNames = formRefs.map((f) => f?.name).filter(Boolean);
-      if (formNames.length) {
+      const formIds = formRefs.map((f) => f?.id).filter(Boolean);
+      let slugs: string[] = [];
+      if (formIds.length) {
+        const { data: formRows } = await admin.from("smartops_forms").select("slug").in("id", formIds);
+        slugs = (formRows ?? []).map((f: any) => f.slug).filter(Boolean);
+      }
+      const allNames = [...new Set([...formNames, ...slugs])];
+      let leadIds: string[] = [];
+      if (allNames.length) {
+        const { data: rpcRows } = await admin.rpc("fn_kol_form_leads", { _names: allNames });
+        leadIds = [...new Set((rpcRows ?? []).map((r: any) => String(r.lead_id)))];
+      }
+      let indicacoes: { id: string; nome: string | null; created_at: string }[] = [];
+      if (leadIds.length) {
         const { data } = await admin.from("lia_attendances")
           .select("id, nome, created_at")
-          .in("form_name", formNames).is("merged_into", null)
-          .order("created_at", { ascending: false }).limit(200);
+          .in("id", leadIds).is("merged_into", null)
+          .order("created_at", { ascending: false }).limit(500);
         indicacoes = data ?? [];
       }
 
-      // Vendas CRM: negócios ganhos dos leads indicados
+      // Vendas CRM: negócios ganhos dos leads indicados (mesma regra da ficha)
       let vendas: { origem: string; nome: string | null; valor: number; data: string | null }[] = [];
+      let emNegociacao = { quantidade: 0, valor: 0 };
       if (indicacoes.length) {
+        const ids2 = indicacoes.map((i) => i.id);
         const { data: deals } = await admin.from("deals")
-          .select("lead_id, value, closed_at")
-          .in("lead_id", indicacoes.map((i) => i.id)).eq("status", "ganha");
+          .select("lead_id, value, closed_at, status, is_deleted")
+          .in("lead_id", ids2);
         const nomeByLead = new Map(indicacoes.map((i) => [i.id, i.nome]));
-        for (const d of deals ?? []) {
-          vendas.push({ origem: "indicacao", nome: nomeByLead.get(d.lead_id) ?? null, valor: Number(d.value) || 0, data: d.closed_at });
+        for (const d of (deals ?? []).filter((d: any) => !d.is_deleted)) {
+          if (d.status === "ganha") {
+            vendas.push({ origem: "indicacao", nome: nomeByLead.get(d.lead_id) ?? null, valor: Number(d.value) || 0, data: d.closed_at });
+          } else if (d.status === "aberta") {
+            emNegociacao.quantidade += 1;
+            emNegociacao.valor += Number(d.value) || 0;
+          }
         }
       }
 
-      // Vendas por cupom na Loja Integrada
+      // Vendas por cupom na Loja Integrada (mesma RPC agregada da ficha)
       if (couponCodes.length) {
-        const { data: orders } = await admin.from("loja_integrada_orders")
-          .select("valor_total, data_pedido, cupom_codigo")
-          .in("cupom_codigo", couponCodes);
-        for (const o of orders ?? []) {
-          vendas.push({ origem: "cupom", nome: String(o.cupom_codigo ?? "").toUpperCase(), valor: Number(o.valor_total) || 0, data: o.data_pedido });
+        for (const code of couponCodes) {
+          const { data: cRows } = await admin.rpc("fn_kol_coupon_sales", { _code: code, _from: null, _to: null });
+          const r0 = (cRows ?? [])[0] ?? {};
+          const receitaCupom = Number(r0.receita) || 0;
+          const vendasCupom = Number(r0.vendas) || 0;
+          if (vendasCupom > 0) {
+            vendas.push({ origem: "cupom", nome: code, valor: receitaCupom, data: null });
+          }
         }
       }
 
