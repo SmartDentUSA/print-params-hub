@@ -33,6 +33,7 @@ import PortalOwnCourseStats from "@/components/smartops/courses/portal/PortalOwn
 import PortalSocialStats from "@/components/smartops/courses/portal/PortalSocialStats";
 import PortalPerformance from "@/components/smartops/courses/portal/PortalPerformance";
 import PortalCommissionStats from "@/components/smartops/courses/portal/PortalCommissionStats";
+import PortalMyData, { type PortalProfile } from "@/components/smartops/courses/portal/PortalMyData";
 import { useClientPresence } from "@/hooks/useClientPresence";
 import { PushOptInBanner } from "@/components/PushOptInBanner";
 import {
@@ -48,24 +49,7 @@ const FN_URL = "https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/profession
 const SMARTDENT_LOGO_URL =
   "https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/h7stblp3qxn_1760720051743.png";
 
-interface ProfileState {
-  id: string;
-  nome: string | null;
-  email: string | null;
-  prof_photo_url: string | null;
-  prof_cro: string | null;
-  prof_mini_cv: string | null;
-  prof_wa_ddi: string | null;
-  prof_wa_number: string | null;
-  instagram: string | null;
-  prof_tiktok: string | null;
-  prof_youtube: string | null;
-  prof_site: string | null;
-  prof_city: string | null;
-  prof_state: string | null;
-  area_atuacao: string | null;
-  especialidade: string | null;
-}
+type ProfileState = PortalProfile;
 
 type SectionKey = "dados" | "contrato" | "comissao" | "visao" | "colaboracao" | "social" | "cursos";
 
@@ -320,35 +304,7 @@ export default function ProfessionalCoursePortal() {
             {section === "dados" && (
               <section className="space-y-4">
                 <h2 className="text-lg font-semibold">Meus dados</h2>
-                <Card>
-                  <CardHeader className="flex-row items-center justify-between space-y-0">
-                    <CardTitle className="text-base">Perfil profissional</CardTitle>
-                    {editProfile ? (
-                      <Button size="sm" onClick={saveProfile} disabled={saving}>
-                        {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />} Salvar
-                      </Button>
-                    ) : (
-                      <Button size="sm" variant="outline" onClick={() => setEditProfile(true)}>
-                        <Pencil className="w-4 h-4 mr-2" /> Editar
-                      </Button>
-                    )}
-                  </CardHeader>
-                  <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                    <div><Label>Nome</Label><Input disabled={!editProfile} value={profile.nome ?? ""} onChange={(e) => setProfile({ ...profile, nome: e.target.value })} /></div>
-                    <div><Label>E-mail</Label><Input disabled value={profile.email ?? ""} /></div>
-                    <div><Label>CRO</Label><Input disabled={!editProfile} value={profile.prof_cro ?? ""} onChange={(e) => setProfile({ ...profile, prof_cro: e.target.value })} /></div>
-                    <div><Label>Área de atuação</Label><Input disabled={!editProfile} value={profile.area_atuacao ?? ""} onChange={(e) => setProfile({ ...profile, area_atuacao: e.target.value })} /></div>
-                    <div><Label>Especialidade</Label><Input disabled={!editProfile} value={profile.especialidade ?? ""} onChange={(e) => setProfile({ ...profile, especialidade: e.target.value })} /></div>
-                    <div><Label>WhatsApp</Label><Input disabled={!editProfile} value={profile.prof_wa_number ?? ""} onChange={(e) => setProfile({ ...profile, prof_wa_number: e.target.value })} /></div>
-                    <div><Label>Instagram</Label><Input disabled={!editProfile} value={profile.instagram ?? ""} onChange={(e) => setProfile({ ...profile, instagram: e.target.value })} /></div>
-                    <div><Label>TikTok</Label><Input disabled={!editProfile} value={profile.prof_tiktok ?? ""} onChange={(e) => setProfile({ ...profile, prof_tiktok: e.target.value })} /></div>
-                    <div><Label>YouTube</Label><Input disabled={!editProfile} value={profile.prof_youtube ?? ""} onChange={(e) => setProfile({ ...profile, prof_youtube: e.target.value })} /></div>
-                    <div><Label>Cidade</Label><Input disabled={!editProfile} value={profile.prof_city ?? ""} onChange={(e) => setProfile({ ...profile, prof_city: e.target.value })} /></div>
-                    <div><Label>Estado</Label><Input disabled={!editProfile} value={profile.prof_state ?? ""} onChange={(e) => setProfile({ ...profile, prof_state: e.target.value })} /></div>
-                    <div><Label>Site</Label><Input disabled={!editProfile} value={profile.prof_site ?? ""} onChange={(e) => setProfile({ ...profile, prof_site: e.target.value })} /></div>
-                    <div className="md:col-span-3"><Label>Mini CV</Label><Textarea rows={3} disabled={!editProfile} value={profile.prof_mini_cv ?? ""} onChange={(e) => setProfile({ ...profile, prof_mini_cv: e.target.value })} /></div>
-                  </CardContent>
-                </Card>
+                <PortalMyData profile={profile} onProfileChange={(p) => setProfile(p)} call={call} />
               </section>
             )}
 
