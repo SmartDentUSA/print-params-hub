@@ -1,0 +1,2 @@
+ALTER TABLE public.knowledge_contents ADD COLUMN IF NOT EXISTS hidden_from_listing boolean NOT NULL DEFAULT false;
+UPDATE public.knowledge_contents SET hidden_from_listing = true WHERE id IN ('49c13529-797e-408c-b22e-aff405bbd440','90654cc4-ae78-4acd-9c19-11fd37ad3025','1053168d-2b09-4697-8958-c918a182d160','fbbba439-9cf6-4690-92a3-53378cb30a2d','adb6c4b8-055d-4cdc-99a3-05435f28e3f2','dce0af78-bbe8-4a6e-9282-18f17a5c0a50','410b9c6e-a07c-4033-b0c7-c490144cff42','2688f843-c540-4fb0-9a54-ba91b8d0d16f');

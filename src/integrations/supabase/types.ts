@@ -8417,6 +8417,7 @@ export type Database = {
           geo_state_code: string | null
           hero_audio_label: string | null
           hero_audio_url: string | null
+          hidden_from_listing: boolean
           icon_color: string | null
           id: string
           is_ebook: boolean
@@ -8485,6 +8486,7 @@ export type Database = {
           geo_state_code?: string | null
           hero_audio_label?: string | null
           hero_audio_url?: string | null
+          hidden_from_listing?: boolean
           icon_color?: string | null
           id?: string
           is_ebook?: boolean
@@ -8553,6 +8555,7 @@ export type Database = {
           geo_state_code?: string | null
           hero_audio_label?: string | null
           hero_audio_url?: string | null
+          hidden_from_listing?: boolean
           icon_color?: string | null
           id?: string
           is_ebook?: boolean

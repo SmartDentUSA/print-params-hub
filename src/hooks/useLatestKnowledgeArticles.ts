@@ -56,6 +56,7 @@ export const useLatestKnowledgeArticles = (limit: number = 12): UseLatestKnowled
             knowledge_categories(name, letter)
           `)
           .eq('active', true)
+          .not('hidden_from_listing', 'is', true)
           .not('is_ebook', 'is', true);
 
         if (articlesError) throw articlesError;
