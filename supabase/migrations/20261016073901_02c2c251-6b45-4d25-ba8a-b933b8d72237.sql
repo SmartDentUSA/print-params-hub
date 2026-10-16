@@ -1,0 +1,1 @@
+ALTER TABLE public.lia_attendances ADD COLUMN IF NOT EXISTS prof_specialist_team_member_id uuid;

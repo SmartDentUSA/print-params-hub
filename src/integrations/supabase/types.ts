@@ -12640,6 +12640,7 @@ export type Database = {
           prof_rating_quality: number | null
           prof_rating_value: number | null
           prof_site: string | null
+          prof_specialist_team_member_id: string | null
           prof_state: string | null
           prof_street: string | null
           prof_tiktok: string | null
@@ -13275,6 +13276,7 @@ export type Database = {
           prof_rating_quality?: number | null
           prof_rating_value?: number | null
           prof_site?: string | null
+          prof_specialist_team_member_id?: string | null
           prof_state?: string | null
           prof_street?: string | null
           prof_tiktok?: string | null
@@ -13910,6 +13912,7 @@ export type Database = {
           prof_rating_quality?: number | null
           prof_rating_value?: number | null
           prof_site?: string | null
+          prof_specialist_team_member_id?: string | null
           prof_state?: string | null
           prof_street?: string | null
           prof_tiktok?: string | null
@@ -39331,6 +39334,7 @@ export type Database = {
           prof_rating_quality: number | null
           prof_rating_value: number | null
           prof_site: string | null
+          prof_specialist_team_member_id: string | null
           prof_state: string | null
           prof_street: string | null
           prof_tiktok: string | null
