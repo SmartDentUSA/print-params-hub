@@ -218,8 +218,8 @@ export async function kolPerformance(
     for (let i = 0; i < allLeads.length; i += 300) {
       const chunk = allLeads.slice(i, i + 300);
       const { data: infos } = await admin.from("lia_attendances")
-        .select("id, nome, telefone").in("id", chunk);
-      for (const l of infos ?? []) leadInfo.set(String(l.id), { nome: l.nome ?? null, telefone: l.telefone ?? null });
+        .select("id, nome, telefone_raw, telefone_normalized").in("id", chunk);
+      for (const l of infos ?? []) leadInfo.set(String(l.id), { nome: l.nome ?? null, telefone: l.telefone_normalized ?? l.telefone_raw ?? null });
     }
 
     const wonByLead: Record<string, number> = {};
