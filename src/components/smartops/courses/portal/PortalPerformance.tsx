@@ -277,6 +277,7 @@ export default function PortalPerformance({ token }: { token: string }) {
                     <th className="px-2 py-2 text-left">Origem</th>
                     <th className="px-2 py-2 text-left">Produto ou solução</th>
                     <th className="px-2 py-2 text-right">Valor total</th>
+                    <th className="px-2 py-2 text-right">% Comissão</th>
                     <th className="px-2 py-2 text-right">Comissão</th>
                     <th className="px-2 py-2 text-left">Vendedora</th>
                   </tr>
@@ -290,6 +291,7 @@ export default function PortalPerformance({ token }: { token: string }) {
                       <td className="px-2 py-2 text-xs">{b.origem}</td>
                       <td className="px-2 py-2 text-xs">{b.produto ?? "—"}</td>
                       <td className="px-2 py-2 text-right font-medium">{money(b.valor)}</td>
+                      <td className="px-2 py-2 text-right text-xs">{b.comissao_pct != null ? `${b.comissao_pct.toLocaleString("pt-BR", { maximumFractionDigits: 2 })}%` : "—"}</td>
                       <td className="px-2 py-2 text-right">{b.comissao != null ? money(b.comissao) : "—"}</td>
                       <td className="px-2 py-2 text-xs">{b.vendedora ?? "—"}</td>
                     </tr>
