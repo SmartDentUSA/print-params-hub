@@ -31,7 +31,7 @@ import KolContractPortalCard from "@/components/smartops/courses/KolContractPort
 import PortalCollabCourseStats from "@/components/smartops/courses/portal/PortalCollabCourseStats";
 import PortalOwnCourseStats from "@/components/smartops/courses/portal/PortalOwnCourseStats";
 import PortalSocialStats from "@/components/smartops/courses/portal/PortalSocialStats";
-import PortalPartnershipStats from "@/components/smartops/courses/portal/PortalPartnershipStats";
+import PortalPerformance from "@/components/smartops/courses/portal/PortalPerformance";
 import PortalCommissionStats from "@/components/smartops/courses/portal/PortalCommissionStats";
 import { useClientPresence } from "@/hooks/useClientPresence";
 import { PushOptInBanner } from "@/components/PushOptInBanner";
@@ -73,7 +73,7 @@ const SECTIONS: { key: SectionKey; label: string; icon: typeof BarChart3 }[] = [
   { key: "dados", label: "Meus dados", icon: User },
   { key: "contrato", label: "Contrato de parceria", icon: FileText },
   { key: "comissao", label: "Comissão vigente", icon: Percent },
-  { key: "visao", label: "Visão geral", icon: BarChart3 },
+  { key: "visao", label: "Performance", icon: BarChart3 },
   { key: "colaboracao", label: "Cursos Smart Dent", icon: Handshake },
   { key: "social", label: "Engajamento social", icon: Share2 },
   { key: "cursos", label: "Meus cursos", icon: BookOpen },
@@ -299,7 +299,7 @@ export default function ProfessionalCoursePortal() {
             {section === "visao" && (
               <section className="space-y-4">
                 <h2 className="text-lg font-semibold">Visão geral</h2>
-                <PortalPartnershipStats call={call} />
+                <PortalPerformance token={token} />
               </section>
             )}
 

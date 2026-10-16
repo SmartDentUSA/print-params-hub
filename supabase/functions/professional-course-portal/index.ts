@@ -8,6 +8,8 @@ import {
   sanitizeFolderName,
 } from "../_shared/drive.ts";
 
+import { kolPerformance } from "./performance.ts";
+
 // Pasta principal dos KOLs no Google Drive (contratos assinados)
 const KOL_DRIVE_PARENT_FOLDER = "16jeyfsU5dhzbYvYpk0d7d8_HFe_HnC9S";
 const CONTRACT_VALIDITY_MONTHS = 12;
@@ -734,6 +736,13 @@ Deno.serve(async (req) => {
         },
       });
       return json({ ok: true, signed_at: signedAt, pdf_url: pdfUrl, drive_folder_url: driveFolderUrl, kol_seq: kolSeq });
+    }
+
+    // ---- Performance da parceria (mesma lógica da ficha do profissional, com filtro de período) ----
+    if (action === "performance") {
+      const from = /^\d{4}-\d{2}-\d{2}$/.test(String(body?.from ?? "")) ? String(body.from) : null;
+      const to = /^\d{4}-\d{2}-\d{2}$/.test(String(body?.to ?? "")) ? String(body.to) : null;
+      return json(await kolPerformance(admin, leadId, from, to));
     }
 
     return json({ error: "unknown_action" }, 400);
