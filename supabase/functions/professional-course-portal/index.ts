@@ -49,6 +49,8 @@ const PROFILE_FIELDS = [
   "prof_wa_ddi", "prof_wa_number", "prof_course_wa_ddi", "prof_course_wa_number",
   "instagram", "prof_tiktok", "prof_youtube", "prof_site", "prof_city", "prof_state",
   "area_atuacao", "especialidade",
+  "prof_cep", "pessoa_endereco", "pessoa_cpf", "empresa_cnpj",
+  "prof_qualifications", "prof_university_roles",
 ] as const;
 
 const NUMERIC = new Set(["price_brl", "promo_price_brl", "installments", "workload_hours", "duration_days", "max_students", "enrolled_count"]);
@@ -120,7 +122,7 @@ Deno.serve(async (req) => {
       const [{ data: prof }, { data: courses }] = await Promise.all([
         admin
           .from("lia_attendances")
-          .select("id, nome, email, area_atuacao, especialidade, prof_photo_url, prof_cro, prof_mini_cv, prof_course_platform, prof_wa_ddi, prof_wa_number, prof_course_wa_ddi, prof_course_wa_number, instagram, prof_tiktok, prof_youtube, prof_site, prof_city, prof_state")
+          .select("id, nome, email, area_atuacao, especialidade, prof_photo_url, prof_cro, prof_mini_cv, prof_course_platform, prof_wa_ddi, prof_wa_number, prof_course_wa_ddi, prof_course_wa_number, instagram, prof_tiktok, prof_youtube, prof_site, prof_city, prof_state, prof_cep, pessoa_endereco, pessoa_cpf, empresa_cnpj, prof_qualifications, prof_university_roles")
           .eq("id", leadId)
           .maybeSingle(),
         admin
