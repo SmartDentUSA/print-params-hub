@@ -308,14 +308,9 @@ serve(async (req) => {
         imagem: { registros_anteriores: "—", prazo_retirada_dias: 30 },
       };
 
-      let bodyRendered = render(tpl.body_md, ctx);
-      if (equipamentos.length) {
-        bodyRendered = bodyRendered.replace("R$ .", `R$ ${totalValue.toFixed(2)}`);
-        bodyRendered = bodyRendered.replace("R$ {{equipamentos.total_value}}", `R$ ${totalValue.toFixed(2)}`);
-      }
-
-      // Substitui total_value (path com ponto dentro de #if equipamentos)
-      bodyRendered = bodyRendered.replace(/\{\{equipamentos\.total_value\}\}/g, totalValue.toFixed(2));
+      // total_value é resolvido antes do render (path sobre array não é alcançável pelo lookup)
+      const tplBody = tpl.body_md.replace(/\{\{equipamentos\.total_value\}\}/g, totalValue.toFixed(2));
+      const bodyRendered = render(tplBody, ctx);
 
       const { data: inserted, error: insErr } = await admin.from("kol_contracts").insert({
         lead_id: leadId,
