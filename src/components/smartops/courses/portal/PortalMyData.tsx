@@ -70,6 +70,7 @@ export default function PortalMyData({ profile, onProfileChange, call }: Props) 
   const { toast } = useToast();
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [groupCopied, setGroupCopied] = useState(false);
   const [contractData, setContractData] = useState<ContractDataState>({
     person_type: "",
     legal_name: "",
