@@ -1,6 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { BarChart3, Loader2, Ticket } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { BarChart3, Loader2, Ticket, Trash2 } from "lucide-react";
 import { useKolPerformance, type KolCouponRule, type KolProductRule } from "@/hooks/useKolPerformance";
 
 const money = (v: number) =>
@@ -12,10 +13,11 @@ interface Props {
   formIds: { id: string; name: string }[];
   coupons: KolCouponRule[];
   commissions?: KolProductRule[];
+  onDeleteCoupon?: (code: string) => void;
 }
 
 /** Performance do KOL: formulários de indicação (leads, conversão, receita) e cupons ativos. */
-export default function ProfessionalKolPerformance({ formIds, coupons, commissions = [] }: Props) {
+export default function ProfessionalKolPerformance({ formIds, coupons, commissions = [], onDeleteCoupon }: Props) {
   const perf = useKolPerformance(formIds, coupons, commissions);
   const commissionOf = (code: string) => {
     const r = (coupons ?? []).find((c) => (c.code || "").trim().toUpperCase() === code.toUpperCase());
@@ -133,6 +135,7 @@ export default function ProfessionalKolPerformance({ formIds, coupons, commissio
                     <th className="px-2 py-2 text-right">Receita gerada</th>
                     <th className="px-2 py-2 text-right">% comissão</th>
                     <th className="px-2 py-2 text-right">Comissão KOL</th>
+                    {onDeleteCoupon && <th className="px-2 py-2" />}
                   </tr>
                 </thead>
                 <tbody>
@@ -148,6 +151,13 @@ export default function ProfessionalKolPerformance({ formIds, coupons, commissio
                       <td className="px-2 py-2 text-right font-medium">
                         {commissionOf(c.cupom) != null ? money((c.receita * (commissionOf(c.cupom) as number)) / 100) : "—"}
                       </td>
+                      {onDeleteCoupon && (
+                        <td className="px-2 py-2 text-right">
+                          <Button size="icon" variant="ghost" title="Excluir cupom" onClick={() => onDeleteCoupon(c.cupom)}>
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </td>
+                      )}
                     </tr>
                   ))}
                 </tbody>
