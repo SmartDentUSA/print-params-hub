@@ -59,6 +59,7 @@ interface NegotiatingRow {
   produto: string | null;
   valor: number;
   etapa: string | null;
+  funil: string | null;
 }
 
 export async function kolPerformance(
@@ -263,7 +264,7 @@ export async function kolPerformance(
     for (let i = 0; i < allLeads.length; i += 300) {
       const chunk = allLeads.slice(i, i + 300);
       const { data: deals } = await admin.from("deals")
-        .select("id, piperun_deal_id, lead_id, value, status, is_deleted, closed_at, owner_name, stage_name, product, deal_title, origin_name")
+        .select("id, piperun_deal_id, lead_id, value, status, is_deleted, closed_at, owner_name, stage_name, pipeline_name, product, deal_title, origin_name")
         .in("lead_id", chunk);
       // Só contam negócios cuja origem é um dos formulários de indicação do KOL
       const alive = (deals ?? []).filter((d: any) =>
@@ -285,6 +286,7 @@ export async function kolPerformance(
           produto: d.product ?? d.deal_title ?? null,
           valor: Number(d.value ?? 0),
           etapa: d.stage_name ?? null,
+          funil: d.pipeline_name ?? null,
         });
       }
 
