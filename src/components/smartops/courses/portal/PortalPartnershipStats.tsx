@@ -8,6 +8,7 @@ interface PartnershipData {
   vendas: number;
   receita: number;
   conversao: number;
+  em_negociacao?: { quantidade: number; valor: number };
   formularios: string[];
   cupons: string[];
   comissao_vigente: { produto: string; percentual: number | null; canal: string }[];
@@ -49,12 +50,13 @@ export default function PortalPartnershipStats({
           <p className="text-xs text-muted-foreground">Não foi possível carregar os dados da parceria.</p>
         ) : (
           <>
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
+            <div className="grid grid-cols-2 lg:grid-cols-5 gap-2">
               {[
                 ["Indicações", d.indicacoes],
                 ["Vendas", d.vendas],
                 ["Conversão", `${String(d.conversao).replace(".", ",")}%`],
                 ["Receita gerada", BRL(d.receita)],
+                ["Em negociação", d.em_negociacao ? `${d.em_negociacao.quantidade} · ${BRL(d.em_negociacao.valor)}` : "—"],
               ].map(([label, v]) => (
                 <div key={String(label)} className="rounded-md border p-3 text-center">
                   <div className="text-lg font-semibold">{v}</div>
