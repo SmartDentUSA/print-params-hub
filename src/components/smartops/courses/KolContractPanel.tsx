@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
+import { ContractDocument } from "./ContractDocument";
 import { Loader2, FileText, Send, Plus, Eye, Ban, RefreshCw } from "lucide-react";
 
 interface TeamMember { id: string; nome_completo: string | null; evolution_instance_name: string | null; evolution_phone: string | null; role: string | null }
