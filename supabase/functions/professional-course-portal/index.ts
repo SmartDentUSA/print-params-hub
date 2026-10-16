@@ -46,6 +46,7 @@ const PROFILE_FIELDS = [
   "nome", "prof_cro", "prof_photo_url", "prof_mini_cv", "prof_course_platform",
   "prof_wa_ddi", "prof_wa_number", "prof_course_wa_ddi", "prof_course_wa_number",
   "instagram", "prof_tiktok", "prof_youtube", "prof_site", "prof_city", "prof_state",
+  "area_atuacao", "especialidade",
 ] as const;
 
 const NUMERIC = new Set(["price_brl", "promo_price_brl", "installments", "workload_hours", "duration_days", "max_students", "enrolled_count"]);
