@@ -12376,6 +12376,7 @@ export type Database = {
           itens_proposta_crm: string | null
           itens_proposta_parsed: Json | null
           kol_phone_key: string | null
+          kol_whatsapp_group_link: string | null
           last_automated_action_at: string | null
           last_deal_date: string | null
           last_deal_value: number | null
@@ -13010,6 +13011,7 @@ export type Database = {
           itens_proposta_crm?: string | null
           itens_proposta_parsed?: Json | null
           kol_phone_key?: string | null
+          kol_whatsapp_group_link?: string | null
           last_automated_action_at?: string | null
           last_deal_date?: string | null
           last_deal_value?: number | null
@@ -13644,6 +13646,7 @@ export type Database = {
           itens_proposta_crm?: string | null
           itens_proposta_parsed?: Json | null
           kol_phone_key?: string | null
+          kol_whatsapp_group_link?: string | null
           last_automated_action_at?: string | null
           last_deal_date?: string | null
           last_deal_value?: number | null
@@ -39054,6 +39057,7 @@ export type Database = {
           itens_proposta_crm: string | null
           itens_proposta_parsed: Json | null
           kol_phone_key: string | null
+          kol_whatsapp_group_link: string | null
           last_automated_action_at: string | null
           last_deal_date: string | null
           last_deal_value: number | null
