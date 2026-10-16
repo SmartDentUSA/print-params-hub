@@ -22,6 +22,7 @@ import {
   BookOpen,
   Handshake,
   Menu,
+  Percent,
   X,
 } from "lucide-react";
 import ProfessionalCourseForm from "@/components/smartops/courses/ProfessionalCourseForm";
@@ -31,6 +32,7 @@ import PortalCollabCourseStats from "@/components/smartops/courses/portal/Portal
 import PortalOwnCourseStats from "@/components/smartops/courses/portal/PortalOwnCourseStats";
 import PortalSocialStats from "@/components/smartops/courses/portal/PortalSocialStats";
 import PortalPartnershipStats from "@/components/smartops/courses/portal/PortalPartnershipStats";
+import PortalCommissionStats from "@/components/smartops/courses/portal/PortalCommissionStats";
 import { useClientPresence } from "@/hooks/useClientPresence";
 import { PushOptInBanner } from "@/components/PushOptInBanner";
 import {
