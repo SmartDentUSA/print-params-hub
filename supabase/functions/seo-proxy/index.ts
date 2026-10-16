@@ -172,7 +172,7 @@ function buildEntityIndexJsonLd(text: string, knowledgeCtx?: KnowledgeContext): 
   if (knowledgeCtx) {
     // Products as Product nodes
     knowledgeCtx.products.forEach(p => {
-      mentions.push({ "@type": "Product", "name": p.name, "description": p.description || '', "url": `${BASE_URL}/produtos/${p.slug}` });
+      mentions.push({ "@type": "Thing", "additionalType": "https://schema.org/Product", "name": p.name, "description": p.description || '', "url": `${BASE_URL}/produtos/${p.slug}` });
     });
     // Authors as Person nodes
     knowledgeCtx.authors.forEach(a => {
@@ -381,7 +381,8 @@ function buildKnowledgeGraphJsonLd(knowledgeCtx: KnowledgeContext): string {
   
   knowledgeCtx.products.slice(0, 3).forEach(p => {
     nodes.push({
-      "@type": "Product",
+      "@type": "Thing",
+      "additionalType": "https://schema.org/Product",
       "name": p.name,
       "url": `${BASE_URL}/produtos/${p.slug}`,
       "brand": { "@type": "Brand", "name": "Smart Dent" },
@@ -1246,7 +1247,8 @@ async function generateModelHTML(brandSlug: string, modelSlug: string, supabase:
     "@context": "https://schema.org",
     "@graph": [
       {
-        "@type": "Product",
+        "@type": "Thing",
+        "additionalType": "https://schema.org/Product",
         "name": escapeHtml(model.name),
         "description": escapeHtml(model.notes) || `Impressora 3D ${escapeHtml(model.name)}`,
         "brand": { "@type": "Brand", "name": escapeHtml((model.brands as any).name) },
@@ -1354,20 +1356,21 @@ async function generateResinHTML(brandSlug: string, modelSlug: string, resinSlug
     "@context": "https://schema.org",
     "@graph": [
       {
-        "@type": "Product",
+        "@type": Number(resinData?.price) > 0 ? "Product" : "Thing",
+        ...(!(Number(resinData?.price) > 0) && { "additionalType": "https://schema.org/Product" }),
         "name": escapeHtml(resinName),
         "description": resinData?.description || `Resina ${escapeHtml(resinName)} com parâmetros otimizados`,
         "brand": { "@type": "Brand", "name": escapeHtml(resinManufacturer) },
         "image": ogImage,
-        "offers": {
+        ...(Number(resinData?.price) > 0 && { "offers": {
           "@type": "Offer",
           "availability": "https://schema.org/InStock",
           "url": canonicalUrl,
-          "price": resinData?.price || undefined,
-          "priceCurrency": resinData?.price ? "BRL" : undefined,
+          "price": Number(resinData.price),
+          "priceCurrency": "BRL",
           "itemCondition": "https://schema.org/NewCondition",
           ...merchantOfferExtras()
-        },
+        } }),
         "additionalProperty": [
           { "@type": "PropertyValue", "name": "Layer Height", "value": `${params.layer_height}mm` },
           { "@type": "PropertyValue", "name": "Cure Time", "value": `${params.cure_time}s` },
@@ -1492,12 +1495,12 @@ async function generateSystemACatalogHTML(
     "@context": "https://schema.org",
     "@graph": [
       {
-        "@type": "Product",
+        "@type": (Number(item.promo_price || item.price) > 0 || (item.rating && item.review_count > 0)) ? "Product" : "Thing",
         "name": item.name,
         "description": item.description,
         "image": ogImage,
         "brand": { "@type": "Brand", "name": "Smart Dent" },
-        "offers": { "@type": "Offer", "url": canonicalUrl, "priceCurrency": item.currency || "BRL", "price": item.promo_price || item.price || undefined, "availability": "https://schema.org/InStock", "itemCondition": "https://schema.org/NewCondition", ...merchantOfferExtras() },
+        ...(Number(item.promo_price || item.price) > 0 && { "offers": { "@type": "Offer", "url": canonicalUrl, "priceCurrency": item.currency || "BRL", "price": Number(item.promo_price || item.price), "availability": "https://schema.org/InStock", "itemCondition": "https://schema.org/NewCondition", ...merchantOfferExtras() } }),
         ...(item.rating && item.review_count > 0 && { "aggregateRating": { "@type": "AggregateRating", "ratingValue": item.rating, "reviewCount": item.review_count, "bestRating": 5, "worstRating": 1 } }),
         ...(faqs.length > 0 && { "mainEntity": faqs.map((faq: any) => ({ "@type": "Question", "name": faq.question, "acceptedAnswer": { "@type": "Answer", "text": faq.answer } })) })
       },
@@ -1517,7 +1520,7 @@ async function generateSystemACatalogHTML(
         "author": { "@type": "Person", "name": item.name, "jobTitle": extraData.specialty, "address": extraData.location ? { "@type": "PostalAddress", "addressLocality": extraData.location } : undefined },
         "reviewBody": item.description,
         "datePublished": item.created_at,
-        ...(videos.length > 0 && { "video": { "@type": "VideoObject", "name": videos[0].title || item.name, "description": item.description, "thumbnailUrl": videos[0].thumbnail_url || ogImage, "uploadDate": item.created_at, "contentUrl": videos[0].url, "embedUrl": videos[0].embed_url || videos[0].url, "duration": videos[0].duration || "PT5M" } })
+        ...(videos.length > 0 && { "video": { "@type": "VideoObject", "name": videos[0].title || item.name, "description": item.description, "thumbnailUrl": videos[0].thumbnail_url || ogImage, "uploadDate": new Date(videos[0].created_at || item.created_at || item.updated_at).toISOString(), "contentUrl": videos[0].url, "embedUrl": videos[0].embed_url || videos[0].url, "duration": videos[0].duration || "PT5M" } })
       },
       { "@type": "BreadcrumbList", "itemListElement": [
         { "@type": "ListItem", "position": 1, "name": "Início", "item": baseUrl },
@@ -1850,7 +1853,7 @@ async function generateKnowledgeArticleHTML(letter: string, slug: string, supaba
       "name": video.title || `${content.title} - Vídeo ${idx + 1}`,
       "description": content.meta_description || content.excerpt,
       "thumbnailUrl": thumbnailUrl,
-      "uploadDate": content.created_at,
+      "uploadDate": new Date(video.created_at || content.published_at || content.created_at).toISOString(),
       "contentUrl": contentUrl,
       "embedUrl": embedUrl,
       "duration": video.video_duration_seconds 
