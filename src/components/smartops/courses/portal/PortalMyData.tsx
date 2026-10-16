@@ -10,6 +10,15 @@ import { Loader2, Pencil, Save } from "lucide-react";
 import ProfessionalQualifications from "@/components/smartops/ProfessionalQualifications";
 import type { QualificationEntry, UniversityRoleEntry } from "@/lib/mecInstitutions";
 
+/** Endereço estruturado salvo em lia_attendances.pessoa_endereco (JSONB). */
+export interface PortalAddress {
+  street?: string | null;
+  number?: string | null;
+  complement?: string | null;
+  district?: string | null;
+  postal_code?: string | null;
+}
+
 export interface PortalProfile {
   id: string;
   nome: string | null;
@@ -30,7 +39,7 @@ export interface PortalProfile {
   area_atuacao: string | null;
   especialidade: string | null;
   prof_cep: string | null;
-  pessoa_endereco: string | null;
+  pessoa_endereco: PortalAddress | null;
   pessoa_cpf: string | null;
   empresa_cnpj: string | null;
   prof_qualifications: Record<string, QualificationEntry[]> | null;
