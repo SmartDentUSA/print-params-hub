@@ -171,6 +171,8 @@ export default function PublicFormPage() {
   const [eventCombos, setEventCombos] = useState<
     { title: string; description: string | null; imageUrl: string | null; mainProduct: string | null }[]
   >([]);
+  // Formulários de indicação KOL: cupons ativos do profissional
+  const [kolCoupons, setKolCoupons] = useState<{ professional_name: string; coupons: any[] } | null>(null);
   // Embed mode (usado pela landing page): renderiza somente o formulário,
   // sem coluna de mídia/texto e sem fundo de página.
   const isEmbed = searchParams.get("embed") === "1";
@@ -297,6 +299,15 @@ export default function PublicFormPage() {
         return;
       }
       setForm(formData as any);
+
+      // Formulário de indicação de profissional: busca cupons ativos do KOL
+      if (/indica/i.test((formData as any).name ?? "")) {
+        (supabase as any)
+          .rpc("fn_kol_form_coupons", { _form_id: (formData as any).id })
+          .then(({ data }: any) => {
+            if (data && Array.isArray(data.coupons) && data.coupons.length > 0) setKolCoupons(data);
+          });
+      }
 
       const { data: fieldsData } = await supabase
         .from("smartops_form_fields" as any)
