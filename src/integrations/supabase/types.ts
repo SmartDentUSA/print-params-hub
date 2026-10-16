@@ -12162,6 +12162,7 @@ export type Database = {
           academy_progresso_pct: number | null
           academy_ultimo_modulo_acessado: string | null
           anchor_product: string | null
+          archived_at: string | null
           area_atuacao: string | null
           astron_courses_access: Json | null
           astron_courses_completed: number | null
@@ -12795,6 +12796,7 @@ export type Database = {
           academy_progresso_pct?: number | null
           academy_ultimo_modulo_acessado?: string | null
           anchor_product?: string | null
+          archived_at?: string | null
           area_atuacao?: string | null
           astron_courses_access?: Json | null
           astron_courses_completed?: number | null
@@ -13428,6 +13430,7 @@ export type Database = {
           academy_progresso_pct?: number | null
           academy_ultimo_modulo_acessado?: string | null
           anchor_product?: string | null
+          archived_at?: string | null
           area_atuacao?: string | null
           astron_courses_access?: Json | null
           astron_courses_completed?: number | null
@@ -38837,6 +38840,7 @@ export type Database = {
           academy_progresso_pct: number | null
           academy_ultimo_modulo_acessado: string | null
           anchor_product: string | null
+          archived_at: string | null
           area_atuacao: string | null
           astron_courses_access: Json | null
           astron_courses_completed: number | null
