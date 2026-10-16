@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Pencil, Save } from "lucide-react";
+import { Check, Copy, Loader2, Pencil, Save, Users } from "lucide-react";
 import ProfessionalQualifications from "@/components/smartops/ProfessionalQualifications";
 import type { QualificationEntry, UniversityRoleEntry } from "@/lib/mecInstitutions";
 
@@ -46,6 +46,7 @@ export interface PortalProfile {
   prof_university_roles: UniversityRoleEntry[] | null;
   pessoa_piperun_id?: number | null;
   empresa_piperun_id?: number | null;
+  kol_whatsapp_group_link?: string | null;
 }
 
 interface ContractDataState {
