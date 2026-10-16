@@ -72,21 +72,6 @@ export default function PortalPartnershipStats({
               </div>
             )}
 
-            {d.comissao_vigente.length > 0 && (
-              <div>
-                <p className="text-xs font-medium mb-1.5">Comissão vigente</p>
-                <ul className="divide-y rounded-md border">
-                  {d.comissao_vigente.map((r, i) => (
-                    <li key={i} className="flex items-center justify-between px-3 py-2 text-xs">
-                      <span>{r.produto}</span>
-                      <span className="text-muted-foreground">
-                        {r.percentual != null ? `${String(r.percentual).replace(".", ",")}%` : "—"} · {CANAL_LABEL[r.canal] ?? r.canal}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
 
             {d.ultimas_vendas.length > 0 && (
               <div>
