@@ -124,7 +124,7 @@ Deno.serve(async (req) => {
       const [{ data: prof }, { data: courses }] = await Promise.all([
         admin
           .from("lia_attendances")
-          .select("id, nome, email, area_atuacao, especialidade, prof_photo_url, prof_cro, prof_mini_cv, prof_course_platform, prof_wa_ddi, prof_wa_number, prof_course_wa_ddi, prof_course_wa_number, instagram, prof_tiktok, prof_youtube, prof_site, prof_city, prof_state, prof_cep, pessoa_endereco, pessoa_cpf, empresa_cnpj, prof_qualifications, prof_university_roles, pessoa_piperun_id, empresa_piperun_id")
+          .select("id, nome, email, area_atuacao, especialidade, prof_photo_url, prof_cro, prof_mini_cv, prof_course_platform, prof_wa_ddi, prof_wa_number, prof_course_wa_ddi, prof_course_wa_number, instagram, prof_tiktok, prof_youtube, prof_site, prof_city, prof_state, prof_cep, pessoa_endereco, pessoa_cpf, empresa_cnpj, prof_qualifications, prof_university_roles, pessoa_piperun_id, empresa_piperun_id, kol_whatsapp_group_link")
           .eq("id", leadId)
           .maybeSingle(),
         admin
