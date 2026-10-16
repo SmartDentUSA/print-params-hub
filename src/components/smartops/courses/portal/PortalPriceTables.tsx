@@ -96,7 +96,11 @@ export default function PortalPriceTables({
                 </p>
                 <div className="h-[75vh] overflow-hidden rounded-lg border bg-muted">
                   {pdfUrl ? (
-                    <iframe key={active.id} title={active.name} src={`${pdfUrl}#toolbar=0&navpanes=0&view=FitH`} className="h-full w-full" />
+                    <object key={pdfUrl} data={pdfUrl} type="application/pdf" className="h-full w-full">
+                      <div className="flex h-full items-center justify-center p-6 text-center text-sm text-muted-foreground">
+                        Seu navegador não exibe o PDF aqui. Use o botão “Baixar PDF”.
+                      </div>
+                    </object>
                   ) : (
                     <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
                       {building ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Preparando a tabela…</> : "Não foi possível montar a tabela."}

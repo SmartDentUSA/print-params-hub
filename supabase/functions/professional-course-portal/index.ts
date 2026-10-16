@@ -347,6 +347,17 @@ Deno.serve(async (req) => {
       ]);
       const courseMap = new Map<string, { id: string; title: string; slug: string | null; modality: string; cover_image_url: string | null }>();
       for (const c of ownCourses ?? []) courseMap.set(c.id, c);
+      // Fallback: curso sem vínculo direto, mas com o nome do professor igual ao do profissional
+      {
+        const { data: me } = await admin.from("lia_attendances").select("nome").eq("id", leadId).maybeSingle();
+        const nm = String(me?.nome ?? "").trim().replace(/\s+/g, " ");
+        if (nm.split(" ").length >= 2) {
+          const { data: byName } = await admin.from("smartops_courses")
+            .select("id, title, slug, modality, cover_image_url, instructor_name")
+            .is("instructor_lead_id", null).ilike("instructor_name", nm);
+          for (const c of byName ?? []) if (!courseMap.has(c.id)) courseMap.set(c.id, c);
+        }
+      }
       const extraIds = [...new Set((ownTurmas ?? []).map((t) => t.course_id).filter((id) => !courseMap.has(id)))];
       if (extraIds.length) {
         const { data: extra } = await admin.from("smartops_courses")
