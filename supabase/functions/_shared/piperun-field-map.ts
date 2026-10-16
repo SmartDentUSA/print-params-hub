@@ -499,6 +499,7 @@ export const DEAL_STATUS_MAP: Record<number, string> = {
   0: "aberta",
   1: "ganha",
   2: "perdida",
+  3: "perdida", // PipeRun envia 3 em alguns webhooks de perda
 };
 
 /**
@@ -516,14 +517,14 @@ export function normalizePipeRunDealStatus(
   if (raw === null || raw === undefined) return null;
   if (typeof raw === "number") {
     if (raw === 1) return "won";
-    if (raw === 2) return "lost";
+    if (raw === 2 || raw === 3) return "lost";
     if (raw === 0) return "open";
     return null;
   }
   const s = String(raw).trim().toLowerCase();
   if (!s) return null;
   if (s === "1" || s === "won" || s === "ganha" || s === "ganho") return "won";
-  if (s === "2" || s === "lost" || s === "perdida" || s === "perdido") return "lost";
+  if (s === "2" || s === "3" || s === "lost" || s === "perdida" || s === "perdido") return "lost";
   if (s === "0" || s === "open" || s === "aberta" || s === "aberto") return "open";
   return null;
 }
