@@ -79,7 +79,10 @@ export default function PortalPerformance({ token }: { token: string }) {
   const totals = data?.totals;
   const forms = data?.forms ?? [];
   const coupons = data?.coupons ?? [];
-  const products = data?.products ?? [];
+  const buyersForms = data?.buyers_forms ?? [];
+  const buyersCoupon = data?.buyers_coupon ?? [];
+  const negotiating = data?.negotiating ?? [];
+  const profName = data?.professional_name ?? "";
   const totalCommission = coupons.reduce(
     (s, c) => s + (c.commission_percent != null ? (c.receita * c.commission_percent) / 100 : 0),
     0,
