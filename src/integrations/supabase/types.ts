@@ -20470,6 +20470,9 @@ export type Database = {
           event_id: string | null
           id: string
           include_official_price_table: boolean
+          kol_pdf_updated_at: string | null
+          kol_pdf_url: string | null
+          kol_visible: boolean
           name: string
           notes: string | null
           pdf_title: string
@@ -20504,6 +20507,9 @@ export type Database = {
           event_id?: string | null
           id?: string
           include_official_price_table?: boolean
+          kol_pdf_updated_at?: string | null
+          kol_pdf_url?: string | null
+          kol_visible?: boolean
           name: string
           notes?: string | null
           pdf_title?: string
@@ -20538,6 +20544,9 @@ export type Database = {
           event_id?: string | null
           id?: string
           include_official_price_table?: boolean
+          kol_pdf_updated_at?: string | null
+          kol_pdf_url?: string | null
+          kol_visible?: boolean
           name?: string
           notes?: string | null
           pdf_title?: string
