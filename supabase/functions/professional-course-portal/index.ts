@@ -642,6 +642,15 @@ Deno.serve(async (req) => {
       return json({ ok: true });
     }
 
+    if (action === "price_tables") {
+      const { data, error } = await admin.from("promotional_tables")
+        .select("id, name, pdf_title, valid_from, valid_until, kol_pdf_url, kol_pdf_updated_at")
+        .eq("kol_visible", true).neq("status", "archived").not("kol_pdf_url", "is", null)
+        .order("kol_pdf_updated_at", { ascending: false });
+      if (error) return json({ error: error.message }, 500);
+      return json({ tables: data ?? [] });
+    }
+
     // ---- Contrato de parceria KOL: leitura, pedido de ajuste e assinatura digital ----
 
     // ---- Dados do contrato (tipo de pessoa, documento, PIX) ----
