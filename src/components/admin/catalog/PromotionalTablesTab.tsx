@@ -172,8 +172,10 @@ export function PromotionalTablesTab() {
 
   const publishKolPdf = async (table: PromotionalTable) => {
     try {
-      if (!sections.some((s) => s.items.length)) { toast.info("Adicione itens para publicar o PDF aos KOLs."); return table; }
-      const blob = await exportPromotionalPdf(table, sections, distributorName(table.distributor_id), "blob");
+      const rows = await getTableSections(table.id);
+      if (!rows.some((s) => s.items.length)) { toast.info("Adicione itens para publicar o PDF aos KOLs."); return table; }
+      toast.info("Gerando PDF para o Portal Profissional...");
+      const blob = await exportPromotionalPdf(table, rows, distributorName(table.distributor_id), "blob");
       if (!blob) return table;
       const path = `kol-price-tables/${table.id}-${Date.now()}.pdf`;
       const { error: upErr } = await supabase.storage.from("catalog-images").upload(path, blob, { contentType: "application/pdf", upsert: true });
@@ -185,6 +187,7 @@ export function PromotionalTablesTab() {
       toast.success("PDF publicado no Portal Profissional Parceiro.");
       return data as any as PromotionalTable;
     } catch (e: any) {
+      console.error("[kol-pdf]", e);
       toast.error(`Falha ao publicar PDF para KOLs: ${e?.message || e}`);
       return table;
     }
