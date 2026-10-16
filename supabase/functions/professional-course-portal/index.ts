@@ -223,7 +223,7 @@ Deno.serve(async (req) => {
       const antes: Record<string, unknown> = {}; const depois: Record<string, unknown> = {};
       for (const [k, v] of Object.entries(payload)) {
         const old = (before as Record<string, unknown> | null)?.[k] ?? null;
-        if ((old ?? null) !== (v ?? null)) { antes[k] = old; depois[k] = v; }
+        if (JSON.stringify(old ?? null) !== JSON.stringify(v ?? null)) { antes[k] = old; depois[k] = v; }
       }
       if (Object.keys(depois).length === 0) return json({ ok: true, changed: 0 });
       const { error } = await admin
@@ -588,6 +588,74 @@ Deno.serve(async (req) => {
     }
 
     // ---- Contrato de parceria KOL: leitura, pedido de ajuste e assinatura digital ----
+
+    // ---- Dados do contrato (tipo de pessoa, documento, PIX) ----
+
+    if (action === "contract_data") {
+      const { data: contract } = await admin.from("kol_contracts")
+        .select("id, number, status, person_type, legal_name, document, pix_key, signed_at")
+        .eq("lead_id", leadId).is("revoked_at", null)
+        .order("created_at", { ascending: false }).limit(1).maybeSingle();
+      const { data: lead } = await admin.from("lia_attendances")
+        .select("nome, pessoa_cpf, empresa_cnpj").eq("id", leadId).maybeSingle();
+      return json({
+        contract: contract ?? null,
+        fallback: {
+          nome: lead?.nome ?? null,
+          cpf: lead?.pessoa_cpf ?? null,
+          cnpj: lead?.empresa_cnpj ?? null,
+        },
+      });
+    }
+
+    if (action === "save_contract_data") {
+      const input = (body?.contract_data ?? {}) as Record<string, unknown>;
+      const personType = String(input.person_type ?? "").toUpperCase();
+      if (personType !== "PF" && personType !== "PJ") {
+        return json({ error: "Selecione o tipo de pessoa (Física ou Jurídica)." }, 400);
+      }
+      const legalName = String(input.legal_name ?? "").trim();
+      if (legalName.length < 3) return json({ error: "Informe o nome completo (legal)." }, 400);
+      const doc = String(input.document ?? "").replace(/\D/g, "");
+      if (personType === "PF" && doc.length !== 11) return json({ error: "CPF inválido: informe os 11 dígitos." }, 400);
+      if (personType === "PJ" && doc.length !== 14) return json({ error: "CNPJ inválido: informe os 14 dígitos." }, 400);
+      const pix = String(input.pix_key ?? "").trim();
+      if (!pix) return json({ error: "Informe a chave PIX para recebimento das comissões." }, 400);
+
+      const { data: contract } = await admin.from("kol_contracts")
+        .select("id, number, status, signed_at").eq("lead_id", leadId).is("revoked_at", null)
+        .order("created_at", { ascending: false }).limit(1).maybeSingle();
+      if (contract && (contract.status === "assinado" || contract.signed_at)) {
+        return json({ error: "Contrato já assinado. Para alterar dados contratuais, peça um aditivo à equipe." }, 409);
+      }
+      if (contract) {
+        const { error } = await admin.from("kol_contracts")
+          .update({
+            person_type: personType, legal_name: legalName, document: doc, pix_key: pix,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", contract.id);
+        if (error) throw error;
+      }
+      // Espelha o documento no lead para a geração futura do contrato
+      const leadUpdate: Record<string, unknown> = personType === "PF"
+        ? { pessoa_cpf: doc }
+        : { empresa_cnpj: doc };
+      const { error: leadErr } = await admin.from("lia_attendances").update(leadUpdate).eq("id", leadId);
+      if (leadErr) throw leadErr;
+      const { error: logErr } = await admin.rpc("fn_kol_log", {
+        _lead_id: leadId, _event_type: "kol_contract_data_saved", _entity_type: "kol_contract",
+        _entity_id: contract?.id ?? leadId, _entity_name: contract?.number ?? "Dados contratuais",
+        _value: null, _channel: "kol",
+        _data: {
+          descricao: `Dados contratuais atualizados pelo profissional (${personType})`,
+          person_type: personType, legal_name: legalName, actor: "kol",
+          dedupe_key: `kol_contract_data:${leadId}:${Date.now()}`,
+        },
+      });
+      if (logErr) console.error("[professional-course-portal] fn_kol_log contract_data", logErr.message);
+      return json({ ok: true });
+    }
 
     if (action === "contract") {
       const { data: contract } = await admin.from("kol_contracts")
