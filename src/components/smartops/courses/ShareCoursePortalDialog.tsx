@@ -87,7 +87,7 @@ export default function ShareCoursePortalDialog({ open, onOpenChange, profession
 
   const waHref = (t: string) => {
     const digits = `${professional.prof_wa_ddi ?? "55"}${(professional.prof_wa_number ?? "").replace(/\D/g, "")}`;
-    const msg = `Olá ${professional.nome ?? ""}! Esta é a sua página exclusiva na Smart Dent, onde você gerencia seu perfil e seus cursos (inclusive adicionar novos): ${urlFor(t)}`;
+    const msg = `Olá ${professional.nome ?? ""}! Este é o seu Portal Profissional Parceiro na Smart Dent, onde você acompanha toda a parceria (indicações, comissões, inscritos e engajamento) e gerencia seu perfil e seus cursos: ${urlFor(t)}`;
     const base = digits.length > 6 ? `https://wa.me/${digits}` : "https://wa.me/";
     return `${base}?text=${encodeURIComponent(msg)}`;
   };
@@ -107,11 +107,11 @@ export default function ShareCoursePortalDialog({ open, onOpenChange, profession
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Compartilhar página do profissional</DialogTitle>
+          <DialogTitle>Portal Profissional Parceiro — compartilhar</DialogTitle>
         </DialogHeader>
 
         <p className="text-sm text-muted-foreground">
-          Gere o link da página pessoal de {professional.nome ?? professional.email}, onde ele gerencia o próprio perfil e os cursos — inclusive adicionar novos cursos — sem precisar de login.
+          Gere o link do Portal Profissional Parceiro de {professional.nome ?? professional.email}, onde ele acompanha a parceria (indicações, comissões, inscritos e engajamento) e gerencia o próprio perfil e os cursos — sem precisar de login.
         </p>
 
         <div className="flex items-end gap-2">
