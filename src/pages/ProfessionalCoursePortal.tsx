@@ -31,6 +31,8 @@ import PortalSocialStats from "@/components/smartops/courses/portal/PortalSocial
 import PortalPerformance from "@/components/smartops/courses/portal/PortalPerformance";
 import PortalCommissionStats from "@/components/smartops/courses/portal/PortalCommissionStats";
 import PortalMyData, { type PortalProfile } from "@/components/smartops/courses/portal/PortalMyData";
+import PortalPriceTables from "@/components/smartops/courses/portal/PortalPriceTables";
+import { Receipt } from "lucide-react";
 import { useClientPresence } from "@/hooks/useClientPresence";
 import { PushOptInBanner } from "@/components/PushOptInBanner";
 import {
@@ -48,12 +50,13 @@ const SMARTDENT_LOGO_URL =
 
 type ProfileState = PortalProfile;
 
-type SectionKey = "dados" | "contrato" | "comissao" | "visao" | "colaboracao" | "social" | "cursos";
+type SectionKey = "dados" | "contrato" | "comissao" | "precos" | "visao" | "colaboracao" | "social" | "cursos";
 
 const SECTIONS: { key: SectionKey; label: string; icon: typeof BarChart3 }[] = [
   { key: "dados", label: "Meus dados", icon: User },
   { key: "contrato", label: "Contrato de parceria", icon: FileText },
   { key: "comissao", label: "Comissão vigente", icon: Percent },
+  { key: "precos", label: "Tabela de preços", icon: Receipt },
   { key: "visao", label: "Performance", icon: BarChart3 },
   { key: "colaboracao", label: "Cursos Smart Dent", icon: Handshake },
   { key: "social", label: "Engajamento social", icon: Share2 },
@@ -308,6 +311,12 @@ export default function ProfessionalCoursePortal() {
             {section === "contrato" && (
               <section className="space-y-4">
                 <KolContractPortalCard token={token} />
+              </section>
+            )}
+
+            {section === "precos" && (
+              <section className="space-y-4">
+                <PortalPriceTables call={call} />
               </section>
             )}
 

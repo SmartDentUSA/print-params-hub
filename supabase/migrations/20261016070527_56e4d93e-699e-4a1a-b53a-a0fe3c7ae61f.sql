@@ -1,0 +1,1 @@
+ALTER TABLE public.promotional_tables ADD COLUMN IF NOT EXISTS kol_visible boolean NOT NULL DEFAULT false, ADD COLUMN IF NOT EXISTS kol_pdf_url text, ADD COLUMN IF NOT EXISTS kol_pdf_updated_at timestamptz;

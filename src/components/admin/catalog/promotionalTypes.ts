@@ -12,6 +12,9 @@ export type PromotionalTable = {
   notes: string | null;
   status: PromotionalStatus;
   include_official_price_table?: boolean;
+  kol_visible?: boolean;
+  kol_pdf_url?: string | null;
+  kol_pdf_updated_at?: string | null;
   /** Vendedores autorizados a divulgar a promoção (mesma lista do formulário do evento). */
   coupon_seller_ids?: string[] | null;
   coupon_discount_type?: "percent" | "fixed" | null;

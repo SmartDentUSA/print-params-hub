@@ -30,7 +30,7 @@ const catalogImage = (product: { image_url?: string | null; og_image_url?: strin
 const blankTable = (): Omit<PromotionalTable, "id" | "created_at" | "updated_at"> => ({
   name: "", pdf_title: "TABELA PROMOCIONAL", distributor_id: null, event_id: null, currency: "BRL",
   valid_from: null, valid_until: null, notes: null, status: "draft",
-  include_official_price_table: true,
+  include_official_price_table: true, kol_visible: false,
   coupon_seller_ids: [], coupon_discount_type: "percent", coupon_discount_value: 0,
   coupon_prefix: null, coupon_usage_limit: null, coupon_valid_from: null, coupon_valid_until: null,
   coupon_li_category_ids: [], coupon_li_category_labels: [],
@@ -150,6 +150,7 @@ export function PromotionalTablesTab() {
       currency: table.currency, valid_from: table.valid_from, valid_until: table.valid_until,
       notes: table.notes, status: table.status,
       include_official_price_table: table.include_official_price_table !== false,
+      kol_visible: table.kol_visible === true,
       coupon_seller_ids: table.coupon_seller_ids ?? [],
       coupon_discount_type: table.coupon_discount_type ?? "percent",
       coupon_discount_value: table.coupon_discount_value ?? 0,
@@ -169,13 +170,37 @@ export function PromotionalTablesTab() {
     await loadSections(table);
   };
 
+  const publishKolPdf = async (table: PromotionalTable) => {
+    try {
+      if (!sections.some((s) => s.items.length)) { toast.info("Adicione itens para publicar o PDF aos KOLs."); return table; }
+      const blob = await exportPromotionalPdf(table, sections, distributorName(table.distributor_id), "blob");
+      if (!blob) return table;
+      const path = `kol-price-tables/${table.id}-${Date.now()}.pdf`;
+      const { error: upErr } = await supabase.storage.from("catalog-images").upload(path, blob, { contentType: "application/pdf", upsert: true });
+      if (upErr) throw upErr;
+      const url = supabase.storage.from("catalog-images").getPublicUrl(path).data.publicUrl;
+      const { data, error } = await supabase.from("promotional_tables" as any)
+        .update({ kol_pdf_url: url, kol_pdf_updated_at: new Date().toISOString() }).eq("id", table.id).select("*").single();
+      if (error) throw error;
+      toast.success("PDF publicado no Portal Profissional Parceiro.");
+      return data as any as PromotionalTable;
+    } catch (e: any) {
+      toast.error(`Falha ao publicar PDF para KOLs: ${e?.message || e}`);
+      return table;
+    }
+  };
+
   const saveTable = async () => {
     if (!draft.name.trim()) { toast.error("Informe o nome da tabela promocional."); return; }
     setSaving(true);
     if (selected?.id) {
       const { data, error } = await supabase.from("promotional_tables" as any).update(draft).eq("id", selected.id).select("*").single();
       if (error) toast.error(error.message);
-      else { setSelected(data as any); toast.success("Tabela promocional salva."); await loadTables(); }
+      else {
+        let saved = data as any as PromotionalTable;
+        if (saved.kol_visible) saved = await publishKolPdf(saved);
+        setSelected(saved); toast.success("Tabela promocional salva."); await loadTables();
+      }
     } else {
       const { data, error } = await supabase.from("promotional_tables" as any).insert(draft).select("*").single();
       if (error) toast.error(error.message);
@@ -491,6 +516,10 @@ export function PromotionalTablesTab() {
         <div className="flex items-start gap-3 rounded-md border p-3 md:col-span-2 xl:col-span-4">
           <Switch checked={draft.include_official_price_table !== false} onCheckedChange={(checked) => setDraft((row) => ({ ...row, include_official_price_table: checked }))} />
           <div className="space-y-1"><Label className="cursor-pointer">Incluir tabela Smart Dent (Loja Oficial) no final do PDF</Label><p className="text-xs text-muted-foreground">Anexa a tabela de preços oficial no mesmo formato usado nas revendas.</p></div>
+        </div>
+        <div className="flex items-start gap-3 rounded-md border p-3 md:col-span-2 xl:col-span-4">
+          <Switch checked={draft.kol_visible === true} onCheckedChange={(checked) => setDraft((row) => ({ ...row, kol_visible: checked }))} />
+          <div className="space-y-1"><Label className="cursor-pointer">Vincular a tabela para KOLs - Profissionais</Label><p className="text-xs text-muted-foreground">Ao salvar, o PDF é publicado no menu “Tabela de preços” do Portal Profissional Parceiro (somente leitura e download).{selected?.kol_pdf_updated_at ? ` Última publicação: ${new Date(selected.kol_pdf_updated_at).toLocaleString("pt-BR")}.` : ""}</p></div>
         </div>
       </CardContent></Card>
 
