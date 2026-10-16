@@ -621,6 +621,7 @@ export function SmartOpsLeadsList() {
       .from("lia_attendances")
       .select("*", { count: "exact" })
       .is("merged_into", null)
+      .is("archived_at", null)
       .order("created_at", { ascending: false }) as any;
 
     // Buyer type filter

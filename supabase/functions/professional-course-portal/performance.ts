@@ -334,7 +334,9 @@ export async function kolPerformance(
           valor: Number(d.value ?? 0),
           comissao: agg ? agg.com : (fallbackPct != null ? (Number(d.value ?? 0) * fallbackPct) / 100 : null),
           vendedora: d.owner_name ?? null,
-          data: d.closed_at ? String(d.closed_at).slice(0, 10) : null,
+          // Data em que o lead preencheu o formulário (criação do lead)
+          data: leadCreated.get(String(d.lead_id))?.slice(0, 10) ?? null,
+          data_fechamento: d.closed_at ? String(d.closed_at).slice(0, 10) : null,
         });
       }
     }

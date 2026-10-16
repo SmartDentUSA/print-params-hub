@@ -272,6 +272,7 @@ export default function PortalPerformance({ token }: { token: string }) {
                 <thead className="bg-muted/40 text-[11px] uppercase tracking-wide text-muted-foreground sticky top-0">
                   <tr>
                     <th className="px-2 py-2 text-left">ID Deal</th>
+                    <th className="px-2 py-2 text-left">Data</th>
                     <th className="px-2 py-2 text-left">Nome do Lead</th>
                     <th className="px-2 py-2 text-left">Origem</th>
                     <th className="px-2 py-2 text-left">Produto ou solução</th>
@@ -284,6 +285,7 @@ export default function PortalPerformance({ token }: { token: string }) {
                   {buyersForms.map((b) => (
                     <tr key={`f-${b.deal_id}`} className="border-t">
                       <td className="px-2 py-2 text-xs text-muted-foreground">{b.deal_id}</td>
+                      <td className="px-2 py-2 text-xs whitespace-nowrap">{b.data ? new Date(b.data + "T12:00:00").toLocaleDateString("pt-BR") : "—"}</td>
                       <td className="px-2 py-2">{b.lead_nome ?? "—"}</td>
                       <td className="px-2 py-2 text-xs">{b.origem}</td>
                       <td className="px-2 py-2 text-xs">{b.produto ?? "—"}</td>
