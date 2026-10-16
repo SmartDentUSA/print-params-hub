@@ -56,8 +56,25 @@ export default function ShareCoursePortalDialog({ open, onOpenChange, profession
   const urlFor = (t: string) => `${getPublicOrigin()}/portal-cursos/${t}`;
 
   const generate = async () => {
-    const token = makeToken();
+    // O link do portal é único por profissional: reutiliza o token ativo mais recente
+    // (estendendo a validade) em vez de criar um novo a cada clique.
     const expires = new Date(Date.now() + Math.max(1, days) * 86400000).toISOString();
+    const existing = tokens.find((t) => !t.revoked_at && new Date(t.expires_at).getTime() > Date.now());
+    if (existing) {
+      const { error } = await supabase
+        .from("professional_portal_tokens")
+        .update({ expires_at: expires })
+        .eq("id", existing.id);
+      if (error) {
+        toast({ title: "Erro ao atualizar link", description: error.message, variant: "destructive" });
+        return;
+      }
+      await navigator.clipboard.writeText(urlFor(existing.token)).catch(() => undefined);
+      toast({ title: "Link existente copiado", description: "O portal usa sempre o mesmo link; a validade foi estendida." });
+      void load();
+      return;
+    }
+    const token = makeToken();
     const { error } = await supabase.from("professional_portal_tokens").insert({
       token,
       lead_id: professional.id,
