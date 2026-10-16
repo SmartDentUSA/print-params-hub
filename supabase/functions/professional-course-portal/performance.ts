@@ -239,13 +239,17 @@ export async function kolPerformance(
 
     const allLeads = Array.from(new Set(Object.values(leadsByForm).flatMap((s) => Array.from(s))));
 
-    // Nomes e telefones dos leads (para as listas de compradores e negociação)
+    // Nomes, telefones e data de criação dos leads (listas de compradores,
+    // negociação e filtro de período dos leads gerados)
     const leadInfo = new Map<string, { nome: string | null; telefone: string | null }>();
     for (let i = 0; i < allLeads.length; i += 300) {
       const chunk = allLeads.slice(i, i + 300);
       const { data: infos } = await admin.from("lia_attendances")
-        .select("id, nome, telefone_raw, telefone_normalized").in("id", chunk);
-      for (const l of infos ?? []) leadInfo.set(String(l.id), { nome: l.nome ?? null, telefone: l.telefone_normalized ?? l.telefone_raw ?? null });
+        .select("id, nome, telefone_raw, telefone_normalized, created_at").in("id", chunk);
+      for (const l of infos ?? []) {
+        leadInfo.set(String(l.id), { nome: l.nome ?? null, telefone: l.telefone_normalized ?? l.telefone_raw ?? null });
+        if (l.created_at) leadCreated.set(String(l.id), String(l.created_at));
+      }
     }
 
     const wonByLead: Record<string, number> = {};
