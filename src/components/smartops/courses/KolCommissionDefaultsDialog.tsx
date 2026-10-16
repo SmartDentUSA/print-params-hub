@@ -4,6 +4,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { Loader2, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { PRODUCT_CATALOG_ENTITY_TYPES } from "@/lib/catalogEntityTypes";
@@ -89,15 +90,26 @@ export default function KolCommissionDefaultsDialog({ open, onOpenChange }: { op
 
   const line = (base: Omit<Row, "percent" | "coupon_discount_percent">, label: string, cls: string, removable = false) => {
     const r = rows.get(kolRowKey(base));
+    const active = !!r;
+    const toggle = (on: boolean) =>
+      setRows((prev) => {
+        const n = new Map(prev);
+        if (on) n.set(kolRowKey(base), { ...base, percent: null, coupon_discount_percent: null });
+        else n.delete(kolRowKey(base));
+        return n;
+      });
     return (
-      <div key={kolRowKey(base)} className={`grid grid-cols-[1fr_130px_150px_36px] gap-2 items-center rounded-md border p-2 ${cls}`}>
-        <span className="text-sm">{label}</span>
-        <Input type="number" min={0} max={100} step="0.1" placeholder="KOL %" value={r?.percent ?? ""} onChange={(e) => patch(base, { percent: pct(e.target.value) })} />
+      <div key={kolRowKey(base)} className={`grid grid-cols-[1fr_130px_150px_36px] gap-2 items-center rounded-md border p-2 ${active ? "" : "opacity-60"} ${cls}`}>
+        <div className="flex items-center gap-2">
+          <Switch checked={active} onCheckedChange={toggle} />
+          <span className="text-sm">{label}</span>
+        </div>
+        <Input type="number" min={0} max={100} step="0.1" placeholder="KOL %" value={r?.percent ?? ""} disabled={!active} onChange={(e) => patch(base, { percent: pct(e.target.value) })} />
         {base.channel === "cupom"
-          ? <Input type="number" min={0} max={100} step="0.1" placeholder="Cupom %" value={r?.coupon_discount_percent ?? ""} onChange={(e) => patch(base, { coupon_discount_percent: pct(e.target.value) })} />
+          ? <Input type="number" min={0} max={100} step="0.1" placeholder="Cupom %" value={r?.coupon_discount_percent ?? ""} disabled={!active} onChange={(e) => patch(base, { coupon_discount_percent: pct(e.target.value) })} />
           : <span className="text-xs text-muted-foreground">sem cupom</span>}
         {removable ? (
-          <Button size="icon" variant="ghost" onClick={() => setRows((p) => { const n = new Map(p); n.delete(kolRowKey(base)); return n; })}>
+          <Button size="icon" variant="ghost" onClick={() => toggle(false)}>
             <Trash2 className="w-4 h-4 text-destructive" />
           </Button>
         ) : <span />}
