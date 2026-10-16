@@ -249,11 +249,7 @@ export default function PortalPerformance({ token }: { token: string }) {
           {[
             { t: "Formulários de indicação", a: `${totals?.leads ?? 0} leads → ${totals?.deals ?? 0} ganhos`, v: totals?.receita ?? 0 },
             { t: "Cupons do e-commerce", a: `${totals?.vendasCupons ?? 0} pedidos · ${totals?.clientesCupons ?? 0} clientes`, v: totals?.receitaCupons ?? 0 },
-            {
-              t: "Produtos do portfólio vendidos",
-              a: `${products.reduce((s, p) => s + p.quantidade, 0)} itens · comissão ${money(products.reduce((s, p) => s + (p.comissao ?? 0), 0))}`,
-              v: products.reduce((s, p) => s + p.valor, 0),
-            },
+            { t: "Em negociação", a: `${negotiating.length} negócios abertos`, v: negotiating.reduce((s, n) => s + (n.valor ?? 0), 0) },
           ].map((k) => (
             <div key={k.t} className="rounded-md border p-3">
               <div className="text-[11px] uppercase tracking-wide text-muted-foreground">{k.t}</div>
@@ -263,41 +259,131 @@ export default function PortalPerformance({ token }: { token: string }) {
           ))}
         </div>
 
-        {/* Produtos vendidos */}
+        {/* Quem comprou através de formulários */}
         <div className="space-y-2">
           <span className="text-xs uppercase tracking-wide text-muted-foreground font-medium">
-            Produtos do portfólio vendidos pelas indicações
+            Quem comprou através de formulários
           </span>
-          {products.length === 0 ? (
-            <p className="text-xs text-muted-foreground">Nenhum produto vendido pelos formulários ou cupons no período.</p>
+          {buyersForms.length === 0 ? (
+            <p className="text-xs text-muted-foreground">Nenhuma venda de formulário no período.</p>
           ) : (
             <div className="overflow-x-auto rounded-md border max-h-96">
               <table className="w-full text-sm">
                 <thead className="bg-muted/40 text-[11px] uppercase tracking-wide text-muted-foreground sticky top-0">
                   <tr>
-                    <th className="px-2 py-2 text-left">Produto</th>
-                    <th className="px-2 py-2 text-left">Categoria / subcategoria</th>
+                    <th className="px-2 py-2 text-left">ID Deal</th>
+                    <th className="px-2 py-2 text-left">Nome do Lead</th>
                     <th className="px-2 py-2 text-left">Origem</th>
-                    <th className="px-2 py-2 text-right">Qtd</th>
-                    <th className="px-2 py-2 text-right">Valor</th>
+                    <th className="px-2 py-2 text-left">Produto ou solução</th>
+                    <th className="px-2 py-2 text-right">Valor total</th>
                     <th className="px-2 py-2 text-right">Comissão</th>
+                    <th className="px-2 py-2 text-left">Vendedora</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {products.map((p) => (
-                    <tr key={`${p.origem}-${p.produto}`} className="border-t">
-                      <td className="px-2 py-2">{p.produto}</td>
-                      <td className="px-2 py-2 text-xs text-muted-foreground">
-                        {[p.categoria, p.subcategoria].filter(Boolean).join(" › ") || "—"}
-                      </td>
-                      <td className="px-2 py-2">
-                        <Badge variant="outline" className="text-[10px]">{p.origem === "cupom" ? "Cupom" : "Formulário"}</Badge>
-                      </td>
-                      <td className="px-2 py-2 text-right">{p.quantidade}</td>
-                      <td className="px-2 py-2 text-right font-medium">{money(p.valor)}</td>
-                      <td className="px-2 py-2 text-right">{p.comissao != null ? money(p.comissao) : "—"}</td>
+                  {buyersForms.map((b) => (
+                    <tr key={`f-${b.deal_id}`} className="border-t">
+                      <td className="px-2 py-2 text-xs text-muted-foreground">{b.deal_id}</td>
+                      <td className="px-2 py-2">{b.lead_nome ?? "—"}</td>
+                      <td className="px-2 py-2 text-xs">{b.origem}</td>
+                      <td className="px-2 py-2 text-xs">{b.produto ?? "—"}</td>
+                      <td className="px-2 py-2 text-right font-medium">{money(b.valor)}</td>
+                      <td className="px-2 py-2 text-right">{b.comissao != null ? money(b.comissao) : "—"}</td>
+                      <td className="px-2 py-2 text-xs">{b.vendedora ?? "—"}</td>
                     </tr>
                   ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
+        {/* Quem comprou no e-commerce */}
+        <div className="space-y-2">
+          <span className="text-xs uppercase tracking-wide text-muted-foreground font-medium">
+            Quem comprou no e-commerce
+          </span>
+          {buyersCoupon.length === 0 ? (
+            <p className="text-xs text-muted-foreground">Nenhum pedido com seus cupons no período.</p>
+          ) : (
+            <div className="overflow-x-auto rounded-md border max-h-96">
+              <table className="w-full text-sm">
+                <thead className="bg-muted/40 text-[11px] uppercase tracking-wide text-muted-foreground sticky top-0">
+                  <tr>
+                    <th className="px-2 py-2 text-left">ID Deal</th>
+                    <th className="px-2 py-2 text-left">Nome do Lead</th>
+                    <th className="px-2 py-2 text-left">Origem</th>
+                    <th className="px-2 py-2 text-left">Produto ou solução</th>
+                    <th className="px-2 py-2 text-right">Valor total</th>
+                    <th className="px-2 py-2 text-right">Comissão</th>
+                    <th className="px-2 py-2 text-left">Cupom utilizado</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {buyersCoupon.map((b, i) => (
+                    <tr key={`c-${b.pedido}-${i}`} className="border-t">
+                      <td className="px-2 py-2 text-xs text-muted-foreground">{b.pedido}</td>
+                      <td className="px-2 py-2">{b.lead_nome ?? "—"}</td>
+                      <td className="px-2 py-2 text-xs">{b.origem}</td>
+                      <td className="px-2 py-2 text-xs">{b.produto ?? "—"}</td>
+                      <td className="px-2 py-2 text-right font-medium">{money(b.valor)}</td>
+                      <td className="px-2 py-2 text-right">{b.comissao != null ? money(b.comissao) : "—"}</td>
+                      <td className="px-2 py-2"><Badge variant="outline" className="text-[10px]">{b.cupom}</Badge></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
+        {/* Leads em negociação */}
+        <div className="space-y-2">
+          <span className="text-xs uppercase tracking-wide text-muted-foreground font-medium">
+            Leads em negociação
+          </span>
+          {negotiating.length === 0 ? (
+            <p className="text-xs text-muted-foreground">Nenhum negócio aberto no momento.</p>
+          ) : (
+            <div className="overflow-x-auto rounded-md border max-h-96">
+              <table className="w-full text-sm">
+                <thead className="bg-muted/40 text-[11px] uppercase tracking-wide text-muted-foreground sticky top-0">
+                  <tr>
+                    <th className="px-2 py-2 text-left">ID Deal</th>
+                    <th className="px-2 py-2 text-left">Nome do Lead</th>
+                    <th className="px-2 py-2 text-left">Origem</th>
+                    <th className="px-2 py-2 text-left">Produto ou solução</th>
+                    <th className="px-2 py-2 text-right">Valor da negociação</th>
+                    <th className="px-2 py-2 text-left">Etapa do funil</th>
+                    <th className="px-2 py-2 text-right">WhatsApp</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {negotiating.map((n) => {
+                    const firstName = (n.lead_nome ?? "").trim().split(" ")[0] || "tudo bem";
+                    const msg = `Olá ${firstName}, aqui é o ${profName}, deu certo a negociação com a Smart Dent do ${n.produto ?? "produto de interesse"}?`;
+                    return (
+                      <tr key={`n-${n.deal_id}`} className="border-t">
+                        <td className="px-2 py-2 text-xs text-muted-foreground">{n.deal_id}</td>
+                        <td className="px-2 py-2">{n.lead_nome ?? "—"}</td>
+                        <td className="px-2 py-2 text-xs">{n.origem}</td>
+                        <td className="px-2 py-2 text-xs">{n.produto ?? "—"}</td>
+                        <td className="px-2 py-2 text-right font-medium">{money(n.valor)}</td>
+                        <td className="px-2 py-2 text-xs">{n.etapa ?? "—"}</td>
+                        <td className="px-2 py-2 text-right">
+                          {n.lead_telefone ? (
+                            <Button size="sm" variant="outline" className="h-7 text-xs" asChild>
+                              <a href={waLink(n.lead_telefone, msg)} target="_blank" rel="noopener noreferrer">
+                                <MessageCircle className="w-3.5 h-3.5 mr-1" /> Chamar
+                              </a>
+                            </Button>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">—</span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
