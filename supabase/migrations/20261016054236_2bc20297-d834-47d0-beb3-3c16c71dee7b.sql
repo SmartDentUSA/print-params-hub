@@ -1,0 +1,1 @@
+ALTER TABLE public.lia_attendances ADD COLUMN IF NOT EXISTS kol_whatsapp_group_link text; COMMENT ON COLUMN public.lia_attendances.kol_whatsapp_group_link IS 'Link estático do grupo WhatsApp do KOL, gerado pela equipe e compartilhável no portal do profissional.';

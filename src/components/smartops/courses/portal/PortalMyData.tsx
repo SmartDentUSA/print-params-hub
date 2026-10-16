@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Pencil, Save } from "lucide-react";
+import { Check, Copy, Loader2, Pencil, Save, Users } from "lucide-react";
 import ProfessionalQualifications from "@/components/smartops/ProfessionalQualifications";
 import type { QualificationEntry, UniversityRoleEntry } from "@/lib/mecInstitutions";
 
@@ -46,6 +46,7 @@ export interface PortalProfile {
   prof_university_roles: UniversityRoleEntry[] | null;
   pessoa_piperun_id?: number | null;
   empresa_piperun_id?: number | null;
+  kol_whatsapp_group_link?: string | null;
 }
 
 interface ContractDataState {
@@ -69,6 +70,7 @@ export default function PortalMyData({ profile, onProfileChange, call }: Props) 
   const { toast } = useToast();
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [groupCopied, setGroupCopied] = useState(false);
   const [contractData, setContractData] = useState<ContractDataState>({
     person_type: "",
     legal_name: "",
@@ -345,6 +347,40 @@ export default function PortalMyData({ profile, onProfileChange, call }: Props) 
               <Input className="w-20" disabled={disabled} value={profile.prof_course_wa_ddi ?? ""} onChange={(e) => set({ prof_course_wa_ddi: e.target.value })} placeholder="55" />
               <Input disabled={disabled} value={profile.prof_course_wa_number ?? ""} onChange={(e) => set({ prof_course_wa_number: e.target.value })} placeholder="16 99999-9999" />
             </div>
+          </div>
+          <div className="md:col-span-2">
+            <Label>Link do grupo do WhatsApp KOL</Label>
+            {profile.kol_whatsapp_group_link ? (
+              <div className="flex gap-2">
+                <Input readOnly value={profile.kol_whatsapp_group_link} className="font-mono text-xs bg-muted/40" />
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="outline"
+                  title="Copiar link"
+                  onClick={async () => {
+                    try {
+                      await navigator.clipboard.writeText(profile.kol_whatsapp_group_link!);
+                      setGroupCopied(true);
+                      setTimeout(() => setGroupCopied(false), 2000);
+                    } catch {
+                      toast({ title: "Não foi possível copiar", variant: "destructive" });
+                    }
+                  }}
+                >
+                  {groupCopied ? <Check className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4" />}
+                </Button>
+                <Button type="button" size="icon" variant="outline" title="Abrir grupo" asChild>
+                  <a href={profile.kol_whatsapp_group_link} target="_blank" rel="noopener noreferrer">
+                    <Users className="w-4 h-4" />
+                  </a>
+                </Button>
+              </div>
+            ) : (
+              <p className="text-xs text-muted-foreground rounded-md border border-dashed p-3">
+                Assim que a equipe Smart Dent gerar o seu grupo de WhatsApp KOL, o link aparecerá aqui, fixo, pronto para copiar e compartilhar.
+              </p>
+            )}
           </div>
         </CardContent>
       </Card>
