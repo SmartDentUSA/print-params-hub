@@ -346,9 +346,9 @@ export default function KolContractPanel({ leadId, leadNome }: { leadId: string;
       </Card>
 
       <Dialog open={!!viewing} onOpenChange={(o) => !o && setViewing(null)}>
-        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto bg-slate-100">
           <DialogHeader><DialogTitle>{viewing?.number} — {STATUS_LABEL[viewing?.status ?? ""] ?? viewing?.status}</DialogTitle></DialogHeader>
-          <pre className="whitespace-pre-wrap text-sm font-sans">{viewing?.body_rendered}</pre>
+          {viewing?.body_rendered && <ContractDocument body={viewing.body_rendered} />}
         </DialogContent>
       </Dialog>
     </div>
