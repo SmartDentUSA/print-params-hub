@@ -299,7 +299,7 @@ export default function ProfessionalCoursePortal() {
             {section === "visao" && (
               <section className="space-y-4">
                 <h2 className="text-lg font-semibold">Visão geral</h2>
-                <PortalPartnershipStats call={call} />
+                <PortalPerformance token={token} />
               </section>
             )}
 
