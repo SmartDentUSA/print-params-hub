@@ -14,6 +14,7 @@ import KolContractPortalCard from "@/components/smartops/courses/KolContractPort
 import PortalCollabCourseStats from "@/components/smartops/courses/portal/PortalCollabCourseStats";
 import PortalOwnCourseStats from "@/components/smartops/courses/portal/PortalOwnCourseStats";
 import PortalSocialStats from "@/components/smartops/courses/portal/PortalSocialStats";
+import PortalPartnershipStats from "@/components/smartops/courses/portal/PortalPartnershipStats";
 import { useClientPresence } from "@/hooks/useClientPresence";
 import { PushOptInBanner } from "@/components/PushOptInBanner";
 import {
@@ -206,6 +207,8 @@ export default function ProfessionalCoursePortal() {
             <div className="md:col-span-3"><Label>Mini CV</Label><Textarea rows={3} disabled={!editProfile} value={profile.prof_mini_cv ?? ""} onChange={(e) => setProfile({ ...profile, prof_mini_cv: e.target.value })} /></div>
           </CardContent>
         </Card>
+
+        <PortalPartnershipStats call={call} />
 
         <PortalCollabCourseStats call={call} profName={profile.nome ?? ""} />
 
