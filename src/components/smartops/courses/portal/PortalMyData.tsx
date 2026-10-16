@@ -347,6 +347,40 @@ export default function PortalMyData({ profile, onProfileChange, call }: Props) 
               <Input disabled={disabled} value={profile.prof_course_wa_number ?? ""} onChange={(e) => set({ prof_course_wa_number: e.target.value })} placeholder="16 99999-9999" />
             </div>
           </div>
+          <div className="md:col-span-2">
+            <Label>Link do grupo do WhatsApp KOL</Label>
+            {profile.kol_whatsapp_group_link ? (
+              <div className="flex gap-2">
+                <Input readOnly value={profile.kol_whatsapp_group_link} className="font-mono text-xs bg-muted/40" />
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="outline"
+                  title="Copiar link"
+                  onClick={async () => {
+                    try {
+                      await navigator.clipboard.writeText(profile.kol_whatsapp_group_link!);
+                      setGroupCopied(true);
+                      setTimeout(() => setGroupCopied(false), 2000);
+                    } catch {
+                      toast({ title: "Não foi possível copiar", variant: "destructive" });
+                    }
+                  }}
+                >
+                  {groupCopied ? <Check className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4" />}
+                </Button>
+                <Button type="button" size="icon" variant="outline" title="Abrir grupo" asChild>
+                  <a href={profile.kol_whatsapp_group_link} target="_blank" rel="noopener noreferrer">
+                    <Users className="w-4 h-4" />
+                  </a>
+                </Button>
+              </div>
+            ) : (
+              <p className="text-xs text-muted-foreground rounded-md border border-dashed p-3">
+                Assim que a equipe Smart Dent gerar o seu grupo de WhatsApp KOL, o link aparecerá aqui, fixo, pronto para copiar e compartilhar.
+              </p>
+            )}
+          </div>
         </CardContent>
       </Card>
 
