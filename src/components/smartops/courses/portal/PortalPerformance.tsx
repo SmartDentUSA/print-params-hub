@@ -32,6 +32,15 @@ const waLink = (telefone: string | null, msg: string) => {
   return `https://wa.me/${withCc}?text=${encodeURIComponent(msg)}`;
 };
 
+/** Cor da linha de negociação pelo funil: comercial = verde claro, estagnados = amarelo. */
+const funilRowClass = (funil?: string | null) => {
+  const s = (funil ?? "").toLowerCase();
+  if (s.includes("estagnad")) return "bg-amber-50/80 dark:bg-amber-950/30";
+  if (s.includes("vendas") || s.includes("comercial")) return "bg-emerald-50/80 dark:bg-emerald-950/30";
+  return "";
+};
+
+
 /** Performance do KOL no portal: mesmo layout da ficha do profissional, com seletor de mês/ano. */
 export default function PortalPerformance({ token }: { token: string }) {
   const now = new Date();
@@ -358,7 +367,7 @@ export default function PortalPerformance({ token }: { token: string }) {
                     <th className="px-2 py-2 text-left">Origem</th>
                     <th className="px-2 py-2 text-left">Produto ou solução</th>
                     <th className="px-2 py-2 text-right">Valor da negociação</th>
-                    <th className="px-2 py-2 text-left">Etapa do funil</th>
+                    <th className="px-2 py-2 text-left">Funil</th>
                     <th className="px-2 py-2 text-right">WhatsApp</th>
                   </tr>
                 </thead>
