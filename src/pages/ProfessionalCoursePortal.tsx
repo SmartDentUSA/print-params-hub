@@ -72,7 +72,6 @@ export default function ProfessionalCoursePortal() {
   const [profile, setProfile] = useState<ProfileState | null>(null);
   const [courses, setCourses] = useState<ProfessionalCourse[]>([]);
   const [draft, setDraft] = useState<ProfessionalCourseDraft | null>(null);
-  const [editProfile, setEditProfile] = useState(false);
   const [section, setSection] = useState<SectionKey>("dados");
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -153,19 +152,6 @@ export default function ProfessionalCoursePortal() {
     }
   };
 
-  const saveProfile = async () => {
-    if (!profile) return;
-    setSaving(true);
-    try {
-      await call("save_profile", { professional: profile });
-      toast({ title: "Dados atualizados" });
-      setEditProfile(false);
-    } catch (e: any) {
-      toast({ title: "Erro ao salvar", description: e.message, variant: "destructive" });
-    } finally {
-      setSaving(false);
-    }
-  };
 
   if (loading) {
     return (
