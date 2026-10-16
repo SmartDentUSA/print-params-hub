@@ -33,8 +33,10 @@ interface BuyerFormRow {
   produto: string | null;
   valor: number;
   comissao: number | null;
+  comissao_pct: number | null;
   vendedora: string | null;
   data: string | null;
+  data_fechamento: string | null;
 }
 
 interface BuyerCouponRow {
@@ -70,6 +72,10 @@ export async function kolPerformance(
     .eq("id", leadId).maybeSingle();
 
   const formRefs: { id: string; name: string }[] = Array.isArray(lead?.prof_kol_form_ids) ? lead.prof_kol_form_ids : [];
+  // Nomes normalizados dos formulários do KOL — um negócio só conta como
+  // indicação se a ORIGEM do deal for um desses formulários (evita puxar
+  // negócios antigos da mesma pessoa com outras origens).
+  const formNamesNorm = new Set(formRefs.map((f) => norm(f.name)).filter(Boolean));
   const couponRules: { code: string; commission_percent?: number | null; active_from?: string | null; active_to?: string | null }[] =
     Array.isArray(lead?.prof_kol_coupons) ? lead.prof_kol_coupons : [];
   if (!couponRules.length && lead?.prof_kol_coupon) couponRules.push({ code: String(lead.prof_kol_coupon).toUpperCase() });
@@ -257,9 +263,11 @@ export async function kolPerformance(
     for (let i = 0; i < allLeads.length; i += 300) {
       const chunk = allLeads.slice(i, i + 300);
       const { data: deals } = await admin.from("deals")
-        .select("id, piperun_deal_id, lead_id, value, status, is_deleted, closed_at, owner_name, stage_name, product, deal_title")
+        .select("id, piperun_deal_id, lead_id, value, status, is_deleted, closed_at, owner_name, stage_name, product, deal_title, origin_name")
         .in("lead_id", chunk);
-      const alive = (deals ?? []).filter((d: any) => !d.is_deleted);
+      // Só contam negócios cuja origem é um dos formulários de indicação do KOL
+      const alive = (deals ?? []).filter((d: any) =>
+        !d.is_deleted && formNamesNorm.has(norm(d.origin_name)));
       const won = alive.filter((d: any) => d.status === "ganha" && (!from && !to ? true : inRange(d.closed_at)));
       for (const d of won) wonByLead[d.lead_id] = (wonByLead[d.lead_id] ?? 0) + Number(d.value ?? 0);
 
@@ -325,14 +333,17 @@ export async function kolPerformance(
         const key = String(d.piperun_deal_id ?? d.id);
         const agg = itemsByDeal.get(key) ?? itemsByDeal.get(String(d.id));
         const info = leadInfo.get(String(d.lead_id));
+        const valorDeal = Number(d.value ?? 0);
+        const comissaoDeal = agg ? agg.com : (fallbackPct != null ? (valorDeal * fallbackPct) / 100 : null);
         buyersForms.push({
           deal_id: key,
           lead_id: String(d.lead_id),
           lead_nome: info?.nome ?? null,
           origem: leadFormName.get(String(d.lead_id)) ?? "—",
           produto: agg?.names.join(" + ") || d.product || d.deal_title || null,
-          valor: Number(d.value ?? 0),
-          comissao: agg ? agg.com : (fallbackPct != null ? (Number(d.value ?? 0) * fallbackPct) / 100 : null),
+          valor: valorDeal,
+          comissao: comissaoDeal,
+          comissao_pct: comissaoDeal != null && valorDeal > 0 ? (comissaoDeal / valorDeal) * 100 : null,
           vendedora: d.owner_name ?? null,
           // Data em que o lead preencheu o formulário (criação do lead)
           data: leadCreated.get(String(d.lead_id))?.slice(0, 10) ?? null,
