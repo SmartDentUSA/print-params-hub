@@ -260,9 +260,7 @@ export default function ProfessionalCoursePortal() {
                       {(c as any).review_note && c.status === "rascunho" && (
                         <p className="text-xs mt-1.5 text-destructive">Ajustes pedidos pela equipe: {(c as any).review_note}</p>
                       )}
-                      {c.status === "publicado" && (
-                        <PortalOwnCourseStats courseId={c.id} courseTitle={c.title} call={call} profName={profile.nome ?? ""} />
-                      )}
+                      <PortalOwnCourseStats courseId={c.id} courseTitle={c.title} call={call} profName={profile.nome ?? ""} />
                     </div>
                     <div className="flex gap-1 shrink-0">
                       {c.status === "rascunho" && (
