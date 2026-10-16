@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
+import { ContractDocument } from "./ContractDocument";
 import { Loader2, FileText, Send, Plus, Eye, Ban, RefreshCw } from "lucide-react";
 
 interface TeamMember { id: string; nome_completo: string | null; evolution_instance_name: string | null; evolution_phone: string | null; role: string | null }
@@ -346,9 +347,9 @@ export default function KolContractPanel({ leadId, leadNome }: { leadId: string;
       </Card>
 
       <Dialog open={!!viewing} onOpenChange={(o) => !o && setViewing(null)}>
-        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto bg-slate-100">
           <DialogHeader><DialogTitle>{viewing?.number} — {STATUS_LABEL[viewing?.status ?? ""] ?? viewing?.status}</DialogTitle></DialogHeader>
-          <pre className="whitespace-pre-wrap text-sm font-sans">{viewing?.body_rendered}</pre>
+          {viewing?.body_rendered && <ContractDocument body={viewing.body_rendered} />}
         </DialogContent>
       </Dialog>
     </div>

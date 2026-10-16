@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { ContractDocument } from "./ContractDocument";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -165,8 +166,8 @@ export default function KolContractPortalCard({ token }: { token: string }) {
             </DialogDescription>
           </DialogHeader>
 
-          <div className="flex-1 min-h-0 border rounded-md bg-muted/30 overflow-y-auto p-4" style={{ maxHeight: "55vh" }}>
-            <pre className="whitespace-pre-wrap text-sm font-sans leading-relaxed">{contract.body_rendered}</pre>
+          <div className="flex-1 min-h-0 overflow-y-auto rounded-md bg-slate-100 p-3 sm:p-5" style={{ maxHeight: "55vh" }}>
+            <ContractDocument body={contract.body_rendered} />
           </div>
 
           {!signed && awaiting && (
