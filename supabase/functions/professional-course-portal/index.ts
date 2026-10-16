@@ -8,6 +8,8 @@ import {
   sanitizeFolderName,
 } from "../_shared/drive.ts";
 
+import { kolPerformance } from "./performance.ts";
+
 // Pasta principal dos KOLs no Google Drive (contratos assinados)
 const KOL_DRIVE_PARENT_FOLDER = "16jeyfsU5dhzbYvYpk0d7d8_HFe_HnC9S";
 const CONTRACT_VALIDITY_MONTHS = 12;
