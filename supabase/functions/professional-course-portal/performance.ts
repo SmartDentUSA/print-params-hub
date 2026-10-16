@@ -162,11 +162,24 @@ export async function kolPerformance(
     for (const f of formRows ?? []) nameById.set(f.id, [f.name, f.slug].filter(Boolean));
     const allNames = Array.from(nameById.values()).flat();
 
-    // Leads por formulário (fn_kol_form_leads casa form_name ou chave em form_data).
-    // Sem filtro de data aqui: a atribuição de vendas é pela data do negócio.
+    // Leads por formulário — mesmas fontes da ficha do profissional (useKolPerformance):
+    // 1) respostas de campos personalizados; 2) RPC fn_kol_form_leads (form_name,
+    //    chave em form_data, histórico de submissões e deals por origem).
     const leadsByForm: Record<string, Set<string>> = {};
     const leadFormName = new Map<string, string>();
     const leadCreated = new Map<string, string>();
+
+    const { data: respRows } = await admin.from("smartops_form_field_responses")
+      .select("lead_id, form_id").in("form_id", formIds).not("lead_id", "is", null).limit(20000);
+    for (const r of respRows ?? []) {
+      if (!r.lead_id) continue;
+      leadsByForm[r.form_id] ??= new Set<string>();
+      leadsByForm[r.form_id].add(String(r.lead_id));
+      if (!leadFormName.has(String(r.lead_id))) {
+        leadFormName.set(String(r.lead_id), formRefs.find((f) => f.id === r.form_id)?.name ?? "");
+      }
+    }
+
     if (allNames.length) {
       const { data: rpcRows } = await admin.rpc("fn_kol_form_leads", { _names: allNames });
       const allLeadIds = [...new Set((rpcRows ?? []).map((r: any) => String(r.lead_id)))];
@@ -190,17 +203,30 @@ export async function kolPerformance(
       }
     }
 
-    // Visitas por slug (totais — a RPC de views não tem filtro de período)
+    // Visitas por slug. A RPC fn_kol_form_views exige is_admin(auth.uid()) e não
+    // funciona com service role, então agregamos lead_page_views diretamente
+    // (mesma regra: page_path = /f/{slug}, com query string ou subcaminho).
     const slugById = new Map<string, string>();
     for (const f of formRows ?? []) if (f.slug) slugById.set(f.id, f.slug);
     const viewsBySlug: Record<string, { views: number; visitors: number }> = {};
     const dailyByForm = new Map<string, Array<{ d: string; v: number }>>();
     if (slugById.size > 0) {
-      const [{ data: vRows }, { data: metricRows }] = await Promise.all([
-        admin.rpc("fn_kol_form_views", { _slugs: Array.from(slugById.values()) }),
+      const slugs = Array.from(slugById.values());
+      const orFilter = slugs
+        .flatMap((s) => [`page_path.eq./f/${s}`, `page_path.like./f/${s}?*`, `page_path.like./f/${s}/%`])
+        .join(",");
+      const [{ data: pvRows }, { data: metricRows }] = await Promise.all([
+        admin.from("lead_page_views").select("page_path, ip_hash, session_id").or(orFilter).limit(50000),
         admin.rpc("fn_form_metrics", { p_period_days: 30 }),
       ]);
-      for (const r of vRows ?? []) viewsBySlug[r.slug] = { views: Number(r.views) || 0, visitors: Number(r.visitors) || 0 };
+      for (const slug of slugs) {
+        const rows = (pvRows ?? []).filter((r: any) => {
+          const p = String(r.page_path ?? "");
+          return p === `/f/${slug}` || p.startsWith(`/f/${slug}?`) || p.startsWith(`/f/${slug}/`);
+        });
+        const uniq = new Set(rows.map((r: any) => r.ip_hash ?? r.session_id).filter(Boolean));
+        viewsBySlug[slug] = { views: rows.length, visitors: uniq.size };
+      }
       const wantedIds = new Set(formIds);
       for (const r of metricRows ?? []) {
         if (!wantedIds.has(r.form_id)) continue;
@@ -213,13 +239,17 @@ export async function kolPerformance(
 
     const allLeads = Array.from(new Set(Object.values(leadsByForm).flatMap((s) => Array.from(s))));
 
-    // Nomes e telefones dos leads (para as listas de compradores e negociação)
+    // Nomes, telefones e data de criação dos leads (listas de compradores,
+    // negociação e filtro de período dos leads gerados)
     const leadInfo = new Map<string, { nome: string | null; telefone: string | null }>();
     for (let i = 0; i < allLeads.length; i += 300) {
       const chunk = allLeads.slice(i, i + 300);
       const { data: infos } = await admin.from("lia_attendances")
-        .select("id, nome, telefone_raw, telefone_normalized").in("id", chunk);
-      for (const l of infos ?? []) leadInfo.set(String(l.id), { nome: l.nome ?? null, telefone: l.telefone_normalized ?? l.telefone_raw ?? null });
+        .select("id, nome, telefone_raw, telefone_normalized, created_at").in("id", chunk);
+      for (const l of infos ?? []) {
+        leadInfo.set(String(l.id), { nome: l.nome ?? null, telefone: l.telefone_normalized ?? l.telefone_raw ?? null });
+        if (l.created_at) leadCreated.set(String(l.id), String(l.created_at));
+      }
     }
 
     const wonByLead: Record<string, number> = {};
