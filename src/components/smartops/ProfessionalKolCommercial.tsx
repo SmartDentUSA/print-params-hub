@@ -476,7 +476,11 @@ export default function ProfessionalKolCommercial({
       </CardContent>
     </Card>
 
-    <ProfessionalKolPerformance formIds={formIds} coupons={coupons} commissions={commissions} />
+    <ProfessionalKolPerformance formIds={formIds} coupons={coupons} commissions={commissions}
+      onDeleteCoupon={(code) => {
+        if (!confirm(`Excluir o cupom ${code}? Clique em Salvar na ficha para confirmar.`)) return;
+        onCouponsChange(coupons.filter((c) => (c.code || "").trim().toUpperCase() !== code.toUpperCase()));
+      }} />
     </div>
   );
 }
