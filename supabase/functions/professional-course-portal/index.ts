@@ -164,7 +164,29 @@ Deno.serve(async (req) => {
           console.warn("[portal] cnpj auto-enrich", e);
         }
       }
-      return json({ professional: prof, courses: courses ?? [] });
+      // Especialista responsável: vendedora do contrato KOL mais recente
+      let specialist: { nome: string; photo_url: string | null; whatsapp: string | null } | null = null;
+      try {
+        const { data: ct } = await admin.from("kol_contracts").select("seller_team_member_id")
+          .eq("lead_id", leadId).not("seller_team_member_id", "is", null)
+          .order("created_at", { ascending: false }).limit(1).maybeSingle();
+        if (ct?.seller_team_member_id) {
+          const { data: tm } = await admin.from("team_members")
+            .select("nome_completo, photo_url, whatsapp_number, notification_phone")
+            .eq("id", ct.seller_team_member_id).maybeSingle();
+          if (tm) {
+            const digits = String(tm.whatsapp_number || tm.notification_phone || "").replace(/\D/g, "");
+            specialist = {
+              nome: tm.nome_completo,
+              photo_url: tm.photo_url ?? null,
+              whatsapp: digits ? (digits.length <= 11 ? `55${digits}` : digits) : null,
+            };
+          }
+        }
+      } catch (e) {
+        console.warn("[portal] specialist", e);
+      }
+      return json({ professional: prof, courses: courses ?? [], specialist });
     }
 
     // Consulta pública de CNPJ (Receita via BrasilAPI) — só leitura, sem gravar
