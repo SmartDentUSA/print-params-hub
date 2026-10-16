@@ -9,6 +9,7 @@ import {
 } from "../_shared/drive.ts";
 
 import { kolPerformance } from "./performance.ts";
+import { syncProfessionalToCrm } from "./piperun-sync.ts";
 
 // Pasta principal dos KOLs no Google Drive (contratos assinados)
 const KOL_DRIVE_PARENT_FOLDER = "16jeyfsU5dhzbYvYpk0d7d8_HFe_HnC9S";
@@ -122,7 +123,7 @@ Deno.serve(async (req) => {
       const [{ data: prof }, { data: courses }] = await Promise.all([
         admin
           .from("lia_attendances")
-          .select("id, nome, email, area_atuacao, especialidade, prof_photo_url, prof_cro, prof_mini_cv, prof_course_platform, prof_wa_ddi, prof_wa_number, prof_course_wa_ddi, prof_course_wa_number, instagram, prof_tiktok, prof_youtube, prof_site, prof_city, prof_state, prof_cep, pessoa_endereco, pessoa_cpf, empresa_cnpj, prof_qualifications, prof_university_roles")
+          .select("id, nome, email, area_atuacao, especialidade, prof_photo_url, prof_cro, prof_mini_cv, prof_course_platform, prof_wa_ddi, prof_wa_number, prof_course_wa_ddi, prof_course_wa_number, instagram, prof_tiktok, prof_youtube, prof_site, prof_city, prof_state, prof_cep, pessoa_endereco, pessoa_cpf, empresa_cnpj, prof_qualifications, prof_university_roles, pessoa_piperun_id, empresa_piperun_id")
           .eq("id", leadId)
           .maybeSingle(),
         admin
