@@ -278,7 +278,14 @@ export default function CoursesProfessionalProfile({ initialEmail, startEditing 
 
       // Guarda do contrato KOL: se as comissões não mudaram de fato, não enviar
       // o campo — senão o banco rejeita o salvamento INTEIRO (incluindo contatos)
-      // quando o contrato já está assinado.
+      // quando o contrato já está assinado. Comparação canônica (ordena chaves)
+      // porque o jsonb do banco reordena as chaves dos objetos.
+      const canon = (v: any): any => {
+        if (Array.isArray(v)) return v.map(canon);
+        if (v && typeof v === "object")
+          return Object.fromEntries(Object.keys(v).sort().map((k) => [k, canon(v[k])]));
+        return v ?? null;
+      };
       if (leadId) {
         const { data: cur } = await supabase
           .from("lia_attendances")
@@ -286,8 +293,8 @@ export default function CoursesProfessionalProfile({ initialEmail, startEditing 
           .eq("id", leadId)
           .maybeSingle();
         const sameCommissions =
-          JSON.stringify(cur?.prof_kol_commissions ?? null) ===
-          JSON.stringify(payload.prof_kol_commissions ?? null);
+          JSON.stringify(canon(cur?.prof_kol_commissions ?? null)) ===
+          JSON.stringify(canon(payload.prof_kol_commissions ?? null));
         if (sameCommissions) delete payload.prof_kol_commissions;
       }
 
