@@ -11,6 +11,9 @@ import { ArrowLeft, GraduationCap, Loader2, Pencil, Plus, Save, Trash2 } from "l
 import ProfessionalCourseForm from "@/components/smartops/courses/ProfessionalCourseForm";
 import CoursePreviewCard from "@/components/smartops/courses/CoursePreviewCard";
 import KolContractPortalCard from "@/components/smartops/courses/KolContractPortalCard";
+import PortalCollabCourseStats from "@/components/smartops/courses/portal/PortalCollabCourseStats";
+import PortalOwnCourseStats from "@/components/smartops/courses/portal/PortalOwnCourseStats";
+import PortalSocialStats from "@/components/smartops/courses/portal/PortalSocialStats";
 import { useClientPresence } from "@/hooks/useClientPresence";
 import { PushOptInBanner } from "@/components/PushOptInBanner";
 import {
@@ -165,9 +168,13 @@ export default function ProfessionalCoursePortal() {
     <main className="min-h-screen bg-muted/30 py-8 px-4">
       <div className={`${draft ? "max-w-6xl" : "max-w-4xl"} mx-auto space-y-6`}>
         <header className="flex items-center gap-3">
-          <GraduationCap className="w-7 h-7 text-primary" />
+          {profile.prof_photo_url ? (
+            <img src={profile.prof_photo_url} alt={profile.nome ?? "Profissional"} className="w-14 h-14 rounded-full object-cover border-2 border-primary/20 shrink-0" />
+          ) : (
+            <GraduationCap className="w-7 h-7 text-primary" />
+          )}
           <div>
-            <h1 className="text-2xl font-semibold">Meus cursos</h1>
+            <h1 className="text-2xl font-semibold">Portal Profissional Parceiro</h1>
             <p className="text-sm text-muted-foreground">{profile.nome ?? profile.email}</p>
           </div>
         </header>
