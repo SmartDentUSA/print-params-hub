@@ -359,7 +359,7 @@ export default function ProfessionalCoursePortal() {
               ) : (
                 <section className="space-y-3">
                   <div className="flex items-center justify-between">
-                    <h2 className="text-lg font-semibold">Cursos cadastrados ({courses.length})</h2>
+                    <h2 className="text-base font-semibold text-muted-foreground">Cursos cadastrados ({courses.length})</h2>
                     <Button size="sm" onClick={() => setDraft(emptyCourseDraft())}>
                       <Plus className="w-4 h-4 mr-2" /> Adicionar curso
                     </Button>
@@ -368,7 +368,7 @@ export default function ProfessionalCoursePortal() {
                     <Card><CardContent className="py-10 text-center text-muted-foreground">Você ainda não cadastrou cursos. Clique em <strong>Adicionar curso</strong>.</CardContent></Card>
                   ) : (
                     courses.map((c) => (
-                      <Card key={c.id}>
+                      <Card key={c.id} className="shadow-sm hover:shadow-md transition-shadow">
                         <CardContent className="p-4 flex items-start gap-3">
                           {c.cover_image_url ? <img src={c.cover_image_url} alt={c.title} className="w-24 h-16 object-cover rounded border shrink-0" /> : null}
                           <div className="min-w-0 flex-1">
