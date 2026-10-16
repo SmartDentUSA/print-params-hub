@@ -179,55 +179,68 @@ export default function ProfessionalCoursePortal() {
     .join("");
 
   const nav = (mobile = false) => (
-    <nav className={mobile ? "flex gap-1 overflow-x-auto p-2" : "flex-1 space-y-1 p-3"}>
-      {SECTIONS.map(({ key, label, icon: Icon }) => (
-        <button
-          key={key}
-          onClick={() => {
-            setSection(key);
-            setDraft(null);
-            setMenuOpen(false);
-          }}
-          className={`flex items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium transition-colors whitespace-nowrap ${
-            section === key
-              ? "bg-primary text-primary-foreground"
-              : "text-muted-foreground hover:bg-muted hover:text-foreground"
-          } ${mobile ? "" : "w-full"}`}
-        >
-          <Icon className="w-4 h-4 shrink-0" />
-          {label}
-        </button>
-      ))}
+    <nav className={mobile ? "flex gap-1.5 overflow-x-auto p-2" : "flex-1 space-y-1 px-3 py-4"}>
+      {SECTIONS.map(({ key, label, icon: Icon }) => {
+        const active = section === key;
+        return (
+          <button
+            key={key}
+            onClick={() => {
+              setSection(key);
+              setDraft(null);
+              setMenuOpen(false);
+            }}
+            className={`group relative flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm font-medium transition-all whitespace-nowrap ${
+              active
+                ? "bg-primary/10 text-primary shadow-[inset_0_0_0_1px_hsl(var(--primary)/0.25)]"
+                : "text-muted-foreground hover:bg-muted/70 hover:text-foreground"
+            } ${mobile ? "" : "w-full"}`}
+          >
+            {!mobile && (
+              <span
+                className={`absolute left-0 top-1/2 -translate-y-1/2 h-5 w-1 rounded-full bg-primary transition-opacity ${
+                  active ? "opacity-100" : "opacity-0"
+                }`}
+              />
+            )}
+            <Icon className={`w-4 h-4 shrink-0 ${active ? "text-primary" : ""}`} />
+            {label}
+          </button>
+        );
+      })}
     </nav>
   );
 
   return (
-    <main className="min-h-screen bg-muted/30 flex">
+    <main className="min-h-screen bg-muted/40 flex">
       {/* Sidebar desktop */}
-      <aside className="hidden md:flex w-64 shrink-0 flex-col border-r bg-card sticky top-0 h-screen">
-        <div className="p-4 border-b">
+      <aside className="hidden md:flex w-72 shrink-0 flex-col border-r bg-card/80 backdrop-blur sticky top-0 h-screen">
+        <div className="px-5 py-5 border-b bg-gradient-to-r from-primary/10 via-primary/5 to-transparent">
           <img src={SMARTDENT_LOGO_URL} alt="Smart Dent" className="h-9 w-auto object-contain" />
+          <p className="mt-2 text-[11px] font-medium uppercase tracking-widest text-muted-foreground">
+            Portal Profissional Parceiro
+          </p>
         </div>
-        <div className="flex items-center gap-3 p-4 border-b">
+        <div className="flex items-center gap-3 px-5 py-4 border-b">
           {profile.prof_photo_url ? (
             <img
               src={profile.prof_photo_url}
               alt={profile.nome ?? "Profissional"}
-              className="w-10 h-10 rounded-full object-cover border-2 border-primary/20 shrink-0"
+              className="w-11 h-11 rounded-full object-cover ring-2 ring-primary/30 ring-offset-2 ring-offset-card shrink-0"
             />
           ) : (
-            <div className="w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center font-semibold shrink-0">
+            <div className="w-11 h-11 rounded-full bg-primary/15 text-primary flex items-center justify-center font-semibold shrink-0 ring-2 ring-primary/20">
               {initials}
             </div>
           )}
           <div className="min-w-0">
             <div className="text-sm font-semibold truncate">{profile.nome ?? profile.email}</div>
-            <div className="text-xs text-muted-foreground truncate">Portal Profissional Parceiro</div>
+            <Badge variant="secondary" className="mt-1 text-[10px] font-medium">Parceiro KOL</Badge>
           </div>
         </div>
         {nav()}
-        <div className="p-4 border-t text-xs text-muted-foreground flex items-center gap-2">
-          <GraduationCap className="w-4 h-4" /> Smart Dent | Fluxo Digital
+        <div className="px-5 py-4 border-t text-xs text-muted-foreground flex items-center gap-2">
+          <GraduationCap className="w-4 h-4 text-primary/70" /> Smart Dent | Fluxo Digital
         </div>
       </aside>
 
