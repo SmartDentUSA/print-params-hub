@@ -32,7 +32,9 @@ import PortalPerformance from "@/components/smartops/courses/portal/PortalPerfor
 import PortalCommissionStats from "@/components/smartops/courses/portal/PortalCommissionStats";
 import PortalMyData, { type PortalProfile } from "@/components/smartops/courses/portal/PortalMyData";
 import PortalPriceTables from "@/components/smartops/courses/portal/PortalPriceTables";
-import { Receipt } from "lucide-react";
+import PortalPhoneLogin from "@/components/smartops/courses/portal/PortalPhoneLogin";
+import PortalMaterials from "@/components/smartops/courses/portal/PortalMaterials";
+import { QrCode, Receipt } from "lucide-react";
 import PortalSpecialistCard, { type PortalSpecialist } from "@/components/smartops/courses/portal/PortalSpecialistCard";
 import { useClientPresence } from "@/hooks/useClientPresence";
 import { PushOptInBanner } from "@/components/PushOptInBanner";
@@ -51,7 +53,7 @@ const SMARTDENT_LOGO_URL =
 
 type ProfileState = PortalProfile;
 
-type SectionKey = "dados" | "contrato" | "comissao" | "precos" | "visao" | "colaboracao" | "social" | "cursos";
+type SectionKey = "dados" | "contrato" | "comissao" | "precos" | "visao" | "colaboracao" | "social" | "cursos" | "materiais";
 
 const SECTIONS: { key: SectionKey; label: string; icon: typeof BarChart3 }[] = [
   { key: "dados", label: "Meus dados", icon: User },
@@ -62,6 +64,7 @@ const SECTIONS: { key: SectionKey; label: string; icon: typeof BarChart3 }[] = [
   { key: "colaboracao", label: "Cursos Smart Dent", icon: Handshake },
   { key: "social", label: "Engajamento social", icon: Share2 },
   { key: "cursos", label: "Meus cursos", icon: BookOpen },
+  { key: "materiais", label: "Materiais de divulgação", icon: QrCode },
 ];
 
 export default function ProfessionalCoursePortal() {
