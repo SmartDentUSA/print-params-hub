@@ -117,6 +117,9 @@ const SPEC_LABELS: Record<SpecLang, Record<string, string>> = {
     resistencia_flexural_mpa: 'Resistência Flexural (MPa)',
     resistencia_flexural_source: 'Fonte / Certificação',
     modulo_flexural_gpa: 'Módulo Flexural (GPa)',
+    viscosity: 'Viscosidade',
+    viscosity_mpas: 'Viscosidade (mPa·s)',
+    viscosidade: 'Viscosidade',
     dureza_shore_d: 'Dureza Shore D',
     sorcao_agua: 'Sorção de Água',
     radiopacidade: 'Radiopacidade',
@@ -142,6 +145,9 @@ const SPEC_LABELS: Record<SpecLang, Record<string, string>> = {
     resistencia_flexural_mpa: 'Flexural Strength (MPa)',
     resistencia_flexural_source: 'Source / Certification',
     modulo_flexural_gpa: 'Flexural Modulus (GPa)',
+    viscosity: 'Viscosity',
+    viscosity_mpas: 'Viscosity (mPa·s)',
+    viscosidade: 'Viscosity',
     dureza_shore_d: 'Shore D Hardness',
     sorcao_agua: 'Water Sorption',
     radiopacidade: 'Radiopacity',
@@ -167,6 +173,9 @@ const SPEC_LABELS: Record<SpecLang, Record<string, string>> = {
     resistencia_flexural_mpa: 'Resistencia a la Flexión (MPa)',
     resistencia_flexural_source: 'Fuente / Certificación',
     modulo_flexural_gpa: 'Módulo Flexural (GPa)',
+    viscosity: 'Viscosidad',
+    viscosity_mpas: 'Viscosidad (mPa·s)',
+    viscosidade: 'Viscosidad',
     dureza_shore_d: 'Dureza Shore D',
     sorcao_agua: 'Sorción de Agua',
     radiopacidade: 'Radiopacidad',
@@ -1040,7 +1049,7 @@ export default function KbTabCatalogo({ filterKey, pinnedIds, pinnedElsewhereIds
                           <tr>
                             <th className="w-[22%] px-1 py-1 text-left font-semibold">grs</th>
                             <th className="px-1 py-1 text-left font-semibold">{t('kb.catalogo.print_type')}</th>
-                            <th className="w-[26%] break-words px-1 py-1 text-right font-semibold">{t('kb.catalogo.prints_per_bottle')}</th>
+                            <th className="w-[30%] px-1 py-1 text-right font-semibold">{t('kb.catalogo.prints_per_bottle').replace('/', '/\u200b')}</th>
                           </tr>
                         </thead>
                         <tbody>
