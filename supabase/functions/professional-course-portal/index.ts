@@ -961,6 +961,33 @@ Deno.serve(async (req) => {
       return json({ ok: true, signed_at: signedAt, pdf_url: pdfUrl, drive_folder_url: driveFolderUrl, kol_seq: kolSeq, referral_form: referralForm });
     }
 
+    // ---- Materiais de divulgação: links do formulário de indicação e cupons (para QR codes) ----
+    if (action === "materials") {
+      const { data: lead } = await admin
+        .from("lia_attendances")
+        .select("nome, prof_kol_form_ids, prof_kol_coupons")
+        .eq("id", leadId)
+        .maybeSingle();
+      const linkedIds = Array.isArray(lead?.prof_kol_form_ids)
+        ? (lead!.prof_kol_form_ids as unknown[]).map((x: any) => (typeof x === "string" ? x : x?.id)).filter(Boolean)
+        : [];
+      let forms: { id: string; name: string; url: string }[] = [];
+      if (linkedIds.length) {
+        const { data: rows } = await admin
+          .from("smartops_forms")
+          .select("id, name, slug, active")
+          .in("id", linkedIds)
+          .eq("active", true);
+        const base = Deno.env.get("PUBLIC_SITE_URL") || "https://parametros.smartdent.com.br";
+        forms = (rows ?? []).map((f: any) => ({ id: f.id, name: f.name, url: `${base}/f/${f.slug}` }));
+      }
+      const today = new Date().toISOString().slice(0, 10);
+      const coupons = (Array.isArray(lead?.prof_kol_coupons) ? (lead!.prof_kol_coupons as any[]) : [])
+        .filter((c) => c?.code && (!c.active_to || String(c.active_to).slice(0, 10) >= today))
+        .map((c) => ({ code: c.code, active_from: c.active_from ?? null, active_to: c.active_to ?? null }));
+      return json({ forms, coupons, store_url: "https://loja.smartdent.com.br/" });
+    }
+
     // ---- Performance da parceria (mesma lógica da ficha do profissional, com filtro de período) ----
     if (action === "performance") {
       const from = /^\d{4}-\d{2}-\d{2}$/.test(String(body?.from ?? "")) ? String(body.from) : null;
