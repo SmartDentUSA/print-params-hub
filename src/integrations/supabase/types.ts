@@ -39560,6 +39560,13 @@ export type Database = {
       is_admin: { Args: { user_id: string }; Returns: boolean }
       is_author: { Args: { user_id: string }; Returns: boolean }
       is_support_staff: { Args: { _user_id: string }; Returns: boolean }
+      kb_catalog_resin_colors: {
+        Args: never
+        Returns: {
+          catalog_product_id: string
+          color: string
+        }[]
+      }
       list_lead_origin_conversions: {
         Args: never
         Returns: {

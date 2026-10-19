@@ -30,6 +30,17 @@
 
 @layer base {
   :root {
+    /* Catalog shade illustrations; availability is read from product variants. */
+    --resin-shade-a2: #e8d5ae;
+    --resin-shade-a3: #d9be91;
+    --resin-shade-b1: #f0e6cf;
+    --resin-shade-bl1: #f7f5eb;
+    --resin-shade-clear: #f6fafc;
+    --resin-shade-translucent: #e7edef;
+    --resin-shade-pink: #e6a5b5;
+    --resin-shade-beige: #d9c5a1;
+    --resin-shade-ochre: #cda34e;
+    --resin-shade-salmon: #ecaa96;
     /* Core brand colors - Deep tech blues with warm accents */
     --background: 210 17% 98%;
     --foreground: 215 25% 12%;

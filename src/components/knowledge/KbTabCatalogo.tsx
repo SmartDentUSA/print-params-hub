@@ -18,6 +18,9 @@ import { ProcessingInstructionsView } from '@/components/ProcessingInstructionsV
 import { PRODUCT_CATALOG_ENTITY_TYPES } from '@/lib/catalogEntityTypes';
 import { findCatalogFilter, rowMatchesCatalogFilter, CATALOG_SIDEBAR_FILTERS } from './catalogSidebarFilters';
 import { Button } from '@/components/ui/button';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { basicResinSpecs, catalogResinShades } from '@/lib/resinCatalogDetails';
+import './resin-catalog-details.css';
 
 const SPECIAL = /\b(FDA|ANVISA|NOVO|LANÇAMENTO|KIT|KOL)\b/i;
 
@@ -114,6 +117,9 @@ const SPEC_LABELS: Record<SpecLang, Record<string, string>> = {
     resistencia_flexural_mpa: 'Resistência Flexural (MPa)',
     resistencia_flexural_source: 'Fonte / Certificação',
     modulo_flexural_gpa: 'Módulo Flexural (GPa)',
+    viscosity: 'Viscosidade',
+    viscosity_mpas: 'Viscosidade (mPa·s)',
+    viscosidade: 'Viscosidade',
     dureza_shore_d: 'Dureza Shore D',
     sorcao_agua: 'Sorção de Água',
     radiopacidade: 'Radiopacidade',
@@ -139,6 +145,9 @@ const SPEC_LABELS: Record<SpecLang, Record<string, string>> = {
     resistencia_flexural_mpa: 'Flexural Strength (MPa)',
     resistencia_flexural_source: 'Source / Certification',
     modulo_flexural_gpa: 'Flexural Modulus (GPa)',
+    viscosity: 'Viscosity',
+    viscosity_mpas: 'Viscosity (mPa·s)',
+    viscosidade: 'Viscosity',
     dureza_shore_d: 'Shore D Hardness',
     sorcao_agua: 'Water Sorption',
     radiopacidade: 'Radiopacity',
@@ -164,6 +173,9 @@ const SPEC_LABELS: Record<SpecLang, Record<string, string>> = {
     resistencia_flexural_mpa: 'Resistencia a la Flexión (MPa)',
     resistencia_flexural_source: 'Fuente / Certificación',
     modulo_flexural_gpa: 'Módulo Flexural (GPa)',
+    viscosity: 'Viscosidad',
+    viscosity_mpas: 'Viscosidad (mPa·s)',
+    viscosidade: 'Viscosidad',
     dureza_shore_d: 'Dureza Shore D',
     sorcao_agua: 'Sorción de Agua',
     radiopacidade: 'Radiopacidad',
@@ -322,6 +334,7 @@ interface ResinInfo {
   cta_4_label: string | null;
   cta_4_url: string | null;
   processing_instructions: string | null;
+  color?: string | null;
   image_url: string | null;
   technical_specs: any | null;
   technical_specs_en?: any | null;
@@ -400,6 +413,7 @@ export default function KbTabCatalogo({ filterKey, pinnedIds, pinnedElsewhereIds
   const [resinsRaw, setResinsRaw] = useState<any[]>([]);
   const [resinDocs, setResinDocs] = useState<Map<string, ResinDoc[]>>(new Map());
   const [resinPres, setResinPres] = useState<Map<string, ResinPresentation[]>>(new Map());
+  const [variantColors, setVariantColors] = useState<Map<string, string[]>>(new Map());
   const [productShortLinks, setProductShortLinks] = useState<Map<string, ProductShortLinks>>(new Map());
   const [loading, setLoading] = useState(true);
   // Default view: Resinas 3D → Todas (subChip 'all'). Usuário pode trocar normalmente.
@@ -431,6 +445,7 @@ export default function KbTabCatalogo({ filterKey, pinnedIds, pinnedElsewhereIds
         { data: rp, error: e6 },
         { data: forms, error: e7 },
         { data: shortLinks, error: e8 },
+        { data: variations, error: e9 },
       ] = await Promise.all([
         // REGRA: cards da Base de Conhecimento SÓ vêm de system_a_catalog gerenciado no
         // Painel Admin → Gestão de Catálogo de Produtos (active + approved + visible_in_ui).
@@ -453,7 +468,7 @@ export default function KbTabCatalogo({ filterKey, pinnedIds, pinnedElsewhereIds
           .limit(1000),
         supabase
           .from('resins')
-          .select('id, name, name_en, name_es, slug, image_url, cta_1_label, cta_1_label_en, cta_1_label_es, cta_1_url, cta_2_label, cta_2_label_en, cta_2_label_es, cta_2_url, cta_3_label, cta_3_label_en, cta_3_label_es, cta_3_url, cta_4_label, cta_4_label_en, cta_4_label_es, cta_4_url, processing_instructions, processing_instructions_en, processing_instructions_es, technical_specs, technical_specs_en, technical_specs_es, info_card_url_pt, info_card_url_en, info_card_url_es')
+          .select('id, name, name_en, name_es, slug, color, image_url, cta_1_label, cta_1_label_en, cta_1_label_es, cta_1_url, cta_2_label, cta_2_label_en, cta_2_label_es, cta_2_url, cta_3_label, cta_3_label_en, cta_3_label_es, cta_3_url, cta_4_label, cta_4_label_en, cta_4_label_es, cta_4_url, processing_instructions, processing_instructions_en, processing_instructions_es, technical_specs, technical_specs_en, technical_specs_es, info_card_url_pt, info_card_url_en, info_card_url_es')
           .eq('active', true)
           .limit(500),
         supabase
@@ -483,6 +498,7 @@ export default function KbTabCatalogo({ filterKey, pinnedIds, pinnedElsewhereIds
           .from('smartops_short_links')
           .select('short_code, form_slug, default_target')
           .limit(2000),
+        supabase.rpc('kb_catalog_resin_colors'),
       ]);
       if (cancel) return;
       if (e1) console.error(e1);
@@ -493,6 +509,15 @@ export default function KbTabCatalogo({ filterKey, pinnedIds, pinnedElsewhereIds
       if (e6) console.error(e6);
       if (e7) console.error(e7);
       if (e8) console.error(e8);
+      if (e9) console.error(e9);
+      const colors = new Map<string, string[]>();
+      (variations || []).forEach((variation) => {
+        if (!variation.color?.trim()) return;
+        const current = colors.get(variation.catalog_product_id) || [];
+        current.push(variation.color);
+        colors.set(variation.catalog_product_id, current);
+      });
+      setVariantColors(colors);
       const docMap = new Map<string, DocLinks>();
       (pc || []).forEach((p: any) => {
         if (!p?.name) return;
@@ -638,6 +663,7 @@ export default function KbTabCatalogo({ filterKey, pinnedIds, pinnedElsewhereIds
       if (!r?.name || !r?.slug || !r?.id) return;
       const info: ResinInfo = {
         id: r.id, slug: r.slug, name: r.name,
+        color: r.color,
         cta_1_label: r.cta_1_label, cta_1_url: r.cta_1_url,
         cta_2_label: r.cta_2_label, cta_2_url: r.cta_2_url,
         cta_3_label: r.cta_3_label, cta_3_url: r.cta_3_url,
@@ -764,7 +790,7 @@ export default function KbTabCatalogo({ filterKey, pinnedIds, pinnedElsewhereIds
             const color = CATALOG_COLORS[canon] || '#5F6368';
             const bgBadge = color + '1A';
             const special = p.product_subcategory && SPECIAL.test(p.product_subcategory)
-              ? p.product_subcategory.match(SPECIAL)![0].toUpperCase()
+              ? p.product_subcategory.match(SPECIAL)?.[0].toUpperCase()
               : null;
             const d = docs.get(p.name.toLowerCase().trim());
             // Only attempt resin lookup when this catalog item is itself a resin.
@@ -872,6 +898,7 @@ export default function KbTabCatalogo({ filterKey, pinnedIds, pinnedElsewhereIds
               }
               const fromLive = normalizeSpecs(live, specLang);
               if (fromLive.length) return live;
+              if (normalizeSpecs(p.technical_specs, specLang).length) return p.technical_specs;
               // Fallback: technical_specs da resina vinculada — só em match exato
               // (nome/slug/resinKey). Subset/fuzzy não entra aqui para evitar
               // poluir um card com specs de outra resina.
@@ -886,6 +913,10 @@ export default function KbTabCatalogo({ filterKey, pinnedIds, pinnedElsewhereIds
               return null;
             })();
             const specs: SpecRow[] = rawSpecs ? normalizeSpecs(rawSpecs, specLang) : [];
+            const basicSpecs = isResinCategory ? basicResinSpecs(specs) : [];
+            const shades = isResinCategory ? catalogResinShades(
+              variantColors.get(p.id) || (resinExact?.color ? [resinExact.color] : []), p.name,
+            ) : [];
             // Foto oficial vem de system_a_catalog (Gestão de Catálogo de Produtos).
             // Fallback: imagem da resina vinculada quando o card não tem foto no catálogo.
             const cardImage = p.image_url || resin?.image_url || null;
@@ -923,6 +954,17 @@ export default function KbTabCatalogo({ filterKey, pinnedIds, pinnedElsewhereIds
                     )}
                   </div>
                   <h3 className="kb-title">{p.name}</h3>
+                  {shades.length > 0 && (
+                    <ul className="mt-2 flex flex-wrap gap-2" aria-label="Cores disponíveis">
+                      {shades.map(shade => (
+                        <li key={shade.label} title={shade.label}>
+                          <span className="kb-resin-shade inline-flex h-9 min-w-9 items-center justify-center rounded-full border border-border px-1 text-[10px] font-semibold" data-tone={shade.tone} aria-label={shade.label}>
+                            {shade.code}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                   {(p.description || p.product_subcategory) && (
                     <p className="kb-excerpt">{stripHtml(p.description) || p.product_subcategory}</p>
                   )}
@@ -981,30 +1023,49 @@ export default function KbTabCatalogo({ filterKey, pinnedIds, pinnedElsewhereIds
                       )}
                     </div>
                   )}
-                  {presDeduped.length > 0 && (
-                    <div style={{ marginTop: 8 }}>
-                      <div style={{ fontSize: 10, fontWeight: 600, color: '#5F6368', marginBottom: 4, textTransform: 'uppercase', letterSpacing: 0.3 }}>
-                        {t('kb.catalogo.presentations')}
-                      </div>
-                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11, color: '#202124', tableLayout: 'fixed' }}>
+                  {(presDeduped.length > 0 || basicSpecs.length > 0) && (
+                    <Accordion type="multiple" className="kb-resin-details mt-2">
+                    {basicSpecs.length > 0 && (
+                      <AccordionItem value="technical">
+                        <AccordionTrigger className="py-3 text-xs text-left">{specLang === 'en' ? 'Basic technical data' : specLang === 'es' ? 'Datos técnicos básicos' : 'Dados técnicos básicos'}</AccordionTrigger>
+                        <AccordionContent className="pb-3">
+                          <dl className="space-y-2 text-xs">
+                            {basicSpecs.map(row => (
+                              <div key={row.label} className="grid grid-cols-2 gap-3">
+                                <dt className="break-words">{row.label}</dt>
+                                <dd className="break-words font-medium">{row.value}</dd>
+                              </div>
+                            ))}
+                          </dl>
+                        </AccordionContent>
+                      </AccordionItem>
+                    )}
+                    {presDeduped.length > 0 && (
+                    <AccordionItem value="yield">
+                      <AccordionTrigger className="py-3 text-xs">{t('kb.catalogo.presentations')}</AccordionTrigger>
+                      <AccordionContent className="pb-3">
+                      <table className="w-full table-fixed border-collapse text-[11px]">
                         <thead>
-                          <tr style={{ background: '#F6F8FB', color: '#5F6368' }}>
-                            <th style={{ textAlign: 'left', padding: '4px 6px', borderBottom: '1px solid #E0E3E7', fontWeight: 600, width: '22%' }}>grs</th>
-                            <th style={{ textAlign: 'left', padding: '4px 6px', borderBottom: '1px solid #E0E3E7', fontWeight: 600 }}>{t('kb.catalogo.print_type')}</th>
-                            <th style={{ textAlign: 'right', padding: '4px 6px', borderBottom: '1px solid #E0E3E7', fontWeight: 600, width: '26%' }}>{t('kb.catalogo.prints_per_bottle')}</th>
+                          <tr>
+                            <th className="w-[22%] px-1 py-1 text-left font-semibold">grs</th>
+                            <th className="px-1 py-1 text-left font-semibold">{t('kb.catalogo.print_type')}</th>
+                            <th className="w-[30%] px-1 py-1 text-right font-semibold">{t('kb.catalogo.prints_per_bottle').replace('/', '/\u200b')}</th>
                           </tr>
                         </thead>
                         <tbody>
                           {presDeduped.map((pr, idx) => (
-                            <tr key={idx} style={{ borderBottom: '1px solid #F0F2F5' }}>
-                              <td style={{ padding: '4px 6px' }}>{pr.label ? (/^\d+(\.\d+)?$/.test(pr.label) ? `${pr.label}g` : pr.label) : '—'}</td>
-                              <td style={{ padding: '4px 6px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={translatePrintType(pr.print_type, t) || ''}>{translatePrintType(pr.print_type, t) || '—'}</td>
-                              <td style={{ padding: '4px 6px', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{pr.prints_per_bottle && pr.prints_per_bottle > 0 ? pr.prints_per_bottle : '—'}</td>
+                            <tr key={idx}>
+                              <td className="break-words px-1 py-1">{pr.label ? (/^\d+(\.\d+)?$/.test(pr.label) ? `${pr.label}g` : pr.label) : '—'}</td>
+                              <td className="break-words px-1 py-1">{translatePrintType(pr.print_type, t) || '—'}</td>
+                              <td className="px-1 py-1 text-right tabular-nums">{pr.prints_per_bottle && pr.prints_per_bottle > 0 ? pr.prints_per_bottle : '—'}</td>
                             </tr>
                           ))}
                         </tbody>
                       </table>
-                    </div>
+                      </AccordionContent>
+                    </AccordionItem>
+                    )}
+                    </Accordion>
                   )}
                   {resin?.processing_instructions && (
                     <div style={{ marginTop: 6 }}>
