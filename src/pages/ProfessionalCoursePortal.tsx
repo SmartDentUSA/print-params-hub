@@ -162,6 +162,10 @@ export default function ProfessionalCoursePortal() {
   };
 
 
+  if (!token) {
+    return <PortalPhoneLogin onSession={(s) => setSessionToken(s)} />;
+  }
+
   if (loading) {
     return (
       <main className="min-h-screen flex items-center justify-center bg-muted/40 text-muted-foreground">
