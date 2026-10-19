@@ -14,6 +14,9 @@ export function catalogResinShades(colors: string[], productName: string): Resin
       const variantFamily = /\bht\b/i.test(label) ? 'ht' : /\bclassic\b/i.test(label) ? 'classic' : null;
       if (family && variantFamily && variantFamily !== family) continue;
       const base = normalized(label).replace(/\b(classic|ht)\b/g, '').trim();
+      if (/bio.*vitality/i.test(productName) && family === 'ht' && !['bl1', 'b1', 'a2'].includes(base)) continue;
+      // The registered orange value was explicitly rejected for Guide; do not invent its replacement.
+      if (/\bguide\b/i.test(productName) && ['laranja', 'orange'].includes(base)) continue;
       const codes: Record<string, [string, string]> = {
         a2: ['A2', 'a2'], a3: ['A3', 'a3'], b1: ['B1', 'b1'], bl1: ['BL1', 'bl1'],
         incolor: ['INC', 'clear'], clear: ['INC', 'clear'], transparente: ['INC', 'clear'],
@@ -21,7 +24,7 @@ export function catalogResinShades(colors: string[], productName: string): Resin
         rosa: ['RS', 'pink'], bege: ['BG', 'beige'], ocre: ['OC', 'ochre'], salmao: ['SL', 'salmon'],
       };
       const [code, tone] = codes[base] || [label.toUpperCase(), 'unknown'];
-      if (!shades.has(base)) shades.set(base, { label, code, tone });
+      if (!shades.has(base)) shades.set(base, { label, code: family === 'ht' ? `${code}-HT` : code, tone });
     }
   }
   return [...shades.values()];
