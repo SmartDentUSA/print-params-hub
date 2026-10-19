@@ -949,7 +949,16 @@ Deno.serve(async (req) => {
           dedupe_key: `kol_signed:${contract.id}`,
         },
       });
-      return json({ ok: true, signed_at: signedAt, pdf_url: pdfUrl, drive_folder_url: driveFolderUrl, kol_seq: kolSeq });
+
+      // Aceite do contrato → cria o formulário de indicação do profissional
+      // (clone do modelo, vendedor do contrato, vínculo na ficha). Falha não desfaz o aceite.
+      let referralForm: unknown = null;
+      try {
+        referralForm = await ensureReferralForm(admin, leadId);
+      } catch (refErr) {
+        console.error("[professional-course-portal] referral form", refErr);
+      }
+      return json({ ok: true, signed_at: signedAt, pdf_url: pdfUrl, drive_folder_url: driveFolderUrl, kol_seq: kolSeq, referral_form: referralForm });
     }
 
     // ---- Performance da parceria (mesma lógica da ficha do profissional, com filtro de período) ----
