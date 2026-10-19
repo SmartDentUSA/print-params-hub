@@ -489,11 +489,7 @@ export default function KbTabCatalogo({ filterKey, pinnedIds, pinnedElsewhereIds
           .from('smartops_short_links')
           .select('short_code, form_slug, default_target')
           .limit(2000),
-        supabase.from('catalog_product_variations')
-          .select('catalog_product_id, color')
-          .not('color', 'is', null)
-          .order('sort_order')
-          .limit(5000),
+        supabase.rpc('kb_catalog_resin_colors'),
       ]);
       if (cancel) return;
       if (e1) console.error(e1);
