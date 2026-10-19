@@ -11,6 +11,7 @@ import {
 import { kolPerformance } from "./performance.ts";
 import { syncProfessionalToCrm } from "./piperun-sync.ts";
 import { lookupCnpj } from "../_shared/cnpj-lookup.ts";
+import { ensureReferralForm } from "../_shared/kol-referral-form.ts";
 
 // Pasta principal dos KOLs no Google Drive (contratos assinados)
 const KOL_DRIVE_PARENT_FOLDER = "16jeyfsU5dhzbYvYpk0d7d8_HFe_HnC9S";
@@ -95,6 +96,21 @@ async function resolveToken(token: string) {
   return data;
 }
 
+// Login por celular: sessão verificada do kol-portal-auth (kol_access_sessions)
+async function resolveSessionToken(sessionToken: string) {
+  if (!sessionToken || sessionToken.length !== 64) return null;
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(sessionToken));
+  const hash = Array.from(new Uint8Array(buf)).map((x) => x.toString(16).padStart(2, "0")).join("");
+  const { data } = await admin
+    .from("kol_access_sessions")
+    .select("id, lead_id, expires_at, revoked_at, verified_at")
+    .eq("token_hash", hash)
+    .maybeSingle();
+  if (!data || data.revoked_at || !data.verified_at) return null;
+  if (data.expires_at && new Date(data.expires_at).getTime() < Date.now()) return null;
+  return { id: data.id, lead_id: data.lead_id };
+}
+
 // Timeline KOL obrigatória (fn_kol_log). Rascunho: uma linha por curso e dia; envio: uma por envio.
 async function logCourse(leadId: string, type: string, c: { id: string; title: string; status?: string }, desc: string, unique = false) {
   const day = new Date().toISOString().slice(0, 10);
@@ -115,8 +131,10 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const action = String(body?.action ?? "");
     const token = String(body?.token ?? "");
+    const sessionToken = String(body?.session_token ?? "");
 
-    const session = await resolveToken(token);
+    // Aceita o token legado do link OU a sessão de celular (kol-portal-auth)
+    const session = token ? await resolveToken(token) : await resolveSessionToken(sessionToken);
     if (!session) return json({ error: "invalid_token" }, 401);
     const leadId = session.lead_id as string;
 
@@ -931,7 +949,43 @@ Deno.serve(async (req) => {
           dedupe_key: `kol_signed:${contract.id}`,
         },
       });
-      return json({ ok: true, signed_at: signedAt, pdf_url: pdfUrl, drive_folder_url: driveFolderUrl, kol_seq: kolSeq });
+
+      // Aceite do contrato → cria o formulário de indicação do profissional
+      // (clone do modelo, vendedor do contrato, vínculo na ficha). Falha não desfaz o aceite.
+      let referralForm: unknown = null;
+      try {
+        referralForm = await ensureReferralForm(admin, leadId);
+      } catch (refErr) {
+        console.error("[professional-course-portal] referral form", refErr);
+      }
+      return json({ ok: true, signed_at: signedAt, pdf_url: pdfUrl, drive_folder_url: driveFolderUrl, kol_seq: kolSeq, referral_form: referralForm });
+    }
+
+    // ---- Materiais de divulgação: links do formulário de indicação e cupons (para QR codes) ----
+    if (action === "materials") {
+      const { data: lead } = await admin
+        .from("lia_attendances")
+        .select("nome, prof_kol_form_ids, prof_kol_coupons")
+        .eq("id", leadId)
+        .maybeSingle();
+      const linkedIds = Array.isArray(lead?.prof_kol_form_ids)
+        ? (lead!.prof_kol_form_ids as unknown[]).map((x: any) => (typeof x === "string" ? x : x?.id)).filter(Boolean)
+        : [];
+      let forms: { id: string; name: string; url: string }[] = [];
+      if (linkedIds.length) {
+        const { data: rows } = await admin
+          .from("smartops_forms")
+          .select("id, name, slug, active")
+          .in("id", linkedIds)
+          .eq("active", true);
+        const base = Deno.env.get("PUBLIC_SITE_URL") || "https://parametros.smartdent.com.br";
+        forms = (rows ?? []).map((f: any) => ({ id: f.id, name: f.name, url: `${base}/f/${f.slug}` }));
+      }
+      const today = new Date().toISOString().slice(0, 10);
+      const coupons = (Array.isArray(lead?.prof_kol_coupons) ? (lead!.prof_kol_coupons as any[]) : [])
+        .filter((c) => c?.code && (!c.active_to || String(c.active_to).slice(0, 10) >= today))
+        .map((c) => ({ code: c.code, active_from: c.active_from ?? null, active_to: c.active_to ?? null }));
+      return json({ forms, coupons, store_url: "https://loja.smartdent.com.br/" });
     }
 
     // ---- Performance da parceria (mesma lógica da ficha do profissional, com filtro de período) ----

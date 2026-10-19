@@ -335,6 +335,22 @@ const tools = [
   {
     type: "function",
     function: {
+      name: "credenciar_profissional",
+      description: "Executa o pipeline completo de credenciamento de um profissional/KOL: ficha, comissão padrão, draft do contrato, formulário de indicação (após aceite), cupons e link do portal. Use quando pedirem para credenciar/onboardar um profissional parceiro.",
+      parameters: {
+        type: "object",
+        properties: {
+          email: { type: "string", description: "E-mail do profissional (obrigatório se não houver lead_id)" },
+          lead_id: { type: "string", description: "UUID do lead na base, se já existir" },
+          nome: { type: "string", description: "Nome completo — obrigatório para criar ficha nova" },
+          seller_name: { type: "string", description: "Nome do vendedor responsável pela parceria" }
+        }
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
       name: "search_videos",
       description: "Busca vídeos na base de conhecimento por título, tags ou transcrição.",
       parameters: {
@@ -3557,6 +3573,10 @@ const toolExecutors: Record<string, (args: any) => Promise<any>> = {
   reactivate_routine: executeReactivateRoutine,
   delete_social_flow: executeDeleteSocialFlow,
   provision_social_flow: executeProvisionSocialFlow,
+  credenciar_profissional: async (args: any) => {
+    const { data, error } = await supabase.functions.invoke("kol-onboarding-pipeline", { body: args });
+    return error ? { error: error.message } : data;
+  },
 };
 
 const SYSTEM_PROMPT = `# SISTEMA: COPILOT — GERENTE COMERCIAL INTELIGENTE
@@ -3913,7 +3933,7 @@ serve(async (req) => {
     // ── Server-side action audit (anti-hallucination) ──
     const ACTION_TOOL_NAMES = new Set<string>([
       "send_sms","send_whatsapp","notify_seller","send_to_sellflux",
-      "bulk_campaign","update_lead","add_tags","unify_leads",
+      "bulk_campaign","update_lead","add_tags","unify_leads","credenciar_profissional",
     ]);
     const executedActions: Array<{ name: string; args: any; result: any }> = [];
     const lastUserText = String(
