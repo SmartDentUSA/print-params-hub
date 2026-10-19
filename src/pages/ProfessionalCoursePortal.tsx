@@ -98,6 +98,7 @@ export default function ProfessionalCoursePortal() {
   );
 
   const load = useCallback(async () => {
+    if (!token) { setLoading(false); return; }
     setLoading(true);
     try {
       const data = await call("bootstrap");
