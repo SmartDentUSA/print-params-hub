@@ -7,7 +7,13 @@ test('only registered colors are displayed and Classic excludes HT variants', ()
   assert.deepEqual(catalogResinShades([], 'Bio Vitality HT'), []);
 });
 test('HT excludes Classic and duplicate shades are collapsed', () => {
-  assert.deepEqual(catalogResinShades(['A2 Classic A2 HT', 'A2 HT', 'BL1 HT'], 'Bio Vitality HT').map(s => s.code), ['A2', 'BL1']);
+  assert.deepEqual(catalogResinShades(['A2 Classic A2 HT', 'A2 HT', 'BL1 HT'], 'Bio Vitality HT').map(s => s.code), ['A2-HT', 'BL1-HT']);
+});
+test('Bio Vitality HT offers only BL1-HT, B1-HT and A2-HT', () => {
+  assert.deepEqual(catalogResinShades(['BL1 HT', 'B1 HT', 'A2 HT', 'A3 HT'], 'Resina 3D Smart Print Bio Vitality HT').map(s => s.code), ['BL1-HT', 'B1-HT', 'A2-HT']);
+});
+test('Guide does not display the rejected orange color', () => {
+  assert.deepEqual(catalogResinShades(['Laranja'], 'Resina Smart 3D Print Bio Clear Guide'), []);
 });
 test('basic specs retain real values in requested order without filling absent properties', () => {
   assert.deepEqual(basicResinSpecs([
