@@ -54,3 +54,4 @@
 - [x] Editor de curso do profissional: 2 uploads de vídeo (horizontal apresentação KOL; vertical Reels Smart Dent)
 - [x] Pipeline do vídeo vertical do curso KOL: Panda (pasta "# - Videos dos cursos Kols", nome Profissional - Curso - Chamada), IG Flow com palavra de 3 iniciais, IG/FB Reels+Story, TikTok, YouTube Shorts, 5 hashtags. Envio real às redes não testado.
 - [ ] Completar a frase "Ao publicar o curso e validar ass..." (aguarda usuário)
+- [ ] Executar teste ponta a ponta KOL de Danilo Henrique: credenciamento, contrato, cupons, formulário, grupo WhatsApp e portal; confirmar responsável/configurações e manter aceite pessoal e isolamento de teste.
