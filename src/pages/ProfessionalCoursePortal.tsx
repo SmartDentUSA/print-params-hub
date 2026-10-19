@@ -68,7 +68,10 @@ const SECTIONS: { key: SectionKey; label: string; icon: typeof BarChart3 }[] = [
 ];
 
 export default function ProfessionalCoursePortal() {
-  const { token = "" } = useParams();
+  const { token: routeToken = "" } = useParams();
+  const [sessionToken, setSessionToken] = useState(() => sessionStorage.getItem("kol_portal_session") ?? "");
+  // Link com token (legado) OU sessão de celular verificada — a edge aceita ambos no campo token
+  const token = routeToken || sessionToken;
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [invalid, setInvalid] = useState(false);
@@ -330,6 +333,12 @@ export default function ProfessionalCoursePortal() {
             {section === "comissao" && (
               <section className="space-y-4">
                 <PortalCommissionStats call={call} />
+              </section>
+            )}
+
+            {section === "materiais" && (
+              <section className="space-y-4">
+                <PortalMaterials call={call} />
               </section>
             )}
 
