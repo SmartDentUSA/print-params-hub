@@ -35,3 +35,6 @@
 - Waitlist cancel/promote run server-side in smartops-waitlist-manage; cancelling an enrollment notifies only the oldest not-yet-notified waitlist entry via the course CS instance, keeping vacancy messages single and auditable.
 - Subdirectories may have their own AGENTS.md; read it before changing files there (src/components/smartops/AGENTS.md, src/components/smartops/courses/AGENTS.md).
 - Páginas públicas abertas pelo endereço admin redirecionam para o www (link único para SEO); ferramentas internas ficam no admin.
+- KOL referral forms are created only by _shared/kol-referral-form.ts (ensureReferralForm), which clones the template form 98918740-4e99-45f9-bf6d-89cfe90a8c14, names it "# - INDICAÇÃO - {profissional}" and sets the contract seller; called on contract acceptance and by kol-onboarding-pipeline — never clone referral forms inline elsewhere.
+- Portal do profissional accepts both the legacy link token and a phone-verified kol_access_sessions token in the same `token` field of professional-course-portal; phone login (OTP via WhatsApp) lives in kol-portal-auth and the public route /portal-profissional.
+- KOL onboarding runs through the kol-onboarding-pipeline edge function (staff-only, fn_is_internal_staff), exposed to Copilot as the credenciar_profissional tool; each step reports status and failures never hide earlier steps.
