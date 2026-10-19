@@ -23,3 +23,4 @@
 - KOL onboarding runs through the kol-onboarding-pipeline edge function (staff-only, fn_is_internal_staff), exposed to Copilot as the credenciar_profissional tool; each step reports status and failures never hide earlier steps.
 - KOL referral forms use a presentation-only list group derived from canonical professional form references or the legacy referral name prefix; preserve stored purposes to avoid changing ingestion and CRM behavior.
 - KOL cards preserve attribution; commission UI groups catalog keys by portfolio stages without renaming stored rules, preventing calculation changes.
+- KOL CRM sync (kol-crm-sync, staff-only) creates/updates ONE deal per professional in PipeRun pipeline 107400 (KOLs), moves only forward across its 7 stages (694355 Interessados … 694361 Kol Ativo) and posts a "Ficha KOL" note (coupons, referral form links, commissions) via claimSellerNoteSlot; is_test leads never sync, and it is the final step of kol-onboarding-pipeline.
