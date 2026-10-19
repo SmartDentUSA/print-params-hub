@@ -4,6 +4,7 @@
 - Support board uses that endpoint in bounded batches for complete ticket counts and owned-equipment priority; this avoids per-card requests and RLS changes.
 - Support uses scoped tokens and equal-width conversation/profile areas; preserves other admin styling.
 - Bio cards pass hydrated form IDs to LIA, not labels; preserves attribution.
+- Resin cards use registered variant colors and shared detail selectors; prevents invented availability and cross-family shades.
 
 - RMS payment presentation and metrics share product-family resolution; subscription fallback and invoice totals are scoped by family and lead to prevent exoplan/DentalCAD cross-attribution.
 
