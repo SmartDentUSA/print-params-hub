@@ -190,6 +190,7 @@ async function syncOneKol(leadId: string, steps: Step[]): Promise<{ ok: boolean;
   const target = computeTargetStage({
     hasContract: !!contract,
     contractSigned,
+    isKol: !!lead.is_kol,
     hasReferralForm: referralForms.length > 0,
     hasActiveCoupon: activeCoupons.length > 0,
   });
