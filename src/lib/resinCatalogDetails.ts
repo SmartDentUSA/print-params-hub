@@ -41,6 +41,7 @@ export function basicResinSpecs(rows: CatalogSpec[]): CatalogSpec[] {
     /^(carga por volum|filler by volume|carga inorganica \(volume\))/,
     /^(sorcao (?:de )?agua|water sorption|sorcion (?:de )?agua)/,
     /^(radiopacidade|radiopacity|radiopacidad)/,
+    /^(translucidez|translucency|translucencia)/,
   ];
   return groups.flatMap(pattern => {
     const row = rows.find(item => pattern.test(normalized(item.label)) && item.value.trim());

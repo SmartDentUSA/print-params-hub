@@ -15,6 +15,13 @@ test('Bio Vitality HT offers only BL1-HT, B1-HT and A2-HT', () => {
 test('Guide does not display the rejected orange color', () => {
   assert.deepEqual(catalogResinShades(['Laranja'], 'Resina Smart 3D Print Bio Clear Guide'), []);
 });
+test('available translucency is selected in Portuguese, English and Spanish without inventing missing values', () => {
+  for (const label of ['Translucidez', 'Translucency', 'Translucencia']) {
+    assert.deepEqual(basicResinSpecs([{ label, value: '35%' }]), [{ label, value: '35%' }]);
+    assert.deepEqual(basicResinSpecs([{ label, value: '45%' }]), [{ label, value: '45%' }]);
+    assert.deepEqual(basicResinSpecs([{ label, value: '' }]), []);
+  }
+});
 test('basic specs retain real values in requested order without filling absent properties', () => {
   assert.deepEqual(basicResinSpecs([
     { label: 'Radiopacidade', value: '1.048 mm Al' },
