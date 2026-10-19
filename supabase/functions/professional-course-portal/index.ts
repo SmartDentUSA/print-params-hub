@@ -130,11 +130,11 @@ Deno.serve(async (req) => {
   try {
     const body = await req.json().catch(() => ({}));
     const action = String(body?.action ?? "");
-    const token = String(body?.token ?? "");
-    const sessionToken = String(body?.session_token ?? "");
+    const token = String(body?.token ?? body?.session_token ?? "");
 
-    // Aceita o token legado do link OU a sessão de celular (kol-portal-auth)
-    const session = token ? await resolveToken(token) : await resolveSessionToken(sessionToken);
+    // Aceita o token legado do link OU a sessão de celular (kol-portal-auth),
+    // no mesmo campo — assim todos os componentes do portal funcionam sem mudança.
+    const session = (await resolveToken(token)) ?? (await resolveSessionToken(token));
     if (!session) return json({ error: "invalid_token" }, 401);
     const leadId = session.lead_id as string;
 
