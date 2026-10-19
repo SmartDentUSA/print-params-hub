@@ -171,6 +171,18 @@ Deno.serve(async (req) => {
     const base = Deno.env.get("PUBLIC_SITE_URL") || "https://parametros.smartdent.com.br";
     steps.push({ step: "acesso", ok: true, detail: `Portal: ${base}/portal-cursos/${portalToken} (login também por celular em /portal-profissional).` });
 
+    // 8) CRM: deal no funil KOLs (107400) com nota completa (cupons, formulários, comissionamento)
+    const { data: crmRes, error: crmErr } = await admin.functions.invoke("kol-crm-sync", {
+      body: { lead_id: leadId },
+      headers: { Authorization: `Bearer ${jwt}` },
+    });
+    if (crmErr || crmRes?.error || crmRes?.ok === false) {
+      steps.push({ step: "crm", ok: false, detail: `Falha no sync CRM: ${crmErr?.message ?? crmRes?.error ?? "etapa com falha"}` });
+    } else {
+      const dealInfo = crmRes?.deal_id ? ` — deal #${crmRes.deal_id} no funil KOLs` : "";
+      steps.push({ step: "crm", ok: true, detail: `CRM sincronizado${dealInfo}.` });
+    }
+
     await admin.rpc("fn_kol_log", {
       _lead_id: leadId,
       _event_type: "kol_onboarding_pipeline_run",
