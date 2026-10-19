@@ -77,7 +77,7 @@ serve(async (req) => {
   const matches = (triggers ?? []).filter((t: any) => {
     if (!t.social_flows?.is_active) return false;
     if (t.social_flows.channel && t.social_flows.channel !== channel) return false;
-    if (postId && Array.isArray(t.post_ids) && t.post_ids.length > 0 && !t.post_ids.includes(postId)) return false;
+    if (Array.isArray(t.post_ids) && t.post_ids.length > 0 && (!postId || !t.post_ids.includes(postId))) return false;
     const keywords: string[] = t.keywords ?? [];
     if (keywords.length === 0) return true;
     if (t.is_regex) return keywords.some((k) => { try { return new RegExp(k, 'i').test(text); } catch { return false; } });
