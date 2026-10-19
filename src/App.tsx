@@ -172,6 +172,7 @@ const App = () => (
 
       {/* Portal do profissional para cadastrar/editar seus cursos (link por token, sem login) */}
       <Route path="/portal-cursos/:token" element={<ProfessionalCoursePortal />} />
+      <Route path="/portal-profissional" element={<ProfessionalCoursePortal />} />
       <Route path="/portal-kol" element={<KolTransparencyPortal />} />
       
       {/* English routes */}

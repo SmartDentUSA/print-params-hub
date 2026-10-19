@@ -83,7 +83,7 @@ Deno.serve(async (req) => {
       const generic = { ok: true, message: "Se o celular for de um KOL cadastrado, o link do portal chega pelo WhatsApp." };
       if (!kol) { await registerFail(null, ipHash, "celular_desconhecido"); return json(generic); }
 
-      // Sem código: envia o endereço externo do portal com o celular cadastrado
+      // Gera código de 6 dígitos (OTP) e envia por WhatsApp junto com o link do portal
       const nowIso = new Date().toISOString();
       const { data: tok } = await admin.from("professional_portal_tokens").select("token")
         .eq("lead_id", kol.id).is("revoked_at", null).gt("expires_at", nowIso)
@@ -98,7 +98,17 @@ Deno.serve(async (req) => {
         if (tErr) throw tErr;
       }
       const portalUrl = `${Deno.env.get("PUBLIC_SITE_URL") || "https://parametros.smartdent.com.br"}/portal-cursos/${portalToken}`;
-      const sess = { id: portalToken };
+      const code = String(Math.floor(100000 + Math.random() * 900000));
+      // Sessões anteriores não verificadas são revogadas para valer só o código novo
+      await admin.from("kol_access_sessions").update({ revoked_at: nowIso })
+        .eq("lead_id", kol.id).is("verified_at", null).is("revoked_at", null);
+      const { data: sessRow, error: sErr } = await admin.from("kol_access_sessions").insert({
+        lead_id: kol.id,
+        otp_hash: await sha(`${kol.id}:${code}`),
+        otp_expires_at: new Date(Date.now() + OTP_TTL_MS).toISOString(),
+      }).select("id").single();
+      if (sErr || !sessRow) throw sErr ?? new Error("session_insert_failed");
+      const sess = { id: sessRow.id };
       let to = (kol.prof_wa_number ? `${kol.prof_wa_ddi || "55"}${kol.prof_wa_number}` : "") || kol.wa_phone || kol.telefone_normalized || "";
       to = String(to).replace(/\D/g, "");
       if (to.length === 10 || to.length === 11) to = "55" + to;
@@ -107,7 +117,7 @@ Deno.serve(async (req) => {
       const first = String(kol.nome || "").trim().split(" ")[0];
       const d = String(kol.key || phone).replace(/\D/g, "").replace(/^55(?=\d{10,11}$)/, "");
       const celFmt = d.length === 11 ? `(${d.slice(0,2)}) ${d.slice(2,7)}-${d.slice(7)}` : d.length === 10 ? `(${d.slice(0,2)}) ${d.slice(2,6)}-${d.slice(6)}` : d;
-      const message = `Olá${first ? `, ${first}` : ""}! Este é o seu acesso ao Portal do KOL Smart Dent:\n${portalUrl}\n\nPara entrar, utilize o seu número de celular cadastrado: *${celFmt}*.\nSe tiver qualquer dúvida, é só responder esta mensagem.`;
+      const message = `Olá${first ? `, ${first}` : ""}! Seu código de acesso ao Portal do Profissional Parceiro Smart Dent é: *${code}*\n\nEle vale por 10 minutos. Acesse em:\n${portalUrl}\n\nCelular cadastrado: *${celFmt}*.\nSe tiver qualquer dúvida, é só responder esta mensagem.`;
       const { data: sent, error: sendErr } = cs
         ? await admin.functions.invoke("smart-ops-wa-send", {
           body: { to, message, lead_id: kol.id, team_member_id: cs.id, source: "kol_portal_otp" },

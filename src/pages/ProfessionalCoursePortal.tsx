@@ -32,7 +32,9 @@ import PortalPerformance from "@/components/smartops/courses/portal/PortalPerfor
 import PortalCommissionStats from "@/components/smartops/courses/portal/PortalCommissionStats";
 import PortalMyData, { type PortalProfile } from "@/components/smartops/courses/portal/PortalMyData";
 import PortalPriceTables from "@/components/smartops/courses/portal/PortalPriceTables";
-import { Receipt } from "lucide-react";
+import PortalPhoneLogin from "@/components/smartops/courses/portal/PortalPhoneLogin";
+import PortalMaterials from "@/components/smartops/courses/portal/PortalMaterials";
+import { QrCode, Receipt } from "lucide-react";
 import PortalSpecialistCard, { type PortalSpecialist } from "@/components/smartops/courses/portal/PortalSpecialistCard";
 import { useClientPresence } from "@/hooks/useClientPresence";
 import { PushOptInBanner } from "@/components/PushOptInBanner";
@@ -51,7 +53,7 @@ const SMARTDENT_LOGO_URL =
 
 type ProfileState = PortalProfile;
 
-type SectionKey = "dados" | "contrato" | "comissao" | "precos" | "visao" | "colaboracao" | "social" | "cursos";
+type SectionKey = "dados" | "contrato" | "comissao" | "precos" | "visao" | "colaboracao" | "social" | "cursos" | "materiais";
 
 const SECTIONS: { key: SectionKey; label: string; icon: typeof BarChart3 }[] = [
   { key: "dados", label: "Meus dados", icon: User },
@@ -62,10 +64,14 @@ const SECTIONS: { key: SectionKey; label: string; icon: typeof BarChart3 }[] = [
   { key: "colaboracao", label: "Cursos Smart Dent", icon: Handshake },
   { key: "social", label: "Engajamento social", icon: Share2 },
   { key: "cursos", label: "Meus cursos", icon: BookOpen },
+  { key: "materiais", label: "Materiais de divulgação", icon: QrCode },
 ];
 
 export default function ProfessionalCoursePortal() {
-  const { token = "" } = useParams();
+  const { token: routeToken = "" } = useParams();
+  const [sessionToken, setSessionToken] = useState(() => sessionStorage.getItem("kol_portal_session") ?? "");
+  // Link com token (legado) OU sessão de celular verificada — a edge aceita ambos no campo token
+  const token = routeToken || sessionToken;
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [invalid, setInvalid] = useState(false);
@@ -92,6 +98,7 @@ export default function ProfessionalCoursePortal() {
   );
 
   const load = useCallback(async () => {
+    if (!token) { setLoading(false); return; }
     setLoading(true);
     try {
       const data = await call("bootstrap");
@@ -155,6 +162,10 @@ export default function ProfessionalCoursePortal() {
     }
   };
 
+
+  if (!token) {
+    return <PortalPhoneLogin onSession={(s) => setSessionToken(s)} />;
+  }
 
   if (loading) {
     return (
@@ -327,6 +338,12 @@ export default function ProfessionalCoursePortal() {
             {section === "comissao" && (
               <section className="space-y-4">
                 <PortalCommissionStats call={call} />
+              </section>
+            )}
+
+            {section === "materiais" && (
+              <section className="space-y-4">
+                <PortalMaterials call={call} />
               </section>
             )}
 
