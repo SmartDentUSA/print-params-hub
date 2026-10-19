@@ -11,6 +11,7 @@ import {
 import { kolPerformance } from "./performance.ts";
 import { syncProfessionalToCrm } from "./piperun-sync.ts";
 import { lookupCnpj } from "../_shared/cnpj-lookup.ts";
+import { ensureReferralForm } from "../_shared/kol-referral-form.ts";
 
 // Pasta principal dos KOLs no Google Drive (contratos assinados)
 const KOL_DRIVE_PARENT_FOLDER = "16jeyfsU5dhzbYvYpk0d7d8_HFe_HnC9S";
@@ -93,6 +94,21 @@ async function resolveToken(token: string) {
     .update({ last_used_at: new Date().toISOString(), uses: (data.uses ?? 0) + 1 })
     .eq("id", data.id);
   return data;
+}
+
+// Login por celular: sessão verificada do kol-portal-auth (kol_access_sessions)
+async function resolveSessionToken(sessionToken: string) {
+  if (!sessionToken || sessionToken.length !== 64) return null;
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(sessionToken));
+  const hash = Array.from(new Uint8Array(buf)).map((x) => x.toString(16).padStart(2, "0")).join("");
+  const { data } = await admin
+    .from("kol_access_sessions")
+    .select("id, lead_id, expires_at, revoked_at, verified_at")
+    .eq("token_hash", hash)
+    .maybeSingle();
+  if (!data || data.revoked_at || !data.verified_at) return null;
+  if (data.expires_at && new Date(data.expires_at).getTime() < Date.now()) return null;
+  return { id: data.id, lead_id: data.lead_id };
 }
 
 // Timeline KOL obrigatória (fn_kol_log). Rascunho: uma linha por curso e dia; envio: uma por envio.
