@@ -50,18 +50,21 @@ async function sha256Hex(text: string): Promise<string> {
   return Array.from(new Uint8Array(buf), (b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-/** Etapa alvo conforme o progresso real do credenciamento. */
+/** Etapa alvo conforme o progresso real do credenciamento (a mais avançada aplicável). */
 function computeTargetStage(args: {
   hasContract: boolean;
   contractSigned: boolean;
+  isKol: boolean;
   hasReferralForm: boolean;
   hasActiveCoupon: boolean;
 }): (typeof KOL_STAGES)[number] {
-  const { hasContract, contractSigned, hasReferralForm, hasActiveCoupon } = args;
+  const { hasContract, contractSigned, isKol, hasReferralForm, hasActiveCoupon } = args;
   if (contractSigned && hasReferralForm && hasActiveCoupon) return KOL_STAGES[6]; // Kol Ativo
-  if (contractSigned && hasReferralForm) return KOL_STAGES[5]; // Criar cupom
-  if (contractSigned) return KOL_STAGES[4]; // Criar formulário de indicação
-  if (hasContract) return KOL_STAGES[2]; // Contrato aceito só com assinatura; draft = envio
+  if (hasActiveCoupon) return KOL_STAGES[5]; // Criar cupom Lojaintegrda
+  if (hasReferralForm) return KOL_STAGES[4]; // Criar formulário de indicação
+  if (isKol) return KOL_STAGES[3]; // Vinculados ao SmartOps
+  if (contractSigned) return KOL_STAGES[2]; // Contrato aceito
+  if (hasContract) return KOL_STAGES[1]; // Envio de contrato
   return KOL_STAGES[0]; // Interessados
 }
 
