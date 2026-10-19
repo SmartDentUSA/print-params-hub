@@ -1,4 +1,4 @@
-- [ ] Corrigir cores da Bio Vitality HT para somente BL1-HT, B1-HT e A2-HT e conferir a cor da Guide.
+- [x] HT limitada a BL1-HT, B1-HT e A2-HT; laranja da Guide removido sem inventar substituto. Cinco testes e catálogo verificados; cor correta da Guide aguarda confirmação.
 - [x] Cards de resinas no catálogo: cores/siglas cadastradas, rendimento e dados técnicos básicos em acordeões; 3 testes aprovados, Classic/HT e abrir/fechar verificados com dados reais, sem erros ou transbordamento mobile. Consulta pública retorna apenas ID/cor; RLS das variações intacta. Tons ilustrativos não substituem escala física.
 - [x] Catálogo da Base de Conhecimento: Bio Vitality Classic preservada e HT criada com conteúdo integral, 1 documento de catálogo, 8 variações, 13 documentos de resina e 3 apresentações copiados; dois cards e abertura dos documentos/tabela técnica HT verificados no navegador com dados reais.
 - [x] Cards de profissionais: cupom vigente e conversão/comissão por formulários, cupons e total em linha (sem tabela); 3 testes e apresentação controlada aprovados. Conferência autenticada indisponível no Supabase externo; cálculos existentes preservados.
