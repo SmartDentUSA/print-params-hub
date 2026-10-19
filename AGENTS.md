@@ -2,7 +2,7 @@
 
 - Support context requires session, support-role and ticket authorization via an edge function; this exposes customer details without widening commercial RLS.
 - Support board uses that endpoint in bounded batches for complete ticket counts and owned-equipment priority; this avoids per-card requests and RLS changes.
-- Support uses scoped tokens and equal-width conversation/profile areas; preserves other admin styling.
+- Support uses scoped tokens and equal conversation/profile widths; preserves admin styling.
 - Bio cards pass hydrated form IDs to LIA, not labels; preserves attribution.
 - Resin cards use the intentionally public read-only kb_catalog_resin_colors RPC (ID/color only) and shared selectors; preserves variation RLS and family separation.
 
@@ -34,4 +34,5 @@
 - Waitlist cancel/promote run server-side in smartops-waitlist-manage; cancelling an enrollment notifies only the oldest not-yet-notified waitlist entry via the course CS instance, keeping vacancy messages single and auditable.
 - Subdirectories may have their own AGENTS.md; read it before changing files there (src/components/smartops/AGENTS.md, src/components/smartops/courses/AGENTS.md).
 - Páginas públicas abertas pelo endereço admin redirecionam para o www (link único para SEO); ferramentas internas ficam no admin.
-- Regras KOL (formulário de indicação clonado, login do portal por celular, pipeline de credenciamento, cartões e comissões) estão em src/components/smartops/courses/AGENTS.md.
+- KOL rules live in src/components/smartops/courses/AGENTS.md.
+- Zernio empty keywords require a platform post ID; prevents account-wide replies.

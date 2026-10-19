@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { postBinding } from "./post-binding.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -28,6 +29,7 @@ function buildPayload(flow: any) {
     name: flow.name,
     keywords: c.keywords ?? [],
     matchMode: c.match_mode === "exact" ? "exact" : "contains",
+    ...postBinding(c),
     dmMessage: stripPlaceholders(c.dm_message ?? ""),
     dmMessageVariations: variations,
     commentReply: stripPlaceholders(c.comment_reply ?? ""),
@@ -68,6 +70,20 @@ Deno.serve(async (req) => {
     const zernioKey = Deno.env.get("ZERNIO_API_KEY");
     if (!zernioKey) throw new Error("ZERNIO_API_KEY not configured");
 
+    if (body?.inspect_post_shortcode) {
+      const shortcode = String(body.inspect_post_shortcode);
+      if (!/^[\w-]{5,30}$/.test(shortcode)) throw new Error("invalid_shortcode");
+      const r = await fetch(`https://zernio.com/api/v1/accounts/${ACCOUNT_ID}/posts`, {
+        headers: { Authorization: `Bearer ${zernioKey}` }, signal: AbortSignal.timeout(20_000),
+      });
+      const data = await r.json();
+      const posts = data.posts ?? data.data?.posts ?? [];
+      const matches = posts.filter((p: any) => JSON.stringify(p).includes(shortcode));
+      return new Response(JSON.stringify({ status: r.status, matches, total: posts.length, ...(!r.ok ? { error: data } : {}) }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     // ---- modo diagnóstico: lê a automação e os logs na Zernio
     if (body?.inspect_automation_id) {
       const id = String(body.inspect_automation_id);
@@ -99,12 +115,13 @@ Deno.serve(async (req) => {
 
       const results: any[] = [];
       for (const f of pending ?? []) {
-        const payload = buildPayload(f);
-        if (!Array.isArray(payload.keywords) || payload.keywords.length === 0) {
+        const c = f.zernio_automation_config ?? {};
+        if (!Array.isArray(c.keywords) || (c.keywords.length === 0 && !c.platform_post_id)) {
           results.push({ flow_id: f.id, name: f.name, ok: false, error: "sem_keywords" });
           continue;
         }
         try {
+          const payload = buildPayload(f);
           const existingId = (f as any).zernio_automation_id;
           const res = existingId
             ? await zernioCall(zernioKey, `${ZERNIO_BASE}/${existingId}`, "PATCH", payload)
