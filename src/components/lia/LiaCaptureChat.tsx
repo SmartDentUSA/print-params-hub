@@ -8,6 +8,7 @@ import groupBadge from "@/assets/smartdent-group-badge.png.asset.json";
 import { resolveAssetUrl } from "@/utils/assetUrl";
 import { landingAttendanceMedia, type LandingAttendanceMedia } from "@/lib/landingAttendanceMedia";
 import { AttendanceOpeningMedia } from "./AttendanceOpeningMedia";
+import { linkLeadToPageSession } from '@/hooks/usePageTracking';
 
 type Question = { field_id: string | null; form_id: string | null; db_column: string | null; label: string; options: string[]; field_type?: string };
 type Ctx = { form_id: string | null; campaign: string | null; product: string; origin: string; opening: string; greeting?: string; questions: Question[]; product_summary?: string | null; modules_summary?: string | null; whatsapp_group_url?: string | null };
@@ -101,6 +102,7 @@ export default function LiaCaptureChat({ formId, campaign, product }: { formId: 
           if (s.lead && s.step === "qualify" && !s.closed) {
             const r = await call({ action: "qualification", lead_id: s.lead.id, token: s.lead.token, form_id: formId, campaign, product });
             if (cancelled) return;
+            void linkLeadToPageSession(s.lead.id);
             const questions: Question[] = r.questions;
             setCtx({ ...c, questions });
             const messages: Msg[] = s.msgs ?? [];
@@ -227,6 +229,7 @@ export default function LiaCaptureChat({ formId, campaign, product }: { formId: 
       utm_source: params.get("utm_source"), utm_medium: params.get("utm_medium"), utm_campaign: params.get("utm_campaign"),
     });
     setLead({ id: r.lead_id, token: r.token });
+    await linkLeadToPageSession(r.lead_id);
     if (firstName) setData({ ...identity, name: firstName });
     await say(firstName ? `Maravilha, ${firstName}!` : "Maravilha!");
     const questions: Question[] = r.questions;
@@ -320,7 +323,7 @@ export default function LiaCaptureChat({ formId, campaign, product }: { formId: 
           <div key={i} className={`flex ${m.from === "user" ? "justify-end" : "justify-start"}`}>
             {(() => { const opts = m.from === "lia" ? (m.question || (i === msgs.length - 1 && q?.label === m.text ? q : null))?.options : undefined; const hasOptions = !!opts?.length; return (
             <div className={`lia-bubble rounded-lg px-3 pb-1 pt-2 text-[15px] leading-5 ${hasOptions || (i === mediaIdx && ctx && openingMedia) ? "w-[85%] sm:w-[70%] sm:max-w-md" : "max-w-[88%] sm:max-w-[78%]"} ${m.from === "user" ? "lia-bubble-out rounded-tr-none bg-primary text-primary-foreground" : "lia-bubble-in rounded-tl-none bg-muted text-foreground"}`}>
-              {i === mediaIdx && m.from === "lia" && ctx && openingMedia && <AttendanceOpeningMedia key={openingMedia.url} media={openingMedia} />}
+              {i === mediaIdx && m.from === "lia" && ctx && openingMedia && <AttendanceOpeningMedia key={openingMedia.url} media={openingMedia} formId={ctx.form_id} />}
               <p className="whitespace-pre-wrap break-words">{m.text}</p>
               {hasOptions && <div className="lia-replies mt-3 flex flex-col" role="group" aria-label="Opções de resposta">
               {(m.question || q)?.options.map((option) => (

@@ -281,6 +281,9 @@ export function useVideoOpportunities() {
         });
         
         if (error) throw error;
+        if (data?.success === false || (data?.remaining > 0 && !data?.updated)) {
+          throw new Error('O PandaVideo não retornou todos os dados. Os totais existentes foram preservados; a rotina automática tentará novamente.');
+        }
         
         totalUpdated += data.updated || 0;
         hasMore = (data.remaining || 0) > 0;

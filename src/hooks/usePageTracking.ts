@@ -59,7 +59,7 @@ export async function trackContentEvent(params: {
     const leadId = await resolveAuthenticatedLeadId();
     const sessionId = getOrCreateSessionId();
     const utms = getUtmParams();
-    await supabase.from("lead_page_views" as any).insert({
+    const { error } = await supabase.from("lead_page_views" as any).insert({
       session_id: sessionId,
       lead_id: leadId,
       page_path: params.path || (params.slug ? `${window.location.pathname}#${params.slug}` : window.location.pathname),
@@ -81,7 +81,8 @@ export async function trackContentEvent(params: {
         ...(params.extra ?? {}),
       },
     } as any);
-  } catch { /* noop */ }
+    if (error) console.warn('[ContentTracking] insert error:', error.message);
+  } catch { console.warn('[ContentTracking] event unavailable'); }
 }
 
 /**

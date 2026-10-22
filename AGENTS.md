@@ -1,5 +1,7 @@
 # Architecture rules
 
+- Panda video analytics use hourly bounded provider snapshots with a service-only lock and cursor; browser play events remain separate session-linked CRM activity. Match embeds by saved embed identity, because player UUIDs and Panda API UUIDs can differ; never attribute aggregate counts to individual leads.
+
 - Form visit metrics normalize legacy/public host URLs and landing paths, and attendance views carry resolved form IDs with the shared page session; domain changes must not split form totals or reset historical conversion logic.
 
 - Support context requires session, support-role and ticket authorization via an edge function; this exposes customer details without widening commercial RLS.

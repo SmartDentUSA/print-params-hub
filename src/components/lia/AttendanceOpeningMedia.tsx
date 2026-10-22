@@ -1,12 +1,18 @@
 import { useState } from 'react';
 import type { LandingAttendanceMedia } from '@/lib/landingAttendanceMedia';
+import { usePandaVideoTracking } from '@/hooks/usePandaVideoTracking';
+import { PandaVideoViewCount } from '@/components/PandaVideoViewCount';
 
-export function AttendanceOpeningMedia({ media }: { media: LandingAttendanceMedia }) {
+export function AttendanceOpeningMedia({ media, formId }: { media: LandingAttendanceMedia; formId?: string | null }) {
   const [failed, setFailed] = useState(false);
+  const { frameRef, metrics } = usePandaVideoTracking(media.url, formId);
   if (failed) return null;
   if (media.kind === 'embed') return (
-    <div className="mb-2 aspect-video w-full overflow-hidden rounded-md bg-background">
-      <iframe src={media.url} title="Vídeo do produto" className="h-full w-full border-0" allow="fullscreen; encrypted-media; picture-in-picture" allowFullScreen />
+    <div className="mb-2 w-full">
+      <div className="aspect-video w-full overflow-hidden rounded-md bg-background">
+        <iframe ref={frameRef} src={media.url} title="Vídeo do produto" className="h-full w-full border-0" allow="fullscreen; encrypted-media; picture-in-picture" allowFullScreen />
+      </div>
+      {metrics && <PandaVideoViewCount views={metrics.analytics_views} syncedAt={metrics.analytics_last_sync} />}
     </div>
   );
   if (media.kind === 'video') return (
