@@ -335,7 +335,7 @@ export default function LiaCaptureChat({ formId, campaign, product }: { formId: 
             </div>
             );})()}
           </div>
-        ))}
+        )); })()}
         {closed && handoffStage >= 1 && ctx?.product_summary && (
           <div className="flex justify-start">
             <div className="lia-bubble lia-bubble-in max-w-[88%] whitespace-pre-wrap break-words rounded-lg rounded-tl-none bg-muted px-3 py-2 text-[15px] leading-5 text-foreground sm:max-w-[78%]">{ctx.product_summary}</div>
