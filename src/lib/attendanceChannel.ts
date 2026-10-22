@@ -1,6 +1,28 @@
 import { supabase } from "@/integrations/supabase/client";
+import { getOrCreateSessionId } from "@/hooks/usePageTracking";
 
 export type AttendanceChannel = "form" | "specialist" | "whatsapp_lia";
+
+/** Form identity, not hostname, connects an embedded attendance visit to its metrics. */
+export function trackAttendanceView(formId: string | null) {
+  if (!formId) return;
+  try {
+    const query = new URLSearchParams(window.location.search);
+    void supabase.from("lead_page_views" as any).insert({
+      session_id: getOrCreateSessionId(),
+      page_path: window.location.pathname,
+      page_type: "form",
+      page_title: document.title,
+      referrer: document.referrer || null,
+      utm_source: query.get("utm_source"),
+      utm_medium: query.get("utm_medium"),
+      utm_campaign: query.get("utm_campaign"),
+      extra_data: { form_id: formId, action: "view", channel: "whatsapp_lia", source_host: window.location.hostname },
+    } as any).then(({ error }) => {
+      if (error) console.warn("[AttendanceTracking]", error.message);
+    });
+  } catch { /* Analytics must never prevent attendance. */ }
+}
 
 function sessionId() {
   let id = sessionStorage.getItem("sd_attendance_session");
