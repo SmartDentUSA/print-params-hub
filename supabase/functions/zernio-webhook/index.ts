@@ -118,7 +118,8 @@ serve(async (req) => {
     expires_at: new Date(Date.now() + 24 * 3600_000).toISOString(),
   }).select('id').single();
 
-  await supabase.from('social_flows').update({ total_triggered: (flow as any).total_triggered ? undefined : 1 }).eq('id', flow.id);
+  const { data: cur } = await supabase.from('social_flows').select('total_triggered').eq('id', flow.id).maybeSingle();
+  await supabase.from('social_flows').update({ total_triggered: Number(cur?.total_triggered ?? 0) + 1 }).eq('id', flow.id);
 
   // Invoca o flow-executor para essa sessão (fire-and-forget)
   try {
