@@ -669,6 +669,7 @@ export function DistributorForm({
         </div>
       </section>
 
+      {!isPublic && (
       <section className="space-y-3">
         <div>
           <h4 className="text-sm font-semibold">SEO / GEO &amp; IA</h4>
@@ -759,6 +760,7 @@ export function DistributorForm({
           </div>
         </div>
       </section>
+      )}
     </div>
   );
 }

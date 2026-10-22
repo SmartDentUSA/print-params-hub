@@ -72,3 +72,4 @@
 
 - [x] Formulário "# - Distribuição - Cadastro" (campos do editor de distribuição), duplicado para todos os eventos atuais e futuros, com link, simulador WhatsApp e QR code no card do evento (visível só ao team member logado pelo celular); leads entram como Distribuidor no funil PipeRun 39047, proprietário 103060; adicionar team member fabio.rinaldi@smartdent.com.br (Função: Distribuição).
 - [x] Sync PandaVideo a cada 48h.
+- [x] Formulário externo de Distribuição limpo: ocultas as seções "SEO / GEO & IA" (com "Regiões / cidades atendidas"), "Linhas Smart Dent representadas" e "Wikidata ID"; título "Autorização Comercial" virou "Qual linha de produto você quer mais informações?" na tela pública. Editor interno intacto.
