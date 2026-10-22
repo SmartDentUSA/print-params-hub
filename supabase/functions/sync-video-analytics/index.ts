@@ -1,249 +1,90 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from 'npm:@supabase/supabase-js@2';
+import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
+import { z } from 'https://esm.sh/zod@3.25.76';
+import { pandaCounters, pandaRetention } from './metrics.ts';
 
-const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const PANDAVIDEO_KEY = Deno.env.get("PANDAVIDEO_API_KEY")!;
+const schema = z.object({ limit: z.number().int().min(1).max(1000).default(50), scheduled: z.boolean().default(false) }).strict();
+const reply = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+Deno.serve(async req => {
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
+  if (req.method !== 'POST') return reply({ error: 'Method not allowed' }, 405);
+  const url = Deno.env.get('SUPABASE_URL');
+  const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+  const anonKey = Deno.env.get('SUPABASE_ANON_KEY');
+  const pandaKey = Deno.env.get('PANDAVIDEO_API_KEY');
+  if (!url || !serviceKey || !anonKey || !pandaKey) return reply({ error: 'Sync is not configured' }, 503);
+  let body: unknown;
+  try { body = await req.json(); } catch { return reply({ error: 'Invalid JSON' }, 400); }
+  const parsed = schema.safeParse(body);
+  if (!parsed.success) return reply({ error: 'Invalid sync parameters' }, 400);
+  const { scheduled, limit } = parsed.data;
+  const db = createClient(url, serviceKey, { auth: { persistSession: false } });
 
-const supabase = createClient(SUPABASE_URL, SERVICE_KEY);
-
-function normalize(v: number, max: number): number {
-  return max > 0 ? Math.min(1, v / max) : 0;
-}
-
-function calculateRelevanceScore(m: any, ctx: any): number {
-  const playRate = m.views > 0 ? (m.plays / m.views) * 100 : 0;
-
-  const score =
-    (playRate / 100) * 0.3 +
-    (m.retention / 100) * 0.35 +
-    normalize(m.unique_views, ctx.maxViews) * 0.2 +
-    normalize(m.unique_plays, ctx.maxPlays) * 0.15;
-
-  let finalScore = score * 100;
-
-  // Penalidade forte se retenção muito baixa
-  if (m.retention < 25) {
-    finalScore *= 0.7;
+  // External Supabase scheduler uses the project publishable key. This fixed,
+  // non-sensitive reconciliation is DB-throttled; it accepts no IDs or URLs.
+  if (scheduled) {
+    if (req.headers.get('apikey') !== anonKey) return reply({ error: 'Unauthorized' }, 401);
+  } else {
+    const header = req.headers.get('authorization');
+    if (!header?.startsWith('Bearer ')) return reply({ error: 'Unauthorized' }, 401);
+    const client = createClient(url, anonKey, { global: { headers: { Authorization: header } } });
+    const { data: user, error } = await client.auth.getUser(header.slice(7));
+    if (error || !user.user) return reply({ error: 'Unauthorized' }, 401);
+    const { data: admin } = await db.rpc('is_admin', { user_id: user.user.id });
+    if (!admin) return reply({ error: 'Forbidden' }, 403);
   }
 
-  return Number(finalScore.toFixed(2));
-}
-
-async function fetchJSON(url: string) {
+  const { data: claimed, error: lockError } = await db.rpc('fn_claim_video_analytics_sync', { p_scheduled: scheduled });
+  if (lockError) return reply({ error: 'Sync lock unavailable' }, 503);
+  if (!claimed) return reply({ success: true, skipped: true, updated: 0, remaining: 0 });
+  let nextCursor: number | null = null;
   try {
-    const res = await fetch(url, {
-      headers: {
-        Authorization: PANDAVIDEO_KEY,
-        "Content-Type": "application/json",
-      },
-    });
-    
-    if (!res.ok) {
-      console.error(`❌ Error fetching ${url}: ${res.status} ${res.statusText}`);
-      return null;
-    }
-    
-    return await res.json();
-  } catch (error) {
-    console.error(`❌ Exception fetching ${url}:`, error);
-    return null;
-  }
-}
-
-serve(async (req) => {
-  // Handle CORS preflight
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
-
-  try {
-    console.log('🚀 Starting video analytics sync...');
-
-    // Parse request body for limit parameter
-    const { limit = 50 } = await req.json().catch(() => ({}));
-    console.log(`📦 Processing batch size: ${limit}`);
-
-    // Calculate timestamp for 24 hours ago
-    const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-
-    // Get max values from existing data for normalization
-    const { data: maxData } = await supabase
-      .from("knowledge_videos")
-      .select("analytics_unique_views, analytics_unique_plays")
-      .not("analytics_unique_views", "is", null)
-      .order("analytics_unique_views", { ascending: false })
-      .limit(1)
-      .single();
-
-    let maxViews = maxData?.analytics_unique_views || 1;
-    let maxPlays = maxData?.analytics_unique_plays || 1;
-
-    // Count total videos needing sync
-    const { count: totalCount } = await supabase
-      .from("knowledge_videos")
-      .select("id", { count: "exact", head: true })
-      .not("pandavideo_id", "is", null)
-      .or(`analytics_last_sync.is.null,analytics_last_sync.lt.${yesterday}`);
-
-    console.log(`📊 Total videos needing sync: ${totalCount || 0}`);
-
-    // Buscar vídeos NÃO sincronizados ou sincronizados há mais de 24h
-    const { data: videos, error: videosError } = await supabase
-      .from("knowledge_videos")
-      .select("id, pandavideo_id, title")
-      .not("pandavideo_id", "is", null)
-      .or(`analytics_last_sync.is.null,analytics_last_sync.lt.${yesterday}`)
-      .order("analytics_last_sync", { ascending: true, nullsFirst: true })
-      .limit(limit);
-
-    if (videosError) {
-      console.error('❌ Error fetching videos:', videosError);
-      throw videosError;
-    }
-
-    if (!videos || videos.length === 0) {
-      console.log('✅ All videos are up to date!');
-      return new Response(
-        JSON.stringify({ 
-          success: true,
-          message: "All videos are up to date", 
-          updated: 0,
-          remaining: 0,
-          total: 0
-        }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    console.log(`📹 Processing ${videos.length} videos in this batch`);
-
-    let updatedCount = 0;
-
-    // Processar e SALVAR IMEDIATAMENTE cada vídeo
-    for (const v of videos) {
-      console.log(`📊 Processing: ${v.title} (${v.pandavideo_id})`);
-
-      const general = await fetchJSON(
-        `https://data.pandavideo.com/general/${v.pandavideo_id}`
-      );
-      
-      const retentionData = await fetchJSON(
-        `https://data.pandavideo.com/retention/${v.pandavideo_id}`
-      );
-
-      if (!general) {
-        console.log(`⚠️ No general analytics for ${v.pandavideo_id}`);
-        continue;
+    const deadline = Date.now() + 110_000;
+    const { data: state } = await db.from('cron_state').select('meta').eq('key', 'panda_analytics_sync').single();
+    const cursor = scheduled ? Math.max(0, Number(state?.meta?.cursor) || 0) : 0;
+    const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    let query = db.from('knowledge_videos').select('id,pandavideo_id,analytics_avg_retention,analytics_unique_views,analytics_unique_plays', { count: 'exact' }).not('pandavideo_id', 'is', null);
+    query = scheduled ? query.order('id').range(cursor, cursor + 999) : query.or(`analytics_last_sync.is.null,analytics_last_sync.lt.${cutoff}`).order('analytics_last_sync', { ascending: true, nullsFirst: true }).limit(limit);
+    const { data: videos, error, count } = await query;
+    if (error) throw error;
+    if (!videos?.length) { nextCursor = scheduled ? 0 : null; return reply({ success: true, updated: 0, remaining: 0, total: count || 0 }); }
+    let position = 0, processed = 0, updated = 0, failed = 0;
+    const fetchPanda = async (kind: string, id: string) => {
+      try {
+        const response = await fetch(`https://data.pandavideo.com/${kind}/${encodeURIComponent(id)}`, { headers: { Authorization: pandaKey }, signal: AbortSignal.timeout(8000) });
+        if (!response.ok) { console.warn(`[PandaAnalytics] ${kind} HTTP ${response.status}`); return null; }
+        return await response.json();
+      } catch { console.warn(`[PandaAnalytics] ${kind} unavailable`); return null; }
+    };
+    const worker = async () => {
+      while (position < videos.length && Date.now() < deadline) {
+        const index = position++;
+        const video = videos[index];
+        const [general, retentionData] = await Promise.all([fetchPanda('general', video.pandavideo_id), fetchPanda('retention', video.pandavideo_id)]);
+        const counters = pandaCounters(general);
+        processed++;
+        if (!counters) { failed++; continue; }
+        const retention = pandaRetention(retentionData) ?? Number(video.analytics_avg_retention || 0);
+        const playRate = counters.views > 0 ? Number((counters.plays / counters.views * 100).toFixed(2)) : 0;
+        const scoreBase = (playRate / 100 * .3 + retention / 100 * .35 + Math.min(1, counters.unique_views / Math.max(1, Number(video.analytics_unique_views) || 1)) * .2 + Math.min(1, counters.unique_plays / Math.max(1, Number(video.analytics_unique_plays) || 1)) * .15) * 100;
+        const score = Number((scoreBase * (retention < 25 ? .7 : 1)).toFixed(2));
+        const { error: writeError } = await db.from('knowledge_videos').update({ analytics_views: counters.views, analytics_unique_views: counters.unique_views, analytics_plays: counters.plays, analytics_unique_plays: counters.unique_plays, analytics_play_rate: playRate, analytics_avg_retention: retention, relevance_score: score, analytics_last_sync: new Date().toISOString() }).eq('id', video.id);
+        if (writeError) { failed++; continue; }
+        updated++;
+        const { error: logError } = await db.from('knowledge_video_metrics_log').insert({ knowledge_video_id: video.id, pandavideo_id: video.pandavideo_id, ...counters, play_rate: playRate, avg_retention: retention, relevance_score: score });
+        if (logError) console.warn('[PandaAnalytics] metric history write failed');
       }
-
-      // Calculate average retention from absolute viewer counts
-      let avgRetention = 0;
-      if (retentionData?.retention && Object.keys(retentionData.retention).length > 0) {
-        const retentionObj = retentionData.retention as Record<string, number>;
-        const retentionValues = Object.values(retentionObj);
-        
-        // First value = viewers at the start (second 0)
-        const firstValue = retentionObj["0"] || retentionValues[0] || 1;
-        
-        // Average viewers throughout the video
-        const avgViewers = retentionValues.reduce((sum: number, val: number) => sum + val, 0) / retentionValues.length;
-        
-        // Retention % = (average viewers / initial viewers) * 100
-        avgRetention = (avgViewers / firstValue) * 100;
-      }
-
-      const views = general?.total?.view || 0;
-      const unique_views = general?.total?.unique_view || 0;
-      const plays = general?.total?.play || 0;
-      const unique_plays = general?.total?.unique_play || 0;
-      const retention = Number(avgRetention.toFixed(2));
-
-      // Atualizar maxViews/maxPlays dinamicamente
-      maxViews = Math.max(maxViews, unique_views);
-      maxPlays = Math.max(maxPlays, unique_plays);
-
-      // Calcular score
-      const score = calculateRelevanceScore(
-        { views, plays, unique_views, unique_plays, retention },
-        { maxViews, maxPlays }
-      );
-
-      const playRate = views > 0 ? Number(((plays / views) * 100).toFixed(2)) : 0;
-
-      // SALVAR IMEDIATAMENTE (não acumular)
-      const { error: updateError } = await supabase
-        .from("knowledge_videos")
-        .update({
-          analytics_views: views,
-          analytics_unique_views: unique_views,
-          analytics_plays: plays,
-          analytics_unique_plays: unique_plays,
-          analytics_play_rate: playRate,
-          analytics_avg_retention: retention,
-          relevance_score: score,
-          analytics_last_sync: new Date().toISOString(),
-        })
-        .eq("id", v.id);
-
-      if (updateError) {
-        console.error(`❌ Error updating video ${v.id}:`, updateError);
-        continue;
-      }
-
-      // Inserir log de histórico
-      const { error: logError } = await supabase
-        .from("knowledge_video_metrics_log")
-        .insert({
-          knowledge_video_id: v.id,
-          pandavideo_id: v.pandavideo_id,
-          views,
-          unique_views,
-          plays,
-          unique_plays,
-          play_rate: playRate,
-          avg_retention: retention,
-          relevance_score: score,
-        });
-
-      if (logError) {
-        console.error(`❌ Error inserting log for ${v.id}:`, logError);
-      }
-
-      updatedCount++;
-      console.log(`✅ ${v.title}: ${views} views, ${retention}% retention, score: ${score}`);
-    }
-
-    const remaining = (totalCount || 0) - updatedCount;
-    console.log(`✅ Batch completed! Updated ${updatedCount} videos, ${remaining} remaining`);
-
-    return new Response(
-      JSON.stringify({
-        success: true,
-        updated: updatedCount,
-        remaining: Math.max(0, remaining),
-        total: totalCount || 0,
-        maxViews,
-        maxPlays,
-      }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
-  } catch (error) {
-    console.error('❌ Fatal error in sync-video-analytics:', error);
-    return new Response(
-      JSON.stringify({ 
-        error: error?.message || "Unknown error",
-        success: false 
-      }),
-      { 
-        status: 500, 
-        headers: { ...corsHeaders, "Content-Type": "application/json" } 
-      }
-    );
+    };
+    await Promise.all(Array.from({ length: 6 }, worker));
+    if (scheduled) nextCursor = cursor + processed >= (count || 0) ? 0 : cursor + processed;
+    console.info(`[PandaAnalytics] processed=${processed} updated=${updated} failed=${failed}`);
+    return reply({ success: failed === 0, updated, failed, remaining: Math.max(0, (count || 0) - updated), total: count || 0, processed });
+  } catch {
+    console.error('[PandaAnalytics] sync failed');
+    return reply({ error: 'Video analytics sync failed', success: false }, 500);
+  } finally {
+    const { error } = await db.rpc('fn_finish_video_analytics_sync', { p_cursor: nextCursor });
+    if (error) console.warn('[PandaAnalytics] lock release failed');
   }
 });
