@@ -1947,7 +1947,7 @@ Deno.serve(async (req) => {
           lead_id: leadId,
           form_id: payload.form_id || null,
           form_name: formName,
-          event_id: payload.event_id || null,
+          event_id: payload.distribuicao_event_id || null,
           form_responses: payload.form_responses || [],
         })
       : shouldDispatchLiaAssign

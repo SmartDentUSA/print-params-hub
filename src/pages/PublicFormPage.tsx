@@ -653,6 +653,9 @@ export default function PublicFormPage() {
       form_id: form.id,
       product_catalog_id: form.product_catalog_id,
       form_purpose: form.form_purpose,
+      ...(form.form_purpose === "distribuicao" && (form as any).event_id
+        ? { distribuicao_event_id: (form as any).event_id }
+        : {}),
       // Enviar respostas inline para evitar race condition com lia-assign
       form_responses: activeFields
         .filter(f => values[f.id] !== undefined && values[f.id] !== null && values[f.id] !== "")
