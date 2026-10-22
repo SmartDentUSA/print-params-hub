@@ -91,8 +91,26 @@ Deno.serve(async (req) => {
         if (data?.[0]) { lead = { id: data[0].id, nome: data[0].nome }; break; }
       }
 
-      // Sem cadastro na base de clientes → não libera acesso.
-      if (!lead) {
+      // Team member (equipe Smart Dent) pelo WhatsApp cadastrado
+      let teamMember: { id: string; nome_completo: string } | null = null;
+      {
+        const d10 = phone.slice(-10);
+        const d8 = phone.slice(-8);
+        const { data: tms } = await supabase
+          .from("team_members")
+          .select("id, nome_completo, whatsapp_number")
+          .eq("ativo", true)
+          .ilike("whatsapp_number", `%${d8}%`)
+          .limit(10);
+        const hit = (tms ?? []).find((t: any) => {
+          const td = String(t.whatsapp_number ?? "").replace(/\D+/g, "");
+          return td.endsWith(d10) || td.slice(-8) === d8 && td.slice(-10, -8) === d10.slice(0, 2);
+        });
+        if (hit) teamMember = { id: hit.id, nome_completo: hit.nome_completo };
+      }
+
+      // Sem cadastro na base de clientes nem na equipe → não libera acesso.
+      if (!lead && !teamMember) {
         return json({ ok: false, error: "Não encontramos este celular na nossa base de clientes." }, 404);
       }
 
@@ -100,7 +118,13 @@ Deno.serve(async (req) => {
       const { data: created, error: eCreate } = await supabase.auth.admin.createUser({
         email,
         email_confirm: true,
-        user_metadata: { nome: lead.nome, phone, lead_id: lead.id, tipo: "cliente" },
+        user_metadata: {
+          nome: lead?.nome ?? teamMember?.nome_completo,
+          phone,
+          ...(lead ? { lead_id: lead.id } : {}),
+          ...(teamMember ? { team_member_id: teamMember.id } : {}),
+          tipo: teamMember ? "equipe" : "cliente",
+        },
       });
       if (eCreate && !/already/i.test(eCreate.message)) throw eCreate;
       let userId = created?.user?.id ?? null;
@@ -109,12 +133,23 @@ Deno.serve(async (req) => {
         userId = list?.users?.find((u) => u.email === email)?.id ?? null;
       }
 
+      if (userId && teamMember) {
+        await supabase.auth.admin.updateUserById(userId, {
+          user_metadata: {
+            nome: lead?.nome ?? teamMember.nome_completo, phone,
+            ...(lead ? { lead_id: lead.id } : {}),
+            team_member_id: teamMember.id, tipo: "equipe",
+          },
+        });
+      }
+
       const { data: linkData, error: eLink } = await supabase.auth.admin.generateLink({ type: "magiclink", email });
       if (eLink) throw eLink;
       const hashed = linkData?.properties?.hashed_token;
       if (!hashed) throw new Error("Falha ao gerar sessão.");
 
       const nowIso = new Date().toISOString();
+      if (lead) {
       // 1 registro por cliente: atualiza o existente em vez de duplicar a cada login
       const { data: existing } = await supabase
         .from("client_access_invites")
@@ -169,12 +204,14 @@ Deno.serve(async (req) => {
           dedupe_hash: `client_portal_login:${phone}:${nowIso.slice(0, 16)}`,
         });
       } catch { /* noop */ }
+      }
 
       return json({
         ok: true,
         email,
         token_hash: hashed,
-        nome: lead.nome,
+        nome: lead?.nome ?? teamMember?.nome_completo,
+        team_member: !!teamMember,
         phone_masked: maskPhone(phone),
       });
     }

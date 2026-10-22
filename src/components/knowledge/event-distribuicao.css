@@ -1,0 +1,6 @@
+.kb-dist-box { border-top: 1px dashed hsl(var(--border)); padding-top: 10px; display: flex; flex-direction: column; gap: 8px; }
+.kb-dist-title { font-size: 12px; font-weight: 700; color: hsl(var(--foreground)); text-transform: uppercase; letter-spacing: .04em; }
+.kb-dist-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.kb-dist-label { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: hsl(var(--muted-foreground)); }
+.kb-dist-actions { display: inline-flex; align-items: center; gap: 6px; }
+.kb-dist-btn { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 600; padding: 4px 8px; border-radius: 6px; border: 1px solid hsl(var(--border)); background: hsl(var(--background)); color: hsl(var(--foreground)); cursor: pointer; }

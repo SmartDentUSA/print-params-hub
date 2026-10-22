@@ -37656,6 +37656,10 @@ export type Database = {
           status: string
         }[]
       }
+      fn_clone_distribuicao_form_for_event: {
+        Args: { p_event_id: string }
+        Returns: string
+      }
       fn_close_reactivation_on_deal_won: {
         Args: { p_lead_id: string }
         Returns: undefined
