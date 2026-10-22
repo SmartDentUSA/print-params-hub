@@ -34,6 +34,7 @@
 - Waitlist cancel/promote run server-side in smartops-waitlist-manage; cancelling an enrollment notifies only the oldest not-yet-notified waitlist entry via the course CS instance, keeping vacancy messages single and auditable.
 - Subdirectories may have their own AGENTS.md; read it before changing files there (src/components/smartops/AGENTS.md, src/components/smartops/courses/AGENTS.md).
 - Páginas públicas abertas pelo endereço admin redirecionam para o www (link único para SEO); ferramentas internas ficam no admin.
+- Assets da CDN da Lovable (`/__l5e/...`) não são servidos no domínio www; todo uso em página pública passa por `resolveAssetUrl` (src/utils/assetUrl.ts), que aponta para o admin quando o host não é Lovable.
 - KOL rules live in src/components/smartops/courses/AGENTS.md.
 - Zernio empty keywords require a platform post ID; prevents account-wide replies.
 - Capture conversations share isolated semantic chat tokens and a visual-viewport-sized container; landing and bio openings use AttendanceDialog with an edge-to-edge mobile visual viewport so outer dialogs never constrain the chat, without changing ingestion or CRM behavior.

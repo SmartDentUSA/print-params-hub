@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Send, MessageCircle, ChevronLeft, Smile, Users } from "lucide-react";
 import { trackAttendanceEvent } from "@/lib/attendanceChannel";
 import groupBadge from "@/assets/smartdent-group-badge.png.asset.json";
+import { resolveAssetUrl } from "@/utils/assetUrl";
 
 type Question = { field_id: string | null; form_id: string | null; db_column: string | null; label: string; options: string[]; field_type?: string };
 type Ctx = { form_id: string | null; campaign: string | null; product: string; origin: string; opening: string; greeting?: string; questions: Question[]; product_summary?: string | null; modules_summary?: string | null; whatsapp_group_url?: string | null };
@@ -364,7 +365,7 @@ export default function LiaCaptureChat({ formId, campaign, product }: { formId: 
         )}
         {showSeller && handoffStage >= 5 && ctx?.whatsapp_group_url && (
           <div className="mt-3 flex max-w-sm flex-col items-center gap-3 rounded-lg border border-border bg-card p-4 text-center">
-            <img src={groupBadge.url} alt="Selo Smart Dent" width={80} height={80} className="h-20 w-20 rounded-full object-contain bg-background" />
+            <img src={resolveAssetUrl(groupBadge.url)} alt="Selo Smart Dent" width={80} height={80} className="h-20 w-20 rounded-full object-contain bg-background" />
             <div>
               <p className="font-semibold text-foreground">Grupo exclusivo Smart Dent</p>
               <p className="text-xs text-muted-foreground">Convite para conversa de grupo</p>
