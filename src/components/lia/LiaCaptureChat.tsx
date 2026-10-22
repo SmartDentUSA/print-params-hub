@@ -287,11 +287,11 @@ export default function LiaCaptureChat({ formId, campaign, product }: { formId: 
         </Button>
         <img src={groupBadge.url} alt="Smart Dent" className="h-10 w-10 shrink-0 rounded-full bg-card object-contain" />
         <div className="min-w-0 flex-1">
-          <p className="text-[15px] font-semibold">Dra. LIA</p>
+          <p className="text-[15px] font-semibold">Atendimento</p>
           <p className="lia-header-subtitle truncate text-xs">{waiting ? "digitando…" : "Smart Dent | Fluxo Digital"}</p>
         </div>
       </header>
-      <div className="lia-conversation min-h-0 flex-1 overflow-y-auto px-3 py-4 sm:px-6" role="log" aria-label="Conversa com a Dra. LIA" aria-live="polite">
+      <div className="lia-conversation min-h-0 flex-1 overflow-y-auto px-3 py-4 sm:px-6" role="log" aria-label="Conversa de atendimento" aria-live="polite">
         <div className="mx-auto flex max-w-3xl flex-col gap-2">
         <div className="mb-3 self-center rounded-md bg-card px-3 py-1 text-[11px] text-muted-foreground">Hoje</div>
         {msgs.map((m, i) => (
