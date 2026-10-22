@@ -21,6 +21,9 @@ import { Button } from '@/components/ui/button';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { basicResinSpecs, catalogResinShades } from '@/lib/resinCatalogDetails';
 import './resin-catalog-details.css';
+import { AttendanceDialog } from '@/components/lia/AttendanceDialog';
+import { buildLiaUrl, trackAttendanceEvent } from '@/lib/attendanceChannel';
+import { MessageCircle } from 'lucide-react';
 
 const SPECIAL = /\b(FDA|ANVISA|NOVO|LANÇAMENTO|KIT|KOL)\b/i;
 
@@ -415,6 +418,12 @@ export default function KbTabCatalogo({ filterKey, pinnedIds, pinnedElsewhereIds
   const specLang: SpecLang = (language === 'en' || language === 'es') ? language : 'pt';
   const [docs, setDocs] = useState<Map<string, DocLinks>>(new Map());
   const [extraDocs, setExtraDocs] = useState<Map<string, CatalogDoc[]>>(new Map());
+  const [waFormByProduct, setWaFormByProduct] = useState<Map<string, string>>(new Map());
+  const [waUrl, setWaUrl] = useState<string | null>(null);
+  const openWhatsApp = (formId: string, productName: string) => {
+    trackAttendanceEvent({ channel: 'whatsapp_lia', event_type: 'click', form_id: formId, product_name: productName });
+    setWaUrl(buildLiaUrl({ formId }) + '&utm_source=catalogo&utm_medium=whatsapp_lia');
+  };
   const [rowsRaw, setRowsRaw] = useState<any[]>([]);
   const [resinsRaw, setResinsRaw] = useState<any[]>([]);
   const [resinDocs, setResinDocs] = useState<Map<string, ResinDoc[]>>(new Map());
@@ -496,7 +505,7 @@ export default function KbTabCatalogo({ filterKey, pinnedIds, pinnedElsewhereIds
           .limit(2000),
         supabase
           .from('smartops_forms')
-          .select('slug, product_catalog_id')
+          .select('id, slug, product_catalog_id, form_purpose')
           .not('product_catalog_id', 'is', null)
           .eq('active', true)
           .limit(1000),
@@ -548,6 +557,13 @@ export default function KbTabCatalogo({ filterKey, pinnedIds, pinnedElsewhereIds
         shortByForm.set(link.form_slug, current);
       });
       const shortByProduct = new Map<string, ProductShortLinks>();
+      const waForms = new Map<string, string>();
+      (forms || []).forEach((form: any) => {
+        if (form?.product_catalog_id && form?.id && form.form_purpose !== 'feira_evento' && !waForms.has(form.product_catalog_id)) {
+          waForms.set(form.product_catalog_id, form.id);
+        }
+      });
+      setWaFormByProduct(waForms);
       (forms || []).forEach((form: any) => {
         if (!form?.product_catalog_id || !form?.slug) return;
         const links = shortByForm.get(form.slug);

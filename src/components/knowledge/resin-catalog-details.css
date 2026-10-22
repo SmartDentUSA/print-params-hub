@@ -13,3 +13,16 @@
 .kb-resin-details dt, .kb-resin-details th { color: var(--kb-muted); }
 .kb-resin-details tr { border-bottom: 1px solid var(--kb-gray-100); }
 .kb-resin-details th { background: var(--kb-card-bg); }
+.kb-action-btn.kb-whatsapp-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: hsl(142 70% 40%);
+  border-color: hsl(142 70% 40%);
+  color: hsl(0 0% 100%);
+  font-weight: 600;
+}
+.kb-action-btn.kb-whatsapp-btn:hover {
+  background: hsl(142 70% 34%);
+  border-color: hsl(142 70% 34%);
+}
