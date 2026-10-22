@@ -16,7 +16,7 @@ import { chat, parseJsonBlock, normalizeForMatch } from "../_shared/testimonial-
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const PUBLIC_SITE = "https://parametros.smartdent.com.br";
+const PUBLIC_SITE = "https://www.smartdent.com.br";
 const json = (b: unknown, s = 200) => new Response(JSON.stringify(b), { status: s, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 const STOP = new Set(["de", "da", "do", "das", "dos", "e", "em", "para", "com", "a", "o", "as", "os", "na", "no", "um", "uma", "seu", "sua"]);
 

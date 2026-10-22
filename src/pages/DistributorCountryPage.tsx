@@ -6,7 +6,7 @@ import { Header } from "@/components/Header";
 import { Globe, Instagram, Facebook, Linkedin, Youtube, MapPin, MessageCircle, ArrowLeft } from "lucide-react";
 import "flag-icons/css/flag-icons.min.css";
 
-const BASE_URL = "https://parametros.smartdent.com.br";
+const BASE_URL = "https://www.smartdent.com.br";
 
 type CountryDef = { slug: string; aliases: string[]; name: string; iso: string; prep: string };
 const COUNTRIES: CountryDef[] = [

@@ -978,7 +978,7 @@ Deno.serve(async (req) => {
           .select("id, name, slug, active")
           .in("id", linkedIds)
           .eq("active", true);
-        const base = Deno.env.get("PUBLIC_SITE_URL") || "https://parametros.smartdent.com.br";
+        const base = Deno.env.get("PUBLIC_SITE_URL") || "https://www.smartdent.com.br";
         forms = (rows ?? []).map((f: any) => ({ id: f.id, name: f.name, url: `${base}/f/${f.slug}` }));
       }
       const today = new Date().toISOString().slice(0, 10);

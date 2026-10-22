@@ -253,7 +253,7 @@ Deno.serve(async (req) => {
     // The apex smartdent.com.br is served by WordPress/LiteSpeed, not this Vercel
     // project, so /r/:code is a 404 there. Keep tracked links on the app domain,
     // where vercel.json routes them to short-link-redirect.
-    const shortBase = "https://parametros.smartdent.com.br/r";
+    const shortBase = "https://www.smartdent.com.br/r";
 
     // ── Resolve OFFICIAL fallback WhatsApp (used when the lead has no seller,
     //    e.g. in test emails or when the lead was never assigned).

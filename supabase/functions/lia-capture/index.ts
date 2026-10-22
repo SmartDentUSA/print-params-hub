@@ -237,7 +237,7 @@ async function conversation(leadId: string, body: any) {
     seen.add(key); return true;
   }).map((row: any) => ({ label: priceFree(row.field_label), value: priceFree(row.value) }))
     .filter((row: any) => row.label && row.value);
-  const knowledge = await searchKnowledge(sb, ctx.product, "pt-BR", "products", [], "https://parametros.smartdent.com.br",
+  const knowledge = await searchKnowledge(sb, ctx.product, "pt-BR", "products", [], "https://www.smartdent.com.br",
     (text: string) => generateEmbedding({ text, taskType: "RETRIEVAL_QUERY" })).catch(() => ({ results: [] }));
   const titles = new Set<string>();
   const sources = knowledge.results.filter((r: any) => {

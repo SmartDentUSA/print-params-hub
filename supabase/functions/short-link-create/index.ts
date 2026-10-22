@@ -1,6 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const SHORT_BASE = "https://parametros.smartdent.com.br/r";
+const SHORT_BASE = "https://www.smartdent.com.br/r";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",

@@ -18,7 +18,7 @@ Origem: spin-off NUMA/USP São Carlos (Núcleo de Manufatura Avançada)
 Wikidata empresa: https://www.wikidata.org/wiki/Q138636902
 Wikidata marca: https://www.wikidata.org/wiki/Q139535514
 Website: https://www.smartdent.com.br
-Base de Conhecimento: https://parametros.smartdent.com.br/base-conhecimento
+Base de Conhecimento: https://www.smartdent.com.br/base-conhecimento
 Loja: https://loja.smartdent.com.br
 Endereço: Rua Doutor Procópio Toledo Malta, 62 — São Carlos, SP — CEP 13562-291
 Coordenadas: -22.0154, -47.8911
@@ -374,43 +374,43 @@ Place ID: ChIJMyaY_dV2uJQRqFsI2PkfL8g
 ## Pages
 
 ### Produto e Regulatório
-- [Bio Vitality — Guia Técnico](https://parametros.smartdent.com.br/base-conhecimento/c/smart-print-bio-vitality-resina-3d-fda-para-restauracoes): 147 MPa, FDA K260152, ISO 10993.
-- [FDA 510(k) K260152](https://parametros.smartdent.com.br/base-conhecimento/c/fda-510k-k260152-smart-dent-aprovacao-mercado-americano): Clearance FDA mercado americano.
-- [147 MPa — Afinko INMETRO ISO/IEC 17025](https://parametros.smartdent.com.br/base-conhecimento/a/afinko-inmetro-iso-17025-147-mpa-smart-print-bio-vitality-validacao): Ensaio acreditado.
-- [Bio Bite Splint Clear — ISO 10993](https://parametros.smartdent.com.br/en/knowledge-base/c/smart-print-bio-bite-splint-clear-bpl-iso-10993-1): Laudo GLP.
-- [Linha ATOS — P&D Smart Dent](https://parametros.smartdent.com.br/base-conhecimento/c/linha-atos-resinas-compostas-smart-dent-rony-peterson): Resinas compostas Doutor USP.
+- [Bio Vitality — Guia Técnico](https://www.smartdent.com.br/base-conhecimento/c/smart-print-bio-vitality-resina-3d-fda-para-restauracoes): 147 MPa, FDA K260152, ISO 10993.
+- [FDA 510(k) K260152](https://www.smartdent.com.br/base-conhecimento/c/fda-510k-k260152-smart-dent-aprovacao-mercado-americano): Clearance FDA mercado americano.
+- [147 MPa — Afinko INMETRO ISO/IEC 17025](https://www.smartdent.com.br/base-conhecimento/a/afinko-inmetro-iso-17025-147-mpa-smart-print-bio-vitality-validacao): Ensaio acreditado.
+- [Bio Bite Splint Clear — ISO 10993](https://www.smartdent.com.br/en/knowledge-base/c/smart-print-bio-bite-splint-clear-bpl-iso-10993-1): Laudo GLP.
+- [Linha ATOS — P&D Smart Dent](https://www.smartdent.com.br/base-conhecimento/c/linha-atos-resinas-compostas-smart-dent-rony-peterson): Resinas compostas Doutor USP.
 
 ### Hub Principal
-- [Hub de Parâmetros](https://parametros.smartdent.com.br/): 260+ combinações resina × impressora.
-- [Base de Conhecimento PT](https://parametros.smartdent.com.br/base-conhecimento): 304 artigos.
-- [Knowledge Base EN](https://parametros.smartdent.com.br/en/knowledge-base)
-- [Base de Conocimiento ES](https://parametros.smartdent.com.br/es/base-conocimiento)
-- [Catálogo e Documentos](https://parametros.smartdent.com.br/support-resources): FISPQ, manuais.
-- [Calculadora de ROI](https://parametros.smartdent.com.br/base-conhecimento/calculadora-roi)
-- [Sobre a Smart Dent](https://parametros.smartdent.com.br/sobre)
+- [Hub de Parâmetros](https://www.smartdent.com.br/): 260+ combinações resina × impressora.
+- [Base de Conhecimento PT](https://www.smartdent.com.br/base-conhecimento): 304 artigos.
+- [Knowledge Base EN](https://www.smartdent.com.br/en/knowledge-base)
+- [Base de Conocimiento ES](https://www.smartdent.com.br/es/base-conocimiento)
+- [Catálogo e Documentos](https://www.smartdent.com.br/support-resources): FISPQ, manuais.
+- [Calculadora de ROI](https://www.smartdent.com.br/base-conhecimento/calculadora-roi)
+- [Sobre a Smart Dent](https://www.smartdent.com.br/sobre)
 
 ### Base de Conhecimento — Categorias
-- [A — Tutoriais](https://parametros.smartdent.com.br/base-conhecimento/a)
-- [B — Falhas e Soluções](https://parametros.smartdent.com.br/base-conhecimento/b)
-- [D — Casos Clínicos](https://parametros.smartdent.com.br/base-conhecimento/d)
-- [E — Depoimentos](https://parametros.smartdent.com.br/base-conhecimento/e)
-- [F — Parâmetros Técnicos](https://parametros.smartdent.com.br/base-conhecimento/f)
-- [G — Catálogo](https://parametros.smartdent.com.br/base-conhecimento/g)
+- [A — Tutoriais](https://www.smartdent.com.br/base-conhecimento/a)
+- [B — Falhas e Soluções](https://www.smartdent.com.br/base-conhecimento/b)
+- [D — Casos Clínicos](https://www.smartdent.com.br/base-conhecimento/d)
+- [E — Depoimentos](https://www.smartdent.com.br/base-conhecimento/e)
+- [F — Parâmetros Técnicos](https://www.smartdent.com.br/base-conhecimento/f)
+- [G — Catálogo](https://www.smartdent.com.br/base-conhecimento/g)
 
 ### Distribuidores
-- [Brasil](https://parametros.smartdent.com.br/distribuidores/brasil)
-- [Smart Dent USA](https://parametros.smartdent.com.br/distribuidores/estados-unidos)
-- [Hub global — 9 países](https://parametros.smartdent.com.br/distribuidores)
-- [Credenciamento](https://parametros.smartdent.com.br/cadastro-distribuidor)
-- [Chile](https://parametros.smartdent.com.br/distribuidores/chile)
-- [Colômbia](https://parametros.smartdent.com.br/distribuidores/colombia)
-- [Costa Rica](https://parametros.smartdent.com.br/distribuidores/costa-rica)
-- [República Dominicana](https://parametros.smartdent.com.br/distribuidores/republica-dominicana)
-- [Uruguai](https://parametros.smartdent.com.br/distribuidores/uruguai)
-- [Venezuela](https://parametros.smartdent.com.br/distribuidores/venezuela)
+- [Brasil](https://www.smartdent.com.br/distribuidores/brasil)
+- [Smart Dent USA](https://www.smartdent.com.br/distribuidores/estados-unidos)
+- [Hub global — 9 países](https://www.smartdent.com.br/distribuidores)
+- [Credenciamento](https://www.smartdent.com.br/cadastro-distribuidor)
+- [Chile](https://www.smartdent.com.br/distribuidores/chile)
+- [Colômbia](https://www.smartdent.com.br/distribuidores/colombia)
+- [Costa Rica](https://www.smartdent.com.br/distribuidores/costa-rica)
+- [República Dominicana](https://www.smartdent.com.br/distribuidores/republica-dominicana)
+- [Uruguai](https://www.smartdent.com.br/distribuidores/uruguai)
+- [Venezuela](https://www.smartdent.com.br/distribuidores/venezuela)
 
 ### Eventos
-- [Agenda 2026](https://parametros.smartdent.com.br/eventos)
+- [Agenda 2026](https://www.smartdent.com.br/eventos)
 
 ---
 

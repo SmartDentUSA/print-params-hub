@@ -5,7 +5,7 @@ Deno.serve(async (req) => {
   const url = new URL(req.url);
   const campaignId = url.searchParams.get("c");
   const leadId = url.searchParams.get("l");
-  const target = url.searchParams.get("u") || "https://parametros.smartdent.com.br/";
+  const target = url.searchParams.get("u") || "https://www.smartdent.com.br/";
 
   const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, {
     auth: { persistSession: false },

@@ -97,7 +97,7 @@ Deno.serve(async (req) => {
         });
         if (tErr) throw tErr;
       }
-      const portalUrl = `${Deno.env.get("PUBLIC_SITE_URL") || "https://parametros.smartdent.com.br"}/portal-cursos/${portalToken}`;
+      const portalUrl = `${Deno.env.get("PUBLIC_SITE_URL") || "https://www.smartdent.com.br"}/portal-cursos/${portalToken}`;
       const code = String(Math.floor(100000 + Math.random() * 900000));
       // Sessões anteriores não verificadas são revogadas para valer só o código novo
       await admin.from("kol_access_sessions").update({ revoked_at: nowIso })

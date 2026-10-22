@@ -1,7 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const BOT_RE = /facebookexternalhit|facebot|instagram|whatsapp|twitterbot|linkedinbot|slackbot|telegrambot|discordbot|googlebot|bingbot|skypeuripreview|applebot|pinterest|embedly|redditbot/i;
-const DEFAULT_IMG = "https://parametros.smartdent.com.br/og-fluxo-digital.jpg";
+const DEFAULT_IMG = "https://www.smartdent.com.br/og-fluxo-digital.jpg";
 const esc = (v: string) => String(v ?? "").replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
 // deno-lint-ignore no-explicit-any
@@ -25,7 +25,7 @@ async function previewHtml(supabase: any, dest: string): Promise<string | null> 
     img = src?.cover_image_url ?? null;
   }
   // Miniatura definida para o curso Medit (Weber Ricci).
-  if (!img && (id === "c3dfc274-db3d-4041-92b9-93f17eb0b41d" || id === "3e244be5-5e1a-4987-93ab-046e65be1a77")) img = "https://parametros.smartdent.com.br/og-curso-medit-weber.jpg";
+  if (!img && (id === "c3dfc274-db3d-4041-92b9-93f17eb0b41d" || id === "3e244be5-5e1a-4987-93ab-046e65be1a77")) img = "https://www.smartdent.com.br/og-curso-medit-weber.jpg";
   img = img || DEFAULT_IMG;
   const title = c.title || "Curso Smart Dent";
   const desc = String(c.description || "Informações do curso Smart Dent").replace(/\s+/g, " ").slice(0, 200);

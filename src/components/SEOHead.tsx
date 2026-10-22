@@ -149,7 +149,7 @@ const generateAIContext = (
 };
 
 export const SEOHead = ({ pageType, brand, model, resins = [], faqs = [] }: SEOHeadProps) => {
-  const baseUrl = 'https://parametros.smartdent.com.br';
+  const baseUrl = 'https://www.smartdent.com.br';
   const { data: companyData } = useCompanyData();
 
   // Campos obrigatórios do Google Merchant Listings (BR)
@@ -225,13 +225,13 @@ export const SEOHead = ({ pageType, brand, model, resins = [], faqs = [] }: SEOH
   const organizationSchema = {
     "@context": "https://schema.org",
     "@type": "Organization",
-    "@id": "https://parametros.smartdent.com.br/#organization",
+    "@id": "https://www.smartdent.com.br/#organization",
     "name": companyData?.name || "Smart Dent",
     "alternateName": companyData?.business?.doing_business_as || "Smart Dent Odontologia Digital",
-    "url": companyData?.website_url || "https://parametros.smartdent.com.br",
+    "url": companyData?.website_url || "https://www.smartdent.com.br",
     "logo": {
       "@type": "ImageObject",
-      "url": companyData?.logo_url || "https://parametros.smartdent.com.br/og-image.jpg",
+      "url": companyData?.logo_url || "https://www.smartdent.com.br/og-image.jpg",
       "width": 1200,
       "height": 630
     },
@@ -640,11 +640,11 @@ export const SEOHead = ({ pageType, brand, model, resins = [], faqs = [] }: SEOH
       <meta name="twitter:image" content={ogImage} />
 
       {/* Favicon for SEO - Prioridade para Google */}
-      <link rel="icon" type="image/png" sizes="192x192" href="https://parametros.smartdent.com.br/favicon-192x192.png?v=4" />
-      <link rel="icon" type="image/png" sizes="512x512" href="https://parametros.smartdent.com.br/favicon-512x512.png?v=4" />
-      <link rel="shortcut icon" href="https://parametros.smartdent.com.br/favicon.ico?v=4" />
-      <link rel="apple-touch-icon" href="https://parametros.smartdent.com.br/apple-touch-icon.png?v=4" />
-      <link rel="manifest" href="https://parametros.smartdent.com.br/manifest.json" />
+      <link rel="icon" type="image/png" sizes="192x192" href="https://www.smartdent.com.br/favicon-192x192.png?v=4" />
+      <link rel="icon" type="image/png" sizes="512x512" href="https://www.smartdent.com.br/favicon-512x512.png?v=4" />
+      <link rel="shortcut icon" href="https://www.smartdent.com.br/favicon.ico?v=4" />
+      <link rel="apple-touch-icon" href="https://www.smartdent.com.br/apple-touch-icon.png?v=4" />
+      <link rel="manifest" href="https://www.smartdent.com.br/manifest.json" />
 
       {/* Structured Data — @graph Organization + WebSite */}
       <script type="application/ld+json">

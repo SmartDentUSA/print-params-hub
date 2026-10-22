@@ -7,7 +7,7 @@ import type { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const DEEPSEEK_KEY = Deno.env.get('DEEPSEEK_API_KEY')
 const GEMINI_KEY   = Deno.env.get('GEMINI_API_KEY') ?? Deno.env.get('LOVABLE_API_KEY')
-const SITE_URL     = (Deno.env.get('PUBLIC_SITE_URL') ?? 'https://parametros.smartdent.com.br').replace(/\/+$/, '')
+const SITE_URL     = (Deno.env.get('PUBLIC_SITE_URL') ?? 'https://www.smartdent.com.br').replace(/\/+$/, '')
 
 export type AiContentCfg = {
   ai_source_type?: string

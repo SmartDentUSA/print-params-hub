@@ -1,6 +1,6 @@
 // ═══════════════════════════════════════════════════════════
 // 📄 /llms.txt (mirror para Vercel) — Smart Dent v2.3
-// Servido em https://parametros.smartdent.com.br/llms.txt
+// Servido em https://www.smartdent.com.br/llms.txt
 // ═══════════════════════════════════════════════════════════
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { IDENTITY_V23 } from "../_shared/llms-identity.ts";

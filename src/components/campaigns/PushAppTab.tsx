@@ -465,7 +465,7 @@ export function PushAppTab() {
             <div className="grid gap-3 md:grid-cols-2">
               <div className="space-y-1">
                 <Label className="text-xs">Link de destino</Label>
-                <Input value={targetUrl} onChange={(e) => setTargetUrl(e.target.value)} placeholder="https://parametros.smartdent.com.br/agenda" />
+                <Input value={targetUrl} onChange={(e) => setTargetUrl(e.target.value)} placeholder="https://www.smartdent.com.br/agenda" />
               </div>
               <div className="space-y-1">
                 <Label className="text-xs">Ícone (URL)</Label>

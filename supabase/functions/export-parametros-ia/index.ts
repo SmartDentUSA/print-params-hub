@@ -223,7 +223,7 @@ Deno.serve(async (req) => {
         versao: '2.0',
         ultima_atualizacao: new Date().toISOString(),
         total_parametros: parametrosFormatados.length,
-        fonte: 'https://parametros.smartdent.com.br'
+        fonte: 'https://www.smartdent.com.br'
       },
       instrucoes_ia: {
         fluxo_conversacional: [

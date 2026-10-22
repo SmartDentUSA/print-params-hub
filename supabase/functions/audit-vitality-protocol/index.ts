@@ -147,7 +147,7 @@ Deno.serve(async (req) => {
     if (rErr || !resin?.processing_instructions) {
       throw new Error("Vitality canonical protocol not found");
     }
-    const canonicalHtml = `<section data-source="resins.vitality.canonical">\n<h2>Pré e Pós Processamento — Smart Print Bio Vitality</h2>\n${mdToHtml(resin.processing_instructions)}\n<p><em>Fonte oficial: <a href="https://parametros.smartdent.com.br/resina/${VITALITY_SLUG}">Smart Print Bio Vitality</a></em></p>\n</section>`;
+    const canonicalHtml = `<section data-source="resins.vitality.canonical">\n<h2>Pré e Pós Processamento — Smart Print Bio Vitality</h2>\n${mdToHtml(resin.processing_instructions)}\n<p><em>Fonte oficial: <a href="https://www.smartdent.com.br/resina/${VITALITY_SLUG}">Smart Print Bio Vitality</a></em></p>\n</section>`;
 
     // 2. Candidatos
     let q = supabase

@@ -1008,7 +1008,7 @@ export function KnowledgeSEOHead({ content, category, videos = [], relatedDocume
         "@type": "Organization",
         "name": companyData?.name || "Smart Dent"
       },
-      "license": "https://parametros.smartdent.com.br/termos",
+      "license": "https://www.smartdent.com.br/termos",
       "isAccessibleForFree": true,
       "datePublished": toIsoDate(content.created_at),
       "dateModified": toIsoDate(content.updated_at, content.created_at),

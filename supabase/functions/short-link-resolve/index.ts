@@ -1,7 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const FALLBACK_HOME = "https://parametros.smartdent.com.br/";
-const APP_BASE = "https://parametros.smartdent.com.br";
+const FALLBACK_HOME = "https://www.smartdent.com.br/";
+const APP_BASE = "https://www.smartdent.com.br";
 
 function detectDevice(ua: string): string {
   const s = ua.toLowerCase();

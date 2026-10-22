@@ -20,7 +20,7 @@ import {
   safeEqualSecret, serviceClient, slugify,
 } from "../_shared/testimonial-pipeline.ts";
 
-const PUBLIC_BASE = "https://parametros.smartdent.com.br";
+const PUBLIC_BASE = "https://www.smartdent.com.br";
 
 function escapeHtml(s: string): string {
   return String(s || "")

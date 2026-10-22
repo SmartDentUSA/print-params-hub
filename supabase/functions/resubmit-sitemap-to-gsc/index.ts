@@ -21,8 +21,8 @@ const TARGETS: Array<{ site: string; sitemap: string }> = [
     sitemap: 'https://print-params-hub.lovable.app/sitemap.xml',
   },
   {
-    site: 'https://parametros.smartdent.com.br/',
-    sitemap: 'https://parametros.smartdent.com.br/sitemap.xml',
+    site: 'https://www.smartdent.com.br/',
+    sitemap: 'https://www.smartdent.com.br/sitemap.xml',
   },
 ];
 
