@@ -19,6 +19,7 @@ import { toast } from "sonner";
 import AttendanceChannelMetrics from "@/components/lia/AttendanceChannelMetrics";
 import { QrCodeButton } from "./QrCodeButton";
 import { getPublicOrigin } from "@/utils/publicOrigin";
+import { buildLiaUrl } from "@/lib/attendanceChannel";
 import type { FormMetrics, ShortLinkInfo } from "./FormMetricsCard";
 
 interface Props {
@@ -197,6 +198,25 @@ export function FormMetricsRow({
               qrSuffix="landing-page"
             />
           )}
+          {form.form_purpose !== "feira_evento" && (() => {
+            const waUrl = buildLiaUrl({ formId: form.id, base: getPublicOrigin() }) + "&utm_source=qrcode&utm_medium=whatsapp_lia";
+            return (
+              <div className="inline-flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => navigator.clipboard.writeText(waUrl).then(() => toast.success("Link do simulador copiado"), () => toast.error("Falha ao copiar"))}
+                  className="inline-flex items-center gap-1 rounded border px-1.5 py-0.5 text-[10px] bg-muted/40 text-muted-foreground hover:text-foreground"
+                  title={waUrl}
+                >
+                  <Badge variant="secondary" className="text-[9px] py-0 px-1 h-4">WhatsApp</Badge>
+                  <Link2 className="w-3 h-3" />
+                  Copiar link do simulador
+                  <Copy className="w-2.5 h-2.5 opacity-60" />
+                </button>
+                <QrCodeButton url={waUrl} title={`${form.name} — Simulador WhatsApp`} fileSuffix="simulador-whatsapp" />
+              </div>
+            );
+          })()}
         </div>
         <div className="flex items-center gap-3 mt-1.5 flex-wrap text-[10px]">
           <span className="text-muted-foreground uppercase tracking-wide">Link da Bio</span>
