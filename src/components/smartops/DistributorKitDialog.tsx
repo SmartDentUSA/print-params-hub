@@ -6,6 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { Copy, Download, ExternalLink } from "lucide-react";
 import sealAsset from "@/assets/selo-distribuidor-oficial-smart-dent.png.asset.json";
+import { ASSET_ORIGIN } from "@/utils/assetUrl";
 
 const BASE_URL = "https://admin.smartdent.com.br";
 
