@@ -178,9 +178,15 @@ Deno.serve(async (req) => {
 
       const { data: existing } = await supabase
         .from('social_flows')
-        .select('id')
+        .select('id, zernio_automation_config')
         .eq('form_name', f.slug)
         .maybeSingle();
+
+      // Flows configurados manualmente para o simulador de WhatsApp (Atendimento) não são sobrescritos.
+      if ((existing as any)?.zernio_automation_config?.short_link_target === 'whatsapp_lia') {
+        results.push({ slug: f.slug, ok: true, skipped: 'whatsapp_lia_manual', flow_id: existing!.id });
+        continue;
+      }
 
       let flowId = existing?.id ?? null;
       if (flowId) {
