@@ -418,6 +418,12 @@ export default function KbTabCatalogo({ filterKey, pinnedIds, pinnedElsewhereIds
   const specLang: SpecLang = (language === 'en' || language === 'es') ? language : 'pt';
   const [docs, setDocs] = useState<Map<string, DocLinks>>(new Map());
   const [extraDocs, setExtraDocs] = useState<Map<string, CatalogDoc[]>>(new Map());
+  const [waFormByProduct, setWaFormByProduct] = useState<Map<string, string>>(new Map());
+  const [waUrl, setWaUrl] = useState<string | null>(null);
+  const openWhatsApp = (formId: string, productName: string) => {
+    trackAttendanceEvent({ channel: 'whatsapp_lia', event_type: 'click', form_id: formId, product_name: productName });
+    setWaUrl(buildLiaUrl({ formId }) + '&utm_source=catalogo&utm_medium=whatsapp_lia');
+  };
   const [rowsRaw, setRowsRaw] = useState<any[]>([]);
   const [resinsRaw, setResinsRaw] = useState<any[]>([]);
   const [resinDocs, setResinDocs] = useState<Map<string, ResinDoc[]>>(new Map());
