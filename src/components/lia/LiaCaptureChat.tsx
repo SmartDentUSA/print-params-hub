@@ -285,7 +285,7 @@ export default function LiaCaptureChat({ formId, campaign, product }: { formId: 
         <Button variant="ghost" size="icon" className="lia-icon-button h-8 w-7 shrink-0 text-accent" aria-label="Voltar" title="Voltar" onClick={() => window.history.back()}>
           <ChevronLeft className="h-6 w-6" />
         </Button>
-        <img src={groupBadge.url} alt="Smart Dent" className="h-10 w-10 shrink-0 rounded-full bg-card object-contain" />
+        <img src="/favicon-192x192.png" alt="Smart Dent" className="h-10 w-10 shrink-0 rounded-full bg-card object-cover" />
         <div className="min-w-0 flex-1">
           <p className="text-[15px] font-semibold">Atendimento</p>
           <p className="lia-header-subtitle truncate text-xs">{waiting ? "digitando…" : "Smart Dent | Fluxo Digital"}</p>
