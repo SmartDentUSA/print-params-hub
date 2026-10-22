@@ -9,6 +9,8 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { getStorageImageUrl } from '@/utils/storageImage';
 import { Country } from 'country-state-city';
 import 'flag-icons/css/flag-icons.min.css';
+import { EventDistribuicaoTools } from './EventDistribuicaoTools';
+import './event-distribuicao.css';
 
 interface EventRow {
   id: string;
@@ -98,6 +100,8 @@ export default function KbTabEventos() {
   const dateLocale = language === 'en' ? 'en-US' : language === 'es' ? 'es-ES' : 'pt-BR';
   const [rows, setRows] = useState<EventRow[]>([]);
   const [formByEvent, setFormByEvent] = useState<Record<string, string>>({});
+  const [distByEvent, setDistByEvent] = useState<Record<string, { id: string; slug: string }>>({});
+  const [isTeamMember, setIsTeamMember] = useState(false);
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState('');
 
@@ -113,16 +117,22 @@ export default function KbTabEventos() {
       if (!error && data) setRows(data as EventRow[]);
       const { data: forms } = await supabase
         .from('smartops_forms')
-        .select('event_id,slug')
+        .select('id,event_id,slug,form_purpose')
         .not('event_id', 'is', null)
         .eq('active', true);
       if (forms) {
         const map: Record<string, string> = {};
-        for (const f of forms as { event_id: string; slug: string }[]) {
-          if (f.event_id && f.slug && !map[f.event_id]) map[f.event_id] = f.slug;
+        const dist: Record<string, { id: string; slug: string }> = {};
+        for (const f of forms as { id: string; event_id: string; slug: string; form_purpose: string }[]) {
+          if (!f.event_id || !f.slug) continue;
+          if (f.form_purpose === 'distribuicao') { if (!dist[f.event_id]) dist[f.event_id] = { id: f.id, slug: f.slug }; continue; }
+          if (!map[f.event_id]) map[f.event_id] = f.slug;
         }
         setFormByEvent(map);
+        setDistByEvent(dist);
       }
+      const { data: u } = await supabase.auth.getUser();
+      setIsTeamMember(!!(u.user?.user_metadata as { team_member_id?: string } | undefined)?.team_member_id);
       setLoading(false);
     })();
   }, []);
@@ -224,6 +234,9 @@ export default function KbTabEventos() {
                       </a>
                     )}
                   </div>
+                  {isTeamMember && distByEvent[e.id] && (
+                    <EventDistribuicaoTools eventName={e.name} form={distByEvent[e.id]} />
+                  )}
                 </div>
               </div>
             );
