@@ -1,3 +1,4 @@
+- [x] Tela principal (institucional): logo Smart Dent acima de "Workflow Digital End-to-End", versão clara em fundo transparente; verificado em desktop e 390px, compilação OK.
 - [x] Atendimento das landing pages e Bio ocupa toda a área visível no celular, sem borda ou margens; abertura/fechamento reais verificados em 390px e desktop. Teclado físico não exercitado.
 - [x] Formulários em conversa: visual WhatsApp claro, cabeçalho Smart Dent, balões e barra de mensagem, tela inteira com adaptação à área visível. Abertura real, emojis, envio/validação sem cadastrar lead e ausência de overflow verificados em 390px e desktop; compilação OK. Teclado físico e captura CRM completa não exercitados.
 - [x] EXOPLAN restrito ao reel DerX2RClAj5 (17885058048512241), qualquer comentário, sem gatilho de DM recebida; link de atendimento preservado. PATCH e leitura na Zernio confirmados, 3 testes aprovados; entrega real ainda sem registros após o ajuste.
