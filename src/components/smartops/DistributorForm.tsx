@@ -223,6 +223,8 @@ export function DistributorForm({
   value, onChange, showActive = true, logoMode = "upload", onLogoFileChange,
 }: Props) {
   const form = value;
+  // Formulário externo (cadastro público) oculta campos internos de SEO/autorização.
+  const isPublic = !showActive;
   const setForm = (updater: (f: DistributorFormValue) => DistributorFormValue) =>
     onChange(updater(form));
 
@@ -602,8 +604,8 @@ export function DistributorForm({
       <section className="space-y-3">
         <div className="flex items-center justify-between">
           <div>
-            <h4 className="text-sm font-semibold">Autorização Comercial</h4>
-            <p className="text-xs text-muted-foreground">Categorias e subcategorias que esta revenda está autorizada a comercializar.</p>
+            <h4 className="text-sm font-semibold">{isPublic ? "Qual linha de produto você quer mais informações?" : "Autorização Comercial"}</h4>
+            {!isPublic && <p className="text-xs text-muted-foreground">Categorias e subcategorias que esta revenda está autorizada a comercializar.</p>}
           </div>
           <div className="flex gap-2">
             <Button
@@ -691,6 +693,7 @@ export function DistributorForm({
             Cobertura nacional preenchida automaticamente pelo país selecionado. Vira <code>areaServed</code> no schema.org.
           </p>
         </div>
+        {!isPublic && (
         <div>
           <Label>Linhas Smart Dent representadas (separadas por vírgula)</Label>
           <div className="rounded-md border bg-muted/40 p-3 min-h-[44px]">
@@ -708,7 +711,9 @@ export function DistributorForm({
             Calculado a partir da Autorização Comercial. Vira <code>makesOffer</code> no schema.org.
           </p>
         </div>
+        )}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {!isPublic && (
           <div>
             <Label>Wikidata ID (opcional)</Label>
             <Input
@@ -717,6 +722,7 @@ export function DistributorForm({
               placeholder="Q12345678"
             />
           </div>
+          )}
           <div>
             <Label>Idioma preferencial da página</Label>
             <Select
