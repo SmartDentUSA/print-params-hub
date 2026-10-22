@@ -1,4 +1,5 @@
 import { isReferralForm } from "@/lib/kolCommissionDefaults";
+import { isKolFormDeal } from "@/lib/kolDealAttribution";
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -156,7 +157,8 @@ export function useKolPerformance(formIds: { id: string; name: string }[], coupo
           let best = "";
           for (const k of aliases.keys()) if (k.length > best.length && k.length >= 5 && (n.includes(k) || k.includes(n))) best = k;
           if (best) {
-            const a = aliases.get(best)!;
+            const a = aliases.get(best);
+            if (!a) return { cat: cat ?? null, sub: sub ?? null };
             const catHit = a.canonical ? catalog.get(norm(a.canonical)) : undefined;
             return { cat: a.cat ?? catHit?.cat ?? cat ?? null, sub: a.sub ?? catHit?.sub ?? sub ?? null };
           }
@@ -259,10 +261,24 @@ export function useKolPerformance(formIds: { id: string; name: string }[], coupo
         }
 
 
+        // Direct field responses may still reference a merged lead. Only canonical
+        // leads can participate, matching the portal's canonical attendance reads.
+        const candidateIds = Array.from(new Set(ids.flatMap((id) => Array.from(leadsByForm[id] ?? []))));
+        const canonicalIds = new Set<string>();
+        for (let i = 0; i < candidateIds.length; i += 300) {
+          const { data: canonical } = await supabase.from("lia_attendances")
+            .select("id").in("id", candidateIds.slice(i, i + 300)).is("merged_into", null);
+          for (const lead of canonical ?? []) canonicalIds.add(lead.id);
+        }
+        for (const id of ids) {
+          leadsByForm[id] = new Set(Array.from(leadsByForm[id] ?? []).filter((lead) => canonicalIds.has(lead)));
+        }
+
         const referralFormIds = new Set(((formRows ?? []) as any[]).filter((f) => isReferralForm(f)).map((f) => f.id));
         const referralLeads = new Set<string>();
         for (const fid of referralFormIds) for (const l of leadsByForm[fid] ?? []) referralLeads.add(l);
-        const allLeads = Array.from(new Set(Object.values(leadsByForm).flatMap((s) => Array.from(s))));
+        const allLeads = Array.from(new Set(ids.flatMap((id) => Array.from(leadsByForm[id] ?? []))));
+        const attributionNames = formIds.map((form) => form.name);
 
         // Negócios ganhos dos leads indicados
         const wonByLead: Record<string, number> = {};
@@ -271,10 +287,11 @@ export function useKolPerformance(formIds: { id: string; name: string }[], coupo
           const chunk = allLeads.slice(i, i + 300);
           const { data: deals } = await (supabase as any)
             .from("deals")
-            .select("id, piperun_deal_id, lead_id, value, status, is_deleted, closed_at")
+            .select("id, piperun_deal_id, lead_id, value, status, is_deleted, closed_at, origin_name")
             .in("lead_id", chunk)
             .eq("status", "ganha");
-          const won = ((deals ?? []) as any[]).filter((d) => !d.is_deleted);
+          // Same deal set as Performance da parceria, before revenue AND commission.
+          const won = ((deals ?? []) as any[]).filter((d) => isKolFormDeal(d, attributionNames));
           for (const d of won) {
             wonByLead[d.lead_id] = (wonByLead[d.lead_id] ?? 0) + Number(d.value ?? 0);
           }
