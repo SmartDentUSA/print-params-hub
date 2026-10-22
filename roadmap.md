@@ -69,3 +69,6 @@
 - [x] Pipeline do vídeo vertical do curso KOL: Panda (pasta "# - Videos dos cursos Kols", nome Profissional - Curso - Chamada), IG Flow com palavra de 3 iniciais, IG/FB Reels+Story, TikTok, YouTube Shorts, 5 hashtags. Envio real às redes não testado.
 - [ ] Completar a frase "Ao publicar o curso e validar ass..." (aguarda usuário)
 - [ ] Executar teste ponta a ponta KOL de Danilo Henrique (CRO 336589): ações reais autorizadas, vendedor 104356 (Tatiana Vieira), grupo vendedor/KOL/5516997501531. Bloqueado: endpoints recusam acesso (401), Tatiana está inativa (WhatsApp cadastrado, sem instância) e desconto de teste não definido (configuração atual 100%). Contrato enviado sem aceite; não simular assinatura nem contornar proteções. Pipeline também usa generate_draft incompatível com kol-contract (generate).
+
+- [ ] Formulário "# - Distribuição - Cadastro" (campos do editor de distribuição), duplicado para todos os eventos atuais e futuros, com link, simulador WhatsApp e QR code no card do evento (visível só ao team member logado pelo celular); leads entram como Distribuidor no funil PipeRun 39047, proprietário 103060; adicionar team member fabio.rinaldi@smartdent.com.br (Função: Distribuição).
+- [ ] Sync PandaVideo a cada 48h.
