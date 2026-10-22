@@ -49,6 +49,9 @@ Deno.serve(async req => {
     const { data: videos, error, count } = await query;
     if (error) throw error;
     if (!videos?.length) { nextCursor = scheduled ? 0 : null; return reply({ success: true, updated: 0, remaining: 0, total: count || 0 }); }
+    const { data: maxData } = await db.from('knowledge_videos').select('analytics_unique_views,analytics_unique_plays').not('analytics_unique_views', 'is', null).order('analytics_unique_views', { ascending: false }).limit(1).maybeSingle();
+    let maxViews = Number(maxData?.analytics_unique_views) || 1;
+    let maxPlays = Number(maxData?.analytics_unique_plays) || 1;
     let position = 0, processed = 0, updated = 0, failed = 0;
     const fetchPanda = async (kind: string, id: string) => {
       try {
@@ -67,7 +70,9 @@ Deno.serve(async req => {
         if (!counters) { failed++; continue; }
         const retention = pandaRetention(retentionData) ?? Number(video.analytics_avg_retention || 0);
         const playRate = counters.views > 0 ? Number((counters.plays / counters.views * 100).toFixed(2)) : 0;
-        const scoreBase = (playRate / 100 * .3 + retention / 100 * .35 + Math.min(1, counters.unique_views / Math.max(1, Number(video.analytics_unique_views) || 1)) * .2 + Math.min(1, counters.unique_plays / Math.max(1, Number(video.analytics_unique_plays) || 1)) * .15) * 100;
+        maxViews = Math.max(maxViews, counters.unique_views);
+        maxPlays = Math.max(maxPlays, counters.unique_plays);
+        const scoreBase = (playRate / 100 * .3 + retention / 100 * .35 + Math.min(1, counters.unique_views / maxViews) * .2 + Math.min(1, counters.unique_plays / maxPlays) * .15) * 100;
         const score = Number((scoreBase * (retention < 25 ? .7 : 1)).toFixed(2));
         const { error: writeError } = await db.from('knowledge_videos').update({ analytics_views: counters.views, analytics_unique_views: counters.unique_views, analytics_plays: counters.plays, analytics_unique_plays: counters.unique_plays, analytics_play_rate: playRate, analytics_avg_retention: retention, relevance_score: score, analytics_last_sync: new Date().toISOString() }).eq('id', video.id);
         if (writeError) { failed++; continue; }

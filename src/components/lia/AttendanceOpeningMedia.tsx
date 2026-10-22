@@ -3,9 +3,9 @@ import type { LandingAttendanceMedia } from '@/lib/landingAttendanceMedia';
 import { usePandaVideoTracking } from '@/hooks/usePandaVideoTracking';
 import { PandaVideoViewCount } from '@/components/PandaVideoViewCount';
 
-export function AttendanceOpeningMedia({ media }: { media: LandingAttendanceMedia }) {
+export function AttendanceOpeningMedia({ media, formId }: { media: LandingAttendanceMedia; formId?: string | null }) {
   const [failed, setFailed] = useState(false);
-  const { frameRef, metrics } = usePandaVideoTracking(media.url);
+  const { frameRef, metrics } = usePandaVideoTracking(media.url, formId);
   if (failed) return null;
   if (media.kind === 'embed') return (
     <div className="mb-2 w-full">
