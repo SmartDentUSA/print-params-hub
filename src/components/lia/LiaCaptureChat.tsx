@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Loader2, Send, MessageCircle, ChevronLeft, Smile, Users } from "lucide-react";
+import { Send, MessageCircle, ChevronLeft, Smile, Users } from "lucide-react";
 import { trackAttendanceEvent } from "@/lib/attendanceChannel";
 import groupBadge from "@/assets/smartdent-group-badge.png.asset.json";
 
@@ -280,7 +280,7 @@ export default function LiaCaptureChat({ formId, campaign, product }: { formId: 
   const waiting = busy || typing;
 
   return (
-    <div className="lia-whatsapp flex h-full min-h-0 flex-col overflow-hidden bg-background text-foreground">
+    <div className="lia-whatsapp lia-capture-light flex h-full min-h-0 flex-col overflow-hidden bg-background text-foreground">
       <header className="lia-header flex shrink-0 items-center gap-2 px-2 py-2">
         <Button variant="ghost" size="icon" className="lia-icon-button h-8 w-7 shrink-0 text-accent" aria-label="Voltar" title="Voltar" onClick={() => window.history.back()}>
           <ChevronLeft className="h-6 w-6" />

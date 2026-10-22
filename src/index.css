@@ -310,3 +310,22 @@
 .lia-whatsapp .lia-typing-dot:nth-child(3) { animation-delay: .3s; }
 @keyframes lia-typing { 50% { opacity: .35; transform: translateY(-2px); } }
 @media (prefers-reduced-motion: reduce) { .lia-whatsapp .lia-typing-dot { animation: none; } }
+.lia-whatsapp:not(.lia-capture-light) {
+  --background: 0 0% 0%;
+  --foreground: 0 0% 94%;
+  --card: 0 0% 11%;
+  --card-foreground: 0 0% 94%;
+  --secondary: 0 0% 16%;
+  --secondary-foreground: 0 0% 94%;
+  --muted: 0 0% 14%;
+  --muted-foreground: 0 0% 65%;
+  --primary: 172 78% 20%;
+  --primary-foreground: 0 0% 96%;
+  --accent: 205 100% 61%;
+  --accent-foreground: 0 0% 0%;
+  --border: 0 0% 19%;
+  --input: 0 0% 19%;
+  --ring: 205 100% 61%;
+  color-scheme: dark;
+}
+.lia-whatsapp:not(.lia-capture-light) .lia-send { background: hsl(var(--primary)); color: hsl(var(--primary-foreground)); }
