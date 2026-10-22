@@ -289,6 +289,24 @@
 .lia-whatsapp .lia-send { background: hsl(var(--accent)); color: hsl(var(--accent-foreground)); }
 .lia-whatsapp .lia-send:hover { background: hsl(var(--accent) / .9); }
 .lia-viewport { height: 100vh; height: 100dvh; height: var(--lia-viewport-height, 100dvh); overflow: hidden; }
+@media (max-width: 767px) {
+  .attendance-dialog {
+    left: 0 !important;
+    top: var(--attendance-top, 0px) !important;
+    width: 100% !important;
+    max-width: none !important;
+    height: var(--attendance-height, 100dvh) !important;
+    max-height: none !important;
+    transform: none !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    padding: 0 !important;
+    gap: 0;
+    box-shadow: none;
+    animation: none !important;
+  }
+  .attendance-dialog-frame { height: 100%; min-height: 0; }
+}
 .lia-whatsapp .lia-header {
   min-height: 64px;
   background: hsl(var(--lia-header));
