@@ -712,3 +712,6 @@ verify_jwt = false
 
 [functions.kol-course-reels-publish]
 verify_jwt = false
+
+[functions.distribuicao-crm-sync]
+verify_jwt = false
