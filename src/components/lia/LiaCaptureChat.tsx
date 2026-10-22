@@ -6,6 +6,8 @@ import { Send, MessageCircle, ChevronLeft, Smile, Users } from "lucide-react";
 import { trackAttendanceEvent } from "@/lib/attendanceChannel";
 import groupBadge from "@/assets/smartdent-group-badge.png.asset.json";
 import { resolveAssetUrl } from "@/utils/assetUrl";
+import { landingAttendanceMedia, type LandingAttendanceMedia } from "@/lib/landingAttendanceMedia";
+import { AttendanceOpeningMedia } from "./AttendanceOpeningMedia";
 
 type Question = { field_id: string | null; form_id: string | null; db_column: string | null; label: string; options: string[]; field_type?: string };
 type Ctx = { form_id: string | null; campaign: string | null; product: string; origin: string; opening: string; greeting?: string; questions: Question[]; product_summary?: string | null; modules_summary?: string | null; whatsapp_group_url?: string | null };
@@ -31,6 +33,7 @@ export default function LiaCaptureChat({ formId, campaign, product }: { formId: 
   const params = useMemo(() => new URLSearchParams(window.location.search), []);
   const storeKey = `lia_capture_v2_${formId ?? ""}_${campaign ?? ""}_${product ?? ""}`;
   const [ctx, setCtx] = useState<Ctx | null>(null);
+  const [openingMedia, setOpeningMedia] = useState<LandingAttendanceMedia | null>(null);
   const [msgs, setMsgs] = useState<Msg[]>([]);
   const [step, setStep] = useState<Step>("phone");
   const [input, setInput] = useState("");
@@ -58,6 +61,22 @@ export default function LiaCaptureChat({ formId, campaign, product }: { formId: 
     mounted.current = true;
     return () => { mounted.current = false; };
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    setOpeningMedia(null);
+    if (!formId) return;
+    // This is the same public, published landing source used by the page itself.
+    void supabase.from("smartops_form_landing_pages")
+      .select("status, hero_image_url")
+      .eq("form_id", formId)
+      .eq("status", "published")
+      .maybeSingle()
+      .then(({ data, error }) => {
+        if (!cancelled && !error) setOpeningMedia(landingAttendanceMedia(data));
+      });
+    return () => { cancelled = true; };
+  }, [formId]);
 
   const say = async (text: string, question?: Question) => {
     setTyping(true);
@@ -298,7 +317,8 @@ export default function LiaCaptureChat({ formId, campaign, product }: { formId: 
         {msgs.map((m, i) => (
           <div key={i} className={`flex ${m.from === "user" ? "justify-end" : "justify-start"}`}>
             {(() => { const opts = m.from === "lia" ? (m.question || (i === msgs.length - 1 && q?.label === m.text ? q : null))?.options : undefined; const hasOptions = !!opts?.length; return (
-            <div className={`lia-bubble rounded-lg px-3 pb-1 pt-2 text-[15px] leading-5 ${hasOptions ? "w-[85%] sm:w-[70%] sm:max-w-md" : "max-w-[88%] sm:max-w-[78%]"} ${m.from === "user" ? "lia-bubble-out rounded-tr-none bg-primary text-primary-foreground" : "lia-bubble-in rounded-tl-none bg-muted text-foreground"}`}>
+            <div className={`lia-bubble rounded-lg px-3 pb-1 pt-2 text-[15px] leading-5 ${hasOptions || (i === 0 && ctx && openingMedia) ? "w-[85%] sm:w-[70%] sm:max-w-md" : "max-w-[88%] sm:max-w-[78%]"} ${m.from === "user" ? "lia-bubble-out rounded-tr-none bg-primary text-primary-foreground" : "lia-bubble-in rounded-tl-none bg-muted text-foreground"}`}>
+              {i === 0 && m.from === "lia" && ctx && openingMedia && <AttendanceOpeningMedia key={openingMedia.url} media={openingMedia} />}
               <p className="whitespace-pre-wrap break-words">{m.text}</p>
               {hasOptions && <div className="lia-replies mt-3 flex flex-col" role="group" aria-label="Opções de resposta">
               {(m.question || q)?.options.map((option) => (

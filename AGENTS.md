@@ -39,3 +39,4 @@
 - KOL card referral revenue and commissions filter the same exact normalized form origins as portal performance before aggregating; generic KOL origins cannot identify the referring professional.
 - Zernio empty keywords require a platform post ID; prevents account-wide replies.
 - Capture conversations share isolated semantic chat tokens and a visual-viewport-sized container; landing and bio openings use AttendanceDialog with an edge-to-edge mobile visual viewport so outer dialogs never constrain the chat, without changing ingestion or CRM behavior.
+- Capture opening media reads only the published landing hero by the resolved form ID and classifies image, native video or player in a presentation-only helper; missing media never blocks qualification or changes CRM context.
