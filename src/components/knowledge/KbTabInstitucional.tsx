@@ -11,6 +11,7 @@ import logoUnc from '@/assets/logo-unc.png';
 import logoUsp from '@/assets/logo-usp.png';
 import resinasLinha from '@/assets/resinas-linha.png.asset.json';
 import logoSmartDent from '@/assets/smartdent-logo-light.png.asset.json';
+import { resolveAssetUrl } from '@/utils/assetUrl';
 
 const VIDEO_ID = 'HyGSOn6gIsw';
 const VIDEO_THUMB = `https://i.ytimg.com/vi/${VIDEO_ID}/maxresdefault.jpg`;

@@ -51,7 +51,7 @@ export function DistributorKitDialog({
   onOpenChange: (v: boolean) => void;
   distributor: KitDistributor | null;
 }) {
-  const sealUrl = `${BASE_URL}${sealAsset.url}`;
+  const sealUrl = `${ASSET_ORIGIN}${sealAsset.url}`;
   const data = useMemo(() => {
     if (!distributor) return null;
     const country = findCountry(distributor.pais);
