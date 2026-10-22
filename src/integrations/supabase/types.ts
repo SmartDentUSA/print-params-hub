@@ -37633,6 +37633,10 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      fn_claim_video_analytics_sync: {
+        Args: { p_scheduled?: boolean }
+        Returns: boolean
+      }
       fn_classify_deal_category: {
         Args: { p_category: string; p_product: string }
         Returns: string
@@ -37843,6 +37847,10 @@ export type Database = {
           matched_by: string
           nome: string
         }[]
+      }
+      fn_finish_video_analytics_sync: {
+        Args: { p_cursor?: number }
+        Returns: undefined
       }
       fn_form_leads_sem_piperun: {
         Args: never
