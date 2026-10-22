@@ -149,6 +149,7 @@ export default function PublicLandingPage() {
     <>
       <PremiumLandingTemplate
         content={lp.content}
+        formId={lp.smartops_forms.id}
         heroImageUrl={lp.hero_image_url}
         onCta={(source) => {
           const ch = source === "hero-secondary" ? "specialist" : "form";

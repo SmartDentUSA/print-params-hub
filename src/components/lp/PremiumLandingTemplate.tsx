@@ -1,4 +1,6 @@
 import { ReactNode, useEffect, useRef, useState } from "react";
+import { usePandaVideoTracking } from '@/hooks/usePandaVideoTracking';
+import { PandaVideoViewCount } from '@/components/PandaVideoViewCount';
 
 /**
  * PremiumLandingTemplate — light, editorial Smart Dent landing.
@@ -140,6 +142,7 @@ export type LPContent = {
 
 interface Props {
   content: LPContent;
+  formId?: string | null;
   heroImageUrl?: string | null;
   onCta?: (source: string) => void;
   /** Abre a Dra. LIA pelo botão único com ícone do WhatsApp + "Falar com um Especialista". */
@@ -589,7 +592,8 @@ function isEmbedPlayerUrl(url: string) {
   return /pandavideo|\/embed\/?\?v=|player-vz-/i.test(url);
 }
 
-function HeroProductCard({ src, caption, audio }: { src?: string | null; caption?: string; audio?: { url: string; label?: string } }) {
+function HeroProductCard({ src, caption, audio, formId }: { src?: string | null; caption?: string; audio?: { url: string; label?: string }; formId?: string | null }) {
+  const { frameRef, metrics } = usePandaVideoTracking(src, formId);
   return (
     <div className="relative mx-auto w-full max-w-md lg:max-w-none">
       <div className="absolute inset-0 -z-10 rounded-[36px] blur-2xl opacity-40" style={{ background: GRADIENT_BRAND }} />
@@ -599,6 +603,7 @@ function HeroProductCard({ src, caption, audio }: { src?: string | null; caption
           style={{ boxShadow: "0 30px 60px -20px color-mix(in oklab, var(--lp-brand) 35%, transparent)" }}
         >
           <iframe
+            ref={frameRef}
             src={src}
             title="Vídeo do produto"
             className="absolute inset-0 h-full w-full"
@@ -668,6 +673,7 @@ function HeroProductCard({ src, caption, audio }: { src?: string | null; caption
           </div>
         </div>
       )}
+      {metrics && <PandaVideoViewCount views={metrics.analytics_views} syncedAt={metrics.analytics_last_sync} />}
       {audio?.url ? (
         <HeroAudioPlayer url={audio.url} label={audio.label} />
       ) : caption && (
@@ -837,7 +843,7 @@ export function resolveSectionOrder(order?: LPSectionKey[]): LPSectionKey[] {
   return out;
 }
 
-export function PremiumLandingTemplate({ content, heroImageUrl, onCta, onWhatsApp, formSlot }: Props) {
+export function PremiumLandingTemplate({ content, heroImageUrl, onCta, onWhatsApp, formSlot, formId }: Props) {
   const c = content;
   const cta = (source: string) => () => onCta?.(source);
   const sectionOn = (k: LPSectionKey) => c.sectionsEnabled?.[k] !== false;
@@ -962,7 +968,7 @@ export function PremiumLandingTemplate({ content, heroImageUrl, onCta, onWhatsAp
             )}
           </div>
 
-          <HeroProductCard src={heroImageUrl} caption={c.hero.productCardCaption ?? c.resellerBadge} audio={c.hero.audio} />
+          <HeroProductCard src={heroImageUrl} caption={c.hero.productCardCaption ?? c.resellerBadge} audio={c.hero.audio} formId={formId} />
         </div>
       </section>
 
