@@ -6,7 +6,7 @@ const SESSION_KEY = "sd_page_session";
 const LEAD_KEY = "sd_known_lead_id";
 const DEBOUNCE_MS = 2000;
 
-function getOrCreateSessionId(): string {
+export function getOrCreateSessionId(): string {
   let sid = sessionStorage.getItem(SESSION_KEY);
   if (!sid) {
     sid = crypto.randomUUID();

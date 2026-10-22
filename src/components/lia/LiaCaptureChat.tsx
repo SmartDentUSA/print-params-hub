@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Send, MessageCircle, ChevronLeft, Smile, Users } from "lucide-react";
-import { trackAttendanceEvent } from "@/lib/attendanceChannel";
+import { trackAttendanceEvent, trackAttendanceView } from "@/lib/attendanceChannel";
 import groupBadge from "@/assets/smartdent-group-badge.png.asset.json";
 import { resolveAssetUrl } from "@/utils/assetUrl";
 import { landingAttendanceMedia, type LandingAttendanceMedia } from "@/lib/landingAttendanceMedia";
@@ -92,6 +92,8 @@ export default function LiaCaptureChat({ formId, campaign, product }: { formId: 
     call({ action: "context", form_id: formId, campaign, product }).then(async (c: Ctx) => {
       if (cancelled) return;
       setCtx(c);
+      trackAttendanceView(c.form_id);
+      trackAttendanceEvent({ channel: "whatsapp_lia", event_type: "view", form_id: c.form_id, campaign_slug: c.campaign, product_name: c.product });
       const saved = sessionStorage.getItem(storeKey);
       if (saved) {
         try {

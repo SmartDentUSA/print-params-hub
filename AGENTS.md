@@ -1,5 +1,7 @@
 # Architecture rules
 
+- Form visit metrics normalize legacy/public host URLs and landing paths, and attendance views carry resolved form IDs with the shared page session; domain changes must not split form totals or reset historical conversion logic.
+
 - Support context requires session, support-role and ticket authorization via an edge function; this exposes customer details without widening commercial RLS.
 - Support board uses that endpoint in bounded batches for complete ticket counts and owned-equipment priority; this avoids per-card requests and RLS changes.
 - Support uses scoped tokens and equal conversation/profile widths; preserves admin styling.
