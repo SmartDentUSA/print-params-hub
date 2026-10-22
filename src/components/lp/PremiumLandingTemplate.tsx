@@ -1,6 +1,5 @@
 import { ReactNode, useEffect, useRef, useState } from "react";
 import { usePandaVideoTracking } from '@/hooks/usePandaVideoTracking';
-import { PandaVideoViewCount } from '@/components/PandaVideoViewCount';
 
 /**
  * PremiumLandingTemplate — light, editorial Smart Dent landing.
@@ -593,7 +592,7 @@ function isEmbedPlayerUrl(url: string) {
 }
 
 function HeroProductCard({ src, caption, audio, formId }: { src?: string | null; caption?: string; audio?: { url: string; label?: string }; formId?: string | null }) {
-  const { frameRef, metrics } = usePandaVideoTracking(src, formId);
+  const { frameRef } = usePandaVideoTracking(src, formId);
   return (
     <div className="relative mx-auto w-full max-w-md lg:max-w-none">
       <div className="absolute inset-0 -z-10 rounded-[36px] blur-2xl opacity-40" style={{ background: GRADIENT_BRAND }} />
@@ -673,7 +672,6 @@ function HeroProductCard({ src, caption, audio, formId }: { src?: string | null;
           </div>
         </div>
       )}
-      {metrics && <PandaVideoViewCount views={metrics.analytics_views} syncedAt={metrics.analytics_last_sync} />}
       {audio?.url ? (
         <HeroAudioPlayer url={audio.url} label={audio.label} />
       ) : caption && (
