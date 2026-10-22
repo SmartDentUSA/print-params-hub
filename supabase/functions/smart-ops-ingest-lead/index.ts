@@ -1679,7 +1679,7 @@ Deno.serve(async (req) => {
       // intocáveis.
       try {
         const canonPipelineId = Number((existingLead as Record<string, unknown>).piperun_pipeline_id ?? 0);
-        if (canonPipelineId === 72938 && formName) {
+        if (canonPipelineId === 72938 && formName && formPurpose !== "distribuicao") {
           const effectiveConversionKey =
             conversionKey ||
             (dedupeId ? `meta:redelivery:${String(dedupeId)}` : `form:${formName}:${new Date().toISOString()}`);
@@ -1939,7 +1939,18 @@ Deno.serve(async (req) => {
     const shouldDispatchLiaAssign =
       !existingLead || !existingLeadHasCrmLink || allowCommercialReactivation || explicitEcomQuote ||
       (payload.new_conversion_confirmed === true && !!payload.conversion_key);
-    const liaAssignPromise = shouldDispatchLiaAssign
+    // Formulário de Distribuição: nunca passa pelo funil de Vendas/Golden Rule.
+    // Vai direto para o funil Exportação (39047) com o proprietário de distribuição.
+    const isDistribuicaoForm = formPurpose === "distribuicao";
+    const liaAssignPromise = isDistribuicaoForm
+      ? dispatchAsync("distribuicao-crm-sync", {
+          lead_id: leadId,
+          form_id: payload.form_id || null,
+          form_name: formName,
+          event_id: payload.event_id || null,
+          form_responses: payload.form_responses || [],
+        })
+      : shouldDispatchLiaAssign
       ? dispatchAsync("smart-ops-lia-assign", {
           lead_id: leadId,
           source,
@@ -1963,7 +1974,7 @@ Deno.serve(async (req) => {
             `[ingest-lead] CDP_ONLY_EXISTING_LEAD: lead=${leadId} source=${source} form="${formName ?? "n/a"}" sem nova conversion_key confirmada — sem lia-assign/PipeRun`,
           ),
         );
-    const cognitivePromise = shouldDispatchLiaAssign
+    const cognitivePromise = (shouldDispatchLiaAssign && !isDistribuicaoForm)
       ? dispatchAsync("cognitive-lead-analysis", {
           lead_id: leadId,
           trigger: "ingest-lead",
