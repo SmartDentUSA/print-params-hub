@@ -67,6 +67,8 @@ async function resolveContext(body: any) {
   let opening = "";
   let campaignName = "";
   let formName = "";
+  let formPurpose: string | null = null;
+  let formEventId: string | null = null;
   let productSummary: string | null = null;
   let modulesSummary: string | null = null;
   let groupUrl: string | null = null;
@@ -83,8 +85,10 @@ async function resolveContext(body: any) {
       source: "form", form_id: formId, product_catalog_id: body.product_catalog_id, product,
     });
     if (linkedProduct) product = linkedProduct.name;
-    const { data: f } = await sb.from("smartops_forms").select("name, subtitle, description, extra_sections, product_catalog_id, capture_buttons_enabled, capture_buttons, success_redirect_url").eq("id", formId).maybeSingle();
+    const { data: f } = await sb.from("smartops_forms").select("name, subtitle, description, extra_sections, product_catalog_id, capture_buttons_enabled, capture_buttons, success_redirect_url, form_purpose, event_id").eq("id", formId).maybeSingle();
     formName = f?.name ?? "";
+    formPurpose = (f as any)?.form_purpose ?? null;
+    formEventId = (f as any)?.event_id ?? null;
     groupUrl = whatsappGroupUrl(f?.success_redirect_url);
     let boundProduct = "";
     if (f?.product_catalog_id) {
@@ -108,7 +112,9 @@ async function resolveContext(body: any) {
     const { data: pc } = await sb.from("professional_courses").select("id").eq("credenciamento_form_id", formId).limit(1).maybeSingle();
     isProfessionalCourseForm = !!pc;
   }
-  const origin = isProfessionalCourseForm
+  const origin = formPurpose === "distribuicao" && formName
+    ? formName
+    : isProfessionalCourseForm
     ? "# CHAT - Qualificação Curso - Profissional"
     : campaignSlug && !formId ? `# CHAT - Campanha - ${campaignName || campaignSlug}` : `# CHAT - Landing - ${label}`;
   opening = `Vamos lá, vou te mandar todas as informações sobre o ${label}. Qual é o seu telefone de contato?`;
@@ -154,7 +160,7 @@ async function resolveContext(body: any) {
   });
   const hour = Number(new Intl.DateTimeFormat("en-US", { timeZone: "America/Sao_Paulo", hour: "numeric", hourCycle: "h23" }).format(new Date()));
   const greeting = hour < 12 ? "Bom dia!" : hour < 18 ? "Boa tarde!" : "Boa noite!";
-  return { form_id: formId, campaign: campaignSlug, product, origin, opening, greeting, questions, product_summary: productSummary, modules_summary: modulesSummary, whatsapp_group_url: groupUrl, qualification_form_id: qFormId, fields };
+  return { form_id: formId, form_purpose: formPurpose, event_id: formEventId, campaign: campaignSlug, product, origin, opening, greeting, questions, product_summary: productSummary, modules_summary: modulesSummary, whatsapp_group_url: groupUrl, qualification_form_id: qFormId, fields };
 }
 
 const validEmail = (v: unknown) => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(String(v ?? "")) && !/@(no-email|placeholder|example|test)\b/i.test(String(v));
@@ -323,7 +329,8 @@ Deno.serve(async (req) => {
         source: "form",
         form_name: ctx.origin,
         form_id: ctx.form_id,
-        form_purpose: "captacao",
+        form_purpose: ctx.form_purpose === "distribuicao" ? "distribuicao" : "captacao",
+        ...(ctx.form_purpose === "distribuicao" && ctx.event_id ? { distribuicao_event_id: ctx.event_id } : {}),
         nome, email, telefone_raw: phone,
         produto_interesse: ctx.product || undefined,
         utm_source: str(body.utm_source, 120) || (ctx.campaign ? "lia_campaign" : "landing_page"),
