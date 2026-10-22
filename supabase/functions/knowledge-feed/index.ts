@@ -137,7 +137,7 @@ Deno.serve(async (req) => {
 
     console.log(`[knowledge-feed] Found ${contents?.length || 0} articles`);
 
-    const baseUrl = 'https://parametros.smartdent.com.br';
+    const baseUrl = 'https://www.smartdent.com.br';
 
     // JSON Format
     if (format === 'json') {

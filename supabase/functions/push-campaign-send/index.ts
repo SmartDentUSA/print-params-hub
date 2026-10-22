@@ -10,7 +10,7 @@ const corsHeaders = {
 const json = (b: unknown, status = 200) =>
   new Response(JSON.stringify(b), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
-const PUBLIC_BASE = (Deno.env.get("NPS_PUBLIC_BASE_URL") ?? "https://parametros.smartdent.com.br").replace(/\/+$/, "");
+const PUBLIC_BASE = (Deno.env.get("NPS_PUBLIC_BASE_URL") ?? "https://www.smartdent.com.br").replace(/\/+$/, "");
 const FN_BASE = `${Deno.env.get("SUPABASE_URL")}/functions/v1`;
 
 function firstName(n?: string | null) {

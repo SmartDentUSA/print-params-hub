@@ -1559,8 +1559,8 @@ export function SmartOpsCourses() {
 function PaginaPublicaTab({ variant = "presencial" }: { variant?: "presencial" | "online" }) {
   const { toast } = useToast();
   const publicUrl = variant === "online"
-    ? "https://parametros.smartdent.com.br/agenda/online"
-    : "https://parametros.smartdent.com.br/agenda";
+    ? "https://www.smartdent.com.br/agenda/online"
+    : "https://www.smartdent.com.br/agenda";
   const pageTitle = variant === "online" ? "Próximos Cursos Online" : "Próximos Treinamentos Presenciais";
   const iframeId = variant === "online" ? "smartdent-aovivo" : "smartdent-treinamentos";
   const iframeSnippet = `<iframe src="${publicUrl}" style="width:100%;min-height:900px;border:0;" loading="lazy" title="${pageTitle}"></iframe>`;

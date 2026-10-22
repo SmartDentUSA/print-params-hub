@@ -251,7 +251,7 @@ async function fetchResins(supabase: any, options: any) {
       
       // Add public URL
       resin.public_url = resin.slug 
-        ? `https://parametros.smartdent.com.br/resina/${resin.slug}`
+        ? `https://www.smartdent.com.br/resina/${resin.slug}`
         : null;
       
       // Parse processing instructions
@@ -304,7 +304,7 @@ async function fetchResinDocuments(supabase: any, options: any) {
     public_document_url: doc.file_url,
     // URL da página da resina
     resin_page_url: doc.resins.slug 
-      ? `https://parametros.smartdent.com.br/resina/${doc.resins.slug}`
+      ? `https://www.smartdent.com.br/resina/${doc.resins.slug}`
       : null
   }));
 }
@@ -351,7 +351,7 @@ async function fetchCatalogDocuments(supabase: any, options: any) {
     public_document_url: doc.file_url,
     // URL da página do produto
     product_page_url: doc.system_a_catalog.slug 
-      ? `https://parametros.smartdent.com.br/produto/${doc.system_a_catalog.slug}`
+      ? `https://www.smartdent.com.br/produto/${doc.system_a_catalog.slug}`
       : null
   }));
 }
@@ -409,7 +409,7 @@ async function fetchProductVideos(supabase: any, options: any) {
     product_external_id: v.product_external_id,
     product_match_status: v.product_match_status,
     product_page_url: v.system_a_catalog?.slug 
-      ? `https://parametros.smartdent.com.br/produto/${v.system_a_catalog.slug}`
+      ? `https://www.smartdent.com.br/produto/${v.system_a_catalog.slug}`
       : null,
     
     // Vínculos cruzados com resina (se existir)
@@ -418,7 +418,7 @@ async function fetchProductVideos(supabase: any, options: any) {
     resin_manufacturer: v.resins?.manufacturer,
     resin_slug: v.resins?.slug,
     resin_page_url: v.resins?.slug 
-      ? `https://parametros.smartdent.com.br/resina/${v.resins.slug}`
+      ? `https://www.smartdent.com.br/resina/${v.resins.slug}`
       : null,
     
     // Vínculos com artigo (se existir)
@@ -427,7 +427,7 @@ async function fetchProductVideos(supabase: any, options: any) {
     content_slug: v.knowledge_contents?.slug,
     content_category_letter: v.knowledge_contents?.knowledge_categories?.letter,
     content_page_url: v.knowledge_contents?.slug && v.knowledge_contents?.knowledge_categories?.letter
-      ? `https://parametros.smartdent.com.br/base-conhecimento/${v.knowledge_contents.knowledge_categories.letter}/${v.knowledge_contents.slug}`
+      ? `https://www.smartdent.com.br/base-conhecimento/${v.knowledge_contents.knowledge_categories.letter}/${v.knowledge_contents.slug}`
       : null,
     
     // Dados do vídeo
@@ -511,7 +511,7 @@ async function fetchResinVideos(supabase: any, options: any) {
     resin_manufacturer: v.resins?.manufacturer,
     resin_slug: v.resins?.slug,
     resin_page_url: v.resins?.slug 
-      ? `https://parametros.smartdent.com.br/resina/${v.resins.slug}`
+      ? `https://www.smartdent.com.br/resina/${v.resins.slug}`
       : null,
     
     // Vínculo cruzado com produto (se existir)
@@ -519,7 +519,7 @@ async function fetchResinVideos(supabase: any, options: any) {
     product_name: v.system_a_catalog?.name,
     product_slug: v.system_a_catalog?.slug,
     product_page_url: v.system_a_catalog?.slug 
-      ? `https://parametros.smartdent.com.br/produto/${v.system_a_catalog.slug}`
+      ? `https://www.smartdent.com.br/produto/${v.system_a_catalog.slug}`
       : null,
     
     // Vínculo com artigo (se existir)
@@ -527,7 +527,7 @@ async function fetchResinVideos(supabase: any, options: any) {
     content_title: v.knowledge_contents?.title,
     content_slug: v.knowledge_contents?.slug,
     content_page_url: v.knowledge_contents?.slug && v.knowledge_contents?.knowledge_categories?.letter
-      ? `https://parametros.smartdent.com.br/base-conhecimento/${v.knowledge_contents.knowledge_categories.letter}/${v.knowledge_contents.slug}`
+      ? `https://www.smartdent.com.br/base-conhecimento/${v.knowledge_contents.knowledge_categories.letter}/${v.knowledge_contents.slug}`
       : null,
     
     // Dados do vídeo
@@ -742,7 +742,7 @@ async function fetchKnowledgeContents(supabase: any, options: any) {
     
     // Add public URLs
     const letter = content.knowledge_categories?.letter?.toLowerCase() || 'a';
-    content.public_url = `https://parametros.smartdent.com.br/base-conhecimento/${letter}/${content.slug}`;
+    content.public_url = `https://www.smartdent.com.br/base-conhecimento/${letter}/${content.slug}`;
     content.seo_proxy_url = content.public_url;
   }
   
@@ -1085,7 +1085,7 @@ function formatAiReady(data: any) {
     context: {
       company: "Smart Dent",
       domain: "Impressão 3D Odontológica",
-      website: "https://parametros.smartdent.com.br",
+      website: "https://www.smartdent.com.br",
       last_sync: new Date().toISOString()
     },
     parametrizacao: {
@@ -1749,7 +1749,7 @@ function buildKnowledgeGraph(data: any) {
       slug: c.slug,
       excerpt: c.excerpt,
       category: c.category_name || c.category_letter || null,
-      public_url: c.public_url || `https://parametros.smartdent.com.br/base-conhecimento/${letter}/${c.slug}`,
+      public_url: c.public_url || `https://www.smartdent.com.br/base-conhecimento/${letter}/${c.slug}`,
       author_id: c.author_id ? `author_${c.author_id}` : null,
       keywords: c.keywords || []
     };

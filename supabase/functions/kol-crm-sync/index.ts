@@ -37,7 +37,7 @@ const KOL_STAGES = [
   { order: 6, id: 694361, name: "Kol Ativo" },
 ] as const;
 
-const PORTAL_BASE = Deno.env.get("PUBLIC_SITE_URL") || "https://parametros.smartdent.com.br";
+const PORTAL_BASE = Deno.env.get("PUBLIC_SITE_URL") || "https://www.smartdent.com.br";
 
 interface Step { step: string; ok: boolean; detail: string }
 

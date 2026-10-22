@@ -12,7 +12,7 @@ const corsHeaders = {
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const BASE_URL = "https://parametros.smartdent.com.br";
+const BASE_URL = "https://www.smartdent.com.br";
 
 // Lightweight HTML→Markdown converter (sufficient for LLM ingestion)
 function htmlToMarkdown(html: string): string {

@@ -26,3 +26,6 @@
   background: hsl(142 70% 34%);
   border-color: hsl(142 70% 34%);
 }
+
+.kb-wa-btn { display:flex; align-items:center; justify-content:center; gap:8px; width:100%; margin-top:10px; padding:9px 12px; border-radius:999px; border:0; background:#25D366; color:#fff; font-weight:600; font-size:13px; cursor:pointer; }
+.kb-wa-btn:hover { background:#1EBE5A; }

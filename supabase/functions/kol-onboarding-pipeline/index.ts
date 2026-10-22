@@ -168,7 +168,7 @@ Deno.serve(async (req) => {
         expires_at: new Date(Date.now() + 90 * 86400000).toISOString(),
       });
     }
-    const base = Deno.env.get("PUBLIC_SITE_URL") || "https://parametros.smartdent.com.br";
+    const base = Deno.env.get("PUBLIC_SITE_URL") || "https://www.smartdent.com.br";
     steps.push({ step: "acesso", ok: true, detail: `Portal: ${base}/portal-cursos/${portalToken} (login também por celular em /portal-profissional).` });
 
     // 8) CRM: deal no funil KOLs (107400) com nota completa (cupons, formulários, comissionamento)

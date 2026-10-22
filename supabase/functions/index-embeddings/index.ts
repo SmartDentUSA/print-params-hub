@@ -343,7 +343,7 @@ function parseExternalKBToChunks(rawText: string): Chunk[] {
       "CEO: Marcelo Del Guerra | Fundada em 2009 | CNPJ: 10.736.894/0001-36",
       "Google Rating: 5.0 estrelas | 150+ avaliações | NPS Score: 96",
       "Loja: https://loja.smartdent.com.br/",
-      "Parâmetros de impressão: https://parametros.smartdent.com.br/",
+      "Parâmetros de impressão: https://www.smartdent.com.br/",
       "Cursos: https://smartdentacademy.astronmembers.com/",
       "Soluções integradas: https://smartdent.com.br/solucoesintegradas",
       "Atendimento: todo o Brasil + EUA e América Latina",

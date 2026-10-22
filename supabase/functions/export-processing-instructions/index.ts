@@ -131,7 +131,7 @@ Deno.serve(async (req) => {
       resin_manufacturer: resin.manufacturer,
       resin_slug: resin.slug,
       resin_url: resin.slug 
-        ? `https://parametros.smartdent.com.br/resina/${resin.slug}` 
+        ? `https://www.smartdent.com.br/resina/${resin.slug}` 
         : null,
       instructions_raw: resin.processing_instructions,
       instructions_parsed: parseInstructions(resin.processing_instructions),
@@ -146,7 +146,7 @@ Deno.serve(async (req) => {
         ultima_atualizacao: new Date().toISOString(),
         total_resinas: instructions.length,
         com_instrucoes_parseadas: instructions.filter(i => i.instructions_parsed.pre.length > 0 || i.instructions_parsed.post.length > 0).length,
-        fonte: 'https://parametros.smartdent.com.br'
+        fonte: 'https://www.smartdent.com.br'
       },
       instrucoes_uso: [
         'Este endpoint exporta apenas resinas com instruções de processamento preenchidas',

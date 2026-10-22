@@ -16,7 +16,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const SITE_BASE_URL = "https://parametros.smartdent.com.br";
+const SITE_BASE_URL = "https://www.smartdent.com.br";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
@@ -53,7 +53,7 @@ async function fetchCompanyContext(): Promise<string> {
 - NPS: 96 | Google: 5.0 ⭐ (150+ avaliações)
 - Parcerias: exocad, RayShape, BLZ Dental, Medit, FDA, UNC Charlotte
 - Loja: https://loja.smartdent.com.br/
-- Parâmetros: https://parametros.smartdent.com.br/
+- Parâmetros: https://www.smartdent.com.br/
 - Cursos: https://smartdentacademy.astronmembers.com/
 - Instagram: https://www.instagram.com/smartdentbr/
 - YouTube: https://www.youtube.com/@smartdentbr`;
@@ -101,7 +101,7 @@ async function fetchCompanyContext(): Promise<string> {
 - NPS: ${nps} | Google: ${rating} (150+ avaliações)
 - Parcerias: exocad, RayShape, BLZ Dental, Medit, FDA, UNC Charlotte University Business Partner
 - Loja: https://loja.smartdent.com.br/
-- Parâmetros: https://parametros.smartdent.com.br/
+- Parâmetros: https://www.smartdent.com.br/
 - Cursos: https://smartdentacademy.astronmembers.com/
 - Instagram: https://www.instagram.com/smartdentbr/
 - YouTube: https://www.youtube.com/@smartdentbr`;
@@ -3895,7 +3895,7 @@ Sempre que você admitir que não sabe algo ou notar frustração (ex: "você n�
 11. Se o contexto trouxer múltiplos protocolos de processamento (PROCESSING_PROTOCOL), apresente as etapas na ordem exata: 1. Pré-processamento, 2. Lavagem/Limpeza, 3. Secagem, 4. Pós-cura UV, 5. Tratamento térmico (se houver) — ⚠️ ATENÇÃO CRÍTICA: os valores de temperatura e tempo de tratamento térmico variam drasticamente entre resinas (ex: 130–150°C vs 150°C vs 60–170°C). NUNCA assuma valores padrão como "80°C" ou "15 minutos". Use EXCLUSIVAMENTE os valores presentes na fonte PROCESSING_PROTOCOL. Se não houver dados de tratamento térmico na fonte, diga "Consulte o fabricante para os parâmetros de tratamento térmico desta resina.", 6. Acabamento e polimento (se houver). Use bullet points. Ao mencionar nomes de produtos SmartDent em texto corrido (não em links), use **negrito**. NUNCA envolva links [texto](url) em **negrito**. Nunca omita etapas.
 12. Busca usada: ${method}${isProtocol ? " + protocolo direto" : ""}. Seja precisa e baseie-se apenas nos dados fornecidos.
 13. Mantenha o histórico de mensagens em mente para não repetir saudações ou contextos já explicados.
-14. REGRA LINKS: Quando referenciar artigos, produtos ou resinas da base de conhecimento, use EXATAMENTE a URL completa fornecida no campo URL dos dados. NUNCA invente domínios. NUNCA use "seudominio.com.br" ou qualquer outro domínio fictício. Se a URL estiver no formato https://parametros.smartdent.com.br/..., use-a tal qual. Links devem sempre ser URLs absolutas começando com https://.
+14. REGRA LINKS: Quando referenciar artigos, produtos ou resinas da base de conhecimento, use EXATAMENTE a URL completa fornecida no campo URL dos dados. NUNCA invente domínios. NUNCA use "seudominio.com.br" ou qualquer outro domínio fictício. Se a URL estiver no formato https://www.smartdent.com.br/..., use-a tal qual. Links devem sempre ser URLs absolutas começando com https://.
 
 ### ⛔ REGRAS ANTI-ALUCINAÇÃO (OBRIGATÓRIAS)
 14. NUNCA cite produtos, parâmetros ou vídeos como "exemplos" quando o usuário não mencionou aquele produto/marca/impressora específica. Use APENAS os dados diretamente relevantes à pergunta feita. NUNCA afirme ter um vídeo sobre um tema se não houver VIDEO_INTERNO ou VIDEO_SEM_PAGINA nas fontes de contexto desta resposta.

@@ -54,7 +54,7 @@ async function loadCompany() {
   return {
     name: data?.name || "Smart Dent | Fluxo Digital",
     description: String(data?.description || "").slice(0, 900),
-    site: data?.canonical_url || "https://parametros.smartdent.com.br",
+    site: data?.canonical_url || "https://www.smartdent.com.br",
     corporate: extra.corporate ?? {},
     contact: extra.contact ?? {},
     seo: extra.seo ?? {},
@@ -84,7 +84,7 @@ async function loadProductDossiers(names: string[]) {
   return out;
 }
 
-const PUBLIC_ORIGIN = "https://parametros.smartdent.com.br";
+const PUBLIC_ORIGIN = "https://www.smartdent.com.br";
 
 /**
  * Links oficiais dos produtos selecionados na live:

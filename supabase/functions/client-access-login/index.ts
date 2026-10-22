@@ -10,7 +10,7 @@ const corsHeaders = {
 const FN = "client-access-login";
 const DISPARO_PRO_URL = "https://apihttp.disparopro.com.br:8433/mt";
 const DISPARO_PRO_SERVICO = Deno.env.get("DISPARO_PRO_SERVICO") || "short";
-const PUBLIC_BASE = (Deno.env.get("NPS_PUBLIC_BASE_URL") ?? "https://parametros.smartdent.com.br").replace(/\/+$/, "");
+const PUBLIC_BASE = (Deno.env.get("NPS_PUBLIC_BASE_URL") ?? "https://www.smartdent.com.br").replace(/\/+$/, "");
 const SHORT_BASE = (Deno.env.get("SHORT_LINK_BASE_R") ?? "https://admin.smartdent.com.br/r").replace(/\/+$/, "");
 const TOKEN_TTL_MIN = 15;
 

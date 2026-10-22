@@ -45,7 +45,7 @@ function smartTruncateForWhatsApp(text: string, maxLen: number, fallbackUrl: str
   const cut = lastParaBreak > sliceEnd * 0.6 ? slice.slice(0, lastParaBreak) : slice;
   const tail = fallbackUrl
     ? `\n\n📖 Resposta completa: ${fallbackUrl}`
-    : `\n\n📖 Resposta completa em: https://parametros.smartdent.com.br`;
+    : `\n\n📖 Resposta completa em: https://www.smartdent.com.br`;
   return cut.trimEnd() + tail;
 }
 
