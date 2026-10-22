@@ -281,17 +281,17 @@ export default function LiaCaptureChat({ formId, campaign, product }: { formId: 
 
   return (
     <div className="lia-whatsapp flex h-full min-h-0 flex-col overflow-hidden bg-background text-foreground">
-      <header className="flex shrink-0 items-center gap-2 border-b border-border bg-card px-3 py-3">
+      <header className="lia-header flex shrink-0 items-center gap-2 px-2 py-2">
         <Button variant="ghost" size="icon" className="lia-icon-button h-8 w-7 shrink-0 text-accent" aria-label="Voltar" title="Voltar" onClick={() => window.history.back()}>
           <ChevronLeft className="h-6 w-6" />
         </Button>
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-semibold text-primary-foreground" aria-hidden="true">LIA</div>
+        <img src={groupBadge.url} alt="Smart Dent" className="h-10 w-10 shrink-0 rounded-full bg-card object-contain" />
         <div className="min-w-0 flex-1">
           <p className="text-[15px] font-semibold">Dra. LIA</p>
-          <p className="truncate text-xs text-muted-foreground">{waiting ? "digitando…" : "Smart Dent | Fluxo Digital"}</p>
+          <p className="lia-header-subtitle truncate text-xs">{waiting ? "digitando…" : "Smart Dent | Fluxo Digital"}</p>
         </div>
       </header>
-      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-6" role="log" aria-label="Conversa com a Dra. LIA" aria-live="polite">
+      <div className="lia-conversation min-h-0 flex-1 overflow-y-auto px-3 py-4 sm:px-6" role="log" aria-label="Conversa com a Dra. LIA" aria-live="polite">
         <div className="mx-auto flex max-w-3xl flex-col gap-2">
         <div className="mb-3 self-center rounded-md bg-card px-3 py-1 text-[11px] text-muted-foreground">Hoje</div>
         {msgs.map((m, i) => (
@@ -338,7 +338,11 @@ export default function LiaCaptureChat({ formId, campaign, product }: { formId: 
           </div>
         )}
         {(waiting || (closed && !showSeller)) && (
-          <div className="flex items-center gap-2 text-xs text-muted-foreground"><Loader2 className="h-3 w-3 animate-spin" /> {closed && handoffStage >= 2 && !seller ? "Localizando seu especialista…" : "Digitando…"}</div>
+          <div className="flex justify-start" role="status" aria-label={closed && handoffStage >= 2 && !seller ? "Localizando seu especialista" : "Digitando"}>
+            <div className="lia-bubble lia-bubble-in lia-typing rounded-lg rounded-tl-none bg-muted px-3">
+              <span className="lia-typing-dot" /><span className="lia-typing-dot" /><span className="lia-typing-dot" />
+            </div>
+          </div>
         )}
         {showSeller && (
           <div className="mt-3 flex max-w-sm flex-col items-center gap-3 rounded-lg border border-border bg-card p-4 text-center">
@@ -377,16 +381,18 @@ export default function LiaCaptureChat({ formId, campaign, product }: { formId: 
         </div>
       </div>
       {!closed && (
-        <div className="shrink-0 border-t border-border bg-card px-3 pb-3 pt-2">
+        <div className="lia-composer shrink-0">
           <div className="mx-auto max-w-3xl">
              {emojiOpen && <div className="mb-2 flex flex-wrap gap-1 rounded-lg bg-secondary p-2" aria-label="Emojis">
                {["😊", "👍", "👋", "🙏", "✅", "🦷"].map((emoji) => <Button key={emoji} variant="ghost" size="icon" aria-label={`Inserir ${emoji}`} onClick={() => { setInput((v) => v + emoji); setEmojiOpen(false); inputRef.current?.focus(); }}>{emoji}</Button>)}
              </div>}
              <form className="flex items-center gap-2" onSubmit={(e) => { e.preventDefault(); setEmojiOpen(false); submit(input); }}>
+               <div className="lia-input-shell flex min-w-0 flex-1 items-center pl-1">
                <Button type="button" variant="ghost" size="icon" className="lia-icon-button shrink-0 rounded-full text-muted-foreground" aria-label="Emojis" title="Emojis" onClick={() => setEmojiOpen((v) => !v)}><Smile className="h-5 w-5" /></Button>
-               <Input ref={inputRef} className="h-10 min-w-0 rounded-full border-0 bg-secondary px-4 text-[15px] shadow-none focus-visible:ring-1" value={input} onChange={(e) => setInput(e.target.value)} placeholder="Mensagem" disabled={waiting || step === "creating" || !ctx}
-                inputMode={step === "phone" ? "tel" : step === "email" ? "email" : "text"} />
-               <Button type="submit" variant="secondary" className="lia-send shrink-0 rounded-full" size="icon" aria-label="Enviar mensagem" disabled={waiting || !ctx || !input.trim()}><Send className="h-5 w-5" /></Button>
+               <Input ref={inputRef} aria-label="Mensagem" className="lia-message-input min-w-0 rounded-full border-0 shadow-none focus-visible:ring-0" value={input} onChange={(e) => setInput(e.target.value)} placeholder="Mensagem" disabled={waiting || step === "creating" || !ctx}
+                enterKeyHint="send" autoComplete={step === "phone" ? "tel" : step === "email" ? "email" : "name"} inputMode={step === "phone" ? "tel" : step === "email" ? "email" : "text"} />
+               </div>
+               <Button type="submit" variant="secondary" className="lia-send lia-send-circle shrink-0 rounded-full" size="icon" aria-label="Enviar mensagem" title="Enviar mensagem" disabled={waiting || !ctx || !input.trim()}><Send className="h-5 w-5" /></Button>
             </form>
            </div>
         </div>

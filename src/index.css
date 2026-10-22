@@ -248,25 +248,27 @@
 
 /* WhatsApp-reference presentation, isolated from admin and support themes. */
 .lia-whatsapp {
-  --background: 0 0% 0%;
-  --foreground: 0 0% 94%;
-  --card: 0 0% 11%;
-  --card-foreground: 0 0% 94%;
-  --secondary: 0 0% 16%;
-  --secondary-foreground: 0 0% 94%;
-  --muted: 0 0% 14%;
-  --muted-foreground: 0 0% 65%;
-  --primary: 172 78% 20%;
-  --primary-foreground: 0 0% 96%;
-  --accent: 205 100% 61%;
-  --accent-foreground: 0 0% 0%;
-  --border: 0 0% 19%;
-  --input: 0 0% 19%;
-  --ring: 205 100% 61%;
-  --shadow-soft: 0 1px 2px hsl(0 0% 0% / .22);
+  --background: 35 20% 90%;
+  --foreground: 180 7% 12%;
+  --card: 0 0% 100%;
+  --card-foreground: 180 7% 12%;
+  --secondary: 36 12% 96%;
+  --secondary-foreground: 180 7% 12%;
+  --muted: 0 0% 100%;
+  --muted-foreground: 180 5% 43%;
+  --primary: 99 64% 87%;
+  --primary-foreground: 180 7% 12%;
+  --accent: 167 82% 28%;
+  --accent-foreground: 0 0% 100%;
+  --border: 180 8% 86%;
+  --input: 0 0% 100%;
+  --ring: 167 82% 28%;
+  --lia-header: 171 79% 22%;
+  --lia-header-foreground: 0 0% 100%;
+  --shadow-soft: 0 1px 1px hsl(180 10% 10% / .14);
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   letter-spacing: 0;
-  color-scheme: dark;
+  color-scheme: light;
 }
 .lia-whatsapp .lia-bubble { position: relative; box-shadow: var(--shadow-soft); }
 .lia-whatsapp .lia-bubble::before {
@@ -284,5 +286,27 @@
 .lia-whatsapp .lia-reply:hover { background: hsl(var(--secondary)); color: hsl(var(--accent)); }
 .lia-whatsapp .lia-reply[aria-pressed="true"] { background: hsl(var(--primary)); color: hsl(var(--primary-foreground)); }
 .lia-whatsapp .lia-reply:disabled { opacity: .65; }
-.lia-whatsapp .lia-send { background: hsl(var(--primary)); color: hsl(var(--primary-foreground)); }
-.lia-whatsapp .lia-send:hover { background: hsl(var(--primary) / .8); }
+.lia-whatsapp .lia-send { background: hsl(var(--accent)); color: hsl(var(--accent-foreground)); }
+.lia-whatsapp .lia-send:hover { background: hsl(var(--accent) / .9); }
+.lia-viewport { height: 100vh; height: 100dvh; height: var(--lia-viewport-height, 100dvh); overflow: hidden; }
+.lia-whatsapp .lia-header {
+  min-height: 64px;
+  background: hsl(var(--lia-header));
+  color: hsl(var(--lia-header-foreground));
+  border: 0;
+  padding-top: max(10px, env(safe-area-inset-top));
+}
+.lia-whatsapp .lia-header .lia-icon-button { color: inherit; }
+.lia-whatsapp .lia-header .lia-icon-button:hover { background: hsl(var(--lia-header-foreground) / .12); }
+.lia-whatsapp .lia-header-subtitle { color: hsl(var(--lia-header-foreground) / .8); }
+.lia-whatsapp .lia-conversation { overscroll-behavior-y: contain; scrollbar-width: thin; overflow-wrap: anywhere; }
+.lia-whatsapp .lia-composer { padding: 6px 8px max(8px, env(safe-area-inset-bottom)); background: hsl(var(--background)); }
+.lia-whatsapp .lia-input-shell { background: hsl(var(--card)); border-radius: 24px; box-shadow: var(--shadow-soft); }
+.lia-whatsapp .lia-message-input { background: transparent; font-size: 16px; padding-left: 4px; height: 46px; }
+.lia-whatsapp .lia-send-circle { width: 46px; height: 46px; }
+.lia-whatsapp .lia-typing { min-width: 56px; min-height: 32px; display: flex; align-items: center; gap: 4px; }
+.lia-whatsapp .lia-typing-dot { width: 6px; height: 6px; border-radius: 50%; background: hsl(var(--muted-foreground)); animation: lia-typing 1.2s infinite ease-in-out; }
+.lia-whatsapp .lia-typing-dot:nth-child(2) { animation-delay: .15s; }
+.lia-whatsapp .lia-typing-dot:nth-child(3) { animation-delay: .3s; }
+@keyframes lia-typing { 50% { opacity: .35; transform: translateY(-2px); } }
+@media (prefers-reduced-motion: reduce) { .lia-whatsapp .lia-typing-dot { animation: none; } }
