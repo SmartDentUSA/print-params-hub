@@ -36,3 +36,4 @@
 - Páginas públicas abertas pelo endereço admin redirecionam para o www (link único para SEO); ferramentas internas ficam no admin.
 - KOL rules live in src/components/smartops/courses/AGENTS.md.
 - Zernio empty keywords require a platform post ID; prevents account-wide replies.
+- Capture conversations share isolated semantic chat tokens and a visual-viewport-sized container; mobile keyboards must resize the conversation without changing form ingestion or CRM behavior.
