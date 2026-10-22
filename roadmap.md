@@ -1,4 +1,4 @@
-- [ ] Atendimento: exibir imagem ou vídeo habilitado da landing page na primeira mensagem, acima da pergunta de telefone, preservando captura e CRM.
+- [x] Atendimento: mídia da landing publicada na primeira mensagem acima do telefone; imagem real verificada em desktop e celular, vídeo reproduzido com resposta controlada e ausência de mídia conferida. Oito testes aprovados e compilação OK; nenhuma landing publicada com vídeo disponível na consulta para teste real de reprodução.
 - [x] Indicação histórica Erick: origem da venda 64245649 (R$ 3.484) corrigida no PipeRun e em deals para # - INDICAÇÃO - Erick Souza; demais dados conferidos intactos e atribuição registrada nas timelines de profissional/cliente. Regras existentes de comissão preservadas; UI autenticada não conferida.
 - [x] Tela principal (institucional): logo Smart Dent acima de "Workflow Digital End-to-End", versão clara em fundo transparente; verificado em desktop e 390px, compilação OK.
 - [x] Atendimento das landing pages e Bio ocupa toda a área visível no celular, sem borda ou margens; abertura/fechamento reais verificados em 390px e desktop. Teclado físico não exercitado.
