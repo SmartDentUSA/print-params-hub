@@ -10,6 +10,7 @@ import logoIso from '@/assets/logo-iso.png';
 import logoUnc from '@/assets/logo-unc.png';
 import logoUsp from '@/assets/logo-usp.png';
 import resinasLinha from '@/assets/resinas-linha.png.asset.json';
+import logoSmartDent from '@/assets/smartdent-logo-light.png.asset.json';
 
 const VIDEO_ID = 'HyGSOn6gIsw';
 const VIDEO_THUMB = `https://i.ytimg.com/vi/${VIDEO_ID}/maxresdefault.jpg`;
@@ -60,6 +61,7 @@ const css = `
 .sdi-hero-bg:after{content:"";position:absolute;inset:0;z-index:1;background:linear-gradient(90deg,rgba(22,35,52,.9) 0%,rgba(25,43,62,.72) 42%,rgba(31,71,91,.3) 72%,rgba(31,71,91,.42) 100%)}
 .sdi-hero>.sdi-wrap{position:relative;z-index:2}
 .sdi-grid-fx{display:none}
+.sdi-brand{display:block;height:clamp(30px,3.2vw,50px);width:auto;margin-bottom:26px}
 .sdi-eyebrow{display:inline-flex;gap:10px;align-items:center;font-size:11.5px;letter-spacing:.28em;text-transform:uppercase;color:rgba(255,255,255,.78)}
 .sdi-eyebrow i{width:28px;height:2px;background:var(--or)}
 .sdi h1{color:#fff!important;-webkit-text-fill-color:currentColor;background:none;font-size:clamp(34px,3.9vw,62px);line-height:1.02;letter-spacing:-.04em;font-weight:300;margin:22px 0 22px;max-width:640px;text-shadow:0 2px 24px rgba(0,0,0,.22)}
@@ -203,6 +205,7 @@ export default function KbTabInstitucional() {
         </div>
         <div className="sdi-grid-fx" aria-hidden />
         <div className="sdi-wrap" style={{ width: '100%' }}>
+          <img className="sdi-brand sdi-rv" src={logoSmartDent.url} width={487} height={108} alt="Smart Dent" />
           <span className="sdi-eyebrow sdi-rv"><i />{c.eyebrow}</span>
           <h1 className="sdi-rv d1" itemProp="name">{c.h1a} <em>{c.h1b}</em> {c.h1c}</h1>
           <p className="sdi-lead sdi-rv d2" itemProp="description">{c.lead}</p>
