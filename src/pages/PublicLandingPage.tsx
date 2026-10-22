@@ -5,6 +5,7 @@ import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/compone
 import { Loader2 } from "lucide-react";
 import { PremiumLandingTemplate, type LPContent } from "@/components/lp/PremiumLandingTemplate";
 import { trackAttendanceEvent, buildLiaUrl } from "@/lib/attendanceChannel";
+import { AttendanceDialog } from "@/components/lia/AttendanceDialog";
 
 type LandingPage = {
   id: string;
@@ -188,13 +189,7 @@ export default function PublicLandingPage() {
           )}
         </DialogContent>
       </Dialog>
-      <Dialog open={liaOpen} onOpenChange={setLiaOpen}>
-        <DialogContent className="max-w-md p-0 overflow-hidden">
-          <DialogTitle className="sr-only">Atendimento Dra. LIA</DialogTitle>
-          <DialogDescription className="sr-only">Converse com a Dra. LIA</DialogDescription>
-          {liaOpen && <iframe title="Dra. LIA" src={liaUrl} className="w-full h-[80vh] border-0" />}
-        </DialogContent>
-      </Dialog>
+      <AttendanceDialog open={liaOpen} onOpenChange={setLiaOpen} url={liaUrl} />
     </>
   );
 }

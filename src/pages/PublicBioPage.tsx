@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { useBioPage, DEFAULT_LOGO_URL, type BioItem, type BioSocialLinks } from "@/hooks/useBioPages";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { AttendanceDialog } from "@/components/lia/AttendanceDialog";
 import { WhatsAppGlyph } from "@/components/lp/PremiumLandingTemplate";
 import { buildLiaUrl, trackAttendanceEvent } from "@/lib/attendanceChannel";
 import catalogoBanner from "@/assets/catalogo-produtos-banner.webp";
@@ -239,13 +239,7 @@ export default function PublicBioPage() {
           © {new Date().getFullYear()} Smart Dent | Fluxo Digital
         </footer>
       </main>
-      <Dialog open={liaItem !== null} onOpenChange={(open) => { if (!open) setLiaItem(null); }}>
-        <DialogContent className="max-w-md overflow-hidden p-0">
-          <DialogTitle className="sr-only">Atendimento Dra. LIA</DialogTitle>
-          <DialogDescription className="sr-only">Converse com a Dra. LIA</DialogDescription>
-          {liaItem && <iframe title="Dra. LIA" src={liaUrl} className="h-[80vh] w-full border-0" />}
-        </DialogContent>
-      </Dialog>
+      <AttendanceDialog open={liaItem !== null} onOpenChange={(open) => { if (!open) setLiaItem(null); }} url={liaUrl} />
     </div>
   );
 }
