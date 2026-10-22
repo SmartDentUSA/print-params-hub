@@ -38,7 +38,7 @@ const SOL_ICONS = [Beaker, Layers, ScanLine, Printer, Sparkles, FlaskConical];
 const CAT_IMG = 'https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/catalog-images/products';
 const PROD_IMG = 'https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/products';
 const SOL_IMGS = [
-  resinasLinha.url,
+  resolveAssetUrl(resinasLinha.url),
   `${PROD_IMG}/9ca9fd62-7282-409f-b633-d9f25ea2cb5d-1770349119603.webp`,
   `${CAT_IMG}/scanner-intraoral-medit-i600-2.png`,
   `${PROD_IMG}/c3f880d0-3841-4bda-8f62-757594eff6dd-1764283866699.webp`,
@@ -205,7 +205,7 @@ export default function KbTabInstitucional() {
         </div>
         <div className="sdi-grid-fx" aria-hidden />
         <div className="sdi-wrap" style={{ width: '100%' }}>
-          <img className="sdi-brand sdi-rv" src={logoSmartDent.url} width={487} height={108} alt="Smart Dent" />
+          <img className="sdi-brand sdi-rv" src={resolveAssetUrl(logoSmartDent.url)} width={487} height={108} alt="Smart Dent" />
           <span className="sdi-eyebrow sdi-rv"><i />{c.eyebrow}</span>
           <h1 className="sdi-rv d1" itemProp="name">{c.h1a} <em>{c.h1b}</em> {c.h1c}</h1>
           <p className="sdi-lead sdi-rv d2" itemProp="description">{c.lead}</p>
