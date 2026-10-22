@@ -314,11 +314,11 @@ export default function LiaCaptureChat({ formId, campaign, product }: { formId: 
       <div className="lia-conversation min-h-0 flex-1 overflow-y-auto px-3 py-4 sm:px-6" role="log" aria-label="Conversa de atendimento" aria-live="polite">
         <div className="mx-auto flex max-w-3xl flex-col gap-2">
         <div className="mb-3 self-center rounded-md bg-card px-3 py-1 text-[11px] text-muted-foreground">Hoje</div>
-        {msgs.map((m, i) => (
+        {(() => { const mediaIdx = msgs.findIndex((x) => x.from === "lia" && x.text.includes("?")); return msgs.map((m, i) => (
           <div key={i} className={`flex ${m.from === "user" ? "justify-end" : "justify-start"}`}>
             {(() => { const opts = m.from === "lia" ? (m.question || (i === msgs.length - 1 && q?.label === m.text ? q : null))?.options : undefined; const hasOptions = !!opts?.length; return (
-            <div className={`lia-bubble rounded-lg px-3 pb-1 pt-2 text-[15px] leading-5 ${hasOptions || (i === 0 && ctx && openingMedia) ? "w-[85%] sm:w-[70%] sm:max-w-md" : "max-w-[88%] sm:max-w-[78%]"} ${m.from === "user" ? "lia-bubble-out rounded-tr-none bg-primary text-primary-foreground" : "lia-bubble-in rounded-tl-none bg-muted text-foreground"}`}>
-              {i === 0 && m.from === "lia" && ctx && openingMedia && <AttendanceOpeningMedia key={openingMedia.url} media={openingMedia} />}
+            <div className={`lia-bubble rounded-lg px-3 pb-1 pt-2 text-[15px] leading-5 ${hasOptions || (i === mediaIdx && ctx && openingMedia) ? "w-[85%] sm:w-[70%] sm:max-w-md" : "max-w-[88%] sm:max-w-[78%]"} ${m.from === "user" ? "lia-bubble-out rounded-tr-none bg-primary text-primary-foreground" : "lia-bubble-in rounded-tl-none bg-muted text-foreground"}`}>
+              {i === mediaIdx && m.from === "lia" && ctx && openingMedia && <AttendanceOpeningMedia key={openingMedia.url} media={openingMedia} />}
               <p className="whitespace-pre-wrap break-words">{m.text}</p>
               {hasOptions && <div className="lia-replies mt-3 flex flex-col" role="group" aria-label="Opções de resposta">
               {(m.question || q)?.options.map((option) => (
@@ -335,7 +335,7 @@ export default function LiaCaptureChat({ formId, campaign, product }: { formId: 
             </div>
             );})()}
           </div>
-        ))}
+        )); })()}
         {closed && handoffStage >= 1 && ctx?.product_summary && (
           <div className="flex justify-start">
             <div className="lia-bubble lia-bubble-in max-w-[88%] whitespace-pre-wrap break-words rounded-lg rounded-tl-none bg-muted px-3 py-2 text-[15px] leading-5 text-foreground sm:max-w-[78%]">{ctx.product_summary}</div>
