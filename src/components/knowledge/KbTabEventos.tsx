@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { ExternalLink, MapPin, CalendarDays, Users } from 'lucide-react';
+import { ExternalLink, MapPin, CalendarDays, Users, Handshake } from 'lucide-react';
 import KbSectionHeader from './KbSectionHeader';
 import KbSearchBar from './KbSearchBar';
 import KbResultCount from './KbResultCount';
@@ -231,6 +231,16 @@ export default function KbTabEventos() {
                         style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: '#059669', fontSize: 13, fontWeight: 600, textDecoration: 'none' }}
                       >
                         <Users size={13} /> Visitantes
+                      </a>
+                    )}
+                    {distByEvent[e.id] && (
+                      <a
+                        href={`/f/${distByEvent[e.id].slug}`}
+                        target="_blank"
+                        rel="noopener"
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: '#ea580c', fontSize: 13, fontWeight: 600, textDecoration: 'none' }}
+                      >
+                        <Handshake size={13} /> Parcerias
                       </a>
                     )}
                   </div>
