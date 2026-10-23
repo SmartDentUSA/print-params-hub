@@ -9,6 +9,7 @@
 - Support uses scoped tokens and equal conversation/profile widths; preserves admin styling.
 - Bio cards pass hydrated form IDs to LIA, not labels; preserves attribution.
 - Bio analytics await lazy Supabase inserts through recordBioEvent; discarding an unconsumed query builder sends no request and silently loses visits/clicks.
+- Bio page access totals read only canonical lead_page_views across hosts/query strings; Bio events supply clicks only, avoiding double-counted openings and fabricated per-card impressions.
 - Resin cards use the intentionally public read-only kb_catalog_resin_colors RPC (ID/color only) and shared selectors; preserves variation RLS and family separation.
 
 - RMS payment presentation and metrics share product-family resolution; subscription fallback and invoice totals are scoped by family and lead to prevent exoplan/DentalCAD cross-attribution.
