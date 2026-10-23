@@ -102,7 +102,7 @@ export function BioPageStats({ page }: { page: BioPage }) {
               })}
             </tbody>
           </table>
-          <p className="p-2 text-[11px] text-muted-foreground">Visualizações = aberturas da página (cada card é exibido a todos os visitantes). Contagem iniciada hoje.</p>
+          <p className="p-2 text-[11px] text-muted-foreground">Visualizações = aberturas registradas da página; não representam impressões individuais de cada card.</p>
         </div>
       </CollapsibleContent>
     </Collapsible>
