@@ -53,6 +53,33 @@ function useBioStats(pageId: string, slug: string) {
   });
 }
 
+type FormStat = { visitors: number; leads: number; won: number; revenue: number };
+
+/** Per-card funnel comes from the card's linked form (same metrics as the form cards). */
+function useBioFormStats() {
+  return useQuery({
+    queryKey: ["bio-form-stats", 3650],
+    queryFn: async () => {
+      const [m, r] = await Promise.all([
+        (supabase as any).rpc("fn_form_metrics", { p_period_days: 3650 }),
+        (supabase as any).rpc("fn_form_revenue", { p_period_days: 3650 }),
+      ]);
+      if (m.error) throw m.error;
+      const out: Record<string, FormStat> = {};
+      for (const row of m.data ?? []) {
+        out[row.form_id] = { visitors: Number(row.visitors) || 0, leads: Number(row.leads) || 0, won: Number(row.deals_won) || 0, revenue: 0 };
+      }
+      for (const row of r.data ?? []) {
+        (out[row.form_id] ??= { visitors: 0, leads: 0, won: 0, revenue: 0 }).revenue = Number(row.revenue) || 0;
+      }
+      return out;
+    },
+    staleTime: 5 * 60_000,
+  });
+}
+
+const brl = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
+
 export function BioShortLink({ url }: { url: string }) {
   const [short, setShort] = useState<string | null>(null);
   useEffect(() => {
@@ -75,6 +102,7 @@ export function BioShortLink({ url }: { url: string }) {
 
 export function BioPageStats({ page }: { page: BioPage }) {
   const { data, isLoading, isError } = useBioStats(page.id, page.slug);
+  const { data: formStats } = useBioFormStats();
   const [open, setOpen] = useState(false);
   const t = data?.total ?? zero();
   return (
@@ -97,26 +125,32 @@ export function BioPageStats({ page }: { page: BioPage }) {
             <thead className="bg-muted/50 text-muted-foreground">
               <tr>
                 <th className="p-2 text-left">Card</th>
-                <th className="p-2 text-right">Clicks no card</th>
-                <th className="p-2 text-right">Clicks no Saiba mais</th>
-                <th className="p-2 text-right">Clicks no Falar com um Especialista</th>
+                <th className="p-2 text-right">Visitas</th>
+                <th className="p-2 text-right">Leads</th>
+                <th className="p-2 text-right">Conversão</th>
+                <th className="p-2 text-right">Receita</th>
+                <th className="p-2 text-right">Cliques Especialista</th>
               </tr>
             </thead>
             <tbody>
               {page.items.map((it) => {
                 const c = data?.perItem[it.id] ?? zero();
+                const f = it.form_id ? formStats?.[it.form_id] : undefined;
+                const conv = f && f.leads > 0 ? `${(Math.round((f.won / f.leads) * 1000) / 10).toLocaleString("pt-BR")}%` : "—";
                 return (
                   <tr key={it.id} className="border-t border-border">
                     <td className="p-2">{it.label}</td>
-                    <td className="p-2 text-right">{c.card_click}</td>
-                    <td className="p-2 text-right">{c.cta_click}</td>
-                    <td className="p-2 text-right">{c.whatsapp_click}</td>
+                    <td className="p-2 text-right tabular-nums">{f ? f.visitors.toLocaleString("pt-BR") : "—"}</td>
+                    <td className="p-2 text-right tabular-nums">{f ? f.leads.toLocaleString("pt-BR") : "—"}</td>
+                    <td className="p-2 text-right tabular-nums">{conv}{f && f.leads > 0 ? ` (${f.won})` : ""}</td>
+                    <td className="p-2 text-right tabular-nums">{f ? brl(f.revenue) : "—"}</td>
+                    <td className="p-2 text-right tabular-nums">{c.whatsapp_click}</td>
                   </tr>
                 );
               })}
             </tbody>
           </table>
-          <p className="p-2 text-[11px] text-muted-foreground">Acessos incluem o histórico da página. Cliques anteriores à correção do rastreamento não estão disponíveis.</p>
+          <p className="p-2 text-[11px] text-muted-foreground">Visitas, leads, conversão (negócios ganhos ÷ leads) e receita vêm do formulário de cada card, com todo o histórico e todos os canais. Cliques anteriores à correção do rastreamento não estão disponíveis.</p>
         </div>
       </CollapsibleContent>
     </Collapsible>
