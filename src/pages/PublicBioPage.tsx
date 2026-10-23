@@ -12,11 +12,13 @@ import { buildLiaUrl, trackAttendanceEvent } from "@/lib/attendanceChannel";
 import catalogoBanner from "@/assets/catalogo-produtos-banner.webp";
 import parametrizeBanner from "@/assets/parametrize-printer-banner.webp";
 import { supabase } from "@/integrations/supabase/client";
+import { recordBioEvent, type BioEvent } from "@/lib/bioTracking";
 
-type BioEvent = "view" | "card_click" | "cta_click" | "whatsapp_click";
 function trackBio(pageId: string | undefined, eventType: BioEvent, itemId?: string) {
-  if (!pageId) return;
-  void (supabase as any).from("smartops_bio_events").insert({ page_id: pageId, event_type: eventType, item_id: itemId ?? null });
+  void recordBioEvent(
+    (payload) => (supabase as any).from("smartops_bio_events").insert(payload),
+    pageId, eventType, itemId,
+  );
 }
 
 
