@@ -1,5 +1,5 @@
 import { useParams } from "react-router-dom";
-import { getPublicOrigin } from "@/utils/publicOrigin";
+import { bioPublicUrl, MAIN_BIO_SLUG } from "@/lib/bioMetrics";
 import { Helmet } from "react-helmet-async";
 import { Instagram, Youtube, Facebook, Linkedin, Globe, MessageCircle, Share2, ArrowRight, Loader2, SlidersHorizontal, ShoppingBag } from "lucide-react";
 import { toast } from "sonner";
@@ -89,8 +89,9 @@ function BioCard({ item, onWhatsApp, onTrack }: { item: BioItem; onWhatsApp: (it
   );
 }
 
-export default function PublicBioPage() {
-  const { slug } = useParams<{ slug: string }>();
+export default function PublicBioPage({ main = false }: { main?: boolean }) {
+  const { slug: paramSlug } = useParams<{ slug: string }>();
+  const slug = main ? MAIN_BIO_SLUG : paramSlug;
   const { data: page, isLoading } = useBioPage(slug);
   const [liaItem, setLiaItem] = useState<BioItem | null>(null);
   useEffect(() => {
@@ -106,7 +107,7 @@ export default function PublicBioPage() {
   const liaUrl = liaItem ? buildLiaUrl({ formId: liaItem.form_id }) + "&utm_source=link_na_bio&utm_medium=whatsapp_lia" : "";
 
   const share = async () => {
-    const url = `${getPublicOrigin()}/bio/${page?.slug ?? ""}`;
+    const url = bioPublicUrl(page?.slug ?? MAIN_BIO_SLUG);
     const title = page?.title ?? "Smart Dent";
     if (navigator.share) {
       try {

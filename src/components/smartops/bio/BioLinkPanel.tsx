@@ -117,7 +117,7 @@ export function BioLinkPanel() {
   }, [sources, pickerSearch, pickerKind]);
 
 
-  const publicUrl = (slug: string) => `${getPublicOrigin()}/bio/${slug}`;
+  const publicUrl = (slug: string) => bioPublicUrl(slug);
 
   const toggleSource = (key: string) => {
     if (!editor) return;
