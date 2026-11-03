@@ -3,6 +3,7 @@ const PUBLIC_PREFIXES = [
   '/base-conhecimento', '/en/knowledge-base', '/es/base-conocimiento',
   '/produtos/', '/depoimentos/', '/categorias/', '/sobre', '/institucional',
   '/en/institutional', '/es/institucional', '/distribuidores', '/eventos',
+  '/bio', '/linkbio',
 ];
 
 export function publicRedirectTarget(hostname: string, pathname: string, search: string, hash: string): string | null {
