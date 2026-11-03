@@ -359,7 +359,7 @@ const TIMELINE_LABEL: Record<string, string> = {
 };
 
 // ─── LEAD ROW COMPONENT ───
-interface CrmSummary { cs: number; comercial: number; estagnados: number; firstDealAt: string | null; firstWonAt: string | null }
+interface CrmSummary { cs: number; comercial: number; estagnados: number; firstDealAt: string | null; firstWonAt: string | null; wonValue: number }
 function LeadRow({ lead, active, onClick, nps, captureEvents, crm }: { lead: LeadFull; active: boolean; onClick: () => void; nps?: { score: number; date: string }; captureEvents: { events: CaptureEvent[]; forms: CaptureForm[] }; crm?: CrmSummary }) {
   const lis = (lead.intelligence_score as Record<string, unknown>)?.score_total as number || lead.intelligence_score_total || 0;
   const lc = lisColor(lis);
@@ -505,6 +505,7 @@ function LeadRow({ lead, active, onClick, nps, captureEvents, crm }: { lead: Lea
       {(() => {
         const anyL = lead as any;
         const fmt = (v?: string | null) => (v ? new Date(v).toLocaleDateString("pt-BR") : "—");
+        const brl = (n: number) => n.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
         const firstCrm = [anyL.piperun_created_at, crm?.firstDealAt].filter(Boolean).sort()[0] as string | undefined;
         const days = firstCrm && crm?.firstWonAt
           ? Math.max(0, Math.round((new Date(crm.firstWonAt).getTime() - new Date(firstCrm).getTime()) / 86400000))
@@ -518,6 +519,12 @@ function LeadRow({ lead, active, onClick, nps, captureEvents, crm }: { lead: Lea
               ["Deals", `CS ${crm?.cs ?? 0}  ·  Comercial ${crm?.comercial ?? 0}  ·  Estagnados ${crm?.estagnados ?? 0}`],
               ["1ª conversão", fmt(firstCrm)],
               ...(crm?.firstWonAt ? [["Ganho", `${fmt(crm.firstWonAt)}${days !== null ? ` · ${days} dias para fechar` : ""}`]] : []),
+              ["Origem 1ª conv.", anyL.origem_primeiro_contato || "—"],
+              ["Origem últ. conv.", anyL.form_name || anyL.origem_campanha || "—"],
+              ["Últ. compra e-com.", fmt(anyL.lojaintegrada_ultimo_pedido_data)],
+              ["Cupom", anyL.lojaintegrada_cupom_desconto || "—"],
+              ["Valor e-commerce", brl(Number(anyL.lojaintegrada_ltv) || 0)],
+              ["Valor venda direta", brl(crm?.wonValue ?? 0)],
               ["Atualizado", fmt(anyL.updated_at)],
             ] as [string, string][]).map(([k, v]) => (
               <div key={k} style={{ display: "contents" }}>
@@ -736,20 +743,21 @@ export function SmartOpsLeadsList() {
     (async () => {
       const { data } = await supabase
         .from("deals")
-        .select("lead_id, pipeline_name, status, piperun_created_at, created_at, closed_at, is_deleted")
+        .select("lead_id, pipeline_name, status, piperun_created_at, created_at, closed_at, is_deleted, value")
         .in("lead_id", ids)
         .limit(5000);
       if (cancelled || !data) return;
       const map: Record<string, CrmSummary> = {};
       for (const d of data as any[]) {
         if (!d.lead_id || d.is_deleted) continue;
-        const s = (map[d.lead_id] ||= { cs: 0, comercial: 0, estagnados: 0, firstDealAt: null, firstWonAt: null });
+        const s = (map[d.lead_id] ||= { cs: 0, comercial: 0, estagnados: 0, firstDealAt: null, firstWonAt: null, wonValue: 0 });
         const p = String(d.pipeline_name || "").toLowerCase();
         if (p.includes("cs onboarding") || p.includes("ganhos aleat")) s.cs++;
         else if (p.includes("estagnad")) s.estagnados++;
         else if (p === "funil de vendas") s.comercial++;
         const created = d.piperun_created_at || d.created_at;
         if (created && (!s.firstDealAt || created < s.firstDealAt)) s.firstDealAt = created;
+        if (d.status === "ganha") s.wonValue += Number(d.value) || 0;
         if (d.status === "ganha" && d.closed_at && (!s.firstWonAt || d.closed_at < s.firstWonAt)) s.firstWonAt = d.closed_at;
       }
       setCrmMap(map);
