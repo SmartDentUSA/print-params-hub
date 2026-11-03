@@ -29,7 +29,7 @@ import {
   X,
 } from "lucide-react";
 import { toast } from "sonner";
-import { getPublicOrigin } from "@/utils/publicOrigin";
+import { bioPublicPath, bioPublicUrl } from "@/lib/bioMetrics";
 import { BioPageStats, BioShortLink } from "./BioPageStats";
 import {
   useBioPages,
@@ -242,7 +242,7 @@ export function BioLinkPanel() {
                   </Badge>
                   <Badge variant="outline">{p.items.length} cards</Badge>
                 </div>
-                <p className="truncate text-xs text-muted-foreground">/bio/{p.slug}</p>
+                <p className="truncate text-xs text-muted-foreground">{bioPublicPath(p.slug)}</p>
                 <BioShortLink url={publicUrl(p.slug)} />
               </div>
               <div className="flex items-center gap-2">
@@ -258,7 +258,7 @@ export function BioLinkPanel() {
                   Copiar link
                 </Button>
                 <Button variant="outline" size="sm" asChild>
-                  <a href={`/bio/${p.slug}`} target="_blank" rel="noopener noreferrer">
+                  <a href={bioPublicPath(p.slug)} target="_blank" rel="noopener noreferrer">
                     <ExternalLink className="mr-1.5 h-3.5 w-3.5" />
                     Abrir
                   </a>
