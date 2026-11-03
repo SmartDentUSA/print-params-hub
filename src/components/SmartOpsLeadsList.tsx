@@ -510,11 +510,21 @@ function LeadRow({ lead, active, onClick, nps, captureEvents, crm }: { lead: Lea
           ? Math.max(0, Math.round((new Date(crm.firstWonAt).getTime() - new Date(firstCrm).getTime()) / 86400000))
           : null;
         return (
-          <div style={{ fontSize: 10, color: "var(--id-muted)", display: "grid", gap: 2, margin: "4px 0" }}>
-            <div>👤 {anyL.proprietario_lead_crm || "Sem vendedor"} · {lead.piperun_pipeline_name || "—"} / {lead.piperun_stage_name || "—"}</div>
-            <div>Deals: CS {crm?.cs ?? 0} · Comercial {crm?.comercial ?? 0} · Estagnados {crm?.estagnados ?? 0}</div>
-            <div>1ª conversão CRM: {fmt(firstCrm)}{crm?.firstWonAt ? ` · Ganho em ${fmt(crm.firstWonAt)}${days !== null ? ` (${days} dias)` : ""}` : ""}</div>
-            <div>Atualizado em {fmt(anyL.updated_at)}</div>
+          <div style={{ fontSize: 12, lineHeight: 1.45, color: "var(--id-ink)", display: "grid", gridTemplateColumns: "auto 1fr", columnGap: 8, rowGap: 3, margin: "8px 0", padding: "8px 10px", borderRadius: 8, background: "var(--id-s2)", border: "1px solid var(--id-b1)" }}>
+            {([
+              ["Vendedor", anyL.proprietario_lead_crm || "Sem vendedor"],
+              ["Funil", lead.piperun_pipeline_name || "—"],
+              ["Etapa", lead.piperun_stage_name || "—"],
+              ["Deals", `CS ${crm?.cs ?? 0}  ·  Comercial ${crm?.comercial ?? 0}  ·  Estagnados ${crm?.estagnados ?? 0}`],
+              ["1ª conversão", fmt(firstCrm)],
+              ...(crm?.firstWonAt ? [["Ganho", `${fmt(crm.firstWonAt)}${days !== null ? ` · ${days} dias para fechar` : ""}`]] : []),
+              ["Atualizado", fmt(anyL.updated_at)],
+            ] as [string, string][]).map(([k, v]) => (
+              <div key={k} style={{ display: "contents" }}>
+                <span style={{ color: "var(--id-muted2)", fontWeight: 600 }}>{k}</span>
+                <span style={{ fontWeight: k === "Funil" || k === "Etapa" ? 700 : 500, wordBreak: "break-word" }}>{v}</span>
+              </div>
+            ))}
           </div>
         );
       })()}
