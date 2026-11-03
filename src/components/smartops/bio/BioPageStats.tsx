@@ -37,10 +37,17 @@ function useBioStats(pageId: string, slug: string) {
       // Page tracking already covers historical and new visits: never add Bio
       // view events to it, because a single opening writes to both tables.
       for (let from = 0; ; from += 1000) {
-        const { data: visits, error } = await supabase
+        let query = supabase
           .from("lead_page_views")
           .select("page_path")
-          .ilike("page_path", `%/bio/${slug}%`)
+          .ilike("page_path", `%/bio/${slug}%`);
+        if (slug === MAIN_BIO_SLUG) {
+          query = supabase
+            .from("lead_page_views")
+            .select("page_path")
+            .or(`page_path.ilike.%/bio/${slug}%,page_path.ilike.%${MAIN_BIO_PATH}%`);
+        }
+        const { data: visits, error } = await query
           .order("id")
           .range(from, from + 999);
         if (error) throw error;
