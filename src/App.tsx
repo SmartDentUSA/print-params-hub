@@ -233,6 +233,7 @@ const App = () => (
       <Route path="/lp/:slug" element={<PublicLandingPage />} />
 
       {/* Link na bio */}
+      <Route path="/linkbio" element={<PublicBioPage main />} />
       <Route path="/bio/:slug" element={<PublicBioPage />} />
       
       {/* Support Resources / Product Catalog (Category G) */}
