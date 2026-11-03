@@ -359,7 +359,8 @@ const TIMELINE_LABEL: Record<string, string> = {
 };
 
 // ─── LEAD ROW COMPONENT ───
-function LeadRow({ lead, active, onClick, nps, captureEvents }: { lead: LeadFull; active: boolean; onClick: () => void; nps?: { score: number; date: string }; captureEvents: { events: CaptureEvent[]; forms: CaptureForm[] } }) {
+interface CrmSummary { cs: number; comercial: number; estagnados: number; firstDealAt: string | null; firstWonAt: string | null }
+function LeadRow({ lead, active, onClick, nps, captureEvents, crm }: { lead: LeadFull; active: boolean; onClick: () => void; nps?: { score: number; date: string }; captureEvents: { events: CaptureEvent[]; forms: CaptureForm[] }; crm?: CrmSummary }) {
   const lis = (lead.intelligence_score as Record<string, unknown>)?.score_total as number || lead.intelligence_score_total || 0;
   const lc = lisColor(lis);
   const bt = lead.buyer_type;
@@ -501,6 +502,22 @@ function LeadRow({ lead, active, onClick, nps, captureEvents }: { lead: LeadFull
           </span>
         )}
       </div>
+      {(() => {
+        const anyL = lead as any;
+        const fmt = (v?: string | null) => (v ? new Date(v).toLocaleDateString("pt-BR") : "—");
+        const firstCrm = [anyL.piperun_created_at, crm?.firstDealAt].filter(Boolean).sort()[0] as string | undefined;
+        const days = firstCrm && crm?.firstWonAt
+          ? Math.max(0, Math.round((new Date(crm.firstWonAt).getTime() - new Date(firstCrm).getTime()) / 86400000))
+          : null;
+        return (
+          <div style={{ fontSize: 10, color: "var(--id-muted)", display: "grid", gap: 2, margin: "4px 0" }}>
+            <div>👤 {anyL.proprietario_lead_crm || "Sem vendedor"} · {lead.piperun_pipeline_name || "—"} / {lead.piperun_stage_name || "—"}</div>
+            <div>Deals: CS {crm?.cs ?? 0} · Comercial {crm?.comercial ?? 0} · Estagnados {crm?.estagnados ?? 0}</div>
+            <div>1ª conversão CRM: {fmt(firstCrm)}{crm?.firstWonAt ? ` · Ganho em ${fmt(crm.firstWonAt)}${days !== null ? ` (${days} dias)` : ""}` : ""}</div>
+            <div>Atualizado em {fmt(anyL.updated_at)}</div>
+          </div>
+        );
+      })()}
       <div className="intel-lr-bottom">
         <div className="intel-lr-stage">{lead.piperun_stage_name || lead.lead_status || "—"}</div>
         <span className={`intel-lis-micro intel-lis-${lc}`}>LIS {lis}</span>
@@ -696,6 +713,36 @@ export function SmartOpsLeadsList() {
         map[r.lead_id] = { score: Math.round(s * 2), date: r.created_at };
       }
       setNpsMap(map);
+    })();
+    return () => { cancelled = true; };
+  }, [leads]);
+
+  // Resumo de negócios por funil para os leads visíveis
+  const [crmMap, setCrmMap] = useState<Record<string, CrmSummary>>({});
+  useEffect(() => {
+    const ids = leads.map(l => l.id);
+    if (!ids.length) { setCrmMap({}); return; }
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from("deals")
+        .select("lead_id, pipeline_name, status, piperun_created_at, created_at, closed_at, is_deleted")
+        .in("lead_id", ids)
+        .limit(5000);
+      if (cancelled || !data) return;
+      const map: Record<string, CrmSummary> = {};
+      for (const d of data as any[]) {
+        if (!d.lead_id || d.is_deleted) continue;
+        const s = (map[d.lead_id] ||= { cs: 0, comercial: 0, estagnados: 0, firstDealAt: null, firstWonAt: null });
+        const p = String(d.pipeline_name || "").toLowerCase();
+        if (p.includes("cs onboarding") || p.includes("ganhos aleat")) s.cs++;
+        else if (p.includes("estagnad")) s.estagnados++;
+        else if (p === "funil de vendas") s.comercial++;
+        const created = d.piperun_created_at || d.created_at;
+        if (created && (!s.firstDealAt || created < s.firstDealAt)) s.firstDealAt = created;
+        if (d.status === "ganha" && d.closed_at && (!s.firstWonAt || d.closed_at < s.firstWonAt)) s.firstWonAt = d.closed_at;
+      }
+      setCrmMap(map);
     })();
     return () => { cancelled = true; };
   }, [leads]);
@@ -928,6 +975,7 @@ export function SmartOpsLeadsList() {
                     active={selectedLead?.id === lead.id}
                     onClick={() => setSelectedLead(lead)}
                     nps={npsMap[lead.id]}
+                    crm={crmMap[lead.id]}
                     captureEvents={captureEvents}
                   />
                 ))}
