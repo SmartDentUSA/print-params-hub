@@ -1120,7 +1120,7 @@ export default function KbTabCatalogo({ filterKey, pinnedIds, pinnedElsewhereIds
                     </div>
                   )}
                   <div className="kb-cfoot">
-                    <span className="kb-date">Smart Dent</span>
+                    <span className="kb-date">{waFormByProduct.get(p.id) ? 'Atendimento' : 'Smart Dent'}</span>
                     {waFormByProduct.get(p.id) && (
                       <button
                         type="button"
