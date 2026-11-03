@@ -517,7 +517,8 @@ function LeadRow({ lead, active, onClick, nps, captureEvents, crm }: { lead: Lea
               ["Funil", lead.piperun_pipeline_name || "—"],
               ["Etapa", lead.piperun_stage_name || "—"],
               ["Deals", `CS ${crm?.cs ?? 0}  ·  Comercial ${crm?.comercial ?? 0}  ·  Estagnados ${crm?.estagnados ?? 0}`],
-              ["1ª conversão", fmt(firstCrm)],
+              ["Data 1ª conv.", fmt(anyL.created_at)],
+              ["1º cadastro CRM", fmt(firstCrm)],
               ...(crm?.firstWonAt ? [["Ganho", `${fmt(crm.firstWonAt)}${days !== null ? ` · ${days} dias para fechar` : ""}`]] : []),
               ["Origem 1ª conv.", anyL.origem_primeiro_contato || "—"],
               ["Origem últ. conv.", anyL.form_name || anyL.origem_campanha || "—"],
@@ -525,6 +526,13 @@ function LeadRow({ lead, active, onClick, nps, captureEvents, crm }: { lead: Lea
               ["Cupom", anyL.lojaintegrada_cupom_desconto || "—"],
               ["Valor e-commerce", brl(Number(anyL.lojaintegrada_ltv) || 0)],
               ["Valor venda direta", brl(crm?.wonValue ?? 0)],
+              ["Área de atuação", anyL.area_atuacao || "—"],
+              ["Especialidade", anyL.especialidade || "—"],
+              ["Cursos Astron", anyL.astron_user_id || anyL.astron_courses_total
+                ? `${Number(anyL.astron_courses_total) || 0} cursos · ${Number(anyL.astron_courses_completed) || 0} concluídos`
+                : "Não é membro"],
+              ["Treinamentos", String(signals?.trainingCount ?? 0)],
+              ["Lives", String(signals?.liveCount ?? 0)],
               ["Atualizado", fmt(anyL.updated_at)],
             ] as [string, string][]).map(([k, v]) => (
               <div key={k} style={{ display: "contents" }}>

@@ -3,6 +3,10 @@ import { supabase } from "@/integrations/supabase/client";
 
 export interface LeadCardSignals {
   lives: number;
+  /** Inscrições em lives/webinars/workshops online. */
+  liveCount: number;
+  /** Inscrições em treinamentos/imersões presenciais. */
+  trainingCount: number;
   lastWonAt: string | null;
   /** Data (start_date da turma) do treinamento/imersão mais recente do lead. */
   lastTrainingAt: string | null;
@@ -21,14 +25,27 @@ async function flush() {
   for (let i = 0; i < ids.length; i += 100) {
     const chunk = ids.slice(i, i + 100);
     const [enr, won] = await Promise.all([
-      supabase.from("smartops_course_enrollments").select("lead_id, turma_id, status").in("lead_id", chunk),
+      supabase.from("smartops_course_enrollments").select("lead_id, turma_id, status, course_id").in("lead_id", chunk),
       supabase.from("deals").select("lead_id, closed_at").in("lead_id", chunk).eq("status", "ganha"),
     ]);
-    const result = new Map<string, LeadCardSignals>(chunk.map((id) => [id, { lives: 0, lastWonAt: null, lastTrainingAt: null }]));
-    const enrollments = (enr.data ?? []) as { lead_id: string; turma_id: string | null; status: string | null }[];
+    const result = new Map<string, LeadCardSignals>(chunk.map((id) => [id, { lives: 0, liveCount: 0, trainingCount: 0, lastWonAt: null, lastTrainingAt: null }]));
+    const enrollments = (enr.data ?? []) as { lead_id: string; turma_id: string | null; status: string | null; course_id: string | null }[];
+    const courseIds = [...new Set(enrollments.map((e) => e.course_id).filter(Boolean) as string[])];
+    const courseKind = new Map<string, "live" | "treinamento">();
+    if (courseIds.length > 0) {
+      const { data: courses } = await supabase.from("smartops_courses").select("id, modality, category").in("id", courseIds);
+      for (const c of (courses ?? []) as { id: string; modality: string | null; category: string | null }[]) {
+        courseKind.set(c.id, c.modality === "presencial" ? "treinamento" : "live");
+      }
+    }
     for (const r of enrollments) {
       const s = result.get(r.lead_id);
-      if (s) s.lives += 1;
+      if (!s) continue;
+      s.lives += 1;
+      if (r.status === "cancelado") continue;
+      const kind = r.course_id ? courseKind.get(r.course_id) : undefined;
+      if (kind === "treinamento") s.trainingCount += 1;
+      else if (kind === "live") s.liveCount += 1;
     }
     // Treinamento (Imersão): inscrição confirmada/agendada com turma datada.
     const turmaIds = [...new Set(enrollments.filter((e) => e.turma_id && e.status !== "cancelado").map((e) => e.turma_id!))];
