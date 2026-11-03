@@ -7,7 +7,7 @@ import { ChevronDown, Eye, Link as LinkIcon, Copy, Loader2 } from "lucide-react"
 import { toast } from "sonner";
 import { shortenUrl } from "@/utils/shortLink";
 import type { BioPage } from "@/hooks/useBioPages";
-import { isBioPageVisit } from "@/lib/bioMetrics";
+import { isBioPageVisit, MAIN_BIO_PATH, MAIN_BIO_SLUG } from "@/lib/bioMetrics";
 
 type Counts = { view: number; card_click: number; cta_click: number; whatsapp_click: number };
 const zero = (): Counts => ({ view: 0, card_click: 0, cta_click: 0, whatsapp_click: 0 });
