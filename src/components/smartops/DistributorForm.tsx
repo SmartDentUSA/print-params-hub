@@ -211,6 +211,7 @@ type Props = {
   onChange: (v: DistributorFormValue) => void;
   /** Show the "Ativo" switch (internal admin only) */
   showActive?: boolean;
+  showLogo?: boolean;
   /**
    * Logo handling:
    *  - "upload": upload immediately to Supabase Storage (admin/internal)
@@ -222,7 +223,7 @@ type Props = {
 };
 
 export function DistributorForm({
-  value, onChange, showActive = true, logoMode = "upload", onLogoFileChange,
+  value, onChange, showActive = true, showLogo = true, logoMode = "upload", onLogoFileChange,
 }: Props) {
   const form = value;
   // Formulário externo (cadastro público) oculta campos internos de SEO/autorização.
@@ -430,7 +431,7 @@ export function DistributorForm({
       )}
       <section className="space-y-3">
         <h4 className="text-sm font-semibold">{t("Identificação")}</h4>
-        <div>
+        {showLogo && <div>
           <Label>{t("Logo da empresa")}</Label>
           <div className="flex items-center gap-3 mt-2">
             {previewLogoUrl ? (
@@ -475,7 +476,7 @@ export function DistributorForm({
               <p className="text-xs text-muted-foreground mt-1">{t("PNG, JPG, WebP ou SVG — máx 5MB")}</p>
             </div>
           </div>
-        </div>
+        </div>}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <div>
             <Label>{t("Razão Social *")}</Label>

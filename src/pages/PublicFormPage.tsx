@@ -13,6 +13,10 @@ import { Slider } from "@/components/ui/slider";
 import { isFieldVisible } from "@/lib/formConditions";
 import { linkLeadToPageSession } from "@/hooks/usePageTracking";
 import { useCatalogCategoryTree, catKey } from "@/hooks/useCatalogCategoryTree";
+import { DistributorEventRegistration } from "@/components/smartops/DistributorEventRegistration";
+import { emptyDistributorForm } from "@/components/smartops/DistributorForm";
+import { distributorEventAnswers } from "@/lib/distributorEventForm";
+import { distributorLanguage, distributorText } from "@/lib/distributorI18n";
 
 interface FormField {
   id: string;
@@ -154,6 +158,7 @@ export default function PublicFormPage() {
   const [form, setForm] = useState<FormData | null>(null);
   const [fields, setFields] = useState<FormField[]>([]);
   const [values, setValues] = useState<Record<string, any>>({});
+  const [distributorValue, setDistributorValue] = useState(emptyDistributorForm);
   const [submitted, setSubmitted] = useState(false);
   const [redirectUrl, setRedirectUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -638,14 +643,15 @@ export default function PublicFormPage() {
     setValues((prev) => ({ ...prev, [fieldId]: value }));
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent, answersOverride?: Record<string, any>) => {
     e.preventDefault();
     if (!form) return;
+    const submissionValues = answersOverride || values;
     setSubmitting(true);
 
     // Build payload mapping db_column -> value, custom fields -> raw_payload
     // Only include answers from currently visible fields (drop hidden/conditional)
-    const activeFieldIds = new Set(renderableFields.map((f) => f.id));
+    const activeFieldIds = new Set((answersOverride ? fields.filter(f => isFieldVisible(f, submissionValues)) : renderableFields).map((f) => f.id));
     const activeFields = fields.filter((f) => activeFieldIds.has(f.id));
     const payload: Record<string, any> = {
       source: "form",
@@ -654,14 +660,14 @@ export default function PublicFormPage() {
       product_catalog_id: form.product_catalog_id,
       form_purpose: form.form_purpose,
       ...(form.form_purpose === "distribuicao" && (form as any).event_id
-        ? { distribuicao_event_id: (form as any).event_id }
+        ? { distribuicao_event_id: (form as any).event_id, event_id: (form as any).event_id }
         : {}),
       // Enviar respostas inline para evitar race condition com lia-assign
       form_responses: activeFields
-        .filter(f => values[f.id] !== undefined && values[f.id] !== null && values[f.id] !== "")
+        .filter(f => submissionValues[f.id] !== undefined && submissionValues[f.id] !== null && submissionValues[f.id] !== "")
         .map(f => ({
           label: f.label,
-          value: Array.isArray(values[f.id]) ? (values[f.id] as string[]).join(", ") : String(values[f.id]),
+          value: Array.isArray(submissionValues[f.id]) ? (submissionValues[f.id] as string[]).join(", ") : String(submissionValues[f.id]),
         })),
     };
 
@@ -727,7 +733,7 @@ export default function PublicFormPage() {
     const customFields: Record<string, any> = {};
 
     for (const field of activeFields) {
-      const val = values[field.id];
+      const val = submissionValues[field.id];
       const empty = val === undefined || val === null || val === "" || (Array.isArray(val) && val.length === 0);
       if (empty && field.required) {
         toast_inline(`Campo "${field.label}" é obrigatório.`);
@@ -753,8 +759,8 @@ export default function PublicFormPage() {
     if (Object.keys(customFields).length > 0) {
       payload.raw_payload = { custom_fields: customFields };
     }
-    payload.field_answers = activeFields.filter((f) => values[f.id] !== undefined && values[f.id] !== null && values[f.id] !== "")
-      .map((f) => ({ field_id: f.id, value: Array.isArray(values[f.id]) ? values[f.id].join(", ") : String(values[f.id]) }));
+    payload.field_answers = activeFields.filter((f) => submissionValues[f.id] !== undefined && submissionValues[f.id] !== null && submissionValues[f.id] !== "")
+      .map((f) => ({ field_id: f.id, value: Array.isArray(submissionValues[f.id]) ? submissionValues[f.id].join(", ") : String(submissionValues[f.id]) }));
 
     // Ensure required email field
     if (!payload.email) {
@@ -769,6 +775,7 @@ export default function PublicFormPage() {
         body: payload,
       });
       if (error) throw error;
+      if (ingestData?.error || ingestData?.ok === false) throw new Error(ingestData?.error || "Erro ao enviar cadastro");
 
       // Increment submissions count
       await supabase.from("smartops_forms" as any)
@@ -788,7 +795,7 @@ export default function PublicFormPage() {
       if (leadId && !ingestData?.answers_stored) {
         const responses = activeFields
           .map((f) => {
-            const raw = values[f.id];
+            const raw = submissionValues[f.id];
             if (raw === undefined || raw === null || raw === "") return null;
             const value = Array.isArray(raw) ? raw.join(", ") : String(raw);
             return {
@@ -825,7 +832,7 @@ export default function PublicFormPage() {
 
 
       // Enviar respostas como nota no deal do PipeRun (fire-and-forget)
-      if (leadId) {
+      if (leadId && form.form_purpose !== "distribuicao") {
         // Reuse the canonical payload so event, consultant, combo/category and
         // resolved catalog product reach the CRM note together with form fields.
         const allResponses = (payload.form_responses as Array<{ label: string; value: string }>).map((response) => ({
@@ -926,6 +933,38 @@ export default function PublicFormPage() {
         isEmbed={isEmbed}
       />
     );
+  }
+
+  if (form.form_purpose === "distribuicao") {
+    return <div ref={embedRootRef}>
+      <DistributorEventRegistration
+        value={distributorValue}
+        onChange={setDistributorValue}
+        submitting={submitting}
+        error={inlineError}
+        isEmbed={isEmbed}
+        onSubmit={(event) => {
+          const language = distributorLanguage(distributorValue.language_preference);
+          const { answers } = distributorEventAnswers(distributorValue, fields);
+          for (const field of fields.filter(f => isFieldVisible(f, answers))) {
+            if (!field.required && !answers[field.id]) continue;
+            const val = answers[field.id] || "";
+            if (field.required && !val.trim()) {
+              event.preventDefault();
+              toast_inline(`${distributorText(language, field.label)}: ${distributorText(language, "Campos com")} * ${distributorText(language, "são obrigatórios.")}`);
+              return;
+            }
+            if (field.field_type === "email" && val && !/^\S+@\S+\.\S+$/.test(val)) {
+              event.preventDefault(); toast_inline("Informe um e-mail válido."); return;
+            }
+            if (field.field_type === "phone" && val.replace(/\D/g, "").length < 10) {
+              event.preventDefault(); toast_inline("Informe um telefone válido."); return;
+            }
+          }
+          void handleSubmit(event, answers);
+        }}
+      />
+    </div>;
   }
 
   return (
