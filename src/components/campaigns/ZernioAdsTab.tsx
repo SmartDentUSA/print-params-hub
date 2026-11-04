@@ -16,6 +16,8 @@ import {
   type AdAccountRef,
   type ZernioAd,
   type ZernioAdCampaign,
+  localIso,
+  type DateRange,
 } from '@/hooks/social/useZernioAds';
 
 const PERIODS = [
@@ -23,11 +25,30 @@ const PERIODS = [
   { value: '30', label: 'Últimos 30 dias' },
   { value: '90', label: 'Últimos 90 dias' },
   { value: '365', label: 'Últimos 12 meses' },
+  { value: 'mes_atual', label: 'Mês atual' },
+  { value: 'mes_passado', label: 'Mês passado' },
+  { value: 'ano_atual', label: 'Ano atual' },
+  { value: 'ano_passado', label: 'Ano passado' },
   { value: '1100', label: 'Histórico (todo o período)' },
 ];
 
 /** Valor de "days" que representa o histórico completo (limite Meta ~37 meses). */
 const ALL_TIME = '1100';
+
+/** Períodos de calendário: intervalo fechado de datas + nº de dias equivalente (para listas lifetime). */
+function calendarRange(v: string): (DateRange & { days: number }) | undefined {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = now.getMonth();
+  let from: Date, to: Date;
+  if (v === 'mes_atual') { from = new Date(y, m, 1); to = now; }
+  else if (v === 'mes_passado') { from = new Date(y, m - 1, 1); to = new Date(y, m, 0); }
+  else if (v === 'ano_atual') { from = new Date(y, 0, 1); to = now; }
+  else if (v === 'ano_passado') { from = new Date(y - 1, 0, 1); to = new Date(y - 1, 11, 31); }
+  else return undefined;
+  const days = Math.max(1, Math.round((now.getTime() - from.getTime()) / 86400000) + 1);
+  return { fromDate: localIso(from), toDate: localIso(to), days };
+}
 
 export function fmtMoney(v?: number | null, currency = 'BRL') {
   if (v === undefined || v === null) return '—';
@@ -70,10 +91,12 @@ export default function ZernioAdsTab() {
   const [detail, setDetail] = useState<ZernioAd | null>(null);
   const [revDetail, setRevDetail] = useState<{ id: string; name?: string } | null>(null);
 
+  const range = calendarRange(days);
+  const numDays = range ? range.days : Number(days);
   const filters = {
     platform: platform === 'all' ? undefined : platform,
     status: status === 'all' ? undefined : status,
-    days: days === ALL_TIME ? undefined : Number(days),
+    days: days === ALL_TIME ? undefined : numDays,
   };
   const campaignsQ = useZernioAdCampaigns(filters);
   const adsQ = useZernioAds(filters);
@@ -109,9 +132,9 @@ export default function ZernioAdsTab() {
     return [...map.values()];
   }, [campaigns]);
 
-  const periodQ = useAdsPeriodInsights(adAccounts, Number(days));
+  const periodQ = useAdsPeriodInsights(adAccounts, numDays, range);
   const periodByCampaign = periodQ.data?.byCampaign;
-  const revenueQ = useCampaignRevenue(days === ALL_TIME ? null : Number(days));
+  const revenueQ = useCampaignRevenue(days === ALL_TIME ? null : numDays, range);
   const revenueByCampaign = revenueQ.data?.byCampaign;
   const revenueLoaded = !!revenueQ.data;
 
@@ -389,11 +412,12 @@ export default function ZernioAdsTab() {
         </CardContent>
       </Card>
 
-      <AdDetailDialog ad={detail} days={Number(days)} onClose={() => setDetail(null)} />
+      <AdDetailDialog ad={detail} days={numDays} onClose={() => setDetail(null)} />
       <CampaignRevenueDialog
         campaignId={revDetail?.id ?? null}
         campaignName={revDetail?.name}
-        days={days === ALL_TIME ? null : Number(days)}
+        days={days === ALL_TIME ? null : numDays}
+        range={range}
         onClose={() => setRevDetail(null)}
       />
     </div>

@@ -202,25 +202,32 @@ function leadsFromActions(actions: unknown): number {
   return best;
 }
 
+export function localIso(d: Date) {
+  const p = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+
 function isoDaysAgo(days: number) {
   const d = new Date();
   d.setDate(d.getDate() - (days - 1));
-  return d.toISOString().slice(0, 10);
+  return localIso(d);
 }
 
+export interface DateRange { fromDate: string; toDate: string }
+
 /** Insights agregados no período, por campanha (chave = platformCampaignId). */
-export function useAdsPeriodInsights(accounts: AdAccountRef[], days: number) {
+export function useAdsPeriodInsights(accounts: AdAccountRef[], days: number, range?: DateRange) {
   // Zernio só expõe insights por conta para Meta/Facebook hoje.
   const supported = accounts.filter((a) => a.platform === 'facebook' && a.platformAdAccountId);
   const key = supported.map((a) => `${a.accountId}:${a.platformAdAccountId}`).sort().join('|');
 
   return useQuery({
-    queryKey: ['zernio-ads-period', key, days],
+    queryKey: ['zernio-ads-period', key, days, range?.fromDate, range?.toDate],
     enabled: supported.length > 0,
     staleTime: 5 * 60_000,
     queryFn: async () => {
-      const fromDate = isoDaysAgo(days);
-      const toDate = new Date().toISOString().slice(0, 10);
+      const fromDate = range?.fromDate ?? isoDaysAgo(days);
+      const toDate = range?.toDate ?? localIso(new Date());
       // A Meta pagina insights (25 linhas por página): seguir o cursor `after` até o fim,
       // senão o total do período cobre só as primeiras 25 campanhas.
       const fetchAccount = async (a: AdAccountRef) => {
@@ -280,9 +287,9 @@ export function useAdsPeriodInsights(accounts: AdAccountRef[], days: number) {
 // Receita (propostas ganhas) por campanha — vem do CRM (deals ganhas), não da Zernio.
 // ---------------------------------------------------------------------------
 
-export function useCampaignRevenue(days: number | null) {
-  const fromDate = days === null ? '2000-01-01' : isoDaysAgo(days);
-  const toDate = new Date().toISOString().slice(0, 10);
+export function useCampaignRevenue(days: number | null, range?: DateRange) {
+  const fromDate = range?.fromDate ?? (days === null ? '2000-01-01' : isoDaysAgo(days));
+  const toDate = range?.toDate ?? localIso(new Date());
   return useQuery({
     queryKey: ['campaign-revenue', fromDate, toDate],
     staleTime: 5 * 60_000,
@@ -345,9 +352,9 @@ export interface CampaignRevenueDeal {
   cross_sell: boolean | null;
 }
 
-export function useCampaignRevenueDetail(campaignId: string | null, days: number | null) {
-  const fromDate = days === null ? '2000-01-01' : isoDaysAgo(days);
-  const toDate = new Date().toISOString().slice(0, 10);
+export function useCampaignRevenueDetail(campaignId: string | null, days: number | null, range?: DateRange) {
+  const fromDate = range?.fromDate ?? (days === null ? '2000-01-01' : isoDaysAgo(days));
+  const toDate = range?.toDate ?? localIso(new Date());
   return useQuery({
     queryKey: ['campaign-revenue-detail', campaignId, fromDate, toDate],
     enabled: !!campaignId,

@@ -1,7 +1,7 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useCampaignRevenueDetail } from '@/hooks/social/useZernioAds';
+import { useCampaignRevenueDetail, type DateRange } from '@/hooks/social/useZernioAds';
 
 const money = (v?: number | null) =>
   v === null || v === undefined
@@ -14,11 +14,12 @@ interface Props {
   campaignId: string | null;
   campaignName?: string;
   days: number | null;
+  range?: DateRange;
   onClose: () => void;
 }
 
-export function CampaignRevenueDialog({ campaignId, campaignName, days, onClose }: Props) {
-  const q = useCampaignRevenueDetail(campaignId, days);
+export function CampaignRevenueDialog({ campaignId, campaignName, days, range, onClose }: Props) {
+  const q = useCampaignRevenueDetail(campaignId, days, range);
   const rows = q.data ?? [];
   const total = rows.reduce((s, r) => s + (r.deal_value ?? 0), 0);
 
