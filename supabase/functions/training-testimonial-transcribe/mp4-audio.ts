@@ -85,7 +85,8 @@ export async function extractAacFromDriveMp4(fileId: string, fileSize: number): 
     const mdia = find(b, trak, "mdia");
     const hdlr = mdia && find(b, mdia, "hdlr");
     if (hdlr && typeAt(b, hdlr.start + hdlr.header + 8) === "soun") {
-      stbl = find(b, find(b, find(b, mdia!, "minf")!, "stbl")!, "stbl") || find(b, find(b, mdia!, "minf")!, "stbl");
+      const minf = find(b, mdia!, "minf");
+      stbl = minf && find(b, minf, "stbl");
       break;
     }
   }

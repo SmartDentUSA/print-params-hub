@@ -184,6 +184,14 @@ async function transcribeViaLovableVideo(
 ): Promise<string> {
   const key = Deno.env.get("LOVABLE_API_KEY");
   if (!key) throw new Error("LOVABLE_API_KEY ausente");
+  // MP4/MOV: extrai só a faixa de áudio (a IA aceita no máximo ~20 MB por mídia).
+  if (/mp4|quicktime|m4v/i.test(mime) || /\.(mp4|mov|m4v)$/i.test(filename)) {
+    const aac = await extractAacFromDriveMp4(fileId, byteLength);
+    const parts = splitAdts(aac, 15 * 1024 * 1024);
+    const texts: string[] = [];
+    for (const part of parts) texts.push(await callLovableAudioStt(key, part));
+    return texts.join(" ").trim();
+  }
   // Cópia temporária privada (Drive → Storage em streaming), lida por URL assinada de 1h.
   const path = `testimonial-stt-tmp/${crypto.randomUUID()}-${filename}`;
   const stream = await driveDownloadStream(driveToken, fileId);
@@ -207,6 +215,29 @@ async function transcribeViaLovableVideo(
   } finally {
     await db.storage.from(TMP_BUCKET).remove([path]).catch(() => {});
   }
+}
+
+async function callLovableAudioStt(key: string, aac: Uint8Array): Promise<string> {
+  const res = await fetch(`${GATEWAY}/chat/completions`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: LOVABLE_VIDEO_STT_MODEL,
+      temperature: 0,
+      messages: [{
+        role: "user",
+        content: [
+          { type: "input_audio", input_audio: { data: encodeBase64(aac), format: "aac" } },
+          { type: "text", text: LITERAL_STT_PROMPT.replace("neste vídeo", "neste áudio") },
+        ],
+      }],
+    }),
+  });
+  const text = await res.text();
+  if (!res.ok) throw new Error(`Transcrição Lovable AI ${res.status}: ${text.slice(0, 400)}`);
+  const out = String(JSON.parse(text)?.choices?.[0]?.message?.content || "").trim();
+  if (!out) throw new Error("Transcrição vazia (Lovable AI)");
+  return out;
 }
 
 async function callLovableVideoStt(key: string, url: string): Promise<string> {
