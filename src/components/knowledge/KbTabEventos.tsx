@@ -112,8 +112,8 @@ export default function KbTabEventos() {
         .from('smartops_events')
         .select('id,name,country,start_date,end_date,location,company_stand,website_url,cover_image_url,cover_image_pt,cover_image_en,cover_image_es')
         .eq('is_active', true)
-        .order('display_order', { ascending: true })
-        .order('start_date', { ascending: true, nullsFirst: false });
+        .order('start_date', { ascending: true, nullsFirst: false })
+        .order('display_order', { ascending: true });
       if (!error && data) setRows(data as EventRow[]);
       const { data: forms } = await supabase
         .from('smartops_forms')
