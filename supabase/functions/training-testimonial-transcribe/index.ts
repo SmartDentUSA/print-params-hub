@@ -172,7 +172,7 @@ async function transcribeViaGemini(
  * vídeo diretamente de uma URL temporária do Drive — sem créditos Google AI Studio.
  * Mesmo prompt literal usado antes, para não alterar a qualidade.
  */
-const LOVABLE_VIDEO_STT_MODEL = "google/gemini-2.5-flash";
+const LOVABLE_VIDEO_STT_MODEL = "google/gemini-3.8-flash";
 const LITERAL_STT_PROMPT = "Transcreva LITERALMENTE, em português do Brasil, tudo que é falado neste vídeo. "
   + "Não resuma, não comente, não adicione rótulos de falante nem timestamps. "
   + "Responda apenas com o texto transcrito.";
@@ -454,7 +454,7 @@ serve(async (req) => {
       transcript_revised: String(revision?.transcript_revised || "").trim() || raw,
       transcription_confidence: Number(revision?.confidence ?? 0) || null,
       low_confidence_segments: Array.isArray(revision?.low_confidence) ? revision.low_confidence : [],
-      transcription_model: hash ? STT_MODEL : GEMINI_STT_MODEL,
+      transcription_model: hash ? STT_MODEL : LOVABLE_VIDEO_STT_MODEL,
       transcribed_at: new Date().toISOString(),
       analysis: revision?.analysis ?? null,
       version: (row.version || 1) + (row.transcript_raw ? 1 : 0),
