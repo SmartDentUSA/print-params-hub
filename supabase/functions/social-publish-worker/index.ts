@@ -277,16 +277,20 @@ serve(async (req) => {
           ...safe,
           ...(safe.failed ? { error_detail: summarizeVerificationDetail(detail) } : {}),
         }));
-        const finalStatus = confirmed === checks.length
-          ? 'published'
+        // Redes recusadas no envio inicial não podem sumir quando as demais confirmam.
+        const priorErrors = (Array.isArray(post.publish_errors) ? post.publish_errors : [])
+          .filter((e: any) => e && e.type !== 'awaiting_zernio_confirmation' && e.type !== 'zernio_verification');
+        const allConfirmed = confirmed === checks.length;
+        const finalStatus = allConfirmed
+          ? (priorErrors.length > 0 ? 'partial' : 'published')
           : failures.length > 0 && !stillPending
             ? (confirmed > 0 ? 'partial' : 'failed')
             : 'publishing';
 
         await supabase.from('social_scheduled_posts').update({
           status: finalStatus,
-          published_at: finalStatus === 'published' ? (post.published_at ?? new Date().toISOString()) : null,
-          publish_errors: finalStatus === 'published' ? null : [{ type: 'zernio_verification', checks: verification }],
+          published_at: allConfirmed || confirmed > 0 ? (post.published_at ?? new Date().toISOString()) : null,
+          publish_errors: finalStatus === 'published' ? null : [...priorErrors, { type: 'zernio_verification', checks: verification }],
           updated_at: new Date().toISOString(),
         }).eq('id', post.id);
 
