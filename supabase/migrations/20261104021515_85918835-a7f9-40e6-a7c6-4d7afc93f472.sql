@@ -1,0 +1,1 @@
+REVOKE ALL ON FUNCTION public.fn_distribution_event_metrics() FROM anon,authenticated,PUBLIC; GRANT EXECUTE ON FUNCTION public.fn_distribution_event_metrics() TO service_role;
