@@ -19,6 +19,8 @@ import {
   serviceClient, setStatus, sha256Hex, STT_MODEL, TESTIMONIAL_DESTINATION_KEY,
   type ParticipantCandidate,
 } from "../_shared/testimonial-pipeline.ts";
+import { encodeBase64 } from "jsr:@std/encoding@1/base64";
+import { extractAacFromDriveMp4, splitAdts } from "./mp4-audio.ts";
 
 const REVISION_PROMPT = `Você revisa transcrições de depoimentos de alunos de treinamentos odontológicos digitais da Smart Dent.
 
@@ -184,6 +186,14 @@ async function transcribeViaLovableVideo(
 ): Promise<string> {
   const key = Deno.env.get("LOVABLE_API_KEY");
   if (!key) throw new Error("LOVABLE_API_KEY ausente");
+  // MP4/MOV: extrai só a faixa de áudio (a IA aceita no máximo ~20 MB por mídia).
+  if (/mp4|quicktime|m4v/i.test(mime) || /\.(mp4|mov|m4v)$/i.test(filename)) {
+    const aac = await extractAacFromDriveMp4(fileId, byteLength);
+    const parts = splitAdts(aac, 15 * 1024 * 1024);
+    const texts: string[] = [];
+    for (const part of parts) texts.push(await callLovableAudioStt(key, part));
+    return texts.join(" ").trim();
+  }
   // Cópia temporária privada (Drive → Storage em streaming), lida por URL assinada de 1h.
   const path = `testimonial-stt-tmp/${crypto.randomUUID()}-${filename}`;
   const stream = await driveDownloadStream(driveToken, fileId);
@@ -207,6 +217,29 @@ async function transcribeViaLovableVideo(
   } finally {
     await db.storage.from(TMP_BUCKET).remove([path]).catch(() => {});
   }
+}
+
+async function callLovableAudioStt(key: string, aac: Uint8Array): Promise<string> {
+  const res = await fetch(`${GATEWAY}/chat/completions`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: LOVABLE_VIDEO_STT_MODEL,
+      temperature: 0,
+      messages: [{
+        role: "user",
+        content: [
+          { type: "input_audio", input_audio: { data: encodeBase64(aac), format: "aac" } },
+          { type: "text", text: LITERAL_STT_PROMPT.replace("neste vídeo", "neste áudio") },
+        ],
+      }],
+    }),
+  });
+  const text = await res.text();
+  if (!res.ok) throw new Error(`Transcrição Lovable AI ${res.status}: ${text.slice(0, 400)}`);
+  const out = String(JSON.parse(text)?.choices?.[0]?.message?.content || "").trim();
+  if (!out) throw new Error("Transcrição vazia (Lovable AI)");
+  return out;
 }
 
 async function callLovableVideoStt(key: string, url: string): Promise<string> {
@@ -378,8 +411,8 @@ serve(async (req) => {
     const meta = await driveGetFileMeta(token, fileId).catch(() => null);
     const mime = String(meta?.mimeType || row.mime_type || "video/mp4");
     const declaredSize = Number(meta?.size || row.video_size_bytes || 0);
-    if (declaredSize && declaredSize > MAX_AUDIO_BYTES) {
-      const msg = `Vídeo de ${(declaredSize / 1024 / 1024).toFixed(1)} MB excede o limite de 500 MB da transcrição. Envie uma versão compactada ou apenas o áudio.`;
+    if (declaredSize && declaredSize > MAX_AUDIO_BYTES * 8) {
+      const msg = `Vídeo de ${(declaredSize / 1024 / 1024).toFixed(1)} MB excede o limite de 4 GB da transcrição. Envie uma versão compactada ou apenas o áudio.`;
       await failTestimonial(db, row.id, "transcription", msg, { size_bytes: declaredSize });
       return jsonResponse({ error: msg, testimonial_id: row.id }, 413);
     }
@@ -449,7 +482,7 @@ serve(async (req) => {
       } else {
         await setStatus(db, row.id, "awaiting_identification", {
           transcript_raw: raw,
-          transcription_model: STT_MODEL,
+          transcription_model: declaredSize > GATEWAY_STT_MAX_BYTES ? LOVABLE_VIDEO_STT_MODEL : STT_MODEL,
           transcribed_at: new Date().toISOString(),
           review_notes: spoken
             ? `Nome falado "${spoken}" não casou com nenhum inscrito da turma — selecione o participante.`
