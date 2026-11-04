@@ -12,8 +12,6 @@
 - Commission ledger and any KOL report must read v_kol_contracts_reportable / v_kol_leads_reportable (is_test excluded at DB level), never raw tables.
 - KOL event invites/slots (kol_event_invites, kol_event_slots) change only via fn_kol_invite/_respond/_schedule_slot/_cancel_slot/_mark_done, which enforce signed non-revoked contract, test-mode match and accepted invite; hours always come from fn_kol_slot_hours so timeline, portal JSON and v_kol_event_hours agree.
 
-- Public KOL agenda exposes only `prof_public_slug`, rate-limits phone checks in `kol_portal_attempts`, and staff-only create fills empty fields with before/after logged; keeps internal ids private.
-- `fn_kol_log` updates before inserting because the activity-log dedupe trigger silently drops repeats.
 - KOL course approval: the portal only saves drafts and submits (em_analise); publish, request changes and unpublish run only through fn_kol_course_review (staff guard), all logged via fn_kol_log; keeps unapproved courses off public pages.
 - Instructor links live in instructor_lead_id on smartops_courses/turmas and are logged by a DB trigger via fn_kol_log; course ratings expose only public columns of published courses; keeps timeline complete without client-side logging.
 - Credenciamento forms for professional courses are created only by fn_kol_ensure_credenciamento_form (staff guard, idempotent, name "# CHAT - Qualificação Curso - {profissional}", canonical db_columns/options reused from existing forms); called at publish time from ProfessionalCoursesModal and as fallback in professional-course-portal own_course_stats — never create these forms inline elsewhere.
