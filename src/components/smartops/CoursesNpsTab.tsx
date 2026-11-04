@@ -64,7 +64,7 @@ function npsLabel(recomendacao: number | null) {
   return { score: recomendacao, cls, color };
 }
 
-export function CoursesNpsTab() {
+export function CoursesNpsTab({ scope = "smartdent" }: { scope?: "smartdent" | "recomendados" } = {}) {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<"todos" | "respondidos" | "pendentes" | "falhados">("todos");
   const [sending, setSending] = useState<string | null>(null);
@@ -91,7 +91,7 @@ export function CoursesNpsTab() {
   };
 
   const { data, isLoading } = useQuery({
-    queryKey: ["smartops-nps-overview"],
+    queryKey: ["smartops-nps-overview", scope],
     queryFn: async (): Promise<NpsRow[]> => {
       const { data: enrollments, error } = await supabase
         .from("smartops_course_enrollments")
@@ -111,7 +111,7 @@ export function CoursesNpsTab() {
           ? supabase.from("smartops_course_turmas").select("id, label, end_date").in("id", turmaIds)
           : Promise.resolve({ data: [] as any[] }),
         courseIds.length
-          ? supabase.from("smartops_courses").select("id, title").in("id", courseIds)
+          ? supabase.from("smartops_courses").select("id, title, recommend_on_instructor_card, recommend_professional_ids").in("id", courseIds)
           : Promise.resolve({ data: [] as any[] }),
         enrollmentIds.length
           ? supabase
@@ -125,11 +125,18 @@ export function CoursesNpsTab() {
 
       const turmaMap = new Map((turmas.data || []).map((t: any) => [t.id, t]));
       const courseMap = new Map((courses.data || []).map((c: any) => [c.id, c.title]));
+      // Curso recomendado = curso de profissional recomendado pela Smart Dent
+      const recommended = new Set(
+        (courses.data || [])
+          .filter((c: any) => c.recommend_on_instructor_card || (c.recommend_professional_ids?.length ?? 0) > 0)
+          .map((c: any) => c.id),
+      );
       const respMap = new Map<string, any>();
       for (const r of responses.data || []) if (!respMap.has(r.enrollment_id)) respMap.set(r.enrollment_id, r);
 
       const today = new Date().toISOString().slice(0, 10);
       return rows
+        .filter((e: any) => (scope === "recomendados") === recommended.has(e.course_id))
         .map((e: any) => {
           const t: any = turmaMap.get(e.turma_id);
           const r = respMap.get(e.id);

@@ -1521,7 +1521,8 @@ export function SmartOpsCourses() {
         <TabsTrigger value="publica-aovivo">Página Pública Ao Vivo</TabsTrigger>
         <TabsTrigger value="calendario">Calendário</TabsTrigger>
         <TabsTrigger value="nps">NPS Pós-Treinamento</TabsTrigger>
-        <TabsTrigger value="nps-demos">Treinamentos Online</TabsTrigger>
+        <TabsTrigger value="nps-demos">Treinamentos Online (NPS - Reativação base)</TabsTrigger>
+        <TabsTrigger value="nps-recomendados">NPS - Cursos recomendados</TabsTrigger>
       </TabsList>
 
       <TabsContent value="agendamentos">
@@ -1545,8 +1546,11 @@ export function SmartOpsCourses() {
       <TabsContent value="calendario">
         <CoursesCalendarTab />
       </TabsContent>
+      <TabsContent value="nps-recomendados">
+        <CoursesNpsTab scope="recomendados" />
+      </TabsContent>
       <TabsContent value="nps">
-        <CoursesNpsTab />
+        <CoursesNpsTab scope="smartdent" />
       </TabsContent>
       <TabsContent value="nps-demos">
         <NpsDemosTab />
