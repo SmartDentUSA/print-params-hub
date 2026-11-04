@@ -14,6 +14,7 @@ import { Country, State, City } from "country-state-city";
 import { cn } from "@/lib/utils";
 import { CANONICAL_CATS, CHIP_KEYS, normCat, AuthorizedScope } from "@/components/knowledge/kbCategoryTaxonomy";
 import { toast } from "sonner";
+import { distributorLanguage, distributorText, distributorCountryName, distributorCurrencyName } from "@/lib/distributorI18n";
 import { Badge } from "@/components/ui/badge";
 
 // País (ISO-2) → idioma preferencial da página pública.
@@ -150,12 +151,13 @@ const DDI_OPTIONS = Array.from(
 ).sort((a, b) => a.label.localeCompare(b.label));
 
 function Combobox({
-  value, options, placeholder, emptyText, disabled, onChange,
+  value, options, placeholder, emptyText, disabled, onChange, searchText = "Buscar…",
 }: {
   value: string;
   options: { value: string; label: string }[];
   placeholder: string;
   emptyText: string;
+  searchText?: string;
   disabled?: boolean;
   onChange: (v: string) => void;
 }) {
@@ -174,7 +176,7 @@ function Combobox({
       </PopoverTrigger>
       <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
         <Command>
-          <CommandInput placeholder="Buscar…" />
+          <CommandInput placeholder={searchText} />
           <CommandList className="max-h-64">
             <CommandEmpty>{emptyText}</CommandEmpty>
             <CommandGroup>
@@ -225,6 +227,8 @@ export function DistributorForm({
   const form = value;
   // Formulário externo (cadastro público) oculta campos internos de SEO/autorização.
   const isPublic = !showActive;
+  const language = distributorLanguage(isPublic ? form.language_preference : "pt");
+  const t = (text: string) => distributorText(language, text);
   const setForm = (updater: (f: DistributorFormValue) => DistributorFormValue) =>
     onChange(updater(form));
 
@@ -284,7 +288,7 @@ export function DistributorForm({
       ...f, pais, estado: "", cidade: "",
       owner_whatsapp_ddi: f.owner_whatsapp_ddi || ddi,
       buyer_whatsapp_ddi: f.buyer_whatsapp_ddi || ddi,
-      language_preference: lang,
+      language_preference: isPublic ? (f.language_preference || lang) : lang,
       preferred_currency: f.preferred_currency || curr,
       service_areas: allStates,
     }));
@@ -341,7 +345,7 @@ export function DistributorForm({
 
   const handleLogoFile = async (file: File) => {
     if (!file) return;
-    if (file.size > 5 * 1024 * 1024) { toast.error("Logo deve ter no máximo 5MB"); return; }
+    if (file.size > 5 * 1024 * 1024) { toast.error(t("Logo deve ter no máximo 5MB")); return; }
     if (logoMode === "base64") {
       onLogoFileChange?.(file);
       const reader = new FileReader();
@@ -358,13 +362,13 @@ export function DistributorForm({
       .upload(path, file, { cacheControl: "3600", upsert: false });
     if (upErr) {
       setUploadingLogo(false);
-      toast.error("Erro no upload: " + upErr.message);
+      toast.error(t("Erro no upload: ") + upErr.message);
       return;
     }
     const { data } = supabase.storage.from("distributor-logos").getPublicUrl(path);
     setForm((f) => ({ ...f, logo_url: data.publicUrl }));
     setUploadingLogo(false);
-    toast.success("Logo enviado");
+    toast.success(t("Logo enviado"));
   };
 
   const selectedCountry = useMemo(() => resolveCountry(form.pais), [form.pais]);
@@ -395,11 +399,11 @@ export function DistributorForm({
     form.logo_url === "__pending__" ? localLogoPreview : (form.logo_url || null);
 
   return (
-    <div className="space-y-6 py-2">
+    <div className="space-y-6 py-2" lang={language}>
       {isPublic && (
         <section className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <div>
-            <Label htmlFor="dist-public-language">Idioma / Language / Idioma</Label>
+            <Label htmlFor="dist-public-language">{t("Idioma / Language / Idioma")}</Label>
             <Select value={form.language_preference || "pt"}
               onValueChange={(v) => setForm((f) => ({ ...f, language_preference: v }))}>
               <SelectTrigger id="dist-public-language"><SelectValue /></SelectTrigger>
@@ -411,13 +415,13 @@ export function DistributorForm({
             </Select>
           </div>
           <div>
-            <Label htmlFor="dist-public-currency">Moeda corrente / Currency / Moneda</Label>
+            <Label htmlFor="dist-public-currency">{t("Moeda corrente / Currency / Moneda")}</Label>
             <Select value={form.preferred_currency || "BRL"}
               onValueChange={(v) => setForm((f) => ({ ...f, preferred_currency: v }))}>
               <SelectTrigger id="dist-public-currency"><SelectValue /></SelectTrigger>
               <SelectContent>
                 {CURRENCY_OPTIONS.map((c) => (
-                  <SelectItem key={c.code} value={c.code}>{c.label}</SelectItem>
+                  <SelectItem key={c.code} value={c.code}>{isPublic ? distributorCurrencyName(language, c.code) : c.label}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -425,9 +429,9 @@ export function DistributorForm({
         </section>
       )}
       <section className="space-y-3">
-        <h4 className="text-sm font-semibold">Identificação</h4>
+        <h4 className="text-sm font-semibold">{t("Identificação")}</h4>
         <div>
-          <Label>Logo da empresa</Label>
+          <Label>{t("Logo da empresa")}</Label>
           <div className="flex items-center gap-3 mt-2">
             {previewLogoUrl ? (
               <div className="relative">
@@ -440,7 +444,7 @@ export function DistributorForm({
                     setForm((f) => ({ ...f, logo_url: "" }));
                   }}
                   className="absolute -top-2 -right-2 bg-destructive text-destructive-foreground rounded-full p-0.5"
-                  aria-label="Remover logo"
+                  aria-label={t("Remover logo")}
                 >
                   <X className="w-3 h-3" />
                 </button>
@@ -466,19 +470,19 @@ export function DistributorForm({
                 onClick={() => document.getElementById("dist-logo-upload-input")?.click()}
               >
                 <Upload className="w-4 h-4 mr-2" />
-                {uploadingLogo ? "Enviando…" : "Enviar logo"}
+                {uploadingLogo ? t("Enviando…") : t("Enviar logo")}
               </Button>
-              <p className="text-xs text-muted-foreground mt-1">PNG, JPG, WebP ou SVG — máx 5MB</p>
+              <p className="text-xs text-muted-foreground mt-1">{t("PNG, JPG, WebP ou SVG — máx 5MB")}</p>
             </div>
           </div>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <div>
-            <Label>Razão Social *</Label>
+            <Label>{t("Razão Social *")}</Label>
             <Input value={form.razao_social || ""} onChange={(e) => setForm((f) => ({ ...f, razao_social: e.target.value }))} />
           </div>
           <div>
-            <Label>Nome Fantasia</Label>
+            <Label>{t("Nome Fantasia")}</Label>
             <Input value={form.nome_fantasia || ""} onChange={(e) => setForm((f) => ({ ...f, nome_fantasia: e.target.value }))} />
           </div>
         </div>
@@ -491,96 +495,99 @@ export function DistributorForm({
       </section>
 
       <section className="space-y-3">
-        <h4 className="text-sm font-semibold">Localização</h4>
+        <h4 className="text-sm font-semibold">{t("Localização")}</h4>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           <div>
-            <Label>País</Label>
+            <Label>{t("País")}</Label>
             <Combobox
+              searchText={t("Buscar…")}
               value={selectedCountry?.name || ""}
-              placeholder="Selecione o país"
-              emptyText="Nenhum país encontrado"
-              options={ALL_COUNTRIES.map((c) => ({ value: c.name, label: `${c.flag || ""} ${c.name}`.trim() }))}
+              placeholder={t("Selecione o país")}
+              emptyText={t("Nenhum país encontrado")}
+              options={ALL_COUNTRIES.map((c) => ({ value: c.name, label: `${c.flag || ""} ${distributorCountryName(language, c.isoCode, c.name)}`.trim() }))}
               onChange={(v) => handleCountryChange(v)}
             />
           </div>
           <div>
-            <Label>Estado / Província</Label>
+            <Label>{t("Estado / Província")}</Label>
             <Combobox
+              searchText={t("Buscar…")}
               value={selectedState?.name || form.estado || ""}
-              placeholder={statesList.length ? "Selecione" : "—"}
-              emptyText="Nenhum estado encontrado"
+              placeholder={statesList.length ? t("Selecione") : "—"}
+              emptyText={t("Nenhum estado encontrado")}
               disabled={!statesList.length}
               options={statesList.map((s) => ({ value: s.name, label: s.name }))}
               onChange={(v) => setForm((f) => ({ ...f, estado: v, cidade: "" }))}
             />
           </div>
           <div>
-            <Label>Cidade</Label>
+            <Label>{t("Cidade")}</Label>
             {citiesList.length ? (
               <Combobox
+              searchText={t("Buscar…")}
                 value={form.cidade || ""}
-                placeholder="Selecione"
-                emptyText="Nenhuma cidade encontrada"
+                placeholder={t("Selecione")}
+                emptyText={t("Nenhuma cidade encontrada")}
                 options={citiesList.map((c) => ({ value: c.name, label: c.name }))}
                 onChange={(v) => setForm((f) => ({ ...f, cidade: v }))}
               />
             ) : (
-              <Input value={form.cidade || ""} onChange={(e) => setForm((f) => ({ ...f, cidade: e.target.value }))} placeholder="Digite a cidade" />
+              <Input value={form.cidade || ""} onChange={(e) => setForm((f) => ({ ...f, cidade: e.target.value }))} placeholder={t("Digite a cidade")} />
             )}
           </div>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           <div className="md:col-span-2">
-            <Label>Endereço Completo</Label>
+            <Label>{t("Endereço Completo")}</Label>
             <Input value={form.endereco || ""} onChange={(e) => setForm((f) => ({ ...f, endereco: e.target.value }))} />
           </div>
           <div>
-            <Label>CEP / Código Postal</Label>
+            <Label>{t("CEP / Código Postal")}</Label>
             <Input value={form.cep || ""} onChange={(e) => setForm((f) => ({ ...f, cep: e.target.value }))} />
           </div>
         </div>
         <div>
-          <Label>Número de Unidades / Filiais</Label>
+          <Label>{t("Número de Unidades / Filiais")}</Label>
           <Input type="number" min={1} value={form.numero_unidades ?? 1}
             onChange={(e) => setForm((f) => ({ ...f, numero_unidades: Number(e.target.value) || 1 }))} />
         </div>
       </section>
 
       <section className="space-y-3">
-        <h4 className="text-sm font-semibold">Presença Digital</h4>
+        <h4 className="text-sm font-semibold">{t("Presença Digital")}</h4>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <div>
-            <Label>Site Oficial (URL)</Label>
+            <Label>{t("Site Oficial (URL)")}</Label>
             <Input value={form.site_url || ""} onChange={(e) => setForm((f) => ({ ...f, site_url: e.target.value }))} placeholder="https://…" />
           </div>
           <div>
             <Label>Instagram</Label>
-            <Input value={form.instagram || ""} onChange={(e) => setForm((f) => ({ ...f, instagram: e.target.value }))} placeholder="@ ou URL" />
+            <Input value={form.instagram || ""} onChange={(e) => setForm((f) => ({ ...f, instagram: e.target.value }))} placeholder={t("@ ou URL")} />
           </div>
           <div>
             <Label>Facebook</Label>
             <Input value={form.facebook || ""} onChange={(e) => setForm((f) => ({ ...f, facebook: e.target.value }))} />
           </div>
           <div>
-            <Label>LinkedIn da empresa</Label>
+            <Label>{t("LinkedIn da empresa")}</Label>
             <Input value={form.linkedin || ""} onChange={(e) => setForm((f) => ({ ...f, linkedin: e.target.value }))} />
           </div>
           <div className="md:col-span-2">
-            <Label>Canal YouTube</Label>
+            <Label>{t("Canal YouTube")}</Label>
             <Input value={form.youtube || ""} onChange={(e) => setForm((f) => ({ ...f, youtube: e.target.value }))} />
           </div>
         </div>
       </section>
 
       <section className="space-y-3">
-        <h4 className="text-sm font-semibold">Contato — Proprietário / Diretor</h4>
+        <h4 className="text-sm font-semibold">{t("Contato — Proprietário / Diretor")}</h4>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <div>
-            <Label>Nome</Label>
+            <Label>{t("Nome")}</Label>
             <Input value={form.owner_name || ""} onChange={(e) => setForm((f) => ({ ...f, owner_name: e.target.value }))} />
           </div>
           <div>
-            <Label>E-mail</Label>
+            <Label>{t("E-mail")}</Label>
             <Input type="email" value={form.owner_email || ""} onChange={(e) => setForm((f) => ({ ...f, owner_email: e.target.value }))} />
           </div>
           <div className="md:col-span-2">
@@ -589,24 +596,24 @@ export function DistributorForm({
               <Select value={form.owner_whatsapp_ddi || "+55"} onValueChange={(v) => setForm((f) => ({ ...f, owner_whatsapp_ddi: v }))}>
                 <SelectTrigger className="w-32"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {DDI_OPTIONS.map((o) => <SelectItem key={o.code} value={o.code}>{o.label}</SelectItem>)}
+                  {DDI_OPTIONS.map((o) => <SelectItem key={o.code} value={o.code}>{language === "pt" ? o.label : `${o.code} ${new Intl.DisplayNames([language], { type: "region" }).of(ALL_COUNTRIES.find((c) => formatDdi(c.phonecode) === o.code)?.isoCode || "BR")}`}</SelectItem>)}
                 </SelectContent>
               </Select>
-              <Input className="flex-1" value={form.owner_whatsapp || ""} onChange={(e) => setForm((f) => ({ ...f, owner_whatsapp: e.target.value }))} placeholder="Número" />
+              <Input className="flex-1" value={form.owner_whatsapp || ""} onChange={(e) => setForm((f) => ({ ...f, owner_whatsapp: e.target.value }))} placeholder={t("Número")} />
             </div>
           </div>
         </div>
       </section>
 
       <section className="space-y-3">
-        <h4 className="text-sm font-semibold">Contato — Responsável de Compras</h4>
+        <h4 className="text-sm font-semibold">{t("Contato — Responsável de Compras")}</h4>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <div>
-            <Label>Nome</Label>
+            <Label>{t("Nome")}</Label>
             <Input value={form.buyer_name || ""} onChange={(e) => setForm((f) => ({ ...f, buyer_name: e.target.value }))} />
           </div>
           <div>
-            <Label>E-mail</Label>
+            <Label>{t("E-mail")}</Label>
             <Input type="email" value={form.buyer_email || ""} onChange={(e) => setForm((f) => ({ ...f, buyer_email: e.target.value }))} />
           </div>
           <div className="md:col-span-2">
@@ -615,24 +622,24 @@ export function DistributorForm({
               <Select value={form.buyer_whatsapp_ddi || "+55"} onValueChange={(v) => setForm((f) => ({ ...f, buyer_whatsapp_ddi: v }))}>
                 <SelectTrigger className="w-32"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {DDI_OPTIONS.map((o) => <SelectItem key={o.code} value={o.code}>{o.label}</SelectItem>)}
+                  {DDI_OPTIONS.map((o) => <SelectItem key={o.code} value={o.code}>{language === "pt" ? o.label : `${o.code} ${new Intl.DisplayNames([language], { type: "region" }).of(ALL_COUNTRIES.find((c) => formatDdi(c.phonecode) === o.code)?.isoCode || "BR")}`}</SelectItem>)}
                 </SelectContent>
               </Select>
-              <Input className="flex-1" value={form.buyer_whatsapp || ""} onChange={(e) => setForm((f) => ({ ...f, buyer_whatsapp: e.target.value }))} placeholder="Número" />
+              <Input className="flex-1" value={form.buyer_whatsapp || ""} onChange={(e) => setForm((f) => ({ ...f, buyer_whatsapp: e.target.value }))} placeholder={t("Número")} />
             </div>
           </div>
         </div>
       </section>
 
       <section className="space-y-2">
-        <Label>Observações</Label>
+        <Label>{t("Observações")}</Label>
         <Textarea rows={3} value={form.notes || ""} onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))} />
       </section>
 
       <section className="space-y-3">
         <div className="flex items-center justify-between">
           <div>
-            <h4 className="text-sm font-semibold">{isPublic ? "Qual linha de produto você quer mais informações?" : "Autorização Comercial"}</h4>
+            <h4 className="text-sm font-semibold">{isPublic ? t("Qual linha de produto você quer mais informações?") : "Autorização Comercial"}</h4>
             {!isPublic && <p className="text-xs text-muted-foreground">Categorias e subcategorias que esta revenda está autorizada a comercializar.</p>}
           </div>
           <div className="flex gap-2">
@@ -643,11 +650,11 @@ export function DistributorForm({
                 CANONICAL_CATS.forEach((c) => { all[c] = [...(catalogTaxonomy[c] || [])]; });
                 setForm((f) => ({ ...f, authorized_scope: all }));
               }}
-            >Selecionar tudo</Button>
+            >{t("Selecionar tudo")}</Button>
             <Button
               type="button" variant="ghost" size="sm"
               onClick={() => setForm((f) => ({ ...f, authorized_scope: {} }))}
-            >Limpar</Button>
+            >{t("Limpar")}</Button>
           </div>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -673,23 +680,23 @@ export function DistributorForm({
               <div key={cat} className="rounded-md border p-3 space-y-2">
                 <label className="flex items-center gap-2 cursor-pointer">
                   <Checkbox checked={enabled} onCheckedChange={(v) => toggleCat(!!v)} />
-                  <span className="text-sm font-medium">{cat}</span>
+                  <span className="text-sm font-medium">{t(cat)}</span>
                 </label>
                 {enabled && subs.length > 0 && (
                   <div className="pl-6 space-y-1">
                     {subs.map((sub) => (
                       <label key={sub} className="flex items-center gap-2 text-xs cursor-pointer">
                         <Checkbox checked={selectedSubs.includes(sub)} onCheckedChange={() => toggleSub(sub)} />
-                        <span>{sub}</span>
+                        <span>{t(sub)}</span>
                       </label>
                     ))}
                     <p className="text-[10px] text-muted-foreground pt-1">
-                      Nenhuma subcategoria marcada = autoriza todas as subcategorias desta categoria.
+                      {t("Nenhuma subcategoria marcada = autoriza todas as subcategorias desta categoria.")}
                     </p>
                   </div>
                 )}
                 {enabled && subs.length === 0 && (
-                  <p className="pl-6 text-[10px] text-muted-foreground">Sem subcategorias cadastradas.</p>
+                  <p className="pl-6 text-[10px] text-muted-foreground">{t("Sem subcategorias cadastradas.")}</p>
                 )}
               </div>
             );
