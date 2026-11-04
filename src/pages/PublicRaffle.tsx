@@ -1,3 +1,4 @@
+import { normalizeRaffleFields } from "@/lib/raffleStandardFields";
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
