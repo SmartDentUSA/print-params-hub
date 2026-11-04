@@ -1,7 +1,7 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useCampaignRevenueDetail } from '@/hooks/social/useZernioAds';
+import { useCampaignRevenueDetail, type DateRange } from '@/hooks/social/useZernioAds';
 
 const money = (v?: number | null) =>
   v === null || v === undefined
