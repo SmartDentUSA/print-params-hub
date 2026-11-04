@@ -16,6 +16,8 @@ import { CANONICAL_CATS, CHIP_KEYS, normCat, AuthorizedScope } from "@/component
 import { toast } from "sonner";
 import { distributorLanguage, distributorText, distributorCountryName, distributorCurrencyName } from "@/lib/distributorI18n";
 import { Badge } from "@/components/ui/badge";
+import { PRODUCT_CATALOG_ENTITY_TYPES } from "@/lib/catalogEntityTypes";
+import { distributorTaxonomyCategory, distributorTaxonomyLabel, uniqueDistributorSubcategories } from "@/lib/distributorTaxonomy";
 
 // País (ISO-2) → idioma preferencial da página pública.
 const COUNTRY_LANG: Record<string, "pt" | "es" | "en"> = {
@@ -244,12 +246,13 @@ export function DistributorForm({
       const { data } = await supabase
         .from("system_a_catalog")
         .select("name, product_category, product_subcategory")
+        .in("category", [...PRODUCT_CATALOG_ENTITY_TYPES])
         .eq("active", true).eq("approved", true).eq("visible_in_ui", true)
         .not("product_category", "is", null);
       const map: Record<string, Set<string>> = {};
       const lines: Record<string, Record<string, Set<string>>> = {};
       (data || []).forEach((r: any) => {
-        const canon = normCat(r.product_category);
+        const canon = isPublic ? distributorTaxonomyCategory(r.product_category, r.product_subcategory) : normCat(r.product_category);
         if (!canon) return;
         if (!map[canon]) map[canon] = new Set<string>();
         const sub = (r.product_subcategory || "").trim();
@@ -263,7 +266,8 @@ export function DistributorForm({
       });
       const out: Record<string, string[]> = {};
       CANONICAL_CATS.forEach((c) => {
-        out[c] = Array.from(map[c] || []).sort((a, b) => a.localeCompare(b, "pt-BR"));
+        const subs = Array.from(map[c] || []).sort((a, b) => a.localeCompare(b, "pt-BR"));
+        out[c] = isPublic ? uniqueDistributorSubcategories(subs) : subs;
       });
       setCatalogTaxonomy(out);
       const linesOut: Record<string, Record<string, string[]>> = {};
@@ -681,14 +685,14 @@ export function DistributorForm({
               <div key={cat} className="rounded-md border p-3 space-y-2">
                 <label className="flex items-center gap-2 cursor-pointer">
                   <Checkbox checked={enabled} onCheckedChange={(v) => toggleCat(!!v)} />
-                  <span className="text-sm font-medium">{t(cat)}</span>
+                  <span className="text-sm font-medium">{isPublic ? distributorTaxonomyLabel(cat, language) : t(cat)}</span>
                 </label>
                 {enabled && subs.length > 0 && (
                   <div className="pl-6 space-y-1">
                     {subs.map((sub) => (
                       <label key={sub} className="flex items-center gap-2 text-xs cursor-pointer">
                         <Checkbox checked={selectedSubs.includes(sub)} onCheckedChange={() => toggleSub(sub)} />
-                        <span>{t(sub)}</span>
+                        <span>{isPublic ? distributorTaxonomyLabel(sub, language) : t(sub)}</span>
                       </label>
                     ))}
                     <p className="text-[10px] text-muted-foreground pt-1">
