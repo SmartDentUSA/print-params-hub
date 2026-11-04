@@ -106,7 +106,7 @@ export default function PublicDistributorRegister() {
           <Card>
             <CardContent className="p-6">
               <p className="text-sm text-muted-foreground mb-4">
-                {t("Preencha os dados da empresa que está sendo credenciada como distribuidora SmartDent.")}
+                {t("Preencha os dados da empresa que está sendo credenciada como distribuidora SmartDent.")}{" "}
                 {t("Campos com")} <span className="text-foreground">*</span> {t("são obrigatórios.")}
               </p>
               <DistributorForm

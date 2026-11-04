@@ -5,6 +5,24 @@ export function distributorLanguage(value?: string | null): DistributorLanguage 
 }
 
 const translations: Record<string, [string, string]> = {
+  "1.1 SCANNER INTRAORAL": ["1.1 ESCÁNER INTRAORAL", "1.1 INTRAORAL SCANNER"],
+  "1.2 Scanner Bancada": ["1.2 Escáner de laboratorio", "1.2 Lab scanner"],
+  "1.3 ACESSÓRIOS": ["1.3 ACCESORIOS", "1.3 ACCESSORIES"],
+  "2.1 Software": ["2.1 Software", "2.1 Software"],
+  "2.2 Serviço": ["2.2 Servicio", "2.2 Service"],
+  "3.1 RESINAS 3D - BIOCOMPATÍVEIS": ["3.1 RESINAS 3D - BIOCOMPATIBLES", "3.1 3D RESINS - BIOCOMPATIBLE"],
+  "3.2 RESINAS 3D - USO GERAL": ["3.2 RESINAS 3D - USO GENERAL", "3.2 3D RESINS - GENERAL PURPOSE"],
+  "3.4 IMPRESSORA 3D - ODONTOLÓGICA": ["3.4 IMPRESORA 3D - DENTAL", "3.4 3D PRINTER - DENTAL"],
+  "3.5 IMPRESSORA 3D - DESKTOP": ["3.5 IMPRESORA 3D - DE ESCRITORIO", "3.5 3D PRINTER - DESKTOP"],
+  "4.1 EQUIPAMENTOS": ["4.1 EQUIPOS", "4.1 EQUIPMENT"],
+  "4.2 LIMPEZA/ACABAMENTO": ["4.2 LIMPIEZA/ACABADO", "4.2 CLEANING/FINISHING"],
+  "5.1 CARACTERIZAÇÃO SMARTMAKE": ["5.1 CARACTERIZACIÓN SMARTMAKE", "5.1 SMARTMAKE CHARACTERIZATION"],
+  "5.2 CARACTERIZAÇÃO SMARTGUM": ["5.2 CARACTERIZACIÓN SMARTGUM", "5.2 SMARTGUM CHARACTERIZATION"],
+  "6.2 CIMENTOS": ["6.2 CEMENTOS", "6.2 CEMENTS"],
+  "6.3 RESINAS COMPOSTAS": ["6.3 RESINAS COMPUESTAS", "6.3 COMPOSITE RESINS"],
+  "7.2 Insumos": ["7.2 Insumos", "7.2 Supplies"],
+  "Acessórios": ["Accesorios", "Accessories"],
+  "Scanner Intraoral": ["Escáner intraoral", "Intraoral scanner"],
   "Idioma / Language / Idioma": [
     "Idioma",
     "Language"

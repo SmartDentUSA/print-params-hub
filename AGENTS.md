@@ -1,5 +1,7 @@
 # Architecture rules
 
+- Public distributor registration uses a shared presentation-only locale dictionary for fields, options and page messages; preserve canonical submitted values and keep the internal editor in Portuguese.
+
 - Panda video analytics use hourly bounded provider snapshots with a service-only lock and cursor; browser play events remain separate session-linked CRM activity. Match embeds by saved embed identity, because player UUIDs and Panda API UUIDs can differ; never attribute aggregate counts to individual leads.
 
 - Form visit metrics normalize legacy/public host URLs and landing paths, and attendance views carry resolved form IDs with the shared page session; domain changes must not split form totals or reset historical conversion logic.
