@@ -15,10 +15,12 @@ export const RAFFLE_STANDARD_FIELDS: StandardRaffleField[] = [
   { key: "especialidade", label: "Qual sua especialidade?", type: "select", system: true, options: ["CLÍNICO GERAL","DENTÍSTICA","IMPLANTODONTISTA","PROTESISTA","ORTODONTISTA","ODONTOPEDIATRIA","PERIODONTISTA","ENDODONTISTA","RADIOLOGISTA","CIRURGIA BUCO MAXILO FACIAL","TÉCNICO EM RADIOLOGIA","TÉCNICO EM PRÓTESE ODONTOLÓGICA","OUTROS"] },
   { key: "tem_scanner", label: "Atualmente, você digitaliza suas moldagens?", type: "select", system: true, options: ["AINDA NÃO DIGITALIZO AS MOLDAGENS","SIM, COM SCANNER INTRA ORAL PRÓPRIO","SIM, COM SCANNER INTRAORAL ALUGADO","SIM, COM SCANNER INTRAORAL DA RADIOLOGIA PARCERIA","SIM, COM SCANNER INTRAORAL DA LABORATORIO PARCEIRO","SIM, COM SCANNER DE BANCADA"] },
   { key: "impressora_modelo", label: "Qual impressora você teve contato ou utiliza no seu dia a dia?", type: "select", system: true, options: ["RAYSHAPE","PHROZEN","ANYCUBIC","FLASHFORGE","WANHAO","MIICRAFT","MOONRAY","SPRINTRAY","STRAUMAN","FORMLABS","STRATASYS","ELEGOO","ENVISIONTEC","3DSYSTEM","PIONEXT","CREALITY","ACKURETTA","PHOTOCENTRIC","KULZER","WILCOS","OUTRAS"] },
+  { key: "empresa_nome", label: "Nome Fantasia", type: "text", system: true },
+  { key: "instagram", label: "Instagram / perfil profissional de trabalhos", type: "text", system: true },
 ];
 
 // Chaves antigas do sorteio que correspondem a um campo padrão.
-const LEGACY_KEYS: Record<string, string> = { tem_impressora: "impressora_modelo" };
+const LEGACY_KEYS: Record<string, string> = { tem_impressora: "impressora_modelo", empresa: "empresa_nome" };
 
 /** Converte campos salvos para os padrões do sistema; descarta campos que não existem no sistema. */
 export function normalizeRaffleFields<T extends { key: string; required?: boolean }>(fields: T[] | null | undefined): StandardRaffleField[] {
