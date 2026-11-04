@@ -396,6 +396,34 @@ export function DistributorForm({
 
   return (
     <div className="space-y-6 py-2">
+      {isPublic && (
+        <section className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div>
+            <Label htmlFor="dist-public-language">Idioma / Language / Idioma</Label>
+            <Select value={form.language_preference || "pt"}
+              onValueChange={(v) => setForm((f) => ({ ...f, language_preference: v }))}>
+              <SelectTrigger id="dist-public-language"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="pt">🇧🇷 Português</SelectItem>
+                <SelectItem value="es">🇪🇸 Español</SelectItem>
+                <SelectItem value="en">🇺🇸 English</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label htmlFor="dist-public-currency">Moeda corrente / Currency / Moneda</Label>
+            <Select value={form.preferred_currency || "BRL"}
+              onValueChange={(v) => setForm((f) => ({ ...f, preferred_currency: v }))}>
+              <SelectTrigger id="dist-public-currency"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {CURRENCY_OPTIONS.map((c) => (
+                  <SelectItem key={c.code} value={c.code}>{c.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </section>
+      )}
       <section className="space-y-3">
         <h4 className="text-sm font-semibold">Identificação</h4>
         <div>
