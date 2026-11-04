@@ -1,3 +1,4 @@
+import { normalizeRaffleFields } from "@/lib/raffleStandardFields";
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -44,7 +45,7 @@ export default function PublicRaffle() {
   useEffect(() => {
     (async () => {
       const { data: res } = await (supabase as any).rpc("fn_public_raffle", { p_slug: slug });
-      setData(res || null);
+      setData(res ? { ...res, form_fields: normalizeRaffleFields(res.form_fields) as RaffleField[] } : null);
       setLoading(false);
     })();
   }, [slug]);
