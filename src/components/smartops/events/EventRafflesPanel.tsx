@@ -1,3 +1,4 @@
+import { RAFFLE_STANDARD_FIELDS, normalizeRaffleFields } from "@/lib/raffleStandardFields";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -64,22 +65,7 @@ type Raffle = {
 type WaGroup = { id: string; group_jid: string; name: string; instance_name: string | null };
 type DrawRow = { id: string; prize_title: string | null; winner_name: string | null; drawn_at: string; participants_count: number };
 
-const SYSTEM_FIELDS: RaffleField[] = [
-  { key: "nome", label: "Nome completo", type: "text", required: true, system: true },
-  { key: "telefone", label: "WhatsApp", type: "tel", required: true, system: true },
-  { key: "email", label: "E-mail", type: "email", required: true, system: true },
-  { key: "cidade", label: "Cidade", type: "text", system: true },
-  { key: "uf", label: "Estado (UF)", type: "text", system: true },
-  { key: "cro", label: "CRO / registro profissional", type: "text", system: true },
-  { key: "empresa", label: "Clínica / laboratório", type: "text", system: true },
-  { key: "cnpj", label: "CNPJ", type: "text", system: true },
-  { key: "area_atuacao", label: "Área de atuação", type: "select", system: true, options: ["Clínica ou Consultório", "Laboratório", "Estudante", "Professor", "Distribuidor"] },
-  { key: "especialidade", label: "Especialidade", type: "text", system: true },
-  { key: "tem_scanner", label: "Tem scanner?", type: "radio", system: true, options: ["Sim", "Não"] },
-  { key: "tem_impressora", label: "Tem impressora 3D?", type: "radio", system: true, options: ["Sim", "Não"] },
-  { key: "produto_interesse", label: "Produto de interesse", type: "text", system: true },
-  { key: "instagram", label: "Instagram", type: "text", system: true },
-];
+const SYSTEM_FIELDS: RaffleField[] = RAFFLE_STANDARD_FIELDS as RaffleField[];
 
 const uid = () => Math.random().toString(36).slice(2, 9);
 
@@ -142,7 +128,7 @@ export default function EventRafflesPanel({ eventId, eventName }: { eventId: str
       setRaffle({
         ...(r as any),
         prizes: Array.isArray(r.prizes) ? r.prizes : [],
-        form_fields: Array.isArray(r.form_fields) ? r.form_fields : [],
+        form_fields: normalizeRaffleFields(Array.isArray(r.form_fields) ? r.form_fields : []) as RaffleField[],
         eligibility: r.eligibility || {},
       });
       const [{ count }, { data: d }] = await Promise.all([
@@ -348,27 +334,12 @@ export default function EventRafflesPanel({ eventId, eventName }: { eventId: str
               </Button>
             );
           })}
-          <Button
-            size="sm"
-            variant="secondary"
-            className="h-7 text-xs"
-            onClick={() =>
-              patch({
-                form_fields: [
-                  ...raffle.form_fields,
-                  { key: `custom_${uid()}`, label: "Nova pergunta", type: "text", required: false },
-                ],
-              })
-            }
-          >
-            <Plus className="w-3 h-3 mr-1" /> Pergunta
-          </Button>
         </div>
         <div className="space-y-2">
           {raffle.form_fields.map((f, i) => (
             <div key={f.key} className="grid md:grid-cols-[1fr_140px_auto_auto] gap-2 items-center border rounded-md p-2">
-              <Input value={f.label} onChange={(e) => { const ff = [...raffle.form_fields]; ff[i] = { ...f, label: e.target.value }; patch({ form_fields: ff }); }} />
-              <Select value={f.type} onValueChange={(v) => { const ff = [...raffle.form_fields]; ff[i] = { ...f, type: v as RaffleField["type"] }; patch({ form_fields: ff }); }}>
+              <Input value={f.label} readOnly disabled title="Pergunta padrão do sistema" />
+              <Select disabled value={f.type} onValueChange={(v) => { const ff = [...raffle.form_fields]; ff[i] = { ...f, type: v as RaffleField["type"] }; patch({ form_fields: ff }); }}>
                 <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="text">Texto</SelectItem>
@@ -392,9 +363,9 @@ export default function EventRafflesPanel({ eventId, eventName }: { eventId: str
               {["select", "radio", "checkbox"].includes(f.type) && (
                 <Input
                   className="md:col-span-4"
-                  placeholder="Opções separadas por ; (ex.: Sim; Não)"
+                  readOnly
+                  disabled
                   value={(f.options || []).join("; ")}
-                  onChange={(e) => { const ff = [...raffle.form_fields]; ff[i] = { ...f, options: e.target.value.split(";").map((s) => s.trim()).filter(Boolean) }; patch({ form_fields: ff }); }}
                 />
               )}
             </div>
