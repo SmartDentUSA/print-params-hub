@@ -394,7 +394,7 @@ serve(async (req) => {
     if (declaredSize && declaredSize > GATEWAY_STT_MAX_BYTES) {
       // Vídeo grande: faz streaming Drive → Gemini, sem carregar tudo na memória
       // (bufferizar 60 MB+ estoura o limite de recursos do worker).
-      raw = await transcribeViaLovableVideo(token, fileId);
+      raw = await transcribeViaLovableVideo(db, token, fileId, declaredSize, mime, filename);
     } else {
       const bytes = await driveDownloadFile(token, fileId);
       processedBytes = bytes.byteLength;
@@ -404,7 +404,7 @@ serve(async (req) => {
       } catch (e) {
         const m = String((e as Error).message || "");
         if (/\b413\b|too large|entity_too_large/i.test(m)) {
-          raw = await transcribeViaLovableVideo(token, fileId);
+          raw = await transcribeViaLovableVideo(db, token, fileId, declaredSize, mime, filename);
         } else throw e;
       }
     }
