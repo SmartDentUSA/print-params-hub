@@ -213,8 +213,7 @@ async function sendEmail(to: string, subject: string, html: string) {
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   try {
-    let to = RECIPIENT;
-    try { const b = await req.json(); if (typeof b?.to === "string" && /^[^@\s]+@[^@\s]+$/.test(b.to)) to = b.to; } catch { /* sem body */ }
+    const to = RECIPIENT; // destinatário fixo: a função é chamada pelo agendador sem login
 
     // Processa mensagens pendentes antes do relatório (melhor esforço).
     try {
