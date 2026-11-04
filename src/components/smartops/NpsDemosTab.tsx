@@ -78,6 +78,12 @@ function npsLabel(recomendacao: number | null) {
 
 const daysSince = (d: string) => Math.floor((Date.now() - new Date(d).getTime()) / 86400000);
 
+const TEAM_TEST_EMAILS = new Set(["thiago.nct@gmail.com", "qa.inscricao.teste@smartdenttest.com", "danilohen@gmail.com"]);
+const isTeamTestEmail = (email: string | null | undefined) => {
+  const e = (email || "").trim().toLowerCase();
+  return TEAM_TEST_EMAILS.has(e) || e.endsWith("@smartdenttest.com");
+};
+
 export function NpsDemosTab() {
   const [search, setSearch] = useState("");
   const queryClient = useQueryClient();
@@ -194,7 +200,8 @@ export function NpsDemosTab() {
         }
       }
 
-      const participants = [...byKey.values()].sort((a, b) => {
+      // Avaliações de teste da equipe ficam fora da lista e dos indicadores (dados preservados no banco).
+      const participants = [...byKey.values()].filter((p) => !isTeamTestEmail(p.email)).sort((a, b) => {
         if (!!b.lastResponse !== !!a.lastResponse) return b.lastResponse ? 1 : -1;
         return (b.lastResponse || "").localeCompare(a.lastResponse || "");
       });
