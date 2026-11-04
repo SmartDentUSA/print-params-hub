@@ -177,10 +177,39 @@ const LITERAL_STT_PROMPT = "Transcreva LITERALMENTE, em português do Brasil, tu
   + "Não resuma, não comente, não adicione rótulos de falante nem timestamps. "
   + "Responda apenas com o texto transcrito.";
 
-async function transcribeViaLovableVideo(driveToken: string, fileId: string): Promise<string> {
+const TMP_BUCKET = "admin-exports";
+
+async function transcribeViaLovableVideo(
+  db: any, driveToken: string, fileId: string, byteLength: number, mime: string, filename: string,
+): Promise<string> {
   const key = Deno.env.get("LOVABLE_API_KEY");
   if (!key) throw new Error("LOVABLE_API_KEY ausente");
-  const url = `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}?alt=media&supportsAllDrives=true&access_token=${encodeURIComponent(driveToken)}`;
+  // Cópia temporária privada (Drive → Storage em streaming), lida por URL assinada de 1h.
+  const path = `testimonial-stt-tmp/${crypto.randomUUID()}-${filename}`;
+  const stream = await driveDownloadStream(driveToken, fileId);
+  const up = await fetch(`${Deno.env.get("SUPABASE_URL")}/storage/v1/object/${TMP_BUCKET}/${path}`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+      "Content-Type": mime,
+      ...(byteLength ? { "Content-Length": String(byteLength) } : {}),
+      "x-upsert": "true",
+    },
+    body: stream,
+    // @ts-ignore Deno streaming upload
+    duplex: "half",
+  });
+  if (!up.ok) throw new Error(`Cópia temporária do vídeo ${up.status}: ${(await up.text()).slice(0, 300)}`);
+  try {
+    const { data: signed, error: sErr } = await db.storage.from(TMP_BUCKET).createSignedUrl(path, 3600);
+    if (sErr || !signed?.signedUrl) throw new Error(`URL temporária: ${sErr?.message || "indisponível"}`);
+    return await callLovableVideoStt(key, signed.signedUrl);
+  } finally {
+    await db.storage.from(TMP_BUCKET).remove([path]).catch(() => {});
+  }
+}
+
+async function callLovableVideoStt(key: string, url: string): Promise<string> {
   const res = await fetch(`${GATEWAY}/chat/completions`, {
     method: "POST",
     headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
