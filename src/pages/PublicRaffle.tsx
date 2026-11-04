@@ -44,7 +44,7 @@ export default function PublicRaffle() {
   useEffect(() => {
     (async () => {
       const { data: res } = await (supabase as any).rpc("fn_public_raffle", { p_slug: slug });
-      setData(res || null);
+      setData(res ? { ...res, form_fields: normalizeRaffleFields(res.form_fields) as RaffleField[] } : null);
       setLoading(false);
     })();
   }, [slug]);
