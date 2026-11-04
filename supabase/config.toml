@@ -1,5 +1,8 @@
 project_id = "okeogjgqijbfkudfjadz"
 
+[functions.distribution-event-metrics]
+verify_jwt = false
+
 [functions.smart-ops-activity-identity-backfill]
 verify_jwt = false
 

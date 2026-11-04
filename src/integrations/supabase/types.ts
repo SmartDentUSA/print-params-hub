@@ -25328,6 +25328,36 @@ export type Database = {
           },
         ]
       }
+      smartops_form_slug_aliases: {
+        Row: {
+          form_id: string
+          slug: string
+        }
+        Insert: {
+          form_id: string
+          slug: string
+        }
+        Update: {
+          form_id?: string
+          slug?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "smartops_form_slug_aliases_form_id_fkey"
+            columns: ["form_id"]
+            isOneToOne: false
+            referencedRelation: "smartops_forms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "smartops_form_slug_aliases_form_id_fkey"
+            columns: ["form_id"]
+            isOneToOne: false
+            referencedRelation: "v_form_health"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       smartops_forms: {
         Row: {
           active: boolean
@@ -37393,6 +37423,7 @@ export type Database = {
         Args: { lead: Database["public"]["Tables"]["lia_attendances"]["Row"] }
         Returns: Json
       }
+      distribution_event_slug: { Args: { event_name: string }; Returns: string }
       execute_agent_sql: { Args: { query: string }; Returns: Json }
       find_lead_id_by_email_ci: {
         Args: { p_email: string; p_exclude_id?: string }
@@ -37688,6 +37719,14 @@ export type Database = {
       fn_detach_group_from_campaign: {
         Args: { p_campaign_id: string; p_group_id: string }
         Returns: Json
+      }
+      fn_distribution_event_metrics: {
+        Args: never
+        Returns: {
+          countries: Json
+          event_id: string
+          total_leads: number
+        }[]
       }
       fn_duplicate_smartops_form: {
         Args: { p_form_id: string }

@@ -287,11 +287,23 @@ export default function PublicFormPage() {
   useEffect(() => {
     const load = async () => {
       if (!slug) return;
-      const { data: formData } = await supabase
+      const { data: directForm } = await supabase
         .from("smartops_forms" as any)
         .select("*")
         .eq("slug", slug)
         .single();
+
+      let formData: any = directForm;
+      if (!formData) {
+        const { data: alias } = await supabase.from("smartops_form_slug_aliases")
+          .select("form_id").eq("slug", slug).maybeSingle();
+        if (alias) {
+          const { data: aliasedForm } = await supabase.from("smartops_forms")
+            .select("*").eq("id", alias.form_id).eq("active", true).maybeSingle();
+          formData = aliasedForm;
+          if (aliasedForm) window.history.replaceState(null, "", `/f/${aliasedForm.slug}${window.location.search}${window.location.hash}`);
+        }
+      }
 
       if (!formData) {
         setError("Formulário não encontrado.");

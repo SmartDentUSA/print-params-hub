@@ -102,6 +102,8 @@ export default function KbTabEventos() {
   const [formByEvent, setFormByEvent] = useState<Record<string, string>>({});
   const [distByEvent, setDistByEvent] = useState<Record<string, { id: string; slug: string }>>({});
   const [isTeamMember, setIsTeamMember] = useState(false);
+  const [distributionStats, setDistributionStats] = useState<Record<string, { total_leads: number; countries: { country: string; leads: number }[] }> | null>(null);
+  const [statsError, setStatsError] = useState(false);
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState('');
 
@@ -135,6 +137,18 @@ export default function KbTabEventos() {
       setIsTeamMember(!!(u.user?.user_metadata as { team_member_id?: string } | undefined)?.team_member_id);
       setLoading(false);
     })();
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    supabase.functions.invoke('distribution-event-metrics').then(({ data, error }) => {
+      if (cancelled) return;
+      if (error || !Array.isArray(data?.metrics)) { setStatsError(true); return; }
+      const map: Record<string, { total_leads: number; countries: { country: string; leads: number }[] }> = {};
+      for (const item of data.metrics) map[item.event_id] = { total_leads: Number(item.total_leads), countries: item.countries || [] };
+      setDistributionStats(map);
+    });
+    return () => { cancelled = true; };
   }, []);
 
   const filtered = useMemo(() => {
@@ -247,6 +261,12 @@ export default function KbTabEventos() {
                   {isTeamMember && distByEvent[e.id] && (
                     <EventDistribuicaoTools eventName={e.name} form={distByEvent[e.id]} />
                   )}
+                  {distByEvent[e.id] && <div className="border-t border-border pt-3 text-sm text-foreground">
+                    <p className="flex items-center justify-between gap-2"><span>Leads distribuição gerados</span>
+                      <strong>{statsError ? 'Indisponível' : distributionStats ? (distributionStats[e.id]?.total_leads ?? 0) : '…'}</strong></p>
+                    <p className="mt-1 text-xs text-muted-foreground">Países: {statsError ? 'Indisponível' : !distributionStats ? '…' :
+                      distributionStats[e.id]?.countries.length ? distributionStats[e.id].countries.map(item => `${item.country} (${item.leads})`).join(' · ') : 'Nenhum lead registrado'}</p>
+                  </div>}
                 </div>
               </div>
             );
