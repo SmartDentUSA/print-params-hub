@@ -221,18 +221,33 @@ export function useAdsPeriodInsights(accounts: AdAccountRef[], days: number) {
     queryFn: async () => {
       const fromDate = isoDaysAgo(days);
       const toDate = new Date().toISOString().slice(0, 10);
-      const results = await Promise.allSettled(
-        supported.map((a) =>
-          callAds<{ data: Array<Record<string, unknown>> }>('ads_insights', {
-            accountId: a.accountId,
-            objectId: a.platformAdAccountId,
-            level: 'campaign',
-            fromDate,
-            toDate,
-            fields: 'campaign_id,spend,impressions,clicks,ctr,cpc,actions',
-          }),
-        ),
-      );
+      // A Meta pagina insights (25 linhas por página): seguir o cursor `after` até o fim,
+      // senão o total do período cobre só as primeiras 25 campanhas.
+      const fetchAccount = async (a: AdAccountRef) => {
+        const data: Array<Record<string, unknown>> = [];
+        let after: string | undefined;
+        for (let i = 0; i < 50; i++) {
+          const res = await callAds<{ data?: Array<Record<string, unknown>>; paging?: { after?: string } }>(
+            'ads_insights',
+            {
+              accountId: a.accountId,
+              objectId: a.platformAdAccountId,
+              level: 'campaign',
+              fromDate,
+              toDate,
+              fields: 'campaign_id,spend,impressions,clicks,ctr,cpc,actions',
+              ...(after ? { after } : {}),
+            },
+          );
+          const rows = res?.data ?? [];
+          data.push(...rows);
+          const next = res?.paging?.after;
+          if (!next || next === after || rows.length === 0) break;
+          after = next;
+        }
+        return { data };
+      };
+      const results = await Promise.allSettled(supported.map(fetchAccount));
       const byCampaign = new Map<string, PeriodMetrics>();
       const totals: PeriodMetrics = { spend: 0, impressions: 0, clicks: 0, leads: 0 };
       let covered = 0;
