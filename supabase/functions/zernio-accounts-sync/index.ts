@@ -54,6 +54,14 @@ serve(async (req) => {
         .from('social_zernio_accounts')
         .upsert(rows, { onConflict: 'zernio_account_id' });
       if (error) throw error;
+      // Contas que não existem mais no Zernio (ex.: após reconexão) ficam inativas — nunca apagadas.
+      const ids = rows.map((r) => r.zernio_account_id);
+      const { error: deactErr } = await supabase
+        .from('social_zernio_accounts')
+        .update({ active: false })
+        .eq('active', true)
+        .not('zernio_account_id', 'in', `(${ids.map((i) => `"${i}"`).join(',')})`);
+      if (deactErr) console.error('[zernio-accounts-sync] deactivate', deactErr);
     }
 
     return new Response(

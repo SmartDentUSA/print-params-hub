@@ -241,11 +241,17 @@ serve(async (req) => {
   // Carrega contas Zernio uma vez
   const { data: accountsList } = await supabase
     .from('social_zernio_accounts')
-    .select('zernio_account_id, platform, active')
-    .eq('active', true);
+    .select('zernio_account_id, platform, active, handle, last_synced_at')
+    .eq('active', true)
+    .order('last_synced_at', { ascending: false });
 
+  // Prioriza a conta oficial Smart Dent quando há mais de uma conta na mesma rede.
+  const isOfficial = (h: string | null) => /smartdent/i.test((h || '').replace(/[^a-z]/gi, ''));
+  const sortedAccounts = [...(accountsList || [])].sort(
+    (x: any, y: any) => Number(isOfficial(y.handle)) - Number(isOfficial(x.handle)),
+  );
   const accountsByPlatform = new Map<string, string>();
-  for (const a of accountsList || []) {
+  for (const a of sortedAccounts) {
     if (!accountsByPlatform.has(a.platform)) {
       accountsByPlatform.set(a.platform, a.zernio_account_id);
     }
