@@ -167,6 +167,43 @@ async function transcribeViaGemini(
   return out;
 }
 
+/**
+ * Vídeos grandes pela IA da Lovable: o Gemini (via Lovable AI Gateway) lê o
+ * vídeo diretamente de uma URL temporária do Drive — sem créditos Google AI Studio.
+ * Mesmo prompt literal usado antes, para não alterar a qualidade.
+ */
+const LOVABLE_VIDEO_STT_MODEL = "google/gemini-3.8-flash";
+const LITERAL_STT_PROMPT = "Transcreva LITERALMENTE, em português do Brasil, tudo que é falado neste vídeo. "
+  + "Não resuma, não comente, não adicione rótulos de falante nem timestamps. "
+  + "Responda apenas com o texto transcrito.";
+
+async function transcribeViaLovableVideo(driveToken: string, fileId: string): Promise<string> {
+  const key = Deno.env.get("LOVABLE_API_KEY");
+  if (!key) throw new Error("LOVABLE_API_KEY ausente");
+  const url = `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}?alt=media&supportsAllDrives=true&access_token=${encodeURIComponent(driveToken)}`;
+  const res = await fetch(`${GATEWAY}/chat/completions`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: LOVABLE_VIDEO_STT_MODEL,
+      temperature: 0,
+      messages: [{
+        role: "user",
+        content: [
+          { type: "video_url", video_url: { url } },
+          { type: "text", text: LITERAL_STT_PROMPT },
+        ],
+      }],
+    }),
+  });
+  const text = await res.text();
+  if (!res.ok) throw new Error(`Transcrição Lovable AI ${res.status}: ${text.replace(/access_token=[^&"\s]+/g, "access_token=***").slice(0, 400)}`);
+  const json = JSON.parse(text);
+  const out = String(json?.choices?.[0]?.message?.content || "").trim();
+  if (!out) throw new Error("Transcrição vazia (Lovable AI)");
+  return out;
+}
+
 async function transcribeBytes(bytes: Uint8Array, filename: string): Promise<string> {
   const key = Deno.env.get("LOVABLE_API_KEY");
   if (!key) throw new Error("LOVABLE_API_KEY ausente");
@@ -328,8 +365,7 @@ serve(async (req) => {
     if (declaredSize && declaredSize > GATEWAY_STT_MAX_BYTES) {
       // Vídeo grande: faz streaming Drive → Gemini, sem carregar tudo na memória
       // (bufferizar 60 MB+ estoura o limite de recursos do worker).
-      const stream = await driveDownloadStream(token, fileId);
-      raw = await transcribeViaGemini(stream, declaredSize, mime, filename);
+      raw = await transcribeViaLovableVideo(token, fileId);
     } else {
       const bytes = await driveDownloadFile(token, fileId);
       processedBytes = bytes.byteLength;
@@ -339,7 +375,7 @@ serve(async (req) => {
       } catch (e) {
         const m = String((e as Error).message || "");
         if (/\b413\b|too large|entity_too_large/i.test(m)) {
-          raw = await transcribeViaGemini(bytes, bytes.byteLength, mime, filename);
+          raw = await transcribeViaLovableVideo(token, fileId);
         } else throw e;
       }
     }
@@ -418,7 +454,7 @@ serve(async (req) => {
       transcript_revised: String(revision?.transcript_revised || "").trim() || raw,
       transcription_confidence: Number(revision?.confidence ?? 0) || null,
       low_confidence_segments: Array.isArray(revision?.low_confidence) ? revision.low_confidence : [],
-      transcription_model: hash ? STT_MODEL : GEMINI_STT_MODEL,
+      transcription_model: hash ? STT_MODEL : LOVABLE_VIDEO_STT_MODEL,
       transcribed_at: new Date().toISOString(),
       analysis: revision?.analysis ?? null,
       version: (row.version || 1) + (row.transcript_raw ? 1 : 0),
