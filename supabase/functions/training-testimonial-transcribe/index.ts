@@ -19,6 +19,8 @@ import {
   serviceClient, setStatus, sha256Hex, STT_MODEL, TESTIMONIAL_DESTINATION_KEY,
   type ParticipantCandidate,
 } from "../_shared/testimonial-pipeline.ts";
+import { encodeBase64 } from "jsr:@std/encoding@1/base64";
+import { extractAacFromDriveMp4, splitAdts } from "./mp4-audio.ts";
 
 const REVISION_PROMPT = `Você revisa transcrições de depoimentos de alunos de treinamentos odontológicos digitais da Smart Dent.
 
@@ -409,8 +411,8 @@ serve(async (req) => {
     const meta = await driveGetFileMeta(token, fileId).catch(() => null);
     const mime = String(meta?.mimeType || row.mime_type || "video/mp4");
     const declaredSize = Number(meta?.size || row.video_size_bytes || 0);
-    if (declaredSize && declaredSize > MAX_AUDIO_BYTES) {
-      const msg = `Vídeo de ${(declaredSize / 1024 / 1024).toFixed(1)} MB excede o limite de 500 MB da transcrição. Envie uma versão compactada ou apenas o áudio.`;
+    if (declaredSize && declaredSize > MAX_AUDIO_BYTES * 8) {
+      const msg = `Vídeo de ${(declaredSize / 1024 / 1024).toFixed(1)} MB excede o limite de 4 GB da transcrição. Envie uma versão compactada ou apenas o áudio.`;
       await failTestimonial(db, row.id, "transcription", msg, { size_bytes: declaredSize });
       return jsonResponse({ error: msg, testimonial_id: row.id }, 413);
     }
@@ -480,7 +482,7 @@ serve(async (req) => {
       } else {
         await setStatus(db, row.id, "awaiting_identification", {
           transcript_raw: raw,
-          transcription_model: STT_MODEL,
+          transcription_model: declaredSize > GATEWAY_STT_MAX_BYTES ? LOVABLE_VIDEO_STT_MODEL : STT_MODEL,
           transcribed_at: new Date().toISOString(),
           review_notes: spoken
             ? `Nome falado "${spoken}" não casou com nenhum inscrito da turma — selecione o participante.`
