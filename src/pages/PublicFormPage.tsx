@@ -293,7 +293,7 @@ export default function PublicFormPage() {
         .eq("slug", slug)
         .single();
 
-      let formData = directForm;
+      let formData: any = directForm;
       if (!formData) {
         const { data: alias } = await supabase.from("smartops_form_slug_aliases")
           .select("form_id").eq("slug", slug).maybeSingle();
