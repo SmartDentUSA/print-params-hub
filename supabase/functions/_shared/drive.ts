@@ -145,6 +145,19 @@ export async function driveDownloadFile(_token: string, fileId: string): Promise
   return new Uint8Array(await resp.arrayBuffer());
 }
 
+/** Download de um intervalo de bytes [start, end] (inclusivo) de um arquivo do Drive. */
+export async function driveDownloadRange(fileId: string, start: number, end: number): Promise<Uint8Array> {
+  const resp = await fetch(
+    `${GATEWAY_BASE}${DRIVE_PATH}/files/${fileId}?alt=media&supportsAllDrives=true`,
+    { headers: { ...gwHeaders(), Range: `bytes=${start}-${end}` } },
+  );
+  if (!resp.ok) throw new Error(`Drive download ${resp.status}: ${(await resp.text()).slice(0, 200)}`);
+  const buf = new Uint8Array(await resp.arrayBuffer());
+  // Se o servidor ignorar o Range (200 com arquivo inteiro), recorta.
+  if (resp.status === 200 && buf.byteLength > end - start + 1) return buf.slice(start, end + 1);
+  return buf;
+}
+
 /** Download em streaming (não bufferiza) — usado para vídeos grandes. */
 export async function driveDownloadStream(
   _token: string,
