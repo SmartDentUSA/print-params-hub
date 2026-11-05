@@ -18,6 +18,10 @@ import {
   claimDealCreateSlot,
   releaseDealCreateSlot,
   validateCachedDealIsActiveVendas,
+  findReconversionEarlyStageDeals,
+  RECONVERSION_EARLY_STAGE_IDS,
+  STAGE_ESTAGNADOS_RECONVERTEU,
+  LOST_REASON_CONVERTEU_OUTRA_CAMPANHA,
 } from "../_shared/golden-rule-guard.ts";
 import {
   PIPELINES,
@@ -3234,7 +3238,15 @@ Deno.serve(async (req) => {
         console.warn("[lia-assign] referral check before immutability guard failed:", e);
       }
     }
-    if (leadPipelineId === 18784 && !leadDealClosed && lead.piperun_id && !referralBypassesImmutability) {
+    // Reconversão em etapa inicial (Sem contato/C1/C2/C3/SDR) com nova
+    // conversão confirmada → tratada no decision tree (reconversion_early_stage).
+    const reconversionBypassesImmutability =
+      hasExplicitNewConversion &&
+      force_new_deal !== true &&
+      RECONVERSION_EARLY_STAGE_IDS.has(
+        Number((lead as Record<string, unknown>).piperun_stage_id ?? 0),
+      );
+    if (leadPipelineId === 18784 && !leadDealClosed && lead.piperun_id && !referralBypassesImmutability && !reconversionBypassesImmutability) {
       console.log(`[lia-assign] VENDAS_IMMUTABILITY skip — lead ${lead.id} já em 18784 (deal ${lead.piperun_id}, owner=${lead.proprietario_lead_crm})`);
       try {
         await supabase.from("system_health_logs").insert({
@@ -3873,8 +3885,120 @@ Deno.serve(async (req) => {
         }
       }
 
+      // ── EXCEÇÃO AUTORIZADA (nov/2026): RECONVERSÃO EM ETAPA INICIAL ──
+      // Nova conversão real (formulário de produto, indicação, evento, Meta,
+      // simulador WhatsApp) com deal VENDAS aberto em Sem contato/C1/C2/C3/
+      // SDR-Nutrição: cria novo deal VENDAS (vendedor sorteado), move o antigo
+      // para Estagnados › "Leads que converteram em campanhas..." e fecha como
+      // Perdido "Converteu em outra campanha". Novo deal é criado ANTES.
+      let reconversionHandled = false;
+      if (!wonFrozen && !referralHandled) {
+        const earlyDeals = findReconversionEarlyStageDeals(openDeals as never, {
+          newConversionConfirmed: hasExplicitNewConversion,
+          forceNewDeal: force_new_deal === true,
+        });
+        if (earlyDeals.length > 0) {
+          reconversionHandled = true;
+          piperunId = null;
+          flowType = "reconversion_early_stage_new_vendas";
+          const owner = await pickOwnerForNewDeal(supabase, lead as Record<string, unknown>);
+          assignedOwnerId = owner.piperun_owner_id;
+          assignedOwnerName = owner.nome_completo;
+          assignedTeamMemberId = owner.id === "fallback-admin" ? null : owner.id;
+          const claim = await claimDealCreateSlot(
+            supabase, lead.id as string, personId,
+            `reconversion:${String(conversion_key ?? "")}`,
+          );
+          if (!claim.ok) {
+            flowType = "reconversion_lock_held";
+          } else {
+            try {
+              piperunId = await createNewDeal(
+                PIPERUN_API_KEY, personId, companyId, lead as Record<string, unknown>,
+                PIPELINES.VENDAS, STAGES_VENDAS.SEM_CONTATO, assignedOwnerId,
+                customFields, leadEmail, supabase, inputFormResponses,
+              );
+            } finally {
+              await releaseDealCreateSlot(supabase, lead.id as string);
+            }
+          }
+          const closedIds: string[] = [];
+          if (piperunId) {
+            const reasonId = await resolveLostReasonId(PIPERUN_API_KEY, LOST_REASON_CONVERTEU_OUTRA_CAMPANHA);
+            const origem = String(lead.form_name ?? (lead as Record<string, unknown>).campaign_name ?? source ?? "nova conversão");
+            const toClose = [...earlyDeals, ...(estagnDeal ? [estagnDeal] : [])];
+            for (const d of toClose) {
+              try {
+                const prevOwner = PIPERUN_USERS[Number(d.owner_id)]?.name ?? String(d.owner_id ?? "");
+                try {
+                  await addDealNote(
+                    PIPERUN_API_KEY, Number(d.id),
+                    `⚠️ [Dra. L.I.A.] ${prevOwner ? prevOwner + ", o" : "O"} lead converteu novamente em "${origem}". Este negócio foi movido para Estagnados e fechado como Perdido (${LOST_REASON_CONVERTEU_OUTRA_CAMPANHA}). Novo negócio: ${piperunId} (${assignedOwnerName}).`,
+                  );
+                } catch (_) { /* best-effort */ }
+                if (Number(d.pipeline_id) !== PIPELINES.ESTAGNADOS) {
+                  await piperunPut(PIPERUN_API_KEY, `deals/${d.id}`, {
+                    pipeline_id: PIPELINES.ESTAGNADOS,
+                    stage_id: STAGE_ESTAGNADOS_RECONVERTEU,
+                  });
+                }
+                const ok = await closeDealAsLost(
+                  PIPERUN_API_KEY, Number(d.id), reasonId,
+                  `${LOST_REASON_CONVERTEU_OUTRA_CAMPANHA} — novo deal VENDAS ${piperunId} (${assignedOwnerName}) via "${origem}"`,
+                  LOST_REASON_CONVERTEU_OUTRA_CAMPANHA,
+                );
+                if (ok) closedIds.push(String(d.id));
+              } catch (e) {
+                console.warn(`[lia-assign] reconversion: falha ao mover/fechar deal ${d.id}:`, e);
+              }
+            }
+          } else {
+            console.error(`[lia-assign] reconversion: novo deal não criado para lead ${lead.id}; deals antigos preservados`);
+          }
+          try {
+            await supabase.from("lead_activity_log").insert([
+              {
+                lead_id: lead.id,
+                event_type: "deal_reconversion_moved",
+                entity_type: "deal",
+                entity_id: closedIds[0] ?? null,
+                entity_name: "Reconversão: deal inicial movido para Estagnados e perdido",
+                event_data: {
+                  deals_fechados: closedIds,
+                  deals_etapa_inicial: earlyDeals.map((d) => ({ id: String(d.id), stage_id: (d as Record<string, unknown>).stage_id, owner_id: d.owner_id })),
+                  motivo_perda: LOST_REASON_CONVERTEU_OUTRA_CAMPANHA,
+                  conversion_key,
+                  form_name: lead.form_name,
+                  source: lead.source ?? source,
+                },
+                source_channel: "form",
+                event_timestamp: new Date().toISOString(),
+              },
+              {
+                lead_id: lead.id,
+                event_type: "deal_reconversion_created",
+                entity_type: "deal",
+                entity_id: piperunId ? String(piperunId) : null,
+                entity_name: "Reconversão: novo deal Vendas criado",
+                event_data: {
+                  novo_deal_vendas: piperunId,
+                  novo_owner: assignedOwnerName,
+                  novo_owner_id: assignedOwnerId,
+                  conversion_key,
+                  form_name: lead.form_name,
+                  flow: flowType,
+                },
+                source_channel: "form",
+                event_timestamp: new Date().toISOString(),
+              },
+            ]);
+          } catch (_) { /* best-effort */ }
+          vendaDeal = undefined;
+        }
+      }
+
       // ── GOLDEN RULE: Open deal in Vendas → NEVER change owner/stage ──
-      if (wonFrozen || referralHandled) {
+      if (wonFrozen || referralHandled || reconversionHandled) {
         // Já tratado pelos blocos acima. Nada mais a fazer no decision tree.
       } else if (vendaDeal) {
         piperunId = String(vendaDeal.id);
