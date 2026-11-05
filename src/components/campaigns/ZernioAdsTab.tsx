@@ -244,8 +244,9 @@ export default function ZernioAdsTab() {
           { label: 'Impressões', value: fmtInt(totals.impressions) },
           { label: 'Cliques', value: fmtInt(totals.clicks) },
           { label: 'Conversões', value: fmtInt(totals.conversions) },
-          { label: 'Receita', value: fmtMoney(revenueTotal) },
-          { label: 'ROI', value: fmtRoi(revenueTotal, spendTotal) },
+          { label: 'Custo por lead', value: fmtMoney(totals.conversions > 0 ? totals.spend / totals.conversions : undefined) },
+          { label: 'Faturamento (CRM)', value: fmtMoney(revenueTotal) },
+          { label: 'ROI', value: periodByCampaign ? fmtRoi(revenueTotal, totals.spend) : '—' },
         ].map((k) => (
           <Card key={k.label}>
             <CardContent className="py-4">
