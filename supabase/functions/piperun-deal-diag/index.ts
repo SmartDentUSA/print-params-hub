@@ -19,6 +19,13 @@ Deno.serve(async (req) => {
     const q = url.searchParams.get("q");
     return new Response(JSON.stringify(q ? items.filter((x) => String(x.name).includes(q)) : items.map((x) => ({ id: x.id, name: x.name, status: x.status }))), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
+  if (action === "move_reconverteu") {
+    const r = await piperunPut(KEY, `deals/${dealId}`, { pipeline_id: 72938, stage_id: 708585 });
+    await new Promise((res) => setTimeout(res, 800));
+    const after = await piperunGet(KEY, `deals/${dealId}`, {});
+    const d = (after.data as any)?.data || {};
+    return new Response(JSON.stringify({ put_status: r.status, put_excerpt: JSON.stringify(r.data).slice(0, 400), pipeline_id: d.pipeline_id, stage_id: d.stage_id, status: d.status, lost_reason_id: d.lost_reason_id, closed_at: d.closed_at }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+  }
   if (action === "test_put") {
     // Optionally list all custom fields
     if (url.searchParams.get("list") === "1") {
