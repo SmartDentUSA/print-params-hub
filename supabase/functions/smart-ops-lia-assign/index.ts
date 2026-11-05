@@ -1154,6 +1154,8 @@ async function resolveOriginId(apiToken: string, formName: string | null): Promi
 // ─── §4.6 Estagnados → Vendas: Motivo de perda "Novo interesse" ───
 
 const LOST_REASON_NOVO_INTERESSE = "Entrou novamente em contato";
+// Motivo ativo no PipeRun escolhido pelo usuário para reconversão/indicação.
+const LOST_REASON_SOLICITOU_NOVO_CONTATO_ID = 285977;
 const LOST_REASON_INDICACAO = "Teve interesse direto através de formulário de indicação";
 const lostReasonCache = new Map<string, number>();
 
@@ -3855,7 +3857,7 @@ Deno.serve(async (req) => {
           }
           const closedIds: string[] = [];
           if (piperunId) {
-            const reasonId = await resolveLostReasonId(PIPERUN_API_KEY, LOST_REASON_INDICACAO);
+            const reasonId = LOST_REASON_SOLICITOU_NOVO_CONTATO_ID;
             const toClose = [...foreignVendas, ...(estagnDeal ? [estagnDeal] : [])];
             for (const d of toClose) {
               try {
@@ -3941,7 +3943,7 @@ Deno.serve(async (req) => {
           }
           const closedIds: string[] = [];
           if (piperunId) {
-            const reasonId = await resolveLostReasonId(PIPERUN_API_KEY, LOST_REASON_CONVERTEU_OUTRA_CAMPANHA);
+            const reasonId = LOST_REASON_SOLICITOU_NOVO_CONTATO_ID;
             const origem = String(lead.form_name ?? (lead as Record<string, unknown>).campaign_name ?? source ?? "nova conversão");
             const toClose = [...earlyDeals, ...(estagnDeal ? [estagnDeal] : [])];
             for (const d of toClose) {
