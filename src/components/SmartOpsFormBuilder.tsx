@@ -58,8 +58,11 @@ const PURPOSE_CONFIG: Record<string, { label: string; color: string; disabled?: 
 
 // Presentation-only grouping: referral forms retain their saved purpose and CRM behavior.
 const REFERRAL_GROUP = "kol_referral";
+// Presentation-only: WhatsApp group access forms are saved as sdr_captacao (same CRM routing).
+const WA_GROUP_GROUP = "grupo_whatsapp";
 const FORM_LIST_GROUPS = {
   [REFERRAL_GROUP]: { label: "Indicações — Palestrantes (KOLs)", color: "bg-accent text-accent-foreground border-border" },
+  [WA_GROUP_GROUP]: { label: "Acesso a grupos de WhatsApp", color: "bg-emerald-100 text-emerald-800 border-emerald-300" },
   ...PURPOSE_CONFIG,
 };
 
@@ -418,7 +421,9 @@ export function SmartOpsFormBuilder() {
   const getFormListGroup = (form: SmartOpsForm) =>
     kolReferralFormIds.has(form.id) || /^#\s*-\s*indicacao\s*-/i.test(normalizeSearch(form.name))
       ? REFERRAL_GROUP
-      : form.form_purpose;
+      : /^#\s*-\s*grupo whatsapp\s*-/i.test(normalizeSearch(form.name))
+        ? WA_GROUP_GROUP
+        : form.form_purpose;
 
   const matchesSearch = (form: SmartOpsForm) => {
     if (!searchQuery.trim()) return true;
@@ -447,6 +452,22 @@ export function SmartOpsFormBuilder() {
 
   const handleCreate = async () => {
     if (!newName.trim()) return;
+    if (newPurpose === "sdr_captacao" || newPurpose === WA_GROUP_GROUP) {
+      // Sequência padrão de perguntas (exocad DentalCad RMS) clonada no servidor.
+      const { error } = await (supabase as any).rpc("fn_create_form_standard_flow", {
+        p_name: newName.trim(),
+        p_kind: newPurpose,
+      });
+      if (error) {
+        toast.error(`Erro: ${error.message}`);
+        return;
+      }
+      toast.success("Formulário criado com o fluxo padrão de perguntas (inativo até você publicar).");
+      setNewName("");
+      setShowCreate(false);
+      fetchForms();
+      return;
+    }
     const slug = generateSlug(newName);
     const { error } = await supabase.from("smartops_forms" as any).insert({
       name: newName.trim(),
@@ -828,6 +849,25 @@ export function SmartOpsFormBuilder() {
                   </div>
                 </button>
 
+                {/* Tipo: Acesso a grupos de WhatsApp */}
+                <button
+                  className="w-full text-left rounded-lg border-2 border-emerald-300 bg-emerald-50 p-3 hover:bg-emerald-100 transition-colors"
+                  onClick={() => {
+                    setNewPurpose(WA_GROUP_GROUP);
+                    setTimeout(() => nameInputRef.current?.focus(), 50);
+                  }}
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-semibold text-emerald-800 text-sm">Acesso a grupos de WhatsApp</p>
+                      <p className="text-xs text-emerald-700 mt-0.5">Mesmo fluxo de perguntas do exocad RMS; nome "# - GRUPO WHATSAPP - ..."</p>
+                    </div>
+                    {newPurpose === WA_GROUP_GROUP && (
+                      <span className="text-xs bg-emerald-600 text-white px-2 py-0.5 rounded">Selecionado</span>
+                    )}
+                  </div>
+                </button>
+
                 {/* Tipo: Feiras e eventos (habilitado) */}
                 <button
                   className="w-full text-left rounded-lg border-2 border-amber-300 bg-amber-50 p-3 hover:bg-amber-100 transition-colors"
@@ -895,7 +935,7 @@ export function SmartOpsFormBuilder() {
                 <hr className="my-1" />
                 <div className="space-y-2">
                   <p className="text-xs text-slate-600">
-                    {newPurpose === "sdr_captacao" || newPurpose === "feira_evento" || newPurpose === "credenciamento"
+                    {newPurpose === "sdr_captacao" || newPurpose === WA_GROUP_GROUP || newPurpose === "feira_evento" || newPurpose === "credenciamento"
                       ? "Digite um nome interno e clique em Criar."
                       : "Selecione um tipo acima para continuar."}
                   </p>
@@ -910,7 +950,7 @@ export function SmartOpsFormBuilder() {
                     onClick={handleCreate}
                     className="w-full"
                     disabled={
-                      (newPurpose !== "sdr_captacao" && newPurpose !== "feira_evento" && newPurpose !== "credenciamento") ||
+                      (newPurpose !== "sdr_captacao" && newPurpose !== WA_GROUP_GROUP && newPurpose !== "feira_evento" && newPurpose !== "credenciamento") ||
                       !newName.trim()
                     }
                   >
@@ -918,6 +958,8 @@ export function SmartOpsFormBuilder() {
                       ? "Criar formulário Feiras e eventos"
                       : newPurpose === "credenciamento"
                         ? "Criar formulário de Credenciamento"
+                        : newPurpose === WA_GROUP_GROUP
+                        ? "Criar formulário de Acesso a grupos de WhatsApp"
                         : "Criar formulário SDR — Captação"}
                   </Button>
                 </div>
