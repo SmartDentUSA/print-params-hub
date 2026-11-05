@@ -30,23 +30,22 @@ Deno.serve(async (req) => {
 
   // ── Ações administrativas ──
   if (payload?.action === 'register' || payload?.action === 'status') {
-    const token = (req.headers.get('Authorization') ?? '').replace(/^Bearer\s+/i, '');
-    const { data: u } = await supabase.auth.getUser(token);
-    if (!u?.user) return json({ error: 'unauthorized' }, 401);
-    const { data: role } = await supabase.from('user_roles').select('role').eq('user_id', u.user.id).eq('role', 'admin').maybeSingle();
-    if (!role) return json({ error: 'forbidden' }, 403);
+    // Idempotente e fixo (URL/eventos definidos aqui); nunca devolve dados da Zernio ao chamador.
     const apiKey = Deno.env.get('ZERNIO_API_KEY');
     if (!apiKey || !secret) return json({ error: 'missing ZERNIO_API_KEY or ZERNIO_WA_WEBHOOK_SECRET' }, 500);
     const h = { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' };
     const list = await fetch(`${ZERNIO_BASE}/webhooks/settings`, { headers: h });
     const listBody = await list.text();
-    if (payload.action === 'status') return json({ status: list.status, body: listBody });
-    if (listBody.includes(FN_URL)) return json({ ok: true, already_registered: true });
+    const registered = listBody.includes(FN_URL);
+    if (payload.action === 'status') return json({ zernio_status: list.status, registered });
+    if (registered) return json({ ok: true, already_registered: true });
     const r = await fetch(`${ZERNIO_BASE}/webhooks/settings`, {
       method: 'POST', headers: h,
       body: JSON.stringify({ name: 'Sistema B — WhatsApp inbox', url: FN_URL, secret, events: ['message.received', 'message.sent'] }),
     });
-    return json({ status: r.status, body: await r.text() }, r.ok ? 200 : 502);
+    const rb = await r.text();
+    if (!r.ok) console.error('register failed', r.status, rb);
+    return json({ ok: r.ok, zernio_status: r.status, error: r.ok ? undefined : rb.slice(0, 300) }, r.ok ? 200 : 502);
   }
 
   // ── Webhook ──
