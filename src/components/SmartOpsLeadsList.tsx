@@ -517,7 +517,7 @@ function LeadRow({ lead, active, onClick, nps, captureEvents, crm }: { lead: Lea
               ["Funil", lead.piperun_pipeline_name || "—"],
               ["Etapa", lead.piperun_stage_name || "—"],
               ["Deals", `CS ${crm?.cs ?? 0}  ·  Comercial ${crm?.comercial ?? 0}  ·  Estagnados ${crm?.estagnados ?? 0}`],
-              ["Data 1ª conv.", fmt(anyL.created_at)],
+              ["Data 1ª conv.", fmt([anyL.data_primeiro_contato, anyL.piperun_created_at, crm?.firstDealAt, anyL.created_at].filter(Boolean).sort()[0] as string | undefined)],
               ["1º cadastro CRM", fmt(firstCrm)],
               ...(crm?.firstWonAt ? [["Ganho", `${fmt(crm.firstWonAt)}${days !== null ? ` · ${days} dias para fechar` : ""}`]] : []),
               ["Origem 1ª conv.", anyL.origem_primeiro_contato || "—"],
