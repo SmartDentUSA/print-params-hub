@@ -85,6 +85,15 @@ Deno.serve(async (req) => {
     }
 
     // ---- modo diagnóstico: lê a automação e os logs na Zernio
+    // liga/desliga ou ajusta modo de correspondência de uma automação (somente esses campos)
+    if (body?.patch_automation_id) {
+      const patch: Record<string, unknown> = {};
+      if (typeof body.isActive === "boolean") patch.isActive = body.isActive;
+      if (body.matchMode === "exact" || body.matchMode === "contains") patch.matchMode = body.matchMode;
+      const r = await zernioCall(zernioKey, `${ZERNIO_BASE}/${String(body.patch_automation_id)}`, "PATCH", patch);
+      return new Response(JSON.stringify(r), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
     if (body?.inspect_automation_id) {
       const id = String(body.inspect_automation_id);
       const h = { Authorization: `Bearer ${zernioKey}` };
