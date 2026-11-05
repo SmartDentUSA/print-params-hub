@@ -89,6 +89,39 @@ export function assertCanCreateNewDeal(
   return { allowed: true, reason: "no_blocking_deal_found" };
 }
 
+// ─── Exceção autorizada (nov/2026): reconversão em etapa inicial ───────────
+// Nova conversão REAL (conversion_key confirmada) de lead com deal VENDAS
+// aberto em Sem contato / C1 / C2 / C3 / SDR-Nutrição → deal antigo vai para
+// Estagnados ("Leads que converteram em campanhas...") e é fechado como
+// Perdido "Converteu em outra campanha"; novo deal VENDAS é criado.
+// Etapas avançadas, ganhos e CS nunca entram aqui.
+export const RECONVERSION_EARLY_STAGE_IDS = new Set<number>([
+  99293, // Sem contato
+  99294, // C1
+  675815, // C2
+  675813, // C3
+  379942, // SDR / Nutrição
+]);
+export const STAGE_ESTAGNADOS_RECONVERTEU = 708585;
+export const LOST_REASON_CONVERTEU_OUTRA_CAMPANHA = "Converteu em outra campanha";
+
+export interface ReconversionDeal extends GoldenRuleDeal {
+  stage_id?: number | string | null;
+}
+
+export function findReconversionEarlyStageDeals(
+  openDeals: ReconversionDeal[],
+  opts: { newConversionConfirmed: boolean; forceNewDeal?: boolean },
+): ReconversionDeal[] {
+  if (!opts.newConversionConfirmed || opts.forceNewDeal === true) return [];
+  const vendas = openDeals.filter(
+    (d) => Number(d.pipeline_id) === PIPELINE_VENDAS && Number(d.status) === 0 && !d.freezed,
+  );
+  // Se QUALQUER deal VENDAS aberto estiver em etapa avançada, preserva tudo.
+  if (vendas.some((d) => !RECONVERSION_EARLY_STAGE_IDS.has(Number(d.stage_id)))) return [];
+  return vendas;
+}
+
 // ─── Trava atômica DB-level — pré-createNewDeal (defense-in-depth) ──────────
 // Impede que duas execuções concorrentes do lia-assign para o mesmo lead
 // criem deals duplicados. Implementação: INSERT ON CONFLICT em

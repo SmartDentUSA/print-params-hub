@@ -266,6 +266,8 @@ Uso: substituir leituras diretas de lia_attendances no WorkflowPortfolio.tsx
 ### Golden Rule (NÃO violar)
 Se existe um deal **aberto no pipeline de VENDAS** no PipeRun → **NUNCA** sobrescrever `owner_id` nem `stage_id`.
 
+**Exceção (nov/2026) — reconversão em etapa inicial:** nova conversão confirmada (formulário de produto, indicação, evento, Meta, simulador WhatsApp) com deal VENDAS aberto em Sem contato/C1/C2/C3/SDR-Nutrição → cria novo deal VENDAS (vendedor sorteado; consultor de evento/vendedor fixo de indicação têm prioridade), move o antigo para Estagnados etapa 708585 e fecha como Perdido "Converteu em outra campanha". Etapas avançadas, ganhos e CS intocados. Código: `findReconversionEarlyStageDeals` em `_shared/golden-rule-guard.ts`.
+
 ### Governança do Catálogo de Produtos (NÃO violar)
 
 `system_a_catalog` é uma tabela universal e contém produtos e entidades que **não são produtos**.
