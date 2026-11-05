@@ -3865,7 +3865,7 @@ Deno.serve(async (req) => {
                 if (Number(d.pipeline_id) !== PIPELINES.ESTAGNADOS) {
                   await piperunPut(PIPERUN_API_KEY, `deals/${d.id}`, {
                     pipeline_id: PIPELINES.ESTAGNADOS,
-                    stage_id: STAGES_ESTAGNADOS.ETAPA_00_NOVOS,
+                    stage_id: STAGE_ESTAGNADOS_RECONVERTEU,
                   });
                 }
                 const ok = await closeDealAsLost(
