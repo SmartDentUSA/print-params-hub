@@ -177,13 +177,6 @@ export default function ZernioAdsTab() {
     return sum;
   }, [filtered, revenueByCampaign, revenueQ.data, search]);
 
-  const spendTotal = useMemo(() => {
-    let sum = 0;
-    for (const c of filtered) sum += spendOf(c) ?? 0;
-    return sum;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filtered, periodByCampaign, periodQ.data]);
-
   const loading = campaignsQ.isLoading || adsQ.isLoading || periodQ.isLoading;
   const err = (campaignsQ.error ?? adsQ.error) as Error | null;
 
@@ -238,12 +231,12 @@ export default function ZernioAdsTab() {
         </Card>
       )}
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-7">
         {[
           { label: 'Investimento', value: fmtMoney(totals.spend) },
           { label: 'Impressões', value: fmtInt(totals.impressions) },
           { label: 'Cliques', value: fmtInt(totals.clicks) },
-          { label: 'Conversões', value: fmtInt(totals.conversions) },
+          { label: 'Leads', value: fmtInt(totals.conversions) },
           { label: 'Custo por lead', value: fmtMoney(totals.conversions > 0 ? totals.spend / totals.conversions : undefined) },
           { label: 'Faturamento (CRM)', value: fmtMoney(revenueTotal) },
           { label: 'ROI', value: periodByCampaign ? fmtRoi(revenueTotal, totals.spend) : '—' },
