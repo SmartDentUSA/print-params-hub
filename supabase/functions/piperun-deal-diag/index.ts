@@ -16,7 +16,8 @@ Deno.serve(async (req) => {
   if (action === "lost_reasons") {
     const r = await piperunGet(KEY, "lostReasons", { show: 200 });
     const items = ((r.data as any)?.data as Array<Record<string, unknown>>) || [];
-    return new Response(JSON.stringify(items.map((x) => ({ id: x.id, name: x.name, status: x.status }))), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    const q = url.searchParams.get("q");
+    return new Response(JSON.stringify(q ? items.filter((x) => String(x.name).includes(q)) : items.map((x) => ({ id: x.id, name: x.name, status: x.status }))), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
   if (action === "test_put") {
     // Optionally list all custom fields
