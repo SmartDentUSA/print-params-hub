@@ -10845,6 +10845,42 @@ export type Database = {
           },
         ]
       }
+      lead_merge_audit: {
+        Row: {
+          batch: string
+          canonical_id: string
+          created_at: string
+          dup_id: string
+          id: string
+          reason: string
+          relinked: Json
+          skipped: Json
+          status: string
+        }
+        Insert: {
+          batch: string
+          canonical_id: string
+          created_at?: string
+          dup_id: string
+          id?: string
+          reason: string
+          relinked?: Json
+          skipped?: Json
+          status?: string
+        }
+        Update: {
+          batch?: string
+          canonical_id?: string
+          created_at?: string
+          dup_id?: string
+          id?: string
+          reason?: string
+          relinked?: Json
+          skipped?: Json
+          status?: string
+        }
+        Relationships: []
+      }
       lead_opportunities: {
         Row: {
           competitor_product: string | null
@@ -38246,6 +38282,10 @@ export type Database = {
           sequence_id: string
           was_active: boolean
         }[]
+      }
+      fn_merge_lead_into: {
+        Args: { p_canon: string; p_dup: string }
+        Returns: Json
       }
       fn_mix_produtos: {
         Args: { p_fim?: string; p_inicio?: string }
