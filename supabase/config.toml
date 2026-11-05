@@ -721,3 +721,6 @@ verify_jwt = false
 
 [functions.zernio-comment-timeline-sync]
 verify_jwt = false
+
+[functions.zernio-whatsapp-inbox]
+verify_jwt = false
