@@ -1204,9 +1204,9 @@ async function resolveLostReasonId(
 }
 
 /**
- * Fecha um deal como "Perdido" (status=2) com motivo informado.
- * `status: 2` = perdida — validado empiricamente contra DEAL_STATUS_MAP
- * desta conta (a doc pública cita 3, mas 2 é o valor que persiste no UI).
+ * Fecha um deal como "Perdido" (status=3) com motivo informado.
+ * Validado em 05/11/2026 (deal 64977196): status 2 deixa lost_reason_id e
+ * closed_at nulos; status 3 grava motivo e data de fechamento.
  */
 async function closeDealAsLost(
   apiToken: string,
