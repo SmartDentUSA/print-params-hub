@@ -128,7 +128,7 @@ Deno.serve(async (req) => {
       if (groups.size > 400) return json({ error: `Combinação de variáveis gera ${groups.size} envios distintos (máx. 400). Use campos com menos variação.` }, 400);
 
       const { data: camp } = await admin.from('campaigns').insert({
-        nome: name, descricao: description ?? null, canal: 'whatsapp_oficial', status: 'enviando',
+        nome: name, descricao: description ?? null, canal: 'whatsapp_oficial', status: 'sending',
         mensagem_template: `template:${templateName}`, total_leads: valid.length, started_at: new Date().toISOString(),
         created_by: u.user.id,
       }).select('id').maybeSingle();
@@ -165,7 +165,7 @@ Deno.serve(async (req) => {
           const text = g.values.length ? `template:${templateName} | ${g.values.join(' | ')}` : `template:${templateName}`;
           for (let i = 0; i < g.leads.length; i += 500) {
             await admin.from('campaign_send_log').insert(g.leads.slice(i, i + 500).map((l) => ({
-              campaign_id: session.id, lead_id: l.id, nome: l.nome, telefone: l.phone,
+              campaign_id: session.id, source_campaign_id: camp?.id ?? null, lead_id: l.id, nome: l.nome, telefone: l.phone,
               status: 'sent', sent_at: now, provider: 'zernio_cloud_api', provider_message_id: bid, content_sent: text,
             })));
           }
@@ -173,7 +173,7 @@ Deno.serve(async (req) => {
           failedGroups++;
           console.error('[zernio-wa-broadcast] grupo falhou', e);
           await admin.from('campaign_send_log').insert(g.leads.map((l) => ({
-            campaign_id: session.id, lead_id: l.id, nome: l.nome, telefone: l.phone,
+            campaign_id: session.id, source_campaign_id: camp?.id ?? null, lead_id: l.id, nome: l.nome, telefone: l.phone,
             status: 'failed', provider: 'zernio_cloud_api', error_message: String((e as Error).message).slice(0, 500),
             content_sent: `template:${templateName}`,
           })));
@@ -185,7 +185,7 @@ Deno.serve(async (req) => {
         results: { provider: 'zernio_cloud_api', account_id: accountId, template: templateName, language, variable_map: vmap,
           campaign_id: camp?.id ?? null, broadcast_id: broadcasts[0] ?? null, broadcast_ids: broadcasts, added, skipped, failed_groups: failedGroups },
       }).eq('id', session.id);
-      if (camp?.id) await admin.from('campaigns').update({ total_sent: added, total_failed: skipped, status: broadcasts.length ? 'enviada' : 'falhou' }).eq('id', camp.id);
+      if (camp?.id) await admin.from('campaigns').update({ total_sent: added, total_failed: skipped, status: broadcasts.length ? (failedGroups ? 'completed_with_errors' : 'completed') : 'failed' }).eq('id', camp.id);
       if (!broadcasts.length) return json({ error: 'Nenhum envio foi aceito pela Zernio' }, 502);
       return json({ ok: true, campaign_id: session.id, broadcasts: broadcasts.length, added, skipped, total: valid.length, failed_groups: failedGroups });
     }
