@@ -1154,6 +1154,8 @@ async function resolveOriginId(apiToken: string, formName: string | null): Promi
 // ─── §4.6 Estagnados → Vendas: Motivo de perda "Novo interesse" ───
 
 const LOST_REASON_NOVO_INTERESSE = "Entrou novamente em contato";
+// Motivo ativo no PipeRun escolhido pelo usuário para reconversão/indicação.
+const LOST_REASON_SOLICITOU_NOVO_CONTATO_ID = 285977;
 const LOST_REASON_INDICACAO = "Teve interesse direto através de formulário de indicação";
 const lostReasonCache = new Map<string, number>();
 
@@ -1202,9 +1204,9 @@ async function resolveLostReasonId(
 }
 
 /**
- * Fecha um deal como "Perdido" (status=2) com motivo informado.
- * `status: 2` = perdida — validado empiricamente contra DEAL_STATUS_MAP
- * desta conta (a doc pública cita 3, mas 2 é o valor que persiste no UI).
+ * Fecha um deal como "Perdido" (status=3) com motivo informado.
+ * Validado em 05/11/2026 (deal 64977196): status 2 deixa lost_reason_id e
+ * closed_at nulos; status 3 grava motivo e data de fechamento.
  */
 async function closeDealAsLost(
   apiToken: string,
@@ -1213,8 +1215,9 @@ async function closeDealAsLost(
   reasonComment: string,
   reasonLabel: string = LOST_REASON_NOVO_INTERESSE,
 ): Promise<boolean> {
+  // PipeRun: 3 = Perdida (2 não grava motivo nem data de fechamento).
   const payload: Record<string, unknown> = {
-    status: 2,
+    status: 3,
     reason_close: reasonComment,
     closed_at: new Date().toISOString().slice(0, 19).replace("T", " "),
   };
@@ -3855,7 +3858,7 @@ Deno.serve(async (req) => {
           }
           const closedIds: string[] = [];
           if (piperunId) {
-            const reasonId = await resolveLostReasonId(PIPERUN_API_KEY, LOST_REASON_INDICACAO);
+            const reasonId = LOST_REASON_SOLICITOU_NOVO_CONTATO_ID;
             const toClose = [...foreignVendas, ...(estagnDeal ? [estagnDeal] : [])];
             for (const d of toClose) {
               try {
@@ -3941,7 +3944,7 @@ Deno.serve(async (req) => {
           }
           const closedIds: string[] = [];
           if (piperunId) {
-            const reasonId = await resolveLostReasonId(PIPERUN_API_KEY, LOST_REASON_CONVERTEU_OUTRA_CAMPANHA);
+            const reasonId = LOST_REASON_SOLICITOU_NOVO_CONTATO_ID;
             const origem = String(lead.form_name ?? (lead as Record<string, unknown>).campaign_name ?? source ?? "nova conversão");
             const toClose = [...earlyDeals, ...(estagnDeal ? [estagnDeal] : [])];
             for (const d of toClose) {

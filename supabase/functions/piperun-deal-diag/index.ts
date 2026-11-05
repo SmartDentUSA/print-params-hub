@@ -13,6 +13,12 @@ Deno.serve(async (req) => {
   const action = url.searchParams.get("action") || "read";
   const out: Record<string, unknown> = {};
 
+  if (action === "lost_reasons") {
+    const r = await piperunGet(KEY, "lostReasons", { show: 200 });
+    const items = ((r.data as any)?.data as Array<Record<string, unknown>>) || [];
+    const q = url.searchParams.get("q");
+    return new Response(JSON.stringify(q ? items.filter((x) => String(x.name).includes(q)) : items.map((x) => ({ id: x.id, name: x.name, status: x.status }))), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+  }
   if (action === "test_put") {
     // Optionally list all custom fields
     if (url.searchParams.get("list") === "1") {
