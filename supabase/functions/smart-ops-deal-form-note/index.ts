@@ -1,5 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { addDealNote } from "../_shared/piperun-field-map.ts";
+import { addDealNote, mapAttendanceToDealCustomFields, customFieldsToDealPayload, piperunPut } from "../_shared/piperun-field-map.ts";
 import { buildSellerDealSummaryHTML } from "../_shared/seller-summary.ts";
 import { claimSellerNoteSlot, releaseSellerNoteSlot } from "../_shared/seller-note-lock.ts";
 const corsHeaders = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version", "Access-Control-Allow-Methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS" };
@@ -79,6 +79,25 @@ Deno.serve(async (req) => {
       .eq("id", lead_id)
       .is("merged_into", null)
       .single();
+
+    // Sync form answers into the Deal custom fields (only custom_fields —
+    // never owner, stage, pipeline or origin, preserving the Golden Rule).
+    // Without this, answers arriving after deal creation only reached the note.
+    if (fullLead) {
+      try {
+        const cfs = mapAttendanceToDealCustomFields(fullLead as Record<string, unknown>);
+        const cfPayload = customFieldsToDealPayload(cfs);
+        if (cfPayload.length > 0) {
+          const r = await piperunPut(PIPERUN_API_KEY, `deals/${dealId}`, { custom_fields: cfPayload });
+          console.log(`[deal-form-note] Deal ${dealId} custom fields update: ${r.success} (${r.status})`);
+          if (r.success) {
+            await supabase.from("lia_attendances").update({ piperun_custom_fields: cfs }).eq("id", lead_id);
+          }
+        }
+      } catch (e) {
+        console.warn("[deal-form-note] custom fields update failed:", e);
+      }
+    }
 
     let noteText: string;
     let hash: string | null = null;
