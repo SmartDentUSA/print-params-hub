@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import ZernioAdsTab from "@/components/campaigns/ZernioAdsTab";
 import { PushAppTab } from "@/components/campaigns/PushAppTab";
-import WhatsAppOfficialBroadcastTab from "@/components/campaigns/WhatsAppOfficialBroadcastTab";
+import WhatsAppTemplateMapper, { callWaBroadcast, type WaAccount } from "@/components/campaigns/WhatsAppTemplateMapper";
 import EmailFlowsTab from "@/components/campaigns/emailflows/EmailFlowsTab";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -145,6 +145,7 @@ interface DraftCampaign {
 
 // ── Helpers ──
 const channelColors: Record<string, string> = {
+  whatsapp_oficial: "bg-green-100 text-green-800 border-green-300",
   whatsapp: "bg-green-100 text-green-800 border-green-300",
   instagram: "bg-pink-100 text-pink-800 border-pink-300",
   tiktok: "bg-slate-100 text-slate-800 border-slate-300",
@@ -455,6 +456,8 @@ function CreateCampaign({
   onDraftConsumed?: () => void;
 }) {
   const [step, setStep] = useState(1);
+  const [waAccounts, setWaAccounts] = useState<WaAccount[]>([]);
+  const [waAccountId, setWaAccountId] = useState("");
   const [creating, setCreating] = useState(false);
 
   // Step 1
@@ -869,6 +872,31 @@ function CreateCampaign({
     onDraftConsumed?.();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [resumeDraft?.id]);
+
+  useEffect(() => {
+    if (sendChannel !== "whatsapp_oficial" || waAccounts.length) return;
+    callWaBroadcast({ action: "accounts" }).then((d) => {
+      const list: WaAccount[] = d.accounts ?? [];
+      setWaAccounts(list);
+      if (list.length === 1) setWaAccountId(list[0].accountId);
+    }).catch((e) => toast.error(`Números WhatsApp oficial: ${e.message}`));
+  }, [sendChannel]);
+
+  const resolveWaLeadIds = async (): Promise<string[]> => {
+    const filters = buildFiltersObject();
+    const ids: string[] = [];
+    for (let from = 0; from < 10000; from += 1000) {
+      const { data, error } = await (applyFiltersToQuery(
+        supabase.from("lia_attendances").select("id").is("merged_into", null)
+          .not("telefone_normalized", "is", null) as any,
+        filters,
+      ) as any).order("id").range(from, from + 999);
+      if (error) throw new Error(error.message);
+      ids.push(...((data ?? []) as any[]).map((r) => r.id));
+      if (!data || data.length < 1000) break;
+    }
+    return ids;
+  };
 
   // Fetch DisparoPro balance when SMS channel is selected
   useEffect(() => {
@@ -1289,6 +1317,7 @@ function CreateCampaign({
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="evolution">WhatsApp (Evolution)</SelectItem>
+                    <SelectItem value="whatsapp_oficial">WhatsApp Oficial (API Meta)</SelectItem>
                     <SelectItem value="sms">📱 SMS (DisparoPro)</SelectItem>
                     <SelectItem value="email">📧 Email (Gmail)</SelectItem>
                     <SelectItem value="registro">Apenas registrar</SelectItem>
@@ -1296,6 +1325,26 @@ function CreateCampaign({
                 </Select>
               </div>
             </div>
+            {sendChannel === "whatsapp_oficial" && (
+              <div>
+                <label className="text-sm font-medium flex items-center gap-1.5">
+                  <Smartphone className="w-3.5 h-3.5" /> Número oficial *
+                </label>
+                <Select value={waAccountId} onValueChange={setWaAccountId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder={waAccounts.length ? "Selecione o número" : "Carregando números..."} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {waAccounts.map(a => (
+                      <SelectItem key={a.accountId} value={a.accountId}>
+                        {a.name ?? a.accountId}{a.phone ? ` — ${a.phone}` : ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground mt-1">Envia somente templates aprovados pela Meta (escolhidos na etapa 3).</p>
+              </div>
+            )}
             {sendChannel === "evolution" && (
               <div>
                 <label className="text-sm font-medium flex items-center gap-1.5">
@@ -1961,7 +2010,18 @@ function CreateCampaign({
       )}
 
       {/* Step 3 */}
-      {step === 3 && (
+      {step === 3 && sendChannel === "whatsapp_oficial" && (
+        <WhatsAppTemplateMapper
+          account={waAccounts.find((a) => a.accountId === waAccountId)}
+          campaignName={campaignName}
+          description={campaignDesc}
+          audienceCount={leadCount ?? 0}
+          resolveLeadIds={resolveWaLeadIds}
+          onBack={() => setStep(2)}
+          onSent={() => setStep(1)}
+        />
+      )}
+      {step === 3 && sendChannel !== "whatsapp_oficial" && (
         sendChannel === "email" ? (
           <div className="space-y-4">
             <div className="flex justify-between">
@@ -2798,7 +2858,6 @@ export function SmartOpsCampaigns() {
           <TabsTrigger value="criar">Criar Campanha</TabsTrigger>
           <TabsTrigger value="rascunhos">Rascunhos</TabsTrigger>
           <TabsTrigger value="historico">Histórico</TabsTrigger>
-          <TabsTrigger value="wa-oficial">Disparo em massa WhatsApp Oficial</TabsTrigger>
           <TabsTrigger value="grupos-wa">Grupos WA</TabsTrigger>
           <TabsTrigger value="formularios-meta">Origens</TabsTrigger>
           <TabsTrigger value="anuncios">Anúncios</TabsTrigger>
@@ -2809,9 +2868,6 @@ export function SmartOpsCampaigns() {
 
         <TabsContent value="biblioteca">
           <ContentLibrary onSelectContent={handleSelectContent} />
-        </TabsContent>
-        <TabsContent value="wa-oficial">
-          <WhatsAppOfficialBroadcastTab />
         </TabsContent>
         <TabsContent value="criar">
           <CreateCampaign
