@@ -718,3 +718,6 @@ verify_jwt = false
 
 [functions.distribuicao-crm-sync]
 verify_jwt = false
+
+[functions.zernio-comment-timeline-sync]
+verify_jwt = false
