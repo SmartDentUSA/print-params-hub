@@ -1215,8 +1215,9 @@ async function closeDealAsLost(
   reasonComment: string,
   reasonLabel: string = LOST_REASON_NOVO_INTERESSE,
 ): Promise<boolean> {
+  // PipeRun: 3 = Perdida (2 não grava motivo nem data de fechamento).
   const payload: Record<string, unknown> = {
-    status: 2,
+    status: 3,
     reason_close: reasonComment,
     closed_at: new Date().toISOString().slice(0, 19).replace("T", " "),
   };

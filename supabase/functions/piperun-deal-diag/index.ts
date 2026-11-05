@@ -13,11 +13,6 @@ Deno.serve(async (req) => {
   const action = url.searchParams.get("action") || "read";
   const out: Record<string, unknown> = {};
 
-  if (action === "set_lost_reason" && dealId === "64977196") {
-    await piperunPut(KEY, `deals/${dealId}`, { status: 0 });
-    const r = await piperunPut(KEY, `deals/${dealId}`, { status: Number(url.searchParams.get("st") || 2), lost_reason_id: 285977, reason_close: "Solicitou novo contato através de formulários — novo deal VENDAS 65528480", closed_at: new Date().toISOString().slice(0, 19).replace("T", " ") });
-    return new Response(JSON.stringify({ status: r.status, success: r.success }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
-  }
   if (action === "lost_reasons") {
     const r = await piperunGet(KEY, "lostReasons", { show: 200 });
     const items = ((r.data as any)?.data as Array<Record<string, unknown>>) || [];
