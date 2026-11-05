@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import ZernioAdsTab from "@/components/campaigns/ZernioAdsTab";
 import { PushAppTab } from "@/components/campaigns/PushAppTab";
+import WhatsAppOfficialBroadcastTab from "@/components/campaigns/WhatsAppOfficialBroadcastTab";
 import EmailFlowsTab from "@/components/campaigns/emailflows/EmailFlowsTab";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -2797,6 +2798,7 @@ export function SmartOpsCampaigns() {
           <TabsTrigger value="criar">Criar Campanha</TabsTrigger>
           <TabsTrigger value="rascunhos">Rascunhos</TabsTrigger>
           <TabsTrigger value="historico">Histórico</TabsTrigger>
+          <TabsTrigger value="wa-oficial">Disparo em massa WhatsApp Oficial</TabsTrigger>
           <TabsTrigger value="grupos-wa">Grupos WA</TabsTrigger>
           <TabsTrigger value="formularios-meta">Origens</TabsTrigger>
           <TabsTrigger value="anuncios">Anúncios</TabsTrigger>
@@ -2807,6 +2809,9 @@ export function SmartOpsCampaigns() {
 
         <TabsContent value="biblioteca">
           <ContentLibrary onSelectContent={handleSelectContent} />
+        </TabsContent>
+        <TabsContent value="wa-oficial">
+          <WhatsAppOfficialBroadcastTab />
         </TabsContent>
         <TabsContent value="criar">
           <CreateCampaign
