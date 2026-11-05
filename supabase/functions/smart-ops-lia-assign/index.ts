@@ -3599,7 +3599,8 @@ Deno.serve(async (req) => {
       if (dealsFetchedOk && lead.piperun_id && !allDeals.some((d) => String(d.id) === String(lead.piperun_id))) {
         try {
           const cached = await piperunGet(PIPERUN_API_KEY, `deals/${lead.piperun_id}`);
-          const cd = (cached as any)?.data ?? (cached as any);
+          const body = (cached as any)?.success ? (cached as any).data : null;
+          const cd = body?.data ?? body;
           if (cd?.id && Number(cd.status) === 0) {
             allDeals.push(cd);
             console.log(`[lia-assign] cached deal ${cd.id} (person ${cd.person_id}) incluído nos deals abertos`);
