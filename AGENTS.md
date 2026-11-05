@@ -30,6 +30,7 @@
 - Email sequence automations (email_flows) run through one bounded, locked runner with per-enrollment idempotent progress and DB-trigger enrollment for system events; this keeps limits, priority and exit rules in one place.
 - Email audience and content graphs are presentation layers over the existing rule definitions and content IDs; retain runner-compatible payloads and persist graph positions/selections without introducing executable node types.
 - PipeRun deal value in `deals.value` is P&S plus MRR (both kept in `value_ps`/`value_mrr`); subscription-style sales booked only as MRR would otherwise count as zero revenue.
+- A confirmed new conversion (conversion_key) on a lead whose open Vendas deals are all in Sem contato/C1/C2/C3/SDR creates a new Vendas deal with a drawn seller, then moves the old one to Estagnados stage 708585 and closes it lost "Converteu em outra campanha"; advanced stages, won and CS deals stay untouched so early leads are not stuck under the Golden Rule.
 - Proposal item failures never block saving; avoids hidden deals.
 - Event cards and timelines use immutable submission activity, not the latest lead event snapshot; repeat visitors count in every event and refresh CRM summaries without changing Deals.
 
