@@ -7,7 +7,7 @@ const corsHeaders = {
 };
 
 const PROFILE_ID = "6a1e1a2368fd70c014724ef0";
-const ACCOUNT_ID = "6a1e1b992b2567671a925559";
+const ACCOUNT_ID = "6aeb13723e35d4bb52691137";
 const ZERNIO_BASE = "https://zernio.com/api/v1/comment-automations";
 
 // A Zernio envia o texto literal: nenhum {{placeholder}} é interpolado.

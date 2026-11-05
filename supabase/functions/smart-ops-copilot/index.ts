@@ -3125,7 +3125,7 @@ async function provisionZernioComment(flow: any): Promise<{ ok: boolean; zernio_
       headers: { Authorization: `Bearer ${zernioKey}`, "Content-Type": "application/json" },
       body: JSON.stringify({
         profileId: "6a1e1a2368fd70c014724ef0",
-        accountId: "6a1e1b992b2567671a925559",
+        accountId: "6aeb13723e35d4bb52691137",
         name: flow.name,
         keywords,
         matchMode: "contains",
