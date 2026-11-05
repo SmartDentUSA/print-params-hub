@@ -108,6 +108,33 @@ Deno.serve(async (req) => {
     remote_jid: `${contactPhone}@s.whatsapp.net`,
   });
   if (error) { console.error('insert failed', error); return json({ error: error.message }, 500); }
+
+  // ── Contatos (tela Social > Contatos): upsert em tempo real, sem depender do sync de 30 min ──
+  try {
+    const seenAt = msg.sentAt ?? payload.timestamp ?? new Date().toISOString();
+    const senderName = inbound ? (msg.sender?.name ?? conv.participantName ?? null) : null;
+    const { data: existing } = await supabase.from('social_contacts').select('ig_user_id, lead_id')
+      .eq('channel', 'whatsapp').eq('phone_e164', phoneNorm).limit(1).maybeSingle();
+    if (existing) {
+      const upd: Record<string, unknown> = { last_seen_at: seenAt };
+      if (lead?.id && !existing.lead_id) upd.lead_id = lead.id;
+      if (senderName) upd.ig_username = senderName;
+      await supabase.from('social_contacts').update(upd).eq('ig_user_id', existing.ig_user_id);
+    } else {
+      await supabase.from('social_contacts').insert({
+        ig_user_id: `wa:${contactPhone}`,
+        platform_user_id: contactPhone,
+        phone_e164: phoneNorm,
+        ig_username: senderName,
+        channel: 'whatsapp',
+        subscribed: true,
+        lead_id: lead?.id ?? null,
+        first_seen_at: seenAt,
+        last_seen_at: seenAt,
+      });
+    }
+  } catch (e) { console.error('social_contacts upsert failed', e); }
+
   console.log(JSON.stringify({ event: 'zernio.wa.ingested', type: event, account: accountId, lead: lead?.id ?? null }));
   return json({ ok: true });
 });
