@@ -3594,6 +3594,21 @@ Deno.serve(async (req) => {
       const dealsFetch = await findPersonDealsWithStatus(PIPERUN_API_KEY, personId);
       const allDeals = dealsFetch.deals;
       const dealsFetchedOk = dealsFetch.fetched_ok;
+      // Deal cacheado do lead pode estar em outra Pessoa PipeRun (cadastro
+      // antigo/duplicado). Inclui-o para a Regra de Ouro enxergá-lo.
+      if (dealsFetchedOk && lead.piperun_id && !allDeals.some((d) => String(d.id) === String(lead.piperun_id))) {
+        try {
+          const cached = await piperunGet(PIPERUN_API_KEY, `deals/${lead.piperun_id}`);
+          const body = (cached as any)?.success ? (cached as any).data : null;
+          const cd = body?.data ?? body;
+          if (cd?.id && Number(cd.status) === 0) {
+            allDeals.push(cd);
+            console.log(`[lia-assign] cached deal ${cd.id} (person ${cd.person_id}) incluído nos deals abertos`);
+          }
+        } catch (e) {
+          console.warn("[lia-assign] cached deal fetch failed:", e);
+        }
+      }
       // ── Fail-safe Regra de Ouro: se PipeRun GET /deals falhou e o lead já
       // tem piperun_id cacheado, NUNCA criar deal novo. Apenas preservar.
       if (!dealsFetchedOk && lead.piperun_id) {
