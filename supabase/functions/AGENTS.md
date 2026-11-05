@@ -4,3 +4,4 @@
 - PipeRun sync hydrates company contacts separately and does not skip unchanged deals when missing contacts become available; company identifiers must never merge distinct people.
 - PipeRun deal sync writes `telefone_normalized` alongside `telefone_raw` using the shared Brazilian phone normalizer; lead cards, search and phone matching read only the normalized phone.
 - Sentinela daily e-mail report (sentinela-email-report, cron 03:00 UTC) classifies groups by name/links into internal, client, nurturing and external and identifies senders via team/lead WhatsApp LID or phone; the recipient is fixed server-side because the endpoint is called unauthenticated.
+- WhatsApp Cloud API numbers connected through Zernio deliver inbox events to the signed `zernio-whatsapp-inbox` endpoint, which only ingests into whatsapp_inbox (dedup by wamid, lead by normalized phone); it sends nothing, so Evolution/WaLeads automations stay unchanged.
