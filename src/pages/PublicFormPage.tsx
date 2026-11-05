@@ -782,6 +782,9 @@ export default function PublicFormPage() {
       payload.nome = "Anônimo";
     }
 
+    // Cada envio do formulário é uma conversão nova (Regra de Ouro: reconversão).
+    if (!payload.submission_id) payload.submission_id = crypto.randomUUID();
+
     try {
       const { data: ingestData, error } = await supabase.functions.invoke("smart-ops-ingest-lead", {
         body: payload,
