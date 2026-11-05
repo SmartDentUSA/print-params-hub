@@ -37732,6 +37732,10 @@ export type Database = {
         Returns: undefined
       }
       fn_count_push_audience: { Args: { p_filters?: Json }; Returns: number }
+      fn_create_form_standard_flow: {
+        Args: { p_kind: string; p_name: string }
+        Returns: string
+      }
       fn_deal_closed_mes: { Args: { closed_at: string }; Returns: string }
       fn_deal_num: { Args: { t: string }; Returns: number }
       fn_deal_won_at: {
