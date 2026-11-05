@@ -792,6 +792,48 @@ Deno.serve(async (req) => {
           // downstream invocation. Audit trail is preserved via the
           // `FAMILY_DEDUPE_LIFETIME_SKIPPED` / `HARD_DEDUPE_DEFERRED` console
           // lines printed earlier in this block.
+          // Novo cadastro Meta (leadgen_id diferente) = conversão nova, mesmo
+          // na mesma campanha. Mesmo leadgen_id (hard dedupe) = reenvio técnico.
+          const isNewMetaSubmission =
+            deferredRedeliveryVia === "family_dedupe_universal" && !!dedupeId && !!formName;
+          if (isNewMetaSubmission) {
+            const newConvKey = `meta:leadgen:${String(dedupeId)}`;
+            try {
+              await supabase.from("lead_activity_log").insert({
+                lead_id: canon.id,
+                event_type: "meta_new_submission_conversion",
+                entity_type: "lead",
+                entity_id: canon.id,
+                entity_name: `Novo cadastro Meta: ${formName}`,
+                event_data: { form_name: formName, leadgen_id: String(dedupeId), conversion_key: newConvKey, enriched_fields: enrichedFields },
+                source_channel: "form",
+                event_timestamp: String(payload.created_time || payload.meta_created_time || payload.submitted_at || new Date().toISOString()),
+              });
+            } catch {}
+            const { data: convData, error: convErr } = await supabase.functions.invoke("smart-ops-lia-assign", {
+              body: {
+                lead_id: canon.id,
+                source,
+                trigger: "ingest-lead",
+                new_conversion_confirmed: true,
+                conversion_key: newConvKey,
+                form_name: formName,
+                form_responses: payload.form_responses || [],
+              },
+            });
+            return new Response(
+              JSON.stringify({
+                success: true,
+                new_meta_submission_conversion: true,
+                lead_id: canon.id,
+                dedupe_id: String(dedupeId),
+                conversion_key: newConvKey,
+                deal_route_result: convData ?? null,
+                deal_route_error: convErr ? String(convErr.message || convErr) : null,
+              }),
+              { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+            );
+          }
           if (enrichedFields.length === 0) {
             console.log(
               `[ingest-lead] redelivery NO-OP (no new fields) → skipping lia-assign + system_health_logs for lead ${canon.id}`,
