@@ -347,7 +347,7 @@ Deno.serve(async (req) => {
       const r = await fetch(`${SUPABASE_URL}/functions/v1/smart-ops-ingest-lead`, {
         method: "POST",
         headers: { "Content-Type": "application/json", apikey: ANON_KEY, Authorization: `Bearer ${ANON_KEY}` },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({ ...payload, submission_id: crypto.randomUUID() }),
       });
       const out = await r.json().catch(() => ({}));
       const leadId = out?.lead_id;

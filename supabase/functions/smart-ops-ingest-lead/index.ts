@@ -137,6 +137,12 @@ function buildConversionKey(params: {
     if (leadgenId) return `meta:lead:${leadgenId}`;
   }
   if (submissionId && formName) return `form:${formName}:${submissionId}`;
+  // Formulários do sistema sem submission_id (sorteio, eventos, etc.): cada
+  // envio conta como conversão nova; janela de 10 min absorve duplo clique/retry.
+  if (formName && source !== "meta_lead_ads" && (params.email || params.phone)) {
+    const bucket = Math.floor(Date.now() / 600000);
+    return `form:${formName}:${normalizeIdentityForKey(params.email, params.phone)}:${bucket}`;
+  }
   return null;
 }
 
