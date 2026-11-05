@@ -71,6 +71,9 @@ Deno.serve(async (req) => {
     out[`combo_${i}_keys`] = combos[i];
     out[`combo_${i}_status`] = r.status;
     const data = (r.data as Record<string, unknown>)?.data as Record<string, unknown> | undefined;
+    if (data && i === 3) {
+      out.summary = { id: data.id, pipeline_id: data.pipeline_id, stage_id: data.stage_id, status: data.status, owner_id: data.owner_id, person_id: data.person_id, lost_reason_id: data.lost_reason_id, closed_at: data.closed_at, updated_at: data.updated_at, origin_id: data.origin_id };
+    }
     if (data) {
       out[`combo_${i}_top_keys`] = Object.keys(data);
       out[`combo_${i}_custom_fields`] = data.custom_fields ?? null;
