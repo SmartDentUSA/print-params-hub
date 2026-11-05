@@ -359,7 +359,7 @@ const TIMELINE_LABEL: Record<string, string> = {
 };
 
 // ─── LEAD ROW COMPONENT ───
-interface CrmSummary { cs: number; comercial: number; estagnados: number; firstDealAt: string | null; firstWonAt: string | null; wonValue: number }
+interface CrmSummary { cs: number; comercial: number; estagnados: number; firstDealAt: string | null; firstWonAt: string | null; wonValue: number; firstOrigin?: string | null; lastOrigin?: string | null; lastDealAt?: string | null }
 function LeadRow({ lead, active, onClick, nps, captureEvents, crm }: { lead: LeadFull; active: boolean; onClick: () => void; nps?: { score: number; date: string }; captureEvents: { events: CaptureEvent[]; forms: CaptureForm[] }; crm?: CrmSummary }) {
   const lis = (lead.intelligence_score as Record<string, unknown>)?.score_total as number || lead.intelligence_score_total || 0;
   const lc = lisColor(lis);
@@ -520,8 +520,8 @@ function LeadRow({ lead, active, onClick, nps, captureEvents, crm }: { lead: Lea
               ["Data 1ª conv.", fmt([anyL.data_primeiro_contato, anyL.piperun_created_at, crm?.firstDealAt, anyL.created_at].filter(Boolean).sort()[0] as string | undefined)],
               ["1º cadastro CRM", fmt(firstCrm)],
               ...(crm?.firstWonAt ? [["Ganho", `${fmt(crm.firstWonAt)}${days !== null ? ` · ${days} dias para fechar` : ""}`]] : []),
-              ["Origem 1ª conv.", anyL.origem_primeiro_contato || "—"],
-              ["Origem últ. conv.", anyL.form_name || anyL.origem_campanha || "—"],
+              ["Origem 1ª conv.", anyL.origem_primeiro_contato || crm?.firstOrigin || "—"],
+              ["Origem últ. conv.", anyL.form_name || crm?.lastOrigin || anyL.origem_campanha || "—"],
               ["Últ. compra e-com.", fmt(anyL.lojaintegrada_ultimo_pedido_data)],
               ["Cupom", anyL.lojaintegrada_cupom_desconto || "—"],
               ["Valor e-commerce", brl(Number(anyL.lojaintegrada_ltv) || 0)],
@@ -751,7 +751,7 @@ export function SmartOpsLeadsList() {
     (async () => {
       const { data } = await supabase
         .from("deals")
-        .select("lead_id, pipeline_name, status, piperun_created_at, created_at, closed_at, is_deleted, value")
+        .select("lead_id, pipeline_name, status, piperun_created_at, created_at, closed_at, is_deleted, value, origin_name")
         .in("lead_id", ids)
         .limit(5000);
       if (cancelled || !data) return;
@@ -764,7 +764,8 @@ export function SmartOpsLeadsList() {
         else if (p.includes("estagnad")) s.estagnados++;
         else if (p === "funil de vendas") s.comercial++;
         const created = d.piperun_created_at || d.created_at;
-        if (created && (!s.firstDealAt || created < s.firstDealAt)) s.firstDealAt = created;
+        if (created && (!s.firstDealAt || created < s.firstDealAt)) { s.firstDealAt = created; s.firstOrigin = d.origin_name || s.firstOrigin; }
+        if (created && d.origin_name && (!s.lastDealAt || created > s.lastDealAt)) { s.lastDealAt = created; s.lastOrigin = d.origin_name; }
         if (d.status === "ganha") s.wonValue += Number(d.value) || 0;
         if (d.status === "ganha" && d.closed_at && (!s.firstWonAt || d.closed_at < s.firstWonAt)) s.firstWonAt = d.closed_at;
       }
