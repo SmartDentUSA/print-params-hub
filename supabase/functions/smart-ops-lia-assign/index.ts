@@ -3089,7 +3089,9 @@ Deno.serve(async (req) => {
     // concurrent invocation would observe a momentary NULL, bypass the guard,
     // and fully re-process the lead. Anchor only on `piperun_id` (presence
     // means the Deal already exists) + recent `updated_at`.
-    if (!force && force_new_deal !== true && lead.piperun_id && lead.updated_at) {
+    // Nova conversão confirmada (conversion_key única, já validada na ingestão)
+    // não é reentrega: o próprio ingest acabou de atualizar o lead.
+    if (!force && force_new_deal !== true && !hasExplicitNewConversion && lead.piperun_id && lead.updated_at) {
       const lastUpdate = new Date(lead.updated_at).getTime();
       if (Date.now() - lastUpdate < 3 * 60 * 1000) {
         console.log(`[lia-assign] Idempotency skip: lead ${lead.id} updated ${Math.round((Date.now() - lastUpdate)/1000)}s ago (piperun_id=${lead.piperun_id})`);
