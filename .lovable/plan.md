@@ -37,10 +37,11 @@ Regras de desenho:
 - Os mesmos botões aparecem no formulário do site e no simulador de WhatsApp. No simulador, viram botões de resposta rápida.
 
 ## Ordem do fluxo
-1. Identificação do produto (botões acima)
-2. Sequência padrão SDR a partir do nome (igual ao exocad RMS)
-3. Perguntas condicionais do produto escolhido, já existentes no formulário daquele produto
-4. Encaminhamento ao vendedor e WhatsApp
+1. Telefone primeiro, igual aos outros simuladores (reconhece o lead já cadastrado)
+2. Identificação do produto (botões acima)
+3. Sequência padrão SDR a partir do nome (igual ao exocad RMS), pulando o que já for conhecido
+4. Perguntas condicionais do produto escolhido, já existentes no formulário daquele produto
+5. Encaminhamento ao vendedor e WhatsApp
 
 ## O que vai para o CRM
 - Origem: nome exato do formulário do site.
@@ -56,4 +57,3 @@ Regras de desenho:
 
 ## Para confirmar
 - Os 6 objetivos da primeira tela estão certos? Faltam serviços ou distribuição?
-- A identificação deve vir antes do nome (recomendado, porque engaja mais) ou só depois do telefone?
