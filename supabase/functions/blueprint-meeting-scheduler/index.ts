@@ -7,10 +7,10 @@
 // que serve de trava e guarda cada passo concluído, permitindo retomar só o que falhou.
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
-import { piperunGet, piperunPut, addDealNote } from "../_shared/piperun-field-map.ts";
+import { piperunGet, piperunPost, piperunPut, addDealNote } from "../_shared/piperun-field-map.ts";
 import {
-  APRESENTACAO_STAGE_ID, MEET_LINK_FIELD_ID, VENDAS_PIPELINE_ID,
-  buildDossierNote, calendarEventId, claimDecision, existingMeetLink,
+  APRESENTACAO_STAGE_ID, MEET_LINK_FIELD_ID, SYSTEM_ACTIVITY_PREFIX, TASK_ACTIVITY_TYPE_ID,
+  buildDossierNote, decideStage, calendarEventId, claimDecision, existingMeetLink,
   meetCodeFromUrl, pickMeetingSlot, type MeetingStatus, type Slot,
 } from "./rules.ts";
 
@@ -26,7 +26,7 @@ const json = (b: unknown, status = 200) =>
   new Response(JSON.stringify(b), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
 type Sb = ReturnType<typeof createClient>;
-type Steps = { calendar?: boolean; piperun_field?: boolean; note?: boolean };
+type Steps = { calendar?: boolean; piperun_field?: boolean; note?: boolean; stage_move?: boolean; schedule_task?: boolean };
 
 async function authorize(req: Request, sb: Sb): Promise<boolean> {
   const token = (req.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "");
@@ -154,10 +154,16 @@ async function processDeal(sb: Sb, dealId: number, source: string) {
   if (!dr.success) return { ok: false, status: "failed", error: `piperun_get_${dr.status}` };
   const deal = ((dr.data as any)?.data ?? {}) as Record<string, any>;
   const pipelineId = Number(deal.pipeline_id ?? deal.pipeline?.id);
-  const stageId = Number(deal.stage_id ?? deal.stage?.id);
-  if (pipelineId !== VENDAS_PIPELINE_ID || stageId !== APRESENTACAO_STAGE_ID) {
-    return { ok: true, status: "skipped", reason: "not_apresentacao_visita", pipelineId, stageId };
-  }
+  let stageId = Number(deal.stage_id ?? deal.stage?.id);
+  // Atividades: horário da reunião + contexto do dossiê.
+  const ar = await piperunGet(PIPERUN_API_KEY, "activities", { deal_id: dealId, show: 50 });
+  const acts = ((ar.data as any)?.data ?? []) as Array<Record<string, any>>;
+  // Para mover de etapa vale só a atividade do tipo Reunião com data/hora.
+  const strictSlot = pickMeetingSlot(acts, new Date(), { strictType: true });
+  const decision = decideStage({ pipelineId, stageId, dealStatus: deal.status, hasMeeting: !!strictSlot });
+  if (decision.action === "skip") return { ok: true, status: "skipped", reason: decision.reason, pipelineId, stageId };
+  const fromStageId = stageId;
+
   const personEmail = deal.person?.contact_emails?.[0]?.email ?? deal.person?.emails?.[0]?.email ?? null;
   const lead = await resolveLead(sb, dealId, personEmail);
   if (!lead) return { ok: false, status: "failed", error: "lead_not_found" };
@@ -167,7 +173,7 @@ async function processDeal(sb: Sb, dealId: number, source: string) {
   const { data: seller } = await sb.from("team_members").select("id, nome_completo, email").eq("piperun_owner_id", ownerId).limit(1).maybeSingle();
   const sellerName = (seller as any)?.nome_completo ?? deal.user?.name ?? null;
 
-  const base = { deal_id: dealId, lead_id: leadId, seller_team_member_id: (seller as any)?.id ?? null, seller_name: sellerName, pipeline_id: pipelineId, stage_id: stageId, trigger_source: source, fonte: "blueprint-meeting-scheduler" };
+  const base = { deal_id: dealId, lead_id: leadId, seller_team_member_id: (seller as any)?.id ?? null, seller_name: sellerName, pipeline_id: pipelineId, stage_id: stageId, trigger_source: source, trigger_reason: decision.reason, fonte: "blueprint-meeting-scheduler" };
   const c = await claim(sb, leadId, dealId, base);
   if (c.decision === "busy") return { ok: true, status: "busy", reason: "concurrent_execution" };
   if (c.decision === "done") return { ok: true, status: "created", reused: true, meet_url: c.row?.event_data?.meet_url ?? null };
@@ -176,11 +182,27 @@ async function processDeal(sb: Sb, dealId: number, source: string) {
   const steps: Steps = { ...(state.steps ?? {}) };
   const errors: string[] = [];
 
+  // 0) Reunião marcada em etapa inicial → move para Apresentação/Visita (só para frente).
+  if (decision.action === "move") {
+    const mv = await piperunPut(PIPERUN_API_KEY, `deals/${dealId}`, { stage_id: APRESENTACAO_STAGE_ID });
+    if (!mv.success) {
+      state.status = "failed"; state.steps = steps; state.last_errors = [`stage_move_${mv.status}`];
+      await saveState(sb, row.id, state);
+      return { ok: false, status: "failed", lead_id: leadId, errors: state.last_errors };
+    }
+    stageId = APRESENTACAO_STAGE_ID;
+    steps.stage_move = true;
+    Object.assign(state, { stage_id: stageId, moved_from_stage_id: fromStageId, moved_at: new Date().toISOString(), moved_by_activity_id: strictSlot?.activityId ?? null });
+    await sb.from("lead_activity_log").insert({
+      lead_id: leadId, event_type: "crm_etapa_movida_reuniao", event_timestamp: new Date().toISOString(),
+      entity_type: "piperun_deal", entity_id: String(dealId), entity_name: "Movido para Apresentação/Visita (reunião agendada)",
+      source_channel: "blueprint", dedupe_hash: `meetmove:${dealId}:${strictSlot?.activityId ?? "x"}`,
+      event_data: { deal_id: dealId, from_stage_id: fromStageId, to_stage_id: APRESENTACAO_STAGE_ID, activity_id: strictSlot?.activityId ?? null, scheduled_start: strictSlot?.startIso ?? null, seller_name: sellerName, fonte: "blueprint-meeting-scheduler", dedupe_key: `meetmove:${dealId}:${strictSlot?.activityId ?? "x"}` },
+    }).then(({ error }) => { if (error && error.code !== "23505") console.warn("[blueprint-meeting] move timeline:", error.message); });
+  }
+
   try {
-    // Atividades: horário da reunião + contexto do dossiê.
-    const ar = await piperunGet(PIPERUN_API_KEY, "activities", { deal_id: dealId, show: 50 });
-    const acts = ((ar.data as any)?.data ?? []) as Array<Record<string, any>>;
-    const slot = pickMeetingSlot(acts);
+    const slot = strictSlot ?? pickMeetingSlot(acts);
 
     // 1) Meet: campo 800593 já preenchido → reutiliza; senão cria (precisa horário).
     let meetUrl: string | null = state.meet_url ?? existingMeetLink(deal.customFields ?? deal.custom_fields);
@@ -189,6 +211,19 @@ async function processDeal(sb: Sb, dealId: number, source: string) {
       if (!slot) {
         state.status = "pending_schedule";
         state.pending_reason = "Sem reunião com data/hora no PipeRun";
+        // Lembrete ao vendedor (uma vez): tarefa no PipeRun pedindo para agendar a Reunião.
+        if (!steps.schedule_task) {
+          const startBR = new Date(Date.now() - 3 * 3600000).toISOString().slice(0, 16).replace("T", " ") + ":00";
+          const payload: Record<string, unknown> = {
+            title: `${SYSTEM_ACTIVITY_PREFIX} Agendar a reunião de apresentação`,
+            activity_type_id: TASK_ACTIVITY_TYPE_ID, deal_id: dealId, status: 0, start_at: startBR, duration: 15,
+            description: "Crie a atividade do tipo Reunião com data e hora. O link do Google Meet e a nota de preparação serão gerados automaticamente.",
+          };
+          if (Number.isFinite(ownerId) && ownerId > 0) payload.owner_id = ownerId;
+          const t = await piperunPost(PIPERUN_API_KEY, "activities", payload);
+          if (t.success) { steps.schedule_task = true; state.schedule_task_id = (t.data as any)?.data?.id ?? null; }
+          else state.schedule_task_error = `activity_${t.status}`;
+        }
         state.steps = steps;
         await saveState(sb, row.id, state);
         return { ok: true, status: "pending_schedule", lead_id: leadId };

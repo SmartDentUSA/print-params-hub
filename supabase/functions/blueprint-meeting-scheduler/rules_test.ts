@@ -51,3 +51,34 @@ Deno.test("dossiê não inventa campos ausentes", () => {
   assertEquals(n.includes("aguardando data/hora"), true);
   assertEquals(n.includes("Vendedor responsável: Ana"), true);
 });
+
+import { decideStage } from "./rules.ts";
+
+Deno.test("Reunião marcada em etapa inicial (C1) move para Apresentação/Visita", () => {
+  assertEquals(decideStage({ pipelineId: 18784, stageId: 99294, dealStatus: 0, hasMeeting: true }).action, "move");
+  assertEquals(decideStage({ pipelineId: 18784, stageId: 379942, dealStatus: 0, hasMeeting: true }).action, "move");
+});
+
+Deno.test("etapa inicial sem Reunião agendada não move", () => {
+  assertEquals(decideStage({ pipelineId: 18784, stageId: 99293, dealStatus: 0, hasMeeting: false }).action, "skip");
+});
+
+Deno.test("etapa avançada (Proposta) nunca volta: só Meet", () => {
+  assertEquals(decideStage({ pipelineId: 18784, stageId: 99296, dealStatus: 0, hasMeeting: true }).action, "process");
+});
+
+Deno.test("negócio ganho/perdido ou outro funil não é tocado", () => {
+  assertEquals(decideStage({ pipelineId: 18784, stageId: 99294, dealStatus: 1, hasMeeting: true }).action, "skip");
+  assertEquals(decideStage({ pipelineId: 18784, stageId: 99294, dealStatus: 2, hasMeeting: true }).action, "skip");
+  assertEquals(decideStage({ pipelineId: 72938, stageId: 99294, dealStatus: 0, hasMeeting: true }).action, "skip");
+});
+
+Deno.test("só o tipo Reunião move; tarefa do sistema não conta como reunião", () => {
+  const acts = [
+    { id: 1, activity_type_id: 54385, title: "Apresentação ao cliente", start_at: "2026-11-11 10:00:00" },
+    { id: 2, activity_type_id: 54384, title: "[Blueprint] Agendar reunião", start_at: "2026-11-11 10:00:00" },
+  ];
+  assertEquals(pickMeetingSlot(acts, NOW, { strictType: true }), null);
+  const ok = pickMeetingSlot([...acts, { id: 3, activity_type_id: 54384, title: "Reunião", start_at: "2026-11-12 14:00:00" }], NOW, { strictType: true });
+  assertEquals(ok?.activityId, 3);
+});
