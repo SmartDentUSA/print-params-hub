@@ -113,7 +113,8 @@ async function processRow(sb: Sb, row: { id: string; lead_id: string; event_data
   if (due === "wait") return { status: "waiting" };
   const save = async (patch: Record<string, unknown>) => {
     st.analysis = { ...a, ...patch, checked_at: new Date().toISOString(), checks: (a.checks ?? 0) + 1 };
-    await sb.from("lead_activity_log").update({ event_data: st, updated_at: new Date().toISOString() }).eq("id", row.id);
+    const { error } = await sb.from("lead_activity_log").update({ event_data: st, updated_at: new Date().toISOString() }).eq("id", row.id);
+    if (error) throw new Error(`state_update: ${error.message}`);
   };
   const { doc, summary } = await findDoc(st.calendar_event_id);
   if (!doc) {
@@ -176,6 +177,7 @@ Deno.serve(async (req) => {
       results.push({ deal_id: (r as any).event_data?.deal_id, status: "error", error: msg });
     }
   }
+  console.log("[blueprint-analyzer] results", JSON.stringify(results).slice(0, 800));
   if (!authed) return json({ ok: true, processed: results.length, done: results.filter((r: any) => r.status === "done").length });
   return json({ ok: true, processed: results.length, results });
 });
