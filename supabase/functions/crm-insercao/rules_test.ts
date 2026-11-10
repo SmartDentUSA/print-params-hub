@@ -60,7 +60,7 @@ Deno.test("Sem nenhum documento avisa que não há CPF/CNPJ", () => {
 });
 
 Deno.test("CPF gravado no campo do CNPJ ainda é lido como pessoa física", () => {
-  const d = documentInfo({ cpf: null, cnpj: "12.345.678-90" });
+  const d = documentInfo({ cpf: null, cnpj: "123.456.789-09" });
   assertEquals(d.kind, "fisica");
   assertEquals(d.label, "Pessoa física · CPF 123.456.789-09");
 });
