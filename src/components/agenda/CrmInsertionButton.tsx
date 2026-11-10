@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
@@ -15,8 +15,8 @@ import { cn } from "@/lib/utils";
 type Kol = { id: string; nome: string; seller_id: string | null; seller_nome: string | null; linked: boolean };
 type Product = { id: string; name: string; group: string | null };
 type Bootstrap = { me: { id: string; nome: string }; options: { area_atuacao: string[]; especialidade: string[]; produtos: Product[] }; kols: Kol[] };
-type Deal = { deal_id: string; lead_id: string | null; pipeline_name: string | null; pipeline_id: number | null; stage_name: string | null; status: string | null; owner_name: string | null; value: number | null; product: string | null; origin_name: string | null; created_at: string | null };
-type Found = { leads: any[]; persons: any[]; companies: any[]; deals: Deal[]; alerts: { deal_id: string; owner_name: string; pipeline: string; stage: string }[]; live_checked: boolean };
+type Deal = { deal_id: string; lead_id: string | null; pipeline_name: string | null; pipeline_id: number | null; stage_name: string | null; status: string | null; owner_name: string | null; value: number | null; product: string | null; origin_name: string | null; title?: string | null; created_at: string | null; closed_at?: string | null };
+type Found = { leads: any[]; persons: any[]; companies: any[]; deals: Deal[]; latest_deal: Deal | null; summary: { title: string; lines: string[] }[]; alerts: { deal_id: string; owner_name: string; pipeline: string; stage: string }[]; live_checked: boolean };
 type FormState = { nome: string; email: string; area_atuacao: string; especialidade: string; product_id: string; kol_id: string; tipo: "" | "ativa" | "fria"; empresa_nome: string; empresa_cnpj: string };
 
 const EMPTY: FormState = { nome: "", email: "", area_atuacao: "", especialidade: "", product_id: "", kol_id: "", tipo: "", empresa_nome: "", empresa_cnpj: "" };
@@ -82,8 +82,8 @@ function RecordCard({ icon, title, lines, onUse }: { icon: React.ReactNode; titl
   );
 }
 
-export function CrmInsertionAccordion() {
-  const [open, setOpen] = useState("");
+export function CrmInsertionButton() {
+  const [open, setOpen] = useState(false);
   const [phone, setPhone] = useState("");
   const [found, setFound] = useState<Found | null>(null);
   const [searching, setSearching] = useState(false);
@@ -96,7 +96,7 @@ export function CrmInsertionAccordion() {
 
   const boot = useQuery({
     queryKey: ["crm-insercao-bootstrap"],
-    enabled: open === "crm",
+    enabled: open,
     staleTime: 5 * 60_000,
     queryFn: () => call<Bootstrap>("bootstrap"),
   });
@@ -184,12 +184,17 @@ export function CrmInsertionAccordion() {
   const productItems = useMemo(() => products.map((p) => ({ value: p.id, label: p.name, hint: p.group ?? undefined })), [products]);
 
   return (
-    <Accordion type="single" collapsible value={open} onValueChange={setOpen} className="w-full rounded-xl border bg-card">
-      <AccordionItem value="crm" className="border-0">
-        <AccordionTrigger className="px-4 text-sm font-semibold">
-          <span className="flex items-center gap-2"><ClipboardPlus className="h-4 w-4 text-primary" /> Inserção CRM</span>
-        </AccordionTrigger>
-        <AccordionContent className="space-y-5 px-4 pb-4">
+    <>
+      <Button type="button" className="w-full gap-2 sm:w-auto" onClick={() => setOpen(true)}>
+        <ClipboardPlus className="h-4 w-4" /> Cadastrar indicações
+      </Button>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="max-h-[92vh] max-w-2xl overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Cadastrar indicações</DialogTitle>
+            <DialogDescription>Busque o lead pelo celular, confira o histórico e registre a indicação do profissional.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-5">
           {boot.isLoading && <p className="text-sm text-muted-foreground">Carregando…</p>}
           {boot.error && <p className="text-sm text-destructive">{(boot.error as Error).message}</p>}
           {boot.data && (
@@ -230,11 +235,43 @@ export function CrmInsertionAccordion() {
                         lines={[c.cnpj ? `CNPJ ${c.cnpj}` : null, [c.cidade, c.uf].filter(Boolean).join("/")]}
                         onUse={() => useCompany(c)} />
                     ))}
-                    {found.deals.map((d) => (
-                      <RecordCard key={`d-${d.deal_id}`} icon={<Briefcase className="h-4 w-4" />} title={`Deal #${d.deal_id} · ${d.status ?? ""}`}
-                        lines={[`${d.pipeline_name ?? ""} / ${d.stage_name ?? ""}`, `Vendedor: ${d.owner_name ?? "—"}${d.value ? ` · ${brl(d.value)}` : ""}`, [d.product, d.origin_name].filter(Boolean).join(" · "), d.created_at ? `Criado em ${dt(d.created_at)}` : null]}
-                        onUse={() => useDeal(d)} />
-                    ))}
+                    {found.latest_deal && (() => {
+                      const d = found.latest_deal!;
+                      const row = (k: string, v?: string | null) => (v ? <div className="flex gap-2 text-xs"><span className="w-28 shrink-0 text-muted-foreground">{k}</span><span className="min-w-0 break-words">{v}</span></div> : null);
+                      return (
+                        <div className="space-y-2 rounded-lg border border-primary/40 bg-background p-3">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <Briefcase className="h-4 w-4 text-primary" />
+                            <p className="flex-1 text-sm font-semibold">Negócio mais recente · #{d.deal_id}</p>
+                            <Badge variant="outline" className="text-[10px]">{d.status ?? "—"}</Badge>
+                          </div>
+                          <div className="space-y-1">
+                            {row("Título", d.title)}
+                            {row("Funil / etapa", [d.pipeline_name, d.stage_name].filter(Boolean).join(" / "))}
+                            {row("Vendedor", d.owner_name ?? "—")}
+                            {row("Valor", d.value ? brl(d.value) : null)}
+                            {row("Produto", d.product)}
+                            {row("Origem", d.origin_name)}
+                            {row("Criado em", dt(d.created_at))}
+                            {row("Fechado em", d.status !== "aberta" ? dt(d.closed_at) : null)}
+                          </div>
+                          <Button type="button" size="sm" variant="outline" className="h-7 px-2 text-xs" onClick={() => useDeal(d)}>
+                            Utilizar estes dados para nova oportunidade
+                          </Button>
+                        </div>
+                      );
+                    })()}
+                    {!!found.summary?.length && (
+                      <div className="space-y-3 rounded-lg border bg-muted/40 p-3">
+                        <p className="text-sm font-semibold">Resumo do lead</p>
+                        {found.summary.map((b) => (
+                          <div key={b.title} className="space-y-0.5">
+                            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{b.title}</p>
+                            {b.lines.map((l, i) => <p key={i} className="text-xs leading-relaxed">{l}</p>)}
+                          </div>
+                        ))}
+                      </div>
+                    )}
                     {!found.live_checked && <p className="text-xs text-muted-foreground">PipeRun indisponível agora; resultado baseado no espelho do sistema.</p>}
                   </div>
                 )}
@@ -309,8 +346,9 @@ export function CrmInsertionAccordion() {
               </Button>
             </>
           )}
-        </AccordionContent>
-      </AccordionItem>
-    </Accordion>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
