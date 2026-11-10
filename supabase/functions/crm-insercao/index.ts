@@ -541,7 +541,6 @@ Deno.serve(async (req) => {
         await sb.from("crm_insertion_log").insert({ ...logBase, action: "submit", outcome: "error", result: { status: r.status, out } });
         return json({ error: out?.error || "Não foi possível cadastrar no CRM." }, 502);
       }
-      await sb.from("smartops_forms").update({ submissions_count: (await sb.from("smartops_forms").select("submissions_count").eq("id", formId).single()).data?.submissions_count + 1 || 1 }).eq("id", formId);
       await sb.from("lead_activity_log").insert({
         lead_id: leadId, event_type: "crm_insercao", source_channel: "insercao_crm",
         entity_type: "form", entity_id: formId, entity_name: origin,
