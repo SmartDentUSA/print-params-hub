@@ -180,7 +180,7 @@ export function CrmInsertionAccordion() {
     } finally { setSubmitting(false); }
   };
 
-  const originPreview = selectedKol && form.tipo ? `${form.tipo === "ativa" ? "[INDKOL]" : "[PROSPKOL]"} - ${selectedKol.nome}` : "";
+  const originPreview = selectedKol && form.tipo ? `# - ${form.tipo === "ativa" ? "INDICALEADKOL" : "PROSPLEADKOL"} - ${selectedKol.nome}` : "";
   const productItems = useMemo(() => products.map((p) => ({ value: p.id, label: p.name, hint: p.group ?? undefined })), [products]);
 
   return (

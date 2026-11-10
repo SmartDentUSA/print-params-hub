@@ -53,7 +53,7 @@ const PURPOSE_CONFIG: Record<string, { label: string; color: string; disabled?: 
   feira_evento:    { label: "Feiras e Eventos",  color: "bg-amber-100 text-amber-800 border-amber-300",  disabled: false, description: "Preenchido pelo consultor no estande" },
   credenciamento:  { label: "Credenciamento",    color: "bg-violet-100 text-violet-800 border-violet-300", disabled: false, description: "Candidatura vinculada à ficha de um profissional" },
   distribuicao:    { label: "Distribuição",      color: "bg-amber-100 text-amber-800 border-amber-300", disabled: true, description: "Cadastro de distribuidor (funil Exportação), um por evento" },
-  insercao_crm:    { label: "Inserção CRM",      color: "bg-sky-100 text-sky-800 border-sky-300", disabled: true, description: "Preenchido pela equipe na Agenda; origem [INDKOL]/[PROSPKOL] com o vendedor do KOL" },
+  insercao_crm:    { label: "Inserção CRM",      color: "bg-sky-100 text-sky-800 border-sky-300", disabled: true, description: "Preenchido pela equipe na Agenda; origem INDICALEADKOL/PROSPLEADKOL com o vendedor do KOL" },
   kol_referral:    { label: "Indicações — Palestrantes (KOLs)", color: "bg-accent text-accent-foreground border-border", disabled: false, description: "Formulário de indicação vinculado a um palestrante (KOL)" },
 };
 
@@ -420,7 +420,7 @@ export function SmartOpsFormBuilder() {
     text.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
 
   const getFormListGroup = (form: SmartOpsForm) =>
-    kolReferralFormIds.has(form.id) || /^#\s*-\s*indicacao\s*-/i.test(normalizeSearch(form.name))
+    kolReferralFormIds.has(form.id) || form.form_purpose === "insercao_crm" || /^#\s*-\s*indicacao\s*-/i.test(normalizeSearch(form.name))
       ? REFERRAL_GROUP
       : /^#\s*-\s*grupo whatsapp\s*-/i.test(normalizeSearch(form.name))
         ? WA_GROUP_GROUP

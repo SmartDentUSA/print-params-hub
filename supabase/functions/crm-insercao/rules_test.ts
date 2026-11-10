@@ -1,12 +1,12 @@
 import { assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
 import { buildOriginName, isOpenVendasConflict, phoneVariants } from "./rules.ts";
 
-Deno.test("Indicação Ativa gera origem [INDKOL] - Nome do Profissional", () => {
-  assertEquals(buildOriginName("ativa", "Erick  Souza "), "[INDKOL] - Erick Souza");
+Deno.test("Indicação Ativa gera origem INDICALEADKOL - Nome do Profissional", () => {
+  assertEquals(buildOriginName("ativa", "Erick  Souza "), "# - INDICALEADKOL - Erick Souza");
 });
 
-Deno.test("Indicação Fria gera origem [PROSPKOL] - Nome do Profissional", () => {
-  assertEquals(buildOriginName("fria", "Henrique Tabuse"), "[PROSPKOL] - Henrique Tabuse");
+Deno.test("Indicação Fria gera origem PROSPLEADKOL - Nome do Profissional", () => {
+  assertEquals(buildOriginName("fria", "Henrique Tabuse"), "# - PROSPLEADKOL - Henrique Tabuse");
 });
 
 Deno.test("Deal aberto no Funil de vendas de outro vendedor bloqueia", () => {

@@ -25,7 +25,7 @@ export type DealView = {
 /** Regra de Ouro das origens: [INDKOL] ativa / [PROSPKOL] fria + nome do profissional. */
 export function buildOriginName(tipo: "ativa" | "fria", kolName: string): string {
   const name = kolName.replace(/\s+/g, " ").trim();
-  return `${tipo === "ativa" ? "[INDKOL]" : "[PROSPKOL]"} - ${name}`;
+  return `# - ${tipo === "ativa" ? "INDICALEADKOL" : "PROSPLEADKOL"} - ${name}`;
 }
 
 /** Deal aberto no Funil de vendas com dono diferente do vendedor do KOL → bloqueia. */
