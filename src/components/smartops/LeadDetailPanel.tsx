@@ -1,5 +1,5 @@
 import "@/styles/intelligence-dark.css";
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { X, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
