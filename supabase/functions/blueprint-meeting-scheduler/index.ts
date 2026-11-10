@@ -32,6 +32,14 @@ async function authorize(req: Request, sb: Sb): Promise<boolean> {
   const token = (req.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "");
   if (!token) return false;
   if (token === SERVICE_ROLE_KEY) return true;
+  // Chave de serviço em outro formato: só passa se o próprio Supabase aceitar como admin.
+  try {
+    const claims = JSON.parse(atob(token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/")));
+    if (claims?.role === "service_role") {
+      const { error } = await createClient(SUPABASE_URL, token).auth.admin.listUsers({ page: 1, perPage: 1 });
+      return !error;
+    }
+  } catch (_) { /* não é JWT */ }
   const { data } = await sb.auth.getUser(token);
   if (!data?.user) return false;
   const { data: ok } = await sb.rpc("fn_is_internal_staff", { _user_id: data.user.id });
