@@ -149,10 +149,14 @@ async function processRow(sb: Sb, row: { id: string; lead_id: string; event_data
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   const sb = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
-  if (!(await authorize(req, sb))) return json({ error: "unauthorized" }, 401);
-  if (!LOVABLE_API_KEY || !CAL_KEY || !DRIVE_KEY) return json({ error: "connectors_not_configured" }, 500);
   let body: any = {};
   try { body = await req.json(); } catch { body = {}; }
+  // Varredura sem parâmetros (rotina periódica) é pública e idempotente: só processa reuniões
+  // vencidas e devolve apenas contagens. Escolher negócio ou forçar exige serviço/equipe.
+  const wantsTarget = body?.deal_id != null || body?.force;
+  const authed = await authorize(req, sb);
+  if (wantsTarget && !authed) return json({ error: "unauthorized" }, 401);
+  if (!LOVABLE_API_KEY || !CAL_KEY || !DRIVE_KEY) return json({ error: "connectors_not_configured" }, 500);
 
   let q = sb.from("lead_activity_log").select("id, lead_id, event_data")
     .eq("event_type", "reuniao_agendada").eq("source_channel", "blueprint").eq("event_data->>status", "created");
@@ -172,5 +176,6 @@ Deno.serve(async (req) => {
       results.push({ deal_id: (r as any).event_data?.deal_id, status: "error", error: msg });
     }
   }
+  if (!authed) return json({ ok: true, processed: results.length, done: results.filter((r: any) => r.status === "done").length });
   return json({ ok: true, processed: results.length, results });
 });
