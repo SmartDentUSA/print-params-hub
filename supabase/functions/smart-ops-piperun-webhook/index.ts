@@ -1974,6 +1974,18 @@ Deno.serve(async (req) => {
         if (error) console.warn("[piperun-webhook] brain refresh failed:", error.message);
       });
 
+    // ─── Blueprint Intelligence: Meet + preparação ao entrar em Apresentação/Visita ───
+    // Fire-and-forget; a função própria é idempotente e guarda estado/novas tentativas.
+    if (Number(ids.pipelineId) === 18784 && Number(ids.stageId) === 99295 && dealId) {
+      const bp = fetch(`${SUPABASE_URL}/functions/v1/blueprint-meeting-scheduler`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${SERVICE_ROLE_KEY}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ deal_id: Number(dealId), source: "piperun_webhook" }),
+      }).catch((e) => console.warn("[piperun-webhook] blueprint meeting trigger error:", e));
+      // @ts-ignore
+      if (typeof EdgeRuntime !== "undefined" && EdgeRuntime.waitUntil) EdgeRuntime.waitUntil(bp);
+    }
+
     // ─── Automações SmartOps: disparo por evento do CRM (não por cron) ───
     // Cada alteração de deal avalia as regras ativas (funil + etapa) na hora.
     {
