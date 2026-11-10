@@ -419,6 +419,14 @@ function CourseListRow({ course, onEdit, onTogglePublic, onToggleActive, onClone
       <span className={`hidden sm:inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium shrink-0 ${statusCls}`}>
         {statusLabel}
       </span>
+      {course.active && !course.public_visible && turmas.some((t) => (t.start_date || "") >= new Date().toISOString().slice(0, 10)) && (
+        <span
+          className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium shrink-0 bg-destructive/10 text-destructive"
+          title="Curso ativo com turma futura, mas privado: não aparece na Agenda pública. Ligue o 'Público'."
+        >
+          Não aparece na Agenda
+        </span>
+      )}
 
       <div className="hidden md:flex items-center gap-4 text-xs text-muted-foreground shrink-0 tabular-nums">
         <span>{turmas.length} turma{turmas.length !== 1 ? "s" : ""}</span>

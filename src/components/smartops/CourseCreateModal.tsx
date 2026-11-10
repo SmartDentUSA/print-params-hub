@@ -1288,6 +1288,11 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
                   <Switch checked={publicVisible} onCheckedChange={setPublicVisible} />
                   <Label>Visível publicamente</Label>
                 </div>
+                {!publicVisible && (
+                  <span className="text-xs font-medium text-destructive">
+                    Privado: este curso não aparece na Agenda pública
+                  </span>
+                )}
               </div>
 
               <div className="rounded-lg border border-border p-3 space-y-1 bg-muted/30">
