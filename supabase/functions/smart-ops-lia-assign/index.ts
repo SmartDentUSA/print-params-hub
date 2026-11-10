@@ -4532,7 +4532,9 @@ Deno.serve(async (req) => {
               .select("piperun_id")
               .eq("id", lead.id)
               .maybeSingle();
-            if (freshLead?.piperun_id) {
+            // Só aborta se OUTRA execução gravou um piperun_id novo; o id
+            // herdado (deal fechado) já foi validado acima.
+            if (freshLead?.piperun_id && String(freshLead.piperun_id) !== String(lead.piperun_id ?? "")) {
               console.log(
                 `[lia-assign] MAIN: lead.piperun_id=${freshLead.piperun_id} setado por execução concorrente — abortando createNewDeal`,
               );
