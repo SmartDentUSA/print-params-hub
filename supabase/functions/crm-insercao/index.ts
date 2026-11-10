@@ -522,7 +522,7 @@ Deno.serve(async (req) => {
         }
         await kolTimeline(kol.id, "kol_indicacao_bloqueada", String(logRow?.id ?? crypto.randomUUID()), `Indicação bloqueada — ${input.nome}`, {
           registrant: tm.nome_completo, lead_id: leadId, lead_nome: input.nome, origin, tipo: input.indicacao_tipo,
-          seller: seller.nome_completo, conflicts: conflicts.map((c) => ({ deal_id: c.deal_id, owner: c.owner_name, stage: c.stage_name })),
+          seller: seller.nome_completo, motivo: "Lead já em negociação no funil de vendas; nenhuma oportunidade criada",
         });
         return json({ ok: false, blocked: true, conflicts, emails: sent, origin });
       }

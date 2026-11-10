@@ -20,6 +20,7 @@ const EVT: Record<string, string> = {
   kol_group_created: "Grupo de WhatsApp", kol_contract_accept_blocked: "Aceite bloqueado", kol_statement_viewed: "Extrato visualizado",
   kol_contest_opened: "Contestação aberta", kol_contest_answered: "Contestação respondida", kol_commission_changed: "Comissão alterada", kol_commission_defaults_copied: "Comissão padrão aplicada",
   kol_talk_scheduled: "Palestra agendada", kol_stand_scheduled: "Estande agendado", kol_schedule_cancelled: "Horário cancelado",
+  kol_indicacao: "Indicação registrada", kol_indicacao_bloqueada: "Indicação já em negociação",
 };
 const CANAL: Record<string, string> = { indicacao: "Indicação", cupom: "Cupom e-commerce", formulario: "Formulários do profissional" };
 
