@@ -164,7 +164,7 @@ export async function kolPerformance(
   if (formRefs.length > 0) {
     const formIds = formRefs.map((f) => f.id).filter(Boolean);
     const { data: formRows } = await admin.from("smartops_forms")
-      .select("id, name, slug").in("id", formIds);
+      .select("id, name, slug, form_purpose").in("id", formIds);
     const nameById = new Map<string, string[]>();
     for (const f of formRows ?? []) nameById.set(f.id, [f.name, f.slug].filter(Boolean));
     const allNames = Array.from(nameById.values()).flat();
@@ -245,6 +245,14 @@ export async function kolPerformance(
     }
 
     const allLeads = Array.from(new Set(Object.values(leadsByForm).flatMap((s) => Array.from(s))));
+    // Indicações (formulários de indicação e Inserção CRM ativa/fria) usam o canal
+    // "indicacao" das regras de comissão — mesma regra da ficha (isReferralForm).
+    const referralLeads = new Set<string>();
+    for (const f of formRows ?? []) {
+      if (f.form_purpose === "kol_referral" || f.form_purpose === "insercao_crm" || /indica/i.test(f.name ?? "")) {
+        for (const l of leadsByForm[f.id] ?? []) referralLeads.add(l);
+      }
+    }
 
     // Nomes, telefones e data de criação dos leads (listas de compradores,
     // negociação e filtro de período dos leads gerados)
@@ -314,7 +322,7 @@ export async function kolPerformance(
           const val = Number(it.total_value ?? it.valor_total ?? 0);
           const raw = it.product_name || it.nome_produto || "(sem nome)";
           const c = classify(raw, it.product_category, it.product_subcategory);
-          const pct = pctFor(raw, c.cat, c.sub, date, fallbackPct, "formulario");
+          const pct = pctFor(raw, c.cat, c.sub, date, fallbackPct, referralLeads.has(String(it.lead_id)) ? "indicacao" : "formulario");
           const com = pct != null ? (val * pct) / 100 : null;
           if (com != null) commByLead[it.lead_id] = (commByLead[it.lead_id] ?? 0) + com;
           const agg = itemsByDeal.get(did) ?? { names: [], com: 0 };

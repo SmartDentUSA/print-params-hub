@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { couponRuleFor, isKolRowCustomized, kolRowKey, mapTemplateItems } from "./kolCommissionDefaults";
+import { couponRuleFor, isKolRowCustomized, isReferralForm, kolRowKey, mapTemplateItems } from "./kolCommissionDefaults";
 
 const defaults = mapTemplateItems([
   { kind: "categoria", category: "1. SCAN", subcategory: null, percent: 5, coupon_discount_percent: 10 },
@@ -50,4 +50,12 @@ test("coupon rule ignores referral-channel rules", () => {
 
 test("row marked source=custom is customized even when equal to default", () => {
   assert.equal(isKolRowCustomized({ percent: 5, coupon_discount_percent: 10, source: "custom" }, def), true);
+});
+
+test("indicação ativa (INDICALEADKOL) da Inserção CRM entra no canal de indicação", () => {
+  assert.equal(isReferralForm({ form_purpose: "insercao_crm", name: "# - INDICALEADKOL - Erick Souza" }), true);
+});
+
+test("indicação fria (PROSPLEADKOL) da Inserção CRM também entra no canal de indicação", () => {
+  assert.equal(isReferralForm({ form_purpose: "insercao_crm", name: "# - PROSPLEADKOL - Erick Souza" }), true);
 });

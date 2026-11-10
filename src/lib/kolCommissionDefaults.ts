@@ -64,6 +64,6 @@ export function couponRuleFor<T extends { kind?: string; channel?: string | null
     ?? cats.find((r) => !r.subcategory);
 }
 
-/** Formulário de indicação: propósito kol_referral ou nome com "indica". */
+/** Formulário de indicação: propósito kol_referral/insercao_crm (Inserção CRM ativa ou fria) ou nome com "indica". */
 export const isReferralForm = (f: { form_purpose?: string | null; name?: string | null }) =>
-  f.form_purpose === "kol_referral" || /indica/i.test(f.name ?? "");
+  f.form_purpose === "kol_referral" || f.form_purpose === "insercao_crm" || /indica/i.test(f.name ?? "");
