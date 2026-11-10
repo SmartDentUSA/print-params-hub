@@ -13,6 +13,7 @@ import { normalizePipeRunDealStatus, piperunGet, PIPELINES, PIPELINE_NAMES } fro
 import { buildLeadSummary } from "./summary.ts";
 import {
   buildOriginName,
+  documentInfo,
   isOpenVendasConflict,
   phoneVariants,
   type DealView,
@@ -160,17 +161,17 @@ async function searchRecords(phoneRaw: string, emailRaw?: string | null) {
   const phoneOr = variants.flatMap((v) => [`telefone_normalized.like.*${v}`]).join(",");
   const { data: leadsRaw } = await sb
     .from("lia_attendances")
-    .select("id, nome, email, telefone_normalized, area_atuacao, especialidade, produto_interesse, produto_interesse_auto, empresa_nome, empresa_cnpj, cidade, uf, pessoa_piperun_id, empresa_piperun_id, piperun_id, proprietario_lead_crm, form_name, updated_at, created_at, origem_primeiro_contato, real_status, ltv_total, omie_faturamento_total, omie_ultima_compra, lojaintegrada_ultimo_pedido_data, lojaintegrada_ultimo_pedido_valor, equip_scanner, equip_impressora, equip_cad, astron_courses_total, astron_courses_completed")
+    .select("id, nome, email, telefone_normalized, area_atuacao, especialidade, produto_interesse, produto_interesse_auto, empresa_nome, empresa_cnpj, pessoa_cpf, cidade, uf, pessoa_piperun_id, empresa_piperun_id, piperun_id, proprietario_lead_crm, form_name, updated_at, created_at, origem_primeiro_contato, real_status, ltv_total, omie_faturamento_total, omie_ultima_compra, lojaintegrada_ultimo_pedido_data, lojaintegrada_ultimo_pedido_valor, equip_scanner, equip_impressora, equip_cad, astron_courses_total, astron_courses_completed")
     .is("merged_into", null)
     .or(email ? `${phoneOr},email.eq.${email}` : phoneOr)
     .order("updated_at", { ascending: false })
     .limit(5);
-  const leads = leadsRaw ?? [];
+  const leads = (leadsRaw ?? []).map((l: any) => ({ ...l, doc: documentInfo({ cpf: l.pessoa_cpf, cnpj: l.empresa_cnpj }) }));
 
   const personOr = variants.map((v) => `phone_digits.like.*${v}`).join(",");
   const { data: personsRaw } = await sb
     .from("piperun_persons_mirror")
-    .select("piperun_person_id, nome, email, telefone_principal, phone_digits, cpf, cargo, piperun_company_id, empresa_nome, area_atuacao, especialidade, updated_at")
+    .select("piperun_person_id, nome, email, telefone_principal, phone_digits, cpf, empresa_cnpj_digits, cargo, piperun_company_id, empresa_nome, area_atuacao, especialidade, updated_at")
     .or(email ? `${personOr},email_normalized.eq.${email}` : personOr)
     .limit(5);
   const persons = new Map<number, any>();
@@ -341,7 +342,8 @@ async function searchRecords(phoneRaw: string, emailRaw?: string | null) {
   const summary = buildLeadSummary(mainLead, all, activity);
   const latest_deal = all[0] ?? null;
 
-  return { leads, persons: [...persons.values()], companies: companyList, deals: all, latest_deal, summary, alerts, live_checked: liveOk };
+  const withDoc = (r: any) => ({ ...r, doc: documentInfo({ cpf: r.cpf, cnpj: r.empresa_cnpj_digits ?? r.cnpj }) });
+  return { leads, persons: [...persons.values()].map(withDoc), companies: companyList.map(withDoc), deals: all, latest_deal, summary, alerts, live_checked: liveOk };
 }
 
 // ── E-mail de conflito ──
@@ -386,6 +388,7 @@ ${sec("Tentativa de cadastro", table([
     ["Origem pretendida", ctx.origin],
     ["Vendedor do contrato do KOL", ctx.seller.nome_completo],
     ["Nome informado", ctx.input.nome], ["Celular", ctx.input.telefone], ["E-mail", ctx.input.email],
+    ["Documento informado", ctx.input.empresa_cnpj],
     ["Área de atuação", ctx.input.area_atuacao], ["Especialidade", ctx.input.especialidade],
     ["Produto de interesse", ctx.input.produto_interesse],
   ]))}
@@ -396,16 +399,16 @@ ${sec("Deals encontrados", ctx.found.deals.length ? ctx.found.deals.map((d) => t
     ["Criado em", dt(d.created_at)], ["Fechado em", dt(d.closed_at)],
   ])).join("<br/>") : "<p>Nenhum.</p>")}
 ${sec("Pessoas", ctx.found.persons.length ? ctx.found.persons.map((p: any) => table([
-    ["Pessoa", p.nome], ["ID PipeRun", p.piperun_person_id], ["E-mail", p.email], ["Telefone", p.telefone_principal],
+    ["Pessoa", p.nome], ["ID PipeRun", p.piperun_person_id], ["E-mail", p.email], ["Telefone", p.telefone_principal], ["Documento", p.doc?.label],
     ["Cargo", p.cargo], ["Empresa", p.empresa_nome], ["Área", p.area_atuacao], ["Especialidade", p.especialidade],
   ])).join("<br/>") : "<p>Nenhuma.</p>")}
 ${sec("Organizações", ctx.found.companies.length ? ctx.found.companies.map((c: any) => table([
-    ["Organização", c.nome_fantasia || c.nome || c.razao_social], ["Razão social", c.razao_social], ["CNPJ", c.cnpj],
+    ["Organização", c.nome_fantasia || c.nome || c.razao_social], ["Razão social", c.razao_social], ["Documento", c.doc?.label || c.cnpj],
     ["Cidade/UF", [c.cidade, c.uf].filter(Boolean).join("/")], ["Segmento", c.segmento], ["E-mail", c.email_contato], ["Telefone", c.telefone_principal],
   ])).join("<br/>") : "<p>Nenhuma.</p>")}
 ${sec("Ficha no sistema", ctx.found.leads.length ? ctx.found.leads.map((l: any) => table([
     ["Nome", l.nome], ["E-mail", l.email], ["Telefone", l.telefone_normalized], ["Área", l.area_atuacao], ["Especialidade", l.especialidade],
-    ["Produto de interesse", l.produto_interesse || l.produto_interesse_auto], ["Empresa", l.empresa_nome], ["Cidade/UF", [l.cidade, l.uf].filter(Boolean).join("/")],
+    ["Produto de interesse", l.produto_interesse || l.produto_interesse_auto], ["Empresa", l.empresa_nome], ["Documento", l.doc?.label], ["Cidade/UF", [l.cidade, l.uf].filter(Boolean).join("/")],
     ["Última conversão", l.form_name], ["Responsável", l.proprietario_lead_crm],
   ])).join("<br/>") : "<p>Nenhuma.</p>")}
 ${sec("Histórico recente", ctx.history.length ? `<table style="border-collapse:collapse;width:100%;font-size:12px">${ctx.history.map((h: any) =>

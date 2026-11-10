@@ -1,5 +1,5 @@
 import { assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
-import { buildOriginName, isOpenVendasConflict, phoneVariants } from "./rules.ts";
+import { buildOriginName, documentInfo, isOpenVendasConflict, phoneVariants } from "./rules.ts";
 
 Deno.test("Indicação Ativa gera origem INDICALEADKOL - Nome do Profissional", () => {
   assertEquals(buildOriginName("ativa", "Erick  Souza "), "# - INDICALEADKOL - Erick Souza");
@@ -29,6 +29,40 @@ Deno.test("Deal ganho no Funil de vendas não bloqueia", () => {
 Deno.test("Celular 55 + DDD + 9 dígitos busca com e sem o 9º dígito", () => {
   assertEquals(phoneVariants("5516997501531"), ["16997501531", "1697501531"]);
   assertEquals(phoneVariants("123"), []);
+});
+
+Deno.test("Só CPF é pessoa física com o número mascarado", () => {
+  const d = documentInfo({ cpf: "123.456.789-09", cnpj: null });
+  assertEquals(d.kind, "fisica");
+  assertEquals(d.badge, "Pessoa física");
+  assertEquals(d.label, "Pessoa física · CPF 123.456.789-09");
+});
+
+Deno.test("Só CNPJ é pessoa jurídica com o número mascarado", () => {
+  const d = documentInfo({ cpf: null, cnpj: "12345678000190" });
+  assertEquals(d.kind, "juridica");
+  assertEquals(d.badge, "Pessoa jurídica");
+  assertEquals(d.label, "Pessoa jurídica · CNPJ 12.345.678/0001-90");
+});
+
+Deno.test("CPF e CNPJ juntos aparecem os dois", () => {
+  const d = documentInfo({ cpf: "12345678909", cnpj: "12345678000190" });
+  assertEquals(d.kind, "ambas");
+  assertEquals(d.badge, "Física e jurídica");
+  assertEquals(d.label, "Pessoa física e jurídica · CPF 123.456.789-09 · CNPJ 12.345.678/0001-90");
+});
+
+Deno.test("Sem nenhum documento avisa que não há CPF/CNPJ", () => {
+  const d = documentInfo({ cpf: "", cnpj: "   " });
+  assertEquals(d.kind, "nenhuma");
+  assertEquals(d.badge, "Sem CPF/CNPJ");
+  assertEquals(d.label, "");
+});
+
+Deno.test("CPF gravado no campo do CNPJ ainda é lido como pessoa física", () => {
+  const d = documentInfo({ cpf: null, cnpj: "123.456.789-09" });
+  assertEquals(d.kind, "fisica");
+  assertEquals(d.label, "Pessoa física · CPF 123.456.789-09");
 });
 
 import { buildLeadSummary } from "./summary.ts";

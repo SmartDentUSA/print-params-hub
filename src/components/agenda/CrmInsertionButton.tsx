@@ -67,13 +67,16 @@ function Combo({ value, onChange, items, placeholder, empty }: { value: string; 
   );
 }
 
-function RecordCard({ icon, title, lines, onUse }: { icon: React.ReactNode; title: string; lines: (string | null | undefined)[]; onUse: () => void }) {
+function RecordCard({ icon, title, badge, lines, onUse }: { icon: React.ReactNode; title: string; badge?: string | null; lines: (string | null | undefined)[]; onUse: () => void }) {
   return (
     <div className="flex flex-wrap items-start gap-2 rounded-lg border bg-background p-2.5">
       <div className="mt-0.5 text-primary">{icon}</div>
       <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-medium">{title}</p>
-        {lines.filter(Boolean).map((l, i) => <p key={i} className="truncate text-xs text-muted-foreground">{l}</p>)}
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="truncate text-sm font-medium">{title}</p>
+          {badge && <Badge variant="outline" className="shrink-0 text-[10px]">{badge}</Badge>}
+        </div>
+        {lines.filter(Boolean).map((l, i) => <p key={i} className="break-words text-xs text-muted-foreground">{l}</p>)}
       </div>
       <Button type="button" size="sm" variant="outline" className="h-7 px-2 text-xs" onClick={onUse}>
         Utilizar estes dados para nova oportunidade
@@ -221,18 +224,18 @@ export function CrmInsertionButton() {
                       <p className="text-sm text-muted-foreground">Nenhum registro encontrado — preencha os dados do novo lead abaixo.</p>
                     )}
                     {found.leads.map((l) => (
-                      <RecordCard key={`l-${l.id}`} icon={<User className="h-4 w-4" />} title={`Ficha: ${l.nome ?? "sem nome"}`}
-                        lines={[[l.telefone_normalized, l.email].filter(Boolean).join(" · "), [l.area_atuacao, l.especialidade].filter(Boolean).join(" · "), l.produto_interesse || l.produto_interesse_auto ? `Interesse: ${l.produto_interesse || l.produto_interesse_auto}` : null, l.form_name ? `Última conversão: ${l.form_name}` : null]}
+                      <RecordCard key={`l-${l.id}`} icon={<User className="h-4 w-4" />} title={`Ficha: ${l.nome ?? "sem nome"}`} badge={l.doc?.badge}
+                        lines={[l.doc?.label, [l.telefone_normalized, l.email].filter(Boolean).join(" · "), [l.area_atuacao, l.especialidade].filter(Boolean).join(" · "), l.produto_interesse || l.produto_interesse_auto ? `Interesse: ${l.produto_interesse || l.produto_interesse_auto}` : null, l.form_name ? `Última conversão: ${l.form_name}` : null]}
                         onUse={() => useLead(l)} />
                     ))}
                     {found.persons.map((p) => (
-                      <RecordCard key={`p-${p.piperun_person_id}`} icon={<User className="h-4 w-4" />} title={`Pessoa: ${p.nome ?? "sem nome"}`}
-                        lines={[`PipeRun #${p.piperun_person_id}`, [p.telefone_principal, p.email].filter(Boolean).join(" · "), p.empresa_nome ? `Empresa: ${p.empresa_nome}` : null]}
+                      <RecordCard key={`p-${p.piperun_person_id}`} icon={<User className="h-4 w-4" />} title={`Pessoa: ${p.nome ?? "sem nome"}`} badge={p.doc?.badge}
+                        lines={[p.doc?.label, `PipeRun #${p.piperun_person_id}`, [p.telefone_principal, p.email].filter(Boolean).join(" · "), p.empresa_nome ? `Empresa: ${p.empresa_nome}` : null]}
                         onUse={() => usePerson(p)} />
                     ))}
                     {found.companies.map((c) => (
-                      <RecordCard key={`c-${c.piperun_company_id}`} icon={<Building2 className="h-4 w-4" />} title={`Organização: ${c.nome_fantasia || c.nome || c.razao_social || "sem nome"}`}
-                        lines={[c.cnpj ? `CNPJ ${c.cnpj}` : null, [c.cidade, c.uf].filter(Boolean).join("/")]}
+                      <RecordCard key={`c-${c.piperun_company_id}`} icon={<Building2 className="h-4 w-4" />} title={`Organização: ${c.nome_fantasia || c.nome || c.razao_social || "sem nome"}`} badge={c.doc?.badge}
+                        lines={[c.doc?.label, [c.cidade, c.uf].filter(Boolean).join("/")]}
                         onUse={() => useCompany(c)} />
                     ))}
                     {found.latest_deal && (() => {
