@@ -51,3 +51,12 @@ test("coupon rule ignores referral-channel rules", () => {
 test("row marked source=custom is customized even when equal to default", () => {
   assert.equal(isKolRowCustomized({ percent: 5, coupon_discount_percent: 10, source: "custom" }, def), true);
 });
+
+describe("Inserção CRM conta como indicação do KOL", () => {
+  it("indicação ativa (INDICALEADKOL) entra no canal de indicação", () => {
+    expect(isReferralForm({ form_purpose: "insercao_crm", name: "# - INDICALEADKOL - Erick Souza" })).toBe(true);
+  });
+  it("indicação fria (PROSPLEADKOL) também entra no canal de indicação", () => {
+    expect(isReferralForm({ form_purpose: "insercao_crm", name: "# - PROSPLEADKOL - Erick Souza" })).toBe(true);
+  });
+});
