@@ -12,7 +12,9 @@ const brl = (v: unknown) => {
   const n = Number(v);
   return v == null || !Number.isFinite(n) || n === 0 ? "" : n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 };
+const STATUS_LABEL: Record<string, string> = { EM_NEGOCIACAO: "Em negociação", CLIENTE_ATIVO: "Cliente ativo", PERDIDA_RENUTRIR: "Perdido · renutrir" };
 const human = (s?: string | null) => {
+  if (s && STATUS_LABEL[s.toUpperCase()]) return STATUS_LABEL[s.toUpperCase()];
   const t = String(s ?? "").replace(/_/g, " ").trim().toLowerCase();
   return t ? t.charAt(0).toUpperCase() + t.slice(1) : "";
 };
