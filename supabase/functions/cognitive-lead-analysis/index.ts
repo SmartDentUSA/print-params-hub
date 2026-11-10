@@ -639,12 +639,14 @@ Retorne APENAS o JSON, sem markdown, sem explicação.`;
         is_regression: regression,
         regression_gap_days: regressionGapDays,
         intelligence_score: leadData.intelligence_score || null,
-      }).catch((e: unknown) => console.warn("[cognitive] State event insert failed:", e));
+      }).then(({ error: e }) => { if (e) console.warn("[cognitive] State event insert failed:", e.message); });
     }
 
     // ── Recalculate intelligence score ──
-    await supabase.rpc("calculate_lead_intelligence_score", { p_lead_id: leadData.id })
-      .catch((e: unknown) => console.warn("[cognitive] Intelligence score RPC failed:", e));
+    {
+      const { error: scoreErr } = await supabase.rpc("calculate_lead_intelligence_score", { p_lead_id: leadData.id });
+      if (scoreErr) console.warn("[cognitive] Intelligence score RPC failed:", scoreErr.message);
+    }
 
     // ── Push cognitive note to PipeRun deal ──
     // Reanálises automáticas por nova interação só geram nota quando o estágio muda (evita poluir o CRM).
