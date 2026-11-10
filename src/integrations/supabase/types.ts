@@ -4116,6 +4116,63 @@ export type Database = {
         }
         Relationships: []
       }
+      crm_insertion_log: {
+        Row: {
+          action: string
+          auth_user_id: string | null
+          conflict: Json | null
+          created_at: string
+          emails_sent: Json | null
+          id: string
+          indicacao_tipo: string | null
+          kol_lead_id: string | null
+          lead_id: string | null
+          lead_phone: string | null
+          origin_name: string | null
+          outcome: string
+          result: Json | null
+          target_seller_team_member_id: string | null
+          team_member_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          action: string
+          auth_user_id?: string | null
+          conflict?: Json | null
+          created_at?: string
+          emails_sent?: Json | null
+          id?: string
+          indicacao_tipo?: string | null
+          kol_lead_id?: string | null
+          lead_id?: string | null
+          lead_phone?: string | null
+          origin_name?: string | null
+          outcome: string
+          result?: Json | null
+          target_seller_team_member_id?: string | null
+          team_member_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          action?: string
+          auth_user_id?: string | null
+          conflict?: Json | null
+          created_at?: string
+          emails_sent?: Json | null
+          id?: string
+          indicacao_tipo?: string | null
+          kol_lead_id?: string | null
+          lead_id?: string | null
+          lead_phone?: string | null
+          origin_name?: string | null
+          outcome?: string
+          result?: Json | null
+          target_seller_team_member_id?: string | null
+          team_member_id?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       crm_product_sales: {
         Row: {
           category: string
