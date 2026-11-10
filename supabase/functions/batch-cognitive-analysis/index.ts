@@ -18,6 +18,29 @@ Deno.serve(async (req) => {
     const url = new URL(req.url);
     const batchSize = Math.min(Number(url.searchParams.get("batch_size") || 20), 50);
 
+    const startedAt = Date.now();
+    // ── Etapa 0: leads com nova interação na timeline desde a última análise ──
+    // (CRM, formulários, reuniões, compras, suporte). Paralelismo 5, teto 20 por rodada.
+    const timelineResults: Array<{ id: string; status: string }> = [];
+    const { data: tlCandidates, error: tlErr } = await supabase.rpc("fn_cognitive_timeline_candidates", { p_limit: 20 });
+    if (tlErr) console.error("[batch-cognitive] timeline candidates error:", tlErr.message);
+    const tlIds = ((tlCandidates ?? []) as Array<{ lead_id: string }>).map((r) => r.lead_id);
+    for (let i = 0; i < tlIds.length; i += 5) {
+      if (Date.now() - startedAt > 60_000) break;
+      const chunk = tlIds.slice(i, i + 5);
+      const settled = await Promise.allSettled(chunk.map(async (id) => {
+        const res = await fetch(`${SUPABASE_URL}/functions/v1/cognitive-lead-analysis`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${SERVICE_ROLE_KEY}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ leadId: id, trigger: "timeline" }),
+        });
+        const body = await res.json().catch(() => ({}));
+        return { id, status: res.ok ? (body?.skip ? `skip:${body.skip}` : body?.status === "skipped" ? "skip:lock" : "ok") : `error:${res.status}` };
+      }));
+      for (const r of settled) timelineResults.push(r.status === "fulfilled" ? r.value : { id: "?", status: `exception:${String(r.reason).slice(0, 80)}` });
+    }
+    console.log(`[batch-cognitive] timeline: ${JSON.stringify(timelineResults).slice(0, 600)}`);
+
     // Find leads eligible for cognitive analysis:
     // - Has 5+ messages (enough data for analysis)
     // - Never analyzed OR analyzed before last session
@@ -61,7 +84,7 @@ Deno.serve(async (req) => {
 
     if (!eligibleLeads || eligibleLeads.length === 0) {
       return new Response(JSON.stringify({ 
-        success: true, message: "No eligible leads for cognitive analysis", processed: 0 
+        success: true, message: "No eligible leads for cognitive analysis", processed: 0, timeline: timelineResults 
       }), {
         status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -74,6 +97,7 @@ Deno.serve(async (req) => {
     const results: Array<{ id: string; nome: string; status: string }> = [];
 
     for (const lead of eligibleLeads) {
+      if (Date.now() - startedAt > 120_000) break;
       try {
         const fnUrl = `${SUPABASE_URL}/functions/v1/cognitive-lead-analysis`;
         const res = await fetch(fnUrl, {
@@ -115,6 +139,7 @@ Deno.serve(async (req) => {
       processed,
       errors,
       results,
+      timeline: timelineResults,
     };
 
     console.log(`[batch-cognitive] Done: processed=${processed}, errors=${errors}`);
