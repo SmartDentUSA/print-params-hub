@@ -11,7 +11,7 @@ import { UploadMidiasDriveButton } from "@/components/smartops/UploadMidiasDrive
 import { DepoimentoUploadAccordion } from "@/components/agenda/DepoimentoUploadAccordion";
 import { PastTrainingsUploadAccordion } from "@/components/agenda/PastTrainingsUploadAccordion";
 import { EventsUploadAccordion } from "@/components/agenda/EventsUploadAccordion";
-import { CrmInsertionAccordion } from "@/components/agenda/CrmInsertionAccordion";
+import { CrmInsertionButton } from "@/components/agenda/CrmInsertionButton";
 import { AccountButton } from "@/components/AccountButton";
 import { Button } from "@/components/ui/button";
 import {
@@ -399,7 +399,7 @@ export default function AgendaPublica({ variant = "presencial" }: AgendaPublicaP
 
         {isTeamMember && <EventsUploadAccordion />}
 
-        {isTeamMember && <CrmInsertionAccordion />}
+        {isTeamMember && <CrmInsertionButton />}
 
         {isLoading ? (
           <div className="pp-empty">Carregando...</div>

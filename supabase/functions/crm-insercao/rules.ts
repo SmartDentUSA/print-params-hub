@@ -14,6 +14,7 @@ export type DealView = {
   owner_team_member_id?: string;
   owner_email?: string | null;
   value: unknown;
+  title?: string | null;
   product: string | null;
   origin_name: string | null;
   created_at: string | null;

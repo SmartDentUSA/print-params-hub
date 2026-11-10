@@ -9,7 +9,8 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { z } from "npm:zod@3.23.8";
-import { piperunGet, PIPELINES, PIPELINE_NAMES } from "../_shared/piperun-field-map.ts";
+import { normalizePipeRunDealStatus, piperunGet, PIPELINES, PIPELINE_NAMES } from "../_shared/piperun-field-map.ts";
+import { buildLeadSummary } from "./summary.ts";
 import {
   buildOriginName,
   isOpenVendasConflict,
@@ -159,7 +160,7 @@ async function searchRecords(phoneRaw: string, emailRaw?: string | null) {
   const phoneOr = variants.flatMap((v) => [`telefone_normalized.like.*${v}`]).join(",");
   const { data: leadsRaw } = await sb
     .from("lia_attendances")
-    .select("id, nome, email, telefone_normalized, area_atuacao, especialidade, produto_interesse, produto_interesse_auto, empresa_nome, empresa_cnpj, cidade, uf, pessoa_piperun_id, empresa_piperun_id, piperun_id, proprietario_lead_crm, form_name, updated_at")
+    .select("id, nome, email, telefone_normalized, area_atuacao, especialidade, produto_interesse, produto_interesse_auto, empresa_nome, empresa_cnpj, cidade, uf, pessoa_piperun_id, empresa_piperun_id, piperun_id, proprietario_lead_crm, form_name, updated_at, created_at, origem_primeiro_contato, real_status, ltv_total, omie_faturamento_total, omie_ultima_compra, lojaintegrada_ultimo_pedido_data, lojaintegrada_ultimo_pedido_valor, equip_scanner, equip_impressora, equip_cad, astron_courses_total, astron_courses_completed")
     .is("merged_into", null)
     .or(email ? `${phoneOr},email.eq.${email}` : phoneOr)
     .order("updated_at", { ascending: false })
@@ -264,7 +265,8 @@ async function searchRecords(phoneRaw: string, emailRaw?: string | null) {
         if (d.deleted === 1 || d.deleted === true) continue;
         const id = String(d.id);
         const prev = deals.get(id);
-        const status = Number(d.status) === 1 ? "ganha" : Number(d.status) === 2 ? "perdida" : "aberta";
+        const ns = normalizePipeRunDealStatus(d.status);
+        const status = ns === "won" ? "ganha" : ns === "lost" ? "perdida" : ns === "open" ? "aberta" : prev?.status ?? "aberta";
         deals.set(id, {
           deal_id: id,
           lead_id: prev?.lead_id ?? null,
@@ -273,9 +275,10 @@ async function searchRecords(phoneRaw: string, emailRaw?: string | null) {
           stage_id: Number(d.stage_id) || prev?.stage_id || null,
           stage_name: Number(d.stage_id) === prev?.stage_id ? prev?.stage_name ?? null : null,
           status,
-          owner_id: Number(d.user_id) || prev?.owner_id || null,
+          owner_id: Number(d.owner_id ?? d.user_id) || prev?.owner_id || null,
           owner_name: prev?.owner_name ?? null,
           value: d.value ?? prev?.value ?? null,
+          title: d.title ?? prev?.title ?? null,
           product: prev?.product ?? null,
           origin_name: prev?.origin_name ?? null,
           created_at: d.created_at ?? prev?.created_at ?? null,
@@ -287,8 +290,27 @@ async function searchRecords(phoneRaw: string, emailRaw?: string | null) {
     }
   }
 
-  // Nomes de etapa e de vendedor
+  // Completa negócios vindos só do PipeRun com o espelho local (vendedor, produto, origem, etapa)
   const all = [...deals.values()];
+  const needLocal = all.filter((d) => d.fonte === "piperun").map((d) => d.deal_id);
+  if (needLocal.length) {
+    const { data: loc } = await sb.from("deals")
+      .select("piperun_deal_id, lead_id, stage_id, stage_name, owner_name, product, origin_name, deal_title, value")
+      .in("piperun_deal_id", needLocal).limit(200);
+    const byId = new Map((loc ?? []).map((r: any) => [String(r.piperun_deal_id), r]));
+    for (const d of all) {
+      const r: any = byId.get(d.deal_id);
+      if (!r) continue;
+      d.lead_id ??= r.lead_id;
+      if (!d.stage_name && r.stage_id === d.stage_id) d.stage_name = r.stage_name;
+      d.owner_name ??= r.owner_name;
+      d.product ??= r.product;
+      d.origin_name ??= r.origin_name;
+      d.title ??= r.deal_title;
+      if (d.value == null) d.value = r.value;
+    }
+  }
+  // Nomes de etapa e de vendedor
   const missingStages = [...new Set(all.filter((d) => !d.stage_name && d.stage_id).map((d) => d.stage_id as number))];
   if (missingStages.length) {
     const { data: st } = await sb.from("deals").select("stage_id, stage_name").in("stage_id", missingStages).not("stage_name", "is", null).limit(200);
@@ -305,7 +327,21 @@ async function searchRecords(phoneRaw: string, emailRaw?: string | null) {
     .filter((d) => d.status === "aberta" && Number(d.pipeline_id) === PIPELINES.VENDAS)
     .map((d) => ({ deal_id: d.deal_id, owner_name: d.owner_name ?? "não identificado", pipeline: d.pipeline_name ?? "Funil de vendas", stage: d.stage_name ?? "" }));
 
-  return { leads, persons: [...persons.values()], companies: companyList, deals: all, alerts, live_checked: liveOk };
+  // Resumo do lead (timeline de negócios + compilado do sistema)
+  const mainLead = leads[0] ?? null;
+  let activity: any[] = [];
+  if (mainLead) {
+    const { data: act } = await sb.from("lead_activity_log")
+      .select("event_type, event_timestamp, entity_name")
+      .eq("lead_id", mainLead.id)
+      .in("event_type", ["form_submission", "inscricao_curso_publica", "treinamento_finalizado", "support_ticket_created", "crm_insercao", "meta_ads_lead_entry"])
+      .order("event_timestamp", { ascending: false }).limit(60);
+    activity = act ?? [];
+  }
+  const summary = buildLeadSummary(mainLead, all, activity);
+  const latest_deal = all[0] ?? null;
+
+  return { leads, persons: [...persons.values()], companies: companyList, deals: all, latest_deal, summary, alerts, live_checked: liveOk };
 }
 
 // ── E-mail de conflito ──
@@ -353,6 +389,7 @@ ${sec("Tentativa de cadastro", table([
     ["Área de atuação", ctx.input.area_atuacao], ["Especialidade", ctx.input.especialidade],
     ["Produto de interesse", ctx.input.produto_interesse],
   ]))}
+${sec("Resumo do lead", ctx.found.summary.map((b) => `<p style="margin:8px 0 2px;font-weight:bold;font-size:13px">${esc(b.title)}</p>${b.lines.map((l) => `<div style="font-size:12px;padding:1px 0">${esc(l)}</div>`).join("")}`).join(""))}
 ${sec("Deals encontrados", ctx.found.deals.length ? ctx.found.deals.map((d) => table([
     ["Deal", `#${d.deal_id}`], ["Funil / etapa", `${d.pipeline_name ?? ""} / ${d.stage_name ?? ""}`], ["Situação", d.status],
     ["Vendedor", d.owner_name], ["Valor", brl(d.value)], ["Produto", d.product], ["Origem", d.origin_name],
