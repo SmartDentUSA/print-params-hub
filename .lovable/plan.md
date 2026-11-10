@@ -1,88 +1,17 @@
-# Formulário do site com identificação do produto (formulário + simulador WhatsApp)
+# Imersões sumidas da Agenda pública
 
-## Ideia central
-Um único formulário "SITE - Atendimento geral". Ele não fica preso a nenhum produto. A primeira etapa descobre o interesse por meio de botões em 2 ou 3 toques. Em seguida o formulário segue exatamente a sequência padrão de SDR (nome, e-mail, telefone, área, especialidade...) e reaproveita as perguntas e opções que já existem.
+## Causa confirmada
+A página /agenda mostra apenas cursos marcados como **públicos**. Hoje existem 20 cursos presenciais ativos marcados como **privados**, entre eles **todas as 9 turmas futuras** (Chairside Print 11/11, 16/11, 17/11, 25/11, 02/12, 09/12, 20/01 e Rayshape A.I Print 07/12, 18/01). Por isso a página exibe "Nenhum treinamento presencial disponível", logado ou não. Os dados das turmas estão corretos.
 
-## Desenho dos botões (minha recomendação: árvore por objetivo)
-O dentista pensa no que quer fazer, não no nome do produto. Por isso a pergunta começa pelo objetivo e só termina no produto do catálogo.
+As cópias de curso (botão clonar e turmas recorrentes) nascem como privadas, e ninguém ligou o "Público" depois.
 
-```text
-LIA: Olá! Como posso te ajudar hoje?
-
-[ Imprimir em 3D no consultório ]   [ Escanear / moldagem digital ]
-[ Planejar e desenhar (CAD) ]       [ Resinas e materiais ]
-[ Cursos e treinamentos ]           [ Não sei, quero orientação ]
-
--> "Imprimir em 3D no consultório"
-LIA: Você já tem impressora 3D?
-[ Ainda não, quero comprar ]  [ Já tenho, quero resinas ]  [ Já tenho, preciso de suporte ]
-
--> "Ainda não, quero comprar"
-LIA: O que pretende produzir primeiro?
-[ Modelos e guias ]  [ Provisórios e coroas ]  [ Placas e alinhadores ]  [ Tudo / fluxo completo ]
-   => produto sugerido do catálogo (ex.: kit chairside) + botão [ Confirmar ] [ Ver outra opção ]
-
--> "Planejar e desenhar (CAD)"
-[ exocad DentalCAD ]  [ exoplan (implantes) ]  [ Serviço de CAD terceirizado ]
-
--> "Não sei, quero orientação"
-   => interesse "Orientação geral"; segue para o contato e um vendedor é sorteado
-```
-
-Regras de desenho:
-- Até 6 botões por tela, com textos curtos (até 4 palavras) e ícone pequeno.
-- No máximo 3 níveis até chegar ao produto. Cada nível tem um botão "Voltar".
-- Sempre existe a saída "Não sei / quero orientação", para ninguém travar.
-- No último nível, mostrar o produto com foto e nome exato do catálogo antes da confirmação.
-- Os mesmos botões aparecem no formulário do site e no simulador de WhatsApp. No simulador, viram botões de resposta rápida.
-
-## Ordem do fluxo
-1. Telefone primeiro, igual aos outros simuladores (reconhece o lead já cadastrado)
-2. Identificação do produto (botões acima)
-3. Sequência padrão SDR a partir do nome (igual ao exocad RMS), pulando o que já for conhecido
-4. Perguntas condicionais do produto escolhido, já existentes no formulário daquele produto
-5. Encaminhamento ao vendedor e WhatsApp
-
-## O que vai para o CRM
-- Origem: nome exato do formulário do site.
-- Produto de interesse: nome exato do produto confirmado no catálogo. Se a pessoa escolheu "orientação", vai como interesse geral.
-- Mantêm-se a Regra de Ouro e a regra de nova conversão a cada envio.
+## O que fazer
+1. Tornar públicos os cursos presenciais ativos com turmas futuras (as 9 acima). Os cursos privados já encerrados ficam como estão.
+2. No admin de Cursos, mostrar um aviso no card quando um curso está ativo, tem turma futura e está privado ("Não aparece na Agenda").
+3. Ao ativar um curso clonado, manter o switch "Público" visível e destacado no formulário, para não esquecer.
+4. Conferir /agenda no site após a mudança: as imersões devem aparecer.
 
 ## Detalhes técnicos
-- Criar via `fn_create_form_standard_flow` (clone do exocad RMS), com `form_purpose` `sdr_captacao`.
-- A árvore usa perguntas de escolha já existentes, com condições. O nó final grava o produto pela mesma resolução de "botão de produto selecionado" que o LIA já usa, sem criar campo novo.
-- A árvore fica numa configuração de mapeamento (objetivo -> categoria -> produto do catálogo), editável no editor de formulários.
-- O simulador WhatsApp lê a mesma configuração, então as duas versões ficam sempre iguais.
-- Para testar: um envio de teste de cada ramo, conferindo a origem/produto no deal e a timeline.
-
-## Parte 2 — Botão "Resumo" em cada card do catálogo (estilo Gemini no Drive)
-Cada card de produto ou resina ganha um botão "Resumo" com um ícone de brilho. Ao clicar, abre um painel com:
-- Resumo estruturado do produto em seções fixas, sempre nesta ordem (seção sem dado não aparece):
-  1. Visão geral e diferenciais
-  2. Indicações
-  3. Aplicações (ex.: coroas definitivas, facetas, sobre implante)
-  4. Cores e variações
-  5. Tabela técnica resumida (propriedade e valor)
-  6. Pré-processamento e impressão
-  7. Pós-processamento (lavagem, cura, acabamento, cimentação)
-  8. Resumo dos artigos científicos (estudo, instituição, principal conclusão)
-  9. Laudos e certificações (FDA, biocompatibilidade, propriedades físicas), cada um com sua conclusão em uma linha e o link do PDF
-- Vídeos relacionados da Base de Conhecimento, com miniatura, que abrem no player
-- Artigos relacionados da Base de Conhecimento
-- Lista dos documentos já cadastrados (guias, fichas técnicas, manuais, IFU), cada um com os botões Abrir e Baixar
-- Botões de ação que já existem no card (comprar, falar no WhatsApp/simulador)
-- Idioma conforme a página (PT/EN/ES)
-
-Como o resumo é gerado:
-- A IA busca o que a base de conhecimento da Dra. LIA sabe do produto (artigos, vídeos e documentos indexados), junta com os dados técnicos e escreve o resumo uma única vez. O texto fica salvo, então o painel abre na hora e sem custo a cada clique.
-- O resumo é refeito automaticamente quando um documento do produto muda. A equipe também pode refazê-lo pelo editor.
-- O resumo nunca inclui preços (regra do projeto) e usa apenas o que está nos documentos, sem inventar.
-- Produto sem documento: o painel mostra só a descrição e os dados técnicos, sem resumo de IA.
-
-Detalhes técnicos da Parte 2:
-- Uma nova função do servidor faz a mesma busca RAG da LIA (`agent_embeddings`, filtrada pelo produto), seleciona os vídeos (`knowledge_videos`) e artigos (`knowledge_contents`) ligados ao produto, e usa a IA da Lovable com `catalog_documents`/`resin_documents` e os dados técnicos. Ela salva o resumo por produto, idioma e versão dos documentos.
-- O cache é exposto para leitura pública somente com o texto do resumo.
-- O painel reaproveita o modal atual de documentos das resinas (`KbResinDocsDialog`) e passa a valer também para os produtos.
-
-## Para confirmar
-- Os 6 objetivos da primeira tela estão certos? Faltam serviços ou distribuição?
+- Filtro: política de leitura de `smartops_courses` exige `active AND public_visible`; o anônimo recebe 29 de 49 cursos.
+- Passo 1: UPDATE em `public_visible=true` só para os IDs com turma `start_date >= hoje` (lista auditada antes).
+- Nenhuma mudança em políticas de acesso, Agenda, inscrições ou CRM.
