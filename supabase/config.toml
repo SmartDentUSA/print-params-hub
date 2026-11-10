@@ -727,3 +727,6 @@ verify_jwt = false
 
 [functions.crm-insercao]
 verify_jwt = false
+
+[functions.blueprint-meeting-scheduler]
+verify_jwt = false
