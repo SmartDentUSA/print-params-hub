@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import type { Lead, ParsedProposalItem } from "./KanbanLeadCard";
 import { useEquipmentProvenance, type ProvenanceEntry } from "@/hooks/useEquipmentProvenance";
 import { resolveLeadDisplayName } from "@/utils/leadDisplay";
+import { MeetingTimelineDetails, meetingTimelineDescription } from "./MeetingTimelineDetails";
 
 function formatCurrency(val: number): string {
   return val.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
@@ -443,6 +444,8 @@ const TIMELINE_EMOJI: Record<string, string> = {
   astron_enrollment: "🎓",
   cognitive_analysis: "🧠",
   page_view: "👁️",
+  reuniao_agendada: "📅",
+  reuniao_analisada: "🧠",
   ...Object.fromEntries(Object.entries(KOL_EVENTS).map(([k, v]) => [k, v[0]])),
 };
 
@@ -460,6 +463,8 @@ const TIMELINE_LABEL: Record<string, string> = {
   ecommerce_boleto_expired: "Boleto vencido",
   sellflux_tag_applied: "Tag SellFlux aplicada",
   page_view: "Visitou página",
+  reuniao_agendada: "Reunião de apresentação agendada",
+  reuniao_analisada: "Relatório e transcrição da apresentação",
   ...Object.fromEntries(Object.entries(KOL_EVENTS).map(([k, v]) => [k, v[1]])),
 };
 
@@ -468,6 +473,8 @@ function TimelineItem({ event }: { event: TimelineEvent }) {
   const emoji = TIMELINE_EMOJI[event.event_type] || (typeof data.icon === "string" ? (data.icon as string) : "") || "📌";
   const label = TIMELINE_LABEL[event.event_type] || event.title || event.event_type.replace(/_/g, " ");
   const isNew = Date.now() - new Date(event.event_timestamp).getTime() < 60_000;
+  const isMeeting = event.event_type === "reuniao_agendada" || event.event_type === "reuniao_analisada";
+  const description = isMeeting ? meetingTimelineDescription(event.event_type, data) : event.description;
 
   return (
     <div className={`relative pl-6 pb-3 border-l-2 ${isNew ? "border-primary animate-pulse" : "border-muted-foreground/20"}`}>
@@ -481,9 +488,10 @@ function TimelineItem({ event }: { event: TimelineEvent }) {
         )}
       </div>
       <div className="text-xs font-medium">{label}</div>
-      {event.description && (
-        <div className="text-[10px] text-muted-foreground truncate">{event.description}</div>
+      {description && (
+        <div className={`text-[10px] text-muted-foreground ${isMeeting ? "" : "truncate"}`}>{description}</div>
       )}
+      {isMeeting && <MeetingTimelineDetails eventType={event.event_type} data={data} />}
       {event.value_numeric != null && event.value_numeric > 0 && (
         <Badge variant="secondary" className="text-[9px] px-1 py-0 mt-0.5">
           {formatCurrency(event.value_numeric)}
