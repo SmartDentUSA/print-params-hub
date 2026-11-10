@@ -55,5 +55,23 @@ Regras de desenho:
 - O simulador WhatsApp lê a mesma configuração, então as duas versões ficam sempre iguais.
 - Para testar: um envio de teste de cada ramo, conferindo a origem/produto no deal e a timeline.
 
+## Parte 2 — Botão "Resumo" em cada card do catálogo (estilo Gemini no Drive)
+Cada card de produto ou resina ganha um botão "Resumo" com um ícone de brilho. Ao clicar, abre um painel com:
+- Resumo estruturado do produto: para que serve, principais itens/cores, indicações e diferenciais, em tópicos, como na sua imagem do SmartGum
+- Lista dos documentos já cadastrados (guias, fichas técnicas, manuais, IFU), cada um com os botões Abrir e Baixar
+- Botões de ação que já existem no card (comprar, falar no WhatsApp/simulador)
+- Idioma conforme a página (PT/EN/ES)
+
+Como o resumo é gerado:
+- A IA lê os PDFs e os dados técnicos já cadastrados do produto e escreve o resumo uma única vez. O texto fica salvo, então o painel abre na hora e sem custo a cada clique.
+- O resumo é refeito automaticamente quando um documento do produto muda. A equipe também pode refazê-lo pelo editor.
+- O resumo nunca inclui preços (regra do projeto) e usa apenas o que está nos documentos, sem inventar.
+- Produto sem documento: o painel mostra só a descrição e os dados técnicos, sem resumo de IA.
+
+Detalhes técnicos da Parte 2:
+- Uma nova função do servidor usa a IA da Lovable para ler `catalog_documents`/`resin_documents` e os dados técnicos, e salva o resumo por produto, idioma e versão dos documentos.
+- O cache é exposto para leitura pública somente com o texto do resumo.
+- O painel reaproveita o modal atual de documentos das resinas (`KbResinDocsDialog`) e passa a valer também para os produtos.
+
 ## Para confirmar
 - Os 6 objetivos da primeira tela estão certos? Faltam serviços ou distribuição?
