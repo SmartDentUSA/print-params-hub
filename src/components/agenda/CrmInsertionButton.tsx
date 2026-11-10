@@ -9,14 +9,16 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
-import { AlertTriangle, Briefcase, Building2, Check, ChevronsUpDown, ClipboardPlus, Loader2, Search, User } from "lucide-react";
+import { AlertTriangle, Briefcase, Building2, Check, ChevronsUpDown, ClipboardPlus, Loader2, Lock, Mail, Search, User } from "lucide-react";
+import { CrmLeadSummary, dealStatus } from "./CrmLeadSummary";
 import { cn } from "@/lib/utils";
 
 type Kol = { id: string; nome: string; seller_id: string | null; seller_nome: string | null; linked: boolean };
 type Product = { id: string; name: string; group: string | null };
 type Bootstrap = { me: { id: string; nome: string }; options: { area_atuacao: string[]; especialidade: string[]; produtos: Product[] }; kols: Kol[] };
 type Deal = { deal_id: string; lead_id: string | null; pipeline_name: string | null; pipeline_id: number | null; stage_name: string | null; status: string | null; owner_name: string | null; value: number | null; product: string | null; origin_name: string | null; title?: string | null; created_at: string | null; closed_at?: string | null };
-type Found = { leads: any[]; persons: any[]; companies: any[]; deals: Deal[]; latest_deal: Deal | null; summary: { title: string; lines: string[] }[]; alerts: { deal_id: string; owner_name: string; pipeline: string; stage: string }[]; live_checked: boolean };
+type Alert = { deal_id: string; owner_name: string; owner_team_member_id: string | null; has_email?: boolean; pipeline: string; stage: string };
+type Found = { leads: any[]; persons: any[]; companies: any[]; deals: Deal[]; latest_deal: Deal | null; summary: { title: string; lines: string[] }[]; conversions?: { date: string | null; name: string }[]; extras?: { courses: string[]; tickets: number }; alerts: Alert[]; live_checked: boolean };
 type FormState = { nome: string; email: string; area_atuacao: string; especialidade: string; product_id: string; kol_id: string; tipo: "" | "ativa" | "fria"; empresa_nome: string; empresa_cnpj: string };
 
 const EMPTY: FormState = { nome: "", email: "", area_atuacao: "", especialidade: "", product_id: "", kol_id: "", tipo: "", empresa_nome: "", empresa_cnpj: "" };
@@ -67,9 +69,17 @@ function Combo({ value, onChange, items, placeholder, empty }: { value: string; 
   );
 }
 
-function RecordCard({ icon, title, badge, lines, onUse }: { icon: React.ReactNode; title: string; badge?: string | null; lines: (string | null | undefined)[]; onUse: () => void }) {
+function UseButton({ locked, onClick }: { locked?: string | null; onClick: () => void }) {
   return (
-    <div className="flex flex-wrap items-start gap-2 rounded-lg border bg-background p-2.5">
+    <Button type="button" size="sm" variant="outline" className="h-7 gap-1 px-2 text-xs" disabled={!!locked} title={locked ?? undefined} onClick={onClick}>
+      {locked && <Lock className="h-3 w-3" />} Utilizar estes dados para nova oportunidade
+    </Button>
+  );
+}
+
+function RecordCard({ icon, title, badge, lines, onUse, locked }: { icon: React.ReactNode; title: string; badge?: string | null; lines: (string | null | undefined)[]; onUse: () => void; locked?: string | null }) {
+  return (
+    <div className="flex flex-wrap items-start gap-2 rounded-lg border bg-card p-3">
       <div className="mt-0.5 text-primary">{icon}</div>
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
@@ -78,9 +88,7 @@ function RecordCard({ icon, title, badge, lines, onUse }: { icon: React.ReactNod
         </div>
         {lines.filter(Boolean).map((l, i) => <p key={i} className="break-words text-xs text-muted-foreground">{l}</p>)}
       </div>
-      <Button type="button" size="sm" variant="outline" className="h-7 px-2 text-xs" onClick={onUse}>
-        Utilizar estes dados para nova oportunidade
-      </Button>
+      <UseButton locked={locked} onClick={onUse} />
     </div>
   );
 }
@@ -96,6 +104,8 @@ export function CrmInsertionButton() {
   const [showAllKols, setShowAllKols] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<{ ok: boolean; text: string; emails?: Record<string, string> } | null>(null);
+  const [notifying, setNotifying] = useState(false);
+  const [notice, setNotice] = useState<{ ok: boolean; text: string; emails?: Record<string, string> } | null>(null);
 
   const boot = useQuery({
     queryKey: ["crm-insercao-bootstrap"],
@@ -117,7 +127,7 @@ export function CrmInsertionButton() {
   const pick = (list: string[] | undefined, v?: string | null) => (v && list?.includes(v) ? v : "");
 
   const search = async () => {
-    setSearchError(""); setResult(null); setFound(null); setBase(null);
+    setSearchError(""); setResult(null); setFound(null); setBase(null); setNotice(null);
     setSearching(true);
     try { setFound(await call<Found>("search", { telefone: phone })); }
     catch (e) { setSearchError((e as Error).message); }
@@ -153,6 +163,22 @@ export function CrmInsertionButton() {
     setBase({ kind: "deal", id: d.deal_id });
     const pid = productIdByName(d.product);
     if (pid) set("product_id", pid);
+  };
+
+  const myId = boot.data?.me.id;
+  const blocking = (found?.alerts ?? []).filter((a) => a.owner_team_member_id !== myId);
+  const lockedReason = blocking.length ? `Bloqueado: lead em negociação com ${blocking[0].owner_name}` : null;
+  // Só libera o envio se o vendedor do contrato do KOL for o próprio dono do negócio aberto.
+  const submitLocked = blocking.length > 0 && !(selectedKol?.seller_id && blocking.every((a) => a.owner_team_member_id === selectedKol.seller_id));
+
+  const notify = async () => {
+    setNotifying(true); setNotice(null);
+    try {
+      const r = await call<any>("notify", { telefone: phone, nome: form.nome || found?.leads[0]?.nome || "", kol_lead_id: form.kol_id || null, indicacao_tipo: form.tipo || null });
+      const failed = Object.values(r.emails ?? {}).some((v) => String(v).startsWith("falha"));
+      setNotice({ ok: !failed, text: r.already ? "Este aviso já foi enviado há poucos minutos." : failed ? "Aviso registrado, mas algum e-mail falhou:" : "Aviso enviado por e-mail e registrado na timeline do lead.", emails: r.emails });
+    } catch (e) { setNotice({ ok: false, text: (e as Error).message }); }
+    finally { setNotifying(false); }
   };
 
   const canSubmit = !!(phone.replace(/\D/g, "").length >= 10 && form.nome.trim() && form.area_atuacao && form.especialidade && form.product_id && form.kol_id && form.tipo);
@@ -214,39 +240,64 @@ export function CrmInsertionButton() {
                 {searchError && <p className="text-sm text-destructive">{searchError}</p>}
                 {found && (
                   <div className="space-y-2">
-                    {found.alerts.map((a) => (
-                      <div key={a.deal_id} className="flex items-start gap-2 rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm">
-                        <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
-                        <span>Lead pertence ao vendedor: <b>{a.owner_name}</b> e já está no funil de vendas (<b>{a.pipeline} / {a.stage}</b>).</span>
+                    {!!blocking.length && (
+                      <div className="space-y-3 rounded-xl border border-destructive/40 bg-destructive/10 p-4">
+                        <div className="flex items-start gap-3">
+                          <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-destructive" />
+                          <div className="min-w-0 space-y-1 text-sm">
+                            {blocking.map((a) => (
+                              <p key={a.deal_id}>Lead pertence ao vendedor <b>{a.owner_name}</b> e já está no funil de vendas (<b>{a.pipeline} / {a.stage}</b>) · negócio #{a.deal_id}.</p>
+                            ))}
+                            <p className="text-xs text-muted-foreground">Não é possível usar estes dados para nova oportunidade. Avise o vendedor responsável — o e-mail vai para ele, para você e para a gestão, com o resumo do lead.</p>
+                          </div>
+                        </div>
+                        <Button type="button" variant="destructive" className="w-full gap-2 sm:w-auto" onClick={notify} disabled={notifying}>
+                          {notifying ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />} Avisar o vendedor por e-mail
+                        </Button>
+                        {notice && (
+                          <div className={cn("rounded-lg border p-2.5 text-xs", notice.ok ? "border-success/40 bg-success/10" : "border-destructive/40 bg-background")}>
+                            <p className="font-medium">{notice.text}</p>
+                            {notice.emails && <ul className="mt-1 text-muted-foreground">{Object.entries(notice.emails).map(([to, st]) => <li key={to}>{to}: {st}</li>)}</ul>}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    {found.alerts.filter((a) => a.owner_team_member_id === myId).map((a) => (
+                      <div key={a.deal_id} className="flex items-start gap-2 rounded-lg border bg-muted/40 p-3 text-sm">
+                        <Briefcase className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                        <span>Este lead já está com você no funil de vendas (<b>{a.pipeline} / {a.stage}</b>).</span>
                       </div>
                     ))}
+                    {(found.leads.length > 0 || found.deals.length > 0) && (
+                      <CrmLeadSummary lead={found.leads[0] ?? null} person={found.persons[0] ?? null} deals={found.deals} conversions={found.conversions ?? []} extras={found.extras} />
+                    )}
                     {!found.leads.length && !found.persons.length && !found.companies.length && !found.deals.length && (
                       <p className="text-sm text-muted-foreground">Nenhum registro encontrado — preencha os dados do novo lead abaixo.</p>
                     )}
                     {found.leads.map((l) => (
                       <RecordCard key={`l-${l.id}`} icon={<User className="h-4 w-4" />} title={`Ficha: ${l.nome ?? "sem nome"}`} badge={l.doc?.badge}
                         lines={[l.doc?.label, [l.telefone_normalized, l.email].filter(Boolean).join(" · "), [l.area_atuacao, l.especialidade].filter(Boolean).join(" · "), l.produto_interesse || l.produto_interesse_auto ? `Interesse: ${l.produto_interesse || l.produto_interesse_auto}` : null, l.form_name ? `Última conversão: ${l.form_name}` : null]}
-                        onUse={() => useLead(l)} />
+                        onUse={() => useLead(l)} locked={lockedReason} />
                     ))}
                     {found.persons.map((p) => (
                       <RecordCard key={`p-${p.piperun_person_id}`} icon={<User className="h-4 w-4" />} title={`Pessoa: ${p.nome ?? "sem nome"}`} badge={p.doc?.badge}
                         lines={[p.doc?.label, `PipeRun #${p.piperun_person_id}`, [p.telefone_principal, p.email].filter(Boolean).join(" · "), p.empresa_nome ? `Empresa: ${p.empresa_nome}` : null]}
-                        onUse={() => usePerson(p)} />
+                        onUse={() => usePerson(p)} locked={lockedReason} />
                     ))}
                     {found.companies.map((c) => (
                       <RecordCard key={`c-${c.piperun_company_id}`} icon={<Building2 className="h-4 w-4" />} title={`Organização: ${c.nome_fantasia || c.nome || c.razao_social || "sem nome"}`} badge={c.doc?.badge}
                         lines={[c.doc?.label, [c.cidade, c.uf].filter(Boolean).join("/")]}
-                        onUse={() => useCompany(c)} />
+                        onUse={() => useCompany(c)} locked={lockedReason} />
                     ))}
                     {found.latest_deal && (() => {
                       const d = found.latest_deal!;
                       const row = (k: string, v?: string | null) => (v ? <div className="flex gap-2 text-xs"><span className="w-28 shrink-0 text-muted-foreground">{k}</span><span className="min-w-0 break-words">{v}</span></div> : null);
                       return (
-                        <div className="space-y-2 rounded-lg border border-primary/40 bg-background p-3">
+                        <div className="space-y-2 rounded-xl border border-primary/40 bg-card p-4">
                           <div className="flex flex-wrap items-center gap-2">
                             <Briefcase className="h-4 w-4 text-primary" />
                             <p className="flex-1 text-sm font-semibold">Negócio mais recente · #{d.deal_id}</p>
-                            <Badge variant="outline" className="text-[10px]">{d.status ?? "—"}</Badge>
+                            <Badge variant="outline" className={cn("text-[10px]", dealStatus(d.status).badge)}>{dealStatus(d.status).label}</Badge>
                           </div>
                           <div className="space-y-1">
                             {row("Título", d.title)}
@@ -258,23 +309,10 @@ export function CrmInsertionButton() {
                             {row("Criado em", dt(d.created_at))}
                             {row("Fechado em", d.status !== "aberta" ? dt(d.closed_at) : null)}
                           </div>
-                          <Button type="button" size="sm" variant="outline" className="h-7 px-2 text-xs" onClick={() => useDeal(d)}>
-                            Utilizar estes dados para nova oportunidade
-                          </Button>
+                          <UseButton locked={lockedReason} onClick={() => useDeal(d)} />
                         </div>
                       );
                     })()}
-                    {!!found.summary?.length && (
-                      <div className="space-y-3 rounded-lg border bg-muted/40 p-3">
-                        <p className="text-sm font-semibold">Resumo do lead</p>
-                        {found.summary.map((b) => (
-                          <div key={b.title} className="space-y-0.5">
-                            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{b.title}</p>
-                            {b.lines.map((l, i) => <p key={i} className="text-xs leading-relaxed">{l}</p>)}
-                          </div>
-                        ))}
-                      </div>
-                    )}
                     {!found.live_checked && <p className="text-xs text-muted-foreground">PipeRun indisponível agora; resultado baseado no espelho do sistema.</p>}
                   </div>
                 )}
@@ -344,7 +382,8 @@ export function CrmInsertionButton() {
                 </div>
               )}
 
-              <Button type="button" className="w-full" disabled={!canSubmit || submitting || !!(selectedKol && !selectedKol.seller_id)} onClick={submit}>
+              {submitLocked && <p className="text-xs text-destructive">Envio bloqueado: o lead já está em negociação com {blocking[0].owner_name}. Use “Avisar o vendedor por e-mail”.</p>}
+              <Button type="button" className="w-full" disabled={!canSubmit || submitting || submitLocked || !!(selectedKol && !selectedKol.seller_id)} onClick={submit}>
                 {submitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null} Enviar para o CRM
               </Button>
             </>

@@ -34,6 +34,11 @@ export function isOpenVendasConflict(d: Pick<DealView, "status" | "pipeline_id" 
   return d.status === "aberta" && Number(d.pipeline_id) === VENDAS_PIPELINE_ID && Number(d.owner_id) !== Number(targetOwnerId);
 }
 
+/** Deal aberto no Funil de vendas de outro vendedor (não de quem está cadastrando) → usar os dados fica bloqueado. */
+export function ownedByAnotherSeller(d: Pick<DealView, "status" | "pipeline_id" | "owner_team_member_id">, registrantTeamMemberId: string): boolean {
+  return d.status === "aberta" && Number(d.pipeline_id) === VENDAS_PIPELINE_ID && d.owner_team_member_id !== registrantTeamMemberId;
+}
+
 /** Sufixos locais (DDD + número, com e sem o 9º dígito) para casar telefones gravados em formatos diferentes. */
 export function phoneVariants(raw: string): string[] {
   let d = String(raw ?? "").replace(/\D/g, "");

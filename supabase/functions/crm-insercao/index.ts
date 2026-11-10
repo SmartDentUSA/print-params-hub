@@ -10,11 +10,12 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { z } from "npm:zod@3.23.8";
 import { normalizePipeRunDealStatus, piperunGet, PIPELINES, PIPELINE_NAMES } from "../_shared/piperun-field-map.ts";
-import { buildLeadSummary } from "./summary.ts";
+import { buildLeadConversions, buildLeadSummary } from "./summary.ts";
 import {
   buildOriginName,
   documentInfo,
   isOpenVendasConflict,
+  ownedByAnotherSeller,
   phoneVariants,
   type DealView,
 } from "./rules.ts";
@@ -326,7 +327,7 @@ async function searchRecords(phoneRaw: string, emailRaw?: string | null) {
   all.sort((a, b) => String(b.created_at ?? "").localeCompare(String(a.created_at ?? "")));
   const alerts = all
     .filter((d) => d.status === "aberta" && Number(d.pipeline_id) === PIPELINES.VENDAS)
-    .map((d) => ({ deal_id: d.deal_id, owner_name: d.owner_name ?? "não identificado", pipeline: d.pipeline_name ?? "Funil de vendas", stage: d.stage_name ?? "" }));
+    .map((d) => ({ deal_id: d.deal_id, owner_name: d.owner_name ?? "não identificado", owner_team_member_id: d.owner_team_member_id ?? null, has_email: !!d.owner_email, pipeline: d.pipeline_name ?? "Funil de vendas", stage: d.stage_name ?? "" }));
 
   // Resumo do lead (timeline de negócios + compilado do sistema)
   const mainLead = leads[0] ?? null;
@@ -340,10 +341,13 @@ async function searchRecords(phoneRaw: string, emailRaw?: string | null) {
     activity = act ?? [];
   }
   const summary = buildLeadSummary(mainLead, all, activity);
+  const conversions = buildLeadConversions(activity);
+  const courses = [...new Set(activity.filter((a) => a.event_type === "inscricao_curso_publica" || a.event_type === "treinamento_finalizado").map((a) => a.entity_name).filter(Boolean))].slice(0, 6) as string[];
+  const tickets = activity.filter((a) => a.event_type === "support_ticket_created").length;
   const latest_deal = all[0] ?? null;
 
   const withDoc = (r: any) => ({ ...r, doc: documentInfo({ cpf: r.cpf, cnpj: r.empresa_cnpj_digits ?? r.cnpj }) });
-  return { leads, persons: [...persons.values()].map(withDoc), companies: companyList.map(withDoc), deals: all, latest_deal, summary, alerts, live_checked: liveOk };
+  return { leads, persons: [...persons.values()].map(withDoc), companies: companyList.map(withDoc), deals: all, latest_deal, summary, conversions, extras: { courses, tickets }, alerts, live_checked: liveOk };
 }
 
 // ── E-mail de conflito ──
@@ -369,7 +373,8 @@ function table(rows: Array<[string, unknown]>) {
 }
 
 function conflictEmailHtml(ctx: {
-  registrant: TeamMember; seller: TeamMember; kolName: string; origin: string; tipo: string;
+  mode?: "blocked" | "notify";
+  registrant: TeamMember; seller: TeamMember | null; kolName: string; origin: string; tipo: string;
   input: Record<string, unknown>; found: Awaited<ReturnType<typeof searchRecords>>; conflicts: DealView[]; history: any[];
 }) {
   const brl = (v: unknown) => (v == null ? "" : Number(v).toLocaleString("pt-BR", { style: "currency", currency: "BRL" }));
@@ -377,16 +382,16 @@ function conflictEmailHtml(ctx: {
   const sec = (t: string, body: string) => `<h3 style="margin:20px 0 6px;font-size:15px;color:#0b3d4f">${esc(t)}</h3>${body}`;
   return `<!doctype html><html><body style="font-family:Arial,sans-serif;color:#1c1e23;max-width:760px;margin:auto">
 <div style="background:#fff4e5;border:1px solid #f0b357;border-radius:8px;padding:12px 14px;margin:12px 0">
-<b>⚠️ Tentativa de nova oportunidade bloqueada</b><br/>
+<b>${ctx.mode === "notify" ? "⚠️ Aviso: indicação para lead que já está em negociação" : "⚠️ Tentativa de nova oportunidade bloqueada"}</b><br/>
 ${ctx.conflicts.map((c) => `Lead pertence ao vendedor <b>${esc(c.owner_name ?? "não identificado")}</b> e já está no funil de vendas (<b>${esc(c.pipeline_name ?? "Funil de vendas")} / ${esc(c.stage_name ?? "")}</b>) — Deal #${esc(c.deal_id)}.`).join("<br/>")}
 <br/><span style="font-size:12px;color:#5f6368">Nenhum negócio foi criado ou alterado. Este e-mail fica como registro.</span></div>
-${sec("Tentativa de cadastro", table([
+${sec(ctx.mode === "notify" ? "Quem avisou" : "Tentativa de cadastro", table([
     ["Cadastrado por", ctx.registrant.nome_completo],
     ["Data", dt(new Date().toISOString())],
     ["Profissional KOL", ctx.kolName],
-    ["Tipo de indicação", ctx.tipo === "ativa" ? "Indicação Ativa" : "Indicação Fria"],
+    ["Tipo de indicação", ctx.tipo === "ativa" ? "Indicação Ativa" : ctx.tipo === "fria" ? "Indicação Fria" : ""],
     ["Origem pretendida", ctx.origin],
-    ["Vendedor do contrato do KOL", ctx.seller.nome_completo],
+    ["Vendedor do contrato do KOL", ctx.seller?.nome_completo],
     ["Nome informado", ctx.input.nome], ["Celular", ctx.input.telefone], ["E-mail", ctx.input.email],
     ["Documento informado", ctx.input.empresa_cnpj],
     ["Área de atuação", ctx.input.area_atuacao], ["Especialidade", ctx.input.especialidade],
@@ -500,6 +505,76 @@ Deno.serve(async (req) => {
         lead_id: found.leads[0]?.id ?? null, outcome: found.alerts.length ? "found_open_vendas" : (found.leads.length || found.persons.length ? "found" : "not_found"),
       });
       return json(found);
+    }
+
+    if (action === "notify") {
+      // Aviso manual ao vendedor dono do lead (botão "Avisar o vendedor").
+      // Não cria nem altera negócio; registra na timeline e envia e-mail.
+      const phoneDigits = String(body?.telefone ?? "").replace(/\D/g, "");
+      if (phoneDigits.length < 10) return json({ error: "Informe o celular com DDD (55xxxxxxxxxxx)." }, 400);
+      const since = new Date(Date.now() - 30 * 60_000).toISOString();
+      const { data: recent } = await sb.from("crm_insertion_log").select("emails_sent, created_at")
+        .eq("team_member_id", tm.id).eq("action", "notify").eq("lead_phone", phoneDigits).gte("created_at", since)
+        .order("created_at", { ascending: false }).limit(1).maybeSingle();
+      if (recent) return json({ ok: true, already: true, emails: recent.emails_sent ?? {}, sent_at: recent.created_at });
+
+      const found = await searchRecords(phoneDigits, null);
+      const conflicts = found.deals.filter((d) => ownedByAnotherSeller(d, tm.id));
+      if (!conflicts.length) return json({ error: "Este lead não está em negociação com outro vendedor." }, 409);
+
+      let kol: any = null;
+      const kolId = String(body?.kol_lead_id ?? "");
+      if (/^[0-9a-f-]{36}$/i.test(kolId)) {
+        const { data } = await sb.from("lia_attendances")
+          .select("id, nome, prof_display_name, prof_specialist_team_member_id, prof_kol_form_ids")
+          .eq("id", kolId).eq("is_kol", true).eq("is_test", false).is("merged_into", null).maybeSingle();
+        kol = data ?? null;
+      }
+      const kolName = kol ? String(kol.prof_display_name || kol.nome || "").trim() : "";
+      const seller = kol ? await kolSeller(kol) : null;
+      const tipo = body?.indicacao_tipo === "ativa" || body?.indicacao_tipo === "fria" ? body.indicacao_tipo : "";
+      const origin = kolName && tipo ? buildOriginName(tipo, kolName) : "";
+      const leadId = found.leads[0]?.id ?? null;
+      const leadName = String(body?.nome || found.leads[0]?.nome || found.persons[0]?.nome || "").slice(0, 160);
+      const { data: history } = leadId
+        ? await sb.from("lead_activity_log").select("event_type, event_timestamp, entity_name").eq("lead_id", leadId).order("event_timestamp", { ascending: false }).limit(25)
+        : { data: [] as any[] };
+      const { data: logRow } = await sb.from("crm_insertion_log").insert({
+        auth_user_id: user_id, team_member_id: tm.id, action: "notify", lead_phone: phoneDigits, lead_id: leadId,
+        kol_lead_id: kol?.id ?? null, indicacao_tipo: tipo || null, origin_name: origin || null,
+        target_seller_team_member_id: seller?.id ?? null, outcome: "notified", conflict: conflicts,
+      }).select("id").single();
+      const recipients = [...new Set([
+        ...conflicts.map((c) => c.owner_email).filter(Boolean) as string[],
+        tm.email ?? "", MANAGER_EMAIL,
+      ].map((e) => e.trim().toLowerCase()).filter((e) => /@/.test(e)))];
+      const html = conflictEmailHtml({
+        mode: "notify", registrant: tm, seller, kolName, origin, tipo,
+        input: { nome: leadName, telefone: phoneDigits }, found, conflicts, history: history ?? [],
+      });
+      const subject = `⚠️ Indicação para lead em negociação — ${leadName || phoneDigits} está com ${conflicts[0].owner_name ?? "outro vendedor"}`;
+      const sent: Record<string, string> = {};
+      for (const to of recipients) {
+        try { await sendEmail(to, subject, html); sent[to] = "enviado"; }
+        catch (e) { sent[to] = `falha: ${String((e as Error).message).slice(0, 120)}`; }
+      }
+      if (logRow?.id) await sb.from("crm_insertion_log").update({ emails_sent: sent }).eq("id", logRow.id);
+      if (leadId) {
+        await sb.from("lead_activity_log").insert({
+          lead_id: leadId, event_type: "crm_insercao_aviso_vendedor", source_channel: "insercao_crm",
+          entity_type: "deal", entity_id: conflicts[0].deal_id,
+          entity_name: `Aviso ao vendedor ${conflicts[0].owner_name ?? ""} — indicação de ${tm.nome_completo}`.trim(),
+          dedupe_hash: `crm_insercao_aviso:${logRow?.id ?? crypto.randomUUID()}`,
+          event_data: { registrant: tm.nome_completo, kol: kolName || null, origin: origin || null, conflicts, emails: sent },
+        });
+      }
+      if (kol) {
+        await kolTimeline(kol.id, "kol_indicacao_aviso_vendedor", String(logRow?.id ?? crypto.randomUUID()), `Aviso ao vendedor — ${leadName}`, {
+          registrant: tm.nome_completo, lead_id: leadId, lead_nome: leadName, origin, tipo,
+          owner: conflicts[0].owner_name, motivo: "Lead já em negociação com outro vendedor; nenhuma oportunidade criada",
+        });
+      }
+      return json({ ok: true, emails: sent });
     }
 
     if (action === "submit") {
