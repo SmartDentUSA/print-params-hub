@@ -730,3 +730,6 @@ verify_jwt = false
 
 [functions.blueprint-meeting-scheduler]
 verify_jwt = false
+
+[functions.blueprint-meeting-analyzer]
+verify_jwt = false
