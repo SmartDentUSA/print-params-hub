@@ -79,3 +79,30 @@ Deno.test("Resumo conta negócios abertos, ganhos e perdidos com a soma dos ganh
   assertEquals(hist.lines[0].endsWith("1 perdido(s)"), true);
   assertEquals(hist.lines[1].includes("#1"), true); // mais antigo primeiro
 });
+
+import { ownedByAnotherSeller } from "./rules.ts";
+
+Deno.test("Lead em deal aberto do Funil de vendas de outro vendedor bloqueia o uso dos dados", () => {
+  assertEquals(ownedByAnotherSeller({ status: "aberta", pipeline_id: 18784, owner_team_member_id: "daniele" }, "erick"), true);
+});
+
+Deno.test("Deal aberto do próprio cadastrante não bloqueia", () => {
+  assertEquals(ownedByAnotherSeller({ status: "aberta", pipeline_id: 18784, owner_team_member_id: "erick" }, "erick"), false);
+});
+
+Deno.test("Deal perdido ou fora do Funil de vendas não bloqueia", () => {
+  assertEquals(ownedByAnotherSeller({ status: "perdida", pipeline_id: 18784, owner_team_member_id: "daniele" }, "erick"), false);
+  assertEquals(ownedByAnotherSeller({ status: "aberta", pipeline_id: 72938, owner_team_member_id: "daniele" }, "erick"), false);
+});
+
+import { buildLeadConversions } from "./summary.ts";
+
+Deno.test("Conversões repetidas no mesmo dia aparecem uma vez", () => {
+  const c = buildLeadConversions([
+    { event_type: "form_submission", event_timestamp: "2026-11-10T10:00:00Z", entity_name: "Form A" },
+    { event_type: "form_submission", event_timestamp: "2026-11-10T12:00:00Z", entity_name: "Form A" },
+    { event_type: "meta_ads_lead_entry", event_timestamp: "2026-11-10T09:00:00Z", entity_name: null },
+  ]);
+  assertEquals(c.length, 2);
+  assertEquals(c[1].name, "Entrada via Meta Ads");
+});
