@@ -169,7 +169,7 @@ async function searchRecords(phoneRaw: string, emailRaw?: string | null) {
   const personOr = variants.map((v) => `phone_digits.like.*${v}`).join(",");
   const { data: personsRaw } = await sb
     .from("piperun_persons_mirror")
-    .select("piperun_person_id, nome, email, telefone_principal, phone_digits, cpf, cargo, piperun_company_id, empresa_nome, area_atuacao, especialidade, cidade:raw->>city_name, updated_at")
+    .select("piperun_person_id, nome, email, telefone_principal, phone_digits, cpf, cargo, piperun_company_id, empresa_nome, area_atuacao, especialidade, updated_at")
     .or(email ? `${personOr},email_normalized.eq.${email}` : personOr)
     .limit(5);
   const persons = new Map<number, any>();
@@ -523,7 +523,7 @@ Deno.serve(async (req) => {
         source: "form", form_name: origin, form_id: formId, form_purpose: "insercao_crm",
         nome: input.nome, telefone_raw: phoneDigits, ...(input.email ? { email: input.email.toLowerCase() } : {}),
         area_atuacao: input.area_atuacao, especialidade: input.especialidade,
-        produto_interesse: product.name, product_catalog_id: product.id,
+        produto_interesse: product.name,
         ...(input.empresa_nome ? { empresa_nome: input.empresa_nome } : {}),
         ...(input.empresa_cnpj ? { empresa_cnpj: input.empresa_cnpj } : {}),
         proprietario_lead_crm: seller.nome_completo,
