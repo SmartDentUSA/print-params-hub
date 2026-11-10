@@ -99,8 +99,8 @@ async function claim(sb: Sb, leadId: string, dealId: number, base: Record<string
     }).select("id, event_data, updated_at").maybeSingle();
     if (data) return { row: data, decision: "take" as const };
     if (error && error.code !== "23505") throw new Error(`state_insert: ${error.message}`);
-    const again = await loadState(sb, leadId, dealId); // corrida perdida
-    return { row: again, decision: again ? claimDecision(again.event_data?.status, again.updated_at) === "take" ? "busy" as const : claimDecision(again.event_data?.status, again.updated_at) : "busy" as const };
+    // Outra execução inseriu primeiro (ou o gatilho de dedupe descartou): não competir.
+    return { row: await loadState(sb, leadId, dealId), decision: "busy" as const };
   }
   const d = claimDecision(existing.event_data?.status as MeetingStatus, existing.updated_at);
   if (d !== "take") return { row: existing, decision: d };
