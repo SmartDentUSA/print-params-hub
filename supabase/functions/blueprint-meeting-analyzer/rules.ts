@@ -36,16 +36,22 @@ export interface DriveDoc { id: string; name: string; mimeType?: string; created
  * 2) documento da pasta cujo nome começa pelo título do evento.
  * Nunca escolhe por proximidade de horário apenas — evita atribuir a reunião errada ao lead.
  */
-export function pickNotesDoc(i: { attachments: Array<{ fileId?: string; title?: string; mimeType?: string }>; folderDocs: DriveDoc[]; eventSummary: string }): { id: string; name: string; via: string } | null {
-  const att = i.attachments.find((a) => a.fileId && (a.mimeType === DOC_MIME || /anota|notes|gemini/i.test(a.title ?? "")));
-  if (att?.fileId) return { id: att.fileId, name: att.title ?? "", via: "calendar_attachment" };
+export function pickNotesDocs(i: { attachments: Array<{ fileId?: string; title?: string; mimeType?: string }>; folderDocs: DriveDoc[]; eventSummary: string }): Array<{ id: string; name: string; via: string }> {
+  const out: Array<{ id: string; name: string; via: string }> = [];
+  // Anexos mais recentes primeiro (o Google acrescenta no fim quando as anotações são religadas).
+  for (const a of [...i.attachments].reverse()) {
+    if (a.fileId && (a.mimeType === DOC_MIME || /anota|notes|gemini/i.test(a.title ?? ""))) out.push({ id: a.fileId, name: a.title ?? "", via: "calendar_attachment" });
+  }
   const title = norm(i.eventSummary);
-  if (title.length < 8) return null;
-  const hits = i.folderDocs.filter((d) => (d.mimeType ?? DOC_MIME) === DOC_MIME && norm(d.name).startsWith(title));
-  if (hits.length === 0) return null;
-  hits.sort((a, b) => String(b.createdTime ?? b.modifiedTime ?? "").localeCompare(String(a.createdTime ?? a.modifiedTime ?? "")));
-  return { id: hits[0].id, name: hits[0].name, via: "folder_title" };
+  if (title.length >= 8) {
+    const hits = i.folderDocs.filter((d) => (d.mimeType ?? DOC_MIME) === DOC_MIME && norm(d.name).startsWith(title));
+    hits.sort((a, b) => String(b.createdTime ?? b.modifiedTime ?? "").localeCompare(String(a.createdTime ?? a.modifiedTime ?? "")));
+    for (const h of hits) if (!out.some((o) => o.id === h.id)) out.push({ id: h.id, name: h.name, via: "folder_title" });
+  }
+  return out;
 }
+
+export function pickNotesDoc(i: Parameters<typeof pickNotesDocs>[0]) { return pickNotesDocs(i)[0] ?? null; }
 
 export interface Analysis {
   resumo: string;

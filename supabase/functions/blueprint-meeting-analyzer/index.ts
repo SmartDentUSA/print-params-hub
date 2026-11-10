@@ -7,14 +7,16 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { addDealNote } from "../_shared/piperun-field-map.ts";
-import { DOC_MIME, MEET_NOTES_FOLDER_ID, buildReportNote, dueState, pickNotesDoc, type Analysis, type DriveDoc } from "./rules.ts";
+import { DOC_MIME, MEET_NOTES_FOLDER_ID, buildReportNote, dueState, pickNotesDocs, type Analysis, type DriveDoc } from "./rules.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const PIPERUN_API_KEY = Deno.env.get("PIPERUN_API_KEY") ?? "";
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY") ?? "";
 const CAL_KEY = Deno.env.get("GOOGLE_CALENDAR_API_KEY") ?? "";
-const DRIVE_KEY = Deno.env.get("GOOGLE_DRIVE_API_KEY") ?? "";
+// Conexão do Drive da conta oraculosmartdent (organizadora) primeiro, depois a já existente.
+const DRIVE_KEYS = [Deno.env.get("GOOGLE_DRIVE_API_KEY_1"), Deno.env.get("GOOGLE_DRIVE_API_KEY")].filter((k): k is string => !!k);
+const DRIVE_KEY = DRIVE_KEYS[0] ?? "";
 const GW = "https://connector-gateway.lovable.dev";
 const MAX_TEXT = 60000;
 
@@ -49,16 +51,20 @@ async function findDoc(eventId: string) {
   if (!ev.ok) throw new Error(`calendar_${ev.status}: ${ev.text.slice(0, 200)}`);
   const event = JSON.parse(ev.text);
   const q = encodeURIComponent(`'${MEET_NOTES_FOLDER_ID}' in parents and mimeType='${DOC_MIME}' and trashed=false and createdTime > '${new Date(Date.now() - 4 * 86400000).toISOString()}'`);
-  const fl = await gw("google_drive", DRIVE_KEY, `/drive/v3/files?q=${q}&fields=files(id,name,mimeType,createdTime,modifiedTime)&pageSize=100&supportsAllDrives=true&includeItemsFromAllDrives=true`);
+  const fl = await gw("google_drive", DRIVE_KEYS[DRIVE_KEYS.length - 1], `/drive/v3/files?q=${q}&fields=files(id,name,mimeType,createdTime,modifiedTime)&pageSize=100&supportsAllDrives=true&includeItemsFromAllDrives=true`);
   if (!fl.ok) throw new Error(`drive_list_${fl.status}: ${fl.text.slice(0, 200)}`);
   const folderDocs = (JSON.parse(fl.text).files ?? []) as DriveDoc[];
-  return { doc: pickNotesDoc({ attachments: event.attachments ?? [], folderDocs, eventSummary: String(event.summary ?? "") }), summary: String(event.summary ?? "") };
+  return { docs: pickNotesDocs({ attachments: event.attachments ?? [], folderDocs, eventSummary: String(event.summary ?? "") }), summary: String(event.summary ?? "") };
 }
 
-async function exportText(fileId: string): Promise<string> {
-  const r = await gw("google_drive", DRIVE_KEY, `/drive/v3/files/${fileId}/export?mimeType=text/plain`);
-  if (!r.ok) throw new Error(`drive_export_${r.status}: ${r.text.slice(0, 200)}`);
-  return r.text.slice(0, MAX_TEXT);
+/** Exporta o texto com a primeira conexão que tiver acesso; null se nenhuma consegue abrir. */
+async function exportText(fileId: string): Promise<string | null> {
+  for (const key of DRIVE_KEYS) {
+    const r = await gw("google_drive", key, `/drive/v3/files/${fileId}/export?mimeType=text/plain`);
+    if (r.ok) return r.text.slice(0, MAX_TEXT);
+    if (r.status !== 404 && r.status !== 403) throw new Error(`drive_export_${r.status}: ${r.text.slice(0, 200)}`);
+  }
+  return null;
 }
 
 const S = { type: "string" } as const;
@@ -116,14 +122,24 @@ async function processRow(sb: Sb, row: { id: string; lead_id: string; event_data
     const { error } = await sb.from("lead_activity_log").update({ event_data: st, updated_at: new Date().toISOString() }).eq("id", row.id);
     if (error) throw new Error(`state_update: ${error.message}`);
   };
-  const { doc, summary } = await findDoc(st.calendar_event_id);
+  const { docs, summary } = await findDoc(st.calendar_event_id);
+  let doc: { id: string; name: string; via: string } | null = null;
+  let text = "";
+  for (const d of docs) {
+    const t = await exportText(d.id);
+    if (t && t.trim().length > 200) { doc = d; text = t; break; }
+  }
+  if (!doc && docs.length) {
+    // O Google anexou anotações, mas nenhuma conexão tem permissão de leitura.
+    await save({ status: due === "give_up" ? "no_access" : "waiting_access", found_docs: docs.map((d) => d.id), reason: "Anotações sem permissão de leitura para a conta do Drive conectada" });
+    return { status: "waiting_access", docs: docs.length };
+  }
   if (!doc) {
     if (due === "give_up") { await save({ status: "no_notes", reason: "Nenhuma anotação do Gemini encontrada em 3 dias" }); return { status: "no_notes" }; }
     await save({ status: "waiting_notes" });
     return { status: "waiting_notes", summary };
   }
   const docUrl = `https://docs.google.com/document/d/${doc.id}/edit`;
-  const text = await exportText(doc.id);
   const { data: lead } = await sb.from("lia_attendances").select("nome, produto_interesse, produto_interesse_auto").eq("id", row.lead_id).maybeSingle();
   const analysis = await analyze(text, {
     leadName: String((lead as any)?.nome ?? "Cliente"), sellerName: String(st.seller_name ?? "vendedor"),
@@ -157,7 +173,7 @@ Deno.serve(async (req) => {
   const wantsTarget = body?.deal_id != null || body?.force;
   const authed = await authorize(req, sb);
   if (wantsTarget && !authed) return json({ error: "unauthorized" }, 401);
-  if (!LOVABLE_API_KEY || !CAL_KEY || !DRIVE_KEY) return json({ error: "connectors_not_configured" }, 500);
+  if (!LOVABLE_API_KEY || !CAL_KEY || !DRIVE_KEYS.length) return json({ error: "connectors_not_configured" }, 500);
 
   let q = sb.from("lead_activity_log").select("id, lead_id, event_data")
     .eq("event_type", "reuniao_agendada").eq("source_channel", "blueprint").eq("event_data->>status", "created");
