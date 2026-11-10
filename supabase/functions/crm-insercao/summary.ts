@@ -26,6 +26,7 @@ export function buildLeadSummary(lead: any, deals: DealView[], activity: any[]):
       title: "Quem é",
       lines: [
         join([lead.nome, lead.area_atuacao, lead.especialidade]),
+        String(lead.doc?.label ?? ""),
         join([lead.empresa_nome, [lead.cidade, lead.uf].filter(Boolean).join("/")]),
         join([
           yes(lead.equip_scanner) && `Scanner: ${lead.equip_scanner}`,

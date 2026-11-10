@@ -67,12 +67,15 @@ function Combo({ value, onChange, items, placeholder, empty }: { value: string; 
   );
 }
 
-function RecordCard({ icon, title, lines, onUse }: { icon: React.ReactNode; title: string; lines: (string | null | undefined)[]; onUse: () => void }) {
+function RecordCard({ icon, title, badge, lines, onUse }: { icon: React.ReactNode; title: string; badge?: string | null; lines: (string | null | undefined)[]; onUse: () => void }) {
   return (
     <div className="flex flex-wrap items-start gap-2 rounded-lg border bg-background p-2.5">
       <div className="mt-0.5 text-primary">{icon}</div>
       <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-medium">{title}</p>
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="truncate text-sm font-medium">{title}</p>
+          {badge && <Badge variant="outline" className="shrink-0 text-[10px]">{badge}</Badge>}
+        </div>
         {lines.filter(Boolean).map((l, i) => <p key={i} className="truncate text-xs text-muted-foreground">{l}</p>)}
       </div>
       <Button type="button" size="sm" variant="outline" className="h-7 px-2 text-xs" onClick={onUse}>
