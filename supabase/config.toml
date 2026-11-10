@@ -724,3 +724,6 @@ verify_jwt = false
 
 [functions.zernio-whatsapp-inbox]
 verify_jwt = false
+
+[functions.crm-insercao]
+verify_jwt = false
