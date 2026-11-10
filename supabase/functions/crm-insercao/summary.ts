@@ -19,6 +19,24 @@ const yes = (v: unknown) => {
   return s && !/^(n[aã]o|nenhum|false|null|-)$/i.test(s) ? s : "";
 };
 
+export type Conversion = { date: string | null; name: string };
+
+/** Conversões únicas por dia + nome, mais recentes primeiro. */
+export function buildLeadConversions(activity: any[], limit = 8): Conversion[] {
+  const seen = new Set<string>();
+  const out: Conversion[] = [];
+  for (const c of activity) {
+    if (!["form_submission", "meta_ads_lead_entry", "crm_insercao"].includes(c.event_type)) continue;
+    const name = String(c.entity_name || (c.event_type === "meta_ads_lead_entry" ? "Entrada via Meta Ads" : c.event_type));
+    const key = `${String(c.event_timestamp).slice(0, 10)}|${name}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push({ date: c.event_timestamp ?? null, name });
+    if (out.length >= limit) break;
+  }
+  return out;
+}
+
 export function buildLeadSummary(lead: any, deals: DealView[], activity: any[]): SummaryBlock[] {
   const blocks: SummaryBlock[] = [];
   if (lead) {
