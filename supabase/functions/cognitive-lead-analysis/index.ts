@@ -14,6 +14,43 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const DEEPSEEK_API_KEY = Deno.env.get("DEEPSEEK_API_KEY")!;
 const DEEPSEEK_API = "https://api.deepseek.com/chat/completions";
 
+// Interações da timeline que alimentam (e disparam) a análise. Mesma lista de
+// fn_cognitive_timeline_candidates — snapshots/sincronizações de rotina ficam de fora.
+const TIMELINE_SIGNAL_TYPES = [
+  "crm_activity", "crm_proposal", "crm_deal_won", "crm_deal_lost", "crm_deal_created", "deal_created",
+  "form_submission", "meta_ads_lead_entry", "whatsapp_message_received", "social_dm_received",
+  "ecommerce_order_created", "ecommerce_order_paid", "ecommerce_order_invoiced",
+  "reuniao_agendada", "reuniao_analisada", "crm_etapa_movida_reuniao",
+  "deal_reativado_via_formulario", "deal_reconversion_created", "certificado_emitido",
+  "support_ticket_created", "support_ticket_resolved",
+];
+
+type TimelineRow = { event_type: string; event_timestamp: string; created_at: string; entity_name: string | null; event_data: Record<string, any> | null };
+
+/** Linha curta e factual por evento (sem inventar nada além do que foi gravado). */
+function describeTimelineEvent(r: TimelineRow): string {
+  const d = r.event_data ?? {};
+  const when = new Date(r.event_timestamp).toLocaleDateString("pt-BR");
+  if (r.event_type === "reuniao_analisada") {
+    const a = d.analysis ?? {};
+    const parts = [
+      a.resumo ? `Resumo: ${String(a.resumo).slice(0, 400)}` : null,
+      Array.isArray(a.dores) && a.dores.length ? `Dores: ${a.dores.slice(0, 5).join("; ")}` : null,
+      Array.isArray(a.objecoes) && a.objecoes.length ? `Objeções: ${a.objecoes.slice(0, 5).join("; ")}` : null,
+      Array.isArray(a.proximos_passos) && a.proximos_passos.length ? `Próximos passos: ${a.proximos_passos.slice(0, 4).map((p: any) => `[${p.responsavel}] ${p.acao}`).join("; ")}` : null,
+      a.perfil_comercial ? `Perfil observado: decisão ${a.perfil_comercial.estilo_decisao}; nível técnico ${a.perfil_comercial.nivel_tecnico}; sensibilidade a preço ${a.perfil_comercial.sensibilidade_preco}` : null,
+      a.temperatura ? `Temperatura: ${a.temperatura}` : null,
+    ].filter(Boolean);
+    return `[${when}] Reunião de apresentação analisada — ${parts.join(" | ")}`;
+  }
+  const bits = [
+    r.entity_name, d.title, d.kind_label, d.stage ?? d.etapa, d.form_name, d.product, d.comment,
+    d.message_text ?? d.text, d.status && typeof d.status === "string" ? d.status : null,
+  ].filter((x) => typeof x === "string" && x.trim()).map((x) => String(x).slice(0, 160));
+  const uniq = Array.from(new Set(bits)).slice(0, 4);
+  return `[${when}] ${r.event_type.replace(/_/g, " ")}${uniq.length ? ` — ${uniq.join(" · ")}` : ""}`;
+}
+
 const VALID_STAGES = ["MQL_pesquisador", "PQL_recompra", "SAL_comparador", "SQL_decisor", "CLIENTE_ativo"];
 const VALID_URGENCY = ["alta", "media", "baixa"];
 const VALID_TIMELINE = ["imediato", "3_6_meses", "6_12_meses", "indefinido"];
@@ -140,7 +177,8 @@ serve(async (req) => {
   let supabaseForFinally: ReturnType<typeof createClient> | null = null;
 
   try {
-    const { email, leadId } = await req.json();
+    const { email, leadId, force, trigger } = await req.json();
+    const isTimelineTrigger = trigger === "timeline";
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
     supabaseForFinally = supabase;
 
@@ -211,7 +249,21 @@ serve(async (req) => {
       }
     }
 
-    // ── Guard 2: Min 5 messages ──
+    // ── Interações da timeline do lead (CRM, formulários, reuniões, compras, suporte) ──
+    const { data: timelineRowsRaw } = await supabase
+      .from("lead_activity_log")
+      .select("event_type, event_timestamp, created_at, entity_name, event_data")
+      .eq("lead_id", leadData.id)
+      .in("event_type", TIMELINE_SIGNAL_TYPES)
+      .order("event_timestamp", { ascending: false })
+      .limit(40);
+    const timelineRows = (timelineRowsRaw ?? []) as TimelineRow[];
+    const latestTimelineAt = timelineRows.reduce<string | null>((m, r) => (!m || r.created_at > m ? r.created_at : m), null);
+    const timelineBlock = timelineRows.length
+      ? [...timelineRows].reverse().map(describeTimelineEvent).join("\n").slice(-4000)
+      : "Sem interações registradas na timeline";
+
+    // ── Guard 2: dados mínimos (5 mensagens com a LIA OU 2 interações na timeline) ──
     const { data: leadsRecord } = await supabase
       .from("leads")
       .select("id")
@@ -228,7 +280,7 @@ serve(async (req) => {
         .eq("lead_id", leadsId);
       totalMsgs = directCount ?? 0;
     }
-    if (totalMsgs < 5) {
+    if (totalMsgs < 5 && timelineRows.length < 2 && !force) {
       return new Response(JSON.stringify({ skip: "insufficient_messages", count: totalMsgs }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -243,8 +295,12 @@ serve(async (req) => {
       .limit(1)
       .maybeSingle() : { data: null };
 
-    if (leadData.cognitive_updated_at && latestInteraction?.created_at) {
-      if (new Date(leadData.cognitive_updated_at) >= new Date(latestInteraction.created_at)) {
+    const latestSignalAt = [latestInteraction?.created_at, latestTimelineAt]
+      .filter(Boolean)
+      .sort()
+      .pop() as string | undefined;
+    if (!force && leadData.cognitive_updated_at && latestSignalAt) {
+      if (new Date(leadData.cognitive_updated_at) >= new Date(latestSignalAt)) {
         return new Response(JSON.stringify({ skip: "already_current" }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
@@ -384,8 +440,11 @@ ${longitudinal.piperunNotes}
 - E-commerce: ${longitudinal.ecommerceContext}
 ${opportunityRulesContext}
 
-**Histórico de conversa (${totalMsgs} msgs):**
-${contextString.slice(0, 3500)}
+**Timeline de interações (CRM, formulários, reuniões, compras, suporte — mais antiga → mais recente):**
+${timelineBlock}
+
+**Histórico de conversa com a LIA (${totalMsgs} msgs):**
+${contextString.slice(0, 3500) || "Sem conversa com a LIA"}
 
 **Classifique nos 10 eixos:**
 
@@ -411,6 +470,8 @@ ${contextString.slice(0, 3500)}
 - Se há resposta para "perde pacientes" ou "motivo de perda", use isso como base do objection_risk em vez de adivinhar.
 - Cite a marca do scanner/CAD no recommended_approach quando relevante (ex: "Mostrar integração com Medit i600").
 - Sinais de descoberta (campo "por onde ficou sabendo") podem reforçar primary_motivation.
+- Relatórios de reunião da timeline são a fonte mais forte: dores, objeções e próximos passos ditos na reunião prevalecem sobre suposições.
+- Perfil = comportamento comercial observável; nunca diagnóstico psicológico, de saúde ou traços sensíveis.
 
 Retorne APENAS o JSON, sem markdown, sem explicação.`;
 
@@ -586,7 +647,9 @@ Retorne APENAS o JSON, sem markdown, sem explicação.`;
       .catch((e: unknown) => console.warn("[cognitive] Intelligence score RPC failed:", e));
 
     // ── Push cognitive note to PipeRun deal ──
-    if (PIPERUN_API_KEY) {
+    // Reanálises automáticas por nova interação só geram nota quando o estágio muda (evita poluir o CRM).
+    const stageChanged = !!newStage && oldStage !== newStage;
+    if (PIPERUN_API_KEY && (!isTimelineTrigger || stageChanged)) {
       const { data: piperunLead } = await supabase
         .from("lia_attendances")
         .select("piperun_id")
@@ -626,8 +689,19 @@ Retorne APENAS o JSON, sem markdown, sem explicação.`;
     clearTimeout(timeoutId);
     console.log(`[cognitive] ✅ ${leadData.email} → ${cognitiveData.lead_stage_detected} (confidence: ${cognitiveData.confidence_score_analysis}, trajectory: ${cognitiveData.stage_trajectory})`);
 
+    const analysisText = [
+      `**Estágio:** ${cognitiveData.lead_stage_detected || "N/I"} · **Urgência:** ${cognitiveData.urgency_level || "N/I"} · **Timeline:** ${cognitiveData.interest_timeline || "N/I"}`,
+      `**Perfil:** ${cognitiveData.psychological_profile || "N/I"}`,
+      `**Motivação:** ${cognitiveData.primary_motivation || "N/I"}`,
+      `**Objeção provável:** ${cognitiveData.objection_risk || "N/I"}`,
+      `**Abordagem:** ${cognitiveData.recommended_approach || "N/I"}`,
+      `**Trajetória:** ${cognitiveData.stage_trajectory || "N/I"}`,
+    ].join("\n");
+
     return new Response(JSON.stringify({
       success: true,
+      analysis: analysisText,
+      based_on: { lia_messages: totalMsgs, timeline_events: timelineRows.length },
       stage: cognitiveData.lead_stage_detected,
       urgency: cognitiveData.urgency_level,
       confidence: cognitiveData.confidence_score_analysis,
