@@ -3699,6 +3699,24 @@ export type Database = {
         }
         Relationships: []
       }
+      cognitive_dispatch_state: {
+        Row: {
+          dispatched_at: string
+          last_event_type: string | null
+          lead_id: string
+        }
+        Insert: {
+          dispatched_at?: string
+          last_event_type?: string | null
+          lead_id: string
+        }
+        Update: {
+          dispatched_at?: string
+          last_event_type?: string | null
+          lead_id?: string
+        }
+        Relationships: []
+      }
       cognitive_lead_locks: {
         Row: {
           lead_id: string
@@ -37787,13 +37805,6 @@ export type Database = {
       fn_close_reactivation_on_deal_won: {
         Args: { p_lead_id: string }
         Returns: undefined
-      }
-      fn_cognitive_timeline_candidates: {
-        Args: { p_limit?: number }
-        Returns: {
-          last_signal_at: string
-          lead_id: string
-        }[]
       }
       fn_count_push_audience: { Args: { p_filters?: Json }; Returns: number }
       fn_create_form_standard_flow: {

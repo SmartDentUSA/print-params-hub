@@ -167,8 +167,7 @@ function buildLongitudinalContext(
   };
 }
 
-serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+async function handleAnalysis(payload: Record<string, any>): Promise<Response> {
 
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 12000);
@@ -177,7 +176,7 @@ serve(async (req) => {
   let supabaseForFinally: ReturnType<typeof createClient> | null = null;
 
   try {
-    const { email, leadId, force, trigger } = await req.json();
+    const { email, leadId, force, trigger } = payload;
     const isTimelineTrigger = trigger === "timeline";
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
     supabaseForFinally = supabase;
@@ -299,8 +298,11 @@ serve(async (req) => {
       .filter(Boolean)
       .sort()
       .pop() as string | undefined;
-    if (!force && leadData.cognitive_updated_at && latestSignalAt) {
-      if (new Date(leadData.cognitive_updated_at) >= new Date(latestSignalAt)) {
+    // Compara com o último sinal efetivamente LIDO pela análise anterior (não com o fim dela),
+    // para que uma interação que chegou durante a análise ainda gere uma nova rodada.
+    const prevSignalsUntil = (leadData.cognitive_analysis as any)?._audit?.signals_until ?? leadData.cognitive_updated_at;
+    if (!force && prevSignalsUntil && latestSignalAt) {
+      if (new Date(prevSignalsUntil) >= new Date(latestSignalAt)) {
         return new Response(JSON.stringify({ skip: "already_current" }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
@@ -555,6 +557,8 @@ Retorne APENAS o JSON, sem markdown, sem explicação.`;
       prompt_hash: promptHash,
       context_hash: contextHash,
       calculated_at: new Date().toISOString(),
+      signals_until: latestSignalAt ?? null,
+      trigger: trigger ?? (force ? "manual" : "auto"),
     };
 
     // ── Write 1/2: Insights into dedicated table (Frente 1 — decoupled from chat turn) ──
@@ -730,4 +734,31 @@ Retorne APENAS o JSON, sem markdown, sem explicação.`;
       }
     }
   }
+}
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+  let payload: Record<string, any> = {};
+  try { payload = await req.json(); } catch { payload = {}; }
+
+  // Webhook da timeline (trigger no banco a cada nova interação do lead): responde na hora e
+  // processa em segundo plano após uma espera curta, para agrupar interações que chegam juntas.
+  if (payload.trigger === "timeline" && payload.async) {
+    const job = (async () => {
+      await sleep(Math.min(Math.max(Number(payload.delay_ms) || 20000, 0), 30000));
+      for (let attempt = 0; attempt < 3; attempt++) {
+        const res = await handleAnalysis({ leadId: payload.leadId, trigger: "timeline" });
+        if (res.status !== 202) break; // 202 = outra análise do mesmo lead em andamento → tenta de novo
+        await sleep(10000);
+      }
+    })().catch((e) => console.error("[cognitive] timeline job failed:", e));
+    // @ts-ignore EdgeRuntime existe no runtime do Supabase
+    if (typeof EdgeRuntime !== "undefined") EdgeRuntime.waitUntil(job);
+    return new Response(JSON.stringify({ accepted: true }), {
+      status: 202, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+  return handleAnalysis(payload);
 });

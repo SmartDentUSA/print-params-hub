@@ -317,16 +317,6 @@ function findFormDataSnapshot(formData: unknown, formName: string, evTime: numbe
 }
 
 // ─── Cognitive analysis call ───
-// Interações da timeline que pedem nova análise (mesma lista da rotina automática no servidor).
-const COGNITIVE_SIGNAL_TYPES = new Set([
-  "crm_activity", "crm_proposal", "crm_deal_won", "crm_deal_lost", "crm_deal_created", "deal_created",
-  "form_submission", "meta_ads_lead_entry", "whatsapp_message_received", "social_dm_received",
-  "ecommerce_order_created", "ecommerce_order_paid", "ecommerce_order_invoiced",
-  "reuniao_agendada", "reuniao_analisada", "crm_etapa_movida_reuniao",
-  "deal_reativado_via_formulario", "deal_reconversion_created", "certificado_emitido",
-  "support_ticket_created", "support_ticket_resolved",
-]);
-
 /** Retorna o texto da análise; null quando já estava atualizada (nada novo para analisar). */
 async function runCognitiveAnalysis(leadId: string, opts: { force?: boolean; trigger?: string } = {}): Promise<string | null> {
   const res = await fetch(`${API_BASE}/cognitive-lead-analysis`, {
@@ -459,30 +449,29 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
     await runAndRefresh(detail.lead.id, { force: true });
   };
 
-  // Nova interação na timeline do lead (CRM, formulário, reunião, compra, suporte) →
-  // reprocessa a análise cognitiva automaticamente, com espera curta para agrupar rajadas.
+  // A reanálise roda no servidor assim que entra uma nova interação na timeline do lead
+  // (gatilho no banco). Aqui o card só escuta o lead e recarrega quando a análise é regravada.
   useEffect(() => {
     const leadId = lead?.id;
     if (!leadId) return;
-    let timer: ReturnType<typeof setTimeout> | null = null;
+    let lastSeen: string | null = null;
     const channel = supabase
-      .channel(`cog-timeline-${leadId}-${Math.random().toString(36).slice(2)}`)
+      .channel(`cog-lead-${leadId}-${Math.random().toString(36).slice(2)}`)
       .on(
         "postgres_changes",
-        { event: "INSERT", schema: "public", table: "lead_activity_log", filter: `lead_id=eq.${leadId}` },
+        { event: "UPDATE", schema: "public", table: "lia_attendances", filter: `id=eq.${leadId}` },
         (payload) => {
-          const type = String((payload.new as Record<string, unknown>)?.event_type ?? "");
-          if (!COGNITIVE_SIGNAL_TYPES.has(type)) return;
-          if (timer) clearTimeout(timer);
-          timer = setTimeout(() => { void runAndRefresh(leadId, { trigger: "timeline" }); }, 15000);
+          const row = payload.new as Record<string, any>;
+          const at = row?.cognitive_updated_at ? String(row.cognitive_updated_at) : null;
+          if (!at || at === lastSeen) return;
+          lastSeen = at;
+          if (row?.cognitive_analysis?.ai_narrative) setCognitiveText(row.cognitive_analysis.ai_narrative);
+          void refreshDetail(leadId);
         },
       )
       .subscribe();
-    return () => {
-      if (timer) clearTimeout(timer);
-      supabase.removeChannel(channel);
-    };
-  }, [lead?.id, runAndRefresh]);
+    return () => { supabase.removeChannel(channel); };
+  }, [lead?.id, refreshDetail]);
 
   // Loading / Error states
   if (loading) {
