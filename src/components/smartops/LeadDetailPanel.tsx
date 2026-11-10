@@ -1,5 +1,5 @@
 import "@/styles/intelligence-dark.css";
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { X, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
@@ -317,16 +317,28 @@ function findFormDataSnapshot(formData: unknown, formName: string, evTime: numbe
 }
 
 // ─── Cognitive analysis call ───
-async function runCognitiveAnalysis(leadId: string): Promise<string> {
+// Interações da timeline que pedem nova análise (mesma lista da rotina automática no servidor).
+const COGNITIVE_SIGNAL_TYPES = new Set([
+  "crm_activity", "crm_proposal", "crm_deal_won", "crm_deal_lost", "crm_deal_created", "deal_created",
+  "form_submission", "meta_ads_lead_entry", "whatsapp_message_received", "social_dm_received",
+  "ecommerce_order_created", "ecommerce_order_paid", "ecommerce_order_invoiced",
+  "reuniao_agendada", "reuniao_analisada", "crm_etapa_movida_reuniao",
+  "deal_reativado_via_formulario", "deal_reconversion_created", "certificado_emitido",
+  "support_ticket_created", "support_ticket_resolved",
+]);
+
+/** Retorna o texto da análise; null quando já estava atualizada (nada novo para analisar). */
+async function runCognitiveAnalysis(leadId: string, opts: { force?: boolean; trigger?: string } = {}): Promise<string | null> {
   const res = await fetch(`${API_BASE}/cognitive-lead-analysis`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ leadId }),
+    body: JSON.stringify({ leadId, ...opts }),
   });
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || "Erro na análise");
-  if (data.skip) throw new Error(`Análise não disponível: ${data.skip === "insufficient_messages" ? "Lead precisa de pelo menos 5 mensagens com a Dra. LIA" : data.skip}`);
-  return data.analysis;
+  if (data.skip === "already_current" || data.status === "skipped") return null;
+  if (data.skip) throw new Error(`Análise não disponível: ${data.skip === "insufficient_messages" ? "o lead ainda não tem interações suficientes" : data.skip}`);
+  return data.analysis ?? null;
 }
 
 // ─── COMPONENT ───
@@ -422,18 +434,55 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
     }
   }, [lead?.id]);
 
-  const handleReanalisar = async () => {
-    if (!detail?.lead?.id) return;
+  /** Recarrega o card sem trocar de aba (para exibir a análise recém-gravada). */
+  const refreshDetail = useCallback(async (leadId: string) => {
+    const r = await fetch(`${API_BASE}/smart-ops-leads-api?action=detail&id=${leadId}`);
+    const d = await r.json();
+    if (d?.lead && cachedIdRef.current === leadId) setDetail(d);
+  }, []);
+
+  const runAndRefresh = useCallback(async (leadId: string, opts: { force?: boolean; trigger?: string }) => {
     setCognitiveLoading(true);
     try {
-      const text = await runCognitiveAnalysis(detail.lead.id);
-      setCognitiveText(text);
-    } catch {
-      setCognitiveText("Erro ao gerar análise. Tente novamente.");
+      const text = await runCognitiveAnalysis(leadId, opts);
+      if (text) setCognitiveText(text);
+      await refreshDetail(leadId);
+    } catch (e: any) {
+      if (opts.force) setCognitiveText(e?.message || "Erro ao gerar análise. Tente novamente.");
     } finally {
       setCognitiveLoading(false);
     }
+  }, [refreshDetail]);
+
+  const handleReanalisar = async () => {
+    if (!detail?.lead?.id) return;
+    await runAndRefresh(detail.lead.id, { force: true });
   };
+
+  // Nova interação na timeline do lead (CRM, formulário, reunião, compra, suporte) →
+  // reprocessa a análise cognitiva automaticamente, com espera curta para agrupar rajadas.
+  useEffect(() => {
+    const leadId = lead?.id;
+    if (!leadId) return;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const channel = supabase
+      .channel(`cog-timeline-${leadId}-${Math.random().toString(36).slice(2)}`)
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "lead_activity_log", filter: `lead_id=eq.${leadId}` },
+        (payload) => {
+          const type = String((payload.new as Record<string, unknown>)?.event_type ?? "");
+          if (!COGNITIVE_SIGNAL_TYPES.has(type)) return;
+          if (timer) clearTimeout(timer);
+          timer = setTimeout(() => { void runAndRefresh(leadId, { trigger: "timeline" }); }, 15000);
+        },
+      )
+      .subscribe();
+    return () => {
+      if (timer) clearTimeout(timer);
+      supabase.removeChannel(channel);
+    };
+  }, [lead?.id, runAndRefresh]);
 
   // Loading / Error states
   if (loading) {
@@ -2177,7 +2226,7 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
           <div className="ai-panel">
             <div className="ai-panel-header">
               <span>🧠</span>
-              <span>Análise Cognitiva — gerada por IA com base em {ld.total_deals || 0} deal{(ld.total_deals || 0) !== 1 ? "s" : ""} + histórico completo</span>
+              <span>Análise Cognitiva — gerada por IA com base em {Math.max(Number(ld.total_deals) || 0, opportunities.length)} deal{Math.max(Number(ld.total_deals) || 0, opportunities.length) !== 1 ? "s" : ""} + histórico completo</span>
               <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
                 <span className="badge badge-ai">DeepSeek v3</span>
                 <button
