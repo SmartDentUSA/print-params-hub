@@ -224,18 +224,18 @@ export function CrmInsertionButton() {
                       <p className="text-sm text-muted-foreground">Nenhum registro encontrado — preencha os dados do novo lead abaixo.</p>
                     )}
                     {found.leads.map((l) => (
-                      <RecordCard key={`l-${l.id}`} icon={<User className="h-4 w-4" />} title={`Ficha: ${l.nome ?? "sem nome"}`}
-                        lines={[[l.telefone_normalized, l.email].filter(Boolean).join(" · "), [l.area_atuacao, l.especialidade].filter(Boolean).join(" · "), l.produto_interesse || l.produto_interesse_auto ? `Interesse: ${l.produto_interesse || l.produto_interesse_auto}` : null, l.form_name ? `Última conversão: ${l.form_name}` : null]}
+                      <RecordCard key={`l-${l.id}`} icon={<User className="h-4 w-4" />} title={`Ficha: ${l.nome ?? "sem nome"}`} badge={l.doc?.badge}
+                        lines={[l.doc?.label, [l.telefone_normalized, l.email].filter(Boolean).join(" · "), [l.area_atuacao, l.especialidade].filter(Boolean).join(" · "), l.produto_interesse || l.produto_interesse_auto ? `Interesse: ${l.produto_interesse || l.produto_interesse_auto}` : null, l.form_name ? `Última conversão: ${l.form_name}` : null]}
                         onUse={() => useLead(l)} />
                     ))}
                     {found.persons.map((p) => (
-                      <RecordCard key={`p-${p.piperun_person_id}`} icon={<User className="h-4 w-4" />} title={`Pessoa: ${p.nome ?? "sem nome"}`}
-                        lines={[`PipeRun #${p.piperun_person_id}`, [p.telefone_principal, p.email].filter(Boolean).join(" · "), p.empresa_nome ? `Empresa: ${p.empresa_nome}` : null]}
+                      <RecordCard key={`p-${p.piperun_person_id}`} icon={<User className="h-4 w-4" />} title={`Pessoa: ${p.nome ?? "sem nome"}`} badge={p.doc?.badge}
+                        lines={[p.doc?.label, `PipeRun #${p.piperun_person_id}`, [p.telefone_principal, p.email].filter(Boolean).join(" · "), p.empresa_nome ? `Empresa: ${p.empresa_nome}` : null]}
                         onUse={() => usePerson(p)} />
                     ))}
                     {found.companies.map((c) => (
-                      <RecordCard key={`c-${c.piperun_company_id}`} icon={<Building2 className="h-4 w-4" />} title={`Organização: ${c.nome_fantasia || c.nome || c.razao_social || "sem nome"}`}
-                        lines={[c.cnpj ? `CNPJ ${c.cnpj}` : null, [c.cidade, c.uf].filter(Boolean).join("/")]}
+                      <RecordCard key={`c-${c.piperun_company_id}`} icon={<Building2 className="h-4 w-4" />} title={`Organização: ${c.nome_fantasia || c.nome || c.razao_social || "sem nome"}`} badge={c.doc?.badge}
+                        lines={[c.doc?.label, [c.cidade, c.uf].filter(Boolean).join("/")]}
                         onUse={() => useCompany(c)} />
                     ))}
                     {found.latest_deal && (() => {
