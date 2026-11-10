@@ -57,7 +57,16 @@ Regras de desenho:
 
 ## Parte 2 — Botão "Resumo" em cada card do catálogo (estilo Gemini no Drive)
 Cada card de produto ou resina ganha um botão "Resumo" com um ícone de brilho. Ao clicar, abre um painel com:
-- Resumo estruturado do produto: para que serve, principais itens/cores, indicações e diferenciais, em tópicos, como na sua imagem do SmartGum
+- Resumo estruturado do produto em seções fixas, sempre nesta ordem (seção sem dado não aparece):
+  1. Visão geral e diferenciais
+  2. Indicações
+  3. Aplicações (ex.: coroas definitivas, facetas, sobre implante)
+  4. Cores e variações
+  5. Tabela técnica resumida (propriedade e valor)
+  6. Pré-processamento e impressão
+  7. Pós-processamento (lavagem, cura, acabamento, cimentação)
+  8. Resumo dos artigos científicos (estudo, instituição, principal conclusão)
+  9. Laudos e certificações (FDA, biocompatibilidade, propriedades físicas), cada um com sua conclusão em uma linha e o link do PDF
 - Vídeos relacionados da Base de Conhecimento, com miniatura, que abrem no player
 - Artigos relacionados da Base de Conhecimento
 - Lista dos documentos já cadastrados (guias, fichas técnicas, manuais, IFU), cada um com os botões Abrir e Baixar
