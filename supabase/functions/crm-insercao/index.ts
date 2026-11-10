@@ -401,6 +401,23 @@ async function ensureOriginForm(origin: string, sellerId: string): Promise<strin
   return data.id;
 }
 
+// Vincula o formulário de sistema ao profissional (prof_kol_form_ids): é o que faz as
+// indicações entrarem em desempenho, conversão e comissão do KOL em todas as telas.
+async function linkFormToKol(kolId: string, formId: string, name: string) {
+  const { data } = await sb.from("lia_attendances").select("prof_kol_form_ids").eq("id", kolId).maybeSingle();
+  const refs: any[] = Array.isArray(data?.prof_kol_form_ids) ? data!.prof_kol_form_ids : [];
+  if (refs.some((r) => String(r?.id ?? r) === formId)) return;
+  await sb.from("lia_attendances").update({ prof_kol_form_ids: [...refs, { id: formId, name }] }).eq("id", kolId);
+}
+
+async function kolTimeline(kolId: string, eventType: string, entityId: string, entityName: string, data: Record<string, unknown>, value?: number | null) {
+  const { error } = await sb.rpc("fn_kol_log", {
+    _lead_id: kolId, _event_type: eventType, _entity_type: "indicacao", _entity_id: entityId,
+    _entity_name: entityName, _data: { ...data, actor: data.registrant ?? "sistema" }, _value: value ?? null, _channel: "insercao_crm",
+  });
+  if (error) console.warn("[crm-insercao] kol timeline", error.message);
+}
+
 const SubmitSchema = z.object({
   nome: z.string().trim().min(2).max(160),
   telefone: z.string().trim().min(10).max(20),
@@ -503,10 +520,15 @@ Deno.serve(async (req) => {
             event_data: { registrant: tm.nome_completo, kol: kolName, origin, target_seller: seller.nome_completo, conflicts, emails: sent },
           });
         }
+        await kolTimeline(kol.id, "kol_indicacao_bloqueada", String(logRow?.id ?? crypto.randomUUID()), `Indicação bloqueada — ${input.nome}`, {
+          registrant: tm.nome_completo, lead_id: leadId, lead_nome: input.nome, origin, tipo: input.indicacao_tipo,
+          seller: seller.nome_completo, conflicts: conflicts.map((c) => ({ deal_id: c.deal_id, owner: c.owner_name, stage: c.stage_name })),
+        });
         return json({ ok: false, blocked: true, conflicts, emails: sent, origin });
       }
 
       const formId = await ensureOriginForm(origin, seller.id);
+      await linkFormToKol(kol.id, formId, origin);
       const responses = [
         { label: "Nome", value: input.nome },
         { label: "Celular", value: `+${phoneDigits}` },
@@ -546,6 +568,10 @@ Deno.serve(async (req) => {
         entity_type: "form", entity_id: formId, entity_name: origin,
         dedupe_hash: `crm_insercao:${payload.submission_id}`,
         event_data: { registrant: tm.nome_completo, kol: kolName, origin, seller: seller.nome_completo, tipo: input.indicacao_tipo, base: input.base ?? null, responses },
+      });
+      await kolTimeline(kol.id, "kol_indicacao", String(payload.submission_id), `${input.indicacao_tipo === "ativa" ? "Indicação ativa" : "Indicação fria"} — ${input.nome}`, {
+        registrant: tm.nome_completo, lead_id: leadId, lead_nome: input.nome, origin, tipo: input.indicacao_tipo,
+        seller: seller.nome_completo, produto: product.name, form_id: formId,
       });
       await sb.from("crm_insertion_log").insert({ ...logBase, action: "submit", lead_id: leadId, outcome: "created", result: { ingest: out, base: input.base ?? null } });
       // Respostas na nota do Deal (mesmo caminho dos formulários públicos)
