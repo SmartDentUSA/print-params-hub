@@ -76,7 +76,7 @@ function RecordCard({ icon, title, badge, lines, onUse }: { icon: React.ReactNod
           <p className="truncate text-sm font-medium">{title}</p>
           {badge && <Badge variant="outline" className="shrink-0 text-[10px]">{badge}</Badge>}
         </div>
-        {lines.filter(Boolean).map((l, i) => <p key={i} className="truncate text-xs text-muted-foreground">{l}</p>)}
+        {lines.filter(Boolean).map((l, i) => <p key={i} className="break-words text-xs text-muted-foreground">{l}</p>)}
       </div>
       <Button type="button" size="sm" variant="outline" className="h-7 px-2 text-xs" onClick={onUse}>
         Utilizar estes dados para nova oportunidade
