@@ -87,3 +87,4 @@
 - [x] Inserção CRM: nos resultados da busca, mostrar se é pessoa física ou jurídica e o CPF/CNPJ (badge no card de ficha/pessoa/organização, linha no resumo e no e-mail de conflito); 11 dígitos conta como CPF e 14 como CNPJ mesmo gravados no campo trocado.
 - [ ] Inserção CRM: teste real logado como equipe (busca, bloqueio com e-mail e cadastro) — aguardando um cadastro de teste do usuário. Decidir se origens [INDKOL]/[PROSPKOL] entram na comissão do KOL.
 - [ ] Cadastro de Team Members não funciona — aguardando a mensagem de erro exibida ao salvar.
+- [x] Agenda pública: imersões/cursos dentro de acordeão aberto por padrão (9 presenciais, 2 online; recolhe e reabre sem perder cards); botão Cadastrar indicações movido para o cabeçalho, abaixo de "Atualizado há"/"Atualizar agora", só para equipe. Navegador conferido; publicação necessária.

@@ -14,6 +14,13 @@ import { EventsUploadAccordion } from "@/components/agenda/EventsUploadAccordion
 import { CrmInsertionButton } from "@/components/agenda/CrmInsertionButton";
 import { AccountButton } from "@/components/AccountButton";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 import {
   useTeamMemberSession,
   publicPageStyles,
@@ -360,6 +367,11 @@ export default function AgendaPublica({ variant = "presencial" }: AgendaPublicaP
               Atualizar agora
             </button>
           </div>
+          {isTeamMember && (
+            <div className="mt-4 flex justify-center">
+              <CrmInsertionButton />
+            </div>
+          )}
         </header>
 
         {variant === "online" && availableProducts.length > 0 && (
@@ -399,41 +411,61 @@ export default function AgendaPublica({ variant = "presencial" }: AgendaPublicaP
 
         {isTeamMember && <EventsUploadAccordion />}
 
-        {isTeamMember && <CrmInsertionButton />}
-
-        {isLoading ? (
-          <div className="pp-empty">Carregando...</div>
-        ) : (variant === "online" ? onlineCourseGroups.length === 0 : turmas.length === 0) ? (
-          <div className="pp-empty">
-            <CalendarDays className="w-12 h-12 mx-auto mb-3 opacity-50" />
-            <p>{config.emptyLabel}</p>
-          </div>
-        ) : variant === "online" ? (
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {onlineCourseGroups.map((g) => (
-              <PublicOnlineCourseCard
-                key={g.course_id}
-                sessions={g.turmas}
-                course={g.course}
-                description={courseDescriptions[g.course_id]}
-                canUpload={isTeamMember}
-                driveFolders={driveFolders}
-              />
-            ))}
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {turmas.map((t) => (
-              <PublicTurmaCard
-                key={t.id}
-                turma={t}
-                driveFolderId={driveFolders[t.id]?.id ?? null}
-                driveFolderUrl={driveFolders[t.id]?.url ?? null}
-                status={getCountdown(t.start_date, t.start_time, t.end_date, t.end_time, t.modality)}
-              />
-            ))}
-          </div>
-        )}
+        <Accordion
+          type="single"
+          collapsible
+          defaultValue="agenda"
+          className="w-full rounded-xl border bg-card"
+        >
+          <AccordionItem value="agenda" className="border-0">
+            <AccordionTrigger className="px-4 text-sm font-semibold">
+              <span className="flex items-center gap-2">
+                <CalendarDays className="h-4 w-4 text-primary" />
+                {variant === "online" ? "Agenda de cursos online" : "Agenda de imersões"}
+                {!isLoading && (
+                  <Badge variant="outline" className="h-5 px-1.5 font-mono text-[10px]">
+                    {variant === "online" ? onlineCourseGroups.length : turmas.length}
+                  </Badge>
+                )}
+              </span>
+            </AccordionTrigger>
+            <AccordionContent className="px-4 pb-4">
+              {isLoading ? (
+                <div className="pp-empty">Carregando...</div>
+              ) : (variant === "online" ? onlineCourseGroups.length === 0 : turmas.length === 0) ? (
+                <div className="pp-empty">
+                  <CalendarDays className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                  <p>{config.emptyLabel}</p>
+                </div>
+              ) : variant === "online" ? (
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+                  {onlineCourseGroups.map((g) => (
+                    <PublicOnlineCourseCard
+                      key={g.course_id}
+                      sessions={g.turmas}
+                      course={g.course}
+                      description={courseDescriptions[g.course_id]}
+                      canUpload={isTeamMember}
+                      driveFolders={driveFolders}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+                  {turmas.map((t) => (
+                    <PublicTurmaCard
+                      key={t.id}
+                      turma={t}
+                      driveFolderId={driveFolders[t.id]?.id ?? null}
+                      driveFolderUrl={driveFolders[t.id]?.url ?? null}
+                      status={getCountdown(t.start_date, t.start_time, t.end_date, t.end_time, t.modality)}
+                    />
+                  ))}
+                </div>
+              )}
+            </AccordionContent>
+          </AccordionItem>
+        </Accordion>
       </div>
     </div>
   );
