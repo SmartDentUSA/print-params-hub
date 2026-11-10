@@ -1974,9 +1974,11 @@ Deno.serve(async (req) => {
         if (error) console.warn("[piperun-webhook] brain refresh failed:", error.message);
       });
 
-    // ─── Blueprint Intelligence: Meet + preparação ao entrar em Apresentação/Visita ───
-    // Fire-and-forget; a função própria é idempotente e guarda estado/novas tentativas.
-    if (Number(ids.pipelineId) === 18784 && Number(ids.stageId) === 99295 && dealId) {
+    // ─── Blueprint Intelligence: Meet + preparação ao entrar em Apresentação/Visita
+    //     ou quando uma atividade é criada no Funil de vendas (Reunião agendada move a etapa) ───
+    // Fire-and-forget; a função própria decide, é idempotente e guarda estado/novas tentativas.
+    const bpTrigger = String((deal.action as Record<string, unknown> | undefined)?.trigger_type ?? "");
+    if (Number(ids.pipelineId) === 18784 && dealId && (Number(ids.stageId) === 99295 || /atividade/i.test(bpTrigger))) {
       const bp = fetch(`${SUPABASE_URL}/functions/v1/blueprint-meeting-scheduler`, {
         method: "POST",
         headers: { Authorization: `Bearer ${SERVICE_ROLE_KEY}`, "Content-Type": "application/json" },

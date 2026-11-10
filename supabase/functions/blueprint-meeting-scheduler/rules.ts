@@ -6,6 +6,34 @@ export const MEET_LINK_FIELD_ID = 800593;
 export const MEETING_ACTIVITY_TYPE_ID = 54384;
 export const DEFAULT_DURATION_MIN = 60;
 export const PROCESSING_STALE_MS = 5 * 60 * 1000;
+export const TASK_ACTIVITY_TYPE_ID = 54385;
+/** Prefixo das atividades criadas pelo próprio sistema (nunca contam como reunião). */
+export const SYSTEM_ACTIVITY_PREFIX = "[Blueprint]";
+/** Etapas iniciais do Funil de vendas: daqui uma Reunião agendada move para Apresentação/Visita. */
+export const EARLY_VENDAS_STAGES = new Set<number>([99293, 99294, 675815, 675813, 379942]);
+
+export type StageDecision =
+  | { action: "move"; reason: string }
+  | { action: "process"; reason: string }
+  | { action: "skip"; reason: string };
+
+/**
+ * O que fazer com um negócio do Funil de vendas:
+ * - etapa inicial + Reunião com data → move para Apresentação/Visita e cria o Meet;
+ * - Apresentação/Visita → cria o Meet (ou pede o agendamento);
+ * - etapa mais avançada + Reunião com data → só Meet/nota, nunca volta etapa;
+ * - ganho/perdido ou outro funil → nada.
+ */
+export function decideStage(i: { pipelineId: number; stageId: number; dealStatus: unknown; hasMeeting: boolean }): StageDecision {
+  if (i.pipelineId !== VENDAS_PIPELINE_ID) return { action: "skip", reason: "not_vendas" };
+  const st = Number(i.dealStatus ?? 0);
+  if (st === 1 || st === 2) return { action: "skip", reason: "deal_closed" };
+  if (i.stageId === APRESENTACAO_STAGE_ID) return { action: "process", reason: "apresentacao_visita" };
+  if (EARLY_VENDAS_STAGES.has(i.stageId)) {
+    return i.hasMeeting ? { action: "move", reason: "meeting_scheduled_early_stage" } : { action: "skip", reason: "no_meeting_activity" };
+  }
+  return i.hasMeeting ? { action: "process", reason: "meeting_scheduled_advanced_stage" } : { action: "skip", reason: "no_meeting_activity" };
+}
 
 export type MeetingStatus =
   | "processing" | "pending_schedule" | "created" | "failed";
@@ -26,14 +54,15 @@ export function piperunLocalToIso(v: unknown): string | null {
  * Escolhe a reunião do PipeRun: atividade de reunião (tipo ou título) não concluída,
  * com início; prefere a próxima futura, senão a mais recente. Nunca inventa horário.
  */
-export function pickMeetingSlot(activities: unknown, now = new Date()): Slot | null {
+export function pickMeetingSlot(activities: unknown, now = new Date(), opts: { strictType?: boolean } = {}): Slot | null {
   if (!Array.isArray(activities)) return null;
   const cands: Slot[] = [];
   for (const raw of activities) {
     if (!raw || typeof raw !== "object") continue;
     const a = raw as Record<string, unknown>;
-    const isMeeting = Number(a.activity_type_id) === MEETING_ACTIVITY_TYPE_ID ||
-      /reuni(ã|a)o|apresenta|visita|demo|meet/i.test(String(a.title ?? ""));
+    if (String(a.title ?? "").trim().startsWith(SYSTEM_ACTIVITY_PREFIX)) continue;
+    const isType = Number(a.activity_type_id) === MEETING_ACTIVITY_TYPE_ID;
+    const isMeeting = isType || (!opts.strictType && /reuni(ã|a)o|apresenta|visita|demo|meet/i.test(String(a.title ?? "")));
     if (!isMeeting) continue;
     if (Number(a.status) === 2) continue; // concluída
     const start = piperunLocalToIso(a.start_at ?? a.date_start);
