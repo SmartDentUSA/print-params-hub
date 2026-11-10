@@ -37788,6 +37788,13 @@ export type Database = {
         Args: { p_lead_id: string }
         Returns: undefined
       }
+      fn_cognitive_timeline_candidates: {
+        Args: { p_limit?: number }
+        Returns: {
+          last_signal_at: string
+          lead_id: string
+        }[]
+      }
       fn_count_push_audience: { Args: { p_filters?: Json }; Returns: number }
       fn_create_form_standard_flow: {
         Args: { p_kind: string; p_name: string }
