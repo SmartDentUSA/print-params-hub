@@ -4284,6 +4284,15 @@ Deno.serve(async (req) => {
           });
         } catch {}
       } else {
+        // Sem deal aberto em VENDAS/Estagnados/CS: o piperun_id herdado do lead
+        // aponta para um deal fechado (ex.: CS ganho). Mantê-lo pulava o
+        // validador, a Regra de Ouro e a criação, e o lead ficava sem
+        // oportunidade nova. O validador abaixo ainda preserva o cacheado se
+        // ele for um VENDAS ativo. Falha de leitura do PipeRun mantém o
+        // fail-safe (dealsFetchedOk=false preserva o cacheado).
+        if (dealsFetchedOk && piperunId && String(piperunId) === String(lead.piperun_id ?? "")) {
+          piperunId = null;
+        }
         flowType = "new_deal";
         // ── GOLDEN RULE PRIMARY (Guard D extended) ──
         // Antes de qualquer criação no fluxo primário, se a Pessoa já tem
