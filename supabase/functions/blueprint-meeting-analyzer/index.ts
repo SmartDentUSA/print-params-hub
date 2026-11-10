@@ -109,7 +109,7 @@ async function processRow(sb: Sb, row: { id: string; lead_id: string; event_data
   const a = st.analysis ?? {};
   if (a.status === "done" && !force) return { status: "done", reused: true };
   if (!st.calendar_event_id) return { status: "skipped", reason: "no_calendar_event" };
-  const due = force ? "search" : dueState(st.scheduled_end);
+  const due = force ? "search" : dueState(st.scheduled_start, st.scheduled_end);
   if (due === "wait") return { status: "waiting" };
   const save = async (patch: Record<string, unknown>) => {
     st.analysis = { ...a, ...patch, checked_at: new Date().toISOString(), checks: (a.checks ?? 0) + 1 };

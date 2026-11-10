@@ -1,12 +1,13 @@
 import { assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
 import { dueState, googleDocStamp, pickNotesDoc } from "./rules.ts";
 
+const START = "2026-11-10T21:27:00.000Z";
 const END = "2026-11-10T22:27:00.000Z";
 
-Deno.test("espera 10 min após o fim; desiste após 3 dias", () => {
-  assertEquals(dueState(END, new Date("2026-11-10T22:30:00Z")), "wait");
-  assertEquals(dueState(END, new Date("2026-11-10T22:40:00Z")), "search");
-  assertEquals(dueState(END, new Date("2026-11-14T22:40:00Z")), "give_up");
+Deno.test("procura 15 min após o início; desiste 3 dias após o fim", () => {
+  assertEquals(dueState(START, END, new Date("2026-11-10T21:35:00Z")), "wait");
+  assertEquals(dueState(START, END, new Date("2026-11-10T21:45:00Z")), "search");
+  assertEquals(dueState(START, END, new Date("2026-11-14T22:40:00Z")), "give_up");
 });
 
 Deno.test("carimbo do nome do documento em Brasília", () => {

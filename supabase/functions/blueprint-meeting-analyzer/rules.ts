@@ -2,18 +2,19 @@
 
 export const MEET_NOTES_FOLDER_ID = "1yiMle9IVXelCuGBr-HVQnrJ0aIRxUsUJ"; // "Meet Recordings" de oraculosmartdent@gmail.com
 export const DOC_MIME = "application/vnd.google-apps.document";
-/** Espera após o fim previsto antes de procurar as anotações (o Google leva alguns minutos). */
-export const GRACE_AFTER_END_MS = 10 * 60 * 1000;
+/** Começa a procurar 15 min após o início (reuniões podem terminar antes do previsto; sem documento, só espera). */
+export const SEARCH_AFTER_START_MS = 15 * 60 * 1000;
 /** Para de procurar depois de 3 dias sem documento. */
 export const GIVE_UP_AFTER_MS = 3 * 24 * 3600 * 1000;
 
 export type Due = "wait" | "search" | "give_up";
 
-export function dueState(scheduledEndIso: string | null | undefined, now = new Date()): Due {
-  const end = new Date(scheduledEndIso ?? "").getTime();
-  if (!Number.isFinite(end)) return "give_up";
+export function dueState(scheduledStartIso: string | null | undefined, scheduledEndIso: string | null | undefined, now = new Date()): Due {
+  const start = new Date(scheduledStartIso ?? "").getTime();
+  const end = new Date(scheduledEndIso ?? scheduledStartIso ?? "").getTime();
+  if (!Number.isFinite(start) || !Number.isFinite(end)) return "give_up";
   const t = now.getTime();
-  if (t < end + GRACE_AFTER_END_MS) return "wait";
+  if (t < start + SEARCH_AFTER_START_MS) return "wait";
   if (t > end + GIVE_UP_AFTER_MS) return "give_up";
   return "search";
 }
