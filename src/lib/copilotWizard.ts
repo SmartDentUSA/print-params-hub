@@ -53,6 +53,6 @@ export function detectWizardIntent(text: string, sectionId?: string | null): Wiz
   const t = normText(String(text || ""));
   if (/\b(editar|edite|alterar|altere|mudar|excluir|apagar|remover|desativar|listar|liste|quais|mostrar|mostre|ver|consultar|relatorio|quantas|quantos)\b/.test(t)) return null;
   if (/\btabelas? (promocional|promocionais|de precos?)\b/.test(t)) return "tabela_promocional";
-  if (CREATE_VERB.test(t) && (sectionId === "so-equipe" ? true : /\b(team members?|membros? (da|de|na|para a) equipe|novo membro|membro novo)\b/.test(t) || (/\bna equipe\b/.test(t) && MEMBER_NOUN.test(t)))) return "membro_equipe";
+  if (CREATE_VERB.test(t) && (sectionId === "so-equipe" ? (MEMBER_NOUN.test(t) || !/\b(instancias?|qr|conectar|grupos?|webhook)\b/.test(t)) : /\b(team members?|membros? (da|de|na|para a) equipe|novo membro|membro novo)\b/.test(t) || (/\bna equipe\b/.test(t) && MEMBER_NOUN.test(t)))) return "membro_equipe";
   return null;
 }

@@ -18,14 +18,22 @@ import {
 } from "@/components/copilot/copilotMenu";
 import { WizardControls } from "@/components/copilot/wizard/WizardControls";
 import { promoDeps } from "@/components/copilot/wizard/promoDeps";
-import { promoTableWizard, type PromoState } from "@/lib/copilotPromoWizard";
-import { detectWizardIntent, WIZ_CANCEL, WIZ_CONFIRM, type WizardQuestion } from "@/lib/copilotWizard";
+import { teamDeps } from "@/components/copilot/wizard/teamDeps";
+import { promoTableWizard } from "@/lib/copilotPromoWizard";
+import { teamMemberWizard } from "@/lib/copilotTeamWizard";
+import { detectWizardIntent, WIZ_CANCEL, WIZ_CONFIRM, type WizardQuestion, type WizardScript } from "@/lib/copilotWizard";
 import { isoDate } from "@/lib/copilotWizardParse";
 
 // Passo a passo campo a campo (sem IA). Cada roteiro segue a ordem da tela.
-const WIZARDS = { tabela_promocional: { script: promoTableWizard, deps: promoDeps } } as const;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type AnyScript = { script: WizardScript<any, any>; deps: unknown };
+const WIZARDS: Record<"tabela_promocional" | "membro_equipe", AnyScript> = {
+  tabela_promocional: { script: promoTableWizard, deps: promoDeps },
+  membro_equipe: { script: teamMemberWizard, deps: teamDeps },
+};
 type WizardKey = keyof typeof WIZARDS;
-type WizardSession = { key: WizardKey; state: PromoState; history: PromoState[] };
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type WizardSession = { key: WizardKey; state: any; history: any[] };
 const questionText = (q: WizardQuestion) =>
   [`📍 Na tela: ${q.where}`, q.ask, q.help ? `💡 ${q.help}` : ""].filter(Boolean).join("\n");
 
@@ -233,10 +241,10 @@ export function SmartOpsCopilot() {
   const sendMessage = async (text: string, opts?: { menu?: MenuContext | null; prelude?: Message[] }) => {
     if (!text.trim() || isLoading) return;
     if (wizard) { wizardAnswer(text.trim()); return; }
-    const intent = detectWizardIntent(text);
-    if (intent) { startWizard(intent, [...(opts?.prelude ?? []), { role: "user", local: true, content: text.trim() }]); setInput(""); return; }
-
     const menu = opts && "menu" in opts ? opts.menu ?? null : activeMenu;
+    const intent = detectWizardIntent(text, menu?.section_id);
+    if (intent) { startWizard(intent, [...(opts?.prelude ?? []), { role: "user", local: true, content: text.trim() }], text.trim()); setInput(""); return; }
+
     const userMsg: Message = { role: "user", content: text.trim() };
     const newMessages = [...messages, ...(opts?.prelude ?? []), userMsg];
     setMessages(newMessages);
@@ -401,7 +409,7 @@ export function SmartOpsCopilot() {
   };
 
   // ─── Passo a passo campo a campo (sem IA) ───
-  const startWizard = async (key: WizardKey, prelude: Message[] = []) => {
+  const startWizard = async (key: WizardKey, prelude: Message[] = [], seedText = "") => {
     if (isLoading) return;
     const { script, deps } = WIZARDS[key];
     setMessages((prev) => [...prev, ...prelude]);
@@ -416,7 +424,7 @@ export function SmartOpsCopilot() {
         setMessages((prev) => [...prev, { role: "assistant", local: true, content: `🔒 ${gate.reason || "Você não tem permissão para esta ferramenta."}` }]);
         return;
       }
-      const state = await script.init(deps, isoDate(new Date()));
+      const state = await script.init(deps, isoDate(new Date()), seedText);
       setWizard({ key, state, history: [] });
       setMessages((prev) => [...prev,
         { role: "assistant", local: true, content: script.intro },
@@ -528,15 +536,13 @@ export function SmartOpsCopilot() {
     const ctx = buildMenuContext(sectionId, subtabId);
     if (!found || !sub || !ctx) return;
     setActiveMenu(ctx);
-    if (sub.actions?.length) {
-      setMessages((prev) => [...prev, ...prelude, {
-        role: "assistant", local: true,
-        content: `O que você quer fazer em **${menuPath(ctx)}**?`,
-        menu: { kind: "actions", sectionId, subtabId },
-      }]);
-      return;
-    }
-    sendMessage(`Estou em ${menuPath(ctx)}. O que posso fazer aqui com você?`, { menu: ctx, prelude });
+    // A tela escolhida não chama a IA: o Copilot pergunta e espera o pedido escrito.
+    setMessages((prev) => [...prev, ...prelude, {
+      role: "assistant", local: true,
+      content: `O que você quer fazer em **${menuPath(ctx)}**?\n\nEscreva com suas palavras (ex.: ${sub.example || "“quero cadastrar…”"}) que eu analiso e vou pedindo os campos da tela, um por vez.${sub.actions?.length ? " Ou escolha um atalho:" : ""}`,
+      menu: { kind: "actions", sectionId, subtabId },
+    }]);
+    setTimeout(() => inputRef.current?.focus(), 50);
   };
 
   const pickSection = (sectionId: string) => {
@@ -608,7 +614,7 @@ export function SmartOpsCopilot() {
           </Button>
         ))}
         <Button size="sm" variant="outline" className="h-8 gap-1 text-xs" disabled={disabled} onClick={askFreeText}>
-          <MessageSquarePlus className="w-3.5 h-3.5" /> Outra coisa
+          <MessageSquarePlus className="w-3.5 h-3.5" /> {sub.actions?.length ? "Outra coisa" : "Escrever o pedido"}
         </Button>
         <Button size="sm" variant="ghost" className="h-8 gap-1 text-xs" onClick={() => openScreen(menu.sectionId, menu.subtabId)}>
           <ExternalLink className="w-3.5 h-3.5" /> Abrir a tela
@@ -940,7 +946,7 @@ export function SmartOpsCopilot() {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder={isListening ? "🎙️ Ouvindo..." : wizard ? "Digite a resposta e aperte Enter..." : "Digite ou fale um comando..."}
+            placeholder={isListening ? "🎙️ Ouvindo..." : wizard ? "Digite a resposta e aperte Enter..." : activeMenu ? `O que você quer fazer em ${menuPath(activeMenu)}?` : "Digite ou fale um comando..."}
             disabled={isLoading}
             className={`flex-1 ${isListening ? "border-red-400 ring-1 ring-red-400" : ""}`}
           />
