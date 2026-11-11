@@ -7,11 +7,13 @@ import { sidebarGroups } from "@/components/admin/systemMenu";
 export type GuidedKey = "tabela_promocional" | "campanha_grupos_whatsapp" | "campanha_completa";
 
 /** wizard = passo a passo campo a campo sem IA (src/lib/copilotWizard.ts). */
-export type CopilotAction = { label: string; prompt: string; guided?: GuidedKey; wizard?: "tabela_promocional" };
+export type CopilotAction = { label: string; prompt: string; guided?: GuidedKey; wizard?: "tabela_promocional" | "membro_equipe" };
 export type CopilotSubtab = {
   id: string;
   title: string;
   hint: string;
+  /** Exemplo de pedido mostrado na pergunta "O que você quer fazer?". */
+  example?: string;
   /** Valor do parâmetro `sub` na URL, quando a tela abre a subaba por ele. */
   urlSub?: string;
   actions?: CopilotAction[];
@@ -71,7 +73,8 @@ export const SECTION_SUBTABS: Record<string, CopilotSubtab[]> = {
     { label: "Criar um público", prompt: "Quero criar um público de leads para campanha." },
   ]),
   "so-equipe": [
-    { id: "dados", title: "Dados do membro", hint: "Cadastro dos membros da equipe." },
+    { id: "dados", title: "Dados do membro", hint: "Cadastro dos membros da equipe.", example: "“cadastrar a Maria como vendedora”",
+      actions: [{ label: "Cadastrar novo membro", prompt: "Quero cadastrar um novo membro na equipe.", wizard: "membro_equipe" }] },
     { id: "wa", title: "WhatsApp individual", hint: "Instância de WhatsApp de cada membro." },
     { id: "grupos", title: "Grupos (EvoGo)", hint: "Instância de grupos de cada membro." },
   ],

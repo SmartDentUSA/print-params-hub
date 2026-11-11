@@ -3,6 +3,8 @@
 // A gravação real acontece apenas quando o usuário clica em "Confirmar" na tela
 // (requisição separada, sem LLM), via executePendingAction.
 
+import { TEAM_ADMIN_ONLY, validateTeamMember } from "./team-member.ts";
+
 export const ACTION_MARKER = "copilot-action";
 const COMMERCIAL_TYPES = ["product", "resin", "Resinas", "consumables", "Serviços"];
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -679,6 +681,18 @@ async function runPromo(ctx: GuidedCtx, p: any) {
   return { table_id: tableId, ...created };
 }
 
+async function runTeamMember(ctx: GuidedCtx, p: any) {
+  if (!ctx.isAdmin) throw new Error(TEAM_ADMIN_ONLY);
+  const v = validateTeamMember(p);
+  if (!v.row) throw new Error(v.errors.join(" "));
+  const { data, error } = await ctx.sb.from("team_members").insert(v.row).select("id,nome_completo").single();
+  if (error) {
+    if (/duplicate key|already exists/i.test(error.message)) throw new Error("Já existe um membro com esse e-mail (pode estar inativo).");
+    throw new Error(error.message);
+  }
+  return { id: data.id, nome: data.nome_completo };
+}
+
 async function runWa(ctx: GuidedCtx, p: any) {
   const { sb } = ctx;
   let cid = p.campaign_id;
@@ -731,8 +745,14 @@ export async function executePendingAction(ctx: GuidedCtx, id: string, decision:
     .update({ status: "executing", decided_at: new Date().toISOString() }).eq("id", id).eq("status", "pending").select("id");
   if (!claimed?.length) return { ok: false, content: "ℹ️ Esta ação já está sendo executada." };
   try {
-    const result = row.action_type === "promo_table" ? await runPromo(ctx, row.payload) : await runWa(ctx, row.payload);
+    const result = row.action_type === "promo_table" ? await runPromo(ctx, row.payload)
+      : row.action_type === "team_member" ? await runTeamMember(ctx, row.payload)
+      : await runWa(ctx, row.payload);
     await sb.from("copilot_pending_actions").update({ status: "executed", result }).eq("id", id);
+    if (row.action_type === "team_member") {
+      const r: any = result;
+      return { ok: true, result, content: `✅ **Membro cadastrado e ativo:** ${r.nome}\n- ID: ${r.id}\n- Para conectar o WhatsApp (QR Code) e enviar a foto, abra **Equipe**, clique em editar no membro e use **Conectar WhatsApp**.` };
+    }
     if (row.action_type === "promo_table") {
       const r: any = result;
       return { ok: true, result, content: `✅ **Tabela promocional ${row.payload.table_id ? "atualizada" : row.payload.final_status === "draft" ? "criada como rascunho" : "criada e ativa"}.**\n- ID: ${r.table_id}\n- Combos adicionados: ${r.sections} · itens: ${r.items}${r.updated_items ? ` · itens alterados: ${r.updated_items}` : ""}\n- Abra em Catálogo › Tabelas promocionais para gerar cupons e o PDF.` };
@@ -758,11 +778,12 @@ export function stripActionMarkers(text: string) {
 // O passo a passo da tela já coletou e mostrou o resumo; "Confirmar e salvar"
 // valida de novo aqui (mesmas regras da criação guiada), registra a ação para
 // auditoria e grava na mesma requisição — equivalente ao clique em Salvar.
-export const WIZARD_KINDS = new Set(["tabela_promocional"]);
+export const WIZARD_KINDS = new Set(["tabela_promocional", "membro_equipe"]);
 
 export function wizardAllowed(ctx: GuidedCtx, kind: string) {
   if (!WIZARD_KINDS.has(kind)) return { allowed: false, reason: "Passo a passo desconhecido." };
   if (kind === "tabela_promocional" && !ctx.isAdmin) return { allowed: false, reason: PROMO_ADMIN_ONLY };
+  if (kind === "membro_equipe" && !ctx.isAdmin) return { allowed: false, reason: TEAM_ADMIN_ONLY };
   return { allowed: true };
 }
 
@@ -770,6 +791,7 @@ export async function submitWizard(ctx: GuidedCtx, kind: string, input: any) {
   const gate = wizardAllowed(ctx, kind);
   if (!gate.allowed) return { ok: false, content: `❌ ${gate.reason}` };
   if (!input || typeof input !== "object" || Array.isArray(input)) return { ok: false, content: "❌ Dados inválidos." };
+  if (kind === "membro_equipe") return submitTeamMember(ctx, input);
   const { table_id: _t, item_updates: _u, ...clean } = input;
   const pending: PendingRef[] = [];
   const ex = makeGuidedExecutors(ctx, (p) => pending.push(p));
@@ -779,4 +801,17 @@ export async function submitWizard(ctx: GuidedCtx, kind: string, input: any) {
     return { ok: false, errors, content: `❌ Não salvei. Corrija:\n${errors.map((e) => `- ${e}`).join("\n")}` };
   }
   return executePendingAction(ctx, prep.pending_action_id, "confirm");
+}
+
+async function submitTeamMember(ctx: GuidedCtx, input: any) {
+  const v = validateTeamMember(input);
+  const fail = (errors: string[]) => ({ ok: false, errors, content: `❌ Não salvei. Corrija:\n${errors.map((e) => `- ${e}`).join("\n")}` });
+  if (!v.row) return fail(v.errors);
+  const { data: dup } = await ctx.sb.from("team_members").select("nome_completo,ativo").ilike("email", v.row.email).limit(1);
+  if (dup?.length) return fail([`Já existe um membro com esse e-mail: ${dup[0].nome_completo}${dup[0].ativo ? "" : " (inativo)"}. Use outro e-mail ou edite o existente na tela Equipe.`]);
+  const summary = `Novo membro da equipe: ${v.row.nome_completo} (${v.row.role}) · ${v.row.email} · ${v.row.whatsapp_number}`;
+  const { data, error } = await ctx.sb.from("copilot_pending_actions")
+    .insert({ user_id: ctx.userId, action_type: "team_member", payload: v.row, summary }).select("id").single();
+  if (error) return fail([`Não foi possível registrar a ação: ${error.message}`]);
+  return executePendingAction(ctx, data.id, "confirm");
 }
