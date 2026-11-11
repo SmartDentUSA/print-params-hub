@@ -419,7 +419,7 @@ serve(async (req) => {
       }, { headers: corsHeaders })
     }
 
-    const per_instance: Record<string, { synced: number; raw: number; admin: number; groups: string[]; error?: string; warning?: string; lid?: string; lid_confidence?: number; discovery_mode?: string; observed?: number; created?: number; updated?: number; total_groups?: number; last_synced_at?: string | null; last_observed_at?: string | null }> = {}
+    const per_instance: Record<string, { synced: number; raw: number; admin: number; groups: string[]; kept_other_owner?: number; error?: string; warning?: string; lid?: string; lid_confidence?: number; discovery_mode?: string; observed?: number; created?: number; updated?: number; total_groups?: number; last_synced_at?: string | null; last_observed_at?: string | null }> = {}
     let totalSynced = 0
     // Fallback de telefone vem do tmPhones acima
     const phoneByInstance = tmPhones
