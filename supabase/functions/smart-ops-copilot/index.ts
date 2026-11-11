@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { logAIUsage, extractUsage } from "../_shared/log-ai-usage.ts";
 import { fetchSystemAProduct } from "../_shared/system-a-live.ts";
+import { guidedTools, makeGuidedExecutors, executePendingAction, renderPendingBlock, stripActionMarkers, type PendingRef } from "./guided.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -3863,13 +3864,45 @@ function buildCapabilitySystemMessage(snap: CapabilitySnapshot): string {
 const TOOLS_BLOCKLIST = new Set<string>([
   // (vazio) — nenhuma tool bloqueada no momento.
 ]);
-const actionTools = tools.filter((t: any) => !TOOLS_BLOCKLIST.has(t?.function?.name));
+const actionTools = [...tools, ...guidedTools].filter((t: any) => !TOOLS_BLOCKLIST.has(t?.function?.name));
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { messages, csv_data, model: requestedModel } = await req.json();
+    // ── Autorização server-side: só admin ou marketing ativo (fn_can_use_copilot) ──
+    const authHeader = req.headers.get("Authorization") || "";
+    const jwt = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : "";
+    const { data: authData } = jwt ? await supabase.auth.getUser(jwt) : { data: { user: null } } as any;
+    const authUser = authData?.user;
+    if (!authUser) {
+      return new Response(JSON.stringify({ error: "Faça login para usar o Copilot." }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+    const { data: canUse } = await supabase.rpc("fn_can_use_copilot", { _user_id: authUser.id });
+    if (canUse !== true) {
+      return new Response(JSON.stringify({ error: "O Copilot está liberado só para administradores e marketing." }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+    const guidedCtx = { sb: supabase, userId: authUser.id, supabaseUrl: SUPABASE_URL, serviceKey: SUPABASE_SERVICE_ROLE_KEY };
+
+    const reqBody = await req.json();
+    // ── Confirmar/Cancelar de ação preparada: execução determinística, sem LLM ──
+    if (reqBody?.confirm_action_id) {
+      const decision = reqBody.decision === "cancel" ? "cancel" : "confirm";
+      const out = await executePendingAction(guidedCtx, String(reqBody.confirm_action_id), decision);
+      return new Response(JSON.stringify(out), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+    const { messages: rawMessages, csv_data, model: requestedModel } = reqBody;
+    const messages = (Array.isArray(rawMessages) ? rawMessages : []).map((m: any) => ({
+      ...m,
+      content: m?.role === "assistant" ? stripActionMarkers(String(m?.content ?? "")) : m?.content,
+    }));
+    const pendingThisTurn: PendingRef[] = [];
+    const guidedExecutors = makeGuidedExecutors(guidedCtx, (p) => pendingThisTurn.push(p));
+    const withPending = (text: string) => {
+      const clean = stripActionMarkers(text);
+      if (!pendingThisTurn.length) return clean;
+      return [clean, ...pendingThisTurn.map(renderPendingBlock)].filter(Boolean).join("\n\n");
+    };
 
     // Determine which model to use (legacy "deepseek" → "deepseek-pro").
     let modelId: ModelId =
@@ -4089,7 +4122,7 @@ serve(async (req) => {
         });
         
         // Simulate SSE stream from the existing content (no duplicate API call!)
-        const sseStream = createSSEFromText(content);
+        const sseStream = createSSEFromText(withPending(content));
         return new Response(sseStream, {
           headers: { ...corsHeaders, "Content-Type": "text/event-stream" }
         });
@@ -4109,7 +4142,7 @@ serve(async (req) => {
         }
         console.log(`[Copilot] Tool: ${fn}`, JSON.stringify(args).slice(0, 200));
 
-        const executor = toolExecutors[fn];
+        const executor = guidedExecutors[fn] ?? toolExecutors[fn];
         let toolResult: any;
         if (executor) {
           try {
@@ -4157,7 +4190,7 @@ serve(async (req) => {
       const quick = executedActions.length > 0
         ? executedActions.map(renderActionResultBlock).join("\n\n")
         : "⏱️ Processamento longo — parei antes do timeout. Reformule a pergunta com um escopo menor.";
-      return new Response(createSSEFromText(quick), {
+      return new Response(createSSEFromText(withPending(quick)), {
         headers: { ...corsHeaders, "Content-Type": "text/event-stream" }
       });
     }
@@ -4206,7 +4239,7 @@ serve(async (req) => {
         const banner = providerSwitched
           ? `> 🔄 _Provedor primário (${switchedFromLabel}) sem créditos — respondi via **${switchedToLabel}**._\n\n`
           : "";
-        const sseStream = createSSEFromText(banner + summaryContent);
+        const sseStream = createSSEFromText(withPending(banner + summaryContent));
         return new Response(sseStream, {
           headers: { ...corsHeaders, "Content-Type": "text/event-stream" }
         });

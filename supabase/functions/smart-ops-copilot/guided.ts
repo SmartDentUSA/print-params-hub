@@ -722,7 +722,7 @@ export async function executePendingAction(ctx: GuidedCtx, id: string, decision:
       return { ok: true, result, content: `✅ **Tabela promocional ${row.payload.table_id ? "atualizada" : "criada e ativa"}.**\n- ID: ${r.table_id}\n- Combos adicionados: ${r.sections} · itens: ${r.items}${r.updated_items ? ` · itens alterados: ${r.updated_items}` : ""}\n- Abra em Catálogo › Tabelas promocionais para gerar cupons e o PDF.` };
     }
     const r: any = result;
-    return { ok: true, result, content: `✅ **Campanha de grupos ${row.payload.campaign_id ? "atualizada" : "criada"} e ativada.**\n- ID: ${r.campaign_id}\n- Primeiro envio: ${r.ativacao?.next_send_at ? new Date(r.ativacao.next_send_at).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" }) : "conforme agenda"}` };
+    return { ok: true, result, content: `✅ **Campanha de grupos ${row.payload.campaign_id ? "atualizada" : "criada"} e ativada.**\n- ID: ${r.campaign_id}\n- Grupos: ${r.ativacao?.groups ?? "—"} · mensagens na fila: ${r.ativacao?.queued ?? 0}\n- Primeiro envio: ${r.ativacao?.first_send ? new Date(r.ativacao.first_send).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" }) : "conforme agenda"}` };
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     await sb.from("copilot_pending_actions").update({ status: "failed", error: msg }).eq("id", id);
