@@ -5,13 +5,24 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import {
-  Send, Mic, MicOff, Paperclip, Bot, User, Loader2, Sparkles, Zap, Brain, Rocket, Check, X, ClipboardCheck
+  Send, Mic, MicOff, Paperclip, Bot, User, Loader2, Sparkles, Zap, Brain, Rocket, Check, X, ClipboardCheck,
+  LayoutGrid, ExternalLink, MessageSquarePlus, RotateCcw, MapPin
 } from "lucide-react";
 import { toast } from "sonner";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { supabase } from "@/integrations/supabase/client";
+import { CopilotSystemMenu } from "@/components/copilot/CopilotSystemMenu";
+import {
+  findSection, buildMenuContext, menuPath, parseOptions, OPTIONS_BLOCK_RE,
+  type MenuContext, type CopilotAction,
+} from "@/components/copilot/copilotMenu";
 
-type Message = { role: "user" | "assistant"; content: string };
+type MenuPayload =
+  | { kind: "sections" }
+  | { kind: "subtabs"; sectionId: string }
+  | { kind: "actions"; sectionId: string; subtabId: string };
+// local = mensagem só da tela (menu), nunca enviada ao modelo.
+type Message = { role: "user" | "assistant"; content: string; local?: boolean; menu?: MenuPayload };
 type ModelId = "deepseek-pro" | "deepseek-flash" | "gemini" | "claude";
 // Claude está oculto do seletor (custo ~20× DeepSeek). Reativar requer COPILOT_ALLOW_CLAUDE=true no edge.
 
@@ -61,6 +72,12 @@ export function SmartOpsCopilot() {
   useEffect(() => {
     try { localStorage.setItem("copilot-action-status", JSON.stringify(actionStatus)); } catch { /* ignore */ }
   }, [actionStatus]);
+  const [activeMenu, setActiveMenu] = useState<MenuContext | null>(() => {
+    try { return JSON.parse(localStorage.getItem("copilot-active-menu") || "null"); } catch { return null; }
+  });
+  useEffect(() => {
+    try { localStorage.setItem("copilot-active-menu", JSON.stringify(activeMenu)); } catch { /* ignore */ }
+  }, [activeMenu]);
   const [isListening, setIsListening] = useState(false);
   const [selectedModel, setSelectedModel] = useState<ModelId>(() => {
     try {
@@ -195,11 +212,12 @@ export function SmartOpsCopilot() {
   }, []);
 
   // Stream chat
-  const sendMessage = async (text: string) => {
+  const sendMessage = async (text: string, opts?: { menu?: MenuContext | null; prelude?: Message[] }) => {
     if (!text.trim() || isLoading) return;
 
+    const menu = opts && "menu" in opts ? opts.menu ?? null : activeMenu;
     const userMsg: Message = { role: "user", content: text.trim() };
-    const newMessages = [...messages, userMsg];
+    const newMessages = [...messages, ...(opts?.prelude ?? []), userMsg];
     setMessages(newMessages);
     setInput("");
     setIsLoading(true);
@@ -209,7 +227,11 @@ export function SmartOpsCopilot() {
       const resp = await fetch(url, {
         method: "POST",
         headers: await authHeaders(),
-        body: JSON.stringify({ messages: newMessages, model: selectedModel }),
+        body: JSON.stringify({
+          messages: newMessages.filter((m) => !m.local).map(({ role, content }) => ({ role, content })),
+          model: selectedModel,
+          menu: menu ?? undefined,
+        }),
       });
 
       if (!resp.ok) {
@@ -357,6 +379,113 @@ export function SmartOpsCopilot() {
     }
   };
 
+  // ─── Menu do sistema em botões: área → subaba → o que fazer ───
+  const openMenu = () => {
+    if (isLoading) return;
+    setActiveMenu(null);
+    setMessages((prev) => [...prev, { role: "assistant", local: true, content: "Em qual área do sistema você quer trabalhar?", menu: { kind: "sections" } }]);
+  };
+
+  const newConversation = () => {
+    if (isLoading) return;
+    setMessages([]);
+    setActiveMenu(null);
+  };
+
+  const startScreen = (sectionId: string, subtabId: string, prelude: Message[]) => {
+    const found = findSection(sectionId);
+    const sub = found?.subtabs.find((s) => s.id === subtabId);
+    const ctx = buildMenuContext(sectionId, subtabId);
+    if (!found || !sub || !ctx) return;
+    setActiveMenu(ctx);
+    if (sub.actions?.length) {
+      setMessages((prev) => [...prev, ...prelude, {
+        role: "assistant", local: true,
+        content: `O que você quer fazer em **${menuPath(ctx)}**?`,
+        menu: { kind: "actions", sectionId, subtabId },
+      }]);
+      return;
+    }
+    sendMessage(`Estou em ${menuPath(ctx)}. O que posso fazer aqui com você?`, { menu: ctx, prelude });
+  };
+
+  const pickSection = (sectionId: string) => {
+    const found = findSection(sectionId);
+    if (!found || isLoading) return;
+    const title = found.item.title;
+    const userPick: Message = { role: "user", local: true, content: `📂 ${title}` };
+    if (found.subtabs.length === 1) {
+      startScreen(sectionId, found.subtabs[0].id, [userPick]);
+      return;
+    }
+    setActiveMenu(null);
+    setMessages((prev) => [...prev, userPick, {
+      role: "assistant", local: true,
+      content: `Em **${title}**, qual subaba você quer usar?`,
+      menu: { kind: "subtabs", sectionId },
+    }]);
+  };
+
+  const pickSubtab = (sectionId: string, subtabId: string) => {
+    const found = findSection(sectionId);
+    const sub = found?.subtabs.find((s) => s.id === subtabId);
+    if (!found || !sub || isLoading) return;
+    startScreen(sectionId, subtabId, [{ role: "user", local: true, content: `📂 ${found.item.title} › ${sub.title}` }]);
+  };
+
+  const pickAction = (sectionId: string, subtabId: string, action: CopilotAction) => {
+    const ctx = buildMenuContext(sectionId, subtabId, action.guided);
+    if (!ctx) return;
+    setActiveMenu(ctx);
+    sendMessage(action.prompt, { menu: ctx });
+  };
+
+  const openScreen = (sectionId: string, subtabId: string) => {
+    const sub = findSection(sectionId)?.subtabs.find((s) => s.id === subtabId);
+    window.dispatchEvent(new CustomEvent("admin:open-section", { detail: { section: sectionId, sub: sub?.urlSub } }));
+  };
+
+  const askFreeText = () => {
+    inputRef.current?.focus();
+  };
+
+  const renderMenu = (menu: MenuPayload, isLast: boolean) => {
+    const disabled = isLoading || !isLast;
+    if (menu.kind === "sections") {
+      return <div className="mt-2"><CopilotSystemMenu onPick={pickSection} disabled={disabled} /></div>;
+    }
+    const found = findSection(menu.sectionId);
+    if (!found) return null;
+    if (menu.kind === "subtabs") {
+      return (
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          {found.subtabs.map((sub) => (
+            <Button key={sub.id} size="sm" variant="outline" className="h-8 text-xs" disabled={disabled} onClick={() => pickSubtab(menu.sectionId, sub.id)}>
+              {sub.title}
+            </Button>
+          ))}
+        </div>
+      );
+    }
+    const sub = found.subtabs.find((s) => s.id === menu.subtabId);
+    if (!sub) return null;
+    return (
+      <div className="mt-2 flex flex-wrap gap-1.5">
+        {(sub.actions ?? []).map((a) => (
+          <Button key={a.label} size="sm" className="h-8 text-xs" disabled={disabled} onClick={() => pickAction(menu.sectionId, menu.subtabId, a)}>
+            {a.label}
+          </Button>
+        ))}
+        <Button size="sm" variant="outline" className="h-8 gap-1 text-xs" disabled={disabled} onClick={askFreeText}>
+          <MessageSquarePlus className="w-3.5 h-3.5" /> Outra coisa
+        </Button>
+        <Button size="sm" variant="ghost" className="h-8 gap-1 text-xs" onClick={() => openScreen(menu.sectionId, menu.subtabId)}>
+          <ExternalLink className="w-3.5 h-3.5" /> Abrir a tela
+        </Button>
+      </div>
+    );
+  };
+
   const decideAction = async (action: ActionRef, decision: "confirm" | "cancel") => {
     if (actionStatus[action.id] && actionStatus[action.id] !== "failed") return;
     setActionStatus((prev) => ({ ...prev, [action.id]: "loading" }));
@@ -407,7 +536,12 @@ export function SmartOpsCopilot() {
     );
   };
 
-  const renderAssistant = (text: string) => {
+  const renderAssistant = (rawText: string, isLast: boolean) => {
+    const options: string[] = [];
+    OPTIONS_BLOCK_RE.lastIndex = 0;
+    const text = rawText
+      .replace(OPTIONS_BLOCK_RE, (_all, body) => { options.push(...parseOptions(body)); return ""; })
+      .replace(/```copilot-options[\s\S]*$/, "");
     const parts: React.ReactNode[] = [];
     let last = 0;
     let m: RegExpExecArray | null;
@@ -422,6 +556,17 @@ export function SmartOpsCopilot() {
     }
     const rest = text.slice(last).replace(/```copilot-action[\s\S]*$/, "");
     if (rest.trim()) parts.push(<div key={`txt-${last}`}>{renderContent(rest)}</div>);
+    if (options.length) {
+      parts.push(
+        <div key="options" className="mt-2 flex flex-wrap gap-1.5">
+          {options.map((o) => (
+            <Button key={o} size="sm" variant="outline" className="h-8 text-xs bg-background" disabled={isLoading || !isLast} onClick={() => sendMessage(o)}>
+              {o}
+            </Button>
+          ))}
+        </div>
+      );
+    }
     return <>{parts}</>;
   };
 
@@ -499,7 +644,14 @@ export function SmartOpsCopilot() {
     <Card className="h-[calc(100vh-220px)] flex flex-col">
       {/* Model selector header */}
       <div className="flex items-center justify-between px-4 py-2 border-b bg-muted/30">
-        <span className="text-xs font-medium text-muted-foreground">Modelo IA</span>
+        <div className="flex items-center gap-1">
+          <Button size="sm" variant="outline" className="h-7 gap-1 text-xs" onClick={openMenu} disabled={isLoading}>
+            <LayoutGrid className="w-3.5 h-3.5" /> Menu
+          </Button>
+          <Button size="sm" variant="ghost" className="h-7 gap-1 text-xs" onClick={newConversation} disabled={isLoading || messages.length === 0}>
+            <RotateCcw className="w-3.5 h-3.5" /> Nova conversa
+          </Button>
+        </div>
         <ToggleGroup
           type="single"
           value={selectedModel}
@@ -531,8 +683,11 @@ export function SmartOpsCopilot() {
               <div className="text-center space-y-2">
                 <h3 className="text-lg font-semibold">Copilot IA</h3>
                 <p className="text-sm text-muted-foreground max-w-md">
-                  Seu assistente operacional. Pergunte sobre leads, envie mensagens e crie tabelas promocionais ou campanhas de grupos passo a passo — tudo por texto ou voz.
+                  Escolha uma área do sistema e eu pergunto, passo a passo, o que você quer fazer — ou digite/fale um comando.
                 </p>
+              </div>
+              <div className="w-full max-w-3xl rounded-lg border bg-card p-4">
+                <CopilotSystemMenu onPick={pickSection} disabled={isLoading} />
               </div>
               <div className="flex flex-wrap gap-2 justify-center max-w-lg">
                 {CREATION_SUGGESTIONS.map((s) => (
@@ -572,7 +727,12 @@ export function SmartOpsCopilot() {
                       ? "bg-primary text-primary-foreground"
                       : "bg-muted"
                   }`}>
-                    {msg.role === "assistant" ? renderAssistant(msg.content) : (
+                    {msg.role === "assistant" ? (
+                      <>
+                        {renderAssistant(msg.content, i === messages.length - 1)}
+                        {msg.menu && renderMenu(msg.menu, i === messages.length - 1)}
+                      </>
+                    ) : (
                       <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
                     )}
                   </div>
@@ -597,6 +757,15 @@ export function SmartOpsCopilot() {
           )}
         </ScrollArea>
 
+        {activeMenu && (
+          <div className="border-t px-3 pt-2 flex items-center gap-2 text-xs text-muted-foreground bg-card">
+            <MapPin className="w-3.5 h-3.5 text-primary" />
+            <span>Trabalhando em <strong className="text-foreground">{menuPath(activeMenu)}</strong></span>
+            <button type="button" className="ml-auto hover:text-foreground" onClick={() => setActiveMenu(null)} title="Sair desta área">
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
         {/* Input area */}
         <div className="border-t p-3 flex gap-2 items-center bg-card">
           <input
