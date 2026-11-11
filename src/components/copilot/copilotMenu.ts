@@ -6,7 +6,8 @@ import { sidebarGroups } from "@/components/admin/systemMenu";
 
 export type GuidedKey = "tabela_promocional" | "campanha_grupos_whatsapp" | "campanha_completa";
 
-export type CopilotAction = { label: string; prompt: string; guided?: GuidedKey };
+/** wizard = passo a passo campo a campo sem IA (src/lib/copilotWizard.ts). */
+export type CopilotAction = { label: string; prompt: string; guided?: GuidedKey; wizard?: "tabela_promocional" };
 export type CopilotSubtab = {
   id: string;
   title: string;
@@ -40,7 +41,7 @@ export const SECTION_SUBTABS: Record<string, CopilotSubtab[]> = {
       id: "promotional-tables", title: "Tabelas promocionais",
       hint: "Tabelas de preços promocionais com combos, itens, vigência e cupons.",
       actions: [
-        { label: "Criar nova tabela promocional", prompt: "Quero criar uma nova tabela promocional.", guided: "tabela_promocional" },
+        { label: "Criar nova tabela promocional", prompt: "Quero criar uma nova tabela promocional.", guided: "tabela_promocional", wizard: "tabela_promocional" },
         { label: "Editar uma tabela existente", prompt: "Quero editar uma tabela promocional existente.", guided: "tabela_promocional" },
       ],
     },
@@ -127,7 +128,7 @@ export const SECTION_SUBTABS: Record<string, CopilotSubtab[]> = {
       id: "criar", urlSub: "criar", title: "Criar Campanha", hint: "Montagem de campanhas.",
       actions: [
         { label: "Campanha completa (ex.: Black Friday)", prompt: "Quero criar uma campanha completa de Black Friday.", guided: "campanha_completa" },
-        { label: "Só a tabela promocional", prompt: "Quero criar uma nova tabela promocional.", guided: "tabela_promocional" },
+        { label: "Só a tabela promocional", prompt: "Quero criar uma nova tabela promocional.", guided: "tabela_promocional", wizard: "tabela_promocional" },
         { label: "Só a campanha de grupos", prompt: "Quero criar uma campanha para grupos de WhatsApp.", guided: "campanha_grupos_whatsapp" },
       ],
     },

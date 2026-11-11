@@ -36,3 +36,13 @@ export type WizardScript<S, D> = {
 export const WIZ_CONFIRM = "__confirm";
 export const WIZ_CANCEL = "__cancel";
 export const WIZ_SKIP = "__skip";
+
+const normText = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+
+/** Pedido digitado que deve abrir um passo a passo em vez da conversa livre. */
+export function detectWizardIntent(text: string): "tabela_promocional" | null {
+  const t = normText(String(text || ""));
+  if (/\b(editar|edite|alterar|altere|mudar|excluir|apagar|listar|liste|quais|mostrar|mostre|ver|consultar|relatorio|quantas)\b/.test(t)) return null;
+  if (/\btabelas? (promocional|promocionais|de precos?)\b/.test(t)) return "tabela_promocional";
+  return null;
+}
