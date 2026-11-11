@@ -9,7 +9,9 @@ Deno.serve(async (req) => {
   const url = Deno.env.get("SUPABASE_URL")!, key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const sb = createClient(url, key);
   const log: any[] = [];
-  const ctx = { sb, userId: crypto.randomUUID(), supabaseUrl: url, serviceKey: key };
+  const ctx = { sb, userId: crypto.randomUUID(), supabaseUrl: url, serviceKey: key, isAdmin: true };
+  const nonAdmin = makeGuidedExecutors({ ...ctx, isAdmin: false }, () => {});
+  log.push({ nao_admin: await nonAdmin.prepare_promotional_table({}) });
   const pend: any[] = [];
   const ex = makeGuidedExecutors(ctx, (p) => pend.push(p));
   try {

@@ -3893,7 +3893,8 @@ serve(async (req) => {
     if (canUse !== true) {
       return new Response(JSON.stringify({ error: "O Copilot está liberado só para administradores e marketing." }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
-    const guidedCtx = { sb: supabase, userId: authUser.id, supabaseUrl: SUPABASE_URL, serviceKey: SUPABASE_SERVICE_ROLE_KEY };
+    const { data: isAdminRole } = await supabase.rpc("has_role", { _user_id: authUser.id, _role: "admin" });
+    const guidedCtx = { sb: supabase, userId: authUser.id, supabaseUrl: SUPABASE_URL, serviceKey: SUPABASE_SERVICE_ROLE_KEY, isAdmin: isAdminRole === true };
 
     const reqBody = await req.json();
     // ── Confirmar/Cancelar de ação preparada: execução determinística, sem LLM ──

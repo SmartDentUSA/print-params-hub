@@ -13,7 +13,11 @@ export type GuidedCtx = {
   userId: string;
   supabaseUrl: string;
   serviceKey: string;
+  /** Mesma regra das telas: tabelas promocionais só para administradores. */
+  isAdmin: boolean;
 };
+
+const PROMO_ADMIN_ONLY = "Tabelas promocionais só podem ser criadas ou editadas por administradores (mesma regra da tela).";
 
 export type PendingRef = { id: string; type: string; title: string; summary: string };
 
@@ -387,7 +391,10 @@ export function makeGuidedExecutors(ctx: GuidedCtx, onPending: (p: PendingRef) =
   }
 
   return {
-    guided_creation_menu: async (a) => GUIDED_SEQUENCES[a?.kind] ?? { error: "Tipo desconhecido", opcoes: Object.keys(GUIDED_SEQUENCES) },
+    guided_creation_menu: async (a) => {
+      if (a?.kind === "tabela_promocional" && !ctx.isAdmin) return { error: PROMO_ADMIN_ONLY };
+      return GUIDED_SEQUENCES[a?.kind] ?? { error: "Tipo desconhecido", opcoes: Object.keys(GUIDED_SEQUENCES) };
+    },
 
     find_catalog_items: async (a) => {
       const term = str(a?.search).replace(/[%,()]/g, " ").trim();
@@ -444,6 +451,7 @@ export function makeGuidedExecutors(ctx: GuidedCtx, onPending: (p: PendingRef) =
     },
 
     prepare_promotional_table: async (a) => {
+      if (!ctx.isAdmin) return { success: false, errors: [PROMO_ADMIN_ONLY] };
       const isEdit = Boolean(a?.table_id);
       if (isEdit && !UUID_RE.test(String(a.table_id))) return { error: "table_id inválido" };
       const today = new Date().toISOString().slice(0, 10);
@@ -623,6 +631,7 @@ export function makeGuidedExecutors(ctx: GuidedCtx, onPending: (p: PendingRef) =
 // ───────────────────────── Execução após Confirmar ─────────────────────────
 async function runPromo(ctx: GuidedCtx, p: any) {
   const { sb } = ctx;
+  if (!ctx.isAdmin) throw new Error(PROMO_ADMIN_ONLY);
   let tableId = p.table_id;
   const created: any = { sections: 0, items: 0, updated_items: 0 };
   if (!tableId) {
