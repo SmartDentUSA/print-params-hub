@@ -3,7 +3,7 @@
 - [x] Copilot: menu em botões igual à barra lateral (área → subaba → ações → perguntas), respostas fechadas como botões e "Abrir a tela"; 4 testes do contexto de tela e conversa simulada no navegador aprovados; conversa real logada não conferida.
 - [x] Copilot: passo a passo campo a campo (sem IA) da tabela promocional, na ordem da tela, com Voltar/Sair e Confirmar e salvar; 6 testes do roteiro + 1 do servidor e caminho completo simulado no navegador; gravação real logada não conferida.
 - [x] Copilot: ao escolher uma tela pergunta "O que você quer fazer?" e analisa o pedido escrito; cadastro de membro da equipe passo a passo (Dados do membro → WhatsApp individual → Grupos), só administradores. 5+4 testes e caminho completo simulado no navegador; gravação real logada não conferida.
-- [ ] Copilot: passo a passo do Social Publisher — criar post, agendar posts em massa, grupos que recebem os posts (Post Grupos) e automação de lives, pedindo os dados da tela.
+- [x] Copilot: passo a passo do Social Publisher — criar post, agendar posts em massa, grupos que recebem os posts (Post Grupos) e automação de lives, pedindo os dados da tela.
 - [ ] Copilot: levar o passo a passo às próximas ferramentas (automação de e-mail, formulários, cursos) — aguardando prioridade do usuário.
 - [ ] `wa-campaign-builder` aceita chamadas sem login (ativa qualquer campanha pelo ID) — aguardando autorização para proteger.
 - [ ] Campanhas WhatsApp Oficial: smartdent_tese confirmado APPROVED na conta WhatsApp Business 1779739789737731; Zernio retorna zero modelos e associa o mesmo número à conta 1649113560337264. Bloqueado: alinhar a conta WhatsApp na Zernio antes de oferecer o modelo para disparo; não copiar modelos entre contas nem alterar conexões sem autorização.
