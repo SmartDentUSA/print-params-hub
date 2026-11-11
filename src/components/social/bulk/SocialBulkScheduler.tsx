@@ -16,45 +16,20 @@ import { useMediaUpload } from '@/hooks/social/useMediaUpload';
 import type { MediaItem } from '@/lib/social/postSchema';
 import { localInputToIso } from '@/lib/social/scheduleTime';
 import { SOCIAL_CHANNELS, type SocialPlatform } from '@/lib/socialChannels';
-import { extractAudioMp3Base64, extractFrames } from '@/lib/social/videoExtract';
+import { BULK_MAX_T, BULK_MIN_T, BULK_TZ, VIDEO_ONLY, addDays, bulkChannels, bulkPlan, bulkPostType, fmtTime, handles } from '@/lib/social/bulkPlan';
+import { generateBulkCopy } from '@/lib/social/bulkCaption';
 
 const MAX_VIDEO_BYTES = 500 * 1024 * 1024;
 
-const TZ = 'America/Sao_Paulo';
-const MIN_T = 7 * 60;
-const MAX_T = 21 * 60;
+const TZ = BULK_TZ;
+const MIN_T = BULK_MIN_T;
+const MAX_T = BULK_MAX_T;
 
 type ChannelKey = SocialPlatform;
-const VIDEO_ONLY: ChannelKey[] = ['tiktok', 'youtube'];
 const CHANNELS: { key: ChannelKey; label: string }[] = (Object.keys(SOCIAL_CHANNELS) as ChannelKey[]).map((k) => ({
   key: k,
   label: `${SOCIAL_CHANNELS[k].emoji} ${SOCIAL_CHANNELS[k].label}${VIDEO_ONLY.includes(k) ? ' (só vídeos)' : ''}`,
 }));
-
-const fmtTime = (m: number) => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
-const handles = (s: string) =>
-  Array.from(new Set(s.split(/[\s,;]+/).map((h) => h.trim().replace(/^@+/, '')).filter(Boolean)));
-
-function addDays(dateStr: string, n: number) {
-  const [y, m, d] = dateStr.split('-').map(Number);
-  const dt = new Date(Date.UTC(y, m - 1, d + n));
-  return dt.toISOString().slice(0, 10);
-}
-
-async function imageToDataUrl(url: string): Promise<string | null> {
-  try {
-    const blob = await (await fetch(url)).blob();
-    const bmp = await createImageBitmap(blob);
-    const scale = Math.min(1, 1024 / Math.max(bmp.width, bmp.height));
-    const canvas = document.createElement('canvas');
-    canvas.width = Math.round(bmp.width * scale);
-    canvas.height = Math.round(bmp.height * scale);
-    canvas.getContext('2d')!.drawImage(bmp, 0, 0, canvas.width, canvas.height);
-    return canvas.toDataURL('image/jpeg', 0.8);
-  } catch {
-    return null;
-  }
-}
 
 export function SocialBulkScheduler() {
   const navigate = useNavigate();
@@ -83,10 +58,7 @@ export function SocialBulkScheduler() {
   const collabList = handles(collabs);
   const tagList = [...handles(companies), ...handles(people)];
 
-  const plan = useMemo(
-    () => media.map((m, i) => ({ media: m, date: addDays(startDate, i * interval), time: fmtTime(time) })),
-    [media, startDate, interval, time],
-  );
+  const plan = useMemo(() => bulkPlan(media, startDate, interval, time), [media, startDate, interval, time]);
 
   const toggleChannel = (k: ChannelKey) =>
     setChannels((c) => (c.includes(k) ? c.filter((x) => x !== k) : [...c, k]));
@@ -127,56 +99,13 @@ export function SocialBulkScheduler() {
       const isVideo = p.media.type === 'video';
       setStep({ done: i, total: plan.length, label: isVideo ? `Transcrevendo vídeo ${i + 1}...` : `Lendo imagem ${i + 1}...` });
       try {
-        const frame = isVideo ? null : await imageToDataUrl(p.media.url);
-        let audio: { base64: string } | null = null;
-        let vFrames: string[] = [];
-        const vf = isVideo ? fileMap.current.get(p.media.url) : undefined;
-        if (vf) {
-          [audio, vFrames] = await Promise.all([
-            extractAudioMp3Base64(vf).catch(() => null),
-            extractFrames(vf, 4).catch(() => [] as string[]),
-          ]);
-        }
-        const extracted = !!audio || vFrames.length > 0;
-        const { data, error } = await supabase.functions.invoke('social-video-copy', {
-          body: {
-            video_url: isVideo && !extracted ? p.media.url : undefined,
-            audio_base64: audio?.base64,
-            audio_format: 'mp3',
-            frames: frame ? [frame] : vFrames,
-            instructions,
-            mentions,
-            platform: channels[0],
-            language: 'pt-BR',
-            skip_required_mentions: true,
-          },
+        const copy = await generateBulkCopy({
+          media: p.media, file: fileMap.current.get(p.media.url), instructions, mentions, platform: channels[0],
         });
-        const serverMsg = (data as any)?.error || (error as any)?.context?.responseJson?.error;
-        if (serverMsg || error) throw new Error(String(serverMsg || error?.message));
-        const copy = data as { caption: string; hashtags: string[]; first_comment: string };
-
-        const userTags = tagList.map((username) => ({ username }));
-        const chs = channels
-          .filter((c) => isVideo || !VIDEO_ONLY.includes(c))
-          .flatMap((c) => {
-            if (c === 'instagram') {
-              const base = { userTags, collaborators: collabList };
-              const out: any[] = [];
-              if (igFeed) out.push({ platform: c, format: 'Feed', ...base });
-              if (isVideo && igReels) out.push({ platform: c, format: 'Reels', ...base, ...(igHideFromGrid ? { ig_share_to_feed: false } : {}) });
-              if (igStories) out.push({ platform: c, format: 'Stories', ...base });
-              return out;
-            }
-            if (c === 'youtube') return { platform: c, format: ytFormat, title: copy.caption.split('\n')[0].slice(0, 100) };
-            if (c === 'tiktok') return { platform: c, format: 'Vídeo', tiktok_privacy: 'public' };
-            const title = (copy.caption || '').split('\n')[0].slice(0, 100) || 'Smart Dent';
-            if (c === 'pinterest') return { platform: c, format: isVideo ? 'Video Pin' : 'Image Pin', title, ...(pinBoard.trim() ? { pinterest_board: pinBoard.trim() } : {}) };
-            if (c === 'reddit') return { platform: c, format: 'Imagem', reddit_kind: 'image', subreddit: subreddit.trim().replace(/^r\//, ''), title };
-            if (c === 'gmb') return { platform: c, format: 'Update' };
-            if (c === 'gallery') return { platform: c, format: 'Mídia' };
-            if (c === 'facebook') return { platform: c, format: isVideo ? 'Reels' : 'Post' };
-            return { platform: c, format: 'Post' };
-          });
+        const chs = bulkChannels(
+          { channels, igFeed, igReels, igStories, igHideFromGrid, ytFormat, subreddit, pinBoard, tags: tagList, collabs: collabList },
+          isVideo, copy.caption,
+        );
         if (!chs.length) throw new Error('Nenhum canal aceita esta mídia');
 
         const { error: insErr } = await supabase.from('social_scheduled_posts').insert({
@@ -190,7 +119,7 @@ export function SocialBulkScheduler() {
           timezone: TZ,
           publish_now: false,
           status: 'scheduled',
-          post_type: isVideo ? (igStories && !igFeed && !igReels ? 'story' : 'reels') : (igStories && !igFeed ? 'story' : 'feed'),
+          post_type: bulkPostType({ igFeed, igReels, igStories }, isVideo),
           created_by: auth.user?.email ?? auth.user?.id ?? null,
         } as any);
         if (insErr) throw insErr;
