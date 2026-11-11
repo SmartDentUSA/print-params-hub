@@ -102,7 +102,9 @@ test("agendamento em massa: datas espaçadas, horário 07–21h e mídia com fal
 test("imagem só com YouTube não pode seguir", async () => {
   const s = await run<BulkState>(socialBulkWizard, postDeps, [JSON.stringify([img, vid])]);
   const r = await socialBulkWizard.answer(s, JSON.stringify(["youtube"]), postDeps);
-  assert.ok("error" in r);
+  assert.ok(!("error" in r) && r.state.step === "yt_formato");
+  if ("error" in r) return;
+  assert.ok("error" in (await socialBulkWizard.answer(r.state, "Shorts", postDeps)));
 });
 
 test("regras do agendamento em massa iguais à tela", () => {
