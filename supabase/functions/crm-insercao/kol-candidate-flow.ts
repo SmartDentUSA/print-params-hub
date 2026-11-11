@@ -15,7 +15,7 @@ import { buildLeadSummary } from "./summary.ts";
 import {
   buildKolCandidateNote, buildKolCandidateOrigin, buildKolGroupName, buildKolInviteMessage,
   groupParticipants, KOL_CANDIDATE_OWNER_PIPERUN_ID, KOL_PIPELINE_ID, KOL_STAGE_INTERESSADOS,
-  parseGroupJid, waDigits, type NoteSection,
+  parseGroupJid, participantJid, waDigits, type NoteSection,
 } from "./kol-candidate.ts";
 
 const PIPERUN_KEY = Deno.env.get("PIPERUN_API_KEY") ?? "";
@@ -216,12 +216,13 @@ export async function runKolCandidate(deps: {
     const participants = groupParticipants(sellerRow?.whatsapp_number, prof.telefone_normalized || phoneDigits, beatriz?.whatsapp_number);
     if (dryRun) {
       steps.push({ step: "grupo", ok: true, detail: `Simulação ligada — grupo "${groupName}" não foi criado (${participants.length} participantes).` });
-    } else if (participants.length < 2) {
+    } else if (participants.length < 1) {
       regPatch.wa_group_error = "missing_participants";
       steps.push({ step: "grupo", ok: false, detail: sellerRow?.whatsapp_number ? "Celular do profissional inválido para o grupo." : "Seu celular não está no cadastro da equipe (Team Members)." });
     } else {
       try {
-        const r = await evoGoPost(provider.baseUrl, provider.credential, "/group/create", { groupName, participants });
+        // O servidor só cria o grupo com o JID completo; só os dígitos fazem o WhatsApp não responder (timeout).
+        const r = await evoGoPost(provider.baseUrl, provider.credential, "/group/create", { groupName, participants: participants.map(participantJid) });
         groupJid = parseGroupJid(r);
         if (!groupJid) throw new Error("grupo criado sem identificador na resposta");
         regPatch.wa_group_jid = groupJid; regPatch.wa_group_name = groupName; regPatch.wa_group_error = null;

@@ -62,6 +62,11 @@ export function groupParticipants(sellerPhone: unknown, kolPhone: unknown, admin
   return [...out];
 }
 
+/** JID de participante exigido pelo servidor na criação de grupo (55DDDNÚMERO@s.whatsapp.net). */
+export function participantJid(digits: string): string {
+  return `${digits}@s.whatsapp.net`;
+}
+
 /** Acha o JID do grupo (…@g.us) em qualquer formato de resposta do servidor de WhatsApp. */
 export function parseGroupJid(resp: unknown, depth = 0): string | null {
   if (depth > 5 || resp == null) return null;

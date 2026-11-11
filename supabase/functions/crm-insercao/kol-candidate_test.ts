@@ -1,7 +1,7 @@
 import { assert, assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
 import {
   buildKolCandidateNote, buildKolCandidateOrigin, buildKolInviteMessage, classifySearchInput,
-  groupParticipants, KOL_CANDIDATE_OWNER_PIPERUN_ID, KOL_PIPELINE_ID, KOL_STAGE_INTERESSADOS, parseGroupJid,
+  groupParticipants, participantJid, KOL_CANDIDATE_OWNER_PIPERUN_ID, KOL_PIPELINE_ID, KOL_STAGE_INTERESSADOS, parseGroupJid,
 } from "./kol-candidate.ts";
 
 Deno.test("Candidato a KOL entra no funil KOL 107400, etapa Interessados, proprietário 104356", () => {
@@ -24,6 +24,8 @@ Deno.test("Busca aceita celular ou ID do CRM", () => {
 Deno.test("Grupo tem vendedor e KOL; o número da Beatriz cria o grupo e não é repetido", () => {
   assertEquals(groupParticipants("16 99111-2222", "5511988887777", "5516997501531"), ["5516991112222", "5511988887777"]);
   assertEquals(groupParticipants("5516997501531", "11988887777", "5516997501531"), ["5511988887777"]);
+  // Vendedor que se indica como candidato: um único participante além da Beatriz.
+  assertEquals(groupParticipants("5516981596947", "16981596947", "5516997501531"), ["5516981596947"]);
 });
 
 Deno.test("Mensagem do grupo cita profissional, vendedor e link do portal", () => {
@@ -43,4 +45,8 @@ Deno.test("Nota deixa a origem explícita e omite campos vazios", () => {
   assert(html.includes("<b>Origem do lead:</b> Indicação - Evandro Silva"));
   assert(html.includes("<b>Nome:</b> Ana"));
   assert(!html.includes("E-mail"));
+});
+
+Deno.test("Participantes do grupo vão no formato completo do WhatsApp", () => {
+  assertEquals(participantJid("5516981596947"), "5516981596947@s.whatsapp.net");
 });
