@@ -20,6 +20,7 @@ import {
   type DealView,
 } from "./rules.ts";
 import { classifySearchInput } from "./kol-candidate.ts";
+import { findTeamMemberByPhone } from "../_shared/team-phone-match.ts";
 import { KolSubmitSchema, runKolCandidate } from "./kol-candidate-flow.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -53,18 +54,14 @@ async function resolveTeamMember(req: Request): Promise<{ user_id: string; tm: T
   const email = user.email.toLowerCase();
   const { data: tms } = await sb
     .from("team_members")
-    .select("id, nome_completo, email, role, piperun_owner_id, whatsapp_number")
+    .select("id, nome_completo, email, role, piperun_owner_id, whatsapp_number, evolution_phone, notification_phone")
     .eq("ativo", true);
   const list = (tms ?? []) as Array<TeamMember & { whatsapp_number: string | null }>;
   let hit: TeamMember | undefined;
   const m = email.match(/^(\d{10,15})@phone\.smartdent\.local$/);
   if (m) {
-    const d10 = m[1].slice(-10);
-    const d8 = m[1].slice(-8);
-    hit = list.find((t) => {
-      const td = String(t.whatsapp_number ?? "").replace(/\D+/g, "");
-      return td.endsWith(d10) || (td.slice(-8) === d8 && td.slice(-10, -8) === d10.slice(0, 2));
-    });
+    // Qualquer celular cadastrado no membro ativo (mesma regra do login por celular).
+    hit = findTeamMemberByPhone(list, m[1]) ?? undefined;
   } else if (user.email_confirmed_at) {
     hit = list.find((t) => (t.email ?? "").toLowerCase() === email);
   }
