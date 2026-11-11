@@ -70,7 +70,7 @@ const mediaLabel = (m: BulkMedia[]) => {
 /* ──────────────────────────── Criar post ──────────────────────────── */
 
 const VIDEO_FORMATS = new Set(["youtube-video", "youtube-shorts", "tiktok-video", "instagram-reels", "facebook-reels", "pinterest-video-pin"]);
-const MEDIA_FORMATS = new Set(["instagram-stories", "facebook-stories", "pinterest-pin", "pinterest-idea-pin", "gallery-media", "reddit-image", "tiktok-carousel", "instagram-carousel", "facebook-album"]);
+const MEDIA_FORMATS = new Set(["instagram-feed", "instagram-stories", "facebook-stories", "pinterest-pin", "pinterest-idea-pin", "gallery-media", "reddit-image", "tiktok-carousel", "instagram-carousel", "facebook-album"]);
 const MULTI_FORMATS = new Set(["instagram-carousel", "facebook-album", "tiktok-carousel"]);
 
 /** Formatos que aceitam as mídias escolhidas (mesmas exigências da validação da tela). */
@@ -82,7 +82,6 @@ export function compatibleFormats(media: BulkMedia[]): ChannelFormatOption[] {
     if (MEDIA_FORMATS.has(o.key) && !media.length) return false;
     if (MULTI_FORMATS.has(o.key) && media.length < 2) return false;
     if (o.key === "pinterest-pin" && !hasImage) return false;
-    if (o.key === "instagram-feed" && hasVideo && !hasImage) return true;
     return true;
   });
 }
