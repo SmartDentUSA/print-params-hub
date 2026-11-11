@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Check, CheckSquare, Square } from "lucide-react";
+import { ArrowLeft, Check, CheckSquare, Square, Upload } from "lucide-react";
 import type { WizardQuestion } from "@/lib/copilotWizard";
 
 type Props = {
@@ -9,10 +9,13 @@ type Props = {
   disabled: boolean;
   onAnswer: (value: string, label: string) => void;
   onBack: () => void;
+  /** Perguntas de envio de arquivo: recebe os arquivos escolhidos. */
+  onFiles?: (files: File[]) => void;
 };
 
 /** Botões da pergunta atual do passo a passo (escolhas, marcações e respostas rápidas). */
-export function WizardControls({ question, canGoBack, disabled, onAnswer, onBack }: Props) {
+export function WizardControls({ question, canGoBack, disabled, onAnswer, onBack, onFiles }: Props) {
+  const fileRef = useRef<HTMLInputElement>(null);
   const [picked, setPicked] = useState<string[]>(question.selected ?? []);
   useEffect(() => { setPicked(question.selected ?? []); }, [question]);
 
@@ -37,7 +40,7 @@ export function WizardControls({ question, canGoBack, disabled, onAnswer, onBack
             {options.map((o) => {
               const on = picked.includes(o.value);
               return (
-                <Button key={o.value} size="sm" variant={on ? "secondary" : "outline"} className="h-8 gap-1 text-xs" disabled={disabled} onClick={() => toggle(o.value)} aria-pressed={on}>
+                <Button key={o.value} size="sm" variant={on ? "secondary" : "outline"} className="h-auto min-h-8 gap-1 whitespace-normal py-1 text-left text-xs" disabled={disabled} onClick={() => toggle(o.value)} aria-pressed={on} title={o.hint}>
                   {on ? <CheckSquare className="h-3.5 w-3.5 text-primary" /> : <Square className="h-3.5 w-3.5" />}
                   {o.label}
                 </Button>
@@ -54,7 +57,26 @@ export function WizardControls({ question, canGoBack, disabled, onAnswer, onBack
           </div>
         </>
       )}
-      {question.input !== "choice" && question.input !== "multi" && (
+      {question.input === "upload" && (
+        <div className="flex flex-wrap items-center gap-1.5">
+          <input
+            ref={fileRef}
+            type="file"
+            className="hidden"
+            accept={question.accept}
+            multiple={question.multiple}
+            onChange={(e) => {
+              const files = Array.from(e.target.files ?? []);
+              e.target.value = "";
+              if (files.length) onFiles?.(files);
+            }}
+          />
+          <Button size="sm" className="h-8 gap-1 text-xs" disabled={disabled || !onFiles} onClick={() => fileRef.current?.click()}>
+            <Upload className="h-3.5 w-3.5" /> {disabled ? "Enviando…" : question.multiple ? "Enviar arquivos" : "Enviar arquivo"}
+          </Button>
+        </div>
+      )}
+      {question.input !== "choice" && question.input !== "multi" && question.input !== "upload" && (
         <p className="text-xs text-muted-foreground">Digite a resposta na caixa abaixo{question.placeholder ? ` (${question.placeholder})` : ""}{question.quick?.length ? " ou clique numa opção:" : "."}</p>
       )}
       {!!question.quick?.length && (
