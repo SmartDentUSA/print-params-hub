@@ -1,4 +1,7 @@
-import { sidebarGroups } from "@/components/admin/systemMenu";
+import { Share2 } from "lucide-react";
+import { sidebarGroups, type SidebarGroupDef } from "@/components/admin/systemMenu";
+import { socialMenuItems } from "@/components/social/socialMenu";
+import type { WizardKind } from "@/lib/copilotWizard";
 
 // Catálogo das subabas de cada item do menu lateral, usado pelo Copilot para
 // conduzir o usuário: área → subaba → o que fazer → perguntas de cadastro.
@@ -7,7 +10,7 @@ import { sidebarGroups } from "@/components/admin/systemMenu";
 export type GuidedKey = "tabela_promocional" | "campanha_grupos_whatsapp" | "campanha_completa";
 
 /** wizard = passo a passo campo a campo sem IA (src/lib/copilotWizard.ts). */
-export type CopilotAction = { label: string; prompt: string; guided?: GuidedKey; wizard?: "tabela_promocional" | "membro_equipe" };
+export type CopilotAction = { label: string; prompt: string; guided?: GuidedKey; wizard?: WizardKind };
 export type CopilotSubtab = {
   id: string;
   title: string;
@@ -16,6 +19,8 @@ export type CopilotSubtab = {
   example?: string;
   /** Valor do parâmetro `sub` na URL, quando a tela abre a subaba por ele. */
   urlSub?: string;
+  /** Endereço próprio da tela (Social Publisher fica fora do painel admin). */
+  url?: string;
   actions?: CopilotAction[];
 };
 
@@ -195,10 +200,37 @@ export const SECTION_SUBTABS: Record<string, CopilotSubtab[]> = {
   ],
 };
 
+/** Social Publisher (/social): mesmas subabas da barra lateral dele; Post Grupos tem duas áreas. */
+const SOCIAL_ACTIONS: Record<string, { hint: string; example?: string; actions?: CopilotAction[] }> = {
+  "/social/novo": { hint: "Criar um post: produto, legenda (ou IA), hashtags, mídia, canais e agendamento.", example: "“post do Vitality para Instagram amanhã às 10h”",
+    actions: [{ label: "Criar um post", prompt: "Quero criar um post.", wizard: "post_social" }] },
+  "/social/agendamento-massa": { hint: "Várias mídias de uma vez, cada uma vira um post com legenda da IA, em datas espaçadas.", example: "“agendar 10 vídeos, um por dia às 18h”",
+    actions: [{ label: "Agendar posts em massa", prompt: "Quero agendar posts em massa.", wizard: "posts_massa" }] },
+  "/social/flows": { hint: "Automações de comentário → DM no Instagram.",
+    actions: [{ label: "Criar automação de DM", prompt: "Quero criar uma automação de comentário para DM no Instagram." }] },
+  "/social/calendario": { hint: "Calendário dos posts agendados." },
+  "/social/banco": { hint: "Banco de posts publicados e sincronizados." },
+};
+const socialSubtabs: CopilotSubtab[] = socialMenuItems.flatMap((i): CopilotSubtab[] => {
+  const id = i.url === "/social" ? "dashboard" : i.url.replace("/social/", "");
+  if (id === "post-grupos") {
+    return [
+      { id, url: i.url, title: "Post Grupos › Instâncias", hint: "Instâncias e grupos de WhatsApp que recebem automaticamente os posts novos.", example: "“colocar os grupos de Ribeirão para receber os posts”",
+        actions: [{ label: "Escolher grupos que recebem os posts", prompt: "Quero escolher os grupos que recebem os posts.", wizard: "post_grupos" }] },
+      { id: "lives", url: `${i.url}?tab=lives`, title: "Post Grupos › Automação de Lives", hint: "Propaganda e lembrete das lives nos grupos.", example: "“divulgar as lives nos grupos de clientes”",
+        actions: [{ label: "Criar automação de lives", prompt: "Quero criar uma automação de lives.", wizard: "automacao_lives" }] },
+    ];
+  }
+  const extra = SOCIAL_ACTIONS[i.url];
+  return [{ id, url: i.url, title: i.title, hint: extra?.hint ?? `Social Publisher › ${i.title}.`, example: extra?.example, actions: extra?.actions }];
+});
+SECTION_SUBTABS.social = socialSubtabs;
+const SOCIAL_GROUP: SidebarGroupDef = { label: "Social Publisher", icon: Share2, items: [{ id: "social", title: "Social Publisher", icon: Share2 }] };
+
 /** Itens fora do menu do Copilot: o próprio Copilot e o Suporte (dados isolados). */
 const HIDDEN = new Set(["so-copilot", "suporte-tecnico"]);
 
-export const copilotMenuGroups = sidebarGroups
+export const copilotMenuGroups = [...sidebarGroups, SOCIAL_GROUP]
   .map((g) => ({ ...g, items: g.items.filter((i) => !HIDDEN.has(i.id)) }))
   .filter((g) => g.items.length > 0);
 
