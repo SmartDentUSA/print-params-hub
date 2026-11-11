@@ -1,6 +1,6 @@
 // TEMPORÁRIO — autoteste do fluxo guiado; removido após a verificação.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
-import { makeGuidedExecutors, executePendingAction } from "../smart-ops-copilot/guided.ts";
+import { makeGuidedExecutors, executePendingAction } from "./guided.ts";
 const H = "c41054dc6db9b1134d07f7dca45a4726c51719d1241d88d14d85747c68194107";
 async function sha(t: string) { return Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(t)))).map((b) => b.toString(16).padStart(2, "0")).join(""); }
 Deno.serve(async (req) => {
