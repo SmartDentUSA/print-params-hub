@@ -216,7 +216,7 @@ export async function runKolCandidate(deps: {
     const participants = groupParticipants(sellerRow?.whatsapp_number, prof.telefone_normalized || phoneDigits, beatriz?.whatsapp_number);
     if (dryRun) {
       steps.push({ step: "grupo", ok: true, detail: `Simulação ligada — grupo "${groupName}" não foi criado (${participants.length} participantes).` });
-    } else if (participants.length < 2) {
+    } else if (participants.length < 1) {
       regPatch.wa_group_error = "missing_participants";
       steps.push({ step: "grupo", ok: false, detail: sellerRow?.whatsapp_number ? "Celular do profissional inválido para o grupo." : "Seu celular não está no cadastro da equipe (Team Members)." });
     } else {
