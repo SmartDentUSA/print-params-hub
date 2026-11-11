@@ -1,7 +1,7 @@
 import { assert, assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
 import {
   buildKolCandidateNote, buildKolCandidateOrigin, buildKolInviteMessage, classifySearchInput,
-  groupParticipants, KOL_CANDIDATE_OWNER_PIPERUN_ID, KOL_PIPELINE_ID, KOL_STAGE_INTERESSADOS, parseGroupJid,
+  groupParticipants, participantJid, KOL_CANDIDATE_OWNER_PIPERUN_ID, KOL_PIPELINE_ID, KOL_STAGE_INTERESSADOS, parseGroupJid,
 } from "./kol-candidate.ts";
 
 Deno.test("Candidato a KOL entra no funil KOL 107400, etapa Interessados, proprietário 104356", () => {
@@ -45,4 +45,8 @@ Deno.test("Nota deixa a origem explícita e omite campos vazios", () => {
   assert(html.includes("<b>Origem do lead:</b> Indicação - Evandro Silva"));
   assert(html.includes("<b>Nome:</b> Ana"));
   assert(!html.includes("E-mail"));
+});
+
+Deno.test("Participantes do grupo vão no formato completo do WhatsApp", () => {
+  assertEquals(participantJid("5516981596947"), "5516981596947@s.whatsapp.net");
 });
