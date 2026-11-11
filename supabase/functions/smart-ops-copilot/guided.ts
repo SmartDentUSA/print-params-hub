@@ -613,7 +613,7 @@ export function makeGuidedExecutors(ctx: GuidedCtx, onPending: (p: PendingRef) =
       lines.push(`- Após confirmar: **campanha ativada**`, "", "**Sequência**");
       nodes.forEach((n: any, i: number) => {
         if (n.type === "msg") lines.push(`${i + 1}. 💬 ${n.text.replace(/\n+/g, " ").slice(0, 280)}${n.mention_all ? " (marca todos)" : ""}`);
-        else if (n.type === "wait") lines.push(`${i + 1}. ⏳ ${n.mode === "absolute" ? `até ${new Date(n.absolute_at).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}` : `esperar ${n.days}d ${n.hours}h ${n.minutes}min, envio às ${n.time}${n.weekdays_only ? " (dias úteis)" : ""}`}`);
+        else if (n.type === "wait") lines.push(`${i + 1}. ⏳ ${n.mode === "absolute" ? `até ${new Date(n.absolute_at).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}` : `esperar ${[n.days ? `${n.days} dia(s)` : "", n.hours ? `${n.hours}h` : "", n.minutes ? `${n.minutes}min` : ""].filter(Boolean).join(" ")}${n.days ? `, envio às ${n.time}` : ""}${n.weekdays_only ? " (dias úteis)" : ""}`}`);
         else if (n.type === "image") lines.push(`${i + 1}. 🖼️ Imagem ${n.media_url}${n.caption ? ` — ${n.caption.slice(0, 160)}` : ""}`);
         else lines.push(`${i + 1}. 🔗 ${n.title} — ${n.url}`);
       });
