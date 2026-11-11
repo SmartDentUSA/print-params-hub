@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
 import { Loader2, Plus, Radio, Save, Send, Trash2, Users2 } from 'lucide-react';
+import { LIVE_NOW_TEMPLATE, LIVE_PROMO_TEMPLATE } from '@/lib/social/liveTemplates';
 
 type Automation = {
   id: string;
@@ -39,19 +40,8 @@ type TurmaRow = {
   course_id: string;
 };
 
-const DEFAULT_PROMO = `🔴 *AMANHÃ TEM LIVE* — {{titulo}}
-
-📅 {{data}} às {{hora}} (horário de Brasília)
-🎥 Transmissão ao vivo no YouTube
-🎓 Com {{instrutor}}
-
-👉 Garanta sua vaga: {{inscricao}}`;
-
-const DEFAULT_LIVE = `🔴 *ESTAMOS AO VIVO EM 5 MINUTOS!*
-
-{{titulo}}
-
-▶️ Entre agora: {{live_url}}`;
+const DEFAULT_PROMO = LIVE_PROMO_TEMPLATE;
+const DEFAULT_LIVE = LIVE_NOW_TEMPLATE;
 
 export function LiveGroupAutomations() {
   const [autos, setAutos] = useState<Automation[]>([]);
