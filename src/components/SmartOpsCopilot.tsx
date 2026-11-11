@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import {
-  Send, Mic, MicOff, Paperclip, Bot, User, Loader2, Sparkles, Zap, Brain, Rocket
+  Send, Mic, MicOff, Paperclip, Bot, User, Loader2, Sparkles, Zap, Brain, Rocket, Check, X, ClipboardCheck
 } from "lucide-react";
 import { toast } from "sonner";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
@@ -14,6 +14,28 @@ import { supabase } from "@/integrations/supabase/client";
 type Message = { role: "user" | "assistant"; content: string };
 type ModelId = "deepseek-pro" | "deepseek-flash" | "gemini" | "claude";
 // Claude está oculto do seletor (custo ~20× DeepSeek). Reativar requer COPILOT_ALLOW_CLAUDE=true no edge.
+
+const CREATION_SUGGESTIONS = [
+  "Quero criar uma campanha de Black Friday",
+  "Criar tabela promocional",
+  "Criar campanha para grupos de WhatsApp",
+];
+
+const ACTION_BLOCK_RE = /```copilot-action\n([\s\S]*?)\n```/g;
+type ActionRef = { id: string; type: string; title: string };
+type ActionStatus = "loading" | "done" | "cancelled" | "failed";
+
+async function authHeaders(): Promise<Record<string, string>> {
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
+  if (!token) throw new Error("Faça login para usar o Copilot.");
+  return { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
+}
+
+async function readError(resp: Response) {
+  const txt = await resp.text();
+  try { return JSON.parse(txt)?.error || txt; } catch { return txt || `Erro ${resp.status}`; }
+}
 
 const SUGGESTIONS = [
   "Quantos leads temos no total?",
@@ -33,6 +55,12 @@ export function SmartOpsCopilot() {
   });
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [actionStatus, setActionStatus] = useState<Record<string, ActionStatus>>(() => {
+    try { return JSON.parse(localStorage.getItem("copilot-action-status") || "{}"); } catch { return {}; }
+  });
+  useEffect(() => {
+    try { localStorage.setItem("copilot-action-status", JSON.stringify(actionStatus)); } catch { /* ignore */ }
+  }, [actionStatus]);
   const [isListening, setIsListening] = useState(false);
   const [selectedModel, setSelectedModel] = useState<ModelId>(() => {
     try {
@@ -180,16 +208,12 @@ export function SmartOpsCopilot() {
       const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/smart-ops-copilot`;
       const resp = await fetch(url, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-        },
+        headers: await authHeaders(),
         body: JSON.stringify({ messages: newMessages, model: selectedModel }),
       });
 
       if (!resp.ok) {
-        const err = await resp.text();
-        throw new Error(err || `Erro ${resp.status}`);
+        throw new Error(await readError(resp));
       }
 
       const contentType = resp.headers.get("content-type") || "";
@@ -333,6 +357,74 @@ export function SmartOpsCopilot() {
     }
   };
 
+  const decideAction = async (action: ActionRef, decision: "confirm" | "cancel") => {
+    if (actionStatus[action.id] && actionStatus[action.id] !== "failed") return;
+    setActionStatus((prev) => ({ ...prev, [action.id]: "loading" }));
+    setMessages((prev) => [...prev, { role: "user", content: decision === "confirm" ? `✅ Confirmar: ${action.title}` : `🚫 Cancelar: ${action.title}` }]);
+    try {
+      const resp = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/smart-ops-copilot`, {
+        method: "POST",
+        headers: await authHeaders(),
+        body: JSON.stringify({ confirm_action_id: action.id, decision }),
+      });
+      if (!resp.ok) throw new Error(await readError(resp));
+      const data = await resp.json();
+      setMessages((prev) => [...prev, { role: "assistant", content: data.content || "Sem resposta" }]);
+      setActionStatus((prev) => ({ ...prev, [action.id]: data.ok ? (decision === "confirm" ? "done" : "cancelled") : "failed" }));
+      if (data.ok && decision === "confirm") toast.success("Gravado com sucesso");
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Falha na comunicação";
+      setMessages((prev) => [...prev, { role: "assistant", content: `❌ ${msg}` }]);
+      setActionStatus((prev) => ({ ...prev, [action.id]: "failed" }));
+    }
+  };
+
+  const renderActionCard = (action: ActionRef) => {
+    const st = actionStatus[action.id];
+    return (
+      <div key={`action-${action.id}`} className="my-2 rounded-md border border-primary/30 bg-background p-3 space-y-2">
+        <div className="flex items-center gap-2 text-sm font-medium">
+          <ClipboardCheck className="w-4 h-4 text-primary" />
+          {action.title}
+        </div>
+        {st === "done" ? (
+          <p className="text-xs text-muted-foreground">Confirmado e gravado.</p>
+        ) : st === "cancelled" ? (
+          <p className="text-xs text-muted-foreground">Cancelado — nada foi gravado.</p>
+        ) : (
+          <div className="flex gap-2">
+            <Button size="sm" onClick={() => decideAction(action, "confirm")} disabled={st === "loading" || isLoading}>
+              {st === "loading" ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
+              Confirmar
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => decideAction(action, "cancel")} disabled={st === "loading" || isLoading}>
+              <X className="w-3 h-3" />
+              Cancelar
+            </Button>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const renderAssistant = (text: string) => {
+    const parts: React.ReactNode[] = [];
+    let last = 0;
+    let m: RegExpExecArray | null;
+    ACTION_BLOCK_RE.lastIndex = 0;
+    while ((m = ACTION_BLOCK_RE.exec(text))) {
+      if (m.index > last) parts.push(<div key={`txt-${last}`}>{renderContent(text.slice(last, m.index))}</div>);
+      try {
+        const a = JSON.parse(m[1]) as ActionRef;
+        if (a?.id) parts.push(renderActionCard(a));
+      } catch { /* bloco incompleto durante a digitação */ }
+      last = m.index + m[0].length;
+    }
+    const rest = text.slice(last).replace(/```copilot-action[\s\S]*$/, "");
+    if (rest.trim()) parts.push(<div key={`txt-${last}`}>{renderContent(rest)}</div>);
+    return <>{parts}</>;
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
@@ -439,8 +531,19 @@ export function SmartOpsCopilot() {
               <div className="text-center space-y-2">
                 <h3 className="text-lg font-semibold">Copilot IA</h3>
                 <p className="text-sm text-muted-foreground max-w-md">
-                  Seu assistente operacional. Pergunte sobre leads, envie mensagens, crie públicos, importe dados — tudo por texto ou voz.
+                  Seu assistente operacional. Pergunte sobre leads, envie mensagens e crie tabelas promocionais ou campanhas de grupos passo a passo — tudo por texto ou voz.
                 </p>
+              </div>
+              <div className="flex flex-wrap gap-2 justify-center max-w-lg">
+                {CREATION_SUGGESTIONS.map((s) => (
+                  <Badge
+                    key={s}
+                    className="cursor-pointer px-3 py-1.5 text-xs"
+                    onClick={() => sendMessage(s)}
+                  >
+                    {s}
+                  </Badge>
+                ))}
               </div>
               <div className="flex flex-wrap gap-2 justify-center max-w-lg">
                 {SUGGESTIONS.map((s) => (
@@ -469,7 +572,7 @@ export function SmartOpsCopilot() {
                       ? "bg-primary text-primary-foreground"
                       : "bg-muted"
                   }`}>
-                    {msg.role === "assistant" ? renderContent(msg.content) : (
+                    {msg.role === "assistant" ? renderAssistant(msg.content) : (
                       <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
                     )}
                   </div>
