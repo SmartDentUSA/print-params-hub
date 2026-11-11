@@ -2,7 +2,9 @@ import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Send, History, Instagram, Youtube, Facebook, Music2, Image as ImgIcon } from 'lucide-react';
+import { Send, History, Instagram, Youtube, Facebook, Music2, Image as ImgIcon, Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
 import { SocialPostLinkPicker, type SocialPostPickResult } from '@/components/social/flows/SocialPostLinkPicker';
 import { WaGroupBlastModal } from '@/components/smartops/wa-groups/WaGroupBlastModal';
 
@@ -14,22 +16,40 @@ export function HistoricalPostBroadcast({ instanceFilter }: { instanceFilter?: s
   const [pickerOpen, setPickerOpen] = useState(false);
   const [picked, setPicked] = useState<SocialPostPickResult | null>(null);
   const [blastOpen, setBlastOpen] = useState(false);
+  const [preparing, setPreparing] = useState(false);
+  const [initial, setInitial] = useState<
+    { type: 'msg' | 'image'; text?: string; mediaUrl?: string; caption?: string } | undefined
+  >(undefined);
 
-  const handlePick = (p: SocialPostPickResult) => setPicked(p);
+  const handlePick = (p: SocialPostPickResult) => { setPicked(p); setInitial(undefined); };
 
-  const openBlast = () => {
+  // Monta o envio como a publicação automática: imagem de capa + resumo isca
+  // + link clicável. A legenda completa nunca vai para o grupo.
+  const openBlast = async () => {
     if (!picked) return;
-    setBlastOpen(true);
-  };
-
-  // Envia como texto + URL: deixa o usuário revisar/editar o caption (e remover
-  // rodapés antigos) antes do envio, e faz o WhatsApp gerar o preview nativo HD
-  // do link via og:image — em vez de mandar a thumbnail pequena da CDN.
-  const buildInitial = () => {
-    if (!picked) return undefined;
-    const captionBody = (picked.caption ?? '').trim();
-    const text = [captionBody, picked.url].filter(Boolean).join('\n\n');
-    return { type: 'msg' as const, text };
+    setPreparing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('wa-post-teaser', {
+        body: {
+          post_id: picked.post_id ?? null,
+          url: picked.url,
+          caption: picked.caption ?? '',
+          platform: picked.platform,
+          thumbnail_url: picked.thumbnail_url ?? null,
+        },
+      });
+      if (error || !data?.ok) throw new Error(data?.error ?? error?.message ?? 'falha');
+      if (!data.media_url) toast.warning('Não foi possível copiar a imagem da publicação. Envie a imagem manualmente se quiser.');
+      if (!data.ai) toast.warning('Resumo automático indisponível; revise o texto antes de enviar.');
+      setInitial(data.media_url
+        ? { type: 'image', mediaUrl: data.media_url, caption: data.message }
+        : { type: 'msg', text: data.message });
+      setBlastOpen(true);
+    } catch (e: any) {
+      toast.error('Falha ao preparar a publicação: ' + (e?.message ?? String(e)));
+    } finally {
+      setPreparing(false);
+    }
   };
 
   const I = picked ? (PLATFORM_ICONS[picked.platform] ?? ImgIcon) : ImgIcon;
@@ -44,8 +64,8 @@ export function HistoricalPostBroadcast({ instanceFilter }: { instanceFilter?: s
       </CardHeader>
       <CardContent className="space-y-3">
         <p className="text-xs text-muted-foreground">
-          Selecione um post já publicado nas suas contas (Instagram, YouTube, Facebook, TikTok)
-          e envie como blast para grupos do WhatsApp.
+          Selecione um post já publicado nas suas contas (Instagram, YouTube, Facebook, TikTok).
+          O envio vai com a imagem da publicação, um resumo curto e o link para abrir o post.
         </p>
 
         {picked ? (
@@ -73,8 +93,9 @@ export function HistoricalPostBroadcast({ instanceFilter }: { instanceFilter?: s
           <Button variant="outline" size="sm" onClick={() => setPickerOpen(true)}>
             {picked ? 'Trocar publicação' : 'Selecionar publicação'}
           </Button>
-          <Button size="sm" disabled={!picked} onClick={openBlast}>
-            <Send className="w-3.5 h-3.5 mr-1" /> Configurar envio
+          <Button size="sm" disabled={!picked || preparing} onClick={openBlast}>
+            {preparing ? <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" /> : <Send className="w-3.5 h-3.5 mr-1" />}
+            {preparing ? 'Preparando resumo e imagem…' : 'Configurar envio'}
           </Button>
         </div>
       </CardContent>
@@ -91,7 +112,7 @@ export function HistoricalPostBroadcast({ instanceFilter }: { instanceFilter?: s
         onSent={() => setBlastOpen(false)}
         pickerMode
         instanceFilter={instanceFilter}
-        initial={buildInitial()}
+        initial={initial}
       />
     </Card>
   );

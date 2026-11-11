@@ -63,6 +63,8 @@ export function WaGroupBlastModal({
   const [blockedDup, setBlockedDup] = useState<{ group_jid: string; name: string; last_sent_at: string | null }[]>([]);
 
   // Aplica valores iniciais quando o modal abre
+  // Aplica só quando o modal abre ou o conteúdo inicial muda (não a cada render),
+  // para não apagar as edições do usuário.
   useEffect(() => {
     if (!open || !initial) return;
     if (initial.type) setType(initial.type);
@@ -232,7 +234,7 @@ export function WaGroupBlastModal({
               {type !== "audio" && (
                 <div>
                   <Label className="text-xs">Legenda (opcional)</Label>
-                  <Input value={caption} onChange={(e) => setCaption(e.target.value)} />
+                  <Textarea rows={5} value={caption} onChange={(e) => setCaption(e.target.value)} />
                 </div>
               )}
             </>
