@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Star, CheckCircle2, Hourglass } from "lucide-react";
 import {
+import { localPhoneDigits } from "@/lib/phoneInput";
   QualificationFormInline,
   type QualificationSubmitPayload,
 } from "@/components/forms/QualificationFormInline";
@@ -71,7 +72,7 @@ const formSchema = z.object({
 });
 
 function maskPhone(v: string): string {
-  const d = v.replace(/\D/g, "").slice(0, 11);
+  const d = localPhoneDigits(v);
   if (d.length <= 2) return d;
   if (d.length <= 7) return `(${d.slice(0, 2)}) ${d.slice(2)}`;
   return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`;

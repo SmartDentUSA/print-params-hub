@@ -7,9 +7,10 @@ import { Label } from "@/components/ui/label";
 import { Smartphone, CheckCircle2, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { localPhoneDigits } from "@/lib/phoneInput";
 
 function formatPhone(v: string) {
-  const d = v.replace(/\D+/g, "").slice(0, 11);
+  const d = localPhoneDigits(v);
   if (d.length <= 2) return d;
   if (d.length <= 6) return `(${d.slice(0, 2)}) ${d.slice(2)}`;
   if (d.length <= 10) return `(${d.slice(0, 2)}) ${d.slice(2, 6)}-${d.slice(6)}`;
