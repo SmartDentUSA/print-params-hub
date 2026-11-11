@@ -25,7 +25,6 @@ const PG = "Post Grupos";
 const ALL = "__all";
 const AGAIN = "__again";
 export const GROUP_PAGE = 40;
-const SKIP: WizardOption = { value: WIZ_SKIP, label: "Pular" };
 const norm = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
 const parseIds = (raw: string): string[] | null => {
   try { const v = JSON.parse(raw); return Array.isArray(v) ? v.map(String) : null; } catch { return null; }
