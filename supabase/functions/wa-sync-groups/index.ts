@@ -330,31 +330,59 @@ serve(async (req) => {
 
     // Descobre status real de cada instância usando o apikey próprio dela
     // (apenas Dra. Lia aparece em fetchInstances com a key global).
+    // Todas as verificações rodam em paralelo com tempo limite, para a tela
+    // não ficar ~20s sem nenhuma conexão listada.
+    const withTimeout = <T,>(p: Promise<T>, ms: number): Promise<T> =>
+      Promise.race([p, new Promise<T>((_, rej) => setTimeout(() => rej(new Error(`timeout ${ms}ms`)), ms))])
+
+    const applyStatus = (name: string, patch: Partial<WaInstanceInfo>) => {
+      const idx = tmInstances.findIndex(i => i.instanceName === name)
+      if (idx >= 0) { tmInstances[idx] = { ...tmInstances[idx], ...patch, instanceName: name }; return }
+      const evoIdx = instances.findIndex(i => i.instanceName === name)
+      if (evoIdx >= 0) instances[evoIdx] = { ...instances[evoIdx], ...patch, instanceName: name }
+      else instances.push({ connectionStatus: 'unknown', ...patch, instanceName: name } as WaInstanceInfo)
+    }
+
+    const classicProbes: Promise<void>[] = []
     for (const [name, target] of targetByInstance) {
       if (instances.some(i => i.instanceName === name && i.connectionStatus === 'open')) continue
-      if (providerByInstance.get(name) === 'evolution_go') {
-        console.log(`[wa-sync-groups] ${name}: EvoGo usa descoberta por webhook; pulando fetchInstances/fetchAllGroups inexistentes`)
-        continue
-      }
-      try {
-        const live = await fetchInstancesFor(target)
-        // No EvoGo o "instanceName" retornado pode ser o UUID (target.instance); casamos por qualquer um.
-        const found = live.find(i => i.instanceName === name || i.instanceName === target.instance)
-        if (!found) continue
-        // Preserva o nome canônico (evolution_instance_name) para a UI/DB
-        const normalized: WaInstanceInfo = { ...found, instanceName: name }
-        const idx = tmInstances.findIndex(i => i.instanceName === name)
-        if (idx >= 0) {
-          tmInstances[idx] = { ...tmInstances[idx], ...normalized }
-        } else {
-          const evoIdx = instances.findIndex(i => i.instanceName === name)
-          if (evoIdx >= 0) instances[evoIdx] = { ...instances[evoIdx], ...normalized }
-          else instances.push(normalized)
+      if (providerByInstance.get(name) === 'evolution_go') continue
+      classicProbes.push((async () => {
+        try {
+          const live = await withTimeout(fetchInstancesFor(target), 6_000)
+          const found = live.find(i => i.instanceName === name || i.instanceName === target.instance)
+          if (found) applyStatus(name, { ...found })
+        } catch (e) {
+          console.warn(`[wa-sync-groups] fetchInstancesFor(${name}) base=${target.baseUrl} falhou:`, e instanceof Error ? e.message : String(e))
         }
-      } catch (e) {
-        console.warn(`[wa-sync-groups] fetchInstancesFor(${name}) provider=${providerByInstance.get(name)} base=${target.baseUrl} falhou:`, e instanceof Error ? e.message : String(e))
-      }
+      })())
     }
+
+    // Instâncias com credenciais EvoGo (mesmo com messaging_provider='evolution',
+    // ex.: Beatriz/CS usam EvoGo para grupos): GET /instance/status com o token.
+    const evoGoOpen = new Set<string>()
+    const evoGoProbes: Promise<void>[] = []
+    const seenEvoGo = new Set<string>()
+    for (const r of (tmAll ?? []) as any[]) {
+      const name = String(r.evolution_instance_name ?? '').trim()
+      const token = String(r.evo_go_instance_token ?? '').trim()
+      if (!name || !token || seenEvoGo.has(name)) continue
+      seenEvoGo.add(name)
+      const base = (String(r.evo_go_base_url ?? '').trim() || EVOGO_DEFAULT_BASE).replace(/\/+$/, '')
+      evoGoProbes.push((async () => {
+        try {
+          const res = await fetch(`${base}/instance/status`, { headers: { apikey: token }, signal: AbortSignal.timeout(6_000) })
+          if (!res.ok) return
+          const j = await res.json().catch(() => null)
+          if (j?.data?.Connected === true && j?.data?.LoggedIn === true) evoGoOpen.add(name)
+        } catch (e) {
+          console.warn(`[wa-sync-groups] EvoGo status(${name}) falhou:`, e instanceof Error ? e.message : String(e))
+        }
+      })())
+    }
+
+    await Promise.all([...classicProbes, ...evoGoProbes])
+    for (const name of evoGoOpen) applyStatus(name, { connectionStatus: 'open' })
 
     // Lista combinada exposta na resposta (UI)
     const combinedInstances = [...instances, ...tmInstances]
