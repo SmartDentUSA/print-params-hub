@@ -4134,6 +4134,51 @@ export type Database = {
         }
         Relationships: []
       }
+      copilot_pending_actions: {
+        Row: {
+          action_type: string
+          created_at: string
+          decided_at: string | null
+          error: string | null
+          expires_at: string
+          id: string
+          payload: Json
+          result: Json | null
+          status: string
+          summary: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          action_type: string
+          created_at?: string
+          decided_at?: string | null
+          error?: string | null
+          expires_at?: string
+          id?: string
+          payload?: Json
+          result?: Json | null
+          status?: string
+          summary?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          action_type?: string
+          created_at?: string
+          decided_at?: string | null
+          error?: string | null
+          expires_at?: string
+          id?: string
+          payload?: Json
+          result?: Json | null
+          status?: string
+          summary?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       crm_insertion_log: {
         Row: {
           action: string
@@ -37887,6 +37932,7 @@ export type Database = {
         Args: { _user_id: string }
         Returns: boolean
       }
+      fn_can_use_copilot: { Args: { _user_id: string }; Returns: boolean }
       fn_check_group_global_dedup: {
         Args: {
           p_content_hash: string

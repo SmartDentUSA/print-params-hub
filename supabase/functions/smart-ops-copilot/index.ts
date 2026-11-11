@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { logAIUsage, extractUsage } from "../_shared/log-ai-usage.ts";
 import { fetchSystemAProduct } from "../_shared/system-a-live.ts";
+import { guidedTools, makeGuidedExecutors, executePendingAction, renderPendingBlock, stripActionMarkers, type PendingRef } from "./guided.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -3664,6 +3665,17 @@ Para AÇÕES (send_sms, send_whatsapp, notify_seller, send_to_sellflux, bulk_cam
 - Sempre que apresentar números do mês, mostre o período (\`brain.overview.periodo\`) e a hora de atualização do Cérebro.
 - Termine com 1 recomendação executiva quando houver risco ou oportunidade óbvia nos dados.
 
+## MODO CRIAÇÃO GUIADA (criar/editar dados do sistema por conversa)
+Quando o usuário quiser CRIAR ou EDITAR algo que hoje faz na mão (tabela promocional / tabela de preços de Black Friday, campanha de grupos WhatsApp, "campanha completa"), você deixa de ser só analista e vira um assistente de cadastro:
+1. Chame \`guided_creation_menu\` com o tipo (\`campanha_completa\`, \`tabela_promocional\`, \`campanha_grupos_whatsapp\`) e siga os passos NA ORDEM retornada.
+   - "Campanha completa / campanha de Black Friday" → pergunte primeiro: "Como quer iniciar? 1) Tabela promocional 2) Campanha de grupos WhatsApp".
+2. Pergunte UM bloco por vez (1–3 perguntas curtas, numeradas, com opções quando houver). Aqui PERGUNTAR é obrigatório — a regra "nunca pergunte" não vale neste modo.
+3. Use dados reais: \`find_catalog_items\` para produtos (mostre nome, apresentação, SKU e preço de catálogo e confirme qual é), \`list_promo_reference_data\` para eventos/distribuidores/vendedores, \`list_wa_groups\` para grupos, \`list_promotional_tables\`/\`get_promotional_table\` e \`list_wa_group_campaigns\` para editar.
+4. NUNCA invente produto, SKU, preço promocional, cupom, link ou grupo. Se o usuário disser "30% de desconto em tudo", calcule o preço promocional a partir do preço de catálogo com \`calculate\` e mostre antes.
+5. Quando tiver tudo, chame \`prepare_promotional_table\` ou \`prepare_wa_group_campaign\`. Se voltar \`errors\`, pergunte só o que falta. Se voltar \`aguardando_confirmacao\`, responda em 1 linha: "Confira o resumo abaixo e clique em **Confirmar** para gravar." — o sistema mostra o resumo e os botões.
+6. NUNCA diga que algo foi criado/salvo/ativado antes do usuário clicar em Confirmar; a gravação acontece fora da conversa e o resultado real aparece como mensagem do sistema.
+7. Depois de uma peça confirmada numa campanha completa, ofereça a próxima peça ainda não criada.
+
 ## SOCIAL PUBLISHER — FLOWS IG DM (Automações Instagram)
 Você gerencia automações de Instagram Direct via 6 tools: list_social_flows, get_social_flow, create_social_flow, update_social_flow, toggle_social_flow, delete_social_flow.
 
@@ -3863,13 +3875,46 @@ function buildCapabilitySystemMessage(snap: CapabilitySnapshot): string {
 const TOOLS_BLOCKLIST = new Set<string>([
   // (vazio) — nenhuma tool bloqueada no momento.
 ]);
-const actionTools = tools.filter((t: any) => !TOOLS_BLOCKLIST.has(t?.function?.name));
+const actionTools = [...tools, ...guidedTools].filter((t: any) => !TOOLS_BLOCKLIST.has(t?.function?.name));
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { messages, csv_data, model: requestedModel } = await req.json();
+    // ── Autorização server-side: só admin ou marketing ativo (fn_can_use_copilot) ──
+    const authHeader = req.headers.get("Authorization") || "";
+    const jwt = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : "";
+    const { data: authData } = jwt ? await supabase.auth.getUser(jwt) : { data: { user: null } } as any;
+    const authUser = authData?.user;
+    if (!authUser) {
+      return new Response(JSON.stringify({ error: "Faça login para usar o Copilot." }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+    const { data: canUse } = await supabase.rpc("fn_can_use_copilot", { _user_id: authUser.id });
+    if (canUse !== true) {
+      return new Response(JSON.stringify({ error: "O Copilot está liberado só para administradores e marketing." }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+    const { data: isAdminRole } = await supabase.rpc("has_role", { _user_id: authUser.id, _role: "admin" });
+    const guidedCtx = { sb: supabase, userId: authUser.id, supabaseUrl: SUPABASE_URL, serviceKey: SUPABASE_SERVICE_ROLE_KEY, isAdmin: isAdminRole === true };
+
+    const reqBody = await req.json();
+    // ── Confirmar/Cancelar de ação preparada: execução determinística, sem LLM ──
+    if (reqBody?.confirm_action_id) {
+      const decision = reqBody.decision === "cancel" ? "cancel" : "confirm";
+      const out = await executePendingAction(guidedCtx, String(reqBody.confirm_action_id), decision);
+      return new Response(JSON.stringify(out), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+    const { messages: rawMessages, csv_data, model: requestedModel } = reqBody;
+    const messages = (Array.isArray(rawMessages) ? rawMessages : []).map((m: any) => ({
+      ...m,
+      content: m?.role === "assistant" ? stripActionMarkers(String(m?.content ?? "")) : m?.content,
+    }));
+    const pendingThisTurn: PendingRef[] = [];
+    const guidedExecutors = makeGuidedExecutors(guidedCtx, (p) => pendingThisTurn.push(p));
+    const withPending = (text: string) => {
+      const clean = stripActionMarkers(text);
+      if (!pendingThisTurn.length) return clean;
+      return [clean, ...pendingThisTurn.map(renderPendingBlock)].filter(Boolean).join("\n\n");
+    };
 
     // Determine which model to use (legacy "deepseek" → "deepseek-pro").
     let modelId: ModelId =
@@ -4089,7 +4134,7 @@ serve(async (req) => {
         });
         
         // Simulate SSE stream from the existing content (no duplicate API call!)
-        const sseStream = createSSEFromText(content);
+        const sseStream = createSSEFromText(withPending(content));
         return new Response(sseStream, {
           headers: { ...corsHeaders, "Content-Type": "text/event-stream" }
         });
@@ -4109,7 +4154,7 @@ serve(async (req) => {
         }
         console.log(`[Copilot] Tool: ${fn}`, JSON.stringify(args).slice(0, 200));
 
-        const executor = toolExecutors[fn];
+        const executor = guidedExecutors[fn] ?? toolExecutors[fn];
         let toolResult: any;
         if (executor) {
           try {
@@ -4157,7 +4202,7 @@ serve(async (req) => {
       const quick = executedActions.length > 0
         ? executedActions.map(renderActionResultBlock).join("\n\n")
         : "⏱️ Processamento longo — parei antes do timeout. Reformule a pergunta com um escopo menor.";
-      return new Response(createSSEFromText(quick), {
+      return new Response(createSSEFromText(withPending(quick)), {
         headers: { ...corsHeaders, "Content-Type": "text/event-stream" }
       });
     }
@@ -4206,7 +4251,7 @@ serve(async (req) => {
         const banner = providerSwitched
           ? `> 🔄 _Provedor primário (${switchedFromLabel}) sem créditos — respondi via **${switchedToLabel}**._\n\n`
           : "";
-        const sseStream = createSSEFromText(banner + summaryContent);
+        const sseStream = createSSEFromText(withPending(banner + summaryContent));
         return new Response(sseStream, {
           headers: { ...corsHeaders, "Content-Type": "text/event-stream" }
         });
