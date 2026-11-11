@@ -1,5 +1,6 @@
 import { NavLink, useLocation } from 'react-router-dom';
-import { LayoutDashboard, PenSquare, Calendar, Database, BarChart3, Workflow, Megaphone, Users, ArrowLeft, Star, Send, Inbox, CalendarClock } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
+import { socialMenuItems } from './socialMenu';
 import {
   Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel,
   SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarHeader, SidebarFooter, useSidebar,
@@ -7,21 +8,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
-const items = [
-  { title: 'Dashboard',     url: '/social',             icon: LayoutDashboard, end: true },
-  { title: 'Conversas',     url: '/social/conversas',   icon: Inbox },
-  { title: 'Criar Post',    url: '/social/novo',        icon: PenSquare },
-  { title: 'Agendar em massa', url: '/social/agendamento-massa', icon: CalendarClock },
-  { title: 'Calendário',    url: '/social/calendario',  icon: Calendar },
-  { title: 'Banco de Posts',url: '/social/banco',       icon: Database },
-  { title: 'Analytics',     url: '/social/analytics',   icon: BarChart3 },
-  { title: 'Flows IG DM',   url: '/social/flows',       icon: Workflow },
-  { title: 'Broadcasts',    url: '/social/broadcasts',  icon: Megaphone },
-  { title: 'Sequências',    url: '/social/sequencias',  icon: Workflow },
-  { title: 'Contatos',      url: '/social/contatos',    icon: Users },
-  { title: 'Avaliações',    url: '/social/avaliacoes',  icon: Star },
-  { title: 'Post Grupos',   url: '/social/post-grupos', icon: Send },
-];
+const items = socialMenuItems;
 
 export function SocialSidebar() {
   const { state } = useSidebar();

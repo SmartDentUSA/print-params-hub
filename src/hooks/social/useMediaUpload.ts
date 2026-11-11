@@ -22,31 +22,35 @@ function getMediaDimensions(file: File): Promise<{ width?: number; height?: numb
   });
 }
 
+/** Envia uma imagem/vídeo para o bucket das publicações (mesmo caminho da tela Criar Post). */
+export async function uploadSocialMediaFile(file: File): Promise<MediaItem> {
+  const isVideo = file.type.startsWith('video/');
+  const isImage = file.type.startsWith('image/');
+  if (!isVideo && !isImage) throw new Error('Apenas imagens ou vídeos');
+  const ext = file.name.split('.').pop() || (isVideo ? 'mp4' : 'jpg');
+  const path = `social/${new Date().toISOString().slice(0, 10)}/${crypto.randomUUID()}.${ext}`;
+  const { error } = await supabase.storage.from(BUCKET).upload(path, file, {
+    cacheControl: '3600',
+    upsert: false,
+    contentType: file.type,
+  });
+  if (error) throw new Error(`Upload falhou: ${error.message}`);
+  const { data } = supabase.storage.from(BUCKET).getPublicUrl(path);
+  const dims = await getMediaDimensions(file);
+  return { url: data.publicUrl, path, type: isVideo ? 'video' : 'image', ...dims };
+}
+
 export function useMediaUpload() {
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
 
   const uploadFile = async (file: File): Promise<MediaItem | null> => {
-    const isVideo = file.type.startsWith('video/');
-    const isImage = file.type.startsWith('image/');
-    if (!isVideo && !isImage) {
-      toast.error('Apenas imagens ou vídeos');
+    try {
+      return await uploadSocialMediaFile(file);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : String(e));
       return null;
     }
-    const ext = file.name.split('.').pop() || (isVideo ? 'mp4' : 'jpg');
-    const path = `social/${new Date().toISOString().slice(0, 10)}/${crypto.randomUUID()}.${ext}`;
-    const { error } = await supabase.storage.from(BUCKET).upload(path, file, {
-      cacheControl: '3600',
-      upsert: false,
-      contentType: file.type,
-    });
-    if (error) {
-      toast.error(`Upload falhou: ${error.message}`);
-      return null;
-    }
-    const { data } = supabase.storage.from(BUCKET).getPublicUrl(path);
-    const dims = await getMediaDimensions(file);
-    return { url: data.publicUrl, path, type: isVideo ? 'video' : 'image', ...dims };
   };
 
   const upload = async (files: FileList | File[]): Promise<MediaItem[]> => {
