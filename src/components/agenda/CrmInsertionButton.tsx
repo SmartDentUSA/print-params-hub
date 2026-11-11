@@ -110,7 +110,7 @@ export function CrmInsertionButton() {
   const boot = useQuery({
     queryKey: ["crm-insercao-bootstrap"],
     enabled: open,
-    staleTime: 5 * 60_000,
+    staleTime: 0, // lista de KOLs muda quando outro vendedor inscreve um candidato: recarrega a cada abertura
     queryFn: () => call<Bootstrap>("bootstrap"),
   });
 

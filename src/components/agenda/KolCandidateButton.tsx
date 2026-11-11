@@ -39,7 +39,7 @@ export function KolCandidateButton() {
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<Result | null>(null);
 
-  const boot = useQuery({ queryKey: ["crm-insercao-bootstrap"], enabled: open, staleTime: 5 * 60_000, queryFn: () => call<Bootstrap>("bootstrap") });
+  const boot = useQuery({ queryKey: ["crm-insercao-bootstrap"], enabled: open, staleTime: 0, queryFn: () => call<Bootstrap>("bootstrap") });
   const set = <K extends keyof FormState>(k: K, v: FormState[K]) => setForm((f) => ({ ...f, [k]: v }));
   const pick = (list: string[] | undefined, v?: string | null) => (v && list?.includes(v) ? v : "");
 
