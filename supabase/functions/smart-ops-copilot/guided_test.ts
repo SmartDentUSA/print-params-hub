@@ -76,3 +76,14 @@ Deno.test("marcadores de confirmação escritos pelo modelo são removidos", () 
   assert(block.includes("```copilot-action"));
   assertEquals(stripActionMarkers("Texto\n" + block.replace("Resumo\n\n", "")), "Texto");
 });
+
+Deno.test("passo a passo: só administradores salvam tabela promocional e status aceita ativa/rascunho", async () => {
+  const { wizardAllowed, submitWizard } = await import("./guided.ts");
+  const ctx = { sb: null, userId: "u", supabaseUrl: "", serviceKey: "", isAdmin: false } as any;
+  assertEquals(wizardAllowed(ctx, "tabela_promocional").allowed, false);
+  assertEquals(wizardAllowed({ ...ctx, isAdmin: true }, "tabela_promocional").allowed, true);
+  assertEquals(wizardAllowed({ ...ctx, isAdmin: true }, "outra_coisa").allowed, false);
+  assertEquals((await submitWizard(ctx, "tabela_promocional", basePromo)).ok, false);
+  assert(validatePromoInput({ ...basePromo, status: "archived" }, today, false).errors.some((e) => e.startsWith("Status inválido")));
+  assertEquals(validatePromoInput({ ...basePromo, status: "draft" }, today, false).errors, []);
+});
