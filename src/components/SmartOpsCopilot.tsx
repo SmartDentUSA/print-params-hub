@@ -6,7 +6,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import {
   Send, Mic, MicOff, Paperclip, Bot, User, Loader2, Sparkles, Zap, Brain, Rocket, Check, X, ClipboardCheck,
-  LayoutGrid, ExternalLink, MessageSquarePlus, RotateCcw, MapPin
+  LayoutGrid, ExternalLink, MessageSquarePlus, RotateCcw, MapPin, ListChecks
 } from "lucide-react";
 import { toast } from "sonner";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
@@ -16,13 +16,25 @@ import {
   findSection, buildMenuContext, menuPath, parseOptions, OPTIONS_BLOCK_RE,
   type MenuContext, type CopilotAction,
 } from "@/components/copilot/copilotMenu";
+import { WizardControls } from "@/components/copilot/wizard/WizardControls";
+import { promoDeps } from "@/components/copilot/wizard/promoDeps";
+import { promoTableWizard, type PromoState } from "@/lib/copilotPromoWizard";
+import { detectWizardIntent, WIZ_CANCEL, WIZ_CONFIRM, type WizardQuestion } from "@/lib/copilotWizard";
+import { isoDate } from "@/lib/copilotWizardParse";
+
+// Passo a passo campo a campo (sem IA). Cada roteiro segue a ordem da tela.
+const WIZARDS = { tabela_promocional: { script: promoTableWizard, deps: promoDeps } } as const;
+type WizardKey = keyof typeof WIZARDS;
+type WizardSession = { key: WizardKey; state: PromoState; history: PromoState[] };
+const questionText = (q: WizardQuestion) =>
+  [`📍 Na tela: ${q.where}`, q.ask, q.help ? `💡 ${q.help}` : ""].filter(Boolean).join("\n");
 
 type MenuPayload =
   | { kind: "sections" }
   | { kind: "subtabs"; sectionId: string }
   | { kind: "actions"; sectionId: string; subtabId: string };
 // local = mensagem só da tela (menu), nunca enviada ao modelo.
-type Message = { role: "user" | "assistant"; content: string; local?: boolean; menu?: MenuPayload };
+type Message = { role: "user" | "assistant"; content: string; local?: boolean; menu?: MenuPayload; wizard?: boolean };
 type ModelId = "deepseek-pro" | "deepseek-flash" | "gemini" | "claude";
 // Claude está oculto do seletor (custo ~20× DeepSeek). Reativar requer COPILOT_ALLOW_CLAUDE=true no edge.
 
@@ -78,6 +90,12 @@ export function SmartOpsCopilot() {
   useEffect(() => {
     try { localStorage.setItem("copilot-active-menu", JSON.stringify(activeMenu)); } catch { /* ignore */ }
   }, [activeMenu]);
+  const [wizard, setWizard] = useState<WizardSession | null>(() => {
+    try { return JSON.parse(localStorage.getItem("copilot-wizard") || "null"); } catch { return null; }
+  });
+  useEffect(() => {
+    try { localStorage.setItem("copilot-wizard", JSON.stringify(wizard)); } catch { /* ignore */ }
+  }, [wizard]);
   const [isListening, setIsListening] = useState(false);
   const [selectedModel, setSelectedModel] = useState<ModelId>(() => {
     try {
@@ -214,6 +232,9 @@ export function SmartOpsCopilot() {
   // Stream chat
   const sendMessage = async (text: string, opts?: { menu?: MenuContext | null; prelude?: Message[] }) => {
     if (!text.trim() || isLoading) return;
+    if (wizard) { wizardAnswer(text.trim()); return; }
+    const intent = detectWizardIntent(text);
+    if (intent) { startWizard(intent, [...(opts?.prelude ?? []), { role: "user", local: true, content: text.trim() }]); setInput(""); return; }
 
     const menu = opts && "menu" in opts ? opts.menu ?? null : activeMenu;
     const userMsg: Message = { role: "user", content: text.trim() };
@@ -379,6 +400,114 @@ export function SmartOpsCopilot() {
     }
   };
 
+  // ─── Passo a passo campo a campo (sem IA) ───
+  const startWizard = async (key: WizardKey, prelude: Message[] = []) => {
+    if (isLoading) return;
+    const { script, deps } = WIZARDS[key];
+    setMessages((prev) => [...prev, ...prelude]);
+    setIsLoading(true);
+    try {
+      const resp = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/smart-ops-copilot`, {
+        method: "POST", headers: await authHeaders(), body: JSON.stringify({ wizard_check: key }),
+      });
+      if (!resp.ok) throw new Error(await readError(resp));
+      const gate = await resp.json();
+      if (!gate.allowed) {
+        setMessages((prev) => [...prev, { role: "assistant", local: true, content: `🔒 ${gate.reason || "Você não tem permissão para esta ferramenta."}` }]);
+        return;
+      }
+      const state = await script.init(deps, isoDate(new Date()));
+      setWizard({ key, state, history: [] });
+      setMessages((prev) => [...prev,
+        { role: "assistant", local: true, content: script.intro },
+        { role: "assistant", local: true, wizard: true, content: questionText(script.question(state)) },
+      ]);
+    } catch (e) {
+      setMessages((prev) => [...prev, { role: "assistant", local: true, content: `❌ ${e instanceof Error ? e.message : "Falha ao iniciar o passo a passo"}` }]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const exitWizard = (content = "Passo a passo encerrado. Nada foi gravado.") => {
+    setWizard(null);
+    setMessages((prev) => [...prev, { role: "assistant", local: true, content }]);
+  };
+
+  const wizardBack = () => {
+    if (!wizard || !wizard.history.length || isLoading) return;
+    const { script } = WIZARDS[wizard.key];
+    const state = wizard.history[wizard.history.length - 1];
+    setWizard({ ...wizard, state, history: wizard.history.slice(0, -1) });
+    setMessages((prev) => [...prev,
+      { role: "user", local: true, content: "↩ Voltar" },
+      { role: "assistant", local: true, wizard: true, content: questionText(script.question(state)) },
+    ]);
+  };
+
+  const wizardAnswer = async (value: string, label?: string) => {
+    if (!wizard || isLoading) return;
+    const { script, deps } = WIZARDS[wizard.key];
+    setInput("");
+    if (value === WIZ_CANCEL) {
+      setMessages((prev) => [...prev, { role: "user", local: true, content: label || "Cancelar" }]);
+      exitWizard();
+      return;
+    }
+    if (script.isReview(wizard.state) && value === WIZ_CONFIRM) {
+      setMessages((prev) => [...prev, { role: "user", local: true, content: `✅ ${label || "Confirmar e salvar"}` }]);
+      setIsLoading(true);
+      try {
+        const resp = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/smart-ops-copilot`, {
+          method: "POST", headers: await authHeaders(),
+          body: JSON.stringify({ wizard_submit: { kind: wizard.key, input: script.payload(wizard.state) } }),
+        });
+        if (!resp.ok) throw new Error(await readError(resp));
+        const data = await resp.json();
+        if (data.ok) {
+          setWizard(null);
+          setMessages((prev) => [...prev, { role: "assistant", local: true, content: data.content || "✅ Salvo." }]);
+          toast.success("Gravado com sucesso");
+        } else {
+          setMessages((prev) => [...prev,
+            { role: "assistant", local: true, content: `${data.content || "❌ Não foi possível salvar."}\nUse **Voltar** para corrigir.` },
+            { role: "assistant", local: true, wizard: true, content: questionText(script.question(wizard.state)) },
+          ]);
+        }
+      } catch (e) {
+        setMessages((prev) => [...prev,
+          { role: "assistant", local: true, content: `❌ ${e instanceof Error ? e.message : "Falha ao salvar"}` },
+          { role: "assistant", local: true, wizard: true, content: questionText(script.question(wizard.state)) },
+        ]);
+      } finally {
+        setIsLoading(false);
+      }
+      return;
+    }
+    const q = script.question(wizard.state);
+    const shown = label || (q.input === "choice" ? q.options?.find((o) => o.value === value)?.label : undefined) || value;
+    setMessages((prev) => [...prev, { role: "user", local: true, content: shown }]);
+    setIsLoading(true);
+    try {
+      const res = await script.answer(wizard.state, value, deps);
+      if ("error" in res) {
+        setMessages((prev) => [...prev, { role: "assistant", local: true, wizard: true, content: `⚠️ ${res.error}\n\n${questionText(q)}` }]);
+        return;
+      }
+      const next = res.state;
+      setWizard({ ...wizard, state: next, history: [...wizard.history, wizard.state] });
+      const out: Message[] = [];
+      if (res.note) out.push({ role: "assistant", local: true, content: res.note });
+      if (script.isReview(next)) out.push({ role: "assistant", local: true, content: script.summary(next) });
+      out.push({ role: "assistant", local: true, wizard: true, content: questionText(script.question(next)) });
+      setMessages((prev) => [...prev, ...out]);
+    } catch (e) {
+      setMessages((prev) => [...prev, { role: "assistant", local: true, wizard: true, content: `❌ ${e instanceof Error ? e.message : "Falha"}\n\n${questionText(q)}` }]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   // ─── Menu do sistema em botões: área → subaba → o que fazer ───
   const openMenu = () => {
     if (isLoading) return;
@@ -390,6 +519,7 @@ export function SmartOpsCopilot() {
     if (isLoading) return;
     setMessages([]);
     setActiveMenu(null);
+    setWizard(null);
   };
 
   const startScreen = (sectionId: string, subtabId: string, prelude: Message[]) => {
@@ -437,6 +567,7 @@ export function SmartOpsCopilot() {
     const ctx = buildMenuContext(sectionId, subtabId, action.guided);
     if (!ctx) return;
     setActiveMenu(ctx);
+    if (action.wizard) { startWizard(action.wizard, [{ role: "user", local: true, content: action.label }]); return; }
     sendMessage(action.prompt, { menu: ctx });
   };
 
@@ -731,6 +862,15 @@ export function SmartOpsCopilot() {
                       <>
                         {renderAssistant(msg.content, i === messages.length - 1)}
                         {msg.menu && renderMenu(msg.menu, i === messages.length - 1)}
+                        {msg.wizard && wizard && i === messages.length - 1 && (
+                          <WizardControls
+                            question={WIZARDS[wizard.key].script.question(wizard.state)}
+                            canGoBack={wizard.history.length > 0}
+                            disabled={isLoading}
+                            onAnswer={(v, l) => wizardAnswer(v, l)}
+                            onBack={wizardBack}
+                          />
+                        )}
                       </>
                     ) : (
                       <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
@@ -757,7 +897,16 @@ export function SmartOpsCopilot() {
           )}
         </ScrollArea>
 
-        {activeMenu && (
+        {wizard && (
+          <div className="border-t px-3 pt-2 flex items-center gap-2 text-xs text-muted-foreground bg-card">
+            <ListChecks className="w-3.5 h-3.5 text-primary" />
+            <span>Passo a passo: <strong className="text-foreground">{WIZARDS[wizard.key].script.title}</strong> · {WIZARDS[wizard.key].script.question(wizard.state).where}</span>
+            <button type="button" className="ml-auto hover:text-foreground" onClick={() => exitWizard()} disabled={isLoading} title="Sair do passo a passo">
+              Sair
+            </button>
+          </div>
+        )}
+        {!wizard && activeMenu && (
           <div className="border-t px-3 pt-2 flex items-center gap-2 text-xs text-muted-foreground bg-card">
             <MapPin className="w-3.5 h-3.5 text-primary" />
             <span>Trabalhando em <strong className="text-foreground">{menuPath(activeMenu)}</strong></span>
@@ -791,7 +940,7 @@ export function SmartOpsCopilot() {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder={isListening ? "🎙️ Ouvindo..." : "Digite ou fale um comando..."}
+            placeholder={isListening ? "🎙️ Ouvindo..." : wizard ? "Digite a resposta e aperte Enter..." : "Digite ou fale um comando..."}
             disabled={isLoading}
             className={`flex-1 ${isListening ? "border-red-400 ring-1 ring-red-400" : ""}`}
           />
