@@ -84,13 +84,14 @@ const STATUS_LABEL: Record<EvolutionStatus, string> = {
 const formatCheckedAt = (iso: string | null | undefined) =>
   iso ? new Date(iso).toLocaleString("pt-BR") : "nunca verificado";
 
-const ROLE_ORDER = ["vendedor", "cs", "suporte", "marketing", "distribuicao"] as const;
+const ROLE_ORDER = ["vendedor", "cs", "suporte", "marketing", "distribuicao", "operacao"] as const;
 const ROLE_LABEL: Record<string, string> = {
   vendedor: "Vendedores",
   cs: "Customer Success",
   suporte: "Suporte",
   marketing: "Marketing",
   distribuicao: "Distribuição",
+  operacao: "Operação",
 };
 
 type LiveState = "open" | "connecting" | "close" | "unknown" | "checking" | "stale";
@@ -836,6 +837,7 @@ export function SmartOpsTeam() {
                     <SelectItem value="suporte">Suporte</SelectItem>
                     <SelectItem value="marketing">Marketing</SelectItem>
                     <SelectItem value="distribuicao">Distribuição</SelectItem>
+                    <SelectItem value="operacao">Operação</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
