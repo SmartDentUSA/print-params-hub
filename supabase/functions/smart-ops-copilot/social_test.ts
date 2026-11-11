@@ -59,3 +59,13 @@ Deno.test("Automação de lives: grupo obrigatório e pelo menos um envio", () =
   assert(validateLiveAutomation({ ...base, group_ids: [] }).errors.includes("Escolha pelo menos um grupo."));
   assert(validateLiveAutomation({ ...base, promo_time: "8h" }).errors.includes("Horário da propaganda inválido."));
 });
+
+Deno.test("permissões: posts e Post Grupos só admin; lives para qualquer usuário do Copilot", async () => {
+  const { wizardAllowed } = await import("./guided.ts");
+  const user = { sb: null, userId: "u", supabaseUrl: "", serviceKey: "", isAdmin: false };
+  assertEquals(wizardAllowed(user, "post_social").allowed, false);
+  assertEquals(wizardAllowed(user, "posts_massa").allowed, false);
+  assertEquals(wizardAllowed(user, "post_grupos").allowed, false);
+  assertEquals(wizardAllowed(user, "automacao_lives").allowed, true);
+  assertEquals(wizardAllowed({ ...user, isAdmin: true }, "post_social").allowed, true);
+});
