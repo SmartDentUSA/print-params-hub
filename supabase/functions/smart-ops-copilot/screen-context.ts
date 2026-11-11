@@ -26,7 +26,7 @@ export function buildScreenContextMessage(menu: ScreenMenu | null | undefined): 
     hint ? `Sobre esta tela: ${hint}` : "",
     guided
       ? `Fluxo guiado disponível: chame guided_creation_menu com tipo "${guided}" e siga os passos na ordem, um bloco por vez.`
-      : "Sem fluxo guiado próprio. Pergunte o que o usuário quer fazer nesta tela (com opções em copilot-options). Use apenas ferramentas que existem; se não houver ferramenta que grave isto, diga com clareza: \"Ainda não consigo gravar isto por aqui — use a tela " + (subtab || section) + "\" e, se ajudar, ofereça consultar ou explicar os dados.",
+      : "Sem fluxo guiado próprio. O usuário já escreveu o que quer fazer: analise o pedido e, se houver ferramenta que grave isto, peça os campos desta tela um por vez, na ordem da tela, dizendo o que colocar em cada um (opções fechadas em copilot-options). Use apenas ferramentas que existem; se não houver ferramenta que grave isto, diga com clareza: \"Ainda não consigo gravar isto por aqui — use a tela " + (subtab || section) + "\" e, se ajudar, ofereça consultar ou explicar os dados.",
     "Mantenha a conversa dentro desta tela até o usuário escolher outra área no menu.",
   ];
   return lines.filter(Boolean).join("\n");
