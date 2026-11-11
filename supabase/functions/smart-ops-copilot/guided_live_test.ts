@@ -29,7 +29,7 @@ Deno.test({ name: "fluxo real: preparar → confirmar tabela; preparar → cance
   const { data: t } = await sb.from("promotional_tables").select("status,name").eq("id", tid).single();
   const { data: items } = await sb.from("promotional_table_items").select("name,quantity,market_unit_price,promotional_unit_price,item_type, promotional_table_sections!inner(promotional_table_id)").eq("promotional_table_sections.promotional_table_id", tid);
   console.log("gravado", JSON.stringify(t), JSON.stringify(items));
-  assertEquals(t.status, "active");
+  assertEquals(t?.status, "active");
   assertEquals(items?.length, 1);
   await sb.from("promotional_tables").delete().eq("id", tid);
 
