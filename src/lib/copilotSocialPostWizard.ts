@@ -252,7 +252,7 @@ async function postAnswer(s: PostState, raw: string, deps: SocialPostDeps): Prom
     }
     case "canais": {
       const keys = parseIds(r);
-      const allowed = new Set(compatibleFormats(d.media).map((o) => o.key));
+      const allowed = new Set<string>(compatibleFormats(d.media).map((o) => o.key));
       if (!keys || !keys.length) return err("Marque pelo menos um canal e clique em Concluir.");
       if (keys.some((k) => !allowed.has(k))) return err("Um dos formatos não aceita a mídia enviada. Marque só os da lista.");
       const channels = keys.map(channelFromKey).filter(Boolean) as PostChannel[];
@@ -507,7 +507,7 @@ async function bulkAnswer(s: BulkState, raw: string, deps: SocialPostDeps): Prom
       plan.forEach((p, i) => {
         const res = results[i];
         if (res && res.ok) posts.push({ ...p, copy: res.copy });
-        else failures.push(`Mídia ${i + 1}: ${res && !res.ok ? res.error : "sem resposta"}`);
+        else failures.push(`Mídia ${i + 1}: ${(res as { error?: string } | undefined)?.error ?? "sem resposta"}`);
       });
       if (!posts.length) return err(`Não consegui escrever nenhuma legenda:\n${failures.join("\n")}\nTente de novo.`);
       return go("review", { instructions, posts, failures }, failures.length ? `⚠️ ${failures.length} mídia(s) ficaram de fora:\n${failures.join("\n")}` : undefined);

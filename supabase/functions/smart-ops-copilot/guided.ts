@@ -4,6 +4,10 @@
 // (requisição separada, sem LLM), via executePendingAction.
 
 import { TEAM_ADMIN_ONLY, validateTeamMember } from "./team-member.ts";
+import {
+  SOCIAL_ADMIN_ONLY, runGroupTargets, runLiveAutomation, runSocialPosts, socialResultMessage,
+  validateBulkPosts, validateGroupTargets, validateLiveAutomation, validateSocialPost,
+} from "./social.ts";
 
 export const ACTION_MARKER = "copilot-action";
 const COMMERCIAL_TYPES = ["product", "resin", "Resinas", "consumables", "Serviços"];
@@ -17,6 +21,8 @@ export type GuidedCtx = {
   serviceKey: string;
   /** Mesma regra das telas: tabelas promocionais só para administradores. */
   isAdmin: boolean;
+  /** E-mail de quem está usando (gravado como autor dos posts, igual à tela). */
+  userEmail?: string | null;
 };
 
 const PROMO_ADMIN_ONLY = "Tabelas promocionais só podem ser criadas ou editadas por administradores (mesma regra da tela).";
@@ -747,8 +753,14 @@ export async function executePendingAction(ctx: GuidedCtx, id: string, decision:
   try {
     const result = row.action_type === "promo_table" ? await runPromo(ctx, row.payload)
       : row.action_type === "team_member" ? await runTeamMember(ctx, row.payload)
+      : row.action_type === "social_posts" ? await runSocialPosts(sb, row.payload)
+      : row.action_type === "post_group_targets" ? await runGroupTargets(sb, row.payload)
+      : row.action_type === "live_automation" ? await runLiveAutomation(sb, row.payload)
       : await runWa(ctx, row.payload);
     await sb.from("copilot_pending_actions").update({ status: "executed", result }).eq("id", id);
+    if (["social_posts", "post_group_targets", "live_automation"].includes(row.action_type)) {
+      return { ok: true, result, content: socialResultMessage(row.action_type, result) };
+    }
     if (row.action_type === "team_member") {
       const r: any = result;
       return { ok: true, result, content: `✅ **Membro cadastrado e ativo:** ${r.nome}\n- ID: ${r.id}\n- Para conectar o WhatsApp (QR Code) e enviar a foto, abra **Equipe**, clique em editar no membro e use **Conectar WhatsApp**.` };
@@ -778,12 +790,15 @@ export function stripActionMarkers(text: string) {
 // O passo a passo da tela já coletou e mostrou o resumo; "Confirmar e salvar"
 // valida de novo aqui (mesmas regras da criação guiada), registra a ação para
 // auditoria e grava na mesma requisição — equivalente ao clique em Salvar.
-export const WIZARD_KINDS = new Set(["tabela_promocional", "membro_equipe"]);
+export const WIZARD_KINDS = new Set(["tabela_promocional", "membro_equipe", "post_social", "posts_massa", "post_grupos", "automacao_lives"]);
+/** Mesma regra das telas: posts e Post Grupos só admin (RLS); Automação de Lives qualquer usuário do Copilot (equipe). */
+const SOCIAL_ADMIN_KINDS = new Set(["post_social", "posts_massa", "post_grupos"]);
 
 export function wizardAllowed(ctx: GuidedCtx, kind: string) {
   if (!WIZARD_KINDS.has(kind)) return { allowed: false, reason: "Passo a passo desconhecido." };
   if (kind === "tabela_promocional" && !ctx.isAdmin) return { allowed: false, reason: PROMO_ADMIN_ONLY };
   if (kind === "membro_equipe" && !ctx.isAdmin) return { allowed: false, reason: TEAM_ADMIN_ONLY };
+  if (SOCIAL_ADMIN_KINDS.has(kind) && !ctx.isAdmin) return { allowed: false, reason: SOCIAL_ADMIN_ONLY };
   return { allowed: true };
 }
 
@@ -792,6 +807,7 @@ export async function submitWizard(ctx: GuidedCtx, kind: string, input: any) {
   if (!gate.allowed) return { ok: false, content: `❌ ${gate.reason}` };
   if (!input || typeof input !== "object" || Array.isArray(input)) return { ok: false, content: "❌ Dados inválidos." };
   if (kind === "membro_equipe") return submitTeamMember(ctx, input);
+  if (kind === "post_social" || kind === "posts_massa" || kind === "post_grupos" || kind === "automacao_lives") return submitSocial(ctx, kind, input);
   const { table_id: _t, item_updates: _u, ...clean } = input;
   const pending: PendingRef[] = [];
   const ex = makeGuidedExecutors(ctx, (p) => pending.push(p));
@@ -813,5 +829,40 @@ async function submitTeamMember(ctx: GuidedCtx, input: any) {
   const { data, error } = await ctx.sb.from("copilot_pending_actions")
     .insert({ user_id: ctx.userId, action_type: "team_member", payload: v.row, summary }).select("id").single();
   if (error) return fail([`Não foi possível registrar a ação: ${error.message}`]);
+  return executePendingAction(ctx, data.id, "confirm");
+}
+
+const failMsg = (errors: string[]) => ({ ok: false, errors, content: `❌ Não salvei. Corrija:\n${errors.map((e) => `- ${e}`).join("\n")}` });
+
+async function submitSocial(ctx: GuidedCtx, kind: string, input: any) {
+  let action_type: string, payload: unknown, summary: string;
+  if (kind === "post_social") {
+    const v = validateSocialPost(input);
+    if (!v.row) return failMsg(v.errors);
+    action_type = "social_posts";
+    payload = { posts: [v.row], created_by: ctx.userEmail ?? ctx.userId };
+    summary = `Post ${v.row.publish_now ? "para publicar agora" : `agendado para ${v.row.scheduled_at}`} · ${(v.row.channels as any[]).map((c) => `${c.platform} ${c.format}`).join(", ")}`;
+  } else if (kind === "posts_massa") {
+    const v = validateBulkPosts(input);
+    if (!v.row) return failMsg(v.errors);
+    action_type = "social_posts";
+    payload = { posts: v.row, created_by: ctx.userEmail ?? ctx.userId };
+    summary = `Agendamento em massa: ${v.row.length} posts a partir de ${v.row[0].scheduled_at}`;
+  } else if (kind === "post_grupos") {
+    const v = validateGroupTargets(input);
+    if (!v.row) return failMsg(v.errors);
+    action_type = "post_group_targets";
+    payload = v.row;
+    summary = `Post Grupos ${v.row.instance_name}: +${v.row.group_ids.length} grupo(s), instância ${v.row.enabled ? "ativa" : "inativa"}`;
+  } else {
+    const v = validateLiveAutomation(input);
+    if (!v.row) return failMsg(v.errors);
+    action_type = "live_automation";
+    payload = v.row;
+    summary = `Automação de lives "${v.row.name}" · ${(v.row.group_ids as string[]).length} grupo(s)`;
+  }
+  const { data, error } = await ctx.sb.from("copilot_pending_actions")
+    .insert({ user_id: ctx.userId, action_type, payload, summary }).select("id").single();
+  if (error) return failMsg([`Não foi possível registrar a ação: ${error.message}`]);
   return executePendingAction(ctx, data.id, "confirm");
 }

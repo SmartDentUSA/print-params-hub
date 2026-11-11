@@ -19,17 +19,24 @@ import {
 import { WizardControls } from "@/components/copilot/wizard/WizardControls";
 import { promoDeps } from "@/components/copilot/wizard/promoDeps";
 import { teamDeps } from "@/components/copilot/wizard/teamDeps";
+import { socialGroupsDeps, socialPostDeps, uploadWizardFiles } from "@/components/copilot/wizard/socialDeps";
 import { promoTableWizard } from "@/lib/copilotPromoWizard";
 import { teamMemberWizard } from "@/lib/copilotTeamWizard";
-import { detectWizardIntent, WIZ_CANCEL, WIZ_CONFIRM, type WizardQuestion, type WizardScript } from "@/lib/copilotWizard";
+import { socialBulkWizard, socialPostWizard } from "@/lib/copilotSocialPostWizard";
+import { liveAutomationWizard, postGroupsWizard } from "@/lib/copilotSocialGroupsWizard";
+import { detectWizardIntent, WIZ_CANCEL, WIZ_CONFIRM, type WizardKind, type WizardQuestion, type WizardScript } from "@/lib/copilotWizard";
 import { isoDate } from "@/lib/copilotWizardParse";
 
 // Passo a passo campo a campo (sem IA). Cada roteiro segue a ordem da tela.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyScript = { script: WizardScript<any, any>; deps: unknown };
-const WIZARDS: Record<"tabela_promocional" | "membro_equipe", AnyScript> = {
+const WIZARDS: Record<WizardKind, AnyScript> = {
   tabela_promocional: { script: promoTableWizard, deps: promoDeps },
   membro_equipe: { script: teamMemberWizard, deps: teamDeps },
+  post_social: { script: socialPostWizard, deps: socialPostDeps },
+  posts_massa: { script: socialBulkWizard, deps: socialPostDeps },
+  post_grupos: { script: postGroupsWizard, deps: socialGroupsDeps },
+  automacao_lives: { script: liveAutomationWizard, deps: socialGroupsDeps },
 };
 type WizardKey = keyof typeof WIZARDS;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -242,7 +249,7 @@ export function SmartOpsCopilot() {
     if (!text.trim() || isLoading) return;
     if (wizard) { wizardAnswer(text.trim()); return; }
     const menu = opts && "menu" in opts ? opts.menu ?? null : activeMenu;
-    const intent = detectWizardIntent(text, menu?.section_id);
+    const intent = detectWizardIntent(text, menu?.section_id, menu?.subtab_id);
     if (intent) { startWizard(intent, [...(opts?.prelude ?? []), { role: "user", local: true, content: text.trim() }], text.trim()); setInput(""); return; }
 
     const userMsg: Message = { role: "user", content: text.trim() };
@@ -516,6 +523,24 @@ export function SmartOpsCopilot() {
     }
   };
 
+  // Envio de imagens/vídeos numa pergunta de mídia: sobe os arquivos e responde com a lista.
+  const wizardFiles = async (files: File[]) => {
+    if (!wizard || isLoading) return;
+    setIsLoading(true);
+    let items: unknown[] = [];
+    let errors: string[] = [];
+    try {
+      ({ items, errors } = await uploadWizardFiles(files));
+    } finally {
+      setIsLoading(false);
+    }
+    if (errors.length) toast.error(errors.join("\n"), { duration: 10000 });
+    if (!items.length) return;
+    const v = (items as { type: string }[]).filter((m) => m.type === "video").length;
+    const label = `📎 ${items.length} arquivo(s) enviado(s)${v ? ` — ${items.length - v} imagem(ns), ${v} vídeo(s)` : ""}`;
+    await wizardAnswer(JSON.stringify(items), label);
+  };
+
   // ─── Menu do sistema em botões: área → subaba → o que fazer ───
   const openMenu = () => {
     if (isLoading) return;
@@ -579,6 +604,7 @@ export function SmartOpsCopilot() {
 
   const openScreen = (sectionId: string, subtabId: string) => {
     const sub = findSection(sectionId)?.subtabs.find((s) => s.id === subtabId);
+    if (sub?.url) { window.open(sub.url, "_blank", "noopener"); return; }
     window.dispatchEvent(new CustomEvent("admin:open-section", { detail: { section: sectionId, sub: sub?.urlSub } }));
   };
 
@@ -875,6 +901,7 @@ export function SmartOpsCopilot() {
                             disabled={isLoading}
                             onAnswer={(v, l) => wizardAnswer(v, l)}
                             onBack={wizardBack}
+                            onFiles={wizardFiles}
                           />
                         )}
                       </>

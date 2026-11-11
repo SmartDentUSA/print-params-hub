@@ -36,7 +36,7 @@ export function addDays(dateStr: string, n: number) {
 }
 
 /** Uma publicação por mídia: primeira data + intervalo em dias, sempre no mesmo horário. */
-export function bulkPlan<M extends BulkMedia>(media: M[], startDate: string, interval: number, time: number) {
+export function bulkPlan<M>(media: M[], startDate: string, interval: number, time: number) {
   return media.map((m, i) => ({ media: m, date: addDays(startDate, i * interval), time: fmtTime(time) }));
 }
 

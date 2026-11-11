@@ -3,7 +3,6 @@
 // link do vídeo quando a extração não é possível.
 import { supabase } from "@/integrations/supabase/client";
 import { extractAudioMp3Base64, extractFrames } from "@/lib/social/videoExtract";
-import type { BulkMedia } from "@/lib/social/bulkPlan";
 
 export type BulkCopy = { caption: string; hashtags: string[]; first_comment: string };
 
@@ -23,11 +22,12 @@ async function imageToDataUrl(url: string): Promise<string | null> {
 }
 
 export async function generateBulkCopy(args: {
-  media: BulkMedia; file?: File; instructions: string; mentions: string[]; platform: string;
+  media: { url?: string; type?: string }; file?: File; instructions: string; mentions: string[]; platform: string;
 }): Promise<BulkCopy> {
   const { media, file } = args;
   const isVideo = media.type === "video";
-  const frame = isVideo ? null : await imageToDataUrl(media.url);
+  const url = String(media.url || "");
+  const frame = isVideo ? null : await imageToDataUrl(url);
   let audio: { base64: string } | null = null;
   let vFrames: string[] = [];
   if (isVideo && file) {
@@ -39,7 +39,7 @@ export async function generateBulkCopy(args: {
   const extracted = !!audio || vFrames.length > 0;
   const { data, error } = await supabase.functions.invoke("social-video-copy", {
     body: {
-      video_url: isVideo && !extracted ? media.url : undefined,
+      video_url: isVideo && !extracted ? url : undefined,
       audio_base64: audio?.base64,
       audio_format: "mp3",
       frames: frame ? [frame] : vFrames,
