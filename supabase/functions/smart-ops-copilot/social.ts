@@ -149,7 +149,7 @@ export function validateGroupTargets(input: any): V<{ instance_name: string; ena
   if (!instance_name) errors.push("Escolha a instância.");
   const group_ids = Array.isArray(input?.group_ids) ? Array.from(new Set(input.group_ids.map(String))) as string[] : [];
   if (group_ids.some((id) => !UUID_RE.test(id))) errors.push("Grupo inválido.");
-  if (group_ids.length > 500) errors.push("Máximo de 500 grupos por vez.");
+  if (group_ids.length > 200) errors.push("Máximo de 200 grupos por vez.");
   const platforms = Array.isArray(input?.platforms) ? Array.from(new Set(input.platforms.map(String))) as string[] : [];
   if (group_ids.length && !platforms.length) errors.push("Escolha pelo menos uma rede social.");
   if (platforms.some((p) => !PLATFORMS.includes(p))) errors.push("Rede social desconhecida.");
