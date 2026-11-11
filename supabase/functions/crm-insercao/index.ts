@@ -134,11 +134,16 @@ async function kolSeller(kol: any): Promise<TeamMember | null> {
   return null;
 }
 
+const PROFESSIONAL_FILTER = "is_kol.eq.true,prof_updated_at.not.is.null";
+
 async function listKols(me: TeamMember) {
   const { data } = await sb
     .from("lia_attendances")
     .select("id, nome, prof_display_name, prof_specialist_team_member_id, prof_kol_form_ids")
-    .eq("is_kol", true)
+    // Mesmo critério de Cursos > "KOLs cadastrados": toda ficha profissional
+    // (prof_updated_at) entra, além de quem já tem formulário/cupom/comissão.
+    // is_kol sozinho é recalculado por trigger e some para candidatos sem vínculos.
+    .or(PROFESSIONAL_FILTER)
     .eq("is_test", false)
     .is("merged_into", null)
     .limit(500);
@@ -565,7 +570,7 @@ Deno.serve(async (req) => {
       if (/^[0-9a-f-]{36}$/i.test(kolId)) {
         const { data } = await sb.from("lia_attendances")
           .select("id, nome, prof_display_name, prof_specialist_team_member_id, prof_kol_form_ids")
-          .eq("id", kolId).eq("is_kol", true).eq("is_test", false).is("merged_into", null).maybeSingle();
+          .eq("id", kolId).or(PROFESSIONAL_FILTER).eq("is_test", false).is("merged_into", null).maybeSingle();
         kol = data ?? null;
       }
       const kolName = kol ? String(kol.prof_display_name || kol.nome || "").trim() : "";
@@ -671,7 +676,7 @@ Deno.serve(async (req) => {
       const { data: kol } = await sb
         .from("lia_attendances")
         .select("id, nome, prof_display_name, prof_specialist_team_member_id, prof_kol_form_ids")
-        .eq("id", input.kol_lead_id).eq("is_kol", true).eq("is_test", false).is("merged_into", null)
+        .eq("id", input.kol_lead_id).or(PROFESSIONAL_FILTER).eq("is_test", false).is("merged_into", null)
         .maybeSingle();
       if (!kol) return json({ error: "Profissional KOL não encontrado." }, 400);
       const kolName = String(kol.prof_display_name || kol.nome || "").trim();
