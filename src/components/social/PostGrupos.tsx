@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { PostGruposInstanceCard } from './PostGruposInstanceCard';
 import { PostGruposHistory } from './PostGruposHistory';
@@ -16,6 +17,8 @@ type InstanceConfig = {
 };
 
 export function PostGrupos() {
+  const [params] = useSearchParams();
+  const initialTab = ['instancias', 'lives', 'historico'].includes(params.get('tab') || '') ? (params.get('tab') as string) : 'instancias';
   const [instances, setInstances] = useState<InstanceConfig[]>([]);
   const [loading, setLoading] = useState(true);
   const [totalGroups, setTotalGroups] = useState(0);
@@ -92,7 +95,7 @@ export function PostGrupos() {
         </div>
       </div>
 
-      <Tabs defaultValue="instancias" className="space-y-4">
+      <Tabs defaultValue={initialTab} className="space-y-4">
         <TabsList>
           <TabsTrigger value="instancias">Instâncias</TabsTrigger>
           <TabsTrigger value="lives">Automação de Lives</TabsTrigger>
