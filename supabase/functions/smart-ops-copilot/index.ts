@@ -3,6 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { logAIUsage, extractUsage } from "../_shared/log-ai-usage.ts";
 import { fetchSystemAProduct } from "../_shared/system-a-live.ts";
 import { guidedTools, makeGuidedExecutors, executePendingAction, renderPendingBlock, stripActionMarkers, type PendingRef } from "./guided.ts";
+import { buildScreenContextMessage } from "./screen-context.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -3675,6 +3676,14 @@ Quando o usuário quiser CRIAR ou EDITAR algo que hoje faz na mão (tabela promo
 5. Quando tiver tudo, chame \`prepare_promotional_table\` ou \`prepare_wa_group_campaign\`. Se voltar \`errors\`, pergunte só o que falta. Se voltar \`aguardando_confirmacao\`, responda em 1 linha: "Confira o resumo abaixo e clique em **Confirmar** para gravar." — o sistema mostra o resumo e os botões.
 6. NUNCA diga que algo foi criado/salvo/ativado antes do usuário clicar em Confirmar; a gravação acontece fora da conversa e o resultado real aparece como mensagem do sistema.
 7. Depois de uma peça confirmada numa campanha completa, ofereça a próxima peça ainda não criada.
+8. BOTÕES DE OPÇÃO: sempre que a pergunta tiver respostas fechadas (ex.: moeda, tipo de cupom, "agora ou agendar", escolher entre itens listados, sim/não), termine a mensagem com um bloco que a tela transforma em botões clicáveis, com no máximo 8 opções curtas:
+\`\`\`copilot-options
+["Opção 1", "Opção 2"]
+\`\`\`
+   Para respostas abertas (nome, preço, texto da mensagem) não use o bloco. Nunca coloque o bloco no meio do texto.
+
+## MENU DO SISTEMA (botões)
+O usuário pode escolher uma área e uma subaba no menu do Copilot (mesmo menu da barra lateral). Quando chegar um "CONTEXTO DE TELA", trabalhe só nessa tela: pergunte o que ele quer fazer ali, siga a sequência lógica da tela campo a campo e use as ferramentas disponíveis. Se nenhuma ferramenta grava aquilo, diga isso claramente — nunca finja que gravou.
 
 ## SOCIAL PUBLISHER — FLOWS IG DM (Automações Instagram)
 Você gerencia automações de Instagram Direct via 6 tools: list_social_flows, get_social_flow, create_social_flow, update_social_flow, toggle_social_flow, delete_social_flow.
@@ -3903,7 +3912,8 @@ serve(async (req) => {
       const out = await executePendingAction(guidedCtx, String(reqBody.confirm_action_id), decision);
       return new Response(JSON.stringify(out), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
-    const { messages: rawMessages, csv_data, model: requestedModel } = reqBody;
+    const { messages: rawMessages, csv_data, model: requestedModel, menu: screenMenu } = reqBody;
+    const screenContextMsg = buildScreenContextMessage(screenMenu);
     const messages = (Array.isArray(rawMessages) ? rawMessages : []).map((m: any) => ({
       ...m,
       content: m?.role === "assistant" ? stripActionMarkers(String(m?.content ?? "")) : m?.content,
@@ -3955,6 +3965,7 @@ serve(async (req) => {
       { role: "system", content: SYSTEM_PROMPT },
       ...(capabilities ? [{ role: "system", content: buildCapabilitySystemMessage(capabilities) }] : []),
       { role: "system", content: brainSystemMsg },
+      ...(screenContextMsg ? [{ role: "system", content: screenContextMsg }] : []),
       ...messages
     ];
 
