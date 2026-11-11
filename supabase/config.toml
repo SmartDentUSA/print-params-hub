@@ -733,3 +733,6 @@ verify_jwt = false
 
 [functions.blueprint-meeting-analyzer]
 verify_jwt = false
+
+[functions.wa-post-teaser]
+verify_jwt = false
