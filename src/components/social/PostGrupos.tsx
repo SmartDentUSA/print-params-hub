@@ -90,7 +90,10 @@ export function PostGrupos() {
         <div>
           <h1 className="text-2xl font-bold">Post Grupos</h1>
           <p className="text-sm text-muted-foreground">
-            Todo post novo sincronizado do Banco de Posts é disparado automaticamente para os grupos das instâncias ATIVAS abaixo.
+            Todo post novo sincronizado do Banco de Posts é disparado automaticamente para os grupos selecionados nas instâncias ATIVAS abaixo, pelo número da própria instância.
+          </p>
+          <p className="text-xs text-muted-foreground mt-1">
+            Cada grupo mostra se recebe os posts. Só recebe quando o número da instância é administrador do grupo e o grupo está ligado.
           </p>
         </div>
       </div>

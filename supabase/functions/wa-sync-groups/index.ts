@@ -19,6 +19,7 @@ import {
   OwnerHints,
   EvoTarget,
 } from '../_shared/evolution.ts'
+import { keepsOtherAdminOwner } from '../_shared/post-group-eligibility.ts'
 
 const EVOGO_DEFAULT_BASE = 'http://82.25.75.61:8081'
 
@@ -175,7 +176,7 @@ async function syncObservedGroupsFromWebhooks(supabase: any, instanceName: strin
     for (let i = 0; i < jids.length; i += BATCH) {
       const { data: existingRows, error: existingError } = await supabase
         .from('wa_groups')
-        .select('id, group_jid, name, picture_url, is_admin')
+        .select('id, group_jid, name, picture_url, is_admin, instance_name')
         .in('group_jid', jids.slice(i, i + BATCH))
       if (existingError) throw existingError
       for (const row of existingRows ?? []) existingByJid.set(row.group_jid, row)
@@ -186,6 +187,8 @@ async function syncObservedGroupsFromWebhooks(supabase: any, instanceName: strin
       const safeName = group.name || existing?.name || fallbackGroupName(group.jid)
       groupNames.push(safeName)
       if (existing?.id) {
+        // Não tira o grupo de outro número que é admin dele (o envio sai pelo dono).
+        if (keepsOtherAdminOwner(existing, canonical, false)) continue
         const patch: Record<string, unknown> = {
           instance_name: canonical,
           synced_at: now,
@@ -416,7 +419,7 @@ serve(async (req) => {
       }, { headers: corsHeaders })
     }
 
-    const per_instance: Record<string, { synced: number; raw: number; admin: number; groups: string[]; error?: string; warning?: string; lid?: string; lid_confidence?: number; discovery_mode?: string; observed?: number; created?: number; updated?: number; total_groups?: number; last_synced_at?: string | null; last_observed_at?: string | null }> = {}
+    const per_instance: Record<string, { synced: number; raw: number; admin: number; groups: string[]; kept_other_owner?: number; error?: string; warning?: string; lid?: string; lid_confidence?: number; discovery_mode?: string; observed?: number; created?: number; updated?: number; total_groups?: number; last_synced_at?: string | null; last_observed_at?: string | null }> = {}
     let totalSynced = 0
     // Fallback de telefone vem do tmPhones acima
     const phoneByInstance = tmPhones
@@ -495,13 +498,33 @@ serve(async (req) => {
         // a essa instância) — o flag `is_admin` reflete a melhor detecção.
         // No modo automático (sem instance_name) mantemos o comportamento legado:
         // só persistimos onde detectamos admin para evitar lixo na tabela.
-        const groupsToSync = isExplicitInstance ? all : all.filter(g => g.isAdmin)
+        let groupsToSync = isExplicitInstance ? all : all.filter(g => g.isAdmin)
         let warning: string | undefined
         if (isExplicitInstance && adminCount === 0 && all.length > 0) {
           warning = `Nenhum grupo foi detectado como admin (owner/LID/phone não bateram). Sincronizando ${all.length} grupos com is_admin=false. Verifique se o número ${phone ?? '-'} é admin nos grupos.`
           console.warn(`[wa-sync-groups] ${inst.instanceName}: ${warning}`)
         }
         console.log(`[wa-sync-groups] ${inst.instanceName}: ${all.length} grupos brutos, ${adminCount} admin, ${groupsToSync.length} a sincronizar`)
+
+        // Um número que não é admin não toma o grupo de outro número admin:
+        // wa_groups tem uma linha por grupo e o envio sai pelo dono da linha.
+        let keptOtherOwner = 0
+        if (groupsToSync.length > 0) {
+          const ownerByJid = new Map<string, { instance_name: string | null; is_admin: boolean | null }>()
+          const jidList = groupsToSync.map(g => g.id)
+          for (let i = 0; i < jidList.length; i += 100) {
+            const { data: ownRows, error: ownErr } = await supabase
+              .from('wa_groups')
+              .select('group_jid, instance_name, is_admin')
+              .in('group_jid', jidList.slice(i, i + 100))
+            if (ownErr) throw ownErr
+            for (const r of ownRows ?? []) ownerByJid.set((r as any).group_jid, r as any)
+          }
+          const before = groupsToSync.length
+          groupsToSync = groupsToSync.filter(g => !keepsOtherAdminOwner(ownerByJid.get(g.id), inst.instanceName, !!g.isAdmin))
+          keptOtherOwner = before - groupsToSync.length
+          if (keptOtherOwner > 0) console.log(`[wa-sync-groups] ${inst.instanceName}: ${keptOtherOwner} grupos mantidos com o número admin atual`)
+        }
 
         if (groupsToSync.length > 0) {
           const syncedAt = new Date().toISOString()
@@ -539,6 +562,7 @@ serve(async (req) => {
           admin:  adminCount,
           ...(activeLid ? { lid: activeLid, lid_confidence: lidConfidence } : {}),
           groups: groupsToSync.map(g => g.subject),
+          ...(keptOtherOwner > 0 ? { kept_other_owner: keptOtherOwner } : {}),
           ...(warning ? { warning } : {}),
         }
         totalSynced += groupsToSync.length

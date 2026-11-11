@@ -11,6 +11,7 @@ import { PostGruposAddModal } from './PostGruposAddModal';
 import { PlatformPicker } from './PlatformPicker';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { ALL_PLATFORM_VALUES, platformLabel } from './socialPlatforms';
+import { postTargetStatus, postTargetStatusLabel, type PostTargetGroup } from '@/lib/postGroupStatus';
 
 type Instance = {
   id: string;
@@ -29,8 +30,11 @@ type TargetRow = {
   platforms: string[] | null;
 };
 
+type GroupState = NonNullable<PostTargetGroup> & { id: string };
+
 export function PostGruposInstanceCard({ instance, onChanged }: { instance: Instance; onChanged: () => void }) {
   const [targets, setTargets] = useState<TargetRow[]>([]);
+  const [groupState, setGroupState] = useState<Map<string, GroupState>>(new Map());
   const [availableCount, setAvailableCount] = useState(0);
   const [addOpen, setAddOpen] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -49,8 +53,19 @@ export function PostGruposInstanceCard({ instance, onChanged }: { instance: Inst
         .eq('instance_name', instance.instance_name)
         .eq('ativo', true),
     ]);
-    setTargets((rows as TargetRow[]) ?? []);
+    const list = (rows as TargetRow[]) ?? [];
+    setTargets(list);
     setAvailableCount(count ?? 0);
+    const ids = list.map((t) => t.group_id);
+    if (ids.length > 0) {
+      const { data: gs } = await supabase
+        .from('wa_groups')
+        .select('id, group_jid, instance_name, is_admin, enabled, ativo')
+        .in('id', ids);
+      setGroupState(new Map(((gs as GroupState[]) ?? []).map((g) => [g.id, g])));
+    } else {
+      setGroupState(new Map());
+    }
     setLoading(false);
   }, [instance.instance_name]);
 
@@ -86,6 +101,8 @@ export function PostGruposInstanceCard({ instance, onChanged }: { instance: Inst
   }
 
   const totalMembers = targets.reduce((sum, t) => sum + (t.member_count ?? 0), 0);
+  const statusOf = (t: TargetRow) => postTargetStatus(instance.instance_name, groupState.get(t.group_id));
+  const readyCount = targets.filter((t) => statusOf(t) === 'ready').length;
   const isActive = instance.enabled;
 
   return (
@@ -146,8 +163,23 @@ export function PostGruposInstanceCard({ instance, onChanged }: { instance: Inst
                   {targets.map((t) => (
                     <TableRow key={t.target_id}>
                       <TableCell className="font-medium">
-                        <span className="inline-block w-2 h-2 rounded-full bg-emerald-500 mr-2" />
-                        {t.group_name ?? '(sem nome)'}
+                        {(() => {
+                          const st = statusOf(t);
+                          const ok = st === 'ready';
+                          return (
+                            <>
+                              <div className="flex items-center">
+                                <span className={`inline-block w-2 h-2 rounded-full mr-2 ${ok ? 'bg-emerald-500' : 'bg-destructive'}`} />
+                                {t.group_name ?? '(sem nome)'}
+                              </div>
+                              {!loading && (
+                                <p className={`text-xs font-normal mt-0.5 ml-4 ${ok ? 'text-muted-foreground' : 'text-destructive'}`}>
+                                  {postTargetStatusLabel(st, groupState.get(t.group_id)?.instance_name)}
+                                </p>
+                              )}
+                            </>
+                          );
+                        })()}
                       </TableCell>
                       <TableCell>
                         <Popover>
@@ -190,7 +222,8 @@ export function PostGruposInstanceCard({ instance, onChanged }: { instance: Inst
           {targets.length > 0 && (
             <p className="text-xs text-muted-foreground">
               {targets.length} grupo{targets.length === 1 ? '' : 's'} selecionado{targets.length === 1 ? '' : 's'} ·{' '}
-              {totalMembers.toLocaleString('pt-BR')} membros alcançados
+              {readyCount} recebe{readyCount === 1 ? '' : 'm'} os posts ·{' '}
+              {totalMembers.toLocaleString('pt-BR')} membros nos grupos selecionados
             </p>
           )}
         </CardContent>
