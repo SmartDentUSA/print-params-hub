@@ -55,6 +55,7 @@ export function SmartOpsWaGroupCampaigns() {
   const [builderCampaignId, setBuilderCampaignId] = useState<string | null>(null);
   const [multiBuilderIds, setMultiBuilderIds] = useState<string[] | null>(null);
   const [instances, setInstances] = useState<WaInstanceInfo[]>([]);
+  const [checkingInstances, setCheckingInstances] = useState(true);
   // "" = todas as instâncias conectadas (régua pode misturar grupos de várias instâncias)
   const [selectedInstance, setSelectedInstance] = useState<string>(() => {
     try { return localStorage.getItem("smartops.wa.selectedInstance") ?? ""; } catch { return ""; }
@@ -112,6 +113,12 @@ export function SmartOpsWaGroupCampaigns() {
           } as any);
         }
 
+        const sortList = () => Array.from(byName.values()).sort((a, b) =>
+          (a.profileName ?? a.instanceName).localeCompare(b.profileName ?? b.instanceName)
+        );
+        // Mostra a lista da equipe imediatamente; o status chega em seguida.
+        setInstances(sortList().map(i => ({ ...i })));
+
         // 2) Enriquecer com connectionStatus real via wa-sync-groups (list_only)
         try {
           const { data } = await supabase.functions.invoke("wa-sync-groups", { body: { list_only: true } });
@@ -127,14 +134,13 @@ export function SmartOpsWaGroupCampaigns() {
           // se a Evolution falhar, mantém a lista do team_members sem status
         }
 
-        const list = Array.from(byName.values()).sort((a, b) =>
-          (a.profileName ?? a.instanceName).localeCompare(b.profileName ?? b.instanceName)
-        );
-        setInstances(list);
+        setInstances(sortList());
         // Default: mantém preferência salva (inclusive "" = todas). Só sugere uma
         // instância se não houver nada salvo E ainda não veio de localStorage.
       } catch (e: any) {
         toast.error("Falha ao listar instâncias: " + (e?.message ?? String(e)));
+      } finally {
+        setCheckingInstances(false);
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -443,7 +449,14 @@ export function SmartOpsWaGroupCampaigns() {
               </SelectItem>
               {instances.length === 0 && (
                 <div className="px-2 py-1.5 text-xs text-muted-foreground">
-                  Nenhuma instância detectada
+                  {checkingInstances ? "Carregando instâncias…" : "Nenhuma instância detectada"}
+                </div>
+              )}
+              {instances.length > 0 && (
+                <div className="px-2 py-1.5 text-[11px] text-muted-foreground">
+                  {checkingInstances
+                    ? "Verificando conexões…"
+                    : `${instances.filter(i => (i as any).connectionStatus === "open").length} de ${instances.length} conectadas`}
                 </div>
               )}
               {instances.map(i => {
