@@ -5,7 +5,6 @@
 //   proprietário Beatriz) → grupo WhatsApp (Beatriz + vendedor + KOL) → mensagem
 //   da Beatriz → nota completa no deal → timeline do lead.
 // Não toca em funis Vendas/CS: o deal vive só no pipeline KOL.
-import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
 import { z } from "npm:zod@3.23.8";
 import { piperunGet, piperunPost, addDealNote, normalizePipeRunDealStatus } from "../_shared/piperun-field-map.ts";
 import { findPersonByContact, validateCachedPerson, isValidEmailTld } from "../_shared/piperun-person-resolver.ts";
@@ -71,7 +70,8 @@ async function evoGoPost(base: string, token: string, path: string, body: unknow
 }
 
 export async function runKolCandidate(deps: {
-  sb: SupabaseClient;
+  // deno-lint-ignore no-explicit-any
+  sb: any;
   tm: Tm;
   userId: string;
   input: KolSubmitInput;
@@ -107,6 +107,7 @@ export async function runKolCandidate(deps: {
   const { data: cur } = await sb.from("lia_attendances")
     .select("id, nome, email, telefone_raw, telefone_normalized, area_atuacao, especialidade, empresa_nome, empresa_cnpj, pessoa_cpf, cidade, uf, prof_display_name, prof_cro, prof_wa_ddi, prof_wa_number, prof_specialist_team_member_id, pessoa_piperun_id, is_kol, equip_scanner, equip_impressora, equip_cad, created_at, origem_primeiro_contato, real_status, proprietario_lead_crm, form_name, produto_interesse, produto_interesse_auto, ltv_total, omie_faturamento_total, omie_ultima_compra, lojaintegrada_ultimo_pedido_data, lojaintegrada_ultimo_pedido_valor, astron_courses_total, astron_courses_completed")
     .eq("id", lead.id).single();
+  if (!cur) return { ok: false, error: "Ficha não encontrada.", status: 404 };
   // Só preenche o que está vazio; nunca sobrescreve dados existentes.
   const patch: Record<string, unknown> = { is_kol: true, prof_updated_at: new Date().toISOString() };
   if (isEmpty(cur.prof_display_name)) patch.prof_display_name = cur.nome || input.nome;
