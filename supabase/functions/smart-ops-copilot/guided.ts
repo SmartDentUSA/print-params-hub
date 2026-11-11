@@ -232,12 +232,15 @@ export function validatePromoInput(input: any, todayIso: string, isEdit: boolean
   for (const k of ["event_id", "distributor_id"]) {
     if (input?.[k] && !UUID_RE.test(String(input[k]))) errors.push(`${k} inválido.`);
   }
+  if (input?.status !== undefined && !["active", "draft"].includes(String(input.status))) errors.push("Status inválido (use ativa ou rascunho).");
 
   const sections = Array.isArray(input?.sections) ? input.sections : [];
   if (!isEdit && sections.length === 0) errors.push("Adicione pelo menos um combo com itens.");
   sections.forEach((s: any, si: number) => {
     const tag = `Combo ${si + 1}`;
     if (!str(s?.title)) errors.push(`${tag}: informe o título.`);
+    if (str(s?.main_product_name).length > 200) errors.push(`${tag}: produto principal muito longo.`);
+    if (s?.main_product_catalog_id && !UUID_RE.test(String(s.main_product_catalog_id))) errors.push(`${tag}: produto principal inválido.`);
     const items = Array.isArray(s?.items) ? s.items : [];
     if (items.length === 0) errors.push(`${tag}: adicione pelo menos um item.`);
     items.forEach((it: any, ii: number) => {
@@ -472,6 +475,8 @@ export function makeGuidedExecutors(ctx: GuidedCtx, onPending: (p: PendingRef) =
 
       const sections = (a.sections || []).map((s: any, si: number) => ({
         title: str(s.title), description: str(s.description) || null,
+        main_product_name: str(s.main_product_name) || null,
+        main_product_catalog_id: s.main_product_catalog_id || null,
         items: (s.items || []).map((it: any, ii: number) => {
           const variation: any = it.catalog_variation_id ? vMap.get(it.catalog_variation_id) : null;
           const productId = variation?.catalog_product_id || it.catalog_product_id || null;
@@ -490,7 +495,7 @@ export function makeGuidedExecutors(ctx: GuidedCtx, onPending: (p: PendingRef) =
             item_type: product ? "catalog" : "custom",
             catalog_product_id: product ? product.id : null,
             catalog_variation_id: variation ? variation.id : null,
-            name, sku: variation?.sku ?? null,
+            name, sku: variation?.sku ?? null, description: str(it.description) || null,
             image_url: product ? (product.image_url || product.og_image_url || null) : null,
             quantity: num(it.quantity) ?? 1, market_unit_price: market, promotional_unit_price: promo,
             group_label: str(it.group_label) || null,
@@ -523,6 +528,8 @@ export function makeGuidedExecutors(ctx: GuidedCtx, onPending: (p: PendingRef) =
       if (a.event_id !== undefined) header.event_id = a.event_id || null;
       if (a.distributor_id !== undefined) header.distributor_id = a.distributor_id || null;
       if (typeof a.include_official_price_table === "boolean") header.include_official_price_table = a.include_official_price_table;
+      if (typeof a.kol_visible === "boolean") header.kol_visible = a.kol_visible;
+      const finalStatus = a.status === "draft" ? "draft" : "active";
       if (a.coupon) {
         header.coupon_discount_type = a.coupon.discount_type || "percent";
         header.coupon_discount_value = Number(a.coupon.discount_value);
@@ -548,7 +555,7 @@ export function makeGuidedExecutors(ctx: GuidedCtx, onPending: (p: PendingRef) =
       if (header.valid_from || header.valid_until) lines.push(`- Vigência: ${header.valid_from || existing?.valid_from || "—"} a ${header.valid_until || existing?.valid_until || "—"}`);
       lines.push(`- Moeda: ${currency}`);
       refs.forEach((r) => lines.push(`- ${r}`));
-      if (!isEdit) lines.push(`- Situação após confirmar: **ativa**`);
+      if (!isEdit) lines.push(`- Situação após confirmar: **${finalStatus === "draft" ? "rascunho" : "ativa"}**`);
       for (const s of sections) {
         lines.push("", `**${s.title}**`, "| Item | Qtd. | Mercado | Promocional | Desconto |", "|---|---|---|---|---|");
         let tm = 0, tp = 0;
@@ -566,7 +573,7 @@ export function makeGuidedExecutors(ctx: GuidedCtx, onPending: (p: PendingRef) =
       if (warnings.length) lines.push("", ...warnings.map((w) => `- ⚠️ ${w}`));
       const summary = lines.join("\n");
 
-      return savePending("promo_table", { table_id: a.table_id || null, header, sections, item_updates: itemUpdates }, summary, title);
+      return savePending("promo_table", { table_id: a.table_id || null, header, sections, item_updates: itemUpdates, final_status: finalStatus }, summary, title);
     },
 
     list_wa_groups: async (a) => {
@@ -647,7 +654,7 @@ async function runPromo(ctx: GuidedCtx, p: any) {
   let order = count || 0;
   for (const s of p.sections || []) {
     const { data: sec, error } = await sb.from("promotional_table_sections")
-      .insert({ promotional_table_id: tableId, title: s.title, description: s.description, sort_order: order++ }).select("id").single();
+      .insert({ promotional_table_id: tableId, title: s.title, description: s.description, main_product_name: s.main_product_name ?? null, main_product_catalog_id: s.main_product_catalog_id ?? null, sort_order: order++ }).select("id").single();
     if (error) throw new Error(`Combo "${s.title}": ${error.message} (tabela ${tableId} ficou em rascunho)`);
     created.sections++;
     const rows = (s.items || []).map((it: any, i: number) => ({ ...it, section_id: sec.id, sort_order: i }));
@@ -665,7 +672,7 @@ async function runPromo(ctx: GuidedCtx, p: any) {
     if (error) throw new Error(`Item ${u.item_id}: ${error.message}`);
     created.updated_items++;
   }
-  if (!p.table_id) {
+  if (!p.table_id && p.final_status !== "draft") {
     const { error } = await sb.from("promotional_tables").update({ status: "active" }).eq("id", tableId);
     if (error) throw new Error(`Ativação: ${error.message} (tabela ${tableId} ficou em rascunho)`);
   }
@@ -728,7 +735,7 @@ export async function executePendingAction(ctx: GuidedCtx, id: string, decision:
     await sb.from("copilot_pending_actions").update({ status: "executed", result }).eq("id", id);
     if (row.action_type === "promo_table") {
       const r: any = result;
-      return { ok: true, result, content: `✅ **Tabela promocional ${row.payload.table_id ? "atualizada" : "criada e ativa"}.**\n- ID: ${r.table_id}\n- Combos adicionados: ${r.sections} · itens: ${r.items}${r.updated_items ? ` · itens alterados: ${r.updated_items}` : ""}\n- Abra em Catálogo › Tabelas promocionais para gerar cupons e o PDF.` };
+      return { ok: true, result, content: `✅ **Tabela promocional ${row.payload.table_id ? "atualizada" : row.payload.final_status === "draft" ? "criada como rascunho" : "criada e ativa"}.**\n- ID: ${r.table_id}\n- Combos adicionados: ${r.sections} · itens: ${r.items}${r.updated_items ? ` · itens alterados: ${r.updated_items}` : ""}\n- Abra em Catálogo › Tabelas promocionais para gerar cupons e o PDF.` };
     }
     const r: any = result;
     return { ok: true, result, content: `✅ **Campanha de grupos ${row.payload.campaign_id ? "atualizada" : "criada"} e ativada.**\n- ID: ${r.campaign_id}\n- Grupos: ${r.ativacao?.groups ?? "—"} · mensagens na fila: ${r.ativacao?.queued ?? 0}\n- Primeiro envio: ${r.ativacao?.first_send ? new Date(r.ativacao.first_send).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" }) : "conforme agenda"}` };
@@ -745,4 +752,31 @@ export function renderPendingBlock(p: PendingRef) {
 
 export function stripActionMarkers(text: string) {
   return String(text || "").replace(new RegExp("```" + ACTION_MARKER + "[\\s\\S]*?```", "g"), "").trim();
+}
+
+// ───────────────────────── Passo a passo (sem IA) ─────────────────────────
+// O passo a passo da tela já coletou e mostrou o resumo; "Confirmar e salvar"
+// valida de novo aqui (mesmas regras da criação guiada), registra a ação para
+// auditoria e grava na mesma requisição — equivalente ao clique em Salvar.
+export const WIZARD_KINDS = new Set(["tabela_promocional"]);
+
+export function wizardAllowed(ctx: GuidedCtx, kind: string) {
+  if (!WIZARD_KINDS.has(kind)) return { allowed: false, reason: "Passo a passo desconhecido." };
+  if (kind === "tabela_promocional" && !ctx.isAdmin) return { allowed: false, reason: PROMO_ADMIN_ONLY };
+  return { allowed: true };
+}
+
+export async function submitWizard(ctx: GuidedCtx, kind: string, input: any) {
+  const gate = wizardAllowed(ctx, kind);
+  if (!gate.allowed) return { ok: false, content: `❌ ${gate.reason}` };
+  if (!input || typeof input !== "object" || Array.isArray(input)) return { ok: false, content: "❌ Dados inválidos." };
+  const { table_id: _t, item_updates: _u, ...clean } = input;
+  const pending: PendingRef[] = [];
+  const ex = makeGuidedExecutors(ctx, (p) => pending.push(p));
+  const prep = await ex.prepare_promotional_table(clean);
+  if (!prep?.success || !prep.pending_action_id) {
+    const errors: string[] = prep?.errors || (prep?.error ? [prep.error] : ["Não foi possível validar."]);
+    return { ok: false, errors, content: `❌ Não salvei. Corrija:\n${errors.map((e) => `- ${e}`).join("\n")}` };
+  }
+  return executePendingAction(ctx, prep.pending_action_id, "confirm");
 }

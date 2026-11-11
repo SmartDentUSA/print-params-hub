@@ -2,7 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { logAIUsage, extractUsage } from "../_shared/log-ai-usage.ts";
 import { fetchSystemAProduct } from "../_shared/system-a-live.ts";
-import { guidedTools, makeGuidedExecutors, executePendingAction, renderPendingBlock, stripActionMarkers, type PendingRef } from "./guided.ts";
+import { guidedTools, makeGuidedExecutors, executePendingAction, renderPendingBlock, stripActionMarkers, submitWizard, wizardAllowed, type PendingRef } from "./guided.ts";
 import { buildScreenContextMessage } from "./screen-context.ts";
 
 const corsHeaders = {
@@ -3906,6 +3906,14 @@ serve(async (req) => {
     const guidedCtx = { sb: supabase, userId: authUser.id, supabaseUrl: SUPABASE_URL, serviceKey: SUPABASE_SERVICE_ROLE_KEY, isAdmin: isAdminRole === true };
 
     const reqBody = await req.json();
+    // ── Passo a passo (sem LLM): checagem de permissão e "Confirmar e salvar" ──
+    if (typeof reqBody?.wizard_check === "string") {
+      return new Response(JSON.stringify(wizardAllowed(guidedCtx, reqBody.wizard_check)), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+    if (reqBody?.wizard_submit && typeof reqBody.wizard_submit === "object") {
+      const out = await submitWizard(guidedCtx, String(reqBody.wizard_submit.kind || ""), reqBody.wizard_submit.input);
+      return new Response(JSON.stringify(out), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
     // ── Confirmar/Cancelar de ação preparada: execução determinística, sem LLM ──
     if (reqBody?.confirm_action_id) {
       const decision = reqBody.decision === "cancel" ? "cancel" : "confirm";
