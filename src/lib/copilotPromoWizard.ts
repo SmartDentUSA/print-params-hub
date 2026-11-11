@@ -356,7 +356,7 @@ export function promoSummary(s: PromoState): string {
     `- Evento: ${refLabel(s.events, h.event_id) ?? "nenhum"}`,
     `- Uso: ${h.distributor_id ? `distribuidor ${refLabel(s.distributors, h.distributor_id) ?? ""}` : "campanha geral"}`,
     `- Moeda: ${cur} · Vigência: ${formatDateBR(h.valid_from)} a ${formatDateBR(h.valid_until)}`,
-    `- Status ao salvar: **${h.status === "active" ? "Ativa" : "Rascunho"}**`,
+    `- Status ao salvar: ${h.status === "active" ? "Ativa" : "Rascunho"}`,
     `- Tabela oficial no PDF: ${h.include_official_price_table ? "sim" : "não"} · KOLs: ${h.kol_visible ? "sim" : "não"}`,
   ];
   if (h.notes) lines.push(`- Observações: ${h.notes.replace(/\n+/g, " ").slice(0, 200)}`);
@@ -372,7 +372,7 @@ export function promoSummary(s: PromoState): string {
       tm += it.market_unit_price * it.quantity; tp += it.promotional_unit_price * it.quantity;
       lines.push(`| ${it.name}${it.kind === "custom" ? " (personalizado)" : ""} | ${it.quantity} | ${money(it.market_unit_price, cur)} | ${money(it.promotional_unit_price, cur)} | ${discountPct(it.market_unit_price, it.promotional_unit_price)}% |`);
     }
-    lines.push(`| **Total do combo** |  | ${money(tm, cur)} | ${money(tp, cur)} | ${discountPct(tm, tp)}% |`);
+    lines.push(`| Total do combo |  | ${money(tm, cur)} | ${money(tp, cur)} | ${discountPct(tm, tp)}% |`);
   }
   return lines.join("\n");
 }
