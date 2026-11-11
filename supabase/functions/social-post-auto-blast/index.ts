@@ -4,6 +4,7 @@
 // blast_seq > ponteiro `social_auto_blast_last_seq` em cron_state.
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { postTargetStatus } from '../_shared/post-group-eligibility.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -177,20 +178,28 @@ serve(async (req) => {
   const targetIds = Array.from(new Set((targets ?? []).map((t: any) => t.group_id).filter(Boolean)));
 
   const { data: waGroups } = targetIds.length
-    ? await sb.from('wa_groups').select('id, group_jid, instance_name, is_admin, enabled').in('id', targetIds)
+    ? await sb.from('wa_groups').select('id, group_jid, instance_name, is_admin, enabled, ativo').in('id', targetIds)
     : { data: [] as any[] } as any;
   const groupById = new Map<string, any>((waGroups ?? []).map((g: any) => [g.id, g]));
 
   // jids por instância + plataformas permitidas (vazio = todas)
   type TargetJid = { jid: string; platforms: string[] };
   const targetsByInstance: Record<string, TargetJid[]> = {};
+  // Segue a tela Post Grupos: instância ATIVA + grupo selecionado nela + redes.
+  // O grupo precisa continuar vinculado ao mesmo número, ligado e com o número admin.
+  const skippedTargets: Record<string, number> = {};
   for (const t of (targets ?? []) as any[]) {
     const g = groupById.get(t.group_id);
-    if (!g || !g.group_jid || !g.is_admin || !g.enabled) continue;
+    const status = postTargetStatus(t.instance_name, g);
+    if (status !== 'ready') { skippedTargets[status] = (skippedTargets[status] ?? 0) + 1; continue; }
     (targetsByInstance[t.instance_name] ??= []).push({
       jid: g.group_jid,
       platforms: Array.isArray(t.platforms) ? t.platforms : [],
     });
+  }
+
+  if (Object.keys(skippedTargets).length > 0) {
+    console.log('[social-post-auto-blast] alvos fora do envio', JSON.stringify(skippedTargets));
   }
 
   let dispatched = 0;
