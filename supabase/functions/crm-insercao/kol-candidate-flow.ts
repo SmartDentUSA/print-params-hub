@@ -7,7 +7,7 @@
 // Não toca em funis Vendas/CS: o deal vive só no pipeline KOL.
 import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
 import { z } from "npm:zod@3.23.8";
-import { piperunGet, piperunPost, addDealNote } from "../_shared/piperun-field-map.ts";
+import { piperunGet, piperunPost, addDealNote, normalizePipeRunDealStatus } from "../_shared/piperun-field-map.ts";
 import { findPersonByContact, validateCachedPerson, isValidEmailTld } from "../_shared/piperun-person-resolver.ts";
 import { claimSellerNoteSlot, releaseSellerNoteSlot } from "../_shared/seller-note-lock.ts";
 import { normalizeBrazilianPhone } from "../_shared/phone-normalize.ts";
@@ -178,7 +178,7 @@ export async function runKolCandidate(deps: {
     // ── 4) Deal no funil KOL · Interessados · proprietário Beatriz ──
     if (personId && !dealId) {
       const ex = await piperunGet(PIPERUN_KEY, "deals", { person_id: personId, pipeline_id: KOL_PIPELINE_ID, show: 50 }).catch(() => null);
-      const open = (((ex?.data as any)?.data ?? []) as any[]).find((d) => Number(d.pipeline_id) === KOL_PIPELINE_ID && !d.deleted && Number(d.status ?? 0) === 0);
+      const open = (((ex?.data as any)?.data ?? []) as any[]).find((d) => Number(d.pipeline_id) === KOL_PIPELINE_ID && !d.deleted && normalizePipeRunDealStatus(d.status) === "open");
       if (open) {
         dealId = Number(open.id);
         steps.push({ step: "crm_deal", ok: true, detail: `Deal #${dealId} já existia no funil KOL — reaproveitado sem mudar a etapa.` });
