@@ -10,8 +10,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Star, CheckCircle2, Hourglass } from "lucide-react";
-import {
 import { localPhoneDigits } from "@/lib/phoneInput";
+import {
   QualificationFormInline,
   type QualificationSubmitPayload,
 } from "@/components/forms/QualificationFormInline";
