@@ -1,6 +1,6 @@
 import { useState, useEffect, lazy, Suspense, useCallback } from "react";
 import { User } from '@supabase/supabase-js';
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from '@/integrations/supabase/client';
 import { ConnectionError } from "@/components/ConnectionError";
 import { AuthPage } from "@/components/AuthPage";
@@ -76,6 +76,7 @@ export default function AdminViewSecure() {
   const [userRole, setUserRole] = useState<'admin' | 'author' | 'user' | 'distribuidor' | null>(null);
   const [isSupport, setIsSupport] = useState(false);
   const navigate = useNavigate();
+  const [, setSearchParams] = useSearchParams();
   const [loading, setLoading] = useState(true);
   const [connectionError, setConnectionError] = useState(false);
   const [activeSection, setActiveSection] = useState<string>('models');
@@ -233,6 +234,21 @@ export default function AdminViewSecure() {
 
     return () => subscription.unsubscribe();
   }, [loadUserAccess]);
+
+  // Botão "Abrir a tela" do Copilot: abre a mesma seção do menu lateral.
+  useEffect(() => {
+    const onOpen = (e: Event) => {
+      const { section, sub } = (e as CustomEvent<{ section?: string; sub?: string }>).detail || {};
+      if (!section) return;
+      setActiveSection(section);
+      if (sub) {
+        setSearchParams((prev) => { const next = new URLSearchParams(prev); next.set("sub", sub); return next; }, { replace: true });
+      }
+      window.scrollTo({ top: 0 });
+    };
+    window.addEventListener("admin:open-section", onOpen);
+    return () => window.removeEventListener("admin:open-section", onOpen);
+  }, [setSearchParams]);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
