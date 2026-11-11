@@ -12,6 +12,7 @@ import { DepoimentoUploadAccordion } from "@/components/agenda/DepoimentoUploadA
 import { PastTrainingsUploadAccordion } from "@/components/agenda/PastTrainingsUploadAccordion";
 import { EventsUploadAccordion } from "@/components/agenda/EventsUploadAccordion";
 import { CrmInsertionButton } from "@/components/agenda/CrmInsertionButton";
+import { KolCandidateButton } from "@/components/agenda/KolCandidateButton";
 import { AccountButton } from "@/components/AccountButton";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -368,8 +369,9 @@ export default function AgendaPublica({ variant = "presencial" }: AgendaPublicaP
             </button>
           </div>
           {isTeamMember && (
-            <div className="mt-4 flex justify-center">
+            <div className="mt-4 flex flex-col items-stretch justify-center gap-2 sm:flex-row sm:items-center">
               <CrmInsertionButton />
+              <KolCandidateButton />
             </div>
           )}
         </header>

@@ -19,6 +19,8 @@ import {
   phoneVariants,
   type DealView,
 } from "./rules.ts";
+import { classifySearchInput } from "./kol-candidate.ts";
+import { KolSubmitSchema, runKolCandidate } from "./kol-candidate-flow.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -140,6 +142,11 @@ async function listKols(me: TeamMember) {
     .eq("is_test", false)
     .is("merged_into", null)
     .limit(500);
+  const ids = (data ?? []).map((k: any) => k.id);
+  const { data: signed } = ids.length
+    ? await sb.from("kol_contracts").select("lead_id").in("lead_id", ids).eq("status", "assinado").is("revoked_at", null).eq("is_test", false)
+    : { data: [] as any[] };
+  const signedSet = new Set((signed ?? []).map((c: any) => c.lead_id));
   const out = [];
   for (const k of data ?? []) {
     const seller = await kolSeller(k);
@@ -149,6 +156,7 @@ async function listKols(me: TeamMember) {
       seller_id: seller?.id ?? null,
       seller_nome: seller?.nome_completo ?? null,
       linked: seller?.id === me.id,
+      contract_pending: !signedSet.has(k.id),
     });
   }
   return out.sort((a, b) => Number(b.linked) - Number(a.linked) || a.nome.localeCompare(b.nome, "pt-BR"));
@@ -463,6 +471,36 @@ async function kolTimeline(kolId: string, eventType: string, entityId: string, e
   if (error) console.warn("[crm-insercao] kol timeline", error.message);
 }
 
+// ── ID do CRM (deal ou pessoa PipeRun) → celular do cadastro ──
+async function phoneFromCrmId(idDigits: string): Promise<string | null> {
+  const id = Number(idDigits);
+  const pick = (v: unknown) => { const d = String(v ?? "").replace(/\D/g, ""); return d.length >= 10 ? d : null; };
+  const { data: deal } = await sb.from("deals").select("lead_id").eq("piperun_deal_id", String(id)).not("lead_id", "is", null).limit(1).maybeSingle();
+  const leadQ = deal?.lead_id
+    ? await sb.from("lia_attendances").select("telefone_normalized, merged_into").eq("id", deal.lead_id).maybeSingle()
+    : await sb.from("lia_attendances").select("telefone_normalized, merged_into").is("merged_into", null).or(`pessoa_piperun_id.eq.${id},piperun_id.eq.${id}`).limit(1).maybeSingle();
+  let phone = leadQ.data && !leadQ.data.merged_into ? pick(leadQ.data.telefone_normalized) : null;
+  if (!phone && leadQ.data?.merged_into) {
+    const { data: canon } = await sb.from("lia_attendances").select("telefone_normalized").eq("id", leadQ.data.merged_into).maybeSingle();
+    phone = pick(canon?.telefone_normalized);
+  }
+  if (phone) return phone;
+  const { data: pm } = await sb.from("piperun_persons_mirror").select("phone_digits").eq("piperun_person_id", id).maybeSingle();
+  if (pick(pm?.phone_digits)) return pick(pm?.phone_digits);
+  if (!PIPERUN_KEY) return null;
+  const personPhone = async (pid: number) => {
+    const r = await piperunGet(PIPERUN_KEY, `persons/${pid}`).catch(() => null);
+    const p = (r?.data as any)?.data;
+    const list = [...(p?.phones ?? []), ...(p?.contact_phones ?? [])].map((x: any) => x?.phone ?? x?.number ?? x);
+    for (const v of list) { const d = pick(v); if (d) return d; }
+    return pick(p?.cellphone);
+  };
+  const d = await piperunGet(PIPERUN_KEY, `deals/${id}`).catch(() => null);
+  const pid = Number((d?.data as any)?.data?.person_id ?? 0);
+  if (pid) { const ph = await personPhone(pid); if (ph) return ph; }
+  return await personPhone(id);
+}
+
 const SubmitSchema = z.object({
   nome: z.string().trim().min(2).max(160),
   telefone: z.string().trim().min(10).max(20),
@@ -575,6 +613,49 @@ Deno.serve(async (req) => {
         });
       }
       return json({ ok: true, emails: sent });
+    }
+
+    if (action === "kol_search") {
+      const since = new Date(Date.now() - 3600_000).toISOString();
+      const { count } = await sb.from("crm_insertion_log").select("id", { count: "exact", head: true })
+        .eq("auth_user_id", user_id).in("action", ["search", "kol_search"]).gte("created_at", since);
+      if ((count ?? 0) >= SEARCH_LIMIT_PER_HOUR) return json({ error: "Limite de buscas por hora atingido. Tente mais tarde." }, 429);
+      const q = classifySearchInput(String(body?.query ?? ""));
+      if (q.kind === "invalid") return json({ error: "Informe o celular com DDD (55xxxxxxxxxxx) ou o ID do CRM." }, 400);
+      const phone = q.kind === "phone" ? q.digits : await phoneFromCrmId(q.digits);
+      if (!phone) return json({ error: `Não encontrei celular para o ID ${q.digits} no CRM. Busque pelo celular do candidato.` }, 404);
+      const found = await searchRecords(phone, null);
+      const leadId = found.leads[0]?.id ?? null;
+      let kol: Record<string, unknown> | null = null;
+      if (leadId) {
+        const [{ data: l }, { data: c }, { data: reg }] = await Promise.all([
+          sb.from("lia_attendances").select("is_kol").eq("id", leadId).maybeSingle(),
+          sb.from("kol_contracts").select("number, status").eq("lead_id", leadId).is("revoked_at", null).eq("is_test", false).order("created_at", { ascending: false }).limit(1).maybeSingle(),
+          sb.from("kol_candidate_registrations").select("piperun_deal_id, wa_group_jid, wa_message_sent_at, created_at").eq("lead_id", leadId).maybeSingle(),
+        ]);
+        kol = { is_kol: !!l?.is_kol, contract: c ?? null, registration: reg ?? null };
+      }
+      await sb.from("crm_insertion_log").insert({
+        auth_user_id: user_id, team_member_id: tm.id, action: "kol_search", lead_phone: phone.replace(/\D/g, ""),
+        lead_id: leadId, outcome: found.leads.length || found.persons.length ? "found" : "not_found",
+      });
+      return json({ ...found, resolved_phone: phone, kol, searched_by: q.kind });
+    }
+
+    if (action === "kol_submit") {
+      const parsed = KolSubmitSchema.safeParse(body?.data);
+      if (!parsed.success) return json({ error: "Dados inválidos", fields: parsed.error.flatten().fieldErrors }, 400);
+      const options = await canonicalOptions();
+      if (!options.area_atuacao.includes(parsed.data.area_atuacao)) return json({ error: "Área de atuação fora da lista." }, 400);
+      if (!options.especialidade.includes(parsed.data.especialidade)) return json({ error: "Especialidade fora da lista." }, 400);
+      const r: any = await runKolCandidate({ sb, tm, userId: user_id, input: parsed.data, searchRecords });
+      await sb.from("crm_insertion_log").insert({
+        auth_user_id: user_id, team_member_id: tm.id, action: "kol_submit", lead_phone: parsed.data.telefone.replace(/\D/g, ""),
+        lead_id: r.lead_id ?? null, origin_name: r.origin ?? null, target_seller_team_member_id: tm.id,
+        outcome: r.error ? "error" : r.ok ? "created" : "partial", result: r,
+      });
+      if (r.error) return json({ error: r.error }, r.status ?? 500);
+      return json(r);
     }
 
     if (action === "submit") {

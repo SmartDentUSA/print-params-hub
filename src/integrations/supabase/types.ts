@@ -9027,6 +9027,221 @@ export type Database = {
         }
         Relationships: []
       }
+      kol_candidate_registrations: {
+        Row: {
+          created_at: string
+          id: string
+          lead_id: string
+          note_posted_at: string | null
+          piperun_deal_id: number | null
+          piperun_person_id: number | null
+          portal_url: string | null
+          registrant_team_member_id: string | null
+          seller_team_member_id: string | null
+          steps: Json
+          updated_at: string
+          wa_group_error: string | null
+          wa_group_jid: string | null
+          wa_group_name: string | null
+          wa_message_error: string | null
+          wa_message_id: string | null
+          wa_message_sent_at: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          lead_id: string
+          note_posted_at?: string | null
+          piperun_deal_id?: number | null
+          piperun_person_id?: number | null
+          portal_url?: string | null
+          registrant_team_member_id?: string | null
+          seller_team_member_id?: string | null
+          steps?: Json
+          updated_at?: string
+          wa_group_error?: string | null
+          wa_group_jid?: string | null
+          wa_group_name?: string | null
+          wa_message_error?: string | null
+          wa_message_id?: string | null
+          wa_message_sent_at?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          lead_id?: string
+          note_posted_at?: string | null
+          piperun_deal_id?: number | null
+          piperun_person_id?: number | null
+          portal_url?: string | null
+          registrant_team_member_id?: string | null
+          seller_team_member_id?: string | null
+          steps?: Json
+          updated_at?: string
+          wa_group_error?: string | null
+          wa_group_jid?: string | null
+          wa_group_name?: string | null
+          wa_message_error?: string | null
+          wa_message_id?: string | null
+          wa_message_sent_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "kol_candidate_registrations_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: true
+            referencedRelation: "lead_model_routing"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "kol_candidate_registrations_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: true
+            referencedRelation: "lia_attendances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "kol_candidate_registrations_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: true
+            referencedRelation: "v_bi_atividades_unnested"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "kol_candidate_registrations_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: true
+            referencedRelation: "v_kol_leads_reportable"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "kol_candidate_registrations_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: true
+            referencedRelation: "v_lead_academy"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "kol_candidate_registrations_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: true
+            referencedRelation: "v_lead_cognitive"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "kol_candidate_registrations_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: true
+            referencedRelation: "v_lead_commercial"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "kol_candidate_registrations_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: true
+            referencedRelation: "v_lead_ecommerce"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "kol_candidate_registrations_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: true
+            referencedRelation: "v_lead_pipeline"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "kol_candidate_registrations_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: true
+            referencedRelation: "v_lead_stage_purchases"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "kol_candidate_registrations_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: true
+            referencedRelation: "v_leads_correto"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "kol_candidate_registrations_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: true
+            referencedRelation: "v_leads_pendentes_atribuicao"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "kol_candidate_registrations_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: true
+            referencedRelation: "v_opportunity_engine"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "kol_candidate_registrations_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: true
+            referencedRelation: "v_pipeline_atual"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "kol_candidate_registrations_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: true
+            referencedRelation: "v_reactivation_candidates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "kol_candidate_registrations_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: true
+            referencedRelation: "v_timing_alerts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "kol_candidate_registrations_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: true
+            referencedRelation: "v_workflow_portfolio"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "kol_candidate_registrations_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: true
+            referencedRelation: "v_workflow_timeline"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "kol_candidate_registrations_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: true
+            referencedRelation: "vw_leads_orfaos_recentes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "kol_candidate_registrations_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: true
+            referencedRelation: "vw_leads_qualidade_ruim"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "kol_candidate_registrations_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: true
+            referencedRelation: "vw_lia_attendances_enriched"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "kol_candidate_registrations_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: true
+            referencedRelation: "vw_vendas_ganhas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       kol_commission_template_items: {
         Row: {
           active_from: string | null

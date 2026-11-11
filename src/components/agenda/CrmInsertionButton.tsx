@@ -13,17 +13,17 @@ import { AlertTriangle, Briefcase, Building2, Check, ChevronsUpDown, ClipboardPl
 import { CrmLeadSummary, dealStatus } from "./CrmLeadSummary";
 import { cn } from "@/lib/utils";
 
-type Kol = { id: string; nome: string; seller_id: string | null; seller_nome: string | null; linked: boolean };
+type Kol = { id: string; nome: string; seller_id: string | null; seller_nome: string | null; linked: boolean; contract_pending?: boolean };
 type Product = { id: string; name: string; group: string | null };
-type Bootstrap = { me: { id: string; nome: string }; options: { area_atuacao: string[]; especialidade: string[]; produtos: Product[] }; kols: Kol[] };
+export type Bootstrap = { me: { id: string; nome: string }; options: { area_atuacao: string[]; especialidade: string[]; produtos: Product[] }; kols: Kol[] };
 type Deal = { deal_id: string; lead_id: string | null; pipeline_name: string | null; pipeline_id: number | null; stage_name: string | null; status: string | null; owner_name: string | null; value: number | null; product: string | null; origin_name: string | null; title?: string | null; created_at: string | null; closed_at?: string | null };
 type Alert = { deal_id: string; owner_name: string; owner_team_member_id: string | null; has_email?: boolean; pipeline: string; stage: string };
-type Found = { leads: any[]; persons: any[]; companies: any[]; deals: Deal[]; latest_deal: Deal | null; summary: { title: string; lines: string[] }[]; conversions?: { date: string | null; name: string }[]; extras?: { courses: string[]; tickets: number }; alerts: Alert[]; live_checked: boolean };
+export type Found = { leads: any[]; persons: any[]; companies: any[]; deals: Deal[]; latest_deal: Deal | null; summary: { title: string; lines: string[] }[]; conversions?: { date: string | null; name: string }[]; extras?: { courses: string[]; tickets: number }; alerts: Alert[]; live_checked: boolean };
 type FormState = { nome: string; email: string; area_atuacao: string; especialidade: string; product_id: string; kol_id: string; tipo: "" | "ativa" | "fria"; empresa_nome: string; empresa_cnpj: string };
 
 const EMPTY: FormState = { nome: "", email: "", area_atuacao: "", especialidade: "", product_id: "", kol_id: "", tipo: "", empresa_nome: "", empresa_cnpj: "" };
 
-async function call<T>(action: string, extra: Record<string, unknown> = {}): Promise<T> {
+export async function call<T>(action: string, extra: Record<string, unknown> = {}): Promise<T> {
   const { data, error } = await supabase.functions.invoke("crm-insercao", { body: { action, ...extra } });
   if (error) {
     let msg = error.message;
@@ -77,7 +77,7 @@ function UseButton({ locked, onClick }: { locked?: string | null; onClick: () =>
   );
 }
 
-function RecordCard({ icon, title, badge, lines, onUse, locked }: { icon: React.ReactNode; title: string; badge?: string | null; lines: (string | null | undefined)[]; onUse: () => void; locked?: string | null }) {
+export function RecordCard({ icon, title, badge, lines, onUse, locked }: { icon: React.ReactNode; title: string; badge?: string | null; lines: (string | null | undefined)[]; onUse: () => void; locked?: string | null }) {
   return (
     <div className="flex flex-wrap items-start gap-2 rounded-lg border bg-card p-3">
       <div className="mt-0.5 text-primary">{icon}</div>
@@ -353,8 +353,13 @@ export function CrmInsertionButton() {
                       )}
                     </div>
                     <Combo value={form.kol_id} onChange={(v) => set("kol_id", v)} placeholder="Selecione o profissional" empty="Nenhum profissional"
-                      items={visibleKols.map((k) => ({ value: k.id, label: k.nome, hint: k.seller_nome ? `Vendedor: ${k.seller_nome}` : "sem vendedor vinculado" }))} />
+                      items={visibleKols.map((k) => ({ value: k.id, label: k.contract_pending ? `⚠ ${k.nome}` : k.nome, hint: [k.contract_pending ? "Contrato pendente" : null, k.seller_nome ? `Vendedor: ${k.seller_nome}` : "sem vendedor vinculado"].filter(Boolean).join(" · ") }))} />
                     {!linkedKols.length && <p className="text-xs text-muted-foreground">Nenhum profissional vinculado a você; exibindo todos.</p>}
+                    {selectedKol?.contract_pending && (
+                      <p className="flex items-center gap-1.5 rounded-md border border-warning/50 bg-warning/10 px-2 py-1 text-xs">
+                        <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-warning" /> Contrato pendente — o profissional ainda não assinou o contrato de KOL. A indicação é registrada normalmente.
+                      </p>
+                    )}
                     {selectedKol && !selectedKol.seller_id && <p className="text-xs text-destructive">Este profissional não tem vendedor de contrato vinculado.</p>}
                   </div>
                 </div>
