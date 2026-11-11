@@ -1,6 +1,7 @@
 // client-access-login — login de clientes por celular (magic link por SMS).
 // Ações: request (envia link), lookup (dados do token), confirm (cria sessão).
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { findTeamMemberByPhone } from "../_shared/team-phone-match.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -91,21 +92,16 @@ Deno.serve(async (req) => {
         if (data?.[0]) { lead = { id: data[0].id, nome: data[0].nome }; break; }
       }
 
-      // Team member (equipe Smart Dent) pelo WhatsApp cadastrado
+      // Team member (equipe Smart Dent): qualquer celular cadastrado no membro ativo
+      // (WhatsApp, instância ou notificação), com ou sem 55 e 9º dígito.
       let teamMember: { id: string; nome_completo: string } | null = null;
       {
-        const d10 = phone.slice(-10);
-        const d8 = phone.slice(-8);
-        const { data: tms } = await supabase
+        const { data: tms, error: eTm } = await supabase
           .from("team_members")
-          .select("id, nome_completo, whatsapp_number")
-          .eq("ativo", true)
-          .ilike("whatsapp_number", `%${d8}%`)
-          .limit(10);
-        const hit = (tms ?? []).find((t: any) => {
-          const td = String(t.whatsapp_number ?? "").replace(/\D+/g, "");
-          return td.endsWith(d10) || td.slice(-8) === d8 && td.slice(-10, -8) === d10.slice(0, 2);
-        });
+          .select("id, nome_completo, whatsapp_number, evolution_phone, notification_phone")
+          .eq("ativo", true);
+        if (eTm) await log("error", "team_lookup_failed", { message: eTm.message });
+        const hit = findTeamMemberByPhone((tms ?? []) as any[], phone);
         if (hit) teamMember = { id: hit.id, nome_completo: hit.nome_completo };
       }
 

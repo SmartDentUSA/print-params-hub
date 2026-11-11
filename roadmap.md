@@ -1,3 +1,4 @@
+- [x] Agenda: todos os celulares cadastrados de Team Members ativos (WhatsApp, instância, notificação; com/sem 9) entram e acessam todas as funções; 6 testes, 60/60 variações reconhecidas e login real do Celular Comercial sem 9 com Agenda, mídias e Inserção CRM/KOL liberados.
 - [x] Copilot com criação guiada: tabela promocional (criar/editar) e campanha de grupos WhatsApp (criar/editar rascunho), "campanha completa" encadeando as duas; resumo + Confirmar grava ativo; login obrigatório (admin/marketing). 11 testes e autoteste real (tabela criada, conferida e apagada; campanha cancelada) aprovados. Conversa autenticada na tela não conferida (Supabase externo sem sessão).
 - [ ] Copilot: próximas áreas guiadas (automação de e-mail, formulários, cursos) — aguardando prioridade do usuário.
 - [ ] `wa-campaign-builder` aceita chamadas sem login (ativa qualquer campanha pelo ID) — aguardando autorização para proteger.
