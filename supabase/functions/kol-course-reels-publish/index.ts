@@ -55,7 +55,7 @@ Deno.serve(async (req) => {
     const sb = createClient(SUPABASE_URL, Deno.env.get("SUPABASE_ANON_KEY")!, { global: { headers: { Authorization: `Bearer ${auth}` } } });
     const { data: { user } } = await sb.auth.getUser(auth);
     if (!user) return json({ error: "Não autenticado" }, 401);
-    const { data: staff } = await sb.rpc("fn_is_internal_staff");
+    const { data: staff } = await sb.rpc("fn_is_internal_staff", { _user_id: user.id });
     if (!staff) return json({ error: "Acesso restrito à equipe" }, 403);
     actor = user.email || user.id;
   }
