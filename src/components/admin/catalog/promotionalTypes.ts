@@ -11,7 +11,12 @@ export type PromotionalTable = {
   valid_until: string | null;
   notes: string | null;
   status: PromotionalStatus;
+  /** Liga/desliga a tabela de preços no final do PDF. */
   include_official_price_table?: boolean;
+  /** distribution = tabela de um distribuidor (padrão Loja Oficial); exclusive = tabela própria da promoção. */
+  price_table_mode?: "distribution" | "exclusive";
+  /** Distribuidor da tabela associada; vazio = Smart Dent (Loja Oficial). */
+  price_table_distributor_id?: string | null;
   kol_visible?: boolean;
   /** Ativa para comercial: entra na sequência de tabelas vigentes da Agenda (troca à meia-noite). */
   commercial_active?: boolean;

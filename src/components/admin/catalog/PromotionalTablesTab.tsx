@@ -15,6 +15,7 @@ import { toast } from "sonner";
 import { exportPromotionalPdf } from "./exportPromotionalPdf";
 import { PromotionalCouponsCard } from "./PromotionalCouponsCard";
 import { PromotionalCreativesCard } from "./PromotionalCreativesCard";
+import { PromotionalPriceTableCard } from "./PromotionalPriceTableCard";
 import type { PromotionalItem, PromotionalSectionWithItems, PromotionalStatus, PromotionalTable } from "./promotionalTypes";
 import { itemTotals } from "./promotionalTypes";
 
@@ -31,7 +32,8 @@ const catalogImage = (product: { image_url?: string | null; og_image_url?: strin
 const blankTable = (): Omit<PromotionalTable, "id" | "created_at" | "updated_at"> => ({
   name: "", pdf_title: "TABELA PROMOCIONAL", distributor_id: null, event_id: null, currency: "BRL",
   valid_from: null, valid_until: null, notes: null, status: "draft",
-  include_official_price_table: true, kol_visible: false, commercial_active: false,
+  include_official_price_table: true, price_table_mode: "distribution", price_table_distributor_id: null,
+  kol_visible: false, commercial_active: false,
   coupon_seller_ids: [], coupon_discount_type: "percent", coupon_discount_value: 0,
   coupon_prefix: null, coupon_usage_limit: null, coupon_valid_from: null, coupon_valid_until: null,
   coupon_li_category_ids: [], coupon_li_category_labels: [],
@@ -151,6 +153,8 @@ export function PromotionalTablesTab() {
       currency: table.currency, valid_from: table.valid_from, valid_until: table.valid_until,
       notes: table.notes, status: table.status,
       include_official_price_table: table.include_official_price_table !== false,
+      price_table_mode: table.price_table_mode === "exclusive" ? "exclusive" : "distribution",
+      price_table_distributor_id: table.price_table_distributor_id ?? null,
       kol_visible: table.kol_visible === true,
       commercial_active: table.commercial_active === true,
       coupon_seller_ids: table.coupon_seller_ids ?? [],
@@ -175,7 +179,7 @@ export function PromotionalTablesTab() {
   const publishKolPdf = async (table: PromotionalTable) => {
     try {
       const rows = await getTableSections(table.id);
-      if (!rows.some((s) => s.items.length)) { toast.info("Adicione itens para publicar o PDF da tabela."); return table; }
+      if (!rows.some((s) => s.items.length) && table.include_official_price_table === false) { toast.info("Adicione combos ou inclua a tabela de preços para publicar o PDF."); return table; }
       toast.info("Gerando PDF da tabela...");
       const blob = await exportPromotionalPdf(table, rows, distributorName(table.distributor_id), "blob");
       if (!blob) return table;
@@ -447,6 +451,18 @@ export function PromotionalTablesTab() {
       const rows = ((sourceItems as any) || []).filter((item: any) => item.section_id === sourceSection.id).map(({ id, section_id, created_at, updated_at, ...item }: any) => ({ ...item, section_id: (newSection as any).id }));
       if (rows.length) await supabase.from("promotional_table_items" as any).insert(rows);
     }
+    if (table.price_table_mode === "exclusive") {
+      const { data: ownList } = await supabase.from("dealer_price_lists" as any).select("*").eq("promotional_table_id", table.id).maybeSingle();
+      if (ownList) {
+        const { data: newList } = await supabase.from("dealer_price_lists" as any).insert({
+          promotional_table_id: (copy as any).id, distributor_id: null, name: `Promoção — ${(copy as any).name}`,
+          currency: (ownList as any).currency, language: (ownList as any).language, notes: (ownList as any).notes,
+        }).select("id").single();
+        const { data: ownItems } = await supabase.from("dealer_price_items" as any).select("*").eq("price_list_id", (ownList as any).id);
+        const rows = ((ownItems as any) || []).map(({ id, price_list_id, created_at, updated_at, ...item }: any) => ({ ...item, price_list_id: (newList as any)?.id }));
+        if (newList && rows.length) await supabase.from("dealer_price_items" as any).insert(rows);
+      }
+    }
     toast.success("Tabela duplicada."); await loadTables();
   };
 
@@ -470,7 +486,7 @@ export function PromotionalTablesTab() {
     rows: PromotionalSectionWithItems[],
     mode: "download" | "preview" = "download",
   ) => {
-    if (!rows.some((section) => section.items.length)) { toast.info("Adicione itens antes de gerar o PDF."); return; }
+    if (!rows.some((section) => section.items.length) && table.include_official_price_table === false) { toast.info("Adicione combos ou inclua a tabela de preços antes de gerar o PDF."); return; }
     try {
       await exportPromotionalPdf(table, rows, distributorName(table.distributor_id), mode);
     } catch (error: any) {
@@ -516,7 +532,7 @@ export function PromotionalTablesTab() {
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-wrap items-center justify-between gap-3"><Button variant="ghost" onClick={() => { setSelected(null); setSections([]); }}><ArrowLeft className="mr-2 h-4 w-4" />Voltar</Button><div className="flex flex-wrap gap-2"><Button variant="outline" disabled={!persisted || !sections.some((section) => section.items.length)} onClick={() => runExport({ ...selected, ...draft } as PromotionalTable, sections, "preview")}><Eye className="mr-2 h-4 w-4" />Visualizar PDF</Button><Button variant="outline" disabled={!persisted || !sections.some((section) => section.items.length)} onClick={() => runExport({ ...selected, ...draft } as PromotionalTable, sections)}><FileText className="mr-2 h-4 w-4" />Exportar PDF</Button><Button onClick={saveTable} disabled={saving}><Save className="mr-2 h-4 w-4" />{saving ? "Salvando..." : "Salvar tabela"}</Button></div></div>
+      <div className="flex flex-wrap items-center justify-between gap-3"><Button variant="ghost" onClick={() => { setSelected(null); setSections([]); }}><ArrowLeft className="mr-2 h-4 w-4" />Voltar</Button><div className="flex flex-wrap gap-2"><Button variant="outline" disabled={!persisted || (!sections.some((section) => section.items.length) && draft.include_official_price_table === false)} onClick={() => runExport({ ...selected, ...draft } as PromotionalTable, sections, "preview")}><Eye className="mr-2 h-4 w-4" />Visualizar PDF</Button><Button variant="outline" disabled={!persisted || (!sections.some((section) => section.items.length) && draft.include_official_price_table === false)} onClick={() => runExport({ ...selected, ...draft } as PromotionalTable, sections)}><FileText className="mr-2 h-4 w-4" />Exportar PDF</Button><Button onClick={saveTable} disabled={saving}><Save className="mr-2 h-4 w-4" />{saving ? "Salvando..." : "Salvar tabela"}</Button></div></div>
       <Card><CardHeader><CardTitle>Dados da promoção</CardTitle></CardHeader><CardContent className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <div className="space-y-2 md:col-span-2"><Label>Nome interno</Label><Input value={draft.name} onChange={(e) => setDraft((value) => ({ ...value, name: e.target.value }))} placeholder="Ex.: Combo Congresso CIPRO" /></div>
         <div className="space-y-2 md:col-span-2"><Label>Título no PDF</Label><Input value={draft.pdf_title} onChange={(e) => setDraft((value) => ({ ...value, pdf_title: e.target.value }))} /></div>
@@ -527,10 +543,6 @@ export function PromotionalTablesTab() {
         <div className="space-y-2"><Label>Fim</Label><Input type="date" value={draft.valid_until || ""} onChange={(e) => setDraft((row) => ({ ...row, valid_until: e.target.value || null }))} /></div>
         <div className="space-y-2"><Label>Status</Label><Select value={draft.status} onValueChange={(status: PromotionalStatus) => setDraft((row) => ({ ...row, status }))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="draft">Rascunho</SelectItem><SelectItem value="active">Ativa</SelectItem><SelectItem value="archived">Arquivada</SelectItem></SelectContent></Select></div>
         <div className="space-y-2 xl:col-span-3"><Label>Observações e condições</Label><Textarea value={draft.notes || ""} onChange={(e) => setDraft((row) => ({ ...row, notes: e.target.value || null }))} placeholder="Condições de pagamento, disponibilidade ou observações do combo" /></div>
-        <div className="flex items-start gap-3 rounded-md border p-3 md:col-span-2 xl:col-span-4">
-          <Switch checked={draft.include_official_price_table !== false} onCheckedChange={(checked) => setDraft((row) => ({ ...row, include_official_price_table: checked }))} />
-          <div className="space-y-1"><Label className="cursor-pointer">Incluir tabela Smart Dent (Loja Oficial) no final do PDF</Label><p className="text-xs text-muted-foreground">Anexa a tabela de preços oficial no mesmo formato usado nas revendas.</p></div>
-        </div>
         <div className="flex items-start gap-3 rounded-md border p-3 md:col-span-2 xl:col-span-4">
           <Switch checked={draft.kol_visible === true} onCheckedChange={(checked) => setDraft((row) => ({ ...row, kol_visible: checked }))} />
           <div className="space-y-1"><Label className="cursor-pointer">Vincular a tabela para KOLs - Profissionais</Label><p className="text-xs text-muted-foreground">Ao salvar, o PDF é publicado no menu “Tabela de preços” do Portal Profissional Parceiro (somente leitura e download).{selected?.kol_pdf_updated_at ? ` Última publicação: ${new Date(selected.kol_pdf_updated_at).toLocaleString("pt-BR")}.` : " Ainda não publicado."}</p>
@@ -554,6 +566,17 @@ export function PromotionalTablesTab() {
       />}
 
       {persisted && selected && <PromotionalCreativesCard table={selected as any} />}
+
+      {persisted && selected && <PromotionalPriceTableCard
+        table={{ ...selected, ...draft } as PromotionalTable}
+        distributors={distributors}
+        onChange={async (patch) => {
+          setDraft((row) => ({ ...row, ...patch }));
+          const { error } = await supabase.from("promotional_tables" as any).update(patch).eq("id", selected.id);
+          if (error) toast.error(error.message);
+          else setSelected((row) => (row ? { ...row, ...patch } as PromotionalTable : row));
+        }}
+      />}
 
       {persisted && <div className="space-y-4">
         <div className="flex items-center justify-between"><div><h3 className="font-semibold">Seções do combo</h3><p className="text-sm text-muted-foreground">Organize equipamentos, consumíveis, serviços, treinamentos ou qualquer outra composição.</p></div><div className="flex items-center gap-3"><p className="text-xs text-muted-foreground">{sections.length} combo(s)</p><Button variant="outline" onClick={addSection}><Plus className="mr-2 h-4 w-4" />Adicionar combo</Button></div></div>
