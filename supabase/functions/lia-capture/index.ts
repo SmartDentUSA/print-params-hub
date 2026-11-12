@@ -73,7 +73,7 @@ async function resolveContext(body: any) {
   let productSummary: string | null = null;
   let modulesSummary: string | null = null;
   let groupUrl: string | null = null;
-  let commercial: { question: string; options: string[]; group_message: string | null; redirect_ms: number; display_name: string } | null = null;
+  let commercial: { question: string; options: string[]; group_message: string | null; redirect_ms: number; display_name: string; promotional_table_id: string | null; promotional_table_name: string | null } | null = null;
   let commercialButtons: ReturnType<typeof campaignButtons> = [];
   if (campaignSlug) {
     const { data: c } = await sb.from("campaigns").select("nome, lia_opening_message, lia_product_name").ilike("lia_slug", campaignSlug).maybeSingle();
@@ -88,19 +88,28 @@ async function resolveContext(body: any) {
       source: "form", form_id: formId, product_catalog_id: body.product_catalog_id, product,
     });
     if (linkedProduct) product = linkedProduct.name;
-    const { data: f } = await sb.from("smartops_forms").select("name, title, subtitle, description, extra_sections, product_catalog_id, capture_buttons_enabled, capture_buttons, capture_buttons_question, capture_group_message, success_redirect_url, form_purpose, event_id").eq("id", formId).maybeSingle();
+    const { data: f } = await sb.from("smartops_forms").select("name, title, subtitle, description, extra_sections, product_catalog_id, capture_buttons_enabled, capture_buttons, capture_buttons_question, capture_group_message, promotional_table_id, success_redirect_url, form_purpose, event_id").eq("id", formId).maybeSingle();
     formName = f?.name ?? "";
     formPurpose = (f as any)?.form_purpose ?? null;
     formEventId = (f as any)?.event_id ?? null;
     groupUrl = whatsappGroupUrl(f?.success_redirect_url);
     if (isCommercialCampaignName(formName)) {
       commercialButtons = campaignButtons((f as any)?.capture_buttons_enabled, (f as any)?.capture_buttons);
+      let promo: { id: string; name: string } | null = null;
+      const promoId = (f as any)?.promotional_table_id;
+      if (promoId) {
+        const { data: t, error: tErr } = await sb.from("promotional_tables").select("id, name").eq("id", promoId).maybeSingle();
+        if (tErr) console.warn("[lia-capture] promotional table unavailable", tErr.code);
+        if (t?.name) promo = { id: t.id, name: String(t.name).trim() };
+      }
       if (commercialButtons.length) commercial = {
         question: str((f as any)?.capture_buttons_question, 200) || DEFAULT_INTEREST_QUESTION,
         options: commercialButtons.map((b) => b.label),
         group_message: str((f as any)?.capture_group_message, 1000) || null,
         redirect_ms: GROUP_REDIRECT_MS,
-        display_name: campaignDisplayName(formName, (f as any)?.title),
+        display_name: promo?.name || campaignDisplayName(formName, (f as any)?.title),
+        promotional_table_id: promo?.id ?? null,
+        promotional_table_name: promo?.name ?? null,
       };
     }
     let boundProduct = "";
@@ -384,7 +393,7 @@ Deno.serve(async (req) => {
         const { error: tlError } = await sb.from("lead_activity_log").insert({
           lead_id: leadId, event_type: "form_response", source_channel: "form",
           entity_type: "form_field", entity_id: ctx.origin, entity_name: label,
-          event_data: { label, value: chosen.label, product: ctx.product || chosen.label, form_name: ctx.origin, description: `${label}: ${chosen.label}`, channel: "whatsapp_lia" },
+          event_data: { label, value: chosen.label, product: ctx.product || chosen.label, form_name: ctx.origin, description: `${label}: ${chosen.label}`, channel: "whatsapp_lia", promotional_table_id: ctx.commercial_campaign?.promotional_table_id ?? null, promotional_table_name: ctx.commercial_campaign?.promotional_table_name ?? null },
           dedupe_hash: `lia_interest:${leadId}:${ctx.form_id}:${Date.now()}`,
         });
         if (tlError && tlError.code !== "23505") console.warn("[lia-capture] interest timeline insert failed", tlError.code);

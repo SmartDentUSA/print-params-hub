@@ -50,6 +50,8 @@ interface SdrForm {
   brand_color_l: number | null;
 }
 
+const fmtDate = (d: string) => d.slice(0, 10).split("-").reverse().join("/");
+
 function rgbToHsl(r: number, g: number, b: number): [number, number, number] {
   r /= 255; g /= 255; b /= 255;
   const max = Math.max(r, g, b), min = Math.min(r, g, b);
@@ -149,6 +151,8 @@ export function SmartOpsSdrCaptacaoEditor({ form }: { form: SdrForm }) {
   const [buttonsQuestion, setButtonsQuestion] = useState<string>((form as any).capture_buttons_question ?? "");
   const [groupMessage, setGroupMessage] = useState<string>((form as any).capture_group_message ?? "");
   const isCampaign = isCommercialCampaignName(name);
+  const [promotionalTableId, setPromotionalTableId] = useState<string>((form as any).promotional_table_id ?? "__none__");
+  const [promoTables, setPromoTables] = useState<{ id: string; name: string; status: string | null; valid_from: string | null; valid_until: string | null }[]>([]);
   const [mediaType, setMediaType] = useState<"image" | "video">(
     form.media_type === "video" ? "video" : "image"
   );
@@ -168,6 +172,17 @@ export function SmartOpsSdrCaptacaoEditor({ form }: { form: SdrForm }) {
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!isCampaign) return;
+    supabase
+      .from("promotional_tables" as any)
+      .select("id, name, status, valid_from, valid_until")
+      .order("valid_from", { ascending: false, nullsFirst: false })
+      .then(({ data }) => {
+        if (data) setPromoTables(data as any);
+      });
+  }, [isCampaign]);
 
   useEffect(() => {
     supabase
@@ -257,6 +272,7 @@ export function SmartOpsSdrCaptacaoEditor({ form }: { form: SdrForm }) {
         capture_buttons_enabled: captureButtonsEnabled,
         capture_buttons_question: buttonsQuestion.trim() || null,
         capture_group_message: groupMessage.trim() || null,
+        promotional_table_id: isCampaign && promotionalTableId !== "__none__" ? promotionalTableId : null,
         capture_buttons: captureButtons
           .map((b) => ({ ...b, label: (b.label || "").trim() }))
           .filter((b) => b.label),
@@ -663,6 +679,26 @@ export function SmartOpsSdrCaptacaoEditor({ form }: { form: SdrForm }) {
               <p className="text-[11px] text-muted-foreground">
                 Depois do telefone, e-mail e nome, a conversa mostra os botões acima (3 por linha). O botão escolhido vai como produto de interesse para o CRM e para a linha do tempo do lead. Depois do vendedor e do convite do grupo, o lead é levado sozinho ao grupo em 4 segundos.
               </p>
+            </div>
+            <div>
+              <Label className="text-xs font-medium">Tabela promocional (campanha)</Label>
+              <Select value={promotionalTableId} onValueChange={setPromotionalTableId}>
+                <SelectTrigger><SelectValue placeholder="Escolha a tabela promocional" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">Sem tabela vinculada</SelectItem>
+                  {promoTables.map((t) => (
+                    <SelectItem key={t.id} value={t.id}>
+                      {t.name}{t.valid_from ? ` · ${fmtDate(t.valid_from)}${t.valid_until ? ` a ${fmtDate(t.valid_until)}` : ""}` : ""}{t.status === "archived" ? " (arquivada)" : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-[11px] text-muted-foreground mt-1">
+                A conversa usa o nome desta tabela como nome da campanha, e o vínculo fica registrado na linha do tempo do lead.
+              </p>
+              {promotionalTableId === "__none__" && (
+                <p className="text-[11px] text-destructive mt-1">Nenhuma tabela promocional vinculada a esta campanha.</p>
+              )}
             </div>
             <div>
               <Label className="text-xs font-medium">Pergunta dos botões</Label>
