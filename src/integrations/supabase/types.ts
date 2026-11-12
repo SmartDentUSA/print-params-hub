@@ -26127,6 +26127,8 @@ export type Database = {
           campaign_identifier: string | null
           capture_buttons: Json
           capture_buttons_enabled: boolean
+          capture_buttons_question: string | null
+          capture_group_message: string | null
           created_at: string
           cta_text: string | null
           custom_css: string | null
@@ -26201,6 +26203,8 @@ export type Database = {
           campaign_identifier?: string | null
           capture_buttons?: Json
           capture_buttons_enabled?: boolean
+          capture_buttons_question?: string | null
+          capture_group_message?: string | null
           created_at?: string
           cta_text?: string | null
           custom_css?: string | null
@@ -26275,6 +26279,8 @@ export type Database = {
           campaign_identifier?: string | null
           capture_buttons?: Json
           capture_buttons_enabled?: boolean
+          capture_buttons_question?: string | null
+          capture_group_message?: string | null
           created_at?: string
           cta_text?: string | null
           custom_css?: string | null
