@@ -831,7 +831,7 @@ export function SmartOpsFormBuilder() {
             <DialogTrigger asChild>
               <Button size="sm"><Plus className="w-4 h-4 mr-1" /> Novo Formulário</Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>Novo Formulário — Selecione o tipo</DialogTitle>
               </DialogHeader>
@@ -1675,7 +1675,33 @@ export function SmartOpsFormBuilder() {
           {/* Grupos por finalidade */}
           {Object.entries(FORM_LIST_GROUPS).map(([purposeKey, cfg]) => {
             const groupForms = forms.filter((f) => getFormListGroup(f) === purposeKey && matchesFilters(f));
-            if (groupForms.length === 0) return null;
+            if (groupForms.length === 0) {
+              // Campanhas comerciais aparece mesmo vazia, para o tipo ser encontrado na lista.
+              if (purposeKey !== COMMERCIAL_CAMPAIGN_GROUP || searchQuery || activeFilter !== "all") return null;
+              return (
+                <section key={purposeKey} className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">{cfg.label}</h3>
+                    <Badge variant="outline" className="text-[10px]">0</Badge>
+                  </div>
+                  <div className="rounded-md border border-dashed p-4 flex items-center justify-between gap-3 flex-wrap">
+                    <p className="text-sm text-muted-foreground">
+                      Nenhuma campanha comercial criada ainda. O nome começa com "# - CAMPANHA COMERCIAL - ...".
+                    </p>
+                    <Button
+                      size="sm"
+                      onClick={() => {
+                        setNewPurpose(COMMERCIAL_CAMPAIGN_GROUP);
+                        setShowCreate(true);
+                        setTimeout(() => nameInputRef.current?.focus(), 80);
+                      }}
+                    >
+                      <Plus className="w-4 h-4 mr-1" /> Criar campanha comercial
+                    </Button>
+                  </div>
+                </section>
+              );
+            }
             return (
               <section key={purposeKey} className="space-y-3">
                 <div className="flex items-center gap-2">
