@@ -2,11 +2,11 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { planOfficialSync, promoRowFromOfficial } from "./promoPriceTable";
 
-test("exclusive table starts from the Loja Oficial selling price with 0% campaign discount", () => {
-  const row = promoRowFromOfficial({ name: "Resina", sku: "R1", price_base: 500, discount_pct: 20, price_dealer: 400 }, "list", 0);
-  assert.equal(row.price_base, 400);
+test("exclusive table starts from the Loja Oficial 'Preço tabela (Unit)', not the dealer price", () => {
+  const row = promoRowFromOfficial({ name: "Resina", sku: "R1", price_base: 1859, discount_pct: 10, price_dealer: 1673.1 }, "list", 0);
+  assert.equal(row.price_base, 1859);
   assert.equal(row.discount_pct, 0);
-  assert.equal(row.price_dealer, 400);
+  assert.equal(row.price_dealer, 1859);
 });
 
 test("syncing from Loja Oficial keeps the campaign discount already applied", () => {
@@ -16,8 +16,8 @@ test("syncing from Loja Oficial keeps the campaign discount already applied", ()
     "list",
   );
   assert.equal(inserts.length, 0);
-  assert.equal(updates[0].patch.price_base, 450);
-  assert.equal(updates[0].patch.price_dealer, 405);
+  assert.equal(updates[0].patch.price_base, 600);
+  assert.equal(updates[0].patch.price_dealer, 540);
 });
 
 test("new Loja Oficial items enter the exclusive table and inactive ones are skipped", () => {
