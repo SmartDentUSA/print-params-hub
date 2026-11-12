@@ -1,0 +1,1 @@
+ALTER TABLE public.promotional_table_creatives ADD COLUMN IF NOT EXISTS whatsapp_message text NOT NULL DEFAULT '';
