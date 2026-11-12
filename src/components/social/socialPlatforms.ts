@@ -16,3 +16,6 @@ export const ALL_PLATFORM_VALUES = SOCIAL_PLATFORMS.map((p) => p.value) as strin
 export function platformLabel(value: string) {
   return SOCIAL_PLATFORMS.find((p) => p.value === value)?.label ?? value;
 }
+
+/** Padrão de Post Grupos: grupos recebem apenas as artes do Instagram. */
+export const DEFAULT_GROUP_PLATFORMS = ['instagram'] as const;

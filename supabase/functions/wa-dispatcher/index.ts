@@ -360,7 +360,18 @@ async function advanceCampaign(sb: SupabaseClient, cid: string, sentIdx: number)
   if (!c) return
   const flow: Record<string, unknown>[] = c.flow_json ?? []
   const next = sentIdx + 1
-  if (next >= flow.length) { await sb.from('wa_campaigns').update({ status: 'finished', finished_at: new Date().toISOString(), current_node_index: next }).eq('id', cid); return }
+  if (next >= flow.length) {
+    // Só encerra quando NENHUM grupo da campanha ainda espera envio. Antes, o
+    // primeiro grupo que recebia o último nó encerrava a campanha e os demais
+    // ficavam presos em 'pending' (o claim só pega campanhas 'active').
+    const { count: remaining } = await sb.from('wa_message_queue')
+      .select('id', { count: 'exact', head: true })
+      .eq('campaign_id', cid)
+      .in('status', ['pending', 'sending'])
+    if ((remaining ?? 0) > 0) return
+    await sb.from('wa_campaigns').update({ status: 'finished', finished_at: new Date().toISOString(), current_node_index: next }).eq('id', cid)
+    return
+  }
   const nxt = flow[next]
   if (nxt.type === 'wait') {
     const days = (nxt.days as number) ?? 1; const [hh, mm] = ((nxt.time as string) ?? '09:00').split(':').map(Number)
