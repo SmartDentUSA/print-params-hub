@@ -960,7 +960,7 @@ export function SmartOpsFormBuilder() {
                 <hr className="my-1" />
                 <div className="space-y-2">
                   <p className="text-xs text-slate-600">
-                    {newPurpose === "sdr_captacao" || newPurpose === WA_GROUP_GROUP || newPurpose === "feira_evento" || newPurpose === "credenciamento"
+                    {newPurpose === "sdr_captacao" || newPurpose === WA_GROUP_GROUP || newPurpose === COMMERCIAL_CAMPAIGN_GROUP || newPurpose === "feira_evento" || newPurpose === "credenciamento"
                       ? "Digite um nome interno e clique em Criar."
                       : "Selecione um tipo acima para continuar."}
                   </p>
@@ -975,7 +975,7 @@ export function SmartOpsFormBuilder() {
                     onClick={handleCreate}
                     className="w-full"
                     disabled={
-                      (newPurpose !== "sdr_captacao" && newPurpose !== WA_GROUP_GROUP && newPurpose !== "feira_evento" && newPurpose !== "credenciamento") ||
+                      (newPurpose !== "sdr_captacao" && newPurpose !== WA_GROUP_GROUP && newPurpose !== COMMERCIAL_CAMPAIGN_GROUP && newPurpose !== "feira_evento" && newPurpose !== "credenciamento") ||
                       !newName.trim()
                     }
                   >
@@ -985,6 +985,8 @@ export function SmartOpsFormBuilder() {
                         ? "Criar formulário de Credenciamento"
                         : newPurpose === WA_GROUP_GROUP
                         ? "Criar formulário de Acesso a grupos de WhatsApp"
+                        : newPurpose === COMMERCIAL_CAMPAIGN_GROUP
+                        ? "Criar formulário de Campanha comercial"
                         : "Criar formulário SDR — Captação"}
                   </Button>
                 </div>
