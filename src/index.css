@@ -286,6 +286,9 @@
 .lia-whatsapp .lia-reply:hover { background: hsl(var(--secondary)); color: hsl(var(--accent)); }
 .lia-whatsapp .lia-reply[aria-pressed="true"] { background: hsl(var(--primary)); color: hsl(var(--primary-foreground)); }
 .lia-whatsapp .lia-reply:disabled { opacity: .65; }
+.lia-whatsapp .lia-interest-option { border-color: hsl(var(--border)); background: hsl(var(--card)); color: hsl(var(--accent)); box-shadow: none; }
+.lia-whatsapp .lia-interest-option:hover { background: hsl(var(--secondary)); color: hsl(var(--accent)); }
+.lia-whatsapp .lia-interest-option:disabled { opacity: .65; }
 .lia-whatsapp .lia-send { background: hsl(var(--accent)); color: hsl(var(--accent-foreground)); }
 .lia-whatsapp .lia-send:hover { background: hsl(var(--accent) / .9); }
 .lia-viewport { height: 100vh; height: 100dvh; height: var(--lia-viewport-height, 100dvh); overflow: hidden; }
