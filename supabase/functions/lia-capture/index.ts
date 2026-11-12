@@ -132,7 +132,7 @@ async function resolveContext(body: any) {
     ? "# CHAT - Qualificação Curso - Profissional"
     : campaignSlug && !formId ? `# CHAT - Campanha - ${campaignName || campaignSlug}` : `# CHAT - Landing - ${label}`;
   opening = commercial
-    ? `Vamos lá, vou te mandar todas as informações da ${commercial.display_name}. Qual é o seu telefone de contato?`
+    ? `Vamos lá, vou te mandar todas as informações ${/^campanha\b/i.test(commercial.display_name) ? "da" : "da campanha"} ${commercial.display_name}. Qual é o seu telefone de contato?`
     : `Vamos lá, vou te mandar todas as informações sobre o ${label}. Qual é o seu telefone de contato?`;
 
   // Perguntas de qualificação: do formulário de origem ou de um formulário de captação padrão
