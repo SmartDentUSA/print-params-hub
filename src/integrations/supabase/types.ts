@@ -26154,6 +26154,7 @@ export type Database = {
           ig_trigger_dm_message: string | null
           ig_trigger_enabled: boolean
           ig_trigger_keyword: string | null
+          is_commercial_campaign: boolean
           label_color: string | null
           layout_variant: string | null
           media_type: string | null
@@ -26231,6 +26232,7 @@ export type Database = {
           ig_trigger_dm_message?: string | null
           ig_trigger_enabled?: boolean
           ig_trigger_keyword?: string | null
+          is_commercial_campaign?: boolean
           label_color?: string | null
           layout_variant?: string | null
           media_type?: string | null
@@ -26308,6 +26310,7 @@ export type Database = {
           ig_trigger_dm_message?: string | null
           ig_trigger_enabled?: boolean
           ig_trigger_keyword?: string | null
+          is_commercial_campaign?: boolean
           label_color?: string | null
           layout_variant?: string | null
           media_type?: string | null
