@@ -594,7 +594,7 @@ Deno.serve(async (req) => {
         sb.from("promotional_coupons").select("code, valid_until").eq("promotional_table_id", t.id).eq("team_member_id", tm.id).eq("active", true),
       ]);
       const coupon = pickCoupon((coupons ?? []) as any[]);
-      const msgs = await ensurePostMessages(sb, t.id, posts, LOVABLE_API_KEY);
+      const msgs = await ensurePostMessages(sb, t.id, posts, LOVABLE_API_KEY, 12);
       const ids = posts.map((p: any) => p.id);
       const { data: mine } = ids.length
         ? await sb.from("promotional_social_seller_messages").select("social_post_id, message").eq("promotional_table_id", t.id).eq("team_member_id", tm.id).in("social_post_id", ids)

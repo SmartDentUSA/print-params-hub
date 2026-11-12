@@ -63,7 +63,7 @@ Deno.serve(async (req) => {
       if (!t) return json({ error: "Tabela não encontrada" }, 404);
       const tags = normalizeHashtags(t.social_hashtags ?? []);
       const posts = await findTablePosts(sb, tags);
-      const msgs = await ensurePostMessages(sb, b.table_id, posts, Deno.env.get("LOVABLE_API_KEY"));
+      const msgs = await ensurePostMessages(sb, b.table_id, posts, Deno.env.get("LOVABLE_API_KEY"), 12);
       return json({
         hashtags: tags,
         posts: posts.map((p) => ({
