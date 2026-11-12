@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, KeyboardEvent } from 'react';
 import { X, Sparkles, Loader2, Package, Library, Check, Image as ImageIcon, Plus, Instagram, Facebook, Youtube, Linkedin, Music2, Image as PinIcon } from 'lucide-react';
 import { toast } from 'sonner';
+import { eventNarrative, eventUsesVenue, normalizeEventType } from '@/lib/eventTypes';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
@@ -291,7 +292,7 @@ export function StepContent({
           supabase
             .from('smartops_events')
             .select(
-              'id,name,country,location,start_date,end_date,about_event_pt,about_event_en,about_event_es,company_stand,slug,website_url,notes,title_en,title_es,location_en,location_es,description_en,description_es,audience_areas,audience_specialties,audience_notes,speakers,partner_brands,instagram_handle',
+              'id,name,event_type,country,location,start_date,end_date,about_event_pt,about_event_en,about_event_es,company_stand,slug,website_url,notes,title_en,title_es,location_en,location_es,description_en,description_es,audience_areas,audience_specialties,audience_notes,speakers,partner_brands,instagram_handle',
             )
             .eq('is_active', true)
             .order('start_date', { ascending: true, nullsFirst: false })
@@ -403,6 +404,7 @@ export function StepContent({
           subtitle: [e.location, e.country].filter(Boolean).join(' · ') || undefined,
           slug: e.slug || undefined,
           meta: {
+            event_type: normalizeEventType(e.event_type),
             country: e.country,
             location: e.location,
             start_date: e.start_date,
@@ -924,14 +926,16 @@ ${m.location ? `📍 Local: ${m.location}` : '📍 Local: (omitir se não houver
       const m = e.meta || {};
       const start = m.start_date ? new Date(m.start_date).getTime() : null;
       const isPast = start !== null && start < Date.now();
+      const narrative = eventNarrative(m.event_type, e.name, isPast);
+      const venue = eventUsesVenue(m.event_type);
       return [
-        `CONTEXTO — CONGRESSO/EVENTO: "${e.name}".`,
+        narrative.header,
         m.country ? `🌍 País: ${m.country}.` : '',
-        m.location ? `📍 Local: ${m.location}.` : '',
+        venue && m.location ? `📍 Local: ${m.location}.` : '',
         m.start_date
           ? `📅 Data: ${fmtDate(m.start_date)}${m.end_date ? ` a ${fmtDate(m.end_date)}` : ''}.`
           : '',
-        m.stand ? `🏢 Estande Smart Dent: ${m.stand}.` : '',
+        venue && m.stand ? `🏢 Estande Smart Dent: ${m.stand}.` : '',
         m.about ? `Sobre o evento: ${String(m.about).slice(0, 800)}` : '',
         m.notes ? `Notas internas do evento (use como contexto, não copie literalmente): ${String(m.notes).slice(0, 400)}` : '',
         m.website_url ? `🔗 Site oficial do evento: ${m.website_url} (só cite se fizer sentido; o link clicável é o da bio).` : '',
@@ -962,23 +966,9 @@ ${m.location ? `📍 Local: ${m.location}` : '📍 Local: (omitir se não houver
         (Array.isArray(m.audience_specialties) && m.audience_specialties.length)
           ? 'OBRIGATÓRIO: conecte cada produto selecionado às áreas de atuação e especialidades do público presente, citando a aplicação clínica/laboratorial concreta para esse público (sem preços).'
           : '',
-        isPast
-          ? 'Escreva no PASSADO (retrospectiva, agradecimento a quem visitou o estande).'
-          : 'Escreva no FUTURO, convidando a visitar o estande Smart Dent.',
-        'CTA obrigatório: "Comente CONGRESSO e receba condições especiais, descontos mesmo não participando presencialmente".',
-        [
-          'ESTRUTURA OBRIGATÓRIA DA LEGENDA (siga na ordem, parágrafos curtos, tom profissional, convidativo, tecnológico e humano, pt-BR):',
-          '1) Abertura impactante sobre futuro/transformação: "🚀 O futuro da {área} chega a {cidade} no {evento}!".',
-          '2) Parágrafo com a participação da Smart Dent, datas, público do evento e tema principal.',
-          '3) Convite ao estande: "📍 Visite o Estande {número} e conheça soluções que unem {benefício 1}, {benefício 2} e {benefício 3}:".',
-          '4) Lista dos destaques (produtos selecionados), um emoji DIFERENTE por item (🔬 📸 💻 ✔️ 💡).',
-          '5) Bloco de palestrantes/demonstrações (quando houver): "🎤 {Nome} (@ig) — {tema}" com data e horário.',
-          '6) Parágrafo curto explicando como essas soluções melhoram resultados técnicos, clínicos ou comerciais das áreas e especialidades do público presente.',
-          '7) CTA de comentário com a palavra-chave em MAIÚSCULAS.',
-          '8) Fechamento: "💾 Salve este post para não perder nossa localização." / "📲 Compartilhe com um colega que precisa {ação} em {ano}." / "🔗 Saiba mais no link da bio." + marcações dos perfis (evento, palestrantes e marcas parceiras).',
-          '9) NÃO escreva hashtags dentro da legenda: elas vão SOMENTE no campo "hashtags" (8 a 12, relacionadas à empresa, ao congresso, ao público e às tecnologias citadas).',
-          'REGRAS: não invente datas, números, local, estande, condições comerciais, produtos, palestrantes, @perfis ou características técnicas; nada de superlativos ("o maior evento") sem dado; preserve nomes de marcas, produtos e eventos; emojis com equilíbrio; sem preços; sem barras invertidas ou marcação. Entregue somente a legenda final pronta para publicar.',
-        ].join(' '),
+        narrative.tense,
+        narrative.cta,
+        narrative.structure.join(' '),
       ]
         .filter(Boolean)
         .join(' ');
@@ -1001,9 +991,10 @@ ${m.location ? `📍 Local: ${m.location}` : '📍 Local: (omitir se não houver
         const m = e?.meta || {};
         if (m.start_date)
           facts.push(`📅 Data: ${fmtDate(m.start_date)}${m.end_date ? ` a ${fmtDate(m.end_date)}` : ''}`);
-        if (m.location || m.country)
+        const venue = eventUsesVenue(m.event_type);
+        if (venue && (m.location || m.country))
           facts.push(`📍 Local: ${[m.location, m.country].filter(Boolean).join(' — ')}`);
-        if (m.stand) facts.push(`🏢 Estande Smart Dent: ${m.stand}`);
+        if (venue && m.stand) facts.push(`🏢 Estande Smart Dent: ${m.stand}`);
         speakerLines(m.speakers).forEach((l) => facts.push(l));
         if (m.instagram_handle) facts.push(`📲 Evento: ${m.instagram_handle}`);
         const brands = brandMentions(m.partner_brands);
