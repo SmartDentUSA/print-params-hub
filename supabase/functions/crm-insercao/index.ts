@@ -549,10 +549,33 @@ Deno.serve(async (req) => {
       const { data: cr } = await sb.from("promotional_table_creatives")
         .select("id, file_name, mime_type, storage_url, drive_url, description, whatsapp_message")
         .eq("promotional_table_id", t.id).order("sort_order").order("created_at");
-      const creatives = (cr ?? []).map(({ whatsapp_message, ...c }: any) => ({
-        ...c, message: renderCreativeMessage(String(whatsapp_message ?? ""), coupon, tm.nome_completo ?? ""),
-      }));
+      const ids = (cr ?? []).map((c: any) => c.id);
+      const { data: mine } = ids.length
+        ? await sb.from("promotional_creative_seller_messages").select("creative_id, message").eq("team_member_id", tm.id).in("creative_id", ids)
+        : { data: [] as any[] };
+      const saved = new Map((mine ?? []).map((m: any) => [m.creative_id, String(m.message ?? "")]));
+      const creatives = (cr ?? []).map(({ whatsapp_message, ...c }: any) => {
+        const standard = renderCreativeMessage(String(whatsapp_message ?? ""), coupon, tm.nome_completo ?? "");
+        return { ...c, default_message: standard, message: saved.get(c.id) ?? standard, edited: saved.has(c.id) };
+      });
       return json({ table: { id: t.id, name: t.name }, coupon, creatives });
+    }
+
+    if (action === "creative_save_message" || action === "creative_reset_message") {
+      // Versão da mensagem editada pelo próprio vendedor (identificado no servidor).
+      const cid = String(body?.creative_id || "");
+      if (!/^[0-9a-f-]{36}$/i.test(cid)) return json({ error: "Criativo inválido" }, 400);
+      const { data: c } = await sb.from("promotional_table_creatives").select("id").eq("id", cid).maybeSingle();
+      if (!c) return json({ error: "Criativo não encontrado" }, 404);
+      if (action === "creative_reset_message") {
+        await sb.from("promotional_creative_seller_messages").delete().eq("creative_id", cid).eq("team_member_id", tm.id);
+        return json({ ok: true });
+      }
+      const message = String(body?.message ?? "").slice(0, 4000);
+      const { error } = await sb.from("promotional_creative_seller_messages")
+        .upsert({ creative_id: cid, team_member_id: tm.id, message }, { onConflict: "creative_id,team_member_id" });
+      if (error) return json({ error: error.message }, 500);
+      return json({ ok: true });
     }
 
     if (action === "price_table") {

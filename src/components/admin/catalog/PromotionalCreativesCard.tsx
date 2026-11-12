@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { ExternalLink, FolderPlus, Loader2, Sparkles, Trash2, Upload } from "lucide-react";
+import { Check, ExternalLink, FolderPlus, Loader2, Save, Sparkles, Trash2, Upload } from "lucide-react";
 import { toast } from "sonner";
 
 type Creative = { id: string; file_name: string; mime_type: string; storage_url: string | null; drive_url: string | null; description: string; whatsapp_message?: string };
@@ -68,7 +68,6 @@ export function PromotionalCreativesCard({ table }: { table: { id: string; drive
     } catch (e: any) { toast.error(`Mensagem: ${e.message}`); } finally { setGenerating((g) => ({ ...g, [id]: false })); }
   }
   const saveMessage = async (c: Creative, whatsapp_message: string) => {
-    if (whatsapp_message === (c.whatsapp_message ?? "")) return;
     try { await api({ action: "update", id: c.id, whatsapp_message }); setItems((cur) => cur.map((x) => x.id === c.id ? { ...x, whatsapp_message } : x)); toast.success("Mensagem salva."); }
     catch (e: any) { toast.error(e.message); }
   };
@@ -96,7 +95,7 @@ export function PromotionalCreativesCard({ table }: { table: { id: string; drive
           Na Agenda, cada vendedor recebe a mensagem já preenchida: <span className="font-mono">{"{cupom}"}</span> vira o cupom dele nesta tabela, <span className="font-mono">{"{validade_cupom}"}</span> a validade e <span className="font-mono">{"{vendedor}"}</span> o primeiro nome. Se ele não tiver cupom, o parágrafo do cupom sai e fica só “Para equipamentos só me chamar!”.
         </p>
         {!items.length ? <p className="text-sm text-muted-foreground">Nenhum criativo enviado.</p> : (
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          <div className="grid gap-3 md:grid-cols-2">
             {items.map((c) => (
               <div key={c.id} className="space-y-2 rounded-md border p-2">
                 <CreativeThumb c={c} />
@@ -109,7 +108,7 @@ export function PromotionalCreativesCard({ table }: { table: { id: string; drive
                       {generating[c.id] ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <Sparkles className="mr-1 h-3 w-3" />}{c.whatsapp_message ? "Gerar de novo" : "Gerar com IA"}
                     </Button>
                   </div>
-                  <Textarea key={`${c.id}:${c.whatsapp_message ?? ""}`} rows={9} defaultValue={c.whatsapp_message ?? ""} placeholder={generating[c.id] ? "Gerando mensagem…" : "Clique em Gerar com IA ou escreva a mensagem."} onBlur={(e) => saveMessage(c, e.target.value)} />
+                  <MessageEditor value={c.whatsapp_message ?? ""} placeholder={generating[c.id] ? "Gerando mensagem…" : "Clique em Gerar com IA ou escreva a mensagem."} onSave={(v) => saveMessage(c, v)} />
                 </div>
                 <div className="flex justify-between">
                   {c.drive_url ? <Button asChild size="sm" variant="ghost"><a href={c.drive_url} target="_blank" rel="noopener noreferrer"><ExternalLink className="mr-1 h-3 w-3" />Drive</a></Button> : <span />}
@@ -121,6 +120,23 @@ export function PromotionalCreativesCard({ table }: { table: { id: string; drive
         )}
       </CardContent>
     </Card>
+  );
+}
+
+function MessageEditor({ value, placeholder, onSave }: { value: string; placeholder: string; onSave: (v: string) => Promise<void> }) {
+  const [text, setText] = useState(value);
+  const [saving, setSaving] = useState(false);
+  useEffect(() => { setText(value); }, [value]);
+  const dirty = text !== value;
+  const save = async () => { if (!dirty) return; setSaving(true); try { await onSave(text); } finally { setSaving(false); } };
+  return (
+    <div className="space-y-1">
+      <Textarea rows={12} className="text-sm leading-relaxed" value={text} placeholder={placeholder} onChange={(e) => setText(e.target.value)} onBlur={save} />
+      <div className="flex items-center justify-end gap-2 text-xs text-muted-foreground">
+        {saving ? <span className="inline-flex items-center gap-1"><Loader2 className="h-3 w-3 animate-spin" /> Salvando…</span> : dirty ? <span>Alterações não salvas</span> : value ? <span className="inline-flex items-center gap-1"><Check className="h-3 w-3" /> Salva</span> : null}
+        {dirty && <Button size="sm" variant="secondary" onClick={save} disabled={saving}><Save className="mr-1 h-3 w-3" />Salvar mensagem</Button>}
+      </div>
+    </div>
   );
 }
 
