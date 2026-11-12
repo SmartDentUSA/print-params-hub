@@ -235,7 +235,7 @@ async function findLead(phone: string, email: string) {
     if (error) throw error;
     if (data?.length === 1 && !email) return data[0];
     if ((count ?? 0) > 1 && !email) {
-      const names = (data ?? []).map((row) => String(row.nome ?? "").trim().split(/\s+/)[0]);
+      const names = (data ?? []).map((row) => realName(row.nome).split(/\s+/)[0]);
       const commonName = count === data?.length && names[0] && names.every((name) => name.toLowerCase() === names[0].toLowerCase()) ? names[0] : null;
       return {
         ambiguous: true, nome: commonName, email: null, match_count: count,
