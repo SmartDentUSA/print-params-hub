@@ -5,6 +5,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { z } from "npm:zod@3.23.8";
+import { buildCreativeTemplate, CREATIVE_SYSTEM } from "../_shared/creative-message.ts";
 import { getDriveAccessToken, driveEnsureFolder, driveUploadFile, driveGetWebViewLink, driveTrashFile, sanitizeFolderName } from "../_shared/drive.ts";
 
 const PARENT_FOLDER = "1za7m7FK1zzbncKw61Zz3D2fkx8RWdyFA";
@@ -16,7 +17,8 @@ const Body = z.discriminatedUnion("action", [
   z.object({ action: z.literal("ensure_folder"), table_id: z.string().uuid() }),
   z.object({ action: z.literal("list"), table_id: z.string().uuid() }),
   z.object({ action: z.literal("upload"), table_id: z.string().uuid(), file_name: z.string().min(1).max(200), mime_type: z.string().min(3).max(120), data_base64: z.string().min(10), description: z.string().max(2000).default("") }),
-  z.object({ action: z.literal("update"), id: z.string().uuid(), description: z.string().max(2000) }),
+  z.object({ action: z.literal("update"), id: z.string().uuid(), description: z.string().max(2000).optional(), whatsapp_message: z.string().max(4000).optional() }),
+  z.object({ action: z.literal("generate_message"), id: z.string().uuid() }),
   z.object({ action: z.literal("delete"), id: z.string().uuid() }),
 ]);
 
@@ -68,8 +70,31 @@ Deno.serve(async (req) => {
       if (error) throw new Error(error.message);
       return json({ creative: data });
     }
+    if (b.action === "generate_message") {
+      // IA lê a imagem e escreve o corpo; o rodapé com {cupom}/{validade_cupom} é fixo.
+      const { data: c } = await sb.from("promotional_table_creatives")
+        .select("id, mime_type, storage_url, description, promotional_tables(name)").eq("id", b.id).maybeSingle();
+      if (!c) return json({ error: "Criativo não encontrado" }, 404);
+      const key = Deno.env.get("LOVABLE_API_KEY");
+      if (!key) return json({ error: "IA indisponível" }, 500);
+      const content: any[] = [{ type: "text", text: `Campanha: ${(c as any).promotional_tables?.name ?? "-"}\nDescrição para uso: ${c.description || "-"}` }];
+      if (c.storage_url && String(c.mime_type).startsWith("image/")) content.push({ type: "image_url", image_url: { url: c.storage_url } });
+      const r = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST", headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ model: "google/gemini-3-flash-preview", messages: [{ role: "system", content: CREATIVE_SYSTEM }, { role: "user", content }] }),
+      });
+      if (!r.ok) { console.error("generate_message", r.status, await r.text()); return json({ error: r.status === 429 ? "Muitas solicitações, tente em instantes" : r.status === 402 ? "Créditos de IA esgotados" : "Falha ao gerar mensagem" }, r.status); }
+      const text = String((await r.json())?.choices?.[0]?.message?.content ?? "").trim();
+      if (!text) return json({ error: "A IA não retornou texto" }, 502);
+      const whatsapp_message = buildCreativeTemplate(text);
+      await sb.from("promotional_table_creatives").update({ whatsapp_message }).eq("id", b.id);
+      return json({ whatsapp_message });
+    }
     if (b.action === "update") {
-      const { error } = await sb.from("promotional_table_creatives").update({ description: b.description }).eq("id", b.id);
+      const patch: Record<string, string> = {};
+      if (b.description !== undefined) patch.description = b.description;
+      if (b.whatsapp_message !== undefined) patch.whatsapp_message = b.whatsapp_message;
+      const { error } = await sb.from("promotional_table_creatives").update(patch).eq("id", b.id);
       if (error) throw new Error(error.message);
       return json({ ok: true });
     }

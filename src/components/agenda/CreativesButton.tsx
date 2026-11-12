@@ -3,22 +3,17 @@ import { useQuery } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Copy, Download, Images, Loader2, Sparkles, Ticket } from "lucide-react";
+import { Copy, Download, Images, Loader2, RotateCcw, Ticket } from "lucide-react";
 import { toast } from "sonner";
 import { call } from "./CrmInsertionButton";
 import { CreativeThumb } from "@/components/admin/catalog/PromotionalCreativesCard";
 
-type Creative = { id: string; file_name: string; mime_type: string; storage_url: string | null; drive_url: string | null; description: string };
+type Creative = { id: string; file_name: string; mime_type: string; storage_url: string | null; drive_url: string | null; description: string; message: string };
 type Resp = { table: { id: string; name: string } | null; coupon: { code: string; valid_until: string | null } | null; creatives: Creative[] };
 
 function CreativeItem({ c }: { c: Creative }) {
-  const [msg, setMsg] = useState("");
-  const [busy, setBusy] = useState(false);
-  const gen = async () => {
-    setBusy(true);
-    try { const r = await call<{ message: string }>("creative_message", { creative_id: c.id }); setMsg(r.message); }
-    catch (e: any) { toast.error(e.message); } finally { setBusy(false); }
-  };
+  // Mensagem padrão vem pronta do editor da tabela, já com o cupom do vendedor.
+  const [msg, setMsg] = useState(c.message);
   const copy = async () => { await navigator.clipboard.writeText(msg); toast.success("Mensagem copiada."); };
   const href = c.storage_url ?? c.drive_url;
   return (
@@ -35,11 +30,11 @@ function CreativeItem({ c }: { c: Creative }) {
         <div className="flex flex-wrap items-center justify-between gap-2">
           <p className="text-xs font-medium text-muted-foreground">Mensagem para envio no WhatsApp</p>
           <div className="flex gap-2">
-            <Button size="sm" variant="secondary" onClick={gen} disabled={busy}>{busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}{msg ? "Gerar de novo" : "Gerar mensagem"}</Button>
+            {msg !== c.message && <Button size="sm" variant="ghost" onClick={() => setMsg(c.message)}><RotateCcw className="mr-2 h-4 w-4" />Restaurar padrão</Button>}
             <Button size="sm" onClick={copy} disabled={!msg}><Copy className="mr-2 h-4 w-4" />Copiar</Button>
           </div>
         </div>
-        <Textarea rows={8} value={msg} onChange={(e) => setMsg(e.target.value)} placeholder="Clique em Gerar mensagem: a IA lê a imagem e escreve a mensagem com o seu cupom." />
+        <Textarea rows={8} value={msg} onChange={(e) => setMsg(e.target.value)} placeholder="A mensagem deste criativo ainda não foi preparada no editor da tabela promocional." />
       </div>
     </div>
   );
@@ -63,7 +58,7 @@ export function CreativesButton() {
             : !d?.table ? <p className="py-6 text-center text-sm text-muted-foreground">Nenhuma tabela vigente no momento.</p>
             : (
               <div className="space-y-3">
-                <p className="flex items-center gap-1.5 text-xs text-muted-foreground"><Ticket className="h-3.5 w-3.5" />{d.coupon ? <>Seu cupom nesta tabela: <span className="font-mono font-medium text-foreground">{d.coupon.code}</span></> : "Você não tem cupom ativo nesta tabela; a mensagem termina só com o convite para equipamentos."}</p>
+                <p className="flex items-center gap-1.5 text-xs text-muted-foreground"><Ticket className="h-3.5 w-3.5" />{d.coupon ? <>Seu cupom nesta tabela: <span className="font-mono font-medium text-foreground">{d.coupon.code}</span></> : "Você não tem cupom ativo nesta tabela; a mensagem sai sem o bloco do cupom."}</p>
                 {!d.creatives.length ? <p className="py-6 text-center text-sm text-muted-foreground">Nenhum criativo cadastrado para esta tabela.</p>
                   : d.creatives.map((c) => <CreativeItem key={c.id} c={c} />)}
               </div>

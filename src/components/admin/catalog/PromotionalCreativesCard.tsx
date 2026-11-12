@@ -3,10 +3,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { ExternalLink, FolderPlus, Loader2, Trash2, Upload } from "lucide-react";
+import { ExternalLink, FolderPlus, Loader2, Sparkles, Trash2, Upload } from "lucide-react";
 import { toast } from "sonner";
 
-type Creative = { id: string; file_name: string; mime_type: string; storage_url: string | null; drive_url: string | null; description: string };
+type Creative = { id: string; file_name: string; mime_type: string; storage_url: string | null; drive_url: string | null; description: string; whatsapp_message?: string };
 
 async function api<T>(body: Record<string, unknown>): Promise<T> {
   const { data, error } = await supabase.functions.invoke("promo-creatives", { body });
@@ -46,6 +46,8 @@ export function PromotionalCreativesCard({ table }: { table: { id: string; drive
         if (f.size > 25 * 1024 * 1024) { toast.error(`${f.name}: acima de 25 MB`); continue; }
         const r = await api<{ creative: Creative }>({ action: "upload", table_id: table.id, file_name: f.name, mime_type: f.type || "application/octet-stream", data_base64: await toBase64(f), description: desc });
         setItems((cur) => [...cur, r.creative]);
+        // Mensagem padrão já sai do editor: a IA lê a imagem logo após o envio.
+        if (r.creative.mime_type.startsWith("image/")) void generate(r.creative.id);
       }
       setDesc("");
       toast.success("Criativo(s) enviado(s) para a pasta.");
@@ -55,6 +57,19 @@ export function PromotionalCreativesCard({ table }: { table: { id: string; drive
   const save = async (c: Creative, description: string) => {
     if (description === c.description) return;
     try { await api({ action: "update", id: c.id, description }); setItems((cur) => cur.map((x) => x.id === c.id ? { ...x, description } : x)); toast.success("Descrição salva."); }
+    catch (e: any) { toast.error(e.message); }
+  };
+  const [generating, setGenerating] = useState<Record<string, boolean>>({});
+  async function generate(id: string) {
+    setGenerating((g) => ({ ...g, [id]: true }));
+    try {
+      const r = await api<{ whatsapp_message: string }>({ action: "generate_message", id });
+      setItems((cur) => cur.map((x) => x.id === id ? { ...x, whatsapp_message: r.whatsapp_message } : x));
+    } catch (e: any) { toast.error(`Mensagem: ${e.message}`); } finally { setGenerating((g) => ({ ...g, [id]: false })); }
+  }
+  const saveMessage = async (c: Creative, whatsapp_message: string) => {
+    if (whatsapp_message === (c.whatsapp_message ?? "")) return;
+    try { await api({ action: "update", id: c.id, whatsapp_message }); setItems((cur) => cur.map((x) => x.id === c.id ? { ...x, whatsapp_message } : x)); toast.success("Mensagem salva."); }
     catch (e: any) { toast.error(e.message); }
   };
   const remove = async (c: Creative) => {
@@ -77,6 +92,9 @@ export function PromotionalCreativesCard({ table }: { table: { id: string; drive
           <input ref={input} type="file" multiple accept="image/*,video/*,application/pdf" className="hidden" onChange={(e) => upload(e.target.files)} />
           <Button onClick={() => input.current?.click()} disabled={busy}>{busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}Enviar criativos</Button>
         </div>
+        <p className="rounded-md bg-muted/40 p-2 text-xs text-muted-foreground">
+          Na Agenda, cada vendedor recebe a mensagem já preenchida: <span className="font-mono">{"{cupom}"}</span> vira o cupom dele nesta tabela, <span className="font-mono">{"{validade_cupom}"}</span> a validade e <span className="font-mono">{"{vendedor}"}</span> o primeiro nome. Se ele não tiver cupom, o parágrafo do cupom sai e fica só “Para equipamentos só me chamar!”.
+        </p>
         {!items.length ? <p className="text-sm text-muted-foreground">Nenhum criativo enviado.</p> : (
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
             {items.map((c) => (
@@ -84,6 +102,15 @@ export function PromotionalCreativesCard({ table }: { table: { id: string; drive
                 <CreativeThumb c={c} />
                 <p className="truncate text-xs text-muted-foreground" title={c.file_name}>{c.file_name}</p>
                 <Textarea defaultValue={c.description} placeholder="Descrição para uso" onBlur={(e) => save(c, e.target.value)} />
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-xs font-medium text-muted-foreground">Mensagem para WhatsApp (padrão dos vendedores)</p>
+                    <Button size="sm" variant="ghost" onClick={() => generate(c.id)} disabled={generating[c.id]} title="A IA lê a imagem e escreve a mensagem">
+                      {generating[c.id] ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <Sparkles className="mr-1 h-3 w-3" />}{c.whatsapp_message ? "Gerar de novo" : "Gerar com IA"}
+                    </Button>
+                  </div>
+                  <Textarea key={`${c.id}:${c.whatsapp_message ?? ""}`} rows={9} defaultValue={c.whatsapp_message ?? ""} placeholder={generating[c.id] ? "Gerando mensagem…" : "Clique em Gerar com IA ou escreva a mensagem."} onBlur={(e) => saveMessage(c, e.target.value)} />
+                </div>
                 <div className="flex justify-between">
                   {c.drive_url ? <Button asChild size="sm" variant="ghost"><a href={c.drive_url} target="_blank" rel="noopener noreferrer"><ExternalLink className="mr-1 h-3 w-3" />Drive</a></Button> : <span />}
                   <Button size="icon" variant="ghost" onClick={() => remove(c)} title="Remover"><Trash2 className="h-4 w-4 text-destructive" /></Button>

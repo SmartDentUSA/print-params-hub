@@ -20856,6 +20856,7 @@ export type Database = {
           sort_order: number
           storage_url: string | null
           updated_at: string
+          whatsapp_message: string
         }
         Insert: {
           created_at?: string
@@ -20870,6 +20871,7 @@ export type Database = {
           sort_order?: number
           storage_url?: string | null
           updated_at?: string
+          whatsapp_message?: string
         }
         Update: {
           created_at?: string
@@ -20884,6 +20886,7 @@ export type Database = {
           sort_order?: number
           storage_url?: string | null
           updated_at?: string
+          whatsapp_message?: string
         }
         Relationships: [
           {
