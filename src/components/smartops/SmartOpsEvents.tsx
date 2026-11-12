@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { toast } from "sonner";
@@ -329,7 +330,7 @@ export function SmartOpsEvents() {
         <CardHeader className="flex flex-row items-center justify-between gap-3">
           <div>
             <CardTitle className="flex items-center gap-2"><CalendarDays className="w-5 h-5" /> Eventos</CardTitle>
-            <p className="text-sm text-muted-foreground mt-1">Congressos, treinamentos externos e eventos onde a Smart Dent participa.</p>
+            <p className="text-sm text-muted-foreground mt-1">Feiras e congressos, eventos presenciais com parceiros e campanhas promocionais.</p>
           </div>
           <Button onClick={openNew}><Plus className="w-4 h-4 mr-1" /> Novo evento</Button>
         </CardHeader>
