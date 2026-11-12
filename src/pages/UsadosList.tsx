@@ -97,7 +97,7 @@ export default function UsadosList() {
           name="description"
           content="Compre e venda scanners intraorais, impressoras 3D e fresadoras usadas entre profissionais da odontologia digital. Anúncio gratuito."
         />
-        <link rel="canonical" href="https://admin.smartdent.com.br/usados" />
+        <link rel="canonical" href="https://www.smartdent.com.br/usados" />
         <meta property="og:type" content="website" />
         <meta property="og:title" content="Equipamentos Odontológicos Usados | Smart Dent" />
         <meta property="og:description" content="Scanners, impressoras 3D e fresadoras usadas entre profissionais." />

@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Header } from '@/components/Header';
+import { Helmet } from 'react-helmet-async';
 import { KnowledgeSEOHead } from '@/components/KnowledgeSEOHead';
 import { KnowledgeContentViewer } from '@/components/KnowledgeContentViewer';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
@@ -38,6 +39,37 @@ function kbContentType(data: any): string {
 }
 
 interface KnowledgeBaseProps { lang?: 'pt' | 'en' | 'es'; forcedTab?: KbTab }
+
+// Abas servidas em URL própria precisam de title/canonical/description próprios (senão herdam os da home/hub).
+const FORCED_TAB_SEO: Record<string, Record<string, { path: string; title: string; description: string }>> = {
+  institucional: {
+    pt: { path: '/institucional', title: 'Institucional | Smart Dent', description: 'Conheça a Smart Dent, empresa de odontologia digital e impressão 3D: quem somos, nossa história e certificações.' },
+    en: { path: '/en/institutional', title: 'About Smart Dent | Institutional', description: 'Learn about Smart Dent, a digital dentistry and 3D printing company: who we are, our history and certifications.' },
+    es: { path: '/es/institucional', title: 'Institucional | Smart Dent', description: 'Conozca Smart Dent, empresa de odontología digital e impresión 3D: quiénes somos, nuestra historia y certificaciones.' },
+  },
+  distribuidores: {
+    pt: { path: '/distribuidores', title: 'Distribuidores Smart Dent | Onde comprar', description: 'Encontre distribuidores autorizados da Smart Dent por país e região.' },
+  },
+  eventos: {
+    pt: { path: '/eventos', title: 'Eventos e Agenda | Smart Dent', description: 'Agenda de eventos, cursos e treinamentos da Smart Dent em odontologia digital.' },
+  },
+};
+
+function ForcedTabSEO({ tab, lang }: { tab: string; lang: string }) {
+  const seo = FORCED_TAB_SEO[tab]?.[lang] ?? FORCED_TAB_SEO[tab]?.pt;
+  if (!seo) return null;
+  const url = `https://www.smartdent.com.br${seo.path}`;
+  return (
+    <Helmet>
+      <title>{seo.title}</title>
+      <meta name="description" content={seo.description} />
+      <link rel="canonical" href={url} />
+      <meta property="og:title" content={seo.title} />
+      <meta property="og:description" content={seo.description} />
+      <meta property="og:url" content={url} />
+    </Helmet>
+  );
+}
 
 const LETTER_TO_TAB: Record<string, KbTab> = {
   a: 'videos', e: 'videos',
@@ -355,7 +387,7 @@ export default function KnowledgeBase({ lang = 'pt', forcedTab }: KnowledgeBaseP
       <>
         <style>{kbStyles}</style>
         <style>{kbShellStyles}</style>
-        {!dialogOpen && tab !== 'institucional' && <KnowledgeSEOHead currentLang={lang} />}
+        {!dialogOpen && (forcedTab ? <ForcedTabSEO tab={forcedTab} lang={lang} /> : tab !== 'institucional' && <KnowledgeSEOHead currentLang={lang} />)}
         <KbShellLayout
           active={activeKey}
           heroArtUrl={heroArt}
@@ -416,7 +448,7 @@ export default function KnowledgeBase({ lang = 'pt', forcedTab }: KnowledgeBaseP
   return (
     <div className="min-h-screen" style={{ background: '#EEF1F6' }}>
       <style>{kbStyles}</style>
-      {!dialogOpen && tab !== 'institucional' && <KnowledgeSEOHead currentLang={lang} />}
+      {!dialogOpen && (forcedTab ? <ForcedTabSEO tab={forcedTab} lang={lang} /> : tab !== 'institucional' && <KnowledgeSEOHead currentLang={lang} />)}
       <Header showAdminButton={true} />
       <main className="kb-root">
         <KbTabSwitcher active={tab} onChange={setTab} />

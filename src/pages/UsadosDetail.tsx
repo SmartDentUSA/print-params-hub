@@ -151,7 +151,7 @@ export default function UsadosDetail() {
       <Helmet>
         <title>{`${listing.title} usado ${local ? `em ${local}` : ""} | Smart Dent`.slice(0, 60)}</title>
         <meta name="description" content={(listing.description || `${categoryLabel(listing.category)} usado à venda por ${formatPrice(listing.price)}.`).slice(0, 155)} />
-        <link rel="canonical" href={`https://admin.smartdent.com.br/usados/${listing.slug || listing.id}`} />
+        <link rel="canonical" href={`https://www.smartdent.com.br/usados/${listing.slug || listing.id}`} />
         <meta property="og:type" content="product" />
         <meta property="og:title" content={listing.title} />
         <meta property="og:description" content={(listing.description || "").slice(0, 155)} />

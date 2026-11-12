@@ -59,9 +59,9 @@ Deno.serve(async (req) => {
 `;
 
     // Páginas institucionais: só públicas, indexáveis e com canonical próprio em www (verificado nas páginas).
-    // Fora: /usados (canonical em admin.), /institucional|/distribuidores|/eventos (abas da base de conhecimento, sem canonical próprio).
+    // /usados, /institucional, /distribuidores e /eventos têm canonical próprio em www (ver Usados*.tsx e ForcedTabSEO em KnowledgeBase.tsx).
     // Sem <lastmod>: não há data real de edição para páginas estáticas.
-    for (const path of ['/sobre', '/agenda', '/agenda/online', '/support-resources']) {
+    for (const path of ['/sobre', '/agenda', '/agenda/online', '/support-resources', '/usados', '/institucional', '/en/institutional', '/es/institucional', '/distribuidores', '/eventos']) {
       sitemap += `
   <url>
     <loc>${baseUrl}${path}</loc>
