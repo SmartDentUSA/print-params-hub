@@ -306,7 +306,7 @@ export function DealerPriceTable({ distributors, onGenerateProposal, promotion }
         }
       }
     }
-    await hydrateList(l as DealerPriceList);
+    await hydrateList(l as unknown as DealerPriceList);
   };
 
   const reload = () => (promotion ? loadPromotionList() : loadOrCreate(distributorId));
