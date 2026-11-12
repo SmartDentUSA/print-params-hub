@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, KeyboardEvent } from 'react';
 import { X, Sparkles, Loader2, Package, Library, Check, Image as ImageIcon, Plus, Instagram, Facebook, Youtube, Linkedin, Music2, Image as PinIcon } from 'lucide-react';
 import { toast } from 'sonner';
-import { eventNarrative, eventUsesVenue, normalizeEventType } from '@/lib/eventTypes';
+import { eventNarrative, eventTypeLabel, eventUsesVenue, normalizeEventType } from '@/lib/eventTypes';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
@@ -401,7 +401,7 @@ export function StepContent({
         ((congresses ?? []) as any[]).map((e) => ({
           id: String(e.id),
           name: e.name || 'Evento',
-          subtitle: [e.location, e.country].filter(Boolean).join(' · ') || undefined,
+          subtitle: [eventTypeLabel(e.event_type), e.location, e.country].filter(Boolean).join(' · ') || undefined,
           slug: e.slug || undefined,
           meta: {
             event_type: normalizeEventType(e.event_type),
@@ -925,7 +925,11 @@ ${m.location ? `📍 Local: ${m.location}` : '📍 Local: (omitir se não houver
       if (!e) return null;
       const m = e.meta || {};
       const start = m.start_date ? new Date(m.start_date).getTime() : null;
-      const isPast = start !== null && start < Date.now();
+      // Campanha promocional só "passou" depois do último dia (válida até 23:59).
+      const campaignEnd = m.end_date || m.start_date ? new Date(`${String(m.end_date || m.start_date).slice(0, 10)}T23:59:59`).getTime() : null;
+      const isPast = m.event_type === 'campanha_promocional'
+        ? campaignEnd !== null && campaignEnd < Date.now()
+        : start !== null && start < Date.now();
       const narrative = eventNarrative(m.event_type, e.name, isPast);
       const venue = eventUsesVenue(m.event_type);
       return [
