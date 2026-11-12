@@ -105,4 +105,4 @@
 - [x] IG Flow Black Friday 2026 (BLACK26): todas as postagens, 4 respostas, DM "Aqui está o acesso ao grupo VIP Black26!" + https://s.smartdent.com.br/9k8sn6; conferido na Zernio, comentário real às 18:43 respondido (com o texto antigo).
 - [ ] Cupons BlackFriday 16 a 20 na Loja Integrada: 12 não criados (chave de aplicação somente leitura) — aguarda chave com permissão de escrita.
 
-- [ ] Tabelas promocionais: base de % = Preço tabela (Unit) da revenda Smart Dent Oficial; recalcular descontos e valores das 3 tabelas BlackFriday
+- [x] Tabelas promocionais: base de % = Preço tabela (Unit) da Smart Dent (Loja Oficial); BlackFriday 16–20 = 25%, 21–25 = 15%, 26–30 = 10% recalculadas (versão anterior no histórico). Falta republicar os PDFs pelo botão Salvar tabela.
