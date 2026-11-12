@@ -47,6 +47,39 @@ export type Database = {
         }
         Relationships: []
       }
+      _bkp_inst_config_20261112: {
+        Row: {
+          _bkp_at: string | null
+          created_at: string | null
+          enabled: boolean | null
+          evolution_phone: string | null
+          id: string | null
+          instance_name: string | null
+          is_primary: boolean | null
+          updated_at: string | null
+        }
+        Insert: {
+          _bkp_at?: string | null
+          created_at?: string | null
+          enabled?: boolean | null
+          evolution_phone?: string | null
+          id?: string | null
+          instance_name?: string | null
+          is_primary?: boolean | null
+          updated_at?: string | null
+        }
+        Update: {
+          _bkp_at?: string | null
+          created_at?: string | null
+          enabled?: boolean | null
+          evolution_phone?: string | null
+          id?: string | null
+          instance_name?: string | null
+          is_primary?: boolean | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       _bkp_knowledge_contents_seo_20261008: {
         Row: {
           backed_up_at: string | null
@@ -94,6 +127,123 @@ export type Database = {
           backed_up_at?: string | null
           id?: string | null
           title?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      _bkp_post_targets_20261112: {
+        Row: {
+          _bkp_at: string | null
+          created_at: string | null
+          enabled: boolean | null
+          group_id: string | null
+          id: string | null
+          instance_name: string | null
+          platforms: string[] | null
+          updated_at: string | null
+        }
+        Insert: {
+          _bkp_at?: string | null
+          created_at?: string | null
+          enabled?: boolean | null
+          group_id?: string | null
+          id?: string | null
+          instance_name?: string | null
+          platforms?: string[] | null
+          updated_at?: string | null
+        }
+        Update: {
+          _bkp_at?: string | null
+          created_at?: string | null
+          enabled?: boolean | null
+          group_id?: string | null
+          id?: string | null
+          instance_name?: string | null
+          platforms?: string[] | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      _bkp_wa_groups_20261111: {
+        Row: {
+          _bkp_at: string | null
+          _regua_ativa_legacy: boolean | null
+          active_campaign_id: string | null
+          ativo: boolean | null
+          consecutive_send_errors: number | null
+          created_at: string | null
+          description: string | null
+          enabled: boolean | null
+          group_jid: string | null
+          id: string | null
+          instance_name: string | null
+          invite_link: string | null
+          is_admin: boolean | null
+          last_send_error: string | null
+          last_send_error_at: string | null
+          member_count: number | null
+          name: string | null
+          phone_number: string | null
+          picture_url: string | null
+          produto_tag: string | null
+          session_health: string | null
+          synced_at: string | null
+          tipo: string | null
+          turma_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          _bkp_at?: string | null
+          _regua_ativa_legacy?: boolean | null
+          active_campaign_id?: string | null
+          ativo?: boolean | null
+          consecutive_send_errors?: number | null
+          created_at?: string | null
+          description?: string | null
+          enabled?: boolean | null
+          group_jid?: string | null
+          id?: string | null
+          instance_name?: string | null
+          invite_link?: string | null
+          is_admin?: boolean | null
+          last_send_error?: string | null
+          last_send_error_at?: string | null
+          member_count?: number | null
+          name?: string | null
+          phone_number?: string | null
+          picture_url?: string | null
+          produto_tag?: string | null
+          session_health?: string | null
+          synced_at?: string | null
+          tipo?: string | null
+          turma_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          _bkp_at?: string | null
+          _regua_ativa_legacy?: boolean | null
+          active_campaign_id?: string | null
+          ativo?: boolean | null
+          consecutive_send_errors?: number | null
+          created_at?: string | null
+          description?: string | null
+          enabled?: boolean | null
+          group_jid?: string | null
+          id?: string | null
+          instance_name?: string | null
+          invite_link?: string | null
+          is_admin?: boolean | null
+          last_send_error?: string | null
+          last_send_error_at?: string | null
+          member_count?: number | null
+          name?: string | null
+          phone_number?: string | null
+          picture_url?: string | null
+          produto_tag?: string | null
+          session_health?: string | null
+          synced_at?: string | null
+          tipo?: string | null
+          turma_id?: string | null
           updated_at?: string | null
         }
         Relationships: []
