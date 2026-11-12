@@ -14,6 +14,7 @@ import { EventsUploadAccordion } from "@/components/agenda/EventsUploadAccordion
 import { CrmInsertionButton } from "@/components/agenda/CrmInsertionButton";
 import { KolCandidateButton } from "@/components/agenda/KolCandidateButton";
 import { CurrentPriceTableButton, CurrentPriceTableStatus } from "@/components/agenda/CurrentPriceTableButton";
+import { CreativesButton } from "@/components/agenda/CreativesButton";
 import { AccountButton } from "@/components/AccountButton";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -374,6 +375,7 @@ export default function AgendaPublica({ variant = "presencial" }: AgendaPublicaP
               <CrmInsertionButton />
               <KolCandidateButton />
               <CurrentPriceTableButton />
+              <CreativesButton />
             </div>
           )}
           {isTeamMember && (
