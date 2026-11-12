@@ -808,6 +808,7 @@ export function DealerPriceTable({ distributors, onGenerateProposal, promotion, 
 
   // Sempre a versão do último render (com os descontos digitados até agora).
   if (flushRef) flushRef.current = saveAll;
+  useEffect(() => () => { if (flushRef) flushRef.current = null; }, [flushRef]);
 
   const saveAndPublish = async () => {
     try {
@@ -891,7 +892,7 @@ export function DealerPriceTable({ distributors, onGenerateProposal, promotion, 
   const saveSnapshot = async () => {
     if (!list || (!distributorId && !promotion)) return;
     if (dirtyIds.size > 0) {
-      await saveAll();
+      try { await saveAll(); } catch { return; }
     }
     const label = snapshotLabel.trim() || `Cotação ${new Date().toLocaleString("pt-BR")}`;
     const { error } = await supabase.from("dealer_price_list_snapshots" as any).insert({
