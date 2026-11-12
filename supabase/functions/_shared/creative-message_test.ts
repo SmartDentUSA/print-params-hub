@@ -1,14 +1,21 @@
 import { assertEquals } from "jsr:@std/assert@1";
-import { buildCreativeTemplate, pickCoupon, renderCreativeMessage } from "./creative-message.ts";
+import { buildCreativeTemplate, cleanAiBody, pickCoupon, renderCreativeMessage } from "./creative-message.ts";
 
-const tpl = buildCreativeTemplate("Olá!");
+const tpl = buildCreativeTemplate("Oferta!");
 
 Deno.test("com cupom: código e validade preenchidos", () => {
-  assertEquals(renderCreativeMessage(tpl, { code: "DANI10", valid_until: "2026-11-30" }),
-    "Olá!\n\nPara compras de resinas e insumos compre diretamente no site com desconto 👇\nUtilizando o cupom: *DANI10*\nCupom válido até: 30/11/2026\n\nPara equipamentos só me chamar! 😉");
+  assertEquals(renderCreativeMessage(buildCreativeTemplate("Oferta!"), { code: "DANI10", valid_until: "2026-11-30" }),
+    "Oferta!\n\n🛒 Para compras de *resinas e insumos*, compre diretamente no site com desconto 👇\n🎟️ Utilizando o cupom: *DANI10*\n📅 Cupom válido até: *30/11/2026*\n\n🦷 Para *equipamentos*, só me chamar! 😉");
 });
 Deno.test("sem cupom: some o bloco do cupom, fica só equipamentos", () => {
-  assertEquals(renderCreativeMessage(tpl, null), "Olá!\n\nPara equipamentos só me chamar! 😉");
+  assertEquals(renderCreativeMessage(buildCreativeTemplate("Oferta!"), null), "Oferta!\n\n🦷 Para *equipamentos*, só me chamar! 😉");
+});
+Deno.test("tira a saudação Olá, Doutor(a) do início", () => {
+  assertEquals(cleanAiBody("Olá, Doutor(a)! A oportunidade Black 26 já começou."), "A oportunidade Black 26 já começou.");
+  assertEquals(cleanAiBody("Oi Doutor, *Black 26* chegou"), "*Black 26* chegou");
+});
+Deno.test("tira rodapé de cupom que a IA repetir", () => {
+  assertEquals(cleanAiBody("🔥 *Black*\n\nUse o cupom X\nCompre já"), "🔥 *Black*\n\nCompre já");
 });
 Deno.test("cupom sem validade: some só a linha da validade", () => {
   assertEquals(renderCreativeMessage(tpl, { code: "X", valid_until: null }).includes("válido até"), false);
