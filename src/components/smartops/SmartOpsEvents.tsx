@@ -23,10 +23,12 @@ import EventRafflesPanel from "@/components/smartops/events/EventRafflesPanel";
 
 import { CriarPastaEventoDriveButton } from "@/components/smartops/CriarPastaEventoDriveButton";
 import { getPublicOrigin } from "@/utils/publicOrigin";
+import { DEFAULT_EVENT_TYPE, EVENT_TYPE_OPTIONS, eventTypeLabel, normalizeEventType } from "@/lib/eventTypes";
 
 type EventRow = {
   id: string;
   name: string;
+  event_type: string | null;
   country: string | null;
   start_date: string | null;
   end_date: string | null;
@@ -115,6 +117,7 @@ const ALL_COUNTRIES = Country.getAllCountries();
 function emptyForm(): Partial<EventRow> {
   return {
     name: "",
+    event_type: DEFAULT_EVENT_TYPE,
     country: "",
     start_date: "",
     end_date: "",
@@ -253,6 +256,7 @@ export function SmartOpsEvents() {
     try {
       const payload: any = {
         name: editing.name.trim(),
+        event_type: normalizeEventType(editing.event_type),
         country: editing.country || null,
         start_date: editing.start_date || null,
         end_date: editing.end_date || null,
@@ -376,6 +380,7 @@ export function SmartOpsEvents() {
                         {[r.location, r.country].filter(Boolean).join(" — ") || "—"}
                       </div>
                       <div className="flex flex-wrap items-center gap-1">
+                        <Badge variant="outline">{eventTypeLabel(r.event_type)}</Badge>
                         {r.company_stand && <Badge variant="secondary">Estande {r.company_stand}</Badge>}
                         {!!st?.coupons_discount && <Badge variant="outline">{st.coupons_discount} cupons desconto</Badge>}
                         {!!st?.coupons_freight && <Badge variant="outline">{st.coupons_freight} cupons frete</Badge>}
@@ -554,6 +559,20 @@ export function SmartOpsEvents() {
               <div>
                 <Label>Nome do evento *</Label>
                 <Input value={editing.name || ""} onChange={(e) => setEditing({ ...editing, name: e.target.value })} />
+              </div>
+              <div>
+                <Label>Tipo de evento</Label>
+                <Select value={normalizeEventType(editing.event_type)} onValueChange={(v) => setEditing({ ...editing, event_type: v })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {EVENT_TYPE_OPTIONS.map((o) => (
+                      <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-[11px] text-muted-foreground mt-1">
+                  {EVENT_TYPE_OPTIONS.find((o) => o.value === normalizeEventType(editing.event_type))?.hint} A IA dos posts usa esta narrativa.
+                </p>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
