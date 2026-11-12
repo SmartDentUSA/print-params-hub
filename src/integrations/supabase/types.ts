@@ -21109,6 +21109,7 @@ export type Database = {
           pdf_title: string
           price_table_distributor_id: string | null
           price_table_mode: string
+          price_table_source_promotion_id: string | null
           professional_lead_id: string | null
           status: string
           updated_at: string
@@ -21151,6 +21152,7 @@ export type Database = {
           pdf_title?: string
           price_table_distributor_id?: string | null
           price_table_mode?: string
+          price_table_source_promotion_id?: string | null
           professional_lead_id?: string | null
           status?: string
           updated_at?: string
@@ -21193,6 +21195,7 @@ export type Database = {
           pdf_title?: string
           price_table_distributor_id?: string | null
           price_table_mode?: string
+          price_table_source_promotion_id?: string | null
           professional_lead_id?: string | null
           status?: string
           updated_at?: string
@@ -21219,6 +21222,13 @@ export type Database = {
             columns: ["price_table_distributor_id"]
             isOneToOne: false
             referencedRelation: "distributors"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "promotional_tables_price_table_source_promotion_id_fkey"
+            columns: ["price_table_source_promotion_id"]
+            isOneToOne: false
+            referencedRelation: "promotional_tables"
             referencedColumns: ["id"]
           },
         ]

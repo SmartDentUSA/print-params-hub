@@ -14,7 +14,9 @@ export type PromotionalTable = {
   /** Liga/desliga a tabela de preços no final do PDF. */
   include_official_price_table?: boolean;
   /** distribution = tabela de um distribuidor (padrão Loja Oficial); exclusive = tabela própria da promoção. */
-  price_table_mode?: "distribution" | "exclusive";
+  price_table_mode?: "distribution" | "exclusive" | "clone";
+  /** Promoção de onde a tabela foi clonada (modo clone). */
+  price_table_source_promotion_id?: string | null;
   /** Distribuidor da tabela associada; vazio = Smart Dent (Loja Oficial). */
   price_table_distributor_id?: string | null;
   kol_visible?: boolean;

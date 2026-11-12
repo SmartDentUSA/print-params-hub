@@ -33,6 +33,7 @@ const blankTable = (): Omit<PromotionalTable, "id" | "created_at" | "updated_at"
   name: "", pdf_title: "TABELA PROMOCIONAL", distributor_id: null, event_id: null, currency: "BRL",
   valid_from: null, valid_until: null, notes: null, status: "draft",
   include_official_price_table: true, price_table_mode: "distribution", price_table_distributor_id: null,
+  price_table_source_promotion_id: null,
   kol_visible: false, commercial_active: false,
   coupon_seller_ids: [], coupon_discount_type: "percent", coupon_discount_value: 0,
   coupon_prefix: null, coupon_usage_limit: null, coupon_valid_from: null, coupon_valid_until: null,
@@ -153,8 +154,9 @@ export function PromotionalTablesTab() {
       currency: table.currency, valid_from: table.valid_from, valid_until: table.valid_until,
       notes: table.notes, status: table.status,
       include_official_price_table: table.include_official_price_table !== false,
-      price_table_mode: table.price_table_mode === "exclusive" ? "exclusive" : "distribution",
+      price_table_mode: table.price_table_mode === "exclusive" || table.price_table_mode === "clone" ? table.price_table_mode : "distribution",
       price_table_distributor_id: table.price_table_distributor_id ?? null,
+      price_table_source_promotion_id: table.price_table_source_promotion_id ?? null,
       kol_visible: table.kol_visible === true,
       commercial_active: table.commercial_active === true,
       coupon_seller_ids: table.coupon_seller_ids ?? [],
@@ -451,7 +453,7 @@ export function PromotionalTablesTab() {
       const rows = ((sourceItems as any) || []).filter((item: any) => item.section_id === sourceSection.id).map(({ id, section_id, created_at, updated_at, ...item }: any) => ({ ...item, section_id: (newSection as any).id }));
       if (rows.length) await supabase.from("promotional_table_items" as any).insert(rows);
     }
-    if (table.price_table_mode === "exclusive") {
+    if (table.price_table_mode === "exclusive" || table.price_table_mode === "clone") {
       const { data: ownList } = await supabase.from("dealer_price_lists" as any).select("*").eq("promotional_table_id", table.id).maybeSingle();
       if (ownList) {
         const { data: newList } = await supabase.from("dealer_price_lists" as any).insert({
@@ -570,6 +572,7 @@ export function PromotionalTablesTab() {
       {persisted && selected && <PromotionalPriceTableCard
         table={{ ...selected, ...draft } as PromotionalTable}
         distributors={distributors}
+        promotions={tables.filter((row) => row.id !== selected.id)}
         onChange={async (patch) => {
           setDraft((row) => ({ ...row, ...patch }));
           const { error } = await supabase.from("promotional_tables" as any).update(patch).eq("id", selected.id);

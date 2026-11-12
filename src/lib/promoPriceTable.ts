@@ -107,3 +107,26 @@ export function planOfficialSync(existing: PriceRow[], official: PriceRow[], pri
   }
   return { inserts, updates };
 }
+
+/**
+ * Clonagem de outra promoção: copia cada item exatamente como está na origem
+ * (preço tabela, desconto e preço final), para depois editar os descontos.
+ */
+export function clonedPromoRows(source: PriceRow[], priceListId: string) {
+  return source
+    .filter((row) => row.is_active !== false)
+    .map((row, index) => {
+      const base = round2(Number(row.price_base || 0));
+      const discount = Number(row.discount_pct || 0);
+      const dealer = Number(row.price_dealer);
+      return {
+        price_list_id: priceListId,
+        ...metadata(row),
+        price_base: base,
+        discount_pct: discount,
+        price_dealer: Number.isFinite(dealer) && dealer > 0 ? round2(dealer) : promoPrice(base, discount),
+        sort_order: row.sort_order ?? index,
+        is_active: true,
+      };
+    });
+}
