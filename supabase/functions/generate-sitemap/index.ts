@@ -295,31 +295,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    // 🆕 Documentos Técnicos (PDFs)
-    const { data: documents } = await supabase
-      .from('resin_documents')
-      .select('file_url, updated_at, document_name')
-      .eq('active', true)
-      .order('updated_at', { ascending: false })
-      .limit(100); // Limitar para não sobrecarregar
-
-    if (documents && documents.length > 0) {
-      for (const doc of documents) {
-        const lastmod = doc.updated_at 
-          ? new Date(doc.updated_at).toISOString().split('T')[0] 
-          : now;
-        
-        sitemap += `
-  <!-- Documento Técnico: ${doc.document_name} -->
-  <url>
-    <loc>${doc.file_url}</loc>
-    <changefreq>monthly</changefreq>
-    <priority>0.6</priority>
-    ${lm(lastmod)}
-  </url>
-`;
-      }
-    }
+    // PDFs (resin_documents) ficam só em /sitemap-documentos.xml — evita URL duplicada entre sitemaps.
 
     sitemap += `
 </urlset>`;
