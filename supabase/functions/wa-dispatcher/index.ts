@@ -5,6 +5,7 @@ import { createClient, SupabaseClient } from 'https://esm.sh/@supabase/supabase-
 import { sendText, sendMedia, sleep, corsHeaders, findMessageStatus, mapBaileysStatus, warmupGroup, resolveApiKey, GLOBAL_EVOLUTION_KEY, findRecentOutgoingByText } from '../_shared/evolution.ts'
 import { spDateTimeToUtc, spWeekday, spStartOfDay, addDaysSp } from '../_shared/timezone.ts'
 import { resolveAiContent } from '../_shared/wa-ai-content.ts'
+import { pickPostMedia, composePostText, postBodyText, WA_MEDIA_CAPTION_MAX } from '../_shared/post-summary.ts'
 import {
   resolveProvider,
   operationForJid,
@@ -248,20 +249,31 @@ serve(async (req) => {
             evoId = await send(useEvoGo ? () => sendTextEvoGo(item.group_jid, txt, evoGoBase, evoGoToken!) : null, (k) => sendText(item.group_jid, txt, instance, k), (c.url as string) ?? txt)
             break
           }
-          case 'post_ig': case 'post_yt': {
-            const cap = (c.caption ?? '') as string
-            const url = (c.post_url ?? '') as string
-            if (!url) throw new Error('post_url vazio')
-            const txt = [cap, url].filter(Boolean).join('\n\n')
-            evoId = await send(useEvoGo ? () => sendTextEvoGo(item.group_jid, txt, evoGoBase, evoGoToken!) : null, (k) => sendText(item.group_jid, txt, instance, k), url)
-            break
-          }
+          case 'post_ig': case 'post_yt':
           case 'link_ig': case 'link_yt': {
-            const cap = (c.caption ?? '') as string
-            const url = (c.url ?? '') as string
-            if (!url) throw new Error('url vazio')
-            const txt = [cap, url].filter(Boolean).join('\n\n')
-            evoId = await send(useEvoGo ? () => sendTextEvoGo(item.group_jid, txt, evoGoBase, evoGoToken!) : null, (k) => sendText(item.group_jid, txt, instance, k), url)
+            // Postagem/link de rede social: imagem (media_urls → media_url → thumbnail_url)
+            // com o resumo salvo no editor (ou a legenda, nos nós antigos) + link no fim.
+            const isPost = item.node_type === 'post_ig' || item.node_type === 'post_yt'
+            const url = String((isPost ? c.post_url : c.url) ?? '')
+            if (!url) throw new Error(isPost ? 'post_url vazio' : 'url vazio')
+            const bodyText = postBodyText(c as any)
+            const media = pickPostMedia(c)
+            const sendAsText = async () => {
+              const txt = composePostText(bodyText, url)
+              return await send(useEvoGo ? () => sendTextEvoGo(item.group_jid, txt, evoGoBase, evoGoToken!) : null, (k) => sendText(item.group_jid, txt, instance, k), url)
+            }
+            if (!media) { evoId = await sendAsText(); break }
+            const caption = composePostText(bodyText, url, WA_MEDIA_CAPTION_MAX)
+            try {
+              evoId = await send(useEvoGo ? () => sendMediaEvoGo(item.group_jid, media.kind, media.url, caption, null, evoGoBase, evoGoToken!) : null, (k) => sendMedia(item.group_jid, media.kind, media.url, caption, instance, k), url)
+            } catch (e) {
+              // Timeout pode significar que a mídia já saiu: não reenviamos como texto.
+              const m = e instanceof Error ? e.message : String(e)
+              if (/timed out|aborted|timeout/i.test(m)) throw e
+              // Imagem rejeitada (ex.: miniatura de CDN expirada): manda como texto, como antes.
+              console.warn(`[v66eg] ${item.node_type} mídia falhou (${m.slice(0, 160)}); enviando como texto`)
+              evoId = await sendAsText()
+            }
             break
           }
           case 'ai': {

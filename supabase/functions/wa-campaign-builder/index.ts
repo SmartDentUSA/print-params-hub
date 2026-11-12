@@ -255,6 +255,8 @@ function buildContent(node: Record<string, unknown>): Record<string, unknown> {
       titulo: node.titulo ?? '',
       thumbnail_url: node.thumbnail_url ?? null,
       social_post_id: node.social_post_id ?? null,
+      resumo: node.resumo ?? null,
+      media_url: node.media_url ?? null,
     }
     case 'link_ig':
     case 'link_yt': return {
@@ -262,6 +264,8 @@ function buildContent(node: Record<string, unknown>): Record<string, unknown> {
       caption: node.caption ?? '',
       titulo: node.titulo ?? '',
       thumbnail_url: node.thumbnail_url ?? null,
+      resumo: node.resumo ?? null,
+      media_url: node.media_url ?? null,
     }
     default:      return { raw: node }
   }

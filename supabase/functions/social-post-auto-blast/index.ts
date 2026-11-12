@@ -5,6 +5,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { postTargetStatus } from '../_shared/post-group-eligibility.ts';
+import { generatePostSummary, pickPostMedia } from '../_shared/post-summary.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -16,57 +17,13 @@ const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const MAX_POSTS_PER_RUN = 20;
 const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
 
-/** Resumo curto para WhatsApp. Fallback: caption truncada. */
+/** Resumo curto para WhatsApp (prompt compartilhado em _shared/post-summary.ts). */
 async function buildSummary(caption: string, platform: string): Promise<string> {
-  const clean = String(caption ?? '').trim();
-  const fallback = clean.length > 320 ? clean.slice(0, 317).trimEnd() + '…' : clean;
-  if (!LOVABLE_API_KEY || !clean) return fallback;
-  try {
-    const res = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'google/gemini-3-flash-preview',
-        messages: [
-          { role: 'system', content: 'Você resume posts da Smart Dent para grupos de WhatsApp de dentistas e laboratórios. Responda em português, 2 a 3 linhas, tom direto e convidativo, sem preços, sem hashtags, sem emojis em excesso (no máximo 2). Termine convidando a ver o post.' },
-          { role: 'user', content: `Rede: ${platform}\n\nPost:\n${clean.slice(0, 1500)}` },
-        ],
-      }),
-    });
-    if (!res.ok) {
-      console.warn('[social-post-auto-blast] summary fail', res.status, await res.text());
-      return fallback;
-    }
-    const j = await res.json();
-    const txt = String(j?.choices?.[0]?.message?.content ?? '').trim();
-    return txt || fallback;
-  } catch (e) {
-    console.warn('[social-post-auto-blast] summary error', e);
-    return fallback;
-  }
+  return (await generatePostSummary(caption, platform, LOVABLE_API_KEY, '[social-post-auto-blast]')).text;
 }
 
-/** Escolhe a primeira mídia utilizável do post. */
-function pickMedia(v: any): { url: string; kind: 'image' | 'video' } | null {
-  const candidates: any[] = [];
-  if (Array.isArray(v?.media_urls)) candidates.push(...v.media_urls);
-  if (v?.media_url) candidates.push({ url: v.media_url, type: v.media_type });
-  for (const c of candidates) {
-    let url = typeof c === 'string' ? c : (c?.url ?? c?.public_url ?? null);
-    if (!url || !/^https?:\/\//i.test(url)) continue;
-    // Miniaturas do YouTube vêm em 120px — sobe para hqdefault.
-    url = String(url).replace('i.ytimg.com', 'i.ytimg.com').replace(/\/default\.jpg/, '/hqdefault.jpg');
-    const t = String((typeof c === 'object' && c?.type) || v?.media_type || '').toLowerCase();
-    const ext = (String(url).split('?')[0].split('.').pop() || '').toLowerCase();
-    // A extensão manda: muitos posts (ex.: YouTube) marcam type=video mas a URL
-    // disponível é a thumbnail .jpg — enviar como vídeo quebraria no WhatsApp.
-    const imageExt = ['jpg', 'jpeg', 'png', 'webp', 'gif'].includes(ext);
-    const videoExt = ['mp4', 'mov', 'webm', 'm4v'].includes(ext);
-    const isVideo = videoExt || (!imageExt && t.includes('video'));
-    return { url, kind: isVideo ? 'video' : 'image' };
-  }
-  return null;
-}
+/** Escolhe a primeira mídia utilizável do post: media_urls → media_url → thumbnail_url. */
+const pickMedia = pickPostMedia;
 
 interface Body {
   post_id?: string;

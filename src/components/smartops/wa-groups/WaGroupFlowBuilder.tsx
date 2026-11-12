@@ -29,6 +29,7 @@ import type {
 } from "./types";
 import { WaContentNodeSelector } from "./WaContentNodeSelector";
 import { WaMediaUploader } from "./WaMediaUploader";
+import { SocialPostSummaryEditor } from "./SocialPostSummaryEditor";
 import { SocialPostLinkPicker, type SocialPostPickResult } from "@/components/social/flows/SocialPostLinkPicker";
 
 interface Props {
@@ -175,6 +176,39 @@ export function WaGroupFlowBuilder({ open, groupId, groupIds, campaignId, onClos
   };
   const updateNode = (id: string, patch: Partial<FlowNode>) => {
     setNodes(n => n.map(x => x.id === id ? ({ ...x, ...patch } as FlowNode) : x));
+  };
+
+  const [summaryLoading, setSummaryLoading] = useState<Record<string, boolean>>({});
+
+  // Resumo por IA dos nós de postagem/link, gerado no editor (uma chamada por nó)
+  // com o mesmo tom do envio automático; também copia a capa para o storage.
+  const generateSummary = async (
+    nodeId: string,
+    src: { url: string; caption?: string; thumbnail_url?: string; post_id?: string; platform: string },
+  ) => {
+    if (!src.url) return;
+    setSummaryLoading((m) => ({ ...m, [nodeId]: true }));
+    try {
+      const { data, error } = await supabase.functions.invoke("wa-post-teaser", {
+        body: {
+          style: "resumo",
+          post_id: src.post_id ?? null,
+          url: src.url,
+          caption: src.caption ?? "",
+          platform: src.platform,
+          thumbnail_url: src.thumbnail_url ?? null,
+        },
+      });
+      if (error || !data?.ok) throw new Error(data?.error ?? error?.message ?? "falha");
+      const patch: Record<string, unknown> = { resumo: String(data.teaser ?? "") };
+      if (data.media_url) patch.media_url = data.media_url;
+      updateNode(nodeId, patch as Partial<FlowNode>);
+      if (!data.ai) toast.warning("Resumo automático indisponível; usei o começo da legenda. Revise antes de enviar.");
+    } catch (e: any) {
+      toast.error("Falha ao gerar o resumo: " + (e?.message ?? String(e)));
+    } finally {
+      setSummaryLoading((m) => ({ ...m, [nodeId]: false }));
+    }
   };
 
   const previewAi = async (n: AiNode) => {
@@ -747,12 +781,18 @@ export function WaGroupFlowBuilder({ open, groupId, groupIds, campaignId, onClos
                               Selecionar publicação do {platform === "instagram" ? "Instagram" : "YouTube"}
                             </Button>
                           )}
-                          <Textarea
-                            value={sp.caption ?? ""}
-                            onChange={(e) => updateNode(n.id, { caption: e.target.value } as Partial<SocialPostNode>)}
-                            placeholder="Mensagem a enviar junto com o link (editável)"
-                            rows={3}
-                          />
+                          {sp.post_url && (
+                            <SocialPostSummaryEditor
+                              link={sp.post_url}
+                              caption={sp.caption}
+                              resumo={sp.resumo}
+                              mediaUrl={sp.media_url}
+                              thumbnailUrl={sp.thumbnail_url}
+                              generating={!!summaryLoading[n.id]}
+                              onGenerate={() => generateSummary(n.id, { url: sp.post_url, caption: sp.caption, thumbnail_url: sp.thumbnail_url, post_id: sp.social_post_id, platform })}
+                              onChange={(patch) => updateNode(n.id, patch as Partial<SocialPostNode>)}
+                            />
+                          )}
                         </div>
                       );
                     })()}
@@ -787,12 +827,18 @@ export function WaGroupFlowBuilder({ open, groupId, groupIds, campaignId, onClos
                               Selecionar link do {platform === "instagram" ? "Instagram" : "YouTube"}
                             </Button>
                           )}
-                          <Textarea
-                            value={ln.caption ?? ""}
-                            onChange={(e) => updateNode(n.id, { caption: e.target.value } as Partial<SocialLinkNode>)}
-                            placeholder="Mensagem que acompanha o link (editável)"
-                            rows={3}
-                          />
+                          {ln.url && (
+                            <SocialPostSummaryEditor
+                              link={ln.url}
+                              caption={ln.caption}
+                              resumo={ln.resumo}
+                              mediaUrl={ln.media_url}
+                              thumbnailUrl={ln.thumbnail_url}
+                              generating={!!summaryLoading[n.id]}
+                              onGenerate={() => generateSummary(n.id, { url: ln.url, caption: ln.caption, thumbnail_url: ln.thumbnail_url, platform })}
+                              onChange={(patch) => updateNode(n.id, patch as Partial<SocialLinkNode>)}
+                            />
+                          )}
                         </div>
                       );
                     })()}
@@ -855,12 +901,15 @@ export function WaGroupFlowBuilder({ open, groupId, groupIds, campaignId, onClos
           onSelect={(p: SocialPostPickResult) => {
             if (!postPickerFor) return;
             const target = nodes.find((nn) => nn.id === postPickerFor.nodeId);
+            // Trocar a publicação descarta o resumo e a capa da anterior.
             if (target && (target.type === "link_ig" || target.type === "link_yt")) {
               updateNode(postPickerFor.nodeId, {
                 url: p.url,
                 caption: p.caption ?? "",
                 thumbnail_url: p.thumbnail_url,
                 titulo: p.titulo,
+                resumo: "",
+                media_url: undefined,
               } as Partial<SocialLinkNode>);
             } else {
               updateNode(postPickerFor.nodeId, {
@@ -869,8 +918,17 @@ export function WaGroupFlowBuilder({ open, groupId, groupIds, campaignId, onClos
                 caption: p.caption ?? "",
                 thumbnail_url: p.thumbnail_url,
                 titulo: p.titulo,
+                resumo: "",
+                media_url: undefined,
               } as Partial<SocialPostNode>);
             }
+            void generateSummary(postPickerFor.nodeId, {
+              url: p.url,
+              caption: p.caption ?? "",
+              thumbnail_url: p.thumbnail_url,
+              post_id: p.post_id,
+              platform: p.platform || postPickerFor.platform,
+            });
             setPostPickerFor(null);
           }}
         />

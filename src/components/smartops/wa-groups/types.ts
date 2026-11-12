@@ -115,9 +115,14 @@ export interface SocialPostNode extends FlowNodeBase {
   type: "post_ig" | "post_yt";
   social_post_id?: string;
   post_url: string;
+  /** Legenda original da publicação (referência e fallback). */
   caption?: string;
   thumbnail_url?: string;
   titulo?: string;
+  /** Resumo por IA editável; é o texto enviado junto da imagem. */
+  resumo?: string;
+  /** Capa copiada para o storage (não expira como a CDN do Instagram). */
+  media_url?: string;
 }
 
 export interface SocialLinkNode extends FlowNodeBase {
@@ -126,6 +131,8 @@ export interface SocialLinkNode extends FlowNodeBase {
   caption?: string;
   titulo?: string;
   thumbnail_url?: string;
+  resumo?: string;
+  media_url?: string;
 }
 
 export interface PromoSeqMessage {
