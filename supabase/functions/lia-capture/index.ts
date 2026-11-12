@@ -73,7 +73,7 @@ async function resolveContext(body: any) {
   let productSummary: string | null = null;
   let modulesSummary: string | null = null;
   let groupUrl: string | null = null;
-  let commercial: { question: string; options: string[]; group_message: string | null; redirect_ms: number; display_name: string } | null = null;
+  let commercial: { question: string; options: string[]; group_message: string | null; redirect_ms: number; display_name: string; promotional_table_id: string | null; promotional_table_name: string | null } | null = null;
   let commercialButtons: ReturnType<typeof campaignButtons> = [];
   if (campaignSlug) {
     const { data: c } = await sb.from("campaigns").select("nome, lia_opening_message, lia_product_name").ilike("lia_slug", campaignSlug).maybeSingle();
