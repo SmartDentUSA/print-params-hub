@@ -736,3 +736,6 @@ verify_jwt = false
 
 [functions.wa-post-teaser]
 verify_jwt = false
+
+[functions.catalog-images-localize]
+verify_jwt = false
