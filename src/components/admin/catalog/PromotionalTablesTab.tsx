@@ -15,6 +15,7 @@ import { toast } from "sonner";
 import { exportPromotionalPdf } from "./exportPromotionalPdf";
 import { PromotionalCouponsCard } from "./PromotionalCouponsCard";
 import { PromotionalCreativesCard } from "./PromotionalCreativesCard";
+import { PromotionalSocialPostsCard } from "./PromotionalSocialPostsCard";
 import { PromotionalPriceTableCard } from "./PromotionalPriceTableCard";
 import type { PromotionalItem, PromotionalSectionWithItems, PromotionalStatus, PromotionalTable } from "./promotionalTypes";
 import { itemTotals } from "./promotionalTypes";
@@ -568,6 +569,8 @@ export function PromotionalTablesTab() {
       />}
 
       {persisted && selected && <PromotionalCreativesCard table={selected as any} />}
+
+      {persisted && selected && <PromotionalSocialPostsCard table={selected} />}
 
       {persisted && selected && <PromotionalPriceTableCard
         table={{ ...selected, ...draft } as PromotionalTable}
