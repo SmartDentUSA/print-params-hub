@@ -14,6 +14,7 @@ import { ArrowDown, ArrowLeft, ArrowUp, Copy, Eye, FileText, ImagePlus, Loader2,
 import { toast } from "sonner";
 import { exportPromotionalPdf } from "./exportPromotionalPdf";
 import { PromotionalCouponsCard } from "./PromotionalCouponsCard";
+import { PromotionalCreativesCard } from "./PromotionalCreativesCard";
 import type { PromotionalItem, PromotionalSectionWithItems, PromotionalStatus, PromotionalTable } from "./promotionalTypes";
 import { itemTotals } from "./promotionalTypes";
 
@@ -551,6 +552,8 @@ export function PromotionalTablesTab() {
         draft={draft}
         onDraftChange={(patch) => setDraft((row) => ({ ...row, ...patch }))}
       />}
+
+      {persisted && selected && <PromotionalCreativesCard table={selected as any} />}
 
       {persisted && <div className="space-y-4">
         <div className="flex items-center justify-between"><div><h3 className="font-semibold">Seções do combo</h3><p className="text-sm text-muted-foreground">Organize equipamentos, consumíveis, serviços, treinamentos ou qualquer outra composição.</p></div><div className="flex items-center gap-3"><p className="text-xs text-muted-foreground">{sections.length} combo(s)</p><Button variant="outline" onClick={addSection}><Plus className="mr-2 h-4 w-4" />Adicionar combo</Button></div></div>

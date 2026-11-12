@@ -20842,6 +20842,59 @@ export type Database = {
           },
         ]
       }
+      promotional_table_creatives: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          description: string
+          drive_file_id: string | null
+          drive_url: string | null
+          file_name: string
+          id: string
+          mime_type: string
+          promotional_table_id: string
+          sort_order: number
+          storage_url: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          description?: string
+          drive_file_id?: string | null
+          drive_url?: string | null
+          file_name: string
+          id?: string
+          mime_type: string
+          promotional_table_id: string
+          sort_order?: number
+          storage_url?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          description?: string
+          drive_file_id?: string | null
+          drive_url?: string | null
+          file_name?: string
+          id?: string
+          mime_type?: string
+          promotional_table_id?: string
+          sort_order?: number
+          storage_url?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "promotional_table_creatives_promotional_table_id_fkey"
+            columns: ["promotional_table_id"]
+            isOneToOne: false
+            referencedRelation: "promotional_tables"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       promotional_table_items: {
         Row: {
           catalog_product_id: string | null
@@ -20995,6 +21048,8 @@ export type Database = {
           created_by: string
           currency: string
           distributor_id: string | null
+          drive_folder_id: string | null
+          drive_folder_url: string | null
           event_id: string | null
           id: string
           include_official_price_table: boolean
@@ -21033,6 +21088,8 @@ export type Database = {
           created_by?: string
           currency?: string
           distributor_id?: string | null
+          drive_folder_id?: string | null
+          drive_folder_url?: string | null
           event_id?: string | null
           id?: string
           include_official_price_table?: boolean
@@ -21071,6 +21128,8 @@ export type Database = {
           created_by?: string
           currency?: string
           distributor_id?: string | null
+          drive_folder_id?: string | null
+          drive_folder_url?: string | null
           event_id?: string | null
           id?: string
           include_official_price_table?: boolean
