@@ -5,7 +5,7 @@ const tpl = buildCreativeTemplate("Oferta!");
 
 Deno.test("com cupom: código e validade preenchidos", () => {
   assertEquals(renderCreativeMessage(buildCreativeTemplate("Oferta!"), { code: "DANI10", valid_until: "2026-11-30" }),
-    "Oferta!\n\n🛒 Para compras de *resinas e insumos*, compre diretamente no site com desconto 👇\n🎟️ Utilizando o cupom: *DANI10*\n📅 Cupom válido até: *30/11/2026*\n\n🦷 Para *equipamentos*, só me chamar! 😉");
+    "Oferta!\n\n🛒 Para compras de *resinas e insumos*, compre diretamente no site com desconto 👇\n🌐 https://loja.smartdent.com.br/\n🎟️ Utilizando o cupom: *DANI10*\n📅 Cupom válido até: *30/11/2026*\n\n🦷 Para *equipamentos*, só me chamar! 😉");
 });
 Deno.test("sem cupom: some o bloco do cupom, fica só equipamentos", () => {
   assertEquals(renderCreativeMessage(buildCreativeTemplate("Oferta!"), null), "Oferta!\n\n🦷 Para *equipamentos*, só me chamar! 😉");
