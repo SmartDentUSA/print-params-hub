@@ -14,7 +14,7 @@ export const COUPON_BLOCK = [
 ].join("\n");
 export const EQUIPMENT_LINE = "🦷 Para *equipamentos*, só me chamar! 😉";
 
-const GREETING = /^\s*(?:ol[aá]|oi|bom dia|boa tarde|boa noite|prezad[oa]\(?a?\)?)\b[^\n.!?]{0,40}[!,.]?\s*/i;
+const GREETING = /^\s*(?:ol[aá]|oi|bom dia|boa tarde|boa noite|prezad[oa](?:\(a\))?)(?=[\s,!.])[^\n.!?]{0,40}[!,.]?\s*/i;
 
 /** Limpa o texto da IA: tira saudação inicial, rodapé repetido e espaços sobrando. */
 export function cleanAiBody(text: string): string {
