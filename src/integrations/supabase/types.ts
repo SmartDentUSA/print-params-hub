@@ -25548,6 +25548,7 @@ export type Database = {
           end_date: string | null
           end_time: string
           event_logo_url: string | null
+          event_type: string
           id: string
           instagram_handle: string | null
           is_active: boolean
@@ -25614,6 +25615,7 @@ export type Database = {
           end_date?: string | null
           end_time?: string
           event_logo_url?: string | null
+          event_type?: string
           id?: string
           instagram_handle?: string | null
           is_active?: boolean
@@ -25680,6 +25682,7 @@ export type Database = {
           end_date?: string | null
           end_time?: string
           event_logo_url?: string | null
+          event_type?: string
           id?: string
           instagram_handle?: string | null
           is_active?: boolean
