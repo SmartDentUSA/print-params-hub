@@ -20,7 +20,7 @@ import AttendanceChannelMetrics from "@/components/lia/AttendanceChannelMetrics"
 import { QrCodeButton } from "./QrCodeButton";
 import { getPublicOrigin } from "@/utils/publicOrigin";
 import { buildLiaUrl } from "@/lib/attendanceChannel";
-import type { FormMetrics, ShortLinkInfo } from "./FormMetricsCard";
+import type { FormMetrics, ShortLinkInfo, ShortLinkTarget } from "./FormMetricsCard";
 
 interface Props {
   form: any;
@@ -30,8 +30,9 @@ interface Props {
   hasLandingPage?: boolean;
   shortLinkForm?: ShortLinkInfo | null;
   shortLinkLanding?: ShortLinkInfo | null;
-  generatingTarget?: "form" | "landing_page" | null;
-  onGenerateShortLink?: (target: "form" | "landing_page") => void;
+  shortLinkWhatsapp?: ShortLinkInfo | null;
+  generatingTarget?: ShortLinkTarget | null;
+  onGenerateShortLink?: (target: ShortLinkTarget) => void;
   onToggleBio?: (target: "form" | "landing_page") => void;
   onToggleActive: () => void;
   onEditMeta: () => void;
@@ -143,6 +144,7 @@ export function FormMetricsRow({
   hasLandingPage,
   shortLinkForm,
   shortLinkLanding,
+  shortLinkWhatsapp,
   generatingTarget,
   onGenerateShortLink,
   onToggleBio,
@@ -202,18 +204,26 @@ export function FormMetricsRow({
             const waUrl = buildLiaUrl({ formId: form.id, base: getPublicOrigin() }) + "&utm_source=qrcode&utm_medium=whatsapp_lia";
             return (
               <div className="inline-flex items-center gap-1">
-                <button
-                  type="button"
-                  onClick={() => navigator.clipboard.writeText(waUrl).then(() => toast.success("Link do simulador copiado"), () => toast.error("Falha ao copiar"))}
-                  className="inline-flex items-center gap-1 rounded border px-1.5 py-0.5 text-[10px] bg-muted/40 text-muted-foreground hover:text-foreground"
-                  title={waUrl}
-                >
-                  <Badge variant="secondary" className="text-[9px] py-0 px-1 h-4">WhatsApp</Badge>
-                  <Link2 className="w-3 h-3" />
-                  Copiar link do simulador
-                  <Copy className="w-2.5 h-2.5 opacity-60" />
-                </button>
-                <QrCodeButton url={waUrl} title={`${form.name} — Simulador WhatsApp`} fileSuffix="simulador-whatsapp" />
+                <ShortChip
+                  label="WhatsApp"
+                  info={shortLinkWhatsapp}
+                  busy={generatingTarget === "whatsapp"}
+                  onGenerate={() => onGenerateShortLink?.("whatsapp")}
+                  qrUrl={waUrl}
+                  qrTitle={`${form.name} — Simulador WhatsApp`}
+                  qrSuffix="simulador-whatsapp"
+                />
+                {!shortLinkWhatsapp && (
+                  <button
+                    type="button"
+                    onClick={() => navigator.clipboard.writeText(waUrl).then(() => toast.success("Link do simulador copiado"), () => toast.error("Falha ao copiar"))}
+                    className="inline-flex items-center gap-1 rounded border px-1.5 py-0.5 text-[10px] bg-muted/40 text-muted-foreground hover:text-foreground"
+                    title={waUrl}
+                  >
+                    <Copy className="w-2.5 h-2.5 opacity-60" />
+                    Copiar link completo
+                  </button>
+                )}
               </div>
             );
           })()}
