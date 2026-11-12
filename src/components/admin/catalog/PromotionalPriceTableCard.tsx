@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type MutableRefObject } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
@@ -21,6 +21,10 @@ type Props = {
   /** Outras tabelas promocionais que podem servir de origem para clonar. */
   promotions: PromotionalTable[];
   onChange: (patch: Patch) => void | Promise<void>;
+  /** Grava descontos ainda não salvos (usado pelo "Salvar tabela"). */
+  flushRef?: MutableRefObject<(() => Promise<number>) | null>;
+  /** Descontos salvos pelo botão do editor: republica o PDF da Agenda/Portal. */
+  onPricesSaved?: () => void | Promise<void>;
 };
 
 const sourceLabel = (promo: PromotionalTable) => {
@@ -34,7 +38,7 @@ const sourceLabel = (promo: PromotionalTable) => {
  * associar uma tabela de distribuição, criar uma exclusiva a partir da Loja
  * Oficial, ou clonar a tabela de outra promoção e editar os descontos.
  */
-export function PromotionalPriceTableCard({ table, distributors, promotions, onChange }: Props) {
+export function PromotionalPriceTableCard({ table, distributors, promotions, onChange, flushRef, onPricesSaved }: Props) {
   const mode = table.price_table_mode === "exclusive" || table.price_table_mode === "clone" ? table.price_table_mode : "distribution";
   const included = table.include_official_price_table !== false;
   const official = distributors.find((d) => /loja oficial/i.test(d.nome_fantasia || d.razao_social || ""));
@@ -76,6 +80,8 @@ export function PromotionalPriceTableCard({ table, distributors, promotions, onC
       key={editorKey}
       distributors={[]}
       promotion={{ id: table.id, name: table.name || "Promoção", currency: table.currency || "BRL" }}
+      flushRef={flushRef}
+      onSaved={onPricesSaved}
     />
   );
 
