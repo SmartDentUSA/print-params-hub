@@ -17,7 +17,8 @@ Deno.serve(async (req) => {
     const userClient = createClient(url, Deno.env.get("SUPABASE_ANON_KEY")!, { global: { headers: { Authorization: auth } } });
     const { data: u } = await userClient.auth.getUser();
     if (!u?.user) return json({ error: "Não autenticado" }, 401);
-    const { data: isStaff } = await userClient.rpc("fn_is_internal_staff" as any, { _user_id: u.user.id });
+    const staffClient = createClient(url, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+    const { data: isStaff } = await staffClient.rpc("fn_is_internal_staff", { _user_id: u.user.id });
     if (!isStaff) return json({ error: "Sem permissão" }, 403);
 
     const body = await req.json().catch(() => ({}));
