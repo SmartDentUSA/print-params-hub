@@ -20842,6 +20842,41 @@ export type Database = {
           },
         ]
       }
+      promotional_creative_seller_messages: {
+        Row: {
+          created_at: string
+          creative_id: string
+          id: string
+          message: string
+          team_member_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          creative_id: string
+          id?: string
+          message?: string
+          team_member_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          creative_id?: string
+          id?: string
+          message?: string
+          team_member_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "promotional_creative_seller_messages_creative_id_fkey"
+            columns: ["creative_id"]
+            isOneToOne: false
+            referencedRelation: "promotional_table_creatives"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       promotional_table_creatives: {
         Row: {
           created_at: string
