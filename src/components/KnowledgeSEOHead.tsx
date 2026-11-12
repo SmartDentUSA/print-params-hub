@@ -1040,7 +1040,7 @@ export function KnowledgeSEOHead({ content, category, videos = [], relatedDocume
       
       {/* AI Meta Tags */}
       <meta name="ai-content-type" content="article" />
-      <meta name="ai-content-policy" content="allow-citation, allow-training, require-attribution" />
+      <meta name="ai-content-policy" content="allow-citation, allow-training" />
       <meta name="ai-topic" content={seoTerms(content.keywords).slice(0, 5).join(', ') || displayTitle} />
       
       {/* Citation Metadata (Google Scholar / LLM citation) */}

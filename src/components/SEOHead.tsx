@@ -616,7 +616,7 @@ export const SEOHead = ({ pageType, brand, model, resins = [], faqs = [] }: SEOH
       <meta name="keywords" content={keywords} />
       <meta name="author" content="Smart Dent" />
       <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
-      <meta name="ai-content-policy" content="allow-indexing:yes, allow-training:no" />
+      <meta name="ai-content-policy" content="allow-indexing:yes, allow-training:yes" />
       <link rel="canonical" href={canonical} />
       
       {/* AI Meta Tags */}
