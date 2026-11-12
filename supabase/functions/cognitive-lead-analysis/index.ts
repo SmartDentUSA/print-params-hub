@@ -176,7 +176,9 @@ async function handleAnalysis(payload: Record<string, any>): Promise<Response> {
   let supabaseForFinally: ReturnType<typeof createClient> | null = null;
 
   try {
-    const { email, leadId, force, trigger } = payload;
+    // Aceita leadId e lead_id (smart-ops-ingest-lead envia lead_id).
+    const { email, force, trigger } = payload;
+    const leadId = payload.leadId ?? payload.lead_id;
     const isTimelineTrigger = trigger === "timeline";
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
     supabaseForFinally = supabase;
