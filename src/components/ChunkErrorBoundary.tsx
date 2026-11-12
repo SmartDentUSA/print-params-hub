@@ -6,6 +6,7 @@ interface Props {
 
 interface State {
   hasError: boolean;
+  chunk: boolean;
 }
 
 const RELOAD_FLAG = "__chunk_reload_attempted__";
@@ -26,13 +27,20 @@ function isChunkLoadError(error: unknown): boolean {
 }
 
 export class ChunkErrorBoundary extends Component<Props, State> {
-  state: State = { hasError: false };
+  state: State = { hasError: false, chunk: false };
 
   static getDerivedStateFromError(error: unknown): State {
-    return { hasError: isChunkLoadError(error) ? true : true };
+    return { hasError: true, chunk: isChunkLoadError(error) };
   }
 
   componentDidCatch(error: unknown) {
+    // Error screens must never be indexed or used as a search snippet (Googlebot can't reload).
+    try {
+      const m = document.createElement("meta");
+      m.name = "robots";
+      m.content = "noindex";
+      document.head.appendChild(m);
+    } catch {}
     if (!isChunkLoadError(error)) return;
     try {
       const last = Number(sessionStorage.getItem(RELOAD_FLAG) || 0);
@@ -60,11 +68,15 @@ export class ChunkErrorBoundary extends Component<Props, State> {
   render() {
     if (this.state.hasError) {
       return (
-        <div className="min-h-screen flex items-center justify-center bg-background p-6">
+        <div data-nosnippet className="min-h-screen flex items-center justify-center bg-background p-6">
           <div className="max-w-md text-center space-y-4">
-            <h1 className="text-xl font-semibold">Atualizando para a versão mais recente…</h1>
+            <h1 className="text-xl font-semibold">
+              {this.state.chunk ? "Atualizando para a versão mais recente…" : "Não foi possível carregar a página"}
+            </h1>
             <p className="text-sm text-muted-foreground">
-              Acabamos de publicar uma atualização. Recarregue a página para continuar.
+              {this.state.chunk
+                ? "Acabamos de publicar uma atualização. Recarregue a página para continuar."
+                : "Ocorreu um erro inesperado. Tente recarregar a página."}
             </p>
             <button
               onClick={this.handleManualReload}
