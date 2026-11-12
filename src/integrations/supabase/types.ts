@@ -26158,6 +26158,7 @@ export type Database = {
           name: string
           product_catalog_id: string | null
           professional_lead_id: string | null
+          promotional_table_id: string | null
           seo_description: string | null
           seo_keywords: string | null
           seo_title: string | null
@@ -26234,6 +26235,7 @@ export type Database = {
           name: string
           product_catalog_id?: string | null
           professional_lead_id?: string | null
+          promotional_table_id?: string | null
           seo_description?: string | null
           seo_keywords?: string | null
           seo_title?: string | null
@@ -26310,6 +26312,7 @@ export type Database = {
           name?: string
           product_catalog_id?: string | null
           professional_lead_id?: string | null
+          promotional_table_id?: string | null
           seo_description?: string | null
           seo_keywords?: string | null
           seo_title?: string | null
@@ -26354,6 +26357,13 @@ export type Database = {
             columns: ["product_catalog_id"]
             isOneToOne: false
             referencedRelation: "system_a_catalog"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "smartops_forms_promotional_table_id_fkey"
+            columns: ["promotional_table_id"]
+            isOneToOne: false
+            referencedRelation: "promotional_tables"
             referencedColumns: ["id"]
           },
           {
