@@ -6,6 +6,7 @@ import { groupItemsByCategory } from "@/components/smartops/distributors/DealerP
 import { formatMoney } from "@/components/smartops/distributors/types";
 import type { PromotionalSectionWithItems, PromotionalTable } from "./promotionalTypes";
 import { itemTotals } from "./promotionalTypes";
+import { fetchDistributorPriceList, fetchPromotionPriceList } from "@/components/smartops/distributors/officialPriceList";
 
 const money = (value: number, currency?: string | null) => {
   const safe = (currency || "BRL").toUpperCase();
@@ -46,29 +47,22 @@ async function loadImage(rawUrl: string | null | undefined, width = 480): Promis
   }
 }
 
-/** Official Smart Dent (Loja Oficial) price list, rendered with the dealer PDF layout. */
-async function fetchOfficialPriceList() {
-  const { data: distributor } = await supabase
-    .from("distributors" as any)
-    .select("id,razao_social,nome_fantasia")
-    .ilike("nome_fantasia", "%Loja Oficial%")
-    .limit(1)
-    .maybeSingle();
-  if (!distributor) return null;
-  const { data: list } = await supabase
-    .from("dealer_price_lists" as any)
-    .select("*")
-    .eq("distributor_id", (distributor as any).id)
-    .order("version", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  if (!list) return null;
-  const { data: items } = await supabase
-    .from("dealer_price_items" as any)
-    .select("*")
-    .eq("price_list_id", (list as any).id);
-  if (!items || !(items as any[]).length) return null;
-  return { distributor: distributor as any, list: list as any, items: items as any[] };
+/**
+ * Tabela de preços anexada ao final do PDF: a tabela exclusiva da promoção ou a
+ * tabela de distribuição associada (padrão: Smart Dent Loja Oficial).
+ */
+async function fetchLinkedPriceList(table: PromotionalTable) {
+  if (table.price_table_mode === "exclusive") {
+    const own = await fetchPromotionPriceList(table.id);
+    if (!own) return null;
+    const items = own.items.filter((item: any) => item.is_active !== false);
+    if (!items.length) return null;
+    return { title: table.pdf_title || table.name, list: own.list, items };
+  }
+  const linked = await fetchDistributorPriceList(table.price_table_distributor_id ?? null);
+  if (!linked || !linked.items.length) return null;
+  const name = linked.distributor?.nome_fantasia || linked.distributor?.razao_social || "Smart Dent";
+  return { title: name, list: linked.list, items: linked.items };
 }
 
 type EventSession = { date?: string; start_time?: string; end_time?: string; theme?: string };
@@ -291,10 +285,14 @@ export async function exportPromotionalPdf(
       }
     }
 
-    doc.addPage();
-    header();
-    y = pageTop;
+    // Sem combos, a tabela de preços entra direto na página seguinte (sem página vazia).
+    if (sections.length) {
+      doc.addPage();
+      header();
+      y = pageTop;
+    }
   }
+  const firstPageUsed = Boolean(event || sellerRows.length);
 
   for (const [index, section] of sections.entries()) {
     if (y > height - 150) {
@@ -450,7 +448,7 @@ export async function exportPromotionalPdf(
 
   // ---- Official Smart Dent price table, appended at the end ----
   if (table.include_official_price_table !== false) {
-    const official = await fetchOfficialPriceList();
+    const official = await fetchLinkedPriceList(table);
     if (official) {
       const currency = official.list?.currency ?? "BRL";
       const photos = new Map<string, ImgEntry>();
@@ -459,12 +457,14 @@ export async function exportPromotionalPdf(
         photos.set(item.id, await loadImage(item.image_url, 160));
       }));
 
-      doc.addPage();
-      header();
+      if (firstPageUsed || sections.length || table.notes) {
+        doc.addPage();
+        header();
+      }
       let cursor = pageTop;
       doc.setFont("helvetica", "bold");
       doc.setFontSize(12);
-      doc.text("TABELA DE PREÇOS — SMART DENT (LOJA OFICIAL)", margin, cursor);
+      doc.text(`TABELA DE PREÇOS — ${official.title.toUpperCase()}`, margin, cursor);
       doc.setFont("helvetica", "normal");
       doc.setFontSize(8);
       doc.setTextColor(110, 110, 110);
