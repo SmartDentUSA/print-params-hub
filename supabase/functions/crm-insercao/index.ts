@@ -23,6 +23,7 @@ import { classifySearchInput } from "./kol-candidate.ts";
 import { findTeamMemberByPhone } from "../_shared/team-phone-match.ts";
 import { KolSubmitSchema, runKolCandidate } from "./kol-candidate-flow.ts";
 import { pickCommercialTables } from "./price-table.ts";
+import { composeCreativeMessage, CREATIVE_SYSTEM, pickCoupon } from "./creative-message.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -531,6 +532,41 @@ Deno.serve(async (req) => {
     if (action === "bootstrap") {
       const [options, kols] = await Promise.all([canonicalOptions(), listKols(tm)]);
       return json({ me: { id: tm.id, nome: tm.nome_completo, role: tm.role }, options, kols });
+    }
+
+    if (action === "creatives" || action === "creative_message") {
+      const { data: rows } = await sb.from("promotional_tables")
+        .select("id, name, status, commercial_active, valid_from, valid_until")
+        .eq("commercial_active", true).eq("status", "active");
+      const { current } = pickCommercialTables((rows ?? []) as any[], Date.now());
+      if (!current) return json({ table: null, creatives: [] });
+      const t = current.row as any;
+      const { data: coupons } = await sb.from("promotional_coupons")
+        .select("code, valid_until").eq("promotional_table_id", t.id).eq("team_member_id", tm.id).eq("active", true);
+      const coupon = pickCoupon((coupons ?? []) as any[]);
+      if (action === "creatives") {
+        const { data: cr } = await sb.from("promotional_table_creatives")
+          .select("id, file_name, mime_type, storage_url, drive_url, description")
+          .eq("promotional_table_id", t.id).order("sort_order").order("created_at");
+        return json({ table: { id: t.id, name: t.name }, coupon, creatives: cr ?? [] });
+      }
+      const cid = String(body?.creative_id || "");
+      const { data: c } = await sb.from("promotional_table_creatives").select("id, mime_type, storage_url, description")
+        .eq("id", cid).eq("promotional_table_id", t.id).maybeSingle();
+      if (!c) return json({ error: "Criativo não encontrado na tabela vigente" }, 404);
+      const key = Deno.env.get("LOVABLE_API_KEY");
+      if (!key) return json({ error: "IA indisponível" }, 500);
+      const content: any[] = [{ type: "text", text: `Campanha: ${t.name}\nDescrição para uso: ${c.description || "-"}` }];
+      if (c.storage_url && String(c.mime_type).startsWith("image/")) content.push({ type: "image_url", image_url: { url: c.storage_url } });
+      const r = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST", headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ model: "google/gemini-3-flash-preview", messages: [{ role: "system", content: CREATIVE_SYSTEM }, { role: "user", content }] }),
+      });
+      if (!r.ok) { const tx = await r.text(); console.error("creative_message", r.status, tx); return json({ error: r.status === 429 ? "Muitas solicitações, tente em instantes" : r.status === 402 ? "Créditos de IA esgotados" : "Falha ao gerar mensagem" }, r.status); }
+      const ai = await r.json();
+      const text = String(ai?.choices?.[0]?.message?.content ?? "").trim();
+      if (!text) return json({ error: "A IA não retornou texto" }, 502);
+      return json({ message: composeCreativeMessage(text, coupon) });
     }
 
     if (action === "price_table") {
