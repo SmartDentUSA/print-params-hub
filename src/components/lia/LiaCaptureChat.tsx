@@ -342,7 +342,7 @@ export default function LiaCaptureChat({ formId, campaign, product }: { formId: 
         setInterest(option);
         setStep("creating");
         const first = firstNameRef.current;
-        await register(first && data.name ? { ...data } : data, first, option, false);
+        await register(data, first, option, false);
       } else if (step === "qualify" && lead) {
         const q = ctx.questions[qIdx];
         if (!q) return;
@@ -356,7 +356,11 @@ export default function LiaCaptureChat({ formId, campaign, product }: { formId: 
     } catch {
       await say("Tive um problema para registrar. Pode tentar de novo?");
       if (step === "creating") setStep("name");
-      if (step === "interest") { setInterest(null); setStep("interest"); }
+      if (step === "interest" && ctx) {
+        setInterest(null); setStep("interest");
+        const iq = interestQuestion(ctx);
+        if (iq) await say(iq.label, iq);
+      }
     } finally {
       sending.current = false;
       setBusy(false);
