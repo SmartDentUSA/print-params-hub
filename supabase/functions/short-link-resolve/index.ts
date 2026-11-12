@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { whatsappSimulatorPath } from "./paths.ts";
 
 const FALLBACK_HOME = "https://www.smartdent.com.br/";
 const APP_BASE = "https://www.smartdent.com.br";
@@ -56,10 +57,22 @@ Deno.serve(async (req) => {
       return Response.redirect(FALLBACK_HOME, 302);
     }
 
-    const path =
-      link.default_target === "landing_page"
+    // Simulador de WhatsApp: abre a conversa da LIA pelo ID do formulário (resolvido pelo slug).
+    const isWhatsapp = link.default_target === "whatsapp";
+    let path: string;
+    if (isWhatsapp) {
+      const { data: form } = await supabase
+        .from("smartops_forms")
+        .select("id")
+        .eq("slug", link.form_slug)
+        .maybeSingle();
+      if (!form?.id) return Response.redirect(FALLBACK_HOME, 302);
+      path = whatsappSimulatorPath(form.id, code);
+    } else {
+      path = link.default_target === "landing_page"
         ? `/lp/${link.form_slug}`
         : `/f/${link.form_slug}`;
+    }
 
     // Fire-and-forget: increment counter + register visitor in the same pipeline
     // used by usePageTracking (so the form's "Visitantes" metric picks it up).
@@ -82,6 +95,8 @@ Deno.serve(async (req) => {
         const sessionSeed = `${ip}|${ua}|${new Date().toISOString().slice(0, 10)}`;
         const sessionId = (await sha256Hex(sessionSeed)).slice(0, 32);
 
+        // O simulador registra a própria visita (com o ID do formulário); aqui só o clique.
+        if (isWhatsapp) return;
         await supabase.from("lead_page_views").insert({
           session_id: sessionId,
           page_path: path,
