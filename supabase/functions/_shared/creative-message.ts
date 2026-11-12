@@ -9,6 +9,7 @@ export const VARS = { cupom: "{cupom}", validade: "{validade_cupom}", vendedor: 
 
 export const COUPON_BLOCK = [
   "🛒 Para compras de *resinas e insumos*, compre diretamente no site com desconto 👇",
+  "🌐 https://loja.smartdent.com.br/",
   `🎟️ Utilizando o cupom: *${VARS.cupom}*`,
   `📅 Cupom válido até: *${VARS.validade}*`,
 ].join("\n");
