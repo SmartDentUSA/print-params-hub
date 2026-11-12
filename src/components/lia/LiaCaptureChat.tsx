@@ -11,10 +11,20 @@ import { AttendanceOpeningMedia } from "./AttendanceOpeningMedia";
 import { linkLeadToPageSession } from '@/hooks/usePageTracking';
 
 type Question = { field_id: string | null; form_id: string | null; db_column: string | null; label: string; options: string[]; field_type?: string };
-type Ctx = { form_id: string | null; campaign: string | null; product: string; origin: string; opening: string; greeting?: string; questions: Question[]; product_summary?: string | null; modules_summary?: string | null; whatsapp_group_url?: string | null };
+type CommercialCampaign = { question: string; options: string[]; group_message: string | null; redirect_ms: number };
+type Ctx = { form_id: string | null; campaign: string | null; product: string; origin: string; opening: string; greeting?: string; questions: Question[]; product_summary?: string | null; modules_summary?: string | null; whatsapp_group_url?: string | null; commercial_campaign?: CommercialCampaign | null };
 type Msg = { from: "lia" | "user"; text: string; createdAt?: number; question?: Question };
 type Seller = { seller_name: string; seller_first_name: string; lead_first_name?: string | null; photo_url: string | null; deal_id: string | null; wa_url: string; hook?: string | null };
-type Step = "phone" | "email" | "name" | "creating" | "qualify" | "done";
+type Step = "phone" | "email" | "name" | "interest" | "creating" | "qualify" | "done";
+const INTEREST_TYPE = "campaign_interest";
+const DEFAULT_GROUP_MESSAGE = "Se quiser tirar dúvidas com experts, assim como trocar experiências com os usuários, acesse o grupo de WhatsApp exclusivo.";
+const normOption = (value: string) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim().toLowerCase();
+
+// Inside the landing dialog the chat runs in an iframe; WhatsApp cannot be framed, so open it at the top level.
+function openGroup(url: string) {
+  if (window.top === window.self) { window.location.assign(url); return; }
+  try { window.top?.location.assign(url); } catch { window.open(url, "_blank", "noopener,noreferrer"); }
+}
 
 const IDLE_MS = 3 * 60 * 1000;
 const messageDelay = (text: string) => Math.min(6500, 1800 + text.length * 24 + Math.random() * 600);
@@ -50,6 +60,10 @@ export default function LiaCaptureChat({ formId, campaign, product }: { formId: 
   const [qIdx, setQIdx] = useState(0);
   const [selected, setSelected] = useState<string[]>([]);
   const [seller, setSeller] = useState<Seller | null>(null);
+  const [interest, setInterest] = useState<string | null>(null);
+  const [groupOpened, setGroupOpened] = useState(false);
+  const [redirectIn, setRedirectIn] = useState<number | null>(null);
+  const firstNameRef = useRef<string | null>(null);
   // Only announce the seller returned by the authorized endpoint.
   const invitation = useMemo(() => (seller ? sellerInvitation(seller, data.name) : ""), [seller, data.name]);
   const [closed, setClosed] = useState(false);
@@ -100,11 +114,12 @@ export default function LiaCaptureChat({ formId, campaign, product }: { formId: 
         try {
           const s = JSON.parse(saved);
           if (s.lead && s.step === "qualify" && !s.closed) {
-            const r = await call({ action: "qualification", lead_id: s.lead.id, token: s.lead.token, form_id: formId, campaign, product });
+            const r = await call({ action: "qualification", lead_id: s.lead.id, token: s.lead.token, form_id: formId, campaign, product: s.interest ?? product });
             if (cancelled) return;
             void linkLeadToPageSession(s.lead.id);
             const questions: Question[] = r.questions;
-            setCtx({ ...c, questions });
+            setCtx({ ...c, questions, product: s.interest ?? c.product });
+            setInterest(s.interest ?? null); setGroupOpened(!!s.groupOpened);
             const messages: Msg[] = s.msgs ?? [];
             const last = messages[messages.length - 1];
             if (last?.from === "lia" && (c.questions.some((q) => q.label === last.text) || questions.some((q) => q.label === last.text))) messages.pop();
@@ -117,6 +132,8 @@ export default function LiaCaptureChat({ formId, campaign, product }: { formId: 
             return;
           }
           setMsgs(s.msgs ?? []); setStep(s.step ?? "phone"); setData(s.data ?? {}); setLead(s.lead ?? null); setQIdx(s.qIdx ?? 0); setClosed(!!s.closed);
+          setInterest(s.interest ?? null); setGroupOpened(!!s.groupOpened); firstNameRef.current = s.firstName ?? null;
+          if (s.interest) setCtx({ ...c, product: s.interest });
           return;
         } catch { /* ignore */ }
       }
@@ -129,9 +146,9 @@ export default function LiaCaptureChat({ formId, campaign, product }: { formId: 
 
   useEffect(() => {
     if (!ctx) return;
-    sessionStorage.setItem(storeKey, JSON.stringify({ msgs, step, data, lead, qIdx, closed }));
+    sessionStorage.setItem(storeKey, JSON.stringify({ msgs, step, data, lead, qIdx, closed, interest, groupOpened, firstName: firstNameRef.current }));
     endRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [msgs, step, data, lead, qIdx, closed, ctx, storeKey]);
+  }, [msgs, step, data, lead, qIdx, closed, ctx, storeKey, interest, groupOpened]);
 
   const finish = async (leadInfo = lead) => {
     if (!leadInfo || closed) return;
@@ -212,18 +229,54 @@ export default function LiaCaptureChat({ formId, campaign, product }: { formId: 
     return () => clearTimeout(timer);
   }, [closed, seller, handoffStage, ctx?.whatsapp_group_url]);
 
+  // Campanha comercial: depois de mostrar vendedor e grupo, abre o grupo da campanha sozinho.
+  const groupUrl = ctx?.whatsapp_group_url ?? null;
+  const autoRedirectMs = ctx?.commercial_campaign?.redirect_ms ?? 0;
+  useEffect(() => {
+    if (!closed || !seller || handoffStage < 5 || !groupUrl || !autoRedirectMs || groupOpened) return;
+    const startedAt = Date.now();
+    setRedirectIn(Math.ceil(autoRedirectMs / 1000));
+    const tick = setInterval(() => setRedirectIn(Math.max(0, Math.ceil((autoRedirectMs - (Date.now() - startedAt)) / 1000))), 250);
+    const timer = setTimeout(() => {
+      clearInterval(tick);
+      setRedirectIn(null);
+      setGroupOpened(true);
+      trackAttendanceEvent({ channel: "whatsapp_lia", event_type: "group_redirect", form_id: ctx?.form_id ?? null, campaign_slug: ctx?.campaign ?? null, product_name: ctx?.product ?? null });
+      openGroup(groupUrl);
+    }, autoRedirectMs);
+    return () => { clearInterval(tick); clearTimeout(timer); };
+  }, [closed, seller, handoffStage, groupUrl, autoRedirectMs, groupOpened]);
+
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [handoffStage]);
+  }, [handoffStage, redirectIn]);
 
   useEffect(() => {
     if (!busy && !closed) inputRef.current?.focus();
   }, [busy, closed, step, ctx]);
 
-  const register = async (identity: typeof data, firstName?: string | null) => {
+  const interestQuestion = (c: Ctx): Question | null => c.commercial_campaign?.options.length
+    ? { field_id: null, form_id: null, db_column: null, label: c.commercial_campaign.question, options: c.commercial_campaign.options, field_type: INTEREST_TYPE }
+    : null;
+
+  // Campanha comercial pergunta o interesse antes de registrar, para o CRM já receber o produto.
+  const proceed = async (identity: typeof data, firstName?: string | null) => {
+    if (!ctx) return;
+    const iq = interestQuestion(ctx);
+    if (iq && !interest) {
+      firstNameRef.current = firstName ?? null;
+      if (firstName) await say(`Maravilha, ${firstName}!`);
+      setStep("interest");
+      await say(iq.label, iq);
+      return;
+    }
+    await register(identity, firstName);
+  };
+
+  const register = async (identity: typeof data, firstName?: string | null, chosen?: string, greet = true) => {
     if (!ctx) return;
     const r = await call({
-      action: "create", form_id: ctx.form_id, campaign: ctx.campaign, product: ctx.product,
+      action: "create", form_id: ctx.form_id, campaign: ctx.campaign, product: chosen ?? ctx.product, interest: chosen,
       name: identity.name, email: identity.email, phone: identity.phone,
       session_id: sessionStorage.getItem("dra_lia_session"),
       utm_source: params.get("utm_source"), utm_medium: params.get("utm_medium"), utm_campaign: params.get("utm_campaign"),
@@ -231,9 +284,10 @@ export default function LiaCaptureChat({ formId, campaign, product }: { formId: 
     setLead({ id: r.lead_id, token: r.token });
     await linkLeadToPageSession(r.lead_id);
     if (firstName) setData({ ...identity, name: firstName });
-    await say(firstName ? `Maravilha, ${firstName}!` : "Maravilha!");
+    if (greet) await say(firstName ? `Maravilha, ${firstName}!` : "Maravilha!");
+    else await say("Perfeito! Já registrei seu interesse.");
     const questions: Question[] = r.questions;
-    setCtx({ ...ctx, questions });
+    setCtx({ ...ctx, questions, ...(chosen ? { product: chosen } : {}) });
     setQIdx(0);
     if (questions.length) {
       setStep("qualify"); await say(questions[0].label, questions[0]);
@@ -258,7 +312,7 @@ export default function LiaCaptureChat({ formId, campaign, product }: { formId: 
         const r = await call({ action: "lookup", phone: digits });
         const identity = { ...data, phone: digits };
         setData(identity);
-        if (r?.found && r.has_email && r.has_name) await register(identity, r.first_name);
+        if (r?.found && r.has_email && r.has_name) await proceed(identity, r.first_name);
         else {
           setStep("email");
           if (r?.ambiguous) {
@@ -274,13 +328,21 @@ export default function LiaCaptureChat({ formId, campaign, product }: { formId: 
         const identity = { ...data, email: text.toLowerCase() };
         const r = await call({ action: "lookup", phone: identity.phone, email: identity.email });
         setData(identity);
-        if (r?.found && r.has_name) await register(identity, r.first_name);
+        if (r?.found && r.has_name) await proceed(identity, r.first_name);
         else { setStep("name"); await say("E como você se chama?"); }
       } else if (step === "name") {
         if (text.length < 2) { await say("Pode me dizer seu nome?"); return; }
         const full = { ...data, name: text };
         setData(full);
-        await register(full, text.split(" ")[0]);
+        await proceed(full, text.split(" ")[0]);
+      } else if (step === "interest") {
+        const iq = interestQuestion(ctx);
+        const option = iq?.options.find((o) => normOption(o) === normOption(text));
+        if (!iq || !option) { if (iq) await say(`Escolha uma das opções abaixo, por favor.\n\n${iq.label}`, iq); return; }
+        setInterest(option);
+        setStep("creating");
+        const first = firstNameRef.current;
+        await register(first && data.name ? { ...data } : data, first, option, false);
       } else if (step === "qualify" && lead) {
         const q = ctx.questions[qIdx];
         if (!q) return;
@@ -294,6 +356,7 @@ export default function LiaCaptureChat({ formId, campaign, product }: { formId: 
     } catch {
       await say("Tive um problema para registrar. Pode tentar de novo?");
       if (step === "creating") setStep("name");
+      if (step === "interest") { setInterest(null); setStep("interest"); }
     } finally {
       sending.current = false;
       setBusy(false);
@@ -325,7 +388,13 @@ export default function LiaCaptureChat({ formId, campaign, product }: { formId: 
             <div className={`lia-bubble rounded-lg px-3 pb-1 pt-2 text-[15px] leading-5 ${hasOptions || (i === mediaIdx && ctx && openingMedia) ? "w-[85%] sm:w-[70%] sm:max-w-md" : "max-w-[88%] sm:max-w-[78%]"} ${m.from === "user" ? "lia-bubble-out rounded-tr-none bg-primary text-primary-foreground" : "lia-bubble-in rounded-tl-none bg-muted text-foreground"}`}>
               {i === mediaIdx && m.from === "lia" && ctx && openingMedia && <AttendanceOpeningMedia key={openingMedia.url} media={openingMedia} formId={ctx.form_id} />}
               <p className="whitespace-pre-wrap break-words">{m.text}</p>
-              {hasOptions && <div className="lia-replies mt-3 flex flex-col" role="group" aria-label="Opções de resposta">
+              {hasOptions && (m.question?.field_type === INTEREST_TYPE ? (
+              <div className="mt-3 grid grid-cols-3 gap-1.5" role="group" aria-label="Opções da promoção">
+                {m.question.options.map((option) => (
+                  <Button key={option} variant="outline" className="lia-interest-option h-auto min-h-12 whitespace-normal break-words px-1.5 py-2 text-center text-xs font-semibold leading-4" disabled={waiting || closed || i !== msgs.length - 1} onClick={() => submit(option)}>{option.trim()}</Button>
+                ))}
+              </div>
+              ) : <div className="lia-replies mt-3 flex flex-col" role="group" aria-label="Opções de resposta">
               {(m.question || q)?.options.map((option) => (
                 <Button key={option} variant="ghost" className="lia-reply h-auto min-h-11 w-full whitespace-normal rounded-none px-3 py-3 text-center text-sm font-medium leading-5" disabled={waiting || closed || i !== msgs.length - 1} aria-pressed={m.question?.field_type === "checkbox" ? selected.includes(option) : undefined} onClick={() => {
                   if (m.question?.field_type === "checkbox") setSelected((items) => items.includes(option) ? items.filter((item) => item !== option) : [...items, option]);
@@ -333,7 +402,7 @@ export default function LiaCaptureChat({ formId, campaign, product }: { formId: 
                 }}>{m.question?.field_type === "checkbox" && selected.includes(option) ? "✓ " : ""}{option.trim()}</Button>
               ))}
               {m.question?.field_type === "checkbox" && i === msgs.length - 1 && !closed && <Button variant="ghost" className="lia-reply min-h-11 w-full rounded-none" disabled={waiting || !selected.length} onClick={() => submit(selected)}>Confirmar</Button>}
-              </div>}
+              </div>)}
               {m.createdAt && <time dateTime={new Date(m.createdAt).toISOString()} className="ml-4 mt-1 flex items-center justify-end gap-1 text-[10px] leading-3 text-muted-foreground">
                 {new Date(m.createdAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
               </time>}
@@ -395,12 +464,13 @@ export default function LiaCaptureChat({ formId, campaign, product }: { formId: 
               <p className="font-semibold text-foreground">Grupo exclusivo Smart Dent</p>
               <p className="text-xs text-muted-foreground">Convite para conversa de grupo</p>
             </div>
-            <p className="text-sm leading-5 text-muted-foreground">Se quiser tirar dúvidas com experts, assim como trocar experiências com os usuários, acesse o grupo de WhatsApp exclusivo.</p>
+            <p className="whitespace-pre-wrap text-sm leading-5 text-muted-foreground">{ctx.commercial_campaign?.group_message || DEFAULT_GROUP_MESSAGE}</p>
             <Button asChild variant="secondary" className="lia-send w-full">
               <a href={ctx.whatsapp_group_url} target="_blank" rel="noopener noreferrer" aria-label="Entrar no grupo exclusivo no WhatsApp">
                 <Users className="mr-2 h-4 w-4" aria-hidden="true" /> Entrar no grupo
               </a>
             </Button>
+            {redirectIn !== null && <p className="text-xs text-muted-foreground" role="status">Abrindo o grupo da campanha em {redirectIn}s…</p>}
           </div>
         )}
         <div ref={endRef} />
