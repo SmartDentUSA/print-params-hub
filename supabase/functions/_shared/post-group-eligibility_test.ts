@@ -20,7 +20,7 @@ Deno.test('mesmo número sempre atualiza o próprio grupo', () => {
 
 const base = { group_jid: '1@g.us', instance_name: 'cs_principal', is_admin: true, enabled: true, ativo: true };
 
-Deno.test('alvo pronto quando grupo é do mesmo número, ligado e admin', () => {
+Deno.test('alvo pronto quando grupo é do mesmo número e ligado', () => {
   assertEquals(postTargetStatus('cs_principal', base), 'ready');
 });
 
@@ -32,8 +32,13 @@ Deno.test('alvo com grupo desligado não recebe', () => {
   assertEquals(postTargetStatus('cs_principal', { ...base, enabled: false }), 'group_disabled');
 });
 
-Deno.test('alvo em que o número não é admin não recebe', () => {
-  assertEquals(postTargetStatus('cs_principal', { ...base, is_admin: false }), 'not_admin');
+Deno.test('número não-admin recebe normalmente (12/11/2026)', () => {
+  assertEquals(postTargetStatus('cs_principal', { ...base, is_admin: false }), 'ready');
+  assertEquals(postTargetStatus('cs_principal', { ...base, is_admin: null }), 'ready');
+});
+
+Deno.test('grupo desligado continua não recebendo mesmo sendo admin', () => {
+  assertEquals(postTargetStatus('cs_principal', { ...base, ativo: false }), 'group_disabled');
 });
 
 Deno.test('alvo sem grupo não recebe', () => {

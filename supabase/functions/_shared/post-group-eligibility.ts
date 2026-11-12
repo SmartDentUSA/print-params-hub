@@ -4,7 +4,8 @@
 //  1) a sincronização de um número que NÃO é admin não pode tomar o grupo de
 //     outro número que é admin (senão o grupo some do envio de quem o selecionou);
 //  2) um alvo de Post Grupos só recebe se o grupo continua vinculado ao mesmo
-//     número da instância onde foi selecionado, está ligado e o número é admin.
+//     número da instância onde foi selecionado e está ligado. Ser admin não é
+//     mais exigido (12/11/2026) — ver README.md nesta pasta.
 
 export type GroupOwnerRow = { instance_name?: string | null; is_admin?: boolean | null } | null | undefined;
 
@@ -28,6 +29,9 @@ export function postTargetStatus(targetInstance: string, g: PostTargetGroup): Po
   if (!g || !g.group_jid) return 'missing_group';
   if ((g.instance_name ?? '') !== targetInstance) return 'other_instance';
   if (g.enabled === false || g.ativo === false) return 'group_disabled';
-  if (g.is_admin !== true) return 'not_admin';
+  // is_admin não bloqueia mais o envio (12/11/2026). Medido na API do WhatsApp:
+  // os grupos de público têm IsAnnounce=false, então qualquer participante
+  // posta. Onde IsAnnounce=true o próprio WhatsApp recusa, e o erro aparece em
+  // wa_message_queue.error_message — que é o lugar certo para isso aparecer.
   return 'ready';
 }

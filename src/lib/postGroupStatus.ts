@@ -14,7 +14,8 @@ export function postTargetStatus(targetInstance: string, g: PostTargetGroup): Po
   if (!g || !g.group_jid) return 'missing_group';
   if ((g.instance_name ?? '') !== targetInstance) return 'other_instance';
   if (g.enabled === false || g.ativo === false) return 'group_disabled';
-  if (g.is_admin !== true) return 'not_admin';
+  // Ser admin não é mais exigido (12/11/2026): os grupos aceitam post de qualquer
+  // participante. Mantém o mesmo resultado do envio automático.
   return 'ready';
 }
 
