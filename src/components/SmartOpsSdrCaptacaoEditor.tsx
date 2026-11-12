@@ -50,6 +50,8 @@ interface SdrForm {
   brand_color_l: number | null;
 }
 
+const fmtDate = (d: string) => d.slice(0, 10).split("-").reverse().join("/");
+
 function rgbToHsl(r: number, g: number, b: number): [number, number, number] {
   r /= 255; g /= 255; b /= 255;
   const max = Math.max(r, g, b), min = Math.min(r, g, b);
