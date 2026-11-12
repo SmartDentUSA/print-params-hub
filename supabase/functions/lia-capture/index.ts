@@ -14,6 +14,7 @@ import { aiComplete } from "../_shared/ai-router.ts";
 import { searchKnowledge } from "../_shared/lia-rag.ts";
 import { generateEmbedding } from "../_shared/generate-embedding.ts";
 import { isPromptInjection } from "../_shared/lia-guards.ts";
+import { cleanPersonName } from "../_shared/piperun-field-map.ts";
 
 declare const EdgeRuntime: { waitUntil(promise: Promise<unknown>): void };
 import { buildProductSummary, buildModulesSummary } from "./product-summary.ts";
@@ -41,7 +42,9 @@ function normPhone(v: unknown) {
 }
 const str = (v: unknown, max = 300) => (typeof v === "string" ? v.trim().slice(0, max) : "");
 // Nomes provisórios ("Nome não informado", "Sem nome", "Lead") não contam como nome real.
-const realName = (v: unknown) => { const n = str(v, 120); return !n || /^(nome( n[ãa]o informado)?|sem nome|n[ãa]o informado|lead|cliente|desconhecido|-+)$/i.test(n) ? "" : n; };
+// Nomes-lixo de automações antigas ("22/8/2023 6:52 Zapier: ...") também são descartados
+// pela mesma regra do PipeRun (cleanPersonName), para a conversa pedir o nome de novo.
+const realName = (v: unknown) => { const n = str(v, 120); return !n || /^(nome( n[ãa]o informado)?|sem nome|n[ãa]o informado|lead|cliente|desconhecido|-+)$/i.test(n) || !cleanPersonName(n) ? "" : n; };
 const isUuid = (v: unknown) => typeof v === "string" && /^[0-9a-f-]{36}$/i.test(v);
 
 function whatsappGroupUrl(value: unknown): string | null {

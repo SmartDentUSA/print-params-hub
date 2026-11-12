@@ -1057,8 +1057,11 @@ Deno.serve(async (req) => {
     }
     const isPlaceholderEmailValue = (v: unknown) =>
       !v || /@(.+\.)?placeholder(\.local)?$/i.test(String(v).trim()) || /^import_\d+_\d+@/i.test(String(v).trim());
+    // Nomes-lixo de automações (data no início, "Zapier", "Plug & Play") contam como
+    // placeholder, para o nome real de uma nova submissão substituí-los.
     const isPlaceholderNameValue = (v: unknown) =>
-      !v || /^(nome\s+n[ãa]o\s+informado|sem[\s-]*nome|n\/a|null|desconhecido)$/i.test(String(v).trim());
+      !v || /^(nome\s+n[ãa]o\s+informado|sem[\s-]*nome|n\/a|null|desconhecido)$/i.test(String(v).trim()) ||
+      /^\d{1,2}\/\d{1,2}\/\d{2,4}/.test(String(v).trim()) || /zapier|plug\s*&\s*play/i.test(String(v));
     if (
       existingLead && existingLead.email && existingLead.email.toLowerCase() !== email &&
       !isPlaceholderEmailValue(existingLead.email)
