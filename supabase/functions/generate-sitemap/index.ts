@@ -57,14 +57,15 @@ Deno.serve(async (req) => {
   </url>
 `;
 
-    // Páginas institucionais (estáticas, indexáveis; /suporte-tecnico e /admin ficam fora — Disallow no robots)
-    for (const path of ['/institucional', '/en/institutional', '/es/institucional', '/sobre', '/distribuidores', '/eventos', '/agenda', '/agenda/online', '/usados', '/support-resources']) {
+    // Páginas institucionais: só públicas, indexáveis e com canonical próprio em www (verificado nas páginas).
+    // Fora: /usados (canonical em admin.), /institucional|/distribuidores|/eventos (abas da base de conhecimento, sem canonical próprio).
+    // Sem <lastmod>: não há data real de edição para páginas estáticas.
+    for (const path of ['/sobre', '/agenda', '/agenda/online', '/support-resources']) {
       sitemap += `
   <url>
     <loc>${baseUrl}${path}</loc>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
-    <lastmod>${now}</lastmod>
   </url>
 `;
     }
