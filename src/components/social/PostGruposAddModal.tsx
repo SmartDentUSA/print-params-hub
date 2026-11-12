@@ -7,7 +7,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Search } from 'lucide-react';
 import { toast } from 'sonner';
 import { PlatformPicker } from './PlatformPicker';
-import { ALL_PLATFORM_VALUES } from './socialPlatforms';
+import { DEFAULT_GROUP_PLATFORMS } from './socialPlatforms';
 
 type Group = { id: string; name: string | null; member_count: number | null };
 
