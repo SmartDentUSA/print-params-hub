@@ -17,6 +17,7 @@ import { isPromptInjection } from "../_shared/lia-guards.ts";
 
 declare const EdgeRuntime: { waitUntil(promise: Promise<unknown>): void };
 import { buildProductSummary, buildModulesSummary } from "./product-summary.ts";
+import { campaignButtons, campaignDisplayName, DEFAULT_INTEREST_QUESTION, GROUP_REDIRECT_MS, isCommercialCampaignName, matchInterest } from "./commercial-campaign.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
@@ -72,6 +73,8 @@ async function resolveContext(body: any) {
   let productSummary: string | null = null;
   let modulesSummary: string | null = null;
   let groupUrl: string | null = null;
+  let commercial: { question: string; options: string[]; group_message: string | null; redirect_ms: number; display_name: string } | null = null;
+  let commercialButtons: ReturnType<typeof campaignButtons> = [];
   if (campaignSlug) {
     const { data: c } = await sb.from("campaigns").select("nome, lia_opening_message, lia_product_name").ilike("lia_slug", campaignSlug).maybeSingle();
     if (c) {
@@ -85,11 +88,21 @@ async function resolveContext(body: any) {
       source: "form", form_id: formId, product_catalog_id: body.product_catalog_id, product,
     });
     if (linkedProduct) product = linkedProduct.name;
-    const { data: f } = await sb.from("smartops_forms").select("name, subtitle, description, extra_sections, product_catalog_id, capture_buttons_enabled, capture_buttons, success_redirect_url, form_purpose, event_id").eq("id", formId).maybeSingle();
+    const { data: f } = await sb.from("smartops_forms").select("name, title, subtitle, description, extra_sections, product_catalog_id, capture_buttons_enabled, capture_buttons, capture_buttons_question, capture_group_message, success_redirect_url, form_purpose, event_id").eq("id", formId).maybeSingle();
     formName = f?.name ?? "";
     formPurpose = (f as any)?.form_purpose ?? null;
     formEventId = (f as any)?.event_id ?? null;
     groupUrl = whatsappGroupUrl(f?.success_redirect_url);
+    if (isCommercialCampaignName(formName)) {
+      commercialButtons = campaignButtons((f as any)?.capture_buttons_enabled, (f as any)?.capture_buttons);
+      if (commercialButtons.length) commercial = {
+        question: str((f as any)?.capture_buttons_question, 200) || DEFAULT_INTEREST_QUESTION,
+        options: commercialButtons.map((b) => b.label),
+        group_message: str((f as any)?.capture_group_message, 1000) || null,
+        redirect_ms: GROUP_REDIRECT_MS,
+        display_name: campaignDisplayName(formName, (f as any)?.title),
+      };
+    }
     let boundProduct = "";
     if (f?.product_catalog_id) {
       const { data: p } = await sb.from("system_a_catalog").select("name").eq("id", f.product_catalog_id).maybeSingle();
@@ -112,12 +125,15 @@ async function resolveContext(body: any) {
     const { data: pc } = await sb.from("professional_courses").select("id").eq("credenciamento_form_id", formId).limit(1).maybeSingle();
     isProfessionalCourseForm = !!pc;
   }
-  const origin = formPurpose === "distribuicao" && formName
+  // Campanhas comerciais: origem = nome exato do formulário (não varia com o botão escolhido).
+  const origin = (formPurpose === "distribuicao" || commercial) && formName
     ? formName
     : isProfessionalCourseForm
     ? "# CHAT - Qualificação Curso - Profissional"
     : campaignSlug && !formId ? `# CHAT - Campanha - ${campaignName || campaignSlug}` : `# CHAT - Landing - ${label}`;
-  opening = `Vamos lá, vou te mandar todas as informações sobre o ${label}. Qual é o seu telefone de contato?`;
+  opening = commercial
+    ? `Vamos lá, vou te mandar todas as informações da ${commercial.display_name}. Qual é o seu telefone de contato?`
+    : `Vamos lá, vou te mandar todas as informações sobre o ${label}. Qual é o seu telefone de contato?`;
 
   // Perguntas de qualificação: do formulário de origem ou de um formulário de captação padrão
   let qFormId = formId;
@@ -160,7 +176,7 @@ async function resolveContext(body: any) {
   });
   const hour = Number(new Intl.DateTimeFormat("en-US", { timeZone: "America/Sao_Paulo", hour: "numeric", hourCycle: "h23" }).format(new Date()));
   const greeting = hour < 12 ? "Bom dia!" : hour < 18 ? "Boa tarde!" : "Boa noite!";
-  return { form_id: formId, form_purpose: formPurpose, event_id: formEventId, campaign: campaignSlug, product, origin, opening, greeting, questions, product_summary: productSummary, modules_summary: modulesSummary, whatsapp_group_url: groupUrl, qualification_form_id: qFormId, fields };
+  return { form_id: formId, form_purpose: formPurpose, event_id: formEventId, campaign: campaignSlug, product, origin, opening, greeting, questions, product_summary: productSummary, modules_summary: modulesSummary, whatsapp_group_url: groupUrl, commercial_campaign: commercial, commercial_buttons: commercialButtons, qualification_form_id: qFormId, fields };
 }
 
 const validEmail = (v: unknown) => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(String(v ?? "")) && !/@(no-email|placeholder|example|test)\b/i.test(String(v));
@@ -324,7 +340,11 @@ Deno.serve(async (req) => {
       const nome = realName(existing?.nome) || realName(body.name);
       const email = validEmail(existing?.email) ? String(existing?.email).toLowerCase() : providedEmail;
       if (!nome || !phone || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return json({ error: "Nome, e-mail e telefone válidos são obrigatórios." }, 400);
-      const ctx = await resolveContext(body);
+      const base = await resolveContext(body);
+      // Campanha comercial: o botão escolhido precisa ser um dos botões do formulário.
+      const chosen = base.commercial_campaign ? matchInterest(base.commercial_buttons, body.interest) : null;
+      if (base.commercial_campaign && !chosen) return json({ error: "Escolha uma das opções da promoção." }, 400);
+      const ctx = chosen ? await resolveContext({ ...body, product: chosen.label, product_catalog_id: chosen.product_catalog_id }) : base;
       const payload: Record<string, unknown> = {
         source: "form",
         form_name: ctx.origin,
@@ -333,6 +353,7 @@ Deno.serve(async (req) => {
         ...(ctx.form_purpose === "distribuicao" && ctx.event_id ? { distribuicao_event_id: ctx.event_id } : {}),
         nome, email, telefone_raw: phone,
         produto_interesse: ctx.product || undefined,
+        ...(chosen?.product_catalog_id ? { product_catalog_id: chosen.product_catalog_id } : {}),
         utm_source: str(body.utm_source, 120) || (ctx.campaign ? "lia_campaign" : "landing_page"),
         utm_medium: str(body.utm_medium, 120) || "whatsapp_lia",
         utm_campaign: str(body.utm_campaign, 120) || ctx.campaign || undefined,
@@ -341,6 +362,7 @@ Deno.serve(async (req) => {
           { label: "Seu e-mail", value: email },
           { label: "Seu WhatsApp", value: `+${phone}` },
           { label: "Canal", value: "Chat Dra. LIA (WhatsApp)" },
+          ...(chosen ? [{ label: ctx.commercial_campaign?.question || "O que você busca nesta promoção?", value: chosen.label }] : []),
           ...(ctx.product ? [{ label: "Produto de interesse", value: ctx.product }] : []),
         ],
       };
@@ -356,13 +378,24 @@ Deno.serve(async (req) => {
         channel: "whatsapp_lia", event_type: "lead", form_id: ctx.form_id, campaign_slug: ctx.campaign,
         product_name: ctx.product || null, lead_id: leadId, session_id: str(body.session_id, 120) || null,
       });
+      if (chosen) {
+        // Escolha registrada na timeline do lead (mesmo formato das respostas de formulário).
+        const label = ctx.commercial_campaign?.question || "O que você busca nesta promoção?";
+        const { error: tlError } = await sb.from("lead_activity_log").insert({
+          lead_id: leadId, event_type: "form_response", source_channel: "form",
+          entity_type: "form_field", entity_id: ctx.origin, entity_name: label,
+          event_data: { label, value: chosen.label, product: ctx.product || chosen.label, form_name: ctx.origin, description: `${label}: ${chosen.label}`, channel: "whatsapp_lia" },
+          dedupe_hash: `lia_interest:${leadId}:${ctx.form_id}:${Date.now()}`,
+        });
+        if (tlError && tlError.code !== "23505") console.warn("[lia-capture] interest timeline insert failed", tlError.code);
+      }
       // Nota "Resumo do Lead" no CRM logo na criação (mesmo comportamento dos formulários),
       // mesmo que o lead nunca responda as perguntas de qualificação.
       EdgeRuntime.waitUntil(syncFormNote(sb, leadId).catch(async (error) => {
         console.error("[lia-capture] CRM note sync on create failed", error);
         await sb.from("system_health_logs").insert({ function_name: "lia-capture", severity: "error", error_type: "crm_note_sync_failed", details: { lead_id: leadId, stage: "create" } });
       }));
-      return json({ lead_id: leadId, token: await sign(leadId), questions: await pendingQuestions(leadId, body) });
+      return json({ lead_id: leadId, token: await sign(leadId), product: chosen ? chosen.label : undefined, questions: await pendingQuestions(leadId, chosen ? { ...body, product: chosen.label } : body) });
     }
 
     if (action === "qualification") {
