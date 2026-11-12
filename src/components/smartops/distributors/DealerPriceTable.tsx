@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type MutableRefObject } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -141,9 +141,13 @@ type Props = {
   distributors: Distributor[];
   onGenerateProposal?: (list: DealerPriceList, items: DealerPriceItem[]) => void;
   promotion?: PromotionRef;
+  /** Promoção: permite ao editor da tabela gravar descontos pendentes antes de publicar o PDF. */
+  flushRef?: MutableRefObject<(() => Promise<number>) | null>;
+  /** Promoção: chamado depois que o usuário salva descontos pelo botão do editor. */
+  onSaved?: () => void | Promise<void>;
 };
 
-export function DealerPriceTable({ distributors, onGenerateProposal, promotion }: Props) {
+export function DealerPriceTable({ distributors, onGenerateProposal, promotion, flushRef, onSaved }: Props) {
   const [distributorId, setDistributorId] = useState<string>("");
   const [list, setList] = useState<DealerPriceList | null>(null);
   const [items, setItems] = useState<DealerPriceItem[]>([]);
@@ -772,8 +776,8 @@ export function DealerPriceTable({ distributors, onGenerateProposal, promotion }
     setDirtyIds((s) => new Set(s).add(id));
   };
 
-  const saveAll = async () => {
-    if (!list || dirtyIds.size === 0) return;
+  const saveAll = async (): Promise<number> => {
+    if (!list || dirtyIds.size === 0) return 0;
     setSaving(true);
     const toSave = items.filter((i) => dirtyIds.has(i.id));
     for (const it of toSave) {
@@ -789,7 +793,7 @@ export function DealerPriceTable({ distributors, onGenerateProposal, promotion }
           price_base: it.price_base, discount_pct: it.discount_pct, price_dealer: it.price_dealer,
         })
         .eq("id", it.id);
-      if (error) { toast.error(`Erro em ${it.name}: ${error.message}`); setSaving(false); return; }
+      if (error) { toast.error(`Erro em ${it.name}: ${error.message}`); setSaving(false); throw new Error(`Erro em ${it.name}: ${error.message}`); }
     }
     toast.success(`${toSave.length} linhas salvas`);
     // Preço de campanha nunca alimenta o catálogo.
@@ -799,6 +803,17 @@ export function DealerPriceTable({ distributors, onGenerateProposal, promotion }
     setDirtyIds(new Set());
     setSaving(false);
     await autoSnapshot(`${t.autoEdit} (${toSave.length})`, items);
+    return toSave.length;
+  };
+
+  // Sempre a versão do último render (com os descontos digitados até agora).
+  if (flushRef) flushRef.current = saveAll;
+
+  const saveAndPublish = async () => {
+    try {
+      const count = await saveAll();
+      if (count > 0 && onSaved) await onSaved();
+    } catch { /* erro já exibido */ }
   };
 
   /**
@@ -1114,7 +1129,7 @@ export function DealerPriceTable({ distributors, onGenerateProposal, promotion }
                 <RefreshCw className="w-4 h-4 mr-1" /> {t.importCatalog}
               </Button>
             )}
-            <Button onClick={saveAll} disabled={saving || dirtyIds.size === 0}>
+            <Button onClick={saveAndPublish} disabled={saving || dirtyIds.size === 0}>
               {saving ? `${t.save}…` : dirtyIds.size > 0 ? `${t.save} (${dirtyIds.size})` : t.saved}
             </Button>
             <div className="flex items-center gap-1">

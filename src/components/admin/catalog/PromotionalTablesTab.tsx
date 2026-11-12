@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { PRODUCT_CATALOG_ENTITY_TYPES } from "@/lib/catalogEntityTypes";
 import { Button } from "@/components/ui/button";
@@ -179,6 +179,8 @@ export function PromotionalTablesTab() {
     await loadSections(table);
   };
 
+  const priceFlushRef = useRef<(() => Promise<number>) | null>(null);
+
   const publishKolPdf = async (table: PromotionalTable) => {
     try {
       const rows = await getTableSections(table.id);
@@ -205,6 +207,8 @@ export function PromotionalTablesTab() {
 
   const saveTable = async () => {
     if (!draft.name.trim()) { toast.error("Informe o nome da tabela promocional."); return; }
+    // Descontos digitados na tabela de preços entram no PDF publicado (Agenda/Portal).
+    try { await priceFlushRef.current?.(); } catch { return; }
     if (draft.commercial_active) {
       if (!draft.valid_from || !draft.valid_until) { toast.error("Para ativar para o comercial, informe o início e o fim da tabela."); return; }
       if (draft.valid_until < draft.valid_from) { toast.error("O fim da tabela precisa ser depois do início."); return; }
@@ -581,6 +585,12 @@ export function PromotionalTablesTab() {
           const { error } = await supabase.from("promotional_tables" as any).update(patch).eq("id", selected.id);
           if (error) toast.error(error.message);
           else setSelected((row) => (row ? { ...row, ...patch } as PromotionalTable : row));
+        }}
+        flushRef={priceFlushRef}
+        onPricesSaved={async () => {
+          if (!selected.commercial_active && !selected.kol_visible) return;
+          const saved = await publishKolPdf(selected);
+          setSelected(saved); await loadTables();
         }}
       />}
 
