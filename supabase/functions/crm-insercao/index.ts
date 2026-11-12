@@ -24,6 +24,7 @@ import { findTeamMemberByPhone } from "../_shared/team-phone-match.ts";
 import { KolSubmitSchema, runKolCandidate } from "./kol-candidate-flow.ts";
 import { pickCommercialTables } from "./price-table.ts";
 import { pickCoupon, renderCreativeMessage } from "../_shared/creative-message.ts";
+import { ensurePostMessages, findTablePosts, normalizeHashtags, postCover, postLink } from "../_shared/promo-social.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -574,6 +575,55 @@ Deno.serve(async (req) => {
       const message = String(body?.message ?? "").slice(0, 4000);
       const { error } = await sb.from("promotional_creative_seller_messages")
         .upsert({ creative_id: cid, team_member_id: tm.id, message }, { onConflict: "creative_id,team_member_id" });
+      if (error) return json({ error: error.message }, 500);
+      return json({ ok: true });
+    }
+
+    if (action === "social_posts") {
+      // Publicações do Instagram com a hashtag da tabela vigente. A mensagem padrão
+      // é gerada uma vez (mesmo prompt dos grupos) e preenchida com o cupom do vendedor.
+      const { data: rows } = await sb.from("promotional_tables")
+        .select("id, name, status, commercial_active, valid_from, valid_until, social_hashtags")
+        .eq("commercial_active", true).eq("status", "active");
+      const { current } = pickCommercialTables((rows ?? []) as any[], Date.now());
+      if (!current) return json({ table: null, hashtags: [], posts: [] });
+      const t = current.row as any;
+      const tags = normalizeHashtags(t.social_hashtags ?? []);
+      const [posts, { data: coupons }] = await Promise.all([
+        findTablePosts(sb, tags),
+        sb.from("promotional_coupons").select("code, valid_until").eq("promotional_table_id", t.id).eq("team_member_id", tm.id).eq("active", true),
+      ]);
+      const coupon = pickCoupon((coupons ?? []) as any[]);
+      const msgs = await ensurePostMessages(sb, t.id, posts, LOVABLE_API_KEY);
+      const ids = posts.map((p: any) => p.id);
+      const { data: mine } = ids.length
+        ? await sb.from("promotional_social_seller_messages").select("social_post_id, message").eq("promotional_table_id", t.id).eq("team_member_id", tm.id).in("social_post_id", ids)
+        : { data: [] as any[] };
+      const saved = new Map((mine ?? []).map((m: any) => [m.social_post_id, String(m.message ?? "")]));
+      return json({
+        table: { id: t.id, name: t.name }, hashtags: tags, coupon,
+        posts: posts.map((p: any) => {
+          const standard = renderCreativeMessage(msgs.get(p.id)?.whatsapp_message ?? "", coupon, tm.nome_completo ?? "");
+          return {
+            id: p.id, link: postLink(p), cover_url: postCover(p), published_at: p.published_at, caption: String(p.caption ?? "").slice(0, 600),
+            default_message: standard, message: saved.get(p.id) ?? standard, edited: saved.has(p.id),
+          };
+        }),
+      });
+    }
+
+    if (action === "social_save_message" || action === "social_reset_message") {
+      const tid = String(body?.table_id || ""), pid = String(body?.post_id || "");
+      if (!/^[0-9a-f-]{36}$/i.test(tid) || !/^[0-9a-f-]{36}$/i.test(pid)) return json({ error: "Publicação inválida" }, 400);
+      const { data: p } = await sb.from("promotional_social_post_messages").select("id").eq("promotional_table_id", tid).eq("social_post_id", pid).maybeSingle();
+      if (!p) return json({ error: "Publicação não encontrada nesta tabela" }, 404);
+      if (action === "social_reset_message") {
+        await sb.from("promotional_social_seller_messages").delete().eq("promotional_table_id", tid).eq("social_post_id", pid).eq("team_member_id", tm.id);
+        return json({ ok: true });
+      }
+      const message = String(body?.message ?? "").slice(0, 4000);
+      const { error } = await sb.from("promotional_social_seller_messages")
+        .upsert({ promotional_table_id: tid, social_post_id: pid, team_member_id: tm.id, message }, { onConflict: "promotional_table_id,social_post_id,team_member_id" });
       if (error) return json({ error: error.message }, 500);
       return json({ ok: true });
     }
