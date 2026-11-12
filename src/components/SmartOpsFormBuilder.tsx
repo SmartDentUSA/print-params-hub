@@ -61,9 +61,12 @@ const PURPOSE_CONFIG: Record<string, { label: string; color: string; disabled?: 
 const REFERRAL_GROUP = "kol_referral";
 // Presentation-only: WhatsApp group access forms are saved as sdr_captacao (same CRM routing).
 const WA_GROUP_GROUP = "grupo_whatsapp";
+// Presentation-only: commercial campaign forms are saved as sdr_captacao with the "# - CAMPANHA COMERCIAL -" prefix.
+const COMMERCIAL_CAMPAIGN_GROUP = "campanha_comercial";
 const FORM_LIST_GROUPS = {
   [REFERRAL_GROUP]: { label: "Indicações — Palestrantes (KOLs)", color: "bg-accent text-accent-foreground border-border" },
   [WA_GROUP_GROUP]: { label: "Acesso a grupos de WhatsApp", color: "bg-emerald-100 text-emerald-800 border-emerald-300" },
+  [COMMERCIAL_CAMPAIGN_GROUP]: { label: "Campanhas comerciais", color: "bg-rose-100 text-rose-800 border-rose-300" },
   ...PURPOSE_CONFIG,
 };
 
@@ -424,7 +427,9 @@ export function SmartOpsFormBuilder() {
       ? REFERRAL_GROUP
       : /^#\s*-\s*grupo whatsapp\s*-/i.test(normalizeSearch(form.name))
         ? WA_GROUP_GROUP
-        : form.form_purpose;
+        : /^#\s*-\s*campanha comercial\s*-/i.test(normalizeSearch(form.name))
+          ? COMMERCIAL_CAMPAIGN_GROUP
+          : form.form_purpose;
 
   const matchesSearch = (form: SmartOpsForm) => {
     if (!searchQuery.trim()) return true;
@@ -453,7 +458,7 @@ export function SmartOpsFormBuilder() {
 
   const handleCreate = async () => {
     if (!newName.trim()) return;
-    if (newPurpose === "sdr_captacao" || newPurpose === WA_GROUP_GROUP) {
+    if (newPurpose === "sdr_captacao" || newPurpose === WA_GROUP_GROUP || newPurpose === COMMERCIAL_CAMPAIGN_GROUP) {
       // Sequência padrão de perguntas (exocad DentalCad RMS) clonada no servidor.
       const { error } = await (supabase as any).rpc("fn_create_form_standard_flow", {
         p_name: newName.trim(),
@@ -865,6 +870,25 @@ export function SmartOpsFormBuilder() {
                     </div>
                     {newPurpose === WA_GROUP_GROUP && (
                       <span className="text-xs bg-emerald-600 text-white px-2 py-0.5 rounded">Selecionado</span>
+                    )}
+                  </div>
+                </button>
+
+                {/* Tipo: Campanhas comerciais */}
+                <button
+                  className="w-full text-left rounded-lg border-2 border-rose-300 bg-rose-50 p-3 hover:bg-rose-100 transition-colors"
+                  onClick={() => {
+                    setNewPurpose(COMMERCIAL_CAMPAIGN_GROUP);
+                    setTimeout(() => nameInputRef.current?.focus(), 50);
+                  }}
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-semibold text-rose-800 text-sm">Campanhas comerciais</p>
+                      <p className="text-xs text-rose-700 mt-0.5">Conversa no WhatsApp com botões "O que você busca nesta promoção?" e ida automática ao grupo; nome "# - CAMPANHA COMERCIAL - ..."</p>
+                    </div>
+                    {newPurpose === COMMERCIAL_CAMPAIGN_GROUP && (
+                      <span className="text-xs bg-rose-600 text-white px-2 py-0.5 rounded">Selecionado</span>
                     )}
                   </div>
                 </button>

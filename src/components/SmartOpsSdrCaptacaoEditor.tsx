@@ -18,6 +18,7 @@ import { SmartOpsFormEditor } from "./SmartOpsFormEditor";
 import { SmartOpsMappingFieldsEditor } from "./SmartOpsMappingFieldsEditor";
 import { WORKFLOW_CELLS } from "./SmartOpsMappingFieldsEditor";
 import { SmartOpsFormFlowPreview } from "./SmartOpsFormFlowPreview";
+import { DEFAULT_GROUP_MESSAGE, DEFAULT_INTEREST_QUESTION, isCommercialCampaignName, isWhatsAppGroupLink } from "@/lib/commercialCampaignForm";
 
 export interface CaptureButton {
   label: string;
@@ -145,6 +146,9 @@ export function SmartOpsSdrCaptacaoEditor({ form }: { form: SdrForm }) {
   const [captureButtons, setCaptureButtons] = useState<CaptureButton[]>(
     Array.isArray((form as any).capture_buttons) ? (form as any).capture_buttons : [],
   );
+  const [buttonsQuestion, setButtonsQuestion] = useState<string>((form as any).capture_buttons_question ?? "");
+  const [groupMessage, setGroupMessage] = useState<string>((form as any).capture_group_message ?? "");
+  const isCampaign = isCommercialCampaignName(name);
   const [mediaType, setMediaType] = useState<"image" | "video">(
     form.media_type === "video" ? "video" : "image"
   );
@@ -217,6 +221,14 @@ export function SmartOpsSdrCaptacaoEditor({ form }: { form: SdrForm }) {
   };
 
   const handleSaveSectionB = async () => {
+    if (isCampaign && successRedirectUrl.trim() && !isWhatsAppGroupLink(successRedirectUrl)) {
+      toast.error("O link do grupo precisa ser um convite https://chat.whatsapp.com/...");
+      return;
+    }
+    if (isCampaign && captureButtonsEnabled && !captureButtons.some((b) => b.label.trim())) {
+      toast.error("A campanha precisa de pelo menos um botão de interesse.");
+      return;
+    }
     setSaving(true);
 
     // Extract dominant color from media if not yet extracted
@@ -243,6 +255,8 @@ export function SmartOpsSdrCaptacaoEditor({ form }: { form: SdrForm }) {
         product_catalog_id: productCatalogId === "__none__" ? null : (productCatalogId || null),
         workflow_stage_target: workflowStageTarget === "__none__" ? null : (workflowStageTarget || null),
         capture_buttons_enabled: captureButtonsEnabled,
+        capture_buttons_question: buttonsQuestion.trim() || null,
+        capture_group_message: groupMessage.trim() || null,
         capture_buttons: captureButtons
           .map((b) => ({ ...b, label: (b.label || "").trim() }))
           .filter((b) => b.label),
@@ -274,6 +288,7 @@ export function SmartOpsSdrCaptacaoEditor({ form }: { form: SdrForm }) {
           <div>
             <Label className="text-xs font-medium">Nome interno (admin)</Label>
             <Input value={name} onChange={(e) => setName(e.target.value)} />
+            {isCampaign && <p className="text-[11px] text-muted-foreground mt-1">Mantenha o início "# - CAMPANHA COMERCIAL -" para a conversa seguir como campanha.</p>}
           </div>
 
           {/* Slug */}
@@ -641,6 +656,42 @@ export function SmartOpsSdrCaptacaoEditor({ form }: { form: SdrForm }) {
           )}
         </div>
 
+        {isCampaign && (
+          <div className="rounded-lg border p-4 space-y-4">
+            <div>
+              <Label className="text-sm font-semibold">Conversa da campanha comercial</Label>
+              <p className="text-[11px] text-muted-foreground">
+                Depois do telefone, e-mail e nome, a conversa mostra os botões acima (3 por linha). O botão escolhido vai como produto de interesse para o CRM e para a linha do tempo do lead. Depois do vendedor e do convite do grupo, o lead é levado sozinho ao grupo em 4 segundos.
+              </p>
+            </div>
+            <div>
+              <Label className="text-xs font-medium">Pergunta dos botões</Label>
+              <Input value={buttonsQuestion} onChange={(e) => setButtonsQuestion(e.target.value)} placeholder={DEFAULT_INTEREST_QUESTION} maxLength={200} />
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label className="text-xs font-medium">Texto do convite para o grupo</Label>
+                <Textarea value={groupMessage} onChange={(e) => setGroupMessage(e.target.value)} placeholder={DEFAULT_GROUP_MESSAGE} rows={6} maxLength={1000} />
+                <p className="text-[11px] text-muted-foreground mt-1">{groupMessage.length}/1000 · emojis e quebras de linha são mantidos.</p>
+              </div>
+              <div>
+                <Label className="text-xs font-medium">Pré-visualização</Label>
+                <div className="rounded-lg border bg-muted/40 p-3">
+                  <div className="rounded-lg border bg-card p-3 text-center space-y-2">
+                    <p className="text-sm font-semibold">Grupo exclusivo Smart Dent</p>
+                    <p className="whitespace-pre-wrap text-xs text-muted-foreground">{groupMessage.trim() || DEFAULT_GROUP_MESSAGE}</p>
+                    <div className="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground">Entrar no grupo</div>
+                    <p className="text-[11px] text-muted-foreground">Abrindo o grupo da campanha em 4s…</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+            {!isWhatsAppGroupLink(successRedirectUrl) && (
+              <p className="text-xs text-destructive">Informe o link do grupo de WhatsApp da campanha no campo abaixo; sem ele a conversa não mostra o grupo nem redireciona.</p>
+            )}
+          </div>
+        )}
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* Mensagem de sucesso */}
           <div>
@@ -654,11 +705,11 @@ export function SmartOpsSdrCaptacaoEditor({ form }: { form: SdrForm }) {
 
           {/* URL de redirecionamento */}
           <div>
-            <Label className="text-xs font-medium">URL de redirecionamento após envio</Label>
+            <Label className="text-xs font-medium">{isCampaign ? "Link do grupo de WhatsApp da campanha" : "URL de redirecionamento após envio"}</Label>
             <Input
               value={successRedirectUrl}
               onChange={(e) => setSuccessRedirectUrl(e.target.value)}
-              placeholder="https://..."
+              placeholder={isCampaign ? "https://chat.whatsapp.com/..." : "https://..."}
             />
           </div>
         </div>
