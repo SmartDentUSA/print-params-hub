@@ -1,1 +1,2 @@
 - Professional profile (CoursesProfessionalProfile) shows CRM person/company/deals/NF-e from the canonical lead and stores contract-source checkboxes in prof_contract_sources; the AI history summary runs only on demand via prof-history-summary (staff-only) to control cost.
+- Event type (`smartops_events.event_type`: feira_congresso, presencial_parceiros, campanha_promocional) chooses the social AI narrative through `src/lib/eventTypes.ts`; promotional campaigns never mention venue or stand, so one event table serves congresses and offer periods.
