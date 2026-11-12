@@ -18,7 +18,7 @@ import { SmartOpsFormEditor } from "./SmartOpsFormEditor";
 import { SmartOpsMappingFieldsEditor } from "./SmartOpsMappingFieldsEditor";
 import { WORKFLOW_CELLS } from "./SmartOpsMappingFieldsEditor";
 import { SmartOpsFormFlowPreview } from "./SmartOpsFormFlowPreview";
-import { DEFAULT_GROUP_MESSAGE, DEFAULT_INTEREST_QUESTION, isCommercialCampaignName, isWhatsAppGroupLink } from "@/lib/commercialCampaignForm";
+import { DEFAULT_GROUP_MESSAGE, DEFAULT_INTEREST_QUESTION, isCommercialCampaignForm, isWhatsAppGroupLink } from "@/lib/commercialCampaignForm";
 
 export interface CaptureButton {
   label: string;
@@ -150,7 +150,7 @@ export function SmartOpsSdrCaptacaoEditor({ form }: { form: SdrForm }) {
   );
   const [buttonsQuestion, setButtonsQuestion] = useState<string>((form as any).capture_buttons_question ?? "");
   const [groupMessage, setGroupMessage] = useState<string>((form as any).capture_group_message ?? "");
-  const isCampaign = isCommercialCampaignName(name);
+  const isCampaign = isCommercialCampaignForm({ is_commercial_campaign: (form as any).is_commercial_campaign, name });
   const [promotionalTableId, setPromotionalTableId] = useState<string>((form as any).promotional_table_id ?? "__none__");
   const [promoTables, setPromoTables] = useState<{ id: string; name: string; status: string | null; valid_from: string | null; valid_until: string | null }[]>([]);
   const [mediaType, setMediaType] = useState<"image" | "video">(
@@ -273,6 +273,7 @@ export function SmartOpsSdrCaptacaoEditor({ form }: { form: SdrForm }) {
         capture_buttons_question: buttonsQuestion.trim() || null,
         capture_group_message: groupMessage.trim() || null,
         promotional_table_id: isCampaign && promotionalTableId !== "__none__" ? promotionalTableId : null,
+        ...(isCampaign ? { is_commercial_campaign: true } : {}),
         capture_buttons: captureButtons
           .map((b) => ({ ...b, label: (b.label || "").trim() }))
           .filter((b) => b.label),
@@ -304,7 +305,7 @@ export function SmartOpsSdrCaptacaoEditor({ form }: { form: SdrForm }) {
           <div>
             <Label className="text-xs font-medium">Nome interno (admin)</Label>
             <Input value={name} onChange={(e) => setName(e.target.value)} />
-            {isCampaign && <p className="text-[11px] text-muted-foreground mt-1">Mantenha o início "# - CAMPANHA COMERCIAL -" para a conversa seguir como campanha.</p>}
+            {isCampaign && <p className="text-[11px] text-muted-foreground mt-1">Campanha comercial: pode renomear à vontade, os botões e o grupo continuam.</p>}
           </div>
 
           {/* Slug */}

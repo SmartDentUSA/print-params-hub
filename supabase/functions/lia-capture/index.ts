@@ -18,7 +18,7 @@ import { cleanPersonName } from "../_shared/piperun-field-map.ts";
 
 declare const EdgeRuntime: { waitUntil(promise: Promise<unknown>): void };
 import { buildProductSummary, buildModulesSummary } from "./product-summary.ts";
-import { campaignButtons, campaignDisplayName, DEFAULT_INTEREST_QUESTION, GROUP_REDIRECT_MS, isCommercialCampaignName, matchInterest } from "./commercial-campaign.ts";
+import { campaignButtons, campaignDisplayName, DEFAULT_INTEREST_QUESTION, GROUP_REDIRECT_MS, isCommercialCampaignForm, matchInterest } from "./commercial-campaign.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
@@ -91,12 +91,12 @@ async function resolveContext(body: any) {
       source: "form", form_id: formId, product_catalog_id: body.product_catalog_id, product,
     });
     if (linkedProduct) product = linkedProduct.name;
-    const { data: f } = await sb.from("smartops_forms").select("name, title, subtitle, description, extra_sections, product_catalog_id, capture_buttons_enabled, capture_buttons, capture_buttons_question, capture_group_message, promotional_table_id, success_redirect_url, form_purpose, event_id").eq("id", formId).maybeSingle();
+    const { data: f } = await sb.from("smartops_forms").select("name, title, subtitle, description, extra_sections, product_catalog_id, capture_buttons_enabled, capture_buttons, capture_buttons_question, capture_group_message, promotional_table_id, is_commercial_campaign, success_redirect_url, form_purpose, event_id").eq("id", formId).maybeSingle();
     formName = f?.name ?? "";
     formPurpose = (f as any)?.form_purpose ?? null;
     formEventId = (f as any)?.event_id ?? null;
     groupUrl = whatsappGroupUrl(f?.success_redirect_url);
-    if (isCommercialCampaignName(formName)) {
+    if (isCommercialCampaignForm(f)) {
       commercialButtons = campaignButtons((f as any)?.capture_buttons_enabled, (f as any)?.capture_buttons);
       let promo: { id: string; name: string } | null = null;
       const promoId = (f as any)?.promotional_table_id;

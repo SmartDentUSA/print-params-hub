@@ -429,7 +429,7 @@ export function SmartOpsFormBuilder() {
       ? REFERRAL_GROUP
       : /^#\s*-\s*grupo whatsapp\s*-/i.test(normalizeSearch(form.name))
         ? WA_GROUP_GROUP
-        : /^#\s*-\s*campanha comercial\s*-/i.test(normalizeSearch(form.name))
+        : (form as any).is_commercial_campaign === true || /^#\s*-\s*campanha comercial\s*-/i.test(normalizeSearch(form.name))
           ? COMMERCIAL_CAMPAIGN_GROUP
           : form.form_purpose;
 
