@@ -16,6 +16,8 @@ export interface FormMetrics {
   daily_series: Array<{ d: string; v: number }>;
 }
 
+export type ShortLinkTarget = "form" | "landing_page" | "whatsapp";
+
 export interface ShortLinkInfo {
   short_code: string;
   click_count: number;

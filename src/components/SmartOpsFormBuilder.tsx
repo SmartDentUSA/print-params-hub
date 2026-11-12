@@ -14,7 +14,7 @@ import { SmartOpsFormEditor } from "./SmartOpsFormEditor";
 import { SmartOpsSdrCaptacaoEditor } from "./SmartOpsSdrCaptacaoEditor";
 import { FeiraEventoConfig } from "./smartops/FeiraEventoConfig";
 import { FormMetricsCard, type FormMetrics } from "./smartops/FormMetricsCard";
-import type { ShortLinkInfo } from "./smartops/FormMetricsCard";
+import type { ShortLinkInfo, ShortLinkTarget } from "./smartops/FormMetricsCard";
 import { FormMetricsRow } from "./smartops/FormMetricsRow";
 import { LandingPageBuilderModal } from "./smartops/LandingPageBuilderModal";
 import { FormHeroImageStudio } from "./smartops/forms/FormHeroImageStudio";
@@ -205,10 +205,10 @@ export function SmartOpsFormBuilder() {
   const [periodDays, setPeriodDays] = useState<number>(0);
   const [metricsByForm, setMetricsByForm] = useState<Record<string, FormMetrics>>({});
   const [shortLinksBySlug, setShortLinksBySlug] = useState<
-    Record<string, { form?: ShortLinkInfo; landing_page?: ShortLinkInfo }>
+    Record<string, { form?: ShortLinkInfo; landing_page?: ShortLinkInfo; whatsapp?: ShortLinkInfo }>
   >({});
   const [landingBySlug, setLandingBySlug] = useState<Record<string, boolean>>({});
-  const [generatingShort, setGeneratingShort] = useState<Record<string, "form" | "landing_page" | null>>({});
+  const [generatingShort, setGeneratingShort] = useState<Record<string, ShortLinkTarget | null>>({});
   const [editingForm, setEditingForm] = useState<SmartOpsForm | null>(null);
   const [landingPageForm, setLandingPageForm] = useState<SmartOpsForm | null>(null);
   const [showCreate, setShowCreate] = useState(false);
@@ -348,7 +348,7 @@ export function SmartOpsFormBuilder() {
       .from("smartops_short_links")
       .select("short_code, form_slug, default_target, click_count")
       .in("form_slug", slugs);
-    const map: Record<string, { form?: ShortLinkInfo; landing_page?: ShortLinkInfo }> = {};
+    const map: Record<string, { form?: ShortLinkInfo; landing_page?: ShortLinkInfo; whatsapp?: ShortLinkInfo }> = {};
     (data || []).forEach((row: any) => {
       const bucket = (map[row.form_slug] = map[row.form_slug] || {});
       const info: ShortLinkInfo = {
@@ -356,6 +356,7 @@ export function SmartOpsFormBuilder() {
         click_count: Number(row.click_count) || 0,
       };
       if (row.default_target === "landing_page") bucket.landing_page = info;
+      else if (row.default_target === "whatsapp") bucket.whatsapp = info;
       else bucket.form = info;
     });
     setShortLinksBySlug(map);
@@ -383,7 +384,7 @@ export function SmartOpsFormBuilder() {
     fetchLandingPages(ids);
   }, [forms.length]);
 
-  const handleGenerateShortLink = async (slug: string, target: "form" | "landing_page") => {
+  const handleGenerateShortLink = async (slug: string, target: ShortLinkTarget) => {
     setGeneratingShort((s) => ({ ...s, [slug]: target }));
     try {
       const { data, error } = await (supabase as any).rpc("generate_short_link", {
@@ -396,6 +397,7 @@ export function SmartOpsFormBuilder() {
         const bucket = { ...(prev[slug] || {}) };
         const info: ShortLinkInfo = { short_code: code, click_count: 0 };
         if (target === "landing_page") bucket.landing_page = info;
+        else if (target === "whatsapp") bucket.whatsapp = info;
         else bucket.form = info;
         return { ...prev, [slug]: bucket };
       });
@@ -1729,6 +1731,7 @@ export function SmartOpsFormBuilder() {
                       hasLandingPage={!!landingBySlug[form.slug]}
                       shortLinkForm={shortLinksBySlug[form.slug]?.form || null}
                       shortLinkLanding={shortLinksBySlug[form.slug]?.landing_page || null}
+                      shortLinkWhatsapp={shortLinksBySlug[form.slug]?.whatsapp || null}
                       generatingTarget={generatingShort[form.slug] || null}
                       onGenerateShortLink={(target) => handleGenerateShortLink(form.slug, target)}
                       onToggleBio={(target) => toggleBio(form, target)}
