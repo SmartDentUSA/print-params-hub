@@ -7,7 +7,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Search } from 'lucide-react';
 import { toast } from 'sonner';
 import { PlatformPicker } from './PlatformPicker';
-import { ALL_PLATFORM_VALUES } from './socialPlatforms';
+import { DEFAULT_GROUP_PLATFORMS } from './socialPlatforms';
 
 type Group = { id: string; name: string | null; member_count: number | null };
 
@@ -25,7 +25,7 @@ export function PostGruposAddModal({
   const [groups, setGroups] = useState<Group[]>([]);
   const [query, setQuery] = useState('');
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [platforms, setPlatforms] = useState<string[]>([...ALL_PLATFORM_VALUES]);
+  const [platforms, setPlatforms] = useState<string[]>([...DEFAULT_GROUP_PLATFORMS]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
