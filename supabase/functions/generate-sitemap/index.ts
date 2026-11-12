@@ -57,6 +57,18 @@ Deno.serve(async (req) => {
   </url>
 `;
 
+    // Páginas institucionais (estáticas, indexáveis; /suporte-tecnico e /admin ficam fora — Disallow no robots)
+    for (const path of ['/institucional', '/en/institutional', '/es/institucional', '/sobre', '/distribuidores', '/eventos', '/agenda', '/agenda/online', '/usados', '/support-resources']) {
+      sitemap += `
+  <url>
+    <loc>${baseUrl}${path}</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+    <lastmod>${now}</lastmod>
+  </url>
+`;
+    }
+
     // Add brand pages
     if (brands && brands.length > 0) {
       for (const brand of brands) {
