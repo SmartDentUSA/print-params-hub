@@ -20973,6 +20973,7 @@ export type Database = {
       }
       promotional_tables: {
         Row: {
+          commercial_active: boolean
           coupon_discount_type: string
           coupon_discount_value: number
           coupon_freight_discount_value: number | null
@@ -21010,6 +21011,7 @@ export type Database = {
           valid_until: string | null
         }
         Insert: {
+          commercial_active?: boolean
           coupon_discount_type?: string
           coupon_discount_value?: number
           coupon_freight_discount_value?: number | null
@@ -21047,6 +21049,7 @@ export type Database = {
           valid_until?: string | null
         }
         Update: {
+          commercial_active?: boolean
           coupon_discount_type?: string
           coupon_discount_value?: number
           coupon_freight_discount_value?: number | null

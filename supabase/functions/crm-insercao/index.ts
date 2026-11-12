@@ -22,6 +22,7 @@ import {
 import { classifySearchInput } from "./kol-candidate.ts";
 import { findTeamMemberByPhone } from "../_shared/team-phone-match.ts";
 import { KolSubmitSchema, runKolCandidate } from "./kol-candidate-flow.ts";
+import { pickCommercialTables } from "./price-table.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -530,6 +531,44 @@ Deno.serve(async (req) => {
     if (action === "bootstrap") {
       const [options, kols] = await Promise.all([canonicalOptions(), listKols(tm)]);
       return json({ me: { id: tm.id, nome: tm.nome_completo, role: tm.role }, options, kols });
+    }
+
+    if (action === "price_table") {
+      // Tabela vigente para o comercial: só leitura, sempre decidida no servidor.
+      const { data: rows, error } = await sb.from("promotional_tables")
+        .select("id, name, pdf_title, currency, notes, status, commercial_active, valid_from, valid_until, updated_at, kol_pdf_url, kol_pdf_updated_at")
+        .eq("commercial_active", true).eq("status", "active");
+      if (error) return json({ error: error.message }, 500);
+      const now = Date.now();
+      const { current, next } = pickCommercialTables((rows ?? []) as any[], now);
+      let table: Record<string, unknown> | null = null;
+      if (current) {
+        const t = current.row as any;
+        const { data: secs } = await sb.from("promotional_table_sections")
+          .select("id, title, description, sort_order").eq("promotional_table_id", t.id).order("sort_order");
+        const ids = (secs ?? []).map((s: any) => s.id);
+        const { data: items } = ids.length
+          ? await sb.from("promotional_table_items")
+            .select("id, section_id, name, sku, quantity, market_unit_price, promotional_unit_price, sort_order")
+            .in("section_id", ids).order("sort_order")
+          : { data: [] as any[] };
+        const { data: coupons } = await sb.from("promotional_coupons")
+          .select("code, discount_type, discount_value, kind, free_shipping, valid_until")
+          .eq("promotional_table_id", t.id).eq("team_member_id", tm.id).eq("active", true);
+        table = {
+          id: t.id, name: t.name, pdf_title: t.pdf_title, currency: t.currency, notes: t.notes,
+          valid_from: t.valid_from, valid_until: t.valid_until,
+          pdf_url: t.kol_pdf_url ?? null, pdf_updated_at: t.kol_pdf_updated_at ?? null,
+          starts_at: current.starts_at, ends_at: current.ends_at,
+          sections: (secs ?? []).map((s: any) => ({ ...s, items: (items ?? []).filter((i: any) => i.section_id === s.id) })),
+          my_coupons: coupons ?? [],
+        };
+      }
+      return json({
+        server_now: new Date(now).toISOString(),
+        table,
+        next: next ? { name: (next.row as any).name, starts_at: next.starts_at, ends_at: next.ends_at } : null,
+      });
     }
 
     if (action === "search") {

@@ -13,6 +13,8 @@ export type PromotionalTable = {
   status: PromotionalStatus;
   include_official_price_table?: boolean;
   kol_visible?: boolean;
+  /** Ativa para comercial: entra na sequência de tabelas vigentes da Agenda (troca à meia-noite). */
+  commercial_active?: boolean;
   kol_pdf_url?: string | null;
   kol_pdf_updated_at?: string | null;
   /** Vendedores autorizados a divulgar a promoção (mesma lista do formulário do evento). */

@@ -30,7 +30,7 @@ const catalogImage = (product: { image_url?: string | null; og_image_url?: strin
 const blankTable = (): Omit<PromotionalTable, "id" | "created_at" | "updated_at"> => ({
   name: "", pdf_title: "TABELA PROMOCIONAL", distributor_id: null, event_id: null, currency: "BRL",
   valid_from: null, valid_until: null, notes: null, status: "draft",
-  include_official_price_table: true, kol_visible: false,
+  include_official_price_table: true, kol_visible: false, commercial_active: false,
   coupon_seller_ids: [], coupon_discount_type: "percent", coupon_discount_value: 0,
   coupon_prefix: null, coupon_usage_limit: null, coupon_valid_from: null, coupon_valid_until: null,
   coupon_li_category_ids: [], coupon_li_category_labels: [],
@@ -151,6 +151,7 @@ export function PromotionalTablesTab() {
       notes: table.notes, status: table.status,
       include_official_price_table: table.include_official_price_table !== false,
       kol_visible: table.kol_visible === true,
+      commercial_active: table.commercial_active === true,
       coupon_seller_ids: table.coupon_seller_ids ?? [],
       coupon_discount_type: table.coupon_discount_type ?? "percent",
       coupon_discount_value: table.coupon_discount_value ?? 0,
@@ -173,8 +174,8 @@ export function PromotionalTablesTab() {
   const publishKolPdf = async (table: PromotionalTable) => {
     try {
       const rows = await getTableSections(table.id);
-      if (!rows.some((s) => s.items.length)) { toast.info("Adicione itens para publicar o PDF aos KOLs."); return table; }
-      toast.info("Gerando PDF para o Portal Profissional...");
+      if (!rows.some((s) => s.items.length)) { toast.info("Adicione itens para publicar o PDF da tabela."); return table; }
+      toast.info("Gerando PDF da tabela...");
       const blob = await exportPromotionalPdf(table, rows, distributorName(table.distributor_id), "blob");
       if (!blob) return table;
       const path = `kol-price-tables/${table.id}-${Date.now()}.pdf`;
@@ -185,24 +186,32 @@ export function PromotionalTablesTab() {
       const { data, error } = await supabase.from("promotional_tables" as any)
         .update({ kol_pdf_url: url, kol_pdf_updated_at: new Date().toISOString() }).eq("id", table.id).select("*").single();
       if (error) throw error;
-      toast.success("PDF publicado no Portal Profissional Parceiro.");
+      toast.success(table.commercial_active && !table.kol_visible ? "PDF publicado para o comercial na Agenda." : "PDF publicado.");
       return data as any as PromotionalTable;
     } catch (e: any) {
       console.error("[kol-pdf]", e);
-      toast.error(`Falha ao publicar PDF para KOLs: ${e?.message || e}`);
+      toast.error(`Falha ao publicar o PDF da tabela: ${e?.message || e}`);
       return table;
     }
   };
 
   const saveTable = async () => {
     if (!draft.name.trim()) { toast.error("Informe o nome da tabela promocional."); return; }
+    if (draft.commercial_active) {
+      if (!draft.valid_from || !draft.valid_until) { toast.error("Para ativar para o comercial, informe o início e o fim da tabela."); return; }
+      if (draft.valid_until < draft.valid_from) { toast.error("O fim da tabela precisa ser depois do início."); return; }
+      if (draft.status !== "active") toast.warning("A tabela só aparece na Agenda quando o status estiver como Ativa.");
+      const clash = tables.find((t) => t.id !== selected?.id && t.commercial_active && t.status === "active" && t.valid_from && t.valid_until
+        && t.valid_from <= draft.valid_until! && draft.valid_from! <= t.valid_until);
+      if (clash) toast.warning(`Período sobreposto com "${clash.name}". Nos dias em comum vale a que começou por último.`);
+    }
     setSaving(true);
     if (selected?.id) {
       const { data, error } = await supabase.from("promotional_tables" as any).update(draft).eq("id", selected.id).select("*").single();
       if (error) toast.error(error.message);
       else {
         let saved = data as any as PromotionalTable;
-        if (saved.kol_visible) saved = await publishKolPdf(saved);
+        if (saved.kol_visible || saved.commercial_active) saved = await publishKolPdf(saved);
         setSelected(saved); toast.success("Tabela promocional salva."); await loadTables();
       }
     } else {
@@ -494,7 +503,7 @@ export function PromotionalTablesTab() {
       </div>
       {loading ? <p className="text-sm text-muted-foreground">Carregando...</p> : loadError ? <Card><CardContent className="space-y-3 p-10 text-center"><p className="text-sm text-destructive">Não foi possível carregar: {loadError}</p><Button variant="outline" size="sm" onClick={loadTables}>Tentar novamente</Button></CardContent></Card> : tables.length === 0 ? <Card><CardContent className="p-10 text-center text-muted-foreground">Nenhuma tabela promocional criada.</CardContent></Card> : (
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">{tables.map((table) => (
-          <Card key={table.id}><CardHeader className="pb-3"><div className="flex items-start justify-between gap-2"><CardTitle className="text-base">{table.name}</CardTitle><Badge variant={table.status === "active" ? "default" : "secondary"}>{table.status === "active" ? "Ativa" : table.status === "archived" ? "Arquivada" : "Rascunho"}</Badge></div></CardHeader><CardContent className="space-y-3"><div className="text-sm text-muted-foreground">{distributorName(table.distributor_id) || "Campanha geral"}<br />{table.valid_until ? `Válida até ${new Date(`${table.valid_until}T12:00:00`).toLocaleDateString("pt-BR")}` : "Sem validade definida"}</div><div className="flex flex-wrap gap-2"><Button size="sm" onClick={() => openTable(table)}><Pencil className="mr-1 h-3.5 w-3.5" />Editar</Button><Button size="sm" variant="outline" onClick={() => exportFromList(table)}><FileText className="mr-1 h-3.5 w-3.5" />PDF</Button><Button size="sm" variant="outline" onClick={() => duplicateTable(table)}><Copy className="mr-1 h-3.5 w-3.5" />Duplicar</Button><Button size="icon" variant="ghost" title="Excluir tabela" onClick={() => removeTable(table)}><Trash2 className="h-4 w-4 text-destructive" /></Button></div></CardContent></Card>
+          <Card key={table.id}><CardHeader className="pb-3"><div className="flex items-start justify-between gap-2"><CardTitle className="text-base">{table.name}</CardTitle><div className="flex flex-wrap justify-end gap-1">{table.commercial_active && <Badge variant="outline">Comercial</Badge>}<Badge variant={table.status === "active" ? "default" : "secondary"}>{table.status === "active" ? "Ativa" : table.status === "archived" ? "Arquivada" : "Rascunho"}</Badge></div></div></CardHeader><CardContent className="space-y-3"><div className="text-sm text-muted-foreground">{distributorName(table.distributor_id) || "Campanha geral"}<br />{table.valid_until ? `Válida até ${new Date(`${table.valid_until}T12:00:00`).toLocaleDateString("pt-BR")}` : "Sem validade definida"}</div><div className="flex flex-wrap gap-2"><Button size="sm" onClick={() => openTable(table)}><Pencil className="mr-1 h-3.5 w-3.5" />Editar</Button><Button size="sm" variant="outline" onClick={() => exportFromList(table)}><FileText className="mr-1 h-3.5 w-3.5" />PDF</Button><Button size="sm" variant="outline" onClick={() => duplicateTable(table)}><Copy className="mr-1 h-3.5 w-3.5" />Duplicar</Button><Button size="icon" variant="ghost" title="Excluir tabela" onClick={() => removeTable(table)}><Trash2 className="h-4 w-4 text-destructive" /></Button></div></CardContent></Card>
         ))}</div>
       )}
     </div>
@@ -530,6 +539,10 @@ export function PromotionalTablesTab() {
               </Button>
             )}
           </div>
+        </div>
+        <div className="flex items-start gap-3 rounded-md border p-3 md:col-span-2 xl:col-span-4">
+          <Switch checked={draft.commercial_active === true} onCheckedChange={(checked) => setDraft((row) => ({ ...row, commercial_active: checked }))} />
+          <div className="space-y-1"><Label className="cursor-pointer">Ativa para comercial</Label><p className="text-xs text-muted-foreground">Mostra esta tabela à equipe no botão “Tabela vigente” da Agenda, com cronômetro, do dia de início até 23:59 do dia de fim (horário de Brasília). Para campanhas em sequência (ex.: Black Friday), marque cada tabela com o seu período: à meia-noite a seguinte entra sozinha. O PDF é publicado ao salvar.</p></div>
         </div>
       </CardContent></Card>
 
