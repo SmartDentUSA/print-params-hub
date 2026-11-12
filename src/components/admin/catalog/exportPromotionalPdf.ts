@@ -52,7 +52,7 @@ async function loadImage(rawUrl: string | null | undefined, width = 480): Promis
  * tabela de distribuição associada (padrão: Smart Dent Loja Oficial).
  */
 async function fetchLinkedPriceList(table: PromotionalTable) {
-  if (table.price_table_mode === "exclusive") {
+  if (table.price_table_mode === "exclusive" || table.price_table_mode === "clone") {
     const own = await fetchPromotionPriceList(table.id);
     if (!own) return null;
     const items = own.items.filter((item: any) => item.is_active !== false);
