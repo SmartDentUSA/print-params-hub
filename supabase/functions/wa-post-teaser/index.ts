@@ -4,6 +4,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { generateResponse, GatewayError } from 'npm:@lovable.dev/ai-gateway@0.1.11';
 import { buildTeaserMessage, cleanCaption, fallbackTeaser, pickCoverUrl } from './teaser.ts';
+import { generatePostSummary } from '../_shared/post-summary.ts';
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -102,8 +103,13 @@ Deno.serve(async (req) => {
     const key = postId ?? Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(link))))
       .slice(0, 12).map((b) => b.toString(16).padStart(2, '0')).join('');
 
+    // style "resumo": resumo do editor de campanha (nós post_*/link_*), com o
+    // mesmo prompt do envio automático de Post Grupos. Padrão: resumo isca do envio manual.
+    const style = body?.style === 'resumo' ? 'resumo' : 'teaser';
     const [teaser, mediaUrl] = await Promise.all([
-      makeTeaser(caption, platform),
+      style === 'resumo'
+        ? generatePostSummary(caption, platform || 'post', Deno.env.get('LOVABLE_API_KEY'), '[wa-post-teaser]')
+        : makeTeaser(caption, platform),
       cover ? copyCover(sb, cover, key) : Promise.resolve(null),
     ]);
 
