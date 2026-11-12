@@ -19,13 +19,25 @@ Deno.serve(async (req) => {
   const url = Deno.env.get("SUPABASE_URL")!;
   const admin = createClient(url, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
-  const token = (req.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "");
-  const { data: u } = await admin.auth.getUser(token);
-  if (!u?.user) return json({ error: "unauthorized" }, 401);
-  const { data: isAdmin } = await admin.rpc("is_admin", { user_id: u.user.id });
-  if (!isAdmin) return json({ error: "forbidden" }, 403);
-
   const dry = new URL(req.url).searchParams.get("dry") === "1";
+
+  // Access: an admin session, or a one-time run token written to cron_state by an
+  // operator with database write access (valid 30 min, consumed by a real run).
+  const TOKEN_KEY = "catalog-images-localize:run-token";
+  const runToken = req.headers.get("x-run-token") ?? "";
+  let allowed = false;
+  if (runToken.length >= 32) {
+    const { data: st } = await admin.from("cron_state").select("value,updated_at").eq("key", TOKEN_KEY).maybeSingle();
+    allowed = !!st && st.value === runToken && Date.now() - new Date(st.updated_at).getTime() < 30 * 60_000;
+  }
+  if (!allowed) {
+    const jwt = (req.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "");
+    const { data: u } = await admin.auth.getUser(jwt);
+    if (!u?.user) return json({ error: "unauthorized" }, 401);
+    const { data: isAdmin } = await admin.rpc("is_admin", { user_id: u.user.id });
+    if (!isAdmin) return json({ error: "forbidden" }, 403);
+  }
+  if (allowed && !dry) await admin.from("cron_state").delete().eq("key", TOKEN_KEY);
 
   const { data: cat, error: e1 } = await admin.from("system_a_catalog")
     .select("id,name,image_url,og_image_url")
