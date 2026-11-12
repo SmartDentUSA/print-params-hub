@@ -102,5 +102,5 @@
 - [x] Análise Cognitiva reprocessa na hora a cada nova interação da timeline (gatilho no banco, sem rotina periódica; card recarrega sozinho); botão Reanalisar atualiza os cards; corrigido erro final que interrompia a análise. Testado no lead Danilo Henrique.
 - [x] Blueprint Etapa 3: análise pós-reunião lê as "Anotações do Gemini" no Drive do oraculosmartdent@gmail.com (nova conexão), grava nota no PipeRun e relatório + transcrição na timeline. Validado no negócio 65528480 em 10/11/2026 (a reunião de teste só tinha teste de áudio, então o relatório saiu "frio/não identificado").
 - [ ] Blueprint Etapa 4/6: perfil comercial evolutivo do lead (sem diagnóstico psicológico sensível), perfil agregado dos leads e perfil do vendedor em team members.
-- [ ] IG Flow Black Friday 2026 (BLACK26): DM com o texto exato do grupo VIP Black26 + link curto https://s.smartdent.com.br/9k8sn6.
+- [x] IG Flow Black Friday 2026 (BLACK26): todas as postagens, 4 respostas, DM "Aqui está o acesso ao grupo VIP Black26!" + https://s.smartdent.com.br/9k8sn6; conferido na Zernio, comentário real às 18:43 respondido (com o texto antigo).
 - [ ] Cupons BlackFriday 16 a 20 na Loja Integrada: 12 não criados (chave de aplicação somente leitura) — aguarda chave com permissão de escrita.
