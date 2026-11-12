@@ -199,7 +199,14 @@ export function WaGroupFlowBuilder({ open, groupId, groupIds, campaignId, onClos
           thumbnail_url: src.thumbnail_url ?? null,
         },
       });
-      if (error || !data?.ok) throw new Error(data?.error ?? error?.message ?? "falha");
+      if (error || !data?.ok) {
+        let msg = data?.error ?? error?.message ?? "falha";
+        try {
+          const ctx = (error as any)?.context;
+          if (ctx && typeof ctx.json === "function") msg = (await ctx.json())?.error ?? msg;
+        } catch { /* mantém a mensagem genérica */ }
+        throw new Error(msg);
+      }
       const patch: Record<string, unknown> = { resumo: String(data.teaser ?? "") };
       if (data.media_url) patch.media_url = data.media_url;
       updateNode(nodeId, patch as Partial<FlowNode>);
