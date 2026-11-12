@@ -13,6 +13,8 @@ import type { DealerPriceItem, DealerPriceList, Distributor, DealerSnapshot } fr
 import { recalcDealerPrice, recalcDiscount, formatMoney, PRESENTATION_OPTIONS, categoryRank, isFreeSampleVariation, isKitProduct, kitFirst, compareProductName } from "./types";
 import { exportPriceTableXlsx, safePdf, safeDocx } from "./DealerProposalExport";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { fetchOfficialPriceList } from "./officialPriceList";
+import { planOfficialSync, promoRowFromOfficial } from "@/lib/promoPriceTable";
 
 /** Extrai NCM (compartilhado) + lista de variações {qty, gtin, unit} do technical_specs. */
 function parseSpecVariations(specs: Array<{ label: string; value: string }>): {
@@ -133,9 +135,15 @@ const I18N: Record<string, Record<string, string>> = {
   },
 };
 
-type Props = { distributors: Distributor[]; onGenerateProposal?: (list: DealerPriceList, items: DealerPriceItem[]) => void };
+/** Tabela exclusiva de uma promoção: mesma edição, base na Loja Oficial. */
+type PromotionRef = { id: string; name: string; currency: string };
+type Props = {
+  distributors: Distributor[];
+  onGenerateProposal?: (list: DealerPriceList, items: DealerPriceItem[]) => void;
+  promotion?: PromotionRef;
+};
 
-export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
+export function DealerPriceTable({ distributors, onGenerateProposal, promotion }: Props) {
   const [distributorId, setDistributorId] = useState<string>("");
   const [list, setList] = useState<DealerPriceList | null>(null);
   const [items, setItems] = useState<DealerPriceItem[]>([]);
@@ -157,7 +165,9 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
     label: string;
   }>>([]);
 
-  const distributor = distributors.find((d) => d.id === distributorId);
+  const distributor: Distributor | undefined = promotion
+    ? { id: "", razao_social: promotion.name, nome_fantasia: promotion.name }
+    : distributors.find((d) => d.id === distributorId);
   const currency = list?.currency || distributor?.preferred_currency || "BRL";
   const lang = (list?.language || distributor?.language_preference || "pt").toLowerCase();
   const t = I18N[lang] || I18N.pt;
@@ -205,7 +215,12 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
         .single();
       if (updated) l = updated;
     }
-    setList(l as DealerPriceList);
+    await hydrateList(l as DealerPriceList);
+  };
+
+  /** Carrega itens (com saneamento de variações legadas) e histórico da tabela. */
+  const hydrateList = async (l: DealerPriceList) => {
+    setList(l);
     const { data: rows } = await supabase
       .from("dealer_price_items" as any)
       .select("*")
@@ -241,20 +256,90 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
     setItems(sanitized);
     setDirtyIds(legacyDirty);
     // Carrega histórico de snapshots
-    const { data: snaps } = await supabase
-      .from("dealer_price_list_snapshots" as any)
-      .select("id,distributor_id,price_list_id,label,currency,language,items,totals,created_at")
-      .eq("distributor_id", distId)
-      .order("created_at", { ascending: false })
-      .limit(50);
-    setSnapshots(((snaps as any) || []) as DealerSnapshot[]);
+    setSnapshots(await fetchSnapshots(l.id));
     setLoading(false);
   };
 
+  const fetchSnapshots = async (priceListId: string) => {
+    let query = supabase
+      .from("dealer_price_list_snapshots" as any)
+      .select("id,distributor_id,price_list_id,label,currency,language,items,totals,created_at");
+    query = promotion ? query.eq("price_list_id", priceListId) : query.eq("distributor_id", distributorId);
+    const { data: snaps } = await query.order("created_at", { ascending: false }).limit(50);
+    return ((snaps as any) || []) as DealerSnapshot[];
+  };
+
+  /** Tabela exclusiva da promoção: cria na 1ª abertura copiando a Loja Oficial. */
+  const loadPromotionList = async () => {
+    if (!promotion) return;
+    setLoading(true);
+    const find = () => supabase.from("dealer_price_lists" as any).select("*").eq("promotional_table_id", promotion.id).maybeSingle();
+    let { data: l } = await find();
+    if (!l) {
+      const official = await fetchOfficialPriceList();
+      const { data: created, error } = await supabase
+        .from("dealer_price_lists" as any)
+        .insert({
+          promotional_table_id: promotion.id,
+          distributor_id: null,
+          name: `Promoção — ${promotion.name}`,
+          currency: official?.list?.currency || promotion.currency || "BRL",
+          language: "pt",
+        })
+        .select("*")
+        .single();
+      if (error) {
+        // Outra aba criou ao mesmo tempo (índice único por promoção): recarrega.
+        const again = await find();
+        if (!again.data) { toast.error("Erro ao criar tabela exclusiva: " + error.message); setLoading(false); return; }
+        l = again.data;
+      } else {
+        l = created;
+        const base = (official?.items || []).filter((it: any) => it.is_active !== false);
+        if (base.length) {
+          const rows = base.map((it: any, idx: number) => promoRowFromOfficial(it, (created as any).id, idx));
+          const { error: insErr } = await supabase.from("dealer_price_items" as any).insert(rows);
+          if (insErr) toast.error("Tabela criada, mas a cópia da Loja Oficial falhou: " + insErr.message);
+          else toast.success(`Tabela exclusiva criada com ${rows.length} itens da Loja Oficial.`);
+        } else {
+          toast.warning("Tabela da Loja Oficial não encontrada — adicione os itens manualmente.");
+        }
+      }
+    }
+    await hydrateList(l as unknown as DealerPriceList);
+  };
+
+  const reload = () => (promotion ? loadPromotionList() : loadOrCreate(distributorId));
+
   useEffect(() => {
+    if (promotion) { loadPromotionList(); return; }
     if (distributorId) loadOrCreate(distributorId);
     else { setList(null); setItems([]); }
-  }, [distributorId]);
+  }, [distributorId, promotion?.id]);
+
+  /** Traz preços e itens novos da Loja Oficial, preservando os descontos da campanha. */
+  const syncFromOfficial = async () => {
+    if (!list || !promotion) return;
+    setLoading(true);
+    const official = await fetchOfficialPriceList();
+    if (!official?.items.length) { toast.error("Tabela da Loja Oficial não encontrada."); setLoading(false); return; }
+    const plan = planOfficialSync(items as any, official.items, list.id);
+    const results = await Promise.all(plan.updates.map(({ id, patch }) =>
+      supabase.from("dealer_price_items" as any).update(patch).eq("id", id)));
+    const failed = results.find((r: any) => r.error);
+    if (failed) { toast.error((failed as any).error.message); setLoading(false); return; }
+    if (plan.inserts.length) {
+      const { error } = await supabase.from("dealer_price_items" as any).insert(plan.inserts);
+      if (error) { toast.error(error.message); setLoading(false); return; }
+    }
+    if (!plan.inserts.length && !plan.updates.length) toast.info("A tabela já está igual à Loja Oficial.");
+    else toast.success(`${plan.inserts.length} novos, ${plan.updates.length} preços atualizados (descontos mantidos).`);
+    await loadPromotionList();
+    if (plan.inserts.length || plan.updates.length) {
+      const { data: rows } = await supabase.from("dealer_price_items" as any).select("*").eq("price_list_id", list.id);
+      await autoSnapshot(`Atualizado da Loja Oficial (+${plan.inserts.length}, ~${plan.updates.length})`, ((rows as any) || []) as DealerPriceItem[]);
+    }
+  };
 
   const importCatalog = async () => {
     if (!list) return;
@@ -482,7 +567,7 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
       toast.warning(
         `${missingCount} itens sem preço em ${cur} — preencha no catálogo antes de gerar proposta`,
       );
-    await loadOrCreate(distributorId);
+    await reload();
     // captura snapshot pós-import com estado recém carregado
     const { data: rows } = await supabase.from("dealer_price_items" as any).select("*").eq("price_list_id", list.id);
     await autoSnapshot(`${t.autoImport} (+${toInsert.length}, ~${toUpdate.length})`, ((rows as any) || []) as DealerPriceItem[]);
@@ -609,7 +694,7 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
       return;
     }
     toast.success(`Variações sincronizadas: ${rowsUpdated} atualizadas, ${rowsInserted} novas`);
-    await loadOrCreate(distributorId);
+    await reload();
     await autoSnapshot(`Sync variações (+${rowsInserted}, ~${rowsUpdated})`, nextItems);
   };
 
@@ -707,7 +792,8 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
       if (error) { toast.error(`Erro em ${it.name}: ${error.message}`); setSaving(false); return; }
     }
     toast.success(`${toSave.length} linhas salvas`);
-    const backfilled = await backfillCatalogPrices(toSave);
+    // Preço de campanha nunca alimenta o catálogo.
+    const backfilled = promotion ? 0 : await backfillCatalogPrices(toSave);
     if (backfilled > 0)
       toast.success(`${backfilled} preços gravados no catálogo (usados nas tabelas promocionais)`);
     setDirtyIds(new Set());
@@ -788,13 +874,13 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
   };
 
   const saveSnapshot = async () => {
-    if (!list || !distributorId) return;
+    if (!list || (!distributorId && !promotion)) return;
     if (dirtyIds.size > 0) {
       await saveAll();
     }
     const label = snapshotLabel.trim() || `Cotação ${new Date().toLocaleString("pt-BR")}`;
     const { error } = await supabase.from("dealer_price_list_snapshots" as any).insert({
-      distributor_id: distributorId,
+      distributor_id: distributorId || null,
       price_list_id: list.id,
       label,
       currency: list.currency,
@@ -805,14 +891,7 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
     if (error) { toast.error("Erro ao salvar histórico: " + error.message); return; }
     toast.success("Tabela salva no histórico");
     setSnapshotLabel("");
-    // reload snapshots
-    const { data: snaps } = await supabase
-      .from("dealer_price_list_snapshots" as any)
-      .select("id,distributor_id,price_list_id,label,currency,language,items,totals,created_at")
-      .eq("distributor_id", distributorId)
-      .order("created_at", { ascending: false })
-      .limit(50);
-    setSnapshots(((snaps as any) || []) as DealerSnapshot[]);
+    setSnapshots(await fetchSnapshots(list.id));
   };
 
   const removeItem = async (id: string) => {
@@ -904,7 +983,7 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
     toast.success("Produto adicionado");
     if (!priceOk) toast.warning(`Sem preço em ${cur} — revise antes de gerar proposta`);
     setAddOptions((prev) => prev.filter((o) => !(o.product.id === p.id && String(o.variation.presentation_qty ?? "") === String(v.presentation_qty ?? ""))));
-    await loadOrCreate(distributorId);
+    await reload();
   };
 
   const toggleItemActive = async (id: string, next: boolean) => {
@@ -952,22 +1031,16 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
   }, [items]);
 
   const reloadSnapshots = async () => {
-    if (!distributorId) return;
-    const { data: snaps } = await supabase
-      .from("dealer_price_list_snapshots" as any)
-      .select("id,distributor_id,price_list_id,label,currency,language,items,totals,created_at")
-      .eq("distributor_id", distributorId)
-      .order("created_at", { ascending: false })
-      .limit(50);
-    setSnapshots(((snaps as any) || []) as DealerSnapshot[]);
+    if (!list || (!distributorId && !promotion)) return;
+    setSnapshots(await fetchSnapshots(list.id));
   };
 
   const autoSnapshot = async (label: string, itemsSnap: DealerPriceItem[]) => {
-    if (!list || !distributorId) return;
+    if (!list || (!distributorId && !promotion)) return;
     const subtotal = itemsSnap.reduce((a, b) => a + Number(b.price_base || 0) * Number(b.quantity_multiplier ?? 1), 0);
     const total = itemsSnap.reduce((a, b) => a + Number(b.price_dealer || 0) * Number(b.quantity_multiplier ?? 1), 0);
     await supabase.from("dealer_price_list_snapshots" as any).insert({
-      distributor_id: distributorId,
+      distributor_id: distributorId || null,
       price_list_id: list.id,
       label,
       currency: list.currency,
@@ -1011,13 +1084,13 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
     }
     toast.success(`Versão de ${new Date(s.created_at).toLocaleString("pt-BR")} restaurada`);
     setSaving(false);
-    await loadOrCreate(distributorId);
+    await reload();
   };
 
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-end gap-2">
-        <div className="min-w-[280px]">
+        {!promotion && <div className="min-w-[280px]">
           <label className="text-xs text-muted-foreground">{t.distributor}</label>
           <Select value={distributorId} onValueChange={setDistributorId}>
             <SelectTrigger><SelectValue placeholder={t.selectPlaceholder} /></SelectTrigger>
@@ -1029,12 +1102,18 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
               ))}
             </SelectContent>
           </Select>
-        </div>
+        </div>}
         {list && (
           <>
-            <Button variant="outline" onClick={importCatalog} disabled={loading}>
-              <RefreshCw className="w-4 h-4 mr-1" /> {t.importCatalog}
-            </Button>
+            {promotion ? (
+              <Button variant="outline" onClick={syncFromOfficial} disabled={loading}>
+                <RefreshCw className="w-4 h-4 mr-1" /> Atualizar da Loja Oficial
+              </Button>
+            ) : (
+              <Button variant="outline" onClick={importCatalog} disabled={loading}>
+                <RefreshCw className="w-4 h-4 mr-1" /> {t.importCatalog}
+              </Button>
+            )}
             <Button onClick={saveAll} disabled={saving || dirtyIds.size === 0}>
               {saving ? `${t.save}…` : dirtyIds.size > 0 ? `${t.save} (${dirtyIds.size})` : t.saved}
             </Button>
@@ -1079,6 +1158,7 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
           <CardContent className="p-3 flex flex-wrap items-center gap-3 text-sm">
             <Badge variant="outline">v{list.version}</Badge>
             <span className="text-muted-foreground">{t.currency}:</span>
+            {promotion ? <strong>{list.currency || "BRL"}</strong> : <>
             <Select
               value={list.currency || "BRL"}
               onValueChange={async (v) => {
@@ -1101,6 +1181,7 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
             <Button size="sm" variant="outline" onClick={recalcFromCatalog} disabled={saving || items.length === 0} className="h-7">
               <RefreshCw className="w-3.5 h-3.5 mr-1" /> {t.recalcFromCatalog}
             </Button>
+            </>}
             <span className="text-muted-foreground">{t.language}:</span>
             <Select
               value={list.language || "pt"}
@@ -1198,7 +1279,9 @@ export function DealerPriceTable({ distributors, onGenerateProposal }: Props) {
         <p className="text-sm text-muted-foreground">{t.selectPrompt}</p>
       ) : items.length === 0 ? (
         <Card><CardContent className="p-8 text-center text-sm text-muted-foreground">
-          {t.emptyTable} <strong>{t.importCatalog}</strong> {t.populateAll}
+          {promotion
+            ? <>Tabela vazia. Clique em <strong>Atualizar da Loja Oficial</strong> para copiar os itens da loja.</>
+            : <>{t.emptyTable} <strong>{t.importCatalog}</strong> {t.populateAll}</>}
         </CardContent></Card>
       ) : (
         <div className="space-y-6">
