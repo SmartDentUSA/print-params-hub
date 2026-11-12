@@ -90,11 +90,11 @@ export function CurrentPriceTableButton() {
         <Receipt className="h-4 w-4" /> Tabela vigente
       </Button>
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-h-[92vh] max-w-2xl overflow-y-auto">
+        <DialogContent className="max-h-[96vh] max-w-5xl overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2"><Receipt className="h-5 w-5 text-primary" /> Tabela vigente</DialogTitle>
             <DialogDescription>
-              {table ? `${table.name} · válida de ${day(table.valid_from)} a ${day(table.valid_until)} (até 23:59)` : "Nenhuma tabela marcada como ativa para o comercial vale hoje."}
+              {table ? `${table.pdf_title || table.name} · válida de ${day(table.valid_from)} a ${day(table.valid_until)} (até 23:59)` : "Nenhuma tabela marcada como ativa para o comercial vale hoje."}
             </DialogDescription>
           </DialogHeader>
 
@@ -104,62 +104,47 @@ export function CurrentPriceTableButton() {
               {next && <p>Próxima: <span className="font-medium text-foreground">{next.name}</span> a partir de {when(next.starts_at)}.</p>}
             </div>
           ) : (
-            <div className="space-y-4">
-              <div className={cn("flex items-center justify-between gap-3 rounded-md border p-3", urgent ? "border-destructive/40 bg-destructive/5" : "bg-muted/40")}>
+            <div className="space-y-3">
+              <div className={cn("flex flex-wrap items-center justify-between gap-3 rounded-md border p-3", urgent ? "border-destructive/40 bg-destructive/5" : "bg-muted/40")}>
                 <div>
                   <p className="text-xs text-muted-foreground">Tempo restante</p>
-                  <p className={cn("font-mono text-xl font-semibold tabular-nums", urgent ? "text-destructive" : "text-foreground")}>{countdownLabel(left)}</p>
+                  <p className={cn("font-mono text-lg font-semibold tabular-nums", urgent ? "text-destructive" : "text-foreground")}>{countdownLabel(left)}</p>
                 </div>
-                {next && <p className="max-w-[50%] text-right text-xs text-muted-foreground">Depois: <span className="font-medium text-foreground">{next.name}</span><br />a partir de {when(next.starts_at)}</p>}
-              </div>
-
-              <div className="flex flex-wrap gap-2">
-                {table.pdf_url ? (
-                  <>
-                    <Button asChild size="sm"><a href={table.pdf_url} target="_blank" rel="noopener noreferrer"><ExternalLink className="mr-2 h-4 w-4" />Abrir PDF</a></Button>
-                    <Button asChild size="sm" variant="outline"><a href={table.pdf_url} download={fileName} target="_blank" rel="noopener noreferrer"><Download className="mr-2 h-4 w-4" />Baixar PDF</a></Button>
-                  </>
-                ) : (
-                  <p className="text-xs text-muted-foreground">O PDF desta tabela ainda não foi publicado. Ele é gerado quando a tabela é salva no editor.</p>
-                )}
-              </div>
-
-              {table.my_coupons.length > 0 && (
-                <div className="space-y-2 rounded-md border p-3">
-                  <p className="flex items-center gap-1.5 text-sm font-medium"><Ticket className="h-4 w-4 text-primary" /> Seus cupons nesta tabela</p>
-                  <div className="flex flex-wrap gap-2">
+                {table.my_coupons.length > 0 && (
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="flex items-center gap-1 text-xs text-muted-foreground"><Ticket className="h-3.5 w-3.5 text-primary" /> Seus cupons:</span>
                     {table.my_coupons.map((c) => (
                       <Badge key={c.code} variant="secondary" className="font-mono">
                         {c.code} · {c.free_shipping || c.kind === "freight" ? "frete grátis" : c.discount_type === "percent" ? `${c.discount_value}%` : money(c.discount_value)}
                       </Badge>
                     ))}
                   </div>
+                )}
+                <div className="flex flex-wrap items-center gap-2">
+                  {next && <p className="text-right text-xs text-muted-foreground">Depois: <span className="font-medium text-foreground">{next.name}</span><br />a partir de {when(next.starts_at)}</p>}
+                  {table.pdf_url && (
+                    <>
+                      <Button asChild size="sm" variant="outline"><a href={table.pdf_url} target="_blank" rel="noopener noreferrer"><ExternalLink className="mr-2 h-4 w-4" />Abrir</a></Button>
+                      <Button asChild size="sm"><a href={table.pdf_url} download={fileName} target="_blank" rel="noopener noreferrer"><Download className="mr-2 h-4 w-4" />Baixar PDF</a></Button>
+                    </>
+                  )}
                 </div>
-              )}
+              </div>
 
-              {table.notes && <p className="whitespace-pre-line rounded-md bg-muted/40 p-3 text-xs text-muted-foreground">{table.notes}</p>}
-
-              {table.sections.map((s) => (
-                <div key={s.id} className="space-y-2">
-                  <p className="text-sm font-semibold">{s.title}</p>
-                  {s.description && <p className="text-xs text-muted-foreground">{s.description}</p>}
-                  <div className="divide-y rounded-md border">
-                    {s.items.map((i) => (
-                      <div key={i.id} className="flex items-start justify-between gap-3 p-2.5 text-sm">
-                        <div className="min-w-0">
-                          <p className="truncate">{Number(i.quantity) !== 1 ? `${i.quantity}× ` : ""}{i.name}</p>
-                          {i.sku && <p className="text-xs text-muted-foreground">{i.sku}</p>}
-                        </div>
-                        <div className="shrink-0 text-right">
-                          {Number(i.market_unit_price) > Number(i.promotional_unit_price) && <p className="text-xs text-muted-foreground line-through">{money(i.market_unit_price)}</p>}
-                          <p className="font-semibold">{money(i.promotional_unit_price)}</p>
-                        </div>
-                      </div>
-                    ))}
-                    {!s.items.length && <p className="p-2.5 text-xs text-muted-foreground">Sem itens.</p>}
+              {/* Mesma visualização do Portal do Profissional: o PDF publicado da tabela. */}
+              <div className="h-[72vh] overflow-hidden rounded-lg border bg-muted">
+                {table.pdf_url ? (
+                  <object key={table.pdf_url} data={table.pdf_url} type="application/pdf" className="h-full w-full">
+                    <div className="flex h-full items-center justify-center p-6 text-center text-sm text-muted-foreground">
+                      Seu navegador não exibe o PDF aqui. Use o botão “Baixar PDF”.
+                    </div>
+                  </object>
+                ) : (
+                  <div className="flex h-full items-center justify-center p-6 text-center text-sm text-muted-foreground">
+                    O PDF desta tabela ainda não foi publicado. Ele é gerado quando a tabela é salva no editor.
                   </div>
-                </div>
-              ))}
+                )}
+              </div>
             </div>
           )}
         </DialogContent>
