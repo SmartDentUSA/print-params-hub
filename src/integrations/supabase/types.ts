@@ -20887,6 +20887,96 @@ export type Database = {
           },
         ]
       }
+      promotional_social_post_messages: {
+        Row: {
+          ai_generated: boolean
+          created_at: string
+          id: string
+          promotional_table_id: string
+          social_post_id: string
+          updated_at: string
+          whatsapp_message: string
+        }
+        Insert: {
+          ai_generated?: boolean
+          created_at?: string
+          id?: string
+          promotional_table_id: string
+          social_post_id: string
+          updated_at?: string
+          whatsapp_message?: string
+        }
+        Update: {
+          ai_generated?: boolean
+          created_at?: string
+          id?: string
+          promotional_table_id?: string
+          social_post_id?: string
+          updated_at?: string
+          whatsapp_message?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "promotional_social_post_messages_promotional_table_id_fkey"
+            columns: ["promotional_table_id"]
+            isOneToOne: false
+            referencedRelation: "promotional_tables"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "promotional_social_post_messages_social_post_id_fkey"
+            columns: ["social_post_id"]
+            isOneToOne: false
+            referencedRelation: "social_posts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      promotional_social_seller_messages: {
+        Row: {
+          created_at: string
+          id: string
+          message: string
+          promotional_table_id: string
+          social_post_id: string
+          team_member_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          message?: string
+          promotional_table_id: string
+          social_post_id: string
+          team_member_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          message?: string
+          promotional_table_id?: string
+          social_post_id?: string
+          team_member_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "promotional_social_seller_messages_promotional_table_id_fkey"
+            columns: ["promotional_table_id"]
+            isOneToOne: false
+            referencedRelation: "promotional_tables"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "promotional_social_seller_messages_social_post_id_fkey"
+            columns: ["social_post_id"]
+            isOneToOne: false
+            referencedRelation: "social_posts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       promotional_table_creatives: {
         Row: {
           created_at: string
@@ -21111,6 +21201,7 @@ export type Database = {
           price_table_mode: string
           price_table_source_promotion_id: string | null
           professional_lead_id: string | null
+          social_hashtags: string[]
           status: string
           updated_at: string
           valid_from: string | null
@@ -21154,6 +21245,7 @@ export type Database = {
           price_table_mode?: string
           price_table_source_promotion_id?: string | null
           professional_lead_id?: string | null
+          social_hashtags?: string[]
           status?: string
           updated_at?: string
           valid_from?: string | null
@@ -21197,6 +21289,7 @@ export type Database = {
           price_table_mode?: string
           price_table_source_promotion_id?: string | null
           professional_lead_id?: string | null
+          social_hashtags?: string[]
           status?: string
           updated_at?: string
           valid_from?: string | null

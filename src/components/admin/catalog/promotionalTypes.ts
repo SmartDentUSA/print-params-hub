@@ -19,6 +19,8 @@ export type PromotionalTable = {
   price_table_source_promotion_id?: string | null;
   /** Distribuidor da tabela associada; vazio = Smart Dent (Loja Oficial). */
   price_table_distributor_id?: string | null;
+  /** Hashtags (sem #) das publicações do Instagram no botão "Social posts" da Agenda. */
+  social_hashtags?: string[] | null;
   kol_visible?: boolean;
   /** Ativa para comercial: entra na sequência de tabelas vigentes da Agenda (troca à meia-noite). */
   commercial_active?: boolean;

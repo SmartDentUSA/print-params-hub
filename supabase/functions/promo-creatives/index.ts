@@ -6,6 +6,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { z } from "npm:zod@3.23.8";
 import { buildCreativeTemplate, CREATIVE_SYSTEM } from "../_shared/creative-message.ts";
+import { ensurePostMessages, findTablePosts, generateSocialPostTemplate, normalizeHashtags, postCover, postLink, SOCIAL_POST_FIELDS } from "../_shared/promo-social.ts";
 import { getDriveAccessToken, driveEnsureFolder, driveUploadFile, driveGetWebViewLink, driveTrashFile, sanitizeFolderName } from "../_shared/drive.ts";
 
 const PARENT_FOLDER = "1za7m7FK1zzbncKw61Zz3D2fkx8RWdyFA";
@@ -20,6 +21,11 @@ const Body = z.discriminatedUnion("action", [
   z.object({ action: z.literal("update"), id: z.string().uuid(), description: z.string().max(2000).optional(), whatsapp_message: z.string().max(4000).optional() }),
   z.object({ action: z.literal("generate_message"), id: z.string().uuid() }),
   z.object({ action: z.literal("delete"), id: z.string().uuid() }),
+  // Social posts da campanha: hashtags da tabela → publicações do Instagram.
+  z.object({ action: z.literal("social_set_hashtags"), table_id: z.string().uuid(), hashtags: z.string().max(500) }),
+  z.object({ action: z.literal("social_list"), table_id: z.string().uuid() }),
+  z.object({ action: z.literal("social_generate"), table_id: z.string().uuid(), post_id: z.string().uuid() }),
+  z.object({ action: z.literal("social_update"), table_id: z.string().uuid(), post_id: z.string().uuid(), whatsapp_message: z.string().max(4000) }),
 ]);
 
 async function ensureFolder(tableId: string) {
@@ -45,6 +51,45 @@ Deno.serve(async (req) => {
     const parsed = Body.safeParse(await req.json().catch(() => ({})));
     if (!parsed.success) return json({ error: "Dados inválidos", details: parsed.error.flatten() }, 400);
     const b = parsed.data;
+
+    if (b.action === "social_set_hashtags") {
+      const tags = normalizeHashtags(b.hashtags);
+      const { error } = await sb.from("promotional_tables").update({ social_hashtags: tags }).eq("id", b.table_id);
+      if (error) throw new Error(error.message);
+      return json({ hashtags: tags });
+    }
+    if (b.action === "social_list") {
+      const { data: t } = await sb.from("promotional_tables").select("id, social_hashtags").eq("id", b.table_id).maybeSingle();
+      if (!t) return json({ error: "Tabela não encontrada" }, 404);
+      const tags = normalizeHashtags(t.social_hashtags ?? []);
+      const posts = await findTablePosts(sb, tags);
+      const msgs = await ensurePostMessages(sb, b.table_id, posts, Deno.env.get("LOVABLE_API_KEY"), 12);
+      return json({
+        hashtags: tags,
+        posts: posts.map((p) => ({
+          id: p.id, caption: p.caption ?? "", link: postLink(p), cover_url: postCover(p), published_at: p.published_at,
+          whatsapp_message: msgs.get(p.id)?.whatsapp_message ?? "",
+        })),
+      });
+    }
+    if (b.action === "social_generate") {
+      const { data: p } = await sb.from("social_posts").select(SOCIAL_POST_FIELDS).eq("id", b.post_id).maybeSingle();
+      if (!p) return json({ error: "Publicação não encontrada" }, 404);
+      const r = await generateSocialPostTemplate(p, Deno.env.get("LOVABLE_API_KEY"));
+      if (!r.ai) return json({ error: "A IA não respondeu; tente de novo em instantes" }, 502);
+      const { error } = await sb.from("promotional_social_post_messages").upsert(
+        { promotional_table_id: b.table_id, social_post_id: b.post_id, whatsapp_message: r.message, ai_generated: true },
+        { onConflict: "promotional_table_id,social_post_id" });
+      if (error) throw new Error(error.message);
+      return json({ whatsapp_message: r.message });
+    }
+    if (b.action === "social_update") {
+      const { error } = await sb.from("promotional_social_post_messages").upsert(
+        { promotional_table_id: b.table_id, social_post_id: b.post_id, whatsapp_message: b.whatsapp_message },
+        { onConflict: "promotional_table_id,social_post_id" });
+      if (error) throw new Error(error.message);
+      return json({ ok: true });
+    }
 
     if (b.action === "ensure_folder") return json({ table: await ensureFolder(b.table_id) });
     if (b.action === "list") {
