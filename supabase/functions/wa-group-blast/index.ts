@@ -52,7 +52,7 @@ serve(async (req) => {
 
   const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY)
 
-  // Resolve groups + ensure admin + enabled
+  // Resolve groups + ensure enabled
   const { data: groups, error: ge } = await supabase
     .from('wa_groups')
     .select('id, group_jid, name, is_admin, enabled, instance_name')
@@ -60,9 +60,11 @@ serve(async (req) => {
 
   if (ge) return Response.json({ ok: false, error: ge.message }, { status: 500, headers: corsHeaders })
 
-  const eligible = (groups ?? []).filter(g => g.is_admin && g.enabled)
+  // is_admin não bloqueia mais (12/11/2026): grupos de público aceitam post de
+  // qualquer participante; recusas reais do WhatsApp ficam em wa_message_queue.error_message.
+  const eligible = (groups ?? []).filter(g => g.enabled)
   if (eligible.length === 0) {
-    return Response.json({ ok: false, error: 'Nenhum grupo elegível (admin + enabled)' }, { status: 400, headers: corsHeaders })
+    return Response.json({ ok: false, error: 'Nenhum grupo elegível (enabled)' }, { status: 400, headers: corsHeaders })
   }
 
   // ===== FILTRO DE PLATAFORMA POR GRUPO (defesa em profundidade) =====
