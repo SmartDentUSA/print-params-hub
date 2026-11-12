@@ -2,8 +2,9 @@
  * Tabela exclusiva de promoção: regras puras (sem Supabase) para copiar a
  * tabela da Loja Oficial como base e para sincronizar a base depois.
  *
- * Regra: o "preço tabela" da promoção é o preço de venda da Loja Oficial
- * (price_dealer), e o desconto da campanha começa em 0%. Ao sincronizar, o
+ * Regra: o "preço tabela" da promoção é o "Preço tabela (Unit)" da Loja
+ * Oficial (price_base, sem o desconto da loja), e o desconto da campanha
+ * começa em 0%. Ao sincronizar, o
  * desconto que o usuário já aplicou em cada item é preservado.
  */
 export type PriceRow = {
@@ -36,12 +37,12 @@ export type PriceRow = {
 const round2 = (value: number) => Math.round(value * 100) / 100;
 const norm = (value: unknown) => String(value ?? "").trim().toLowerCase().replace(/\s+/g, "");
 
-/** Preço de venda da Loja Oficial (com o desconto dela já aplicado). */
-export const officialSellPrice = (row: PriceRow) => {
-  const dealer = Number(row.price_dealer);
-  if (Number.isFinite(dealer) && dealer > 0) return round2(dealer);
+/** "Preço tabela (Unit)" da Loja Oficial; o preço dealer só entra se não houver preço tabela. */
+export const officialTablePrice = (row: PriceRow) => {
   const base = Number(row.price_base);
-  return Number.isFinite(base) && base > 0 ? round2(base) : 0;
+  if (Number.isFinite(base) && base > 0) return round2(base);
+  const dealer = Number(row.price_dealer);
+  return Number.isFinite(dealer) && dealer > 0 ? round2(dealer) : 0;
 };
 
 export const promoPrice = (base: number, discountPct: number) =>
@@ -74,7 +75,7 @@ const metadata = (row: PriceRow) => ({
 
 /** Linha da tabela exclusiva criada a partir de um item da Loja Oficial. */
 export function promoRowFromOfficial(official: PriceRow, priceListId: string, sortOrder: number) {
-  const base = officialSellPrice(official);
+  const base = officialTablePrice(official);
   return {
     price_list_id: priceListId,
     ...metadata(official),
@@ -100,7 +101,7 @@ export function planOfficialSync(existing: PriceRow[], official: PriceRow[], pri
     if (row.is_active === false) continue;
     const current = byKey.get(priceRowKey(row));
     if (!current) { inserts.push(promoRowFromOfficial(row, priceListId, cursor++)); continue; }
-    const base = officialSellPrice(row);
+    const base = officialTablePrice(row);
     if (!current.id || base === round2(Number(current.price_base || 0))) continue;
     const discount = Number(current.discount_pct || 0);
     updates.push({ id: current.id, patch: { ...metadata(row), price_base: base, price_dealer: promoPrice(base, discount) } });

@@ -140,7 +140,7 @@ export function PromotionalPriceTableCard({ table, distributors, promotions, onC
         {mode === "exclusive" && (
           <div className="space-y-3 rounded-md border p-3">
             <p className="text-xs text-muted-foreground">
-              O preço de tabela é o preço de venda da Loja Oficial; o desconto aplicado aqui vale só para esta promoção. Use “% Desc. categoria” para aplicar em um grupo inteiro ou edite item a item e clique em Salvar. A tabela da Loja Oficial e o catálogo não são alterados.
+              O preço base é o “Preço tabela (Unit)” da Loja Oficial (sem o desconto dealer); o desconto aplicado aqui vale só para esta promoção. Use “% Desc. categoria” para aplicar em um grupo inteiro ou edite item a item e clique em Salvar. A tabela da Loja Oficial e o catálogo não são alterados.
             </p>
             {editor}
           </div>
