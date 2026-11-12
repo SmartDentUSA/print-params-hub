@@ -25,3 +25,10 @@ Deno.test("public name strips the prefix and the group opens after 4 seconds", (
   assertEquals(campaignDisplayName("# - CAMPANHA COMERCIAL - Black 26"), "Black 26");
   assertEquals(GROUP_REDIRECT_MS, 4000);
 });
+
+Deno.test("renomear o formulário não desfaz a campanha comercial", async () => {
+  const { isCommercialCampaignForm } = await import("./commercial-campaign.ts");
+  assertEquals(isCommercialCampaignForm({ is_commercial_campaign: true, name: "# - [BLACK26] - Engajamento" }), true);
+  assertEquals(isCommercialCampaignForm({ is_commercial_campaign: false, name: "# - FORMS - exocad" }), false);
+  assertEquals(campaignDisplayName("# - [BLACK26] - Engajamento"), "BLACK26 - Engajamento");
+});

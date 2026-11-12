@@ -13,10 +13,21 @@ export function isCommercialCampaignName(name: unknown) {
   return CAMPAIGN_PREFIX.test(String(name ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, ""));
 }
 
+/** Campanha comercial pela marcação permanente do formulário ou, nos antigos, pelo prefixo do nome. */
+export function isCommercialCampaignForm(form: { is_commercial_campaign?: unknown; name?: unknown } | null | undefined) {
+  return form?.is_commercial_campaign === true || isCommercialCampaignName(form?.name);
+}
+
 export function campaignDisplayName(name: unknown, title?: unknown) {
   const t = String(title ?? "").trim();
   if (t) return t;
-  return String(name ?? "").replace(CAMPAIGN_PREFIX, "").trim() || "campanha";
+  const cleaned = String(name ?? "")
+    .replace(CAMPAIGN_PREFIX, "")
+    .replace(/^#\s*-\s*/, "")
+    .replace(/[\[\]]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  return cleaned || "campanha";
 }
 
 export function campaignButtons(enabled: unknown, buttons: unknown): { label: string; product_catalog_id: string | null; product_name: string | null }[] {
