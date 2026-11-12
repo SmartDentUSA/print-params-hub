@@ -46,7 +46,6 @@ serve(async (req) => {
   <!-- Knowledge Base Homepage - English -->
   <url>
     <loc>${baseUrl}/en/knowledge-base</loc>
-    <lastmod>${new Date().toISOString()}</lastmod>
     <changefreq>daily</changefreq>
     <priority>1.0</priority>
     <xhtml:link rel="alternate" hreflang="pt-BR" href="${baseUrl}/base-conhecimento"/>

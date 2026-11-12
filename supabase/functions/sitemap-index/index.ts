@@ -11,7 +11,6 @@ Deno.serve((req) => {
     return new Response('Method not allowed', { status: 405, headers: { ...corsHeaders, Allow: 'GET, HEAD' } });
   }
 
-  const now = new Date().toISOString().slice(0, 10);
   const children = [
     'sitemap.xml',
     'sitemap-conhecimento-pt.xml',
@@ -20,7 +19,7 @@ Deno.serve((req) => {
     'sitemap-documentos.xml',
     'video-sitemap.xml',
   ];
-  const entries = children.map((name) => `  <sitemap><loc>${BASE}/${name}</loc><lastmod>${now}</lastmod></sitemap>`).join('\n');
+  const entries = children.map((name) => `  <sitemap><loc>${BASE}/${name}</loc></sitemap>`).join('\n');
   const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${entries}\n</sitemapindex>`;
   return new Response(req.method === 'HEAD' ? null : xml, {
     headers: {

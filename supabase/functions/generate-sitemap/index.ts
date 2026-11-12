@@ -42,7 +42,8 @@ Deno.serve(async (req) => {
     }
 
     const baseUrl = 'https://www.smartdent.com.br';
-    const now = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
+    const now = ''; // sem data real de edição => sem <lastmod> (não inventar atualização)
+    const lm = (d: string) => d ? `<lastmod>${d}</lastmod>` : '';
 
     // Build sitemap XML
     let sitemap = `<?xml version="1.0" encoding="UTF-8"?>
@@ -53,7 +54,7 @@ Deno.serve(async (req) => {
     <loc>${baseUrl}/</loc>
     <changefreq>daily</changefreq>
     <priority>1.0</priority>
-    <lastmod>${now}</lastmod>
+    ${lm(now)}
   </url>
 `;
 
@@ -80,7 +81,7 @@ Deno.serve(async (req) => {
     <loc>${baseUrl}/${brand.slug}</loc>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
-    <lastmod>${lastmod}</lastmod>
+    ${lm(lastmod)}
   </url>
 `;
       }
@@ -99,7 +100,7 @@ Deno.serve(async (req) => {
     <loc>${baseUrl}/${brandSlug}/${model.slug}</loc>
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
-    <lastmod>${lastmod}</lastmod>
+    ${lm(lastmod)}
   </url>
 `;
       }
@@ -131,7 +132,7 @@ Deno.serve(async (req) => {
     <loc>${baseUrl}/${resin.brand_slug}/${resin.model_slug}/${resinSlug}</loc>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
-    <lastmod>${now}</lastmod>
+    ${lm(now)}
   </url>
 `;
       }
@@ -150,7 +151,7 @@ Deno.serve(async (req) => {
     <loc>${baseUrl}/base-conhecimento</loc>
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
-    <lastmod>${now}</lastmod>
+    ${lm(now)}
   </url>
 `;
 
@@ -163,7 +164,7 @@ Deno.serve(async (req) => {
     <loc>${baseUrl}/base-conhecimento/${letter}</loc>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
-    <lastmod>${now}</lastmod>
+    ${lm(now)}
   </url>
 `;
 
@@ -185,7 +186,7 @@ Deno.serve(async (req) => {
     <loc>${baseUrl}/base-conhecimento/${letter}/${content.slug}</loc>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
-    <lastmod>${lastmod}</lastmod>
+    ${lm(lastmod)}
   </url>
 `;
           }
@@ -224,7 +225,7 @@ Deno.serve(async (req) => {
     <loc>${baseUrl}/produtos/${productSlug}</loc>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
-    <lastmod>${lastmod}</lastmod>
+    ${lm(lastmod)}
   </url>
 `;
       }
@@ -262,7 +263,7 @@ Deno.serve(async (req) => {
     <loc>${baseUrl}/depoimentos/${videoSlug}</loc>
     <changefreq>monthly</changefreq>
     <priority>0.6</priority>
-    <lastmod>${lastmod}</lastmod>
+    ${lm(lastmod)}
   </url>
 `;
       }
@@ -288,7 +289,7 @@ Deno.serve(async (req) => {
     <loc>${baseUrl}/categorias/${config.slug}</loc>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
-    <lastmod>${lastmod}</lastmod>
+    ${lm(lastmod)}
   </url>
 `;
       }
@@ -314,7 +315,7 @@ Deno.serve(async (req) => {
     <loc>${doc.file_url}</loc>
     <changefreq>monthly</changefreq>
     <priority>0.6</priority>
-    <lastmod>${lastmod}</lastmod>
+    ${lm(lastmod)}
   </url>
 `;
       }
