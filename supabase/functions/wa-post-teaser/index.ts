@@ -75,12 +75,16 @@ Deno.serve(async (req) => {
     const userClient = createClient(url, Deno.env.get('SUPABASE_ANON_KEY')!, { global: { headers: { Authorization: auth } } });
     const { data: u } = await userClient.auth.getUser();
     if (!u?.user) return json({ error: 'Não autenticado' }, 401);
-    const { data: isStaff, error: staffErr } = await userClient.rpc('fn_is_internal_staff' as any, { _user_id: u.user.id });
-    if (staffErr) console.warn('[wa-post-teaser] checagem de equipe', staffErr.message);
-    if (!isStaff) return json({ error: 'Sem permissão' }, 403);
+    // Checagem de equipe pelo cliente de serviço (mesmo padrão de kol-crm-sync/zernio-wa-broadcast).
+    const sb = createClient(url, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
+    const { data: isStaff, error: staffErr } = await sb.rpc('fn_is_internal_staff', { _user_id: u.user.id });
+    if (staffErr) console.error('[wa-post-teaser] checagem de equipe', staffErr.message);
+    if (!isStaff) {
+      console.warn('[wa-post-teaser] sem permissão', u.user.id, staffErr?.message ?? '');
+      return json({ error: staffErr ? 'Falha ao verificar permissão' : 'Sem permissão' }, 403);
+    }
 
     const body = await req.json().catch(() => ({}));
-    const sb = createClient(url, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
 
     let caption = String(body?.caption ?? '');
     let link = String(body?.url ?? '');
