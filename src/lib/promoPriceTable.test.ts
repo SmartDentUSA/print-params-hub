@@ -27,3 +27,16 @@ test("new Loja Oficial items enter the exclusive table and inactive ones are ski
   ], "list");
   assert.deepEqual(inserts.map((row) => row.sku), ["N1"]);
 });
+
+test("cloning another promotion keeps its prices and campaign discounts", async () => {
+  const { clonedPromoRows } = await import("./promoPriceTable");
+  const rows = clonedPromoRows([
+    { name: "Resina", sku: "R1", price_base: 400, discount_pct: 15, price_dealer: 340 },
+    { name: "Oculto", sku: "O1", price_base: 100, discount_pct: 0, price_dealer: 100, is_active: false },
+  ], "target");
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].price_list_id, "target");
+  assert.equal(rows[0].price_base, 400);
+  assert.equal(rows[0].discount_pct, 15);
+  assert.equal(rows[0].price_dealer, 340);
+});
