@@ -241,7 +241,6 @@ export default function LiaCaptureChat({ formId, campaign, product }: { formId: 
       clearInterval(tick);
       setRedirectIn(null);
       setGroupOpened(true);
-      trackAttendanceEvent({ channel: "whatsapp_lia", event_type: "group_redirect", form_id: ctx?.form_id ?? null, campaign_slug: ctx?.campaign ?? null, product_name: ctx?.product ?? null });
       openGroup(groupUrl);
     }, autoRedirectMs);
     return () => { clearInterval(tick); clearTimeout(timer); };
