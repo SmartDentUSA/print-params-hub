@@ -22,8 +22,7 @@ const day = (d: string) => new Date(`${d.slice(0, 10)}T12:00:00`).toLocaleDateSt
 const when = (iso: string) => new Date(iso).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
 
 /** Botão "Tabela vigente" da Agenda (equipe) com cronômetro até o fim da validade. */
-export function CurrentPriceTableButton() {
-  const [open, setOpen] = useState(false);
+function useCurrentPriceTable() {
   const [now, setNow] = useState(Date.now());
   const q = useQuery({
     queryKey: ["agenda-current-price-table"],
@@ -54,13 +53,13 @@ export function CurrentPriceTableButton() {
   const urgent = table && left < 24 * 3600_000;
   const money = (v: number) => Number(v || 0).toLocaleString("pt-BR", { style: "currency", currency: table?.currency || "BRL" });
   const fileName = table ? `${table.pdf_title || table.name}.pdf` : "tabela.pdf";
+  return { q, table, next, left, nextIn, urgent, money, fileName };
+}
 
+/** Cronômetro exibido abaixo dos botões da Agenda (mesma consulta do botão). */
+export function CurrentPriceTableStatus() {
+  const { q, table, next, left, nextIn, urgent } = useCurrentPriceTable();
   return (
-    <>
-      <div className="flex w-full flex-col items-center gap-1.5">
-        <Button type="button" variant="outline" className="w-full gap-2 sm:w-auto" onClick={() => setOpen(true)}>
-          <Receipt className="h-4 w-4" /> Tabela vigente
-        </Button>
         <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-xs text-muted-foreground" aria-live="polite">
           {q.isLoading ? (
             <span className="inline-flex items-center gap-1"><Loader2 className="h-3 w-3 animate-spin" /> Carregando tabela…</span>
@@ -79,8 +78,17 @@ export function CurrentPriceTableButton() {
             <span>Nenhuma tabela vigente para o comercial.</span>
           )}
         </div>
-      </div>
+  );
+}
 
+export function CurrentPriceTableButton() {
+  const [open, setOpen] = useState(false);
+  const { table, next, left, urgent, money, fileName } = useCurrentPriceTable();
+  return (
+    <>
+      <Button type="button" variant="outline" className="w-full gap-2 sm:w-auto" onClick={() => setOpen(true)}>
+        <Receipt className="h-4 w-4" /> Tabela vigente
+      </Button>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-h-[92vh] max-w-2xl overflow-y-auto">
           <DialogHeader>

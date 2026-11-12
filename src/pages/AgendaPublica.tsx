@@ -13,7 +13,7 @@ import { PastTrainingsUploadAccordion } from "@/components/agenda/PastTrainingsU
 import { EventsUploadAccordion } from "@/components/agenda/EventsUploadAccordion";
 import { CrmInsertionButton } from "@/components/agenda/CrmInsertionButton";
 import { KolCandidateButton } from "@/components/agenda/KolCandidateButton";
-import { CurrentPriceTableButton } from "@/components/agenda/CurrentPriceTableButton";
+import { CurrentPriceTableButton, CurrentPriceTableStatus } from "@/components/agenda/CurrentPriceTableButton";
 import { AccountButton } from "@/components/AccountButton";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -373,11 +373,12 @@ export default function AgendaPublica({ variant = "presencial" }: AgendaPublicaP
             <div className="mt-4 flex flex-col items-stretch justify-center gap-2 sm:flex-row sm:items-center">
               <CrmInsertionButton />
               <KolCandidateButton />
+              <CurrentPriceTableButton />
             </div>
           )}
           {isTeamMember && (
-            <div className="mt-3 flex justify-center">
-              <CurrentPriceTableButton />
+            <div className="mt-2 flex justify-center">
+              <CurrentPriceTableStatus />
             </div>
           )}
         </header>

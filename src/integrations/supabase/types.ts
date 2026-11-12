@@ -31821,6 +31821,27 @@ export type Database = {
           },
         ]
       }
+      wa_group_instance_pin: {
+        Row: {
+          created_at: string
+          group_jid: string
+          instance_name: string
+          motivo: string | null
+        }
+        Insert: {
+          created_at?: string
+          group_jid: string
+          instance_name: string
+          motivo?: string | null
+        }
+        Update: {
+          created_at?: string
+          group_jid?: string
+          instance_name?: string
+          motivo?: string | null
+        }
+        Relationships: []
+      }
       wa_group_members: {
         Row: {
           group_id: string
