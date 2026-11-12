@@ -5289,7 +5289,7 @@ export type Database = {
           created_at: string
           created_by: string | null
           currency: string
-          distributor_id: string
+          distributor_id: string | null
           id: string
           items: Json
           label: string | null
@@ -5301,7 +5301,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           currency?: string
-          distributor_id: string
+          distributor_id?: string | null
           id?: string
           items?: Json
           label?: string | null
@@ -5313,7 +5313,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           currency?: string
-          distributor_id?: string
+          distributor_id?: string | null
           id?: string
           items?: Json
           label?: string | null
@@ -5343,13 +5343,14 @@ export type Database = {
           created_at: string
           created_by: string | null
           currency: string
-          distributor_id: string
+          distributor_id: string | null
           exchange_rate: number | null
           id: string
           is_active: boolean
           language: string
           name: string
           notes: string | null
+          promotional_table_id: string | null
           updated_at: string
           version: number
         }
@@ -5357,13 +5358,14 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           currency?: string
-          distributor_id: string
+          distributor_id?: string | null
           exchange_rate?: number | null
           id?: string
           is_active?: boolean
           language?: string
           name?: string
           notes?: string | null
+          promotional_table_id?: string | null
           updated_at?: string
           version?: number
         }
@@ -5371,13 +5373,14 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           currency?: string
-          distributor_id?: string
+          distributor_id?: string | null
           exchange_rate?: number | null
           id?: string
           is_active?: boolean
           language?: string
           name?: string
           notes?: string | null
+          promotional_table_id?: string | null
           updated_at?: string
           version?: number
         }
@@ -5387,6 +5390,13 @@ export type Database = {
             columns: ["distributor_id"]
             isOneToOne: false
             referencedRelation: "distributors"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dealer_price_lists_promotional_table_id_fkey"
+            columns: ["promotional_table_id"]
+            isOneToOne: false
+            referencedRelation: "promotional_tables"
             referencedColumns: ["id"]
           },
         ]
@@ -21097,6 +21107,8 @@ export type Database = {
           name: string
           notes: string | null
           pdf_title: string
+          price_table_distributor_id: string | null
+          price_table_mode: string
           professional_lead_id: string | null
           status: string
           updated_at: string
@@ -21137,6 +21149,8 @@ export type Database = {
           name: string
           notes?: string | null
           pdf_title?: string
+          price_table_distributor_id?: string | null
+          price_table_mode?: string
           professional_lead_id?: string | null
           status?: string
           updated_at?: string
@@ -21177,6 +21191,8 @@ export type Database = {
           name?: string
           notes?: string | null
           pdf_title?: string
+          price_table_distributor_id?: string | null
+          price_table_mode?: string
           professional_lead_id?: string | null
           status?: string
           updated_at?: string
@@ -21196,6 +21212,13 @@ export type Database = {
             columns: ["event_id"]
             isOneToOne: false
             referencedRelation: "smartops_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "promotional_tables_price_table_distributor_id_fkey"
+            columns: ["price_table_distributor_id"]
+            isOneToOne: false
+            referencedRelation: "distributors"
             referencedColumns: ["id"]
           },
         ]
