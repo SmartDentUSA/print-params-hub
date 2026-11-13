@@ -1,6 +1,5 @@
-import brFlag from '@/assets/flags/br.png';
-import usFlag from '@/assets/flags/us.png';
-import esFlag from '@/assets/flags/es.png';
+import 'flag-icons/css/flag-icons.min.css';
+import { cn } from '@/lib/utils';
 
 interface LanguageFlagsProps {
   size?: 'xs' | 'sm' | 'md';
@@ -8,39 +7,40 @@ interface LanguageFlagsProps {
   className?: string;
 }
 
-export const LanguageFlags = ({ 
+const flags = [
+  { code: 'br', label: 'Disponível em Português' },
+  { code: 'us', label: 'Available in English' },
+  { code: 'es', label: 'Disponible en Español' },
+];
+
+const sizeMap = {
+  xs: 'text-[12px]',
+  sm: 'text-[15px]',
+  md: 'text-[18px]',
+};
+
+export const LanguageFlags = ({
   size = 'sm',
   showBorder = false,
   className = ''
 }: LanguageFlagsProps) => {
-  const sizeMap = {
-    xs: 'w-4 h-3',
-    sm: 'w-5 h-4',
-    md: 'w-6 h-5'
-  };
-  
   const flagSize = sizeMap[size];
-  
+
   return (
-    <div className={`flex items-center gap-1.5 ${showBorder ? 'pt-2 border-t border-border/50' : ''} ${className}`}>
-      <img 
-        src={brFlag} 
-        alt="Disponível em Português" 
-        title="Disponível em Português"
-        className={`${flagSize} object-cover rounded-sm shadow-sm`}
-      />
-      <img 
-        src={usFlag} 
-        alt="Available in English" 
-        title="Available in English"
-        className={`${flagSize} object-cover rounded-sm shadow-sm`}
-      />
-      <img 
-        src={esFlag} 
-        alt="Disponible en Español" 
-        title="Disponible en Español"
-        className={`${flagSize} object-cover rounded-sm shadow-sm`}
-      />
+    <div className={cn('flex items-center gap-1.5', showBorder && 'pt-2 border-t border-border/50', className)}>
+      {flags.map((f) => (
+        <span
+          key={f.code}
+          role="img"
+          aria-label={f.label}
+          title={f.label}
+          className={cn(
+            'fi fis inline-block overflow-hidden rounded-full ring-1 ring-black/10 shadow-[0_1px_2px_rgba(15,23,42,0.16)]',
+            `fi-${f.code}`,
+            flagSize
+          )}
+        />
+      ))}
     </div>
   );
 };
