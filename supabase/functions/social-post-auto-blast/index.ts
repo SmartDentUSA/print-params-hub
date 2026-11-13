@@ -6,6 +6,7 @@ import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { postTargetStatus } from '../_shared/post-group-eligibility.ts';
 import { generatePostSummary, pickPostMedia } from '../_shared/post-summary.ts';
+import { isTestimonialCaption, testimonialKeys } from '../_shared/testimonial-post-filter.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -59,13 +60,41 @@ serve(async (req) => {
     .is('auto_blast_at', null)
     .not('caption', 'is', null);
 
-  const { data: posts, error: pErr } = await query;
+  const { data: fetchedPosts, error: pErr } = await query;
   if (pErr) {
     console.error('[social-post-auto-blast] fetch posts', pErr);
     return Response.json({ ok: false, error: pErr.message }, { status: 500, headers: corsHeaders });
   }
+
+  // Depoimentos publicados pelo pipeline de depoimentos não vão para os grupos
+  // (saem em grande quantidade). São marcados como tratados e nunca disparam.
+  let testimonialSkipped = 0;
+  let posts = (fetchedPosts ?? []) as any[];
+  if (posts.length > 0) {
+    const since = new Date(Date.now() - 180 * 24 * 60 * 60 * 1000).toISOString();
+    const { data: tRows, error: tErr } = await sb
+      .from('social_scheduled_posts')
+      .select('caption, channels')
+      .like('created_by', 'training-testimonial%')
+      .gte('created_at', since)
+      .limit(1000);
+    if (tErr) {
+      // Sem a lista não dá para saber o que é depoimento: não dispara nada nesta rodada.
+      console.error('[social-post-auto-blast] fetch testimonials', tErr);
+      return Response.json({ ok: false, error: tErr.message }, { status: 500, headers: corsHeaders });
+    }
+    const keys = testimonialKeys((tRows ?? []) as any[]);
+    const testimonialIds = posts.filter((p) => isTestimonialCaption(p.caption, keys)).map((p) => p.id);
+    if (testimonialIds.length > 0) {
+      await sb.from('social_posts').update({ auto_blast_at: new Date().toISOString() }).in('id', testimonialIds);
+      testimonialSkipped = testimonialIds.length;
+      console.log('[social-post-auto-blast] depoimentos ignorados', JSON.stringify({ count: testimonialIds.length, ids: testimonialIds }));
+      const skip = new Set(testimonialIds);
+      posts = posts.filter((p) => !skip.has(p.id));
+    }
+  }
   if (!posts || posts.length === 0) {
-    return Response.json({ ok: true, processed: 0, dispatched_campaigns: 0, skipped: 0, last_seq: lastSeq }, { headers: corsHeaders });
+    return Response.json({ ok: true, processed: 0, dispatched_campaigns: 0, skipped: 0, testimonial_skipped: testimonialSkipped, last_seq: lastSeq }, { headers: corsHeaders });
   }
 
   // Agrupa por blast_seq (linhas com mesma seq = mesma legenda).
@@ -254,6 +283,7 @@ serve(async (req) => {
     processed: posts.length,
     deduped_representatives: capped.length,
     deduped_suppressed,
+    testimonial_skipped: testimonialSkipped,
     dispatched_campaigns: dispatched,
     skipped,
     last_seq_before: lastSeq,
