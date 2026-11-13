@@ -125,7 +125,7 @@ const css = `
 .sdi-card-a a.or{color:#fff;border-color:rgba(255,255,255,.35);background:linear-gradient(150deg,#ef8550,#e5703a 55%,#cf5f2c);box-shadow:inset 0 1px 0 rgba(255,255,255,.35),0 14px 28px -14px rgba(229,112,58,.75)}
 .sdi-card-a a.or:hover{box-shadow:inset 0 1px 0 rgba(255,255,255,.4),0 20px 36px -14px rgba(229,112,58,.8)}
 .sdi-card-a a.wa{color:#fff;border-color:rgba(255,255,255,.18);background:linear-gradient(150deg,#454e6e,#2f3650);box-shadow:inset 0 1px 0 rgba(255,255,255,.18),0 14px 28px -14px rgba(47,54,80,.8)}
-.sdi-card-a a.wa svg{color:#7be3a3}
+.sdi-card-a a.wa svg{color:#7be3a3}.sdi-card-a a.b svg{flex:none}
 .sdi-card:not(.main) .sdi-card-a{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px}.sdi-card:not(.main) .sdi-card-b{padding:26px 22px 24px}.sdi-card:not(.main) .sdi-card-a a.b{justify-content:center;padding:0 8px;white-space:nowrap;font-size:12px;gap:5px;min-width:0;overflow:hidden}.sdi-card:not(.main) .sdi-card-a a.or{grid-column:1/-1}
 .sdi-cards{grid-template-columns:repeat(6,1fr)}.sdi-cards>.sdi-card{grid-column:span 2}.sdi-cards>.sdi-card:nth-child(n+5){grid-column:span 3}
 .sdi-card.main{grid-column:1/-1!important;display:grid;grid-template-columns:1.25fr 1fr;align-items:stretch}
