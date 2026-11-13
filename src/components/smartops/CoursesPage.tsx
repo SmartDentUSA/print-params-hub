@@ -14,6 +14,8 @@ import { normalizeInstructorName } from "@/lib/instructorNameMatch";
 import { cn } from "@/lib/utils";
 import { fetchPurchaseSummaries, EMPTY_SUMMARY, type PurchaseSummary } from "@/hooks/useProfessionalPurchaseSummary";
 import ProfessionalKolCardStats from "./ProfessionalKolCardStats";
+import ProfessionalCourseLeadStats from "./ProfessionalCourseLeadStats";
+import { fetchProfessionalCourseLeads, type ProfessionalCourseLeads } from "@/lib/professionalCourseLeads";
 import KolPhonePendingDialog, { useKolPhonePending } from "./courses/KolPhonePendingDialog";
 import KolCommissionDefaultsDialog from "./courses/KolCommissionDefaultsDialog";
 import KolContestationsDialog from "./courses/KolContestationsDialog";
@@ -145,6 +147,7 @@ export default function CoursesPage() {
   const [shareFor, setShareFor] = useState<Professional | null>(null);
   const [summaries, setSummaries] = useState<Record<string, PurchaseSummary>>({});
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const [courseLeads, setCourseLeads] = useState<Record<string, ProfessionalCourseLeads>>({});
 
 
   const load = useCallback(async () => {
@@ -222,6 +225,10 @@ export default function CoursesPage() {
         fetchPurchaseSummaries(leadIds)
           .then(setSummaries)
           .catch(() => setSummaries({}));
+        // Leads das inscrições públicas dos cursos (instrutor ou recomendado)
+        fetchProfessionalCourseLeads(leadIds)
+          .then(setCourseLeads)
+          .catch(() => setCourseLeads({}));
 
         const { data: wonDeals } = await supabase
           .from("deals")
@@ -363,6 +370,7 @@ export default function CoursesPage() {
                       coupons={(p.prof_kol_coupons ?? []) as any}
                       commissions={(p.prof_kol_commissions ?? []) as any}
                     />
+                    <ProfessionalCourseLeadStats compact data={courseLeads[p.id]} />
                     <Badge variant="secondary" className="text-xs">{totalCursos} {totalCursos === 1 ? "curso" : "cursos"}</Badge>
                     {(stats?.ativos ?? 0) > 0 && (
                       <Badge variant="outline" className="text-xs text-green-600 border-green-600/40">{stats?.ativos} ativos</Badge>
@@ -563,6 +571,7 @@ export default function CoursesPage() {
                       coupons={(p.prof_kol_coupons ?? []) as any}
                       commissions={(p.prof_kol_commissions ?? []) as any}
                     />
+                    <ProfessionalCourseLeadStats data={courseLeads[p.id]} />
 
                     <div className="grid grid-cols-2 gap-2 pt-2">
                       <Button size="sm" variant="outline" onClick={() => openEdit(p.email)}>
