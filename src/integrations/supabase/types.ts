@@ -10420,6 +10420,188 @@ export type Database = {
         }
         Relationships: []
       }
+      lead_ai_dossiers: {
+        Row: {
+          content: string
+          generated_at: string
+          generated_by: string | null
+          lead_id: string
+          model: string
+          sources: Json
+        }
+        Insert: {
+          content: string
+          generated_at?: string
+          generated_by?: string | null
+          lead_id: string
+          model: string
+          sources?: Json
+        }
+        Update: {
+          content?: string
+          generated_at?: string
+          generated_by?: string | null
+          lead_id?: string
+          model?: string
+          sources?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_ai_dossiers_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: true
+            referencedRelation: "lead_model_routing"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_ai_dossiers_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: true
+            referencedRelation: "lia_attendances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_ai_dossiers_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: true
+            referencedRelation: "v_bi_atividades_unnested"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "lead_ai_dossiers_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: true
+            referencedRelation: "v_kol_leads_reportable"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_ai_dossiers_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: true
+            referencedRelation: "v_lead_academy"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_ai_dossiers_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: true
+            referencedRelation: "v_lead_cognitive"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_ai_dossiers_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: true
+            referencedRelation: "v_lead_commercial"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_ai_dossiers_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: true
+            referencedRelation: "v_lead_ecommerce"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_ai_dossiers_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: true
+            referencedRelation: "v_lead_pipeline"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_ai_dossiers_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: true
+            referencedRelation: "v_lead_stage_purchases"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "lead_ai_dossiers_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: true
+            referencedRelation: "v_leads_correto"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "lead_ai_dossiers_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: true
+            referencedRelation: "v_leads_pendentes_atribuicao"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_ai_dossiers_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: true
+            referencedRelation: "v_opportunity_engine"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "lead_ai_dossiers_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: true
+            referencedRelation: "v_pipeline_atual"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "lead_ai_dossiers_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: true
+            referencedRelation: "v_reactivation_candidates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_ai_dossiers_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: true
+            referencedRelation: "v_timing_alerts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_ai_dossiers_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: true
+            referencedRelation: "v_workflow_portfolio"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "lead_ai_dossiers_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: true
+            referencedRelation: "v_workflow_timeline"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "lead_ai_dossiers_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: true
+            referencedRelation: "vw_leads_orfaos_recentes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_ai_dossiers_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: true
+            referencedRelation: "vw_leads_qualidade_ruim"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_ai_dossiers_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: true
+            referencedRelation: "vw_lia_attendances_enriched"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_ai_dossiers_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: true
+            referencedRelation: "vw_vendas_ganhas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lead_cart_history: {
         Row: {
           abandoned_at: string | null
@@ -38404,6 +38586,7 @@ export type Database = {
         Returns: boolean
       }
       fn_can_use_copilot: { Args: { _user_id: string }; Returns: boolean }
+      fn_can_use_lead_dossier: { Args: { _user_id: string }; Returns: boolean }
       fn_check_group_global_dedup: {
         Args: {
           p_content_hash: string
