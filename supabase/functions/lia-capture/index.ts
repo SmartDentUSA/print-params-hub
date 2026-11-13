@@ -101,9 +101,11 @@ async function resolveContext(body: any) {
       let promo: { id: string; name: string } | null = null;
       const promoId = (f as any)?.promotional_table_id;
       if (promoId) {
-        const { data: t, error: tErr } = await sb.from("promotional_tables").select("id, name").eq("id", promoId).maybeSingle();
+        const { data: t, error: tErr } = await sb.from("promotional_tables").select("id, name, event_id").eq("id", promoId).maybeSingle();
         if (tErr) console.warn("[lia-capture] promotional table unavailable", tErr.code);
         if (t?.name) promo = { id: t.id, name: String(t.name).trim() };
+        // A campanha herda o evento da tabela promocional quando o formulário não tem um próprio.
+        if (!formEventId && (t as any)?.event_id) formEventId = String((t as any).event_id);
       }
       if (commercialButtons.length) commercial = {
         question: str((f as any)?.capture_buttons_question, 200) || DEFAULT_INTEREST_QUESTION,
@@ -363,6 +365,8 @@ Deno.serve(async (req) => {
         form_id: ctx.form_id,
         form_purpose: ctx.form_purpose === "distribuicao" ? "distribuicao" : "captacao",
         ...(ctx.form_purpose === "distribuicao" && ctx.event_id ? { distribuicao_event_id: ctx.event_id } : {}),
+        // Campanha comercial: grava o evento na inscrição para o card do evento contar leads e conversões.
+        ...(ctx.commercial_campaign && ctx.event_id ? { event_id: ctx.event_id } : {}),
         nome, email, telefone_raw: phone,
         produto_interesse: ctx.product || undefined,
         ...(chosen?.product_catalog_id ? { product_catalog_id: chosen.product_catalog_id } : {}),
