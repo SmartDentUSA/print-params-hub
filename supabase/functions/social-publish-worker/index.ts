@@ -64,6 +64,11 @@ function buildPlatformSpecificData(platform: string, postType: string, ch: any):
   if (platform === 'instagram' && postType === 'reels' && ch?.ig_share_to_feed === false) {
     psd.shareToFeed = false;
   }
+  // Instagram Reels: capa personalizada enviada no criador (instagramThumbnail no Zernio).
+  if (platform === 'instagram' && postType === 'reels' && typeof ch?.ig_reel_cover_url === 'string'
+      && /^https?:\/\//i.test(ch.ig_reel_cover_url.trim()) && !psd.instagramThumbnail) {
+    psd.instagramThumbnail = ch.ig_reel_cover_url.trim();
+  }
   // Título por canal (obrigatório no YouTube/Shorts, opcional em Pinterest/Reddit).
   if (typeof ch?.title === 'string' && ch.title.trim() && !psd.title) psd.title = ch.title.trim().slice(0, 100);
   // userTags marca @ nas mídias (funciona em Story/Reels por username).

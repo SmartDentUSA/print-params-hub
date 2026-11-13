@@ -12,6 +12,8 @@ export const channelSchema = z.object({
   tiktok_privacy: z.enum(['public', 'friends', 'private']).optional(),
   // Instagram Reels: false = não exibir na grade do feed do perfil
   ig_share_to_feed: z.boolean().optional(),
+  // Instagram Reels: capa personalizada (JPG/PNG público). Vazio = Instagram escolhe o quadro.
+  ig_reel_cover_url: z.string().url('URL inválida').optional().or(z.literal('')),
 });
 export type ChannelInput = z.infer<typeof channelSchema>;
 
