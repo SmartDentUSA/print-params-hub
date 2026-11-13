@@ -33497,7 +33497,52 @@ export type Database = {
         }
         Relationships: []
       }
+      zz_bkp_lp_produtos_20261113: {
+        Row: {
+          id: string | null
+          kind: string | null
+          row_data: Json | null
+          saved_at: string | null
+          slug: string | null
+        }
+        Insert: {
+          id?: string | null
+          kind?: string | null
+          row_data?: Json | null
+          saved_at?: string | null
+          slug?: string | null
+        }
+        Update: {
+          id?: string | null
+          kind?: string | null
+          row_data?: Json | null
+          saved_at?: string | null
+          slug?: string | null
+        }
+        Relationships: []
+      }
       zz_bkp_vitality_aox_20261113: {
+        Row: {
+          id: string | null
+          kind: string | null
+          row_data: Json | null
+          saved_at: string | null
+        }
+        Insert: {
+          id?: string | null
+          kind?: string | null
+          row_data?: Json | null
+          saved_at?: string | null
+        }
+        Update: {
+          id?: string | null
+          kind?: string | null
+          row_data?: Json | null
+          saved_at?: string | null
+        }
+        Relationships: []
+      }
+      zz_bkp_vitality_design_20261113: {
         Row: {
           id: string | null
           kind: string | null
