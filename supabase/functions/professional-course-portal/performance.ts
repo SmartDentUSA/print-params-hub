@@ -475,7 +475,7 @@ export async function kolPerformance(
   if (courseErr) console.error("[portal performance] course stats", courseErr.message);
   const courses = ((courseRows ?? []) as any[]).map((r) => ({
     course_id: String(r.course_id),
-    title: String(r.course_title ?? "Curso"),
+    title: String(r.course_title ?? "Curso").replace(/^["“”\s]+|["“”\s]+$/g, ""),
     slug: r.course_slug ?? null,
     leads: Number(r.leads ?? 0),
     won_leads: Number(r.won_leads ?? 0),
