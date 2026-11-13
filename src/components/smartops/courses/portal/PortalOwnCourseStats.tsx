@@ -16,10 +16,16 @@ export interface OwnCourseStats {
   course_id: string;
   views: number;
   inscritos: number;
+  leads_gerados?: number;
+  vendas?: number;
+  receita_vendas?: number;
   avaliacoes: number;
   avaliacao_media: number | null;
   inscritos_list: Inscrito[];
 }
+
+const money = (v: number) =>
+  new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(v || 0);
 
 const digits = (v?: string | null) => (v ?? "").replace(/\D/g, "");
 const waLink = (phone: string | null, msg: string) => {
@@ -62,6 +68,11 @@ export default function PortalOwnCourseStats({
       <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs tabular-nums">
         <span><span className="text-muted-foreground">Visualizações:</span> <b>{stats.views}</b></span>
         <span><span className="text-muted-foreground">Inscrições via formulário:</span> <b>{stats.inscritos}</b></span>
+        <span><span className="text-muted-foreground">Leads gerados:</span> <b>{stats.leads_gerados ?? 0}</b></span>
+        <span>
+          <span className="text-muted-foreground">Vendas desses leads:</span> <b>{stats.vendas ?? 0}</b>
+          <span className="text-muted-foreground"> · </span><b>{money(stats.receita_vendas ?? 0)}</b>
+        </span>
         <span className="flex items-center gap-1">
           <span className="text-muted-foreground">Avaliações:</span> <b>{stats.avaliacoes}</b>
           {stats.avaliacao_media != null && (
