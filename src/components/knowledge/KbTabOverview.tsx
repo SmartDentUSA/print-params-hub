@@ -16,6 +16,7 @@ export default function KbTabOverview({ onGoto }: Props) {
           key={key}
           type="button"
           onClick={() => onGoto(key)}
+          className="kb-glass-tile"
           style={{
             textAlign: 'left', background: '#fff', border: '1px solid #E5E7EB',
             borderRadius: 14, padding: 20, cursor: 'pointer', transition: 'transform .15s, box-shadow .15s',

@@ -355,6 +355,7 @@ export default function KnowledgeBase({ lang = 'pt', forcedTab }: KnowledgeBaseP
       <>
         <style>{kbStyles}</style>
         <style>{kbShellStyles}</style>
+        <style>{kbGlassStyles}</style>
         {!dialogOpen && tab !== 'institucional' && <KnowledgeSEOHead currentLang={lang} />}
         <KbShellLayout
           active={activeKey}

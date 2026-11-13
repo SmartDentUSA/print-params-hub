@@ -995,9 +995,8 @@ export default function KbTabCatalogo({ filterKey, pinnedIds, pinnedElsewhereIds
                       {lojaUrl && (
                         <button
                           type="button"
-                          className="kb-action-btn"
+                          className="kb-action-btn pri"
                           onClick={() => open(lojaUrl)}
-                          style={{ background: '#363E56', color: '#fff', borderColor: '#363E56' }}
                           title={t('kb.catalogo.actions.loja_title')}
                         >
                           {t('kb.catalogo.actions.loja')}

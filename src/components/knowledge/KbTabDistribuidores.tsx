@@ -82,6 +82,7 @@ function SocialIcons({ d }: { d: Distributor }) {
           rel="noopener"
           title={label}
           aria-label={label}
+          className="kb-glass-icon"
           style={{
             width: 32, height: 32,
             display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
@@ -237,6 +238,7 @@ export default function KbTabDistribuidores({ country: externalCountry }: KbTabD
             return (
               <div
                 key={d.id}
+                className="kb-glass-tile"
                 style={{
                   background: '#fff',
                   border: '1px solid #f1f5f9',
