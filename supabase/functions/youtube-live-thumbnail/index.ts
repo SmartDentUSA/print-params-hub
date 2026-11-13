@@ -4,6 +4,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 const corsHeaders = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version", "Access-Control-Allow-Methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS" };
 import { z } from "npm:zod";
+import { getBrandIdentity, brandPromptBlock, brandOrange } from "../_shared/brand-identity.ts";
 import { getValidAccessToken } from "../_shared/google-oauth.ts";
 import {
   fetchEnrichedProductDossier,
@@ -375,6 +376,7 @@ Deno.serve(async (req) => {
     // Nenhuma linha de produtos na capa: nomes de produto são proibidos no texto.
 
 
+    const brand = await getBrandIdentity(admin);
     const prompt = [
       "Crie uma THUMBNAIL (capa) de transmissão ao vivo do YouTube, formato horizontal 16:9 (1280x720px), estética cinematográfica de alto impacto.",
       "FOTOGRAFIA REAL (INVIOLÁVEL): o resultado deve parecer uma FOTO tirada com câmera full-frame, lente 50mm f/2.8, ISO baixo — não uma imagem gerada por IA, não render 3D, não CGI, não ilustração digital, não arte conceitual. Pele com textura e poros reais, cabelo com fios individuais, tecido do jaleco com trama visível, superfícies com micro-arranhões, poeira e impressão digital sutil, leve grão fotográfico e profundidade de campo natural (fundo levemente desfocado).",
@@ -415,9 +417,9 @@ Deno.serve(async (req) => {
 
       "",
       "TEXTO (renderize exatamente, sem erros de ortografia, tipografia sans-serif condensada muito pesada, alinhado à esquerda no terço esquerdo):",
-      `- Badge pequeno com fundo laranja (#F26722) e texto branco: "${copy.badge}"`,
+      `- Badge pequeno com fundo laranja (${brandOrange(brand)}) e texto branco: "${copy.badge}"`,
       `- Headline gigante em branco, quebrado em 2 ou 3 linhas: "${copy.headline}"`,
-      `- Linha de destaque em laranja (#F26722), logo abaixo do headline: "${copy.highlight}"`,
+      `- Linha de destaque em laranja (${brandOrange(brand)}), logo abaixo do headline: "${copy.highlight}"`,
       "PROIBIDO ESCREVER NOME DE PRODUTO: não renderize nomes, modelos, marcas, códigos ou linha de produtos na capa. Os produtos aparecem APENAS como fotografia, sem legenda, sem etiqueta e sem texto sobre eles.",
 
 
@@ -428,6 +430,8 @@ Deno.serve(async (req) => {
       "",
       "REGRAS: nenhum outro texto além do especificado; sem marca d'água; sem logotipo do YouTube; sem preços; sem números inventados; nenhum equipamento além das fotos anexadas; margem de segurança nas bordas; legível em miniatura pequena; PROIBIDO close-up de rosto ocupando mais de 30% da capa e PROIBIDO uma pessoa cobrindo a maior parte da imagem.",
       b.style_notes,
+      "",
+      brandPromptBlock(brand, { compact: true }),
     ].filter(Boolean).join("\n");
 
 
