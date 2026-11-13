@@ -126,6 +126,7 @@ const css = `
 .sdi-card-a a.or:hover{box-shadow:inset 0 1px 0 rgba(255,255,255,.4),0 20px 36px -14px rgba(229,112,58,.8)}
 .sdi-card-a a.wa{color:#fff;border-color:rgba(255,255,255,.18);background:linear-gradient(150deg,#454e6e,#2f3650);box-shadow:inset 0 1px 0 rgba(255,255,255,.18),0 14px 28px -14px rgba(47,54,80,.8)}
 .sdi-card-a a.wa svg{color:#7be3a3}
+.sdi-card:not(.main) .sdi-card-a{display:grid;grid-template-columns:1fr 1fr}.sdi-card:not(.main) .sdi-card-a a.b{justify-content:center;padding:0 10px}.sdi-card:not(.main) .sdi-card-a a.or{grid-column:1/-1}
 .sdi-cards{grid-template-columns:repeat(6,1fr)}.sdi-cards>.sdi-card{grid-column:span 2}.sdi-cards>.sdi-card:nth-child(n+5){grid-column:span 3}
 .sdi-card.main{grid-column:1/-1!important;display:grid;grid-template-columns:1.25fr 1fr;align-items:stretch}
 .sdi-card.main .sdi-card-img{height:auto;min-height:340px;background-color:transparent;border-right:1px solid rgba(255,255,255,.7)}.sdi-card.main .sdi-card-b{padding:52px 52px;justify-content:center}
@@ -272,7 +273,7 @@ export default function KbTabInstitucional() {
               const main = i === 0;
               return (
                 <div className={`sdi-card${main ? ' main' : ''}`} key={t}>
-                  {main && <div className="sdi-card-img" style={{ backgroundImage: `url(${SOL_IMGS[0]}), radial-gradient(70% 70% at 50% 60%, rgba(255,255,255,.95) 0%, rgba(233,238,245,.35) 75%)`, backgroundSize: '92% auto, cover', backgroundBlendMode: 'multiply, normal' }} role="img" aria-label={t} />}
+                  {main && <div className="sdi-card-img" style={{ backgroundImage: `url(${SOL_IMGS[0]}), radial-gradient(70% 70% at 50% 60%, #ffffff 0%, #e9eef5 78%)`, backgroundSize: '92% auto, cover', backgroundBlendMode: 'multiply, normal' }} role="img" aria-label={t} />}
                   <div className="sdi-card-b">
                     <div className="sdi-card-ic"><Ic size={18} /></div>
                     <h3>{t}</h3>
