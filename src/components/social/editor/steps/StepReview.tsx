@@ -1,4 +1,4 @@
-import { Calendar, Image as ImageIcon, Video, Send } from 'lucide-react';
+import { Calendar, Image as ImageIcon, Video, Send, Users } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { SOCIAL_CHANNELS } from '@/lib/socialChannels';
@@ -23,6 +23,12 @@ export function StepReview({ value }: { value: PostInput }) {
               <span className="text-xs text-muted-foreground">({value.timezone})</span>
             </span>
           )}
+        </div>
+        <div className="flex items-center gap-2 text-sm">
+          <Users className="w-4 h-4 text-muted-foreground" />
+          {value.group_blast_enabled !== false
+            ? 'Vai para os grupos de WhatsApp depois de publicada'
+            : 'Não vai para os grupos de WhatsApp'}
         </div>
       </div>
 

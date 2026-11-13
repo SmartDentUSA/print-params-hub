@@ -50,3 +50,23 @@ export function isTestimonialCaption(caption: unknown, keys: Set<string>): boole
   }
   return false;
 }
+
+/**
+ * Separa os posts sincronizados que não devem ir para os grupos:
+ * depoimentos do pipeline e posts agendados com "Enviar para os grupos" desligado.
+ */
+export function splitGroupBlastExclusions(
+  posts: Array<{ id: string; caption?: unknown }>,
+  testimonialRows: Array<{ caption?: unknown; channels?: unknown }>,
+  optOutRows: Array<{ caption?: unknown; channels?: unknown }>,
+): { testimonialIds: string[]; optOutIds: string[] } {
+  const tKeys = testimonialKeys(testimonialRows);
+  const oKeys = testimonialKeys(optOutRows);
+  const testimonialIds: string[] = [];
+  const optOutIds: string[] = [];
+  for (const p of posts ?? []) {
+    if (isTestimonialCaption(p.caption, tKeys)) testimonialIds.push(p.id);
+    else if (isTestimonialCaption(p.caption, oKeys)) optOutIds.push(p.id);
+  }
+  return { testimonialIds, optOutIds };
+}

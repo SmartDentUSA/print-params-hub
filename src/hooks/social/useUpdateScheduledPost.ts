@@ -30,6 +30,7 @@ export function useUpdateScheduledPost() {
         product_slug: data.product_slug || null,
         product_ref: data.product_ref || null,
         product_category: data.product_category || null,
+        group_blast_enabled: data.group_blast_enabled !== false,
         publish_errors: null,
       };
       const { error } = await supabase
