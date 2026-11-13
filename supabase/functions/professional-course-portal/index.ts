@@ -488,9 +488,20 @@ Deno.serve(async (req) => {
 
     if (action === "own_course_stats") {
       const { data: courses } = await admin.from("professional_courses")
-        .select("id, title, slug, views_count, enrolled_count, credenciamento_form_id")
+        .select("id, title, slug, views_count, enrolled_count, credenciamento_form_id, source_smartops_course_id")
         .eq("producer_lead_id", leadId);
       const list = courses ?? [];
+
+      // Leads gerados e vendas: mesma regra da Performance (inscrição pública +
+      // lista de espera da turma vinculada; vendas ganhas após a inscrição).
+      const { data: courseLeadRows, error: courseLeadErr } = await admin.rpc(
+        "fn_professional_course_lead_stats_portal",
+        { p_professional_id: leadId, p_from: null, p_to: null },
+      );
+      if (courseLeadErr) console.error("[portal] course lead stats", courseLeadErr.message);
+      const courseLeadMap = new Map<string, any>(
+        ((courseLeadRows ?? []) as any[]).map((r) => [String(r.course_id), r]),
+      );
 
       // Cursos publicados sem formulário de credenciamento: fallback para cursos
       // publicados antes da geração automática na publicação. A criação/canonicalização
@@ -546,6 +557,9 @@ Deno.serve(async (req) => {
             course_id: c.id,
             views: c.views_count ?? 0,
             inscritos: subs.length,
+            leads_gerados: Number(courseLeadMap.get(String(c.source_smartops_course_id ?? ""))?.leads ?? 0),
+            vendas: Number(courseLeadMap.get(String(c.source_smartops_course_id ?? ""))?.won_leads ?? 0),
+            receita_vendas: Number(courseLeadMap.get(String(c.source_smartops_course_id ?? ""))?.won_value ?? 0),
             avaliacoes: rs.length,
             avaliacao_media: rs.length ? Math.round((rs.reduce((s, r) => s + r.rating, 0) / rs.length) * 10) / 10 : null,
             inscritos_list: subs.map((s) => ({
