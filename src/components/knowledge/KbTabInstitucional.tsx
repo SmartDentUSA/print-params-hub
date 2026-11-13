@@ -94,20 +94,42 @@ const css = `
 .sdi-h2 b,.sdi-h2 strong{font-weight:800}
 .sdi-sub{color:var(--mut);font-size:16px;max-width:560px;margin:0 0 40px}
 .sdi-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
-.sdi-card{position:relative;border-radius:24px;overflow:hidden;background:rgba(255,255,255,.62);border:1px solid #fff;backdrop-filter:blur(14px);display:flex;flex-direction:column;transition:transform .35s,box-shadow .35s;box-shadow:0 18px 44px -30px rgba(47,54,80,.35)}
-.sdi-card:hover{transform:translateY(-6px);box-shadow:0 30px 60px -30px rgba(47,54,80,.5)}
-.sdi-card-img{height:220px;background:radial-gradient(60% 60% at 50% 70%,#ffffff 0%,#e9eef5 70%) ;background-repeat:no-repeat;background-position:center;background-size:auto 78%;transition:transform .6s;position:relative}
-.sdi-card-img:after{content:"";position:absolute;left:22%;right:22%;bottom:14px;height:14px;border-radius:50%;background:rgba(47,54,80,.12);filter:blur(8px);z-index:-1}
-.sdi-card:hover .sdi-card-img{transform:scale(1.04)}
-.sdi-card-b{padding:22px 24px 24px;display:flex;flex-direction:column;gap:8px;flex:1}
-.sdi-card-ic{width:36px;height:36px;border-radius:11px;display:grid;place-items:center;background:#fff;color:var(--or);box-shadow:0 6px 16px -8px rgba(47,54,80,.4)}
-.sdi-card h3{font-size:18px;font-weight:700;margin:6px 0 0;letter-spacing:-.01em}.sdi-card p{margin:0;color:var(--mut);font-size:14px;line-height:1.55;flex:1}
-.sdi-card-a{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px;font-size:13px;font-weight:700}
-.sdi-card-a a.b{display:inline-flex;align-items:center;gap:6px;height:38px;padding:0 14px;border-radius:11px;background:#fff;color:var(--ink);box-shadow:0 8px 20px -14px rgba(47,54,80,.5);transition:transform .2s}
-.sdi-card-a a.b:hover{transform:translateY(-2px)}.sdi-card-a a.or{background:var(--or);color:#fff}.sdi-card-a a.wa{background:#25d366;color:#fff}
+.sdi-sol{position:relative;isolation:isolate}
+.sdi-sol:before,.sdi-sol:after{content:"";position:absolute;z-index:-1;border-radius:50%;filter:blur(70px);pointer-events:none}
+.sdi-sol:before{width:520px;height:520px;left:-140px;top:180px;background:radial-gradient(circle,rgba(47,54,80,.30),transparent 68%)}
+.sdi-sol:after{width:460px;height:460px;right:-120px;top:520px;background:radial-gradient(circle,rgba(229,112,58,.26),transparent 68%)}
+.sdi-card{position:relative;border-radius:26px;overflow:hidden;display:flex;flex-direction:column;
+  background:linear-gradient(150deg,rgba(255,255,255,.78) 0%,rgba(255,255,255,.42) 55%,rgba(255,255,255,.30) 100%);
+  border:1px solid rgba(255,255,255,.85);-webkit-backdrop-filter:blur(22px) saturate(160%);backdrop-filter:blur(22px) saturate(160%);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.95),inset 0 -1px 0 rgba(47,54,80,.06),0 1px 2px rgba(47,54,80,.06),0 24px 60px -34px rgba(47,54,80,.45);
+  transition:transform .45s cubic-bezier(.2,.7,.2,1),box-shadow .45s,border-color .45s}
+.sdi-card:before{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;z-index:2;
+  background:linear-gradient(115deg,transparent 30%,rgba(255,255,255,.55) 48%,transparent 62%);transform:translateX(-120%);transition:transform 1s cubic-bezier(.2,.7,.2,1)}
+.sdi-card:after{content:"";position:absolute;left:0;right:0;top:0;height:1px;z-index:2;background:linear-gradient(90deg,transparent,rgba(229,112,58,.55),transparent);opacity:0;transition:opacity .45s}
+.sdi-card:hover{transform:translateY(-6px);border-color:#fff;box-shadow:inset 0 1px 0 #fff,0 2px 4px rgba(47,54,80,.06),0 40px 80px -36px rgba(47,54,80,.55)}
+.sdi-card:hover:before{transform:translateX(120%)}.sdi-card:hover:after{opacity:1}
+.sdi-card-img{height:220px;background-repeat:no-repeat;background-position:center;background-size:auto 78%;transition:transform .8s cubic-bezier(.2,.7,.2,1);position:relative}
+.sdi-card:hover .sdi-card-img{transform:scale(1.035)}
+.sdi-card-b{padding:28px 28px 28px;display:flex;flex-direction:column;gap:10px;flex:1;position:relative;z-index:1}
+.sdi-card-ic{width:44px;height:44px;border-radius:14px;display:grid;place-items:center;color:var(--or);
+  background:linear-gradient(150deg,rgba(255,255,255,.95),rgba(255,255,255,.55));border:1px solid rgba(255,255,255,.95);
+  box-shadow:inset 0 1px 0 #fff,0 10px 24px -12px rgba(229,112,58,.55)}
+.sdi-card h3{font-size:17px;font-weight:700;margin:8px 0 0;letter-spacing:-.005em;line-height:1.35;color:var(--ink)}
+.sdi-card p{margin:0;color:var(--mut);font-size:14px;line-height:1.6;flex:1}
+.sdi-card-a{display:flex;flex-wrap:wrap;gap:10px;margin-top:16px;font-size:13px;font-weight:600}
+.sdi-card-a a.b{display:inline-flex;align-items:center;gap:7px;height:42px;padding:0 16px;border-radius:13px;color:var(--ink);
+  background:linear-gradient(150deg,rgba(255,255,255,.92),rgba(255,255,255,.6));border:1px solid rgba(255,255,255,.95);
+  -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);box-shadow:inset 0 1px 0 #fff,0 12px 26px -16px rgba(47,54,80,.55);
+  transition:transform .25s,box-shadow .25s,background .25s}
+.sdi-card-a a.b:hover{transform:translateY(-2px);box-shadow:inset 0 1px 0 #fff,0 18px 32px -16px rgba(47,54,80,.6)}
+.sdi-card-a a.or{color:#fff;border-color:rgba(255,255,255,.35);background:linear-gradient(150deg,#ef8550,#e5703a 55%,#cf5f2c);box-shadow:inset 0 1px 0 rgba(255,255,255,.35),0 14px 28px -14px rgba(229,112,58,.75)}
+.sdi-card-a a.or:hover{box-shadow:inset 0 1px 0 rgba(255,255,255,.4),0 20px 36px -14px rgba(229,112,58,.8)}
+.sdi-card-a a.wa{color:#fff;border-color:rgba(255,255,255,.18);background:linear-gradient(150deg,#454e6e,#2f3650);box-shadow:inset 0 1px 0 rgba(255,255,255,.18),0 14px 28px -14px rgba(47,54,80,.8)}
+.sdi-card-a a.wa svg{color:#7be3a3}.sdi-card-a a.b svg{flex:none}
+.sdi-card:not(.main) .sdi-card-a{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px}.sdi-card:not(.main) .sdi-card-b{padding:26px 22px 24px}.sdi-card:not(.main) .sdi-card-a a.b{justify-content:center;padding:0 8px;white-space:nowrap;font-size:12px;gap:5px;min-width:0;overflow:hidden}.sdi-card:not(.main) .sdi-card-a a.or{grid-column:1/-1}
 .sdi-cards{grid-template-columns:repeat(6,1fr)}.sdi-cards>.sdi-card{grid-column:span 2}.sdi-cards>.sdi-card:nth-child(n+5){grid-column:span 3}
 .sdi-card.main{grid-column:1/-1!important;display:grid;grid-template-columns:1.25fr 1fr;align-items:stretch}
-.sdi-card.main .sdi-card-img{height:auto;min-height:320px}.sdi-card.main .sdi-card-b{padding:44px 44px;justify-content:center}
+.sdi-card.main .sdi-card-img{height:auto;min-height:340px;background-color:transparent;border-right:1px solid rgba(255,255,255,.7)}.sdi-card.main .sdi-card-b{padding:52px 52px;justify-content:center}
 .sdi-card.main h3{font-size:clamp(22px,2.2vw,32px);letter-spacing:-.02em}.sdi-card.main p{flex:0;font-size:16px}
 .sdi-steps{display:grid;grid-template-columns:repeat(4,1fr);gap:0;counter-reset:s;border-radius:22px;background:rgba(255,255,255,.55);border:1px solid #fff;backdrop-filter:blur(14px)}
 .sdi-step{padding:30px 26px;border-left:1px solid var(--line);position:relative}.sdi-step:first-child{border:0}
@@ -242,7 +264,7 @@ export default function KbTabInstitucional() {
           ))}
         </div>
 
-        <section className="sdi-sec" aria-labelledby="sdi-sol">
+        <section className="sdi-sec sdi-sol" aria-labelledby="sdi-sol">
           <h2 id="sdi-sol" className="sdi-h2">{c.solTitle}</h2>
           <p className="sdi-sub">{c.solSub}</p>
           <div className="sdi-cards">
@@ -251,7 +273,7 @@ export default function KbTabInstitucional() {
               const main = i === 0;
               return (
                 <div className={`sdi-card${main ? ' main' : ''}`} key={t}>
-                  {main && <div className="sdi-card-img" style={{ backgroundImage: `url(${SOL_IMGS[0]}), radial-gradient(60% 60% at 50% 70%, #ffffff 0%, #e9eef5 70%)`, backgroundSize: '94% auto, cover', backgroundBlendMode: 'multiply, normal' }} role="img" aria-label={t} />}
+                  {main && <div className="sdi-card-img" style={{ backgroundImage: `url(${SOL_IMGS[0]}), radial-gradient(70% 70% at 50% 60%, #ffffff 0%, #e9eef5 78%)`, backgroundSize: '92% auto, cover', backgroundBlendMode: 'multiply, normal' }} role="img" aria-label={t} />}
                   <div className="sdi-card-b">
                     <div className="sdi-card-ic"><Ic size={18} /></div>
                     <h3>{t}</h3>
