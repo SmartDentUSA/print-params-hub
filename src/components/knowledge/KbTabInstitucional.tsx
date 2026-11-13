@@ -122,8 +122,8 @@ const css = `
   box-shadow:inset 0 1px 0 rgba(255,255,255,.7);transition:background .2s,border-color .2s,color .2s}
 .sdi-card-a a.b:hover{background:rgba(255,255,255,.78);border-color:#fff;color:var(--ink)}
 .sdi-card-a a.b svg{flex:none;opacity:.7}.sdi-card-a a.or svg{color:var(--or);opacity:1}.sdi-card-a a.wa svg{color:var(--ink)}
-.sdi-card:not(.main) .sdi-card-a{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.sdi-card:not(.main) .sdi-card-b{padding:26px 22px 22px}
-.sdi-card:not(.main) .sdi-card-a a.b{padding:0 8px;min-width:0;overflow:hidden}.sdi-card:not(.main) .sdi-card-a a.or{grid-column:1/-1}
+.sdi-card-a{display:grid!important;grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.sdi-card.main .sdi-card-a{max-width:420px}.sdi-card:not(.main) .sdi-card-b{padding:26px 22px 22px}
+.sdi-card-a a.b{padding:0 8px;min-width:0;overflow:hidden}.sdi-card-a a.or{grid-column:1/-1}
 .sdi-cards{grid-template-columns:repeat(6,1fr)}.sdi-cards>.sdi-card{grid-column:span 2}.sdi-cards>.sdi-card:nth-child(n+5){grid-column:span 3}
 .sdi-card.main{grid-column:1/-1!important;display:grid;grid-template-columns:1.25fr 1fr;align-items:stretch}
 .sdi-card.main .sdi-card-img{height:auto;min-height:340px;background-color:transparent;border-right:1px solid rgba(255,255,255,.7)}.sdi-card.main .sdi-card-b{padding:52px 52px;justify-content:center}
