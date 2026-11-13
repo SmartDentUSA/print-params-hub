@@ -406,3 +406,13 @@
   .intel-dark .upsell-grid { grid-template-columns: 1fr; }
   .intel-dark .cog-grid    { grid-template-columns: 1fr; }
 }
+
+/* Dossiê do lead (aba Dossiê IA) */
+.lead-dossier-md h3 { font-size: 12px; font-weight: 700; letter-spacing: .4px; text-transform: uppercase; color: var(--blue); margin: 16px 0 6px; }
+.lead-dossier-md h3:first-child { margin-top: 0; }
+.lead-dossier-md ul, .lead-dossier-md ol { padding-left: 18px; margin: 4px 0; }
+.lead-dossier-md ul { list-style: disc; }
+.lead-dossier-md ol { list-style: decimal; }
+.lead-dossier-md li { margin: 2px 0; }
+.lead-dossier-md p { margin: 4px 0; }
+.lead-dossier-md strong { color: var(--text); }

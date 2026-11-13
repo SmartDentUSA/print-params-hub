@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { WorkflowPortfolio, type Portfolio } from "./WorkflowPortfolio";
 import { ErpDataTab } from "../leads/tabs/ErpDataTab";
 import { FinanceiroTab } from "../leads/tabs/FinanceiroTab";
+import { DossieTab } from "../leads/tabs/DossieTab";
 import { RayshapePanel } from "./RayshapePanel";
 import LeadFieldsInventory from "./LeadFieldsInventory";
 import { useCaptureEvents } from "@/hooks/useCaptureEvents";
@@ -124,10 +125,11 @@ interface CatalogResolution {
   matched: boolean;
 }
 
-type TabKey = "historico" | "cognitivo" | "upsell" | "fluxo" | "lis" | "acoes" | "cs" | "erp" | "financeiro" | "rayshape";
+type TabKey = "historico" | "dossie" | "cognitivo" | "upsell" | "fluxo" | "lis" | "acoes" | "cs" | "erp" | "financeiro" | "rayshape";
 
 const TABS: { key: TabKey; label: string }[] = [
   { key: "historico", label: "📋 Histórico Completo" },
+  { key: "dossie", label: "📝 Dossiê IA" },
   { key: "cognitivo", label: "🧠 Análise Cognitiva IA" },
   { key: "upsell", label: "🚀 Upsell & Previsão" },
   { key: "fluxo", label: "🔄 Fluxo Digital" },
@@ -2482,6 +2484,7 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
       {activeTab === "financeiro" && (
         <FinanceiroTab leadId={lead.id} />
       )}
+      {activeTab === "dossie" && <DossieTab leadId={lead.id} />}
       {activeTab === "rayshape" && (
         <div className="tab-content">
           <RayshapePanel leadId={lead.id} />
