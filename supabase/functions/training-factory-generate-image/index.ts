@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { getBrandIdentity, brandPromptBlock, brandOrange, brandNavy, brandSlate } from "../_shared/brand-identity.ts";
 const corsHeaders = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version", "Access-Control-Allow-Methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS" };
 import { z } from "npm:zod";
 import { callPoe } from "../_shared/providers/poe.ts";
@@ -24,6 +25,7 @@ function mesAno(dateStr?: string | null): string {
   return `${MESES[d.getMonth()]} ${d.getFullYear()}`;
 }
 
+let NAVY = "#363E56", ORANGE = "#E56838", SLATE = "#546085";
 function buildPrompt(
   assetType: "feed_instagram" | "linkedin" | "depoimento",
   ctx: {
@@ -42,10 +44,10 @@ function buildPrompt(
 ): string {
   if (assetType === "feed_instagram") {
     return `Crie uma imagem vertical 1080x1350px para Instagram com estética premium corporativa.
-Fundo escuro predominante (#0A0F1E).
+Fundo escuro predominante (${NAVY}).
 Elementos:
 - Logo Smart Dent no topo esquerdo (branco)
-- Badge laranja (#E8821A) com "TURMA #${ctx.turma_number}"
+- Badge laranja (${ORANGE}) com "TURMA #${ctx.turma_number}"
 - Título grande branco "ODONTOLOGIA DIGITAL"
 - Subtítulo "CHAIRSIDE PRINT"
 - Equipamento: "${ctx.equipamento}"
@@ -68,10 +70,10 @@ Elementos:
 Estética: corporativo internacional, premium, sem excesso de ícones.`;
   }
   return `Crie uma imagem vertical 1080x1920px para Instagram/TikTok estilo depoimento premium.
-Overlay roxo escuro semitransparente (rgba 30,20,80,0.8) sobre fundo abstrato tecnológico.
+Overlay azul-marinho semitransparente (${NAVY} → ${SLATE}) sobre fundo abstrato tecnológico.
 Elementos:
 - Logo Smart Dent branco topo esquerdo
-- Aspas grandes laranja (#E8821A) no centro
+- Aspas grandes laranja (${ORANGE}) no centro
 - Texto de depoimento em branco${ctx.depoimento ? `: "${ctx.depoimento}"` : ""}
 - Nome: "${ctx.participante_nome ?? ""}"
 - Especialidade: "${ctx.especialidade ?? ""}"
@@ -154,7 +156,9 @@ Deno.serve(async (req) => {
       estado: asset?.estado ?? participantes[0]?.estado ?? "",
       depoimento: asset?.transcription ?? "",
     };
-    const prompt = buildPrompt(asset_type, ctx);
+    const brand = await getBrandIdentity(supabase);
+    NAVY = brandNavy(brand); ORANGE = brandOrange(brand); SLATE = brandSlate(brand);
+    const prompt = buildPrompt(asset_type, ctx) + "\n\n" + brandPromptBlock(brand);
     console.log(`[generate-image] ${asset_type} run=${run_id} prompt_len=${prompt.length}`);
     if (foto_grupo_url) console.log(`[generate-image] foto_grupo_url=${foto_grupo_url}`);
 

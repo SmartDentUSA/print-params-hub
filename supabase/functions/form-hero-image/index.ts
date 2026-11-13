@@ -3,6 +3,7 @@
 // as fotos reais do produto (catálogo) + logo Smart Dent como referência visual.
 // Modelo: Lovable AI Gateway (google/gemini-3-pro-image) com image input.
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { getBrandIdentity, brandPromptBlock, brandOrange, brandNavy, brandSlate } from "../_shared/brand-identity.ts";
 const corsHeaders = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version", "Access-Control-Allow-Methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS" };
 import { z } from "npm:zod";
 
@@ -77,6 +78,7 @@ Deno.serve(async (req) => {
       if (d) inlined.push(d);
     }
 
+    const brand = await getBrandIdentity(supabase);
     const bulletLines = b.bullets.length
       ? b.bullets.map((t, i) => `  ${i + 1}. "${t}"`).join("\n")
       : "  (sem bullets)";
@@ -89,7 +91,7 @@ Deno.serve(async (req) => {
       "",
       "LAYOUT (obrigatório):",
       "- Fundo claro em degradê suave (branco → cinza-azulado muito claro) com formas geométricas circulares sutis.",
-      "- Coluna esquerda: logo Smart Dent no topo; abaixo um badge arredondado com contorno laranja; abaixo o headline em tipografia sans-serif pesada azul-marinho, com a última linha em laranja (#E8821A).",
+      `- Coluna esquerda: logo Smart Dent no topo; abaixo um badge arredondado com contorno laranja; abaixo o headline em tipografia sans-serif pesada azul-marinho, com a última linha em laranja (${brandOrange(brand)}).`,
       "- Linha divisória fina e, sob ela, uma fileira horizontal de ícones de contorno finos (line icons) — um por benefício — com o texto curto do benefício abaixo de cada ícone.",
       "- Botão CTA laranja arredondado com ícone de WhatsApp e o texto do CTA em caixa alta; ao lado, um texto de apoio curto em duas linhas.",
       "- Coluna direita: composição dos produtos das fotos anexadas em cena de estúdio, sombra suave no chão, sem fundo poluído.",
@@ -103,6 +105,7 @@ Deno.serve(async (req) => {
       bulletLines,
       "",
       "Estética: editorial corporativo premium, alto contraste, muito espaço em branco, sem pessoas, sem preços, sem marcas d'água, sem texto inventado além do especificado.",
+      brandPromptBlock(brand),
       b.style_notes,
     ].filter(Boolean).join("\n");
 
