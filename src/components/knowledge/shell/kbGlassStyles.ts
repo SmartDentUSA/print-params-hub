@@ -115,6 +115,7 @@ export const kbGlassStyles = `
 .kbs-root .kb-action-btn.pri:before{content:"";width:5px;height:5px;border-radius:50%;background:var(--g-or)}
 .kbs-root .kb-switcher{background:rgba(255,255,255,.5);border:1px solid var(--g-line);backdrop-filter:blur(16px);box-shadow:inset 0 1px 0 #fff,0 14px 34px -24px rgba(54,62,86,.4)}
 .kbs-root .kb-tab-btn.on{background:var(--g-s3);color:var(--g-ink);box-shadow:inset 0 1px 0 #fff,0 6px 16px -10px rgba(54,62,86,.45)}
+.kbs-root [role="group"][aria-label="Idioma"] button[aria-pressed="true"]{--tw-ring-color:rgba(229,104,56,.72)}
 
 @media (max-width:960px){
   .kbs-root .kbs-side{background:rgba(255,255,255,.9)}
