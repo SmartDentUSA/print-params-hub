@@ -119,8 +119,9 @@ const css = `
 .sdi-card p{margin:0;color:var(--mut);font-size:14px;line-height:1.6;flex:1}
 .sdi-card-a{display:flex;flex-wrap:wrap;gap:8px;margin-top:18px;padding-top:16px;border-top:1px solid rgba(54,62,86,.08);font-size:12.5px;font-weight:600}
 .sdi-card-a a.b{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:34px;padding:0 14px;border-radius:10px;color:var(--ink);white-space:nowrap;
-  background:rgba(255,255,255,.38);border:1px solid rgba(255,255,255,.75);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.7);transition:background .2s,border-color .2s,color .2s}
+  background:rgba(255,255,255,.26);border:1px solid rgba(255,255,255,.55);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.5);transition:background .2s,border-color .2s,color .2s}
+.sdi-card-a a.b.or{background:rgba(255,255,255,.6);border-color:rgba(255,255,255,.85);box-shadow:inset 0 1px 0 rgba(255,255,255,.85),0 4px 14px -8px rgba(54,62,86,.35)}
 .sdi-card-a a.b:hover{background:rgba(255,255,255,.78);border-color:#fff;color:var(--ink)}
 .sdi-card-a a.b svg{flex:none;opacity:.7}.sdi-card-a a.or svg{color:var(--or);opacity:1}.sdi-card-a a.wa svg{color:var(--ink)}
 .sdi-card-a{display:grid!important;grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.sdi-card.main .sdi-card-a{max-width:420px}.sdi-card:not(.main) .sdi-card-b{padding:26px 22px 22px}
