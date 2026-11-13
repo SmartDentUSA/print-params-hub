@@ -67,7 +67,7 @@ const css = `
 .sdi-eyebrow{display:inline-flex;gap:10px;align-items:center;font-size:11.5px;letter-spacing:.28em;text-transform:uppercase;color:rgba(255,255,255,.78)}
 .sdi-eyebrow i{width:28px;height:2px;background:var(--or)}
 .sdi h1{color:#fff!important;-webkit-text-fill-color:currentColor;background:none;font-size:clamp(34px,3.9vw,62px);line-height:1.02;letter-spacing:-.04em;font-weight:300;margin:22px 0 22px;max-width:640px;text-shadow:0 2px 24px rgba(0,0,0,.22)}
-.sdi h1 em{font-style:normal;font-weight:800;display:block;-webkit-text-fill-color:currentColor;color:#fff}
+.sdi h1 em{font-style:normal;font-weight:600;display:block;-webkit-text-fill-color:currentColor;color:#fff}
 .sdi-hero .sdi-wrap>*{max-width:min(560px,52%)}.sdi-lead{font-size:clamp(16px,1.3vw,19px);line-height:1.6;color:rgba(255,255,255,.9);max-width:560px}
 .sdi-tldr{margin-top:22px;max-width:560px;font-size:13px;line-height:1.6;color:rgba(255,255,255,.76);border-left:2px solid var(--or);padding:2px 0 2px 14px}
 .sdi-ctas{display:flex;flex-wrap:wrap;gap:12px;margin-top:32px}
