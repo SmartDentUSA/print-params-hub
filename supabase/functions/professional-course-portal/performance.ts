@@ -465,8 +465,27 @@ export async function kolPerformance(
   const comissaoCupons = couponsPerf.reduce((s, c) => s + (c.commission_percent != null ? (c.receita * c.commission_percent) / 100 : 0), 0);
   const temRegraComissao = prulesAll.length > 0 || crulesAll.length > 0 || fallbackPct != null;
 
+  // Leads de cursos (instrutor/recomendado): inscrição pública e lista de espera.
+  // Só informativo — não entra na comissão.
+  const { data: courseRows, error: courseErr } = await admin.rpc("fn_professional_course_lead_stats_portal", {
+    p_professional_id: leadId,
+    p_from: from,
+    p_to: to,
+  });
+  if (courseErr) console.error("[portal performance] course stats", courseErr.message);
+  const courses = ((courseRows ?? []) as any[]).map((r) => ({
+    course_id: String(r.course_id),
+    title: String(r.course_title ?? "Curso"),
+    slug: r.course_slug ?? null,
+    leads: Number(r.leads ?? 0),
+    won_leads: Number(r.won_leads ?? 0),
+    won_deals: Number(r.won_deals ?? 0),
+    won_value: Number(r.won_value ?? 0),
+  })).sort((a, b) => b.leads - a.leads);
+
   return {
     professional_name: lead?.nome ?? null,
+    courses,
     forms,
     coupons: couponsPerf,
     buyers_forms: buyersForms.sort((a, b) => (b.data ?? "").localeCompare(a.data ?? "")),

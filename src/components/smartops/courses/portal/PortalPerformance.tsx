@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { BarChart3, Loader2, MessageCircle, Ticket } from "lucide-react";
+import { BarChart3, GraduationCap, Loader2, MessageCircle, Ticket } from "lucide-react";
 
 const FN_URL = "https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/professional-course-portal";
 
@@ -23,7 +23,17 @@ interface PerfData {
   buyers_forms: any[];
   buyers_coupon: any[];
   negotiating: any[];
+  courses?: CourseLeadRow[];
   totals: any;
+}
+
+interface CourseLeadRow {
+  course_id: string;
+  title: string;
+  leads: number;
+  won_leads: number;
+  won_deals: number;
+  won_value: number;
 }
 
 const waLink = (telefone: string | null, msg: string) => {
@@ -92,6 +102,11 @@ export default function PortalPerformance({ token }: { token: string }) {
   const buyersCoupon = data?.buyers_coupon ?? [];
   const negotiating = data?.negotiating ?? [];
   const profName = data?.professional_name ?? "";
+  const courses = data?.courses ?? [];
+  const courseTotals = courses.reduce(
+    (acc, c) => ({ leads: acc.leads + c.leads, won: acc.won + c.won_leads, value: acc.value + c.won_value }),
+    { leads: 0, won: 0, value: 0 },
+  );
   const totalCommission = coupons.reduce(
     (s, c) => s + (c.commission_percent != null ? (c.receita * c.commission_percent) / 100 : 0),
     0,
@@ -253,11 +268,69 @@ export default function PortalPerformance({ token }: { token: string }) {
           )}
         </div>
 
+        {/* Leads de cursos (instrutor ou recomendado) */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="flex items-center gap-1.5 text-xs uppercase tracking-wide text-muted-foreground font-medium">
+              <GraduationCap className="w-3.5 h-3.5" /> Leads de cursos
+            </span>
+            <Badge variant="secondary">{courses.length}</Badge>
+          </div>
+          {courses.length === 0 ? (
+            <p className="text-xs text-muted-foreground">Nenhum curso vinculado a você.</p>
+          ) : (
+            <div className="overflow-x-auto rounded-md border">
+              <table className="w-full text-sm">
+                <thead className="bg-muted/40 text-[11px] uppercase tracking-wide text-muted-foreground">
+                  <tr>
+                    <th className="px-2 py-2 text-left">Curso</th>
+                    <th className="px-2 py-2 text-right">Leads inscritos</th>
+                    <th className="px-2 py-2 text-right">Conversão</th>
+                    <th className="px-2 py-2 text-right">Receita gerada</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {courses.map((c) => (
+                    <tr key={c.course_id} className="border-t">
+                      <td className="px-2 py-2">{c.title}</td>
+                      <td className="px-2 py-2 text-right font-medium">{c.leads}</td>
+                      <td className="px-2 py-2 text-right">
+                        <span className="font-medium">
+                          {c.leads > 0 ? ((c.won_leads / c.leads) * 100).toFixed(1) : "0.0"}%
+                        </span>
+                        <span className="ml-1 text-xs text-muted-foreground">({c.won_leads} ganhos)</span>
+                      </td>
+                      <td className="px-2 py-2 text-right font-medium">{money(c.won_value)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+                {courses.length > 1 && (
+                  <tfoot className="border-t bg-muted/20 text-xs">
+                    <tr>
+                      <td className="px-2 py-2 uppercase text-muted-foreground">Total</td>
+                      <td className="px-2 py-2 text-right font-bold">{courseTotals.leads}</td>
+                      <td className="px-2 py-2 text-right font-bold">
+                        {courseTotals.leads > 0 ? ((courseTotals.won / courseTotals.leads) * 100).toFixed(1) : "0.0"}%
+                      </td>
+                      <td className="px-2 py-2 text-right font-bold">{money(courseTotals.value)}</td>
+                    </tr>
+                  </tfoot>
+                )}
+              </table>
+            </div>
+          )}
+          <p className="text-[11px] text-muted-foreground">
+            Leads que se inscreveram pelo link público ou entraram na lista de espera dos seus cursos.
+            Vendas contam quando o negócio foi ganho depois da inscrição. Não entra no comissionamento.
+          </p>
+        </div>
+
         {/* Indicadores consolidados */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-2">
           {[
             { t: "Formulários de indicação", a: `${totals?.leads ?? 0} leads → ${totals?.deals ?? 0} ganhos`, v: totals?.receita ?? 0 },
             { t: "Cupons do e-commerce", a: `${totals?.vendasCupons ?? 0} pedidos · ${totals?.clientesCupons ?? 0} clientes`, v: totals?.receitaCupons ?? 0 },
+            { t: "Leads de cursos", a: `${courseTotals.leads} leads → ${courseTotals.won} ganhos`, v: courseTotals.value },
             { t: "Em negociação", a: `${negotiating.length} negócios abertos`, v: negotiating.reduce((s, n) => s + (n.valor ?? 0), 0) },
           ].map((k) => (
             <div key={k.t} className="rounded-md border p-3">
