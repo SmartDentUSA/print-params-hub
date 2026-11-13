@@ -4,7 +4,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Sparkles, Loader2 } from 'lucide-react';
+import { Sparkles, Loader2, Users } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import type { PostInput } from '@/lib/social/postSchema';
@@ -80,6 +80,25 @@ export function StepSchedule({ value, onChange }: Props) {
           <div className="text-xs text-muted-foreground">Envia imediatamente para a fila</div>
         </div>
         <Switch checked={value.publish_now} onCheckedChange={(v) => onChange({ publish_now: v })} />
+      </div>
+
+      <div className="flex items-center justify-between border rounded-md p-3">
+        <div className="flex items-start gap-2">
+          <Users className="w-4 h-4 mt-0.5 text-muted-foreground" />
+          <div>
+            <div className="font-medium text-sm">Enviar para os grupos de WhatsApp</div>
+            <div className="text-xs text-muted-foreground">
+              {value.group_blast_enabled !== false
+                ? 'Depois de publicada, a postagem vai automaticamente para os grupos.'
+                : 'A postagem não será enviada automaticamente aos grupos. Ainda dá para enviar manualmente em Post Grupos.'}
+            </div>
+          </div>
+        </div>
+        <Switch
+          aria-label="Enviar para os grupos de WhatsApp"
+          checked={value.group_blast_enabled !== false}
+          onCheckedChange={(v) => onChange({ group_blast_enabled: v })}
+        />
       </div>
 
       {!value.publish_now && (

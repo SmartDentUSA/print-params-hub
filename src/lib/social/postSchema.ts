@@ -52,6 +52,8 @@ export const postSchema = z
     scheduled_at: z.string().optional(),
     timezone: z.string().default('America/Sao_Paulo'),
     post_type: z.enum(['feed', 'carousel', 'story', 'reels']).default('feed'),
+    // false = não dispara automaticamente nos grupos de WhatsApp (Post Grupos)
+    group_blast_enabled: z.boolean().default(true),
   })
   .superRefine((data, ctx) => {
     if (!data.publish_now && !data.scheduled_at) {
@@ -131,6 +133,7 @@ export const defaultPost: PostInput = {
   timezone: 'America/Sao_Paulo',
   post_type: 'feed',
   extra_products: [],
+  group_blast_enabled: true,
 };
 
 export const defaultChannelFor = (platform: SocialPlatform): ChannelInput => {
