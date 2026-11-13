@@ -20,6 +20,8 @@ export default {
 		extend: {
 			fontFamily: {
 				poppins: ['Poppins', 'system-ui', '-apple-system', 'sans-serif'],
+				'brand-heading': ['"Host Grotesk"', 'Poppins', 'system-ui', 'sans-serif'],
+				'brand-body': ['Poppins', '"Host Grotesk"', 'system-ui', 'sans-serif'],
 			},
 			colors: {
 				border: 'hsl(var(--border))',
