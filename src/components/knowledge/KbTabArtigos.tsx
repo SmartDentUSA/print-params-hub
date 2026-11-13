@@ -38,7 +38,7 @@ export default function KbTabArtigos({ onOpen, letterFilter }: Props) {
   const [loading, setLoading] = useState(true);
   const [chip, setChip] = useState(() => {
     const k = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('cat') : null;
-    return k && CHIPS.some((x) => x.key === k) ? k : 'all';
+    return k && CHIP_KEYS.some((x) => x.key === k) ? k : 'all';
   });
   const [q, setQ] = useState('');
   const [sort, setSort] = useState<KbSortKey>('recent');
