@@ -116,17 +116,14 @@ const css = `
   box-shadow:inset 0 1px 0 #fff,0 10px 24px -12px rgba(229,112,58,.55)}
 .sdi-card h3{font-size:17px;font-weight:700;margin:8px 0 0;letter-spacing:-.005em;line-height:1.35;color:var(--ink)}
 .sdi-card p{margin:0;color:var(--mut);font-size:14px;line-height:1.6;flex:1}
-.sdi-card-a{display:flex;flex-wrap:wrap;gap:10px;margin-top:16px;font-size:13px;font-weight:600}
-.sdi-card-a a.b{display:inline-flex;align-items:center;gap:7px;height:42px;padding:0 16px;border-radius:13px;color:var(--ink);
-  background:linear-gradient(150deg,rgba(255,255,255,.92),rgba(255,255,255,.6));border:1px solid rgba(255,255,255,.95);
-  -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);box-shadow:inset 0 1px 0 #fff,0 12px 26px -16px rgba(47,54,80,.55);
-  transition:transform .25s,box-shadow .25s,background .25s}
-.sdi-card-a a.b:hover{transform:translateY(-2px);box-shadow:inset 0 1px 0 #fff,0 18px 32px -16px rgba(47,54,80,.6)}
-.sdi-card-a a.or{color:#fff;border-color:rgba(255,255,255,.35);background:linear-gradient(150deg,#ef8550,#e5703a 55%,#cf5f2c);box-shadow:inset 0 1px 0 rgba(255,255,255,.35),0 14px 28px -14px rgba(229,112,58,.75)}
-.sdi-card-a a.or:hover{box-shadow:inset 0 1px 0 rgba(255,255,255,.4),0 20px 36px -14px rgba(229,112,58,.8)}
-.sdi-card-a a.wa{color:#fff;border-color:rgba(255,255,255,.18);background:linear-gradient(150deg,#454e6e,#2f3650);box-shadow:inset 0 1px 0 rgba(255,255,255,.18),0 14px 28px -14px rgba(47,54,80,.8)}
-.sdi-card-a a.wa svg{color:#7be3a3}.sdi-card-a a.b svg{flex:none}
-.sdi-card:not(.main) .sdi-card-a{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px}.sdi-card:not(.main) .sdi-card-b{padding:26px 22px 24px}.sdi-card:not(.main) .sdi-card-a a.b{justify-content:center;padding:0 8px;white-space:nowrap;font-size:12px;gap:5px;min-width:0;overflow:hidden}.sdi-card:not(.main) .sdi-card-a a.or{grid-column:1/-1}
+.sdi-card-a{display:flex;flex-wrap:wrap;gap:8px;margin-top:18px;padding-top:16px;border-top:1px solid rgba(47,54,80,.08);font-size:12.5px;font-weight:600}
+.sdi-card-a a.b{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:34px;padding:0 14px;border-radius:10px;color:var(--ink);white-space:nowrap;
+  background:rgba(255,255,255,.38);border:1px solid rgba(255,255,255,.75);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.7);transition:background .2s,border-color .2s,color .2s}
+.sdi-card-a a.b:hover{background:rgba(255,255,255,.78);border-color:#fff;color:var(--ink)}
+.sdi-card-a a.b svg{flex:none;opacity:.7}.sdi-card-a a.or svg{color:var(--or);opacity:1}.sdi-card-a a.wa svg{color:var(--ink)}
+.sdi-card-a{display:grid!important;grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.sdi-card.main .sdi-card-a{max-width:420px}.sdi-card:not(.main) .sdi-card-b{padding:26px 22px 22px}
+.sdi-card-a a.b{padding:0 8px;min-width:0;overflow:hidden}.sdi-card-a a.or{grid-column:1/-1}
 .sdi-cards{grid-template-columns:repeat(6,1fr)}.sdi-cards>.sdi-card{grid-column:span 2}.sdi-cards>.sdi-card:nth-child(n+5){grid-column:span 3}
 .sdi-card.main{grid-column:1/-1!important;display:grid;grid-template-columns:1.25fr 1fr;align-items:stretch}
 .sdi-card.main .sdi-card-img{height:auto;min-height:340px;background-color:transparent;border-right:1px solid rgba(255,255,255,.7)}.sdi-card.main .sdi-card-b{padding:52px 52px;justify-content:center}
