@@ -27644,6 +27644,7 @@ export type Database = {
           created_at: string | null
           created_by: string | null
           first_comment: string | null
+          group_blast_enabled: boolean
           hashtags: string[] | null
           id: string
           media_items: Json | null
@@ -27669,6 +27670,7 @@ export type Database = {
           created_at?: string | null
           created_by?: string | null
           first_comment?: string | null
+          group_blast_enabled?: boolean
           hashtags?: string[] | null
           id?: string
           media_items?: Json | null
@@ -27694,6 +27696,7 @@ export type Database = {
           created_at?: string | null
           created_by?: string | null
           first_comment?: string | null
+          group_blast_enabled?: boolean
           hashtags?: string[] | null
           id?: string
           media_items?: Json | null
@@ -38140,6 +38143,7 @@ export type Database = {
           created_at: string | null
           created_by: string | null
           first_comment: string | null
+          group_blast_enabled: boolean
           hashtags: string[] | null
           id: string
           media_items: Json | null
