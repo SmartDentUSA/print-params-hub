@@ -178,6 +178,7 @@ export default function KbTabEventos() {
             return (
               <div
                 key={e.id}
+                className="kb-glass-tile"
                 style={{
                   background: '#fff',
                   border: '1px solid #e2e8f0',

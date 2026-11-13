@@ -33473,6 +33473,72 @@ export type Database = {
         }
         Relationships: []
       }
+      zz_bkp_knowledge_faqs_20261113: {
+        Row: {
+          backed_up_at: string | null
+          faqs: Json | null
+          id: string | null
+          slug: string | null
+          updated_at_original: string | null
+        }
+        Insert: {
+          backed_up_at?: string | null
+          faqs?: Json | null
+          id?: string | null
+          slug?: string | null
+          updated_at_original?: string | null
+        }
+        Update: {
+          backed_up_at?: string | null
+          faqs?: Json | null
+          id?: string | null
+          slug?: string | null
+          updated_at_original?: string | null
+        }
+        Relationships: []
+      }
+      zz_bkp_vitality_aox_20261113: {
+        Row: {
+          id: string | null
+          kind: string | null
+          row_data: Json | null
+          saved_at: string | null
+        }
+        Insert: {
+          id?: string | null
+          kind?: string | null
+          row_data?: Json | null
+          saved_at?: string | null
+        }
+        Update: {
+          id?: string | null
+          kind?: string | null
+          row_data?: Json | null
+          saved_at?: string | null
+        }
+        Relationships: []
+      }
+      zz_bkp_vitality_lp_20261113: {
+        Row: {
+          id: string | null
+          kind: string | null
+          row_data: Json | null
+          saved_at: string | null
+        }
+        Insert: {
+          id?: string | null
+          kind?: string | null
+          row_data?: Json | null
+          saved_at?: string | null
+        }
+        Update: {
+          id?: string | null
+          kind?: string | null
+          row_data?: Json | null
+          saved_at?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       company_ltv: {
