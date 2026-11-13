@@ -21,6 +21,7 @@ import { useAdminMaintenance, MaintenanceStats } from "@/hooks/useAdminMaintenan
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast as sonnerToast } from "sonner";
 import { AdminParameterPages } from "@/components/AdminParameterPages";
+import { BrandIdentityTab } from "@/components/admin/brand/BrandIdentityTab";
 
 interface Brand {
   id: string;
@@ -647,7 +648,7 @@ export function AdminSettings() {
         </CardHeader>
         <CardContent>
           <Tabs defaultValue="brands">
-            <TabsList className="grid w-full grid-cols-8">
+            <TabsList className="grid w-full grid-cols-9">
               <TabsTrigger value="brands" className="flex items-center gap-2">
                 <Cpu className="w-4 h-4" />
                 Marcas
@@ -675,6 +676,10 @@ export function AdminSettings() {
               <TabsTrigger value="seo" className="flex items-center gap-2">
                 <Search className="w-4 h-4" />
                 SEO
+              </TabsTrigger>
+              <TabsTrigger value="brand-standard" className="flex items-center gap-2">
+                <Star className="w-4 h-4" />
+                Padrão da marca
               </TabsTrigger>
               <TabsTrigger value="data" className="flex items-center gap-2">
                 <Database className="w-4 h-4" />
@@ -1239,6 +1244,10 @@ export function AdminSettings() {
                   </Button>
                 </CardContent>
               </Card>
+            </TabsContent>
+
+            <TabsContent value="brand-standard" className="space-y-4">
+              <BrandIdentityTab />
             </TabsContent>
 
             <TabsContent value="seo" className="space-y-4">
