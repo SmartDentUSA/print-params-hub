@@ -83,7 +83,7 @@ const css = `
 .sdi-logo img{max-height:46px;max-width:72%;object-fit:contain}
 .sdi-logo b{font-size:14px;font-weight:800;letter-spacing:.04em}
 .sdi-logo span{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--mut)}
-.sdi-video{position:relative;max-width:980px;aspect-ratio:16/9;border-radius:24px;overflow:hidden;box-shadow:0 30px 70px -35px rgba(54,62,86,.55);background:#2f3650}
+.sdi-video{position:relative;max-width:980px;aspect-ratio:16/9;border-radius:24px;overflow:hidden;box-shadow:0 30px 70px -35px rgba(54,62,86,.55);background:#363E56}
 .sdi-video iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
 .sdi-video-facade{all:unset;cursor:pointer;position:absolute;inset:0;display:block}
 .sdi-video-facade img{width:100%;height:100%;object-fit:cover;display:block}
