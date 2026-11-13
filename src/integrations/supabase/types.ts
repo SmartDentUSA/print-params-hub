@@ -39163,6 +39163,19 @@ export type Database = {
           uf: string
         }[]
       }
+      fn_professional_course_lead_stats: {
+        Args: { p_professional_ids: string[] }
+        Returns: {
+          course_id: string
+          course_slug: string
+          course_title: string
+          leads: number
+          professional_id: string
+          won_deals: number
+          won_leads: number
+          won_value: number
+        }[]
+      }
       fn_professional_ecom_items: {
         Args: { _lead_id: string }
         Returns: {
