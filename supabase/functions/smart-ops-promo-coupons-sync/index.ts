@@ -157,6 +157,33 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
+    // Vincula cupons criados manualmente na loja: só LÊ a Loja Integrada e grava
+    // o ID encontrado pelo código (sem criar nem alterar nada na loja).
+    if (mode === "link") {
+      const { data: ours, error: oe } = await supabase.from("promotional_coupons")
+        .select("id, code").eq("promotional_table_id", tableId);
+      if (oe) return json({ ok: false, error: oe.message }, 500);
+      const byCode = new Map<string, Record<string, unknown>>();
+      for (let offset = 0; offset < 5000; offset += 100) {
+        const parsed = await liRequest(`/cupom?limit=100&offset=${offset}&format=json`, "GET", null, apiKey, appKey) as
+          { objects?: Array<Record<string, unknown>> };
+        const objs = parsed?.objects || [];
+        for (const o of objs) byCode.set(String(o.codigo ?? "").trim().toUpperCase(), o);
+        if (objs.length < 100) break;
+      }
+      const results: Array<Record<string, unknown>> = [];
+      for (const c of ours ?? []) {
+        const hit = byCode.get(String(c.code).trim().toUpperCase());
+        if (!hit) { results.push({ code: c.code, found: false }); continue; }
+        const liId = String(hit.id ?? "").replace(/\D/g, "");
+        await supabase.from("promotional_coupons").update({
+          li_coupon_id: liId || null, li_synced_at: new Date().toISOString(), li_sync_error: null,
+        }).eq("id", c.id);
+        results.push({ code: c.code, found: true, li_id: liId, ativo: hit.ativo ?? null, validade: hit.validade ?? null });
+      }
+      return json({ ok: true, linked: results.filter((r) => r.found).length, missing: results.filter((r) => !r.found).map((r) => r.code), results });
+    }
+
     const { data: tableRow } = await supabase
       .from("promotional_tables")
       .select("name,coupon_li_category_ids")
