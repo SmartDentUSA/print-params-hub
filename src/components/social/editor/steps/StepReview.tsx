@@ -38,8 +38,14 @@ export function StepReview({ value }: { value: PostInput }) {
           {value.channels.map((c) => {
             const meta = SOCIAL_CHANNELS[c.platform];
             return (
-              <Badge key={c.platform} className={cn('text-white gap-1', meta.colorClass)}>
+              <Badge key={`${c.platform}-${c.format}`} className={cn('text-white gap-1', meta.colorClass)}>
                 {meta.emoji} {meta.label} · {c.format}
+                {c.platform === 'instagram' && /reel/i.test(c.format ?? '') && (
+                  <span className="opacity-90">
+                    {' · '}{c.ig_share_to_feed === false ? 'só aba Reels' : 'na grade'}
+                    {c.ig_reel_cover_url ? ' · com capa' : ''}
+                  </span>
+                )}
               </Badge>
             );
           })}
