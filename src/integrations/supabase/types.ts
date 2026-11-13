@@ -39176,6 +39176,18 @@ export type Database = {
           won_value: number
         }[]
       }
+      fn_professional_course_lead_stats_portal: {
+        Args: { p_from?: string; p_professional_id: string; p_to?: string }
+        Returns: {
+          course_id: string
+          course_slug: string
+          course_title: string
+          leads: number
+          won_deals: number
+          won_leads: number
+          won_value: number
+        }[]
+      }
       fn_professional_ecom_items: {
         Args: { _lead_id: string }
         Returns: {
