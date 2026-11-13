@@ -23,6 +23,7 @@ import KbTabClassificados from '@/components/knowledge/KbTabClassificados';
 import { kbStyles } from '@/components/knowledge/kbStyles';
 import KbShellLayout, { type KbShellNavKey } from '@/components/knowledge/shell/KbShellLayout';
 import { kbShellStyles } from '@/components/knowledge/shell/kbShellStyles';
+import { kbGlassStyles } from '@/components/knowledge/shell/kbGlassStyles';
 import KbTabOverview from '@/components/knowledge/KbTabOverview';
 import heroPrinterImg from '@/assets/kb-hero-printer.jpg';
 import { CATALOG_SIDEBAR_FILTERS, rowMatchesCatalogFilter } from '@/components/knowledge/catalogSidebarFilters';
