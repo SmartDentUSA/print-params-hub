@@ -2,7 +2,7 @@ import { institutionalCopy as C } from '@/content/institutional';
 import { isInstitutionalHost } from '@/utils/institutionalHost';
 import { useState } from 'react';
 import { Helmet } from 'react-helmet-async';
-import { ArrowRight, MessageCircle, ShieldCheck, GraduationCap, Printer, ScanLine, Layers, Sparkles, Beaker, ChevronDown, MapPin, Building2, FlaskConical, Award, Globe2 } from 'lucide-react';
+import { ArrowRight, MessageCircle, ShieldCheck, GraduationCap, Printer, ScanLine, Layers, Sparkles, Beaker, ChevronDown, MapPin, Building2, FlaskConical, Award, Globe2, ShoppingCart } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import heroImg from '@/assets/institucional-hero-produtos.jpg';
 import logoFda from '@/assets/logo-fda.png';
@@ -27,6 +27,7 @@ const IMG = 'https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/l
 const WA_SALES = 'https://api.whatsapp.com/send?phone=5516993831794&text=';
 const WA_SUPPORT = 'https://api.whatsapp.com/send/?phone=551634194735&text=';
 
+const TALK_URL = 'https://s.smartdent.com.br/7nr3gv';
 const PATHS: Record<Lang, { kb: string; home: string }> = {
   pt: { kb: '/base-conhecimento', home: SITE === 'https://www.smartdent.com.br' ? '/' : '/institucional' },
   en: { kb: '/en/knowledge-base', home: '/en/institutional' },
@@ -101,8 +102,12 @@ const css = `
 .sdi-card-b{padding:22px 24px 24px;display:flex;flex-direction:column;gap:8px;flex:1}
 .sdi-card-ic{width:36px;height:36px;border-radius:11px;display:grid;place-items:center;background:#fff;color:var(--or);box-shadow:0 6px 16px -8px rgba(47,54,80,.4)}
 .sdi-card h3{font-size:18px;font-weight:700;margin:6px 0 0;letter-spacing:-.01em}.sdi-card p{margin:0;color:var(--mut);font-size:14px;line-height:1.55;flex:1}
-.sdi-card-a{display:flex;gap:16px;margin-top:12px;font-size:13.5px;font-weight:700}
-.sdi-card-a a{display:inline-flex;align-items:center;gap:6px;color:var(--or)}.sdi-card-a a+a{color:var(--txt)}
+.sdi-card-a{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px;font-size:13px;font-weight:700}
+.sdi-card-a a.b{display:inline-flex;align-items:center;gap:6px;height:38px;padding:0 14px;border-radius:11px;background:#fff;color:var(--ink);box-shadow:0 8px 20px -14px rgba(47,54,80,.5);transition:transform .2s}
+.sdi-card-a a.b:hover{transform:translateY(-2px)}.sdi-card-a a.or{background:var(--or);color:#fff}.sdi-card-a a.wa{background:#25d366;color:#fff}
+.sdi-card.main{grid-column:1/-1;display:grid;grid-template-columns:1.25fr 1fr;align-items:stretch}
+.sdi-card.main .sdi-card-img{height:auto;min-height:320px}.sdi-card.main .sdi-card-b{padding:44px 44px;justify-content:center}
+.sdi-card.main h3{font-size:clamp(22px,2.2vw,32px);letter-spacing:-.02em}.sdi-card.main p{flex:0;font-size:16px}
 .sdi-steps{display:grid;grid-template-columns:repeat(4,1fr);gap:0;counter-reset:s;border-radius:22px;background:rgba(255,255,255,.55);border:1px solid #fff;backdrop-filter:blur(14px)}
 .sdi-step{padding:30px 26px;border-left:1px solid var(--line);position:relative}.sdi-step:first-child{border:0}
 .sdi-step:before{counter-increment:s;content:"0" counter(s);font-size:13px;font-weight:800;letter-spacing:.2em;color:var(--or);display:block;margin-bottom:14px}
@@ -132,7 +137,7 @@ const css = `
 .sdi-rv{animation:sdiUp .8s cubic-bezier(.2,.7,.2,1) both}.sdi-rv.d1{animation-delay:.1s}.sdi-rv.d2{animation-delay:.2s}.sdi-rv.d3{animation-delay:.3s}
 @keyframes sdiUp{from{opacity:0;transform:translateY(18px)}}
 @media(prefers-reduced-motion:reduce){.sdi *{animation:none!important;transition:none!important}}
-@media(max-width:960px){.sdi-hero .sdi-wrap>*{max-width:100%!important}.sdi-cards{grid-template-columns:repeat(2,1fr)}.sdi-steps{grid-template-columns:repeat(2,1fr)}.sdi-step:nth-child(3){border-left:0}.sdi-bento{grid-template-columns:1fr}.sdi-hero-bg:after{background:rgba(22,35,52,.74)}.sdi-logos{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:960px){.sdi-card.main{grid-template-columns:1fr}.sdi-card.main .sdi-card-img{min-height:220px}.sdi-card.main .sdi-card-b{padding:24px}.sdi-hero .sdi-wrap>*{max-width:100%!important}.sdi-cards{grid-template-columns:repeat(2,1fr)}.sdi-steps{grid-template-columns:repeat(2,1fr)}.sdi-step:nth-child(3){border-left:0}.sdi-bento{grid-template-columns:1fr}.sdi-hero-bg:after{background:rgba(22,35,52,.74)}.sdi-logos{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:600px){.sdi-cards,.sdi-steps{grid-template-columns:1fr}.sdi-step{border-left:0!important}.sdi-hero{min-height:560px;padding-top:64px}.sdi-panel,.sdi-band{padding:26px}.sdi-logos{gap:10px}.sdi-logo{padding:16px 12px 14px}.sdi-logo img{max-height:36px}}
 `;
 
@@ -142,7 +147,7 @@ export default function KbTabInstitucional() {
   const c = C[lang];
   const [open, setOpen] = useState<number | null>(0);
   const p = PATHS[lang];
-  const wa = WA_SALES + encodeURIComponent(c.waSales);
+  const wa = TALK_URL;
   const url = SITE + p.home;
 
   const jsonLd = {
@@ -167,6 +172,10 @@ export default function KbTabInstitucional() {
       {
         '@type': 'ItemList', name: c.solTitle,
         itemListElement: c.sol.map((s, i) => ({ '@type': 'ListItem', position: i + 1, name: s[0], url: `${SITE}${p.kb}?tab=catalogo&cat=${SOL_CATS[i]}` })),
+      },
+      {
+        '@type': 'FAQPage', '@id': `${url}#faq`,
+        mainEntity: c.faq.map(([q, a]) => ({ '@type': 'Question', name: q, acceptedAnswer: { '@type': 'Answer', text: a } })),
       },
       {
         '@type': 'VideoObject', '@id': `${url}#video`, name: VIDEO_TITLE, description: c.videoSub,
@@ -236,18 +245,20 @@ export default function KbTabInstitucional() {
           <h2 id="sdi-sol" className="sdi-h2">{c.solTitle}</h2>
           <p className="sdi-sub">{c.solSub}</p>
           <div className="sdi-cards">
-            {c.sol.map(([t, d, , form], i) => {
+            {c.sol.map(([t, d, store], i) => {
               const Ic = SOL_ICONS[i];
+              const main = i === 0;
               return (
-                <div className="sdi-card" key={t}>
-                  <div className="sdi-card-img" style={{ backgroundImage: `url(${SOL_IMGS[i]}), radial-gradient(60% 60% at 50% 70%, #ffffff 0%, #e9eef5 70%)`, backgroundSize: i === 0 ? '96% auto, cover' : i === 3 ? '60% auto, cover' : 'auto 78%, cover', backgroundBlendMode: 'multiply, normal' }} role="img" aria-label={t} />
+                <div className={`sdi-card${main ? ' main' : ''}`} key={t}>
+                  {main && <div className="sdi-card-img" style={{ backgroundImage: `url(${SOL_IMGS[0]}), radial-gradient(60% 60% at 50% 70%, #ffffff 0%, #e9eef5 70%)`, backgroundSize: '94% auto, cover', backgroundBlendMode: 'multiply, normal' }} role="img" aria-label={t} />}
                   <div className="sdi-card-b">
                     <div className="sdi-card-ic"><Ic size={18} /></div>
                     <h3>{t}</h3>
                     <p>{d}</p>
                     <div className="sdi-card-a">
-                      <a href={`${p.kb}?tab=catalogo&cat=${SOL_CATS[i]}`}>{c.shop}<ArrowRight size={14} /></a>
-                      <a href={`/f/${form}`}>{c.quote}</a>
+                      <a className="b or" href={`${p.kb}?tab=catalogo&cat=${SOL_CATS[i]}`}>{c.shop}<ArrowRight size={14} /></a>
+                      <a className="b" href={`${STORE}/${store}`} target="_blank" rel="noopener"><ShoppingCart size={14} />{c.buy}</a>
+                      <a className="b wa" href={TALK_URL} target="_blank" rel="noopener"><MessageCircle size={14} />{c.talkUs}</a>
                     </div>
                   </div>
                 </div>
@@ -264,20 +275,22 @@ export default function KbTabInstitucional() {
               <h3>{c.storyTitle}</h3>
               <p>{c.story}</p>
               <div className="sdi-badges"><span>EESC-USP</span><span>FAPESP</span><span>CAPES</span><span>CNPq</span><span>ChairSide Print</span></div>
+              <div className="sdi-panel-a"><a className="or" href="https://www.smartdent.com.br/r/rsdwru" target="_blank" rel="noopener"><ShieldCheck size={14} />{c.certCta}<ArrowRight size={14} /></a></div>
             </div>
             <div className="sdi-panel">
               <MapPin />
               <h3>{c.usTitle}</h3>
               <p>{c.us}</p>
               <div className="sdi-badges"><span><ShieldCheck size={12} style={{ verticalAlign: -2 }} /> FDA 3027526455</span><span><Award size={12} style={{ verticalAlign: -2 }} /> UNC Charlotte</span><span>ISO 10993</span><span>ANVISA</span></div>
+              <div className="sdi-panel-a"><a href={`${p.kb}?tab=artigos&cat=fc493982-ad8c-417f-9579-82786a97925a`}>{c.usCta}<ArrowRight size={14} /></a></div>
             </div>
             <div className="sdi-panel">
               <Globe2 />
               <h3>{c.distTitle}</h3>
               <p>{c.dist}</p>
               <div className="sdi-panel-a">
-                <a href="/distribuidores">{c.distCta1}<ArrowRight size={14} /></a>
-                <a className="or" href="/cadastro-distribuidor">{c.distCta2}<ArrowRight size={14} /></a>
+                <a href="https://www.smartdent.com.br/r/rk82ex" target="_blank" rel="noopener">{c.distCta1}<ArrowRight size={14} /></a>
+                <a className="or" href="https://s.smartdent.com.br/wi7ygf" target="_blank" rel="noopener">{c.distCta2}<ArrowRight size={14} /></a>
               </div>
             </div>
           </div>
