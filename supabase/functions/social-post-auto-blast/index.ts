@@ -6,7 +6,7 @@ import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { postTargetStatus } from '../_shared/post-group-eligibility.ts';
 import { generatePostSummary, pickPostMedia } from '../_shared/post-summary.ts';
-import { isTestimonialCaption, testimonialKeys } from '../_shared/testimonial-post-filter.ts';
+import { splitGroupBlastExclusions } from '../_shared/testimonial-post-filter.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -92,14 +92,9 @@ serve(async (req) => {
       console.error('[social-post-auto-blast] fetch exclusions', fErr);
       return Response.json({ ok: false, error: fErr.message }, { status: 500, headers: corsHeaders });
     }
-    const tKeys = testimonialKeys((tRes.data ?? []) as any[]);
-    const oKeys = testimonialKeys((oRes.data ?? []) as any[]);
-    const testimonialIds: string[] = [];
-    const optOutIds: string[] = [];
-    for (const p of posts) {
-      if (isTestimonialCaption(p.caption, tKeys)) testimonialIds.push(p.id);
-      else if (isTestimonialCaption(p.caption, oKeys)) optOutIds.push(p.id);
-    }
+    const { testimonialIds, optOutIds } = splitGroupBlastExclusions(
+      posts, (tRes.data ?? []) as any[], (oRes.data ?? []) as any[],
+    );
     const skipIds = [...testimonialIds, ...optOutIds];
     if (skipIds.length > 0) {
       await sb.from('social_posts').update({ auto_blast_at: new Date().toISOString() }).in('id', skipIds);
