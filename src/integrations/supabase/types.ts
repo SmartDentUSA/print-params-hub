@@ -1667,6 +1667,54 @@ export type Database = {
         }
         Relationships: []
       }
+      brand_identity_settings: {
+        Row: {
+          brand_name: string
+          fonts: Json
+          id: string
+          image_avoid: string
+          image_style: string
+          logos: Json
+          palette: Json
+          reference_images: Json
+          source_files: Json
+          taglines: Json
+          updated_at: string
+          updated_by: string | null
+          voice: string
+        }
+        Insert: {
+          brand_name?: string
+          fonts?: Json
+          id?: string
+          image_avoid?: string
+          image_style?: string
+          logos?: Json
+          palette?: Json
+          reference_images?: Json
+          source_files?: Json
+          taglines?: Json
+          updated_at?: string
+          updated_by?: string | null
+          voice?: string
+        }
+        Update: {
+          brand_name?: string
+          fonts?: Json
+          id?: string
+          image_avoid?: string
+          image_style?: string
+          logos?: Json
+          palette?: Json
+          reference_images?: Json
+          source_files?: Json
+          taglines?: Json
+          updated_at?: string
+          updated_by?: string | null
+          voice?: string
+        }
+        Relationships: []
+      }
       brands: {
         Row: {
           active: boolean
