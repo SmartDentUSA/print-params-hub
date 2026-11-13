@@ -106,3 +106,4 @@
 - [ ] Cupons BlackFriday 16 a 20 na Loja Integrada: 12 não criados (chave de aplicação somente leitura) — aguarda chave com permissão de escrita.
 
 - [x] Tabelas promocionais: base de % = Preço tabela (Unit) da Smart Dent (Loja Oficial); BlackFriday 16–20 = 25%, 21–25 = 15%, 26–30 = 10% recalculadas (versão anterior no histórico). Falta republicar os PDFs pelo botão Salvar tabela.
+- [ ] `smart-ops-promo-coupons-sync` aceita chamadas sem login (modos que gravam na Loja Integrada) — aguardando autorização para proteger.
