@@ -409,7 +409,9 @@ export function SmartOpsEvents() {
                       </div>
 
                       <div>
-                        <div className="text-[11px] uppercase text-muted-foreground mb-1">Leads por vendedor no estande</div>
+                        <div className="text-[11px] uppercase text-muted-foreground mb-1">
+                          {r.event_type === "campanha_promocional" ? "Leads por vendedor no CRM" : "Leads por vendedor no estande"}
+                        </div>
                         {sellers.length === 0 ? (
                           <p className="text-xs text-muted-foreground">Nenhum lead registrado.</p>
                         ) : (
