@@ -245,7 +245,7 @@ export default function KbTabInstitucional() {
           <h2 id="sdi-sol" className="sdi-h2">{c.solTitle}</h2>
           <p className="sdi-sub">{c.solSub}</p>
           <div className="sdi-cards">
-            {c.sol.map(([t, d, store], i) => {
+            {c.sol.map(([t, d, store]: readonly string[], i: number) => {
               const Ic = SOL_ICONS[i];
               const main = i === 0;
               return (
