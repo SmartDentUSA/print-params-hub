@@ -70,3 +70,35 @@ export function splitGroupBlastExclusions(
   }
   return { testimonialIds, optOutIds };
 }
+
+/**
+ * Link escolhido no agendamento ("Link para os grupos") para o post sincronizado.
+ * A ligação também é pela legenda; o agendamento mais recente vence.
+ */
+export function findGroupLink(
+  caption: unknown,
+  scheduledRows: Array<{ caption?: unknown; channels?: unknown; group_link_url?: unknown; created_at?: unknown }>,
+): string | null {
+  const sorted = [...(scheduledRows ?? [])].sort((a, b) =>
+    String(b?.created_at ?? '').localeCompare(String(a?.created_at ?? '')));
+  for (const r of sorted) {
+    const link = String(r?.group_link_url ?? '').trim();
+    if (!/^https?:\/\/\S+$/i.test(link)) continue;
+    if (isTestimonialCaption(caption, testimonialKeys([r]))) return link;
+  }
+  return null;
+}
+
+/**
+ * Texto que vai abaixo da imagem nos grupos: resumo, link escolhido em destaque
+ * e, quando houver, o link da publicação (para quem quer comentar no post).
+ */
+export function buildGroupBlastText(summary: string, postLink: string | null | undefined, groupLink?: string | null): string {
+  const s = String(summary ?? '').trim();
+  const post = String(postLink ?? '').trim();
+  const group = String(groupLink ?? '').trim();
+  if (!group) return [s, post].filter(Boolean).join('\n\n');
+  const parts = [s, `👉 ${group}`];
+  if (post && post !== group) parts.push(`📲 Ver a publicação: ${post}`);
+  return parts.filter(Boolean).join('\n\n');
+}

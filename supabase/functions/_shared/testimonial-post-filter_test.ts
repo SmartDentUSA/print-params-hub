@@ -28,3 +28,35 @@ Deno.test('legenda curta demais nunca é tratada como depoimento', () => {
   const keys = testimonialKeys(scheduled);
   assertFalse(isTestimonialCaption('🦷 Tecnologia boa', keys));
 });
+
+import { assertEquals } from 'https://deno.land/std@0.168.0/testing/asserts.ts';
+import { buildGroupBlastText, findGroupLink } from './testimonial-post-filter.ts';
+
+const bfRows = [{
+  caption: 'BLACK FRIDAY SMART DENT: comente BLACK26 aqui nos comentários ou clique no link abaixo e garanta o desconto.',
+  channels: [],
+  group_link_url: 'https://s.smartdent.com.br/7nr3gv',
+  created_at: '2026-11-14T10:00:00Z',
+}];
+
+Deno.test('post do Instagram recebe o link escolhido no agendamento', () => {
+  assertEquals(
+    findGroupLink('BLACK FRIDAY SMART DENT: comente BLACK26 aqui nos comentários ou clique no link abaixo e garanta o desconto. #blackfriday', bfRows),
+    'https://s.smartdent.com.br/7nr3gv',
+  );
+});
+
+Deno.test('post de outra legenda não recebe o link', () => {
+  assertEquals(findGroupLink('Resina Vitality agora com novas cores para restaurações estéticas do dia a dia.', bfRows), null);
+});
+
+Deno.test('mensagem dos grupos: link escolhido logo abaixo do resumo e link do post por último', () => {
+  assertEquals(
+    buildGroupBlastText('Black Friday Smart Dent!', 'https://instagram.com/p/abc', 'https://s.smartdent.com.br/7nr3gv'),
+    'Black Friday Smart Dent!\n\n👉 https://s.smartdent.com.br/7nr3gv\n\n📲 Ver a publicação: https://instagram.com/p/abc',
+  );
+});
+
+Deno.test('sem link escolhido a mensagem continua como antes', () => {
+  assertEquals(buildGroupBlastText('Resumo', 'https://instagram.com/p/abc', null), 'Resumo\n\nhttps://instagram.com/p/abc');
+});
