@@ -14,8 +14,6 @@ export type EvolutionInbound = {
   timestampMs: number | null;
 };
 
-const PHONE_SUFFIX = /@(s\.whatsapp\.net|c\.us)$/i;
-
 function digits(v: unknown): string {
   return String(v ?? "").replace(/@.*$/, "").replace(/\D/g, "");
 }
@@ -80,7 +78,7 @@ export function parseEvolutionInbound(body: any): EvolutionInbound[] {
     const isLid = remoteJid.endsWith("@lid");
     const phoneDigits = isLid
       ? asPhone(key.senderPn) ?? asPhone(key.remoteJidAlt) ?? asPhone(m?.senderPn) ?? asPhone(m?.remoteJidAlt) ??
-        asPhone(key.participantPn) ?? asPhone(body?.sender && PHONE_SUFFIX.test(String(body.sender)) ? null : null)
+        asPhone(key.participantPn)
       : asPhone(remoteJid);
 
     const ts = Number(m?.messageTimestamp ?? 0);
