@@ -14,6 +14,7 @@ import { useProductKnowledgeCopies, type ReadyCopy } from '@/hooks/social/usePro
 import { SearchableProductSelect } from '@/components/SearchableProductSelect';
 import { SystemACarouselPicker } from '@/components/social/editor/SystemACarouselPicker';
 import { EventArtPicker } from '@/components/social/editor/EventArtPicker';
+import { GroupLinkField } from '@/components/social/editor/GroupLinkField';
 import { VideoCopyStudio, type VideoCopyEventAgenda } from '@/components/social/editor/VideoCopyStudio';
 import type { SystemACarousel } from '@/hooks/social/useSystemACarousels';
 import { supabase } from '@/integrations/supabase/client';
@@ -1617,6 +1618,8 @@ ${m.location ? `📍 Local: ${m.location}` : '📍 Local: (omitir se não houver
           onChange={(e) => onChange({ caption: e.target.value })}
         />
       </div>
+
+      <GroupLinkField value={value} onChange={onChange} inputId="group-link-url-content" />
 
       <VideoCopyStudio
         instructions={[buildContextBrief(), aiInstructions].filter(Boolean).join('\n\n') || undefined}

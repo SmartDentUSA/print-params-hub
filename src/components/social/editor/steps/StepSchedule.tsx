@@ -4,8 +4,8 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Sparkles, Loader2, Users, Link2, X } from 'lucide-react';
-import { CampaignLinkPicker } from '@/components/smartops/CampaignLinkPicker';
+import { Sparkles, Loader2, Users } from 'lucide-react';
+import { GroupLinkField } from '@/components/social/editor/GroupLinkField';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import type { PostInput } from '@/lib/social/postSchema';
@@ -103,39 +103,7 @@ export function StepSchedule({ value, onChange }: Props) {
       </div>
 
       {value.group_blast_enabled !== false && (
-        <div className="border rounded-md p-3 space-y-2">
-          <div className="flex items-start gap-2">
-            <Link2 className="w-4 h-4 mt-0.5 text-muted-foreground" />
-            <div className="flex-1">
-              <Label htmlFor="group-link-url" className="font-medium text-sm">Link abaixo da imagem nos grupos (opcional)</Label>
-              <div className="text-xs text-muted-foreground">
-                Escolha um link encurtado do sistema. No WhatsApp ele aparece logo abaixo da imagem, para quem não quer comentar no post clicar direto.
-              </div>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <Input
-              id="group-link-url"
-              placeholder="https://s.smartdent.com.br/..."
-              value={value.group_link_url ?? ''}
-              onChange={(e) => onChange({ group_link_url: e.target.value })}
-            />
-            <CampaignLinkPicker channel="whatsapp_groups" onInsert={(link) => onChange({ group_link_url: link.trim() })} />
-            {value.group_link_url ? (
-              <Button type="button" variant="ghost" size="icon" aria-label="Remover link" onClick={() => onChange({ group_link_url: '' })}>
-                <X className="w-4 h-4" />
-              </Button>
-            ) : null}
-          </div>
-          {value.group_link_url && !/^https?:\/\/\S+$/i.test(value.group_link_url.trim()) && (
-            <p className="text-xs text-destructive">Use um link começando com http:// ou https://</p>
-          )}
-          {value.group_link_url && /^https?:\/\/\S+$/i.test(value.group_link_url.trim()) && (
-            <div className="rounded-md bg-muted/50 p-2 text-xs text-muted-foreground whitespace-pre-line">
-              {`Como fica no grupo:\n[imagem]\nResumo da legenda…\n\n👉 ${value.group_link_url.trim()}\n\n📲 Ver a publicação: (link do post)`}
-            </div>
-          )}
-        </div>
+        <GroupLinkField value={value} onChange={onChange} inputId="group-link-url-schedule" />
       )}
 
       {!value.publish_now && (
