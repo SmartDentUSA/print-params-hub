@@ -33473,6 +33473,27 @@ export type Database = {
         }
         Relationships: []
       }
+      zz_bkp_chairside_20261113: {
+        Row: {
+          kind: string | null
+          ref_id: string | null
+          row_data: Json | null
+          saved_at: string | null
+        }
+        Insert: {
+          kind?: string | null
+          ref_id?: string | null
+          row_data?: Json | null
+          saved_at?: string | null
+        }
+        Update: {
+          kind?: string | null
+          ref_id?: string | null
+          row_data?: Json | null
+          saved_at?: string | null
+        }
+        Relationships: []
+      }
       zz_bkp_knowledge_faqs_20261113: {
         Row: {
           backed_up_at: string | null
