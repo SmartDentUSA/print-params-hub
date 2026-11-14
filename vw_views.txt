@@ -1,0 +1,5 @@
+vw_leads_orfaos_recentes
+vw_leads_qualidade_ruim
+vw_lia_attendances_enriched
+vw_omie_vendas_mes
+vw_produtos_faturados
