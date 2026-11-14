@@ -303,6 +303,21 @@ export function CampaignLinkPicker({ channel, onInsert, sections }: Props) {
 
   const disparoLinks = links.filter((l) => l.source === "disparopro");
   const manualLinks = links.filter((l) => l.source === "manual");
+  const formSectionLinks = formLinks.filter((l) => l.default_target === "form");
+  const landingSectionLinks = formLinks.filter((l) => l.default_target === "landing_page");
+  const simulatorSectionLinks = simulatorOnly(formLinks);
+
+  const visibleLinkCount =
+    (has("disparopro") ? disparoLinks.length : 0) +
+    (has("manual") ? manualLinks.length : 0) +
+    (has("forms") ? formSectionLinks.length : 0) +
+    (has("landing") ? landingSectionLinks.length : 0) +
+    (has("simulator") ? simulatorSectionLinks.length : 0) +
+    (has("groups") ? groupLinks.length : 0) +
+    (has("chat") ? chatLinks.length : 0) +
+    (has("courses") ? courseLinks.length : 0);
+
+  const fetching = (need.disparo && loading) || (need.shortLinks && formLinksLoading);
 
   return (
     <>
@@ -314,34 +329,36 @@ export function CampaignLinkPicker({ channel, onInsert, sections }: Props) {
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-[420px] p-0" align="end">
-          <div className="flex items-center justify-between gap-2 px-3 py-2 border-b">
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={handleSync}
-              disabled={syncing}
-              type="button"
-            >
-              {syncing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
-              Sincronizar DisparoPro
-            </Button>
-            <Button size="sm" variant="outline" onClick={() => openEditor(null)} type="button">
-              <Plus className="w-3.5 h-3.5" /> Novo
-            </Button>
-          </div>
+          {need.disparo && (
+            <div className="flex items-center justify-between gap-2 px-3 py-2 border-b">
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={handleSync}
+                disabled={syncing}
+                type="button"
+              >
+                {syncing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
+                Sincronizar DisparoPro
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => openEditor(null)} type="button">
+                <Plus className="w-3.5 h-3.5" /> Novo
+              </Button>
+            </div>
+          )}
 
           <div className="max-h-[420px] overflow-y-auto">
-            {loading && formLinksLoading && links.length === 0 && formLinks.length === 0 ? (
+            {fetching && visibleLinkCount === 0 ? (
               <div className="p-6 text-center text-sm text-muted-foreground flex items-center justify-center gap-2">
                 <Loader2 className="w-4 h-4 animate-spin" /> Carregando...
               </div>
-            ) : links.length === 0 && formLinks.length === 0 && chatLinks.length === 0 && courseLinks.length === 0 && groupLinks.length === 0 ? (
+            ) : visibleLinkCount === 0 ? (
               <div className="p-6 text-center text-sm text-muted-foreground">
                 Nenhum link para este canal.
               </div>
             ) : (
               <>
-                {disparoLinks.length > 0 && (
+                {has("disparopro") && disparoLinks.length > 0 && (
                   <LinkSection
                     label="DisparoPro"
                     badgeVariant="default"
@@ -351,7 +368,7 @@ export function CampaignLinkPicker({ channel, onInsert, sections }: Props) {
                     onDelete={handleDelete}
                   />
                 )}
-                {manualLinks.length > 0 && (
+                {has("manual") && manualLinks.length > 0 && (
                   <LinkSection
                     label="Manual"
                     badgeVariant="secondary"
@@ -361,14 +378,31 @@ export function CampaignLinkPicker({ channel, onInsert, sections }: Props) {
                     onDelete={handleDelete}
                   />
                 )}
-                {formLinks.length > 0 && (
-                  <FormLinkSection
-                    label="Formulários, Landing Pages e Simulador WhatsApp"
-                    links={formLinks}
+                {has("forms") && formSectionLinks.length > 0 && (
+                  <ShortLinkSection
+                    label="Formulários"
+                    icon={<FileText className="w-3 h-3" />}
+                    links={formSectionLinks}
                     onInsert={handleInsertFormLink}
                   />
                 )}
-                {groupLinks.length > 0 && (
+                {has("landing") && landingSectionLinks.length > 0 && (
+                  <ShortLinkSection
+                    label="Landing Pages"
+                    icon={<Layout className="w-3 h-3" />}
+                    links={landingSectionLinks}
+                    onInsert={handleInsertFormLink}
+                  />
+                )}
+                {has("simulator") && simulatorSectionLinks.length > 0 && (
+                  <ShortLinkSection
+                    label="Simulador WhatsApp"
+                    icon={<MessageCircle className="w-3 h-3" />}
+                    links={simulatorSectionLinks}
+                    onInsert={handleInsertFormLink}
+                  />
+                )}
+                {has("groups") && groupLinks.length > 0 && (
                   <GroupLinkSection
                     links={groupLinks}
                     onInsert={(url) => {
@@ -377,7 +411,7 @@ export function CampaignLinkPicker({ channel, onInsert, sections }: Props) {
                     }}
                   />
                 )}
-                {chatLinks.length > 0 && (
+                {has("chat") && chatLinks.length > 0 && (
                   <DynamicLinkSection
                     label="Chat da Dra. LIA (formulários)"
                     icon={<MessageCircle className="w-3 h-3" />}
@@ -387,7 +421,7 @@ export function CampaignLinkPicker({ channel, onInsert, sections }: Props) {
                     onInsert={handleInsertDynamic}
                   />
                 )}
-                {courseLinks.length > 0 && (
+                {has("courses") && courseLinks.length > 0 && (
                   <DynamicLinkSection
                     label="Páginas de informações de cursos"
                     icon={<GraduationCap className="w-3 h-3" />}
