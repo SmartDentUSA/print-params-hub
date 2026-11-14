@@ -1,0 +1,1 @@
+- `catalog-images-localize` (admin session or one-time `cron_state` run token, `?dry=1` to preview) copies resin images still hosted on System A storage or the Loja Integrada CDN into our `catalog-images`/`model-images` buckets and repoints only rows still on the old URL; re-run it after a System A import, since that import writes System A image URLs back.

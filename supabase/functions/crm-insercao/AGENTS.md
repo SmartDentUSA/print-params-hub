@@ -1,0 +1,1 @@
+- Agenda "Tabela vigente" is chosen server-side in `crm-insercao` (`price-table.ts`): active tables flagged `commercial_active` with full dates, valid 00:00 start to 23:59 end in São Paulo, latest start wins overlaps; the PDF snapshot reuses `kol_pdf_url`, published on save, so phone-logged team members never read promotional tables or run the PDF builder against RLS.
