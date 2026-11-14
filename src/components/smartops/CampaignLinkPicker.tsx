@@ -195,7 +195,10 @@ async function fetchLinks(channel: Channel): Promise<CampaignLink[]> {
   return items as CampaignLink[];
 }
 
-export function CampaignLinkPicker({ channel, onInsert }: Props) {
+export function CampaignLinkPicker({ channel, onInsert, sections }: Props) {
+  const activeSections = sections ?? ALL_LINK_SECTIONS;
+  const has = (s: LinkSectionKey) => activeSections.includes(s);
+  const need = sectionsToFetch(activeSections);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [formLinksLoading, setFormLinksLoading] = useState(false);
@@ -232,13 +235,12 @@ export function CampaignLinkPicker({ channel, onInsert }: Props) {
   };
 
   useEffect(() => {
-    if (open) {
-      load();
-      loadFormLinks();
-      fetchChatLinks().then(setChatLinks).catch(() => setChatLinks([]));
-      fetchCourseLinks().then(setCourseLinks).catch(() => setCourseLinks([]));
-      fetchGroupLinks().then(setGroupLinks).catch(() => setGroupLinks([]));
-    }
+    if (!open) return;
+    if (need.disparo) load();
+    if (need.shortLinks) loadFormLinks();
+    if (need.chat) fetchChatLinks().then(setChatLinks).catch(() => setChatLinks([]));
+    if (need.courses) fetchCourseLinks().then(setCourseLinks).catch(() => setCourseLinks([]));
+    if (need.groups) fetchGroupLinks().then(setGroupLinks).catch(() => setGroupLinks([]));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, channel]);
 
