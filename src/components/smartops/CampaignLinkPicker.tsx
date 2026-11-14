@@ -17,6 +17,12 @@ import {
 import { shortenUrl } from "@/utils/shortLink";
 import { buildLiaUrl } from "@/lib/attendanceChannel";
 import { isWhatsAppGroupLink } from "@/lib/commercialCampaignForm";
+import {
+  ALL_LINK_SECTIONS,
+  simulatorOnly,
+  sectionsToFetch,
+  type LinkSectionKey,
+} from "@/lib/social/groupLinkSections";
 import { MessageCircle, Users, GraduationCap, Link2, RefreshCw, Plus, CornerDownLeft, Pencil, Trash2, Loader2, FileText, Layout } from "lucide-react";
 
 type Channel = "sms" | "whatsapp" | "whatsapp_groups";
@@ -33,6 +39,8 @@ interface CampaignLink {
 interface Props {
   channel: Channel;
   onInsert: (text: string) => void;
+  /** Lists to show. Defaults to every list. */
+  sections?: LinkSectionKey[];
 }
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
