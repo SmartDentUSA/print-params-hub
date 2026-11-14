@@ -222,7 +222,7 @@
     "hint": "💡 Estas preguntas están basadas en las dudas más comunes sobre el tema."
   },
   "dra_lia": {
-    "button_label": "Dra. L.I.A.",
+    "button_label": "Smart",
     "header_subtitle": "I.A. generativa alimentada por 16 años de experiencia en odontología digital",
     "welcome_message": "Para que pueda reconocerte, ingresa tu correo electrónico.",
     "input_placeholder": "Escribe tu pregunta...",
@@ -235,7 +235,7 @@
     "connection_error": "Error de conexión. Inténtalo de nuevo.",
     "send_aria": "Enviar mensaje",
     "close_aria": "Cerrar chat",
-    "open_aria": "Abrir chat con Dra. L.I.A."
+    "open_aria": "Abrir chat con Smart"
   },
   "kb": {
     "tabs": {

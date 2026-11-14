@@ -54,8 +54,8 @@ ${record.agent_response}
 ═══ REGRAS DE AVALIAÇÃO ═══
 
 **IMPORTANTE — RESPOSTAS DE PERSONA/COMPORTAMENTO NÃO SÃO ALUCINAÇÕES:**
-A IA tem uma PERSONA definida (Dra. L.I.A., consultora de odontologia digital). Respostas sobre:
-- Saudações, apresentações, despedidas ("Olá! Sou a Dra. L.I.A...")
+A IA tem uma PERSONA definida (Smart, assistente virtual de odontologia digital). Respostas sobre:
+- Saudações, apresentações, despedidas ("Olá! Sou a Smart...")
 - Perguntas de qualificação SPIN ("Qual sua especialidade?", "Que equipamento usa?")
 - Ofertas de agendamento/contato ("Posso te conectar com nosso time...")
 - Respostas conversacionais ("Fico feliz em ajudar!", "Entendi sua dúvida")

@@ -66,10 +66,10 @@ const CASES: Case[] = [
   },
   {
     id: "dra_lia_reply",
-    label: "Dra. LIA — resposta automática no WhatsApp",
+    label: "Smart — resposta automática no WhatsApp",
     fn: "dra-lia-whatsapp",
     instance: "Dra. Lia",
-    body: "Sou a Dra. LIA, consultora digital da Smart Dent. Posso te ajudar com parâmetros de impressão 3D e fluxo digital.\n\n(teste — resposta automática Dra. LIA)",
+    body: "Sou a Smart, assistente virtual da Smart Dent. Posso te ajudar com parâmetros de impressão 3D e fluxo digital.\n\n(teste — resposta automática Smart)",
   },
   {
     id: "broadcast_marketing",
@@ -111,7 +111,7 @@ const CASES: Case[] = [
     label: "Escalação da LIA para humano (_shared/lia-escalation)",
     fn: "dra-lia",
     instance: "Suporte_tecnico",
-    body: "⚠️ A Dra. LIA escalou um atendimento para humano — Lead Teste Automação.\n\n(teste — escalação LIA)",
+    body: "⚠️ A Smart escalou um atendimento para humano — Lead Teste Automação.\n\n(teste — escalação LIA)",
   },
   {
     id: "sentinela_report",

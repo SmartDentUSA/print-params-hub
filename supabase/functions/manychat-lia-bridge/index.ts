@@ -681,7 +681,7 @@ Deno.serve(async (req) => {
       }, { onConflict: "session_id" });
       await logHealth(supabase, "info", "manychat_ask_name", { subscriberId });
       return jsonResponse(textReply(
-        "Olá! 👋 Sou a Dra. LIA da Smart Dent.\nPara te atender melhor, qual é o seu **nome completo**?",
+        "Olá! 👋 Sou a Smart da Smart Dent.\nPara te atender melhor, qual é o seu **nome completo**?",
         { state: "ask_name" },
       ), 200);
     }

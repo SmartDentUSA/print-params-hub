@@ -50,7 +50,7 @@ const OUTREACH_RULES: OutreachRule[] = [
       return hasProposal && daysSinceUpdate > 7;
     },
     messageBuilder: (lead) =>
-      `Olá ${lead.nome?.split(" ")[0] || ""}! 👋\n\nSou a Dra. L.I.A., consultora digital da BLZ Dental.\n\nNotei que enviamos uma proposta recentemente${lead.produto_interesse ? ` sobre *${lead.produto_interesse}*` : ""}. Gostaria de saber se surgiu alguma dúvida ou se posso ajudar com mais informações técnicas para sua decisão.\n\nEstou à disposição! 😊`,
+      `Olá ${lead.nome?.split(" ")[0] || ""}! 👋\n\nSou a Smart, assistente virtual da BLZ Dental.\n\nNotei que enviamos uma proposta recentemente${lead.produto_interesse ? ` sobre *${lead.produto_interesse}*` : ""}. Gostaria de saber se surgiu alguma dúvida ou se posso ajudar com mais informações técnicas para sua decisão.\n\nEstou à disposição! 😊`,
   },
   {
     type: "reengajamento",
@@ -62,7 +62,7 @@ const OUTREACH_RULES: OutreachRule[] = [
       return isHot && daysSinceUpdate > 3 && daysSinceUpdate <= 15;
     },
     messageBuilder: (lead) =>
-      `Olá ${lead.nome?.split(" ")[0] || ""}! 👋\n\nAqui é a Dra. L.I.A. da BLZ Dental.${lead.resumo_historico_ia ? `\n\nDa última vez conversamos sobre: ${lead.resumo_historico_ia.slice(0, 150)}...` : ""}\n\nTem alguma dúvida pendente que eu possa resolver? Estou aqui para ajudar! 🦷`,
+      `Olá ${lead.nome?.split(" ")[0] || ""}! 👋\n\nAqui é a Smart da BLZ Dental.${lead.resumo_historico_ia ? `\n\nDa última vez conversamos sobre: ${lead.resumo_historico_ia.slice(0, 150)}...` : ""}\n\nTem alguma dúvida pendente que eu possa resolver? Estou aqui para ajudar! 🦷`,
   },
   {
     type: "primeira_duvida",
@@ -74,7 +74,7 @@ const OUTREACH_RULES: OutreachRule[] = [
       return isNew && daysSinceUpdate > 2 && daysSinceUpdate <= 10 && (lead.proactive_count || 0) === 0;
     },
     messageBuilder: (lead) =>
-      `Olá ${lead.nome?.split(" ")[0] || ""}! 👋\n\nSou a Dra. L.I.A., sua consultora digital em odontologia 3D na BLZ Dental.\n\n${lead.impressora_modelo ? `Vi que você trabalha com a *${lead.impressora_modelo}*. ` : ""}${lead.area_atuacao ? `Como profissional de *${lead.area_atuacao}*, ` : ""}posso te ajudar com dúvidas sobre resinas, parâmetros de impressão, protocolos ou qualquer outro assunto técnico.\n\nÉ só me enviar sua pergunta! 😊`,
+      `Olá ${lead.nome?.split(" ")[0] || ""}! 👋\n\nSou a Smart, sua assistente virtual em odontologia 3D na BLZ Dental.\n\n${lead.impressora_modelo ? `Vi que você trabalha com a *${lead.impressora_modelo}*. ` : ""}${lead.area_atuacao ? `Como profissional de *${lead.area_atuacao}*, ` : ""}posso te ajudar com dúvidas sobre resinas, parâmetros de impressão, protocolos ou qualquer outro assunto técnico.\n\nÉ só me enviar sua pergunta! 😊`,
   },
   {
     type: "recuperacao",
@@ -86,7 +86,7 @@ const OUTREACH_RULES: OutreachRule[] = [
       return isLost && daysSinceUpdate <= 30 && (lead.proactive_count || 0) === 0;
     },
     messageBuilder: (lead) =>
-      `Olá ${lead.nome?.split(" ")[0] || ""}! 👋\n\nAqui é a Dra. L.I.A. da BLZ Dental.\n\nSei que as coisas nem sempre se encaixam no timing certo. Queria avisar que estou aqui caso tenha novas dúvidas sobre ${lead.produto_interesse ? `*${lead.produto_interesse}*` : "impressão 3D odontológica"} ou qualquer outra tecnologia.\n\nSem compromisso, é só me chamar! 😊`,
+      `Olá ${lead.nome?.split(" ")[0] || ""}! 👋\n\nAqui é a Smart da BLZ Dental.\n\nSei que as coisas nem sempre se encaixam no timing certo. Queria avisar que estou aqui caso tenha novas dúvidas sobre ${lead.produto_interesse ? `*${lead.produto_interesse}*` : "impressão 3D odontológica"} ou qualquer outra tecnologia.\n\nSem compromisso, é só me chamar! 😊`,
   },
 ];
 

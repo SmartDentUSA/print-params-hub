@@ -1483,12 +1483,12 @@ async function generateAILeadGreeting(
 
   const prompt = `Você é ${firstName}, consultor(a) de odontologia digital da Smart Dent.
 Gere uma saudação curta (3-4 linhas) para o WhatsApp do lead ${leadName}.
-O lead conversou com nossa assistente virtual Dra. L.I.A. sobre: ${produto || "produtos de odontologia digital"}.
+O lead conversou com nossa assistente virtual Smart sobre: ${produto || "produtos de odontologia digital"}.
 ${resumo ? `Resumo da conversa:\n${resumo.slice(0, 500)}` : ""}
 
 Regras:
 - Seja profissional mas acolhedor
-- Mencione que viu a conversa com a Dra. L.I.A.
+- Mencione que viu a conversa com a Smart
 - Não use emojis excessivos (máx 2)
 - NÃO inclua links
 - Assine como ${firstName} da Smart Dent`;
@@ -1537,7 +1537,7 @@ Regras:
 function buildStaticGreeting(lead: Record<string, unknown>, sellerName: string): string {
   const leadName = (lead.nome as string || "").split(" ")[0] || "doutor(a)";
   const firstName = sellerName.split(" ")[0];
-  return `Olá ${leadName}! Sou ${firstName} da Smart Dent 🦷\nVi que você conversou com nossa Dra. L.I.A. e gostaria de continuar te ajudando pessoalmente.\nComo posso te auxiliar?`;
+  return `Olá ${leadName}! Sou ${firstName} da Smart Dent 🦷\nVi que você conversou com nossa Smart e gostaria de continuar te ajudando pessoalmente.\nComo posso te auxiliar?`;
 }
 
 /**

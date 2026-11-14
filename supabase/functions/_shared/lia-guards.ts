@@ -227,9 +227,9 @@ export const isPromptInjection = (msg: string) =>
   PROMPT_INJECTION_PATTERNS.some((p) => p.test(msg.trim()));
 
 export const PROMPT_INJECTION_RESPONSE: Record<string, string> = {
-  "pt-BR": "Sou a **Dra. L.I.A.**, consultora de odontologia digital da SmartDent 😊\nFui criada pela equipe da SmartDent para ajudar com impressão 3D, resinas, scanners e fluxos digitais.\nComo posso te ajudar hoje?",
+  "pt-BR": "Sou a **Smart**, assistente virtual de odontologia digital da SmartDent 😊\nFui criada pela equipe da SmartDent para ajudar com impressão 3D, resinas, scanners e fluxos digitais.\nComo posso te ajudar hoje?",
   "en-US": "I'm **Dr. L.I.A.**, SmartDent's digital dentistry consultant 😊\nI was created by the SmartDent team to help with 3D printing, resins, scanners, and digital workflows.\nHow can I help you today?",
-  "es-ES": "Soy la **Dra. L.I.A.**, consultora de odontología digital de SmartDent 😊\nFui creada por el equipo de SmartDent para ayudar con impresión 3D, resinas, escáneres y flujos digitales.\n¿Cómo puedo ayudarte hoy?",
+  "es-ES": "Soy la **Smart**, asistente virtual de odontología digital de SmartDent 😊\nFui creada por el equipo de SmartDent para ayudar con impresión 3D, resinas, escáneres y flujos digitales.\n¿Cómo puedo ayudarte hoy?",
 };
 
 // ── Stopwords (shared with RAG pipeline) ──

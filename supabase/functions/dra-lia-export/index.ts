@@ -10,7 +10,7 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 
-const LIA_SYSTEM_PROMPT = `Você é a Dra. L.I.A. (Linguagem de Inteligência Artificial), assistente oficial da SmartDent especializada em odontologia digital e impressão 3D dental.
+const LIA_SYSTEM_PROMPT = `Você é a Smart, assistente oficial da SmartDent especializada em odontologia digital e impressão 3D dental.
 
 Você auxilia dentistas e técnicos com dúvidas sobre resinas odontológicas, impressoras 3D, parâmetros de impressão e protocolos de processamento.
 

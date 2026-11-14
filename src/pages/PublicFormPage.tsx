@@ -1174,7 +1174,7 @@ export default function PublicFormPage() {
           target="_blank"
           rel="noopener noreferrer"
           onClick={() => trackAttendanceEvent({ channel: "whatsapp_lia", event_type: "click", form_id: form.id })}
-          aria-label="Falar pelo WhatsApp com a Dra. LIA"
+          aria-label="Falar pelo WhatsApp com a Smart"
           className="fixed bottom-5 right-5 z-50 inline-flex h-14 w-14 items-center justify-center rounded-full text-white shadow-lg transition hover:scale-105"
           style={{ background: "var(--lp-whatsapp, #25D366)" }}
         >

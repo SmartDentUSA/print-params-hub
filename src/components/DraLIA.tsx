@@ -986,7 +986,7 @@ export default function DraLIA({ embedded = false }: DraLIAProps) {
         style={{ background: embedded ? 'hsl(var(--primary))' : '#1e3a5f' }}
       >
         <div className="flex items-center gap-2">
-          <img src={draLiaAvatar} alt="Dra. L.I.A." width={32} height={32} loading="lazy" className="w-8 h-8 rounded-full object-cover" />
+          <img src={draLiaAvatar} alt="Smart" width={32} height={32} loading="lazy" className="w-8 h-8 rounded-full object-cover" />
           <div>
             <div className="font-semibold text-sm leading-tight">{t('dra_lia.button_label')}</div>
             <div className="text-xs text-white/70 leading-tight">{t('dra_lia.header_subtitle')}</div>
@@ -1520,7 +1520,7 @@ export default function DraLIA({ embedded = false }: DraLIAProps) {
           className="fixed bottom-6 right-6 z-50 flex items-center gap-2 px-4 py-3 text-white rounded-full shadow-lg hover:shadow-xl transition-all hover:scale-105 active:scale-95"
           style={{ background: '#1e3a5f' }}
         >
-          <img src={draLiaAvatar} alt="Dra. L.I.A." width={24} height={24} loading="lazy" className="w-6 h-6 rounded-full object-cover" />
+          <img src={draLiaAvatar} alt="Smart" width={24} height={24} loading="lazy" className="w-6 h-6 rounded-full object-cover" />
           <span className="text-sm font-semibold">{t('dra_lia.button_label')}</span>
           <MessageCircle size={16} className="opacity-80" />
         </button>
