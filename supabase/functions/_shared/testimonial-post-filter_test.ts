@@ -60,3 +60,9 @@ Deno.test('mensagem dos grupos: link escolhido logo abaixo do resumo e link do p
 Deno.test('sem link escolhido a mensagem continua como antes', () => {
   assertEquals(buildGroupBlastText('Resumo', 'https://instagram.com/p/abc', null), 'Resumo\n\nhttps://instagram.com/p/abc');
 });
+
+Deno.test('mensagem longa: corta só o resumo e mantém os dois links inteiros dentro de 1024', () => {
+  const text = buildGroupBlastText('x'.repeat(2000), 'https://www.instagram.com/p/ABC/', 'https://s.smartdent.com.br/abc123');
+  if (text.length > 1024) throw new Error(`passou do limite: ${text.length}`);
+  if (!text.endsWith('👉 https://s.smartdent.com.br/abc123\n\n📲 Ver a publicação: https://www.instagram.com/p/ABC/')) throw new Error(text.slice(-120));
+});
