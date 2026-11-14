@@ -56,6 +56,14 @@ export const postSchema = z
     post_type: z.enum(['feed', 'carousel', 'story', 'reels']).default('feed'),
     // false = não dispara automaticamente nos grupos de WhatsApp (Post Grupos)
     group_blast_enabled: z.boolean().default(true),
+    // Link (de preferência encurtado) que vai abaixo da imagem nos grupos de WhatsApp
+    group_link_url: z
+      .string()
+      .trim()
+      .max(500)
+      .refine((v) => v === '' || /^https?:\/\/\S+$/i.test(v), 'Use um link começando com http:// ou https://')
+      .optional()
+      .default(''),
   })
   .superRefine((data, ctx) => {
     if (!data.publish_now && !data.scheduled_at) {
@@ -136,6 +144,7 @@ export const defaultPost: PostInput = {
   post_type: 'feed',
   extra_products: [],
   group_blast_enabled: true,
+  group_link_url: '',
 };
 
 export const defaultChannelFor = (platform: SocialPlatform): ChannelInput => {

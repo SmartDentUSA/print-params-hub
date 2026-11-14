@@ -30,6 +30,7 @@ export function useCreateScheduledPost() {
         product_category: data.product_category || null,
         post_type: data.post_type ?? 'feed',
         group_blast_enabled: data.group_blast_enabled !== false,
+        group_link_url: data.group_link_url?.trim() || null,
         created_by: auth.user?.email ?? auth.user?.id ?? null,
       };
       const { data: inserted, error } = await supabase
