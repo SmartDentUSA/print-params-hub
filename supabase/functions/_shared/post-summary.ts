@@ -7,6 +7,26 @@
 export const POST_SUMMARY_SYSTEM =
   'Você resume posts da Smart Dent para grupos de WhatsApp de dentistas e laboratórios. Responda em português, 2 a 3 linhas, tom direto e convidativo, sem preços, sem hashtags, sem emojis em excesso (no máximo 2). Termine convidando a ver o post.';
 
+/** Quando o post tem link escolhido para os grupos, a chamada final aponta para ele. */
+export const POST_SUMMARY_LINK_CTA =
+  'Abaixo do texto haverá um link de atendimento no WhatsApp. Termine convidando a tocar no link abaixo (não diga "confira o post"). Não peça para comentar, não fale em "link da bio" nem "aqui embaixo", e não escreva links.';
+
+/**
+ * Limpa o resumo para o WhatsApp: **negrito** vira *negrito*, sem links,
+ * hashtags, menções nem linhas vazias repetidas.
+ */
+export function cleanSummaryText(text: string): string {
+  return String(text ?? '')
+    .replace(/\*\*([^*\n]+)\*\*/g, '*$1*')
+    .replace(/https?:\/\/\S+/gi, '')
+    .replace(/(^|\s)#[\p{L}\p{N}_]+/gu, '$1')
+    .replace(/(^|\s)@[\w.]+/g, '$1')
+    .replace(/[ \t]+\n/g, '\n')
+    .replace(/[ \t]{2,}/g, ' ')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
 export const POST_SUMMARY_MODEL = 'google/gemini-3-flash-preview';
 
 /** Legenda de mídia no WhatsApp é limitada (~1.024 caracteres). */
@@ -24,9 +44,11 @@ export async function generatePostSummary(
   platform: string,
   apiKey: string | undefined | null,
   logTag = '[post-summary]',
+  opts: { linkCta?: boolean } = {},
 ): Promise<{ text: string; ai: boolean }> {
   const clean = String(caption ?? '').trim();
-  const fallback = summaryFallback(clean);
+  const fallback = cleanSummaryText(summaryFallback(clean));
+  const system = opts.linkCta ? `${POST_SUMMARY_SYSTEM} ${POST_SUMMARY_LINK_CTA}` : POST_SUMMARY_SYSTEM;
   if (!apiKey || !clean) return { text: fallback, ai: false };
   try {
     const res = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
@@ -35,7 +57,7 @@ export async function generatePostSummary(
       body: JSON.stringify({
         model: POST_SUMMARY_MODEL,
         messages: [
-          { role: 'system', content: POST_SUMMARY_SYSTEM },
+          { role: 'system', content: system },
           { role: 'user', content: `Rede: ${platform}\n\nPost:\n${clean.slice(0, 1500)}` },
         ],
       }),
@@ -45,7 +67,7 @@ export async function generatePostSummary(
       return { text: fallback, ai: false };
     }
     const j = await res.json();
-    const txt = String(j?.choices?.[0]?.message?.content ?? '').trim();
+    const txt = cleanSummaryText(String(j?.choices?.[0]?.message?.content ?? ''));
     return txt ? { text: txt, ai: true } : { text: fallback, ai: false };
   } catch (e) {
     console.warn(logTag, 'summary error', e);

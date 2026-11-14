@@ -93,12 +93,23 @@ export function findGroupLink(
  * Texto que vai abaixo da imagem nos grupos: resumo, link escolhido em destaque
  * e, quando houver, o link da publicação (para quem quer comentar no post).
  */
-export function buildGroupBlastText(summary: string, postLink: string | null | undefined, groupLink?: string | null): string {
-  const s = String(summary ?? '').trim();
+export const GROUP_BLAST_MAX = 1024;
+
+export function buildGroupBlastText(
+  summary: string,
+  postLink: string | null | undefined,
+  groupLink?: string | null,
+  max = GROUP_BLAST_MAX,
+): string {
+  let s = String(summary ?? '').trim();
   const post = String(postLink ?? '').trim();
   const group = String(groupLink ?? '').trim();
-  if (!group) return [s, post].filter(Boolean).join('\n\n');
-  const parts = [s, `👉 ${group}`];
-  if (post && post !== group) parts.push(`📲 Ver a publicação: ${post}`);
-  return parts.filter(Boolean).join('\n\n');
+  const links = group
+    ? [`👉 ${group}`, post && post !== group ? `📲 Ver a publicação: ${post}` : ''].filter(Boolean)
+    : [post].filter(Boolean);
+  // Legenda de mídia no WhatsApp tem limite: corta só o resumo, nunca os links.
+  const tail = links.join('\n\n');
+  const room = max - tail.length - (tail ? 2 : 0);
+  if (s.length > room) s = s.slice(0, Math.max(0, room - 1)).trimEnd() + '…';
+  return [s, tail].filter(Boolean).join('\n\n');
 }
