@@ -24,7 +24,7 @@ export function GroupLinkField({ value, onChange, inputId }: Props) {
         <div className="flex-1">
           <Label htmlFor={inputId} className="font-medium text-sm">Link abaixo da imagem nos grupos de WhatsApp (opcional)</Label>
           <div className="text-xs text-muted-foreground">
-            Clique em <b>Links</b> para escolher um link encurtado do sistema (formulários, simuladores, grupos, cursos). No Post Grupos ele aparece logo abaixo da imagem.
+            Clique em <b>Links</b> para escolher um link do <b>simulador de WhatsApp</b>. No Post Grupos ele aparece logo abaixo da imagem.
           </div>
           {blastOff && (
             <div className="text-xs text-destructive mt-1">
